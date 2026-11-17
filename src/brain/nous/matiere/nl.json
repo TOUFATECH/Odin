@@ -1,0 +1,1834 @@
+{
+  "langue": "nl",
+  "ecriture": "latin",
+  "origine": "écrit pour Odin, non relu par une personne de cette langue ; listes alignées d'une langue à l'autre (même place, même idée), null = place vide d'une phrase retirée",
+  "aRelire": true,
+  "complet": true,
+  "applis": {
+    "saga": {
+      "*": [
+        "ik heb vorige maand iets hierover opgeschreven, kun je het vinden?",
+        "waar had ik mijn ideeën voor de tuin gelaten?",
+        "bewaar dit ergens, anders vergeet ik het",
+        "koppel mijn verhuisnotities aan de inpaklijst",
+        "laat zien hoe mijn aantekeningen met elkaar samenhangen",
+        "mijn hoofd zit vol losse gedachten, help me ze te ordenen",
+        "wat schreef ik na de vergadering van dinsdag?",
+        "open mijn tweede brein"
+      ],
+      "chercher": [
+        "zoek in mijn notities alles over de begroting",
+        "vind de notitie met de code van het hek"
+      ],
+      "noter": [
+        "noteer: donderdag de loodgieter bellen",
+        null
+      ],
+      "attention": [
+        null,
+        "welke deadlines glippen me door de vingers?"
+      ]
+    },
+    "runes": {
+      "*": [
+        "ik heb een tabel nodig om mijn klanten bij te houden",
+        "maak een database van de boeken die ik heb uitgeleend",
+        "ik wil een pagina met een tabel en vinkjes",
+        "zet een uitgavenoverzicht op met een somformule",
+        null,
+        "mijn werkcontacten zijn een zooitje, ik wil een echte database",
+        "kunnen we een kanbanbord maken voor de klussen?",
+        "ik wil een kalender met de leverdata van de bestellingen"
+      ],
+      "bases": [
+        "welke tabellen heb ik al?",
+        null
+      ],
+      "ajouter": [
+        "voeg een regel toe aan de leveranciers",
+        "zet een nieuw boek erbij: De avonden, uitgeleend aan Sanne"
+      ],
+      "client": [
+        "maak een klantkaart voor Bakkerij De Vries",
+        "werk het telefoonnummer van klant Eva Jansen bij"
+      ]
+    },
+    "draupnir": {
+      "*": [
+        "als er een mail met een factuur binnenkomt, moet die vanzelf opgeslagen worden",
+        "automatiseer dit: als de bel gaat, stuur me een melding op mijn telefoon",
+        "elke maandag om acht uur een weekoverzicht sturen",
+        "als de stroom uitvalt wil ik automatisch een seintje",
+        "koppel het alarm aan de lampen in de gang",
+        "ik doe steeds hetzelfde met de hand, kan dat automatisch?",
+        "zoals IFTTT of Zapier, maar thuis",
+        "start een actie als de temperatuur onder de 18 komt"
+      ],
+      "lister": [
+        "welke automatiseringen draaien er?",
+        null
+      ],
+      "executer": [
+        "start nu de automatisering voor de foto's",
+        "voer de flow rolluiken dicht uit"
+      ],
+      "modele": [
+        "voeg een sjabloon toe dat de agenda met meldingen verbindt",
+        "geef me een voorbeeldautomatisering voor facturen"
+      ]
+    },
+    "archytas": {
+      "*": [
+        "schrijf een script dat foto's op datum hernoemt",
+        "ik wil een programmaatje dat het licht uitdoet als er niemand is",
+        "maak een reeks stappen met voorwaarden en variabelen",
+        "ik heb een script nodig dat elke nacht de schijf controleert en me waarschuwt",
+        "kun je iets programmeren dat dit elk uur vanzelf doet?",
+        "open het scriptvenster",
+        "geen bash, maar met de stappen van Odin",
+        "maak een routine die deze acties in een lus herhaalt"
+      ],
+      "creer": [
+        "maak een script dat op zondag de downloadmap leegmaakt",
+        "bouw een script dat 's ochtends de serverstatus stuurt"
+      ],
+      "lancer": [
+        "voer mijn opruimscript uit",
+        "start het nachtelijke kopieerscript nu"
+      ],
+      "mes_scripts": [
+        "welke scripts heb ik opgeslagen?",
+        "toon mijn scripts met hun datums"
+      ]
+    },
+    "eir": {
+      "*": [
+        "de computer is super traag, wat is er aan de hand?",
+        "de pc doet er eeuwen over om iets te doen",
+        "de ventilator klinkt als een straaljager",
+        "hoeveel werkgeheugen is er nog vrij?",
+        "hoe warm is de processor?",
+        "de server zit sinds vanochtend op 100% CPU",
+        null,
+        "hoe gezond is de machine eigenlijk?"
+      ],
+      "etat": [
+        "geef me de toestand van de machine nu",
+        "hoe staat de kantoorserver ervoor qua CPU en geheugen?"
+      ],
+      "processus": [
+        "welk proces vreet het geheugen op?",
+        "welke programma's gebruiken de meeste processor?"
+      ],
+      "arreter_processus": [
+        "sluit het proces dat vastgelopen is",
+        "stop dat programma dat niet reageert"
+      ]
+    },
+    "skogul": {
+      "*": [
+        "er is een programma dat zich raar gedraagt",
+        "er draait stiekem iets als ik de pc niet gebruik",
+        "een onbekend proces stuurt de hele tijd data weg",
+        "houd het gedrag van programma's in de gaten en waarschuw bij iets abnormaals",
+        "volgens mij doet een exe-bestand dingen die niet horen",
+        "er staat een proces met een vreemde naam in de lijst",
+        null,
+        "kijk of een programma sinds gisteren verdacht is geworden"
+      ],
+      "analyser": [
+        "controleer nu alle draaiende programma's",
+        "bekijk het gedrag van de processen op de laptop"
+      ],
+      "tuer": [
+        "kill dat verdachte proces",
+        "stop het kwaadaardige programma dat je vond"
+      ]
+    },
+    "forseti": {
+      "*": [
+        "zijn er nieuwe beveiligingsmeldingen?",
+        "ik wil het beveiligingscentrum met alles bij elkaar",
+        "hoe veilig is dit allemaal eigenlijk?",
+        "dreigingsjacht op mijn apparaten",
+        "zeg het als er gevoelige bestanden openliggen",
+        "vat alles wat er deze week ernstig misging samen",
+        "houden we ons aan de beveiligingsregels?",
+        null
+      ],
+      "alertes": [
+        "toon de laatste meldingen, de ernstigste eerst",
+        "welke beveiligingsalarmen gingen vandaag af?"
+      ],
+      "conformite": [
+        "doe de nalevingscontrole en geef me de score",
+        "wat moet ik verbeteren om in orde te zijn?"
+      ],
+      "vu": [
+        "markeer alle meldingen als gezien",
+        "ik heb ze al gelezen, haal het nieuw weg"
+      ]
+    },
+    "garmr": {
+      "*": [
+        "iemand probeert via SSH binnen te komen door wachtwoorden te raden",
+        "een IP probeert de hele tijd wachtwoorden op mijn server",
+        "blokkeer wie met geweld op de mailserver wil inloggen",
+        "mijn website krijgt een brute-force-aanval",
+        "wie te vaak fout inlogt moet automatisch geblokkeerd worden",
+        "hoeveel mensen probeerden vannacht in te breken?",
+        null,
+        "gooi dat adres eruit dat zich naar binnen probeert te beuken"
+      ],
+      "bannis": [
+        "welke adressen zijn nu verbannen en hoe lang nog?",
+        "lijst van IP's die geblokkeerd zijn door inlogpogingen"
+      ],
+      "bannir": [
+        "verban het IP 198.51.100.23",
+        "blokkeer 198.51.100.77 in de firewall, die blijft maar proberen"
+      ],
+      "debannir": [
+        "hef de ban op mijn eigen IP op, ik heb mezelf buitengesloten",
+        "haal de blokkade van 198.51.100.40 weg"
+      ]
+    },
+    "geri": {
+      "*": [
+        "maakt mijn computer verbinding met kwaadaardige servers?",
+        "er zijn rare uitgaande verbindingen naar het buitenland",
+        "check of deze link gevaarlijk is voor ik klik",
+        "dit domein vertrouw ik niet, is het malware?",
+        "praat een apparaat in huis met een botnetserver?",
+        "ik wil verbindingen met adressen met een slechte reputatie blokkeren",
+        "verdachte DNS-verzoeken van de tablet van de kleine",
+        "bescherming voor alles wat geen bestand is: verbindingen, domeinen, links"
+      ],
+      "connexions": [
+        "wie praat er nu met wie?",
+        "laat de open verbindingen van de server zien"
+      ],
+      "analyser": [
+        "analyseer het adres 198.51.100.9, is dat te vertrouwen?",
+        "wat is deze link: http://example.org/prijs"
+      ],
+      "listes": [
+        "werk de lijsten met kwaadaardige adressen bij",
+        "download de nieuwe zwarte lijsten"
+      ]
+    },
+    "ran": {
+      "*": [
+        "ik wil elk pakketje zien dat over het netwerk gaat",
+        null,
+        "vang op wat de tv naar internet stuurt",
+        "decodeer het verkeer van de camera laag voor laag",
+        "wie praat er met wie in mijn netwerk?",
+        "ik heb een pakketanalyse van de router nodig",
+        "welke apps gebruikt elk apparaat en met welke landen praat het",
+        "leg me in gewone taal uit wat er op het netwerk gebeurt"
+      ],
+      "lire": [
+        "vang de pakketten van het hele netwerk op",
+        "lees het verkeer van machine 198.51.100.15"
+      ],
+      "trafic": [
+        "hoeveel verstuurt en ontvangt elk apparaat?",
+        "welk apparaat slurpt alle bandbreedte op"
+      ],
+      "expliquer": [
+        "vat samen wat er op het netwerk gebeurt",
+        "wat doet de spelcomputer op het netwerk?"
+      ]
+    },
+    "ullr": {
+      "*": [
+        null,
+        "zit er een virus in dit bestand?",
+        "ik heb een programma gedownload en vertrouw het niet",
+        "scan de usb-stick die ik heb gekregen",
+        null,
+        "ben ik beschermd?",
+        "check deze bijlage voor ik hem open",
+        "de antivirus van Odin, Asclepius"
+      ],
+      "analyser": [
+        "scan de map Documenten",
+        "scan de hele usb-stick"
+      ],
+      "etat": [
+        "is alles in orde met de beveiliging?",
+        "in één zin: heb ik iets besmets?"
+      ],
+      "quarantaine": [
+        "wat zit er in quarantaine?",
+        "laat de geïsoleerde bestanden zien en waar ze vandaan komen"
+      ]
+    },
+    "loki": {
+      "*": [
+        "ik wil vallen zetten voor hackers",
+        "zet een honeypot op poort 22",
+        "een nep-SSH om aanvallers te betrappen",
+        "wat hebben de aanvallers geprobeerd bij de lokazen?",
+        "zet een lokdienst neer om te zien wie er scant",
+        "ik wil de bots beetnemen die wachtwoorden proberen",
+        "uit welke landen komen degenen die in de vallen lopen?",
+        "een honingpot op het netwerk"
+      ],
+      "allumer": [
+        "zet een val aan op poort 2323",
+        "start de nep-webserver als lokaas"
+      ],
+      "activite": [
+        "wat hebben de hackers in de vallen gedaan?",
+        "toon de activiteit van de lokazen van vandaag"
+      ],
+      "statistiques": [
+        "welke wachtwoorden hebben de aanvallers geprobeerd?",
+        "statistieken van de vallen per land"
+      ]
+    },
+    "argos": {
+      "*": [
+        "EDR-console voor alle computers",
+        "wat is er op de laptop van de boekhouding gebeurd, stap voor stap?",
+        "een kantoor-pc is besmet, die moet nu meteen geïsoleerd worden",
+        "ik wil de beveiligingsincidenten van alle werkplekken zien",
+        "elke werkplek bewaken: processen, verbindingen, persistentie",
+        "koppel de virusmeldingen aan wat er op elke pc gebeurde",
+        "haal die computer van het netwerk zonder hem uit te zetten",
+        "beveiligingsoverzicht van alle bedrijfscomputers"
+      ],
+      "isoler_poste": [
+        "isoleer de receptie-pc van het netwerk",
+        "koppel de besmette pc los, alleen Odin mag er nog bij"
+      ],
+      "incidents": [
+        "lijst van open incidenten in het park",
+        "zijn er incidenten op de kantoor-pc's?"
+      ],
+      "chronologie": [
+        "tijdlijn van de laptop van Daan",
+        "wat is er vanochtend op werkplek 4 uitgevoerd?"
+      ]
+    },
+    "naglfar": {
+      "*": [
+        "start een nginx-container",
+        "ik wil een docker-image draaien zonder docker te installeren",
+        "welke containers draaien er?",
+        "de databasecontainer is gecrasht",
+        "stop de testcontainer",
+        "start een app vanaf een image van Docker Hub",
+        "waarom blijft de container steeds herstarten?",
+        null
+      ],
+      "lister": [
+        null,
+        "welke containers staan stil?"
+      ],
+      "journaux": [
+        "laat de logs van de webcontainer zien",
+        "laatste logregels van redis"
+      ],
+      "lancer": [
+        "draai het uptime-image in een container",
+        "zet een container op met het nextcloud-image"
+      ]
+    },
+    "urdr": {
+      "*": [
+        "maak een PostgreSQL-database voor me",
+        null,
+        "ik wil de tabellen van mijn database zien als een spreadsheet",
+        "koppel de database van de webshop",
+        "open de database-studio",
+        "rijen direct aanpassen in de gebruikerstabel",
+        "hoeveel records heeft de tabel bestellingen?",
+        "een query draaien op de productiedatabase"
+      ],
+      "bases": [
+        "welke databases heb ik?",
+        null
+      ],
+      "sql": [
+        "voer SELECT count(*) FROM klanten uit",
+        "doe een SQL-query naar de bestellingen van gisteren"
+      ],
+      "creer": [
+        "maak een nieuwe database voor het blogproject",
+        "nieuwe database met de naam voorraad"
+      ]
+    },
+    "skuld": {
+      "*": [
+        "maak een back-up van de database voor de migratie",
+        "ik wil elke nacht automatisch een kopie van mijn PostgreSQL",
+        "wanneer was de laatste dump van de shopdatabase?",
+        "als de database corrupt raakt, heb ik dan een kopie?",
+        "bewaar de databaseback-ups 30 dagen en kopieer ze naar een andere plek",
+        "zet de database van gisteren terug in een aparte database om te vergelijken",
+        "back-ups van de databases, niet van de mappen",
+        "zijn de MySQL-back-ups gecontroleerd?"
+      ],
+      "sauvegarder": [
+        "maak nu direct een back-up van de bestellingendatabase",
+        "sla de database op voordat ik iets aanraak"
+      ],
+      "plan": [
+        "plan databaseback-ups elke 6 uur",
+        "ik wil de databaseback-ups twee weken bewaren"
+      ],
+      "restaurer": [
+        "zet de databaseback-up van vannacht terug",
+        "haal de database van maandag terug in een nieuwe"
+      ]
+    },
+    "rodd": {
+      "*": [
+        "ik wil dicteren in plaats van typen",
+        "schrijf op wat ik zeg",
+        "mijn pols doet pijn, kan ik praten en dat het vanzelf getypt wordt?",
+        "spraakinvoer in elk programma",
+        "zet wat ik zeg om in tekst en verbeter het",
+        "gespreksmodus om met iemand te praten die een andere taal spreekt",
+        "jij schrijft, ik praat",
+        "het dicteren schrijft mijn achternaam fout"
+      ],
+      "dicter": [
+        "maak van deze gedicteerde tekst een e-mail",
+        "zet dit dictaat netjes in een lijstje"
+      ],
+      "ajouter_mot": [
+        "voeg het woord Odin zo toe, het wordt steeds verkeerd verstaan",
+        "onthoud dat ik Jira bedoel als ik «djira» zeg"
+      ],
+      "ouvrir": [
+        "vertaal het gesprek met mijn schoonmoeder die Engels spreekt",
+        "open een vertaald gesprek tussen Nederlands en Japans"
+      ]
+    },
+    "svalinn": {
+      "*": [
+        "is mijn wifi veilig?",
+        "de wifi in de woonkamer is waardeloos",
+        "wie zit er allemaal op mijn wifi?",
+        "welk kanaal moet ik nemen, er zijn zoveel buren",
+        "maak een gastennetwerk",
+        "het wifi-wachtwoord is te zwak, wat moet ik in de router aanpassen?",
+        "ik denk dat de buren mijn wifi gebruiken",
+        "controleer de beveiliging van het draadloze netwerk en de router"
+      ],
+      "etat": [
+        "analyseer de wifi en zeg wat ik moet verbeteren",
+        "veiligheidscijfer van mijn wifi"
+      ],
+      "invites": [
+        "zet de gastenwifi aan",
+        "zet het gastennetwerk uit"
+      ],
+      "tester_debit": [
+        "doe een snelheidstest",
+        "hoeveel megabit komt er echt binnen?"
+      ]
+    },
+    "ymir": {
+      "*": [
+        "maak een virtuele machine met Debian",
+        "ik wil een lichte LXC-container om dingen uit te proberen",
+        "hoeveel VM's staan er aan?",
+        "maak een momentopname van de machine voor de update",
+        "ik wil een machine in quarantaine om een twijfelachtig bestand te openen",
+        "mijn virtuele machines op de virtualisatieserver",
+        "start een VM vanaf de Windows-ISO",
+        "zet de test-VM uit"
+      ],
+      "creer_machine": [
+        "maak een VM met 4 GB RAM",
+        "zet een LXC met Ubuntu op"
+      ],
+      "instantane": [
+        "maak een snapshot van de web-VM",
+        "momentopname van de testmachine voor ik eraan zit"
+      ],
+      "machines": [
+        "toon mijn virtuele machines en hun status",
+        "welke machines heb ik in Hydra?"
+      ]
+    },
+    "idunn": {
+      "*": [
+        "mijn website ligt eruit",
+        "de webshop is sinds gisteren traag",
+        "werkt mijn website wel?",
+        "zet de blog weer online",
+        "de laatste versie van de site heeft alles kapotgemaakt, terug naar de vorige",
+        "werk de site bij",
+        "test mijn site eens of alles laadt",
+        "wat is er de afgelopen 24 uur met de website gebeurd?"
+      ],
+      "etat": [
+        "controleer de site van de vereniging",
+        "hoe draait mijn website nu?"
+      ],
+      "relancer": [
+        "herstart de webshop",
+        "deploy de site opnieuw, zelfde versie"
+      ],
+      "revenir": [
+        "ga terug naar de vorige deployment van de blog",
+        "draai de laatste release terug"
+      ]
+    },
+    "sindri": {
+      "*": [
+        "maak een back-up van mijn foto's",
+        "ik wil de laptop van de kinderen elk uur back-uppen",
+        "volledige image van de schijf van de pc",
+        "incrementele back-ups van de werkmap",
+        "als mijn schijf het begeeft, heb ik dan van alles een kopie?",
+        "versleutel de back-ups en zet ze op de NAS",
+        "ik heb een map verwijderd, kan ik die uit een back-up halen?",
+        "de back-ups van de computers thuis, met Feniks"
+      ],
+      "creer": [
+        "maak een dagelijks back-upplan van Documenten naar de externe schijf",
+        "plan een wekelijkse differentiële back-up van de server"
+      ],
+      "sauvegarder": [
+        "maak de back-up nu",
+        "draai het fotoplan meteen"
+      ],
+      "restaurer": [
+        "zet de map Facturen terug uit de back-up van dinsdag",
+        "haal mijn documenten terug uit de back-up van gisteren"
+      ]
+    },
+    "brisingamen": {
+      "*": [
+        "wat was het wachtwoord van Netflix ook alweer?",
+        "bewaar dit wachtwoord in de wachtwoordmanager",
+        "hebben we het wifi-wachtwoord van het werk ergens opgeslagen?",
+        null,
+        "ik heb de tweestapscode van de bank nodig",
+        "zoals Bitwarden",
+        "deel het wachtwoord van het energieaccount met mijn zus",
+        "heb ik dubbele of gelekte wachtwoorden in de kluis?"
+      ],
+      "chercher": [
+        "zoek het Amazon-wachtwoord in de kluis",
+        "waar heb ik de inlog van de router bewaard?"
+      ],
+      "generer": [
+        "genereer een sterk wachtwoord",
+        "maak een wachtzin van zes woorden"
+      ],
+      "bilan": [
+        "zijn er zwakke of gelekte wachtwoorden in de manager?",
+        "veiligheidsrapport van mijn wachtwoordkluis"
+      ]
+    },
+    "gjoll": {
+      "*": [
+        "ik wil onderweg verbinding maken met thuis",
+        "ik heb een VPN nodig voor mijn telefoon",
+        "vanuit het hotel veilig bij mijn bestanden thuis komen",
+        null,
+        "geef me een QR-code om de telefoon op de VPN aan te sluiten",
+        "telefoon kwijt, haal zijn toegang tot het thuisnetwerk weg",
+        "veilig surfen op de wifi van het vliegveld via thuis",
+        "welke apparaten hebben VPN?"
+      ],
+      "ajouter": [
+        "voeg de nieuwe laptop toe aan de VPN",
+        "maak een VPN-toegang voor de tablet van Fleur"
+      ],
+      "appareils": [
+        "toon de VPN-apparaten",
+        "wie is er nu via VPN verbonden?"
+      ],
+      "revoquer": [
+        "trek de VPN-toegang van de gestolen telefoon in",
+        "verwijder de oude laptop uit de VPN"
+      ]
+    },
+    "vidarr": {
+      "*": [
+        "blokkeer reclame in het hele huis",
+        "ik wil een DNS die trackers weghaalt",
+        null,
+        "waarom laadt deze site niet? is hij geblokkeerd?",
+        "geef de printer een naam op het netwerk",
+        null,
+        "DNS-logboek van de tv in de woonkamer",
+        "welk apparaat heeft welk IP gekregen?"
+      ],
+      "bloquer": [
+        "blokkeer het domein example.org",
+        "blokkeer die goksite en de subdomeinen"
+      ],
+      "tester": [
+        "is example.org geblokkeerd en waarom?",
+        "test of dit domein resolvet"
+      ],
+      "baux": [
+        "welk apparaat kreeg welk IP?",
+        "lijst van DHCP-leases"
+      ]
+    },
+    "vordr": {
+      "*": [
+        "laat het weten als mijn site eruit ligt",
+        "ik wil in de gaten houden of de server reageert",
+        "monitor poort 443 op kantoor",
+        "wanneer verloopt het certificaat van de webshop?",
+        "check elke minuut of de NAS nog leeft",
+        "maak een statuspagina voor de klanten",
+        null,
+        "hoe vaak lag de server er deze maand uit?"
+      ],
+      "ajouter": [
+        "voeg een monitor toe voor example.org",
+        "houd de ping van de router in de gaten"
+      ],
+      "problemes": [
+        "wat ligt er nu plat?",
+        "open problemen, ernstigste eerst"
+      ],
+      "historique": [
+        "beschikbaarheid van de site de afgelopen 30 dagen",
+        "storingsgeschiedenis van de mailserver"
+      ]
+    },
+    "askr": {
+      "*": [
+        "zet de nieuwe laptop in de inventaris",
+        "wanneer loopt de garantie van de printer af?",
+        "aan wie heb ik de tablet uitgeleend?",
+        "serienummer van de switch op kantoor",
+        "QR-labels voor de kantoorapparatuur",
+        "ik wil alle spullen in huis inventariseren",
+        "softwarelicenties, hoeveel heb ik er nog?",
+        "welke apparaten staan er in de woonkamer?"
+      ],
+      "ajouter": [
+        "voeg een Dell-monitor toe aan de inventaris",
+        "maak een kaart aan voor de nieuwe router"
+      ],
+      "chercher": [
+        "zoek het apparaat met MAC 00:11:22:33:44:55",
+        "wat staat er op de kamer van Bram?"
+      ],
+      "preter": [
+        "leen de oude laptop tot vrijdag uit aan Thijs",
+        "noteer dat de beamer bij de buurvrouw is"
+      ]
+    },
+    "valgrind": {
+      "*": [
+        "ik wil mijn diensten met een naam openen in plaats van IP en poort",
+        "zet HTTPS op mijn Nextcloud thuis",
+        "reverse proxy voor de apps op de server",
+        null,
+        "fotos.thuis.example.org moet naar de fotoserver wijzen",
+        "beveilig het beheerpaneel met een wachtwoord",
+        "alleen mensen uit mijn netwerk mogen bij die dienst",
+        "de browser toont een rood slotje bij mijn dienst thuis"
+      ],
+      "ajouter": [
+        "voeg een site toe die naar poort 8080 van de NAS wijst",
+        "nieuwe naam voor de recepten-app"
+      ],
+      "certificat": [
+        "vernieuw het Let's Encrypt-certificaat",
+        "vraag een certificaat aan voor cloud.example.org"
+      ],
+      "rediriger": [
+        "stuur het oude adres door naar het nieuwe",
+        "www.example.org moet naar example.org gaan"
+      ]
+    },
+    "var": {
+      "*": [
+        "maak een account voor mijn zoon zodat hij kan inloggen op Odin",
+        "zet Lotte in de groep boekhouding",
+        "één login voor alle apps",
+        "verander het wachtwoord van het account van Bram",
+        "zet tweestapsverificatie aan op mijn account",
+        "ik wil inloggen met een passkey in plaats van een wachtwoord",
+        "wie heeft waar toegang toe in Odin?",
+        "ik ben het wachtwoord van mijn Odin-account vergeten"
+      ],
+      "ajouter": [
+        "maak een gebruiker aan voor de nieuwe collega",
+        "registreer mijn moeder in Persona"
+      ],
+      "mot_de_passe": [
+        "geef het account van Joris een nieuw wachtwoord en log hem overal uit",
+        "reset het wachtwoord van mijn gebruiker"
+      ],
+      "double_auth": [
+        "zet tweefactorauthenticatie aan voor mijn account",
+        "geef me de QR-code voor de authenticator-app"
+      ]
+    },
+    "bru": {
+      "*": [
+        "mijn website thuis moet op internet te zien zijn zonder poorten open te zetten",
+        null,
+        null,
+        "van buitenaf bij Odin kunnen met mijn eigen domeinnaam",
+        "ik wil niks aan de router veranderen, maar de dienst moet van buiten bereikbaar zijn",
+        "de tunnel ligt eruit, van buiten komt niemand erin",
+        "zet de blog via de tunnel op internet",
+        "de familie moet de fotogalerij vanuit hun huis kunnen zien, zonder VPN"
+      ],
+      "publier": [
+        "maak fotos.example.org bereikbaar vanaf internet",
+        "zet de recepten-app open naar buiten"
+      ],
+      "etat": [
+        "hoe gaat het met de tunnel?",
+        "welke namen zijn nu gepubliceerd?"
+      ],
+      "publier_odin": [
+        "zet de interface van Odin onder mijn domein",
+        "ik wil Odin onderweg vanaf mijn telefoon bedienen"
+      ]
+    },
+    "skidbladnir": {
+      "*": [
+        "ik wil een eigen cloud thuis voor mijn bestanden",
+        "deel de vakantiemap met de familie",
+        "stuur me een link zodat een klant dit bestand kan downloaden",
+        "voor iedereen een eigen ruimte",
+        "haal een bestand terug dat ik uit de prullenbak van de cloud heb gegooid",
+        "eerdere versies van dit document",
+        "zoals Nextcloud of Dropbox, maar van mij",
+        "koppel de gedeelde map als netwerkschijf"
+      ],
+      "espace": [
+        null,
+        "de boekhouding moet in de map Facturen kunnen lezen en schrijven"
+      ],
+      "lien": [
+        "maak een deellink voor deze video die na een week verloopt",
+        "link met wachtwoord voor de klantmap"
+      ],
+      "synchro": [
+        "synchroniseer mijn fotomap met de usb-schijf",
+        "houd de NAS-map gelijk met de werkruimte"
+      ]
+    },
+    "eitri": {
+      "*": [
+        "download de Ubuntu-ISO voor me",
+        "ik wil de Windows-ISO's altijd actueel hebben",
+        "is er een nieuwe Debian-versie?",
+        "ISO-map om computers opnieuw te installeren",
+        "zijn de herstel-ISO's nog bij?",
+        "zet de Proxmox-ISO op de share",
+        "ik heb een ISO van Windows Server nodig",
+        "welke ISO's heb ik?"
+      ],
+      "telecharger": [
+        "download de nieuwste Fedora-ISO",
+        "haal de ISO van Windows 11 op"
+      ],
+      "suivre": [
+        "houd de Debian-ISO bij",
+        "volg nieuwe versies van de SystemRescue-ISO"
+      ],
+      "verifier": [
+        "kijk of er nieuwe ISO's zijn zonder iets te downloaden",
+        "zijn er updates voor de ISO's?"
+      ]
+    },
+    "fjalar": {
+      "*": [
+        "ik wil de installatiebestanden altijd up-to-date",
+        "download de installer van VLC",
+        "welke programma's kun je van de officiële sites halen?",
+        "softwaremap om op de kantoor-pc's te installeren",
+        "haal de nieuwste versie van 7-Zip",
+        "de installer van Firefox moet zichzelf bijwerken in de map",
+        null,
+        "gaan de installers door de virusscanner?"
+      ],
+      "telecharger": [
+        "download de laatste versie van Notepad++",
+        "haal de Chrome-installer voor me op"
+      ],
+      "suivre": [
+        null,
+        "volg de versies van VLC"
+      ],
+      "catalogue": [
+        "welke programma's kun je downloaden?",
+        "toon de softwarecatalogus"
+      ]
+    },
+    "thjalfi": {
+      "*": [
+        "ik wil Windows op meerdere pc's via het netwerk installeren zonder usb",
+        "een computer via het netwerk opstarten vanaf een ISO",
+        "uitrol via PXE",
+        "de nieuwe machine moet zichzelf installeren",
+        "hoe ver is de installatie van de pc's in het lokaal?",
+        "onbeheerde installatie op de kantoorcomputers",
+        "zonder stick, hij moet van de server opstarten",
+        "een laptop via het netwerk opnieuw installeren"
+      ],
+      "autoriser": [
+        "sta de machine met MAC 00:11:22:33:44:66 toe de Debian-ISO te starten",
+        "laat de nieuwe pc via het netwerk opstarten met automatische installatie"
+      ],
+      "suivi": [
+        "in welke stap zit elke installatie?",
+        "voortgang van de uitrol"
+      ],
+      "allumer": [
+        "zet netwerkopstart aan",
+        "start de PXE-server"
+      ]
+    },
+    "gladsheim": {
+      "*": [
+        "het huisscherm voor de tablet aan de muur",
+        "ik wil een paneel met alles: weer, lampen en status",
+        "wat voor weer is het?",
+        "zet het paneel op de keukentelefoon",
+        "startscherm van het huis met mijn knoppen",
+        "de status van alle apps op één scherm zien",
+        "waar is iedereen van het gezin?",
+        "maak een knop om de film in de woonkamer te starten"
+      ],
+      "meteo": [
+        "hoe wordt het weer vandaag?",
+        "regent het in Utrecht?"
+      ],
+      "positions": [
+        "waar is het gezin nu?",
+        "laatste locatie van iedereen"
+      ],
+      "bouton": [
+        "voeg een knop toe die alle lampen uitdoet",
+        "maak een knop op het scherm om de garagedeur te openen"
+      ]
+    },
+    "zeus": {
+      "*": [
+        "vergelijk de weersvoorspellingen van meerdere bronnen",
+        "welk weermodel zit hier het vaakst goed?",
+        "regent het morgen volgens het Europese en het Amerikaanse model?",
+        null,
+        "hoe wordt het weer volgende maand?",
+        "de voorspellingen spreken elkaar tegen, wie heeft gelijk?",
+        "trend voor de komende drie maanden",
+        "kan ik de voorspelling voor de bruiloft op zaterdag vertrouwen?"
+      ],
+      "comparer": [
+        "voorspellingen naast elkaar voor deze week",
+        "vergelijk DWD en Météo-France voor morgen"
+      ],
+      "bilan": [
+        "welke bron zat de afgelopen twee weken het best?",
+        "score van elk model"
+      ],
+      "mois": [
+        "wordt het de komende maanden warmer dan normaal?",
+        "seizoensverwachting voor de lente"
+      ]
+    },
+    "gna": {
+      "*": [
+        "waar is mijn dochter gisteren allemaal geweest?",
+        "ik wil de routes van het gezin zien",
+        "locatiegeschiedenis van de telefoon van Bram",
+        "hoeveel kilometer heb ik maandag gereden?",
+        "wis mijn ritten van vorige week",
+        "zet de ritgeschiedenis voor mij aan",
+        "waar ben ik zaterdag gestopt?",
+        "ik wil mijn locatie even niet laten opslaan"
+      ],
+      "trajets": [
+        "ritten van Emma van gisteren",
+        "laat mijn routes van dinsdag zien"
+      ],
+      "effacer": [
+        "wis mijn hele ritgeschiedenis",
+        "verwijder de rit van vanochtend"
+      ],
+      "allumer": [
+        "begin met het opslaan van mijn locaties",
+        "zet de geschiedenis van Sem aan met zijn toestemming"
+      ]
+    },
+    "apparence": {
+      "*": [
+        "verander het thema van Odin",
+        "ik wil een donkerdere achtergrond",
+        "zet het op nachtmodus",
+        "laat de kleuren met de tijd van de dag meeveranderen",
+        "welk thema staat er nu op?",
+        "iets vrolijkers voor de zomer",
+        "kies een willekeurig thema",
+        "Odin, verdwijn van het scherm"
+      ],
+      "theme": [
+        "zet het bosthema aan",
+        "schakel naar automatisch thema"
+      ],
+      "cacher": [
+        "verstop je",
+        "haal Odin van alle schermen"
+      ],
+      "etat": [
+        "welk thema heb je aan en waarom?",
+        "vertel me het huidige uiterlijk"
+      ]
+    },
+    "commandes": {
+      "*": [
+        "welke opdracht gebruik ik hiervoor?",
+        "lijst van alle opdrachten van Odin",
+        "geef een voorbeeldopdracht om het licht uit te doen",
+        "hoe schrijf je de opdracht voor de back-up?",
+        "spiekbriefje met opdrachten",
+        "ik wil alle beschikbare commando's per app zien",
+        "is er een opdracht om de website te herstarten?",
+        "open Glyfen"
+      ],
+      "chercher": [
+        "welk commando blokkeert een domein?",
+        "zoek de opdracht die een camerafoto maakt"
+      ],
+      "liste": [
+        "commando's van de muziek-app",
+        "alle beschikbare opdrachten"
+      ]
+    },
+    "volva": {
+      "*": [
+        "zoek op internet hoe hoog de Eiffeltoren is",
+        "wat staat er in het nieuws over de treinstaking?",
+        "zoek het uit en antwoord met bronnen",
+        "zoek reviews van deze wasmachine",
+        "ik wil een antwoord met links die ik kan nakijken",
+        "zoek eens hoe je een rodewijnvlek eruit krijgt",
+        "vraag het aan meerdere zoekmachines tegelijk",
+        "wat is er bekend over de nieuwe AMD-processor?"
+      ],
+      "chercher": [
+        "wat is de hoofdstad van Australië? met bronnen",
+        "zoek informatie over thuiswerken in Nederland"
+      ],
+      "brut": [
+        "geef me de ruwe resultaten zonder samenvatting",
+        "alleen de lijst met links"
+      ],
+      "historique": [
+        "wat heb ik gisteren gezocht?",
+        "mijn laatste zoekopdrachten"
+      ]
+    },
+    "hermod": {
+      "*": [
+        "welke kantoorcomputers staan aan?",
+        "zet de pc thuis op afstand aan",
+        "voer een opdracht uit op alle computers",
+        "neem de laptop van mijn moeder over",
+        "status van het computerpark",
+        "wie heeft er nog updates openstaan?",
+        "maak de back-upserver wakker",
+        "zet 's nachts alle pc's in het lokaal uit"
+      ],
+      "reveiller": [
+        "zet de kantoor-pc aan met wake-on-lan",
+        "maak de computer van Bram wakker"
+      ],
+      "parc": [
+        "hoe staat het park ervoor?",
+        "lijst van computers met een bijna volle schijf"
+      ],
+      "commande": [
+        "voer ipconfig uit op de receptie-pc",
+        "start een update op laptop 3"
+      ]
+    },
+    "ratatoskr": {
+      "*": [
+        "koppel een MCP-server",
+        "ik wil dat een andere assistent de tools van Odin kan gebruiken",
+        "sluit de tools van een andere app aan op Odin",
+        "welke MCP-servers zijn er gekoppeld?",
+        "de GitHub-MCP-server reageert niet",
+        "stel Odin via MCP open voor andere assistenten",
+        "voeg een server toe via een HTTP-adres",
+        "laad de tools van de MCP-server opnieuw"
+      ],
+      "ajouter": [
+        null,
+        "voeg een lokale MCP-server toe met dit commando"
+      ],
+      "serveurs": [
+        "lijst van MCP-servers en hun tools",
+        "welke tools geeft elke server mij?"
+      ],
+      "reconnecter": [
+        "verbind de notitie-MCP opnieuw",
+        "herstart die server en lees zijn tools opnieuw in"
+      ]
+    },
+    "appareils": {
+      "*": [
+        "doe het licht in de woonkamer aan",
+        "zet het stopcontact van het koffiezetapparaat uit",
+        "doe de rolluiken in de slaapkamer omlaag",
+        "welke apparaten in huis staan aan?",
+        "ik heb het koud",
+        "zet de airco op 22 graden",
+        "staat de deursensor open?",
+        "koppel een nieuwe zigbee-lamp"
+      ],
+      "commander": [
+        "doe boven alle lampen uit",
+        "zet de verwarming hoger"
+      ],
+      "lister": [
+        "lijst van apparaten in huis",
+        "status van de stekkers en sensoren"
+      ],
+      "appairer": [
+        "open de zigbee-koppeling",
+        "ik wil een nieuwe sensor toevoegen, zet de koppelmodus aan"
+      ]
+    },
+    "brokkr": {
+      "*": [
+        "zoek de ESP-modules op het netwerk",
+        null,
+        null,
+        "maak een ESP32-module klaar",
+        "welke slimme dingetjes zijn nog niet ingesteld?",
+        "ik wil een Sonoff flashen",
+        null,
+        "stel de relais zo in dat hij met Odin praat"
+      ],
+      "chercher": [
+        "scan het netwerk op modules",
+        "zijn er nieuwe slimme stekkers op het netwerk?"
+      ],
+      "brancher": [
+        "koppel de stekker in de woonkamer aan Odin",
+        "stel die module in voor de relais van Odin"
+      ],
+      "mettre_a_jour": [
+        null,
+        "zet de nieuwste firmware op de keukenstekker"
+      ]
+    },
+    "midgard": {
+      "*": [
+        "hoe staat het ervoor in huis?",
+        "overzicht per kamer",
+        "zet de bioscoopmodus aan",
+        "maak een scène voor het avondeten",
+        "alle domoticacentrales samen in één overzicht",
+        "scène welterusten",
+        "wat staat er aan in de keuken?",
+        "ik wil een scène die de rolluiken omlaag doet en de lampen uit"
+      ],
+      "scene": [
+        "start de scène huis verlaten",
+        "zet de leesscène aan"
+      ],
+      "creer_scene": [
+        "maak een ochtendscène: rolluiken omhoog en keukenlamp op 50",
+        "nieuwe scène filmavond"
+      ],
+      "maison": [
+        "toestand van het huis per kamer",
+        "hoe staat elke kamer ervoor?"
+      ]
+    },
+    "himinbjorg": {
+      "*": [
+        "laat de camera bij de voordeur zien",
+        "maak een foto van de tuin",
+        "neem 30 seconden op van de garagecamera",
+        "heeft er iets bewogen op het terras?",
+        "welke camera's heb ik?",
+        "bewegingsdetectie op de camera op de binnenplaats",
+        "wie heeft er aangebeld?",
+        "ik wil de baby vanaf mijn telefoon zien"
+      ],
+      "photo": [
+        "maak een foto met de deurcamera",
+        "momentopname van de woonkamercamera"
+      ],
+      "enregistrer": [
+        "neem een clip van een minuut op bij de ingang",
+        "neem de tuincamera op"
+      ],
+      "cameras": [
+        "lijst van camera's",
+        "welke camera's werken?"
+      ]
+    },
+    "bragi": {
+      "*": [
+        "roep via alle speakers om dat het eten klaar is",
+        "zeg via de keukenspeaker dat ik eraan kom",
+        "zet dit spraakbericht om in tekst",
+        "lees dit voor",
+        "ik wil dat Odin met een andere stem praat",
+        "je verstaat me niet als ik praat",
+        "transcribeer de opname van de vergadering",
+        "maak een audiobestand met jouw stem dat gefeliciteerd zegt"
+      ],
+      "annoncer": [
+        "kondig in de woonkamer aan dat de film begint",
+        "meld via alle speakers dat we vertrekken"
+      ],
+      "transcrire": [
+        "transcribeer het audiobestand dat ik je stuurde",
+        "schrijf de opname van het gesprek uit"
+      ],
+      "dire": [
+        "maak audio die welkom zegt",
+        "maak een spraakbestand van deze tekst"
+      ]
+    },
+    "freyja": {
+      "*": [
+        "zet de film op de tv in de woonkamer",
+        "welke nieuwe series zijn er?",
+        "ik wil live tv kijken",
+        "neem de wedstrijd van vanavond op",
+        "wat is er vanavond op tv?",
+        null,
+        "ga verder met de serie waar ik was gebleven",
+        "is de nieuwe aflevering er al?"
+      ],
+      "regarder": [
+        "zet kanaal 5 op de tv",
+        "ik wil Interstellar kijken in de slaapkamer"
+      ],
+      "enregistrer": [
+        "neem het journaal van acht uur op",
+        "plan de opname van de documentaire"
+      ],
+      "nouveautes": [
+        "wat is er de laatste dagen bijgekomen?",
+        "nieuwe films van deze week"
+      ]
+    },
+    "aegir": {
+      "*": [
+        "zet wat muziek op",
+        "speel jazz in de keuken",
+        "zet de radio aan",
+        "heb je dat nummer van Danny Vera?",
+        "genoeg muziek, stil maar",
+        "afspeellijst om te hardlopen",
+        "iets rustigs op de speaker in de slaapkamer",
+        "mijn muziekbibliotheek"
+      ],
+      "jouer": [
+        "speel de jaren-tachtig-lijst",
+        "zet Radio 2 op in de woonkamer"
+      ],
+      "chercher": [
+        "zoek het album van Doe Maar",
+        "heb ik nummers van Marco Borsato?"
+      ],
+      "stop": [
+        "stop de muziek",
+        "zet de radio uit"
+      ]
+    },
+    "frigg": {
+      "*": [
+        "welke afspraken heb ik morgen?",
+        "boek een knipbeurt op donderdag",
+        "welke vrije tijden heb ik maandag?",
+        "openbare pagina zodat klanten zelf kunnen boeken",
+        "mijn diensten en openingstijden",
+        "zeg de afspraak van vijf uur af",
+        "afsprakenagenda van de praktijk",
+        "zoals Calendly"
+      ],
+      "agenda": [
+        "volgende afspraken",
+        "wie komt er deze week?"
+      ],
+      "creneaux": [
+        "vrije tijden voor een massage op woensdag",
+        "welke uren heb ik vrijdag nog vrij?"
+      ],
+      "reserver": [
+        "plan mevrouw Bakker in op dinsdag om 10 uur",
+        "voeg maandag een controleafspraak toe"
+      ]
+    },
+    "kvasir": {
+      "*": [
+        "is er nieuws bij de oorspronkelijke projecten van de apps?",
+        "bestudeer deze GitHub-link en zeg wat hij oplevert",
+        "nieuwe versies volgen van de projecten waar ik naar kijk",
+        "welke functies kunnen we van andere projecten overnemen?",
+        "kijk eens of deze repository wat is",
+        "werkschrift met functies per app",
+        "technologische verkenning van Odin",
+        null
+      ],
+      "etudier": [
+        "bestudeer github.com/example/project",
+        "analyseer deze repo en koppel hem aan de apps"
+      ],
+      "verifier": [
+        "controleer nu de repo's die ik volg",
+        "zijn er nieuwe versies van wat ik volg?"
+      ],
+      "carnet": [
+        "laat het schrift met openstaande functies zien",
+        "wat moet er nog bij elke app komen?"
+      ]
+    },
+    "syn": {
+      "*": [
+        "ik wil een dashboard met grafieken van de temperatuur in huis",
+        null,
+        "grafiek van het CPU-gebruik van deze week",
+        "waarschuw me als de grafiek boven een drempel komt",
+        "mijn dashboards",
+        "zet een lijn van het netwerkverkeer neer",
+        "ik wil de gegevens als staafjes en getallen zien",
+        "paneel met het stroomverbruik van de maand"
+      ],
+      "voir": [
+        "laat het serverdashboard van de afgelopen 24 uur zien",
+        "open het dashboard van het huis"
+      ],
+      "panneau": [
+        "voeg een paneel toe met het gebruikte geheugen",
+        "temperatuurgrafiek met een drempel op 30"
+      ],
+      "tableaux": [
+        "lijst van mijn dashboards",
+        "welke dashboards heb ik?"
+      ]
+    },
+    "dvalinn": {
+      "*": [
+        "zet deze video om naar mp4",
+        "voeg deze twee pdf's samen",
+        "maak van deze HEIC-foto een JPG",
+        "comprimeer de pdf, die is veel te groot",
+        "haal pagina's uit deze pdf",
+        "converteer alle video's in de map",
+        "genereer een UUID",
+        "decodeer deze base64"
+      ],
+      "convertir": [
+        "zet de docx om naar pdf",
+        "zet de audio om naar mp3"
+      ],
+      "pdf": [
+        "voeg de factuur-pdf's samen",
+        "beveilig deze pdf met een wachtwoord"
+      ],
+      "outil": [
+        null,
+        "decodeer deze JWT"
+      ]
+    },
+    "champollion": {
+      "*": [
+        "haal de tekst uit deze foto",
+        "wat staat er in dit gescande document?",
+        "lees deze kassabon en zeg het bedrag",
+        "herken de tekst in de pdf",
+        "waar gaat deze brief over?",
+        "haal de data en afspraken uit deze mail",
+        "ik wil in een gescande pdf kunnen zoeken",
+        "wat wordt er gezegd in deze opname?"
+      ],
+      "lire": [
+        "lees dit bestand en zeg wat erin staat",
+        "haal de tekst uit de foto van het contract"
+      ],
+      "texte": [
+        "begrijp deze tekst en haal data en bedragen eruit",
+        "wat voor soort document is dit?"
+      ],
+      "pdf_cherchable": [
+        null,
+        "leg een tekstlaag onder de pdf"
+      ]
+    },
+    "mimisbrunnr": {
+      "*": [
+        "zoek in de systeemlogs",
+        "welke fouten staan er in het log van vannacht?",
+        "kijk in /var/log wat er om drie uur gebeurde",
+        "verzamel de logs van alle servers op één plek",
+        "een melding herhaalt zich steeds in de journal",
+        "waarschuw me als deze fout weer vaak voorkomt",
+        null,
+        "waarom is de server herstart? kijk in de logs"
+      ],
+      "chercher": [
+        "zoek «error» in de logs van gisteren",
+        "kritieke logregels van het afgelopen uur"
+      ],
+      "repetes": [
+        "welke meldingen komen het vaakst terug?",
+        "de meest voorkomende fouten van deze week"
+      ],
+      "regle": [
+        "waarschuw me als deze melding te vaak komt",
+        "maak een regel voor de schijffout"
+      ]
+    },
+    "gefjon": {
+      "*": [
+        "de schijf is vol, wat kan ik weggooien?",
+        "ruim de tijdelijke bestanden op",
+        "de pc doet er een eeuwigheid over om op te starten",
+        "welke programma's starten vanzelf op?",
+        "leeg de cache en de prullenbak",
+        "welke mappen nemen de meeste ruimte in?",
+        null,
+        "doe eens een grondige schoonmaak"
+      ],
+      "nettoyer": [
+        "verwijder de tijdelijke bestanden",
+        "ruim alles op"
+      ],
+      "demarrage": [
+        "opstartprogramma's",
+        "wat start er mee bij het opstarten van Windows?"
+      ],
+      "carte": [
+        "kaart van de schijfruimte",
+        "wat neemt zoveel ruimte in in mijn gebruikersmap?"
+      ]
+    },
+    "sol": {
+      "*": [
+        "waar zijn de foto's van de reis naar Lissabon?",
+        "mijn foto's van 2019",
+        "dubbele foto's, weg ermee",
+        "maak een album met de kerstfoto's",
+        "foto's gemaakt met de oude telefoon",
+        "foto's met een locatie",
+        "tijdlijn van mijn foto's",
+        null
+      ],
+      "chercher": [
+        "foto's van augustus 2022",
+        "zoek de foto's van de Canon"
+      ],
+      "doublons": [
+        "welke foto's heb ik dubbel?",
+        "vind dubbele foto's"
+      ],
+      "album": [
+        "maak een album met de zomerfoto's",
+        "maak een album van de foto's van 2021"
+      ]
+    },
+    "fensalir": {
+      "*": [
+        "welke schijven heb ik en hoeveel ruimte is er nog?",
+        "deel deze map op het netwerk voor Windows",
+        "hoeveel gedeelde mappen zijn er?",
+        "op de NAS is een schijf vol",
+        "partities van de schijf",
+        null,
+        "ik wil vanaf de Mac bij deze map kunnen",
+        "is de dataschijf gezond?"
+      ],
+      "disques": [
+        "lijst van schijven en partities",
+        "hoe gaat het met de schijven in de NAS?"
+      ],
+      "partages": [
+        "welke mappen worden op het netwerk gedeeld?",
+        "Samba-shares"
+      ],
+      "ajouter_partage": [
+        "deel de map Films",
+        "maak een share voor de scanner"
+      ]
+    },
+    "hlid": {
+      "*": [
+        "welke poorten staan open?",
+        "open poort 25565 voor de Minecraft-server",
+        "status van de firewall",
+        "welke poorten laat de router vanaf internet door?",
+        "wat is mijn publieke IP?",
+        "routeringstabel",
+        "firewallregels",
+        "sluit poort 3306 af voor buiten"
+      ],
+      "etat": [
+        "status van de firewall en bereikbare poorten",
+        "wat is er vanaf het netwerk bereikbaar?"
+      ],
+      "ouvrir_port": [
+        "open poort 8080 alleen voor het lokale netwerk",
+        "laat poort 51820 door"
+      ],
+      "box": [
+        "welke poorten heeft UPnP op de router opengezet?",
+        "open poorten op het modem"
+      ]
+    },
+    "ivaldi": {
+      "*": [
+        "hoe staan mijn repo's ervoor?",
+        "heb ik wijzigingen die nog niet gecommit zijn?",
+        "clone deze repo",
+        "werk alle repo's bij",
+        "open een terminal op de server",
+        "welke branches moet ik nog pushen?",
+        "mijn codeprojecten",
+        "pull alle repo's zonder iets kapot te maken"
+      ],
+      "depots": [
+        "lijst van repositories en hun stand",
+        "welke repo's hebben commits die nog niet gepusht zijn?"
+      ],
+      "cloner": [
+        "clone https://example.org/project.git",
+        "kopieer de repo van de blog"
+      ],
+      "ouvrir_terminal": [
+        "open een terminal op de NAS",
+        "blijvende terminal op de machine van Odin"
+      ]
+    },
+    "heidrun": {
+      "*": [
+        "zet het internet van de kleine uit",
+        "ouderlijk toezicht",
+        "het joch gaat niet naar bed door de tablet",
+        "welke sites heeft mijn dochter bezocht?",
+        "profiel voor mijn zoon van 8",
+        "blokkeer volwassenensites op de tablet van mijn dochtertje",
+        "bedtijd voor internet om half tien",
+        "hoe lang zit hij online?"
+      ],
+      "pause": [
+        "zet internet op pauze voor Lucas",
+        "sluit de kinderen nu meteen af van internet"
+      ],
+      "profil": [
+        "maak een profiel voor Noor, 12 jaar",
+        "verander de bedtijd van Finn"
+      ],
+      "rapport": [
+        "rapport over het surfgedrag van mijn zoon",
+        "wat is er deze week geblokkeerd op de tablet?"
+      ]
+    },
+    "leikvangr": {
+      "*": [
+        "ik wil Mario spelen",
+        "mijn retrogames",
+        "sorteer mijn ROMs per console",
+        null,
+        "start Zelda op de tv",
+        "favoriete spellen",
+        null,
+        "wat heb ik vorige week gespeeld?"
+      ],
+      "lancer": [
+        "open Sonic",
+        "start Tetris"
+      ],
+      "jeux": [
+        "lijst van SNES-spellen",
+        "welke spellen heb ik?"
+      ],
+      "ranger": [
+        "ruim de spellenmap op",
+        "sorteer de ROMs"
+      ]
+    },
+    "snotra": {
+      "*": [
+        "maak een Word-document met deze tekst",
+        "maak een spreadsheet met deze uitgaven",
+        "verbeter de spelling van deze tekst",
+        "waar is het document van het contract?",
+        "lees dit Excel-bestand",
+        "zoek in mijn documenten naar het woord factuur",
+        "ik wil een presentatie",
+        "controleer de grammatica van deze brief"
+      ],
+      "corriger": [
+        "verbeter deze alinea",
+        "controleer de spelling van de mail"
+      ],
+      "creer": [
+        "maak een document met de titel Notulen",
+        "maak een docx van deze lijst"
+      ],
+      "tableur": [
+        "maak een Excel met naam en aantal",
+        "spreadsheet met sommen"
+      ]
+    },
+    "hlin": {
+      "*": [
+        null,
+        "mijn gegevens staan in een register, ik wil dat ze verwijderd worden",
+        "is mijn mailadres in een datalek terechtgekomen?",
+        "privacy op internet",
+        "brief op grond van de AVG om mijn gegevens te laten wissen",
+        "iemand heeft een site gemaakt die de mijne nadoet",
+        "wat zie je over mij op Google?",
+        "ik wil uit de zoekmachines voor personen verdwijnen"
+      ],
+      "chercher": [
+        "controleer waar ik voorkom",
+        "zoek mijn gebruikersnaam op het internet"
+      ],
+      "lettre": [
+        "stel een AVG-verwijderverzoek op",
+        "inzageverzoek voor dit bedrijf"
+      ],
+      "etat": [
+        "wat is er over mij zichtbaar en hoe riskant?",
+        "stand van mijn verwijderverzoeken"
+      ]
+    },
+    "durinn": {
+      "*": [
+        "zijn mijn schijven in orde?",
+        "de SSD doet raar",
+        "temperatuur van de harde schijf",
+        "SMART-waarden",
+        "hoe lang gaat de SSD nog mee?",
+        "test de snelheid van de schijf",
+        "de harde schijf maakt geluid",
+        "is de NVMe gezond?"
+      ],
+      "sante": [
+        "gezondheid van de schijven",
+        "is er een schijf in slechte staat?"
+      ],
+      "smart": [
+        "SMART-waarden van schijf sda",
+        "leg me de SMART van de SSD uit"
+      ],
+      "banc": [
+        "snelheidstest van de schijf",
+        "meet lezen en schrijven van de NVMe"
+      ]
+    },
+    "hel": {
+      "*": [
+        "ik heb per ongeluk foto's van de SD-kaart gewist",
+        "herstel verwijderde bestanden",
+        "de partitie is verdwenen",
+        "ik heb de usb-stick per ongeluk geformatteerd",
+        "haal documenten van een schijf die niet meer opstart",
+        "kun je terughalen wat ik gisteren heb verwijderd?",
+        null,
+        "de video's van de camera zijn weg"
+      ],
+      "recuperer": [
+        "herstel de verwijderde bestanden van de stick naar een andere schijf",
+        "red de foto's van de SD"
+      ],
+      "chercher": [
+        "zoek verloren partities op de externe schijf",
+        "zijn er verloren partities?"
+      ],
+      "supports": [
+        "welke schijven kan ik doorzoeken?",
+        "lijst van opslagmedia"
+      ]
+    },
+    "pegase": {
+      "*": [
+        "browsergeschiedenis van gisteren",
+        "welke receptensite heb ik bekeken?",
+        "back-up van de browser",
+        "meld de browser af op de verloren telefoon",
+        "synchroniseer de tabbladen tussen laptop en telefoon",
+        "browserprofielen",
+        "bladwijzers op alle apparaten",
+        "downloadbescherming in de browser"
+      ],
+      "historique": [
+        "zoek in de geschiedenis naar vluchtsites",
+        "wat heb ik maandag bezocht?"
+      ],
+      "copier": [
+        "maak nu een kopie van de browsergegevens",
+        "maak een back-up van de bladwijzers"
+      ],
+      "revoquer": [
+        "meld de oude telefoon af bij de browser",
+        "beëindig de Pegasus-sessie op de laptop"
+      ]
+    },
+    "agora": {
+      "*": [
+        "appwinkel van Odin",
+        "welke apps mag de groep van de kinderen installeren?",
+        "voeg deze installer toe aan de store",
+        "alle kantoor-pc's moeten Firefox hebben",
+        "haal de spelletjes-app weg bij de leerlingengroep",
+        "catalogus van beschikbare apps",
+        "rechten per groep voor de apps",
+        "programma's installeren op alle telefoons van de groep"
+      ],
+      "ajouter": [
+        "voeg dit programma toe aan de store",
+        "zet de recepten-webapp in de store"
+      ],
+      "definir_mode": [
+        "zet Firefox op verplicht geïnstalleerd voor kantoor",
+        "haal het spel weg bij de kindergroep"
+      ],
+      "catalogue": [
+        "wat staat er in de store?",
+        "catalogus van de store"
+      ]
+    },
+    "achille": {
+      "*": [
+        "test de beveiliging van mijn website",
+        "ik wil een proxy om verzoeken te onderscheppen",
+        "stuur dit verzoek aangepast opnieuw",
+        "vergelijk twee antwoorden van mijn server",
+        "URL-codeer deze tekst",
+        "heeft mijn site beveiligingsheaders?",
+        "pentest van mijn eigen site",
+        null
+      ],
+      "allumer_proxy": [
+        "zet de testproxy aan",
+        "start de proxy voor mijn telefoon"
+      ],
+      "rejouer": [
+        "stuur het inlogverzoek opnieuw met een andere parameter",
+        "herhaal dit verzoek"
+      ],
+      "controle_passif": [
+        "controleer headers en cookies van mijn site",
+        "passieve controle van example.org"
+      ]
+    },
+    "atalante": {
+      "*": [
+        "download dit bestand",
+        "downloadwachtrij",
+        "beperk de downloadsnelheid",
+        "download dit vannacht",
+        "hervat de afgebroken download",
+        "hoe lang duurt de download nog?",
+        null,
+        "download deze link en controleer de checksum"
+      ],
+      "ajouter": [
+        "zet deze link in de wachtrij",
+        "download https://example.org/bestand.zip"
+      ],
+      "file": [
+        "welke downloads lopen er?",
+        "status van de downloads"
+      ],
+      "vitesse": [
+        null,
+        "haal de snelheidslimiet weg"
+      ]
+    },
+    "dodone": {
+      "*": [
+        "test mijn API",
+        "stuur een GET-verzoek naar mijn dienst",
+        null,
+        null,
+        "tests op de antwoorden van de API",
+        "omgevingsvariabelen voor de verzoeken",
+        "voer alle verzoeken van de collectie uit",
+        "reageert het endpoint goed?"
+      ],
+      "envoyer": [
+        "stuur een POST naar /api/gebruikers",
+        "doe een verzoek naar example.org/health"
+      ],
+      "importer": [
+        "importeer dit OpenAPI-bestand",
+        null
+      ],
+      "lancer_collection": [
+        "start de testcollectie",
+        "voer alle verzoeken uit"
+      ]
+    },
+    "theia": {
+      "*": [
+        null,
+        "beschrijf deze afbeelding",
+        "zoek de foto met een hond op het strand",
+        "lees het gescande document",
+        "wat gebeurt er in deze video?",
+        "vind afbeeldingen die op een zonsondergang lijken",
+        "herken wat je ziet",
+        "op deze foto staat mijn woonkamer, onthoud dat"
+      ],
+      "voir": [
+        "beschrijf deze afbeelding voor mij",
+        "wat zie je op de schermafbeelding?"
+      ],
+      "retrouver": [
+        "zoek de afbeelding van een rode fiets",
+        "vind foto's met sneeuw"
+      ],
+      "corriger": [
+        "dit is mijn kat, geen hond",
+        "correctie: het is de keuken"
+      ]
+    },
+    "syrinx": {
+      "*": [
+        "wat hoor je in deze opname?",
+        "ging de bel?",
+        "herken de geluiden in huis",
+        "heeft de hond geblaft toen ik weg was?",
+        "wat voor muziek is dit?",
+        "tempo en toonsoort van deze muziek",
+        "huilt de baby?",
+        "luister en zeg of er glas breekt"
+      ],
+      "ecouter": [
+        "luister naar dit geluid",
+        "wat zit er in deze opname?"
+      ],
+      "musique": [
+        "analyseer dit nummer",
+        "in welke toonsoort staat dit?"
+      ],
+      "sons": [
+        "herken de geluiden",
+        "welke geluiden heb je vannacht gehoord?"
+      ]
+    },
+    "mathesis": {
+      "*": [
+        "leer iets over tuinieren",
+        "ik wil dat je je in dit onderwerp verdiept",
+        "lees deze hele website en leer hem",
+        "wat je niet weet, zoek het op en leer het",
+        "stop met leren",
+        "stop alle automatische zoekacties",
+        "leer van mijn mappen",
+        "verdiep je grondig"
+      ],
+      "confier": [
+        "leer eerst over netwerken",
+        "zet het onderwerp belastingen bovenaan"
+      ],
+      "couper": [
+        "zet al het leren uit",
+        "stop het automatische lezen"
+      ],
+      "absorber": [
+        "lees de hele site example.org",
+        "neem deze site helemaal op"
+      ]
+    },
+    "pronoia": {
+      "*": [
+        "wat denk je dat er morgen gebeurt?",
+        "voorspelling van wat er in huis gaat gebeuren",
+        "kloppen je voorspellingen?",
+        "wat verwacht je deze week?",
+        "hoe groot is de kans dat ik te laat kom?",
+        "hoe betrouwbaar zijn je voorspellingen?",
+        "voorzie wat ik nodig heb",
+        "lopende voorspellingen"
+      ],
+      "previsions": [
+        "welke voorspellingen heb je?",
+        "openstaande voorspellingen"
+      ],
+      "bilan": [
+        "hoe vaak zit je goed?",
+        "slagingspercentage"
+      ],
+      "prevoir": [
+        "voorspel wat er gaat gebeuren",
+        "wat gaat er morgen gebeuren?"
+      ]
+    },
+    "keryx": {
+      "*": [
+        "ik wil Odin van buitenaf berichten sturen",
+        "assistent via berichten die voor mij handelt",
+        "voeg mijn nummer toe zodat hij me antwoordt",
+        "verander de geheime code van de assistent",
+        "wat heeft de assistent vandaag gedaan?",
+        "onderweg berichten sturen zodat hij mijn agenda regelt",
+        "mijn mails beantwoorden als ik er niet ben",
+        "geschiedenis van de assistent"
+      ],
+      "ajouter_numero": [
+        "voeg het nummer 0600000000 toe",
+        "sta mijn Telegram toe"
+      ],
+      "code_secret": [
+        "verander de geheime code",
+        "stel een nieuwe code in"
+      ],
+      "historique": [
+        null,
+        null
+      ]
+    }
+  },
+  "horsChamp": [
+    "bestel een pizza voor me",
+    "boek een vlucht naar Rome",
+    "haal de kinderen op van school",
+    "breng me een kopje koffie",
+    "trouw met me",
+    "dans met me",
+    "repareer de lekkende kraan",
+    "strijk het overhemd",
+    "laat de hond uit",
+    "maak mijn wiskundehuiswerk",
+    "geef me een knuffel",
+    "koop bioscoopkaartjes",
+    "betaal de gasrekening",
+    "rij de auto voor mij",
+    null,
+    null,
+    "koop Tesla-aandelen voor me",
+    "naai deze knoop aan",
+    "doe de boodschappen in de supermarkt",
+    "breng de auto naar de garage",
+    "stuur bloemen naar mijn vriendin",
+    null,
+    "schaak met me",
+    "pas op de kinderen",
+    "bel een taxi",
+    "kook vanavond het eten",
+    "wed op de wedstrijd",
+    "maai het gras",
+    "ga voor mij hardlopen",
+    "schilder de muur",
+    "doe mijn belastingaangifte"
+  ]
+}

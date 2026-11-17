@@ -1,0 +1,1834 @@
+{
+  "langue": "es",
+  "ecriture": "latin",
+  "origine": "écrit pour Odin, non relu par une personne de cette langue ; listes alignées d'une langue à l'autre (même place, même idée), null = place vide d'une phrase retirée",
+  "aRelire": true,
+  "complet": true,
+  "applis": {
+    "saga": {
+      "*": [
+        "apunté algo sobre esto el mes pasado, ¿me lo encuentras?",
+        "¿dónde dejé mis ideas para la reforma del baño?",
+        "guárdame esto en algún sitio que se me olvida",
+        "relaciona mis notas de la mudanza con la lista de cajas",
+        "enséñame cómo se conectan mis apuntes entre sí",
+        "tengo la cabeza llena de cosas sueltas, ayúdame a ordenarlas",
+        "qué escribí después de la reunión del martes",
+        null
+      ],
+      "chercher": [
+        "busca en mis notas todo lo que hable del presupuesto",
+        "encuéntrame la nota donde puse la clave del portal"
+      ],
+      "noter": [
+        "apunta: llamar al fontanero el jueves",
+        null
+      ],
+      "attention": [
+        null,
+        "qué fechas límite se me están pasando"
+      ]
+    },
+    "runes": {
+      "*": [
+        "necesito una tabla para llevar el control de mis clientes",
+        "hazme una base con los libros que he prestado",
+        "quiero una página con una tabla y casillas para marcar",
+        "monta un seguimiento de gastos con una fórmula que sume el total",
+        null,
+        "mis contactos del curro son un caos, necesito una base de datos en condiciones",
+        "¿podemos hacer un tablero kanban para los encargos?",
+        "quiero un calendario con las fechas de entrega de cada pedido"
+      ],
+      "bases": [
+        "¿qué tablas de seguimiento tengo ya creadas?",
+        null
+      ],
+      "ajouter": [
+        "añade una fila a la tabla de proveedores",
+        "mete un registro nuevo en mi lista de libros: Rayuela, prestado a Lucía"
+      ],
+      "client": [
+        "crea la ficha del cliente Ferretería Ruiz",
+        "actualiza el teléfono de mi cliente Marta Gil"
+      ]
+    },
+    "draupnir": {
+      "*": [
+        "quiero que cuando llegue un correo con factura se guarde solo",
+        "automatiza esto: si alguien toca el timbre, avísame en el móvil",
+        "cada lunes a las ocho que me mande el resumen de la semana",
+        "haz que cuando se vaya la luz me llegue un aviso",
+        "conecta la alarma con las luces del pasillo",
+        "me aburre hacer siempre lo mismo a mano, ¿se puede automatizar?",
+        "estilo IFTTT o Zapier pero en casa",
+        "que se dispare una acción cuando la temperatura baje de 18"
+      ],
+      "lister": [
+        "¿qué automatizaciones tengo funcionando?",
+        null
+      ],
+      "executer": [
+        "lanza ahora la automatización de copia de fotos",
+        "ejecuta el flujo de cierre de persianas"
+      ],
+      "modele": [
+        "añádeme una plantilla que conecte el calendario con los avisos",
+        "dame un modelo de automatización para las facturas"
+      ]
+    },
+    "archytas": {
+      "*": [
+        "escríbeme un script que renombre las fotos por fecha",
+        "quiero un programita que apague las luces si no hay nadie",
+        "hazme una secuencia de pasos con condiciones y variables",
+        "necesito un script que compruebe cada noche el disco y me avise",
+        "me puedes programar algo que haga esto solo cada hora",
+        "abre la ventana de scripts",
+        "un script en bash no, algo con los pasos de Odin",
+        "prepárame una rutina que repita estas acciones con un bucle"
+      ],
+      "creer": [
+        "crea un script que vacíe la carpeta de descargas los domingos",
+        "fabrícame un script que mande el estado del servidor por la mañana"
+      ],
+      "lancer": [
+        "ejecuta mi script de limpieza",
+        "arranca el script de copia nocturna ahora"
+      ],
+      "mes_scripts": [
+        "¿qué scripts tengo guardados?",
+        "lista mis scripts con sus fechas"
+      ]
+    },
+    "eir": {
+      "*": [
+        "el ordenador va lentísimo, ¿qué pasa?",
+        "el pc tarda un siglo en hacer cualquier cosa",
+        "el ventilador suena como un avión",
+        "¿cuánta memoria RAM queda libre?",
+        "¿a qué temperatura está el procesador?",
+        "el servidor va a tope de CPU desde esta mañana",
+        null,
+        "qué tal anda de salud la máquina en general"
+      ],
+      "etat": [
+        "dame el estado de la máquina ahora mismo",
+        "¿cómo está el servidor de la oficina de CPU y memoria?"
+      ],
+      "processus": [
+        "¿qué proceso se está comiendo la memoria?",
+        "dime qué programas consumen más procesador"
+      ],
+      "arreter_processus": [
+        "cierra el proceso que se ha colgado",
+        "para ese programa que no responde"
+      ]
+    },
+    "skogul": {
+      "*": [
+        "hay un programa que se comporta de forma rara",
+        "algo se ejecuta a escondidas cuando no uso el pc",
+        "un proceso desconocido está mandando datos sin parar",
+        "vigila el comportamiento de los programas y avísame si algo no es normal",
+        "creo que un ejecutable está haciendo cosas que no debería",
+        "salió un proceso con un nombre raro en la lista",
+        null,
+        "mira si algún programa se ha vuelto sospechoso desde ayer"
+      ],
+      "analyser": [
+        "revisa ahora todos los programas en ejecución",
+        "pasa revista al comportamiento de los procesos del portátil"
+      ],
+      "tuer": [
+        "mata ese proceso sospechoso",
+        "detén el programa malicioso que has encontrado"
+      ]
+    },
+    "forseti": {
+      "*": [
+        "¿hay alertas de seguridad nuevas?",
+        "quiero el centro de seguridad con todo junto",
+        "¿qué tan seguro está todo esto en general?",
+        "caza de amenazas en mis equipos",
+        "dime si hay ficheros sensibles expuestos",
+        "resumen de todo lo grave que ha pasado esta semana",
+        "necesito saber si cumplimos con las buenas prácticas de seguridad",
+        null
+      ],
+      "alertes": [
+        "enséñame las últimas alertas, las graves primero",
+        "¿qué avisos de seguridad han saltado hoy?"
+      ],
+      "conformite": [
+        "pasa el control de conformidad y dame la nota",
+        "qué puntos debo corregir para cumplir"
+      ],
+      "vu": [
+        "marca todas las alertas como vistas",
+        "ya las he leído, quítales lo de nuevas"
+      ]
+    },
+    "garmr": {
+      "*": [
+        "alguien intenta entrar por SSH a fuerza de contraseñas",
+        "hay una IP que no para de probar claves en mi servidor",
+        "bloquea a los que intentan forzar el acceso al correo",
+        "me están atacando por fuerza bruta en la web",
+        "quiero que se bloquee solo a quien falle muchas veces el login",
+        "¿cuánta gente ha intentado colarse esta noche?",
+        null,
+        "echa a esa dirección que intenta entrar a lo bruto"
+      ],
+      "bannis": [
+        "¿qué direcciones están baneadas ahora y por cuánto tiempo?",
+        "lista de IPs bloqueadas por intentos de acceso"
+      ],
+      "bannir": [
+        "banea la IP 198.51.100.23",
+        "bloquea en el cortafuegos a 198.51.100.77 que no para de intentar"
+      ],
+      "debannir": [
+        "desbanea mi propia IP, me he bloqueado yo solo",
+        "quita el bloqueo a 198.51.100.40"
+      ]
+    },
+    "geri": {
+      "*": [
+        "¿mi ordenador se está conectando a servidores maliciosos?",
+        "hay conexiones salientes raras hacia el extranjero",
+        "compruébame si este enlace es peligroso antes de abrirlo",
+        "este dominio me da mala espina, ¿es malware?",
+        "alguna máquina de casa habla con un servidor de control de botnet",
+        "quiero bloquear las conexiones a direcciones con mala fama",
+        "peticiones DNS sospechosas desde el portátil del niño",
+        "protección contra lo que no son ficheros: conexiones, dominios, enlaces"
+      ],
+      "connexions": [
+        "¿quién está hablando con quién ahora mismo?",
+        "enséñame las conexiones abiertas del servidor"
+      ],
+      "analyser": [
+        "analiza la dirección 198.51.100.9, ¿es de fiar?",
+        "mira qué es este enlace: http://example.org/premio"
+      ],
+      "listes": [
+        "actualiza las listas de direcciones maliciosas",
+        "descarga las listas negras nuevas"
+      ]
+    },
+    "ran": {
+      "*": [
+        "quiero ver los paquetes que pasan por la red uno a uno",
+        null,
+        "captura lo que manda la tele a internet",
+        "decodifica el tráfico de la cámara capa a capa",
+        "¿quién habla con quién en mi red?",
+        "necesito un análisis de paquetes del router",
+        "qué apps usa cada dispositivo y con qué países habla",
+        "explícame en cristiano qué está pasando en la red"
+      ],
+      "lire": [
+        "captura los paquetes de toda la red",
+        "lee el tráfico de la máquina 198.51.100.15"
+      ],
+      "trafic": [
+        "¿cuánto envía y recibe cada aparato?",
+        "qué dispositivo se está chupando todo el ancho de banda"
+      ],
+      "expliquer": [
+        "resúmeme lo que pasa en la red",
+        "dime qué está haciendo la consola en la red"
+      ]
+    },
+    "ullr": {
+      "*": [
+        null,
+        "¿este archivo tiene virus?",
+        "me he bajado un programa y no me fío",
+        "escanea la memoria USB que me han dejado",
+        null,
+        null,
+        "analiza este adjunto antes de abrirlo",
+        "el antivirus de Odin, Asclepio"
+      ],
+      "analyser": [
+        "analiza la carpeta de documentos",
+        "escanea el pendrive entero"
+      ],
+      "etat": [
+        "¿está todo bien con la protección?",
+        "en una frase, ¿tengo algo infectado?"
+      ],
+      "quarantaine": [
+        "¿qué hay en cuarentena?",
+        "enséñame los archivos aislados y de dónde vienen"
+      ]
+    },
+    "loki": {
+      "*": [
+        "quiero poner trampas para piratas",
+        "monta un honeypot en el puerto 22",
+        "un SSH falso para pillar a los atacantes",
+        "¿qué han intentado los atacantes en los señuelos?",
+        "pon un servicio de cebo para ver quién escanea",
+        "me gustaría engañar a los bots que prueban contraseñas",
+        "de qué países vienen los que caen en las trampas",
+        "quiero un tarro de miel en la red"
+      ],
+      "allumer": [
+        "enciende una trampa en el puerto 2323",
+        "arranca el falso servidor web de señuelo"
+      ],
+      "activite": [
+        "¿qué han hecho los piratas en las trampas?",
+        "muéstrame la actividad de los señuelos de hoy"
+      ],
+      "statistiques": [
+        "¿qué contraseñas han probado los atacantes?",
+        "estadísticas de las trampas por país"
+      ]
+    },
+    "argos": {
+      "*": [
+        "consola EDR de todo el parque",
+        "qué ha pasado en el portátil de contabilidad, paso a paso",
+        "un equipo de la oficina está infectado, hay que aislarlo ya",
+        "quiero ver los incidentes de seguridad de todos los puestos",
+        "vigilancia de cada puesto: procesos, conexiones, persistencia",
+        "relaciona los avisos del antivirus con lo que ha pasado en cada pc",
+        "corta de la red ese ordenador sin apagarlo",
+        "resumen de seguridad de todos los equipos de la empresa"
+      ],
+      "isoler_poste": [
+        "aísla el puesto de recepción de la red",
+        "desconecta el pc infectado salvo para Odin"
+      ],
+      "incidents": [
+        "lista de incidentes abiertos del parque",
+        "¿hay incidentes en los ordenadores de la oficina?"
+      ],
+      "chronologie": [
+        "cronología del portátil de Andrés",
+        "qué se ejecutó en el puesto 4 esta mañana"
+      ]
+    },
+    "naglfar": {
+      "*": [
+        "lanza un contenedor de nginx",
+        "quiero levantar una imagen de docker sin instalar docker",
+        "¿qué contenedores están corriendo?",
+        "el contenedor de la base de datos se ha caído",
+        "para el contenedor de pruebas",
+        "arranca una app desde una imagen de Docker Hub",
+        "¿por qué se reinicia el contenedor una y otra vez?",
+        null
+      ],
+      "lister": [
+        null,
+        "qué contenedores tengo parados"
+      ],
+      "journaux": [
+        "enséñame los logs del contenedor web",
+        "últimas líneas del log de redis"
+      ],
+      "lancer": [
+        "lanza la imagen de uptime en un contenedor",
+        "despliega un contenedor con la imagen de nextcloud"
+      ]
+    },
+    "urdr": {
+      "*": [
+        "créame una base de datos PostgreSQL",
+        null,
+        "necesito ver las tablas de mi base como si fuera una hoja de cálculo",
+        "conecta mi base de datos de la tienda",
+        "abre el estudio de bases de datos",
+        "editar filas directamente en la tabla de usuarios",
+        "cuántos registros tiene la tabla pedidos",
+        "lanzar una consulta sobre la base de producción"
+      ],
+      "bases": [
+        "¿qué bases de datos tengo?",
+        "lista mis bases de Alexandria"
+      ],
+      "sql": [
+        "ejecuta SELECT count(*) FROM clientes",
+        "haz una consulta SQL para ver los pedidos de ayer"
+      ],
+      "creer": [
+        "crea una base nueva para el proyecto del blog",
+        "nueva base de datos llamada inventario"
+      ]
+    },
+    "skuld": {
+      "*": [
+        "haz una copia de la base de datos antes de la migración",
+        "quiero copias automáticas de mi PostgreSQL cada noche",
+        "¿cuándo fue el último dump de la base de la tienda?",
+        "si la base se corrompe, ¿tengo copia?",
+        "guarda las copias de la base 30 días y copia a otro sitio",
+        "restaura la base de ayer en una base aparte para comparar",
+        "copias de seguridad de las bases de datos, no de las carpetas",
+        "¿las copias de MySQL se han verificado?"
+      ],
+      "sauvegarder": [
+        "saca ya una copia de la base de pedidos",
+        "respalda la base de datos ahora antes de tocar nada"
+      ],
+      "plan": [
+        "programa copias de la base cada 6 horas",
+        "quiero conservar las copias de la base dos semanas"
+      ],
+      "restaurer": [
+        "restaura la copia de la base de anoche",
+        "recupera la base de datos del lunes en una nueva"
+      ]
+    },
+    "rodd": {
+      "*": [
+        "quiero dictar en vez de escribir",
+        null,
+        "me duele la muñeca, ¿puedo hablar y que se escriba solo?",
+        "dictado por voz en cualquier programa",
+        "pasa a texto lo que voy diciendo y corrígelo",
+        "modo conversación para hablar con alguien que habla otro idioma",
+        "tú escribe que yo hablo",
+        "el dictado escribe mal mi apellido"
+      ],
+      "dicter": [
+        "pon en forma este texto dictado como un correo",
+        "arregla esta dictada y conviértela en lista"
+      ],
+      "ajouter_mot": [
+        "añade la palabra Odín escrita así, que siempre la entiende mal",
+        "aprende que cuando digo «jira» quiero decir Jira"
+      ],
+      "ouvrir": [
+        "traduce la conversación con mi suegra que habla inglés",
+        "abre una conversación traducida entre español y japonés"
+      ]
+    },
+    "svalinn": {
+      "*": [
+        "¿mi wifi es seguro?",
+        "el wifi va fatal en el salón",
+        "¿quién está conectado a mi wifi?",
+        "qué canal debería usar, hay muchos vecinos",
+        null,
+        "la contraseña del wifi es demasiado débil, ¿qué cambio en el router?",
+        "me parece que el vecino me roba el wifi",
+        "revisa la seguridad de la red inalámbrica y del router"
+      ],
+      "etat": [
+        "analiza el wifi y dime qué corregir",
+        "nota de seguridad de mi wifi"
+      ],
+      "invites": [
+        "activa el wifi de invitados",
+        "apaga la red de invitados"
+      ],
+      "tester_debit": [
+        null,
+        "¿cuántos megas me llegan de verdad?"
+      ]
+    },
+    "ymir": {
+      "*": [
+        "créame una máquina virtual con Debian",
+        "quiero un contenedor LXC ligero para probar cosas",
+        "¿cuántas VM tengo encendidas?",
+        "haz una foto de la máquina antes de actualizar",
+        "quiero una máquina en cuarentena para abrir un archivo dudoso",
+        "mis máquinas virtuales del servidor de virtualización",
+        "levanta una VM desde la ISO de Windows",
+        "apaga la máquina virtual de pruebas"
+      ],
+      "creer_machine": [
+        "crea una VM con 4 gigas de RAM",
+        "monta un LXC con Ubuntu"
+      ],
+      "instantane": [
+        "haz un snapshot de la VM web",
+        "instantánea de la máquina de pruebas antes de tocarla"
+      ],
+      "machines": [
+        "lista mis máquinas virtuales y su estado",
+        "¿qué máquinas tengo en Hydra?"
+      ]
+    },
+    "idunn": {
+      "*": [
+        "mi web está caída",
+        "la página de la tienda va lenta desde ayer",
+        "¿mi sitio web funciona bien?",
+        "vuelve a poner en línea el blog",
+        "la última versión de la web ha roto todo, vuelve a la anterior",
+        "actualiza el sitio",
+        "haz pruebas en mi web para ver si todo carga",
+        "¿qué ha pasado con la web en las últimas 24 horas?"
+      ],
+      "etat": [
+        "comprueba el estado del sitio de la asociación",
+        "¿cómo va mi web ahora?"
+      ],
+      "relancer": [
+        "reinicia la web de la tienda",
+        "redespliega el sitio, la misma versión"
+      ],
+      "revenir": [
+        "vuelve al despliegue anterior del blog",
+        "deshaz la última puesta en producción"
+      ]
+    },
+    "sindri": {
+      "*": [
+        "haz una copia de seguridad de mis fotos",
+        "quiero respaldar el portátil de los niños cada hora",
+        "imagen completa del disco del pc",
+        "copias incrementales de la carpeta de trabajo",
+        "si se me rompe el disco, ¿tengo copia de todo?",
+        "cifra las copias y guárdalas en el NAS",
+        "se me borró una carpeta, ¿la puedo recuperar de una copia?",
+        "copias de seguridad de los ordenadores de casa, con Fénix"
+      ],
+      "creer": [
+        "crea un plan de copia diaria de Documentos al disco externo",
+        "programa una copia diferencial semanal del servidor"
+      ],
+      "sauvegarder": [
+        "haz la copia ahora",
+        "lanza ya el plan de copia de las fotos"
+      ],
+      "restaurer": [
+        "restaura la carpeta Facturas de la copia del martes",
+        "recupera mis documentos de la copia de ayer"
+      ]
+    },
+    "brisingamen": {
+      "*": [
+        "¿cuál era la contraseña de Netflix?",
+        "guárdame esta contraseña en el gestor",
+        "la clave del wifi del trabajo, ¿la tenemos guardada?",
+        null,
+        "necesito el código de doble factor del banco",
+        "estilo Bitwarden",
+        "comparte la contraseña de la cuenta de la luz con mi hermana",
+        "¿tengo contraseñas repetidas o filtradas en el baúl?"
+      ],
+      "chercher": [
+        "busca la contraseña de Amazon en el baúl",
+        "¿dónde guardé el acceso al router?"
+      ],
+      "generer": [
+        "genérame una contraseña robusta",
+        "hazme una frase de contraseña de seis palabras"
+      ],
+      "bilan": [
+        "¿hay contraseñas débiles o filtradas en el gestor?",
+        "informe de seguridad de mi baúl de claves"
+      ]
+    },
+    "gjoll": {
+      "*": [
+        "quiero conectarme a casa desde fuera",
+        "necesito una VPN para el móvil",
+        "desde el hotel quiero ver mis archivos de casa con seguridad",
+        null,
+        "dame un código QR para conectar el móvil a la VPN",
+        "he perdido el móvil, quítale el acceso a la red de casa",
+        "quiero navegar seguro en el wifi del aeropuerto pasando por casa",
+        "¿qué aparatos tienen VPN?"
+      ],
+      "ajouter": [
+        "añade el portátil nuevo a la VPN",
+        "crea un acceso VPN para la tablet de Lucía"
+      ],
+      "appareils": [
+        null,
+        null
+      ],
+      "revoquer": [
+        "revoca el acceso VPN del móvil robado",
+        "borra al viejo portátil de la VPN"
+      ]
+    },
+    "vidarr": {
+      "*": [
+        "bloquea la publicidad en toda la casa",
+        "quiero un DNS que quite los rastreadores",
+        null,
+        "¿por qué no carga esta web? creo que está bloqueada",
+        "ponle un nombre a la impresora en la red",
+        null,
+        "registro de las consultas DNS del salón",
+        "¿qué aparatos tienen IP en la red y cuál?"
+      ],
+      "bloquer": [
+        "bloquea el dominio example.org",
+        "bloquea ese sitio de apuestas y sus subdominios"
+      ],
+      "tester": [
+        "¿está bloqueado example.org y por qué?",
+        "prueba si este dominio resuelve"
+      ],
+      "baux": [
+        "¿qué aparato ha recibido cada IP?",
+        "lista de concesiones DHCP"
+      ]
+    },
+    "vordr": {
+      "*": [
+        "avísame si se cae mi web",
+        "quiero vigilar que el servidor responda",
+        "monitoriza el puerto 443 de la oficina",
+        "¿cuándo caduca el certificado de la tienda?",
+        "comprueba cada minuto que el NAS esté vivo",
+        "dame una página de estado para compartir con los clientes",
+        null,
+        "¿cuántas caídas ha tenido el servidor este mes?"
+      ],
+      "ajouter": [
+        "añade una sonda para example.org",
+        "vigila el ping del router"
+      ],
+      "problemes": [
+        "¿qué está caído ahora?",
+        "lista de problemas abiertos del más grave al menos"
+      ],
+      "historique": [
+        "disponibilidad de la web en los últimos 30 días",
+        "historial de caídas del servidor de correo"
+      ]
+    },
+    "askr": {
+      "*": [
+        "apunta el portátil nuevo en el inventario",
+        "¿cuándo acaba la garantía de la impresora?",
+        "¿a quién le presté la tablet?",
+        "número de serie del switch del despacho",
+        "etiquetas QR para los equipos de la oficina",
+        "quiero inventariar todo el material de casa",
+        "licencias de software, ¿cuántas me quedan?",
+        "¿qué aparatos hay en el salón?"
+      ],
+      "ajouter": [
+        "añade un monitor Dell al inventario",
+        "crea una ficha para el router nuevo"
+      ],
+      "chercher": [
+        "busca el equipo con la MAC 00:11:22:33:44:55",
+        "¿qué tengo en la habitación de Pablo?"
+      ],
+      "preter": [
+        "préstale el portátil viejo a Sergio hasta el viernes",
+        "apunta que dejo el proyector a la vecina"
+      ]
+    },
+    "valgrind": {
+      "*": [
+        "quiero entrar a mis servicios con un nombre y no con IP y puerto",
+        "pon HTTPS a mi Nextcloud de casa",
+        "proxy inverso para las apps del servidor",
+        null,
+        "que fotos.casa.example.org apunte al servidor de fotos",
+        "protege con contraseña el panel de administración",
+        "solo quiero que entre gente de mi red en ese servicio",
+        "el candado del navegador sale en rojo en mi servicio de casa"
+      ],
+      "ajouter": [
+        "añade un sitio que apunte al puerto 8080 del NAS",
+        "nuevo nombre para la app de recetas"
+      ],
+      "certificat": [
+        "renueva el certificado de Let's Encrypt",
+        "pide un certificado para cloud.example.org"
+      ],
+      "rediriger": [
+        "redirige la vieja dirección a la nueva",
+        "que www.example.org vaya a example.org"
+      ]
+    },
+    "var": {
+      "*": [
+        "crea una cuenta para mi hijo para que entre en Odin",
+        "añade a Marta al grupo de contabilidad",
+        "un solo usuario para entrar en todas las aplicaciones",
+        "cámbiale la contraseña a la cuenta de Pablo",
+        "activa la verificación en dos pasos en mi cuenta",
+        "quiero entrar con llave de acceso en vez de contraseña",
+        "quién tiene acceso a qué en Odin",
+        "he olvidado la contraseña de mi cuenta de Odin"
+      ],
+      "ajouter": [
+        "crea un usuario para la nueva empleada",
+        "da de alta a mi madre en Persona"
+      ],
+      "mot_de_passe": [
+        "pon una contraseña nueva a la cuenta de Andrés y cierra sus sesiones",
+        "resetea la contraseña de mi usuario"
+      ],
+      "double_auth": [
+        "activa el doble factor para mi cuenta",
+        "dame el QR del autenticador para mi usuario"
+      ]
+    },
+    "bru": {
+      "*": [
+        "quiero que mi web de casa se vea desde internet sin abrir puertos",
+        null,
+        null,
+        "acceder a Odin desde fuera con mi nombre de dominio",
+        "no quiero tocar el router pero quiero que se vea mi servicio desde fuera",
+        "el túnel está caído, no entra nadie desde fuera",
+        "saca la web del blog a internet por el túnel",
+        "que mi familia vea la galería desde su casa sin VPN"
+      ],
+      "publier": [
+        "publica fotos.example.org en internet",
+        "haz accesible desde fuera la app de recetas"
+      ],
+      "etat": [
+        "¿cómo está el túnel?",
+        "qué nombres están publicados ahora"
+      ],
+      "publier_odin": [
+        "pon la interfaz de Odin bajo mi dominio",
+        "quiero manejar Odin desde el móvil fuera de casa"
+      ]
+    },
+    "skidbladnir": {
+      "*": [
+        "quiero una nube en casa para mis archivos",
+        "comparte la carpeta de vacaciones con la familia",
+        "mándame un enlace para que un cliente se baje este archivo",
+        "espacio personal para cada uno",
+        "recupera un archivo que borré de la papelera de la nube",
+        "versiones anteriores de este documento",
+        "estilo Nextcloud o Dropbox pero mío",
+        "monta la carpeta compartida como unidad de red"
+      ],
+      "espace": [
+        null,
+        "que contabilidad pueda leer y escribir en la carpeta Facturas"
+      ],
+      "lien": [
+        "crea un enlace para compartir este vídeo que caduque en una semana",
+        "enlace con contraseña para la carpeta del cliente"
+      ],
+      "synchro": [
+        "sincroniza mi carpeta de fotos con el disco USB",
+        "mantén sincronizada la carpeta del NAS con el espacio de trabajo"
+      ]
+    },
+    "eitri": {
+      "*": [
+        "descárgame la ISO de Ubuntu",
+        "quiero tener las ISO de Windows siempre al día",
+        "¿hay versión nueva de Debian?",
+        "carpeta de imágenes ISO para reinstalar equipos",
+        "las ISO de rescate, ¿están actualizadas?",
+        "guárdame la ISO de Proxmox en el recurso compartido",
+        "necesito una ISO de Windows Server",
+        "¿qué ISO tengo guardadas?"
+      ],
+      "telecharger": [
+        "baja la última ISO de Fedora",
+        "descarga la ISO de Windows 11"
+      ],
+      "suivre": [
+        "mantén al día la ISO de Debian",
+        "sigue las nuevas versiones de la ISO de Rescatux"
+      ],
+      "verifier": [
+        "comprueba si hay ISO nuevas sin bajar nada",
+        "¿hay actualizaciones de las ISO?"
+      ]
+    },
+    "fjalar": {
+      "*": [
+        "quiero tener los instaladores siempre actualizados",
+        "descárgame el instalador de VLC",
+        "¿qué programas puedes ir a buscar a las webs oficiales?",
+        "carpeta de software para instalar en los pcs de la oficina",
+        "baja la última versión de 7-Zip",
+        "que el instalador de Firefox se actualice solo en la carpeta",
+        null,
+        "los instaladores, ¿pasan por el antivirus?"
+      ],
+      "telecharger": [
+        "descarga la última versión de Notepad++",
+        "bájame el instalador de Chrome"
+      ],
+      "suivre": [
+        null,
+        "sigue las versiones de VLC"
+      ],
+      "catalogue": [
+        "¿qué programas sabes descargar?",
+        "lista del catálogo de software"
+      ]
+    },
+    "thjalfi": {
+      "*": [
+        "quiero instalar Windows en varios pcs por la red sin USB",
+        "arrancar un ordenador por red desde una ISO",
+        "despliegue por PXE",
+        "la máquina nueva tiene que instalarse sola",
+        "¿cómo va la instalación de los pcs del aula?",
+        "instalación desatendida en los equipos de la oficina",
+        "sin pendrive, que arranque desde el servidor",
+        "reinstalar un portátil por la red"
+      ],
+      "autoriser": [
+        "autoriza la máquina con MAC 00:11:22:33:44:66 a arrancar la ISO de Debian",
+        "deja que el pc nuevo arranque por red con instalación automática"
+      ],
+      "suivi": [
+        "¿en qué paso va cada instalación?",
+        "seguimiento de los despliegues"
+      ],
+      "allumer": [
+        "activa el arranque por red",
+        "enciende el servidor PXE"
+      ]
+    },
+    "gladsheim": {
+      "*": [
+        "la pantalla de la casa para la tablet de la pared",
+        "quiero un panel con todo: tiempo, luces y estado",
+        null,
+        "pon el panel en el móvil de cocina",
+        "pantalla de inicio de la casa con mis botones",
+        "ver en una sola pantalla el estado de todas las apps",
+        "¿dónde está todo el mundo de la familia?",
+        "ponme un botón para lanzar la peli en el salón"
+      ],
+      "meteo": [
+        null,
+        "¿va a llover en Sevilla?"
+      ],
+      "positions": [
+        "¿dónde está la familia ahora?",
+        "última posición de cada uno"
+      ],
+      "bouton": [
+        "añade un botón que apague todas las luces",
+        "crea un botón en la pantalla para abrir la puerta del garaje"
+      ]
+    },
+    "zeus": {
+      "*": [
+        "compara las previsiones de varias fuentes",
+        "¿qué modelo meteorológico acierta más aquí?",
+        "¿mañana llueve según el europeo y el americano?",
+        null,
+        "¿qué tiempo hará el mes que viene?",
+        "las previsiones no coinciden, ¿quién tiene razón?",
+        "tendencia de los próximos tres meses",
+        "¿me fío de la previsión para la boda del sábado?"
+      ],
+      "comparer": [
+        "previsiones lado a lado para esta semana",
+        "compara Météo-France con el DWD para mañana"
+      ],
+      "bilan": [
+        "¿qué fuente acertó más en las dos últimas semanas?",
+        "puntuación de cada modelo"
+      ],
+      "mois": [
+        "¿hará más calor de lo normal los próximos meses?",
+        "previsión estacional para la primavera"
+      ]
+    },
+    "gna": {
+      "*": [
+        "¿por dónde anduvo mi hija ayer?",
+        "quiero ver los trayectos de la familia",
+        "historial de ubicaciones del móvil de Pablo",
+        "¿cuántos kilómetros hice el lunes?",
+        "borra mis recorridos de la semana pasada",
+        "activa el historial de trayectos para mí",
+        "paradas que hice el sábado",
+        "quiero dejar de guardar mis posiciones un rato"
+      ],
+      "trajets": [
+        "trayectos de ayer de Lucía",
+        "enséñame mis recorridos del martes"
+      ],
+      "effacer": [
+        "borra todo mi historial de trayectos",
+        "elimina el trayecto de esta mañana"
+      ],
+      "allumer": [
+        "empieza a guardar mis ubicaciones",
+        "activa el historial de Andrés con su acuerdo"
+      ]
+    },
+    "apparence": {
+      "*": [
+        null,
+        "quiero un fondo más oscuro",
+        "ponlo en modo noche",
+        "cambia los colores según la hora",
+        "¿qué tema está puesto?",
+        "algo más alegre para el verano",
+        "pon un tema al azar",
+        "Odin, desaparece de la pantalla"
+      ],
+      "theme": [
+        "pon el tema del bosque",
+        "cambia a tema automático"
+      ],
+      "cacher": [
+        "escóndete",
+        "quita a Odin de todas las pantallas"
+      ],
+      "etat": [
+        "¿qué tema llevas y por qué?",
+        "dime el aspecto actual"
+      ]
+    },
+    "commandes": {
+      "*": [
+        "¿qué comando uso para hacer esto?",
+        "lista de todas las órdenes de Odin",
+        "dame un ejemplo de comando para apagar las luces",
+        "¿cómo se escribe la orden para la copia de seguridad?",
+        "chuleta de comandos",
+        "quiero ver todas las instrucciones disponibles por aplicación",
+        "¿hay una orden para reiniciar la web?",
+        "abre Glifos"
+      ],
+      "chercher": [
+        "qué comando sirve para bloquear un dominio",
+        "búscame la orden que hace una captura de cámara"
+      ],
+      "liste": [
+        "lista de comandos de la app de música",
+        "todas las órdenes disponibles"
+      ]
+    },
+    "volva": {
+      "*": [
+        "busca en internet cuánto mide la torre Eiffel",
+        "¿qué dicen las noticias sobre la huelga de trenes?",
+        "investiga y respóndeme con fuentes",
+        "busca reseñas de esta lavadora",
+        "quiero una respuesta con enlaces que pueda comprobar",
+        "búscame cómo quitar una mancha de vino",
+        "mira en varios buscadores a la vez",
+        "¿qué se sabe del nuevo procesador de AMD?"
+      ],
+      "chercher": [
+        "¿cuál es la capital de Australia? con fuentes",
+        "busca información sobre el teletrabajo en España"
+      ],
+      "brut": [
+        "dame los resultados en bruto, sin resumen",
+        "solo la lista de enlaces que salen"
+      ],
+      "historique": [
+        "¿qué busqué ayer?",
+        "mis últimas búsquedas"
+      ]
+    },
+    "hermod": {
+      "*": [
+        "¿qué ordenadores de la oficina están encendidos?",
+        "enciende el pc de casa a distancia",
+        "lanza una orden en todos los equipos",
+        "toma el control del portátil de mi madre",
+        "estado del parque de ordenadores",
+        "¿quién tiene actualizaciones pendientes?",
+        "despierta el servidor de copias",
+        "apaga todos los pcs de la sala por la noche"
+      ],
+      "reveiller": [
+        "enciende el pc del despacho por wake on lan",
+        "despierta el ordenador de Pablo"
+      ],
+      "parc": [
+        "¿cómo está el parque?",
+        "lista de equipos con disco casi lleno"
+      ],
+      "commande": [
+        "ejecuta ipconfig en el pc de recepción",
+        "lanza una actualización en el portátil 3"
+      ]
+    },
+    "ratatoskr": {
+      "*": [
+        "conecta un servidor MCP",
+        "quiero que otro asistente use las herramientas de Odin",
+        "enchufa las herramientas de otra app a Odin",
+        "¿qué servidores MCP tengo conectados?",
+        "el servidor MCP de GitHub no responde",
+        "abre Odin a otros asistentes por MCP",
+        "añade un servidor por dirección HTTP",
+        "recarga las herramientas del servidor MCP"
+      ],
+      "ajouter": [
+        null,
+        "añade un servidor MCP local con este comando"
+      ],
+      "serveurs": [
+        "lista de servidores MCP y sus herramientas",
+        "¿qué herramientas me da cada servidor?"
+      ],
+      "reconnecter": [
+        "reconecta el servidor MCP de notas",
+        "reinicia ese servidor y relee sus herramientas"
+      ]
+    },
+    "appareils": {
+      "*": [
+        null,
+        "apaga el enchufe de la cafetera",
+        "baja las persianas del cuarto",
+        "¿qué aparatos de casa están encendidos?",
+        "tengo frío",
+        "pon el aire a 22 grados",
+        "¿el sensor de la puerta está abierto?",
+        "empareja una bombilla zigbee nueva"
+      ],
+      "commander": [
+        "apaga todas las luces de arriba",
+        "sube la calefacción"
+      ],
+      "lister": [
+        "lista de aparatos de la casa",
+        "estado de los enchufes y sensores"
+      ],
+      "appairer": [
+        "abre el emparejamiento zigbee",
+        "quiero añadir un sensor nuevo, pon modo emparejar"
+      ]
+    },
+    "brokkr": {
+      "*": [
+        "busca los módulos ESP de la red",
+        null,
+        null,
+        "prepara un módulo ESP32",
+        "¿qué cacharros conectados hay sin configurar?",
+        "quiero flashear un Sonoff",
+        "el taller de módulos de Hefesto",
+        "configura el relé para que hable con Odin"
+      ],
+      "chercher": [
+        "escanea la red buscando módulos",
+        "¿hay enchufes inteligentes nuevos en la red?"
+      ],
+      "brancher": [
+        "conecta el enchufe del salón a Odin",
+        "configura ese módulo para el relé de Odin"
+      ],
+      "mettre_a_jour": [
+        null,
+        "pon el último firmware al enchufe de la cocina"
+      ]
+    },
+    "midgard": {
+      "*": [
+        "¿cómo está la casa?",
+        "resumen por habitación",
+        "activa el modo cine",
+        "crea una escena para la cena",
+        "todas las cajas domóticas juntas en un panel",
+        "escena buenas noches",
+        "¿qué hay encendido en la cocina?",
+        "quiero una escena que baje persianas y apague luces"
+      ],
+      "scene": [
+        "lanza la escena de salir de casa",
+        "pon la escena de lectura"
+      ],
+      "creer_scene": [
+        "crea una escena de mañana: persianas arriba y luz cocina al 50",
+        "nueva escena de película"
+      ],
+      "maison": [
+        "estado de la casa por estancias",
+        "¿cómo está cada habitación?"
+      ]
+    },
+    "himinbjorg": {
+      "*": [
+        null,
+        "haz una foto del jardín",
+        "graba 30 segundos de la cámara del garaje",
+        "¿se ha movido algo en la terraza?",
+        "¿qué cámaras tengo?",
+        "detección de movimiento en la cámara del patio",
+        "¿quién ha llamado a la puerta?",
+        "quiero ver el bebé desde el móvil"
+      ],
+      "photo": [
+        "saca una foto de la cámara de la puerta",
+        "captura de la cámara del salón"
+      ],
+      "enregistrer": [
+        "graba un clip de un minuto en la entrada",
+        "graba la cámara del jardín"
+      ],
+      "cameras": [
+        "lista de cámaras",
+        "¿qué cámaras funcionan?"
+      ]
+    },
+    "bragi": {
+      "*": [
+        "anuncia en todos los altavoces que la cena está lista",
+        "di por el altavoz de la cocina que salgo ya",
+        "pasa a texto esta nota de voz",
+        null,
+        "quiero que Odin hable con otra voz",
+        "no me entiendes cuando hablo",
+        "transcribe el audio de la reunión",
+        "haz un audio con tu voz diciendo feliz cumpleaños"
+      ],
+      "annoncer": [
+        "anuncia en el salón que empieza la peli",
+        "avisa por todos los altavoces que nos vamos"
+      ],
+      "transcrire": [
+        "transcribe el audio que te he mandado",
+        "pasa a texto la grabación de la llamada"
+      ],
+      "dire": [
+        "genera un audio que diga bienvenidos",
+        "haz un archivo de voz con este texto"
+      ]
+    },
+    "freyja": {
+      "*": [
+        "pon la película en la tele del salón",
+        "¿qué series nuevas hay?",
+        "quiero ver la tele en directo",
+        null,
+        "¿qué echan esta noche?",
+        null,
+        null,
+        "¿ha llegado el capítulo nuevo?"
+      ],
+      "regarder": [
+        "pon el canal 5 en la tele",
+        "quiero ver Interstellar en el dormitorio"
+      ],
+      "enregistrer": [
+        "graba el telediario de las 9",
+        "programa la grabación del documental"
+      ],
+      "nouveautes": [
+        "¿qué ha llegado estos días?",
+        "películas nuevas de esta semana"
+      ]
+    },
+    "aegir": {
+      "*": [
+        "pon música",
+        "pon algo de jazz en la cocina",
+        null,
+        "¿tienes la canción de Rosalía?",
+        "ya basta de música, silencio",
+        "lista de reproducción para correr",
+        "algo relajante en el altavoz del dormitorio",
+        "mi biblioteca de música"
+      ],
+      "jouer": [
+        "pon la lista de los ochenta",
+        "reproduce Radio 3 en el salón"
+      ],
+      "chercher": [
+        "busca el álbum de Vetusta Morla",
+        "¿tengo canciones de Mecano?"
+      ],
+      "stop": [
+        null,
+        "apaga la radio"
+      ]
+    },
+    "frigg": {
+      "*": [
+        null,
+        "reserva una cita para un corte de pelo el jueves",
+        "¿qué huecos libres tengo el lunes?",
+        "página pública para que mis clientes reserven",
+        "mis servicios y horarios",
+        "anula la cita de las cinco",
+        "agenda de citas de la consulta",
+        "estilo Calendly"
+      ],
+      "agenda": [
+        "próximas citas",
+        "¿quién viene esta semana?"
+      ],
+      "creneaux": [
+        "huecos libres para un masaje el miércoles",
+        "¿qué horas tengo disponibles el viernes?"
+      ],
+      "reserver": [
+        "reserva a Carmen a las 10 el martes",
+        "añade una cita de revisión para el lunes"
+      ]
+    },
+    "kvasir": {
+      "*": [
+        "¿hay novedades en los proyectos originales de las apps?",
+        "estudia este enlace de GitHub y dime qué aporta",
+        "vigilar las versiones nuevas de los proyectos que sigo",
+        "¿qué funciones podríamos añadir según los otros proyectos?",
+        "mira este repositorio a ver si sirve",
+        "cuaderno de trabajo de funciones por app",
+        "vigilancia tecnológica de Odin",
+        null
+      ],
+      "etudier": [
+        "estudia github.com/example/proyecto",
+        "analiza este repo y relaciónalo con las apps"
+      ],
+      "verifier": [
+        "comprueba ahora los repos que sigo",
+        "¿hay versiones nuevas en lo que vigilo?"
+      ],
+      "carnet": [
+        "enséñame el cuaderno de funciones pendientes",
+        "¿qué queda por añadir a cada app?"
+      ]
+    },
+    "syn": {
+      "*": [
+        "quiero un panel con gráficas de la temperatura de la casa",
+        null,
+        "gráfica del consumo de CPU de la semana",
+        "avísame si la gráfica pasa de cierto umbral",
+        "mis cuadros de mando",
+        "pon una curva del tráfico de red",
+        "quiero ver los datos en barras y valores",
+        "panel con el consumo eléctrico del mes"
+      ],
+      "voir": [
+        "enséñame el panel del servidor de las últimas 24 horas",
+        "abre el tablero de la casa"
+      ],
+      "panneau": [
+        "añade un panel con la memoria usada",
+        "gráfica de temperatura con umbral a 30"
+      ],
+      "tableaux": [
+        "lista de mis tableros",
+        "¿qué cuadros de mando tengo?"
+      ]
+    },
+    "dvalinn": {
+      "*": [
+        "convierte este vídeo a mp4",
+        null,
+        "pasa esta imagen de HEIC a JPG",
+        "comprime el PDF que pesa demasiado",
+        "quita páginas a este PDF",
+        "convierte todos los vídeos de la carpeta",
+        "genera un UUID",
+        "decodifica este base64"
+      ],
+      "convertir": [
+        "convierte el docx a PDF",
+        "pasa el audio a mp3"
+      ],
+      "pdf": [
+        "junta los PDF de la factura",
+        "protege con contraseña este PDF"
+      ],
+      "outil": [
+        null,
+        "decodifica este JWT"
+      ]
+    },
+    "champollion": {
+      "*": [
+        "saca el texto de esta foto",
+        "¿qué pone en este documento escaneado?",
+        "lee este ticket y dime el importe",
+        "reconoce el texto del PDF",
+        "¿de qué trata esta carta?",
+        "extrae las fechas y citas de este correo",
+        "quiero poder buscar dentro de un PDF escaneado",
+        "¿qué dice en este audio?"
+      ],
+      "lire": [
+        "lee este archivo y dime lo que hay",
+        "saca el texto de la foto del contrato"
+      ],
+      "texte": [
+        "entiende este texto y saca fechas e importes",
+        "¿qué tipo de documento es este texto?"
+      ],
+      "pdf_cherchable": [
+        null,
+        "añade capa de texto al PDF"
+      ]
+    },
+    "mimisbrunnr": {
+      "*": [
+        "busca en los logs del sistema",
+        "¿qué errores hay en el registro de esta noche?",
+        "mira en /var/log qué pasó a las tres",
+        "centraliza los registros de todos los servidores",
+        "mensaje que se repite sin parar en el journal",
+        "avísame si este error vuelve a salir mucho",
+        null,
+        "¿por qué se reinició el servidor? mira los logs"
+      ],
+      "chercher": [
+        "busca «error» en los logs de ayer",
+        "logs de nivel crítico de la última hora"
+      ],
+      "repetes": [
+        "¿qué mensajes se repiten más?",
+        "los errores más frecuentes de la semana"
+      ],
+      "regle": [
+        "avísame si este mensaje vuelve demasiado",
+        "crea una regla para el error de disco"
+      ]
+    },
+    "gefjon": {
+      "*": [
+        "el disco está lleno, ¿qué puedo borrar?",
+        "limpia los archivos temporales",
+        "el pc tarda tres siglos en arrancar",
+        "¿qué programas se abren solos al iniciar?",
+        "vacía la caché y la papelera",
+        "¿qué carpetas ocupan más?",
+        null,
+        "haz limpieza a fondo"
+      ],
+      "nettoyer": [
+        "borra los temporales",
+        "limpia todo"
+      ],
+      "demarrage": [
+        "programas de inicio",
+        "¿qué se lanza al arrancar Windows?"
+      ],
+      "carte": [
+        "mapa del espacio del disco",
+        "¿qué me ocupa tanto en la carpeta personal?"
+      ]
+    },
+    "sol": {
+      "*": [
+        "¿dónde están las fotos del viaje a Lisboa?",
+        "mis fotos de 2019",
+        "fotos repetidas, bórralas",
+        "crea un álbum con las de Navidad",
+        "fotos hechas con el móvil viejo",
+        "fotos que tienen ubicación",
+        "línea de tiempo de mis fotos",
+        null
+      ],
+      "chercher": [
+        "fotos de agosto de 2022",
+        "búscame las fotos de la cámara Canon"
+      ],
+      "doublons": [
+        "¿qué fotos tengo duplicadas?",
+        "encuentra fotos repetidas"
+      ],
+      "album": [
+        "haz un álbum con las fotos del verano",
+        "crea álbum de las fotos de 2021"
+      ]
+    },
+    "fensalir": {
+      "*": [
+        "¿qué discos tengo y cuánto les queda?",
+        "comparte esta carpeta en la red para Windows",
+        "¿cuántos recursos compartidos hay?",
+        "el NAS tiene un disco lleno",
+        "particiones del disco",
+        null,
+        "quiero acceder a esta carpeta desde el mac",
+        "¿el disco de datos está sano?"
+      ],
+      "disques": [
+        "lista de discos y particiones",
+        "¿cómo están los discos del NAS?"
+      ],
+      "partages": [
+        "¿qué carpetas se comparten en la red?",
+        "recursos compartidos Samba"
+      ],
+      "ajouter_partage": [
+        "comparte la carpeta Películas",
+        "crea un recurso compartido para la impresora de escaneo"
+      ]
+    },
+    "hlid": {
+      "*": [
+        "¿qué puertos están abiertos?",
+        "abre el puerto 25565 para el servidor de Minecraft",
+        null,
+        "¿qué puertos deja pasar el router desde internet?",
+        "¿cuál es mi IP pública?",
+        "tablas de rutas",
+        "reglas del firewall",
+        "cierra el acceso al puerto 3306 desde fuera"
+      ],
+      "etat": [
+        "estado del cortafuegos y puertos accesibles",
+        "¿qué se puede alcanzar desde la red?"
+      ],
+      "ouvrir_port": [
+        "abre el puerto 8080 solo para la red local",
+        "deja entrar el puerto 51820"
+      ],
+      "box": [
+        "¿qué puertos abrió el UPnP en la caja?",
+        "puertos abiertos en el router"
+      ]
+    },
+    "ivaldi": {
+      "*": [
+        "¿cómo van mis repositorios?",
+        "¿tengo cambios sin hacer commit?",
+        "clona este repo",
+        "actualiza todos los repos",
+        "abre una terminal en el servidor",
+        "¿qué ramas tengo por subir?",
+        "mis proyectos de código",
+        "pull de todos los repos sin romper nada"
+      ],
+      "depots": [
+        "lista de repositorios y su estado",
+        "¿qué repos tienen commits sin enviar?"
+      ],
+      "cloner": [
+        "clona https://example.org/proyecto.git",
+        "copia el repo del blog"
+      ],
+      "ouvrir_terminal": [
+        "abre una terminal en el NAS",
+        "terminal persistente en la máquina de Odin"
+      ]
+    },
+    "heidrun": {
+      "*": [
+        "corta internet al niño",
+        "control parental",
+        "el crío no se va a la cama por la tablet",
+        "¿qué webs ha visitado mi hija?",
+        "perfil para mi hijo de 8 años",
+        "bloquea las webs para adultos en la tablet de la niña",
+        "hora de dormir a las 21:30 para internet",
+        "¿cuánto tiempo pasa conectado?"
+      ],
+      "pause": [
+        "pausa internet para Lucas",
+        "corta la conexión de los niños ya"
+      ],
+      "profil": [
+        "crea un perfil para Sara, 12 años",
+        "cambia la hora de dormir de Pablo"
+      ],
+      "rapport": [
+        "informe de la navegación de mi hijo",
+        "¿qué ha bloqueado esta semana en la tablet?"
+      ]
+    },
+    "leikvangr": {
+      "*": [
+        null,
+        "mis juegos retro",
+        "ordena mis ROMs por consola",
+        null,
+        "lanza el Zelda en la tele",
+        "juegos favoritos",
+        null,
+        "a qué jugué la semana pasada"
+      ],
+      "lancer": [
+        "abre Sonic",
+        "arranca el Tetris"
+      ],
+      "jeux": [
+        "lista de juegos de SNES",
+        "¿qué juegos tengo?"
+      ],
+      "ranger": [
+        "ordena la carpeta de juegos",
+        "clasifica las ROMs"
+      ]
+    },
+    "snotra": {
+      "*": [
+        "crea un documento Word con este texto",
+        "hazme una hoja de cálculo con estos gastos",
+        "corrige la ortografía de este texto",
+        "¿dónde está el documento del contrato?",
+        "lee este Excel",
+        "busca en mis documentos la palabra factura",
+        "quiero una presentación",
+        "revisa la gramática de esta carta"
+      ],
+      "corriger": [
+        "corrige este párrafo",
+        "revisa la ortografía del correo"
+      ],
+      "creer": [
+        "crea un documento con título Acta de reunión",
+        "hazme un docx con esta lista"
+      ],
+      "tableur": [
+        "crea un Excel con nombre y cantidad",
+        "hoja de cálculo con sumas"
+      ]
+    },
+    "hlin": {
+      "*": [
+        null,
+        "mis datos personales están en un directorio, quiero borrarlos",
+        "¿mi correo ha salido en alguna filtración?",
+        "privacidad en internet",
+        "carta para que borren mis datos según el RGPD",
+        "alguien ha creado una web que imita la mía",
+        "¿qué se ve de mí en Google?",
+        "quiero desaparecer de los buscadores de personas"
+      ],
+      "chercher": [
+        "comprueba dónde aparezco",
+        "busca mi seudónimo en la red"
+      ],
+      "lettre": [
+        "prepara una carta de supresión RGPD",
+        "carta de derecho de acceso para esta empresa"
+      ],
+      "etat": [
+        "¿qué se ve de mí y con qué riesgo?",
+        "estado de mis solicitudes de borrado"
+      ]
+    },
+    "durinn": {
+      "*": [
+        "¿mis discos están bien?",
+        "el SSD hace cosas raras",
+        "temperatura del disco duro",
+        "valores SMART",
+        "¿cuánto le queda al SSD?",
+        "prueba la velocidad del disco",
+        "el disco hace ruido",
+        "¿el NVMe está sano?"
+      ],
+      "sante": [
+        "estado de salud de los discos",
+        "¿algún disco en mal estado?"
+      ],
+      "smart": [
+        "valores SMART del disco sda",
+        "explícame el SMART del SSD"
+      ],
+      "banc": [
+        "test de velocidad del disco",
+        "mide lectura y escritura del NVMe"
+      ]
+    },
+    "hel": {
+      "*": [
+        "he borrado fotos sin querer de la tarjeta SD",
+        "recupera archivos borrados",
+        "la partición ha desaparecido",
+        "he formateado el pendrive por error",
+        "recupera documentos de un disco que no arranca",
+        "¿se puede recuperar lo que borré ayer?",
+        null,
+        "los vídeos de la cámara han desaparecido"
+      ],
+      "recuperer": [
+        "recupera los archivos borrados del pendrive en otro disco",
+        "rescata las fotos de la SD"
+      ],
+      "chercher": [
+        "busca particiones perdidas en el disco externo",
+        "¿hay particiones perdidas?"
+      ],
+      "supports": [
+        "¿qué discos puedo analizar?",
+        "lista de soportes"
+      ]
+    },
+    "pegase": {
+      "*": [
+        "historial de navegación de ayer",
+        "¿qué web miré sobre recetas?",
+        "copia de seguridad del navegador",
+        "desconecta el navegador del móvil perdido",
+        "sincroniza las pestañas entre el portátil y el móvil",
+        "perfiles del navegador",
+        "favoritos en todos los dispositivos",
+        "protección de descargas en el navegador"
+      ],
+      "historique": [
+        "busca en el historial las páginas de vuelos",
+        "¿qué visité el lunes?"
+      ],
+      "copier": [
+        "copia ya los datos del navegador",
+        "haz copia de los marcadores"
+      ],
+      "revoquer": [
+        "desconecta el móvil viejo del navegador",
+        "quita la sesión de Pégaso en el portátil"
+      ]
+    },
+    "agora": {
+      "*": [
+        "tienda de apps de Odin",
+        "¿qué apps puede instalar el grupo de los niños?",
+        "añade este instalador al store",
+        "que todos los pcs de la oficina tengan Firefox",
+        "quita la app de juegos al grupo de alumnos",
+        "catálogo de aplicaciones disponibles",
+        "derechos por grupo para las aplicaciones",
+        "instalar programas en todos los móviles del grupo"
+      ],
+      "ajouter": [
+        "añade este programa a la tienda",
+        "mete la app web de recetas al store"
+      ],
+      "definir_mode": [
+        "pon Firefox como instalado de oficio para la oficina",
+        "retira el juego del grupo de niños"
+      ],
+      "catalogue": [
+        "¿qué hay en la tienda?",
+        "catálogo del store"
+      ]
+    },
+    "achille": {
+      "*": [
+        "pon a prueba la seguridad de mi web",
+        "quiero un proxy para interceptar peticiones",
+        "reenvía esta petición modificada",
+        "compara dos respuestas de mi servidor",
+        "codifica este texto en URL",
+        "¿mi web tiene cabeceras de seguridad?",
+        "pentest de mi propio sitio",
+        null
+      ],
+      "allumer_proxy": [
+        "enciende el proxy de prueba",
+        "arranca el proxy para mi móvil"
+      ],
+      "rejouer": [
+        "reenvía la petición de login con otro parámetro",
+        "repite esta petición"
+      ],
+      "controle_passif": [
+        "comprueba cabeceras y cookies de mi web",
+        "control pasivo de example.org"
+      ]
+    },
+    "atalante": {
+      "*": [
+        null,
+        "cola de descargas",
+        "limita la velocidad de descarga",
+        "descarga esto por la noche",
+        "reanuda la descarga que se cortó",
+        "¿cuánto le queda a la descarga?",
+        null,
+        "baja este enlace y comprueba la huella"
+      ],
+      "ajouter": [
+        "añade este enlace a la cola",
+        "descarga https://example.org/archivo.zip"
+      ],
+      "file": [
+        "¿qué descargas hay en marcha?",
+        "estado de las descargas"
+      ],
+      "vitesse": [
+        null,
+        "quita el límite de velocidad"
+      ]
+    },
+    "dodone": {
+      "*": [
+        "prueba mi API",
+        "manda una petición GET a mi servicio",
+        null,
+        null,
+        "tests sobre las respuestas de la API",
+        "variables de entorno para las peticiones",
+        "lanza todas las peticiones de la colección",
+        "¿responde bien el endpoint?"
+      ],
+      "envoyer": [
+        "envía un POST a /api/usuarios",
+        "haz una petición a example.org/salud"
+      ],
+      "importer": [
+        "importa este archivo OpenAPI",
+        null
+      ],
+      "lancer_collection": [
+        "lanza la colección de pruebas",
+        "ejecuta todas las peticiones"
+      ]
+    },
+    "theia": {
+      "*": [
+        null,
+        "¿me explicas qué sale en este dibujo?",
+        "busca la foto donde sale un perro en la playa",
+        "lee el documento escaneado",
+        "¿qué pasa en este vídeo?",
+        "encuentra imágenes parecidas a una puesta de sol",
+        "reconoce lo que ves",
+        "en esta foto sale mi salón, apréndelo"
+      ],
+      "voir": [
+        null,
+        "¿qué ves en la captura?"
+      ],
+      "retrouver": [
+        "busca la imagen de una bici roja",
+        "encuentra fotos de nieve"
+      ],
+      "corriger": [
+        "esto es mi gato, no un perro",
+        "corrige: es la cocina"
+      ]
+    },
+    "syrinx": {
+      "*": [
+        "¿qué se oye en este audio?",
+        "¿ha sonado el timbre?",
+        "reconoce los sonidos de la casa",
+        "¿el perro ha ladrado mientras no estaba?",
+        "¿a qué suena esta pieza de piano?",
+        "tempo y tonalidad de esta música",
+        "¿llora el bebé?",
+        "escucha y dime si se rompe un cristal"
+      ],
+      "ecouter": [
+        "escucha este sonido",
+        "¿qué hay en esta grabación?"
+      ],
+      "musique": [
+        "analiza esta canción",
+        "¿qué tono tiene?"
+      ],
+      "sons": [
+        "reconoce los sonidos",
+        "¿qué sonidos oíste esta noche?"
+      ]
+    },
+    "mathesis": {
+      "*": [
+        "aprende sobre jardinería",
+        "quiero que estudies este tema",
+        "lee esta web entera y apréndela",
+        "lo que no sabes, búscalo y apréndelo",
+        "deja de aprender",
+        "para todas las búsquedas automáticas",
+        "aprende de mis carpetas",
+        "estudia en profundidad"
+      ],
+      "confier": [
+        "aprende primero sobre redes",
+        "pon como prioridad el tema de impuestos"
+      ],
+      "couper": [
+        "corta todo el aprendizaje",
+        "para la lectura automática"
+      ],
+      "absorber": [
+        "lee entera la web example.org",
+        "absorbe este sitio"
+      ]
+    },
+    "pronoia": {
+      "*": [
+        "¿qué crees que pasará mañana?",
+        "previsión de lo que va a ocurrir en casa",
+        "¿aciertas en tus predicciones?",
+        "lo que esperas que pase esta semana",
+        "probabilidades de que llegue tarde",
+        "¿qué tan fiables son tus previsiones?",
+        "anticipa lo que necesito",
+        "predicciones en curso"
+      ],
+      "previsions": [
+        "¿qué predicciones tienes?",
+        "previsiones pendientes"
+      ],
+      "bilan": [
+        "¿cuánto aciertas?",
+        "tasa de acierto"
+      ],
+      "prevoir": [
+        "prevé lo que pasará",
+        "¿qué va a pasar mañana?"
+      ]
+    },
+    "keryx": {
+      "*": [
+        "quiero escribir a Odin desde fuera",
+        "asistente por mensajería que actúe por mí",
+        "añade mi número para que me conteste",
+        "cambia el código secreto del asistente",
+        "¿qué ha hecho el asistente hoy?",
+        "manda mensajes desde fuera para que gestione mi agenda",
+        "contestar mis mails cuando no estoy",
+        "historial del asistente"
+      ],
+      "ajouter_numero": [
+        "añade el número 600000000",
+        "autoriza mi Telegram"
+      ],
+      "code_secret": [
+        "cambia el código secreto",
+        "pon un código nuevo"
+      ],
+      "historique": [
+        null,
+        null
+      ]
+    }
+  },
+  "horsChamp": [
+    null,
+    "reserva un vuelo a Roma",
+    "recoge a los niños del colegio",
+    "tráeme un café",
+    "cásate conmigo",
+    "baila conmigo",
+    "arregla el grifo que gotea",
+    "plancha la camisa",
+    "saca al perro",
+    "haz los deberes de matemáticas",
+    "abrázame",
+    "compra entradas de cine",
+    "paga la factura del gas",
+    "conduce el coche por mí",
+    null,
+    null,
+    "cómprame acciones de Tesla",
+    "cose este botón",
+    "haz la compra en el supermercado",
+    "lleva el coche al taller",
+    "envía flores a mi novia",
+    null,
+    "juega al ajedrez conmigo",
+    "cuida a los niños",
+    "pide un taxi",
+    "cocina la cena de esta noche",
+    "apuesta en el partido",
+    "corta el césped",
+    "sal a correr por mí",
+    "pinta la pared",
+    "hazme la declaración de la renta"
+  ]
+}

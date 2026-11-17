@@ -1,0 +1,1894 @@
+{
+  "langue": "sw",
+  "ecriture": "latin",
+  "origine": "écrit pour Odin, non relu par une personne de cette langue ; listes alignées d'une langue à l'autre (même place, même idée), null = place vide d'une phrase retirée",
+  "aRelire": true,
+  "complet": true,
+  "applis": {
+    "saga": {
+      "*": [
+        "niliandika kitu kuhusu kukarabati jiko mahali fulani, kitafute",
+        "fungua madokezo yangu",
+        "nionyeshe jinsi madokezo yangu yanavyounganika",
+        "kichwa changu kimejaa mawazo, nisaidie kuyapanga",
+        "niliandika nini baada ya mkutano wa Jumanne?",
+        "nataka hazina ya maarifa ambapo kila kitu kimeunganishwa",
+        "andika hii mahali nisije nikasahau",
+        "onyesha mchoro wa madokezo yangu"
+      ],
+      "chercher": [
+        "tafuta kwenye madokezo kila kitu kuhusu bili ya intaneti",
+        "tafuta neno ruta kwenye maandishi yangu"
+      ],
+      "noter": [
+        "andika dokezo: Alhamisi nimpigie fundi bomba",
+        null
+      ],
+      "attention": [
+        null,
+        "kuna tarehe za mwisho zinazokaribia nimezisahau?"
+      ]
+    },
+    "runes": {
+      "*": [
+        "nahitaji jedwali la kufuatilia wateja",
+        "tengeneza hifadhidata ya vitabu nilivyowaazima watu",
+        "nataka ukurasa wenye jedwali na visanduku vya kuweka alama",
+        "anzisha jedwali la matumizi yangu na fomula ya jumla",
+        "nahitaji ubao wa kanban kwa kazi za nyumbani",
+        "fungua majedwali yangu ya kufuatilia",
+        "mawasiliano ya kazi yamevurugika, nahitaji rejista nzuri",
+        "tengeneza jedwali la zamu kama kalenda"
+      ],
+      "bases": [
+        "nina majedwali gani ya kumbukumbu?",
+        "orodhesha majedwali yangu ya ufuatiliaji"
+      ],
+      "ajouter": [
+        "ongeza rekodi kwenye jedwali la wasambazaji",
+        "weka mstari mpya kwenye jedwali la vitabu"
+      ],
+      "client": [
+        "fungua kadi ya mteja kwa ajili ya Juma Mwangi",
+        "sasisha kadi ya mteja, simu yake imebadilika"
+      ]
+    },
+    "draupnir": {
+      "*": [
+        "barua pepe yenye ankara ikifika ihifadhiwe yenyewe kwenye folda",
+        "unganisha programu moja na nyingine ili mambo yajifanye yenyewe",
+        "nataka kitu kianze chenyewe kila asubuhi",
+        "nimeweka mifumo gani ya otomatiki?",
+        "nimechoka kufanya kitu kilekile kwa mkono kila siku",
+        "weka mfuatano: kihisi kikilia nitumie arifa",
+        "fanya kazi zangu za kila siku ziwe za otomatiki",
+        "fungua otomatiki"
+      ],
+      "lister": [
+        "nionyeshe otomatiki zangu zote",
+        "mfuatano gani unafanya kazi sasa?"
+      ],
+      "executer": [
+        "endesha otomatiki ya ripoti ya asubuhi",
+        "anzisha sasa hivi mfuatano wa kunakili picha"
+      ],
+      "modele": [
+        "ongeza kiolezo cha otomatiki kilicho tayari",
+        "kuna kiolezo cha kuunganisha barua pepe na kalenda?"
+      ]
+    },
+    "archytas": {
+      "*": [
+        "niandikie skripti inayobadilisha majina ya picha kwa tarehe",
+        "tengeneza mpango: diski ikikaribia kujaa, safisha pipa la taka",
+        "nataka skripti yenye masharti na vigeu",
+        "fungua dirisha la skripti",
+        "kusanya hatua kadhaa kwenye skripti moja",
+        "nahitaji skripti ndogo ya kila jioni",
+        "tengeneza otomatiki ya hatua kadhaa bila kuandika msimbo",
+        "skripti inayonitumia muhtasari kila Ijumaa"
+      ],
+      "mes_scripts": [
+        "nina skripti gani?",
+        "nionyeshe orodha ya skripti zangu"
+      ],
+      "lancer": [
+        "endesha skripti ya kusafisha vipakuliwa",
+        "anzisha skripti yangu ya ukaguzi wa usiku"
+      ],
+      "creer": [
+        "unda skripti inayozima taa saa sita usiku",
+        "tengeneza skripti mpya ya kukagua nafasi kwenye diski"
+      ]
+    },
+    "eir": {
+      "*": [
+        "kompyuta inakwama, nini kinaibebesha mzigo?",
+        "RAM iliyo wazi ni kiasi gani?",
+        "prosesa inapata joto, joto ni kiasi gani?",
+        "kwa nini feni inalia kama ndege",
+        "onyesha mzigo wa mashine",
+        "afya ya kompyuta kwa ujumla ikoje?",
+        "jana jioni kila kitu kilikuwa kinakwama, nionyeshe grafu ya kumbukumbu",
+        "nani anakula prosesa yote"
+      ],
+      "etat": [
+        "hali ya mashine sasa hivi",
+        "tafadhali onyesha matumizi ya prosesa na kumbukumbu"
+      ],
+      "processus": [
+        "ni michakato gani inaendeshwa?",
+        "orodha ya michakato kwa matumizi ya kumbukumbu"
+      ],
+      "arreter_processus": [
+        "ua mchakato wa chrome uliokwama",
+        "simamisha mchakato uliokula kumbukumbu yote"
+      ]
+    },
+    "skogul": {
+      "*": [
+        "programu fulani inatenda kwa ajabu, ikague",
+        "kitu kinafungua dirisha la amri chenyewe",
+        "programu inaingia mahali isipopaswa",
+        "fuatilia tabia ya programu",
+        "mchakato nisioujua unasimba mafaili kwa siri, nifanye nini",
+        "gundua kama programu itaanza kufanya jambo lisilo la kawaida",
+        "notepad ghafla imeunganika na intaneti, ni kawaida?",
+        "kagua tabia ya michakato kama ina shaka",
+        "word imeendesha powershell, ni kawaida?",
+        "mchakato unabadilisha majina ya mafaili kwa wingi",
+        "programu isiyo na dirisha ghafla imeanza kusoma hati zote",
+        "fuatilia kama kuna kitu kinachotenda kama programu ya fidia"
+      ],
+      "analyser": [
+        "kagua tabia ya programu sasa hivi",
+        "chunguza kama kuna michakato yenye tabia ya kutiliwa shaka"
+      ],
+      "tuer": [
+        "zima programu inayotenda kama virusi",
+        "simamisha mchakato wenye tabia ya kushukiwa"
+      ]
+    },
+    "forseti": {
+      "*": [
+        "onyesha tahadhari zote za usalama mahali pamoja",
+        "nini kimetokea kiusalama wiki hii?",
+        "fungua kituo cha usalama",
+        "kuna vitisho nisivyovijua?",
+        "kagua kama tunatimiza masharti ya usalama",
+        "mafaili nyeti yenye nywila na nakala za pasipoti yako wapi?",
+        "muhtasari wa kengele za mifumo yote",
+        "winda vitisho kwenye kumbukumbu za mfumo"
+      ],
+      "alertes": [
+        "kengele za karibuni za usalama",
+        "tahadhari gani zilikuja usiku?"
+      ],
+      "chercher": [
+        "tafuta dalili za uvamizi kwenye kumbukumbu zote",
+        "fanya uwindaji wa vitisho kwa anwani hii ya IP"
+      ],
+      "conformite": [
+        "ukaguzi wa kufuata masharti",
+        "tunapita ukaguzi wa ufuasi au la?"
+      ]
+    },
+    "garmr": {
+      "*": [
+        "mtu anajaribu nywila kwenye ssh, mpige marufuku",
+        "majaribio mengi ya kuingia yaliyoshindwa kwenye seva, tufanye nini",
+        "zuia wanaojaribu kuvunja barua pepe",
+        "boti inagonga fomu ya kuingia kwenye tovuti",
+        "nani amezuiwa kwa kubahatisha nywila?",
+        "niondolee marufuku anwani yangu, nimekosea nywila mimi mwenyewe",
+        "kinga dhidi ya kubahatisha nywila",
+        "angalia nani anajaribu kuingia kwa nguvu",
+        "kwenye logi kuna mamia ya majaribio ya kuingia kama root",
+        "mtu anabahatisha nywila kwenye seva ya barua pepe",
+        "zuia anwani baada ya majaribio matano yaliyoshindwa"
+      ],
+      "bannis": [
+        "orodha ya anwani zilizopigwa marufuku",
+        "nani yuko marufukuni sasa?"
+      ],
+      "bannir": [
+        "piga marufuku 198.51.100.23",
+        "zuia anwani hii, inabahatisha nywila"
+      ],
+      "debannir": [
+        "ondoa marufuku kwa 198.51.100.40",
+        "fungulia IP ya ofisini kwangu"
+      ]
+    },
+    "geri": {
+      "*": [
+        "kompyuta inaunganika na seva ya ajabu, kagua",
+        "kuna miunganisho na anwani hasidi?",
+        "kagua kama kikoa hiki ni hatari",
+        "kifaa gani kinaenda kwenye seva za kuongoza botnet",
+        "maombi ya DNS ya kutiliwa shaka kwenye mtandao",
+        "IP hii ni mbaya au la?",
+        "zuia kutoka kwenda tovuti zilizoambukizwa",
+        "kinga dhidi ya programu hasidi kwa miunganisho ya mtandao"
+      ],
+      "connexions": [
+        "kuna miunganisho gani inayotoka sasa?",
+        "onyesha miunganisho ya sasa na intaneti"
+      ],
+      "verifier": [
+        "kagua anwani 198.51.100.77 kwenye orodha nyeusi",
+        "kikoa hiki kiko kwenye orodha za hasidi?"
+      ],
+      "listes": [
+        "sasisha orodha za anwani hatari",
+        "leta orodha nyeusi mpya"
+      ]
+    },
+    "ran": {
+      "*": [
+        null,
+        "nani anaongea na nani kwenye mtandao wangu?",
+        "nani anapakua na kumaliza bando lote?",
+        "chambua trafiki hii tabaka kwa tabaka",
+        "trafiki hii inayotoka kwenye televisheni ni nini?",
+        "rekodi pakiti za mtandao na unieleze ni nini",
+        "intaneti iko polepole, angalia nini kinashughulisha mtandao",
+        "nahitaji kinasa pakiti",
+        "nani anapakua torrent na kubana laini?",
+        "kwa nini ping inapanda na kushuka, nini kinashughulisha mtandao?"
+      ],
+      "lire": [
+        "anza kunasa pakiti",
+        "sikiliza trafiki kwenye kadi ya mtandao"
+      ],
+      "trafic": [
+        "kila kifaa kina trafiki kiasi gani?",
+        "nani analemea mtandao zaidi?"
+      ],
+      "expliquer": [
+        "eleza kwa urahisi kinachoendelea kwenye mtandao sasa",
+        "pakiti hizi ni nini, nieleze"
+      ]
+    },
+    "ullr": {
+      "*": [
+        null,
+        "nimepakua faili, imeambukizwa?",
+        "chunguza flash",
+        "kinga ya virusi imewashwa?",
+        null,
+        "barua pepe ya kutiliwa shaka imekuja, kagua kiambatisho",
+        "kiungo hiki ni salama?",
+        "anza ukaguzi kamili wa virusi"
+      ],
+      "analyser": [
+        "anza kuchanganua",
+        "fanya ukaguzi wa haraka wa virusi kwenye mfumo"
+      ],
+      "fichier": [
+        "kagua faili setup.exe kwenye vipakuliwa",
+        "chunguza faili hili lililobanwa"
+      ],
+      "quarantaine": [
+        "nini kiko karantini?",
+        "onyesha mafaili yaliyotengwa"
+      ]
+    },
+    "loki": {
+      "*": [
+        "weka mitego kwa wadukuzi",
+        "nataka chambo ili nione nani anatushambulia",
+        "tengeneza ssh bandia kunasa boti",
+        "nani ameingia kwenye mitego leo?",
+        "nahitaji honeypot",
+        "wavute washambuliaji kwenye seva bandia",
+        "nionyeshe wadukuzi walifanya nini kwenye mtego",
+        "washa huduma bandia za chambo"
+      ],
+      "allumer": [
+        "washa mtego kwenye mlango 22",
+        "anzisha chambo cha telnet"
+      ],
+      "activite": [
+        "nini kinaendelea kwenye mitego sasa?",
+        "shughuli za mitego usiku kucha"
+      ],
+      "statistiques": [
+        "takwimu za mitego",
+        "tumenasa mashambulizi mangapi mwezi huu?"
+      ]
+    },
+    "argos": {
+      "*": [
+        "muhtasari wa ulinzi wa kompyuta zote ofisini",
+        "tukio liko kwenye kompyuta ipi?",
+        "dashibodi ya usalama wa vituo vyote",
+        "tenga laptop iliyoambukizwa na mtandao",
+        "nini kinaendelea kwenye vituo vya kazi?",
+        "nionyeshe EDR",
+        "mfuatano wa matukio kwenye kompyuta ya uhasibu",
+        "mashine zote ofisini zinalindwa?"
+      ],
+      "incidents": [
+        "matukio yaliyo wazi kwenye vituo",
+        "matukio gani hayajashughulikiwa?"
+      ],
+      "postes": [
+        "orodha ya vituo vya kazi na ulinzi wao",
+        "onyesha kompyuta zote zinazofuatiliwa"
+      ],
+      "isoler_poste": [
+        "kata kompyuta iliyoambukizwa kutoka mtandaoni",
+        "tenga laptop ya Amina, ina virusi"
+      ]
+    },
+    "naglfar": {
+      "*": [
+        "kontena gani zinaendeshwa?",
+        "anzisha nginx kutoka kwenye picha",
+        "kontena imeanguka, angalia kumbukumbu zake",
+        "sasisha picha ya kontena",
+        "endesha programu kwenye kontena bila docker",
+        "safisha picha zisizotumika",
+        "anzisha upya kontena ya hifadhidata",
+        "kontena zangu ziko vipi"
+      ],
+      "lister": [
+        null,
+        "onyesha kontena zote zinazoendeshwa"
+      ],
+      "journaux": [
+        "kumbukumbu za kontena web",
+        "kontena inaandika nini kwenye logi?"
+      ],
+      "redemarrer": [
+        "restart kontena ya redis",
+        "anzisha upya kontena ya programu"
+      ]
+    },
+    "urdr": {
+      "*": [
+        "nitengenezee hifadhidata ya postgres",
+        "nataka kuchezea majedwali ya hifadhidata kama excel",
+        "unganisha hifadhidata yangu",
+        "nina hifadhidata gani?",
+        "endesha swali la SQL",
+        "onyesha muundo wa hifadhidata",
+        null,
+        "fungua majedwali ya postgres"
+      ],
+      "bases": [
+        "orodha ya hifadhidata zangu",
+        "hifadhidata gani zimeunganishwa?"
+      ],
+      "creer": [
+        "unda hifadhidata mpya ya PostgreSQL kwa mradi",
+        "fungua hifadhidata tupu kwa tovuti"
+      ],
+      "sql": [
+        "endesha select * from users limit 10",
+        "tekeleza swali kwenye hifadhidata"
+      ]
+    },
+    "skuld": {
+      "*": [
+        "hifadhi nakala ya hifadhidata",
+        "dump ya postgres inachukuliwa mara ngapi?",
+        "rudisha hifadhidata kutoka dump ya jana",
+        "nakala za hifadhidata zinatunzwa kwa muda gani?",
+        "nakala za hifadhidata zinapelekwa kwenye seva ya pili?",
+        "dump ya mysql kwa ratiba",
+        "thibitisha kwamba nakala ya hifadhidata inasomeka",
+        "hifadhi hifadhidata kila usiku",
+        "hifadhidata ya postgres kwenye seva haijawahi kunakiliwa",
+        "hifadhidata ya duka ikiharibika nitairudisha kutoka wapi?",
+        "dump za hifadhidata ziwe pia kwenye eneo la pili",
+        "thibitisha kwamba dump ya mariadb ya jana iko salama",
+        "tunatunza dump ngapi za hifadhidata?",
+        "kabla ya kubadilisha muundo chukua nakala ya hifadhidata"
+      ],
+      "sauvegarder": [
+        "chukua dump ya hifadhidata sasa hivi",
+        "hifadhi hifadhidata ya wateja mara moja"
+      ],
+      "plan": [
+        "weka nakala ya hifadhidata kila usiku saa tisa",
+        "ratiba ya kuhifadhi nakala za hifadhidata"
+      ],
+      "restaurer": [
+        "rudisha hifadhidata kwenye dump ya Jumatatu",
+        "rejesha hifadhidata kutoka kwenye nakala"
+      ]
+    },
+    "rodd": {
+      "*": [
+        "nataka kuongea na maandishi yajiandike yenyewe",
+        "nitasoma barua kwa sauti, ipange",
+        "washa imla",
+        "tafsiri mazungumzo na mgeni moja kwa moja",
+        "ongeza neno langu, imla inaliandika vibaya kila mara",
+        "nimechoka kuandika, nitaongea",
+        "kuandika kwa sauti kila mahali",
+        "geuza sauti yangu kuwa maandishi"
+      ],
+      "dicter": [
+        "panga maandishi niliyosoma kwa sauti",
+        "rekebisha alama za uakifishaji kwenye imla"
+      ],
+      "ajouter_mot": [
+        "ongeza neno Kubernetes kwenye kamusi ya imla",
+        "fundisha imla jina langu la ukoo"
+      ],
+      "ouvrir": [
+        "tafsiri mazungumzo yangu na mtalii",
+        "washa tafsiri ya mazungumzo ya lugha mbili"
+      ]
+    },
+    "svalinn": {
+      "*": [
+        "wifi haishiki vizuri chumbani",
+        "wi-fi yangu iko salama?",
+        "nani ameunganika na wifi yangu?",
+        "tengeneza mtandao wa wageni kwa marafiki",
+        "chaneli gani ya wifi ni bora?",
+        "majirani wanajaza chaneli, tufanye nini",
+        "pima kasi ya wifi",
+        "tathmini ulinzi wa mtandao usiotumia waya"
+      ],
+      "etat": [
+        "chambua wifi",
+        "alama ya usalama wa wi-fi ni ngapi?"
+      ],
+      "appareils": [
+        "nani yuko kwenye wifi yangu?",
+        "orodha ya vifaa kwenye mtandao wa wifi"
+      ],
+      "tester_debit": [
+        "jaribu kasi ya wifi",
+        "angalia kasi sebuleni"
+      ]
+    },
+    "ymir": {
+      "*": [
+        "tengeneza mashine pepe yenye ubuntu",
+        "piga picha ya hali ya mashine pepe",
+        "nina VM na LXC gani?",
+        "washa mashine pepe yenye windows",
+        "rudisha mashine kwenye snapshot",
+        "nahitaji mashine pepe mpya ya giga 4",
+        "anzisha upya vm",
+        "onyesha mashine zote za hypervisor"
+      ],
+      "parc": [
+        "mashine zangu zote",
+        "onyesha kundi zima la mashine pepe"
+      ],
+      "creer_machine": [
+        "unda mashine mpya ya debian yenye cores 2",
+        "fungua kontena ya LXC kwa tovuti ya majaribio"
+      ],
+      "instantane": [
+        "chukua snapshot ya vm kabla ya kusasisha",
+        "snapshot ya mashine web-01"
+      ]
+    },
+    "idunn": {
+      "*": [
+        "tovuti yangu imeanguka",
+        "tovuti inafunguka polepole, kagua",
+        "sambaza upya tovuti",
+        "rudisha tovuti kwenye toleo lililopita",
+        "fuatilia tovuti zangu",
+        "sasisha vitegemezi vya tovuti, kuna udhaifu",
+        "kwa nini tovuti inatoa 502?",
+        "hali ya tovuti ikoje?"
+      ],
+      "sites": [
+        "tovuti zangu",
+        "orodha ya tovuti zinazofuatiliwa"
+      ],
+      "etat": [
+        "tovuti example.org iko vipi?",
+        "tovuti ya duka iko katika hali gani?"
+      ],
+      "relancer": [
+        "anzisha upya tovuti",
+        "inua tovuti iliyoanguka"
+      ]
+    },
+    "sindri": {
+      "*": [
+        "hifadhi nakala ya folda ya nyaraka",
+        "rudisha faili nililofuta wiki iliyopita",
+        "nakala ya kompyuta zote za nyumbani",
+        "chukua picha kamili ya diski",
+        "nakala zangu za akiba ziko wapi?",
+        "rudisha toleo la jana la faili",
+        "weka nakala za nyongeza kila usiku",
+        "kagua kwamba nakala ya akiba haijaharibika",
+        "diski kuu imekufa na picha zilikuwa humo tu",
+        "laptop ya mke wangu ijinakili yenyewe kila saa",
+        "chukua picha kamili ya diski ya mfumo kabla ya kusakinisha upya",
+        "tafuta kwenye nakala za akiba faili la pasipoti",
+        "matoleo ya zamani kwenye nakala za akiba yanachukua nafasi kiasi gani?",
+        "nakili folda ya miradi kwenye hifadhi ya mtandao"
+      ],
+      "sauvegarder": [
+        "hifadhi nakala sasa hivi",
+        "anzisha kuhifadhi folda ya nyumbani"
+      ],
+      "restaurer": [
+        "rejesha folda ya picha kutoka kwenye nakala",
+        "rudisha faili la ripoti kutoka kwenye nakala ya akiba"
+      ],
+      "plans": [
+        "kuna mipango gani ya kuhifadhi nakala?",
+        "onyesha ratiba za nakala za akiba"
+      ]
+    },
+    "brisingamen": {
+      "*": [
+        "nywila ya wifi ya nyumba ya pwani ni ipi, iko kwenye kasha?",
+        "fungua kidhibiti cha nywila",
+        "tengeneza nywila imara",
+        "hifadhi nywila ya benki kwenye kasha",
+        "kasha la nywila la pamoja kwa familia",
+        "msimbo wa uthibitisho wa hatua mbili wa barua pepe uko wapi?",
+        "nina nywila dhaifu?",
+        "nywila zangu zimevuja?",
+        "nywila ya tovuti ya serikali niliiweka wapi?",
+        "toa kwenye kasha namba ya siri ya mlango wa jengo",
+        "weka kwenye kasha jina la mtumiaji na nywila ya mtoa huduma wa intaneti",
+        "natumia nywila ileile kila mahali, ni vibaya?",
+        "mke wangu anahitaji nywila ya netflix tunayoshiriki",
+        "hifadhi misimbo ya kurejesha barua pepe mahali salama"
+      ],
+      "chercher": [
+        "tafuta kwenye kasha nywila ya ruta",
+        "jina langu la mtumiaji lililohifadhiwa kwa example.org ni lipi?"
+      ],
+      "generer": [
+        "buni nywila ya herufi 20",
+        "tengeneza nywila ngumu"
+      ],
+      "fuites": [
+        "kagua kama nywila zangu zimevuja",
+        "nywila nilizohifadhi zimo kwenye uvujaji wa data?"
+      ]
+    },
+    "gjoll": {
+      "*": [
+        "nataka kuingia kwenye mtandao wa nyumbani nikiwa safarini",
+        "weka vpn kwenda nyumbani",
+        "nipe msimbo wa QR kuunganisha simu na VPN ya nyumbani",
+        "nani ameunganika kupitia VPN sasa?",
+        "zima handaki",
+        "ongeza laptop kwenye vpn",
+        "kuunganika na nyumbani kwa usalama nikiwa mgahawani",
+        null
+      ],
+      "ajouter": [
+        "ongeza simu ya mke wangu kwenye VPN",
+        "kifaa kipya kwa vpn"
+      ],
+      "qr": [
+        "onyesha msimbo wa QR wa kuunganisha vpn",
+        null
+      ],
+      "allumer": [
+        "washa handaki la VPN",
+        "anzisha vpn"
+      ]
+    },
+    "vidarr": {
+      "*": [
+        "kata matangazo kwenye mtandao wote",
+        "zuia tovuti kwa vifaa vyote",
+        "kwa nini tovuti haifunguki, DNS inaizuia?",
+        "zima tiktok nyumbani",
+        "ipe seva yangu jina kwenye mtandao wa ndani",
+        "matangazo kwenye televisheni yamenichosha",
+        "nionyeshe vikoa ambavyo vifaa vinaomba",
+        "vifuatiliaji visipite",
+        "matangazo yanaibuka kwenye vifaa vyote",
+        "kwa nini tovuti ya benki haifunguki? labda DNS inaikata",
+        "laptop ya mwanangu isiingie intaneti kabisa",
+        "televisheni inaomba tovuti gani zaidi?"
+      ],
+      "bloquer": [
+        "zuia kikoa example.org",
+        "piga marufuku tovuti ya kamari"
+      ],
+      "autoriser": [
+        "ondoa kizuizi kwenye tovuti hii, naihitaji kazini",
+        "ongeza kikoa kwenye orodha nyeupe"
+      ],
+      "pause": [
+        "zima uzuiaji wa matangazo kwa dakika tano",
+        "sitisha kizuizi kwa muda"
+      ]
+    },
+    "vordr": {
+      "*": [
+        "fuatilia kwamba seva inapatikana",
+        "niambie tovuti ikianguka",
+        "kagua cheti kisiishe muda",
+        "huduma zimekuwa hewani kwa muda gani?",
+        "tengeneza ukurasa wa hali",
+        "fuatilia mlango 443",
+        "huduma gani zimeanguka sasa?",
+        "piga ping ruta kila dakika"
+      ],
+      "ajouter": [
+        "ongeza ukaguzi kwa example.org",
+        "fuatilia mlango 22 kwenye 198.51.100.10"
+      ],
+      "problemes": [
+        "matatizo gani yako wazi sasa?",
+        "nini kimeanguka?"
+      ],
+      "page_publique": [
+        "tengeneza ukurasa wa hali wa umma",
+        "fungua ukurasa wa hali kwa wateja"
+      ]
+    },
+    "askr": {
+      "*": [
+        "sajili laptop mpya kwenye orodha ya mali",
+        "dhamana ya printa inaisha lini?",
+        "projekta nilimwazima nani?",
+        "namba ya utambulisho ya ruta ni ipi?",
+        "chapisha kibandiko cha QR kwa skrini",
+        "orodha ya vifaa vya ofisi",
+        "tuna leseni ngapi za office?",
+        "seva iko chumba gani?"
+      ],
+      "ajouter": [
+        "ongeza skrini mpya ya Dell kwenye orodha ya mali",
+        "fungua kadi ya mali kwa tablet"
+      ],
+      "chercher": [
+        "tafuta laptop zote kwenye orodha ya mali",
+        "skana imesajiliwa wapi?"
+      ],
+      "etiquette": [
+        "tengeneza kibandiko cha QR kwa laptop",
+        "chapisha lebo ya kubandika kwenye kompyuta"
+      ]
+    },
+    "valgrind": {
+      "*": [
+        "nataka kufungua huduma ya nyumbani kwa jina zuri kupitia https",
+        "weka proxy ya kinyume",
+        "pata cheti cha letsencrypt kwa wingu",
+        "weka nywila kwenye ukurasa wa huduma",
+        "elekeza anwani ya zamani kwenda mpya",
+        "weka https kwa nextcloud ndani ya mtandao",
+        "reverse proxy kwa huduma zangu",
+        "cheti kinakaribia kuisha, kifanye upya"
+      ],
+      "ajouter": [
+        "ongeza tovuti cloud.example.org kwenye proxy",
+        "pitisha huduma ya mlango 8080 kwenye proxy"
+      ],
+      "certificat": [
+        "toa cheti kwa example.org",
+        "fanya upya cheti cha https"
+      ],
+      "proteger": [
+        "funga tovuti kwa nywila",
+        "weka jina la mtumiaji na nywila kwenye paneli"
+      ]
+    },
+    "var": {
+      "*": [
+        "ongeza mfanyakazi mpya ili aweze kuingia",
+        "mwanangu awe na akaunti yake mwenyewe",
+        "weka upya nywila ya akaunti ya Neema",
+        "washa uthibitisho wa hatua mbili kwenye akaunti yangu",
+        "nani ana ruhusa kwa programu zipi?",
+        "simu yangu imeibiwa, kata vipindi vyote vya akaunti yangu",
+        "unda kundi la uhasibu",
+        "kuingia mara moja kwa huduma zote za nyumbani",
+        "mfanyakazi mpya hawezi kuingia kwenye mfumo, hana akaunti",
+        "Musa ameacha kazi, funga uingiaji wake kila mahali",
+        "nani yuko kwenye kundi gani la ruhusa?",
+        "mwalike dada yangu kwa kiungo ajifungulie akaunti yake",
+        "lazima nibadilishe nywila ya kuingia Odin, imevuja",
+        "mpe Sara ruhusa ya programu ya picha lakini si ya uhasibu"
+      ],
+      "ajouter": [
+        "fungua akaunti ya mtumiaji kwa Baraka",
+        "ongeza mtu kwenye watumiaji"
+      ],
+      "mot_de_passe": [
+        "badilisha nywila ya kuingia ya Rehema",
+        "amesahau nywila ya akaunti yake, iweke upya"
+      ],
+      "double_auth": [
+        "washa uthibitisho wa hatua mbili kwenye akaunti yangu sasa",
+        "weka kipengele cha pili cha kuingia"
+      ]
+    },
+    "bru": {
+      "*": [
+        "nataka kuweka tovuti ya nyumbani kwenye intaneti bila kufungua milango",
+        null,
+        "chapisha folda yangu ya wingu kwenye kikoa changu",
+        "marafiki waingie kwenye huduma yangu kutoka nje bila kufungua mlango kwenye ruta",
+        "ondoa jina kwenye intaneti",
+        null,
+        "toa Odin nje kupitia handaki",
+        "kufikia kutoka nje kwa kikoa bila IP ya kudumu",
+        "sina IP ya umma lakini nataka kufungua tovuti nje",
+        "bila kuelekeza milango, fanya nextcloud ifikiwe kutoka intaneti kwa kikoa changu",
+        "ondoa tovuti ya picha kwenye intaneti, ibaki nyumbani tu"
+      ],
+      "creer": [
+        null,
+        "weka handaki jipya kwa kikoa"
+      ],
+      "publier": [
+        "chapisha photos.example.org kupitia handaki",
+        "weka huduma kwenye intaneti kwa kikoa changu"
+      ],
+      "etat": [
+        "handaki liko hai?",
+        "hali ya handaki"
+      ]
+    },
+    "skidbladnir": {
+      "*": [
+        "nipe kiungo ili bibi apakue picha",
+        "folda ya pamoja ya familia",
+        "google drive yangu mwenyewe nyumbani",
+        "pipa la taka la wingu langu liko wapi?",
+        "linganisha folda na laptop",
+        "tengeneza folda yangu peke yangu",
+        "unganisha wingu kama diski ya mtandao",
+        "rudisha toleo la zamani la hati kwenye wingu"
+      ],
+      "lien": [
+        "unda kiungo cha kushiriki kwa folda ya likizo",
+        "shiriki faili kwa kiungo"
+      ],
+      "espace": [
+        null,
+        "fungua folda binafsi ya Hamisi"
+      ],
+      "vider_corbeille": [
+        "mwaga pipa la taka la wingu",
+        "futa kila kitu kwenye pipa la mafaili"
+      ]
+    },
+    "eitri": {
+      "*": [
+        "pakua picha mpya ya ubuntu",
+        "weka iso ya windows ikiwa ya kisasa",
+        "nina ISO gani?",
+        "picha ya debian imesasishwa?",
+        "nahitaji iso ya kuokoa mfumo",
+        "weka picha za mifumo kwenye folda ya mtandao",
+        "fuatilia matoleo mapya ya distro",
+        "picha za kusakinisha mifumo"
+      ],
+      "catalogue": [
+        "picha gani zinaweza kupakuliwa?",
+        "onyesha katalogi ya ISO"
+      ],
+      "telecharger": [
+        "pakua iso ya Fedora",
+        "vuta picha ya Windows 11"
+      ],
+      "mettre_a_jour": [
+        "sasisha picha zote",
+        "leta matoleo mapya ya ISO"
+      ]
+    },
+    "fjalar": {
+      "*": [
+        "weka visakinishi vya programu vikiwa vipya",
+        "pakua 7-zip ya mwisho",
+        "folda ya visakinishi vya programu",
+        "sasisha visakinishi kwenye folda ya mtandao",
+        "programu gani ziko kwenye mkusanyiko wa visakinishi?",
+        "nahitaji toleo la mwisho la vlc ili kusakinisha",
+        "kagua visakinishi kama vina virusi",
+        "kusanya programu kwa kompyuta mpya"
+      ],
+      "catalogue": [
+        "programu gani zinaweza kufuatiliwa?",
+        "katalogi ya visakinishi"
+      ],
+      "telecharger": [
+        "pakua kisakinishi cha firefox",
+        "pakua notepad++ mpya"
+      ],
+      "mettre_a_jour": [
+        "sasisha visakinishi vyote",
+        "angalia na upakue matoleo mapya ya programu"
+      ]
+    },
+    "thjalfi": {
+      "*": [
+        "nataka kusakinisha windows kupitia mtandao bila flash",
+        "washa kompyuta kwa PXE",
+        "sakinisha upya mfumo kwenye laptop ya zamani kupitia mtandao",
+        "andaa flash ya kuwasha",
+        "kusakinisha mfumo wa uendeshaji kupitia mtandao",
+        "kompyuta mpya zijisakinishe zenyewe",
+        "kuwasha kupitia mtandao hakufanyi kazi",
+        "tengeneza flash yenye mifumo miwili"
+      ],
+      "allumer": [
+        "washa uwashaji wa mtandao",
+        "anzisha seva ya PXE"
+      ],
+      "reinstaller": [
+        "sakinisha upya mfumo kwenye kompyuta ya mhasibu",
+        "sakinisha mashine upya kupitia mtandao"
+      ],
+      "cle_preparer": [
+        "andaa flash ya kusakinisha",
+        "andika flash ya kuwasha mfumo"
+      ]
+    },
+    "gladsheim": {
+      "*": [
+        "fungua skrini ya nyumba kwenye tablet",
+        "onyesha kila kitu kuhusu nyumba kwenye skrini moja",
+        "hali ya hewa ikoje?",
+        "familia iko wapi sasa?",
+        "ongeza kitufe kwenye skrini kuu",
+        "paneli kwa tablet ya ukutani",
+        null,
+        "skrini kuu ya nyumba"
+      ],
+      "ouvrir": [
+        "fungua skrini ya nyumbani",
+        "onyesha paneli ya nyumba"
+      ],
+      "meteo": [
+        "hali ya hewa leo",
+        "mvua itanyesha jioni?"
+      ],
+      "positions": [
+        "watu wetu wako wapi?",
+        "onyesha kwenye ramani familia ilipo"
+      ]
+    },
+    "zeus": {
+      "*": [
+        "linganisha utabiri wa hali ya hewa kutoka vyanzo tofauti",
+        "nani anatabiri hali ya hewa kwa usahihi zaidi?",
+        "modeli tofauti zinasema nini kuhusu wikendi?",
+        null,
+        "modeli ya Ulaya na ya Marekani zinatofautiana?",
+        "niamini utabiri upi?",
+        "ulinganisho wa modeli za hali ya hewa",
+        "hali ya hewa ya mwezi ujao, muda mrefu"
+      ],
+      "comparer": [
+        "utabiri bega kwa bega",
+        "linganisha modeli za kesho"
+      ],
+      "bilan": [
+        "chanzo gani kilikosea kidogo?",
+        "nani alipatia hali ya hewa ya jana?"
+      ],
+      "mois": [
+        "hali ya hewa itakuwaje miezi ijayo?",
+        "utabiri wa msimu"
+      ]
+    },
+    "gna": {
+      "*": [
+        "nilikuwa wapi Jumamosi?",
+        "nionyeshe safari zangu za jana",
+        "historia ya mahali simu ilipokuwa",
+        "ni mahali gani ninaenda mara nyingi?",
+        "sitisha kurekodi safari zangu",
+        "futa safari zangu za wiki iliyopita",
+        "nimesafiri kilomita ngapi leo?",
+        "hamisha njia kwa gpx"
+      ],
+      "trajets": [
+        "njia za jana",
+        "onyesha safari za Jumatatu"
+      ],
+      "lieux": [
+        "mahali ninapokuwa mara kwa mara",
+        "maeneo ninayopenda kulingana na historia"
+      ],
+      "pause": [
+        "usirekodi mienendo yangu kwa sasa",
+        "sitisha historia ya mahali"
+      ]
+    },
+    "apparence": {
+      "*": [
+        "badilisha mandhari kuwa ya giza",
+        "nataka rangi nyingine",
+        "mwonekano kulingana na saa ya siku",
+        "ficha mhusika kwenye skrini",
+        "mandhari gani iko sasa?",
+        "fanya kiolesura kiwe changamfu zaidi",
+        "mandhari kulingana na hali ya hewa",
+        "nimechoka na mandharinyuma hii"
+      ],
+      "theme": [
+        "weka mandhari ya baridi",
+        "washa mwonekano wa giza"
+      ],
+      "etat": [
+        "mandhari gani imechaguliwa?",
+        "mwonekano wa sasa"
+      ],
+      "cacher": [
+        "ondoa mwenye macho kwenye skrini",
+        "jificha, unanisumbua"
+      ]
+    },
+    "commandes": {
+      "*": [
+        "nifanye hivi kwa amri gani?",
+        "onyesha orodha ya amri zote",
+        "nianzishe nakala ya akiba vipi kutoka kwenye terminal?",
+        "nipe mfano wa amri ya kuzuia tovuti",
+        "karatasi ya kunakili amri",
+        "nataka amri ya kubandika kwenye terminal",
+        "kuna amri gani kwa kila programu",
+        "niambie muundo wa amri"
+      ],
+      "chercher": [
+        "tafuta amri ya kuanzisha upya kontena",
+        "amri gani inakagua diski?"
+      ],
+      "liste": [
+        "amri zote",
+        "orodha kamili ya amri"
+      ]
+    },
+    "volva": {
+      "*": [
+        "tafuta mtandaoni jinsi ya kubadilisha oili ya gari",
+        "tafuta maoni kuhusu kisafishaji hiki",
+        "wanaandika nini kuhusu toleo jipya la kernel?",
+        "google mapishi ya pilau",
+        "tafuta vyanzo kuhusu mada hii",
+        "tafuta kwenye injini kadhaa kwa pamoja",
+        "nani alishinda mechi ya jana?",
+        "pata jibu lenye viungo"
+      ],
+      "chercher": [
+        "tafuta: jinsi ya kuweka vlan",
+        "pata habari kuhusu paneli za sola"
+      ],
+      "historique": [
+        "jana nilitafuta nini?",
+        "historia ya utafutaji"
+      ],
+      "moteurs": [
+        "injini gani za utafutaji zimeunganishwa?",
+        "orodha ya injini za utafutaji"
+      ]
+    },
+    "hermod": {
+      "*": [
+        "amsha kompyuta ya ofisini nyumbani",
+        "washa laptop ya mwanangu kupitia mtandao",
+        "kompyuta gani ziko wazi sasa?",
+        "anzisha upya kompyuta ya uhasibu kwa mbali",
+        "unganika na skrini ya kompyuta ya mama",
+        "endesha amri kwenye kompyuta zote",
+        "wake on lan kwa kompyuta ya kazi",
+        "msaidie dada yangu kwa mbali kwenye kompyuta yake",
+        "kompyuta ya ofisini imezimwa na nahitaji faili kutoka kwake",
+        "niko nyumbani, washa kompyuta yangu ya kazini kwa mbali",
+        "anzisha upya kompyuta zote za ofisi jioni",
+        "kompyuta gani ziko kwenye mtandao na masasisho yao yako vipi?"
+      ],
+      "parc": [
+        "kompyuta gani ziko mtandaoni?",
+        "hali ya kompyuta zote"
+      ],
+      "reveiller": [
+        "washa kupitia mtandao kompyuta ya sebuleni",
+        "amsha seva kutoka usingizini"
+      ],
+      "bureau": [
+        "chukua udhibiti wa kompyuta ya baba",
+        "eneo-kazi la mbali kwa kompyuta ya ofisi"
+      ]
+    },
+    "ratatoskr": {
+      "*": [
+        "unganisha seva ya MCP",
+        "nataka msaidizi mwingine atumie zana zangu",
+        "MCP gani zimeunganishwa?",
+        "mpe wakala wa nje ruhusa kwa Odin",
+        "tenganisha seva ya zana",
+        "ita zana kutoka seva iliyounganishwa",
+        "unganisha github kupitia mcp",
+        "daraja kwa zana za akili bandia"
+      ],
+      "serveurs": [
+        "orodha ya seva za MCP",
+        "kuna seva gani za zana?"
+      ],
+      "ajouter": [
+        null,
+        "ongeza seva ya zana kwa anwani"
+      ],
+      "outils": [
+        "seva hii ina zana gani?",
+        "onyesha zana za MCP"
+      ]
+    },
+    "appareils": {
+      "*": [
+        "washa taa jikoni",
+        "kuna vifaa gani nyumbani?",
+        "funga mapazia ya umeme",
+        "kihisi cha chumba cha watoto kinaonyesha nyuzi ngapi?",
+        "ongeza balbu mpya ya zigbee",
+        "badilisha jina la soketi ya sebuleni",
+        "chumba cha kulala kina baridi, washa hita",
+        "zima kiyoyozi",
+        "chumba cha watoto kina joto sana",
+        "nina baridi sebuleni",
+        "taa ya bafuni imesahauliwa ikiwaka",
+        "taa gani zinawaka sasa?"
+      ],
+      "lister": [
+        "orodha ya vifaa vyote janja",
+        "vifaa gani vimeunganishwa kwetu?"
+      ],
+      "commander": [
+        "zima taa ya korido",
+        "washa soketi ya birika"
+      ],
+      "appairer": [
+        "oanisha kihisi kipya",
+        "unganisha swichi mpya"
+      ]
+    },
+    "brokkr": {
+      "*": [
+        "tafuta soketi janja kwenye mtandao",
+        "pakia programu kwenye moduli ya ESP",
+        null,
+        "sasisha programu ya sonoff",
+        "nataka kutengeneza kihisi changu kwa esp32",
+        "karakana ya moduli",
+        "andaa esp mpya",
+        "moduli gani zimepatikana?"
+      ],
+      "chercher": [
+        "tafuta moduli kwenye mtandao",
+        "tafuta shelly zangu"
+      ],
+      "brancher": [
+        "unganisha soketi iliyopatikana",
+        "ongeza moduli kwenye mfumo"
+      ],
+      "preparer": [
+        "andaa esp8266 kwa kazi",
+        "pakia programu kwenye esp mpya"
+      ]
+    },
+    "midgard": {
+      "*": [
+        "nyumba iko vipi?",
+        "washa mandhari ya sinema",
+        "tengeneza mandhari ya tumetoka nyumbani",
+        "vifaa vyote vya visanduku vyote mahali pamoja",
+        "unganisha kisanduku changu cha nyumba janja",
+        "kwa vyumba, nini kimewashwa?",
+        "hali ya usiku mwema",
+        "hali ya nyumba"
+      ],
+      "maison": [
+        "nini kinaendelea nyumbani?",
+        "muhtasari wa nyumba"
+      ],
+      "scene": [
+        "washa mandhari ya chakula cha jioni",
+        "anzisha hali ya usiku"
+      ],
+      "creer_scene": [
+        "unda mandhari ya asubuhi: taa na mashine ya kahawa",
+        "mandhari mpya kwa sherehe"
+      ]
+    },
+    "himinbjorg": {
+      "*": [
+        "onyesha kamera ya mlangoni",
+        "kuna mtu anatembea uani?",
+        "rekodi video kutoka kamera ya gereji",
+        "piga picha kutoka kamera",
+        "ongeza kamera mpya ya ip",
+        "kulikuwa na mwendo usiku?",
+        "kamera za ulinzi",
+        "kamera ya geti inaonyesha nini"
+      ],
+      "cameras": [
+        "orodha ya kamera",
+        "kamera gani zimeunganishwa?"
+      ],
+      "photo": [
+        "picha kutoka kamera ya uani",
+        "piga picha kwa kamera ya ukumbini"
+      ],
+      "enregistrer": [
+        "anza kurekodi kutoka kamera",
+        "rekodi dakika tano kutoka kamera ya barabarani"
+      ]
+    },
+    "bragi": {
+      "*": [
+        "sema kwa sauti kwamba chakula kiko tayari",
+        "tangaza kwenye spika zote",
+        "badilisha sauti",
+        "kuna sauti gani?",
+        "soma hii kwa sauti",
+        null,
+        "toa tangazo nyumbani",
+        "sauti inasikika ajabu"
+      ],
+      "dire": [
+        "sema habari",
+        "tamka maandishi haya"
+      ],
+      "annoncer": [
+        "tangaza kwenye spika kwamba ni wakati wa kulala",
+        "toa tangazo kwa nyumba nzima"
+      ],
+      "voix": [
+        "sauti gani zinapatikana?",
+        "orodha ya sauti"
+      ]
+    },
+    "freyja": {
+      "*": [
+        "weka filamu",
+        "kuna nini kwenye televisheni?",
+        "rekodi mechi jioni",
+        "vipindi gani vipya vimetoka?",
+        "tafuta tamthilia yenye tafsiri",
+        "nitazame nini leo usiku?",
+        "seva ya media",
+        "wawekee watoto katuni"
+      ],
+      "regarder": [
+        "weka filamu Interstellar",
+        "nataka kutazama kipindi cha mwisho"
+      ],
+      "programme": [
+        "ratiba ya vipindi jioni hii",
+        "nini kinaonyeshwa kwenye TV sasa?"
+      ],
+      "enregistrer": [
+        "rekodi kipindi cha saa tatu usiku",
+        "weka filamu irekodiwe"
+      ]
+    },
+    "aegir": {
+      "*": [
+        "weka muziki",
+        "washa redio",
+        "cheza kitu cha utulivu",
+        "tafuta wimbo",
+        "zima muziki",
+        "tengeneza orodha ya nyimbo ya kukimbia",
+        "ongeza redio ya mtandaoni",
+        "maktaba yangu ya muziki"
+      ],
+      "jouer": [
+        "cheza albamu",
+        "cheza bongo flava"
+      ],
+      "chercher": [
+        "tafuta nyimbo za msanii huyu",
+        "nina wimbo huu?"
+      ],
+      "radio": [
+        "ongeza kituo cha redio",
+        "redio mpya kutoka kiungo"
+      ]
+    },
+    "frigg": {
+      "*": [
+        "mwandikishe mteja Ijumaa",
+        "nina miadi gani kesho?",
+        "kuna nafasi wazi Jumatano?",
+        "ghairi miadi ya saa tisa alasiri",
+        "ukurasa wa kuweka miadi mtandaoni",
+        "saa za kupokea wateja",
+        "ongeza huduma ya kunyoa nywele",
+        "sogeza miadi"
+      ],
+      "agenda": [
+        "miadi ijayo",
+        "nani ameweka miadi wiki hii?"
+      ],
+      "creneaux": [
+        "nafasi wazi Alhamisi",
+        "niko huru lini?"
+      ],
+      "rendez_vous": [
+        "miadi mpya: Zawadi, Jumanne, saa nne asubuhi",
+        "weka miadi kesho"
+      ]
+    },
+    "kvasir": {
+      "*": [
+        "kuna nini kipya kwenye miradi ya asili?",
+        "soma kiungo hiki cha github",
+        "fuatilia masasisho ya hazina",
+        "angalia mradi huu uniambie kama unafaa",
+        "kuna matoleo mapya?",
+        "daftari la kazi",
+        "nini cha kuvutia kimetoka?",
+        "chambua hazina kwenye kiungo"
+      ],
+      "verifier": [
+        "kagua masasisho sasa",
+        "nini kipya kimetoka?"
+      ],
+      "etudier": [
+        "soma github.com/example/mradi",
+        "tathmini hazina hii"
+      ],
+      "suivre": [
+        "fuatilia hazina hii",
+        "fuata mradi huu"
+      ]
+    },
+    "syn": {
+      "*": [
+        "tengeneza dashibodi yenye joto la prosesa",
+        null,
+        "paneli ya vipimo vya seva",
+        "nionye grafu ikivuka kiwango",
+        "dashibodi zangu",
+        "ongeza grafu ya trafiki kwenye paneli",
+        "kuonyesha vipimo kwa picha",
+        "paneli ya pamoja ya viashiria"
+      ],
+      "tableaux": [
+        "orodha ya dashibodi",
+        "nina paneli gani?"
+      ],
+      "creer": [
+        "unda dashibodi mpya ya mtandao",
+        "tengeneza paneli ya kufuatilia nyumba"
+      ],
+      "panneau": [
+        "ongeza kiashiria cha matumizi ya diski",
+        "weka grafu nyingine kwenye dashibodi"
+      ]
+    },
+    "dvalinn": {
+      "*": [
+        "badilisha docx hii kuwa pdf",
+        "unganisha pdf mbili",
+        "bana video",
+        "badilisha heic kuwa jpg",
+        "fanya picha iwe png",
+        "simba upya video zote kwenye folda",
+        "toa kurasa kutoka pdf",
+        "geuza faili kwenda muundo mwingine"
+      ],
+      "convertir": [
+        "geuza faili kuwa mp3",
+        "badilisha webm kuwa mp4"
+      ],
+      "pdf": [
+        "unganisha mafaili ya pdf",
+        "gawanya pdf kwa kurasa"
+      ],
+      "lot_videos": [
+        "simba filamu zote kwa h265",
+        "kubana video kwa wingi"
+      ]
+    },
+    "champollion": {
+      "*": [
+        "tambua maandishi kwenye picha",
+        "karatasi hii imeandikwa nini?",
+        "toa maandishi kutoka kwenye skani",
+        "andika ujumbe wa sauti kwa maandishi",
+        "toa tarehe kutoka kwenye barua",
+        "OCR ya hati hii",
+        "fanya pdf iliyoskaniwa iweze kutafutwa",
+        "nini kinasemwa kwenye rekodi hii ya sauti?"
+      ],
+      "lire": [
+        "soma skani hii",
+        "tambua picha ya risiti"
+      ],
+      "texte": [
+        "elewa nini muhimu kwenye maandishi haya",
+        "tafuta miadi na tarehe kwenye maandishi"
+      ],
+      "pdf_cherchable": [
+        null,
+        "ongeza tabaka la maandishi kwenye skani"
+      ]
+    },
+    "mimisbrunnr": {
+      "*": [
+        "onyesha kumbukumbu za mfumo",
+        "tafuta makosa kwenye logi",
+        "nini kinaandikwa kwenye /var/log?",
+        "kwa nini huduma inaanguka, angalia logi",
+        "jumbe gani zinajirudia?",
+        "logi zote mahali pamoja",
+        "tafuta neno error kwenye logi za jana",
+        "fanya grep kwenye logi"
+      ],
+      "chercher": [
+        "tafuta ssh failed kwenye logi",
+        "tafuta neno timeout kwenye kumbukumbu"
+      ],
+      "repetes": [
+        "makosa gani yanajirudia kwenye logi?",
+        "jumbe za mara kwa mara kwenye logi"
+      ],
+      "regle": [
+        "ongeza kanuni ya makosa ya diski",
+        "nionye kama out of memory itaonekana kwenye logi"
+      ]
+    },
+    "gefjon": {
+      "*": [
+        "diski imejaa, isafishe",
+        "nini kinachukua nafasi?",
+        "kompyuta inachelewa kuwaka",
+        "futa mafaili ya muda",
+        "programu gani zinaanza na windows?",
+        "ondoa programu nisiyoitumia",
+        "safisha kache ya kivinjari na takataka",
+        "mafaili mazito zaidi yako wapi?",
+        "kompyuta inachukua dakika tatu kuwaka, angalia",
+        "kwenye diski C zimebaki giga 2 tu",
+        "futa masasisho ya zamani na takataka",
+        "programu hizi za kuanza ni nini, nusu hazihitajiki",
+        "toa nafasi kwenye laptop"
+      ],
+      "nettoyer": [
+        "safisha takataka",
+        "usafishaji wa mafaili ya muda"
+      ],
+      "gros_fichiers": [
+        "mafaili makubwa zaidi kwenye diski",
+        "nini kina uzito zaidi?"
+      ],
+      "demarrage": [
+        "nini kinaanza mfumo ukiwaka?",
+        "programu za kuanza na mfumo"
+      ]
+    },
+    "sol": {
+      "*": [
+        "onyesha picha za ufukweni",
+        "picha za siku ya kuzaliwa ziko wapi?",
+        "tafuta picha zinazojirudia",
+        "tengeneza albamu ya likizo",
+        "picha za mwaka jana kwa miezi",
+        "panga picha kwa tarehe",
+        "picha na video zangu",
+        "picha kutoka kwenye simu"
+      ],
+      "chercher": [
+        "tafuta picha zenye mbwa",
+        "picha za Zanzibar"
+      ],
+      "doublons": [
+        "futa picha zilizojirudia",
+        "kuna picha zinazofanana?"
+      ],
+      "album": [
+        "unda albamu ya harusi",
+        "tengeneza albamu ya sikukuu"
+      ]
+    },
+    "fensalir": {
+      "*": [
+        "seva ina diski gani?",
+        "nafasi kwenye diski ni kiasi gani?",
+        "shiriki folda kwenye mtandao",
+        "folda za mtandao",
+        "ondoa kushiriki kwa folda",
+        "sehemu ya diski inakaribia kujaa?",
+        null,
+        "fanya folda ipatikane kwa kompyuta nyingine"
+      ],
+      "disques": [
+        "orodha ya diski",
+        "kujaa kwa diski"
+      ],
+      "partages": [
+        "folda gani zinashirikiwa?",
+        "vishiriki vya mtandao"
+      ],
+      "ajouter_partage": [
+        "shiriki folda ya video",
+        "tengeneza folda ya mtandao kwa hati"
+      ]
+    },
+    "hlid": {
+      "*": [
+        "fungua mlango 8080 kwenye ngome",
+        "milango gani inasikiliza kwenye mashine?",
+        "kanuni za firewall",
+        "washa firewall",
+        "funga milango isiyohitajika",
+        "nani anaweza kufikia mlango huu?",
+        "milango gani imeelekezwa kwenye ruta?",
+        "njia na kanuni za mtandao",
+        "kompyuta hii ina milango gani wazi kwa mtandao wa ndani?",
+        "seva inasikiliza milango isiyopaswa",
+        "kataza kuunganika na hifadhidata kutoka nje kwenye firewall",
+        "hakikisha RDP imefungwa kwenye ruta"
+      ],
+      "etat": [
+        "hali ya firewall",
+        "ngome imewashwa?"
+      ],
+      "ouvrir_port": [
+        "fungua 25565 kwa minecraft",
+        "ruhusu miunganisho inayoingia kwenye 443"
+      ],
+      "fermer_port": [
+        "funga mlango 3389",
+        "kataza wanaoingia kwenye 21"
+      ]
+    },
+    "ivaldi": {
+      "*": [
+        "hazina zangu za msimbo ziko vipi?",
+        "kuna commits hazijatumwa?",
+        "vuta mabadiliko kutoka git",
+        "nakili hazina",
+        "fungua terminal kwenye mradi",
+        "commits za mwisho",
+        "endesha mradi",
+        "mabadiliko yasiyohifadhiwa kwenye msimbo yako wapi?"
+      ],
+      "depots": [
+        "hazina zangu",
+        "orodha ya hazina za git"
+      ],
+      "recuperer": [
+        "fanya pull kwenye hazina zote",
+        "leta mabadiliko mapya"
+      ],
+      "cloner": [
+        "nakili github.com/example/app",
+        "clone hazina"
+      ]
+    },
+    "heidrun": {
+      "*": [
+        "punguza intaneti ya watoto baada ya saa tatu usiku",
+        "udhibiti wa wazazi",
+        "zuia tovuti za watu wazima kwa mwanangu",
+        "zima intaneti ya binti yangu kwa saa moja",
+        "mtoto amekaa mtandaoni muda gani?",
+        "wasifu wa mdogo",
+        "youtube isifanye kazi kwa watoto usiku",
+        "kichujio cha tovuti kwa watoto",
+        "mwanangu anakaa kwenye simu hadi saa tisa usiku",
+        "binti yangu ana miaka kumi, tovuti gani asiingie?"
+      ],
+      "profil": [
+        "unda wasifu wa Imani mwenye miaka 8",
+        "weka kichujio kwa kijana"
+      ],
+      "pause": [
+        "kata intaneti ya watoto",
+        "sitisha intaneti ya mdogo"
+      ],
+      "rapport": [
+        "ripoti ya watoto",
+        "mwanangu ameingia wapi?"
+      ]
+    },
+    "leikvangr": {
+      "*": [
+        "nataka kucheza michezo ya zamani",
+        "michezo yangu ya retro",
+        "anzisha mario",
+        null,
+        "michezo ninayopenda",
+        null,
+        "kuna michezo gani ya sega?",
+        "kiigaji cha michezo"
+      ],
+      "jeux": [
+        "orodha ya michezo",
+        "kuna michezo gani?"
+      ],
+      "lancer": [
+        "anzisha tetris",
+        "washa zelda"
+      ],
+      "ranger": [
+        "panga rom",
+        "safisha majina ya michezo"
+      ]
+    },
+    "snotra": {
+      "*": [
+        "unda hati ya word",
+        "tafuta mkataba kwenye hati",
+        "fungua jedwali la excel",
+        "kagua tahajia",
+        "chora mchoro wa mtandao wangu",
+        "andika barua kwenye hati",
+        "hati zangu",
+        "tengeneza jedwali la matumizi kwenye excel"
+      ],
+      "creer": [
+        "hati mpya: barua ya maombi",
+        "unda faili la maandishi"
+      ],
+      "chercher": [
+        "tafuta neno kodi ya nyumba kwenye hati",
+        "tafuta mkataba kwenye mafaili"
+      ],
+      "corriger": [
+        "rekebisha makosa kwenye maandishi",
+        "kagua sarufi"
+      ]
+    },
+    "hlin": {
+      "*": [
+        null,
+        "futa taarifa zangu kwenye tovuti",
+        "nani anauza taarifa zangu binafsi?",
+        "anwani yangu iko kwenye saraka?",
+        "nisaidie kujiondoa kwenye matokeo ya utafutaji",
+        "barua pepe yangu iko kwenye uvujaji?",
+        "barua ya kuomba kufutwa kwa taarifa",
+        "faragha mtandaoni"
+      ],
+      "etat": [
+        "ninaonekana wapi mtandaoni?",
+        "uonekano wangu kwenye intaneti"
+      ],
+      "chercher": [
+        "kagua sasa ninatajwa wapi",
+        "tafuta alama zangu mtandaoni"
+      ],
+      "lettre": [
+        "andika barua ya kufuta taarifa",
+        "ombi la kufuta taarifa binafsi"
+      ]
+    },
+    "durinn": {
+      "*": [
+        "diski inakufa?",
+        "afya ya ssd",
+        "joto la diski",
+        "pima kasi ya diski",
+        "onyesha SMART",
+        "diski inatoa milio ya kugonga",
+        "ssd imebakiza maisha kiasi gani?",
+        "jaribio la kasi la nvme"
+      ],
+      "sante": [
+        "hali ya diski zote",
+        "diski ziko salama?"
+      ],
+      "banc": [
+        "jaribio la kasi ya diski",
+        "pima kasi ya flash"
+      ],
+      "smart": [
+        "thamani za smart za sda",
+        "sifa za smart"
+      ]
+    },
+    "hel": {
+      "*": [
+        "nimefuta picha kwa bahati mbaya, zirudishe",
+        "sehemu ya diski imepotea",
+        "flash haisomeki, toa mafaili",
+        "rejesha hati zilizofutwa",
+        "tafuta sehemu iliyopotea",
+        "nimefomati kadi ya kumbukumbu kwa makosa",
+        "rudisha kilichofutwa",
+        "kurejesha data"
+      ],
+      "recuperer": [
+        "rejesha mafaili yaliyofutwa",
+        "toa picha zilizofutwa"
+      ],
+      "chercher": [
+        "tafuta sehemu zilizopotea",
+        "uchanganuzi wa sehemu za diski"
+      ],
+      "supports": [
+        "vyombo gani vinaweza kukaguliwa?",
+        "orodha ya diski za kurejesha"
+      ]
+    },
+    "pegase": {
+      "*": [
+        "tafuta tovuti niliyoangalia jana",
+        "historia ya kivinjari",
+        "chukua nakala ya alamisho",
+        "ondoa simu ya zamani kwenye kivinjari",
+        "rejesha wasifu wa kivinjari",
+        null,
+        "nilifungua nini kwenye simu?",
+        "wasifu wa kivinjari"
+      ],
+      "historique": [
+        "historia ya kuvinjari wiki hii",
+        "tafuta mapishi kwenye historia"
+      ],
+      "copier": [
+        "chukua nakala ya kivinjari",
+        "hifadhi nakala ya wasifu wa kivinjari"
+      ],
+      "revoquer": [
+        "tenganisha tablet iliyopotea",
+        "ondoa kifaa kwenye kivinjari"
+      ]
+    },
+    "agora": {
+      "*": [
+        "kundi langu linastahili programu gani?",
+        "ongeza programu kwenye duka",
+        "sakinisha programu kwenye kompyuta zote za kundi",
+        "duka langu la programu",
+        "nani ana haki ya programu zipi?",
+        "sambaza programu kwa idara",
+        "duka la programu",
+        "naweza kusakinisha nini?"
+      ],
+      "ajouter": [
+        null,
+        "programu mpya kwenye katalogi"
+      ],
+      "mon_store": [
+        "duka langu",
+        "programu zinazopatikana kwangu"
+      ],
+      "ajouter_personne": [
+        "mweke Upendo kwenye kundi la wabunifu",
+        "weka mtu kwenye kundi"
+      ]
+    },
+    "achille": {
+      "*": [
+        "jaribu tovuti yangu kwa udhaifu",
+        "nasa maombi kama burp",
+        "rudia ombi kwa kigezo kingine",
+        "simba maandishi kwa base64",
+        "jaribio la upenyaji kwenye tovuti yangu",
+        "linganisha majibu mawili",
+        "udhaifu gani umepatikana?",
+        "proxy ya majaribio"
+      ],
+      "rejouer": [
+        "rudia ombi hili",
+        "tuma ombi tena ukilibadilisha"
+      ],
+      "historique": [
+        "historia ya maombi",
+        "maombi yaliyonaswa"
+      ],
+      "defauts": [
+        "udhaifu uliogunduliwa",
+        "nini kimepatikana kwenye tovuti?"
+      ]
+    },
+    "atalante": {
+      "*": [
+        "pakua faili kutoka kiungo",
+        "upakuaji umekwama",
+        "endelea kupakua faili",
+        "punguza kasi ya kupakua",
+        "pakua usiku",
+        "foleni ya upakuaji",
+        "nini kinapakuliwa?",
+        "meneja wa upakuaji"
+      ],
+      "ajouter": [
+        "pakua example.org/file.iso",
+        "weka kwenye upakuaji"
+      ],
+      "file": [
+        "mstari wa vipakuliwa",
+        "onyesha vipakuliwa"
+      ],
+      "vitesse": [
+        null,
+        "isizidi mb 2 kwa sekunde"
+      ]
+    },
+    "dodone": {
+      "*": [
+        "tuma ombi kwa api",
+        "kagua endpoint",
+        "mkusanyiko wa maombi",
+        null,
+        "jaribu rest api",
+        "endesha majaribio ya api",
+        "ingiza mkusanyiko",
+        "vigeu vya mazingira kwa api"
+      ],
+      "envoyer": [
+        "fanya GET kwa example.org/api",
+        "tuma POST yenye json"
+      ],
+      "collection": [
+        "unda mkusanyiko wa maombi",
+        "mkusanyiko mpya wa api"
+      ],
+      "lancer_collection": [
+        "endesha mkusanyiko wa majaribio",
+        "endesha maombi yote ya mkusanyiko"
+      ]
+    },
+    "theia": {
+      "*": [
+        null,
+        "eleza picha",
+        "tafuta picha yenye machweo baharini",
+        "video hii inahusu nini?",
+        "soma hati",
+        "kuna nini kwenye picha ya skrini?",
+        "tafuta picha kwa maelezo",
+        "angalia picha"
+      ],
+      "voir": [
+        "kinaonekana nini?",
+        "nieleze picha"
+      ],
+      "lire_document": [
+        "soma faili hili",
+        "hati ina nini?"
+      ],
+      "retrouver": [
+        "tafuta picha yenye gari jekundu",
+        "picha ambayo paka amelala"
+      ]
+    },
+    "syrinx": {
+      "*": [
+        "sauti hii ni nini?",
+        "mbwa anabweka?",
+        "wimbo gani unacheza?",
+        "sikiliza sauti",
+        "tambua sauti za nyumbani",
+        "uchambuzi wa muziki",
+        "wanasema nini kwenye rekodi?",
+        "sauti ya kamera"
+      ],
+      "ecouter": [
+        "sikiliza sauti hii",
+        "nini kinasikika?"
+      ],
+      "sons": [
+        "tambua sauti",
+        "sauti gani zimetokea?"
+      ],
+      "musique": [
+        "chambua wimbo",
+        "mdundo wa muziki ni upi?"
+      ]
+    },
+    "mathesis": {
+      "*": [
+        "jifunze mada hii mwenyewe",
+        "soma ujifunze",
+        "kumbuka taarifa kutoka tovuti hii",
+        "umejifunza nini kipya?",
+        "usijifunze mada hii",
+        "nitakufungulia folda usome",
+        "jifunze peke yako",
+        "kujifunza binafsi"
+      ],
+      "tour": [
+        "jifunze sasa",
+        "fanya mzunguko wa kujifunza"
+      ],
+      "confier": [
+        "jifunze mapishi kwanza",
+        "kipaumbele: mada ya mitandao"
+      ],
+      "ouvrir_dossier": [
+        "ruhusu folda ya hati",
+        "soma folda yangu ya vitabu"
+      ]
+    },
+    "pronoia": {
+      "*": [
+        "unadhani kesho nini kitatokea?",
+        "tabiri",
+        "unapatia mara ngapi?",
+        "utabiri wa wiki kwa nyumba",
+        "nini kina uwezekano wa kutokea?",
+        "hisia ya mbele",
+        "acha kutabiri",
+        "utabiri wako"
+      ],
+      "previsions": [
+        "utabiri wa sasa",
+        "unatabiri nini?"
+      ],
+      "prevoir": [
+        "fanya utabiri sasa",
+        "hesabu upya uwezekano wa kesho"
+      ],
+      "bilan": [
+        "kiwango cha utabiri sahihi",
+        "utabiri ni sahihi kiasi gani?"
+      ]
+    },
+    "keryx": {
+      "*": [
+        "nijibu kupitia ujumbe",
+        "nataka kukuandikia nikiwa nje",
+        "nani alimwandikia msaidizi?",
+        "ongeza namba kwenye orodha nyeupe",
+        "badilisha msimbo wa siri",
+        "kudhibiti kupitia telegram",
+        "umefanya nini kuhusu jumbe zangu?",
+        "msaidizi wa jumbe"
+      ],
+      "etat": [
+        "msaidizi wa jumbe anafanya kazi?",
+        "naweza kukutumia ujumbe sasa kutoka simu nikiwa nje?"
+      ],
+      "historique": [
+        "historia ya jumbe",
+        null
+      ],
+      "ajouter_numero": [
+        "ongeza namba ya mama",
+        "ruhusu namba hii"
+      ]
+    }
+  },
+  "horsChamp": [
+    "niagizie pizza",
+    "ninunulie tiketi ya treni kwenda Dodoma",
+    "andika shairi kuhusu mvua",
+    null,
+    "mtumie mama pesa kwa M-Pesa",
+    "niitie teksi kwenda stendi",
+    "nipigie pasi shati",
+    "nimpe mke wangu zawadi gani?",
+    "nenda sokoni badala yangu",
+    "niwekee miadi hospitalini",
+    "nunua hisa za tesla",
+    "nipikie ugali",
+    "fanya kazi ya hesabu ya mwanangu",
+    "agiza mahitaji ya nyumbani yaletwe",
+    "tengeneza bomba la jikoni",
+    "mtembeze mbwa",
+    "osha vyombo",
+    "niandikie tasnifu",
+    "weka nafasi hoteli Mombasa",
+    "piga simu mamlaka ya kodi",
+    "mchukue mtoto shuleni",
+    "cheza nami bao",
+    "lipa faini ya trafiki",
+    "chagua jina la paka wangu",
+    "nikopeshe pesa hadi mwisho wa mwezi",
+    "tuma maua kwa siku ya kuzaliwa",
+    "penda chapisho hili",
+    "nifanyie manicure",
+    "safisha nyumba",
+    "badilisha karatasi za ukutani chumbani",
+    "nitafutie mchumba",
+    "uza baiskeli yangu ya zamani"
+  ]
+}

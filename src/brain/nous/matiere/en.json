@@ -1,0 +1,1845 @@
+{
+  "langue": "en",
+  "ecriture": "latin",
+  "origine": "écrit pour Odin, non relu par une personne de cette langue ; listes alignées d'une langue à l'autre (même place, même idée), null = place vide d'une phrase retirée",
+  "aRelire": true,
+  "complet": true,
+  "applis": {
+    "saga": {
+      "*": [
+        "I jotted something down about this last month, can you dig it up?",
+        "where did I put my ideas for the garden project",
+        "save this somewhere so I don't forget it",
+        "link my moving notes to the packing list note",
+        "show me how my notes connect to each other",
+        "what did I write after Tuesday's meeting?",
+        "my head's full of random thoughts, help me sort them out",
+        "open my second brain"
+      ],
+      "chercher": [
+        "search my notes for invoice",
+        "find what I wrote about the backup server"
+      ],
+      "noter": [
+        "take a note: call the plumber on Thursday",
+        null
+      ],
+      "attention": [
+        null,
+        "are there deadlines coming up that I've forgotten about?"
+      ]
+    },
+    "runes": {
+      "*": [
+        "I need a table to keep track of my clients",
+        "make me a database of books I've lent out",
+        "I want a page with a table and tick boxes",
+        "set up a tracker for my expenses with a total formula",
+        null,
+        "open my tracking tables",
+        "my work contacts are a mess, I need a proper database",
+        "can we do a kanban board for the jobs?"
+      ],
+      "bases": [
+        "which databases of records do I already have?",
+        "list my trackers"
+      ],
+      "ajouter": [
+        "add a record to the suppliers table",
+        "put a new entry in my lending tracker"
+      ],
+      "client": [
+        "create a client record for Leon Marshall",
+        "update the customer card for Martin's bakery"
+      ]
+    },
+    "draupnir": {
+      "*": [
+        "when an invoice lands in my inbox, file it automatically",
+        "I want this to happen on its own every Monday morning",
+        "hook the website form up to my contact list",
+        "I'm sick of doing this by hand every single day",
+        "connect two apps so they talk to each other",
+        "show my automations",
+        "something like Zapier but self-hosted",
+        "can I trigger something when someone rings the bell?"
+      ],
+      "lister": [
+        "which automations are running right now?",
+        "list my triggers and their steps"
+      ],
+      "executer": [
+        "run the invoice filing automation",
+        "kick off the morning workflow now"
+      ],
+      "modele": [
+        "add an automation template between email and calendar",
+        "suggest a ready-made template to link two apps"
+      ]
+    },
+    "archytas": {
+      "*": [
+        "write me a script that renames photos by date",
+        "I need a little routine that chains three steps",
+        "make a script with a condition: if it rains, close the shutters",
+        "show me the scripts you've made for me",
+        "this script is flaky, can you improve it?",
+        "roll my script back to how it was yesterday",
+        "what exactly does that cleanup script do?",
+        "which of my scripts do I never use any more?"
+      ],
+      "creer": [
+        "create a script that turns everything off at midnight",
+        "build me a script to empty the temp folder every night"
+      ],
+      "lancer": [
+        "run my tidy-up script",
+        "execute the morning script"
+      ],
+      "mes_scripts": [
+        "what scripts have you written for me so far, with dates?",
+        "what scripts have I got?"
+      ]
+    },
+    "eir": {
+      "*": [
+        "my PC is crawling, what's going on?",
+        "the fan sounds like a jet engine",
+        "how much RAM have I got left?",
+        "what's the CPU at right now?",
+        "my computer's running hot, can you check the temps?",
+        "show me the load over the last 24 hours",
+        "the server looks like it's on its knees",
+        "is the machine overloaded?"
+      ],
+      "etat": [
+        "system status",
+        "how's the server doing right now?"
+      ],
+      "processus": [
+        "which programs are using the most?",
+        "what's hogging the CPU?"
+      ],
+      "arreter_processus": [
+        "stop that program that's stuck in a loop",
+        "kill the process that's hanging, gently"
+      ]
+    },
+    "skogul": {
+      "*": [
+        "a program is doing weird stuff in the background",
+        "some process I don't recognise started on its own",
+        "I think some software is behaving suspiciously",
+        "an unknown exe is trying to tamper with other programs",
+        "watch for any program that starts acting up",
+        "what's running that isn't normal?",
+        null,
+        "I reckon something's logging my keystrokes"
+      ],
+      "analyser": [
+        "check program behaviour now",
+        "go through everything running and find the odd one out"
+      ],
+      "tuer": [
+        "kill that suspicious process",
+        "stop the dodgy program that just popped up"
+      ]
+    },
+    "forseti": {
+      "*": [
+        "what are the latest security alerts?",
+        "anything serious happen overnight security-wise?",
+        "I want one dashboard for all of security",
+        "are we compliant or not?",
+        "search every log for 198.51.100.23",
+        "warn me before my site's certificate expires",
+        "do some threat hunting over the last week",
+        "give me the overall security score"
+      ],
+      "alertes": [
+        "show recent alerts, worst first",
+        "latest alerts please"
+      ],
+      "conformite": [
+        "run a compliance check",
+        "what's my compliance score?"
+      ],
+      "vu": [
+        "mark all alerts as read",
+        "I've seen the alerts, clear the new flag"
+      ]
+    },
+    "garmr": {
+      "*": [
+        "someone's been trying to brute force SSH for a while",
+        "there are thousands of failed login attempts",
+        "block anyone who keeps typing wrong passwords",
+        "a bot is hammering the site's login page",
+        "who's banned right now?",
+        "a mate got banned by mistake, let him back in",
+        null,
+        "never ban the office address"
+      ],
+      "bannis": [
+        "list the banned addresses",
+        "who's blocked at the firewall and for how long?"
+      ],
+      "bannir": [
+        "ban 198.51.100.50",
+        "block that IP attacking SSH"
+      ],
+      "debannir": [
+        "unban 198.51.100.14",
+        "lift the ban on my colleague"
+      ]
+    },
+    "geri": {
+      "*": [
+        "my PC keeps talking to some weird server abroad",
+        "a program connects to shady addresses on its own",
+        "who's talking to whom on my machine right now?",
+        "is this IP known to be malicious?",
+        "some software calls a domain I've never heard of",
+        "could ransomware be encrypting my files right now?",
+        "are the malicious address lists up to date?",
+        "my machine is sending data somewhere and I don't know where"
+      ],
+      "connexions": [
+        "show current connections",
+        "what's talking to the outside right now?"
+      ],
+      "analyser": [
+        "look up 198.51.100.77",
+        "what's this host called office-03, is it safe?"
+      ],
+      "listes": [
+        "update the malicious address lists",
+        "refresh the bad server lists"
+      ]
+    },
+    "ran": {
+      "*": [
+        "I want to see the packets going over the network",
+        "who's eating all the bandwidth?",
+        null,
+        "what's the camera sending to the internet?",
+        "my connection is maxed out, which device is downloading so much?",
+        "show me packet number 4521 in detail",
+        "warn me if throughput goes over 50 MB/s",
+        "which countries is my phone sending data to?"
+      ],
+      "lire": [
+        "capture packets on the whole network",
+        "start sniffing traffic from 198.51.100.30"
+      ],
+      "trafic": [
+        "traffic per device over the last hour",
+        "how much is each device sending and receiving?"
+      ],
+      "expliquer": [
+        "summarise who's talking to whom on the network",
+        "tell me what the living room box is doing on the network"
+      ]
+    },
+    "ullr": {
+      "*": [
+        "I'm worried I've caught a virus",
+        "scan my downloads",
+        "is this email attachment clean?",
+        "this USB stick is from a friend, can you check it?",
+        "is this link a scam?",
+        "I got a dodgy text with a link, is it phishing?",
+        "am I protected right now?",
+        "update the antivirus signatures",
+        "that file is fine, it's a false positive"
+      ],
+      "analyser": [
+        "scan the Downloads folder",
+        "run a full disk scan"
+      ],
+      "etat": [
+        "am I properly protected?",
+        "antivirus protection status"
+      ],
+      "quarantaine": [
+        "show what's in quarantine",
+        "what got quarantined and why?"
+      ]
+    },
+    "loki": {
+      "*": [
+        "I want to set a trap for hackers",
+        "put up a fake SSH server to lure attackers",
+        "can we run a honeypot?",
+        "what did the attackers try in the decoys?",
+        "which passwords did they type on the fake service?",
+        "replay last night's attacker session",
+        "switch on all the decoys",
+        "where are the people falling into the trap coming from?"
+      ],
+      "activite": [
+        "what did the attackers do in the traps?",
+        "decoy activity this week"
+      ],
+      "allumer": [
+        "start a trap on port 2222",
+        "spin up a fake service to catch snoopers"
+      ],
+      "statistiques": [
+        "trap stats by country",
+        "which honeypots get hit the most?"
+      ]
+    },
+    "argos": {
+      "*": [
+        "I want a security view of every machine in the company",
+        "a fleet machine has an incident, show me the timeline",
+        "cut the reception PC off the network, it's infected",
+        "isolate Jules's laptop, something's off",
+        "are antivirus and anti-malware up to date across the fleet?",
+        "can we have a home-made EDR?",
+        "kill that process on the meeting room PC",
+        "give the network back to the PC we isolated yesterday"
+      ],
+      "isoler_poste": [
+        "isolate the RECEPTION-PC from the network",
+        "cut this computer off from everything except Odin"
+      ],
+      "incidents": [
+        "open incidents across the fleet",
+        "show endpoint security incidents"
+      ],
+      "chronologie": [
+        "timeline for Lina's workstation",
+        "what happened on PC 12, in order"
+      ]
+    },
+    "naglfar": {
+      "*": [
+        "spin up Nextcloud from a Docker image",
+        "are my containers running fine?",
+        "the database container crashed, restart it",
+        null,
+        "is there a newer version of the image?",
+        "do a docker ps",
+        "remove images that aren't used any more",
+        "run a command inside the web container"
+      ],
+      "lister": [
+        null,
+        "which of my containers are actually up at the moment?"
+      ],
+      "journaux": [
+        "last lines of the nginx container log",
+        "logs for the container that keeps crashing"
+      ],
+      "lancer": [
+        null,
+        null
+      ]
+    },
+    "urdr": {
+      "*": [
+        "create a Postgres database for my project",
+        "I want to browse my database tables like a spreadsheet",
+        "add the MySQL database on my NAS to the list",
+        "run a select on the orders table",
+        "edit row 12 in the customers table",
+        "show me the shop database schema",
+        null,
+        "how should my app connect to its database?"
+      ],
+      "bases": [
+        "list my databases",
+        "what databases have I got?"
+      ],
+      "sql": [
+        "run this SQL: select count(*) from orders",
+        "execute some SQL on the accounts database"
+      ],
+      "creer": [
+        "create a database for the club website",
+        "new Postgres database for the inventory"
+      ]
+    },
+    "skuld": {
+      "*": [
+        "dump the shop's Postgres database",
+        "is my database backed up?",
+        "I want a MySQL database backup every night",
+        "keep 30 days of dumps for the customers database",
+        "I messed up a table, bring the database back to this morning",
+        "copy every SQL dump to the NAS as well",
+        "when was the accounts database last backed up?",
+        "which backups of the WordPress database do I still have?"
+      ],
+      "sauvegarder": [
+        "back up the shop database now",
+        "dump the Postgres database right away"
+      ],
+      "plan": [
+        "schedule a database backup every night at 2am",
+        "automatic backup of the customers DB, keep 14 days"
+      ],
+      "restaurer": [
+        "restore the database from the day before yesterday",
+        "put the accounts database back the way it was on Monday"
+      ]
+    },
+    "rodd": {
+      "*": [
+        "I'd rather talk than type, can I dictate?",
+        "write down what I say",
+        "you always misspell my street name, learn it",
+        "translate the conversation with my Japanese neighbour",
+        "I'm off to Japan, set up translation",
+        "show my recent dictations",
+        "we're speaking two languages, translate out loud",
+        "my wrist hurts, I want to write by voice"
+      ],
+      "dicter": [
+        "clean up this dictated text",
+        "here's my dictation, turn it into a tidy email"
+      ],
+      "ajouter_mot": [
+        "add Tourmalet to my word list",
+        "remember how Djamila is spelt"
+      ],
+      "ouvrir": [
+        null,
+        "start French–Japanese conversation translation"
+      ]
+    },
+    "svalinn": {
+      "*": [
+        "is my wifi properly secured?",
+        "the wifi is weak in the bedroom",
+        "too many neighbours on my channel?",
+        "who's connected to my router?",
+        "turn on a guest wifi",
+        "give my friends the wifi QR code",
+        "my router still has WPS on, is that bad?",
+        "the wifi is dead slow tonight"
+      ],
+      "etat": [
+        "analyse the wifi",
+        "give me the wifi security score"
+      ],
+      "invites": [
+        "switch on the guest wifi",
+        "turn off the guest network"
+      ],
+      "tester_debit": [
+        "how fast is my broadband actually going?",
+        "what speed am I getting right now?"
+      ]
+    },
+    "ymir": {
+      "*": [
+        "create a Debian VM with 4 GB of RAM",
+        "I need an LXC to test something",
+        "start the test virtual machine",
+        "take a snapshot of the VM before the update",
+        "clone the web VM with a different IP",
+        "the VM disk is full, make it bigger",
+        "add my Proxmox server",
+        "put the suspicious VM in quarantine"
+      ],
+      "creer_machine": [
+        "create an Ubuntu LXC",
+        "new VM from the Windows 11 ISO"
+      ],
+      "instantane": [
+        "snapshot the web VM",
+        "take a snapshot before I touch anything"
+      ],
+      "machines": [
+        "how many VMs have I got and what state are they in?",
+        "status of all VMs"
+      ]
+    },
+    "idunn": {
+      "*": [
+        "is my website down?",
+        "the site takes ages to load",
+        "redeploy the site, it's throwing a 500",
+        "roll back, the new version's broken",
+        "any dependency updates to merge?",
+        "the GitHub checks are red, rerun them",
+        null,
+        "we're under attack, turn on attack mode"
+      ],
+      "etat": [
+        "status of the shop website",
+        "how's my site doing?"
+      ],
+      "relancer": [
+        "restart the site",
+        "put the current site version back online"
+      ],
+      "revenir": [
+        "go back to the previous deployment",
+        "undo yesterday's production release"
+      ]
+    },
+    "sindri": {
+      "*": [
+        "back up my Documents folder to the NAS",
+        "I deleted a file by mistake last week, can you get it back from the backups?",
+        "I want a copy of my photos every night",
+        "make a full disk image of the laptop",
+        "did my file backups run last night?",
+        "is my daughter's PC backed up?",
+        "put the Projects folder back the way it was on Friday",
+        "free up space used by old backup versions",
+        "if the drive dies, can I put everything back?"
+      ],
+      "creer": [
+        "create a backup plan for the Photos folder",
+        "new backup of my home folder to the network share"
+      ],
+      "sauvegarder": [
+        "run the backup now",
+        "back up my documents straight away"
+      ],
+      "restaurer": [
+        "restore the Invoices folder from Monday",
+        "bring my files back from before the crash"
+      ]
+    },
+    "brisingamen": {
+      "*": [
+        "what was the router password again?",
+        "generate a strong password for me",
+        "add grandma's wifi code to the vault",
+        null,
+        "I use the same password everywhere, is that bad?",
+        "I want a password manager for the whole family",
+        "find the tax website login in the vault",
+        "something like Bitwarden but self-hosted"
+      ],
+      "chercher": [
+        "look up the Amazon entry in the vault",
+        "find the router password in the safe"
+      ],
+      "generer": [
+        "generate a 24-character password",
+        "make up a strong passphrase"
+      ],
+      "bilan": [
+        "vault security report",
+        "which passwords are reused or weak?"
+      ]
+    },
+    "gjoll": {
+      "*": [
+        "I want to get into my home network safely from the hotel",
+        null,
+        "add my phone to the VPN with a QR code",
+        "cut off VPN access for the stolen laptop",
+        "who's on the VPN right now?",
+        "I'm on public wifi, I want to route through home",
+        "give me the config file for the laptop",
+        "open the VPN port on the router"
+      ],
+      "ajouter": [
+        "add a device to the VPN",
+        "new VPN config for the tablet"
+      ],
+      "appareils": [
+        "list VPN devices",
+        "which devices can use the tunnel?"
+      ],
+      "revoquer": [
+        "revoke the lost phone",
+        "remove VPN access for the old laptop"
+      ]
+    },
+    "vidarr": {
+      "*": [
+        "there are way too many ads on every device at home",
+        "block TikTok for the whole house",
+        "the games site should be blocked from 9pm to 7am",
+        "why won't this site load, is it blocked?",
+        "let this domain through, it's blocked by mistake",
+        "cut the internet on Noah's PC but keep the local network",
+        "give my file server the name nas.home",
+        "pause blocking for five minutes",
+        "I want Odin to hand out IP addresses instead of the router"
+      ],
+      "bloquer": [
+        "block the domain ads.example.org",
+        "block this site and all its subdomains"
+      ],
+      "tester": [
+        "test example.org, is it blocked?",
+        "does this site get through the filter?"
+      ],
+      "baux": [
+        "who got which IP address?",
+        "list DHCP leases"
+      ]
+    },
+    "vordr": {
+      "*": [
+        "let me know if my site goes down",
+        "monitor port 22 on the server",
+        "are you keeping an eye on the site's HTTPS certificate?",
+        "add a ping check on the router",
+        "what was the site's uptime this month?",
+        "no alerts at night while the backups run",
+        "make a public status page for my customers",
+        null
+      ],
+      "ajouter": [
+        "monitor example.org",
+        "add a check on the mail server"
+      ],
+      "problemes": [
+        "open problems, most serious first",
+        "what outages are going on?"
+      ],
+      "historique": [
+        "uptime history of the site check over 30 days",
+        "how many outages on the server this year?"
+      ]
+    },
+    "askr": {
+      "*": [
+        "record the new printer's serial number",
+        "when does the office monitor's warranty run out?",
+        "I lent the projector to Ines until Friday",
+        "the laptop's come back",
+        "what equipment do we own?",
+        "print me a QR label to stick on the PC",
+        "how many Office licences have we got and where?",
+        "the old server was sold, take it out of the inventory"
+      ],
+      "ajouter": [
+        "add a device: Dell monitor, office 2",
+        "new hardware record for the NAS"
+      ],
+      "chercher": [
+        "find the device with MAC 00:11:22:33:44:55",
+        "look up the meeting room kit"
+      ],
+      "preter": [
+        "lend the camera to Hugo until the 30th",
+        "log that laptop 3 is going to Sarah"
+      ]
+    },
+    "valgrind": {
+      "*": [
+        "I want photos.example.org to point to my photo server",
+        "put HTTPS with Let's Encrypt on my services",
+        null,
+        "the certificate for cloud.example.org expired, renew it",
+        "redirect the old hostname to the new one",
+        "password-protect the admin page",
+        "forward port 25565 to the Minecraft server",
+        "add a hostname for the service on port 8080"
+      ],
+      "ajouter": [
+        "add wiki.example.org pointing to 198.51.100.20:3000",
+        "a new hostname for a home service"
+      ],
+      "certificat": [
+        "get a certificate for this domain",
+        "renew the HTTPS certificate"
+      ],
+      "rediriger": [
+        "redirect blog.example.org to www.example.org",
+        "set up a redirect from the old domain"
+      ]
+    },
+    "var": {
+      "*": [
+        "create an account for my wife so she can log into Odin",
+        "my daughter forgot her login password, reset it",
+        "turn on two-factor for Paul's account",
+        "log Mark out everywhere, he lost his phone",
+        "who has an account and in which group?",
+        "invite my brother with a link so he makes his own account",
+        "who logged in yesterday and from where?",
+        null
+      ],
+      "ajouter": [
+        "add a person: Clara, family group",
+        "create an account for the new colleague"
+      ],
+      "mot_de_passe": [
+        "change Leo's account password",
+        "set a new password for user Emma"
+      ],
+      "double_auth": [
+        "set up 2FA on my account",
+        "enable the six-digit code for Nadia"
+      ]
+    },
+    "bru": {
+      "*": [
+        "I want my site public without touching the router",
+        "make Odin reachable from my phone on 4G with my domain",
+        null,
+        "my ISP has me behind CGNAT, I still want to be reachable",
+        "publish nextcloud.example.org to the internet",
+        "take this hostname off the internet",
+        null,
+        "the tunnel's down, my hostnames don't answer"
+      ],
+      "publier": [
+        "publish photos.example.org",
+        "expose this subdomain through the tunnel"
+      ],
+      "etat": [
+        null,
+        "is the tunnel healthy?"
+      ],
+      "publier_odin": [
+        "publish Odin's interface on my domain",
+        "I want to manage Odin from outside at odin.example.org"
+      ]
+    },
+    "skidbladnir": {
+      "*": [
+        "I want to share a folder with the family",
+        "send me a password-protected link to share this file",
+        "a shared folder for the accounts team",
+        "mount my files as a network drive on the laptop",
+        "the share link should expire in 7 days",
+        "kill the link I sent to the client",
+        "who downloaded the project folder?",
+        "basically a self-hosted Nextcloud"
+      ],
+      "lien": [
+        "create a share link for quote.pdf",
+        "make a public link to the holiday folder"
+      ],
+      "espace": [
+        null,
+        "a shared folder the office group can write to"
+      ],
+      "synchro": [
+        "sync the Photos space with the external drive",
+        "link my NAS folder to the shared space"
+      ]
+    },
+    "eitri": {
+      "*": [
+        "download the latest Debian ISO",
+        "keep my Linux install images up to date",
+        "store the ISOs on the NAS share",
+        "is there a new Ubuntu ISO out?",
+        "has Microsoft released a newer Windows 11?",
+        "check my ISO files aren't corrupted",
+        "only keep two versions of each ISO",
+        "download the ISOs overnight so the line isn't flooded"
+      ],
+      "telecharger": [
+        "download the Linux Mint ISO",
+        "grab the latest Alpine ISO now"
+      ],
+      "suivre": [
+        "track the Debian ISO and keep it current",
+        null
+      ],
+      "verifier": [
+        "check for new ISOs",
+        "compare my ISOs against the official sites"
+      ]
+    },
+    "fjalar": {
+      "*": [
+        "keep a folder of up-to-date installers for the office PCs",
+        "download the latest Firefox installer",
+        "I need the 7-Zip setup for an offline PC",
+        "is there a new version of VLC?",
+        "are my installers scanned by the antivirus?",
+        "import the installer I've got on the USB stick",
+        "which software can you fetch on your own?",
+        "keep the previous version of each program just in case"
+      ],
+      "telecharger": [
+        "download the Thunderbird installer",
+        "grab the Notepad++ setup now"
+      ],
+      "suivre": [
+        "track VLC and keep it current in the folder",
+        "keep KeePassXC updated automatically"
+      ],
+      "catalogue": [
+        "which programs are in the catalogue?",
+        "catalogue of available installers"
+      ]
+    },
+    "thjalfi": {
+      "*": [
+        "install Windows on this PC over the network, no USB stick",
+        "PXE boot to reinstall the workstations",
+        "allow the machine with MAC aa:bb:cc:dd:ee:ff to install",
+        "how's the accounts PC install going?",
+        "block this machine, it mustn't reinstall",
+        "cancel the install running on laptop 4",
+        null,
+        "wipe and reinstall PC 7"
+      ],
+      "autoriser": [
+        "authorise this machine to install Ubuntu unattended",
+        "let the intern's machine boot the Windows ISO"
+      ],
+      "suivi": [
+        "progress of current installs",
+        "where are the machines being installed at?"
+      ],
+      "allumer": [
+        "turn on network boot",
+        "start the network install server"
+      ]
+    },
+    "gladsheim": {
+      "*": [
+        "show the home screen on the hallway tablet",
+        "what's the weather like outside?",
+        "is it going to rain this afternoon?",
+        "I'm in Leeds this week, change the city",
+        "where's the family right now?",
+        null,
+        "change the wall screen theme",
+        "switch to the 12-hour clock and Fahrenheit"
+      ],
+      "meteo": [
+        "today's weather",
+        "what's the weather in Boston?"
+      ],
+      "positions": [
+        "where is everyone in the family?",
+        "last known location of each of us"
+      ],
+      "bouton": [
+        "add a button to start the movie scene",
+        "a button on the screen to cut the kids' wifi"
+      ]
+    },
+    "zeus": {
+      "*": [
+        "do the weather models agree for this weekend?",
+        "compare the European model with the American one",
+        "which forecast source got it right last week?",
+        null,
+        "will the next three months be dry?",
+        "I want several forecasts side by side",
+        "where does Odin's weather data come from?",
+        "which forecast should I trust for my wedding on Saturday?"
+      ],
+      "comparer": [
+        "forecasts side by side",
+        "compare the models for the next 5 days"
+      ],
+      "bilan": [
+        "who called it right over the last 14 days?",
+        "score for each weather source"
+      ],
+      "mois": [
+        "outlook for the next three months",
+        "will next month be warmer than normal?"
+      ]
+    },
+    "gna": {
+      "*": [
+        "where did my son go on Saturday?",
+        "how many miles did I do yesterday?",
+        "show my trips this week on the map",
+        "what time did I get to work on Monday?",
+        "pause tracking my location",
+        "call this place Office",
+        "where do I go most often?",
+        "export my hike as a GPX file"
+      ],
+      "trajets": [
+        "yesterday's trips",
+        "my journeys on 12 March"
+      ],
+      "effacer": [
+        "delete my whole trip history",
+        "remove this morning's trip"
+      ],
+      "allumer": [
+        "turn on location history for Lou",
+        "start keeping my trips"
+      ]
+    },
+    "apparence": {
+      "*": [
+        "change Odin's colours",
+        "switch to a dark theme",
+        "I want a theme that follows the time and weather",
+        "surprise me with a random theme",
+        "the mascot's in the way, hide it",
+        "Odin, come back on screen",
+        "the interface is too bright in the evening",
+        "which holidays will change the decor soon?"
+      ],
+      "theme": [
+        "set the theme to automatic",
+        "switch to the forest theme"
+      ],
+      "cacher": [
+        "hide Odin from my screens",
+        "make the little character disappear"
+      ],
+      "etat": [
+        "what's the current theme?",
+        "why this theme today?"
+      ]
+    },
+    "commandes": {
+      "*": [
+        "what's the command to run a backup?",
+        "give me the line to type to ban an IP",
+        "list all of Odin's commands",
+        "how do I write the command to restart a VM?",
+        "a copy-paste example to block a site",
+        "which commands exist for the cameras?",
+        "show me the syntax to open a port",
+        "a cheat sheet of the commands"
+      ],
+      "chercher": [
+        "find the command that flushes the DNS cache",
+        "which command backs up a database?"
+      ],
+      "liste": [
+        "command list",
+        "every command for one app"
+      ]
+    },
+    "volva": {
+      "*": [
+        "look up how tall the Eiffel Tower is",
+        "find me sources on the climate bill",
+        "who's the mayor of Leeds?",
+        "do a web search on heat pumps",
+        "which search engines do you query?",
+        "show my recent searches",
+        "read the answer out loud",
+        "how do you make pancake batter?"
+      ],
+      "chercher": [
+        "search: electricity price per kWh in 2026",
+        "look up how to fix a running toilet"
+      ],
+      "brut": [
+        "raw results for 'raspberry pi server'",
+        "just the links, no written answer"
+      ],
+      "historique": [
+        "my latest searches",
+        "search history"
+      ]
+    },
+    "hermod": {
+      "*": [
+        "turn on the office PC remotely",
+        "wake up the gaming machine",
+        "which computers are on right now?",
+        "restart the receptionist's PC",
+        "run a command on every PC",
+        "I want to take control of my dad's computer",
+        "install Odin's companion on the new laptop",
+        "wake-on-LAN the NAS"
+      ],
+      "reveiller": [
+        "wake the PC in the basement",
+        "power on Tom's computer remotely"
+      ],
+      "parc": [
+        "give me a rundown of all the office computers, disks and updates",
+        "which machines are online?"
+      ],
+      "commande": [
+        "run ipconfig on PC 5",
+        "run a remote command on the file server"
+      ]
+    },
+    "ratatoskr": {
+      "*": [
+        "plug an MCP server into Odin",
+        "I want to expose my app's tools to Odin over MCP",
+        "which MCP servers are connected?",
+        "the GitHub MCP server isn't answering, restart it",
+        "unplug the test MCP server",
+        "show the tools on the filesystem MCP server",
+        "call the search tool on the MCP server by hand",
+        "open Odin up to other assistants"
+      ],
+      "ajouter": [
+        null,
+        "add an MCP server at http://198.51.100.5:8000"
+      ],
+      "serveurs": [
+        "list MCP servers",
+        "which MCP servers are plugged in?"
+      ],
+      "reconnecter": [
+        "reconnect the MCP server",
+        "restart the MCP server and reload its tools"
+      ]
+    },
+    "appareils": {
+      "*": [
+        "I'm cold",
+        "it's boiling in the bedroom",
+        "turn on the hallway light",
+        "switch off the coffee machine plug",
+        "close the living room shutters",
+        "set the AC to 22",
+        "what's the temperature in the bathroom?",
+        "is the garage door open?",
+        "I bought a Zigbee bulb, pair it"
+      ],
+      "commander": [
+        "switch on the desk lamp",
+        "set the bedroom radiator to 19 degrees"
+      ],
+      "lister": [
+        "list the devices in the house",
+        "status of all smart devices"
+      ],
+      "appairer": [
+        "start Zigbee pairing",
+        "open pairing for a new sensor"
+      ]
+    },
+    "brokkr": {
+      "*": [
+        null,
+        "find the ESP modules on the network",
+        null,
+        "get an ESP8266 ready to flash",
+        "send a raw command to the garage plug",
+        "I built a module with a sensor, how do I connect it?",
+        "configure the module to talk to Odin's broker",
+        "I'm new to DIY home automation, help me wire up an ESP32"
+      ],
+      "chercher": [
+        null,
+        "scan the network for ESPs"
+      ],
+      "brancher": [
+        null,
+        "link this module to the broker"
+      ],
+      "mettre_a_jour": [
+        "update the plug firmware",
+        null
+      ]
+    },
+    "midgard": {
+      "*": [
+        "start the movie night scene",
+        "create a goodnight scene that turns everything off",
+        "give me the state of the house room by room",
+        null,
+        "we're going on holiday, set the house to away mode",
+        "I'm on my way home from work, get the house ready",
+        "one dashboard for the whole house",
+        "we're going to bed, can you shut everything down?"
+      ],
+      "scene": [
+        "run the dinner scene",
+        "activate the leaving scene"
+      ],
+      "creer_scene": [
+        "create a cinema scene: lights at 20%, shutters closed",
+        "new morning scene with heating at 20"
+      ],
+      "maison": [
+        "house status",
+        "summary by room"
+      ]
+    },
+    "himinbjorg": {
+      "*": [
+        "show me the garden camera",
+        "is someone at the front door?",
+        "take a picture of the entrance",
+        "record 30 seconds from the garage cam",
+        "add my new IP camera",
+        "the camera picks up too much motion, lower the sensitivity",
+        "what happened in the driveway last night?",
+        "I heard a noise outside",
+        "has the parcel been delivered? check the camera"
+      ],
+      "photo": [
+        "snapshot from the front door camera",
+        "grab a still from the garden cam"
+      ],
+      "enregistrer": [
+        "record a one-minute clip",
+        "film the garage for 20 seconds"
+      ],
+      "cameras": [
+        "list cameras",
+        "which cameras are connected?"
+      ]
+    },
+    "bragi": {
+      "*": [
+        "announce through the whole house that dinner's ready",
+        "let me hear your voice, just a quick hello",
+        "make an announcement on the kitchen speaker",
+        "transcribe this voice message",
+        "you misheard me, I said Salisbury",
+        "read critical alerts out loud on the speakers",
+        "which voices are available?",
+        "I want to talk to you without a keyboard"
+      ],
+      "annoncer": [
+        "announce everywhere: we're leaving in 5 minutes",
+        "say on the living room speaker that the bath is ready"
+      ],
+      "transcrire": [
+        "transcribe the audio file meeting.mp3",
+        "turn this voice note into text"
+      ],
+      "dire": [
+        "say welcome home out loud",
+        "make an audio clip saying goodnight kids"
+      ]
+    },
+    "freyja": {
+      "*": [
+        "put a film on the telly",
+        "I fancy watching a series tonight",
+        "what's on TV right now?",
+        "I'll be home late, tape the 9pm film for me",
+        "have any new episodes come in?",
+        "let me know when the new season lands",
+        "which recordings are scheduled?",
+        "add this film to my watch-later list",
+        null
+      ],
+      "regarder": [
+        "play The Lord of the Rings on the living room TV",
+        "put channel 5 on"
+      ],
+      "enregistrer": [
+        "record the 8 o'clock news",
+        "schedule the documentary tonight"
+      ],
+      "nouveautes": [
+        "what's new this week",
+        "which films have arrived lately?"
+      ]
+    },
+    "aegir": {
+      "*": [
+        "stick some tunes on, I need to get moving",
+        "a bit of Miles Davis in the front room please",
+        "start the BBC Radio 2 stream",
+        "I want to listen to Bowie",
+        "make a playlist with every Daft Punk track",
+        "kill the playlist, we've got guests",
+        "add an internet radio station",
+        "rescan my music folder, I've added albums"
+      ],
+      "jouer": [
+        "play the workout playlist",
+        "put the radio on the living room speaker"
+      ],
+      "chercher": [
+        "search songs by Adele",
+        "find the track Bohemian Rhapsody"
+      ],
+      "stop": [
+        "stop playback on this machine",
+        "pause playback"
+      ]
+    },
+    "frigg": {
+      "*": [
+        "what appointments have I got tomorrow?",
+        "a client wants to come Tuesday, have I got room?",
+        "book Mr Small in on Thursday at 10",
+        "cancel the 3pm appointment",
+        "confirm this morning's booking request",
+        "I want a page where customers book themselves",
+        "add a men's haircut service, 30 minutes, 25 euros",
+        "something like Calendly, self-hosted"
+      ],
+      "agenda": [
+        "my upcoming appointments",
+        "what have I got on this week?"
+      ],
+      "creneaux": [
+        "free slots on Thursday for a consultation",
+        "when am I free tomorrow?"
+      ],
+      "reserver": [
+        "book an appointment for Julie Morel Saturday at 11",
+        "schedule a client for Monday"
+      ]
+    },
+    "kvasir": {
+      "*": [
+        "what's new in the upstream projects?",
+        "look into this GitHub link and tell me what it brings",
+        "follow this repo for the photos app",
+        "any new releases from the tools we copy?",
+        "what's left to add in the work log?",
+        "run the tech watch on followed repos",
+        "which app could this open-source project help?",
+        "I found an interesting repo, analyse it"
+      ],
+      "etudier": [
+        "study https://github.com/example/project",
+        "analyse this GitHub repo for Odin"
+      ],
+      "verifier": [
+        "check followed repos now",
+        "run the watch"
+      ],
+      "carnet": [
+        "work log",
+        "features to add per app"
+      ]
+    },
+    "syn": {
+      "*": [
+        "make me a dashboard with CPU load",
+        "I want network graphs over the week",
+        "add a panel with the NAS temperature",
+        null,
+        "show the Machine dashboard over 24 hours",
+        "which metrics can I graph?",
+        "set a red threshold at 80% on the disk panel",
+        "a gauge showing memory used"
+      ],
+      "voir": [
+        "show the Network dashboard over 7 days",
+        "open my main dashboard"
+      ],
+      "panneau": [
+        "add a memory line chart panel",
+        "a bar panel with daily traffic"
+      ],
+      "tableaux": [
+        "list my dashboards",
+        "what dashboards have I got?"
+      ]
+    },
+    "dvalinn": {
+      "*": [
+        "convert this Word file to PDF",
+        "turn the MOV video into MP4",
+        "combine the three PDF scans into one file",
+        "compress this PDF, it's too big to email",
+        "remove the password from this PDF",
+        "convert HEIC photos to JPG",
+        "re-encode every video in the folder",
+        "my file won't open on the phone, change its format"
+      ],
+      "convertir": [
+        "convert report.docx to PDF",
+        "turn this PNG into WebP"
+      ],
+      "pdf": [
+        "merge the PDFs in the invoices folder",
+        "shrink the quote PDF"
+      ],
+      "outil": [
+        null,
+        "work out the SHA-256 hash of this text"
+      ]
+    },
+    "champollion": {
+      "*": [
+        "read the text on this receipt photo",
+        "get the text out of this scanned PDF",
+        "what's the appointment date in this letter?",
+        "what's the amount on this invoice photo?",
+        "make this scan searchable",
+        "pull the contacts off this business card",
+        "run OCR on this document",
+        "the letter from the council, what does it say in short?"
+      ],
+      "lire": [
+        "read the file letter.jpg",
+        "extract the text from this PDF"
+      ],
+      "texte": [
+        "understand this text and pull out the dates",
+        "here's an email, what amounts and appointments are in it?"
+      ],
+      "pdf_cherchable": [
+        null,
+        "add a hidden text layer under the scan"
+      ]
+    },
+    "mimisbrunnr": {
+      "*": [
+        "search the logs for errors from last night",
+        "what shows up most in the logs?",
+        "what's the system journal been saying for the past hour?",
+        "warn me if this error keeps coming back",
+        "add my web app's log file",
+        "grep /var/log for 'out of memory'",
+        null,
+        "why did the service restart at 3am? check the logs"
+      ],
+      "chercher": [
+        "search the logs for 'segfault'",
+        "error logs between 2 and 4am"
+      ],
+      "repetes": [
+        "messages that keep repeating",
+        "what's spamming the logs"
+      ],
+      "regle": [
+        "alert if 'disk full' shows up more than 5 times",
+        "add a rule on login failures"
+      ]
+    },
+    "gefjon": {
+      "*": [
+        "my PC takes ages to boot",
+        "my disk is full, what do I do?",
+        "clean out the temp files",
+        "empty the caches and the recycle bin",
+        "what's taking up all the space?",
+        "too many programs launch at startup",
+        "uninstall this useless software",
+        "which are the biggest files?",
+        "the old logs are eating gigabytes"
+      ],
+      "nettoyer": [
+        "clean the temp files",
+        "free up everything that can go"
+      ],
+      "demarrage": [
+        "startup programs",
+        "what launches by itself when I switch on?"
+      ],
+      "carte": [
+        "disk space map",
+        "which folders use the most space?"
+      ]
+    },
+    "sol": {
+      "*": [
+        "sort my photos by date",
+        "show the pictures from summer 2023",
+        "I've got loads of duplicate photos",
+        "make an album of the Cornwall holiday",
+        "photos taken with my old phone",
+        "add the NAS photo folder",
+        "a home-made Google Photos",
+        "last Christmas's pictures"
+      ],
+      "chercher": [
+        "photos from July 2024",
+        "photos taken with the Canon"
+      ],
+      "doublons": [
+        "spot the identical shots in my photo library",
+        "photo duplicates"
+      ],
+      "album": [
+        "create a wedding album from June 2022 photos",
+        "make an album of the ski trip pictures"
+      ]
+    },
+    "fensalir": {
+      "*": [
+        "which drives are connected and how full are they?",
+        "share the Films folder on the network for the TV",
+        "list the Samba shares",
+        "stop sharing the Accounts folder",
+        "what filesystem is the 4 TB drive?",
+        null,
+        "how much room is left on each partition?",
+        "make the Music folder reachable from the Mac"
+      ],
+      "disques": [
+        "list drives",
+        "drives and their partitions"
+      ],
+      "partages": [
+        "network shares",
+        "which folders are shared?"
+      ],
+      "ajouter_partage": [
+        "share the folder /srv/photos",
+        "create a Windows share for the Documents folder"
+      ]
+    },
+    "hlid": {
+      "*": [
+        "is inbound filtering actually switched on?",
+        "open port 8080 on the local network",
+        "close port 3306, it shouldn't be reachable",
+        "which ports are listening on the machine?",
+        "what does the router let in from the internet?",
+        null,
+        "show the firewall rules",
+        "close the UPnP mapping the router made"
+      ],
+      "etat": [
+        "what's the firewall policy and which ports can be reached?",
+        "ports reachable from the network"
+      ],
+      "ouvrir_port": [
+        "open port 5000 for 198.51.100.0/24",
+        "allow incoming connections on port 443"
+      ],
+      "box": [
+        "ports open on the router",
+        "what's forwarded from the internet to my home?"
+      ]
+    },
+    "ivaldi": {
+      "*": [
+        "do my git repos have uncommitted work?",
+        "fetch the repo's changes without touching my work",
+        "clone this repo into my code folder",
+        "last 20 commits on the project",
+        "create a home repo I can push to",
+        "open a terminal on the server",
+        "run the node project in a persistent terminal",
+        null
+      ],
+      "depots": [
+        "list my repos",
+        "what state is each repo in?"
+      ],
+      "cloner": [
+        "clone https://github.com/example/tool.git",
+        "copy this git repo locally"
+      ],
+      "ouvrir_terminal": [
+        "give me a shell that stays open on the box",
+        "a terminal on the build box over SSH"
+      ]
+    },
+    "heidrun": {
+      "*": [
+        "my son spends far too long online",
+        "cut the kids' internet, it's dinner time",
+        "at 9pm Zoe's tablet should lose internet",
+        "parental controls for my 8-year-old daughter",
+        "which sites did my teenager visit today?",
+        "give Gabin his internet back, he's done his homework",
+        "the kids are watching stuff that's not for their age",
+        "filter adult sites on the little ones' devices"
+      ],
+      "pause": [
+        "pause the internet for Zoe",
+        "cut my son's internet right now"
+      ],
+      "profil": [
+        "create a child profile for Lena, 10, bedtime 8:30pm",
+        "set Malo's profile for age 12"
+      ],
+      "rapport": [
+        "Zoe's report for today",
+        "what did Gabin do online?"
+      ]
+    },
+    "leikvangr": {
+      "*": [
+        "I fancy a game of Mario Kart on the SNES",
+        "sort my ROMs by console",
+        "start Zelda on the machine",
+        null,
+        "add Sonic to my favourites",
+        null,
+        "an emulator to replay my childhood games",
+        "the ROM names are a mess, clean them up"
+      ],
+      "lancer": [
+        "launch Super Metroid",
+        "start Tetris on the machine's screen"
+      ],
+      "jeux": [
+        "list my SNES games",
+        "which PlayStation games do I have?"
+      ],
+      "ranger": [
+        "sort the games in the folder",
+        "file my ROMs by console"
+      ]
+    },
+    "snotra": {
+      "*": [
+        "write a cancellation letter",
+        "make me a spreadsheet of this month's spending",
+        "fix the mistakes in this text",
+        "search my Word documents for contract",
+        "read me this ODT document",
+        "meeting minutes from a template",
+        "draw a diagram of my network",
+        "check the spelling in my email before I send it"
+      ],
+      "corriger": [
+        "proofread this paragraph",
+        "check the grammar in my text"
+      ],
+      "creer": [
+        "create a document from this text",
+        "make a docx from these notes"
+      ],
+      "tableur": [
+        "create a spreadsheet with these rows",
+        "an Excel file with a total at the bottom"
+      ]
+    },
+    "hlin": {
+      "*": [
+        null,
+        "my address is on a people-search site, I want it removed",
+        "draft a GDPR letter to erase my data",
+        "my phone number is floating around on websites",
+        "has my email leaked anywhere?",
+        "a site is impersonating my company's domain",
+        "does this photo give away where I live?",
+        "that result is someone with my name, not me"
+      ],
+      "chercher": [
+        "check where I show up now",
+        "search the web for my profile"
+      ],
+      "lettre": [
+        "draft an erasure letter for this site",
+        "GDPR objection letter for the directory"
+      ],
+      "etat": [
+        "where do I appear online?",
+        "summary of my online exposure"
+      ]
+    },
+    "durinn": {
+      "*": [
+        "my hard drive is making a weird noise",
+        "is the SSD dying?",
+        "what temperature are my drives at?",
+        "test my NVMe's speed",
+        "are the SMART values on disk 2 normal?",
+        "any reallocated sectors?",
+        "warn me when a drive runs too hot",
+        "how worn out is my SSD?"
+      ],
+      "sante": [
+        "drive health",
+        "are my disks OK?"
+      ],
+      "smart": [
+        "SMART values for sda",
+        "explain the SSD's SMART data"
+      ],
+      "banc": [
+        "measure read and write speed",
+        "benchmark the external drive"
+      ]
+    },
+    "hel": {
+      "*": [
+        "I deleted photos from the SD card by mistake",
+        "the partition has vanished from my drive",
+        "recover deleted files from the USB stick",
+        "I formatted the wrong drive, help",
+        "my external drive won't open, is the partition table broken?",
+        "get back the deleted GoPro videos",
+        "can my deleted documents still be saved?",
+        null
+      ],
+      "recuperer": [
+        "recover deleted files from the SD card",
+        "copy the deleted photos onto drive D"
+      ],
+      "chercher": [
+        "look for lost partitions",
+        "find the missing partition on disk 2"
+      ],
+      "supports": [
+        "which media can I search?",
+        "list drives and sticks to scan"
+      ]
+    },
+    "pegase": {
+      "*": [
+        "what did I look at in the browser on Tuesday?",
+        "find that recipe page I saw yesterday",
+        "log my browser out of the stolen laptop",
+        "make a copy of my bookmarks and tabs",
+        "restore my old bookmarks",
+        "Odin mustn't see my browsing history",
+        "I've lost all my tabs",
+        "is the browser synced on all my devices?"
+      ],
+      "historique": [
+        "search browsing history for 'train ticket'",
+        "pages viewed on 3 May"
+      ],
+      "copier": [
+        "copy my browser data now",
+        "back up my bookmarks"
+      ],
+      "revoquer": [
+        "revoke the tablet from the browser",
+        "sign this phone out of the browser"
+      ]
+    },
+    "agora": {
+      "*": [
+        null,
+        "offer Firefox to guests without forcing it",
+        "add this installer to the store",
+        "what's on offer for me in the store?",
+        "Leo's changing department, take him out of the accounts group",
+        "the install failed on laptop 2, retry it",
+        "which devices are enrolled in the store?",
+        "a company app store for my PCs and phones"
+      ],
+      "ajouter": [
+        "add VLC to the store",
+        "put this MSI installer in the catalogue"
+      ],
+      "definir_mode": [
+        "make Thunderbird mandatory for the office group",
+        null
+      ],
+      "catalogue": [
+        "store catalogue",
+        "what's in the store and who gets it"
+      ]
+    },
+    "achille": {
+      "*": [
+        "I want to pentest my own website",
+        "intercept requests from my phone to my API",
+        "a home-made Burp for my apps",
+        "replay this request with a different parameter",
+        "compare the two server responses",
+        "prove this domain is mine so I can test it",
+        "what did the passive scan find?",
+        "check my site's headers and cookies"
+      ],
+      "allumer_proxy": [
+        "turn on the test proxy",
+        "start the intercepting proxy"
+      ],
+      "rejouer": [
+        "replay request 14 with a different id",
+        "resend this edited request to my site"
+      ],
+      "controle_passif": [
+        "passive check of my sites",
+        "look at my domain's security headers"
+      ]
+    },
+    "atalante": {
+      "*": [
+        "download this file for me",
+        "put this link in the download queue",
+        "the download dropped, resume it",
+        "cap download speed at 2 MB/s",
+        "only download overnight in off-peak hours",
+        "how are my downloads getting on?",
+        "pause the big file",
+        null
+      ],
+      "ajouter": [
+        "add https://example.org/file.iso to the queue",
+        "download this link"
+      ],
+      "file": [
+        "download queue",
+        "what's downloading right now?"
+      ],
+      "vitesse": [
+        null,
+        "remove the speed limit"
+      ]
+    },
+    "dodone": {
+      "*": [
+        "send a GET request to my API",
+        "test my /login endpoint with a POST",
+        null,
+        null,
+        "store the API token in the vault",
+        "does my API return a 200?",
+        "schedule the API tests every hour",
+        null
+      ],
+      "envoyer": [
+        "send GET https://api.example.org/status",
+        "try this request with its JSON body"
+      ],
+      "importer": [
+        null,
+        "load the openapi.yaml file"
+      ],
+      "lancer_collection": [
+        "run the Shop collection",
+        "execute all the test requests"
+      ]
+    },
+    "theia": {
+      "*": [
+        null,
+        "describe this photo for me",
+        "find the picture with a dog on the beach",
+        "that's my cat, not a dog, remember it",
+        "watch this video and tell me what it's about",
+        "what do you see in this screenshot?",
+        "is there any text in this image?",
+        "find the image with a sunset among mine"
+      ],
+      "voir": [
+        "describe the image photo.jpg",
+        "tell me what's in this picture"
+      ],
+      "retrouver": [
+        "find an image with a red bike",
+        "the picture showing the snowy mountain"
+      ],
+      "corriger": [
+        "that's not a cat, it's my rabbit",
+        "correction: it's the kitchen"
+      ]
+    },
+    "syrinx": {
+      "*": [
+        "what's that noise in the recording?",
+        "what's the tempo of this song?",
+        "did the dog bark while I was out?",
+        "recognise the sounds around the house",
+        "what key is this track in?",
+        "find last week's barking",
+        "that's the doorbell, not an alarm",
+        "was there a sound of breaking glass last night?",
+        "did the baby cry?"
+      ],
+      "ecouter": [
+        "listen to this sound and tell me what you hear",
+        "analyse the file sound.wav"
+      ],
+      "musique": [
+        "analyse the music in this file",
+        "tempo and key of this track"
+      ],
+      "sons": [
+        "recognise everyday sounds",
+        "which sounds did you pick up today?"
+      ]
+    },
+    "mathesis": {
+      "*": [
+        "teach yourself about the history of Wales",
+        "read up on heat pumps and remember it",
+        "read the whole Proxmox documentation site",
+        "never read that website again",
+        "stop learning on your own",
+        "where did you learn that?",
+        "you remembered something wrong, fix it",
+        "pause the learning"
+      ],
+      "confier": [
+        "make solar panels a priority topic",
+        "learn about Zigbee home automation first"
+      ],
+      "couper": [
+        "switch off all autonomous learning",
+        "no more searching on your own"
+      ],
+      "absorber": [
+        "absorb the site docs.example.org",
+        "read this project's wiki in full"
+      ]
+    },
+    "pronoia": {
+      "*": [
+        "what do you predict for tomorrow?",
+        "how often have you guessed right?",
+        "stop anticipating my habits",
+        "did your hunches come true?",
+        "what's likely to happen at home this week?",
+        "switch anticipation back on",
+        "wipe everything you've predicted",
+        "your success rate on forecasts"
+      ],
+      "previsions": [
+        "current predictions",
+        "what you've anticipated that isn't checked yet"
+      ],
+      "bilan": [
+        "prediction hit rate",
+        "predicted versus what happened"
+      ],
+      "prevoir": [
+        "predict now",
+        "estimate what's probably going to happen"
+      ]
+    },
+    "keryx": {
+      "*": [
+        "I want to reach you by text when I'm out",
+        "allow my wife's number to message you",
+        "change the secret code for messages",
+        "what did you do for me over messaging today?",
+        "take this number off the allowed list",
+        "wipe the messaging history",
+        "I want to phone you and ask for things",
+        "nobody should be able to give you orders without the code"
+      ],
+      "ajouter_numero": [
+        "add +44 7700 900000 to the allow list",
+        "allow this messaging account"
+      ],
+      "code_secret": [
+        "set a secret code",
+        "change the code I send before an order"
+      ],
+      "historique": [
+        "messaging history",
+        null
+      ]
+    }
+  },
+  "horsChamp": [
+    "order me a four-cheese pizza",
+    "book a flight to Lisbon on Friday",
+    "transfer 50 pounds to Paul",
+    "call me a cab to the station",
+    "buy some Tesla shares",
+    "book a table for four at a restaurant tonight",
+    null,
+    "take the dog out, he's waiting by the door",
+    "fix my car's engine",
+    "hack the neighbour's wifi",
+    "find out where my ex lives",
+    "pay my cheque into the bank",
+    "order dog food from an online shop",
+    "do the washing up",
+    "buy two tickets for Saturday's gig",
+    "renew my passport at the passport office",
+    "iron my shirts",
+    "find me a flat to rent in Manchester",
+    "sign me up at the gym",
+    "pick the kids up from school",
+    "drive the car to the garage",
+    "take my blood pressure",
+    "paint the bedroom wall blue",
+    "plant tomatoes in the vegetable patch",
+    "climb up and change the blown bulb yourself, with your own hands",
+    "send flowers to my gran by courier",
+    "file my taxes for me",
+    "pay off my mortgage",
+    "haggle over the car price with the dealer",
+    "bake a chocolate cake in the oven",
+    "fill up the petrol tank",
+    "wash the conservatory windows",
+    "take this parcel to the post office",
+    "get me a cup of coffee from the kitchen"
+  ]
+}

@@ -4,14 +4,18 @@
 // action. L'aiguilleur le fait SANS réseau de neurones et sans rien d'extérieur :
 //   1. la matière : toutes les façons de dire qu'Odin connaît déjà (paires de corpus-depart.ts, demandes-langues.ts,
 //      demandes-v2.ts ; tournures par appli et par action de src/langue/langues/*.json ; mots, noms, descriptions des
-//      applis et de leurs actions ; survol du guide ; usages ; corrections validées par le propriétaire) ;
+//      applis et de leurs actions ; survol du guide ; usages ; la matière par langue src/brain/nous/matiere/<code>.json,
+//      lue par matiere.ts ; corrections validées par le propriétaire) ;
 //   2. le calcul : des n-grammes de caractères (aucun découpage en mots : le chinois et le japonais passent comme le
-//      reste), pondérés TF-IDF, sur la forme d'origine ET sur la forme sans accents ; les plus proches voisins votent pour
-//      une appli, puis, dans l'appli, pour une action ; fusion facultative par les rangs avec la recherche par mots ;
+//      reste), pondérés TF-IDF (l'IDF compte aussi combien d'applis partagent un n-gramme), sur la forme d'origine ET sur
+//      la forme sans accents ; les plus proches voisins votent pour une appli, le centre de chaque appli (cosinus avec la
+//      somme de ses paires) s'y ajoute, puis, dans l'appli, les voisins votent pour une action ; fusion facultative par
+//      les rangs avec la recherche par mots ;
 //   3. la décision : une confiance (régression logistique sur la marge, la part du premier, la ressemblance du plus
-//      proche voisin et l'accord avec les mots), réglée par validation croisée SUR LA MATIÈRE (jamais sur un banc), et
-//      trois issues : « seul » (il répond), « trois » (il propose trois choix), « main » (il ne sait pas : hors du champ
-//      d'Odin ou trop incertain) ;
+//      proche voisin, l'accord avec les mots, la part de l'action, la part de la demande que la matière connaît et la
+//      part de « pas encore »), réglée par validation croisée SUR LA MATIÈRE (jamais sur un banc), et trois issues :
+//      « seul » (il répond), « trois » (il propose trois choix), « main » (il ne sait pas : hors du champ d'Odin, rien de
+//      ressemblant dans la matière, ou trop incertain) ;
 //   4. les corrections du propriétaire, gardées dans un petit fichier du dossier d'Odin et relues à l'ouverture ; une
 //      paire venue d'un contenu extérieur est refusée ;
 //   5. les relances : le tour précédent et l'appli active comptent dans le choix.
@@ -30,11 +34,16 @@ import { performance } from 'node:perf_hooks';
 import { DEMANDES_EXEMPLES } from './corpus-depart.ts';
 import { DEMANDES_V2 } from './demandes-v2.ts';
 import { langues } from '../../langue/tables.ts';
+import { DOSSIER_MATIERE, lireMatiere, type BilanMatiere } from './matiere.ts';
 
 // ------------------------------------------------------------------------------------------------ types
 export type DecisionAiguilleur = 'seul' | 'trois' | 'main';
 /** Une façon de dire reliée à une appli (null : hors du champ d'Odin, « pas encore ») et, si on la connaît, à une action. */
-export interface Paire { texte: string; appli: string | null; action: string | null; source: string; poids?: number; demande?: boolean }
+export interface Paire {
+  texte: string; appli: string | null; action: string | null; source: string; poids?: number; demande?: boolean;
+  /** Groupe des phrases sœurs (traductions alignées de la matière, « appli.action#n ») : même pli en validation croisée. */
+  groupe?: string;
+}
 export interface ChoixAiguilleur { appli: string | null; action: string | null; score: number }
 export interface ReponseAiguilleur {
   choix: ChoixAiguilleur[]; decision: DecisionAiguilleur; confiance: number;
@@ -42,6 +51,15 @@ export interface ReponseAiguilleur {
   raison: string;
   /** Le premier choix n'est pas une action connue en lecture seule : le faire demande confirmation, même en « seul ». */
   confirmer: boolean;
+  /**
+   * « seul » dit que l'APPLI est sûre ; l'action l'est-elle aussi (seconde confiance, réglée à part) ? Sinon, Odin ouvre
+   * l'appli et demande quelle action (relecture du tour 2, G1). Toujours faux hors de « seul » ou sans action proposée.
+   */
+  actionSure: boolean;
+  /** Confiance dans l'action du premier choix (absente sans action proposée). */
+  confianceAction?: number;
+  /** Part de la demande que la matière connaît (entre 0 et 1 ; absente pour une demande vide). */
+  couverture?: number;
 }
 export interface ContexteAiguilleur { precedent?: string; appli?: string; actionPrecedente?: string; [cle: string]: unknown }
 /** Ce que l'aiguilleur lit d'une appli (forme de src/valhalla/types.ts, sans rien d'autre). */
@@ -80,16 +98,83 @@ export interface Reglages {
   prior: number;
   /** Poids du vote « hors du champ » (les phrases « pas encore » se ressemblent entre elles par leur tournure). */
   poidsHorsChamp: number;
+  /**
+   * Comment les voisins votent (tour 2, « applis aimants ») :
+   *   « voisins » les K plus proches, toutes applis mêlées (l'ancienne règle : une appli riche en paires en place plus) ;
+   *   « appli »   chaque appli (et « pas encore ») vote avec ses `parAppli` meilleures paires seulement : elle pèse pareil,
+   *               quel que soit son nombre d'actions ou d'exemples ;
+   *   « centre »  chaque appli est résumée par le centre de ses paires (cosinus de la demande avec ce centre).
+   */
+  vote: 'voisins' | 'appli' | 'centre';
+  parAppli: number;
+  /**
+   * Part de la demande que la matière connaît (masse des n-grammes porteurs de lettres ou de chiffres déjà vus, entre 0
+   * et 1) en dessous de laquelle rien ne ressemble vraiment : l'aiguilleur passe la main sans liste (tour 2).
+   */
+  couvertureMin: number;
+  /**
+   * Longueur minimale (en caractères) des n-grammes comptés dans la couverture (1 : tous). Essayé à 3 (relecture du tour
+   * 2, M3) : une phrase vietnamienne restait couverte à 0,25 (0,27 avec tous) et des demandes chinoises et coréennes
+   * connues tombaient à 0,06 : gardé à 1.
+   */
+  couvertureNMin: number;
+  /**
+   * Couverture en dessous de laquelle l'aiguilleur ne décide pas (ni « seul » ni « trois ») : il passe la main et ses
+   * choix ne sont que des pistes. Réglé par une validation croisée où chaque pli retire une langue entière (relecture du
+   * tour 2, M3) : sous 0,6, les demandes d'une langue retirée avaient l'appli juste en « seul » 86 % des fois au mieux et
+   * la bonne appli dans les trois 61 % au mieux ; à partir de 0,6, 96,4 % et 88,0 %.
+   */
+  couvertureDecider: number;
+  /**
+   * Règles par défaut quand deux applis sont vraiment possibles (préférences du propriétaire) : si les deux premières
+   * sont une paire (préférée, autre) et que la préférée a au moins (1 − margePreference) fois la part de l'autre, la
+   * préférée passe devant. 0 : jamais.
+   */
+  margePreference: number;
+  /**
+   * « Pas encore » passe en premier dès que sa part atteint ce rapport à celle de la première appli (1 : seulement s'il
+   * est déjà premier ; plus bas : il l'emporte plus tôt). Réglé par validation croisée sur la matière.
+   */
+  rapportHorsChamp: number;
+  /** Part au plus des demandes du champ que la régression « hors du champ » peut y envoyer (validation croisée). 0 : sans elle. */
+  perteHorsChamp: number;
+  /** Part des centres d'applis ajoutée au vote des voisins (0 : sans ; sans effet si `vote` vaut « centre »). */
+  poidsCentre: number;
+  /** Puissance de l'IDF compté par appli (n-grammes partagés par beaucoup d'applis : moins de poids). 0 : sans. */
+  idfAppli: number;
+  /** Validation croisée par groupes (même source, même appli, même action dans le même pli) plutôt que phrase par phrase. */
+  plisGroupes: boolean;
+  /** Au plus ce nombre de cas testés par la validation croisée (choisis par empreinte, sans hasard) : la calibration reste rapide. */
+  casMax: number;
 }
-/** Réglages par défaut : choisis par validation croisée sur la matière (voir le carnet soul-v3, section de l'aiguilleur). */
-export const REGLAGES: Reglages = { nMin: 1, nMax: 4, k: 25, puissance: 2, poidsMots: 0.3, rangR: 3, bonusContexte: 0.35, poidsPrecedent: 0.3, contexte: 'proche', viseSeul: 0.9, viseTrois: 0.85, poidsDemande: 2, prior: 0, poidsHorsChamp: 1 };
+/**
+ * Réglages par défaut : choisis par validation croisée sur la matière (carnet soul-v3, sections de l'aiguilleur). Tour 2
+ * (17/11, matière fr + en) : centres d'applis ×4, IDF par appli ^0,5, « pas encore » devant dès la moitié de la part de
+ * la première appli, préférence du propriétaire à 10 % près, « seul » visé à 95 %. `couvertureMin` (0,02) est posé à la
+ * main : la matière ne couvre pas encore les écritures qu'il protège, la validation croisée ne peut pas le régler.
+ * Après la relecture du tour 2 (matière des 15 langues) : « seul » visé sur l'appli (l'action a sa propre confiance),
+ * `couvertureDecider` 0,6 réglé en retirant une langue entière par pli.
+ */
+export const REGLAGES: Reglages = {
+  nMin: 1, nMax: 4, k: 25, puissance: 2, poidsMots: 0.3, rangR: 3, bonusContexte: 0.35, poidsPrecedent: 0.3, contexte: 'proche', viseSeul: 0.95, viseTrois: 0.85, poidsDemande: 2, prior: 0, poidsHorsChamp: 1,
+  vote: 'voisins', parAppli: 3, couvertureMin: 0.02, couvertureNMin: 1, couvertureDecider: 0.6, margePreference: 0.1, casMax: 1500, idfAppli: 0.5, poidsCentre: 4, rapportHorsChamp: 0.5, perteHorsChamp: 0, plisGroupes: false,
+};
+
+/**
+ * Quand deux applis sont vraiment possibles, celle que le propriétaire préfère (règle du 17/11) : [préférée, autre].
+ * Sauvegarder une base de données → Arche (skuld) plutôt que Phénix (sindri) ; les appareils sur le réseau → Sphinx
+ * (vidarr) plutôt que Constellation (appareils) ; allumer un ordinateur → Satellites (hermod) plutôt que Constellation.
+ */
+export const PREFERENCES: ReadonlyArray<readonly [string, string]> = [['skuld', 'sindri'], ['vidarr', 'appareils'], ['hermod', 'appareils']];
 
 export const HORS_CHAMP = '∅';
+/** Ressemblance (cosinus) à partir de laquelle une correction du propriétaire est « la même demande ». */
+export const CORRECTION_IDENTIQUE = 0.9;
 export const LONGUEUR_MAX = 2000;
 
 // ------------------------------------------------------------------------------------------------ normalisation
 // Caractères de contrôle (et séparateurs de ligne Unicode) : remplacés par une espace.
-const CONTROLE = /[\p{Cc}\u2028\u2029]/gu;
+export const CONTROLE = /[\p{Cc}\u2028\u2029]/gu;
 /**
  * Voyelles et signes de lecture qu'on n'écrit presque jamais au quotidien : niqqud et cantillation hébreux
  * (U+0591–U+05C7, sans les ponctuations U+05BE, U+05C0, U+05C3, U+05C6) et harakat arabes (U+064B–U+065F, U+0670).
@@ -152,6 +237,10 @@ export class IndexNgrammes {
   private ajouts: Array<{ paire: Paire; vec: Map<string, number>; retire: boolean }> = [];
   private nBase: number;
   private masque: Uint8Array;
+  /** Les n-grammes des ajouts (corrections) : ils comptent dans la couverture (ceux d'un ajout retiré aussi). */
+  private grammesAjoutes = new Set<string>();
+  /** Facteur de l'IDF par appli d'un n-gramme jamais vu (1 sans IDF par appli). */
+  private facteurInconnu = 1;
 
   constructor(paires: Paire[], reglages: Reglages) {
     this.paires = paires.slice(); this.reglages = reglages;
@@ -161,6 +250,16 @@ export class IndexNgrammes {
     for (const tf of tfs) for (const g of tf.keys()) { let id = this.vocab.get(g); if (id === undefined) { id = df.length; this.vocab.set(g, id); df.push(0); } df[id]++; }
     this.idf = new Float64Array(df.length);
     for (let i = 0; i < df.length; i++) this.idf[i] = Math.log((N + 1) / (df[i] + 1)) + 1;
+    if (reglages.idfAppli > 0) {
+      // Un n-gramme que beaucoup d'applis partagent ne dit pas laquelle : son poids baisse (IDF compté par appli).
+      const applis = [...new Set(this.paires.map((p) => p.appli ?? HORS_CHAMP))].sort(cmp), rang = new Map(applis.map((a, i) => [a, i]));
+      const ordre = this.paires.map((_, i) => i).sort((x, y) => rang.get(this.paires[x].appli ?? HORS_CHAMP)! - rang.get(this.paires[y].appli ?? HORS_CHAMP)! || x - y);
+      const dfA = new Int32Array(df.length), vu = new Int32Array(df.length).fill(-1);
+      for (const d of ordre) { const a = rang.get(this.paires[d].appli ?? HORS_CHAMP)!; for (const g of tfs[d].keys()) { const id = this.vocab.get(g)!; if (vu[id] !== a) { vu[id] = a; dfA[id]++; } } }
+      const A = applis.length;
+      for (let i = 0; i < df.length; i++) this.idf[i] *= Math.pow(Math.log((A + 1) / (dfA[i] + 1)) + 1, reglages.idfAppli);
+      this.facteurInconnu = Math.pow(Math.log(A + 1) + 1, reglages.idfAppli);
+    }
     const compte = new Int32Array(df.length + 1);
     const vecs = tfs.map((tf) => {
       const ids: number[] = [], ws: number[] = []; let nn = 0;
@@ -180,6 +279,25 @@ export class IndexNgrammes {
     this.masque = new Uint8Array(N);
   }
 
+  private normesC?: Map<string, number>;
+  /**
+   * Norme du centre de chaque appli (somme des vecteurs normés de ses paires de base, pondérés par `poids`) : le
+   * cosinus de la requête avec ce centre vaut Σ poids·ressemblance / norme. Calculée une fois (paires retirées comprises).
+   */
+  normesCentres(poids: (p: Paire) => number): Map<string, number> {
+    if (this.normesC) return this.normesC;
+    const applis = [...new Set(this.paires.map((p) => p.appli ?? HORS_CHAMP))].sort(cmp), rang = new Map(applis.map((a, i) => [a, i]));
+    const rangDe = Int32Array.from(this.paires.map((p) => rang.get(p.appli ?? HORS_CHAMP)!)), pd = Float64Array.from(this.paires.map(poids));
+    const somme = new Float64Array(applis.length), carre = new Float64Array(applis.length), touche: number[] = [];
+    for (let g = 0; g + 1 < this.debut.length; g++) {
+      for (let p = this.debut[g]; p < this.debut[g + 1]; p++) { const a = rangDe[this.postDoc[p]]; if (somme[a] === 0) touche.push(a); somme[a] += pd[this.postDoc[p]] * this.postPoids[p]; }
+      for (const a of touche) { carre[a] += somme[a] * somme[a]; somme[a] = 0; }
+      touche.length = 0;
+    }
+    this.normesC = new Map(applis.map((a, i) => [a, Math.sqrt(carre[i])]));
+    return this.normesC;
+  }
+
   get taille(): number { return this.nBase + this.ajouts.length; }
   get grammes(): number { return this.vocab.size; }
   /** Ajouts parcourus un par un à chaque demande (retirés compris). */
@@ -192,11 +310,22 @@ export class IndexNgrammes {
   /** Les paires qui votent encore (pour reconstruire l'index). */
   vivantes(): Paire[] { const out: Paire[] = []; for (let i = 0; i < this.taille; i++) if (this.vivante(i)) out.push(this.paire(i)); return out; }
 
+  /**
+   * La part de la requête que la matière connaît : masse (carré des poids du vecteur normé) des n-grammes porteurs d'une
+   * lettre ou d'un chiffre déjà vus, rapportée à celle de tous les n-grammes porteurs d'une lettre ou d'un chiffre.
+   */
+  couverture(q: Map<string, number>): number {
+    let connu = 0, tout = 0;
+    const nMin = this.reglages.couvertureNMin ?? 1;
+    for (const [g, w] of q) { if (!/[\p{L}\p{N}]/u.test(g) || (nMin > 1 && [...g].length < nMin)) continue; tout += w * w; if (this.vocab.has(g) || this.grammesAjoutes.has(g)) connu += w * w; }
+    return tout > 0 ? connu / tout : 0;
+  }
+
   /** Le vecteur normé d'une requête (les n-grammes inconnus comptent dans la norme : une demande étrangère à toute la matière ressemble moins). */
   vecteur(texte: string): Map<string, number> {
     const tf = ngrammes(nettoyer(texte), this.reglages.nMin, this.reglages.nMax);
     const v = new Map<string, number>(); let nn = 0;
-    const idfInconnu = Math.log((this.nBase + 1) / 1) + 1;
+    const idfInconnu = (Math.log((this.nBase + 1) / 1) + 1) * this.facteurInconnu;
     for (const [g, c] of tf) { const id = this.vocab.get(g); const w = (1 + Math.log(c)) * (id === undefined ? idfInconnu : this.idf[id]); v.set(g, w); nn += w * w; }
     const inv = nn > 0 ? 1 / Math.sqrt(nn) : 0;
     for (const [g, w] of v) v.set(g, w * inv);
@@ -207,18 +336,19 @@ export class IndexNgrammes {
   ajouter(p: Paire): void {
     const tf = ngrammes(nettoyer(p.texte), this.reglages.nMin, this.reglages.nMax);
     const v = new Map<string, number>(); let nn = 0;
-    const idfInconnu = Math.log((this.nBase + 1) / 2) + 1;
+    const idfInconnu = (Math.log((this.nBase + 1) / 2) + 1) * this.facteurInconnu;
     for (const [g, c] of tf) { const id = this.vocab.get(g); const w = (1 + Math.log(c)) * (id === undefined ? idfInconnu : this.idf[id]); v.set(g, w); nn += w * w; }
     const inv = nn > 0 ? 1 / Math.sqrt(nn) : 0;
     for (const [g, w] of v) v.set(g, w * inv);
     this.ajouts.push({ paire: p, vec: v, retire: false });
+    for (const g of v.keys()) this.grammesAjoutes.add(g);
   }
 
   /**
    * Les ressemblances (cosinus) de la requête avec chaque paire. `exclu` (facultatif) écarte des paires de base (validation
    * croisée). Rend un tableau creux : indices touchés et leurs scores.
    */
-  ressemblances(texte: string, exclu?: Uint8Array): { idx: number[]; sim: number[] } {
+  ressemblances(texte: string, exclu?: Uint8Array): { idx: number[]; sim: number[]; couverture: number } {
     const q = this.vecteur(texte);
     const s = this.scores, touches: number[] = [];
     for (const [g, w] of q) {
@@ -232,7 +362,7 @@ export class IndexNgrammes {
     const idx: number[] = [], sim: number[] = [];
     for (const d of touches) { const x = s[d]; s[d] = 0; if (x > 0 && !(exclu && exclu[d]) && this.masque[d] === 0) { idx.push(d); sim.push(x); } }
     this.ajouts.forEach((a, i) => { if (a.retire) return; let x = 0; for (const [g, w] of q) { const y = a.vec.get(g); if (y) x += w * y; } if (x > 0) { idx.push(this.nBase + i); sim.push(x); } });
-    return { idx, sim };
+    return { idx, sim, couverture: this.couverture(q) };
   }
 }
 
@@ -240,7 +370,7 @@ export class IndexNgrammes {
 const sansAccent = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 /** Toutes les paires d'apprentissage du dépôt, reliées aux applis et actions qui existent vraiment. */
-export function matiere(modules: ModuleMatiere[], o: { usages?: Array<{ need: string; chain: string[] }>; survol?: Record<string, { phrase: string; faire: string[] }>; corrections?: Paire[] } = {}): Paire[] {
+export function matiere(modules: ModuleMatiere[], o: { usages?: Array<{ need: string; chain: string[] }>; survol?: Record<string, { phrase: string; faire: string[] }>; corrections?: Paire[]; parLangue?: Paire[] } = {}): Paire[] {
   const out: Paire[] = [];
   const parId = new Map(modules.map((m) => [m.id, m]));
   const actionExiste = (m: string, a: string) => Boolean(parId.get(m)?.actions.some((x) => x.id === a));
@@ -286,7 +416,9 @@ export function matiere(modules: ModuleMatiere[], o: { usages?: Array<{ need: st
   // 4. Le guide (survol) et les usages connus (la première appli de la chaîne).
   for (const [id, s] of Object.entries(o.survol ?? {})) if (parId.has(id)) { pousser(s.phrase, id, null, 'survol'); for (const f of s.faire) pousser(f, id, null, 'survol'); }
   for (const u of o.usages ?? []) if (u.chain[0] && parId.has(u.chain[0])) pousser(u.need, u.chain[0], null, 'usages', false, 0.5);
-  // 5. Les corrections validées par le propriétaire.
+  // 5. La matière par langue (src/brain/nous/matiere/<code>.json), déjà vérifiée par son chargeur.
+  for (const p of o.parLangue ?? []) if (p.appli === null || (parId.has(p.appli) && (p.action === null || actionExiste(p.appli, p.action)))) out.push({ ...p });
+  // 6. Les corrections validées par le propriétaire.
   for (const c of o.corrections ?? []) out.push({ ...c, demande: true, poids: c.poids ?? 2 });
   return out;
 }
@@ -295,31 +427,66 @@ export function matiere(modules: ModuleMatiere[], o: { usages?: Array<{ need: st
 interface Candidat { appli: string; part: number; action: string | null; partAction: number }
 interface Vote {
   candidats: Candidat[]; sim1: number; motsTete: string | null; motsVide: boolean;
+  /** Part de la demande que la matière connaît (voir IndexNgrammes.couverture). */
+  couverture: number;
+  /** Part du vote « pas encore », même quand il n'est pas premier. */
+  partHorsChamp: number;
 }
 
 const cle = (p: Paire) => p.appli ?? HORS_CHAMP;
 const poidsDe = (p: Paire, R: Reglages) => (p.poids ?? 1) * (p.demande ? R.poidsDemande : 1) * (p.appli === null ? R.poidsHorsChamp : 1);
 
-/** Le vote des voisins (et des mots), sans décision. */
-function voter(ix: IndexNgrammes, parAppli: Map<string, number[]>, phrase: string, ctx: ContexteAiguilleur | undefined, mots: MotsFn | undefined, exclu?: Uint8Array): Vote {
+/** Les parts de chaque appli (et de « pas encore ») d'après des ressemblances, selon la règle de vote (normées à 1). */
+function partager(ix: IndexNgrammes, parAppli: Map<string, number[]>, idx: number[], sim: number[]): { parts: Map<string, number>; sim1: number } {
   const R = ix.reglages;
-  const { idx, sim } = ix.ressemblances(phrase, exclu);
-  // Les K plus proches.
-  const ordre = idx.map((_, i) => i).sort((a, b) => sim[b] - sim[a] || idx[a] - idx[b]).slice(0, R.k);
-  const parts = new Map<string, number>();
-  let tot = 0;
-  for (const i of ordre) { const p = ix.paire(idx[i]); const w = Math.pow(sim[i], R.puissance) * poidsDe(p, R); parts.set(cle(p), (parts.get(cle(p)) ?? 0) + w); tot += w; }
-  if (R.prior > 0) { tot = 0; for (const [a, w] of parts) { const x = w / Math.pow(Math.max(1, parAppli.get(a)?.length ?? 1), R.prior); parts.set(a, x); tot += x; } }
-  if (tot > 0) for (const [a, w] of parts) parts.set(a, w / tot);
-  const sim1 = ordre.length ? sim[ordre[0]] : 0;
+  const out = new Map<string, number>();
+  let tot = 0, sim1 = 0;
+  for (const s of sim) if (s > sim1) sim1 = s;
+  if (R.vote === 'appli') {
+    // Chaque appli vote avec ses `parAppli` meilleures paires : le nombre de ses paires ne compte plus.
+    const m = Math.max(1, R.parAppli | 0), meilleurs = new Map<string, number[]>();
+    for (let i = 0; i < idx.length; i++) {
+      const p = ix.paire(idx[i]); const w = Math.pow(sim[i], R.puissance) * poidsDe(p, R); const k = cle(p);
+      let l = meilleurs.get(k); if (!l) meilleurs.set(k, l = []);
+      if (l.length < m) { l.push(w); l.sort((x, y) => y - x); } else if (w > l[m - 1]) { l[m - 1] = w; l.sort((x, y) => y - x); }
+    }
+    for (const [k, l] of meilleurs) { let s = 0; for (const w of l) s += w; out.set(k, s); tot += s; }
+  } else if (R.vote === 'centre') {
+    const c = centres(ix, idx, sim); for (const [k, x] of c) { out.set(k, x); tot += x; }
+  } else {
+    // Les K plus proches.
+    const ordre = idx.map((_, i) => i).sort((a, b) => sim[b] - sim[a] || idx[a] - idx[b]).slice(0, R.k);
+    for (const i of ordre) { const p = ix.paire(idx[i]); const w = Math.pow(sim[i], R.puissance) * poidsDe(p, R); out.set(cle(p), (out.get(cle(p)) ?? 0) + w); tot += w; }
+    if (R.prior > 0) { tot = 0; for (const [a, w] of out) { const x = w / Math.pow(Math.max(1, parAppli.get(a)?.length ?? 1), R.prior); out.set(a, x); tot += x; } }
+  }
+  if (tot > 0) for (const [a, w] of out) out.set(a, w / tot);
+  if (R.poidsCentre > 0 && R.vote !== 'centre') {
+    // Mélange : les voisins, plus (poidsCentre ×) les centres des applis ; renormé.
+    const c = centres(ix, idx, sim); let tc = 0; for (const x of c.values()) tc += x;
+    if (tc > 0) { let t = 0; for (const [k, x] of c) out.set(k, (out.get(k) ?? 0) + R.poidsCentre * x / tc); for (const x of out.values()) t += x; for (const [k, x] of out) out.set(k, x / t); }
+  }
+  return { parts: out, sim1 };
+}
+
+/** Le cosinus de la requête avec le centre de chaque appli (paires de base seulement), à la puissance `puissance`. */
+function centres(ix: IndexNgrammes, idx: number[], sim: number[]): Map<string, number> {
+  const R = ix.reglages, normes = ix.normesCentres((p) => poidsDe(p, R)), somme = new Map<string, number>(), out = new Map<string, number>();
+  for (let i = 0; i < idx.length; i++) { if (idx[i] >= ix.paires.length) continue; const p = ix.paire(idx[i]); somme.set(cle(p), (somme.get(cle(p)) ?? 0) + poidsDe(p, R) * sim[i]); }
+  for (const [k, x] of somme) { const nn = normes.get(k) ?? 0; if (nn > 0) out.set(k, Math.pow(x / nn, R.puissance)); }
+  return out;
+}
+
+/** Le vote des voisins (et des mots), sans décision. */
+function voter(ix: IndexNgrammes, parAppli: Map<string, number[]>, phrase: string, ctx: ContexteAiguilleur | undefined, mots: MotsFn | undefined, exclu?: Uint8Array, preferences: ReadonlyArray<readonly [string, string]> = PREFERENCES): Vote {
+  const R = ix.reglages;
+  const { idx, sim, couverture } = ix.ressemblances(phrase, exclu);
+  const { parts, sim1 } = partager(ix, parAppli, idx, sim);
   // Relance : le tour précédent vote un peu, l'appli active reçoit une part.
   if (ctx && (ctx.precedent || ctx.appli)) {
     if (typeof ctx.precedent === 'string' && ctx.precedent.trim()) {
       const pr = ix.ressemblances(ctx.precedent, exclu);
-      const o2 = pr.idx.map((_, i) => i).sort((a, b) => pr.sim[b] - pr.sim[a] || pr.idx[a] - pr.idx[b]).slice(0, R.k);
-      let t2 = 0; const p2 = new Map<string, number>();
-      for (const i of o2) { const p = ix.paire(pr.idx[i]); const w = Math.pow(pr.sim[i], R.puissance) * poidsDe(p, R); p2.set(cle(p), (p2.get(cle(p)) ?? 0) + w); t2 += w; }
-      if (t2 > 0) for (const [a, w] of p2) if (a !== HORS_CHAMP) parts.set(a, (parts.get(a) ?? 0) + R.poidsPrecedent * (w / t2));
+      const p2 = partager(ix, parAppli, pr.idx, pr.sim).parts;
+      for (const [a, w] of p2) if (a !== HORS_CHAMP) parts.set(a, (parts.get(a) ?? 0) + R.poidsPrecedent * w);
     }
     if (typeof ctx.appli === 'string' && parAppli.has(ctx.appli)) {
       // L'appli active ne prend une part que si la phrase ne désigne pas nettement une AUTRE appli (relecture G3).
@@ -343,6 +510,22 @@ function voter(ix: IndexNgrammes, parAppli: Map<string, number[]>, phrase: strin
     m.forEach((x, i) => { if (parAppli.has(x.appli)) rr.set(x.appli, (rr.get(x.appli) ?? 0) + R.poidsMots / (R.rangR + i + 1)); });
     classement = [...rr.entries()].sort((a, b) => b[1] - a[1] || (parts.get(b[0]) ?? 0) - (parts.get(a[0]) ?? 0) || cmp(a[0], b[0])).map(([a]) => a);
   }
+  // « Pas encore » passe devant dès que sa part atteint `rapportHorsChamp` fois celle de la première appli.
+  const iHC = classement.indexOf(HORS_CHAMP);
+  if (iHC > 0 && R.rapportHorsChamp < 1 && (parts.get(HORS_CHAMP) ?? 0) >= R.rapportHorsChamp * (parts.get(classement[0]) ?? 0)) { classement.splice(iHC, 1); classement.unshift(HORS_CHAMP); }
+  // Deux applis vraiment possibles et presque à égalité : la règle par défaut du propriétaire tranche.
+  if (R.margePreference > 0 && classement.length >= 2) {
+    const [x, y] = classement, px = parts.get(x) ?? 0, py = parts.get(y) ?? 0;
+    if (preferences.some(([pref, autre]) => pref === y && autre === x) && py >= (1 - R.margePreference) * px) { classement[0] = y; classement[1] = x; }
+  }
+  // Une correction du propriétaire presque identique à la demande l'emporte toujours (les centres d'applis ne la
+  // comptent pas : elle doit gagner même face à une appli dont le centre ressemble plus).
+  let corr = -1, simCorr = 0;
+  for (let i = 0; i < idx.length; i++) if (sim[i] > simCorr && ix.paire(idx[i]).source === 'correction') { simCorr = sim[i]; corr = idx[i]; }
+  if (corr >= 0 && simCorr >= CORRECTION_IDENTIQUE) {
+    const k = cle(ix.paire(corr)), j = classement.indexOf(k);
+    if (j !== 0) { if (j > 0) classement.splice(j, 1); classement.unshift(k); }
+  }
   // Pour chaque appli candidate : l'action, par les ressemblances de ses propres paires.
   const simDe = new Map<number, number>(); idx.forEach((d, i) => simDe.set(d, sim[i]));
   const candidats: Candidat[] = classement.slice(0, 5).map((a) => {
@@ -360,7 +543,7 @@ function voter(ix: IndexNgrammes, parAppli: Map<string, number[]>, phrase: strin
     if (!best && mx?.action) { best = mx.action; bs = 1; tot2 = 1; }
     return { appli: a, part: parts.get(a) ?? 0, action: best, partAction: tot2 > 0 ? bs / tot2 : 0 };
   });
-  return { candidats, sim1, motsTete, motsVide: m.length === 0 };
+  return { candidats, sim1, motsTete, motsVide: m.length === 0, couverture, partHorsChamp: parts.get(HORS_CHAMP) ?? 0 };
 }
 
 function safeMots(mots: MotsFn, phrase: string): Array<{ appli: string; action: string | null; score: number }> {
@@ -372,18 +555,28 @@ function signes(v: Vote): number[] {
   const c = v.candidats, p1 = c[0]?.part ?? 0, p2 = c[1]?.part ?? 0;
   const marge = p1 > 0 ? Math.max(0, (p1 - p2) / p1) : 0;
   const accord = v.motsVide ? 0.5 : v.motsTete === c[0]?.appli ? 1 : 0;
-  return [1, marge, p1, Math.min(1, v.sim1), accord, c[0]?.partAction ?? 0];
+  return [1, marge, p1, Math.min(1, v.sim1), accord, c[0]?.partAction ?? 0, v.couverture, v.partHorsChamp];
 }
+/** Nombre de signes (et donc de poids de la calibration). */
+export const NB_SIGNES = 8;
 const sigmoide = (z: number) => 1 / (1 + Math.exp(-z));
 
 // ------------------------------------------------------------------------------------------------ calibration
-export interface Calibration { poids: number[]; seuilSeul: number; seuilTrois: number; cas: number; justesse1: number; justesse3: number; horsChamp: { n: number; justes: number }; ms: number }
-export interface CasValidation { appli: string | null; action: string | null; vote: Vote; juste1: boolean; juste3: boolean; appliJuste: boolean }
+export interface Calibration {
+  /** Confiance dans l'APPLI du premier choix (un poids par signe) ; « seul » et « trois » se règlent sur elle. */
+  poids: number[]; seuilSeul: number; seuilTrois: number; cas: number;
+  /** Confiance dans l'ACTION quand l'appli est juste (un poids par signe, ou aucun) et son seuil (relecture du tour 2, G1). */
+  poidsAction?: number[]; seuilAction?: number;
+  /** Régression « hors du champ » (un poids par signe, ou aucun) et son seuil ; cas du champ qu'elle y envoie, cas hors champ qu'elle trouve (validation croisée). */
+  poidsHorsChamp?: number[]; seuilHorsChamp?: number; champVersHorsChamp?: number; horsChampRegle?: number; justesse1: number; justesse3: number; /** Cas du champ dont l'appli est juste au 1er rang (part). */ appli1?: number; horsChamp: { n: number; justes: number }; ms: number }
+export interface CasValidation { appli: string | null; action: string | null; vote: Vote; juste1: boolean; juste3: boolean; appliJuste: boolean; /** L'appli attendue est dans les trois premiers. */ appliJuste3?: boolean }
 
 /** Pli d'une paire pour la validation croisée (même clé de texte → même pli : un doublon ne se retrouve jamais des deux côtés). */
-export function pli(texte: string, plis: number): number {
+export function pli(texte: string, plis: number): number { return hacher(texte) % plis; }
+/** Empreinte FNV-1a de la clé de texte (pli, et choix des cas testés quand il y en a trop). */
+function hacher(texte: string): number {
   let h = 2166136261; for (const ch of cleTexte(texte)) { h ^= ch.codePointAt(0)!; h = Math.imul(h, 16777619) >>> 0; }
-  return h % plis;
+  return h;
 }
 
 /**
@@ -392,22 +585,33 @@ export function pli(texte: string, plis: number): number {
  * `ignorer` (facultatif) : paires jamais testées ni votantes (les corrections du propriétaire : la calibration ne dépend
  * que de la matière du dépôt).
  */
-export function validationCroisee(ix: IndexNgrammes, parAppli: Map<string, number[]>, mots: MotsFn | undefined, plis = 5, ignorer?: Uint8Array): CasValidation[] {
+export function validationCroisee(ix: IndexNgrammes, parAppli: Map<string, number[]>, mots: MotsFn | undefined, plis = 5, ignorer?: Uint8Array, preferences: ReadonlyArray<readonly [string, string]> = PREFERENCES): CasValidation[] {
   const N = ix.paires.length;
   const pliDe = new Int16Array(N).fill(-1);
   const cles = ix.paires.map((p) => cleTexte(p.texte));
   const pliDeCle = new Map<string, number>();
-  ix.paires.forEach((p, i) => { if (p.demande && !(ignorer && ignorer[i])) { pliDe[i] = pli(p.texte, plis); pliDeCle.set(cles[i], pliDe[i]); } });
+  // Plis groupés (réglage `plisGroupes`) : toutes les phrases d'une même action, d'une même source (un fichier de
+  // matière, une langue de v2…) tombent dans le même pli : une phrase testée n'a plus de « jumelle » du même rédacteur.
+  const grouper = ix.reglages.plisGroupes;
+  // Les phrases sœurs de la matière (traductions alignées, même `groupe`) tombent toujours dans le même pli (relecture du
+  // tour 2, M1) : sinon la traduction d'une phrase testée vote pour elle et la validation croisée est trop belle.
+  ix.paires.forEach((p, i) => { if (p.demande && !(ignorer && ignorer[i])) { pliDe[i] = grouper ? hacher(`${p.source} ${p.appli ?? ''} ${p.action ?? ''}`) % plis : p.groupe ? hacher(`groupe ${p.groupe}`) % plis : pli(p.texte, plis); pliDeCle.set(cles[i], pliDe[i]); } });
+  // Trop de demandes : on n'en teste qu'une sur `pas`, choisie par l'empreinte de son texte (sans hasard). Les autres
+  // restent retirées avec leur pli (elles ne votent pas pour leurs voisines du même pli).
+  let n = 0; for (let i = 0; i < N; i++) if (pliDe[i] >= 0) n++;
+  const pas = Math.max(1, Math.ceil(n / Math.max(1, ix.reglages.casMax)));
+  // Les demandes « pas encore », rares, sont toujours testées.
+  const teste = (i: number) => pas === 1 || ix.paires[i].appli === null || Math.floor(hacher(ix.paires[i].texte) / plis) % pas === 0;
   const out: CasValidation[] = [];
   for (let f = 0; f < plis; f++) {
     const exclu = new Uint8Array(N);
     for (let i = 0; i < N; i++) if (pliDe[i] === f || pliDeCle.get(cles[i]) === f || (ignorer && ignorer[i])) exclu[i] = 1;
     for (let i = 0; i < N; i++) {
-      if (pliDe[i] !== f) continue;
-      const p = ix.paires[i], v = voter(ix, parAppli, p.texte, undefined, mots, exclu);
+      if (pliDe[i] !== f || !teste(i)) continue;
+      const p = ix.paires[i], v = voter(ix, parAppli, p.texte, undefined, mots, exclu, preferences);
       const attendu = cle(p), c = v.candidats;
       const ok = (x: Candidat | undefined) => Boolean(x && x.appli === attendu && (attendu === HORS_CHAMP || p.action === null || x.action === p.action));
-      out.push({ appli: p.appli, action: p.action, vote: v, appliJuste: c[0]?.appli === attendu, juste1: ok(c[0]), juste3: c.slice(0, 3).some(ok) });
+      out.push({ appli: p.appli, action: p.action, vote: v, appliJuste: c[0]?.appli === attendu, appliJuste3: c.slice(0, 3).some((x) => x.appli === attendu), juste1: ok(c[0]), juste3: c.slice(0, 3).some(ok) });
     }
   }
   return out;
@@ -440,17 +644,40 @@ export function seuilPour(conf: number[], juste: boolean[], vise: number, min = 
 
 export function calibrer(cas: CasValidation[], R: Reglages): Calibration {
   const t0 = performance.now();
-  const dans = cas.filter((c) => c.appli !== null && c.vote.candidats[0]?.appli !== HORS_CHAMP);
-  const X = dans.map((c) => signes(c.vote)), y = dans.map((c) => (c.juste1 ? 1 : 0));
+  // Seuls les cas où l'aiguilleur peut décider (couverture suffisante) règlent ses seuils.
+  const dans = cas.filter((c) => c.appli !== null && c.vote.candidats[0]?.appli !== HORS_CHAMP && c.vote.couverture >= Math.max(R.couvertureMin, R.couvertureDecider ?? 0));
+  // Relecture du tour 2 (G1) : réglée sur appli + action, « seul » n'était plus jamais atteint avec la matière des 15
+  // langues (les cas les plus sûrs avaient l'appli juste 30 fois sur 30 mais l'action 28 fois sur 30). « seul » et
+  // « trois » se règlent donc sur l'APPLI ; l'action a sa propre confiance, réglée sur les cas dont l'appli est juste et
+  // qui attendent une action précise. « seul » sans action sûre : Odin ouvre l'appli et demande l'action.
+  const X = dans.map((c) => signes(c.vote)), y = dans.map((c) => (c.appliJuste ? 1 : 0));
   const poids = ajusterLogistique(X, y);
   const conf = X.map((x) => sigmoide(x.reduce((s, v, j) => s + v * poids[j], 0)));
-  const seuilSeul = seuilPour(conf, dans.map((c) => c.juste1), R.viseSeul);
-  const seuilTrois = Math.min(seuilSeul, seuilPour(conf, dans.map((c) => c.juste3), R.viseTrois));
+  const seuilSeul = seuilPour(conf, dans.map((c) => c.appliJuste), R.viseSeul);
+  const seuilTrois = Math.min(seuilSeul, seuilPour(conf, dans.map((c) => c.appliJuste3 ?? c.juste3), R.viseTrois));
+  const avecAction = dans.filter((c) => c.appliJuste && c.action !== null && c.vote.candidats[0]?.action);
+  const poidsAction = avecAction.length ? ajusterLogistique(avecAction.map((c) => signes(c.vote)), avecAction.map((c) => (c.juste1 ? 1 : 0))) : [];
+  const confA = avecAction.map((c) => sigmoide(signes(c.vote).reduce((s, v, j) => s + v * poidsAction[j], 0)));
+  const seuilAction = poidsAction.length ? seuilPour(confA, avecAction.map((c) => c.juste1), R.viseSeul) : 1.01;
+  // « Pas encore » : une seconde régression (mêmes signes) dit si la demande est hors du champ. Son seuil est le plus
+  // bas qui ne fait pas perdre plus de `perteHorsChamp` des demandes du champ (comptées sur celles dont la première
+  // appli n'est pas déjà « pas encore »).
+  const vus = cas.filter((c) => c.vote.couverture >= R.couvertureMin && c.vote.candidats[0]?.appli !== HORS_CHAMP);
+  const hcVus = vus.filter((c) => c.appli === null).length;
+  const poidsHorsChamp = hcVus >= 5 ? ajusterLogistique(vus.map((c) => signes(c.vote)), vus.map((c) => (c.appli === null ? 1 : 0))) : [];
+  const pHC = (c: CasValidation) => (poidsHorsChamp.length ? sigmoide(signes(c.vote).reduce((s, v, j) => s + v * poidsHorsChamp[j], 0)) : 0);
+  const champ = vus.filter((c) => c.appli !== null).map(pHC).sort((a, b) => b - a);
+  const perdus = Math.floor(R.perteHorsChamp * champ.length);
+  const seuilHorsChamp = !poidsHorsChamp.length || R.perteHorsChamp <= 0 || !champ.length ? 1.01 : Math.min(1.01, champ[perdus] + 1e-9);
+  const versHC = (c: CasValidation) => c.vote.candidats[0]?.appli === HORS_CHAMP || (c.vote.couverture >= R.couvertureMin && pHC(c) >= seuilHorsChamp);
   const hc = cas.filter((c) => c.appli === null);
   return {
-    poids, seuilSeul, seuilTrois, cas: cas.length,
+    poids, seuilSeul, seuilTrois, poidsAction, seuilAction, cas: cas.length, poidsHorsChamp, seuilHorsChamp,
+    champVersHorsChamp: cas.filter((c) => c.appli !== null && c.vote.candidats[0]?.appli !== HORS_CHAMP && versHC(c)).length,
+    horsChampRegle: hc.filter(versHC).length,
     justesse1: cas.length ? cas.filter((c) => c.juste1).length / cas.length : 0,
     justesse3: cas.length ? cas.filter((c) => c.juste3).length / cas.length : 0,
+    appli1: (() => { const ch = cas.filter((c) => c.appli !== null); return ch.length ? ch.filter((c) => c.appliJuste).length / ch.length : 0; })(),
     horsChamp: { n: hc.length, justes: hc.filter((c) => c.juste1).length }, ms: Math.round(performance.now() - t0),
   };
 }
@@ -551,23 +778,27 @@ export function oublierCalibrations(): void { CALIBRATIONS.clear(); }
  * Empreinte de ce dont dépend la calibration (relecture M6) : la matière du dépôt (sans les corrections), les réglages,
  * la présence des mots, et le TEXTE du code qui vote, tire les signes et valide (un changement de calcul la refait).
  */
-function empreinte(paires: Paire[], R: Reglages, avecMots: boolean): string {
+function empreinte(paires: Paire[], R: Reglages, avecMots: boolean, prefs: ReadonlyArray<readonly [string, string]> = PREFERENCES): string {
   const h = createHash('sha256');
-  h.update(JSON.stringify({ R, avecMots }));
-  h.update(voter.toString()); h.update(signes.toString()); h.update(validationCroisee.toString()); h.update(calibrer.toString()); h.update(nettoyer.toString()); h.update(String(SIGNES_FACULTATIFS));
-  for (const p of paires) h.update(`${JSON.stringify([p.texte, p.appli, p.action, p.poids ?? 1, Boolean(p.demande), p.source])}\n`);
+  h.update(JSON.stringify({ R, avecMots, prefs }));
+  h.update(voter.toString()); h.update(partager.toString()); h.update(centres.toString()); h.update(signes.toString()); h.update(validationCroisee.toString()); h.update(hacher.toString()); h.update(calibrer.toString()); h.update(nettoyer.toString()); h.update(String(SIGNES_FACULTATIFS));
+  for (const p of paires) h.update(`${JSON.stringify([p.texte, p.appli, p.action, p.poids ?? 1, Boolean(p.demande), p.source, p.groupe ?? null])}\n`);
   return h.digest('hex');
 }
 /** Une calibration lue d'un fichier n'est crue que si sa forme et ses bornes sont justes. */
 function calibrationValide(x: unknown): Calibration | undefined {
   const c = x as Calibration;
   const fini = (v: unknown, a: number, b: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= a && v <= b;
-  // Six poids (un par signe), ou aucun (matière sans demande du champ : la confiance vaut alors 0,5).
-  if (!c || typeof c !== 'object' || !Array.isArray(c.poids) || (c.poids.length !== 6 && c.poids.length !== 0) || !c.poids.every((v) => fini(v, -1e3, 1e3))) return undefined;
+  // Un poids par signe, ou aucun (matière sans demande du champ : la confiance vaut alors 0,5).
+  if (!c || typeof c !== 'object' || !Array.isArray(c.poids) || (c.poids.length !== NB_SIGNES && c.poids.length !== 0) || !c.poids.every((v) => fini(v, -1e3, 1e3))) return undefined;
   if (!fini(c.seuilSeul, 0, 1.01) || !fini(c.seuilTrois, 0, 1.01) || c.seuilTrois > c.seuilSeul) return undefined;
+  const ph = c.poidsHorsChamp ?? [];
+  if (!Array.isArray(ph) || (ph.length !== NB_SIGNES && ph.length !== 0) || !ph.every((v) => fini(v, -1e3, 1e3)) || !fini(c.seuilHorsChamp ?? 1.01, 0, 1.01)) return undefined;
+  const pa = c.poidsAction ?? [];
+  if (!Array.isArray(pa) || (pa.length !== NB_SIGNES && pa.length !== 0) || !pa.every((v) => fini(v, -1e3, 1e3)) || !fini(c.seuilAction ?? 1.01, 0, 1.01)) return undefined;
   const n = (v: unknown) => (fini(v, 0, 1e9) ? v : 0);
   return {
-    poids: c.poids.slice(), seuilSeul: c.seuilSeul, seuilTrois: c.seuilTrois, cas: n(c.cas), justesse1: n(c.justesse1), justesse3: n(c.justesse3),
+    poids: c.poids.slice(), seuilSeul: c.seuilSeul, seuilTrois: c.seuilTrois, poidsAction: pa.slice(), seuilAction: c.seuilAction ?? 1.01, cas: n(c.cas), poidsHorsChamp: ph.slice(), seuilHorsChamp: c.seuilHorsChamp ?? 1.01, champVersHorsChamp: n(c.champVersHorsChamp), horsChampRegle: n(c.horsChampRegle), justesse1: n(c.justesse1), justesse3: n(c.justesse3), appli1: n(c.appli1),
     horsChamp: { n: n(c.horsChamp?.n), justes: n(c.horsChamp?.justes) }, ms: n(c.ms),
   };
 }
@@ -598,6 +829,8 @@ export interface BilanAiguilleur {
   msIndex: number; msCalibration: number; calibration: Calibration;
   /** D'où vient la calibration : calculée, gardée en mémoire, relue du dossier d'Odin, ou fournie. */
   calibrationDe: 'calcul' | 'memoire' | 'fichier' | 'fournie';
+  /** Ce que le chargeur de la matière par langue a lu, écarté ou refusé (absent : sans elle). */
+  matiere?: BilanMatiere;
 }
 export interface Aiguilleur {
   aiguiller(phrase: string, ctx?: ContexteAiguilleur): ReponseAiguilleur;
@@ -616,17 +849,23 @@ export interface OptionsAiguilleur {
   survol?: Record<string, { phrase: string; faire: string[] }>;
   /** Calibration déjà faite (sinon : gardée, ou validation croisée sur la matière, quelques secondes). */
   calibration?: Calibration;
+  /** Dossier de la matière par langue (défaut : src/brain/nous/matiere du dépôt) ; false : sans elle. */
+  matiere?: string | false;
+  /** Règles par défaut entre deux applis vraiment possibles, [préférée, autre] (défaut : PREFERENCES). */
+  preferences?: ReadonlyArray<readonly [string, string]>;
 }
 
 /** Construit l'aiguilleur (index, calibration par validation croisée sur la matière, corrections relues). */
 export function creerAiguilleurSync(o: OptionsAiguilleur): Aiguilleur {
   const R: Reglages = { ...REGLAGES, ...(o.reglages ?? {}) };
+  const prefs = o.preferences ?? PREFERENCES;
   const lu = o.home ? lireCorrectionsBilan(o.home) : { corrections: [] as Correction[], ignorees: 0, raison: undefined };
   const applis = new Map(o.modules.map((m) => [m.id, new Set(m.actions.map((a) => a.id))]));
   const lecture = new Set(o.modules.flatMap((m) => m.actions.filter((a) => a.read === true).map((a) => `${m.id}.${a.id}`)));
   const valides = lu.corrections.filter((c) => c.appli === null || (applis.has(c.appli) && (c.action === null || applis.get(c.appli)!.has(c.action))));
   const t0 = performance.now();
-  const paires = matiere(o.modules, { usages: o.usages, survol: o.survol, corrections: valides.map((c) => ({ texte: c.demande, appli: c.appli, action: c.action, source: 'correction', poids: 2, demande: true })) });
+  const lm = o.matiere === false ? undefined : lireMatiere(applis, o.matiere ?? DOSSIER_MATIERE);
+  const paires = matiere(o.modules, { usages: o.usages, survol: o.survol, parLangue: lm?.paires, corrections: valides.map((c) => ({ texte: c.demande, appli: c.appli, action: c.action, source: 'correction', poids: 2, demande: true })) });
   let ix = new IndexNgrammes(paires, R);
   let parAppli = new Map<string, number[]>();
   /** Clé de texte d'une correction → indice de sa paire (dans l'ordre : la plus ancienne d'abord). */
@@ -644,13 +883,13 @@ export function creerAiguilleurSync(o: OptionsAiguilleur): Aiguilleur {
   let calibration: Calibration, calibrationDe: BilanAiguilleur['calibrationDe'];
   if (o.calibration) { calibration = o.calibration; calibrationDe = 'fournie'; }
   else {
-    const emp = empreinte(paires.filter((p) => p.source !== 'correction'), R, Boolean(o.mots));
+    const emp = empreinte(paires.filter((p) => p.source !== 'correction'), R, Boolean(o.mots), prefs);
     const enMemoire = CALIBRATIONS.get(emp), duFichier = enMemoire ? undefined : o.home ? lireCalibration(o.home, emp) : undefined;
     if (enMemoire) { calibration = enMemoire; calibrationDe = 'memoire'; }
     else if (duFichier) { calibration = duFichier; calibrationDe = 'fichier'; }
     else {
       const ignorer = new Uint8Array(ix.paires.length); ix.paires.forEach((p, i) => { if (p.source === 'correction') ignorer[i] = 1; });
-      calibration = calibrer(validationCroisee(ix, parAppli, o.mots, 5, ignorer), R); calibrationDe = 'calcul';
+      calibration = calibrer(validationCroisee(ix, parAppli, o.mots, 5, ignorer, prefs), R); calibrationDe = 'calcul';
       if (o.home) ecrireCalibration(o.home, emp, calibration);
     }
     CALIBRATIONS.set(emp, calibration);
@@ -660,25 +899,51 @@ export function creerAiguilleurSync(o: OptionsAiguilleur): Aiguilleur {
   const bilan: BilanAiguilleur = {
     paires: vivantes(), grammes: ix.grammes, corrections: cles.size, correctionsIgnorees: lu.ignorees, ...(lu.raison ? { correctionsRaison: lu.raison } : {}),
     ajoutsEnAttente: ix.enAttente, msIndex: Math.round(msIndex), msCalibration: Math.round(msCalibration), calibration, calibrationDe,
+    ...(lm ? { matiere: lm.bilan } : {}),
   };
-  const reponse = (choix: ChoixAiguilleur[], decision: DecisionAiguilleur, confiance: number, raison: string): ReponseAiguilleur => {
+  let couverture: number | undefined;
+  const reponse = (choix: ChoixAiguilleur[], decision: DecisionAiguilleur, confiance: number, raison: string, confianceAction?: number): ReponseAiguilleur => {
     const p = choix[0];
-    return { choix, decision, confiance, raison, confirmer: !(p?.appli && p.action && lecture.has(`${p.appli}.${p.action}`)) };
+    const actionSure = decision === 'seul' && Boolean(p?.action) && confianceAction !== undefined && confianceAction >= (calibration.seuilAction ?? 1.01);
+    return {
+      choix, decision, confiance, raison, confirmer: !(p?.appli && p.action && lecture.has(`${p.appli}.${p.action}`)), actionSure,
+      ...(confianceAction === undefined ? {} : { confianceAction }), ...(couverture === undefined ? {} : { couverture: Number(couverture.toFixed(4)) }),
+    };
   };
 
   return {
     bilan,
     aiguiller(phrase: string, ctx?: ContexteAiguilleur): ReponseAiguilleur {
       const propre = nettoyer(phrase);
+      couverture = undefined;
       if (!propre.replace(/[^\p{L}\p{N}]/gu, '')) return reponse([], 'main', 0, 'demande vide');
-      const v = voter(ix, parAppli, propre, ctx, o.mots);
+      const v = voter(ix, parAppli, propre, ctx, o.mots, undefined, prefs);
+      couverture = v.couverture;
       const c = v.candidats;
       if (!c.length) return reponse([], 'main', 0, 'rien de ressemblant dans la matière');
+      // Rien ne ressemble vraiment (une langue ou une écriture que la matière ne connaît pas) : la main, sans liste par défaut.
+      if (v.couverture < R.couvertureMin) return reponse([], 'main', 0, `la matière ne connaît presque rien de cette demande (couverture ${v.couverture.toFixed(3)})`);
       const choix: ChoixAiguilleur[] = c.slice(0, 3).map((x, i) => ({ appli: x.appli === HORS_CHAMP ? null : x.appli, action: x.appli === HORS_CHAMP ? null : x.action, score: Number((1 / (i + 1) * (0.5 + 0.5 * x.part)).toFixed(6)) }));
       if (c[0].appli === HORS_CHAMP) return reponse(choix, 'main', Number(Math.min(1, c[0].part).toFixed(4)), 'hors du champ d\'Odin (pas encore)');
-      const x = signes(v), conf = sigmoide(x.reduce((s, val, j) => s + val * (calibration.poids[j] ?? 0), 0));
-      const decision: DecisionAiguilleur = conf >= calibration.seuilSeul ? 'seul' : conf >= calibration.seuilTrois ? 'trois' : 'main';
-      return reponse(choix, decision, Number(conf.toFixed(4)), decision === 'seul' ? 'sûr' : decision === 'trois' ? 'trois choix' : 'pas sûr');
+      const x = signes(v);
+      // La régression « hors du champ » : au-dessus de son seuil, « pas encore » passe devant et l'aiguilleur passe la main.
+      const ph = calibration.poidsHorsChamp ?? [];
+      if (ph.length) {
+        const p = sigmoide(x.reduce((s, val, j) => s + val * (ph[j] ?? 0), 0));
+        if (p >= (calibration.seuilHorsChamp ?? 1.01)) {
+          const sans = choix.filter((y) => y.appli !== null).slice(0, 2);
+          return reponse([{ appli: null, action: null, score: 1 }, ...sans.map((y, i) => ({ ...y, score: Number((y.score / (i + 2)).toFixed(6)) }))], 'main', Number(p.toFixed(4)), 'sans doute hors du champ (pas encore)');
+        }
+      }
+      const conf = sigmoide(x.reduce((s, val, j) => s + val * (calibration.poids[j] ?? 0), 0));
+      // Une demande que la matière connaît mal (une langue qu'elle n'a pas, souvent) : pas de décision, des pistes.
+      const malConnue = v.couverture < (R.couvertureDecider ?? 0);
+      const decision: DecisionAiguilleur = malConnue ? 'main' : conf >= calibration.seuilSeul ? 'seul' : conf >= calibration.seuilTrois ? 'trois' : 'main';
+      const pa = calibration.poidsAction ?? [];
+      const confA = choix[0]?.action && pa.length ? Number(sigmoide(x.reduce((s, val, j) => s + val * (pa[j] ?? 0), 0)).toFixed(4)) : undefined;
+      const r = reponse(choix, decision, Number(conf.toFixed(4)), malConnue ? `la matière connaît mal cette demande (couverture ${v.couverture.toFixed(3)}) : des pistes, pas de choix` : decision === 'trois' ? 'trois choix' : 'pas sûr', confA);
+      if (r.decision === 'seul') r.raison = r.actionSure ? 'sûr de l\'appli et de l\'action' : 'sûr de l\'appli ; l\'action est à demander';
+      return r;
     },
     apprendre(cr: Correction) {
       if (!o.home) return { ok: false, raison: 'pas de dossier d\'Odin : rien n\'est gardé' };
@@ -705,8 +970,8 @@ export async function creerAiguilleur(o: OptionsAiguilleur): Promise<Aiguilleur>
 // ------------------------------------------------------------------------------------------------ branchement du banc
 /**
  * Pour le banc (test/soul-banc/methodes.ts) : l'aiguilleur sur les applis du produit, dans le dossier jetable du banc.
- * Variante (seulement pour mesurer) par la variable ODIN_AIGUILLEUR_VARIANTE : « fusion » (défaut, n-grammes + mots)
- * ou « ngrammes » (n-grammes seuls).
+ * Variante (seulement pour mesurer) par la variable ODIN_AIGUILLEUR_VARIANTE : « ngrammes » (défaut depuis le tour 2 :
+ * n-grammes seuls, meilleurs au tour 1) ou « fusion » (n-grammes + mots).
  */
 export async function methodeBanc(o: { home: string }): Promise<{ repondre(phrase: string, ctx?: ContexteAiguilleur): ReponseAiguilleur; bilan: Aiguilleur['bilan'] }> {
   const { allModules } = await import('../../valhalla/odin.ts');
@@ -719,7 +984,7 @@ export async function methodeBanc(o: { home: string }): Promise<{ repondre(phras
   const parId = new Map(mods.map((m) => [m.id, m]));
   const porteur = { modules: () => mods };
   const finder = { find: (need: string) => Valhalla.prototype.find.call(porteur as never, need), module: (id: string) => parId.get(id) };
-  const variante = process.env.ODIN_AIGUILLEUR_VARIANTE === 'ngrammes' ? 'ngrammes' : 'fusion';
+  const variante = process.env.ODIN_AIGUILLEUR_VARIANTE === 'fusion' ? 'fusion' : 'ngrammes';
   const mots: MotsFn = (p) => appsFor(finder, p, 5).map((x) => ({ appli: x.m.id, action: x.action?.id ?? null, score: x.score }));
   const a = creerAiguilleurSync({ modules: mods, home: o.home, mots: variante === 'ngrammes' ? undefined : mots, usages: USAGES, survol: SURVOL, reglages: variante === 'ngrammes' ? { poidsMots: 0 } : {} });
   return { repondre: (p, c) => a.aiguiller(p, c), bilan: a.bilan };

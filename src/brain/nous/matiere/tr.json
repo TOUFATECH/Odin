@@ -1,0 +1,1894 @@
+{
+  "langue": "tr",
+  "ecriture": "latin",
+  "origine": "écrit pour Odin, non relu par une personne de cette langue ; listes alignées d'une langue à l'autre (même place, même idée), null = place vide d'une phrase retirée",
+  "aRelire": true,
+  "complet": true,
+  "applis": {
+    "saga": {
+      "*": [
+        "mutfak tadilatı hakkında bir yere not almıştım, bulur musun",
+        "notlarımı aç",
+        "notlarım birbirine nasıl bağlı göster",
+        "kafam çok dağınık, düşüncelerimi toparlamama yardım et",
+        "salı toplantısından sonra ne yazmıştım?",
+        "her şeyin birbirine bağlandığı bir bilgi bankası istiyorum",
+        "bunu bir yere yaz unutmayayım",
+        "notların grafiğini göster"
+      ],
+      "chercher": [
+        "notlarda internet faturasıyla ilgili ne varsa bul",
+        "notlarımda modem kelimesini ara"
+      ],
+      "noter": [
+        "not al: perşembe tesisatçıyı ara",
+        null
+      ],
+      "attention": [
+        null,
+        "unuttuğum yaklaşan bir son tarih var mı?"
+      ]
+    },
+    "runes": {
+      "*": [
+        "müşterileri takip etmek için bir tablo lazım",
+        "ödünç verdiğim kitapların veritabanını yap",
+        "onay kutulu bir tablo sayfası istiyorum",
+        "giderlerimi toplam formülüyle tutan bir takip tablosu kur",
+        "ev işleri için kanban panosu lazım",
+        "takip tablolarımı aç",
+        "iş kişilerim karmakarışık, düzgün bir kayıt tablosu lazım",
+        "vardiyalar için takvim görünümlü tablo yap"
+      ],
+      "bases": [
+        "hangi kayıt tablolarım var?",
+        "takip tablolarımı listele"
+      ],
+      "ajouter": [
+        "tedarikçiler tablosuna kayıt ekle",
+        "kitaplar tablosuna yeni satır gir"
+      ],
+      "client": [
+        "Ahmet Yılmaz için müşteri kartı aç",
+        "müşterinin telefonu değişti, kartını güncelle"
+      ]
+    },
+    "draupnir": {
+      "*": [
+        "fatura maili gelince kendiliğinden klasöre kaydedilsin",
+        "bir uygulamayı diğerine bağla, işler kendi kendine olsun",
+        "her sabah otomatik bir şey çalışsın istiyorum",
+        "hangi otomasyonlarım kurulu?",
+        "her gün aynı şeyi elle yapmaktan bıktım",
+        "sensör tetiklenirse bana bildirim gönderen bir akış kur",
+        "rutin işlerimi otomatikleştir",
+        "otomasyonları aç"
+      ],
+      "lister": [
+        "tüm otomasyonlarımı göster",
+        "şu an hangi akışlar çalışıyor?"
+      ],
+      "executer": [
+        "sabah raporu otomasyonunu çalıştır",
+        "fotoğraf yedek akışını şimdi başlat"
+      ],
+      "modele": [
+        "hazır bir otomasyon şablonu ekle",
+        "maili takvime bağlayan şablon var mı?"
+      ]
+    },
+    "archytas": {
+      "*": [
+        "fotoğrafları tarihe göre yeniden adlandıran bir betik yaz",
+        "disk dolmak üzereyse çöpü boşaltan bir senaryo yap",
+        "koşul ve değişken içeren bir script istiyorum",
+        "script penceresini aç",
+        "birkaç adımı tek bir betikte topla",
+        "her akşam çalışacak küçük bir script lazım",
+        "kod yazmadan çok adımlı bir otomasyon yap",
+        "her cuma bana özet gönderen bir betik"
+      ],
+      "mes_scripts": [
+        "hangi betiklerim var?",
+        "scriptlerimin listesini göster"
+      ],
+      "lancer": [
+        "indirilenleri temizleyen scripti çalıştır",
+        "gece kontrol betiğimi başlat"
+      ],
+      "creer": [
+        "gece yarısı ışıkları kapatan bir script oluştur",
+        "disklerdeki boş alanı kontrol eden yeni bir betik yap"
+      ]
+    },
+    "eir": {
+      "*": [
+        "bilgisayar kasıyor, ne yoruyor?",
+        "ne kadar boş RAM var?",
+        "işlemci ısınıyor, sıcaklık kaç?",
+        "fan neden uçak gibi ses çıkarıyor",
+        "makinenin yükünü göster",
+        "pc'nin genel sağlığı nasıl?",
+        "dün akşam her şey donuyordu, bellek grafiğini göster",
+        "işlemciyi kim sömürüyor"
+      ],
+      "etat": [
+        "makinenin şu anki durumu",
+        "işlemci ve bellek kullanımını gösterir misiniz lütfen"
+      ],
+      "processus": [
+        "hangi süreçler çalışıyor?",
+        "belleğe göre süreç listesi"
+      ],
+      "arreter_processus": [
+        "donan chrome sürecini öldür",
+        "tüm belleği yiyen işlemi durdur"
+      ]
+    },
+    "skogul": {
+      "*": [
+        "bir program tuhaf davranıyor, kontrol et",
+        "bir şey kendi kendine komut satırı açıyor",
+        "program girmemesi gereken yerlere giriyor",
+        "programların davranışını izle",
+        "anlamadığım bir süreç dosyaları şifreliyor, ne yapayım",
+        "bir program anormal bir şey yapmaya başlarsa fark et",
+        "not defteri birden internete bağlandı, normal mi?",
+        "süreçlerin davranışını şüpheli mi diye incele",
+        "word powershell çalıştırdı, bu normal mi?",
+        "bir süreç toplu halde dosyaların adını değiştiriyor",
+        "penceresiz bir program birden tüm belgeleri okumaya başladı",
+        "fidye yazılımı gibi bir şey yapan var mı izle"
+      ],
+      "analyser": [
+        "programların davranışını şimdi incele",
+        "şüpheli davranan süreç var mı analiz et"
+      ],
+      "tuer": [
+        "virüs gibi davranan programı kapat",
+        "şüpheli davranışlı süreci durdur"
+      ]
+    },
+    "forseti": {
+      "*": [
+        "tüm güvenlik uyarılarını tek yerde göster",
+        "bu hafta güvenlik tarafında neler oldu?",
+        "güvenlik merkezini aç",
+        "haberim olmayan bir tehdit var mı?",
+        "güvenlik gerekliliklerine uyuyor muyuz kontrol et",
+        "parolaların ve kimlik fotokopilerinin olduğu hassas dosyalar nerede?",
+        "bütün sistemlerin alarm özeti",
+        "günlüklerde tehdit avına çık"
+      ],
+      "alertes": [
+        "son güvenlik alarmları",
+        "gece hangi uyarılar geldi?"
+      ],
+      "chercher": [
+        "tüm kayıtlarda saldırı izi ara",
+        "bu IP için tehdit avı yap"
+      ],
+      "conformite": [
+        "uyumluluk denetimi yap",
+        "uyumluluk kontrolünden geçiyor muyuz?"
+      ]
+    },
+    "garmr": {
+      "*": [
+        "biri ssh şifresini deniyor, banla onu",
+        "sunucuda çok fazla başarısız giriş var, ne yapalım",
+        "maile zorla girmeye çalışanları engelle",
+        "bir bot sitedeki giriş formunu dövüyor",
+        "şifre denemesi yüzünden kimler engellendi?",
+        "benim adresimin engelini kaldır, şifreyi ben yanlış girdim",
+        "kaba kuvvet saldırısına karşı koruma",
+        "zorla girmeye çalışanlara bak",
+        "loglarda root olarak yüzlerce giriş denemesi var",
+        "biri mail sunucusunda şifre deniyor",
+        "beş başarısız girişten sonra adresi engelle"
+      ],
+      "bannis": [
+        "banlı adreslerin listesi",
+        "şu an kimler banlı?"
+      ],
+      "bannir": [
+        "198.51.100.23 adresini banla",
+        "bu adresi engelle, şifre deniyor"
+      ],
+      "debannir": [
+        "198.51.100.40 adresinin banını kaldır",
+        "iş yerimin IP'sinin engelini aç"
+      ]
+    },
+    "geri": {
+      "*": [
+        "bilgisayar garip bir sunucuya bağlanıyor, bak",
+        "zararlı adreslere bağlantı var mı?",
+        "bu alan adı tehlikeli mi kontrol et",
+        "hangi cihaz botnet komuta sunucusuna gidiyor",
+        "ağda şüpheli DNS sorguları",
+        "bu IP kötü mü değil mi?",
+        "virüslü sitelere çıkışı engelle",
+        "ağ bağlantıları için kötü amaçlı yazılım koruması"
+      ],
+      "connexions": [
+        "şu an hangi giden bağlantılar var?",
+        "internete açık bağlantıları göster"
+      ],
+      "verifier": [
+        "198.51.100.77 adresini kara listelerde kontrol et",
+        "bu domain zararlı listesinde mi?"
+      ],
+      "listes": [
+        "tehlikeli adres listelerini güncelle",
+        "kara listeleri tazele"
+      ]
+    },
+    "ran": {
+      "*": [
+        null,
+        "ağımda kim kiminle konuşuyor?",
+        "kim indirme yapıp bütün hattı yiyor?",
+        "bu trafiği katman katman çöz",
+        "televizyondan çıkan bu trafik ne?",
+        "ağ paketlerini kaydet ve ne olduğunu açıkla",
+        "internet yavaş, ağı ne meşgul ediyor bak",
+        "paket dinleyici lazım",
+        "kim torrent indirip hattı tıkıyor?",
+        "ping neden zıplıyor, ağı ne meşgul ediyor?"
+      ],
+      "lire": [
+        "paket yakalamayı başlat",
+        "ağ kartındaki trafiği dinle"
+      ],
+      "trafic": [
+        "her cihazın trafiği ne kadar?",
+        "ağı en çok kim yüklüyor?"
+      ],
+      "expliquer": [
+        "ağda şu an ne oluyor basitçe anlat",
+        "bu paketler ne, açıkla"
+      ]
+    },
+    "ullr": {
+      "*": [
+        null,
+        "bir dosya indirdim, virüslü mü?",
+        "usb belleği tara",
+        "antivirüs açık mı?",
+        null,
+        "şüpheli bir mail geldi, ekini kontrol et",
+        "bu link güvenli mi?",
+        "tam virüs taraması başlat"
+      ],
+      "analyser": [
+        "taramayı başlat",
+        "sistemi hızlıca virüs için tara"
+      ],
+      "fichier": [
+        "indirilenlerdeki setup.exe dosyasını kontrol et",
+        "bu arşivi tara"
+      ],
+      "quarantaine": [
+        "karantinada ne var?",
+        "karantinadaki dosyaları göster"
+      ]
+    },
+    "loki": {
+      "*": [
+        "hackerlar için tuzak kur",
+        "bize kimin saldırdığını görmek için yem istiyorum",
+        "botları yakalamak için sahte bir ssh kur",
+        "bugün tuzaklara kim düştü?",
+        "bal küpü lazım",
+        "saldırganları sahte sunucuya çek",
+        "saldırganlar tuzakta ne yaptı göster",
+        "yem servisleri aç"
+      ],
+      "allumer": [
+        "22 numaralı portta tuzağı aç",
+        "telnet yemini başlat"
+      ],
+      "activite": [
+        "tuzaklarda şu an ne oluyor?",
+        "gece boyunca tuzaklardaki hareketlilik"
+      ],
+      "statistiques": [
+        "tuzak istatistikleri",
+        "bu ay kaç saldırı yakaladık?"
+      ]
+    },
+    "argos": {
+      "*": [
+        "ofisteki tüm bilgisayarların koruma özeti",
+        "hangi bilgisayarda olay var?",
+        "filo güvenlik konsolu",
+        "virüslü dizüstünü ağdan ayır",
+        "iş istasyonlarında neler oluyor?",
+        "EDR'ı göster",
+        "muhasebe bilgisayarındaki olayların zaman çizelgesi",
+        "ofisteki tüm makineler korunuyor mu?"
+      ],
+      "incidents": [
+        "filodaki açık olaylar",
+        "hangi olaylar çözülmedi?"
+      ],
+      "postes": [
+        "iş istasyonları ve korumaları",
+        "izlenen bütün bilgisayarları göster"
+      ],
+      "isoler_poste": [
+        "virüslü bilgisayarı ağdan kes",
+        "Elif'in dizüstünü izole et, virüs var"
+      ]
+    },
+    "naglfar": {
+      "*": [
+        "hangi konteynerler çalışıyor?",
+        "imajdan nginx başlat",
+        "konteyner çöktü, loglara bak",
+        "konteynerin imajını güncelle",
+        "docker olmadan konteynerde uygulama ayağa kaldır",
+        "kullanılmayan imajları temizle",
+        "veritabanı konteynerini yeniden başlat",
+        "konteynerlerim ne durumda"
+      ],
+      "lister": [
+        null,
+        "çalışan tüm konteynerleri göster"
+      ],
+      "journaux": [
+        "web konteynerinin logları",
+        "konteyner günlüğe ne yazıyor?"
+      ],
+      "redemarrer": [
+        "redis konteynerine restart at",
+        "uygulama konteynerini yeniden başlat"
+      ]
+    },
+    "urdr": {
+      "*": [
+        "bana bir postgres veritabanı oluştur",
+        "veritabanı tablolarını excel gibi kurcalamak istiyorum",
+        "veritabanımı bağla",
+        "hangi veritabanlarım var?",
+        "bir SQL sorgusu çalıştır",
+        "veritabanı şemasını göster",
+        null,
+        "postgres tablolarını aç"
+      ],
+      "bases": [
+        "veritabanlarımın listesi",
+        "hangi veritabanları bağlı?"
+      ],
+      "creer": [
+        "proje için yeni PostgreSQL veritabanı oluştur",
+        "site için boş bir veritabanı aç"
+      ],
+      "sql": [
+        "select * from users limit 10 çalıştır",
+        "veritabanında sorgu yürüt"
+      ]
+    },
+    "skuld": {
+      "*": [
+        "veritabanının yedeğini al",
+        "postgres dökümü ne sıklıkla alınıyor?",
+        "veritabanını dünkü dökümden geri yükle",
+        "veritabanı yedekleri ne kadar saklanıyor?",
+        "veritabanı yedekleri ikinci sunucuya gidiyor mu?",
+        "zamanlanmış mysql dökümü",
+        "veritabanı yedeğinin okunabildiğini doğrula",
+        "veritabanını her gece kaydet",
+        "sunucudaki postgres veritabanı hiç yedeklenmedi",
+        "mağazanın veritabanı bozulursa nereden geri getiririm?",
+        "veritabanı dökümleri ikinci bir yerde de dursun",
+        "dünkü mariadb dökümünün sağlam olduğunu doğrula",
+        "veritabanının kaç dökümünü saklıyoruz?",
+        "şema geçişinden önce veritabanının kopyasını al"
+      ],
+      "sauvegarder": [
+        "veritabanının dökümünü şimdi al",
+        "müşteri veritabanını hemen yedekle"
+      ],
+      "plan": [
+        "veritabanı yedeğini her gece saat 3'e kur",
+        "veritabanı yedekleme takvimi"
+      ],
+      "restaurer": [
+        "veritabanını pazartesiki döküme geri al",
+        "veritabanını yedekten geri yükle"
+      ]
+    },
+    "rodd": {
+      "*": [
+        "konuşayım, yazı kendisi yazılsın",
+        "bir mail dikte edeceğim, düzenle",
+        "dikteyi aç",
+        "yabancı biriyle konuşmayı canlı çevir",
+        "kelimemi ekle, dikte hep yanlış yazıyor",
+        "yazmaya üşeniyorum, konuşacağım",
+        "her yerde sesle yazma",
+        "sesimden metne çevir"
+      ],
+      "dicter": [
+        "dikte ettiğim metni düzenle",
+        "diktedeki noktalama işaretlerini düzelt"
+      ],
+      "ajouter_mot": [
+        "dikte sözlüğüne Kubernetes kelimesini ekle",
+        "dikteye soyadımı öğret"
+      ],
+      "ouvrir": [
+        "turistle konuşmamı çevir",
+        "iki dilli konuşma çevirisini aç"
+      ]
+    },
+    "svalinn": {
+      "*": [
+        "yatak odasında wifi çekmiyor",
+        "wi-fi'm güvenli mi?",
+        "wifime kim bağlı?",
+        "arkadaşlar için misafir ağı yap",
+        "hangi wifi kanalı daha iyi?",
+        "komşular kanalı dolduruyor, ne yapalım",
+        "wifi hızını ölç",
+        "kablosuz ağın güvenliğini değerlendir"
+      ],
+      "etat": [
+        "wifiyi analiz et",
+        "wi-fi güvenlik notu kaç?"
+      ],
+      "appareils": [
+        "wifimde kimler var?",
+        "kablosuz ağdaki cihazların listesi"
+      ],
+      "tester_debit": [
+        "wifi hızını test et",
+        "salonda hız ne kadar bak"
+      ]
+    },
+    "ymir": {
+      "*": [
+        "ubuntu'lu bir sanal makine oluştur",
+        "sanal makinenin anlık görüntüsünü al",
+        "hangi VM ve LXC'lerim var?",
+        "windowslu sanal makineyi başlat",
+        "makineyi anlık görüntüye geri döndür",
+        "4 gigalık yeni bir sanal makine lazım",
+        "vm'i yeniden başlat",
+        "hipervizördeki tüm makineleri göster"
+      ],
+      "parc": [
+        "bütün makinelerim",
+        "tüm sanal makine filosunu göster"
+      ],
+      "creer_machine": [
+        "2 çekirdekli yeni bir debian makinesi oluştur",
+        "test sitesi için LXC konteyneri aç"
+      ],
+      "instantane": [
+        "güncellemeden önce vm'in anlık görüntüsünü al",
+        "web-01 makinesinin snapshotu"
+      ]
+    },
+    "idunn": {
+      "*": [
+        "sitem çöktü",
+        "site yavaş açılıyor, kontrol et",
+        "siteyi yeniden deploy et",
+        "siteyi önceki sürüme geri al",
+        "sitelerimi izle",
+        "sitenin bağımlılıklarını güncelle, açık var",
+        "site neden 502 veriyor?",
+        "sitelerin durumu ne?"
+      ],
+      "sites": [
+        "sitelerim",
+        "izlenen sitelerin listesi"
+      ],
+      "etat": [
+        "example.org sitesi ne durumda?",
+        "mağaza sitesi nasıl?"
+      ],
+      "relancer": [
+        "siteyi yeniden başlat",
+        "düşen siteyi ayağa kaldır"
+      ]
+    },
+    "sindri": {
+      "*": [
+        "belgeler klasörünün yedeğini al",
+        "geçen hafta sildiğim dosyayı geri getir",
+        "evdeki tüm bilgisayarların yedeği",
+        "diskin tam imajını al",
+        "yedeklerim nerede?",
+        "dosyanın dünkü halini geri getir",
+        "her gece artımlı yedek kur",
+        "yedeğin bozuk olmadığını kontrol et",
+        "harddisk öldü, fotoğraflar sadece ondaydı",
+        "eşimin dizüstü saatte bir kendiliğinden yedeklensin",
+        "yeniden kurulumdan önce sistem diskinin imajını al",
+        "yedeklerde pasaport taramasını bul",
+        "yedeklerdeki eski sürümler ne kadar yer kaplıyor?",
+        "projeler klasörünü ağ depolamasına kopyala"
+      ],
+      "sauvegarder": [
+        "şimdi yedek al",
+        "ev klasörünün yedeklemesini başlat"
+      ],
+      "restaurer": [
+        "fotoğraflar klasörünü yedekten geri yükle",
+        "rapor dosyasını yedekten geri getir"
+      ],
+      "plans": [
+        "hangi yedekleme planları var?",
+        "yedekleme takvimlerini göster"
+      ]
+    },
+    "brisingamen": {
+      "*": [
+        "yazlığın wifi şifresi neydi, kasada mı?",
+        "şifre yöneticisini aç",
+        "güçlü bir şifre üret",
+        "banka şifresini kasaya kaydet",
+        "aile için ortak şifre kasası",
+        "mailin iki adımlı doğrulama kodu nerede?",
+        "zayıf şifrelerim var mı?",
+        "şifrelerim sızdırıldı mı?",
+        "e-devlet şifresini nereye kaydetmiştim?",
+        "kasadan diafon şifresini çıkar",
+        "internet sağlayıcısının kullanıcı adı ve şifresini kasaya koy",
+        "her yerde aynı şifreyi kullanıyorum, kötü mü?",
+        "eşimin ortak netflix şifresine ihtiyacı var",
+        "mailin kurtarma kodlarını güvenli bir yerde sakla"
+      ],
+      "chercher": [
+        "kasada modemin şifresini bul",
+        "example.org için kayıtlı kullanıcı adım ne?"
+      ],
+      "generer": [
+        "20 karakterlik bir şifre uydur",
+        "karmaşık bir parola üret"
+      ],
+      "fuites": [
+        "şifrelerim sızmış mı kontrol et",
+        "kayıtlı parolalarım veri ihlallerinde geçiyor mu?"
+      ]
+    },
+    "gjoll": {
+      "*": [
+        "tatildeyken ev ağıma girmek istiyorum",
+        "eve vpn kur",
+        "telefonu ev VPN'ine bağlamak için QR kodu ver",
+        "şu an VPN'den kim bağlı?",
+        "tüneli kapat",
+        "dizüstünü vpn'e ekle",
+        "kafeden eve güvenli bağlan",
+        null
+      ],
+      "ajouter": [
+        "eşimin telefonunu VPN'e ekle",
+        "vpn için yeni cihaz"
+      ],
+      "qr": [
+        "vpn bağlantısı için QR kodunu göster",
+        null
+      ],
+      "allumer": [
+        "VPN tünelini aç",
+        "vpn'i başlat"
+      ]
+    },
+    "vidarr": {
+      "*": [
+        "bütün ağda reklamları kes",
+        "siteyi tüm cihazlar için engelle",
+        "site neden açılmıyor, DNS mi engelliyor?",
+        "evde tiktoku kapat",
+        "yerel ağda sunucuma bir isim ver",
+        "televizyondaki reklamlar bıktırdı",
+        "cihazlar hangi alan adlarını soruyor göster",
+        "izleyiciler geçmesin",
+        "bütün cihazlarda reklam fırlıyor",
+        "banka sitesi neden yüklenmiyor? DNS kesiyor olabilir mi",
+        "oğlumun dizüstü hiç internete çıkmasın",
+        "televizyon en çok hangi siteyi soruyor?"
+      ],
+      "bloquer": [
+        "example.org alanını engelle",
+        "kumar sitesini yasakla"
+      ],
+      "autoriser": [
+        "bu sitenin engelini kaldır, iş için lazım",
+        "alan adını beyaz listeye ekle"
+      ],
+      "pause": [
+        "reklam engellemeyi beş dakika kapat",
+        "engelleyiciyi duraklat"
+      ]
+    },
+    "vordr": {
+      "*": [
+        "sunucunun erişilebilir olduğunu takip et",
+        "site çökerse haber ver",
+        "sertifikanın süresi dolmasın diye kontrol et",
+        "servislerin çalışma süresi ne?",
+        "durum sayfası yap",
+        "443 portunu izle",
+        "hangi servisler şu an çökük?",
+        "modemi her dakika pingle"
+      ],
+      "ajouter": [
+        "example.org için kontrol ekle",
+        "198.51.100.10 üzerinde 22 portunu izle"
+      ],
+      "problemes": [
+        "açık sorunlar neler?",
+        "ne çöktü?"
+      ],
+      "page_publique": [
+        "herkese açık durum sayfası yap",
+        "müşteriler için durum sayfasını aç"
+      ]
+    },
+    "askr": {
+      "*": [
+        "yeni dizüstünü envantere kaydet",
+        "yazıcının garantisi ne zaman bitiyor?",
+        "projektörü kime ödünç verdim?",
+        "modemin seri numarası ne?",
+        "monitöre QR etiketi bas",
+        "donanım envanteri",
+        "kaç tane office lisansımız var?",
+        "sunucu hangi odada duruyor?"
+      ],
+      "ajouter": [
+        "envantere yeni Dell monitörü ekle",
+        "tablet için demirbaş kartı aç"
+      ],
+      "chercher": [
+        "envanterdeki tüm dizüstüleri bul",
+        "tarayıcı kayıtlarda nerede görünüyor?"
+      ],
+      "etiquette": [
+        "dizüstü için QR etiketi yap",
+        "kasaya yapıştırılacak etiket bas"
+      ]
+    },
+    "valgrind": {
+      "*": [
+        "ev servisime https ile güzel bir isimle girmek istiyorum",
+        "ters vekil sunucu kur",
+        "bulut için letsencrypt sertifikası al",
+        "servis sayfasına şifre koy",
+        "eski adresi yenisine yönlendir",
+        "ağ içindeki nextcloud için https yap",
+        "servislerim için reverse proxy",
+        "sertifikanın süresi doluyor, yenile"
+      ],
+      "ajouter": [
+        "cloud.example.org sitesini vekil sunucuya ekle",
+        "8080 portundaki servisi proxy'den geçir"
+      ],
+      "certificat": [
+        "example.org için sertifika çıkar",
+        "https sertifikasını yenile"
+      ],
+      "proteger": [
+        "siteyi şifreyle kapat",
+        "panele kullanıcı adı ve şifre koy"
+      ]
+    },
+    "var": {
+      "*": [
+        "yeni çalışanı ekle, giriş yapabilsin",
+        "oğlumun kendi hesabı olsun",
+        "Ayşe'nin hesap şifresini sıfırla",
+        "hesabımda iki adımlı doğrulamayı aç",
+        "kim hangi uygulamalara erişebiliyor?",
+        "telefonum çalındı, hesabımın tüm oturumlarını kapat",
+        "muhasebe diye bir grup oluştur",
+        "evdeki tüm servisler için tek giriş",
+        "yeni gelen arkadaş sisteme giremiyor, hesabı yok",
+        "Kerem işten ayrıldı, her yerde girişini kapat",
+        "kim hangi erişim grubunda?",
+        "kız kardeşimi linkle davet et, kendi hesabını açsın",
+        "Odin'e giriş şifremi değiştirmem lazım, ele geçirilmiş",
+        "Selin'e fotoğraf uygulamasına erişim ver ama muhasebeye verme"
+      ],
+      "ajouter": [
+        "Mehmet için kullanıcı hesabı aç",
+        "kullanıcılara bir kişi ekle"
+      ],
+      "mot_de_passe": [
+        "Zeynep'in giriş şifresini değiştir",
+        "hesabının şifresini unutmuş, sıfırla"
+      ],
+      "double_auth": [
+        "hesabımda iki aşamalı doğrulamayı aç",
+        "giriş için ikinci faktör ayarla"
+      ]
+    },
+    "bru": {
+      "*": [
+        "evdeki siteyi port açmadan internete açmak istiyorum",
+        null,
+        "bulut klasörümü kendi alan adımda yayınla",
+        "arkadaşlar dışarıdan servisime girsin ama modemde port açmayayım",
+        "ismi internetten kaldır",
+        null,
+        "Odin'i tünelle dışarı aç",
+        "statik IP olmadan alan adıyla dışarıdan erişim",
+        "sabit IP'm yok ama siteyi dışarı açmak istiyorum",
+        "port yönlendirmeden nextcloud'a internetten kendi alan adımla erişim yap",
+        "fotoğraf sitesini internetten kaldır, sadece evde kalsın"
+      ],
+      "creer": [
+        null,
+        "alan adı için yeni tünel kur"
+      ],
+      "publier": [
+        "photos.example.org'u tünelle yayınla",
+        "servisi alan adımla internete çıkar"
+      ],
+      "etat": [
+        "tünel ayakta mı?",
+        "tünelin durumu"
+      ]
+    },
+    "skidbladnir": {
+      "*": [
+        "anneannem fotoğrafları indirsin diye link ver",
+        "aile için ortak klasör",
+        "evde kendi google drive'ım",
+        "bulutumun çöp kutusu nerede?",
+        "klasörü dizüstüyle eşitle",
+        "sadece bana ait bir klasör yap",
+        "bulutu ağ sürücüsü olarak bağla",
+        "buluttaki belgenin eski sürümünü geri getir"
+      ],
+      "lien": [
+        "tatil klasörü için paylaşım linki oluştur",
+        "dosyayı linkle paylaş"
+      ],
+      "espace": [
+        null,
+        "Can için kişisel klasör aç"
+      ],
+      "vider_corbeille": [
+        "bulutun çöpünü boşalt",
+        "dosya çöp kutusundaki her şeyi sil"
+      ]
+    },
+    "eitri": {
+      "*": [
+        "güncel ubuntu imajını indir",
+        "windows iso'sunu güncel tut",
+        "hangi ISO'larım var?",
+        "debian imajı güncellendi mi?",
+        "kurtarma için bir iso lazım",
+        "sistem imajlarını ağ klasörüne koy",
+        "dağıtımların yeni sürümlerini takip et",
+        "sistem kurulum imajları"
+      ],
+      "catalogue": [
+        "hangi imajlar indirilebilir?",
+        "ISO kataloğunu göster"
+      ],
+      "telecharger": [
+        "Fedora iso'sunu indir",
+        "Windows 11 imajını çek"
+      ],
+      "mettre_a_jour": [
+        "tüm imajları güncelle",
+        "ISO'ların yeni sürümlerini al"
+      ]
+    },
+    "fjalar": {
+      "*": [
+        "program kurulum dosyalarını güncel tut",
+        "son 7-zip'i indir",
+        "program kurulum dosyaları klasörü",
+        "ağ klasöründeki kurulum dosyalarını güncelle",
+        "kurulum dosyası koleksiyonumda hangi programlar var?",
+        "kurmak için vlc'nin son sürümü lazım",
+        "kurulum dosyalarını virüse karşı tara",
+        "yeni bilgisayarlar için programları topla"
+      ],
+      "catalogue": [
+        "hangi programlar takip edilebilir?",
+        "kurulum dosyaları kataloğu"
+      ],
+      "telecharger": [
+        "firefox kurulum dosyasını indir",
+        "güncel notepad++ indir"
+      ],
+      "mettre_a_jour": [
+        "bütün kurulum dosyalarını güncelle",
+        "programların yeni sürümlerine bak ve indir"
+      ]
+    },
+    "thjalfi": {
+      "*": [
+        "usb'siz ağdan windows kurmak istiyorum",
+        "bilgisayarı PXE ile başlat",
+        "eski dizüstüne ağdan sistem kur",
+        "önyüklenebilir usb hazırla",
+        "ağ üzerinden işletim sistemi kurulumu",
+        "yeni bilgisayarlar kendi kendine kurulsun",
+        "ağdan önyükleme çalışmıyor",
+        "çift sistemli usb yap"
+      ],
+      "allumer": [
+        "ağdan önyüklemeyi aç",
+        "PXE sunucusunu başlat"
+      ],
+      "reinstaller": [
+        "muhasebecinin bilgisayarına sistemi yeniden kur",
+        "makineyi ağdan baştan kur"
+      ],
+      "cle_preparer": [
+        "kurulum için usb hazırla",
+        "önyükleme flaş belleğini yaz"
+      ]
+    },
+    "gladsheim": {
+      "*": [
+        "tablette ev ekranını aç",
+        "ev hakkında her şeyi tek ekranda göster",
+        "hava nasıl?",
+        "aile şu an nerede?",
+        "ana ekrana bir buton ekle",
+        "duvar tableti için panel",
+        null,
+        "evin ana ekranı"
+      ],
+      "ouvrir": [
+        "ev ekranını aç",
+        "ev panelini göster"
+      ],
+      "meteo": [
+        "bugün hava",
+        "akşam yağmur yağacak mı?"
+      ],
+      "positions": [
+        "bizimkiler nerede?",
+        "ailenin yerini haritada göster"
+      ]
+    },
+    "zeus": {
+      "*": [
+        "farklı kaynaklardan hava tahminlerini karşılaştır",
+        "havayı kim daha doğru tahmin ediyor?",
+        "hafta sonu için farklı modeller ne diyor?",
+        null,
+        "Avrupa modeliyle Amerikan modeli ayrışıyor mu?",
+        "hangi tahmine güveneyim?",
+        "hava modellerinin karşılaştırması",
+        "uzun vadeli, gelecek ayın havası"
+      ],
+      "comparer": [
+        "tahminler yan yana",
+        "yarın için modelleri karşılaştır"
+      ],
+      "bilan": [
+        "hangi kaynak daha az yanıldı?",
+        "dün havayı kim bildi?"
+      ],
+      "mois": [
+        "önümüzdeki aylarda hava nasıl olacak?",
+        "mevsimlik tahmin"
+      ]
+    },
+    "gna": {
+      "*": [
+        "cumartesi neredeydim?",
+        "dünkü yolculuklarımı göster",
+        "telefonun konum geçmişi",
+        "en sık hangi yerlere gidiyorum?",
+        "yolculuk kaydını duraklat",
+        "geçen haftaki yolculuklarımı sil",
+        "bugün kaç kilometre yol yaptım?",
+        "rotayı gpx olarak dışa aktar"
+      ],
+      "trajets": [
+        "dünkü rotalar",
+        "pazartesi yolculuklarını göster"
+      ],
+      "lieux": [
+        "sık gittiğim yerler",
+        "geçmişe göre favori yerlerim"
+      ],
+      "pause": [
+        "şimdilik hareketlerimi kaydetme",
+        "konum geçmişini duraklat"
+      ]
+    },
+    "apparence": {
+      "*": [
+        "temayı koyu yap",
+        "başka renkler istiyorum",
+        "günün saatine göre görünüm",
+        "karakteri ekrandan sakla",
+        "şu an hangi tema var?",
+        "arayüzü daha canlı yap",
+        "havaya göre tema",
+        "bu arka plandan sıkıldım"
+      ],
+      "theme": [
+        "kış temasını koy",
+        "koyu görünümü aç"
+      ],
+      "etat": [
+        "hangi tema seçili?",
+        "mevcut görünüm"
+      ],
+      "cacher": [
+        "gözlüyü ekrandan kaldır",
+        "saklan, rahatsız ediyorsun"
+      ]
+    },
+    "commandes": {
+      "*": [
+        "bunu hangi komutla yaparım?",
+        "tüm komutların listesini göster",
+        "konsoldan yedeği nasıl başlatırım?",
+        "site engellemek için örnek komut ver",
+        "komut kopya kağıdı",
+        "terminale yapıştıracağım bir komut istiyorum",
+        "her uygulama için hangi komutlar var",
+        "komutun sözdizimini söyle"
+      ],
+      "chercher": [
+        "konteyneri yeniden başlatma komutunu bul",
+        "diski kontrol eden komut hangisi?"
+      ],
+      "liste": [
+        "bütün komutlar",
+        "komutların tam listesi"
+      ]
+    },
+    "volva": {
+      "*": [
+        "arabanın yağı nasıl değişir internette bul",
+        "bu süpürgenin yorumlarını ara",
+        "yeni çekirdek sürümü hakkında ne yazıyorlar?",
+        "mercimek çorbası tarifini googlela",
+        "bu konuda kaynak bul",
+        "aynı anda birkaç arama motorunda ara",
+        "dünkü maçı kim kazandı?",
+        "linkli bir cevap bul"
+      ],
+      "chercher": [
+        "ara: vlan nasıl kurulur",
+        "güneş panelleri hakkında bilgi bul"
+      ],
+      "historique": [
+        "dün ne aramıştım?",
+        "arama geçmişi"
+      ],
+      "moteurs": [
+        "hangi arama motorları bağlı?",
+        "arama motorlarının listesi"
+      ]
+    },
+    "hermod": {
+      "*": [
+        "çalışma odasındaki bilgisayarı uyandır",
+        "oğlumun dizüstünü ağdan aç",
+        "hangi bilgisayarlar şu an açık?",
+        "muhasebe bilgisayarını uzaktan yeniden başlat",
+        "annemin bilgisayarının ekranına bağlan",
+        "tüm bilgisayarlarda bir komut çalıştır",
+        "iş bilgisayarına wake on lan",
+        "ablama bilgisayarında uzaktan yardım et",
+        "çalışma odasındaki bilgisayar kapalı, ama ondan bir dosya lazım",
+        "evdeyim, iş bilgisayarımı uzaktan aç",
+        "akşam ofisteki bütün bilgisayarları yeniden başlat",
+        "hangi bilgisayarlar ağda ve güncellemeleri ne durumda?"
+      ],
+      "parc": [
+        "hangi bilgisayarlar çevrimiçi?",
+        "tüm bilgisayarların durumu"
+      ],
+      "reveiller": [
+        "salondaki pc'yi ağdan aç",
+        "sunucuyu uykudan uyandır"
+      ],
+      "bureau": [
+        "babamın bilgisayarının kontrolünü al",
+        "ofis pc'sine uzak masaüstü"
+      ]
+    },
+    "ratatoskr": {
+      "*": [
+        "bir MCP sunucusu bağla",
+        "başka bir asistan benim araçlarımı kullansın istiyorum",
+        "hangi MCP'ler bağlı?",
+        "dışarıdaki bir ajana Odin erişimi ver",
+        "araç sunucusunu çıkar",
+        "bağlı sunucudaki bir aracı çağır",
+        "github'u mcp ile bağla",
+        "yapay zeka araçları için köprü"
+      ],
+      "serveurs": [
+        "MCP sunucularının listesi",
+        "hangi araç sunucuları var?"
+      ],
+      "ajouter": [
+        null,
+        "adresi verilen araç sunucusunu ekle"
+      ],
+      "outils": [
+        "bu sunucunun araçları neler?",
+        "MCP araçlarını göster"
+      ]
+    },
+    "appareils": {
+      "*": [
+        "mutfağın ışığını aç",
+        "evde hangi cihazlar var?",
+        "panjurları kapat",
+        "çocuk odasındaki sensör kaç derece gösteriyor?",
+        "yeni bir zigbee ampul ekle",
+        "salondaki prizin adını değiştir",
+        "yatak odası soğuk, ısıtıcıyı aç",
+        "klimayı kapat",
+        "çocuk odası çok sıcak",
+        "salonda üşüyorum",
+        "banyonun ışığı açık kalmış",
+        "şu an hangi lambalar yanıyor?"
+      ],
+      "lister": [
+        "bütün akıllı cihazların listesi",
+        "hangi cihazlar bağlı?"
+      ],
+      "commander": [
+        "koridorun ışığını kapat",
+        "su ısıtıcının prizini aç"
+      ],
+      "appairer": [
+        "yeni sensörü eşleştir",
+        "yeni anahtarı eşle"
+      ]
+    },
+    "brokkr": {
+      "*": [
+        "ağdaki akıllı prizleri bul",
+        "ESP modülüne yazılım yükle",
+        null,
+        "sonoff'un yazılımını güncelle",
+        "esp32 ile kendi sensörümü yapmak istiyorum",
+        "modül atölyesi",
+        "yeni esp'yi hazırla",
+        "hangi modüller bulundu?"
+      ],
+      "chercher": [
+        "ağda modül ara",
+        "shelly'lerimi bul"
+      ],
+      "brancher": [
+        "bulunan prizi bağla",
+        "modülü sisteme ekle"
+      ],
+      "preparer": [
+        "esp8266'yı çalışmaya hazırla",
+        "yeni esp'ye yazılım at"
+      ]
+    },
+    "midgard": {
+      "*": [
+        "ev ne durumda?",
+        "sinema sahnesini başlat",
+        "evden çıktık sahnesi yap",
+        "tüm hub'lardaki cihazlar tek yerde",
+        "akıllı ev kutumu bağla",
+        "odalara göre ne açık?",
+        "iyi geceler modu",
+        "evin durumu"
+      ],
+      "maison": [
+        "evde neler oluyor?",
+        "ev özeti"
+      ],
+      "scene": [
+        "akşam yemeği sahnesini aç",
+        "gece modunu başlat"
+      ],
+      "creer_scene": [
+        "sabah sahnesi oluştur: ışık ve kahve makinesi",
+        "parti için yeni sahne"
+      ]
+    },
+    "himinbjorg": {
+      "*": [
+        "giriş kamerasını göster",
+        "bahçede biri dolaşıyor mu?",
+        "garaj kamerasından video kaydet",
+        "kameradan fotoğraf çek",
+        "yeni ip kamera ekle",
+        "gece hareket oldu mu?",
+        "güvenlik kameraları",
+        "bahçe kapısındaki kamerada ne görünüyor"
+      ],
+      "cameras": [
+        "kamera listesi",
+        "hangi kameralar bağlı?"
+      ],
+      "photo": [
+        "bahçe kamerasından anlık görüntü",
+        "antredeki kameradan foto çek"
+      ],
+      "enregistrer": [
+        "kameradan kayda başla",
+        "sokak kamerasından beş dakika kaydet"
+      ]
+    },
+    "bragi": {
+      "*": [
+        "yemeğin hazır olduğunu sesli söyle",
+        "bütün hoparlörlerden duyur",
+        "sesi değiştir",
+        "hangi sesler var?",
+        "bunu sesli oku",
+        "alarmı seslendir",
+        "evde anons yap",
+        "ses tuhaf geliyor"
+      ],
+      "dire": [
+        "merhaba de",
+        "bu metni seslendir"
+      ],
+      "annoncer": [
+        "hoparlörlerden yatma vakti olduğunu duyur",
+        "bütün eve anons yap"
+      ],
+      "voix": [
+        "hangi sesler mevcut?",
+        "kullanılabilir seslerin listesi"
+      ]
+    },
+    "freyja": {
+      "*": [
+        "bir film aç",
+        "televizyonda ne var?",
+        "akşamki maçı kaydet",
+        "hangi yeni bölümler çıktı?",
+        "dublajlı dizi bul",
+        "bu akşam ne izlesem?",
+        "medya sunucusu",
+        "çocuklara çizgi film aç"
+      ],
+      "regarder": [
+        "Yıldızlararası'yı aç",
+        "son bölümü izlemek istiyorum"
+      ],
+      "programme": [
+        "akşamın yayın akışı",
+        "şu an televizyonda ne var?"
+      ],
+      "enregistrer": [
+        "saat dokuzdaki programı kaydet",
+        "filmi kayda al"
+      ]
+    },
+    "aegir": {
+      "*": [
+        "müzik aç",
+        "radyo aç",
+        "sakin bir şey çal",
+        "şarkı bul",
+        "müziği durdur",
+        "koşu için çalma listesi yap",
+        "internet radyosu ekle",
+        "müzik kütüphanem"
+      ],
+      "jouer": [
+        "albümü çal",
+        "caz çal"
+      ],
+      "chercher": [
+        "bu sanatçının şarkılarını bul",
+        "bu şarkı bende var mı?"
+      ],
+      "radio": [
+        "radyo istasyonu ekle",
+        "linkten yeni radyo ekle"
+      ]
+    },
+    "frigg": {
+      "*": [
+        "müşteriyi cumaya yaz",
+        "yarın hangi randevularım var?",
+        "çarşamba boş saat var mı?",
+        "15:00 randevusunu iptal et",
+        "online randevu sayfası",
+        "çalışma saatleri",
+        "saç kesimi hizmetini ekle",
+        "randevuyu ertele"
+      ],
+      "agenda": [
+        "yaklaşan randevular",
+        "bu hafta kim randevu almış?"
+      ],
+      "creneaux": [
+        "perşembe boş saatler",
+        "ne zaman müsaitim?"
+      ],
+      "rendez_vous": [
+        "yeni randevu: Selin, salı, sabah 10",
+        "yarına randevu yaz"
+      ]
+    },
+    "kvasir": {
+      "*": [
+        "kaynak projelerde ne yenilik var?",
+        "bu github linkini incele",
+        "deponun güncellemelerini takip et",
+        null,
+        "yeni sürüm var mı?",
+        "çalışma defteri",
+        "ilginç ne çıktı?",
+        "linkteki depoyu çözümle"
+      ],
+      "verifier": [
+        "güncellemeleri şimdi kontrol et",
+        "yeni ne çıkmış?"
+      ],
+      "etudier": [
+        "github.com/example/proje'yi incele",
+        "bu depoyu değerlendir"
+      ],
+      "suivre": [
+        "bu depoyu takip et",
+        "bu projeyi izle"
+      ]
+    },
+    "syn": {
+      "*": [
+        "işlemci sıcaklığıyla bir pano yap",
+        null,
+        "sunucu metrikleri paneli",
+        "grafik eşiği geçerse uyar",
+        "panolarım",
+        "panoya trafik grafiği ekle",
+        "metrik görselleştirme",
+        "göstergelerin toplu paneli"
+      ],
+      "tableaux": [
+        "pano listesi",
+        "hangi panolarım var?"
+      ],
+      "creer": [
+        "ağ için yeni bir pano oluştur",
+        "ev izleme paneli yap"
+      ],
+      "panneau": [
+        "disk kullanımı göstergesi ekle",
+        "panoya bir grafik daha koy"
+      ]
+    },
+    "dvalinn": {
+      "*": [
+        "bu docx'u pdf yap",
+        "iki pdf'i birleştir",
+        "videoyu sıkıştır",
+        "heic'i jpg'ye çevir",
+        "resmi png yap",
+        "klasördeki tüm videoları yeniden kodla",
+        "pdf'ten sayfa çıkar",
+        "dosyayı başka formata dönüştür"
+      ],
+      "convertir": [
+        "dosyayı mp3'e çevir",
+        "webm'i mp4 yap"
+      ],
+      "pdf": [
+        "pdf'leri birleştir",
+        "pdf'i sayfalara böl"
+      ],
+      "lot_videos": [
+        "bütün filmleri h265'e kodla",
+        "toplu video sıkıştırma"
+      ]
+    },
+    "champollion": {
+      "*": [
+        "fotoğraftaki yazıyı tanı",
+        "bu kağıtta ne yazıyor?",
+        "taramadan metin çıkar",
+        "sesli mesajı yazıya dök",
+        "maildeki tarihleri çıkar",
+        "bu belgenin OCR'ı",
+        "taranmış pdf'te arama yapılabilsin",
+        "bu ses kaydında ne söyleniyor?"
+      ],
+      "lire": [
+        "bu taramayı oku",
+        "fiş fotoğrafını tanı"
+      ],
+      "texte": [
+        "bu metinde önemli olan ne, anla",
+        "metindeki randevuları ve tarihleri bul"
+      ],
+      "pdf_cherchable": [
+        null,
+        "taramaya metin katmanı ekle"
+      ]
+    },
+    "mimisbrunnr": {
+      "*": [
+        "sistem loglarını göster",
+        "günlüklerde hata ara",
+        "/var/log'a ne yazılıyor?",
+        "servis neden çöküyor, günlüğe bak",
+        "hangi mesajlar tekrar ediyor?",
+        "bütün loglar tek yerde",
+        "dünkü loglarda error kelimesini bul",
+        "günlükleri grep'le"
+      ],
+      "chercher": [
+        "loglarda ssh failed bul",
+        "günlüklerde timeout kelimesini ara"
+      ],
+      "repetes": [
+        "loglarda hangi hatalar tekrarlanıyor?",
+        "günlükteki sık mesajlar"
+      ],
+      "regle": [
+        "disk hataları için kural ekle",
+        "loglarda out of memory çıkarsa uyar"
+      ]
+    },
+    "gefjon": {
+      "*": [
+        "disk doldu, temizle",
+        "yeri ne kaplıyor?",
+        "bilgisayar geç açılıyor",
+        "geçici dosyaları sil",
+        "windowsla hangi programlar başlıyor?",
+        "kullanmadığım programı kaldır",
+        "tarayıcı önbelleğini ve çöpleri temizle",
+        "en ağır dosyalar nerede?",
+        "bilgisayar üç dakikada açılıyor, bir bak",
+        "C sürücüsünde 2 giga kaldı",
+        "eski güncellemeleri ve çöpleri sil",
+        "başlangıçtaki bu programlar ne, yarısı gereksiz",
+        "dizüstünde yer aç"
+      ],
+      "nettoyer": [
+        "çöpleri temizle",
+        "geçici dosya temizliği"
+      ],
+      "gros_fichiers": [
+        "diskteki en büyük dosyalar",
+        "en çok yer tutan ne?"
+      ],
+      "demarrage": [
+        "başlangıçta neler açılıyor?",
+        "sistem açılışındaki programlar"
+      ]
+    },
+    "sol": {
+      "*": [
+        "deniz fotoğraflarını göster",
+        "doğum günü fotoları nerede?",
+        "kopya fotoğrafları bul",
+        "tatilden albüm yap",
+        "geçen yılın fotoğrafları aylara göre",
+        "fotoları tarihe göre düzenle",
+        "fotoğraflarım ve videolarım",
+        "telefondaki fotoğraflar"
+      ],
+      "chercher": [
+        "köpekli fotoları bul",
+        "Antalya fotoğrafları"
+      ],
+      "doublons": [
+        "kopya fotoları sil",
+        "tekrar eden fotoğraf var mı?"
+      ],
+      "album": [
+        "düğün albümü oluştur",
+        "bayramdan albüm yap"
+      ]
+    },
+    "fensalir": {
+      "*": [
+        "sunucuda hangi diskler takılı?",
+        "disklerde ne kadar yer var?",
+        "klasörü ağda paylaş",
+        "ağ klasörleri",
+        "klasörün paylaşımını kaldır",
+        "bölüm dolmak üzere mi?",
+        null,
+        "klasörü diğer bilgisayarlara aç"
+      ],
+      "disques": [
+        "disk listesi",
+        "disklerin doluluğu"
+      ],
+      "partages": [
+        "hangi klasörler paylaşılıyor?",
+        "ağ paylaşımları"
+      ],
+      "ajouter_partage": [
+        "video klasörünü paylaş",
+        "belgeler için ağ klasörü yap"
+      ]
+    },
+    "hlid": {
+      "*": [
+        "güvenlik duvarında 8080'i aç",
+        "makinede hangi portlar dinliyor?",
+        "güvenlik duvarı kuralları",
+        "firewall'u aç",
+        "gereksiz portları kapat",
+        "bu porta kim ulaşabilir?",
+        "modemde hangi portlar yönlendirilmiş?",
+        "ağ rotaları ve kuralları",
+        "bu bilgisayarda yerel ağa hangi portlar açık?",
+        "sunucu dinlememesi gereken portları dinliyor",
+        "dışarıdan veritabanına bağlantıyı güvenlik duvarında yasakla",
+        "modemde RDP kapalı mı kontrol et"
+      ],
+      "etat": [
+        "güvenlik duvarının durumu",
+        "firewall açık mı?"
+      ],
+      "ouvrir_port": [
+        "minecraft için 25565'i aç",
+        "443'e gelen bağlantılara izin ver"
+      ],
+      "fermer_port": [
+        "3389 portunu kapat",
+        "21'e gelenleri yasakla"
+      ]
+    },
+    "ivaldi": {
+      "*": [
+        "depolarım ne durumda?",
+        "gönderilmemiş commit var mı?",
+        "git'ten değişiklikleri çek",
+        "depoyu klonla",
+        "projede terminal aç",
+        "son commitler",
+        "projeyi çalıştır",
+        "kodda kaydedilmemiş değişikliklerim nerede?"
+      ],
+      "depots": [
+        "depolarım",
+        "git depo listesi"
+      ],
+      "recuperer": [
+        "bütün depolarda pull yap",
+        "son değişiklikleri al"
+      ],
+      "cloner": [
+        "github.com/example/app'i klonla",
+        "depoyu kopyala"
+      ]
+    },
+    "heidrun": {
+      "*": [
+        "çocukların internetini 21'den sonra kıs",
+        "ebeveyn denetimi",
+        "oğluma yetişkin sitelerini engelle",
+        "kızımın internetini bir saat kapat",
+        "çocuk internette ne kadar kaldı?",
+        "küçük için profil",
+        "çocuklarda gece youtube çalışmasın",
+        "çocuklar için site filtresi",
+        "oğlum gece üçe kadar telefonda",
+        "kızım on yaşında, hangi sitelere girmemeli?"
+      ],
+      "profil": [
+        "8 yaşındaki Efe için profil oluştur",
+        "ergen için filtre ayarla"
+      ],
+      "pause": [
+        "çocukların internetini kes",
+        "küçüğün internetine ara ver"
+      ],
+      "rapport": [
+        null,
+        "oğlum nerelere girmiş?"
+      ]
+    },
+    "leikvangr": {
+      "*": [
+        "atari oynamak istiyorum",
+        "retro oyunlarım",
+        "mario'yu başlat",
+        null,
+        "favori oyunlar",
+        null,
+        "sega için hangi oyunlar var?",
+        "oyun emülatörü"
+      ],
+      "jeux": [
+        "oyun listesi",
+        "hangi oyunlar var?"
+      ],
+      "lancer": [
+        "tetris'i başlat",
+        "zelda'yı aç"
+      ],
+      "ranger": [
+        "romları düzenle",
+        "oyun adlarını temizle"
+      ]
+    },
+    "snotra": {
+      "*": [
+        "word belgesi oluştur",
+        "belgelerde sözleşmeyi bul",
+        "excel tablosunu aç",
+        "yazım denetimi yap",
+        "ağımın şemasını çiz",
+        "belgeye bir mektup yaz",
+        "belgelerim",
+        "excel'de gider tablosu yap"
+      ],
+      "creer": [
+        "yeni belge: dilekçe",
+        "metin dosyası oluştur"
+      ],
+      "chercher": [
+        "belgelerde kira kelimesini bul",
+        "dosyalarda sözleşme ara"
+      ],
+      "corriger": [
+        "metindeki hataları düzelt",
+        "dilbilgisini kontrol et"
+      ]
+    },
+    "hlin": {
+      "*": [
+        null,
+        "verilerimi sitelerden sildir",
+        "kişisel verilerimi kim satıyor?",
+        "adresim rehberlerde var mı?",
+        "kendimi arama sonuçlarından kaldırmama yardım et",
+        "mailim sızıntılarda var mı?",
+        "veri silme talebi mektubu",
+        "internette gizlilik"
+      ],
+      "etat": [
+        "internette nerede çıkıyorum?",
+        "çevrimiçi görünürlüğüm"
+      ],
+      "chercher": [
+        "nerelerde anıldığımı şimdi kontrol et",
+        "internetteki izlerimi ara"
+      ],
+      "lettre": [
+        "veri silme mektubu yaz",
+        "kişisel veri silme başvurusu"
+      ]
+    },
+    "durinn": {
+      "*": [
+        "disk ölüyor mu?",
+        "ssd sağlığı",
+        "disklerin sıcaklığı",
+        "diskin hızını ölç",
+        "SMART'ı göster",
+        "disk tıkırdıyor",
+        "ssd'nin ne kadar ömrü kaldı?",
+        "nvme hız testi"
+      ],
+      "sante": [
+        "tüm disklerin durumu",
+        "diskler iyi mi?"
+      ],
+      "banc": [
+        "disk hız testi",
+        "flaş belleğin hızını ölç"
+      ],
+      "smart": [
+        "sda için smart değerleri",
+        "smart öznitelikleri"
+      ]
+    },
+    "hel": {
+      "*": [
+        "yanlışlıkla fotoğraf sildim, geri getir",
+        "bölüm kayboldu",
+        "usb bellek okunmuyor, dosyaları kurtar",
+        "silinen belgeleri geri yükle",
+        "kayıp bölümü bul",
+        "hafıza kartını yanlışlıkla biçimlendirdim",
+        "silineni geri getir",
+        "veri kurtarma"
+      ],
+      "recuperer": [
+        "silinen dosyaları kurtar",
+        "silinmiş fotoğrafları çıkar"
+      ],
+      "chercher": [
+        "kayıp bölümleri ara",
+        "bölüm taraması"
+      ],
+      "supports": [
+        "hangi ortamlar taranabilir?",
+        "kurtarma için disk listesi"
+      ]
+    },
+    "pegase": {
+      "*": [
+        "dün baktığım siteyi bul",
+        "tarayıcı geçmişi",
+        "yer imlerinin kopyasını al",
+        "eski telefonu tarayıcıdan çıkar",
+        "tarayıcı profilini geri yükle",
+        "tarayıcı eşitlemesi",
+        "telefonda ne açmıştım?",
+        "tarayıcı profilleri"
+      ],
+      "historique": [
+        "bu haftaki ziyaret geçmişi",
+        "geçmişte tarifi bul"
+      ],
+      "copier": [
+        "tarayıcının kopyasını al",
+        "tarayıcı profilini yedekle"
+      ],
+      "revoquer": [
+        "kaybolan tableti ayır",
+        "cihazı tarayıcıdan kaldır"
+      ]
+    },
+    "agora": {
+      "*": [
+        "grubuma hangi uygulamalar düşüyor?",
+        "mağazaya program ekle",
+        "programı grubun tüm bilgisayarlarına kur",
+        "uygulama mağazam",
+        "kim hangi programlara hak sahibi?",
+        "uygulamayı departmana dağıt",
+        "program mağazası",
+        "ne kurabilirim?"
+      ],
+      "ajouter": [
+        null,
+        "kataloğa yeni uygulama"
+      ],
+      "mon_store": [
+        "mağazam",
+        "bana açık uygulamalar"
+      ],
+      "ajouter_personne": [
+        "Deniz'i tasarımcılar grubuna ekle",
+        "birini gruba koy"
+      ]
+    },
+    "achille": {
+      "*": [
+        "sitemi açıklara karşı test et",
+        "istekleri burp gibi yakala",
+        "isteği başka parametreyle tekrarla",
+        "metni base64'e kodla",
+        "kendi sitemde sızma testi",
+        "iki yanıtı karşılaştır",
+        "hangi açıklar bulundu?",
+        "test için vekil sunucu"
+      ],
+      "rejouer": [
+        "bu isteği tekrarla",
+        "isteği değiştirerek yeniden gönder"
+      ],
+      "historique": [
+        "istek geçmişi",
+        "yakalanan istekler"
+      ],
+      "defauts": [
+        "bulunan zafiyetler",
+        "sitede ne bulundu?"
+      ]
+    },
+    "atalante": {
+      "*": [
+        "linkteki dosyayı indir",
+        "indirmeler takıldı",
+        "dosyanın indirmesini sürdür",
+        "indirme hızını sınırla",
+        "gece indir",
+        "indirme kuyruğu",
+        "ne iniyor?",
+        "indirme yöneticisi"
+      ],
+      "ajouter": [
+        "example.org/file.iso indir",
+        "indirmeye ekle"
+      ],
+      "file": [
+        "indirme sırası",
+        "indirilenleri göster"
+      ],
+      "vitesse": [
+        null,
+        "saniyede 2 mb'yi geçmesin"
+      ]
+    },
+    "dodone": {
+      "*": [
+        "api'ye istek gönder",
+        "uç noktayı kontrol et",
+        "istek koleksiyonu",
+        null,
+        "rest api'yi test et",
+        "api testlerini çalıştır",
+        "koleksiyonu içe aktar",
+        "api için ortam değişkenleri"
+      ],
+      "envoyer": [
+        "example.org/api'ye GET at",
+        "json ile POST gönder"
+      ],
+      "collection": [
+        "istek koleksiyonu oluştur",
+        "yeni api koleksiyonu"
+      ],
+      "lancer_collection": [
+        "test koleksiyonunu koştur",
+        "koleksiyondaki tüm istekleri çalıştır"
+      ]
+    },
+    "theia": {
+      "*": [
+        null,
+        "fotoğrafı tarif et",
+        "denizde gün batımı olan fotoyu bul",
+        "bu video ne hakkında?",
+        "belgeyi oku",
+        "ekran görüntüsünde ne var?",
+        "tarife göre resim bul",
+        "görsele bak"
+      ],
+      "voir": [
+        "ne görünüyor?",
+        "resmi anlat"
+      ],
+      "lire_document": [
+        "bu dosyayı oku",
+        "belgede ne yazıyor?"
+      ],
+      "retrouver": [
+        "kırmızı arabalı fotoyu bul",
+        "kedinin uyuduğu resim"
+      ]
+    },
+    "syrinx": {
+      "*": [
+        "bu ses ne?",
+        "köpek mi havlıyor?",
+        "hangi şarkı çalıyor?",
+        "sesi dinle",
+        "evdeki sesleri tanı",
+        "müzik çözümlemesi",
+        "kayıtta ne konuşuluyor?",
+        "kameranın sesi"
+      ],
+      "ecouter": [
+        "bu sesi dinle",
+        "ne duyuluyor?"
+      ],
+      "sons": [
+        "sesleri tanı",
+        "hangi sesler oldu?"
+      ],
+      "musique": [
+        "şarkıyı analiz et",
+        "müziğin temposu kaç?"
+      ]
+    },
+    "mathesis": {
+      "*": [
+        "bu konuyu kendin öğren",
+        "oku ve öğren",
+        "bu sitedeki bilgileri öğren",
+        "yeni ne öğrendin?",
+        "bu konuyu öğrenme",
+        "okuman için sana bir klasör açayım",
+        "kendi kendine öğren",
+        "kendi kendine öğrenme"
+      ],
+      "tour": [
+        "şimdi öğren",
+        "bir öğrenme turu yap"
+      ],
+      "confier": [
+        "önce yemek tariflerini öğren",
+        "öncelik: ağ konusu"
+      ],
+      "ouvrir_dossier": [
+        "belgeler klasörüne erişim ver",
+        "kitap klasörümü oku"
+      ]
+    },
+    "pronoia": {
+      "*": [
+        "sence yarın ne olacak?",
+        "tahmin et",
+        "ne sıklıkla doğru biliyorsun?",
+        "ev için haftalık tahmin",
+        "ne olması muhtemel?",
+        "önsezi",
+        "tahmin yapmayı bırak",
+        "tahminlerin"
+      ],
+      "previsions": [
+        "mevcut tahminler",
+        "neyi tahmin ediyorsun?"
+      ],
+      "prevoir": [
+        "şimdi tahmin yap",
+        "yarın için olasılıkları yeniden hesapla"
+      ],
+      "bilan": [
+        "doğru tahmin oranı",
+        "tahminler ne kadar isabetli?"
+      ]
+    },
+    "keryx": {
+      "*": [
+        "bana mesajlaşmadan cevap ver",
+        "dışarıdan sana yazmak istiyorum",
+        "asistana kim yazdı?",
+        "numarayı beyaz listeye ekle",
+        "gizli kodu değiştir",
+        "telegramdan yönetmek",
+        "mesajlarım için ne yaptın?",
+        "mesaj asistanı"
+      ],
+      "etat": [
+        "mesaj asistanı çalışıyor mu?",
+        "şimdi dışarıdan telefondan sana yazabilir miyim?"
+      ],
+      "historique": [
+        "mesaj geçmişi",
+        null
+      ],
+      "ajouter_numero": [
+        "annemin numarasını ekle",
+        "bu numaraya izin ver"
+      ]
+    }
+  },
+  "horsChamp": [
+    "bana pizza sipariş et",
+    "Ankara'ya tren bileti al",
+    "sonbahar hakkında şiir yaz",
+    null,
+    "anneme para gönder",
+    "garaja taksi çağır",
+    "gömleğimi ütüle",
+    "eşime ne hediye alsam?",
+    "markete benim yerime git",
+    "hastaneden randevu al",
+    "tesla hissesi al",
+    "bana pilav pişir",
+    "oğlumun matematik ödevini yap",
+    "eve market siparişi ver",
+    "mutfaktaki musluğu tamir et",
+    "köpeği gezdir",
+    "bulaşıkları yıka",
+    "benim yerime tez yaz",
+    "İzmir'de otel ayırt",
+    "vergi dairesini ara",
+    "çocuğu okuldan al",
+    "benimle satranç oyna",
+    "trafik cezamı öde",
+    "kedime isim bul",
+    "maaşa kadar borç ver",
+    "doğum gününe çiçek gönder",
+    "gönderiyi beğen",
+    "bana manikür yap",
+    "evi temizle",
+    "yatak odasının duvar kağıdını değiştir",
+    "bana sevgili bul",
+    "eski bisikletimi sahibinden'de sat"
+  ]
+}

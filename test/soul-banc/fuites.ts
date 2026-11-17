@@ -9,6 +9,7 @@
 // Sources d'apprentissage lues (toutes celles du dépôt) :
 //   - src/brain/nous/corpus-depart.ts (DEMANDES_EXEMPLES), demandes-langues.ts (DEMANDES_LANGUES), demandes-v2.ts (DEMANDES_V2) ;
 //   - les tournures de src/langue/langues/*.json (toutes les chaînes du fichier) ;
+//   - la matière par langue de l'aiguilleur, src/brain/nous/matiere/*.json (phrases des applis, des actions, hors champ) ;
 //   - les mots, libellés, descriptions et exemples des modules (allModules, examples de huginn.ts, avec les mots des langues),
 //     plus les usages et le survol des applis (ils entrent aussi dans le corpus de départ) ;
 //   - test/entrainement/*.ts : lus comme TEXTE (chaînes et lignes « xx: a | b ») ; ils ne sont pas importés, car
@@ -152,6 +153,16 @@ export async function sourcesApprentissage(mods: Array<import('../../src/valhall
   for (const d of DEMANDES_V2) ajouter('demandes-v2.ts', d.demande, `${d.module}.${d.action}, ${d.langue}`);
   const dl = join(RACINE, 'src', 'langue', 'langues');
   for (const f of readdirSync(dl).filter((x) => x.endsWith('.json')).sort()) for (const s of chainesJson(JSON.parse(readFileSync(join(dl, f), 'utf8')))) ajouter(`langues/${f}`, s);
+  // La matière par langue de l'aiguilleur (src/brain/nous/matiere/<code>.json) : toutes ses phrases (dossier absent : rien).
+  const dm = join(RACINE, 'src', 'brain', 'nous', 'matiere');
+  let fm: string[] = [];
+  try { fm = readdirSync(dm).filter((x) => x.endsWith('.json')).sort(); } catch { /* pas encore de matière */ }
+  for (const f of fm) {
+    let x: unknown; try { x = JSON.parse(readFileSync(join(dm, f), 'utf8').replace(/^﻿/, '')); } catch { continue; }
+    const m = x as { applis?: Record<string, Record<string, unknown>>; horsChamp?: unknown };
+    for (const [id, acts] of Object.entries(m?.applis && typeof m.applis === 'object' ? m.applis : {})) for (const [a, l] of Object.entries(acts && typeof acts === 'object' ? acts : {})) for (const s of chainesJson(l)) ajouter(`matiere/${f}`, s, a === '*' ? id : `${id}.${a}`);
+    for (const s of chainesJson(m?.horsChamp ?? [])) ajouter(`matiere/${f}`, s, 'hors champ');
+  }
   const { examples, avecLangues } = await import('../../src/valhalla/huginn.ts');
   for (const m0 of mods) {
     const m = avecLangues(m0);
