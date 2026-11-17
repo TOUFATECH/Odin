@@ -11,7 +11,10 @@
 // Aucun texte affiché ici : des codes, que l'écran traduira dans la langue de la personne.
 
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { createHash } from 'node:crypto';
 import type { LienPersonaRow, LigneHistorique, Mnemosyne, PreuveIdentite, UserRole, UserRow } from './store.ts';
+import { CLES_MESURES, mesurer, rendreMesures, validerCorrection, type CleMesure, type Mesure, type MesureRendue, type ReglagesMesures } from './traits.ts';
+import { langueDe as langueDOdin, sansPrecisions } from '../core/offline.ts';
 
 export type { LigneHistorique, PreuveIdentite, SortePersonne } from './store.ts';
 export type LienPersona = LienPersonaRow;
@@ -237,6 +240,8 @@ export interface BilanEffacement {
    *  inconnus (sans personne), le journal d'audit, les sauvegardes déjà faites. */
   reste: {
     historique: number; messages: number; missions: number; aiguillage: number; souvenirs: number; note: boolean; lienPersona: boolean;
+    /** Les mesures que le propriétaire a cachées ou corrigées pour elle (lot 3) : ses réglages restent, comme sa note. */
+    mesuresCorrigees: number;
     compteurInconnus: 'non-touche'; audit: 'non-touche'; sauvegardes: 'non-touchees';
   };
 }
@@ -266,6 +271,7 @@ export function apercuEffacement(mu: Mnemosyne, c: Cible): BilanEffacement {
   return { retire: { historique: n }, reste: {
     historique: restant, messages, missions, aiguillage, souvenirs: u ? mu.souvenirsDuSujet(`personne:${u.name}`) : 0,
     note: u ? mu.notePersonne(u.id) !== '' : false, lienPersona: u ? mu.liensPersonaTous().some((l) => l.user_id === u.id) : false,
+    mesuresCorrigees: c.qui ? Object.keys(reglagesDe(mu, c.qui)).length : 0,
     compteurInconnus: 'non-touche', audit: 'non-touche', sauvegardes: 'non-touchees',
   } };
 }
@@ -274,5 +280,82 @@ export function apercuEffacement(mu: Mnemosyne, c: Cible): BilanEffacement {
 export function effacerHistoriquePersonne(mu: Mnemosyne, c: Cible): BilanEffacement {
   const bilan = apercuEffacement(mu, c);
   const n = mu.effacerLignesHistorique(viser(mu, c));
+  // Ses mesures gardées partent avec (toutes, pour un effacement par période seule) ; elles seront refaites sur ce qui reste.
+  const cles = c.qui === undefined ? Object.keys(mu.kvPrefix(GARDE)) : [...clesDe(mu, c.qui)].map((k) => k ?? '');
+  for (const k of cles) mu.setKv(GARDE + k, '');
+  mu.compacterKv();
   return { ...bilan, retire: { historique: n } };
+}
+
+// ---------------------------------------------------------------- Les mesures (lot 3)
+
+const GARDE = 'personnes-traits:', REGLAGES = 'personnes-traits-proprietaire:';
+const HEURE = 3_600_000;
+
+/** La clé d'une personne pour ses mesures : l'id du propriétaire quand ses deux clés d'historique sont lues ensemble. */
+function cleMesures(mu: Mnemosyne, qui: string): string { return [...clesDe(mu, qui)].find((k) => k !== PROPRIETAIRE) ?? qui; }
+const existe = (mu: Mnemosyne, qui: string) => qui === PROPRIETAIRE || mu.listUsers().some((u) => u.id === qui);
+function lireJson<T>(mu: Mnemosyne, cle: string): T | undefined { try { const v = mu.getKv(cle); return v ? JSON.parse(v) as T : undefined; } catch { return undefined; } }
+function reglagesDe(mu: Mnemosyne, qui: string): ReglagesMesures { return lireJson<ReglagesMesures>(mu, REGLAGES + cleMesures(mu, qui)) ?? {}; }
+
+/**
+ * Le texte d'un message tel que la personne l'a écrit : l'enveloppe d'un contenu non fiable (heimdall/injection.ts:55)
+ * et les ajouts d'Odin sont retirés — la précision de langue et Plume (sansPrecisions, bifrost/gateway.ts:449-451), la
+ * page ouverte (web/server.ts:1239, même motif que ui.html). Un message avec des fichiers joints (server.ts:1234) n'est
+ * pas mesuré : sans texte, Odin y met sa propre phrase, qu'on ne peut pas distinguer après coup.
+ */
+function texteDe(contenu: string): string | undefined {
+  const m = /^<untrusted source="[^"]*">\n([\s\S]*)\n<\/untrusted>/.exec(contenu);
+  const t = sansPrecisions(m ? m[1] : contenu).replace(/\n*\[page : [^\]\n]*\]\s*$/, '');
+  return /\n\n\[[^\n]* : inbox\//.test(t) ? undefined : t;
+}
+
+/**
+ * Les mesures d'une personne (lot 3), si le demandeur peut les voir (peutVoir, la fonction unique). Gardées dans la
+ * mémoire d'Odin et refaites seulement quand son historique a changé ou au bout d'une heure : pas à chaque affichage.
+ * Les textes des demandes sont lus par leurs renvois le temps du calcul ; seuls des codes et des nombres sont gardés.
+ */
+export function mesuresPersonne(mu: Mnemosyne, d: Demandeur, qui: string, o: { maintenant?: number; langueDe?: (s: string) => string | undefined; heureDe?: (t: number) => number } = {}):
+  { ok: true; mesures: MesureRendue[]; calculeLe: number } | { ok: false; raison: RaisonVoir | 'personne-inconnue' } {
+  if (typeof qui !== 'string' || !existe(mu, qui)) return { ok: false, raison: 'personne-inconnue' };
+  const v = peutVoir(d, qui, contexteVisibilite(mu));
+  if (!v.ok) return { ok: false, raison: v.raison };
+  const maintenant = o.maintenant ?? Date.now(), cle = cleMesures(mu, qui);
+  const demandes = historiquePersonne(mu, qui).filter((l) => l.sorte === 'demande');
+  const textes = new Map<string, Map<number, string>>();
+  const brut = (session: string, id: number | undefined) => {
+    if (id === undefined) return undefined;
+    let m = textes.get(session);
+    if (!m) { m = new Map(mu.allMessages(session).filter((x) => x.role === 'user').map((x) => [x.id, x.content])); textes.set(session, m); }
+    return m.get(id);
+  };
+  // La signature compte aussi les messages retrouvés : une conversation mise à la corbeille (ou remise) refait le calcul.
+  const sig = createHash('sha256').update(demandes.map((l) => `${l.id}.${l.resultat ?? ''}.${l.message ?? ''}.${brut(l.session, l.message) === undefined ? 0 : 1}`).join(',')).digest('hex').slice(0, 32);
+  let g = lireJson<{ sig: string; t: number; mesures: Mesure[] }>(mu, GARDE + cle);
+  if (!g || g.sig !== sig || !(maintenant - g.t < HEURE) || maintenant < g.t) {
+    const texte = (session: string, id: number | undefined) => { const c = brut(session, id); return c === undefined ? undefined : texteDe(c); };
+    g = { sig, t: maintenant, mesures: mesurer(demandes.map((l) => ({ t: l.t, resultat: l.resultat, texte: texte(l.session, l.message) })), { langueDe: o.langueDe ?? langueDOdin, ...(o.heureDe ? { heureDe: o.heureDe } : {}) }) };
+    try { mu.setKv(GARDE + cle, JSON.stringify(g)); } catch { /* garder est un plus : la mesure est rendue quand même */ }
+  }
+  return { ok: true, mesures: rendreMesures(g.mesures, reglagesDe(mu, qui), d.sorte === 'proprietaire'), calculeLe: g.t };
+}
+
+/** Le propriétaire, et lui seul, cache une mesure d'une personne, la corrige (sa valeur remplace celle d'Odin), ou annule. */
+export function reglerMesure(mu: Mnemosyne, d: Demandeur, qui: string, mesureCle: CleMesure, r: { cacher?: boolean; corriger?: unknown; annuler?: boolean }):
+  { ok: true } | { ok: false; raison: 'proprietaire-seul' | 'personne-inconnue' | 'mesure-inconnue' | 'correction-invalide' } {
+  if (d?.sorte !== 'proprietaire') return { ok: false, raison: 'proprietaire-seul' };
+  if (typeof qui !== 'string' || !existe(mu, qui)) return { ok: false, raison: 'personne-inconnue' };
+  if (!CLES_MESURES.includes(mesureCle)) return { ok: false, raison: 'mesure-inconnue' };
+  const tous = reglagesDe(mu, qui), avant = tous[mesureCle] ?? { t: 0 };
+  let nouveau: typeof avant | undefined;
+  if (r.annuler) nouveau = undefined;
+  else if (r.corriger !== undefined) {
+    const valeur = validerCorrection(mesureCle, r.corriger);
+    if (valeur === undefined) return { ok: false, raison: 'correction-invalide' };
+    nouveau = { ...(avant.cache ? { cache: true } : {}), valeur, t: Date.now() };
+  } else if (r.cacher !== undefined) nouveau = r.cacher ? { ...avant, cache: true, t: Date.now() } : (avant.valeur !== undefined ? { valeur: avant.valeur, t: Date.now() } : undefined);
+  else return { ok: true };
+  if (nouveau) tous[mesureCle] = nouveau; else delete tous[mesureCle];
+  mu.setKv(REGLAGES + cleMesures(mu, qui), Object.keys(tous).length ? JSON.stringify(tous) : '');
+  return { ok: true };
 }
