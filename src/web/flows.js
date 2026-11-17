@@ -68,6 +68,92 @@
     if (depart && !b.trigger) { const out = de.out ?? 0; relier(wf, depart.name, out, name); return { ok: true, name, lien: { de: depart.name, out } }; }
     return { ok: true, name };
   }
+  // ---------------- Le bloc d'appli lisible : son appli, sa fonction et ses réglages en vrais champs (fonctions pures).
+  // La forme enregistrée ne change pas : module, action, entrée (texte JSON, ou objet s'il était rangé ainsi).
+  const vide = (v) => v === undefined || v === null || (typeof v === 'string' && !v.trim());
+  const sansAccents = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  /** L'appli d'un bloc : par son identifiant, sinon par son nom ou son identifiant sans accents ni majuscules. */
+  function appliDe(liste, ref) {
+    if (!Array.isArray(liste) || typeof ref !== 'string' || !ref.trim()) return null;
+    const n = sansAccents(ref);
+    return liste.find((a) => a.id === ref) ?? liste.find((a) => sansAccents(a.id) === n || sansAccents(a.nom) === n) ?? null;
+  }
+  const fonctionDe = (a, id) => (typeof id === 'string' && (a?.actions ?? []).find((f) => f.id === id)) || null;
+  /** Ce que dit un bloc d'appli (null : pas un bloc d'appli, ou appli ou fonction introuvable → il garde son dessin d'avant). */
+  function infoAppli(n, liste) {
+    const a = n && (n.type === 'module.action' || n.type === 'déclencheur.module') ? appliDe(liste, n.params?.module) : null;
+    if (!a) return null;
+    if (n.type === 'module.action') { const f = fonctionDe(a, n.params?.action); return f ? { a, f, titre: f.label, auto: `${a.nom} · ${f.label}` } : null; }
+    const ev = n.params?.['événement'] ?? '';
+    if (typeof ev !== 'string') return null;
+    return { a, titre: ev === 'alerte' ? 'Quand elle lance une alerte' : ev ? `Quand elle signale « ${ev} »` : 'Quand elle signale quelque chose', auto: blocSignal(a, ev).bloc.name };
+  }
+  /** Les réglages rangés dans l'entrée d'un bloc : { ok, valeurs } ; ok false quand ce n'est pas un objet (expression, liste, JSON invalide). */
+  function lireEntree(raw) {
+    if (vide(raw)) return { ok: true, valeurs: {} };
+    let v = raw;
+    if (typeof raw === 'string') { try { v = JSON.parse(raw); } catch { return { ok: false }; } }
+    // Un entier trop grand pour être relu exactement serait abîmé en réécrivant l'entrée : il reste au JSON avancé.
+    return v && typeof v === 'object' && !Array.isArray(v) && !entierAbime(v) ? { ok: true, valeurs: v } : { ok: false };
+  }
+  function entierAbime(v, prof = 0) {
+    if (typeof v === 'number') return Number.isInteger(v) && !Number.isSafeInteger(v);
+    return Boolean(v && typeof v === 'object' && prof < 50 && Object.values(v).some((x) => entierAbime(x, prof + 1)));
+  }
+  /** Le champ qui montre une valeur : celui de son type, en texte si c'est une expression, « avance » si aucun ne sait la montrer. */
+  function sorteDe(p, v) {
+    if (p.kind === 'boolean') return v === undefined || typeof v === 'boolean' ? 'ouinon' : typeof v === 'string' ? 'texte' : 'avance';
+    if (p.kind === 'number') return v === undefined || typeof v === 'number' || typeof v === 'string' ? 'nombre' : 'avance';
+    if (p.kind === 'select') return v === undefined || (typeof v === 'string' && (p.options ?? []).includes(v)) ? 'liste' : typeof v === 'string' ? 'texte' : 'avance';
+    if (v !== undefined && typeof v !== 'string') return 'avance';
+    return p.kind === 'textarea' ? 'long' : p.kind === 'password' ? 'secret' : 'texte';
+  }
+  /** Un champ par réglage que la fonction déclare : { p, sorte, valeur, manque } (manque : obligatoire et vide). */
+  const champsDe = (f, valeurs = {}) => (f?.params ?? []).filter((p) => p && typeof p.key === 'string').map((p) => {
+    const v = Object.prototype.hasOwnProperty.call(valeurs, p.key) ? valeurs[p.key] : undefined;
+    return { p, sorte: sorteDe(p, v), valeur: v, manque: Boolean(p.required) && vide(v) };
+  });
+  /** Le texte d'un champ → la valeur rangée (undefined : le réglage est retiré, la fonction prend le sien). */
+  function valeurChamp(sorte, texte) {
+    const t = String(texte ?? '');
+    if (sorte === 'ouinon') return t === 'oui' ? true : t === 'non' ? false : undefined;
+    if (sorte === 'nombre') { const s = t.trim(); if (!s) return undefined; return /^-?\d+(?:[.,]\d+)?$/.test(s) ? Number(s.replace(',', '.')) : t; }
+    return t === '' ? undefined : t;
+  }
+  /** L'entrée après un champ changé : même forme (texte JSON ou objet), clés dans le même ordre ; une entrée qui n'est pas un objet n'est jamais réécrite. */
+  function ecrireEntree(raw, key, val) {
+    const l = lireEntree(raw); if (!l.ok) return raw;
+    const e = Object.entries(l.valeurs), i = e.findIndex(([k]) => k === key);
+    if (val === undefined) { if (i >= 0) e.splice(i, 1); } else if (i >= 0) e[i] = [key, val]; else e.push([key, val]);
+    const o = Object.fromEntries(e); // (pas d'affectation : une clé « __proto__ » reste une clé)
+    return raw && typeof raw === 'object' ? o : JSON.stringify(o);
+  }
+  /** Les réglages obligatoires vides d'un bloc d'appli (rien quand l'entrée est une expression : on ne peut pas savoir). */
+  function manquants(n, f) { const l = lireEntree(n?.params?.['entrée']); return l.ok ? champsDe(f, l.valeurs).filter((c) => c.manque).map((c) => c.p.label) : []; }
+  /**
+   * « Changer » : l'appli et la fonction (ou l'événement) choisies remplacent celles du bloc, à la même place et avec
+   * ses liens. Une autre fonction repart de ses réglages par défaut ; un déclencheur garde son niveau. Le nom donné
+   * par Odin (`ancienAuto`) suit le choix ; un nom choisi à la main reste. → { ok, change, nom? } ou { ok: false, error }.
+   */
+  function remplacer(wf, nom, choix, ancienAuto, liste) {
+    const n = wf.nodes.find((x) => x.name === nom);
+    if (!n) return { ok: false, error: 'Ce bloc n\'existe plus.' };
+    if (!choix?.ok) return { ok: false, error: choix?.error ?? 'Rien à changer.' };
+    const b = choix.bloc;
+    if (b.type !== n.type) return { ok: false, error: 'Ce choix ne va pas dans ce bloc.' };
+    const p = n.params ?? {};
+    // La même appli, qu'elle soit écrite par son identifiant ou par son nom (comme appliDe la trouve).
+    const memeAppli = p.module === b.params.module || appliDe(liste, p.module)?.id === b.params.module;
+    if (b.type === 'module.action') {
+      if (memeAppli && p.action === b.params.action) return { ok: true, change: false };
+      n.params = { ...p, module: b.params.module, action: b.params.action, entrée: b.params.entrée };
+    } else {
+      if (memeAppli && (p['événement'] ?? '') === b.params['événement']) return { ok: true, change: false };
+      n.params = { ...p, module: b.params.module, événement: b.params['événement'], ...(p.niveau === undefined ? { niveau: b.params.niveau } : {}) };
+    }
+    const neuf = ancienAuto && n.name === ancienAuto ? nomLibre(wf.nodes.filter((x) => x !== n), b.name) : '';
+    return neuf && neuf !== n.name ? { ok: true, change: true, nom: neuf } : { ok: true, change: true };
+  }
   /** La flèche du clavier dans une grille de `cols` colonnes : la nouvelle place (la même au bord). */
   function pasFleche(i, total, cols, touche) {
     const c = Math.max(1, Math.floor(cols) || 1);
@@ -94,7 +180,7 @@
 .dr-tpl article{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel2);display:flex;flex-direction:column;gap:6px}.dr-tpl p{margin:0;font-size:14px;color:var(--muted)}
 .dr-ed{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;align-items:start}@media (max-width:980px){.dr-ed{grid-template-columns:1fr}}
 .dr-canvas{position:relative;height:min(64vh,620px);border:1px solid var(--line);border-radius:14px;background:var(--panel2) radial-gradient(circle,var(--line) 1px,transparent 1px) 0 0/22px 22px;overflow:hidden;touch-action:none}
-.dr-canvas svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.dr-canvas>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
 .dr-world{position:absolute;left:0;top:0;transform-origin:0 0}
 .dr-node{position:absolute;width:190px;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:8px 10px 10px;cursor:grab;user-select:none;box-shadow:var(--shadow)}
 .dr-node.sel{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
@@ -128,6 +214,13 @@
 .dr-ch-c h3{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin:6px 0 0}.dr-ch-c h4{font-size:12.5px;color:var(--muted);margin:6px 0 0}
 .dr-ch-o{display:flex;flex-direction:column;gap:6px}.dr-ch-o button{text-align:left;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:8px 12px;min-height:44px;color:var(--ink);font:inherit;cursor:pointer}
 .dr-ch-o button:hover{border-color:var(--accent)}.dr-ch-o button:focus-visible{outline:2px solid var(--accent)}.dr-ch-o b{display:block;font-size:14px}.dr-ch-o small{display:block;color:var(--muted);font-size:12.5px}
+.dr-node .dr-ap{display:flex;align-items:center;gap:6px;min-width:0;margin:0 0 2px}.dr-node .dr-ap small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-node .dr-nn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dr-node .dr-manque{display:block;font-size:11.5px;color:var(--bad)}
+.dr-app{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.dr-app>div{flex:1;min-width:0}
+.dr-app b{display:block;font-size:13px;color:var(--muted);font-weight:600;overflow-wrap:anywhere}.dr-app span.dr-fn{display:block;font-size:15px;font-weight:700;overflow-wrap:anywhere}.dr-app .btn{flex:none;min-height:44px}
+#v-flows .dr-side .dr-champs input,#v-flows .dr-side .dr-champs select,#v-flows .dr-side .dr-champs textarea{min-height:44px}.dr-side .dr-champs textarea{font-family:inherit;font-size:14px}
+.dr-side .dr-manque{display:block;color:var(--bad);font-size:13px;margin-top:4px}.dr-side .dr-manque[hidden]{display:none}.dr-side .dr-champs small.sub{display:block;margin-top:4px}
+.dr-av summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}.dr-av textarea{min-height:120px}
 @keyframes dr-ch-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.dr-choix{animation:none}.dr-plus span{transition:none}}
 `;
@@ -227,11 +320,19 @@
       ...(r ? [el('section', { class: 'card', style: 'margin-top:12px' }, el('h2', { style: 'font-size:16px;margin:0' }, 'Dernières exécutions'), r.runs.length ? el('ul', { class: 'dr-runs' }, ...r.runs.slice(0, 10).map((x) => { const net = /attente.*internet|internet.*attente|en-attente-internet/i.test(`${x.status} ${x.error ?? ''}`); return el('li', {}, el('span', { class: `pill ${x.status === 'succès' ? 'good' : net ? '' : x.status === 'erreur' ? 'bad' : ''}` }, net ? 'en attente d\'Internet' : x.status), ` ${new Date(x.startedAt).toLocaleString('fr-FR')} · ${x.mode} · ${x.ms} ms${net ? ' · en attente du retour d\'Internet' : x.error ? ` · ${x.error}` : ''}`); })) : el('p', { class: 'sub' }, 'Jamais lancée.'),
         r.versions?.length ? el('details', {}, el('summary', { style: 'cursor:pointer;min-height:36px;display:flex;align-items:center' }, `Versions (${r.versions.length})`), el('ul', { class: 'dr-runs' }, ...r.versions.slice(0, 15).map((v) => el('li', {}, `${new Date(v.at).toLocaleString('fr-FR')} · ${v.nodes} étapes `, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Revenir à cette version ?'))) return; const x = await api('/api/draupnir/restore', { id: wf.id, at: v.at }); if (x.ok) openFlow(wf.id); } }, 'Restaurer'))))) : null)] : []));
     pan(canvas, world); draw(); drawSide();
+    // Les blocs d'appli se dessinent avec l'icône et le nom de leur appli : on lit la liste des applis une fois.
+    if (!applisFaite && wf.nodes.some((n) => n.type === 'module.action' || n.type === 'déclencheur.module')) { const w = wf; void chargerApplis().then(() => { if (wf === w) draw(); }); }
   }
   function nodeEl(n) {
     const c = cat(n.type), run = last?.nodes?.[n.name];
-    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': `${n.name} (${c?.label ?? n.type})`, style: `left:${n.position?.[0] ?? 0}px;top:${n.position?.[1] ?? 0}px` },
-      el('small', {}, c?.group ?? '?', ' · ', c?.label ?? n.type), el('b', {}, n.name), run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null);
+    // Un bloc d'appli : l'icône et le nom de l'appli, puis sa fonction (ou ce qu'elle signale) en clair ; son nom s'il a été changé.
+    const ia = infoAppli(n, applisListe), manque = ia?.f ? manquants(n, ia.f) : [];
+    const tete = ia ? [el('div', { class: 'dr-ap' }, window.OdinLien?.icone ? window.OdinLien.icone(ia.a, 22) : null, el('small', {}, ia.a.nom)), el('b', {}, ia.titre),
+      n.name !== ia.auto && n.name !== ia.titre ? el('small', { class: 'dr-nn' }, n.name) : null,
+      manque.length ? el('span', { class: 'dr-manque' }, `À remplir : ${manque.join(', ')}`) : null]
+      : [el('small', {}, c?.group ?? '?', ' · ', c?.label ?? n.type), el('b', {}, n.name)];
+    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`, style: `left:${n.position?.[0] ?? 0}px;top:${n.position?.[1] ?? 0}px` },
+      ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null);
     if (!c?.trigger) d.append(el('button', { class: 'dr-port in', type: 'button', 'aria-label': `Entrée de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (armed) { link(armed.node, armed.out, n.name); armed = null; draw(); } } }));
     const sorties = outputsOf(n);
     sorties.forEach((o, i, all) => d.append(el('button', { class: `dr-port out${armed && armed.node === n.name && armed.out === i ? ' armed' : ''}`, type: 'button', style: `top:${18 + i * 22}px`, 'aria-label': `Sortie ${o} de ${n.name}`, onclick: (e) => { e.stopPropagation(); armed = armed && armed.node === n.name && armed.out === i ? null : { node: n.name, out: i }; draw(); } }, all.length > 1 ? el('span', { class: 'dr-pl' }, o) : null)));
@@ -310,9 +411,19 @@
       return;
     }
     const c = cat(n.type), run = last?.nodes?.[n.name];
+    // Bloc d'appli : l'appli et sa fonction en clair (avec « Changer ») et les réglages en champs, au lieu de les taper.
+    // Applis pas encore lues : on attend ; appli ou fonction introuvable : les champs d'avant restent.
+    const blocAppli = n.type === 'module.action' || n.type === 'déclencheur.module';
+    if (blocAppli && !applisFaite && window.OdinLien?.applis) {
+      const w = wf; void chargerApplis().then(() => { if (wf === w && sel === n.name) { draw(); drawSide(); } });
+      side.replaceChildren(el('h2', {}, c?.label ?? n.type), el('p', { class: 'sub', role: 'status' }, 'Chargement de l\'appli…'));
+      return;
+    }
+    const ia = blocAppli ? infoAppli(n, applisListe) : null;
+    const cache = ia ? (n.type === 'module.action' ? ['module', 'action', 'entrée'] : ['module', 'événement']) : [];
     // Planning : seul le champ du mode choisi se montre (un nœud sans mode garde son planning cron, comme avant).
     const planning = c?.type === 'déclencheur.planning' && (c.params ?? []).some((p) => p.key === 'mode'), mode = planning ? n.params.mode ?? 'cron' : undefined;
-    const fields = (c?.params ?? []).map((p) => {
+    const fields = (c?.params ?? []).filter((p) => !cache.includes(p.key)).map((p) => {
       if (planning && ((p.key === 'cron' && mode !== 'cron') || (p.key === 'minutes' && mode !== 'intervalle') || (p.kind === 'rythme' && mode !== 'simple'))) return [];
       const id = `drp-${p.key}`, v = planning && p.key === 'mode' ? mode : n.params[p.key] ?? p.default ?? '';
       const set = (val) => { n.params[p.key] = val; dirty = true; if (planning && p.key === 'mode') drawSide(); };
@@ -331,11 +442,74 @@
     });
     side.replaceChildren(el('h2', {}, c?.label ?? n.type), el('p', { class: 'sub', style: 'margin:0' }, c?.what ?? ''),
       el('label', { for: 'drNn' }, 'Nom de l\'étape'), el('input', { id: 'drNn', value: n.name, onchange: (e) => rename(n, e.target.value.trim()) }),
+      ...(ia ? panneauAppli(n, ia) : []),
       ...fields.flat().filter(Boolean), // (un réglage sans aide donnait null, écrit « null » à l'écran)
       el('label', { class: 'va-chk', style: 'display:flex;gap:8px;align-items:center;font-weight:500' }, el('input', { type: 'checkbox', checked: n.disabled ? true : undefined, onchange: (e) => { n.disabled = e.target.checked || undefined; dirty = true; draw(); } }), 'Désactiver cette étape'),
       el('p', { class: 'sub', style: 'margin:0;font-size:13px' }, 'Expressions : {{ $json.champ }}, {{ $node["Étape"].json.champ }}, {{ $now }}.'),
       el('div', { class: 'dr-row' }, el('button', { class: 'btn small', type: 'button', onclick: () => test(n.name) }, 'Tester jusqu\'ici'), el('button', { class: 'btn small', type: 'button', onclick: () => removeNode(n.name) }, 'Retirer'), el('button', { class: 'btn small', type: 'button', onclick: () => { sel = null; draw(); drawSide(); } }, 'Fermer')),
       ...(run ? [el('h2', { style: 'margin-top:6px' }, 'Dernier passage'), el('pre', { class: 'dr-out' }, run.error ? `✗ ${run.error}` : JSON.stringify(run.items.slice(0, 5), null, 2))] : []));
+  }
+  // ---------------- Le panneau d'un bloc d'appli : l'appli et sa fonction en clair, puis un champ par réglage déclaré.
+  function panneauAppli(n, ia) {
+    const L = window.OdinLien;
+    const tete = el('div', { class: 'dr-app' }, L?.icone ? L.icone(ia.a, 32) : null, el('div', {}, el('b', {}, ia.a.nom), el('span', { class: 'dr-fn' }, ia.titre)),
+      el('button', { class: 'btn small', type: 'button', 'aria-label': `Changer l'appli ou la fonction de ${n.name}`, onclick: () => void ouvrirChoix({ remplace: n.name }) }, 'Changer'));
+    if (!ia.f) {
+      // Déclencheur d'appli : « Changer » propose ce qu'elle déclare signaler ; tout autre événement (ou une
+      // expression) se tape encore à la main, comme avant, derrière « Réglages avancés ».
+      const ev = n.params['événement'] ?? '', connu = ev === '' || ev === 'alerte' || (ia.a.evenements ?? []).includes(ev);
+      const inp = el('input', { id: 'drp-evenement', value: String(ev), spellcheck: 'false', autocomplete: 'off',
+        oninput: (e) => { n.params['événement'] = e.target.value; dirty = true; },
+        // (le panneau n'est pas redessiné : le focus reste dans le champ ; seuls le titre et le bloc suivent)
+        onchange: () => { const t = infoAppli(n, applisListe)?.titre, s = tete.querySelector('.dr-fn'); if (t && s) s.textContent = t; draw(); } });
+      const avE = el('details', { class: 'dr-av', open: connu ? undefined : true }, el('summary', {}, 'Réglages avancés'),
+        el('label', { for: 'drp-evenement' }, 'Événement (vide : tout ce qu\'elle signale ; une expression {{ … }} est permise)'), inp);
+      return [tete, avE];
+    }
+    const f = ia.f, zone = el('div', { class: 'dr-champs' });
+    const brut = () => { const r = n.params['entrée']; return r && typeof r === 'object' ? JSON.stringify(r, null, 2) : String(r ?? ''); };
+    // Le JSON d'avant, derrière « Réglages avancés » : tout ce qu'on pouvait régler reste réglable.
+    const ta = el('textarea', { id: 'drp-entree', spellcheck: 'false', oninput: (e) => { n.params['entrée'] = e.target.value; dirty = true; }, onchange: () => { peindre(); draw(); } });
+    const av = el('details', { class: 'dr-av' }, el('summary', {}, 'Réglages avancés'), el('label', { for: 'drp-entree' }, 'Les réglages en JSON (une expression {{ … }} est permise)'), ta);
+    let manquait = manquants(n, f).length > 0;
+    function peindre() {
+      ta.value = brut();
+      const l = lireEntree(n.params['entrée']), kids = [];
+      if (!l.ok) {
+        kids.push(el('p', { class: 'sub', style: 'margin:0' }, 'Ces réglages sont écrits d\'une façon que les champs ne savent pas montrer (une expression, par exemple) : ils se règlent dans « Réglages avancés ».'));
+        av.setAttribute('open', '');
+      } else if (!(f.params ?? []).length) kids.push(el('p', { class: 'sub', style: 'margin:0' }, 'Cette fonction ne déclare pas de réglage.'));
+      else {
+        champsDe(f, l.valeurs).forEach((c, i) => kids.push(...champ(c, i).filter(Boolean))); // (une aide absente donnait null, écrit « null »)
+        const connus = new Set((f.params ?? []).map((p) => p.key)), plus = Object.keys(l.valeurs).filter((k) => !connus.has(k));
+        if (plus.length) kids.push(el('p', { class: 'sub', style: 'margin:6px 0 0' }, `Réglages en plus, dans « Réglages avancés » : ${plus.join(', ')}.`));
+      }
+      zone.replaceChildren(...kids);
+    }
+    function champ(c, i) {
+      const { p } = c, id = `drf-${i}`, aide = p.help ? `${id}-aide` : undefined;
+      const manque = el('small', { class: 'dr-manque', id: `${id}-manque`, hidden: c.manque ? undefined : true }, 'Obligatoire : ce champ est vide.');
+      const set = (val) => {
+        n.params['entrée'] = ecrireEntree(n.params['entrée'], p.key, val); dirty = true; ta.value = brut();
+        manque.hidden = !(p.required && vide(val));
+        const m = manquants(n, f).length > 0; if (m !== manquait) { manquait = m; draw(); }
+      };
+      const lab = el('label', { for: id }, p.label, p.required ? ' *' : '');
+      const attrs = { id, 'aria-required': p.required ? 'true' : undefined, 'aria-describedby': [aide, `${id}-manque`].filter(Boolean).join(' ') };
+      const defaut = p.default === undefined || p.default === '' ? '' : ` (par défaut : ${typeof p.default === 'boolean' ? (p.default ? 'oui' : 'non') : String(p.default)})`;
+      let input;
+      if (c.sorte === 'avance') return [lab, el('p', { class: 'sub', style: 'margin:0' }, 'Réglé dans « Réglages avancés ».'), p.help ? el('small', { class: 'sub', id: aide }, p.help) : null];
+      if (c.sorte === 'ouinon' || c.sorte === 'liste') {
+        const opts = c.sorte === 'ouinon' ? [['oui', 'Oui'], ['non', 'Non']] : (p.options ?? []).map((o) => [o, o]);
+        const cur = c.sorte === 'ouinon' ? (c.valeur === true ? 'oui' : c.valeur === false ? 'non' : '') : c.valeur ?? '';
+        input = el('select', { ...attrs, onchange: (e) => set(valeurChamp(c.sorte, e.target.value)) }, el('option', { value: '', selected: cur === '' ? true : undefined }, `—${defaut}`), ...opts.map(([v, t]) => el('option', { value: v, selected: v === cur ? true : undefined }, t)));
+      } else if (c.sorte === 'long') input = el('textarea', { ...attrs, spellcheck: 'false', placeholder: defaut ? defaut.slice(2, -1) : undefined, oninput: (e) => set(valeurChamp('long', e.target.value)) }, c.valeur ?? '');
+      else input = el('input', { ...attrs, type: c.sorte === 'secret' ? 'password' : 'text', inputmode: c.sorte === 'nombre' ? 'decimal' : undefined, value: c.valeur === undefined ? '' : String(c.valeur), placeholder: defaut ? defaut.slice(2, -1) : undefined, autocomplete: c.sorte === 'secret' ? 'new-password' : 'off', spellcheck: 'false', oninput: (e) => set(valeurChamp(c.sorte, e.target.value)) });
+      if (c.sorte === 'long') input.value = c.valeur ?? '';
+      return [lab, input, p.help ? el('small', { class: 'sub', id: aide }, p.help) : null, manque];
+    }
+    peindre();
+    return [tete, zone, av];
   }
   // ---------------- La fenêtre du « + » : la grille des applis (icônes, recherche), puis les fonctions de l'appli
   // choisie (les graves grisées) ; plus bas, les outils de Talos. Fenêtre vide : d'abord QUAND elle part.
@@ -352,7 +526,13 @@
     });
   }
   const colonnes = (bs) => { const t = bs[0]?.offsetTop; return Math.max(1, bs.filter((b) => b.offsetTop === t).length); };
-  let applisChargees = false, applisListe = null;
+  // applisChargees : la liste est lue ; applisFaite : une lecture a été tentée (réussie ou non : on ne la redemande pas en boucle).
+  let applisChargees = false, applisFaite = false, applisListe = null;
+  function chargerApplis() {
+    const L = window.OdinLien;
+    if (applisChargees || !L?.applis) { applisFaite = true; return Promise.resolve(applisListe); }
+    return L.applis().then((l) => { applisChargees = Boolean(l); applisFaite = true; applisListe = Array.isArray(l) ? l : null; return applisListe; }, () => { applisFaite = true; return null; });
+  }
   /** Le bloc posé hors de la fenêtre (téléphone surtout) : on fait glisser le schéma juste assez pour le voir. */
   function montrer(n) {
     const canvas = $('#drCanvas'), world = $('#drCanvas .dr-world'), r = canvas?.getBoundingClientRect?.();
@@ -364,7 +544,10 @@
   }
   async function ouvrirChoix(ou = {}) {
     fermerChoix();
-    const quand = modeChoix(wf) === 'quand', L = window.OdinLien;
+    // « Changer » d'un bloc d'appli (`remplace` : son nom) : seulement les applis, puis ses fonctions (ou, pour un
+    // déclencheur, ce qu'elle signale) ; le choix remplace celui du bloc, à sa place et avec ses liens.
+    const cible = ou.remplace ? wf.nodes.find((n) => n.name === ou.remplace) : null;
+    const quand = cible ? cible.type === 'déclencheur.module' : modeChoix(wf) === 'quand', L = window.OdinLien;
     const titre = el('h2', { id: 'drChT' }), corps = el('div', { class: 'dr-ch-c' });
     const boite = el('div', { class: 'dr-choix', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'drChT' }, el('div', { class: 'dr-ch-h' }, titre, el('button', { class: 'dr-ch-x', type: 'button', 'aria-label': 'Fermer', onclick: fermerChoix }, '×')), corps);
     const fond = el('div', { class: 'dr-choix-fond', onclick: (e) => { if (e.target === fond) fermerChoix(); } }, boite);
@@ -378,17 +561,27 @@
     choix = { fond, retour: document.activeElement };
     document.body.append(fond);
     const prendre = (c) => {
+      if (cible) {
+        const auto = infoAppli(cible, applisListe)?.auto, r = remplacer(wf, cible.name, c, auto, applisListe);
+        if (!r.ok) { void window.OdinDialog?.alert(r.error); return; }
+        fermerChoix(); if (r.change) dirty = true; if (r.nom) rename(cible, r.nom);
+        sel = cible.name; draw(); drawSide();
+        const s = $('#drSt'); if (s && r.change) s.textContent = `✓ « ${cible.name} » changé.`;
+        $('#drSide .dr-app button')?.focus?.();
+        return;
+      }
       const r = poser(wf, c, ou);
       if (!r.ok) { void window.OdinDialog?.alert(r.error); return; }
       fermerChoix(); sel = r.name; dirty = true; montrer(wf.nodes.find((n) => n.name === r.name)); draw(); drawSide();
       const s = $('#drSt'); if (s) s.textContent = r.lien ? `✓ « ${r.name} » ajouté après « ${r.lien.de} ».` : `✓ « ${r.name} » ajouté.`;
       elems.get(r.name)?.focus?.();
     };
-    const outils = (st?.catalog ?? []).filter((c) => (quand ? c.trigger && c.type !== 'déclencheur.module' : !c.trigger && c.type !== 'module.action'));
+    const outils = cible ? [] : (st?.catalog ?? []).filter((c) => (quand ? c.trigger && c.type !== 'déclencheur.module' : !c.trigger && c.type !== 'module.action'));
     const zoneOutils = el('div', { class: 'dr-ch-o', 'aria-label': quand ? 'Déclencheurs' : 'Outils de Talos' }); fleches(zoneOutils);
     function etape1() {
-      titre.textContent = quand ? 'Quand l\'automatisation part-elle ?' : 'Ajouter un bloc';
-      const cherche = el('input', { class: 'li-cherche', type: 'search', placeholder: 'Chercher une appli ou un outil', 'aria-label': 'Chercher une appli ou un outil', autocomplete: 'off' });
+      titre.textContent = cible ? 'Changer l\'appli ou la fonction' : quand ? 'Quand l\'automatisation part-elle ?' : 'Ajouter un bloc';
+      const quoi = cible ? 'Chercher une appli' : 'Chercher une appli ou un outil';
+      const cherche = el('input', { class: 'li-cherche', type: 'search', placeholder: quoi, 'aria-label': quoi, autocomplete: 'off' });
       const zoneApplis = el('div', {});
       let grille = null;
       const peindreOutils = (t) => {
@@ -403,13 +596,13 @@
       };
       cherche.addEventListener('input', () => { const t = cherche.value.trim(); grille?.remplir(t.toLowerCase()); peindreOutils(sansAccent(t)); });
       cherche.addEventListener('keydown', (e) => { if (e.key !== 'ArrowDown') return; const b = zoneApplis.querySelector('button') ?? zoneOutils.querySelector('button'); if (b) { e.preventDefault(); b.focus(); } });
-      corps.replaceChildren(...[quand ? el('p', { class: 'sub', style: 'margin:0' }, 'Le premier bloc dit quand elle part : quand une appli signale quelque chose, ou un des déclencheurs plus bas.') : null,
-        cherche, el('h3', {}, 'Applis'), zoneApplis, el('h3', {}, quand ? 'Déclencheurs' : 'Outils de Talos'), zoneOutils].filter(Boolean));
+      corps.replaceChildren(...[quand && !cible ? el('p', { class: 'sub', style: 'margin:0' }, 'Le premier bloc dit quand elle part : quand une appli signale quelque chose, ou un des déclencheurs plus bas.') : null,
+        cherche, el('h3', {}, 'Applis'), zoneApplis, ...(cible ? [] : [el('h3', {}, quand ? 'Déclencheurs' : 'Outils de Talos'), zoneOutils])].filter(Boolean));
       peindreOutils('');
       if (applisChargees || !L?.applis) peindreApplis();
       else {
         zoneApplis.replaceChildren(el('p', { class: 'sub', style: 'margin:0' }, 'Chargement des applis…'));
-        void L.applis().then((l) => { applisChargees = Boolean(l); applisListe = Array.isArray(l) ? l : null; if (choix?.fond === fond && zoneApplis.isConnected !== false && corps.contains?.(zoneApplis) !== false) peindreApplis(); });
+        void chargerApplis().then(() => { if (choix?.fond === fond && zoneApplis.isConnected !== false && corps.contains?.(zoneApplis) !== false) peindreApplis(); });
       }
       cherche.focus?.();
     }
@@ -465,5 +658,6 @@
   function init() { document.head.append(el('style', {}, css)); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; fermerChoix(); },
-    logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche } };
+    logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
+      appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer } };
 })();

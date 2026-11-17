@@ -42,10 +42,10 @@ const PIEGE = { id: 'piege', nom: '<img src=x onerror="alert(1)">Piège', famill
 const CATALOG = [
   { type: 'déclencheur.manuel', label: 'Lancer à la main', group: 'Déclencheurs', trigger: true, params: [] },
   { type: 'déclencheur.planning', label: 'Planning', group: 'Déclencheurs', trigger: true, params: [{ key: 'mode', default: 'simple' }] },
-  { type: 'déclencheur.module', label: 'Quand une appli signale', group: 'Déclencheurs', trigger: true, params: [] },
+  { type: 'déclencheur.module', label: 'Quand une appli signale', group: 'Déclencheurs', trigger: true, params: [{ key: 'module', label: 'Appli', kind: 'text', required: true }, { key: 'événement', label: 'Événement', kind: 'text', default: '' }, { key: 'niveau', label: 'Pour les alertes : niveau minimum', kind: 'select', options: ['info', 'moyenne', 'haute', 'critique'], default: 'haute' }] },
   { type: 'logique.si', label: 'Si', group: 'Logique', outputs: ['oui', 'non'], params: [{ key: 'condition', default: '' }] },
   { type: 'temps.attendre', label: 'Attendre', group: 'Logique', params: [{ key: 'secondes', default: 5 }] },
-  { type: 'module.action', label: 'Action d\'une appli', group: 'Applis', params: [] },
+  { type: 'module.action', label: 'Action d\'une appli', group: 'Applis', params: [{ key: 'module', label: 'Appli', kind: 'text', required: true }, { key: 'action', label: 'Action', kind: 'text', required: true }, { key: 'entrée', label: 'Réglages de l\'action (JSON)', kind: 'json', default: '{}' }] },
 ];
 
 // ------------------------------------------------------------------ logique
@@ -225,15 +225,170 @@ async function page(flow: unknown) {
     return { status: 200, ok: true, json: async () => (f ? f(corps) : { ok: false, error: 'inconnu' }) };
   };
   const alertes: string[] = [];
-  const window: Record<string, unknown> = { OdinDialog: { confirm: async () => true, alert: async (t: string) => { alertes.push(t); }, prompt: async () => null } };
+  const window: Record<string, unknown> = { OdinAppIcons: { tile: (id: string) => `<svg data-appli="${id}"></svg>` }, OdinDialog: { confirm: async () => true, alert: async (t: string) => { alertes.push(t); }, prompt: async () => null } };
   const ctx = { window, document, fetch, location: { reload() {} }, requestAnimationFrame: () => 0, setTimeout, console };
   vm.runInNewContext(FLOWS, ctx); vm.runInNewContext(LIEN, ctx);
   const flows = window.OdinFlows as { edit: (id: string) => Promise<void> };
-  await flows.edit((flow as { id: string }).id);
+  await flows.edit((flow as { id: string }).id); await attendre(); // (la liste des applis est lue après l'ouverture)
   const bouton = (texte: string | RegExp, dans: Noeud = racine) => dans.querySelectorAll('button').find((b) => (typeof texte === 'string' ? b.textContent.trim() === texte : texte.test(b.textContent)));
   return { body, appels, alertes, bouton };
 }
 const attendre = () => new Promise((ok) => setTimeout(ok, 20));
+/** Choisir un bloc au clavier (Entrée sur le bloc) : son panneau s'ouvre. */
+async function choisir(body: Noeud, debut: string) {
+  const b = body.querySelectorAll('.dr-node').find((x) => (x.getAttribute('aria-label') ?? '').includes(debut));
+  assert.ok(b, `le bloc « ${debut} »`);
+  await b!.emettre('keydown', { key: 'Enter' }); await attendre();
+  return body.querySelector('#drSide')!;
+}
+// Étape 2 : une automatisation déjà enregistrée, avec des blocs d'appli de toutes les sortes.
+const DEM = 'Hydre · Démarrer une machine';
+const APPLIS = { id: 'f3', name: 'Applis', active: false, nodes: [
+  { name: 'Quand Hydre signale « machine_arretee »', type: 'déclencheur.module', params: { module: 'ymir', événement: 'machine_arretee', niveau: 'critique' }, position: [60, 160] },
+  { name: DEM, type: 'module.action', params: { module: 'ymir', action: 'demarrer', entrée: '{"nom":"vm1","extra":1,"attendre":false}' }, position: [340, 160] },
+  { name: 'Expr', type: 'module.action', params: { module: 'ymir', action: 'demarrer', entrée: '{{ $json.reglages }}' }, position: [620, 160] },
+  { name: 'Inconnu', type: 'module.action', params: { module: 'disparue', action: 'x', entrée: '{ "a" : 1 }' }, position: [900, 160] },
+  { name: 'Mes ISO', type: 'module.action', params: { module: 'Hydre', action: 'verifier_isos', entrée: { z: 1 } }, position: [1180, 160] },
+  { name: 'Attendre', type: 'temps.attendre', params: { secondes: 5 }, position: [1460, 160] },
+], connections: { 'Quand Hydre signale « machine_arretee »': [[{ node: DEM }]], [DEM]: [[{ node: 'Expr' }]], Expr: [[{ node: 'Inconnu' }]] } };
+
+test('page : un bloc d\'appli montre l\'icône de l\'appli, son nom et la fonction en clair ; les outils gardent leur dessin', async () => {
+  const p = await page(APPLIS);
+  const bloc = (debut: string) => p.body.querySelectorAll('.dr-node').find((x) => (x.getAttribute('aria-label') ?? '').startsWith(debut));
+  const dem = bloc('Hydre : Démarrer une machine')!;
+  assert.ok(dem, 'nommé par son appli et sa fonction');
+  assert.match(dem.textContent, /Hydre/); assert.match(dem.textContent, /Démarrer une machine/);
+  assert.doesNotMatch(dem.textContent, /demarrer|ymir/, 'pas d\'identifiant');
+  assert.ok(dem.tous().some((x) => x.html.includes('data-appli="ymir"')), 'l\'icône de l\'appli');
+  const sig = bloc('Hydre : Quand elle signale « machine_arretee »')!;
+  assert.ok(sig, 'le déclencheur d\'appli aussi'); assert.ok(sig.tous().some((x) => x.html.includes('ymir')));
+  assert.match(bloc('Hydre : Vérifier toutes les ISO')!.textContent, /Mes ISO/, 'un nom choisi à la main reste écrit');
+  assert.match(bloc('Attendre')!.textContent, /Logique · Attendre/, 'un outil : comme avant');
+  assert.match(bloc('Inconnu')!.textContent, /Applis · Action d'une appli/, 'appli inconnue : comme avant');
+});
+
+test('page : le panneau d\'un bloc d\'appli : appli et fonction en clair, « Changer », un champ par réglage', async () => {
+  const p = await page(APPLIS);
+  const side = await choisir(p.body, 'Hydre : Démarrer');
+  assert.ok(p.bouton('Changer', side), 'un bouton « Changer »');
+  assert.ok(![side, ...side.tous()].some((x) => x.enfants.includes(null)), 'un réglage sans aide n\'écrit pas « null »');
+  assert.match(side.querySelector('.dr-app')!.textContent, /Hydre.*Démarrer une machine/);
+  assert.equal(side.querySelectorAll('input').filter((x) => x.getAttribute('value') === 'ymir' || x.getAttribute('value') === 'demarrer').length, 0, 'plus d\'identifiant à taper');
+  const lab = side.querySelectorAll('label').find((x) => x.textContent.startsWith('Machine'))!;
+  assert.match(lab.textContent, /\*/, 'obligatoire');
+  const nom = side.querySelector(`#${lab.getAttribute('for')}`)!;
+  assert.equal(nom.getAttribute('value'), 'vm1'); assert.equal(nom.getAttribute('aria-required'), 'true');
+  const att = side.querySelector(`#${side.querySelectorAll('label').find((x) => x.textContent.startsWith('Attendre'))!.getAttribute('for')}`)!;
+  assert.equal(att.tagName, 'SELECT', 'oui/non');
+  assert.equal(att.querySelectorAll('option').find((o) => o.getAttribute('selected') !== null)!.textContent, 'Non');
+  assert.match(side.textContent, /extra/, 'un réglage hors des champs est signalé');
+  const av = side.querySelector('details')!; assert.match(av.querySelector('summary')!.textContent, /Réglages avancés/);
+  // Un champ modifié : l'entrée change à cet endroit seulement.
+  nom.value = 'vm2'; await nom.emettre('input');
+  assert.equal(side.querySelector('textarea')!.value, '{"nom":"vm2","extra":1,"attendre":false}', 'le JSON avancé suit');
+  att.value = 'oui'; await att.emettre('change');
+  // Vide : ça se voit, dans le panneau et sur le bloc, avant d'enregistrer.
+  nom.value = ''; await nom.emettre('input');
+  const manque = side.querySelectorAll('.dr-manque').find((x) => !x.hidden);
+  assert.ok(manque, 'le champ obligatoire vide se voit'); assert.match(manque!.textContent, /obligatoire/i);
+  assert.ok(p.body.querySelector('#drCanvas')!.querySelectorAll('.dr-node').some((b) => b.querySelector('.dr-manque')), 'et sur le bloc');
+  nom.value = 'vm3'; await nom.emettre('input');
+  await p.bouton('Enregistrer')!.emettre('click'); await attendre();
+  const f = p.appels.find((a) => a.chemin === '/api/draupnir/save')!.corps!.flow as { nodes: Noeud0[] };
+  assert.deepEqual(ici(f.nodes[1].params), { module: 'ymir', action: 'demarrer', entrée: '{"extra":1,"attendre":true,"nom":"vm3"}' }, 'dans la même entrée qu\'avant (vidé puis rempli : le réglage revient à la fin)');
+});
+
+test('page : aller-retour — chaque bloc ouvert puis enregistré sans rien toucher donne exactement la même définition', async () => {
+  const p = await page(APPLIS);
+  for (const d of ['Hydre : Quand', 'Hydre : Démarrer', 'Hydre : Vérifier', 'Expr', 'Inconnu', 'Attendre']) await choisir(p.body, d);
+  await p.bouton('Enregistrer')!.emettre('click'); await attendre();
+  const f = p.appels.find((a) => a.chemin === '/api/draupnir/save')!.corps!.flow;
+  assert.deepEqual(ici(f), ici(APPLIS));
+});
+
+test('page : expression → « Réglages avancés » ouverts ; appli inconnue → anciens champs ; fonction sans réglage déclaré', async () => {
+  const p = await page(APPLIS);
+  let side = await choisir(p.body, 'Expr');
+  const av = side.querySelector('details')!;
+  assert.notEqual(av.getAttribute('open'), null, 'ouverts d\'emblée');
+  const ta = av.querySelector('textarea')!; assert.equal(ta.value, '{{ $json.reglages }}');
+  assert.match(side.textContent, /Réglages avancés/);
+  ta.value = '{"nom":"vmX"}'; await ta.emettre('input'); await ta.emettre('change');
+  const lab = side.querySelectorAll('label').find((x) => x.textContent.startsWith('Machine'))!;
+  assert.equal(side.querySelector(`#${lab.getAttribute('for')}`)!.getAttribute('value'), 'vmX', 'les champs relisent le JSON');
+  side = await choisir(p.body, 'Inconnu');
+  assert.ok(side.querySelectorAll('input').some((x) => x.getAttribute('value') === 'disparue'), 'appli introuvable : le champ d\'avant reste');
+  assert.ok(side.querySelector('textarea'), 'et son JSON');
+  side = await choisir(p.body, 'Hydre : Vérifier');
+  assert.match(side.textContent, /ne déclare pas de réglage/);
+  assert.match(side.querySelector('details textarea')!.value, /"z": 1/, 'le JSON reste disponible');
+});
+
+test('page : une valeur piégée reste du texte dans son champ', async () => {
+  const piege = '<img src=x onerror="alert(1)">';
+  const p = await page({ ...APPLIS, nodes: [{ ...APPLIS.nodes[1], params: { module: 'ymir', action: 'demarrer', entrée: JSON.stringify({ nom: piege, [piege]: 1 }) } }], connections: {} });
+  const side = await choisir(p.body, 'Hydre : Démarrer');
+  assert.equal(side.querySelectorAll('img').length, 0, 'aucune image créée');
+  assert.ok(side.querySelectorAll('input').some((x) => x.getAttribute('value') === piege), 'la valeur telle quelle');
+  assert.ok(side.textContent.includes(piege), 'la clé en plus s\'écrit en texte');
+});
+
+test('page : « Changer » rouvre le choix des applis ; une autre fonction remplace celle du bloc', async () => {
+  const p = await page(APPLIS);
+  let side = await choisir(p.body, 'Hydre : Démarrer');
+  await p.bouton('Changer', side)!.emettre('click'); await attendre();
+  const fen = racine.querySelector('.dr-choix')!;
+  assert.ok(fen.querySelector('.li-g'), 'la grille des applis');
+  assert.equal(fen.querySelectorAll('.dr-ch-o button').length, 0, 'pas d\'outils : on change l\'appli ou la fonction');
+  await p.bouton('Hydre', fen)!.emettre('click');
+  await p.bouton(/Vérifier toutes les ISO/, fen)!.emettre('click');
+  assert.equal(racine.querySelector('.dr-choix'), null, 'refermée');
+  side = p.body.querySelector('#drSide')!;
+  assert.match(side.querySelector('.dr-app')!.textContent, /Vérifier toutes les ISO/);
+  await p.bouton('Enregistrer')!.emettre('click'); await attendre();
+  const f = p.appels.find((a) => a.chemin === '/api/draupnir/save')!.corps!.flow as { nodes: Noeud0[]; connections: Record<string, unknown> };
+  const n = f.nodes[1];
+  assert.deepEqual(ici(n), { name: 'Hydre · Vérifier toutes les ISO', type: 'module.action', params: { module: 'ymir', action: 'verifier_isos', entrée: '{}' }, position: [340, 160] });
+  assert.deepEqual(ici(f.connections['Quand Hydre signale « machine_arretee »']), [[{ node: 'Hydre · Vérifier toutes les ISO' }]], 'les liens suivent le nouveau nom');
+  assert.deepEqual(ici(f.connections['Hydre · Vérifier toutes les ISO']), [[{ node: 'Expr' }]]);
+  // Un déclencheur d'appli : « Changer » montre ce qu'elle signale.
+  side = await choisir(p.body, 'Hydre : Quand');
+  await p.bouton('Changer', side)!.emettre('click'); await attendre();
+  const f2 = racine.querySelector('.dr-choix')!;
+  await p.bouton('Hydre', f2)!.emettre('click');
+  assert.ok(p.bouton(/lance une alerte/, f2), 'ses événements, pas ses fonctions');
+  await p.bouton(/lance une alerte/, f2)!.emettre('click');
+  side = p.body.querySelector('#drSide')!;
+  assert.match(side.querySelector('.dr-app')!.textContent, /alerte/);
+  assert.ok(side.querySelectorAll('label').some((x) => /niveau/.test(x.textContent)), 'le niveau reste réglable');
+});
+
+test('page : un déclencheur d\'appli : l\'événement se tape encore à la main, dans « Réglages avancés »', async () => {
+  const p = await page(APPLIS);
+  const side = await choisir(p.body, 'Hydre : Quand');
+  const av = side.querySelectorAll('details').find((d) => /Réglages avancés/.test(d.querySelector('summary')?.textContent ?? ''));
+  assert.ok(av, '« Réglages avancés » sur ce bloc');
+  const lab = av!.querySelectorAll('label').find((x) => /Événement/.test(x.textContent))!;
+  assert.ok(lab, 'le champ Événement');
+  const ev = av!.querySelector(`#${lab.getAttribute('for')}`)!;
+  assert.equal(ev.getAttribute('value'), 'machine_arretee');
+  ev.value = '{{ $json.evenement }}'; await ev.emettre('input'); await ev.emettre('change');
+  await p.bouton('Enregistrer')!.emettre('click'); await attendre();
+  const f = p.appels.find((a) => a.chemin === '/api/draupnir/save')!.corps!.flow as { nodes: Noeud0[] };
+  assert.deepEqual(ici(f.nodes[0].params), { module: 'ymir', événement: '{{ $json.evenement }}', niveau: 'critique' });
+});
+
+test('page : « Changer » vers la même fonction garde les réglages, même quand le bloc nomme son appli par son nom', async () => {
+  const p = await page(APPLIS);
+  const side = await choisir(p.body, 'Hydre : Vérifier');
+  await p.bouton('Changer', side)!.emettre('click'); await attendre();
+  const fen = racine.querySelector('.dr-choix')!;
+  await p.bouton('Hydre', fen)!.emettre('click');
+  await p.bouton(/Vérifier toutes les ISO/, fen)!.emettre('click');
+  await p.bouton('Enregistrer')!.emettre('click'); await attendre();
+  const f = p.appels.find((a) => a.chemin === '/api/draupnir/save')!.corps!.flow;
+  assert.deepEqual(ici(f), ici(APPLIS), 'rien n\'a changé');
+});
 
 test('page : un « + » sur chaque bloc, un vrai bouton nommé ; la colonne d\'ajout reste', async () => {
   const p = await page(FLOW);
