@@ -508,7 +508,10 @@ export function thjalfi(): Module {
       C = ctx; const l = await isos(ctx), m = Object.values(live(ctx)).filter((x) => !FINAL.includes(x.step)), ready = LOADERS.filter((x) => existsSync(join(bootDir(ctx), x.file)));
       return { text: `Genèse ${http ? `allumé · http://${serverIp(ctx)}:${http.port}` : 'éteint'} · ${l.filter((i) => i.recipe).length} ISO démarrable(s) (${l.filter((i) => i.recipe?.auto).length} en installation automatique) · chargeurs : ${ready.length}/${LOADERS.length} · ${m.length} machine(s) en cours${m.length ? `\n${m.map((x) => `- ${x.host ?? x.mac} : ${x.step}${x.isoName ? ` (${x.isoName})` : ''}`).join('\n')}` : ''}`, data: { allume: Boolean(http), port: http?.port, ip: serverIp(ctx), isos: l.map((i) => ({ id: i.id, nom: i.name, type: i.recipe?.kind, auto: i.recipe?.auto })), enCours: m } };
     } },
-    { id: 'allumer', label: 'Allumer', what: 'Répond aux machines qui démarrent par le réseau (une machine inconnue démarre sur son disque par défaut)', words: ['allume le pxe', 'allume le démarrage réseau', 'démarre le pxe'], run: async (ctx) => {
+    { id: 'allumer', label: 'Allumer', what: 'Répond aux machines qui démarrent par le réseau (une machine inconnue démarre sur son disque par défaut)', words: ['allume le pxe', 'allume le démarrage réseau', 'démarre le pxe'],
+      // Allumer démarre des services sur le réseau de la maison : ta validation, en voyant lesquels.
+      grave: (_i, ctx) => { const p = ctx ? ports(ctx) : { dhcp: 67, pxe: 4011, tftp: 69, http: 16000 }; return `allumer le démarrage par le réseau : Odin répond sur le réseau de la maison aux machines qui démarrent par le réseau (DHCP ${p.dhcp} et ${p.pxe}/udp, TFTP ${p.tftp}/udp, HTTP ${p.http}/tcp ; mode ${ctx ? s(ctx.settings.mode) || 'proxy' : 'proxy'})`; },
+      run: async (ctx) => {
       C = ctx; const notes = await startServers(ctx); ctx.saveSettings({ allume: true });
       const miss = LOADERS.filter((x) => x.file !== 'wimboot' && x.file !== 'ipxe-arm64.efi' && !existsSync(join(bootDir(ctx), x.file)));
       return { text: `▶ Genèse allumé : menu sur ${base(ctx)}/boot.ipxe · mode ${s(ctx.settings.mode) || 'proxy'}${notes.length ? `\n⚠ ${notes.join('\n⚠ ')}` : ''}${miss.length ? `\n⚠ Chargeurs manquants (${miss.map((x) => x.file).join(', ')}) : dis « prépare le pxe ».` : ''}` };

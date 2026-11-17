@@ -164,7 +164,10 @@ export const valgrind: Module = {
       return { text: `${r.text}${proxyServer() ? '' : ' Démarre le proxy pour qu\'il réponde.'} Sans ouvrir de port, le tunnel Cloudflare (Bifröst) fait la même chose.` };
     } },
     { id: 'fermer_ports', label: 'Fermer 80 et 443 sur la box', what: 'Plus d\'accès direct depuis Internet (le tunnel Cloudflare continue)', quick: false, run: async (ctx) => { const t = await closePorts([{ port: 80, proto: 'TCP' }, { port: 443, proto: 'TCP' }], ctx.fetch); ctx.saveSettings({ upnp: undefined }); return { text: t }; } },
-    { id: 'demarrer', label: 'Démarrer le proxy', what: 'Odin répond sur les ports 80 et 443', quick: false, params: [{ key: 'http', label: 'Port HTTP', kind: 'number', default: 80 }, { key: 'https', label: 'Port HTTPS', kind: 'number', default: 443 }], run: async (ctx, i) => {
+    { id: 'demarrer', label: 'Démarrer le proxy', what: 'Odin répond sur les ports 80 et 443', quick: false, params: [{ key: 'http', label: 'Port HTTP', kind: 'number', default: 80 }, { key: 'https', label: 'Port HTTPS', kind: 'number', default: 443 }],
+      // Démarrer le proxy ouvre ses ports dans le pare-feu de la machine (Cerbère) : ta validation, en voyant lesquels.
+      grave: (i, ctx) => { const p = ctx ? ports(ctx) : { http: 80, https: 443 }, n = (v: unknown, d: number) => (v === undefined || v === '' ? d : Number(v)) || 'libre'; return `démarrer le proxy : Odin écoute sur le port ${n(i.http, p.http)} (HTTP) et le port ${n(i.https, p.https)} (HTTPS) et les ouvre dans le pare-feu de la machine (Cerbère) ; les sites du proxy deviennent joignables par le réseau`; },
+      run: async (ctx, i) => {
       const http = i.http === undefined || i.http === '' ? ports(ctx).http : Number(i.http), https = i.https === undefined || i.https === '' ? ports(ctx).https : Number(i.https);
       for (const p of [http, https]) if (!Number.isInteger(p) || p < 0 || p > 65535) throw new Error('ports entre 1 et 65535');
       ctx.saveSettings({ ports: { http, https } });
@@ -172,7 +175,10 @@ export const valgrind: Module = {
       catch (e) { const m = (e as Error & { code?: string }); return { ok: false, text: m.code === 'EACCES' ? `Les ports ${http} et ${https} sont réservés à l'administrateur : lance Odin avec le droit d'ouvrir ces ports (sudo setcap 'cap_net_bind_service=+ep' $(which node)), ou choisis d'autres ports.` : m.code === 'EADDRINUSE' ? `Un autre programme utilise déjà le port ${http} ou ${https} (un autre proxy, un serveur web) : arrête-le ou choisis d'autres ports.` : m.message }; }
     } },
     { id: 'arreter', label: 'Arrêter le proxy', what: 'Les sites ne répondent plus par Odin', quick: false, grave: () => 'couper l\'accès à tous les sites servis par le proxy', run: (ctx) => { srv?.stop(); srv = undefined; ctx.saveSettings({ on: false }); return { text: '⏹ Proxy arrêté.' }; } },
-    { id: 'ajouter', label: 'Ajouter un site', what: 'Un nom → un service de la maison', params: ADD, run: async (ctx, i) => {
+    { id: 'ajouter', label: 'Ajouter un site', what: 'Un nom → un service de la maison', params: ADD,
+      // Exposer un service de la maison (et le publier sur Internet s'il y a un tunnel) : ta validation, en voyant quoi et vers qui.
+      grave: (i) => `exposer le service ${s(i.cible) || '?'} sous le nom ${s(i.domaines).toLowerCase() || '?'} par le proxy d'Odin (${s(i.acces) ? `seulement pour ${s(i.acces)}` : 'pour tout le monde'})${i.internet !== false ? ', et le publier sur Internet par le tunnel Cloudflare (Bifröst) s\'il existe' : ''}`,
+      run: async (ctx, i) => {
       const domains = s(i.domaines).toLowerCase().split(/[\s,;]+/).filter(Boolean).map((d) => d.replace(/^https?:\/\//, '').replace(/\/.*$/, ''));
       if (!domains.length) throw new Error('quel nom ?'); for (const d of domains) if (!DOMAIN.test(d)) throw new Error(`nom invalide : ${d}`);
       const taken = hosts(ctx).flatMap((h) => h.domains); for (const d of domains) if (taken.includes(d) || redirects(ctx).some((r) => r.domain === d)) throw new Error(`${d} est déjà utilisé dans le proxy`);
@@ -196,8 +202,11 @@ export const valgrind: Module = {
       return { text: out.join('\n'), data: { id: h.id } };
     }, undo: (i) => ({ action: 'retirer', input: { domaine: s(i.domaines).split(/[\s,;]+/)[0] }, label: 'Retirer le site' }) },
     { id: 'retirer', label: 'Retirer un site', what: 'Le nom ne mène plus au service', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }], run: (ctx, i) => { const h = byDomain(ctx, i.domaine); saveHosts(ctx, hosts(ctx).filter((x) => x.id !== h.id)); return { text: `🗑 ${h.domains.join(', ')} retiré du proxy.` }; } },
-    { id: 'activer', label: 'Couper / réactiver un site', what: 'Sans le retirer', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => { const h = byDomain(ctx, i.domaine); saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, enabled: i.actif !== false } : x))); return { text: `${i.actif !== false ? '▶' : '⏸'} ${h.domains[0]} ${i.actif !== false ? 'réactivé' : 'coupé'}.` }; } },
-    { id: 'proteger', label: 'Protéger par mot de passe', what: 'Le site demande un identifiant et un mot de passe (rangé dans le coffre)', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'utilisateur', label: 'Identifiant', kind: 'text', default: 'odin' }, { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un solide)', kind: 'password', default: '' }, { key: 'retirer', label: 'Retirer la protection', kind: 'boolean', default: false }], run: async (ctx, i) => {
+    { id: 'activer', label: 'Couper / réactiver un site', what: 'Sans le retirer', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }],
+      // Réactiver rouvre le site (validation) ; le couper reste libre.
+      grave: (i, ctx) => { if (i.actif === false) return undefined; const h = ctx ? hosts(ctx).find((y) => y.domains.includes(s(i.domaine).toLowerCase())) : undefined; return `rouvrir le site ${s(i.domaine)}${h ? ` : il mène de nouveau à ${h.target}` : ''}`; },
+      run: (ctx, i) => { const h = byDomain(ctx, i.domaine); saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, enabled: i.actif !== false } : x))); return { text: `${i.actif !== false ? '▶' : '⏸'} ${h.domains[0]} ${i.actif !== false ? 'réactivé' : 'coupé'}.` }; } },
+    { id: 'proteger', label: 'Protéger par mot de passe', grave: (i) => (i.retirer === true ? `retirer le mot de passe de ${s(i.domaine)} : le site s'ouvre sans mot de passe` : undefined), what: 'Le site demande un identifiant et un mot de passe (rangé dans le coffre)', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'utilisateur', label: 'Identifiant', kind: 'text', default: 'odin' }, { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un solide)', kind: 'password', default: '' }, { key: 'retirer', label: 'Retirer la protection', kind: 'boolean', default: false }], run: async (ctx, i) => {
       const h = byDomain(ctx, i.domaine);
       if (i.retirer === true) { saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, auth: undefined } : x))); return { text: `🔓 ${h.domains[0]} n'a plus de mot de passe.` }; }
       const user = s(i.utilisateur) || 'odin'; if (!/^[\w.@-]{1,40}$/.test(user)) throw new Error('identifiant : lettres, chiffres, . _ - @');
@@ -207,7 +216,17 @@ export const valgrind: Module = {
       saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, auth: { ...(x.auth ?? {}), [user]: hashPassword(pass) } } : x)));
       return { text: `🔒 ${h.domains[0]} demande maintenant un mot de passe (identifiant « ${user} »). ${v.ok !== false ? 'Le mot de passe est dans le coffre Thésauros (« Proxy ' + h.domains[0] + ' »).' : `⚠ Le coffre n'a pas pu le garder (${v.text}) : retiens-le, il n'est affiché nulle part.`}` };
     } },
-    { id: 'acces', label: 'Accès par adresses', what: 'Réserver un site à certaines adresses, ou en refuser', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'autoriser', label: 'Seulement (vide : tout le monde)', kind: 'text', default: '' }, { key: 'refuser', label: 'Refuser', kind: 'text', default: '' }], run: (ctx, i) => {
+    { id: 'acces', label: 'Accès par adresses', what: 'Réserver un site à certaines adresses, ou en refuser', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'autoriser', label: 'Seulement (vide : tout le monde)', kind: 'text', default: '' }, { key: 'refuser', label: 'Refuser', kind: 'text', default: '' }],
+      // Ouvrir le site à plus d'adresses (une adresse nouvelle dans « seulement », « seulement » vidé, un refus retiré) :
+      // validation, avant → après. Restreindre reste libre.
+      grave: (i, ctx) => {
+        const h = ctx ? hosts(ctx).find((y) => y.domains.includes(s(i.domaine).toLowerCase())) : undefined; if (!h) return undefined;
+        const list = (v: unknown) => s(v).split(/[\s,;]+/).filter(Boolean), a0 = h.allow ?? [], d0 = h.deny ?? [], a1 = list(i.autoriser), d1 = list(i.refuser);
+        const dire = (a: string[], d: string[]) => `${a.length ? `seulement ${a.join(', ')}` : 'tout le monde'}${d.length ? ` sauf ${d.join(', ')}` : ''}`;
+        const ouvre = (a0.length > 0 && (!a1.length || a1.some((x) => !a0.includes(x)))) || d0.some((x) => !d1.includes(x));
+        return ouvre ? `ouvrir ${h.domains[0]} à plus d'adresses : ${dire(a0, d0)} → ${dire(a1, d1)}` : undefined;
+      },
+      run: (ctx, i) => {
       const h = byDomain(ctx, i.domaine), list = (v: unknown) => s(v).split(/[\s,;]+/).filter(Boolean);
       for (const a of [...list(i.autoriser), ...list(i.refuser)]) if (!/^[\d.]+(\/\d{1,2})?$/.test(a)) throw new Error(`adresse ou réseau invalide : ${a}`);
       saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, allow: list(i.autoriser), deny: list(i.refuser) } : x)));
@@ -220,7 +239,7 @@ export const valgrind: Module = {
       ctx.saveSettings({ redirects: [...redirects(ctx), { id: randomBytes(4).toString('hex'), domain: d, to: s(i.vers), code: s(i.code) === '302' ? 302 : 301, keepPath: i.garder_chemin !== false }] });
       return { text: `↪ ${d} → ${s(i.vers)} (${s(i.code) === '302' ? 'temporaire' : 'définitive'}).` };
     } },
-    { id: 'connexion_unique', label: 'Connexion unique (Persona)', what: 'Le site demande la connexion d\'Odin', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => { const h = byDomain(ctx, i.domaine); saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, sso: i.actif !== false } : x))); return { text: `${i.actif !== false ? '🛡' : '🔓'} ${h.domains[0]} ${i.actif !== false ? 'demande la connexion d\'Odin (Persona)' : 'ne demande plus la connexion d\'Odin'}.` }; } },
+    { id: 'connexion_unique', label: 'Connexion unique (Persona)', what: 'Le site demande la connexion d\'Odin', quick: false, grave: (i) => (i.actif === false ? `ouvrir ${s(i.domaine)} sans connexion d'Odin : qui atteint le site entre sans se connecter` : undefined), params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => { const h = byDomain(ctx, i.domaine); saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, sso: i.actif !== false } : x))); return { text: `${i.actif !== false ? '🛡' : '🔓'} ${h.domains[0]} ${i.actif !== false ? 'demande la connexion d\'Odin (Persona)' : 'ne demande plus la connexion d\'Odin'}.` }; } },
     { id: 'portail', label: 'Servir le portail de connexion', what: 'Le nom du portail de Persona, avec son certificat', quick: false, params: [{ key: 'domaine', label: 'Nom du portail', kind: 'text', required: true }], run: async (ctx, i) => {
       const d = s(i.domaine).toLowerCase(); if (!DOMAIN.test(d) || d.startsWith('*.')) throw new Error('nom invalide');
       if (hosts(ctx).some((h) => h.domains.includes(d))) throw new Error(`${d} est déjà un site du proxy`);
@@ -230,7 +249,9 @@ export const valgrind: Module = {
       return { text: `🚪 Portail ${d} servi par le proxy (certificat ${how}).` };
     } },
     { id: 'retirer_redirection', label: 'Retirer une redirection', what: '', quick: false, params: [{ key: 'domaine', label: 'Nom', kind: 'text', required: true }], run: (ctx, i) => { const l = redirects(ctx); if (!l.some((r) => r.domain === s(i.domaine))) throw new Error('aucune redirection pour ce nom'); ctx.saveSettings({ redirects: l.filter((r) => r.domain !== s(i.domaine)) }); return { text: '🗑 Redirection retirée.' }; } },
-    { id: 'flux', label: 'Flux TCP', what: 'Un port d\'Odin mène à un service (jeux, SSH, base de données…)', quick: false, params: [{ key: 'port', label: 'Port d\'Odin', kind: 'number', required: true }, { key: 'cible', label: 'Service (adresse:port)', kind: 'text', required: true }], run: async (ctx, i) => {
+    { id: 'flux', label: 'Flux TCP', what: 'Un port d\'Odin mène à un service (jeux, SSH, base de données…)', quick: false, params: [{ key: 'port', label: 'Port d\'Odin', kind: 'number', required: true }, { key: 'cible', label: 'Service (adresse:port)', kind: 'text', required: true }],
+      grave: (i) => `ouvrir le port ${s(i.port)} d'Odin vers le service ${s(i.cible)} : qui joint ce port joint le service`,
+      run: async (ctx, i) => {
       const port = Number(i.port), tg = s(i.cible); if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('port entre 1 et 65535');
       if (!/^[\w.-]+:\d{1,5}$/.test(tg)) throw new Error('service sous la forme 192.168.1.10:22');
       if (streams(ctx).some((x) => x.port === port) || [ports(ctx).http, ports(ctx).https].includes(port)) throw new Error('port déjà utilisé par le proxy');

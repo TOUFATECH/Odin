@@ -149,7 +149,10 @@ export const bru: Module = {
       await setIngress(ctx, { id: t.id, name: t.name, account: z.account }, [{ service: 'http_status:404' }]);
       return { text: `🌉 Tunnel « ${t.name} » ${existing[0] ? 'retrouvé' : 'créé'} chez Cloudflare (domaine ${z.name}). « Démarrer le tunnel » pour le relier à Odin.` };
     } },
-    { id: 'demarrer', label: 'Démarrer le tunnel', what: 'Odin se relie à Cloudflare (télécharge le programme la première fois)', run: async (ctx) => {
+    { id: 'demarrer', label: 'Démarrer le tunnel', what: 'Odin se relie à Cloudflare (télécharge le programme la première fois)',
+      // Relier le tunnel rend joignables depuis Internet les noms publiés : ta validation, en voyant lesquels.
+      grave: (_i, ctx) => { const l = ctx ? published(ctx).map((p) => p.hostname) : []; return `relier Odin à Cloudflare : ${l.length ? `${l.length} nom(s) publié(s) deviennent joignables depuis Internet (${l.slice(0, 8).join(', ')}${l.length > 8 ? '…' : ''})` : 'les noms que tu publieras seront joignables depuis Internet'}`; },
+      run: async (ctx) => {
       const t = tunnelOf(ctx); if (!t) throw new Error('crée d\'abord le tunnel');
       const bin = await ensureBinary(ctx); launch(ctx, bin); ctx.saveSettings({ on: true });
       await new Promise((r) => setTimeout(r, Number(ctx.settings.waitMs ?? 4000)));
@@ -158,7 +161,9 @@ export const bru: Module = {
       return { text: `✅ Tunnel en marche${st ? ` (Cloudflare : ${ST[st.status] ?? st.status}, ${st.connections} connexion(s))` : ''}. ${published(ctx).length} nom(s) publié(s).` };
     } },
     { id: 'arreter', label: 'Arrêter le tunnel', what: 'Tes noms publiés ne répondent plus depuis Internet', quick: false, grave: () => 'couper l\'accès depuis Internet à tous les noms publiés', run: (ctx) => { stopChild(); ctx.saveSettings({ on: false }); return { text: '⏹ Tunnel arrêté : plus d\'accès depuis Internet par Cloudflare.' }; } },
-    { id: 'publier_odin', label: 'Publier Odin', what: 'L\'interface d\'Odin sous ton domaine (ex. odin.exemple.fr), pour la gérer depuis le téléphone', params: [{ key: 'domaine', label: 'Nom pour Odin (ex. odin.exemple.fr)', kind: 'text', required: true }], run: async (ctx, i) => {
+    { id: 'publier_odin', label: 'Publier Odin', what: 'L\'interface d\'Odin sous ton domaine (ex. odin.exemple.fr), pour la gérer depuis le téléphone', params: [{ key: 'domaine', label: 'Nom pour Odin (ex. odin.exemple.fr)', kind: 'text', required: true }],
+      grave: (i) => `publier l'interface d'Odin sous ${s(i.domaine).toLowerCase()} : joignable depuis Internet par le tunnel Cloudflare (ton mot de passe d'Odin la garde)`,
+      run: async (ctx, i) => {
       const w = odinWeb?.(); if (!w) throw new Error('interface d\'Odin introuvable');
       // Odin se publie lui-même : le nom demandé est remplacé par « localhost » pour que l'interface l'accepte ; la
       // vraie adresse du visiteur arrive par Cloudflare (Odin ne le prend jamais pour la machine elle-même : jeton,
@@ -168,7 +173,10 @@ export const bru: Module = {
       ctx.saveSettings({ odinHost: s(i.domaine).toLowerCase() });
       return { text: `${r.text}\n📱 Ouvre https://${s(i.domaine).toLowerCase()} sur ton téléphone et connecte-toi avec ton e-mail et ton mot de passe d'Odin.` };
     } },
-    { id: 'publier', label: 'Publier un nom', what: 'Ce nom devient accessible depuis Internet (règle du tunnel + DNS chez Cloudflare)', params: [{ key: 'domaine', label: 'Nom (ex. nas.exemple.fr)', kind: 'text', required: true }, { key: 'cible', label: 'Vers (vide : le proxy Valgrind d\'Odin)', kind: 'text', default: '' }, { key: 'hote', label: 'Nom transmis au service (vide : le même)', kind: 'text', default: '' }, { key: 'remplacer', label: 'Remplacer un enregistrement DNS existant', kind: 'boolean', default: false }], run: async (ctx, i) => {
+    { id: 'publier', label: 'Publier un nom', what: 'Ce nom devient accessible depuis Internet (règle du tunnel + DNS chez Cloudflare)', params: [{ key: 'domaine', label: 'Nom (ex. nas.exemple.fr)', kind: 'text', required: true }, { key: 'cible', label: 'Vers (vide : le proxy Valgrind d\'Odin)', kind: 'text', default: '' }, { key: 'hote', label: 'Nom transmis au service (vide : le même)', kind: 'text', default: '' }, { key: 'remplacer', label: 'Remplacer un enregistrement DNS existant', kind: 'boolean', default: false }],
+      // Publier un nom l'ouvre depuis Internet : ta validation, en voyant quel nom, vers quoi.
+      grave: (i) => `publier ${s(i.domaine).toLowerCase()} sur Internet par le tunnel Cloudflare, vers ${s(i.cible) || 'le proxy d\'Odin (Valgrind)'}${i.remplacer === true ? ' — en remplaçant l\'enregistrement DNS existant' : ''}`,
+      run: async (ctx, i) => {
       const t = tunnelOf(ctx); if (!t) throw new Error('crée d\'abord le tunnel');
       const host = s(i.domaine).toLowerCase(); if (!/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(host)) throw new Error('nom invalide');
       const service = s(i.cible) || `https://localhost:${proxyServer()?.httpsPort ?? Number(ctx.settings.proxyHttps ?? 443)}`;

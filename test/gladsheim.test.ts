@@ -93,7 +93,7 @@ test('page et API /maison : session, clé de tablette, droits, confirmation, mas
     authed = true;
     const full = await (await get('/api/maison/etat')).json() as { rights: string; apps: Array<{ id: string; name: string }> };
     assert.equal(full.rights, 'complet'); assert.ok(full.apps.some((a) => a.id === 'vordr') && !full.apps.some((a) => a.id === 'gladsheim'));
-    assert.match(String((await post('/api/maison/bouton', { id: vpn.id })).confirm), /^Confirmer : allumer le VPN de la maison \?$/);
+    assert.match(String((await post('/api/maison/bouton', { id: vpn.id })).confirm), /^Confirmer : allumer le VPN de la maison : le port 51820\/udp s'ouvre dans le pare-feu de la machine \(Cerbère\) \?$/);
     assert.ok('text' in await post('/api/maison/bouton', { id: vpn.id, confirm: true }));
     assert.equal((await post('/api/maison/theme', { theme: 'nuit' })).ok, true); assert.equal(w.v.ctx('gladsheim').settings.theme, 'nuit');
     assert.equal((await post('/api/maison/dire', { texte: 'allume la lumière du salon' })).text, 'Odin a fait : allume la lumière du salon');

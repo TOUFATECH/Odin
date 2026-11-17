@@ -496,7 +496,10 @@ export const vordr: Module = {
       if (i.objectif !== undefined) ctx.saveSettings({ slaTarget: target });
       return { text: r.length ? `Objectif ${target} % sur ${days} j :\n${r.map((x) => `${x.ok === false ? '❌' : x.ok ? '✅' : '·'} ${x.name} : ${x.pct ?? '—'} %${x.budgetMin !== undefined ? ` · panne ${x.downMin} min / ${x.budgetMin} min permises` : ''}`).join('\n')}` : 'Aucune sonde.' };
     } },
-    { id: 'page_publique', label: 'Page publique d\'état', what: 'Une adresse à partager qui montre l\'état des sondes choisies (sans leurs adresses)', quick: false, params: [{ key: 'titre', label: 'Titre', kind: 'text', default: 'État des services' }, { key: 'active', label: 'Active', kind: 'boolean', default: true }], run: (ctx, i) => {
+    { id: 'page_publique', label: 'Page publique d\'état', what: 'Une adresse à partager qui montre l\'état des sondes choisies (sans leurs adresses)', quick: false, params: [{ key: 'titre', label: 'Titre', kind: 'text', default: 'État des services' }, { key: 'active', label: 'Active', kind: 'boolean', default: true }],
+      // Ouvrir la page publique (sans connexion) : validation ; la couper reste libre.
+      grave: (i, ctx) => (i.active === false ? undefined : `ouvrir une page publique d'état, lisible sans connexion par qui a l'adresse : elle montre ${ctx ? list(ctx).filter((m) => m.public).length : 0} sonde(s) cochée(s) « page publique » (sans leurs adresses)`),
+      run: (ctx, i) => {
       if (i.active === false) { ctx.saveSettings({ publicSlug: '' }); return { text: '⚪ Page publique coupée.' }; }
       const slug = s(ctx.settings.publicSlug) || randomBytes(9).toString('hex'); ctx.saveSettings({ publicSlug: slug, publicTitle: s(i.titre).slice(0, 80) || 'État des services' });
       return { text: `🌐 Page publique : /etat/${slug} (sur l'adresse de l'interface d'Odin). Elle montre ${list(ctx).filter((m) => m.public).length} sonde(s) cochées « page publique ».` };

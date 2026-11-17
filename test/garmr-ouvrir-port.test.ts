@@ -80,18 +80,16 @@ test('Cerbère · Ouvrir un port : une automatisation ne l\'ouvre pas', async ()
   } finally { w.fin(); }
 });
 
-// TROU CONNU, constaté et non voulu : un appel entre applis (réflexe) passe la validation de Cerbère ; seule une
-// automatisation (`auto`) est refusée. Ici l'appel part sans aucune action de départ validée, et le port s'ouvre quand
-// même (de même avec box:true, la box serait ouverte). Cet essai fixe le comportement d'aujourd'hui pour le voir changer
-// le jour où le passage sera fermé (service.ts ou l'appli qui lance le réflexe, hors de Cerbère) : ce n'est pas une règle.
-// Le chemin voulu, lui, est : le propriétaire valide l'action de départ (ex. gjoll.allumer, qui a sa propre validation),
-// puis le réflexe ouvre le port du VPN, noté dans les manips.
-test('Cerbère · Ouvrir un port : TROU CONNU — un réflexe passe la validation, même sans action de départ validée ; seule une automatisation est refusée', async () => {
+// Le trou d'avant est fermé (service.ts) : un appel entre applis (réflexe) sans action de départ validée n'atteint plus
+// l'ouverture ; il est refusé et le propriétaire est prévenu. Le chemin voulu reste : il valide l'action de départ
+// (ex. gjoll.allumer, dont la validation dit le port), puis le réflexe ouvre le port du VPN (test/ouvertures-validation).
+test('Cerbère · Ouvrir un port : un réflexe sans action de départ validée est refusé, rien ne s\'ouvre', async () => {
   const w = monde();
   try {
     const r = await w.v.ctx('gjoll').call('garmr', 'ouvrir_port', { port: 41817, proto: 'udp', pour: 'VPN Vortex', par: 'VPN Vortex' }, 'ouvrir le port 41817/udp pour VPN Vortex');
-    assert.notEqual(r.ok, false, `comportement d'aujourd'hui (trou connu) : ${r.text}`);
-    assert.ok(w.ouvert(), 'trou connu : le port s\'ouvre sans validation');
-    assert.equal(w.v.manips({ module: 'garmr' }).length, 1, 'au moins noté dans les manips : prévenu, et il peut annuler');
+    assert.equal(r.ok, false, r.text);
+    assert.match(r.text, /validation/);
+    assert.ok(!w.ouvert(), 'rien n\'est envoyé au pare-feu');
+    assert.equal(w.v.manips({ module: 'garmr' }).length, 0, 'rien de fait, donc aucune manip');
   } finally { w.fin(); }
 });

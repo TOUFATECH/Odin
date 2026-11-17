@@ -194,7 +194,10 @@ test('manips : ce qu\'Odin fait seul est noté, annoncé, et se garde ou s\'annu
   assert.match(w.sent.at(-1)!, new RegExp(`🤖 Manip faite par réflexe : Cerbère · Bannir une adresse.*pirate.*Réponds « garde ${m.id} » ou « annule ${m.id} »`));
   // « annule <code> » : compris sans IA, l'action inverse part.
   assert.equal(show(await understand(w.v, `annule ${m.id}`, 'm', NOW)), `manip ${m.id} annuler`);
-  const r = await w.v.order(`annule ${m.id}`, 'm');
+  // Débannir rouvre la machine à cette adresse : l'annulation montre ce qui change et demande la confirmation.
+  const q = await w.v.order(`annule ${m.id}`, 'm');
+  assert.match(String(q.confirm), /débannir 203\.0\.113\.77/);
+  const r = await w.v.order(`annule ${m.id}`, 'm', { confirm: true });
   assert.match(r.text, /↩ Annulé : Cerbère · Bannir une adresse \(adresse débannie\)/);
   assert.ok(w.ran.some((c) => /^nft delete element inet odin garmr4 \{ 203\.0\.113\.77 \}/.test(c)), 'l\'adresse est vraiment débannie');
   assert.equal(w.v.manips()[0].state, 'annulée'); assert.equal(w.v.manips().length, 1, 'l\'annulation demandée par toi n\'est pas une nouvelle manip');

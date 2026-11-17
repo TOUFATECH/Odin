@@ -310,7 +310,7 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
     words: ['dns', 'bloquer les pubs', 'bloque les pubs', 'publicite', 'publicités', 'pisteurs', 'traqueurs', 'bloquer un site', 'bloque le site', 'controle parental', 'contrôle parental', 'recherche securisee', 'nom de domaine', 'resolution', 'resolveur', 'filtrage', 'couper tiktok', 'couper youtube'],
     modes: ['Sphinx · DNS'],
     actions: [
-      { id: 'demarrer', label: 'Démarrer le DNS', what: 'Sphinx répond aux appareils (port 53)', params: [{ key: 'port', label: 'Port', kind: 'number', default: 53 }], grave: () => 'démarrer le serveur DNS de la maison', run: async (ctx, i) => {
+      { id: 'demarrer', label: 'Démarrer le DNS', what: 'Sphinx répond aux appareils (port 53)', params: [{ key: 'port', label: 'Port', kind: 'number', default: 53 }], grave: (i) => `démarrer le serveur DNS de la maison : le port ${Number(i.port ?? 53) || 'libre'} (udp et tcp) s'ouvre dans le pare-feu de la machine (Cerbère)`, run: async (ctx, i) => {
         const port = Number(i.port ?? 53); if (!(port >= 0 && port <= 65535)) throw new Error('port entre 1 et 65535');
         ctx.saveSettings({ port, on: true });
         const t = await startServer(ctx);

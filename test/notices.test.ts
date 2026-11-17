@@ -31,7 +31,8 @@ test('bulles : alertes (procédure, manip), décisions d\'Odin, direct, historiq
     const a = live.at(-1)!;
     assert.deepEqual([a.level, a.kind, a.app, a.page?.app, a.source], ['grave', 'Grave', 'Bifröst', 'bru', 'alerte']);
     assert.deepEqual(a.steps, ['Vérifie la box.']);
-    assert.deepEqual(a.actions[0], { module: 'bru', action: 'demarrer', input: {}, label: 'Relancer le tunnel', primary: true });
+    // Relancer le tunnel rouvre Odin vers Internet : le bouton de la bulle dit qu'il demande l'accord du propriétaire.
+    assert.deepEqual(a.actions[0], { module: 'bru', action: 'demarrer', input: {}, label: 'Relancer le tunnel', primary: true, grave: 'cette action demande ton accord' });
     // Une alerte sans procédure : procédure par défaut, et les manips de l'appli qui collent aux mots.
     v.alert('vordr', { level: 'haute', title: 'Le NAS ne répond plus', key: 'y' });
     const b = live.at(-1)!;

@@ -66,9 +66,9 @@ test('Ulysse dans un vrai Odin : OwnTracks, accord de chaque membre, trajets, GP
     oublierSessions();
     // ---- Le propriétaire, dans Odin ----
     const proprio = async (action: string, input: Record<string, unknown> = {}, confirm = false, module = 'gna') => (await o.json('/api/valhalla/act', { module, action, input, confirm })).body as { ok: boolean; text?: string; confirm?: string; data?: Record<string, unknown>; fichiers?: Array<{ nom: string; ref: string }> };
-    const ajout = async (nom: string) => { const r = await proprio('membre', { nom, adresse: o.url }, false, 'gladsheim'); const pass = /Mot de passe : (\S+)/.exec(r.text ?? '')?.[1], user = /Identifiant : (\S+)/.exec(r.text ?? '')?.[1]; assert.ok(pass && user, r.text); return { user, pass }; };
+    const ajout = async (nom: string) => { assert.match(String((await proprio('membre', { nom, adresse: o.url }, false, 'gladsheim')).confirm), new RegExp(`donner à ${nom} des identifiants`), 'donner des identifiants demande la validation'); const r = await proprio('membre', { nom, adresse: o.url }, true, 'gladsheim'); const pass = /Mot de passe : (\S+)/.exec(r.text ?? '')?.[1], user = /Identifiant : (\S+)/.exec(r.text ?? '')?.[1]; assert.ok(pass && user, r.text); return { user, pass }; };
     const nour = await ajout('Nour'), sami = await ajout('Sami');
-    assert.match((await proprio('membre', { nom: 'Lina', adresse: o.url }, false, 'gladsheim')).text ?? '', new RegExp(`Ses trajets \\(Ulysse\\) ne sont pas gardés : Lina peut allumer son historique, et le revoir, sur ${o.url.replace(/[.]/g, '\\.')}/trajets`), 'Hestia dit au membre où régler ses trajets');
+    assert.match((await proprio('membre', { nom: 'Lina', adresse: o.url }, true, 'gladsheim')).text ?? '', new RegExp(`Ses trajets \\(Ulysse\\) ne sont pas gardés : Lina peut allumer son historique, et le revoir, sur ${o.url.replace(/[.]/g, '\\.')}/trajets`), 'Hestia dit au membre où régler ses trajets');
     const ids = Object.fromEntries((v.ctx('gladsheim').settings.members as Array<{ id: string; name: string }>).map((m) => [m.name, m.id]));
 
     // ---- Le téléphone : la vraie route OwnTracks, avec les identifiants du membre ----

@@ -30,6 +30,8 @@ const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
  * « grave ») : sa validation couvre ce qu'elle demande ensuite.
  */
 const enCours = new AsyncLocalStorage<{ pasLui: boolean; valide: boolean; fini?: boolean }>();
+/** Fermetures qui ont une validation (elle dit ce qui ne sera plus joignable) : la règle du réflexe ne les vise pas. */
+const FERMETURES = new Set(['garmr.fermer_port', 'gjoll.fermer_port', 'hlid.fermer_box']);
 
 export interface ValhallaDeps {
   notify?(text: string, o?: NotifyOpts): Promise<void>;
@@ -166,6 +168,14 @@ export class Valhalla {
     // Demandé par une autre action en cours : ce qui est réservé au propriétaire et qui demande sa validation ne passe que
     // si l'action de départ l'a eue (elle montrait ce qui change).
     if (parent && seul && why && !parent.valide) return { ok: false, text: `${f.m.name} · ${f.a.label} : ${why} — cela demande ta validation, et l'action qui le demandait ne l'a pas eue.` };
+    // Un réflexe (une appli qui en appelle une autre, sans le propriétaire en personne : réflexe, veille, automatisation)
+    // n'atteint une action grave que si l'action de départ a été validée par lui (sa validation montrait ce qui suit).
+    // Sinon : refusé, jamais fait en silence, et il est prévenu. (L'étape déclarée « interne » d'une action qu'il a lancée
+    // lui-même garde la règle ci-dessus.) Fermer un port n'ouvre rien : un réflexe peut toujours fermer, comme avant.
+    if (o.entreApplis && why && pasLui && !parent?.valide && !FERMETURES.has(`${f.m.id}.${f.a.id}`)) {
+      this.alert(f.m.id, { level: 'haute', title: `Refusé sans ta validation : ${f.a.label}`, detail: `${why} (demandé par ${o.why ?? 'une autre appli'}). Si tu le veux, lance-le toi-même dans ${f.m.name} : sa validation te montrera ce qui change.`, key: `sans-validation:${f.a.id}:${why.slice(0, 80)}` });
+      return { ok: false, text: `${f.m.name} · ${f.a.label} : ${why} — cela demande ta validation, et l'action qui le demandait ne l'a pas eue.` };
+    }
     for (const p of f.a.params ?? []) if (p.required && (input[p.key] === undefined || input[p.key] === '')) return { ok: false, text: `Il manque « ${p.label} ».` };
     const by: By = o.by ?? (o.auto ? 'automatisation' : 'toi');
     try {

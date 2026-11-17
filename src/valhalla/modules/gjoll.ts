@@ -43,6 +43,8 @@ function server(ctx: ModCtx): Server {
   if (!/^[A-Za-z][A-Za-z0-9_-]{0,14}$/.test(String(sv.iface))) sv = { ...sv, iface: 'wg0' };
   return sv;
 }
+/** Le port du VPN, lu sans rien créer (pour ce que montre une validation). */
+const portVpn = (ctx?: ModCtx): number => Number((ctx?.settings.server as Server | undefined)?.port) || 51820;
 /** Complète ce qui dépend de la machine (une fois) : réseaux de la maison, DNS, façon de faire suivre le trafic. */
 async function ready(ctx: ModCtx): Promise<Server> {
   const sv = server(ctx); let changed = false;
@@ -273,7 +275,10 @@ export const gjoll: Module = {
       const top = [...rows].sort((a, b) => b.up + b.down - a.up - a.down).slice(0, 15);
       return { text: [`🔎 Trafic du VPN ${day ? `le ${day}` : 'en direct'} :`, ...[...per].map(([d, o]) => `- ${d} : ↑ ${human(o.up)} · ↓ ${human(o.down)}`), 'Plus gros échanges :', ...top.map((x) => `- ${x.device} → ${x.name ? `${x.name} (${x.remote})` : x.remote} · ${whereTo(x.remote, sv)} · ${serviceOf(x.proto, x.port)} · ↑ ${human(x.up)} ↓ ${human(x.down)}`)].join('\n'), data: { rows } };
     } },
-    { id: 'ouvrir_port', label: 'Ouvrir le port du VPN sur la box', what: 'Odin ouvre lui-même le port du VPN sur la box (UPnP). Par ce seul port : Odin, son DNS (pubs bloquées), la maison et Internet par la maison', quick: false, run: async (ctx) => {
+    { id: 'ouvrir_port', label: 'Ouvrir le port du VPN sur la box', what: 'Odin ouvre lui-même le port du VPN sur la box (UPnP). Par ce seul port : Odin, son DNS (pubs bloquées), la maison et Internet par la maison', quick: false,
+      // Ouvrir la box vers la maison : ta validation, en voyant le port (lu sans rien créer).
+      grave: (_i, ctx) => `ouvrir le port ${portVpn(ctx)}/udp de la box vers cette machine (UPnP) : le VPN de la maison devient joignable depuis Internet`,
+      run: async (ctx) => {
       const sv = server(ctx);
       // La box refuse ou n'a pas l'UPnP : l'étape repasse au réglage à la main (« C'est fait »).
       const r = await openPorts([{ port: sv.port, proto: 'UDP' }], 'Odin · VPN Vortex', ctx.fetch).catch((e) => { ctx.saveSettings({ upnpFailed: true }); throw new Error(`${(e as Error).message}. Ouvre-le à la main : UDP ${sv.port} vers cette machine dans « Redirection de ports » de la box, puis « C'est fait ».`); });
@@ -298,7 +303,7 @@ export const gjoll: Module = {
       return { text: `🌍 Ton adresse publique : ${ip}. Les appareils joindront ${ip}:${sv.port}. Si ta box change d'adresse (redémarrage), mets plutôt un nom de domaine.` };
     } },
     { id: 'port', label: 'Port ouvert sur la box', what: 'Note que la redirection du port est faite sur la box', quick: false, params: [{ key: 'ouvert', label: 'Port ouvert', kind: 'boolean', default: true }], run: (ctx, i) => { ctx.saveSettings({ portOpened: i.ouvert !== false }); return { text: i.ouvert !== false ? '👍 Noté. Prochaine étape : allumer le tunnel.' : 'Noté : port pas encore ouvert.' }; } },
-    { id: 'allumer', label: 'Allumer le tunnel', what: 'Démarre le VPN (et au démarrage de la machine)', grave: () => 'allumer le VPN de la maison', run: async (ctx) => {
+    { id: 'allumer', label: 'Allumer le tunnel', what: 'Démarre le VPN (et au démarrage de la machine)', grave: (_i, ctx) => `allumer le VPN de la maison : le port ${portVpn(ctx)}/udp s'ouvre dans le pare-feu de la machine (Cerbère)`, run: async (ctx) => {
       const msg = await bringUp(ctx); ctx.saveSettings({ on: true });
       return { text: `${msg}${await openOnHost(ctx, [[server(ctx).port, 'udp', 'VPN Vortex']])}` };
     } },
@@ -348,10 +353,18 @@ export const gjoll: Module = {
       ctx.saveSettings({ server: nsv, ...(port !== sv.port ? { portOpened: false } : {}) });
       return { text: `⚙️ Port ${port}${mtu ? ` · MTU ${mtu}` : ''} · maintien ${ka} s.${port !== sv.port ? ` Ouvre le port ${port} (UDP) sur la box, et rescanne les QR codes.` : ' Rescanne les QR codes pour appliquer sur les appareils.'}\n${await apply(ctx)}` };
     } },
-    { id: 'activer', label: 'Activer / désactiver', what: 'Coupe ou rouvre l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: false }], run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).map((p) => (p.name === s(i.nom) ? { ...p, enabled: i.actif === true } : p)) }); return { text: `${i.actif === true ? '✅ Réactivé' : '⏸ Désactivé'} : ${s(i.nom)}\n${await apply(ctx)}` }; } },
+    { id: 'activer', label: 'Activer / désactiver', what: 'Coupe ou rouvre l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: false }],
+      grave: (i) => (i.actif === true ? `rouvrir l'accès au VPN de la maison pour l'appareil « ${s(i.nom)} »` : undefined), // couper reste libre
+      run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).map((p) => (p.name === s(i.nom) ? { ...p, enabled: i.actif === true } : p)) }); return { text: `${i.actif === true ? '✅ Réactivé' : '⏸ Désactivé'} : ${s(i.nom)}\n${await apply(ctx)}` }; } },
     { id: 'revoquer', label: 'Révoquer', what: 'Supprime définitivement l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], grave: (i) => `révoquer l'accès VPN de « ${s(i.nom)} »`, run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).filter((p) => p.name !== s(i.nom)) }); await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${s(i.nom)}` }, 'accès VPN révoqué').catch(() => undefined); return { text: `🗝 Accès de ${s(i.nom)} révoqué.\n${await apply(ctx)}` }; } },
     { id: 'adresse', label: 'Adresse publique', what: 'Adresse ou domaine par lequel on joint la maison', params: [{ key: 'adresse', label: 'Adresse ou domaine', kind: 'text', required: true }, { key: 'port', label: 'Port', kind: 'number', default: 51820 }], run: async (ctx, i) => { const sv = await ready(ctx), adr = s(i.adresse).trim(); if (!/^[\w.-]{1,200}$/.test(adr)) throw new Error('adresse ou domaine invalide'); ctx.saveSettings({ server: { ...sv, endpoint: adr, port: Number(i.port) || 51820 } }); return { text: `🌍 Les appareils joindront ${adr}:${Number(i.port) || 51820}. Pense à ouvrir ce port (UDP) sur ta box vers cette machine.\n${await apply(ctx)}` }; } },
-    { id: 'reseaux', label: 'Réseaux de la maison', what: 'Réseaux ouverts aux appareils du VPN, et DNS donné aux appareils', params: [{ key: 'reseaux', label: 'Réseaux (ex. 192.168.1.0/24, séparés par des virgules)', kind: 'text', default: '' }, { key: 'dns', label: 'DNS (vide = celui de la box)', kind: 'text', default: '' }], run: async (ctx, i) => {
+    { id: 'reseaux', label: 'Réseaux de la maison', what: 'Réseaux ouverts aux appareils du VPN, et DNS donné aux appareils', params: [{ key: 'reseaux', label: 'Réseaux (ex. 192.168.1.0/24, séparés par des virgules)', kind: 'text', default: '' }, { key: 'dns', label: 'DNS (vide = celui de la box)', kind: 'text', default: '' }],
+      // Ouvrir un réseau de plus aux appareils du VPN : validation, avant → après. Retirer un réseau, changer le DNS : libre.
+      grave: (i, ctx) => {
+        const avant = ((ctx?.settings.server as Server | undefined)?.lan) ?? [], apres = s(i.reseaux).split(',').map((x) => x.trim()).filter(Boolean);
+        return apres.some((x) => !avant.includes(x)) ? `ouvrir aux appareils du VPN les réseaux de la maison : ${avant.join(', ') || 'aucun'} → ${apres.join(', ')}` : undefined;
+      },
+      run: async (ctx, i) => {
       const sv = await ready(ctx), lan = s(i.reseaux).split(',').map((x) => x.trim()).filter(Boolean), dns = s(i.dns).trim();
       if (lan.some((c) => !/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(c))) throw new Error('réseau attendu sous la forme 192.168.1.0/24');
       if (dns && !/^\d{1,3}(\.\d{1,3}){3}(,\s*\d{1,3}(\.\d{1,3}){3})*$/.test(dns)) throw new Error('DNS : une ou plusieurs adresses IP');
