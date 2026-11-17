@@ -16,7 +16,7 @@ import { draupnirOf } from '../tools/draupnir.ts';
 import { nomMoyen, sourcesOdin, type ElementAgenda, type Ligne, type SourceJobs } from '../valhalla/automatismes.ts';
 import { bookingsDe, oublierRappel } from '../valhalla/frigg/perso.ts';
 import { lieuCourant } from '../valhalla/lieu.ts';
-import { LINKS, type Link, type Protection } from '../valhalla/links.ts';
+import { LINKS, type Coupure, type Link, type Protection } from '../valhalla/links.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import type { Valhalla } from '../valhalla/service.ts';
 
@@ -128,16 +128,15 @@ function lignesRdv(c: Contexte): Ligne[] {
 /**
  * Un lien automatique écrit dans le code d'Odin (src/valhalla/links.ts), montré tel quel dans la liste : quand telle
  * appli signale telle chose → ce qui se fait. LECTURE SEULE (ni pause, ni bouton) : les couper viendra plus tard.
+ * `id` : `lien:` + l'identifiant écrit à la main dans links.ts ; `coupure` : comment il pourra se couper (montré seulement).
  * Gardé à part des autres lignes (ni dans l'agenda, ni dans l'onglet « Auto » d'une appli, ni dans les routes qui agissent).
  */
 export interface LigneLien {
   id: string; sorte: 'lien_ecrit'; de: string; vers: string; deNom: string; versNom: string;
-  quand: string; fait: string; genre: Link['kind']; etat: 'actif' | 'inactif'; protege: Protection | false;
+  quand: string; fait: string; genre: Link['kind']; etat: 'actif' | 'inactif'; protege: Protection | false; coupure: Coupure;
   /** Pourquoi un lien est inactif : les applis d'Odin ne tournent pas, ou l'une des deux applis du lien est absente. */
   pourquoi?: string;
 }
-/** Une empreinte courte et stable d'un texte (FNV-1a 32 bits), pour l'identifiant d'un lien. */
-const empreinte = (t: string) => { let h = 0x811c9dc5; for (const ch of t) { h ^= ch.codePointAt(0)!; h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(36); };
 /** Chaque lien écrit, une fois et une seule, dans l'ordre du fichier. */
 export function lignesLiensEcrits(v?: Valhalla, liens: readonly Link[] = LINKS): LigneLien[] {
   const nom = (id: string) => v?.module(id)?.name ?? id;
@@ -147,8 +146,8 @@ export function lignesLiensEcrits(v?: Valhalla, liens: readonly Link[] = LINKS):
   return liens.map((l) => {
     const p = pourquoi(l);
     return {
-      id: `lien:${l.from}>${l.to}:${empreinte(l.when)}`, sorte: 'lien_ecrit', de: l.from, vers: l.to, deNom: nom(l.from), versNom: nom(l.to),
-      quand: l.when, fait: l.does, genre: l.kind, etat: p ? 'inactif' : 'actif', ...(p ? { pourquoi: p } : {}), protege: l.protege,
+      id: `lien:${l.id}`, sorte: 'lien_ecrit', de: l.from, vers: l.to, deNom: nom(l.from), versNom: nom(l.to),
+      quand: l.when, fait: l.does, genre: l.kind, etat: p ? 'inactif' : 'actif', ...(p ? { pourquoi: p } : {}), protege: l.protege, coupure: l.coupure,
     };
   });
 }

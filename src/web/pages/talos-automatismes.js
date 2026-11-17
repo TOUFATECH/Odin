@@ -56,6 +56,17 @@
   const GENRES = { 'réflexe': 'Réflexe', 'donnée': 'Donnée', soin: 'Soin' };
   /** La phrase d'un lien, tirée du lien lui-même : « Quand … → … ». */
   const phraseLien = (l) => `Quand ${l.quand} → ${l.fait}`;
+  /**
+   * Ce que dit la déclaration « coupure » d'un lien, en lecture seule (rien ne se coupe encore) : « Pourra se couper. »,
+   * ou « Ne se coupe pas (encore) : » avec la raison écrite dans le lien.
+   */
+  function phraseCoupure(c) {
+    if (!c || typeof c !== 'object') return '';
+    if (typeof c.par === 'string') return 'Pourra se couper.';
+    if (typeof c.pas_encore === 'string') return `Ne se coupe pas encore : ${c.pas_encore}.`;
+    if (typeof c.jamais === 'string') return `Ne se coupe pas : ${c.jamais}.`;
+    return '';
+  }
 
   // ---------------- Dessin
   const el = (t, a = {}, ...kids) => {
@@ -252,7 +263,8 @@
         l.etat === 'actif' ? el('span', { class: 'pill good' }, 'Actif') : el('span', { class: 'pill warn', title: l.pourquoi || '' }, `Inactif${l.pourquoi ? ` (${l.pourquoi})` : ''}`),
         GENRES[l.genre] ? el('span', {}, GENRES[l.genre]) : null,
         p ? el('span', { class: 'pill warn' }, `Protège (${p.genre})`) : null),
-      p ? el('p', { class: 'au-pr', style: 'margin:0' }, `Pourquoi : ${p.raison}.`) : null);
+      p ? el('p', { class: 'au-pr', style: 'margin:0' }, `Pourquoi : ${p.raison}.`) : null,
+      phraseCoupure(l.coupure) ? el('p', { class: 'au-pr', style: 'margin:0' }, phraseCoupure(l.coupure)) : null);
   }
 
   /** Le bloc « Liens entre applis » : un groupe repliable par appli qui signale, et un filtre « Qui protègent ». */
@@ -312,5 +324,5 @@
     box.replaceChildren(sec);
   }
 
-  window.OdinAutomatismes = { monter, ligne, liste, noms, ouvrir, logique: { FILTRES, filtrer, duree, grouperLiens, phraseLien } };
+  window.OdinAutomatismes = { monter, ligne, liste, noms, ouvrir, logique: { FILTRES, filtrer, duree, grouperLiens, phraseLien, phraseCoupure } };
 })();
