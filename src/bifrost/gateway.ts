@@ -45,6 +45,7 @@ import { alerteNoyauUneFois } from '../heimdall/noyau.ts';
 import { reponsesEnCours } from '../brain/nous/occupation.ts';
 const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
 import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
+import { noterDemande } from '../muninn/personnes.ts';
 import { extractSecret, keepSecret } from '../machines/onboard.ts';
 import { careServices, runUpdates, updateDue } from '../guard/care.ts';
 import { docDirs, indexDocs } from '../tools/docindex.ts';
@@ -221,6 +222,9 @@ export class Gateway {
       await ch.send(m.peer, `🔐 J'ai mis ${k.cles.length > 1 ? `ces ${k.cles.length} clés` : 'cette clé'} au coffre : je ne la garde pas en clair et elle ne part pas vers l'IA. Change-la si elle a circulé ailleurs.`).catch(() => {});
     } }
     if (owner) { const x = extractSecret(m.text); if (x.secret) { keepSecret(this.odin.paths.home, x.secret, x.label); this.odin.redactor.add(x.secret); m = { ...m, text: x.text }; } }
+    // Profil : qui a demandé, quand, avec quelle preuve (des renvois, jamais le texte). Après le retrait des secrets ;
+    // ne lève jamais et écrit plus tard : ne peut ni faire échouer ni ralentir ce message.
+    noterDemande(this.odin.muninn, { canal: m.channel, pair: m.peer, proprietaire: owner, proprietaires: this.opts.owners[m.channel] ?? [] });
     const text = m.text.trim();
 
     // Commandes prioritaires, traitées même pendant qu'un tour est en cours.

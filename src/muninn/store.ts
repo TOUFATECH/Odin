@@ -92,6 +92,17 @@ interface SkillRow { name: string; uses: number; last_used: number; ok: number; 
 interface UsageRow { id: number; session_id: string; provider: string; tokens_in: number; tokens_out: number; cost_usd: number; created_at: number; purpose: string }
 interface IdentityRow { channel: string; peer: string; user_id: string }
 interface RoutingRow { id: number; at: number; turn_id: string; session_id: string; channel: string; request: string; purpose: string; provider: string; label: string; tier: string; min_tier: string; need: string; reason: string; attempts: string; ok: number; ms: number; tokens_in: number; tokens_out: number; cost_usd: number; jalons?: string }
+/** Profil : ce qu'une personne a demandé ou fait (src/muninn/personnes.ts). */
+export type SortePersonne = 'demande' | 'action' | 'decision' | 'validation' | 'refus' | 'connexion';
+/** Comment on sait que c'est bien elle : session du propriétaire, appareil appairé, code prouvé au téléphone, ou rien. */
+export type PreuveIdentite = 'session-proprietaire' | 'appareil-appaire' | 'code-prouve' | 'non-prouve';
+/**
+ * Une ligne de l'historique d'une personne : des RENVOIS (session, message, tour), jamais une copie du texte.
+ * `qui` : l'id de la personne, « proprietaire » (le propriétaire sans fiche dans la mémoire), ou null (appairé, sans personne).
+ */
+export interface LigneHistorique { id: number; t: number; qui: string | null; session: string; canal: string; sorte: SortePersonne; preuve: PreuveIdentite; partage: boolean; resultat?: string; message?: number; mission?: string }
+/** Le lien entre une personne de la mémoire et une personne de Persona, posé à la main (par le propriétaire). */
+export interface LienPersonaRow { user_id: string; persona_id: string; par: string; t: number }
 /** Conversation mise à la corbeille : effacée pour de bon après 7 jours, sauf si on l'annule. */
 export interface TrashRow { id: string; session: SessionRow; messages: MessageRow[]; deleted_at: number; memories: number[] }
 
@@ -127,6 +138,13 @@ export class Mnemosyne {
   private readonly identities: Table<IdentityRow & Record<string, unknown>>;
   private readonly routing: Table<RoutingRow & Record<string, unknown>>;
   private readonly trash: Table<TrashRow & Record<string, unknown>>;
+  private readonly histoPersonnes: Table<LigneHistorique & Record<string, unknown>>;
+  private readonly notesPersonnes: Table<{ user_id: string; texte: string; t: number } & Record<string, unknown>>;
+  private readonly liensPersona: Table<LienPersonaRow & Record<string, unknown>>;
+  private readonly partages: Table<{ channel: string; peer: string; t: number } & Record<string, unknown>>;
+  private readonly inconnusParCanal: Table<{ channel: string; n: number; dernier: number } & Record<string, unknown>>;
+  /** Profil : qui écoute le départ d'un tour (mission) et le message de la personne (src/muninn/personnes.ts). */
+  private readonly ecouteursTour: Array<(e: { session: string; mission?: string; message?: number }) => void> = [];
   /** Mode privé : les messages restent en mémoire vive (rien sur le disque) et Odin ne retient rien. */
   privateMode = false;
   private readonly bySession = new Map<string, MessageRow[]>();
@@ -163,6 +181,11 @@ export class Mnemosyne {
     this.identities = s.table('identities', (r) => pk2(r.channel, r.peer));
     this.routing = s.table('routing', (r) => r.id);
     this.trash = s.table('corbeille', (r) => r.id);
+    this.histoPersonnes = s.table('personnes_historique', (r) => r.id);
+    this.notesPersonnes = s.table('personnes_notes', (r) => r.user_id);
+    this.liensPersona = s.table('personnes_liens', (r) => r.user_id);
+    this.partages = s.table('personnes_partages', (r) => pk2(r.channel, r.peer));
+    this.inconnusParCanal = s.table('personnes_inconnus', (r) => r.channel);
     for (const m of this.messages.values()) this.indexMessage(m);
     for (const m of this.memories.values()) this.memIndex.add(m.id, `${m.content} ${m.tags ?? ''}`);
   }
@@ -205,6 +228,7 @@ export class Mnemosyne {
     if (!this.privateMode) this.indexMessage(row); else { const a = this.bySession.get(sessionId) ?? []; a.push(row); this.bySession.set(sessionId, a); }
     if (!this.privateMode) this.sessions.patch(sessionId, { updated_at: now });
     if (m.tainted) this.markTainted(sessionId);
+    if (m.role === 'user') this.signalerTour({ session: sessionId, message: row.id });
     return row.id;
   }
 
@@ -462,6 +486,50 @@ export class Mnemosyne {
   }
   unlinkIdentity(channel: string, peer: string): void { this.identities.delete(pk2(channel, peer)); this.pairings.delete(pk2(channel, peer)); }
 
+  // ---------- Profil : historique par personne, note, lien Persona (src/muninn/personnes.ts) ----------
+
+  /** Ajoute une ligne à l'historique des personnes (renvois seulement). Mode privé : rien n'est noté (rend 0). */
+  noterHistorique(l: Omit<LigneHistorique, 'id'>): number {
+    if (this.privateMode) return 0;
+    return this.histoPersonnes.insert(l as Omit<LigneHistorique & Record<string, unknown>, 'id'>).id;
+  }
+  /** Les lignes de l'historique qui passent le filtre, dans l'ordre du temps. */
+  lignesHistorique(f: (l: LigneHistorique) => boolean): LigneHistorique[] { return this.histoPersonnes.filter(f).sort((a, b) => a.t - b.t || a.id - b.id); }
+  /** Efface des lignes de l'historique pour de bon (le fichier est réécrit sans elles). Rend leur nombre. */
+  effacerLignesHistorique(f: (l: LigneHistorique) => boolean): number { const n = this.histoPersonnes.deleteWhere(f); if (n) this.histoPersonnes.compact(); return n; }
+  /** Les tours (missions) d'une conversation, du plus ancien au plus récent. */
+  missionsDeSession(sessionId: string): MissionRow[] { return this.missions.filter((m) => m.session_id === sessionId).sort((a, b) => a.started_at - b.started_at); }
+  /** Le nombre de souvenirs dont le sujet est exactement celui-là (« personne:<nom> »). */
+  souvenirsDuSujet(subject: string): number { const s = subject.trim().toLowerCase().slice(0, 60); return s ? this.memories.filter((m) => m.subject === s).length : 0; }
+  /** La note libre écrite par le propriétaire sur une personne ('' sans note). */
+  notePersonne(userId: string): string { return this.notesPersonnes.get(userId)?.texte ?? ''; }
+  /** Écrit (ou efface, avec un texte vide) la note libre du propriétaire sur une personne. */
+  ecrireNotePersonne(userId: string, texte: string): void {
+    if (!this.users.has(userId)) throw new Error('personne inconnue');
+    const t = String(texte ?? '').trim().slice(0, 2000);
+    if (t) this.notesPersonnes.put({ user_id: userId, texte: t, t: Date.now() }); else this.notesPersonnes.delete(userId);
+  }
+  /** Les liens posés à la main entre une personne de la mémoire et une personne de Persona (lecture seule ici). */
+  liensPersonaTous(): LienPersonaRow[] { return this.liensPersona.all(); }
+  /** Cette identité (canal, pair) est-elle marquée « appareil partagé » (le compte, pas la personne) ? */
+  appareilPartage(channel: string, peer: string): boolean { return this.partages.has(pk2(channel, peer)); }
+  /** Un message d'un inconnu non appairé : un compteur par canal, sans texte ni identifiant. */
+  compterInconnu(channel: string, at = Date.now()): void {
+    if (this.privateMode) return;
+    const c = String(channel).slice(0, 40), r = this.inconnusParCanal.get(c);
+    this.inconnusParCanal.put({ channel: c, n: (r?.n ?? 0) + 1, dernier: at });
+  }
+  /** Complète une ligne de l'historique par ses renvois (le tour et le message), posés au départ du tour. */
+  completerHistorique(id: number, p: { mission?: string; message?: number }): void { if (this.histoPersonnes.has(id)) this.histoPersonnes.patch(id, p); }
+  /** Écoute le départ d'un tour et le message de la personne ; l'écouteur ne peut rien casser (ses erreurs sont avalées). */
+  ecouterTour(f: (e: { session: string; mission?: string; message?: number }) => void): void { this.ecouteursTour.push(f); }
+  private signalerTour(e: { session: string; mission?: string; message?: number }): void { for (const f of this.ecouteursTour) { try { f(e); } catch { /* jamais bloquant */ } } }
+  /** Le nombre de lignes du journal d'aiguillage d'une conversation sur une période (elles gardent le début de la demande, masqué). */
+  aiguillagesDeSession(sessionId: string, p: { depuis?: number; jusqua?: number } = {}): number {
+    return this.routing.filter((r) => r.session_id === sessionId && (p.depuis === undefined || r.at >= p.depuis) && (p.jusqua === undefined || r.at <= p.jusqua)).length;
+  }
+  inconnus(): Record<string, { n: number; dernier: number }> { const out: Record<string, { n: number; dernier: number }> = {}; for (const r of this.inconnusParCanal.values()) out[r.channel] = { n: r.n, dernier: r.dernier }; return out; }
+
   // ---------- Appairage des inconnus (canaux de messagerie) ----------
 
   pairingStatus(channel: string, peer: string): 'approved' | 'pending' | 'none' {
@@ -636,6 +704,7 @@ export class Mnemosyne {
     if (this.missions.has(m.id)) throw new Error(`mission déjà existante : ${m.id}`);
     const now = Date.now();
     this.missions.put({ id: m.id, session_id: m.sessionId, goal: m.goal.slice(0, 300), status: 'en cours', origin: m.origin, steps: 0, tool_calls: 0, cost_usd: 0, subagents: 0, last_tool: '', result: '', started_at: now, updated_at: now, ended_at: null });
+    this.signalerTour({ session: m.sessionId, mission: m.id });
   }
   progressMission(id: string, p: { steps?: number; toolCalls?: number; costUsd?: number; subagents?: number; lastTool?: string }): void {
     const m = this.missions.get(id); if (!m) return;
