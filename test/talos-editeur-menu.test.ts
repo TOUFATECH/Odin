@@ -2,7 +2,7 @@
 // - Logique (sans document) : un nom vide ou déjà pris est refusé avec sa raison ; la note posée, modifiée, retirée
 //   (un bloc sans note n'a rien de plus).
 // - Page (petit document simulé, aucun navigateur) : le menu s'ouvre au clic droit, à l'appui long au doigt, par le
-//   bouton « ⋯ » et au clavier ; il n'a que Exécuter ce bloc seul (étape 5b), Renommer, Ajouter (ou Modifier) la note, Retirer ; Échap, Tab, un toucher
+//   bouton « ⋯ » et au clavier ; il n'a que Exécuter ce bloc seul (étape 5b), Renommer, Copier (étape 5c), Ajouter (ou Modifier) la note, Retirer ; Échap, Tab, un toucher
 //   ailleurs le referment ; le clic droit garde le menu du navigateur hors des blocs ; renommer sur place (les fils
 //   suivent), le double-clic sur le nom ; la note marquée sur le bloc et lisible ; un nom ou une note piégés restent
 //   du texte ; ouvrir puis enregistrer à l'identique.
@@ -196,7 +196,7 @@ test('page : le clic droit sur un bloc ouvre son menu (Exécuter ce bloc seul, R
   assert.ok(m, 'un menu s\'ouvre');
   assert.equal(m.getAttribute('role'), 'menu');
   assert.match(m.getAttribute('aria-label') ?? '', /Si/);
-  assert.deepEqual(choixDuMenu(), ['Exécuter ce bloc seul', 'Renommer', 'Ajouter une note', 'Retirer'], 'ces quatre choix (le premier : étape 5b), et seulement eux');
+  assert.deepEqual(choixDuMenu(), ['Exécuter ce bloc seul', 'Renommer', 'Copier', 'Ajouter une note', 'Retirer'], 'ces cinq choix (le premier : étape 5b ; « Copier » : étape 5c), et seulement eux');
   assert.ok(m.querySelectorAll('button').every((b) => b.getAttribute('role') === 'menuitem'));
   assert.equal(actif, m.querySelector('button'), 'le focus va au premier choix');
   // Un clic droit sur un rond ou le « + » du bloc : le même menu.
@@ -227,7 +227,7 @@ test('page : le bouton « ⋯ » de chaque bloc ouvre le même menu ; sa zone de
   await mb.emettre('pointerdown', { clientX: 400, clientY: 100, pointerId: 5, button: 0, pointerType: 'touch' });
   await mb.emettre('pointerup', { clientX: 400, clientY: 100, pointerId: 5, pointerType: 'touch' });
   await mb.emettre('click', { clientX: 400, clientY: 100, detail: 1 });
-  assert.deepEqual(choixDuMenu(), ['Exécuter ce bloc seul', 'Renommer', 'Ajouter une note', 'Retirer']);
+  assert.deepEqual(choixDuMenu(), ['Exécuter ce bloc seul', 'Renommer', 'Copier', 'Ajouter une note', 'Retirer']);
   assert.match(menu()!.getAttribute('aria-label') ?? '', /Attendre/);
   assert.equal(racine.querySelectorAll('.dr-fil-menu').length, 1);
   assert.equal(p.body.querySelector('#drNn'), null, 'le bloc n\'est pas choisi pour autant');
@@ -407,7 +407,7 @@ test('page : « Ajouter une note » : un texte attaché au bloc, marqué sur le 
   assert.equal('note' in (f.nodes[2] as object), false, 'les autres blocs n\'ont rien de plus');
   // Modifier.
   await clicDroit(p.bloc('Si'));
-  assert.deepEqual(choixDuMenu(), ['Exécuter ce bloc seul', 'Renommer', 'Modifier la note', 'Retirer']);
+  assert.deepEqual(choixDuMenu(), ['Exécuter ce bloc seul', 'Renommer', 'Copier', 'Modifier la note', 'Retirer']);
   await p.bouton('Modifier la note', menu()!)!.emettre('click'); await attendre();
   assert.equal(fenNote()!.querySelector('textarea')!.textContent, 'Seuil choisi avec Maëlle\nà revoir en mars', 'la note d\'avant est reprise');
   fenNote()!.querySelector('textarea')!.value = 'Seuil à 3';

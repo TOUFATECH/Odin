@@ -221,6 +221,43 @@
     if (n.note === t) return false;
     n.note = t; return true;
   }
+  // ---------------- Copier / coller un bloc, le zoom (fonctions pures).
+  /**
+   * La copie d'un bloc : son nom (base du nom de la copie), son type, ses réglages (copiés à part), sa place, sa note et
+   * son état désactivé. Ni son identifiant ni ses fils. Elle reste dans la page : rien ne va au presse-papiers du système
+   * (un mot de passe ou une clé écrits dans un réglage n'en sortent pas).
+   */
+  function copieDe(n) {
+    const c = { name: n.name, type: n.type, params: JSON.parse(JSON.stringify(n.params ?? {})), position: [n.position?.[0] ?? 0, n.position?.[1] ?? 0] };
+    if (typeof n.note === 'string' && n.note !== '') c.note = n.note;
+    if (n.disabled) c.disabled = true;
+    return c;
+  }
+  /**
+   * Colle la copie `c` : un nom libre (« Nom 2 »…), un peu décalée (jamais pile sur un autre bloc), SANS fil. Les données
+   * qu'elle prend chez d'autres blocs restent telles quelles. Un déclencheur se colle comme les autres blocs : l'éditeur
+   * et le moteur permettent déjà plusieurs déclencheurs. → { ok, name }.
+   */
+  function collerBloc(wf, c) {
+    const name = nomLibre(wf.nodes, c.name);
+    let x = (c.position?.[0] ?? 0) + 40, y = (c.position?.[1] ?? 0) + 40;
+    for (let i = 0; i < 200 && wf.nodes.some((n) => n.position?.[0] === x && n.position?.[1] === y); i++) { x += 40; y += 40; }
+    const n = { name, type: c.type, params: JSON.parse(JSON.stringify(c.params ?? {})), position: [x, y] };
+    // Le chemin secret d'un Webhook ou d'un Formulaire ne se recopie pas : deux blocs au même chemin partiraient ensemble
+    // (ou l'un jamais). Vide, le serveur en tire un neuf à l'enregistrement (même règle que la copie d'une automatisation).
+    if (n.type === 'déclencheur.webhook' || n.type === 'déclencheur.formulaire') n.params.chemin = '';
+    if (typeof c.note === 'string' && c.note !== '') n.note = c.note;
+    if (c.disabled) n.disabled = true;
+    wf.nodes.push(n);
+    return { ok: true, name };
+  }
+  /** Le zoom (molette, + et −) : `facteur` autour du point [mx, my] de la fenêtre, borné entre 0,4 et 1,6. */
+  function zoomer(v, facteur, mx, my) {
+    const k = Math.min(1.6, Math.max(0.4, v.k * facteur));
+    return { x: mx - (mx - v.x) * (k / v.k), y: my - (my - v.y) * (k / v.k), k };
+  }
+  /** Annuler / refaire : les 100 derniers gestes de l'éditeur au plus (dans la page seulement). */
+  const MAX_HISTOIRE = 100;
   // ---------------- « Exécuter ce bloc seul » (fonctions pures) : son entrée, ce qu'il fait, ce qui tournerait.
   const hote = (u) => { try { return new URL(String(u ?? '')).host || 'une adresse à calculer'; } catch { return 'une adresse à calculer'; } };
   /**
@@ -554,6 +591,7 @@
 .dr-note-ed label{font-size:13.5px;font-weight:600}.dr-note-ed textarea{box-sizing:border-box;width:100%;min-height:130px;padding:10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);color:var(--ink);font:inherit;font-size:14.5px;resize:vertical}
 .dr-note-ed .dr-row .btn{min-height:44px}
 .dr-seul{position:absolute;left:-11px;top:-11px;min-width:22px;height:22px;box-sizing:border-box;padding:0 6px;border-radius:11px;background:var(--good);color:var(--panel);font-size:12px;font-weight:700;line-height:22px;text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--panel);transform-origin:100% 100%;transform:scale(var(--dr-ik,1))}.dr-seul.bad{background:var(--bad)}
+#v-flows .dr-bar .btn.dr-hist{min-height:44px;min-width:44px}.dr-bar .btn.dr-hist[disabled]{opacity:.45;cursor:default}
 @media (prefers-reduced-motion:reduce){.dr-node.dr-source,.dr-choix,.dr-fil-menu{animation:none}.dr-plus span,.dr-mb span{transition:none}}
 `;
   let st = null, wf = null, outs = {}, sel = null, armed = null, last = null, view = { x: 40, y: 40, k: 1 }, dirty = false;
@@ -563,6 +601,95 @@
   const copie = (x) => (x ? JSON.parse(JSON.stringify(x)) : null);
   const cat = (t) => st?.catalog.find((c) => c.type === t);
   let elems = new Map();
+  // ---------------- Annuler / refaire, copier / coller, + et − : dans la page seulement.
+  // hist.avant : l'état d'avant chaque geste (le plus récent à la fin) ; hist.apres : ce qui se refait ; hist.pose : l'état
+  // à l'écran après le dernier geste noté ; hist.cle : le champ du dernier geste (taper dans un même champ = un seul geste).
+  // Un état : les blocs, les fils et les sorties connues. Ni le nom de l'automatisation, ni son dossier, ni les exécutions :
+  // annuler ne touche jamais ce qui a été fait hors de l'éditeur (Tester, Exécuter ce bloc seul, Enregistrer) et n'envoie rien.
+  // presse : la copie d'un bloc (copieDe), gardée par la page, jamais dans le presse-papiers du système.
+  let hist = { avant: [], apres: [], pose: null, cle: null }, presse = null, appliquerVue = null;
+  const etatEditeur = () => JSON.stringify({ nodes: wf.nodes, connections: wf.connections, outs });
+  /** Un geste vient de changer le schéma : l'état d'avant rejoint l'historique (borné), « Refaire » se vide. */
+  function noter(quoi, cle = null) {
+    if (!wf || hist.pose === null) return;
+    const e = etatEditeur(); if (e === hist.pose) return;
+    if (!(cle && cle === hist.cle && hist.avant.length)) { hist.avant.push({ etat: hist.pose, quoi }); if (hist.avant.length > MAX_HISTOIRE) hist.avant.shift(); }
+    hist.pose = e; hist.cle = cle; hist.apres = []; peindreHist();
+  }
+  /** L'écran a changé sans geste (enregistré, valeur de départ d'un champ) : c'est le nouveau point de départ, sans pas d'historique. */
+  function rebaser() { if (wf && hist.pose !== null) { hist.pose = etatEditeur(); hist.cle = null; } }
+  function peindreHist() {
+    for (const [id, liste, mot, touche] of [['drUndo', hist.avant, 'Annuler', 'Ctrl+Z'], ['drRedo', hist.apres, 'Refaire', 'Ctrl+Y']]) {
+      const b = $(`#${id}`); if (!b) continue;
+      const d = liste[liste.length - 1];
+      if (d) { b.removeAttribute?.('disabled'); b.setAttribute('title', `${mot} : ${d.quoi} (${touche})`); } else { b.setAttribute('disabled', ''); b.setAttribute('title', `${mot} (${touche}) : rien pour l'instant`); }
+    }
+  }
+  /** Annuler (`arriere`) ou refaire le dernier geste : seul l'écran change ; il est de nouveau à enregistrer. → true s'il y en avait un. */
+  function revenir(arriere) {
+    if (!wf || hist.pose === null) return false;
+    noter('un changement'); // (un changement pas encore noté devient un geste)
+    const de = arriere ? hist.avant : hist.apres, vers = arriere ? hist.apres : hist.avant, pas = de.pop();
+    if (!pas) return false;
+    vers.push({ etat: etatEditeur(), quoi: pas.quoi });
+    const s = JSON.parse(pas.etat); wf.nodes = s.nodes; wf.connections = s.connections; outs = s.outs ?? {};
+    hist.pose = etatEditeur(); hist.cle = null;
+    const surBloc = Boolean(document.activeElement?.closest?.('.dr-node'));
+    armed = null; if (sel && !wf.nodes.some((n) => n.name === sel)) sel = null;
+    dirty = true; draw(); drawSide(); peindreHist();
+    dire(`${arriere ? '↶ Annulé' : '↷ Refait'} : ${pas.quoi}. Seul l'écran a changé : à enregistrer.`);
+    if (surBloc && sel) elems.get(sel)?.focus?.();
+    return true;
+  }
+  function copierBloc(nom) {
+    const n = wf?.nodes.find((x) => x.name === nom); if (!n) return;
+    presse = copieDe(n);
+    dire(`✓ « ${nom} » copié (dans cette page seulement) : Ctrl+V pour le coller.`);
+  }
+  function collerCopie() {
+    if (!wf || !presse || !$('#drCanvas')) return false;
+    const r = collerBloc(wf, presse);
+    sel = r.name; dirty = true; noter(`coller « ${r.name} »`);
+    montrer(wf.nodes.find((n) => n.name === r.name)); draw(); drawSide();
+    dire(`✓ « ${r.name} » collé, sans ses liens.`);
+    elems.get(r.name)?.focus?.();
+    return true;
+  }
+  /** On écrit dans un champ, ou une fenêtre est ouverte : les touches sont à eux (Ctrl+C, Ctrl+V, Ctrl+Z y gardent leur sens). */
+  function enSaisie(t) {
+    if (!t || t.nodeType !== 1) return false;
+    if (t.isContentEditable || t.closest?.('.dr-saisie') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return true;
+    for (let x = t; x && x.nodeType === 1; x = x.parentElement ?? x.parent ?? null) {
+      const ce = x.getAttribute?.('contenteditable'), r = x.getAttribute?.('role');
+      if ((ce !== null && ce !== undefined && ce !== 'false') || r === 'dialog' || r === 'alertdialog' || x.tagName === 'DIALOG') return true;
+    }
+    return false;
+  }
+  /** Le bloc visé par Ctrl+C : celui qui a le focus, sinon le bloc choisi. */
+  function blocVise(t) {
+    const d = t?.closest?.('.dr-node');
+    if (d) for (const [nom, x] of elems) if (x === d) return nom;
+    return sel && wf?.nodes.some((n) => n.name === sel) ? sel : null;
+  }
+  const texteChoisi = () => { try { const s = window.getSelection?.(); return Boolean(s && !s.isCollapsed && String(s).trim()); } catch { return false; } };
+  /** Les raccourcis de l'éditeur ouvert et visible : Ctrl+Z, Ctrl+Y (ou Ctrl+Maj+Z), Ctrl+C, Ctrl+V, + et −. */
+  function raccourci(e) {
+    if (!wf || e.defaultPrevented || e.altKey) return;
+    if (!$('#drCanvas') || !$('#v-flows')?.classList?.contains('on')) return;
+    // (une fenêtre ouverte par-dessus : une confirmation, la palette ; celles qui sont cachées ne comptent pas)
+    if (choix || enSaisie(e.target) || [...(document.querySelectorAll?.('[aria-modal="true"]') ?? [])].some((x) => !x.hidden && x.getClientRects?.().length)) return;
+    const k = String(e.key ?? ''), l = k.toLowerCase(), c = Boolean(e.ctrlKey || e.metaKey);
+    let pris = false;
+    if (c && l === 'z' && !e.shiftKey) pris = revenir(true);
+    else if (c && ((l === 'y' && !e.shiftKey) || (l === 'z' && e.shiftKey))) pris = revenir(false);
+    else if (c && l === 'c' && !e.shiftKey) { const nom = texteChoisi() ? null : blocVise(e.target); if (nom) { copierBloc(nom); pris = true; } }
+    else if (c && l === 'v' && !e.shiftKey) pris = collerCopie();
+    else if (!c && (k === '+' || k === '-')) {
+      const r = $('#drCanvas').getBoundingClientRect();
+      fermerMenu(); Object.assign(view, zoomer(view, k === '+' ? 1.1 : 0.9, (r.width || 0) / 2, (r.height || 0) / 2)); appliquerVue?.(); pris = true;
+    }
+    if (pris) e.preventDefault();
+  }
 
   // Un autre écran de Talos (« Faire un lien ») a pris la page : la liste ne revient qu'à la demande.
   let ailleurs = false, jeton = 0;
@@ -657,8 +784,9 @@
   }
   const outputsOf = (n) => outs[n.name] ?? cat(n.type)?.outputs ?? ['sortie'];
   function editor(r) {
+    hist = { avant: [], apres: [], pose: etatEditeur(), cle: null }; // (une autre automatisation : historique vide)
     const box = $('#v-flows .body');
-    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes ; relie-les en tirant un fil d\'une sortie (rond à droite) jusqu\'à une étape, ou en touchant la sortie puis l\'entrée (rond à gauche). Touche un fil pour le retirer ou y ajouter un bloc. Clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc. Clic droit, appui long ou « ⋯ » sur une étape : l\'exécuter seule, la renommer, y mettre une note, la retirer (double-clic sur son nom : la renommer).';
+    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes ; relie-les en tirant un fil d\'une sortie (rond à droite) jusqu\'à une étape, ou en touchant la sortie puis l\'entrée (rond à gauche). Touche un fil pour le retirer ou y ajouter un bloc. Clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc. Clic droit, appui long ou « ⋯ » sur une étape : l\'exécuter seule, la renommer, la copier, y mettre une note, la retirer (double-clic sur son nom : la renommer). Ctrl+C puis Ctrl+V : copier et coller l\'étape choisie ; Ctrl+Z et Ctrl+Y, ou « Annuler » et « Refaire » : défaire ou refaire un geste ; + et − : zoomer.';
     const canvas = el('div', { class: 'dr-canvas', id: 'drCanvas', role: 'application', 'aria-label': 'Schéma de l\'automatisation' });
     const svg = sv('svg'); const world = el('div', { class: 'dr-world' }); canvas.append(svg, world);
     const side = el('aside', { class: 'dr-side', id: 'drSide', 'aria-label': 'Réglages' });
@@ -667,6 +795,9 @@
       el('div', { class: 'dr-bar' }, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!dirty || await window.OdinDialog.confirm('Quitter sans enregistrer ?')) openList(); } }, '← Automatisations'), el('label', { for: 'drName', class: 'sr' }, 'Nom'), el('input', { id: 'drName', class: 'dr-name', value: wf.name, oninput: (e) => { wf.name = e.target.value; dirty = true; } }),
         wf.id && window.OdinTalosDossiers ? window.OdinTalosDossiers.barre(wf, () => wf) : null,
         el('button', { class: 'btn small primary', type: 'button', onclick: save }, 'Enregistrer'), el('button', { class: 'btn small', type: 'button', onclick: () => test() }, 'Tester'), el('button', { class: 'btn small', type: 'button', onclick: () => { sel = null; drawSide(); } }, '+ Étape'),
+        // (au doigt, pas de Ctrl+Z : deux boutons ; grisés quand il n'y a rien)
+        el('button', { id: 'drUndo', class: 'btn small dr-hist', type: 'button', disabled: true, 'aria-keyshortcuts': 'Control+Z', title: 'Annuler (Ctrl+Z) : rien pour l\'instant', onclick: () => revenir(true) }, 'Annuler'),
+        el('button', { id: 'drRedo', class: 'btn small dr-hist', type: 'button', disabled: true, 'aria-keyshortcuts': 'Control+Y Control+Shift+Z', title: 'Refaire (Ctrl+Y) : rien pour l\'instant', onclick: () => revenir(false) }, 'Refaire'),
         wf.id ? el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Mettre cette automatisation à la corbeille ?', { danger: true }))) return; await api('/api/draupnir/trash', { id: wf.id }); openList(); } }, 'Corbeille') : null, status),
       el('div', { class: 'dr-ed' }, canvas, side),
       // (Pas d'exécution ni de version quand on part de zéro : rien, et surtout pas le mot « null ».)
@@ -728,7 +859,7 @@
     // Deux touchers rapprochés sur le NOM du bloc : on le renomme.
     d.addEventListener('pointerup', (e) => {
       finLong(); if (!start) return;
-      if (start.moved) { dirty = true; start = null; return; }
+      if (start.moved) { dirty = true; start = null; noter(`déplacer « ${n.name} »`); return; }
       if (start.menu) { start = null; tapNom = null; ouvrirParBouton(); return; }
       const t = { t: e.timeStamp, x: e.clientX, y: e.clientY, bloc: n.name }, surNom = start.nom; start = null;
       if (surNom && tapNom?.bloc === n.name && estDoubleTouche(tapNom, t)) { tapNom = null; commencerRenommer(n.name); return; }
@@ -759,7 +890,7 @@
     });
     return d;
   }
-  function link(from, out, to) { if (relier(wf, from, out, to)) dirty = true; }
+  function link(from, out, to) { if (relier(wf, from, out, to)) { dirty = true; noter(`relier « ${from} » à « ${to} »`); } }
   /** Le point (en coordonnées du schéma) sous le pointeur. */
   const sousPointeur = (e) => { const r = $('#drCanvas')?.getBoundingClientRect?.() ?? { left: 0, top: 0 }; return [(e.clientX - r.left - view.x) / view.k, (e.clientY - r.top - view.y) / view.k]; };
   // Fil tiré : depuis une sortie, le fil suit le pointeur ; lâché sur un bloc, le lien se pose (mêmes refus que les deux
@@ -819,11 +950,11 @@
   /** Ouvre le menu du fil `fil` ({ de, out, vers }) au point [x, y] de la fenêtre du schéma. */
   function ouvrirMenu(fil, point, zone) {
     menuDe({ label: `Lien ${fil.de} → ${fil.vers}`, point, zone, retour: () => [...($('#drCanvas svg')?.querySelectorAll('.dr-fil') ?? [])].find((x) => x.getAttribute('data-cle') === cleFil(fil)), choix: [
-      ['Retirer ce lien', async () => { if (!(await window.OdinDialog.confirm(`Retirer le lien ${fil.de} → ${fil.vers} ?`))) return; if (retirerLien(wf, fil.de, fil.out, fil.vers)) { dirty = true; draw(); } }],
+      ['Retirer ce lien', async () => { if (!(await window.OdinDialog.confirm(`Retirer le lien ${fil.de} → ${fil.vers} ?`))) return; if (retirerLien(wf, fil.de, fil.out, fil.vers)) { dirty = true; noter(`détacher « ${fil.de} » de « ${fil.vers} »`); draw(); } }],
       ['Ajouter un bloc ici', () => void ouvrirChoix({ milieu: fil })]] });
   }
   /**
-   * Le menu d'un bloc (clic droit, appui long, « ⋯ », touche Menu) : Exécuter ce bloc seul, Renommer, Ajouter / Modifier la note, Retirer.
+   * Le menu d'un bloc (clic droit, appui long, « ⋯ », touche Menu) : Exécuter ce bloc seul, Renommer, Copier, Ajouter / Modifier la note, Retirer.
    * Même dessin et mêmes gestes que celui d'un fil ; Échap rend le focus au bloc.
    */
   function menuBloc(nom, point, auDoigt = false) {
@@ -831,6 +962,7 @@
     menuDe({ label: `Bloc ${nom}`, point, bloc: nom, auDoigt, retour: () => elems.get(nom), choix: [
       ['Exécuter ce bloc seul', () => void executerSeul(nom)],
       ['Renommer', () => commencerRenommer(nom)],
+      ['Copier', () => copierBloc(nom)],
       [typeof n.note === 'string' && n.note !== '' ? 'Modifier la note' : 'Ajouter une note', () => ouvrirNote(nom)],
       ['Retirer', () => removeNode(nom)]] });
   }
@@ -911,7 +1043,7 @@
     const finir = (texte) => {
       fermerChoix();
       const m = wf.nodes.find((x) => x.name === nom);
-      if (texte !== null && m && poserNote(m, texte)) { dirty = true; draw(); dire(m.note ? `✓ Note de « ${nom} » enregistrée.` : `✓ Note de « ${nom} » retirée.`); }
+      if (texte !== null && m && poserNote(m, texte)) { dirty = true; noter(`note de « ${nom} »`); draw(); dire(m.note ? `✓ Note de « ${nom} » enregistrée.` : `✓ Note de « ${nom} » retirée.`); }
       elems.get(nom)?.focus?.();
     };
     const ta = el('textarea', { id: 'drNoteT', spellcheck: 'true' }, avant);
@@ -1015,14 +1147,14 @@
       if (!estDoubleTouche(tap, t)) { tap = t; return; }
       tap = null; const r = canvas.getBoundingClientRect(); void ouvrirChoix({ a: pointSchema(t.x - r.left, t.y - r.top) });
     });
-    canvas.addEventListener('wheel', (e) => { e.preventDefault(); fermerMenu(); const k = Math.min(1.6, Math.max(0.4, view.k * (e.deltaY < 0 ? 1.1 : 0.9))); const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; apply(); }, { passive: false });
-    apply();
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); fermerMenu(); const r = canvas.getBoundingClientRect(); Object.assign(view, zoomer(view, e.deltaY < 0 ? 1.1 : 0.9, e.clientX - r.left, e.clientY - r.top)); apply(); }, { passive: false });
+    appliquerVue = apply; apply();
   }
   async function removeNode(name) {
     if (!(await window.OdinDialog.confirm(`Retirer l'étape « ${name} » ?`))) return;
     wf.nodes = wf.nodes.filter((n) => n.name !== name); delete wf.connections[name]; retires.add(name);
     for (const list of Object.values(wf.connections)) for (const t of list) for (let i = t.length - 1; i >= 0; i--) if (t[i].node === name) t.splice(i, 1);
-    sel = null; dirty = true; draw(); drawSide();
+    sel = null; dirty = true; noter(`retirer « ${name} »`); draw(); drawSide();
   }
   function drawSide() {
     const side = $('#drSide'); if (!side) return;
@@ -1049,10 +1181,10 @@
     const fields = (c?.params ?? []).filter((p) => !cache.includes(p.key)).map((p) => {
       if (planning && ((p.key === 'cron' && mode !== 'cron') || (p.key === 'minutes' && mode !== 'intervalle') || (p.kind === 'rythme' && mode !== 'simple'))) return [];
       const id = `drp-${p.key}`, v = planning && p.key === 'mode' ? mode : n.params[p.key] ?? p.default ?? '';
-      const set = (val) => { n.params[p.key] = val; dirty = true; if (planning && p.key === 'mode') drawSide(); };
+      const set = (val) => { n.params[p.key] = val; dirty = true; noter(`régler « ${n.name} »`, `${n.name}\u0000${p.key}`); if (planning && p.key === 'mode') drawSide(); };
       if (p.kind === 'rythme') {
         // Le rythme en clair ; l'éditeur donne la valeur de départ tout de suite : ce n'est pas une modification.
-        const setR = (val) => { const avant = n.params[p.key] ?? p.default; if (JSON.stringify(val) === JSON.stringify(avant)) { if (n.params[p.key] === undefined) n.params[p.key] = val; return; } set(val); };
+        const setR = (val) => { const avant = n.params[p.key] ?? p.default; if (JSON.stringify(val) === JSON.stringify(avant)) { if (n.params[p.key] === undefined) { n.params[p.key] = val; rebaser(); } return; } set(val); };
         const input = window.OdinRythme ? window.OdinRythme.editeur({ valeur: v && typeof v === 'object' ? v : undefined, onChange: setR })
           : el('textarea', { id, spellcheck: 'false', oninput: (e) => { try { setR(JSON.parse(e.target.value)); } catch { /* pas encore un JSON */ } } }, JSON.stringify(v, null, 2));
         return [el('label', { for: id }, p.label, p.required ? ' *' : ''), input, p.help ? el('small', { class: 'sub' }, p.help) : null];
@@ -1072,7 +1204,7 @@
       el('label', { for: 'drNn' }, 'Nom de l\'étape'), el('input', { id: 'drNn', value: n.name, onchange: (e) => { const r = rename(n, e.target.value); if (!r.ok) { e.target.value = n.name; void window.OdinDialog.alert(r.error); } } }),
       ...(ia ? panneauAppli(n, ia) : []),
       ...fields.flat().filter(Boolean), // (un réglage sans aide donnait null, écrit « null » à l'écran)
-      el('label', { class: 'va-chk', style: 'display:flex;gap:8px;align-items:center;font-weight:500' }, el('input', { type: 'checkbox', checked: n.disabled ? true : undefined, onchange: (e) => { n.disabled = e.target.checked || undefined; dirty = true; draw(); } }), 'Désactiver cette étape'),
+      el('label', { class: 'va-chk', style: 'display:flex;gap:8px;align-items:center;font-weight:500' }, el('input', { type: 'checkbox', checked: n.disabled ? true : undefined, onchange: (e) => { n.disabled = e.target.checked || undefined; dirty = true; noter(e.target.checked ? `désactiver « ${n.name} »` : `réactiver « ${n.name} »`); draw(); } }), 'Désactiver cette étape'),
       el('p', { class: 'sub', style: 'margin:0;font-size:13px' }, '« Données » à côté d\'un champ : y poser une donnée d\'un bloc d\'avant. Expressions : {{ $json.champ }}, {{ $node["Étape"].json.champ }}, {{ $now }}.'),
       el('div', { class: 'dr-row' }, el('button', { class: 'btn small', type: 'button', onclick: () => test(n.name) }, 'Tester jusqu\'ici'), el('button', { class: 'btn small', type: 'button', onclick: () => removeNode(n.name) }, 'Retirer'), el('button', { class: 'btn small', type: 'button', onclick: () => { sel = null; draw(); drawSide(); } }, 'Fermer')),
       ...(run ? [el('h2', { style: 'margin-top:6px' }, 'Dernier passage'), el('pre', { class: 'dr-out' }, run.error ? `✗ ${run.error}` : JSON.stringify(run.items.slice(0, 5), null, 2))] : []));
@@ -1087,7 +1219,7 @@
       // expression) se tape encore à la main, comme avant, derrière « Réglages avancés ».
       const ev = n.params['événement'] ?? '', connu = ev === '' || ev === 'alerte' || (ia.a.evenements ?? []).includes(ev);
       const inp = el('input', { id: 'drp-evenement', value: String(ev), spellcheck: 'false', autocomplete: 'off',
-        oninput: (e) => { n.params['événement'] = e.target.value; dirty = true; },
+        oninput: (e) => { n.params['événement'] = e.target.value; dirty = true; noter(`régler « ${n.name} »`, `${n.name}\u0000événement`); },
         // (le panneau n'est pas redessiné : le focus reste dans le champ ; seuls le titre et le bloc suivent)
         onchange: () => { const t = infoAppli(n, applisListe)?.titre, s = tete.querySelector('.dr-fn'); if (t && s) s.textContent = t; draw(); } });
       const avE = el('details', { class: 'dr-av', open: connu ? undefined : true }, el('summary', {}, 'Réglages avancés'),
@@ -1097,7 +1229,7 @@
     const f = ia.f, zone = el('div', { class: 'dr-champs' });
     const brut = () => { const r = n.params['entrée']; return r && typeof r === 'object' ? JSON.stringify(r, null, 2) : String(r ?? ''); };
     // Le JSON d'avant, derrière « Réglages avancés » : tout ce qu'on pouvait régler reste réglable.
-    const ta = el('textarea', { id: 'drp-entree', spellcheck: 'false', oninput: (e) => { n.params['entrée'] = e.target.value; dirty = true; }, onchange: () => { peindre(); draw(); } });
+    const ta = el('textarea', { id: 'drp-entree', spellcheck: 'false', oninput: (e) => { n.params['entrée'] = e.target.value; dirty = true; noter(`régler « ${n.name} »`, `${n.name}\u0000entrée`); }, onchange: () => { peindre(); draw(); } });
     const av = el('details', { class: 'dr-av' }, el('summary', {}, 'Réglages avancés'), el('label', { for: 'drp-entree' }, 'Les réglages en JSON (une expression {{ … }} est permise)'), ta);
     let manquait = manquants(n, f).length > 0;
     function peindre() {
@@ -1118,7 +1250,7 @@
       const { p } = c, id = `drf-${i}`, aide = p.help ? `${id}-aide` : undefined;
       const manque = el('small', { class: 'dr-manque', id: `${id}-manque`, hidden: c.manque ? undefined : true }, 'Obligatoire : ce champ est vide.');
       const set = (val) => {
-        n.params['entrée'] = ecrireEntree(n.params['entrée'], p.key, val); dirty = true; ta.value = brut();
+        n.params['entrée'] = ecrireEntree(n.params['entrée'], p.key, val); dirty = true; noter(`régler « ${n.name} »`, `${n.name}\u0000entrée\u0000${p.key}`); ta.value = brut();
         manque.hidden = !(p.required && vide(val));
         const m = manquants(n, f).length > 0; if (m !== manquait) { manquait = m; draw(); }
       };
@@ -1328,7 +1460,7 @@
       if (cible) {
         const auto = infoAppli(cible, applisListe)?.auto, r = remplacer(wf, cible.name, c, auto, applisListe);
         if (!r.ok) { void window.OdinDialog?.alert(r.error); return; }
-        fermerChoix(); if (r.change) dirty = true; if (r.nom) rename(cible, r.nom, { donnees: false });
+        fermerChoix(); if (r.change) dirty = true; if (r.nom) rename(cible, r.nom, { donnees: false }); noter(`changer « ${cible.name} »`);
         sel = cible.name; draw(); drawSide();
         const s = $('#drSt'); if (s && r.change) s.textContent = `✓ « ${cible.name} » changé.`;
         $('#drSide .dr-app button')?.focus?.();
@@ -1337,7 +1469,7 @@
       // « Ajouter un bloc ici » sur un fil (`milieu`) : le bloc va entre les deux ; sinon, le « + ».
       const r = ou.milieu ? inserer(wf, c, ou.milieu) : poser(wf, c, ou);
       if (!r.ok) { void window.OdinDialog?.alert(r.error); return; }
-      fermerChoix(); sel = r.name; dirty = true; montrer(wf.nodes.find((n) => n.name === r.name)); draw(); drawSide();
+      fermerChoix(); sel = r.name; dirty = true; noter(`ajouter « ${r.name} »`); montrer(wf.nodes.find((n) => n.name === r.name)); draw(); drawSide();
       const s = $('#drSt'); if (s) s.textContent = ou.milieu ? `✓ « ${r.name} » ajouté entre « ${ou.milieu.de} » et « ${ou.milieu.vers} ».` : r.lien ? `✓ « ${r.name} » ajouté après « ${r.lien.de} ».` : `✓ « ${r.name} » ajouté.`;
       elems.get(r.name)?.focus?.();
     };
@@ -1410,7 +1542,7 @@
     if (outs[from]) { outs[to] = outs[from]; delete outs[from]; }
     if (armed?.node === from) armed = null;
     if (sel === from) sel = to;
-    dirty = true; draw();
+    dirty = true; if (donnees) noter(`renommer « ${from} » en « ${to} »`); draw();
     // Le panneau ouvert montre un champ dont une donnée vient d'être réécrite : il se redessine (sinon le champ, à la
     // prochaine frappe, remettrait l'ancienne expression qu'il garde).
     if (s.changes.some((c) => wf.nodes[c.i].name === sel)) drawSide();
@@ -1420,8 +1552,8 @@
     let name = c.label, k = 2; while (wf.nodes.some((n) => n.name === name)) name = `${c.label} ${k++}`;
     const lastN = wf.nodes[wf.nodes.length - 1], params = Object.fromEntries(c.params.filter((p) => p.default !== undefined).map((p) => [p.key, p.default]));
     const n = { name, type: c.type, params, position: lastN ? [lastN.position[0] + 240, lastN.position[1]] : [60, 160] };
-    wf.nodes.push(n); if (lastN && !c.trigger && !(wf.connections[lastN.name] ?? []).some((t) => t.length)) link(lastN.name, 0, name);
-    sel = name; dirty = true; draw(); drawSide();
+    wf.nodes.push(n); if (lastN && !c.trigger && !(wf.connections[lastN.name] ?? []).some((t) => t.length)) relier(wf, lastN.name, 0, name); // (un seul geste, « ajouter »)
+    sel = name; dirty = true; noter(`ajouter « ${name} »`); draw(); drawSide();
   }
   async function save() {
     for (const n of wf.nodes) for (const p of cat(n.type)?.params ?? []) if (p.kind === 'json' && typeof n.params[p.key] === 'string' && n.params[p.key].trim()) { try { JSON.parse(n.params[p.key]); } catch { if (!/\{\{/.test(n.params[p.key])) { await window.OdinDialog.alert(`« ${n.name} » : ${p.label} n'est pas un JSON valide.`); return false; } } }
@@ -1430,7 +1562,8 @@
     const neuve = !wf.id;
     const r = await api('/api/draupnir/save', { flow: wf });
     if (!r.ok) { await window.OdinDialog.alert(r.error); return false; }
-    wf = r.flow; dirty = false; enregistree = copie(r.flow);
+    // (les blocs dessinés tenaient les objets d'avant : on redessine, sinon un geste après l'enregistrement serait perdu)
+    wf = r.flow; dirty = false; enregistree = copie(r.flow); rebaser(); draw(); drawSide();
     // Elle vient d'être créée : le choix « Dossier » rejoint la barre tout de suite (sinon seulement à la réouverture).
     if (neuve && wf.id && window.OdinTalosDossiers && !$('#v-flows .dr-bar .td-barre')) $('#drName')?.insertAdjacentElement('afterend', window.OdinTalosDossiers.barre(wf, () => wf)); const s = $('#drSt'); if (s) s.textContent = '✓ Enregistré.'; return true;
   }
@@ -1473,11 +1606,11 @@
     dire(run.error ? `✗ « ${nom} » exécuté seul : erreur : ${run.error}` : `✓ « ${nom} » exécuté seul : ${run.count} élément(s)${e.tronque ? ' (à partir des 20 premiers éléments vus)' : ''}. Ses données sont disponibles pour les blocs suivants ; les blocs suivants n'ont pas tourné ; l'automatisation n'est ni enregistrée ni activée.`);
     draw(); drawSide(); elems.get(nom)?.focus?.();
   }
-  function init() { document.head.append(el('style', {}, css)); }
+  function init() { document.head.append(el('style', {}, css)); document.addEventListener('keydown', raccourci); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; fermerChoix(); },
     logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
       appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie,
       decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote, renommerDans, suivreRenommage,
-      entreeSeul, ceQuAgit, pareilQuEnregistre, dernierPassage, AGIT_TYPES: Object.keys(AGIT) } };
+      entreeSeul, ceQuAgit, pareilQuEnregistre, dernierPassage, AGIT_TYPES: Object.keys(AGIT), copieDe, collerBloc, zoomer, MAX_HISTOIRE } };
 })();

@@ -319,7 +319,7 @@ async function page(o: { flow?: Wf; runs?: unknown[]; reponseRun?: unknown; oui?
 test('page : « Exécuter ce bloc seul » est le premier choix du menu d\'un bloc ; un bloc qui calcule part sans confirmation, avec l\'entrée du dernier passage', async () => {
   const p = await page();
   await p.bloc('Calcul').emettre('contextmenu', { clientX: 300, clientY: 200, button: 2 });
-  assert.deepEqual(p.menu()!.querySelectorAll('button').map((b) => b.textContent), ['Exécuter ce bloc seul', 'Renommer', 'Ajouter une note', 'Retirer']);
+  assert.deepEqual(p.menu()!.querySelectorAll('button').map((b) => b.textContent), ['Exécuter ce bloc seul', 'Renommer', 'Copier', 'Ajouter une note', 'Retirer']);
   await p.bouton('Exécuter ce bloc seul', p.menu()!)!.emettre('click'); await attendre();
   assert.deepEqual(p.questions, [], 'un bloc qui ne fait que calculer : pas de confirmation');
   assert.equal(p.runs().length, 1);
