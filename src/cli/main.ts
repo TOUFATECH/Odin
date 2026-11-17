@@ -7,13 +7,12 @@ import { initHome, odinPaths, loadConfig, validateConfig, setConfigValue } from 
 import { checkUpdates, deviceLabel, formatReport, linksFor } from '../hlidskjalf/inventory.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
 import { localSubnets } from '../hlidskjalf/discover.ts';
-import type { Judge, Question } from '../mimir/client.ts';
-import { Mimir, type JudgeMode } from '../mimir/decisions.ts';
+import type { Question } from '../mimir/client.ts';
+import { Mimir } from '../mimir/decisions.ts';
 import { buildJudge } from '../mimir/factory.ts';
 import { evaluate } from '../mimir/evaluate.ts';
 import { CASES, FRESH, HOLDOUT, type Case } from '../mimir/cases.ts';
 import { ACTION_QUESTIONS, INJECTION_QUESTIONS, MEMORY_QUESTIONS, REFLECTION_QUESTIONS, ROUTING_QUESTIONS } from '../mimir/questions.ts';
-import { Router } from '../providers/router.ts';
 import { createOdin, type Odin } from '../runtime.ts';
 import type { Approver } from '../heimdall/policy.ts';
 import { demoProvider } from '../providers/mock.ts';
@@ -108,8 +107,8 @@ Conteneurs (moteur d'Odin, sans démon, sans Docker ni Podman) :
   ia [N|bilan|SESSION]         quelle IA a traité chaque demande (journal réel des routages)
   grants [list|revoke ID]      autorisations permanentes (« toujours autoriser »)
   breaker [on|nuit|off]        Odin Breaker : Odin ne demande plus rien (toujours, ou la nuit)
-  mimir [status|autonomy NIVEAU|use JUGE|eval|test|enable|disable]
-                               Mímir : jugements typés (local sans clé, llm, jev), décisions en code
+  mimir [status|autonomy NIVEAU|eval|test|enable|disable]
+                               Mímir : jugements typés par le juge local d'Odin, décisions en code
 
 Dossier d'installation : $ODIN_HOME (défaut ~/.odin)`;
 
@@ -468,7 +467,7 @@ async function doctor(): Promise<void> {
     const w = cfg.web, where = { local: 'cette machine seulement', lan: `réseau local (${allowedNetworks(w).join(', ') || 'aucun réseau privé détecté'})`, wan: w.behindProxy ? 'Internet via un proxy HTTPS' : 'Internet' }[w.access];
     ok(w.access !== 'wan' || servesTls(w) || w.behindProxy, `Interface web : ${where}${servesTls(w) ? ', HTTPS' : ''}, port ${w.port}`, 'Internet sans HTTPS');
   }
-  if (cfg.mimir.enabled) ok(true, `Mímir actif (juge ${cfg.mimir.judge}${cfg.mimir.judge === 'auto' ? (process.env[cfg.mimir.apiKeyEnv] ? ' → Jev' : ' → local, sans clé') : ''})`);
+  if (cfg.mimir.enabled) ok(true, 'Mímir actif (juge local, rien ne sort de la machine)');
   else console.log(c.dim('  (Mímir désactivé : « odin mimir enable » pour l\'activer)'));
   if (cfg.policy.sandbox.kind === 'docker') {
     const { spawnSync } = await import('node:child_process');
@@ -541,25 +540,14 @@ async function admin(): Promise<void> {
         console.log(c.dim(last ? `Dernier balayage : ${new Date(last.at).toLocaleString('fr-FR')}` : 'Aucun balayage : lance « odin net scan --full »'));
         console.log(table(inv.list({ status: flags.has('--all') ? 'all' : undefined }).map((d) => ({ état: d.status === 'online' ? '●' : d.status === 'offline' ? '○' : '×', nom: deviceLabel(d), type: d.kind, ip: d.ip, mac: d.mac, id: d.id }))));
       }
-    } else if (cmd === 'mimir' || cmd === 'jev') { // « jev » reste accepté (ancien nom)
+    } else if (cmd === 'mimir') {
+      // Le juge est toujours le juge local d'Odin (aucun modèle qui ne soit pas le sien) : plus de choix du juge.
       const m = odin.cfg.mimir;
-      const key = process.env[m.apiKeyEnv];
       const flag = (n: string) => args.find((x) => x.startsWith(`--${n}=`))?.split('=')[1];
-      const pick = (mode?: string) => {
-        if (!mode) return { judge: odin.mimir ? undefined : undefined, name: odin.mimir?.judgeName ?? 'désactivé' };
-        let router: Router | undefined;
-        try { router = Router.fromConfig(odin.cfg); } catch { router = undefined; }
-        return buildJudge({ ...m, judge: mode as JudgeMode }, { router, logFile: join(odin.paths.logs, 'mimir.jsonl') });
-      };
+      const pick = () => buildJudge(m, { logFile: join(odin.paths.logs, 'mimir.jsonl') });
       if (sub === 'enable' || sub === 'disable') {
         setConfigValue(odin.paths, ['mimir', 'enabled'], sub === 'enable');
         console.log(sub === 'enable' ? c.green('✓ Mímir activé.') : 'Mímir désactivé : Odin revient à ses seules règles.');
-      } else if (sub === 'use') {
-        setConfigValue(odin.paths, ['mimir', 'judge'], a);
-        const b = pick(a);
-        console.log(c.green(`✓ Juge de Mímir : ${a}${b.name !== a ? ` (effectif : ${b.name})` : ''}`));
-        if ('warning' in b && b.warning) console.log(c.yellow(`  ${b.warning}`));
-        if (a === 'jev' || a === 'local+jev') console.log(c.dim('  Des extraits (actions, demandes, contenus à vérifier, souvenirs) seront envoyés à TypeSafe.'));
       } else if (sub === 'autonomy' || sub === 'autonomie') {
         if (!['prudent', 'equilibre', 'autonome', 'breaker'].includes(a)) { console.log('Niveaux : prudent · equilibre · autonome · breaker (Odin Breaker : plus aucune question)'); return; }
         setConfigValue(odin.paths, ['mimir', 'autonomy'], a);
@@ -567,20 +555,18 @@ async function admin(): Promise<void> {
       } else if (sub === 'eval') {
         const sets: Record<string, Case[]> = { cases: CASES, holdout: HOLDOUT, fresh: FRESH, all: [...CASES, ...HOLDOUT, ...FRESH] };
         const set = sets[flag('set') ?? 'all'] ?? sets.all;
-        const b = pick(flag('judge') ?? m.judge);
+        const b = pick();
         const Q: Record<Case['group'], Record<string, Question>> = { action: ACTION_QUESTIONS, injection: INJECTION_QUESTIONS, memory: MEMORY_QUESTIONS, reflection: REFLECTION_QUESTIONS, routing: ROUTING_QUESTIONS };
-        if ('warning' in b && b.warning) console.log(c.yellow(b.warning));
         console.log(c.dim(`Juge : ${b.name} · ${set.length} cas étiquetés`));
-        const r = await evaluate((b as { judge: Judge }).judge, set, (x) => Q[x.group]);
+        const r = await evaluate(b.judge, set, (x) => Q[x.group]);
         let T = 0, C = 0, U = 0, W = 0;
         console.log(table(Object.entries(r.byQuestion).map(([q, v]) => { T += v.total; C += v.correct; U += v.unsure; W += v.wrong; return { question: q, justes: `${v.correct}/${v.total}`, incertains: v.unsure, faux: v.wrong }; })));
         console.log(`\n${c.bold(`Total : ${C}/${T} justes (${Math.round((100 * C) / T)} %)`)} · ${U} incertain(s) · ${W} faux · ${r.ms} ms`);
         for (const f of r.failures) console.log(c.dim(`  ${f.id} ${f.question} : attendu ${f.expected}, obtenu ${f.got} (${f.p.toFixed(2)})`));
       } else if (sub === 'test') {
-        const b = pick(flag('judge') ?? m.judge);
-        if ('warning' in b && b.warning) console.log(c.yellow(b.warning));
+        const b = pick();
         console.log(c.dim(`Juge : ${b.name}. 5 cas fictifs (aucune donnée personnelle).\n`));
-        const mm = new Mimir((b as { judge: Judge }).judge, m, b.name);
+        const mm = new Mimir(b.judge, m, b.name);
         const show = (label: string, r: { ok: boolean; value?: unknown; error?: string; answers?: unknown }) => {
           console.log(c.bold(label));
           console.log(r.ok ? `  décision : ${JSON.stringify(r.value)}\n  ${c.dim(`jugements : ${JSON.stringify(r.answers)}`)}` : c.red(`  erreur : ${r.error}`));
@@ -591,10 +577,11 @@ async function admin(): Promise<void> {
         show('4. Souvenir contenant un secret', await mm.memoryGate('Le mot de passe du Wi-Fi de la maison est Soleil2024'));
         show('5. Routage d\'un simple merci', await mm.route('Merci beaucoup, c\'est parfait !'));
       } else {
-        console.log(`Mímir : ${m.enabled ? c.green('activé') : 'désactivé'} · autonomie : ${c.bold(m.autonomy)} · juge configuré : ${m.judge} · juge effectif : ${odin.mimir?.judgeName ?? '—'} · clé ${m.apiKeyEnv} : ${key ? c.green('présente') : 'absente'}`);
+        console.log(`Mímir : ${m.enabled ? c.green('activé') : 'désactivé'} · autonomie : ${c.bold(m.autonomy)} · juge : ${odin.mimir?.judgeName ?? '—'} (le juge local d'Odin, rien ne sort de la machine)`);
+        const avert = pick().warning;
+        if (avert) console.log(c.yellow(`  ⚠ ${avert} (réglage « mimir.judge » à remettre sur « local »)`));
         console.log(c.dim(`  Utilisé pour : ${Object.entries(m.uses).filter(([, v]) => v).map(([k]) => k).join(', ')}`));
-        console.log(c.dim('  Juges : local (sans clé, hors ligne) · llm (ton modèle ; Métis = modèle local ouvert, sans clé) · jev (TypeSafe) · local+llm · local+jev'));
-        console.log(c.dim('  Changer : odin mimir use local+llm · Mesurer : odin mimir eval [--judge=…] [--set=cases|holdout|fresh]'));
+        console.log(c.dim('  Mesurer : odin mimir eval [--set=cases|holdout|fresh] · Essayer : odin mimir test'));
       }
     } else if (cmd === 'decisions') {
       const f = join(odin.paths.logs, 'audit.jsonl');
@@ -932,7 +919,7 @@ async function main(): Promise<void> {
     process.exitCode = r.some((x) => x.ok === false) ? 1 : 0;
     return;
   }
-  if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'mimir', 'jev', 'decisions', 'ia', 'grants'].includes(cmd)) return admin();
+  if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'mimir', 'decisions', 'ia', 'grants'].includes(cmd)) return admin();
   // Les invites de commande des applis : « odin commandes [recherche] », « odin <appli> <action> --option valeur ».
   if (cmd === 'commandes' || cmd === 'commands') {
     const paths = odinPaths(); initHome(paths);

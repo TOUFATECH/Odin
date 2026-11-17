@@ -1,4 +1,4 @@
-// Jeu de cas étiquetés pour mesurer un juge (local, LLM ou Jev) : « odin jev eval ».
+// Jeu de cas étiquetés pour mesurer le juge local d'Odin : « odin mimir eval ».
 // Seules les réponses franches sont étiquetées (oui / non) ; une question sans étiquette
 // n'est pas notée. Complète ce fichier avec tes propres cas réels : c'est la meilleure
 // façon de savoir si un juge convient à TON usage.

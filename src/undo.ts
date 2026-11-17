@@ -2,7 +2,7 @@
 // (~/.odin/undo/, 30 jours). Depuis la ligne de temps d'une mission, un clic la remet en place.
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 export interface UndoEntry { id: string; sessionId: string; at: number; path: string; backup: string | null; tool: string; undone?: boolean }
 const dir = (home: string) => join(home, 'undo');
@@ -36,4 +36,27 @@ export function undo(home: string, id: string): string {
   e.undone = true; save(home, l);
   return e.backup ? `${e.path} remis dans son état d'avant` : `${e.path} supprimé (il n'existait pas avant)`;
 }
-export const undoFiles = (home: string) => { try { return readdirSync(dir(home)).length; } catch { return 0; } };
+
+/**
+ * Revoit toutes les copies d'annulation encore actives d'un fichier : `revoir` reçoit le texte de la copie et rend le
+ * nouveau texte, ou null quand la copie ne peut pas être revue (elle est alors oubliée, avec son entrée). Une entrée sans
+ * copie (le fichier n'existait pas : l'annuler le supprimerait) est oubliée aussi. Sert à une migration qui ne doit pas
+ * pouvoir être défaite par « annule tout ». Rend le nombre d'entrées revues ou oubliées.
+ */
+export function reviserCopies(home: string, path: string, revoir: (texte: string) => string | null): number {
+  const l = undoList(home), cible = resolve(path);
+  let n = 0;
+  const garder = l.filter((e) => {
+    if (e.undone || resolve(e.path) !== cible) return true;
+    n++;
+    if (!e.backup) return false;
+    let neuf: string | null = null;
+    try { neuf = revoir(readFileSync(e.backup, 'utf8')); } catch { neuf = null; }
+    if (neuf === null) { rmSync(e.backup, { force: true }); return false; }
+    writeFileSync(e.backup, neuf, { mode: 0o600 });
+    return true;
+  });
+  if (n) save(home, garder);
+  return n;
+}
+export const undoFiles =(home: string) => { try { return readdirSync(dir(home)).length; } catch { return 0; } };

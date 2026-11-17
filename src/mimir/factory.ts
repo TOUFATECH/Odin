@@ -1,54 +1,85 @@
-// Choix du juge de Mímir selon la configuration, et journal de chaque jugement.
+// Le juge de Mímir, et le journal de chaque jugement.
+//
+// Décision du propriétaire (17/11/2026) : Odin n'utilise aucun modèle qui ne soit pas le sien. Le juge est donc toujours
+// le juge local (local.ts), du code sans modèle. Les autres juges sont retirés : Jev (TypeSafe), un grand modèle, la
+// cascade (local puis un second juge en cas de doute) et l'avis croisé de plusieurs modèles sur les actions risquées. Un
+// réglage `mimir.judge` qui les nomme encore est lu comme « local », avec un avertissement (le champ quitte le type de la
+// configuration avec le noyau, plus tard).
+//
+// Sans eux, le juge local seul est parfois plus souple : les installations qui s'en servaient repassent en autonomie
+// « prudent » au démarrage (src/migrations/aucun-modele-externe.ts), avant que ce juge soit construit.
 import { appendFileSync } from 'node:fs';
 import type { Redactor } from '../heimdall/redact.ts';
-import type { Router } from '../providers/router.ts';
-import { type Judge, jevJudge } from './client.ts';
+import type { Answers, Judge } from './client.ts';
 import type { MimirConfig } from './decisions.ts';
-import { cascadeJudge, crossCheckJudge, llmJudge } from './llm.ts';
 import { localJudge } from './local.ts';
 
 export interface JudgeDeps {
-  router?: Router;
-  cheapRouter?: Router;
   redactor?: Redactor;
   logFile?: string;
-  env?: NodeJS.ProcessEnv;
-  onUsage?(tin: number, tout: number, cost: number): void;
-  /** Décision risquée : demander l'avis de plusieurs modèles (si au moins deux sont configurés). */
-  crossCheck?: boolean;
 }
 
-// Signaux qui justifient de payer 2-3 avis de plus : ce qui peut coûter cher ou ne pas se rattraper.
-const RISK_KEYS = ['deletes', 'sends_out', 'money', 'private_data', 'system_change'];
-const CACHE_TTL = 10 * 60_000;
-const crossCache = new Map<string, { at: number; answers: Awaited<ReturnType<Judge>> }>();
-/** Après le premier juge : si une question de risque penche vers « oui », second avis multi-modèles. */
-export function riskyCrossCheck(first: Judge, cross: Judge): Judge {
+/** Une adresse qui porte des données : une requête ou un fragment non vides, ou un long bloc de données dans le chemin. */
+function adresseAvecDonnees(texte: string): boolean {
+  const m = /https?:\/\/\S+/i.exec(texte);
+  if (!m) return false;
+  try {
+    const u = new URL(m[0]);
+    return u.search.length > 1 || u.hash.length > 1 || /[A-Za-z0-9+/_=-]{40,}/.test(u.pathname);
+  } catch { return true; } // adresse illisible : dans le doute, on la traite comme un envoi
+}
+
+/**
+ * Outils qui font vraiment sortir du texte de la machine, mais que le juge local ne reconnaît pas comme des envois (il
+ * ne lit que les mots de l'action et les commandes). L'ancien juge les voyait ; sans ce plancher, une exfiltration après
+ * un contenu non fiable passerait de « bloquée » à « demandée » (decisions.ts, règle « bloqué »). Le juge local les juge
+ * donc AUSSI comme un message envoyé dehors, et on garde, question par question, l'avis le plus prudent (comme le
+ * faisait l'avis croisé). Chaque outil est décidé dans le carnet de la tranche ; la clé est le nom de l'outil, la valeur
+ * dit, d'après la description de l'action, si celle-ci porte des données dehors.
+ *  - mail_send, browser_type : toujours (un courriel, du texte tapé dans une page).
+ *  - notion : « publier » (une note du Cerveau devient une page Notion) ; chercher, lire, importer ne sortent rien.
+ *  - browser_open, web_fetch : quand l'adresse porte des données (requête, fragment, long bloc dans le chemin).
+ *  - ha_call : notify.* et rest_command.* (un texte envoyé à un téléphone, un service, une adresse) ; piloter un appareil
+ *    de la maison ne sort rien.
+ * Laissés hors du plancher : github_app (chercher et analyser ne portent qu'un nom de dépôt, installer est déjà « grave »),
+ * net_share_files (lit la liste d'un dossier partagé d'une adresse privée de la maison), calendar_add et venus (les juger
+ * comme des messages ferait demander chaque rendez-vous et chaque commande, même demandés).
+ */
+export const SORTIES: Readonly<Record<string, (description: string) => boolean>> = {
+  mail_send: () => true,
+  browser_type: () => true,
+  notion: (d) => /^Notion publier\b/i.test(d),
+  browser_open: adresseAvecDonnees,
+  web_fetch: adresseAvecDonnees,
+  ha_call: (d) => /^Maison : (notify|rest_command)\./i.test(d),
+};
+const PLANCHER_SORTIE = 0.8;
+const noul = (x: Answers[string] | undefined) => (x?.type === 'noul' ? x.noul : undefined);
+
+/** L'action fait-elle sortir des données (table `SORTIES`) ? Pur. */
+export function sortDehors(action: Record<string, unknown> | undefined): boolean {
+  const f = typeof action?.tool === 'string' && Object.hasOwn(SORTIES, action.tool) ? SORTIES[action.tool] : undefined;
+  return !!f && f(typeof action?.description === 'string' ? action.description : '');
+}
+
+/** Le juge, avec un plancher « envoi » pour les outils qui sortent vraiment. Ne fait que durcir. */
+export function plancherSorties(judge: Judge): Judge {
   return async (state, questions, signal) => {
-    const a = await first(state, questions, signal);
-    const riskQs = Object.keys(questions).filter((n) => RISK_KEYS.includes(n));
-    if (!riskQs.length) return a;
-    // On croise quand un vrai danger est probable (≥ 0,5), pas sur le simple « incertain » (0,4-0,45) que le juge
-    // local met sur toute écriture ou tout programme inconnu : ça coûterait 2-3 appels à chaque fichier écrit.
-    const worrying = riskQs.some((n) => { const x = a[n]; return x?.type === 'noul' && x.noul >= 0.5; });
-    if (!worrying) return a;
-    // Même action redemandée dans les 10 minutes (boucle, réessai) : on réutilise le verdict croisé.
-    const key = JSON.stringify((state as { action?: unknown }).action ?? state).slice(0, 2000);
-    const hit = crossCache.get(key);
-    if (hit && Date.now() - hit.at < CACHE_TTL) return { ...a, ...hit.answers };
-    try {
-      const b = await cross(state, questions, signal);
-      crossCache.set(key, { at: Date.now(), answers: b });
-      if (crossCache.size > 500) for (const [k, v] of crossCache) if (Date.now() - v.at > CACHE_TTL) crossCache.delete(k);
-      // On garde, question par question, l'avis le plus prudent.
-      const out: typeof a = { ...a };
-      for (const n of Object.keys(questions)) {
-        const x = a[n], y = b[n];
-        if (x?.type === 'noul' && y?.type === 'noul') out[n] = { type: 'noul', noul: n === 'requested' ? Math.min(x.noul, y.noul) : Math.max(x.noul, y.noul) };
-        else if (y && !x) out[n] = y;
-      }
-      return out;
-    } catch { return a; }
+    const a = await judge(state, questions, signal);
+    const action = (state as { action?: Record<string, unknown> }).action;
+    if (!('sends_out' in questions) || !action || !sortDehors(action)) return a;
+    const vu = await judge({ ...state, action: { ...action, tool: 'send_message' } }, questions, signal);
+    const out: Answers = { ...a };
+    const garder = (q: string, f: (...n: number[]) => number, plancher?: number) => {
+      const x = noul(a[q]), y = noul(vu[q]);
+      if (x === undefined && y === undefined) return;
+      const v = f(...[x, y, plancher].filter((n): n is number => n !== undefined));
+      out[q] = { type: 'noul', noul: v };
+    };
+    garder('sends_out', Math.max, PLANCHER_SORTIE);
+    garder('private_data', Math.max);
+    garder('requested', Math.min); // « demandé » : le doute le plus fort reste
+    return out;
   };
 }
 
@@ -64,29 +95,9 @@ export function withLog(judge: Judge, name: string, file?: string, redactor?: Re
   };
 }
 
-export function buildJudge(cfg: MimirConfig, d: JudgeDeps): { judge: Judge; name: string; warning?: string } {
-  const env = d.env ?? process.env;
-  const key = env[cfg.apiKeyEnv];
-  const jev = () => jevJudge({ apiKey: key!, model: cfg.model, baseUrl: cfg.baseUrl, timeoutMs: cfg.timeoutMs, onUsage: d.onUsage });
-  const llm = () => llmJudge((d.cheapRouter ?? d.router)!);
-  let judge: Judge, name: string, warning: string | undefined;
-  const mode = cfg.judge;
-  if ((mode === 'jev' || mode === 'local+jev') && !key) {
-    judge = localJudge(); name = 'local';
-    warning = `clé ${cfg.apiKeyEnv} absente : juge local utilisé à la place de Jev`;
-  } else if ((mode === 'llm' || mode === 'local+llm') && !d.router && !d.cheapRouter) {
-    judge = localJudge(); name = 'local';
-    warning = 'aucun modèle configuré : juge local utilisé';
-  } else if (mode === 'jev' || (mode === 'auto' && key)) { judge = jev(); name = 'jev'; }
-  else if (mode === 'local+jev') { judge = cascadeJudge(localJudge(), jev()); name = 'local+jev'; }
-  else if (mode === 'llm') { judge = llm(); name = 'llm'; }
-  else if (mode === 'local+llm') { judge = cascadeJudge(localJudge(), llm()); name = 'local+llm'; }
-  else { judge = localJudge(); name = 'local'; }
-  // Vérification croisée : si le juge principal voit un danger ou hésite sur une ACTION, on demande
-  // l'avis de plusieurs modèles différents avant de trancher.
-  if (d.crossCheck && d.router && d.router.routes.length >= 2) {
-    judge = riskyCrossCheck(judge, crossCheckJudge(d.router));
-    name = `${name}+croisé`;
-  }
-  return { judge: withLog(judge, name, d.logFile, d.redactor), name, warning };
+/** Le juge de Mímir : toujours le juge local. Rien ne sort de la machine pour juger. */
+export function buildJudge(cfg: MimirConfig, d: JudgeDeps = {}): { judge: Judge; name: string; warning?: string } {
+  const mode: string = cfg.judge;
+  const warning = mode === 'local' || mode === 'auto' ? undefined : `juge « ${mode} » retiré (Odin n'utilise aucun modèle qui ne soit pas le sien) : juge local seul`;
+  return { judge: withLog(plancherSorties(localJudge()), 'local', d.logFile, d.redactor), name: 'local', warning };
 }

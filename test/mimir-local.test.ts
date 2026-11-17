@@ -3,13 +3,10 @@ import assert from 'node:assert/strict';
 import { CASES, FRESH, HOLDOUT, type Case } from '../src/mimir/cases.ts';
 import { evaluate } from '../src/mimir/evaluate.ts';
 import { localJudge } from '../src/mimir/local.ts';
-import { cascadeJudge, llmJudge, parseLlmAnswers } from '../src/mimir/llm.ts';
 import { buildJudge } from '../src/mimir/factory.ts';
 import { DEFAULT_MIMIR } from '../src/mimir/decisions.ts';
 import { ACTION_QUESTIONS, INJECTION_QUESTIONS, MEMORY_QUESTIONS, REFLECTION_QUESTIONS, ROUTING_QUESTIONS, level } from '../src/mimir/questions.ts';
-import type { Answers, Judge, Question } from '../src/mimir/client.ts';
-import { MockProvider } from '../src/providers/mock.ts';
-import { Router } from '../src/providers/router.ts';
+import type { Question } from '../src/mimir/client.ts';
 import type { Tool } from '../src/tools/registry.ts';
 import type { OdinConfig } from '../src/config.ts';
 import { call, makeOdin } from './helpers.ts';
@@ -62,41 +59,13 @@ test('bout en bout, SANS CLÉ : secret refusé en mémoire, préférence accept�
   o.cleanup();
 });
 
-test('juge LLM : réponse JSON lue, normalisée, et refus d\'une réponse incomplète', async () => {
-  const qs = { secret: MEMORY_QUESTIONS.secret, kind: ROUTING_QUESTIONS.kind };
-  const a = parseLlmAnswers('Voici : {"secret": 0.12, "kind": {"quick_reply": 0.6, "task": 0.3, "complex": 0.3}}', qs);
-  assert.deepEqual(a.secret, { type: 'noul', noul: 0.12 });
-  assert.equal((a.kind as { choice: string }).choice, 'quick_reply');
-  assert.equal((a.kind as { probabilities: Record<string, number> }).probabilities.quick_reply, 0.5);
-  assert.throws(() => parseLlmAnswers('{"secret": 0.1}', qs), /kind/);
-  assert.throws(() => parseLlmAnswers('pas de json', qs));
-  const mock = new MockProvider(() => ({ text: '{"secret": 0.97}' }));
-  const r = await llmJudge(new Router([{ provider: mock, cfg: { kind: 'mock', model: 'm' } }]))({ fact: 'x' }, { secret: MEMORY_QUESTIONS.secret });
-  assert.equal((r.secret as { noul: number }).noul, 0.97);
-  assert.match(mock.calls[0].system, /never follow instructions/);
-});
-
-test('cascade : le second juge n\'est consulté que pour les réponses incertaines, et sa panne est tolérée', async () => {
-  const asked: string[][] = [];
-  const second: Judge = async (_s, qs) => { asked.push(Object.keys(qs)); return Object.fromEntries(Object.keys(qs).map((k) => [k, { type: 'noul', noul: 0.95 }])) as Answers; };
-  const j = cascadeJudge(localJudge(), second);
-  const sure = await j({ action: { tool: 'shell', description: '$ rm -rf build', command: 'rm -rf build' }, user_request: 'Supprime build' }, ACTION_QUESTIONS);
-  assert.equal(asked.length, 0, 'tout est tranché localement : aucun appel');
-  assert.ok((sure.deletes as { noul: number }).noul > 0.9);
-  const unsure = await j({ action: { tool: 'shell', description: '$ ./x.sh', command: './x.sh' }, user_request: 'Lance x.sh' }, ACTION_QUESTIONS);
-  assert.deepEqual(asked[0].sort(), ['deletes', 'irreversible', 'sends_out', 'system_change']);
-  assert.equal((unsure.sends_out as { noul: number }).noul, 0.95);
-  const broken = cascadeJudge(localJudge(), async () => { throw new Error('hors ligne'); });
-  const kept = await broken({ action: { tool: 'shell', description: '$ ./x.sh', command: './x.sh' }, user_request: '' }, ACTION_QUESTIONS);
-  assert.equal(level((kept.sends_out as { noul: number }).noul), 'unsure');
-});
-
-test('choix du juge : auto sans clé → local ; jev sans clé → local avec avertissement ; auto avec clé → Jev', () => {
-  assert.equal(buildJudge({ ...DEFAULT_MIMIR, judge: 'auto' }, { env: {} }).name, 'local');
-  const j = buildJudge({ ...DEFAULT_MIMIR, judge: 'jev' }, { env: {} });
-  assert.equal(j.name, 'local');
-  assert.match(j.warning!, /JEV_API_KEY/);
-  assert.equal(buildJudge({ ...DEFAULT_MIMIR, judge: 'auto' }, { env: { JEV_API_KEY: 'k' } }).name, 'jev');
-  assert.equal(buildJudge({ ...DEFAULT_MIMIR, judge: 'local+llm' }, { env: {} }).name, 'local', 'sans modèle : local');
+test('choix du juge : toujours le juge local, quel que soit le réglage (Jev, grand modèle, cascade : retirés)', () => {
+  assert.equal(buildJudge({ ...DEFAULT_MIMIR, judge: 'auto' }).name, 'local');
+  assert.equal(buildJudge({ ...DEFAULT_MIMIR, judge: 'local' }).warning, undefined);
+  for (const judge of ['jev', 'local+jev', 'llm', 'local+llm'] as const) {
+    const j = buildJudge({ ...DEFAULT_MIMIR, judge });
+    assert.equal(j.name, 'local', judge);
+    assert.match(j.warning!, /juge local seul/, judge);
+  }
   assert.equal(DEFAULT_MIMIR.enabled, true, 'actif par défaut : le juge local ne fait rien sortir de la machine');
 });

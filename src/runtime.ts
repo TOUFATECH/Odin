@@ -66,6 +66,7 @@ import { FILE_TOOLS } from './tools/files.ts';
 import { AUDIO_TOOLS } from './tools/audio.ts';
 import type { Judge } from './mimir/client.ts';
 import { buildJudge } from './mimir/factory.ts';
+import { plafonnerAutonomie } from './migrations/aucun-modele-externe.ts';
 import { Mimir } from './mimir/decisions.ts';
 import { loadEnvFile } from './settings.ts';
 import { brancherGenre } from './core/genre.ts';
@@ -190,18 +191,21 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   const cheapRouter = cheapProvider ? new Router([{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes]) : undefined;
   if (cheapRouter) { cheapRouter.onUsage = router.onUsage; cheapRouter.onRoute = router.onRoute; cheapRouter.overBudget = router.overBudget; }
 
-  // Mímir : juge local sans clé par défaut ; Jev, modèle ou cascade selon mimir.judge.
+  // Mímir : le juge local d'Odin, seul (aucun modèle qui ne soit pas le sien). Une installation qui utilisait Jev, un
+  // grand modèle, la cascade ou l'avis croisé repasse d'abord en autonomie « prudent », une fois, AVANT que le juge et
+  // l'autonomie soient donnés à Heimdall (ci-dessous) : le juge local seul est parfois plus souple qu'eux. Sautée quand
+  // l'appelant donne son juge ou réécrit la configuration en mémoire (essais seulement) : ce n'est pas la vraie.
+  if (!opts.judge && !opts.configOverride) {
+    try { plafonnerAutonomie({ paths, cfg, kv: muninn, noter: (e) => heimdall.noter(e) }); } catch (e) {
+      // Jamais bloquant, et jamais plus souple : sans pouvoir décider, l'autonomie de ce démarrage est « prudent ».
+      cfg.mimir = { ...cfg.mimir, autonomy: 'prudent' };
+      console.error('[mímir] plafond d\'autonomie', (e as Error).message);
+    }
+  }
   let mimir: Mimir | undefined;
   if (opts.judge) mimir = new Mimir(opts.judge, cfg.mimir, 'test');
   else if (cfg.mimir.enabled) {
-    const built = buildJudge(cfg.mimir, {
-      router, cheapRouter, redactor, logFile: join(paths.logs, 'mimir.jsonl'), crossCheck: cfg.routing.crossCheckRisky,
-      onUsage: (tin, tout, cost) => {
-        muninn.recordUsage(routeContext()?.sessionId || 'juge', 'jev', tin, tout, cost, 'juge');
-        const c = routeContext(), e = { at: Date.now(), turnId: c?.turnId ?? '', sessionId: c?.sessionId ?? '', channel: c?.channel ?? 'système', request: c?.request ?? '', purpose: 'juge', provider: 'jev', label: 'Jev (juge Mímir)', tier: 'standard', minTier: 'local', need: '', reason: 'juge configuré pour Mímir', attempts: [{ provider: 'jev', ok: true, ms: 0 }], ok: true, ms: 0, tokensIn: tin, tokensOut: tout, costUsd: cost };
-        c?.entries.push(e); router.onRoute?.(e);
-      },
-    });
+    const built = buildJudge(cfg.mimir, { redactor, logFile: join(paths.logs, 'mimir.jsonl') });
     if (built.warning) console.error(`[mímir] ${built.warning}`);
     mimir = new Mimir(built.judge, cfg.mimir, built.name);
   }

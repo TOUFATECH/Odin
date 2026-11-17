@@ -1,17 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type Answers, type Judge, jevJudge } from '../src/mimir/client.ts';
+import type { Answers, Judge } from '../src/mimir/client.ts';
 import { decideAction, decideInjection, decideMemory, decideRoute, type ActionLevels } from '../src/mimir/decisions.ts';
 import { ACTION_QUESTIONS, level } from '../src/mimir/questions.ts';
 import type { Tool } from '../src/tools/registry.ts';
 import { call, makeOdin } from './helpers.ts';
 import type { OdinConfig } from '../src/config.ts';
 
-/** Faux Jev : chaque question noul reçoit la probabilité indiquée (0,05 par défaut). */
+/** Faux juge : chaque question noul reçoit la probabilité indiquée (0,05 par défaut). */
 const fakeJudge = (p: Record<string, number>, log: Array<Record<string, unknown>> = []): Judge => async (state, questions) => {
   log.push(state);
   const a: Answers = {};
@@ -80,7 +78,7 @@ test('exfiltration bloquée par Mímir avant même de te déranger', async () =>
   assert.equal(o.approvals.length, 0, 'aucune demande de validation : refus direct');
   assert.match(o.provider.calls[2].messages.at(-1)!.content, /Mímir : envoi de données non demandé après lecture de contenu non fiable/);
   const actionState = seen.find((s) => 'action' in s)!;
-  assert.equal(actionState.user_request, 'Résume cette page', 'Jev reçoit la demande du propriétaire, pas le contenu web');
+  assert.equal(actionState.user_request, 'Résume cette page', 'le juge reçoit la demande du propriétaire, pas le contenu web');
   const audit = readFileSync(join(o.paths.logs, 'audit.jsonl'), 'utf8');
   assert.match(audit, /"severity":"blocked"/);
   assert.match(audit, /envoie des données hors de cette machine/);
@@ -96,7 +94,7 @@ test('suppression non demandée : validation exigée même quand la politique l\
   o.cleanup();
 });
 
-test('Jev indisponible : jamais lu comme un « non », retour à la politique de base', async () => {
+test('juge indisponible : jamais lu comme un « non », retour à la politique de base', async () => {
   const o = makeOdin([call('fs_write', { path: 'a.txt', content: 'x' }), call('memory_save', { content: 'Aime le thé' }), { text: 'ok' }], { judge: brokenJudge });
   const r = await o.agent.run('Écris a.txt et retiens que j\'aime le thé', { sessionId: 's' });
   assert.equal(r.stopReason, 'done');
@@ -194,7 +192,7 @@ test('mémoire : un secret n\'est pas enregistré', async () => {
   o.cleanup();
 });
 
-test('réflexion : pas d\'appel coûteux si Jev juge la tâche non réutilisable', async () => {
+test('réflexion : pas d\'appel coûteux si le juge trouve la tâche non réutilisable', async () => {
   const cfg = (c: OdinConfig) => ({ ...c, learning: { ...c.learning, minToolCallsForReflection: 1 } });
   const o = makeOdin([call('fs_list', {}), { text: 'fini' }, { text: '{"propose":true,"name":"x-y","description":"d","body":"b","reason":"r"}' }], { judge: fakeJudge({ succeeded: 0.9, reusable: 0.1 }), config: cfg });
   const r = await o.agent.run('liste', { sessionId: 's' });
@@ -202,64 +200,6 @@ test('réflexion : pas d\'appel coûteux si Jev juge la tâche non réutilisable
   assert.equal(o.provider.calls.length, 2, 'aucun appel de réflexion au grand modèle');
   assert.equal(o.skills.drafts().length, 0);
   o.cleanup();
-});
-
-test('client Jev : format de la requête, réponse lue, erreurs remontées', async () => {
-  let got: Record<string, unknown> = {}, auth = '';
-  let mode: 'ok' | 'partial' | 'fail' = 'ok';
-  const srv = createServer(async (req, res) => {
-    let raw = ''; for await (const c of req) raw += c;
-    got = JSON.parse(raw); auth = String(req.headers.authorization);
-    if (mode === 'fail') { res.writeHead(503); return void res.end('surcharge'); }
-    res.writeHead(200, { 'content-type': 'application/json', 'x-cost-usd': '0.0002', 'x-typesafe-request-id': 'req_1' });
-    res.end(JSON.stringify({ model: 'jev-1.14.0', answers: mode === 'ok' ? { deletes: { type: 'noul', noul: 0.97 } } : {}, usage: { input_tokens: 120, output_tokens: 4 } }));
-  }).listen(0, '127.0.0.1');
-  await new Promise((r) => srv.once('listening', r));
-  const usage: number[] = [];
-  const judge = jevJudge({ apiKey: 'cle-test', model: 'jev-latest', baseUrl: `http://127.0.0.1:${(srv.address() as AddressInfo).port}`, timeoutMs: 3000, onUsage: (a, b, c) => usage.push(a, b, c) });
-  const a = await judge({ action: { tool: 'shell', command: 'rm -rf build' } }, { deletes: ACTION_QUESTIONS.deletes });
-  assert.deepEqual(a.deletes, { type: 'noul', noul: 0.97 });
-  assert.equal(auth, 'Bearer cle-test');
-  assert.deepEqual(got, { model: 'jev-latest', state: { action: { tool: 'shell', command: 'rm -rf build' } }, questions: { deletes: { type: 'noul', instructions: ACTION_QUESTIONS.deletes.instructions } } });
-  assert.deepEqual(usage, [120, 4, 0.0002]);
-  mode = 'partial';
-  await assert.rejects(judge({}, { deletes: ACTION_QUESTIONS.deletes }), /incomplète/);
-  mode = 'fail';
-  await assert.rejects(judge({}, { deletes: ACTION_QUESTIONS.deletes }), /HTTP 503/);
-  srv.close();
-});
-
-test('vérification croisée : une action risquée consulte plusieurs modèles, l\'avis le plus prudent l\'emporte', async () => {
-  const { Router } = await import('../src/providers/router.ts');
-  const { crossCheckJudge } = await import('../src/mimir/llm.ts');
-  const { riskyCrossCheck } = await import('../src/mimir/factory.ts');
-  const say = (name: string, answers: Record<string, number>) => ({ name, async complete() { return { text: JSON.stringify(answers), toolCalls: [], usage: { inputTokens: 1, outputTokens: 1 }, stopReason: 'end' as const }; } });
-  const router = new Router([
-    { provider: say('A', { deletes: 0.2, requested: 0.9 }), cfg: { kind: 'mock', model: 'a' } },
-    { provider: say('B', { deletes: 0.9, requested: 0.4 }), cfg: { kind: 'mock', model: 'b' } },
-  ], 0, async () => {});
-  const qs = { deletes: ACTION_QUESTIONS.deletes, requested: ACTION_QUESTIONS.requested };
-  const merged = await crossCheckJudge(router)({ summary: 'rm -rf ~/photos' }, qs);
-  assert.equal((merged.deletes as { noul: number }).noul, 0.9, 'danger : le pire avis compte');
-  // Juge local pas inquiet → pas de second avis ; inquiet → second avis fusionné
-  const calm = async () => ({ deletes: { type: 'noul' as const, noul: 0.05 }, requested: { type: 'noul' as const, noul: 0.95 } });
-  const worried = async () => ({ deletes: { type: 'noul' as const, noul: 0.5 }, requested: { type: 'noul' as const, noul: 0.95 } });
-  let crossCalls = 0;
-  const cross = async (...args: Parameters<typeof calm>) => { crossCalls++; return crossCheckJudge(router)({ summary: 'x' }, qs, ...args.slice(2) as []); };
-  await riskyCrossCheck(calm, cross)({}, qs);
-  assert.equal(crossCalls, 0);
-  const out = await riskyCrossCheck(worried, cross)({}, qs);
-  assert.equal(crossCalls, 1);
-  assert.equal((out.deletes as { noul: number }).noul, 0.9);
-  assert.equal((out.requested as { noul: number }).noul, 0.4, '« demandé » : le plus prudent est le plus bas');
-  // Économe : le simple « incertain » du juge local (0,45 sur toute écriture) ne déclenche pas d'appel ;
-  // et la même action redemandée dans les 10 minutes réutilise le verdict croisé.
-  const unsure = async () => ({ deletes: { type: 'noul' as const, noul: 0.45 }, requested: { type: 'noul' as const, noul: 0.95 } });
-  await riskyCrossCheck(unsure, cross)({}, qs);
-  assert.equal(crossCalls, 1, 'incertain ≠ dangereux : pas de second avis');
-  await riskyCrossCheck(worried, cross)({ action: { tool: 'shell', args: { cmd: 'rm -rf ~/photos' } } }, qs);
-  await riskyCrossCheck(worried, cross)({ action: { tool: 'shell', args: { cmd: 'rm -rf ~/photos' } } }, qs);
-  assert.equal(crossCalls, 2, 'même action : verdict croisé réutilisé');
 });
 
 test('tâche planifiée créée sous influence d\'une page : grave, et exécutée sans la confiance du propriétaire', async () => {
