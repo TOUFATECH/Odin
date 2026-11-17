@@ -15,6 +15,9 @@ import { jetonFlux } from '../venus/cast.ts';
 import { haApi } from '../../tools/homeassistant.ts';
 import { ajouterLivre, chapitresAudio, chapitresText, corpsEnvie, enviesLivres, enviesText, lirePage, livres, noterProgression, progressions, reprise, retirerLivre, trouverLivre, venusFichier, type EnvieLivre } from '../venus/odyssee.ts';
 import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
+// L1 : envoyer des médias depuis le téléphone ou le PC (préparer, puis importer le fichier reçu en morceaux).
+import { importerEnvoi, preparerEnvoi, purgerEnvois } from '../venus/envoi.ts';
+import { ffprobeReel } from '../venus/routes.ts';
 import { basename, dirname, join } from 'node:path';
 
 interface Rec { id: number; channel: string; title: string; start: number; stop: number; status: string; error?: string }
@@ -360,6 +363,15 @@ export function venus(url: () => string): Module {
         const l = trouverLivre(ctx.dir, s(i.livre)); if (!l || !retirerLivre(ctx.dir, l.id)) throw new Error(`aucun livre « ${s(i.livre)} »`);
         return { text: `« ${l.titre} » retiré de ta bibliothèque de lecture.` };
       } },
+      // ---- Envoyer des films, séries ou musique depuis l'appareil (la page envoie le fichier en morceaux entre les deux)
+      { id: 'preparer_envoi_media', quick: false, proprietaireSeul: true, label: 'Préparer un envoi de média', what: "Avant d'envoyer un film, un épisode ou un morceau depuis le navigateur : vérifie le nom, le dossier déclaré choisi et la place, et rend l'identifiant de l'envoi et ce qui est déjà reçu (reprise)", params: [{ key: 'nom', label: 'Nom du fichier', kind: 'text', required: true }, { key: 'taille', label: 'Taille (octets)', kind: 'number', required: true }, { key: 'categorie', label: 'Catégorie', kind: 'select', options: ['', 'films', 'series', 'musique', 'livres_audio'], default: '' }, { key: 'dossier', label: "Dossier média d'arrivée (déclaré)", kind: 'text', required: true }, { key: 'modifie', label: 'Date de modification du fichier (ms, facultatif)', kind: 'number', default: 0 }], run: (ctx, i) => {
+        const d = m.depot!(ctx).dossier, p = preparerEnvoi(mag(ctx), d, { nom: i.nom, taille: i.taille, categorie: i.categorie, dossier: i.dossier, modifie: i.modifie });
+        return { text: p.recu ? `Envoi ${p.envoi} : ${p.recu} octet(s) déjà reçus, reprise.` : `Envoi ${p.envoi} prêt.`, data: p };
+      } },
+      { id: 'importer_media', quick: false, proprietaireSeul: true, label: 'Ranger un média envoyé', what: "Un envoi terminé : taille vérifiée, antivirus d'abord, vraie nature lue dans le fichier (ni vidéo ni son : refusé), puis rangé dans le dossier choisi, sans rien écraser, et dans la bibliothèque", params: [{ key: 'envoi', label: 'Envoi terminé (identifiant)', kind: 'text', required: true }], run: async (ctx, i) => {
+        const r = await importerEnvoi(mag(ctx), m.depot!(ctx).dossier, i.envoi, { ffprobe: ffprobeReel, reveil: ctx });
+        return r.ok ? { text: r.texte, data: r } : { ok: false, text: r.texte, data: r };
+      } },
       { id: 'audio_chapitres', label: 'Livre audio : chapitres', what: 'Odyssée : les chapitres d\'un livre audio de Venus et où reprendre', read: true, params: [{ key: 'livre', label: 'Livre audio (numéro ou titre)', kind: 'text', required: true }], words: ['chapitres du livre audio', 'reprends mon livre audio'], run: async (ctx, i) => {
         const c = await livreAudio(s(i.livre)), ch = chapitresAudio(await venusApi(conf(), 'GET', `/api/items/${c.id}/chapters`));
         const r = reprise(ch, progressions(ctx.dir)[`a${c.id}`]);
@@ -370,7 +382,7 @@ export function venus(url: () => string): Module {
         return { text: `🔖 ${c.title} : chapitre ${p.chapitre + 1}, ${Math.round(p.position)} s.`, data: p };
       } },
     ],
-    start(ctx) { mag(ctx).brancher(); },
+    start(ctx) { mag(ctx).brancher(); try { purgerEnvois(m.depot!(ctx).dossier); } catch { /* rien à effacer */ } },
     async view(ctx) {
       // Odyssée : la bibliothèque de lecture d'Odin marche aussi sans Venus (livres déposés).
       const prog = progressions(ctx.dir), lect = livres(ctx.dir);

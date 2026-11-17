@@ -16,8 +16,8 @@ const idOpaque = (): string => randomBytes(12).toString('hex');
 export type TypeOeuvre = 'film' | 'serie' | 'album' | 'livre_audio' | 'livre' | 'chaine';
 export type Categorie = 'films' | 'series' | 'musique' | 'livres_audio';
 
-const EXT_VIDEO = new Set(['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.ts', '.wmv', '.flv']);
-const EXT_AUDIO = new Set(['.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav', '.aac', '.wma']);
+export const EXT_VIDEO = new Set(['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.ts', '.wmv', '.flv']);
+export const EXT_AUDIO = new Set(['.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav', '.aac', '.wma']);
 const EXT_SOUS = new Set(['.srt', '.vtt', '.ass', '.ssa', '.sub']);
 
 /** Normalise un titre pour comparer/chercher (minuscules, sans accents ni signes). Pur. */
@@ -122,42 +122,61 @@ export async function scanner(mag: MagasinVenus, outils: Outils): Promise<Bilan>
     if (!outils.parcourir && !dossierExiste(chemin)) { b.dossiersIntrouvables.push(chemin); b.raisons.dossier_introuvable = (b.raisons.dossier_introuvable ?? 0) + 1; continue; }
     const tous = parcourir(chemin);
     for (const f of tous) {
-      const ext = extname(f.chemin).toLowerCase();
-      if (!EXT_VIDEO.has(ext) && !EXT_AUDIO.has(ext)) { if (!EXT_SOUS.has(ext)) ignorer(f.chemin, 'pas_un_media'); continue; }
-      // Un fichier qui n'a rien à faire dans la catégorie du dossier est écarté AVANT d'appeler ffprobe.
-      const bonGenre = categorie === 'films' || categorie === 'series' ? estVideo(f.chemin) : estAudio(f.chemin);
-      if (!bonGenre) { ignorer(f.chemin, 'hors_categorie'); continue; }
-      if (categorie === 'series' && analyserNom(basename(f.chemin)).saison === undefined) { ignorer(f.chemin, 'episode_sans_numero'); continue; }
-      const probe = await outils.ffprobe(f.chemin).catch(() => null);
-      if (!probe) { ignorer(f.chemin, 'illisible'); continue; }
-      const lu = analyserNom(basename(f.chemin));
-      const vignette = outils.vignette ? await outils.vignette(f.chemin, probe.duree).catch(() => undefined) : undefined;
-      mag.poser('fichiers', cheminId(f.chemin), { chemin: f.chemin, taille: f.taille, mtime: f.mtime, probe });
+      if (EXT_SOUS.has(extname(f.chemin).toLowerCase())) continue; // un sous-titre accompagne un média, il n'est pas rangé seul
+      const r = await rangerFichier(mag, f, categorie, outils, tous, oeuvresVues);
+      if ('raison' in r) { if (r.lu) b.fichiers++; ignorer(f.chemin, r.raison); continue; }
       b.fichiers++;
-      if (categorie === 'series' && estVideo(f.chemin) && lu.saison !== undefined) {
-        const serie = lu.titre || basename(dirname(f.chemin));
-        const oid = `serie:${slug(serie)}`;
-        if (!oeuvresVues.has(oid)) { poserOeuvre(mag, oid, { type: 'serie', titre: serie, titre_norm: norm(serie), slug: slug(serie), ...(await afficheOpt(outils, lu, 'serie', vignette)) }); oeuvresVues.add(oid); b.oeuvres++; }
-        const eid = `${oid}:s${lu.saison}e${lu.episode ?? 0}`;
-        mag.poser('episodes', eid, { oeuvre_id: oid, saison: lu.saison, episode: lu.episode ?? 0, titre: lu.titre, fichier: f.chemin, duree: probe.duree, resolution: resolution(probe), codecs: probe.codecs, sous_titres: [...probe.sousTitres, ...sousTitresVoisins(f.chemin, tous)], ...(vignette ? { vignette } : {}) });
-        b.episodes++;
-      } else if (categorie === 'films' && estVideo(f.chemin)) {
-        const oid = `film:${slug(lu.titre)}${lu.annee ? `-${lu.annee}` : ''}`;
-        poserOeuvre(mag, oid, { type: 'film', titre: lu.titre, titre_norm: norm(lu.titre), slug: slug(lu.titre), annee: lu.annee, fichier: f.chemin, duree: probe.duree, resolution: resolution(probe), codecs: probe.codecs, sous_titres: [...probe.sousTitres, ...sousTitresVoisins(f.chemin, tous)], ...(await afficheOpt(outils, lu, 'film', vignette)) });
-        if (!oeuvresVues.has(oid)) { oeuvresVues.add(oid); b.oeuvres++; }
-      } else if ((categorie === 'musique' || categorie === 'livres_audio') && estAudio(f.chemin)) {
-        const type: TypeOeuvre = categorie === 'musique' ? 'album' : 'livre_audio';
-        const album = basename(dirname(f.chemin));
-        const oid = `${type}:${slug(album)}`;
-        if (!oeuvresVues.has(oid)) { poserOeuvre(mag, oid, { type, titre: album, titre_norm: norm(album), slug: slug(album), ...(vignette ? { affiche: vignette } : {}) }); oeuvresVues.add(oid); b.oeuvres++; }
-        const num = numeroDePiste(basename(f.chemin));
-        mag.poser('pistes', `${oid}:p${num}:${slug(basename(f.chemin))}`, { oeuvre_id: oid, num, titre: lu.titre || basename(f.chemin, extname(f.chemin)), fichier: f.chemin, duree: probe.duree });
-        b.pistes++;
-      } else { ignorer(f.chemin, 'hors_categorie'); }
+      if (r.nouvelleOeuvre) b.oeuvres++;
+      if (r.genre === 'episode') b.episodes++; else if (r.genre === 'piste') b.pistes++;
     }
   }
   return b;
 }
+
+/** Ce que devient UN fichier : rangé (œuvre, et l'élément qui se lit), ou laissé de côté avec sa raison. */
+export type Rangement = { genre: 'film' | 'episode' | 'piste'; oeuvreId: string; cibleId: string; titre: string; nouvelleOeuvre: boolean } | { raison: RaisonIgnore; /** lu par ffprobe et noté malgré tout (le scan le compte) */ lu?: true };
+/**
+ * Range UN fichier dans la bibliothèque (le scan, et l'import d'un média envoyé depuis un appareil). `voisins` : les
+ * fichiers du même dossier (sous-titres à côté) ; `oeuvresVues` : les œuvres déjà posées pendant ce passage.
+ */
+export async function rangerFichier(mag: MagasinVenus, f: FichierVu, categorie: Categorie, outils: Outils, voisins: FichierVu[] = [], oeuvresVues: Set<string> = new Set()): Promise<Rangement> {
+  const ext = extname(f.chemin).toLowerCase();
+  if (!EXT_VIDEO.has(ext) && !EXT_AUDIO.has(ext)) return { raison: 'pas_un_media' };
+  // Un fichier qui n'a rien à faire dans la catégorie du dossier est écarté AVANT d'appeler ffprobe.
+  if (!bonGenrePour(f.chemin, categorie)) return { raison: 'hors_categorie' };
+  if (categorie === 'series' && analyserNom(basename(f.chemin)).saison === undefined) return { raison: 'episode_sans_numero' };
+  const probe = await outils.ffprobe(f.chemin).catch(() => null);
+  if (!probe) return { raison: 'illisible' };
+  const lu = analyserNom(basename(f.chemin));
+  const vignette = outils.vignette ? await outils.vignette(f.chemin, probe.duree).catch(() => undefined) : undefined;
+  mag.poser('fichiers', cheminId(f.chemin), { chemin: f.chemin, taille: f.taille, mtime: f.mtime, probe });
+  if (categorie === 'series' && estVideo(f.chemin) && lu.saison !== undefined) {
+    const serie = lu.titre || basename(dirname(f.chemin));
+    const oid = `serie:${slug(serie)}`, nouvelle = !oeuvresVues.has(oid);
+    if (nouvelle) { poserOeuvre(mag, oid, { type: 'serie', titre: serie, titre_norm: norm(serie), slug: slug(serie), ...(await afficheOpt(outils, lu, 'serie', vignette)) }); oeuvresVues.add(oid); }
+    const eid = `${oid}:s${lu.saison}e${lu.episode ?? 0}`;
+    mag.poser('episodes', eid, { oeuvre_id: oid, saison: lu.saison, episode: lu.episode ?? 0, titre: lu.titre, fichier: f.chemin, duree: probe.duree, resolution: resolution(probe), codecs: probe.codecs, sous_titres: [...probe.sousTitres, ...sousTitresVoisins(f.chemin, voisins)], ...(vignette ? { vignette } : {}) });
+    return { genre: 'episode', oeuvreId: oid, cibleId: eid, titre: serie, nouvelleOeuvre: nouvelle };
+  }
+  if (categorie === 'films' && estVideo(f.chemin)) {
+    const oid = `film:${slug(lu.titre)}${lu.annee ? `-${lu.annee}` : ''}`;
+    poserOeuvre(mag, oid, { type: 'film', titre: lu.titre, titre_norm: norm(lu.titre), slug: slug(lu.titre), annee: lu.annee, fichier: f.chemin, duree: probe.duree, resolution: resolution(probe), codecs: probe.codecs, sous_titres: [...probe.sousTitres, ...sousTitresVoisins(f.chemin, voisins)], ...(await afficheOpt(outils, lu, 'film', vignette)) });
+    const nouvelle = !oeuvresVues.has(oid); if (nouvelle) oeuvresVues.add(oid);
+    return { genre: 'film', oeuvreId: oid, cibleId: oid, titre: lu.titre, nouvelleOeuvre: nouvelle };
+  }
+  if ((categorie === 'musique' || categorie === 'livres_audio') && estAudio(f.chemin)) {
+    const type: TypeOeuvre = categorie === 'musique' ? 'album' : 'livre_audio';
+    const album = basename(dirname(f.chemin));
+    const oid = `${type}:${slug(album)}`, nouvelle = !oeuvresVues.has(oid);
+    if (nouvelle) { poserOeuvre(mag, oid, { type, titre: album, titre_norm: norm(album), slug: slug(album), ...(vignette ? { affiche: vignette } : {}) }); oeuvresVues.add(oid); }
+    const num = numeroDePiste(basename(f.chemin)), pid = `${oid}:p${num}:${slug(basename(f.chemin))}`;
+    mag.poser('pistes', pid, { oeuvre_id: oid, num, titre: lu.titre || basename(f.chemin, extname(f.chemin)), fichier: f.chemin, duree: probe.duree });
+    return { genre: 'piste', oeuvreId: oid, cibleId: pid, titre: album, nouvelleOeuvre: nouvelle };
+  }
+  return { raison: 'hors_categorie', lu: true };
+}
+/** Le nom de ce fichier convient-il à la catégorie (vidéo pour films et séries, son pour musique et livres audio) ? Pur. */
+export const bonGenrePour = (nom: string, categorie: Categorie): boolean => (categorie === 'films' || categorie === 'series' ? estVideo(nom) : estAudio(nom));
 async function afficheOpt(o: Outils, lu: NomLu, type: TypeOeuvre, vignette?: string): Promise<Record<string, unknown>> {
   const url = o.affiche ? await o.affiche(lu, type).catch(() => undefined) : undefined;
   const a = url ?? vignette; return a ? { affiche: a } : {};

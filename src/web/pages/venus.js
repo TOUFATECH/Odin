@@ -63,6 +63,25 @@
 .vn-ecran .on{background:var(--good-l,#3ecf8e1f);color:var(--good,#3ecf8e)}.vn-ecran .off{background:var(--panel2,#ffffff0a);color:var(--muted,#9aa1b2)}
 .vn-cols{display:grid;grid-template-columns:1fr;gap:16px}
 @media (min-width:980px){.vn-cols{grid-template-columns:1fr 240px}}
+/* Zone d'envoi : cibles de 44 px partout (téléphone et souris), une barre par fichier. */
+.vn-env .vn-b,.vn-env select,.vn-env .choisir{min-height:44px}
+.vn-env select{border-radius:12px;border:1px solid var(--line);background:var(--field);color:inherit;padding:0 10px;font:inherit;flex:1 1 220px;min-width:0;max-width:100%}
+.vn-env .choisir{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 16px;border-radius:12px;cursor:pointer;font:600 13.5px inherit;border:1px solid color-mix(in srgb,var(--ac) 40%,transparent);background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac)}
+.vn-env .choisir:focus-within{outline:2px solid var(--ac);outline-offset:2px}
+.vn-env .choisir[aria-disabled=true]{opacity:.5;cursor:not-allowed}
+.vn-env .choisir input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.vn-env .depose{border:1.5px dashed var(--line,#ffffff26);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.vn-env .depose.sur{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 8%,transparent)}
+.vn-fi{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid var(--line,#ffffff10)}.vn-fi:last-child{border-bottom:0}
+.vn-fi .vn-fi-l1{display:flex;gap:10px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+.vn-fi .vn-fi-nom{font-weight:600;font-size:13.5px;overflow-wrap:anywhere;min-width:0;flex:1 1 180px}
+.vn-fi .vn-fi-pc{font:600 12.5px ui-monospace,monospace;color:var(--muted,#9aa1b2)}
+.vn-fi .vn-fi-barre{height:8px;border-radius:999px;background:var(--panel2,#ffffff12);overflow:hidden}
+.vn-fi .vn-fi-barre i{display:block;height:100%;width:0;background:var(--ac);transition:width .3s}
+.vn-fi.ok .vn-fi-barre i{background:var(--good,#3ecf8e)}.vn-fi.ko .vn-fi-barre i{background:var(--bad,#ff6b6b)}
+.vn-fi .vn-fi-etat{font-size:12.5px;color:var(--muted,#9aa1b2);overflow-wrap:anywhere}
+.vn-fi.ok .vn-fi-etat{color:var(--good,#3ecf8e)}.vn-fi.ko .vn-fi-etat{color:var(--bad,#ff6b6b);font-weight:600}
+@media (prefers-reduced-motion:reduce){.vn-fi .vn-fi-barre i{transition:none}}
 @media (pointer:coarse){.vn-seg button,.vn-b,.vn-sous .f button{min-height:44px}}
 @media (max-width:420px){.vn-grille{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.vn-tete b{font-size:18px}}`;
 
@@ -147,7 +166,7 @@
   });
 
   // Déclarer un dossier média et lancer le scan (sans ça, ODÉON reste vide). `onScan` recharge la bibliothèque.
-  function panneauDossiers(onScan) {
+  function panneauDossiers(onScan, onDossiers) {
     const etat = el('p', { class: 'vn-note', role: 'status' }, 'Chargement des dossiers…');
     // Les erreurs et alertes restent affichées (avant : un ajout raté ne disait rien).
     const alerte = el('p', { class: 'vn-note', role: 'alert', style: 'color:var(--bad,#ff6b6b);font-weight:600', hidden: true });
@@ -159,8 +178,9 @@
         const d = await vget('/venus/dossiers'); const l = d.dossiers || [];
         if (d.exemple) chemin.placeholder = `Chemin d'un dossier de la machine d'Odin (ex. ${d.exemple})`;
         const manque = logique.outilsManquants(d.outils); if (manque) dire(manque);
+        if (onDossiers) onDossiers(l);
         etat.textContent = l.length ? `Dossiers : ${l.map((x) => `${x.chemin} (${x.categorie})`).join(' · ')}. Lance « Scanner maintenant » pour les relire.` : '1. Colle le chemin d\'un dossier de films, séries ou musique et choisis sa catégorie. 2. « Ajouter le dossier ». 3. « Scanner maintenant » : tes médias apparaissent, un clic les lit dans le navigateur.';
-      } catch { etat.textContent = 'Dossiers indisponibles.'; }
+      } catch { etat.textContent = 'Dossiers indisponibles.'; if (onDossiers) onDossiers(null); }
     };
     const ajouter = async () => {
       const c = chemin.value.trim(); if (!c) { dire('Colle d\'abord le chemin d\'un dossier.'); return; }
@@ -177,6 +197,122 @@
     return el('div', { class: 'vn-sec' }, el('h3', {}, 'Dossiers média'),
       el('div', { class: 'vn-sous' }, chemin, cat, el('button', { class: 'vn-b', type: 'button', onclick: ajouter }, 'Ajouter le dossier'), el('button', { class: 'vn-b ac', type: 'button', onclick: scanner }, 'Scanner maintenant')),
       alerte, etat);
+  }
+
+  // --- Envoyer des médias depuis cet appareil (téléphone ou PC) -----------------------------------
+  // Le fichier part en morceaux de 8 Mo vers /api/valhalla/morceau (route commune aux applis qui reçoivent des
+  // fichiers) ; après une coupure, l'envoi reprend à l'octet où Odin en est. À la fin, Odin vérifie la taille, passe
+  // l'antivirus, lit la vraie nature du fichier, puis le range. (Même principe que l'envoi d'ISO d'Hydre, ymir.js :
+  // le doublon est à fondre plus tard dans un client commun.)
+  const EXT_VIDEO = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.ts', '.wmv', '.flv'];
+  const EXT_AUDIO = ['.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav', '.aac', '.wma'];
+  const NOMS_CAT = { films: 'Films', series: 'Séries', musique: 'Musique', livres_audio: 'Livres audio' };
+  Object.assign(logique, {
+    /** Le type de la grille où apparaît un fichier de cette catégorie. Pur. */
+    typeDeCategorie(cat) { return ({ films: 'film', series: 'serie', musique: 'album', livres_audio: 'livre_audio' })[cat] || 'film'; },
+    /** Ce que le sélecteur de fichiers propose pour une catégorie (les extensions aussi : un MKV n'a souvent pas de type). Pur. */
+    accepter(cat) { return cat === 'musique' || cat === 'livres_audio' ? ['audio/*', ...EXT_AUDIO].join(',') : ['video/*', ...EXT_VIDEO].join(','); },
+    /** Pourcentage entier (0 à 100). Pur. */
+    pourcent(recu, total) { const t = Number(total) || 0; return t > 0 ? Math.max(0, Math.min(100, Math.floor((Number(recu) || 0) * 100 / t))) : 0; },
+    /** Une taille lisible. Pur. */
+    octets(n) { n = Number(n) || 0; return n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1).replace('.', ',')} Go` : n >= 1024 ** 2 ? `${Math.round(n / 1024 ** 2)} Mo` : `${Math.max(1, Math.round(n / 1024))} Ko`; },
+    /** Un dossier d'arrivée dans la liste : sa catégorie et son nom d'abord (lisible sur un téléphone), le chemin entier ensuite. Pur. */
+    libelleDossier(d, cat) { const c = String((d && d.chemin) || ''), nom = c.split(/[\\/]/).filter(Boolean).pop() || c; return `${cat} · ${nom} (${c})`; },
+    /** Un refus d'action sans l'en-tête « Vénus · Préparer un envoi de média : » (la ligne dit déjà de quel fichier il s'agit). Pur. */
+    sansEntete(t) { const x = String(t || ''); return /^Vénus · [^:]+ : /.test(x) ? x.replace(/^Vénus · [^:]+ : /, '') : x; },
+    /** L'adresse d'un morceau : toujours la route locale d'Odin. Pur. */
+    morceauUrl(envoi, debut) { return `/api/valhalla/morceau?module=freyja&envoi=${encodeURIComponent(envoi)}&debut=${Number(debut) || 0}`; },
+  });
+
+  /** Envoie UN fichier en morceaux ; reprend après une coupure ; puis demande à Odin de l'analyser et de le ranger. */
+  async function envoyerMedia(file, dossier, categorie, suivi) {
+    const T = 8 * 1024 * 1024; let essais = 0, id = '', recu = 0, t0 = performance.now(), d0 = 0;
+    const preparer = async () => {
+      const p = await act('preparer_envoi_media', { nom: file.name, taille: file.size, categorie, dossier, modifie: file.lastModified || 0 });
+      if (!p || !p.data || !p.data.envoi) throw new Error((p && (p.text || p.error)) || 'envoi refusé');
+      id = p.data.envoi; recu = p.data.recu; t0 = performance.now(); d0 = recu;
+    };
+    await preparer(); if (recu > file.size) recu = 0;
+    suivi({ recu, total: file.size, repris: recu > 0 });
+    while (recu < file.size) {
+      let r;
+      try { r = await (await fetch(logique.morceauUrl(id, recu), { method: 'POST', headers: { 'x-odin': '1', 'content-type': 'application/octet-stream' }, body: file.slice(recu, recu + T) })).json(); }
+      catch {
+        if (++essais > 8) throw new Error('connexion coupée : choisis à nouveau le même fichier, l\'envoi reprendra où il s\'est arrêté');
+        suivi({ recu, total: file.size, attente: true });
+        await new Promise((ok) => setTimeout(ok, 2500)); await preparer().catch(() => undefined); continue;
+      }
+      if (!r || !r.ok) { if (r && typeof r.recu === 'number' && /reprise/.test(r.error || '')) { recu = r.recu; continue; } throw new Error((r && r.error) || 'envoi interrompu'); }
+      essais = 0; recu = r.recu;
+      const sec = (performance.now() - t0) / 1000;
+      suivi({ recu, total: file.size, vitesse: (recu - d0) / Math.max(sec, 0.001) });
+    }
+    suivi({ recu: file.size, total: file.size, analyse: true });
+    return act('importer_media', { envoi: id });
+  }
+
+  // La zone d'envoi, sous le panneau des dossiers. `maj(dossiers)` la remet à jour quand la liste des dossiers change ;
+  // `onRange(categorie)` recharge la grille sur la bonne catégorie.
+  function zoneEnvoi(onRange) {
+    let liste = [], suite = Promise.resolve();
+    const sel = el('select', { 'aria-label': 'Dossier d\'arrivée' });
+    const entree = el('input', { type: 'file', multiple: true, 'aria-label': 'Fichiers à envoyer' });
+    const choisir = el('label', { class: 'choisir' }, entree, '⇪ Choisir des fichiers');
+    const note = el('p', { class: 'vn-note', style: 'margin:0' });
+    const lignes = el('div');
+    const depose = el('div', { class: 'depose' }, el('div', { class: 'vn-sous', style: 'width:100%' }, sel, choisir), note);
+    const actif = () => liste.length > 0;
+    const majAccept = () => { const d = liste.find((x) => x.chemin === sel.value); entree.accept = logique.accepter(d ? d.categorie : 'films'); };
+    const ligne = (f) => {
+      const barre = el('i'), pc = el('span', { class: 'vn-fi-pc' }, '0 %'), et = el('div', { class: 'vn-fi-etat', role: 'status' }, 'en attente');
+      const br = el('div', { class: 'vn-fi-barre', role: 'progressbar', 'aria-label': f.name, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, barre);
+      const bloc = el('div', { class: 'vn-fi' }, el('div', { class: 'vn-fi-l1' }, el('span', { class: 'vn-fi-nom' }, f.name), pc), br, et);
+      lignes.prepend(bloc);
+      const pose = (pct, texte, sorte) => { barre.style.width = `${pct}%`; br.setAttribute('aria-valuenow', String(pct)); pc.textContent = sorte === 'ko' && !pct ? '' : `${pct} %`; et.textContent = texte; bloc.classList.toggle('ok', sorte === 'ok'); bloc.classList.toggle('ko', sorte === 'ko'); };
+      return { pose };
+    };
+    const envoyerTout = (fichiers) => {
+      if (!actif()) return;
+      const d = liste.find((x) => x.chemin === sel.value) || liste[0];
+      for (const f of fichiers) {
+        const L = ligne(f);
+        L.pose(0, `en attente · ${logique.octets(f.size)}`);
+        // Plusieurs fichiers : l'un après l'autre (chaque barre avance à son tour).
+        suite = suite.then(async () => {
+          try {
+            L.pose(0, 'préparation…');
+            const r = await envoyerMedia(f, d.chemin, d.categorie, (x) => {
+              const pct = logique.pourcent(x.recu, x.total);
+              if (x.analyse) L.pose(100, 'analyse en cours : antivirus, vraie nature du fichier, lecture… (un gros film prend quelques minutes)');
+              else if (x.attente) L.pose(pct, 'connexion coupée, reprise…');
+              else L.pose(pct, `${logique.octets(x.recu)} sur ${logique.octets(x.total)}${x.vitesse ? ` · ${logique.octets(x.vitesse)}/s` : ''}${x.repris ? ' · reprise là où l\'envoi s\'était arrêté' : ''}`);
+            });
+            if (r && r.ok !== false) { L.pose(100, String(r.text || 'Rangé.').replace(/^✅\s*/, '✓ '), 'ok'); if (onRange) onRange(d.categorie); }
+            else L.pose(100, `✗ ${logique.sansEntete((r && (r.text || r.error)) || 'refusé')}`, 'ko');
+          } catch (e) { L.pose(0, `✗ ${logique.sansEntete(e && e.message ? e.message : 'envoi impossible')}`, 'ko'); }
+        });
+      }
+    };
+    entree.addEventListener('change', () => { envoyerTout([...entree.files]); entree.value = ''; });
+    sel.addEventListener('change', majAccept);
+    // Glisser-déposer (ordinateur) : les fichiers lâchés sur la zone partent dans le dossier choisi.
+    depose.addEventListener('dragover', (e) => { if (!actif()) return; e.preventDefault(); depose.classList.add('sur'); });
+    depose.addEventListener('dragleave', () => depose.classList.remove('sur'));
+    depose.addEventListener('drop', (e) => { depose.classList.remove('sur'); if (!actif()) return; e.preventDefault(); envoyerTout([...((e.dataTransfer && e.dataTransfer.files) || [])]); });
+    const maj = (l) => {
+      liste = (l || []).filter((x) => x.actif !== false);
+      const avant = sel.value;
+      sel.replaceChildren(...liste.map((x) => el('option', { value: x.chemin, title: x.chemin }, logique.libelleDossier(x, NOMS_CAT[x.categorie] || x.categorie))));
+      if (liste.some((x) => x.chemin === avant)) sel.value = avant;
+      sel.disabled = !actif(); entree.disabled = !actif(); choisir.setAttribute('aria-disabled', String(!actif()));
+      majAccept();
+      note.textContent = l === null ? 'Dossiers indisponibles pour le moment.' : actif()
+        ? 'Choisis le dossier d\'arrivée, puis un ou plusieurs fichiers (ou glisse-les ici). Une coupure ne fait pas tout recommencer : l\'envoi reprend où il s\'est arrêté. Chaque fichier est analysé (antivirus, vraie nature) avant d\'être rangé ; rien n\'est écrasé.'
+        : 'Déclare d\'abord un dossier média ci-dessus : les fichiers envoyés y seront rangés.';
+    };
+    maj([]); note.textContent = 'Chargement des dossiers…';
+    const boite = el('div', { class: 'vn-sec vn-env' }, el('h3', {}, 'Envoyer des films, séries ou musique depuis cet appareil'), depose, lignes);
+    return { boite, maj };
   }
 
   // --- Onglet Odéon : la bibliothèque + Odyssée (lecteur de livres gardé tel quel) ----------------
@@ -202,12 +338,15 @@
         const grille = el('div', { class: 'vn-grille' });
         const detail = el('div');
         // Bibliothèque vide : le panneau des dossiers passe AU-DESSUS (c'est la seule chose à faire), sinon il reste dessous.
-        if (!oeuvres.length) { zone.replaceChildren(el('p', { class: 'vn-vide' }, S.q ? `Rien pour « ${S.q} » dans ${logique.typeLabel(S.type).toLowerCase()}.` : `Aucun titre dans ${logique.typeLabel(S.type).toLowerCase()} : déclare un dossier de médias ci-dessus, puis lance un scan.`)); if (!S.q) pile.insertBefore(gestion, zone); }
+        if (!oeuvres.length) { zone.replaceChildren(el('p', { class: 'vn-vide' }, S.q ? `Rien pour « ${S.q} » dans ${logique.typeLabel(S.type).toLowerCase()}.` : `Aucun titre dans ${logique.typeLabel(S.type).toLowerCase()} : déclare un dossier de médias ci-dessus, puis lance un scan ou envoie tes fichiers depuis cet appareil.`)); if (!S.q) pile.insertBefore(gestion, zone); }
         else { grille.append(...oeuvres.map((o) => carte(o, (x) => ouvrirOeuvre(x, detail, ctx.toast)))); zone.replaceChildren(grille, detail); if (gestion.previousSibling === sous) pile.insertBefore(zone, gestion); }
       } catch { zone.replaceChildren(el('p', { class: 'vn-vide' }, 'Bibliothèque indisponible (serveur en cours de démarrage ou scan en cours).')); }
     };
     rendre();
-    gestion.replaceChildren(panneauDossiers(() => rendre()));
+    // Sous le panneau des dossiers : la zone d'envoi (un fichier rangé fait recharger la grille sur sa catégorie).
+    const envoi = zoneEnvoi((cat) => { S.type = logique.typeDeCategorie(cat); S.q = ''; rendre(); });
+    gestion.style.cssText = 'display:flex;flex-direction:column;gap:16px';
+    gestion.replaceChildren(panneauDossiers(() => rendre(), envoi.maj), envoi.boite);
 
     // Ma liste + Demandes (privées, dans Alexandrie côté serveur)
     const maListe = el('div', { class: 'vn-sec' }, el('h3', {}, 'Ma liste'), el('div', { class: 'vn-liste' }, el('p', { class: 'vn-vide' }, 'Chargement…')));
