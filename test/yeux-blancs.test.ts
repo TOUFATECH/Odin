@@ -122,7 +122,7 @@ test('yeux blancs : les fêtes et leurs habits ne touchent pas les yeux', async 
 test('yeux blancs : site, guide, planche et autocollants reprennent le visage de l\'interface', () => {
   assert.match(lire('tools/render-moods.cjs'), /src\/web\/face\.js/);
   assert.match(lire('tools/guide/build.ts'), /'src', 'web', 'face\.js'/);
-  assert.match(lire('tools/build-site.py'), /'src' \/ 'web' \/ 'face\.js'/);
+  assert.match(lire('tools/site/build.ts'), /'src', 'web', 'face\.js'/);
   // La copie publiée du site ne garde ni ombre ni yeux sombres.
   const site = lire('site/assets/face.js');
   for (const interdit of ['--o-ombre', 'drop-shadow', 'ENCRE_SOMBRE']) assert.ok(!site.includes(interdit), `site/assets/face.js : ${interdit}`);

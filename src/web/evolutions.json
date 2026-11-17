@@ -2814,7 +2814,7 @@
   "date": "2026-11-04",
   "title": "Site « Odin Agent Majordome » : multipage, animé, SEO, sans cookie",
   "details": [
-   "10 pages statiques générées (tools/build-site.py) : accueil, fonctionnalités, autonomie et Odin Breaker, sécurité, installation (onglets par système), guide, FAQ, confidentialité (RGPD), mentions légales, 404.",
+   "10 pages statiques générées (tools/site/build.ts) : accueil, fonctionnalités, autonomie et Odin Breaker, sécurité, installation (onglets par système), guide, FAQ, confidentialité (RGPD), mentions légales, 404.",
    "Animations : terminal rejoué, compteurs, révélation au défilement, jauges ; respect de prefers-reduced-motion. Thème sombre/clair sans cookie.",
    "SEO : titres et descriptions uniques, canonical, Open Graph, JSON-LD (SoftwareApplication, HowTo, FAQPage, BreadcrumbList), sitemap, robots, og.png.",
    "Polices servies par le site, aucun script ni traceur tiers, aucune inscription.",
