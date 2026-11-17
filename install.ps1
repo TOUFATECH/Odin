@@ -172,7 +172,10 @@ if ($env:ODIN_NO_SCAN -ne '1' -and (Ask 'Inventorier les appareils de ton résea
 
 $service = $false
 if ($env:ODIN_NO_SERVICE -ne '1' -and (Ask 'Lancer Odin automatiquement à l''ouverture de session (interface web + Telegram + tâches) ?')) {
-  $action  = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command `"& '$Odin' gateway *>> '$OdinHome\logs\gateway.log'`""
+  # Sans fenêtre : sous Windows 11, « -WindowStyle Hidden » laisse une fenêtre de terminal visible, et la fermer arrête
+  # Odin. « conhost --headless » (Windows 10 version 1809 et suivantes) donne une console sans fenêtre.
+  $corps   = "-NoProfile -Command `"& '$Odin' gateway *>> '$OdinHome\logs\gateway.log'`""
+  $action  = if ([Environment]::OSVersion.Version.Build -ge 17763) { New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless powershell.exe $corps" } else { New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-WindowStyle Hidden $corps" }
   $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
   $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
   # Odin est administrateur de la machine où il est installé (Heimdall reste juge). Pour refuser : $env:ODIN_NO_ADMIN = "1".
