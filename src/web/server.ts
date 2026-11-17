@@ -1198,7 +1198,8 @@ export class WebChannel implements Channel {
     const body = await readJson(req);
     if (url.pathname === '/api/ports') return json(res, 200, await portsPost(valhallaOf(), body, { adresses: { freyja: this.odin.cfg.venus?.url ?? '' } }));
     if (url.pathname.startsWith('/api/draupnir/')) {
-      const r = await draupnirPost(this.odin, url.pathname, body);
+      // Couper un lien entre applis : seulement la session du navigateur du propriétaire, jamais une requête qui porte la clé.
+      const r = await draupnirPost(this.odin, url.pathname, body, { sessionProprio: this.who(req) === 'session' && this.accounts.valid(this.sessionOf(req)) && !req.headers.authorization && !req.headers['x-api-key'] && url.search === '' });
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
     if (url.pathname.startsWith('/api/valhalla/')) {

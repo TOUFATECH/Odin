@@ -136,7 +136,11 @@ export function agendaOdin(de: Date, a: Date): ElementAgenda[] { try { return so
 
 // ---------------------------------------------------------------- Le registre
 
-interface Etat { pauses: Record<string, { depuis: string; jusqua?: string; alerte?: string }>; rythmes: Record<string, Rythme>; derniers: Record<string, Passage> }
+/** Une pause. Celle d'un lien écrit entre applis (`lien:<id>`) porte aussi `lien: true` et `protege`. */
+interface PauseEtat { depuis: string; jusqua?: string; alerte?: string; lien?: true; protege?: boolean }
+/** Un geste sur un lien écrit : qui, quand, quel lien. */
+export interface GesteLien { at: string; lien: string; geste: 'coupé' | 'rétabli'; par: string; jusqua?: string }
+interface Etat { pauses: Record<string, PauseEtat>; rythmes: Record<string, Rythme>; derniers: Record<string, Passage>; journal: GesteLien[] }
 export interface HoteAutomatismes {
   dir: string;
   now(): Date;
@@ -156,7 +160,33 @@ let actif: Automatismes | undefined;
 /** La tâche `tache` de l'appli `module` est-elle en pause dans Talos ? Lu par l'appli avant son passage planifié. */
 export function tacheEnPause(module: string, tache: string): boolean { return actif?.enPause(`tache:${module}:${tache}`) ?? false; }
 
-const PAS = 30_000, GARDER = 20, MAX_PAUSE_SECU = 24 * 3600_000;
+// ---------------------------------------------------------------- Les liens écrits entre applis, coupés depuis la page
+// Couper un lien, c'est une pause d'identifiant `lien:<id>` dans ce registre (pas de registre à part). Seule
+// `couperLien` y mène : `pause()` refuse un `lien:` qui n'arrive pas par elle (la marque ci-dessous n'est pas exportée).
+// Un essai vérifie que seule la route de la page (src/web/talos-api.ts) importe `couperLien`.
+const PAR_LA_PAGE: unique symbol = Symbol('lien coupé depuis la page');
+/** Le lien à couper, tiré de LINKS par la route de la page (ce fichier n'importe pas links.ts). */
+export interface LienACouper {
+  id: string; nom: string; de: string; protege: false | { raison: string };
+  /** les autres liens coupés par le même interrupteur (même point de coupure) */
+  aussi?: string[];
+  /** qui fait le geste (journal) */
+  qui: string;
+}
+export type EtatLien = { depuis: string; jusqua?: string };
+/** Coupe (`couper` vrai) ou rétablit un lien écrit. RÉSERVÉ à la route de la page, appelée par la session du propriétaire. */
+export function couperLien(l: LienACouper, couper: boolean, o: { jusqua?: string; confirme?: boolean } = {}): Reponse<{ lien: string; coupe?: EtatLien }> {
+  if (!actif) return { ok: false, code: 'introuvable', error: 'Les applis ne sont pas démarrées.' };
+  return actif.pause(`lien:${l.id}`, couper, { ...o, [PAR_LA_PAGE]: l }) as Reponse<{ lien: string; coupe?: EtatLien }>;
+}
+/** Ce lien écrit est-il coupé ? Lu par `wireReflexes` avant d'agir. Un état abîmé ou illisible ne coupe rien. */
+export function lienCoupe(id: string): boolean { return actif?.lienCoupe(id) ?? false; }
+/** L'état d'un lien coupé (depuis, jusqu'à), sinon undefined. */
+export function etatLien(id: string): EtatLien | undefined { return actif?.etatLien(id); }
+/** Les gestes sur les liens (les plus récents à la fin). */
+export function journalLiens(): GesteLien[] { return actif?.journalLiens() ?? []; }
+
+const PAS = 30_000, GARDER = 20, MAX_PAUSE_SECU = 24 * 3600_000, JOURNAL = 500;
 /** Les surveillances qui font un long travail dans leur passage (sauvegardes, vérifications, téléchargements) : 6 h avant d'être dites bloquées. */
 const LONGUES = new Set(['sindri', 'skuld', 'ymir', 'eitri', 'fjalar', 'gefjon', 'skidbladnir', 'dvalinn', 'sol', 'kvasir', 'durinn', 'brisingamen', 'leikvangr', 'pegase', 'atalante']);
 /** Les surveillances qui protègent sans être des veilles de sécurité : leur pause sans fin pose une alerte haute. */
@@ -187,8 +217,8 @@ export class Automatismes {
 
   // ---------------- Rangement (seulement aux changements, et après le passage d'une tâche)
   private lire(): Etat {
-    const vide: Etat = { pauses: {}, rythmes: {}, derniers: {} };
-    try { if (!existsSync(this.fichier)) return vide; const e = JSON.parse(readFileSync(this.fichier, 'utf8')) as Partial<Etat>; return { pauses: e.pauses ?? {}, rythmes: e.rythmes ?? {}, derniers: e.derniers ?? {} }; } catch { return vide; }
+    const vide: Etat = { pauses: {}, rythmes: {}, derniers: {}, journal: [] };
+    try { if (!existsSync(this.fichier)) return vide; const e = JSON.parse(readFileSync(this.fichier, 'utf8')) as Partial<Etat>; return { pauses: e.pauses ?? {}, rythmes: e.rythmes ?? {}, derniers: e.derniers ?? {}, journal: Array.isArray(e.journal) ? e.journal.slice(-JOURNAL) : [] }; } catch { return vide; }
   }
   private ecrire(): void {
     try { const tmp = `${this.fichier}.tmp`; writeFileSync(tmp, JSON.stringify(this.etat, null, 1)); renameSync(tmp, this.fichier); } catch { /* disque plein : l'état reste en mémoire */ }
@@ -232,6 +262,9 @@ export class Automatismes {
   }
   /** Le tour de l'horloge (toutes les 30 s) : reprise des pauses échues, passages dus des rythmes changés. */
   async verifierDus(): Promise<void> {
+    // Les coupures de liens échues ou abîmées se lèvent même pendant le « Stop » : le lien agit déjà de nouveau
+    // (lienCoupe relit l'état au moment d'agir), son alerte ne doit pas rester affichée.
+    for (const id of Object.keys(this.etat.pauses)) if (id.startsWith('lien:')) this.enPause(id);
     if (pauseGlobale()) return;
     for (const id of Object.keys(this.etat.pauses)) this.enPause(id);
     const now = this.hote.now().getTime();
@@ -327,6 +360,7 @@ export class Automatismes {
   // ---------------- Pauses
   /** La ligne est-elle en pause ? Une pause échue est levée ici (reprise automatique). */
   enPause(id: string): boolean {
+    if (id.startsWith('lien:')) return this.lienCoupe(id.slice(5));
     const p = this.etat.pauses[id]; if (!p) return false;
     if (p.jusqua && Date.parse(p.jusqua) <= this.hote.now().getTime()) { this.reprendre(id); return false; }
     return true;
@@ -336,6 +370,87 @@ export class Automatismes {
     const p = this.etat.pauses[id]; if (!p) return;
     delete this.etat.pauses[id]; this.ecrire();
     if (p.alerte) { try { this.hote.ack?.([p.alerte]); } catch { /* rien */ } }
+  }
+
+  // ---------------- Liens écrits coupés (pauses `lien:<id>`)
+  /**
+   * La coupure du lien, si elle est en règle : une pause marquée `lien`, une date de début lisible, et soit une fin
+   * lisible (24 h au plus pour un lien qui protège), soit aucune fin pour un lien qui ne protège pas. Tout le reste
+   * (état abîmé, illisible, inconnu) ne coupe RIEN. Une coupure échue est levée ici (rétablie toute seule, journalisée).
+   */
+  etatLien(idLien: string): EtatLien | undefined {
+    const k = `lien:${idLien}`, p = this.etat.pauses[k] as PauseEtat | undefined;
+    if (p === undefined) return undefined;
+    const e = this.coupureEnRegle(p);
+    if (!e) {
+      // Abîmée : elle ne coupe rien, donc Odin ne la montre plus comme coupée (entrée retirée, alerte vue, geste noté).
+      delete this.etat.pauses[k];
+      const a = p && typeof p === 'object' ? (p as PauseEtat).alerte : undefined;
+      if (typeof a === 'string') { try { this.hote.ack?.([a]); } catch { /* rien */ } }
+      this.noterGeste({ lien: idLien, geste: 'rétabli', par: 'Odin, coupure illisible' });
+      return undefined;
+    }
+    if (e.jusqua && Date.parse(e.jusqua) <= this.hote.now().getTime()) { this.reprendre(k); this.noterGeste({ lien: idLien, geste: 'rétabli', par: 'Odin, à la fin de la durée choisie' }); return undefined; }
+    return e;
+  }
+  /** La coupure lue si elle est en règle, sinon undefined (abîmée). */
+  private coupureEnRegle(p: PauseEtat): EtatLien | undefined {
+    if (!p || typeof p !== 'object' || p.lien !== true || typeof p.protege !== 'boolean' || typeof p.depuis !== 'string') return undefined;
+    const depuis = Date.parse(p.depuis); if (!Number.isFinite(depuis)) return undefined;
+    if (p.jusqua === undefined) return p.protege ? undefined : { depuis: p.depuis };
+    if (typeof p.jusqua !== 'string') return undefined;
+    const j = Date.parse(p.jusqua); if (!Number.isFinite(j)) return undefined;
+    if (p.protege && j - depuis > MAX_PAUSE_SECU + 60_000) return undefined;
+    return { depuis: p.depuis, jusqua: p.jusqua };
+  }
+  lienCoupe(idLien: string): boolean { return this.etatLien(idLien) !== undefined; }
+  journalLiens(): GesteLien[] { return Array.isArray(this.etat.journal) ? [...this.etat.journal] : []; }
+  private noterGeste(g: Omit<GesteLien, 'at'>): void {
+    if (!Array.isArray(this.etat.journal)) this.etat.journal = [];
+    this.etat.journal = [...this.etat.journal, { at: this.hote.now().toISOString(), ...g }].slice(-JOURNAL);
+    this.ecrire();
+  }
+  private coupures = 0;
+  /** La branche `lien:` de la pause : seulement par `couperLien` (la route de la page). */
+  private pauseLien(id: string, couper: boolean, o: { jusqua?: string; confirme?: boolean; [PAR_LA_PAGE]?: LienACouper }): Reponse<{ lien: string; coupe?: EtatLien }> {
+    const l = o[PAR_LA_PAGE];
+    if (!l || `lien:${l.id}` !== id || !/^[a-z0-9]+(-[a-z0-9]+)+$/.test(l.id)) return { ok: false, code: 'interdit', error: 'Un lien entre applis ne se coupe et ne se rétablit que depuis la page des automatisations, par toi.' };
+    const idLien = l.id;
+    if (!couper) {
+      if (this.etat.pauses[id]) { this.reprendre(id); this.noterGeste({ lien: idLien, geste: 'rétabli', par: l.qui }); }
+      return { ok: true, lien: idLien };
+    }
+    const now = this.hote.now().getTime();
+    let jusqua: number | undefined;
+    if (l.protege) {
+      // Un lien qui protège se rétablit tout seul : 1 h par défaut, 24 h au plus (renouvelable par un nouveau geste).
+      const voulu = o.jusqua ? Date.parse(o.jusqua) : now + 3600_000;
+      if (!Number.isFinite(voulu) || voulu <= now) return { ok: false, code: 'invalide', error: 'La fin de la coupure doit être dans le futur.' };
+      jusqua = Math.min(voulu, now + MAX_PAUSE_SECU);
+    }
+    const fin = jusqua ? texteDate(new Date(jusqua), undefined, new Date(now)).replace(/^aujourd'hui /, '') : undefined;
+    const aussi = l.aussi?.length ? ` Le même interrupteur coupe aussi : ${l.aussi.map((x) => `« ${x} »`).join(', ')}.` : '';
+    if (o.confirme !== true) {
+      return { ok: false, code: 'accord', error: 'Confirme la coupure de ce lien.', confirm: l.protege
+        ? `Couper « ${l.nom} » jusqu'à ${fin} ? Ce lien protège : ${l.protege.raison}. Cela ne sera plus fait jusqu'à ${fin} ; il se rétablira tout seul, et une alerte restera visible en attendant.${aussi}`
+        : `Couper « ${l.nom} » ? Il restera coupé jusqu'à ce que tu le rétablisses.${aussi}` };
+    }
+    // Recouper un lien déjà coupé (renouveler) : l'alerte d'avant est marquée vue, la nouvelle la remplace.
+    const avant = this.etat.pauses[id];
+    if (avant?.alerte) { try { this.hote.ack?.([avant.alerte]); } catch { /* rien */ } }
+    // Chaque coupure a sa propre clé d'alerte : couper, rétablir puis recouper lève bien une nouvelle alerte.
+    const alerte = this.hote.alert(l.de, {
+      level: l.protege ? 'haute' : 'moyenne',
+      title: l.protege ? `Lien coupé jusqu'à ${fin} : ${l.nom}` : `Lien coupé : ${l.nom}`,
+      detail: l.protege
+        ? `Ce lien protège : ${l.protege.raison}. Il ne le fait plus jusqu'à ${fin}, puis se rétablit tout seul. Pour le rétablir avant : Talos, « Liens entre applis ».${aussi}`
+        : `Coupé depuis Talos ; il reste coupé jusqu'à ce que tu le rétablisses (Talos, « Liens entre applis »).${aussi}`,
+      key: `coupure:${id}:${now}:${++this.coupures}`,
+    });
+    const idAlerte = (alerte as { id?: unknown } | undefined)?.id;
+    this.etat.pauses[id] = { depuis: new Date(now).toISOString(), ...(jusqua ? { jusqua: new Date(jusqua).toISOString() } : {}), ...(typeof idAlerte === 'string' ? { alerte: idAlerte } : {}), lien: true, protege: Boolean(l.protege) };
+    this.noterGeste({ lien: idLien, geste: 'coupé', par: l.qui, ...(jusqua ? { jusqua: new Date(jusqua).toISOString() } : {}) });
+    return { ok: true, lien: idLien, ...(this.etatLien(idLien) ? { coupe: this.etatLien(idLien) } : {}) };
   }
 
   // ---------------- Les lignes
@@ -399,7 +514,8 @@ export class Automatismes {
     if (p === 'introuvable' || p === 'pause') return { ok: false, code: 'introuvable', error: 'Automatisme introuvable.' };
     return { ok: true, resultat: { ok: p.ok, ms: p.ms ?? 0, texte: p.texte ?? '', at: p.at } };
   }
-  pause(id: string, pause: boolean, o: { jusqua?: string; confirme?: boolean } = {}): Reponse<{ ligne: Ligne }> {
+  pause(id: string, pause: boolean, o: { jusqua?: string; confirme?: boolean; [PAR_LA_PAGE]?: LienACouper } = {}): Reponse<{ ligne: Ligne }> | Reponse<{ lien: string; coupe?: EtatLien }> {
+    if (id.startsWith('lien:')) return this.pauseLien(id, pause, o);
     const l = this.ligne(id); if (!l) return { ok: false, code: 'introuvable', error: 'Automatisme introuvable.' };
     if (!pause) { this.reprendre(id); return { ok: true, ligne: this.ligne(id)! }; }
     const now = this.hote.now().getTime();

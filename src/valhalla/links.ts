@@ -6,6 +6,7 @@ import type { Valhalla } from './service.ts';
 import { accord } from '../core/genre.ts';
 import { observe } from './modules/ullr.ts';
 import { SENSORS } from './ullr/incidents.ts';
+import { lienCoupe } from './automatismes.ts';
 
 /**
  * Un lien entre deux applis. Tous sont automatiques : rien à activer.
@@ -16,8 +17,9 @@ import { SENSORS } from './ullr/incidents.ts';
  * Un essai échoue si un lien ne le dit pas : un lien ajouté demain doit être classé (talos-liens-ecrits.test.ts).
  * `id` : écrit à la main, court, stable, jamais tiré du texte (les capteurs : `capteur-<appli>`). La liste est figée
  * dans l'essai : le changer ou le retirer le fait échouer.
- * `coupure` : posé à la main sur CHAQUE lien, dit COMMENT il pourra se couper. AUCUN ne se coupe encore : rien ne lit
- * ce champ pour agir, il est seulement montré.
+ * `coupure` : posé à la main sur CHAQUE lien, dit COMMENT il peut ou pourra se couper. Les 21 liens à point unique
+ * (`par: 'reflexe'`) se coupent et se rétablissent depuis la fenêtre des automatisations, par le propriétaire seul ;
+ * les autres sont seulement montrés.
  */
 export interface Protection { genre: 'sécurité' | 'sauvegarde'; raison: string }
 /**
@@ -218,31 +220,36 @@ export function wireReflexes(v: Valhalla, o: { retryMs?: number } = {}): () => v
     void v.act(module, action, input, { auto: true, by: 'odin', why });
   };
   const hasUllr = v.modules().some((m) => m.id === 'ullr');
+  // Les 21 liens à point unique : chacun demande s'il est coupé (depuis Talos) avant d'agir. Les capteurs partagent
+  // l'appel à `observe` : couper un capteur ne coupe que lui (le signal de son appli seulement).
+  const capteurs = new Set(SENSORS.filter((q) => !['loki', 'skogul'].includes(q.app)).map((q) => q.app));
+  const signalCoupe = (m: string) => (m === 'skogul' ? lienCoupe('skogul-ullr-processus-suspect') : capteurs.has(m) && lienCoupe(`capteur-${m}`));
   const onEvent = (e: { module: string; type: string; data: Record<string, unknown> }) => {
     // Asclépios relie les signaux de toutes les applis en incidents (jamais bloquant pour le reste).
-    if (hasUllr) try { observe(v.ctx('ullr'), e); } catch (err) { console.error(`[ullr] incident : ${(err as Error).message}`); }
-    if (e.module === 'skogul' && e.type === 'suspect' && e.data.pid) {
+    if (hasUllr && !signalCoupe(e.module)) try { observe(v.ctx('ullr'), e); } catch (err) { console.error(`[ullr] incident : ${(err as Error).message}`); }
+    if (e.module === 'skogul' && e.type === 'suspect' && e.data.pid && !lienCoupe('skogul-ullr-processus-suspect')) {
       void v.act('ullr', 'fichier', { chemin: `/proc/${Number(e.data.pid)}/exe` }, { auto: true, by: 'réflexe', de: e.module }).then((r) => { if (r.ok && /⚠/.test(r.text)) v.alert('ullr', { level: 'critique', title: 'Processus suspect confirmé par Asclépios', detail: r.text.slice(0, 500), key: `proc:${String(e.data.pid)}` }); });
     }
-    if (e.module === 'himinbjorg' && e.type === 'mouvement' && e.data['surveillé'] !== false) {
+    if (e.module === 'himinbjorg' && e.type === 'mouvement' && e.data['surveillé'] !== false && !lienCoupe('himinbjorg-midgard-scene-intrusion')) {
       const sc = ((v.ctx('midgard').settings.scenes as Array<{ name: string }> | undefined) ?? []).find((x) => /intrusion/i.test(x.name));
       if (sc) void v.act('midgard', 'scene', { scene: sc.name }, { auto: true, by: 'réflexe', why: `mouvement sur la caméra ${String(e.data['caméra'] ?? '')} aux heures surveillées`, de: e.module });
     }
-    if (e.module === 'himinbjorg' && e.type === 'clip' && e.data.fichier) void v.act('syrinx', 'ecouter_clip', { camera: String(e.data['caméra'] ?? ''), fichier: String(e.data.fichier) }, { auto: true, by: 'réflexe', why: 'un clip de caméra vient d\'être enregistré', de: e.module });
+    if (e.module === 'himinbjorg' && e.type === 'clip' && e.data.fichier && !lienCoupe('himinbjorg-syrinx-ecoute-clip')) void v.act('syrinx', 'ecouter_clip', { camera: String(e.data['caméra'] ?? ''), fichier: String(e.data.fichier) }, { auto: true, by: 'réflexe', why: 'un clip de caméra vient d\'être enregistré', de: e.module });
     // Chronos → Papyrus : chaque réservation crée ou met à jour la fiche du client.
-    if (e.module === 'frigg' && e.type === 'reservation' && e.data.name) void v.act('runes', 'client', { nom: String(e.data.name), contact: String(e.data.contact ?? ''), rendez_vous: String(e.data.start ?? ''), prestation: String(e.data.service ?? '') }, { auto: true, by: 'réflexe', why: 'nouvelle réservation', de: e.module });
+    if (e.module === 'frigg' && e.type === 'reservation' && e.data.name && !lienCoupe('frigg-runes-fiche-client')) void v.act('runes', 'client', { nom: String(e.data.name), contact: String(e.data.contact ?? ''), rendez_vous: String(e.data.start ?? ''), prestation: String(e.data.service ?? '') }, { auto: true, by: 'réflexe', why: 'nouvelle réservation', de: e.module });
     // Arachné : chaque mise en production est essayée ; un essai raté propose le retour en arrière (action grave : jamais lancée seule).
-    if (e.module === 'idunn' && e.type === 'deploiement_ok' && e.data.production === true && e.data.site) {
+    if (e.module === 'idunn' && e.type === 'deploiement_ok' && e.data.production === true && e.data.site && !lienCoupe('idunn-soin-essai-deploiement')) {
       const name = String(e.data.site);
       void v.act('idunn', 'tester', { site: name }, { auto: true, by: 'réflexe', why: 'nouveau déploiement en production' }).then((r) => { if (r.ok && (r.data as { ok?: boolean } | undefined)?.ok === false) v.alert('idunn', { level: 'haute', title: `${name} : le nouveau déploiement casse quelque chose`, detail: `${r.text.slice(0, 600)}\nPour revenir à la version d'avant : « reviens à la version précédente du site ${name} ».`, key: `essai:${name}` }); });
     }
     // Soins : ce qu'Odin répare tout seul.
-    if (e.module === 'naglfar' && e.type === 'conteneur_arrete' && e.data.conteneur) care(`ct:${String(e.data.conteneur)}`, 'naglfar', 'demarrer', { conteneur: String(e.data.conteneur) }, `le conteneur ${String(e.data.conteneur)} s'est arrêté tout seul`, `démarre le conteneur ${String(e.data.conteneur)}`);
-    if (e.module === 'ymir' && e.type === 'vm_arretee' && e.data.vmid) care(`vm:${String(e.data.vmid)}`, 'ymir', 'demarrer', { vmid: Number(e.data.vmid) }, `la machine virtuelle ${String(e.data.nom ?? e.data.vmid)} s'est arrêtée toute seule`, `démarre la machine virtuelle ${String(e.data.vmid)}`);
-    if (e.module === 'sindri' && e.type === 'sauvegarde_echec' && e.data.plan) {
+    if (e.module === 'naglfar' && e.type === 'conteneur_arrete' && e.data.conteneur && !lienCoupe('naglfar-soin-relance-conteneur')) care(`ct:${String(e.data.conteneur)}`, 'naglfar', 'demarrer', { conteneur: String(e.data.conteneur) }, `le conteneur ${String(e.data.conteneur)} s'est arrêté tout seul`, `démarre le conteneur ${String(e.data.conteneur)}`);
+    if (e.module === 'ymir' && e.type === 'vm_arretee' && e.data.vmid && !lienCoupe('ymir-soin-relance-machine')) care(`vm:${String(e.data.vmid)}`, 'ymir', 'demarrer', { vmid: Number(e.data.vmid) }, `la machine virtuelle ${String(e.data.nom ?? e.data.vmid)} s'est arrêtée toute seule`, `démarre la machine virtuelle ${String(e.data.vmid)}`);
+    if (e.module === 'sindri' && e.type === 'sauvegarde_echec' && e.data.plan && !lienCoupe('sindri-soin-relance-sauvegarde')) {
       const key = `sv:${String(e.data.plan)}`, now = Date.now(); if (now - (lastCare.get(key) ?? 0) < 6 * 3600_000 || v.autonomy() === 'prudent') return;
       lastCare.set(key, now);
-      const t = setTimeout(() => { timers.delete(t); void v.act('sindri', 'sauvegarder', { plan: String(e.data.plan) }, { auto: true, by: 'odin', why: `la sauvegarde « ${String(e.data.plan)} » avait échoué (${String(e.data.erreur ?? '').slice(0, 80)})` }); }, o.retryMs ?? 600_000);
+      // Coupé pendant l'attente : la relance ne part pas.
+      const t = setTimeout(() => { timers.delete(t); if (lienCoupe('sindri-soin-relance-sauvegarde')) return; void v.act('sindri', 'sauvegarder', { plan: String(e.data.plan) }, { auto: true, by: 'odin', why: `la sauvegarde « ${String(e.data.plan)} » avait échoué (${String(e.data.erreur ?? '').slice(0, 80)})` }); }, o.retryMs ?? 600_000);
       (t as { unref?: () => void }).unref?.(); timers.add(t);
     }
   };

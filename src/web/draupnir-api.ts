@@ -71,7 +71,9 @@ export async function draupnirGet(odin: Odin, path: string, q: URLSearchParams, 
   }
 }
 
-export async function draupnirPost(odin: Odin, path: string, b: Record<string, unknown>): Promise<unknown> {
+/** `o.sessionProprio` : la requête vient de la session du navigateur du propriétaire (ni clé d'accès, ni membre) ; seule
+ * la coupure d'un lien entre applis le demande (talos-api.ts). */
+export async function draupnirPost(odin: Odin, path: string, b: Record<string, unknown>, o: { sessionProprio?: boolean } = {}): Promise<unknown> {
   const d = draupnirOf(); if (!d) return { ok: false, error: 'Talos n\'est pas démarré' };
   try {
     switch (path) {
@@ -121,7 +123,7 @@ export async function draupnirPost(odin: Odin, path: string, b: Record<string, u
         writeSecret(odin.paths, `DRAUPNIR_${name}`, s(b.value));
         return { ok: true, name };
       }
-      default: return await talosPost(odin, path, b);
+      default: return await talosPost(odin, path, b, o);
     }
   } catch (e) { return { ok: false, error: (e as Error).message }; }
 }

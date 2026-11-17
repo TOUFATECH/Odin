@@ -67,6 +67,18 @@
     if (typeof c.jamais === 'string') return `Ne se coupe pas : ${c.jamais}.`;
     return '';
   }
+  /**
+   * L'état d'un des 21 liens qui se coupent d'ici : « Coupé jusqu'à 11 h 00 » (un lien qui protège se rétablit seul),
+   * « Coupé » (jusqu'à ce que tu le rétablisses), ou '' quand il n'est pas coupé.
+   */
+  function etatCoupe(l) {
+    if (!l || !l.coupe) return '';
+    const d = l.coupe.jusqua ? new Date(l.coupe.jusqua) : null;
+    if (!d || Number.isNaN(+d)) return 'Coupé';
+    // Écrit comme dans la confirmation d'Odin (« 1 h 42 »).
+    const heure = `${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`;
+    return new Date().toDateString() === d.toDateString() ? `Coupé jusqu'à ${heure}` : `Coupé jusqu'à ${heure}, le ${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
+  }
 
   // ---------------- Dessin
   const el = (t, a = {}, ...kids) => {
@@ -105,6 +117,13 @@
 .au-g>summary::-webkit-details-marker{display:none}.au-g>summary::before{content:'▸';color:var(--muted);transition:transform .15s}.au-g[open]>summary::before{transform:rotate(90deg)}
 .au-g>summary small{color:var(--muted);font-size:13px}.au-g>.au-list{padding-left:4px}
 .au-pr{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.au-cp{grid-column:2;display:flex;flex-direction:column;gap:6px;min-width:0}.au-cp .au-b .btn{min-height:44px}
+.au-sw{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:0 14px 0 8px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+.au-sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.au-sw[disabled]{opacity:.6;cursor:wait}
+.au-sw-p{position:relative;flex:none;width:38px;height:22px;border-radius:999px;background:var(--muted);transition:background .15s}
+.au-sw-p::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--panel);transition:transform .15s}
+.au-sw[aria-checked=true] .au-sw-p{background:var(--good)}.au-sw[aria-checked=true] .au-sw-p::after{transform:translateX(16px)}
+@media (prefers-reduced-motion:reduce){.au-sw-p,.au-sw-p::after{transition:none}}
 .au-h{margin:0;padding-left:18px;font-size:13px}.au-al{border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent);border-radius:10px;padding:8px 12px;margin:0 0 10px;font-size:14px}
 `;
   let styled = false;
@@ -248,23 +267,69 @@
   /** Une liste de lignes (sert aussi à l'onglet « Auto » de chaque appli). */
   const liste = (lignes, opts) => el('ul', { class: 'au-list' }, ...lignes.map((l) => ligne(l, opts)));
 
-  /** Un lien écrit entre applis : LECTURE SEULE (aucun bouton : on ne le coupe pas d'ici pour l'instant). */
+  const titreLien = (l) => (l.de === l.vers ? `${l.deNom} (sur elle-même)` : `${l.deNom} → ${l.versNom}`);
+  /**
+   * Un lien écrit entre applis. Les 21 liens à point unique (`coupable`) ont un interrupteur ; les autres restent en
+   * lecture seule, avec la phrase de leur déclaration « coupure ».
+   */
   function ligneLien(l) {
     style();
-    const titre = l.de === l.vers ? `${l.deNom} (sur elle-même)` : `${l.deNom} → ${l.versNom}`;
     const ic = el('span', { class: 'au-ic', 'aria-hidden': 'true' });
     if (window.OdinAppIcons) ic.innerHTML = window.OdinAppIcons.tile(l.de, l.deNom, 32); else ic.append(el('span', { class: 'au-odin' }, 'ᛟ'));
     const p = l.protege;
     return el('li', { class: 'au-l', 'data-id': l.id },
       ic,
-      el('div', { class: 'au-t' }, el('b', {}, titre), el('p', {}, phraseLien(l))),
+      el('div', { class: 'au-t' }, el('b', {}, titreLien(l)), el('p', {}, phraseLien(l))),
       el('div', { class: 'au-m' },
         el('span', { class: 'pill' }, 'Lien entre applis'),
-        l.etat === 'actif' ? el('span', { class: 'pill good' }, 'Actif') : el('span', { class: 'pill warn', title: l.pourquoi || '' }, `Inactif${l.pourquoi ? ` (${l.pourquoi})` : ''}`),
+        l.coupe ? el('span', { class: 'pill bad' }, etatCoupe(l))
+          : l.etat === 'actif' ? el('span', { class: 'pill good' }, 'Actif') : el('span', { class: 'pill warn', title: l.pourquoi || '' }, `Inactif${l.pourquoi ? ` (${l.pourquoi})` : ''}`),
         GENRES[l.genre] ? el('span', {}, GENRES[l.genre]) : null,
         p ? el('span', { class: 'pill warn' }, `Protège (${p.genre})`) : null),
       p ? el('p', { class: 'au-pr', style: 'margin:0' }, `Pourquoi : ${p.raison}.`) : null,
-      phraseCoupure(l.coupure) ? el('p', { class: 'au-pr', style: 'margin:0' }, phraseCoupure(l.coupure)) : null);
+      l.coupable ? interrupteur(l)
+        : phraseCoupure(l.coupure) ? el('p', { class: 'au-pr', style: 'margin:0' }, phraseCoupure(l.coupure)) : null);
+  }
+
+  /**
+   * L'interrupteur d'un lien à point unique. Couper demande toujours ta confirmation (le texte vient d'Odin et cite,
+   * pour un lien qui protège, ce qui ne sera plus fait) ; un lien qui protège se coupe pour une durée choisie (1 h par
+   * défaut, 24 h au plus) et se rétablit seul. « Rétablir » : un geste, sans confirmation.
+   */
+  function interrupteur(l) {
+    const box = el('div', { class: 'au-cp' });
+    const res = el('div', { class: 'au-r', role: 'status' }), extra = el('div', { class: 'au-x' });
+    const titre = titreLien(l), coupe = Boolean(l.coupe);
+    const dire = (texte, ok) => res.replaceChildren(ok === false ? el('span', { class: 'pill bad' }, 'Refusé') : '', texte);
+    const btn = (label, fn, o = {}) => el('button', { class: `btn small${o.primary ? ' primary' : ''}`, type: 'button', 'aria-label': `${label} : ${titre}`, onclick: async (e) => { const b = e.currentTarget; b.disabled = true; try { await fn(); } finally { b.disabled = false; } } }, label);
+    async function envoyer(corps) {
+      const route = '/api/draupnir/automatisme/pause';
+      let r = await appel(route, corps);
+      if (r && !r.ok && r.code === 'accord') {
+        if (!(await window.OdinDialog.confirm(r.confirm ?? 'Confirmer ?', { danger: true, ok: 'Couper le lien' }))) { extra.replaceChildren(); return dire('Annulé : rien n\'a changé.'); }
+        r = await appel(route, { ...corps, confirme: true });
+      }
+      if (!r) return dire('Odin ne répond pas, ou ne sait pas encore le faire.', false);
+      if (!r.ok) return dire(r.error ?? 'Refusé.', false);
+      const li = box.closest('li');
+      if (r.lien && li) { const n = ligneLien(r.lien); li.replaceWith(n); n.querySelector('.au-sw')?.focus(); }
+    }
+    const retablir = () => envoyer({ id: l.id, pause: false });
+    function couper() {
+      if (!l.protege) return envoyer({ id: l.id, pause: true });
+      const sid = `au-c-${l.id.replace(/[^\w-]/g, '_')}`;
+      const choix = el('select', { id: sid }, ...[1, 2, 4, 8, 12, 24].map((h) => el('option', { value: String(h) }, h === 1 ? '1 heure' : `${h} heures`)));
+      extra.replaceChildren(el('label', { for: sid }, 'Couper pendant combien de temps ? Il se rétablira tout seul.'), choix,
+        el('div', { class: 'au-b' },
+          btn('Couper', () => envoyer({ id: l.id, pause: true, jusqua: new Date(Date.now() + (Number(choix.value) || 1) * 3600_000).toISOString() }), { primary: true }),
+          btn('Annuler', async () => { extra.replaceChildren(); })));
+      choix.focus();
+    }
+    const sw = el('button', { type: 'button', class: 'au-sw', role: 'switch', 'aria-checked': String(!coupe), 'aria-label': `${titre} : lien ${coupe ? 'coupé' : 'actif'}`,
+      onclick: async (e) => { const b = e.currentTarget; b.disabled = true; try { await (coupe ? retablir() : couper()); } finally { b.disabled = false; } } },
+    el('span', { class: 'au-sw-p', 'aria-hidden': 'true' }), coupe ? 'Lien coupé' : 'Lien actif');
+    box.append(el('div', { class: 'au-b' }, sw, coupe ? btn('Rétablir', retablir, { primary: true }) : null), res, extra);
+    return box;
   }
 
   /** Le bloc « Liens entre applis » : un groupe repliable par appli qui signale, et un filtre « Qui protègent ». */
@@ -286,7 +351,7 @@
       }));
     };
     box.append(el('h3', {}, 'Liens entre applis'),
-      el('p', { class: 'au-sub' }, `Écrits dans Odin : quand une appli signale quelque chose, une autre agit. Ils marchent seuls dès que leurs deux applis sont là ; ici on les voit seulement.`),
+      el('p', { class: 'au-sub' }, `Écrits dans Odin : quand une appli signale quelque chose, une autre agit. Ils marchent seuls dès que leurs deux applis sont là. Ceux qui ont un interrupteur se coupent d'ici.`),
       puces, groupes);
     peindre();
     return box;
@@ -324,5 +389,5 @@
     box.replaceChildren(sec);
   }
 
-  window.OdinAutomatismes = { monter, ligne, liste, noms, ouvrir, logique: { FILTRES, filtrer, duree, grouperLiens, phraseLien, phraseCoupure } };
+  window.OdinAutomatismes = { monter, ligne, liste, noms, ouvrir, logique: { FILTRES, filtrer, duree, grouperLiens, phraseLien, phraseCoupure, etatCoupe } };
 })();

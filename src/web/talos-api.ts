@@ -13,7 +13,7 @@ import { isReminderJob, parseWhen, reminderText } from '../cron/reminders.ts';
 import type { JobRow } from '../muninn/store.ts';
 import type { Odin } from '../runtime.ts';
 import { draupnirOf } from '../tools/draupnir.ts';
-import { nomMoyen, sourcesOdin, type ElementAgenda, type Ligne, type SourceJobs } from '../valhalla/automatismes.ts';
+import { couperLien, etatLien, nomMoyen, sourcesOdin, type ElementAgenda, type EtatLien, type Ligne, type SourceJobs } from '../valhalla/automatismes.ts';
 import { bookingsDe, oublierRappel } from '../valhalla/frigg/perso.ts';
 import { lieuCourant } from '../valhalla/lieu.ts';
 import { LINKS, type Coupure, type Link, type Protection } from '../valhalla/links.ts';
@@ -127,13 +127,18 @@ function lignesRdv(c: Contexte): Ligne[] {
 
 /**
  * Un lien automatique écrit dans le code d'Odin (src/valhalla/links.ts), montré tel quel dans la liste : quand telle
- * appli signale telle chose → ce qui se fait. LECTURE SEULE (ni pause, ni bouton) : les couper viendra plus tard.
- * `id` : `lien:` + l'identifiant écrit à la main dans links.ts ; `coupure` : comment il pourra se couper (montré seulement).
+ * appli signale telle chose → ce qui se fait. Les 21 liens à point unique (`coupure.par === 'reflexe'`) se coupent et
+ * se rétablissent depuis la page (`coupable`, et `coupe` quand ils sont coupés) ; les autres restent en lecture seule.
+ * `id` : `lien:` + l'identifiant écrit à la main dans links.ts ; `coupure` : comment il pourra se couper.
  * Gardé à part des autres lignes (ni dans l'agenda, ni dans l'onglet « Auto » d'une appli, ni dans les routes qui agissent).
  */
 export interface LigneLien {
   id: string; sorte: 'lien_ecrit'; de: string; vers: string; deNom: string; versNom: string;
   quand: string; fait: string; genre: Link['kind']; etat: 'actif' | 'inactif'; protege: Protection | false; coupure: Coupure;
+  /** se coupe d'ici (un des 21 liens à point unique) */
+  coupable: boolean;
+  /** coupé : depuis quand, et jusqu'à quand pour un lien qui protège */
+  coupe?: EtatLien;
   /** Pourquoi un lien est inactif : les applis d'Odin ne tournent pas, ou l'une des deux applis du lien est absente. */
   pourquoi?: string;
 }
@@ -144,12 +149,40 @@ export function lignesLiensEcrits(v?: Valhalla, liens: readonly Link[] = LINKS):
   const ids = new Set(v?.modules().map((m) => m.id) ?? []);
   const pourquoi = (l: Link) => (!v ? 'les applis d\'Odin ne tournent pas' : [l.from, l.to].filter((x) => !ids.has(x)).map((x) => `appli absente : ${x}`).join(' ; '));
   return liens.map((l) => {
-    const p = pourquoi(l);
+    const p = pourquoi(l), coupable = 'par' in l.coupure && l.coupure.par === 'reflexe';
+    const coupe = coupable ? etatLien(pointDeCoupure(l)) : undefined;
     return {
       id: `lien:${l.id}`, sorte: 'lien_ecrit', de: l.from, vers: l.to, deNom: nom(l.from), versNom: nom(l.to),
       quand: l.when, fait: l.does, genre: l.kind, etat: p ? 'inactif' : 'actif', ...(p ? { pourquoi: p } : {}), protege: l.protege, coupure: l.coupure,
+      coupable, ...(coupe ? { coupe } : {}),
     };
   });
+}
+
+/** L'identifiant sous lequel un lien se coupe : le sien, ou celui du lien qui partage son point (`memePointQue`). */
+const pointDeCoupure = (l: Link) => ('memePointQue' in l.coupure && l.coupure.memePointQue) || l.id;
+/**
+ * Couper ou rétablir un des 21 liens à point unique. SEULEMENT la session du navigateur du propriétaire (ni la clé
+ * d'accès, ni un membre, ni une automatisation, ni l'agent) : server.ts le dit dans `sessionProprio`.
+ */
+function couperDepuisLaPage(c: Contexte, id: string, b: Record<string, unknown>, o: { sessionProprio?: boolean }) {
+  if (o.sessionProprio !== true) return ko('interdit', 'Un lien entre applis ne se coupe que par toi, connecté dans ton navigateur, depuis la page des automatisations.');
+  const l = LINKS.find((x) => `lien:${x.id}` === id);
+  if (!l) return ko('introuvable', 'Lien introuvable.');
+  if (!('par' in l.coupure) || l.coupure.par !== 'reflexe') return ko('interdit', "Ce lien ne se coupe pas encore d'ici.");
+  if (!c.v) return ko('introuvable', 'Les applis ne sont pas démarrées.');
+  const point = pointDeCoupure(l), cible = LINKS.find((x) => x.id === point) ?? l;
+  const nom = (x: Link) => `${c.v?.module(x.from)?.name ?? x.from} → ${c.v?.module(x.to)?.name ?? x.to}`;
+  // Tous les liens coupés par ce même interrupteur (le capteur et le lien écrit qui le double).
+  const memes = LINKS.filter((x) => x.id !== l.id && pointDeCoupure(x) === point && 'par' in x.coupure && x.coupure.par === 'reflexe');
+  const prot = l.protege || cible.protege;
+  const r = couperLien({
+    id: point, nom: `${nom(l)} (quand ${l.when})`, de: cible.from, protege: prot ? { raison: prot.raison } : false,
+    ...(memes.length ? { aussi: memes.map((x) => `${nom(x)} (quand ${x.when})`) } : {}),
+    qui: 'le propriétaire, depuis la page des automatisations (session du navigateur)',
+  }, b.pause === true, { jusqua: s(b.jusqua) || undefined, confirme: b.confirme === true });
+  if (!r.ok) return r;
+  return { ok: true, lien: lignesLiensEcrits(c.v).find((x) => x.id === id) };
 }
 
 /** Toutes les lignes de la liste « Automatismes ». */
@@ -250,7 +283,7 @@ function jamais(r: Rythme, now: Date): string | undefined {
   return r.genre === 'une_fois' ? 'Cette date est déjà passée.' : 'Ce planning ne tombe jamais.';
 }
 
-export async function talosPost(odin: Odin | undefined, path: string, b: Record<string, unknown>): Promise<unknown> {
+export async function talosPost(odin: Odin | undefined, path: string, b: Record<string, unknown>, o: { sessionProprio?: boolean } = {}): Promise<unknown> {
   const c = contexte(odin), id = s(b.id);
   switch (path) {
     case '/api/draupnir/rythme/apercu': {
@@ -283,6 +316,7 @@ export async function talosPost(odin: Odin | undefined, path: string, b: Record<
     }
     case '/api/draupnir/automatisme/pause': {
       const pause = b.pause === true;
+      if (id.startsWith('lien:')) return couperDepuisLaPage(c, id, b, o);
       if (id.startsWith('veille:') || id.startsWith('tache:')) return c.v ? c.v.automatismes.pause(id, pause, { jusqua: s(b.jusqua) || undefined, confirme: b.confirme === true }) : ko('introuvable', 'Les applis ne sont pas démarrées.');
       if (id.startsWith('flow:')) {
         if (!c.d?.get(id.slice(5))) return ko('introuvable', 'Automatisation introuvable.');

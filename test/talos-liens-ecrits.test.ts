@@ -1,5 +1,5 @@
 // Les liens automatiques écrits entre les applis (src/valhalla/links.ts) se voient dans la liste des automatismes de
-// Talos, en LECTURE SEULE : chacun une fois et une seule, avec son état et la mention « protège » pour ceux de sécurité
+// Talos : chacun une fois et une seule (seuls les 21 liens à point unique se coupent d'ici : liens-coupes.test.ts), avec son état et la mention « protège » pour ceux de sécurité
 // et de sauvegarde. Chaque lien dit à la main s'il protège ou non (un lien ajouté demain doit être classé). Un membre
 // ou un invité ne voit pas cette liste (comme il ne voyait pas les automatismes).
 import { test } from 'node:test';
@@ -178,7 +178,7 @@ test('un lien n\'est pas dit « actif » quand ses applis ne sont pas là', () =
   assert.ok(l.some((x) => x.etat === 'inactif') && l.some((x) => x.etat === 'actif'));
 });
 
-test('la route des automatismes porte les liens à part (ni dans les lignes, ni dans l\'agenda) ; rien ne les coupe', async () => {
+test('la route des automatismes porte les liens à part (ni dans les lignes, ni dans l\'agenda) ; seuls les 21 liens à point unique se coupent', async () => {
   const r = await talosGet(undefined, '/api/draupnir/automatismes', new URLSearchParams()) as { ok: boolean; lignes: Array<{ sorte: string }>; liens?: Array<{ id: string; sorte: string }> };
   assert.equal(r.ok, true);
   assert.equal(r.liens?.length, LINKS.length, 'tous les liens écrits sont dans la réponse');
@@ -186,8 +186,10 @@ test('la route des automatismes porte les liens à part (ni dans les lignes, ni 
   const c = contexteTalos();
   assert.ok(!lignesTalos(c).some((x) => (x.sorte as string) === 'lien_ecrit'), 'pas mêlés aux lignes qui se règlent');
   assert.ok(!agendaTalos(c, new Date(), new Date(Date.now() + 7 * 86_400_000)).some((x) => (x.sorte as string) === 'lien_ecrit'), 'pas dans l\'agenda');
-  // Lecture seule : aucune route ne met un lien en pause ni ne le lance.
+  // Un lien qui n'est pas à point unique : aucune route ne le met en pause ni ne le lance (la coupure des 21 :
+  // liens-coupes.test.ts).
   const id = r.liens![0].id;
+  assert.deepEqual(LINKS[0].coupure, { par: 'appel' });
   for (const route of ['/api/draupnir/automatisme/pause', '/api/draupnir/automatisme/lancer', '/api/draupnir/automatisme/supprimer']) {
     const p = await talosPost(undefined, route, { id, pause: true, confirme: true }) as { ok: boolean };
     assert.equal(p.ok, false, `${route} refuse un lien écrit`);
@@ -195,12 +197,16 @@ test('la route des automatismes porte les liens à part (ni dans les lignes, ni 
   // La marque n'est lue par aucun réflexe : ce que les liens font ne change pas.
   const src = lire('valhalla/links.ts'), wire = src.slice(src.indexOf('export function wireReflexes'), src.indexOf('/** Modèles d\'automatisations'));
   assert.doesNotMatch(wire, /protege/);
-  // La déclaration « coupure » non plus : elle dit comment un lien POURRA se couper ; rien ne le coupe encore.
-  assert.doesNotMatch(wire, /coupure|lienCoupe|LINKS/);
+  // La déclaration « coupure » non plus : wireReflexes demande seulement, lien par lien, s'il est coupé (lienCoupe).
+  assert.doesNotMatch(wire, /coupure|LINKS/);
+  // Seuls les 21 liens à point unique se coupent d'ici ; aucun n'est coupé dans cet essai.
+  const coupables = r.liens!.filter((x) => (x as { coupable?: boolean }).coupable).map((x) => x.id.slice(5));
+  assert.deepEqual(coupables, LINKS.filter((l) => 'par' in l.coupure && l.coupure.par === 'reflexe').map((l) => l.id));
+  assert.equal(coupables.length, 21);
   assert.ok(r.liens!.every((x) => !('coupe' in x) && !('etatCoupure' in x)), 'aucun état « coupé »');
 });
 
-test('la page : un bloc « Liens entre applis » par appli qui signale, filtre « Qui protègent », aucun bouton', () => {
+test('la page : un bloc « Liens entre applis » par appli qui signale, filtre « Qui protègent », un interrupteur seulement sur les liens à point unique', () => {
   const win: Record<string, any> = {};
   const code = lire('web/pages/talos-automatismes.js');
   vm.runInNewContext(code, { window: win });
@@ -212,8 +218,10 @@ test('la page : un bloc « Liens entre applis » par appli qui signale, filtre �
   assert.equal(prot.reduce((n: number, g: { liens: unknown[] }) => n + g.liens.length, 0), liens.filter((x) => x.protege).length);
   assert.equal(L.phraseLien(liens[0]), `Quand ${LINKS[0].when} → ${LINKS[0].does}`);
   const f = /function ligneLien\(l\) \{[\s\S]*?\n {2}\}/.exec(code)?.[0] ?? '';
-  assert.ok(f.length > 50); assert.doesNotMatch(f, /'button'|\bB\(|onclick|input|checkbox/, 'une ligne de lien n\'a aucun bouton ni interrupteur');
-  assert.match(f, /phraseCoupure\(l\.coupure\)/, 'la ligne montre la déclaration « coupure »');
+  // La ligne elle-même n'a aucun bouton : seul l'interrupteur, posé sur un lien « coupable », en a (liens-coupes.test.ts).
+  assert.ok(f.length > 50); assert.doesNotMatch(f, /'button'|\bB\(|onclick|input|checkbox/, 'une ligne de lien n\'a aucun bouton hors de l\'interrupteur');
+  assert.match(f, /l\.coupable \? interrupteur\(l\)/, 'l\'interrupteur seulement sur un lien coupable');
+  assert.match(f, /phraseCoupure\(l\.coupure\)/, 'les autres liens montrent la déclaration « coupure »');
   // La déclaration, en lecture : « pourra se couper », ou « ne se coupe pas (encore) : » avec sa raison.
   assert.equal(L.phraseCoupure({ par: 'appel' }), 'Pourra se couper.');
   assert.equal(L.phraseCoupure({ par: 'sonde', ou: 'vordr.autoMonitors' }), 'Pourra se couper.');
