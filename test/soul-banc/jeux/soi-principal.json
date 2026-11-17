@@ -1,0 +1,4666 @@
+{
+ "version": 2,
+ "historique": [
+  {
+   "version": 1,
+   "date": "2026-11-17",
+   "quoi": "première écriture"
+  },
+  {
+   "version": 2,
+   "date": "2026-11-17",
+   "quoi": "après relecture : appareil important déclaré dans la surveillance (le produit) et plus seulement dans la préparation ; une question sur « la dernière trouvaille » (une page écartée) reformulée ; les fiches disent ce qu’une bonne réponse doit contenir. Le jeu principal est FIGÉ à partir d’ici."
+  }
+ ],
+ "origine": "Écrit par un agent le 2026-11-17 (fabrique hors dépôt), non relu par une personne. Les appareils, adresses (198.51.100.x, example.org/net/com), prénoms, sites et entrées du journal de la préparation sont inventés. Toute langue autre que le français et l'anglais est marquée aRelire. Les fiches attendues sont des identifiants de src/brain/nous/connaissance-de-soi.ts, fabriquées sur l'Odin jetable préparé par le jeu. Jeu FIGÉ : on n'en lit jamais les questions pour améliorer Odin ; seuls ses comptes sont publiés.",
+ "fige": true,
+ "maintenant": "2026-11-17T10:00:00",
+ "preparation": {
+  "machine": {
+   "systeme": "Linux",
+   "architecture": "arm64",
+   "coeurs": 8,
+   "memoireGo": 16,
+   "node": "26.3.0"
+  },
+  "config": {
+   "autoBackup": {
+    "enabled": true,
+    "hour": 4,
+    "dir": "/mnt/nas/odin",
+    "keep": 10
+   },
+   "watch": {
+    "enabled": true,
+    "intervalMin": 15,
+    "devices": [
+     "198.51.100.23"
+    ],
+    "diskPct": 80,
+    "certDays": 21
+   },
+   "services": [
+    {
+     "id": "s1",
+     "name": "Serveur de musique",
+     "check": "http://198.51.100.30:4533",
+     "where": "local",
+     "repair": "",
+     "auto": true
+    },
+    {
+     "id": "s2",
+     "name": "Wiki de la famille",
+     "check": "http://198.51.100.31:3000",
+     "where": "local",
+     "repair": "",
+     "auto": false
+    }
+   ],
+   "nous": {
+    "actif": true,
+    "corpusDepart": "odin",
+    "puissance": "douce",
+    "filsJour": 1,
+    "filsNuit": 4,
+    "heuresNuit": 9,
+    "disqueMaxMo": 3000
+   }
+  },
+  "appareils": [
+   {
+    "ip": "198.51.100.21",
+    "mac": "aa:00:5e:00:53:21",
+    "nom": "Imprimante du bureau"
+   },
+   {
+    "ip": "198.51.100.22",
+    "mac": "aa:00:5e:00:53:22",
+    "nom": "Caméra du garage"
+   },
+   {
+    "ip": "198.51.100.23",
+    "mac": "aa:00:5e:00:53:23",
+    "nom": "NAS",
+    "important": true
+   },
+   {
+    "ip": "198.51.100.24",
+    "mac": "aa:00:5e:00:53:24",
+    "nom": "Télé du salon"
+   },
+   {
+    "ip": "198.51.100.25",
+    "mac": "aa:00:5e:00:53:25",
+    "nom": "Portable de Maël"
+   },
+   {
+    "ip": "198.51.100.2",
+    "mac": "aa:00:5e:00:53:02",
+    "nom": "Routeur"
+   }
+  ],
+  "deconnectes": [
+   "198.51.100.22",
+   "198.51.100.25"
+  ],
+  "mathesis": {
+   "reglages": {
+    "vitesse": "soutenue",
+    "pause": true,
+    "dossiers": [
+     "/srv/partage/manuels",
+     "/srv/partage/factures"
+    ]
+   },
+   "journal": [
+    {
+     "id": "jp1",
+     "at": "2026-11-14T20:05:00",
+     "genre": "lecture",
+     "quoi": "a lu un guide sur le compostage",
+     "pourquoi": "tu as parlé de ton composteur",
+     "source": "https://example.org/compost/guide"
+    },
+    {
+     "id": "jp2",
+     "at": "2026-11-15T07:45:00",
+     "genre": "recherche",
+     "quoi": "a cherché « vidange d'une chaudière à granulés »",
+     "pourquoi": "question sans réponse"
+    },
+    {
+     "id": "jp3",
+     "at": "2026-11-16T13:20:00",
+     "genre": "retenu",
+     "quoi": "a retenu que les tomates se sèment en mars",
+     "source": "https://example.org/semis/tomates",
+     "retenu": [
+      {
+       "texte": "Les tomates se sèment sous abri en mars.",
+       "niveau": "sur"
+      }
+     ]
+    },
+    {
+     "id": "jp4",
+     "at": "2026-11-17T06:10:00",
+     "genre": "ecarte",
+     "quoi": "a écarté une page sur les vélos électriques (source douteuse)",
+     "source": "https://example.net/velos"
+    }
+   ],
+   "sites": [
+    {
+     "id": "bricolage.example.org",
+     "racine": "https://bricolage.example.org/",
+     "etat": "en-cours",
+     "lues": 1250,
+     "connues": 4800,
+     "ajoute": "2026-11-12T10:00:00"
+    },
+    {
+     "id": "astronomie.example.net",
+     "racine": "https://astronomie.example.net/",
+     "etat": "en-suivi",
+     "lues": 620,
+     "connues": 620,
+     "ajoute": "2026-11-08T18:00:00"
+    },
+    {
+     "id": "forum.example.com",
+     "racine": "https://forum.example.com/",
+     "etat": "refuse",
+     "lues": 0,
+     "connues": 0,
+     "ajoute": "2026-11-16T11:00:00"
+    }
+   ]
+  },
+  "souvenirs": [
+   "Ma sœur arrive le 3 décembre.",
+   "Le vélo est rangé dans le garage.",
+   "Je suis allergique aux noix.",
+   "Le wifi des invités s'appelle Lune.",
+   "Je travaille le samedi matin."
+  ]
+ },
+ "questions": [
+  {
+   "id": "sp-fr-001",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quel écran me montre ce qui compte aujourd'hui ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:home"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-002",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je cherche l'endroit où on paramètre tout, c'est où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-003",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Pour discuter avec toi, je clique sur quoi ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:chat"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-004",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Mes notes reliées entre elles, elles sont sur quelle page ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:brain"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-005",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je vois ma maison et les appareils du réseau ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:net"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-006",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où est la liste de toutes tes applis ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:apps"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-007",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Les choses que tu fais à heure fixe, je les retrouve où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:jobs"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-008",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où est le journal de tes décisions ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:audit"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-009",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je veux voir ce que tu es en train de faire en ce moment, je vais où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:missions"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-010",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je fabrique une automatisation ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:flows"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-011",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "tes compétences, je les vois où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:skills"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-012",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où sont mes calendriers et mes tables ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:runes"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-013",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je m'occupe de la sauvegarde chiffrée ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:sauvegarde"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-014",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je voudrais être prévenu quand un certificat expire, c'est dans quel onglet ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:surveillance"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-015",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Dans quel onglet je change ta façon de parler et d'écouter ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:voix"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-016",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je relie mon agenda Google ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:agenda"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-017",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je règle le balayage du réseau local ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:reseau"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-018",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je veux changer de moteur de recherche web, c'est où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:recherche"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-019",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je lui dis quels dossiers de documents indexer ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:documents"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-020",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je veux relier Home Assistant, je vais où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:maison"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-021",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où se règle l'accès à l'interface depuis l'extérieur ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:acces"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-022",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Les mises à jour de nuit des machines, ça se règle où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:entretien"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-023",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je veux qu'il ait un autre ton au travail, quel onglet ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:personnalite"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-024",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je règle jusqu'où tu peux agir sans me demander ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:autonomie"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-025",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je te donne les mots de passe de mes machines ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:droits"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-026",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "tes propositions de corrections quand j'écris, ça se coupe où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:ecriture"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-027",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je relie le serveur multimédia Venus ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:venus"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-028",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je veux te parler sur une autre messagerie, je règle ça où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:messageries"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-029",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je vois s'il y a une nouvelle version d'Odin ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:maj"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-030",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je change la fréquence de tes vérifications ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:surveillance:wt-int"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-031",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "combien de jours avant l'expiration d'un certificat tu préviens, je change ça où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:surveillance:wt-cert"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-032",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Dans quel réglage je choisis le dossier de la sauvegarde ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:sauvegarde:ab-dir"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-033",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "L'heure de la sauvegarde de nuit, je la modifie où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:sauvegarde:ab-hour"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-034",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment j'active la sauvegarde automatique chaque nuit ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:sauvegarde:ab-on"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-035",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je veux que ta voix ne passe jamais par Internet, c'est quel réglage ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-local"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-036",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu parles trop vite, je change ça où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-rate"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-037",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Les mots pour te faire taire tout de suite, ça se règle où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-stop"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-038",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je veux pouvoir te couper la parole, quel réglage ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-barge"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-039",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment être prévenu quand un nouvel appareil arrive sur le réseau ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:reseau:n-notify"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-040",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je colle le jeton de mon bot Telegram ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:telegram:t-token"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-041",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "le serveur IMAP de réception, je le mets où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:mail:ml-imap"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-042",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je mets l'adresse iCal de mon agenda ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:agenda:ag-ics"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-043",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quelle heure tu m'envoies le briefing du matin, je le règle où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:entretien:mj-mo"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-044",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où j'allume les mises à jour automatiques des machines ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:entretien:mu-on"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-045",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je chiffre l'interface en HTTPS ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:acces:a-https"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-046",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je dis quels réseaux ont le droit d'ouvrir l'interface ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:acces:a-nets"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-047",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je mets où la liste des dossiers à indexer ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:documents:dc-dirs"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-048",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le port SSH d'une machine, je le précise où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:droits:r-port"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-049",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment j'arrête tes propositions sur mes fautes ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:ecriture:w-spelling"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-050",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je veux que tu travailles sans arrêt jour et nuit, c'est quel réglage ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:autonomie:ct-on"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-051",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "L'heure du rapport du soir, je la change où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:autonomie:b-report"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-052",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "l'adresse de mon Home Assistant, je la mets dans quel champ ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:maison:ha-url"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-053",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je choisis le moteur qu'il utilise pour chercher ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:recherche:s-provider"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-054",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je donne le rôle de membre à quelqu'un ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:personnes:p-role"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-055",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment j'allume le réveil ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:reveil:al2-on"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-056",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "L'heure du réveil pendant les vacances, je la règle où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:reveil:al2-off"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-057",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je choisis ma région pour les alertes locales ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:surveillance:al-region"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-058",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où est-ce que je peux relire ce que tu sais de moi ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:souvenirs"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-059",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "le journal du jour dans le Cerveau, je le trouve où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:journal"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-060",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je vois l'avancement de ton réseau de neurones ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:nous"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-061",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je veux voir le graphe de mes notes, je clique où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:graphe"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-062",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je cherche n'importe quel réglage d'un coup ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:palette"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-063",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle appli s'occupe de ton apprentissage tout seul ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:mathesis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-064",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle appli fait les sauvegardes des dossiers et des PC ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:sindri"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-065",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "C'est quelle appli qui bloque les pubs pour toute la maison ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:vidarr"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-066",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "L'appli de ta voix, c'est laquelle ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:bragi"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-067",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle appli montre la santé de la machine ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:eir"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-068",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Les thèmes de couleur, c'est quelle appli ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:apparence"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-069",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "mes films et séries, c'est dans quelle appli ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:freyja"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-070",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Dans quelle appli sont mes notes ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:saga"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-071",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle appli surveille mes sites et mes ports en continu ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:vordr"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-072",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je te donne un dossier à lire pour apprendre ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:ouvrir_dossier"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-073",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je mets ton apprentissage en pause ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:pause"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-074",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment j'efface ce que tu as appris tout seul ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:effacer"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-075",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je vois où en est la lecture d'un site ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:etat_site"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-076",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment j'ajoute un appareil au VPN ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:gjoll:ajouter"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-077",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je récupère un fichier d'une ancienne sauvegarde ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:sindri:restaurer"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-078",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je coupe internet à une machine précise ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:vidarr:couper_machine"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-079",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je prends une photo avec une caméra ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:himinbjorg:photo"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-080",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment j'enregistre une émission ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:freyja:enregistrer"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-081",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je fais une annonce sur les enceintes ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:bragi:annoncer"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-082",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je réveille un ordinateur à distance ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:hermod:reveiller"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-083",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je trouve les fichiers qui prennent le plus de place ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:gefjon:gros_fichiers"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-084",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je teste la vitesse d'un disque ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:durinn:banc"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-085",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je tue un programme qui bloque la machine ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:eir:arreter_processus"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-086",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je fais disparaître la mascotte un moment ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:apparence:cacher"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-087",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je te fais prendre une note ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:saga:noter"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-088",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Sur quel port je dois aller pour ouvrir ton interface ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-089",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton interface est en HTTPS ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-090",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "L'API HTTP pour les automatisations extérieures est sur quel port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-http"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-091",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Vortex écoute sur quel port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:gjoll"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-092",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Phénix a quel numéro de port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:sindri"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-093",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Alexandrie, c'est quel port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:urdr"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-094",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "L'appli de la voix tourne sur quel port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:bragi"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-095",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Talos est joignable sur quel port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:draupnir"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-096",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Hygie a son propre port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:eir"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-097",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ta mémoire est stockée dans quel fichier ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:db"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-098",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où ranges-tu ce que tu apprends tout seul sur le disque ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:mathesis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-099",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Les points de reprise de ton réseau, ils sont dans quel dossier ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:soul"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-100",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "tes compétences sont enregistrées dans quel dossier ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:skills"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-101",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où est ton espace de travail ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:workspace"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-102",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quand je change le port d'une appli, c'est gardé où ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:ports"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-103",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où sont toutes tes données sur la machine ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:home"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-104",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Les brouillons de compétences, ils sont où ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:drafts"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-105",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Sur quel système d'exploitation tu tournes ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:machine"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-106",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as une carte graphique pour t'entraîner ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:machine"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-107",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton processeur a combien de cœurs ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "8 cœurs",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-108",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as combien de Go de mémoire ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "16 Go",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-109",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ta machine est sur quelle architecture ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "arm64",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-110",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu fais ta sauvegarde de nuit à quelle heure ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "à 4 h",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-111",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de sauvegardes tu gardes avant d'effacer les vieilles ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "10 sauvegardes",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-112",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ta sauvegarde automatique est allumée ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "activée",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-113",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu vérifies mes appareils tous les combien de minutes ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "15 minutes",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-114",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu m'alertes à combien de pour cent de disque plein ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "80 %",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-115",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de jours avant l'expiration d'un certificat tu me préviens ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "21 jours",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-116",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quels services tu surveilles et tu relances ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:services"
+   ],
+   "valeur": "Wiki de la famille",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-117",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le serveur de musique est dans tes services surveillés ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:services"
+   ],
+   "valeur": "Serveur de musique",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-118",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu connais combien d'appareils dans la maison ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:inventaire"
+   ],
+   "valeur": "6 appareil",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-119",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien d'appareils sont en ligne en ce moment ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:inventaire"
+   ],
+   "valeur": "4 en ligne",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-120",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "La caméra du garage fonctionne ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:22"
+   ],
+   "valeur": "déconnecté",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-121",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le NAS est joignable ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:23"
+   ],
+   "valeur": "en ligne",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-122",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "C'est quoi l'IP du NAS ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:23"
+   ],
+   "valeur": "198.51.100.23",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-123",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le portable de Maël est connecté ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:25"
+   ],
+   "valeur": "déconnecté",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-124",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "La télé du salon a quelle adresse ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:24"
+   ],
+   "valeur": "198.51.100.24",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-125",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "L'imprimante du bureau marche ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:21"
+   ],
+   "valeur": "en ligne",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-126",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle est l'adresse du routeur ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:02"
+   ],
+   "valeur": "198.51.100.2",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-127",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton cerveau artificiel, il s'appelle comment ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-128",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as quelle taille de modèle ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-129",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je vois ton réseau Noûs ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-130",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le gabarit par défaut a combien de poids ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:moyen"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-131",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le grand gabarit a combien de têtes d'attention ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:grand"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-132",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de couches dans le plus petit gabarit ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:petit"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-133",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton réseau a déjà un point de reprise ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-134",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as commencé ton entraînement ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-135",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Est-ce qu'un modèle de départ est installé chez moi ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:depart"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-136",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu dépends d'un service d'IA extérieur pour me répondre ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-137",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Est-ce que Claude ou Mistral te servent à réfléchir ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-138",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu payes un modèle en ligne pour apprendre ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-139",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien d'applis tu as ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sait-faire"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-140",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu connais combien d'actions différentes ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sait-faire"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-141",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Brain, ça sert à quoi chez toi ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:brain"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-142",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je peux te dire de mettre la météo en haut à gauche de l'accueil ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:widgets"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-143",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu sais trier mes mails et mes factures ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:mails"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-144",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu peux créer des comptes sur des sites pour moi ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:comptes"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-145",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu peux me créer une machine virtuelle si je te le dis à voix haute ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:parc"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-146",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu vas arrêter d'utiliser les modèles des autres ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:retrait-externes"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-147",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu comprends les sons de la maison ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:syrinx"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-148",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu sais servir mes films sur la télé ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:venus"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-149",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu reconnais dans quelle langue je te parle ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:langues"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-150",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ta mascotte est reliée à ta mémoire ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:mascotte"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-151",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Pourquoi l'écran dit Noûs et pas Soul ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:noms"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-152",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu sais déjà trouver la bonne appli tout seul ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:soul-v3"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-153",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu peux lire des modèles GGUF ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:metis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-154",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Qui juge si une de tes actions est grave ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:heimdall"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-155",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu lis les photos qu'on t'envoie ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:medias-recus"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-156",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu ranges ta mémoire pendant que tu ne fais rien ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:consolidation"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-157",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu t'entraînes combien d'heures chaque nuit ?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:reglages"
+   ],
+   "valeur": "9 h la nuit",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-158",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton entraînement est réglé sur quelle puissance ?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:reglages"
+   ],
+   "valeur": "douce",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-159",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton entraînement peut prendre combien de place sur le disque ?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:reglages"
+   ],
+   "valeur": "3 000 Mo",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-160",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien d'exemples ton réseau a-t-il déjà lus ?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:corpus"
+   ],
+   "valeur": "0 exemple",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-161",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de choses tu as retenues sur moi ?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:brain"
+   ],
+   "valeur": "5 souvenir",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-162",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu apprends des choses sans qu'on te le demande ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-163",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu lis sur Internet à quels moments de la journée ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:heures"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-164",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de recherches tu fais au plus par jour ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:budgets"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-165",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu regardes combien de minutes de vidéo par jour pour apprendre ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:budgets"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-166",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quand j'efface un souvenir, il disparaît de ton entraînement ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:oubli"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-167",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ce que ton réseau a déjà appris peut-il être effacé ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:oubli"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-168",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton premier corpus, il contenait quoi ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:corpus-depart"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-169",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le mode privé est activé chez toi ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:prive"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-170",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Montre-moi ce que tu as appris tout seul cette semaine.",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:journal"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-171",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton apprentissage automatique tourne en ce moment ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "valeur": "en pause",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-172",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "À quelle allure tu apprends tout seul ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "valeur": "soutenue",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-173",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as accès à combien de mes dossiers pour apprendre ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis:dossiers"
+   ],
+   "valeur": "2 dossier",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-174",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle est la dernière chose notée dans ton journal ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal"
+   ],
+   "valeur": "vélos électriques",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-175",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as lu quoi sur le compost ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp1"
+   ],
+   "valeur": "compostage",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-176",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Qu'est-ce que tu as cherché sur la chaudière ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp2"
+   ],
+   "valeur": "granulés",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-177",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as appris quoi sur les semis de tomates ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp3"
+   ],
+   "valeur": "mars",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-178",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Pourquoi tu as laissé de côté la page sur les vélos ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp4"
+   ],
+   "valeur": "source douteuse",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-179",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quels sites sont dans ta liste à absorber ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:sites"
+   ],
+   "valeur": "bricolage.example.org",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-180",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de pages du site de bricolage tu as déjà lues ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:bricolage.example.org"
+   ],
+   "valeur": "1 250 page",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-181",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le site d'astronomie, tu l'as fini ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:astronomie.example.net"
+   ],
+   "valeur": "suivi chaque jour",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-182",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Pourquoi le forum n'est pas lu ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:forum.example.com"
+   ],
+   "valeur": "refusé",
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-183",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu préfères les chiens ou les chats ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-184",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où se trouve le réglage du lave-vaisselle ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-185",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien coûte ton électricité par mois ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-186",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quel est ton plat préféré ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-187",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle est la marque de ta carte mère ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-188",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je règle la pression des pneus de ma voiture ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-189",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as lu quoi sur la Lune hier ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-190",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de personnes t'ont parlé ce matin dans l'immeuble d'à côté ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-191",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "C'est quoi le code de la carte bancaire de ma mère ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-192",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle est la vitesse de ton ventilateur ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-193",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu rêves la nuit ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-194",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quel onglet sert à arroser le jardin ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-195",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Qui sera le prochain président ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-196",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as combien d'abonnés sur les réseaux sociaux ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-fr-197",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quel temps fera-t-il dans dix ans ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-001",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where are the settings?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-002",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where can I check why you did something on your own?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:audit"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-003",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where do I find the scheduled tasks?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:jobs"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-004",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Which tab lets me get warned when a disk fills up?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:surveillance"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-005",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How do I link my Telegram bot?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:telegram"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-006",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where do I set my morning alarm call?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:reveil"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-007",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where can I change the wake word?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-wake"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-008",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where do I choose how many backups are kept?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:sauvegarde:ab-keep"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-009",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Which setting changes the web interface port?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:acces:a-port"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-010",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where can I review what you remember about me?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:souvenirs"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-011",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Which app handles your self-learning?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:mathesis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-012",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How do I get you to read an entire website?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:absorber"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-013",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How do I block a domain for the whole house?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:vidarr:bloquer"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-014",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "What port is your web interface on?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-015",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Which port does Mathésis listen on?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:mathesis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-016",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where do you keep the secrets and API keys?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:env"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-017",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Which file is your configuration in?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:config"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-018",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How many CPU cores does your machine have?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "8 cœurs",
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-019",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How often do you check my devices?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "15 minutes",
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-020",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Is the garage camera up?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:22"
+   ],
+   "valeur": "déconnecté",
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-021",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "What time does the nightly backup run?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "à 4 h",
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-022",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "What is Soul?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-023",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Have you been trained yet?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-024",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Do you call any external language model?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-025",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How many parameters does the large size have?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:grand"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-026",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Can I talk to you over SSH?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:ssh"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-027",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Can you plan a bus journey for me?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:trajets"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-028",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How many hours do you train each night?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:reglages"
+   ],
+   "valeur": "9 h la nuit",
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-029",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How do you learn things by yourself?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-030",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Do you remember what I tell you?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:prive"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-031",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "What did you learn about sowing tomatoes?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp3"
+   ],
+   "valeur": "mars",
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-032",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Which websites are you absorbing?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:sites"
+   ],
+   "valeur": "astronomie.example.net",
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-033",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Is your self-learning running right now?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "valeur": "en pause",
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-034",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "What is your favourite colour?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-035",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where is the setting for my car radio?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-036",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How tall are you?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-en-037",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Who won the chess tournament last night?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sp-es-001",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Dónde está la página para hablar contigo?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:chat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-002",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Dónde configuro la copia de seguridad?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:sauvegarde"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-003",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Dónde conecto mi correo electrónico?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:mail"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-004",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cómo hago que no grabes nada?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-private"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-005",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cómo añado un dispositivo a la VPN?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:gjoll:ajouter"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-006",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Qué puerto usa el servidor DNS?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:vidarr"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-007",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿En qué archivo guardas tu memoria?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:db"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-008",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cuántos aparatos conoces en casa?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:inventaire"
+   ],
+   "valeur": "6 appareil",
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-009",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿El NAS está conectado?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:23"
+   ],
+   "valeur": "en ligne",
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-010",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Ya estás entrenado?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-011",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Usas algún modelo de inteligencia artificial en internet?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-012",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cuántas aplicaciones tienes?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sait-faire"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-013",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Con qué potencia te entrenas?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:reglages"
+   ],
+   "valeur": "douce",
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-014",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "Si borro un recuerdo, ¿lo olvida también tu red neuronal?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:oubli"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-015",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Qué leíste sobre el compost?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp1"
+   ],
+   "valeur": "compostage",
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-016",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cuántas páginas del sitio de bricolaje has leído?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:bricolage.example.org"
+   ],
+   "valeur": "1 250 page",
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-017",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cuál es tu canción favorita?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-es-018",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Dónde ajusto la temperatura de la piscina?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-001",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wo finde ich die Einstellungen?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-002",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wo stelle ich die Sprachausgabe ein?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:voix"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-003",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wo verbinde ich meinen Kalender?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:agenda"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-004",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wo ändere ich, wie oft du prüfst?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:surveillance:wt-int"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-005",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wie starte ich sofort eine Sicherung?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:sindri:sauvegarder"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-006",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Auf welchem Port läuft deine Oberfläche?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-007",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "In welchem Ordner liegen die Trainingsdaten deines Netzes?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:soul"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-008",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wie viele Sicherungen behältst du?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "10 sauvegardes",
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-009",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Ist Maëls Laptop online?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:25"
+   ],
+   "valeur": "déconnecté",
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-010",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Was ist Soul?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-011",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Nutzt du ein KI-Modell aus dem Internet?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-012",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Kannst du meine E-Mails sortieren?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:mails"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-013",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wie viele Erinnerungen hast du von mir?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:brain"
+   ],
+   "valeur": "5 souvenir",
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-014",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wann bearbeitest du schwere Videos?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:heures"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-015",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Was hast du über den Pelletkessel gesucht?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp2"
+   ],
+   "valeur": "granulés",
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-016",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wie viele Ordner habe ich dir zum Lernen geöffnet?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis:dossiers"
+   ],
+   "valeur": "2 dossier",
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-017",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Was ist dein Lieblingsessen?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-de-018",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wo stelle ich die Waschmaschine ein?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-001",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Dove sono le impostazioni?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-002",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Dove imposto gli avvisi quando un disco è pieno?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:surveillance"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-003",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Dove abbasso il volume della tua voce?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-vol"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-004",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Come ti faccio leggere un intero sito?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:absorber"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-005",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Su quale porta ascolta la VPN Vortex?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:gjoll"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-006",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "In quale file è la tua configurazione?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:config"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-007",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Quanta memoria ha la tua macchina?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "16 Go",
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-008",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Qual è l'indirizzo della TV del soggiorno?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:24"
+   ],
+   "valeur": "198.51.100.24",
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-009",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Sei già stato addestrato?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-010",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Usi un modello di intelligenza artificiale online?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-011",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Posso parlarti tramite SSH?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:ssh"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-012",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Come impari le cose da solo?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-013",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Hai finito di leggere il sito di astronomia?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:astronomie.example.net"
+   ],
+   "valeur": "suivi chaque jour",
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-014",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Il tuo apprendimento automatico è attivo adesso?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "valeur": "en pause",
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-015",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Qual è la tua squadra del cuore?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-it-016",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Dove regolo il forno a microonde?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-001",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Onde ficam as definições?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-002",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Onde mudo a tua voz?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:voix"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-003",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Como ligo o meu bot do Telegram?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:telegram"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-004",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Como corto a internet a um computador?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:vidarr:couper_machine"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-005",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Em que porta funciona a tua interface?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-006",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Onde guardas as chaves e as palavras-passe?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:env"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-007",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "De quantos em quantos minutos verificas a casa?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "15 minutes",
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-008",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "A câmara da garagem está a funcionar?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:22"
+   ],
+   "valeur": "déconnecté",
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-009",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "O que é o Soul?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-010",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Quantas camadas tem o tamanho médio?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:moyen"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-011",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Consegues calcular um trajeto de autocarro?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:trajets"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-012",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Guardas o que eu te digo?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:prive"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-013",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Porque deixaste de lado a página sobre bicicletas?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp4"
+   ],
+   "valeur": "source douteuse",
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-014",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Que sites estás a absorver?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:sites"
+   ],
+   "valeur": "forum.example.com",
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-015",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Qual é a tua cor preferida?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-pt-016",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Quantos irmãos tens?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-001",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Waar zijn de instellingen?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-002",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Waar stel ik de back-up in?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:sauvegarde"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-003",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Waar verander ik het wekwoord?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-wake"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-004",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Hoe zet ik een bestand terug uit een back-up?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:sindri:restaurer"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-005",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Op welke poort draait je interface?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-006",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Welke poort gebruikt Vénus?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:freyja"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-007",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Hoe laat maak je de nachtelijke back-up?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "à 4 h",
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-008",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Ben je al getraind?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-009",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Gebruik je een AI-model in de cloud?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-010",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Hoeveel acties ken je?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sait-faire"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-011",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Hoe leer je zelf dingen?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-012",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Wat heb je geleerd over tomaten zaaien?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp3"
+   ],
+   "valeur": "mars",
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-013",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Wat is je favoriete film?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-nl-014",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Waar stel ik de cv-ketel in?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-001",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "あなたと話す画面はどこですか？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:chat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-002",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "バックアップの設定はどこですか？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:sauvegarde"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-003",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "ディスクがいっぱいになったときの通知はどこで設定しますか？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:surveillance"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-004",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "サイト全体を読ませるにはどうすればいいですか？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:absorber"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-005",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "Mathésis は何番ポートですか？",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:mathesis"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-006",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "設定ファイルはどこにありますか？",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:config"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-007",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "あなたのマシンのCPUコアはいくつですか？",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "8 cœurs",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-008",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "NASはオンラインですか？",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:23"
+   ],
+   "valeur": "en ligne",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-009",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "インターネット上のAIモデルを使っていますか？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-010",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "大きいサイズのパラメータ数はいくつですか？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:grand"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-011",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "SSHであなたと話せますか？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:ssh"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-012",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "思い出を消したら、ニューラルネットワークも忘れますか？",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:oubli"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-013",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "自動学習は今動いていますか？",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "valeur": "en pause",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ja-014",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "あなたの誕生日はいつですか？",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-001",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "设置页面在哪里？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-002",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "在哪里设置语音？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:voix"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-003",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "怎么连接我的Telegram机器人？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:telegram"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-004",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "怎么把设备加入VPN？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:gjoll:ajouter"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-005",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你的界面用哪个端口？",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-006",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你的记忆保存在哪个文件里？",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:db"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-007",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你每晚几点备份？",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "à 4 h",
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-008",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "Maël的笔记本电脑在线吗？",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:25"
+   ],
+   "valeur": "déconnecté",
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-009",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "Soul是什么？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-010",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你已经训练好了吗？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-011",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你能帮我计算公交路线吗？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:trajets"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-012",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你是怎么自己学习的？",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-013",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你已经读了DIY网站的多少页？",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:bricolage.example.org"
+   ],
+   "valeur": "1 250 page",
+   "aRelire": true
+  },
+  {
+   "id": "sp-zh-014",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你喜欢什么音乐？",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-001",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "أين صفحة المحادثة معك؟",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:chat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-002",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "أين أضبط النسخ الاحتياطي؟",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:sauvegarde"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-003",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "أين أغير إعدادات الصوت؟",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:voix"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-004",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "كيف أوقف تعلمك الذاتي مؤقتا؟",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:pause"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-005",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "أين تحفظ كلمات المرور والمفاتيح؟",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:env"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-006",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ما هو منفذ خادم DNS؟",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:vidarr"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-007",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "كل كم دقيقة تفحص الأجهزة؟",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "15 minutes",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-008",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "كم جهازا تعرف في البيت؟",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:inventaire"
+   ],
+   "valeur": "6 appareil",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-009",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "هل تم تدريبك بعد؟",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-010",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "كم تطبيقا لديك؟",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sait-faire"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-011",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "هل يمكنني التحدث معك عبر SSH؟",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:ssh"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-012",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "هل تتذكر ما أقوله لك؟",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:prive"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-013",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ما هي المواقع التي تقرأها الآن؟",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:sites"
+   ],
+   "valeur": "bricolage.example.org",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ar-014",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ما هو طعامك المفضل؟",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-001",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Где находятся настройки?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-002",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Где настроить резервное копирование?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:sauvegarde"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-003",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Где настроить оповещения, когда диск заполнен?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:surveillance"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-004",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Как сразу запустить резервную копию?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:sindri:sauvegarder"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-005",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "На каком порту работает твой интерфейс?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-006",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "В какой папке лежат файлы обучения твоей сети?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:soul"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-007",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Сколько ядер у твоего процессора?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "8 cœurs",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-008",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Камера в гараже работает?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:22"
+   ],
+   "valeur": "déconnecté",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-009",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Что такое Soul?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-010",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Ты используешь языковую модель из интернета?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-011",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Сколько часов ты тренируешься ночью?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:reglages"
+   ],
+   "valeur": "9 h la nuit",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-012",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Сколько поисковых запросов ты делаешь в день?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:budgets"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-013",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Что ты прочитал о компосте?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jp1"
+   ],
+   "valeur": "compostage",
+   "aRelire": true
+  },
+  {
+   "id": "sp-ru-014",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Какой твой любимый цвет?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  }
+ ]
+}

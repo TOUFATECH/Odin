@@ -1,0 +1,2840 @@
+{
+ "version": 2,
+ "historique": [
+  {
+   "version": 1,
+   "date": "2026-11-17",
+   "quoi": "première écriture"
+  },
+  {
+   "version": 2,
+   "date": "2026-11-17",
+   "quoi": "après relecture : appareil important déclaré dans la surveillance (le produit) et plus seulement dans la préparation ; une question sur « la dernière trouvaille » (une page écartée) reformulée ; les fiches disent ce qu’une bonne réponse doit contenir. Le jeu principal est FIGÉ à partir d’ici."
+  }
+ ],
+ "origine": "Écrit par un agent le 2026-11-17 (fabrique hors dépôt), non relu par une personne. Les appareils, adresses (198.51.100.x, example.org/net/com), prénoms, sites et entrées du journal de la préparation sont inventés. Toute langue autre que le français et l'anglais est marquée aRelire. Les fiches attendues sont des identifiants de src/brain/nous/connaissance-de-soi.ts, fabriquées sur l'Odin jetable préparé par le jeu. Jeu de travail : ses questions peuvent être lues pour analyser les erreurs.",
+ "fige": false,
+ "maintenant": "2026-11-17T10:00:00",
+ "preparation": {
+  "machine": {
+   "systeme": "Linux",
+   "architecture": "x64",
+   "coeurs": 4,
+   "memoireGo": 8,
+   "node": "26.3.0"
+  },
+  "config": {
+   "autoBackup": {
+    "enabled": true,
+    "hour": 2,
+    "dir": "/mnt/sauvegardes",
+    "keep": 5
+   },
+   "watch": {
+    "enabled": true,
+    "intervalMin": 30,
+    "devices": [
+     "198.51.100.13"
+    ],
+    "diskPct": 85,
+    "certDays": 10
+   },
+   "services": [
+    {
+     "id": "s1",
+     "name": "Serveur photos",
+     "check": "http://198.51.100.20:8080",
+     "where": "local",
+     "repair": "",
+     "auto": true
+    }
+   ],
+   "nous": {
+    "actif": true,
+    "corpusDepart": "odin",
+    "puissance": "normale",
+    "filsJour": 1,
+    "filsNuit": 2,
+    "heuresNuit": 6,
+    "disqueMaxMo": 1500
+   }
+  },
+  "appareils": [
+   {
+    "ip": "198.51.100.11",
+    "mac": "aa:00:5e:00:53:11",
+    "nom": "Imprimante du salon"
+   },
+   {
+    "ip": "198.51.100.12",
+    "mac": "aa:00:5e:00:53:12",
+    "nom": "Tablette de cuisine"
+   },
+   {
+    "ip": "198.51.100.13",
+    "mac": "aa:00:5e:00:53:13",
+    "nom": "Disque réseau",
+    "important": true
+   },
+   {
+    "ip": "198.51.100.1",
+    "mac": "aa:00:5e:00:53:01",
+    "nom": "Box internet"
+   }
+  ],
+  "deconnectes": [
+   "198.51.100.12"
+  ],
+  "mathesis": {
+   "reglages": {
+    "vitesse": "normale",
+    "dossiers": [
+     "/srv/partage/recettes"
+    ]
+   },
+   "journal": [
+    {
+     "id": "jd1",
+     "at": "2026-11-15T21:10:00",
+     "genre": "lecture",
+     "quoi": "a lu une page sur la taille des haies",
+     "pourquoi": "tu parlais du jardin",
+     "source": "https://example.org/jardin/haies"
+    },
+    {
+     "id": "jd2",
+     "at": "2026-11-16T08:30:00",
+     "genre": "recherche",
+     "quoi": "a cherché « horaires des marées à Kerlouan »",
+     "pourquoi": "question restée sans réponse"
+    },
+    {
+     "id": "jd3",
+     "at": "2026-11-16T22:40:00",
+     "genre": "retenu",
+     "quoi": "a retenu que le basilic craint le froid",
+     "source": "https://example.org/potager/basilic",
+     "retenu": [
+      {
+       "texte": "Le basilic ne supporte pas le gel.",
+       "niveau": "sur"
+      }
+     ]
+    }
+   ],
+   "sites": [
+    {
+     "id": "potager.example.org",
+     "racine": "https://potager.example.org/",
+     "etat": "en-suivi",
+     "lues": 340,
+     "connues": 410,
+     "ajoute": "2026-11-10T09:00:00"
+    },
+    {
+     "id": "recettes.example.net",
+     "racine": "https://recettes.example.net/",
+     "etat": "a-explorer",
+     "lues": 0,
+     "connues": 0,
+     "ajoute": "2026-11-16T19:00:00"
+    }
+   ]
+  },
+  "souvenirs": [
+   "Le code du portail est changé tous les mois.",
+   "Je préfère le thé au café le matin.",
+   "Le chat s'appelle Pixel."
+  ]
+ },
+ "questions": [
+  {
+   "id": "sd-fr-001",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où est-ce que je change la configuration d'Odin ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-002",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je veux lui écrire, c'est sur quel écran ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:chat"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-003",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je vois les tâches qui reviennent chaque jour ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:jobs"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-004",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je retrouve pourquoi Odin a fait telle chose tout seul ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:audit"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-005",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "mes tableaux et mes bases de données, je les trouve où dans l'interface ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:runes"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-006",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où se trouvent les automatisations ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:flows"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-007",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où sont rangées ses procédures et ses scripts ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:skills"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-008",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où est-ce que je règle les alertes quand un appareil tombe ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:surveillance"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-009",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je veux brancher mon bot Telegram, je vais où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:telegram"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-010",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je programme le réveil du matin ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:reveil"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-011",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je mets ma boîte mail pour qu'il lise mes messages ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:mail"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-012",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je relie mon serveur Proxmox ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:proxmox"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-013",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je donne des droits à quelqu'un de la famille ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:personnes"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-014",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je voudrais changer le thème clair ou sombre, c'est où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:apparence"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-015",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où se règle la façon dont il m'écoute et me répond à voix haute ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:voix"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-016",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à partir de quel remplissage du disque il me prévient, ça se change où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:surveillance:wt-disk"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-017",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de sauvegardes il garde, je règle ça où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:sauvegarde:ab-keep"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-018",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je change le mot pour le réveiller à la voix ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-wake"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-019",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je veux qu'il n'enregistre rien du tout, quel réglage ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-private"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-020",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "tous les combien il scanne le réseau, et où je change ça ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:reseau:n-interval"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-021",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je mets le serveur pour envoyer les mails ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:mail:ml-smtp"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-022",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "la ville de la météo du briefing, je la change où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:entretien:mj-city"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-023",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je veux changer le port de l'interface, c'est dans quel réglage ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:acces:a-port"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-024",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je dis de changer de ton tout seul selon l'heure ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:personnalite:pf-auto"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-025",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je l'empêche de me déranger la nuit ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:autonomie:qt-on"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-026",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je vois tout ce qu'il a retenu sur moi ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:souvenirs"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-027",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "la carte des liens entre mes notes, elle est où ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:graphe"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-028",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "La page de son réseau de neurones, je la trouve comment ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:nous"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-029",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Il y a un raccourci clavier pour chercher un écran ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:palette"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-030",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je vois ce qu'il apprend tout seul ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:mathesis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-031",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "mes caméras, c'est dans quelle appli ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:himinbjorg"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-032",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "l'appli du VPN, c'est laquelle ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:gjoll"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-033",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je lui fais lire tout un site ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:absorber"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-034",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je veux couper tout son apprentissage d'un coup, je fais comment ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:couper"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-035",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "pour mettre le VPN sur mon portable en scannant un code, je fais comment ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:gjoll:qr"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-036",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je lance une sauvegarde tout de suite ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:sindri:sauvegarder"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-037",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je change la couleur de l'interface ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:apparence:theme"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-038",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je bloque un site pour toute la maison ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:vidarr:bloquer"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-039",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je vois les programmes qui tournent sur la machine ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:eir:processus"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-040",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment je sais si mes disques vont bien ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:durinn:sante"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-041",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je fais le ménage des fichiers temporaires ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:gefjon:nettoyer"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-042",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je compare les prévisions météo de plusieurs sources ?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:zeus:comparer"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-043",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu écoutes sur quel port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-044",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton API HTTP, elle est allumée ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-http"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-045",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Mathésis a son propre port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:mathesis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-046",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel port pour le serveur DNS Sphinx ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:vidarr"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-047",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Vénus répond sur quel numéro de port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:freyja"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-048",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "le store Agora, il est sur quel port ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:agora"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-049",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "ta configuration est enregistrée dans quel fichier ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:config"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-050",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où sont gardés les mots de passe et les clés ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:env"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-051",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où sont rangés les fichiers d'entraînement de ton réseau ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:soul"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-052",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je trouve tes journaux de fonctionnement ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:logs"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-053",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ta personnalité est écrite dans quel fichier ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:persona"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-054",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu tournes sur quel genre d'ordinateur ?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:machine"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-055",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de cœurs a ta machine ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "4 cœurs",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-056",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ta machine a combien de mémoire vive ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "8 Go",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-057",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "À quelle heure tu fais la sauvegarde ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "à 2 h",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-058",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu gardes combien de sauvegardes en tout ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "5 sauvegardes",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-059",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu vérifies la maison tous les combien ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "30 minutes",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-060",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quel pourcentage de disque tu donnes l'alerte ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "85 %",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-061",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quels services tu répares tout seul ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:services"
+   ],
+   "valeur": "Serveur photos",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-062",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien d'appareils tu connais chez moi ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:inventaire"
+   ],
+   "valeur": "4 appareil",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-063",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "il y a combien d'appareils éteints ou partis du réseau ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:inventaire"
+   ],
+   "valeur": "1 déconnecté",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-064",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "La tablette de la cuisine, elle est allumée ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:12"
+   ],
+   "valeur": "déconnecté",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-065",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle est l'adresse IP de l'imprimante du salon ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:11"
+   ],
+   "valeur": "198.51.100.11",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-066",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "le disque réseau, il répond ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:13"
+   ],
+   "valeur": "en ligne",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-067",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "c'est quoi l'adresse de la box ?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:01"
+   ],
+   "valeur": "198.51.100.1",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-068",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "C'est quoi Soul exactement ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-069",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "ton réseau de neurones, il est gros comment ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-070",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "combien de couches a le gabarit moyen ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:moyen"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-071",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le plus gros modèle possible, il a combien de poids ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:grand"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-072",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "le petit gabarit, il sert à quoi et il fait quelle taille ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:petit"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-073",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Est-ce que tu as déjà été entraîné ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-074",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où en est ton apprentissage profond ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-075",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu es livré avec un modèle tout prêt ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:depart"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-076",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Est-ce que tu utilises ChatGPT ou un autre modèle en ligne ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-077",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu envoies mes questions à une IA sur Internet ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-078",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu sais faire combien de choses en tout ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sait-faire"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-079",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "C'est quoi Brain ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:brain"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-080",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Je peux te parler en SSH depuis un terminal ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:ssh"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-081",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu sais me calculer un trajet en bus ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:trajets"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-082",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as ton propre moteur de recherche ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:lyncee"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-083",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "On peut te parler à plusieurs en même temps à la voix ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:voix-plusieurs"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-084",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu peux acheter des billets de cinéma pour moi ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:achats"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-085",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Brain et Soul sont déjà reliés entre eux ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:brancher"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-086",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "tu arrives à lire un document scanné ?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:theia"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-087",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton entraînement dure combien d'heures la nuit ?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:reglages"
+   ],
+   "valeur": "6 h la nuit",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-088",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu t'entraînes avec quelle puissance ?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:reglages"
+   ],
+   "valeur": "normale",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-089",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton réseau a lu combien d'exemples jusqu'ici ?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:corpus"
+   ],
+   "valeur": "0 exemple",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-090",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as combien de souvenirs de moi ?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:brain"
+   ],
+   "valeur": "3 souvenir",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-091",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Comment tu apprends des choses tout seul ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-092",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "À quelle heure tu lis les vidéos et les gros fichiers ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:heures"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-093",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu lis combien de pages par jour au maximum ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:budgets"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-094",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Si je te demande d'oublier quelque chose, ton réseau l'oublie aussi ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:oubli"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-095",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as commencé à apprendre à partir de quoi ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:corpus-depart"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-096",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Est-ce que tu retiens ce que je te raconte ?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:prive"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-097",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Ton apprentissage tout seul, il va à quelle vitesse ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "valeur": "normale",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-098",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de dossiers je t'ai ouverts pour apprendre ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis:dossiers"
+   ],
+   "valeur": "1 dossier",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-099",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "C'est quoi la dernière chose que tu as apprise seul ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal"
+   ],
+   "valeur": "basilic",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-100",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Qu'est-ce que tu as lu sur le jardin ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jd1"
+   ],
+   "valeur": "taille des haies",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-101",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as cherché quoi sur les marées ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jd2"
+   ],
+   "valeur": "Kerlouan",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-102",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quels sites tu es en train d'absorber ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:sites"
+   ],
+   "valeur": "potager.example.org",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-103",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as lu combien de pages du site du potager ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:potager.example.org"
+   ],
+   "valeur": "340 page",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-104",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Le site de recettes, tu l'as commencé ?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:recettes.example.net"
+   ],
+   "valeur": "à explorer",
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-105",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quelle est ta couleur préférée ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-106",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où est le réglage pour commander une pizza ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-107",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as combien de cartes graphiques Nvidia branchées ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-108",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quel est le mot de passe de mon voisin ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-109",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "C'est quoi le numéro de série de ton processeur ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-110",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien de fois je t'ai insulté cette année ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-111",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Où je règle la température du four ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-112",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Qui a gagné la coupe du monde de pétanque ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-113",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Tu as lu quel livre de poésie hier soir ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-114",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Quel est l'onglet pour piloter la voiture ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-fr-115",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Combien pèse le serveur physiquement ?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-001",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where do I set up the nightly backup?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:sauvegarde"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-002",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How do I turn your voice volume down?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:voix:vo-vol"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-003",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where can I see what you are working on right now?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:missions"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-004",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where do I connect my calendar?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:agenda"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-005",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How do I start a movie on the TV?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:freyja:regarder"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-006",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where is the daily journal in the brain page?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:journal"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-007",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Which port does the search app Pythie use?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:volva"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-008",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Which file holds your memory database?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:db"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-009",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Is the automatic backup switched on?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "activée",
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-010",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Is the network drive online?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:13"
+   ],
+   "valeur": "en ligne",
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-011",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How many attention heads does the medium size have?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:moyen"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-012",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Do you rely on any cloud AI model?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-013",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Can I place widgets just by telling you?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:widgets"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-014",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How many threads do you train on at night?",
+   "famille": "modele",
+   "sorte": "etat",
+   "attendus": [
+    "modele:soul:reglages"
+   ],
+   "valeur": "2 fil",
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-015",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "If I delete a memory, does your neural network forget it too?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:oubli"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-016",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "What did you learn about basil?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jd3"
+   ],
+   "valeur": "basilic",
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-017",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How far along are you with the vegetable garden site?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:potager.example.org"
+   ],
+   "valeur": "340 page",
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-018",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "What is your favourite football team?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-019",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "Where is the setting to fly a drone?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-en-020",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "How many satellites do you control?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": false
+  },
+  {
+   "id": "sd-es-001",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Dónde configuro tu voz?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:voix"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-002",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Dónde están los ajustes?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-003",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cómo pongo en pausa tu aprendizaje automático?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:mathesis:pause"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-004",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿En qué puerto escucha tu interfaz?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-005",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cada cuántos minutos revisas la casa?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "30 minutes",
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-006",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Qué es Soul?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-007",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Sabes calcular rutas de autobús?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:trajets"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-008",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cuándo trabajas con vídeos pesados?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:heures"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-009",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Qué sitios web estás absorbiendo?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:sites"
+   ],
+   "valeur": "recettes.example.net",
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-010",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Cuál es tu película favorita?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-es-011",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿Dónde está el ajuste para pedir un taxi?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-001",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wo stelle ich die Überwachung ein?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:surveillance"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-002",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wo lege ich die Uhrzeit der Sicherung fest?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:reglage:sauvegarde:ab-hour"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-003",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Welche App ist für das VPN zuständig?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:appli:gjoll"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-004",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "In welchem Ordner liegt, was Mathésis lernt?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:mathesis"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-005",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wie viele Prozessorkerne hat dein Rechner?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "4 cœurs",
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-006",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Bist du schon trainiert?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-007",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Kann ich per SSH mit dir sprechen?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:ssh"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-008",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Merkst du dir, was ich dir erzähle?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:prive"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-009",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Was hast du über Hecken gelesen?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jd1"
+   ],
+   "valeur": "haies",
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-010",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Was ist deine Lieblingsfarbe?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-de-011",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "Wo stelle ich die Temperatur des Kühlschranks ein?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-001",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Dove imposto la posta elettronica?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:mail"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-002",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Dove vedo i ricordi che hai di me?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:volet-cerveau:souvenirs"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-003",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Su quale porta risponde Cyclope?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:himinbjorg"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-004",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Il tablet della cucina è acceso?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:12"
+   ],
+   "valeur": "déconnecté",
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-005",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Quante azioni sai fare?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sait-faire"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-006",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Hai un modello iniziale già installato?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:depart"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-007",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Come impari da solo?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-008",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Quante cartelle ti ho aperto?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis:dossiers"
+   ],
+   "valeur": "1 dossier",
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-009",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Qual è il tuo piatto preferito?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-it-010",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "Quanti anni hai?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-001",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Onde configuro o despertador?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:reveil"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-002",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Como restauro um ficheiro de uma cópia de segurança?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:action:sindri:restaurer"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-003",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Onde ficam guardadas as tuas competências?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:dossier:skills"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-004",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "A que horas fazes a cópia de segurança?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "à 2 h",
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-005",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "O que é o Brain?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:brain"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-006",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Tens o teu próprio motor de busca?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:lyncee"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-007",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Com que dados começaste a aprender?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:corpus-depart"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-008",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "O que pesquisaste sobre as marés?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal:jd2"
+   ],
+   "valeur": "marées",
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-009",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Qual é o teu signo do zodíaco?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-pt-010",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "Onde está a opção para jogar xadrez online?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-001",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Waar koppel ik Telegram?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:telegram"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-002",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Waar vind ik de automatiseringen?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:flows"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-003",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Staat de HTTP-API aan?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-http"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-004",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Hoeveel apparaten ken je in huis?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:inventaire"
+   ],
+   "valeur": "4 appareil",
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-005",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Hoeveel lagen heeft het grote formaat?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:grand"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-006",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Gebruik je een taalmodel op internet?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-007",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Hoeveel zoekopdrachten doe je per dag?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:budgets"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-008",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Op welke snelheid leer je zelf?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "valeur": "normale",
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-009",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Wat is je lievelingsliedje?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-nl-010",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "Hoe laat gaat de bakker open?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-001",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "設定画面はどこですか？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-002",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "音声の設定はどこで変えますか？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:voix"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-003",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "インターフェースは何番ポートで動いていますか？",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-004",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "何分ごとに家をチェックしていますか？",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:surveillance"
+   ],
+   "valeur": "30 minutes",
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-005",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "Soulとは何ですか？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-006",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "もう学習は終わりましたか？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-007",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "どうやって自分で学んでいるのですか？",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-008",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "家庭菜園のサイトは何ページ読みましたか？",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:potager.example.org"
+   ],
+   "valeur": "340 page",
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-009",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "あなたの好きな食べ物は何ですか？",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ja-010",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "車のエンジンはどこで設定しますか？",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-001",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "在哪里设置自动备份？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:sauvegarde"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-002",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "和你聊天的页面在哪里？",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:chat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-003",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "Mathésis 用哪个端口？",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:mathesis"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-004",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "客厅打印机的IP地址是多少？",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:appareil:aa:00:5e:00:53:11"
+   ],
+   "valeur": "198.51.100.11",
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-005",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你会使用在线的大模型吗？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-006",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "中等规格有多少层？",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:gabarit:moyen"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-007",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "如果我让你忘记一件事，你的神经网络也会忘记吗？",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:oubli"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-008",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你正在吸收哪些网站？",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:sites"
+   ],
+   "valeur": "potager.example.org",
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-009",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "你最喜欢的颜色是什么？",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-zh-010",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "在哪里设置咖啡机？",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ar-001",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "أين أضبط المراقبة والتنبيهات؟",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:surveillance"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ar-002",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "أين صفحة الإعدادات؟",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:settings"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ar-003",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "على أي منفذ تعمل الواجهة؟",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port-web"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ar-004",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "كم نسخة احتياطية تحتفظ بها؟",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:sauvegarde"
+   ],
+   "valeur": "5 sauvegardes",
+   "aRelire": true
+  },
+  {
+   "id": "sd-ar-005",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ما هو Soul؟",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ar-006",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "هل تستعمل نموذج ذكاء اصطناعي على الإنترنت؟",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:sans-modele-exterieur"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ar-007",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "كيف تتعلم وحدك؟",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ar-008",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ما آخر شيء تعلمته وحدك؟",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:journal"
+   ],
+   "valeur": "basilic",
+   "aRelire": true
+  },
+  {
+   "id": "sd-ar-009",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ما هو برجك؟",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ru-001",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Где настроить голос?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:onglet:voix"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ru-002",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Где посмотреть запланированные задачи?",
+   "famille": "interface",
+   "sorte": "directe",
+   "attendus": [
+    "interface:page:jobs"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ru-003",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "На каком порту работает DNS-сервер Sphinx?",
+   "famille": "infrastructure",
+   "sorte": "directe",
+   "attendus": [
+    "infra:port:vidarr"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ru-004",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Сколько оперативной памяти у твоей машины?",
+   "famille": "infrastructure",
+   "sorte": "etat",
+   "attendus": [
+    "infra:machine"
+   ],
+   "valeur": "8 Go",
+   "aRelire": true
+  },
+  {
+   "id": "sd-ru-005",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Ты уже обучен?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:soul:etat"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ru-006",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Можно ли говорить с тобой через SSH?",
+   "famille": "modele",
+   "sorte": "directe",
+   "attendus": [
+    "modele:etat:ssh"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ru-007",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Когда ты обрабатываешь тяжёлые видео?",
+   "famille": "acquisition",
+   "sorte": "directe",
+   "attendus": [
+    "acquisition:mathesis:heures"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "sd-ru-008",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Ты уже начал читать сайт с рецептами?",
+   "famille": "acquisition",
+   "sorte": "etat",
+   "attendus": [
+    "acquisition:site:recettes.example.net"
+   ],
+   "valeur": "à explorer",
+   "aRelire": true
+  },
+  {
+   "id": "sd-ru-009",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "Какой твой любимый фильм?",
+   "famille": "aucune",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "aRelire": true
+  }
+ ]
+}
