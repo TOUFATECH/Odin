@@ -222,6 +222,25 @@ export function ngrammes(s: string, nMin: number, nMax: number, into = new Map<s
 }
 
 // ------------------------------------------------------------------------------------------------ index TF-IDF
+/** Rang de l'appli et poids de vote de chaque paire de base, et deux petits tableaux de travail (remis à zéro après usage). */
+export interface TablesVote { cles: string[]; rangDe: Int32Array; poids: Float64Array; somme: Float64Array; vu: Uint8Array }
+/**
+ * Le cœur d'un index : vocabulaire des n-grammes, IDF, listes inversées (début de chaque liste, paires, poids). Il ne
+ * dépend que des paires de base et des réglages ; il n'est jamais modifié une fois fait (les retraits et les ajouts
+ * vivent dans l'instance), ce qui permet de le garder prêt et de le partager. `normes` et `tables` sont calculés à la
+ * première demande et gardés avec lui.
+ */
+export interface CoeurIndex {
+  vocab: Map<string, number>; idf: Float64Array; debut: Int32Array; postDoc: Int32Array | Uint16Array; postPoids: Float32Array; facteurInconnu: number;
+  normes?: Map<string, number>; tables?: TablesVote;
+}
+/**
+ * Le texte du code dont dépend le cœur d'un index (pour l'empreinte d'une préparation gardée) : un changement du
+ * découpage, du nettoyage ou du calcul de l'index la rend périmée.
+ */
+export function codeDuCoeur(): string {
+  return [IndexNgrammes.toString(), ngrammes.toString(), nettoyer.toString(), replier.toString(), String(CONTROLE), String(VOYELLES_ECRITES), String(SIGNES_FACULTATIFS), LONGUEUR_MAX, HORS_CHAMP, cmp.toString(), poidsDe.toString()].join('\n\u0001\n');
+}
 /**
  * Index inversé des paires (n-grammes TF-IDF, vecteurs normés), avec des ajouts tardifs (corrections) parcourus à part.
  * Une paire peut être retirée (correction refaite) : elle ne vote plus. Les ajouts sont peu nombreux : au-delà de
@@ -230,9 +249,11 @@ export function ngrammes(s: string, nMin: number, nMax: number, into = new Map<s
 export class IndexNgrammes {
   readonly paires: Paire[];
   readonly reglages: Reglages;
-  private vocab = new Map<string, number>();
+  private vocab: Map<string, number>;
   private idf: Float64Array;
-  private debut: Int32Array; private postDoc: Int32Array; private postPoids: Float32Array;
+  private debut: Int32Array; private postDoc: Int32Array | Uint16Array; private postPoids: Float32Array;
+  /** Le cœur (ce qui ne change pas d'une instance à l'autre pour la même matière) : partageable, jamais modifié. */
+  private c: CoeurIndex;
   private scores: Float32Array;
   private ajouts: Array<{ paire: Paire; vec: Map<string, number>; retire: boolean }> = [];
   private nBase: number;
@@ -242,9 +263,20 @@ export class IndexNgrammes {
   /** Facteur de l'IDF par appli d'un n-gramme jamais vu (1 sans IDF par appli). */
   private facteurInconnu = 1;
 
-  constructor(paires: Paire[], reglages: Reglages) {
+  /**
+   * `coeur` (facultatif) : un cœur déjà préparé pour EXACTEMENT ces paires et ces réglages (voir aiguilleur-pret.ts, qui
+   * le vérifie par empreinte) ; il est partagé tel quel, sans copie. Sans lui, le cœur est calculé ici.
+   */
+  constructor(paires: Paire[], reglages: Reglages, coeur?: CoeurIndex) {
     this.paires = paires.slice(); this.reglages = reglages;
     const N = this.paires.length; this.nBase = N;
+    this.scores = new Float32Array(N);
+    this.masque = new Uint8Array(N);
+    if (coeur) {
+      this.c = coeur; this.vocab = coeur.vocab; this.idf = coeur.idf; this.debut = coeur.debut; this.postDoc = coeur.postDoc; this.postPoids = coeur.postPoids; this.facteurInconnu = coeur.facteurInconnu;
+      return;
+    }
+    this.vocab = new Map<string, number>();
     const tfs = this.paires.map((p) => ngrammes(nettoyer(p.texte), reglages.nMin, reglages.nMax));
     const df: number[] = [];
     for (const tf of tfs) for (const g of tf.keys()) { let id = this.vocab.get(g); if (id === undefined) { id = df.length; this.vocab.set(g, id); df.push(0); } df[id]++; }
@@ -272,14 +304,18 @@ export class IndexNgrammes {
     for (let i = 1; i < compte.length; i++) compte[i] += compte[i - 1];
     this.debut = Int32Array.from(compte);
     const total = compte[compte.length - 1];
-    this.postDoc = new Int32Array(total); this.postPoids = new Float32Array(total);
+    // Forme compacte : moins de 65 536 paires, l'indice d'une paire tient sur deux octets au lieu de quatre (mêmes valeurs).
+    this.postDoc = N <= 0xffff ? new Uint16Array(total) : new Int32Array(total); this.postPoids = new Float32Array(total);
     const pos = Int32Array.from(compte.subarray(0, df.length));
     vecs.forEach((v, d) => { for (let i = 0; i < v.ids.length; i++) { const p = pos[v.ids[i]]++; this.postDoc[p] = d; this.postPoids[p] = v.ws[i]; } });
-    this.scores = new Float32Array(N);
-    this.masque = new Uint8Array(N);
+    this.c = { vocab: this.vocab, idf: this.idf, debut: this.debut, postDoc: this.postDoc, postPoids: this.postPoids, facteurInconnu: this.facteurInconnu };
   }
 
-  private normesC?: Map<string, number>;
+  /** Le cœur de l'index (pour le garder prêt : aiguilleur-pret.ts). Ne pas le modifier. */
+  get coeur(): CoeurIndex { return this.c; }
+
+  private get normesC(): Map<string, number> | undefined { return this.c.normes; }
+  private set normesC(m: Map<string, number> | undefined) { this.c.normes = m; }
   /**
    * Norme du centre de chaque appli (somme des vecteurs normés de ses paires de base, pondérés par `poids`) : le
    * cosinus de la requête avec ce centre vaut Σ poids·ressemblance / norme. Calculée une fois (paires retirées comprises).
@@ -297,6 +333,30 @@ export class IndexNgrammes {
     this.normesC = new Map(applis.map((a, i) => [a, Math.sqrt(carre[i])]));
     return this.normesC;
   }
+
+
+  /**
+   * Pour chaque paire de BASE : le rang de son appli (« pas encore » compris) et son poids de vote, calculés une fois
+   * (le vote n'appelle plus `cle` ni `poidsDe` pour chacune des milliers de paires touchées à chaque demande). Les mêmes
+   * nombres que l'ancien calcul : seuls les accès changent.
+   */
+  tablesVote(poids: (p: Paire) => number): TablesVote {
+    if (this.c.tables) return this.c.tables;
+    const cles = [...new Set(this.paires.map((p) => p.appli ?? HORS_CHAMP))].sort(cmp), rang = new Map(cles.map((a, i) => [a, i]));
+    this.c.tables = { cles, rangDe: Int32Array.from(this.paires.map((p) => rang.get(p.appli ?? HORS_CHAMP)!)), poids: Float64Array.from(this.paires.map(poids)), somme: new Float64Array(cles.length), vu: new Uint8Array(cles.length) };
+    return this.c.tables;
+  }
+  private dense = new Float64Array(0);
+  /**
+   * Les ressemblances rangées par indice de paire (tableau plein, zéro ailleurs), à la place d'une table d'association
+   * refaite à chaque demande. À rendre propre par `viderDense(idx)` aussitôt lu.
+   */
+  remplirDense(idx: number[], sim: number[]): Float64Array {
+    if (this.dense.length < this.taille) this.dense = new Float64Array(Math.max(this.taille, this.dense.length * 2));
+    for (let i = 0; i < idx.length; i++) this.dense[idx[i]] = sim[i];
+    return this.dense;
+  }
+  viderDense(idx: number[]): void { for (const d of idx) this.dense[d] = 0; }
 
   get taille(): number { return this.nBase + this.ajouts.length; }
   get grammes(): number { return this.vocab.size; }
@@ -454,8 +514,8 @@ function partager(ix: IndexNgrammes, parAppli: Map<string, number[]>, idx: numbe
   } else if (R.vote === 'centre') {
     const c = centres(ix, idx, sim); for (const [k, x] of c) { out.set(k, x); tot += x; }
   } else {
-    // Les K plus proches.
-    const ordre = idx.map((_, i) => i).sort((a, b) => sim[b] - sim[a] || idx[a] - idx[b]).slice(0, R.k);
+    // Les K plus proches (dans l'ordre : ressemblance décroissante, puis indice croissant).
+    const ordre = kPlusProches(idx, sim, R.k);
     for (const i of ordre) { const p = ix.paire(idx[i]); const w = Math.pow(sim[i], R.puissance) * poidsDe(p, R); out.set(cle(p), (out.get(cle(p)) ?? 0) + w); tot += w; }
     if (R.prior > 0) { tot = 0; for (const [a, w] of out) { const x = w / Math.pow(Math.max(1, parAppli.get(a)?.length ?? 1), R.prior); out.set(a, x); tot += x; } }
   }
@@ -468,11 +528,38 @@ function partager(ix: IndexNgrammes, parAppli: Map<string, number[]>, idx: numbe
   return { parts: out, sim1 };
 }
 
+/**
+ * Les `k` premiers indices (dans `idx`/`sim`) selon l'ordre « ressemblance décroissante, puis indice de paire
+ * croissant » : exactement `idx.map((_, i) => i).sort(…).slice(0, k)`, sans trier les milliers de paires touchées
+ * (l'ordre est total : deux paires n'ont jamais le même indice, le résultat est le même que le tri complet).
+ */
+export function kPlusProches(idx: number[], sim: number[], k: number): number[] {
+  if (REFERENCE || !Number.isInteger(k) || k <= 0 || k >= idx.length) return idx.map((_, i) => i).sort((a, b) => sim[b] - sim[a] || idx[a] - idx[b]).slice(0, k);
+  const top: number[] = [];
+  const avant = (a: number, b: number) => sim[a] > sim[b] || (sim[a] === sim[b] && idx[a] < idx[b]);
+  for (let i = 0; i < idx.length; i++) {
+    if (top.length === k && !avant(i, top[k - 1])) continue;
+    let j = top.length < k ? top.push(i) - 1 : k - 1;
+    while (j > 0 && avant(i, top[j - 1])) { top[j] = top[j - 1]; j--; }
+    top[j] = i;
+  }
+  return top;
+}
+
 /** Le cosinus de la requête avec le centre de chaque appli (paires de base seulement), à la puissance `puissance`. */
 function centres(ix: IndexNgrammes, idx: number[], sim: number[]): Map<string, number> {
-  const R = ix.reglages, normes = ix.normesCentres((p) => poidsDe(p, R)), somme = new Map<string, number>(), out = new Map<string, number>();
-  for (let i = 0; i < idx.length; i++) { if (idx[i] >= ix.paires.length) continue; const p = ix.paire(idx[i]); somme.set(cle(p), (somme.get(cle(p)) ?? 0) + poidsDe(p, R) * sim[i]); }
-  for (const [k, x] of somme) { const nn = normes.get(k) ?? 0; if (nn > 0) out.set(k, Math.pow(x / nn, R.puissance)); }
+  const R = ix.reglages, normes = ix.normesCentres((p) => poidsDe(p, R)), out = new Map<string, number>();
+  if (REFERENCE) {
+    const somme = new Map<string, number>();
+    for (let i = 0; i < idx.length; i++) { if (idx[i] >= ix.paires.length) continue; const p = ix.paire(idx[i]); somme.set(cle(p), (somme.get(cle(p)) ?? 0) + poidsDe(p, R) * sim[i]); }
+    for (const [k, x] of somme) { const nn = normes.get(k) ?? 0; if (nn > 0) out.set(k, Math.pow(x / nn, R.puissance)); }
+    return out;
+  }
+  // Mêmes sommes, dans le même ordre, que l'ancienne table d'association par appli ; les applis gardent l'ordre où la
+  // demande les a touchées pour la première fois (l'ordre de la table rendue, donc des sommes qui suivent).
+  const t = ix.tablesVote((p) => poidsDe(p, R)), nb = ix.paires.length, ordre: number[] = [];
+  for (let i = 0; i < idx.length; i++) { const d = idx[i]; if (d >= nb) continue; const a = t.rangDe[d]; if (!t.vu[a]) { t.vu[a] = 1; ordre.push(a); } t.somme[a] += t.poids[d] * sim[i]; }
+  for (const a of ordre) { const x = t.somme[a], k = t.cles[a]; t.somme[a] = 0; t.vu[a] = 0; const nn = normes.get(k) ?? 0; if (nn > 0) out.set(k, Math.pow(x / nn, R.puissance)); }
   return out;
 }
 
@@ -527,11 +614,12 @@ function voter(ix: IndexNgrammes, parAppli: Map<string, number[]>, phrase: strin
     if (j !== 0) { if (j > 0) classement.splice(j, 1); classement.unshift(k); }
   }
   // Pour chaque appli candidate : l'action, par les ressemblances de ses propres paires.
-  const simDe = new Map<number, number>(); idx.forEach((d, i) => simDe.set(d, sim[i]));
+  // Les ressemblances par indice de paire : un tableau plein (l'ancien chemin : une table d'association refaite ici).
+  const dense = REFERENCE ? undefined : ix.remplirDense(idx, sim), carte = REFERENCE ? new Map(idx.map((d, i) => [d, sim[i]])) : undefined;
   const candidats: Candidat[] = classement.slice(0, 5).map((a) => {
     if (a === HORS_CHAMP) return { appli: a, part: parts.get(a) ?? 0, action: null, partAction: 0 };
     const parAction = new Map<string, number[]>();
-    for (const d of parAppli.get(a) ?? []) { const s = simDe.get(d); if (!s) continue; const p = ix.paire(d); if (!p.action) continue; const l = parAction.get(p.action) ?? []; l.push(s * (p.poids ?? 1)); parAction.set(p.action, l); }
+    for (const d of parAppli.get(a) ?? []) { const s = dense ? dense[d] : carte!.get(d); if (!s) continue; const p = ix.paire(d); if (!p.action) continue; const l = parAction.get(p.action) ?? []; l.push(s * (p.poids ?? 1)); parAction.set(p.action, l); }
     let best: string | null = null, bs = 0, tot2 = 0;
     for (const [act, l] of [...parAction.entries()].sort((x, y) => cmp(x[0], y[0]))) {
       const s = l.sort((x, y) => y - x).slice(0, 3).reduce((u, v) => u + v * v, 0);
@@ -543,12 +631,20 @@ function voter(ix: IndexNgrammes, parAppli: Map<string, number[]>, phrase: strin
     if (!best && mx?.action) { best = mx.action; bs = 1; tot2 = 1; }
     return { appli: a, part: parts.get(a) ?? 0, action: best, partAction: tot2 > 0 ? bs / tot2 : 0 };
   });
+  if (!REFERENCE) ix.viderDense(idx);
   return { candidats, sim1, motsTete, motsVide: m.length === 0, couverture, partHorsChamp: parts.get(HORS_CHAMP) ?? 0 };
 }
 
 function safeMots(mots: MotsFn, phrase: string): Array<{ appli: string; action: string | null; score: number }> {
   try { return (mots(phrase) ?? []).filter((x) => x && typeof x.appli === 'string'); } catch { return []; }
 }
+
+/**
+ * L'ANCIEN chemin du vote (tri complet des paires touchées, tables d'association refaites à chaque demande), gardé
+ * comme référence : les essais vérifient que le chemin rapide rend exactement les mêmes réponses. Jamais en service.
+ */
+let REFERENCE = false;
+export function cheminDeReference(oui: boolean): void { REFERENCE = oui; }
 
 /** Les signes dont on tire la confiance. */
 function signes(v: Vote): number[] {
@@ -768,6 +864,30 @@ export function apprendreCorrection(home: string, c: Correction, applis?: Map<st
   return { ok: true };
 }
 
+/**
+ * Retire du fichier une correction que le propriétaire fait oublier (même phrase, à la ponctuation et à la casse près).
+ * Rend `retiree: false` si elle n'y était pas. Si le fichier ne peut pas être relu, rien n'est écrit (comme pour
+ * apprendre). Ce qui est gardé ailleurs (index en mémoire, préparation sur le disque) est l'affaire de l'appelant
+ * (aiguilleur-pret.ts : oublierCorrection).
+ */
+export function retirerCorrection(home: string, demande: string): { ok: true; retiree: boolean } | { ok: false; raison: string } {
+  const k = cleTexte(typeof demande === 'string' ? demande.replace(CONTROLE, ' ') : '');
+  if (!k) return { ok: false, raison: 'demande vide' };
+  const lu = lireCorrectionsBilan(home);
+  if (lu.raison) return { ok: false, raison: `${lu.raison} ; rien n'est écrit, pour ne pas l'écraser` };
+  const garde = lu.corrections.filter((x) => cleTexte(x.demande) !== k);
+  if (garde.length === lu.corrections.length) return { ok: true, retiree: false };
+  const f = fichierCorrections(home), tmp = `${f}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+  try {
+    writeFileSync(tmp, JSON.stringify({ version: 1, corrections: garde }), { mode: 0o600 });
+    renameSync(tmp, f);
+  } catch (e) {
+    try { rmSync(tmp, { force: true }); } catch { /* rien à retirer */ }
+    return { ok: false, raison: `écriture impossible : ${String((e as Error)?.message ?? e).slice(0, 120)}` };
+  }
+  return { ok: true, retiree: true };
+}
+
 // ------------------------------------------------------------------------------------------------ calibration gardée
 export const fichierCalibration = (home: string): string => join(home, 'cerveau-reseau', 'aiguilleur-calibration.json');
 const CALIBRATIONS = new Map<string, Calibration>();
@@ -781,7 +901,7 @@ export function oublierCalibrations(): void { CALIBRATIONS.clear(); }
 function empreinte(paires: Paire[], R: Reglages, avecMots: boolean, prefs: ReadonlyArray<readonly [string, string]> = PREFERENCES): string {
   const h = createHash('sha256');
   h.update(JSON.stringify({ R, avecMots, prefs }));
-  h.update(voter.toString()); h.update(partager.toString()); h.update(centres.toString()); h.update(signes.toString()); h.update(validationCroisee.toString()); h.update(hacher.toString()); h.update(calibrer.toString()); h.update(nettoyer.toString()); h.update(String(SIGNES_FACULTATIFS));
+  h.update(voter.toString()); h.update(partager.toString()); h.update(centres.toString()); h.update(kPlusProches.toString()); h.update(signes.toString()); h.update(validationCroisee.toString()); h.update(hacher.toString()); h.update(calibrer.toString()); h.update(nettoyer.toString()); h.update(String(SIGNES_FACULTATIFS));
   for (const p of paires) h.update(`${JSON.stringify([p.texte, p.appli, p.action, p.poids ?? 1, Boolean(p.demande), p.source, p.groupe ?? null])}\n`);
   return h.digest('hex');
 }
@@ -831,6 +951,10 @@ export interface BilanAiguilleur {
   calibrationDe: 'calcul' | 'memoire' | 'fichier' | 'fournie';
   /** Ce que le chargeur de la matière par langue a lu, écarté ou refusé (absent : sans elle). */
   matiere?: BilanMatiere;
+  /** D'où vient le cœur de l'index (aiguilleur-pret.ts) : calculé, gardé en mémoire, relu du dossier d'Odin ; absent : calculé ici. */
+  preparationDe?: 'calcul' | 'memoire' | 'fichier';
+  /** Pourquoi une préparation gardée n'a pas servie (abîmée, périmée…), pour le journal. */
+  preparationRaison?: string;
 }
 export interface Aiguilleur {
   aiguiller(phrase: string, ctx?: ContexteAiguilleur): ReponseAiguilleur;
@@ -853,6 +977,8 @@ export interface OptionsAiguilleur {
   matiere?: string | false;
   /** Règles par défaut entre deux applis vraiment possibles, [préférée, autre] (défaut : PREFERENCES). */
   preferences?: ReadonlyArray<readonly [string, string]>;
+  /** Fabrique de l'index des paires (aiguilleur-pret.ts : un cœur gardé prêt et vérifié) ; défaut : calculé ici. */
+  index?: (paires: Paire[], R: Reglages) => IndexNgrammes;
 }
 
 /** Construit l'aiguilleur (index, calibration par validation croisée sur la matière, corrections relues). */
@@ -866,7 +992,7 @@ export function creerAiguilleurSync(o: OptionsAiguilleur): Aiguilleur {
   const t0 = performance.now();
   const lm = o.matiere === false ? undefined : lireMatiere(applis, o.matiere ?? DOSSIER_MATIERE);
   const paires = matiere(o.modules, { usages: o.usages, survol: o.survol, parLangue: lm?.paires, corrections: valides.map((c) => ({ texte: c.demande, appli: c.appli, action: c.action, source: 'correction', poids: 2, demande: true })) });
-  let ix = new IndexNgrammes(paires, R);
+  let ix = o.index ? o.index(paires, R) : new IndexNgrammes(paires, R);
   let parAppli = new Map<string, number[]>();
   /** Clé de texte d'une correction → indice de sa paire (dans l'ordre : la plus ancienne d'abord). */
   const cles = new Map<string, number>();
@@ -986,6 +1112,8 @@ export async function methodeBanc(o: { home: string }): Promise<{ repondre(phras
   const finder = { find: (need: string) => Valhalla.prototype.find.call(porteur as never, need), module: (id: string) => parId.get(id) };
   const variante = process.env.ODIN_AIGUILLEUR_VARIANTE === 'fusion' ? 'fusion' : 'ngrammes';
   const mots: MotsFn = (p) => appsFor(finder, p, 5).map((x) => ({ appli: x.m.id, action: x.action?.id ?? null, score: x.score }));
-  const a = creerAiguilleurSync({ modules: mods, home: o.home, mots: variante === 'ngrammes' ? undefined : mots, usages: USAGES, survol: SURVOL, reglages: variante === 'ngrammes' ? { poidsMots: 0 } : {} });
+  // L'aiguilleur prêt (aiguilleur-pret.ts) : mêmes réponses, l'index gardé en mémoire vive et sur le disque.
+  const { creerAiguilleurPret } = await import('./aiguilleur-pret.ts');
+  const a = creerAiguilleurPret({ modules: mods, home: o.home, mots: variante === 'ngrammes' ? undefined : mots, usages: USAGES, survol: SURVOL, reglages: variante === 'ngrammes' ? { poidsMots: 0 } : {} });
   return { repondre: (p, c) => a.aiguiller(p, c), bilan: a.bilan };
 }
