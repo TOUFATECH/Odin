@@ -1,0 +1,8012 @@
+{
+ "version": 2,
+ "origine": "Écrit par un agent le 2026-11-17 à partir des titres, descriptions et actions des modules de src/valhalla/ (sans les listes de mots, les exemples des modules ni les demandes d'apprentissage). Non relu par une personne. Les demandes marquées aRelire doivent être relues par quelqu'un qui parle la langue. Jeu juge : ne sert jamais à apprendre ni à régler. Version 2 (17/11/2026) : corrigée après relecture (réponses attendues, « aussi », contexte des relances en objet, fuites et quasi-doublons réécrits, ajouts hors du français) ; figée.",
+ "demandes": [
+  {
+   "id": "p0001",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "notier, dass der Klempner Donnerstag früh kommt und der Schlüssel bei der Nachbarin liegen muss",
+   "appli": "saga",
+   "action": "noter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0002",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'avais écrit un truc sur la config de l'onduleur dans mes notes, tu me le retrouves ?",
+   "appli": "saga",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0003",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add to my note about the garage door that the remote takes CR2032 batteries",
+   "appli": "saga",
+   "action": "completer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0004",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "apunta en mis notas que la vecina nos presta la escalera el sábado",
+   "appli": "saga",
+   "action": "noter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0005",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et rajoute aussi la référence du filtre dedans",
+   "appli": "saga",
+   "action": "completer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "note que la clim du salon a été nettoyée aujourd'hui",
+    "appli": "saga",
+    "actionPrecedente": "noter"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0006",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "メモしといて、来週の金曜に車の点検",
+   "appli": "saga",
+   "action": "noter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0007",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est-ce qui traîne en ce moment ? les trucs en retard, les projets qui avancent plus",
+   "appli": "saga",
+   "action": "attention",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0008",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "garde quelque part l'idée que j'ai eue pour le jardin : un potager en carrés",
+   "appli": "saga",
+   "action": "noter",
+   "aussi": [
+    "snotra"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0009",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée une fiche client pour la boulangerie Martin, contrat de maintenance deux postes",
+   "appli": "runes",
+   "action": "client",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0010",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre-moi mes bases à moi, celles avec les tableaux et les calendriers, pas Postgres",
+   "appli": "runes",
+   "action": "bases",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0011",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "trag in der Tabelle Inventur eine Zeile ein: drei Patchkabel, blau",
+   "appli": "runes",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0012",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "anota una evolución: el cliente quiere que la página de inicio de sesión también esté en inglés",
+   "appli": "runes",
+   "action": "evolution",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0013",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "update the customer record for Garage Lopez, they switched to the yearly plan",
+   "appli": "runes",
+   "action": "client",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0014",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "adiciona uma linha na tabela de despesas: 32 euros de gasolina",
+   "appli": "runes",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0015",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "euh... ma base des factures, elle est où déjà ?",
+   "appli": "runes",
+   "action": "bases",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0016",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "dans le tableau des abonnements, ajoute Netflix 13,49 € par mois",
+   "appli": "runes",
+   "action": "ajouter",
+   "aussi": [
+    "snotra"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0017",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "지금 돌아가는 자동화 뭐 있어?",
+   "appli": "draupnir",
+   "action": "lister",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0018",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance l'automatisation du départ en vacances",
+   "appli": "draupnir",
+   "action": "executer",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0019",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "set up an automation so that when a camera sees someone at night, the hallway lights turn on",
+   "appli": "draupnir",
+   "action": "modele",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0020",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "fai partire l'automazione della mattina, quella del caffè",
+   "appli": "draupnir",
+   "action": "executer",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0021",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quand le disque est presque plein, j'aimerais que ça me prévienne et que ça fasse le ménage tout seul",
+   "appli": "draupnir",
+   "action": "modele",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0022",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "welke automatiseringen staan er nu aan?",
+   "appli": "draupnir",
+   "action": "lister",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0023",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais le truc du soir, tu sais, celui qui ferme tout",
+   "appli": "draupnir",
+   "action": "executer",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0024",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais-moi un script qui renomme toutes les photos du dossier vacances avec la date",
+   "appli": "archytas",
+   "action": "creer",
+   "aussi": [
+    "draupnir"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0025",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "betiklerimi göster",
+   "appli": "archytas",
+   "action": "mes_scripts",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0026",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance le script de nettoyage des logs que t'as fait hier",
+   "appli": "archytas",
+   "action": "lancer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0027",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "the backup script was better before, roll it back to the previous version",
+   "appli": "archytas",
+   "action": "revenir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0028",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il en a combien, de versions, celui-là ?",
+   "appli": "archytas",
+   "action": "versions",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "montre-moi le script qui sauvegarde les mails",
+    "appli": "archytas",
+    "actionPrecedente": "voir_script"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0029",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "borra el script de prueba, ya no sirve",
+   "appli": "archytas",
+   "action": "supprimer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0030",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ton script d'export il est lent, tu pourrais pas trouver mieux ?",
+   "appli": "archytas",
+   "action": "proposer_amelioration",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0031",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "exécute mon script de sauvegarde des mails",
+   "appli": "archytas",
+   "action": "lancer",
+   "aussi": [
+    "draupnir"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0032",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le PC rame, il se passe quoi ? processeur, mémoire...",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0033",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi qui bouffe toute la RAM là",
+   "appli": "eir",
+   "action": "processus",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0034",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "kill that chrome process eating 90% cpu",
+   "appli": "eir",
+   "action": "arreter_processus",
+   "aussi": [
+    "skogul"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0035",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "mostrami il grafico della temperatura del processore di questa settimana",
+   "appli": "eir",
+   "action": "mesures",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0036",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "wie geht's dem Server? CPU, Speicher, alles okay?",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0037",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "какой процесс грузит процессор?",
+   "appli": "eir",
+   "action": "processus",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0038",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "préviens-moi seulement si le processeur dépasse 90 degrés, pas avant",
+   "appli": "eir",
+   "action": "seuils",
+   "aussi": [
+    "vordr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0039",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lordi chauffe gravment qu'est ce qui se pass",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0040",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿cómo va el ordenador? va lentísimo",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0041",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "لماذا الكمبيوتر بطيء جدا؟",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0042",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "कंप्यूटर इतना धीमा क्यों चल रहा है?",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0043",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "kompyuta inakwenda polepole sana, kuna nini?",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0044",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a un programme qui se comporte bizarrement sur le poste de la compta, tu peux regarder ?",
+   "appli": "skogul",
+   "action": "analyser",
+   "aussi": [
+    "argos"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0045",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "passe en revue les programmes qui tournent, je veux savoir si un truc n'est pas normal",
+   "appli": "skogul",
+   "action": "analyser",
+   "aussi": [
+    "argos"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0046",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "that weird process that keeps opening network connections, stop it",
+   "appli": "skogul",
+   "action": "tuer",
+   "aussi": [
+    "argos",
+    "eir"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0047",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "depuis ce matin le ventilo tourne à fond et j'ai rien lancé, ça sent le mineur de crypto",
+   "appli": "skogul",
+   "action": "analyser",
+   "aussi": [
+    "geri",
+    "argos",
+    "eir"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0048",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "revisa si hay algún programa raro en el Mac de mi hija",
+   "appli": "skogul",
+   "action": "analyser",
+   "aussi": [
+    "argos"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0049",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête-le tout de suite",
+   "appli": "skogul",
+   "action": "tuer",
+   "aussi": [
+    "argos",
+    "eir"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "y a un programme bizarre sur le poste de la compta ?",
+    "appli": "skogul",
+    "actionPrecedente": "analyser"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0050",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quelles sont les dernières alertes de sécurité ?",
+   "appli": "forseti",
+   "action": "alertes",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0051",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "on est conformes ou pas ? fais le contrôle",
+   "appli": "forseti",
+   "action": "conformite",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0052",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "hunt for anything that touched /etc/shadow this week",
+   "appli": "forseti",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0053",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "já vi o alerta desta noite, podes marcá-lo como visto",
+   "appli": "forseti",
+   "action": "vu",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0054",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "gab es heute Nacht Sicherheitswarnungen?",
+   "appli": "forseti",
+   "action": "alertes",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0055",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le certificat du site de la boîte, garde un œil dessus avec le reste, qu'on soit pas surpris le jour où il expire",
+   "appli": "forseti",
+   "action": "domaines",
+   "aussi": [
+    "vordr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0056",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "run the compliance check before the audit next week",
+   "appli": "forseti",
+   "action": "conformite",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0057",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qui est banni en ce moment ?",
+   "appli": "garmr",
+   "action": "bannis",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0058",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis 185.220.101.4, il tape sur le SSH depuis une heure",
+   "appli": "garmr",
+   "action": "bannir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0059",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "unban my office IP, I locked myself out",
+   "appli": "garmr",
+   "action": "debannir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0060",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "blokkeer nooit het adres van kantoor, ook niet als ik mijn wachtwoord verkeerd typ",
+   "appli": "garmr",
+   "action": "proteger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0061",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "surveille aussi le journal de nginx pour les tentatives de connexion",
+   "appli": "garmr",
+   "action": "journal",
+   "aussi": [
+    "mimisbrunnr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0062",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "احظر هذا العنوان 45.12.3.9 لأنه يحاول الدخول بالقوة",
+   "appli": "garmr",
+   "action": "bannir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0063",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "şu anda hangi IP adresleri engellenmiş durumda?",
+   "appli": "garmr",
+   "action": "bannis",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0064",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a des gens qui essaient de forcer la porte en ce moment ?",
+   "appli": "garmr",
+   "action": "bannis",
+   "aussi": [
+    "forseti",
+    "loki"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0065",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "кто-то долбится по SSH с адреса 91.200.12.7, заблокируй его",
+   "appli": "garmr",
+   "action": "bannir",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0066",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis-le",
+   "appli": "garmr",
+   "action": "bannir",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "qui essaie de se connecter en SSH depuis ce matin ?",
+    "appli": "garmr"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0067",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "покажи исходящие соединения прямо сейчас",
+   "appli": "geri",
+   "action": "connexions",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0068",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le domaine free-netflix-gift.xyz, il est dangereux ?",
+   "appli": "geri",
+   "action": "verifier",
+   "aussi": [
+    "ullr",
+    "vidarr"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0069",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "update the malware blocklists",
+   "appli": "geri",
+   "action": "listes",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0070",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "el registro de las conexiones de anoche hacia el extranjero",
+   "appli": "geri",
+   "action": "journal",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0071",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la tablette du petit envoie des trucs bizarres sur internet, regarde ce qu'elle contacte",
+   "appli": "geri",
+   "action": "analyser",
+   "aussi": [
+    "ullr",
+    "argos"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0072",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "反恶意软件现在正常吗？",
+   "appli": "geri",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0073",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "capture les paquets sur le réseau, je veux voir ce qui passe",
+   "appli": "ran",
+   "action": "lire",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0074",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "现在网络上发生了什么，给我解释一下",
+   "appli": "ran",
+   "action": "expliquer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0075",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "which device is using all the bandwidth?",
+   "appli": "ran",
+   "action": "trafic",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0076",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "パケットのキャプチャを一時停止して",
+   "appli": "ran",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0077",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "zeig mir das Paket Nummer 1532 im Detail",
+   "appli": "ran",
+   "action": "paquet",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0078",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si un appareil dépasse 50 mégas, tu me le dis",
+   "appli": "ran",
+   "action": "seuil",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0079",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bon vas-y, reprends",
+   "appli": "ran",
+   "action": "reprendre",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "mets en pause la lecture des paquets",
+    "appli": "ran",
+    "actionPrecedente": "pause"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0080",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sniff le trafic du VLAN invités, je veux voir ce qui passe",
+   "appli": "ran",
+   "action": "lire",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0081",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais une analyse antivirus complète",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0082",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ce fichier facture.pdf.exe que j'ai reçu, il est vérolé ?",
+   "appli": "ullr",
+   "action": "fichier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0083",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what's in quarantine right now?",
+   "appli": "ullr",
+   "action": "quarantaine",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0084",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets à jour les signatures du virus... euh de l'antivirus",
+   "appli": "ullr",
+   "action": "mettre_a_jour",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0085",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pasa el antivirus a la memoria USB que acabo de meter",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0086",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai reçu un SMS de la poste qui me demande de payer 1,99 € pour un colis, c'est une arnaque ?",
+   "appli": "ullr",
+   "action": "message",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0087",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "tira o ficheiro da quarentena, foi um falso alarme",
+   "appli": "ullr",
+   "action": "faux_positif",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0088",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "plane jeden Sonntag um 3 Uhr einen Virenscan",
+   "appli": "ullr",
+   "action": "plan",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0089",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "проверь эту ссылку, нет ли там вируса",
+   "appli": "ullr",
+   "action": "adresse",
+   "aussi": [
+    "geri"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0090",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets-le en quarantaine alors",
+   "appli": "ullr",
+   "action": "isoler",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "ce fichier facture.pdf.exe, il est dangereux ?",
+    "appli": "ullr",
+    "actionPrecedente": "fichier"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0091",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "scan the whole PC stp, j'ai un doute",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0092",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "ist diese SMS von der Bank echt oder Betrug?",
+   "appli": "ullr",
+   "action": "message",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0093",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "faz uma verificação de vírus completa",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0094",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "افحص الجهاز بالكامل من الفيروسات",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0095",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "全面扫描一下电脑有没有病毒",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0096",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "このメール、詐欺っぽいんだけど大丈夫？",
+   "appli": "ullr",
+   "action": "message",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0097",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "bilgisayarı virüslere karşı tara",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0098",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "kagua kompyuta kama ina virusi",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0099",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume tous les pièges à pirates",
+   "appli": "loki",
+   "action": "tout_allumer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0100",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿alguien cayó en las trampas esta semana?",
+   "appli": "loki",
+   "action": "activite",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0101",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn on the fake SSH honeypot",
+   "appli": "loki",
+   "action": "allumer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0102",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "il riepilogo delle trappole di oggi",
+   "appli": "loki",
+   "action": "resume_jour",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0103",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre-moi ce que le type a tapé dans le faux serveur hier soir",
+   "appli": "loki",
+   "action": "rejeu",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0104",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "함정 다 꺼 줘",
+   "appli": "loki",
+   "action": "tout_eteindre",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0105",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "هل هناك حوادث أمنية على أجهزة الشركة؟",
+   "appli": "argos",
+   "action": "incidents",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0106",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "isole le PC de la secrétaire du réseau, il est infecté",
+   "appli": "argos",
+   "action": "isoler_poste",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0107",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show me the timeline of what happened on LAPTOP-07 yesterday",
+   "appli": "argos",
+   "action": "chronologie",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0108",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance une analyse sur le poste de Kevin",
+   "appli": "argos",
+   "action": "analyser_poste",
+   "aussi": [
+    "ullr"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0109",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "podes devolver a rede ao portátil da contabilidade, já está limpo",
+   "appli": "argos",
+   "action": "rendre_reseau",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0110",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "welche Rechner sind alle in der Sicherheitskonsole?",
+   "appli": "argos",
+   "action": "postes",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0111",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les protections de tous les postes, ça donne quoi globalement ?",
+   "appli": "argos",
+   "action": "etat",
+   "aussi": [
+    "ullr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0112",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "isolier den Laptop vom Buchhalter, der ist infiziert",
+   "appli": "argos",
+   "action": "isoler_poste",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0113",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "liste les conteneurs",
+   "appli": "naglfar",
+   "action": "lister",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0114",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le conteneur de Nextcloud répond plus, relance-le",
+   "appli": "naglfar",
+   "action": "redemarrer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0115",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show me the logs of the jellyfin container",
+   "appli": "naglfar",
+   "action": "journaux",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0116",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance une appli depuis l'image nginx:alpine",
+   "appli": "naglfar",
+   "action": "lancer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0117",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "gibt es neue Versionen für meine Docker-Images?",
+   "appli": "naglfar",
+   "action": "nouvelles_versions",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0118",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "limpia las imágenes viejas de los contenedores, ocupan demasiado",
+   "appli": "naglfar",
+   "action": "nettoyer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0119",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe le conteneur de la base de test, il sert plus pour l'instant",
+   "appli": "naglfar",
+   "action": "arreter",
+   "aussi": [
+    "ymir"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0120",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "コンテナの一覧を見せて",
+   "appli": "naglfar",
+   "action": "lister",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0121",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "restart le container de la db steuplé, il est down",
+   "appli": "naglfar",
+   "action": "redemarrer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0122",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show me its logs",
+   "appli": "naglfar",
+   "action": "journaux",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "restart the nextcloud container",
+    "appli": "naglfar",
+    "actionPrecedente": "redemarrer"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0123",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "riavvia il container di nextcloud",
+   "appli": "naglfar",
+   "action": "redemarrer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0124",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "какие контейнеры сейчас запущены?",
+   "appli": "naglfar",
+   "action": "lister",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0125",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "reinicia el container de la database porfa",
+   "appli": "naglfar",
+   "action": "redemarrer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0126",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "cria uma base de dados PostgreSQL para o novo projeto do site",
+   "appli": "urdr",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0127",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "выполни SELECT count(*) FROM commandes в базе boutique",
+   "appli": "urdr",
+   "action": "sql",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0128",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what tables are in the inventory database?",
+   "appli": "urdr",
+   "action": "tables",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0129",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sauvegarde la base d'Odin avant que je fasse la mise à jour",
+   "appli": "urdr",
+   "action": "base_sauvegarder",
+   "aussi": [
+    "skuld"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0130",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mes bases postgres, montre",
+   "appli": "urdr",
+   "action": "bases",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0131",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "füg in der Tabelle kunden eine neue Zeile hinzu",
+   "appli": "urdr",
+   "action": "ajouter_ligne",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0132",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et ses colonnes ?",
+   "appli": "urdr",
+   "action": "colonnes",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "ouvre la table factures de la base compta",
+    "appli": "urdr",
+    "actionPrecedente": "ouvrir"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0133",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "maak nu een back-up van de databases",
+   "appli": "skuld",
+   "action": "sauvegarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0134",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les sauvegardes de bases de cette nuit, elles sont passées ?",
+   "appli": "skuld",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0135",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "restore yesterday's backup of the shop database",
+   "appli": "skuld",
+   "action": "restaurer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0136",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "haz copia de la base del sitio cada seis horas y guárdalas treinta días",
+   "appli": "skuld",
+   "action": "plan",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0137",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la copie sur le deuxième site, elle est bonne ou pas ?",
+   "appli": "skuld",
+   "action": "verifier_site",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0138",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "quali backup del database abbiamo ancora?",
+   "appli": "skuld",
+   "action": "archives",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0139",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la table clients a été vidée par erreur, il faut revenir à la sauvegarde de cette nuit",
+   "appli": "skuld",
+   "action": "restaurer",
+   "aussi": [
+    "urdr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0140",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute « Proxmox » à mes mots pour la dictée, il l'écrit toujours mal",
+   "appli": "rodd",
+   "action": "ajouter_mot",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0141",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ma belle-mère arrive, elle ne parle que japonais, lance la traduction de conversation",
+   "appli": "rodd",
+   "action": "ouvrir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0142",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show my last dictations",
+   "appli": "rodd",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0143",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "bring mein Diktat von eben in Form, mit Satzzeichen",
+   "appli": "rodd",
+   "action": "dicter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0144",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "efface tout ce que j'ai dicté la semaine dernière",
+   "appli": "rodd",
+   "action": "dictee_effacer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0145",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "voy a hablar con un cliente japonés, pon la traducción en directo",
+   "appli": "rodd",
+   "action": "ouvrir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0146",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "exporte-la moi",
+   "appli": "rodd",
+   "action": "conv_exporter",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "montre les conversations traduites d'hier",
+    "appli": "rodd",
+    "actionPrecedente": "conv_historique"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0147",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon wifi il est sécurisé ?",
+   "appli": "svalinn",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0148",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ki é conecté sur le wifi",
+   "appli": "svalinn",
+   "action": "appareils",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0149",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "give me a QR code for the guest wifi, friends are coming",
+   "appli": "svalinn",
+   "action": "qr_invites",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0150",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "लिविंग रूम में वाई-फ़ाई की स्पीड टेस्ट करो",
+   "appli": "svalinn",
+   "action": "tester_debit",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0151",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "active le wifi invités pour ce soir",
+   "appli": "svalinn",
+   "action": "invites",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0152",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "wifi yangu iko salama?",
+   "appli": "svalinn",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0153",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ça rame en wifi dans la chambre, change de canal s'il y a trop de voisins dessus",
+   "appli": "svalinn",
+   "action": "corriger",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0154",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "corrige todos os problemas do wi-fi",
+   "appli": "svalinn",
+   "action": "tout_corriger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0155",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "er komt bezoek, zet het gastennetwerk aan",
+   "appli": "svalinn",
+   "action": "invites",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0156",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "evdeki internete kim bağlı?",
+   "appli": "svalinn",
+   "action": "appareils",
+   "aussi": [
+    "vidarr"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0157",
+   "langue": "ary",
+   "ecriture": "Latn",
+   "phrase": "3afak chaghel l wifi dyal les invités, ja dyaf",
+   "appli": "svalinn",
+   "action": "invites",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0158",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "테스트용으로 램 4GB짜리 데비안 VM 하나 만들어 줘",
+   "appli": "ymir",
+   "action": "creer_machine",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0159",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un snapshot de la VM du serveur web avant la mise à jour",
+   "appli": "ymir",
+   "action": "instantane",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0160",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "revert the windows vm to the snapshot from this morning",
+   "appli": "ymir",
+   "action": "revenir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0161",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "toutes mes machines virtuelles, sur tous les serveurs",
+   "appli": "ymir",
+   "action": "parc",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0162",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "clona il container LXC del DNS",
+   "appli": "ymir",
+   "action": "cloner_machine",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0163",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "vergrößere die Festplatte der Test-VM auf 100 GB",
+   "appli": "ymir",
+   "action": "disque_machine",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0164",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la VM de test a un virus je crois, mets-la de côté qu'elle contamine rien",
+   "appli": "ymir",
+   "action": "isoler_machine",
+   "aussi": [
+    "argos"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0165",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume-la",
+   "appli": "ymir",
+   "action": "demarrer_machine",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "crée-moi une machine Ubuntu pour le labo",
+    "appli": "ymir",
+    "actionPrecedente": "creer_machine"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0166",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ça marche plus, reviens à la photo d'avant",
+   "appli": "ymir",
+   "action": "revenir",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "fais un snapshot de la VM web avant la mise à jour",
+    "appli": "ymir",
+    "actionPrecedente": "instantane"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0167",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "enséñame todas las máquinas virtuales",
+   "appli": "ymir",
+   "action": "parc",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0168",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon site il est en ligne ?",
+   "appli": "idunn",
+   "action": "etat",
+   "aussi": [
+    "vordr"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0169",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "la web de la asociación no responde, reiníciala",
+   "appli": "idunn",
+   "action": "relancer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0170",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "deploy the latest code to the shop website",
+   "appli": "idunn",
+   "action": "deployer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0171",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "das Deployment von heute Morgen hat alles kaputt gemacht, geh zurück",
+   "appli": "idunn",
+   "action": "revenir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0172",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "surveille aussi le site du club de foot",
+   "appli": "idunn",
+   "action": "ajouter",
+   "aussi": [
+    "vordr"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0173",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les clients voient encore l'ancienne page d'accueil sur le site",
+   "appli": "idunn",
+   "action": "vider_cache",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0174",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "mostrami i miei siti web",
+   "appli": "idunn",
+   "action": "sites",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0175",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sauvegarde mes documents maintenant",
+   "appli": "sindri",
+   "action": "sauvegarder",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0176",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai écrasé mon fichier budget.xlsx, remets la version d'hier",
+   "appli": "sindri",
+   "action": "restaurer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0177",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "find the file contrat_2024 in my backups",
+   "appli": "sindri",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0178",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "faz uma imagem completa do disco do PC da sala todas as semanas",
+   "appli": "sindri",
+   "action": "image_plan",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0179",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les sauvegardes, on est sûrs qu'on pourra les relire le jour où on en a besoin ?",
+   "appli": "sindri",
+   "action": "verifier",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0180",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "welke back-upplannen heb ik?",
+   "appli": "sindri",
+   "action": "plans",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0181",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre ce qu'il y a dans celle du 3",
+   "appli": "sindri",
+   "action": "parcourir",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "les instantanés de la sauvegarde des photos",
+    "appli": "sindri",
+    "actionPrecedente": "instantanes"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0182",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "remets celle de mardi",
+   "appli": "sindri",
+   "action": "restaurer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "cherche le fichier budget.xlsx dans les sauvegardes",
+    "appli": "sindri",
+    "actionPrecedente": "chercher"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0183",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le PC de ma fille, sauvegarde-le automatiquement toutes les heures",
+   "appli": "sindri",
+   "action": "agent_plan",
+   "aussi": [
+    "hermod"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0184",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "fai subito un backup dei miei documenti",
+   "appli": "sindri",
+   "action": "sauvegarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0185",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "马上把我的文件夹备份一下",
+   "appli": "sindri",
+   "action": "sauvegarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0186",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi le mot de passe du wifi de chez mamie ? je l'avais rangé",
+   "appli": "brisingamen",
+   "action": "chercher",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0187",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "génère un mot de passe solide, 20 caractères",
+   "appli": "brisingamen",
+   "action": "generer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0188",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "check if any of our passwords leaked",
+   "appli": "brisingamen",
+   "action": "fuites",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0189",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "garde le mot de passe du compte des impôts dans le coffre",
+   "appli": "brisingamen",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0190",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "ci sono password deboli o ripetute nella cassaforte?",
+   "appli": "brisingamen",
+   "action": "bilan",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0191",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أنشئ لي كلمة مرور قوية",
+   "appli": "brisingamen",
+   "action": "generer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0192",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le code à deux facteurs de la banque pro",
+   "appli": "brisingamen",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0193",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "garde-le dans le coffre",
+   "appli": "brisingamen",
+   "action": "ajouter",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "génère un mot de passe solide pour le routeur",
+    "appli": "brisingamen",
+    "actionPrecedente": "generer"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0194",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿cuál es la contraseña del router? la guardé ahí",
+   "appli": "brisingamen",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0195",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute le téléphone de ma femme au VPN",
+   "appli": "gjoll",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0196",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "donne le QR code du VPN pour mon portable",
+   "appli": "gjoll",
+   "action": "qr",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0197",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn on the vpn tunnel, I'm leaving for the airport",
+   "appli": "gjoll",
+   "action": "allumer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0198",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "perdí mi teléfono viejo, quítale el acceso a la VPN",
+   "appli": "gjoll",
+   "action": "revoquer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0199",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi mon adresse IP publique à la maison ?",
+   "appli": "gjoll",
+   "action": "detecter",
+   "aussi": [
+    "hlid"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0200",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "VPN'e bağlı cihazlar hangileri?",
+   "appli": "gjoll",
+   "action": "appareils",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0201",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et le fichier de config pour le PC portable ?",
+   "appli": "gjoll",
+   "action": "telecharger",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "ajoute mon PC portable au VPN",
+    "appli": "gjoll",
+    "actionPrecedente": "ajouter"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0202",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "zeig mir den QR-Code fürs VPN",
+   "appli": "gjoll",
+   "action": "qr",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0203",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "добавь мой новый телефон в VPN",
+   "appli": "gjoll",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0204",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "VPN 켜 줘",
+   "appli": "gjoll",
+   "action": "allumer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0205",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bloque tiktok.com sur tout le réseau",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "aussi": [
+    "heidrun"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0206",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le site de la banque marche plus, je crois que le bloqueur de pubs le bloque, débloque-le",
+   "appli": "vidarr",
+   "action": "autoriser",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0207",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "who asked for that weird domain last night? show the dns log",
+   "appli": "vidarr",
+   "action": "journal",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0208",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe internet à la console de jeux",
+   "appli": "vidarr",
+   "action": "couper_machine",
+   "aussi": [
+    "heidrun"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0209",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "gib dem NAS den Namen nas.maison",
+   "appli": "vidarr",
+   "action": "nom_local",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0210",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "geef de printer een vast adres, 192.168.1.50",
+   "appli": "vidarr",
+   "action": "dhcp_fixe",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0211",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a un site qui marche pas à cause du filtrage, coupe le blocage cinq minutes",
+   "appli": "vidarr",
+   "action": "pause",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0212",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "sperr YouTube im ganzen Haus",
+   "appli": "vidarr",
+   "action": "services",
+   "aussi": [
+    "heidrun"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0213",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "पूरे घर में विज्ञापन वाली साइटें ब्लॉक कर दो",
+   "appli": "vidarr",
+   "action": null,
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0214",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est bon, tu peux lui remettre",
+   "appli": "vidarr",
+   "action": "retablir_machine",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "coupe internet à la console de jeux",
+    "appli": "vidarr",
+    "actionPrecedente": "couper_machine"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0215",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la Switch du petit, coupe-lui juste les vidéos, le reste il peut",
+   "appli": "vidarr",
+   "action": "couper_video",
+   "aussi": [
+    "heidrun"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0216",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what sites has the living room tv been talking to?",
+   "appli": "vidarr",
+   "action": "historique",
+   "aussi": [
+    "ran"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0217",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "quita internet a la Play de los niños",
+   "appli": "vidarr",
+   "action": "couper_machine",
+   "aussi": [
+    "heidrun"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0218",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "blokkeer tiktok op het hele netwerk",
+   "appli": "vidarr",
+   "action": "services",
+   "aussi": [
+    "heidrun"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0219",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "게임기 인터넷 끊어 줘",
+   "appli": "vidarr",
+   "action": "couper_machine",
+   "aussi": [
+    "heidrun"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0220",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "überwache Port 22 vom OVH-Server jede Minute",
+   "appli": "vordr",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0221",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est-ce qui est en panne en ce moment ?",
+   "appli": "vordr",
+   "action": "problemes",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0222",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "make a public status page I can share with clients",
+   "appli": "vordr",
+   "action": "page_publique",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0223",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "amanhã das 22h à meia-noite é manutenção, não avises",
+   "appli": "vordr",
+   "action": "maintenance",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0224",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "on s'est engagé à 99,9 % de dispo, on y est ce mois-ci ?",
+   "appli": "vordr",
+   "action": "sla",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0225",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je m'occupe de la panne du serveur mail",
+   "appli": "vordr",
+   "action": "prendre_en_main",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0226",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿cuántas veces se cayó el servidor este mes?",
+   "appli": "vordr",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0227",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "surveille-le aussi en continu",
+   "appli": "vordr",
+   "action": "ajouter",
+   "aussi": [
+    "idunn"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "mon site il est en ligne ?",
+    "appli": "idunn",
+    "actionPrecedente": "etat"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0228",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "cosa è giù in questo momento?",
+   "appli": "vordr",
+   "action": "problemes",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0229",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "что сейчас не работает?",
+   "appli": "vordr",
+   "action": "problemes",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0230",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "añade al inventario la pantalla Dell nueva, número de serie CN0X12, comprada ayer",
+   "appli": "askr",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0231",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je prête le portable 3 à Julie jusqu'à vendredi",
+   "appli": "askr",
+   "action": "preter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0232",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "when does the warranty of the office printer end?",
+   "appli": "askr",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0233",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "garajdaki switch için bir QR etiketi bas",
+   "appli": "askr",
+   "action": "etiquette",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0234",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute tous les appareils trouvés sur le réseau à l'inventaire",
+   "appli": "askr",
+   "action": "synchroniser",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0235",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "on a acheté 5 licences Office, note-les",
+   "appli": "askr",
+   "action": "licence",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0236",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "o Pedro devolveu o portátil emprestado",
+   "appli": "askr",
+   "action": "rendre",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0237",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est bon, elle l'a rendu",
+   "appli": "askr",
+   "action": "rendre",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "je prête le portable 3 à Julie",
+    "appli": "askr",
+    "actionPrecedente": "preter"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0238",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le numéro de série de la box, tu l'as ?",
+   "appli": "askr",
+   "action": "chercher",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0239",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets jellyfin derrière le proxy sous films.maison.fr avec HTTPS",
+   "appli": "valgrind",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0240",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "il certificato del sito delle foto è scaduto, rinnovalo",
+   "appli": "valgrind",
+   "action": "certificat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0241",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "put a password on the grafana site",
+   "appli": "valgrind",
+   "action": "proteger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0242",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "redirige www al dominio sin www",
+   "appli": "valgrind",
+   "action": "rediriger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0243",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le site d'admin, accessible que depuis la maison, personne d'autre",
+   "appli": "valgrind",
+   "action": "acces",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0244",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "leite den TCP-Port 25565 an den Minecraft-Server weiter",
+   "appli": "valgrind",
+   "action": "flux",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0245",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le journal du proxy, il y a eu des erreurs ?",
+   "appli": "valgrind",
+   "action": "journal",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0246",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أنشئ حسابا لابنة أختي، ستسكن معنا",
+   "appli": "var",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0247",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon fils a oublié son mot de passe Odin",
+   "appli": "var",
+   "action": "mot_de_passe",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0248",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "enable two-factor for my account",
+   "appli": "var",
+   "action": "double_auth",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0249",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "déconnecte tous les appareils de mon compte, je crois qu'on m'a volé mon téléphone",
+   "appli": "var",
+   "action": "couper_sessions",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0250",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "schick meinem Schwager einen Einladungslink",
+   "appli": "var",
+   "action": "inviter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0251",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "donne l'accès aux photos à ma mère",
+   "appli": "var",
+   "action": "donner_acces",
+   "aussi": [
+    "agora"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0252",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "元同僚のアカウントを削除して",
+   "appli": "var",
+   "action": "retirer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0253",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qui s'est connecté cette nuit ?",
+   "appli": "var",
+   "action": "journal",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0254",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et active-lui la double authentification",
+   "appli": "var",
+   "action": "double_auth",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "crée un compte pour ma nièce",
+    "appli": "var",
+    "actionPrecedente": "ajouter"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0255",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le téléphone de mon fils a été volé, il ne doit plus pouvoir entrer dans Odin avec",
+   "appli": "var",
+   "action": "couper_appareil",
+   "aussi": [
+    "gjoll"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0256",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "ابني نسي كلمة السر حقه في أودين",
+   "appli": "var",
+   "action": "mot_de_passe",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0257",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rends le site photos accessible de l'extérieur sous photos.mondomaine.fr, sans ouvrir de port",
+   "appli": "bru",
+   "action": "publier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0258",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "il tunnel di cloudflare funziona?",
+   "appli": "bru",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0259",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "take the test site off the internet",
+   "appli": "bru",
+   "action": "depublier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0260",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux accéder à Odin depuis le boulot",
+   "appli": "bru",
+   "action": "publier_odin",
+   "aussi": [
+    "gjoll"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0261",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai mis une nouvelle clé API cloudflare, elle marche ?",
+   "appli": "bru",
+   "action": "verifier",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0262",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "arranca el túnel de cloudflare",
+   "appli": "bru",
+   "action": "demarrer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0263",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mes potes doivent pouvoir voir mon Nextcloud depuis chez eux, mais j'ouvre aucun port",
+   "appli": "bru",
+   "action": "publier",
+   "aussi": [
+    "valgrind"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0264",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un lien de partage pour le dossier mariage, pour la famille",
+   "appli": "skidbladnir",
+   "action": "lien",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0265",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "leg einen gemeinsamen Bereich für das Buchhaltungsteam an",
+   "appli": "skidbladnir",
+   "action": "espace",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0266",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "empty the trash in my files",
+   "appli": "skidbladnir",
+   "action": "vider_corbeille",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0267",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "synchroniseer de map Documenten van mijn pc met thuis",
+   "appli": "skidbladnir",
+   "action": "synchro",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0268",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il me faut un mot de passe pour monter le lecteur réseau sur le mac",
+   "appli": "skidbladnir",
+   "action": "mot_de_passe_appli",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0269",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le lien que j'ai envoyé au notaire, coupe-le",
+   "appli": "skidbladnir",
+   "action": "couper_lien",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0270",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "crea un link per condividere la cartella delle foto del battesimo",
+   "appli": "skidbladnir",
+   "action": "lien",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0271",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un lien pour les envoyer à mamie",
+   "appli": "skidbladnir",
+   "action": "lien",
+   "aussi": [
+    "sol"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "montre les photos de Noël 2024",
+    "appli": "sol",
+    "actionPrecedente": "chercher"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0272",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "télécharge l'ISO de Ubuntu 24.04",
+   "appli": "eitri",
+   "action": "telecharger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0273",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿hay versiones nuevas de las ISO?",
+   "appli": "eitri",
+   "action": "verifier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0274",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "keep the latest Windows 11 ISO up to date in the folder",
+   "appli": "eitri",
+   "action": "suivre",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0275",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quelles ISO tu peux me récupérer ?",
+   "appli": "eitri",
+   "action": "catalogue",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0276",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "garde juste les deux dernières versions de chaque ISO, le reste à la poubelle",
+   "appli": "eitri",
+   "action": "garder",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0277",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "prüf die ISOs jeden Montag früh",
+   "appli": "eitri",
+   "action": "programmer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0278",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "l'ISO de Debian que t'as téléchargée, donne-la à Hydre pour faire des VM",
+   "appli": "eitri",
+   "action": "envoyer_hydre",
+   "aussi": [
+    "ymir"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0279",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "grab the latest Debian netinst ISO",
+   "appli": "eitri",
+   "action": "telecharger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0280",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "hol mir den neuesten VLC-Installer",
+   "appli": "fjalar",
+   "action": "telecharger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0281",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets à jour tous les installateurs du dossier logiciels",
+   "appli": "fjalar",
+   "action": "mettre_a_jour",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0282",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what software can you keep updated for me?",
+   "appli": "fjalar",
+   "action": "catalogue",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0283",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "suis aussi 7-Zip",
+   "appli": "fjalar",
+   "action": "suivre",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0284",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les installateurs du partage, ils sont sains ? vérifie-les tous",
+   "appli": "fjalar",
+   "action": "verifier_logiciels",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0285",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "hoe staat het met de map met installatieprogramma's?",
+   "appli": "fjalar",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0286",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "autorise le nouveau PC de la compta à s'installer par le réseau",
+   "appli": "thjalfi",
+   "action": "autoriser",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0287",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "reinstala o Windows no posto 12 pela rede",
+   "appli": "thjalfi",
+   "action": "reinstaller",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0288",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "how's the network install going on the new laptops?",
+   "appli": "thjalfi",
+   "action": "suivi",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0289",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prépare une clé USB d'installation",
+   "appli": "thjalfi",
+   "action": "cle_preparer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0290",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai pas de clé USB, comment je fais démarrer le PC sur une ISO par le câble réseau ?",
+   "appli": "thjalfi",
+   "action": "allumer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0291",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "guarda la clave de activación de Windows para las instalaciones",
+   "appli": "thjalfi",
+   "action": "cle_windows",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0292",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le poste du stagiaire, bloque-le, qu'il se réinstalle pas tout seul",
+   "appli": "thjalfi",
+   "action": "bloquer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0293",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il me faut une clé bootable pour installer Linux sur le vieux portable",
+   "appli": "thjalfi",
+   "action": "cle_preparer",
+   "aussi": [
+    "eitri"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0294",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il va faire quel temps demain ?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "aussi": [
+    "zeus"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0295",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "affiche l'écran de la maison sur la tablette de la cuisine",
+   "appli": "gladsheim",
+   "action": "ouvrir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0296",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "where is everyone in the family right now?",
+   "appli": "gladsheim",
+   "action": "positions",
+   "aussi": [
+    "gna"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0297",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "añade un botón «apagar todo» en la pantalla de la casa",
+   "appli": "gladsheim",
+   "action": "bouton",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0298",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux voir l'écran de la maison dans Home Assistant",
+   "appli": "gladsheim",
+   "action": "home_assistant",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0299",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "on a déménagé à Lyon, change la ville pour la météo",
+   "appli": "gladsheim",
+   "action": "lieu",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0300",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "hali ya hewa itakuwaje kesho?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "aussi": [
+    "zeus"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0301",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "هل ستمطر غدا؟",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "aussi": [
+    "zeus"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0302",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les différents modèles météo, ils sont d'accord pour ce week-end ?",
+   "appli": "zeus",
+   "action": "comparer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0303",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quel modèle météo avait raison la semaine dernière ?",
+   "appli": "zeus",
+   "action": "bilan",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0304",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what's the weather outlook for the next few months?",
+   "appli": "zeus",
+   "action": "mois",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0305",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "vai buscar agora o que cada fonte de meteorologia prevê",
+   "appli": "zeus",
+   "action": "releve",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0306",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "Météo-France et l'américain disent pareil pour samedi ?",
+   "appli": "zeus",
+   "action": "comparer",
+   "aussi": [
+    "gladsheim"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0307",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "welche Wetterquellen nutzt du?",
+   "appli": "zeus",
+   "action": "sources",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0308",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "do the weather models agree on rain tomorrow?",
+   "appli": "zeus",
+   "action": "comparer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0309",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre les trajets d'hier",
+   "appli": "gna",
+   "action": "trajets",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0310",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets mon historique de position en pause, je veux pas qu'on sache où je vais ce soir",
+   "appli": "gna",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0311",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "export my trip from Sunday as GPX",
+   "appli": "gna",
+   "action": "exporter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0312",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "welche Orte besuche ich am häufigsten?",
+   "appli": "gna",
+   "action": "lieux",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0313",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "efface mes trajets du mois dernier",
+   "appli": "gna",
+   "action": "effacer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0314",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le point où je m'arrête tous les matins, c'est la boulangerie, appelle-le comme ça",
+   "appli": "gna",
+   "action": "nommer_lieu",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0315",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "onde é que eu estive ontem à tarde?",
+   "appli": "gna",
+   "action": "trajets",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0316",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qui a allumé son historique de position dans la famille ?",
+   "appli": "gna",
+   "action": "etat",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0317",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets un thème sombre",
+   "appli": "apparence",
+   "action": "theme",
+   "aussi": [
+    "gladsheim"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0318",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "escóndete un poco, la mascota me molesta",
+   "appli": "apparence",
+   "action": "cacher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0319",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "which theme are we using?",
+   "appli": "apparence",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0320",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "reviens, Odin, je m'ennuie",
+   "appli": "apparence",
+   "action": "montrer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0321",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "change les couleurs, c'est trop orange",
+   "appli": "apparence",
+   "action": "theme",
+   "aussi": [
+    "gladsheim"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0322",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "테마 바꿔 줘, 어두운 걸로",
+   "appli": "apparence",
+   "action": "theme",
+   "aussi": [
+    "gladsheim"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0323",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi la commande pour redémarrer un conteneur ?",
+   "appli": "commandes",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0324",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "elenca tutti i comandi dell'antivirus",
+   "appli": "commandes",
+   "action": "liste",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0325",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what's the command line to ban an IP?",
+   "appli": "commandes",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0326",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux pas que tu le fasses, je veux juste la commande à taper pour ajouter un appareil au VPN",
+   "appli": "commandes",
+   "action": "chercher",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0327",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "enséñame todas las órdenes que hay",
+   "appli": "commandes",
+   "action": "liste",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0328",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a une invite pour vider le cache DNS ?",
+   "appli": "commandes",
+   "action": "chercher",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0329",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche sur internet comment changer la batterie d'un iPhone 12",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0330",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quand la prochaine éclipse ?",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0331",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "look up reviews of the Synology DS224+",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0332",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mes recherches d'hier",
+   "appli": "volva",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0333",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "welche Suchmaschinen benutzt du?",
+   "appli": "volva",
+   "action": "moteurs",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0334",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "trouve-moi des sources sur la loi qui oblige à avoir un détecteur de fumée",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0335",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "帮我上网查一下明天巴黎的火车罢工",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0336",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "इंटरनेट पर खोजो कि लैपटॉप की बैटरी कैसे बदलते हैं",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0337",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "найди в интернете, как настроить роутер Keenetic",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0338",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "dans le parc, lesquels des PC sont en marche là ?",
+   "appli": "hermod",
+   "action": "parc",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0339",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume le PC du bureau à distance",
+   "appli": "hermod",
+   "action": "reveiller",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0340",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "run ipconfig /flushdns on all the office PCs",
+   "appli": "hermod",
+   "action": "commande",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0341",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "reinicia el ordenador de recepción",
+   "appli": "hermod",
+   "action": "redemarrer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0342",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends la main sur l'ordi de ma mère, elle comprend rien",
+   "appli": "hermod",
+   "action": "bureau",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0343",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le PC de mamie a pas fait ses mises à jour depuis des mois, fais-les",
+   "appli": "hermod",
+   "action": "compagnon_majs",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0344",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "weck den Rechner im Arbeitszimmer auf",
+   "appli": "hermod",
+   "action": "reveiller",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0345",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bon, redémarre-le",
+   "appli": "hermod",
+   "action": "redemarrer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "le PC de l'accueil, il est allumé ?",
+    "appli": "hermod",
+    "actionPrecedente": "parc"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0346",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tous les PC de la boîte vont bien ?",
+   "appli": "hermod",
+   "action": "parc",
+   "aussi": [
+    "eir"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0347",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "que computadores estão ligados?",
+   "appli": "hermod",
+   "action": "parc",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0348",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "schließ den MCP-Server von meinem Ticket-Tool an",
+   "appli": "ratatoskr",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0349",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels serveurs MCP sont branchés ?",
+   "appli": "ratatoskr",
+   "action": "serveurs",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0350",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what tools does the filesystem MCP server expose?",
+   "appli": "ratatoskr",
+   "action": "outils",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0351",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "débranche le serveur MCP de test",
+   "appli": "ratatoskr",
+   "action": "retirer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0352",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le connecteur MCP de la doc est tombé, rebranche-le",
+   "appli": "ratatoskr",
+   "action": "reconnecter",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0353",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "つながってるMCPサーバーは？",
+   "appli": "ratatoskr",
+   "action": "serveurs",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0354",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "utilise l'outil « créer un ticket » du serveur MCP pour le bug de l'imprimante",
+   "appli": "ratatoskr",
+   "action": "appeler",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0355",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume la lampe du salon",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0356",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre l'état de tous les appareils de la maison",
+   "appli": "appareils",
+   "action": "lister",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0357",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "close the shutters in the bedroom",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0358",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la prise zigbee qu'on vient d'ajouter, appelle-la « bouilloire » et mets-la dans la cuisine",
+   "appli": "appareils",
+   "action": "ranger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0359",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai un nouveau capteur zigbee, mets en mode appairage",
+   "appli": "appareils",
+   "action": "appairer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0360",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "spegni il condizionatore in camera",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0361",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il fait trop chaud dans le bureau",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0362",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "شغّل ضوء المطبخ",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0363",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai peur du noir, allume ma veilleuse",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0364",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et la chambre aussi",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "éteins la lumière du salon",
+    "appli": "appareils",
+    "actionPrecedente": "commander"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0365",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "acende a luz da cozinha",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0366",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "把客厅的灯关掉",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0367",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "リビングの電気消して",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0368",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "रसोई की बत्ती जला दो",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0369",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "거실 불 꺼 줘",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0370",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "salonun ışığını kapat",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0371",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "zima taa ya jikoni",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0372",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche les modules ESP sur le réseau",
+   "appli": "brokkr",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0373",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "actualiza el firmware Tasmota del enchufe de la nevera",
+   "appli": "brokkr",
+   "action": "mettre_a_jour",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0374",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "prepare a config to flash a new Sonoff plug",
+   "appli": "brokkr",
+   "action": "preparer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0375",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la nouvelle prise Tasmota, branche-la sur Odin",
+   "appli": "brokkr",
+   "action": "brancher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0376",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie « Power TOGGLE » directement au module du garage",
+   "appli": "brokkr",
+   "action": "commande",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0377",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "finde die Tasmota-Steckdosen im Netzwerk",
+   "appli": "brokkr",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0378",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai acheté une prise wifi chinoise, il faut la flasher pour qu'elle marche avec toi",
+   "appli": "brokkr",
+   "action": "preparer",
+   "aussi": [
+    "appareils"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0379",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "active la scène soirée film du salon",
+   "appli": "midgard",
+   "action": "scene",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0380",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "come sta la casa? stanza per stanza",
+   "appli": "midgard",
+   "action": "maison",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0381",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "create a good night scene: all lights off, shutters closed, alarm on",
+   "appli": "midgard",
+   "action": "creer_scene",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0382",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "relie ma box Home Assistant à Odin",
+   "appli": "midgard",
+   "action": "pont",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0383",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "on part, mets la maison en mode absence",
+   "appli": "midgard",
+   "action": "scene",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0384",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "activa la escena de la cena",
+   "appli": "midgard",
+   "action": "scene",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0385",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "vas-y, lance-la",
+   "appli": "midgard",
+   "action": "scene",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "crée une scène « réveil » : volets ouverts et lumière de la cuisine à 50 %",
+    "appli": "midgard",
+    "actionPrecedente": "creer_scene"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0386",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la clim branchée sur la box Tuya, mets-la à 24",
+   "appli": "midgard",
+   "action": "commander",
+   "aussi": [
+    "appareils"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0387",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre les caméras",
+   "appli": "himinbjorg",
+   "action": "cameras",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0388",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends une photo de la caméra du portail",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0389",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "record the backyard camera for the next 10 minutes",
+   "appli": "himinbjorg",
+   "action": "enregistrer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0390",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "adiciona a câmara nova da garagem, o endereço é 192.168.1.80",
+   "appli": "himinbjorg",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0391",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a quelqu'un devant la porte ? montre",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0392",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "покажи камеры",
+   "appli": "himinbjorg",
+   "action": "cameras",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0393",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et celle du jardin ?",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "prends une photo de la caméra du portail",
+    "appli": "himinbjorg",
+    "actionPrecedente": "photo"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0394",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre pendant dix minutes",
+   "appli": "himinbjorg",
+   "action": "enregistrer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "montre la caméra du jardin",
+    "appli": "himinbjorg",
+    "actionPrecedente": "cameras"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0395",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "hazme una captura ahora con la cámara del porche",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0396",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "laat de camera's zien",
+   "appli": "himinbjorg",
+   "action": "cameras",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0397",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "piga picha ya kamera ya mlangoni",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0398",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "annonce dans toute la maison que le repas est prêt",
+   "appli": "bragi",
+   "action": "annoncer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0399",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "transcris le vocal que mon frère m'a envoyé",
+   "appli": "bragi",
+   "action": "transcrire",
+   "aussi": [
+    "champollion",
+    "syrinx"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0400",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "make an audio file of you saying happy birthday Lisa",
+   "appli": "bragi",
+   "action": "dire",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0401",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "你有哪些声音可以用？",
+   "appli": "bragi",
+   "action": "voix",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0402",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "dis les alertes graves à voix haute sur les enceintes",
+   "appli": "bragi",
+   "action": "gjallarhorn",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0403",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quand je dis « Hydre » tu comprends « idre », retiens-le",
+   "appli": "bragi",
+   "action": "mot_entendu",
+   "aussi": [
+    "rodd"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0404",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "bütün hoparlörlerden yemeğin hazır olduğunu duyur",
+   "appli": "bragi",
+   "action": "annoncer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0405",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "सब स्पीकर पर बोलो कि खाना तैयार है",
+   "appli": "bragi",
+   "action": "annoncer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0406",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets Inception sur la télé du salon",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0407",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ce soir sur la TNT, ça donne quoi comme programmes ?",
+   "appli": "freyja",
+   "action": "programme",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0408",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "record the match tonight on channel 2",
+   "appli": "freyja",
+   "action": "enregistrer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0409",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a des nouveaux films ?",
+   "appli": "freyja",
+   "action": "nouveautes",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0410",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux la série The Bear, ajoute-la",
+   "appli": "freyja",
+   "action": "demander",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0411",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre mon livre, celui que je lisais hier soir",
+   "appli": "freyja",
+   "action": "livre_lire",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0412",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il existe en français, le film Parasite ?",
+   "appli": "freyja",
+   "action": "chercher_vf",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0413",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pon la serie de los niños en la tele de la habitación",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0414",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "거실 TV에서 영화 틀어 줘",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0415",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "今晚电视有什么节目？",
+   "appli": "freyja",
+   "action": "programme",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0416",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre-le",
+   "appli": "freyja",
+   "action": "enregistrer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "qu'est-ce qu'il y a sur France 2 ce soir ?",
+    "appli": "freyja",
+    "actionPrecedente": "programme"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0417",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "non, plutôt sur celle de la chambre",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "mets Inception sur la télé du salon",
+    "appli": "freyja",
+    "actionPrecedente": "regarder"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0418",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "euh... tu peux mettre euh... le dessin animé, celui avec les chiens, Pat'Patrouille, sur la télé",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0419",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "was läuft heute Abend im Fernsehen?",
+   "appli": "freyja",
+   "action": "programme",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0420",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "شغّل فيلما على تلفاز الصالون",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0421",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "子ども部屋のテレビでアニメつけて",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0422",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "टीवी पर कोई फ़िल्म लगा दो",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0423",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "salondaki televizyonda film aç",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0424",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets un peu de jazz dans la cuisine",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0425",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance la radio FIP",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0426",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn the music off, I'm on a call",
+   "appli": "aegir",
+   "action": "stop",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0427",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais une liste avec toutes les chansons de Stromae",
+   "appli": "aegir",
+   "action": "liste",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0428",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "t'as quoi comme albums de Daft Punk ?",
+   "appli": "aegir",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0429",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute cette radio de jazz, voilà l'adresse du flux : http://example.org/flux.mp3",
+   "appli": "aegir",
+   "action": "radio",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0430",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "cheza muziki wa taarab sebuleni",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0431",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "شغّل أغاني فيروز",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0432",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "relê a pasta de música, pus lá álbuns novos",
+   "appli": "aegir",
+   "action": "indexer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0433",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe, c'est trop fort",
+   "appli": "aegir",
+   "action": "stop",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "mets du jazz dans la cuisine",
+    "appli": "aegir",
+    "actionPrecedente": "jouer"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0434",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "じゃあそれかけて",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "ダフト・パンクのアルバムある？",
+    "appli": "aegir",
+    "actionPrecedente": "chercher"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0435",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "Odin mets la chanson de la Reine des neiges steuplé",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0436",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "can you mettre de la musique dans le salon please",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0437",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "metti un po' di musica classica in salotto",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0438",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "zet wat muziek op in de keuken",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0439",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "note rendez-vous dentiste mardi 14 h, rappelle-le moi la veille",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0440",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai quoi comme rendez-vous cette semaine ?",
+   "appli": "frigg",
+   "action": "agenda",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0441",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "when am I free on Thursday for a one-hour repair?",
+   "appli": "frigg",
+   "action": "creneaux",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0442",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "annule le rendez-vous de M. Petit demain",
+   "appli": "frigg",
+   "action": "annuler",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0443",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie-moi le lien de ma page de réservation pour les clients",
+   "appli": "frigg",
+   "action": "page",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0444",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "ab Montag habe ich mittwochnachmittags geschlossen",
+   "appli": "frigg",
+   "action": "horaires",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0445",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la dame qui a demandé un créneau vendredi, c'est d'accord",
+   "appli": "frigg",
+   "action": "confirmer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0446",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "was habe ich morgen für Termine?",
+   "appli": "frigg",
+   "action": "agenda",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0447",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "ricordami l'appuntamento dal commercialista giovedì alle 10",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0448",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "cancélala, no puedo ir",
+   "appli": "frigg",
+   "action": "annuler",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "¿qué citas tengo el jueves?",
+    "appli": "frigg",
+    "actionPrecedente": "agenda"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0449",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "que marcações tenho amanhã?",
+   "appli": "frigg",
+   "action": "agenda",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0450",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "今週の予定は？",
+   "appli": "frigg",
+   "action": "agenda",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0451",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "regarde ce dépôt github.com/example/projet et dis-moi si ça peut servir à Odin",
+   "appli": "kvasir",
+   "action": "etudier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0452",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quoi de neuf chez les projets qu'on suit ?",
+   "appli": "kvasir",
+   "action": "verifier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0453",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show me the work notebook of features to add",
+   "appli": "kvasir",
+   "action": "carnet",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0454",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "sigue el repositorio de Jellyfin para Vénus",
+   "appli": "kvasir",
+   "action": "suivre",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0455",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il y a des nouveautés dans les applis d'origine ?",
+   "appli": "kvasir",
+   "action": "verifier",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0456",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "vê se este link do GitHub vale a pena",
+   "appli": "kvasir",
+   "action": "etudier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0457",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la fonction de partage de photos dans le carnet, passe-la en « faite »",
+   "appli": "kvasir",
+   "action": "idee",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0458",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "erstelle ein Dashboard für das Netzwerk",
+   "appli": "syn",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0459",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre mes tableaux de bord",
+   "appli": "syn",
+   "action": "tableaux",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0460",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add a panel with disk usage and a red threshold at 90%",
+   "appli": "syn",
+   "action": "panneau",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0461",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets le tableau tout prêt pour la machine",
+   "appli": "syn",
+   "action": "modele",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0462",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le tableau des sites, sur les dernières 24 heures",
+   "appli": "syn",
+   "action": "voir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0463",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi les mesures que tu gardes, que je puisse faire mes courbes ?",
+   "appli": "syn",
+   "action": "mesures_connues",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0464",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "laat mijn dashboards zien",
+   "appli": "syn",
+   "action": "tableaux",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0465",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ce fichier .mkv, la télé le lit pas, refais-le en mp4",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0466",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fusionne ces trois PDF en un seul",
+   "appli": "dvalinn",
+   "action": "pdf",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0467",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn this HEIC photo into a JPG",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0468",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "ricodifica tutti i video della cartella film in H.265 per risparmiare spazio",
+   "appli": "dvalinn",
+   "action": "lot_videos",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0469",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "encode-moi ce texte en base64",
+   "appli": "dvalinn",
+   "action": "outil",
+   "aussi": [
+    "achille"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0470",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le document word, je le veux en pdf pour l'envoyer à la mairie",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "aussi": [
+    "snotra"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0471",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "convierte este audio de WhatsApp a mp3",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0472",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "сожми этот PDF, он слишком большой",
+   "appli": "dvalinn",
+   "action": "pdf",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0473",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "split this PDF into separate pages",
+   "appli": "dvalinn",
+   "action": "pdf",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0474",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lis la facture que je viens de prendre en photo et dis-moi le montant",
+   "appli": "champollion",
+   "action": "lire",
+   "aussi": [
+    "theia"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0475",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "mach dieses gescannte PDF durchsuchbar",
+   "appli": "champollion",
+   "action": "pdf_cherchable",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0476",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "here's the email from the school, pull out the dates and appointments",
+   "appli": "champollion",
+   "action": "texte",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0477",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "garde ce que tu viens de lire dans le cerveau",
+   "appli": "champollion",
+   "action": "garder",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0478",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est écrit quoi sur l'ordonnance ? je lis pas l'écriture du médecin",
+   "appli": "champollion",
+   "action": "lire",
+   "aussi": [
+    "theia"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0479",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "この写真のレシートの金額を読んで",
+   "appli": "champollion",
+   "action": "lire",
+   "aussi": [
+    "theia"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0480",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est-ce que t'as lu récemment ?",
+   "appli": "champollion",
+   "action": "lectures",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0481",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ce mail du proprio, il y a une date de rendez-vous dedans ?",
+   "appli": "champollion",
+   "action": "texte",
+   "aussi": [
+    "frigg"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0482",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche « out of memory » dans les journaux de cette nuit",
+   "appli": "mimisbrunnr",
+   "action": "chercher",
+   "aussi": [
+    "forseti"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0483",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿qué mensajes se repiten todo el rato en los logs?",
+   "appli": "mimisbrunnr",
+   "action": "repetes",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0484",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "alert me whenever authentication failure shows up in the logs",
+   "appli": "mimisbrunnr",
+   "action": "regle",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0485",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lis aussi le fichier /var/log/nginx/error.log",
+   "appli": "mimisbrunnr",
+   "action": "fichier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0486",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pourquoi le serveur a redémarré tout seul vers 4 h ? regarde les traces du système",
+   "appli": "mimisbrunnr",
+   "action": "chercher",
+   "aussi": [
+    "forseti"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0487",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "such in den Logs nach Fehlern von heute Morgen",
+   "appli": "mimisbrunnr",
+   "action": "chercher",
+   "aussi": [
+    "forseti"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0488",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais le ménage sur le disque, les fichiers temporaires et tout",
+   "appli": "gefjon",
+   "action": "nettoyer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0489",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi les plus gros fichiers sur le disque ?",
+   "appli": "gefjon",
+   "action": "gros_fichiers",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0490",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what starts automatically when the pc boots?",
+   "appli": "gefjon",
+   "action": "demarrage",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0491",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "desinstala aquela porcaria da McAfee que veio instalada",
+   "appli": "gefjon",
+   "action": "desinstaller",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0492",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "empêche Spotify de se lancer au démarrage",
+   "appli": "gefjon",
+   "action": "desactiver_demarrage",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0493",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon disque C est plein, je comprends pas pourquoi",
+   "appli": "gefjon",
+   "action": "analyser",
+   "aussi": [
+    "fensalir"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0494",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "pulisci la cache e il cestino",
+   "appli": "gefjon",
+   "action": "nettoyer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0495",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais le ménage tous les premiers du mois",
+   "appli": "gefjon",
+   "action": "planifier_nettoyage",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0496",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ok vas-y, nettoie",
+   "appli": "gefjon",
+   "action": "nettoyer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "qu'est-ce qui prend de la place dans les temporaires et les caches ?",
+    "appli": "gefjon",
+    "actionPrecedente": "analyser"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0497",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show me a map of what's using space on the disk",
+   "appli": "gefjon",
+   "action": "carte",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0498",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "C盘满了，怎么回事？",
+   "appli": "gefjon",
+   "action": "analyser",
+   "aussi": [
+    "fensalir"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0499",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre les photos de l'été 2023",
+   "appli": "sol",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0500",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a des photos en double ?",
+   "appli": "sol",
+   "action": "doublons",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0501",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "make an album with all the pictures from Christmas 2024",
+   "appli": "sol",
+   "action": "album",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0502",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "aggiungi la cartella delle foto del disco esterno",
+   "appli": "sol",
+   "action": "dossier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0503",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "range les nouvelles photos que j'ai copiées",
+   "appli": "sol",
+   "action": "indexer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0504",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve les photos prises avec l'ancien téléphone",
+   "appli": "sol",
+   "action": "chercher",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0505",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "给我看去年夏天的照片",
+   "appli": "sol",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0506",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "डुप्लिकेट फ़ोटो ढूंढो",
+   "appli": "sol",
+   "action": "doublons",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0507",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "make an album out of those",
+   "appli": "sol",
+   "action": "album",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "show me the photos from summer 2023",
+    "appli": "sol",
+    "actionPrecedente": "chercher"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0508",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "finde doppelte Fotos",
+   "appli": "sol",
+   "action": "doublons",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0509",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est-ce qu'on voit sur cette image ?",
+   "appli": "theia",
+   "action": "voir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0510",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve la photo où le chien dort sur le canapé",
+   "appli": "theia",
+   "action": "retrouver",
+   "aussi": [
+    "sol"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0511",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "read this .odt file and tell me what it says",
+   "appli": "theia",
+   "action": "lire_document",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0512",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "no, no es un gato, es mi perro Filou",
+   "appli": "theia",
+   "action": "corriger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0513",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "décris la capture d'écran que je t'envoie",
+   "appli": "theia",
+   "action": "voir",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0514",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "이 사진에 뭐가 있어?",
+   "appli": "theia",
+   "action": "voir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0515",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la photo de la plage avec le parasol rouge, tu la retrouves ?",
+   "appli": "theia",
+   "action": "retrouver",
+   "aussi": [
+    "sol"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0516",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'était quoi ce bruit dans l'enregistrement ? la sonnette ?",
+   "appli": "syrinx",
+   "action": "sons",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0517",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi le tempo et la tonalité de ce morceau ?",
+   "appli": "syrinx",
+   "action": "musique",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0518",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "find the dog barking from last week",
+   "appli": "syrinx",
+   "action": "retrouver",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0519",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "das ist kein Alarm, das ist die Mikrowelle",
+   "appli": "syrinx",
+   "action": "corriger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0520",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "écoute aussi la caméra de la chambre du bébé",
+   "appli": "syrinx",
+   "action": "regler",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0521",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qui parle dans cet enregistrement et qu'est-ce qu'ils disent ?",
+   "appli": "syrinx",
+   "action": "parole",
+   "aussi": [
+    "bragi",
+    "champollion"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0522",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "какой темп у этой песни?",
+   "appli": "syrinx",
+   "action": "musique",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0523",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le bruit de verre cassé cette nuit sur la caméra du garage, c'était vraiment ça ?",
+   "appli": "syrinx",
+   "action": "sons",
+   "aussi": [
+    "himinbjorg"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0524",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "apprends tout ce que tu peux sur les onduleurs",
+   "appli": "mathesis",
+   "action": "confier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0525",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "plus de recherches de ton côté sans que je te le demande, tu stoppes ton apprentissage",
+   "appli": "mathesis",
+   "action": "couper",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0526",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "learn the whole Proxmox documentation site",
+   "appli": "mathesis",
+   "action": "absorber",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0527",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tu peux lire mon dossier de cours de réseau pour apprendre",
+   "appli": "mathesis",
+   "action": "ouvrir_dossier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0528",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "não aprendas mais nada sobre política",
+   "appli": "mathesis",
+   "action": "interdire",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0529",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "oublie ce que t'as retenu sur mon ancien boulot",
+   "appli": "mathesis",
+   "action": "effacer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0530",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "para de aprender un rato, la red va lenta",
+   "appli": "mathesis",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0531",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "jifunze kuhusu paneli za jua",
+   "appli": "mathesis",
+   "action": "confier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0532",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "où je pourrais trouver de la doc fiable sur IPv6 ?",
+   "appli": "mathesis",
+   "action": "ou_trouver",
+   "aussi": [
+    "volva"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0533",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tes prédictions, elles tombent juste combien de fois ?",
+   "appli": "pronoia",
+   "action": "bilan",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0534",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est-ce qui risque d'arriver demain d'après toi ?",
+   "appli": "pronoia",
+   "action": "prevoir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0535",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "stop trying to anticipate what I do",
+   "appli": "pronoia",
+   "action": "couper",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0536",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "今どんな予測をしてる？",
+   "appli": "pronoia",
+   "action": "previsions",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0537",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "efface tout ce que tu as appris de mes habitudes",
+   "appli": "pronoia",
+   "action": "effacer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0538",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "à ton avis, le disque du NAS il tient encore longtemps ?",
+   "appli": "pronoia",
+   "action": "prevoir",
+   "aussi": [
+    "durinn"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0539",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "fang wieder an, meine Gewohnheiten zu lernen",
+   "appli": "pronoia",
+   "action": "allumer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0540",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tes pressentiments de la semaine, ils se sont réalisés ?",
+   "appli": "pronoia",
+   "action": "jugees",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0541",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "autorise le numéro de ma femme à t'écrire pour te demander des trucs",
+   "appli": "keryx",
+   "action": "ajouter_numero",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0542",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "cambia el código secreto para cuando te escribo desde fuera",
+   "appli": "keryx",
+   "action": "code_secret",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0543",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what did you do on my behalf through messages this week?",
+   "appli": "keryx",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0544",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le numéro de l'ancien stagiaire, enlève-le de la liste blanche",
+   "appli": "keryx",
+   "action": "retirer_numero",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0545",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "l'assistant qu'on joint par message, il est prêt ?",
+   "appli": "keryx",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0546",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "efface toutes les conversations que j'ai eues avec toi par message",
+   "appli": "keryx",
+   "action": "effacer_historique",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0547",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "kardeşimin numarasını beyaz listeye ekle",
+   "appli": "keryx",
+   "action": "ajouter_numero",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0548",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quand je t'appelle depuis la route, je veux que tu puisses agir après le code",
+   "appli": "keryx",
+   "action": "regler",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0549",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "файрвол включён?",
+   "appli": "hlid",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0550",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre le port 8080 sur la machine",
+   "appli": "hlid",
+   "action": "ouvrir_port",
+   "aussi": [
+    "garmr"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0551",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "which ports are open on the router to the internet?",
+   "appli": "hlid",
+   "action": "box",
+   "aussi": [
+    "gjoll"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0552",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ferme le port 3389 de la box, c'est dangereux",
+   "appli": "hlid",
+   "action": "fermer_box",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0553",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qui peut joindre mon port 5432 ? personne normalement, ferme-le",
+   "appli": "hlid",
+   "action": "fermer_port",
+   "aussi": [
+    "garmr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0554",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "enciende el cortafuegos",
+   "appli": "hlid",
+   "action": "allumer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0555",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "welche Apps haben direkte Ports?",
+   "appli": "hlid",
+   "action": "ports_directs",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0556",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "dann mach ihn zu",
+   "appli": "hlid",
+   "action": "fermer_port",
+   "aussi": [
+    "garmr"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "welche Ports sind auf der Maschine offen?",
+    "appli": "hlid",
+    "actionPrecedente": "etat"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0557",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "open the direct port for the music app on the LAN",
+   "appli": "hlid",
+   "action": "ouvrir_port_direct",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0558",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre les disques et leur remplissage",
+   "appli": "fensalir",
+   "action": "disques",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0559",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels dossiers sont partagés sur le réseau ?",
+   "appli": "fensalir",
+   "action": "partages",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0560",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "share the Movies folder on the network for the TV",
+   "appli": "fensalir",
+   "action": "ajouter_partage",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0561",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "hör auf, den Ordner Buchhaltung freizugeben",
+   "appli": "fensalir",
+   "action": "retirer_partage",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0562",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il reste combien de place sur le gros disque ?",
+   "appli": "fensalir",
+   "action": "disques",
+   "aussi": [
+    "durinn",
+    "gefjon"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0563",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "quali cartelle sono condivise?",
+   "appli": "fensalir",
+   "action": "partages",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0564",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux que la télé voie le dossier des films",
+   "appli": "fensalir",
+   "action": "ajouter_partage",
+   "aussi": [
+    "freyja"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0565",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mes repos, y en a qui ont du travail pas commité ?",
+   "appli": "ivaldi",
+   "action": "depots",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0566",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le dépôt du site, y a du neuf côté serveur ? regarde juste, touche à rien",
+   "appli": "ivaldi",
+   "action": "recuperer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0567",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "clone github.com/example/tool into my code folder",
+   "appli": "ivaldi",
+   "action": "cloner",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0568",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "ábreme una terminal en el proyecto de facturación",
+   "appli": "ivaldi",
+   "action": "ouvrir_terminal",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0569",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les derniers commits du projet api",
+   "appli": "ivaldi",
+   "action": "journal",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0570",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux héberger mon code à la maison, pas sur github, crée un dépôt",
+   "appli": "ivaldi",
+   "action": "creer_depot",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0571",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "покажи мои git-репозитории",
+   "appli": "ivaldi",
+   "action": "depots",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0572",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un git pull sur le repo du site",
+   "appli": "ivaldi",
+   "action": "mettre_a_jour",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0573",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe internet à Léo, il devait faire ses devoirs",
+   "appli": "heidrun",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0574",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rends internet à Léo",
+   "appli": "heidrun",
+   "action": "reprendre",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0575",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "set up parental controls for my 8 year old daughter, bedtime at 8:30",
+   "appli": "heidrun",
+   "action": "profil",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0576",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "o que é que a Inês viu hoje na internet?",
+   "appli": "heidrun",
+   "action": "rapport",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0577",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ma fille a 13 ans maintenant, change ses réglages",
+   "appli": "heidrun",
+   "action": "profil",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0578",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "اقطع الإنترنت عن ابني الآن",
+   "appli": "heidrun",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0579",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bon ok il a fini, remets",
+   "appli": "heidrun",
+   "action": "reprendre",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "coupe internet à Léo, il devait faire ses devoirs",
+    "appli": "heidrun",
+    "actionPrecedente": "pause"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0580",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿qué estuvo viendo mi hijo en internet hoy?",
+   "appli": "heidrun",
+   "action": "rapport",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0581",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "बेटे का इंटरनेट अभी बंद कर दो",
+   "appli": "heidrun",
+   "action": "pause",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0582",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance Mario Kart sur la Super Nintendo",
+   "appli": "leikvangr",
+   "action": "lancer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0583",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels jeux Game Boy j'ai ?",
+   "appli": "leikvangr",
+   "action": "jeux",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0584",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add Zelda Ocarina to my favourites",
+   "appli": "leikvangr",
+   "action": "favori",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0585",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "sortier die Spiele, die ich kopiert habe, und räum die Namen auf",
+   "appli": "leikvangr",
+   "action": "ranger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0586",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les enfants veulent jouer à Sonic sur la télé",
+   "appli": "leikvangr",
+   "action": "lancer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0587",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "que jogos de Mega Drive é que eu tenho?",
+   "appli": "leikvangr",
+   "action": "jeux",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0588",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux jouer à Pokémon Rouge !!",
+   "appli": "leikvangr",
+   "action": "lancer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0589",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "écris une lettre de résiliation pour mon abonnement de salle de sport, en document Word",
+   "appli": "snotra",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0590",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "crea un foglio di calcolo con le spese del mese",
+   "appli": "snotra",
+   "action": "tableur",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0591",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "search my documents for the word avenant",
+   "appli": "snotra",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0592",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "corrige les fautes de ce texte",
+   "appli": "snotra",
+   "action": "corriger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0593",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "dessine le schéma de mon réseau",
+   "appli": "snotra",
+   "action": "schema_reseau",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0594",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prépare-moi l'ordre du jour de la réunion de lundi, avec le modèle habituel",
+   "appli": "snotra",
+   "action": "modele",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0595",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "lies das Dokument Mietvertrag und sag mir, was drinsteht",
+   "appli": "snotra",
+   "action": "lire",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0596",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "écris un compte rendu de la réunion d'équipe en document",
+   "appli": "snotra",
+   "action": "creer",
+   "aussi": [
+    "saga"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0597",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "on me trouve où, en ligne, si on tape mon nom ?",
+   "appli": "hlin",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0598",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "bereite einen Brief vor, damit ein Online-Verzeichnis meine Adresse löscht",
+   "appli": "hlin",
+   "action": "lettre",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0599",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "check now if my name shows up on any data broker sites",
+   "appli": "hlin",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0600",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cette photo, elle donne des infos sur moi si je la poste ?",
+   "appli": "hlin",
+   "action": "photo",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0601",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "un annuaire en ligne affiche mon numéro, comment je le fais enlever ?",
+   "appli": "hlin",
+   "action": "resultat",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0602",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿dónde aparezco en internet?",
+   "appli": "hlin",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0603",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "aide-moi à régler la confidentialité de mon compte Facebook",
+   "appli": "hlin",
+   "action": "guide",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0604",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon adresse mail a fuité quelque part ?",
+   "appli": "hlin",
+   "action": "chercher",
+   "aussi": [
+    "brisingamen"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0605",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "cosa si trova su di me su internet?",
+   "appli": "hlin",
+   "action": "etat",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0606",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mes disques sont en bonne santé ?",
+   "appli": "durinn",
+   "action": "sante",
+   "aussi": [
+    "fensalir"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0607",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon SSD, il est aussi rapide qu'annoncé ? fais-lui passer un test",
+   "appli": "durinn",
+   "action": "banc",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0608",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show me the SMART values of the second drive",
+   "appli": "durinn",
+   "action": "smart",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0609",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "avísame si un disco pasa de 55 grados",
+   "appli": "durinn",
+   "action": "seuils",
+   "aussi": [
+    "vordr"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0610",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le disque dur fait un bruit de clic, il va lâcher ?",
+   "appli": "durinn",
+   "action": "sante",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0611",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "ディスクの状態は大丈夫？",
+   "appli": "durinn",
+   "action": "sante",
+   "aussi": [
+    "fensalir"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0612",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "SSD 속도 테스트해 줘",
+   "appli": "durinn",
+   "action": "banc",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0613",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et ses valeurs détaillées ?",
+   "appli": "durinn",
+   "action": "smart",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "mes disques sont en bonne santé ?",
+    "appli": "durinn",
+    "actionPrecedente": "sante"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0614",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "o disco está a fazer barulhos estranhos",
+   "appli": "durinn",
+   "action": "sante",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0615",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai effacé les photos de la carte SD de l'appareil photo, tu peux les récupérer ?",
+   "appli": "hel",
+   "action": "recuperer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0616",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la clé USB affiche plus rien, la partition a disparu",
+   "appli": "hel",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0617",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "which drives can you search for deleted files?",
+   "appli": "hel",
+   "action": "supports",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0618",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "metti quello che recuperi sul disco esterno",
+   "appli": "hel",
+   "action": "destination",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0619",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai vidé la corbeille par erreur hier, y avait le mémoire de ma fille dedans",
+   "appli": "hel",
+   "action": "recuperer",
+   "aussi": [
+    "sindri"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0620",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "stell die gelöschten Dateien vom USB-Stick wieder her",
+   "appli": "hel",
+   "action": "recuperer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0621",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "my external drive shows as unallocated now, can you find the old partition?",
+   "appli": "hel",
+   "action": "chercher",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0622",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "USB에서 지운 사진 살릴 수 있어?",
+   "appli": "hel",
+   "action": "recuperer",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0623",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve le site de recettes que j'ai vu la semaine dernière dans mon navigateur",
+   "appli": "pegase",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0624",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retire l'ancienne tablette du navigateur Pégase",
+   "appli": "pegase",
+   "action": "revoquer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0625",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what can Odin see from my browser?",
+   "appli": "pegase",
+   "action": "voir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0626",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "mach jetzt eine Kopie von meinem Browser",
+   "appli": "pegase",
+   "action": "copier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0627",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai perdu tous mes favoris, remets ceux d'hier",
+   "appli": "pegase",
+   "action": "restaurer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0628",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "busca en mi historial esa tienda de bicis que vi",
+   "appli": "pegase",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0629",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets LibreOffice dans le store",
+   "appli": "agora",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0630",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets ma fille dans le groupe Enfants du store",
+   "appli": "agora",
+   "action": "ajouter_personne",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0631",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "force install Firefox on the reception PC",
+   "appli": "agora",
+   "action": "forcer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0632",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿qué hay en el store?",
+   "appli": "agora",
+   "action": "catalogue",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0633",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les applis du groupe Compta, installe-les d'office, qu'ils aient pas le choix",
+   "appli": "agora",
+   "action": "definir_mode",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0634",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "wat staat er in mijn store?",
+   "appli": "agora",
+   "action": "mon_store",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0635",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche les failles courantes sur mon site",
+   "appli": "achille",
+   "action": "controle_passif",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0636",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "accendi il proxy di prova per testare la mia app",
+   "appli": "achille",
+   "action": "allumer_proxy",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0637",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "replay that login request with a different user id",
+   "appli": "achille",
+   "action": "rejouer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0638",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon domaine de test c'est test.mondomaine.fr, déclare-le",
+   "appli": "achille",
+   "action": "declarer_domaine",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0639",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon site, il a des trous de sécurité ?",
+   "appli": "achille",
+   "action": "defauts",
+   "aussi": [
+    "idunn"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0640",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "décode ce jeton JWT",
+   "appli": "achille",
+   "action": "decoder",
+   "aussi": [
+    "dvalinn"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0641",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "zeig die Anfragen, die über den Testproxy gelaufen sind",
+   "appli": "achille",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0642",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "télécharge ce fichier : https://example.org/gros-fichier.zip",
+   "appli": "atalante",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0643",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "où en sont mes téléchargements ?",
+   "appli": "atalante",
+   "action": "file",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0644",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "limit downloads to 2 MB/s, I'm on a video call",
+   "appli": "atalante",
+   "action": "vitesse",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0645",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "lade nur nachts herunter",
+   "appli": "atalante",
+   "action": "plage",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0646",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets les téléchargements en pause",
+   "appli": "atalante",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0647",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la connexion est revenue, relance ce qui avait coupé",
+   "appli": "atalante",
+   "action": "reprendre",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0648",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "vipakuliwa vyangu vimefika wapi?",
+   "appli": "atalante",
+   "action": "file",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0649",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ralentis-les, je suis en visio",
+   "appli": "atalante",
+   "action": "vitesse",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "où en sont mes téléchargements ?",
+    "appli": "atalante",
+    "actionPrecedente": "file"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0650",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "télécharge cette ISO depuis ce lien direct : https://example.org/rescue.iso",
+   "appli": "atalante",
+   "action": "ajouter",
+   "aussi": [
+    "eitri"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0651",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie un GET sur l'API /health du serveur et regarde la réponse",
+   "appli": "dodone",
+   "action": "envoyer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0652",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "importa a minha coleção do Postman",
+   "appli": "dodone",
+   "action": "importer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0653",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "run the API test collection",
+   "appli": "dodone",
+   "action": "lancer_collection",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0654",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance les tests de l'API toutes les heures",
+   "appli": "dodone",
+   "action": "programmer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0655",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le jeton de l'API météo, range-le pour mes requêtes",
+   "appli": "dodone",
+   "action": "secret",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0656",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "manda un POST a la API de pruebas con este JSON",
+   "appli": "dodone",
+   "action": "envoyer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0657",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon API répond 500 quand j'envoie ce json, essaie-la",
+   "appli": "dodone",
+   "action": "envoyer",
+   "aussi": [
+    "achille"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0658",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et commande-moi aussi des croissants",
+   "appli": null,
+   "action": null,
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "allume la lumière de la cuisine",
+    "appli": "appareils",
+    "actionPrecedente": "commander"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0659",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "commande-moi une pizza quatre fromages",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0660",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "réserve-moi un billet de train pour Marseille vendredi",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0661",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un virement de 50 euros à ma sœur",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0662",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "raconte-moi une blague",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0663",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "merci, c'est gentil",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0664",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rebranche le câble réseau de la box, il est tombé derrière le meuble",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0665",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tu peux sortir le chien ?",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0666",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "appelle le plombier",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0667",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "écris un poème pour l'anniversaire de ma mère",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0668",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "renvoie le colis Amazon qui est arrivé cassé",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0669",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "t'es qui toi en fait ?",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0670",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "publie cette photo sur Instagram",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0671",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "achète des croquettes pour le chat sur Amazon",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0672",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "euh... non rien, laisse tomber",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0673",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je suis fatigué aujourd'hui",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0674",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "passe chez le voisin récupérer le routeur qu'il m'a emprunté",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0675",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends-moi rendez-vous chez le coiffeur sur leur site",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0676",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "repasse mes chemises pour demain",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0677",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "dessine-moi un mouton",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0678",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie des fleurs à ma mère pour la fête des mères",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0679",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "order an Uber to the airport",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0680",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "hang the new wifi access point on the hallway ceiling",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0681",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "tell me a bedtime story about a dragon",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0682",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "thanks mate",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0683",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pídeme un taxi para las ocho",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0684",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿me quieres?",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0685",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "bestell mir Blumen für meine Frau",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0686",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "prenota un tavolo per due stasera",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0687",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "paga a conta da luz",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0688",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "doe de afwas",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0689",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "احجز لي فندقا في دبي",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0690",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "расскажи анекдот",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0691",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "帮我点一份外卖",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0692",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "新しいルーターを買ってきて",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0693",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "मेरे लिए एक कविता लिखो",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0694",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "배고파",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0695",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "bana bir fıkra anlat",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0696",
+   "langue": "sw",
+   "ecriture": "Latn",
+   "phrase": "niagizie chakula cha jioni",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0697",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "delete the third one, it's useless now",
+   "appli": "archytas",
+   "action": "supprimer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "show me the scripts you made for me",
+    "appli": "archytas",
+    "actionPrecedente": "mes_scripts"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0698",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "replay the longest session for me",
+   "appli": "loki",
+   "action": "rejeu",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "what did the honeypots catch today?",
+    "appli": "loki",
+    "actionPrecedente": "activite"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0699",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "kill that one, it shouldn't be running",
+   "appli": "skogul",
+   "action": "tuer",
+   "aussi": [
+    "argos",
+    "eir"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "which programs are acting weird on this machine?",
+    "appli": "skogul",
+    "actionPrecedente": "analyser"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "p0700",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pues cámbialo por uno oscuro",
+   "appli": "apparence",
+   "action": "theme",
+   "aussi": [
+    "gladsheim"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "¿qué tema tiene Odin ahora mismo?",
+    "appli": "apparence",
+    "actionPrecedente": "etat"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0701",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "y avísame si ese mensaje vuelve a salir muchas veces",
+   "appli": "mimisbrunnr",
+   "action": "regle",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "busca en los registros los errores del disco de esta noche",
+    "appli": "mimisbrunnr",
+    "actionPrecedente": "chercher"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0702",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "añade también VLC a los que vigilas",
+   "appli": "fjalar",
+   "action": "suivre",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "¿qué programas mantienes al día en la carpeta de instaladores?",
+    "appli": "fjalar",
+    "actionPrecedente": "surveilles"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0703",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "gut, die habe ich alle gesehen, hak sie ab",
+   "appli": "forseti",
+   "action": "vu",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "zeig mir die Sicherheitswarnungen von heute",
+    "appli": "forseti",
+    "actionPrecedente": "alertes"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0704",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "bei Lenas Laptop ist die Installation gescheitert, versuch es nochmal",
+   "appli": "agora",
+   "action": "reessayer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "welche Geräte sind im Store angemeldet?",
+    "appli": "agora",
+    "actionPrecedente": "appareils"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0705",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "aggiungi una riga per il nuovo cliente Rossi",
+   "appli": "urdr",
+   "action": "ajouter_ligne",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "fammi vedere le tabelle del database clienti",
+    "appli": "urdr",
+    "actionPrecedente": "tables"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0706",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "fai partire quella della sera",
+   "appli": "draupnir",
+   "action": "executer",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "quali automazioni sono attive?",
+    "appli": "draupnir",
+    "actionPrecedente": "lister"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0707",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "agora faz uma cópia dos dados desse perfil",
+   "appli": "pegase",
+   "action": "copier",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "mostra o histórico do Pégase de ontem",
+    "appli": "pegase",
+    "actionPrecedente": "historique"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0708",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "esse IP estranho, analisa-o",
+   "appli": "geri",
+   "action": "analyser",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "que ligações estão a ser feitas para fora agora?",
+    "appli": "geri",
+    "actionPrecedente": "connexions"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0709",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "じゃあVPNのだけ見せて",
+   "appli": "commandes",
+   "action": "liste",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "コマンドの一覧を見せて",
+    "appli": "commandes",
+    "actionPrecedente": "liste"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "p0710",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "the laptop fan has been screaming since lunch and I haven't opened anything, something's off",
+   "appli": "skogul",
+   "action": "analyser",
+   "aussi": [
+    "eir",
+    "argos",
+    "geri"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0711",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "don't do it, just tell me what I'd type to block a website",
+   "appli": "commandes",
+   "action": "chercher",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0712",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "which countries do the attackers on my fake servers come from?",
+   "appli": "loki",
+   "action": "statistiques",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0713",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "my old phone got stolen, kick it out of my browser sync",
+   "appli": "pegase",
+   "action": "revoquer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0714",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "grab whatever new versions came out for the installers on the share",
+   "appli": "fjalar",
+   "action": "mettre_a_jour",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0715",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "push LibreOffice onto the front desk laptop right now, don't ask anyone",
+   "appli": "agora",
+   "action": "forcer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "p0716",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿esta IP 198.51.100.23 sale en alguna lista negra?",
+   "appli": "geri",
+   "action": "verifier",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0717",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿qué aplicaciones me toca instalar a mí?",
+   "appli": "agora",
+   "action": "mon_store",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0718",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "die kleine Figur in der Ecke nervt, lass sie verschwinden",
+   "appli": "apparence",
+   "action": "cacher",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0719",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "irgendwas müllt mein Systemprotokoll voll, was ist das?",
+   "appli": "mimisbrunnr",
+   "action": "repetes",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0720",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "wenn ich das Haus verlasse, soll automatisch alles ausgehen, richte das ein",
+   "appli": "archytas",
+   "action": "creer",
+   "aussi": [
+    "draupnir",
+    "midgard"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0721",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "qualcuno ha toccato il file delle password di sistema questa settimana? cerca",
+   "appli": "forseti",
+   "action": "chercher",
+   "aussi": [
+    "mimisbrunnr"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0722",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "metti un finto server SSH sulla porta 2222 per attirare chi ci prova",
+   "appli": "loki",
+   "action": "allumer",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0723",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "per il profilo di mia figlia, non sincronizzare la cronologia",
+   "appli": "pegase",
+   "action": "voir",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0724",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "leggi anche il file di log del mio server di giochi in /srv/game/log.txt",
+   "appli": "mimisbrunnr",
+   "action": "fichier",
+   "aussi": [
+    "garmr"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0725",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "quais são os comandos que posso escrever para o VPN?",
+   "appli": "commandes",
+   "action": "liste",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0726",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "há um processo suspeito no PC da receção, mata-o",
+   "appli": "skogul",
+   "action": "tuer",
+   "aussi": [
+    "argos"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "p0727",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add the GitHub project example/tool as a source so you keep its releases",
+   "appli": "fjalar",
+   "action": "ajouter_source",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "p0728",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "cuántos pedidos hay en la base de ventas? cuéntalos con una consulta SQL",
+   "appli": "urdr",
+   "action": "sql",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0729",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "ich brauche eine neue Postgres-Datenbank für das Inventar-Projekt",
+   "appli": "urdr",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "p0730",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "commande-moi un SSD de 2 To, le mien est presque plein",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0731",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "change la cartouche de l'imprimante du bureau",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0732",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais-moi rembourser l'abonnement cloud que j'ai payé deux fois",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0733",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "swap out the dying hard drive in the NAS for me",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0734",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "buy a new domain name for my blog",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "p0735",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "imprime la factura del gas en dos copias",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0736",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "schick dem Techniker ein Fax mit der Fehlermeldung",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0737",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "vai al negozio e prendimi un cavo di rete da cinque metri",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "p0738",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "paga a conta da internet que vence amanhã",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  }
+ ]
+}

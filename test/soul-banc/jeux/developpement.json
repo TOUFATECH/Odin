@@ -1,0 +1,5612 @@
+{
+ "version": 2,
+ "origine": "Écrit par un agent (jeu de développement du banc de Soul, 17/11/2026), non relu par une personne. Les bonnes réponses viennent de la lecture du titre, de la description et des actions des modules de src/valhalla/, sans reprendre leurs listes de mots, leurs exemples ni les demandes d'apprentissage. Toute langue autre que le français et l'anglais est marquée aRelire. Ce jeu sert à regarder les erreurs : il ne doit entrer dans aucun apprentissage. Version 2 (17/11/2026) : corrigée après relecture (réponses attendues, « aussi », fuites et quasi-doublons avec le jeu principal réécrits).",
+ "demandes": [
+  {
+   "id": "dev-fr-001",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "garde une note : idée cadeau pour maman, un carnet en cuir",
+   "appli": "saga",
+   "action": "noter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-002",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'avais écrit un truc sur le compost l'an dernier, tu le retrouves ?",
+   "appli": "saga",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-001",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add \"oat milk\" to the end of my shopping note",
+   "appli": "saga",
+   "action": "completer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-003",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est ce qui traîne en retard dans mes projets",
+   "appli": "saga",
+   "action": "attention",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ja-001",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "前にWi-Fiのことメモした気がする、探して",
+   "appli": "saga",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-004",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retiens que l'idée du jardin partagé c'est pour le printemps",
+   "appli": "saga",
+   "action": "noter",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-005",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rajoute Mme Diallo dans mes clientes, elle est venue hier pour une couleur",
+   "appli": "runes",
+   "action": "client",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-006",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai quelles bases déjà dans mes pages ?",
+   "appli": "runes",
+   "action": "bases",
+   "aussi": [
+    "urdr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-001",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "añade una fila en mi tabla de libros leídos: Rayuela",
+   "appli": "runes",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-007",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "note comme évolution : l'appli des sauvegardes devrait m'envoyer un récap le lundi",
+   "appli": "runes",
+   "action": "evolution",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-001",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "Kundin Weber war heute wieder da, Termin für Fußpflege, bitte in ihrer Karte eintragen",
+   "appli": "runes",
+   "action": "client",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-008",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tous les matins à 7h je veux que la lumière de la cuisine s'allume toute seule",
+   "appli": "draupnir",
+   "action": null,
+   "aussi": [
+    "archytas",
+    "midgard"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-009",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance l'automatisation du soir maintenant stp",
+   "appli": "draupnir",
+   "action": "executer",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-002",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "which automations have I got set up?",
+   "appli": "draupnir",
+   "action": "lister",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-002",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "nimm die fertige Vorlage, die neue Fotos automatisch sichert",
+   "appli": "draupnir",
+   "action": "modele",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-001",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "quais automações estão ligadas?",
+   "appli": "draupnir",
+   "action": "lister",
+   "aussi": [
+    "archytas"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-010",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "un script qui met la date de prise de vue dans le nom de chaque photo des vacances, tu me le fais ?",
+   "appli": "archytas",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-011",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais tourner mon script de nettoyage des téléchargements",
+   "appli": "archytas",
+   "action": "lancer",
+   "aussi": [
+    "gefjon"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-012",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "remets la version d'hier de mon script, la nouvelle plante",
+   "appli": "archytas",
+   "action": "revenir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-pt-002",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "mostra os meus scripts",
+   "appli": "archytas",
+   "action": "mes_scripts",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-en-003",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "can you make my backup script any better?",
+   "appli": "archytas",
+   "action": "proposer_amelioration",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-013",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le pc rame grave, qu'est-ce qui bouffe tout le processeur ?",
+   "appli": "eir",
+   "action": "processus",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-014",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il chauffe pas trop là le serveur ?",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-004",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show me the RAM usage curve for the last week",
+   "appli": "eir",
+   "action": "mesures",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ru-001",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "убей процесс chrome, он завис",
+   "appli": "eir",
+   "action": "arreter_processus",
+   "aussi": [
+    "skogul",
+    "argos"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-015",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "préviens moi si la mémoire dépasse 90%",
+   "appli": "eir",
+   "action": "seuils",
+   "aussi": [
+    "vordr"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-zh-001",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "电脑现在CPU和内存怎么样？",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-016",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a un programme qui fait des trucs bizarres depuis ce matin, regarde",
+   "appli": "skogul",
+   "action": "analyser",
+   "aussi": [
+    "geri"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-017",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête ce truc louche qui tourne en douce",
+   "appli": "skogul",
+   "action": "tuer",
+   "aussi": [
+    "eir",
+    "argos"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-003",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "prüf mal, ob sich gerade irgendein Programm komisch verhält",
+   "appli": "skogul",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-001",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "şüpheli davranan bir program var mı bak",
+   "appli": "skogul",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-018",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quoi de neuf côté sécu ? des alertes ?",
+   "appli": "forseti",
+   "action": "alertes",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-019",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "est ce qu'on est dans les clous niveau conformité",
+   "appli": "forseti",
+   "action": "conformite",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-005",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "ok I've seen that alert, you can mark it",
+   "appli": "forseti",
+   "action": "vu",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-002",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "vigila el certificado de mi dominio, que no caduque sin que me entere",
+   "appli": "forseti",
+   "action": "domaines",
+   "aussi": [
+    "vordr"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-020",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche partout si l'adresse 203.0.113.7 a laissé des traces",
+   "appli": "forseti",
+   "action": "chercher",
+   "aussi": [
+    "mimisbrunnr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-021",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la liste des IP que tu as mises dehors, je peux la voir ?",
+   "appli": "garmr",
+   "action": "bannis",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-022",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a une ip qui essaie de rentrer en ssh toute la nuit, vire-la",
+   "appli": "garmr",
+   "action": "bannir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-023",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "débannis ma mère, elle s'est trompée de mot de passe trop de fois",
+   "appli": "garmr",
+   "action": "debannir",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-it-001",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "non bloccare mai l'indirizzo del mio ufficio",
+   "appli": "garmr",
+   "action": "proteger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-002",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "nginx günlüğünü de izlemeye al",
+   "appli": "garmr",
+   "action": "journal",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-024",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ce lien que j'ai reçu par sms, il est clean ?",
+   "appli": "ullr",
+   "action": "adresse",
+   "aussi": [
+    "geri"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-025",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "avec qui mon pc discute en ce moment sur internet ?",
+   "appli": "geri",
+   "action": "connexions",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-006",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "refresh the lists of known malicious IPs",
+   "appli": "geri",
+   "action": "listes",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-026",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la protection contre les connexions malveillantes, elle tourne bien ?",
+   "appli": "geri",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-zh-002",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "这个IP地址 198.51.100.23 是不是恶意的？",
+   "appli": "geri",
+   "action": "verifier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-001",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "어제 우리 컴퓨터가 어디랑 통신했는지 기록 보여줘",
+   "appli": "geri",
+   "action": "journal",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-027",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est ce qui se passe sur le réseau là, explique moi en clair",
+   "appli": "ran",
+   "action": "expliquer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-028",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qui pompe toute la bande passante à la maison",
+   "appli": "ran",
+   "action": "trafic",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-007",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "start capturing the network packets",
+   "appli": "ran",
+   "action": "lire",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-029",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "préviens-moi si un appareil dépasse 50 Mo/s",
+   "appli": "ran",
+   "action": "seuil",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ar-001",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "امسح سجل الحزم القديم",
+   "appli": "ran",
+   "action": "effacer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-030",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "scanne la clé usb que je viens de brancher",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-031",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai téléchargé un .exe chelou, tu peux regarder avant que je l'ouvre ?",
+   "appli": "ullr",
+   "action": "fichier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-032",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sors de quarantaine facture.pdf, il était pas dangereux",
+   "appli": "ullr",
+   "action": "faux_positif",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-008",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "update the virus definitions",
+   "appli": "ullr",
+   "action": "mettre_a_jour",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-003",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "programa un análisis completo cada domingo por la noche",
+   "appli": "ullr",
+   "action": "plan",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-033",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ce mail soi-disant de la banque avec un lien, c'est une arnaque ?",
+   "appli": "ullr",
+   "action": "message",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ja-002",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "隔離されたファイルを見せて",
+   "appli": "ullr",
+   "action": "quarantaine",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-001",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "मेरे कंप्यूटर में वायरस है क्या? जांच करो",
+   "appli": "ullr",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-034",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets en place des faux serveurs pour piéger les pirates",
+   "appli": "loki",
+   "action": null,
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-035",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "est-ce que quelqu'un est tombé dans le piège cette nuit ?",
+   "appli": "loki",
+   "action": "activite",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-009",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "replay what the attacker typed in the fake ssh",
+   "appli": "loki",
+   "action": "rejeu",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-004",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "schalt alle Fallen aus, ich mache gerade Wartung",
+   "appli": "loki",
+   "action": "tout_eteindre",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-036",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quel poste a eu un souci de sécurité aujourd'hui ?",
+   "appli": "argos",
+   "action": "incidents",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-037",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe le portable de Léo du réseau, il est infecté",
+   "appli": "argos",
+   "action": "isoler_poste",
+   "aussi": [
+    "vidarr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-038",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rends le réseau au portable de Léo, il est propre maintenant",
+   "appli": "argos",
+   "action": "rendre_reseau",
+   "aussi": [
+    "vidarr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-010",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show me the timeline of what happened on the reception PC",
+   "appli": "argos",
+   "action": "chronologie",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-pt-003",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "o incidente de ontem já foi resolvido, marca como tratado",
+   "appli": "argos",
+   "action": "traiter_incident",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-039",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance un nextcloud en conteneur",
+   "appli": "naglfar",
+   "action": "lancer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-040",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pourquoi le conteneur de la base redémarre en boucle, montre les logs",
+   "appli": "naglfar",
+   "action": "journaux",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-011",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "are there newer versions of my docker images?",
+   "appli": "naglfar",
+   "action": "nouvelles_versions",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-041",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais de la place, vire les images de conteneurs qui servent plus",
+   "appli": "naglfar",
+   "action": "nettoyer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ko-002",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "컨테이너 목록 보여줘",
+   "appli": "naglfar",
+   "action": "lister",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-042",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée-moi une base postgres pour mon projet de boutique",
+   "appli": "urdr",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-043",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre les tables de la base compta",
+   "appli": "urdr",
+   "action": "tables",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-012",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "run SELECT count(*) FROM orders on the shop database",
+   "appli": "urdr",
+   "action": "sql",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-044",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais une copie de sécurité de la base où Odin range ses données",
+   "appli": "urdr",
+   "action": "base_sauvegarder",
+   "aussi": [
+    "skuld"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-004",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "quiero ver las filas de la tabla clientes",
+   "appli": "urdr",
+   "action": "lignes",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-045",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais une sauvegarde de mes bases de données maintenant",
+   "appli": "skuld",
+   "action": "sauvegarder",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-046",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sauvegarde les bases chaque nuit et garde 30 jours",
+   "appli": "skuld",
+   "action": "plan",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-005",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "ist die Kopie am zweiten Standort in Ordnung?",
+   "appli": "skuld",
+   "action": "verifier_site",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-047",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "remets la base de la boutique comme elle était hier soir",
+   "appli": "skuld",
+   "action": "restaurer",
+   "aussi": [
+    "urdr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-it-002",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "fammi vedere i backup dei database degli ultimi giorni",
+   "appli": "skuld",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-048",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quand je dicte 'kibushi' écris-le toujours avec un K majuscule",
+   "appli": "rodd",
+   "action": "ajouter_mot",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-049",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je reçois ma belle-mère japonaise ce soir, tu peux traduire ce qu'on se dit ?",
+   "appli": "rodd",
+   "action": "ouvrir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-013",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "delete my old dictations",
+   "appli": "rodd",
+   "action": "dictee_effacer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-it-003",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "mostrami le ultime cose che ho dettato",
+   "appli": "rodd",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-050",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "écris ce que je dis, j'ai pas envie de taper",
+   "appli": "rodd",
+   "action": "dicter",
+   "aussi": [
+    "bragi"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-051",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ma box wifi, elle est bien protégée ?",
+   "appli": "svalinn",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-052",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai des potes qui viennent, fais un wifi rien que pour eux",
+   "appli": "svalinn",
+   "action": "invites",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-053",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "affiche le qr code du wifi des invités",
+   "appli": "svalinn",
+   "action": "qr_invites",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-014",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "who's on my wifi right now?",
+   "appli": "svalinn",
+   "action": "appareils",
+   "aussi": [
+    "vidarr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-hi-002",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "इंटरनेट की स्पीड चेक करो",
+   "appli": "svalinn",
+   "action": "tester_debit",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-054",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée une VM debian avec 4 Go de ram",
+   "appli": "ymir",
+   "action": "creer_machine",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-055",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends un instantané de la VM web avant que je fasse la mise à jour",
+   "appli": "ymir",
+   "action": "instantane",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-056",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "démarre la vm windows de test",
+   "appli": "ymir",
+   "action": null,
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-015",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "the sandbox VM looks infected, quarantine it",
+   "appli": "ymir",
+   "action": "isoler_machine",
+   "aussi": [
+    "argos"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ru-002",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "увеличь диск виртуалки до 100 ГБ",
+   "appli": "ymir",
+   "action": "disque_machine",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-003",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "我所有的虚拟机都列出来",
+   "appli": "ymir",
+   "action": "parc",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-057",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon site est en rade ?",
+   "appli": "idunn",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-058",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "redéploie le site avec le dernier code",
+   "appli": "idunn",
+   "action": "deployer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-059",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "reviens à la version d'avant du site, la nouvelle casse le formulaire",
+   "appli": "idunn",
+   "action": "revenir",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-016",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "my website is getting hammered, switch it to attack mode",
+   "appli": "idunn",
+   "action": "mode_attaque",
+   "aussi": [
+    "garmr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-005",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "vacía la caché de la web",
+   "appli": "idunn",
+   "action": "vider_cache",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-060",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sauvegarde mon dossier Documents tous les soirs sur le NAS",
+   "appli": "sindri",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-061",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai effacé le devis de mars, tu peux le retrouver dans les sauvegardes ?",
+   "appli": "sindri",
+   "action": "chercher",
+   "aussi": [
+    "hel"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-017",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "back up my files right now",
+   "appli": "sindri",
+   "action": "sauvegarder",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-006",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "lösch die alten Versionen, die Backup-Platte ist voll",
+   "appli": "sindri",
+   "action": "purger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-062",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais une image complète du disque du pc de la compta",
+   "appli": "sindri",
+   "action": "image_plan",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-063",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi déjà mon mot de passe pour le site des impôts",
+   "appli": "brisingamen",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-064",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "invente moi un mot de passe bien costaud",
+   "appli": "brisingamen",
+   "action": "generer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-018",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "have any of my passwords leaked?",
+   "appli": "brisingamen",
+   "action": "fuites",
+   "aussi": [
+    "hlin"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-pt-004",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "guarda a senha do wifi do escritório: Laranja-2024",
+   "appli": "brisingamen",
+   "action": "ajouter",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-065",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mes mots de passe sont-ils assez solides ?",
+   "appli": "brisingamen",
+   "action": "bilan",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ar-002",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "اصنع لي كلمة سر قوية",
+   "appli": "brisingamen",
+   "action": "generer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-066",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux accéder à mes fichiers de chez moi depuis l'hôtel",
+   "appli": "gjoll",
+   "action": null,
+   "aussi": [
+    "skidbladnir",
+    "bru"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-067",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute mon nouveau téléphone au vpn",
+   "appli": "gjoll",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-068",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le vpn marche plus depuis que l'antivirus a fait sa mise à jour",
+   "appli": "gjoll",
+   "action": null,
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-019",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show me the VPN QR code for my tablet",
+   "appli": "gjoll",
+   "action": "qr",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-006",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "revoca el acceso VPN del portátil que me robaron",
+   "appli": "gjoll",
+   "action": "revoquer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-069",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe le tunnel",
+   "appli": "gjoll",
+   "action": "eteindre",
+   "aussi": [
+    "bru"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-070",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "plus de tiktok à la maison, sur aucun appareil",
+   "appli": "vidarr",
+   "action": "services",
+   "aussi": [
+    "heidrun"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-071",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "débloque le site de la cantine, il est bloqué par erreur",
+   "appli": "vidarr",
+   "action": "autoriser",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-072",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe internet à la télé du salon",
+   "appli": "vidarr",
+   "action": "couper_machine",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-020",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "pause the ad blocking for 10 minutes, a site won't load",
+   "appli": "vidarr",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-007",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "Fortnite nur zwischen 18 und 20 Uhr erlauben",
+   "appli": "vidarr",
+   "action": "bloquer_horaires",
+   "aussi": [
+    "heidrun"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ar-003",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "اعطِ الطابعة عنوان IP ثابت",
+   "appli": "vidarr",
+   "action": "dhcp_fixe",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-073",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi tous les appareils sur le réseau, avec leurs adresses",
+   "appli": "vidarr",
+   "action": "baux",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-tr-003",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "bu reklam sitesini engelle: ads.example.com",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-074",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "préviens moi si mon site tombe",
+   "appli": "vordr",
+   "action": "ajouter",
+   "aussi": [
+    "idunn"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-075",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "met la surveillance en pause pendant la maintenance de dimanche matin",
+   "appli": "vordr",
+   "action": "maintenance",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-021",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "I'm handling the outage, assign it to me",
+   "appli": "vordr",
+   "action": "prendre_en_main",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ja-003",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "サーバーの稼働状況のページを公開して",
+   "appli": "vordr",
+   "action": "page_publique",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-076",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "liste les pannes en cours",
+   "appli": "vordr",
+   "action": "problemes",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-077",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai acheté un écran Dell pour le bureau, mets-le dans l'inventaire, garantie 3 ans",
+   "appli": "askr",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-078",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je prête le vieux portable à Inès jusqu'à vendredi",
+   "appli": "askr",
+   "action": "preter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-079",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "Inès a rendu le portable",
+   "appli": "askr",
+   "action": "rendre",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-022",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "print a QR label for the printer",
+   "appli": "askr",
+   "action": "etiquette",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-007",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "exporta el inventario en csv",
+   "appli": "askr",
+   "action": "exporter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-004",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "Office lisansını muhasebedeki bilgisayara ata",
+   "appli": "askr",
+   "action": "attribuer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-080",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets mon nextcloud sur cloud.example.org en https",
+   "appli": "valgrind",
+   "action": "ajouter",
+   "aussi": [
+    "bru"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-081",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "renouvelle le certificat du site photos",
+   "appli": "valgrind",
+   "action": "certificat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-082",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "protège le site des photos par un mot de passe",
+   "appli": "valgrind",
+   "action": "proteger",
+   "aussi": [
+    "var"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-023",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "redirect www to the bare domain",
+   "appli": "valgrind",
+   "action": "rediriger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-it-004",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "apri le porte 80 e 443 sul router",
+   "appli": "valgrind",
+   "action": "ouvrir_ports",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-083",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un compte pour ma fille Aya",
+   "appli": "var",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-084",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "Paul arrive plus à se connecter, il a perdu son mot de passe, mets-lui en un neuf",
+   "appli": "var",
+   "action": "mot_de_passe",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-085",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux un code à six chiffres en plus du mot de passe pour mon compte",
+   "appli": "var",
+   "action": "double_auth",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-024",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "kick everyone out, log out every session",
+   "appli": "var",
+   "action": "couper_sessions",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-008",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "lad meinen Bruder per Link ein",
+   "appli": "var",
+   "action": "inviter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-086",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "chaque groupe, il a droit à quelles applis ?",
+   "appli": "var",
+   "action": "acces_aux_applis",
+   "aussi": [
+    "agora"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ko-003",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "직원 그룹 하나 만들어줘",
+   "appli": "var",
+   "action": "creer_groupe",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-087",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux joindre odin de l'extérieur sans ouvrir de port sur la box",
+   "appli": "bru",
+   "action": "publier_odin",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-088",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets photos.example.com en ligne via cloudflare",
+   "appli": "bru",
+   "action": "publier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-025",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "is the cloudflare tunnel up?",
+   "appli": "bru",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-089",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retire le nom blog d'internet",
+   "appli": "bru",
+   "action": "depublier",
+   "aussi": [
+    "valgrind"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-090",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie un lien pour que mon cousin récupère les photos du mariage",
+   "appli": "skidbladnir",
+   "action": "lien",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-091",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un espace partagé pour la famille",
+   "appli": "skidbladnir",
+   "action": "espace",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-092",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "vide la corbeille de mes fichiers partagés",
+   "appli": "skidbladnir",
+   "action": "vider_corbeille",
+   "aussi": [
+    "gefjon"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-026",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "keep my laptop's Projects folder in sync with the server",
+   "appli": "skidbladnir",
+   "action": "synchro",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-008",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "corta el enlace que le mandé a Juan",
+   "appli": "skidbladnir",
+   "action": "couper_lien",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-093",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "télécharge la dernière ubuntu en iso",
+   "appli": "eitri",
+   "action": "telecharger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-094",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "range les iso dans le partage du nas",
+   "appli": "eitri",
+   "action": "dossier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-027",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "check if there's a new Windows 11 ISO",
+   "appli": "eitri",
+   "action": "verifier",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-009",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "behalte nur zwei Versionen von jeder ISO",
+   "appli": "eitri",
+   "action": "garder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-095",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie l'iso de debian aux machines virtuelles",
+   "appli": "eitri",
+   "action": "envoyer_hydre",
+   "aussi": [
+    "ymir"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-096",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tiens à jour l'installateur de VLC et de 7zip",
+   "appli": "fjalar",
+   "action": "suivre",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-097",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les installateurs sont à jour ?",
+   "appli": "fjalar",
+   "action": "verifier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-098",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "récupère l'installateur de firefox pour le dossier des logiciels",
+   "appli": "fjalar",
+   "action": "telecharger",
+   "aussi": [
+    "atalante"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-028",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "limit software installer downloads to 5 MB/s",
+   "appli": "fjalar",
+   "action": "debit",
+   "aussi": [
+    "atalante"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-pt-005",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "quais programas você está acompanhando?",
+   "appli": "fjalar",
+   "action": "surveilles",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-099",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je veux réinstaller windows sur le pc du bureau par le réseau",
+   "appli": "thjalfi",
+   "action": "reinstaller",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-100",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bloque le poste 12, il doit pas s'installer",
+   "appli": "thjalfi",
+   "action": "bloquer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-101",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "débloque le poste 12, il peut s'installer maintenant",
+   "appli": "thjalfi",
+   "action": "debloquer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-029",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "how far along is the install on the new laptops?",
+   "appli": "thjalfi",
+   "action": "suivi",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-009",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pon una contraseña para las instalaciones por red",
+   "appli": "thjalfi",
+   "action": "mot_de_passe",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-102",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prépare une clé usb pour installer en double démarrage",
+   "appli": "thjalfi",
+   "action": null,
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-103",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la tablette au mur de la cuisine doit montrer le tableau de la maison",
+   "appli": "gladsheim",
+   "action": "ouvrir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-104",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "demain, il va pleuvoir ?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "aussi": [
+    "zeus"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-105",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "où est ma fille là ?",
+   "appli": "gladsheim",
+   "action": "positions",
+   "aussi": [
+    "gna"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-030",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add a button on the wall screen to switch off all the lights",
+   "appli": "gladsheim",
+   "action": "bouton",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-it-005",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "fammi vedere la casa dentro Home Assistant",
+   "appli": "gladsheim",
+   "action": "home_assistant",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-106",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "on a déménagé à Lyon, change le lieu",
+   "appli": "gladsheim",
+   "action": "lieu",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-107",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pour dimanche, les prévisions des différentes sources se contredisent ?",
+   "appli": "zeus",
+   "action": "comparer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-108",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qui avait raison hier pour la pluie ?",
+   "appli": "zeus",
+   "action": "bilan",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-031",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "will this winter be colder than usual?",
+   "appli": "zeus",
+   "action": "mois",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-010",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "woher bekommst du eigentlich deine Wetterdaten?",
+   "appli": "zeus",
+   "action": "sources",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-109",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "par où je suis passé samedi dernier ?",
+   "appli": "gna",
+   "action": "trajets",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-110",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête d'enregistrer mes déplacements cette semaine",
+   "appli": "gna",
+   "action": "pause",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-111",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "efface mes trajets d'hier",
+   "appli": "gna",
+   "action": "effacer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-032",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "give me Sunday's drive as a file for my GPS",
+   "appli": "gna",
+   "action": "exporter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-010",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "llama 'el gimnasio' a este sitio",
+   "appli": "gna",
+   "action": "nommer_lieu",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-112",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "passe Odin en mode nuit, tout noir",
+   "appli": "apparence",
+   "action": "theme",
+   "aussi": [
+    "gladsheim"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-113",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cache toi un peu odin tu me déconcentres",
+   "appli": "apparence",
+   "action": "cacher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-033",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what theme is on right now?",
+   "appli": "apparence",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ja-004",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "オーディンの見た目、今どうなってる？",
+   "appli": "apparence",
+   "action": "mascotte",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-114",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi les fêtes de l'année que tu fêtes avec les couleurs ?",
+   "appli": "apparence",
+   "action": "evenements",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-115",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi la commande pour bannir une ip ?",
+   "appli": "commandes",
+   "action": "chercher",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-034",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "list every command you understand",
+   "appli": "commandes",
+   "action": "liste",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-116",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "donne moi la ligne à taper pour lancer une sauvegarde",
+   "appli": "commandes",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-011",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "wie lautet der Befehl, um den DNS zu stoppen?",
+   "appli": "commandes",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-117",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche sur internet les horaires de la déchetterie de ma commune",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-118",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "renseigne toi sur les panneaux solaires pour un toit plat",
+   "appli": "volva",
+   "action": "chercher",
+   "aussi": [
+    "mathesis"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-035",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn off the bing engine in the search",
+   "appli": "volva",
+   "action": "moteur",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-119",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "efface mon historique de recherches",
+   "appli": "volva",
+   "action": "oublier",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-zh-004",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "帮我查一下明天去巴黎的火车时刻",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-003",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "найди в интернете, как пересадить орхидею",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-120",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume le pc de la salle de jeux",
+   "appli": "hermod",
+   "action": "reveiller",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-121",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels pc sont allumés ?",
+   "appli": "hermod",
+   "action": "parc",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-122",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends la main sur l'ordi de papa, il galère",
+   "appli": "hermod",
+   "action": "bureau",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-036",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "restart the reception computer",
+   "appli": "hermod",
+   "action": "redemarrer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-011",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "instala la copia de seguridad en el portátil de Marta",
+   "appli": "hermod",
+   "action": "phenix_installer",
+   "aussi": [
+    "sindri"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-123",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "installe le compagnon sur le portable de Léa",
+   "appli": "hermod",
+   "action": "compagnon_installer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-124",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "branche le serveur MCP de mon gestionnaire de tâches",
+   "appli": "ratatoskr",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-125",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels outils il propose le serveur mcp de github ?",
+   "appli": "ratatoskr",
+   "action": "outils",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-037",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "reconnect the MCP server, it dropped",
+   "appli": "ratatoskr",
+   "action": "reconnecter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-126",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "débranche ce serveur mcp, je ne m'en sers plus",
+   "appli": "ratatoskr",
+   "action": "retirer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-127",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume la prise du sapin",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-128",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre l'appairage zigbee, je branche une nouvelle prise",
+   "appli": "appareils",
+   "action": "appairer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-129",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "renomme la lampe en 'lampe de chevet' et mets-la dans la chambre",
+   "appli": "appareils",
+   "action": "ranger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-038",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "list every device in the house",
+   "appli": "appareils",
+   "action": "lister",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-pt-006",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "desliga a luz do quarto das crianças",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-130",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "flashe ma nouvelle prise ESP",
+   "appli": "brokkr",
+   "action": "preparer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-131",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "trouve les modules connectés qui traînent sur le réseau",
+   "appli": "brokkr",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-039",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "update the firmware on the smart plugs",
+   "appli": "brokkr",
+   "action": "mettre_a_jour",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-132",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "branche ce module sur odin",
+   "appli": "brokkr",
+   "action": "brancher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-133",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "déclenche la scène lecture du soir",
+   "appli": "midgard",
+   "action": "scene",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-134",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai froid",
+   "appli": "midgard",
+   "action": "commander",
+   "aussi": [
+    "appareils"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-135",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée une scène 'dodo' qui éteint tout sauf la veilleuse",
+   "appli": "midgard",
+   "action": "creer_scene",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-040",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "connect my Hue bridge",
+   "appli": "midgard",
+   "action": "pont",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ru-004",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "что сейчас включено дома?",
+   "appli": "midgard",
+   "action": "maison",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-003",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "बहुत गर्मी है",
+   "appli": "midgard",
+   "action": "commander",
+   "aussi": [
+    "appareils"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-136",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends une photo de l'entrée",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-137",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre la caméra du garage pendant 10 min",
+   "appli": "himinbjorg",
+   "action": "enregistrer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-041",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add the new doorbell camera",
+   "appli": "himinbjorg",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-hi-004",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "कैमरों की सूची दिखाओ",
+   "appli": "himinbjorg",
+   "action": "cameras",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-138",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "détecte les mouvements seulement la nuit sur la caméra du jardin",
+   "appli": "himinbjorg",
+   "action": "reglages",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-139",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais savoir à tout le monde, sur les enceintes, qu'on passe à table",
+   "appli": "bragi",
+   "action": "annoncer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-140",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "t'as quelles voix ?",
+   "appli": "bragi",
+   "action": "voix",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-042",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "you keep hearing 'lamp' when I say 'lump', learn it",
+   "appli": "bragi",
+   "action": "mot_entendu",
+   "aussi": [
+    "syrinx"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-141",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lis à voix haute les alertes importantes",
+   "appli": "bragi",
+   "action": "gjallarhorn",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ar-004",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "قل مرحبا لجدتي بصوت عال",
+   "appli": "bragi",
+   "action": "dire",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-142",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets le dernier épisode de la série sur la télé du salon",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-143",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "y a quoi d'intéressant sur les chaînes après 21h ?",
+   "appli": "freyja",
+   "action": "programme",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-144",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre le match de dimanche",
+   "appli": "freyja",
+   "action": "enregistrer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-043",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add this book to my reading list",
+   "appli": "freyja",
+   "action": "livre_ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-012",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿hay películas nuevas?",
+   "appli": "freyja",
+   "action": "nouveautes",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-007",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "procura esse filme dublado em francês",
+   "appli": "freyja",
+   "action": "chercher_vf",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-004",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "안방 텔레비전으로 드라마 보여 줘",
+   "appli": "freyja",
+   "action": "regarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-145",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets un peu de jazz",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-146",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe la musique",
+   "appli": "aegir",
+   "action": "stop",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-044",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add the FIP radio station",
+   "appli": "aegir",
+   "action": "radio",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-147",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais une playlist pour courir",
+   "appli": "aegir",
+   "action": "liste",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-tr-005",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "müzik klasörümü de ekle",
+   "appli": "aegir",
+   "action": "dossier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ja-005",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "なんか落ち着く曲かけて",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-148",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mes rendez-vous des sept prochains jours ?",
+   "appli": "frigg",
+   "action": "agenda",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-149",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets mme Martin mardi 10h pour une coupe",
+   "appli": "frigg",
+   "action": "reserver",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-150",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le rdv de 15h saute, enlève-le",
+   "appli": "frigg",
+   "action": "annuler",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-045",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "do I have an open slot Thursday afternoon?",
+   "appli": "frigg",
+   "action": "creneaux",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-012",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "ich biete jetzt auch Massagen an, 60 Minuten, 50 Euro",
+   "appli": "frigg",
+   "action": "prestation",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-151",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "note mon rdv chez le dentiste jeudi 9h",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "aussi": [
+    "saga"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-152",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ce projet github.com/example/outil, tu crois qu'on pourrait s'en inspirer ?",
+   "appli": "kvasir",
+   "action": "etudier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-153",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quoi de neuf chez les logiciels dont tu t'inspires ?",
+   "appli": "kvasir",
+   "action": "verifier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-046",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "follow this repo for new releases",
+   "appli": "kvasir",
+   "action": "suivre",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-154",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre le carnet de travail de la veille",
+   "appli": "kvasir",
+   "action": "carnet",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-155",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais-moi un tableau de bord avec la température des disques et la charge",
+   "appli": "syn",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-156",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute une courbe du débit internet à mon tableau de bord",
+   "appli": "syn",
+   "action": "panneau",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-047",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what metrics can I graph?",
+   "appli": "syn",
+   "action": "mesures_connues",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-013",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "muéstrame mi panel principal",
+   "appli": "syn",
+   "action": "voir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-157",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "convertis ce .heic en jpg",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-158",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "colle ensemble les deux scans en un seul fichier pdf",
+   "appli": "dvalinn",
+   "action": "pdf",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-048",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "convert all the videos in that folder to h265",
+   "appli": "dvalinn",
+   "action": "lot_videos",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-159",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "transforme ce fichier word en pdf",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "aussi": [
+    "snotra"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-013",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "Base64 dekodieren: SGFsbG8=",
+   "appli": "dvalinn",
+   "action": "outil",
+   "aussi": [
+    "achille"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-160",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lis le texte sur cette photo de ticket",
+   "appli": "champollion",
+   "action": "lire",
+   "aussi": [
+    "theia"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-161",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rends ce pdf scanné cherchable",
+   "appli": "champollion",
+   "action": "pdf_cherchable",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-162",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "trouve la date et le montant dans ce courrier scanné",
+   "appli": "champollion",
+   "action": "lire",
+   "aussi": [
+    "theia"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-049",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "save what you just read into my notes",
+   "appli": "champollion",
+   "action": "garder",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ar-005",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "اقرأ هذه الفاتورة الممسوحة",
+   "appli": "champollion",
+   "action": "lire",
+   "aussi": [
+    "theia"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-163",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche 'out of memory' dans les logs d'hier",
+   "appli": "mimisbrunnr",
+   "action": "chercher",
+   "aussi": [
+    "forseti"
+   ],
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-164",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels messages reviennent en boucle dans les journaux ?",
+   "appli": "mimisbrunnr",
+   "action": "repetes",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-050",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "ping me if 'disk failure' keeps coming back in the system logs",
+   "appli": "mimisbrunnr",
+   "action": "regle",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-165",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute le log de nginx aux journaux que tu lis",
+   "appli": "mimisbrunnr",
+   "action": "fichier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-166",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mon disque est plein, fais le ménage",
+   "appli": "gefjon",
+   "action": "nettoyer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-167",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est-ce qui pèse le plus lourd dans mon dossier perso ?",
+   "appli": "gefjon",
+   "action": "gros_fichiers",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-168",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le pc met trois plombes à démarrer",
+   "appli": "gefjon",
+   "action": "demarrage",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-051",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "uninstall that toolbar thing",
+   "appli": "gefjon",
+   "action": "desinstaller",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ru-005",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "что занимает место на диске?",
+   "appli": "gefjon",
+   "action": "carte",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-169",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve les photos de la plage de 2023",
+   "appli": "sol",
+   "action": "chercher",
+   "aussi": [
+    "theia"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-170",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un album avec les photos de l'anniversaire de Nina",
+   "appli": "sol",
+   "action": "album",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-171",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai plein de photos en double",
+   "appli": "sol",
+   "action": "doublons",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-052",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add my phone backup folder to the photo library",
+   "appli": "sol",
+   "action": "dossier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ko-005",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "사진 날짜별로 정리해줘",
+   "appli": "sol",
+   "action": "indexer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-172",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les disques sont pleins à combien ?",
+   "appli": "fensalir",
+   "action": "disques",
+   "aussi": [
+    "gefjon"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-173",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "partage le dossier Films sur le réseau",
+   "appli": "fensalir",
+   "action": "ajouter_partage",
+   "aussi": [
+    "skidbladnir"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-053",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "list the network shares",
+   "appli": "fensalir",
+   "action": "partages",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-174",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête de partager le dossier compta sur le réseau",
+   "appli": "fensalir",
+   "action": "retirer_partage",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-175",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre le port 25565 pour le serveur minecraft",
+   "appli": "hlid",
+   "action": "ouvrir_port",
+   "aussi": [
+    "garmr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-176",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels ports sont ouverts sur la box ?",
+   "appli": "hlid",
+   "action": "box",
+   "aussi": [
+    "gjoll"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-177",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le pare-feu est activé ?",
+   "appli": "hlid",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-054",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "shut 8080 on the firewall, nothing should reach it",
+   "appli": "hlid",
+   "action": "fermer_port",
+   "aussi": [
+    "garmr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-014",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "activa el firewall de este equipo",
+   "appli": "hlid",
+   "action": "allumer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-178",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "où en sont mes dépôts git, des trucs pas commités ?",
+   "appli": "ivaldi",
+   "action": "depots",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-179",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "clone le projet github.com/example/outil",
+   "appli": "ivaldi",
+   "action": "cloner",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-055",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "pull the latest changes on all my repos",
+   "appli": "ivaldi",
+   "action": "mettre_a_jour",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-180",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre un terminal dans le projet du site",
+   "appli": "ivaldi",
+   "action": "ouvrir_terminal",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ja-006",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "最近のコミットを見せて",
+   "appli": "ivaldi",
+   "action": "journal",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-181",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe internet aux enfants, on passe à table",
+   "appli": "heidrun",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-182",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rends internet aux enfants",
+   "appli": "heidrun",
+   "action": "reprendre",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-183",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un profil pour Sami, 9 ans, avec sa tablette",
+   "appli": "heidrun",
+   "action": "profil",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-056",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what did the kids do online today?",
+   "appli": "heidrun",
+   "action": "rapport",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-015",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "a las 21h se acaba internet para el peque",
+   "appli": "heidrun",
+   "action": "profil",
+   "aussi": [
+    "vidarr"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-184",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance mario kart sur la télé",
+   "appli": "leikvangr",
+   "action": "lancer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-185",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "range mes roms par console",
+   "appli": "leikvangr",
+   "action": "ranger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-057",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "mark Zelda as a favourite",
+   "appli": "leikvangr",
+   "action": "favori",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-186",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "à quoi j'ai joué récemment ?",
+   "appli": "leikvangr",
+   "action": "jeux",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-it-006",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "prepara le playlist per RetroArch",
+   "appli": "leikvangr",
+   "action": "listes_retroarch",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-187",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rédige un courrier pour arrêter mon forfait de téléphone",
+   "appli": "snotra",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-188",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un tableur pour les dépenses du mois",
+   "appli": "snotra",
+   "action": "tableur",
+   "aussi": [
+    "runes"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-189",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "relis ce paragraphe et enlève les fautes d'orthographe",
+   "appli": "snotra",
+   "action": "corriger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-058",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "find the document where I wrote about the lease",
+   "appli": "snotra",
+   "action": "chercher",
+   "aussi": [
+    "saga"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-it-007",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "fammi uno schema della mia rete",
+   "appli": "snotra",
+   "action": "schema_reseau",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-190",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est ce qu'on trouve sur moi sur internet ?",
+   "appli": "hlin",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-191",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "comment je fais retirer mon numéro de cet annuaire en ligne ?",
+   "appli": "hlin",
+   "action": "resultat",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-192",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prépare une lettre pour qu'ils effacent mes données",
+   "appli": "hlin",
+   "action": "lettre",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-059",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "where do my removal requests stand?",
+   "appli": "hlin",
+   "action": "demandes",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-016",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "mi foto sale en una web rara, analízala",
+   "appli": "hlin",
+   "action": "resultat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-193",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les secteurs défectueux augmentent sur mon disque, il est fichu ?",
+   "appli": "durinn",
+   "action": "sante",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-194",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance un benchmark sur le nvme",
+   "appli": "durinn",
+   "action": "banc",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-060",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "dump every SMART attribute for sda",
+   "appli": "durinn",
+   "action": "smart",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-195",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "préviens moi si le nvme dépasse 70 degrés",
+   "appli": "durinn",
+   "action": "seuils",
+   "aussi": [
+    "eir",
+    "vordr"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ja-007",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "ディスクの温度を教えて",
+   "appli": "durinn",
+   "action": "sante",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-196",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai fait une fausse manip et formaté la carte de l'appareil photo, on peut sauver les images ?",
+   "appli": "hel",
+   "action": "recuperer",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-197",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la clé usb apparaît comme non initialisée, retrouve la partition",
+   "appli": "hel",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-061",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "stop the file recovery",
+   "appli": "hel",
+   "action": "arreter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-014",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "was hast du wiederhergestellt?",
+   "appli": "hel",
+   "action": "resultats",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-198",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'ai vidé la corbeille sans faire exprès, y avait mon mémoire dedans",
+   "appli": "hel",
+   "action": "recuperer",
+   "aussi": [
+    "sindri"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-199",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'était quoi le site de recettes que j'ai visité mardi ?",
+   "appli": "pegase",
+   "action": "historique",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-200",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retire mon ancien téléphone du navigateur synchronisé",
+   "appli": "pegase",
+   "action": "revoquer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-062",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "make a copy of my browser data now",
+   "appli": "pegase",
+   "action": "copier",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-201",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est-ce que tu vois de ma navigation ?",
+   "appli": "pegase",
+   "action": "voir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-202",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "propose libreoffice à toute la famille dans le store",
+   "appli": "agora",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-203",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets Lina dans le groupe des ados pour qu'elle ait leurs applis",
+   "appli": "agora",
+   "action": "ajouter_personne",
+   "aussi": [
+    "var"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-063",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what's in the app store catalog?",
+   "appli": "agora",
+   "action": "catalogue",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-204",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "force l'installation de firefox sur la tablette de Nour",
+   "appli": "agora",
+   "action": "forcer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-205",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche les failles sur mon blog, c'est le mien",
+   "appli": "achille",
+   "action": "controle_passif",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-206",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rejoue cette requête avec un autre cookie",
+   "appli": "achille",
+   "action": "rejouer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-064",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "decode this URL-encoded string: caf%C3%A9",
+   "appli": "achille",
+   "action": "decoder",
+   "aussi": [
+    "dvalinn"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-207",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "démarre le proxy d'essai pour que j'intercepte mon appli",
+   "appli": "achille",
+   "action": "allumer_proxy",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-015",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "meine Domain ist beispiel.example, die darfst du testen",
+   "appli": "achille",
+   "action": "declarer_domaine",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-208",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute https://example.org/gros.zip à la file",
+   "appli": "atalante",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-209",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "je joue en ligne, stoppe les téléchargements le temps de la partie",
+   "appli": "atalante",
+   "action": "pause",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-065",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "only download big stuff at night",
+   "appli": "atalante",
+   "action": "plage",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-210",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "limite les téléchargements à 2 Mo/s",
+   "appli": "atalante",
+   "action": "vitesse",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-zh-005",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "下载列表给我看看",
+   "appli": "atalante",
+   "action": "file",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-211",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie un GET sur mon api /health et vérifie que ça renvoie 200",
+   "appli": "dodone",
+   "action": "envoyer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-212",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "importe ma collection postman",
+   "appli": "dodone",
+   "action": "importer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-066",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "schedule my API checks to run hourly",
+   "appli": "dodone",
+   "action": "programmer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-213",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "garde ce jeton d'API pour mes requêtes de test",
+   "appli": "dodone",
+   "action": "secret",
+   "aussi": [
+    "brisingamen"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-214",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est ce qu'il y a sur cette image ?",
+   "appli": "theia",
+   "action": "voir",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-215",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve la photo où on voit un chat sur un canapé rouge",
+   "appli": "theia",
+   "action": "retrouver",
+   "aussi": [
+    "sol"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-067",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "read this scanned contract for me",
+   "appli": "theia",
+   "action": "lire_document",
+   "aussi": [
+    "champollion"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ru-006",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "что на этой картинке?",
+   "appli": "theia",
+   "action": "voir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-216",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "dans le fichier audio, à 2 minutes, c'est quel bruit ?",
+   "appli": "syrinx",
+   "action": "ecouter",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-217",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quelle musique ça ?",
+   "appli": "syrinx",
+   "action": "musique",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-068",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "did the garage camera clip pick up glass breaking?",
+   "appli": "syrinx",
+   "action": "ecouter_clip",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-218",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "oublie les vieux sons enregistrés",
+   "appli": "syrinx",
+   "action": "purger",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-219",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "apprends tout ce que tu peux sur la permaculture",
+   "appli": "mathesis",
+   "action": "confier",
+   "aussi": [
+    "volva"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-220",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe ton auto-apprentissage pour l'instant",
+   "appli": "mathesis",
+   "action": "couper",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-221",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tu peux lire mon dossier Recettes pour en apprendre ?",
+   "appli": "mathesis",
+   "action": "ouvrir_dossier",
+   "aussi": [
+    "champollion"
+   ],
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-069",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "never learn anything about my ex",
+   "appli": "mathesis",
+   "action": "interdire",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-017",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "absorbe esa web de jardinería entera",
+   "appli": "mathesis",
+   "action": "absorber",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-222",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tu prévois quoi pour moi demain ?",
+   "appli": "pronoia",
+   "action": "previsions",
+   "sorte": "piege",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-223",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tes pressentiments, ils tombent juste souvent ?",
+   "appli": "pronoia",
+   "action": "bilan",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-070",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "stop guessing what I'm going to do",
+   "appli": "pronoia",
+   "action": "couper",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-224",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "oublie toutes tes prédictions",
+   "appli": "pronoia",
+   "action": "effacer",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-225",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute le numéro de ma femme à ceux qui peuvent te parler par message",
+   "appli": "keryx",
+   "action": "ajouter_numero",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-226",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "change le code secret pour te joindre de dehors",
+   "appli": "keryx",
+   "action": "code_secret",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-071",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show what you did from my text messages",
+   "appli": "keryx",
+   "action": "historique",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-227",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retire le numéro de mon ancien boulot de la liste",
+   "appli": "keryx",
+   "action": "retirer_numero",
+   "sorte": "directe",
+   "aRelire": false
+  },
+  {
+   "id": "dev-ar-006",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "هل هناك برنامج يتصرف بشكل غريب على جهازي؟",
+   "appli": "skogul",
+   "action": "analyser",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ar-007",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "نبهني إذا توقف موقعي عن العمل",
+   "appli": "vordr",
+   "action": "ajouter",
+   "aussi": [
+    "idunn"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ar-008",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "عندي صور مكررة كثيرة، نظفها",
+   "appli": "sol",
+   "action": "doublons",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ar-009",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "ما هي مواعيدي غدا؟",
+   "appli": "frigg",
+   "action": "agenda",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ar-010",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أوقف الإنترنت عن الأولاد حالا",
+   "appli": "heidrun",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ar-011",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "القرص ممتلئ، نظف الملفات المؤقتة",
+   "appli": "gefjon",
+   "action": "nettoyer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ar-012",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أنشئ حسابا لأخي",
+   "appli": "var",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ar-013",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "شغل لي موسيقى هادئة",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-005",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "गुरुवार को मेरे पास खाली समय कब है?",
+   "appli": "frigg",
+   "action": "creneaux",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-006",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "बैठक की बत्ती बंद कर दो",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-007",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "कल मैं कहाँ कहाँ गया था?",
+   "appli": "gna",
+   "action": "trajets",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-008",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "मेरा नेटफ्लिक्स का पासवर्ड क्या है?",
+   "appli": "brisingamen",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-009",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "मेरी फाइलों का अभी बैकअप लो",
+   "appli": "sindri",
+   "action": "sauvegarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-010",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "मेरी हार्ड डिस्क ठीक है क्या?",
+   "appli": "durinn",
+   "action": "sante",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-011",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "इंटरनेट पर खोजो कि तुलसी के पौधे को कितना पानी चाहिए",
+   "appli": "volva",
+   "action": "chercher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-012",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "इस वीडियो को mp3 में बदल दो",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-006",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "把这个一直尝试登录的IP封掉",
+   "appli": "garmr",
+   "action": "bannir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-007",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "生成一个分享链接，让我朋友下载这些照片",
+   "appli": "skidbladnir",
+   "action": "lien",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-008",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "用门口的摄像头拍张照片",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-009",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "下周三下午三点我要去看牙医，记下来",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "aussi": [
+    "saga"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-010",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "把我的新手机加到VPN里",
+   "appli": "gjoll",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-011",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "新客户王女士，帮我建个档案",
+   "appli": "runes",
+   "action": "client",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-012",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "我的git仓库有没有还没提交的改动？",
+   "appli": "ivaldi",
+   "action": "depots",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-013",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "允许我妈妈的号码给你发消息",
+   "appli": "keryx",
+   "action": "ajouter_numero",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-007",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "заблокируй этот рекламный сайт",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-008",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "найди фотографии с моря прошлым летом",
+   "appli": "sol",
+   "action": "chercher",
+   "aussi": [
+    "theia"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-009",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "включи компьютер в детской",
+   "appli": "hermod",
+   "action": "reveiller",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-010",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "запусти марио на телевизоре",
+   "appli": "leikvangr",
+   "action": "lancer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-011",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "проверь этот файл на вирусы",
+   "appli": "ullr",
+   "action": "fichier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-012",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "что сегодня вечером по телевизору?",
+   "appli": "freyja",
+   "action": "programme",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-013",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "объяви всем, что ужин готов",
+   "appli": "bragi",
+   "action": "annoncer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-014",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "сделай гостевой вайфай",
+   "appli": "svalinn",
+   "action": "invites",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-006",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "내일 오후 3시 약속 취소해줘",
+   "appli": "frigg",
+   "action": "annuler",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-007",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "애들이 오늘 인터넷에서 뭐 했어?",
+   "appli": "heidrun",
+   "action": "rapport",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-008",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "새 PostgreSQL 데이터베이스 만들어줘",
+   "appli": "urdr",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-009",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "서버 상태 어때?",
+   "appli": "eir",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-010",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "내일 날씨 어때?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "aussi": [
+    "zeus"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-011",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "내일 내가 뭐 할 것 같아?",
+   "appli": "pronoia",
+   "action": "previsions",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-012",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "헬스장 해지 편지 써줘",
+   "appli": "snotra",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ja-008",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "広告ブロックを10分だけ止めて",
+   "appli": "vidarr",
+   "action": "pause",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ja-009",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "マイクラ用にポート25565を開けて",
+   "appli": "hlid",
+   "action": "ouvrir_port",
+   "aussi": [
+    "garmr"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ja-010",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "昨日のログで「エラー」を探して",
+   "appli": "mimisbrunnr",
+   "action": "chercher",
+   "aussi": [
+    "forseti"
+   ],
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ja-011",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "一番大きいファイルはどれ？",
+   "appli": "gefjon",
+   "action": "gros_fichiers",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ja-012",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "SDカードを間違えてフォーマットしちゃった、写真を取り戻して",
+   "appli": "hel",
+   "action": "recuperer",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ja-013",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "妹がパスワードを忘れた",
+   "appli": "var",
+   "action": "mot_de_passe",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ja-014",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "このファイルをダウンロードして https://example.org/a.zip",
+   "appli": "atalante",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-008",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "alguém caiu nas armadilhas esta noite?",
+   "appli": "loki",
+   "action": "activite",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-009",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "o pc demora uma eternidade pra ligar",
+   "appli": "gefjon",
+   "action": "demarrage",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-010",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "grava a câmera da garagem por dez minutos",
+   "appli": "himinbjorg",
+   "action": "enregistrer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-011",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "quero acessar o odin de fora sem abrir porta no roteador",
+   "appli": "bru",
+   "action": "publier_odin",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-012",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "as previsões do tempo batem pro fim de semana?",
+   "appli": "zeus",
+   "action": "comparer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-013",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "cria um painel com a temperatura dos discos",
+   "appli": "syn",
+   "action": "creer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-014",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "o que tem nessa imagem?",
+   "appli": "theia",
+   "action": "voir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-015",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "lista todos os comandos que você entende",
+   "appli": "commandes",
+   "action": "liste",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-it-008",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "guarda questo repository e dimmi se ci serve: github.com/example/x",
+   "appli": "kvasir",
+   "action": "etudier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-it-009",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "collega il server MCP del mio calendario",
+   "appli": "ratatoskr",
+   "action": "ajouter",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-it-010",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "prepara la nuova presa ESP",
+   "appli": "brokkr",
+   "action": "preparer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-it-011",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "che cartelle ho messo in condivisione?",
+   "appli": "fensalir",
+   "action": "partages",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-it-012",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "che canzone è questa?",
+   "appli": "syrinx",
+   "action": "musique",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-it-013",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "smetti di imparare da solo",
+   "appli": "mathesis",
+   "action": "couper",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-it-014",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "manda una richiesta GET alla mia api e controlla la risposta",
+   "appli": "dodone",
+   "action": "envoyer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-it-015",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "che sito di ricette ho visitato martedì?",
+   "appli": "pegase",
+   "action": "historique",
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-006",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "mağazada hangi uygulamalar var?",
+   "appli": "agora",
+   "action": "catalogue",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-007",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "kendi sitemin güvenliğini test et",
+   "appli": "achille",
+   "action": "controle_passif",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-008",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "siteyi son kodla yeniden yayınla",
+   "appli": "idunn",
+   "action": "deployer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-009",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "son ubuntu iso'sunu indir",
+   "appli": "eitri",
+   "action": "telecharger",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-010",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "kurulum dosyaları güncel mi?",
+   "appli": "fjalar",
+   "action": "verifier",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-011",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "ofisteki bilgisayara ağ üzerinden windows'u yeniden kur",
+   "appli": "thjalfi",
+   "action": "reinstaller",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-012",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "bu fiş fotoğrafındaki yazıyı oku",
+   "appli": "champollion",
+   "action": "lire",
+   "aussi": [
+    "theia"
+   ],
+   "sorte": "piege",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-013",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "veritabanı konteynerinin loglarını göster",
+   "appli": "naglfar",
+   "action": "journaux",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-es-018",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿alguna alerta de seguridad hoy?",
+   "appli": "forseti",
+   "action": "alertes",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-es-019",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿qué equipos tuvieron incidentes esta semana?",
+   "appli": "argos",
+   "action": "incidents",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-es-020",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "renueva el certificado de la web de fotos",
+   "appli": "valgrind",
+   "action": "certificat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-es-021",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿qué sale de mí en internet?",
+   "appli": "hlin",
+   "action": "etat",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-es-022",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "explícame qué está pasando en la red ahora mismo",
+   "appli": "ran",
+   "action": "expliquer",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-de-016",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "sichere jetzt alle Datenbanken",
+   "appli": "skuld",
+   "action": "sauvegarder",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-de-017",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "meine Schwiegermutter spricht nur Japanisch, übersetz unser Gespräch",
+   "appli": "rodd",
+   "action": "ouvrir",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-de-018",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "ändere den Geheimcode für Nachrichten von unterwegs",
+   "appli": "keryx",
+   "action": "code_secret",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-de-019",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "wie oft liegen deine Vorhersagen richtig?",
+   "appli": "pronoia",
+   "action": "bilan",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-de-020",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "versteck dich mal kurz, Odin",
+   "appli": "apparence",
+   "action": "cacher",
+   "sorte": "directe",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-228",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais-moi livrer des sushis ce soir",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-229",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends-moi deux places de cinéma pour samedi",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-230",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "vire 50 balles sur le compte de mon frère",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-231",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "téléphone à l'électricien pour qu'il passe demain",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-232",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sors les poubelles",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-233",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "passe une commande de litière pour le chat",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-234",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "commande un vtc pour 18h",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-235",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "poste cette photo sur mon insta",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-236",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "imprime le contrat en deux exemplaires",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-237",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie un texto à Mehdi pour lui dire que j'arrive",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-238",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "démarre la voiture pour la chauffer",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-239",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "paye la facture de cantine",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-072",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "order some flowers for mom's birthday",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-073",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "book a table for two at an italian place tonight",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-074",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "pay my electricity bill",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-023",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pídeme un taxi al aeropuerto",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-es-024",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "cómprame entradas para el concierto",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-de-021",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "bestell mir neue Druckerpatronen",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-de-022",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "überweise die Miete an den Vermieter",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-it-016",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "prenotami un volo per Roma",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-pt-016",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "faz o check-in do meu voo",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ar-014",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "اطلب لي طعاما من المطعم",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ru-015",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "купи мне билеты в кино",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-zh-014",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "帮我叫个外卖",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ja-015",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "タクシーを呼んで",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-hi-013",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "मेरे लिए पिज़्ज़ा ऑर्डर करो",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-ko-013",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "엄마한테 전화 걸어줘",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-014",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "bana uçak bileti al",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-240",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "promène le chien",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-241",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et dimanche ?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "aussi": [
+    "zeus"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "il fait quel temps demain ?",
+    "appli": "gladsheim",
+    "actionPrecedente": "meteo"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-242",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "annule ça finalement",
+   "appli": "vidarr",
+   "action": "autoriser",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "bloque le site jeuxenligne.example",
+    "appli": "vidarr",
+    "actionPrecedente": "bloquer"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-243",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "non, mets plutôt du rock",
+   "appli": "aegir",
+   "action": "jouer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "mets un peu de jazz",
+    "appli": "aegir",
+    "actionPrecedente": "jouer"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-244",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pareil pour celle du couloir",
+   "appli": "appareils",
+   "action": "commander",
+   "aussi": [
+    "midgard"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "allume la lampe du salon",
+    "appli": "appareils",
+    "actionPrecedente": "commander"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-245",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "annule celui de 14h",
+   "appli": "frigg",
+   "action": "annuler",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "j'ai quoi comme rdv demain ?",
+    "appli": "frigg",
+    "actionPrecedente": "agenda"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-246",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets ce qu'il a trouvé en quarantaine",
+   "appli": "ullr",
+   "action": "isoler",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "scanne la clé usb",
+    "appli": "ullr",
+    "actionPrecedente": "analyser"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-075",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "take a picture with the second one",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "show me the cameras",
+    "appli": "himinbjorg",
+    "actionPrecedente": "cameras"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-247",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tue-le",
+   "appli": "eir",
+   "action": "arreter_processus",
+   "aussi": [
+    "skogul",
+    "argos"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "qu'est-ce qui bouffe le processeur ?",
+    "appli": "eir",
+    "actionPrecedente": "processus"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-248",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "efface-les",
+   "appli": "gna",
+   "action": "effacer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "mes trajets de samedi",
+    "appli": "gna",
+    "actionPrecedente": "trajets"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-025",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "y arráncala",
+   "appli": "ymir",
+   "action": "demarrer_machine",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "crea una VM debian con 4 GB",
+    "appli": "ymir",
+    "actionPrecedente": "creer_machine"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-249",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ferme le 8080",
+   "appli": "hlid",
+   "action": "fermer_box",
+   "aussi": [
+    "gjoll"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "quels ports sont ouverts sur la box ?",
+    "appli": "hlid",
+    "actionPrecedente": "box"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-de-023",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "pausier den ersten",
+   "appli": "atalante",
+   "action": "pause",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "zeig mir die Downloads",
+    "appli": "atalante",
+    "actionPrecedente": "file"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-250",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "non c'était la sonnette",
+   "appli": "syrinx",
+   "action": "corriger",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "c'est quoi ce bruit ?",
+    "appli": "syrinx",
+    "actionPrecedente": "ecouter"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-251",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est un renard, pas un chien",
+   "appli": "theia",
+   "action": "corriger",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "qu'est ce qu'il y a sur l'image ?",
+    "appli": "theia",
+    "actionPrecedente": "voir"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-252",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "j'en suis à la page 212",
+   "appli": "freyja",
+   "action": "livre_position",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "ajoute Dune à mes livres",
+    "appli": "freyja",
+    "actionPrecedente": "livre_ajouter"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-076",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "unban the second one",
+   "appli": "garmr",
+   "action": "debannir",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "who's banned?",
+    "appli": "garmr",
+    "actionPrecedente": "bannis"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-253",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et le qr code",
+   "appli": "svalinn",
+   "action": "qr_invites",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "prépare un wifi invités",
+    "appli": "svalinn",
+    "actionPrecedente": "invites"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-it-017",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "e controlla che sia andato bene",
+   "appli": "sindri",
+   "action": "verifier",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "fai un backup dei documenti adesso",
+    "appli": "sindri",
+    "actionPrecedente": "sauvegarder"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-254",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est bon, remets-le",
+   "appli": "heidrun",
+   "action": "reprendre",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "coupe internet aux enfants",
+    "appli": "heidrun",
+    "actionPrecedente": "pause"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-ja-016",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "nextcloudのログ見せて",
+   "appli": "naglfar",
+   "action": "journaux",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "コンテナ一覧",
+    "appli": "naglfar",
+    "actionPrecedente": "lister"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-255",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "non, un plus clair",
+   "appli": "apparence",
+   "action": "theme",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "mets un thème sombre",
+    "appli": "apparence",
+    "actionPrecedente": "theme"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-256",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais-en un album",
+   "appli": "sol",
+   "action": "album",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "cherche les photos de la plage",
+    "appli": "sol",
+    "actionPrecedente": "chercher"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-pt-017",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "roda o segundo",
+   "appli": "archytas",
+   "action": "lancer",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "lista meus scripts",
+    "appli": "archytas",
+    "actionPrecedente": "mes_scripts"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "dev-en-077",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "now show me the QR",
+   "appli": "gjoll",
+   "action": "qr",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "add my phone to the vpn",
+    "appli": "gjoll",
+    "actionPrecedente": "ajouter"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-fr-257",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "en fait non, rallume tout",
+   "appli": "midgard",
+   "action": null,
+   "aussi": [
+    "appareils"
+   ],
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "lance la scène cinéma",
+    "appli": "midgard",
+    "actionPrecedente": "scene"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "dev-ko-014",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "이제 꺼줘",
+   "appli": "aegir",
+   "action": "stop",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "재즈 틀어줘",
+    "appli": "aegir",
+    "actionPrecedente": "jouer"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "dev-tr-015",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "tamam, geri aç",
+   "appli": "vidarr",
+   "action": "retablir_machine",
+   "sorte": "relance",
+   "contexte": {
+    "precedent": "salondaki televizyonun internetini kes",
+    "appli": "vidarr",
+    "actionPrecedente": "couper_machine"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "dev-fr-258",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "commande une batterie neuve pour l'onduleur",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-en-078",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "replace the broken fan in the server",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "dev-es-026",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "paga el recibo del agua de este mes",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "dev-de-024",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "druck mir die Rechnung zweimal aus",
+   "appli": null,
+   "action": null,
+   "sorte": "hors-champ",
+   "aRelire": true
+  }
+ ]
+}
