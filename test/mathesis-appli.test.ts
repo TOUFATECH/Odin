@@ -132,12 +132,12 @@ test('mode privé : rien n\'est cherché, confié ni corrigé', async () => {
   v.stop();
 });
 
-test('la page : 4 onglets, textes honnêtes, heures locales, adresses raccourcies par le milieu, tableaux de budgets avec unités, aucune barre', async () => {
+test('la page : 4 onglets (les interdits sont dans « Réglages »), textes honnêtes, heures locales, adresses raccourcies par le milieu, tableaux de budgets avec unités, aucune barre', async () => {
   const { v, page, ctx, mod } = monter();
   await v.act('mathesis', 'confier', { quoi: LONGUE });
   await v.act('mathesis', 'interdire', { genre: 'site', valeur: 'interdit.exemple.fr' });
   const p = await page();
-  assert.deepEqual(p.onglets, ['Appris', 'Sujets', 'Interdits', 'Réglages']);
+  assert.deepEqual(p.onglets, ['Appris', 'Sites', 'Sujets', 'Réglages']);
   const txt = JSON.stringify(p);
   assert.match(txt, /pas encore essayé sur le vrai web/);
   assert.match(txt, /vidéos, la musique et les images ne sont pas encore regardées/);
@@ -174,5 +174,19 @@ test('ouvrir un dossier demande un chemin complet existant ; fermer est un clic'
   const r3 = await v.act('mathesis', 'fermer_dossier', { chemin: d }, { auto: true });
   assert.equal(r3.ok, true);
   assert.match(JSON.stringify(await page()), /Aucun dossier ouvert/);
+  v.stop();
+});
+
+test('la page montre les recherches faites et les sites visités (dernière visite, prochaine, état, appris)', async () => {
+  const { v, page } = monter();
+  await v.act('mathesis', 'confier', { quoi: 'Piton de la Fournaise' });
+  await v.act('mathesis', 'tour', {});
+  const p = await page();
+  const r = p.sections.find((x) => x.kind === 'table' && x.title.startsWith('Recherches faites'));
+  const s = p.sections.find((x) => x.kind === 'table' && x.title.startsWith('Sites visités'));
+  assert.ok(r && r.kind === 'table' && r.rows.length >= 1, 'les recherches sont listées');
+  assert.ok(s && s.kind === 'table' && s.rows.length >= 2, 'les sites visités sont listés');
+  assert.ok(s.kind === 'table' && s.rows.some((row) => /^nouveau · \d+ appris$/.test(row.cells[3])), JSON.stringify(s.kind === 'table' ? s.rows.map((x) => x.cells) : []));
+  assert.ok(s.kind === 'table' && s.rows.every((row) => !/^https?:/.test(row.cells[0])), 'adresses sans le schéma, raccourcies');
   v.stop();
 });

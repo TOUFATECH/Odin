@@ -58,7 +58,8 @@ test('de bout en bout : manque → recherche → lecture → confirmé / à vér
   const conf = rappel.find((x) => x.tags.includes('confiance:confirmé'));
   assert.ok(conf, 'un souvenir confirmé');
   assert.equal(conf!.origin, 'agent');
-  assert.match(conf!.source ?? '', /^web:.*volcans-a\.fr.*volcans-b\.org.*@2026-11-1\d$|^web:.*volcans-b\.org.*volcans-a\.fr.*@2026-11-1\d$/);
+  // … puis l'adresse PRÉCISE de la page (pour dire « c'est ici »).
+  assert.match(conf!.source ?? '', /^web:.*volcans-a\.fr.*volcans-b\.org.*@2026-11-1\d https:\/\/volcans-[ab]\.(fr|org)\/\S+$|^web:.*volcans-b\.org.*volcans-a\.fr.*@2026-11-1\d https:\/\/volcans-[ab]\.(fr|org)\/\S+$/);
   // Noûs a reçu le texte (fiable pour le confirmé, non fiable pour l'autre).
   const ex = file.prendre(20);
   assert.ok(ex.some((e) => e.fiable && /2632/.test(e.texte)));

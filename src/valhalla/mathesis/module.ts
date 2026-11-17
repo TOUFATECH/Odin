@@ -17,10 +17,13 @@ import { tacheEnPause } from '../automatismes.ts';
 import { brancherMathesis } from './magasin.ts';
 import { creerMathesis, type Mathesis, type OptionsMathesis } from './moteur.ts';
 import { elargit, normaliserReglages, PHRASES_ARRET, VITESSES } from './reglages.ts';
+import { FILE_MAX, FILE_TOTAL_MAX, PAGES_SITE_MAX } from './absorber.ts';
+import { agissant } from '../sso/acces.ts';
 import { jourDe } from './budget.ts';
 import type { Budgets, EntreeJournal, GenreBudget, Plage, Reglages, Vitesse } from './types.ts';
 import { GENRES_TRAITES } from './types.ts';
 import { trierAdresses } from './curiosite.ts';
+import { OuTrouver as OuTrouverC } from './ou-trouver.ts';
 
 /** Les dépendances du module, données par Odin (ou par les essais). */
 export interface OptionsModuleMathesis extends Omit<OptionsMathesis, 'dossier' | 'home'> {
@@ -62,6 +65,16 @@ const NOMS_BUDGET: Record<GenreBudget, string> = { recherches: 'Recherches', pag
 const valeurBudget = (g: GenreBudget, n: number): string => (g === 'octets' || g === 'octetsFichiers' ? taille(n) : g === 'minutesVideo' ? `${n} min` : String(n));
 const HONNETE = 'Codé et essayé contre un faux moteur de recherche, un faux site et de faux dossiers ; pas encore essayé sur le vrai web. Les vidéos, la musique et les images ne sont pas encore regardées (passages suivants).';
 
+/**
+ * Le rythme de Mathésis (et ses réglages) : le propriétaire seul. Une personne de Persona connectée à l'interface (un
+ * membre, un invité) ne le change pas, même si elle a accès à l'appli. Le reste passe par Heimdall comme avant : une
+ * demande d'un membre dans une discussion, d'une tâche automatique ou après un contenu extérieur est validée ou refusée.
+ */
+export function seulLeProprietaire(): void {
+  const qui = agissant();
+  if (qui) throw new Error(`seul le propriétaire règle Mathésis (${qui.name || qui.login} n'en a pas le droit)`);
+}
+
 /** Les nouveaux réglages qu'un formulaire propose (sans rien enregistrer). Lève une erreur en clair si illisible. */
 export function proposition(i: Record<string, unknown>, actuel: Reglages): Reglages {
   const p: Record<string, unknown> = { ...actuel };
@@ -77,6 +90,10 @@ export function proposition(i: Record<string, unknown>, actuel: Reglages): Regla
   if (f !== undefined) b.fichiers = f;
   if (fmo !== undefined) b.octetsFichiers = fmo * MO;
   if (ap !== undefined) b.appelsPayants = ap;
+  // Le rythme (décision du propriétaire, 17/11/2026) : pages par jour et par site à absorber, attente entre deux pages.
+  const ps = nombre('pagesParSite'), at = nombre('attenteS');
+  if ((ps !== undefined && !Number.isFinite(ps)) || (at !== undefined && !Number.isFinite(at))) throw new Error('rythme illisible');
+  if (ps !== undefined || at !== undefined) p.robot = { ...actuel.robot, ...(ps !== undefined ? { pagesParSiteAbsorber: ps } : {}), ...(at !== undefined ? { delaiSiteMs: Math.round(at * 1000) } : {}) };
   for (const [k, x] of Object.entries(b)) if (!Number.isFinite(x) || x < 0) throw new Error(`budget illisible : ${k}`);
   p.vitesse = vitesse; p.budgets = b;
   if (s(i.heures)) { const h = lirePlages(s(i.heures)); if (!h) throw new Error('heures illisibles (exemple : « 0-24 » ou « 22-7, 12-14 »)'); p.heures = h; }
@@ -90,6 +107,9 @@ export function proposition(i: Record<string, unknown>, actuel: Reglages): Regla
 export function affaiblit(avant: Reglages, apres: Reglages): string[] {
   const r: string[] = [];
   for (const k of Object.keys(apres.budgets) as GenreBudget[]) {
+    // Les pages du jour sont le rythme que le propriétaire règle lui-même (17/11/2026) : plus une action grave. Le reste
+    // (recherches, taille, fichiers, appels payants) le demeure quand il monte.
+    if (k === 'pages') continue;
     if (apres.budgets[k] > avant.budgets[k]) r.push(`monter le budget « ${NOMS_BUDGET[k]} » de ${valeurBudget(k, avant.budgets[k])} à ${valeurBudget(k, apres.budgets[k])} par jour`);
   }
   if (elargit(avant.heures, apres.heures)) r.push(`élargir les heures du travail léger (${textePlages(avant.heures)} → ${textePlages(apres.heures)})`);
@@ -115,7 +135,8 @@ export function mathesis(o: () => OptionsModuleMathesis = () => ({})): Module {
     what: 'Une passe de travail bornée : les manques de la liste de curiosité (confiés d\'abord), les pages à revisiter, les dossiers ouverts — sous les budgets du jour et la garde',
     words: ['apprends tout seul', 'mathesis apprends', 'cherche ce que tu ne sais pas'],
     async run(ctx) {
-      const b = await moteur(ctx).tour();
+      // « Apprendre maintenant » reste court : 10 pages de sites à absorber au plus (le passage de fond lit au rythme réglé).
+      const b = await moteur(ctx).tour({ absorber: 10 });
       ctx.saveSettings({ dernierTour: ctx.now().toISOString(), dernierBilan: b.phrase });
       const lignes = [b.phrase, ...b.manques.map((x) => `· ${x.questions.length} recherche(s), ${x.pagesLues} page(s) lue(s), ${x.faits.length} fait(s) retenu(s)`)];
       return { ok: !b.arret || b.arret === 'budget', text: lignes.join('\n'), data: { arret: b.arret, manques: b.manques.length } };
@@ -192,8 +213,8 @@ export function mathesis(o: () => OptionsModuleMathesis = () => ({})): Module {
     run(ctx) { moteur(ctx).reprendre(); return { ok: true, text: 'Repris.' }; },
   };
   const reglerA: Action = {
-    id: 'regler', label: 'Régler', quick: false,
-    what: 'La vitesse (budgets par jour), les heures du travail léger et du travail lourd, « ne pas garder », le modèle en ligne (non par défaut)',
+    id: 'regler', label: 'Régler', quick: false, proprietaireSeul: (i, ctx) => { try { const r = moteur(ctx!).reglages().robot; return (i.pagesParSite !== undefined && Number(i.pagesParSite) > r.pagesParSiteAbsorber) || (i.attenteS !== undefined && Number(i.attenteS) * 1000 < r.delaiSiteMs); } catch { return i.pagesParSite !== undefined || i.attenteS !== undefined; } }, // monter le rythme : propriétaire seul
+    what: 'La vitesse (budgets par jour), le rythme (pages par jour et par site, attente entre deux pages d\'un même site), les heures du travail léger et du travail lourd, « ne pas garder », le modèle en ligne (non par défaut)',
     params: [
       { key: 'vitesse', label: 'Vitesse', kind: 'select', options: ['douce', 'normale', 'soutenue'] },
       { key: 'recherches', label: 'Recherches par jour', kind: 'number' }, { key: 'pages', label: 'Pages lues par jour', kind: 'number' },
@@ -202,15 +223,18 @@ export function mathesis(o: () => OptionsModuleMathesis = () => ({})): Module {
       { key: 'heures', label: 'Heures du travail léger (« 0-24 », « 22-7, 12-14 »)', kind: 'text' }, { key: 'heuresLourd', label: 'Heures du travail lourd (« 22-7 »)', kind: 'text' },
       { key: 'nePasGarder', label: 'Ne rien garder de ce qu\'Odin lit', kind: 'boolean' }, { key: 'modeleEnLigne', label: 'Autoriser un modèle en ligne ou payant', kind: 'boolean' },
       { key: 'appelsPayants', label: 'Appels à un modèle payant par jour', kind: 'number' },
+      { key: 'pagesParSite', label: 'Pages par jour et par site à absorber', kind: 'number' }, { key: 'attenteS', label: 'Attente entre deux pages d\'un même site (secondes, 2 au moins)', kind: 'number' },
     ],
     grave: (i, ctx) => {
-      if (!ctx) return undefined;
+      // Sans contexte (une scène, un lien entre applis) on ne peut pas savoir si ça affaiblit : tenu pour grave.
+      if (!ctx) return 'changer les réglages de Mathésis (sans contexte pour vérifier : ton accord est demandé)';
       try { const r = affaiblit(moteur(ctx).reglages(), proposition(i, moteur(ctx).reglages())); return r.length ? r.join(' ; ') : undefined; } catch { return undefined; }
     },
     run(ctx, i) {
+      seulLeProprietaire();
       const m = moteur(ctx), avant = m.reglages(), apres = proposition(i, avant);
-      const n = m.regler({ vitesse: apres.vitesse, budgets: apres.budgets, heures: apres.heures, heuresLourd: apres.heuresLourd, nePasGarder: apres.nePasGarder, modeleEnLigne: apres.modeleEnLigne });
-      return { ok: true, text: `Réglé : vitesse ${n.vitesse}, ${n.budgets.recherches} recherche(s) et ${n.budgets.pages} page(s) par jour, travail léger ${textePlages(n.heures)}, travail lourd ${textePlages(n.heuresLourd)}${n.nePasGarder ? ', rien n\'est gardé' : ''}${n.modeleEnLigne ? ', modèle en ligne autorisé' : ', aucun modèle en ligne'}.` };
+      const n = m.regler({ vitesse: apres.vitesse, budgets: apres.budgets, heures: apres.heures, heuresLourd: apres.heuresLourd, nePasGarder: apres.nePasGarder, modeleEnLigne: apres.modeleEnLigne, robot: apres.robot });
+      return { ok: true, text: `Réglé : vitesse ${n.vitesse}, ${n.budgets.recherches} recherche(s) et ${n.budgets.pages} page(s) par jour, travail léger ${textePlages(n.heures)}, ${n.robot.pagesParSiteAbsorber} page(s) par jour et par site à absorber, ${n.robot.delaiSiteMs / 1000} s entre deux pages d'un même site (plus si le site le demande), travail lourd ${textePlages(n.heuresLourd)}${n.nePasGarder ? ', rien n\'est gardé' : ''}${n.modeleEnLigne ? ', modèle en ligne autorisé' : ', aucun modèle en ligne'}.` };
     },
   };
   const ouvrirA: Action = {
@@ -275,6 +299,98 @@ export function mathesis(o: () => OptionsModuleMathesis = () => ({})): Module {
     },
   };
 
+  // ------------------------------------------------------------------ Sites à absorber
+  const siteDe = (ctx: ModCtx, adresse: string) => {
+    const x = moteur(ctx).absorbeur.trouver(adresse);
+    if (!x) throw new Error(`ce site n'est pas dans la liste à absorber : ${court(adresse, 60)}`);
+    return x;
+  };
+  const absorberA: Action = {
+    id: 'absorber', label: 'Absorber un site',
+    what: 'Ajouter un site à lire EN ENTIER, en priorité (son plan, ses fils d\'actualité, ses pages) ; s\'il est déjà dans la liste, dire où il en est. Sans lever aucune limite : lecture seule, consignes des robots, délai entre deux pages, budgets',
+    words: ['absorbe', 'absorbe ce site', 'absorber le site', 'lis tout ce site', 'lis tout le site', 'absorb this site', 'read this whole site', 'read the entire site', 'lee todo este sitio', 'lies die ganze website'],
+    params: [{ key: 'adresse', label: 'Adresse du site (https://… ou nom du site)', kind: 'text', required: true }],
+    async run(ctx, i) {
+      pasEnPrive();
+      const m = moteur(ctx);
+      const r = m.absorbeur.ajouter(s(i.adresse), s(i.par) === 'page' ? 'page' : 'discussion');
+      if (!r.ok) return { ok: false, text: `Je ne l'ajoute pas : ${r.raison}.` };
+      if (r.deja) return { ok: true, text: `Déjà dans la liste — ${m.absorbeur.phrase(r.site)}`, data: { id: r.site.id, deja: true } };
+      // Un aperçu tout de suite (consignes du site, plan) si la garde le permet ; sinon au prochain passage.
+      const a = await m.absorbeur.apercu(r.site.id);
+      const x = m.absorbeur.trouver(r.site.id) ?? r.site;
+      if (a.refuse) return { ok: false, text: `Je ne peux pas absorber ${x.id} : ${a.refuse}.`, data: { id: x.id } };
+      const debut = a.lu ? `Ajouté : ${x.id}. ${x.consignes ? `Ses consignes : ${x.consignes}. ` : ''}${x.file.length ? `${x.file.length} page(s) à lire trouvée(s) dans son plan${x.refusees ? ` (et ${x.refusees} interdite(s) par ses consignes, laissée(s))` : ''} ; à ce rythme (une page toutes les ${m.absorbeur.attente(x) / 1000} s, ${m.absorbeur.plafond(x).toLocaleString('fr-FR')} par jour au plus), il me faudra ${m.absorbeur.estimation(x)?.texte ?? 'peu de temps'}. ` : 'Pas de plan du site lisible : je partirai de sa page d\'accueil et de ses fils d\'actualité. '}`
+        : `Ajouté : ${x.id}. `;
+      return { ok: true, text: `${debut}Je commence au prochain passage (toutes les 15 minutes), avant la curiosité ordinaire.`, data: { id: x.id, connues: x.connues } };
+    },
+  };
+  const etatSiteA: Action = {
+    id: 'etat_site', label: 'Où en est un site', read: true,
+    what: 'Dire si un site a déjà été absorbé, ou où en est sa lecture (pages lues, restantes, dernière visite)',
+    words: ['as tu absorbe', 'as tu absorbe le site', 'as-tu absorbe le site', 'as-tu absorbe', 'tu as absorbe', 'deja absorbe', 'as-tu deja absorbe', 'ou en es tu du site', 'ou en es-tu du site', 'as tu lu le site', 'as-tu lu le site'],
+    params: [{ key: 'adresse', label: 'Adresse du site (https://… ou nom du site)', kind: 'text', required: true }],
+    run(ctx, i) {
+      const m = moteur(ctx), x = m.absorbeur.trouver(s(i.adresse));
+      if (x) return { ok: true, text: `${m.absorbeur.phrase(x)}${x.derniereVisite ? ` Dernière visite : ${quandLocal(x.derniereVisite)}.` : ''}`, data: { id: x.id, etat: x.etat, lues: x.lues, restantes: x.file.length, absorbeLe: x.absorbeLe } };
+      return { ok: true, text: `Je n'ai pas ${court(s(i.adresse), 60)} dans ma liste de sites à absorber. Dis « absorbe ce site ${court(s(i.adresse), 40)} » pour l'ajouter.` };
+    },
+  };
+  const pauseSiteA: Action = {
+    id: 'pause_site', label: 'Mettre un site en pause', quick: false,
+    what: 'Ne plus lire ce site à absorber jusqu\'à la reprise',
+    params: [{ key: 'adresse', label: 'Site', kind: 'text', required: true }],
+    run(ctx, i) { const x = siteDe(ctx, s(i.adresse)); moteur(ctx).absorbeur.pause(x.id); return { ok: true, text: `En pause : ${x.id}.` }; },
+  };
+  const reprendreSiteA: Action = {
+    id: 'reprendre_site', label: 'Reprendre un site', quick: false,
+    what: 'Reprendre la lecture d\'un site à absorber mis en pause',
+    params: [{ key: 'adresse', label: 'Site', kind: 'text', required: true }],
+    grave: (i) => `reprendre la lecture du site « ${court(s(i.adresse), 60)} »`,
+    run(ctx, i) { const x = siteDe(ctx, s(i.adresse)); moteur(ctx).absorbeur.reprendre(x.id); return { ok: true, text: `Repris : ${x.id}.` }; },
+  };
+  const retirerSiteA: Action = {
+    id: 'retirer_site', label: 'Retirer un site', quick: false,
+    what: 'Retirer un site de la liste à absorber ; « oublier » efface aussi ce qui en a été appris',
+    params: [{ key: 'adresse', label: 'Site', kind: 'text', required: true }, { key: 'oublier', label: 'Oublier aussi ce qui en a été appris', kind: 'boolean' }],
+    grave: (i) => (vrai(i.oublier) ? `oublier tout ce qu'Odin a appris du site « ${court(s(i.adresse), 60)} »` : undefined),
+    run(ctx, i) {
+      const m = moteur(ctx), x = siteDe(ctx, s(i.adresse));
+      m.absorbeur.retirer(x.id);
+      if (!vrai(i.oublier)) return { ok: true, text: `Retiré de la liste : ${x.id} (ce qui en a été appris reste).` };
+      let n = 0;
+      for (const e of m.journal.lire({ n: 3000 })) if (e.genre === 'retenu' && (e.source ?? '').split(/[,+ ]+/).some((x2) => x2.replace(/^www\./, '') === x.id)) { n += oublier(e); m.journal.effacer(e.id); }
+      const lieux = m.ouTrouver.oublierSite(x.id);
+      return { ok: true, text: `Retiré et oublié : ${x.id} (${n} souvenir(s) oublié(s), ${lieux} adresse(s) de pages retirée(s)).` };
+    },
+  };
+  const rythmeSiteA: Action = {
+    id: 'rythme_site', label: 'Pages par jour d\'un site', quick: false, proprietaireSeul: (i, ctx) => { try { return Number(i.pagesParJour) > moteur(ctx!).absorbeur.plafond(siteDe(ctx!, s(i.adresse))); } catch { return true; } }, // monter le rythme : propriétaire seul
+    what: 'Le nombre de pages lues par jour sur un site à absorber (1 à 10 000 000 ; sans réglage, celui de Mathésis : 1 000 000), toujours avec l\'attente entre deux pages et les consignes du site',
+    params: [{ key: 'adresse', label: 'Site', kind: 'text', required: true }, { key: 'pagesParJour', label: 'Pages par jour', kind: 'number', required: true }],
+    // Le rythme est réglé par le propriétaire lui-même (17/11/2026) : plus une action grave. Sans contexte (une scène, un
+    // lien entre applis, une tâche) on ne sait pas qui le demande : l'accord reste demandé.
+    grave: (i, ctx) => (ctx ? undefined : `changer le rythme de lecture du site « ${court(s(i.adresse), 60)} » (sans contexte pour vérifier : ton accord est demandé)`),
+    run(ctx, i) {
+      seulLeProprietaire();
+      const n = Number(i.pagesParJour);
+      if (!Number.isFinite(n) || n < 1 || n > PAGES_SITE_MAX) throw new Error(`de 1 à ${PAGES_SITE_MAX.toLocaleString('fr-FR')} pages par jour`);
+      const x = siteDe(ctx, s(i.adresse));
+      const r = moteur(ctx).absorbeur.regler(x.id, n)!;
+      return { ok: true, text: `${r.id} : ${r.pagesParJour} page(s) par jour, toujours avec l'attente entre deux pages (${moteur(ctx).absorbeur.attente(r) / 1000} s au moins) et les consignes du site.` };
+    },
+  };
+  const ouTrouverA: Action = {
+    id: 'ou_trouver', label: 'Où trouver', read: true,
+    what: 'Dire où une information se trouve : la page précise qu\'Odin a lue (titre, adresse, date de lecture)',
+    words: ['ou trouver', 'ou lire', 'ou est explique', 'ou se trouve l information'],
+    params: [{ key: 'quoi', label: 'Ce que tu cherches', kind: 'text', required: true }],
+    run(ctx, i) {
+      const m = moteur(ctx), t = m.ouTrouver.chercher(s(i.quoi));
+      return { ok: true, text: OuTrouverC.repondre(t), data: { pages: t.map((e) => ({ url: e.url, titre: e.titre, lu: e.at })) } };
+    },
+  };
+
   const tache: TacheAppli = {
     id: 'apprendre', nom: 'Odin apprend tout seul', quoi: 'cherche ce qu\'il ne sait pas, lit des pages publiques et les dossiers ouverts, sous les budgets du jour ; s\'arrête dès qu\'Odin doit répondre',
     rythme: () => ({ genre: 'minutes', n: 15 }),
@@ -318,6 +434,8 @@ export function mathesis(o: () => OptionsModuleMathesis = () => ({})): Module {
     const laisses = journal.filter((e) => e.genre === 'refus' || e.genre === 'ecarte' || e.genre === 'arret' || (e.supprime?.length ?? 0) > 0).slice(0, 40);
     const memoire = o().apprentissage ? 'branchée' : 'pas branchée (rien n\'est rangé dans la mémoire)';
 
+    const pj = (x: Parameters<typeof m.absorbeur.plafond>[0]) => m.absorbeur.plafond(x);
+    const visites = Object.values(m.robot.etats()).sort((a, b) => b.derniereVisiteMs - a.derniereVisiteMs);
     const appris: Section[] = [
       { kind: 'text', title: 'Ce que c\'est', tone: 'neutre', text: `Odin cherche ce qu'il ne sait pas ou sait mal, lit des pages publiques (lecture seule, consignes des robots respectées) et les dossiers que tu lui ouvres, recoupe ses sources (deux sources indépendantes = « confirmé », une seule = « à vérifier ») et range ce qu'il retient dans sa mémoire (${memoire}). Son journal, sa curiosité et ses réglages sont chiffrés, en fichiers sur ta machine et reportés dans la base MATHESIS_ODIN quand elle est prête. Travail léger : ${textePlages(r.heures)} ; travail lourd : ${textePlages(r.heuresLourd)}. ${HONNETE}` },
       { kind: 'log', title: `Aujourd'hui (${aujourdhui.length})`, lines: aujourdhui.length ? aujourdhui.slice(0, 60).flatMap(ligne) : ['Rien encore aujourd\'hui.'] },
@@ -325,21 +443,49 @@ export function mathesis(o: () => OptionsModuleMathesis = () => ({})): Module {
       { kind: 'table', title: 'Retenu (corriger ou effacer)', columns: ['Quand', 'Retenu', 'Niveau', 'Source', 'N°'], rows: retenus.map((e) => ({ cells: [quandLocal(e.at), court(e.retenu![0].texte, 90) + (e.retenu!.length > 1 ? ` (+${e.retenu!.length - 1})` : ''), e.retenu![0].niveau, court(e.source ?? '—', 40), e.id], actions: [{ action: 'effacer', label: 'Effacer', input: { id: e.id } }] })), empty: 'Rien de retenu cette semaine.' },
       { kind: 'form', title: 'Corriger ce qui a été retenu', action: 'corriger', submit: 'Corriger', params: [{ key: 'id', label: 'N° de l\'entrée (colonne N°)', kind: 'text', required: true }, { key: 'texte', label: 'La bonne version', kind: 'textarea', required: true }], aide: 'Ta version est rangée comme « donné par toi » : aucune page ne pourra l\'écraser.' },
       { kind: 'log', title: 'Laissé (refus, interdits, écartés, arrêts)', lines: laisses.length ? laisses.flatMap(ligne) : ['Rien de laissé cette semaine.'] },
+      // Les sites visités : ce que le propriétaire peut vérifier (dernière visite, prochaine, état, ce qui en a été appris).
+      { kind: 'table', title: `Sites visités (${visites.length})`, columns: ['Adresse', 'Vue le', 'Prochaine', 'État'], rows: visites.slice(0, 40).map((e) => {
+        const appris = m.traces.apprisDe(e.url)?.appris ?? 0;
+        const etatPage = e.statut === 'refus' ? 'refusé' : e.statut === 'erreur' ? 'erreur' : e.statut === 'inchange' ? 'inchangé' : e.changements > 0 ? 'changé' : 'nouveau';
+        return { cells: [court(e.url.replace(/^https?:\/\//, ''), 40), quandLocal(e.derniereVisiteMs), e.statut === 'refus' ? '—' : quandLocal(e.prochaineVisite), `${etatPage}${appris ? ` · ${appris} appris` : ''}`], tone: e.statut === 'refus' ? 'attention' as const : undefined };
+      }), empty: 'Aucun site visité pour l\'instant.' },
     ];
+    // Les sites à absorber (réglage du propriétaire : aucun par défaut).
+    const sitesA = m.absorbeur.liste();
+    const etatSite = (x: (typeof sitesA)[number]): string => x.etat === 'refuse' ? 'refusé' : x.etat === 'en-pause' ? 'en pause' : x.absorbeLe ? `absorbé le ${quandLocal(x.absorbeLe).slice(0, 5)} · suivi` : x.decouvert || x.file.length ? 'en cours' : 'à explorer';
+    const sites: Section[] = [
+      { kind: 'form', title: 'Absorber un site', onglet: 'Sites', action: 'absorber', submit: 'Absorber', params: [{ key: 'adresse', label: 'Adresse du site (https://… ou nom du site)', kind: 'text', required: true }], aide: `Odin lit le site EN ENTIER, en priorité : son plan, ses fils d\'actualité, puis ses pages, une toutes les ${r.robot.delaiSiteMs / 1000} s au moins (plus si le site le demande), ${r.robot.pagesParSiteAbsorber.toLocaleString('fr-FR')} par jour et par site au plus (réglable dans Réglages), dans ses consignes des robots et les budgets du jour. Ensuite il suit ses nouveautés. Tu peux aussi le dire : « absorbe ce site … ». Place gardée : au plus ${FILE_MAX.toLocaleString('fr-FR')} adresses en attente par site et ${FILE_TOTAL_MAX.toLocaleString('fr-FR')} en tout (aujourd'hui ${m.absorbeur.enFileTotal().toLocaleString('fr-FR')}) ; au-delà, elles reviennent au plan suivant.` },
+      { kind: 'table', title: `Sites à absorber (${sitesA.length})`, onglet: 'Sites', columns: ['Site', 'État', 'Lues', 'Reste', 'Vu le'], rows: sitesA.map((x) => {
+        const est = m.absorbeur.estimation(x);
+        return {
+          cells: [court(x.id, 28), etatSite(x), `${x.lues} / ${x.lues + x.file.length}`, x.file.length ? `${x.file.length} (à ce rythme, ${est?.texte ?? '—'})` : '—', x.derniereVisite ? quandLocal(x.derniereVisite) : '—'],
+          tone: x.etat === 'refuse' ? 'attention' as const : x.absorbeLe ? 'bon' as const : undefined,
+          actions: [
+            x.etat === 'en-pause' ? { action: 'reprendre_site', label: 'Reprendre', input: { adresse: x.id } } : { action: 'pause_site', label: 'Pause', input: { adresse: x.id } },
+            { action: 'retirer_site', label: 'Retirer', input: { adresse: x.id } },
+          ],
+        };
+      }), empty: 'Aucun site à absorber : ajoute-en un ci-dessus (ou dis « absorbe ce site … »).' },
+      { kind: 'table', title: 'Détail des sites', onglet: 'Sites', columns: ['Site', 'Ce qu\'il en sait'], rows: sitesA.map((x) => ({ cells: [court(x.id, 28), `${x.consignes ?? 'consignes pas encore lues'} · plan : ${x.plans.length ? 'oui' : 'non'} · fil : ${x.fils.length ? 'oui' : 'non'} · ${x.faits} fait(s) appris · ${pj(x)} page(s)/jour${x.refusees ? ` · ${x.refusees} refusée(s) par ses consignes` : ''}${x.raison ? ` · ${x.raison}` : ''}`] })), empty: '—' },
+      { kind: 'form', title: 'Où trouver', onglet: 'Sites', action: 'ou_trouver', submit: 'Chercher', params: [{ key: 'quoi', label: 'Ce que tu cherches', kind: 'text', required: true }], aide: 'Odin te donne la page précise où il l\'a lu (titre, adresse, date de lecture).' },
+    ];
+    const recherches = [...m.traces.recherches()].reverse();
     const curiosite: Section[] = [
       { kind: 'form', title: 'Confier en priorité', onglet: 'Sujets', action: 'confier', submit: 'Confier', params: [{ key: 'quoi', label: 'Un sujet, ou des adresses publiques (https://…)', kind: 'text', required: true }], aide: 'Passe en tête de la liste, sans lever aucune limite : lecture seule, consignes des robots, budgets. Les vidéos, images et sons confiés attendent un passage suivant.' },
       { kind: 'table', title: `Sujets à apprendre (${manques.length})`, onglet: 'Sujets', columns: ['Sujet', 'Pourquoi', 'Priorité', 'État', 'Prochain essai'], rows: manques.slice(0, 60).map((x) => ({ cells: [court(x.sujet, 60), court(x.raison, 60), x.confie ? 'confié (en tête)' : String(x.priorite), x.etat.replace(/_/g, ' '), x.prochainEssai && x.prochainEssai > now ? quandLocal(x.prochainEssai) : 'dès que possible'], tone: x.confie ? 'bon' as const : undefined, actions: [{ action: 'retirer', label: 'Retirer', input: { id: x.id } }] })), empty: 'Rien en attente : Odin n\'a pas encore noté de manque.' },
+      // Les recherches faites : la même question n'est pas reposée avant une semaine.
+      { kind: 'table', title: `Recherches faites (${recherches.length})`, onglet: 'Sujets', columns: ['Quand', 'Question', 'Trouvé', 'Retenu'], rows: recherches.slice(0, 40).map((t) => ({ cells: [quandLocal(t.at), court(t.q, 60), `${t.resultats} page(s)`, `${t.retenus} fait(s)`] })), empty: 'Aucune recherche pour l\'instant.' },
     ];
     const i = m.interdits.lire();
     const interdits: Section[] = [
-      { kind: 'form', title: 'Interdire', onglet: 'Interdits', action: 'interdire', submit: 'Interdire', params: [{ key: 'genre', label: 'Quoi', kind: 'select', options: ['sujet', 'site', 'dossier'], default: 'sujet', required: true }, { key: 'valeur', label: 'Le sujet, le site ou le chemin du dossier', kind: 'text', required: true }] },
-      { kind: 'table', title: 'Interdits', onglet: 'Interdits', columns: ['Genre', 'Valeur'], rows: [
+      { kind: 'form', title: 'Interdire', onglet: 'Réglages', action: 'interdire', submit: 'Interdire', params: [{ key: 'genre', label: 'Quoi', kind: 'select', options: ['sujet', 'site', 'dossier'], default: 'sujet', required: true }, { key: 'valeur', label: 'Le sujet, le site ou le chemin du dossier', kind: 'text', required: true }] },
+      { kind: 'table', title: 'Interdits', onglet: 'Réglages', columns: ['Genre', 'Valeur'], rows: [
         ...i.sujets.map((v) => ({ cells: ['sujet', court(v, 70)], actions: [{ action: 'permettre', label: 'Lever (avec ton accord)', input: { genre: 'sujet', valeur: v } }] })),
         ...i.sites.map((v) => ({ cells: ['site', court(v, 70)], actions: [{ action: 'permettre', label: 'Lever (avec ton accord)', input: { genre: 'site', valeur: v } }] })),
         ...i.dossiers.map((v) => ({ cells: ['dossier', court(v, 70)], actions: [{ action: 'permettre', label: 'Lever (avec ton accord)', input: { genre: 'dossier', valeur: v } }] })),
       ], empty: 'Aucun interdit.' },
-      { kind: 'table', title: 'Dossiers ouverts à Odin (lecture seule)', onglet: 'Interdits', columns: ['Dossier', 'État'], rows: m.maison.racines().map((x) => ({ cells: [court(x.dossier, 70), x.reel ? 'lisible' : `refusé : ${x.raison}`], tone: x.reel ? undefined : 'attention' as const, actions: [{ action: 'fermer_dossier', label: 'Fermer', input: { chemin: x.dossier } }] })), empty: 'Aucun dossier ouvert : Odin ne lit aucun de tes fichiers.' },
-      { kind: 'form', title: 'Ouvrir un dossier à Odin', onglet: 'Interdits', action: 'ouvrir_dossier', submit: 'Ouvrir (avec ton accord)', params: [{ key: 'chemin', label: 'Chemin complet du dossier', kind: 'text', required: true }], aide: 'Lecture seule : Odin ne crée, ne modifie et ne supprime rien. Un lien ou une jonction qui mène ailleurs est refusé. Les images ne sont lues que si l\'œil d\'Odin est prêt.' },
+      { kind: 'table', title: 'Dossiers ouverts à Odin (lecture seule)', onglet: 'Réglages', columns: ['Dossier', 'État'], rows: m.maison.racines().map((x) => ({ cells: [court(x.dossier, 70), x.reel ? 'lisible' : `refusé : ${x.raison}`], tone: x.reel ? undefined : 'attention' as const, actions: [{ action: 'fermer_dossier', label: 'Fermer', input: { chemin: x.dossier } }] })), empty: 'Aucun dossier ouvert : Odin ne lit aucun de tes fichiers.' },
+      { kind: 'form', title: 'Ouvrir un dossier à Odin', onglet: 'Réglages', action: 'ouvrir_dossier', submit: 'Ouvrir (avec ton accord)', params: [{ key: 'chemin', label: 'Chemin complet du dossier', kind: 'text', required: true }], aide: 'Lecture seule : Odin ne crée, ne modifie et ne supprime rien. Un lien ou une jonction qui mène ailleurs est refusé. Les images ne sont lues que si l\'œil d\'Odin est prêt.' },
     ];
     const budgets = (Object.keys(NOMS_BUDGET) as GenreBudget[]).map((g) => ({ cells: [NOMS_BUDGET[g], valeurBudget(g, utilise[g]), valeurBudget(g, r.budgets[g])], tone: utilise[g] >= r.budgets[g] && r.budgets[g] > 0 ? 'attention' as const : undefined }));
     const boutons = r.actif
@@ -359,12 +505,14 @@ export function mathesis(o: () => OptionsModuleMathesis = () => ({})): Module {
         { key: 'heuresLourd', label: 'Heures du travail lourd', kind: 'text', default: r.heuresLourd.map((p) => `${p.de}-${p.a}`).join(', ') },
         { key: 'nePasGarder', label: 'Ne rien garder de ce qu\'Odin lit', kind: 'boolean', default: r.nePasGarder },
         { key: 'modeleEnLigne', label: 'Autoriser un modèle en ligne ou payant', kind: 'boolean', default: r.modeleEnLigne },
-      ], aide: 'Baisser un budget ou réduire les heures se fait d\'un clic ; monter un budget, élargir les heures, autoriser un modèle en ligne ou ne plus appliquer « ne pas garder » demandent ton accord. Le travail s\'arrête toujours dès qu\'Odin doit répondre.' },
+        { key: 'pagesParSite', label: 'Pages par jour et par site à absorber', kind: 'number', default: r.robot.pagesParSiteAbsorber },
+        { key: 'attenteS', label: 'Attente entre deux pages d\'un même site (secondes, 2 au moins)', kind: 'number', default: r.robot.delaiSiteMs / 1000 },
+      ], aide: 'Le rythme (pages lues par jour, pages par site, attente entre deux pages) se règle d\'un clic : un site qui demande plus d\'attente l\'obtient toujours, et après une erreur ou un « trop de demandes » l\'attente n\'est jamais raccourcie. Baisser un budget ou réduire les heures se fait d\'un clic ; monter un autre budget, élargir les heures, autoriser un modèle en ligne ou ne plus appliquer « ne pas garder » demandent ton accord. Le travail s\'arrête toujours dès qu\'Odin doit répondre.' },
     ];
     return {
       subtitle: `${etat} · vitesse ${r.vitesse} · ${utilise.recherches}/${r.budgets.recherches} recherche(s) et ${utilise.pages}/${r.budgets.pages} page(s) aujourd'hui`,
-      kpis, onglets: ['Appris', 'Sujets', 'Interdits', 'Réglages'],
-      sections: [...appris, ...curiosite, ...interdits, ...reglages],
+      kpis, onglets: ['Appris', 'Sites', 'Sujets', 'Réglages'],
+      sections: [...appris, ...sites, ...curiosite, ...reglages, ...interdits],
     };
   }
 
@@ -382,8 +530,8 @@ export function mathesis(o: () => OptionsModuleMathesis = () => ({})): Module {
     ],
     // Les logiciels équivalents ne sont nommés QUE dans « Alternative à » (SIMILAIRES de names.ts), jamais ici.
     from: [], upstream: [],
-    words: ['mathesis', 'apprends tout seul', 'ce qu odin a appris', 'qu as tu appris', 'curiosite', 'robot de lecture'],
-    actions: [tourA, confierA, retirerA, interdireA, permettreA, couperA, allumerA, pauseA, reprendreA, reglerA, ouvrirA, fermerA, effacerA, corrigerA],
+    words: ['mathesis', 'apprends tout seul', 'ce qu odin a appris', 'qu as tu appris', 'curiosite', 'robot de lecture', 'absorbe ce site', 'sites a absorber', 'ou trouver', 'ou est explique'],
+    actions: [tourA, confierA, retirerA, interdireA, permettreA, couperA, allumerA, pauseA, reprendreA, reglerA, ouvrirA, fermerA, effacerA, corrigerA, absorberA, etatSiteA, pauseSiteA, reprendreSiteA, retirerSiteA, rythmeSiteA, ouTrouverA],
     start(ctx) {
       const m = moteur(ctx);
       // Pose la base MATHESIS_ODIN ; dès qu'elle est prête, chaque écriture y est reportée (contenus chiffrés).

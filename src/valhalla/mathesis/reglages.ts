@@ -6,23 +6,33 @@
 import { isAbsolute } from 'node:path';
 import type { Budgets, BornesRobot, Plage, RaisonArret, Reglages, Vitesse } from './types.ts';
 
+const GO = 1024 * 1024 * 1024;
+/**
+ * Le plafond de pages par jour, tous sites confondus, et celui d'un site à absorber : 1 000 000 par défaut (décision du
+ * propriétaire, 17/11/2026, « réglable dans les réglages »). Ce qui borne vraiment le rythme : le délai entre deux pages
+ * d'un même site (2 s par défaut, jamais moins que ce que le site demande), soit au plus ~40 000 pages par jour et par site.
+ */
+export const PAGES_JOUR_DEFAUT = 1_000_000;
 /** Les budgets par jour de chaque vitesse. Les appels à un modèle payant restent à 0 quelle que soit la vitesse. */
 export const VITESSES: Record<Vitesse, Budgets> = {
-  douce: { recherches: 20, pages: 100, octets: 50 * 1024 * 1024, minutesVideo: 30, appelsPayants: 0, fichiers: 200, octetsFichiers: 200 * 1024 * 1024 },
-  normale: { recherches: 60, pages: 400, octets: 200 * 1024 * 1024, minutesVideo: 120, appelsPayants: 0, fichiers: 1000, octetsFichiers: 1024 * 1024 * 1024 },
-  soutenue: { recherches: 200, pages: 1500, octets: 1024 * 1024 * 1024, minutesVideo: 480, appelsPayants: 0, fichiers: 5000, octetsFichiers: 5 * 1024 * 1024 * 1024 },
+  douce: { recherches: 20, pages: PAGES_JOUR_DEFAUT, octets: 2 * GO, minutesVideo: 30, appelsPayants: 0, fichiers: 200, octetsFichiers: 200 * 1024 * 1024 },
+  normale: { recherches: 60, pages: PAGES_JOUR_DEFAUT, octets: 5 * GO, minutesVideo: 120, appelsPayants: 0, fichiers: 1000, octetsFichiers: GO },
+  soutenue: { recherches: 200, pages: PAGES_JOUR_DEFAUT, octets: 20 * GO, minutesVideo: 480, appelsPayants: 0, fichiers: 5000, octetsFichiers: 5 * GO },
 };
+/** Les défauts d'avant le 17/11/2026 : des réglages restés à ces valeurs sont repris aux nouveaux défauts (version 2). */
+const ANCIENS = { pages: { douce: 100, normale: 400, soutenue: 1500 }, octets: { douce: 50 * 1024 * 1024, normale: 200 * 1024 * 1024, soutenue: GO }, delaiSiteMs: 10_000 } as const;
+export const VERSION_REGLAGES = 2;
 
 /** Les plafonds que même un réglage ne peut pas dépasser (protection contre une valeur folle). */
-export const PLAFONDS: Budgets = { recherches: 2000, pages: 20_000, octets: 10 * 1024 * 1024 * 1024, minutesVideo: 2000, appelsPayants: 1000, fichiers: 50_000, octetsFichiers: 50 * 1024 * 1024 * 1024 };
+export const PLAFONDS: Budgets = { recherches: 2000, pages: 10_000_000, octets: 200 * GO, minutesVideo: 2000, appelsPayants: 1000, fichiers: 50_000, octetsFichiers: 50 * GO };
 
 export const BORNES_ROBOT: BornesRobot = {
-  delaiSiteMs: 10_000, pagesParSiteJour: 30, profondeurMax: 2, tailleMaxPage: 2 * 1024 * 1024,
+  delaiSiteMs: 2_000, pagesParSiteJour: 30, pagesParSiteAbsorber: PAGES_JOUR_DEFAUT, profondeurMax: 2, tailleMaxPage: 2 * 1024 * 1024,
   delaiDemandeMs: 15_000, redirectionsMax: 3, liensParPage: 40, pagesParManque: 6,
 };
 /** Les limites dures des bornes du robot (un réglage est ramené dedans). */
-const LIMITES_ROBOT: Record<keyof BornesRobot, [number, number]> = {
-  delaiSiteMs: [2_000, 600_000], pagesParSiteJour: [1, 500], profondeurMax: [0, 4], tailleMaxPage: [16 * 1024, 10 * 1024 * 1024],
+export const LIMITES_ROBOT: Record<keyof BornesRobot, [number, number]> = {
+  delaiSiteMs: [2_000, 600_000], pagesParSiteJour: [1, 500], pagesParSiteAbsorber: [1, 10_000_000], profondeurMax: [0, 4], tailleMaxPage: [16 * 1024, 10 * 1024 * 1024],
   delaiDemandeMs: [1_000, 60_000], redirectionsMax: [0, 5], liensParPage: [0, 200], pagesParManque: [1, 50],
 };
 
@@ -37,7 +47,7 @@ export function reglagesParDefaut(): Reglages {
   return {
     actif: true, pause: false, vitesse: 'douce', budgets: { ...VITESSES.douce }, heures: HEURES_DEFAUT.map((p) => ({ ...p })),
     heuresLourd: HEURES_LOURD_DEFAUT.map((p) => ({ ...p })), dossiers: [],
-    robot: { ...BORNES_ROBOT }, modeleEnLigne: false, nePasGarder: false,
+    robot: { ...BORNES_ROBOT }, modeleEnLigne: false, nePasGarder: false, version: VERSION_REGLAGES,
   };
 }
 
@@ -95,8 +105,22 @@ export function normaliserReglages(x: unknown): Reglages {
   for (const k of Object.keys(LIMITES_ROBOT) as Array<keyof BornesRobot>) robot[k] = borne(ro[k], LIMITES_ROBOT[k][0], LIMITES_ROBOT[k][1], d.robot[k]);
   return {
     actif: r.actif !== false, pause: r.pause === true, vitesse, budgets, heures, heuresLourd, dossiers: dossiersSurs(r.dossiers), robot,
-    modeleEnLigne, nePasGarder: r.nePasGarder === true,
+    modeleEnLigne, nePasGarder: r.nePasGarder === true, version: VERSION_REGLAGES,
   };
+}
+
+/**
+ * Des réglages ENREGISTRÉS avant le 17/11/2026 (sans version) : ce qui est resté aux défauts d'alors (pages et taille du
+ * jour de la vitesse, 10 s entre deux pages) prend les nouveaux défauts ; ce que le propriétaire avait choisi lui-même est
+ * gardé. Appelé une fois, à l'ouverture de Mathésis. Rend undefined s'il n'y a rien à reprendre.
+ */
+export function migrerReglages(x: unknown): Reglages | undefined {
+  if (!x || typeof x !== 'object' || (x as Reglages).version === VERSION_REGLAGES) return undefined;
+  const n = normaliserReglages(x);
+  if (n.budgets.pages === ANCIENS.pages[n.vitesse]) n.budgets.pages = VITESSES[n.vitesse].pages;
+  if (n.budgets.octets === ANCIENS.octets[n.vitesse]) n.budgets.octets = VITESSES[n.vitesse].octets;
+  if (n.robot.delaiSiteMs === ANCIENS.delaiSiteMs) n.robot.delaiSiteMs = BORNES_ROBOT.delaiSiteMs;
+  return n;
 }
 
 /** L'heure locale est-elle dans une plage permise ? Une plage {0, 0} ou {0, 24} = toute la journée. */

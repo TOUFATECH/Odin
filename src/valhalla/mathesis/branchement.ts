@@ -1,6 +1,7 @@
 // Mathésis — le branchement sur Odin : la mémoire (muninn) par l'entrée commune d'apprentissage, Noûs, le mode privé,
 // le signal « Odin répond » et le moteur de recherche d'Odin. Tout est protégé : une panne ici ne touche jamais Odin.
-import { fileBornee, type FileApprentissage, type NoosDeps } from '../../brain/nous/deps.ts';
+import { type FileApprentissage, type NoosDeps } from '../../brain/nous/deps.ts';
+import { fileNousOdin } from '../../brain/nous/file-odin.ts';
 import type { MemoireApprentissage } from '../../learn/apprendre-de-tout.ts';
 import type { OptionsModuleMathesis } from './module.ts';
 import { odinRepond } from './occupe.ts';
@@ -24,14 +25,16 @@ export function sansReseau(env: Record<string, string | undefined> = process.env
 }
 
 /**
- * La file d'apprentissage de Noûs remplie par Mathésis (bornée, en mémoire). Point ouvert : le runtime ne la vide pas
- * encore (aucun consommateur de la file de Noûs n'existe à ce jour) ; elle reste bornée à 10 000 exemples.
+ * La file d'apprentissage de Noûs : LA file unique d'Odin (src/brain/nous/file-odin.ts), vidée périodiquement par la
+ * passerelle vers le corpus chiffré et borné de Noûs.
  */
-export const fileNousMathesis: FileApprentissage = fileBornee();
+export const fileNousMathesis: FileApprentissage = fileNousOdin;
 
 export function optionsOdin(odin: OdinPourMathesis, op: { env?: Record<string, string | undefined> } = {}): OptionsModuleMathesis {
   const prive = (): boolean => { try { return odin.cfg.voice?.privacy?.privateMode === true; } catch { return true; } };
-  const o: OptionsModuleMathesis = { prive, occupe: () => odinRepond(), chercher: chercheurOdin() };
+  // « stop » du propriétaire (clé initiative-pause posée par la passerelle) : Mathésis s'arrête aussi, jusqu'à « reprends ».
+  const enPause = (): boolean => { try { return (odin.muninn as { getKv?(k: string): string | undefined } | undefined)?.getKv?.('initiative-pause') === '1'; } catch { return false; } };
+  const o: OptionsModuleMathesis = { prive, occupe: () => odinRepond() || enPause(), chercher: chercheurOdin() };
   // Essais, banc d'affichage, démonstration : jamais de réseau réel (les essais qui veulent un site passent leurs faux).
   if (sansReseau(op.env ?? process.env, odin.demo === true || odin.cfg.demo === true)) {
     const non = async (): Promise<never> => { throw new Error('aucun réseau dans une instance d\'essai ou de démonstration'); };

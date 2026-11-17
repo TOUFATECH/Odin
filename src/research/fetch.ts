@@ -54,10 +54,34 @@ export interface Page {
   url: string; finalUrl: string; status: number; kind: 'html' | 'pdf' | 'texte';
   title: string; text: string; author?: string; published?: string; siteName?: string;
   links: string[]; accessed: string; via: 'http' | 'navigateur' | 'extrait du moteur';
+  /** La page dépassait la taille lue au plus : la fin n'a pas été lue (à dire dans les limites). */
+  tronquee?: boolean;
 }
 
-/** Récupère une page publique, poliment. Lève une erreur si le site refuse. */
-export async function politeFetch(raw: string, o: { signal?: AbortSignal; pause?: () => number; fetcher?: typeof fetch; allowPrivate?: boolean } = {}): Promise<Page> {
+/** Ce qu'une recherche vérifiée accepte d'attendre et de lire pour UNE page (le reste du temps va aux autres sources). */
+export const LECTURE_RECHERCHE = { essais: 2, attenteMaxMs: 3000, maxOctetsHtml: 1_000_000 } as const;
+
+/** Lit le corps d'une réponse sans dépasser `max` octets (le reste n'est pas téléchargé). */
+async function corpsBorne(res: Response, max: number): Promise<{ buf: Buffer; coupe: boolean }> {
+  if (!res.body) { const b = Buffer.from(await res.arrayBuffer()); return { buf: b.subarray(0, max), coupe: b.length > max }; }
+  const reader = res.body.getReader(), parts: Uint8Array[] = [];
+  let n = 0, coupe = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parts.push(value); n += value.length;
+    if (n > max) { coupe = true; await reader.cancel().catch(() => undefined); break; }
+  }
+  return { buf: Buffer.concat(parts).subarray(0, max), coupe };
+}
+
+/**
+ * Récupère une page publique, poliment. Lève une erreur si le site refuse.
+ * `essais` : tentatives en tout quand le site dit « trop de requêtes » (429/503), 3 par défaut ; `attenteMaxMs` : attente
+ * maximale avant de réessayer (60 s par défaut) ; `maxOctetsHtml` : taille lue au plus pour une page HTML (15 Mo par
+ * défaut ; une page énorme bloquerait Odin pendant son analyse). Les PDF gardent leur limite de 15 Mo.
+ */
+export async function politeFetch(raw: string, o: { signal?: AbortSignal; pause?: () => number; fetcher?: typeof fetch; allowPrivate?: boolean; essais?: number; attenteMaxMs?: number; maxOctetsHtml?: number } = {}): Promise<Page> {
   const f = o.fetcher ?? fetch;
   let url = o.allowPrivate ? new URL(raw) : assertPublicUrl(raw);
   const accessed = new Date().toISOString();
@@ -67,25 +91,28 @@ export async function politeFetch(raw: string, o: { signal?: AbortSignal; pause?
     if (a.some((x) => /^(::ffff:)?169\.254\.169\.254$|^fd00:ec2::254$/i.test(x.address))) throw new Error('adresse de métadonnées cloud refusée');
     const host = url.hostname;
     let res: Response | undefined;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const essais = Math.max(1, o.essais ?? 3), attenteMax = o.attenteMaxMs ?? 60_000;
+    for (let attempt = 0; attempt < essais; attempt++) {
       try { res = await paced(host, () => f(url, { redirect: 'manual', headers: { ...BROWSER_HEADERS, ...(cookies(host) ? { cookie: cookies(host) } : {}) }, signal: AbortSignal.any([...(o.signal ? [o.signal] : []), AbortSignal.timeout(25_000)]) }), o.signal, o.pause); }
       catch (e) { if ((e as Error).name === 'AbortError' && o.signal?.aborted) throw e; throw new Error(classerErreur(e, host).message); }
       keepCookies(host, res);
       if (res.status !== 429 && res.status !== 503) break;
-      // Trop de requêtes : on attend ce que le site demande (60 s max), puis on réessaie.
+      if (attempt === essais - 1) break; // plus d'essai : le refus est rendu tel quel (« refuse (HTTP 429) »)
+      // Trop de requêtes : on attend ce que le site demande (dans la limite permise), puis on réessaie.
       const ra = Number(res.headers.get('retry-after')) || 5 * (attempt + 1);
-      await sleep(Math.min(60, ra) * 1000, o.signal);
+      await res.body?.cancel().catch(() => undefined);
+      await sleep(Math.min(attenteMax, ra * 1000), o.signal);
     }
     if (res!.status >= 300 && res!.status < 400 && res!.headers.get('location')) { url = o.allowPrivate ? new URL(res!.headers.get('location')!, url) : assertPublicUrl(new URL(res!.headers.get('location')!, url).toString()); continue; }
     const type = res!.headers.get('content-type') ?? '';
-    const buf = Buffer.from(await res!.arrayBuffer()).subarray(0, 15 * 1024 * 1024);
+    const { buf, coupe } = await corpsBorne(res!, /html/i.test(type) && !/pdf/i.test(type) ? Math.min(o.maxOctetsHtml ?? 15 * 1024 * 1024, 15 * 1024 * 1024) : 15 * 1024 * 1024);
     if (res!.status >= 400) throw new Error(`${host} refuse (HTTP ${res!.status})`);
     if (/pdf/i.test(type) || buf.subarray(0, 5).toString('latin1') === '%PDF-') {
       const text = await pdfText(buf);
       return { url: raw, finalUrl: url.toString(), status: res!.status, kind: 'pdf', title: pdfTitle(buf) || decodeURIComponent(url.pathname.split('/').pop() ?? ''), text, links: [], accessed, via: 'http' };
     }
     const body = buf.toString('utf8');
-    if (/html/i.test(type) || /^\s*</.test(body)) return { ...extractArticle(body, url.toString()), url: raw, finalUrl: url.toString(), status: res!.status, kind: 'html', accessed, via: 'http' };
+    if (/html/i.test(type) || /^\s*</.test(body)) return { ...extractArticle(body, url.toString()), url: raw, finalUrl: url.toString(), status: res!.status, kind: 'html', accessed, via: 'http', ...(coupe ? { tronquee: true } : {}) };
     return { url: raw, finalUrl: url.toString(), status: res!.status, kind: 'texte', title: url.pathname, text: body.slice(0, 200_000), links: [], accessed, via: 'http' };
   }
   throw new Error('trop de redirections');

@@ -76,8 +76,13 @@ export interface Plage { de: number; a: number }
 export interface BornesRobot {
   /** Délai minimal entre deux demandes au même site (ms). */
   delaiSiteMs: number;
-  /** Plafond de demandes par site et par jour. */
+  /** Plafond de demandes par site et par jour (la curiosité ordinaire). */
   pagesParSiteJour: number;
+  /**
+   * Plafond de pages par jour d'un site à ABSORBER (réglage du propriétaire, 17/11/2026 : 1 000 000 par défaut). Un site
+   * peut avoir le sien ; le délai entre deux pages et les consignes du site s'appliquent toujours.
+   */
+  pagesParSiteAbsorber: number;
   profondeurMax: number;
   /** Taille maximale d'une page lue (octets). */
   tailleMaxPage: number;
@@ -111,6 +116,8 @@ export interface Reglages {
   modeleEnLigne: boolean;
   /** « Ne pas garder » : Odin peut lire, mais ne range rien de ce qu'il lit. */
   nePasGarder: boolean;
+  /** La version des défauts (2 : le rythme du 17/11/2026). Des réglages plus anciens restés aux défauts d'alors sont repris. */
+  version?: number;
 }
 
 /** Les interdits du propriétaire. */
@@ -176,6 +183,8 @@ export interface PageLue {
   /** Consignes de la page elle-même (meta robots / X-Robots-Tag). */
   nofollow: boolean;
   noindex: boolean;
+  /** Les fils d'actualité (RSS, Atom) que la page annonce (balises <link rel="alternate">), adresses absolues. */
+  fils?: string[];
 }
 
 /** Ce que rend une demande du lecteur. */

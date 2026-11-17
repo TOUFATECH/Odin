@@ -1152,7 +1152,8 @@ CHECKS['mathesis>saga'] = async () => {
   await m.tour({ manques: 1, revisites: 0 });
   const range = muninn.recall('Piton Fournaise 2632 mètres', 10).find((x) => x.tags.includes('confiance:confirmé'));
   assert.ok(range, 'ce qu\'Odin a appris tout seul est rangé dans la mémoire, confirmé par deux sources');
-  assert.match(range!.source ?? '', /^web:.*@\d{4}-\d{2}-\d{2}$/, 'avec sa source et sa date');
+  // … puis l'adresse précise de la page (pour dire « c'est ici »).
+  assert.match(range!.source ?? '', /^web:.*@\d{4}-\d{2}-\d{2}( https?:\/\/\S+)?$/, 'avec sa source et sa date');
   assert.equal(range!.origin, 'agent', 'jamais au rang de ce que tu as dit (« owner »)');
 };
 

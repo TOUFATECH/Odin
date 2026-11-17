@@ -10,7 +10,7 @@ export const NOM_ROBOT = 'OdinMathesis';
 export const AGENT_ROBOT = 'OdinMathesis/1.0 (robot de lecture d\'un assistant personnel auto-heberge ; lecture seule ; respecte robots.txt)';
 
 export interface Regle { permis: boolean; chemin: string }
-export interface ReglesSite { tout: 'permis' | 'interdit' | 'regles'; regles: Regle[]; delaiS?: number }
+export interface ReglesSite { tout: 'permis' | 'interdit' | 'regles'; regles: Regle[]; delaiS?: number; /** Plans du site annoncés (lignes « Sitemap: »), 10 au plus. */ plans?: string[] }
 
 /** Bornes d'une règle : au-delà, le fichier est jugé hostile (tout interdit). */
 export const REGLE_MAX = 2000, JOKERS_MAX = 50;
@@ -25,6 +25,7 @@ export function analyserRobots(texte: string, nom = NOM_ROBOT): ReglesSite {
   let courant: Groupe | undefined;
   let dernierEtaitAgent = false;
   let hostile = false;
+  const plans: string[] = [];
   for (const ligneBrute of String(texte ?? '').slice(0, 512 * 1024).split(/\r?\n|\r/)) {
     const ligne = ligneBrute.replace(/#.*$/, '').trim();
     if (!ligne) continue;
@@ -32,6 +33,8 @@ export function analyserRobots(texte: string, nom = NOM_ROBOT): ReglesSite {
     if (i < 0) continue;
     const cle = ligne.slice(0, i).trim().toLowerCase();
     const val = ligne.slice(i + 1).trim();
+    // « Sitemap: » vaut pour tout le fichier, quel que soit le groupe (et ne rompt pas un groupe).
+    if (cle === 'sitemap') { if (/^https?:\/\//i.test(val) && val.length <= 2000 && plans.length < 10) plans.push(val); continue; }
     if (cle === 'user-agent') {
       if (!courant || !dernierEtaitAgent) { courant = { agents: [], regles: [] }; groupes.push(courant); }
       courant.agents.push(val.toLowerCase());
@@ -51,13 +54,14 @@ export function analyserRobots(texte: string, nom = NOM_ROBOT): ReglesSite {
     }
   }
   if (hostile) return TOUT_INTERDIT;
+  const avecPlans = plans.length ? { plans } : {};
   const n = nom.toLowerCase();
   const nommes = groupes.filter((g) => g.agents.some((a) => a !== '*' && a === n));
   const choisis = nommes.length ? nommes : groupes.filter((g) => g.agents.includes('*'));
-  if (!choisis.length) return TOUT_PERMIS;
+  if (!choisis.length) return { ...TOUT_PERMIS, ...avecPlans };
   const regles = choisis.flatMap((g) => g.regles);
   const delais = choisis.map((g) => g.delaiS).filter((d): d is number => d !== undefined);
-  return { tout: 'regles', regles, ...(delais.length ? { delaiS: Math.max(...delais) } : {}) };
+  return { tout: 'regles', regles, ...(delais.length ? { delaiS: Math.max(...delais) } : {}), ...avecPlans };
 }
 
 /** Une règle couvre-t-elle ce chemin ? « * » = n'importe quoi, « $ » final = fin du chemin. Pur. */

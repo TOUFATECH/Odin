@@ -15,8 +15,11 @@ import { Journal } from './journal.ts';
 import { Lecteur, transportSysteme } from './lecteur.ts';
 import { MagasinFichiers, type Magasin } from './magasin.ts';
 import { rangerPages, rechercherManque, chercheurOdin, type BilanManque, type DepsRecherche } from './recherche.ts';
-import { garde, normaliserReglages, PHRASES_ARRET } from './reglages.ts';
+import { garde, migrerReglages, normaliserReglages, PHRASES_ARRET } from './reglages.ts';
 import { Robot } from './robot.ts';
+import { Traces } from './traces.ts';
+import { Absorbeur, type BilanAbsorption } from './absorber.ts';
+import { OuTrouver } from './ou-trouver.ts';
 import { poserEtatMathesis, viderManques } from './signaux.ts';
 import { LecteurMaison, type BilanMaison, type LireImage } from './maison.ts';
 import type { Chercheur, Manque, RaisonArret, Reglages, Resolveur, Temps, Transport } from './types.ts';
@@ -51,7 +54,7 @@ export interface OptionsMathesis {
   lireImage?: () => LireImage | undefined;
 }
 
-export interface BilanTour { arret?: RaisonArret; phrase: string; manques: BilanManque[]; revisitees: number; changees: number; maison?: BilanMaison }
+export interface BilanTour { arret?: RaisonArret; phrase: string; manques: BilanManque[]; revisitees: number; changees: number; maison?: BilanMaison; absorption?: BilanAbsorption }
 
 export function creerMathesis(o: OptionsMathesis) {
   const temps: Temps = { maintenant: o.temps?.maintenant ?? Date.now, attendre: o.temps?.attendre ?? attendreReel };
@@ -86,6 +89,8 @@ export function creerMathesis(o: OptionsMathesis) {
       alertes.push('Le compteur du jour de Mathésis était illisible : le budget est considéré comme épuisé jusqu\'à demain.');
     }
   }
+  // Des réglages enregistrés avant le rythme du 17/11/2026 : ce qui était resté aux défauts d'alors prend les nouveaux.
+  if (!(magasin.illisibles?.() ?? []).some((x) => x.collection === 'reglages')) { const mig = migrerReglages(magasin.lire('reglages', undefined)); if (mig) magasin.ecrire('reglages', mig); }
   let courant: AbortController | undefined;
   const signalCourant = () => courant?.signal;
   const gardeMaintenant = (): RaisonArret | undefined => garde({ reglages: reglages(), maintenant: temps.maintenant(), occupe: o.occupe, prive: o.prive, signal: signalCourant() });
@@ -101,14 +106,24 @@ export function creerMathesis(o: OptionsMathesis) {
     : o.apprentissage ? ((a: Apport) => apprendreDeTout(o.apprentissage as DepsApprentissage, a))
       : ((): ResultatApprentissage => ({ retenus: 0, ignores: 0, rejetes: 0, souvenirs: [], niveaux: [] }));
   const maison = new LecteurMaison({ magasin, budget, empreintes, journal, reglages, interdits: () => interdits.lire(), garde: gardeMaintenant, apprendre, maintenant: temps.maintenant, lireImage: o.lireImage });
+  const traces = new Traces(magasin, temps.maintenant);
+  const ouTrouver = new OuTrouver(magasin);
   const deps: DepsRecherche = {
     chercher: o.chercher ?? chercheurOdin(),
     obtenirPages: async (m, graines, signal) => { const b = await robot.explorer(m, graines, signal); return { pages: b.pages, ...(b.arret ? { arret: b.arret } : {}) }; },
-    apprendre, budget, journal, empreintes, curiosite, reglages, interdits: () => interdits.lire(), garde: gardeMaintenant, maintenant: temps.maintenant,
+    apprendre, budget, journal, empreintes, curiosite, reglages, interdits: () => interdits.lire(), garde: gardeMaintenant, maintenant: temps.maintenant, traces, ouTrouver,
   };
+  // Les sites à absorber : chaque page lue est rangée comme une page confiée (son titre fait le sujet).
+  const absorbeur = new Absorbeur({
+    magasin, lecteur, robot, journal, reglages, interdits: () => interdits.lire(), maintenant: temps.maintenant, garde: gardeMaintenant,
+    apprendre: (page) => {
+      const m: Manque = { id: `absorber:${page.site}`, sujet: page.urlFinale, cle: page.urlFinale, genre: 'page', origine: 'confie', priorite: 100, raison: 'un site à absorber (demandé par toi)', confie: true, ajoute: temps.maintenant(), vu: 1, essais: 0, etat: 'en_attente' };
+      return rangerPages(deps, m, [page]).faits.length;
+    },
+  });
 
   /** Un tour de travail borné. Ne lève jamais. Un seul tour à la fois. */
-  async function tour(t: { manques?: number; revisites?: number; maison?: boolean; signal?: AbortSignal } = {}): Promise<BilanTour> {
+  async function tour(t: { manques?: number; revisites?: number; maison?: boolean; absorber?: number; signal?: AbortSignal } = {}): Promise<BilanTour> {
     const bilan: BilanTour = { phrase: '', manques: [], revisitees: 0, changees: 0 };
     if (courant) { bilan.arret = 'occupe'; bilan.phrase = 'un tour est déjà en cours'; return bilan; }
     courant = new AbortController();
@@ -120,7 +135,14 @@ export function creerMathesis(o: OptionsMathesis) {
       if (g) { bilan.arret = g; bilan.phrase = PHRASES_ARRET[g]; return bilan; }
       // Les manques déposés par le reste d'Odin (recherche vérifiée sans réponse sûre, fait à une seule source).
       for (const x of viderManques()) curiosite.signaler(x);
-      for (const m of curiosite.prochains(t.manques ?? 3)) {
+      // Les sites à absorber passent AVANT la curiosité ordinaire, dans le même budget de pages du jour.
+      // Un passage lit au rythme du réglage (2 s entre deux pages par défaut) pendant au plus 14 minutes.
+      const nAbs = t.absorber ?? absorbeur.pagesParPassage();
+      if (nAbs > 0 && absorbeur.liste().length) {
+        bilan.absorption = await absorbeur.passer(nAbs, courant.signal);
+        if (bilan.absorption.arret) bilan.arret = bilan.absorption.arret;
+      }
+      for (const m of bilan.arret ? [] : curiosite.prochains(t.manques ?? 3)) {
         const b = await rechercherManque(deps, m, courant.signal);
         bilan.manques.push(b);
         if (b.arret) { bilan.arret = b.arret; break; }
@@ -140,7 +162,7 @@ export function creerMathesis(o: OptionsMathesis) {
         bilan.maison = await maison.parcourir(courant.signal);
         if (bilan.maison.arret) bilan.arret = bilan.maison.arret;
       }
-      bilan.phrase = bilan.arret ? PHRASES_ARRET[bilan.arret] : `${bilan.manques.length} manque(s) traité(s), ${bilan.changees} page(s) modifiée(s) relue(s)${bilan.maison ? `, ${bilan.maison.lus} fichier(s) des dossiers ouverts lu(s)` : ''}`;
+      bilan.phrase = bilan.arret ? PHRASES_ARRET[bilan.arret] : `${bilan.absorption?.pages ? `${Absorbeur.resume(bilan.absorption)}, ` : ''}${bilan.manques.length} manque(s) traité(s), ${bilan.changees} page(s) modifiée(s) relue(s)${bilan.maison ? `, ${bilan.maison.lus} fichier(s) des dossiers ouverts lu(s)` : ''}`;
       return bilan;
     } catch (e) {
       bilan.phrase = `panne du tour : ${String((e as Error)?.message ?? e).slice(0, 160)}`;
@@ -152,7 +174,7 @@ export function creerMathesis(o: OptionsMathesis) {
   }
 
   return {
-    magasin, lecteur, robot, maison, curiosite, apprendre, journal, budget, empreintes, interdits, reglages, regler, tour,
+    magasin, lecteur, robot, maison, curiosite, apprendre, traces, absorbeur, ouTrouver, journal, budget, empreintes, interdits, reglages, regler, tour,
     /** L'interrupteur unique. */
     allumer: () => regler({ actif: true }),
     eteindre: () => { const r = regler({ actif: false }); courant?.abort(); return r; },

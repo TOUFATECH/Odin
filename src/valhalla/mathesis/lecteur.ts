@@ -12,6 +12,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import { Readable } from 'node:stream';
+import { constants as zlibConstants, gunzipSync } from 'node:zlib';
 import type { LookupFunction } from 'node:net';
 import { normalizeDate } from '../../research/fetch.ts';
 import { siteOf } from '../../research/sources.ts';
@@ -54,6 +55,59 @@ const DEFI = /captcha|cf-chl|challenge-platform|verify (that )?you are (a )?huma
 /** Une redirection vers une page de connexion : refus (on ne se connecte jamais). */
 const CONNEXION = /\/(login|log-in|signin|sign-in|sign_in|connexion|se-connecter|identification|auth|oauth|sso|account\/login|compte\/connexion|session\/new)(\/|\?|$|\.)/i;
 const TYPES_TEXTE = /^(text\/html|application\/xhtml\+xml|text\/plain)\b/i;
+/** Plans de site et fils d'actualité (XML) : lus seulement quand on les demande (option `xml` de lire). */
+const TYPES_XML = /^(application|text)\/((rss|atom)\+)?xml\b/i;
+
+/** Les options d'une lecture. */
+export interface OptionsLire {
+  /** Ce qu'on sait de la dernière visite (demande conditionnelle). */
+  conditionnel?: Fraicheur;
+  signal?: AbortSignal;
+  /** Accepter un document XML (plan de site, fil d'actualité) : son texte brut est rendu. */
+  xml?: boolean;
+  /** Le plafond de pages par jour pour ce site (un site à absorber peut avoir le sien, borné par les réglages). */
+  plafondSite?: number;
+}
+
+/**
+ * Décompresse un plan de site « .xml.gz », sans jamais dépasser `max` octets décompressés (une bombe de compression
+ * s'arrête à la borne ; un fichier tronqué rend ce qui a pu être lu). Rend le texte. Ne lève jamais.
+ */
+export function degonfler(octets: Buffer, max: number): string {
+  try { return gunzipSync(octets, { maxOutputLength: max, finishFlush: zlibConstants.Z_SYNC_FLUSH }).toString('utf8'); }
+  catch {
+    // Au-delà de la borne : le plus long DÉBUT du fichier compressé qui tient dans la borne (recherche dichotomique,
+    // chaque essai lui-même borné) — comme un plan trop gros en clair, lu en partie.
+    let lo = 0, hi = octets.length, meilleur = '';
+    for (let k = 0; k < 24 && lo < hi; k++) {
+      const mid = (lo + hi + 1) >> 1;
+      try { meilleur = gunzipSync(octets.subarray(0, mid), { maxOutputLength: max, finishFlush: zlibConstants.Z_SYNC_FLUSH }).toString('utf8'); lo = mid; } catch { hi = mid - 1; }
+    }
+    return meilleur;
+  }
+}
+
+/** Les fils d'actualité (RSS, Atom) annoncés par une page HTML (<link rel="alternate" type="application/rss+xml">). Pur. */
+export function filsDePage(html: string, base: string): string[] {
+  const out: string[] = [];
+  const tete = html.slice(0, 256 * 1024);
+  const re = /<link\b[^>]{0,500}>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(tete)) && out.length < 5) {
+    const b = m[0];
+    if (!/rel\s*=\s*["']?alternate/i.test(b) || !/type\s*=\s*["']?application\/(rss|atom)\+xml/i.test(b)) continue;
+    const href = /href\s*=\s*(?:"([^"]{1,2000})"|'([^']{1,2000})'|([^\s>]{1,2000}))/i.exec(b);
+    const h = href?.[1] ?? href?.[2] ?? href?.[3];
+    if (!h) continue;
+    try { const u = new URL(entites(h), base); if (/^https?:$/.test(u.protocol) && !out.includes(u.toString())) out.push(u.toString()); } catch { /* adresse illisible */ }
+  }
+  return out;
+}
+
+/** L'attente la plus longue faite dans un passage avant une lecture (au-delà, le site est laissé jusqu'à son créneau). */
+export const ATTENTE_MAX_MS = 120_000;
+/** Les langues demandées aux sites : le français d'abord, puis l'anglais, puis TOUTES les autres (rien n'est refusé). */
+export const LANGUES_ACCEPTEES = 'fr-FR,fr;q=0.9,en;q=0.8,*;q=0.5';
 
 export const PAUSES = { refus: 24 * 3_600_000, limite: 3_600_000, panne: 3_600_000, maxi: 7 * 86_400_000 } as const;
 
@@ -242,7 +296,9 @@ export class Lecteur {
   // ------------------------------------------------------------------ délai poli
   private async tour(hote: string, delaiS: number | undefined, signal?: AbortSignal): Promise<void> {
     const r = this.o.reglages().robot;
-    const delai = Math.max(r.delaiSiteMs, Math.min(120, delaiS ?? 0) * 1000);
+    // Le délai demandé par le site est respecté tel quel (borné à un jour contre une valeur absurde) ; une attente
+    // longue n'est jamais faite dans le passage : voir attenteSite (le site est alors « en pause » jusque-là).
+    const delai = Math.max(r.delaiSiteMs, Math.min(86_400, delaiS ?? 0) * 1000);
     // Le créneau est RÉSERVÉ avant d'attendre (deux lectures croisées ne prennent jamais le même) et gardé dans le
     // magasin : après un redémarrage, le délai est encore tenu.
     const now = this.o.temps.maintenant();
@@ -255,12 +311,19 @@ export class Lecteur {
     if (creneau > now) await this.o.temps.attendre(creneau - now, signal);
   }
 
+  /** Combien faudrait-il attendre avant la prochaine lecture de ce site (sans rien réserver) ? */
+  attenteSite(hote: string): number {
+    const now = this.o.temps.maintenant();
+    const prochains = this.o.magasin.lire<Record<string, number>>('prochains', {});
+    return Math.max(0, Math.max(this.prochain.get(hote) ?? 0, prochains[hote] ?? 0) - now);
+  }
+
   /** Une demande GET/HEAD, avec un délai maximal. Jamais de cookie. */
-  private async demander(url: string, methode: 'GET' | 'HEAD', entetes: Record<string, string>, signal?: AbortSignal): Promise<Response> {
+  private async demander(url: string, methode: 'GET' | 'HEAD', entetes: Record<string, string>, signal?: AbortSignal, xml = false): Promise<Response> {
     if (!(METHODES as readonly string[]).includes(methode)) throw new Error('méthode refusée');
     const r = this.o.reglages().robot;
     const sig = signal ? AbortSignal.any([signal, AbortSignal.timeout(r.delaiDemandeMs)]) : AbortSignal.timeout(r.delaiDemandeMs);
-    const headers: Record<string, string> = { 'user-agent': AGENT_ROBOT, accept: 'text/html,application/xhtml+xml,text/plain;q=0.9', 'accept-language': 'fr-FR,fr;q=0.9,en;q=0.5', ...entetes };
+    const headers: Record<string, string> = { 'user-agent': AGENT_ROBOT, accept: xml ? 'application/xml,text/xml,application/rss+xml,application/atom+xml;q=0.9' : 'text/html,application/xhtml+xml,text/plain;q=0.9', 'accept-language': LANGUES_ACCEPTEES, ...entetes };
     delete headers.cookie; delete headers.authorization;
     this.envoyees.push({ url, methode, at: this.o.temps.maintenant() });
     return this.o.transport(url, { method: methode, headers, redirect: 'manual', signal: sig });
@@ -268,14 +331,18 @@ export class Lecteur {
 
   // ------------------------------------------------------------------ consignes des robots (cache 24 h)
   /** Les consignes d'un site (origine), lues au besoin. Rend « tout interdit » si elles ne peuvent pas être lues. */
-  async consignes(origine: string, signal?: AbortSignal): Promise<ReglesSite | RaisonArret> {
+  async consignes(origine: string, signal?: AbortSignal, plafond?: number): Promise<ReglesSite | RaisonArret> {
     const now = this.o.temps.maintenant();
     const cache = this.o.magasin.lire<Record<string, { at: number; jusqua: number; regles: ReglesSite }>>('robots', {});
     const c = cache[origine];
     if (c && c.jusqua > now) return c.regles;
     const hote = new URL(origine).hostname;
     const g = this.o.garde(); if (g) return g;
-    if (!this.o.budget.prendreSite(hote, this.o.reglages().robot.pagesParSiteJour)) return TOUT_INTERDIT;
+    // Les consignes comptent dans les demandes du jour au site, sous le plus haut des deux plafonds (un site à absorber
+    // dépasse vite les 30 pages de la curiosité) ; plafond atteint : on s'arrête pour aujourd'hui, le site n'est PAS
+    // tenu pour « tout interdit » (il serait refusé pour de bon).
+    const rb = this.o.reglages().robot;
+    if (!this.o.budget.prendreSite(hote, plafond ?? Math.max(rb.pagesParSiteJour, rb.pagesParSiteAbsorber))) return 'budget';
     try { await this.tour(hote, undefined, signal); } catch { return 'abandon'; }
     const g2 = this.o.garde(); if (g2) return g2;
     let regles: ReglesSite = TOUT_INTERDIT, duree: number = PAUSES.panne;
@@ -310,12 +377,12 @@ export class Lecteur {
    * Lit une page publique. `conditionnel` = ce qu'on sait de la dernière visite (demande conditionnelle).
    * Ne lève jamais : rend « lu », « inchangé », « refus », « sauté » ou « arrêt ».
    */
-  async lire(brut: string, o: { conditionnel?: Fraicheur; signal?: AbortSignal } = {}): Promise<ResultatLecture> {
+  async lire(brut: string, o: OptionsLire = {}): Promise<ResultatLecture> {
     try { return await this.lireSansFilet(brut, o); }
     catch (e) { return o.signal?.aborted ? { genre: 'arret', raison: 'abandon' } : { genre: 'saute', url: brut, raison: `panne de lecture : ${String((e as Error)?.message ?? e).slice(0, 120)}` }; }
   }
 
-  private async lireSansFilet(brut: string, o: { conditionnel?: Fraicheur; signal?: AbortSignal }): Promise<ResultatLecture> {
+  private async lireSansFilet(brut: string, o: OptionsLire): Promise<ResultatLecture> {
     const r = this.o.reglages().robot;
     let url = brut;
     for (let saut = 0; saut <= r.redirectionsMax; saut++) {
@@ -327,14 +394,19 @@ export class Lecteur {
       if (siteInterdit(this.o.interdits(), url)) return { genre: 'saute', url, raison: 'site interdit par toi' };
       const pause = this.enPause(u.hostname);
       if (pause) return { genre: 'saute', url, raison: `site en pause (${pause.raison})` };
-      const regles = await this.consignes(u.origin, o.signal);
+      const regles = await this.consignes(u.origin, o.signal, o.plafondSite ?? r.pagesParSiteJour);
+      if (regles === 'budget') return { genre: 'saute', url, raison: 'plafond du jour atteint pour ce site' };
       if (typeof regles === 'string') return { genre: 'arret', raison: regles };
       if (!permis(regles, u.pathname + u.search)) return { genre: 'saute', url, raison: 'interdit par les consignes des robots du site' };
       const g2 = this.o.garde(); if (g2) return { genre: 'arret', raison: g2 };
       if (this.o.budget.restant('octets') <= 0) return { genre: 'arret', raison: 'budget' };
+      // Un site qui demande un long délai (Crawl-delay) : on n'attend jamais plus de 2 minutes dans le passage ; il est
+      // laissé jusqu'à son créneau (rien n'est pris sur les budgets).
+      const attente = this.attenteSite(u.hostname);
+      if (attente > ATTENTE_MAX_MS) return { genre: 'saute', url, raison: `site en pause (il demande ${Math.round((regles.delaiS ?? 0))} s entre deux pages : prochaine lecture dans ${Math.ceil(attente / 60_000)} min)` };
       // Le plafond du site d'abord : une page refusée par lui ne coûte rien au budget du jour.
       if (this.o.budget.restant('pages') < 1) return { genre: 'arret', raison: 'budget' };
-      if (!this.o.budget.prendreSite(u.hostname, r.pagesParSiteJour)) return { genre: 'saute', url, raison: 'plafond du jour atteint pour ce site' };
+      if (!this.o.budget.prendreSite(u.hostname, o.plafondSite ?? r.pagesParSiteJour)) return { genre: 'saute', url, raison: 'plafond du jour atteint pour ce site' };
       if (!this.o.budget.prendre('pages')) return { genre: 'arret', raison: 'budget' };
       try { await this.tour(u.hostname, regles.delaiS, o.signal); } catch { return { genre: 'arret', raison: 'abandon' }; }
       const g3 = this.o.garde(); if (g3) return { genre: 'arret', raison: g3 };
@@ -343,7 +415,7 @@ export class Lecteur {
       if (saut === 0 && o.conditionnel?.etag) entetes['if-none-match'] = o.conditionnel.etag;
       if (saut === 0 && o.conditionnel?.derniereModif) entetes['if-modified-since'] = o.conditionnel.derniereModif;
       let res: Response;
-      try { res = await this.demander(url, 'GET', entetes, o.signal); }
+      try { res = await this.demander(url, 'GET', entetes, o.signal, o.xml === true); }
       catch (e) {
         if (o.signal?.aborted) return { genre: 'arret', raison: 'abandon' };
         const prive = (e as NodeJS.ErrnoException)?.code === 'EODINPRIVE' || /adresse privée/.test(String((e as Error)?.message));
@@ -387,22 +459,25 @@ export class Lecteur {
       if (st < 200 || st >= 300) { await res.body?.cancel().catch(() => undefined); return { genre: 'saute', url, raison: `page indisponible (HTTP ${st})` }; }
 
       const type = res.headers.get('content-type') ?? '';
-      if (!TYPES_TEXTE.test(type)) { await res.body?.cancel().catch(() => undefined); return { genre: 'saute', url, raison: `pas du texte (${type.split(';')[0] || 'type inconnu'}) : pas lu à ce passage` }; }
+      // Un plan de site compressé (« .xml.gz ») : décompressé, borné à la taille maximale d'une page.
+      const gz = o.xml === true && (/^application\/(x-)?gzip\b/i.test(type) || (/\.gz$/i.test(u.pathname) && /^application\/octet-stream\b/i.test(type)));
+      const xml = o.xml === true && (TYPES_XML.test(type) || gz);
+      if (!TYPES_TEXTE.test(type) && !xml) { await res.body?.cancel().catch(() => undefined); return { genre: 'saute', url, raison: `pas du texte (${type.split(';')[0] || 'type inconnu'}) : pas lu à ce passage` }; }
       const max = Math.min(r.tailleMaxPage, this.o.budget.restant('octets'));
       const annonce = Number(res.headers.get('content-length'));
-      if (Number.isFinite(annonce) && annonce > max) { await res.body?.cancel().catch(() => undefined); return { genre: 'saute', url, raison: 'page trop grosse (ou budget d\'octets du jour atteint)' }; }
+      if (Number.isFinite(annonce) && annonce > max && !xml) { await res.body?.cancel().catch(() => undefined); return { genre: 'saute', url, raison: 'page trop grosse (ou budget d\'octets du jour atteint)' }; }
       let corps: { octets: Buffer; n: number; depasse: boolean };
       try { corps = await lireCorps(res, max); } catch { return o.signal?.aborted ? { genre: 'arret', raison: 'abandon' } : { genre: 'saute', url, raison: 'lecture interrompue (délai dépassé)' }; }
       this.o.budget.noter('octets', corps.n);
-      if (corps.depasse) return { genre: 'saute', url, raison: 'page trop grosse (ou budget d\'octets du jour atteint)' };
-      const brutTexte = decoder(corps.octets, type);
+      if (corps.depasse && !xml) return { genre: 'saute', url, raison: 'page trop grosse (ou budget d\'octets du jour atteint)' };
+      const brutTexte = gz ? degonfler(corps.octets, r.tailleMaxPage) : decoder(corps.octets, type);
       if (brutTexte.length < 30_000 && DEFI.test(brutTexte)) {
         this.mettreEnPause(u.hostname, 'vérification anti-robot', PAUSES.refus);
         return { genre: 'refus', url, raison: 'vérification anti-robot : laissée, jamais passée', site: u.hostname };
       }
-      const html = /html/i.test(type);
+      const html = !xml && /html/i.test(type);
       const consignes = html ? consignesPage(brutTexte, res.headers.get('x-robots-tag')) : consignesPage('', res.headers.get('x-robots-tag'));
-      const art = html ? texteDePage(brutTexte) : { title: u.pathname, text: brutTexte.slice(0, 200_000), published: undefined };
+      const art = html ? texteDePage(brutTexte) : { title: u.pathname, text: brutTexte.slice(0, xml ? r.tailleMaxPage : 200_000), published: undefined };
       const page: PageLue = {
         url: brut, urlFinale: url, site: siteOf(url), titre: art.title ?? '', texte: art.text ?? '',
         liens: html && !consignes.nofollow ? liensDe(brutTexte, url, r.liensParPage * 3) : [],
@@ -410,6 +485,7 @@ export class Lecteur {
         octets: corps.n, empreinte: empreinteContenu(art.text ?? ''),
         fraicheur: { ...fraicheurDe(res.headers), ...(art.published ? { publie: art.published } : {}) },
         nofollow: consignes.nofollow, noindex: consignes.noindex,
+        ...(html ? { fils: filsDePage(brutTexte, url) } : {}),
       };
       return { genre: 'lu', page };
     }

@@ -11,25 +11,32 @@
 
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { searchAll, type MergedResult, type SearchOptions } from '../tools/search.ts';
-import { needsBrowser, politeFetch, type Page } from './fetch.ts';
-import { assess, clusterSources, siteOf, type Assessed } from './sources.ts';
+import { LECTURE_RECHERCHE, needsBrowser, politeFetch, type Page } from './fetch.ts';
+import { assess, clusterSources, siteOf, tierOf, type Assessed } from './sources.ts';
 
 export type Llm = (system: string, user: string, maxTokens?: number) => Promise<string>;
 export interface ResearchOptions extends SearchOptions {
   llm: Llm;
   /** Lecture par le vrai navigateur (pages dynamiques, sites qui refusent les requêtes simples). */
-  browserText?(url: string): Promise<{ title: string; text: string } | undefined>;
+  browserText?(url: string, signal?: AbortSignal): Promise<{ title: string; text: string } | undefined>;
   maxSources?: number;
   depth?: 'rapide' | 'normale' | 'approfondie';
   onStep?(step: string): void;
   now?: number;
-  fetchPage?: (url: string) => Promise<Page>;
+  /** Lecture d'une page ; `signal` s'arrête quand la collecte est finie (les pages qui tardent sont abandonnées). */
+  fetchPage?: (url: string, signal?: AbortSignal) => Promise<Page>;
 }
+
+/** La collecte attend au plus ce temps après la première page utile (les pages lentes ne retiennent plus tout). */
+export const APRES_PREMIERE_MS = 6000;
+/** Plafond de la collecte, même si aucune page n'est encore lue (la reprise par les extraits des moteurs suit). */
+export const COLLECTE_MAX_MS = 20_000;
 
 export interface Plan { claims: string[]; country: string; period: string; precision: string; queries: string[]; contra: string[]; type: 'fait' | 'comparatif' | 'actualité' | 'opinion' }
 export interface Evidence { claim: string; source: number; quote: string; stance: 'pour' | 'contre' | 'nuance' }
-export interface ClaimResult { claim: string; verdict: 'confirmé' | 'probable' | 'contredit' | 'incertain' | 'insuffisant'; independent: number; evidence: Evidence[]; kind: 'fait' | 'estimation' | 'opinion' }
-export interface ResearchResult { question: string; plan: Plan; sources: Assessed[]; claims: ClaimResult[]; report: string; engines: string[]; errors: string[] }
+export interface ClaimResult { claim: string; verdict: 'confirmé' | 'probable' | 'contredit' | 'incertain' | 'insuffisant'; independent: number; evidence: Evidence[]; kind: 'fait' | 'estimation' | 'opinion'; /** Pourquoi le verdict est plus prudent que les preuves seules (pages non lues). */ limite?: string }
+/** `nonLues` : les pages abandonnées ou lues en partie, toujours à dire (aussi en tête de `errors`). */
+export interface ResearchResult { question: string; plan: Plan; sources: Assessed[]; claims: ClaimResult[]; report: string; engines: string[]; errors: string[]; nonLues?: string[] }
 
 /** Lit un objet JSON dans une réponse de modèle (tolère le texte autour). */
 export function readJson<T>(text: string): T | undefined {
@@ -111,19 +118,58 @@ export async function research(question: string, o: ResearchOptions): Promise<Re
   for (const r of main.results) take(r, maxSources - reserve);
   for (const r of contra.results) take(r, maxSources);
   for (const r of main.results) take(r, maxSources);
-  // 3. Collecte
+  // 3. Collecte, en parallèle. On n'attend pas indéfiniment la page la plus lente : la collecte s'arrête quand tout est
+  //    lu, ou APRES_PREMIERE_MS après la première page utile (COLLECTE_MAX_MS au plus). Les pages de la recherche
+  //    contradictoire et les sources officielles sont attendues jusqu'au plafond. Les pages non lues sont dites dans les
+  //    limites, et un « confirmé » devient « probable » tant qu'une page manque (elle aurait pu contredire).
   step(`Je lis ${pick.length} sources`);
-  const pages: Page[] = [];
-  await Promise.all(pick.map(async (r) => {
-    try {
-      let p = await (o.fetchPage ?? ((u: string) => politeFetch(u, { signal: o.signal })))(r.url);
-      if (needsBrowser(p) && o.browserText) { const b = await o.browserText(r.url).catch(() => undefined); if (b && b.text.length > p.text.length) p = { ...p, title: b.title || p.title, text: b.text, via: 'navigateur' }; }
-      if (p.text.length > 80) pages.push(p);
-    } catch (e) {
-      if (o.browserText) { const b = await o.browserText(r.url).catch(() => undefined); if (b && b.text.length > 200) pages.push({ url: r.url, finalUrl: r.url, status: 200, kind: 'html', title: b.title || r.title, text: b.text, links: [], accessed: new Date().toISOString(), via: 'navigateur' }); }
-      else main.errors.push(`${siteOf(r.url)} : ${(e as Error).message.slice(0, 80)}`);
-    }
-  }));
+  const pages: Page[] = [], nonLues: string[] = [];
+  const finCollecte = new AbortController();
+  const signalCollecte = o.signal ? AbortSignal.any([o.signal, finCollecte.signal]) : finCollecte.signal;
+  const lire = o.fetchPage ?? ((u: string, s?: AbortSignal) => politeFetch(u, { signal: s, ...LECTURE_RECHERCHE }));
+  const restantes = new Set(pick.map((r) => r.url));
+  // Les pages de la recherche CONTRADICTOIRE sont toujours attendues (jusqu'au plafond) : une contradiction lente ne
+  // doit jamais disparaître au profit d'un « confirmé ».
+  // De même pour une source officielle (une seule suffit à confirmer : on ne la laisse pas de côté).
+  const contraires = new Set(contra.results.map((r) => r.url));
+  const aAttendre = (u: string) => contraires.has(u) || tierOf(u) === 'officiel';
+  const contraireEnRoute = () => [...restantes].some(aAttendre);
+  let close = false;
+  const t0Collecte = Date.now();
+  // Le navigateur de secours reçoit la fin de la collecte, et on ne l'attend plus après elle.
+  const navigateur = o.browserText ? (url: string) => Promise.race([o.browserText!(url, signalCollecte), new Promise<undefined>((ok) => { if (signalCollecte.aborted) ok(undefined); else signalCollecte.addEventListener('abort', () => ok(undefined), { once: true }); })]) : undefined;
+  await new Promise<void>((fini) => {
+    let apresPremiere: ReturnType<typeof setTimeout> | undefined, delaiPasse = false;
+    const plafond = setTimeout(() => terminer(), COLLECTE_MAX_MS);
+    function terminer(): void { if (close) return; close = true; clearTimeout(plafond); if (apresPremiere) clearTimeout(apresPremiere); fini(); }
+    const garder = (p: Page) => { if (close) return; pages.push(p); if (!apresPremiere) apresPremiere = setTimeout(() => { delaiPasse = true; verifier(); }, APRES_PREMIERE_MS); };
+    const verifier = () => {
+      if (close) return;
+      if (!restantes.size) return terminer();
+      if (contraireEnRoute()) return; // une page qui pourrait contredire, ou officielle : on l'attend (jusqu'au plafond)
+      // (Plus d'arrêt anticipé quand « assez de sites » sont lus : une page non lue rend le verdict plus prudent — voir
+      //  plus bas —, autant attendre la deuxième page d'un site, sa pause de politesse tient dans le délai.)
+      if (delaiPasse) terminer();
+    };
+    if (!pick.length) return terminer();
+    for (const r of pick) void (async () => {
+      try {
+        let p = await lire(r.url, signalCollecte);
+        if (needsBrowser(p) && navigateur && !close) { const b = await navigateur(r.url).catch(() => undefined); if (b && b.text.length > p.text.length) p = { ...p, title: b.title || p.title, text: b.text, via: 'navigateur' }; }
+        if (p.text.length > 80) garder(p);
+      } catch (e) {
+        if (navigateur && !close) { const b = await navigateur(r.url).catch(() => undefined); if (b && b.text.length > 200) garder({ url: r.url, finalUrl: r.url, status: 200, kind: 'html', title: b.title || r.title, text: b.text, links: [], accessed: new Date().toISOString(), via: 'navigateur' }); }
+        else if (!close) main.errors.push(`${siteOf(r.url)} : ${(e as Error).message.slice(0, 80)}`);
+      } finally { restantes.delete(r.url); verifier(); }
+    })();
+  });
+  // Les pages encore en route sont abandonnées (leur lecture s'arrête) et nommées dans les limites, avant tout le reste.
+  const secondes = Math.round((Date.now() - t0Collecte) / 1000);
+  for (const u of restantes) nonLues.push(`${siteOf(u)} : pas lue à temps (${secondes} s de collecte${contraires.has(u) ? ', page qui pouvait contredire' : tierOf(u) === 'officiel' ? ', source officielle' : ''})`);
+  finCollecte.abort();
+  // Une page lue en partie (trop grande) est dite aussi : sa fin n'a pas été vérifiée.
+  for (const p of pages) if (p.tronquee) nonLues.push(`${siteOf(p.finalUrl || p.url)} : lue en partie seulement (page trop grande, la fin n'a pas été lue)`);
+  const abandonnees = restantes.size;
   // 3 bis. Rien de lisible : on ne s'arrête pas. Extraits des moteurs, sinon page d'actualités ouverte au navigateur.
   if (!pages.length && main.results.length) {
     step('Les pages ne s\'ouvrent pas : je m\'appuie sur les extraits des moteurs');
@@ -141,7 +187,7 @@ export async function research(question: string, o: ResearchOptions): Promise<Re
   const sources = clusterSources(pages.map((p, k) => assess(p, k + 1, now))).sort((a, b) => b.score - a.score);
   if (!sources.length) {
     const report = `Je n'ai pu lire aucune source sur cette question (${[...main.errors, ...contra.errors].slice(0, 3).join(' ; ') || 'aucun résultat'}). NE T'ARRÊTE PAS : reformule (mots-clés plus courts, en anglais), relance web_search, ou ouvre toi-même news.google.com / bing.com/news avec le navigateur (browser_open puis browser_look), puis réponds avec ce que tu as trouvé et ses liens.`;
-    return { question, plan, sources, claims: [], report, engines: main.engines, errors: main.errors };
+    return { question, plan, sources, claims: [], report, engines: main.engines, errors: [...nonLues, ...main.errors], nonLues };
   }
   // 5–6. Vérification (avec les sources contradictoires incluses)
   step('Je vérifie chaque affirmation dans les sources');
@@ -152,13 +198,16 @@ export async function research(question: string, o: ResearchOptions): Promise<Re
     // Preuves contrôlées : la source existe et la citation est vraiment dans son texte.
     const evidence = (c.evidence ?? []).filter((e) => { const s = sources.find((x) => x.n === Number(e.source)); return s && typeof e.quote === 'string' && quoteFound(e.quote, s.page.text); }).map((e) => ({ ...e, source: Number(e.source), claim: c.claim }));
     const v = verdictOf(evidence, sources);
-    return { claim: c.claim, kind: (['fait', 'estimation', 'opinion'].includes(String(c.kind)) ? c.kind : 'fait') as ClaimResult['kind'], evidence, ...v };
+    // Une page n'a pas pu être lue à temps : elle aurait pu contredire. « Confirmé » ne repose jamais sur ce qui manque :
+    // au mieux « probable », et la raison est dite.
+    const limite = v.verdict === 'confirmé' && abandonnees ? `${abandonnees} page(s) non lue(s) à temps auraient pu contredire : ramené de « confirmé » à « probable »` : undefined;
+    return { claim: c.claim, kind: (['fait', 'estimation', 'opinion'].includes(String(c.kind)) ? c.kind : 'fait') as ClaimResult['kind'], evidence, ...v, ...(limite ? { verdict: 'probable' as const, limite } : {}) };
   });
   // 7. Rapport
   step('Je rédige la réponse sourcée');
   const used = new Set(claims.flatMap((c) => c.evidence.map((e) => e.source)));
-  const facts = claims.map((c) => `- ${c.claim} → ${c.verdict.toUpperCase()} (${c.kind} ; ${c.independent} groupe(s) de sources indépendants)\n${c.evidence.map((e) => `   [${e.source}] ${e.stance} : « ${e.quote} »`).join('\n') || '   aucune preuve vérifiée'}`).join('\n');
+  const facts = claims.map((c) => `- ${c.claim} → ${c.verdict.toUpperCase()} (${c.kind} ; ${c.independent} groupe(s) de sources indépendants${c.limite ? ` ; ${c.limite}` : ''})\n${c.evidence.map((e) => `   [${e.source}] ${e.stance} : « ${e.quote} »`).join('\n') || '   aucune preuve vérifiée'}`).join('\n');
   const srcList = sources.filter((s) => used.has(s.n)).map((s) => `[${s.n}] ${s.page.title} — ${s.site} — ${s.tier}, fiabilité ${s.score}/100${s.primary ? ', primaire' : ''} — publiée le ${s.page.published ?? 'date inconnue'} — consultée le ${s.page.accessed.slice(0, 10)} — ${s.page.finalUrl} — groupe ${s.cluster}${s.origin ? ` (reprend ${s.origin})` : ''}${s.notes.length ? ` — ${s.notes.join(', ')}` : ''}`).join('\n');
-  const report = await o.llm(WRITER, `QUESTION : ${question}\nCONTEXTE : pays ${plan.country || '—'}, période ${plan.period || 'actuelle'}, précision ${plan.precision || '—'}, type ${plan.type}.\nDate du jour : ${new Date(now).toLocaleDateString('fr-FR')}.\n\nAFFIRMATIONS ET PREUVES VÉRIFIÉES :\n${facts || '(aucune)'}\n\nSOURCES UTILISÉES :\n${srcList || '(aucune source n\'a fourni de preuve vérifiable)'}\n\nAutres affirmations relevées (non vérifiées) : ${(checked.new_claims ?? []).slice(0, 5).join(' | ') || '—'}`, 3000);
-  return { question, plan, sources, claims, report: report.trim(), engines: main.engines, errors: [...main.errors, ...contra.errors] };
+  const report = await o.llm(WRITER, `QUESTION : ${question}\nCONTEXTE : pays ${plan.country || '—'}, période ${plan.period || 'actuelle'}, précision ${plan.precision || '—'}, type ${plan.type}.\nDate du jour : ${new Date(now).toLocaleDateString('fr-FR')}.\n\nAFFIRMATIONS ET PREUVES VÉRIFIÉES :\n${facts || '(aucune)'}\n\nSOURCES UTILISÉES :\n${srcList || '(aucune source n\'a fourni de preuve vérifiable)'}${nonLues.length ? `\n\nPAGES NON LUES OU LUES EN PARTIE (à dire dans les limites) :\n${nonLues.join('\n')}` : ''}\n\nAutres affirmations relevées (non vérifiées) : ${(checked.new_claims ?? []).slice(0, 5).join(' | ') || '—'}`, 3000);
+  return { question, plan, sources, claims, report: report.trim(), engines: main.engines, errors: [...nonLues, ...main.errors, ...contra.errors], nonLues };
 }

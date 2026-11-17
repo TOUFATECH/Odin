@@ -147,6 +147,25 @@ export class Robot {
     return bilan;
   }
 
+  /**
+   * Visite UNE page (pour un site à absorber) : une page connue qui n'est pas encore due n'est pas demandée ; à sa date,
+   * demande conditionnelle. L'état de la page est noté comme pour l'exploration. Ne lève jamais.
+   */
+  async visiter(url: string, sujet: string, o: { signal?: AbortSignal; plafondSite?: number } = {}): Promise<
+    { genre: 'lu'; page: PageLue; neuf: boolean } | { genre: 'inchange' | 'pas-due' } | { genre: 'refus' | 'saute'; raison: string } | { genre: 'arret'; raison: RaisonArret }> {
+    if (siteInterdit(this.o.interdits(), url)) return { genre: 'saute', raison: 'site interdit par toi' };
+    const connu = this.etats()[url];
+    if (connu && connu.prochaineVisite > this.o.maintenant()) return connu.statut === 'refus' || connu.statut === 'erreur' ? { genre: 'saute', raison: connu.raison ?? connu.statut } : { genre: 'pas-due' };
+    const res = await this.o.lecteur.lire(url, { conditionnel: connu?.fraicheur, signal: o.signal, ...(o.plafondSite ? { plafondSite: o.plafondSite } : {}) });
+    if (res.genre === 'arret') return { genre: 'arret', raison: res.raison as RaisonArret };
+    if (res.genre === 'saute') return { genre: 'saute', raison: res.raison };
+    if (res.genre === 'refus') { this.noterVisite(url, sujet, 0, { genre: 'refus', raison: res.raison }); return { genre: 'refus', raison: res.raison }; }
+    if (res.genre === 'inchange') { this.noterVisite(url, sujet, 0, res); return { genre: 'inchange' }; }
+    const neuf = this.noterVisite(url, sujet, 0, res);
+    if (res.page.urlFinale !== url) this.noterVisite(res.page.urlFinale, sujet, 0, res);
+    return { genre: 'lu', page: res.page, neuf };
+  }
+
   /** Les pages dont la date de revisite est arrivée (les plus en retard d'abord). */
   aRevisiter(n: number): EtatPage[] {
     const now = this.o.maintenant();

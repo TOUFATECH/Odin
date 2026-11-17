@@ -127,6 +127,8 @@ test('5. le délai par site tient sous lectures simultanées et après un redém
   const attendre = (ms: number) => new Promise<void>((ok) => { enAttente.push({ at: h.t + Math.max(0, ms), ok }); });
   let actif = true;
   const pilote = (async () => { while (actif) { await new Promise((r) => setImmediate(r)); if (enAttente.length) { enAttente.sort((a, b) => a.at - b.at); const x = enAttente.shift()!; h.t = Math.max(h.t, x.at); x.ok(); } } })();
+  // Quoi qu'il arrive (une vérification qui échoue comprise), l'horloge s'arrête : sinon l'essai ne finit jamais.
+  try {
   const { site, magasin } = monter({ pages });
   // Les demandes sont datées avec CETTE horloge (le faux site a la sienne).
   const vraiesDates: number[] = [];
@@ -135,13 +137,13 @@ test('5. le délai par site tient sous lectures simultanées et après un redém
   await mm.lecteur.lire('https://exemple.fr/p0');
   await Promise.all([mm.lecteur.lire('https://exemple.fr/p1'), mm.lecteur.lire('https://exemple.fr/p2'), mm.lecteur.lire('https://exemple.fr/p3')]);
   const t = [...vraiesDates].sort((a, b) => a - b);
-  for (let i = 1; i < t.length; i++) assert.ok(t[i] - t[i - 1] >= 10_000, `écarts : ${t.map((x, k) => (k ? x - t[k - 1] : 0)).join(', ')}`);
+  for (let i = 1; i < t.length; i++) assert.ok(t[i] - t[i - 1] >= 2_000, `écarts : ${t.map((x, k) => (k ? x - t[k - 1] : 0)).join(', ')}`);
   // Redémarrage : un nouveau moteur sur le même magasin respecte le dernier créneau.
   const dernier = t.at(-1)!;
   const m3 = creerMathesis({ dossier: 'x', home: 'x', magasin, transport: m2transport, resoudre: async () => ['93.184.216.34'], temps: { maintenant: () => h.t, attendre } });
   await m3.lecteur.lire('https://exemple.fr/p4');
-  actif = false; await pilote;
-  assert.ok(vraiesDates.at(-1)! - dernier >= 10_000, `après redémarrage : ${vraiesDates.at(-1)! - dernier} ms`);
+  assert.ok(vraiesDates.at(-1)! - dernier >= 2_000, `après redémarrage : ${vraiesDates.at(-1)! - dernier} ms`);
+  } finally { actif = false; await pilote; }
 });
 
 // ------------------------------------------------------------------ 6. IPv6 : seulement l'unicast global public
@@ -181,7 +183,7 @@ test('8. « ne pas garder » : ni sujet, ni adresse, ni empreinte, ni état de p
 test('9. le plafond du site est vérifié avant de dépenser une page du budget', async () => {
   const pages: Record<string, { corps: string; type?: string }> = { 'https://exemple.fr/robots.txt': { corps: '', type: 'text/plain' } };
   for (let i = 0; i < 5; i++) pages[`https://exemple.fr/p${i}`] = { corps: html(`p${i}`, ['texte']) };
-  const { m } = monter({ pages, reglages: { robot: { delaiSiteMs: 10_000, pagesParSiteJour: 3, profondeurMax: 2, tailleMaxPage: 2 * 1024 * 1024, delaiDemandeMs: 15_000, redirectionsMax: 3, liensParPage: 40, pagesParManque: 6 } } });
+  const { m } = monter({ pages, reglages: { robot: { delaiSiteMs: 10_000, pagesParSiteJour: 3, pagesParSiteAbsorber: 1_000_000, profondeurMax: 2, tailleMaxPage: 2 * 1024 * 1024, delaiDemandeMs: 15_000, redirectionsMax: 3, liensParPage: 40, pagesParManque: 6 } } });
   for (let i = 0; i < 5; i++) await m.lecteur.lire(`https://exemple.fr/p${i}`);
   // 3 demandes au site : robots.txt + 2 pages ; les 3 lectures refusées par le plafond ne coûtent rien.
   assert.equal(m.budget.utilise().pages, 2);

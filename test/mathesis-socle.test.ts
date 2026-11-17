@@ -79,7 +79,7 @@ test('budget : essayer de dépasser est refusé, rien n\'est consommé, et le co
     for (let i = 0; i < 20; i++) assert.equal(b.prendre('recherches'), true, `recherche ${i + 1}`);
     assert.equal(b.prendre('recherches'), false, 'la 21e recherche doit être refusée');
     assert.equal(b.restant('recherches'), 0);
-    assert.equal(b.prendre('pages', 98), true);
+    assert.equal(b.prendre('pages', reglagesParDefaut().budgets.pages - 2), true);
     assert.equal(b.prendre('pages', 5), false, 'dépassement par paquet refusé');
     assert.equal(b.restant('pages'), 2, 'un refus ne consomme rien');
     assert.equal(b.prendre('appelsPayants'), false, 'zéro appel payant par défaut');

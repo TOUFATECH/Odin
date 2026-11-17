@@ -103,9 +103,9 @@ test('robot : date et empreinte notées, page interdite jamais demandée, délai
   assert.equal(site.demandesVers(/\/prive\//).length, 0, 'jamais demandée');
   assert.equal(site.demandesVers(/\/mentions/).length, 0, 'lien hors sujet non suivi');
   assert.ok(b.sautees.some((s) => /consignes des robots/.test(s.raison)));
-  // Délai entre deux demandes au même site : au moins 10 s (le crawl-delay de 2 s est plus court).
+  // Délai entre deux demandes au même site : au moins le réglage (2 s par défaut, décision du 17/11/2026), jamais moins que le crawl-delay.
   const t = site.demandes.map((d) => d.at);
-  for (let i = 1; i < t.length; i++) assert.ok(t[i] - t[i - 1] >= 10_000, `écart ${t[i] - t[i - 1]} ms`);
+  for (let i = 1; i < t.length; i++) assert.ok(t[i] - t[i - 1] >= 2_000, `écart ${t[i] - t[i - 1]} ms`);
   for (const d of site.demandes) {
     assert.equal(d.methode, 'GET');
     assert.equal(d.entetes['user-agent'], AGENT_ROBOT);
@@ -205,7 +205,7 @@ test('robot : taille, type, plafond par site et par jour, budget de pages — to
     'https://borne.fr/image': { corps: 'PNG', type: 'image/png' },
   };
   for (let i = 0; i < 20; i++) pages[`https://charge.fr/p${i}`] = { corps: html(`p${i}`, [P(`page ${i}`)]) };
-  const a = monter({ pages, reglages: { robot: { tailleMaxPage: 16 * 1024, pagesParSiteJour: 5, delaiSiteMs: 10_000, profondeurMax: 2, delaiDemandeMs: 15_000, redirectionsMax: 3, liensParPage: 40, pagesParManque: 50 } } });
+  const a = monter({ pages, reglages: { robot: { tailleMaxPage: 16 * 1024, pagesParSiteJour: 5, pagesParSiteAbsorber: 1_000_000, delaiSiteMs: 10_000, profondeurMax: 2, delaiDemandeMs: 15_000, redirectionsMax: 3, liensParPage: 40, pagesParManque: 50 } } });
   assert.match((await a.m.lecteur.lire('https://borne.fr/gros') as { raison: string }).raison, /trop grosse/);
   assert.match((await a.m.lecteur.lire('https://borne.fr/image') as { raison: string }).raison, /pas du texte/);
   const graines = Object.keys(pages).filter((u) => u.includes('charge.fr'));

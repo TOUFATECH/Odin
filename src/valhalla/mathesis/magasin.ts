@@ -5,7 +5,7 @@
 // clé de la machine (src/vault.ts, chiffrerChamp) et écrit de façon atomique (fichier .tmp puis renommage) : une
 // panne pendant l'écriture laisse l'ancien fichier intact. Ce qu'Odin a lu et cherché peut dire beaucoup du
 // propriétaire : rien n'est en clair sur le disque.
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { champChiffre, chiffrerChamp, dechiffrerChamp } from '../../vault.ts';
 import { nomBase } from '../base/noms.ts';
@@ -16,9 +16,11 @@ export const nomBaseMathesis = (): string => nomBase('mathesis', 'Mathésis');
 /** Le dossier de données de Mathésis (le même que le ctx.dir du futur module). */
 export const dirMathesis = (home: string): string => join(home, 'valhalla', 'mathesis');
 
-/** Les collections du magasin. */
-export type Collection = 'reglages' | 'interdits' | 'curiosite' | 'journal' | 'empreintes' | 'pages' | 'robots' | 'sites' | 'budget' | 'fichiers' | 'prochains';
-const COLLECTIONS: readonly Collection[] = ['reglages', 'interdits', 'curiosite', 'journal', 'empreintes', 'pages', 'robots', 'sites', 'budget', 'fichiers', 'prochains'];
+/** Les collections du magasin (plus une par site à absorber : « site:<nom> », sa file et ses adresses connues). */
+export type Collection = `site:${string}` | 'reglages' | 'interdits' | 'curiosite' | 'journal' | 'empreintes' | 'pages' | 'robots' | 'sites' | 'budget' | 'fichiers' | 'prochains' | 'recherches' | 'apprisPages' | 'absorber' | 'absorberConnues' | 'ouTrouver';
+/** Le nom d'une collection par site (un nom de site, rien d'autre). */
+const COLL_SITE = /^site:[a-z0-9.-]{1,120}$/;
+const COLLECTIONS: readonly Collection[] = ['reglages', 'interdits', 'curiosite', 'journal', 'empreintes', 'pages', 'robots', 'sites', 'budget', 'fichiers', 'prochains', 'recherches', 'apprisPages', 'absorber', 'absorberConnues', 'ouTrouver'];
 
 /** Le schéma de la base : des documents chiffrés par collection ; les vues ne montrent que des compteurs. */
 export const DEF_MATHESIS: DefAppli = {
@@ -74,8 +76,14 @@ export class MagasinFichiers implements Magasin {
     this.maintenant = o.maintenant ?? Date.now;
   }
   private fichier(c: Collection): string {
+    // Une collection par site : un nom de site sûr seulement (le fichier « site~<nom>.odc »).
+    if (c.startsWith('site:')) { if (!COLL_SITE.test(c)) throw new Error(`collection refusée : ${String(c).slice(0, 80)}`); return join(this.dossier, `site~${c.slice(5)}.odc`); }
     if (!COLLECTIONS.includes(c)) throw new Error(`collection inconnue : ${String(c)}`);
     return join(this.dossier, `${c}.odc`);
+  }
+  /** Les collections par site présentes sur le disque. */
+  private collectionsSites(): Collection[] {
+    try { return readdirSync(this.dossier).filter((f) => /^site~[a-z0-9.-]{1,120}\.odc$/.test(f)).map((f) => `site:${f.slice(5, -4)}` as Collection); } catch { return []; }
   }
   /** Lit et déchiffre un fichier ; undefined s'il est illisible. Un contenu NON chiffré est refusé (jamais appliqué). */
   private ouvrir<T>(f: string): { ok: true; v: T } | { ok: false } {
@@ -119,7 +127,7 @@ export class MagasinFichiers implements Magasin {
   /** La base est prête : ce qui est déjà rangé y est reporté, puis chaque écriture (contenus chiffrés). */
   brancherMiroir(m: Miroir): void {
     this.miroir = m;
-    for (const c of COLLECTIONS) {
+    for (const c of [...COLLECTIONS, ...this.collectionsSites()]) {
       const f = this.fichier(c);
       if (!existsSync(f)) continue;
       try { const t = readFileSync(f, 'utf8'); if (this.estChiffre(t)) this.reporter(c, t); } catch { /* illisible : pas reporté */ }
@@ -130,7 +138,7 @@ export class MagasinFichiers implements Magasin {
     try { this.miroir.ecrire(['document_pose', c, 'tout', texte, this.maintenant()]); } catch { /* la base ne gêne jamais : le fichier fait foi */ }
   }
   vider(): void {
-    for (const c of COLLECTIONS) { rmSync(this.fichier(c), { force: true }); rmSync(`${this.fichier(c)}.bak`, { force: true }); }
+    for (const c of [...COLLECTIONS, ...this.collectionsSites()]) { rmSync(this.fichier(c), { force: true }); rmSync(`${this.fichier(c)}.bak`, { force: true }); }
     this.cache.clear(); this.casses.clear();
   }
 }

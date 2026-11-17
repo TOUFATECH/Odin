@@ -40,6 +40,9 @@ export interface Apport {
   sorte: Sorte;
   /** D'où vient l'apport (« web:example.fr », « conversation:… », « fichier:rapport.pdf », « appli:venus »…). */
   source: string;
+  /** L'adresse PRÉCISE de la page lue (pour dire « c'est ici ») : ajoutée à la source du souvenir, sans changer son
+   *  empreinte (un même fait n'est pas réappris parce que l'adresse est donnée). */
+  adresse?: string;
   /** Quand l'apport a été obtenu (fraîcheur). Horodatage ou texte court. */
   date?: number | string;
   faits?: Fait[];
@@ -142,7 +145,8 @@ export function apprendreDeTout(deps: DepsApprentissage, apport: Apport): Result
       if (!net.sur) { res.rejetes++; continue; }
       const origin = origineDe(jug.niveau);
       const tags = `confiance:${jug.niveau}`;
-      const source = `${apport.source}@${dateTxt}`;
+      const adresse = typeof apport.adresse === 'string' && /^https?:\/\/\S{1,2000}$/.test(apport.adresse) ? ` ${apport.adresse}` : '';
+      const source = `${apport.source}@${dateTxt}${adresse}`;
       const r = deps.memoire.remember(net.texte, origin, KIND_DE[apport.sorte] ?? 'fact', tags, { subject: fait.sujet, topic: fait.cle, source });
       if (r.id) res.souvenirs.push(r.id);
       res.retenus++;
