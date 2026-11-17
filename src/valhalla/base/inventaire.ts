@@ -61,6 +61,7 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   syn: [REG],
   champollion: [REG, R('documents à traduire', 'binaire')],
   theia: [B('notions reconnues, corrections apprises, plongements d\'images (« retrouver une image par une phrase »), repères de suivi dans une vidéo, enrôlements de visages (gabarit CHIFFRÉ, éteints par défaut) — base THEIA_ODIN, repli en fichiers tant qu\'elle n\'est pas prête', ['theia.notions', 'theia.plongements_images', 'theia.corrections', 'theia.suivi', 'theia.enrolements']), REG],
+  syrinx: [B('sons entendus (résultats CHIFFRÉS), empreintes sonores pour ne pas réanalyser, corrections apprises, vitesse mesurée — base SYRINX_ODIN, repli en fichiers tant qu\'elle n\'est pas prête', ['syrinx.sons', 'syrinx.empreintes', 'syrinx.corrections', 'syrinx.mesures']), REG],
   snotra: [R('tableaux, schémas, textes (partout.json, dossiers)', 'a-faire'), REG],
   ivaldi: [R('projets et terminaux (dossiers, journal des terminaux)', 'a-faire'), REG],
   mimisbrunnr: [REG, R('journaux système lus (pas gardés)', 'coeur')],

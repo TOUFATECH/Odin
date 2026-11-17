@@ -35,7 +35,7 @@ test('fichiers joints : nom nettoyé, outil adapté selon le type', () => {
   assert.equal(uploadName('C:\\Users\\moi\\Bilan 2026.xlsx'), 'Bilan 2026.xlsx');
   assert.match(attachmentHint('inbox/a.pdf', 'application/pdf', 2_000_000), /Document joint.*1\.9 Mo.*doc_read/);
   assert.match(attachmentHint('inbox/v.mp4', 'video/mp4', 10), /Vidéo joint.*video_analyze/);
-  assert.match(attachmentHint('inbox/s.m4a', '', 10), /Audio joint.*audio_transcribe/);
+  assert.match(attachmentHint('inbox/s.m4a', '', 10), /Audio joint.*audio_(analyze|transcribe)/);
   assert.match(attachmentHint('inbox/p.jpg', 'image/jpeg', 10), /Image jointe|Image joint.*image_view/);
   assert.match(attachmentHint('inbox/x.bin', '', 10), /non vérifié/);
 });

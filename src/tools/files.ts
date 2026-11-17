@@ -172,7 +172,7 @@ export const mediaConvert: Tool = {
 
 export const audioTranscribe: Tool = {
   name: 'audio_transcribe',
-  description: 'Transcrit en texte un fichier audio ou vidéo (réunion, mémo vocal, interview) avec Whisper.',
+  description: 'Transcrit en texte un fichier audio ou vidéo (réunion, mémo vocal, interview). Pour décrire un son entier (musique, bruits, qui parle), voir audio_analyze.',
   risk: 'network',
   taints: true,
   schema: obj({ path: str('fichier audio ou vidéo') }, ['path']),

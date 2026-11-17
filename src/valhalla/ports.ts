@@ -36,9 +36,9 @@ export const DEFAULT_DIRECT: Record<string, number> = {
   idunn: 8301, naglfar: 8302, askr: 8303, mimisbrunnr: 8304, thjalfi: 8305, gefjon: 8306, ymir: 8307, eir: 8308, sindri: 8309, vordr: 8310, fensalir: 8311, durinn: 8312,
   // Données et cœur
   dvalinn: 8401, urdr: 8402, eitri: 8403, skuld: 8404, champollion: 8405, frigg: 8406, ivaldi: 8407, rodd: 8408, commandes: 8409, sol: 8410,
-  fjalar: 8411, skidbladnir: 8412, runes: 8413, hel: 8414, kvasir: 8415, snotra: 8416, volva: 8417, draupnir: 8418, saga: 8419, syn: 8420, atalante: 8421, dodone: 8422, theia: 8423,
+  fjalar: 8411, skidbladnir: 8412, runes: 8413, hel: 8414, kvasir: 8415, snotra: 8416, volva: 8417, draupnir: 8418, saga: 8419, syn: 8420, atalante: 8421, dodone: 8422, theia: 8423, syrinx: 8424, archytas: 8427,
   // Maison et médias
-  aegir: 8501, apparence: 8502, appareils: 8503, himinbjorg: 8504, brokkr: 8505, heidrun: 8506, gladsheim: 8507, midgard: 8508, leikvangr: 8509, bragi: 8510, gna: 8511, freyja: 8512, zeus: 8513,
+  aegir: 8501, apparence: 8502, appareils: 8503, himinbjorg: 8504, brokkr: 8505, heidrun: 8506, gladsheim: 8507, midgard: 8508, leikvangr: 8509, bragi: 8510, gna: 8511, freyja: 8512, zeus: 8513, keryx: 8514,
 };
 /** Le port d'une appli par défaut, s'il y en a un. */
 export const defaultDirect = (app: string): number | undefined => DEFAULT_DIRECT[app];

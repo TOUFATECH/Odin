@@ -102,9 +102,9 @@ export async function analyzeVideo(source: string, ctx: ToolContext, o: { perSec
   // Audio : ce qui est dit, phrase par phrase avec l'instant exact (Whisper, langue détectée) ;
   // à défaut, les sous-titres de la plateforme. L'écoute s'installe toute seule si besoin.
   let lines: Line[] = [], language: string | undefined;
+  const audio = await extractAudio(file, dir, ctx.signal);
   if (ctx.voice) {
     const { hear } = await import('../voice/voice.ts');
-    const audio = await extractAudio(file, dir, ctx.signal);
     if (audio) {
       const big = statSync(audio).size > 24 * 1024 * 1024;
       const h = await hear(big ? { file: audio } : readFileSync(audio), 'audio/mpeg', ctx.voice, ctx.signal).catch(() => undefined);
@@ -114,6 +114,9 @@ export async function analyzeVideo(source: string, ctx: ToolContext, o: { perSec
     }
   }
   if (!lines.length && subs) lines = parseVtt(subs, !o.perSecond);
+  // La musique 🎵 et les sons reconnus 🔊 (écoute locale de Syrinx, sans la parole déjà faite ci-dessus) : ligne de temps
+  // seulement. Lancée tout de suite, attendue après les images (les deux avancent en même temps).
+  const pSon: Promise<Line[]> = audio && ctx.home ? import('../valhalla/syrinx/bande-son.ts').then((m) => m.bandeSon(audio, { home: ctx.home!, signal: ctx.signal })).catch(() => []) : Promise.resolve([]);
   // Images : scènes clés regardées par le modèle de vision (+ Tesseract en appoint).
   const frames = await keyFrames(file, dir, meta.duration, meta.duration > 1200 ? 20 : 14, ctx.signal);
   if (ctx.vision) await lookFrames(frames, ctx.vision, ctx.signal);
@@ -128,7 +131,8 @@ export async function analyzeVideo(source: string, ctx: ToolContext, o: { perSec
   }
   const ocrText: Record<number, string> = {};
   for (const f of frames) if (!f.seen) { const t = await ocr(f.file); if (t.length > 8) ocrText[f.t] = t; }
-  const tl = timeline({ lines, frames, chapters: meta.chapters, ocrText });
+  const lignesSon = await pSon;
+  const tl = timeline({ lines: [...lines, ...lignesSon], frames, chapters: meta.chapters, ocrText });
   const transcript = lines.map((l) => `[${clock(l.t)}] ${l.text}`).join('\n');
   saveText(dir, 'transcription.txt', transcript || '(aucune parole reconnue)');
   saveText(dir, 'ligne-de-temps.txt', tl);

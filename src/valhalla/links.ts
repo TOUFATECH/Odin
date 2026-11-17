@@ -106,6 +106,8 @@ export const LINKS: Link[] = [
   { from: 'naglfar', to: 'naglfar', when: 'un conteneur s\'arrête tout seul', does: 'Odin le relance (une fois par heure au plus) et te prévient : « garde » ou « annule »', auto: true, kind: 'soin' },
   { from: 'ymir', to: 'ymir', when: 'une machine virtuelle s\'arrête toute seule', does: 'Odin la relance (une fois par heure au plus) et te prévient', auto: true, kind: 'soin' },
   { from: 'sindri', to: 'sindri', when: 'une sauvegarde échoue', does: 'Odin la relance une fois, dix minutes plus tard', auto: true, kind: 'soin' },
+  { from: 'himinbjorg', to: 'syrinx', when: 'un clip de caméra est enregistré et l\'écoute de cette caméra est allumée', does: 'Syrinx écoute seulement les sons (verre cassé, alarme, pleurs, aboiement) et prévient ; éteint par défaut, rien n\'est transcrit', auto: true, kind: 'réflexe' },
+  { from: 'syrinx', to: 'theia', when: 'Odin analyse une vidéo', does: 'la musique et les sons reconnus rejoignent la ligne de temps de la vidéo', auto: true, kind: 'donnée' },
   // Asclépios relie ce que voient toutes les applis : un signal seul ne dit rien, plusieurs qui se recoupent font un incident.
   ...SENSORS.filter((q) => !['loki', 'skogul'].includes(q.app)).map((q): Link => ({ from: q.app, to: 'ullr', when: q.when, does: 'le signal rejoint les incidents d\'Asclépios : s\'il recoupe ceux d\'une autre appli, un incident est ouvert avec son score et sa chronologie', auto: true, kind: 'donnée' })),
   { from: 'idunn', to: 'forseti', when: 'un site tombe, un déploiement ou des tests échouent, un certificat arrive à sa fin', does: 'alerte sur ta messagerie, avec le lien pour aller voir', auto: true, kind: 'donnée' },
@@ -136,7 +138,7 @@ export const LINKS: Link[] = [
   { from: 'agora', to: 'ullr', when: 'un installateur entre dans le store', does: 'Asclépios l\'analyse d\'abord ; un installateur bloqué n\'entre pas dans le store', auto: true, kind: 'réflexe' },
   { from: 'agora', to: 'pegase', when: 'une nouvelle version de Pégase est publiée (vérifié chaque jour)', does: 'ses installateurs (Windows, Mac, Linux, Android) entrent dans le store, empreinte calculée : les appareils qui l\'ont d\'office se mettent à jour', auto: true, kind: 'donnée' },
   { from: 'agora', to: 'forseti', when: 'une installation imposée échoue, un appareil inconnu se présente ou un nouvel appareil s\'inscrit', does: 'alerte dans le fil commun, avec « Réessayer » ou « Retirer cet appareil »', auto: true, kind: 'donnée' },
-  { from: 'archytas', to: 'draupnir', when: 'un script doit se lancer tout seul au bon moment', does: 'il devient une automatisation déclenchée par l\'heure ou un événement', auto: false, kind: 'donnée' },
+  { from: 'archytas', to: 'draupnir', when: 'un script doit se lancer tout seul au bon moment', does: 'il devient une automatisation déclenchée par l\'heure ou un événement', auto: true, kind: 'donnée' },
   { from: 'archytas', to: 'saga', when: 'tu crées ou modifies un script', does: 'Odin le garde en mémoire et au Cerveau pour s\'en souvenir et l\'améliorer', auto: true, kind: 'donnée' },
   { from: 'keryx', to: 'forseti', when: 'tu demandes une action de loin par message ou par appel', does: 'elle passe par les permissions et demande ton accord : une action grave ne part jamais sans toi', auto: true, kind: 'réflexe' },
   { from: 'keryx', to: 'saga', when: 'tu écris à Odin ou il agit pour toi', does: 'l\'échange et l\'action sont gardés dans ta mémoire, consultables et effaçables', auto: true, kind: 'donnée' },
@@ -208,6 +210,7 @@ export function wireReflexes(v: Valhalla, o: { retryMs?: number } = {}): () => v
       const sc = ((v.ctx('midgard').settings.scenes as Array<{ name: string }> | undefined) ?? []).find((x) => /intrusion/i.test(x.name));
       if (sc) void v.act('midgard', 'scene', { scene: sc.name }, { auto: true, by: 'réflexe', why: `mouvement sur la caméra ${String(e.data['caméra'] ?? '')} aux heures surveillées`, de: e.module });
     }
+    if (e.module === 'himinbjorg' && e.type === 'clip' && e.data.fichier) void v.act('syrinx', 'ecouter_clip', { camera: String(e.data['caméra'] ?? ''), fichier: String(e.data.fichier) }, { auto: true, by: 'réflexe', why: 'un clip de caméra vient d\'être enregistré', de: e.module });
     // Chronos → Papyrus : chaque réservation crée ou met à jour la fiche du client.
     if (e.module === 'frigg' && e.type === 'reservation' && e.data.name) void v.act('runes', 'client', { nom: String(e.data.name), contact: String(e.data.contact ?? ''), rendez_vous: String(e.data.start ?? ''), prestation: String(e.data.service ?? '') }, { auto: true, by: 'réflexe', why: 'nouvelle réservation', de: e.module });
     // Arachné : chaque mise en production est essayée ; un essai raté propose le retour en arrière (action grave : jamais lancée seule).

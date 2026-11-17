@@ -103,7 +103,7 @@ export function accessError(err: string): string {
 
 // ---------------- Sous-titres et transcription ----------------
 
-export interface Line { t: number; end?: number; text: string; src: 'paroles' | 'sous-titres' }
+export interface Line { t: number; end?: number; text: string; src: 'paroles' | 'sous-titres' | 'musique' | 'sons' }
 /** Sous-titres WebVTT → lignes horodatées, sans doublons (sous-titres auto « roulants »). Pur, testable. */
 export function parseVtt(vtt: string, merge = true): Line[] {
   const out: Line[] = [];
@@ -232,7 +232,7 @@ export const clock = (t: number) => { const s = Math.max(0, Math.round(t)); cons
 export function timeline(o: { lines: Line[]; frames: Frame[]; chapters?: VideoMeta['chapters']; ocrText?: Record<number, string> }): string {
   const ev: Array<{ t: number; k: number; s: string }> = [
     ...(o.chapters ?? []).map((c) => ({ t: c.start, k: 0, s: `📑 Chapitre : ${c.title}` })),
-    ...o.lines.map((l) => ({ t: l.t, k: 1, s: `${l.src === 'paroles' ? '🎙' : '💬'} ${l.text}` })),
+    ...o.lines.map((l) => ({ t: l.t, k: 1, s: `${l.src === 'paroles' ? '🎙' : l.src === 'musique' ? '🎵' : l.src === 'sons' ? '🔊' : '💬'} ${l.text}` })),
     ...o.frames.map((f) => ({ t: f.t, k: 2, s: `👁 ${(f.seen ?? '').replace(/^\s*\[[^\]]*\]\s*/, '').replace(/\n+/g, ' ¦ ').slice(0, 1200)}${o.ocrText?.[f.t] ? ` ¦ OCR : ${o.ocrText[f.t].replace(/\n/g, ' / ').slice(0, 400)}` : ''}` })),
   ].filter((e) => e.s.length > 3).sort((a, b) => a.t - b.t || a.k - b.k);
   return ev.map((e) => `[${clock(e.t)}] ${e.s}`).join('\n');

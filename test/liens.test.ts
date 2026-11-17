@@ -1092,6 +1092,53 @@ CHECKS['durinn>hel'] = async (w) => {
   assert.ok(did(w, 'hel', 'ouvrir'), 'le disque est ouvert dans Perséphone'); assert.match(r.text, /\/dev\/sdd/);
 };
 
+// Syrinx, l'oreille : le clip d'une caméra lui arrive par le réflexe. Éteinte par défaut, elle n'écoute rien ; allumée
+// pour cette caméra, elle n'écoute que les sons (jamais la parole) et prévient. Fausse oreille : aucun calcul, aucun réseau.
+CHECKS['himinbjorg>syrinx'] = async (w) => {
+  const { oreilleEssai } = await import('../src/valhalla/syrinx/index.ts');
+  const { oublierAntiRafale } = await import('../src/valhalla/syrinx/cameras.ts');
+  const { analyseEssai, fausseOreille } = await import('./syrinx-outils-essai.ts');
+  const { o, appels } = fausseOreille(() => analyseEssai({ parole: { etat: 'non_demandee', segments: [], tours: [], texteRetire: false } }));
+  oublierAntiRafale(); oreilleEssai(o);
+  try {
+    const clips = join(w.home, 'valhalla', 'himinbjorg', 'clips', 'entree'); mkdirSync(clips, { recursive: true });
+    const clip = join(clips, 'c1.mp4'); writeFileSync(clip, 'clip');
+    w.v.ctx('himinbjorg').emit('clip', { caméra: 'Entrée', fichier: clip });
+    assert.ok(await until(() => did(w, 'syrinx', 'ecouter_clip')), 'le clip de la caméra est confié à Syrinx');
+    assert.equal(w.acts.find((a) => a.module === 'syrinx' && a.action === 'ecouter_clip')?.by, 'réflexe');
+    assert.equal(appels.length, 0, 'écoute éteinte par défaut : rien n\'est écouté');
+    assert.ok(!w.v.alerts({ module: 'syrinx' }).length, 'et personne n\'est prévenu');
+    w.v.ctx('syrinx').saveSettings({ camerasEcoutees: ['Entrée'] });
+    w.v.ctx('himinbjorg').emit('clip', { caméra: 'Entrée', fichier: clip });
+    assert.ok(await until(() => w.v.alerts({ module: 'syrinx' }).some((a) => a.title === 'verre cassé : Entrée' && a.level === 'haute')), 'écoute allumée pour cette caméra : le son inquiétant est signalé');
+    assert.equal(appels.length, 1); assert.equal(appels[0].op.sonsSeuls, true, 'seuls les sons sont écoutés'); assert.equal(appels[0].op.ecouter, null, 'rien n\'est transcrit');
+    // Un clip d'une autre caméra, non écoutée : rien.
+    w.v.ctx('himinbjorg').emit('clip', { caméra: 'Jardin', fichier: clip }); await wait(80);
+    assert.equal(appels.length, 1, 'une caméra dont l\'écoute est éteinte n\'est pas écoutée');
+  } finally { oreilleEssai(); oublierAntiRafale(); }
+};
+// Syrinx → Théia : la bande son d'une vidéo rend la musique 🎵 et les sons reconnus 🔊, qui entrent dans la ligne de
+// temps de la vidéo (celle que Théia fusionne pour en tirer le sens), sans toucher aux paroles ni aux sous-titres.
+CHECKS['syrinx>theia'] = async (w) => {
+  const { oreilleEssai } = await import('../src/valhalla/syrinx/index.ts');
+  const { bandeSon } = await import('../src/valhalla/syrinx/bande-son.ts');
+  const { analyseEssai, fausseOreille } = await import('./syrinx-outils-essai.ts');
+  const { fusionner } = await import('../src/valhalla/theia/video-contexte.ts');
+  const { o, appels } = fausseOreille(() => analyseEssai());
+  oreilleEssai(o);
+  try {
+    const son = join(w.home, 'bande.mp3'); writeFileSync(son, 'son');
+    const lignes = await bandeSon(son, { home: w.home });
+    assert.ok(lignes.some((l) => l.src === 'musique') && lignes.some((l) => l.src === 'sons'), 'la musique et les sons reconnus sortent de l\'écoute');
+    assert.equal(appels[0].op.ecouter, null, 'la parole n\'est pas refaite : elle vient déjà de l\'analyse de la vidéo');
+    assert.equal(appels[0].op.demander, null, 'aucun modèle de texte n\'est appelé');
+    const fil = fusionner({ lines: [{ t: 1, text: 'bonjour', src: 'paroles' }, ...lignes], frames: [] });
+    assert.match(fil, /🎵 musique, partie A · 120 BPM, do majeur \(71 %\)/, 'la musique est dans la ligne de temps de la vidéo');
+    assert.match(fil, /🔊 verre cassé \(88 %\)/, 'les sons reconnus aussi');
+    assert.match(fil, /🎙 bonjour/, 'les paroles sont inchangées');
+  } finally { oreilleEssai(); }
+};
+
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {
   assert.ok(LINKS.length >= 32);
   assert.deepEqual(LINKS.filter((l) => l.auto !== true).map((l) => `${l.from}>${l.to}`), [], 'aucun lien « à activer »');
