@@ -171,7 +171,7 @@ export const keryxModule: Module = {
     'aucune capture d\'écran, aucun pistage de ta position ; échanges et actions privés, chiffrés au repos',
   ],
   from: [], upstream: [],
-  words: ['keryx', 'kéryx', 'assistant', 'joignable', 'sms', 'appel', 'texto', 'hermes', 'messager', 'secretaire', 'secrétaire'],
+  words: ['keryx', 'kéryx', 'assistant', 'joignable', 'sms', 'appel téléphonique', 'par appel', 'texto', 'hermes', 'messager', 'secretaire', 'secrétaire'],
   actions: [etatA, historiqueA, ajouterNumeroA, retirerNumeroA, codeA, retirerCodeA, reglerA, effacerA, essayerA],
   async view(ctx) {
     const r = lireReglages(ctx.home);

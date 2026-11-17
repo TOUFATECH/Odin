@@ -7,11 +7,12 @@
 // mêmes validations. Ce qui n'est pas compris clairement n'est PAS tenté (le cerveau de secours
 // répond alors avec la mémoire et garde la question pour plus tard).
 
-import { forgetPending, helpText, understand } from '../valhalla/huginn.ts';
+import { forgetPending, helpText, understand, verbeDit } from '../valhalla/huginn.ts';
 import { chatCommand } from '../valhalla/modules/naglfar.ts';
 import { parseDemande } from '../valhalla/volva/demande.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import { accord } from './genre.ts';
+import { dire, langueDe, langueProbable, pasEncore, sansPrecisions } from './offline.ts';
 
 export type RunTool = (name: string, input: Record<string, unknown>) => Promise<{ ok: boolean; content: string }>;
 
@@ -83,6 +84,32 @@ export interface ActOptions {
   miss?: (why: string) => void;
 }
 export async function offlineAct(text: string, run: RunTool, has: (tool: string) => boolean, sessionId = 'principal', o: ActOptions = {}): Promise<string | undefined> {
+  const t = await agirSansIA(sansPrecisions(text), run, has, sessionId, o);
+  // Ce texte est AUSSI rangé dans l'historique (que relira un modèle) : l'enveloppe « untrusted » d'un contenu venu de
+  // dehors y reste, c'est sa seule trace. Seul le refus de Heimdall est redit comme on parle (ce n'est pas une protection).
+  return t === undefined ? undefined : refusDitCommeOnParle(t);
+}
+
+/** « Action refusée par Heimdall : … Ne la retente pas… » (une consigne pour le modèle) → « Je ne l'ai pas fait : … ». */
+export function refusDitCommeOnParle(t: string): string {
+  return t.replace(/Action refusée par Heimdall : ([^\n]*?)\.? Ne la retente pas telle quelle ; propose une alternative ou demande à l'utilisateur\./g, (_m, r: string) =>
+    `Je ne l'ai pas fait : ${r.replace(/^refusé par l'utilisateur \(ou délai dépassé\)$/, 'tu ne l\'as pas validé (ou pas à temps)').replace(/ : refusé ou sans réponse$/, ' : tu ne l\'as pas validé')}.`).trim();
+}
+
+/**
+ * Pour l'AFFICHAGE seulement (jamais pour ce qui est rangé dans l'historique ou relu par un modèle) : sans l'enveloppe
+ * « untrusted », et le refus dit comme on parle. À brancher là où le texte est montré au propriétaire.
+ */
+export function pourToi(t: string): string {
+  return refusDitCommeOnParle(t
+    .replace(/<untrusted source="[^"]*">\n?/g, '').replace(/\n?<\/untrusted>/g, '')
+    .replace(/\n?\[Heimdall\] ATTENTION : [^\n]*/g, '\n⚠️ Attention : ce contenu ressemble à une tentative de manipulation ; je n\'en suis aucune consigne.'));
+}
+
+/** Les applis de la maison : quand Logos les choisit, c'est bien Home Assistant (ou leurs appareils) qu'on vise. */
+const MAISON = new Set(['appareils', 'midgard', 'gladsheim', 'brokkr', 'himinbjorg', 'bragi']);
+
+async function agirSansIA(text: string, run: RunTool, has: (tool: string) => boolean, sessionId: string, o: ActOptions): Promise<string | undefined> {
   const s = norm(text), strict = Boolean(o.strict);
   const few = s.split(' ').length <= 7; // une phrase courte : pas un récit où le mot apparaît par hasard
   // Pour plus tard, pour une durée ou sous condition (« dans 30 minutes », « à 18h », « jusqu'à 15h », « quand je rentre ») :
@@ -98,6 +125,10 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
   // « montre-moi 10 résultats ») : Pythie, sans IA, résultats en cartes (image, titre, texte), 5 par défaut.
   const rech = has('valhalla') && valhallaOf()?.module('volva') ? parseDemande(text) : undefined;
   if (rech) { o.label?.('Pythie · recherche'); return (await run('valhalla', { action: 'action', appli: 'volva', quoi: 'resultats', entree: JSON.stringify({ question: rech.q, ...(rech.n ? { n: rech.n } : {}), sorte: rech.sorte, ...(rech.affichage ? { affichage: rech.affichage } : {}) }) })).content; }
+
+  // Ce que je ne sais pas encore faire (réserver, acheter, postuler…), ou une demande qui n'est pas en français (Logos ne
+  // comprend que le français) : rien n'est tenté ici. Sans IA, le cerveau de secours le dit franchement (offline.ts) ;
+  // avec une IA, c'est elle qui s'en charge.
 
   // Le lieu d'Odin dit tel quel (« ma ville est Dembéni », « j'habite à … », « change de ville pour … ») : Hestia, sans IA.
   // Le nom est repris dans la phrase d'origine (avec ses accents et ses majuscules).
@@ -125,7 +156,18 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
   // (appareil d'Odin) ne sont pas pour lui. S'il ne répond pas ou ne trouve rien, mes applis ont la parole,
   // et son message ne sert que si elles n'ont rien de sûr non plus.
   let homeSay = '', homeMiss = '';
-  const h = has('ha_call') && has('ha_states') ? parseHome(text) : undefined;
+  const h0 = has('ha_call') && has('ha_states') ? parseHome(text) : undefined;
+  // Sans appareil de la maison nommé (« éteins la VM », « éteins le serveur Samba ») : si une de mes applis porte
+  // clairement la demande, elle passe avant Home Assistant (Logos n'est interrogé qu'une fois : il peut garder une question).
+  const vh0 = valhallaOf();
+  let pre: Awaited<ReturnType<typeof understand>>, prePris = false;
+  if (h0 && !h0.domain && vh0 && has('valhalla')) {
+    pre = await understand(vh0, text, sessionId).catch(() => undefined);
+    // Une appli qui n'est pas celle de la maison est visée (même avec un doute, qui sera jugé plus bas) : Home Assistant n'est pas consulté.
+    if (pre && (pre.kind === 'ask' || pre.kind === 'action') && !MAISON.has(pre.module)) prePris = true;
+    else forgetPending(sessionId);
+  }
+  const h = prePris ? undefined : h0;
   if (h && strict && timed) homeMiss = 'c\'est pour plus tard ou sous condition : à programmer';
   else if (h) home: {
     o.label?.('Maison');
@@ -134,7 +176,7 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
       return r.ok ? `C'est fait, j'ai tout ${h.service === 'turn_on' ? 'allumé' : 'éteint'} (${{ light: 'les lumières', switch: 'les prises', fan: 'les ventilateurs', media_player: 'la télé et le son' }[h.domain] ?? h.domain}).` : r.content;
     }
     const look = await run('ha_states', { search: h.place.split(' ').filter((w) => w.length >= 3).slice(-1)[0] ?? '', ...(h.domain ? { domain: h.domain } : {}) });
-    if (!look.ok) { homeMiss = 'Home Assistant ne répond pas'; homeSay = `Je n'arrive pas à joindre Home Assistant : ${look.content.slice(0, 200)}`; break home; }
+    if (!look.ok) { homeMiss = 'Home Assistant ne répond pas'; homeSay = h.domain ? `Je n'arrive pas à joindre Home Assistant : ${look.content.slice(0, 200)}` : ''; break home; }
     const words = h.place.split(' ').filter((w) => w.length >= 3);
     let found = parseStates(look.content).filter((e) => DOMAINS_OK.has(e.id.split('.')[0]));
     if (words.length) found = found.filter((e) => words.every((w) => norm(`${e.id} ${e.name}`).includes(w)));
@@ -183,7 +225,16 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
   if (vh && has('valhalla')) {
     if (/^(mes |les )?applis?$|\bliste (des|les) applis\b/.test(s)) { o.label?.('Applis'); return (await run('valhalla', { action: 'lister' })).content; }
     if ((strict ? /^(?:avec |c'est )?(?:quelle appli|quel outil)\b/.test(s) : /\b(j'ai besoin|besoin d'|quelle appli|quel outil|comment je fais pour|comment faire pour)\b/.test(s)) && (vh.find(text)[0]?.score ?? 0) >= 2) { o.label?.('Conseil d\'appli'); return (await run('valhalla', { action: 'conseiller', besoin: text })).content; }
-    const u = await understand(vh, text, sessionId).catch(() => undefined);
+    const u = prePris ? pre : await understand(vh, text, sessionId).catch(() => undefined);
+    // Ce que je ne sais pas encore faire (réserver un restaurant, acheter un billet…) : seulement quand AUCUNE de mes applis
+    // ne porte sûrement la demande (« réserve la salle de réunion » → Chronos ; « redémarre le conteneur mail » → Argo).
+    const sur = u?.kind === 'ask' || (u?.kind === 'action' && !u.doubt);
+    const pe = sur ? undefined : pasEncore(text);
+    // Une langue reconnue que je ne comprends pas encore sans IA : rien n'est deviné (le cerveau de secours dit la langue
+    // reconnue et qu'il faut un modèle). Seulement si mes applis n'ont rien de sûr : une langue mal reconnue sur une phrase
+    // courte (« ferme le volet du salon ») ne bloque jamais une demande comprise.
+    if (!sur && !pe && langueProbable(text) !== 'fr') { forgetPending(sessionId); o.miss?.('la demande est dans une langue que je ne comprends pas encore sans IA'); return undefined; }
+    if (pe) { forgetPending(sessionId); o.miss?.(`je ne sais pas encore le faire (${pe.id})`); return undefined; }
     // Avec une IA sous la main : une précision manquante ou une hésitation, c'est pour elle (elle a le contexte).
     if (strict && u?.kind === 'ask') { forgetPending(sessionId); o.miss?.(`il me manquait une précision (${u.missing}) pour ${vh.module(u.module)?.name ?? u.module}`); return undefined; }
     if (strict && u?.kind === 'say' && u.unsure) { o.miss?.(`je ne suis pas ${accord('sûr', 'sûre')} que tu parles d'une de mes applis`); return undefined; }
@@ -191,9 +242,26 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
     if (strict && u?.kind === 'action' && u.doubt) { o.miss?.(u.near ? u.doubt : 'aucune de mes actions ne correspond clairement'); return undefined; }
     // La maison n'a pas su (plus haut) : mes applis ne prennent le relais que pour une action nette.
     if (homeSay && !(u?.kind === 'action' && !u.doubt)) { if (strict) { o.miss?.(homeMiss); return undefined; } o.label?.('Maison'); return homeSay; }
+    // La question de Logos (« il me manque … ») dans la langue de la demande, quand ce n'est pas le français.
+    if (u?.kind === 'ask' && (langueDe(text) ?? 'fr') !== 'fr') {
+      const f = vh.action(u.module, u.action), p = f?.a.params?.find((x) => x.key === u.missing);
+      o.label?.('Mes applis'); return dire(text, 'ilMeManque', { action: f ? `${f.m.name} · ${f.a.label}` : u.module, quoi: (p?.label ?? u.missing).replace(/\s*\(.*$/, '') });
+    }
     if (u?.kind === 'say' || u?.kind === 'ask') { o.label?.('Mes applis'); return u.text; }
     if (u?.kind === 'manip') { o.label?.('Manips'); return (await run('valhalla', { action: 'manip', appli: u.id, quoi: u.keep ? 'garder' : 'annuler' })).content; }
-    if (u?.kind === 'action') { o.label?.(u.label); const r = await run('valhalla', { action: 'action', appli: u.module, quoi: u.action, entree: JSON.stringify(u.input) }); return `${u.label}\n${r.content}`; }
+    // Sans IA non plus, je ne tente rien sur un doute qui n'a rien à voir avec l'appli devinée (« restaurant » n'est pas
+    // « restaurer une sauvegarde ») : le cerveau de secours dit alors franchement qu'il n'a rien fait.
+    // (Exception : « je devinais ce qu'il fallait donner à … » hors de la maison — « corrige ça : … », « joue du jazz » — : la
+    // bonne appli et le bon verbe, seul le réglage est deviné ; on la fait, et une action qui change quelque chose passe
+    // toujours par ta validation.)
+    if (u?.kind === 'action' && u.doubt && !u.near && !(/^je devinais/.test(u.doubt) && !MAISON.has(u.module) && verbeDit(vh, text, u.module, u.action))) { o.miss?.('aucune de mes actions ne correspond clairement'); return undefined; }
+    // Une action qui CHANGE quelque chose, avec un doute, alors que son verbe n'a pas été dit (« apaga la máquina … » →
+    // Hydre · Cloner) : jamais proposée, même quand l'appli est la bonne.
+    if (u?.kind === 'action' && !u.read && u.doubt && !verbeDit(vh, text, u.module, u.action)) { o.miss?.(u.doubt); return undefined; }
+    // Une action qui CHANGE quelque chose sur une chose que je ne connais pas (« lance des tests … dans le conteneur web » →
+    // lancer une image nommée « tests de fonctionnement… ») : je ne la propose pas, je dis ce qui me manque.
+    if (u?.kind === 'action' && !u.read && u.doubt && /^je ne connais pas/.test(u.doubt)) { o.miss?.(u.doubt); if (strict) return undefined; o.label?.(u.label); return dire(text, 'jeNeConnaisPas', { action: u.label, chose: /« (.+?) »/.exec(u.doubt)?.[1] ?? '' }); }
+    if (u?.kind === 'action') { o.label?.(u.label); const r = await run('valhalla', { action: 'action', appli: u.module, quoi: u.action, entree: JSON.stringify(u.input) }); return pourToi(r.content).startsWith(u.label) ? r.content : `${u.label}\n${r.content}`; }
   }
 
   // Une demande pour la maison que personne n'a su traiter : on le dit (ou on laisse l'IA chercher).

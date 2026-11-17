@@ -34,6 +34,39 @@ export function advise(v: Valhalla, need: string): string {
   return out.join('\n');
 }
 
+/** Ce que font les appels aux applis, en mots (montrés au propriétaire dans les validations et le fil de ce qu'Odin a fait). */
+const VERBES: Record<string, string> = { lister: 'la liste de mes applis', expliquer: 'expliquer une appli', conseiller: 'conseiller une appli', etat: 'l\'état', alertes: 'les alertes', liens: 'les liens entre applis', auto: 'comprendre la demande', manips: 'ce que j\'ai fait seul', manip: 'garder ou annuler une manip' };
+/**
+ * Ce que fait un appel, en mots de tous les jours (« Alchimie · Convertir un fichier (Fichier : rapport.docx · Vers : pdf) »),
+ * POUR L'AFFICHAGE SEULEMENT. Le résumé technique (`summarize`) reste celui que lisent Mímir, les autorisations
+ * permanentes et le journal : un texte qui cite une adresse ou un lien y changerait une décision (Mímir compte une cible
+ * présente dans la demande comme « demandée »). Les secrets ne sont jamais montrés : réglage de genre mot de passe, nom de
+ * réglage qui en parle, valeur qui en a la forme (jeton, clé, lien avec identifiant). Ce qui est coupé ou tu est dit.
+ */
+export function resumeAppli(i: Record<string, unknown>): string {
+  const a = s(i.action), v = valhallaOf(), m = v?.module(s(i.appli));
+  if (a === 'action') {
+    const f = v?.action(s(i.appli), s(i.quoi));
+    if (!f) return `${m?.name ?? s(i.appli)} · ${s(i.quoi).replace(/_/g, ' ')}`;
+    let entree: Record<string, unknown> = {}; try { entree = parse(i.entree); } catch { /* réglages illisibles : on s'en passe */ }
+    const donnes = (f.a.params ?? []).filter((p) => entree[p.key] !== undefined && entree[p.key] !== '' && entree[p.key] !== p.default && typeof entree[p.key] !== 'object');
+    const montre = donnes.slice(0, 6).map((p) => `${p.label.replace(/\s*\(.*$/, '')} : ${valeurMontree(p, entree[p.key])}`);
+    const reste = donnes.length - montre.length;
+    return `${f.m.name} · ${f.a.label}${montre.length ? ` (${montre.join(' · ')}${reste > 0 ? ` · et ${reste} autre${reste > 1 ? 's' : ''} réglage${reste > 1 ? 's' : ''}` : ''})` : ''}`;
+  }
+  return `Applis · ${VERBES[a] ?? a}${m ? ` · ${m.name}` : ''}${a === 'manip' ? ` ${s(i.appli)} (${s(i.quoi)})` : ''}${s(i.besoin) ? ` : ${s(i.besoin).slice(0, 80)}${s(i.besoin).length > 80 ? '…' : ''}` : ''}`;
+}
+/** Un nom de réglage qui désigne un secret (mot de passe, jeton, clé d'accès…). */
+const NOM_SECRET = /pass|mdp|secret|jeton|token|cle|cles|key|totp|code|api|auth|credential|identifiant|github|vercel|cloudflare/i;
+/** Une valeur qui a la forme d'un secret : jeton connu (ghp_, sk-, xox…), longue suite sans espace mêlant lettres et chiffres. */
+const FORME_SECRET = /^(?:gh[pousr]_|github_pat_|sk-|xox[abpr]-|vcp_|cf_|AKIA|eyJ)|^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_\-+/=.]{24,}$/;
+function valeurMontree(p: { key: string; kind?: string }, val: unknown): string {
+  const t = String(val).replace(/\s+/g, ' ');
+  if (p.kind === 'password' || NOM_SECRET.test(p.key) || FORME_SECRET.test(t)) return '•••• (secret, non montré)';
+  const sansIdentifiant = t.replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/@]+@/gi, '$1••••@');
+  return sansIdentifiant.length > 80 ? `${sansIdentifiant.slice(0, 80)}… (coupé)` : sansIdentifiant;
+}
+
 /** Une réponse qui peut contenir du texte écrit par d'autres (page web, dépôt, serveur distant, attaquant) : rendue à l'IA comme une donnée non fiable. */
 const foreign = (external: boolean | undefined, appli: string, text: string): string | ToolResult => (external ? { output: wrapUntrusted(`appli ${appli}`, text), tainted: true } : text);
 
@@ -42,6 +75,8 @@ export const valhallaTool: Tool = {
   description: 'Les applis d\'Odin (Hygie santé machine, Némésis processus, Forseti alertes et conformité, Cerbère bannissement, Méduse connexions, Asclépios antivirus, Sirènes pièges, Argo conteneurs, Hydre machines virtuelles, Phénix sauvegardes, Thésauros mots de passe, Vortex VPN, Satellites parc de machines, Constellation appareils connectés (relais MQTT), Héphaïstos modules ESP/Tasmota, Midgard maison et scènes, Cyclope caméras, Orphée voix, Vénus (Venus, films, séries, télé, enregistrements), Apollon musique, Hélios photos, Chronos rendez-vous, Pharos veille GitHub, Thot, Papyrus, Talos ; chaque appli a sa fiche dans le Cerveau, Odin/Applis/<nom>). « manips » (ce qu\'Odin a fait seul) ; « manip » (appli = code de la manip, quoi = garder ou annuler) ; « lister » ; « expliquer » (appli) ; « conseiller » (besoin : quelle appli, pourquoi, comment, liens) ; « etat » (appli : sa page en texte) ; « action » (appli, action, entree JSON) ; « alertes » ; « liens ». Un lien GitHub envoyé par le propriétaire → action Pharos « etudier ». Une question sur les données d\'une appli (« combien de … dans la base de Phénix ? ») → action, appli urdr, quoi base_lire, entree {"appli":"Phénix"} pour voir ses vues, puis {"appli":"Phénix","requete":"SELECT count(*) FROM …"} (lecture seule, chaque base s\'appelle NOM_ODIN) ; « quand as-tu regardé la base de … ? » → quoi base_traces.',
   risk: 'exec',
   schema: obj({ action: { type: 'string', enum: ['lister', 'expliquer', 'conseiller', 'etat', 'action', 'alertes', 'liens', 'auto', 'manips', 'manip'] }, appli: str('nom de l\'appli'), besoin: str('pour conseiller : le besoin en français'), quoi: str('pour action : identifiant de l\'action'), entree: str('pour action : réglages JSON') }, ['action']),
+  // Le résumé TECHNIQUE (lu par Mímir, les autorisations permanentes et le journal) : jamais la cible ni un réglage. Le
+  // texte pour les yeux, c'est `resumeAppli` (à brancher sur l'affichage de la validation).
   summarize: (i) => `applis ${s(i.action)} ${s(i.appli)} ${s(i.quoi)} ${s(i.besoin)}`.slice(0, 140),
   lookup: (i) => {
     const a = s(i.action); if (a === 'manip') return s(i.quoi) !== 'annuler'; // garder ne change rien ; annuler lance l'action inverse
@@ -85,7 +120,7 @@ export const valhallaTool: Tool = {
     // Qui agit ? Toi quand tu le demandes dans une discussion ; Odin de lui-même dans une tâche sans surveillance
     // (veille, tâche planifiée, mission) : là, l'action est notée comme une manip (garder / annuler).
     if (a === 'action' && m.id === 'snotra' && s(i.quoi) === 'corriger' && !plumePourIA(v)) return REFUS_IA; // Plume coupé : l'IA ne s'en sert pas
-    if (a === 'action') { const alone = /^(auto|breaker|journal|cron|mission):/.test(ctx?.sessionId ?? ''); const r = await v.act(m.id, s(i.quoi), parse(i.entree), alone ? { by: 'odin', why: 'pendant une tâche sans surveillance' } : {}); return foreign(v.action(m.id, s(i.quoi))?.a.external, m.name, r.text); }
+    if (a === 'action') { const alone = /^(auto|breaker|journal|cron|mission):/.test(ctx?.sessionId ?? ''); const qui = { qui: ctx?.auteur?.role ?? 'owner', marque: ctx?.isTainted?.() === true } as const; const r = await v.act(m.id, s(i.quoi), parse(i.entree), alone || ctx?.automatique ? { by: 'odin', why: 'pendant une tâche sans surveillance', ...qui } : qui); return foreign(v.action(m.id, s(i.quoi))?.a.external, m.name, r.text); }
     return 'Action inconnue.';
   },
 };

@@ -98,7 +98,7 @@ export const ACTIONS_PLUME: Action[] = [
 
   { id: 'corriger', label: 'Corriger un texte', what: 'Orthographe, grammaire et typographie d\'un texte : les fautes, une proposition pour chacune, et le texte corrigé (LanguageTool s\'il est installé, sinon le correcteur de base)', read: true,
     params: [{ key: 'texte', label: 'Texte', kind: 'textarea', required: true }, { key: 'langue', label: 'Langue', kind: 'select', options: ['fr', 'en-US', 'en-GB', 'de-DE', 'es', 'it', 'pt-PT'], default: 'fr' }],
-    words: ['corrige ce texte', 'corrige le texte', 'correcteur d orthographe'], run: async (ctx, i) => {
+    words: ['corrige ce texte', 'corrige le texte', 'correcteur d orthographe', 'corrige ça', 'corrige cette phrase'], run: async (ctx, i) => {
       const texte = typeof i.texte === 'string' ? i.texte.slice(0, MAX_TEXTE) : ''; if (!texte.trim()) return { ok: false, text: 'Donne-moi le texte à corriger.' };
       const c = await corriger(ctx, texte, s(i.langue) || 'fr');
       const tete = c.fautes.length ? `✍ ${c.fautes.length} chose(s) à corriger (correcteur ${c.moteur === 'maison' ? 'de base' : 'LanguageTool'}) :` : `✅ Rien à corriger trouvé (correcteur ${c.moteur === 'maison' ? 'de base : il ne voit pas tout' : 'LanguageTool'}).`;

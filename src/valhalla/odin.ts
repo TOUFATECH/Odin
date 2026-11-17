@@ -15,6 +15,8 @@ import { templates as flowTemplates } from '../draupnir/service.ts';
 import { LINKS, linkTemplates, wireReflexes } from './links.ts';
 import { archytas } from './archytas/module.ts';
 import { brancherArchytas } from './archytas/liens.ts';
+import { nourrir as nourrirNoos } from '../brain/nous/entree.ts';
+import { depsNousOdin } from '../brain/nous/file-odin.ts';
 import { aegir } from './modules/aegir.ts';
 import { appareils } from './modules/appareils.ts';
 import { brisingamen } from './modules/brisingamen.ts';
@@ -121,7 +123,7 @@ export function coreModules(odin: Pick<Odin, 'paths' | 'cfg'>): Module[] {
     modes: ['Moires · graphe'], words: ['note', 'notes', 'cerveau', 'deuxieme cerveau', 'deuxième cerveau', 'graphe', 'idee', 'idée', 'journal', 'retrouve', 'fiches des applis', 'fiches d\'odin'],
     actions: [
       { id: 'chercher', label: 'Chercher', what: 'Dans tout le Cerveau', read: true, params: [{ key: 'q', label: 'Recherche', kind: 'text', required: true }], words: ['cherche', 'retrouve'], run: (_c, i) => ({ text: brainOf(ctx).search(s(i.q), 10).map((r) => `- ${r.note.title} (${r.note.path}) — ${r.snippet}`).join('\n') || 'Rien trouvé.' }) },
-      { id: 'noter', label: 'Noter', what: 'Nouvelle note', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'texte', label: 'Texte', kind: 'textarea', default: '' }], words: ['note', 'retiens'], run: (_c, i) => { const chemin = brainOf(ctx).create(s(i.titre), 'note', s(i.texte)); return { text: `📝 ${chemin}`, data: { chemin } }; } },
+      { id: 'noter', label: 'Noter', what: 'Nouvelle note', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'texte', label: 'Texte', kind: 'textarea', default: '' }], words: ['note', 'retiens', 'crée une note', 'nouvelle note'], run: (_c, i) => { const chemin = brainOf(ctx).create(s(i.titre), 'note', s(i.texte)); return { text: `📝 ${chemin}`, data: { chemin } }; } },
       { id: 'completer', label: 'Compléter une note', what: 'Ajoute du texte à la fin d\'une note existante', params: [{ key: 'note', label: 'Note (titre ou chemin)', kind: 'text', required: true }, { key: 'texte', label: 'Texte à ajouter', kind: 'textarea', required: true }], words: ['complete', 'complète', 'ajoute a la note'], run: (_c, i) => { const b = brainOf(ctx), n = b.find(s(i.note)); if (!n) throw new Error(`note introuvable : ${s(i.note)}`); return { text: `📝 ${b.append(n.path, s(i.texte))} complétée`, data: { chemin: n.path } }; } },
       { id: 'fiches', label: 'Fiches des applis', what: 'Remet à jour les fiches d\'Odin dans le Cerveau (une par appli, leurs liens, le mode de fonctionnement) ; tes notes y sont gardées', words: ['fiches', 'fiches des applis', 'mets a jour les fiches'], quiet: true, run: (c) => { const r = syncSheets(brainOf(ctx), c.modules()); return { text: `📚 ${r.total} fiches dans le Cerveau (dossier « Odin »), ${r.written} mise(s) à jour. Elles décrivent les applis et leurs liens, jamais tes réglages.` }; } },
       { id: 'attention', label: 'À surveiller', what: 'Retards, échéances, projets à l\'arrêt', read: true, words: ['notes a surveiller', 'notes à surveiller', 'a surveiller', 'à surveiller', 'ce qui est en retard', 'mes echeances', 'mes échéances'], run: () => ({ text: brainOf(ctx).attention().map((a) => `- ${a.kind} : ${a.title}${a.when ? ` (${a.when})` : ''}`).join('\n') || 'Rien d\'urgent.' }) },
@@ -290,6 +292,8 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
         oublierSujet: (subject) => oublierSujetMemoire(odin.muninn, subject),
       },
       vault: cerveau,
+      // Noûs : la file UNIQUE d'Odin (rien si Noûs est coupé, en mode privé ou en démonstration).
+      noos: { nourrir: (n) => nourrirNoos(depsNousOdin(odin), n) },
     });
   } catch { /* le câblage d'Archytas ne gêne jamais le démarrage */ }
   // Écho : une conversation traduite laisse un POINTEUR NEUTRE dans la mémoire (titre, langues, date) ; le détail reste

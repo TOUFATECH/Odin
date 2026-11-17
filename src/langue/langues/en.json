@@ -1,0 +1,334 @@
+{
+  "code": "en",
+  "iso3": "eng",
+  "nom": "English",
+  "_note": "Mots ajoutés aux applis pour Logos et pour le Cerveau (clé « appli » ou « appli.action ») ; ils s'AJOUTENT aux mots français, ne retirent rien.",
+  "petitsMots": [
+    "the",
+    "my",
+    "your",
+    "you",
+    "i",
+    "is",
+    "are",
+    "what",
+    "what's",
+    "whats",
+    "this",
+    "that",
+    "of",
+    "and",
+    "to",
+    "for",
+    "with",
+    "from",
+    "please",
+    "can",
+    "could",
+    "all",
+    "on",
+    "in",
+    "it",
+    "how",
+    "me",
+    "a",
+    "an",
+    "do",
+    "does",
+    "any",
+    "some",
+    "there",
+    "be"
+  ],
+  "indices": [
+    "weather",
+    "search",
+    "find",
+    "send",
+    "create",
+    "shut",
+    "give",
+    "check",
+    "scan",
+    "book",
+    "buy",
+    "please",
+    "today",
+    "tomorrow"
+  ],
+  "formes": {
+    "viruses": "virus",
+    "emails": "email",
+    "containers": "container",
+    "machines": "machine",
+    "vms": "vm"
+  },
+  "abandon": [
+    "never mind",
+    "cancel",
+    "forget it",
+    "no",
+    "stop"
+  ],
+  "heure": [
+    "what time is it",
+    "what's the time",
+    "what day is it",
+    "what's the date"
+  ],
+  "applis": {
+    "gladsheim": [
+      "weather",
+      "temperature outside",
+      "forecast"
+    ],
+    "gladsheim.meteo": [
+      "what's the weather",
+      "weather like",
+      "the weather",
+      "temperature outside",
+      "weather forecast",
+      "today"
+    ],
+    "volva.chercher": [
+      "search the web for",
+      "search the web",
+      "search the internet for",
+      "look up",
+      "find information about",
+      "more information about"
+    ],
+    "dvalinn": [
+      "convert",
+      "to pdf"
+    ],
+    "dvalinn.convertir": [
+      "convert this file",
+      "convert the file",
+      "convert"
+    ],
+    "snotra.chercher": [
+      "find the document",
+      "search my documents",
+      "document about"
+    ],
+    "snotra.corriger": [
+      "fix this",
+      "correct this",
+      "proofread"
+    ],
+    "ullr": [
+      "virus",
+      "viruses",
+      "malware",
+      "antivirus"
+    ],
+    "ullr.etat": [
+      "check for viruses",
+      "any virus",
+      "am i protected"
+    ],
+    "ullr.analyser": [
+      "scan my computer",
+      "scan for malware",
+      "run a virus scan",
+      "virus scan"
+    ],
+    "ymir": [
+      "virtual machine",
+      "virtual machines",
+      "vm"
+    ],
+    "ymir.machines": [
+      "my vms",
+      "list my virtual machines",
+      "my virtual machines"
+    ],
+    "ymir.arreter": [
+      "shut down",
+      "turn off",
+      "stop the vm",
+      "shut"
+    ],
+    "ymir.demarrer": [
+      "start the vm",
+      "boot the vm",
+      "start"
+    ],
+    "ymir.redemarrer": [
+      "restart the vm",
+      "reboot the vm"
+    ],
+    "ymir.creer_machine": [
+      "create a vm",
+      "create a virtual machine",
+      "new vm"
+    ],
+    "naglfar": [
+      "container",
+      "containers"
+    ],
+    "naglfar.lister": [
+      "list containers",
+      "which containers are running",
+      "running containers"
+    ],
+    "naglfar.arreter": [
+      "stop the container"
+    ],
+    "naglfar.demarrer": [
+      "start the container"
+    ],
+    "naglfar.ports": [
+      "ip of the container",
+      "container ip",
+      "container address",
+      "ip of the web container",
+      "give me the ip",
+      "the ip of"
+    ],
+    "naglfar.tirer": [
+      "pull the image",
+      "latest version of the image"
+    ],
+    "ivaldi.depots": [
+      "my git repositories",
+      "status of my repos",
+      "my repos"
+    ],
+    "volva": [
+      "search the web",
+      "search the internet"
+    ],
+    "snotra": [
+      "fix this",
+      "proofread",
+      "find the document"
+    ]
+  },
+  "pasEncoreMots": {
+    "reserver": [
+      "book",
+      "booking",
+      "reserve",
+      "reservation"
+    ],
+    "changer-billet": [
+      "refund",
+      "vip",
+      "first class",
+      "upgrade",
+      "cancel my booking"
+    ],
+    "billet": [
+      "ticket",
+      "flight",
+      "plane",
+      "train ticket"
+    ],
+    "comparer": [
+      "compare prices",
+      "cheapest"
+    ],
+    "acheter": [
+      "buy",
+      "purchase",
+      "order me"
+    ],
+    "postuler": [
+      "apply for",
+      "job application"
+    ],
+    "newsletter": [
+      "unsubscribe",
+      "subscribe",
+      "newsletter",
+      "newsletters"
+    ],
+    "mails": [
+      "email",
+      "emails",
+      "e-mail",
+      "send a text",
+      "text my",
+      "send a message",
+      "spam",
+      "reply to my"
+    ],
+    "vm-pause": [
+      "pause my vm",
+      "suspend the vm",
+      "pause the vm"
+    ],
+    "gpo": [
+      "group policy",
+      "gpo"
+    ],
+    "llm": [
+      "run an llm",
+      "host an llm",
+      "language model"
+    ]
+  },
+  "textes": {
+    "rienCompris": "Without an AI, I couldn't understand this request well enough to act: I did nothing. Say « help » to see what I can do without an AI.",
+    "garde": "No AI is answering right now. I'm keeping your question and will come back to it as soon as one does.",
+    "pasEncore": "I can't {quoi} yet: I did nothing. What I can do: {proche}.",
+    "pasCetteLangue": "Without an AI, I recognise the language of your request ({nom}), but I don't understand it yet: I need a language model to understand it. I did nothing; I'm keeping your question and will answer as soon as an AI is back.",
+    "ilMeManque": "{action}: I need « {quoi} ». Give it to me (or say « never mind »).",
+    "jeNeConnaisPas": "{action}: I don't know « {chose} » there. I did nothing: say it again with the exact name (or « never mind »).",
+    "heure": "It's {heure}, {date}.",
+    "abandonne": "OK, I'm dropping this request.",
+    "faitSansIA": "Done without an AI: none is answering right now."
+  },
+  "pasEncore": {
+    "reserver": {
+      "quoi": "book anything with someone else (restaurant, hotel, cinema, travel)",
+      "proche": "search the web for addresses, opening hours and prices, or set you a reminder"
+    },
+    "changer-billet": {
+      "quoi": "change, cancel or get a refund for a booking or a ticket",
+      "proche": "search the web for the seller's help page, or set you a reminder"
+    },
+    "billet": {
+      "quoi": "buy a ticket (plane, train, show) or compare tickets",
+      "proche": "search the web for times and prices"
+    },
+    "comparer": {
+      "quoi": "compare prices on my own",
+      "proche": "search the web for prices"
+    },
+    "acheter": {
+      "quoi": "buy or pay for anything for you",
+      "proche": "search the web for prices; with an AI, I can also watch the price of a page"
+    },
+    "postuler": {
+      "quoi": "apply for a job for you",
+      "proche": "search the web for job offers"
+    },
+    "newsletter": {
+      "quoi": "subscribe you to or unsubscribe you from a newsletter",
+      "proche": "with an AI, I find the unsubscribe link in the email and ask you before clicking"
+    },
+    "mails": {
+      "quoi": "read, sort, answer or send your emails and messages without an AI",
+      "proche": "with an AI, I do it, and every send or delete waits for your approval"
+    },
+    "vm-pause": {
+      "quoi": "pause a virtual machine",
+      "proche": "shut it down cleanly (with your approval) or take a snapshot (Hydre)"
+    },
+    "gpo": {
+      "quoi": "create or change a GPO (group policy) in a Windows domain",
+      "proche": "with an AI, prepare the PowerShell script, which I only run with your approval"
+    },
+    "github-essai": {
+      "quoi": "try a GitHub repository in a separate container",
+      "proche": "have Pharos study the link; Argo runs an already published Docker image, with your approval"
+    },
+    "llm": {
+      "quoi": "serve a language model to other machines",
+      "proche": "Métis reads an open model for my own use (Métis page)"
+    }
+  }
+}

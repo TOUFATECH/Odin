@@ -13,6 +13,8 @@ import { LINKS, USAGES } from './links.ts';
 import { forgetsId } from './names.ts';
 import type { Valhalla } from './service.ts';
 import type { Action, Module, Param, View } from './types.ts';
+import { motsAjoutes, SANS_ESPACES, toutesFormes, tousPetitsMots, langues } from '../langue/tables.ts';
+import { reconnaitre } from '../langue/reconnaitre.ts';
 
 export type Understood =
   | { kind: 'action'; module: string; action: string; input: Record<string, unknown>; label: string; read: boolean; /** Une partie de la phrase n'est pas expliquée par cette appli et cette action : Odin devine. Avec une IA sous la main, c'est à elle de comprendre. */ doubt?: string; /** Le doute porte sur un détail d'une demande qui était bien pour cette appli (utile à dire) ; sinon la demande n'avait sans doute rien à voir. */ near?: boolean }
@@ -20,20 +22,24 @@ export type Understood =
   | { kind: 'manip'; id: string; keep: boolean }
   | { kind: 'say'; text: string; /** Odin hésite (deux applis possibles, action floue) : avec une IA sous la main, c'est à elle de trancher. */ unsure?: boolean };
 
-const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`]/g, "'").replace(/\s+/g, ' ').trim();
+const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').normalize('NFC').replace(/[’`]/g, "'").replace(/\s+/g, ' ').trim();
 const STOP = new Set('le la les l un une des du de d au aux a et ou en dans sur pour par avec sans ce cet cette ces mon ma mes ton ta tes son sa ses moi me m toi te t il elle on nous vous je j tu est es suis sont que qu qui quoi stp svp merci odin peux pourrais veux voudrais faut fais faire est-ce s il plait bonjour salut donc alors bien tres tout tous toute toutes y ne pas plus maintenant vite'.split(' '));
+// Les petits mots des autres langues connues (`src/langue/langues/*.json`) : laissés de côté comme les nôtres.
+for (const w of tousPetitsMots()) STOP.add(norm(w));
+/** Formes ramenées à leur racine, toutes langues (« viruses » → « virus »). */
+const FORMES = Object.fromEntries(Object.entries(toutesFormes()).map(([k, v]) => [norm(k), norm(v)]));
 /** Racine grossière d'un mot français (suffit pour rapprocher « redémarre », « redémarrer », « redémarrage »). */
 export function stem(w: string): string {
-  const x = norm(w).replace(/[^a-z0-9]/g, '');
-  if (x.length <= 3) return x;
+  const x0 = norm(w).replace(/[^\p{L}\p{N}]/gu, ''), x = FORMES[x0] ?? x0;
+  if (x.length <= 3 || SANS_ESPACES.test(x)) return x;
   // Noms en « -ier » : gardés entiers (« fichier » n'est pas « fiche », « dossier » n'est pas « dos »).
-  if (/^(?:fichier|dossier|calendrier|courrier|clavier|papier|atelier|premier|dernier|entier|janvier|fevrier|particulier|quartier|chantier|panier|cahier|metier)s?$/.test(x)) return x.replace(/s$/, '');
+  if (/^(?:fichier|dossier|calendrier|courrier|clavier|papier|atelier|premier|dernier|entier|janvier|fevrier|particulier|quartier|chantier|panier|cahier|metier|restaurant)s?$/.test(x)) return x.replace(/s$/, ''); // « restaurant » n'est pas « restaurer »
   let r = x.replace(/(issements?|ements?|ations?|ages?|eurs?|euses?|erai[st]?|eront|erez|erons|aient|ait|ais|ant|ees?|ies?|ez|ons|ent|er|ir|is|it|es|e|s|x)$/, '');
   // Verbes en « -ier » : « vérifier », « vérifiez », « vérifiait » rejoignent « vérifie » (« étudier » / « étudie », « copier » / « copie »).
   if (r.length >= 4 && /[^aeiouy]i$/.test(r) && /^(?:er|ez|ons|ent|ait|ais|aient|ant|erai[st]?|eront|erez|erons)$/.test(x.slice(r.length))) r = r.slice(0, -1);
   return r.length >= 3 ? r : x;
 }
-const tokens = (t: string) => norm(t).split(/[^a-z0-9.:/@_-]+/).map((w) => w.replace(/^(?:[ldjmtsnc]|qu)'/, '')).filter((w) => w && !STOP.has(w));
+const tokens = (t: string) => norm(t).split(/[^\p{L}\p{N}.:/@_-]+/u).map((w) => w.replace(/^(?:[ldjmtsnc]|qu)'/, '')).filter((w) => w && !STOP.has(w));
 
 /** Verbes qui veulent dire la même chose qu'un nom d'action (clé : début du nom de l'action). */
 const SYN: Array<[RegExp, string[]]> = [
@@ -62,6 +68,21 @@ const SYN: Array<[RegExp, string[]]> = [
   [/^(qr)/, ['qr', 'code qr', 'flashe']],
   [/^(surveiller|evenements|controler)/, ['surveille', 'evenements', 'que se passe', 'quoi de neuf']],
 ];
+
+/** « laisse tomber » dans les autres langues connues. */
+const ABANDON = [...langues().values()].flatMap((t) => t.abandon).map(norm).filter((x) => x.length > 1);
+const enrichis = new WeakMap<Module, Module>();
+/**
+ * L'appli avec les tournures des autres langues (`src/langue/langues/*.json`) AJOUTÉES aux siennes : Logos les comprend
+ * comme les mots français. Ajouter une langue = ajouter un fichier, sans toucher à ce code.
+ */
+export function avecLangues(m: Module): Module {
+  const deja = enrichis.get(m); if (deja) return deja;
+  const plus = motsAjoutes(m.id);
+  const actions = m.actions.map((a) => { const w = motsAjoutes(`${m.id}.${a.id}`); return w.length ? { ...a, words: [...(a.words ?? []), ...w] } : a; });
+  const r = plus.length || actions.some((a, k) => a !== m.actions[k]) ? { ...m, words: [...m.words, ...plus], actions } : m;
+  enrichis.set(m, r); return r;
+}
 
 /** Noms connus de l'appli (ce que sa page affiche) : conteneurs, caméras, appareils, plans… par réglage. */
 type Names = Map<string, string[]>;
@@ -102,7 +123,8 @@ export function minutesIn(text: string): number | undefined {
 /** Réglages qui reçoivent du texte libre (jamais cherchés parmi les noms connus). */
 const FREE = /^(q|texte|message|note|contenu|resume|commande|raison|etapes|dossiers|horaires|parties|proprietes|chaines|compose|variables|quoi|besoin|fonction|statut|identifiant|mot_de_passe|totp|wifi|odin|depot|source|site|domaines|ids|sujet|entree|valeur|cible|projet|equipe|zone|pages|demande|branche|modele|proprietaire|deploiement|outil|arguments)$/;
 /** Réglages qui ont une forme précise (adresse IP, numéro, date, heure…) : jamais remplis avec « le reste de la phrase ». */
-const TYPED = /^(ip|id|vmid|pid|port|minutes|duree|jour|date|heure|contact|lien|url|adresse)$/;
+// (« debut » : le moment où commence un extrait, « 1:30 » ; jamais le reste de la phrase.)
+const TYPED = /^(ip|id|vmid|pid|port|minutes|duree|jour|date|heure|debut|contact|lien|url|adresse)$/;
 /** Mots courants qui peuvent s'afficher dans une page sans désigner une chose de l'appli. */
 const COMMON = /^(aujourd'hui|demain|hier|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|oui|non|etat|liste|total|aucun|aucune|tout|tous|toutes|actif|inactif|ici|maison|salon)$/;
 const QUOTED = /"([^"]{1,2000})"|«\s*([^»]{1,2000}?)\s*»|“([^”]{1,2000})”/;
@@ -137,13 +159,23 @@ export function fill(a: Action, text: string, names: Names, now = new Date()): R
     const known = [...(names.get(p.key) ?? []), ...(refers && p.kind === 'text' ? names.get('*') ?? [] : [])];
     const named = pickName(text, known);
     if (p.kind === 'boolean') { if (new RegExp(`\\b(sans|pas de|desactive|non)\\b.{0,20}\\b${stem(lab.split(' ')[0])}`).test(s)) input[p.key] = false; else if (new RegExp(`\\b(avec|active|oui)\\b.{0,20}\\b${stem(lab.split(' ')[0])}`).test(s)) input[p.key] = true; continue; }
+    // La langue d'un texte à traiter (« fix this: i has went… » → l'anglais), reconnue sur la phrase quand elle est sûre.
+    if (k === 'langue' && p.kind === 'select') { const l = reconnaitre(text).langue; const o = l ? (p.options ?? []).find((x) => x === l || x.startsWith(`${l}-`)) : undefined; if (o) { input[p.key] = o; continue; } }
     if (p.kind === 'select') { const o = pickName(text, p.options ?? []) ?? (p.options ?? []).find((x) => s.includes(stem(x)) && stem(x).length >= 4) ?? (p.options ?? []).find((x) => s.split(/[^a-z0-9]+/).some((w) => w.length >= 3 && !STOP.has(w) && norm(x).includes(w))); if (o) input[p.key] = o; continue; }
     // Un chemin écrit dans la phrase désigne plus sûrement qu'un nom connu.
     if (/^(chemin|fichier|dossier)$/.test(k)) { const path = /(?:^|\s)((?:~|\.{0,2})?\/[^\s"'«»]+|[A-Za-z]:\\[^\s"'«»]+)/.exec(text)?.[1]; if (path) { input[p.key] = path.replace(/[.,;:!?]+$/, ''); continue; }
       // À défaut, un nom de fichier seul (« rapport.pdf ») : l'appli le cherchera là où les fichiers arrivent.
       const bare = k === 'dossier' ? undefined : /(?:^|\s)((?:inbox\/)?[\w(][\w.()-]*\.[A-Za-z][A-Za-z0-9]{1,4})(?=[\s,;:!?]|$)/.exec(text)?.[1]; if (bare && !/^https?:/i.test(bare)) { input[p.key] = bare; continue; } }
     // Un format de fichier (« convertis ce fichier en PDF »).
-    if (k === 'format') { const f = /\b(?:en|vers)\s+(?:un |une |du |format )?\.?(pdfa|pdf|docx|odt|rtf|txt|html|md|jpe?g|png|webp|avif|gif|bmp|tiff|ico|mp4|mkv|webm|mov|avi|mp3|m4a|flac|wav|ogg|opus|aac|xlsx|ods|csv|tsv|json|yaml|toml|xml|srt|vtt|ass|lrc|vcf|ics|geojson|kml|gpx|zip|tar|epub|mobi|azw3|pptx|odp)\b/.exec(s)?.[1]; if (f) { input[p.key] = f.replace('jpeg', 'jpg'); continue; } }
+    // Une ville nommée (« … à Paris », « la météo de Saint-Denis de la Réunion », « au Port ») : avec sa majuscule, telle
+    // qu'on l'écrit. Le DERNIER lieu introduit par « à / au / en » l'emporte (« pour Noël à Lyon » → Lyon, « le match de Paul
+    // à Brest » → Brest) ; « de » seulement s'il n'y en a pas (« la météo de Saint-Denis »). « au Port » → « Le Port ».
+    if (k === 'ville') {
+      const lieux = [...text.matchAll(/(?:^|\s)(à|a|au|aux|en|de|du)\s+((?:[A-ZÀ-Ý][\p{L}'-]+)(?:\s+(?:de la|de l'|de|du|des|sur)\s+[A-ZÀ-Ý][\p{L}'-]+|[\s-]+[A-ZÀ-Ý][\p{L}'-]+){0,3})/gu)];
+      const lieu = lieux.filter((x) => /^(?:à|a|au|aux|en)$/i.test(x[1])).at(-1) ?? lieux.at(-1);
+      if (lieu) { input[p.key] = (/^au$/i.test(lieu[1]) ? 'Le ' : /^aux$/i.test(lieu[1]) ? 'Les ' : '') + lieu[2].replace(/[\s,.;:!?]+$/, ''); continue; }
+    }
+    if (k === 'format') { const f = /\b(?:en|vers|to|into|a|in|zu|nach)\s+(?:un |une |du |format |a |an )?\.?(pdfa|pdf|docx|odt|rtf|txt|html|md|jpe?g|png|webp|avif|gif|bmp|tiff|ico|mp4|mkv|webm|mov|avi|mp3|m4a|flac|wav|ogg|opus|aac|xlsx|ods|csv|tsv|json|yaml|toml|xml|srt|vtt|ass|lrc|vcf|ics|geojson|kml|gpx|zip|tar|epub|mobi|azw3|pptx|odp)\b/.exec(s)?.[1]; if (f) { input[p.key] = f.replace('jpeg', 'jpg'); continue; } }
     if (named) { input[p.key] = named; continue; }
     if (/^(ip|adresse_ip)$/.test(k) || (/adresse/.test(lab) && /\bip\b/.test(lab))) { if (ip) input[p.key] = ip; else if (mac && /mac/.test(lab)) input[p.key] = mac; continue; }
     if (/^(lien|url|adresse|source|site|flux)$/.test(k)) { if (url) input[p.key] = url; else if (k === 'adresse' && /\bsite\b/.test(lab) && domain) input[p.key] = domain; else if (/^(lien)$/.test(k) && repo && /github|depot|lien/.test(lab + s)) input[p.key] = repo; else if (ip && /adresse/.test(k)) input[p.key] = ip; if (input[p.key] !== undefined) continue; }
@@ -202,6 +234,17 @@ function describe(v: Valhalla, m: Module): string {
 }
 /** Les mots qui prouvent qu'on demande CETTE action : ses mots, son nom, ses verbes synonymes (pas son intitulé, souvent un simple nom). */
 const verbsOf = (a: Action) => new Set([...(a.words ?? []), a.id.replace(/_/g, ' '), ...SYN.filter(([re]) => re.test(a.id)).flatMap(([, syn]) => syn)].flatMap((x) => tokens(x)).map(stem));
+/**
+ * La demande dit-elle le VERBE de cette action (un de ses mots, son nom, un synonyme), dans n'importe quelle langue connue ?
+ * Sert à ne jamais proposer une action dont seul le réglage a été deviné quand l'ordre lui-même n'a pas été dit
+ * (« apaga la máquina … » n'est pas « cloner une machine »).
+ */
+export function verbeDit(v: Valhalla, text: string, moduleId: string, actionId: string): boolean {
+  const m = v.modules().map(avecLangues).find((x) => x.id === moduleId), a = m?.actions.find((x) => x.id === actionId);
+  if (!a) return false;
+  const verbs = verbsOf(a);
+  return words(text).some((w) => verbs.has(stem(w)));
+}
 /** Les mots des actions qui ne font que montrer (« processus », « alertes », « appareils ») : ils nomment des choses, pas des ordres. */
 const verbsOfShows = (m: Module) => new Set(m.actions.filter((x) => x.read && !(x.params ?? []).some((p) => p.required)).flatMap((x) => [...(x.words ?? []), x.id.replace(/_/g, ' ')]).flatMap((x) => tokens(x)).map(stem));
 /** Une expression est-elle dans ce texte (au pluriel près, apostrophes et traits d'union comme des espaces) ? */
@@ -246,7 +289,7 @@ const CLAUSE = /^(?:si|s'|que|qu'|qui|quand|comme|ou|ce qu|ce que|ce qui|pour qu
 const MESSAGE = /^(texte|message|note|contenu|annonce|article|articles|sujet)$/;
 /** Les mots d'une demande, pour mesurer ce qui est expliqué (« montre-moi » → « montre », « fera-t-il » → « fera »). */
 const words = (t: string) => norm(t.replace(/,\s*odin\s*[.!?]*\s*$/i, '').replace(/-t-(?:il|elle|on|ils|elles)\b/gi, ' ').replace(/-(?:moi|toi|nous|le|la|les|lui|leur|en|y|tu|je|il|elle|on|ils|elles|ce)\b/gi, ' '))
-  .split(/[^a-z0-9.:/@_-]+/).map((w) => w.replace(/^(?:[ldjmtsnc]|qu)'/, '').replace(/^[.:/@_-]+|[.:/@_-]+$/g, '')).filter((w) => w && (w === 'odin' || !STOP.has(w)));
+  .split(/[^\p{L}\p{N}.:/@_-]+/u).map((w) => w.replace(/^(?:[ldjmtsnc]|qu)'/, '').replace(/^[.:/@_-]+|[.:/@_-]+$/g, '')).filter((w) => w && (w === 'odin' || !STOP.has(w)));
 const stemsOf = (list: string[]) => new Set(list.flatMap((x) => tokens(x)).map(stem));
 /** Vocabulaire d'une appli (ses mots, son nom, d'où elle vient). */
 const vocab = (m: Module) => stemsOf([...m.words, m.name, ...(forgetsId(m.id) ? [] : [m.id]), ...m.from, ...(m.modes ?? []).map((x) => x.split(' ')[0])]);
@@ -294,7 +337,9 @@ function doubtOf(e: Evidence): { text: string; near: boolean } | undefined {
     || (/^(?:\d{1,2}h(?:\d{2})?|\d{1,2}:\d{2}|h|heures?)$/.test(w) && (hour || day))
     || (/^(?:demain|apres-demain|aujourd'hui|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|prochain|prochaine|soir|matin|midi|apres-midi|janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)$/.test(w) && (day || hour))
     || (/^(?:degres?|pourcent|cent)$/.test(w) && has('valeur'));
-  const known = (w: string) => { const s = stem(w); return mod.has(s) || act.has(s) || LIGHT.has(w); };
+  // Une écriture sans espaces (japonais, chinois…) : le mot est « expliqué » s'il contient une tournure de l'appli ou de l'action.
+  const sansEspaces = [...m.words, ...(a.words ?? [])].map(norm).filter((x) => SANS_ESPACES.test(x));
+  const known = (w: string) => { const s = stem(w); return mod.has(s) || act.has(s) || LIGHT.has(w) || (SANS_ESPACES.test(w) && sansEspaces.some((x) => w.includes(x))); };
   // Une action qui change quelque chose se demande avec son verbe (ou un de ses mots) : son intitulé seul, souvent un
   // simple nom (« alertes à voix haute »), ne dit pas s'il faut l'activer, la couper ou juste la montrer.
   if (!a.read) {
@@ -322,13 +367,13 @@ function doubtOf(e: Evidence): { text: string; near: boolean } | undefined {
  */
 export async function understand(v: Valhalla, text: string, session = 'principal', now = new Date()): Promise<Understood | undefined> {
   const s = norm(text); if (!s) return undefined;
-  const mods = v.modules();
+  const mods = v.modules().map(avecLangues);
 
   // 1. Une question restée en attente : la réponse complète la demande.
   const wait = pending.get(session);
   if (wait && now.getTime() - wait.at < 5 * 60_000) {
     pending.delete(session);
-    if (/^(non|annule|laisse|laisse tomber|rien|stop|oublie)\b/.test(s)) return { kind: 'say', text: 'D\'accord, j\'abandonne cette demande.' };
+    if (/^(non|annule|laisse|laisse tomber|rien|stop|oublie)\b/.test(s) || ABANDON.some((x) => s === x || s.startsWith(`${x} `))) return { kind: 'say', text: 'D\'accord, j\'abandonne cette demande.' };
     const f = v.action(wait.module, wait.action);
     if (f) {
       const p = (f.a.params ?? []).find((x) => x.key === wait.missing)!;
@@ -363,7 +408,10 @@ export async function understand(v: Valhalla, text: string, session = 'principal
   // 4. Choisir l'appli (d'après ce dont on parle), puis l'action (d'après le verbe et ce que la phrase fournit).
   const body = text.replace(/^\s*(?:dis|dites)[- ](?:moi|nous|donc|voir)\b[\s,:]*/i, '').replace(/^\s*(?:odin|s'il te pla[iî]t|stp|svp)[\s,:]+/i, '');
   const toks = tokens(body), stems = new Set(toks.map(stem)), sb = norm(body);
-  const has = (w: string) => { const n = norm(w); return n.includes(' ') ? new RegExp(`(?:^|[\\s'])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|x|es)?(?=[\\s,.;:!?]|$)`).test(sb) : stems.has(stem(n)) || toks.includes(n); };
+  // Une expression de plusieurs mots (« crée une vm », « cherche un document ») est aussi reconnue quand le pronom est collé
+  // au verbe (« crée-moi une vm », « cherche-moi un document »). Les mots isolés, eux, ne changent pas.
+  const sbx = sb.replace(/([a-z])-(?:moi|lui|nous|leur)(?=[\s,.;:!?]|$)/g, '$1');
+  const has = (w: string) => { const n = norm(w); if (SANS_ESPACES.test(n)) return sb.includes(n); if (!n.includes(' ')) return stems.has(stem(n)) || toks.includes(n); const re = new RegExp(`(?:^|[\\s'])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|x|es)?(?=[\\s,.;:!?]|$)`); return re.test(sb) || re.test(sbx); };
   const listing = /^(?:mes|les|liste|lister|quels?|quelles?|montre|affiche|voir|etat|combien|ou en|qui est|qui sont|qu'est-ce qu)\b/.test(sb);
   const none: Names = new Map(), strong = new Set<string>();
   // Une question ne lance jamais une action qui change quelque chose : seulement une lecture.
@@ -452,6 +500,9 @@ export async function understand(v: Valhalla, text: string, session = 'principal
       const naming = /^(nom|titre)$/.test(target.key) && /^(ajouter|creer|nouveau|prestation|radio|liste|regle|suivre|deployer|preparer|creer_scene|noter|serveur)/.test(a.id); // un nom à créer, pas une chose existante
       const thing = !FREE.test(norm(target.key)) && !naming;
       let rest = strip(tail(body, verbs, thing ? [target.key, target.label.replace(/\(.*$/, '')] : [...m.words, m.name, ...m.from, 'appli', 'application']), input);
+      // « corrige ça : je sui aller… » : un texte à transmettre, donné après deux-points, est pris tel quel (avec son « je »).
+      const apres = MESSAGE.test(norm(target.key)) ? /:\s+(\S.*)$/s.exec(body)?.[1] : undefined;
+      if (apres) rest = apres.trim();
       if (thing) rest = rest.replace(/^(?:de |du |des |d')/i, '');
       // « … sur la télé », « … dans le salon » : le lieu va dans son réglage.
       const where = (a.params ?? []).find((p) => p.key === 'ou' && (input.ou === undefined || input.ou === '' || input.ou === p.default));

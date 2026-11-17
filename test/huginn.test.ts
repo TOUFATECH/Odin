@@ -126,10 +126,12 @@ test('Logos : la bonne appli, la bonne action, les bons réglages (sans IA)', as
 
 test('Logos : il ne devine pas — les phrases de tous les jours ne déclenchent aucune appli', async () => {
   const w = world();
-  const chat = ['garde ce lien https://exemple.fr/article', 'résume ce site https://exemple.fr', 'envoie un message à Awa : coucou', 'bonjour comment vas-tu', 'quelle heure est-il', 'raconte-moi une blague', 'merci beaucoup', 'quel temps fait-il demain', 'écris un mail à Paul', 'tu peux m\'expliquer la photosynthèse', 'j\'ai mal à la tête', 'quel est le prix du bitcoin', 'traduis bonjour en anglais', 'écris un poème sur la mer', 'on mange quoi ce soir', 'ma voiture est en panne', 'quelle est la capitale du Japon', 'combien font 12 fois 13', 'mon fils a de la fièvre', 'il fait chaud aujourd\'hui', 'la réunion est à 15h', 'pense à acheter du pain', 'j\'ai acheté une nouvelle lampe hier', 'le film d\'hier était super', 'fais-moi un résumé de la page wikipedia sur Mayotte', 'rappelle-moi d\'appeler le client'];
+  const chat = ['garde ce lien https://exemple.fr/article', 'résume ce site https://exemple.fr', 'envoie un message à Awa : coucou', 'bonjour comment vas-tu', 'quelle heure est-il', 'raconte-moi une blague', 'merci beaucoup', 'écris un mail à Paul', 'tu peux m\'expliquer la photosynthèse', 'j\'ai mal à la tête', 'quel est le prix du bitcoin', 'traduis bonjour en anglais', 'écris un poème sur la mer', 'on mange quoi ce soir', 'ma voiture est en panne', 'quelle est la capitale du Japon', 'combien font 12 fois 13', 'mon fils a de la fièvre', 'il fait chaud aujourd\'hui', 'la réunion est à 15h', 'pense à acheter du pain', 'j\'ai acheté une nouvelle lampe hier', 'le film d\'hier était super', 'fais-moi un résumé de la page wikipedia sur Mayotte', 'rappelle-moi d\'appeler le client'];
   const caught: string[] = [];
   for (const c of chat) { const u = await understand(w.v, c, `c:${c}`, NOW); if (u) caught.push(`« ${c} » → ${show(u)}`); }
   assert.deepEqual(caught, []);
+  // La météo, elle, a son appli : Hestia donne le temps d'aujourd'hui et de demain (campagne des tâches de tous les jours).
+  assert.equal(show(await understand(w.v, 'quel temps fait-il demain', 'meteo', NOW)), 'gladsheim.meteo {"ville":""}');
   assert.equal((await understand(w.v, 'bannis 10.0.0.300', 'x', NOW))?.kind, 'say', 'adresse IP impossible : il le dit, il ne fait rien');
   w.end();
 });

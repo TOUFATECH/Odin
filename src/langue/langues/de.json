@@ -1,0 +1,207 @@
+{
+  "code": "de",
+  "iso3": "deu",
+  "nom": "Deutsch",
+  "petitsMots": [
+    "der",
+    "die",
+    "das",
+    "den",
+    "dem",
+    "mir",
+    "mein",
+    "meine",
+    "meinen",
+    "einen",
+    "ein",
+    "eine",
+    "nach",
+    "auf",
+    "ist",
+    "wie",
+    "und",
+    "ich",
+    "du",
+    "nicht",
+    "bitte",
+    "im",
+    "mit",
+    "für",
+    "von",
+    "zu",
+    "es",
+    "gibt"
+  ],
+  "indices": [
+    "wetter",
+    "heute",
+    "morgen",
+    "prüfe",
+    "suche",
+    "schalte",
+    "starte",
+    "bitte",
+    "rechner",
+    "computer"
+  ],
+  "formes": {
+    "viren": "virus"
+  },
+  "abandon": [
+    "vergiss es",
+    "abbrechen",
+    "nein"
+  ],
+  "heure": [
+    "wie spät ist es",
+    "wieviel uhr ist es",
+    "welcher tag ist heute"
+  ],
+  "applis": {
+    "gladsheim": [
+      "wetter",
+      "temperatur draußen"
+    ],
+    "gladsheim.meteo": [
+      "wie ist das wetter",
+      "das wetter",
+      "wettervorhersage",
+      "heute"
+    ],
+    "volva.chercher": [
+      "suche im internet",
+      "such im internet",
+      "suche nach"
+    ],
+    "dvalinn": [
+      "konvertiere",
+      "umwandeln",
+      "in pdf"
+    ],
+    "dvalinn.convertir": [
+      "konvertiere die datei",
+      "in pdf umwandeln",
+      "konvertiere"
+    ],
+    "ullr": [
+      "virus",
+      "viren",
+      "virenscanner"
+    ],
+    "ullr.etat": [
+      "gibt es viren",
+      "bin ich geschützt"
+    ],
+    "ullr.analyser": [
+      "auf viren prüfen",
+      "prüfe meinen computer auf viren",
+      "virenscan"
+    ],
+    "ymir": [
+      "virtuelle maschine",
+      "virtuellen maschinen"
+    ],
+    "ymir.arreter": [
+      "fahre die vm herunter",
+      "schalte die vm aus"
+    ],
+    "ymir.demarrer": [
+      "starte die vm"
+    ],
+    "naglfar": [
+      "container"
+    ],
+    "naglfar.lister": [
+      "welche container laufen"
+    ],
+    "volva": [
+      "suche im internet"
+    ]
+  },
+  "pasEncoreMots": {
+    "reserver": [
+      "buch",
+      "buche",
+      "buchen",
+      "reservier",
+      "reserviere",
+      "reservieren"
+    ],
+    "billet": [
+      "zug",
+      "flug",
+      "ticket",
+      "fahrkarte"
+    ],
+    "acheter": [
+      "kauf",
+      "kaufe",
+      "kaufen"
+    ],
+    "mails": [
+      "e-mail",
+      "nachricht"
+    ]
+  },
+  "textes": {
+    "rienCompris": "Ohne KI habe ich diese Anfrage nicht sicher genug verstanden, um zu handeln: Ich habe nichts getan. Sag « Hilfe », um zu sehen, was ich ohne KI kann.",
+    "garde": "Gerade antwortet mir keine KI. Ich behalte deine Frage und komme darauf zurück, sobald eine KI antwortet.",
+    "pasEncore": "Ich kann noch nicht {quoi}: Ich habe nichts getan. Was ich tun kann: {proche}.",
+    "pasCetteLangue": "Ohne KI erkenne ich die Sprache deiner Anfrage ({nom}), verstehe sie aber noch nicht: Dafür brauche ich ein Sprachmodell. Ich habe nichts getan; ich behalte deine Frage.",
+    "ilMeManque": "{action}: Mir fehlt « {quoi} ». Sag es mir (oder « vergiss es »).",
+    "jeNeConnaisPas": "{action}: « {chose} » kenne ich dort nicht. Ich habe nichts getan: sag es noch einmal mit dem genauen Namen (oder « vergiss es »).",
+    "heure": "Es ist {heure}, {date}.",
+    "abandonne": "In Ordnung, ich lasse diese Anfrage fallen.",
+    "faitSansIA": "Ohne KI erledigt: Gerade antwortet keine."
+  },
+  "pasEncore": {
+    "reserver": {
+      "quoi": "bei jemand anderem buchen (Restaurant, Hotel, Kino, Reise)",
+      "proche": "Adressen, Zeiten und Preise im Web suchen oder dir eine Erinnerung setzen"
+    },
+    "changer-billet": {
+      "quoi": "eine Buchung oder ein Ticket ändern, stornieren oder erstatten lassen",
+      "proche": "die Hilfeseite des Verkäufers im Web suchen"
+    },
+    "billet": {
+      "quoi": "ein Ticket kaufen (Flug, Zug, Vorstellung) oder Tickets vergleichen",
+      "proche": "Zeiten und Preise im Web suchen"
+    },
+    "comparer": {
+      "quoi": "Preise selbst vergleichen",
+      "proche": "Preise im Web suchen"
+    },
+    "acheter": {
+      "quoi": "für dich etwas kaufen oder bezahlen",
+      "proche": "Preise im Web suchen"
+    },
+    "postuler": {
+      "quoi": "mich für dich bewerben",
+      "proche": "Stellenangebote im Web suchen"
+    },
+    "newsletter": {
+      "quoi": "dich bei einem Newsletter an- oder abmelden",
+      "proche": "mit einer KI finde ich den Abmeldelink und frage dich vor dem Klick"
+    },
+    "mails": {
+      "quoi": "deine E-Mails und Nachrichten ohne KI lesen, sortieren, beantworten oder senden",
+      "proche": "mit einer KI mache ich es, und jedes Senden oder Löschen wartet auf deine Zustimmung"
+    },
+    "vm-pause": {
+      "quoi": "eine virtuelle Maschine pausieren",
+      "proche": "sie sauber herunterfahren (mit deiner Zustimmung) oder einen Snapshot machen (Hydre)"
+    },
+    "gpo": {
+      "quoi": "eine GPO (Gruppenrichtlinie) anlegen oder ändern",
+      "proche": "mit einer KI das PowerShell-Skript vorbereiten, das ich nur mit deiner Zustimmung starte"
+    },
+    "github-essai": {
+      "quoi": "ein GitHub-Repository in einem eigenen Container ausprobieren",
+      "proche": "Pharos den Link untersuchen lassen; Argo startet ein bereits veröffentlichtes Docker-Image, mit deiner Zustimmung"
+    },
+    "llm": {
+      "quoi": "ein Sprachmodell für andere Maschinen bereitstellen",
+      "proche": "Métis liest ein offenes Modell für meinen eigenen Gebrauch"
+    }
+  }
+}

@@ -111,7 +111,7 @@ export const hel: Module & { similaires: string[] } = {
   ],
   from: ['TestDisk', 'PhotoRec'], upstream: [],
   similaires: ['TestDisk', 'PhotoRec', 'Recuva', 'R-Studio', 'Disk Drill'],
-  words: ['fichiers effacés', 'photos effacées', 'mes photos effacées', 'fichiers retrouvés', 'partitions perdues', 'partition perdue', 'récupération de fichiers', 'récupérer des fichiers', 'table de partitions', 'perséphone'],
+  words: ['fichiers effacés', 'fichier effacé', 'photos effacées', 'mes photos effacées', 'fichiers retrouvés', 'partitions perdues', 'partition perdue', 'récupération de fichiers', 'récupérer des fichiers', 'table de partitions', 'perséphone'],
   actions: [
     { id: 'supports', label: 'Supports à fouiller', what: 'Les disques, partitions, clés USB et cartes SD de la machine', read: true, words: ['supports a fouiller', 'quels supports'], run: async (ctx) => {
       const l = await supports(ctx);

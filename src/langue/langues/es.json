@@ -1,0 +1,235 @@
+{
+  "code": "es",
+  "iso3": "spa",
+  "nom": "español",
+  "petitsMots": [
+    "el",
+    "los",
+    "las",
+    "del",
+    "mi",
+    "mis",
+    "tu",
+    "por",
+    "para",
+    "es",
+    "este",
+    "esta",
+    "una",
+    "unos",
+    "que",
+    "qué",
+    "como",
+    "cómo",
+    "con",
+    "y",
+    "al",
+    "lo",
+    "me",
+    "se",
+    "hay",
+    "favor",
+    "dame"
+  ],
+  "indices": [
+    "apaga",
+    "enciende",
+    "busca",
+    "convierte",
+    "envía",
+    "envia",
+    "correo",
+    "hermana",
+    "máquina",
+    "maquina",
+    "hora",
+    "archivo",
+    "hoy",
+    "tiempo",
+    "dónde",
+    "quiero",
+    "necesito",
+    "resérvame",
+    "reservame"
+  ],
+  "formes": {},
+  "abandon": [
+    "olvídalo",
+    "cancela",
+    "déjalo",
+    "no"
+  ],
+  "heure": [
+    "qué hora es",
+    "que hora es",
+    "qué día es hoy"
+  ],
+  "applis": {
+    "gladsheim": [
+      "tiempo",
+      "clima",
+      "temperatura afuera"
+    ],
+    "gladsheim.meteo": [
+      "qué tiempo hace",
+      "el tiempo",
+      "el clima",
+      "pronóstico",
+      "hoy"
+    ],
+    "volva.chercher": [
+      "busca en internet",
+      "buscar en internet",
+      "busca información sobre"
+    ],
+    "dvalinn": [
+      "convierte",
+      "convertir",
+      "a pdf"
+    ],
+    "dvalinn.convertir": [
+      "convierte este archivo",
+      "convertir el archivo",
+      "convierte"
+    ],
+    "ullr": [
+      "virus",
+      "antivirus"
+    ],
+    "ullr.etat": [
+      "hay virus",
+      "estoy protegido"
+    ],
+    "ullr.analyser": [
+      "analiza mi ordenador",
+      "busca virus",
+      "analiza mi computadora"
+    ],
+    "ymir": [
+      "máquina virtual",
+      "máquinas virtuales"
+    ],
+    "ymir.machines": [
+      "mis máquinas virtuales"
+    ],
+    "ymir.arreter": [
+      "apaga la máquina virtual",
+      "apaga la vm"
+    ],
+    "ymir.demarrer": [
+      "enciende la máquina virtual",
+      "arranca la vm"
+    ],
+    "naglfar": [
+      "contenedor",
+      "contenedores"
+    ],
+    "naglfar.lister": [
+      "qué contenedores",
+      "lista los contenedores"
+    ],
+    "naglfar.ports": [
+      "ip del contenedor"
+    ],
+    "volva": [
+      "busca en internet",
+      "buscar en internet"
+    ]
+  },
+  "pasEncoreMots": {
+    "reserver": [
+      "reserva",
+      "resérvame",
+      "reservar"
+    ],
+    "billet": [
+      "billete",
+      "vuelo",
+      "boleto"
+    ],
+    "comparer": [
+      "compara precios",
+      "más barato"
+    ],
+    "acheter": [
+      "compra",
+      "cómprame",
+      "comprar"
+    ],
+    "postuler": [
+      "postula",
+      "solicita el empleo"
+    ],
+    "mails": [
+      "correo",
+      "correos",
+      "envía un mensaje",
+      "manda un mensaje"
+    ],
+    "vm-pause": [
+      "pausa la máquina",
+      "pon en pausa"
+    ]
+  },
+  "textes": {
+    "rienCompris": "Sin IA, no he entendido esta petición con seguridad suficiente para actuar: no he hecho nada. Di « ayuda » para ver lo que sé hacer sin IA.",
+    "garde": "Ninguna IA me responde ahora mismo. Guardo tu pregunta y vuelvo a ella en cuanto una IA responda.",
+    "pasEncore": "Todavía no sé {quoi}: no he hecho nada. Lo que puedo hacer: {proche}.",
+    "pasCetteLangue": "Sin IA, reconozco el idioma de tu petición ({nom}), pero todavía no lo entiendo: necesito un modelo de lenguaje. No he hecho nada; guardo tu pregunta.",
+    "ilMeManque": "{action}: me falta « {quoi} ». Dímelo (o di « olvídalo »).",
+    "jeNeConnaisPas": "{action}: no conozco « {chose} » ahí. No he hecho nada: dilo de nuevo con el nombre exacto (o « olvídalo »).",
+    "heure": "Son las {heure}, {date}.",
+    "abandonne": "De acuerdo, abandono esta petición.",
+    "faitSansIA": "Hecho sin IA: ninguna responde ahora mismo."
+  },
+  "pasEncore": {
+    "reserver": {
+      "quoi": "reservar con otra persona (restaurante, hotel, cine, viaje)",
+      "proche": "buscar direcciones, horarios y precios en la web, o ponerte un recordatorio"
+    },
+    "changer-billet": {
+      "quoi": "cambiar, cancelar o pedir el reembolso de una reserva o un billete",
+      "proche": "buscar la página de ayuda del vendedor en la web"
+    },
+    "billet": {
+      "quoi": "comprar un billete (avión, tren, espectáculo) ni comparar billetes",
+      "proche": "buscar horarios y precios en la web"
+    },
+    "comparer": {
+      "quoi": "comparar precios yo solo",
+      "proche": "buscar precios en la web"
+    },
+    "acheter": {
+      "quoi": "comprar o pagar algo por ti",
+      "proche": "buscar precios en la web"
+    },
+    "postuler": {
+      "quoi": "presentar una candidatura por ti",
+      "proche": "buscar ofertas de empleo en la web"
+    },
+    "newsletter": {
+      "quoi": "suscribirte o darte de baja de un boletín",
+      "proche": "con una IA, encuentro el enlace para darte de baja y te pregunto antes de hacer clic"
+    },
+    "mails": {
+      "quoi": "leer, ordenar, responder ni enviar tus correos y mensajes sin IA",
+      "proche": "con una IA lo hago, y cada envío o borrado espera tu aprobación"
+    },
+    "vm-pause": {
+      "quoi": "poner en pausa una máquina virtual",
+      "proche": "apagarla limpiamente (con tu aprobación) o hacer una instantánea (Hydre)"
+    },
+    "gpo": {
+      "quoi": "crear o cambiar una GPO (directiva de grupo)",
+      "proche": "con una IA, preparar el script de PowerShell, que solo ejecuto con tu aprobación"
+    },
+    "github-essai": {
+      "quoi": "probar un repositorio de GitHub en un contenedor aparte",
+      "proche": "que Pharos estudie el enlace; Argo lanza una imagen Docker ya publicada, con tu aprobación"
+    },
+    "llm": {
+      "quoi": "servir un modelo de lenguaje a otras máquinas",
+      "proche": "Métis lee un modelo abierto para mi propio uso"
+    }
+  }
+}

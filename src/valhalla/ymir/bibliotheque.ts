@@ -42,7 +42,7 @@ export function bibliothequeActions(): Action[] {
       ctx.saveSettings({ espaceIso: d });
       return { text: `📁 Espace ISO : ${d}. Hydre et Andromède y rangent et y lisent leurs images.`, data: { dossier: d } };
     } },
-    { id: 'bibliotheque_iso', label: 'Bibliothèque d\'ISO', what: 'Toutes les ISO de l\'espace ISO (Andromède et importées) : système, taille, empreinte, antivirus', read: true, words: ['bibliotheque d iso', 'mes iso', 'liste des iso'], run: async (ctx) => {
+    { id: 'bibliotheque_iso', label: 'Bibliothèque d\'ISO', what: 'Toutes les ISO de l\'espace ISO (Andromède et importées) : système, taille, empreinte, antivirus', read: true, words: ['bibliotheque d iso', 'mes iso', 'liste des iso', 'quelles iso'], run: async (ctx) => {
       await synchroEspace(ctx); const l = await bibliotheque(ctx);
       return { text: l.length ? l.map(ligne).join('\n') : `Aucune ISO dans l'espace ISO (${espaceIso(ctx)}).`, data: { dossier: espaceIso(ctx), isos: l } };
     } },

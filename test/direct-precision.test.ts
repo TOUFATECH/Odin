@@ -58,7 +58,9 @@ function world() {
 
 /** Doit partir vers une IA (rien d'évident à faire seul). */
 const IA = [
-  'Trouve-moi une idée de cadeau pour ma mère', 'Quel temps fera-t-il demain à Mamoudzou ?', 'Combien coûte un iPhone 16 à Mayotte ?',
+  // (« Quel temps fera-t-il demain à Mamoudzou ? » n'est plus ici : Hestia donne la météo d'aujourd'hui et de demain pour la
+  // ville nommée, sans IA — campagne des tâches de tous les jours, `test/taches-sans-modele.test.ts`.)
+  'Trouve-moi une idée de cadeau pour ma mère', 'Combien coûte un iPhone 16 à Mayotte ?',
   'Peux-tu me dire comment sécuriser mon serveur ?', 'Qu\'est-ce que tu penses de mon site ?', 'Fais-moi un devis pour un site vitrine',
   'Prépare une réponse au client qui se plaint du retard', 'C\'est quoi la différence entre Docker et Podman ?', 'Donne-moi les nouvelles du jour',
   'Cherche sur internet le prix d\'un Starlink', 'Mon site est lent, tu peux regarder ?', 'Aide-moi à préparer ma réunion de demain',

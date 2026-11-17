@@ -4,7 +4,8 @@
 //
 // La préparation d'avance n'est PAS branchée ici : Odin n'a pas encore de lecture « préchauffable » (cache de
 // recherche ou de rappel) que le chemin normal réutiliserait ; une réponse préparée ne remplace jamais la sienne.
-import { fileBornee, type FileApprentissage, type NoosDeps } from '../../brain/nous/deps.ts';
+import { type FileApprentissage, type NoosDeps } from '../../brain/nous/deps.ts';
+import { fileNousOdin } from '../../brain/nous/file-odin.ts';
 import { nourrir } from '../../brain/nous/entree.ts';
 import { moteurPronoia, type OptionsPronoia } from './index.ts';
 import type { EvenementDate } from './types.ts';
@@ -14,8 +15,8 @@ export interface OdinPourPronoia {
   cfg: { voice?: { privacy?: { privateMode?: boolean } }; learning?: { observe?: boolean }; nous?: { actif?: boolean }; demo?: boolean };
 }
 
-/** La file d'apprentissage de Noûs remplie par Prónoia (bornée, en mémoire), comme celle de Mathésis. */
-export const fileNousPronoia: FileApprentissage = fileBornee();
+/** La file d'apprentissage de Noûs : LA file unique d'Odin (src/brain/nous/file-odin.ts), vidée vers le corpus. */
+export const fileNousPronoia: FileApprentissage = fileNousOdin;
 
 export function optionsOdin(odin: OdinPourPronoia): OptionsPronoia {
   const prive = (): boolean => { try { return odin.cfg.voice?.privacy?.privateMode === true; } catch { return true; } };

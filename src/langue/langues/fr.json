@@ -1,0 +1,143 @@
+{
+  "code": "fr",
+  "iso3": "fra",
+  "nom": "français",
+  "_note": "Langue de départ d'Odin. Les tournures des applis (words) sont déjà en français dans leur code : ici, les petits mots, la reconnaissance et les textes dits sans modèle.",
+  "petitsMots": [
+    "le",
+    "la",
+    "les",
+    "des",
+    "du",
+    "de",
+    "un",
+    "une",
+    "mon",
+    "ma",
+    "mes",
+    "ton",
+    "ta",
+    "tes",
+    "je",
+    "tu",
+    "moi",
+    "est",
+    "et",
+    "pour",
+    "sur",
+    "dans",
+    "qui",
+    "quel",
+    "quelle",
+    "quels",
+    "quelles",
+    "ce",
+    "cette",
+    "ces",
+    "au",
+    "aux",
+    "pas",
+    "ne",
+    "il",
+    "elle",
+    "nous",
+    "vous",
+    "avec",
+    "sans"
+  ],
+  "indices": [
+    "aujourd'hui",
+    "demain",
+    "cherche",
+    "éteins",
+    "allume",
+    "quel",
+    "combien",
+    "stp",
+    "svp",
+    "fais",
+    "donne",
+    "mets",
+    "s'il",
+    "ça"
+  ],
+  "formes": {},
+  "abandon": [
+    "laisse tomber",
+    "non",
+    "annule",
+    "rien",
+    "stop",
+    "oublie"
+  ],
+  "heure": [
+    "quelle heure est-il",
+    "quelle heure",
+    "il est quelle heure",
+    "quel jour sommes-nous",
+    "on est quel jour"
+  ],
+  "applis": {},
+  "pasEncoreMots": {},
+  "textes": {
+    "rienCompris": "Sans IA, je n'ai pas compris cette demande assez sûrement pour agir : je n'ai rien fait. Dis « aide » pour voir ce que je sais faire sans IA.",
+    "garde": "Aucune IA ne me répond en ce moment. Je garde ta question et j'y reviens pour de vrai dès qu'une IA répond.",
+    "pasEncore": "Je ne sais pas encore {quoi} : je n'ai rien fait. Ce que je peux faire : {proche}.",
+    "pasCetteLangue": "Sans IA, je reconnais la langue de ta demande ({nom}), mais je ne la comprends pas encore : il me faut un modèle de langue pour la comprendre. Je n'ai rien fait ; je garde ta question et j'y réponds dès qu'une IA répond.",
+    "ilMeManque": "{action} : il me manque « {quoi} ». Donne-le-moi (ou dis « laisse tomber »).",
+    "jeNeConnaisPas": "{action} : je ne connais pas « {chose} » ici. Je n'ai rien fait : redis-le avec le nom exact (ou « laisse tomber »).",
+    "heure": "Il est {heure}, {date}.",
+    "abandonne": "D'accord, j'abandonne cette demande.",
+    "faitSansIA": "Je l'ai fait sans IA : aucune ne me répond en ce moment."
+  },
+  "pasEncore": {
+    "reserver": {
+      "quoi": "réserver chez quelqu'un d'autre (restaurant, hôtel, cinéma, voyage)",
+      "proche": "chercher les adresses, les horaires et les prix sur le web (« cherche … »), ou te noter un rappel (« rappelle-moi demain 10 h de réserver »)"
+    },
+    "changer-billet": {
+      "quoi": "changer, annuler ou faire rembourser une réservation ou un billet",
+      "proche": "chercher la page d'aide du vendeur sur le web, ou te noter un rappel"
+    },
+    "billet": {
+      "quoi": "acheter un billet (avion, train, spectacle) ni comparer les billets",
+      "proche": "chercher les horaires et les prix sur le web (« cherche vol Mayotte Paris décembre »)"
+    },
+    "comparer": {
+      "quoi": "comparer des prix tout seul",
+      "proche": "chercher sur le web (« cherche prix aspirateur robot »)"
+    },
+    "acheter": {
+      "quoi": "acheter ou payer quelque chose pour toi",
+      "proche": "chercher les prix sur le web ; avec une IA, je surveille aussi le prix d'une page"
+    },
+    "postuler": {
+      "quoi": "postuler ou envoyer une candidature à ta place",
+      "proche": "chercher des offres sur le web (« cherche offres d'emploi technicien informatique Mayotte »)"
+    },
+    "newsletter": {
+      "quoi": "t'abonner ou te désabonner d'une lettre d'information",
+      "proche": "avec une IA, je retrouve le lien de désabonnement dans le mail et je te demande avant de cliquer"
+    },
+    "mails": {
+      "quoi": "lire, trier, répondre ni envoyer tes mails et tes messages sans IA",
+      "proche": "avec une IA, je le fais, et chaque envoi ou suppression attend ton accord ; « est-ce une arnaque : … » marche déjà sans IA (Asclépios)"
+    },
+    "vm-pause": {
+      "quoi": "mettre une machine virtuelle en pause",
+      "proche": "l'arrêter proprement (« éteins la machine … », avec ton accord) ou en faire un instantané (Hydre)"
+    },
+    "gpo": {
+      "quoi": "créer ni changer une GPO (stratégie de groupe) dans un domaine Windows",
+      "proche": "avec une IA, préparer le script PowerShell, que je ne lance qu'avec ton accord"
+    },
+    "github-essai": {
+      "quoi": "essayer un dépôt GitHub dans un conteneur à part",
+      "proche": "faire étudier le lien par Pharos (« étudie https://github.com/… ») ; Argo lance une image Docker déjà publiée, avec ton accord"
+    },
+    "llm": {
+      "quoi": "faire tourner un modèle de langue pour d'autres machines",
+      "proche": "Métis lit un modèle ouvert pour moi-même (page Métis)"
+    }
+  }
+}
