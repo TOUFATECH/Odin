@@ -9,9 +9,9 @@
   <div class="sec-head"><p class="eyebrow">Les sept questions</p><h2>D'abord, la gravité</h2></div>
   <div class="grid qs"><div class="card q rv"><span class="n">01</span><p>L'as-tu demandée ?</p></div><div class="card q rv d1"><span class="n">02</span><p>Supprime-t-elle des données ?</p></div><div class="card q rv d2"><span class="n">03</span><p>Envoie-t-elle des données dehors ?</p></div><div class="card q rv d3"><span class="n">04</span><p>Modifie-t-elle le système ?</p></div><div class="card q rv"><span class="n">05</span><p>Engage-t-elle de l'argent ?</p></div><div class="card q rv d1"><span class="n">06</span><p>Partage-t-elle des données privées ?</p></div><div class="card q rv d2"><span class="n">07</span><p>Est-elle difficile à annuler ?</p></div></div>
   <div class="twrap rv"><table class="rtable"><thead><tr><th>Gravité</th><th>Exemples</th><th>Prudent</th><th>Équilibré (défaut)</th><th>Autonome</th><th>⚡ Odin Breaker</th></tr></thead><tbody>
-    <tr><td>Routine</td><td>créer le dossier demandé, envoyer le message dicté</td><td>demande</td><td><strong>fait seul, et te le dit</strong></td><td>fait seul</td><td>fait seul</td></tr>
+    <tr><td>Routine</td><td>créer le dossier demandé, ranger un fichier</td><td>demande</td><td><strong>fait seul, et te le dit</strong></td><td>fait seul</td><td>fait seul</td></tr>
     <tr><td>Important</td><td>droits administrateur, suppression définitive, effet incertain</td><td>demande</td><td><strong>demande</strong> (ou autorisation permanente)</td><td>fait seul*</td><td>fait seul</td></tr>
-    <tr><td>Grave</td><td>argent, données privées envoyées, suppression non demandée</td><td>demande</td><td><strong>demande toujours</strong></td><td>demande toujours</td><td>fait seul**</td></tr>
+    <tr><td>Grave</td><td>argent, envoi en ton nom, maison ouverte, données privées envoyées, suppression non demandée</td><td>demande</td><td><strong>demande toujours</strong></td><td>demande toujours</td><td>argent, envoi en ton nom, maison : <strong>demande toujours</strong> ; le reste : fait seul**</td></tr>
     <tr><td>Bloqué</td><td>envoi non demandé après lecture d'une page piégée</td><td>refus</td><td><strong>refus</strong></td><td>refus</td><td>refus</td></tr>
   </tbody></table></div>
   <p class="dim fine">* sauf après lecture de contenu non fiable. ** sauf si un contenu non fiable vient de la suggérer.</p>
@@ -23,7 +23,7 @@
     <div class="level l1 rv"><span class="k">Prudent</span><b>Rien d'écrit, d'exécuté ni d'envoyé sans ton accord.</b><p class="muted">Pour découvrir Odin, ou sur une machine sensible.</p><div class="gauge" style="--w:25%"><i></i></div></div>
     <div class="level l2 rv d1"><span class="k">Équilibré · défaut</span><b>La routine est faite et annoncée. L'important et le grave te sont demandés.</b><p class="muted">Réponds « Toujours autoriser » à une demande importante récurrente : elle ne reviendra plus.</p><div class="gauge" style="--w:50%"><i></i></div></div>
     <div class="level l3 rv d2"><span class="k">Autonome</span><b>L'important est décidé seul. Seul le grave remonte jusqu'à toi.</b><p class="muted">Pour un usage quotidien fluide, en gardant la main sur l'argent et les données privées.</p><div class="gauge" style="--w:75%"><i></i></div></div>
-    <div class="level l4 rv d3"><span class="k">⚡ Odin Breaker</span><b>Plus aucune question, grave et tâches planifiées compris.</b><p class="muted">Il discute avec toi quand tu lui parles ; le reste du temps, il travaille.</p><div class="gauge" style="--w:100%"><i></i></div></div>
+    <div class="level l4 rv d3"><span class="k">⚡ Odin Breaker</span><b>Presque plus aucune question, tâches planifiées comprises ; payer, envoyer en ton nom, ouvrir la maison et toucher à ses garde-fous restent demandés.</b><p class="muted">Il discute avec toi quand tu lui parles ; le reste du temps, il travaille. Quand personne ne lui parle (travail continu, rondes) : le sans-risque seul (garder une fiche à côté, nommer un appareil sans nom) ; une routine qu'il voudrait créer est préparée inactive et attend que tu l'actives ; le reste qui engage est refusé.</p><div class="gauge" style="--w:100%"><i></i></div></div>
   </div>
 </div></section>
 
@@ -43,7 +43,7 @@
       </ul>
     </div>
     <div class="stack" style="gap:16px">
-      <div class="card accent rv" style="gap:10px"><span class="k">Ce qui reste refusé, même en Breaker</span><p>• Les commandes destructrices connues (effacer le disque, formater…).</p><p>• Un envoi de données dicté par une page ou un fichier piégé.</p><p>• Une action grave qu'un contenu non fiable vient de suggérer.</p><p>• Les services de métadonnées cloud (vol d'identifiants).</p><p class="dim" style="font-size:14px">Ces limites protègent contre les attaques. Elles ne limitent jamais ce que toi, tu demandes.</p></div>
+      <div class="card accent rv" style="gap:10px"><span class="k">Ce qui reste refusé, même en Breaker</span><p>• Les commandes destructrices connues (effacer le disque, formater…).</p><p>• Un envoi de données dicté par une page ou un fichier piégé.</p><p>• Une action grave qu'un contenu non fiable vient de suggérer.</p><p>• Les services de métadonnées cloud (vol d'identifiants).</p><p class="dim" style="font-size:14px">Ces limites protègent contre les attaques. Elles ne limitent jamais ce que toi, tu demandes.</p><p>• Ce qui te reste toujours demandé, même en Breaker : payer, envoyer en ton nom à quelqu'un d'autre, ouvrir la maison, toucher à ses garde-fous.</p></div>
       <div class="term rv" role="img" aria-label="Exemple de rapport du soir d'Odin Breaker">
         <div class="term-bar"><i></i><i></i><i></i><span>rapport du soir · 21:00</span></div>
         <div class="term-body" style="min-height:0">

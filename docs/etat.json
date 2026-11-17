@@ -1,0 +1,508 @@
+{
+  "note": "L'état de chaque chose d'Odin : « fait » (commité), « en cours » (écrit, pas encore commité, ou en relecture), « à venir » (décrit dans une note, pas encore écrit). Ce fichier est la SEULE source : le guide (site/guide.html) et le README la lisent (npm run guide). Passer un élément à « fait » = changer son « etat » et donner son « commit » ; l'essai test/doc-etat.test.ts refuse « fait » si un de ses fichiers n'est pas commité.",
+  "maj": "2026-11-17",
+  "elements": [
+    {
+      "id": "applis",
+      "nom": "75 applis reliées, plus de 1 000 actions",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Sécurité, machines, données, accès, maison : une page par appli, des actions comprises avec ou sans IA, des liens automatiques entre elles.",
+      "fichiers": [
+        "src/valhalla/odin.ts",
+        "src/valhalla/service.ts",
+        "src/valhalla/huginn.ts",
+        "src/valhalla/links.ts"
+      ]
+    },
+    {
+      "id": "heimdall",
+      "nom": "Heimdall et Mímir : chaque action jugée, le grave toujours validé",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Une gravité par action, quatre niveaux d'autonomie, contenu extérieur marqué non fiable, secrets masqués, journal de chaque décision.",
+      "fichiers": [
+        "src/heimdall/policy.ts",
+        "src/heimdall/injection.ts",
+        "src/heimdall/redact.ts",
+        "src/mimir/decisions.ts"
+      ]
+    },
+    {
+      "id": "lyncee",
+      "nom": "Lyncée, le moteur de recherche d'Odin",
+      "etat": "fait",
+      "famille": "Web",
+      "resume": "Plusieurs moteurs interrogés ensemble, réponses fusionnées, sans service à installer.",
+      "fichiers": [
+        "src/valhalla/volva/lyncee/types.ts"
+      ],
+      "commit": "4baabb9"
+    },
+    {
+      "id": "venus",
+      "nom": "Vénus, le serveur multimédia, dans Odin",
+      "etat": "fait",
+      "famille": "Médias",
+      "resume": "Films, séries, chaînes et enregistrements, télécommande par QR code.",
+      "fichiers": [
+        "src/valhalla/modules/venus.ts"
+      ],
+      "commit": "42a66de1"
+    },
+    {
+      "id": "nous-v1",
+      "nom": "Soul (Noûs), premier jet du réseau de neurones",
+      "etat": "fait",
+      "famille": "Brain et Soul",
+      "resume": "Un petit réseau qui s'entraîne sur la machine, sans carte graphique : calcul, duel, raisonnement pas à pas.",
+      "fichiers": [
+        "src/brain/nous/calcul.ts",
+        "src/brain/nous/moteur.ts"
+      ],
+      "commit": "42a66de1"
+    },
+    {
+      "id": "apprendre",
+      "nom": "Apprendre de tout (chemin rapide)",
+      "etat": "fait",
+      "famille": "Brain et Soul",
+      "resume": "Une entrée commune pour ce qu'Odin apprend : confiance, source, date, sans doublon.",
+      "fichiers": [
+        "src/learn/apprendre-de-tout.ts"
+      ],
+      "commit": "1ade39b3"
+    },
+    {
+      "id": "archytas",
+      "nom": "Archytas, la fenêtre Script",
+      "etat": "fait",
+      "famille": "Applis",
+      "resume": "Créer, garder, suivre et améliorer des scripts, dans un bac à sable.",
+      "fichiers": [
+        "src/valhalla/archytas/module.ts"
+      ],
+      "commit": "1ade39b3"
+    },
+    {
+      "id": "keryx",
+      "nom": "Kéryx, l'assistant joignable de dehors",
+      "etat": "fait",
+      "famille": "Applis",
+      "resume": "Il agit sur tes messages après un code secret ; SMS et appel écrits mais pas essayés sur du vrai matériel, éteints.",
+      "fichiers": [
+        "src/valhalla/keryx/module.ts"
+      ],
+      "commit": "11b66661"
+    },
+    {
+      "id": "metis",
+      "nom": "Métis : les modèles de langue ouverts dans Odin, sans serveur",
+      "etat": "fait",
+      "famille": "Brain et Soul",
+      "resume": "Odin lit lui-même les modèles ouverts (GGUF), sans serveur de modèles à côté. Ce branchement va être retiré : Odin n'utilisera que ses propres modèles.",
+      "fichiers": [
+        "src/brain/metis/avant.ts",
+        "src/brain/metis/catalogue.ts"
+      ],
+      "commit": "11b66661"
+    },
+    {
+      "id": "theia",
+      "nom": "Théia, l'œil d'Odin",
+      "etat": "fait",
+      "famille": "Médias",
+      "resume": "Voir les images, lire tout document, même scanné.",
+      "fichiers": [
+        "src/vision"
+      ],
+      "commit": "89650b07"
+    },
+    {
+      "id": "syrinx",
+      "nom": "Syrinx, l'oreille d'Odin",
+      "etat": "fait",
+      "famille": "Médias",
+      "resume": "Parole, musique et sons de la maison compris sur la machine.",
+      "fichiers": [
+        "src/valhalla/syrinx"
+      ],
+      "commit": "dbb803c4"
+    },
+    {
+      "id": "mathesis-v1",
+      "nom": "Mathésis (Odin apprend tout seul) et Prónoia (prévoir)",
+      "etat": "fait",
+      "famille": "Brain et Soul",
+      "resume": "Il cherche ce qu'il ne sait pas, lit des pages publiques dans les règles des sites, et prévoit d'après ce qu'il a appris chez toi.",
+      "fichiers": [
+        "src/valhalla/mathesis/module.ts",
+        "src/valhalla/pronoia/index.ts"
+      ],
+      "commit": "2f2cf1e4"
+    },
+    {
+      "id": "lecture-pages",
+      "nom": "Une page ou un PDF piégé ne fige plus Odin",
+      "etat": "fait",
+      "famille": "Web",
+      "resume": "Lecture des pages en temps linéaire, décompression bornée.",
+      "fichiers": [
+        "src/research/fetch.ts"
+      ],
+      "commit": "a8ee957a"
+    },
+    {
+      "id": "decoupage",
+      "nom": "Soul : le découpage en sous-mots corrigé",
+      "etat": "fait",
+      "famille": "Brain et Soul",
+      "resume": "De vraies fusions apprises, la marque d'ordre des octets gardée.",
+      "fichiers": [
+        "src/brain/nous/decoupage.ts"
+      ],
+      "commit": "def11ab4"
+    },
+    {
+      "id": "application-seule",
+      "nom": "L'application seule sur la branche principale",
+      "etat": "fait",
+      "famille": "Dépôt",
+      "resume": "Les programmes livrés à part (navigateur, store des appareils) ont quitté la branche principale ; Odin garde leur service (compte, synchronisation).",
+      "fichiers": [
+        ".gitignore",
+        "docs/plume-protocole.md"
+      ],
+      "commit": "a87da92f"
+    },
+    {
+      "id": "lot-s",
+      "nom": "La sûreté d'abord : argent, envois en ton nom, code sensible, maison, « stop »",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Payer, envoyer en ton nom, ouvrir la maison et toucher à ses garde-fous te sont toujours demandés, même en Odin Breaker ; les tâches automatiques ne décident pas à ta place ; « stop » arrête tout jusqu'à « reprends » ; une clé collée dans un message part au coffre ; réglage « réécrire mon code ».",
+      "fichiers": [
+        "src/heimdall/executer.ts",
+        "src/heimdall/noyau.ts",
+        "src/heimdall/approbations.ts",
+        "src/heimdall/paiement.ts",
+        "src/heimdall/envois.ts",
+        "src/heimdall/maison.ts",
+        "test/lot-s-bout-en-bout.test.ts"
+      ]
+    },
+    {
+      "id": "nous-dans-odin",
+      "nom": "Soul dans Odin : il apprend dès qu'il est libre",
+      "etat": "fait",
+      "famille": "Brain et Soul",
+      "resume": "Une file unique vers un corpus chiffré, des séances quand Odin est libre (arrêtées dès qu'il répond), « oublie ça » et la corbeille d'une note retirent aussi de Soul, reprise sûre après une coupure.",
+      "fichiers": [
+        "src/brain/nous/file-odin.ts",
+        "src/brain/nous/entrainement-odin.ts",
+        "src/brain/nous/oubli.ts",
+        "test/nous-corrections.test.ts"
+      ]
+    },
+    {
+      "id": "absorber",
+      "nom": "Mathésis sur le vrai web, et « absorber un site »",
+      "etat": "fait",
+      "famille": "Web",
+      "resume": "Lire un site page après page, dans ses consignes, chaque fait gardé avec l'adresse de sa page, jamais deux fois la même page.",
+      "fichiers": [
+        "src/valhalla/mathesis/absorber.ts",
+        "test/mathesis-absorber.test.ts"
+      ]
+    },
+    {
+      "id": "rapidite",
+      "nom": "Répondre plus vite",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Brain ne relit que ce qui change, la recherche web n'attend plus la page la plus lente, premier mot plus tôt, la mascotte suit le travail.",
+      "fichiers": [
+        "test/rapidite-cerveau.test.ts",
+        "test/rapidite-recherche.test.ts"
+      ]
+    },
+    {
+      "id": "taches-quotidien",
+      "nom": "Les tâches de tous les jours",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Odin fait ce qu'il sait, dit franchement ce qu'il ne sait pas encore faire, et attend toujours ta validation pour ce qui engage.",
+      "fichiers": [
+        "test/taches-relecture.test.ts"
+      ]
+    },
+    {
+      "id": "langues",
+      "nom": "Reconnaître la langue, et répondre dans la langue de la demande",
+      "etat": "fait",
+      "famille": "Parler",
+      "resume": "Un reconnaisseur écrit dans Odin, sans service extérieur : 232 langues, avec une confiance. Sans modèle de langue, Odin comprend des demandes en 5 langues ; ses refus et ses questions suivent la langue de la demande.",
+      "fichiers": [
+        "src/langue/reconnaitre.ts",
+        "src/langue/profils.json",
+        "test/taches-langues.test.ts"
+      ]
+    },
+    {
+      "id": "talos-dossiers",
+      "nom": "Talos : les automatisations rangées par dossier",
+      "etat": "fait",
+      "famille": "Applis",
+      "resume": "Actives, Brouillons, Corbeille et tes propres dossiers, sous le titre « Workflow » ; au premier lancement, des automatisations déjà actives qui ne font rien d'engageant sans toi.",
+      "fichiers": [
+        "src/draupnir/dossiers.ts",
+        "src/draupnir/depart.ts",
+        "test/talos-dossiers-depart-actives.test.ts"
+      ]
+    },
+    {
+      "id": "plugins",
+      "nom": "Compétences : l'onglet « Plugins »",
+      "etat": "fait",
+      "famille": "Applis",
+      "resume": "Les compétences et les connecteurs MCP au même endroit, avec leur graphe ; seul le propriétaire branche un connecteur.",
+      "fichiers": [
+        "src/web/pages/plugins.js",
+        "test/plugins-page.test.ts"
+      ]
+    },
+    {
+      "id": "fond-uni",
+      "nom": "Thèmes à décor : un fond uni dans la zone de travail",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Le décor (pluie, orage…) ne passe plus sous le texte ; il reste visible derrière la barre de côté.",
+      "fichiers": [
+        "src/web/themes.js",
+        "test/rapidite-theme-fond.test.ts"
+      ]
+    },
+    {
+      "id": "mathesis-rythme",
+      "nom": "Mathésis : le rythme de lecture des sites, réglable",
+      "etat": "fait",
+      "famille": "Web",
+      "resume": "Pages par jour et par site (1 000 000 par défaut) et attente entre deux pages d'un même site (2 secondes par défaut, jamais moins ; la consigne du site l'emporte), dans les Réglages de Mathésis ou par la parole. Seul le propriétaire peut monter le rythme.",
+      "fichiers": [
+        "test/mathesis-rythme.test.ts",
+        "test/proprietaire-seul.test.ts"
+      ]
+    },
+    {
+      "id": "sans-risque-seul",
+      "nom": "Ce qu'Odin fait seul : le sans-risque, le reste attend",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "En tâche automatique, Odin peut seul garder une fiche (écrite à côté, jamais par-dessus, marquée « écrit par Odin seul ») et nommer un appareil sans nom ; une routine qu'il voudrait créer est préparée inactive et annoncée, et ne part que quand tu l'actives dans Talos ; tout le reste qui engage est refusé.",
+      "fichiers": [
+        "test/taches-sans-risque.test.ts",
+        "test/autonomy.test.ts",
+        "test/breaker.test.ts"
+      ]
+    },
+    {
+      "id": "soul-v3",
+      "nom": "Soul, version 3 : trouver la bonne appli",
+      "etat": "en cours",
+      "famille": "Brain et Soul",
+      "resume": "Aucun modèle n'est livré aujourd'hui : un Odin neuf commence avec un Soul vide. En préparation : un banc de mesure figé, sur des demandes jamais vues, et un premier étage qui sait dire « je ne suis pas sûr ». L'objectif du propriétaire : la bonne application à 100 %. L'outil qui fabrique un modèle de départ sans rien de privé sait maintenant enchaîner plusieurs passages."
+    },
+    {
+      "id": "medias-recus",
+      "nom": "Lire les médias reçus : photos, musique, vidéos",
+      "etat": "en cours",
+      "famille": "Médias",
+      "resume": "Date, appareil et lieu d'une photo ; titre, artiste et album d'une musique ; ce qu'une vidéo montre et dit."
+    },
+    {
+      "id": "controle",
+      "nom": "L'entraînement de contrôle et le rapport d'entraînement",
+      "etat": "en cours",
+      "famille": "Brain et Soul",
+      "resume": "Des scénarios par domaine, et un rapport qui sépare ce qui marche, ce qui est un défaut et ce qui n'est pas encore codé."
+    },
+    {
+      "id": "pygmalion",
+      "nom": "Pygmalion : produire des documents, des graphes, des images",
+      "etat": "en cours",
+      "famille": "Applis",
+      "resume": "Écrit, en correction ; pas encore dans l'installation."
+    },
+    {
+      "id": "retrait-externes",
+      "nom": "Retirer tous les modèles qui ne sont pas ceux d'Odin",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Plus de fournisseur de modèle en ligne, plus de poids ouverts téléchargés, plus de modèle de voix téléchargé. Aujourd'hui ces branchements existent encore dans le code."
+    },
+    {
+      "id": "propres-modeles",
+      "nom": "Ses propres réseaux : langue, son, musique, image, vidéo",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Écrits dans Odin et entraînés sur sa machine, comme Soul et Brain, avec les données du propriétaire (qui restent chez lui) et des jeux de données publics à licence libre, vérifiée et notée. Reconnaître les personnes désignées (voix, puis visage, avec leur accord, en local et chiffré) et créer des images se feront avec eux."
+    },
+    {
+      "id": "franchise-modeles",
+      "nom": "Ce que cela veut dire, franchement",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Tant que son propre modèle de langue n'est pas entraîné, Odin répond avec Soul et ses actions directes, sans rédiger de longues réponses ni raisonner. Sur un processeur à 4 cœurs, ces réseaux resteront longtemps petits et spécialisés."
+    },
+    {
+      "id": "a-valider",
+      "nom": "La liste « à valider » retrouvée au retour",
+      "etat": "à venir",
+      "famille": "Sûreté",
+      "resume": "Ce qu'Odin a voulu faire seul et qui engage t'attend, avec oui ou non."
+    },
+    {
+      "id": "soul-processeur",
+      "nom": "Soul sur le processeur, au maximum ; choix « processeur ou carte graphique »",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Plus de calcul utile par seconde. Le choix « carte graphique » existera mais dira qu'il n'est pas disponible : sans programme ajouté, Odin ne peut pas faire calculer la partie graphique d'un processeur."
+    },
+    {
+      "id": "brancher",
+      "nom": "Brain et Soul branchés ensemble",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Chacun a son identité ; si l'un manque, Odin le dit (« il me manque mon âme ») et aide à réparer ; export et import."
+    },
+    {
+      "id": "noms",
+      "nom": "Les noms « Brain » et « Soul » partout à l'écran",
+      "etat": "à venir",
+      "famille": "Brain et Soul"
+    },
+    {
+      "id": "memoire-main",
+      "nom": "Corriger sa mémoire à la main ; la capsule juste",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "« Que sais-tu de moi ? », « oublie ça », « c'est faux », et Odin remarque tes corrections faites à la main."
+    },
+    {
+      "id": "consolidation",
+      "nom": "Consolidation à tout moment",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Un passage léger dès qu'Odin est libre, un passage profond par jour."
+    },
+    {
+      "id": "soul-de-tout",
+      "nom": "Soul apprend de tout",
+      "etat": "à venir",
+      "famille": "Brain et Soul"
+    },
+    {
+      "id": "mascotte",
+      "nom": "La mascotte reliée à Brain et Soul",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Ses réactions choisies par Soul parmi celles que les règles permettent, et ses souvenirs dans Brain. Son visage reste ses yeux et sa couleur ; ses marques autour d'elle et ses habits de fête sont gardés."
+    },
+    {
+      "id": "langues-suite",
+      "nom": "Toutes les langues, la suite",
+      "etat": "à venir",
+      "famille": "Parler",
+      "resume": "Comprendre sans modèle dans plus de langues, la langue de chaque personne retenue, la langue de l'interface choisie au premier réglage, des sous-titres traduits. Shimaoré et kibushi avec la matière que fournira le propriétaire, et Odin dit quand il n'est pas sûr."
+    },
+    {
+      "id": "voix-plusieurs",
+      "nom": "Lui parler à la voix, à plusieurs",
+      "etat": "à venir",
+      "famille": "Parler"
+    },
+    {
+      "id": "widgets",
+      "nom": "Des widgets posés par la parole ; le nouvel accueil",
+      "etat": "à venir",
+      "famille": "Parler",
+      "resume": "« Mets la météo en haut à gauche », « agrandis-le », « remets comme avant » ; puis l'accueil et l'écran de la maison redessinés."
+    },
+    {
+      "id": "ssh",
+      "nom": "Parler à Odin en SSH",
+      "etat": "à venir",
+      "famille": "Parler",
+      "resume": "Une porte écrite dans Odin : la même conversation dans un terminal, avec la mascotte en caractères ; clés seulement ; réseau de la maison ; fermée tant que tu ne l'ouvres pas dans les Réglages."
+    },
+    {
+      "id": "talos-liens",
+      "nom": "Plus d'automatisations qui relient deux applis",
+      "etat": "à venir",
+      "famille": "Applis",
+      "resume": "Celles qui agissent arrivent en brouillon."
+    },
+    {
+      "id": "mails",
+      "nom": "Mails, factures et actualités",
+      "etat": "à venir",
+      "famille": "Métiers",
+      "resume": "Tri, résumé, brouillon par défaut, plusieurs boîtes ; factures et abonnements ; actualités en fiches."
+    },
+    {
+      "id": "comptes",
+      "nom": "Comptes et adresses de façade",
+      "etat": "à venir",
+      "famille": "Métiers",
+      "resume": "S'inscrire pour toi pas à pas, une adresse par site sur ton domaine, un registre de qui connaît quoi ; un CAPTCHA reste ton geste."
+    },
+    {
+      "id": "achats",
+      "nom": "Navigateur, achats, cinéma",
+      "etat": "à venir",
+      "famille": "Métiers",
+      "resume": "Toujours validé au paiement."
+    },
+    {
+      "id": "trajets",
+      "nom": "Trajets et horaires calculés dans Odin",
+      "etat": "à venir",
+      "famille": "Métiers",
+      "resume": "« Je prends le bus » : sans service extérieur (gros chantier)."
+    },
+    {
+      "id": "parc",
+      "nom": "Tout le parc par la parole",
+      "etat": "à venir",
+      "famille": "Machines",
+      "resume": "Pause d'une VM, « crée-moi une VM », essai d'un dépôt GitHub dans une machine isolée, contrôleur de domaine et GPO, servir son propre modèle de langue aux autres machines."
+    },
+    {
+      "id": "aides",
+      "nom": "Plusieurs aides en même temps, Odin chef d'orchestre",
+      "etat": "à venir",
+      "famille": "Odin"
+    },
+    {
+      "id": "medias-mathesis",
+      "nom": "Mathésis : vidéos, musique, images",
+      "etat": "à venir",
+      "famille": "Web",
+      "resume": "Lire aussi les médias, dont la vidéothèque de Vénus, sans jamais rien modifier."
+    },
+    {
+      "id": "banc-public",
+      "nom": "Un entraînement de tout, puis un banc comparé aux bancs publics",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Sur le raisonnement, c'est le propre modèle de langue d'Odin qui sera mesuré, une fois entraîné."
+    },
+    {
+      "id": "rangement",
+      "nom": "Rangement du dépôt et revue finale",
+      "etat": "à venir",
+      "famille": "Dépôt",
+      "resume": "Dossiers rangés, code mort retiré, puis une revue complète de tout le code."
+    }
+  ]
+}

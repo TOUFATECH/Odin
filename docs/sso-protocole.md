@@ -1,6 +1,6 @@
 # Connexion unique (SSO) d'Odin et sauvegarde des applis : le protocole précis
 
-Ce fichier précise, sans le contredire, le contrat `missions/sso-protocole.md`. **C'est lui qui fait foi** pour Odin, Pégase
+Ce fichier est le contrat de la connexion unique d'Odin. **C'est lui qui fait foi** pour Odin, Pégase
 (ordinateur et téléphone) et Vénus. Version du protocole : **1**.
 
 - Tout passe par le port de l'interface d'Odin (par défaut `https://<ip>:8888`, certificat souvent auto-signé : voir § 9).

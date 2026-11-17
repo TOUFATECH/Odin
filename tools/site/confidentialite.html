@@ -21,9 +21,9 @@
   </ul>
   <h3>Ce qui peut sortir de ta machine, parce que tu l'as configuré</h3>
   <ul>
-    <li><strong>Le fournisseur de modèle</strong> que tu choisis (Anthropic, OpenAI, OpenRouter, ou aucun avec un modèle local) reçoit tes messages, le contexte nécessaire et, si tu utilises la vision, les images que tu lui montres.</li>
-    <li><strong>Le service de transcription</strong> reçoit l'audio à comprendre (ou rien, avec un serveur local).</li>
-    <li><strong>Le service de synthèse vocale</strong> reçoit le texte à lire et, si tu copies une voix, l'enregistrement fourni.</li>
+    <li><strong>Le fournisseur de modèle</strong> que tu choisis (Anthropic, OpenAI, OpenRouter, ou aucun avec un modèle local) reçoit tes messages, le contexte nécessaire et, si tu utilises la vision, les images que tu lui montres. Ces branchements vont être retirés : Odin n'utilisera que ses propres modèles, entraînés sur ta machine.</li>
+    <li><strong>Le service de transcription</strong> reçoit l'audio à comprendre (ou rien, avec un serveur local). Ce service va être retiré.</li>
+    <li><strong>Le service de synthèse vocale</strong> reçoit le texte à lire et, si tu copies une voix, l'enregistrement fourni. Ce service va être retiré.</li>
     <li><strong>Telegram</strong> transporte les messages échangés avec ton bot.</li>
   </ul>
   <p>Chacun de ces services a sa propre politique de confidentialité. Odin masque tes clés et secrets avant tout envoi, et ne transmet jamais de contenu non fiable vers l'extérieur sans ton accord.</p>

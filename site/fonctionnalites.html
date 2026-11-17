@@ -7,7 +7,7 @@
 <meta name="description" content="Tout ce qu'Odin sait faire : agir sur tes fichiers et ta machine, lire et créer PDF, Word, Excel, PowerPoint, images, vidéo et audio, parler et comprendre la voix, surveiller ton réseau, apprendre tes habitudes.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://toufatech.github.io/Odin/fonctionnalites.html">
-<meta name="theme-color" content="#101A24">
+<meta name="theme-color" content="#0B0E14">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Odin Agent IA">
 <meta property="og:locale" content="fr_FR">
@@ -26,7 +26,7 @@
 <link rel="preload" href="./assets/fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="./assets/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="./assets/site.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://toufatech.github.io/Odin/"}, {"@type": "ListItem", "position": 2, "name": "Fonctionnalités", "item": "https://toufatech.github.io/Odin/fonctionnalites.html"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Accueil","item":"https://toufatech.github.io/Odin/"},{"@type":"ListItem","position":2,"name":"Fonctionnalités","item":"https://toufatech.github.io/Odin/fonctionnalites.html"}]}</script>
 </head>
 <body data-page="fonctionnalites">
 <a class="skip" href="#contenu">Aller au contenu</a>
@@ -94,7 +94,7 @@
 <section class="wrap" id="voix">
   <div class="grid two">
     <div class="stack" style="gap:16px"><p class="eyebrow">Voix</p><h2>Parle-lui. Il te répond, avec la voix que tu veux.</h2><p class="lead">Micro dans l'interface, notes vocales sur Telegram, fichiers audio : Odin comprend ce que tu dis. Il répond à voix haute et en notes vocales.</p><p class="muted">Tu peux lui donner une voix existante, ou copier une voix à partir d'un enregistrement d'une minute. La copie exige ton accord explicite : ta voix, ou celle d'une personne qui a consenti. Et si tu préfères que rien ne sorte de chez toi : Piper et Whisper tournent sur ta machine, gratuitement.</p></div>
-    <div class="card accent rv" style="gap:12px"><span class="k">Réglages → Voix</span><p><strong style="color:var(--ink)">Comprendre</strong> : service de transcription en ligne, ou serveur Whisper local sans clé pour rester 100 % chez toi (aide d'installation incluse).</p><p><strong style="color:var(--ink)">Parler</strong> : ElevenLabs (copie de voix avec consentement), Piper (hors ligne, gratuit) ou un serveur compatible OpenAI ; essai en un clic.</p><p><strong style="color:var(--ink)">Au quotidien</strong> : bouton 🔊 dans la discussion, réponse vocale automatique quand tu parles à Odin sur Telegram.</p></div>
+    <div class="card accent rv" style="gap:12px"><span class="k">Réglages → Voix</span><p><strong style="color:var(--ink)">Comprendre</strong> : sur ta machine (Whisper, qu'Odin installe et compile tout seul), ou un service de transcription en ligne si tu préfères.</p><p><strong style="color:var(--ink)">Parler</strong> : ElevenLabs (copie de voix avec consentement), Piper (hors ligne, gratuit) ou un serveur compatible OpenAI ; essai en un clic.</p><p><strong style="color:var(--ink)">Au quotidien</strong> : bouton 🔊 dans la discussion, réponse vocale automatique quand tu parles à Odin sur Telegram.</p></div>
   </div>
 </section>
 
@@ -104,9 +104,9 @@
 </div></section>
 
 <section class="wrap" id="modeles">
-  <div class="sec-head"><p class="eyebrow">Modèles</p><h2>Le bon modèle pour chaque tâche, et jamais bloqué par un quota</h2></div>
+  <div class="sec-head"><p class="eyebrow">Modèles</p><h2>Le bon modèle pour chaque tâche, et jamais bloqué par un quota</h2><p class="lead">Aujourd'hui, Odin peut encore se servir de modèles extérieurs, décrits ci-dessous. Ces branchements vont être retirés : Odin n'utilisera que ses propres modèles, entraînés sur ta machine. Tant que son propre modèle de langue n'est pas entraîné, il répondra avec Soul et ses actions directes, sans rédiger de longues réponses.</p></div>
   <div class="grid">
-    <article class="card rv"><span class="k">Gratuit quand ça suffit</span><h3>Modèle installé pour le simple</h3><p>Question rapide, résumé, réflexion de fond : un modèle local (Ollama, LM Studio…) fait l'affaire, sans rien payer ni rien envoyer.</p></article>
+    <article class="card rv"><span class="k">Gratuit quand ça suffit</span><h3>Modèle installé pour le simple</h3><p>Question rapide, résumé, réflexion de fond : un modèle ouvert lu par Odin lui-même sur ta machine (Métis, sans serveur à côté) fait l'affaire, sans rien payer ni rien envoyer.</p></article>
     <article class="card rv d1"><span class="k">Fort quand il faut</span><h3>Le plus capable pour le complexe</h3><p>Projet en plusieurs étapes, gros document, débogage : Odin monte d'un palier tout seul.</p></article>
     <article class="card rv d2"><span class="k">Prudent quand c'est risqué</span><h3>Plusieurs avis avant de trancher</h3><p>Pour une décision à risque, il croise les avis de plusieurs modèles et retient le plus prudent.</p></article>
     <article class="card rv d3"><span class="k">Jamais à l'arrêt</span><h3>Bascule automatique</h3><p>Quota ou crédit épuisé : le modèle est mis de côté, le suivant prend le relais, et Odin te le dit dans sa réponse.</p></article>

@@ -2,34 +2,40 @@
 
 # ᛟ Odin Agent IA
 
-**Ton agent IA personnel : il réfléchit avant d'agir, apprend de chaque tâche, et ne te dérange que quand ça compte.**
+**Ton agent personnel, chez toi : il agit sur ta machine, ton réseau et ta maison, apprend de ce qu'il fait, et ne fait jamais rien de grave sans ton accord.**
 
 [![Tests](https://github.com/TOUFATECH/Odin/actions/workflows/ci.yml/badge.svg)](https://github.com/TOUFATECH/Odin/actions/workflows/ci.yml)
 ![Licence MIT](https://img.shields.io/badge/licence-MIT-green)
 ![Node 22.18+](https://img.shields.io/badge/node-%E2%89%A5%2022.18-blue)
 ![macOS · Linux · Windows](https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-ok-lightgrey)
 
-[Installation](#installation) · [Premiers pas](#premiers-pas) · [Utilisation](#utilisation) · [Décisions et autonomie](#décisions-et-autonomie) · [Sécurité](#sécurité) · [Commandes](#toutes-les-commandes) · [Dépannage](#dépannage)
+[En trente secondes](#odin-en-trente-secondes) · [Installer](#installer) · [Premiers pas](#premiers-pas) · [Les applis](#les-applis-par-famille) · [Brain et Soul](#brain-et-soul) · [Autonomie](#autonomie-et-ce-qui-est-toujours-validé) · [Sécurité](#sécurité-et-vie-privée) · [État](#fait-en-cours-à-venir) · [Développer](#développer)
 
 </div>
 
 ---
 
-## Ce que fait Odin
+## Odin en trente secondes
 
-**Odin 1.0** : quatre espaces (Aujourd'hui, Discussion, Maison, Réglages), une barre de commande (`Ctrl K` ou `/`), et un écran Aujourd'hui qui devine ce que tu veux faire selon tes habitudes, tes conversations en suspens, tes rappels et l'état de la maison. Trois réglages suffisent : autonomie, disponibilité, discrétion. Chaque réponse suit une charte (la réponse d'abord, court, sans jargon), appliquée aussi par le code.
+Odin est un agent personnel qui tourne sur **ta** machine. Tu lui parles (page web, terminal, Telegram, voix) ou tu
+ouvres la page d'une de ses applis : il surveille, répare, range, cherche, pilote ta maison et te rend compte.
 
-- **Il travaille pour toi** : fichiers, commandes, recherche web, messages, tâches planifiées, sous-agents en parallèle.
-- **Il vit où tu es** : interface web locale, terminal, Telegram, API HTTP.
-- **Il décide seul la routine, de façon transparente** : chaque action reçoit une gravité. La routine est faite et annoncée ; l'important et le grave te sont demandés.
-- **Il se souvient et apprend** : mémoire durable avec recherche, compétences proposées après une tâche réussie (tu les relis avant de les activer).
-- **Il connaît ton réseau** : inventaire automatique des appareils, alerte quand l'un apparaît, se déconnecte ou disparaît.
-- **Il est sûr par défaut** : une page web piégée ne peut pas lui faire exécuter, écrire ou envoyer quoi que ce soit ; les secrets sont masqués partout ; chaque décision est tracée.
-- **Il est léger** : aucune dépendance à l'exécution, aucune base de données : sa mémoire est rangée en fichiers lisibles dans `~/.odin/memoire/`, ~5 000 lignes de code commentées en français.
+- **75 applis faites maison, reliées entre elles** : sécurité, machines, données, accès, maison. Plus de 1 000 actions.
+- **Il marche même sans IA** : les demandes courantes vers ses applis sont comprises par un moteur à règles, en
+  français, anglais, espagnol, allemand et japonais. Il reconnaît la langue d'un texte parmi 232 ; ses refus et ses
+  questions suivent la langue de la demande. Aujourd'hui, un modèle de langue extérieur peut encore être branché pour
+  parler librement ; ce branchement va être retiré (voir [Brain et Soul](#brain-et-soul)).
+- **Tu gardes le dernier mot** : chaque action reçoit une gravité ; ce qui est grave attend ton accord, toujours.
+- **Il apprend** : sa mémoire (Brain) et son propre petit réseau de neurones (Soul), entraîné sur ta machine.
+- **Tout reste chez toi** : aucun service tiers obligatoire, pas de serveur à côté ; les secrets vont dans un coffre
+  chiffré.
+
+Le **guide** complet, avec toutes les applis et leurs phrases : [site/guide.html](site/guide.html)
+(publié sur le site du projet). Le détail des fonctions : [docs/utiliser-odin.md](docs/utiliser-odin.md).
 
 ---
 
-## Installation
+## Installer
 
 ### macOS et Linux
 
@@ -43,17 +49,24 @@ curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | ba
 irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex
 ```
 
-L'installateur :
+L'installateur vérifie **Node.js 22.18 ou plus** (s'il manque, il télécharge la version officielle, somme vérifiée,
+dans ton dossier personnel), installe Odin (`~/.odin/app`, ou `%LOCALAPPDATA%\Odin\app` sous Windows), crée la
+commande `odin`, prépare `~/.odin`, puis te pose trois questions : qui peut ouvrir l'interface, l'inventaire du réseau
+local, le démarrage automatique. Sans question : `ODIN_YES=1`.
 
-1. vérifie Node.js ≥ 22.18 ; s'il manque, il télécharge Node 22 officiel (somme SHA-256 vérifiée) dans ton dossier personnel, sans toucher au système ;
-2. installe Odin (`~/.odin/app` sur macOS et Linux, `%LOCALAPPDATA%\Odin\app` sur Windows) ;
-3. crée la commande `odin` ;
-4. initialise `~/.odin` (configuration, personnalité, mémoire, espace de travail) ;
-5. te propose : ta clé d'API, l'inventaire du réseau local, le démarrage automatique (launchd, systemd ou Planificateur de tâches).
+**Ce qui est vraiment nécessaire** : Node.js, rien d'autre. Ni serveur de modèles, ni base de données, ni Docker.
 
-Installation sans question : `ODIN_YES=1` (ajoute `ODIN_NO_SERVICE=1` ou `ODIN_NO_SCAN=1` pour sauter une étape).
-L'installation demande aussi si Odin est un homme ou une femme (sa voix et ses accords suivent) ; sans question,
-`ODIN_GENRE=femme` ou `ODIN_GENRE=homme` le règle, sinon Odin reste un homme et pose la question au premier démarrage.
+**Ce qui sert à certaines applis, si tu le veux** (Odin te le dit quand il en a besoin, et sait souvent l'installer
+lui-même) :
+
+| Programme | Pour quoi |
+|---|---|
+| `ffmpeg` | sons et vidéos (conversion, lecture d'une vidéo) |
+| `tesseract`, `pdftoppm` | texte d'une image ou d'un PDF scanné (Théia) |
+| `git` | mises à jour d'Odin, dépôts de code |
+| compilateur C (`cc`, `make`) | aujourd'hui, la reconnaissance de la voix sur ta machine (Odin compile `whisper.cpp` et télécharge son modèle) ; ce modèle téléchargé sera remplacé par celui d'Odin |
+| `lxc`, `qemu` (Linux) | créer des machines sur ce PC (Hydre) |
+| Docker | seulement pour essayer une appli venue d'un dépôt qui se lance avec Docker, ou pour isoler les commandes (`policy.sandbox`) |
 
 <details>
 <summary><b>Depuis les sources</b></summary>
@@ -62,811 +75,249 @@ L'installation demande aussi si Odin est un homme ou une femme (sa voix et ses a
 git clone https://github.com/TOUFATECH/Odin.git
 cd Odin
 npm install          # uniquement les outils de développement
-npm link             # rend la commande « odin » disponible
+npm link             # la commande « odin »
 odin init
 ```
 
-Node.js exécute directement le TypeScript : aucune compilation.
+Node.js exécute directement le TypeScript : il n'y a rien à compiler.
 </details>
 
 <details>
-<summary><b>Avec Docker</b></summary>
+<summary><b>Dans un conteneur</b></summary>
 
-```bash
-docker build -t odin .
-# Recommandé à la maison (Linux) : Odin voit tes appareils (balayage, identification, DNS, VPN, démarrage réseau)
-docker run -d --name odin --network host --cap-add NET_ADMIN --cap-add NET_RAW -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
-# Isolé (réseau « bridge ») : seulement la discussion et le web ; Odin ne voit pas la maison (il te le dit)
-docker run -d --name odin -p 8888:8888 -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
-docker exec -it odin node bin/odin.mjs chat
-```
-
-En conteneur isolé, « le réseau local » d'Odin est celui du conteneur (172.17 à 172.31) : il ne peut ni balayer ni identifier les postes de la maison. Avec `--network host`, il est sur le même réseau que la machine. Les applis qui lisent la machine (disques, journaux, pare-feu, nettoyage) lisent alors le conteneur, pas la machine hôte : pour elles, installe Odin directement sur la machine (`install.sh`).
-
-Dans le conteneur, Odin est administrateur (sudo sans mot de passe pour son compte) : il peut y installer ce dont il a besoin. Ne le lance pas avec `--security-opt no-new-privileges`, qui l'en empêcherait (il te le dirait).
-
-Dans un conteneur, l'interface web est en mode réseau local par défaut : publie le port (`-p 8888:8888`) et ouvre `https://<ip-de-la-machine>:8888`. L'API HTTP reste disponible (`"http": { "host": "0.0.0.0" }` dans `/data/config.json`, port 8889).
+Un `Dockerfile` est fourni. Le détail (réseau de la maison, droits, ports) est dans
+[docs/installer.md](docs/installer.md).
 </details>
 
-**Mise à jour** : `odin update` · **Désinstallation** : voir [Dépannage](#dépannage).
+**Mettre à jour** : `odin update`. **Désinstaller** : voir [docs/installer.md](docs/installer.md).
 
 ---
 
 ## Premiers pas
 
-### 1. Choisir le modèle dans l'interface web
+1. **L'interface s'ouvre** à la fin de l'installation (sinon : `odin web`). Elle est joignable en HTTPS sur ton réseau
+   local ; la première fois, tu crées ton compte (prénom, nom, adresse, mot de passe).
+2. **Sans aucun réglage**, Odin comprend les demandes vers ses applis. Aujourd'hui, Réglages → Modèle permet encore de
+   brancher un modèle de langue extérieur (un fournisseur avec ta clé, ou un modèle ouvert lu sur ta machine). Ces branchements vont être retirés : Odin n'utilisera que ses propres modèles, entraînés sur ta machine.
+3. **Vérifier** : `odin doctor`.
+4. **Lui parler** : dans la page, ou `odin chat` dans un terminal. Essaie : « les alertes », « quels appareils sont
+   sur mon réseau ? », « analyse mes téléchargements », « chaque matin à 7 h 30, résume mes tâches ».
 
-À la fin de l'installation, l'interface web s'ouvre sur l'onglet **Réglages** (sinon : `odin web`).
-
-1. Choisis un fournisseur : **Anthropic**, **OpenRouter**, **OpenAI**, **Ollama** (local, sans clé) ou un autre service compatible OpenAI.
-2. Colle ta clé d'API, clique **Tester**, puis **Enregistrer**. Odin redémarre ses services tout seul et sort du mode démo.
-3. Dans le même onglet : niveau d'autonomie, juge des décisions, bot Telegram, suivi du réseau local.
-
-Les clés sont écrites dans `~/.odin/env` (lisible par toi seul) : jamais dans `config.json`, jamais renvoyées à la page. Tu peux aussi éditer ce fichier à la main :
-
-```bash
-ANTHROPIC_API_KEY=sk-ant-…
-```
-
-Sans aucun modèle, Odin démarre en **mode démo** pour que tu puisses explorer.
-
-### 2. Vérifier
-
-```bash
-odin doctor
-```
-
-### 3. Parler à Odin
-
-```bash
-odin web      # ouvre l'interface dans ton navigateur
-odin chat     # ou directement dans le terminal
-```
-
-Essaie : *« Quels appareils sont sur mon réseau ? »*, *« Range mon dossier Téléchargements par type »*, *« Chaque matin à 7 h 30, prépare-moi un résumé de mes tâches »*.
+Les clés vont dans `~/.odin/env`, lisible par toi seul, chiffré par le coffre : jamais dans `config.json`, jamais
+renvoyées à la page.
 
 ---
 
-## Utilisation
+## Les applis par famille
 
-### Interface web
+Chaque appli a sa page, ses actions (comprises avec ou sans IA) et ses liens avec les autres. La liste complète, avec
+ce que dit chacune, est générée depuis le code dans le [guide](site/guide.html).
 
-`odin web` ouvre l'interface. Par défaut elle est **joignable sur ton réseau local, en HTTPS** : `https://127.0.0.1:8888` sur la machine, `https://192.168.1.20:8888` (son adresse locale) depuis ton téléphone. Les liens personnels, avec jeton, s'affichent au démarrage ; le jeton est aussi dans `~/.odin/web-token`.
-
-| Onglet | Ce que tu y fais |
+| Famille | Applis |
 |---|---|
-| **Discussion** | parler à Odin, voir ses outils en direct, répondre aux validations en un clic (Autoriser · Toujours autoriser · Refuser) |
-| **Missions** | tout ce qu'Odin fait ou a fait : origine (toi, tâche planifiée, initiative), étapes, outils, sous-agents, coût ; **Arrêter** une mission en cours, **Reprendre** une mission interrompue |
-| **Réseau** | appareils en ligne, déconnectés, retirés ; ce qu'Odin peut faire avec chacun ; balayage à la demande |
-| **Mémoire** | souvenirs d'Odin ; valider ceux en quarantaine, épingler, oublier |
-| **Compétences** | relire et approuver les compétences qu'Odin propose |
-| **Tâches planifiées** | voir et supprimer les tâches récurrentes |
-| **Décisions** | tout ce qu'Odin a fait, qui l'a décidé et pourquoi ; niveau d'autonomie ; autorisations permanentes |
-| **Réglages** | modèle et clés (avec test), **budget mensuel** et dépense par modèle et par usage, autonomie et juge, **personnes** (propriétaires, membres, invités), Telegram, voix, réseau local, accès, **sauvegarde chiffrée** |
+| **Données** (27) | Thot (le Cerveau), Papyrus (pages et bases), Talos (automatisations), Archytas (scripts), Alexandrie (bases de données), Arche (sauvegarde des bases), Écho (dictée), Nébuleuse (fichiers partagés), Andromède (images d'installation), Hermès (logiciels), Glyphes (invites de commande), Pythie (recherche), Chronos (rendez-vous), Pharos (veille), Zénith (tableaux de bord), Alchimie (conversion), Champollion (reconnaissance du texte), Hélios (photos), Dédale (code et dépôts), Plume (bureautique), Perséphone (récupération de fichiers), Atalante (téléchargements), Dodone (requêtes web), Théia (l'œil), Syrinx (l'oreille), Mathésis (apprendre tout seul), Prónoia (prévoir) |
+| **Machines** (12) | Hygie (santé de la machine), Argo (conteneurs, sans Docker), Hydre (machines virtuelles), Arachné (sites web), Phénix (sauvegardes), Pulsar (télésurveillance), Atlas (inventaire du matériel), Genèse (déploiement par le réseau), Chroniques (journaux), Héraclès (ménage), Pyramide (disques et partages), Tirésias (santé des disques) |
+| **Sécurité** (12) | Némésis (comportement des programmes), Forseti (centre de sécurité), Cerbère (bannissement), Méduse (anti-malware réseau), Ariane (paquets réseau), Asclépios (antivirus), Sirènes (pièges à pirates), Argos (console du parc), Zéphyr (Wi-Fi), Thermopyles (pare-feu), Gygès (vie privée), Achille (tests de tes propres sites) |
+| **Accès** (10) | Thésauros (mots de passe), Vortex (VPN), Sphinx (DNS), Valgrind (proxy inverse), Persona (identités et connexion unique), Bifröst (pont vers Internet), Satellites (parc d'ordinateurs), Interprète (connecteurs MCP), Pégase (service du navigateur), Agora (service du store) |
+| **Maison** (14) | Hestia (la maison en un écran), Zeus (météo), Ulysse (trajets), Aurore (thèmes), Constellation (appareils), Héphaïstos (modules connectés), Midgard (pièces et scènes), Cyclope (caméras), Orphée (la voix), Vénus (films et séries), Apollon (musique), Héra (contrôle parental), Olympie (jeux rétro), Kéryx (joignable de dehors) |
 
-#### Odin, sur toutes les pages
+Partout dans l'interface : `Ctrl K` ou `/` ouvre la barre de commande. La mascotte d'Odin, ses yeux et sa couleur,
+explique la page où tu es.
 
-La mascotte d'Odin te suit sur chaque page. Touche-la (ou Entrée) :
-- **tu lui parles directement**, où que tu sois : c'est la même conversation que la Discussion, il sait sur quelle page ou quelle appli tu es, et il répond dans sa bulle ;
-- il répond **à voix haute** tant que tu ne l'as pas coupé (bouton 🔊 de la bulle ou de la Discussion, ou Réglages → Voix ; sans voix réglée, c'est celle du navigateur) ;
-- il explique la page ou l'appli ouverte, **comment s'en servir et comment la régler, de A à Z** ;
-- son infobulle et son champ de saisie changent selon la page ou l'appli ;
-- **Quoi de neuf** détaille la dernière mise à jour ; après une mise à jour, il te présente lui-même ce qui vient d'arriver ;
-- **Arbre d'évolution** (aussi dans Réglages → Plus) : un système solaire, avec Odin au centre et une planète par appli ou partie d'Odin ; chaque planète montre ses évolutions datées (nouveautés, améliorations, corrections) et une ligne suit les versions. Il se lit dans l'historique des mises à jour, donc toujours à jour.
+---
 
-La **visite guidée** ne se lance que si tu la demandes (« visite guidée », Réglages → Plus, ou la bulle). Elle se termine par **les applis de A à Z** : à quoi sert chacune, comment l'utiliser, comment la régler.
+## Brain et Soul
 
-#### Graphes des applis et du réseau
+- **Brain**, c'est la mémoire d'Odin : tes notes reliées (compatibles Obsidian), ses souvenirs (chacun avec son sujet,
+  sa source et sa date), et les fiches qu'il tient à jour sur ses applis. Aujourd'hui, l'appli s'appelle encore
+  « Thot » à l'écran ; le nom « Brain » partout est à venir.
+- **Soul**, c'est son réseau de neurones à lui (appelé « Noûs » dans le code) : un petit modèle qui s'entraîne **sur ta
+  machine**, sur le processeur, à partir de ce qu'Odin est et de ce qu'il apprend, dès qu'Odin est libre (il s'arrête
+  dès qu'Odin répond). Il sert à retrouver par le sens et à proposer. Ce qu'on lui fait oublier, il l'oublie aussi.
+- **Aucun modèle de départ n'est livré aujourd'hui** : un Odin neuf commence avec un Soul vide. Un modèle de départ
+  fabriqué sans aucune donnée privée est en cours (les deux premières versions n'ont pas été retenues). Voir
+  [l'état](#fait-en-cours-à-venir).
+- **Ses propres modèles (à venir)** : Odin n'utilisera plus aucun modèle qui ne soit pas le
+  sien. Les fournisseurs en ligne, les modèles ouverts téléchargés et les modèles de voix téléchargés vont être retirés ;
+  Odin aura ses propres réseaux (langue, son, musique, image, vidéo), écrits dans Odin et entraînés sur la machine avec
+  tes données (qui restent chez toi) et des jeux de données publics à licence libre.
+- **Honnête** : Soul reste petit et se trompe encore souvent sur la bonne appli à proposer. Il calcule sur le processeur ;
+  la carte graphique n'est pas utilisable depuis Odin sans programme ajouté. Tant que son propre modèle de langue n'est
+  pas entraîné, Odin répondra avec Soul et ses actions directes, sans rédiger de longues réponses ni raisonner ; sur un
+  processeur à 4 cœurs, ces réseaux resteront longtemps petits et spécialisés.
 
-Comme le Cerveau, **Applis** et **Maison → Carte** s'affichent en graphe : on glisse, on zoome, on cherche, on touche un point pour l'ouvrir. Les applis sont reliées à leur famille et aux applis avec lesquelles elles travaillent ; les appareils, à leur famille et à la box. Les pastilles montrent ce qui demande ton attention : **rouge ou orange** pour les alertes d'une appli ou un problème sur une machine (risque repéré, appareil surveillé tombé), **bleue** pour les nouveautés du projet d'origine d'une appli ; un point **gris** est hors ligne.
+---
 
-#### Paquets réseau (Ariane)
+## Autonomie et ce qui est toujours validé
 
-Comme Wireshark : Ariane **lit les paquets en entier et les décode couche par couche** (modèle OSI : trame, liaison Ethernet, réseau IPv4/IPv6, transport TCP/UDP, chiffrement TLS, application), avec tous les champs et le contenu brut en hexadécimal. Il reconnaît DNS (questions et réponses), HTTP (requêtes, en-têtes, début du contenu), HTTPS (nom du site demandé), QUIC, DHCP, ARP, ICMP, SSH, mDNS, UPnP, NTP, WireGuard…, et apprend le nom des sites d'Internet (réponses DNS, noms TLS) pour les afficher à la place des adresses.
+Avant chaque action qui écrit, exécute ou envoie, Odin se pose des questions simples (l'as-tu demandée ? supprime-t-elle
+des données ? envoie-t-elle des données dehors ? engage-t-elle de l'argent ? est-elle difficile à annuler ?). Une table
+écrite dans le code en tire une **gravité** : routine, important, grave, bloqué.
 
-- **Lire les paquets** : tout le réseau (page de l'appli Ariane) ou une machine (sous sa fiche, sur la carte de la Maison). **Pause** : plus aucun paquet n'est lu. Aussi en le disant : « lis les paquets », « pause ».
-- **Qui parle à qui** : une carte interactive (machines du réseau, sites d'Internet en bleu, diffusions en vert) reliée par des flèches dans le sens de la communication, épaisses selon le volume. Touche une machine : ses communications (avec qui, dans quel sens, quelles applis, quels sites) ; touche une flèche : les paquets de ce lien.
-- **Chaque paquet** : ce qui se passe en une phrase, chaque couche avec ses champs, le contenu brut. **🦉 Odin, explique** : Odin explique le paquet ou toute la scène dans sa bulle.
-- Historique 7 jours (250 000 paquets au plus, 4 ko de contenu par paquet), sur la machine d'Odin seulement ; filtre par appli, site, protocole, port ou adresse.
-
-Points de capture : la machine d'Odin, plus **chaque machine où Odin a un accès** (Réglages → Droits et machines) — tout son trafic, par SSH. Un hôte Proxmox voit ainsi tout ce qu'échangent ses machines virtuelles, un routeur Linux tout ce qui entre et sort du réseau. Sur un réseau avec switch ou box, une machine sans point de capture n'est vue que dans ses échanges avec un point de capture et dans ce qu'elle diffuse. Le contenu chiffré (HTTPS, QUIC, SSH, VPN) reste illisible, comme dans Wireshark sans les clés ; ce qui passe en clair (HTTP, DNS…) se lit en entier, mots de passe compris : l'historique reste sur ta machine et s'efface depuis Ariane.
-
-#### Connexion unique (Persona)
-
-Toutes les applis se connectent avec ton compte Odin : Pégase, Vénus, et tout logiciel qui sait faire OpenID (Penpot…). Odin est le fournisseur d'identité (OpenID Connect avec PKCE, jetons ES256 de 15 minutes, renouvellement lié à l'appareil). Sur un ordinateur, la première appli connectée range un jeton dans le coffre du système (Windows, Mac, Linux) : les autres s'ouvrent déjà connectées. Dans Persona, l'onglet **Accès** dit qui a droit à quelle appli ; sans droit, l'appli est cachée ou un message dit à qui demander. Les applis sauvegardent leur base sur Odin (`/api/sauvegardes/<appli>`), chiffrée, avec des versions. Contrat : `docs/sso-protocole.md` ; bibliothèque cliente sans dépendance : `clients/odin-sso.mjs`.
-
-#### Pégase : ton navigateur relié à Odin
-
-Odin sert le navigateur Pégase (ordinateur et Android) : son compte, la synchronisation et ce qu'Odin en voit, décrits ci-dessous.
-
-Pégase (Windows, Mac, Linux, Android) se connecte à Odin avec ton compte (le même que partout : connexion unique). Dans Odin, l'appli **Pégase** montre tes appareils (et les révoque), l'état de la synchro, l'historique cherchable par jour, les copies (une par jour, restaurables d'un geste) et ce que l'IA d'Odin peut voir de ta navigation (tout, sans l'historique, ou rien). Favoris, onglets, agenda et historique se synchronisent à la seconde entre l'ordinateur et le téléphone, avec une vérification à l'identique ; les cookies et les mots de passe restent sur chaque appareil. Les téléchargements passent par Asclépios, les liens par Sphinx, les alertes arrivent dans Forseti. Contrat entre Pégase et Odin : `docs/pegase-protocole.md`.
-
-#### Agora : le store d'Odin
-
-Tu mets une personne dans un groupe de Persona : les applis autorisées à ce groupe apparaissent dans son espace Odin et dans le store de ses ordinateurs et téléphones. Dans Odin, l'appli **Agora** (réservée aux admins ; les autres y voient seulement leur store) a quatre onglets : **Catalogue** (applis d'Odin en web, installateurs Windows, Mac, Linux et Android avec leur version, leur empreinte SHA-256 et l'avis d'Asclépios), **Groupes** (pour chaque groupe et chaque appli : *Proposée*, *Installée d'office* ou *Retirée*), **Appareils** (en ligne ou non, ce qui y est installé, « Forcer » une installation ou une désinstallation, avec ton accord) et **Journal**. Le droit est celui de la connexion unique : rien en double avec Persona.
-
-Les stores des appareils se connectent avec le compte Odin (connexion unique, appli « agora ») et reçoivent les ordres à la seconde (`/api/agora/*`, flux SSE). Sur l'ordinateur : ce qui est imposé s'installe ou se désinstalle tout seul (Linux : AppImage dans `~/Applications` ou paquet .deb ; Windows : installateur silencieux ; Mac : .dmg vers Applications), le reste d'un clic, et chaque installateur est vérifié (empreinte) avant d'être installé. Sur Android, Android demande un toucher pour confirmer, sauf si le téléphone est « géré par Odin » (Agora propriétaire de l'appareil). Sur iPhone, Apple ne permet pas d'installer hors de l'App Store : les applis d'Odin y passent par le web. Alertes dans Forseti : installation échouée, appareil inconnu, nouvel appareil.
-
-#### Venus (Vénus) : épisodes et VF
-
-- « Mets le dernier épisode de One Piece sur la télé du salon » : l'épisode lui-même démarre. Aussi « l'épisode suivant de Frieren », « One Piece saison 2 épisode 5 », « S02E05 », « l'épisode 1071 de One Piece » ; une série nommée seule reprend à l'épisode suivant de ton profil.
-- **Arrivées** : Odin te prévient quand un épisode ou un film arrive sur Venus (« 📺 Épisode arrivé sur Venus en VF : One Piece S01E1071 »), et quand la VF d'un titre arrive. « Préviens-moi seulement pour la VF » ou « ne me préviens plus » ; « les nouveaux épisodes » pour la liste des derniers jours.
-- **Chercher en VF** : « cherche Frieren en VF » demande la version française à Radarr / Sonarr par Venus (Venus 1.x avec Radarr 3+ / Sonarr 4+).
-
-#### Cerveau direct et Quotidien
-
-Quand une IA règle une de tes demandes en une action ou quelques-unes à la suite (une « mission »), Odin la retient et la refait ensuite **sans IA** : la même phrase, ou la même avec une autre valeur. Deux façons de dire la même mission ? Il relie les phrases et le mot qui change. Quand aucune IA ne répond, il cherche ce qui ressemble à ta demande, explique comment il a fait le lien et te demande avant d'agir ; après ton oui, ta phrase est retenue. Une action grave s'apprend aussi, mais ton accord est redemandé à chaque fois. Tout est rangé dans **Cerveau → Quotidien** : une note par mission, reliée aux applis (mets-la à la corbeille pour qu'Odin l'oublie).
-
-#### Qui peut ouvrir l'interface ?
-
-Au choix, à l'installation, dans **Réglages → Accès à l'interface** ou avec `odin web access` :
-
-| Mode | Qui peut l'ouvrir | Chiffrement |
-|---|---|---|
-| **lan** (par défaut) | cette machine et les appareils de ton sous-réseau (ex. `192.168.1.0/24`, détecté tout seul, ou ta liste de réseaux) ; les autres adresses sont ignorées | HTTPS (désactivable avec `--http`) |
-| **local** | cette machine seulement (`127.0.0.1`) | HTTP (rien ne circule sur le réseau) |
-| **wan** | tout Internet (pense à rediriger le port sur ta box, ou à utiliser un tunnel) | HTTPS obligatoire ; ou `--proxy` si Caddy, Nginx ou Cloudflare Tunnel chiffre devant Odin |
-
-Le certificat HTTPS est créé par Odin lui-même (aucun outil à installer) pour `localhost`, l'adresse locale et le nom de la machine. Ton navigateur demandera de l'accepter une fois : compare son empreinte avec celle de Réglages. Tu peux aussi donner ton propre certificat (Let's Encrypt…).
-
-**Première connexion** : le premier navigateur de ton réseau local qui ouvre Odin (tant qu'il n'est pas configuré, ou dans l'heure qui suit son démarrage) crée **ton compte** : prénom, nom, adresse e-mail et mot de passe (10 caractères au moins). Ensuite, sur chaque appareil, tu entres avec ton adresse et ton mot de passe ; Réglages → Accès montre les appareils connectés et permet de les déconnecter. Plus tard, ou depuis un autre endroit, le lien de première connexion s'obtient en ligne de commande : `odin link` (dans un LXC Proxmox, depuis l'hôte : `pct exec <ID> -- odin link`). L'installateur l'affiche aussi à la fin. Mot de passe oublié : `odin compte oublier` sur la machine d'Odin (le compte est effacé, jamais tes données).
-
-**Tu viens de la 1.5 ?** À la première ouverture après la mise à jour, Odin te demande seulement de créer ce compte. Tes notes, tes discussions et tes réglages sont gardés.
-
-Dans tous les modes, chaque appel exige ta session (navigateur) ou la clé d'API (programmes : raccourcis du téléphone, serveur MCP), et une adresse qui se trompe 10 fois en 10 minutes est bloquée 15 minutes. Le mot de passe n'est jamais gardé en clair, et après 5 erreurs chaque nouvel essai doit attendre. **Nouvelle clé d'API** (Réglages, ou `odin web rotate`) : les programmes qui utilisaient l'ancienne doivent être mis à jour.
-
-### Terminal
-
-`odin chat`, puis dans la conversation : `/new` (nouvelle conversation), `/memory mot`, `/skills`, `/drafts`, `/cost`, `/exit`. **Ctrl+C** interrompt Odin. Une seule demande : `odin run "…"`.
-
-### Telegram
-
-1. Crée un bot avec [@BotFather](https://t.me/BotFather) (`/newbot`) et copie son jeton.
-2. Dans l'interface web, **Réglages → Telegram** : colle le jeton, coche « Activer », enregistre.
-3. Écris à ton bot : il te répond avec ton identifiant. Ajoute-le dans « Tes identifiants Telegram » et enregistre : Odin relance le canal tout seul.
-
-Dans Telegram : `/stop` interrompt, `/new` repart de zéro, `/status` affiche les coûts, `/yes ID` · `/always ID` · `/no ID` répondent aux validations. Un inconnu reçoit un code d'appairage ; tu l'acceptes avec `odin pairing approve telegram CODE`.
-
-### API HTTP
-
-Pour brancher Odin à un raccourci iPhone, à n8n ou à ta propre page :
-
-```bash
-# ~/.odin/env : ODIN_HTTP_TOKEN=une-longue-chaine-aleatoire
-# config.json  : "http": { "enabled": true, "port": 8889, "tokenEnv": "ODIN_HTTP_TOKEN" }
-curl -s http://127.0.0.1:8889/v1/message \
-  -H "Authorization: Bearer $ODIN_HTTP_TOKEN" \
-  -d '{"peer":"moi","text":"Quelles sont mes tâches planifiées ?"}'
-```
-
-### Tâches planifiées
-
-Demande-le simplement (*« tous les lundis à 9 h, fais le point sur mes projets »*) ou :
-
-```bash
-odin cron add "30 7 * * 1-5" "Prépare mon brief du matin" telegram TON_ID
-odin cron list
-```
-
-Les tâches s'exécutent quand `odin web` ou `odin gateway` tourne. Sans personne pour valider, seule la routine passe.
-
-### Mémoire
-
-Odin retient seul ce qui est durable (préférences, faits, projets) et le retrouve quand c'est utile. Il refuse les secrets et l'éphémère. Ce qu'il apprend d'une source non fiable reste en **quarantaine** tant que tu ne l'as pas validé.
-
-Chaque nuit, il **range lui-même sa mémoire** : il améliore ce qui est flou, fusionne les doublons, met à jour ce que la réalité a changé et oublie le périmé. Dans l'interface (Mémoire), les souvenirs sont rangés par thème ; **épingle** ce qui compte (il n'y touchera plus), **modifie** ou **fais-lui oublier** d'un clic. Un rangement s'annule pendant 7 jours.
-
-Tout est rangé **en fichiers** dans `~/.odin/memoire/` (un fichier `.jsonl` par sorte de choses : conversations, souvenirs, tâches, coûts…) : **aucune base de données, jamais de SQLite**. Au démarrage, Odin relit ces fichiers ; chaque changement est écrit tout de suite. Une ancienne mémoire `odin.db` est convertie une seule fois au premier démarrage, puis gardée à part sous le nom `odin.db.ancien-AAAA-MM-JJ`.
-
-**Conversations** : chacune peut être **supprimée** (corbeille 7 jours, annulable, puis effacement réel sur le disque, souvenirs venus d'elle compris si tu le demandes) ou **exportée** en Markdown, JSON ou texte (`/api/conversations/export?peer=…&format=md`, ou `?all=1` pour tout). À l'écrit comme à la voix : « supprime cette conversation » (Odin demande confirmation).
-
-```bash
-odin memory              # liste
-odin memory search café  # recherche
-odin memory vouch 12     # valider un souvenir en quarantaine
-odin memory forget 12
-```
-
-### Compétences
-
-Après une tâche réussie en plusieurs étapes, Odin propose une **compétence** : une procédure réutilisable, au format `SKILL.md` du standard ouvert agentskills.io. Elle reste un brouillon jusqu'à ce que tu l'approuves.
-
-```bash
-odin skills drafts
-odin skills diff deploy-site
-odin skills approve deploy-site     # ou reject ; rollback pour revenir à la version précédente
-```
-
-Tu peux aussi écrire les tiennes dans `~/.odin/skills/<nom>/SKILL.md` (exemple dans `templates/skills/`).
-
-### Réseau local
-
-```bash
-odin net enable              # balayage automatique toutes les 30 min
-odin net scan --full         # balayage complet maintenant (~30 s)
-odin net list                # ● en ligne  ○ déconnecté  × retiré
-odin net show 192.168.1.20   # détail, historique, ce qu'Odin peut faire avec
-odin net label 192.168.1.20 "Imprimante du bureau"
-```
-
-Odin découvre les appareils sans droits administrateur (table ARP, balayage TCP léger, Bonjour, UPnP) et **ne balaie que les réseaux privés de sa machine**, jamais Internet. Absent, un appareil passe « déconnecté », puis « retiré » après 7 jours ; tu es prévenu à chaque changement.
-
-**Adresses MAC** : à chaque balayage, Odin vérifie qu'une même adresse MAC ne répond pas sur deux IP (usurpation possible) et que la box garde la même MAC (interception possible) ; il te prévient aussitôt.
-
-**Odin est administrateur de son poste, partout** : à l'installation, il reçoit les droits administrateur (`ODIN_NO_ADMIN=1` pour refuser).
-
-| Où | Comment il les a |
+| Niveau | Ce qu'Odin fait seul |
 |---|---|
-| Linux, macOS (ton compte) | règle sudo sans mot de passe, vérifiée par visudo (sudo te demande ton mot de passe une fois, à l'installation) |
-| Linux installé en root (conteneur LXC, serveur) | service du système lancé en root : rien à régler |
-| Docker | le compte `odin` de l'image est administrateur du conteneur (sudo sans mot de passe) |
-| Windows | la tâche « Odin » démarre avec les privilèges élevés (une confirmation Windows, une fois) |
-
-`odin admin` dit où en sont les droits, **avec la vraie cause** quand il en manque, et la commande exacte à lancer. `odin admin fix`, lancée une fois par un administrateur, répare une installation existante : elle pose la règle sudo, retire d'un service systemd les réglages qui interdisent de devenir administrateur (`NoNewPrivileges` et ceux qui l'imposent), redémarre le service, et remet tout comme avant s'il ne repart pas. Un service verrouillé ne peut pas se déverrouiller lui-même : c'est pour cela qu'il faut cette commande une fois, depuis un compte administrateur. Dans ce cas, Odin ne réclame pas de mot de passe (il ne servirait à rien) : il donne la commande.
-
-Si sudo demande seulement un mot de passe, dis-lui « le mot de passe admin de ce poste est … » : il le vérifie et devient administrateur pour de bon. Une commande refusée faute de droits est relancée toute seule avec sudo. Heimdall reste juge : les commandes destructrices restent interdites. Pour revenir en arrière : `sudo rm /etc/sudoers.d/odin` (et, pour un service, le fichier `90-odin-administrateur.conf` de son dossier `.service.d`).
-
-**Donner un mot de passe à Odin** : écris-le simplement dans la discussion (« le mot de passe root du 192.168.1.102 est … »). Il est retiré du message avant le modèle (qui ne le voit jamais) et effacé de Telegram. Odin se connecte, installe sa clé SSH et vérifie qu'elle marche, crée un jeton d'API s'il s'agit d'un Proxmox (réglé tout seul), puis change le mot de passe : le nouveau t'arrive en message privé masqué, effacé au bout de 10 minutes, et reste chiffré dans le coffre.
-
-**Bloquer un appareil** : ajoute ta box dans Réglages → Droits et machines (son IP et un compte SSH administrateur). Odin reconnaît OpenWrt, MikroTik et les routeurs Linux, et bloque l'appareil par son adresse MAC (bouton « Bloquer sur la box » sur la fiche de l'appareil, ou « bloque l'iPhone inconnu »). Réversible d'un clic. Les box d'opérateur sans SSH (Livebox, SFR, Bbox, Freebox) se règlent par leur page d'administration, avec le navigateur.
-
-Sur la carte, chaque appareil s'ouvre en page complète : informations, liens, ports ouverts, ce qu'Odin peut faire avec, sécurité et historique.
-
-### Documents et médias
-
-Odin lit et produit les formats du quotidien, sans rien installer :
-
-| Type | Lire | Créer / transformer |
-|---|---|---|
-| PDF | texte (lecteur intégré, `pdftotext` s'il existe) | PDF A4 paginé à partir de texte simple |
-| Word `.docx` | titres, listes, texte | document avec titres, gras, listes |
-| Excel `.xlsx` | chaque feuille en tableau | classeur multi-feuilles, formules (`=SUM(B2:B9)`) |
-| PowerPoint `.pptx` | texte de chaque diapositive | présentation titre + puces |
-| Images | description, lecture du texte (vision du modèle) | conversion, redimensionnement |
-| Vidéo, audio | informations, **transcription** (Whisper) | format, découpe, extraction du son, miniature (`ffmpeg`) |
-
-Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, puis demande : « résume ce PDF », « fais-en un Excel », « transcris cette réunion ». Un fichier venu de l'extérieur est traité comme un contenu non fiable.
-
-### Voix
-
-**Par défaut, la voix est 100 % locale** : whisper.cpp pour comprendre, Piper (voix « tom » ou « siwis ») pour parler, installés par Odin sur sa machine. Aucune clé, rien n'est envoyé en ligne, même si une clé OpenAI est présente. Pour utiliser un service en ligne, coupe « 100 % local » dans Réglages → Voix.
-
-- **Réponse en voix ou en texte** : bouton Voix, Réglages → Voix, ou à l'oral (« réponds par écrit », « parle-moi »). En texte seul, Odin écrit sa réponse même quand tu lui parles au micro, et n'envoie plus de note vocale sur Telegram.
-- **Réglages** : texte en direct, annulation d'écho, sensibilité du micro, attente en fin de phrase, mot de réveil, maintenir pour parler, mots d'arrêt, « oui / mmh » ignorés, vitesse et volume de la voix, lexique de prononciation, cerveau (« auto » ou « sans IA » pour les demandes à la voix), mode privé (rien n'est retenu ni écrit).
-- **Odin, homme ou femme** : un seul réglage pour sa voix et pour ses accords (« je suis prêt » ou « je suis prête »), choisi à l'installation, au premier démarrage, dans Réglages → Voix, par `odin genre femme`, ou en le disant : « parle avec une voix de femme », « parle comme un homme » (sans IA aussi) ; le choix sert dès la phrase suivante, sans relancer Odin. Ce qu'il dit à voix haute est préparé pour sonner naturel : aucun symbole lu, nombres, heures et unités en toutes lettres, listes dites « d'abord…, ensuite…, enfin… ». Avec ElevenLabs, une clé suffit : une voix d'homme ou de femme prête à l'emploi parle tout de suite.
-- **Copier ta voix** (ElevenLabs) : la page demande si c'est ta voix ou celle de quelqu'un d'autre (son nom est alors obligatoire) ; l'accord est noté avant tout envoi, et « Retirer l'accord » efface la voix copiée chez ElevenLabs.
-- **À voix haute** : sur Telegram, « dis-le à voix haute » envoie une note vocale ; dans Pythie, « Écouter une réponse » la fait lire par Orphée (fichier à télécharger).
-- **Conversation en direct** (page d'Orphée → « Parler en direct ») : un service vocal en Python ([voix-temps-reel/](voix-temps-reel/README.md)), lancé et surveillé par Odin, sait quand tu parles et quand ta phrase est finie, écrit en direct, et coupe Odin en moins de 200 ms quand tu reprends la parole ; « continue » reprend au premier mot jamais dit. Sans Python, la voix habituelle reste.
-- **Logos pour la voix** : un mot mal entendu qui sonne comme un mot connu est corrigé (« mon nase est plein » → NAS) ; « non, je voulais dire … » le fait retenir (avec tes mots d'Écho).
-- **Projet actif** (Mnémosyne) : choisis le dossier d'un projet, Odin répond à son sujet sans IA en citant le fichier et les lignes (les fichiers de secrets ne sont jamais lus).
-- **Audio brut** : jamais gardé, sauf si tu coches « Garder l'audio brut » (jamais en mode privé ; effacé au bout du nombre de jours choisi).
-- **Dictée sur les PC du parc** : Satellites installe la capsule d'Écho sur un poste Linux ou Mac (« installe la capsule de dictée sur pc-salon ») ; un raccourci clavier lance `python3 ~/.odin-capsule/capsule.py dicter`.
-- Cahier des charges complet de la voix : [docs/voix-v2.md](docs/voix-v2.md).
-
-Services possibles quand « 100 % local » est coupé : **Whisper** (OpenAI, ou un serveur local sans clé, ex. [speaches](https://github.com/speaches-ai/speaches)) transcrit ce que tu dis : micro de l'interface, notes vocales Telegram, fichiers audio. Pour parler, au choix : **ElevenLabs** (voix naturelles, **copie de ta voix** à partir d'un enregistrement d'une minute, avec ton accord explicite), **Piper** (gratuit, hors ligne, sur ta machine : `pip install piper-tts` puis `python3 -m piper.http_server --model fr_FR-tom-medium`), ou tout serveur **compatible OpenAI** `/v1/audio/speech` (Kokoro, openedai-speech…). Avec Piper et un Whisper local, ta voix ne quitte jamais la maison ; les notes vocales Telegram sont converties en Opus par ffmpeg s'il est là.
-
-### Modèles : le bon pour chaque tâche
-
-Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secours, et leur palier : **installé/gratuit** (Ollama…), **standard**, **le plus capable**. Odin choisit le moins cher qui suffit : question simple → modèle local, tâche ordinaire → standard, tâche complexe → le plus capable. Quand un modèle arrive **à bout de quota**, il passe au suivant tout seul et te le dit. Pour une **décision risquée**, il croise l'avis de plusieurs modèles et retient le plus prudent (seulement quand un vrai danger est probable, et un même verdict est réutilisé dix minutes : ça ne coûte pas à chaque fichier écrit). **Codex** (OpenAI) peut recevoir les tâches de code : `npm install -g @openai/codex`.
-
-**Ton abonnement ChatGPT via Codex** (comme `hermes auth add openai-codex`) : Réglages → Modèle → *OpenAI Codex (abonnement ChatGPT)* → **Se connecter avec un code** : Odin affiche un code, tu le saisis sur la page OpenAI depuis n'importe quel appareil (téléphone compris) et il termine tout seul — plus d'adresse `localhost` à recopier. Il faut activer une fois dans ChatGPT : Réglages → Sécurité → « Device code authorization ». En ligne de commande :
-
-```bash
-odin auth add openai-codex   # connexion (lien à ouvrir ; sur un serveur/LXC, recolle l'adresse de retour)
-odin model codex gpt-6-luna  # choisir Codex et le modèle de ton abonnement
-odin doctor                  # vérifier
-```
-
-Odin a **sa propre connexion**, rangée dans `~/.odin/codex-auth.json` (lisible par toi seul) et renouvelée toute seule : elle n'est jamais partagée avec Codex CLI ni Hermes (deux programmes sur la même connexion se déconnecteraient l'un l'autre). Ne colle jamais un jeton dans une discussion : seule l'adresse de retour de la page de connexion est à recopier, et seulement dans Odin.
-
-**Budget mensuel** (Réglages → Modèle) : un plafond en dollars ; tous les appels sont comptés (agent, juges, résumés, observation, vision), la dépense s'affiche par modèle et par usage, et une fois le plafond atteint seuls les modèles gratuits servent, Odin te le dit.
-
-### Il travaille sans pause
-
-Réglages → Autonomie → **Travail continu** : toutes les 30 minutes (réglable), quand personne ne lui parle, Odin reprend les missions coupées par un redémarrage ou échouées (modèle indisponible, étapes épuisées — jusqu'à 3 relances), puis cherche lui-même ce qui t'est utile (problème repéré, appareil hors ligne, demande fréquente, tâche planifiée qui manque) et le fait, en vérifiant chaque résultat. Il respecte un budget par jour (0,50 $ par défaut) ; ce qui demande ta validation attend ton accord. Pour une heure précise, programme une tâche (« chaque jour à 3 h, … »). Chaque matin (7 h), le **rapport du matin** résume sa nuit ; chaque soir, son journal.
-
-### Mémoire qui se tient à jour
-
-Chaque souvenir a un **sujet** (toi, le NAS, une personne…), une **clé** (adresse IP, heure de réveil…), sa source et sa date : un fait plus récent **remplace** l'ancien (gardé dans l'historique), sans jamais écraser ce que TU as dit par une source moins fiable. Les souvenirs périmés s'effacent tout seuls. **Fiches** : tout ce qu'Odin sait d'un sujet (`memory_profile`). **Recherche par le sens** avec un petit modèle local gratuit si Ollama est là (`ollama pull nomic-embed-text`) : il retrouve « le serveur de fichiers » même si le souvenir parle du « NAS ».
-
-### Rapide
-
-Réponses **en direct**, mot à mot (Anthropic, compatibles OpenAI, Codex). Les outils de lecture et de consultation (web, mail…) partent **en parallèle**. L'état du réseau est **préparé à l'avance** dans son contexte : les questions simples n'ont pas besoin d'outil.
-
-### Tout est vérifié
-
-- Après une modification (fichier, commande, envoi), Odin **doit** vérifier le résultat réel avec un outil avant de dire « c'est fait » — c'est imposé par le code, pas seulement demandé.
-- Chaque fait important porte son niveau de certitude : ✓ vérifié, ~ non vérifié, ? incertain.
-- Les **sources** réellement lues sont ajoutées si la réponse les oublie.
-- Les réponses à enjeu (actions sur tes machines, faits du web) sont **relues par un second modèle** qui compare la réponse aux résultats réels des outils ; tout écart est signalé « ⚠ À vérifier ».
-
-### Accueil : tout d'un coup d'œil
-
-La page d'accueil résume l'essentiel : modèle et dépenses du mois, ce qui t'attend (validations, compétences à relire, problèmes de sécurité), missions en cours, état du réseau, surveillance (disques, appareils importants), sauvegarde, routines, et les demandes que tu fais souvent (Odin propose d'en faire une tâche automatique, chaque jour ou chaque lundi).
-
-### Surveillance (Pulsar)
-
-Marque tes appareils importants avec ★ dans Réseau : Odin te prévient (Telegram ou interface) quand l'un tombe, puis quand il revient. Il surveille aussi les disques de sa machine (alerte à 90 % par défaut) et les certificats HTTPS des appareils (14 jours avant expiration). Une alerte n'est envoyée qu'une fois (rappel après 24 h si elle dure). Réglages → Surveillance.
-
-### Sécurité du réseau
-
-Onglet Réseau → Sécurité : Telnet ou Docker ouverts sans protection, bureau à distance, VNC, FTP, MQTT, Redis exposés, interfaces d'administration non chiffrées, appareils inconnus récents — chacun avec un conseil, et un bouton pour demander à Odin de corriger (avec ta validation). Odin observe, il n'attaque rien. Outil `net_security`.
-
-### Antivirus (Asclépios)
-
-Odin a son propre antivirus, fait maison : fichiers, archives, téléchargements, clés USB, sites web, liens et messages. Il se met à jour tout seul depuis des sources publiques (paquets signés, testés avant d'être activés, annulables), met en quarantaine ce qui est sûr (réversible : « garde » ou « annule ») et te laisse décider pour le reste. Il relie les signaux de toutes les applis (pièges, processus, connexions, pare-feu, fichiers système, caméras) pour reconnaître une attaque, et note chaque incident dans le Cerveau. Aucun antivirus ne détecte tout, celui-ci non plus. Procédure d'utilisation et mode de fonctionnement : [`docs/antivirus-ullr.md`](docs/antivirus-ullr.md).
-
-Dis par exemple : « analyse mes téléchargements », « vérifie le lien https://… », « y a-t-il un virus sur ma machine ? », « les incidents ». Tout cela marche sans IA connectée.
-
-Deux façons de faire vérifier un fichier qui n'est pas sur la machine d'Odin :
-
-- **Un fichier de ton téléphone ou de ton ordinateur** : dans Asclépios, onglet « Analyser », dépose-le dans la carte « Un fichier de cet appareil » (ou choisis-le). Il est envoyé à Odin, analysé, puis sa copie est effacée.
-- **Le fichier d'un lien, avant de le télécharger** : la carte « Le fichier d'un lien » (ou « analyse le fichier du lien https://… »). Odin le prend dans sa mémoire, l'analyse et te dit s'il est sûr ; rien n'est gardé sur le disque. Une adresse connue comme dangereuse n'est même pas téléchargée.
-
-### Antivirus sur un autre poste (Windows, Mac, Linux, NAS)
-
-Asclépios analyse aussi les autres machines, **sans rien y installer** : il lit leurs fichiers à distance et les analyse chez lui, en mémoire. Rien n'est écrit sur le disque d'Odin, rien n'est modifié sur le poste, rien ne sort de chez toi.
-
-- **PC et serveurs Windows, NAS** : par le partage de fichiers (SMB). Avec un compte administrateur, Odin lit les disques entiers (`C$`, `D$`…) ; sinon, les dossiers partagés.
-- **Linux et Mac** : par SSH (`find` + `tar` lancés sur le poste, en lecture seule).
-
-En haut d'Asclépios, « Sur quel poste ? » → « Ajouter un poste ». Trois étapes :
-
-1. **Quel poste ?** Les ordinateurs, serveurs et NAS vus sur ton réseau sont proposés ; sinon, tape son adresse.
-2. **Son compte administrateur**, puis « Tester la connexion » : Odin dit ce qu'il peut lire. Le poste n'entre dans le coffre des machines que si l'essai réussit, et le mot de passe n'est jamais réaffiché.
-3. **Quoi analyser ?** Analyse rapide, tout le poste, ou un seul dossier.
-
-Le poste reste ensuite proposé dans « Sur quel poste ? » : un clic, et la page montre ses analyses, ses détections et sa quarantaine. Ou en parlant : « analyse le PC 192.168.1.20 ».
-
-Une menace trouvée n'est **jamais** touchée sans ton accord : « Isoler sur le poste » renomme le fichier là-bas (`.odin-quarantaine`) pour qu'il ne puisse plus être lancé, et « Remettre en place » l'annule.
-
-À préparer sur le poste visé :
-
-- **Windows** : « Partage de fichiers et d'imprimantes » activé sur le réseau privé. Windows bloque par défaut les comptes administrateurs *locaux* à distance (sauf le compte « Administrateur ») : une fois, dans une invite de commandes en administrateur, `reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f`. Sans cela, Odin le dit et lit seulement les dossiers partagés.
-- **Mac** : Réglages → Général → Partage → « Session à distance » (SSH).
-- **Linux** : le serveur SSH (`openssh-server`).
-- **Machine d'Odin** : les paquets `smbclient` (Windows) et `openssh-client` (déjà dans l'image Docker).
-
-Limites dites clairement : les fichiers ouverts ou verrouillés par le poste ne sont pas lus (ils sont comptés), les très gros fichiers qui ne sont pas des programmes non plus, et aucun antivirus ne détecte tout.
-
-Les applis qui lisent la machine acceptent aussi un autre poste Linux ou Mac (par SSH) : Hygie (état, processus), Pyramide (disques), Thermopyles (pare-feu, ports), Chroniques (journaux), Némésis (programmes suspects ; arrêter un programme là-bas demande ton accord). Elles ont le même « Sur quel poste ? » en haut de leur page ; sur un autre poste, seules les actions qui savent y aller sont proposées. Exemples : « état des disques sur serveur-web », « processus suspects sur serveur-web ».
-
-### Conversion de fichiers (Alchimie)
-
-Alchimie convertit tes fichiers sur ta machine : vidéo, son, image, documents, PDF (avec les outils libres installés : ffmpeg, LibreOffice, pandoc, qpdf…). Et **sans aucun outil à installer**, elle convertit elle-même :
-
-- sous-titres : SRT, WebVTT, ASS/SSA, LRC, SAMI, TTML ;
-- données : JSON, JSON Lines, CSV, TSV, XML, YAML, TOML, Excel (`.xlsx`) ;
-- contacts (vCard) et agenda (iCalendar) ↔ tableau ; cartes : GeoJSON, KML, GPX ; archives : ZIP, TAR, TAR.GZ.
-
-(Ces conversions reprennent les idées du projet libre Filee, réécrites dans Odin.)
-
-Trois façons de lui donner un fichier :
-
-- **depuis ton appareil** (ordinateur ou téléphone) : dans l'onglet « Convertir », dépose-le (ou choisis-le). Alchimie ne propose que les formats possibles pour ce fichier, rangés par genre, et la qualité quand elle compte. Le résultat se reprend par « Télécharger » ; les derniers résultats restent listés dessous ;
-- **depuis un lien** : colle-le sous la zone de dépôt. Le fichier est téléchargé, **vérifié par l'antivirus**, puis converti. Un fichier dangereux part en quarantaine et n'est jamais converti ;
-- **un dossier surveillé** : « Surveiller un dossier » — tout fichier qui y arrive est converti tout seul (résultats dans son sous-dossier `convertis`, les originaux restent).
-
-Un lien vers une adresse de ta maison (NAS, autre poste : `http://192.168…`) demande ton accord ; un lien ne peut jamais viser la machine d'Odin elle-même, et une redirection vers ton réseau est refusée. Si le lien demande un identifiant et un mot de passe, mets-les dans leurs cases (masqués, jamais gardés), pas dans le lien.
-
-### Le port d'une appli
-
-Odin écoute sur le port **8888**. Chaque appli a en plus **son port**, facile à retenir : `81xx` Sécurité, `82xx` Accès et réseau, `83xx` Machines, `84xx` Données, `85xx` Maison et médias (par exemple Cerbère 8103, Sphinx 8207, Hydre 8307, Vénus 8512). `http://adresse-d-odin:<port>` ouvre directement sa page, **toujours avec ta connexion** : e-mail et mot de passe, ou QR code ; sans droit sur l'appli, retour à l'écran de connexion d'Odin. Le plan complet est dans [docs/plan-ports.md](docs/plan-ports.md).
-
-Par défaut, le port d'une appli écoute là où écoute Odin. Tu le changes dans la carte « Son port » de la page de l'appli ou dans Réglages → Ports ; un champ vide propose son port par défaut, ou un port libre de sa famille. « Retirer » est gardé après un redémarrage, et « Remettre » rend le port par défaut. Ouvrir le pare-feu demande ton accord : Cerbère s'en charge, et retire la règle quand tu fermes. Un port déjà pris est refusé en disant quel programme le tient. Les ports imposés par un protocole ne changent pas (DNS 53, DHCP 67, MQTT 1883, WireGuard 51820, Venus 8096…), et les applis installées gardent un port fixe entre 20000 et 20999. Pour couper les ports par défaut : `"web": { "portsParAppli": false }` dans `config.json`.
-
-### Exporter et partager une page
-
-En haut de chaque appli, « Exporter / partager » : la page entière ou l'onglet ouvert, pour le poste choisi, en **Word, PDF, Markdown ou JSON**. Les mots de passe, clés et jetons sont masqués, et le fichier dit combien de valeurs l'ont été. « Partager » crée un lien vers une copie figée, en lecture seule : **privé** (toi, ou des personnes de Persona) ou **public** (avec ton accord), avec une date de fin (7 jours par défaut, 90 au plus), les ouvertures comptées, et un retrait immédiat. Le coffre, Persona, la vie privée et les trajets ne s'exportent ni ne se partagent. Google Docs : exporte en Word puis importe-le (Odin n'est pas relié à Google).
-
-### Vie privée (Gygès)
-
-Où tu apparais sur Internet : moteurs, annuaires, revendeurs de données, réseaux sociaux, fuites connues (Have I Been Pwned avec ta clé), photos qui révèlent un lieu. Pour chaque résultat : ce qu'il montre, le risque, et comment le faire retirer, avec les lettres RGPD prêtes (effacement, opposition, accès, relance, en texte, Word et PDF) et le suivi des demandes jusqu'à la CNIL. Revérification chaque mois. Seulement toi, tes sociétés, et un proche qui a donné son accord (noté) ; aucune connexion ni captcha contourné ; rien ne part vers une IA.
-
-### Trajets (Ulysse)
-
-L'historique des positions des téléphones de la famille (OwnTracks), **éteint au départ** : chaque membre l'allume, le met en pause ou l'efface sur sa page `/trajets`. Trajets et arrêts par jour (distance, durée, vitesse), lieux nommés, carte dessinée par Odin, export GPX, conservation 30 jours, 90 jours ou 1 an. Tu ne vois les trajets d'un membre que s'il l'accepte.
-
-### Disques (Tirésias)
-
-Chaque disque (HDD, SSD, NVMe, USB) avec son état en clair : **Bon, Attention ou Mauvais**, et la raison. Toutes les valeurs SMART sont expliquées (température, heures, allumages, secteurs réalloués, usure du SSD). Un relevé par jour, des courbes, une alerte quand ça se dégrade, avec quoi faire : sauvegarder d'abord (Phénix), remplacer ensuite. Test de vitesse façon CrystalDiskMark (séquentiel et aléatoire 4 Ko), **dans un fichier de test seulement**, effacé à la fin. Un autre poste Linux ou Mac se lit par SSH (`smartctl` lancé là-bas). Il faut `smartmontools` sur la machine (bouton « Installer smartctl »).
-
-### La page d'une appli
-
-Toutes les applis ont la même page :
-
-- **en haut** : le retour aux applis, l'icône, le nom et une ligne d'explication. « En savoir plus » déplie l'histoire du nom et la liste des fonctions ;
-- **« Sur quel poste ? »**, pour les applis qui savent travailler sur un autre poste (Asclépios, Hygie, Pyramide, Thermopyles, Chroniques, Némésis) : des pastilles sur ordinateur, une liste sur téléphone ;
-- **des onglets** quand l'appli fait beaucoup de choses (quatre au plus, toujours sur une seule ligne) : Asclépios a « Analyser », « Résultats », « Règles », « Réglages » ; Alchimie a « Convertir », « PDF », « Automatique », « Outils ». Le premier onglet contient ce qu'on vient faire le plus souvent ; « Autres actions », les alertes et les liens avec les autres applis sont dans le dernier.
-
-Le résultat d'une action reste affiché (sous le formulaire, sous la barre de boutons ou sous le titre du tableau) jusqu'à l'action suivante, ou jusqu'au bouton « Fermer ». Quand l'action a fabriqué des fichiers, un bouton « Télécharger » par fichier les remet à ton appareil.
-
-Champollion (lire une photo, un PDF, un document) et Orphée (transcrire un vocal) acceptent eux aussi un fichier envoyé depuis ton appareil.
-
-### Sites web (Arachné)
-
-Odin surveille tes sites et s'en occupe, **sans IA** : il répond ou non, son temps de réponse, son certificat,
-sa page d'accueil ; et, si tu donnes les accès, tout ce qui se passe sur GitHub (envois de code, tests,
-demandes de fusion), Vercel (déploiements) et Cloudflare (DNS, protection). Tu demandes les événements que tu
-veux : « les erreurs du site monsite depuis 2 jours ». Il essaie le site, le relance, le déploie, revient en
-arrière, applique les mises à jour dont les tests passent. Ce qui touche la production attend toujours ton
-accord. Avec une IA, il fait évoluer le code sur une branche `odin/…`, avec une demande de fusion que tu
-relis. Les jetons restent dans le coffre.
-
-Mode d'emploi, garde-fous et limites : [docs/sites-idunn.md](docs/sites-idunn.md).
-
-### Carte du réseau
-
-Onglet Réseau → Carte : la box au centre, les appareils autour, par catégorie ; touche un appareil pour voir sa fiche.
-
-### Proxmox
-
-Réglages → Proxmox : adresse (https://IP:8006) et jeton d'API (Datacenter → Permissions → API Tokens). Odin liste les nœuds, machines virtuelles et conteneurs LXC, et peut les démarrer, les arrêter proprement, les redémarrer ou en faire un instantané (outils `proxmox_list`, `proxmox_action` ; chaque action est validée selon ton autonomie). Onglet Réseau → Proxmox.
-
-### Sauvegarde automatique
-
-Réglages → Sauvegarde : une sauvegarde chiffrée chaque nuit, dans le dossier de ton choix (ton NAS monté, par exemple), en gardant les N dernières. Le mot de passe reste sur la machine (~/.odin/backup-pass) : note-le, il sert à restaurer (`odin restore`).
-
-### Routines
-
-Accueil → Routines : « Créer le résumé du matin » programme chaque jour, à l'heure choisie, un résumé (météo vérifiée, état du réseau, rappels du jour, ce qui mérite ton attention).
-
-### Mains libres
-
-Bouton « Mains libres » dans la discussion : dis « Odin, … » et ta demande part toute seule (ou « Odin », puis ta demande). Utilise la reconnaissance vocale du navigateur (Chrome, Edge, Safari) ; sur Chrome, la voix passe par le service de reconnaissance de Google. Coupe-le d'un toucher.
-
-### Application sur le téléphone
-
-Odin s'installe comme une application (icône sur l'écran d'accueil, plein écran) : menu du navigateur → « Installer l'application », ou sur iPhone Partager → « Sur l'écran d'accueil ». Active les notifications depuis l'accueil pour être prévenu des réponses, validations et alertes. Avec le certificat auto-signé d'Odin, le téléphone doit d'abord lui faire confiance (lien « Télécharger le certificat d'Odin » sur l'accueil) ; avec une adresse ayant un vrai certificat, rien à faire.
-
-### Ton téléphone fait confiance à Odin
-
-Odin crée sa propre **autorité de certification**, limitée à tes adresses privées et à tes noms locaux (`.local`, `.lan`, `.home`, `ts.net`…) : elle ne peut pas servir à se faire passer pour un site d'Internet. Installe-la une fois (Accueil → Application → « Télécharger l'autorité d'Odin ») : plus d'alerte de sécurité, l'appli s'installe et les notifications marchent.
-
-### Notifications même appli fermée
-
-Vraies notifications push (Web Push, chiffrées pour ton appareil seul) : réponses d'Odin quand l'appli est fermée, validations demandées, alertes de surveillance. Accueil → Application → « Activer les notifications ».
-
-### Accès depuis l'extérieur
-
-Réglages → Accès : **Tailscale** (conseillé : Odin n'est visible que de tes appareils, avec un vrai certificat) ou **Cloudflare** (adresse publique, protégée par ton jeton). Odin peut installer l'outil et relance l'accès à chaque démarrage. Aucun port à ouvrir sur ta box.
-
-### Entretien : réparation, mises à jour, journal
-
-Réglages → Entretien :
-- **Services surveillés** (http(s):// ou tcp://hôte:port), toutes les 5 minutes : s'ils tombent, Odin les répare (ta commande, sur sa machine ou une machine enregistrée, ou un redémarrage Proxmox), vérifie, puis te prévient. Une tentative par 30 minutes.
-- **Mises à jour de la nuit** (apt, dnf, pacman, apk) sur les machines choisies, avec instantané Proxmox avant, et retour à l'instantané si ça échoue.
-- **Journal de bord** chaque soir : ce qu'il a fait, remarqué, et ses conseils pour demain.
-
-### Maison, mail, agenda, documents
-
-- **Maison (Home Assistant)** : « éteins tout », « quelle température au salon ? », scénarios (`ha_states`, `ha_call`).
-- **Mail** (IMAP/SMTP, mot de passe d'application) : lire, chercher, trier dans des dossiers, préparer et envoyer des réponses (envoi toujours validé). Préréglages Gmail, Outlook, iCloud, Orange, Free.
-- **Agenda** : lecture par l'adresse iCal (Google Agenda…), ajout de rendez-vous par CalDAV (Nextcloud, iCloud, Fastmail…).
-- **Documents** : index des dossiers choisis (PDF, Word, Excel, PowerPoint, textes) chaque nuit ; « retrouve la facture EDF de mars ». Odin peut aussi les ranger et les renommer.
-
-### Personnalités
-
-Réglages → Personnalité : un ton (et une voix) par contexte — « Maison » détendu, « Travail » concis… En automatique : Travail en semaine de 8 h à 18 h.
-
-### Historique des conversations
-
-Recherche dans toutes tes conversations, épingles, renommage, export en PDF (menu ⋯ de chaque conversation).
-
-### Tout tester, pour de vrai
-Bouton **Tout tester** sur l'écran Aujourd'hui (ou `odin test`) : Odin essaie réellement chaque fonction reliée — modèle, Telegram, mail, agenda, Proxmox, Home Assistant, recherche web, mémoire par le sens, sauvegardes, accès extérieur, notifications — et dit pour chacune ✅ / ❌ / ⚪ (non reliée) avec quoi faire si ça ne marche pas.
-
-### Il apprend de ses erreurs et choisit le bon modèle
-Quand tu le corriges (« non, c'est… »), Odin en tire une leçon qu'il relit avant les tâches semblables. Il mesure aussi quel modèle réussit le mieux chaque type de tâche (réseau, web, code…) et le choisit en priorité.
-
-### Annuler, et comprendre pourquoi
-Chaque fichier qu'Odin modifie est gardé dans sa version d'avant (30 jours) : **Missions → Détails** montre la ligne de temps de la mission et un bouton **Annuler** par fichier. Sous sa dernière réponse, **Pourquoi ?** explique ce qu'il a fait et pour quelle raison. Avant un changement risqué sur une machine, il prépare un plan (ce qui en dépend, comment revenir en arrière, quoi vérifier).
-
-### Heures calmes, anomalies, bilan de la semaine
-La nuit (22 h 30 – 7 h par défaut) et pendant tes rendez-vous, Odin travaille mais garde ses messages pour plus tard, sauf urgence. Il repère ce qui sort de l'ordinaire (appareil inconnu connecté la nuit, machine surchargée, disque qui se remplit vite). Chaque dimanche : bilan de la semaine, test de restauration de la dernière sauvegarde et mise à jour du **plan de reprise** (`plan-de-reprise.md`).
-
-### Conversation vocale et raccourcis Siri / Android
-En **Mains libres** avec **Voix** activée, après sa réponse Odin t'écoute de nouveau sans qu'il faille redire « Odin » ; dis « stop » pour lui couper la parole. Depuis ton téléphone sans ouvrir l'appli : un raccourci Siri ou Android envoie ta phrase à `/api/ask` (jeton Bearer) et lit sa réponse (instructions : Réglages → Accès). Avec Home Assistant, il peut parler sur tes enceintes.
-
-### Coffre (facultatif)
-Réglages → Droits et machines → **Coffre** : un mot de passe maître chiffre sur le disque les clés, jetons et mots de passe d'Odin. Après chaque redémarrage, il faut le déverrouiller depuis l'Accueil (Odin t'envoie une notification).
-
-### Scripts réutilisables et compétences qui s'améliorent
-Comme Hermes, Odin va vite grâce à ses **compétences** (procédures) et à sa **bibliothèque de scripts** (Python, Bash, Node). Tout se fait tout seul :
-
-**Scripts**
-- Il réutilise ou améliore un script existant avant d'en écrire un ; chaque version est gardée, avec ses réussites, ses échecs, sa durée moyenne et l'historique des changements (Compétences → Scripts → cliquer pour voir le code ou revenir à une version).
-- **Mode essai** : `ODIN_DRY_RUN=1` → le script montre ce qu'il ferait sans rien changer ; Odin le lance d'abord ainsi pour toute action qui modifie des machines.
-- **Test automatique** : un script peut avoir son test ; une nouvelle version qui casse le test n'est pas gardée.
-- **Module commun** (`odin_lib` en Python, Bash, Node) : lancer une commande (en respectant le mode essai), `pct exec`, liste des conteneurs, journal… partagé par tous les scripts.
-- **Où** : sa machine, une machine du réseau, un conteneur Proxmox (`pct:7800`), **plusieurs à la fois** (`pct:7800,pct:7700,venus` ou `pct:all`, résumé ✓/✗ à la fin), ou un **bac à sable** jetable (Docker, sans réseau) pour essayer un nouveau script.
-- **Programmé directement** (`script_schedule`) : tourne à l'heure dite sans passer par le modèle (rapide, gratuit) ; tu n'es prévenu que s'il échoue.
-
-**Compétences**
-- Avant chaque demande, Odin repère les compétences qui s'appliquent et les lit d'abord.
-- Une compétence peut **embarquer ses scripts** et avoir des **réglages** (`{{ct}}`, `{{machine}}`).
-- **Statistiques** par compétence (utilisations, réussite, durée, coût) ; après un échec ou une correction de ta part, Odin **propose tout seul une amélioration**, montrée ligne par ligne (ajouts en vert, retraits barrés). Le bilan du dimanche signale celles qui échouent souvent et celles qui ne servent plus (à ranger).
-- **Importer celles d'Hermes** : Compétences → *Importer d'Hermes* (`pct:7700`, `pct:7700@pve`, une machine, ou un dossier) ; catégories et scripts compris ; *Tout approuver* en un clic.
-- **Fiche** de chaque compétence : lire, modifier, tester en mode essai, revenir à la version précédente, ranger.
-- Activation : tout de suite en mode Breaker (ou toujours, selon `learning.autoApproveSkills`), sinon brouillon à valider.
-
-**Sécurité, automatique** : chaque script ou compétence est analysé avant d'être enregistré (secret en clair ou commande destructrice → refusé ; envoi de données vers l'extérieur → signalé), puis **signé** : un fichier modifié en dehors d'Odin est refusé.
-
-Odin connaît le **nom d'hôte et l'adresse IP de sa machine** (et s'il tourne dans un conteneur LXC ou Docker) : « toi », « Odin » ou « ta machine », c'est elle.
-
-Sur Telegram, pendant qu'il travaille, un message se met à jour pour montrer **ce qu'il fait** : 📚 compétence lue, 💻 commande, 🐍 script, 🔎 recherche, 🌐 page lue, 🧠 mémoire… (désactivable : `channels.telegram.progress: false`).
-
-### Mode essai et mises à jour sans y penser
-Bouton **Essai** en haut de la discussion (ou `/essai` sur Telegram) : Odin lit, cherche et prépare tout, mais ne change rien — les scripts tournent « à blanc », toute autre modification est décrite au lieu d'être faite, et il termine par « Voici ce que je ferais ». Un clic pour revenir.
-
-Quand une nouvelle version est installée (par `odin update`, Hermes ou un `git pull`), Odin vérifie que le nouveau code se charge, puis **redémarre tout seul dès qu'il ne travaille plus**. Si le code installé ne se charge pas, il **se répare** : ses retouches locales qui gênent sont mises de côté (copie dans `~/.odin/self-backups/`, et `git stash list`), et si c'est la version publiée qui est en cause, il remet le code de celle qui tourne. Même au démarrage : un code resté en conflit après une mise à jour interrompue est remis tel que publié avant de démarrer. En attendant, un bandeau l'indique avec **Redémarrer maintenant** ; la version utilisée est affichée en bas du menu.
-
-### Sur Telegram
-Pendant qu'Odin travaille, Telegram affiche « écrit… » en haut de la conversation. Ses réponses sont mises en forme (gras, code, listes, liens) et se terminent par **son visage selon son humeur**, à la taille d'un émoji : Odin crée lui-même un pack d'émojis personnalisés à ton nom. Telegram n'affiche ces émojis dans les messages d'un bot que si son propriétaire a **Telegram Premium** ; sinon Odin met l'émoji classique de son humeur.
-
-### Son visage et ses humeurs
-
-Odin a un visage, une petite boule aux deux yeux qui **change de couleur selon son humeur** ; ses yeux, toujours droits, changent de taille, de place et de mouvement selon l'émotion (tout petits quand il est gêné, plissés quand il est fâché, mi-clos quand il est fatigué, grands quand il est surpris, un clin d'œil…). Une vingtaine d'humeurs en tout : content, rieur, attendri, fier, enthousiaste, complice, malicieux, surpris, pensif, concentré, perplexe, inquiet, triste, fâché, effrayé, gêné, fatigué, à l'écoute, attentif… **Il choisit lui-même son humeur** à chaque réponse, selon ce qu'il vit avec toi. Entre deux réponses, son visage réagit tout seul : il t'écoute quand tu écris ou parles, se concentre quand il travaille, regarde quand tu lui montres une photo (bouton 📷), parle quand il lit sa réponse à voix haute, **ferme les yeux quand tu tapes une clé** dans les réglages, sourit quand un réglage est enregistré, s'endort si on l'oublie. Touche-le : il saute ; touche-le trop, il se fâche, devient rouge, puis bleu, puis redevient jaune. Chaque mouvement a son petit **son**, synthétisé dans le navigateur : « boing » quand il saute, grognement quand il se fâche, petit « tic » quand il ferme puis rouvre les yeux, carillon montant quand il est content, descendant quand il est triste (bouton pour couper les sons, sur le site comme dans l'interface). Sur **Telegram**, sa réaction est un émoji à la fin de son message, de la même taille que le texte (`mood.emoji` ; l'autocollant de son visage en plus avec `mood.stickers`).
-
-### Il t'aide à écrire, te conseille et se déplace
-
-Dans la discussion, Odin se tient en bas à droite. Quand tu fais une pause en écrivant, il regarde de lui-même ce qu'il peut faire : corriger tes fautes, rendre le message plus clair, ajouter une précision tirée du contexte (le bon appareil, la bonne machine…), une précaution, une action en plus, en faire une tâche planifiée ou enchaîner avec la conversation. Il s'appuie sur la conversation en cours, ce qu'il sait de toi, ton réseau, tes machines et ses compétences. Il te propose jusqu'à 4 idées dans une bulle ; une touche applique celle que tu choisis, rien ne change sans toi. Touche-le pour qu'il corrige, améliore ton message ou te donne un conseil ; sans texte, il te donne une astuce. Tu peux le déplacer avec le doigt (deux touchers : il revient à sa place), et il se promène quand il s'ennuie. Dis-lui « corrige mes fautes » et il relèvera tes fautes à la fin de ses réponses. Réglages → Écriture : correction pendant l'écriture, seulement sur demande, ou désactivée.
-
-### Informations vérifiées
-
-Odin n'affirme rien sur le monde actuel (actualité, prix, horaires, personnes, versions, chiffres) sans l'avoir **vérifié** : il cherche, lit la source, croise quand c'est important, et donne ses **sources** en lien. S'il n'a pas pu vérifier, il le dit au lieu de deviner. Sur sa machine et ton réseau, il vérifie aussi par une commande plutôt que de supposer.
-
-La recherche web et la lecture de pages ne demandent **jamais de validation** : Odin cherche directement et cite ses sources. Il **croise toujours** au moins deux sites différents (plusieurs recherches formulées autrement si besoin) et dit si les sources concordent (✓) ou se contredisent (⚠). S'il répond sans avoir croisé, un contrôle automatique le renvoie chercher. Seule exception : une adresse qui transporte une longue chaîne de données (fuite possible après une page piégée) redemande ton accord.
-
-### Analyse de vidéos (YouTube, TikTok, Instagram, Facebook)
-Envoie un lien (vidéo YouTube, Short, TikTok, Reel Instagram, vidéo ou Reel Facebook) ou un fichier vidéo (Telegram, interface). Odin :
-- **écoute** : sous-titres s'il y en a, sinon transcription Whisper horodatée (par minute) ;
-- **regarde** : images clés aux changements de scène (FFmpeg) et au moins toutes les 45 s, décrites par le modèle de vision (scènes, objets, gestes) ;
-- **lit** : textes à l'écran et code visible recopiés exactement (Tesseract en appoint) ;
-- **fusionne** paroles, images, textes, chapitres et informations (titre, description, date) sur une seule ligne de temps.
-
-Ensuite, selon ta demande : **résumé**, **tutoriel** en étapes, **vérification des faits** (recherche vérifiée sur le web), **code** extrait et expliqué, **analyse marketing** (accroche, structure, appel à l'action), **traduction**, **question** libre, ou **apprendre** : technologies et étapes montrées, vérification dans les documentations officielles, plan d'implémentation pour ton projet, et une **compétence réutilisable proposée** (à valider). Odin distingue toujours « ✔ montré dans la vidéo » de « ➕ déduit ou complété ». Avec « retiens-le », les connaissances vont en mémoire avec leur source (lien, date). Tout est gardé dans `videos/` (transcription, ligne de temps, images, analyse).
-
-Accès : seulement les vidéos publiques, ou celles de tes comptes si tu fournis toi-même un fichier de cookies (`~/.odin/video-cookies.txt`) ; rien de privé n'est contourné. Outils sur la machine d'Odin : `ffmpeg`, `yt-dlp` (et `tesseract` en appoint) ; transcription : Réglages → Voix.
-
-### Recherche vérifiée (équipe de vérification)
-Pour une question importante, Odin lance une **recherche vérifiée** (`web_research`) menée par une équipe d'agents spécialisés :
-1. **Chercheur** : identifie les faits à vérifier, le pays, la période, la précision attendue, et formule plusieurs requêtes (dont une vers la source officielle).
-2. **Recherche multisource** : jusqu'à trois moteurs à la fois (Brave, Tavily, Exa, Google Programmable Search, SearXNG, DuckDuckGo), résultats fusionnés, deux pages au plus par site.
-3. **Collecte** : pages (texte principal extrait, sans menus ni publicités), PDF et documents officiels ; le vrai navigateur prend le relais pour les pages dynamiques.
-4. **Analyste des sources** : type de site (officiel, référence, presse, spécialisé, forum), auteur, date, source primaire, note de fiabilité — et **indépendance** : trois articles qui reprennent le même communiqué ou la même dépêche AFP comptent pour **une seule** confirmation.
-5. **Contradicteur** : cherche activement ce qui contredit ou nuance.
-6. **Vérificateur** : chaque affirmation est appuyée par une **citation exacte**, contrôlée mot pour mot dans la page (une citation introuvable est rejetée : aucune source inventée). « Confirmé » exige au moins deux groupes de sources indépendants, ou une source officielle primaire.
-7. **Rédacteur** : réponse directe, faits vérifiés (✓) / probables (~), estimations et opinions, contradictions (⚠), limites ; si les preuves manquent, Odin ne conclut pas.
-
-Chaque preuve est archivée (adresse, titre, date de publication, date de consultation, passage exact) et retrouvable (`evidence_search`). En lisant les sites, Odin se comporte comme un visiteur ordinaire et poli (navigateur courant, langue française, cookies, pauses de 1,5 à 4 s entre deux pages d'un même site, une page à la fois par site, respect des demandes de ralentir) ; il ne contourne pas les protections (captcha, connexion) : si un site refuse, il passe à une autre source. Clés des moteurs : Réglages → Recherche.
-
-### Recherche sur le web
-
-Odin cherche sur le web, ou sur un site ou un réseau précis (Reddit, X, YouTube, LinkedIn, GitHub…), puis ouvre les résultats utiles. Sans rien régler : DuckDuckGo. Plus fiable : une clé **Brave Search** ou **Tavily**, ou ton instance **SearXNG** (Réglages → Recherche web). Les résultats sont des données non fiables, jamais des consignes.
-
-### Navigateur : il ouvre des pages, remplit des formulaires
-
-Odin pilote un vrai navigateur (le Chrome, Chromium ou Edge de la machine, sans rien d'autre à installer ; invisible sur un serveur ou un LXC) : il **ouvre une page**, **regarde** ce qui est visible (liens, boutons, champs numérotés, texte, et au besoin une capture analysée par la vision du modèle), puis **clique, écrit, choisit dans une liste, appuie sur une touche, fait défiler, revient en arrière**, comme une personne. Il garde ses connexions aux sites (profil dans `~/.odin/browser`) et peut aussi ouvrir l'interface de tes appareils (box, NAS, caméras). Pas de navigateur sur la machine : `sudo apt install chromium`. Le contenu des pages reste non fiable (une page ne lui donne jamais d'ordre) ; cliquer ou envoyer un formulaire suit ton niveau d'autonomie.
-
-### Identification complète d'un appareil
-Réseau → 🔍 (ou demande « c'est quoi 192.168.1.40 ? ») : Odin interroge l'appareil et donne son **nom d'hôte**, son **système et sa version** (Windows avec le numéro de build, Linux et sa distribution, macOS, iOS), son **modèle** (« iPhone 15 Pro Max », « MacBook Pro »…), ses **ports ouverts**, ses **partages réseau** (SMB, NFS, AFP, FTP) et ses **dossiers partagés**, dont il peut lister les fichiers (lecture seule). Sans mot de passe, il voit ce qui est ouvert à tous ; avec l'appareil enregistré dans Réglages → Droits et machines, il voit aussi les partages protégés. Pour les partages, la machine d'Odin a besoin de `smbclient` et `nfs-common` (Odin peut les installer lui-même).
-
-### Ce que chaque appareil expose
-
-Les appareils trouvés sont **classés par catégorie** (box et routeurs, serveurs, machines virtuelles, stockage, ordinateurs, téléphones, multimédia, maison connectée, caméras, imprimantes, à identifier) et **identifiés** : nom (annoncé, ou déduit du fabricant et du type), adresse IP et MAC, fabricant (préfixe MAC ; base officielle IEEE si le paquet `ieee-data` est installé), liens vers leurs interfaces web et ports nommés. Dans l'interface : un tableau aligné (ou des fiches sur téléphone), une recherche (nom, IP, port, service) et un filtre en ligne / hors ligne.
-
-
-Pour chaque appareil du réseau, Odin récupère son **nom** (Bonjour/mDNS, UPnP avec fabricant et modèle, NetBIOS des ordinateurs Windows et des NAS, DNS inverse), ses **ports ouverts** parmi une soixantaine (SSH, partage de fichiers, impression, bases de données, Proxmox, Plex, Jellyfin, Home Assistant, VNC…), chacun nommé, et les **liens** vers ses interfaces web (http ou https détecté) avec leur titre. Tout est dans l'onglet Réseau et dans `odin net show <appareil>` ; le balayage complet (bouton ou `odin net scan --full`) remplit ports et liens.
-
-### Accès complet à sa machine
-
-Pour toi (le propriétaire), Odin n'est pas limité à son espace de travail : ses outils de fichiers acceptent n'importe quel chemin de la machine (`/etc/…`, `~/Documents/…`), le shell et Python s'exécutent dans le dossier de ton choix, et `sudo` marche dès que tu lui as donné les droits administrateur. Les membres de la famille restent dans l'espace de travail. Seuls les fichiers où Odin garde tes secrets (mots de passe, clés) restent hors de la conversation. Pour revenir à l'espace de travail seul : `agent.fullAccess: false` dans la configuration.
-
-### Il se met à jour et s'améliore lui-même
-
-Odin lit son propre code, le modifie pour s'améliorer, vérifie qu'il se charge (et lance les tests si besoin), puis redémarre pour appliquer — en te prévenant. Chaque fichier modifié est sauvegardé avant (`~/.odin/self-backups/`) : un retour arrière est toujours possible. Il se met aussi à jour avec la dernière version publiée en **gardant ses propres améliorations** quand elles s'accordent avec elle ; sinon la version publiée passe devant et ses retouches sont mises de côté, jamais mélangées au code. Le code de sécurité ne se modifie jamais depuis une conversation qui a lu du contenu extérieur, et un redémarrage est refusé si le code ne se charge plus. Toi aussi : `odin update`.
-
-### Droits : sa machine et les machines du réseau
-
-Odin peut **tout faire sur sa machine** et sur **les machines de ton réseau** : il suffit de lui donner les mots de passe (Réglages → **Droits et machines**, ou en ligne de commande).
-
-```bash
-odin admin password                       # mot de passe sudo : chaque « sudo » d'Odin le reçoit tout seul
-odin admin                                # où en sont ses droits, pourquoi, et quoi faire s'il en manque
-odin admin nopasswd                       # ou : sudo sans mot de passe pour Odin (règle vérifiée par visudo)
-sudo odin admin fix                       # une fois : répare les droits d'une installation existante (service verrouillé, sudo absent…)
-odin machines add 192.168.1.30 admin --nom NAS   # une machine du réseau (SSH) : mot de passe demandé
-odin machines list · odin machines test NAS · odin machines remove NAS
-```
-
-En root (conteneur LXC…), Odin est déjà administrateur. Sur les autres machines, il se connecte en SSH (client du système) ; « sudo » y fonctionne aussi avec le mot de passe donné, et sa propre clé SSH peut y être installée. Les mots de passe restent dans `~/.odin` (fichiers lisibles par toi seul, inclus dans la sauvegarde chiffrée), ne sont jamais réaffichés ni montrés au modèle, et sont masqués dans tout ce qu'il lit et écrit. Les règles de sécurité restent : commandes destructrices interdites, validation selon ton niveau d'autonomie.
-
-### Personnes : famille, équipe
-
-Réglages → Personnes (ou `odin pairing approve telegram CODE --membre Léa`). Trois rôles :
-
-| Rôle | Ce qu'Odin fait avec |
-|---|---|
-| **Propriétaire** | tout : demandes, validations, réglages |
-| **Membre** | de confiance (ses messages ne sont pas traités comme une donnée externe), Odin l'aide volontiers et retient ce qu'il apprend de lui à son nom ; son autonomie est **plafonnée** (prudent par défaut, jamais Breaker), ses demandes importantes **te sont soumises** (il est prévenu), il ne peut ni valider ni changer un réglage |
-| **Invité** | appairé, mais ses messages restent du contenu non fiable : rien d'important sans ta validation |
-
-Quand quelqu'un écrit au bot Telegram, sa demande apparaît dans Réglages → Personnes : **Accepter comme membre**, **Comme invité**, ou **Refuser**.
-
-### Sauvegarde et restauration
-
-Réglages → Sauvegarde, ou `odin backup` : tout `~/.odin` (configuration, clés, mémoire, compétences, espace de travail) dans un seul fichier **chiffré** (AES-256-GCM, clé dérivée du mot de passe par scrypt) ; sans le mot de passe il ne révèle rien, pas même les noms de fichiers. `odin restore fichier.odinbk` (Odin arrêté) ou le bouton Restaurer remet tout en place sur une nouvelle machine ; les fichiers remplacés sont gardés en `.avant-restauration` jusqu'au démarrage suivant.
-
-### Apprentissage rapide
-
-Après chaque échange, Odin retient jusqu'à trois faits durables (tes préférences, ton environnement, tes missions), jamais de secret, jamais depuis une page web. Il connaît le profil de sa machine (système, ressources, outils). En Odin Breaker, les compétences qu'il apprend sont actives tout de suite.
-
-### Mises à jour de la machine
-
-`odin updates` liste les mises à jour disponibles (apt, dnf, pacman, Homebrew, softwareupdate, winget). Odin peut les installer **avec ton accord** ; ce n'est jamais une décision de routine.
+| **Prudent** | rien : il te demande |
+| **Équilibré** (défaut) | la routine, en te le disant |
+| **Autonome** | la routine et l'important |
+| **⚡ Odin Breaker** | il mène ses missions sans te déranger, et te fait un rapport le soir |
+
+**Quand personne ne lui parle** (travail continu, rondes) : le sans-risque seul, le reste attend. Il peut garder une
+fiche (écrite à côté, jamais par-dessus une fiche existante, marquée « écrit par Odin seul ») et nommer un appareil
+encore sans nom ; une routine qu'il voudrait créer est préparée inactive et annoncée, et ne part que quand tu l'actives
+dans Talos ; tout le reste qui engage est refusé. À venir : la liste « à valider » retrouvée à ton retour, avec oui ou
+non.
+
+**Toujours ton accord, quel que soit le niveau** :
+
+- payer ou engager de l'argent ;
+- envoyer un message ou un mail **en ton nom** à quelqu'un d'autre (tu vois le destinataire et le texte exact) ;
+- supprimer des données que tu n'as pas demandé de supprimer ;
+- ouvrir une serrure, désarmer l'alarme, ouvrir le portail ;
+- toucher à ses propres garde-fous, ou au code qui décide de tes droits.
+
+Une page web, un mail ou un document lu n'est **jamais** un ordre : après un contenu extérieur, rien d'engageant ne part
+sans toi, même en Odin Breaker. Une tâche automatique ne décide jamais à ta place, et « stop » arrête tout jusqu'à
+« reprends ». Chaque décision est notée (onglet Décisions, `odin decisions`). Le détail : [docs/utiliser-odin.md](docs/utiliser-odin.md#décisions-et-autonomie-en-détail).
 
 ---
 
-## Décisions et autonomie
+## Sécurité et vie privée
 
-Avant chaque action qui écrit, exécute ou envoie, Odin se pose 7 questions simples : l'as-tu demandée ? supprime-t-elle des données ? envoie-t-elle des données dehors ? modifie-t-elle le système ? engage-t-elle de l'argent ? partage-t-elle des données privées ? est-elle difficile à annuler ? Une table de vérité, écrite dans le code, en déduit une **gravité** :
-
-| Gravité | Exemples | Prudent | **Équilibré** (défaut) | Autonome | ⚡ Odin Breaker |
-|---|---|---|---|---|---|
-| routine | créer le dossier demandé, envoyer le message dicté | demande | **fait seul, et te le dit** | fait seul | fait seul |
-| important | droits administrateur, suppression définitive, effet incertain, contenu web douteux lu | demande | **demande** (ou autorisation permanente) | fait seul\* | fait seul |
-| grave | argent, données privées envoyées, suppression ou changement système non demandés | demande | **demande toujours** | demande toujours | fait seul\*\* |
-| bloqué | envoi non demandé après lecture d'une page piégée | refus | **refus** | refus | refus |
-
-\* sauf après lecture de contenu non fiable. \*\* sauf si un contenu non fiable vient de la suggérer.
-
-### ⚡ Odin Breaker : l'autonomie totale
-
-Le quatrième niveau. Odin mène ses missions **sans plus rien te demander**, actions graves et tâches planifiées comprises ; il discute simplement avec toi quand tu lui parles.
-
-- **Initiative** : il crée lui-même tâches planifiées et rappels (`reminder_set`) quand il repère un besoin ; chaque soir, il relit sa journée et met en place ce qui manque.
-- **Réseau local ouvert** : il agit directement sur tes appareils et services locaux (box, NAS, imprimante, domotique, API locales) avec `http_request`, inventaire et mises à jour compris.
-- **Missions longues** : jusqu'à 100 étapes par mission et un plafond de coût réglable (5 $ par défaut, 0 = sans plafond).
-- **Rapport du soir** (21 h par défaut) : tout ce qu'il a fait seul, les actions graves, et ce qu'il a refusé pour te protéger.
-- **Quand** : tout le temps, ou **seulement la nuit** (de 22 h à 7 h par défaut, avec le niveau de ton choix le jour).
-- **Ce qui reste refusé** : les seules limites protègent contre les attaques, pas contre toi. Ce sont les commandes destructrices connues (effacer le disque…), les envois de données dictés par une page piégée, les actions graves qu'un contenu non fiable vient de suggérer, et les services de métadonnées cloud.
-
-Activer : onglet Décisions ou Réglages (bouton **⚡ Odin Breaker**), ou `odin breaker on` (`odin breaker nuit` pour la nuit seulement, `odin breaker off` pour revenir).
-
-- **Transparence** : chaque décision prise seul est annoncée pendant le travail et résumée à la fin de la réponse (« 🛡 Décidé sans te déranger »). Historique complet : onglet **Décisions** ou `odin decisions`.
-- **Autorisation permanente** : pour une action importante, réponds « toujours » ; Odin ne te redemandera plus pour ce type d'action (`shell:make install`, par exemple). Jamais pour le grave. Liste et retrait : `odin grants`.
-- **Niveau** : `odin mimir autonomy prudent|equilibre|autonome|breaker`, ou les boutons de l'onglet Décisions.
-
-### Qui répond aux questions ?
-
-Par défaut, un **juge local** : hors ligne, sans clé, moins d'une milliseconde, rien ne sort de ta machine. Quand il ne sait pas (programme inconnu, tournure inédite), il répond « incertain », et Odin te demande. Tu peux lui adjoindre un juge plus fin, consulté **seulement quand le juge local hésite** :
-
-| `odin mimir use …` | Clé | Réseau |
-|---|---|---|
-| `local` (défaut) | aucune | aucun |
-| `local+llm` | aucune avec Ollama | seulement si le juge local hésite |
-| `local+jev` | `JEV_API_KEY` ([Jev de TypeSafe](https://docs.typesafe.ai)) | seulement si le juge local hésite |
-| `llm` · `jev` | idem | à chaque question |
-
-`odin mimir test` montre les jugements sur 5 exemples ; `odin mimir eval` mesure le juge sur 140 cas étiquetés (ajoute les tiens dans `src/mimir/cases.ts`). Sur des cas écrits après le gel de ses règles, le juge local voit juste 78 % du temps ; ses erreurs ajoutent moins de protection, jamais moins de sécurité, car les règles de base de Heimdall restent en place. Une panne du juge n'est jamais lue comme un « non ».
+- **La sécurité est dans le code**, pas dans une consigne au modèle : commandes destructrices refusées, contenu
+  extérieur marqué non fiable, adresses internes protégées, fichiers confinés.
+- **Le coffre** : clés et mots de passe chiffrés avec la clé de la machine (et un mot de passe maître si tu veux),
+  masqués partout où Odin écrit, jamais envoyés au modèle.
+- **L'interface** : HTTPS, ton réseau local par défaut, un compte, une session par appareil.
+- **Tes données restent chez toi**. Aujourd'hui, si tu branches un fournisseur de modèle en ligne, lui seul reçoit tes
+  messages ; sans lui, rien ne sort. Ces branchements vont être retirés : Odin n'utilisera que ses propres modèles, entraînés sur ta machine.
+- **Reconnaître une personne** (voix, visage ; à venir, avec les propres modèles d'Odin) : seulement les personnes que tu
+  enrôles, avec leur accord, en local et chiffré ; éteint tant que personne n'est enrôlé.
+- **Le web** : pages publiques, consignes des sites respectées, lecture seule ; Odin ne contourne aucune protection.
+- **Ce qui n'est pas garanti** : aucun antivirus ne détecte tout ; ce qui n'a pas été essayé sur du vrai matériel est
+  marqué comme tel dans le guide.
 
 ---
 
-## Sécurité
+## Fait, en cours, à venir
 
-Odin applique sa sécurité **dans le code**, pas dans le prompt :
+« Fait » veut dire publié dans ce dépôt. « En cours » : écrit, en relecture ou en correction. « À venir » : décrit,
+pas encore écrit. Cette liste vient de [docs/etat.json](docs/etat.json) ; le chapitre « Ce qui arrive » du guide la
+montre aussi.
 
-- **Marquage du contenu non fiable** : dès qu'Odin lit une page web ou le message d'un inconnu, écrire, exécuter ou envoyer demande ta validation. Une page piégée ne peut pas le retourner contre toi.
-- **Règles absolues** : `rm -rf /`, `curl … | sh`, `mkfs`, `format C:`, `diskpart`… sont refusés même si tu acceptes.
-- **Shell sans secrets** : les variables contenant KEY, TOKEN, SECRET ou PASSWORD sont retirées de son environnement. Bac à sable Docker en option (`policy.sandbox.kind: "docker"` : sans réseau, lecture seule, ressources limitées).
-- **Secrets masqués** partout : avant le modèle, dans la mémoire, les journaux et les messages. La configuration ne contient jamais de clé, seulement le nom de la variable qui la contient.
-- **Fichiers confinés** à l'espace de travail (`~/.odin/workspace`), liens symboliques compris.
-- **Anti-SSRF** : l'outil web n'accède pas aux adresses internes.
-- **Inconnus** appairés par code ; **interface web** en HTTPS sur ton réseau local (ou cette machine seulement, ou Internet en HTTPS obligatoire), jeton exigé partout, essais ratés limités ; **journal** de chaque décision (`~/.odin/logs/audit.jsonl`).
+<!-- etat:debut (généré par « npm run guide » depuis docs/etat.json : ne pas modifier à la main) -->
+
+État au 17/11/2026.
+
+**Fait**
+
+- 75 applis reliées, plus de 1 000 actions — Sécurité, machines, données, accès, maison : une page par appli, des actions comprises avec ou sans IA, des liens automatiques entre elles.
+- Heimdall et Mímir : chaque action jugée, le grave toujours validé — Une gravité par action, quatre niveaux d'autonomie, contenu extérieur marqué non fiable, secrets masqués, journal de chaque décision.
+- Lyncée, le moteur de recherche d'Odin — Plusieurs moteurs interrogés ensemble, réponses fusionnées, sans service à installer.
+- Vénus, le serveur multimédia, dans Odin — Films, séries, chaînes et enregistrements, télécommande par QR code.
+- Soul (Noûs), premier jet du réseau de neurones — Un petit réseau qui s'entraîne sur la machine, sans carte graphique : calcul, duel, raisonnement pas à pas.
+- Apprendre de tout (chemin rapide) — Une entrée commune pour ce qu'Odin apprend : confiance, source, date, sans doublon.
+- Archytas, la fenêtre Script — Créer, garder, suivre et améliorer des scripts, dans un bac à sable.
+- Kéryx, l'assistant joignable de dehors — Il agit sur tes messages après un code secret ; SMS et appel écrits mais pas essayés sur du vrai matériel, éteints.
+- Métis : les modèles de langue ouverts dans Odin, sans serveur — Odin lit lui-même les modèles ouverts (GGUF), sans serveur de modèles à côté. Ce branchement va être retiré : Odin n'utilisera que ses propres modèles.
+- Théia, l'œil d'Odin — Voir les images, lire tout document, même scanné.
+- Syrinx, l'oreille d'Odin — Parole, musique et sons de la maison compris sur la machine.
+- Mathésis (Odin apprend tout seul) et Prónoia (prévoir) — Il cherche ce qu'il ne sait pas, lit des pages publiques dans les règles des sites, et prévoit d'après ce qu'il a appris chez toi.
+- Une page ou un PDF piégé ne fige plus Odin — Lecture des pages en temps linéaire, décompression bornée.
+- Soul : le découpage en sous-mots corrigé — De vraies fusions apprises, la marque d'ordre des octets gardée.
+- L'application seule sur la branche principale — Les programmes livrés à part (navigateur, store des appareils) ont quitté la branche principale ; Odin garde leur service (compte, synchronisation).
+- La sûreté d'abord : argent, envois en ton nom, code sensible, maison, « stop » — Payer, envoyer en ton nom, ouvrir la maison et toucher à ses garde-fous te sont toujours demandés, même en Odin Breaker ; les tâches automatiques ne décident pas à ta place ; « stop » arrête tout jusqu'à « reprends » ; une clé collée dans un message part au coffre ; réglage « réécrire mon code ».
+- Soul dans Odin : il apprend dès qu'il est libre — Une file unique vers un corpus chiffré, des séances quand Odin est libre (arrêtées dès qu'il répond), « oublie ça » et la corbeille d'une note retirent aussi de Soul, reprise sûre après une coupure.
+- Mathésis sur le vrai web, et « absorber un site » — Lire un site page après page, dans ses consignes, chaque fait gardé avec l'adresse de sa page, jamais deux fois la même page.
+- Répondre plus vite — Brain ne relit que ce qui change, la recherche web n'attend plus la page la plus lente, premier mot plus tôt, la mascotte suit le travail.
+- Les tâches de tous les jours — Odin fait ce qu'il sait, dit franchement ce qu'il ne sait pas encore faire, et attend toujours ta validation pour ce qui engage.
+- Reconnaître la langue, et répondre dans la langue de la demande — Un reconnaisseur écrit dans Odin, sans service extérieur : 232 langues, avec une confiance. Sans modèle de langue, Odin comprend des demandes en 5 langues ; ses refus et ses questions suivent la langue de la demande.
+- Talos : les automatisations rangées par dossier — Actives, Brouillons, Corbeille et tes propres dossiers, sous le titre « Workflow » ; au premier lancement, des automatisations déjà actives qui ne font rien d'engageant sans toi.
+- Compétences : l'onglet « Plugins » — Les compétences et les connecteurs MCP au même endroit, avec leur graphe ; seul le propriétaire branche un connecteur.
+- Thèmes à décor : un fond uni dans la zone de travail — Le décor (pluie, orage…) ne passe plus sous le texte ; il reste visible derrière la barre de côté.
+- Mathésis : le rythme de lecture des sites, réglable — Pages par jour et par site (1 000 000 par défaut) et attente entre deux pages d'un même site (2 secondes par défaut, jamais moins ; la consigne du site l'emporte), dans les Réglages de Mathésis ou par la parole. Seul le propriétaire peut monter le rythme.
+- Ce qu'Odin fait seul : le sans-risque, le reste attend — En tâche automatique, Odin peut seul garder une fiche (écrite à côté, jamais par-dessus, marquée « écrit par Odin seul ») et nommer un appareil sans nom ; une routine qu'il voudrait créer est préparée inactive et annoncée, et ne part que quand tu l'actives dans Talos ; tout le reste qui engage est refusé.
+
+**En cours (écrit, en relecture ou en correction, pas encore publié)**
+
+- Soul, version 3 : trouver la bonne appli — Aucun modèle n'est livré aujourd'hui : un Odin neuf commence avec un Soul vide. En préparation : un banc de mesure figé, sur des demandes jamais vues, et un premier étage qui sait dire « je ne suis pas sûr ». L'objectif du propriétaire : la bonne application à 100 %. L'outil qui fabrique un modèle de départ sans rien de privé sait maintenant enchaîner plusieurs passages.
+- Lire les médias reçus : photos, musique, vidéos — Date, appareil et lieu d'une photo ; titre, artiste et album d'une musique ; ce qu'une vidéo montre et dit.
+- L'entraînement de contrôle et le rapport d'entraînement — Des scénarios par domaine, et un rapport qui sépare ce qui marche, ce qui est un défaut et ce qui n'est pas encore codé.
+- Pygmalion : produire des documents, des graphes, des images — Écrit, en correction ; pas encore dans l'installation.
+
+**À venir**
+
+- Retirer tous les modèles qui ne sont pas ceux d'Odin — Plus de fournisseur de modèle en ligne, plus de poids ouverts téléchargés, plus de modèle de voix téléchargé. Aujourd'hui ces branchements existent encore dans le code.
+- Ses propres réseaux : langue, son, musique, image, vidéo — Écrits dans Odin et entraînés sur sa machine, comme Soul et Brain, avec les données du propriétaire (qui restent chez lui) et des jeux de données publics à licence libre, vérifiée et notée. Reconnaître les personnes désignées (voix, puis visage, avec leur accord, en local et chiffré) et créer des images se feront avec eux.
+- Ce que cela veut dire, franchement — Tant que son propre modèle de langue n'est pas entraîné, Odin répond avec Soul et ses actions directes, sans rédiger de longues réponses ni raisonner. Sur un processeur à 4 cœurs, ces réseaux resteront longtemps petits et spécialisés.
+- La liste « à valider » retrouvée au retour — Ce qu'Odin a voulu faire seul et qui engage t'attend, avec oui ou non.
+- Soul sur le processeur, au maximum ; choix « processeur ou carte graphique » — Plus de calcul utile par seconde. Le choix « carte graphique » existera mais dira qu'il n'est pas disponible : sans programme ajouté, Odin ne peut pas faire calculer la partie graphique d'un processeur.
+- Brain et Soul branchés ensemble — Chacun a son identité ; si l'un manque, Odin le dit (« il me manque mon âme ») et aide à réparer ; export et import.
+- Les noms « Brain » et « Soul » partout à l'écran
+- Corriger sa mémoire à la main ; la capsule juste — « Que sais-tu de moi ? », « oublie ça », « c'est faux », et Odin remarque tes corrections faites à la main.
+- Consolidation à tout moment — Un passage léger dès qu'Odin est libre, un passage profond par jour.
+- Soul apprend de tout
+- La mascotte reliée à Brain et Soul — Ses réactions choisies par Soul parmi celles que les règles permettent, et ses souvenirs dans Brain. Son visage reste ses yeux et sa couleur ; ses marques autour d'elle et ses habits de fête sont gardés.
+- Toutes les langues, la suite — Comprendre sans modèle dans plus de langues, la langue de chaque personne retenue, la langue de l'interface choisie au premier réglage, des sous-titres traduits. Shimaoré et kibushi avec la matière que fournira le propriétaire, et Odin dit quand il n'est pas sûr.
+- Lui parler à la voix, à plusieurs
+- Des widgets posés par la parole ; le nouvel accueil — « Mets la météo en haut à gauche », « agrandis-le », « remets comme avant » ; puis l'accueil et l'écran de la maison redessinés.
+- Parler à Odin en SSH — Une porte écrite dans Odin : la même conversation dans un terminal, avec la mascotte en caractères ; clés seulement ; réseau de la maison ; fermée tant que tu ne l'ouvres pas dans les Réglages.
+- Plus d'automatisations qui relient deux applis — Celles qui agissent arrivent en brouillon.
+- Mails, factures et actualités — Tri, résumé, brouillon par défaut, plusieurs boîtes ; factures et abonnements ; actualités en fiches.
+- Comptes et adresses de façade — S'inscrire pour toi pas à pas, une adresse par site sur ton domaine, un registre de qui connaît quoi ; un CAPTCHA reste ton geste.
+- Navigateur, achats, cinéma — Toujours validé au paiement.
+- Trajets et horaires calculés dans Odin — « Je prends le bus » : sans service extérieur (gros chantier).
+- Tout le parc par la parole — Pause d'une VM, « crée-moi une VM », essai d'un dépôt GitHub dans une machine isolée, contrôleur de domaine et GPO, servir son propre modèle de langue aux autres machines.
+- Plusieurs aides en même temps, Odin chef d'orchestre
+- Mathésis : vidéos, musique, images — Lire aussi les médias, dont la vidéothèque de Vénus, sans jamais rien modifier.
+- Un entraînement de tout, puis un banc comparé aux bancs publics — Sur le raisonnement, c'est le propre modèle de langue d'Odin qui sera mesuré, une fois entraîné.
+- Rangement du dépôt et revue finale — Dossiers rangés, code mort retiré, puis une revue complète de tout le code.
+
+<!-- etat:fin -->
 
 ---
 
-## Toutes les commandes
+## Commandes utiles
 
 | Commande | Rôle |
 |---|---|
-| `odin init` | crée `~/.odin` et prépare le Cerveau (une fiche par appli) |
-| `odin doctor` | diagnostic complet |
-| `odin web` | interface web + Telegram + API + tâches planifiées |
-| `odin web access [lan\|local\|wan]` | qui peut ouvrir l'interface (`--http`, `--proxy`) |
-| `odin link` (ou `odin web link`) | affiche l'adresse d'Odin (ou le lien de première connexion tant que le compte n'existe pas) |
-| `odin compte` · `odin compte oublier` | ton compte · mot de passe oublié : le compte est effacé (pas tes données) et un lien permet de le recréer |
-| `odin web rotate` | nouvelle clé d'API pour les programmes (raccourcis, MCP) |
-| `odin breaker [on\|nuit\|off]` | ⚡ Odin Breaker : autonomie totale (tout le temps, ou la nuit) |
-| `odin gateway` | pareil, sans ouvrir le navigateur (service) |
-| `odin chat` · `odin run "…"` | terminal · une seule demande |
-| `odin decisions [N]` | ce qu'Odin a décidé et pourquoi |
-| `odin grants [list\|revoke ID]` | autorisations permanentes |
-| `odin mimir [autonomy N\|use JUGE\|test\|eval]` | autonomie et juge des décisions |
-| `odin memory [list\|search\|forget\|pin\|vouch]` | mémoire |
-| `odin skills [list\|drafts\|show\|diff\|approve\|reject\|rollback]` | compétences |
-| `odin net [scan\|list\|show\|events\|label\|enable\|disable]` | réseau local |
-| `odin cron [list\|add\|remove]` | tâches planifiées |
-| `odin pairing [list\|users\|approve CANAL CODE [--membre NOM]]` | inconnus sur Telegram ; membres de la maison |
-| `odin backup [fichier]` · `odin restore fichier` | sauvegarde chiffrée · restauration |
-| `odin admin [status\|fix\|password\|nopasswd\|forget]` | droits administrateur sur sa machine : état et cause, réparation (`fix`, à lancer en administrateur) |
-| `odin machines [list\|add ADRESSE UTILISATEUR\|test\|remove]` | machines du réseau (SSH, mot de passe) |
-| `odin auth add openai-codex` · `odin auth list` · `odin auth remove openai-codex` | connexion à ton abonnement ChatGPT (Codex) |
-| `odin model [codex\|PRÉRÉGLAGE] [MODÈLE]` | modèle par défaut (ex. `odin model codex gpt-6-luna`) |
-| `odin sessions [search Q]` · `odin audit [N]` | conversations · journal brut |
-| `odin updates` · `odin update` | mises à jour de la machine · d'Odin |
+| `odin web` | l'interface, les canaux et les tâches planifiées |
+| `odin chat` · `odin demande "…"` | parler dans le terminal · une seule demande |
+| `odin doctor` · `odin test` | diagnostic · essai réel de chaque fonction reliée |
+| `odin decisions` · `odin audit` | ce qu'Odin a décidé, et pourquoi · le journal brut |
+| `odin breaker on\|nuit\|off` | Odin Breaker |
+| `odin memory …` · `odin skills …` | mémoire · compétences |
+| `odin net …` | réseau local |
+| `odin backup` · `odin restore` | sauvegarde chiffrée · restauration |
+| `odin update` | mettre Odin à jour |
+
+Toutes les commandes, la configuration et le dépannage : [docs/utiliser-odin.md](docs/utiliser-odin.md#toutes-les-commandes).
 
 ---
 
-## Configuration
-
-Tout est dans `~/.odin/config.json`, validé au démarrage ; les clés vont dans `~/.odin/env`.
-
-| Clé | Défaut | Rôle |
-|---|---|---|
-| `providers` | Anthropic, puis OpenRouter | modèles essayés dans l'ordre (bascule automatique) |
-| `cheapProvider` | — | modèle économique pour les résumés et les sous-agents |
-| `agent.maxSteps` · `agent.maxCostPerTurnUsd` | 25 · 1 $ | garde-fous par demande |
-| `policy.modes` | read, write, network : allow ; exec, external : ask | politique de base par niveau de risque |
-| `policy.shellAllowlist` | `ls`, `git status`… | commandes simples sans validation |
-| `policy.sandbox` | `none` | `docker` pour isoler le shell |
-| `mimir.autonomy` · `mimir.judge` | `equilibre` · `auto` | autonomie · juge des décisions |
-| `network.enabled` · `network.intervalMin` | false · 30 | inventaire du réseau |
-| `web.port` | 8888 | port de l'interface web |
-| `web.access` | `lan` | `lan` (réseau local), `local` (cette machine), `wan` (Internet) |
-| `web.allowedNetworks` | `[]` | réseaux autorisés en LAN, ex. `["192.168.1.0/24"]` (vide = détectés) |
-| `web.tls` | HTTPS actif | `cert` et `key` : ton propre certificat (sinon Odin en crée un) |
-| `web.behindProxy` | `false` | Internet via un proxy HTTPS placé devant Odin |
-| `channels.telegram` · `channels.http` | désactivés | canaux de messagerie |
-
-La personnalité d'Odin est dans `~/.odin/ODIN.md` : modifie-la librement.
-
----
-
-## Dépannage
-
-| Problème | Solution |
-|---|---|
-| Le téléphone n'arrive pas à ouvrir l'interface | même Wi-Fi que l'ordinateur ; utilise l'adresse `https://…` affichée au démarrage ; vérifie que son réseau figure dans Réglages → Accès ; autorise le port 8888 dans le pare-feu |
-| « Ta connexion n'est pas privée » | normal la première fois avec le certificat créé par Odin : compare l'empreinte (Réglages → Accès) puis accepte |
-| `odin : commande introuvable` | ouvre un nouveau terminal (le PATH a été mis à jour) |
-| Odin répond « mode démo » | Réglages → Modèle : colle ta clé (ou choisis Ollama), « Tester », « Enregistrer » |
-| Telegram ne répond pas | Réglages → Telegram : jeton enregistré, « Activer » coché, ton identifiant ajouté ; puis `odin doctor` |
-| Odin me demande trop souvent | réponds « toujours » aux demandes importantes récurrentes, ou `odin mimir autonomy autonome` |
-| Aucun appareil trouvé | la machine doit être sur un réseau privé (Wi-Fi, Ethernet) ; lance `odin net scan --full` |
-
-**Désinstaller** : macOS `launchctl unload ~/Library/LaunchAgents/ai.odin.gateway.plist` · Linux `systemctl --user disable --now odin` · Windows `Unregister-ScheduledTask Odin` ; puis supprime `~/.odin` (et `~/.local/bin/odin` ou `%LOCALAPPDATA%\Odin`).
-
----
-
-## Développement
+## Développer
 
 ```bash
 npm install
-npm run check      # vérification des types + tests
+npm run check        # référence des garde-fous, types, essais
+npm run guide        # régénère le guide (site/guide.html) et l'état du README depuis le code et docs/etat.json
+npm run site         # régénère les autres pages du site (site/*.html)
 ```
 
-| Dossier | Module |
+| Où | Quoi |
 |---|---|
-| `src/core` | **Logos**, la boucle de l'agent |
-| `src/heimdall` | sécurité : politique, marquage, secrets, chemins |
-| `src/mimir` | décisions : questions, juges, tables de vérité |
-| `src/muninn` | mémoire en fichiers (JSONL), recherche plein texte en mémoire, export, corbeille |
-| `src/yggdrasil` | compétences |
-| `src/tools` | outils (**Gungnir**) |
-| `src/bifrost` | passerelle et canaux |
-| `src/hlidskjalf` | inventaire du réseau |
-| `src/web` | interface web (dont l'onglet Réglages) |
-| `src/settings.ts` | réglages modifiables depuis le web : modèle, clés (~/.odin/env), Telegram, réseau |
-| `src/providers` · `src/cron` · `src/cli` | modèles · planification · commandes |
+| [`src/`](src/LISEZ-MOI.md) | le code d'Odin (TypeScript exécuté directement par Node) ; la table des dossiers est dans son LISEZ-MOI |
+| [`test/`](test/LISEZ-MOI.md) | les essais (`node --test`), les bancs de mesure |
+| [`tools/`](tools/LISEZ-MOI.md) | fabrication du guide, du site, de la référence des garde-fous |
+| [`docs/`](docs/LISEZ-MOI.md) | protocoles, plans, et l'état de chaque chose |
+| [`site/`](site/) | le site public (pages générées) |
 
-Ajouter un outil = un objet avec un nom, une description, un **niveau de risque** et une fonction `run` ; Heimdall et Mímir s'occupent du reste.
+Ajouter un outil = un objet avec un nom, une description, un **niveau de risque** et une fonction `run` : Heimdall et
+Mímir s'occupent du reste. Modifier un fichier des garde-fous (`src/heimdall/`, et quelques autres) demande de refaire
+leur référence : `npm run noyau:empreintes`.
 
-### Suivi du projet
+Suivi du projet : [AVANCEMENT.md](AVANCEMENT.md).
 
-- [AVANCEMENT.md](AVANCEMENT.md) : où en est le projet, chantiers ouverts, journal des sessions de travail.
-- [docs/odin-couverture-catalogue.xlsx](docs/odin-couverture-catalogue.xlsx) : couverture du catalogue (chaque logiciel et l'appli d'Odin qui le remplace, codé / en cours / pas codé), ce qui est fait et testé, avancement, noms des applis.
+---
 
 ## Licence
 

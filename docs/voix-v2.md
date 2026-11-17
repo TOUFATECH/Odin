@@ -1,10 +1,7 @@
 # Voix d'Odin v2 — cahier des charges et état
 
-Cahier des charges complet (document partagé) : https://claude.ai/artifact/T49BVq9Bxdgamm3B939GuQ
-Maquette de l'interface (à valider) : https://claude.ai/artifact/GHdMzEkoDqg9UVcRDzeTsj
-
 Odin tient une conversation vocale en français, **100 % locale**, qu'on peut couper à tout moment et reprendre au mot près.
-Il fonctionne **en autonomie, sans aucune IA** (règles, mémoire, fichiers du projet en question) ; une IA locale (Ollama)
+Il fonctionne **en autonomie, sans aucune IA** (règles, mémoire, fichiers du projet en question) ; une IA locale (un modèle ouvert lu par Métis, sans serveur)
 ou externe (option) s'ajoute en renfort, jamais comme une condition. **Aucune base de données** : tout est rangé en
 fichiers sur Odin (`~/.odin/memoire/`) et dans son cerveau Mnémosyne, qui fait les liens.
 
@@ -17,7 +14,7 @@ fichiers sur Odin (`~/.odin/memoire/`) et dans son cerveau Mnémosyne, qui fait 
 | Transcription | Texte provisoire, stable, définitif | whisper.cpp (installé), puis Kyutai STT / Parakeet / faster-whisper |
 | Fin de tour | Phrase finie ou en suspens | Smart Turn v3.2 |
 | Logos | Correction des mots mal transcrits, références, type de phrase, décision | Règles seules, ou règles + IA |
-| Cerveau | Réponse à partir du projet et de Mnémosyne | Sans IA, Ollama, IA externe (option) |
+| Cerveau | Réponse à partir du projet et de Mnémosyne | Sans IA, modèle local (Métis), IA externe (option) |
 | Synthèse | Voix française, phrase par phrase | Piper (voix « tom » / « siwis ») |
 | Mémoire | Conversations, souvenirs, liens | Fichiers JSONL, jamais de SQLite |
 
@@ -28,7 +25,7 @@ fichiers sur Odin (`~/.odin/memoire/`) et dans son cerveau Mnémosyne, qui fait 
   arrêt immédiat. Jamais déclenché par sa propre voix (écho retiré, texte entendu comparé à ce qu'il dit).
 - **Reprise** : chaque réponse = un plan + des segments horodatés. Une question intermédiaire s'empile ; « continue »
   revient au premier point jamais dit, sans recommencer.
-- **Compréhension** : comme Claude avec une dictée imparfaite, Odin lit l'intention (« nase » → NAS, « SIO » → SEO),
+- **Compréhension** : face à une dictée imparfaite, Odin lit l'intention (« nase » → NAS, « SIO » → SEO),
   s'appuie sur le contexte et son lexique, prend le sens le plus probable et le dit en une ligne s'il doute ; pour une
   action risquée, il demande toujours.
 - **Réponse en voix ou en texte** : au choix (bouton, réglages, ou à l'oral). En texte seul, il écrit même quand on lui parle.

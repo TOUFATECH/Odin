@@ -7,7 +7,7 @@
 <meta name="description" content="Ce site ne dépose aucun cookie, n'utilise aucun traceur et ne demande aucune inscription. Ce que fait le logiciel Odin de tes données, et tes droits.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://toufatech.github.io/Odin/confidentialite.html">
-<meta name="theme-color" content="#101A24">
+<meta name="theme-color" content="#0B0E14">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Odin Agent IA">
 <meta property="og:locale" content="fr_FR">
@@ -26,7 +26,7 @@
 <link rel="preload" href="./assets/fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="./assets/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="./assets/site.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://toufatech.github.io/Odin/"}, {"@type": "ListItem", "position": 2, "name": "Confidentialité", "item": "https://toufatech.github.io/Odin/confidentialite.html"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Accueil","item":"https://toufatech.github.io/Odin/"},{"@type":"ListItem","position":2,"name":"Confidentialité","item":"https://toufatech.github.io/Odin/confidentialite.html"}]}</script>
 </head>
 <body data-page="confidentialite">
 <a class="skip" href="#contenu">Aller au contenu</a>
@@ -82,9 +82,9 @@
   </ul>
   <h3>Ce qui peut sortir de ta machine, parce que tu l'as configuré</h3>
   <ul>
-    <li><strong>Le fournisseur de modèle</strong> que tu choisis (Anthropic, OpenAI, OpenRouter, ou aucun avec un modèle local) reçoit tes messages, le contexte nécessaire et, si tu utilises la vision, les images que tu lui montres.</li>
-    <li><strong>Le service de transcription</strong> reçoit l'audio à comprendre (ou rien, avec un serveur local).</li>
-    <li><strong>Le service de synthèse vocale</strong> reçoit le texte à lire et, si tu copies une voix, l'enregistrement fourni.</li>
+    <li><strong>Le fournisseur de modèle</strong> que tu choisis (Anthropic, OpenAI, OpenRouter, ou aucun avec un modèle local) reçoit tes messages, le contexte nécessaire et, si tu utilises la vision, les images que tu lui montres. Ces branchements vont être retirés : Odin n'utilisera que ses propres modèles, entraînés sur ta machine.</li>
+    <li><strong>Le service de transcription</strong> reçoit l'audio à comprendre (ou rien, avec un serveur local). Ce service va être retiré.</li>
+    <li><strong>Le service de synthèse vocale</strong> reçoit le texte à lire et, si tu copies une voix, l'enregistrement fourni. Ce service va être retiré.</li>
     <li><strong>Telegram</strong> transporte les messages échangés avec ton bot.</li>
   </ul>
   <p>Chacun de ces services a sa propre politique de confidentialité. Odin masque tes clés et secrets avant tout envoi, et ne transmet jamais de contenu non fiable vers l'extérieur sans ton accord.</p>

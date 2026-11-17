@@ -7,7 +7,7 @@
 <meta name="description" content="Une commande installe Odin, Node.js compris, puis l'interface web s'ouvre pour choisir ton modèle. Instructions pas à pas pour macOS, Linux, Windows et depuis les sources.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://toufatech.github.io/Odin/installation.html">
-<meta name="theme-color" content="#101A24">
+<meta name="theme-color" content="#0B0E14">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Odin Agent IA">
 <meta property="og:locale" content="fr_FR">
@@ -26,7 +26,7 @@
 <link rel="preload" href="./assets/fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="./assets/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="./assets/site.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "HowTo", "name": "Installer Odin Agent IA", "inLanguage": "fr", "totalTime": "PT5M", "step": [{"@type": "HowToStep", "name": "Ouvrir un terminal", "text": "Terminal sur macOS ou Linux, PowerShell sur Windows (sans droits administrateur)."}, {"@type": "HowToStep", "name": "Lancer la commande d'installation", "text": "curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash sur macOS et Linux ; irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex sur Windows."}, {"@type": "HowToStep", "name": "Répondre aux trois questions", "text": "Accès à l'interface (réseau local en HTTPS par défaut), inventaire du réseau, démarrage automatique."}, {"@type": "HowToStep", "name": "Choisir le modèle dans le navigateur", "text": "L'interface s'ouvre sur l'onglet Réglages : fournisseur, clé, Tester, Enregistrer."}]}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://toufatech.github.io/Odin/"}, {"@type": "ListItem", "position": 2, "name": "Installation", "item": "https://toufatech.github.io/Odin/installation.html"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Installer Odin Agent IA","inLanguage":"fr","totalTime":"PT5M","step":[{"@type":"HowToStep","name":"Ouvrir un terminal","text":"Terminal sur macOS ou Linux, PowerShell sur Windows (sans droits administrateur)."},{"@type":"HowToStep","name":"Lancer la commande d'installation","text":"curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash sur macOS et Linux ; irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex sur Windows."},{"@type":"HowToStep","name":"Répondre aux trois questions","text":"Accès à l'interface (réseau local en HTTPS par défaut), inventaire du réseau, démarrage automatique."},{"@type":"HowToStep","name":"Choisir le modèle dans le navigateur","text":"L'interface s'ouvre sur l'onglet Réglages : fournisseur, clé, Tester, Enregistrer."}]}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Accueil","item":"https://toufatech.github.io/Odin/"},{"@type":"ListItem","position":2,"name":"Installation","item":"https://toufatech.github.io/Odin/installation.html"}]}</script>
 </head>
 <body data-page="installation">
 <a class="skip" href="#contenu">Aller au contenu</a>
@@ -80,7 +80,7 @@
       <li><div><b>Ouvre le Terminal</b><span class="muted">Applications → Utilitaires → Terminal (ou Cmd + Espace, puis « Terminal »).</span></div></li>
       <li><div><b>Colle cette commande et appuie sur Entrée</b><code class="code">curl -fsSL https://raw.githubusercontent.com/<wbr>TOUFATECH/Odin/main/<wbr>install.sh | bash</code><span><button class="btn small" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash">Copier</button></span><span class="muted">Mac Intel et Apple Silicon. Node.js 22 est téléchargé (somme de contrôle vérifiée) s'il manque, sans toucher à ton système.</span></div></li>
       <li><div><b>Réponds à trois questions</b><span class="muted">Qui peut ouvrir l'interface (ton réseau local en HTTPS par défaut), inventorier ton réseau, lancer Odin au démarrage.</span></div></li>
-      <li><div><b>Termine dans le navigateur</b><span class="muted">L'interface s'ouvre sur Réglages : choisis ton modèle, colle ta clé (ou Ollama, sans clé), « Tester », « Enregistrer ».</span></div></li>
+      <li><div><b>Termine dans le navigateur</b><span class="muted">L'interface s'ouvre sur Réglages : choisis ton modèle, colle ta clé (ou un modèle ouvert sur ta machine, sans clé), « Tester », « Enregistrer ».</span></div></li>
     </ol>
   </div>
 
@@ -122,7 +122,7 @@ npm run typecheck</code></div></li>
 <section class="band" id="apres"><div class="wrap">
   <div class="sec-head"><p class="eyebrow">Juste après</p><h2>Les premières minutes avec Odin</h2></div>
   <div class="grid">
-    <article class="card rv"><span class="k">1</span><h3>Choisis le cerveau</h3><p>Réglages → Modèle : Anthropic, OpenRouter, OpenAI, Ollama (local, gratuit) ou un service compatible. Ajoute des modèles de secours et leur palier.</p></article>
+    <article class="card rv"><span class="k">1</span><h3>Choisis le cerveau</h3><p>Réglages → Modèle : Anthropic, OpenRouter, OpenAI, un service compatible, ou un modèle ouvert lu par Odin sur ta machine (Métis : local, gratuit, sans serveur). Ajoute des modèles de secours et leur palier. Ces branchements vont être retirés : Odin n'utilisera que ses propres modèles, entraînés sur ta machine.</p></article>
     <article class="card rv d1"><span class="k">2</span><h3>Ouvre-le sur ton téléphone</h3><p>Sur le même Wi-Fi, le lien <span class="ic">https://192.168.1.x:8888</span> affiché à la fin. Accepte le certificat créé par Odin après avoir comparé son empreinte dans Réglages → Accès.</p></article>
     <article class="card rv d2"><span class="k">3</span><h3>Branche Telegram et la voix</h3><p>Réglages → Telegram (jeton du bot, ton identifiant) et Réglages → Voix (transcription, synthèse, voix copiée).</p></article>
     <article class="card rv d3"><span class="k">4</span><h3>Essaie</h3><p>« Quels appareils sont sur mon réseau ? », « Résume ce PDF », « Chaque lundi à 9 h, fais le point sur mes sauvegardes ».</p></article>
@@ -133,13 +133,13 @@ npm run typecheck</code></div></li>
   <div class="sec-head"><p class="eyebrow">Prérequis et options</p><h2>Ce qu'il faut, et ce qui est facultatif</h2></div>
   <div class="twrap rv"><table class="rtable"><thead><tr><th>Quoi</th><th>Nécessaire ?</th><th>Pour</th></tr></thead><tbody>
     <tr><td>Node.js 22.18+</td><td>installé automatiquement</td><td>faire tourner Odin</td></tr>
-    <tr><td>Un modèle</td><td>oui : clé d'API, ou Ollama en local</td><td>réfléchir ; sans modèle, Odin démarre en mode démo</td></tr>
+    <tr><td>Un modèle</td><td>facultatif : une clé d'API, ou un modèle ouvert sur ta machine</td><td>parler librement ; sans modèle, Odin comprend quand même les demandes vers ses applis Ces branchements vont être retirés : Odin n'utilisera que ses propres modèles, entraînés sur ta machine.</td></tr>
     <tr><td>ffmpeg</td><td>facultatif</td><td>vidéo, audio, miniatures, transcription de vidéos</td></tr>
     <tr><td>pdftotext (Poppler)</td><td>facultatif</td><td>meilleure lecture des PDF ; un lecteur intégré existe</td></tr>
-    <tr><td>Clé ElevenLabs</td><td>facultatif</td><td>la voix d'Odin</td></tr>
-    <tr><td>Service de transcription</td><td>facultatif</td><td>comprendre la voix (en ligne, ou serveur local sans clé)</td></tr>
+    <tr><td>Clé ElevenLabs</td><td>facultatif</td><td>la voix d'Odin (sera retirée : plus aucune voix en ligne)</td></tr>
+    <tr><td>Service de transcription</td><td>facultatif</td><td>comprendre la voix en ligne ; sinon, Odin la comprend sur ta machine (sera retiré)</td></tr>
     <tr><td>Codex</td><td>facultatif</td><td>confier des tâches de code à l'agent d'OpenAI</td></tr>
-    <tr><td>Docker</td><td>facultatif</td><td>bac à sable pour les commandes</td></tr>
+    <tr><td>Docker</td><td>facultatif</td><td>isoler les commandes (bac à sable) ou essayer une appli qui se lance avec Docker ; ni Odin ni ses conteneurs n'en ont besoin</td></tr>
   </tbody></table></div>
 </section>
 

@@ -1,6 +1,6 @@
 # Pégase ↔ Odin : le protocole précis
 
-Ce fichier précise, sans le contredire, le contrat `missions/pegase-protocole.md`. **C'est lui qui fait foi** pour les trois
+Ce fichier est le contrat entre le navigateur Pégase (livré à part) et Odin. **C'est lui qui fait foi** pour les trois
 côtés (Odin, Pégase ordinateur, Pégase téléphone). Version du protocole : **1**.
 
 - Toutes les routes sont sous `/api/pegase/`. Réponses en JSON UTF-8 (sauf `flux` : SSE, `agenda.ics` : texte iCalendar).
@@ -62,7 +62,7 @@ Recherche automatique (côté Pégase, rappel du contrat) : 127.0.0.1:8888, puis
 
 **Un profil Pégase est une personne de Persona** (les identités d'Odin, `src/valhalla/modules/var.ts`) : pas de second
 fichier de comptes. Même e-mail, même mot de passe, même double authentification que partout ailleurs dans Odin
-(voir le contrat SSO : `/home/claude/odin-wt/missions/sso-protocole.md` et `docs/sso-protocole.md` de l'agent sso-odin).
+(voir le contrat de la connexion unique : `docs/sso-protocole.md`).
 
 Un **profil** tel que le voit Pégase : `{ id, login, email, nom, groupes, role, voir }`.
 - `id`, `login`, `nom`, `email`, `groupes` : ceux de la personne dans Persona.

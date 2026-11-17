@@ -1,10 +1,10 @@
-# Publie le dossier site/ sur GitHub Pages à chaque modification.
+# Fabrique puis publie le site (dont le guide, tiré du code) sur GitHub Pages à chaque modification.
 # À activer une fois : Settings → Pages → Source : « GitHub Actions ».
 name: Site
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'tools/site/**', 'tools/build-site.py', '.github/workflows/pages.yml']
+    paths: ['site/**', 'tools/site/**', 'tools/guide/**', 'docs/etat.json', 'src/valhalla/**', 'src/web/face.js', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,7 +21,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - run: python3 tools/build-site.py
+      # Le site et le guide sont fabriqués par Odin lui-même (Node, sans dépendance) : le guide lit le code des applis.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run site
       # enablement : active GitHub Pages (source « GitHub Actions ») tout seul au premier passage.
       - uses: actions/configure-pages@v5
         with:
