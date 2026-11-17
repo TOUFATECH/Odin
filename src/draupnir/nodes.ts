@@ -2,7 +2,129 @@
 // données, web. Chaque nœud reçoit des éléments ({ json }) et en renvoie sur ses sorties.
 
 import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { lookup as dnsLookup } from 'node:dns/promises';
+import { request as httpRequest, type IncomingMessage } from 'node:http';
+import { request as httpsRequest } from 'node:https';
+import { isIP, type LookupFunction } from 'node:net';
+import { hostname, networkInterfaces } from 'node:os';
+import { Readable, type Transform } from 'node:stream';
+import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 import type { Item, NodeDef } from './engine.ts';
+
+// ---------------------------------------------------------------- Pas d'appel vers Odin lui-même
+// Un bloc web d'une automatisation ne vise jamais la machine d'Odin (Odin, ses applis, n'importe quel port) :
+// avec une clé, ce serait agir à la place du propriétaire sans sa validation. Pour agir sur Odin, une
+// automatisation passe par « Action d'une appli », où les actions graves restent refusées en automatique.
+// Les autres appareils de la maison et les sites restent permis comme avant.
+export const REFUS_VERS_ODIN = 'une automatisation n\'appelle pas Odin lui-même : utilise une action d\'appli';
+/** Ce que les blocs web savent du réseau. Remplaçable par les essais seulement (aucun réglage n'y touche). */
+export const reseauOdin = {
+  resoudre: async (nom: string): Promise<string[]> => (await dnsLookup(nom, { all: true, verbatim: true })).map((a) => a.address),
+  adressesMachine: (): string[] => Object.values(networkInterfaces()).flatMap((l) => (l ?? []).map((a) => a.address)),
+  nomMachine: (): string => hostname(),
+  /** Les noms par lesquels Odin est joint de l'extérieur (adresse publique, tunnel) : vide tant que rien ne les remplit. */
+  nomsPublics: (): string[] => [],
+};
+/** Une seule écriture par adresse IP : celle du navigateur ; une IPv4 portée par une IPv6 (::ffff:, ::, 64:ff9b::) en ressort. */
+function formeIp(ip: string): string {
+  const s = ip.replace(/%.*$/, '').replace(/^\[|\]$/g, '').toLowerCase();
+  try {
+    if (isIP(s) === 4) return new URL(`http://${s}/`).hostname;
+    if (isIP(s) !== 6) return s;
+    const h = new URL(`http://[${s}]/`).hostname.replace(/^\[|\]$/g, '');
+    const m = /^(?:::ffff:|::|64:ff9b::)([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
+    if (!m) return h;
+    const a = parseInt(m[1], 16), b = parseInt(m[2], 16);
+    return `${a >> 8}.${a & 255}.${b >> 8}.${b & 255}`;
+  } catch { return s; }
+}
+function ipDeLaMachine(ip: string, propres: Set<string>): boolean {
+  const f = formeIp(ip);
+  if (isIP(f) === 4) return /^(127|0)\./.test(f) || propres.has(f);
+  return f === '::1' || f === '::' || propres.has(f);
+}
+/** La raison du refus si l'adresse mène à la machine d'Odin (le nom est résolu avant de comparer), sinon rien. */
+export async function versOdin(url: string): Promise<string | undefined> {
+  let u: URL; try { u = new URL(url); } catch { return undefined; } // adresse illisible : l'appel échoue de lui-même
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return undefined;
+  const nom = u.hostname.replace(/^\[|\]$/g, '').toLowerCase().replace(/\.+$/, '');
+  const machine = reseauOdin.nomMachine().toLowerCase().replace(/\.+$/, '');
+  if (!nom || nom === 'localhost' || nom.endsWith('.localhost') || (machine && (nom === machine || nom === `${machine}.local`))) return REFUS_VERS_ODIN;
+  const publics = reseauOdin.nomsPublics().map((n) => { try { return new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(n) ? n : `http://${n}`).hostname; } catch { return n; } }).map((n) => n.replace(/^\[|\]$/g, '').toLowerCase().replace(/\.+$/, ''));
+  if (publics.includes(nom)) return REFUS_VERS_ODIN;
+  const propres = new Set(reseauOdin.adressesMachine().map(formeIp));
+  if (isIP(nom)) return ipDeLaMachine(nom, propres) ? REFUS_VERS_ODIN : undefined;
+  let ips: string[]; try { ips = await reseauOdin.resoudre(nom); } catch { return undefined; } // nom inconnu : l'appel échoue de lui-même
+  return ips.some((ip) => ipDeLaMachine(ip, propres)) ? REFUS_VERS_ODIN : undefined;
+}
+/** Résolution faite au moment même de se connecter, sous la même règle : l'adresse contrôlée est celle qui sert.
+ *  Sans elle, un nom pourrait répondre « site » au contrôle puis « boucle locale » à la connexion (rebinding). Exportée pour les essais. */
+export const lookupHorsOdin: LookupFunction = (nom, opts, cb) => {
+  const rendre = cb as (e: Error | null, a?: unknown, f?: number) => void;
+  void (async () => {
+    const ips = await reseauOdin.resoudre(nom);
+    const propres = new Set(reseauOdin.adressesMachine().map(formeIp));
+    if (ips.some((ip) => ipDeLaMachine(ip, propres))) throw new Error(REFUS_VERS_ODIN);
+    const fam = opts.family === 4 || opts.family === 6 ? opts.family : 0;
+    const liste = ips.filter((ip) => !fam || isIP(ip) === fam).map((address) => ({ address, family: isIP(address) }));
+    if (!liste.length) throw Object.assign(new Error(`nom inconnu : ${nom}`), { code: 'ENOTFOUND' });
+    return liste;
+  })().then((l) => (opts.all ? rendre(null, l) : rendre(null, l[0].address, l[0].family)), (e: Error) => rendre(e));
+};
+const DECOMPRESSE: Record<string, () => Transform> = { gzip: createGunzip, 'x-gzip': createGunzip, deflate: createInflate, br: createBrotliDecompress };
+/** Un fetch dont la connexion passe par lookupHorsOdin (sert quand aucun fetch n'est injecté) ; les redirections sont rendues telles quelles.
+ *  Mêmes en-têtes par défaut et même décompression que le fetch de Node. Exporté pour les essais. */
+export function fetchFige(url: string, init: RequestInit = {}): Promise<Response> {
+  return new Promise((ok, ko) => {
+    const u = new URL(url), method = String(init.method ?? 'GET').toUpperCase();
+    const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
+    const a = (k: string, v: string) => { if (!Object.keys(headers).some((x) => x.toLowerCase() === k)) headers[k] = v; };
+    a('accept', '*/*'); a('user-agent', 'node'); a('accept-encoding', 'gzip, deflate, br');
+    const corps = init.body === undefined || init.body === null ? undefined : String(init.body);
+    if (corps !== undefined) { a('content-type', 'text/plain;charset=UTF-8'); headers['content-length'] = String(Buffer.byteLength(corps)); }
+    const signal = init.signal ?? undefined;
+    const echec = (e: unknown) => ko(signal?.aborted ? signal.reason : e instanceof Error && e.message === REFUS_VERS_ODIN ? new Error(REFUS_VERS_ODIN) : Object.assign(new TypeError('fetch failed'), { cause: e }));
+    const req = (u.protocol === 'https:' ? httpsRequest : httpRequest)(u, { method, headers, lookup: lookupHorsOdin, agent: false, signal }, (res: IncomingMessage) => {
+      const h = new Headers();
+      for (const [k, v] of Object.entries(res.headers)) for (const x of Array.isArray(v) ? v : v === undefined ? [] : [v]) h.append(k, String(x));
+      const status = res.statusCode ?? 0;
+      if (status < 200 || status > 599) { res.resume(); return echec(new Error(`statut ${status}`)); }
+      if (method === 'HEAD' || [204, 205, 304].includes(status)) { res.resume(); return ok(new Response(null, { status, statusText: res.statusMessage, headers: h })); }
+      const enc = String(res.headers['content-encoding'] ?? '').trim().toLowerCase();
+      const flot = DECOMPRESSE[enc] ? res.pipe(DECOMPRESSE[enc]()) : res;
+      if (flot !== res) res.on('error', (e) => flot.destroy(e));
+      ok(new Response(Readable.toWeb(flot as Readable) as ReadableStream, { status, statusText: res.statusMessage, headers: h }));
+    });
+    req.on('error', echec);
+    req.end(corps);
+  });
+}
+/** Un appel web d'automatisation : refusé vers Odin, et chaque redirection est contrôlée de la même façon.
+ *  Sans fetch injecté, la connexion elle-même refuse une adresse de la machine (fetchFige). */
+async function appelHorsOdin(fi: typeof fetch | undefined, url: string, init: RequestInit): Promise<Response> {
+  const f = fi ?? (fetchFige as unknown as typeof fetch);
+  let u = url, opts: RequestInit = { ...init, redirect: 'manual' };
+  for (let saut = 0; ; saut++) {
+    const refus = await versOdin(u); if (refus) throw new Error(refus);
+    const r = await f(u, opts);
+    const loc = r.headers.get('location');
+    if (![301, 302, 303, 307, 308].includes(r.status) || !loc) return r;
+    if (saut >= 10) throw new Error('trop de redirections');
+    const suite = new URL(loc, u);
+    void r.body?.cancel().catch(() => {});
+    let entetes = { ...(opts.headers as Record<string, string> | undefined) };
+    const m = String(opts.method ?? 'GET').toUpperCase();
+    // Comme un navigateur : 303 (ou 301/302 après un POST) continue en GET, sans corps.
+    if ((r.status === 303 && m !== 'GET' && m !== 'HEAD') || ((r.status === 301 || r.status === 302) && m === 'POST')) {
+      entetes = Object.fromEntries(Object.entries(entetes).filter(([k]) => k.toLowerCase() !== 'content-type'));
+      opts = { ...opts, method: 'GET', body: undefined };
+    }
+    // Vers une autre origine, la clé ne suit pas.
+    if (suite.origin !== new URL(u).origin) entetes = Object.fromEntries(Object.entries(entetes).filter(([k]) => !['authorization', 'x-api-key', 'cookie'].includes(k.toLowerCase())));
+    opts = { ...opts, headers: entetes };
+    u = suite.href;
+  }
+}
 
 const asItems = (v: unknown): Item[] => (Array.isArray(v) ? v : [v]).filter((x) => x !== undefined && x !== null).map((x) => ({ json: x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, unknown> : { valeur: x } }));
 const num = (v: unknown, d: number) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
@@ -186,7 +308,7 @@ export const NODES: NodeDef[] = [
     { key: 'identifiant', label: 'Identifiant du coffre', kind: 'text', default: '', help: 'Nom d\'une clé rangée dans le coffre d\'Odin : jamais écrite dans l\'automatisation ni dans les journaux.' },
     { key: 'authentification', label: 'Utiliser la clé comme', kind: 'select', options: ['Bearer', 'en-tête X-API-Key', 'paramètre api_key'], default: 'Bearer' },
   ], run: async (c, items) => {
-    const f = c.deps.fetch ?? fetch, out: Item[] = [];
+    const f = c.deps.fetch, out: Item[] = [];
     for (const [i, it] of items.entries()) {
       let url = c.s('url', it, i);
       const method = c.s('méthode', it, i) || 'GET';
@@ -200,7 +322,7 @@ export const NODES: NodeDef[] = [
       }
       const hasBody = method !== 'GET' && body !== '' && body !== undefined;
       if (hasBody && typeof body === 'object' && !Object.keys(headers).some((k) => k.toLowerCase() === 'content-type')) headers['content-type'] = 'application/json';
-      const r = await f(url, { method, headers, body: hasBody ? (typeof body === 'object' ? JSON.stringify(body) : String(body)) : undefined, signal: AbortSignal.timeout(30_000) });
+      const r = await appelHorsOdin(f, url, { method, headers, body: hasBody ? (typeof body === 'object' ? JSON.stringify(body) : String(body)) : undefined, signal: AbortSignal.timeout(30_000) });
       const text = await r.text();
       if (!r.ok) throw new Error(`${method} ${url.split('?')[0]} → ${r.status} ${text.slice(0, 200)}`);
       let data: unknown = text;
@@ -210,7 +332,7 @@ export const NODES: NodeDef[] = [
     return [out];
   } },
   { type: 'web.flux', label: 'Lire un flux', group: 'Web', what: 'Les articles d\'un flux RSS / Atom.', params: [{ key: 'url', label: 'Adresse du flux', kind: 'text', required: true }, { key: 'nombre', label: 'Nombre max', kind: 'number', default: 10 }], run: async (c) => {
-    const r = await (c.deps.fetch ?? fetch)(c.s('url'), { signal: AbortSignal.timeout(30_000) });
+    const r = await appelHorsOdin(c.deps.fetch, c.s('url'),{ signal: AbortSignal.timeout(30_000) });
     if (!r.ok) throw new Error(`flux → ${r.status}`);
     return [parseFeed(await r.text()).slice(0, num(c.p('nombre'), 10)).map((x) => ({ json: { ...x } }))];
   } },
@@ -434,7 +556,7 @@ export const MORE_NODES: NodeDef[] = [
       const svc = c.s('service', it, i), to = c.s('adresse', it, i), text = c.s('texte', it, i).slice(0, 3800);
       let r: Response;
       if (svc === 'Telegram') { const tok = c.deps.secret?.('TELEGRAM_BOT_TOKEN'); if (!tok) throw new Error('jeton du bot Telegram absent du coffre'); r = await f(`https://api.telegram.org/bot${tok}/sendMessage`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chat_id: to, text }), signal: AbortSignal.timeout(20_000) }); }
-      else { if (!/^https:\/\//.test(to)) throw new Error('adresse de webhook invalide'); r = await f(to, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(svc === 'Slack' ? { text } : { content: text }), signal: AbortSignal.timeout(20_000) }); }
+      else { if (!/^https:\/\//.test(to)) throw new Error('adresse de webhook invalide'); r = await appelHorsOdin(c.deps.fetch, to, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(svc === 'Slack' ? { text } : { content: text }), signal: AbortSignal.timeout(20_000) }); }
       if (!r.ok) throw new Error(`${svc} → ${r.status}`);
     }
     return [items];
