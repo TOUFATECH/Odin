@@ -53,6 +53,50 @@
     if (!c[out].some((l) => l.node === to)) c[out].push({ node: to });
     return true;
   }
+  // ---------------- Les fils (fonctions pures) : insérer un bloc au milieu, retirer, les refus d'un lien, la cible.
+  /** Pourquoi le lien de → vers (sortie `out`) est refusé ; '' s'il est permis. Les mêmes refus pour les deux touchers et le fil tiré. */
+  function refusLien(wf, de, out, vers, declencheur) {
+    if (de === vers) return 'Un bloc ne se relie pas à lui-même.';
+    if (declencheur) return 'Un déclencheur ne reçoit pas de lien : c\'est lui qui fait partir l\'automatisation.';
+    if ((wf.connections[de]?.[out] ?? []).some((l) => l?.node === vers)) return 'Ces deux blocs sont déjà reliés par cette sortie.';
+    return '';
+  }
+  /** Retire le fil de → vers de la sortie `out` (lui seul). → true s'il existait. */
+  function retirerLien(wf, de, out, vers) {
+    const t = wf.connections[de]?.[out], i = (t ?? []).findIndex((l) => l?.node === vers);
+    if (i < 0) return false;
+    t.splice(i, 1); return true;
+  }
+  /**
+   * « Ajouter un bloc ici » sur un fil : le bloc choisi est posé entre les deux (à mi-chemin, plus bas si la place
+   * est prise) ; le fil de → vers devient de → bloc (même sortie, même place) et bloc → vers (par sa première sortie,
+   * avec l'entrée d'origine). Un déclencheur ne se met pas au milieu. → { ok, name } ou { ok: false, error }.
+   */
+  function inserer(wf, choix, fil) {
+    if (!choix?.ok) return { ok: false, error: choix?.error ?? 'Rien à ajouter.' };
+    const b = choix.bloc;
+    if (b.trigger) return { ok: false, error: 'Un déclencheur ne se met pas au milieu d\'un fil : c\'est lui qui fait partir l\'automatisation.' };
+    const a = wf.nodes.find((n) => n.name === fil?.de), z = wf.nodes.find((n) => n.name === fil?.vers);
+    const t = a && z ? wf.connections[a.name]?.[fil.out] : null, j = (t ?? []).findIndex((l) => l?.node === z?.name);
+    if (j < 0) return { ok: false, error: 'Ce lien n\'existe plus.' };
+    const name = nomLibre(wf.nodes, b.name);
+    const pa = a.position ?? [0, 0], pz = z.position ?? [0, 0];
+    const position = placeLibre(wf.nodes, ((pa[0] ?? 0) + (pz[0] ?? 0)) / 2, ((pa[1] ?? 0) + (pz[1] ?? 0)) / 2);
+    wf.nodes.push({ name, type: b.type, params: b.params, position });
+    const ancien = t[j];
+    t[j] = { node: name };
+    wf.connections[name] = [[{ ...ancien }]]; // (nom neuf : aucun lien n'en partait)
+    return { ok: true, name };
+  }
+  /** La zone de toucher, en pixels du schéma, pour qu'elle fasse `px` pixels à l'écran au zoom `k` (jamais moins que `px`). */
+  const zoneToucher = (k, px = 44) => Math.max(px, px / (k > 0 ? k : 1));
+  /** Le style du rond de sortie i sur m : centré à 27 + 22 i ; entre deux sorties voisines, la zone s'arrête à mi-chemin (11 px). */
+  const styleSortie = (i, m) => `top:calc(${27 + 22 * i}px - var(--dh))${i > 0 ? ';--dh:11px' : ''}${i < m - 1 ? ';--db:11px' : ''}`;
+  /** Le bloc sous le point (x, y) de l'écran parmi `boites` ({ name, left, top, width, height }) : le dernier dessiné l'emporte. */
+  function blocSous(boites, x, y) {
+    for (let i = (boites ?? []).length - 1; i >= 0; i--) { const b = boites[i]; if (x >= b.left && x <= b.left + b.width && y >= b.top && y <= b.top + b.height) return b.name; }
+    return null;
+  }
   /**
    * Pose un bloc. Depuis le « + » d'un bloc (`de` : { node, out }) : à droite de lui (plus bas si la place est prise)
    * et relié à lui. Depuis le « + » central ou un double-clic (`a` : [x, y]) : posé là, sans lien.
@@ -188,10 +232,19 @@
 .dr-node.ok{border-color:var(--good)}.dr-node.err{border-color:var(--bad)}
 .dr-node small{display:block;font-size:11.5px;color:var(--dim)}.dr-node b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dr-node .dr-cnt{font-size:11.5px;color:var(--good)}.dr-node.err .dr-cnt{color:var(--bad)}
-.dr-port{position:absolute;width:18px;height:18px;border-radius:50%;border:2px solid var(--accent);background:var(--panel);padding:0;cursor:crosshair}
-.dr-port.in{left:-10px;top:24px}.dr-port.out{right:-10px}.dr-port.armed{background:var(--accent)}
-.dr-port .dr-pl{position:absolute;left:20px;top:-2px;font-size:10.5px;color:var(--dim);white-space:nowrap;pointer-events:none}
-.dr-link{fill:none;stroke:var(--accent);stroke-width:2.2;opacity:.8;pointer-events:stroke;cursor:pointer}
+.dr-port{--z:var(--dr-z,44px);--dh:calc(var(--z) / 2);--db:calc(var(--z) / 2);position:absolute;width:var(--z);height:calc(var(--dh) + var(--db));border:0;border-radius:0;background:none;padding:0;cursor:crosshair;touch-action:none}
+.dr-port::before{content:'';position:absolute;left:calc(var(--z) / 2 - 9px);top:calc(var(--dh) - 9px);width:18px;height:18px;box-sizing:border-box;border-radius:50%;border:2px solid var(--accent);background:var(--panel)}
+.dr-port.in{left:calc(-1px - var(--z) / 2);top:calc(33px - var(--z) / 2)}.dr-port.out{right:calc(-1px - var(--z) / 2)}.dr-port.armed::before{background:var(--accent)}
+.dr-port:focus-visible{outline:none}.dr-port:focus-visible::before{outline:2px solid var(--accent);outline-offset:2px}
+.dr-port .dr-pl{position:absolute;left:calc(var(--z) / 2 + 11px);top:calc(var(--dh) - 11px);font-size:10.5px;color:var(--dim);white-space:nowrap;pointer-events:none}
+.dr-link{fill:none;stroke:var(--accent);stroke-width:2.2;opacity:.8;pointer-events:none}
+.dr-fil{fill:none;stroke:transparent;stroke-width:var(--dr-zf,22px);pointer-events:stroke;cursor:pointer}.dr-fil:focus{outline:none}
+.dr-fil:hover,.dr-fil:focus-visible,.dr-fil.on{stroke:color-mix(in srgb,var(--accent) 22%,transparent)}
+.dr-tire{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-dasharray:6 5;pointer-events:none}
+.dr-node.dr-cible{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+.dr-fil-menu{position:absolute;z-index:3;min-width:200px;display:flex;flex-direction:column;gap:2px;padding:6px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);animation:dr-ch-in .12s ease-out}
+.dr-fil-menu button{text-align:left;border:0;background:none;border-radius:8px;padding:0 12px;min-height:44px;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+.dr-fil-menu button:hover,.dr-fil-menu button:focus-visible{background:var(--panel2);outline:none}.dr-fil-menu button:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
 .dr-side{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;max-height:min(64vh,620px);overflow:auto}
 .dr-side h2{font-size:16px;margin:0}.dr-side label{font-size:13.5px;font-weight:600;display:block;margin:6px 0 4px}
 .dr-side input:not([type=checkbox]),.dr-side textarea,.dr-side select{width:100%;min-height:38px;padding:7px 10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2)}.dr-side textarea{min-height:80px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
@@ -222,7 +275,7 @@
 .dr-side .dr-manque{display:block;color:var(--bad);font-size:13px;margin-top:4px}.dr-side .dr-manque[hidden]{display:none}.dr-side .dr-champs small.sub{display:block;margin-top:4px}
 .dr-av summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}.dr-av textarea{min-height:120px}
 @keyframes dr-ch-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.dr-choix{animation:none}.dr-plus span{transition:none}}
+@media (prefers-reduced-motion:reduce){.dr-choix,.dr-fil-menu{animation:none}.dr-plus span{transition:none}}
 `;
   let st = null, wf = null, outs = {}, sel = null, armed = null, last = null, view = { x: 40, y: 40, k: 1 }, dirty = false;
   const cat = (t) => st?.catalog.find((c) => c.type === t);
@@ -305,7 +358,7 @@
   const outputsOf = (n) => outs[n.name] ?? cat(n.type)?.outputs ?? ['sortie'];
   function editor(r) {
     const box = $('#v-flows .body');
-    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes, relie une sortie (rond à droite) à une entrée (rond à gauche), clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc.';
+    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes ; relie-les en tirant un fil d\'une sortie (rond à droite) jusqu\'à une étape, ou en touchant la sortie puis l\'entrée (rond à gauche). Touche un fil pour le retirer ou y ajouter un bloc. Clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc.';
     const canvas = el('div', { class: 'dr-canvas', id: 'drCanvas', role: 'application', 'aria-label': 'Schéma de l\'automatisation' });
     const svg = sv('svg'); const world = el('div', { class: 'dr-world' }); canvas.append(svg, world);
     const side = el('aside', { class: 'dr-side', id: 'drSide', 'aria-label': 'Réglages' });
@@ -333,9 +386,15 @@
       : [el('small', {}, c?.group ?? '?', ' · ', c?.label ?? n.type), el('b', {}, n.name)];
     const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`, style: `left:${n.position?.[0] ?? 0}px;top:${n.position?.[1] ?? 0}px` },
       ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null);
-    if (!c?.trigger) d.append(el('button', { class: 'dr-port in', type: 'button', 'aria-label': `Entrée de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (armed) { link(armed.node, armed.out, n.name); armed = null; draw(); } } }));
+    // Les ronds : la zone touchable fait 44 px à l'écran quel que soit le zoom (--dr-z) ; le rond dessiné garde ses 18 px,
+    // à la même place (::before). Entrée touchée sans sortie armée : comme toucher le bloc (sa zone mord sur le bloc).
+    if (!c?.trigger) d.append(el('button', { class: 'dr-port in', type: 'button', 'aria-label': `Entrée de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (armed) { link(armed.node, armed.out, n.name); armed = null; draw(); } else { sel = n.name; draw(); drawSide(); } } }));
     const sorties = outputsOf(n);
-    sorties.forEach((o, i, all) => d.append(el('button', { class: `dr-port out${armed && armed.node === n.name && armed.out === i ? ' armed' : ''}`, type: 'button', style: `top:${18 + i * 22}px`, 'aria-label': `Sortie ${o} de ${n.name}`, onclick: (e) => { e.stopPropagation(); armed = armed && armed.node === n.name && armed.out === i ? null : { node: n.name, out: i }; draw(); } }, all.length > 1 ? el('span', { class: 'dr-pl' }, o) : null)));
+    // Plusieurs sorties : le bloc est assez haut pour que la dernière ne passe pas sous le « + » ; les zones de deux
+    // sorties voisines se partagent l'écart (le rond le plus proche l'emporte).
+    if (sorties.length > 1) d.style.minHeight = `${58 + 22 * (sorties.length - 1)}px`;
+    // Une sortie : un toucher l'arme (puis un toucher sur une entrée relie), ou on en TIRE un fil jusqu'à un bloc.
+    sorties.forEach((o, i, all) => { const b = el('button', { class: `dr-port out${armed && armed.node === n.name && armed.out === i ? ' armed' : ''}`, type: 'button', style: styleSortie(i, all.length), 'aria-label': `Sortie ${o} de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (e.timeStamp - tireFin < 500) return; armed = armed && armed.node === n.name && armed.out === i ? null : { node: n.name, out: i }; draw(); } }, all.length > 1 ? el('span', { class: 'dr-pl' }, o) : null); tirable(b, n, i); d.append(b); });
     // Le « + » du côté de la sortie : un bloc de plus, posé à droite et relié à celui-ci.
     d.append(el('button', { class: 'dr-plus', type: 'button', title: 'Ajouter un bloc à la suite', 'aria-label': `Ajouter un bloc après ${n.name}`, onclick: (e) => { e.stopPropagation(); void ouvrirChoix({ de: { node: n.name, out: sortieDuPlus(wf, n.name, sorties.length) } }); } }, el('span', { 'aria-hidden': 'true' }, '+')));
     let start = null;
@@ -348,10 +407,88 @@
     return d;
   }
   function link(from, out, to) { if (relier(wf, from, out, to)) dirty = true; }
+  /** Le point (en coordonnées du schéma) sous le pointeur. */
+  const sousPointeur = (e) => { const r = $('#drCanvas')?.getBoundingClientRect?.() ?? { left: 0, top: 0 }; return [(e.clientX - r.left - view.x) / view.k, (e.clientY - r.top - view.y) / view.k]; };
+  // Fil tiré : depuis une sortie, le fil suit le pointeur ; lâché sur un bloc, le lien se pose (mêmes refus que les deux
+  // touchers) ; lâché ailleurs, rien ne change. Un geste de moins de 6 px reste un toucher (il arme la sortie).
+  let tireFin = -Infinity;
+  function tirable(b, n, out) {
+    let g = null;
+    const fin = () => { g = null; $('#drCanvas svg .dr-tire')?.remove(); for (const d of elems.values()) d.classList.remove('dr-cible'); };
+    const cible = (e) => {
+      // (la cible : le bloc, élargi de son rond d'entrée, dont une moitié dépasse à gauche)
+      const nom = blocSous([...elems].map(([name, d]) => {
+        const r = d.getBoundingClientRect(), p = d.querySelector('.dr-port.in')?.getBoundingClientRect?.();
+        const left = p?.width ? Math.min(r.left, p.left) : r.left, top = p?.height ? Math.min(r.top, p.top) : r.top;
+        const right = p?.width ? Math.max(r.left + r.width, p.left + p.width) : r.left + r.width, bottom = p?.height ? Math.max(r.top + r.height, p.top + p.height) : r.top + r.height;
+        return { name, left, top, width: right - left, height: bottom - top };
+      }), e.clientX, e.clientY);
+      const m = nom ? wf.nodes.find((x) => x.name === nom) : null;
+      return m ? { nom, refus: refusLien(wf, n.name, out, nom, Boolean(cat(m.type)?.trigger)) } : null;
+    };
+    b.addEventListener('pointerdown', (e) => { if (e.button > 0) return; e.stopPropagation(); fermerMenu(); g = { x: e.clientX, y: e.clientY, moved: false }; b.setPointerCapture?.(e.pointerId); });
+    b.addEventListener('pointermove', (e) => {
+      if (!g) return;
+      if (!g.moved && Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) < 6) return;
+      g.moved = true;
+      const svg = $('#drCanvas svg'); if (!svg) return;
+      const x1 = (n.position?.[0] ?? 0) + NODE_W + 10, y1 = (n.position?.[1] ?? 0) + 27 + out * 22, [x2, y2] = sousPointeur(e), dx = Math.max(30, Math.abs(x2 - x1) / 2);
+      let p = svg.querySelector('.dr-tire');
+      if (!p) { p = sv('path', { class: 'dr-tire' }); svg.append(p); }
+      p.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
+      p.setAttribute('d', `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`);
+      const c = cible(e);
+      for (const [nom, d] of elems) d.classList.toggle('dr-cible', Boolean(c && !c.refus && c.nom === nom));
+    });
+    b.addEventListener('pointerup', (e) => {
+      if (!g) return;
+      const bouge = g.moved; fin();
+      if (!bouge) return; // un simple toucher : le clic arme la sortie, comme avant
+      tireFin = e.timeStamp;
+      const c = cible(e), s = $('#drSt');
+      if (!c) return; // lâché ailleurs : rien ne change
+      if (c.refus) { if (s) s.textContent = `Pas de lien : ${c.refus}`; return; }
+      link(n.name, out, c.nom); armed = null; draw();
+      if (s) s.textContent = `✓ « ${n.name} » relié à « ${c.nom} ».`;
+    });
+    b.addEventListener('pointercancel', fin);
+  }
+  // ---------------- Le petit menu d'un fil : « Retirer ce lien », « Ajouter un bloc ici ». Échap ou un toucher ailleurs le referme.
+  let menuFil = null, glisse = false; // (glisse : un glissement du schéma parti d'un fil vient de finir ; le prochain appui l'efface)
+  const cleFil = (f) => JSON.stringify([f.de, f.out, f.vers]);
+  function fermerMenu(rendre = false) {
+    if (!menuFil) return;
+    const { boite, fil, dehors } = menuFil; menuFil = null;
+    boite.remove(); document.removeEventListener?.('pointerdown', dehors, true);
+    $('#drCanvas svg .dr-fil.on')?.classList.remove('on');
+    if (rendre) [...($('#drCanvas svg')?.querySelectorAll('.dr-fil') ?? [])].find((x) => x.getAttribute('data-cle') === cleFil(fil))?.focus?.();
+  }
+  /** Ouvre le menu du fil `fil` ({ de, out, vers }) au point [x, y] de la fenêtre du schéma. */
+  function ouvrirMenu(fil, [x, y], zone) {
+    fermerMenu();
+    const canvas = $('#drCanvas'); if (!canvas) return;
+    const r = canvas.getBoundingClientRect();
+    const gauche = r.width ? Math.max(8, Math.min(x, r.width - 216)) : x, haut = r.height ? Math.max(8, Math.min(y, r.height - 112)) : y;
+    const action = (f) => () => { fermerMenu(true); f(); };
+    const boite = el('div', { class: 'dr-fil-menu', role: 'menu', 'aria-label': `Lien ${fil.de} → ${fil.vers}`, style: `left:${Math.round(gauche)}px;top:${Math.round(haut)}px` },
+      el('button', { type: 'button', role: 'menuitem', onclick: action(async () => { if (!(await window.OdinDialog.confirm(`Retirer le lien ${fil.de} → ${fil.vers} ?`))) return; if (retirerLien(wf, fil.de, fil.out, fil.vers)) { dirty = true; draw(); } }) }, 'Retirer ce lien'),
+      el('button', { type: 'button', role: 'menuitem', onclick: action(() => void ouvrirChoix({ milieu: fil })) }, 'Ajouter un bloc ici'));
+    boite.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermerMenu(true); } });
+    // Sortir du menu par Tab le referme. (Un focus perdu sans destination — un clic sur un choix, selon le navigateur — ne le ferme pas.)
+    boite.addEventListener('focusout', (e) => { const vers = e.relatedTarget; if (vers && vers.closest?.('.dr-fil-menu') !== boite && menuFil?.boite === boite) fermerMenu(); });
+    fleches(boite);
+    const dehors = (e) => { if (!e.target?.closest?.('.dr-fil-menu')) fermerMenu(); };
+    menuFil = { boite, fil, dehors };
+    zone?.classList.add('on');
+    canvas.append(boite);
+    document.addEventListener('pointerdown', dehors, true);
+    boite.querySelector('button')?.focus?.();
+  }
   /** Le point de la fenêtre (en coordonnées du schéma) où poser un bloc centré sous [px, py] (pixels dans la fenêtre). */
   const pointSchema = (px, py) => [Math.round((px - view.x) / view.k - NODE_W / 2), Math.round((py - view.y) / view.k - 30)];
   function draw() {
     const world = $('#drCanvas .dr-world'); if (!world) return;
+    fermerMenu(); // (le schéma change : le fil du menu peut ne plus exister)
     elems = new Map();
     world.replaceChildren(...wf.nodes.map((n) => { const d = nodeEl(n); elems.set(n.name, d); return d; })); lines();
     // Fenêtre vide : un grand « + » au centre, pour le premier bloc.
@@ -366,14 +503,19 @@
       list.forEach((targets, i) => (targets ?? []).forEach((l) => {
         const b = wf.nodes.find((n) => n.name === l.node); if (!b) return;
         const x1 = a.position[0] + NODE_W + 10, y1 = a.position[1] + 27 + i * 22, x2 = b.position[0] - 10, y2 = b.position[1] + 33, dx = Math.max(40, Math.abs(x2 - x1) / 2);
-        const p = sv('path', { class: 'dr-link', d: `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` });
-        p.addEventListener('click', async () => { if (await window.OdinDialog.confirm(`Retirer le lien ${from} → ${l.node} ?`)) { targets.splice(targets.indexOf(l), 1); dirty = true; draw(); } });
-        g.append(p);
+        const d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+        // Le fil dessiné, et par-dessus une zone large et invisible qui se touche (et se choisit au clavier) : elle ouvre le menu du fil.
+        const fil = { de: from, out: i, vers: l.node }, so = outputsOf(a).length > 1 ? outputsOf(a)[i] ?? '' : '';
+        const z = sv('path', { class: 'dr-fil', d, tabindex: '0', role: 'button', 'aria-haspopup': 'menu', 'data-de': from, 'data-vers': l.node, 'data-cle': cleFil(fil), 'aria-label': `Lien ${from} → ${l.node}${so ? ` (sortie ${so})` : ''}` });
+        z.addEventListener('click', (e) => { if (glisse) return; const r = $('#drCanvas').getBoundingClientRect(); ouvrirMenu(fil, [e.clientX - r.left, e.clientY - r.top], z); });
+        z.addEventListener('keydown', (e) => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); ouvrirMenu(fil, [(x1 + x2) / 2 * view.k + view.x, (y1 + y2) / 2 * view.k + view.y], z); });
+        g.append(sv('path', { class: 'dr-link', d }), z);
       }));
     }
   }
   function pan(canvas, world) {
-    const apply = () => { world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`; lines(); };
+    // (--dr-z, --dr-zf : les zones de toucher des ronds et des fils gardent 44 et 22 px à l'écran, même dézoomé)
+    const apply = () => { world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`; canvas.style.setProperty?.('--dr-z', `${zoneToucher(view.k)}px`); canvas.style.setProperty?.('--dr-zf', `${zoneToucher(view.k, 22)}px`); lines(); };
     let s = null;
     // Cadrage : tout le schéma visible à l'ouverture.
     requestAnimationFrame(() => {
@@ -383,17 +525,32 @@
       view.k = Math.min(1.1, Math.max(0.4, Math.min(r.width / (x1 - x0), r.height / (y1 - y0))));
       view.x = (r.width - (x1 - x0) * view.k) / 2 - x0 * view.k; view.y = (r.height - (y1 - y0) * view.k) / 2 - y0 * view.k; apply();
     });
-    canvas.addEventListener('pointerdown', (e) => { if (e.target !== canvas && !e.target.closest('svg')) return; s = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false }; canvas.setPointerCapture(e.pointerId); if (armed) { armed = null; draw(); } });
-    canvas.addEventListener('pointermove', (e) => { if (!s) return; if (Math.abs(e.clientX - s.x) + Math.abs(e.clientY - s.y) > 6) s.moved = true; view.x = s.vx + e.clientX - s.x; view.y = s.vy + e.clientY - s.y; apply(); });
+    // Un geste parti d'un fil fait aussi glisser le schéma, mais seulement au-delà de 6 px : en deçà, rien n'est
+    // redessiné ni capturé, et le clic qui suit ouvre le menu du fil. Après un glissement, ce clic n'ouvre rien.
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.target !== canvas && !e.target.closest('svg')) return;
+      const fil = Boolean(e.target.closest('.dr-fil'));
+      s = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false, fil, id: e.pointerId };
+      if (fil) return;
+      canvas.setPointerCapture(e.pointerId); if (armed) { armed = null; draw(); }
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!s) return;
+      if (Math.abs(e.clientX - s.x) + Math.abs(e.clientY - s.y) > 6 && !s.moved) { s.moved = true; if (s.fil) { fermerMenu(); canvas.setPointerCapture?.(s.id); } }
+      if (s.fil && !s.moved) return;
+      view.x = s.vx + e.clientX - s.x; view.y = s.vy + e.clientY - s.y; apply();
+    });
+    canvas.addEventListener('pointercancel', () => { s = null; });
     // Double-clic (ou double toucher) sur un endroit vide : la même fenêtre que le « + », le bloc se pose là.
     let tap = null;
     canvas.addEventListener('pointerup', (e) => {
-      const t = s && !s.moved ? { t: e.timeStamp, x: e.clientX, y: e.clientY } : null; s = null;
+      glisse = Boolean(s?.fil && s.moved);
+      const t = s && !s.moved && !s.fil ? { t: e.timeStamp, x: e.clientX, y: e.clientY } : null; s = null;
       if (!t) { tap = null; return; }
       if (!estDoubleTouche(tap, t)) { tap = t; return; }
       tap = null; const r = canvas.getBoundingClientRect(); void ouvrirChoix({ a: pointSchema(t.x - r.left, t.y - r.top) });
     });
-    canvas.addEventListener('wheel', (e) => { e.preventDefault(); const k = Math.min(1.6, Math.max(0.4, view.k * (e.deltaY < 0 ? 1.1 : 0.9))); const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; apply(); }, { passive: false });
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); fermerMenu(); const k = Math.min(1.6, Math.max(0.4, view.k * (e.deltaY < 0 ? 1.1 : 0.9))); const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; apply(); }, { passive: false });
     apply();
   }
   async function removeNode(name) {
@@ -570,16 +727,17 @@
         $('#drSide .dr-app button')?.focus?.();
         return;
       }
-      const r = poser(wf, c, ou);
+      // « Ajouter un bloc ici » sur un fil (`milieu`) : le bloc va entre les deux ; sinon, le « + ».
+      const r = ou.milieu ? inserer(wf, c, ou.milieu) : poser(wf, c, ou);
       if (!r.ok) { void window.OdinDialog?.alert(r.error); return; }
       fermerChoix(); sel = r.name; dirty = true; montrer(wf.nodes.find((n) => n.name === r.name)); draw(); drawSide();
-      const s = $('#drSt'); if (s) s.textContent = r.lien ? `✓ « ${r.name} » ajouté après « ${r.lien.de} ».` : `✓ « ${r.name} » ajouté.`;
+      const s = $('#drSt'); if (s) s.textContent = ou.milieu ? `✓ « ${r.name} » ajouté entre « ${ou.milieu.de} » et « ${ou.milieu.vers} ».` : r.lien ? `✓ « ${r.name} » ajouté après « ${r.lien.de} ».` : `✓ « ${r.name} » ajouté.`;
       elems.get(r.name)?.focus?.();
     };
     const outils = cible ? [] : (st?.catalog ?? []).filter((c) => (quand ? c.trigger && c.type !== 'déclencheur.module' : !c.trigger && c.type !== 'module.action'));
     const zoneOutils = el('div', { class: 'dr-ch-o', 'aria-label': quand ? 'Déclencheurs' : 'Outils de Talos' }); fleches(zoneOutils);
     function etape1() {
-      titre.textContent = cible ? 'Changer l\'appli ou la fonction' : quand ? 'Quand l\'automatisation part-elle ?' : 'Ajouter un bloc';
+      titre.textContent = cible ? 'Changer l\'appli ou la fonction' : quand ? 'Quand l\'automatisation part-elle ?' : ou.milieu ? `Ajouter un bloc entre « ${ou.milieu.de} » et « ${ou.milieu.vers} »` : 'Ajouter un bloc';
       const quoi = cible ? 'Chercher une appli' : 'Chercher une appli ou un outil';
       const cherche = el('input', { class: 'li-cherche', type: 'search', placeholder: quoi, 'aria-label': quoi, autocomplete: 'off' });
       const zoneApplis = el('div', {});
@@ -659,5 +817,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; fermerChoix(); },
     logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
-      appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer } };
+      appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie } };
 })();
