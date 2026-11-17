@@ -3,7 +3,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CATALOG, NODES } from '../draupnir/nodes.ts';
-import { automatisationsDepart } from '../draupnir/depart.ts';
+import { automatisationsDepart, type Depart } from '../draupnir/depart.ts';
 import { RE_ID } from '../draupnir/dossiers.ts';
 import { flowFromDescription, importN8n, templates, type Talos } from '../draupnir/service.ts';
 import type { Odin } from '../runtime.ts';
@@ -61,10 +61,11 @@ export async function draupnirGet(odin: Odin, path: string, q: URLSearchParams, 
       return { ok: true, elements: d.listeCorbeille().map((e) => ({ ...e, ...(e.dossier && noms.has(e.dossier) ? { dossierNom: noms.get(e.dossier) } : {}) })) };
     }
     // Automatisations de départ : l'état de la marque et ce qu'elles font (pour l'encart de proposition).
-    case '/api/draupnir/depart': return {
-      ok: true, etat: d.marqueDepart()?.etat ?? null,
-      liste: automatisationsDepart().map((x) => ({ id: x.flow.id, nom: x.flow.name, dossier: x.dossier, active: x.flow.active === true, phrase: x.flow.settings?.description ?? '' })),
-    };
+    // `liens` : les nouveaux liens entre applis proposés à un Odin déjà installé (vide s'il n'y a rien à proposer).
+    case '/api/draupnir/depart': {
+      const resume = (x: Depart) => ({ id: x.flow.id, nom: x.flow.name, dossier: x.dossier, active: x.flow.active === true, phrase: x.flow.settings?.description ?? '' });
+      return { ok: true, etat: d.marqueDepart()?.etat ?? null, liste: automatisationsDepart().map(resume), liens: d.liensAProposer().map(resume) };
+    }
     // Automatismes, onglet « Auto », liens, rythmes, agenda (talos-api.ts).
     default: return talosGet(odin, path, q);
   }
@@ -99,6 +100,15 @@ export async function draupnirPost(odin: Odin, path: string, b: Record<string, u
       // Proposition des automatisations de départ (Odin qui avait déjà les siennes) : « Les ajouter » ou « Non merci ».
       case '/api/draupnir/depart/installer': return { ok: true, installees: d.installerDepart({ accepter: true }).installees };
       case '/api/draupnir/depart/refuser': d.refuserDepart(); return { ok: true };
+      // Nouveaux liens entre applis proposés à un Odin déjà installé : « Les ajouter » ou « Non merci ». `ids` : la liste
+      // affichée ; seuls ceux-là sont ajoutés ou refusés (un lien arrivé entre l'affichage et le clic n'est pas touché).
+      case '/api/draupnir/depart/liens/installer':
+      case '/api/draupnir/depart/liens/refuser': {
+        if (!Array.isArray(b.ids) || !b.ids.length || !b.ids.every((x) => typeof x === 'string')) return { ok: false, error: 'la liste des liens affichés manque' };
+        const ids = b.ids as string[];
+        if (path.endsWith('/installer')) return { ok: true, installees: d.installerLiens(ids) };
+        d.refuserLiens(ids); return { ok: true };
+      }
       case '/api/draupnir/template': { const t = allTemplates().find((x) => x.id === s(b.id)); if (!t) return { ok: false, error: 'modèle inconnu' }; return { ok: true, flow: d.save({ ...t.flow, active: false } as never) }; }
       case '/api/draupnir/import': { const src = typeof b.json === 'string' ? JSON.parse(b.json) : b.json; const r = importN8n(src as never); return { ok: true, flow: d.save({ ...r.flow, active: false }), todo: r.todo }; }
       case '/api/draupnir/create': {

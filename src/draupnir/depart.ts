@@ -13,7 +13,9 @@ import type { Rythme } from './rythme.ts';
 export interface Depart { dossier: string; flow: Partial<Workflow> }
 
 /** Les noms des dossiers créés pour les automatisations de départ (réutilisés s'ils existent déjà). */
-export const DOSSIERS_DEPART = ['Sécurité', 'Machines et sauvegardes', 'Réseau', 'Maison', 'Organisation'] as const;
+export const DOSSIERS_DEPART = ['Sécurité', 'Machines et sauvegardes', 'Réseau', 'Maison', 'Organisation', 'Liens entre applis'] as const;
+/** Les identifiants de la série « Liens entre applis » commencent ainsi (proposés à part à un Odin déjà installé). */
+export const PREFIXE_LIEN = 'depart-lien-';
 
 const RIEN = 'S\'il n\'y a rien à signaler, réponds RIEN.';
 
@@ -40,7 +42,39 @@ function flux(id: string, name: string, description: string, active: boolean, et
   return { id: `depart-${id}`, name, active, origin: 'depart', nodes: nodes as FlowNode[], connections, settings: { retry: 0, notifyOnError: false, description } };
 }
 
-export function automatisationsDepart(): Depart[] {
+/** Toutes les automatisations de départ : les bilans et brouillons, puis la série « Liens entre applis ». */
+export function automatisationsDepart(): Depart[] { return [...bilansDepart(), ...liensEntreApplis()]; }
+
+/**
+ * La série « Liens entre applis » (demandée le 17/11) : chacune « Quand <appli A> signale <événement> → <appli B> fait
+ * <une de ses fonctions> » (+ « Me prévenir » au besoin). Sa règle : un lien qui AGIT arrive en BROUILLON ; un lien
+ * qui ne fait que lire et le prévenir arrive ACTIF. Aucune ne refait un réflexe de src/valhalla/links.ts, aucune ne
+ * lance une action grave. Chaque événement et chaque fonction sont pris dans le code (essais talos-dossiers-depart*).
+ */
+export function liensEntreApplis(): Depart[] {
+  const L = 'Liens entre applis';
+  const quand = (name: string, module: string, evenement: string): Etape => ({ name, type: 'déclencheur.module', params: { module, événement: evenement, niveau: 'haute' } });
+  return [
+    // Persona émet « nouvelle_adresse » à la connexion d'une personne depuis une adresse qu'elle n'avait jamais
+    // utilisée (src/valhalla/modules/var.ts:140) ; Méduse « verifier » (lecture, src/valhalla/modules/geri.ts:135).
+    { dossier: L, flow: flux('lien-nouvelle-adresse', 'Connexion depuis une adresse nouvelle → Méduse vérifie', 'Quand Persona voit une personne se connecter depuis une adresse qu\'elle n\'avait jamais utilisée, Méduse regarde si cette adresse est dans ses listes de menaces, puis te prévient.', true, [
+      quand('Connexion', 'var', 'nouvelle_adresse'),
+      action('Vérifier l\'adresse', 'geri', 'verifier', '{"ip":"{{ $json.ip }}"}'),
+      prevenir('🔑 Connexion de {{ $node["Connexion"].json.login }} depuis une adresse nouvelle ({{ $node["Connexion"].json.ip }}). Méduse : {{ $json.texte }}'),
+    ]) },
+    // Hydre émet « machine_creee » (src/valhalla/ymir/machines.ts:93 et :159) ; Atlas « ajouter » écrit une fiche
+    // (src/valhalla/modules/askr.ts:179) : il agit, donc brouillon. L'événement ne transmet pas la MAC : Atlas, qui
+    // ne reconnaît un appareil déjà vu que par sa MAC ou son numéro de série (askr.ts:181-182), peut faire une fiche
+    // en double si la machine apparaît aussi sur le réseau ; la description le dit.
+    // (Pas de lien « Machine créée → Pulsar » : Hydre ajoute déjà elle-même la sonde, src/valhalla/ymir/machines.ts:35.)
+    { dossier: L, flow: flux('lien-machine-inventaire', 'Machine créée → fiche dans l\'inventaire', 'Quand Hydre crée une machine virtuelle ou un conteneur, Atlas lui ouvre une fiche dans l\'inventaire (nom et adresse). Attention : si Atlas voit aussi cette machine sur le réseau, il peut en faire une fiche en double (il ne connaît pas sa carte réseau).', false, [
+      quand('Machine créée', 'ymir', 'machine_creee'),
+      action('Fiche Atlas', 'askr', 'ajouter', '{"nom":"{{ $json.nom }}","ip":"{{ $json.ip }}"}'),
+    ]) },
+  ];
+}
+
+function bilansDepart(): Depart[] {
   const S = 'Sécurité', M = 'Machines et sauvegardes', R = 'Réseau', H = 'Maison', O = 'Organisation';
   return [
     // ---------------- Sécurité

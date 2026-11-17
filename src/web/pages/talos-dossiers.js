@@ -61,7 +61,22 @@
     const n = liste.length, a = liste.filter((x) => x.active).length;
     return `Odin propose ${n} automatisations de départ, rangées par dossier : ${a} tourneront seules (des bilans qui ne t'écrivent que si c'est utile), ${n - a} restent en brouillon.`;
   }
-  const logique = { RESERVES, NOM_MAX, validerNom, onglets, filtrer, choixParDefaut, ongletInitial, texteProposition };
+  /** Le texte de l'encart qui propose de nouveaux liens entre applis (Odin déjà installé). */
+  function texteLiens(liste) {
+    const n = liste.length, a = liste.filter((x) => x.active).length, b = n - a;
+    if (n === 1) return `Odin propose 1 nouveau lien entre applis : ${a ? 'il ne fait que lire et te prévenir (il tourne seul)' : 'il agit et arrive en brouillon'}.`;
+    return `Odin propose ${n} nouveaux liens entre applis : ${a} ${a > 1 ? 'ne font' : 'ne fait'} que lire et te prévenir (${a > 1 ? 'ils tournent seuls' : 'il tourne seul'}), ${b} ${b > 1 ? 'agissent et arrivent' : 'agit et arrive'} en brouillon.`;
+  }
+  /** La question posée avant « Les ajouter » (sans « 0 tourne seul » quand aucun ne fait que lire). */
+  function texteConfirmLiens(liste) {
+    const n = liste.length, a = liste.filter((x) => x.active).length, b = n - a;
+    const brouillon = (k) => (k > 1 ? 'restent en brouillon jusqu\'à ce que tu les actives' : 'reste en brouillon jusqu\'à ce que tu l\'actives');
+    const tete = n > 1 ? `Ajouter les ${n} liens entre applis ?` : 'Ajouter ce lien entre applis ?';
+    if (!a) return `${tete} ${n > 1 ? 'Ils agissent : ils' : 'Il agit : il'} ${brouillon(n)}.`;
+    if (!b) return `${tete} ${n > 1 ? 'Ils tournent seuls : ils ne font' : 'Il tourne seul : il ne fait'} que lire et te prévenir.`;
+    return `${tete} ${a} ${a > 1 ? 'tournent seuls : ils ne font' : 'tourne seul : il ne fait'} que lire et te prévenir. ${b > 1 ? 'Ceux qui agissent' : 'Celui qui agit'} ${brouillon(b)}.`;
+  }
+  const logique = { RESERVES, NOM_MAX, validerNom, onglets, filtrer, choixParDefaut, ongletInitial, texteProposition, texteLiens, texteConfirmLiens };
 
   // ---------------- Dessin
   const el = (t, a = {}, ...kids) => {
@@ -357,6 +372,7 @@
   function encartDepart() {
     const zoneE = el('div', {});
     void api('/api/draupnir/depart').then((r) => {
+      if (r.ok && r.etat !== 'propose' && Array.isArray(r.liens) && r.liens.length && zoneE.isConnected) { zoneE.replaceChildren(encartLiens(r.liens, zoneE)); return; }
       if (!r.ok || r.etat !== 'propose' || !Array.isArray(r.liste) || !r.liste.length || !zoneE.isConnected) return;
       const actives = r.liste.filter((x) => x.active).length;
       const parDossier = [...new Set(r.liste.map((x) => x.dossier))];
@@ -378,6 +394,27 @@
           ...parDossier.flatMap((d) => [el('h4', {}, d), el('ul', {}, ...r.liste.filter((x) => x.dossier === d).map((x) => el('li', {}, el('b', {}, x.nom), x.active ? ' (active)' : ' (brouillon)', el('span', {}, ` — ${x.phrase}`))))]))));
     });
     return zoneE;
+  }
+  /** Nouveaux liens entre applis (Odin déjà installé) : rien n'est ajouté sans « Les ajouter ». */
+  function encartLiens(liste, zoneE) {
+    // Seuls les liens affichés ici sont ajoutés ou refusés.
+    const ids = liste.map((x) => x.id);
+    return el('section', { class: 'td-encart', 'aria-label': 'Nouveaux liens entre applis' },
+      el('p', {}, texteLiens(liste)),
+      el('div', { class: 'td-b' },
+        el('button', { class: 'btn primary', type: 'button', onclick: async () => {
+          if (!(await D().confirm(texteConfirmLiens(liste), { ok: 'Les ajouter' }))) return;
+          const x = await api('/api/draupnir/depart/liens/installer', { ids });
+          if (!x.ok) { dire(`✗ ${x.error}`); return; }
+          dire(`✓ ${x.installees} lien${x.installees > 1 ? 's' : ''} entre applis ajouté${x.installees > 1 ? 's' : ''}.`); void actualiser();
+        } }, 'Les ajouter'),
+        el('button', { class: 'btn', type: 'button', onclick: async () => {
+          const x = await api('/api/draupnir/depart/liens/refuser', { ids });
+          if (!x.ok) { dire(`✗ ${x.error}`); return; }
+          zoneE.replaceChildren(); dire('✓ C\'est noté : ces liens ne seront plus proposés.');
+        } }, 'Non merci')),
+      el('details', {}, el('summary', {}, 'Voir la liste'),
+        el('ul', {}, ...liste.map((x) => el('li', {}, el('b', {}, x.nom), x.active ? ' (actif)' : ' (brouillon)', el('span', {}, ` — ${x.phrase}`))))));
   }
 
   // ---------------- Enregistrer : « Ranger dans quel dossier ? »

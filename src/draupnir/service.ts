@@ -40,7 +40,7 @@ export function suivreRythme(avant: Workflow | undefined, apres: Partial<Workflo
 }
 import { checkFlow, execute, normalize, rid, type Deps, type Execution, type FlowNode, type Item, type Workflow } from './engine.ts';
 import { cleNom, ecrireDossiers, ecrireJson, lireDossiers, lireSupprimes, MAX_DOSSIERS, RE_CLE, RE_DOSSIER, RE_ID, validerNomDossier, type Dossier, type TraceCorbeille } from './dossiers.ts';
-import { automatisationsDepart } from './depart.ts';
+import { automatisationsDepart, liensEntreApplis, type Depart } from './depart.ts';
 import { runCode } from './code.ts';
 import { CATALOG, NODES, parseFeed } from './nodes.ts';
 
@@ -298,6 +298,8 @@ export class Talos {
   }
   private marquer(etat: EtatDepart): void {
     ecrireJson(this.fichierDepart, { version: 1, etat, le: new Date().toISOString(), ids: automatisationsDepart().map((x) => String(x.flow.id)) } satisfies MarqueDepart);
+    // La série « Liens entre applis » a sa propre marque : elle garde la décision même si celle-ci s'abîme.
+    if (etat !== 'propose') this.marquerLiens(etat, liensEntreApplis());
   }
   /**
    * Installe les automatisations de départ, une seule fois. Appelée au démarrage d'Odin (jamais par le constructeur).
@@ -315,7 +317,13 @@ export class Talos {
     }
     const jetees = this.listeCorbeille();
     if (!o.accepter && (this.list().some((w) => !ids.has(w.id)) || jetees.some((e) => !ids.has(e.id)))) { this.marquer('propose'); return { etat: 'propose', installees: 0 }; }
-    // Les dossiers : réutilisés s'il en existe un du même nom.
+    const n = this.ajouterDefs(defs, jetees);
+    this.marquer('installe');
+    return { etat: 'installe', installees: n };
+  }
+  /** Enregistre des définitions de départ dans leurs dossiers (réutilisés s'il en existe un du même nom), sans
+   * reprendre un identifiant présent dans flows/ ou à la corbeille. Rend le nombre ajouté. */
+  private ajouterDefs(defs: Depart[], jetees = this.listeCorbeille()): number {
     const dossierDe = new Map<string, string | undefined>();
     for (const nom of new Set(defs.map((x) => x.dossier))) {
       let id = this.dossiers().find((d) => cleNom(d.nom) === cleNom(nom))?.id;
@@ -328,13 +336,59 @@ export class Talos {
       if (pris.has(String(x.flow.id))) continue;
       try { this.save({ ...x.flow, dossier: dossierDe.get(x.dossier) ?? '' }); n++; } catch { /* une définition refusée n'empêche pas les autres */ }
     }
-    this.marquer('installe');
-    return { etat: 'installe', installees: n };
+    return n;
   }
   /** « Non merci » à la proposition : elle ne revient plus. */
   refuserDepart(): void {
     if (this.marqueDepart()?.etat === 'installe') throw new Error('déjà installées');
     this.marquer('refuse');
+  }
+
+  // ---------------- La série « Liens entre applis », proposée à un Odin déjà installé
+  private get fichierLiens(): string { return join(this.dir, 'state', 'depart-liens.json'); }
+  /** La marque de la série : undefined si elle n'existe pas, 'abimee' si elle est illisible. */
+  private marqueLiens(): MarqueDepart | 'abimee' | undefined {
+    if (!existsSync(this.fichierLiens)) return undefined;
+    try {
+      const m = JSON.parse(readFileSync(this.fichierLiens, 'utf8')) as MarqueDepart;
+      if (m && (m.etat === 'installe' || m.etat === 'refuse') && Array.isArray(m.ids) && m.ids.every((x) => typeof x === 'string')) return m;
+    } catch { /* abîmée */ }
+    return 'abimee';
+  }
+  /** Ajoute ces liens aux identifiants déjà décidés (ajoutés ou refusés) : ils ne seront plus jamais proposés. */
+  private marquerLiens(etat: 'installe' | 'refuse', defs: Depart[]): void {
+    const avant = this.marqueLiens(), ids = new Set([...(avant && avant !== 'abimee' ? avant.ids : []), ...defs.map((x) => String(x.flow.id))]);
+    ecrireJson(this.fichierLiens, { version: 1, etat, le: new Date().toISOString(), ids: [...ids] } satisfies MarqueDepart);
+  }
+  /**
+   * Les liens à proposer : ceux de la série qu'aucune décision ne connaît encore (ni la marque de départ, ni celle de
+   * la série), absents de flows/ et de la corbeille. Rien tant que les automatisations de départ ne sont pas décidées
+   * (Odin neuf : elles s'installent avec le reste ; proposition en attente : elle comprend déjà la série). Une marque
+   * de la série abîmée vaut décision : rien n'est proposé. Seuls des identifiants `depart-lien-…` peuvent l'être.
+   */
+  liensAProposer(): Depart[] {
+    const m = this.marqueDepart(), ml = this.marqueLiens();
+    if (!m || m.etat === 'propose' || ml === 'abimee') return [];
+    const connus = new Set([...(Array.isArray(m.ids) ? m.ids : []), ...(ml?.ids ?? []), ...this.list().map((w) => w.id), ...this.listeCorbeille().map((e) => e.id)]);
+    return liensEntreApplis().filter((x) => !connus.has(String(x.flow.id)));
+  }
+  /** Parmi les liens à proposer, seulement ceux que le propriétaire a vus (`ids` : la liste affichée). */
+  private liensVus(ids: readonly string[]): Depart[] {
+    const vus = new Set(ids);
+    return this.liensAProposer().filter((x) => vus.has(String(x.flow.id)));
+  }
+  /** « Les ajouter » : les liens proposés ET affichés sont enregistrés (actifs ceux qui lisent, brouillons ceux qui agissent). */
+  installerLiens(ids: readonly string[]): number {
+    const defs = this.liensVus(ids);
+    if (!defs.length) throw new Error('aucun lien à ajouter');
+    const n = this.ajouterDefs(defs);
+    this.marquerLiens('installe', defs);
+    return n;
+  }
+  /** « Non merci » : les liens affichés ne reviennent plus (un lien ajouté plus tard au code sera proposé, une fois). */
+  refuserLiens(ids: readonly string[]): void {
+    const defs = this.liensVus(ids);
+    if (defs.length) this.marquerLiens('refuse', defs);
   }
 
   runs(id?: string, n = 20): Execution[] {

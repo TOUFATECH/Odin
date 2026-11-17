@@ -9,11 +9,12 @@ import { phrase, verifierRythme } from './rythme.ts';
 import type { Action, Module, Param } from '../valhalla/types.ts';
 
 /**
- * Les événements que chaque appli signale (ses `ctx.emit('…')`), pour « Quand <appli> signale ». Toute appli peut
- * aussi signaler ses alertes (« alerte »). Un essai vérifie que la table couvre les modules/<id>.ts.
+ * Les événements que chaque appli signale (ses `ctx.emit('…')`, où qu'ils soient dans src/valhalla), pour « Quand
+ * <appli> signale ». Toute appli peut aussi signaler ses alertes (« alerte »). test/talos-comptes.test.ts vérifie que
+ * la table est exactement ce que les applis émettent (Agora n'y est pas : ses ordres passent par son propre canal vers
+ * les appareils, jamais par les événements d'Odin).
  */
 export const EVENEMENTS: Record<string, string[]> = {
-  agora: ['ordre', 'annule', 'fin', 'store', 'retire'],
   achille: ['proxy_allume', 'proxy_eteint', 'refus_hors_portee', 'defaut_trouve'],
   atalante: ['termine', 'bloque', 'echec'],
   dodone: ['collection_terminee', 'test_echoue'],
@@ -34,6 +35,10 @@ export const EVENEMENTS: Record<string, string[]> = {
   hermod: ['capsule_installee', 'machine_hors_ligne', 'compagnon_installe', 'compagnon_rapport', 'compagnon_detection'],
   himinbjorg: ['clip', 'mouvement'],
   hlin: ['verification'],
+  // Arachné : ses événements passent par record() (src/valhalla/modules/idunn.ts:64-67).
+  idunn: ['hors_ligne', 'de_retour', 'lent', 'titre_change', 'contenu_change', 'certificat', 'certificat_invalide', 'envoi_de_code', 'tests_ok', 'tests_echec',
+    'demande_de_fusion', 'version', 'deploiement_ok', 'deploiement_echec', 'deploiement_annule', 'zone', 'dns_change', 'niveau_securite', 'essai_ok', 'essai_echec',
+    'relance', 'deploiement_demande', 'retour_arriere', 'promotion', 'mises_a_jour_actives', 'fusion', 'cache_vide', 'mode_attaque', 'proposition', 'proposition_refusee', 'proposition_abandonnee'],
   ivaldi: ['terminaux_fermes'],
   kvasir: ['depot_etudie'],
   loki: ['piege'],
@@ -44,9 +49,11 @@ export const EVENEMENTS: Record<string, string[]> = {
   skidbladnir: ['essais_rates'],
   skogul: ['port_ouvert', 'suspect'],
   thjalfi: ['deploye', 'etape', 'journal'],
-  ullr: ['incident', 'libere', 'menace', 'rafale', 'sentinelle', 'support_branche'],
+  // compagnon_detection : signalé par Asclépios quand il tourne, sinon par Satellites (src/valhalla/compagnon/api.ts:81-84).
+  ullr: ['incident', 'libere', 'menace', 'rafale', 'sentinelle', 'support_branche', 'compagnon_detection'],
   valgrind: ['acme', 'certificat_renouvele', 'mot_de_passe_refuse', 'scan'],
-  var: ['connexion_refusee', 'nouvelle_adresse', 'verrouillage'],
+  // Persona : aussi ses comptes (src/valhalla/sso/comptes.ts) et les sauvegardes des applis (src/valhalla/sso/sauvegardes.ts).
+  var: ['connexion_refusee', 'nouvelle_adresse', 'verrouillage', 'cle_acces_ajoutee', 'invitation_acceptee', 'sauvegarde_appli'],
   // Vénus : le fichier s'appelle venus.ts, l'appli a pour identifiant « freyja ».
   venus: ['arrivee', 'enregistrement_echoue'],
   freyja: ['arrivee', 'enregistrement_echoue'],

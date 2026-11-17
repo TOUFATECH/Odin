@@ -31,7 +31,8 @@ test('chaque active réussit sur un Odin neuf et ne dit rien quand il n\'y a rie
   } as never);
   try {
     d.installerDepart();
-    const actives = automatisationsDepart().filter((x) => x.flow.active).map((x) => String(x.flow.id));
+    // Les liens entre applis ne partent que sur un événement : essai suivant.
+    const actives = automatisationsDepart().filter((x) => x.flow.active && !String(x.flow.id).startsWith('depart-lien-')).map((x) => String(x.flow.id));
     assert.ok(actives.length >= 10);
     const echecs: string[] = [];
     for (const id of actives) {
@@ -44,6 +45,33 @@ test('chaque active réussit sur un Odin neuf et ne dit rien quand il n\'y a rie
     const pm = d.runs('depart-point-matin', 1)[0];
     for (const etape of ['Météo', 'Agenda', 'Réunir', 'Résumer']) assert.ok(pm.nodes[etape], `point du matin : étape « ${etape} » passée`);
     assert.equal(pm.nodes.Regrouper, undefined, 'rien à regrouper');
+
+    // ---------------- Les liens entre applis, contre les vraies applis.
+    // Chaque fonction existe, n'est pas grave avec ses réglages ; un lien est actif SEULEMENT s'il ne fait que lire.
+    const { estGrave } = await import('../src/draupnir/liens.ts');
+    const liens = automatisationsDepart().filter((x) => String(x.flow.id).startsWith('depart-lien-'));
+    assert.ok(liens.length >= 2);
+    for (const x of liens) {
+      let lit = true;
+      for (const n of x.flow.nodes ?? []) {
+        if (n.type !== 'module.action') continue;
+        const m = v.modules().find((y) => y.id === n.params.module), a = m?.actions.find((y) => y.id === n.params.action);
+        assert.ok(a, `${x.flow.id} : ${String(n.params.module)} · ${String(n.params.action)} existe`);
+        assert.equal(estGrave(a, JSON.parse(String(n.params.entrée ?? '{}'))), false, `${x.flow.id} : ${a.id} n'est pas grave`);
+        for (const p of a.params ?? []) if (p.required) assert.ok(String(n.params.entrée).includes(`"${p.key}"`), `${x.flow.id} : « ${p.key} » est rempli`);
+        if (!a.read) lit = false;
+      }
+      assert.equal(x.flow.active === true, lit, `${x.flow.id} : ${lit ? 'ne fait que lire : actif' : 'agit : brouillon'}`);
+    }
+    // Un lien actif part vraiment quand l'appli signale, et prévient le propriétaire.
+    for (const x of liens.filter((y) => y.flow.active)) {
+      const q = (x.flow.nodes ?? []).find((n) => n.type === 'déclencheur.module')!, de = String(q.params.module);
+      const avant: number = envoyes.length;
+      await d.onModule({ module: de, name: v.modules().find((m) => m.id === de)!.name, type: String(q.params.événement), data: { login: 'camille', ip: '203.0.113.7' } });
+      const ex = d.runs(String(x.flow.id), 1)[0];
+      assert.equal(ex?.status, 'succès', `${x.flow.id} : ${ex?.error ?? 'aucune exécution'}`);
+      assert.equal(envoyes.length, avant + 1, `${x.flow.id} : un message`);
+    }
   } finally { d.stop(); }
 });
 
