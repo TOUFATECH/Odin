@@ -13,6 +13,7 @@ import { formeDemande, formeReponse } from './etapes.ts';
 import type { Hyper } from './tailles.ts';
 import { hasard, graineDe, melange, type Hasard } from './hasard.ts';
 import { noyaux, type Noyaux } from './wasm.ts';
+import { attendreRegistre, gelActif, nouvellePart, registreTampons, rendrePart, rendreTout, Tampons } from './noyau-tampons.ts';
 
 // ----------------------------------------------------------------------------------------------------------------
 // Où tourne le calcul : LE point unique où se lit le choix « processeur » ou « carte graphique ».
@@ -182,8 +183,11 @@ export class Reseau {
   private versionPoids = 0;
   private gel = 0;
   private transposees = new Map<string, { v: number; t: Float32Array }>();
+  // Les tableaux intérieurs d'un calcul (états de la passe avant, gradients intermédiaires) : gardés en mémoire vive
+  // d'une suite à l'autre DANS une portée (avecTampons), neufs hors portée. Voir noyau-tampons.ts.
+  private tampons: Tampons;
 
-  constructor(hyper: Hyper, poids?: Float32Array, noy?: Noyaux) {
+  constructor(hyper: Hyper, poids?: Float32Array, noy?: Noyaux, o: { tampons?: boolean } = {}) {
     this.hyper = hyper;
     this.disp = disposition(hyper);
     this.poids = poids ?? new Float32Array(this.disp.total);
@@ -191,7 +195,20 @@ export class Reseau {
     this.m = new Float32Array(this.disp.total);
     this.vMom = new Float32Array(this.disp.total);
     this.noy = noy ?? choisirCalcul().noyaux;
+    this.tampons = new Tampons({ actif: o.tampons });
   }
+
+  /** Un tableau intérieur de `n` zéros (tampon gardé dans une portée, neuf sinon). */
+  private f32(n: number): Float32Array { return this.tampons.prendre(n); }
+  /**
+   * f() dans une portée de tampons : les tableaux intérieurs y resservent d'un appel à l'autre. Rien de ce que f rend
+   * ne doit être un tableau intérieur du réseau (les calculs publics qui rendent des tableaux en allouent des neufs).
+   */
+  avecTampons<T>(f: () => T): T { return this.tampons.dans(f); }
+  /** Rend la mémoire des tampons (elle se refera au besoin). */
+  rendreTampons(): void { this.tampons.vider(); }
+  /** Octets gardés par les tampons (essais, banc). */
+  get etatTampons(): { tenus: number; reserves: number; tampons: number } { return this.tampons.etat; }
 
   /** Le noyau de calcul utilisé (« fma », « bloc », « ancien » ou « js »). */
   get modeNoyau(): string { return this.noy.mode; }
@@ -256,7 +273,7 @@ export class Reseau {
    */
   private attentionAvant(p: Float32Array, ao: Float32Array, q: Float32Array, k: Float32Array, v: Float32Array, T: number): void {
     const d = this.disp, C = d.C, H = d.H, hd = d.hd, inv = 1 / Math.sqrt(hd);
-    const qh = new Float32Array(T * hd), khT = new Float32Array(hd * T), vh = new Float32Array(T * hd), oh = new Float32Array(T * hd);
+    const qh = this.f32(T * hd), khT = this.f32(hd * T), vh = this.f32(T * hd), oh = this.f32(T * hd);
     for (let hh = 0; hh < H; hh++) {
       const hoff = hh * hd, poff = hh * T * T;
       for (let i = 0; i < T; i++) {
@@ -286,8 +303,8 @@ export class Reseau {
    */
   private attentionArriere(dq: Float32Array, dk: Float32Array, dv: Float32Array, dAo: Float32Array, ec: EtatCouche, T: number): void {
     const d = this.disp, C = d.C, H = d.H, hd = d.hd, inv = 1 / Math.sqrt(hd);
-    const dOh = new Float32Array(T * hd), vhT = new Float32Array(hd * T), qh = new Float32Array(T * hd), kh = new Float32Array(T * hd);
-    const dp = new Float32Array(T * T), tT = new Float32Array(T * T), r = new Float32Array(T * hd);
+    const dOh = this.f32(T * hd), vhT = this.f32(hd * T), qh = this.f32(T * hd), kh = this.f32(T * hd);
+    const dp = this.f32(T * T), tT = this.f32(T * T), r = this.f32(T * hd);
     for (let hh = 0; hh < H; hh++) {
       const hoff = hh * hd, poff = hh * T * T;
       for (let i = 0; i < T; i++) {
@@ -326,7 +343,7 @@ export class Reseau {
     // s'écrirait — dans les poids de la première couche, rangés juste après la table des positions.
     if (T > d.T) throw new RangeError(`Noûs : suite de ${T} morceaux, le contexte en porte ${d.T}`);
     this.entree();
-    const x0 = new Float32Array(T * C);
+    const x0 = this.f32(T * C);
     for (let t = 0; t < T; t++) {
       const id = ids[t] | 0, we = d.wte + id * C, pe = d.wpe + t * C, xo = t * C;
       for (let c = 0; c < C; c++) x0[xo + c] = this.poids[we + c] + this.poids[pe + c];
@@ -338,45 +355,45 @@ export class Reseau {
       const cp = d.couches[l];
       const xEntree = x;
       // ln1
-      const a = new Float32Array(T * C), m1 = new Float32Array(T), r1 = new Float32Array(T);
+      const a = this.f32(T * C), m1 = this.f32(T), r1 = this.f32(T);
       this.layernorm(a, m1, r1, x, this.t(cp.ln1g, C), this.t(cp.ln1b, C), T, C);
       // q,k,v = a·W
-      const q = new Float32Array(T * C), k = new Float32Array(T * C), v = new Float32Array(T * C);
+      const q = this.f32(T * C), k = this.f32(T * C), v = this.f32(T * C);
       this.mmW(q, a, `wq${l}`, cp.wq, T, C, C);
       this.mmW(k, a, `wk${l}`, cp.wk, T, C, C);
       this.mmW(v, a, `wv${l}`, cp.wv, T, C, C);
       // attention causale par tête (produits de matrices)
-      const p = new Float32Array(H * T * T), ao = new Float32Array(T * C);
+      const p = this.f32(H * T * T), ao = this.f32(T * C);
       this.attentionAvant(p, ao, q, k, v, T);
       // o = ao·Wo ; x = x + o
-      const o = new Float32Array(T * C);
+      const o = this.f32(T * C);
       this.mmW(o, ao, `wo${l}`, cp.wo, T, C, C);
-      const xMid = new Float32Array(T * C);
+      const xMid = this.f32(T * C);
       for (let i = 0; i < T * C; i++) xMid[i] = xEntree[i] + o[i];
       // ln2
-      const b = new Float32Array(T * C), m2 = new Float32Array(T), r2 = new Float32Array(T);
+      const b = this.f32(T * C), m2 = this.f32(T), r2 = this.f32(T);
       this.layernorm(b, m2, r2, xMid, this.t(cp.ln2g, C), this.t(cp.ln2b, C), T, C);
       // ffn : h1 = b·W1 + b1 ; g = gelu(h1) ; f = g·W2 + b2 ; x = xMid + f
-      const h1 = new Float32Array(T * C4);
+      const h1 = this.f32(T * C4);
       this.mmW(h1, b, `w1${l}`, cp.w1, T, C, C4);
       const b1 = this.t(cp.b1, C4);
       for (let i = 0; i < T; i++) for (let c = 0; c < C4; c++) h1[i * C4 + c] += b1[c];
-      const gact = new Float32Array(T * C4);
+      const gact = this.f32(T * C4);
       for (let i = 0; i < T * C4; i++) gact[i] = gelu(h1[i]);
-      const f = new Float32Array(T * C);
+      const f = this.f32(T * C);
       this.mmW(f, gact, `w2${l}`, cp.w2, T, C4, C);
       const b2 = this.t(cp.b2, C);
-      const xNext = new Float32Array(T * C);
+      const xNext = this.f32(T * C);
       for (let i = 0; i < T; i++) for (let c = 0; c < C; c++) xNext[i * C + c] = xMid[i * C + c] + f[i * C + c] + b2[c];
       couches.push({ xEntree, a, m1, r1, q, k, v, p, ao, xMid, b, m2, r2, h1, g: gact });
       x = xNext;
     }
     // ln finale
-    const y = new Float32Array(T * C), mf = new Float32Array(T), rf = new Float32Array(T);
+    const y = this.f32(T * C), mf = this.f32(T), rf = this.f32(T);
     this.layernorm(y, mf, rf, x, this.t(d.lnfg, C), this.t(d.lnfb, C), T, C);
     const et: Etat = { T, x0, couches, xFinal: x, mf, rf, y };
     if (avecLogits) {
-      const logits = new Float32Array(T * V);
+      const logits = this.f32(T * V);
       this.mmW(logits, y, 'wteT', d.wte, T, C, V, true);
       et.logits = logits;
     }
@@ -406,13 +423,20 @@ export class Reseau {
       if (rolesMasque) { const saut = ids.length - d.T; rolesMasque = queue(rolesMasque, saut, d.T); ids = queue(ids, saut, d.T); }
       else ids = tete(ids, d.T);
     }
-    const C = d.C, V = d.V, T = ids.length;
+    const V = d.V, T = ids.length;
     // Rien à prédire (masque de rôles vide sur ce qui reste) : dit à part, jamais compté comme une perte nulle.
     if (rolesMasque) { let k = 0; for (let t = 0; t < T - 1 && !k; t++) if (rolesMasque[t]) k = 1; if (!k) return RIEN_A_APPRENDRE; }
+    // Tout ce qui suit n'alloue que des tableaux intérieurs (rien n'en sort que la perte, et les gradients accumulés
+    // dans this.grads) : ils resservent d'une suite à l'autre.
+    const idsT = ids, masque = rolesMasque;
+    return this.tampons.dans(() => this.perteEtGradCalcul(idsT, poidsExemple, masque, V, T));
+  }
+
+  private perteEtGradCalcul(ids: ArrayLike<number>, poidsExemple: number, rolesMasque: ArrayLike<number> | undefined, V: number, T: number): number {
     const et = this.avant(ids, true);
     this.verifierArret();
     const logits = et.logits!;
-    const dLogits = new Float32Array(T * V);
+    const dLogits = this.f32(T * V);
     // Combien de positions à prédire : l'échelle (poids de l'exemple / nombre de prédictions) est connue d'avance, et
     // le gradient de chaque ligne s'écrit en UNE passe d'exponentielles : e = exp(x − max) gardé, puis e·(échelle/somme).
     let nPred = 0;
@@ -440,15 +464,15 @@ export class Reseau {
   private retropropagation(ids: ArrayLike<number>, et: Etat, dLogits: Float32Array): void {
     const d = this.disp, C = d.C, C4 = d.C4, V = d.V, T = et.T;
     // tête de sortie : logits = y·wteᵀ
-    const dY = new Float32Array(T * C);
+    const dY = this.f32(T * C);
     this.mmW(dY, dLogits, 'wte', d.wte, T, V, C); // dY = dLogits·wte
     // dWte (part « tête ») = dLogitsᵀ·y
-    const dLogitsT = new Float32Array(V * T); transpose(dLogitsT, dLogits, T, V);
-    const tmpVC = new Float32Array(V * C);
+    const dLogitsT = this.f32(V * T); transpose(dLogitsT, dLogits, T, V);
+    const tmpVC = this.f32(V * C);
     this.mm(tmpVC, dLogitsT, et.y, V, T, C);
     this.ajoute(this.g(d.wte, V * C), tmpVC, V * C);
     // ln finale
-    const dxF = new Float32Array(T * C);
+    const dxF = this.f32(T * C);
     this.dLayernorm(dxF, this.g(d.lnfg, C), this.g(d.lnfb, C), dY, et.xFinal, et.mf, et.rf, this.t(d.lnfg, C), T, C);
     let dx = dxF;
     for (let l = d.L - 1; l >= 0; l--) {
@@ -459,41 +483,41 @@ export class Reseau {
       const df = dx; // [T,C]
       const db2 = this.g(cp.b2, C); for (let i = 0; i < T; i++) for (let c = 0; c < C; c++) db2[c] += df[i * C + c];
       // f = g·W2 ; dG = df·W2ᵀ ; dW2 = gᵀ·df
-      const dG = new Float32Array(T * C4); this.mmW(dG, df, `w2T${l}`, cp.w2, T, C, C4, true);
-      const gT = new Float32Array(C4 * T); transpose(gT, ec.g, T, C4);
-      const dW2 = new Float32Array(C4 * C); this.mm(dW2, gT, df, C4, T, C); this.ajoute(this.g(cp.w2, C4 * C), dW2, C4 * C);
+      const dG = this.f32(T * C4); this.mmW(dG, df, `w2T${l}`, cp.w2, T, C, C4, true);
+      const gT = this.f32(C4 * T); transpose(gT, ec.g, T, C4);
+      const dW2 = this.f32(C4 * C); this.mm(dW2, gT, df, C4, T, C); this.ajoute(this.g(cp.w2, C4 * C), dW2, C4 * C);
       // g = gelu(h1) ; dH1 = dG * gelu'(h1)
-      const dH1 = new Float32Array(T * C4); for (let i = 0; i < T * C4; i++) dH1[i] = dG[i] * dgelu(ec.h1[i]);
+      const dH1 = this.f32(T * C4); for (let i = 0; i < T * C4; i++) dH1[i] = dG[i] * dgelu(ec.h1[i]);
       // h1 = b·W1 + b1 ; db1 = somme dH1 ; dB = dH1·W1ᵀ ; dW1 = bᵀ·dH1
       const db1 = this.g(cp.b1, C4); for (let i = 0; i < T; i++) for (let c = 0; c < C4; c++) db1[c] += dH1[i * C4 + c];
-      const dB = new Float32Array(T * C); this.mmW(dB, dH1, `w1T${l}`, cp.w1, T, C4, C, true);
-      const bT = new Float32Array(C * T); transpose(bT, ec.b, T, C);
-      const dW1 = new Float32Array(C * C4); this.mm(dW1, bT, dH1, C, T, C4); this.ajoute(this.g(cp.w1, C * C4), dW1, C * C4);
+      const dB = this.f32(T * C); this.mmW(dB, dH1, `w1T${l}`, cp.w1, T, C4, C, true);
+      const bT = this.f32(C * T); transpose(bT, ec.b, T, C);
+      const dW1 = this.f32(C * C4); this.mm(dW1, bT, dH1, C, T, C4); this.ajoute(this.g(cp.w1, C * C4), dW1, C * C4);
       // ln2 : dB -> dxMid (plus le résidu df qui va aussi vers xMid)
-      const dxMid = new Float32Array(T * C);
+      const dxMid = this.f32(T * C);
       this.dLayernorm(dxMid, this.g(cp.ln2g, C), this.g(cp.ln2b, C), dB, ec.xMid, ec.m2, ec.r2, this.t(cp.ln2g, C), T, C);
       for (let i = 0; i < T * C; i++) dxMid[i] += df[i]; // résidu du bloc FFN
       // --- Attention ---
       // xMid = xEntree + o ; dxEntree += dxMid ; do = dxMid
       const doo = dxMid; // [T,C]
       // o = ao·Wo ; dAo = do·Woᵀ ; dWo = aoᵀ·do
-      const dAo = new Float32Array(T * C); this.mmW(dAo, doo, `woT${l}`, cp.wo, T, C, C, true);
-      const aoT = new Float32Array(C * T); transpose(aoT, ec.ao, T, C);
-      const dWo = new Float32Array(C * C); this.mm(dWo, aoT, doo, C, T, C); this.ajoute(this.g(cp.wo, C * C), dWo, C * C);
+      const dAo = this.f32(T * C); this.mmW(dAo, doo, `woT${l}`, cp.wo, T, C, C, true);
+      const aoT = this.f32(C * T); transpose(aoT, ec.ao, T, C);
+      const dWo = this.f32(C * C); this.mm(dWo, aoT, doo, C, T, C); this.ajoute(this.g(cp.wo, C * C), dWo, C * C);
       // attention : remonter dAo vers dq, dk, dv (produits de matrices, tête par tête)
-      const dq = new Float32Array(T * C), dk = new Float32Array(T * C), dv = new Float32Array(T * C);
+      const dq = this.f32(T * C), dk = this.f32(T * C), dv = this.f32(T * C);
       this.attentionArriere(dq, dk, dv, dAo, ec, T);
       // q = a·Wq (idem k, v) : dA += dq·Wqᵀ + dk·Wkᵀ + dv·Wvᵀ ; dWq = aᵀ·dq …
-      const aT = new Float32Array(C * T); transpose(aT, ec.a, T, C);
-      const dA = new Float32Array(T * C);
-      const tmp = new Float32Array(T * C), dW = new Float32Array(C * C);
+      const aT = this.f32(C * T); transpose(aT, ec.a, T, C);
+      const dA = this.f32(T * C);
+      const tmp = this.f32(T * C), dW = this.f32(C * C);
       const ajouteProjArriere = (nom: string, W: number, dOut: Float32Array): void => {
         this.mmW(tmp, dOut, nom, W, T, C, C, true); for (let i = 0; i < T * C; i++) dA[i] += tmp[i];
         this.mm(dW, aT, dOut, C, T, C); this.ajoute(this.g(W, C * C), dW, C * C);
       };
       ajouteProjArriere(`wqT${l}`, cp.wq, dq); ajouteProjArriere(`wkT${l}`, cp.wk, dk); ajouteProjArriere(`wvT${l}`, cp.wv, dv);
       // ln1 : dA -> dxEntree (plus le résidu doo)
-      const dxEntree = new Float32Array(T * C);
+      const dxEntree = this.f32(T * C);
       this.dLayernorm(dxEntree, this.g(cp.ln1g, C), this.g(cp.ln1b, C), dA, ec.xEntree, ec.m1, ec.r1, this.t(cp.ln1g, C), T, C);
       for (let i = 0; i < T * C; i++) dxEntree[i] += doo[i]; // résidu du bloc attention
       dx = dxEntree;
@@ -582,8 +606,11 @@ export class Reseau {
       for (let debut = 0; debut < T; debut += d.T) {
         const n = Math.min(d.T, T - debut);
         const fen = new Int32Array(n); for (let i = 0; i < n; i++) fen[i] = ids[debut + i] | 0;
-        const et = this.avant(fen, false);
-        for (let t = 0; t < n; t++) for (let c = 0; c < C; c++) out[c] += et.y[t * C + c];
+        // Une portée par fenêtre : l'état de la passe avant est lu ici, puis ses tampons resservent.
+        this.tampons.dans(() => {
+          const et = this.avant(fen, false);
+          for (let t = 0; t < n; t++) for (let c = 0; c < C; c++) out[c] += et.y[t * C + c];
+        });
       }
     } finally { this.libererPoids(); }
     for (let c = 0; c < C; c++) out[c] /= T;
@@ -854,6 +881,8 @@ export interface Aides {
   cassees?: boolean;
   /** La mémoire des poids que lisent (et, pour le pas réparti, écrivent) les aides. */
   poids?: SharedArrayBuffer;
+  /** Par aide : la case où elle tient sa part des tampons (rendue par arreterAides). */
+  parts?: SharedArrayBuffer[];
 }
 /** Le rôle donné au worker du moteur (moteur.ts) : seul un fil de ce rôle écoute les ordres du moteur. */
 export const ROLE_MOTEUR = 'noos-moteur';
@@ -881,19 +910,22 @@ export function lancerAides(hyper: Hyper, sab: SharedArrayBuffer, ctrl: SharedAr
   const ordre = new Int32Array(new SharedArrayBuffer(4 * (1 + n))), parametres = new Float64Array(new SharedArrayBuffer(8 * 8));
   for (let k = 0; k < n; k++) grads.push(new Float32Array(new SharedArrayBuffer(total * 4)));
   const tousG = grads.map((g) => g.buffer as SharedArrayBuffer);
+  // Les tampons de chaque aide sont comptés dans le registre partagé de ce fil (noyau-tampons.ts), case par case.
+  const registre = registreTampons(), parts = Array.from({ length: n }, () => nouvellePart());
   for (let k = 0; k < n; k++) {
     const g = tousG[k];
-    const w = new Worker(new URL(import.meta.url), { name: `noos-aide-${k}`, workerData: { role: 'aide', k, hyper, sab, g, sync: sync.buffer, res: res.buffer, ctrl, reparti: { partage, ordre: ordre.buffer, parametres: parametres.buffer, tousG } }, resourceLimits: { maxOldGenerationSizeMb: 512, maxYoungGenerationSizeMb: 64 } });
+    const w = new Worker(new URL(import.meta.url), { name: `noos-aide-${k}`, workerData: { role: 'aide', k, hyper, sab, g, sync: sync.buffer, res: res.buffer, ctrl, reparti: { partage, ordre: ordre.buffer, parametres: parametres.buffer, tousG }, registreTampons: registre, partTampons: parts[k] }, resourceLimits: { maxOldGenerationSizeMb: 512, maxYoungGenerationSizeMb: 64 } });
     w.unref(); w.on('error', (e) => { console.error(`[noos] un fil d'aide s'est arrêté : ${String((e as Error)?.message ?? e)}`); });
     workers.push(w);
   }
-  return { n, workers, sync, res, grads, reparti: { partage, ordre, parametres }, poids: sab };
+  return { n, workers, sync, res, grads, reparti: { partage, ordre, parametres }, poids: sab, parts };
 }
-/** Arrête les fils d'aide. */
+/** Arrête les fils d'aide ; ce qu'ils tenaient encore en tampons est rendu au compte. */
 export async function arreterAides(a: Aides | undefined): Promise<void> {
   if (!a) return;
   Atomics.store(a.sync, 1, 1); Atomics.add(a.sync, 0, 1); Atomics.notify(a.sync, 0);
   await Promise.all(a.workers.map((w) => w.terminate().catch(() => 0)));
+  for (const p of a.parts ?? []) rendrePart(p);
 }
 
 /** Une séance sur 1 + aides.n fils. Mêmes règles que seance() : interruptible, un lot malsain n'est pas appliqué. */
@@ -1157,6 +1189,16 @@ function demarrerWorker(port: NonNullable<typeof parentPort>): void {
         if (typeof o.fresh === 'number') reseau.initialiser(o.fresh);
         const mo = o.moments as { m: Float32Array; v: Float32Array; pas: number } | undefined;
         if (mo) reseau.importerMoments(mo.m, mo.v, mo.pas);
+        // Dans ce fil, les poids ne changent QUE par le réseau lui-même (séance : pas AdamW, pas réparti des aides
+        // refermé par le réseau ; retour à un point : importerPoids) — la façade ne les écrit qu'avant de lancer le
+        // fil. Les copies de travail des poids (mémoire du noyau, transposées) restent donc valables d'une réponse,
+        // d'un plongement ou d'une mesure à l'autre, au lieu d'être refaites à chaque appel. Qui écrirait un jour dans
+        // ces poids par un autre chemin envoie l'ordre 'poidsModifies'. ODIN_SOUL_GEL=non : comme avant (copies refaites à
+        // chaque appel) ; ce réglage est à part de ODIN_SOUL_TAMPONS, pour mesurer chaque gain seul.
+        if (gelActif()) reseau.figerPoids();
+        // Les tampons de ce fil sont comptés par le comptable du fil principal, via le registre partagé : on l'attend un
+        // court instant (sans lui, le repli local compte, au plus 256 Mo pour ce fil).
+        await attendreRegistre(1000);
         grainesCourbe = (o.graine as number) ?? 0;
         const dec = await import('./decoupage.ts');
         decoupage = dec.lireDecoupageSerialise(o.decoupage as unknown as Parameters<typeof dec.lireDecoupageSerialise>[0]);
@@ -1232,8 +1274,15 @@ function demarrerWorker(port: NonNullable<typeof parentPort>): void {
         repondre(o.id, { pas: ck.pas });
         return;
       }
+      case 'poidsModifies': {
+        if (!reseau) throw new Error('Noûs pas initialisé');
+        reseau.poidsModifies();
+        repondre(o.id, true);
+        return;
+      }
       case 'arreter': {
         await arreterAides(aides); aides = undefined;
+        rendreTout(); // le fil va être arrêté de force : ses tampons sont rendus au compte avant
         repondre(o.id, { arrete: true });
         return;
       }
@@ -1251,13 +1300,16 @@ export function perteSur(r: Reseau, jeu: Int32Array[]): number {
     for (const brut of jeu) {
       if (brut.length < 2) continue;
       const ids = tete(brut, r.disp.T); // comme à l'entraînement : ce qui dépasse le contexte n'est pas mesuré
-      const et = r.avant(ids, true); const logits = et.logits!; const V = r.disp.V;
-      for (let t = 0; t < ids.length - 1; t++) {
-        const cible = ids[t + 1] | 0, o = t * V;
-        let mx = -Infinity; for (let vv = 0; vv < V; vv++) if (logits[o + vv] > mx) mx = logits[o + vv];
-        let som = 0; for (let vv = 0; vv < V; vv++) som += Math.exp(logits[o + vv] - mx);
-        s += (mx + Math.log(som)) - logits[o + cible]; n++;
-      }
+      // Une portée par suite : les logits sont lus ici, puis leurs tampons resservent à la suite suivante.
+      r.avecTampons(() => {
+        const et = r.avant(ids, true); const logits = et.logits!; const V = r.disp.V;
+        for (let t = 0; t < ids.length - 1; t++) {
+          const cible = ids[t + 1] | 0, o = t * V;
+          let mx = -Infinity; for (let vv = 0; vv < V; vv++) if (logits[o + vv] > mx) mx = logits[o + vv];
+          let som = 0; for (let vv = 0; vv < V; vv++) som += Math.exp(logits[o + vv] - mx);
+          s += (mx + Math.log(som)) - logits[o + cible]; n++;
+        }
+      });
     }
   } finally { r.libererPoids(); }
   return n ? s / n : 0;

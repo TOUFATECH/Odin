@@ -6,6 +6,8 @@
 //          perte + gradients sur le fil principal, sous le profil processeur ; temps propre par fonction, ramasse-miettes,
 //          débit en morceaux/s ; puis la génération (une réponse de 32 morceaux).
 // noyaux : GFLOP/s du produit de matrices d'Odin (WebAssembly SIMD) pour chaque forme utilisée par le gabarit « moyen ».
+// tampons : même code, mémoire vive au service du calcul ou non (ODIN_SOUL_TAMPONS=non et ODIN_SOUL_GEL=non), 1, 4 et
+//           7 fils, ordre alterné ; débit, mémoire du processus et mémoire des tampons comptée par le comptable.
 // fils : débit réel d'une séance (1 fil, ou fils d'aide) + génération + mémoire, pour un dossier de code donné.
 // comparer : AVANT (copie du dernier commit hors du dépôt) / APRÈS sur 1, 4 et 7 fils, dans les mêmes minutes.
 //   RAPIDITE_SORTIE=…/rapidite/processeur node … test/rapidite/soul.ts comparer <copie avant> [tours] [pas]
@@ -150,6 +152,11 @@ async function fils(racine: string, nFils: number, nPas: number) {
     return a ? calc.seanceParallele(r, [{ entrees }], o, a) : calc.seance(r, [{ entrees }], o);
   };
   await lancer(donnees.slice(0, lot * 2), 2); // chauffe (fils d'aide prêts, noyaux compilés)
+  // Seconde chauffe, après une pause : ici le fil principal fait la séance lui-même, il ne peut accorder qu'entre deux
+  // séances la mémoire que les aides lui demandent pour leurs tampons (dans Odin, la séance tourne dans le fil du
+  // moteur et le fil principal l'accorde aussitôt). La mesure porte ainsi sur le régime établi, pour tous les codes.
+  await new Promise((ok) => setTimeout(ok, 200));
+  await lancer(donnees.slice(0, lot), 1);
   // Charge de la machine : 1 s juste avant (les autres programmes seuls), puis pendant la mesure (le fil de mesure est
   // bloqué, donc par différence des compteurs) : occupation totale, et la part des AUTRES programmes que ce banc.
   const chargeAvant = await chargeMachine(1000);
@@ -164,12 +171,19 @@ async function fils(racine: string, nFils: number, nPas: number) {
   r.generer(amorce, 8);
   const tg = performance.now(); for (let i = 0; i < 3; i++) r.generer(amorce, 32, { graine: i }); const msGen = (performance.now() - tg) / 3;
   const mem = process.memoryUsage();
+  // La mémoire des tampons, telle que le comptable la voit : celle du fil principal et celle des fils d'aide (registre).
+  let tamponsComptesMo: number | undefined;
+  try {
+    const nt = await import(base('noyau-tampons.ts')) as { etatRegistre?: () => { utiliseMo: number } | undefined };
+    const reg = nt.etatRegistre?.();
+    if (reg) tamponsComptesMo = Math.round((r as unknown as { etatTampons: { reserves: number } }).etatTampons.reserves / 1_048_576) + reg.utiliseMo;
+  } catch { /* code d'avant : pas de tampons */ }
   if (aides) await calc.arreterAides(aides);
   return {
     racine, fils: nf, lot, pas: av.pas, morceaux: av.morceauxVus, ms: Math.round(av.tempsMs), morceauxParS: Math.round(av.morceauxVus / (av.tempsMs / 1000)),
     msParPas: Math.round(av.tempsMs / Math.max(1, av.pas)), perte: av.perte, generation32Ms: Math.round(msGen), morceauxGeneresParS: Math.round(32 / (msGen / 1000)),
-    cpuBancMs: Math.round(banc), chargeAvant: chargeAvant.occupation, chargePendant,
-    memoire: { rssMo: Math.round(mem.rss / 1e6), tasMo: Math.round(mem.heapUsed / 1e6), tamponsMo: Math.round(mem.arrayBuffers / 1e6), externeMo: Math.round(mem.external / 1e6) },
+    cpuBancMs: Math.round(banc), chargeAvant: chargeAvant.occupation, chargePendant, memoireLibreGo: chargeAvant.memoireLibreGo,
+    memoire: { rssMo: Math.round(mem.rss / 1e6), tasMo: Math.round(mem.heapUsed / 1e6), tamponsMo: Math.round(mem.arrayBuffers / 1e6), externeMo: Math.round(mem.external / 1e6), tamponsComptesMo },
     noyau: (r as unknown as { modeNoyau?: string }).modeNoyau ?? 'ancien (code d\'origine)',
   };
 }
@@ -205,6 +219,28 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     const texte = `Soul « moyen » : avant (dernier commit, copie hors du dépôt) et après, mêmes minutes, ${tours} tours, ${nPas} pas par mesure.\n` +
       tableau(['fils', 'code', 'morceaux/s', 'ms/pas', 'rapport', 'génération 32 (ms)', 'mémoire (Mo)', 'charge avant/autres pendant (%)', 'noyau'], tab) + '\n';
     ecrireResultat('soul-processeur', { lignes }, texte); console.log(texte); process.exit(0);
+  }
+  if (quoi === 'tampons') {
+    // node test/rapidite/soul.ts tampons [tours] [nPas] : le MÊME code, mémoire vive au service du calcul (défaut) ou
+    // non (ODIN_SOUL_TAMPONS=non et ODIN_SOUL_GEL=non : le calcul d'avant la part D), en processus séparés, l'un juste
+    // après l'autre (ordre alterné), sur 1, 4 et 7 fils.
+    const { execFileSync } = await import('node:child_process');
+    const { resolve } = await import('node:path');
+    const ici = resolve('.'), tours = Number(process.argv[3] ?? 3), nPas = Number(process.argv[4] ?? 4);
+    const lancer = (n: number, sans: boolean) => JSON.parse(execFileSync(process.execPath, ['--disable-warning=ExperimentalWarning', fileURLToPath(import.meta.url), 'fils', ici, String(n), String(nPas)], { env: { ...process.env, ...(sans ? { ODIN_SOUL_TAMPONS: 'non', ODIN_SOUL_GEL: 'non' } : {}) }, encoding: 'utf8', maxBuffer: 1 << 24 }).trim().split('\n').pop()!);
+    const lignes: Array<Record<string, unknown>> = [];
+    for (let t = 0; t < tours; t++) for (const n of [1, 4, 7]) {
+      const ordre = t % 2 ? [false, true] : [true, false];
+      for (const sans of ordre) { const r = lancer(n, sans); lignes.push({ tour: t, heure: new Date().toISOString(), fils: n, variante: sans ? 'sans tampons' : 'tampons', ...r }); console.log(t, n, sans ? 'sans' : 'avec', r.morceauxParS, 'morceaux/s', 'rss', r.memoire.rssMo, 'comptés', r.memoire.tamponsComptesMo, 'charge', r.chargeAvant, JSON.stringify(r.chargePendant), 'libre', r.memoireLibreGo); }
+    }
+    const med = (xs: number[]) => stat(xs).mediane;
+    const tab = [1, 4, 7].flatMap((n) => ['sans tampons', 'tampons'].map((v) => {
+      const l = lignes.filter((x) => x.fils === n && x.variante === v), s = lignes.filter((x) => x.fils === n && x.variante === 'sans tampons');
+      const rap = l.map((x) => (x.morceauxParS as number) / (s.find((y) => y.tour === x.tour)!.morceauxParS as number));
+      return [n, v, med(l.map((x) => x.morceauxParS as number)), v === 'tampons' ? `×${med(rap).toFixed(2)}` : '—', rap.map((x) => x.toFixed(2)).join(' / '), med(l.map((x) => (x.memoire as { rssMo: number }).rssMo)), med(l.map((x) => (x.memoire as { tamponsComptesMo?: number }).tamponsComptesMo ?? 0)), l.map((x) => `${x.chargeAvant}/${(x.chargePendant as { autres: number }).autres}`).join(' '), l.map((x) => String(x.memoireLibreGo)).join(' ')];
+    }));
+    const texte = `Soul « moyen » : tampons de calcul gardés ou non, même code, ${tours} tours, ${nPas} pas par mesure.\n` + tableau(['fils', 'variante', 'morceaux/s', 'rapport', 'rapports par tour', 'mémoire du processus (Mo)', 'tampons comptés (Mo)', 'charge avant/autres pendant (%)', 'mémoire libre avant (Go)'], tab) + '\n';
+    ecrireResultat('soul-tampons', { lignes }, texte); console.log(texte); process.exit(0);
   }
   if (quoi === 'fils') {
     // node test/rapidite/soul.ts fils <racine> <nFils> [nPas] : une ligne JSON (le pilote compare avant / après).

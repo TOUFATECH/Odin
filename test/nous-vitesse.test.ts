@@ -298,3 +298,238 @@ test('plongement d\'un long texte et perte sur un jeu : les poids ne sont recopi
   // Et le calcul suivant revoit bien les poids (hors séance, chaque appel public refait les copies).
   r.plonger(suite(10, h.vocab, 9)); assert.equal(versions.size, 2);
 });
+
+// ----------------------------------------------------------------------------------------------------------------
+// Mémoire vive au service du calcul (noyau-tampons.ts) : les tableaux intérieurs d'une suite resservent à la suivante.
+// C'est un pur gain de vitesse : le calcul doit être IDENTIQUE, bit à bit, à celui qui alloue des tableaux neufs
+// (mêmes opérations, dans le même ordre, sur des tableaux remis à zéro). Rien de périmé d'une suite, d'une séance ou
+// d'un réseau à l'autre ; mémoire bornée par le comptable et rendue sous pression.
+// ----------------------------------------------------------------------------------------------------------------
+
+const memesBits = (a: ArrayLike<number>, b: ArrayLike<number>): boolean => a.length === b.length && Array.prototype.every.call(a, (x: number, i: number) => Object.is(x, b[i]));
+/** Le même travail sur deux réseaux (tampons gardés / tableaux neufs) : pertes, tous les gradients, poids et moments
+ *  après des pas, logits de la génération et morceaux générés, plongements, perte sur un jeu. Longueurs mélangées
+ *  (longue, courte, longue…), masques de rôles et poids d'exemple : les tampons sont pris, agrandis, repris. */
+async function memeCalcul(h: Hy, graine: number): Promise<{ suites: number; tenus: number }> {
+  const { perteSur } = await import('../src/brain/nous/calcul.ts');
+  const a = new Reseau(h, undefined, undefined, { tampons: true }), b = new Reseau(h, undefined, undefined, { tampons: false });
+  a.initialiser(graine); b.initialiser(graine);
+  const V = h.vocab, T = h.contexte;
+  const longueurs = [T, 9, 61, T, 2, 97, 33, T + 40, 5, T];
+  let n = 0;
+  for (let pas = 0; pas < 3; pas++) {
+    for (const [i, L] of longueurs.entries()) {
+      const s = suite(L, V, graine * 100 + pas * 10 + i);
+      const roles = i % 3 === 1 ? Int32Array.from({ length: L }, (_, t) => (t >= L / 3 ? 1 : 0)) : undefined;
+      const pa = a.perteEtGrad(s, 0.5 + i / 10, roles), pb = b.perteEtGrad(s, 0.5 + i / 10, roles);
+      assert.ok(Object.is(pa, pb), `graine ${graine}, pas ${pas}, suite ${i} (${L}) : perte ${pa} / ${pb}`);
+      n++;
+    }
+    assert.ok(memesBits(a.grads, b.grads), `graine ${graine}, pas ${pas} : tous les gradients, bit à bit`);
+    a.pasAdamW(3e-3); b.pasAdamW(3e-3);
+    assert.ok(memesBits(a.poids, b.poids), `graine ${graine}, pas ${pas} : poids après AdamW`);
+  }
+  const ma = a.exporterMoments(), mb = b.exporterMoments();
+  assert.ok(memesBits(ma.m, mb.m) && memesBits(ma.v, mb.v), 'moments AdamW');
+  const amorce = suite(40, V, graine + 7);
+  assert.ok(memesBits(a.logitsDerniere(amorce), b.logitsDerniere(amorce)), 'logits (voie complète)');
+  assert.ok(memesBits(a.logitsCache(amorce), b.logitsCache(amorce)), 'logits (mémoire des clés et valeurs)');
+  assert.deepEqual(a.generer(amorce, 10, { graine: 3 }).ids, b.generer(amorce, 10, { graine: 3 }).ids, 'morceaux générés');
+  for (const L of [300, 7, T]) { const s = suite(L, V, graine + L); assert.ok(memesBits(a.plonger(s), b.plonger(s)), `plongement de ${L} morceaux`); }
+  const jeu = [suite(T, V, 1), suite(20, V, 2), suite(1, V, 3), suite(77, V, 4)];
+  assert.ok(Object.is(perteSur(a, jeu), perteSur(b, jeu)), 'perte sur un jeu');
+  assert.equal(b.etatTampons.tenus, 0, 'le réseau sans tampons ne garde rien');
+  return { suites: n, tenus: a.etatTampons.tenus };
+}
+
+test('tampons gardés, gabarits petit (3 graines) et moyen (2 graines) : calcul identique bit à bit à des tableaux neufs', async (t) => {
+  for (const [taille, graines] of [['petit', [1, 2, 3]], ['moyen', [4, 5]]] as Array<['petit' | 'moyen', number[]]>) {
+    for (const g of graines) {
+      const m = await memeCalcul(hyperDe(taille), g);
+      t.diagnostic(`${taille}/graine ${g} : ${m.suites} suites, ${(m.tenus / 1e6).toFixed(1)} Mo de tampons gardés`);
+      assert.ok(m.tenus > 0, 'des tampons ont bien servi');
+    }
+  }
+});
+
+test('deux réseaux dans le même fil, entrelacés : chacun ses tampons, rien de partagé à tort', () => {
+  const hp = hyperDe('petit'), hm = hyperDe('moyen');
+  const a = new Reseau(hp), b = new Reseau(hm), ra = new Reseau(hp, undefined, undefined, { tampons: false }), rb = new Reseau(hm, undefined, undefined, { tampons: false });
+  a.initialiser(1); ra.initialiser(1); b.initialiser(2); rb.initialiser(2);
+  for (let i = 0; i < 6; i++) {
+    const s1 = suite(20 + 17 * i, hp.vocab, i), s2 = suite(128 - 11 * i, hm.vocab, 50 + i);
+    assert.ok(Object.is(a.perteEtGrad(s1), ra.perteEtGrad(s1)));
+    assert.ok(Object.is(b.perteEtGrad(s2), rb.perteEtGrad(s2)));
+  }
+  assert.ok(memesBits(a.grads, ra.grads) && memesBits(b.grads, rb.grads));
+  // Les états rendus par un calcul public (hors portée) ne sont jamais des tampons : ils restent valables après.
+  const s = suite(50, hp.vocab, 9), e1 = a.avant(s, true), copie = Float32Array.from(e1.logits!);
+  a.perteEtGrad(suite(128, hp.vocab, 3)); a.plonger(suite(90, hp.vocab, 4));
+  assert.ok(memesBits(e1.logits!, copie), 'un état tenu par l\'appelant n\'est pas réécrit');
+});
+
+test('séances enchaînées sur 4 aides, AVEC les tampons gardés dans chaque fil : mêmes poids, bit à bit, que sans tampons', async () => {
+  const { lancerAides, arreterAides, seanceParallele, seance } = await import('../src/brain/nous/calcul.ts');
+  const h = hyperDe('petit');
+  // Des séances aux longueurs différentes l'une de l'autre (les tampons des aides servent, grandissent, resservent).
+  const jeux = [0, 1, 2, 3, 4].map((k) => Array.from({ length: 15 }, (_, i) => suite(Math.max(2, [128, 12, 70, 128, 5][k] - (i % 4) * (k + 1)), h.vocab, 100 * k + i)));
+  const faire = async (tampons: boolean, fils: boolean): Promise<{ poids: Float32Array; m: Float32Array; pertes: number[] }> => {
+    const ancien = process.env.ODIN_SOUL_TAMPONS;
+    if (tampons) delete process.env.ODIN_SOUL_TAMPONS; else process.env.ODIN_SOUL_TAMPONS = 'non'; // lu à la création des réseaux (aides comprises)
+    try {
+      const sab = new SharedArrayBuffer(h.poids * 4), r = new Reseau(h, new Float32Array(sab)); r.initialiser(12);
+      const aides = fils ? lancerAides(h, sab, undefined, 4) : undefined;
+      const pertes: number[] = [];
+      try {
+        for (const [k, entrees] of jeux.entries()) {
+          const o = { dureeMs: 120_000, graine: k, tailleLot: 5, lr: 3e-3 };
+          const av = aides ? await seanceParallele(r, [{ entrees }], o, aides) : seance(r, [{ entrees }], o);
+          pertes.push(av.perte);
+        }
+      } finally { await arreterAides(aides); }
+      assert.equal(r.etatTampons.tenus > 0, tampons, 'tampons gardés seulement quand ils sont permis');
+      return { poids: Float32Array.from(r.poids), m: r.exporterMoments().m, pertes };
+    } finally { if (ancien === undefined) delete process.env.ODIN_SOUL_TAMPONS; else process.env.ODIN_SOUL_TAMPONS = ancien; }
+  };
+  const avec = await faire(true, true), sans = await faire(false, true);
+  assert.deepEqual(avec.pertes, sans.pertes);
+  assert.ok(memesBits(avec.poids, sans.poids), 'mêmes poids, bit à bit, après 5 séances enchaînées sur 5 fils');
+  assert.ok(memesBits(avec.m, sans.m), 'mêmes moments');
+  // Et la même chose sur un seul fil.
+  const un = await faire(true, false), unSans = await faire(false, false);
+  assert.ok(memesBits(un.poids, unSans.poids));
+});
+
+test('mémoire des tampons : demandée au comptable, refusée sans dommage, bornée, rendue sous pression', async () => {
+  const bm = await import('../src/brain/budget-memoire.ts');
+  const { sourceComptable, Tampons } = await import('../src/brain/nous/noyau-tampons.ts');
+  for (let i = 0; i < 100 && sourceComptable() !== 'comptable'; i++) await new Promise((ok) => setTimeout(ok, 10));
+  assert.equal(sourceComptable(), 'comptable', 'le comptable de la mémoire est bien celui qui compte');
+  const env = (v: Record<string, string | undefined>): void => { for (const [k, x] of Object.entries(v)) { if (x === undefined) delete process.env[k]; else process.env[k] = x; } };
+  const h = hyperDe('moyen'), s = suite(128, h.vocab, 1);
+  try {
+    // Machine presque pleine : rien n'est gardé, le calcul reste le même.
+    env({ ODIN_MEMOIRE_LIBRE_MO: '520', ODIN_MEMOIRE_MARGE_MO: '512', ODIN_MEMOIRE_PLAFOND_MO: '4096' });
+    const a = new Reseau(h), b = new Reseau(h, undefined, undefined, { tampons: false }); a.initialiser(3); b.initialiser(3);
+    assert.ok(Object.is(a.perteEtGrad(s), b.perteEtGrad(s)));
+    assert.equal(a.etatTampons.tenus, 0, 'budget refusé : rien de gardé');
+    // De la place : les tampons sont gardés, et leur part est retirée du budget de tous.
+    env({ ODIN_MEMOIRE_LIBRE_MO: '20000' });
+    const budget0 = bm.budgetLibreMo();
+    a.jeterGrad(); b.jeterGrad();
+    assert.ok(Object.is(a.perteEtGrad(s), b.perteEtGrad(s)));
+    const e = a.etatTampons;
+    assert.ok(e.tenus > 0 && e.tenus <= e.reserves, `tenus ${e.tenus} ≤ réservés ${e.reserves}`);
+    assert.equal(bm.budgetLibreMo(), budget0 - e.reserves / 1_048_576, 'la part des tampons est comptée');
+    // Pression (la mémoire libre passe sous la marge) : tout est rendu ; le calcul suivant reste juste.
+    env({ ODIN_MEMOIRE_LIBRE_MO: '100' });
+    bm.budgetLibreMo(); // le comptable voit la pression et prévient chacun
+    assert.equal(a.etatTampons.tenus, 0, 'rendu sous pression');
+    env({ ODIN_MEMOIRE_LIBRE_MO: '20000' });
+    assert.equal(bm.budgetLibreMo(), 4096, 'plus rien de réservé, par personne (la pression vide tout le monde)');
+    a.jeterGrad(); b.jeterGrad();
+    assert.ok(Object.is(a.perteEtGrad(s), b.perteEtGrad(s)) && memesBits(a.grads, b.grads));
+    assert.ok(a.etatTampons.reserves > 0, 'repris au calcul suivant');
+    a.rendreTampons(); assert.equal(bm.budgetLibreMo(), 4096, 'rendu à la demande');
+    // Plafond propre : une portée qui en voudrait plus prend des tableaux neufs au-delà.
+    const t = new Tampons({ actif: true, maxMo: 1 });
+    t.dans(() => { const x = t.prendre(200_000); const y = t.prendre(200_000); x[0] = 1; y[0] = 2; assert.equal(x[0], 1); });
+    assert.ok(t.etat.tenus <= 1_048_576, 'jamais plus que le plafond');
+    t.vider();
+  } finally { env({ ODIN_MEMOIRE_LIBRE_MO: undefined, ODIN_MEMOIRE_MARGE_MO: undefined, ODIN_MEMOIRE_PLAFOND_MO: undefined }); }
+});
+
+test('un réseau disparu rend sa part au comptable', async () => {
+  const v8 = await import('node:v8'), vm = await import('node:vm');
+  v8.setFlagsFromString('--expose-gc');
+  const gc = vm.runInNewContext('gc') as () => void;
+  const bm = await import('../src/brain/budget-memoire.ts');
+  process.env.ODIN_MEMOIRE_LIBRE_MO = '20000';
+  try {
+    const budget0 = bm.budgetLibreMo();
+    (() => { const r = new Reseau(hyperDe('petit')); r.initialiser(1); r.perteEtGrad(suite(128, 4096, 2)); assert.ok(r.etatTampons.reserves > 0); })();
+    assert.ok(bm.budgetLibreMo() < budget0, 'part prise');
+    for (let i = 0; i < 50 && bm.budgetLibreMo() < budget0; i++) { gc(); await new Promise((ok) => setTimeout(ok, 20)); }
+    assert.ok(bm.budgetLibreMo() >= budget0, 'part rendue après la disparition du réseau');
+  } finally { delete process.env.ODIN_MEMOIRE_LIBRE_MO; }
+});
+
+test('beaucoup de réseaux créés puis disparus : le suivi des tampons ne grossit pas sans fin', async () => {
+  const v8 = await import('node:v8'), vm = await import('node:vm');
+  v8.setFlagsFromString('--expose-gc');
+  const gc = vm.runInNewContext('gc') as () => void;
+  const { Tampons, suivis } = await import('../src/brain/nous/noyau-tampons.ts');
+  for (let i = 0; i < 20; i++) { gc(); await new Promise((ok) => setTimeout(ok, 10)); }
+  const depart = suivis();
+  (() => { for (let i = 0; i < 500; i++) new Tampons({ actif: true }); })();
+  assert.ok(suivis() >= depart + 500);
+  // Aucun calcul, aucune pression entre-temps : seul le ramasse-miettes passe.
+  for (let i = 0; i < 100 && suivis() > depart; i++) { gc(); await new Promise((ok) => setTimeout(ok, 10)); }
+  assert.ok(suivis() <= depart, `suivis : ${suivis()} (départ ${depart})`);
+});
+
+test('tampons et poids figés du moteur : deux réglages séparés (chaque gain se mesure seul)', async () => {
+  const { gelActif, tamponsActifs } = await import('../src/brain/nous/noyau-tampons.ts');
+  const env = (v: Record<string, string | undefined>): void => { for (const [k, x] of Object.entries(v)) { if (x === undefined) delete process.env[k]; else process.env[k] = x; } };
+  const avant = { ODIN_SOUL_TAMPONS: process.env.ODIN_SOUL_TAMPONS, ODIN_SOUL_GEL: process.env.ODIN_SOUL_GEL };
+  try {
+    env({ ODIN_SOUL_TAMPONS: 'non', ODIN_SOUL_GEL: undefined });
+    assert.equal(tamponsActifs(), false); assert.equal(gelActif(), true, 'couper les tampons ne coupe pas les poids figés');
+    env({ ODIN_SOUL_TAMPONS: undefined, ODIN_SOUL_GEL: 'non' });
+    assert.equal(tamponsActifs(), true); assert.equal(gelActif(), false);
+  } finally { env(avant); }
+});
+
+test('tampons des fils d\'aide : comptés par le comptable du fil principal, bornés, rendus quand les aides s\'arrêtent', async () => {
+  // Les aides (et le fil du moteur) sont d'autres fils : leurs tampons doivent être vus par LE comptable d'Odin, celui
+  // du fil principal (défaut relevé à la relecture : chaque fil avait sa propre table et ne voyait que lui).
+  const { lancerAides, arreterAides, seanceParallele } = await import('../src/brain/nous/calcul.ts');
+  const bm = await import('../src/brain/budget-memoire.ts');
+  const dormir = (ms: number): Promise<void> => new Promise((ok) => setTimeout(ok, ms));
+  process.env.ODIN_MEMOIRE_LIBRE_MO = '20000';
+  try {
+    const h = hyperDe('petit'), sab = new SharedArrayBuffer(h.poids * 4);
+    const r = new Reseau(h, new Float32Array(sab), undefined, { tampons: false }); r.initialiser(4); // le fil principal ne garde rien
+    const budget0 = bm.budgetLibreMo();
+    const aides = lancerAides(h, sab, undefined, 3);
+    let pris = 0;
+    try {
+      const entrees = Array.from({ length: 16 }, (_, i) => suite(128, h.vocab, 300 + i));
+      for (let k = 0; k < 8 && pris <= 0; k++) {
+        await seanceParallele(r, [{ entrees }], { dureeMs: 120_000, graine: k, tailleLot: 4, lr: 1e-3 }, aides);
+        await dormir(50);
+        pris = budget0 - bm.budgetLibreMo();
+      }
+      assert.ok(pris > 0, `les tampons des aides sont comptés dans le fil principal (budget ${budget0} → ${bm.budgetLibreMo()} Mo)`);
+      assert.ok(pris <= 3 * 256, `et bornés (${pris} Mo pour 3 aides)`);
+      // Pression vue par le comptable du fil principal : les aides vident leurs tampons à leur portée suivante, et
+      // aucune nouvelle part ne leur est accordée tant qu'elle dure ; la séance reste juste.
+      process.env.ODIN_MEMOIRE_LIBRE_MO = '100';
+      bm.budgetLibreMo();
+      const av = await seanceParallele(r, [{ entrees }], { dureeMs: 120_000, graine: 99, tailleLot: 4, lr: 1e-3 }, aides);
+      assert.ok(av.pas > 0 && Number.isFinite(av.perte), 'séance faite sous pression');
+      await dormir(50);
+      process.env.ODIN_MEMOIRE_LIBRE_MO = '20000';
+      assert.equal(bm.budgetLibreMo(), budget0, 'sous pression, les aides ont tout rendu');
+    } finally { await arreterAides(aides); }
+    for (let i = 0; i < 100 && bm.budgetLibreMo() < budget0; i++) await dormir(20);
+    assert.equal(bm.budgetLibreMo(), budget0, 'part des aides rendue quand elles s\'arrêtent');
+  } finally { delete process.env.ODIN_MEMOIRE_LIBRE_MO; }
+});
+
+test('poids figés comme dans le fil du moteur : les copies de travail servent d\'un appel à l\'autre et suivent chaque changement', () => {
+  // Le fil du moteur fige ses poids (ils n'y changent que par le réseau) : une réponse, un plongement, un score ne
+  // recopient plus les poids. Vérifié sur le réseau lui-même, comme le fait le fil : après un pas, un retour à un
+  // point (importerPoids) ou 'poidsModifies', les sorties sont celles de la référence sur les nouveaux poids.
+  const h = hyperDe('petit'), r = new Reseau(h); r.initialiser(5); r.figerPoids();
+  const ref = (): InstanceType<typeof ReseauAncien> => { const x = new ReseauAncien(h); x.importerPoids(r.poids); return x; };
+  const am = suite(30, h.vocab, 1);
+  assert.deepEqual(r.generer(am, 6).ids, ref().generer(am, 6).ids);
+  r.perteEtGrad(suite(100, h.vocab, 2)); r.pasAdamW(1e-2);
+  assert.ok(ecartRel(r.logitsDerniere(am), ref().logitsDerniere(am)) <= TOL, 'après un pas');
+  const autre = new Reseau(h); autre.initialiser(77); r.importerPoids(autre.poids);
+  assert.ok(ecartRel(r.logitsDerniere(am), ref().logitsDerniere(am)) <= TOL, 'après importerPoids');
+  for (let i = 0; i < r.poids.length; i++) r.poids[i] *= 0.9;
+  r.poidsModifies();
+  assert.ok(ecartRel(r.plonger(am), ref().plonger(am)) <= TOL, 'après poidsModifies');
+});
