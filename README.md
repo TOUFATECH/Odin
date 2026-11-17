@@ -9,7 +9,7 @@
 ![Node 22.18+](https://img.shields.io/badge/node-%E2%89%A5%2022.18-blue)
 ![macOS · Linux · Windows](https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-ok-lightgrey)
 
-[Installation](#installation) · [Premiers pas](#premiers-pas) · [Utilisation](#utilisation) · [Décisions et autonomie](#décisions-et-autonomie) · [Sécurité](#sécurité) · [Commandes](#toutes-les-commandes) · [Dépannage](#dépannage) · [Odin OS](#odin-os)
+[Installation](#installation) · [Premiers pas](#premiers-pas) · [Utilisation](#utilisation) · [Décisions et autonomie](#décisions-et-autonomie) · [Sécurité](#sécurité) · [Commandes](#toutes-les-commandes) · [Dépannage](#dépannage)
 
 </div>
 
@@ -177,7 +177,7 @@ Toutes les applis se connectent avec ton compte Odin : Pégase, Vénus, et tout 
 
 #### Pégase : ton navigateur relié à Odin
 
-Installateurs : AppImage et .deb (Linux) construits ici ; .exe (Windows) et .dmg (Mac) construits par GitHub Actions au tag `pegase-v*` (`.github/workflows/pegase-desktop.yml`), pas encore signés. Code : `pegase/` (ordinateur, Electron) et `pegase-android/`.
+Odin sert le navigateur Pégase (ordinateur et Android) : son compte, la synchronisation et ce qu'Odin en voit, décrits ci-dessous.
 
 Pégase (Windows, Mac, Linux, Android) se connecte à Odin avec ton compte (le même que partout : connexion unique). Dans Odin, l'appli **Pégase** montre tes appareils (et les révoque), l'état de la synchro, l'historique cherchable par jour, les copies (une par jour, restaurables d'un geste) et ce que l'IA d'Odin peut voir de ta navigation (tout, sans l'historique, ou rien). Favoris, onglets, agenda et historique se synchronisent à la seconde entre l'ordinateur et le téléphone, avec une vérification à l'identique ; les cookies et les mots de passe restent sur chaque appareil. Les téléchargements passent par Asclépios, les liens par Sphinx, les alertes arrivent dans Forseti. Contrat entre Pégase et Odin : `docs/pegase-protocole.md`.
 
@@ -185,7 +185,7 @@ Pégase (Windows, Mac, Linux, Android) se connecte à Odin avec ton compte (le m
 
 Tu mets une personne dans un groupe de Persona : les applis autorisées à ce groupe apparaissent dans son espace Odin et dans le store de ses ordinateurs et téléphones. Dans Odin, l'appli **Agora** (réservée aux admins ; les autres y voient seulement leur store) a quatre onglets : **Catalogue** (applis d'Odin en web, installateurs Windows, Mac, Linux et Android avec leur version, leur empreinte SHA-256 et l'avis d'Asclépios), **Groupes** (pour chaque groupe et chaque appli : *Proposée*, *Installée d'office* ou *Retirée*), **Appareils** (en ligne ou non, ce qui y est installé, « Forcer » une installation ou une désinstallation, avec ton accord) et **Journal**. Le droit est celui de la connexion unique : rien en double avec Persona.
 
-Les stores des appareils se connectent avec le compte Odin (connexion unique, appli « agora ») et reçoivent les ordres à la seconde (`/api/agora/*`, flux SSE). Sur l'ordinateur (`agora-poste/`, Electron) : ce qui est imposé s'installe ou se désinstalle tout seul (Linux : AppImage dans `~/Applications` ou paquet .deb ; Windows : installateur silencieux ; Mac : .dmg vers Applications), le reste d'un clic, et chaque installateur est vérifié (empreinte) avant d'être installé. Sur Android (`agora-android/`), Android demande un toucher pour confirmer, sauf si le téléphone est « géré par Odin » (Agora propriétaire de l'appareil). Sur iPhone, Apple ne permet pas d'installer hors de l'App Store : les applis d'Odin y passent par le web. Alertes dans Forseti : installation échouée, appareil inconnu, nouvel appareil.
+Les stores des appareils se connectent avec le compte Odin (connexion unique, appli « agora ») et reçoivent les ordres à la seconde (`/api/agora/*`, flux SSE). Sur l'ordinateur : ce qui est imposé s'installe ou se désinstalle tout seul (Linux : AppImage dans `~/Applications` ou paquet .deb ; Windows : installateur silencieux ; Mac : .dmg vers Applications), le reste d'un clic, et chaque installateur est vérifié (empreinte) avant d'être installé. Sur Android, Android demande un toucher pour confirmer, sauf si le téléphone est « géré par Odin » (Agora propriétaire de l'appareil). Sur iPhone, Apple ne permet pas d'installer hors de l'App Store : les applis d'Odin y passent par le web. Alertes dans Forseti : installation échouée, appareil inconnu, nouvel appareil.
 
 #### Venus (Vénus) : épisodes et VF
 
@@ -873,11 +873,3 @@ Ajouter un outil = un objet avec un nom, une description, un **niveau de risque*
 [MIT](LICENSE) © TOUFATECH
 
 Le dictionnaire français de Plume vient de Grammalecte (MPL 2.0) : fichiers inchangés, avec leur licence à côté.
-
----
-
-## Odin OS
-
-**Odin OS est un projet distinct** : le système d'exploitation d'Odin, construit sur Ubuntu 26.04 LTS, dont le bureau est servi par Odin. Son code est sur la branche [`odin-os`](https://github.com/TOUFATECH/Odin/tree/odin-os), séparé de l'application présentée ci-dessus ; les applis d'Odin y seront réunies par la suite.
-
-Présentation complète : [ODIN-OS.md](ODIN-OS.md).

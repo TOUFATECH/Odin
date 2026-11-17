@@ -26,8 +26,6 @@ const permis = (prop: string, v: string) => (prop === 'fill' || prop === 'stroke
 const SVG_FIXES: Array<[string, number]> = [
   ['src/web/ui.html', 8], // connexion (#login), en-tête (#buddy, #buddyM), discussion (#buddyChat) : 4 mascottes, 2 yeux chacune
   ['tools/site/parts/mascot.svg', 2], // site, guide, planche des humeurs, autocollants Telegram
-  ['pegase/src/ui/odin-visage.ts', 2], // Pégase (avatar)
-  ['agora-poste/src/ui/odin-visage.ts', 2], // Agora sur le poste
 ];
 
 test('yeux blancs : chaque mascotte dessinée en dur a des pastilles blanches', () => {
@@ -90,7 +88,6 @@ const CSS_MASCOTTE = [
   'src/web/recherche-api.ts', 'src/web/themes.js', 'src/web/pages/rodd.js', 'src/web/pages/naglfar.js', 'src/web/activate.ts',
   'src/web/connexion-qr-page.ts', 'src/valhalla/thjalfi/ecran-page.ts', 'tools/site/parts/eyes.css', 'tools/site/parts/face.css',
   'tools/guide/template.html', 'tools/render-moods.cjs', 'tools/planche-humeurs.mjs', 'site/assets/face.js',
-  'pegase/src/ui/style.css', 'agora-poste/src/ui/style.css',
 ];
 
 test('yeux blancs : aucune règle CSS ne change la couleur des yeux, ne les assombrit ni ne pose de filtre dessus', () => {

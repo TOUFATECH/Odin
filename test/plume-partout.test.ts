@@ -1,9 +1,9 @@
 // Plume partout : le correcteur en direct (dictionnaire français, règles sûres, vitesse), les routes /api/plume/* sur un
-// vrai Odin (propriétaire, Pégase, sans connexion), Désactiver qui coupe tout (et l'IA ne s'en sert plus), le
-// script de Pégase à jour. Contrat : docs/plume-protocole.md.
+// vrai Odin (propriétaire, Pégase, sans connexion), Désactiver qui coupe tout (et l'IA ne s'en sert plus). Contrat :
+// docs/plume-protocole.md. (Le script de page de Pégase et son essai vivent avec Pégase, branche odin-os.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { T } from './banc/lib.ts';
 import { vraiOdin, COMPTE } from './banc/odin-vrai.ts';
@@ -133,13 +133,4 @@ test('Plume partout sur un vrai Odin : routes, réglage par personne, Désactive
     assert.equal((await v.json('/api/plume/etat')).body.actif, true);
     assert.ok((await va.act('snotra', 'corriger', { texte: 'les maison' })).ok !== false, 'la page de Plume corrige toujours un texte donné');
   } finally { await tt.end(); }
-});
-
-test('Pégase : plume-page.js est à jour (fabriqué depuis src/web/plume.js et plume.css)', async () => {
-  const { codePage } = await import('../pegase-plume/construire.mjs');
-  assert.equal(readFileSync(new URL('../pegase-plume/plume-page.js', import.meta.url), 'utf8'), codePage(), 'lance : node pegase-plume/construire.mjs');
-  const { nettoyer } = await import('../pegase-plume/plume-main.cjs');
-  assert.deepEqual(nettoyer('corriger', { texte: 'bonjour', ou: 'odin', champ: 'recherche', jeton: 'x' }), { texte: 'bonjour', ou: 'pegase', champ: 'recherche' }, 'la page ne choisit pas « odin » et rien d\'autre ne part');
-  assert.equal(nettoyer('reglages', { autre: 1 }), null);
-  assert.deepEqual(nettoyer('reglages', { actif: false, langue: 'fr', x: 2 }), { actif: false, langue: 'fr' });
 });

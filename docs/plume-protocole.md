@@ -4,7 +4,7 @@ Plume corrige pendant qu'on écrit, partout : la discussion avec Odin, chaque ch
 l'interface d'Odin elle-même, et Pégase (sites, formulaires, barre de recherche). Rouge : orthographe et frappe ;
 bleu : grammaire. Une petite fenêtre pointée sur le mot propose **Corriger**, **Modifier**, **Tout voir · N** et
 **Désactiver**. Ce fichier est le contrat entre Odin (le serveur) et ses clients : l'interface d'Odin
-(`src/web/plume.js`) et Pégase (`pegase-plume/`, branché par l'agent qui code Pégase).
+(`src/web/plume.js`) et Pégase (le navigateur, un programme à part qui se connecte à Odin).
 
 ## 1. Les règles (demande du propriétaire, 14/11/2026)
 
@@ -131,7 +131,7 @@ fixe (éditeurs de code), `.CodeMirror`, `.cm-editor`, `.monaco-editor`, `.ace_e
 
 ## 7. Pégase
 
-Pégase ne donne **jamais** l'accès à Odin à la page : le script de page (`pegase-plume/plume-page.js`) tourne dans le
+Pégase ne donne **jamais** l'accès à Odin à la page : le script de page de Pégase tourne dans le
 monde isolé de Pégase, dessine dans un Shadow DOM **fermé**, et demande au processus principal par IPC
-(`pegase:plume`) ; seul le processus principal parle à Odin, avec le jeton de l'appareil. Mode d'emploi :
-`pegase-plume/README.md`.
+(`pegase:plume`) ; seul le processus principal parle à Odin, avec le jeton de l'appareil. Mode d'emploi : avec le code de
+Pégase.

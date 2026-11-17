@@ -1,7 +1,7 @@
 // Le ciel noir étoilé des écrans d'accueil d'Odin (connexion, première connexion au téléphone, écran de la maison au
 // démarrage, portail de connexion) : quelques étoiles brillent fort (halo et petite croix lumineuse qui scintille), les
-// autres doucement ; immobile si l'appareil demande moins d'animations. Même dessin que Pégase (pegase/src/ui/ecrans.ts,
-// fonction `ciel`). Chaque <canvas class="ciel"> de la page est animé ; un canvas ajouté plus tard : OdinCiel.monter(c).
+// autres doucement ; immobile si l'appareil demande moins d'animations. Même dessin que dans le navigateur Pégase
+// (fonction `ciel` de ses écrans). Chaque <canvas class="ciel"> de la page est animé ; un canvas ajouté plus tard : OdinCiel.monter(c).
 // Rien ne tourne quand aucun ciel n'est visible (après la connexion, Odin garde le thème choisi par la personne).
 (() => {
   'use strict';
