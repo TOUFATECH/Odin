@@ -436,7 +436,7 @@
       "nom": "Soul, version 3 : trouver la bonne appli",
       "etat": "en cours",
       "famille": "Brain et Soul",
-      "resume": "Aucun modèle n'est livré : un Odin neuf commence avec un Soul vide. Un banc figé (toutes les applis, quinze langues, demandes jamais vues) mesure l'aiguilleur de Soul : la bonne appli du premier coup pour 576 demandes sur 690 au troisième tour. Cet aiguilleur n'est pas branché sur la discussion (décision du propriétaire : rien à brancher pour l'instant) ; c'est toujours Logos qui choisit l'appli. L'objectif : la bonne application à 100 %."
+      "resume": "Aucun modèle n'est livré : un Odin neuf commence avec un Soul vide. Un banc figé (toutes les applis, quinze langues, demandes jamais vues) mesure l'aiguilleur de Soul : la bonne appli du premier coup pour 576 demandes sur 690 au troisième tour (un quatrième tour est en cours). Cet aiguilleur n'est pas branché sur la discussion (décision du propriétaire : rien à brancher pour l'instant) ; c'est toujours Logos qui choisit l'appli. L'objectif : la bonne application à 100 %."
     },
     {
       "id": "medias-recus",
@@ -463,21 +463,21 @@
       "nom": "Pygmalion : produire des documents, des graphes, des images",
       "etat": "en cours",
       "famille": "Applis",
-      "resume": "Écrit, en correction ; pas encore dans l'installation."
+      "resume": "Écrit et corrigé (un fichier que tu as modifié n'est jamais écrasé, une archive n'écrit pas hors de son dossier) ; ses refus des faux documents et des trucages sont relus une seconde fois avant de l'ouvrir. Pas encore dans l'installation."
     },
     {
       "id": "profil-lot-2",
       "nom": "La fenêtre Profil",
-      "etat": "en cours",
+      "etat": "fait",
       "famille": "Odin",
-      "resume": "Voir les fiches et l'historique : toi, toutes ; un membre, seulement la sienne ; un invité, rien. Effacer l'historique par personne ou par période."
+      "resume": "Un onglet Profil : la liste des personnes qui parlent à Odin, la carte de chacune (rôle, autonomie, identités et leur preuve, accès aux applis en lecture, ta note) et son historique. Toi, tu vois tout ; un membre, seulement la sienne, et il peut te signaler une erreur ; un invité, rien. Effacer l'historique d'une personne ou d'une période passe par une confirmation qui dit ce qui part et ce qui reste ailleurs. Les droits se règlent encore dans Réglages → Personnes."
     },
     {
       "id": "automatisations-editeur",
-      "nom": "Automatisations : se manier comme un éditeur de scénarios",
-      "etat": "en cours",
+      "nom": "Automatisations : le « + », les vrais champs, les liens entre applis montrés",
+      "etat": "fait",
       "famille": "Applis",
-      "resume": "Déjà là : un « + » sur chaque bloc, au centre d'une fenêtre vide et au double-clic ouvre la grille des applis puis leurs fonctions, et pose le bloc suivant, déjà relié. En cours : les vrais champs d'une fonction à la place du texte à taper, et les liens déjà écrits entre applis montrés dans la fenêtre, en lecture seule (les couper viendra après ta réponse)."
+      "resume": "Un « + » sur chaque bloc, au centre d'une fenêtre vide et au double-clic ouvre la grille des applis puis leurs fonctions, et pose le bloc suivant, déjà relié. Le bloc d'une appli montre son icône et le nom de sa fonction ; son panneau montre un champ par réglage, avec son aide, à la place du texte à taper (le texte reste derrière « Réglages avancés »). Les 137 liens déjà écrits entre applis sont montrés dans la fenêtre, rangés par appli, en lecture seule, avec la mention « protège » pour ceux de sécurité et de sauvegarde."
     },
     {
       "id": "cerveau-3d",
@@ -524,30 +524,30 @@
     {
       "id": "profil-suite",
       "nom": "Profil, la suite : la carte et le graphe d'une personne, ses droits",
-      "etat": "à venir",
+      "etat": "en cours",
       "famille": "Odin",
-      "resume": "Sa personnalité et sa façon de parler mesurées par Odin (chaque trait avec son nombre d'observations) et ta note ; un portrait en phrases quand son propre modèle sera entraîné. Limiter ou donner des droits depuis la fiche ; une personne dont l'accès est limité l'apprend seulement si elle essaie."
+      "resume": "En cours : montrer sur la carte ce qu'Odin a mesuré de la façon de parler (langues employées, longueur des demandes, heures habituelles, part de demandes abouties, chacune avec son nombre d'observations et « trop peu » sous vingt ; le calcul est fait, l'affichage arrive). À venir : le graphe d'une personne ; limiter ou donner des droits depuis la fiche (une personne dont l'accès est limité l'apprend seulement si elle essaie) ; un portrait en phrases quand son propre modèle sera entraîné."
     },
     {
       "id": "automatisations-editeur-suite",
       "nom": "Automatisations : la suite des gestes de l'éditeur de scénarios",
-      "etat": "à venir",
+      "etat": "en cours",
       "famille": "Applis",
-      "resume": "Les autres étapes, une à la fois ; couper un lien entre applis, avec une confirmation pour ceux qui protègent ; plus tard, un déclencheur à l'arrivée d'un mail ou d'un message."
+      "resume": "En cours : toucher un fil ouvre un petit menu (retirer le lien, ajouter un bloc au milieu), les ronds à relier sont plus faciles à toucher, et l'on peut relier en tirant un fil. À venir, une étape à la fois : prendre une donnée d'un bloc d'avant, le menu d'un bloc, l'exécution montrée bloc par bloc, les branches et les conditions sur un fil, le planning réglé depuis le déclencheur, que faire en cas d'erreur ; couper un lien entre applis, avec une confirmation pour ceux qui protègent ; plus tard, un déclencheur à l'arrivée d'un mail ou d'un message."
     },
     {
       "id": "graphe-3d-suite",
       "nom": "Graphe 3D, les autres endroits",
-      "etat": "à venir",
+      "etat": "en cours",
       "famille": "Odin",
-      "resume": "La carte du réseau de la Maison, le proxy (avec le DNS et le DHCP), le reverse proxy, le VPN, le Profil, une carte d'Internet."
+      "resume": "En cours : la carte du réseau de la Maison. À venir : le proxy (avec le DNS et le DHCP), le reverse proxy, le VPN, le Profil, une carte d'Internet."
     },
     {
       "id": "venus-complet",
       "nom": "Vénus complet, sans rien d'extérieur",
-      "etat": "à venir",
+      "etat": "en cours",
       "famille": "Médias",
-      "resume": "Envoyer un média depuis un appareil ; trouver et télécharger films et séries par Odin lui-même ; YouTube et l'envoi vers une télé existent mais passent encore par un outil extérieur : les faire par Odin lui-même."
+      "resume": "Déjà là : dans le lecteur, la durée entière et le saut à un endroit d'un film converti à la volée. En cours : envoyer un film, une série ou une musique depuis un téléphone ou un ordinateur. À venir : « lance tel film, telle série, à tel épisode » en parlant, les affiches et le scan en arrière-plan ; trouver et récupérer films et séries par Odin lui-même ; YouTube et l'envoi vers une télé existent mais passent encore par un outil extérieur : les faire par Odin lui-même."
     },
     {
       "id": "a-valider",
