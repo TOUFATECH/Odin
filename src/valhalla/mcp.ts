@@ -46,6 +46,8 @@ export class McpClient {
   readonly conf: McpServerConf;
   private fetcher: typeof fetch;
   private token?: string;
+  /** Le programme s'est arrêté ou n'a pas pu être lancé : toute requête échoue aussitôt. */
+  private mort?: Error;
   constructor(conf: McpServerConf, fetcher: typeof fetch = fetch, token?: string) { this.conf = conf; this.fetcher = fetcher; this.token = token; }
 
   async connect(): Promise<McpTool[]> {
@@ -54,7 +56,11 @@ export class McpClient {
       const env: NodeJS.ProcessEnv = { PATH: process.env.PATH, HOME: process.env.HOME, LANG: process.env.LANG };
       for (const k of this.conf.env ?? []) if (process.env[k]) env[k] = process.env[k];
       this.proc = spawn(this.conf.command, this.conf.args ?? [], { stdio: ['pipe', 'pipe', 'ignore'], env });
-      this.proc.on('exit', () => { for (const p of this.pending.values()) { clearTimeout(p.t); p.rej(new Error('serveur MCP arrêté')); } this.pending.clear(); });
+      const arreter = (e: Error) => { this.mort = e; for (const p of this.pending.values()) { clearTimeout(p.t); p.rej(e); } this.pending.clear(); };
+      this.proc.on('exit', () => arreter(new Error('serveur MCP arrêté')));
+      // Commande introuvable ou refusée : sans ce gestionnaire, l'erreur tuerait Odin (ou la requête attendrait son délai).
+      this.proc.on('error', (e) => arreter(new Error(`${this.conf.name} : programme impossible à lancer (${(e as NodeJS.ErrnoException).code ?? e.message})`)));
+      this.proc.stdin?.on('error', () => { /* tuyau fermé : la sortie du programme le signale déjà */ });
       this.proc.stdout!.on('data', (d: Buffer) => { this.buf += d.toString('utf8'); let i; while ((i = this.buf.indexOf('\n')) >= 0) { const line = this.buf.slice(0, i).trim(); this.buf = this.buf.slice(i + 1); if (line) this.onMessage(line); } if (this.buf.length > 8 * 1024 * 1024) this.buf = ''; });
     }
     const init = await this.request('initialize', { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: 'odin', version: '1' } }) as { serverInfo?: { name?: string; version?: string } };
@@ -95,6 +101,7 @@ export class McpClient {
   private request(method: string, params: unknown, timeout = 30_000): Promise<unknown> {
     const id = this.nextId++, msg = { jsonrpc: '2.0', id, method, params };
     if (this.conf.kind === 'http') return this.http(msg, id);
+    if (this.mort) return Promise.reject(this.mort);
     return new Promise((res, rej) => { const t = setTimeout(() => { this.pending.delete(id); rej(new Error(`${this.conf.name} : pas de réponse (${method})`)); }, timeout); this.pending.set(id, { res, rej, t }); this.write(msg); });
   }
 }
