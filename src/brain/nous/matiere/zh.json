@@ -33,6 +33,12 @@
         null,
         "看看有没有我忘了的截止日期快到了",
         "有没有我搁置了好几周的事情？"
+      ],
+      "fiches": [
+        "知识库里没有新加的应用，把每个应用的卡片都重新更新一下。"
+      ],
+      "completer": [
+        "在我的购物笔记最后补上：电池和洗衣粉"
       ]
     },
     "runes": {
@@ -146,6 +152,12 @@
       "mesures": [
         "显示最近24小时的CPU曲线",
         "从昨天到现在处理器负载是怎么变化的？"
+      ],
+      "seuils": [
+        "CPU 的话，60% 变蓝，80% 变橙，95% 变红。"
+      ],
+      "exporter": [
+        "把最新的监控数据导出成指标格式，给我的仪表盘用"
       ]
     },
     "skogul": {
@@ -228,6 +240,15 @@
       ],
       "journal": [
         "把我邮件服务器的日志也盯上，抓那些暴力破解的"
+      ],
+      "fermer_port": [
+        "8080 TCP 端口不用再开着了，关掉吧。"
+      ],
+      "ports_ouverts": [
+        "Odin 开了哪些端口？给谁开的？"
+      ],
+      "ouvrir_port": [
+        "为VPN打开UDP 51820端口，路由器上也开一下"
       ]
     },
     "geri": {
@@ -262,6 +283,12 @@
       "journal": [
         "昨晚我的电脑都连过哪些服务器？",
         "夜里我的程序都跟哪些服务器连过？"
+      ],
+      "etat": [
+        "恶意地址防护现在什么状态？列表是最新的吗？"
+      ],
+      "comportement": [
+        "有台电脑半夜多了一个计划任务，这种行为可疑吗？"
       ]
     },
     "ran": {
@@ -321,6 +348,129 @@
       ],
       "plan": [
         "让文档文件夹每周自动查一次病毒，不用我记着"
+      ],
+      "adresse": [
+        "短信里收到这个链接 livraison-colis.example.net，是不是危险网站？"
+      ],
+      "restaurer_distant": [
+        "你在办公室笔记本上隔离的 4127 号文件是误报，把它放回原处。"
+      ],
+      "liberer": [
+        "把打印机的安装程序从隔离区放出来，我知道它的来源，要用。"
+      ],
+      "reanalyser": [
+        "隔离区里的 三月发票.zip 还在，用今天的病毒库再扫一遍。"
+      ],
+      "revenir": [
+        "上次病毒库更新以后什么都被拦，退回到之前的版本。"
+      ],
+      "rapport": [
+        "上次扫描查出什么了？把报告给我看看。"
+      ],
+      "incident": [
+        "昨晚的 57 号事件我已经处理了，标成已处理吧。"
+      ],
+      "isoler": [
+        "把 发票_三月.exe 隔离起来，我觉得它不对劲"
+      ],
+      "fichier_internet": [
+        "下载之前帮我看看这个链接里的文件安不安全：https://files.example.net/driver.zip"
+      ],
+      "accepter": [
+        "检测到的第42项没问题，接受它，放回原来的位置"
+      ],
+      "verifier_arrivee": [
+        "供应商刚发来 报价单.xlsx，我打开之前先帮我扫描一下"
+      ],
+      "regle": [
+        "加一条检测规则叫“假转账”，碰到“紧急转账”或“更换收款账户”就报，严重程度设为高"
+      ],
+      "rapports": [
+        "给我看看最近做过的扫描：什么时候、扫了多少文件、发现了几个"
+      ],
+      "reputation": [
+        "查一下 SHA-256 哈希 9b1e4c7d…a07f 的信誉，是不是已知的恶意软件"
+      ],
+      "mettre_a_jour": [
+        "帮我把病毒库更新到最新，已经一个星期没更新了"
+      ],
+      "message": [
+        "收到一条短信说我的包裹被扣了要付钱，帮我看看是不是诈骗"
+      ],
+      "refuser": [
+        "检测出来的那个 发票.exe 直接彻底删掉，不用恢复"
+      ],
+      "sources": [
+        "病毒特征码都是从哪些来源来的？许可证和上次更新时间是什么？"
+      ],
+      "importer": [
+        "把 规则.yar 这个文件里的特征码导入杀毒软件"
+      ],
+      "exception": [
+        "以后别再报 D:/games/mods 这个文件夹了，那是我自己做的"
+      ],
+      "failles": [
+        "我装的软件里有没有正被黑客利用的漏洞？"
+      ],
+      "faux_positif": [
+        "invoice_march.pdf 不是病毒，是误报，以后别再报它了"
+      ],
+      "restaurer": [
+        "把隔离区里的42号文件放回原来的位置"
+      ],
+      "bloquer": [
+        "把隔离区第17项彻底删掉，永远不要再放出来"
+      ],
+      "cles": [
+        "我拿到了恶意软件情报库的免费密钥，帮我和其他密钥一起存好"
+      ],
+      "plans": [
+        "有哪些病毒扫描是定时自动跑的？都在什么时候？"
+      ],
+      "exceptions": [
+        "给我看看杀毒软件设了哪些例外、不再报的东西"
+      ],
+      "sentinelles": [
+        "在照片文件夹里放几个诱饵文件，一有勒索病毒就能马上发现"
+      ],
+      "analyser_poste": [
+        "从这里远程扫一下书房那台电脑（192.168.1.40）有没有病毒"
+      ],
+      "supprimer": [
+        "把隔离区里的 fapiao.exe 彻底删掉"
+      ],
+      "delai_decision": [
+        "检测到东西后，给我五分钟决定，再放进隔离区"
+      ],
+      "source": [
+        "把钓鱼网站那个特征库来源打开"
+      ],
+      "retirer_plan": [
+        "把每周日晚上的定时扫描删掉"
+      ],
+      "retirer_exception": [
+        "把游戏文件夹从例外里去掉，重新开始检查它"
+      ],
+      "protection": [
+        "开启实时防护，下载的文件和U盘一进来就检查"
+      ],
+      "isoler_distant": [
+        "远程扫描在办公室电脑上发现的那个文件，直接在那台电脑上隔离掉，检测编号4521"
+      ],
+      "detail_quarantaine": [
+        "隔离区里的 q-87 为什么被拦下？它是从哪来的？"
+      ],
+      "etat_sources": [
+        "杀毒的特征库来源都更新了吗？有没有哪个更新失败？"
+      ],
+      "versions": [
+        "把病毒特征包的历史版本列出来给我看看"
+      ],
+      "arreter": [
+        "把正在跑的病毒扫描停掉，电脑卡死了"
+      ],
+      "incidents": [
+        "最近有没有被攻击？把安全事件给我看看"
       ]
     },
     "loki": {
@@ -426,6 +576,75 @@
       ],
       "base_sauvegarder": [
         "马上把你自己的数据库做一份加密副本存好"
+      ],
+      "colonnes": [
+        "boutique 数据库里 clients 表有哪些列？"
+      ],
+      "sql_schema": [
+        "只把我在 boutique 数据库上画的改动生成 SQL 给我，先别执行。"
+      ],
+      "base_retour": [
+        "把日历应用的数据从 Odin 的数据库里拿出来，改回用普通文件存。"
+      ],
+      "relier": [
+        "把 192.168.1.20、端口 5432 上已有的数据库 accounts 接进来，用户名 lucie"
+      ],
+      "modifier": [
+        "在 clients 数据库的 addresses 表里，把 id 为 126 那一行的城市改成 Valbourg"
+      ],
+      "appliquer_schema": [
+        "把我给库存数据库画好的结构改动应用上去"
+      ],
+      "base_repasser": [
+        "日历的数据又变回文件了，把它挪回 Odin 的数据库"
+      ],
+      "acces": [
+        "菜谱应用连它自己的数据库要用什么连接信息？"
+      ],
+      "ajouter_ligne": [
+        "在客户表里加一行：名字小雨，年龄 34"
+      ],
+      "exporter_schema": [
+        "把 SHOP 数据库的结构导出成图片"
+      ],
+      "base_lire": [
+        "只读看一下笔记应用的数据库，里面都有什么？"
+      ],
+      "oublier": [
+        "把 old_accounts 这个库从列表里去掉，数据本身别动"
+      ],
+      "supprimer_ligne": [
+        "删掉 recipes 库里 ingredients 表中 id 为 12 的那一行"
+      ],
+      "journal": [
+        "最近在数据库上跑过哪些查询？"
+      ],
+      "base_traces": [
+        "Odin 什么时候读写过笔记应用的数据库？为什么？"
+      ],
+      "ouvrir": [
+        "打开 SHOP 数据库里的 orders 表"
+      ],
+      "schema_base": [
+        "给我看看 SHOP 数据库的结构图，表和外键都要"
+      ],
+      "base_odin": [
+        "Odin 自己的数据库现在什么状态？有没有待处理的？"
+      ],
+      "base_inventaire": [
+        "每个应用的数据放在哪儿？进数据库了还是还在文件里？"
+      ],
+      "tables": [
+        "RECIPES 这个数据库里有哪些表？"
+      ],
+      "placer_tables": [
+        "把我在 STOCK 数据库图上拖好的表的位置保存下来"
+      ],
+      "base_restaurer": [
+        "把 Odin 数据库昨天的备份恢复到一个单独的新库里，别动正在用的那个"
+      ],
+      "base_renommer": [
+        "把天气应用的数据库改名为 WEATHER_ODIN"
       ]
     },
     "skuld": {
@@ -455,6 +674,18 @@
       ],
       "verifier_site": [
         "发到第二个站点的数据库副本完好吗？"
+      ],
+      "historique": [
+        "数据库最近几次备份是什么时候做的？"
+      ],
+      "second_site": [
+        "每次备份也另外拷一份到外置硬盘 /mnt/offsite"
+      ],
+      "rattraper_site": [
+        "第二个异地备份落后了，把缺的备份补传过去"
+      ],
+      "archives": [
+        "发票数据库还留着哪些备份？"
       ]
     },
     "rodd": {
@@ -531,6 +762,152 @@
       ],
       "isoler_machine": [
         "把测试虚拟机跟所有网络断开，它行为很怪"
+      ],
+      "demarrer": [
+        "把 104 号虚拟机开起来。"
+      ],
+      "verifier_ip": [
+        "给新机器用之前先确认一下，192.168.1.50 这个地址有人用吗？"
+      ],
+      "cloner_machine": [
+        "把 web-test 这台机器克隆一份，叫 web-test2。"
+      ],
+      "supprimer_machine": [
+        "old-dev 那台机器没用了，连同磁盘一起删掉。"
+      ],
+      "quarantaine_machine": [
+        "db-01 这台机器为什么被隔离了？你都做了什么？"
+      ],
+      "retirer_iso": [
+        "把 systeme-ancien-12.iso 从镜像库里删掉，文件也一起删。"
+      ],
+      "verifier_isos": [
+        "现在把所有 ISO 都检查一遍：校验值、杀毒、有没有新版本。"
+      ],
+      "auto_isoler": [
+        "以后哪台机器出现严重告警，不用等我，自动把它隔离。"
+      ],
+      "arreter": [
+        "把 104 号虚拟机正常关机"
+      ],
+      "arreter_machine": [
+        "把这台电脑上的 labo-web 机器停掉，没反应就强制"
+      ],
+      "ip_machine": [
+        "把 labo-web 这台机器的 IP 改成 192.168.1.60"
+      ],
+      "exporter_machine": [
+        "把 labo-web 整台机器导出成一个文件，放到 NAS 的 /backups/vm"
+      ],
+      "espace_iso": [
+        "以后 ISO 镜像都放到 /srv/iso 里"
+      ],
+      "parcourir": [
+        "让我浏览一下办公室那台电脑的网络共享，我要挑一个 ISO 导入"
+      ],
+      "comptes_rendus_iso": [
+        "给我看看 ISO 校验的历史记录"
+      ],
+      "serveur": [
+        "把车库里那台虚拟化服务器加进来，地址是 https://10.0.0.5:8006"
+      ],
+      "parc": [
+        null,
+        null,
+        "把我所有的机器列出来，虚拟机、容器，全部"
+      ],
+      "redemarrer": [
+        "把 104 号机器重启一下，卡住了"
+      ],
+      "apercu_machine": [
+        "实时看看 win-test 虚拟机的画面"
+      ],
+      "console_machine": [
+        "在 web 容器里执行 df -h，把输出给我看"
+      ],
+      "importer_machine": [
+        "从 server.ody 文件导入这台机器"
+      ],
+      "bibliotheque_iso": [
+        "我存了哪些 ISO 镜像？各有多大？"
+      ],
+      "fiche_iso": [
+        "给我看 installer-24.iso 的详细信息：版本、校验值、哪些机器在用"
+      ],
+      "isos_pxe": [
+        "网络启动用的镜像哪些准备好了，哪些还在下载？"
+      ],
+      "demarrer_machine": [
+        "把虚拟机 web-server 开起来"
+      ],
+      "revenir": [
+        "把 104 号虚拟机恢复到 before-update 快照"
+      ],
+      "ressources_machine": [
+        "给 game-server 这台机器分配 4 个核心和 8GB 内存"
+      ],
+      "clavier_machine": [
+        "往虚拟机 desktop-test 的屏幕上发一个 Ctrl+Alt+Del"
+      ],
+      "reseau_machines": [
+        "把虚拟机都接到网桥 br0 上，网段 192.168.1.0/24，网关 192.168.1.1"
+      ],
+      "preparer_envoi_iso": [
+        "我要从浏览器上传一个 4GB 的 ISO，帮 install-server.iso 准备好上传"
+      ],
+      "iso_deplacee": [
+        "几个旧 ISO 被挪进了 old 文件夹，把用到它们的虚拟机都跟着改一下"
+      ],
+      "logiciels_disponibles": [
+        "有哪些一直保持最新的软件可以装进虚拟机？"
+      ],
+      "disque_machine": [
+        "把 web 这台虚拟机的磁盘扩到 80 GB"
+      ],
+      "locales": [
+        "这台电脑上有哪些虚拟机和容器？状态怎样？"
+      ],
+      "ranger_machine": [
+        "把 mail 这台机器归到“办公”分类"
+      ],
+      "modele_machine": [
+        "把 base-clean 这台机器做成模板"
+      ],
+      "analyser_machine": [
+        "对 test 容器做一次完整的病毒扫描"
+      ],
+      "importer_iso": [
+        "从 https://mirror.example.org/system.iso 导入这个 ISO"
+      ],
+      "verification_iso": [
+        "每周日凌晨三点检查一遍所有 ISO"
+      ],
+      "installer_logiciel": [
+        "在 archive 这台机器上装上备份软件"
+      ],
+      "installer_docker": [
+        "用 lab/wiki:1.4 镜像装一个容器，端口用8080"
+      ],
+      "tableau_machines": [
+        "给我看完整的机器总览：哪些在运行、模板、ISO都列出来"
+      ],
+      "categorie_machines": [
+        "新建一个绿色的“实验室”分类，用来放测试机"
+      ],
+      "creer_depuis_modele": [
+        "用 server-base 模板新建一台叫 web-02 的机器，内存4GB"
+      ],
+      "liberer_machine": [
+        "pc-客厅 扫描结果干净，把它从隔离中放出来接回网络"
+      ],
+      "ajouter_iso": [
+        "刚下载的ISO已经在ISO文件夹里了，直接在原地登记，不用复制"
+      ],
+      "plan_verif_iso": [
+        "ISO 什么时候检查？下一次是什么时候？"
+      ],
+      "mettre_a_jour_logiciels": [
+        "把 web-01 这台机器上的软件更新到新版本"
       ]
     },
     "idunn": {
@@ -673,6 +1050,124 @@
       "dhcp_fixe": [
         "让NAS一直用同一个IP地址",
         "给NAS固定分配同一个地址，名字叫storage"
+      ],
+      "etat": [
+        "DNS 过滤在运行吗？今天拦截了多少次请求？"
+      ],
+      "retirer_liste": [
+        "把博彩网站的拦截列表直接删掉，不是只停用。"
+      ],
+      "retirer_horaire": [
+        "把 jeux.example.com 晚上的定时屏蔽去掉，以后随时都能上。"
+      ],
+      "horaires": [
+        "每天晚上 9 点到早上 7 点，把诺亚平板上的社交软件断掉。"
+      ],
+      "dhcp_mode": [
+        "家里网络只给我批准过的设备分配地址。"
+      ],
+      "reglages": [
+        "在 DNS 设置里给所有人打开安全搜索和家长控制。"
+      ],
+      "autoriser": [
+        null,
+        null,
+        "lea-recipes.com 被某个列表拦住了，放行吧"
+      ],
+      "regle": [
+        "在过滤里加一条自定义规则：||ads-everywhere.net^"
+      ],
+      "mettre_a_jour": [
+        "拦截列表都旧了，去下载最新版本"
+      ],
+      "historique": [
+        "上个月网络上都发生了什么？"
+      ],
+      "dhcp_chercher": [
+        "我家网络里是不是已经有别的设备在分配 IP 地址，比如路由器？"
+      ],
+      "dhcp_mac_etat": [
+        "把诺亚的平板暂停一下，MAC 地址是 3c:22:fb:10:aa:07"
+      ],
+      "vider_cache": [
+        "清一下 DNS 缓存，有些存着的解析结果过期了"
+      ],
+      "retablir_machine": [
+        "把 192.168.1.42 那台电脑的网恢复吧，作业写完了"
+      ],
+      "retirer_regle": [
+        "把我给 games.example.org 加的那条自定义规则删掉"
+      ],
+      "services": [
+        "全家的短视频应用都给我断掉"
+      ],
+      "retirer_appareil": [
+        "把厨房那台旧平板从设备里去掉，已经卖了"
+      ],
+      "dhcp_reglages": [
+        "DHCP 地址池改成 192.168.1.100 到 192.168.1.200，网关用 192.168.1.1"
+      ],
+      "dhcp_approuver": [
+        "批准那台在等地址的新打印机，MAC 是 3c:22:fb:10:aa:01"
+      ],
+      "journal": [
+        "看看客厅电视最近都查询了哪些域名"
+      ],
+      "pause": [
+        null,
+        null,
+        "订票网站打不开，先把广告拦截暂停十分钟"
+      ],
+      "listes": [
+        "现在启用了哪些拦截列表？状态怎么样？"
+      ],
+      "appareil": [
+        "给小乐的平板 192.168.1.34 打开家长控制和安全搜索"
+      ],
+      "nom_local": [
+        "给 192.168.1.50 起个名字叫 printer.home，以后直接输这个"
+      ],
+      "dhcp_demarrer": [
+        "以后由你给设备分配IP地址，不用路由器了"
+      ],
+      "recap_machine": [
+        "把 192.168.1.42 这台设备的情况都告诉我：什么系统、这周访问了哪些网站"
+      ],
+      "demarrer": [
+        "启动家里的DNS服务器"
+      ],
+      "ajouter_liste": [
+        "加一个拦截列表，地址是 https://lists.example.org/ads.txt"
+      ],
+      "couper_machine": [
+        "晚上十点到早上七点，把 192.168.1.61 那台平板的网断掉"
+      ],
+      "retirer_nom": [
+        "删除本地域名 printer.home"
+      ],
+      "dhcp_arreter": [
+        "停掉DHCP，让路由器重新分配地址"
+      ],
+      "dns_chiffre": [
+        "打开加密DNS，我想在手机的私人DNS里用"
+      ],
+      "arreter": [
+        "先把家里的DNS服务器停掉"
+      ],
+      "activer_liste": [
+        "把“手机广告”这个拦截列表先停用，别删掉"
+      ],
+      "couper_video": [
+        "让192.168.1.42那台平板看不了视频网站，其他上网照常"
+      ],
+      "pubs_reseaux": [
+        "把社交平台的广告和追踪拦掉，但视频别受影响"
+      ],
+      "dhcp_retirer_fixe": [
+        "把 aa:bb:cc:12:34:56 的固定IP取消掉，让它自动分配"
+      ],
+      "reprendre": [
+        "暂停结束了，把拦截重新打开"
       ]
     },
     "vordr": {
@@ -763,6 +1258,48 @@
       ],
       "ouvrir_ports": [
         "我想不走隧道直接从外网访问我的服务，在路由器上把需要的打开"
+      ],
+      "activer": [
+        "先把 blog.maison.lan 这个站点停掉，别删。"
+      ],
+      "retirer_flux": [
+        "2222 端口的 TCP 转发流我不用了，删掉吧。"
+      ],
+      "acces": [
+        "admin.home.lan 只允许 192.168.1.0/24 的地址访问，其他一律拒绝"
+      ],
+      "tester": [
+        "cloud.home.lan 不太正常，测一下域名、证书和后面的服务"
+      ],
+      "fermer_ports": [
+        "把路由器上的 80 和 443 端口关掉"
+      ],
+      "connexion_unique": [
+        "让 photos.example.com 先要求用 Odin 账号登录"
+      ],
+      "journal": [
+        "看看最近访问 shop.example.com 的请求"
+      ],
+      "demarrer": [
+        "启动反向代理，让 Odin 在 80 和 443 端口上响应"
+      ],
+      "portail": [
+        "把登录门户挂到 login.example.net 上，配好证书"
+      ],
+      "reglages": [
+        "证书先切到测试服务器，我在试验，不想碰到次数限制"
+      ],
+      "arreter": [
+        "先把反向代理停了"
+      ],
+      "retirer_redirection": [
+        "把 old.example.net 的重定向删掉"
+      ],
+      "retirer": [
+        "把 photos.home.lan 从反向代理里删掉，已经不用了"
+      ],
+      "flux": [
+        "把 Odin 的 TCP 2222 端口转到 192.168.1.20:22 的 SSH 上"
       ]
     },
     "var": {
@@ -796,6 +1333,108 @@
       ],
       "creer_groupe": [
         "给来串门的朋友建一个“访客”权限组"
+      ],
+      "couper_sessions": [
+        "卡米耶手机丢了，把她所有地方的登录都踢掉。"
+      ],
+      "retirer_acces": [
+        "家人组以后不能再打开看电影的那个应用。"
+      ],
+      "taille_sauvegardes": [
+        "手机上的笔记应用发给 Odin 的备份最多 200 MB。"
+      ],
+      "relier_proprietaire": [
+        "我不再是账号管理员了，把我的所有者账号重新关联上。"
+      ],
+      "donner_site": [
+        "让家人组通过 Odin 登录进入 photos.maison.lan。"
+      ],
+      "journal": [
+        "昨天谁从哪里登录过？有没有登录失败的？"
+      ],
+      "proteger_site": [
+        "让 photos.home.lan 需要登录，只给家人组用"
+      ],
+      "acces_cases": [
+        "孩子组勾选了哪些应用？"
+      ],
+      "couper_appareil": [
+        "把连接 c-1842 断掉，那是我被偷的旧手机"
+      ],
+      "renommer_groupe": [
+        "把“朋友”这个组改名叫“亲友”"
+      ],
+      "retirer_site": [
+        "让访客组不能再进 games.home.lan"
+      ],
+      "liberer_site": [
+        "wiki.home.lan 以后不用登录就能打开"
+      ],
+      "acces_aux_applis": [
+        "每个组都能用哪些应用？给我看一下"
+      ],
+      "inscrire_logiciel": [
+        "让我在 cloud.home.lan 的私有云上用 Odin 账号登录，帮我生成配置"
+      ],
+      "supprimer_groupe": [
+        "把“访客”这个组删了，用不上了"
+      ],
+      "groupes": [
+        "我们有哪些组，每个组里都有谁？"
+      ],
+      "modifier": [
+        "把 nadia 这个账号的显示名改成 Nadia K.，再把账号停用"
+      ],
+      "reglages": [
+        "登录会话改成保持12小时，admins 组必须开启双重验证"
+      ],
+      "ajouter_appli": [
+        "新增一个用 Odin 账号登录的应用：标识 library，回调地址 https://media.home/callback"
+      ],
+      "oublier_autorisation": [
+        "把 sami 给 wiki 应用的授权忘掉，让他下次重新点允许"
+      ],
+      "mettre_dans_groupe": [
+        "把 lina 加到家人组里"
+      ],
+      "annuler_invitation": [
+        "把发给雨果的邀请取消，那个链接别再能用了"
+      ],
+      "retirer": [
+        "把小明的账号删掉"
+      ],
+      "personnes": [
+        "有哪些人有账号，各在哪个组？"
+      ],
+      "ajouter_retour": [
+        "给影音应用再加一个登录回调地址：http://192.168.1.20:8096/auth/odin/retour"
+      ],
+      "proteger_tout": [
+        "让所有网站都先用 Odin 登录才能进"
+      ],
+      "sortir_du_groupe": [
+        "把小雨从访客组里移出去"
+      ],
+      "adresse_liens": [
+        "邀请邮件里的链接改成 https://home.example.net"
+      ],
+      "confirmer_double_auth": [
+        "小林账号的两步验证，App里的六位码是482913"
+      ],
+      "donner_acces": [
+        "让家庭组也能打开看电影的那个应用"
+      ],
+      "retirer_appli": [
+        "把客户端应用“家庭维基”移除，别让它再登录"
+      ],
+      "delier_proprietaire": [
+        "把我这个主人账号从身份目录里解绑"
+      ],
+      "double_auth_groupe": [
+        "给“青少年”组所有人强制开启两步验证"
+      ],
+      "retirer_cle": [
+        "我的安全密钥丢了，把“蓝色钥匙”这个通行密钥删掉，别再能登录"
       ]
     },
     "bru": {
@@ -1025,6 +1664,32 @@
         null,
         null,
         "我休假期间别再保存我的任何位置"
+      ],
+      "conservation": [
+        "诺亚的位置记录只保留 30 天，她同意了。"
+      ],
+      "partage": [
+        "伊内丝同意让我看她的行程了，帮我打开"
+      ],
+      "retirer_lieu": [
+        "把小林的地点里的“健身房”去掉"
+      ],
+      "etat": [
+        "家里谁开着位置记录？保存多久？"
+      ],
+      "fond_de_carte": [
+        "在我的轨迹下面打开在线地图底图"
+      ],
+      "lieux": [
+        null,
+        null,
+        "小杰最常去哪些地方？"
+      ],
+      "tuile": [
+        "加载底图瓦片：缩放 12，x 2074，y 1409"
+      ],
+      "eteindre": [
+        "别再记录乐乐的位置历史了，之前存的也全删掉"
       ]
     },
     "apparence": {
@@ -1055,6 +1720,15 @@
       ],
       "mascotte": [
         "吉祥物现在在所有屏幕上显示的是什么？"
+      ],
+      "evenements": [
+        "Odin 接下来有哪些节日和生日，哪些是开着的？"
+      ],
+      "regler_mascotte": [
+        "保存吉祥物的设置：点一下就跳，有新消息时有反应"
+      ],
+      "montrer": [
+        "你可以重新出现在我屏幕上了"
       ]
     },
     "commandes": {
@@ -1319,6 +1993,36 @@
         null,
         null,
         "体育频道现在在播什么？"
+      ],
+      "enregistrer_plage": [
+        "今晚 8 点 50 分开始录 5 频道，录两个小时。"
+      ],
+      "enregistrements": [
+        "我的电视录制有哪些？预约的、正在录的和录好的"
+      ],
+      "chercher_vf": [
+        "帮我找《港口的影子》的法语配音版"
+      ],
+      "annuler_enregistrement": [
+        "把今晚那档烹饪节目的录制取消掉"
+      ],
+      "etat": [
+        "影音服务器连得上吗？现在有人在看什么吗？"
+      ],
+      "prevenir": [
+        "新剧集只在出了法语配音版的时候再通知我"
+      ],
+      "adresse": [
+        "连着的那个媒体服务器地址是多少？"
+      ],
+      "ecrans": [
+        "家里哪些屏幕可以放电影？"
+      ],
+      "sante": [
+        "影音服务器状态怎么样？还剩多少空间，现在有人在看吗？"
+      ],
+      "chercher": [
+        "片库里有没有《凯洛的花园》？"
       ]
     },
     "aegir": {
@@ -1525,6 +2229,38 @@
       "carte": [
         "用地图显示磁盘占用",
         "哪个文件夹最大？"
+      ],
+      "programmes": [
+        "这台电脑上装的程序哪些最占空间？"
+      ],
+      "gros_fichiers": [
+        null,
+        null,
+        "客厅那台电脑上有哪些超过 1GB 的文件？"
+      ],
+      "desinstaller": [
+        "把列表里第14个程序卸载掉，我不用了"
+      ],
+      "analyser": [
+        "这台电脑能腾出多少空间？先看看，别删"
+      ],
+      "planifier_nettoyage": [
+        "每周日凌晨 3 点自动清空回收站和临时文件"
+      ],
+      "journal_systeme": [
+        "系统日志太占空间了，只保留最近两周的"
+      ],
+      "lancer_nettoyage": [
+        "把周日的定时清理现在就跑一遍"
+      ],
+      "desactiver_demarrage": [
+        "别让聊天软件开机自启动了"
+      ],
+      "retirer_nettoyage": [
+        "这台电脑的定时清理取消掉"
+      ],
+      "reactiver_demarrage": [
+        "把备份程序重新加回开机启动"
       ]
     },
     "sol": {
@@ -1629,6 +2365,50 @@
       "journal": [
         "显示仓库最近的提交",
         "网站仓库最近都提交了什么？"
+      ],
+      "creer_depot": [
+        "在家里建一个叫 recettes 的代码仓库，我要从笔记本用 SSH 推送上去。"
+      ],
+      "enregistrer_fichier": [
+        "把我在 config.yaml 里改的内容保存一下。"
+      ],
+      "terminaux": [
+        "还有哪些终端开着？"
+      ],
+      "remettre_fichier": [
+        "我保存的时候把 index.js 弄坏了，恢复到上一个版本"
+      ],
+      "fermer_terminal": [
+        "把 3 号终端关了，用完了"
+      ],
+      "lancer_projet": [
+        "把 my-blog 项目跑起来，给我看预览"
+      ],
+      "projets": [
+        "我的文件夹里都有哪些代码项目？各自怎么启动？"
+      ],
+      "demander_ia": [
+        "看一下 calc.py，告诉我为什么循环一直停不下来"
+      ],
+      "mettre_a_jour": [
+        "把 blog 仓库更新到最新提交"
+      ],
+      "fichiers": [
+        "列出 weather-bot 项目的文件树"
+      ],
+      "regler_terminaux": [
+        "终端最多同时开 4 个，闲置 30 分钟就关掉"
+      ],
+      "recuperer": [
+        null,
+        null,
+        "去远程仓库看看 garden 项目有没有新提交，先别动我本地的改动"
+      ],
+      "lire_fichier": [
+        "把 src/main.py 这个文件的内容打开给我看"
+      ],
+      "dossier": [
+        "把 D:/dev 文件夹加进来，我的代码仓库也放在那儿"
       ]
     },
     "heidrun": {
@@ -1682,6 +2462,15 @@
       ],
       "listes_retroarch": [
         "给模拟器生成我各个主机的.lpl文件"
+      ],
+      "favori": [
+        "把国际象棋加到我的收藏里"
+      ],
+      "dossier": [
+        "我的游戏都在 D:\\Games，把它设成游戏文件夹"
+      ],
+      "variantes": [
+        "我有哪些游戏有好几个版本或者不同地区版？"
       ]
     },
     "snotra": {
@@ -1740,6 +2529,51 @@
       ],
       "resultat": [
         "这条显示我电话号码的结果，怎么让他们删掉？"
+      ],
+      "resultats": [
+        "网上能查到的关于我的信息里，只给我看高风险的。"
+      ],
+      "relancer": [
+        "那个网站一直没回复我的删除请求，帮我准备一封催办信，要求邮寄回复。"
+      ],
+      "retirer_accord": [
+        "我妹妹伊内丝不想再让我盯着她的信息了，撤回她的同意。"
+      ],
+      "fiches": [
+        "我现在能查哪些人？把我的档案列出来"
+      ],
+      "marquer": [
+        "第7条结果是同名的人，不是我，就这么标记"
+      ],
+      "effacer_fiche": [
+        "把我以前公司的档案连同结果和信件一起删掉"
+      ],
+      "guide": [
+        "我的社交账号谁都能看到，该改哪些设置？"
+      ],
+      "photo": [
+        "这张 beach.jpg 会不会暴露拍摄地点和手机型号？"
+      ],
+      "cle_fuites": [
+        "把我查数据泄露那个服务的密钥存进保险库"
+      ],
+      "envoyee": [
+        "我今天把删除个人信息的请求寄给那个名录网站了，帮我记成已发送"
+      ],
+      "moi": [
+        "这是我要监控的个人信息：王亚历，住在成都，网名 alex_wang"
+      ],
+      "noter_demande": [
+        "记一下，我今天通过网站表单申请删除了，好跟进期限"
+      ],
+      "societe": [
+        "给我的公司“流明工作室”建个档，域名 lumen.example，帮我盯着假冒账号"
+      ],
+      "reponse": [
+        "那个网站回复我的删除请求了：说已经删了，帮我记一下"
+      ],
+      "proche": [
+        "把我妹妹王小雨加进来，她11月12日当面同意了"
       ]
     },
     "durinn": {
@@ -1793,6 +2627,30 @@
       ],
       "resultats": [
         "上次的文件恢复结果怎么样？"
+      ],
+      "ouvrir": [
+        "删掉的照片原来在 SD 卡 /dev/mmcblk0 上，就从这张卡里找。"
+      ],
+      "destination": [
+        "找回来的东西都放到另一块盘的 E:\\recup 里。"
+      ],
+      "table": [
+        "看看我刚插上的U盘的分区表"
+      ],
+      "proposer": [
+        "外接硬盘的分区表你打算怎么恢复？先给我看，别写入"
+      ],
+      "reparer": [
+        "把建议的分区表写到U盘上，用 GPT"
+      ],
+      "remettre": [
+        "用备份把修复前的分区表恢复回去"
+      ],
+      "arreter": [
+        "停止恢复删除的文件，已经找回的留着"
+      ],
+      "analyser": [
+        "恢复出来的文件先用杀毒扫一遍再给我打开"
       ]
     },
     "pegase": {
@@ -1874,6 +2732,49 @@
       ],
       "declarer_domaine": [
         "我想证明workshop.example这个域名是我的"
+      ],
+      "decoder": [
+        "这段 base64 解出来是什么：Ym9uam91ciBMw6lh"
+      ],
+      "historique": [
+        null,
+        null,
+        "给我看看最近经过测试代理的那些请求。"
+      ],
+      "journal": [
+        "到目前为止测了哪些东西，哪些被拒绝了？"
+      ],
+      "eteindre_proxy": [
+        "马上把测试代理关掉"
+      ],
+      "echange": [
+        "给我看第58次交互：请求、响应和头信息"
+      ],
+      "verifier_domaine": [
+        "我在 mysite.cn 上加了 TXT 记录，帮我验证一下"
+      ],
+      "comparer": [
+        "对比一下第 3 和第 7 个请求的响应有什么不同"
+      ],
+      "retirer_domaine": [
+        "把 myblog.example 从我的测试范围里移除"
+      ],
+      "encoder": [
+        "把「你好世界」编码成 base64"
+      ],
+      "ajouter_appareil": [
+        "允许我的笔记本 192.168.1.23 走测试代理"
+      ],
+      "defauts": [
+        null,
+        null,
+        "被动检测在我的网站上发现了哪些问题？"
+      ],
+      "retirer_appareil": [
+        "把192.168.1.77那台手机从测试代理里移除"
+      ],
+      "certificat": [
+        "把测试代理的根证书给我，我要装到测试手机上"
       ]
     },
     "atalante": {
@@ -1977,6 +2878,21 @@
       ],
       "ecouter_clip": [
         "门口摄像头的视频里能听到狗叫吗？"
+      ],
+      "corriger": [
+        "你听到的第31个声音是门铃，不是微波炉"
+      ],
+      "parole": [
+        "把 meeting.wav 里说的话转成文字，按说话人分开"
+      ],
+      "retrouver": [
+        "帮我找出昨晚那个门铃声"
+      ],
+      "mesurer": [
+        "测一下这台机器上语音识别的速度"
+      ],
+      "regler": [
+        "只监听花园和车库摄像头的声音，录音保留7天"
       ]
     },
     "mathesis": {

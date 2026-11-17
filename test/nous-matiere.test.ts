@@ -193,3 +193,23 @@ test('l\'aiguilleur du produit avec la matière du dépôt (G1, M3) : il agit se
     assert.deepEqual(a.repondre('βάλε μουσική στο σαλόνι').choix, []);
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
+
+// ------------------------------------------------------------------------------------------------ tour 5 (Soul v3)
+test('matière du dépôt (tour 5) : chaque phrase est dans l\'écriture de sa langue', () => {
+  // Une adresse, un sigle ou un nom de fichier en lettres latines est permis dans une phrase en arabe, en russe… ; une
+  // phrase SANS l'écriture de sa langue ne l'est pas, ni une écriture étrangère dans une langue en lettres latines.
+  // Le japonais a des kana (sinon ce serait du chinois) ; le chinois n'en a pas.
+  const AUTRE = /[Ѐ-ӿ؀-ۿऀ-ॿ぀-ヿ㐀-鿿가-힯]/u;
+  const REGLES: Record<string, (p: string) => boolean> = {
+    ar: (p) => /[؀-ۿ]/u.test(p), ru: (p) => /[Ѐ-ӿ]/u.test(p), hi: (p) => /[ऀ-ॿ]/u.test(p), ko: (p) => /[가-힯]/u.test(p),
+    ja: (p) => /[぀-ヿ]/u.test(p), zh: (p) => /[㐀-鿿]/u.test(p) && !/[぀-ヿ]/u.test(p),
+  };
+  const fautes: string[] = [];
+  for (const nom of readdirSync(DOSSIER_MATIERE).filter((n) => n.endsWith('.json'))) {
+    const x = JSON.parse(readFileSync(join(DOSSIER_MATIERE, nom), 'utf8')) as { langue: string; ecriture: string; applis: Record<string, Record<string, Array<string | null>>>; horsChamp?: Array<string | null> };
+    const ok = REGLES[x.langue] ?? (x.ecriture === 'latin' ? (p: string) => !AUTRE.test(p) : () => true);
+    for (const [id, acts] of Object.entries(x.applis)) for (const [act, l] of Object.entries(acts)) l.forEach((p, n) => { if (typeof p === 'string' && !ok(p)) fautes.push(`${nom} ${id}.${act}#${n}`); });
+    (x.horsChamp ?? []).forEach((p, n) => { if (typeof p === 'string' && !ok(p)) fautes.push(`${nom} horsChamp#${n}`); });
+  }
+  assert.deepEqual(fautes.slice(0, 10), [], `${fautes.length} phrases dans une autre écriture`);
+});

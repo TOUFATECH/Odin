@@ -33,6 +33,12 @@
         null,
         "unuttuğum yaklaşan bir son tarih var mı?",
         "haftalardır yarım bıraktığım işler var mı?"
+      ],
+      "fiches": [
+        "Bilgi bankasında yeni uygulamalar yok, her uygulamanın kartını güncelle."
+      ],
+      "completer": [
+        "Alışveriş notumun sonuna pil ve deterjan ekle"
       ]
     },
     "runes": {
@@ -146,6 +152,12 @@
       "mesures": [
         "son 24 saatin işlemci grafiğini göster",
         "dünden beri işlemci yükü nasıl değişti?"
+      ],
+      "seuils": [
+        "İşlemci için mavi %60, turuncu %80, kırmızı %95'ten başlasın."
+      ],
+      "exporter": [
+        "Son ölçümleri panelim için metrik formatında dışa aktar"
       ]
     },
     "skogul": {
@@ -231,6 +243,15 @@
       ],
       "journal": [
         "zorla girmeye çalışanları yakalamak için mail sunucumun loglarını da izle"
+      ],
+      "fermer_port": [
+        "8080 TCP portunun açık kalmasına gerek yok artık, kapat."
+      ],
+      "ports_ouverts": [
+        "Odin hangi portları açtı, kimin için?"
+      ],
+      "ouvrir_port": [
+        "VPN için 51820 UDP portunu aç, modemde de"
       ]
     },
     "geri": {
@@ -261,6 +282,12 @@
       "journal": [
         "bu gece makinelerim hangi sunucularla konuştu?",
         "gece boyunca programlarım hangi sunucularla konuştu?"
+      ],
+      "etat": [
+        "Kötü amaçlı adres korumasının durumu ne, listeler güncel mi?"
+      ],
+      "comportement": [
+        "bir bilgisayarda gece yeni bir zamanlanmış görev oluşmuş, şüpheli bir davranış mı?"
       ]
     },
     "ran": {
@@ -318,6 +345,129 @@
       ],
       "plan": [
         "Belgeler klasörü haftada bir virüse karşı kendiliğinden taransın"
+      ],
+      "adresse": [
+        "SMS ile şu bağlantı geldi: livraison-colis.example.net. Tehlikeli mi?"
+      ],
+      "restaurer_distant": [
+        "Ofisteki dizüstünde ayırdığın 4127 numaralı dosya yanlış alarmmış, geri yerine koy."
+      ],
+      "liberer": [
+        "Yazıcının kurulum dosyasını karantinadan çıkar, nereden geldiğini biliyorum, lazım."
+      ],
+      "reanalyser": [
+        "fatura_mart.zip hâlâ karantinada, bugünkü imzalarla bir daha tara."
+      ],
+      "revenir": [
+        "Son imza güncellemesinden beri antivirüs her şeyi engelliyor, önceki sürüme geri dön."
+      ],
+      "rapport": [
+        "Son tarama ne buldu? Raporunu göster."
+      ],
+      "incident": [
+        "Dün geceki 57 numaralı olayla ilgilendim, çözüldü olarak işaretle."
+      ],
+      "isoler": [
+        "fatura_mart.exe dosyasını karantinaya al, bana şüpheli geldi"
+      ],
+      "fichier_internet": [
+        "İndirmeden önce şu linkteki dosya güvenli mi bak: https://dosya.ornek.com/surucu.zip"
+      ],
+      "accepter": [
+        "42 numaralı tespit sorun değil, kabul et ve olağan yerine koy"
+      ],
+      "verifier_arrivee": [
+        "Bir tedarikçiden teklif.xlsx geldi, açmadan önce tara"
+      ],
+      "regle": [
+        "'sahte_havale' adında bir tespit kuralı ekle: 'acil havale' ya da 'yeni IBAN' geçerse yakalasın, önem yüksek"
+      ],
+      "rapports": [
+        "Son yapılan taramaları göster: ne zaman, kaç dosya, kaç tespit"
+      ],
+      "reputation": [
+        "9b1e4c7d…a07f SHA-256 özeti kötü amaçlı olarak biliniyor mu?"
+      ],
+      "mettre_a_jour": [
+        "virüs tanımlarını günceller misin? benimkiler bir haftalık"
+      ],
+      "message": [
+        "bankadan geldiği söylenen bir mesaj aldım, şifremi istiyor, dolandırıcılık mı bu?"
+      ],
+      "refuser": [
+        "tespit edilen fatura.exe dosyasını kalıcı olarak sil"
+      ],
+      "sources": [
+        "antivirüs imzaları nereden geliyor, son güncelleme ne zaman?"
+      ],
+      "importer": [
+        "kurallar.yar dosyasındaki imzaları antivirüse ekle"
+      ],
+      "exception": [
+        "D:/oyunlar/modlar klasörünü artık uyarı olarak gösterme, onları ben yaptım"
+      ],
+      "failles": [
+        "yüklü programlarımda saldırganların şu an kullandığı açıklar var mı?"
+      ],
+      "faux_positif": [
+        "fatura_mart.pdf virüslü değil, yanlış alarmdı; artık onu işaretleme"
+      ],
+      "restaurer": [
+        "karantinadaki 42 numaralı dosyayı eski yerine geri koy"
+      ],
+      "bloquer": [
+        "karantinadaki 17 numarayı kalıcı olarak sil, bir daha asla çıkmasın"
+      ],
+      "cles": [
+        "zararlı yazılım veritabanları için ücretsiz bir anahtar aldım, gizli bilgilerinle birlikte sakla"
+      ],
+      "plans": [
+        "hangi virüs taramaları kendiliğinden çalışıyor, ne zaman?"
+      ],
+      "exceptions": [
+        "antivirüsün artık görmezden geldiği şeylerin listesini göster"
+      ],
+      "sentinelles": [
+        "fidye yazılımını hemen yakalamak için Fotoğraflar klasörüne tuzak dosyalar koy"
+      ],
+      "analyser_poste": [
+        "Çalışma odasındaki bilgisayarı (192.168.1.40) buradan virüse karşı tarar mısın?"
+      ],
+      "supprimer": [
+        "Karantinadaki fatura_mayis.exe dosyasını tamamen sil"
+      ],
+      "delai_decision": [
+        "Bir tehdit karantinaya alınmadan önce karar vermem için bana iki dakika ver"
+      ],
+      "source": [
+        "Casus yazılım imza kaynağını etkinleştir"
+      ],
+      "retirer_plan": [
+        "Pazar gecesi planlı taramayı kaldır"
+      ],
+      "retirer_exception": [
+        "Oyunlar klasörünü istisnalardan çıkar, yeniden taransın"
+      ],
+      "protection": [
+        "Gerçek zamanlı korumayı aç, indirmeler ve USB bellekler gelir gelmez taransın"
+      ],
+      "isoler_distant": [
+        "Uzaktan taramada ofis bilgisayarında bulunan dosyayı orada karantinaya al, tespit 4521"
+      ],
+      "detail_quarantaine": [
+        "q-87 neden karantinada, nereden gelmiş?"
+      ],
+      "etat_sources": [
+        "Antivirüs imza kaynakları güncel mi, son güncelleme ne zaman yapıldı?"
+      ],
+      "versions": [
+        "İmza paketlerinin geçmiş sürümlerini listeler misin?"
+      ],
+      "arreter": [
+        "Şu an çalışan virüs taramasını durdur, her şey yavaşladı"
+      ],
+      "incidents": [
+        "Son günlerde saldırı oldu mu? Olayları göster"
       ]
     },
     "loki": {
@@ -423,6 +573,75 @@
       ],
       "base_sauvegarder": [
         "kendi veritabanını hemen şifreli bir kopyayla güvene al"
+      ],
+      "colonnes": [
+        "boutique veritabanındaki clients tablosunda hangi sütunlar var?"
+      ],
+      "sql_schema": [
+        "boutique veritabanında çizdiğim değişikliklerin sadece SQL'ini ver, hiçbir şeyi çalıştırma."
+      ],
+      "base_retour": [
+        "Takvim uygulamasının verilerini Odin'in veritabanından çıkarıp yeniden dosyalara koy."
+      ],
+      "relier": [
+        "192.168.1.20 üzerinde, 5432 portunda çalışan muhasebe veritabanını bağla, kullanıcı lucie"
+      ],
+      "modifier": [
+        "musteriler veritabanında, adresler tablosundaki id 126 satırında şehri Valbourg yap"
+      ],
+      "appliquer_schema": [
+        "stok veritabanı için çizdiğim şema değişikliklerini uygula"
+      ],
+      "base_repasser": [
+        "Ajandanın verileri dosyalara geri döndü, onları yeniden Odin'in veritabanına taşı"
+      ],
+      "acces": [
+        "tarif uygulaması kendi veritabanına bağlanmak için ne kullanmalı? sunucu, port, kullanıcı"
+      ],
+      "ajouter_ligne": [
+        "müşteriler tablosuna yeni satır ekle: ad Deniz, şehir İzmir"
+      ],
+      "exporter_schema": [
+        "DUKKAN veritabanının şemasını resim olarak dışa aktar"
+      ],
+      "base_lire": [
+        null
+      ],
+      "oublier": [
+        "eski_muhasebe veritabanını listeden çıkar ama verilerine dokunma"
+      ],
+      "supprimer_ligne": [
+        "tarifler veritabanındaki malzemeler tablosundan id'si 12 olan satırı sil"
+      ],
+      "journal": [
+        "veritabanlarında en son hangi sorgular çalıştırıldı?"
+      ],
+      "base_traces": [
+        "Odin not uygulamasının veritabanına ne zaman dokundu, neden?"
+      ],
+      "ouvrir": [
+        "DUKKAN veritabanının siparisler tablosunu aç"
+      ],
+      "schema_base": [
+        "DUKKAN veritabanının şemasını göster, tablolar ve ilişkiler"
+      ],
+      "base_odin": [
+        "Odin'in kendi veritabanı ne durumda, bekleyen bir şey var mı?"
+      ],
+      "base_inventaire": [
+        "Her uygulamanın verisi nerede, veritabanında mı yoksa hâlâ dosyada mı?"
+      ],
+      "tables": [
+        "TARIFLER veritabanında hangi tablolar var?"
+      ],
+      "placer_tables": [
+        "STOCK veritabanı şemasında tabloları yerleştirdiğim yerleri kaydet"
+      ],
+      "base_restaurer": [
+        "Odin veritabanının dünkü yedeğini ayrı bir veritabanına geri yükle, çalışanına dokunma"
+      ],
+      "base_renommer": [
+        "Hava durumu uygulamasının veritabanının adını HAVA_ODIN yap"
       ]
     },
     "skuld": {
@@ -458,6 +677,18 @@
       ],
       "verifier_site": [
         "ikinci konuma gönderilen veritabanı kopyası sağlam mı?"
+      ],
+      "historique": [
+        "Veritabanlarının son yedekleri ne zaman alındı?"
+      ],
+      "second_site": [
+        "Her yedeği ayrıca /mnt/ikinci yolundaki harici diske de kopyala"
+      ],
+      "rattraper_site": [
+        "ikinci konum geride kaldı, orada olmayan yedekleri gönder"
+      ],
+      "archives": [
+        "faturalar veritabanının hangi yedekleri hâlâ duruyor?"
       ]
     },
     "rodd": {
@@ -522,7 +753,8 @@
       ],
       "parc": [
         "bütün makinelerim",
-        "tüm sanal makine filosunu göster"
+        "tüm sanal makine filosunu göster",
+        null
       ],
       "creer_machine": [
         "2 çekirdekli yeni bir debian makinesi oluştur",
@@ -534,6 +766,147 @@
       ],
       "isoler_machine": [
         "test sanal makinesini tüm ağlardan kopar, tuhaf davranıyor"
+      ],
+      "demarrer": [
+        "104 numaralı sanal makineyi başlat."
+      ],
+      "verifier_ip": [
+        "Yeni bir makineye vermeden önce: 192.168.1.50 adresi boş mu?"
+      ],
+      "cloner_machine": [
+        "web-test makinesinin bir kopyasını çıkar, adı web-test2 olsun."
+      ],
+      "supprimer_machine": [
+        "eski-dev makinesine artık gerek yok, diskiyle birlikte sil."
+      ],
+      "quarantaine_machine": [
+        "db-01 makinesi neden karantinaya alındı, sen ne yaptın?"
+      ],
+      "retirer_iso": [
+        "systeme-ancien-12.iso dosyasını kütüphaneden, dosyasıyla birlikte kaldır."
+      ],
+      "verifier_isos": [
+        "Bütün ISO'ları şimdi kontrol et: sağlama toplamı, virüs taraması ve yeni sürümler."
+      ],
+      "auto_isoler": [
+        "Bir makineye kritik uyarı gelirse beni beklemeden onu kendiliğinden izole et."
+      ],
+      "arreter": [
+        "104 numaralı sanal makineyi düzgünce kapat"
+      ],
+      "arreter_machine": [
+        "Bu bilgisayardaki labo-web makinesini durdur, yanıt vermezse zorla kapat"
+      ],
+      "ip_machine": [
+        "labo-web makinesinin IP adresini 192.168.1.60 yap"
+      ],
+      "exporter_machine": [
+        "labo-web makinesinin tamamını tek dosya olarak NAS'taki /yedekler/vm klasörüne aktar"
+      ],
+      "espace_iso": [
+        "ISO kalıplarını bundan sonra /srv/iso klasöründe tut"
+      ],
+      "parcourir": [
+        "Ofisteki bilgisayarın ağ paylaşımlarına göz atayım, içe aktarmak için bir ISO seçeceğim"
+      ],
+      "comptes_rendus_iso": [
+        "ISO doğrulamalarının raporlarını göster"
+      ],
+      "serveur": [
+        "Garajdaki sanallaştırma sunucusunu ekle, adresi https://10.0.0.5:8006"
+      ],
+      "redemarrer": [
+        "104 numaralı makineyi yeniden başlat, dondu"
+      ],
+      "apercu_machine": [
+        "win-test sanal makinesinin ekranını canlı göster"
+      ],
+      "console_machine": [
+        "web konteynerinde df -h çalıştır, çıktısını göster"
+      ],
+      "importer_machine": [
+        "sunucu.ody dosyasındaki makineyi içe aktar"
+      ],
+      "bibliotheque_iso": [
+        "kayıtlı hangi ISO'larım var, boyutları ne?"
+      ],
+      "fiche_iso": [
+        "installer-24.iso hakkında her şeyi göster: sürüm, özet değeri, hangi makineler kullanıyor"
+      ],
+      "isos_pxe": [
+        "ağdan açılış için hangi imajlar hazır, hangileri hâlâ iniyor?"
+      ],
+      "demarrer_machine": [
+        "web-sunucu sanal makinesini başlat"
+      ],
+      "revenir": [
+        "104 numaralı sanal makineyi guncelleme-oncesi anlık görüntüsüne geri döndür"
+      ],
+      "ressources_machine": [
+        "oyun-sunucu makinesine 4 çekirdek ve 8 GB bellek ver"
+      ],
+      "clavier_machine": [
+        "desktop-test sanal makinesinin ekranına Ctrl+Alt+Del gönder"
+      ],
+      "reseau_machines": [
+        "sanal makineleri br0 köprüsüne bağla, ağ 192.168.1.0/24, ağ geçidi 192.168.1.1"
+      ],
+      "preparer_envoi_iso": [
+        "tarayıcıdan 4 GB'lık bir ISO yükleyeceğim, install-server.iso için gönderimi hazırla"
+      ],
+      "iso_deplacee": [
+        "bazı eski ISO'lar old klasörüne taşındı, onları kullanan makineleri güncelle"
+      ],
+      "logiciels_disponibles": [
+        "bir sanal makineye kurabileceğim, güncel tutulan programlar hangileri?"
+      ],
+      "disque_machine": [
+        "web makinesinin diskini 80 GB'a büyüt"
+      ],
+      "locales": [
+        "Bu bilgisayardaki sanal makineler ve konteynerler neler?"
+      ],
+      "ranger_machine": [
+        "mail makinesini Ofis kategorisine koy"
+      ],
+      "modele_machine": [
+        "base-clean makinesini şablona dönüştür"
+      ],
+      "analyser_machine": [
+        "test konteynerini baştan sona virüs taramasından geçir"
+      ],
+      "importer_iso": [
+        "https://mirror.example.org/system.iso adresindeki ISO'yu içe aktar"
+      ],
+      "verification_iso": [
+        "Tüm ISO'ları her pazar saat 03:00'te kontrol et"
+      ],
+      "installer_logiciel": [
+        "archive makinesine yedekleme yazılımını kur"
+      ],
+      "installer_docker": [
+        "atolye/wiki:1.4 imajından bir konteyner kur, port 8080 olsun"
+      ],
+      "tableau_machines": [
+        "Makinelerin tam tablosunu göster: hangileri çalışıyor, şablonlar, ISO'lar"
+      ],
+      "categorie_machines": [
+        "Test makinelerim için yeşil renkte “Laboratuvar” adında yeni bir kategori oluştur"
+      ],
+      "creer_depuis_modele": [
+        "server-base şablonundan web-02 adında yeni bir makine oluştur, 4 GB bellekle"
+      ],
+      "liberer_machine": [
+        "pc-salon taraması temiz çıktı, ağa geri bağla"
+      ],
+      "ajouter_iso": [
+        "Az önce indirdiğim ISO zaten ISO klasöründe, kopyalamadan oraya kaydet"
+      ],
+      "plan_verif_iso": [
+        "ISO'lar ne zaman kontrol ediliyor, bir sonraki ne zaman?"
+      ],
+      "mettre_a_jour_logiciels": [
+        "web-01 makinesindeki yazılımları yeni sürümlere güncelle"
       ]
     },
     "idunn": {
@@ -678,11 +1051,13 @@
       ],
       "autoriser": [
         "bu sitenin engelini kaldır, iş için lazım",
-        "alan adını beyaz listeye ekle"
+        "alan adını beyaz listeye ekle",
+        "leanin-tarifleri.com bir liste tarafından engelleniyor, izin ver geçsin"
       ],
       "pause": [
         "reklam engellemeyi beş dakika kapat",
-        "engelleyiciyi duraklat"
+        "engelleyiciyi duraklat",
+        "reklam engellemeyi 10 dakikalığına durdur, bir rezervasyon sitesi açılmıyor"
       ],
       "bloquer_horaires": [
         "çocuklar için YouTube'u saat 21'den sonra engelle",
@@ -696,6 +1071,114 @@
         null,
         null,
         "evdeki her cihaz hangi adresi aldı?"
+      ],
+      "etat": [
+        "DNS filtresi çalışıyor mu? Bugün kaç sorgu engelledi?"
+      ],
+      "retirer_liste": [
+        "Bahis siteleri engel listesini kapatmakla kalma, tamamen sil."
+      ],
+      "retirer_horaire": [
+        "jeux.example.com için akşam engelini kaldır, site artık hep açık kalabilir."
+      ],
+      "horaires": [
+        "Noa'nın tabletinde her akşam 21.00'den 07.00'ye kadar sosyal medyayı kapat."
+      ],
+      "dhcp_mode": [
+        "Ev ağında sadece onayladığım cihazlar adres alsın istiyorum."
+      ],
+      "reglages": [
+        "DNS ayarlarında herkes için güvenli aramayı ve ebeveyn denetimini aç."
+      ],
+      "regle": [
+        "Filtreye şu özel kuralı ekle: ||reklam-her-yerde.net^"
+      ],
+      "mettre_a_jour": [
+        "Engelleme listeleri eskidi, en son sürümlerini indir"
+      ],
+      "historique": [
+        "Geçen ay ağda neler oldu?"
+      ],
+      "dhcp_chercher": [
+        "Ağımda IP adreslerini zaten dağıtan başka bir şey var mı, modem gibi?"
+      ],
+      "dhcp_mac_etat": [
+        "Nuh'un tabletini duraklat, MAC adresi 3c:22:fb:10:aa:07"
+      ],
+      "vider_cache": [
+        "DNS önbelleğini temizle, kayıtlı cevapların bazıları eskimiş"
+      ],
+      "retablir_machine": [
+        "192.168.1.42'deki bilgisayarın internetini geri aç"
+      ],
+      "retirer_regle": [
+        "oyunlar.example.org için yazdığım özel kuralı kaldır"
+      ],
+      "services": [
+        "evdeki herkes için kısa video uygulamasını kapat"
+      ],
+      "retirer_appareil": [
+        "mutfaktaki eski tableti listeden çıkar, sattık onu"
+      ],
+      "dhcp_reglages": [
+        "DHCP 192.168.1.100 ile 192.168.1.200 arasını dağıtsın, ağ geçidi 192.168.1.1 olsun"
+      ],
+      "dhcp_approuver": [
+        "bekleyen yeni yazıcıya adres alma izni ver, MAC'i 3c:22:fb:10:aa:01"
+      ],
+      "journal": [
+        "salondaki televizyonun son DNS sorgularını göster"
+      ],
+      "listes": [
+        "şu an hangi engelleme listeleri açık, durumları nasıl?"
+      ],
+      "appareil": [
+        "Leo'nun tableti 192.168.1.34 için ebeveyn denetimini ve güvenli aramayı aç"
+      ],
+      "nom_local": [
+        "192.168.1.50 yerine yazici.ev yazabileyim, bu adı tanımla"
+      ],
+      "dhcp_demarrer": [
+        "bundan sonra cihazlara IP adreslerini modem değil sen dağıt"
+      ],
+      "recap_machine": [
+        "192.168.1.42 cihazı hakkında her şeyi göster: işletim sistemi ve bu hafta girdiği siteler"
+      ],
+      "demarrer": [
+        "Ev ağının DNS sunucusunu başlat"
+      ],
+      "ajouter_liste": [
+        "Şu engelleme listesini ekle: https://lists.example.org/ads.txt"
+      ],
+      "couper_machine": [
+        "192.168.1.61'deki tabletin internetini 22:00 ile 07:00 arası kes"
+      ],
+      "retirer_nom": [
+        "Yerel ad printer.home'u kaldır"
+      ],
+      "dhcp_arreter": [
+        "DHCP'yi durdur, adresleri yine modem dağıtsın"
+      ],
+      "dns_chiffre": [
+        "Telefon özel DNS olarak kullanabilsin diye şifreli DNS'i aç"
+      ],
+      "arreter": [
+        "Evdeki DNS sunucusunu şimdilik kapat"
+      ],
+      "activer_liste": [
+        "“mobil-reklam” engelleme listesini kapat ama silme"
+      ],
+      "couper_video": [
+        "192.168.1.42'deki tablette video sitelerini kapat, internetin geri kalanı çalışsın"
+      ],
+      "pubs_reseaux": [
+        "Sosyal medyanın reklamlarını ve takibini engelle ama videolara dokunma"
+      ],
+      "dhcp_retirer_fixe": [
+        "aa:bb:cc:12:34:56 için ayrılmış sabit IP'yi kaldır"
+      ],
+      "reprendre": [
+        "Mola bitti, engellemeyi tekrar başlat"
       ]
     },
     "vordr": {
@@ -782,6 +1265,48 @@
       ],
       "ouvrir_ports": [
         "servislerime tünelsiz doğrudan internetten ulaşmak istiyorum, modemde gerekenleri aç"
+      ],
+      "activer": [
+        "blog.maison.lan sitesini şimdilik kapat ama silme."
+      ],
+      "retirer_flux": [
+        "2222 portundaki TCP akışını artık kullanmıyorum, kaldır."
+      ],
+      "acces": [
+        "admin.ev.lan sadece 192.168.1.0/24 adreslerine açık olsun, gerisini reddet"
+      ],
+      "tester": [
+        "cloud.ev.lan sorun çıkarıyor, adını, sertifikasını ve arkasındaki servisi test et"
+      ],
+      "fermer_ports": [
+        "modemde 80 ve 443 portlarını kapat"
+      ],
+      "connexion_unique": [
+        "foto.example.com açılmadan önce Odin girişi istesin"
+      ],
+      "journal": [
+        "dukkan.example.com'a gelen son istekleri göster"
+      ],
+      "demarrer": [
+        "ters proxy'yi başlat, Odin 80 ve 443 portlarında cevap versin"
+      ],
+      "portail": [
+        "giriş portalını giris.example.net adresinde sertifikasıyla yayınla"
+      ],
+      "reglages": [
+        "sertifikalar için deneme sunucusunu kullan, test yapıyorum, sınıra takılmak istemiyorum"
+      ],
+      "arreter": [
+        "Reverse proxy'yi durdur"
+      ],
+      "retirer_redirection": [
+        "old.example.net yönlendirmesini kaldır"
+      ],
+      "retirer": [
+        "fotograf.ev.lan sitesini ters proxy'den kaldır, artık kullanılmıyor"
+      ],
+      "flux": [
+        "Odin'in 2222 TCP portunu 192.168.1.20:22 adresindeki SSH'a yönlendir"
       ]
     },
     "var": {
@@ -821,6 +1346,108 @@
       ],
       "creer_groupe": [
         "uğrayan arkadaşlar için «misafirler» adında bir erişim grubu oluştur"
+      ],
+      "couper_sessions": [
+        "Camille telefonunu kaybetti, her yerden oturumunu kapat."
+      ],
+      "retirer_acces": [
+        "Aile grubu artık film uygulamasını açamasın."
+      ],
+      "taille_sauvegardes": [
+        "Telefondaki not uygulaması Odin'e 200 MB'tan büyük yedek gönderemesin."
+      ],
+      "relier_proprietaire": [
+        "Artık hesapların yöneticisi değilim, sahip hesabımı yeniden bağla."
+      ],
+      "donner_site": [
+        "Aile grubu Odin girişiyle photos.maison.lan sitesine girebilsin."
+      ],
+      "journal": [
+        "Dün kim, nereden giriş yaptı? Başarısız deneme oldu mu?"
+      ],
+      "proteger_site": [
+        "photos.ev.lan giriş istesin, sadece aile grubu için"
+      ],
+      "acces_cases": [
+        "Çocuklar grubunda hangi uygulamaların kutusu işaretli?"
+      ],
+      "couper_appareil": [
+        "c-1842 bağlantısını kes, çalınan eski telefonum o"
+      ],
+      "renommer_groupe": [
+        "'arkadaşlar' grubunun adını 'yakınlar' yap"
+      ],
+      "retirer_site": [
+        "Misafirler grubu artık oyunlar.ev.lan sitesine giremesin"
+      ],
+      "liberer_site": [
+        "tarifler.ev.lan için artık giriş istemesin"
+      ],
+      "acces_aux_applis": [
+        "hangi grup hangi uygulamalara erişebiliyor, göster"
+      ],
+      "inscrire_logiciel": [
+        "git.ev.lan'daki kod sunucum Odin hesabıyla giriş yapsın, ayarlarını hazırla"
+      ],
+      "supprimer_groupe": [
+        "'misafirler' grubunu sil, artık gerek yok"
+      ],
+      "groupes": [
+        "hangi gruplarımız var, kimler içinde?"
+      ],
+      "modifier": [
+        "nadia hesabında görünen adı Nadia K. yap ve hesabı devre dışı bırak"
+      ],
+      "reglages": [
+        "oturumlar 12 saat sürsün, admins grubu için iki adımlı doğrulama zorunlu olsun"
+      ],
+      "ajouter_appli": [
+        "Odin hesabıyla giriş yapacak yeni bir uygulama ekle: kimlik kutuphane, dönüş adresi https://medya.ev/callback"
+      ],
+      "oublier_autorisation": [
+        "sami'nin wiki uygulamasına verdiği onayı unut, yeniden izin versin"
+      ],
+      "mettre_dans_groupe": [
+        "lina'yı aile grubuna ekle"
+      ],
+      "annuler_invitation": [
+        "Hugo'ya gönderdiğim daveti iptal et, link artık çalışmasın"
+      ],
+      "retirer": [
+        "Emre'nin hesabını sil"
+      ],
+      "personnes": [
+        "Kimlerin hesabı var, hangi gruplardalar?"
+      ],
+      "ajouter_retour": [
+        "Film uygulamasının girişi için bir dönüş adresi daha ekle: http://192.168.1.20:8096/auth/odin/retour"
+      ],
+      "proteger_tout": [
+        "Bütün siteler açılmadan önce Odin girişi istesin"
+      ],
+      "sortir_du_groupe": [
+        "Elif'i Misafirler grubundan çıkar"
+      ],
+      "adresse_liens": [
+        "Davet e-postalarındaki bağlantılar https://home.example.net adresine gitsin"
+      ],
+      "confirmer_double_auth": [
+        "Ece'nin hesabı için uygulamadaki 6 haneli kod 482913"
+      ],
+      "donner_acces": [
+        "Aile grubu film uygulamasını açabilsin"
+      ],
+      "retirer_appli": [
+        "“ev-wiki” istemci uygulamasını kaldır, artık oturum açamasın"
+      ],
+      "delier_proprietaire": [
+        "Sahip hesabımın kimlik dizinine bağlantısını kaldır"
+      ],
+      "double_auth_groupe": [
+        "Gençler grubundaki herkes için iki adımlı doğrulamayı zorunlu yap"
+      ],
+      "retirer_cle": [
+        "Güvenlik anahtarımı kaybettim, “mavi-anahtar”ı kaldır, artık giriş yapamasın"
       ]
     },
     "bru": {
@@ -1039,7 +1666,8 @@
       ],
       "lieux": [
         "sık gittiğim yerler",
-        "geçmişe göre favori yerlerim"
+        "geçmişe göre favori yerlerim",
+        "Can en sık hangi yerlere gidiyor?"
       ],
       "pause": [
         "şimdilik hareketlerimi kaydetme",
@@ -1053,6 +1681,27 @@
       "nommer_lieu": [
         "bu yerin adını 'babaannemin evi' koy",
         "öğlen durduğum yerin adını «babaannemler» koy"
+      ],
+      "conservation": [
+        "Noa'nın konumlarını sadece 30 gün sakla, kendisi de razı."
+      ],
+      "partage": [
+        "İnes yolculuklarını görmeme izin verdi, bunu aç"
+      ],
+      "retirer_lieu": [
+        "Ece'nin kayıtlı yerlerinden 'spor salonu'nu kaldır"
+      ],
+      "etat": [
+        "ailede kimin konum geçmişi açık, ne kadar süre tutuluyor?"
+      ],
+      "fond_de_carte": [
+        "rotalarımın altına internetten harita zemini aç"
+      ],
+      "tuile": [
+        "Zemin haritasının karesini getir: yakınlaştırma 12, x 2074, y 1409"
+      ],
+      "eteindre": [
+        "Deniz'in konum geçmişini tutmayı bırak ve kaydedilenleri sil"
       ]
     },
     "apparence": {
@@ -1083,6 +1732,15 @@
       ],
       "mascotte": [
         "maskot şu an bütün ekranlarda ne gösteriyor?"
+      ],
+      "evenements": [
+        "Odin için yaklaşan bayramlar ve doğum günleri neler, hangileri açık?"
+      ],
+      "regler_mascotte": [
+        "Maskot ayarlarını kaydet: tıklayınca zıplasın, yeni mesajlara tepki versin"
+      ],
+      "montrer": [
+        "Ekranlarımda tekrar görün"
       ]
     },
     "commandes": {
@@ -1351,6 +2009,36 @@
       "livre_ajouter": [
         "bu romanı kitap kütüphaneme ekle",
         "bu EPUB'u okuma kitaplığıma ekle"
+      ],
+      "enregistrer_plage": [
+        "Bu akşam 20.50'den itibaren 5. kanalı iki saat kaydet."
+      ],
+      "enregistrements": [
+        "Planlanmış, devam eden ya da biten hangi TV kayıtlarım var?"
+      ],
+      "chercher_vf": [
+        "'Liman Gölgeleri'nin Fransızca dublajlı halini bul"
+      ],
+      "annuler_enregistrement": [
+        "bu akşamki yemek programının kaydını iptal et"
+      ],
+      "etat": [
+        "film sunucusu erişilebilir mi, şu an oynatılan bir şey var mı?"
+      ],
+      "prevenir": [
+        "yeni bölümleri sadece Fransızca dublajı çıkınca bana haber ver"
+      ],
+      "adresse": [
+        "Bağlı medya sunucusunun adresi ne?"
+      ],
+      "ecrans": [
+        "Evde hangi ekranlarda film açabilirim?"
+      ],
+      "sante": [
+        "Medya sunucusu nasıl? Boş yer var mı, şu an izleyen var mı?"
+      ],
+      "chercher": [
+        "Arşivde “Kelo'nun Bahçeleri” var mı?"
       ]
     },
     "aegir": {
@@ -1559,13 +2247,41 @@
       ],
       "gros_fichiers": [
         "diskteki en büyük dosyalar",
-        "en çok yer tutan ne?"
+        "en çok yer tutan ne?",
+        "Salondaki bilgisayarda 1 GB'tan büyük hangi dosyalar var?"
       ],
       "demarrage": [
         "başlangıçta neler açılıyor?",
         "sistem açılışındaki programlar",
         "açılışta kendiliğinden başlayan programlar hangileri?",
         "bilgisayarı açınca kendiliğinden ne başlıyor? açılış sürünüyor"
+      ],
+      "programmes": [
+        "Bu bilgisayarda en çok yer kaplayan kurulu programlar hangileri?"
+      ],
+      "desinstaller": [
+        "Listedeki 14 numaralı programı kaldır, artık kullanmıyorum"
+      ],
+      "analyser": [
+        "bu bilgisayarda ne kadar yer açabilirim? şimdilik sadece bak"
+      ],
+      "planifier_nettoyage": [
+        "her pazar gece 3'te çöp kutusunu ve geçici dosyaları kendiliğinden temizle"
+      ],
+      "journal_systeme": [
+        "sistem günlüğü çok yer kaplıyor, sadece son iki haftayı tut"
+      ],
+      "lancer_nettoyage": [
+        "pazar günü için planlanan temizliği şimdi çalıştır"
+      ],
+      "desactiver_demarrage": [
+        "Sohbet programı bilgisayar açılınca kendiliğinden başlamasın"
+      ],
+      "retirer_nettoyage": [
+        "Bu bilgisayardaki zamanlanmış temizliği iptal et"
+      ],
+      "reactiver_demarrage": [
+        "Yedekleme programını tekrar başlangıca ekle"
       ]
     },
     "sol": {
@@ -1664,7 +2380,8 @@
       ],
       "recuperer": [
         "bütün depolarda pull yap",
-        "son değişiklikleri al"
+        "son değişiklikleri al",
+        "bahce reposunun uzak deposunda yeni bir şey var mı bak, benim değişikliklerime dokunma"
       ],
       "cloner": [
         "github.com/example/app'i klonla",
@@ -1674,6 +2391,45 @@
       "journal": [
         "depodaki son commit'leri göster",
         "site deposuna son zamanlarda ne commit edildi?"
+      ],
+      "creer_depot": [
+        "Evde recettes adında bir kod deposu oluştur, dizüstünden SSH ile gönderebileyim."
+      ],
+      "enregistrer_fichier": [
+        "config.yaml dosyasında yaptığım değişiklikleri kaydet."
+      ],
+      "terminaux": [
+        "Hangi terminal oturumları hâlâ açık?"
+      ],
+      "remettre_fichier": [
+        "index.js'i kaydederken bozdum, önceki sürüme geri döndür"
+      ],
+      "fermer_terminal": [
+        "3 numaralı terminali kapat, işim bitti"
+      ],
+      "lancer_projet": [
+        "hava-durumu projesini çalıştır, önizlemesini göster"
+      ],
+      "projets": [
+        "klasörlerimde hangi kod projeleri var, her biri nasıl çalıştırılıyor?"
+      ],
+      "demander_ia": [
+        "hesap.py dosyasına bak, döngü neden hiç bitmiyor söyle"
+      ],
+      "mettre_a_jour": [
+        "blog deposunu son commit'lere güncelle"
+      ],
+      "fichiers": [
+        "weather-bot projesinin dosya ağacını göster"
+      ],
+      "regler_terminaux": [
+        "Aynı anda en fazla 4 terminal olsun, 30 dakika boşta kalan kapansın"
+      ],
+      "lire_fichier": [
+        "src/ayarlar.json dosyasının içeriğini göster"
+      ],
+      "dossier": [
+        "Depolarımı araman için D:/projeler klasörünü ekle"
       ]
     },
     "heidrun": {
@@ -1729,6 +2485,15 @@
       ],
       "listes_retroarch": [
         "emülatör için konsollarımın .lpl dosyalarını oluştur"
+      ],
+      "favori": [
+        "satranç oyununu favorilerime ekle"
+      ],
+      "dossier": [
+        "Oyunlarım D:\\Oyunlar klasöründe, onu ayarla"
+      ],
+      "variantes": [
+        "Hangi oyunlar bende birden fazla sürüm ya da bölgede var?"
       ]
     },
     "snotra": {
@@ -1787,6 +2552,51 @@
       ],
       "resultat": [
         "numaramı gösteren bu sonucu nasıl kaldırtırım?"
+      ],
+      "resultats": [
+        "İnternette hakkımda görünenlerden sadece yüksek riskli olanları göster."
+      ],
+      "relancer": [
+        "Site silme talebime hiç cevap vermedi, bir hatırlatma mektubu hazırla, cevap posta ile gelsin."
+      ],
+      "retirer_accord": [
+        "Kız kardeşim İnes artık bilgilerini takip etmemi istemiyor, onayını geri çek."
+      ],
+      "fiches": [
+        "Şu an kimin için arama yaptırabilirim? Kayıtlarımı göster"
+      ],
+      "marquer": [
+        "7 numaralı sonuç bir adaşım, ben değilim, öyle işaretle"
+      ],
+      "effacer_fiche": [
+        "Eski şirketimin kaydını sonuçları ve mektuplarıyla birlikte sil"
+      ],
+      "guide": [
+        "sosyal medya hesabımı herkes görmesin diye neleri değiştirmeliyim?"
+      ],
+      "photo": [
+        "plaj.jpg fotoğrafı nerede ve hangi telefonla çekildiğini ele veriyor mu?"
+      ],
+      "cle_fuites": [
+        "veri sızıntısı servisinin anahtarımı kasaya kaydet"
+      ],
+      "envoyee": [
+        "rehber sitesine verilerimi silme talebini bugün gönderdim, gönderildi olarak işaretle"
+      ],
+      "moi": [
+        "takip edilecek bilgilerim şunlar: Aleks Yıldız, İzmir, kullanıcı adı aleks_yz"
+      ],
+      "noter_demande": [
+        "Bugün sitenin formundan silme talebi gönderdim, süreyi takip etmek için not et"
+      ],
+      "societe": [
+        "Şirketim Lumen Atölye için bir kayıt oluştur, alan adı lumen.example, sahte hesapları yakalamak için"
+      ],
+      "reponse": [
+        "Site veri silme talebime cevap verdi: tamamlanmış, bunu kaydet"
+      ],
+      "proche": [
+        "Kardeşim Elif Kaya'yı da ekle, 12 Kasım'da mesajla onay verdi"
       ]
     },
     "durinn": {
@@ -1840,6 +2650,30 @@
       ],
       "resultats": [
         "son dosya kurtarma ne sonuç verdi?"
+      ],
+      "ouvrir": [
+        "Silinen fotoğraflar SD karttaydı, /dev/mmcblk0; aranacak olan o."
+      ],
+      "destination": [
+        "Kurtardıklarını diğer diskteki E:\\recup klasörüne koy."
+      ],
+      "table": [
+        "Az önce taktığım USB belleğin bölüm tablosunu göster"
+      ],
+      "proposer": [
+        "harici diske hangi bölüm tablosunu yazardın? şimdilik hiçbir şey yazma"
+      ],
+      "reparer": [
+        "önerilen bölüm tablosunu USB belleğe GPT olarak yaz"
+      ],
+      "remettre": [
+        "Eski bölüm tablosunu yedekten geri yükle"
+      ],
+      "arreter": [
+        "Silinen dosyaları kurtarmayı durdur, bulunanlar kalsın"
+      ],
+      "analyser": [
+        "Kurtarılan dosyaları açmadan önce virüs taramasından geçir"
       ]
     },
     "pegase": {
@@ -1911,11 +2745,13 @@
       ],
       "historique": [
         "istek geçmişi",
-        "yakalanan istekler"
+        "yakalanan istekler",
+        "Test proxy'sinden geçen son istekleri göster."
       ],
       "defauts": [
         "bulunan zafiyetler",
-        "sitede ne bulundu?"
+        "sitede ne bulundu?",
+        "Pasif tarama sitelerimde hangi açıkları buldu?"
       ],
       "controle_passif": [
         null,
@@ -1925,6 +2761,39 @@
       ],
       "declarer_domaine": [
         "atolye.example alan adının bana ait olduğunu kanıtlamak istiyorum"
+      ],
+      "decoder": [
+        "Şu base64 düz metinde ne diyor: Ym9uam91ciBMw6lh"
+      ],
+      "journal": [
+        "Şu ana kadar neler test edildi, neler reddedildi?"
+      ],
+      "eteindre_proxy": [
+        "Test proxy'sini hemen kapat"
+      ],
+      "echange": [
+        "58 numaralı alışverişi göster: istek, yanıt ve başlıklar"
+      ],
+      "verifier_domaine": [
+        "sitem.com.tr'ye TXT kaydını ekledim, doğrulamayı kontrol eder misin?"
+      ],
+      "comparer": [
+        "7 ve 8 numaralı isteklerin cevaplarını karşılaştır"
+      ],
+      "retirer_domaine": [
+        "blogum.example alan adını test kapsamımdan çıkar"
+      ],
+      "encoder": [
+        "'merhaba dünya' metnini base64'e çevir"
+      ],
+      "ajouter_appareil": [
+        "192.168.1.23'teki dizüstü bilgisayarım test proxy'sini kullanabilsin"
+      ],
+      "retirer_appareil": [
+        "192.168.1.77'deki telefonu test proxy'sinden çıkar"
+      ],
+      "certificat": [
+        "Test proxy'sinin kök sertifikasını ver, test telefonuma kuracağım"
       ]
     },
     "atalante": {
@@ -2028,6 +2897,21 @@
       ],
       "ecouter_clip": [
         "giriş kamerasının videosunda köpeğin havladığı duyuluyor mu?"
+      ],
+      "corriger": [
+        "Duyduğun 31 numaralı ses mikrodalga değil, kapı zildi"
+      ],
+      "parole": [
+        "toplanti.wav'da ne konuşuluyor? kim ne zaman konuşuyor, ayır"
+      ],
+      "retrouver": [
+        "dün akşam duyduğumuz kapı zili sesini bul"
+      ],
+      "mesurer": [
+        "Bu makinede ses tanımanın hızını ölç"
+      ],
+      "regler": [
+        "Sadece bahçe ve garaj kameralarının sesini dinle, sesleri 7 gün sakla"
       ]
     },
     "mathesis": {

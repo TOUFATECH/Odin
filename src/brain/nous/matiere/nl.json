@@ -33,6 +33,12 @@
         null,
         "welke deadlines glippen me door de vingers?",
         "zijn er dingen die ik al weken laat liggen?"
+      ],
+      "fiches": [
+        "De nieuwe apps ontbreken in de kennisbank, werk de fiche van elke app bij."
+      ],
+      "completer": [
+        "Zet onderaan mijn boodschappennotitie nog batterijen en wasmiddel"
       ]
     },
     "runes": {
@@ -146,6 +152,12 @@
       "mesures": [
         "laat de grafiek van de processor van de laatste 24 uur zien",
         "hoe is de processorbelasting sinds gisteren verlopen?"
+      ],
+      "seuils": [
+        "Voor de processor: blauw vanaf 60%, oranje vanaf 80% en rood vanaf 95%."
+      ],
+      "exporter": [
+        "Exporteer de laatste meetwaarden in metriekformaat voor mijn dashboard"
       ]
     },
     "skogul": {
@@ -228,6 +240,15 @@
       ],
       "journal": [
         "houd ook de logs van mijn mailserver in de gaten om inbraakpogingen te betrappen"
+      ],
+      "fermer_port": [
+        "Poort 8080 TCP hoeft niet meer open, sluit hem."
+      ],
+      "ports_ouverts": [
+        "Welke poorten heeft Odin opengezet, en voor wie?"
+      ],
+      "ouvrir_port": [
+        "Zet poort 51820 UDP open voor de VPN, ook op de router"
       ]
     },
     "geri": {
@@ -262,6 +283,12 @@
       "journal": [
         "met welke servers hebben mijn computers vannacht gepraat?",
         "met welke servers hebben mijn programma's vannacht gepraat?"
+      ],
+      "etat": [
+        "Hoe staat de bescherming tegen kwaadaardige adressen ervoor, zijn de lijsten bij?"
+      ],
+      "comportement": [
+        "een pc startte vannacht een script met een gecodeerde opdracht, is dat verdacht gedrag?"
       ]
     },
     "ran": {
@@ -321,6 +348,129 @@
       ],
       "plan": [
         "laat de map Documenten één keer per week op virussen controleren, zonder dat ik eraan hoef te denken"
+      ],
+      "adresse": [
+        "Ik kreeg deze link per sms, livraison-colis.example.net. Is die gevaarlijk?"
+      ],
+      "restaurer_distant": [
+        "Het bestand 4127 dat je op de kantoorlaptop hebt geïsoleerd was vals alarm, zet het terug."
+      ],
+      "liberer": [
+        "Haal het installatieprogramma van de printer uit quarantaine, ik weet waar het vandaan komt en ik heb het nodig."
+      ],
+      "reanalyser": [
+        "factuur_maart.zip zit nog in quarantaine; scan hem opnieuw met de definities van vandaag."
+      ],
+      "revenir": [
+        "Sinds de laatste update van de virusdefinities wordt alles geblokkeerd, zet de vorige versie terug."
+      ],
+      "rapport": [
+        "Wat heeft de laatste scan gevonden? Laat het rapport eens zien."
+      ],
+      "incident": [
+        "Incident 57 van vannacht heb ik opgelost, zet het op afgehandeld."
+      ],
+      "isoler": [
+        "Zet factuur_maart.exe in quarantaine, ik vertrouw het niet"
+      ],
+      "fichier_internet": [
+        "Kun je kijken of het bestand achter https://bestanden.voorbeeld.nl/stuurprogramma.zip veilig is voordat ik het download?"
+      ],
+      "accepter": [
+        "Melding 42 is in orde, accepteer het en zet het op zijn gewone plek"
+      ],
+      "verifier_arrivee": [
+        "Ik kreeg net offerte.xlsx van een leverancier, scan het voordat ik het open"
+      ],
+      "regle": [
+        "Maak een detectieregel nep_overboeking die afgaat op 'dringende overboeking' of 'nieuw rekeningnummer', ernst hoog"
+      ],
+      "rapports": [
+        "Laat de laatste scans zien: wanneer, hoeveel bestanden en hoeveel vondsten"
+      ],
+      "reputation": [
+        "Staat de SHA-256-hash 9b1e4c7d…a07f ergens bekend als malware?"
+      ],
+      "mettre_a_jour": [
+        "haal de nieuwste virusdefinities op, de mijne zijn al een week oud"
+      ],
+      "message": [
+        "kun je deze mail checken? ze willen dat ik mijn wachtwoord bevestig, lijkt me phishing"
+      ],
+      "refuser": [
+        "dat gevonden bestand factuur.exe mag definitief weg"
+      ],
+      "sources": [
+        "waar komen de virushandtekeningen vandaan en wanneer zijn ze voor het laatst bijgewerkt?"
+      ],
+      "importer": [
+        "zet de handtekeningen uit het bestand extra.hsb in de virusscanner"
+      ],
+      "exception": [
+        "de map D:/spellen/mods hoeft niet meer gemeld te worden, die heb ik zelf gemaakt"
+      ],
+      "failles": [
+        "zitten er lekken in mijn geïnstalleerde software die nu echt misbruikt worden?"
+      ],
+      "faux_positif": [
+        "factuur_maart.pdf is gewoon veilig, dat was vals alarm, niet meer melden graag"
+      ],
+      "restaurer": [
+        "zet bestand 42 uit de quarantaine terug op zijn oude plek"
+      ],
+      "bloquer": [
+        "verwijder item 17 definitief uit de quarantaine, dat mag er nooit meer uit"
+      ],
+      "cles": [
+        "ik heb een gratis sleutel voor de malwaredatabases, bewaar die bij je geheimen"
+      ],
+      "plans": [
+        "welke virusscans draaien vanzelf, en wanneer?"
+      ],
+      "exceptions": [
+        "laat zien wat de virusscanner bewust overslaat"
+      ],
+      "sentinelles": [
+        "zet lokbestanden in de map Foto's zodat ransomware meteen opvalt"
+      ],
+      "analyser_poste": [
+        "Scan de pc op zolder even op virussen, het adres is 192.168.1.40"
+      ],
+      "supprimer": [
+        "Gooi factuur_mei.exe definitief weg uit de quarantaine"
+      ],
+      "delai_decision": [
+        "Geef me voortaan twee minuten om te kiezen voordat iets in quarantaine gaat"
+      ],
+      "source": [
+        "Zet de bron met phishingsignaturen uit"
+      ],
+      "retirer_plan": [
+        "Haal de geplande scan van woensdagnacht weg"
+      ],
+      "retirer_exception": [
+        "Haal de uitzondering voor de map Spellen weer weg"
+      ],
+      "protection": [
+        "Zet de realtime bescherming aan, ook voor de map Bureaublad"
+      ],
+      "isoler_distant": [
+        "Zet het bestand dat de scan op afstand op de kantoor-pc vond daar meteen in quarantaine, melding 4521"
+      ],
+      "detail_quarantaine": [
+        "Waarom staat q-87 in quarantaine? Waar komt het vandaan?"
+      ],
+      "etat_sources": [
+        "Zijn de bronnen van de virusdefinities bijgewerkt? Is er eentje mislukt?"
+      ],
+      "versions": [
+        "Welke versies van de virusdefinities zijn er geweest?"
+      ],
+      "arreter": [
+        "Stop die virusscan die nu loopt, alles is traag"
+      ],
+      "incidents": [
+        "Zijn er de laatste tijd aanvallen geweest? Laat de incidenten zien"
       ]
     },
     "loki": {
@@ -426,6 +576,75 @@
       ],
       "base_sauvegarder": [
         "zet je eigen database meteen veilig met een versleutelde kopie"
+      ],
+      "colonnes": [
+        "Welke kolommen heeft de tabel clients in de database boutique?"
+      ],
+      "sql_schema": [
+        "Geef me alleen de SQL van de wijzigingen die ik voor de database boutique heb getekend, niets uitvoeren."
+      ],
+      "base_retour": [
+        "Haal de gegevens van de agenda-app uit de database van Odin en zet ze weer in bestanden."
+      ],
+      "relier": [
+        "Koppel de bestaande database op 192.168.1.20, poort 5432, naam boekhouding, gebruiker lucie"
+      ],
+      "modifier": [
+        "In database klanten, tabel adressen, rij met id 126: zet de stad op Valbourg"
+      ],
+      "appliquer_schema": [
+        "Voer de schemawijzigingen door die ik voor database voorraad heb getekend"
+      ],
+      "base_repasser": [
+        "De gegevens van de agenda staan weer in bestanden, zet ze terug in de database van Odin"
+      ],
+      "acces": [
+        "welke verbindingsgegevens moet de recepten-app gebruiken voor z'n database?"
+      ],
+      "ajouter_ligne": [
+        "voeg een regel toe aan de tabel leden: naam Noor, plaats Gent"
+      ],
+      "exporter_schema": [
+        "exporteer het schema van de database WINKEL als afbeelding"
+      ],
+      "base_lire": [
+        "kijk even in de database van de takenapp, alleen lezen, wat staat erin?"
+      ],
+      "oublier": [
+        "haal de database oude_boekhouding uit de lijst, maar laat de gegevens staan"
+      ],
+      "supprimer_ligne": [
+        "verwijder in database recepten, tabel ingredienten, de rij met id 12"
+      ],
+      "journal": [
+        "welke query's zijn er het laatst op de databases uitgevoerd?"
+      ],
+      "base_traces": [
+        "wanneer heeft Odin de database van de notitie-app gelezen of aangepast, en waarom?"
+      ],
+      "ouvrir": [
+        "Open de database KEUKEN, tabel recepten"
+      ],
+      "schema_base": [
+        "Laat het schema van de database KEUKEN zien"
+      ],
+      "base_odin": [
+        "Hoe staat de database van Odin ervoor?"
+      ],
+      "base_inventaire": [
+        "Waar staan de gegevens van elke app, in de database of nog in bestanden?"
+      ],
+      "tables": [
+        "Welke tabellen zitten er in de database RECEPTEN?"
+      ],
+      "placer_tables": [
+        "Bewaar waar ik de tabellen in het diagram van database STOCK heb neergezet"
+      ],
+      "base_restaurer": [
+        "Zet de back-up van gisteren van Odins database terug in een aparte database, laat de huidige met rust"
+      ],
+      "base_renommer": [
+        "Hernoem de database van de weer-app naar WEER_ODIN"
       ]
     },
     "skuld": {
@@ -455,6 +674,18 @@
       ],
       "verifier_site": [
         "is de kopie van mijn databases op de tweede locatie nog heel?"
+      ],
+      "historique": [
+        "Van wanneer zijn de laatste back-ups van de databases?"
+      ],
+      "second_site": [
+        "Kopieer elke back-up ook naar de externe schijf op /mnt/tweede"
+      ],
+      "rattraper_site": [
+        "de tweede locatie loopt achter, stuur de back-ups die daar nog ontbreken"
+      ],
+      "archives": [
+        "welke back-ups van de database facturen zijn er nog?"
       ]
     },
     "rodd": {
@@ -531,6 +762,152 @@
       ],
       "isoler_machine": [
         "koppel de test-VM los van elk netwerk, hij doet raar"
+      ],
+      "demarrer": [
+        "Start virtuele machine 104 op."
+      ],
+      "verifier_ip": [
+        "Voordat ik het aan een nieuwe machine geef: is 192.168.1.50 nog vrij?"
+      ],
+      "cloner_machine": [
+        "Maak een kopie van de machine web-test en noem hem web-test2."
+      ],
+      "supprimer_machine": [
+        "De machine oud-dev is overbodig, verwijder hem met zijn schijf."
+      ],
+      "quarantaine_machine": [
+        "Waarom staat de machine db-01 in quarantaine, en wat heb je gedaan?"
+      ],
+      "retirer_iso": [
+        "Haal de ISO systeme-ancien-12.iso uit de bibliotheek, inclusief het bestand."
+      ],
+      "verifier_isos": [
+        "Controleer nu alle ISO's: controlesommen, virusscan en nieuwere versies."
+      ],
+      "auto_isoler": [
+        "Als een machine een kritieke melding krijgt, isoleer hem dan automatisch zonder op mij te wachten."
+      ],
+      "arreter": [
+        "Sluit VM 104 netjes af"
+      ],
+      "arreter_machine": [
+        "Stop de machine labo-web op deze pc, forceer het als ze niet reageert"
+      ],
+      "ip_machine": [
+        "Geef machine labo-web het vaste adres 192.168.1.60"
+      ],
+      "exporter_machine": [
+        "Exporteer de hele machine labo-web als één bestand naar de NAS, map /backups/vm"
+      ],
+      "espace_iso": [
+        "Bewaar de ISO-images voortaan in /srv/iso"
+      ],
+      "parcourir": [
+        "Laat me de netwerkshares op de kantoor-pc doorbladeren, ik zoek een ISO om te importeren"
+      ],
+      "comptes_rendus_iso": [
+        "Laat de verslagen van de ISO-controles zien"
+      ],
+      "serveur": [
+        "Voeg de virtualisatieserver in de garage toe, op https://10.0.0.5:8006"
+      ],
+      "parc": [
+        null,
+        null,
+        "geef een overzicht van al mijn machines, VM's en containers"
+      ],
+      "redemarrer": [
+        "herstart 104 even, hij hangt"
+      ],
+      "apercu_machine": [
+        "laat het scherm van de VM win-test live zien"
+      ],
+      "console_machine": [
+        "voer df -h uit in de container web"
+      ],
+      "importer_machine": [
+        "importeer de machine uit het bestand testlab.ody"
+      ],
+      "bibliotheque_iso": [
+        "welke ISO's staan er allemaal, en hoe groot zijn ze?"
+      ],
+      "fiche_iso": [
+        "geef alle gegevens van installer-24.iso: versie, controlesom, welke VM's hem gebruiken"
+      ],
+      "isos_pxe": [
+        "welke images zijn klaar om via het netwerk op te starten?"
+      ],
+      "demarrer_machine": [
+        "start de virtuele machine webserver op"
+      ],
+      "revenir": [
+        "zet VM 104 terug naar de snapshot voor-update"
+      ],
+      "ressources_machine": [
+        "geef de machine gameserver 4 kernen en 8 GB geheugen"
+      ],
+      "clavier_machine": [
+        "stuur Ctrl+Alt+Del naar het scherm van VM desktop-test"
+      ],
+      "reseau_machines": [
+        "hang de VM's aan bridge br0, netwerk 192.168.1.0/24, gateway 192.168.1.1"
+      ],
+      "preparer_envoi_iso": [
+        "ik ga een ISO van 4 GB uploaden via de browser, bereid install-server.iso voor"
+      ],
+      "iso_deplacee": [
+        "een paar oude ISO's zijn naar old verplaatst, werk de machines bij die ze gebruiken"
+      ],
+      "logiciels_disponibles": [
+        "welke bijgehouden programma's kan ik in een VM installeren?"
+      ],
+      "disque_machine": [
+        "Maak de schijf van de machine media 250 GB groot"
+      ],
+      "locales": [
+        "Welke virtuele machines staan er op deze pc?"
+      ],
+      "ranger_machine": [
+        "Zet de machine films in de categorie Media"
+      ],
+      "modele_machine": [
+        "Maak van de machine schone-basis een sjabloon"
+      ],
+      "analyser_machine": [
+        "Doe een volledige virusscan van container proefbak"
+      ],
+      "importer_iso": [
+        "Importeer de ISO van https://spiegel.voorbeeld.nl/systeem.iso"
+      ],
+      "verification_iso": [
+        "Controleer alle ISO's elke week op zondag om 03:00"
+      ],
+      "installer_logiciel": [
+        "Installeer het back-upprogramma op machine archief"
+      ],
+      "installer_docker": [
+        "Zet een container op met image werkplaats/wiki:1.4 op poort 8080"
+      ],
+      "tableau_machines": [
+        "Geef me het volledige overzicht van de machines, met status, sjablonen en ISO's"
+      ],
+      "categorie_machines": [
+        "Maak een nieuwe categorie ‘Lab’ in het groen voor mijn testmachines"
+      ],
+      "creer_depuis_modele": [
+        "Maak een nieuwe machine web-02 op basis van sjabloon server-basis met 4 GB geheugen"
+      ],
+      "liberer_machine": [
+        "De scan van pc-woonkamer is schoon, haal hem uit quarantaine"
+      ],
+      "ajouter_iso": [
+        "De ISO die ik net downloadde staat al in de ISO-map, registreer hem daar zonder te kopiëren"
+      ],
+      "plan_verif_iso": [
+        "Wanneer worden de ISO's gecontroleerd en wanneer is de volgende ronde?"
+      ],
+      "mettre_a_jour_logiciels": [
+        "Werk de software op machine web-01 bij naar de nieuwe versies"
       ]
     },
     "idunn": {
@@ -673,6 +1050,124 @@
       "dhcp_fixe": [
         "geef de NAS altijd hetzelfde IP-adres",
         "geef de NAS altijd hetzelfde adres en noem hem opslag"
+      ],
+      "etat": [
+        "Draait de DNS-filter? En hoeveel verzoeken heeft hij vandaag tegengehouden?"
+      ],
+      "retirer_liste": [
+        "Verwijder de blokkeerlijst voor goksites helemaal, niet alleen uitzetten."
+      ],
+      "retirer_horaire": [
+        "Haal de avondblokkade van jeux.example.com weg, de site mag nu altijd open."
+      ],
+      "horaires": [
+        "Zet sociale media op de tablet van Noa elke avond uit van 21:00 tot 7:00."
+      ],
+      "dhcp_mode": [
+        "Alleen apparaten die ik heb goedgekeurd mogen een adres krijgen op het thuisnetwerk."
+      ],
+      "reglages": [
+        "Zet in de DNS-instellingen veilig zoeken en ouderlijk toezicht aan voor iedereen."
+      ],
+      "autoriser": [
+        null,
+        null,
+        "recepten-van-lea.nl wordt door een lijst geblokkeerd, laat het door"
+      ],
+      "regle": [
+        "Voeg deze eigen regel toe aan het filter: ||reclame-overal.net^"
+      ],
+      "mettre_a_jour": [
+        "De blokkeerlijsten zijn verouderd, haal de nieuwste versies op"
+      ],
+      "historique": [
+        "Wat is er vorige maand op het netwerk gebeurd?"
+      ],
+      "dhcp_chercher": [
+        "Deelt er al iets anders IP-adressen uit op mijn netwerk, zoals de router?"
+      ],
+      "dhcp_mac_etat": [
+        "Zet de tablet van Noah op pauze, MAC 3c:22:fb:10:aa:07"
+      ],
+      "vider_cache": [
+        "Leeg de DNS-cache, een paar opgeslagen antwoorden kloppen niet meer"
+      ],
+      "retablir_machine": [
+        "geef 192.168.1.42 z'n internet maar weer terug"
+      ],
+      "retirer_regle": [
+        "haal mijn eigen regel voor spellen.example.org weer weg"
+      ],
+      "services": [
+        "zet de filmstreamingdienst uit voor het hele huis"
+      ],
+      "retirer_appareil": [
+        "vergeet de oude tablet uit de keuken, die is verkocht"
+      ],
+      "dhcp_reglages": [
+        "laat de DHCP adressen 192.168.1.20 tot 192.168.1.80 uitdelen met de router op .1 als gateway"
+      ],
+      "dhcp_approuver": [
+        "keur de nieuwe printer goed, MAC 3c:22:fb:10:aa:01, hij wacht op een adres"
+      ],
+      "journal": [
+        "laat de laatste DNS-opvragingen naar example.com zien"
+      ],
+      "pause": [
+        null,
+        null,
+        "zet de reclameblokkering 10 minuten uit, een boekingssite laadt niet"
+      ],
+      "listes": [
+        "welke blokkeerlijsten staan er aan en hoe staan ze ervoor?"
+      ],
+      "appareil": [
+        "zet voor de tablet van Leo (192.168.1.34) ouderlijk toezicht en veilig zoeken aan"
+      ],
+      "nom_local": [
+        "laat printer.thuis naar 192.168.1.50 wijzen"
+      ],
+      "dhcp_demarrer": [
+        "deel jij voortaan de IP-adressen uit in plaats van de router"
+      ],
+      "recap_machine": [
+        "geef me alles over apparaat 192.168.1.42: besturingssysteem en welke sites het deze week bezocht"
+      ],
+      "demarrer": [
+        "Start de DNS-server eens op"
+      ],
+      "ajouter_liste": [
+        "Voeg de blokkeerlijst https://lijsten.voorbeeld.nl/reclame.txt toe"
+      ],
+      "couper_machine": [
+        "Sluit 192.168.1.61 af van internet tussen 21:00 en 07:00"
+      ],
+      "retirer_nom": [
+        "Verwijder de lokale naam printer.thuis"
+      ],
+      "dhcp_arreter": [
+        "Zet de DHCP-server uit, de router mag het weer doen"
+      ],
+      "dns_chiffre": [
+        "Zet versleutelde DNS aan op poort 853"
+      ],
+      "arreter": [
+        "Zet de DNS-server thuis even uit"
+      ],
+      "activer_liste": [
+        "Zet de blokkeerlijst ‘reclame-mobiel’ uit, maar gooi hem niet weg"
+      ],
+      "couper_video": [
+        "Blokkeer de videosites op de tablet 192.168.1.42, de rest van internet mag blijven"
+      ],
+      "pubs_reseaux": [
+        "Blokkeer reclame en tracking van sociale media, maar laat de video's werken"
+      ],
+      "dhcp_retirer_fixe": [
+        "Haal het vaste IP-adres van aa:bb:cc:12:34:56 weg"
+      ],
+      "reprendre": [
+        "De pauze is voorbij, zet het blokkeren weer aan"
       ]
     },
     "vordr": {
@@ -763,6 +1258,48 @@
       ],
       "ouvrir_ports": [
         "ik wil mijn diensten zonder tunnel rechtstreeks vanaf internet bereiken, zet open wat nodig is op de router"
+      ],
+      "activer": [
+        "Zet de site blog.maison.lan voorlopig uit, maar verwijder hem niet."
+      ],
+      "retirer_flux": [
+        "De TCP-stream op poort 2222 gebruik ik niet meer, haal hem weg."
+      ],
+      "acces": [
+        "Laat admin.thuis.lan alleen toe vanaf 192.168.1.0/24, weiger de rest"
+      ],
+      "tester": [
+        "cloud.thuis.lan doet raar, test de naam, het certificaat en de dienst erachter"
+      ],
+      "fermer_ports": [
+        "sluit poort 80 en 443 op de router"
+      ],
+      "connexion_unique": [
+        "laat foto.example.nl eerst om de Odin-login vragen"
+      ],
+      "journal": [
+        "laat de laatste verzoeken op winkel.example.nl zien"
+      ],
+      "demarrer": [
+        "start de reverse proxy zodat Odin op poort 80 en 443 antwoordt"
+      ],
+      "portail": [
+        "zet het inlogportaal op inloggen.example.net, met certificaat"
+      ],
+      "reglages": [
+        "gebruik de testserver voor certificaten, ik ben aan het proberen en wil geen limiet"
+      ],
+      "arreter": [
+        "Zet de reverse proxy stil"
+      ],
+      "retirer_redirection": [
+        "Haal de doorverwijzing van oud.voorbeeld.nl weg"
+      ],
+      "retirer": [
+        "Haal de site fotos.thuis.lan uit de reverse proxy, die is niet meer nodig"
+      ],
+      "flux": [
+        "Stuur TCP-poort 2222 van Odin door naar de SSH op 192.168.1.20:22"
       ]
     },
     "var": {
@@ -796,6 +1333,108 @@
       ],
       "creer_groupe": [
         "maak een toegangsgroep 'gasten' voor vrienden die langskomen"
+      ],
+      "couper_sessions": [
+        "Camille is haar telefoon kwijt, log haar overal uit."
+      ],
+      "retirer_acces": [
+        "De groep familie mag de film-app niet meer openen."
+      ],
+      "taille_sauvegardes": [
+        "De notitie-app op de telefoon mag geen back-ups groter dan 200 MB naar Odin sturen."
+      ],
+      "relier_proprietaire": [
+        "Ik ben geen beheerder van de accounts meer, koppel mijn eigenaarsaccount opnieuw."
+      ],
+      "donner_site": [
+        "Geef de groep familie toegang tot photos.maison.lan via de Odin-login."
+      ],
+      "journal": [
+        "Wie heeft gisteren ingelogd en vanaf waar? Waren er mislukte pogingen?"
+      ],
+      "proteger_site": [
+        "Laat photos.thuis.lan om inloggen vragen, alleen voor de groep familie"
+      ],
+      "acces_cases": [
+        "Welke apps staan aangevinkt voor de groep kinderen?"
+      ],
+      "couper_appareil": [
+        "Verbreek verbinding c-1842, dat is mijn oude telefoon die gestolen is"
+      ],
+      "renommer_groupe": [
+        "Hernoem de groep 'vrienden' naar 'naasten'"
+      ],
+      "retirer_site": [
+        "De groep gasten mag niet meer op spellen.thuis.lan"
+      ],
+      "liberer_site": [
+        "recepten.thuis.lan hoeft geen inlog meer te vragen"
+      ],
+      "acces_aux_applis": [
+        "welke apps mag elke groep gebruiken?"
+      ],
+      "inscrire_logiciel": [
+        "zorg dat ik met mijn Odin-account kan inloggen op mijn eigen cloud op cloud.thuis.lan"
+      ],
+      "supprimer_groupe": [
+        "verwijder de groep 'logés', die hebben we niet meer nodig"
+      ],
+      "groupes": [
+        "welke groepen hebben we en wie zit waarin?"
+      ],
+      "modifier": [
+        "pas het account nadia aan: weergavenaam Nadia K. en zet het account uit"
+      ],
+      "reglages": [
+        "laat sessies 12 uur duren en maak tweestapsverificatie verplicht voor de groep admins"
+      ],
+      "ajouter_appli": [
+        "registreer een nieuwe app die inlogt met het Odin-account: id bibliotheek, terugadres https://media.thuis/callback"
+      ],
+      "oublier_autorisation": [
+        "vergeet de toestemming die sami aan de app wiki gaf, hij moet opnieuw toestaan"
+      ],
+      "mettre_dans_groupe": [
+        "zet lina in de groep familie"
+      ],
+      "annuler_invitation": [
+        "trek de uitnodiging aan Hugo in, de link mag niet meer werken"
+      ],
+      "retirer": [
+        "Verwijder het account van Sem"
+      ],
+      "personnes": [
+        "Welke mensen hebben een account, en in welke groep zitten ze?"
+      ],
+      "ajouter_retour": [
+        "Voeg een redirect-adres toe voor de fotoapp: http://192.168.1.30:2342/auth/odin/retour"
+      ],
+      "proteger_tout": [
+        "Laat alle sites eerst om de Odin-login vragen"
+      ],
+      "sortir_du_groupe": [
+        "Haal Noor uit de groep Gasten"
+      ],
+      "adresse_liens": [
+        "Gebruik https://thuis.voorbeeld.nl in de links van de uitnodigingsmails"
+      ],
+      "confirmer_double_auth": [
+        "De zescijferige code uit de app voor het account van Noor is 482913"
+      ],
+      "donner_acces": [
+        "Geef de groep familie toegang tot de film-app"
+      ],
+      "retirer_appli": [
+        "Verwijder de client-app ‘thuis-wiki’, die mag niet meer inloggen"
+      ],
+      "delier_proprietaire": [
+        "Ontkoppel mijn eigenaarsaccount van de identiteitsdienst"
+      ],
+      "double_auth_groupe": [
+        "Maak tweestapsverificatie verplicht voor de hele groep tieners"
+      ],
+      "retirer_cle": [
+        "Ik ben mijn beveiligingssleutel kwijt, haal ‘blauwe-sleutel’ weg als toegang"
       ]
     },
     "bru": {
@@ -1025,6 +1664,32 @@
         null,
         null,
         "bewaar tijdens mijn vakantie geen enkele locatie van me"
+      ],
+      "conservation": [
+        "Bewaar de locaties van Noa maar 30 dagen, ze vindt het goed."
+      ],
+      "partage": [
+        "Ines vindt het goed dat ik haar ritten zie, zet dat aan"
+      ],
+      "retirer_lieu": [
+        "haal de plek 'sportschool' weg bij Fenna"
+      ],
+      "etat": [
+        "wie in het gezin bewaart zijn locatiegeschiedenis, en hoe lang?"
+      ],
+      "fond_de_carte": [
+        "zet de online kaartachtergrond aan onder mijn routes"
+      ],
+      "lieux": [
+        null,
+        null,
+        "Waar komt Daan het vaakst?"
+      ],
+      "tuile": [
+        "Haal de kaarttegel op voor zoom 12, x 2074, y 1409"
+      ],
+      "eteindre": [
+        "Stop met het bijhouden van Emma's locatiegeschiedenis en wis alles"
       ]
     },
     "apparence": {
@@ -1055,6 +1720,15 @@
       ],
       "mascotte": [
         "wat laat de mascotte nu op alle schermen zien?"
+      ],
+      "evenements": [
+        "Welke feestdagen en verjaardagen komen eraan bij Odin, en welke staan aan?"
+      ],
+      "regler_mascotte": [
+        "Sla de instellingen van de mascotte op: springen bij een klik, reageren op nieuwe berichten"
+      ],
+      "montrer": [
+        "Kom maar weer tevoorschijn op mijn schermen"
       ]
     },
     "commandes": {
@@ -1319,6 +1993,36 @@
         null,
         null,
         "wat is er nu op tv op de sportzenders?"
+      ],
+      "enregistrer_plage": [
+        "Neem vanavond zender 5 op vanaf 20:50, twee uur lang."
+      ],
+      "enregistrements": [
+        "Welke tv-opnames staan gepland, lopen nu of zijn klaar?"
+      ],
+      "chercher_vf": [
+        "zoek de Franse versie van 'Havenschaduwen'"
+      ],
+      "annuler_enregistrement": [
+        "annuleer de opname van de quiz van vanavond"
+      ],
+      "etat": [
+        "is de mediaserver bereikbaar, en speelt er nu iets af?"
+      ],
+      "prevenir": [
+        "laat me alleen weten dat er nieuwe afleveringen zijn als de Franse nasynchronisatie er is"
+      ],
+      "adresse": [
+        "Wat is het adres van de gekoppelde mediaserver?"
+      ],
+      "ecrans": [
+        "Op welke schermen in huis kan ik een film afspelen?"
+      ],
+      "sante": [
+        "Hoe gaat het met de mediaserver? Nog ruimte vrij en kijkt er iemand?"
+      ],
+      "chercher": [
+        "Hebben we ‘De tuinen van Kelo’ in de mediatheek?"
       ]
     },
     "aegir": {
@@ -1525,6 +2229,38 @@
       "carte": [
         "kaart van de schijfruimte",
         "wat neemt zoveel ruimte in in mijn gebruikersmap?"
+      ],
+      "programmes": [
+        "Welke geïnstalleerde programma's nemen op deze pc de meeste ruimte in?"
+      ],
+      "gros_fichiers": [
+        null,
+        null,
+        "Welke bestanden van meer dan 1 GB staan er op de pc in de woonkamer?"
+      ],
+      "desinstaller": [
+        "Verwijder programma 14 uit de lijst, ik gebruik het niet meer"
+      ],
+      "analyser": [
+        "hoeveel ruimte kan ik vrijmaken op deze pc? eerst alleen kijken"
+      ],
+      "planifier_nettoyage": [
+        "maak elke week automatisch de prullenbak en tijdelijke bestanden leeg"
+      ],
+      "journal_systeme": [
+        "het systeemlogboek neemt te veel ruimte in, bewaar alleen de laatste twee weken"
+      ],
+      "lancer_nettoyage": [
+        "voer de geplande zondagse opruimbeurt nu meteen uit"
+      ],
+      "desactiver_demarrage": [
+        "Zorg dat het chatprogramma niet meer automatisch opstart"
+      ],
+      "retirer_nettoyage": [
+        "Stop de geplande opschoning op de pc in de woonkamer"
+      ],
+      "reactiver_demarrage": [
+        "Zet het back-upprogramma weer bij het opstarten"
       ]
     },
     "sol": {
@@ -1629,6 +2365,50 @@
       "journal": [
         "laat de laatste commits van de repository zien",
         "wat is er de laatste tijd gecommit in de repo van de website?"
+      ],
+      "creer_depot": [
+        "Maak thuis een coderepository genaamd recettes aan, zodat ik vanaf mijn laptop via SSH kan pushen."
+      ],
+      "enregistrer_fichier": [
+        "Sla mijn wijzigingen in config.yaml op."
+      ],
+      "terminaux": [
+        "Welke terminals staan nog open?"
+      ],
+      "remettre_fichier": [
+        "Ik heb index.js stukgemaakt bij het opslaan, zet de vorige versie terug"
+      ],
+      "fermer_terminal": [
+        "sluit terminal 2 maar, ik ben klaar"
+      ],
+      "lancer_projet": [
+        "start het project fotoboek en laat de preview zien"
+      ],
+      "projets": [
+        "welke codeprojecten staan in mijn mappen, en hoe start je elk?"
+      ],
+      "demander_ia": [
+        "kijk naar bereken.py en zeg me waarom de lus nooit stopt"
+      ],
+      "mettre_a_jour": [
+        "Werk de repo fotoboek bij naar de laatste commits"
+      ],
+      "fichiers": [
+        "Laat de mappenstructuur van project weerbot zien"
+      ],
+      "regler_terminaux": [
+        "Hooguit 3 terminals tegelijk, en sluit ze na 15 minuten niks doen"
+      ],
+      "recuperer": [
+        null,
+        null,
+        "Haal de nieuwe commits van de remote op voor de repo moestuin, maar laat mijn werk met rust"
+      ],
+      "lire_fichier": [
+        "Laat me de inhoud van src/index.ts zien"
+      ],
+      "dossier": [
+        "Voeg de map D:/code toe als plek waar mijn repositories staan"
       ]
     },
     "heidrun": {
@@ -1682,6 +2462,15 @@
       ],
       "listes_retroarch": [
         "maak de .lpl-bestanden van mijn consoles voor de emulator"
+      ],
+      "favori": [
+        "zet het schaakspel bij mijn favorieten"
+      ],
+      "dossier": [
+        "Mijn spellen staan in D:\\Spellen, stel die map in"
+      ],
+      "variantes": [
+        "Welke games heb ik in meerdere versies of regio's?"
       ]
     },
     "snotra": {
@@ -1740,6 +2529,51 @@
       ],
       "resultat": [
         "dit resultaat met mijn telefoonnummer, hoe krijg ik dat verwijderd?"
+      ],
+      "resultats": [
+        "Van alles wat er online over mij te vinden is: laat alleen het hoge risico zien."
+      ],
+      "relancer": [
+        "De site heeft nooit gereageerd op mijn verwijderverzoek. Maak een herinneringsbrief, antwoord per post."
+      ],
+      "retirer_accord": [
+        "Mijn zus Ines wil niet meer dat ik haar gegevens in de gaten houd, trek haar toestemming in."
+      ],
+      "fiches": [
+        "Naar wie kan ik op dit moment laten zoeken? Laat mijn profielen zien"
+      ],
+      "marquer": [
+        "Resultaat 7 is iemand met dezelfde naam, niet ik — markeer het zo"
+      ],
+      "effacer_fiche": [
+        "Wis het profiel van mijn oude bedrijf, met resultaten en brieven"
+      ],
+      "guide": [
+        "wat moet ik aanpassen op mijn sociale media zodat niet iedereen me ziet?"
+      ],
+      "photo": [
+        "zit er een locatie in de foto strand.jpg? ik wil hem online zetten"
+      ],
+      "cle_fuites": [
+        "bewaar mijn sleutel voor de datalekdienst in de kluis"
+      ],
+      "envoyee": [
+        "het verwijderverzoek aan de online gids is vandaag verstuurd, zet hem op verzonden"
+      ],
+      "moi": [
+        "dit zijn mijn gegevens om in de gaten te houden: Alex de Vries, Utrecht, gebruikersnaam alex_dv"
+      ],
+      "noter_demande": [
+        "Noteer dat ik vandaag via het webformulier om verwijdering heb gevraagd"
+      ],
+      "societe": [
+        "Maak een bedrijfsprofiel voor mijn zaak Lumen Studio, domein lumen.example"
+      ],
+      "reponse": [
+        "Die site heeft op mijn verwijderverzoek gereageerd: ze hebben twee maanden extra nodig, noteer dat"
+      ],
+      "proche": [
+        "Voeg mijn broer Tim de Boer toe, hij gaf op 12/11 mondeling toestemming"
       ]
     },
     "durinn": {
@@ -1793,6 +2627,30 @@
       ],
       "resultats": [
         "de laatste bestandsherstel, wat heeft dat opgeleverd?"
+      ],
+      "ouvrir": [
+        "De gewiste foto's stonden op de SD-kaart /dev/mmcblk0, die moet je doorzoeken."
+      ],
+      "destination": [
+        "Zet alles wat je terugvindt in E:\\recup op de andere schijf."
+      ],
+      "table": [
+        "Laat de partitietabel zien van de usb-stick die ik net heb ingeplugd"
+      ],
+      "proposer": [
+        "welke partitietabel zou je op de externe schijf zetten? nog niks schrijven"
+      ],
+      "reparer": [
+        "schrijf de voorgestelde partitietabel maar naar de USB-stick, als GPT"
+      ],
+      "remettre": [
+        "Zet de oude partitietabel terug uit de reservekopie"
+      ],
+      "arreter": [
+        "Stop het terughalen van verwijderde bestanden, houd wat al gevonden is"
+      ],
+      "analyser": [
+        "Laat de virusscanner de teruggehaalde bestanden controleren"
       ]
     },
     "pegase": {
@@ -1874,6 +2732,49 @@
       ],
       "declarer_domaine": [
         "ik wil bewijzen dat het domein werkplaats.example van mij is"
+      ],
+      "decoder": [
+        "Wat staat er in leesbare tekst in deze base64: Ym9uam91ciBMw6lh?"
+      ],
+      "historique": [
+        null,
+        null,
+        "Laat de laatste verzoeken zien die door de testproxy zijn gegaan."
+      ],
+      "journal": [
+        "Wat is er tot nu toe getest en wat is er geweigerd?"
+      ],
+      "eteindre_proxy": [
+        "Zet de testproxy meteen uit"
+      ],
+      "echange": [
+        "Laat uitwisseling 58 zien: verzoek, antwoord en headers"
+      ],
+      "verifier_domaine": [
+        "ik heb het TXT-record op mijnsite.nl gezet, check je of het klopt?"
+      ],
+      "comparer": [
+        "vergelijk de antwoorden van verzoek 3 en 4"
+      ],
+      "retirer_domaine": [
+        "haal mijnblog.example uit mijn testbereik"
+      ],
+      "encoder": [
+        "zet 'hallo wereld' om naar base64"
+      ],
+      "ajouter_appareil": [
+        "Geef mijn laptop 192.168.1.23 toegang tot de testproxy"
+      ],
+      "defauts": [
+        null,
+        null,
+        "Welke zwakke plekken heeft de passieve scan op mijn sites gevonden?"
+      ],
+      "retirer_appareil": [
+        "Haal de telefoon 192.168.1.77 van de testproxy af"
+      ],
+      "certificat": [
+        "Ik heb het CA-certificaat van de testproxy nodig voor mijn testtelefoon"
       ]
     },
     "atalante": {
@@ -1977,6 +2878,21 @@
       ],
       "ecouter_clip": [
         "hoor je in de video van de voordeurcamera de hond blaffen?"
+      ],
+      "corriger": [
+        "Geluid 31 was de deurbel, niet de magnetron"
+      ],
+      "parole": [
+        "wat wordt er gezegd in vergadering.wav? en wie praat wanneer?"
+      ],
+      "retrouver": [
+        "zoek dat geluid van de deurbel van gisteravond terug"
+      ],
+      "mesurer": [
+        "Meet hoe snel de spraakherkenning op deze computer is"
+      ],
+      "regler": [
+        "Luister alleen naar de camera's in de tuin en garage en bewaar het geluid 7 dagen"
       ]
     },
     "mathesis": {

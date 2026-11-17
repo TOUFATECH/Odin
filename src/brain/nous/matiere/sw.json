@@ -33,6 +33,12 @@
         null,
         "kuna tarehe za mwisho zinazokaribia nimezisahau?",
         "kuna mambo niliyoyaacha nusu kwa wiki kadhaa?"
+      ],
+      "fiches": [
+        "Programu mpya hazipo kwenye hazina ya maarifa; sasisha kadi ya kila programu."
+      ],
+      "completer": [
+        "Ongeza mwishoni mwa dokezo langu la manunuzi: betri na sabuni"
       ]
     },
     "runes": {
@@ -146,6 +152,12 @@
       "mesures": [
         "nionyeshe grafu ya kichakataji kwa saa 24 zilizopita",
         "mzigo wa prosesa umebadilikaje tangu jana?"
+      ],
+      "seuils": [
+        "Kwa prosesa, weka buluu kuanzia 60%, machungwa kuanzia 80% na nyekundu kuanzia 95%."
+      ],
+      "exporter": [
+        "Hamisha vipimo vya karibuni kwa muundo wa metriki kwa ajili ya dashibodi yangu"
       ]
     },
     "skogul": {
@@ -231,6 +243,15 @@
       ],
       "journal": [
         "fuatilia pia kumbukumbu za seva yangu ya barua ili kuwakamata wanaolazimisha kuingia"
+      ],
+      "fermer_port": [
+        "Lango 8080 TCP halihitaji kuwa wazi tena, lifunge."
+      ],
+      "ports_ouverts": [
+        "Odin imefungua bandari zipi, na kwa ajili ya nani?"
+      ],
+      "ouvrir_port": [
+        "Fungua lango 51820 UDP kwa ajili ya VPN, kwenye ruta pia"
       ]
     },
     "geri": {
@@ -261,6 +282,12 @@
       "journal": [
         "mashine zangu ziliwasiliana na seva gani usiku wa jana?",
         "programu zangu ziliwasiliana na seva zipi usiku?"
+      ],
+      "etat": [
+        "Ulinzi dhidi ya anwani hasidi uko vipi, orodha zake ziko za kisasa?"
+      ],
+      "comportement": [
+        "Kompyuta moja imeunda kazi mpya iliyoratibiwa usiku, je ni tabia ya kutiliwa shaka?"
       ]
     },
     "ran": {
@@ -318,6 +345,129 @@
       ],
       "plan": [
         "folda ya Nyaraka ikaguliwe virusi mara moja kwa wiki bila mimi kukumbuka"
+      ],
+      "adresse": [
+        "Nimetumiwa kiungo hiki kwa SMS, livraison-colis.example.net. Je, ni hatari?"
+      ],
+      "restaurer_distant": [
+        "Faili namba 4127 uliloweka kando kwenye laptop ya ofisini ilikuwa tahadhari ya uongo, lirudishe."
+      ],
+      "liberer": [
+        "Toa kisakinishi cha printa kwenye karantini, najua kimetoka wapi na nakihitaji."
+      ],
+      "reanalyser": [
+        "ankara_machi.zip bado iko karantini, ikague tena kwa saini za leo."
+      ],
+      "revenir": [
+        "Tangu sasisho la mwisho la saini, kingavirusi inazuia kila kitu; rudisha toleo la awali."
+      ],
+      "rapport": [
+        "Uchunguzi wa mwisho umepata nini? Nionyeshe ripoti."
+      ],
+      "incident": [
+        "Tukio namba 57 la usiku wa jana nimelishughulikia, liweke kuwa limemalizika."
+      ],
+      "isoler": [
+        "Weka faili ankara_machi.exe karantini, sina imani nalo"
+      ],
+      "fichier_internet": [
+        "Kabla sijapakua, angalia kama faili kwenye kiungo hiki ni salama: https://files.example.net/driver.zip"
+      ],
+      "accepter": [
+        "Kipengee namba 42 kilichogunduliwa ni salama, kikubali na ukirudishe mahali pake pa kawaida"
+      ],
+      "verifier_arrivee": [
+        "Nimepokea faili bei.xlsx kutoka kwa msambazaji, likague kabla sijalifungua"
+      ],
+      "regle": [
+        "Ongeza kanuni ya kugundua iitwayo uhamisho_bandia inayonasa 'uhamisho wa haraka' au 'akaunti mpya ya benki', uzito wa juu"
+      ],
+      "rapports": [
+        "Nionyeshe ukaguzi uliofanyika hivi karibuni: lini, faili ngapi na ngapi zilizogunduliwa"
+      ],
+      "reputation": [
+        "Je, alama ya SHA-256 9b1e4c7d…a07f inajulikana kuwa programu hasidi?"
+      ],
+      "mettre_a_jour": [
+        "Sasisha saini za virusi, nilizonazo zina wiki moja tayari"
+      ],
+      "message": [
+        "Nimepokea ujumbe unaoniomba nithibitishe nenosiri langu, je ni utapeli?"
+      ],
+      "refuser": [
+        "Faili iliyogunduliwa, ankara.exe, ifute kabisa"
+      ],
+      "sources": [
+        "Saini za antivirusi zinatoka wapi, na zilisasishwa lini mara ya mwisho?"
+      ],
+      "importer": [
+        "Ingiza kwenye antivirusi saini zilizo kwenye faili kanuni.yar"
+      ],
+      "exception": [
+        "Acha kuniarifu kuhusu folda D:/michezo/mods, ni zangu mwenyewe"
+      ],
+      "failles": [
+        "Kuna programu nilizosakinisha zenye mianya ambayo wadukuzi wanaitumia sasa hivi?"
+      ],
+      "faux_positif": [
+        "faili ankara_machi.pdf ni salama, ilikuwa tahadhari ya uongo; usiiripoti tena"
+      ],
+      "restaurer": [
+        "toa faili namba 42 kwenye karantini uirudishe mahali pake"
+      ],
+      "bloquer": [
+        "futa kabisa kipengee namba 17 kilichotengwa, kisiachiliwe kamwe"
+      ],
+      "cles": [
+        "nimepata ufunguo wa bure wa hifadhidata za programu hasidi, uuhifadhi pamoja na siri zako"
+      ],
+      "plans": [
+        "ni uchunguzi gani wa virusi unaojiendesha wenyewe, na lini?"
+      ],
+      "exceptions": [
+        "nionyeshe vitu ambavyo kinga ya virusi imeambiwa ivipuuze"
+      ],
+      "sentinelles": [
+        "weka mafaili ya mtego kwenye folda ya Picha ili kugundua programu ya fidia mapema"
+      ],
+      "analyser_poste": [
+        "Kagua kompyuta ya ofisini, 192.168.1.40, kama ina virusi ukiwa hapa hapa"
+      ],
+      "supprimer": [
+        "Futa kabisa faili ankara_mei.exe iliyowekwa karantini"
+      ],
+      "delai_decision": [
+        "Nipe dakika mbili kuamua kabla kitu kilichogunduliwa hakijawekwa karantini"
+      ],
+      "source": [
+        "Washa chanzo cha saini za programu za upelelezi"
+      ],
+      "retirer_plan": [
+        "Ondoa uchunguzi uliopangwa wa kila Jumapili usiku"
+      ],
+      "retirer_exception": [
+        "Ondoa folda ya Michezo kwenye orodha ya vighairi ili ikaguliwe tena"
+      ],
+      "protection": [
+        "Washa ulinzi wa kudumu ili vipakuliwa na flash zikaguliwe mara zinapoingia"
+      ],
+      "isoler_distant": [
+        "Tenga faili lililogunduliwa na uchunguzi wa mbali kwenye kompyuta ya ofisini, hapo hapo, ugunduzi 4521"
+      ],
+      "detail_quarantaine": [
+        "Kwa nini q-87 imezuiliwa karantini? Imetoka wapi?"
+      ],
+      "etat_sources": [
+        "Vyanzo vya saini za kingavirusi viko sawa? Usasishaji wa mwisho ulikuwa lini?"
+      ],
+      "versions": [
+        "Nionyeshe historia ya matoleo ya vifurushi vya saini"
+      ],
+      "arreter": [
+        "Simamisha uchunguzi wa virusi unaoendelea sasa, kila kitu kinakwenda polepole"
+      ],
+      "incidents": [
+        "Kumekuwa na mashambulizi siku hizi? Nionyeshe matukio"
       ]
     },
     "loki": {
@@ -423,6 +573,75 @@
       ],
       "base_sauvegarder": [
         "linda hifadhidata yako mwenyewe sasa hivi kwa nakala iliyosimbwa"
+      ],
+      "colonnes": [
+        "Jedwali la clients kwenye hifadhidata ya boutique lina safu zipi?"
+      ],
+      "sql_schema": [
+        "Nipe tu SQL ya mabadiliko niliyochora kwenye hifadhidata ya boutique, usiendeshe chochote."
+      ],
+      "base_retour": [
+        "Toa data ya programu ya kalenda kwenye hifadhidata ya Odin na uirudishe kwenye faili."
+      ],
+      "relier": [
+        "Unganisha hifadhidata iliyopo kwenye 192.168.1.20, bandari 5432, inaitwa hesabu, mtumiaji lucie"
+      ],
+      "modifier": [
+        "Kwenye hifadhidata clients, jedwali addresses, safu yenye id 126: badilisha mji uwe Valbourg"
+      ],
+      "appliquer_schema": [
+        "Tekeleza mabadiliko ya muundo niliyochora kwa hifadhidata ya stoo"
+      ],
+      "base_repasser": [
+        "Data za kalenda zimerudi kwenye mafaili, zirudishe kwenye hifadhidata ya Odin"
+      ],
+      "acces": [
+        "Programu ya mapishi inatumia taarifa gani kuunganishwa na hifadhidata yake?"
+      ],
+      "ajouter_ligne": [
+        "Ongeza safu mpya kwenye jedwali la wateja: jina Neema, umri 34"
+      ],
+      "exporter_schema": [
+        "Hamisha muundo wa hifadhidata ya DUKA kama picha"
+      ],
+      "base_lire": [
+        "Angalia hifadhidata ya programu ya madokezo bila kubadilisha kitu, ina nini ndani?"
+      ],
+      "oublier": [
+        "ondoa hifadhidata ya old_accounts kwenye orodha, lakini usiguse data yake"
+      ],
+      "supprimer_ligne": [
+        "futa safu yenye id 12 kwenye jedwali la ingredients katika hifadhidata ya recipes"
+      ],
+      "journal": [
+        "ni maswali gani ya mwisho yaliyotumwa kwenye hifadhidata?"
+      ],
+      "base_traces": [
+        "Odin iligusa lini hifadhidata ya programu ya madokezo, na kwa nini?"
+      ],
+      "ouvrir": [
+        "Fungua hifadhidata DUKA, jedwali la mauzo"
+      ],
+      "schema_base": [
+        "Nionyeshe muundo wa hifadhidata DUKA, majedwali na viungo vyake"
+      ],
+      "base_odin": [
+        "Hifadhidata ya Odin iko katika hali gani? Kuna kinachosubiri?"
+      ],
+      "base_inventaire": [
+        "Data ya kila programu iko wapi, kwenye hifadhidata au bado kwenye mafaili?"
+      ],
+      "tables": [
+        "Hifadhidata ya RECIPES ina majedwali gani?"
+      ],
+      "placer_tables": [
+        "Hifadhi mahali nilipopanga majedwali kwenye mchoro wa hifadhidata ya STOCK"
+      ],
+      "base_restaurer": [
+        "Rejesha nakala ya jana ya hifadhidata ya Odin kwenye hifadhidata tofauti, usiguse inayotumika"
+      ],
+      "base_renommer": [
+        "Badilisha jina la hifadhidata ya programu ya hali ya hewa liwe WEATHER_ODIN"
       ]
     },
     "skuld": {
@@ -458,6 +677,18 @@
       ],
       "verifier_site": [
         "nakala ya hifadhidata zangu iliyotumwa eneo la pili iko salama?"
+      ],
+      "historique": [
+        "Nakala rudufu za mwisho za hifadhidata zilifanywa lini?"
+      ],
+      "second_site": [
+        "Nakili pia kila hifadhi rudufu kwenye diski ya nje /mnt/offsite"
+      ],
+      "rattraper_site": [
+        "Eneo la pili limebaki nyuma, litumie nakala rudufu ambazo bado halina"
+      ],
+      "archives": [
+        "ni nakala gani za hifadhi ya hifadhidata ya ankara bado zipo?"
       ]
     },
     "rodd": {
@@ -522,7 +753,8 @@
       ],
       "parc": [
         "mashine zangu zote",
-        "onyesha kundi zima la mashine pepe"
+        "onyesha kundi zima la mashine pepe",
+        "Nionyeshe mashine zangu zote, VM, kontena, kila kitu"
       ],
       "creer_machine": [
         "unda mashine mpya ya debian yenye cores 2",
@@ -534,6 +766,147 @@
       ],
       "isoler_machine": [
         "tenga VM ya majaribio na mtandao wowote, inatenda kwa ajabu"
+      ],
+      "demarrer": [
+        "Washa mashine pepe namba 104."
+      ],
+      "verifier_ip": [
+        "Kabla sijaipa mashine mpya: je, anwani 192.168.1.50 iko huru?"
+      ],
+      "cloner_machine": [
+        "Tengeneza nakala ya mashine web-test na uiite web-test2."
+      ],
+      "supprimer_machine": [
+        "Mashine old-dev haina kazi tena, ifute pamoja na diski yake."
+      ],
+      "quarantaine_machine": [
+        "Kwa nini mashine db-01 iliwekwa karantini, na ulifanya nini?"
+      ],
+      "retirer_iso": [
+        "Ondoa ISO systeme-ancien-12.iso kwenye maktaba, pamoja na faili lake."
+      ],
+      "verifier_isos": [
+        "Kagua ISO zote sasa hivi: alama za uthibitisho, kingavirusi na matoleo mapya."
+      ],
+      "auto_isoler": [
+        "Mashine ikipata tahadhari nzito, itenge yenyewe bila kunisubiri."
+      ],
+      "arreter": [
+        "Zima mashine pepe namba 104 kwa utaratibu"
+      ],
+      "arreter_machine": [
+        "Simamisha mashine labo-web kwenye kompyuta hii, ilazimishe isipojibu"
+      ],
+      "ip_machine": [
+        "Badilisha anwani ya IP ya mashine labo-web iwe 192.168.1.60"
+      ],
+      "exporter_machine": [
+        "Hamisha mashine nzima labo-web kama faili moja kwenye NAS, folda /backups/vm"
+      ],
+      "espace_iso": [
+        "Kuanzia sasa weka picha za ISO kwenye /srv/iso"
+      ],
+      "parcourir": [
+        "Niruhusu nipitie folda zilizoshirikiwa kwenye kompyuta ya ofisini, nichague ISO ya kuingiza"
+      ],
+      "comptes_rendus_iso": [
+        "Nionyeshe ripoti za ukaguzi wa ISO uliopita"
+      ],
+      "serveur": [
+        "Ongeza seva ya uhalisia pepe iliyo gereji, iko https://10.0.0.5:8006"
+      ],
+      "redemarrer": [
+        "Washa upya mashine 104, imekwama"
+      ],
+      "apercu_machine": [
+        "Nionyeshe skrini ya VM win-test moja kwa moja"
+      ],
+      "console_machine": [
+        "Endesha df -h ndani ya kontena web unionyeshe matokeo"
+      ],
+      "importer_machine": [
+        "Ingiza mashine kutoka faili server.ody"
+      ],
+      "bibliotheque_iso": [
+        "Nina picha gani za ISO zilizohifadhiwa, na ukubwa wake?"
+      ],
+      "fiche_iso": [
+        "Nipe maelezo yote ya installer-24.iso: toleo, alama ya hashi, mashine zinazoitumia"
+      ],
+      "isos_pxe": [
+        "Picha zipi ziko tayari kuwasha kupitia mtandao, na zipi bado zinapakuliwa?"
+      ],
+      "demarrer_machine": [
+        "washa mashine pepe ya web-server"
+      ],
+      "revenir": [
+        "rudisha VM 104 kwenye picha-hali ya before-update"
+      ],
+      "ressources_machine": [
+        "ipe mashine ya game-server viini 4 na GB 8 za kumbukumbu"
+      ],
+      "clavier_machine": [
+        "tuma Ctrl+Alt+Del kwenye skrini ya VM ya desktop-test"
+      ],
+      "reseau_machines": [
+        "unganisha VM kwenye daraja br0, mtandao 192.168.1.0/24, lango 192.168.1.1"
+      ],
+      "preparer_envoi_iso": [
+        "nitatuma ISO ya GB 4 kutoka kwenye kivinjari, andaa upakiaji wa install-server.iso"
+      ],
+      "iso_deplacee": [
+        "ISO kadhaa za zamani zimehamishiwa kwenye folda ya old, sasisha mashine zinazozitumia"
+      ],
+      "logiciels_disponibles": [
+        "ni programu zipi zinazosasishwa kila mara ninazoweza kusakinisha ndani ya VM?"
+      ],
+      "disque_machine": [
+        "Ongeza diski ya mashine web hadi GB 80"
+      ],
+      "locales": [
+        "Kuna mashine pepe na makontena gani kwenye PC hii?"
+      ],
+      "ranger_machine": [
+        "Weka mashine mail kwenye kundi la Ofisi"
+      ],
+      "modele_machine": [
+        "Geuza mashine base-clean kuwa kiolezo"
+      ],
+      "analyser_machine": [
+        "Fanya uchunguzi kamili wa virusi kwenye kontena test"
+      ],
+      "importer_iso": [
+        "Ingiza ISO kutoka https://mirror.example.org/system.iso"
+      ],
+      "verification_iso": [
+        "Kagua ISO zote kila wiki, Jumapili saa tisa usiku"
+      ],
+      "installer_logiciel": [
+        "Sakinisha programu ya kuhifadhi nakala kwenye mashine archive"
+      ],
+      "installer_docker": [
+        "Sakinisha kontena kutoka picha lab/wiki:1.4 kwenye lango 8080"
+      ],
+      "tableau_machines": [
+        "Nionyeshe jedwali kamili la mashine: zipi zinaendesha, violezo, na ISO"
+      ],
+      "categorie_machines": [
+        "Unda kategoria mpya ya kijani iitwayo \"Maabara\" kwa mashine zangu za majaribio"
+      ],
+      "creer_depuis_modele": [
+        "Unda mashine mpya web-02 kutoka kiolezo server-base, yenye kumbukumbu ya GB 4"
+      ],
+      "liberer_machine": [
+        "Uchunguzi wa pc-sebule umekuwa safi, irudishe kwenye mtandao"
+      ],
+      "ajouter_iso": [
+        "ISO niliyopakua sasa hivi iko tayari kwenye folda ya ISO, isajili hapo hapo bila kunakili"
+      ],
+      "plan_verif_iso": [
+        "ISO hukaguliwa lini, na ukaguzi unaofuata ni lini?"
+      ],
+      "mettre_a_jour_logiciels": [
+        "Sasisha programu kwenye mashine web-01 hadi matoleo mapya"
       ]
     },
     "idunn": {
@@ -678,11 +1051,13 @@
       ],
       "autoriser": [
         "ondoa kizuizi kwenye tovuti hii, naihitaji kazini",
-        "ongeza kikoa kwenye orodha nyeupe"
+        "ongeza kikoa kwenye orodha nyeupe",
+        "Tovuti lea-recipes.com imezuiwa na orodha moja, iruhusu ipite"
       ],
       "pause": [
         "zima uzuiaji wa matangazo kwa dakika tano",
-        "sitisha kizuizi kwa muda"
+        "sitisha kizuizi kwa muda",
+        "sitisha uzuiaji wa matangazo kwa dakika kumi, tovuti ya kuweka nafasi haifunguki"
       ],
       "bloquer_horaires": [
         "zuia YouTube baada ya saa tatu usiku kwa watoto",
@@ -696,6 +1071,114 @@
         null,
         null,
         "kila kifaa cha nyumbani kilipata anwani gani?"
+      ],
+      "etat": [
+        "Kichujio cha DNS kinafanya kazi? Na kimezuia maombi mangapi leo?"
+      ],
+      "retirer_liste": [
+        "Futa kabisa orodha ya kuzuia tovuti za kubashiri, usiizime tu."
+      ],
+      "retirer_horaire": [
+        "Ondoa kizuizi cha jioni kwenye jeux.example.com; tovuti iwe wazi wakati wote."
+      ],
+      "horaires": [
+        "Zima mitandao ya kijamii kwenye tablet ya Noa kila usiku kuanzia saa tatu usiku hadi saa moja asubuhi."
+      ],
+      "dhcp_mode": [
+        "Nataka vifaa nilivyoidhinisha tu ndivyo vipate anwani kwenye mtandao wa nyumbani."
+      ],
+      "reglages": [
+        "Kwenye mipangilio ya DNS, washa utafutaji salama na udhibiti wa wazazi kwa wote."
+      ],
+      "regle": [
+        "Ongeza kanuni hii yangu kwenye uchujaji: ||ads-everywhere.net^"
+      ],
+      "mettre_a_jour": [
+        "Orodha za kuzuia zimepitwa na wakati, pakua matoleo yao mapya"
+      ],
+      "historique": [
+        "Nini kilitokea kwenye mtandao mwezi uliopita?"
+      ],
+      "dhcp_chercher": [
+        "Je, kuna kifaa kingine kwenye mtandao wangu kinachogawa anwani za IP tayari, kama ruta?"
+      ],
+      "dhcp_mac_etat": [
+        "Simamisha kwa muda tableti ya Nuhu, anwani ya MAC ni 3c:22:fb:10:aa:07"
+      ],
+      "vider_cache": [
+        "Futa akiba ya DNS, baadhi ya majibu yaliyohifadhiwa yamepitwa na wakati"
+      ],
+      "retablir_machine": [
+        "Rudishia kompyuta 192.168.1.42 intaneti yake, kazi za shule zimekwisha"
+      ],
+      "retirer_regle": [
+        "Ondoa kanuni yangu binafsi niliyoweka kwa games.example.org"
+      ],
+      "services": [
+        "Zima michezo ya mtandaoni kwa nyumba nzima"
+      ],
+      "retirer_appareil": [
+        "Sahau tableti ya zamani ya jikoni, tuliiuza"
+      ],
+      "dhcp_reglages": [
+        "Weka DHCP itoe anwani kuanzia 192.168.1.100 hadi 192.168.1.200, lango liwe 192.168.1.1"
+      ],
+      "dhcp_approuver": [
+        "Iruhusu printa mpya inayosubiri ipate anwani, MAC yake ni 3c:22:fb:10:aa:01"
+      ],
+      "journal": [
+        "Nionyeshe maombi ya majina ya vikoa yaliyozuiwa ya televisheni ya sebuleni"
+      ],
+      "listes": [
+        "ni orodha zipi za kuzuia zinazotumika sasa, na hali yake ikoje?"
+      ],
+      "appareil": [
+        "kwa tableti ya Leo, 192.168.1.34, washa udhibiti wa wazazi na utafutaji salama"
+      ],
+      "nom_local": [
+        "nataka kuandika printa.nyumbani badala ya 192.168.1.50"
+      ],
+      "dhcp_demarrer": [
+        "kuanzia sasa wewe ndiye ugawe anwani za IP kwa vifaa, si ruta"
+      ],
+      "recap_machine": [
+        "nipe kila kitu kuhusu kifaa 192.168.1.42: mfumo wake na tovuti ilizotembelea wiki hii"
+      ],
+      "demarrer": [
+        "Anzisha seva ya DNS ya nyumbani"
+      ],
+      "ajouter_liste": [
+        "Ongeza orodha ya kuzuia kutoka https://lists.example.org/ads.txt"
+      ],
+      "couper_machine": [
+        "Kata intaneti ya tablet 192.168.1.61 kuanzia saa nne usiku hadi saa moja asubuhi"
+      ],
+      "retirer_nom": [
+        "Ondoa jina la ndani printer.home"
+      ],
+      "dhcp_arreter": [
+        "Simamisha DHCP, ruta irudie kugawa anwani"
+      ],
+      "dns_chiffre": [
+        "Washa DNS iliyosimbwa ili simu yangu iitumie kama DNS binafsi"
+      ],
+      "arreter": [
+        "Zima seva ya DNS ya nyumbani kwa sasa"
+      ],
+      "activer_liste": [
+        "Zima orodha ya kuzuia \"matangazo-simu\" bila kuifuta"
+      ],
+      "couper_video": [
+        "Zuia tovuti za video kwenye tableti 192.168.1.42, intaneti nyingine iendelee kufanya kazi"
+      ],
+      "pubs_reseaux": [
+        "Zuia matangazo na ufuatiliaji wa mitandao ya kijamii bila kugusa video"
+      ],
+      "dhcp_retirer_fixe": [
+        "Ondoa anwani ya IP iliyowekwa kudumu kwa aa:bb:cc:12:34:56"
+      ],
+      "reprendre": [
+        "Mapumziko yamekwisha, rudisha uzuiaji"
       ]
     },
     "vordr": {
@@ -782,6 +1265,48 @@
       ],
       "ouvrir_ports": [
         "nataka kufikia huduma zangu moja kwa moja kutoka mtandaoni bila handaki, fungua kinachohitajika kwenye ruta"
+      ],
+      "activer": [
+        "Zima tovuti ya blog.maison.lan kwa sasa, bila kuifuta."
+      ],
+      "retirer_flux": [
+        "Situmii tena mtiririko wa TCP kwenye lango 2222, uondoe."
+      ],
+      "acces": [
+        "Ruhusu admin.home.lan kwa anwani 192.168.1.0/24 pekee, kataa nyingine zote"
+      ],
+      "tester": [
+        "cloud.home.lan haifanyi kazi vizuri, jaribu jina, cheti na huduma iliyo nyuma yake"
+      ],
+      "fermer_ports": [
+        "Funga milango 80 na 443 kwenye ruta"
+      ],
+      "connexion_unique": [
+        "Fanya photos.example.com iombe kuingia kwa Odin kwanza"
+      ],
+      "journal": [
+        "Nionyeshe maombi ya karibuni yaliyofika shop.example.com"
+      ],
+      "demarrer": [
+        "washa proksi ya kinyume ili Odin ijibu kwenye milango 80 na 443"
+      ],
+      "portail": [
+        "weka lango la kuingia kwenye login.example.net pamoja na cheti chake"
+      ],
+      "reglages": [
+        "tumia seva ya majaribio kwa vyeti, ninajaribu na sitaki kufikia kikomo"
+      ],
+      "arreter": [
+        "Zima proksi kwa sasa, tovuti zisijibu"
+      ],
+      "retirer_redirection": [
+        "Ondoa uelekezaji upya wa old.example.net"
+      ],
+      "retirer": [
+        "Ondoa tovuti photos.home.lan kwenye proksi ya nyuma, haitumiki tena"
+      ],
+      "flux": [
+        "Peleka lango la TCP 2222 la Odin kwenye SSH ya 192.168.1.20:22"
       ]
     },
     "var": {
@@ -821,6 +1346,108 @@
       ],
       "creer_groupe": [
         "unda kikundi cha ufikiaji «wageni» kwa marafiki wanaotembelea"
+      ],
+      "couper_sessions": [
+        "Camille amepoteza simu yake, mtoe kwenye vipindi vyote."
+      ],
+      "retirer_acces": [
+        "Kikundi cha familia kisiweze tena kufungua programu ya filamu."
+      ],
+      "taille_sauvegardes": [
+        "Programu ya madokezo ya simu isitume kwa Odin nakala rudufu kubwa kuliko MB 200."
+      ],
+      "relier_proprietaire": [
+        "Mimi si msimamizi wa akaunti tena; unganisha upya akaunti yangu ya mmiliki."
+      ],
+      "donner_site": [
+        "Ruhusu kikundi cha familia kuingia photos.maison.lan kupitia kuingia kwa Odin."
+      ],
+      "journal": [
+        "Nani aliingia jana na kutoka wapi? Kulikuwa na majaribio yaliyoshindwa?"
+      ],
+      "proteger_site": [
+        "Fanya photos.home.lan iombe kuingia kwa akaunti, kwa kundi la familia tu"
+      ],
+      "acces_cases": [
+        "Ni programu zipi zimewekewa alama kwa kundi la watoto?"
+      ],
+      "couper_appareil": [
+        "Kata muunganisho c-1842, ni simu yangu ya zamani iliyoibiwa"
+      ],
+      "renommer_groupe": [
+        "Badilisha jina la kundi 'marafiki' liwe 'wa karibu'"
+      ],
+      "retirer_site": [
+        "Kundi la wageni lisiingie tena kwenye games.home.lan"
+      ],
+      "liberer_site": [
+        "Fanya wiki.home.lan isihitaji kuingia tena"
+      ],
+      "acces_aux_applis": [
+        "Kila kikundi kinaweza kufungua programu zipi? Nionyeshe"
+      ],
+      "inscrire_logiciel": [
+        "Niwezeshe kuingia kwa akaunti ya Odin kwenye wingu langu la cloud.home.lan"
+      ],
+      "supprimer_groupe": [
+        "Futa kikundi cha 'wageni', hatukihitaji tena"
+      ],
+      "groupes": [
+        "Tuna vikundi gani, na kila kimoja kina nani?"
+      ],
+      "modifier": [
+        "kwenye akaunti ya nadia, badilisha jina linaloonekana kuwa Nadia K. na uizime"
+      ],
+      "reglages": [
+        "vipindi vya kuingia vidumu saa 12, na uthibitishaji wa hatua mbili uwe lazima kwa kundi la admins"
+      ],
+      "ajouter_appli": [
+        "sajili programu mpya itakayoingia kwa akaunti ya Odin: kitambulisho library, anwani ya kurudi https://media.home/callback"
+      ],
+      "oublier_autorisation": [
+        "sahau idhini aliyoitoa sami kwa programu ya wiki, alazimike kuruhusu tena"
+      ],
+      "mettre_dans_groupe": [
+        "mweke lina kwenye kundi la familia"
+      ],
+      "annuler_invitation": [
+        "futa mwaliko niliomtumia Hugo, kiungo kisifanye kazi tena"
+      ],
+      "retirer": [
+        "Futa akaunti ya Juma"
+      ],
+      "personnes": [
+        "Nionyeshe watu wote wenye akaunti na vikundi vyao"
+      ],
+      "ajouter_retour": [
+        "Ongeza anwani ya kurudi baada ya kuingia kwa programu ya filamu: http://192.168.1.20:8096/auth/odin/retour"
+      ],
+      "proteger_tout": [
+        "Fanya tovuti zote ziombe kuingia kwa Odin kwanza"
+      ],
+      "sortir_du_groupe": [
+        "Mtoe Neema kwenye kikundi cha Wageni"
+      ],
+      "adresse_liens": [
+        "Viungo kwenye barua pepe za mwaliko vitumie anwani https://home.example.net"
+      ],
+      "confirmer_double_auth": [
+        "Msimbo wa tarakimu sita wa programu kwa akaunti ya Amani ni 482913"
+      ],
+      "donner_acces": [
+        "Ruhusu kikundi cha familia kufungua programu ya filamu"
+      ],
+      "retirer_appli": [
+        "Ondoa programu mteja \"wiki-nyumbani\" isiweze kuingia tena"
+      ],
+      "delier_proprietaire": [
+        "Tenganisha akaunti yangu ya mmiliki na saraka ya utambulisho"
+      ],
+      "double_auth_groupe": [
+        "Fanya uthibitishaji wa hatua mbili kuwa lazima kwa kikundi chote cha vijana"
+      ],
+      "retirer_cle": [
+        "Nimepoteza ufunguo wangu wa usalama, ondoa \"ufunguo-bluu\" usiweze kuingia tena"
       ]
     },
     "bru": {
@@ -1039,7 +1666,8 @@
       ],
       "lieux": [
         "mahali ninapokuwa mara kwa mara",
-        "maeneo ninayopenda kulingana na historia"
+        "maeneo ninayopenda kulingana na historia",
+        "Baraka huenda mara nyingi sehemu gani?"
       ],
       "pause": [
         "usirekodi mienendo yangu kwa sasa",
@@ -1053,6 +1681,27 @@
       "nommer_lieu": [
         "paite mahali hapa 'kwa bibi'",
         "mahali niliposimama mchana, paite «kwa bibi»"
+      ],
+      "conservation": [
+        "Hifadhi maeneo ya Noa kwa siku 30 tu, amekubali."
+      ],
+      "partage": [
+        "Ines amekubali nione safari zake, washa hilo"
+      ],
+      "retirer_lieu": [
+        "Ondoa mahali 'ukumbi wa mazoezi' kwenye maeneo ya Amani"
+      ],
+      "etat": [
+        "nani katika familia anahifadhi historia ya mahali alipokuwa, na kwa muda gani?"
+      ],
+      "fond_de_carte": [
+        "washa ramani ya mtandaoni chini ya njia zangu"
+      ],
+      "tuile": [
+        "Leta kipande cha ramani ya msingi: kukuza 12, safu 2074, mstari 1409"
+      ],
+      "eteindre": [
+        "Acha kuhifadhi historia ya mahali alipo Baraka na ufute yote yaliyohifadhiwa"
       ]
     },
     "apparence": {
@@ -1083,6 +1732,15 @@
       ],
       "mascotte": [
         "kinyago kinaonyesha nini kwenye skrini zote sasa hivi?"
+      ],
+      "evenements": [
+        "Ni sikukuu na siku za kuzaliwa zipi zinazokuja kwa Odin, na zipi zimewashwa?"
+      ],
+      "regler_mascotte": [
+        "Hifadhi mipangilio ya mhusika wa Odin: aruke ninapombofya na aitikie ujumbe mpya"
+      ],
+      "montrer": [
+        "Rudi uonekane kwenye skrini zangu"
       ]
     },
     "commandes": {
@@ -1351,6 +2009,36 @@
       "livre_ajouter": [
         "ongeza riwaya hii kwenye maktaba yangu ya vitabu",
         "weka EPUB hii kwenye maktaba yangu ya kusoma"
+      ],
+      "enregistrer_plage": [
+        "Rekodi chaneli 5 leo usiku kuanzia saa mbili na dakika hamsini kwa saa mbili."
+      ],
+      "enregistrements": [
+        "Nina rekodi zipi za TV zilizopangwa, zinazoendelea au zilizokamilika?"
+      ],
+      "chercher_vf": [
+        "Nitafutie toleo la Kifaransa la filamu 'Vivuli vya Bandari'"
+      ],
+      "annuler_enregistrement": [
+        "Ghairi kurekodi kipindi cha mapishi cha usiku wa leo"
+      ],
+      "etat": [
+        "seva ya filamu inapatikana? kuna kitu kinachochezwa sasa hivi?"
+      ],
+      "prevenir": [
+        "nijulishe kuhusu vipindi vipya tu vinapotoka kwa sauti ya Kifaransa"
+      ],
+      "adresse": [
+        "Anwani ya seva ya media iliyounganishwa ni ipi?"
+      ],
+      "ecrans": [
+        "Ni skrini zipi nyumbani ninazoweza kuchezea filamu?"
+      ],
+      "sante": [
+        "Seva ya filamu iko salama? Nafasi imebaki kiasi gani, na kuna mtu anatazama sasa?"
+      ],
+      "chercher": [
+        "Je, tuna \"Bustani za Kelo\" kwenye maktaba ya filamu?"
       ]
     },
     "aegir": {
@@ -1559,13 +2247,41 @@
       ],
       "gros_fichiers": [
         "mafaili makubwa zaidi kwenye diski",
-        "nini kina uzito zaidi?"
+        "nini kina uzito zaidi?",
+        "Ni mafaili gani yanayozidi GB 1 kwenye kompyuta ya sebuleni?"
       ],
       "demarrage": [
         "nini kinaanza mfumo ukiwaka?",
         "programu za kuanza na mfumo",
         "programu gani zinajiwasha zenyewe kompyuta ikiwashwa?",
         "nini kinajiwasha chenyewe ninapowasha kompyuta? kuwaka kunachukua muda mrefu"
+      ],
+      "programmes": [
+        "Ni programu zipi zilizosakinishwa zinazochukua nafasi kubwa zaidi kwenye kompyuta hii?"
+      ],
+      "desinstaller": [
+        "Ondoa programu namba 14 kwenye orodha, siitumii tena"
+      ],
+      "analyser": [
+        "Ninaweza kupata nafasi kiasi gani kwenye kompyuta hii? Angalia tu, usifute"
+      ],
+      "planifier_nettoyage": [
+        "Safisha pipa la taka na faili za muda kila Jumapili saa tisa usiku, bila kuniuliza"
+      ],
+      "journal_systeme": [
+        "kumbukumbu za mfumo zinachukua nafasi kubwa, baki na wiki mbili za mwisho tu"
+      ],
+      "lancer_nettoyage": [
+        "endesha sasa hivi usafishaji uliopangwa wa Jumapili"
+      ],
+      "desactiver_demarrage": [
+        "Zuia programu ya gumzo isijiwashe kompyuta inapowaka"
+      ],
+      "retirer_nettoyage": [
+        "Acha usafishaji uliopangwa kwenye kompyuta hii"
+      ],
+      "reactiver_demarrage": [
+        "Rudisha programu ya kuhifadhi nakala ianze kompyuta inapowashwa"
       ]
     },
     "sol": {
@@ -1664,7 +2380,8 @@
       ],
       "recuperer": [
         "fanya pull kwenye hazina zote",
-        "leta mabadiliko mapya"
+        "leta mabadiliko mapya",
+        "Angalia mapya kwenye hazina ya mbali ya mradi wa bustani bila kugusa kazi yangu"
       ],
       "cloner": [
         "nakili github.com/example/app",
@@ -1674,6 +2391,45 @@
       "journal": [
         "nionyeshe commit za mwisho za hazina",
         "nini kimehifadhiwa hivi karibuni kwenye hazina ya tovuti?"
+      ],
+      "creer_depot": [
+        "Niundie hazina ya msimbo nyumbani iitwayo recettes, nipate kusukuma kutoka laptop kwa SSH."
+      ],
+      "enregistrer_fichier": [
+        "Hifadhi mabadiliko niliyofanya kwenye config.yaml."
+      ],
+      "terminaux": [
+        "Ni vipindi vipi vya terminal bado viko wazi?"
+      ],
+      "remettre_fichier": [
+        "Nimeharibu index.js nilipohifadhi, rudisha toleo la awali"
+      ],
+      "fermer_terminal": [
+        "Funga terminali namba 3, nimemaliza nayo"
+      ],
+      "lancer_projet": [
+        "Endesha mradi wa my-blog na unionyeshe unavyoonekana"
+      ],
+      "projets": [
+        "nina miradi gani ya msimbo kwenye folda zangu, na kila mmoja unaanzishwaje?"
+      ],
+      "demander_ia": [
+        "angalia faili calc.py uniambie kwa nini kitanzi hakiishi kamwe"
+      ],
+      "mettre_a_jour": [
+        "Sasisha hazina blog kwa commit mpya"
+      ],
+      "fichiers": [
+        "Nionyeshe mti wa mafaili wa mradi weather-bot"
+      ],
+      "regler_terminaux": [
+        "Ruhusu terminali 4 tu kwa wakati mmoja, na zifungwe baada ya dakika 30 bila shughuli"
+      ],
+      "lire_fichier": [
+        "Nionyeshe yaliyomo kwenye faili src/main.py"
+      ],
+      "dossier": [
+        "Ongeza folda D:/dev kama mahali pa kutafuta hazina zangu za msimbo"
       ]
     },
     "heidrun": {
@@ -1729,6 +2485,15 @@
       ],
       "listes_retroarch": [
         "tengeneza faili za .lpl za koni zangu kwa ajili ya kiigizaji"
+      ],
+      "favori": [
+        "weka mchezo wa chess kwenye vipendwa vyangu"
+      ],
+      "dossier": [
+        "Michezo yangu iko kwenye folda D:\\Michezo, iweke hiyo"
+      ],
+      "variantes": [
+        "Ni michezo gani ninayo katika matoleo au maeneo zaidi ya moja?"
       ]
     },
     "snotra": {
@@ -1787,6 +2552,51 @@
       ],
       "resultat": [
         "tokeo hili linaloonyesha namba yangu, nifanyeje liondolewe?"
+      ],
+      "resultats": [
+        "Kati ya yote yanayoonekana kunihusu mtandaoni, nionyeshe yale yenye hatari kubwa tu."
+      ],
+      "relancer": [
+        "Tovuti haijawahi kujibu ombi langu la kufuta data; andaa barua ya kukumbusha, jibu kwa posta."
+      ],
+      "retirer_accord": [
+        "Dada yangu Ines hataki tena nifuatilie taarifa zake; ondoa ridhaa yake."
+      ],
+      "fiches": [
+        "Naweza kumtafuta nani kwa sasa? Nionyeshe kadi zangu"
+      ],
+      "marquer": [
+        "Tokeo namba 7 ni la mtu mwenye jina kama langu, si mimi — liweke hivyo"
+      ],
+      "effacer_fiche": [
+        "Futa kadi ya kampuni yangu ya zamani pamoja na matokeo na barua zake"
+      ],
+      "guide": [
+        "Akaunti yangu ya mtandao wa kijamii inaonekana na kila mtu, nibadilishe nini?"
+      ],
+      "photo": [
+        "Je, picha pwani.jpg inaonyesha ilipigwa wapi au kwa simu gani?"
+      ],
+      "cle_fuites": [
+        "Hifadhi ufunguo wangu wa huduma ya kukagua uvujaji wa data kwenye sefu"
+      ],
+      "envoyee": [
+        "nimetuma leo ombi la kufutwa kwa data yangu kwenye tovuti ya orodha, liweke kama limetumwa"
+      ],
+      "moi": [
+        "hizi ndizo taarifa zangu za kufuatilia: Alex Mwangi, Mombasa, jina la mtumiaji alex_mw"
+      ],
+      "noter_demande": [
+        "Andika kwamba leo nimetuma ombi la kuondoa kupitia fomu ya tovuti, ili tufuatilie muda"
+      ],
+      "societe": [
+        "Tengeneza wasifu wa kampuni yangu Lumen Studio, kikoa lumen.example, ili kugundua akaunti bandia"
+      ],
+      "reponse": [
+        "Tovuti imejibu ombi langu la kufuta taarifa: wamekataa, iandike"
+      ],
+      "proche": [
+        "Mwongeze dada yangu Neema Juma, alikubali kwa mdomo tarehe 12/11"
       ]
     },
     "durinn": {
@@ -1840,6 +2650,30 @@
       ],
       "resultats": [
         "urejeshaji wa mwisho wa faili ulileta nini?"
+      ],
+      "ouvrir": [
+        "Picha zilizofutwa zilikuwa kwenye kadi ya SD, /dev/mmcblk0; hiyo ndiyo ya kuchunguza."
+      ],
+      "destination": [
+        "Chochote utakachookoa kiweke kwenye E:\\recup, kwenye diski nyingine."
+      ],
+      "table": [
+        "Nionyeshe jedwali la sehemu za diski ya USB niliyochomeka sasa hivi"
+      ],
+      "proposer": [
+        "Ungeweka jedwali gani la sehemu za diski kwenye diski ya nje? Nionyeshe tu, usiandike chochote"
+      ],
+      "reparer": [
+        "andika jedwali la vigawanyo lililopendekezwa kwenye diski ya USB, kwa GPT"
+      ],
+      "remettre": [
+        "Rudisha jedwali la vigawanyo la zamani kutoka kwenye nakala ya akiba"
+      ],
+      "arreter": [
+        "Simamisha urejeshaji wa faili zilizofutwa, baki na zilizopatikana"
+      ],
+      "analyser": [
+        "Kagua kwa kingavirusi faili zilizorejeshwa kabla sijazifungua"
       ]
     },
     "pegase": {
@@ -1911,11 +2745,13 @@
       ],
       "historique": [
         "historia ya maombi",
-        "maombi yaliyonaswa"
+        "maombi yaliyonaswa",
+        "Nionyeshe maombi ya mwisho yaliyopita kwenye proksi ya majaribio."
       ],
       "defauts": [
         "udhaifu uliogunduliwa",
-        "nini kimepatikana kwenye tovuti?"
+        "nini kimepatikana kwenye tovuti?",
+        "Uchunguzi tulivu umepata dosari gani kwenye tovuti zangu?"
       ],
       "controle_passif": [
         null,
@@ -1925,6 +2761,39 @@
       ],
       "declarer_domaine": [
         "nataka kuthibitisha kuwa kikoa karakana.example ni changu"
+      ],
+      "decoder": [
+        "Maandishi haya ya base64 yanasema nini kwa lugha wazi: Ym9uam91ciBMw6lh?"
+      ],
+      "journal": [
+        "Mpaka sasa, nini kimejaribiwa na nini kimekataliwa?"
+      ],
+      "eteindre_proxy": [
+        "Zima proksi ya majaribio sasa hivi"
+      ],
+      "echange": [
+        "Nionyeshe mawasiliano namba 58: ombi, jibu na vichwa vyake"
+      ],
+      "verifier_domaine": [
+        "Nimeweka rekodi ya TXT kwenye tovuti-yangu.co.tz, hakiki uthibitisho"
+      ],
+      "comparer": [
+        "Linganisha majibu ya maombi namba 3 na 7"
+      ],
+      "retirer_domaine": [
+        "ondoa kikoa myblog.example kwenye wigo wa majaribio yangu"
+      ],
+      "encoder": [
+        "simba 'habari dunia' kwa base64"
+      ],
+      "ajouter_appareil": [
+        "Ruhusu kompyuta yangu ndogo 192.168.1.23 ipite kwenye proksi ya majaribio"
+      ],
+      "retirer_appareil": [
+        "Ondoa simu 192.168.1.77 kwenye proksi ya majaribio"
+      ],
+      "certificat": [
+        "Nipe cheti cha mamlaka cha proksi ya majaribio niweke kwenye simu yangu"
       ]
     },
     "atalante": {
@@ -2028,6 +2897,21 @@
       ],
       "ecouter_clip": [
         "kwenye video ya kamera ya mlangoni, mbwa anasikika akibweka?"
+      ],
+      "corriger": [
+        "Sauti namba 31 uliyosikia ilikuwa kengele ya mlango, si maikrowevu"
+      ],
+      "parole": [
+        "Niandikie kinachosemwa kwenye kikao.wav na nani anaongea lini"
+      ],
+      "retrouver": [
+        "tafuta ile sauti ya kengele ya mlango tuliyosikia jana usiku"
+      ],
+      "mesurer": [
+        "Pima kasi ya utambuzi wa sauti kwenye mashine hii"
+      ],
+      "regler": [
+        "Sikiliza sauti za kamera za bustani na gereji tu, na uhifadhi sauti kwa siku 7"
       ]
     },
     "mathesis": {

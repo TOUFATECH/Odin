@@ -465,3 +465,99 @@ test('matière (tour 4) : aucune phrase des actions complétées n\'est presque 
   assert.ok(demandes.length > 1000, `demandes lues ${demandes.length}`);
   assert.deepEqual(proches, []);
 });
+
+// ------------------------------------------------------------------------------------------------ tour 5 (Soul v3)
+// 300 actions qui n'avaient aucune phrase (ou seulement en arabe, russe, swahili et turc) reçoivent une idée, en phrases
+// sœurs dans les quinze langues. Une phrase écartée au contrôle (trop proche d'une demande d'un jeu, nom de logiciel
+// copié) laisse sa place vide (null) : l'idée garde ses sœurs dans les autres langues.
+const CLES_TOUR5 = ('ullr.adresse ullr.restaurer_distant ullr.liberer ullr.reanalyser ullr.revenir ullr.rapport ullr.incident saga.fiches vidarr.etat vidarr.retirer_liste '
+  + 'vidarr.retirer_horaire vidarr.horaires vidarr.dhcp_mode vidarr.reglages var.couper_sessions var.retirer_acces var.taille_sauvegardes '
+  + 'var.relier_proprietaire var.donner_site var.journal urdr.colonnes urdr.sql_schema urdr.base_retour hlin.resultats hlin.relancer hlin.retirer_accord '
+  + 'gna.conservation garmr.fermer_port valgrind.activer valgrind.retirer_flux ivaldi.creer_depot ivaldi.enregistrer_fichier achille.decoder '
+  + 'achille.historique achille.journal gefjon.programmes hel.ouvrir hel.destination skuld.historique apparence.evenements eir.seuils ymir.demarrer '
+  + 'ymir.verifier_ip ymir.cloner_machine ymir.supprimer_machine ymir.quarantaine_machine ymir.retirer_iso ymir.verifier_isos ymir.auto_isoler '
+  + 'freyja.enregistrer_plage ullr.isoler ullr.fichier_internet ullr.accepter ullr.verifier_arrivee ullr.regle ullr.rapports ullr.reputation '
+  + 'vidarr.autoriser vidarr.regle vidarr.mettre_a_jour vidarr.historique vidarr.dhcp_chercher vidarr.dhcp_mac_etat vidarr.vider_cache var.proteger_site '
+  + 'var.acces_cases var.couper_appareil var.renommer_groupe var.retirer_site urdr.relier urdr.modifier urdr.appliquer_schema urdr.base_repasser '
+  + 'hlin.fiches hlin.marquer hlin.effacer_fiche gna.partage garmr.ports_ouverts valgrind.acces valgrind.tester ivaldi.terminaux ivaldi.remettre_fichier '
+  + 'achille.eteindre_proxy achille.echange gefjon.gros_fichiers gefjon.desinstaller hel.table syrinx.corriger skuld.second_site geri.etat eir.exporter '
+  + 'ymir.arreter ymir.arreter_machine ymir.ip_machine ymir.exporter_machine ymir.espace_iso ymir.parcourir ymir.comptes_rendus_iso ymir.serveur '
+  + 'freyja.enregistrements ullr.mettre_a_jour ullr.message ullr.refuser ullr.sources ullr.importer ullr.exception ullr.failles vidarr.retablir_machine '
+  + 'vidarr.retirer_regle vidarr.services vidarr.retirer_appareil vidarr.dhcp_reglages vidarr.dhcp_approuver vidarr.journal var.liberer_site '
+  + 'var.acces_aux_applis var.inscrire_logiciel var.supprimer_groupe var.groupes urdr.acces urdr.ajouter_ligne urdr.exporter_schema urdr.base_lire '
+  + 'hlin.guide hlin.photo hlin.cle_fuites gna.retirer_lieu valgrind.fermer_ports valgrind.connexion_unique valgrind.journal ivaldi.fermer_terminal '
+  + 'ivaldi.lancer_projet achille.verifier_domaine achille.comparer gefjon.analyser gefjon.planifier_nettoyage hel.proposer syrinx.parole '
+  + 'skuld.rattraper_site geri.comportement ymir.parc ymir.redemarrer ymir.apercu_machine ymir.console_machine ymir.importer_machine ymir.bibliotheque_iso '
+  + 'ymir.fiche_iso ymir.isos_pxe freyja.chercher_vf freyja.annuler_enregistrement ullr.faux_positif ullr.restaurer ullr.bloquer ullr.cles ullr.plans '
+  + 'ullr.exceptions ullr.sentinelles vidarr.pause vidarr.listes vidarr.appareil vidarr.nom_local vidarr.dhcp_demarrer vidarr.recap_machine var.modifier '
+  + 'var.reglages var.ajouter_appli var.oublier_autorisation var.mettre_dans_groupe var.annuler_invitation urdr.oublier urdr.supprimer_ligne urdr.journal '
+  + 'urdr.base_traces hlin.envoyee hlin.moi gna.etat gna.fond_de_carte valgrind.demarrer valgrind.portail valgrind.reglages ivaldi.projets '
+  + 'ivaldi.demander_ia achille.retirer_domaine achille.encoder gefjon.journal_systeme gefjon.lancer_nettoyage hel.reparer syrinx.retrouver skuld.archives '
+  + 'leikvangr.favori ymir.demarrer_machine ymir.revenir ymir.ressources_machine ymir.clavier_machine ymir.reseau_machines ymir.preparer_envoi_iso '
+  + 'ymir.iso_deplacee ymir.logiciels_disponibles freyja.etat freyja.prevenir ullr.analyser_poste ullr.supprimer ullr.delai_decision ullr.source '
+  + 'ullr.retirer_plan ullr.retirer_exception ullr.protection vidarr.demarrer vidarr.ajouter_liste vidarr.couper_machine vidarr.retirer_nom '
+  + 'vidarr.dhcp_arreter vidarr.dns_chiffre var.retirer var.personnes var.ajouter_retour var.proteger_tout var.sortir_du_groupe var.adresse_liens '
+  + 'urdr.ouvrir urdr.schema_base urdr.base_odin urdr.base_inventaire hlin.noter_demande hlin.societe gna.lieux gna.tuile valgrind.arreter '
+  + 'valgrind.retirer_redirection ivaldi.mettre_a_jour ivaldi.fichiers ivaldi.regler_terminaux achille.ajouter_appareil achille.defauts '
+  + 'gefjon.desactiver_demarrage gefjon.retirer_nettoyage hel.remettre syrinx.mesurer apparence.regler_mascotte leikvangr.dossier ymir.disque_machine '
+  + 'ymir.locales ymir.ranger_machine ymir.modele_machine ymir.analyser_machine ymir.importer_iso ymir.verification_iso ymir.installer_logiciel '
+  + 'freyja.adresse freyja.ecrans ullr.isoler_distant ullr.detail_quarantaine ullr.etat_sources ullr.versions ullr.arreter ullr.incidents saga.completer '
+  + 'vidarr.arreter vidarr.activer_liste vidarr.couper_video vidarr.pubs_reseaux vidarr.dhcp_retirer_fixe vidarr.reprendre var.confirmer_double_auth '
+  + 'var.donner_acces var.retirer_appli var.delier_proprietaire var.double_auth_groupe var.retirer_cle urdr.tables urdr.placer_tables urdr.base_restaurer '
+  + 'urdr.base_renommer hlin.reponse hlin.proche gna.eteindre garmr.ouvrir_port valgrind.retirer valgrind.flux ivaldi.recuperer ivaldi.lire_fichier '
+  + 'ivaldi.dossier achille.retirer_appareil achille.certificat gefjon.reactiver_demarrage hel.arreter hel.analyser syrinx.regler apparence.montrer '
+  + 'leikvangr.variantes ymir.installer_docker ymir.tableau_machines ymir.categorie_machines ymir.creer_depuis_modele ymir.liberer_machine ymir.ajouter_iso '
+  + 'ymir.plan_verif_iso ymir.mettre_a_jour_logiciels freyja.sante freyja.chercher').split(' ');
+
+test('matière (tour 5) : 300 actions reçoivent une idée, à la même place dans les quinze langues', () => {
+  // Le shimaoré et le kibushi n'y sont pas : leur matière viendra du propriétaire (demandes du 17/11, section 23).
+  const fichiers = lireMatiereTour4();
+  assert.equal(CLES_TOUR5.length, 300);
+  assert.equal(new Set(CLES_TOUR5).size, 300);
+  const minces: string[] = [];
+  let completes = 0;
+  for (const k of CLES_TOUR5) {
+    const [a, b] = k.split('.'), listes = fichiers.map((f) => f.applis[a]?.[b] ?? []);
+    // Toutes les listes ont la même longueur : l'idée du tour 5 est à la même place partout.
+    assert.equal(new Set(listes.map((l) => l.length)).size, 1, `${k} : listes de longueurs différentes`);
+    const n = listes[0].length - 1, presentes = listes.filter((l) => typeof l[n] === 'string' && l[n]!.trim() !== '').length;
+    if (presentes === 15) completes++;
+    if (presentes < 11) minces.push(`${k} (${presentes})`);
+  }
+  assert.deepEqual(minces, [], 'une idée du tour 5 a gardé au moins onze langues');
+  assert.ok(completes >= 277, `idées du tour 5 complètes dans les quinze langues : ${completes}`);
+});
+
+test('matière (tour 5) : aucune phrase des actions ajoutées ne ressemble à une demande d\'un des jeux du banc', async () => {
+  // Contrôle plus serré que celui des tours 3 et 4 (0,7 / 75 %) : c'est le seuil du tri du tour 5, 0,5 de trigrammes ou
+  // 60 % des mots en commun (phrase d'au moins 4 mots), contre TOUS les jeux de test/soul-banc/jeux (demandes et choix).
+  // Le message ne donne que des repères (langue, action, numéro, identifiant de la demande), jamais une phrase.
+  const { normaliser, trigrammes, jaccard } = await import('./soul-banc/fuites.ts');
+  const { readdirSync } = await import('node:fs');
+  const mots = (t: string) => new Set(normaliser(t).split(' ').filter(Boolean));
+  const partMots = (a: Set<string>, b: Set<string>) => { const i = [...a].filter((x) => b.has(x)).length; return i / (a.size + b.size - i || 1); };
+  const dossierJeux = new URL('./soul-banc/jeux/', import.meta.url);
+  const demandes: Array<{ id: string; m: Set<string>; t: Set<string> }> = [];
+  const collecter = (x: unknown): void => {
+    if (Array.isArray(x)) { x.forEach(collecter); return; }
+    if (!x || typeof x !== 'object') return;
+    const o = x as Record<string, unknown>;
+    if (typeof o.phrase === 'string' && typeof o.id === 'string') demandes.push({ id: o.id, m: mots(o.phrase), t: trigrammes(o.phrase) });
+    for (const v of Object.values(o)) if (v && typeof v === 'object') collecter(v);
+  };
+  for (const n of readdirSync(dossierJeux).filter((n) => n.endsWith('.json'))) collecter(JSON.parse(readFileSync(new URL(n, dossierJeux), 'utf8')));
+  const proches: string[] = [];
+  lireMatiereTour4().forEach((f, i) => {
+    for (const k of CLES_TOUR5) {
+      const [a, b] = k.split('.'), l = f.applis[a]?.[b] ?? [];
+      // Toutes les phrases de ces listes (tour 5, et les deux phrases d'avant en arabe, russe, swahili et turc pour huit d'entre elles).
+      l.forEach((p, n) => {
+        if (typeof p !== 'string') return;
+        const m = mots(p), t = trigrammes(p);
+        for (const d of demandes) if ((m.size >= 4 && partMots(m, d.m) >= 0.6) || jaccard(t, d.t) >= 0.5) proches.push(`${LANGUES_TOUR4[i]}:${k}#${n}~${d.id}`);
+      });
+    }
+  });
+  assert.ok(demandes.length > 4000, `demandes lues ${demandes.length}`);
+  assert.deepEqual(proches, []);
+});

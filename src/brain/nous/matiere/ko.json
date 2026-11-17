@@ -33,6 +33,12 @@
         null,
         "잊고 있는 마감이 다가오는지 봐줘",
         "몇 주째 손 놓고 있는 일 있어?"
+      ],
+      "fiches": [
+        "지식 저장소에 새 앱들이 없어. 앱마다 있는 카드를 다시 갱신해 줘."
+      ],
+      "completer": [
+        "장보기 메모 끝에 건전지랑 세제 추가해 줘"
       ]
     },
     "runes": {
@@ -146,6 +152,12 @@
       "mesures": [
         "지난 24시간 CPU 그래프 보여 줘",
         "어제부터 CPU 부하가 어떻게 변했어?"
+      ],
+      "seuils": [
+        "CPU는 60%부터 파랑, 80%부터 주황, 95%부터 빨강으로 해 줘."
+      ],
+      "exporter": [
+        "최신 측정값을 대시보드용 메트릭 형식으로 내보내 줘"
       ]
     },
     "skogul": {
@@ -228,6 +240,15 @@
       ],
       "journal": [
         "메일 서버 로그도 감시해서 무작위로 뚫으려는 놈들 잡아 줘"
+      ],
+      "fermer_port": [
+        "8080 TCP 포트는 이제 열어 둘 필요 없어, 닫아 줘."
+      ],
+      "ports_ouverts": [
+        "Odin이 연 포트들이 뭐고 누구를 위한 건지 알려 줘"
+      ],
+      "ouvrir_port": [
+        "VPN용으로 UDP 51820 포트 열어 줘. 공유기에서도"
       ]
     },
     "geri": {
@@ -262,6 +283,12 @@
       "journal": [
         "어젯밤에 내 컴퓨터들이 어떤 서버랑 연결했는지 보여 줘",
         "밤새 내 프로그램들이 어느 서버랑 연결했어?"
+      ],
+      "etat": [
+        "악성 주소 차단 상태 어때? 목록 최신이야?"
+      ],
+      "comportement": [
+        "한 PC에서 밤에 예약 작업이 새로 생겼는데, 수상한 행동이야?"
       ]
     },
     "ran": {
@@ -321,6 +348,129 @@
       ],
       "plan": [
         "문서 폴더를 일주일에 한 번 바이러스 검사하게 해 둬, 내가 신경 안 써도"
+      ],
+      "adresse": [
+        "문자로 이 링크가 왔는데 livraison-colis.example.net 위험한 사이트야?"
+      ],
+      "restaurer_distant": [
+        "사무실 노트북에서 격리한 4127번 파일은 오탐이었어, 원래 자리로 돌려놔."
+      ],
+      "liberer": [
+        "프린터 설치 파일 격리에서 풀어 줘. 어디서 받은 건지 알고, 필요해."
+      ],
+      "reanalyser": [
+        "격리돼 있는 청구서_3월.zip 오늘 시그니처로 다시 검사해 줘."
+      ],
+      "revenir": [
+        "마지막 백신 시그니처 업데이트 이후로 다 차단돼. 이전 버전으로 되돌려 줘."
+      ],
+      "rapport": [
+        "지난번 검사에서 뭐 나왔어? 보고서 보여 줘."
+      ],
+      "incident": [
+        "어젯밤 57번 사고는 내가 처리했어, 처리 완료로 표시해 줘."
+      ],
+      "isoler": [
+        "청구서_3월.exe 파일이 수상하니까 격리해 줘"
+      ],
+      "fichier_internet": [
+        "다운로드하기 전에 이 링크 파일이 안전한지 확인해 줘: https://files.example.net/driver.zip"
+      ],
+      "accepter": [
+        "탐지된 42번 항목은 괜찮아, 수락하고 원래 있던 자리에 둬"
+      ],
+      "verifier_arrivee": [
+        "거래처에서 견적서.xlsx가 방금 왔어, 열기 전에 검사해 줘"
+      ],
+      "regle": [
+        "'긴급 송금'이나 '계좌 변경'이 들어가면 잡는 탐지 규칙 '가짜송금'을 추가해 줘, 심각도는 높음"
+      ],
+      "rapports": [
+        "최근에 한 검사들 보여 줘. 언제, 파일 몇 개, 몇 건 잡혔는지"
+      ],
+      "reputation": [
+        "SHA-256 해시 9b1e4c7d…a07f 가 악성으로 알려져 있는지 평판 좀 봐 줘"
+      ],
+      "mettre_a_jour": [
+        "바이러스 정의를 최신으로 받아 줘. 일주일이나 지났어"
+      ],
+      "message": [
+        "택배 보관료를 내라는 문자가 왔는데 피싱인지 봐 줄래?"
+      ],
+      "refuser": [
+        "탐지된 청구서.exe 파일은 완전히 지워 버려"
+      ],
+      "sources": [
+        "백신 시그니처는 어디서 가져오는 거야? 라이선스랑 마지막 업데이트 날짜도"
+      ],
+      "importer": [
+        "규칙파일.yar에 있는 시그니처를 백신에 가져와 줘"
+      ],
+      "exception": [
+        "D:/games/mods 폴더는 이제 경고하지 마. 내가 만든 거야"
+      ],
+      "failles": [
+        "설치된 프로그램 중에 지금 실제로 공격에 쓰이는 취약점 있는 거 있어?"
+      ],
+      "faux_positif": [
+        "invoice_march.pdf는 바이러스 아니야, 오탐이었어. 이제 그만 잡아"
+      ],
+      "restaurer": [
+        "격리된 42번 파일을 원래 자리로 되돌려 줘"
+      ],
+      "bloquer": [
+        "격리함 17번 항목은 영구 삭제해 줘. 다시는 복원 못 하게"
+      ],
+      "cles": [
+        "악성코드 정보 데이터베이스용 무료 키를 받았어, 비밀 정보랑 같이 저장해 둬"
+      ],
+      "plans": [
+        "자동으로 돌아가는 바이러스 검사가 뭐뭐 있고 언제 해?"
+      ],
+      "exceptions": [
+        "백신이 무시하도록 해 둔 예외 목록 보여 줘"
+      ],
+      "sentinelles": [
+        "사진 폴더에 미끼 파일을 깔아서 랜섬웨어를 바로 잡아내게 해 줘"
+      ],
+      "analyser_poste": [
+        "서재 컴퓨터(192.168.1.40)를 여기서 바이러스 검사해 줘"
+      ],
+      "supprimer": [
+        "격리된 invoice.exe 파일 완전히 지워 줘"
+      ],
+      "delai_decision": [
+        "격리되기 전에 결정할 시간을 1분으로 늘려 줘"
+      ],
+      "source": [
+        "스토커웨어 시그니처 소스 켜 줘"
+      ],
+      "retirer_plan": [
+        "매주 토요일에 잡아 둔 검사 일정 삭제해"
+      ],
+      "retirer_exception": [
+        "게임 폴더 예외 해제해 줘, 다시 검사하게"
+      ],
+      "protection": [
+        "실시간 보호 켜 줘. 다운로드랑 USB 들어오면 바로 검사하게"
+      ],
+      "isoler_distant": [
+        "원격 검사로 사무실 PC에서 찾은 파일, 그 PC에서 바로 격리해 줘. 탐지 번호 4521"
+      ],
+      "detail_quarantaine": [
+        "격리된 q-87은 왜 차단된 거야? 어디서 온 거고?"
+      ],
+      "etat_sources": [
+        "백신 시그니처 출처들 최신 상태야? 업데이트 실패한 거 있어?"
+      ],
+      "versions": [
+        "시그니처 패키지 지난 버전 목록 좀 보여 줘"
+      ],
+      "arreter": [
+        "지금 돌아가는 바이러스 검사 좀 멈춰 줘, 너무 느려"
+      ],
+      "incidents": [
+        "요즘 공격 들어온 거 있어? 보안 사고 목록 보여 줘"
       ]
     },
     "loki": {
@@ -426,6 +576,75 @@
       ],
       "base_sauvegarder": [
         "네 자체 데이터베이스 지금 바로 암호화 사본으로 보관해"
+      ],
+      "colonnes": [
+        "boutique 데이터베이스 clients 테이블에 어떤 컬럼들이 있어?"
+      ],
+      "sql_schema": [
+        "boutique 데이터베이스에 그려 둔 변경 사항 SQL만 뽑아 줘. 실행은 하지 말고."
+      ],
+      "base_retour": [
+        "캘린더 앱 데이터를 Odin 데이터베이스에서 빼서 다시 파일로 돌려놔."
+      ],
+      "relier": [
+        "192.168.1.20 포트 5432에 이미 있는 데이터베이스 accounts 연결해 줘, 사용자는 lucie"
+      ],
+      "modifier": [
+        "clients 데이터베이스 addresses 테이블에서 id 126 행의 도시를 Valbourg 로 바꿔 줘"
+      ],
+      "appliquer_schema": [
+        "재고 데이터베이스에 그려 둔 스키마 변경 사항 적용해 줘"
+      ],
+      "base_repasser": [
+        "캘린더 데이터가 파일로 돌아가 있어, Odin 데이터베이스로 다시 옮겨 줘"
+      ],
+      "acces": [
+        "레시피 앱이 자기 데이터베이스에 붙을 때 쓰는 접속 정보 알려 줘"
+      ],
+      "ajouter_ligne": [
+        "고객 테이블에 한 줄 추가해 줘: 이름 하나, 나이 34"
+      ],
+      "exporter_schema": [
+        "SHOP 데이터베이스 스키마를 이미지로 내보내 줘"
+      ],
+      "base_lire": [
+        "메모 앱 데이터베이스 안에 뭐가 있는지 읽기만 해서 알려 줘"
+      ],
+      "oublier": [
+        "old_accounts 데이터베이스를 목록에서만 빼 줘. 데이터는 건드리지 말고"
+      ],
+      "supprimer_ligne": [
+        "recipes 데이터베이스 ingredients 테이블에서 id 12인 행 삭제해 줘"
+      ],
+      "journal": [
+        "데이터베이스에 최근에 돌린 쿼리 기록 보여 줘"
+      ],
+      "base_traces": [
+        "Odin이 메모 앱 데이터베이스를 언제, 왜 건드렸는지 알려 줘"
+      ],
+      "ouvrir": [
+        "데이터베이스 SHOP의 orders 테이블 열어 줘"
+      ],
+      "schema_base": [
+        "SHOP 데이터베이스 스키마 보여 줘, 테이블 관계까지"
+      ],
+      "base_odin": [
+        "Odin 자체 데이터베이스 상태 어때? 밀린 거 있어?"
+      ],
+      "base_inventaire": [
+        "앱마다 데이터가 어디 있는지, DB인지 아직 파일인지 알려 줘"
+      ],
+      "tables": [
+        "RECIPES 데이터베이스에 어떤 테이블들이 있어?"
+      ],
+      "placer_tables": [
+        "STOCK 데이터베이스 다이어그램에서 옮겨 놓은 테이블 위치 저장해 줘"
+      ],
+      "base_restaurer": [
+        "Odin 데이터베이스 어제 백업을 지금 거 건드리지 말고 별도 DB로 복원해 줘"
+      ],
+      "base_renommer": [
+        "날씨 앱 데이터베이스 이름을 WEATHER_ODIN으로 바꿔 줘"
       ]
     },
     "skuld": {
@@ -455,6 +674,18 @@
       ],
       "verifier_site": [
         "두 번째 장소로 보낸 데이터베이스 사본 멀쩡해?"
+      ],
+      "historique": [
+        "데이터베이스 최근 백업들 언제 된 거야?"
+      ],
+      "second_site": [
+        "백업할 때마다 외장 디스크 /mnt/offsite 에도 복사해 줘"
+      ],
+      "rattraper_site": [
+        "두 번째 보관 장소가 밀렸어. 빠진 백업들 보내 줘"
+      ],
+      "archives": [
+        "청구서 데이터베이스 백업 중에 아직 남아 있는 게 뭐야?"
       ]
     },
     "rodd": {
@@ -531,6 +762,152 @@
       ],
       "isoler_machine": [
         "테스트 VM 네트워크에서 다 끊어, 이상하게 굴어"
+      ],
+      "demarrer": [
+        "104번 가상 머신 켜 줘."
+      ],
+      "verifier_ip": [
+        "새 머신에 주기 전에, 192.168.1.50 주소 비어 있어?"
+      ],
+      "cloner_machine": [
+        "web-test 머신 복제해서 이름은 web-test2로 해 줘."
+      ],
+      "supprimer_machine": [
+        "old-dev 머신은 이제 필요 없어, 디스크까지 같이 삭제해 줘."
+      ],
+      "quarantaine_machine": [
+        "db-01 머신은 왜 격리된 거야? 그리고 뭘 했어?"
+      ],
+      "retirer_iso": [
+        "ISO 라이브러리에서 systeme-ancien-12.iso 파일째로 지워 줘."
+      ],
+      "verifier_isos": [
+        "지금 바로 ISO 전부 점검해 줘. 체크섬, 바이러스, 새 버전까지."
+      ],
+      "auto_isoler": [
+        "머신에 심각한 경보가 뜨면 나 기다리지 말고 자동으로 격리해 줘."
+      ],
+      "arreter": [
+        "VM 104 정상 종료해 줘"
+      ],
+      "arreter_machine": [
+        "이 PC에 있는 labo-web 머신 꺼 줘, 응답 없으면 강제로"
+      ],
+      "ip_machine": [
+        "labo-web 머신 IP를 192.168.1.60 으로 바꿔 줘"
+      ],
+      "exporter_machine": [
+        "labo-web 머신 전체를 파일 하나로 NAS의 /backups/vm 에 내보내 줘"
+      ],
+      "espace_iso": [
+        "앞으로 ISO 이미지는 /srv/iso 에 보관해 줘"
+      ],
+      "parcourir": [
+        "사무실 PC 공유 폴더 좀 둘러보게 해 줘, 가져올 ISO 고르려고"
+      ],
+      "comptes_rendus_iso": [
+        "ISO 검증 기록 보여 줘"
+      ],
+      "serveur": [
+        "차고에 있는 가상화 서버 추가해 줘, 주소는 https://10.0.0.5:8006"
+      ],
+      "parc": [
+        null,
+        null,
+        "VM, 컨테이너 다 포함해서 내 머신 전부 보여 줘"
+      ],
+      "redemarrer": [
+        "104번 재부팅해 줘, 멈췄어"
+      ],
+      "apercu_machine": [
+        "win-test VM 화면 실시간으로 보여 줘"
+      ],
+      "console_machine": [
+        "web 컨테이너에서 df -h 실행하고 결과 보여 줘"
+      ],
+      "importer_machine": [
+        "server.ody 파일로 머신 가져와 줘"
+      ],
+      "bibliotheque_iso": [
+        "저장된 ISO 이미지 전부 크기랑 같이 보여 줘"
+      ],
+      "fiche_iso": [
+        "installer-24.iso 상세 정보 보여 줘. 버전, 해시, 쓰는 머신까지"
+      ],
+      "isos_pxe": [
+        "네트워크 부팅용 이미지 중에 준비된 거랑 아직 받는 중인 거 알려 줘"
+      ],
+      "demarrer_machine": [
+        "web-server 가상 머신 켜 줘"
+      ],
+      "revenir": [
+        "VM 104를 before-update 스냅샷으로 되돌려 줘"
+      ],
+      "ressources_machine": [
+        "game-server 머신에 코어 4개, 메모리 8GB 할당해 줘"
+      ],
+      "clavier_machine": [
+        "desktop-test VM 화면에 Ctrl+Alt+Del 보내 줘"
+      ],
+      "reseau_machines": [
+        "VM들을 br0 브리지에 연결해 줘. 네트워크 192.168.1.0/24, 게이트웨이 192.168.1.1"
+      ],
+      "preparer_envoi_iso": [
+        "브라우저로 4GB짜리 ISO 올릴 거야, install-server.iso 업로드 준비해 줘"
+      ],
+      "iso_deplacee": [
+        "옛날 ISO들이 old 폴더로 옮겨졌어, 그걸 쓰는 머신들 경로 맞춰 줘"
+      ],
+      "logiciels_disponibles": [
+        "VM에 깔 수 있는, 최신으로 유지되는 프로그램 뭐 있어?"
+      ],
+      "disque_machine": [
+        "web 머신 디스크를 80GB로 늘려 줘"
+      ],
+      "locales": [
+        "이 PC에 있는 가상 머신이랑 컨테이너 상태 보여 줘"
+      ],
+      "ranger_machine": [
+        "mail 머신을 사무실 카테고리에 넣어 줘"
+      ],
+      "modele_machine": [
+        "base-clean 머신을 템플릿으로 만들어 줘"
+      ],
+      "analyser_machine": [
+        "test 컨테이너 전체 바이러스 검사 돌려 줘"
+      ],
+      "importer_iso": [
+        "https://mirror.example.org/system.iso 에서 ISO 가져와 줘"
+      ],
+      "verification_iso": [
+        "ISO 점검은 매주 일요일 새벽 3시에 해 줘"
+      ],
+      "installer_logiciel": [
+        "archive 머신에 백업 프로그램 설치해 줘"
+      ],
+      "installer_docker": [
+        "lab/wiki:1.4 이미지로 컨테이너 하나 설치해 줘. 포트는 8080"
+      ],
+      "tableau_machines": [
+        "머신 전체 현황판 보여 줘. 켜진 거, 템플릿, ISO까지 다"
+      ],
+      "categorie_machines": [
+        "테스트 머신 정리할 초록색 '실험실' 카테고리 새로 만들어 줘"
+      ],
+      "creer_depuis_modele": [
+        "server-base 템플릿으로 web-02 새 머신 만들어 줘. 메모리는 4GB"
+      ],
+      "liberer_machine": [
+        "pc-거실 검사 깨끗하게 나왔어. 격리 풀고 네트워크에 다시 연결해 줘"
+      ],
+      "ajouter_iso": [
+        "방금 받은 ISO가 이미 ISO 폴더에 있어. 복사하지 말고 그 자리에서 등록해 줘"
+      ],
+      "plan_verif_iso": [
+        "ISO 검사는 언제 하고, 다음 검사는 언제야?"
+      ],
+      "mettre_a_jour_logiciels": [
+        "web-01 머신 소프트웨어 새 버전으로 업데이트해 줘"
       ]
     },
     "idunn": {
@@ -673,6 +1050,124 @@
       "dhcp_fixe": [
         "NAS한테 항상 같은 IP 주소 줘",
         "NAS한테 항상 같은 주소 주고 이름은 storage로 해"
+      ],
+      "etat": [
+        "DNS 필터 잘 돌아가? 오늘 몇 건이나 차단했어?"
+      ],
+      "retirer_liste": [
+        "도박 사이트 차단 목록은 끄지 말고 아예 지워 줘."
+      ],
+      "retirer_horaire": [
+        "jeux.example.com 저녁 시간 차단 풀어 줘. 이제 항상 열려 있어도 돼."
+      ],
+      "horaires": [
+        "노아 태블릿에서 매일 밤 9시부터 아침 7시까지 SNS 막아 줘."
+      ],
+      "dhcp_mode": [
+        "집 네트워크에서는 내가 승인한 기기만 주소를 받게 하고 싶어."
+      ],
+      "reglages": [
+        "DNS 설정에서 모두에게 세이프서치랑 자녀 보호 기능 켜 줘."
+      ],
+      "autoriser": [
+        null,
+        null,
+        "lea-recipes.com 이 차단 목록에 걸려 있어, 허용해 줘"
+      ],
+      "regle": [
+        "필터에 이 사용자 규칙 넣어 줘: ||ads-everywhere.net^"
+      ],
+      "mettre_a_jour": [
+        "차단 목록이 오래됐어, 최신 버전으로 받아 와"
+      ],
+      "historique": [
+        "지난달 네트워크에서 무슨 일이 있었는지 보여 줘"
+      ],
+      "dhcp_chercher": [
+        "공유기처럼 우리 네트워크에서 이미 IP 주소를 나눠 주는 게 따로 있어?"
+      ],
+      "dhcp_mac_etat": [
+        "노아 태블릿 일시 정지해 줘, MAC 주소는 3c:22:fb:10:aa:07"
+      ],
+      "vider_cache": [
+        "DNS 캐시 비워 줘, 저장된 응답 중에 오래된 게 있어"
+      ],
+      "retablir_machine": [
+        "192.168.1.42 컴퓨터 인터넷 다시 되게 해 줘"
+      ],
+      "retirer_regle": [
+        "games.example.org에 내가 만든 규칙 지워 줘"
+      ],
+      "services": [
+        "집 전체에서 온라인 게임 막아 줘"
+      ],
+      "retirer_appareil": [
+        "부엌에 있던 옛날 태블릿 목록에서 빼 줘. 팔았거든"
+      ],
+      "dhcp_reglages": [
+        "DHCP 범위를 192.168.1.100부터 200까지로 하고 게이트웨이는 192.168.1.1로 해 줘"
+      ],
+      "dhcp_approuver": [
+        "대기 중인 새 프린터 3c:22:fb:10:aa:01 주소 받게 승인해 줘"
+      ],
+      "journal": [
+        "거실 TV가 최근에 조회한 도메인 보여 줘"
+      ],
+      "pause": [
+        null,
+        null,
+        "예약 사이트가 안 열려서 그런데 광고 차단 10분만 꺼 줘"
+      ],
+      "listes": [
+        "지금 켜져 있는 차단 목록이 뭐고 상태는 어때?"
+      ],
+      "appareil": [
+        "레오 태블릿(192.168.1.34)에 자녀 보호랑 세이프서치 켜 줘"
+      ],
+      "nom_local": [
+        "192.168.1.50 대신 printer.home으로 접속되게 이름 붙여 줘"
+      ],
+      "dhcp_demarrer": [
+        "이제 공유기 말고 네가 기기들한테 IP 주소 나눠 줘"
+      ],
+      "recap_machine": [
+        "192.168.1.42 기기 전부 알려 줘. 운영체제랑 이번 주에 들어간 사이트까지"
+      ],
+      "demarrer": [
+        "DNS 서버 시작해 줘"
+      ],
+      "ajouter_liste": [
+        "차단 목록 추가해 줘: https://lists.example.org/ads.txt"
+      ],
+      "couper_machine": [
+        "192.168.1.61 태블릿 인터넷을 밤 10시부터 아침 7시까지 끊어 줘"
+      ],
+      "retirer_nom": [
+        "로컬 이름 printer.home 지워 줘"
+      ],
+      "dhcp_arreter": [
+        "DHCP 꺼 줘. 주소는 다시 공유기가 나눠 주게"
+      ],
+      "dns_chiffre": [
+        "휴대폰에서 개인 DNS로 쓸 수 있게 암호화 DNS 켜 줘"
+      ],
+      "arreter": [
+        "집 DNS 서버 일단 꺼 줘"
+      ],
+      "activer_liste": [
+        "'모바일광고' 차단 목록 꺼 줘. 지우지는 말고"
+      ],
+      "couper_video": [
+        "192.168.1.42 태블릿에서 동영상 사이트만 막아 줘. 나머지 인터넷은 그대로 두고"
+      ],
+      "pubs_reseaux": [
+        "SNS 광고랑 추적만 막아 줘. 영상은 그대로 보이게"
+      ],
+      "dhcp_retirer_fixe": [
+        "aa:bb:cc:12:34:56에 고정해 둔 IP 풀어 줘"
+      ],
+      "reprendre": [
+        "일시 정지 끝, 차단 다시 켜 줘"
       ]
     },
     "vordr": {
@@ -763,6 +1258,48 @@
       ],
       "ouvrir_ports": [
         "터널 없이 인터넷에서 바로 내 서비스에 들어가고 싶어, 공유기에서 필요한 거 열어 줘"
+      ],
+      "activer": [
+        "blog.maison.lan 사이트 지우지는 말고 일단 꺼 둬."
+      ],
+      "retirer_flux": [
+        "2222 포트 TCP 스트림은 이제 안 써, 지워 줘."
+      ],
+      "acces": [
+        "admin.home.lan 은 192.168.1.0/24 주소만 들어오게 하고 나머지는 거부해 줘"
+      ],
+      "tester": [
+        "cloud.home.lan 이 이상해, 이름이랑 인증서, 뒤에 있는 서비스 테스트해 줘"
+      ],
+      "fermer_ports": [
+        "공유기에서 80번이랑 443번 포트 닫아 줘"
+      ],
+      "connexion_unique": [
+        "photos.example.com 들어가기 전에 Odin 로그인 하게 해 줘"
+      ],
+      "journal": [
+        "shop.example.com에 들어온 최근 요청 보여 줘"
+      ],
+      "demarrer": [
+        "리버스 프록시 켜서 Odin이 80번, 443번 포트로 응답하게 해 줘"
+      ],
+      "portail": [
+        "로그인 포털을 login.example.net 주소로 인증서 붙여서 띄워 줘"
+      ],
+      "reglages": [
+        "인증서는 테스트 서버로 바꿔 줘. 시험 중이라 발급 제한 걸리기 싫어"
+      ],
+      "arreter": [
+        "리버스 프록시 꺼 줘"
+      ],
+      "retirer_redirection": [
+        "old.example.net 리디렉션 삭제해 줘"
+      ],
+      "retirer": [
+        "리버스 프록시에서 photos.home.lan 사이트 빼 줘. 이제 안 써"
+      ],
+      "flux": [
+        "Odin의 TCP 2222 포트를 192.168.1.20:22 SSH로 연결해 줘"
       ]
     },
     "var": {
@@ -796,6 +1333,108 @@
       ],
       "creer_groupe": [
         "놀러 오는 친구들용으로 '손님' 접근 그룹 하나 만들어"
+      ],
+      "couper_sessions": [
+        "카미유가 휴대폰을 잃어버렸어, 모든 곳에서 로그아웃시켜 줘."
+      ],
+      "retirer_acces": [
+        "가족 그룹은 이제 영화 앱을 못 열게 해 줘."
+      ],
+      "taille_sauvegardes": [
+        "휴대폰 메모 앱이 Odin에 보내는 백업은 최대 200MB로 제한해 줘."
+      ],
+      "relier_proprietaire": [
+        "내가 계정 관리자에서 빠졌어. 소유자 계정 다시 연결해 줘."
+      ],
+      "donner_site": [
+        "가족 그룹이 Odin 로그인으로 photos.maison.lan에 들어갈 수 있게 해 줘."
+      ],
+      "journal": [
+        "어제 누가 어디서 로그인했어? 실패한 시도도 있었어?"
+      ],
+      "proteger_site": [
+        "photos.home.lan 은 로그인해야 들어갈 수 있게 하고, 가족 그룹만 허용해 줘"
+      ],
+      "acces_cases": [
+        "아이들 그룹에는 어떤 앱이 체크돼 있어?"
+      ],
+      "couper_appareil": [
+        "연결 c-1842 끊어 줘, 도둑맞은 예전 폰이야"
+      ],
+      "renommer_groupe": [
+        "'친구' 그룹 이름을 '가까운 사람'으로 바꿔 줘"
+      ],
+      "retirer_site": [
+        "손님 그룹은 이제 games.home.lan 에 못 들어가게 해 줘"
+      ],
+      "liberer_site": [
+        "wiki.home.lan 이제 로그인 없이 들어가게 해 줘"
+      ],
+      "acces_aux_applis": [
+        "그룹마다 어떤 앱을 쓸 수 있는지 보여 줘"
+      ],
+      "inscrire_logiciel": [
+        "cloud.home.lan에 있는 내 클라우드에 Odin 계정으로 로그인되게 설정해 줘"
+      ],
+      "supprimer_groupe": [
+        "'손님' 그룹 삭제해 줘. 이제 필요 없어"
+      ],
+      "groupes": [
+        "우리 그룹이 뭐뭐 있고 각각 누가 들어 있어?"
+      ],
+      "modifier": [
+        "nadia 계정 표시 이름을 Nadia K.로 바꾸고 계정은 비활성화해 줘"
+      ],
+      "reglages": [
+        "로그인 세션은 12시간 유지하고 admins 그룹은 2단계 인증 필수로 해 줘"
+      ],
+      "ajouter_appli": [
+        "Odin 계정으로 로그인하는 새 앱 등록해 줘. 아이디는 library, 리디렉션 주소는 https://media.home/callback"
+      ],
+      "oublier_autorisation": [
+        "sami가 wiki 앱에 준 동의는 지워 줘, 다시 허용하게"
+      ],
+      "mettre_dans_groupe": [
+        "lina를 가족 그룹에 넣어 줘"
+      ],
+      "annuler_invitation": [
+        "휴고한테 보낸 초대 취소해 줘, 링크 더는 안 되게"
+      ],
+      "retirer": [
+        "민수 계정 삭제해 줘"
+      ],
+      "personnes": [
+        "계정 있는 사람들이랑 그룹 목록 보여 줘"
+      ],
+      "ajouter_retour": [
+        "영화 앱 로그인 리디렉션 주소 하나 더 추가해 줘: http://192.168.1.20:8096/auth/odin/retour"
+      ],
+      "proteger_tout": [
+        "모든 사이트에 Odin 로그인 하나로 걸어 줘"
+      ],
+      "sortir_du_groupe": [
+        "지아를 손님 그룹에서 빼 줘"
+      ],
+      "adresse_liens": [
+        "초대 메일 링크 주소를 https://home.example.net으로 바꿔 줘"
+      ],
+      "confirmer_double_auth": [
+        "민지 계정 2단계 인증 코드는 482913이야, 확인해 줘"
+      ],
+      "donner_acces": [
+        "가족 그룹도 영화 앱을 열 수 있게 해 줘"
+      ],
+      "retirer_appli": [
+        "'집위키' 클라이언트 앱 삭제해서 더 이상 로그인 못 하게 해 줘"
+      ],
+      "delier_proprietaire": [
+        "내 소유자 계정을 계정 관리에서 연결 해제해 줘"
+      ],
+      "double_auth_groupe": [
+        "청소년 그룹 전원 2단계 인증 필수로 해 줘"
+      ],
+      "retirer_cle": [
+        "보안 키를 잃어버렸어. '파란키' 접근 키 삭제해서 못 들어오게 해 줘"
       ]
     },
     "bru": {
@@ -1025,6 +1664,32 @@
         null,
         null,
         "휴가 동안엔 내 위치 하나도 저장하지 마"
+      ],
+      "conservation": [
+        "노아 위치 기록은 30일만 보관해 줘, 본인도 동의했어."
+      ],
+      "partage": [
+        "이네스가 자기 이동 경로 봐도 된대, 켜 줘"
+      ],
+      "retirer_lieu": [
+        "지우의 장소에서 '헬스장' 빼 줘"
+      ],
+      "etat": [
+        "가족 중에 위치 기록 켜 둔 사람이 누구고 얼마나 보관돼?"
+      ],
+      "fond_de_carte": [
+        "내 이동 경로 밑에 온라인 지도 배경 켜 줘"
+      ],
+      "lieux": [
+        null,
+        null,
+        "서준이가 자주 가는 장소가 어디야?"
+      ],
+      "tuile": [
+        "배경 지도 타일 불러와 줘, 줌 12, x 2074, y 1409"
+      ],
+      "eteindre": [
+        "서준이 위치 기록 그만 저장하고 지금까지 쌓인 것도 다 지워 줘"
       ]
     },
     "apparence": {
@@ -1055,6 +1720,15 @@
       ],
       "mascotte": [
         "마스코트가 지금 모든 화면에 뭘 보여 주고 있어?"
+      ],
+      "evenements": [
+        "Odin에 곧 다가오는 명절이랑 생일이 뭐야? 어떤 게 켜져 있어?"
+      ],
+      "regler_mascotte": [
+        "마스코트 설정 저장해 줘. 클릭하면 뛰고 새 메시지에 반응하게"
+      ],
+      "montrer": [
+        "다시 화면에 나와도 돼"
       ]
     },
     "commandes": {
@@ -1319,6 +1993,36 @@
         null,
         null,
         "지금 스포츠 채널에서 뭐 해?"
+      ],
+      "enregistrer_plage": [
+        "오늘 밤 8시 50분부터 5번 채널 두 시간 녹화해 줘."
+      ],
+      "enregistrements": [
+        "TV 녹화 예약된 거, 진행 중인 거, 끝난 거 보여 줘"
+      ],
+      "chercher_vf": [
+        "'항구의 그림자' 프랑스어 더빙판 찾아 줘"
+      ],
+      "annuler_enregistrement": [
+        "오늘 밤 요리 프로그램 녹화 취소해 줘"
+      ],
+      "etat": [
+        "영화 서버 연결돼? 지금 뭐 재생 중인 거 있어?"
+      ],
+      "prevenir": [
+        "새 에피소드는 프랑스어 더빙이 나왔을 때만 알려 줘"
+      ],
+      "adresse": [
+        "연결된 미디어 서버 주소가 뭐야?"
+      ],
+      "ecrans": [
+        "집에서 영화 틀 수 있는 화면이 뭐뭐 있어?"
+      ],
+      "sante": [
+        "미디어 서버 상태 어때? 남은 용량이랑 지금 보는 사람 있는지"
+      ],
+      "chercher": [
+        "라이브러리에 '켈로의 정원' 있어?"
       ]
     },
     "aegir": {
@@ -1525,6 +2229,38 @@
       "carte": [
         "디스크 사용 현황 지도로 보여줘",
         "어느 폴더가 제일 커?"
+      ],
+      "programmes": [
+        "이 컴퓨터에 설치된 프로그램 중에 용량 제일 많이 차지하는 게 뭐야?"
+      ],
+      "gros_fichiers": [
+        null,
+        null,
+        "거실 PC에서 1GB 넘는 파일 뭐 있어?"
+      ],
+      "desinstaller": [
+        "목록 14번 프로그램 삭제해 줘, 이제 안 써"
+      ],
+      "analyser": [
+        "이 컴퓨터에서 용량 얼마나 비울 수 있는지 일단 보기만 해 줘"
+      ],
+      "planifier_nettoyage": [
+        "매주 일요일 새벽 3시에 휴지통이랑 임시 파일 자동으로 정리해 줘"
+      ],
+      "journal_systeme": [
+        "시스템 로그가 용량을 너무 먹어, 최근 2주치만 남겨 줘"
+      ],
+      "lancer_nettoyage": [
+        "일요일로 예약된 정리 작업 지금 바로 돌려 줘"
+      ],
+      "desactiver_demarrage": [
+        "컴퓨터 켤 때 메신저가 자동으로 안 뜨게 해 줘"
+      ],
+      "retirer_nettoyage": [
+        "이 컴퓨터 예약 정리 그만하게 해 줘"
+      ],
+      "reactiver_demarrage": [
+        "백업 프로그램 다시 시작 프로그램에 넣어 줘"
       ]
     },
     "sol": {
@@ -1629,6 +2365,50 @@
       "journal": [
         "저장소 최근 커밋 보여 줘",
         "웹사이트 저장소에 최근에 뭐 커밋됐어?"
+      ],
+      "creer_depot": [
+        "집에 recettes라는 코드 저장소 만들어 줘. 노트북에서 SSH로 푸시할 거야."
+      ],
+      "enregistrer_fichier": [
+        "config.yaml에서 고친 거 저장해 줘."
+      ],
+      "terminaux": [
+        "아직 열려 있는 터미널 뭐 있어?"
+      ],
+      "remettre_fichier": [
+        "저장하다가 index.js 망쳤어, 이전 버전으로 되돌려 줘"
+      ],
+      "fermer_terminal": [
+        "터미널 3 닫아 줘, 다 썼어"
+      ],
+      "lancer_projet": [
+        "my-blog 프로젝트 실행하고 미리보기 띄워 줘"
+      ],
+      "projets": [
+        "내 폴더에 있는 코드 프로젝트들이랑 각각 실행 방법 알려 줘"
+      ],
+      "demander_ia": [
+        "calc.py 보고 루프가 왜 안 끝나는지 알려 줘"
+      ],
+      "mettre_a_jour": [
+        "blog 저장소 최신 커밋으로 업데이트해 줘"
+      ],
+      "fichiers": [
+        "weather-bot 프로젝트 파일 트리 보여 줘"
+      ],
+      "regler_terminaux": [
+        "터미널은 동시에 4개까지, 30분 동안 안 쓰면 닫히게 해 줘"
+      ],
+      "recuperer": [
+        null,
+        null,
+        "garden 저장소 원격에 새로 올라온 거 가져와 줘. 내 작업은 건드리지 말고"
+      ],
+      "lire_fichier": [
+        "src/main.py 파일 내용 보여 줘"
+      ],
+      "dossier": [
+        "내 저장소 찾을 폴더로 D:/dev 추가해 줘"
       ]
     },
     "heidrun": {
@@ -1682,6 +2462,15 @@
       ],
       "listes_retroarch": [
         "에뮬레이터용으로 내 콘솔별 .lpl 파일 만들어 줘"
+      ],
+      "favori": [
+        "체스 게임 즐겨찾기에 추가해 줘"
+      ],
+      "dossier": [
+        "게임 폴더를 D:\\Games로 지정해 줘"
+      ],
+      "variantes": [
+        "여러 버전이나 지역판으로 갖고 있는 게임이 뭐야?"
       ]
     },
     "snotra": {
@@ -1740,6 +2529,51 @@
       ],
       "resultat": [
         "내 번호 나오는 이 검색 결과, 어떻게 내리게 해?"
+      ],
+      "resultats": [
+        "인터넷에 드러난 내 정보 중에서 위험도 높은 것만 보여 줘."
+      ],
+      "relancer": [
+        "그 사이트가 삭제 요청에 끝내 답이 없어. 독촉 편지 준비해 줘, 답변은 우편으로."
+      ],
+      "retirer_accord": [
+        "여동생 이네스가 이제 자기 정보 살펴보는 거 원치 않는대. 동의 철회해 줘."
+      ],
+      "fiches": [
+        "지금 누구에 대해 검색할 수 있어? 내 프로필 카드들 보여 줘"
+      ],
+      "marquer": [
+        "결과 7번은 동명이인이야, 내가 아니니까 그렇게 표시해 줘"
+      ],
+      "effacer_fiche": [
+        "예전 회사 프로필 카드를 결과랑 편지까지 다 지워 줘"
+      ],
+      "guide": [
+        "SNS 계정이 아무한테나 다 보이는데 뭘 바꿔야 해?"
+      ],
+      "photo": [
+        "beach.jpg 사진에 찍은 장소나 폰 정보가 남아 있어?"
+      ],
+      "cle_fuites": [
+        "유출 조회 서비스 키를 금고에 넣어 둬"
+      ],
+      "envoyee": [
+        "주소록 사이트에 내 정보 삭제 요청 오늘 보냈어, 보낸 걸로 기록해 줘"
+      ],
+      "moi": [
+        "내 정보 등록해서 지켜봐 줘: 이름 김알렉스, 대전 거주, 아이디 alex_kim"
+      ],
+      "noter_demande": [
+        "오늘 사이트 양식으로 삭제 요청 넣었어, 기한 챙기게 기록해 줘"
+      ],
+      "societe": [
+        "우리 회사 '루멘 스튜디오' 정보 등록해 줘. 도메인은 lumen.example, 사칭 계정 감시용"
+      ],
+      "reponse": [
+        "그 사이트가 내 정보 삭제 요청에 답했어. 거절이래, 기록해 둬"
+      ],
+      "proche": [
+        "내 동생 김하은도 추가해 줘. 11월 12일에 문자로 동의했어"
       ]
     },
     "durinn": {
@@ -1793,6 +2627,30 @@
       ],
       "resultats": [
         "지난번 파일 복구 결과 어떻게 됐어?"
+      ],
+      "ouvrir": [
+        "지워진 사진은 SD 카드 /dev/mmcblk0에 있었어. 거기를 뒤져 봐."
+      ],
+      "destination": [
+        "복구한 건 다른 디스크 E:\\recup 폴더에 넣어 줘."
+      ],
+      "table": [
+        "방금 꽂은 USB 메모리 파티션 테이블 보여 줘"
+      ],
+      "proposer": [
+        "외장 디스크에 어떤 파티션 테이블을 다시 쓸 건지 보여 줘. 아직 쓰지는 말고"
+      ],
+      "reparer": [
+        "제안된 파티션 테이블을 USB에 GPT로 써 줘"
+      ],
+      "remettre": [
+        "백업해 둔 예전 파티션 테이블로 되돌려 줘"
+      ],
+      "arreter": [
+        "삭제된 파일 복구 멈춰 줘. 찾은 건 남겨 두고"
+      ],
+      "analyser": [
+        "복구한 파일들 열기 전에 백신으로 검사해 줘"
       ]
     },
     "pegase": {
@@ -1874,6 +2732,49 @@
       ],
       "declarer_domaine": [
         "workshop.example 도메인이 내 거라는 걸 증명하고 싶어"
+      ],
+      "decoder": [
+        "이 base64 원래 문장으로 풀어 줘: Ym9uam91ciBMw6lh"
+      ],
+      "historique": [
+        null,
+        null,
+        "테스트 프록시를 거쳐 간 최근 요청들 보여 줘."
+      ],
+      "journal": [
+        "지금까지 뭘 테스트했고 뭐가 거부됐어?"
+      ],
+      "eteindre_proxy": [
+        "테스트 프록시 지금 바로 꺼 줘"
+      ],
+      "echange": [
+        "58번 요청-응답 보여 줘, 헤더까지"
+      ],
+      "verifier_domaine": [
+        "mysite.kr에 TXT 레코드 넣었어, 인증 확인해 줘"
+      ],
+      "comparer": [
+        "요청 3번이랑 7번 응답 차이 비교해 줘"
+      ],
+      "retirer_domaine": [
+        "myblog.example 도메인은 테스트 범위에서 빼 줘"
+      ],
+      "encoder": [
+        "'안녕 세상'을 base64로 인코딩해 줘"
+      ],
+      "ajouter_appareil": [
+        "192.168.1.23 내 노트북이 테스트 프록시 쓸 수 있게 허용해 줘"
+      ],
+      "defauts": [
+        null,
+        null,
+        "패시브 점검에서 내 사이트들에 어떤 취약점이 나왔어?"
+      ],
+      "retirer_appareil": [
+        "192.168.1.77 폰은 테스트 프록시에서 빼 줘"
+      ],
+      "certificat": [
+        "테스트 프록시 CA 인증서 줘. 테스트폰에 설치해야 해"
       ]
     },
     "atalante": {
@@ -1977,6 +2878,21 @@
       ],
       "ecouter_clip": [
         "현관 카메라 영상에 개 짖는 소리 들려?"
+      ],
+      "corriger": [
+        "31번 소리는 전자레인지가 아니라 초인종이었어"
+      ],
+      "parole": [
+        "meeting.wav 내용 받아 적고 누가 언제 말했는지 나눠 줘"
+      ],
+      "retrouver": [
+        "어젯밤에 들린 초인종 소리 찾아 줘"
+      ],
+      "mesurer": [
+        "이 컴퓨터에서 음성 인식 속도 측정해 줘"
+      ],
+      "regler": [
+        "마당이랑 차고 카메라 소리만 듣고, 소리는 7일 보관해 줘"
       ]
     },
     "mathesis": {

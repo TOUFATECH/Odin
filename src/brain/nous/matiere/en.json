@@ -33,6 +33,12 @@
         null,
         "are there deadlines coming up that I've forgotten about?",
         "is there stuff I've left hanging for weeks?"
+      ],
+      "fiches": [
+        "the new apps are missing from the knowledge base — refresh the note for every app"
+      ],
+      "completer": [
+        null
       ]
     },
     "runes": {
@@ -146,6 +152,12 @@
       "mesures": [
         "show the CPU graph for the last 24 hours",
         "how has the CPU load changed since yesterday?"
+      ],
+      "seuils": [
+        "for the CPU, set blue at 60%, orange at 80% and red at 95%"
+      ],
+      "exporter": [
+        "Export the latest readings in metrics format so my dashboard can scrape them"
       ]
     },
     "skogul": {
@@ -228,6 +240,15 @@
       ],
       "journal": [
         "also watch my mail server's logs to catch people brute-forcing their way in"
+      ],
+      "fermer_port": [
+        "port 8080 TCP doesn't need to be open anymore, close it"
+      ],
+      "ports_ouverts": [
+        "List the ports Odin has opened and who they're for"
+      ],
+      "ouvrir_port": [
+        "Open port 25565 TCP for the game server, on the router too"
       ]
     },
     "geri": {
@@ -262,6 +283,12 @@
       "journal": [
         "which servers did my machines talk to last night?",
         "which servers did my programs talk to overnight?"
+      ],
+      "etat": [
+        "Quick status on the malicious-address protection: are its lists current?"
+      ],
+      "comportement": [
+        "a workstation created a scheduled task called updater at 3am — does that match a known attack pattern?"
       ]
     },
     "ran": {
@@ -322,6 +349,129 @@
       ],
       "plan": [
         "have the Documents folder checked for viruses once a week without me thinking about it"
+      ],
+      "adresse": [
+        "got this link in a text, livraison-colis.example.net — is it safe or is it a scam?"
+      ],
+      "restaurer_distant": [
+        "the file you isolated on the office laptop, number 4127, was a false alarm — put it back"
+      ],
+      "liberer": [
+        "let the printer installer out of quarantine, I know where it came from and I need it"
+      ],
+      "reanalyser": [
+        "invoice_march.zip is still in quarantine — can you scan it again with today's signatures?"
+      ],
+      "revenir": [
+        "since the last virus definitions update everything gets flagged, roll the signatures back"
+      ],
+      "rapport": [
+        "what did the last scan turn up? show me the report"
+      ],
+      "incident": [
+        "I took care of last night's incident 57, mark it as handled"
+      ],
+      "isoler": [
+        "Quarantine setup_gratuit.exe from my Downloads folder, I don't trust it"
+      ],
+      "fichier_internet": [
+        "Can you check whether https://files.example.net/driver.zip is safe before I download it?"
+      ],
+      "accepter": [
+        "Item 42 that got flagged is fine, accept it and put it back where it belongs"
+      ],
+      "verifier_arrivee": [
+        "A supplier just sent me quote.xlsx — scan it before I open it"
+      ],
+      "regle": [
+        "Add a detection rule called fake_transfer that catches 'urgent wire' or 'new bank details', high severity"
+      ],
+      "rapports": [
+        "Show me the recent scans — when they ran, how many files, how many hits"
+      ],
+      "reputation": [
+        "Is the SHA-256 hash 9b1e4c7d…a07f known as malware anywhere?"
+      ],
+      "mettre_a_jour": [
+        "can you pull the latest virus definitions? mine are a week old"
+      ],
+      "message": [
+        "got a text saying my parcel is held and I need to pay 2 euros — is that a scam?"
+      ],
+      "refuser": [
+        "that flagged setup.exe — delete it permanently, I don't want it back"
+      ],
+      "sources": [
+        "which feeds does the antivirus get its signatures from, and under what licence?"
+      ],
+      "importer": [
+        "load the hash list from bad-hashes.txt into the virus scanner"
+      ],
+      "exception": [
+        "stop flagging my D:/projects/tools folder, those are my own scripts"
+      ],
+      "failles": [
+        "are any of my installed programs hit by vulnerabilities attackers are actively exploiting?"
+      ],
+      "faux_positif": [
+        "invoice_march.pdf isn't a virus, that was a false alarm, stop flagging it"
+      ],
+      "restaurer": [
+        "can you put item 42 back where it was? take it out of quarantine"
+      ],
+      "bloquer": [
+        "get rid of quarantine item 17 for good, I never want it released"
+      ],
+      "cles": [
+        "I got a free key for the malware threat databases, store it with your secrets"
+      ],
+      "plans": [
+        "which virus scans run on their own, and when?"
+      ],
+      "exceptions": [
+        "show me everything the antivirus has been told to ignore"
+      ],
+      "sentinelles": [
+        "plant some decoy files in my Photos folder so we catch ransomware early"
+      ],
+      "analyser_poste": [
+        "Can you run a virus scan on the office laptop at 192.168.1.40 from here?"
+      ],
+      "supprimer": [
+        "Permanently delete that quarantined file, invoice_may.exe"
+      ],
+      "delai_decision": [
+        "Give me five minutes to decide on a detection before it gets quarantined"
+      ],
+      "source": [
+        "Turn on the stalkerware signature feed"
+      ],
+      "retirer_plan": [
+        "Get rid of the Sunday night scheduled scan"
+      ],
+      "retirer_exception": [
+        "Stop ignoring the Tools folder, take it off the exclusions"
+      ],
+      "protection": [
+        "Turn on real-time protection so downloads and USB sticks get checked as soon as they land"
+      ],
+      "isoler_distant": [
+        "Quarantine the threat the remote scan found on the office PC, right there on that machine – detection 4521"
+      ],
+      "detail_quarantaine": [
+        "Why is item q-87 in quarantine? Where did it come from?"
+      ],
+      "etat_sources": [
+        "Are the virus signature feeds up to date? Did any update fail?"
+      ],
+      "versions": [
+        "List the past signature packages so I can see what I could roll back to"
+      ],
+      "arreter": [
+        "Cancel the virus scan that's running, it's slowing everything down"
+      ],
+      "incidents": [
+        "Have there been any attacks lately? Show me the security incidents"
       ]
     },
     "loki": {
@@ -427,6 +577,75 @@
       ],
       "base_sauvegarder": [
         "secure your own database right away with an encrypted copy"
+      ],
+      "colonnes": [
+        "what columns are in the clients table of the boutique database?"
+      ],
+      "sql_schema": [
+        "just give me the SQL for the changes I sketched on the boutique database — don't run anything"
+      ],
+      "base_retour": [
+        "move the calendar app's data out of Odin's database and back into plain files"
+      ],
+      "relier": [
+        "Hook up the database that's already running on 192.168.1.20, port 5432 — it's called accounts, user lucie"
+      ],
+      "modifier": [
+        "In the customers database, addresses table, row with id 126 — set the city to Valbourg"
+      ],
+      "appliquer_schema": [
+        "Apply the schema changes I drew for the inventory database"
+      ],
+      "base_repasser": [
+        "The calendar app's data went back to plain files — move it back into Odin's database"
+      ],
+      "acces": [
+        "what connection details should the recipes app use for its database?"
+      ],
+      "ajouter_ligne": [
+        "add a row to the members table: name Sam, city Lyon"
+      ],
+      "exporter_schema": [
+        "export the schema of the SHOP database as an SQL file I can download"
+      ],
+      "base_lire": [
+        "peek into the notes app's database, read-only, and tell me what's in it"
+      ],
+      "oublier": [
+        "drop old_accounts from the database list, but don't delete anything in it"
+      ],
+      "supprimer_ligne": [
+        "delete the row with id 12 from the ingredients table in the recipes database"
+      ],
+      "journal": [
+        "what were the last queries run against the databases?"
+      ],
+      "base_traces": [
+        "when did Odin last read or write the notes app's database, and why?"
+      ],
+      "ouvrir": [
+        "Open the GARDEN database at the plants table"
+      ],
+      "schema_base": [
+        "What does the structure of the INVOICES database look like? Tables, columns, keys"
+      ],
+      "base_odin": [
+        "How's Odin's own database doing — anything pending, when was the last backup?"
+      ],
+      "base_inventaire": [
+        "Which apps still keep their data in files instead of the database?"
+      ],
+      "tables": [
+        "What tables are in the RECIPES database, and how many rows each?"
+      ],
+      "placer_tables": [
+        "Save where I've dragged the tables on the STOCK database diagram"
+      ],
+      "base_restaurer": [
+        "Restore last Monday's backup of Odin's database into a separate copy, don't touch the live one"
+      ],
+      "base_renommer": [
+        "Rename the weather app's database to WEATHER_ODIN"
       ]
     },
     "skuld": {
@@ -456,6 +675,18 @@
       ],
       "verifier_site": [
         "is the database copy sent to the second site intact?"
+      ],
+      "historique": [
+        "when were the most recent database backups made?"
+      ],
+      "second_site": [
+        "Also copy every backup to the external drive at /mnt/offsite"
+      ],
+      "rattraper_site": [
+        "the offsite copy is behind — push over the backups it's missing"
+      ],
+      "archives": [
+        "which backups of the invoices database do we still have?"
       ]
     },
     "rodd": {
@@ -532,6 +763,152 @@
       ],
       "isoler_machine": [
         "cut the test VM off from every network, it's behaving strangely"
+      ],
+      "demarrer": [
+        null
+      ],
+      "verifier_ip": [
+        "before I give it to a new machine — is 192.168.1.50 free?"
+      ],
+      "cloner_machine": [
+        "make a copy of the web-test machine and name it web-test2"
+      ],
+      "supprimer_machine": [
+        "the old-dev machine is useless now, delete it along with its disk"
+      ],
+      "quarantaine_machine": [
+        "why was db-01 put in quarantine, and what did you do about it?"
+      ],
+      "retirer_iso": [
+        "remove systeme-ancien-12.iso from the ISO library, file and all"
+      ],
+      "verifier_isos": [
+        "check every ISO right now: checksums, antivirus, and newer versions"
+      ],
+      "auto_isoler": [
+        "whenever a machine gets a critical alert, isolate it automatically without waiting for me"
+      ],
+      "arreter": [
+        "Shut down VM 104 cleanly"
+      ],
+      "arreter_machine": [
+        "Stop the labo-web machine on this PC, pull the plug if it won't respond"
+      ],
+      "ip_machine": [
+        "Change labo-web's IP to 192.168.1.60"
+      ],
+      "exporter_machine": [
+        "Package the whole labo-web machine into one file and drop it on the NAS under /backups/vm"
+      ],
+      "espace_iso": [
+        "From now on keep the ISO images in /srv/iso"
+      ],
+      "parcourir": [
+        "Let me browse the network shares on the office PC so I can pick an ISO to import"
+      ],
+      "comptes_rendus_iso": [
+        "Show me the history of the ISO checks"
+      ],
+      "serveur": [
+        "Hook up the virtualization server in the garage at https://10.0.0.5:8006"
+      ],
+      "parc": [
+        null,
+        null,
+        "list every machine I've got — VMs, containers, network-installed PCs"
+      ],
+      "redemarrer": [
+        "reboot machine 104, it's frozen"
+      ],
+      "apercu_machine": [
+        "let me see the screen of the win-test VM live"
+      ],
+      "console_machine": [
+        "run uptime inside the dns container and show me the output"
+      ],
+      "importer_machine": [
+        "import the machine from backup-lab.ody"
+      ],
+      "bibliotheque_iso": [
+        "which ISO images do I have stored, and how big are they?"
+      ],
+      "fiche_iso": [
+        "everything about lab-server.iso please — checksum, architecture, which VMs use it"
+      ],
+      "isos_pxe": [
+        "which images are ready for network boot and which are still downloading?"
+      ],
+      "demarrer_machine": [
+        "boot up the web-server VM"
+      ],
+      "revenir": [
+        "roll VM 104 back to the before-update snapshot"
+      ],
+      "ressources_machine": [
+        "bump game-server up to 4 cores and 8 GB of RAM"
+      ],
+      "clavier_machine": [
+        "send Ctrl+Alt+Del to the desktop-test VM's screen"
+      ],
+      "reseau_machines": [
+        "put the VMs on bridge br0 with network 192.168.1.0/24 and gateway 192.168.1.1"
+      ],
+      "preparer_envoi_iso": [
+        "get ready for an ISO upload from my browser: install-server.iso, about 4 GB"
+      ],
+      "iso_deplacee": [
+        "some old ISOs were moved into the old folder, update the VMs that point to them"
+      ],
+      "logiciels_disponibles": [
+        "which kept-up-to-date programs can I install inside a VM?"
+      ],
+      "disque_machine": [
+        "Grow the disk on the vm-files machine to 200 GB"
+      ],
+      "locales": [
+        "List the VMs and containers on this PC with their status"
+      ],
+      "ranger_machine": [
+        "Put the media-server VM in the Media category"
+      ],
+      "modele_machine": [
+        "Turn the clean-base VM into a template, it's already switched off"
+      ],
+      "analyser_machine": [
+        "Run a full virus scan on the container test-box"
+      ],
+      "importer_iso": [
+        "Import the ISO from https://mirror.example.org/os/installer.iso into the library"
+      ],
+      "verification_iso": [
+        "Check all the ISOs every month on the 1st at 4am"
+      ],
+      "installer_logiciel": [
+        "Install the backup tool on the vm-office machine"
+      ],
+      "installer_docker": [
+        "Spin up a container from the image lab/notes:3.2 on port 8080"
+      ],
+      "tableau_machines": [
+        "Give me the full machines dashboard: what's running, templates, ISOs, everything"
+      ],
+      "categorie_machines": [
+        "Make a new category called 'Lab' in green for my test machines"
+      ],
+      "creer_depuis_modele": [
+        "Clone a new VM named web-02 from the base-server template with 2 cores"
+      ],
+      "liberer_machine": [
+        "The scan on build-01 came back clean, reconnect it to the network"
+      ],
+      "ajouter_iso": [
+        "The ISO I just downloaded is already in the ISO folder, register it in place without copying"
+      ],
+      "plan_verif_iso": [
+        "When do the ISO checks run, and when's the next one?"
+      ],
+      "mettre_a_jour_logiciels": [
+        "Update the software on vm-files to the latest versions"
       ]
     },
     "idunn": {
@@ -676,6 +1053,124 @@
       "dhcp_fixe": [
         "always give the NAS the same IP address",
         "always hand the NAS the same address and name it storage"
+      ],
+      "etat": [
+        "is the DNS filter up? and how many lookups has it blocked today?"
+      ],
+      "retirer_liste": [
+        "delete the betting-sites blocklist altogether, don't just switch it off"
+      ],
+      "retirer_horaire": [
+        "drop the evening block on jeux.example.com, the site can stay open all the time now"
+      ],
+      "horaires": [
+        "cut social media on Noa's tablet every night from 9 pm to 7 am"
+      ],
+      "dhcp_mode": [
+        "I only want devices I've approved to get an address on the home network"
+      ],
+      "reglages": [
+        "in the DNS settings, turn on safe search and parental controls for everyone"
+      ],
+      "autoriser": [
+        null,
+        null,
+        "lea-recipes.com is getting blocked by one of the lists, please allow it"
+      ],
+      "regle": [
+        "Put this custom rule in the blocker: ||ads-everywhere.net^"
+      ],
+      "mettre_a_jour": [
+        "The block lists are getting stale, pull the latest versions"
+      ],
+      "historique": [
+        "What went on across the network last month?"
+      ],
+      "dhcp_chercher": [
+        "Is something else on my network already handing out IP addresses, like the router?"
+      ],
+      "dhcp_mac_etat": [
+        "Pause Noah's tablet on the network, MAC 3c:22:fb:10:aa:07"
+      ],
+      "vider_cache": [
+        "Flush the DNS cache, some of the stored answers are out of date"
+      ],
+      "retablir_machine": [
+        "give the 192.168.1.42 laptop its internet back, homework's done"
+      ],
+      "retirer_regle": [
+        "drop the custom rule I wrote for games.example.org"
+      ],
+      "services": [
+        "switch off the short-video app for everyone in the house"
+      ],
+      "retirer_appareil": [
+        "remove the old kitchen tablet from the network list, we sold it"
+      ],
+      "dhcp_reglages": [
+        "set DHCP to hand out 10.0.0.50 to 10.0.0.150 with 10.0.0.1 as the gateway"
+      ],
+      "dhcp_approuver": [
+        "let the new printer get an address, its MAC is 3c:22:fb:10:aa:01"
+      ],
+      "journal": [
+        "what domains has the living room TV been looking up lately?"
+      ],
+      "pause": [
+        null,
+        null,
+        null
+      ],
+      "listes": [
+        "which block lists are we using right now, and are they working?"
+      ],
+      "appareil": [
+        "set up Leo's tablet at 192.168.1.34 with parental controls and safe search on"
+      ],
+      "nom_local": [
+        "make printer.home point to 192.168.1.50 so I don't have to remember the IP"
+      ],
+      "dhcp_demarrer": [
+        "start handing out IP addresses to the devices yourself instead of the router"
+      ],
+      "recap_machine": [
+        "give me the full rundown on 192.168.1.42, what OS it runs and which sites it hit this week"
+      ],
+      "demarrer": [
+        "Start the DNS server so the devices can use it"
+      ],
+      "ajouter_liste": [
+        "Add a new blocklist from https://lists.example.org/trackers.txt, call it Trackers"
+      ],
+      "couper_machine": [
+        "Block internet for the kids' tablet, 192.168.1.61, from 9pm to 7am"
+      ],
+      "retirer_nom": [
+        "Delete the local name nas.home"
+      ],
+      "dhcp_arreter": [
+        "Stop handing out IP addresses, let the router do DHCP again"
+      ],
+      "dns_chiffre": [
+        "Enable DNS over TLS so phones can use private DNS with us"
+      ],
+      "arreter": [
+        "Shut down the home DNS server for now"
+      ],
+      "activer_liste": [
+        "Turn off the 'mobile-ads' blocklist for now, but keep it"
+      ],
+      "couper_video": [
+        "Block streaming video on the tablet at 192.168.1.42, but leave the rest of the internet working"
+      ],
+      "pubs_reseaux": [
+        "Can you block the ads and tracking from social apps without breaking the videos?"
+      ],
+      "dhcp_retirer_fixe": [
+        "Drop the reserved IP for aa:bb:cc:12:34:56, it can take any address now"
+      ],
+      "reprendre": [
+        "Pause is over, turn ad blocking back on"
       ]
     },
     "vordr": {
@@ -766,6 +1261,48 @@
       ],
       "ouvrir_ports": [
         "I want my services reachable straight from the Internet without a tunnel, open what's needed on the router"
+      ],
+      "activer": [
+        "take blog.maison.lan offline for now, but don't delete it"
+      ],
+      "retirer_flux": [
+        "I don't use the TCP stream on port 2222 anymore, remove it"
+      ],
+      "acces": [
+        "Only let 192.168.1.0/24 reach admin.home.lan, block every other address"
+      ],
+      "tester": [
+        "cloud.home.lan is acting up — check its name, its certificate and the service behind it"
+      ],
+      "fermer_ports": [
+        "close ports 80 and 443 on the router, the tunnel is enough"
+      ],
+      "connexion_unique": [
+        "put Odin sign-in in front of blog.example.com on the reverse proxy"
+      ],
+      "journal": [
+        "show the latest hits on shop.example.com through the proxy"
+      ],
+      "demarrer": [
+        "fire up the reverse proxy so Odin answers on ports 80 and 443"
+      ],
+      "portail": [
+        "serve the sign-in portal at login.example.net with a proper certificate"
+      ],
+      "reglages": [
+        "switch certificates to the staging server, I'm testing and don't want to hit rate limits"
+      ],
+      "arreter": [
+        "Shut down the reverse proxy for now"
+      ],
+      "retirer_redirection": [
+        "Remove the redirect on old.example.net"
+      ],
+      "retirer": [
+        "Take wiki.home.lan off the reverse proxy, that name shouldn't lead anywhere now"
+      ],
+      "flux": [
+        "Forward TCP port 25565 on Odin to the game server at 192.168.1.30:25565"
       ]
     },
     "var": {
@@ -799,6 +1336,108 @@
       ],
       "creer_groupe": [
         "make a 'guests' access group for friends who drop by"
+      ],
+      "couper_sessions": [
+        "Camille lost her phone — sign her out everywhere"
+      ],
+      "retirer_acces": [
+        "the family group shouldn't be able to open the movies app anymore"
+      ],
+      "taille_sauvegardes": [
+        "cap the backups the phone's notes app can send to Odin at 200 MB"
+      ],
+      "relier_proprietaire": [
+        "I'm not the accounts admin anymore — link my owner account back"
+      ],
+      "donner_site": [
+        "let the family group into photos.maison.lan through the Odin sign-in"
+      ],
+      "journal": [
+        "who signed in yesterday and from where? any failed attempts?"
+      ],
+      "proteger_site": [
+        "Make photos.home.lan require a login, family group only"
+      ],
+      "acces_cases": [
+        "Which apps are ticked for the kids group?"
+      ],
+      "couper_appareil": [
+        "Revoke connection c-1842, that's my old phone that got stolen"
+      ],
+      "renommer_groupe": [
+        "Can you rename the group 'friends' to 'close circle'?"
+      ],
+      "retirer_site": [
+        "Take games.home.lan away from the guests group"
+      ],
+      "liberer_site": [
+        "make wiki.home.lan open again, no sign-in required"
+      ],
+      "acces_aux_applis": [
+        "show me which apps each group can open"
+      ],
+      "inscrire_logiciel": [
+        "set up Odin sign-in for my self-hosted file sync at files.home.lan"
+      ],
+      "supprimer_groupe": [
+        "delete the 'guests' group, we don't need it anymore"
+      ],
+      "groupes": [
+        "list the access groups and who's in each one"
+      ],
+      "modifier": [
+        "edit nadia's account: change the display name to Nadia K. and switch the account off"
+      ],
+      "reglages": [
+        "make login sessions last 12 hours and require two-factor for the admins group"
+      ],
+      "ajouter_appli": [
+        "register a new client app that signs in with Odin accounts: id library, redirect https://media.home/callback"
+      ],
+      "oublier_autorisation": [
+        "make sami approve the wiki app again, forget the consent he gave it"
+      ],
+      "mettre_dans_groupe": [
+        "could you put lina in the family group?"
+      ],
+      "annuler_invitation": [
+        "cancel the invite I sent Hugo, I don't want that link to work anymore"
+      ],
+      "retirer": [
+        "Remove Tomas's account, he doesn't live here anymore"
+      ],
+      "personnes": [
+        "Show me everyone who has an account and which groups they're in"
+      ],
+      "ajouter_retour": [
+        "Add a callback address for the media app: http://192.168.1.20:8096/auth/odin/retour"
+      ],
+      "proteger_tout": [
+        "Put every site behind the proxy behind the Odin login"
+      ],
+      "sortir_du_groupe": [
+        "Take Mia out of the Guests group"
+      ],
+      "adresse_liens": [
+        "Invitation and password reset emails should link to https://home.example.net"
+      ],
+      "confirmer_double_auth": [
+        "Here's the 6-digit code from the authenticator for Maya's account: 482913"
+      ],
+      "donner_acces": [
+        "Let the family group open the movies app"
+      ],
+      "retirer_appli": [
+        "Revoke the 'home-wiki' client app so it can't sign in anymore"
+      ],
+      "delier_proprietaire": [
+        "Unlink my owner account from the identity directory, but keep my Odin password as is"
+      ],
+      "double_auth_groupe": [
+        "Make two-factor mandatory for everyone in the teens group"
+      ],
+      "retirer_cle": [
+        "I lost my security key, revoke 'blue-key' so it can't be used to log in"
       ]
     },
     "bru": {
@@ -1028,6 +1667,32 @@
         null,
         null,
         "while I'm on holiday, don't keep any of my locations"
+      ],
+      "conservation": [
+        "only keep Noa's locations for 30 days, she's fine with it"
+      ],
+      "partage": [
+        "Ines is okay with me seeing her trips, turn that on"
+      ],
+      "retirer_lieu": [
+        "remove the place 'gym' from Theo's saved places"
+      ],
+      "etat": [
+        "who in the family has location history on, and for how long is it kept?"
+      ],
+      "fond_de_carte": [
+        "turn on the online map background under my routes"
+      ],
+      "lieux": [
+        null,
+        null,
+        "Where does Sam go most often?"
+      ],
+      "tuile": [
+        "Fetch the background map tile at zoom 14, x 8297, y 5634"
+      ],
+      "eteindre": [
+        "Stop recording Leo's location history and wipe what's been saved"
       ]
     },
     "apparence": {
@@ -1058,6 +1723,15 @@
       ],
       "mascotte": [
         "what is the mascot showing on every screen right now?"
+      ],
+      "evenements": [
+        "which holidays and birthdays are coming up for Odin, and which ones are switched on?"
+      ],
+      "regler_mascotte": [
+        "Save my settings for the Odin mascot: clicking it should make it wave, and it should react to alarms"
+      ],
+      "montrer": [
+        "Come back on screen, I miss you"
       ]
     },
     "commandes": {
@@ -1325,6 +1999,36 @@
         null,
         null,
         "what's on TV right now on the sports channels?"
+      ],
+      "enregistrer_plage": [
+        "record channel 5 tonight from 8:50 pm for two hours"
+      ],
+      "enregistrements": [
+        "What TV recordings do I have scheduled, running or finished?"
+      ],
+      "chercher_vf": [
+        "find the French-dubbed version of 'Harbour Shadows' for my mum"
+      ],
+      "annuler_enregistrement": [
+        "cancel tonight's recording of the cooking show"
+      ],
+      "etat": [
+        "is the media server up, and is anything playing right now?"
+      ],
+      "prevenir": [
+        "only let me know about new episodes and films once the French dub is out"
+      ],
+      "adresse": [
+        "What's the address of the linked media server?"
+      ],
+      "ecrans": [
+        "Which screens in the house can I play a movie on?"
+      ],
+      "sante": [
+        "How's the media server doing? Free space, anyone watching right now?"
+      ],
+      "chercher": [
+        "Do we have 'Kelo's Gardens' in the media library?"
       ]
     },
     "aegir": {
@@ -1532,6 +2236,38 @@
       "carte": [
         "disk space map",
         "which folders use the most space?"
+      ],
+      "programmes": [
+        "which installed programs take up the most space on this PC?"
+      ],
+      "gros_fichiers": [
+        null,
+        null,
+        "Which files over 1 GB are hogging space on the living-room PC?"
+      ],
+      "desinstaller": [
+        "Uninstall program 14 from the list, I never use it"
+      ],
+      "analyser": [
+        "how much space could I free up on this machine? just measure for now"
+      ],
+      "planifier_nettoyage": [
+        "clean the temp files and caches automatically every night at 2"
+      ],
+      "journal_systeme": [
+        "the system log is eating my disk, trim it to the last two weeks"
+      ],
+      "lancer_nettoyage": [
+        "run the scheduled Sunday cleanup now instead of waiting"
+      ],
+      "desactiver_demarrage": [
+        "Stop the music player from launching when the computer starts"
+      ],
+      "retirer_nettoyage": [
+        "Cancel the scheduled cleanup on this computer"
+      ],
+      "reactiver_demarrage": [
+        "Put the sync tool back in startup, I shouldn't have disabled it"
       ]
     },
     "sol": {
@@ -1636,6 +2372,50 @@
       "journal": [
         "show the latest commits in the repo",
         "what got committed lately in the website repo?"
+      ],
+      "creer_depot": [
+        "set up a code repository at home called recettes so I can push to it from my laptop over SSH"
+      ],
+      "enregistrer_fichier": [
+        "save my edits to config.yaml"
+      ],
+      "terminaux": [
+        "Which terminal sessions are still running?"
+      ],
+      "remettre_fichier": [
+        "I broke index.js on my last save, roll it back to the previous version"
+      ],
+      "fermer_terminal": [
+        "kill terminal 2, I'm done with it"
+      ],
+      "lancer_projet": [
+        "run the todo-app project and open its preview"
+      ],
+      "projets": [
+        "list my coding projects and how each one gets started"
+      ],
+      "demander_ia": [
+        "look at calc.py and tell me why the loop never ends"
+      ],
+      "mettre_a_jour": [
+        "Pull the latest commits into the recipes repo, fast-forward only"
+      ],
+      "fichiers": [
+        "Show me the file tree of the weather-bot project"
+      ],
+      "regler_terminaux": [
+        "Allow up to 6 terminals at once and close idle ones after 20 minutes"
+      ],
+      "recuperer": [
+        null,
+        null,
+        "Fetch the latest from the remote for the garden-app repo, don't merge anything"
+      ],
+      "lire_fichier": [
+        "Show me what's in README.md of the budget project"
+      ],
+      "dossier": [
+        "Add ~/code on the linux-box machine as a folder to look for my repos"
       ]
     },
     "heidrun": {
@@ -1689,6 +2469,15 @@
       ],
       "listes_retroarch": [
         "build the .lpl files for my consoles for the emulator"
+      ],
+      "favori": [
+        "add the chess game to my favorites"
+      ],
+      "dossier": [
+        "My ROMs are in /home/games/retro, one folder per console — use that"
+      ],
+      "variantes": [
+        "Which of my games do I have in more than one region or version?"
       ]
     },
     "snotra": {
@@ -1747,6 +2536,51 @@
       ],
       "resultat": [
         "this result showing my phone number, how do I get it taken down?"
+      ],
+      "resultats": [
+        "of everything findable about me online, show me only the high-risk stuff"
+      ],
+      "relancer": [
+        "the site never answered my erasure request — draft a follow-up letter, reply by post"
+      ],
+      "retirer_accord": [
+        "my sister Ines doesn't want me watching her info anymore — withdraw her consent"
+      ],
+      "fiches": [
+        "Who can I run searches on right now? Show me my profiles"
+      ],
+      "marquer": [
+        "Result 7 is someone with the same name, not me — mark it that way"
+      ],
+      "effacer_fiche": [
+        "Delete my old company's profile along with its results and letters"
+      ],
+      "guide": [
+        "how do I lock down my photo-sharing profile so strangers can't see it?"
+      ],
+      "photo": [
+        "does vacation.jpg give away where it was taken or what phone took it?"
+      ],
+      "cle_fuites": [
+        "here's my key for the data-breach lookup service, keep it in the vault"
+      ],
+      "envoyee": [
+        "I mailed the data removal request to the directory site today, mark it as sent so the one-month clock starts"
+      ],
+      "moi": [
+        "here's my info to watch for: Alex Dunn, living in Leeds, handle alex_dn"
+      ],
+      "noter_demande": [
+        "I submitted the removal form on a people-search site today, log it so we can track the deadline"
+      ],
+      "societe": [
+        "Set up a watch profile for my company, Bluefern Studio, domain bluefern.example"
+      ],
+      "reponse": [
+        "The people-search site answered my removal request: they refused. Log it"
+      ],
+      "proche": [
+        "Add my brother Sam Carter to the privacy watch, he agreed by text on 3 November"
       ]
     },
     "durinn": {
@@ -1800,6 +2634,30 @@
       ],
       "resultats": [
         "the last file recovery, how did it turn out?"
+      ],
+      "ouvrir": [
+        "the deleted photos were on the SD card, /dev/mmcblk0 — that's the one to search"
+      ],
+      "destination": [
+        "put whatever you recover in E:\\recup on the other drive"
+      ],
+      "table": [
+        "Show me the partition table of the USB stick I just plugged in"
+      ],
+      "proposer": [
+        "what partition table would you rebuild on that external drive? don't write anything yet"
+      ],
+      "reparer": [
+        "go ahead and write the suggested partition table to the USB stick, GPT"
+      ],
+      "remettre": [
+        "Undo the partition table repair and put the disk back exactly as it was"
+      ],
+      "arreter": [
+        "Stop the undelete, keep whatever it already found"
+      ],
+      "analyser": [
+        "Run a virus check on the files you recovered before I open them"
       ]
     },
     "pegase": {
@@ -1881,6 +2739,49 @@
       ],
       "declarer_domaine": [
         "I want to prove that the domain workshop.example belongs to me"
+      ],
+      "decoder": [
+        "what does this base64 say in plain text: Ym9uam91ciBMw6lh"
+      ],
+      "historique": [
+        null,
+        null,
+        "show me the latest requests that went through the testing proxy"
+      ],
+      "journal": [
+        "so far, what's been tested and what got refused?"
+      ],
+      "eteindre_proxy": [
+        "Kill the test proxy right now"
+      ],
+      "echange": [
+        "Open exchange 58 — I want the request, the response and the headers"
+      ],
+      "verifier_domaine": [
+        "I added the TXT record to mysite.com, can you check the proof now?"
+      ],
+      "comparer": [
+        "diff exchanges 4 and 9 — headers, status and body"
+      ],
+      "retirer_domaine": [
+        "take myblog.example off my testing scope"
+      ],
+      "encoder": [
+        "what's 'hello world' in base64?"
+      ],
+      "ajouter_appareil": [
+        "Let my laptop at 192.168.1.23 use the testing proxy"
+      ],
+      "defauts": [
+        null,
+        null,
+        "List the weaknesses the passive scan found on my sites, with advice"
+      ],
+      "retirer_appareil": [
+        "Remove 192.168.1.77 from the test proxy, I'm done debugging that phone"
+      ],
+      "certificat": [
+        "Where's the CA certificate for the interception proxy? I need to install it on my test phone"
       ]
     },
     "atalante": {
@@ -1985,6 +2886,21 @@
       ],
       "ecouter_clip": [
         "in the front door camera video, can you hear the dog barking?"
+      ],
+      "corriger": [
+        "Sound 31 wasn't the microwave, it was the doorbell — learn that"
+      ],
+      "parole": [
+        "transcribe interview.wav and mark when each voice speaks"
+      ],
+      "retrouver": [
+        "find that doorbell sound from last night"
+      ],
+      "mesurer": [
+        "Benchmark how fast speech recognition runs on this machine"
+      ],
+      "regler": [
+        "Only listen to the porch and garage cameras, and keep the audio for 14 days"
       ]
     },
     "mathesis": {

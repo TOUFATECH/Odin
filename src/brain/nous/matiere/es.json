@@ -33,6 +33,12 @@
         null,
         "qué fechas límite se me están pasando",
         "¿hay cosas que dejé a medias hace semanas?"
+      ],
+      "fiches": [
+        "En la base de conocimiento faltan las aplicaciones nuevas; actualiza la ficha de cada una."
+      ],
+      "completer": [
+        "Añade al final de mi nota de la compra: pilas y detergente"
       ]
     },
     "runes": {
@@ -146,6 +152,12 @@
       "mesures": [
         "muestra la gráfica del procesador de las últimas 24 horas",
         "¿cómo ha ido la carga del procesador desde ayer?"
+      ],
+      "seuils": [
+        "Para el procesador, pon azul a partir del 60 %, naranja del 80 % y rojo del 95 %."
+      ],
+      "exporter": [
+        "Exporta las últimas mediciones en formato de métricas para mi panel"
       ]
     },
     "skogul": {
@@ -228,6 +240,15 @@
       ],
       "journal": [
         "vigila también los logs de mi servidor de correo para pillar a los que fuerzan la entrada"
+      ],
+      "fermer_port": [
+        "El puerto 8080 TCP ya no tiene que estar abierto, ciérralo."
+      ],
+      "ports_ouverts": [
+        "¿Qué puertos ha abierto Odin y para quién?"
+      ],
+      "ouvrir_port": [
+        "Abre el puerto 8443 TCP en el cortafuegos para el proxy"
       ]
     },
     "geri": {
@@ -262,6 +283,12 @@
       "journal": [
         "¿con qué servidores hablaron mis equipos anoche?",
         "¿con qué servidores hablaron mis programas durante la noche?"
+      ],
+      "etat": [
+        "¿Cómo está la protección contra direcciones maliciosas? ¿Sus listas están al día?"
+      ],
+      "comportement": [
+        "en un equipo apareció un servicio nuevo llamado sysupd, ¿es un comportamiento malicioso?"
       ]
     },
     "ran": {
@@ -321,6 +348,129 @@
       ],
       "plan": [
         "haz que revisen la carpeta Documentos contra virus una vez por semana, sin que yo me acuerde"
+      ],
+      "adresse": [
+        "Me llegó este enlace por SMS, livraison-colis.example.net, ¿es peligroso o no?"
+      ],
+      "restaurer_distant": [
+        "El archivo 4127 que aislaste en el portátil de la oficina era una falsa alarma, devuélvelo a su sitio."
+      ],
+      "liberer": [
+        "Saca de la cuarentena el instalador de la impresora, sé de dónde viene y lo necesito."
+      ],
+      "reanalyser": [
+        "factura_marzo.zip sigue en cuarentena; vuelve a analizarla con las firmas de hoy."
+      ],
+      "revenir": [
+        "Desde la última actualización de firmas el antivirus lo bloquea todo; vuelve a la versión anterior."
+      ],
+      "rapport": [
+        "¿Qué encontró el último análisis? Enséñame el informe."
+      ],
+      "incident": [
+        "Ya me encargué del incidente 57 de anoche, márcalo como resuelto."
+      ],
+      "isoler": [
+        "Pon en cuarentena el archivo factura_marzo.exe, me da mala espina"
+      ],
+      "fichier_internet": [
+        "Antes de descargarlo, mira si el archivo de https://descargas.ejemplo.es/controlador.zip es seguro"
+      ],
+      "accepter": [
+        "Lo detectado con el número 42 está bien, acéptalo y déjalo en su sitio de siempre"
+      ],
+      "verifier_arrivee": [
+        "Me acaba de llegar presupuesto.xlsx de un proveedor, analízalo antes de abrirlo"
+      ],
+      "regle": [
+        "Añade una regla de detección «transferencia_falsa» que salte con «transferencia urgente» o «nuevos datos bancarios», gravedad alta"
+      ],
+      "rapports": [
+        "¿Qué análisis se han hecho últimamente? Dime cuándo, cuántos archivos y cuántas detecciones"
+      ],
+      "reputation": [
+        "¿El hash SHA-256 9b1e4c7d…a07f tiene mala reputación?"
+      ],
+      "mettre_a_jour": [
+        "descarga las definiciones de virus más recientes, que las mías ya tienen una semana"
+      ],
+      "message": [
+        "me ha llegado un correo que dice que bloquearán mi cuenta si no hago clic, ¿es phishing?"
+      ],
+      "refuser": [
+        "el archivo detectado, factura.exe, bórralo definitivamente"
+      ],
+      "sources": [
+        "¿de dónde salen las firmas del antivirus y cuándo se actualizaron por última vez?"
+      ],
+      "importer": [
+        "importa al antivirus las firmas del archivo firmas-taller.hsb"
+      ],
+      "exception": [
+        "deja de avisarme por la carpeta D:/juegos/mods, son míos"
+      ],
+      "failles": [
+        "¿tengo algún programa instalado con fallos que los atacantes estén aprovechando ahora mismo?"
+      ],
+      "faux_positif": [
+        "factura_marzo.pdf no es un virus, fue una falsa alarma; deja de marcarlo"
+      ],
+      "restaurer": [
+        "saca de la cuarentena el archivo 42 y devuélvelo a su sitio"
+      ],
+      "bloquer": [
+        "elimina para siempre el elemento 17 de la cuarentena, que no pueda salir nunca"
+      ],
+      "cles": [
+        "tengo una clave gratuita para las bases de datos de malware, guárdala con tus secretos"
+      ],
+      "plans": [
+        "¿qué análisis de virus se hacen solos y a qué hora?"
+      ],
+      "exceptions": [
+        "enséñame lo que el antivirus tiene permitido ignorar"
+      ],
+      "sentinelles": [
+        "pon archivos señuelo en la carpeta Fotos para detectar un ransomware a tiempo"
+      ],
+      "analyser_poste": [
+        "Revisa desde aquí si el ordenador de la oficina, el 192.168.1.40, tiene virus"
+      ],
+      "supprimer": [
+        "Borra definitivamente el archivo que está en cuarentena, factura_mayo.exe"
+      ],
+      "delai_decision": [
+        "Quiero tener un minuto para decidir antes de que algo detectado pase a cuarentena"
+      ],
+      "source": [
+        "Activa la fuente de firmas de stalkerware"
+      ],
+      "retirer_plan": [
+        "Quita el escaneo programado de los lunes"
+      ],
+      "retirer_exception": [
+        "Quita la excepción de la carpeta Juegos; quiero que vuelva a vigilarla"
+      ],
+      "protection": [
+        "Activa la protección en tiempo real para las descargas y los pendrives"
+      ],
+      "isoler_distant": [
+        "Aísla en el propio equipo de la oficina el archivo que encontró el análisis remoto, detección 4521"
+      ],
+      "detail_quarantaine": [
+        "¿Por qué está bloqueado el elemento q-87? Cuéntame de dónde salió"
+      ],
+      "etat_sources": [
+        "¿Las fuentes de firmas del antivirus están al día? ¿Alguna falló al actualizarse?"
+      ],
+      "versions": [
+        "Enséñame el historial de paquetes de firmas"
+      ],
+      "arreter": [
+        "Para el escaneo que está en marcha, va todo lentísimo"
+      ],
+      "incidents": [
+        "¿Ha habido ataques esta semana? Quiero ver los incidentes"
       ]
     },
     "loki": {
@@ -426,6 +576,75 @@
       ],
       "base_sauvegarder": [
         "pon a salvo ahora mismo tu propia base de datos con una copia cifrada"
+      ],
+      "colonnes": [
+        null
+      ],
+      "sql_schema": [
+        "Dame solo el SQL de los cambios que dibujé en la base boutique, sin ejecutar nada."
+      ],
+      "base_retour": [
+        "Saca los datos de la app de agenda de la base de Odin y vuelve a guardarlos en archivos."
+      ],
+      "relier": [
+        "Conecta la base de datos que ya tengo en 192.168.1.20, puerto 5432; se llama contabilidad, usuario lucia"
+      ],
+      "modifier": [
+        "En la base clientes, tabla direcciones, fila con id 126: cambia la ciudad a Valbourg"
+      ],
+      "appliquer_schema": [
+        "Aplica los cambios de esquema que dibujé para la base inventario"
+      ],
+      "base_repasser": [
+        "Los datos de la agenda volvieron a archivos, pásalos otra vez a la base de Odin"
+      ],
+      "acces": [
+        "dame los datos de conexión que debe usar la app de recetas para su base"
+      ],
+      "ajouter_ligne": [
+        "mete una fila nueva en la tabla pedidos: cliente Lía, total 25"
+      ],
+      "exporter_schema": [
+        "exporta el esquema de la base TIENDA como diccionario de datos"
+      ],
+      "base_lire": [
+        "mira en solo lectura la base de la app de tareas, ¿qué hay dentro?"
+      ],
+      "oublier": [
+        "quita la base contabilidad_vieja de la lista, sin tocar sus datos"
+      ],
+      "supprimer_ligne": [
+        "borra la fila con id 12 de la tabla ingredientes en la base recetas"
+      ],
+      "journal": [
+        "¿cuáles fueron las últimas consultas lanzadas a las bases de datos?"
+      ],
+      "base_traces": [
+        "¿cuándo leyó o escribió Odin la base de la app de notas, y para qué?"
+      ],
+      "ouvrir": [
+        "Abre la base de datos TIENDA, la tabla pedidos"
+      ],
+      "schema_base": [
+        "Enséñame el esquema de la base TIENDA"
+      ],
+      "base_odin": [
+        "¿Cómo está la base de datos de Odin?"
+      ],
+      "base_inventaire": [
+        "¿Dónde guarda sus datos cada aplicación, en la base o en archivos?"
+      ],
+      "tables": [
+        "¿Qué tablas tiene la base de datos RECETAS y cuántas filas hay?"
+      ],
+      "placer_tables": [
+        "Guarda la posición en que he dejado las tablas en el diagrama de la base STOCK"
+      ],
+      "base_restaurer": [
+        "Restaura la copia de seguridad de ayer de la base de Odin en una base aparte, sin tocar la actual"
+      ],
+      "base_renommer": [
+        "Cambia el nombre de la base de datos de la app del tiempo a TIEMPO_ODIN"
       ]
     },
     "skuld": {
@@ -455,6 +674,18 @@
       ],
       "verifier_site": [
         "¿la copia de mis bases enviada al otro sitio está intacta?"
+      ],
+      "historique": [
+        "¿De cuándo son las últimas copias de seguridad de las bases?"
+      ],
+      "second_site": [
+        "Que cada copia de seguridad se copie también al disco externo /mnt/segunda"
+      ],
+      "rattraper_site": [
+        "la copia remota va atrasada, mándale las copias que le faltan"
+      ],
+      "archives": [
+        "¿qué copias de seguridad de la base facturas siguen guardadas?"
       ]
     },
     "rodd": {
@@ -531,6 +762,152 @@
       ],
       "isoler_machine": [
         "aísla la máquina virtual de pruebas de toda red, se porta raro"
+      ],
+      "demarrer": [
+        null
+      ],
+      "verifier_ip": [
+        "Antes de dársela a una máquina nueva: ¿está libre la dirección 192.168.1.50?"
+      ],
+      "cloner_machine": [
+        "Haz una copia de la máquina web-test y llámala web-test2."
+      ],
+      "supprimer_machine": [
+        "La máquina viejo-dev ya no sirve, bórrala junto con su disco."
+      ],
+      "quarantaine_machine": [
+        "¿Por qué pusiste en cuarentena la máquina db-01 y qué hiciste?"
+      ],
+      "retirer_iso": [
+        "Quita la ISO systeme-ancien-12.iso de la biblioteca, archivo incluido."
+      ],
+      "verifier_isos": [
+        "Revisa ahora todas las ISO: sumas de control, antivirus y versiones nuevas."
+      ],
+      "auto_isoler": [
+        "Cuando una máquina tenga una alerta crítica, aíslala sola sin esperarme."
+      ],
+      "arreter": [
+        "Apaga bien la VM 104"
+      ],
+      "arreter_machine": [
+        "Para la máquina labo-web de este PC, y fuérzala si no responde"
+      ],
+      "ip_machine": [
+        "Cambia la IP de la máquina labo-web a 192.168.1.60"
+      ],
+      "exporter_machine": [
+        "Exporta la máquina labo-web entera en un solo archivo al NAS, en /copias/vm"
+      ],
+      "espace_iso": [
+        "A partir de ahora guarda las imágenes ISO en /srv/iso"
+      ],
+      "parcourir": [
+        "Déjame explorar las carpetas compartidas del PC de la oficina para elegir una ISO que importar"
+      ],
+      "comptes_rendus_iso": [
+        "Enséñame los informes de las comprobaciones de las ISO"
+      ],
+      "serveur": [
+        "Añade el servidor de virtualización del garaje, está en https://10.0.0.5:8006"
+      ],
+      "parc": [
+        null,
+        null,
+        "dame un inventario de todas mis máquinas: VMs, contenedores, todo"
+      ],
+      "redemarrer": [
+        null
+      ],
+      "apercu_machine": [
+        "enséñame la pantalla de la VM win-test en directo"
+      ],
+      "console_machine": [
+        "ejecuta df -h en el contenedor web y dime qué sale"
+      ],
+      "importer_machine": [
+        "importa la máquina del archivo laboratorio.ody"
+      ],
+      "bibliotheque_iso": [
+        "¿qué imágenes ISO tengo guardadas y cuánto ocupan?"
+      ],
+      "fiche_iso": [
+        "dime todo sobre instalador-24.iso: arquitectura, huella, qué máquinas la usan"
+      ],
+      "isos_pxe": [
+        "para arrancar por red, ¿qué ISO están listas y cuáles siguen descargándose?"
+      ],
+      "demarrer_machine": [
+        "enciende la máquina virtual servidor-web"
+      ],
+      "revenir": [
+        "vuelve la VM 104 a la instantánea antes-actualizar"
+      ],
+      "ressources_machine": [
+        "ponle 4 núcleos y 8 GB de RAM a la máquina servidor-juegos"
+      ],
+      "clavier_machine": [
+        "manda Ctrl+Alt+Supr a la pantalla de la VM escritorio-prueba"
+      ],
+      "reseau_machines": [
+        "conecta las máquinas virtuales al puente br0, red 192.168.1.0/24, puerta de enlace 192.168.1.1"
+      ],
+      "preparer_envoi_iso": [
+        "voy a subir una ISO de 4 GB desde el navegador, prepara la subida de instalar-servidor.iso"
+      ],
+      "iso_deplacee": [
+        "movieron unas ISO viejas a la carpeta old; actualiza las máquinas que las usan"
+      ],
+      "logiciels_disponibles": [
+        "¿qué programas mantenidos al día puedo instalar en una máquina virtual?"
+      ],
+      "disque_machine": [
+        "Amplía el disco de la máquina nube a 120 GB"
+      ],
+      "locales": [
+        "¿Qué máquinas virtuales hay en este ordenador y están encendidas?"
+      ],
+      "ranger_machine": [
+        "Mete la máquina correo en la categoría Oficina"
+      ],
+      "modele_machine": [
+        "Convierte la máquina base-limpia en plantilla"
+      ],
+      "analyser_machine": [
+        "Haz un análisis completo del contenedor pruebas"
+      ],
+      "importer_iso": [
+        "Importa la ISO que tengo en /mnt/discos/sistema.iso"
+      ],
+      "verification_iso": [
+        "Revisa las ISO cada día a las 2:00"
+      ],
+      "installer_logiciel": [
+        "Instala el gestor de fotos en la máquina galeria"
+      ],
+      "installer_docker": [
+        "Instala un contenedor con la imagen taller/wiki:1.4 y dale 2 GB de memoria"
+      ],
+      "tableau_machines": [
+        "Enséñame el panel de máquinas completo: cuáles están encendidas, plantillas, ISO"
+      ],
+      "categorie_machines": [
+        "Crea una categoría «Laboratorio» de color verde para mis máquinas de prueba"
+      ],
+      "creer_depuis_modele": [
+        "Crea la máquina web-02 a partir de la plantilla servidor-base, con 4 GB de RAM"
+      ],
+      "liberer_machine": [
+        "El análisis de pc-sala salió limpio, vuelve a conectarla a la red"
+      ],
+      "ajouter_iso": [
+        "La ISO que acabo de bajar ya está en la carpeta de ISO, regístrala ahí mismo sin copiarla"
+      ],
+      "plan_verif_iso": [
+        "¿Cada cuánto se comprueban las ISO y cuándo toca la próxima?"
+      ],
+      "mettre_a_jour_logiciels": [
+        "Actualiza los programas de la máquina web-01"
       ]
     },
     "idunn": {
@@ -673,6 +1050,124 @@
       "dhcp_fixe": [
         "dale siempre la misma IP al NAS",
         "dale siempre la misma dirección al NAS y llámalo almacen"
+      ],
+      "etat": [
+        "¿Está funcionando el filtro DNS? ¿Y cuántas consultas ha bloqueado hoy?"
+      ],
+      "retirer_liste": [
+        "Borra del todo la lista de bloqueo de webs de apuestas, no la desactives solo."
+      ],
+      "retirer_horaire": [
+        "Quita el bloqueo nocturno de jeux.example.com, la web puede quedar abierta siempre."
+      ],
+      "horaires": [
+        "Corta las redes sociales en la tableta de Noa todas las noches de 21:00 a 7:00."
+      ],
+      "dhcp_mode": [
+        "Quiero que solo los dispositivos que he aprobado reciban dirección en la red de casa."
+      ],
+      "reglages": [
+        "En los ajustes del DNS, activa la búsqueda segura y el control parental para todos."
+      ],
+      "autoriser": [
+        null,
+        null,
+        "Una lista bloquea recetas-de-lea.es; deja que pase"
+      ],
+      "regle": [
+        "Mete esta regla propia en el filtro: ||anuncios-por-todas.net^"
+      ],
+      "mettre_a_jour": [
+        "Las listas de bloqueo están desfasadas, descarga sus últimas versiones"
+      ],
+      "historique": [
+        "¿Qué pasó en la red el mes pasado?"
+      ],
+      "dhcp_chercher": [
+        "¿Hay ya otro aparato repartiendo direcciones IP en casa, como el router?"
+      ],
+      "dhcp_mac_etat": [
+        "Pon en pausa la tableta de Noa, MAC 3c:22:fb:10:aa:07"
+      ],
+      "vider_cache": [
+        "Vacía la caché de DNS, algunas respuestas guardadas ya no valen"
+      ],
+      "retablir_machine": [
+        "devuélvele internet al portátil 192.168.1.42, ya ha terminado los deberes"
+      ],
+      "retirer_regle": [
+        "quita la regla personalizada que puse para juegos.example.org"
+      ],
+      "services": [
+        "corta la app de vídeos cortos en toda la casa"
+      ],
+      "retirer_appareil": [
+        "olvida la tablet vieja de la cocina, ya la vendimos"
+      ],
+      "dhcp_reglages": [
+        "que el DHCP reparta de la 192.168.0.20 a la 192.168.0.99, con el router en la .1"
+      ],
+      "dhcp_approuver": [
+        "autoriza al móvil nuevo a coger dirección, su MAC es 3c:22:fb:10:aa:01"
+      ],
+      "journal": [
+        "enséñame las últimas consultas bloqueadas del móvil de Nora"
+      ],
+      "pause": [
+        null,
+        null,
+        "quita el bloqueo de anuncios 10 minutos, que una web de reservas no carga"
+      ],
+      "listes": [
+        "¿qué listas de bloqueo hay puestas y cómo están?"
+      ],
+      "appareil": [
+        "configura la tableta de Leo, 192.168.1.34, con control parental y búsqueda segura"
+      ],
+      "nom_local": [
+        "haz que impresora.casa apunte a 192.168.1.50"
+      ],
+      "dhcp_demarrer": [
+        "empieza tú a repartir las direcciones IP en vez del router"
+      ],
+      "recap_machine": [
+        "dame toda la info del equipo 192.168.1.42: su sistema y qué webs visitó esta semana"
+      ],
+      "demarrer": [
+        "Pon en marcha el DNS de casa en el puerto 53"
+      ],
+      "ajouter_liste": [
+        "Añade la lista de bloqueo https://listas.ejemplo.org/adultos.txt como control parental"
+      ],
+      "couper_machine": [
+        "Córtale internet a la tablet 192.168.1.61 ahora mismo"
+      ],
+      "retirer_nom": [
+        "Elimina el nombre local camara.casa"
+      ],
+      "dhcp_arreter": [
+        "Apaga el DHCP de Odin, que vuelva a hacerlo el router"
+      ],
+      "dns_chiffre": [
+        "Activa el DNS cifrado por TLS en el puerto 853"
+      ],
+      "arreter": [
+        "Apaga el servidor DNS de casa de momento"
+      ],
+      "activer_liste": [
+        "Desactiva la lista de bloqueo «anuncios-móvil», pero no la borres"
+      ],
+      "couper_video": [
+        "Quítale los vídeos en streaming a la tableta 192.168.1.42, el resto de internet que siga"
+      ],
+      "pubs_reseaux": [
+        "Bloquea la publicidad y el rastreo de las redes sociales, pero sin tocar los vídeos"
+      ],
+      "dhcp_retirer_fixe": [
+        "Quita la IP fija reservada para aa:bb:cc:12:34:56"
+      ],
+      "reprendre": [
+        "Se acabó la pausa, vuelve a activar el bloqueo"
       ]
     },
     "vordr": {
@@ -763,6 +1258,48 @@
       ],
       "ouvrir_ports": [
         "quiero llegar a mis servicios directamente desde Internet sin túnel, abre lo necesario en el router"
+      ],
+      "activer": [
+        "Desactiva por ahora el sitio blog.maison.lan, sin borrarlo."
+      ],
+      "retirer_flux": [
+        "Ya no uso el flujo TCP del puerto 2222, quítalo."
+      ],
+      "acces": [
+        "Deja admin.casa.lan solo para 192.168.1.0/24 y rechaza las demás direcciones"
+      ],
+      "tester": [
+        "cloud.casa.lan va mal, comprueba el nombre, el certificado y el servicio que hay detrás"
+      ],
+      "fermer_ports": [
+        "cierra el 80 y el 443 en el router, ya no quiero acceso directo"
+      ],
+      "connexion_unique": [
+        "haz que nube.example.com pida la cuenta de Odin antes de entrar"
+      ],
+      "journal": [
+        "enséñame las últimas peticiones que llegaron a tienda.example.com"
+      ],
+      "demarrer": [
+        "arranca el proxy inverso para que Odin responda en los puertos 80 y 443"
+      ],
+      "portail": [
+        "publica el portal de inicio de sesión en acceso.example.net con su certificado"
+      ],
+      "reglages": [
+        "usa el servidor de pruebas para los certificados, estoy probando y no quiero límites"
+      ],
+      "arreter": [
+        "Detén el proxy inverso"
+      ],
+      "retirer_redirection": [
+        "Quita la redirección de viejo.ejemplo.es"
+      ],
+      "retirer": [
+        "Quita el sitio fotos.casa.lan del proxy inverso, ya no se usa"
+      ],
+      "flux": [
+        "Redirige el puerto TCP 5433 de Odin a la base de datos en 192.168.1.15:5432"
       ]
     },
     "var": {
@@ -796,6 +1333,108 @@
       ],
       "creer_groupe": [
         "haz un grupo de acceso «invitados» para los amigos que vienen de visita"
+      ],
+      "couper_sessions": [
+        "Camille ha perdido el móvil, ciérrale la sesión en todas partes."
+      ],
+      "retirer_acces": [
+        "Que el grupo familia ya no pueda abrir la aplicación de películas."
+      ],
+      "taille_sauvegardes": [
+        "Que la app de notas del móvil no pueda mandar a Odin copias de más de 200 MB."
+      ],
+      "relier_proprietaire": [
+        "Ya no soy administrador de las cuentas; vuelve a vincular mi cuenta de propietario."
+      ],
+      "donner_site": [
+        "Dale al grupo familia acceso a photos.maison.lan con el inicio de sesión de Odin."
+      ],
+      "journal": [
+        "¿Quién inició sesión ayer y desde dónde? ¿Hubo intentos fallidos?"
+      ],
+      "proteger_site": [
+        "Haz que photos.casa.lan pida iniciar sesión, solo para el grupo familia"
+      ],
+      "acces_cases": [
+        "¿Qué apps tiene marcadas el grupo niños?"
+      ],
+      "couper_appareil": [
+        "Corta la conexión c-1842, es mi móvil viejo que me robaron"
+      ],
+      "renommer_groupe": [
+        "Cambia el nombre del grupo «amigos» a «allegados»"
+      ],
+      "retirer_site": [
+        "Que el grupo invitados ya no pueda entrar en juegos.casa.lan"
+      ],
+      "liberer_site": [
+        "que fotos.casa.lan ya no pida iniciar sesión"
+      ],
+      "acces_aux_applis": [
+        "¿qué aplicaciones tiene abiertas cada grupo?"
+      ],
+      "inscrire_logiciel": [
+        "configura el inicio de sesión con Odin para mi servidor de código en git.casa.lan"
+      ],
+      "supprimer_groupe": [
+        "borra el grupo «invitados», ya no hace falta"
+      ],
+      "groupes": [
+        "¿qué grupos tenemos y quién está en cada uno?"
+      ],
+      "modifier": [
+        "en la cuenta de nadia, cambia el nombre visible a Nadia K. y desactívala"
+      ],
+      "reglages": [
+        "que las sesiones duren 12 horas y que el grupo admins tenga doble autenticación obligatoria"
+      ],
+      "ajouter_appli": [
+        "da de alta una app nueva que inicie sesión con la cuenta de Odin: id biblioteca, retorno https://media.casa/callback"
+      ],
+      "oublier_autorisation": [
+        "olvida el permiso que sami le dio a la app wiki; que tenga que volver a autorizarla"
+      ],
+      "mettre_dans_groupe": [
+        "mete a lina en el grupo familia"
+      ],
+      "annuler_invitation": [
+        "anula la invitación que le mandé a Hugo, que el enlace deje de funcionar"
+      ],
+      "retirer": [
+        "Borra la cuenta de Iker del todo"
+      ],
+      "personnes": [
+        "¿Quién tiene cuenta y en qué grupo está cada uno?"
+      ],
+      "ajouter_retour": [
+        "Añade otra URL de retorno de inicio de sesión para la app de fotos: http://192.168.1.30:2342/auth/odin/retour"
+      ],
+      "proteger_tout": [
+        "Quiero que todos los sitios pidan iniciar sesión con Odin"
+      ],
+      "sortir_du_groupe": [
+        "Saca a Lucía del grupo Invitados"
+      ],
+      "adresse_liens": [
+        "Los enlaces de los correos de invitación deben usar https://casa.ejemplo.es"
+      ],
+      "confirmer_double_auth": [
+        "El código de seis cifras para activar la verificación de Nico es 482913"
+      ],
+      "donner_acces": [
+        "Dale acceso al grupo familia a la aplicación de películas"
+      ],
+      "retirer_appli": [
+        "Elimina la aplicación cliente «wiki-casa», que ya no pueda iniciar sesión"
+      ],
+      "delier_proprietaire": [
+        "Desvincula mi cuenta de propietario del directorio de identidades"
+      ],
+      "double_auth_groupe": [
+        "Que la verificación en dos pasos sea obligatoria para todo el grupo adolescentes"
+      ],
+      "retirer_cle": [
+        "Perdí mi llave de seguridad, quita la clave «llave-azul» para que ya no sirva para entrar"
       ]
     },
     "bru": {
@@ -1025,6 +1664,32 @@
         null,
         null,
         "mientras esté de vacaciones, no guardes ninguna de mis ubicaciones"
+      ],
+      "conservation": [
+        "Guarda las ubicaciones de Noa solo 30 días, ella está de acuerdo."
+      ],
+      "partage": [
+        "Inés está de acuerdo en que vea sus trayectos, actívalo"
+      ],
+      "retirer_lieu": [
+        "quita el sitio «gimnasio» de los lugares de Iker"
+      ],
+      "etat": [
+        "¿quién de la familia guarda su historial de ubicaciones y durante cuánto tiempo?"
+      ],
+      "fond_de_carte": [
+        "pon el mapa de fondo de internet debajo de mis recorridos"
+      ],
+      "lieux": [
+        null,
+        null,
+        "¿Cuáles son los sitios que más frecuenta Pablo?"
+      ],
+      "tuile": [
+        "Dame la imagen del mapa base en zoom 10, columna 518, fila 352"
+      ],
+      "eteindre": [
+        "Deja de guardar el historial de ubicaciones de Hugo y borra lo que haya"
       ]
     },
     "apparence": {
@@ -1055,6 +1720,15 @@
       ],
       "mascotte": [
         "¿qué está mostrando la mascota en todas las pantallas ahora?"
+      ],
+      "evenements": [
+        "¿Qué fiestas y cumpleaños vienen ahora para Odin, y cuáles están activados?"
+      ],
+      "regler_mascotte": [
+        "Guarda los ajustes de la mascota: que salte al hacer clic y reaccione a las notificaciones"
+      ],
+      "montrer": [
+        "Vuelve a aparecer en mis pantallas"
       ]
     },
     "commandes": {
@@ -1319,6 +1993,36 @@
         null,
         null,
         "¿qué echan ahora mismo en los canales de deportes?"
+      ],
+      "enregistrer_plage": [
+        "Graba el canal 5 esta noche desde las 20:50 durante dos horas."
+      ],
+      "enregistrements": [
+        "¿Qué grabaciones de tele tengo programadas, en curso o terminadas?"
+      ],
+      "chercher_vf": [
+        "busca la versión en francés de la serie «Sombras del puerto»"
+      ],
+      "annuler_enregistrement": [
+        "cancela la grabación del concurso de esta noche"
+      ],
+      "etat": [
+        "¿el servidor de pelis responde? ¿hay algo reproduciéndose ahora?"
+      ],
+      "prevenir": [
+        "avísame de los episodios nuevos solo cuando salgan doblados al francés"
+      ],
+      "adresse": [
+        "¿Cuál es la dirección del servidor multimedia?"
+      ],
+      "ecrans": [
+        "¿Qué pantallas de la casa están disponibles para ver una peli?"
+      ],
+      "sante": [
+        "¿Cómo va el servidor de películas? ¿Queda espacio y hay alguien viendo algo?"
+      ],
+      "chercher": [
+        "¿Tenemos «Los jardines de Kelo» en la videoteca?"
       ]
     },
     "aegir": {
@@ -1525,6 +2229,38 @@
       "carte": [
         "mapa del espacio del disco",
         "¿qué me ocupa tanto en la carpeta personal?"
+      ],
+      "programmes": [
+        "¿Qué programas instalados ocupan más espacio en este ordenador?"
+      ],
+      "gros_fichiers": [
+        null,
+        null,
+        "¿Qué archivos de más de 1 GB hay en el PC del salón?"
+      ],
+      "desinstaller": [
+        "Desinstala el programa número 14 de la lista, ya no lo uso"
+      ],
+      "analyser": [
+        "¿cuánto espacio podría liberar en este ordenador? solo mira, no borres"
+      ],
+      "planifier_nettoyage": [
+        "que se limpien solos la papelera y los temporales cada lunes a las 4"
+      ],
+      "journal_systeme": [
+        "el registro del sistema ocupa demasiado, deja solo las dos últimas semanas"
+      ],
+      "lancer_nettoyage": [
+        "ejecuta ya la limpieza programada del domingo, sin esperar"
+      ],
+      "desactiver_demarrage": [
+        "Que el programa de actualizaciones no se abra al encender el PC"
+      ],
+      "retirer_nettoyage": [
+        "Ya no quiero la limpieza programada en el portátil del salón"
+      ],
+      "reactiver_demarrage": [
+        "Vuelve a poner el programa de copias en el arranque, lo quité sin querer"
       ]
     },
     "sol": {
@@ -1629,6 +2365,50 @@
       "journal": [
         "enséñame los últimos commits del repositorio",
         "¿qué se ha subido últimamente al repositorio de la web?"
+      ],
+      "creer_depot": [
+        "Créame en casa un repositorio de código llamado recettes para subir cambios desde el portátil por SSH."
+      ],
+      "enregistrer_fichier": [
+        "Guarda los cambios que hice en config.yaml."
+      ],
+      "terminaux": [
+        "¿Qué terminales siguen abiertas?"
+      ],
+      "remettre_fichier": [
+        "Rompí index.js al guardar, vuelve a la versión anterior"
+      ],
+      "fermer_terminal": [
+        "cierra la terminal 2, ya no la uso"
+      ],
+      "lancer_projet": [
+        "arranca el proyecto mi-blog y enséñame cómo se ve"
+      ],
+      "projets": [
+        "¿qué proyectos de código tengo en mis carpetas y cómo se arranca cada uno?"
+      ],
+      "demander_ia": [
+        "mira calculo.py y dime por qué el bucle no termina nunca"
+      ],
+      "mettre_a_jour": [
+        "Actualiza el repositorio tienda-web con lo último"
+      ],
+      "fichiers": [
+        "Enséñame los archivos del proyecto agenda"
+      ],
+      "regler_terminaux": [
+        "Limita a tres terminales abiertas y ciérralas tras 15 minutos sin uso"
+      ],
+      "recuperer": [
+        null,
+        null,
+        "Mira si hay novedades en el remoto del repo huerto, sin tocar mis cambios"
+      ],
+      "lire_fichier": [
+        "Ábreme el archivo src/ajustes.json, quiero leerlo"
+      ],
+      "dossier": [
+        "Añade la carpeta /home/ana/proyectos para buscar mis repositorios"
       ]
     },
     "heidrun": {
@@ -1682,6 +2462,15 @@
       ],
       "listes_retroarch": [
         "genera los archivos .lpl de mis consolas para el emulador"
+      ],
+      "favori": [
+        "añade el ajedrez a mis favoritos"
+      ],
+      "dossier": [
+        "La carpeta de mis juegos es E:\\Juegos"
+      ],
+      "variantes": [
+        "¿Qué juegos tengo repetidos en varias versiones o regiones?"
       ]
     },
     "snotra": {
@@ -1740,6 +2529,51 @@
       ],
       "resultat": [
         "este resultado que enseña mi número, ¿cómo hago que lo quiten?"
+      ],
+      "resultats": [
+        "De todo lo que se encuentra sobre mí en internet, enséñame solo lo de riesgo alto."
+      ],
+      "relancer": [
+        "La web nunca respondió a mi solicitud de borrado; prepara una carta de recordatorio, respuesta por correo postal."
+      ],
+      "retirer_accord": [
+        "Mi hermana Inés ya no quiere que vigile su información; retira su consentimiento."
+      ],
+      "fiches": [
+        "¿De quién puedo hacer búsquedas ahora mismo? Enséñame mis fichas"
+      ],
+      "marquer": [
+        "El resultado 7 es alguien que se llama igual, no soy yo; márcalo así"
+      ],
+      "effacer_fiche": [
+        "Borra la ficha de mi antigua empresa con sus resultados y cartas"
+      ],
+      "guide": [
+        "¿qué ajustes cambio en mi red social para que no me vea cualquiera?"
+      ],
+      "photo": [
+        "¿la foto playa.jpg dice dónde se sacó? quiero saberlo antes de subirla"
+      ],
+      "cle_fuites": [
+        "guarda en la caja fuerte mi clave del servicio de filtraciones de datos"
+      ],
+      "envoyee": [
+        "hoy mandé la carta para que el directorio borre mis datos, apúntala como enviada"
+      ],
+      "moi": [
+        "estos son mis datos para vigilar: Alex Romero, de Valencia, usuario alex_rmr"
+      ],
+      "noter_demande": [
+        "Apunta que hoy pedí por el formulario de un buscador que quiten un resultado sobre mí"
+      ],
+      "societe": [
+        "Añade mi empresa Panadería Lumen, dominio lumen.example, para vigilar cuentas falsas"
+      ],
+      "reponse": [
+        "La web de anuncios contestó a mi solicitud de borrado: dicen que necesitan dos meses más"
+      ],
+      "proche": [
+        "Añade a mi madre Lucía Navarro para vigilar sus datos; me dio su permiso por mensaje el 10/11"
       ]
     },
     "durinn": {
@@ -1793,6 +2627,30 @@
       ],
       "resultats": [
         "la última recuperación de archivos, ¿qué salió?"
+      ],
+      "ouvrir": [
+        "Las fotos borradas estaban en la tarjeta SD, /dev/mmcblk0: esa es la que hay que revisar."
+      ],
+      "destination": [
+        "Lo que recuperes, guárdalo en E:\\recup, en el otro disco."
+      ],
+      "table": [
+        "Muéstrame la tabla de particiones del pendrive que acabo de conectar"
+      ],
+      "proposer": [
+        "¿qué tabla de particiones pondrías en el disco externo? solo dímelo, no escribas nada"
+      ],
+      "reparer": [
+        "adelante, escribe la tabla de particiones propuesta en el pendrive, en GPT"
+      ],
+      "remettre": [
+        "Restaura la tabla de particiones de antes con la copia de seguridad"
+      ],
+      "arreter": [
+        "Detén la recuperación de archivos borrados, quédate con lo que ya encontró"
+      ],
+      "analyser": [
+        "Pasa el antivirus por los archivos recuperados antes de abrirlos"
       ]
     },
     "pegase": {
@@ -1874,6 +2732,49 @@
       ],
       "declarer_domaine": [
         "quiero demostrar que el dominio taller.example es mío"
+      ],
+      "decoder": [
+        "¿Qué dice en claro este base64: Ym9uam91ciBMw6lh?"
+      ],
+      "historique": [
+        null,
+        null,
+        "Enséñame las últimas peticiones que pasaron por el proxy de pruebas."
+      ],
+      "journal": [
+        "Hasta ahora, ¿qué se ha probado y qué se ha rechazado?"
+      ],
+      "eteindre_proxy": [
+        "Apaga ya el proxy de pruebas"
+      ],
+      "echange": [
+        "Enséñame el intercambio 58: petición, respuesta y cabeceras"
+      ],
+      "verifier_domaine": [
+        "ya subí el archivo de verificación a misitio.es, compruébalo"
+      ],
+      "comparer": [
+        "compara las respuestas de las peticiones 3 y 7"
+      ],
+      "retirer_domaine": [
+        "saca miblog.example de mi alcance de pruebas"
+      ],
+      "encoder": [
+        "codifica «hola mundo» en base64"
+      ],
+      "ajouter_appareil": [
+        "Deja que mi portátil 192.168.1.23 use el proxy de pruebas"
+      ],
+      "defauts": [
+        null,
+        null,
+        "¿Qué fallos encontró el análisis pasivo en mis webs?"
+      ],
+      "retirer_appareil": [
+        "Saca el móvil 192.168.1.77 del proxy de pruebas"
+      ],
+      "certificat": [
+        "Pásame el certificado de la autoridad del proxy de pruebas para instalarlo en el móvil"
       ]
     },
     "atalante": {
@@ -1977,6 +2878,21 @@
       ],
       "ecouter_clip": [
         "en el vídeo de la cámara de la entrada, ¿se oye ladrar al perro?"
+      ],
+      "corriger": [
+        "El sonido 31 que oíste era el timbre, no el microondas"
+      ],
+      "parole": [
+        "¿qué se dice en la grabación entrevista.wav? separa las voces"
+      ],
+      "retrouver": [
+        "búscame el sonido del timbre de anoche"
+      ],
+      "mesurer": [
+        "Mide cuánto tardas en entender la voz en este equipo"
+      ],
+      "regler": [
+        "Escucha solo el audio de las cámaras del jardín y del garaje, y guarda los sonidos 7 días"
       ]
     },
     "mathesis": {
