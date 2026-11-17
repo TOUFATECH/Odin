@@ -69,8 +69,16 @@ export const noteSave: Tool = {
   async run(i, ctx) {
     if (ctx.isTainted()) return 'Refusé : pas de fiche après lecture d\'un contenu non fiable (elle pourrait contenir des consignes piégées).';
     const dir = notesDir(ctx); mkdirSync(dir, { recursive: true });
-    const file = join(dir, `${slug(s(i.title))}.md`);
-    writeFileSync(file, `# ${s(i.title)}\n\n${s(i.content)}\n`, { mode: 0o600 });
+    let file = join(dir, `${slug(s(i.title))}.md`);
+    // Seul, en tâche automatique : la fiche dit qui l'a écrite et n'est jamais « parole du propriétaire » (pas fiable pour
+    // Soul, pas une consigne) ; une fiche qui existe déjà n'est jamais écrasée (une nouvelle fiche à côté).
+    let tete = '';
+    if (ctx.automatique) {
+      const quand = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      tete = `---\nauteur: odin\nprovenance: écrit par Odin seul, en tâche automatique, le ${quand}\nfiable: false\n---\n`;
+      for (let n = 2; existsSync(file); n++) file = join(dir, `${slug(s(i.title))}-odin-${n}.md`);
+    }
+    writeFileSync(file, `${tete}# ${s(i.title)}\n\n${s(i.content)}\n`, { mode: 0o600 });
     ctx.muninn.remember(`Fiche « ${s(i.title)} » (notes/${slug(s(i.title))}.md) : ${s(i.content).replace(/\s+/g, ' ').slice(0, 300)}`, 'agent', 'procedure', '', { subject: `fiche:${slug(s(i.title))}`, topic: 'fiche', source: 'fiche' });
     return `Fiche gardée : ${file}`;
   },

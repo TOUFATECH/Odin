@@ -144,15 +144,20 @@ test('rappel ponctuel : programmé par Odin, envoyé à l\'heure puis effacé', 
   o.cleanup();
 });
 
-test('initiative du soir : Odin crée lui-même une routine utile et le dit dans le rapport', async () => {
-  const o = makeOdin([call('schedule_task', { cron: '0 8 * * 1', prompt: 'point hebdomadaire sur les sauvegardes du NAS' }), { text: 'Mis en place : point sauvegardes du NAS chaque lundi 8 h.' }], { config: breaker({ reportAt: '00:00' }) });
+// Décision du propriétaire du 17/11 (« le sans-risque seul, le reste en attente ») : une routine qu'Odin crée SEUL n'est
+// pas du sans-risque (c'est par elle qu'une consigne cachée reviendrait plus tard). Elle est préparée EN ATTENTE
+// (inactive), annoncée dans le rapport, et ne part qu'une fois activée par le propriétaire.
+test('initiative du soir : Odin prépare lui-même une routine utile, EN ATTENTE de ton accord, et le dit dans le rapport', async () => {
+  const o = makeOdin([call('schedule_task', { cron: '0 8 * * 1', prompt: 'point hebdomadaire sur les sauvegardes du NAS' }), { text: 'J\'ai préparé la routine « point sauvegardes du NAS chaque lundi 8 h » : active-la si tu es d\'accord.' }], { config: breaker({ reportAt: '00:00' }) });
   const sent: string[] = [];
   const ch: Channel = { name: 'web', interactive: true, defaultPeer: 'principal', start: async () => {}, stop: async () => {}, send: async (_p, t) => { sent.push(t); } };
   const gw = new Gateway(o, { owners: { web: ['*'] } });
   gw.add(ch);
   await gw.tick(Date.now());
-  assert.equal(o.muninn.listJobs().filter((j) => !j.prompt.startsWith('[routine:'))[0].prompt, 'point hebdomadaire sur les sauvegardes du NAS');
-  assert.match(sent.join('\n'), /🧭 Initiative : Mis en place : point sauvegardes/);
+  const routine = o.muninn.listJobs().filter((j) => !j.prompt.startsWith('[routine:'))[0];
+  assert.equal(routine.prompt, 'point hebdomadaire sur les sauvegardes du NAS');
+  assert.equal(routine.enabled, 0, 'préparée en attente : inactive tant que tu ne l\'as pas activée');
+  assert.match(sent.join('\n'), /🧭 Initiative : J'ai préparé la routine « point sauvegardes/);
   o.cleanup();
 });
 

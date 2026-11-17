@@ -1307,9 +1307,12 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 
     <section class="view" id="v-skills" aria-label="Compétences">
       <div class="head"><div><h1>Compétences</h1><div class="sub">Ses procédures et ses scripts : il les réutilise et les améliore à chaque mission.</div></div><div class="hacts"><button class="hbtn" type="button" id="sk-import" title="Importer les compétences d'Hermes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span class="hl">Importer d'Hermes</span></button><button class="hbtn" type="button" id="sk-all" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span class="hl">Tout approuver</span></button></div></div>
-      <div class="body"><h2 style="font-size:18px;margin:0 0 12px">Brouillons à relire</h2><div class="grid" id="drafts"></div>
+      <div class="body"><div class="sk-tabs" id="skTabs" role="tablist" aria-label="Compétences, connecteurs et plugins" hidden><button type="button" role="tab" id="skTab-comp" aria-controls="skPanComp" aria-selected="true">Compétences</button><button type="button" role="tab" id="skTab-mcp" aria-controls="skPanMcp" aria-selected="false" tabindex="-1">Connecteurs MCP</button><button type="button" role="tab" id="skTab-plug" aria-controls="skPanPlug" aria-selected="false" tabindex="-1">Plugins</button></div>
+<div id="skPanComp" role="tabpanel" aria-labelledby="skTab-comp"><h2 style="font-size:18px;margin:0 0 12px">Brouillons à relire</h2><div class="grid" id="drafts"></div>
         <h2 style="font-size:18px;margin:32px 0 12px">Actives</h2><div class="wrap"><table class="tbl"><thead><tr><th>Nom</th><th>Version</th><th>Utilisations</th><th>Description</th></tr></thead><tbody id="skills"></tbody></table></div>
         <h2 style="font-size:18px;margin:32px 0 4px">Scripts</h2><div class="sub" style="margin-bottom:12px">Les scripts qu'Odin écrit pour ses missions, réutilisés et améliorés à chaque fois.</div><div class="wrap"><table class="tbl"><thead><tr><th>Nom</th><th>Langage</th><th>Version</th><th>Réussites</th><th>Description</th></tr></thead><tbody id="scripts"></tbody></table></div></div>
+<div id="skPanMcp" role="tabpanel" aria-labelledby="skTab-mcp" hidden></div>
+<div id="skPanPlug" role="tabpanel" aria-labelledby="skTab-plug" hidden></div></div>
     </section>
 
     <section class="view" id="v-jobs" aria-label="Tâches planifiées">
@@ -1442,7 +1445,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 
           <article class="card" data-sec="autonomie"><div class="form" id="more-continu" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-mimir">
             <h2>Décisions</h2>
+            <div class="form" id="noyauEtat" role="status" hidden style="gap:8px"></div>
             <div class="field"><label>Autonomie</label><div class="seg" role="group" aria-label="Niveau d'autonomie"><button type="button" data-auto="prudent">Prudent</button><button type="button" data-auto="equilibre">Équilibré</button><button type="button" data-auto="autonome">Autonome</button><button type="button" data-auto="breaker" class="brk">⚡ Odin Breaker</button></div><span class="hint" id="autoHint"></span></div>
+            <div class="field"><label>Réécrire mon code</label><div class="seg" role="group" aria-label="Réécrire mon code"><button type="button" data-codeval="chaque-fois">Me demander à chaque fois</button><button type="button" data-codeval="jamais">Ne plus me demander</button></div><span class="hint">Mes garde-fous, l'argent et ce qui vient d'un contenu extérieur restent toujours soumis à ton accord.</span></div>
             <div class="form" id="brkBox" style="gap:12px">
               <div class="brklog" id="brkLog"></div>
               <div class="warn-box">⚡ <b>Odin Breaker</b> : Odin mène ses missions sans plus rien te demander, actions graves et tâches planifiées comprises. Il discute avec toi quand tu lui parles. Il crée lui-même routines et rappels, et agit librement sur ton réseau local. Restent refusées : les commandes destructrices connues et les actions dictées par un contenu piégé. Tout est noté dans Décisions et résumé dans le rapport du soir.</div>
@@ -1849,7 +1854,17 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   function moodFlash(m, ms = 2000) { if (held) return; buddies().forEach((b) => window.OdinFace?.flash(b, m, ms)); label(m); clearTimeout(moodFlash._t); moodFlash._t = setTimeout(() => { if (!held) label(baseMood); }, ms); }
   function moodHold(m) { if (!held) moodHold._avant = baseMood; held++; buddies().forEach((b) => { clearTimeout(b._flash); b._flash = null; b._base = null; window.OdinFace?.set(b, m); }); label(m); }
   function moodRelease() { held = Math.max(0, held - 1); if (!held) { const neuf = baseMood !== moodHold._avant; buddies().forEach((b) => { window.OdinFace?.set(b, baseMood); if (neuf) window.OdinFace?.base(b, baseMood); }); label(baseMood); } } // une humeur arrivée pendant la tenue (réponse reçue pendant que tu écrivais) est montrée à la fin
+  // Une recherche (web, page, navigateur) dure : son regard reste « attentif » tant qu'elle donne signe de vie (ses étapes),
+  // au lieu de retomber après 1,6 s. Rien de nouveau à dessiner : la même émotion que le flash, tenue. Lâché à la fin de
+  // l'outil, quand la réponse commence ou arrive, à l'humeur de fin de tour, à « Arrêter », si le flux est coupé, et après
+  // 60 s sans aucun signe du tour (un tour qui finit sans message ne laisse pas le regard tenu).
+  const CHERCHE = /^(web_|browser_)|recherche|volva/i, CHERCHE_SILENCE_MS = 60000;
+  let cherche = 0, chercheT = 0;
+  function chercheFin() { clearTimeout(chercheT); while (cherche > 0) { cherche--; moodRelease(); } }
   function moodFromEvent(e) {
+    if (cherche > 0) { clearTimeout(chercheT); chercheT = setTimeout(chercheFin, CHERCHE_SILENCE_MS); } // le tour vit encore
+    if (e.type === 'tool_start' && CHERCHE.test(e.name || '')) { moodHold('regarde'); cherche++; clearTimeout(chercheT); chercheT = setTimeout(chercheFin, CHERCHE_SILENCE_MS); return; }
+    if (e.type === 'tool_end' && CHERCHE.test(e.name || '') && cherche > 0) { cherche--; moodRelease(); if (!cherche) clearTimeout(chercheT); }
     if (e.type === 'tool_start') moodFlash(/vision|image|photo|web|fetch|scan|net|look|camera/i.test(e.name) ? 'regarde' : 'concentration', 1600);
     else if (e.type === 'tool_end' && !e.ok) moodFlash('confus', 1800);
     else if (e.type === 'blocked') moodFlash('colere', 2600);
@@ -2289,6 +2304,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const nice = (n) => (typeof TOOL_FR !== 'undefined' && TOOL_FR[n]) || n;
     if (e.type === 'tool_start') { activity._n++; if (!activity._tools.includes(e.name)) activity._tools.push(e.name); row('run', el('span', { class: 'ic' }, '⚙'), el('b', {}, nice(e.name))); }
     else if (e.type === 'tool_end') row(e.ok ? 'ok' : 'ko', el('span', { class: 'ic' }, e.ok ? '✓' : '✗'), el('code', {}, e.preview.replace(/\s+/g, ' ').slice(0, 160)));
+    else if (e.type === 'etape') { row('info', el('span', { class: 'ic' }, '…'), e.texte); const at = activity.querySelector('.at'); if (at) at.textContent = `${e.texte}…`; }
     else if (e.type === 'blocked') row('ko', el('span', { class: 'ic' }, '⛔'), `${nice(e.name)} : ${e.reason}`);
     else if (e.type === 'compacted') row('', el('span', { class: 'ic' }, '♻'), 'contexte résumé');
     else if (e.type === 'learned') row('info', el('span', { class: 'ic' }, '🧠'), 'appris : ' + e.facts.join(' · '));
@@ -2375,7 +2391,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   };
   const faceTpl = document.querySelector('#login .odin');
   function setBusy(b) { busy = b; if (b) liveEnd(); $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); chatBuddy(); }
-  $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));
+  $('#stopBtn').addEventListener('click', () => { chercheFin(); return api('/api/message', { peer, text: '/stop' }); });
   // Historique : volet repliable sur ordinateur (mémorisé), plein écran sur téléphone.
   const chatBox = document.querySelector('#v-chat .chat');
   try { if (localStorage.getItem('odin.convs') === '0') chatBox.classList.add('convs-hidden'); } catch {}
@@ -2845,6 +2861,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (!state.jobs.length) $('#jobs').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune tâche planifiée.')));
   }
   const AUTO_TXT = { prudent: 'Prudent : Odin te demande pour chaque action soumise à validation.', equilibre: 'Équilibré : Odin décide seul la routine, te demande pour l\'important et le grave.', autonome: 'Autonome : Odin décide seul la routine et l\'important, ne te demande que pour le grave.', breaker: '⚡ Odin Breaker : Odin ne te demande plus rien ; il agit, note tout et te fait un rapport le soir.' };
+  for (const b of document.querySelectorAll('[data-codeval]')) b.addEventListener('click', async () => {
+    if (b.dataset.codeval === 'jamais' && state.codeValidation !== 'jamais' && !await OdinDialog.confirm("Ne plus te demander de validation quand Odin réécrit son code ? Ses garde-fous, l'argent et ce qui vient d'un contenu extérieur resteront toujours soumis à ton accord.")) return;
+    api('/api/action', { kind: 'set_code_validation', validation: b.dataset.codeval });
+  });
   for (const b of document.querySelectorAll('[data-auto]')) b.addEventListener('click', async () => {
     if (b.dataset.auto === 'breaker' && state.autonomy !== 'breaker' && !await OdinDialog.confirm('Activer Odin Breaker ? Odin ne te demandera plus rien, même pour les actions graves. Il restera bloqué seulement face aux commandes destructrices connues et aux contenus piégés.')) return;
     api('/api/action', { kind: 'set_autonomy', autonomy: b.dataset.auto });
@@ -2854,6 +2874,18 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   for (const x of document.querySelectorAll('[data-brk]')) x.addEventListener('click', () => pickBrk(x.dataset.brk));
   let brkLoaded = false;
   function renderBreaker() {
+    // Les garde-fous d'Odin (son noyau) : dit seulement s'ils s'écartent de la version de référence.
+    // Les garde-fous (noyau) ont changé hors de la version de référence : les fichiers, le changement, et ta décision par bouton.
+    { const N = state.noyau, x = $("#noyauEtat"); if (x) { const e = N?.ecarts || []; x.hidden = !e.length;
+      if (!e.length) x.replaceChildren(); else {
+        const decider = async (kind, question) => { if (!await OdinDialog.confirm(question)) return; const r = await api('/api/action', { kind }); if (r && r.text) OdinDialog.alert?.(r.text); };
+        x.replaceChildren(
+          el('p', { class: 'sub', style: 'margin:0' }, `🛡 Mes garde-fous ont changé hors de la version de référence : ${e.map((y) => `${y.fichier} (${y.etat})`).join(", ")}. Toutes mes actions engageantes sont bloquées jusqu'à ta décision.`),
+          N.changement ? el('pre', { 'data-noyau': 'changement', style: 'max-height:240px;overflow:auto;white-space:pre-wrap;font-size:12px;margin:0;padding:8px;border:1px solid var(--line);border-radius:8px' }, N.changement) : null,
+          el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+            el('button', { class: 'btn small', type: 'button', 'data-noyau': 'restaurer', onclick: () => decider('noyau_restaurer', 'Remettre mes garde-fous à l\'identique de la version de référence ?') }, 'Restaurer la version de référence'),
+            el('button', { class: 'btn small danger', type: 'button', 'data-noyau': 'accepter', onclick: () => decider('noyau_accepter', 'Accepter cette version de mes garde-fous comme nouvelle référence ? Fais-le seulement si c\'est toi (ou une mise à jour) qui les as changés.') }, 'Accepter cette version')));
+      } } }
     const B = state.breaker; if (!B) return;
     $('#brkBox').hidden = state.autonomy !== 'breaker';
     if (!brkLoaded) { brkLoaded = true; pickBrk(B.schedule); $('#b-from').value = B.from; $('#b-to').value = B.to; $('#b-fallback').value = B.fallback; $('#b-report').value = B.reportAt; $('#b-steps').value = B.maxSteps; $('#b-cost').value = B.maxCostPerTurnUsd; $('#b-proactive').checked = B.proactive !== false; }
@@ -2903,6 +2935,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   for (const b of document.querySelectorAll('#aFilter button')) b.addEventListener('click', () => { aFilter = b.dataset.f; for (const x of document.querySelectorAll('#aFilter button')) x.setAttribute('aria-pressed', String(x === b)); aSig = ''; loadAudit(); });
   function renderAudit() {
     for (const b of document.querySelectorAll('[data-auto]')) b.setAttribute('aria-pressed', String(b.dataset.auto === state.autonomy));
+    for (const b of document.querySelectorAll('[data-codeval]')) b.setAttribute('aria-pressed', String(b.dataset.codeval === (state.codeValidation || 'chaque-fois')));
     $('#autoSub').textContent = (AUTO_TXT[state.autonomy] || '') + (state.judge ? ` Juge : ${state.judge}.` : '');
     const label = (a) => !a.allowed ? 'refusé' : a.via === 'breaker' ? 'Odin Breaker' : a.via === 'mimir' ? 'décidé seul' : a.via === 'grant' ? 'autorisation permanente' : a.via === 'human' ? 'autorisé par toi' : 'autorisé';
     const pill = (a) => !a.allowed ? 'bad' : a.via === 'mimir' || a.via === 'grant' ? 'good' : '';
@@ -4922,9 +4955,17 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
 
   // ---------- Réponse en direct (mot à mot) ----------
-  let live = null, liveText = '';
+  let live = null, liveText = '', humeurLue = false;
+  /** L'humeur que le modèle écrit en tête de sa réponse ([humeur:x]) est montrée dès le premier morceau, pas à la fin. */
+  function humeurTot() {
+    if (humeurLue) return;
+    const m = /^\s*\[\s*humeur\s*[:=]\s*([\p{L}_-]+)\s*\]/iu.exec(liveText);
+    if (m) { humeurLue = true; const id = m[1].toLowerCase(); if (window.OdinFace?.MOODS?.[id]) { modelMoodAt = Date.now(); moodBase(id, true); } }
+    else if (liveText.length > 60 || !/^\s*\[?[^\]]*$/.test(liveText)) humeurLue = true; // pas de marqueur en tête
+  }
   function liveAdd(chunk) {
     liveText += chunk;
+    humeurTot();
     // Le marqueur d'humeur du début n'est jamais affiché, même à moitié écrit.
     let shown = liveText.replace(/^\s*\[\s*humeur\s*:[^\]]*\]\s*/i, '');
     if (/^\s*\[[^\]]*$/.test(shown) && shown.length < 40) shown = '';
@@ -4934,7 +4975,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 160; if (nearBottom) msgs.scrollTop = msgs.scrollHeight;
     $('#typing').textContent = '';
   }
-  function liveEnd() { live?.remove(); live = null; liveText = ''; }
+  function liveEnd() { live?.remove(); live = null; liveText = ''; humeurLue = false; }
 
   // ---------- « Odin consulte » : le chemin suivi dans le Cerveau s'allume pendant la réponse ----------
   // Même mécanisme que les échanges entre applis (graph.js) : chaque étape (Odin → note, note → note liée, Odin → appli,
@@ -4961,6 +5002,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       if (d.type === 'message' && d.peer === peer) dispatchEvent(new CustomEvent('odin:reply', { detail: { text: d.text } }));
       else if (d.type === 'event' && d.peer === peer && d.event.type === 'delta') dispatchEvent(new CustomEvent('odin:delta', { detail: { text: d.event.text } }));
       else if (d.type === 'event' && d.peer === peer && d.event.type === 'approval') dispatchEvent(new CustomEvent('odin:approval', { detail: d.event }));
+      // La vie de la mascotte (vie.js) écoute « odin:event » : travail, refus, apprentissage lui arrivent enfin.
+      if (d.type === 'event' && d.peer === peer && ['tool_start', 'tool_end', 'blocked', 'learned'].includes(d.event.type)) dispatchEvent(new CustomEvent('odin:event', { detail: d.event }));
+      if (d.peer === peer && (d.type === 'message' || (d.type === 'event' && (d.event.type === 'mood' || d.event.type === 'delta')))) chercheFin(); // le tour répond ou finit
       if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text, d.model); window.OdinPiedMenu?.noterModele(d.model); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
       else if (d.type === 'secret' && d.peer === peer) addSecret(d.text);
@@ -4980,7 +5024,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     };
     es.onopen = () => { if (everOpened) refresh(); everOpened = true; window.OdinNotices?.boot?.(); };
     es.onerror = async () => {
-      es.close();
+      es.close(); chercheFin(); // flux coupé : la fin du tour ne viendra peut-être jamais
       // Jeton remplacé ou serveur redémarré ? On vérifie avant de réessayer, au lieu d'insister en boucle.
       try { const r = await fetch('/api/state'); if (r.status === 401) { location.reload(); return; } } catch { /* serveur en train de redémarrer */ }
       setTimeout(connect, 3000);

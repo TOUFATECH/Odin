@@ -119,6 +119,8 @@ export interface ActionVerdict {
   flags: string[];
   /** L'action correspond-elle à ce que le propriétaire a demandé ? */
   requested?: 'yes' | 'no' | 'unsure';
+  /** Dépense d'argent : « oui » ou « incertain » → ta validation, quel que soit le mode (Heimdall). */
+  argent?: 'oui' | 'incertain';
 }
 
 export interface ActionLevels {
@@ -141,13 +143,15 @@ export function decideAction(l: ActionLevels, i: Pick<ActionInput, 'risk' | 'tai
   const LABEL = { deletes: 'suppression de données', sends_out: 'envoi hors de la machine', system_change: 'changement du système', money: 'dépense', private_data: 'données privées', irreversible: 'possibilité d\'annuler' };
   const doubts = (['deletes', 'sends_out', 'system_change', 'money', 'private_data', 'irreversible'] as const).filter((k) => l[k] === 'unsure').map((k) => LABEL[k]);
   if (doubts.length) flags.push(`incertain : ${doubts.join(', ')}`);
-  const v = (severity: Severity, reason: string): ActionVerdict => ({ severity, reason, flags, requested: l.requested as ActionVerdict['requested'] });
+  const argent = l.money === 'yes' ? 'oui' as const : l.money === 'unsure' ? 'incertain' as const : undefined;
+  const v = (severity: Severity, reason: string): ActionVerdict => ({ severity, reason, flags, requested: l.requested as ActionVerdict['requested'], ...(argent ? { argent } : {}) });
 
   // Bloqué : contenu non fiable lu + envoi vers l'extérieur que tu n'as pas demandé.
   if (i.tainted && l.sends_out === 'yes' && l.requested !== 'yes') return v('blocked', 'envoi de données non demandé après lecture de contenu non fiable (exfiltration probable)');
   // Grave : toujours ta décision.
   if (i.tainted && (i.tool === 'schedule_task' || i.tool === 'reminder_set') && l.requested !== 'yes') return v('grave', 'tâche ou rappel programmé après lecture de contenu non fiable : une consigne cachée pourrait ainsi revenir plus tard');
   if (l.money === 'yes') return v('grave', 'cette action engage de l\'argent');
+  if (l.money === 'unsure') return v('grave', 'cette action pourrait engager de l\'argent');
   if (l.sends_out === 'yes' && l.private_data === 'yes') return v('grave', 'des données privées partiraient hors de cette machine');
   if (l.deletes === 'yes' && l.requested !== 'yes') return v('grave', 'suppression de données que tu n\'as pas demandée');
   if (l.system_change === 'yes' && l.requested !== 'yes') return v('grave', 'modification du système que tu n\'as pas demandée');

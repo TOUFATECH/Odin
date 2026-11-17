@@ -28,6 +28,19 @@ import { routingReport } from '../providers/journal.ts';
 import { stripMood } from '../mood/mood.ts';
 import { brainOf } from '../tools/brain.ts';
 import { liensDe } from '../brain/liens-vivants.ts';
+import { Approbations } from '../heimdall/approbations.ts';
+import { deciderPuisLancer } from '../heimdall/executer.ts';
+import { extraireCles, rangerClesRecues } from '../heimdall/redact.ts';
+import { closeBrowsers } from '../tools/browser.ts';
+import { wrapUntrusted } from '../heimdall/injection.ts';
+import { declarerProprietaires } from '../heimdall/envois.ts';
+import { brancherPauseGlobale } from '../valhalla/automatismes.ts';
+import { tacheNous } from '../brain/nous/tache-odin.ts';
+import { sourcesDepartOdin } from '../brain/nous/sources-odin.ts';
+import { piloteNous, piloteExistant } from '../brain/nous/entrainement-odin.ts';
+import { remplirVecteurs } from '../brain/nous/vecteurs-fond.ts';
+import { alerteNoyauUneFois } from '../heimdall/noyau.ts';
+import { reponsesEnCours } from '../brain/nous/occupation.ts';
 const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
 import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
 import { extractSecret, keepSecret } from '../machines/onboard.ts';
@@ -100,7 +113,8 @@ export class Gateway {
   /** Dernière humeur montrée par conversation (autocollant envoyé seulement quand elle change). */
   private lastMood = new Map<string, string>();
   private aborts = new Map<string, AbortController>();
-  private pendingApprovals = new Map<string, (answer: ApprovalAnswer) => void>();
+  /** Les validations en attente (src/heimdall/approbations.ts, dans le noyau). */
+  private approbations = new Approbations();
   private timer?: NodeJS.Timeout;
   private scanning = false;
   private ticking = false;
@@ -111,6 +125,9 @@ export class Gateway {
     this.odin = odin;
     this.opts = opts;
     odin.heimdall.setApprover(this.approver);
+    // Tes identités : un message que je T'envoie reste libre ; à quelqu'un d'autre, c'est ta validation (heimdall/envois.ts).
+    declarerProprietaires(opts.owners);
+    brancherPauseGlobale(() => this.initiativeEnPause());
     // Odin s'installe tout seul pour comprendre les vocaux : il te prévient.
     setVoiceNotifier((msg) => { void this.tellOwner(msg, 'home', true).catch(() => {}); });
     // Confiance apprise : Odin te dit ce qu'il fera seul désormais, et comment revenir en arrière.
@@ -158,6 +175,7 @@ export class Gateway {
   async stop(): Promise<void> {
     clearInterval(this.timer);
     this.offLearned?.();
+    await piloteExistant()?.fermer().catch(() => undefined);
     for (const a of this.aborts.values()) a.abort();
     for (const ch of this.channels.values()) await ch.stop();
   }
@@ -189,6 +207,14 @@ export class Gateway {
     const ch = this.channels.get(m.channel)!;
     const owner = this.isOwner(m.channel, m.peer);
     // Un mot de passe dans le message du propriétaire : retiré AVANT le modèle, gardé à part (chiffré).
+    // Une clé collée dans un message (de n'importe qui) : retirée AVANT l'enregistrement et le modèle, rangée au coffre,
+    // masquée partout ensuite ; l'expéditeur est prévenu (U6).
+    { const k = extraireCles(m.text); if (k.cles.length) {
+      rangerClesRecues(this.odin.paths.home, k.cles);
+      for (const c of k.cles) this.odin.redactor.add(c);
+      m = { ...m, text: k.text };
+      await ch.send(m.peer, `🔐 J'ai mis ${k.cles.length > 1 ? `ces ${k.cles.length} clés` : 'cette clé'} au coffre : je ne la garde pas en clair et elle ne part pas vers l'IA. Change-la si elle a circulé ailleurs.`).catch(() => {});
+    } }
     if (owner) { const x = extractSecret(m.text); if (x.secret) { keepSecret(this.odin.paths.home, x.secret, x.label); this.odin.redactor.add(x.secret); m = { ...m, text: x.text }; } }
     const text = m.text.trim();
 
@@ -196,15 +222,12 @@ export class Gateway {
     let cmd = text.match(/^\/(yes|no|oui|non|always|toujours)\s+(\S+)/i);
     // « oui », « non », « ok », « vas-y », « toujours »… tout court : la dernière demande en attente.
     const bare = text.match(/^\/?(yes|no|oui|non|nan|ok|okay|ouais|vas[- ]y|d'accord|daccord|go|always|toujours)[\s.!]*$/i);
-    if (!cmd && bare && owner && this.pendingApprovals.size) cmd = Object.assign([text, bare[1], [...this.pendingApprovals.keys()].at(-1)!], { index: 0, input: text }) as RegExpMatchArray;
+    if (!cmd && bare && owner && this.approbations.taille) cmd = Object.assign([text, bare[1], this.approbations.derniere()!], { index: 0, input: text }) as RegExpMatchArray;
     else if (!cmd && bare && text.startsWith('/') && owner) return ch.send(m.peer, 'Aucune demande en attente : elle a peut-être expiré. Redemande-moi l\'action, je la referai.');
     if (cmd) {
-      if (!owner) return ch.send(m.peer, 'Seul le propriétaire peut valider une action.');
-      const resolve = this.pendingApprovals.get(cmd[2]);
-      if (!resolve) return ch.send(m.peer, 'Demande inconnue ou expirée.');
-      this.pendingApprovals.delete(cmd[2]);
-      const ans = /^(always|toujours)$/i.test(cmd[1]) ? 'always' : /^(no|non|nan)$/i.test(cmd[1]) ? 'no' : 'yes';
-      resolve(ans === 'always' ? 'always' : ans === 'yes');
+      const rep = this.approbations.repondre(cmd[2], cmd[1], owner);
+      if (!rep.ok) return ch.send(m.peer, rep.raison);
+      const ans = rep.reponse;
       for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
     }
@@ -266,7 +289,7 @@ export class Gateway {
     // Habitudes : réponse à une proposition (boutons /habitude oui|non, ou « oui » / « non » tout court), « redemande-moi ».
     const hb = /^\/habitude (oui|non)(?: (.+))?$/.exec(text);
     const prop = owner ? pendingProposal(this.odin.muninn) : undefined;
-    if (owner && (hb || (prop && bare && !this.pendingApprovals.size))) {
+    if (owner && (hb || (prop && bare && !this.approbations.taille))) {
       const yes = hb ? hb[1] === 'oui' : /^(yes|oui|ouais|ok|okay|vas[- ]y|d'accord|daccord|go|always|toujours)$/i.test(bare![1]);
       const k = hb?.[2] ? knownHabits(this.odin.muninn).find((x) => x.key === hb[2]) : prop;
       if (!k) return ch.send(m.peer, 'Proposition expirée.');
@@ -312,7 +335,26 @@ export class Gateway {
     }
     const sessionId = `${m.channel}:${m.peer}`;
     this.odin.muninn.setKv('last-inbound', String(Date.now()));
-    if (/^\/stop\b/i.test(text)) { this.aborts.get(sessionId)?.abort(); return ch.send(m.peer, '⏹ Arrêté.'); }
+    // « stop » du propriétaire : TOUT s'arrête (toutes les conversations, travail continu, tâches de fond, navigateur,
+    // entraînement de Soul) et l'initiative est en pause jusqu'à « reprends ». Un membre n'arrête que sa conversation.
+    if (/^\/?(stop|arr[êe]te tout|stoppe tout)[\s.!]*$/i.test(text)) {
+      if (!owner) { this.aborts.get(sessionId)?.abort(); return ch.send(m.peer, '⏹ Arrêté (ta conversation).'); }
+      const n = this.toutArreter(`${m.channel}:${m.peer}`);
+      return ch.send(m.peer, `⏹ Tout est arrêté (${n} conversation(s) en cours, et les tâches de fond) et je ne prends plus d'initiative. Dis « reprends » quand tu veux.`);
+    }
+    if (owner && /^\/?(reprends|reprend|tu peux reprendre)[\s.!]*$/i.test(text) && this.initiativeEnPause()) {
+      this.odin.muninn.setKv('initiative-pause', '');
+      // Les tâches échues PENDANT la pause ne partent pas toutes d'un coup : chacune est reportée à sa prochaine échéance
+      // (un script de 3 h ne part pas à midi), et je te dis lesquelles ont été sautées.
+      const maintenant = Date.now(), sautees: string[] = [];
+      for (const job of this.odin.muninn.dueJobs(maintenant)) {
+        if (isReminderJob(job)) continue;
+        this.odin.muninn.advanceJob(job.id, maintenant, prochaineTache(job.cron, maintenant));
+        sautees.push(parseScriptJob(job.prompt)?.name ?? job.prompt.slice(0, 60));
+      }
+      this.odin.heimdall.noter({ evenement: 'reprise', par: `${m.channel}:${m.peer}`, sautees });
+      return ch.send(m.peer, `▶️ Je reprends : travail continu et initiatives à nouveau permis.${sautees.length ? ` Tâches sautées pendant la pause (reprises à leur prochaine heure) : ${sautees.join(' ; ')}.` : ''}`);
+    }
 
     const speaker = this.speakerOf(m.channel, m.peer, m.name);
     // Appairage : un inconnu reçoit un code que le propriétaire doit approuver.
@@ -464,11 +506,10 @@ export class Gateway {
       const head = req.severity === 'grave' ? '🛑 Décision GRAVE : Odin a besoin de toi' : '⚠️ Odin demande une validation';
       const options = `Réponds oui ou non${req.grantable ? ' (ou « toujours » pour ne plus te le demander)' : ''}. Réf. /yes ${req.id}`;
       const msg = `${head}\nAction : ${req.summary}\nPourquoi : ${req.reason}\n${options}`;
-      const answer = new Promise<ApprovalAnswer>((r) => this.pendingApprovals.set(req.id, r));
+      // Heimdall tranche « non » après approvalTimeoutSec ; on oublie la demande peu après pour ne pas accumuler.
+      const answer = this.approbations.attendre(req.id, (this.odin.cfg.policy.approvalTimeoutSec + 60) * 1000);
       // Canaux qui savent afficher une carte (interface web) : évènement typé, pas de détection par le texte.
       target.ch.event?.(target.peer, { type: 'approval', id: req.id, summary: req.summary, reason: req.reason, severity: req.severity, grantable: req.grantable });
-      // Heimdall tranche « non » après approvalTimeoutSec ; on oublie la demande peu après pour ne pas accumuler.
-      setTimeout(() => this.pendingApprovals.delete(req.id), (this.odin.cfg.policy.approvalTimeoutSec + 60) * 1000).unref?.();
       await target.ch.send(target.peer, msg, { approval: { id: req.id, grantable: req.grantable } });
       // La demande vient d'un membre : on le prévient que le propriétaire a été sollicité.
       const [sc, ...sp] = req.sessionId.split(':'); const sch = this.channels.get(sc); const speer = sp.join(':');
@@ -500,6 +541,36 @@ export class Gateway {
       if (name === 'whatsapp' && /131047|re-?engagement|24 ?h/i.test(m)) return { ok: false, message: 'WhatsApp n\'accepte un message d\'Odin que dans les 24 h qui suivent ton dernier message : écris-lui d\'abord « bonjour » sur WhatsApp, puis refais le test.' };
       return { ok: false, message: m.slice(0, 300) };
     }
+  }
+
+  /** L'auteur d'une tâche programmée (noté à la programmation ; sinon déduit de sa messagerie, au plus prudent). */
+  private auteurTache(job: { id: string; channel: string; peer: string }): { role: 'owner' | 'member' | 'guest'; nom: string; autonomie?: 'prudent' | 'equilibre' | 'autonome'; prive?: boolean } {
+    try { const a = JSON.parse(this.odin.muninn.getKv(`tache-auteur:${job.id}`) ?? 'null'); if (a && (a.role === 'owner' || a.role === 'member' || a.role === 'guest')) return a; } catch { /* illisible : prudence */ }
+    if (this.isOwner(job.channel, job.peer)) return { role: 'owner', nom: 'propriétaire' };
+    const sp = this.speakerOf(job.channel, job.peer);
+    return { role: sp.role === 'owner' ? 'guest' : sp.role, nom: sp.name || job.peer, autonomie: sp.autonomy };
+  }
+
+  /** L'initiative (travail continu, rondes, veille, entraînement) est-elle en pause (« stop ») ? */
+  initiativeEnPause(): boolean { return this.odin.muninn.getKv('initiative-pause') === '1'; }
+  /** Les tâches de fond en cours (travail continu, rondes, tâches planifiées…) : « stop » les arrête aussi. */
+  private fond = new Set<AbortController>();
+  private signalFond(): AbortSignal {
+    const c = new AbortController(); this.fond.add(c);
+    setTimeout(() => this.fond.delete(c), 3 * 3600_000).unref?.();
+    return c.signal;
+  }
+  /** « Stop » : arrête toutes les tâches en cours et met l'initiative en pause. Rend le nombre de tâches arrêtées. */
+  toutArreter(par: string): number {
+    const n = this.aborts.size;
+    for (const a of this.aborts.values()) a.abort();
+    for (const c of this.fond) c.abort();
+    this.fond.clear();
+    this.odin.muninn.setKv('initiative-pause', '1');
+    try { piloteExistant()?.interrompre('stop'); } catch { /* rien */ }
+    try { closeBrowsers(); } catch { /* rien */ }
+    this.odin.heimdall.noter({ evenement: 'stop', par, taches: n });
+    return n;
   }
 
   /** Arrête le tour en cours d'une session (bouton Arrêter de l'onglet Missions). */
@@ -541,6 +612,7 @@ export class Gateway {
 
   /** Envoie le rapport du soir une fois par jour quand Odin Breaker est choisi. */
   private async breakerReport(now: number): Promise<void> {
+    if (this.initiativeEnPause()) return;
     const m = this.odin.cfg.mimir, at = m.breaker.reportAt;
     if (m.autonomy !== 'breaker' || !at || !validHhmm(at)) return;
     const d = new Date(now), [h, mi] = at.split(':').map(Number);
@@ -555,7 +627,7 @@ export class Gateway {
       // Le bilan du soir (rapport à 21 h) peut tomber hors de la plage « nuit » : on applique Breaker le temps du bilan.
       const wasBreaker = this.odin.heimdall.breakerActive();
       if (!wasBreaker) this.odin.heimdall.setBreaker({ ...m.breaker, schedule: 'always' });
-      const r = await this.odin.agent.run(PROACTIVE_PROMPT, { sessionId: 'breaker:soir', channel: t?.ch.name ?? 'web', peer: t?.peer ?? 'principal', trusted: true, unattended: true })
+      const r = await this.odin.agent.run(PROACTIVE_PROMPT, { sessionId: 'breaker:soir', channel: t?.ch.name ?? 'web', peer: t?.peer ?? 'principal', trusted: true, unattended: true, signal: this.signalFond(), automatique: PROACTIVE_PROMPT })
         .catch((e) => ({ text: `(bilan impossible : ${(e as Error).message.slice(0, 120)})` }));
       if (!wasBreaker) this.odin.heimdall.setBreaker(m.breaker);
       if (r.text.trim()) text = `${text || '⚡ Rapport du soir — Odin Breaker'}\n\n🧭 Initiative : ${r.text.trim().slice(0, 1200)}`;
@@ -567,6 +639,8 @@ export class Gateway {
   private lastWatch = 0;
   private lastCare = 0;
   private lastEmbed = 0;
+  /** Des vecteurs restent à faire (budget atteint) : on continue au passage suivant, sans attendre 5 min. */
+  private vecteursEnRoute = false;
   private lastAgenda = 0;
   private updating = false;
   private careCtx() { return { home: this.odin.paths.home, logs: this.odin.paths.logs, proxmox: { url: this.odin.cfg.proxmox.url, token: process.env.PROXMOX_TOKEN ?? '' } }; }
@@ -623,6 +697,7 @@ export class Gateway {
 
   /** Services surveillés (toutes les 5 min), mises à jour planifiées, journal du soir. */
   async care(now = Date.now()): Promise<void> {
+    if (this.initiativeEnPause()) return; // « stop » : les soins (qui peuvent réparer, relancer) attendent « reprends »
     const cfg = this.odin.cfg;
     // Une installation attendait les droits administrateur : dès qu'Odin les a (« odin admin fix », mot de passe donné…), elle repart.
     if (voiceWaitsAdmin(this.odin.paths.home) && adminDiagnosis(this.odin.paths.home).ok) {
@@ -652,13 +727,23 @@ export class Gateway {
     }
     // Mémoire : vecteurs des nouveaux souvenirs (recherche par le sens) ; oubli des souvenirs périmés, une fois par jour.
     const emb = this.odin.agent.deps.embedder;
-    if (emb && now - this.lastEmbed >= 5 * 60_000) {
+    // Par petits lots, à chaque passage où Odin est libre (10 s de budget au plus), et refaits quand Noûs change de
+    // version ; s'arrête dès qu'Odin répond. Sans moteur prêt, un seul essai toutes les 5 min (repli par mots).
+    if (emb && !this.aborts.size && (now - this.lastEmbed >= 5 * 60_000 || this.vecteursEnRoute)) {
       this.lastEmbed = now;
-      for (const m of this.odin.muninn.missingVectors(emb.model, 40)) { try { this.odin.muninn.setVector(m.id, emb.model, await emb.embed(m.content)); } catch { break; } }
+      const b = await remplirVecteurs(this.odin.muninn, emb, { libre: () => !this.aborts.size && !reponsesEnCours() });
+      this.vecteursEnRoute = b.faits > 0 && b.raison !== undefined;
     }
     const mstamp = join(this.odin.paths.logs, 'memory-decay.txt');
     if (!(existsSync(mstamp) && readFileSync(mstamp, 'utf8').trim() === new Date(now).toDateString())) { writeFileSync(mstamp, new Date(now).toDateString()); const n = this.odin.muninn.decay(now); if (n) console.error(`[mémoire] ${n} souvenir(s) périmé(s) oublié(s)`); this.odin.muninn.pruneRoutes(now); const gone = this.odin.muninn.purgeTrash(now); if (gone) console.error(`[mémoire] ${gone} conversation(s) effacée(s) de la corbeille`); }
     try { liensDe(this.odin.muninn).nuitSiBesoin(now, { occupe: this.aborts.size > 0, demo: Boolean(this.odin.demo), vault: brainOf({ home: this.odin.paths.home, careCfg: this.odin.cfg, workspace: this.odin.paths.workspace }) }); } catch { /* liens vivants : facultatif */ }
+    // Noûs : le premier corpus (une fois) et le vidage de la file unique vers le corpus chiffré (toutes les 5 min au plus ;
+    // rien si Noûs est coupé, en mode privé ou en démonstration ; jamais pendant une réponse).
+    if (!this.aborts.size) tacheNous(this.odin, now, () => sourcesDepartOdin(this.odin));
+    // Un garde-fou modifié hors de la version de référence : dit au propriétaire une fois par démarrage.
+    { const alerte = alerteNoyauUneFois(); if (alerte) await this.tellOwner(alerte, 'home', true).catch(() => undefined); }
+    // Noûs apprend dès qu'Odin est libre (jour ou nuit), à la puissance réglée ; arrêt immédiat quand Odin répond.
+    try { piloteNous({ odin: this.odin }).tic({ occupe: this.aborts.size > 0 || this.initiativeEnPause() }); } catch { /* jamais bloquant */ }
     // Index des documents : chaque nuit vers 3 h (seuls les fichiers modifiés sont relus).
     const dstamp = join(this.odin.paths.logs, 'docs-index.txt'), d = new Date(now);
     const ddirs = docDirs(cfg.docs.dirs, this.odin.paths.workspace);
@@ -676,6 +761,7 @@ export class Gateway {
    * habitudes…) et le fait — dans ton budget du jour. Ce qui demande ta validation attend ton accord.
    */
   async continuous(now = Date.now(), force = false): Promise<string | undefined> {
+    if (this.initiativeEnPause()) return undefined; // « stop » : plus d'initiative avant « reprends »
     const c = { ...DEFAULT_CONTINUOUS, ...this.odin.cfg.continuous };
     const breakerOn = this.odin.heimdall.breakerActive(new Date(now));
     // Odin Breaker = carte blanche : il travaille de lui-même même si le « travail continu » est coupé.
@@ -708,8 +794,11 @@ export class Gateway {
     const already = done.length ? `\nDÉJÀ FAIT ces 14 derniers jours (NE LE REFAIS PAS, ne le revérifie pas) :\n${done.slice(0, 25).map((d) => `- ${d.text}`).join('\n')}` : '';
     // Ce qu'Odin a réellement fait (outils qui changent quelque chose), relevé par le code, pas raconté par le modèle.
     const started: Array<{ name: string; input: Record<string, unknown> }> = [], acts: Array<{ name: string; input: Record<string, unknown>; ok: boolean }> = [];
-    const r = await this.odin.agent.run(`${breaker ? CONTINUOUS_BREAKER : CONTINUOUS_PROMPT}\n\n<situation>\n${facts}${already}\n</situation>`, {
-      sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true,
+    // Tâche automatique : seule la consigne fixe compte comme ta demande ; la situation (noms d'appareils, messages…)
+    // vient du réseau et des journaux : elle passe comme contenu NON FIABLE.
+    const consigne = breaker ? CONTINUOUS_BREAKER : CONTINUOUS_PROMPT;
+    const r = await this.odin.agent.run(`${consigne}\n\n${wrapUntrusted('situation du moment (réseau, journaux)', `${facts}${already}`)}`, {
+      sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true, signal: this.signalFond(), automatique: consigne,
       onEvent: (e) => {
         if (e.type === 'tool_start') started.push({ name: e.name, input: e.input });
         else if (e.type === 'tool_end') { const i = started.findIndex((x) => x.name === e.name); if (i >= 0) { const [st] = started.splice(i, 1); acts.push({ ...st, ok: e.ok }); } }
@@ -762,6 +851,7 @@ export class Gateway {
   }
 
   async breakerRoutines(now = Date.now()): Promise<number> {
+    if (this.initiativeEnPause()) return 0;
     if (this.odin.demo || !this.odin.heimdall.breakerActive(new Date(now))) return 0;
     const done = new Set((this.odin.muninn.getKv('breaker-routines') ?? '').split(',').filter(Boolean));
     const target = this.ownerTarget(); if (!target) return 0;
@@ -926,6 +1016,7 @@ export class Gateway {
    * t'envoie 3 à 5 trouvailles avec leurs liens. Tu dis « plus de ça » ou « moins de ça » : il apprend.
    */
   async veille(now = Date.now(), force = false): Promise<string | undefined> {
+    if (this.initiativeEnPause()) return undefined;
     const v = this.odin.cfg.veille ?? { enabled: true, at: '12:30' };
     if (this.odin.demo || !v.enabled) return undefined;
     const d = new Date(now), [h, mi] = v.at.split(':').map(Number), kv = this.odin.muninn;
@@ -936,7 +1027,7 @@ export class Gateway {
     if (!about && !recent) return undefined;
     const sent = (kv.getKv('veille-sent') ?? '').split('\n').filter(Boolean).slice(-80);
     const prompt = `Veille pour le propriétaire (sans qu'il l'ait demandé). D'après ce que tu sais de lui :\n${about || '(peu de chose)'}\nSes sujets récents :\n${recent || '(aucun)'}\n\nDéduis 3 ou 4 centres d'intérêt, cherche sur le web ce qui est NOUVEAU (moins de 7 jours) et vraiment utile ou intéressant pour lui (actualité de ses sujets, nouvelles versions de ses logiciels, bons plans, évènements près de chez lui). Ne reprends pas ces liens déjà envoyés :\n${sent.join('\n') || '(aucun)'}\n\nRéponds avec 3 à 5 trouvailles, chacune : un titre court, une phrase sur pourquoi ça le concerne, le lien. Si rien de valable, réponds seulement « RIEN ».`;
-    const r = await this.odin.agent.run(prompt, { sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+    const r = await this.odin.agent.run(prompt, { sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true, signal: this.signalFond(), automatique: 'Veille pour le propriétaire : chercher sur le web ce qui est nouveau sur ses centres d\'intérêt, sans rien faire d\'autre.' }).catch(() => undefined);
     if (!r || r.offline || r.stopReason !== 'done' || /^\s*RIEN\b/.test(r.text)) return undefined;
     const links = r.text.match(/https?:\/\/[^\s)\]]+/g) ?? [];
     kv.setKv('veille-sent', [...sent, ...links].slice(-120).join('\n'));
@@ -992,7 +1083,7 @@ export class Gateway {
     l = l.filter((q) => now - q.at < 2 * 86_400_000 && q.tries < 30);
     const q = l[0];
     if (!q) { kv.setKv(QUEUE_KEY, '[]'); return false; }
-    const r = await this.odin.agent.run(q.text, { sessionId: q.sessionId, channel: q.channel, peer: q.peer, unattended: true }).catch(() => undefined);
+    const r = await this.odin.agent.run(q.text, { sessionId: q.sessionId, channel: q.channel, peer: q.peer, unattended: true, signal: this.signalFond() }).catch(() => undefined);
     if (!r || r.offline || r.stopReason === 'error') { q.tries++; kv.setKv(QUEUE_KEY, JSON.stringify(l)); return false; }
     kv.setKv(QUEUE_KEY, JSON.stringify(l.slice(1)));
     const ch = this.channels.get(q.channel);
@@ -1060,7 +1151,7 @@ export class Gateway {
     let night = facts;
     const waiting = JSON.parse(this.odin.muninn.getKv('deferred') ?? '[]') as string[];
     if (!this.odin.demo) {
-      const r = await this.odin.agent.run(`${MORNING_PROMPT}\n\n<faits>\n${facts}${waiting.length ? `\nMessages gardés pendant la nuit :\n${waiting.join('\n').slice(0, 4000)}` : ''}\n</faits>`, { sessionId: 'journal:matin', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+      const r = await this.odin.agent.run(`${MORNING_PROMPT}\n\n${wrapUntrusted('faits de la nuit', `${facts}${waiting.length ? `\nMessages gardés pendant la nuit :\n${waiting.join('\n').slice(0, 4000)}` : ''}`)}`, { sessionId: 'journal:matin', channel: 'web', peer: 'principal', trusted: true, unattended: true, signal: this.signalFond(), automatique: MORNING_PROMPT }).catch(() => undefined);
       if (r?.text.trim()) night = r.text.trim().slice(0, 1500);
     }
     // Briefing : météo, agenda, mails, rappels du jour, machines (assemblé par le code : le contenu des mails ne passe jamais par le modèle).
@@ -1087,7 +1178,7 @@ export class Gateway {
     const facts = dayFacts(this.odin, now);
     let text = `📓 Journal de bord — ${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}\n${facts}`;
     if (!this.odin.demo) {
-      const r = await this.odin.agent.run(`${JOURNAL_PROMPT}\n\n<faits>\n${facts}\n</faits>`, { sessionId: 'journal:soir', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+      const r = await this.odin.agent.run(`${JOURNAL_PROMPT}\n\n${wrapUntrusted('faits du jour', facts)}`, { sessionId: 'journal:soir', channel: 'web', peer: 'principal', trusted: true, unattended: true, signal: this.signalFond(), automatique: JOURNAL_PROMPT }).catch(() => undefined);
       if (r?.text.trim()) text = `📓 Journal de bord — ${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}\n${r.text.trim().slice(0, 2500)}`;
     }
     await this.tellOwner(text, 'home');
@@ -1185,6 +1276,8 @@ export class Gateway {
     // Relances des rappels pas encore réglés (30 min, 1 h, 2 h).
     for (const n of dueNags(this.odin.muninn, now)) await this.sendReminder(n.id, n.text, n.channel, n.peer, n.n).catch(() => {});
     for (const job of this.odin.muninn.dueJobs(now)) {
+      // « stop » : les tâches planifiées attendent « reprends » (les rappels, eux, restent envoyés : ils ne font rien).
+      if (this.initiativeEnPause() && !isReminderJob(job)) continue;
       if (isReminderJob(job)) {
         // Rappel : envoyé avec ses boutons, puis relancé tant que ce n'est pas fait. Ponctuel : supprimé ; récurrent : prochaine date.
         if (job.cron === '@reminder') this.odin.muninn.removeJob(job.id);
@@ -1196,11 +1289,23 @@ export class Gateway {
         continue;
       }
       this.odin.muninn.advanceJob(job.id, now, prochaineTache(job.cron, now));
+      // Qui a programmé cette tâche : elle tourne avec SES droits (relecture du lot S 2, constat 1). Sans auteur noté
+      // (tâche d'avant) : celle du propriétaire seulement si elle est rattachée à une de ses messageries, sinon invité.
+      const auteur = this.auteurTache(job);
+      const speaker = auteur.role === 'owner' ? undefined : { name: auteur.nom, role: auteur.role, autonomy: auteur.role === 'member' ? (auteur.autonomie ?? 'prudent') : 'prudent' as const };
       // Script programmé : il tourne directement, sans le modèle (rapide, gratuit) ; on ne te dérange que s'il échoue.
       const sj = parseScriptJob(job.prompt);
       if (sj) {
         const { scriptRun } = await import('../tools/scripts.ts');
-        const out = job.tainted ? 'Refusé : tâche créée après lecture d\'un contenu non fiable.' : await scriptRun.run({ name: sj.name, args: sj.args, where: sj.where }, { workspace: this.odin.paths.workspace, home: this.odin.paths.home, redactor: this.odin.redactor, muninn: this.odin.muninn, signal: AbortSignal.timeout(3600_000), sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, isTainted: () => false } as never).then((x) => (typeof x === 'string' ? x : x.output)).catch((e) => `ÉCHEC : ${(e as Error).message}`);
+        // Comme tout outil : par Heimdall (src/heimdall/executer.ts), sans personne pour répondre ; ta demande = la tâche
+        // que TU as programmée ; une tâche née d'un contenu non fiable reste refusée.
+        const ctxScript = { workspace: this.odin.paths.workspace, home: this.odin.paths.home, redactor: this.odin.redactor, muninn: this.odin.muninn, signal: AbortSignal.timeout(3600_000), sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, isTainted: () => Boolean(job.tainted), fullAccess: true } as never;
+        const out = job.tainted ? 'Refusé : tâche créée après lecture d\'un contenu non fiable.' : auteur.role !== 'owner' ? `Refusé : script programmé par ${auteur.nom} (${auteur.role === 'member' ? 'un membre' : 'quelqu\'un d\'autre que toi'}) : seul le propriétaire programme un script.` : await (async () => {
+          const d = await deciderPuisLancer(this.odin.heimdall, scriptRun, { name: sj.name, args: sj.args, where: sj.where }, ctxScript, { sessionId: `cron:${job.id}`, tainted: false, unattended: true, userRequest: job.prompt, ...(auteur.prive ? {} : { accordPrealable: `script « ${sj.name} » programmé par toi` }) });
+          if (!d.lancer) return `Refusé par Heimdall : ${d.decision.allowed ? '' : d.decision.reason}`;
+          const x = await d.lancer();
+          return typeof x === 'string' ? x : x.output;
+        })().catch((e) => `ÉCHEC : ${(e as Error).message}`);
         const failed = /ÉCHEC|Refusé|✗|code de sortie [1-9]/.test(out);
         appendFileSync(join(this.odin.paths.logs, 'cron.md'), `\n## ${new Date(now).toISOString()} · script ${sj.name}\n${out.slice(-3000)}\n`);
         if (failed || sj.report) await this.tellOwner(`${failed ? '⚠️' : '✅'} Script programmé « ${sj.name} »${sj.where !== 'local' ? ` (${sj.where})` : ''}\n${out.slice(-1500)}`, 'skills', failed).catch(() => {});
@@ -1208,7 +1313,7 @@ export class Gateway {
       }
       const r = await this.odin.agent.run(job.prompt, {
         // Une tâche née sous l'influence d'un contenu non fiable n'a pas la confiance du propriétaire.
-        sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, trusted: !job.tainted, unattended: true,
+        sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, trusted: !job.tainted, unattended: true, signal: this.signalFond(), ...(speaker ? { speaker } : {}),
       }).catch((e) => ({ text: `Échec : ${(e as Error).message}` }));
       const text = job.prompt.startsWith('[habitude]') ? `🧠 Comme d'habitude :\n\n${r.text}` : `⏰ ${job.prompt.slice(0, 60)}\n\n${r.text}`;
       const ch = this.channels.get(job.channel);

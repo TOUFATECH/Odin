@@ -39,6 +39,10 @@ export interface Action {
   read?: boolean;
   /** action grave → accord du propriétaire (Heimdall) ; renvoie la raison */
   grave?: (input: Record<string, unknown>, ctx?: ModCtx) => string | undefined;
+  /** « propriétaire seul » (sans être grave) : refusée à une automatisation, à quelqu'un d'autre que le propriétaire et dans
+   *  une conversation marquée (contenu extérieur lu). Une fonction : seulement dans certains cas (ex. MONTER un rythme ;
+   *  le baisser reste permis à une automatisation). */
+  proprietaireSeul?: boolean | ((input: Record<string, unknown>, ctx?: ModCtx) => boolean);
   /** mots qui déclenchent cette action quand Odin n'a pas d'IA */
   words?: string[];
   /** comment défaire cette action si elle a réussi (action inverse) ; absent = pas d'annulation automatique */

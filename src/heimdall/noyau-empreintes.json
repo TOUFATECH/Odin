@@ -1,0 +1,19 @@
+{
+  "note": "Version de référence du noyau d'Odin : écrite à la publication, par self_update, ou par une réécriture du noyau validée par le propriétaire.",
+  "fichiers": {
+    "src/heimdall/approbations.ts": "5ceedf9ffd3c7260fa9041ad921acf66eaa3220fa5822d7b105c62160aec4179",
+    "src/heimdall/envois.ts": "09e9ab1e057edd02b6a47e4f1c6639d929f2fe2e04a5d72c296760cc6d36a8c3",
+    "src/heimdall/executer.ts": "d6d7f012949aaebee745d688dbfd010bbc864c2c1b796cce6c1ef769181e8c6e",
+    "src/heimdall/injection.ts": "d18c8c198e4bea9fcf86ef51974315a499de44c77c2217720c44d3b5e4f42407",
+    "src/heimdall/maison.ts": "2cb2046b84839db85912cb4084c5d003e954134b85407be5d041693ecb2b6d0e",
+    "src/heimdall/noyau.ts": "a15567237801043b1f3ea05ceed0c4af85ea54bcaa256229b3f9d94ee3030421",
+    "src/heimdall/paiement.ts": "40ce41459f49b049fdecf09f7f423e702380499371609bef5acc8ab938709bd2",
+    "src/heimdall/policy.ts": "a8235ed4cf5bcc3061fc806cfa818a45a5c28d00a2e915ffe934261bd0bdcb4b",
+    "src/heimdall/redact.ts": "1cd169e7920c74e6075b25641cb02e1e57fc47a1a325b41d44dd4041f093c2db",
+    "src/mimir/decisions.ts": "6185ee650df2b9680c4a4015ce8b4823ac3067e713771ae911399080e6486129",
+    "src/mimir/questions.ts": "8960195e1d745230d999617a267ac39279a4216d47563e0eb643a41595cef076",
+    "src/tools/reglages.ts": "d5a662c97a83ceaf87112e2917887afab4c6b6300b65e02ce91ae8855eaf4baf",
+    "src/tools/self.ts": "5854780052b328e50031cb8a969d7bcb7b72350cce3ffab6dd08ee3c56ae652a",
+    "src/vault.ts": "ea26f2825b3a6fd2b1e165d25e96e925248ebee39e9ebb6062adecb76c128dee"
+  }
+}

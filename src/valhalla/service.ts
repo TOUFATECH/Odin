@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { understand, type Understood } from './huginn.ts';
 import { explainListen } from './hostports.ts';
 import type { Action, ActionResult, Alert, AlertIn, By, Level, Manip, ModCtx, Module, NotifyOpts } from './types.ts';
-import { refusAppli } from './sso/acces.ts';
+import { refusAppli, agissant } from './sso/acces.ts';
 import { Journal } from './base/journal.ts';
 import { noterEchange, numeroEchange, type Echange } from './echanges.ts';
 import { Automatismes } from './automatismes.ts';
@@ -132,17 +132,22 @@ export class Valhalla {
    * `by` : qui agit. Tout ce qui n'est pas « toi » et qui change quelque chose est noté dans le
    * journal des manips : tu es prévenu, et tu peux garder ou annuler.
    */
-  act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean; by?: By; why?: string; /** l'appli qui demande (appel entre applis) */ de?: string } = {}): Promise<ActionResult> {
+  act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean; by?: By; why?: string; /** l'appli qui demande (appel entre applis) */ de?: string; /** qui parle à Odin (outil de l'agent) */ qui?: 'owner' | 'member' | 'guest'; /** conversation marquée (contenu extérieur lu) */ marque?: boolean } = {}): Promise<ActionResult> {
     if (!o.de) return this.agir(moduleId, actionId, input, o);
     // Même promesse rendue que sans échange (aucune attente en plus pour l'appli qui appelle) : la réponse part juste après.
     const { de, ...reste } = o, fin = this.echange(de, moduleId, actionId), p = this.agir(moduleId, actionId, input, reste);
     if (fin) p.then((r) => fin(r.ok !== false), () => fin(false));
     return p;
   }
-  private async agir(moduleId: string, actionId: string, input: Record<string, unknown>, o: { auto?: boolean; by?: By; why?: string }): Promise<ActionResult> {
+  private async agir(moduleId: string, actionId: string, input: Record<string, unknown>, o: { auto?: boolean; by?: By; why?: string; qui?: 'owner' | 'member' | 'guest'; marque?: boolean }): Promise<ActionResult> {
     const f = this.action(moduleId, actionId);
     if (!f) return { ok: false, text: `Action inconnue : ${moduleId} → ${actionId}` };
     const refus = refusAppli(f.m.id, o.by); if (refus) return { ok: false, text: refus }; // droits par appli (personne de Persona)
+    // « Propriétaire seul » : ni une automatisation, ni un réflexe, ni Odin seul, ni un membre, ni une personne de Persona,
+    // ni une conversation marquée. (La fonction « grave » ne sait pas qui appelle : c'est décidé ici.)
+    const seul = typeof f.a.proprietaireSeul === 'function' ? f.a.proprietaireSeul(input, this.ctx(f.m.id)) : f.a.proprietaireSeul === true;
+    if (seul && (o.auto || (o.by !== undefined && o.by !== 'toi') || (o.qui !== undefined && o.qui !== 'owner') || o.marque || agissant()))
+      return { ok: false, text: `${f.m.name} · ${f.a.label} : seul le propriétaire le règle lui-même (pas une automatisation, pas quelqu'un d'autre, pas après un contenu extérieur).` };
     const why = f.a.grave?.(input, this.ctx(f.m.id));
     if (o.auto && why) return { ok: false, text: `${f.m.name} · ${f.a.label} : action grave (${why}), elle demande ton accord et ne part pas d'une automatisation.` };
     for (const p of f.a.params ?? []) if (p.required && (input[p.key] === undefined || input[p.key] === '')) return { ok: false, text: `Il manque « ${p.label} ».` };

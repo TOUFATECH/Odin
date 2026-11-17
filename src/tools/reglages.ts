@@ -62,6 +62,13 @@ export const SETTINGS: Record<string, Rule> = {
     get: (c) => c.routing.showModel ?? 'web',
     set: (d, v) => { setConfigValue(d.paths, ['routing', 'showModel'], v); d.cfg.routing.showModel = v as 'web' | 'partout' | 'jamais'; },
   },
+  code_validation: {
+    label: 'Réécrire mon code', kind: 'enum', values: ['chaque-fois', 'jamais'],
+    help: 'chaque-fois : je te demande ta validation à chaque réécriture de mon code ; jamais : je réécris, j\'essaie, j\'active et je te rends compte. Mes garde-fous, l\'argent et ce qui vient d\'un contenu extérieur restent toujours soumis à ton accord.',
+    get: (c) => c.code?.validation ?? 'chaque-fois',
+    set: (d, v) => { const c = { validation: v as 'chaque-fois' | 'jamais' }; setConfigValue(d.paths, ['code'], c); d.cfg.code = c; },
+    grave: (v, cur) => (v === 'jamais' && cur !== 'jamais' ? 'ne plus te demander de validation pour réécrire mon code' : undefined),
+  },
   budget_mensuel: {
     label: 'Limite de dépense en IA par mois (dollars)', kind: 'number',
     help: 'Au-delà, seules les IA gratuites servent jusqu\'à la fin du mois. 0 = pas de limite.',
@@ -86,7 +93,7 @@ export function parseValue(r: Rule, raw: unknown): Value | { error: string } {
     return { error: `« ${r.label} » se règle sur oui ou non.` };
   }
   if (r.kind === 'enum') {
-    const alias: Record<string, string> = { equilibree: 'equilibre', odin_breaker: 'breaker', prudente: 'prudent', prevenir: 'notify', previens: 'notify', automatique: 'auto', jamais_regarder: 'off', desactive: 'off' };
+    const alias: Record<string, string> = { chaque_fois: 'chaque-fois', a_chaque_fois: 'chaque-fois', toujours: 'chaque-fois', redemander: 'chaque-fois', plus_jamais: 'jamais', ne_plus_demander: 'jamais', equilibree: 'equilibre', odin_breaker: 'breaker', prudente: 'prudent', prevenir: 'notify', previens: 'notify', automatique: 'auto', jamais_regarder: 'off', desactive: 'off' };
     const v = (r.values ?? []).find((x) => x === s) ?? (r.values ?? []).find((x) => x === alias[s]);
     return v ?? { error: `« ${r.label} » : valeurs possibles ${r.values?.join(', ')}.` };
   }
@@ -113,7 +120,7 @@ export function settingsTools(deps: () => SettingsDeps): Tool[] {
     },
     {
       name: 'settings_set',
-      description: `Change UN de mes réglages, quand le propriétaire le demande (« passe en autonome », « ne te mets plus à jour tout seul », « limite l'IA à 10 dollars par mois »). Réglages : ${Object.entries(SETTINGS).map(([k, r]) => `${k} (${r.kind === 'bool' ? 'oui/non' : r.kind === 'enum' ? r.values?.join('/') : 'nombre'})`).join(', ')}. Appliqué tout de suite. Dis ensuite ce qui a changé et ce que ça implique.`,
+      description: `Change UN de mes réglages, quand le propriétaire le demande. S'il dit « ne me demande plus de validation » sans préciser, demande-lui une seule fois : pour réécrire ton code (code_validation), ou pour tout (autonomie) ? Exemples (« passe en autonome », « ne te mets plus à jour tout seul », « limite l'IA à 10 dollars par mois »). Réglages : ${Object.entries(SETTINGS).map(([k, r]) => `${k} (${r.kind === 'bool' ? 'oui/non' : r.kind === 'enum' ? r.values?.join('/') : 'nombre'})`).join(', ')}. Appliqué tout de suite. Dis ensuite ce qui a changé et ce que ça implique.`,
       risk: 'exec',
       schema: obj({ reglage: str('le réglage à changer (sa clé)'), valeur: str('la nouvelle valeur') }, ['reglage', 'valeur']),
       summarize: (i) => { const t = target(i); return t ? `régler « ${t.r.label} » sur ${String(i.valeur)}` : `changer le réglage ${String(i.reglage)}`; },

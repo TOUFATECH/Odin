@@ -15,6 +15,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { bool, obj, str, type Tool, type ToolContext } from './registry.ts';
+import { GRAVE_ACCEPTER, GRAVE_RESTAURER, cheminReelRelatif, ecrireReference, empreinteFichier, estNoyau, noterReferenceConnue, figerReference, verifierNoyau, FICHIER_EMPREINTES } from '../heimdall/noyau.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const clip = (t: string, n = 12_000) => (t.length > n ? `${t.slice(0, n)}\n… [${t.length - n} caractères tronqués]` : t);
@@ -31,7 +32,8 @@ export function appPath(rel: string, root = APP_ROOT): string {
   return p;
 }
 
-const isSecurityCode = (rel: string) => /^src[\\/]heimdall[\\/]/.test(rel);
+/** Le code de sécurité : le NOYAU d'Odin (src/heimdall/noyau.ts), chemin réel résolu (liens, « .. », majuscules). */
+const isSecurityCode = (rel: string) => { const r = cheminReelRelatif(rel); return r !== undefined && estNoyau(r); };
 const git = (root: string, args: string[]) => spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', timeout: 120_000 });
 export const hasGit = (root = APP_ROOT) => existsSync(join(root, '.git')) && git(root, ['--version']).status === 0;
 
@@ -56,6 +58,12 @@ export function backupFile(home: string, root: string, rel: string, setId: strin
   writeJournal(home, j);
 }
 
+/** Les fichiers d'un lot de modifications (le dernier par défaut) : pour que le retour arrière suive la règle du code. */
+export function fichiersDuLot(home: string, setId?: string): string[] {
+  const j = readJournal(home);
+  return (setId ? j.find((c) => c.id === setId) : j.at(-1))?.files ?? [];
+}
+
 /** Restaure les fichiers d'un lot (le dernier par défaut). */
 export function rollback(home: string, root: string, setId?: string): { id: string; files: string[] } | undefined {
   const j = readJournal(home);
@@ -67,6 +75,8 @@ export function rollback(home: string, root: string, setId?: string): { id: stri
     else if (existsSync(`${b}.nouveau`)) rmSync(join(root, rel), { force: true });
   }
   writeJournal(home, j.filter((c) => c !== set));
+  // Revenir sur une réécriture du noyau remet une version déjà validée par toi : la référence suit (sinon tout bloque).
+  if (set.files.some((f) => { const r = cheminReelRelatif(f, root); return r !== undefined && estNoyau(r); }) && root === APP_ROOT) { ecrireReference(root); noterReferenceConnue(home); }
   return { id: set.id, files: set.files };
 }
 
@@ -250,10 +260,12 @@ export const selfEdit: Tool = {
   risk: 'exec',
   schema: obj({ path: str('fichier, relatif au dossier d\'Odin'), old: str('passage exact et unique à remplacer'), new: str('nouveau texte'), content: str('contenu complet (nouveau fichier ou réécriture)'), reason: str('pourquoi (amélioration visée)') }, ['path']),
   summarize: (i) => `modifier mon code : ${s(i.path)}${s(i.reason) ? ` — ${s(i.reason)}` : ''}`,
+  // La validation est décidée par Heimdall (policy.ts, regleCode) : réglage code.validation, noyau toujours validé,
+  // contenu extérieur et tâches automatiques validés, membres refusés. Ici : sauvegarde, écriture, trace.
   async run(i, ctx) {
     const p = appPath(s(i.path));
     const rel = relative(APP_ROOT, p);
-    if (isSecurityCode(rel) && ctx.isTainted()) return 'Refusé : le code de sécurité (heimdall/) ne se modifie pas depuis une conversation qui a lu du contenu extérieur. Recommence dans une conversation propre.';
+    if (isSecurityCode(rel) && ctx.isTainted()) return 'Refusé : les garde-fous d\'Odin (son noyau) ne se modifient pas depuis une conversation qui a lu du contenu extérieur. Recommence dans une conversation propre.';
     if (!ctx.home) return 'Erreur : dossier d\'Odin inconnu (sauvegarde impossible).';
     let next: string;
     if (i.content !== undefined && i.old === undefined) next = s(i.content);
@@ -265,9 +277,14 @@ export const selfEdit: Tool = {
       next = text.replace(s(i.old), () => s(i.new));
     }
     const id = setIdFor(ctx);
+    const avant = existsSync(p) ? empreinteFichier(p) : '';
     backupFile(ctx.home, APP_ROOT, rel, id);
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, next);
+    // Une réécriture du NOYAU n'arrive ici qu'avec ta validation (Heimdall) : la référence suit, dans la même validation.
+    const noyau = isSecurityCode(rel);
+    if (noyau) { ecrireReference(APP_ROOT); noterReferenceConnue(ctx.home); }
+    tracerReecriture(ctx, { outil: 'self_edit', fichier: rel, avant, apres: empreinteFichier(p), pourquoi: s(i.reason), lot: id, noyau });
     return `Modifié : ${rel} (sauvegarde ${id}). Vérifie avec self_check avant self_restart.`;
   },
 };
@@ -305,6 +322,8 @@ export const selfUpdate: Tool = {
   summarize: () => 'me mettre à jour (dernière version)',
   async run(_i, ctx) {
     const r = updateApp(APP_ROOT, ctx.home);
+    // Une mise à jour d'Odin apporte sa référence : elle devient la référence figée et la « dernière connue ».
+    if (r.ok && ctx.home) { figerReference(APP_ROOT); noterReferenceConnue(ctx.home); }
     return `${r.ok ? '✓' : '✗'} ${r.message}`;
   },
 };
@@ -315,9 +334,17 @@ export const selfRestart: Tool = {
   risk: 'exec',
   schema: obj({ force: bool('redémarrer même si la vérification échoue (déconseillé)') }),
   summarize: () => 'redémarrer Odin',
-  async run(i) {
+  async run(i, ctx) {
     const r = checkApp(APP_ROOT, false);
     if (!r.ok && !i.force) return `Redémarrage refusé : le code ne se charge pas. Corrige ou annule (self_rollback).\n${clip(r.output, 3000)}`;
+    // Essais d'abord : ceux des fichiers réécrits (et l'essai du noyau). Un essai cassé = la réécriture n'est pas activée.
+    const lot = ctx.home ? readJournal(ctx.home).at(-1) : undefined;
+    if (lot && !i.force) {
+      const e = essaisDuLot(APP_ROOT, lot.files);
+      if (!e.ok) return `Activation refusée : un essai échoue après la réécriture (${lot.files.join(', ')}). Corrige, ou reviens en arrière (self_rollback).\n${clip(e.output, 3000)}`;
+    }
+    // Retour arrière automatique si Odin ne repart pas bien (src/tools/self.ts, verifierActivation au démarrage).
+    if (lot && ctx.home) marquerActivation(ctx.home, lot.id);
     if (process.env.ODIN_NO_RESTART) return 'Redémarrage simulé (tests).';
     return restartSelf(4000);
   },
@@ -409,4 +436,125 @@ export const nodeRun: Tool = {
   },
 };
 
-export const SELF_TOOLS: Tool[] = [selfInfo, selfRead, selfEdit, selfCheck, selfRollback, selfUpdate, selfRestart, pythonRun, nodeRun];
+/**
+ * Restaurer le noyau depuis la VERSION DE RÉFÉRENCE : pour chaque fichier du noyau qui s'en écarte, la version du
+ * dépôt (git, dernier commit) est remise SEULEMENT si son empreinte est celle de référence. Toujours ton accord.
+ */
+export const selfRestoreCore: Tool = {
+  name: 'self_restore_core',
+  description: 'Restaure les garde-fous d\'Odin (son noyau) à l\'identique depuis la version de référence signée (dépôt), quand ils ont été modifiés. Ensuite self_check puis self_restart.',
+  risk: 'exec',
+  schema: obj({}),
+  summarize: () => 'restaurer mes garde-fous depuis la version de référence',
+  grave: () => `${GRAVE_RESTAURER}${ecartsMontres()}`,
+  async run(_i, ctx) {
+    if (!ctx.home) return 'Erreur : dossier d\'Odin inconnu (sauvegarde impossible).';
+    const v = verifierNoyau(APP_ROOT);
+    if (!v.reference) return `Aucune version de référence (${FICHIER_EMPREINTES} absent).`;
+    if (!v.ecarts.length) return 'Le noyau est identique à la version de référence : rien à restaurer.';
+    if (!hasGit(APP_ROOT)) return 'Pas de dépôt git ici : je ne peux pas retrouver la version de référence. Réinstalle Odin.';
+    const ref = (JSON.parse(readFileSync(join(APP_ROOT, FICHIER_EMPREINTES), 'utf8')) as { fichiers: Record<string, string> }).fichiers;
+    const id = setIdFor(ctx), faits: string[] = [], refuses: string[] = [];
+    for (const e of v.ecarts) {
+      if (e.etat === 'ajouté') { refuses.push(`${e.fichier} (ajouté : à retirer à la main)`); continue; }
+      const r = git(APP_ROOT, ['show', `HEAD:${e.fichier}`]);
+      if (r.status !== 0) { refuses.push(`${e.fichier} (introuvable dans le dépôt)`); continue; }
+      const tmp = join(ctx.home, 'noyau-restauration.tmp');
+      writeFileSync(tmp, r.stdout);
+      if (empreinteFichier(tmp) !== ref[e.fichier]) { rmSync(tmp, { force: true }); refuses.push(`${e.fichier} (le dépôt n'a pas la version de référence)`); continue; }
+      rmSync(tmp, { force: true });
+      backupFile(ctx.home, APP_ROOT, e.fichier, id);
+      mkdirSync(dirname(join(APP_ROOT, e.fichier)), { recursive: true });
+      writeFileSync(join(APP_ROOT, e.fichier), r.stdout);
+      faits.push(e.fichier);
+    }
+    return `${faits.length ? `Restauré (sauvegarde ${id}) : ${faits.join(', ')}.` : 'Rien de restauré.'}${refuses.length ? ` Non restauré : ${refuses.join(' ; ')}.` : ''}${faits.length ? ' Vérifie avec self_check puis self_restart.' : ''}`;
+  },
+};
+
+/** Accepter la version actuelle du noyau comme nouvelle référence (après un écart signalé). Toujours ton accord. */
+export const selfAcceptCore: Tool = {
+  name: 'self_accept_core',
+  description: 'Accepte la version actuelle des garde-fous d\'Odin (son noyau) comme nouvelle référence, quand le propriétaire le décide après un écart signalé.',
+  risk: 'exec',
+  schema: obj({}),
+  summarize: () => 'accepter la version actuelle de mes garde-fous comme référence',
+  // Tu vois les fichiers en écart et le changement (git, quand il est là) avant de répondre.
+  grave: () => `${GRAVE_ACCEPTER}${ecartsMontres()}`,
+  async run(_i, ctx) {
+    const v = verifierNoyau(APP_ROOT);
+    if (v.reference && !v.ecarts.length) return 'Le noyau est déjà identique à la référence.';
+    const n = ecrireReference(APP_ROOT);
+    if (ctx.home) noterReferenceConnue(ctx.home);
+    tracerReecriture(ctx, { outil: 'self_accept_core', fichier: v.ecarts.map((e) => e.fichier).join(', '), avant: '', apres: '', pourquoi: 'version actuelle acceptée par le propriétaire', lot: '', noyau: true });
+    return `Version actuelle acceptée comme référence (${n} fichiers). Mes actions engageantes sont débloquées.`;
+  },
+};
+
+/** Le changement des fichiers du noyau en écart (git diff contre le dernier commit, coupé à 4 000 caractères), pour la page. */
+export function changementNoyau(root = APP_ROOT): string {
+  const v = verifierNoyau(root);
+  const f = v.ecarts.filter((e) => e.fichier !== FICHIER_EMPREINTES).map((e) => e.fichier);
+  if (!f.length) return '';
+  if (!hasGit(root)) return `(pas de dépôt git ici : impossible de montrer les lignes changées de ${f.join(', ')})`;
+  return (git(root, ['diff', '--no-color', 'HEAD', '--', ...f]).stdout || '').slice(0, 4000);
+}
+
+/** Les fichiers du noyau en écart et leur changement (git diff, coupé à 2 000 caractères). */
+export function ecartsMontres(root = APP_ROOT): string {
+  const v = verifierNoyau(root);
+  if (!v.ecarts.length) return ' (aucun écart)';
+  let diff = '';
+  if (hasGit(root)) { const r = git(root, ['diff', '--no-color', 'HEAD', '--', ...v.ecarts.filter((e) => e.fichier !== FICHIER_EMPREINTES).map((e) => e.fichier)]); diff = (r.stdout || '').slice(0, 2000); }
+  return `\nFichiers en écart : ${v.ecarts.map((e) => `${e.fichier} (${e.etat})`).join(', ')}${diff ? `\nLe changement :\n${diff}` : ''}`;
+}
+
+// ---------- trace, essais avant activation, retour arrière automatique ----------
+
+/** Une ligne au journal d'audit : quoi (fichier, empreintes avant / après), pourquoi, demandé par qui, lot. */
+export function tracerReecriture(ctx: Pick<ToolContext, 'home' | 'sessionId' | 'channel' | 'peer'>, t: { outil: string; fichier: string; avant: string; apres: string; pourquoi: string; lot: string; noyau: boolean }): void {
+  if (!ctx.home) return;
+  try {
+    mkdirSync(join(ctx.home, 'logs'), { recursive: true });
+    writeFileSync(join(ctx.home, 'logs', 'audit.jsonl'), JSON.stringify({ t: new Date().toISOString(), evenement: 'reecriture-code', session: ctx.sessionId, par: `${ctx.channel}:${ctx.peer}`, ...t, avant: t.avant.slice(0, 16), apres: t.apres.slice(0, 16) }) + '\n', { flag: 'a' });
+  } catch { /* la trace ne bloque jamais */ }
+}
+
+/** Les essais d'un lot réécrit : les fichiers d'essai qui importent un module touché, plus l'essai du noyau. */
+export function essaisDuLot(root: string, fichiers: string[]): { ok: boolean; output: string; essais: string[] } {
+  const noms = fichiers.map((f) => f.split(/[\\/]/).pop()!.replace(/\.(ts|js|mjs)$/, '')).filter(Boolean);
+  let tests: string[] = [];
+  try { tests = readdirSync(join(root, 'test')).filter((t) => t.endsWith('.test.ts')).filter((t) => { const c = readFileSync(join(root, 'test', t), 'utf8'); return noms.some((n) => c.includes(`/${n}.ts'`) || c.includes(`/${n}.ts"`) || c.includes(`/${n}.js'`)); }); } catch { /* pas de dossier d'essais */ }
+  if (existsSync(join(root, 'test', 'noyau.test.ts')) && !tests.includes('noyau.test.ts')) tests.push('noyau.test.ts');
+  tests = tests.slice(0, 12);
+  if (!tests.length) return { ok: true, output: 'aucun essai lié', essais: [] };
+  const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '--test', ...tests.map((t) => join('test', t))], { encoding: 'utf8', timeout: 600_000, cwd: root, env: (() => { const e: NodeJS.ProcessEnv = { ...process.env, ODIN_NO_RESTART: '1' }; delete e.NODE_TEST_CONTEXT; return e; })() });
+  return { ok: r.status === 0, output: `${tests.join(', ')}\n${(r.stdout || '') + (r.stderr || '')}`.slice(-6000), essais: tests };
+}
+
+const fichierActivation = (home: string) => join(backupsDir(home), 'activation.json');
+/** Avant le redémarrage : la réécriture activée est notée (pour le retour arrière automatique). */
+export function marquerActivation(home: string, lot: string): void {
+  mkdirSync(backupsDir(home), { recursive: true });
+  writeFileSync(fichierActivation(home), JSON.stringify({ lot, at: new Date().toISOString(), demarrages: 0 }));
+}
+/**
+ * Au démarrage : une activation en attente de confirmation ? Au 2e démarrage sans confirmation (Odin n'a pas tenu
+ * 10 minutes), le lot est défait. Sinon, la confirmation arrive après 10 minutes de marche. Rend ce qui s'est passé.
+ */
+export function verifierActivation(home: string, root = APP_ROOT, o: { confirmerApresMs?: number } = {}): { etat: 'rien' | 'en-attente' | 'defait'; lot?: string; fichiers?: string[] } {
+  let a: { lot: string; demarrages: number } | undefined;
+  try { a = JSON.parse(readFileSync(fichierActivation(home), 'utf8')) as { lot: string; demarrages: number }; } catch { return { etat: 'rien' }; }
+  a.demarrages++;
+  if (a.demarrages >= 2) {
+    const r = rollback(home, root, a.lot);
+    rmSync(fichierActivation(home), { force: true });
+    return { etat: 'defait', lot: a.lot, fichiers: r?.files ?? [] };
+  }
+  writeFileSync(fichierActivation(home), JSON.stringify(a));
+  const t = setTimeout(() => { try { rmSync(fichierActivation(home), { force: true }); } catch { /* rien */ } }, o.confirmerApresMs ?? 10 * 60_000);
+  t.unref?.();
+  return { etat: 'en-attente', lot: a.lot };
+}
+
+export const SELF_TOOLS: Tool[] = [selfInfo, selfRead, selfEdit, selfCheck, selfRollback, selfUpdate, selfRestart, selfRestoreCore, selfAcceptCore, pythonRun, nodeRun];

@@ -14,7 +14,9 @@ import { BROWSER_TOOLS, closeBrowsers } from './tools/browser.ts';
 import { webSearchTool } from './tools/search.ts';
 import { SELF_TOOLS } from './tools/self.ts';
 import type { Embedder } from './muninn/embed.ts';
-import { chargerMoteur, embedderNoos } from './brain/nous/moteur.ts';
+import { embedderQuiSeRecharge } from './brain/nous/plongement.ts';
+import { verifierNoyau, noterVerifNoyau, figerReference, empreinteReference, referenceChangee } from './heimdall/noyau.ts';
+import { verifierActivation } from './tools/self.ts';
 import { memoryProfile } from './tools/profile.ts';
 import { changePlan, recoveryPlanTool } from './tools/careplan.ts';
 import { evidenceSearch, webResearch } from './tools/research.ts';
@@ -147,6 +149,26 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).
   for (const secret of machineSecrets(paths.home)) redactor.add(secret);
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
+  // La réécriture du code suit le réglage code.validation, lu à chaque décision (changé par la parole ou les Réglages).
+  heimdall.setValidationCode(() => cfg.code?.validation);
+  // Intégrité du noyau avant chaque action engageante (un écart bloque jusqu'à ta décision).
+  heimdall.verifierIntegrite();
+  // Une réécriture activée qui n'a pas tenu (2e démarrage sans confirmation) : retour arrière automatique.
+  try { const a = verifierActivation(paths.home); if (a.etat === 'defait') { heimdall.noter({ evenement: 'reecriture-defaite', lot: a.lot, fichiers: a.fichiers }); console.error(`[odin] réécriture ${a.lot} défaite automatiquement : Odin n'avait pas tenu après l'activation`); } } catch { /* jamais bloquant */ }
+  // Le noyau (garde-fous) comparé à sa version de référence : un écart est journalisé et signalé au propriétaire (une
+  // fois, par la passerelle) ; il ne bloque JAMAIS le démarrage, et Odin ne le restaure pas tout seul.
+  // La référence est figée au démarrage ; son empreinte est comparée à la DERNIÈRE CONNUE, rangée hors du dossier du
+  // code (une réécriture validée, une acceptation ou une mise à jour d'Odin la notent) : une référence refaite autrement
+  // (une commande, à la main) est un écart signalé.
+  try {
+    figerReference();
+    const connue = join(paths.home, 'noyau-reference-connue.txt'), actuelle = empreinteReference();
+    if (actuelle) {
+      if (!existsSync(connue)) writeFileSync(connue, actuelle, { mode: 0o600 });
+      else if (readFileSync(connue, 'utf8').trim() !== actuelle) referenceChangee(true);
+    }
+  } catch { /* jamais bloquant */ }
+  try { const v = verifierNoyau(); noterVerifNoyau(v); if (v.ecarts.length) { heimdall.noter({ evenement: 'noyau-ecart', ecarts: v.ecarts }); console.error(`[heimdall] garde-fou modifié hors de la version de référence : ${v.ecarts.map((e) => `${e.fichier} (${e.etat})`).join(', ')}`); } } catch { /* jamais bloquant */ }
   const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...AUDIO_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...APP_TOOLS, ...BRAIN_TOOLS, draupnirTool, ...RUNES_TOOLS, valhallaTool, notionTool, ...SCRIPT_TOOLS, skillImport, machineOnboard, adminEnable, ...ASSISTANT_TOOLS, ...HABIT_TOOLS, updateCheckTool, updateApplyTool, ...EVERYDAY_TOOLS, venusTool, parentalTool, alarmTool, routingHistory, pluginSaveTool(() => tools), ...settingsTools(() => ({ paths, cfg, heimdall })));
   // Cerveau : coffre Markdown (compatible Obsidian) prêt dès le démarrage ; anciennes fiches reprises.
   try { seedVault(brainOf({ home: paths.home, careCfg: cfg, workspace: paths.workspace }), join(paths.home, 'notes')); } catch (e) { console.error('[cerveau]', (e as Error).message); }
@@ -191,7 +213,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
     heimdall.setReviewer(async (g) => {
       const r = await mimir.reviewAction({ tool: g.tool, risk: g.risk, summary: g.summary, command: g.command, userRequest: g.userRequest ?? '', tainted: g.tainted });
       if (!r.ok) throw new Error(r.error);
-      return { severity: r.value.severity, reason: r.value.reason, flags: r.value.flags, requested: r.value.requested };
+      return { severity: r.value.severity, reason: r.value.reason, flags: r.value.flags, requested: r.value.requested, argent: r.value.argent };
     }, cfg.mimir.autonomy);
   }
   heimdall.setAutonomy(cfg.mimir.autonomy);
@@ -210,23 +232,13 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   // Noûs n'est pas prêt, l'appel échoue proprement et la recherche par mots prend le relais (repli conservé).
   let embedder: Embedder | undefined;
   if (!opts.provider && cfg.memory?.semantic !== false) {
-    let moteurP: Promise<Awaited<ReturnType<typeof chargerMoteur>>> | undefined;
-    const charger = (): Promise<Awaited<ReturnType<typeof chargerMoteur>>> => (moteurP ??= chargerMoteur(paths.home).catch(() => undefined));
-    // L'étiquette du modèle suit la VERSION de Noûs (« noos-v<n> ») : quand Noûs réapprend et change de version, la
-    // mémoire voit l'étiquette changer (store.missingVectors) et recalcule ses repères toute seule. Une étiquette figée
-    // (« noos ») masquerait ce changement et mélangerait d'anciens vecteurs à la nouvelle géométrie. Tant que Noûs n'est
-    // pas chargé, l'étiquette reste « noos » (aucun vecteur n'est encore écrit avant le premier embed).
-    let moteurCharge: Awaited<ReturnType<typeof chargerMoteur>> | undefined;
-    embedder = {
-      get model(): string { return moteurCharge ? moteurCharge.modeleEmbedding : 'noos'; },
-      async embed(text: string, signal?: AbortSignal): Promise<Float32Array> {
-        const m = await charger();
-        if (!m) throw new Error('plongements indisponibles : Noûs pas encore prêt (repli recherche par mots)');
-        moteurCharge = m;
-        return embedderNoos(m).embed(text, signal);
-      },
-    };
+    // Le moteur de Noûs se recharge tout seul quand un nouveau point de reprise apparaît (src/brain/nous/plongement.ts).
+    embedder = embedderQuiSeRecharge(paths.home);
   }
   const agent = new Agent({ embedder, paths, cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, home: paths.home, persona, send: opts.send, inventory, mimir });
+  // Juste après le démarrage, EN ARRIÈRE-PLAN : lire les notes du Cerveau et construire son index de recherche, pour
+  // que le premier message ne le paie pas. Une demande qui arrive avant ne fait que l'attendre (même travail).
+  const prechauffe = setTimeout(() => { try { const v = brainOf({ home: paths.home, careCfg: cfg, workspace: paths.workspace }); v.all(); v.search('odin', 1); } catch { /* facultatif */ } }, 30);
+  (prechauffe as { unref?: () => void }).unref?.();
   return { paths, cfg, agent, muninn, skills, heimdall, tools, inventory, mimir, redactor, close: () => { closeBrowsers(); muninn.close(); } };
 }

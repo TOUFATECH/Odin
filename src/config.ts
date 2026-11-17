@@ -147,13 +147,21 @@ export interface OdinConfig {
     /** Apprendre des demandes qu'une IA règle par une action, ou par quelques actions à la suite, pour s'en passer ensuite (défaut : oui). */
     direct?: boolean;
   };
+  /** La réécriture de son propre code (tools/self.ts, et toute écriture dans le dossier d'Odin) : « chaque-fois » =
+   *  ta validation à chaque réécriture ; « jamais » = Odin réécrit, essaie, active et te rend compte. Appliqué par
+   *  Heimdall. Le noyau, l'argent et ce qui vient d'un contenu extérieur restent toujours validés. */
+  code?: { validation: 'chaque-fois' | 'jamais' };
   /** Noûs : le réseau profond du Cerveau (src/brain/nous/). Petit réseau entraîné sur la machine. */
   nous?: {
     /** Interrupteur général : à faux, Noûs n'apprend ni ne propose. */
     actif: boolean;
-    /** Corpus de départ d'un réseau neuf : demander au propriétaire, sa seule mémoire, ou des textes libres du web. */
-    corpusDepart: 'demander' | 'memoire' | 'web';
-    /** Fils d'entraînement de jour (séance courte) et de nuit (séance longue). */
+    /** Corpus de départ d'un réseau neuf : ce qu'Odin est (applis, liens, guide, compétences, puis notes et mémoire),
+     *  la seule mémoire, des textes libres du web, ou demander au propriétaire. Choix du propriétaire (17/11) : « odin ». */
+    corpusDepart: 'odin' | 'demander' | 'memoire' | 'web';
+    /** Puissance de l'entraînement quand Odin est libre (à tout moment, jour ou nuit) : douce = 1 fil, normale = la
+     *  moitié des fils, pleine = tous les fils moins un. Demande du propriétaire (17/11) : « à 100 % » → pleine. */
+    puissance?: 'douce' | 'normale' | 'pleine';
+    /** Fils d'entraînement de jour (séance courte) et de nuit (séance longue) — remplacés par « puissance ». */
     filsJour: number;
     filsNuit: number;
     /** Durée maximale d'une séance de nuit, en heures. */
@@ -300,7 +308,8 @@ export const DEFAULT_CONFIG: OdinConfig = {
   memory: { semantic: true, embedUrl: '', embedModel: 'noos' },
   search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8, direct: true },
-  nous: { actif: true, corpusDepart: 'demander', filsJour: 1, filsNuit: 3, heuresNuit: 8, disqueMaxMo: 2000, delaiMsN1: 250, seuilReflexe: 0.90, arbitreGrand: false, metisRaisonnement: 'regles' },
+  code: { validation: 'chaque-fois' },
+  nous: { actif: true, corpusDepart: 'odin', puissance: 'pleine', filsJour: 1, filsNuit: 3, heuresNuit: 8, disqueMaxMo: 2000, delaiMsN1: 250, seuilReflexe: 0.90, arbitreGrand: false, metisRaisonnement: 'regles' },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
   web: { enabled: true, port: 8888, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '', portsParAppli: true },
   voice: {

@@ -2,11 +2,14 @@
 // questions au cerveau. Tout passe par le coffre Markdown ; capturer et demander passent par l'agent
 // (donc par Heimdall), dans une conversation à part « web:cerveau ».
 
+import { noterOubli } from '../brain/nous/oubli.ts';
+import { fileNousOdin } from '../brain/nous/file-odin.ts';
 import { isoDay, sourceOf, TYPES, type NoteMeta } from '../brain/vault.ts';
 import type { Odin } from '../runtime.ts';
 import { brainOf } from '../tools/brain.ts';
 import { liensDe } from '../brain/liens-vivants.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
+import { nousEtat, nousPost } from './nous-api.ts';
 
 const vaultOf = (odin: Odin) => brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace });
 
@@ -76,11 +79,14 @@ export function brainGet(odin: Odin, path: string, q: URLSearchParams): unknown 
       return { ok: true, results: v.search(query, 30).map((r) => ({ path: r.note.path, title: r.note.title, type: String(r.note.meta.type ?? 'note'), snippet: r.snippet })), memories };
     }
     case '/api/brain/db': { const t = q.get('type') ?? 'projet'; return { ok: true, type: t, def: TYPES[t], rows: v.database(t) }; }
+    // Noûs : un état honnête (taille du corpus, pas encore entraîné, aucun duel).
+    case '/api/brain/nous/etat': return nousEtat(odin);
     default: return undefined;
   }
 }
 
 export async function brainPost(odin: Odin, path: string, b: Record<string, unknown>, ask: (text: string) => Promise<{ text: string; answeredBy?: string }>): Promise<unknown> {
+  if (path.startsWith('/api/brain/nous/')) return nousPost(odin, path, b);
   const v = vaultOf(odin), s = (x: unknown) => String(x ?? '');
   try {
     switch (path) {
@@ -95,7 +101,9 @@ export async function brainPost(odin: Odin, path: string, b: Record<string, unkn
         return { ok: true, path: v.create(s(b.title) || 'Sans titre', type, s(b.body), (b.meta ?? {}) as NoteMeta) };
       }
       case '/api/brain/rename': return { ok: true, path: v.rename(s(b.path), s(b.to)) };
-      case '/api/brain/trash': return { ok: true, path: v.trash(s(b.path)) };
+      // La corbeille d'une note prévient Soul (comme l'outil cerveau_ecrire) : ce qu'il en a appris est oublié.
+      case '/api/brain/trash': { const n = v.find(s(b.path)); if (n) noterOubli(odin.paths.home, { texte: `${n.title}
+${n.body}` }, fileNousOdin); return { ok: true, path: v.trash(s(b.path)) }; }
       case '/api/brain/restore': return { ok: true, path: v.restore(s(b.file)) };
       case '/api/brain/daily': return { ok: true, path: v.daily(), date: isoDay(new Date()) };
       // Liens vivants (propriétaire seulement, comme tout /api/brain/* ; la page confirme avant d'oublier).

@@ -2,6 +2,7 @@
 // Tous les chemins restent dans l'espace de travail. Un fichier reçu de l'extérieur (inbox/)
 // est un contenu NON FIABLE : la session est marquée, ses consignes ne sont jamais suivies.
 
+import { sauvegarderSiCode, tracerSiCode } from './builtin.ts';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join, relative, sep } from 'node:path';
@@ -75,7 +76,7 @@ export const docCreate: Tool = {
   }, ['path']),
   summarize: (i) => `créer ${s(i.path)}`,
   async run(i, ctx) {
-    const p = toolPath(ctx, s(i.path));
+    const p = toolPath(ctx, s(i.path), { ecriture: true }); sauvegarderSiCode(ctx, p, 'doc_create'); tracerSiCode(ctx, p, 'doc_create'); // dans le dossier d'Odin : sauvegarde et trace, comme self_edit
     const ext = extname(p).toLowerCase();
     let data: Buffer;
     const sheets = (Array.isArray(i.sheets) ? i.sheets : []) as Array<{ name?: string; rows?: unknown[][] }>;
@@ -157,7 +158,7 @@ export const mediaConvert: Tool = {
   }, ['input', 'output']),
   summarize: (i) => `convertir ${s(i.input)} → ${s(i.output)}`,
   async run(i, ctx) {
-    const input = toolPath(ctx, s(i.input)), output = toolPath(ctx, s(i.output));
+    const input = toolPath(ctx, s(i.input)), output = toolPath(ctx, s(i.output), { ecriture: true }); sauvegarderSiCode(ctx, output, 'media_convert'); tracerSiCode(ctx, output, 'media_convert');
     if (!existsSync(input)) return `Fichier introuvable : ${s(i.input)}`;
     mkdirSync(dirname(output), { recursive: true });
     const o: ConvertOptions = {

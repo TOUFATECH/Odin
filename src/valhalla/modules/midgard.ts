@@ -2,6 +2,7 @@
 // (« Je pars », « Bonne nuit »…), présence, et ponts vers d'autres box domotiques (Home Assistant
 // et équivalents) pour reprendre leurs appareils. Les appareils viennent du registre « Appareils ».
 
+import { GRAVE_MAISON } from '../../heimdall/maison.ts';
 import { haApi, type HaState } from '../../tools/homeassistant.ts';
 import { lanRequest } from '../../tools/lan.ts';
 import type { ModCtx, Module } from '../types.ts';
@@ -57,11 +58,15 @@ export function haCommand(entity: string, valeur: string): { domain: string; ser
 }
 /** Ouvrir une serrure, un garage ou un portail, c'est ouvrir la maison : toujours avec ton accord. */
 export function sensitive(appareil: string, valeur: string): string | undefined {
-  if (!ON.test(valeur.trim().toLowerCase())) return undefined;
+  const v = valeur.trim().toLowerCase();
   const own = appareil.startsWith('ha:') ? undefined : allDevices().find((d) => d.id === appareil || d.name.toLowerCase() === appareil.toLowerCase());
+  // Une serrure : tout ce qui n'est pas « verrouiller » l'ouvre (dans Home Assistant, « éteindre » une serrure la déverrouille).
+  if ((/^ha:lock\./.test(appareil) || own?.kind === 'serrure') && !/^(lock|verrouill|ferme|close)/.test(v)) return `${GRAVE_MAISON} : déverrouiller ${own?.name ?? appareil.replace(/^ha:/, '')}`;
+  if (!ON.test(v)) return undefined;
   const lock = /^ha:lock\./.test(appareil) || own?.kind === 'serrure';
   const gate = (/^ha:cover\./.test(appareil) || own?.kind === 'volet') && /garage|portail|porte|gate|door/i.test(`${appareil} ${own?.name ?? ''}`);
-  return lock ? `déverrouiller ${own?.name ?? appareil.replace(/^ha:/, '')}` : gate ? `ouvrir ${own?.name ?? appareil.replace(/^ha:/, '')}` : undefined;
+  // Le texte commence par GRAVE_MAISON : Heimdall refuse alors d'office depuis une tâche automatique, un invité, un contenu extérieur.
+  return lock ? `${GRAVE_MAISON} : déverrouiller ${own?.name ?? appareil.replace(/^ha:/, '')}` : gate ? `${GRAVE_MAISON} : ouvrir ${own?.name ?? appareil.replace(/^ha:/, '')}` : undefined;
 }
 async function set(ctx: ModCtx, appareil: string, valeur: string): Promise<string> {
   if (appareil.startsWith('ha:')) {

@@ -12,6 +12,8 @@ import { dirname, isAbsolute, relative, sep } from 'node:path';
 /** Dossiers où atterrissent les fichiers venus de l'extérieur (Telegram, téléchargements). */
 export const isExternal = (rel: string) => /^(inbox|telechargements|téléchargements|downloads)(\/|$)/i.test(rel);
 import { assertPublicUrl, isPrivateHost, toolPath } from '../heimdall/policy.ts';
+import { cheminReelRelatif, ecrireReference, estNoyau } from '../heimdall/noyau.ts';
+import { APP_ROOT, backupFile, tracerReecriture } from './self.ts';
 
 /** Adresse d'un service de métadonnées cloud (vol d'identifiants) : refusée partout. */
 export const isMetadataHost = (h: string) => /^(::ffff:)?169\.254\.169\.254$|^fd00:ec2::254$/i.test(h) || h === 'metadata.google.internal';
@@ -25,7 +27,7 @@ function assertReachableUrl(raw: string): URL {
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { nextRun } from '../cron/cron.ts';
 import { isReminderJob, nags, parseRepeat, parseWhen, reminderText, REMINDER_PREFIX, whenFr } from '../cron/reminders.ts';
-import { bool, num, obj, str, type Tool } from './registry.ts';
+import { bool, num, obj, str, type Tool, type ToolContext } from './registry.ts';
 
 const MAX_OUT = 30_000;
 const clip = (s: string, n = MAX_OUT) => (s.length > n ? `${s.slice(0, n)}\n… [${s.length - n} caractères tronqués]` : s);
@@ -70,10 +72,12 @@ export const fsWrite: Tool = {
   schema: obj({ path: str('chemin relatif'), content: str('contenu complet') }, ['path', 'content']),
   summarize: (i) => `écrire ${s(i.path)} (${s(i.content).length} caractères)`,
   async run(i, ctx) {
-    const p = toolPath(ctx, s(i.path));
+    const p = toolPath(ctx, s(i.path), { ecriture: true });
     mkdirSync(dirname(p), { recursive: true });
     rememberBefore(ctx.home, ctx.sessionId, p, 'fs_write');
+    sauvegarderSiCode(ctx, p, 'fs_write');
     writeFileSync(p, s(i.content));
+    tracerSiCode(ctx, p, 'fs_write');
     return `Écrit : ${shown(ctx.workspace, p)}`;
   },
 };
@@ -85,15 +89,31 @@ export const fsEdit: Tool = {
   schema: obj({ path: str('chemin relatif'), old: str('texte exact à remplacer'), new: str('nouveau texte') }, ['path', 'old', 'new']),
   summarize: (i) => `modifier ${s(i.path)}`,
   async run(i, ctx) {
-    const p = toolPath(ctx, s(i.path));
+    const p = toolPath(ctx, s(i.path), { ecriture: true });
     const text = readFileSync(p, 'utf8');
     const count = text.split(s(i.old)).length - 1;
     if (count !== 1) return `Échec : le passage apparaît ${count} fois (il doit être unique).`;
     rememberBefore(ctx.home, ctx.sessionId, p, 'fs_edit');
+    sauvegarderSiCode(ctx, p, 'fs_edit');
     writeFileSync(p, text.replace(s(i.old), () => s(i.new)));
+    tracerSiCode(ctx, p, 'fs_edit');
     return `Modifié : ${shown(ctx.workspace, p)}`;
   },
 };
+
+// Une écriture dans le dossier d'Odin est une réécriture de son code : même sauvegarde (self_rollback) et même trace
+// que self_edit ; la validation est décidée par Heimdall (même règle, src/heimdall/executer.ts).
+export function sauvegarderSiCode(ctx: ToolContext, p: string, outil: string): void {
+  const rel = cheminReelRelatif(p, APP_ROOT);
+  if (rel === undefined || !ctx.home) return;
+  backupFile(ctx.home, APP_ROOT, rel, `${new Date().toISOString().slice(0, 10)}-${outil}-${ctx.sessionId.replace(/[^\w-]/g, '_').slice(0, 30)}`);
+}
+export function tracerSiCode(ctx: ToolContext, p: string, outil: string): void {
+  const rel = cheminReelRelatif(p, APP_ROOT);
+  if (rel === undefined) return;
+  tracerReecriture(ctx, { outil, fichier: rel, avant: '', apres: '', pourquoi: '', lot: '', noyau: estNoyau(rel) });
+  if (estNoyau(rel)) ecrireReference(APP_ROOT); // n'arrive qu'après ta validation (Heimdall)
+}
 
 /** Environnement du shell : on retire tout ce qui ressemble à un secret. */
 export function safeEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
@@ -323,6 +343,13 @@ export const scheduleTask: Tool = {
     const id = `job_${Date.now().toString(36)}`;
     // Créée après lecture d'un contenu non fiable : la tâche garde cette origine et tournera sans confiance.
     ctx.muninn.addJob({ id, cron: s(i.cron), prompt: s(i.prompt), channel: ctx.channel, peer: ctx.peer, next_run: next.getTime(), tainted: ctx.isTainted() ? 1 : 0 });
+    try { ctx.muninn.setKv(`tache-auteur:${id}`, JSON.stringify({ ...(ctx.auteur ?? { role: 'guest', nom: '?' }), prive: ctx.muninn.privateMode === true, ...(ctx.automatique ? { proposee: true } : {}) })); } catch { /* sans auteur : traitée comme celle d'un invité */ }
+    // Proposée par Odin seul (tâche automatique ; décision du 17/11 : « le sans-risque seul, le reste en attente ») :
+    // rangée INACTIVE, elle ne part jamais avant que le propriétaire l'active lui-même.
+    if (ctx.automatique) {
+      ctx.muninn.setJobEnabled(id, false);
+      return `Routine ${id} préparée EN ATTENTE : « ${s(i.prompt).slice(0, 120)} » (${s(i.cron)}). Elle est inactive et ne partira pas tant que le propriétaire ne l'a pas activée (Talos → tâches → reprendre). Dis-le dans ton rapport : « j'ai préparé la routine … : active-la si tu es d'accord ».`;
+    }
     return `Tâche ${id} planifiée. Prochaine exécution : ${next.toLocaleString('fr-FR')}.`;
   },
 };

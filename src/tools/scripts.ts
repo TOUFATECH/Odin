@@ -304,6 +304,7 @@ export const scriptSchedule: Tool = {
     const next = nextRun(s(i.cron), new Date());
     const id = `job_${Date.now().toString(36)}`;
     ctx.muninn.addJob({ id, cron: s(i.cron), prompt: scriptJob({ name: s(i.name), args: s(i.args), where: s(i.where) || 'local', report: Boolean(i.always_report) }), channel: ctx.channel, peer: ctx.peer, next_run: next.getTime(), tainted: ctx.isTainted() ? 1 : 0 });
+    try { ctx.muninn.setKv(`tache-auteur:${id}`, JSON.stringify({ ...(ctx.auteur ?? { role: 'guest', nom: '?' }), prive: ctx.muninn.privateMode === true })); } catch { /* sans auteur : traitée comme celle d'un invité */ }
     return `Script « ${s(i.name)} » programmé (${id}). Prochaine exécution : ${next.toLocaleString('fr-FR')}.`;
   },
 };
@@ -327,4 +328,10 @@ export function selfIdentity(ifaces = networkInterfaces(), host = hostname()): {
   try { if (!container && /docker|containerd/.test(readFileSync('/proc/1/cgroup', 'utf8'))) container = 'conteneur Docker'; } catch { /* rien */ }
   return { hostname: host, ips: ips.sort((a, b) => Number(a.v6) - Number(b.v6)), container };
 }
-export const identityLine = (id = selfIdentity()) => `Ta machine : nom d'hôte « ${id.hostname} »${id.container ? ` (${id.container})` : ''}, adresse(s) IP : ${id.ips.filter((x) => !x.v6).map((x) => `${x.ip} (${x.iface})`).join(', ') || 'aucune IPv4'}${id.ips.some((x) => x.v6) ? ` ; IPv6 : ${id.ips.filter((x) => x.v6).slice(0, 2).map((x) => x.ip).join(', ')}` : ''}. Quand on parle de « toi », « Odin » ou « ta machine », c'est elle.`;
+// Le nom d'hôte et les adresses changent rarement : gardés 60 s (avant : interface réseau et /proc relus à chaque tour).
+let identiteGardee: { at: number; id: ReturnType<typeof selfIdentity> } | undefined;
+export function identiteRecente(maintenant = Date.now()): ReturnType<typeof selfIdentity> {
+  if (!identiteGardee || maintenant - identiteGardee.at > 60_000) identiteGardee = { at: maintenant, id: selfIdentity() };
+  return identiteGardee.id;
+}
+export const identityLine = (id = identiteRecente()) => `Ta machine : nom d'hôte « ${id.hostname} »${id.container ? ` (${id.container})` : ''}, adresse(s) IP : ${id.ips.filter((x) => !x.v6).map((x) => `${x.ip} (${x.iface})`).join(', ') || 'aucune IPv4'}${id.ips.some((x) => x.v6) ? ` ; IPv6 : ${id.ips.filter((x) => x.v6).slice(0, 2).map((x) => x.ip).join(', ')}` : ''}. Quand on parle de « toi », « Odin » ou « ta machine », c'est elle.`;

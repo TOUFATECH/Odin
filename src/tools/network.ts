@@ -78,6 +78,8 @@ export const netRename: Tool = {
   summarize: (i) => `renommer l'appareil ${s(i.ip)} en « ${s(i.name)} »`,
   async run(i, ctx) {
     const d = ctx.inventory?.get(s(i.ip)); if (!d) return `Appareil inconnu : ${s(i.ip)}`;
+    // Seul, en tâche automatique : je nomme un appareil encore sans nom, jamais je ne remplace un nom déjà donné.
+    if (ctx.automatique && String((d as { label?: string }).label ?? '').trim()) return `Appareil ${d.ip} déjà nommé « ${(d as { label?: string }).label} » : je ne change pas un nom seul.`;
     ctx.inventory!.setLabel(d.id, s(i.name).slice(0, 60));
     return `Appareil ${d.ip} renommé « ${s(i.name).slice(0, 60)} ».`;
   },

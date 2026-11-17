@@ -30,6 +30,12 @@ export interface ToolContext {
   redactor: Redactor;
   signal: AbortSignal;
   isTainted(): boolean;
+  /** Qui a demandé ce tour (le propriétaire, un membre, un invité) : une tâche programmée le garde (gateway). */
+  auteur?: { role: 'owner' | 'member' | 'guest'; nom: string; autonomie?: 'prudent' | 'equilibre' | 'autonome' };
+  /** Tour lancé par Odin seul (travail continu, ronde, veille) : ce qu'il écrit porte cette provenance. */
+  automatique?: boolean;
+  /** Dire où en est un outil long (« je lis 8 sources… ») : l'étape part vers l'interface pendant qu'il travaille. */
+  etape?(texte: string): void;
   /** Mímir (Jev) : jugements typés, si activé. */
   mimir?: Mimir;
   /** Inventaire du réseau (Horus). */

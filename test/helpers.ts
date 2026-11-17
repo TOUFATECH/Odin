@@ -7,6 +7,7 @@ import { MockProvider, type Script } from '../src/providers/mock.ts';
 import { createOdin, type Odin } from '../src/runtime.ts';
 import type { OdinConfig } from '../src/config.ts';
 import type { Judge } from '../src/mimir/client.ts';
+import { verifierNoyau } from '../src/heimdall/noyau.ts';
 
 // Pendant les essais, Odin n'installe jamais la voix locale tout seul (compilation de Whisper, 500 Mo téléchargés
 // dans le vrai dossier de la machine) : un vocal sans rien de prêt reçoit une phrase claire, tout de suite.
@@ -19,6 +20,10 @@ export interface TestOdin extends Odin {
 }
 
 export function makeOdin(script: Script, opts: { approve?: boolean | 'always'; config?: (c: OdinConfig) => OdinConfig; judge?: Judge } = {}): TestOdin {
+  // Un Odin d'essai bloque toute action engageante si un garde-fou diffère de sa référence : on le dit clairement ici,
+  // plutôt que de laisser l'essai échouer plus loin avec un message qui parle d'autre chose.
+  const ecarts = verifierNoyau().ecarts;
+  if (ecarts.length) throw new Error(`La référence du noyau est périmée (${ecarts.map((e) => e.fichier).join(', ')}) : lance « npm run noyau:empreintes » avant les essais.`);
   const home = mkdtempSync(join(tmpdir(), 'odin-test-'));
   const provider = new MockProvider(script);
   const approvals: ApprovalRequest[] = [];

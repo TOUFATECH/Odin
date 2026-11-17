@@ -56,7 +56,7 @@ test('installer malgré des alertes : Heimdall te demande toujours, même en aut
   try {
     await o.agent.run('installe x/y quand même', { sessionId: 's' });
     assert.equal(o.approvals.length, 1);
-    assert.match(o.approvals[0].reason, /GRAVE : installer un programme malgré des alertes/);
+    assert.match(o.approvals[0].reason, /GRAVE : lancer sur la machine d'Odin, sans cage, un dépôt venu d'un lien \(x\/y\).*malgré des alertes de sécurité/);
   } finally { o.cleanup(); }
 });
 

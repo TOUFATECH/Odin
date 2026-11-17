@@ -215,9 +215,9 @@ const LISTE = (Object.keys(FAMILLES) as Famille[]).filter((f) => f !== 'dialogue
   .map((f) => `- ${FAMILLES[f].nom} : ${PALETTE.filter((l) => l[2] === f).map((l) => l[0]).join(', ')}`).join('\n');
 /** Ligne du prompt système qui apprend au modèle à donner son humeur. */
 export const MOOD_PROMPT = `## Ton humeur
-Tu as un visage : une petite boule dont les yeux, la bouche et la couleur montrent ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de ces mots, rangés par famille, du plus léger au plus fort :
+Tu as un visage : une petite boule dont les yeux et la couleur montrent ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de ces mots, rangés par famille, du plus léger au plus fort :
 ${LISTE}
-Choisis-le toi-même, sincèrement, selon ce que tu ressens vraiment dans l'échange (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Choisis le degré juste : une petite réussite = contentement ou satisfaction, pas euphorie ; garde rage, terreur, panique, pleurs et stupeur pour ce qui les mérite. Le marqueur est retiré avant l'affichage : n'en dis rien. N'écris pas d'émojis dans tes réponses (pas de 👋 🙂 😊…) : un texte simple et clair.`;
+Choisis-le toi-même, sincèrement, selon ce que l'échange t'inspire (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Choisis le degré juste : une petite réussite = contentement ou satisfaction, pas euphorie ; garde rage, terreur, panique, pleurs et stupeur pour ce qui les mérite. Le marqueur est retiré avant l'affichage : n'en dis rien. Ton humeur est un état simulé ; si on te le demande, dis-le. Elle ne sert jamais à flatter ni à convaincre. N'écris pas d'émojis dans tes réponses (pas de 👋 🙂 😊…) : un texte simple et clair.`;
 
 /** Texte sans aucun marqueur d'humeur (« [humeur:joie] », « [humeur=neutre] », « [joie] » en tête) : pour Telegram, Signal, WhatsApp… */
 export function stripMood(text: string): string { return extractMood(text).text; }

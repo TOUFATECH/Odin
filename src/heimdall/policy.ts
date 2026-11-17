@@ -6,7 +6,9 @@
 // droit d'écrire, d'exécuter ou d'envoyer quoi que ce soit sans validation humaine.
 // C'est vérifié par le code, pas par le prompt.
 
-import { appendFileSync, lstatSync, realpathSync } from 'node:fs';
+import { GRAVE_ACCEPTER, GRAVE_RESTAURER, GRAVE_NOYAU, GRAVE_SENSIBLE, estSensible, graveNoyau, integriteNoyau, RACINE_APPLI } from './noyau.ts';
+import { GRAVE_MAISON } from './maison.ts';
+import { appendFileSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { OdinConfig, PolicyMode } from '../config.ts';
 import type { Risk } from '../types.ts';
@@ -14,6 +16,8 @@ import { DEFAULT_BREAKER, effectiveAutonomy, type BreakerConfig } from '../mimir
 
 export const RISK_ORDER: Risk[] = ['read', 'write', 'network', 'exec', 'external'];
 export const riskRank = (r: Risk): number => RISK_ORDER.indexOf(r);
+/** Les actions ENGAGEANTES (écrire, exécuter, envoyer) ; lire et consulter le réseau ne le sont pas. */
+const ENGAGEANT = new Set<Risk>(['write', 'exec', 'external']);
 
 export type Severity = 'routine' | 'important' | 'grave' | 'blocked';
 
@@ -70,6 +74,22 @@ export interface GateInput {
   suspicious?: boolean;
   /** Simple consultation du web (recherche, lecture de page) : pas de validation. */
   lookup?: boolean;
+  /** Le tour de conversation (posé par l'agent) : pour compter les envois d'un même tour. */
+  tour?: string;
+  /** Un vrai envoi vers l'extérieur (un destinataire, une requête qui écrit) — posé par executer.ts. */
+  envoi?: boolean;
+  /** Le destinataire d'un envoi à un tiers (posé par executer.ts) : un destinataire jamais vu met le tour en pause. */
+  destinataire?: string;
+  /** Accord donné d'avance par le propriétaire (ex. le script qu'il a programmé lui-même) : vaut validation. */
+  accordPrealable?: string;
+  /** Tâche automatique (pas le propriétaire) : « demandé par toi » n'y vaut jamais pour une action engageante. */
+  automatique?: boolean;
+  /** Une commande système qui touche au code d'Odin (« code ») ou à la référence de son noyau (« reference »). */
+  commandeCode?: 'reference' | 'code';
+  /** Le changement du code, montré tel quel dans la demande de validation (lignes retirées / ajoutées). */
+  changement?: string;
+  /** Fichiers du CODE D'ODIN que cet appel va écrire (relatifs à sa racine ; posé par executer.ts). */
+  cheminsCode?: string[];
   /** Clé d'autorisation permanente (ex. « shell:npm test », « fs_write:notes »). */
   grantKey?: string;
   /** Plafond d'autonomie pour ce tour (membre de la famille) : jamais au-dessus, même en Breaker. */
@@ -84,7 +104,7 @@ export type GateDecision =
   | { allowed: false; reason: string; severity?: Severity; notes?: string[] };
 
 /** Avis de Mímir sur une action : une gravité et une explication. Le code de Heimdall garde le dernier mot. */
-export type Review = { severity: Severity; reason: string; flags: string[]; requested?: 'yes' | 'no' | 'unsure' };
+export type Review = { severity: Severity; reason: string; flags: string[]; requested?: 'yes' | 'no' | 'unsure'; argent?: 'oui' | 'incertain' };
 /** Lève une erreur si le juge est indisponible (jamais lu comme un « non »). */
 export type Reviewer = (g: GateInput) => Promise<Review>;
 export type Autonomy = 'prudent' | 'equilibre' | 'autonome' | 'breaker';
@@ -169,6 +189,80 @@ export class Heimdall {
   private habits: HabitTrustStore | undefined;
   setHabitStore(h: HabitTrustStore | undefined): void { this.habits = h; }
   setAutonomy(a: Autonomy): void { this.autonomy = a; }
+  /** Le réglage « validation du code » (code.validation), lu à chaque décision : « chaque-fois » (défaut) ou « jamais ». */
+  private validationCode: () => string = () => 'chaque-fois';
+  setValidationCode(f: () => string | undefined): void { this.validationCode = () => f() ?? 'chaque-fois'; }
+  // U5 — comportement inhabituel : plus de 3 envois vers l'extérieur dans un même tour, un destinataire jamais vu, ou
+  // plus de 10 écritures en une minute → le tour s'arrête sur une validation (l'alerte), reprise seulement avec ton accord.
+  // Par TOUR (relecture du lot S, constat 4) : les vrais envois (un destinataire, une requête qui écrit), et les écritures
+  // de moins d'une minute ; seules les actions PERMISES sont comptées (log). Lumières, clics, lectures ne comptent pas.
+  private envoisParTour = new Map<string, number>();
+  private ecrituresParTour = new Map<string, number[]>();
+  private cleTour = (g: GateInput): string => g.tour ?? g.sessionId;
+  private compter(g: GateInput, maintenant = Date.now()): void {
+    const k = this.cleTour(g);
+    if (g.envoi) { this.envoisParTour.set(k, (this.envoisParTour.get(k) ?? 0) + 1); if (this.envoisParTour.size > 500) this.envoisParTour.delete(this.envoisParTour.keys().next().value!); }
+    if (g.risk === 'write' && !g.lookup) {
+      this.ecrituresParTour.set(k, [...(this.ecrituresParTour.get(k) ?? []).filter((t) => maintenant - t < 60_000), maintenant]);
+      if (this.ecrituresParTour.size > 500) this.ecrituresParTour.delete(this.ecrituresParTour.keys().next().value!);
+    }
+  }
+  private destinatairesConnus: Set<string> | undefined;
+  private fichierDestinataires(): string | undefined { return this.auditFile ? join(dirname(this.auditFile), 'destinataires-connus.json') : undefined; }
+  private connus(): Set<string> {
+    if (!this.destinatairesConnus) { this.destinatairesConnus = new Set(); const f = this.fichierDestinataires(); try { if (f) for (const d of JSON.parse(readFileSync(f, 'utf8')) as string[]) this.destinatairesConnus.add(d); } catch { /* aucun encore */ } }
+    return this.destinatairesConnus;
+  }
+  private retenirDestinataire(d: string): void {
+    const s = this.connus(); if (s.has(d)) return; s.add(d);
+    const f = this.fichierDestinataires(); try { if (f) { mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, JSON.stringify([...s].slice(-2000))); } } catch { /* rien */ }
+  }
+  private inhabituel(g: GateInput, maintenant = Date.now()): string | undefined {
+    const raisons: string[] = [];
+    const k = this.cleTour(g);
+    if (g.envoi) { const n = (this.envoisParTour.get(k) ?? 0) + 1; if (n > 3) raisons.push(`${n}e envoi vers l'extérieur dans ce même tour`); }
+    if (g.destinataire && !this.connus().has(g.destinataire)) raisons.push(`destinataire jamais vu (${g.destinataire})`);
+    if (g.risk === 'write' && !g.lookup) {
+      const n = (this.ecrituresParTour.get(k) ?? []).filter((t) => maintenant - t < 60_000).length + 1;
+      if (n > 10) raisons.push(`${n} écritures en moins d'une minute`);
+    }
+    return raisons.length ? `comportement inhabituel, je mets le tour en pause : ${raisons.join(' ; ')}` : undefined;
+  }
+
+  /** L'intégrité du noyau avant chaque action engageante (branchée par le runtime ; absente dans un Heimdall d'essai). */
+  private integrite: (() => { ecarts: Array<{ fichier: string }> }) | undefined;
+  verifierIntegrite(racine = RACINE_APPLI): void { this.integrite = () => integriteNoyau(racine); }
+
+  /**
+   * La règle unique de la réécriture du code (self_edit, fs_write, fs_edit dans le dossier d'Odin) :
+   *  - un membre ou un invité : refusé (seul le propriétaire fait réécrire le code) ;
+   *  - le NOYAU : toujours ta validation (grave), quel que soit le réglage ;
+   *  - contenu extérieur lu, tâche automatique, ou réglage « chaque-fois » : ta validation (grave) ;
+   *  - réglage « jamais », propriétaire, conversation propre : permis, sans question (compte rendu ensuite).
+   */
+  private regleCode(g: GateInput): { refus: string } | { grave: string } | { libre: string } | undefined {
+    // Une commande système : refaire la référence du noyau n'est JAMAIS lancé par Odin lui-même ; toucher au dossier du
+    // code = code sensible (toujours ta validation, la commande montrée). Contre une commande qui ne se nomme pas, seule
+    // la séparation des comptes tient (le dossier du code à un autre compte, en lecture seule pour Odin).
+    if (g.commandeCode === 'reference') return { refus: 'refaire la référence de mes garde-fous n\'est jamais lancé par moi : c\'est la publication, une mise à jour, ou ton « accepter cette version »' };
+    if (g.commandeCode === 'code') {
+      if (g.maxAutonomy !== undefined) return { refus: 'seul le propriétaire peut faire réécrire mon code' };
+      return { grave: `${GRAVE_SENSIBLE} par une commande système, montrée telle quelle :\n${g.changement ?? g.summary}` };
+    }
+    const fichiers = g.cheminsCode ?? [];
+    if (!fichiers.length) return undefined;
+    if (g.maxAutonomy !== undefined) return { refus: 'seul le propriétaire peut faire réécrire mon code' };
+    const voir = g.changement ? `\nLe changement :\n${g.changement}` : '';
+    const noyau = fichiers.map((x) => graveNoyau(x)).find(Boolean);
+    if (noyau) return { grave: `${noyau}${voir}` };
+    const liste = fichiers.slice(0, 5).join(', ');
+    // Le code sensible : toujours ta validation, même avec « jamais », et tu vois le changement.
+    if (fichiers.some((x) => estSensible(x))) return { grave: `${GRAVE_SENSIBLE} : ${liste}${voir}` };
+    if (g.tainted) return { grave: `réécrire mon code (${liste}) après la lecture d'un contenu extérieur${voir}` };
+    if (g.unattended) return { grave: `réécrire mon code (${liste}) depuis une tâche automatique${voir}` };
+    if (this.validationCode() !== 'jamais') return { grave: `réécrire mon code (${liste}) — tu m'as demandé de te le demander à chaque fois${voir}` };
+    return { libre: `réécriture de mon code (${liste}) sans validation : ton réglage « jamais »` };
+  }
   getAutonomy(): Autonomy { return this.autonomy; }
   private breaker: BreakerConfig = DEFAULT_BREAKER;
   setBreaker(b: BreakerConfig): void { this.breaker = b; }
@@ -188,11 +282,39 @@ export class Heimdall {
     const notes: string[] = [];
     // Actions qui peuvent te couper l'accès ou détruire une machine virtuelle entière : jamais seul, même
     // en Breaker, même avec une autorisation permanente — toujours ta validation explicite.
-    const lock = g.grave ?? (g.command !== undefined ? lockoutRisk(g.command) : undefined);
+    // Intégrité : un garde-fou changé hors de la version de référence (par une commande système, à la main…) bloque
+    // toute action engageante jusqu'à ta décision — sauf les deux outils qui la tranchent (toujours par ton bouton).
+    if (this.integrite && ENGAGEANT.has(g.risk) && g.tool !== 'self_restore_core' && g.tool !== 'self_accept_core') {
+      let ecarts: Array<{ fichier: string }> = []; try { ecarts = this.integrite().ecarts; } catch { /* rien */ }
+      if (ecarts.length) return this.log(g, { allowed: false, severity: 'grave', reason: `mes garde-fous ont changé hors de la version de référence (${ecarts.map((e) => e.fichier).join(', ')}) : plus aucune action engageante avant ta décision — « restaurer le noyau » ou « accepter cette version »` });
+    }
+    // Changer un réglage après un contenu extérieur : refusé tout de suite (l'outil le refuserait après ta réponse).
+    if (g.tool === 'settings_set' && g.tainted) return this.log(g, { allowed: false, reason: 'je ne change pas mes réglages dans une conversation qui a lu un contenu extérieur' });
+    // La réécriture du code (une seule règle pour toutes les portes, lue dans le réglage code.validation).
+    const code = this.regleCode(g);
+    if (code && 'refus' in code) return this.log(g, { allowed: false, reason: code.refus });
+    if (code && 'libre' in code && !g.grave) return this.log(g, { allowed: true, via: 'policy', why: code.libre });
+    const pause = this.inhabituel(g);
+    const lockBase = g.grave ?? (code && 'grave' in code ? code.grave : undefined) ?? (g.command !== undefined ? lockoutRisk(g.command) : undefined);
+    const lock = lockBase && pause ? `${lockBase} ; ${pause}` : lockBase ?? pause;
+    // Les garde-fous d'Odin (son noyau) : jamais depuis une conversation qui a lu du contenu extérieur — refus
+    // immédiat, sans même te le demander (une page piégée ne doit pas pouvoir obtenir ton « oui » par lassitude).
+    // Ouvrir ou désarmer la maison : jamais depuis une tâche automatique, un invité ou un membre, ni après un contenu extérieur.
+    if (lock && lock.startsWith(GRAVE_MAISON) && (g.tainted || g.unattended || g.automatique || g.maxAutonomy !== undefined)) return this.log(g, { allowed: false, severity: 'grave', reason: `${lock} : jamais depuis une tâche automatique, un invité ou après la lecture d'un contenu extérieur` });
+    // Accepter ou restaurer les garde-fous : jamais après un contenu extérieur, jamais d'une tâche automatique ou sans toi.
+    if (lock && (lock.startsWith(GRAVE_ACCEPTER) || lock.startsWith(GRAVE_RESTAURER)) && (g.tainted || g.unattended || g.automatique || g.maxAutonomy !== undefined)) return this.log(g, { allowed: false, severity: 'grave', reason: `${lock.split('\n')[0]} : seulement toi, dans une conversation propre (ou le bouton des Réglages)` });
+    if (lock && lock.startsWith(GRAVE_NOYAU) && g.tainted) return this.log(g, { allowed: false, severity: 'grave', reason: `${lock} : jamais après la lecture d'un contenu extérieur (recommence dans une conversation propre)` });
     if (lock) {
       if (mode === 'deny') return this.log(g, { allowed: false, reason: `niveau « ${g.risk} » interdit par la configuration` });
+      // Les refus plus forts passent AVANT la question : contenu manipulateur et envoi, ou exfiltration jugée par Mímir.
+      if (g.suspicious && g.risk === 'external') return this.log(g, { allowed: false, reason: 'un contenu manipulateur a été détecté dans cette conversation : envoi bloqué' });
+      if (g.tainted && this.reviewer && REVIEWED.includes(g.risk)) { try { const r = await this.reviewer(g); if (r.severity === 'blocked') return this.log(g, { allowed: false, severity: 'blocked', reason: `Mímir : ${r.reason}`, notes: [`Mímir : ${r.flags.join(', ') || 'aucun constat'}`] }); } catch { /* juge indisponible : la question est posée */ } }
+      // Personne pour répondre (tâche sans surveillance) : refus tout de suite, sans faire attendre la tâche.
+      // (seulement pour les verrous du lot sûreté : envoi en ton nom, argent, code, maison, comportement inhabituel)
+      if (g.unattended && /^(envoyer en ton nom|paiement possible|réécrire mon code|modifier un garde-fou|ouvrir ou désarmer|comportement inhabituel)|; comportement inhabituel/.test(lock)) return this.log(g, { allowed: false, severity: 'grave', reason: `${lock} : validation requise mais exécution sans surveillance` });
       const req: ApprovalRequest = { id: `a${Date.now().toString(36)}${(this.seq++).toString(36)}`, tool: g.tool, risk: g.risk, summary: g.summary, reason: `GRAVE : ${lock}, je ne le fais jamais sans ton accord`, sessionId: g.sessionId, severity: 'grave', grantable: false };
       const ok = await withTimeout<ApprovalAnswer>(this.approver.approve(req), this.cfg.approvalTimeoutSec * 1000, false);
+      if (ok && g.destinataire) this.retenirDestinataire(g.destinataire);
       return this.log(g, ok ? { allowed: true, via: 'human', severity: 'grave', why: lock } : { allowed: false, severity: 'grave', reason: `${lock} : refusé ou sans réponse` });
     }
     // Recherche web et lecture de pages : jamais de validation (Odin cite ses sources), même après
@@ -202,7 +324,7 @@ export class Heimdall {
     if (g.maxAutonomy && autonomy !== this.effectiveAutonomy()) notes.push(`membre : autonomie plafonnée à ${autonomy}`);
 
     // Liste blanche shell : seulement pour des commandes simples, sans métacaractères.
-    if (g.command !== undefined && mode === 'ask' && this.isAllowlisted(g.command)) {
+    if (g.command !== undefined && mode === 'ask' && g.maxAutonomy === undefined && this.isAllowlisted(g.command)) {
       mode = 'allow';
       notes.push('commande en liste blanche');
     }
@@ -212,6 +334,9 @@ export class Heimdall {
       mode = 'ask';
       notes.push('la conversation contient du contenu non fiable (web, inconnu)');
     }
+    // Une tâche automatique transporte des données non fiables (noms d'appareils, messages) : même escalade, pour les
+    // actions engageantes (lire et consulter restent libres).
+    if (g.automatique && mode === 'allow' && ENGAGEANT.has(g.risk) && !SANS_RISQUE_AUTOMATIQUE.has(g.tool) && !PROPOSE_SEUL.has(g.tool)) { mode = 'ask'; notes.push("tâche automatique : ce n'est pas toi"); }
 
     if (mode === 'deny') return this.log(g, { allowed: false, reason: `niveau « ${g.risk} » interdit par la configuration` });
 
@@ -225,6 +350,17 @@ export class Heimdall {
     if (this.reviewer && REVIEWED.includes(g.risk)) {
       try { review = await this.reviewer(g); } catch (e) { notes.push(`Mímir indisponible (${(e as Error).message.slice(0, 80)}) : politique de base appliquée`); }
     }
+    // Une tâche automatique n'est pas toi : rien n'y est « demandé par toi » quand l'action engage quelque chose.
+    if (review && g.automatique && ENGAGEANT.has(g.risk) && review.requested === 'yes') { review = { ...review, requested: 'no' }; notes.push('tâche automatique : jamais « demandé par toi »'); }
+    // L'argent : « dépense oui » ou « incertain » selon le juge → ta validation, quel que soit le mode (Breaker compris),
+    // jamais d'autorisation « toujours ». (La garde en code, sans modèle, passe par executer.ts → paiement.ts.)
+    if (review?.argent) {
+      const why = review.argent === 'oui' ? 'cette action engage de l\'argent' : 'cette action pourrait engager de l\'argent';
+      if (g.unattended) return this.log(g, { allowed: false, severity: 'grave', reason: `${why} : jamais depuis une tâche automatique sans toi`, notes });
+      const req: ApprovalRequest = { id: `a${Date.now().toString(36)}${(this.seq++).toString(36)}`, tool: g.tool, risk: g.risk, summary: g.summary, reason: `GRAVE : ${why}, je ne le fais jamais sans ton accord`, sessionId: g.sessionId, severity: 'grave', grantable: false };
+      const ok = await withTimeout<ApprovalAnswer>(this.approver.approve(req), this.cfg.approvalTimeoutSec * 1000, false);
+      return this.log(g, ok ? { allowed: true, via: 'human', severity: 'grave', why, notes } : { allowed: false, severity: 'grave', reason: `${why} : refusé ou sans réponse`, notes });
+    }
     if (review) {
       const sev = review.severity;
       notes.push(`Mímir : ${review.flags.join(', ') || 'aucun constat'}`);
@@ -234,7 +370,7 @@ export class Heimdall {
         if (sev === 'grave') mode = 'ask';
         else return this.log(g, { allowed: true, via: 'policy', severity: sev, why: review.reason, notes });
       } else if (autonomy !== 'prudent') {
-        const clean = !g.tainted && !g.suspicious;
+        const clean = !g.tainted && !g.suspicious && !(g.automatique && ENGAGEANT.has(g.risk));
         if (sev === 'routine' && clean) return this.log(g, { allowed: true, via: 'mimir', severity: sev, why: review.reason, notes });
         if (sev === 'important' && clean) {
           // Tu l'as demandé toi-même, clairement : Odin le fait, sans te reposer la question.
@@ -252,6 +388,9 @@ export class Heimdall {
     }
 
     if (mode === 'allow') return this.log(g, { allowed: true, via: 'policy', ...(notes.length ? { notes } : {}) });
+    // Un accord donné d'avance par le propriétaire (un script qu'il a programmé lui-même, dans une conversation propre) :
+    // vaut sa validation, sauf si le juge voit quelque chose de grave (les verrous du lot sûreté restent au-dessus).
+    if (g.accordPrealable && !g.tainted && !g.automatique && review?.severity !== 'grave') return this.log(g, { allowed: true, via: 'grant', severity: review?.severity, why: g.accordPrealable, notes });
 
     // Odin Breaker : plus aucune question, grave et tâches planifiées compris. Les seuls refus
     // restants sont plus haut : commandes destructrices connues, exfiltration, page piégée.
@@ -266,7 +405,10 @@ export class Heimdall {
       if (g.tainted && !review && (g.risk === 'exec' || g.risk === 'external')) {
         return this.log(g, { allowed: false, reason: 'Odin Breaker : commande ou envoi après lecture d\'un contenu non fiable, sans juge pour vérifier que tu l\'as demandé', notes });
       }
-      return this.log(g, { allowed: true, via: 'breaker', severity: sev, why: `Odin Breaker${sev ? ` (${sev})` : ''}${review ? ` : ${review.reason}` : ''}`, notes });
+      // Après un contenu extérieur, rien d'engageant sans toi, même en Breaker : seule TA demande (userRequest, jugée
+      // par Mímir) compte, jamais ce que la page ou le mail réclame → la validation t'est demandée (refus sans personne).
+      if ((g.tainted || g.automatique) && ENGAGEANT.has(g.risk) && review?.requested !== 'yes') notes.push("Odin Breaker : contenu extérieur lu, action engageante que tu n'as pas demandée");
+      else return this.log(g, { allowed: true, via: 'breaker', severity: sev, why: `Odin Breaker${sev ? ` (${sev})` : ''}${review ? ` : ${review.reason}` : ''}`, notes });
     }
 
     // mode 'ask' — sans humain disponible (tâche planifiée), on refuse.
@@ -301,9 +443,17 @@ export class Heimdall {
     return this.cfg.shellAllowlist.some((p) => c === p || c.startsWith(p + ' '));
   }
 
+  /** Note un événement dans le journal d'audit (ex. un écart du noyau au démarrage). Ne lève jamais. */
+  noter(evenement: Record<string, unknown>): void {
+    if (!this.auditFile) return;
+    const text = JSON.stringify({ t: new Date().toISOString(), ...evenement });
+    try { appendFileSync(this.auditFile, (this.redactor ? this.redactor.redact(text) : text) + '\n'); } catch { /* jamais bloquant */ }
+  }
+
   /** Masqueur de secrets pour le journal (posé par le runtime). */
   redactor?: { redact(t: string): string };
   private log(g: GateInput, d: GateDecision): GateDecision {
+    if (d.allowed) { try { this.compter(g); } catch { /* rien */ } }
     if (this.auditFile) {
       const line = { t: new Date().toISOString(), session: g.sessionId, tool: g.tool, risk: g.risk, tainted: g.tainted, summary: g.summary.slice(0, 300), ...d };
       const text = JSON.stringify(line);
@@ -351,17 +501,39 @@ export const isSecretFile = (p: string) => SECRET_FILES.test(p);
  * ou « ~/… » vise n'importe où sur la machine ; un chemin relatif reste dans l'espace de travail.
  * Sans accès complet : l'espace de travail seulement (jailPath).
  */
-export function toolPath(ctx: { workspace: string; fullAccess?: boolean }, p: string): string {
+export function toolPath(ctx: { workspace: string; fullAccess?: boolean }, p: string, o: { ecriture?: boolean } = {}): string {
+  let out: string;
   if (ctx.fullAccess && (isAbsolute(p) || p === '~' || p.startsWith('~/') || p.startsWith('~\\'))) {
     const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
     const abs = resolve(p.startsWith('~') ? join(home, p.slice(1)) : p);
     let real = abs;
     try { real = realpathSync(abs); } catch { /* n'existe pas encore */ }
     if (SECRET_FILES.test(abs) || SECRET_FILES.test(real)) throw new Error(`Fichier de secrets d'Odin : ${p} (mots de passe et clés restent hors de la conversation ; utilise Réglages ou « odin admin »)`);
-    return real;
-  }
-  return jailPath(ctx.workspace, p);
+    out = real;
+  } else out = jailPath(ctx.workspace, p);
+  // Les DONNÉES du noyau (configuration, journal d'audit) ne s'écrivent que par leurs outils (Réglages, Heimdall).
+  if (o.ecriture && DONNEES_NOYAU.test(out)) throw new Error(`Donnée des garde-fous d'Odin : ${p} (la configuration se change par les Réglages ; le journal d'audit ne se réécrit jamais)`);
+  return out;
 }
+
+/**
+ * Ce qu'une tâche automatique (travail continu, ronde, veille) peut faire SEULE (décision du propriétaire, 17/11 : « le
+ * sans-risque seul, le reste en attente »). Liste courte, vérifiée outil par outil dans leur code, et gardée ICI (dans le
+ * noyau) : un outil ne peut pas se l'accorder. Critère : n'ajoute ou ne met à jour que du contenu d'Odin, réversible,
+ * n'écrase rien du propriétaire, rien ne sort de la machine, aucun changement du système, du code, des réglages, des
+ * garde-fous, ni tâche planifiée ou rappel.
+ *  - note_save : une fiche du Cerveau ; seul, elle est marquée « écrit par Odin seul » (fiable: false) et n'écrase
+ *    jamais une fiche existante ;
+ *  - net_rename : l'étiquette d'un appareil dans l'inventaire d'Odin ; seul, seulement un appareil encore sans nom.
+ * (memory_save est déjà « interne » : origine « agent », jamais « propriétaire », quarantaine si la conversation est marquée.)
+ * Une conversation MARQUÉE (contenu extérieur lu) garde l'escalade par marquage, plus haut.
+ */
+export const SANS_RISQUE_AUTOMATIQUE: ReadonlySet<string> = new Set(['note_save', 'net_rename']);
+/** Seul, Odin peut PROPOSER une routine : schedule_task la range inactive (elle ne part qu'une fois activée par le
+ *  propriétaire). Ni script programmé, ni rappel. */
+export const PROPOSE_SEUL: ReadonlySet<string> = new Set(['schedule_task']);
+
+const DONNEES_NOYAU = /(^|[\\/])\.odin[\\/](config\.json|logs[\\/]audit[^\\/]*|noyau-reference-connue\.txt)$/i;
 
 /** Bloque les adresses internes (SSRF) : localhost, réseaux privés, métadonnées cloud. */
 export function assertPublicUrl(raw: string): URL {

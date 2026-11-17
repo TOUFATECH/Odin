@@ -7,7 +7,7 @@
 // Seulement des logiciels libres, par leurs dépôts officiels : rien n'est « craqué » ni contourné.
 
 import { execFile } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statfsSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statfsSync } from 'node:fs';
 import { arch, cpus, freemem, homedir, networkInterfaces, totalmem } from 'node:os';
 import { join } from 'node:path';
 import { installPlan, parseRepo, reputation, scanCode, type Finding, type RepoInfo } from '../apps/vet.ts';
@@ -15,6 +15,7 @@ import { wrapUntrusted } from '../heimdall/injection.ts';
 import { hasCommand } from '../learn/environment.ts';
 import { sudoRefused, withAdmin } from '../machines/access.ts';
 import { bool, obj, str, type Tool, type ToolContext } from './registry.ts';
+import { APP_ROOT } from './self.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const run = (cmd: string, args: string[], o: { cwd?: string; timeout?: number; env?: NodeJS.ProcessEnv; signal?: AbortSignal } = {}) => new Promise<{ ok: boolean; out: string; err: string }>((res) =>
@@ -92,6 +93,65 @@ export function dockerIn(dir: string, home: string, signal?: AbortSignal) {
   return (args: string[], timeout = 1_800_000) => run('docker', args, { cwd: dir, timeout, signal }).then(async (r) => (r.ok || !/permission denied/i.test(r.err) ? r : sh(`sudo docker ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`, { cwd: dir, home, timeout, signal })));
 }
 
+// ---------------- Avant la vraie cage (VM sur un pont dédié) : ce que le dépôt monte et ouvre ----------------
+// Tant que la cage n'existe pas, un dépôt venu d'un lien tourne SUR la machine d'Odin : le propriétaire voit d'abord, dans
+// la validation, ce que le fichier monte (dossiers), ouvre (ports) et demande (réseau de la machine, privilèges) ; le
+// dossier d'Odin, son code, le coffre, la racine et la commande de Docker ne sont JAMAIS montés.
+
+export interface Montages { dossiers: string[]; ports: string[]; reseauHote: boolean; privileges: string[]; interdits: string[] }
+
+/** Ce qu'un fichier Compose (ou un Dockerfile lancé par Odin) monte et ouvre. Lecture simple des lignes, sans paquet. Pur. */
+export function analyserCompose(texte: string, o: { dossierDepot: string; interditsHote: string[] }): Montages {
+  const m: Montages = { dossiers: [], ports: [], reseauHote: false, privileges: [], interdits: [] };
+  const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  const interdits = o.interditsHote.map(norm);
+  const lignes = texte.split(/\r?\n/);
+  let section = '';
+  for (const brut of lignes) {
+    const l = brut.replace(/#.*$/, '');
+    const cle = /^\s*([a-z_]+)\s*:\s*(.*)$/i.exec(l);
+    if (cle && !/^\s*-/.test(l)) {
+      section = cle[1].toLowerCase();
+      const v = cle[2].trim().replace(/^["']|["']$/g, '');
+      if (section === 'network_mode' && /^host$/i.test(v)) m.reseauHote = true;
+      if (section === 'privileged' && /^true$/i.test(v)) m.privileges.push('privileged (tous les droits sur la machine)');
+      if (section === 'pid' && /^host$/i.test(v)) m.privileges.push('pid: host (voit les programmes de la machine)');
+      if (section === 'ipc' && /^host$/i.test(v)) m.privileges.push('ipc: host');
+      if ((section === 'source' || section === 'device') && v && (/^[./~]|^[a-z]:[\\/]/i.test(v) || v.startsWith('/'))) m.dossiers.push(v);
+      continue;
+    }
+    const item = /^\s*-\s*["']?([^"'\n]+?)["']?\s*$/.exec(l);
+    if (!item) continue;
+    const x = item[1].trim();
+    if (section === 'volumes') { const hote = /^[a-z]:[\\/]/i.test(x) ? x.slice(0, 2) + x.slice(2).split(':')[0] : x.split(':')[0]; if (/^[./~]|^[a-z]:[\\/]/i.test(hote) || hote.startsWith('/')) m.dossiers.push(hote); }
+    else if (section === 'ports') m.ports.push(x);
+    else if (section === 'cap_add') m.privileges.push(`cap_add ${x}`);
+    else if (section === 'devices') m.privileges.push(`appareil ${x}`);
+  }
+  for (const d of m.dossiers) {
+    const brut = d.startsWith('~') ? join(homedir(), d.slice(1)) : /^[./]/.test(d) && !d.startsWith('/') ? join(o.dossierDepot, d) : d;
+    // Un lien posé dans le dépôt vers ailleurs : c'est sa cible qui compte.
+    let reel = brut; try { reel = realpathSync(brut); } catch { /* n'existe pas encore */ }
+    const abs = norm(reel);
+    const depot = norm(o.dossierDepot);
+    if (abs === depot || abs.startsWith(`${depot}/`)) continue; // un dossier DU dépôt lui-même (chemin déjà résolu, « .. » compris)
+    if (abs === '/' || /docker\.sock$/.test(abs) || abs === '/etc' || abs === norm(homedir()) || interdits.some((i) => abs === i || abs.startsWith(`${i}/`) || i.startsWith(`${abs}/`))) m.interdits.push(d);
+  }
+  return m;
+}
+
+/** Ce que le propriétaire voit avant de lancer (et l'empreinte qui prouve qu'il l'a vu). */
+export function resumeMontages(m: Montages): string {
+  return [
+    `dossiers de la machine montés : ${m.dossiers.length ? m.dossiers.join(', ') : 'aucun'}`,
+    `ports ouverts : ${m.ports.length ? m.ports.join(', ') : 'aucun'}`,
+    `réseau : ${m.reseauHote ? 'celui de la machine (network_mode: host) : tout le réseau de la maison' : 'réseau Docker, mais la maison reste joignable (pas de cage)'}`,
+    `privilèges : ${m.privileges.length ? m.privileges.join(', ') : 'aucun'}`,
+  ].join(' ; ');
+}
+/** Ce qui a été montré pour chaque dépôt (la validation de Heimdall le reprend tel quel). */
+const montagesVus = new Map<string, string>();
+
 async function install(v: Vetting, ctx: ToolContext): Promise<string> {
   const home = ctx.home ?? join(homedir(), '.odin');
   const docker = (args: string[], timeout = 1_800_000) => run('docker', args, { cwd: v.dir, timeout, signal: ctx.signal }).then(async (r) => (r.ok || !/permission denied/i.test(r.err) ? r : sh(`sudo docker ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`, { cwd: v.dir, home, timeout, signal: ctx.signal })));
@@ -107,6 +167,17 @@ async function install(v: Vetting, ctx: ToolContext): Promise<string> {
       const r = await docker(['run', '-d', '--restart', 'unless-stopped', '--name', `odin-${name}`, ...(port ? ['-p', `${port}:${port}`] : []), `odin/${name}`]);
       if (!r.ok) return `Lancement impossible : ${r.err.slice(-400)}`;
       return await readyMessage(v, port ? [port] : []);
+    }
+    // Avant tout lancement : ce que le Compose monte et ouvre ; jamais le dossier d'Odin, son code, le coffre.
+    // La configuration RÉSOLUE par Docker (variables, .env, include, fichier override, syntaxe en ligne, volumes nommés) :
+    // c'est elle qui est analysée ; si on ne peut pas l'obtenir, rien n'est lancé.
+    const conf = await docker(['compose', 'config'], 120_000);
+    if (!conf.ok || !conf.out.trim()) return `⛔ Je ne le lance pas : je n'ai pas pu lire sa configuration complète (docker compose config) : ${conf.err.slice(-300)}`;
+    {
+      const m = analyserCompose(conf.out, { dossierDepot: v.dir, interditsHote: [home, APP_ROOT] });
+      if (m.interdits.length) return `⛔ Je ne le lance pas : son fichier Compose monte ${m.interdits.join(', ')} (le dossier d'Odin, son code, le coffre, la racine ou Docker lui-même). Il faudra la cage (une machine virtuelle isolée).`;
+      const vu = resumeMontages(m);
+      if (montagesVus.get(v.repo) !== vu) { montagesVus.set(v.repo, vu); return `Avant de le lancer sur ma machine (sans cage pour l'instant), voici ce qu'il demande — ${vu}. Redis « installe-le » pour confirmer : je te le redemanderai avec ce détail.`; }
     }
     const up = await docker(['compose', 'up', '-d']);
     if (!up.ok) return `Lancement (docker compose up) impossible : ${up.err.slice(-500)}\nJe peux regarder le README et corriger la configuration (.env).`;
@@ -148,7 +219,13 @@ export const githubApp: Tool = {
   schema: obj({ action: { type: 'string', enum: ['chercher', 'analyser', 'installer', 'arreter'] }, cible: str('appli ou besoin à remplacer (chercher), ou dépôt « owner/nom » ou lien GitHub'), malgre_alertes: bool('installer malgré des alertes (pas critiques) : seulement si le propriétaire l\'a dit après avoir vu le rapport') }, ['action', 'cible']),
   summarize: (i) => `${s(i.action)} ${s(i.cible).slice(0, 100)}${i.malgre_alertes ? ' (malgré les alertes de sécurité)' : ''}`,
   lookup: (i) => s(i.action) === 'chercher' || s(i.action) === 'analyser',
-  grave: (i) => (i.malgre_alertes ? 'installer un programme malgré des alertes de sécurité dans son code' : undefined),
+  // Installer = lancer du code venu d'un lien SUR la machine d'Odin (pas encore de cage) : toujours ton accord, avec ce
+  // que le dépôt monte et ouvre quand il a déjà été lu.
+  grave: (i) => {
+    if (s(i.action) !== 'installer') return undefined;
+    const r = parseRepo(s(i.cible)); const vu = r ? montagesVus.get(`${r.owner}/${r.name}`) : undefined;
+    return `lancer sur la machine d'Odin, sans cage, un dépôt venu d'un lien (${s(i.cible).slice(0, 100)})${vu ? ` — ${vu}` : ''}${i.malgre_alertes ? ' — malgré des alertes de sécurité dans son code' : ''}`;
+  },
   async run(i, ctx) {
     const home = ctx.home ?? join(homedir(), '.odin');
     const action = s(i.action), cible = s(i.cible).trim();

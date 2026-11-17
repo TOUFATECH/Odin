@@ -81,6 +81,8 @@ export type AgentEvent =
   | { type: 'delta'; text: string }
   | { type: 'tool_start'; name: string; input: Record<string, unknown> }
   | { type: 'tool_end'; name: string; ok: boolean; preview: string }
+  /** Une étape d'un outil long (une recherche : « je lis 8 sources… »), pour que l'interface ne reste pas muette. */
+  | { type: 'etape'; texte: string }
   | { type: 'blocked'; name: string; reason: string }
   | { type: 'compacted'; removed: number }
   | { type: 'skill_proposed'; name: string; active?: boolean }

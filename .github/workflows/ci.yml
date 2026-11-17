@@ -17,6 +17,10 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm ci
+      # Les garde-fous d'Odin (son noyau) doivent être identiques à leur référence : une publication avec une référence
+      # périmée bloquerait toutes les actions engageantes chez le propriétaire. Elle échoue ICI, avant d'arriver chez lui.
+      - name: Référence du noyau à jour
+        run: node --disable-warning=ExperimentalWarning --test --test-name-pattern="référence du dépôt est à jour" test/noyau.test.ts
       - run: npm run typecheck
       - run: npm test
 

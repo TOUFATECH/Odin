@@ -205,23 +205,56 @@ export const mailRead: Tool = {
   },
 };
 
+/** Un dossier de corbeille ou d'indésirables (toutes langues courantes, dossiers spéciaux IMAP compris). Pur. */
+export function dossierSuppression(dossier: string): boolean {
+  const d = dossier.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return /(^|[/.\]\s])(trash|bin|deleted|deleted items|deleted messages|corbeille|elements supprimes|messages supprimes|papelera|eliminados|papierkorb|geloscht|cestino|lixeira|prullenbak|spam|junk|junk e-?mail|bulk|indesirables?|courrier indesirable|pourriel|correo no deseado|unerwunscht|posta indesiderata|корзина|удаленные|спам|垃圾邮件|已删除|ゴミ箱|迷惑メール|\\trash|\\junk)($|[/.\]\s])/i.test(` ${d} `) || /^\\(trash|junk)$/i.test(dossier.trim());
+}
+
+/** Les dossiers que le SERVEUR désigne comme corbeille ou indésirables (attributs \\Trash, \\Junk de LIST, RFC 6154),
+ *  appris à chaque rangement : la garde ne dépend plus seulement du nom (« Poubelle », « À supprimer »…). */
+export const dossiersSpeciaux = new Set<string>();
+/** Les dossiers spéciaux d'une réponse LIST. Pur. */
+export function speciauxDeList(rep: string): string[] {
+  const out: string[] = [];
+  for (const l of rep.split(/\r?\n/)) {
+    const m = /^\* LIST \(([^)]*)\) (?:"[^"]*"|NIL) (?:"((?:[^"\\]|\\.)*)"|(\S+))/i.exec(l);
+    if (m && /\\(Trash|Junk)\b/i.test(m[1])) out.push((m[2] ?? m[3] ?? '').replace(/\\"/g, '"'));
+  }
+  return out;
+}
+
 export const mailMove: Tool = {
   name: 'mail_move',
   description: 'Trie un e-mail : le déplace dans un dossier (ex. « Factures », « Archive », « [Gmail]/Corbeille »), ou le marque lu (folder vide, read=oui).',
   risk: 'write',
   schema: obj({ uid: str('numéro du message'), folder: str('dossier de destination'), from_folder: str('dossier d\'origine (INBOX par défaut)'), read: str('« oui » pour le marquer lu') }, ['uid']),
   summarize: (i) => `mail : ${s(i.folder) ? `ranger le message ${s(i.uid)} dans « ${s(i.folder)} »` : `marquer lu le message ${s(i.uid)}`}`,
+  // Supprimer (corbeille, indésirables) t'engage : ton accord, avec ce qui part et combien. Classer ou archiver reste libre.
+  grave: (i) => (s(i.folder) && (dossierSuppression(s(i.folder)) || dossiersSpeciaux.has(s(i.folder).toLowerCase())) ? `supprimer 1 e-mail (n° ${s(i.uid)}, du dossier « ${s(i.from_folder) || 'INBOX'} ») vers « ${s(i.folder)} »` : undefined),
   async run(i, ctx) {
     const uid = Number(i.uid);
     if (!Number.isInteger(uid)) return 'uid invalide.';
+    let refus = '';
+    // Déjà connue comme corbeille AVANT cet appel : la garde (grave) l'a vue, ta validation a été demandée.
+    const connueAvant = dossiersSpeciaux.has(s(i.folder).toLowerCase());
     await withImap(mconf(ctx), async (im) => {
+      // Les dossiers spéciaux du serveur : une corbeille au nom inattendu, pas encore connue → on ne déplace pas ; la garde
+      // la connaît maintenant, et la prochaine demande passera par ta validation.
+      if (s(i.folder)) {
+        try { for (const d of speciauxDeList(await im.cmd('LIST "" "*"'))) dossiersSpeciaux.add(d.toLowerCase()); } catch { /* serveur sans LIST détaillé */ }
+        if (dossiersSpeciaux.has(s(i.folder).toLowerCase()) && !dossierSuppression(s(i.folder)) && !connueAvant) { refus = `« ${s(i.folder)} » est la corbeille (ou les indésirables) de ton serveur : supprimer demande ton accord. Redemande-le, je te le demanderai.`; return; }
+      }
       await im.cmd(`SELECT ${q(s(i.from_folder) || 'INBOX')}`);
       if (/^o/i.test(s(i.read))) await im.cmd(`UID STORE ${uid} +FLAGS (\\Seen)`);
       if (s(i.folder)) {
         await im.cmd(`CREATE ${q(s(i.folder))}`).catch(() => '');
-        try { await im.cmd(`UID MOVE ${uid} ${q(s(i.folder))}`); } catch { await im.cmd(`UID COPY ${uid} ${q(s(i.folder))}`); await im.cmd(`UID STORE ${uid} +FLAGS (\\Deleted)`); await im.cmd('EXPUNGE'); }
+        // Sans MOVE : copie puis effacement de CE message seulement (UID EXPUNGE). Jamais un EXPUNGE général, qui supprimerait
+        // pour de bon tous les messages déjà marqués supprimés du dossier. Sans UID EXPUNGE : l'original reste marqué supprimé.
+        try { await im.cmd(`UID MOVE ${uid} ${q(s(i.folder))}`); } catch { await im.cmd(`UID COPY ${uid} ${q(s(i.folder))}`); await im.cmd(`UID STORE ${uid} +FLAGS (\\Deleted)`); await im.cmd(`UID EXPUNGE ${uid}`).catch(() => ''); }
       }
     });
+    if (refus) return refus;
     return s(i.folder) ? `Message ${uid} rangé dans « ${s(i.folder)} ».` : `Message ${uid} marqué lu.`;
   },
 };

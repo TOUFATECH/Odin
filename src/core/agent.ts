@@ -14,6 +14,8 @@ import { offlineAnswer, queueAsk } from './offline.ts';
 import { dirname } from 'node:path';
 import type { OdinConfig } from '../config.ts';
 import { scanForInjection, wrapUntrusted } from '../heimdall/injection.ts';
+/** Les formats de fichiers qui arrivent du dehors (mails, invitations, cartes, pages enregistrées, flux). */
+const FORMAT_EXTERIEUR = /\.(eml|msg|mbox|ics|ical|vcs|vcf|html?|mht(ml)?|xml|rss|atom|svg)$/i;
 import type { Mimir } from '../mimir/decisions.ts';
 import type { Heimdall } from '../heimdall/policy.ts';
 import type { Redactor } from '../heimdall/redact.ts';
@@ -51,6 +53,8 @@ import { relevantSkills } from '../yggdrasil/skills.ts';
 import { features, featuresPrompt } from '../features.ts';
 import type { Tier } from '../providers/router.ts';
 import { odinCommenceARepondre } from '../valhalla/mathesis/occupe.ts';
+import { debutReponse } from '../brain/nous/occupation.ts';
+import { deciderPuisLancer } from '../heimdall/executer.ts';
 
 export interface AgentDeps {
   cfg: OdinConfig;
@@ -94,8 +98,13 @@ export interface RunOptions {
   maxSteps?: number;
   /** Profondeur de délégation (0 = agent principal). */
   depth?: number;
+  /** (aide) le tour de la demande d'origine : les compteurs de comportement inhabituel la suivent. */
+  tourParent?: string;
   /** Démarrer la session déjà marquée (sous-agent d'un parent marqué). */
   startTainted?: boolean;
+  /** Tâche AUTOMATIQUE (travail continu, point du matin, ronde du soir…) : ce n'est pas le propriétaire. Seule cette
+   *  consigne fixe, écrite dans le code, compte comme sa demande ; les données transportées sont non fiables. */
+  automatique?: string;
   /** Répondre sans aucune IA (réglage « cerveau sans IA » pour la voix) : règles, mémoire et outils locaux seulement. */
   withoutAi?: boolean;
 }
@@ -145,6 +154,12 @@ export class Agent {
   constructor(deps: AgentDeps) { this.deps = deps; }
 
   async run(userText: string, o: RunOptions): Promise<RunResult> {
+    // Odin répond : tout ce qui calcule en arrière-plan (l'entraînement de Noûs) s'arrête dès maintenant.
+    const fin = debutReponse();
+    try { return await this.repondre(userText, o); } finally { fin(); }
+  }
+
+  private async repondre(userText: string, o: RunOptions): Promise<RunResult> {
     const { cfg } = this.deps;
     const emit = o.onEvent ?? (() => {});
     const channel = o.channel ?? 'cli';
@@ -197,7 +212,7 @@ export class Agent {
     // 1. Message entrant : celui d'un non-propriétaire est enveloppé et marque la session.
     // État du tour partagé avec l'exécution des outils.
     // Un contenu manipulateur vu plus tôt dans la conversation reste dans l'historique : la méfiance aussi.
-    const turn = { suspicious: muninn.getSession(o.sessionId)?.suspicious === 1, userRequest: o.ownerRequest ?? (trusted ? userText : '') };
+    const turn = { suspicious: muninn.getSession(o.sessionId)?.suspicious === 1, userRequest: o.automatique ?? o.ownerRequest ?? (trusted ? userText : ''), tour: o.tourParent ?? `${o.sessionId}#${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}` };
     let content = trusted ? userText : wrapUntrusted(`${channel}:${peer}`, userText);
     if (!trusted) {
       turn.suspicious = scanForInjection(userText).suspicious;
@@ -212,6 +227,10 @@ export class Agent {
     const ctx: ToolContext = {
       sessionId: o.sessionId, channel, peer, workspace: this.deps.workspace, home: this.deps.home, search: cfg.search, muninn, skills: this.deps.skills, redactor, signal,
       isTainted: () => tainted,
+      auteur: o.speaker ? { role: o.speaker.role, nom: o.speaker.name, autonomie: o.speaker.autonomy } : { role: 'owner', nom: 'propriétaire' },
+      automatique: o.automatique !== undefined,
+      // Les étapes d'un outil long vont à l'interface (texte court, jamais un contenu lu).
+      etape: (texte: string) => { try { emit({ type: 'etape', texte: String(texte ?? '').slice(0, 200) }); } catch { /* jamais bloquant */ } },
       proxmox: cfg.proxmox, careCfg: cfg, paths: this.deps.paths, homeAssistant: cfg.homeAssistant, venus: cfg.venus, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
       fullAccess: cfg.agent.fullAccess !== false && (!o.speaker || o.speaker.role === 'owner'),
       mimir,
@@ -226,7 +245,7 @@ export class Agent {
       },
       llm: async (system, user, maxTokens = 2000) => (await router.complete({ system, messages: [{ role: 'user', content: user }], tools: [], maxTokens, signal }, { ...routeOpts, purpose: 'recherche' })).text,
       send: this.deps.send,
-      delegate: depth === 0 ? (tasks) => { if (missionId) muninn.progressMission(missionId, { subagents: tasks.length }); return this.delegate(tasks, o, tainted, turn.userRequest); } : undefined,
+      delegate: depth === 0 ? (tasks) => { if (missionId) muninn.progressMission(missionId, { subagents: tasks.length }); return this.delegate(tasks, o, tainted, turn.userRequest, turn.tour); } : undefined,
     };
 
     // 1 bis. Sans IA d'abord : ce qu'Odin sait faire seul n'est pas confié à une IA (ni au juge, ni à la
@@ -316,8 +335,9 @@ export class Agent {
       })(),
       lifeMode: depth > 0 ? undefined : (() => { const lm = getMode(muninn); return lm.mode === 'disponible' ? undefined : lm.mode; })(),
       tasksInProgress: depth > 0 ? undefined : (() => { const ms = [...muninn.interruptedMissions(Date.now() - 7 * 86_400_000), ...muninn.stalledMissions(Date.now() - 3 * 86_400_000)].filter((m) => m.session_id !== o.sessionId).slice(0, 5); return ms.length ? ms.map((m) => `- ${m.goal.slice(0, 140)} → ${m.status}${m.last_tool ? ` (dernière étape : ${m.last_tool})` : ''}${m.result ? ` — ${m.result.replace(/\s+/g, ' ').slice(0, 160)}` : ''}`).join('\n') : undefined; })(),
-      pinned: muninn.pinned(),
-      recalled: recalledNow,
+      // Un membre ou un invité : rien de ce qu'Odin sait du propriétaire (épinglé, rappelé) n'entre dans le contexte.
+      pinned: owner ? muninn.pinned() : [],
+      recalled: owner ? recalledNow : [],
       // Le Cerveau est consulté avant de répondre : notes, fiches des applis, liens [[…]] suivis, applis utiles.
       // (Un membre de la maison n'a que les applis : les notes du propriétaire restent privées.)
       brain: depth > 0 ? undefined : (() => {
@@ -341,6 +361,7 @@ export class Agent {
       isSubAgent: depth > 0,
       breaker: Boolean(breaker),
       speaker: o.speaker,
+      codeValidation: cfg.code?.validation ?? 'chaque-fois',
       rights: this.deps.home ? rightsSummary(this.deps.home) : undefined,
       tone: activeProfile(cfg),
       genre: genreOdin(cfg),
@@ -390,9 +411,10 @@ export class Agent {
       let reply;
       try {
         // Réponse en direct : le texte s'affiche pendant que le modèle l'écrit (par paquets de ~80 ms).
-        let pend = '', flushT: ReturnType<typeof setTimeout> | undefined;
+        // Le PREMIER morceau part tout de suite (le premier mot n'attend plus 80 ms) ; les suivants sont regroupés.
+        let pend = '', flushT: ReturnType<typeof setTimeout> | undefined, premier = true;
         const flush = () => { flushT = undefined; if (pend) { emit({ type: 'delta', text: pend }); pend = ''; } };
-        const onDelta = depth === 0 && cfg.agent.stream !== false ? (d: string) => { pend += d; flushT ??= setTimeout(flush, 80); } : undefined;
+        const onDelta = depth === 0 && cfg.agent.stream !== false ? (d: string) => { if (premier) { premier = false; emit({ type: 'delta', text: d }); return; } pend += d; flushT ??= setTimeout(flush, 80); } : undefined;
         if ((this.deps.offlineOnly || o.withoutAi) && depth === 0) throw new Error(o.withoutAi ? 'réglé sans IA pour la voix' : 'aucun modèle configuré');
         reply = await jalons.mesureAsync(ETAPE.modele, () => router.complete({ system, messages: history, tools: specs, maxTokens: cfg.agent.maxTokens, signal, onDelta }, routeOpts));
         if (flushT) { clearTimeout(flushT); flush(); }
@@ -655,7 +677,7 @@ export class Agent {
     return undefined;
   }
 
-  private async execTool(call: ToolCall, ctx: ToolContext, o: RunOptions, isTainted: () => boolean, emit: (e: AgentEvent) => void, turn = { suspicious: false, userRequest: '' }, decisions: RunResult['decisions'] = []): Promise<Message> {
+  private async execTool(call: ToolCall, ctx: ToolContext, o: RunOptions, isTainted: () => boolean, emit: (e: AgentEvent) => void, turn: { suspicious: boolean; userRequest: string; tour?: string } = { suspicious: false, userRequest: '' }, decisions: RunResult['decisions'] = []): Promise<Message> {
     const base = { role: 'tool' as const, toolCallId: call.id, toolName: call.name };
     const tool = this.deps.tools.get(call.name);
     if (!tool) return { ...base, content: `Outil inconnu : ${call.name}` };
@@ -674,14 +696,11 @@ export class Agent {
       }
     }
 
-    const decision = await this.deps.heimdall.gate({
-      tool: tool.name, risk: tool.risk, sessionId: o.sessionId, tainted: isTainted(), unattended: o.unattended,
-      summary: tool.summarize?.(call.input) ?? `${tool.name} ${JSON.stringify(call.input).slice(0, 200)}`,
-      command: tool.command?.(call.input),
-      grave: tool.grave?.(call.input),
+    // Heimdall décide (src/heimdall/executer.ts : le seul chemin vers tool.run).
+    const { decision, lancer } = await deciderPuisLancer(this.deps.heimdall, tool, call.input, ctx, {
+      sessionId: o.sessionId, tainted: isTainted(), unattended: o.unattended, automatique: o.automatique !== undefined, tour: turn.tour,
       userRequest: turn.userRequest,
       suspicious: turn.suspicious,
-      lookup: tool.lookup?.(call.input) ?? false,
       maxAutonomy: o.speaker?.role === 'member' ? (o.speaker.autonomy ?? 'prudent') : undefined,
       grantKey: grantKeyFor(tool.name, call.input, tool.command?.(call.input)),
     });
@@ -690,17 +709,24 @@ export class Agent {
     if (!decision.allowed || decision.severity || decision.via !== 'policy') {
       emit({ type: 'decision', tool: tool.name, summary, allowed: decision.allowed, via: decision.allowed ? decision.via : undefined, severity: decision.severity, why: decision.allowed ? decision.why ?? '' : decision.reason });
     }
-    if (!decision.allowed) {
-      emit({ type: 'blocked', name: tool.name, reason: decision.reason });
-      return { ...base, content: `Action refusée par Heimdall : ${decision.reason}. Ne la retente pas telle quelle ; propose une alternative ou demande à l'utilisateur.` };
+    if (!decision.allowed || !lancer) {
+      const reason = decision.allowed ? 'décision incomplète' : decision.reason;
+      emit({ type: 'blocked', name: tool.name, reason });
+      return { ...base, content: `Action refusée par Heimdall : ${reason}. Ne la retente pas telle quelle ; propose une alternative ou demande à l'utilisateur.` };
     }
 
     emit({ type: 'tool_start', name: tool.name, input: call.input });
     try {
-      const raw = await tool.run(call.input, ctx);
+      const raw = await lancer();
       const r: ToolResult = typeof raw === 'string' ? { output: raw } : raw;
       let content = this.deps.redactor.redact(r.output);
-      const tainted = Boolean(tool.taints || r.tainted);
+      let tainted = Boolean(tool.taints || r.tainted);
+      // Un fichier lu peut venir de n'importe où (mail, invitation, page enregistrée) : s'il est d'un format venu du dehors
+      // ou s'il contient une consigne, il est « extérieur » comme une page web (enveloppé, la conversation marquée).
+      if (!tainted && (FORMAT_EXTERIEUR.test(String(call.input?.path ?? call.input?.file ?? '')) || scanForInjection(content).suspicious)) {
+        tainted = true;
+        content = wrapUntrusted(`${tool.name}:${String(call.input?.path ?? call.input?.file ?? '').slice(0, 200)}`, content);
+      }
       if (tainted) {
         // On examine le contenu SANS l'enveloppe <untrusted> ajoutée par l'outil (sinon elle se dénoncerait elle-même).
         if (scanForInjection(stripEnvelope(content)).suspicious) turn.suspicious = true;
@@ -717,7 +743,7 @@ export class Agent {
   }
 
   /** Sleipnir — le cheval à huit jambes : sous-agents parallèles, outils restreints. */
-  private async delegate(tasks: Array<{ goal: string; context?: string }>, parent: RunOptions, parentTainted: boolean, ownerRequest = ''): Promise<ToolResult> {
+  private async delegate(tasks: Array<{ goal: string; context?: string }>, parent: RunOptions, parentTainted: boolean, ownerRequest = '', tourParent?: string): Promise<ToolResult> {
     const sub = new Agent({
       ...this.deps,
       router: this.deps.router,
@@ -730,6 +756,12 @@ export class Agent {
       trusted: !parentTainted,
       startTainted: parentTainted,
       unattended: parent.unattended,
+      // Une aide n'a JAMAIS plus de droits que celui qui l'a lancée : même interlocuteur (membre, invité), même
+      // « tâche automatique ».
+      speaker: parent.speaker,
+      automatique: parent.automatique,
+      // Les envois et écritures des aides comptent pour la DEMANDE D'ORIGINE (une rafale répartie reste une rafale).
+      tourParent,
       ownerRequest,
       signal: parent.signal,
       depth: 1,

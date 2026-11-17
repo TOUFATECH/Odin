@@ -10,6 +10,8 @@
 // - en-tête x-odin obligatoire sur chaque POST (contre les requêtes intersites) ;
 // - CSP stricte : aucun script externe, script de la page autorisé par nonce.
 
+import { changementNoyau } from '../tools/self.ts';
+import { etatNoyau, noterVerifNoyau, verifierNoyau } from '../heimdall/noyau.ts';
 import { rythmeEnClair } from './talos-api.ts';
 import { dictee } from '../valhalla/modules/rodd.ts';
 import { conversationRoute } from './conversation-api.ts';
@@ -60,6 +62,7 @@ import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost }
 import { maisonRoute } from './maison-api.ts';
 import { keryxRoute } from './keryx-api.ts';
 import { metisRoute } from './metis-api.ts';
+import { pluginsRoute } from './plugins-api.ts';
 import { CIEL_JS } from './ciel.ts';
 import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
@@ -631,6 +634,7 @@ export class WebChannel implements Channel {
     if (url.pathname.startsWith('/api/keryx/') && await keryxRoute(req, res, url, { home: this.odin.paths.home, authed: this.authed(req) && !estMembre(req), fail: () => this.throttle.fail(ip), etatSup: () => { const c = this.odin.cfg.channels as Record<string, { enabled?: boolean } | undefined>; return { canauxActifs: ['telegram', 'signal', 'keryx'].filter((n) => c[n]?.enabled), mailBranche: Boolean(this.odin.cfg.mail.imapHost), agendaBranche: true }; } })) return;
     // Métis (modèles de langue ouverts lus dans Odin, sans serveur) : catalogue et vitesse mesurée — propriétaire seul.
     if (url.pathname.startsWith('/api/metis/') && await metisRoute(req, res, url, { home: this.odin.paths.home, authed: this.authed(req) && !estMembre(req), fail: () => this.throttle.fail(ip) })) return;
+    if (url.pathname.startsWith('/api/plugins/') && await pluginsRoute(req, res, url, { proprietaire: () => this.authed(req) && !estMembre(req), membre: () => this.authed(req) && estMembre(req), odin: this.odin, fail: () => this.throttle.fail(ip) })) return;
     // Connexion unique (Persona, OpenID, sauvegardes des applis) et droits par appli des personnes qui ne sont pas le propriétaire.
     if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state(), accueil: (appli) => this.accueilRefus(req, nomAppli(persona(), appli)) })) return;
 
@@ -972,6 +976,8 @@ export class WebChannel implements Channel {
       const r = runesGet(this.odin, url.pathname, url.searchParams);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
+    // Brain et Soul sont au propriétaire : un membre de la maison n'y lit ni n'y écrit (comme Archytas, Kéryx, Métis).
+    if (url.pathname.startsWith('/api/brain/') && estMembre(req)) return json(res, 403, { error: 'réservé au propriétaire' });
     if (req.method === 'GET' && url.pathname.startsWith('/api/brain/')) {
       const r = brainGet(this.odin, url.pathname, url.searchParams);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
@@ -1248,6 +1254,9 @@ export class WebChannel implements Channel {
     const day = muninn.usageSince(Date.now() - 86_400_000);
     return {
       name: cfg.name,
+      // Les garde-fous (noyau) comparés à la version de référence au démarrage (page Réglages).
+      // (le changement, git diff, seulement s'il y a un écart : la page le montre à côté des deux boutons)
+      noyau: (() => { const v = etatNoyau(); return v ? { reference: v.reference, ecarts: v.ecarts, ...(v.ecarts.length ? { changement: changementNoyau() } : {}) } : undefined; })(),
       trash: muninn.listTrash().filter((t) => t.id.startsWith('web:')).map((t) => ({ peer: t.id.slice(4), title: t.title, messages: t.messages, deleted: t.deleted_at })),
       conversations: (() => { const pins = muninn.kvPrefix('pin:'), titles = muninn.kvPrefix('title:'); return muninn.listSessions(200).filter((s) => s.id.startsWith('web:')).map((s) => ({ peer: s.id.slice(4), title: titles[s.id.slice(4)] || s.title, updated: s.updated_at, tainted: s.tainted === 1, pinned: Boolean(pins[s.id.slice(4)]) })).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updated - a.updated).slice(0, 80); })(),
       usage: day,
@@ -1267,6 +1276,7 @@ export class WebChannel implements Channel {
       jobs: muninn.listJobs().map((j) => ({ ...j, enClair: rythmeEnClair(j) })),
       grants: muninn.listGrants(),
       autonomy: cfg.mimir.autonomy,
+      codeValidation: cfg.code?.validation ?? 'chaque-fois',
       autonomyNow: this.odin.heimdall.effectiveAutonomy(),
       breaker: cfg.mimir.breaker,
       tourDone: Boolean(muninn.getKv('tour-done')),
@@ -1418,6 +1428,22 @@ export class WebChannel implements Channel {
         d[String(b.id).slice(0, 200)] = Date.now();
         muninn.setKv('guess-dismissed', JSON.stringify(Object.fromEntries(Object.entries(d).filter(([, at]) => Date.now() - at < 86_400_000).slice(-100))));
         this.notify('state'); return { ok: true };
+      }
+      // Les garde-fous en écart : ta décision par bouton (le propriétaire, dans l'interface) — accepter ou restaurer.
+      case 'noyau_accepter': case 'noyau_restaurer': {
+        const { selfAcceptCore, selfRestoreCore } = await import('../tools/self.ts');
+        const t = b.kind === 'noyau_accepter' ? selfAcceptCore : selfRestoreCore;
+        const out = await t.run({}, { home: this.odin.paths.home, workspace: this.odin.paths.workspace, sessionId: 'web:reglages', channel: 'web', peer: 'proprietaire', isTainted: () => false } as never);
+        const v = verifierNoyau(); noterVerifNoyau(v);
+        return { ok: true, text: typeof out === 'string' ? out : out.output, ecarts: v.ecarts };
+      }
+      case 'set_code_validation': {
+        // Le propriétaire, dans l'interface : « me demander à chaque fois » / « ne plus me demander » (confirmé dans la page).
+        const v = String(b.validation);
+        if (v !== 'chaque-fois' && v !== 'jamais') return { ok: false, error: 'valeur inconnue' };
+        setConfigValue(this.odin.paths, ['code'], { validation: v });
+        this.odin.cfg.code = { validation: v };
+        break;
       }
       case 'set_autonomy': {
         const a = String(b.autonomy) as Autonomy;
