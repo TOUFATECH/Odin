@@ -7,7 +7,7 @@
 // faux, aucun service réel n'est touché.
 import { randomBytes } from 'node:crypto';
 import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
-import { basename, dirname, extname, join } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import type { Collection, Enr, MagasinVenus } from './base.ts';
 
 /** Un identifiant opaque pour les collections PRIVÉES : la clé (en clair dans le fichier) ne révèle rien. Pur. */
@@ -41,6 +41,41 @@ export function analyserNom(nom: string): NomLu {
 }
 // La parenthèse ou le crochet ouvert avant l'année (« Titre (2001) ») part aussi : sinon le titre finit par « ( ».
 function titrePropre(t: string): string { return t.replace(NETTOYER, ' ').replace(/[\s.\-_([{]+$/, '').replace(/\s+/g, ' ').trim(); }
+
+/**
+ * Lit une DEMANDE (« lance-moi … ») : un titre et, s'il y est, l'épisode sous une forme chiffrée — S02E05, s2e5,
+ * « S02 E05 » ou 2x05. Aucune liste de mots d'une langue ici : « saison », « épisode » et leurs équivalents sont
+ * compris en amont et arrivent à part (réglages `saison` et `episode`). Pur.
+ */
+export function lireDemande(q: string): { titre: string; saison?: number; episode?: number } {
+  const t = String(q ?? '').replace(/\s+/g, ' ').trim();
+  // La forme chiffrée peut être entre parenthèses ou crochets (« Titre (S02E05) ») : les parenthèses vides qui restent partent.
+  const m = /(^|[\s.\-_([])[Ss](\d{1,2})[\s.\-]*[Ee](\d{1,4})(?=$|[\s.\-_,;!?)\]])/.exec(t) ?? /(^|[\s.\-_([])(\d{1,2})[xX](\d{1,4})(?=$|[\s.\-_,;!?)\]])/.exec(t);
+  if (!m) return { titre: t };
+  const titre = (t.slice(0, m.index) + m[1] + t.slice(m.index + m[0].length)).replace(/[([]\s*[)\]]/g, ' ').replace(/[\s.\-_,;]+$/, '').replace(/\s+/g, ' ').trim();
+  return { titre, saison: Number(m[2]), episode: Number(m[3]) };
+}
+
+/**
+ * Un épisode rangé dans un dossier « Saison N » (ou « Season N ») dont le nom ne porte QUE le numéro d'épisode :
+ * « E05 », « Ep 5 », « 05 », « Titre - 05 ». La série est le dossier au-dessus de celui de la saison ; si ce dossier
+ * est la racine déclarée (aucun nom de série), rien. Ne sert qu'aux noms SANS SxxExx ni 1x02 (lus comme avant). Pur.
+ */
+export function episodeDeDossier(chemin: string, racine?: string): { serie: string; saison: number; episode: number } | undefined {
+  const dossier = dirname(chemin), s = /^(?:saison|season)[\s._-]*(\d{1,3})$/i.exec(basename(dossier).trim());
+  if (!s) return undefined;
+  // Le nom du dossier de la série est lu comme un nom de fichier (points en espaces, année et qualité retirées) :
+  // « Serie (2020) » et « Serie.2020.1080p » donnent la même série que « Serie S01E01.mkv ». Le « .d » ajouté évite
+  // qu'un point du nom (« Serie.Lumen ») soit pris pour une extension.
+  const dessus = dirname(dossier), brut = basename(dessus).trim(), serie = analyserNom(`${brut}.d`).titre || brut;
+  const memeChemin = (a: string, b: string) => { const n = (x: string) => resolve(x).replace(/[\\/]+$/, ''); return process.platform === 'win32' ? n(a).toLowerCase() === n(b).toLowerCase() : n(a) === n(b); };
+  if (!serie || dessus === dossier || (racine && memeChemin(dessus, racine))) return undefined;
+  const base = basename(chemin, extname(chemin)).replace(/[._]+/g, ' ').replace(NETTOYER, ' ').replace(/\s+/g, ' ').trim();
+  // « Titre - 05 » : seulement si « Titre » est la série elle-même (« Bonus - 01 » n'est pas l'épisode 1).
+  const tiret = /^(.*?)\s-\s*(\d{1,4})$/.exec(base), tiretOk = tiret && norm(tiret[1]) === norm(serie) ? [tiret[0], tiret[2]] : null;
+  const e = /(?:^|[\s-])[Ee][Pp]?\s?(\d{1,4})(?=$|[\s-])/.exec(base) ?? /^(\d{1,4})$/.exec(base) ?? tiretOk;
+  return e ? { serie, saison: Number(s[1]), episode: Number(e[1]) } : undefined;
+}
 
 /** Un fichier trouvé sur le disque. */
 export interface FichierVu { chemin: string; taille: number; mtime: number }
@@ -123,7 +158,7 @@ export async function scanner(mag: MagasinVenus, outils: Outils): Promise<Bilan>
     const tous = parcourir(chemin);
     for (const f of tous) {
       if (EXT_SOUS.has(extname(f.chemin).toLowerCase())) continue; // un sous-titre accompagne un média, il n'est pas rangé seul
-      const r = await rangerFichier(mag, f, categorie, outils, tous, oeuvresVues);
+      const r = await rangerFichier(mag, f, categorie, outils, tous, oeuvresVues, chemin);
       if ('raison' in r) { if (r.lu) b.fichiers++; ignorer(f.chemin, r.raison); continue; }
       b.fichiers++;
       if (r.nouvelleOeuvre) b.oeuvres++;
@@ -139,15 +174,17 @@ export type Rangement = { genre: 'film' | 'episode' | 'piste'; oeuvreId: string;
  * Range UN fichier dans la bibliothèque (le scan, et l'import d'un média envoyé depuis un appareil). `voisins` : les
  * fichiers du même dossier (sous-titres à côté) ; `oeuvresVues` : les œuvres déjà posées pendant ce passage.
  */
-export async function rangerFichier(mag: MagasinVenus, f: FichierVu, categorie: Categorie, outils: Outils, voisins: FichierVu[] = [], oeuvresVues: Set<string> = new Set()): Promise<Rangement> {
+export async function rangerFichier(mag: MagasinVenus, f: FichierVu, categorie: Categorie, outils: Outils, voisins: FichierVu[] = [], oeuvresVues: Set<string> = new Set(), /** le dossier déclaré (scan) : un dossier « Saison N » posé directement dedans n'a pas de nom de série */ racine?: string): Promise<Rangement> {
   const ext = extname(f.chemin).toLowerCase();
   if (!EXT_VIDEO.has(ext) && !EXT_AUDIO.has(ext)) return { raison: 'pas_un_media' };
   // Un fichier qui n'a rien à faire dans la catégorie du dossier est écarté AVANT d'appeler ffprobe.
   if (!bonGenrePour(f.chemin, categorie)) return { raison: 'hors_categorie' };
-  if (categorie === 'series' && analyserNom(basename(f.chemin)).saison === undefined) return { raison: 'episode_sans_numero' };
+  // Un épisode sans SxxExx dans son nom, mais rangé dans « Saison N » avec son numéro (E05, 05…), est lu par son dossier.
+  const parDossier = categorie === 'series' && analyserNom(basename(f.chemin)).saison === undefined ? episodeDeDossier(f.chemin, racine) : undefined;
+  if (categorie === 'series' && analyserNom(basename(f.chemin)).saison === undefined && !parDossier) return { raison: 'episode_sans_numero' };
   const probe = await outils.ffprobe(f.chemin).catch(() => null);
   if (!probe) return { raison: 'illisible' };
-  const lu = analyserNom(basename(f.chemin));
+  const lu: NomLu = parDossier ? { titre: parDossier.serie, saison: parDossier.saison, episode: parDossier.episode } : analyserNom(basename(f.chemin));
   const vignette = outils.vignette ? await outils.vignette(f.chemin, probe.duree).catch(() => undefined) : undefined;
   mag.poser('fichiers', cheminId(f.chemin), { chemin: f.chemin, taille: f.taille, mtime: f.mtime, probe });
   if (categorie === 'series' && estVideo(f.chemin) && lu.saison !== undefined) {
@@ -233,7 +270,8 @@ export const pistes = (mag: MagasinVenus, oeuvreId: string): Enr[] =>
 /** Retrouve une œuvre par son identifiant, son titre exact ou ses mots. */
 export function trouverOeuvre(mag: MagasinVenus, q: string): Enr | undefined {
   const l = mag.liste('oeuvres'); const direct = l.find((e) => e.id === q); if (direct) return direct;
-  const n = norm(q);
+  // Une requête vide (ou sans lettre ni chiffre) ne désigne rien : sinon chaque titre la « contient » et le plus court gagnait.
+  const n = norm(q); if (!n) return undefined;
   return l.find((e) => norm(String(e.data.titre)) === n) ?? l.filter((e) => n.split(' ').every((w) => norm(String(e.data.titre)).includes(w))).sort((a, b) => String(a.data.titre).length - String(b.data.titre).length)[0];
 }
 /** Le fichier qui joue une cible (œuvre film, épisode ou piste), par identifiant. */
@@ -260,6 +298,49 @@ export function reprise(mag: MagasinVenus, profil: string, cibleId: string): { p
   const r = mag.get('reprise', `${profil}:${cibleId}`); if (!r) return undefined;
   return { position_s: Number(r.data.position_s) || 0, duree_s: Number(r.data.duree_s) || 0 };
 }
+
+/** Ce qui se lit pour une demande : TOUJOURS un fichier (le film, l'épisode, la piste). */
+export interface CibleJouee { cibleId: string; oeuvreId: string; type: TypeOeuvre; titre: string; saison?: number; episode?: number; num?: number; titrePiste?: string; reprise_s: number }
+/** Pourquoi rien ne se lit (dit à l'écran, avec ce qu'il faut faire). */
+export type Manque =
+  | { manque: 'vide' }
+  | { manque: 'saison_requise' }
+  | { manque: 'episode'; saisons: number[]; episodesDeLaSaison: number[] }
+  | { manque: 'tout_vu'; dernier: { saison: number; episode: number } };
+/** Une lecture est-elle finie (même seuil que le lecteur : au-delà de 95 % de la durée) ? Pur. */
+const fini = (position: number, duree: number): boolean => duree > 0 && position > duree * 0.95;
+/**
+ * La cible à jouer pour une œuvre. Film → le film. Série : saison + épisode → cet épisode ; saison seule → son premier
+ * épisode ; rien → l'épisode en cours s'il n'est pas fini, sinon celui qui suit le dernier vu (table de reprise), sinon
+ * le premier. Un numéro d'épisode SANS saison est refusé (numérotation absolue, non tranchée). Album / livre audio →
+ * la piste en cours, sinon la suivante, sinon la première.
+ */
+export function cibleAJouer(mag: MagasinVenus, oeuvre: Enr, o: { profil: string; saison?: number; episode?: number }): CibleJouee | Manque {
+  const type = oeuvre.data.type as TypeOeuvre, titre = String(oeuvre.data.titre ?? '');
+  const avecReprise = (id: string) => reprise(mag, o.profil, id)?.position_s ?? 0;
+  if (type !== 'serie' && type !== 'album' && type !== 'livre_audio') {
+    return oeuvre.data.fichier ? { cibleId: oeuvre.id, oeuvreId: oeuvre.id, type, titre, reprise_s: avecReprise(oeuvre.id) } : { manque: 'vide' };
+  }
+  const liste = type === 'serie' ? episodes(mag, oeuvre.id) : pistes(mag, oeuvre.id);
+  if (!liste.length) return { manque: 'vide' };
+  const rendre = (e: Enr): CibleJouee => ({ cibleId: e.id, oeuvreId: oeuvre.id, type, titre, reprise_s: avecReprise(e.id),
+    ...(type === 'serie' ? { saison: Number(e.data.saison), episode: Number(e.data.episode) } : { num: Number(e.data.num), titrePiste: String(e.data.titre ?? '') }) });
+  if (type === 'serie' && o.episode !== undefined && o.saison === undefined) return { manque: 'saison_requise' };
+  if (type === 'serie' && o.saison !== undefined) {
+    const e = liste.find((x) => Number(x.data.saison) === o.saison && (o.episode === undefined || Number(x.data.episode) === o.episode));
+    if (e) return rendre(e);
+    return { manque: 'episode', saisons: [...new Set(liste.map((x) => Number(x.data.saison)))], episodesDeLaSaison: liste.filter((x) => Number(x.data.saison) === o.saison).map((x) => Number(x.data.episode)) };
+  }
+  // Le dernier élément touché de cette œuvre, d'après la table de reprise du profil.
+  const ids = new Map(liste.map((e, i) => [e.id, i] as const));
+  const dernier = mag.liste('reprise').filter((r) => r.data.profil === o.profil && ids.has(String(r.data.cible_id))).sort((a, b) => (Number(b.data.maj) - Number(a.data.maj)) || (ids.get(String(b.data.cible_id))! - ids.get(String(a.data.cible_id))!))[0]; // à égalité : le plus loin
+  if (!dernier) return rendre(liste[0]);
+  const i = ids.get(String(dernier.data.cible_id))!;
+  if (!fini(Number(dernier.data.position_s) || 0, Number(dernier.data.duree_s) || Number(liste[i].data.duree) || 0)) return rendre(liste[i]);
+  if (i + 1 < liste.length) return rendre(liste[i + 1]);
+  return type === 'serie' ? { manque: 'tout_vu', dernier: { saison: Number(liste[i].data.saison), episode: Number(liste[i].data.episode) } } : rendre(liste[0]);
+}
+
 /**
  * Ajoute (ou rafraîchit) un passage à l'historique (privé, chiffré). L'identifiant est OPAQUE : le titre, la cible et
  * le profil ne vivent que dans le `chiffre`, jamais dans la clé en clair. Une seule ligne par cible et par profil

@@ -9,7 +9,7 @@ import type { ModCtx, Module } from '../types.ts';
 import { actionRestaurer, carteSauvegarde } from '../sso/persona.ts';
 // Vénus natif (Odéon DANS Odin, sans serveur extérieur) : bibliothèque et écrans par Home Assistant, sur VENUS_ODIN.
 import { magasinVenus } from '../venus/base.ts';
-import { bibliotheque as bibNative, compter as compterNative, maListe as maListeNative, trouverOeuvre } from '../venus/bibliotheque.ts';
+import { bibliotheque as bibNative, cibleAJouer, compter as compterNative, lireDemande, maListe as maListeNative, trouverOeuvre, type CibleJouee } from '../venus/bibliotheque.ts';
 import { decouvrirEcrans, envoyerSurEcran, type HaCaller } from '../venus/ecrans.ts';
 import { jetonFlux } from '../venus/cast.ts';
 import { haApi } from '../../tools/homeassistant.ts';
@@ -113,6 +113,8 @@ export function arrivalMessages(items: Arrival[], mode: 'tout' | 'vf' = 'tout'):
   }
   return out;
 }
+/** Le profil de Vénus natif : le même que les routes /venus/* (ma liste, reprise), le propriétaire. */
+const PROFIL = 'moi';
 const hm = (t: number) => new Date(t).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
 
 export function venus(url: () => string): Module {
@@ -148,18 +150,42 @@ export function venus(url: () => string): Module {
         if (!h.ok) throw new Error('Venus ne répond pas correctement');
         return { text: santeText(h), data: h };
       } },
-      { id: 'regarder', label: 'Regarder', what: 'Film, série ou chaîne (nom ou numéro) sur un écran', params: [{ key: 'quoi', label: 'Quoi', kind: 'text', required: true }, { key: 'ou', label: 'Écran (facultatif)', kind: 'text', default: '' }], words: ['mets', 'regarder', 'lance'], run: async (ctx, i) => {
+      { id: 'regarder', label: 'Regarder', what: 'Film, série (saison et épisode) ou chaîne (nom ou numéro) sur un écran', params: [{ key: 'quoi', label: 'Quoi', kind: 'text', required: true }, { key: 'ou', label: 'Écran (facultatif)', kind: 'text', default: '' }, { key: 'saison', label: 'Saison (facultatif)', kind: 'number' }, { key: 'episode', label: 'Épisode (facultatif)', kind: 'number' }], words: ['mets', 'regarder', 'lance'], run: async (ctx, i) => {
         // Natif : l'œuvre est dans VENUS_ODIN et un écran de la maison (Home Assistant) joue le flux d'Odin.
-        const ha = haDe(ctx), origine = origineDe(ctx);
-        const oe = trouverOeuvre(mag(ctx), s(i.quoi));
+        // La cible jouée est TOUJOURS un fichier : le film, l'épisode demandé (ou le suivant), la piste (première ou reprise).
+        // Saison et épisode : donnés à part, ou écrits S02E05 / 2x05 dans le titre (aucun mot d'une langue lu ici).
+        const ha = haDe(ctx), origine = origineDe(ctx), M = mag(ctx);
+        const dem = lireDemande(s(i.quoi));
+        const nb = (v: unknown): number | undefined => { if (v === undefined || v === null || s(v) === '') return undefined; const n = Number(v); return Number.isInteger(n) && n >= 0 ? n : undefined; };
+        const saison = nb(i.saison) ?? dem.saison, episode = nb(i.episode) ?? dem.episode;
+        // Sans titre (« S02E05 » seul), rien n'est cherché ni envoyé sur un écran : on demande lequel.
+        if (!dem.titre && !relie()) return { text: `Quel titre veux-tu regarder${saison !== undefined && episode !== undefined ? ` en ${`S${String(saison).padStart(2, '0')}E${String(episode).padStart(2, '0')}`}` : ''} ? Donne le nom du film, de la série ou de l'album (par exemple « Titre S02E05 »).` };
+        const oe = !dem.titre ? undefined : trouverOeuvre(M, dem.titre) ?? (dem.titre !== s(i.quoi) ? trouverOeuvre(M, s(i.quoi)) : undefined);
+        // « Titre 1071 » : une série trouvée sans le nombre final = un numéro d'épisode sans saison.
+        const fin = oe ? undefined : /^(.*\S)\s+(\d{1,4})$/.exec(dem.titre), numerote = fin ? trouverOeuvre(M, fin[1]) : undefined;
+        const c = oe ? cibleAJouer(M, oe, { profil: PROFIL, saison, episode }) : numerote?.data.type === 'serie' ? { manque: 'saison_requise' as const } : undefined;
+        const titre = s((oe ?? numerote)?.data.titre);
+        const sxe = (sa: number, ep: number) => `S${String(sa).padStart(2, '0')}E${String(ep).padStart(2, '0')}`;
+        const quoiJoue = (x: CibleJouee) => x.saison !== undefined ? ` ${sxe(x.saison, x.episode ?? 0)}` : x.num !== undefined ? ` · piste ${x.num}${x.titrePiste ? ` « ${x.titrePiste} »` : ''}` : '';
+        const AJOUTER = 'Ajoute-le par Vénus → Odéon : « Envoyer des films, séries ou musique depuis cet appareil », ou déclare le dossier qui le contient (Dossiers média) puis « Scanner maintenant ».';
         let rate = '';
-        if (ha && origine && oe) { try { const lien = `${origine}/venus/flux/${encodeURIComponent(oe.id)}?cle=${encodeURIComponent(jetonFlux(ctx.home, oe.id))}`; const ec = await envoyerSurEcran(ha, s(i.ou), lien, oe.data.type === 'album' || oe.data.type === 'livre_audio' ? 'audio' : 'video'); return { text: `▶️ « ${s(oe.data.titre)} » lancé sur ${ec.nom}.` }; } catch (e) { rate = (e as Error).message; /* repli plus bas */ } }
+        if (ha && origine && c && 'cibleId' in c) { try { const lien = `${origine}/venus/flux/${encodeURIComponent(c.cibleId)}?cle=${encodeURIComponent(jetonFlux(ctx.home, c.cibleId))}`; const ec = await envoyerSurEcran(ha, s(i.ou), lien, c.type === 'album' || c.type === 'livre_audio' ? 'audio' : 'video'); return { text: `▶️ « ${titre} »${quoiJoue(c)} lancé sur ${ec.nom}.` }; } catch (e) { rate = (e as Error).message; /* repli plus bas */ } }
         // Sans serveur Vénus à part, on ne renvoie plus vers lui (« Venus n'est pas relié ») : on dit où le titre se lit
-        // dans Odin (le navigateur), et ce qu'il manque pour l'envoyer sur une télé.
+        // dans Odin (le navigateur), et ce qu'il manque pour l'envoyer sur une télé. Jamais un lien vers rien.
         if (!relie()) {
-          if (!oe) return { text: `« ${s(i.quoi)} » n'est pas dans ta bibliothèque de Vénus. Déclare le dossier qui le contient (Vénus → Odéon → Dossiers média), puis « Scanner maintenant ».` };
+          if (!c) return { text: `« ${s(i.quoi)} » n'est pas dans ta bibliothèque de Vénus. ${AJOUTER}` };
+          if ('manque' in c) {
+            if (c.manque === 'saison_requise') return { text: `« ${titre} » : un numéro d'épisode sans saison (numérotation continue) ne se lit pas encore. Donne la saison avec l'épisode (par exemple S01E05), et range les épisodes dans des dossiers « Saison 1 », « Saison 2 »… (ou nomme-les S01E05).` };
+            if (c.manque === 'tout_vu') return { text: `« ${titre} » : tu as vu le dernier épisode de ta bibliothèque (${sxe(c.dernier.saison, c.dernier.episode)}). Demande un épisode précis (par exemple S01E01), ou ajoute la suite. ${AJOUTER}` };
+            if (c.manque === 'episode') return { text: `« ${titre} » n'a pas ${saison !== undefined && episode !== undefined ? `d'épisode ${sxe(saison, episode)}` : `de saison ${saison}`} dans ta bibliothèque (saisons présentes : ${c.saisons.join(', ')}${c.episodesDeLaSaison.length ? ` ; saison ${saison} : épisodes ${c.episodesDeLaSaison.join(', ')}` : ''}). ${AJOUTER}` };
+            return { text: `« ${titre} » est dans ta bibliothèque de Vénus, mais sans fichier à lire. ${AJOUTER}` };
+          }
           const ecran = ha && origine ? (rate ? ` L'envoi sur un écran a échoué : ${rate}.` : '') : " Pour l'envoyer sur une télé, relie Home Assistant (Réglages → Maison) : Vénus s'en sert pour trouver les écrans de la maison.";
-          return { text: `« ${s(oe.data.titre)} » est dans ta bibliothèque de Vénus : ouvre Vénus → Odéon et clique dessus, il se lit dans le navigateur.${ecran}`, data: { oeuvre: oe.id, type: oe.data.type, lire: `/venus/flux/${encodeURIComponent(oe.id)}` } };
+          const ou = c.saison !== undefined ? `ouvre Vénus → Odéon → « ${titre} » et clique « ► Lire » sur ${sxe(c.saison, c.episode ?? 0)}` : c.num !== undefined ? `ouvre Vénus → Odéon → « ${titre} » et clique « ► Lire » sur la piste ${c.num}` : 'ouvre Vénus → Odéon et clique dessus';
+          // Même seuil et même écriture que le lecteur (« Reprise à 0:35 »).
+          const rep = c.reprise_s >= 30 ? `, à la reprise (${Math.floor(c.reprise_s / 3600) ? `${Math.floor(c.reprise_s / 3600)}:${String(Math.floor(c.reprise_s % 3600 / 60)).padStart(2, '0')}` : Math.floor(c.reprise_s / 60)}:${String(Math.floor(c.reprise_s % 60)).padStart(2, '0')})` : '';
+          return { text: `« ${titre} »${quoiJoue(c)} est dans ta bibliothèque de Vénus : ${ou}, il se lit dans le navigateur${rep}.${ecran}`,
+            data: { oeuvre: c.oeuvreId, type: c.type, cible: c.cibleId, titre, ...(c.saison !== undefined ? { saison: c.saison, episode: c.episode } : {}), ...(c.num !== undefined ? { piste: c.num } : {}), reprise_s: c.reprise_s, lire: `/venus/flux/${encodeURIComponent(c.cibleId)}` } };
         }
         return { text: await tool({ action: 'regarder', quoi: s(i.quoi), ou: s(i.ou) }) };
       } },

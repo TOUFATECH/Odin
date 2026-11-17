@@ -100,12 +100,34 @@
     typeLabel(type) { const t = TYPES.find((x) => x[0] === type); return t ? t[1] : type; },
     /** Part d'avancement (0 à 1) d'une œuvre d'après sa reprise. */
     avance(o) { const p = Number(o && o.reprise_s) || 0, d = Number(o && o.duree_s) || 0; return d > 0 ? Math.max(0, Math.min(1, p / d)) : 0; },
+    /**
+     * L'intention de lire un titre à l'ouverture de la page (`OdinOpenWant.lire`) : un identifiant de cible, l'adresse
+     * de flux rendue par l'action « regarder » (/venus/flux/…), ou { cible, oeuvre }. Rend { cible, oeuvre } ou null. Pur.
+     */
+    cibleVoulue(want) {
+      const brut = want && want.lire; let id = brut && typeof brut === 'object' ? (brut.cible || brut.id) : brut;
+      id = String(id || '').trim(); if (!id) return null;
+      const m = /^\/venus\/flux\/([^?#]+)/.exec(id); if (m) { try { id = decodeURIComponent(m[1]); } catch { return null; } }
+      // L'œuvre : donnée, sinon les deux premiers morceaux de l'identifiant (« serie:titre:s2e5 » → « serie:titre »).
+      const oeuvre = String((brut && typeof brut === 'object' && brut.oeuvre) || (want && want.oeuvre) || id.split(':').slice(0, 2).join(':'));
+      return { cible: id, oeuvre };
+    },
+    /** Ce que le lecteur reçoit pour une cible, d'après le détail de son œuvre (/venus/oeuvre/…) ; null si absente. Pur. */
+    elementLecteur(detail, cibleId) {
+      const o = detail && detail.oeuvre; if (!o) return null;
+      if (o.id === cibleId) return { id: o.id, titre: o.titre || '', type: 'film', duree_s: o.duree, reprise_s: (detail.reprise && detail.reprise.position_s) || 0, sousTitres: o.sous_titres };
+      const l = detail.episodes || detail.pistes || [], e = l.find((x) => x.id === cibleId); if (!e) return null;
+      const sxe = e.saison != null ? `S${String(e.saison).padStart(2, '0')}E${String(e.episode ?? 0).padStart(2, '0')}` : '';
+      return { id: e.id, titre: `${o.titre || ''} · ${sxe || e.titre || ''}`, type: detail.episodes ? 'episode' : 'piste', duree_s: e.duree || e.duree_s, reprise_s: e.reprise_s || 0, sousTitres: e.sous_titres || e.sousTitres };
+    },
   };
 
   const lecteurDispo = () => window.OdinVenusLecteur;
   // Envoyer un titre sur un écran de la maison : on réutilise l'action native « regarder » (elle choisit l'écran).
   const surEcran = async (cible, toast) => {
-    try { const r = await act('regarder', { quoi: cible.titre || '', ou: cible.ecran || '' }); toast?.(r && (r.text || r.error) || 'Envoyé.'); }
+    // Un épisode garde sa saison et son numéro : l'écran reçoit CET épisode, pas le suivant de la série.
+    const precis = cible.saison != null && cible.episode != null ? { saison: cible.saison, episode: cible.episode } : {};
+    try { const r = await act('regarder', { quoi: cible.titre || '', ou: cible.ecran || '', ...precis }); toast?.(r && (r.text || r.error) || 'Envoyé.'); }
     catch { toast?.('Aucun écran joignable pour le moment.'); }
   };
 
@@ -127,11 +149,22 @@
     let enfants = o.enfants, prete = true;
     if (!enfants) { try { const d = await vget(logique.detailUrl(o.id)); enfants = d.episodes || d.pistes || d.enfants || []; } catch { enfants = []; prete = false; } }
     const lignes = enfants.length ? enfants.map((e) => el('div', { class: 'vn-row' }, el('span', { class: 't' }, [e.saison != null ? `S${String(e.saison).padStart(2, '0')}E${String(e.episode ?? 0).padStart(2, '0')}` : e.num != null ? `${e.num}.` : null, e.titre || 'Élément'].filter(Boolean).join(' ')), (e.duree || e.duree_s) ? el('span', { class: 'm', style: 'color:#9aa1b2' }, logique.mmss(e.duree || e.duree_s)) : null,
-      el('button', { class: 'vn-b', type: 'button', onclick: () => lecteurDispo()?.ouvrir({ id: e.cibleId || e.id, titre: `${o.titre} · ${e.titre || ''}`, type: o.type === 'serie' ? 'episode' : 'piste', duree_s: e.duree || e.duree_s, reprise_s: e.reprise_s, sousTitres: e.sousTitres || e.sous_titres }, { surEcran: () => surEcran({ titre: o.titre }, toast) }) }, '► Lire')))
+      el('button', { class: 'vn-b', type: 'button', onclick: () => lecteurDispo()?.ouvrir({ id: e.cibleId || e.id, titre: `${o.titre} · ${e.titre || ''}`, type: o.type === 'serie' ? 'episode' : 'piste', duree_s: e.duree || e.duree_s, reprise_s: e.reprise_s, sousTitres: e.sousTitres || e.sous_titres }, { surEcran: () => surEcran({ titre: o.titre, saison: e.saison, episode: e.episode }, toast) }) }, '► Lire')))
       : [el('p', { class: 'vn-vide' }, prete ? 'Rien à lire dans ce titre pour l\'instant.' : 'La navigation par épisodes et pistes arrive avec le bloc d\'acquisition. Pour l\'instant, les films se lisent directement.')];
     const boite = el('div', { class: 'vn-sec' }, el('h3', {}, o.titre || ''), el('div', { class: 'vn-liste' }, ...lignes));
     // Le bouton « Retour » vide le panneau de détail : la grille reste visible juste au-dessus.
     host.replaceChildren(el('button', { class: 'vn-b', type: 'button', onclick: () => host.replaceChildren() }, '← Retour'), boite);
+  }
+
+  // Lit la cible voulue à l'ouverture (OdinOpenWant.lire) : le détail de son œuvre donne la durée, la reprise et les sous-titres.
+  async function lancerVoulu(want, toast) {
+    const v = logique.cibleVoulue(want), L = lecteurDispo(); if (!v) return;
+    if (!L) { toast('Lecteur indisponible.'); return; }
+    let d = null; try { d = await vget(logique.detailUrl(v.oeuvre)); } catch { d = null; }
+    const c = d ? logique.elementLecteur(d, v.cible) : null;
+    if (!c) { toast("Ce titre n'est pas (ou plus) dans la bibliothèque : relance un scan, ou ajoute-le (Envoyer, ou un dossier)."); return; }
+    const e = (d.episodes || []).find((x) => x.id === v.cible);
+    L.ouvrir(c, { surEcran: () => surEcran({ titre: d.oeuvre.titre, ...(e ? { saison: e.saison, episode: e.episode } : {}) }, toast) });
   }
 
   // Catégories d'un dossier média à déclarer (pour peupler Odéon).
@@ -436,6 +469,8 @@
       else if (S.onglet === 'etat') { corps.replaceChildren(); await etat(corps); }
     };
     await rendre();
+    // Ouverte avec l'intention de lire un titre : le lecteur démarre dessus, à la reprise.
+    if (want && want.lire) await lancerVoulu(want, toast);
     // Vénus prend la largeur de la page : les sections génériques du module sont cachées ; ses actions qui ne parlent
     // qu'au serveur à part restent dans « Autres actions », sous la page (et hors de la barre du haut tant qu'il n'est pas relié).
     return true;
