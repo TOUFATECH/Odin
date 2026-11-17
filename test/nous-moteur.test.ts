@@ -2,7 +2,7 @@
 // reproductible à la graine, génération avec/sans mémoire des clés/valeurs identique, arrêt propre.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Reseau, seance, type LotBrut } from '../src/brain/nous/calcul.ts';
+import { Reseau, perteSur, seance, type LotBrut } from '../src/brain/nous/calcul.ts';
 import { avecPoids, mesurerEtChoisir, TAILLES } from '../src/brain/nous/tailles.ts';
 
 const petitEssai = avecPoids({ taille: 'petit', C: 16, couches: 2, tetes: 2, vocab: 11, contexte: 8 });
@@ -124,4 +124,66 @@ test('gabarits : tailles conformes au contrat et mesurerEtChoisir renvoie un Hyp
   const h = await mesurerEtChoisir({ cible: 'petit' });
   assert.ok(['petit', 'moyen', 'grand'].includes(h.taille));
   assert.ok(h.poids > 0);
+});
+
+// Défaut trouvé en entraînant pour de vrai (17/11) : aucune borne au contexte. Une suite plus longue lisait ses
+// « positions » dans les poids de la première couche (rangés juste après la table des positions) et, à
+// l'entraînement, y écrivait des gradients.
+const suiteLongue = (n: number, pas: number): Int32Array => Int32Array.from({ length: n }, (_, i) => (i * pas + 1) % petitEssai.vocab);
+
+test('contexte : la passe avant refuse une suite plus longue que le contexte', () => {
+  const r = new Reseau(petitEssai); r.initialiser(5);
+  assert.throws(() => r.avant(suiteLongue(petitEssai.contexte + 4, 3), true), RangeError);
+  assert.doesNotThrow(() => r.avant(suiteLongue(petitEssai.contexte, 3), true));
+});
+
+test('contexte : apprendre sur une suite trop longue, c\'est apprendre sur son début et rien d\'autre', () => {
+  const long = suiteLongue(20, 3);
+  const a = new Reseau(petitEssai); a.initialiser(5); a.jeterGrad(); const pa = a.perteEtGrad(long);
+  const b = new Reseau(petitEssai); b.initialiser(5); b.jeterGrad(); const pb = b.perteEtGrad(long.subarray(0, petitEssai.contexte));
+  assert.equal(pa, pb, 'même perte que sur le début seul');
+  assert.deepEqual(Array.from(a.grads), Array.from(b.grads), 'mêmes gradients : rien d\'écrit ailleurs');
+});
+
+test('contexte : le plongement d\'un long texte est la moyenne de ses fenêtres', () => {
+  const r = new Reseau(petitEssai); r.initialiser(5);
+  const T = petitEssai.contexte, long = suiteLongue(2 * T + 3, 5);
+  const v = r.plonger(long);
+  const attendu = new Float32Array(petitEssai.C);
+  for (const [debut, fin] of [[0, T], [T, 2 * T], [2 * T, 2 * T + 3]]) {
+    const w = r.plonger(long.subarray(debut, fin));
+    for (let c = 0; c < attendu.length; c++) attendu[c] += w[c] * (fin - debut);
+  }
+  for (let c = 0; c < attendu.length; c++) assert.ok(Math.abs(v[c] - attendu[c] / long.length) < 1e-5, `composante ${c} : ${v[c]} au lieu de ${attendu[c] / long.length}`);
+  // un texte démesuré reste borné : au-delà de huit fenêtres, la fin n'est pas lue
+  const enorme = suiteLongue(8 * T + 50, 7);
+  assert.deepEqual(Array.from(r.plonger(enorme)), Array.from(r.plonger(enorme.subarray(0, 8 * T))));
+});
+
+test('contexte : la perte du banc tenu à part s\'arrête au contexte', () => {
+  const r = new Reseau(petitEssai); r.initialiser(5);
+  const long = suiteLongue(20, 3);
+  assert.equal(perteSur(r, [long]), perteSur(r, [long.subarray(0, petitEssai.contexte)]));
+});
+
+// Trouvé à la relecture des corrections ci-dessus : couper une paire « demande → réponse » par la fin ne laissait rien
+// à apprendre (perte 0, sans le dire), et une longue demande donnait au duel la meilleure note à n'importe quelle réponse.
+test('contexte : une paire trop longue garde sa réponse (la demande est coupée par la gauche)', () => {
+  const T = petitEssai.contexte;
+  const paire = suiteLongue(T + 6, 3), roles = new Int32Array(paire.length);
+  for (let i = paire.length - 5; i < paire.length; i++) roles[i] = 1; // seule la fin (la réponse) s'apprend
+  const a = new Reseau(petitEssai); a.initialiser(5); a.jeterGrad(); const pa = a.perteEtGrad(paire, 1, roles);
+  const b = new Reseau(petitEssai); b.initialiser(5); b.jeterGrad(); const pb = b.perteEtGrad(paire.subarray(6), 1, roles.subarray(6));
+  assert.ok(pa > 0, `la réponse doit être apprise, perte ${pa}`);
+  assert.equal(pa, pb, 'même perte que sur la fin de la paire');
+  assert.deepEqual(Array.from(a.grads), Array.from(b.grads));
+});
+
+test('contexte : le score du duel juge la réponse même après une très longue demande', () => {
+  const r = new Reseau(petitEssai); r.initialiser(5);
+  const demande = suiteLongue(petitEssai.contexte + 10, 5);
+  const bonne = new Int32Array([1, 2, 3]), autre = new Int32Array([9, 9, 9]);
+  const sa = r.score(demande, bonne), sb = r.score(demande, autre);
+  assert.ok(sa < 0 && sb < 0, `un score est une log-probabilité négative, pas ${sa} et ${sb}`);
+  assert.notEqual(sa, sb, 'deux réponses différentes, deux scores');
 });

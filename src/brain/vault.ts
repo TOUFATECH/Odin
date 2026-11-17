@@ -8,8 +8,9 @@
 // et les étiquettes partagées), recherche classée, journal du jour, projets (objectifs, décisions,
 // contraintes), bases (toutes les notes d'un type, avec leurs propriétés).
 
+import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs';
 import { basename, dirname, extname, join, relative, sep } from 'node:path';
 import { IndexNotes } from './index-notes.ts';
 
@@ -41,6 +42,44 @@ export const TYPES: Record<string, { folder: string; label: string; props: strin
 };
 
 const TRASH = '.corbeille';
+/** À partir de combien de notes le dossier est surveillé (en dessous, tout re-vérifier coûte quelques millisecondes). */
+const SURVEILLER_DES = 300;
+/** Dossier surveillé et rien n'a bougé : relecture complète de sécurité au plus tard au bout de ce temps. */
+const RELECTURE_SECURITE_MS = 60_000;
+/** Ce qui identifie un dossier (pas seulement son chemin) : déplacé puis remplacé, il change. */
+function identiteDossier(root: string): string {
+  try { const s = statSync(root); return `${s.dev}:${s.ino}:${s.birthtimeMs}`; } catch { return ''; }
+}
+const RESEAU = new Map<string, boolean>();
+/**
+ * Le dossier est-il sur un disque réseau (les changements faits depuis une autre machine n'y sont souvent pas signalés) ?
+ * Windows : chemin réseau (\\serveur\…) ou lecteur déclaré « distant » ; Linux : système de fichiers réseau d'après
+ * /proc/mounts. Dans le doute (vérification impossible), on répond oui : la relecture toutes les 3 s reste.
+ */
+export async function disqueReseau(root: string): Promise<boolean> {
+  const cle = root.toLowerCase(); const deja = RESEAU.get(cle); if (deja !== undefined) return deja;
+  let r = true;
+  try {
+    if (/^\\\\|^\/\//.test(root)) r = true;
+    else if (process.platform === 'win32') {
+      const lecteur = /^([a-z]):/i.exec(root)?.[1];
+      // Le type du lecteur en nombre (indépendant de la langue de Windows) : 3 = disque local, 4 = lecteur réseau.
+      const sortie = lecteur ? await new Promise<string>((ok, ko) => { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='${lecteur.toUpperCase()}:'").DriveType`], { timeout: 8000, windowsHide: true, encoding: 'utf8' }, (e, out) => (e ? ko(e) : ok(String(out)))).unref(); }) : '';
+      r = sortie.trim() !== '3';
+    } else if (process.platform === 'linux') {
+      const montages = readFileSync('/proc/mounts', 'utf8').split('\n').map((l) => l.split(' ')).filter((x) => x.length > 2);
+      const m = montages.filter((x) => root === x[1] || root.startsWith(x[1].endsWith('/') ? x[1] : `${x[1]}/`)).sort((a, b) => b[1].length - a[1].length)[0];
+      r = !m || /^(nfs|nfs4|cifs|smb|smbfs|smb3|9p|fuse\.sshfs|fuse\.rclone|davfs|afs|ceph|glusterfs)$/.test(m[2]);
+    } else r = false; // macOS et autres : disques locaux en général ; la surveillance doit de toute façon faire ses preuves
+  } catch { r = true; }
+  RESEAU.set(cle, r);
+  return r;
+}
+/** Combien de fois `w` apparaît dans `t` (sans recouvrement), sans créer de tableau. Pur. */
+function occurrences(t: string, w: string): number {
+  let n = 0; for (let i = t.indexOf(w); i >= 0; i = t.indexOf(w, i + w.length)) n++;
+  return n;
+}
 /** Changements du Cerveau (créée, modifiée, renommée, corbeille) : pour les automatisations. */
 export const vaultEvents = new EventEmitter();
 vaultEvents.setMaxListeners(20);
@@ -118,7 +157,52 @@ export class Vault {
   /** Index inversé « mot → notes » pour `search` (reconstruit quand la liste des notes change). */
   private rech?: { notes: Note[]; index: IndexNotes };
   readonly root: string;
+  /**
+   * Surveillance du dossier (gros Cerveau seulement) : tant qu'aucun fichier ne bouge, la liste des notes reste valable
+   * sans tout re-vérifier note par note à chaque demande (2 000 notes = 2 000 lectures disque). Jamais moins sûr qu'avant :
+   *  - un événement du système (« sale ») fait tout relire à la demande suivante, sans attendre ;
+   *  - la relecture espacée (RELECTURE_SECURITE_MS) n'est permise que quand la surveillance a FAIT SES PREUVES (elle a
+   *    déjà signalé un changement), que le dossier est bien le même qu'au départ (pas déplacé ni remplacé), et qu'il
+   *    n'est pas sur un disque réseau (qui n'envoie souvent pas les changements faits ailleurs) ; sinon : 3 s, comme avant ;
+   *  - au départ de la surveillance, une relecture complète suit (une écriture faite pendant son démarrage est vue).
+   */
+  private veille?: { w: FSWatcher; sale: boolean; prouvee: boolean; identite: string } | null;
   constructor(root: string) { this.root = root; mkdirSync(root, { recursive: true }); }
+
+  /** Pose la surveillance du dossier, une fois (rien sous SURVEILLER_DES notes : la relecture y est déjà rapide). */
+  private surveiller(n: number): void {
+    if (this.veille !== undefined || n < SURVEILLER_DES || this.verification) return;
+    // Le type du disque est vérifié à part (sans bloquer Odin) ; en attendant, la relecture toutes les 3 s reste.
+    this.verification = disqueReseau(this.root).then((reseau) => { this.verification = undefined; if (this.veille !== undefined) return; if (reseau) this.veille = null; else this.poserVeille(); }, () => { this.verification = undefined; this.veille = null; });
+  }
+  private verification?: Promise<void>;
+  private poserVeille(): void {
+    try {
+      const v: { w: FSWatcher; sale: boolean; prouvee: boolean; identite: string } = { w: watch(this.root, { recursive: true }, (_e, nom) => {
+        // Ce que le Cerveau ne lit pas (.obsidian, corbeille, fichiers cachés) ne compte pas : sinon Obsidian, qui écrit
+        // sans cesse ses réglages, ferait tout relire à chaque demande.
+        const n = typeof nom === 'string' ? nom.replace(/\\/g, '/') : '';
+        if (n && n.split('/').some((x) => x.startsWith('.') || SKIP.has(x))) return;
+        v.sale = true; v.prouvee = true;
+        // Le Cerveau lui-même a disparu (dossier effacé) : on arrête de surveiller (sinon le système insiste en boucle).
+        if (!existsSync(this.root)) this.arreterVeille();
+      }), sale: true, prouvee: false, identite: identiteDossier(this.root) };
+      v.w.on('error', () => this.arreterVeille());
+      v.w.unref();
+      this.veille = v;
+    } catch { this.veille = null; } // surveillance impossible ici : la relecture toutes les 3 s reste
+  }
+  private arreterVeille(): void { try { this.veille?.w.close(); } catch { /* déjà fermée */ } this.veille = null; if (this.cache) this.cache.at = 0; }
+  /** Combien de temps la liste des notes peut servir sans tout re-vérifier (0 : relire maintenant). */
+  private validite(): number {
+    const v = this.veille;
+    if (!v) return 3000;
+    if (v.sale) return 0;
+    if (!v.prouvee) return 3000;
+    // Le dossier a été déplacé ou remplacé (même chemin, autre dossier) : la surveillance suit l'ancien ; on la refait.
+    if (identiteDossier(this.root) !== v.identite) { try { v.w.close(); } catch { /* */ } this.veille = undefined; return 0; }
+    return RELECTURE_SECURITE_MS;
+  }
 
   /** Chemin réel d'une note, toujours DANS le coffre (pas de « ../ »). */
   abs(path: string): string {
@@ -131,7 +215,9 @@ export class Vault {
 
   /** Toutes les notes (mises en cache 3 s : le graphe et la recherche relisent souvent). */
   all(force = false): Note[] {
-    if (!force && this.cache && Date.now() - this.cache.at < 3000) return this.cache.notes;
+    if (!force && this.cache && Date.now() - this.cache.at < this.validite()) return this.cache.notes;
+    const v = this.veille;
+    if (v) v.sale = false; // posé AVANT la relecture : un changement pendant la relecture la refera la fois suivante
     const notes: Note[] = [];
     const walk = (dir: string, depth: number) => {
       if (depth > 8) return;
@@ -158,10 +244,20 @@ export class Vault {
     const prev = this.cache?.notes;
     const inchange = !!prev && prev.length === notes.length && prev.every((n, i) => n === notes[i]);
     this.cache = { at: Date.now(), notes: inchange ? prev! : notes };
+    this.surveiller(notes.length);
     return this.cache.notes;
   }
-  /** Après une écriture d'Odin : tout est relu (une note réécrite dans la même milliseconde garderait sa date). */
-  private invalidate() { this.cache = undefined; this.idx = undefined; this.known.clear(); }
+  /**
+   * Après une écriture d'Odin : la liste est refaite, et la note écrite est relue pour de bon (réécrite dans la même
+   * milliseconde, elle garderait sa date et sa taille). Les autres notes restent connues : elles sont revalidées par leur
+   * date et leur taille comme d'habitude, au lieu d'être toutes relues et réanalysées (1,5 s à 2 000 notes).
+   * Sans chemin (renommage qui touche d'autres notes, restauration) : tout est oublié, comme avant.
+   */
+  private invalidate(...chemins: string[]) {
+    this.cache = undefined; this.idx = undefined;
+    if (!chemins.length) { this.known.clear(); return; }
+    for (const c of chemins) this.known.delete(c);
+  }
 
   /** Trouve une note par chemin, nom de fichier ou titre (comme les liens d'Obsidian). */
   find(ref: string): Note | undefined {
@@ -189,8 +285,8 @@ export class Vault {
     writeFileSync(tmp, formatNote(meta, body));
     const existed = existsSync(full);
     renameSync(tmp, full);
-    this.invalidate();
     const rel = relative(this.root, full).split(sep).join('/');
+    this.invalidate(rel);
     // `quiet` : écriture d'entretien (fiches tenues par Odin) qui ne doit pas déclencher les automatisations « note créée ».
     if (!o.quiet) vaultEvents.emit('change', { kind: existed ? 'modifiée' : 'créée', path: rel, title: String(meta.titre ?? meta.title ?? basename(rel, '.md')), type: String(meta.type ?? 'note') });
     return rel;
@@ -254,7 +350,7 @@ export class Vault {
     const dest = join(this.root, TRASH, `${Date.now()}-${basename(n.path)}`);
     mkdirSync(dirname(dest), { recursive: true });
     renameSync(join(this.root, n.path), dest);
-    this.invalidate();
+    this.invalidate(n.path);
     if (!o.quiet) vaultEvents.emit('change', { kind: 'corbeille', path: n.path, title: n.title, type: String(n.meta.type ?? 'note') });
     return relative(this.root, dest);
   }
@@ -265,7 +361,7 @@ export class Vault {
     let name = basename(file).replace(/^\d+-/, ''), dest = join(this.root, name), k = 2;
     while (existsSync(dest)) { name = `${basename(name, '.md')} ${k++}.md`; dest = join(this.root, name); }
     renameSync(src, dest);
-    this.invalidate();
+    this.invalidate(relative(this.root, dest).split(sep).join('/'));
     return name;
   }
 
@@ -332,8 +428,18 @@ export class Vault {
     // Index inversé « mot → notes » : on ne classe plus que les notes candidates au lieu de balayer TOUT le
     // Cerveau (85-97 ms → quelques ms). Reconstruit seulement quand la liste des notes change (donc jamais
     // entre deux demandes rapprochées). Résultat identique : les notes écartées auraient eu un score nul.
-    if (this.rech?.notes !== notes) { const index = new IndexNotes(); index.construire(notes); this.rech = { notes, index }; }
-    const out: Array<{ note: Note; score: number; snippet: string }> = [];
+    if (this.rech?.notes !== notes) {
+      // Mise à jour de l'index au lieu de tout reconstruire : seules les notes nouvelles, changées (autre objet) ou
+      // parties sont touchées (une note écrite = une note réindexée, pas 2 000). Index identique à une reconstruction.
+      if (this.rech) {
+        const { index } = this.rech, avant = new Map(this.rech.notes.map((n) => [n.path, n])), ici = new Set<string>();
+        for (const n of notes) { ici.add(n.path); if (avant.get(n.path) !== n) index.indexer(n); }
+        for (const p of avant.keys()) if (!ici.has(p)) index.retirer(p);
+        this.rech = { notes, index };
+      } else { const index = new IndexNotes(); index.construire(notes); this.rech = { notes, index }; }
+    }
+    const now = Date.now();
+    const out: Array<{ note: Note; score: number; hit: number }> = [];
     for (const n of this.rech.index.candidats(q)) {
       const { title, body, props, tags } = folded(n);
       let score = 0, hit = -1;
@@ -342,16 +448,19 @@ export class Vault {
         if (tags.includes(w)) score += 5;
         if (props.includes(w)) score += 3;
         const i = body.indexOf(w);
-        if (i >= 0) { score += 2 + Math.min(3, body.split(w).length - 2); if (hit < 0) hit = i; }
+        if (i >= 0) { score += 2 + Math.min(3, occurrences(body, w) - 1); if (hit < 0) hit = i; }
       }
       if (!score) continue;
       if (words.every((w) => title.includes(w) || body.includes(w))) score += 5;
-      score += Math.max(0, 3 - (Date.now() - n.mtime) / (30 * 86_400_000)); // récentes un peu devant
+      score += Math.max(0, 3 - (now - n.mtime) / (30 * 86_400_000)); // récentes un peu devant
+      out.push({ note: n, score, hit });
+    }
+    // L'extrait n'est fabriqué que pour les notes rendues (avant : pour chaque candidate, souvent des centaines).
+    return out.sort((a, b) => b.score - a.score).slice(0, limit).map(({ note: n, score, hit }) => {
       const raw = n.body.replace(/\s+/g, ' ');
       const at = hit >= 0 ? Math.max(0, hit - 60) : 0;
-      out.push({ note: n, score, snippet: `${at > 0 ? '…' : ''}${raw.slice(at, at + 200).trim()}${raw.length > at + 200 ? '…' : ''}` });
-    }
-    return out.sort((a, b) => b.score - a.score).slice(0, limit);
+      return { note: n, score, snippet: `${at > 0 ? '…' : ''}${raw.slice(at, at + 200).trim()}${raw.length > at + 200 ? '…' : ''}` };
+    });
   }
 
   /** Toutes les notes d'un type (une « base ») avec leurs propriétés. */

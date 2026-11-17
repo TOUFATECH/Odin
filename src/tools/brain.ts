@@ -10,6 +10,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { isoDay, TYPES, Vault, type NoteMeta } from '../brain/vault.ts';
 import { wrapUntrusted } from '../heimdall/injection.ts';
+import { noterOubli } from '../brain/nous/oubli.ts';
+import { fileNousOdin } from '../brain/nous/file-odin.ts';
 import { obj, num, str, type Tool, type ToolContext } from './registry.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -65,6 +67,8 @@ export const brainWrite: Tool = {
     section: str('section où ajouter (ex. « Décisions »)'), proprietes: str('propriétés en JSON (ex. {"statut":"en cours","échéance":"2026-12-01"})'), nouveau_nom: str('nouveau nom ou chemin (renommer)'),
   }, ['action']),
   summarize: (i) => `Cerveau : ${s(i.action)} ${s(i.titre || i.note).slice(0, 80)}`,
+  // Mettre une note à la corbeille t'engage : ton accord, avec la note concernée.
+  grave: (i) => (s(i.action) === 'corbeille' ? `mettre à la corbeille 1 note du Cerveau : « ${s(i.note).slice(0, 120)} »` : undefined),
   async run(i, ctx) {
     const v = brainOf(ctx), a = s(i.action);
     let props: NoteMeta = {};
@@ -81,7 +85,7 @@ export const brainWrite: Tool = {
     if (a === 'ajouter') return `✓ Complété : ${v.append(n.path, body, s(i.section) || undefined)}`;
     if (a === 'remplacer') return `✓ Réécrit : ${v.write(n.path, { ...n.meta, ...props, modifié: isoDay(new Date()) }, body)}`;
     if (a === 'renommer') return `✓ Renommé : ${v.rename(n.path, s(i.nouveau_nom).includes('/') ? s(i.nouveau_nom) : `${n.path.includes('/') ? n.path.slice(0, n.path.lastIndexOf('/') + 1) : ''}${s(i.nouveau_nom)}`)}`;
-    if (a === 'corbeille') return `✓ Mis à la corbeille (restaurable) : ${v.trash(n.path)}`;
+    if (a === 'corbeille') { if (ctx.home) noterOubli(ctx.home, { texte: `${n.title}\n${n.body}` }, fileNousOdin); return `✓ Mis à la corbeille (restaurable) : ${v.trash(n.path)}`; }
     return 'action inconnue';
   },
 };

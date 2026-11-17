@@ -46,6 +46,54 @@ interface Statique {
   adj: Map<string, string[]>;
   freins: Map<string, Array<{ id: string; fr: Frein }>>;
   ficheApp: Map<string, string>; appFiche: Map<string, string>; noms: Map<string, string>;
+  /** Liens écrits : combien de notes font exister chaque lien (A→B et B→A comptent pour deux), et ceux de chaque note. */
+  nbEcrit: Map<string, number>; sortants: Map<string, string[]>;
+  /** Liens et freins écrits vers une note qui n'existe pas (encore) : une note créée plus tard peut les faire exister. */
+  orphelins: Array<{ de: string; ref: string }>;
+}
+
+/** Au plus combien de notes nouvelles ou changées d'un coup avant de tout refaire (au-delà, refaire est aussi rapide). */
+const MAJ_PARTIELLE_MAX = 20;
+const trouverDans = (st: Statique, ref: string) => st.parSansMd.get(ref.replace(/\.md$/, '')) ?? st.parCle.get(cleNote(ref.split('/').pop() ?? ref));
+/** Ajoute (ou compte une fois de plus) un lien écrit. */
+function lierEcrit(st: Statique, x: string, y: string): string | undefined {
+  if (x === y) return undefined;
+  const k = cle(x, y), nb = st.nbEcrit.get(k) ?? 0;
+  st.nbEcrit.set(k, nb + 1);
+  if (nb === 0) { st.ecrit.add(k); for (const [u, v] of [[x, y], [y, x]]) { const l = st.adj.get(u); if (l) { if (!l.includes(v)) l.push(v); } else st.adj.set(u, [v]); } }
+  return k;
+}
+/** Retire une contribution à un lien écrit (le lien disparaît quand plus aucune note ne l'écrit). */
+function delierEcrit(st: Statique, k: string): void {
+  const nb = (st.nbEcrit.get(k) ?? 0) - 1;
+  if (nb > 0) { st.nbEcrit.set(k, nb); return; }
+  st.nbEcrit.delete(k); st.ecrit.delete(k);
+  if (st.usage.has(k)) return; // le lien d'usage garde les deux points voisins
+  const [x, y] = k.split('\u0001');
+  for (const [u, v] of [[x, y], [y, x]]) { const l = st.adj.get(u); if (!l) continue; const i = l.indexOf(v); if (i >= 0) l.splice(i, 1); if (!l.length) st.adj.delete(u); }
+}
+/** Les liens écrits d'une note fiable (ses [[…]]) ; les cibles introuvables sont gardées comme orphelins. */
+function liensDeNote(st: Statique, n: Note): void {
+  const ks: string[] = [];
+  for (const l of n.links) {
+    const t = trouverDans(st, l);
+    if (!t) { st.orphelins.push({ de: n.path, ref: l }); continue; }
+    if (t.path !== n.path && !pasFiable(t)) { const k = lierEcrit(st, `n:${n.path}`, `n:${t.path}`); if (k) ks.push(k); }
+  }
+  st.sortants.set(n.path, ks);
+}
+/** Les freins d'une note fiable (« remplace », « contredit » dans ses propriétés), refaits en entier pour elle. */
+function freinsDeNote(st: Statique, n: Note): void {
+  st.freins.delete(`n:${n.path}`);
+  for (const fr of ['remplace', 'contredit'] as const) {
+    const v = n.meta[fr]; if (v === undefined || v === '' || typeof v === 'boolean' || typeof v === 'number') continue;
+    for (const raw of Array.isArray(v) ? v : [v]) {
+      const ref = String(raw).replace(/^\s*!?\[\[|\]\]\s*$/g, '').split('|')[0].split('#')[0].trim(); if (!ref) continue;
+      const t = trouverDans(st, ref); if (!t) { st.orphelins.push({ de: n.path, ref }); continue; }
+      if (t.path === n.path) continue;
+      const l = st.freins.get(`n:${n.path}`) ?? []; if (!l.some((x) => x.id === `n:${t.path}`)) l.push({ id: `n:${t.path}`, fr }); st.freins.set(`n:${n.path}`, l);
+    }
+  }
 }
 
 /** Ce que la consultation du Cerveau utilise : voisins, origine d'un lien, gain d'un point, noms. */
@@ -114,13 +162,16 @@ export class LiensVivants {
     const s = this.st;
     // Le coffre relu sans changement rend un nouveau tableau avec les mêmes notes : la table sert encore.
     if (s && s.apps === apps && (s.notes === notes || (s.notes.length === notes.length && s.notes.every((n, i) => n === notes[i])))) { s.notes = notes; return s; }
-    const st: Statique = { notes, apps, parChemin: new Map(), parSansMd: new Map(), parCle: new Map(), ecrit: new Set(), usage: new Set(), adj: new Map(), freins: new Map(), ficheApp: new Map(), appFiche: new Map(), noms: new Map() };
+    // Quelques notes écrites ou ajoutées (le cas courant : Odin vient d'écrire une note) : la table est mise à jour pour
+    // elles seules. Même table qu'une reconstruction ; dès qu'un cas sort de l'ordinaire, on refait tout.
+    if (s && s.apps === apps && this.majPartielle(s, notes)) return s;
+    const st: Statique = { notes, apps, parChemin: new Map(), parSansMd: new Map(), parCle: new Map(), ecrit: new Set(), usage: new Set(), adj: new Map(), freins: new Map(), ficheApp: new Map(), appFiche: new Map(), noms: new Map(), nbEcrit: new Map(), sortants: new Map(), orphelins: [] };
     for (const n of notes) {
       st.parChemin.set(n.path, n);
       const p = n.path.replace(/\.md$/, ''); if (!st.parSansMd.has(p)) st.parSansMd.set(p, n);
       for (const k of [cleNote(basename(n.path)), cleNote(n.title)]) if (!st.parCle.has(k)) st.parCle.set(k, n);
     }
-    const trouver = (ref: string) => st.parSansMd.get(ref.replace(/\.md$/, '')) ?? st.parCle.get(cleNote(ref.split('/').pop() ?? ref));
+    const trouver = (ref: string) => trouverDans(st, ref);
     const lier = (set: Set<string>, x: string, y: string) => {
       if (x === y) return; const k = cle(x, y); if (set.has(k)) return; set.add(k);
       for (const [u, v] of [[x, y], [y, x]]) { const l = st.adj.get(u); if (l) { if (!l.includes(v)) l.push(v); } else st.adj.set(u, [v]); }
@@ -129,15 +180,8 @@ export class LiensVivants {
       // Une capture (pas fiable) n'écrit ni lien ni frein : ses [[…]] viennent de l'extérieur, pas du propriétaire
       // (sinon quelques captures qui citent une note diluent son influx et passent pour des liens écrits).
       if (pasFiable(n)) continue;
-      for (const l of n.links) { const t = trouver(l); if (t && t.path !== n.path && !pasFiable(t)) lier(st.ecrit, `n:${n.path}`, `n:${t.path}`); }
-      for (const fr of ['remplace', 'contredit'] as const) {
-        const v = n.meta[fr]; if (v === undefined || v === '' || typeof v === 'boolean' || typeof v === 'number') continue;
-        for (const raw of Array.isArray(v) ? v : [v]) {
-          const ref = String(raw).replace(/^\s*!?\[\[|\]\]\s*$/g, '').split('|')[0].split('#')[0].trim(); if (!ref) continue;
-          const t = trouver(ref); if (!t || t.path === n.path) continue;
-          const l = st.freins.get(`n:${n.path}`) ?? []; if (!l.some((x) => x.id === `n:${t.path}`)) l.push({ id: `n:${t.path}`, fr }); st.freins.set(`n:${n.path}`, l);
-        }
-      }
+      liensDeNote(st, n);
+      freinsDeNote(st, n);
     }
     const ids = new Set<string>([...LINKS.flatMap((l) => [l.from, l.to]), ...USAGES.flatMap((u) => u.chain)]);
     try { for (const m of apps?.modules?.() ?? []) ids.add(m.id); } catch { /* applis facultatives */ }
@@ -151,6 +195,53 @@ export class LiensVivants {
     for (const u of USAGES) for (let k = 1; k < u.chain.length; k++) lier(st.usage, `a:${u.chain[k - 1]}`, `a:${u.chain[k]}`);
     this.st = st;
     return st;
+  }
+
+  /**
+   * Met la table à jour pour quelques notes nouvelles ou changées. Rend false (tout sera refait) si une note a disparu,
+   * si une fiche d'appli bouge, si un titre ou la fiabilité d'une note change, ou si une note nouvelle prend un nom déjà
+   * porté (le premier trouvé l'emporterait selon l'ordre du dossier) : ces cas changent la façon de trouver les notes.
+   */
+  private majPartielle(s: Statique, notes: Note[]): boolean {
+    const avant = s.parChemin, ajoutees: Note[] = [], changees: Array<[Note, Note]> = [];
+    if (avant.size !== s.notes.length) return false; // deux notes au même chemin : cas inattendu, on refait tout
+    for (const n of notes) { const o = avant.get(n.path); if (!o) ajoutees.push(n); else if (o !== n) changees.push([o, n]); }
+    if (avant.size + ajoutees.length !== notes.length) return false; // une note a disparu
+    if (ajoutees.length + changees.length > MAJ_PARTIELLE_MAX) return false;
+    for (const n of [...ajoutees, ...changees.map((c) => c[1])]) if (n.path.startsWith(APPS_DIR)) return false;
+    for (const [o, n] of changees) if (o.title !== n.title || pasFiable(o) !== pasFiable(n)) return false;
+    const nouvellesCles = new Set<string>();
+    for (const n of ajoutees) {
+      const ks = [`p:${n.path.replace(/\.md$/, '')}`, `c:${cleNote(basename(n.path))}`, `c:${cleNote(n.title)}`];
+      if (s.parSansMd.has(ks[0].slice(2)) || s.parCle.has(ks[1].slice(2)) || s.parCle.has(ks[2].slice(2))) return false;
+      if (nouvellesCles.has(ks[0]) || nouvellesCles.has(ks[1])) return false; // deux notes nouvelles au même nom
+      ks.forEach((k) => nouvellesCles.add(k));
+    }
+    // Les liens et freins écrits par une note sont refaits pour elle seule.
+    const refaire = (n: Note) => {
+      for (const k of s.sortants.get(n.path) ?? []) delierEcrit(s, k);
+      s.sortants.delete(n.path); s.freins.delete(`n:${n.path}`);
+      s.orphelins = s.orphelins.filter((x) => x.de !== n.path);
+      if (!pasFiable(n)) { liensDeNote(s, n); freinsDeNote(s, n); }
+    };
+    for (const [o, n] of changees) {
+      s.parChemin.set(n.path, n);
+      const p = n.path.replace(/\.md$/, ''); if (s.parSansMd.get(p) === o) s.parSansMd.set(p, n);
+      for (const k of [cleNote(basename(n.path)), cleNote(n.title)]) if (s.parCle.get(k) === o) s.parCle.set(k, n);
+      refaire(n);
+    }
+    for (const n of ajoutees) {
+      s.parChemin.set(n.path, n);
+      s.parSansMd.set(n.path.replace(/\.md$/, ''), n);
+      for (const k of [cleNote(basename(n.path)), cleNote(n.title)]) if (!s.parCle.has(k)) s.parCle.set(k, n);
+    }
+    // Les notes qui écrivaient déjà vers une note nouvelle (lien ou frein orphelin) : leurs liens sont refaits.
+    const nouvelles = new Set(ajoutees.map((n) => n.path));
+    const touchees = new Set(s.orphelins.filter((x) => { const t = trouverDans(s, x.ref); return t && nouvelles.has(t.path); }).map((x) => x.de));
+    for (const n of ajoutees) refaire(n);
+    for (const de of touchees) { const n = s.parChemin.get(de); if (n && !nouvelles.has(de)) refaire(n); }
+    s.notes = notes;
+    return true;
   }
 
   /** La vue du moment (coffre + applis + liens rangés), pour la consultation, l'apprentissage et la carte. */

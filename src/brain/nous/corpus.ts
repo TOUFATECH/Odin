@@ -7,6 +7,7 @@
 //
 // Contre l'empoisonnement de ce qui vient d'Internet : doublons retirés, part plafonnée par source.
 
+import { deflateRawSync, inflateRawSync } from 'node:zlib';
 import type { Sorte } from './deps.ts';
 
 /** Un exemple rangé : ses morceaux (identifiants de sous-mots), sa sorte, sa fiabilité, et le souvenir d'où
@@ -100,6 +101,51 @@ export interface MagasinTranches {
   ecrire(nom: string, buf: Buffer): void;
   lister(): string[];
   effacer(nom: string): void;
+  /** (facultatif) ajoute à la FIN du fichier sans le réécrire : la tranche devient une suite d'enregistrements. */
+  ajouterFin?(nom: string, buf: Buffer): void;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Tranche « en enregistrements » : MAGIE puis, pour chaque ajout, [u32 longueur][scellé(compressé(tranche))].
+// Un ajout n'écrit que ses nouveaux exemples (jamais la tranche entière) ; chaque enregistrement est scellé à part
+// et compressé (les morceaux tiennent sur 4 octets mais sont surtout petits : la compression les ramène à peu).
+// L'ancien format (un seul bloc scellé) reste lu.
+const MAGIE = Buffer.from('ODR1', 'latin1');
+/** Un enregistrement scellé, prêt à être ajouté. */
+export function enregistrement(ex: ExempleCorpus[], scel: Scellage): Buffer {
+  const corps = scel.sceller(deflateRawSync(encoderTranche(ex), { level: 6 }));
+  const l = Buffer.alloc(4); l.writeUInt32LE(corps.length, 0);
+  return Buffer.concat([l, corps]);
+}
+/** Lit une tranche, ancien ou nouveau format. Un enregistrement abîmé est sauté (les autres restent lus). */
+export function lireTranche(buf: Buffer | undefined, scel: Scellage): ExempleCorpus[] {
+  if (!buf || !buf.length) return [];
+  if (buf.length < 4 || !buf.subarray(0, 4).equals(MAGIE)) { try { return decoderTranche(scel.ouvrir(buf)); } catch { return []; } }
+  const out: ExempleCorpus[] = [];
+  let o = 4;
+  while (o + 4 <= buf.length) {
+    const n = buf.readUInt32LE(o); o += 4;
+    if (o + n > buf.length) break; // fin tronquée (arrêt pendant une écriture) : on garde ce qui précède
+    try { for (const e of decoderTranche(inflateRawSync(scel.ouvrir(buf.subarray(o, o + n)), { maxOutputLength: 256 * 1024 * 1024 }))) out.push(e); } catch { /* enregistrement abîmé */ }
+    o += n;
+  }
+  return out;
+}
+
+/**
+ * La fin du dernier enregistrement COMPLET d'une tranche en enregistrements (après la MAGIE), ou `buf.length` si tout est
+ * complet. Une fin tronquée (arrêt pendant une écriture) est ainsi repérée : on la coupe AVANT d'ajouter, sinon les
+ * ajouts suivants seraient collés derrière elle et ne seraient jamais relus. Pur.
+ */
+export function finComplete(buf: Buffer): number {
+  if (buf.length < 4 || !buf.subarray(0, 4).equals(MAGIE)) return buf.length;
+  let o = 4;
+  while (o + 4 <= buf.length) {
+    const n = buf.readUInt32LE(o);
+    if (o + 4 + n > buf.length) return o;
+    o += 4 + n;
+  }
+  return o;
 }
 
 /** Scellage injecté : coffre AES-256-GCM en vrai, identité en essai. */
@@ -114,28 +160,60 @@ export class Corpus {
     this.scel = scel;
   }
 
+  // Ce qu'on sait déjà sans relire le disque : les empreintes de chaque tranche et le compte de chaque source.
+  // (Valable tant que ce Corpus est le seul à écrire dans son magasin : c'est le cas du lecteur de la file.)
+  private empreintes = new Map<string, Set<string>>();
+  private comptes = new Map<string, number>();
+
   private charger(nom: string): ExempleCorpus[] {
-    const b = this.magasin.lire(nom);
-    if (!b) return [];
-    try { return decoderTranche(this.scel.ouvrir(b)); } catch { return []; }
+    return lireTranche(this.magasin.lire(nom), this.scel);
   }
 
   private enregistrer(nom: string, ex: ExempleCorpus[]): void {
+    this.empreintes.delete(nom); this.comptes.clear();
     if (ex.length === 0) { this.magasin.effacer(nom); return; }
+    if (this.magasin.ajouterFin) { this.magasin.ecrire(nom, Buffer.concat([MAGIE, enregistrement(ex, this.scel)])); return; }
     this.magasin.ecrire(nom, this.scel.sceller(encoderTranche(ex)));
   }
 
-  /** Ajoute des exemples à la tranche du jour/source, sans doublons et sous le plafond de la source. */
+  /** Ajoute des exemples à la tranche du jour/source, sans doublons et sous le plafond de la source.
+   *  Avec un magasin qui sait ajouter à la fin, seuls les nouveaux exemples sont écrits. */
   ajouter(jour: string, source: string, nouveaux: ExempleCorpus[], plafondSource = 0): number {
     const nom = nomTranche(jour, source);
-    const dejaTranche = this.charger(nom);
-    const vus = new Set(dejaTranche.map((e) => empreinte(e.morceaux)));
-    let frais = dedupe(nouveaux, vus);
+    if (!this.magasin.ajouterFin) {
+      const dejaTranche = this.charger(nom);
+      const vus = new Set(dejaTranche.map((e) => empreinte(e.morceaux)));
+      let frais = dedupe(nouveaux, vus);
+      if (plafondSource > 0) frais = plafonnerParSource(frais, plafondSource, this.compterSource(source));
+      if (frais.length === 0) return 0;
+      this.enregistrer(nom, [...dejaTranche, ...frais]);
+      return frais.length;
+    }
+    let vus = this.empreintes.get(nom);
+    if (!vus) { vus = new Set(this.charger(nom).map((e) => empreinte(e.morceaux))); this.empreintes.set(nom, vus); }
+    let frais = dedupe(nouveaux, new Set(vus));
     if (plafondSource > 0) frais = plafonnerParSource(frais, plafondSource, this.compterSource(source));
     if (frais.length === 0) return 0;
-    this.enregistrer(nom, [...dejaTranche, ...frais]);
+    let existe = this.magasin.lire(nom);
+    // Une fin tronquée (arrêt pendant un ajout) est coupée d'abord : les ajouts suivants restent lisibles.
+    if (existe && existe.length >= 4 && existe.subarray(0, 4).equals(MAGIE)) {
+      const fin = finComplete(existe);
+      if (fin < existe.length) { existe = existe.subarray(0, fin); this.magasin.ecrire(nom, existe); }
+    }
+    if (existe && existe.length && !existe.subarray(0, 4).equals(MAGIE)) {
+      // ancienne tranche d'un seul bloc : convertie une fois en enregistrements
+      this.enregistrer(nom, [...this.charger(nom), ...frais]);
+    } else {
+      this.magasin.ajouterFin(nom, existe && existe.length ? enregistrement(frais, this.scel) : Buffer.concat([MAGIE, enregistrement(frais, this.scel)]));
+    }
+    const s2 = this.empreintes.get(nom) ?? vus; for (const e of frais) s2.add(empreinte(e.morceaux)); this.empreintes.set(nom, s2);
+    const suffixe = nomTranche('', source).replace('tranche--', '');
+    if (this.comptes.has(suffixe)) this.comptes.set(suffixe, (this.comptes.get(suffixe) ?? 0) + frais.length);
     return frais.length;
   }
+
+  /** Tous les exemples d'une tranche (lecture seule). */
+  lireTranche(nom: string): ExempleCorpus[] { return this.charger(nom); }
 
   /** Oubli : retire d'absolument toutes les tranches les exemples d'un souvenir effacé. Rend le nombre retiré. */
   oublier(idSouvenir: number): number {
@@ -148,6 +226,23 @@ export class Corpus {
     return retires;
   }
 
+  /**
+   * Oubli général : chaque tranche est relue UNE fois ; un exemple pour lequel `transformer` rend `undefined` est retiré,
+   * un exemple qu'il rend changé est remplacé (une ligne oubliée retirée d'un texte qui en avait plusieurs). Rend le
+   * nombre d'exemples retirés ou changés.
+   */
+  oublierSi(transformer: (e: ExempleCorpus) => ExempleCorpus | undefined): number {
+    let touches = 0;
+    for (const nom of this.magasin.lister()) {
+      const ex = this.charger(nom);
+      const apres: ExempleCorpus[] = [];
+      let ici = 0;
+      for (const e of ex) { const t = transformer(e); if (t !== e) ici++; if (t) apres.push(t); }
+      if (ici) { touches += ici; this.enregistrer(nom, apres); }
+    }
+    return touches;
+  }
+
   /** Nombre d'exemples en tout. */
   compter(): number {
     let n = 0;
@@ -158,8 +253,11 @@ export class Corpus {
   /** Nombre d'exemples déjà rangés pour une source (toutes tranches confondues). */
   compterSource(source: string): number {
     const suffixe = nomTranche('', source).replace('tranche--', '');
+    const c = this.comptes.get(suffixe);
+    if (c !== undefined) return c;
     let n = 0;
     for (const nom of this.magasin.lister()) if (nom.endsWith(suffixe)) n += this.charger(nom).length;
+    this.comptes.set(suffixe, n);
     return n;
   }
 }

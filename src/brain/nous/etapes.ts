@@ -103,6 +103,17 @@ export function lotPreEntrainement(exemples: readonly ExempleCorpus[]): Lot {
 /** Les identifiants de jetons de rôle (réservés par le découpage du moteur), passés par l'appelant. */
 export interface JetonsRole { demandeDebut: number; reponseDebut: number; fin: number }
 
+/**
+ * LA forme d'une paire « demande → réponse », la même à l'entraînement et à l'usage (défaut 2 de l'entraînement) :
+ * [USER] demande [ASSISTANT] réponse [EOS]. Des jetons de rôle, aucun mot : rien ne dépend d'une langue.
+ * (Valeurs de SPECIAUX, decoupage.ts : USER = 3, ASSISTANT = 4, EOS = 2.)
+ */
+export const JETONS_ROLE: JetonsRole = { demandeDebut: 3, reponseDebut: 4, fin: 2 };
+/** Une demande présentée au réseau à l'usage (proposer, score) : [USER] demande [ASSISTANT]. */
+export function formeDemande(demande: ArrayLike<number>, j: JetonsRole = JETONS_ROLE): Int32Array { return Int32Array.from([j.demandeDebut, ...Array.from(demande), j.reponseDebut]); }
+/** Une réponse à juger (score) : réponse [EOS]. */
+export function formeReponse(reponse: ArrayLike<number>, j: JetonsRole = JETONS_ROLE): Int32Array { return Int32Array.from([...Array.from(reponse), j.fin]); }
+
 /** Construit une entrée demande → réponse et son masque de rôles (0 = ne pas apprendre sur la demande). */
 export function paireAjustement(demande: Int32Array, reponse: Int32Array, jetons: JetonsRole): { entree: Int32Array; roles: Int32Array } {
   const entree = Int32Array.from([jetons.demandeDebut, ...demande, jetons.reponseDebut, ...reponse, jetons.fin]);

@@ -171,3 +171,6 @@ function tie(k: number, graine: number): number {
 export interface DecoupageSerialise { vocab: number; version: number; fusions: Int32Array }
 export function serialiserDecoupage(d: DecoupageConcret): DecoupageSerialise { return { vocab: d.vocab, version: d.version, fusions: Int32Array.from(d.fusions) }; }
 export function lireDecoupageSerialise(s: DecoupageSerialise): DecoupageConcret { return fabriquer(Int32Array.from(s.fusions), s.vocab); }
+/** Un découpage rangé est-il de la règle d'aujourd'hui ? (sa version rangée = celle qu'on recalcule ; sinon il a été
+ *  appris avec une ancienne règle de pré-découpage ou un ancien algorithme). Pur. */
+export function decoupageAJour(s: DecoupageSerialise): boolean { try { return lireDecoupageSerialise(s).version === s.version; } catch { return false; } }

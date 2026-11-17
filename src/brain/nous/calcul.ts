@@ -8,7 +8,8 @@
 // Tout le hasard passe par src/brain/nous/hasard.ts (aucun Math.random). Les produits de matrices passent par les
 // noyaux de src/brain/nous/wasm.ts (WebAssembly SIMD, repli JavaScript). Aucun paquet, aucun serveur.
 
-import { isMainThread, parentPort } from 'node:worker_threads';
+import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
+import { formeDemande, formeReponse } from './etapes.ts';
 import type { Hyper } from './tailles.ts';
 import { hasard, graineDe, melange, type Hasard } from './hasard.ts';
 import { noyaux, type Noyaux } from './wasm.ts';
@@ -97,7 +98,30 @@ export interface SignalArret { readonly aborted: boolean }
 export interface GenOpts { maxMorceaux?: number; delaiMs?: number; signal?: SignalArret; graine?: number; temperature?: number; arretId?: number }
 export interface GenSortie { ids: number[]; logprob: number; confiance: number; morceaux: number; tempsMs: number; pret: boolean }
 
+/** Nombre de fenêtres de contexte lues au plus pour le plongement d'un long texte. */
+const FENETRES_PLONGEMENT = 8;
+
+/** Les `n` premiers morceaux d'une suite (la suite elle-même si elle tient déjà). */
+function tete(ids: ArrayLike<number>, n: number): ArrayLike<number> {
+  if (ids.length <= n) return ids;
+  const out = new Int32Array(n); for (let i = 0; i < n; i++) out[i] = ids[i] | 0;
+  return out;
+}
+
+/** `n` morceaux d'une suite à partir de `saut` (ce qui manque vaut 0). */
+function queue(ids: ArrayLike<number>, saut: number, n: number): Int32Array {
+  const out = new Int32Array(n); for (let i = 0; i < n; i++) out[i] = (ids[saut + i] ?? 0) | 0;
+  return out;
+}
+
+/** L'arrêt demandé PENDANT le calcul d'une séquence (lu entre deux couches, à l'aller et au retour). */
+export class ArretCalcul extends Error { constructor() { super('arrêt demandé pendant le calcul'); } }
+const ARRET = new ArretCalcul();
+
 export class Reseau {
+  /** Le drapeau d'arrêt de la séance en cours (posé par la séance, retiré après) : lu entre deux couches. */
+  arret?: { readonly aborted: boolean };
+  private verifierArret(): void { if (this.arret?.aborted) throw ARRET; }
   readonly hyper: Hyper;
   readonly disp: Disposition;
   poids: Float32Array;
@@ -149,6 +173,9 @@ export class Reseau {
   // ------------------------------------------------------------------------------------------------------------
   avant(ids: ArrayLike<number>, avecLogits: boolean): Etat {
     const d = this.disp, C = d.C, C4 = d.C4, H = d.H, hd = d.hd, V = d.V, T = ids.length;
+    // Jamais plus de positions que le contexte : au-delà, la « position » se lirait — et, à l'entraînement,
+    // s'écrirait — dans les poids de la première couche, rangés juste après la table des positions.
+    if (T > d.T) throw new RangeError(`Noûs : suite de ${T} morceaux, le contexte en porte ${d.T}`);
     const x0 = new Float32Array(T * C);
     for (let t = 0; t < T; t++) {
       const id = ids[t] | 0, we = d.wte + id * C, pe = d.wpe + t * C, xo = t * C;
@@ -158,6 +185,7 @@ export class Reseau {
     const couches: EtatCouche[] = [];
     const inv = 1 / Math.sqrt(hd);
     for (let l = 0; l < d.L; l++) {
+      this.verifierArret();
       const cp = d.couches[l];
       const xEntree = x;
       // ln1
@@ -242,8 +270,19 @@ export class Reseau {
   // rôlesMasque[t] = 0 => on n'apprend pas à prédire ids[t+1] (ex. partie « demande » en ajustement).
   // ------------------------------------------------------------------------------------------------------------
   perteEtGrad(ids: ArrayLike<number>, poidsExemple = 1, rolesMasque?: ArrayLike<number>): number {
-    const d = this.disp, C = d.C, V = d.V, T = ids.length;
+    const d = this.disp;
+    // Plus long que le contexte : un texte courant garde son DÉBUT ; une paire « demande → réponse » (masque de rôles)
+    // garde sa FIN — la réponse, la seule partie apprise — et perd le début de la demande. Couper le début d'une paire
+    // ne laisserait rien à apprendre, sans le dire. (À l'appelant de découper mieux quand il le peut.)
+    if (ids.length > d.T) {
+      if (rolesMasque) { const saut = ids.length - d.T; rolesMasque = queue(rolesMasque, saut, d.T); ids = queue(ids, saut, d.T); }
+      else ids = tete(ids, d.T);
+    }
+    const C = d.C, V = d.V, T = ids.length;
+    // Rien à prédire (masque de rôles vide sur ce qui reste) : dit à part, jamais compté comme une perte nulle.
+    if (rolesMasque) { let k = 0; for (let t = 0; t < T - 1 && !k; t++) if (rolesMasque[t]) k = 1; if (!k) return RIEN_A_APPRENDRE; }
     const et = this.avant(ids, true);
+    this.verifierArret();
     const logits = et.logits!;
     const dLogits = new Float32Array(T * V);
     let perte = 0, nPred = 0;
@@ -258,7 +297,7 @@ export class Reseau {
       for (let vv = 0; vv < V; vv++) dLogits[o + vv] = Math.exp(logits[o + vv] - lse);
       dLogits[o + cible] -= 1;
     }
-    if (nPred === 0) return 0;
+    if (nPred === 0) return RIEN_A_APPRENDRE;
     const ech = (poidsExemple / nPred);
     for (let i = 0; i < T * V; i++) dLogits[i] *= ech;
     this.retropropagation(ids, et, dLogits);
@@ -283,6 +322,7 @@ export class Reseau {
     this.dLayernorm(dxF, this.g(d.lnfg, C), this.g(d.lnfb, C), dY, et.xFinal, et.mf, et.rf, this.t(d.lnfg, C), T, C);
     let dx = dxF;
     for (let l = d.L - 1; l >= 0; l--) {
+      this.verifierArret();
       const cp = d.couches[l], ec = et.couches[l];
       // --- FFN ---
       // x = xMid + f + b2 ; dxMid += dx ; df = dx ; db2 = somme dx
@@ -405,16 +445,26 @@ export class Reseau {
   }
   /** Oublie les gradients accumulés sans toucher aux poids (ex. après une interruption). */
   jeterGrad(): void { this.grads.fill(0); this.nAccum = 0; }
+  /** Ajoute des gradients calculés ailleurs (un fil d'aide) pour `n` séquences. */
+  ajouterGrad(g: Float32Array, n: number): void { const G = this.grads; for (let i = 0; i < G.length; i++) G[i] += g[i]; this.nAccum += n; }
+  /** Gradients rangés dans une mémoire partagée (fil d'aide : le fil principal de Noûs les lit sans copie). */
+  partagerGrad(sab: SharedArrayBuffer): void { this.grads = new Float32Array(sab); }
 
   // ------------------------------------------------------------------------------------------------------------
   // Plongement : moyenne de la sortie normalisée finale. [C]
   // ------------------------------------------------------------------------------------------------------------
   plonger(ids: ArrayLike<number>): Float32Array {
-    const d = this.disp, C = d.C, T = ids.length;
-    if (T === 0) return new Float32Array(C);
-    const et = this.avant(ids, false);
+    // Un texte plus long que le contexte est lu par fenêtres ; le vecteur est la moyenne de toutes les positions lues.
+    // Au-delà de FENETRES_PLONGEMENT fenêtres, la fin n'est pas lue (coût borné).
+    const d = this.disp, C = d.C, T = Math.min(ids.length, d.T * FENETRES_PLONGEMENT);
     const out = new Float32Array(C);
-    for (let t = 0; t < T; t++) for (let c = 0; c < C; c++) out[c] += et.y[t * C + c];
+    if (T === 0) return out;
+    for (let debut = 0; debut < T; debut += d.T) {
+      const n = Math.min(d.T, T - debut);
+      const fen = new Int32Array(n); for (let i = 0; i < n; i++) fen[i] = ids[debut + i] | 0;
+      const et = this.avant(fen, false);
+      for (let t = 0; t < n; t++) for (let c = 0; c < C; c++) out[c] += et.y[t * C + c];
+    }
     for (let c = 0; c < C; c++) out[c] /= T;
     return out;
   }
@@ -424,11 +474,14 @@ export class Reseau {
     const d = this.disp, V = d.V;
     const dem = Array.from(demande, (x) => x | 0), rep = Array.from(reponse, (x) => x | 0);
     if (rep.length === 0) return 0;
-    const ids = [...dem, ...rep].slice(0, d.T);
+    // La réponse est gardée ; c'est la demande qu'on coupe, par la gauche, quand l'ensemble dépasse le contexte. Sinon
+    // une longue demande chassait la réponse, et le score valait 0 — la meilleure note — quelle que soit la réponse.
+    const repU = rep.slice(0, d.T - 1), demU = dem.slice(-Math.max(1, d.T - repU.length));
+    const ids = [...demU, ...repU];
     const et = this.avant(ids, true);
     const logits = et.logits!;
     let somme = 0, n = 0;
-    const debut = Math.min(dem.length, ids.length) - 1; // la 1re cible de réponse est prédite depuis la dernière position de la demande
+    const debut = Math.min(demU.length, ids.length) - 1; // la 1re cible de réponse est prédite depuis la dernière position de la demande
     for (let t = Math.max(0, debut); t < ids.length - 1; t++) {
       const cible = ids[t + 1], o = t * V;
       let mx = -Infinity; for (let vv = 0; vv < V; vv++) if (logits[o + vv] > mx) mx = logits[o + vv];
@@ -442,7 +495,9 @@ export class Reseau {
   // Logits de la dernière position par une passe avant complète (sans cache) — sert à vérifier le cache.
   // ------------------------------------------------------------------------------------------------------------
   logitsDerniere(ids: ArrayLike<number>): Float32Array {
-    const d = this.disp, C = d.C, V = d.V, T = ids.length;
+    const d = this.disp, C = d.C, V = d.V;
+    if (ids.length > d.T) ids = Array.prototype.slice.call(ids, -d.T) as number[]; // les derniers morceaux, comme generer()
+    const T = ids.length;
     const et = this.avant(ids, false);
     const wteT = new Float32Array(C * V); transpose(wteT, this.t(d.wte, V * C), V, C);
     const out = new Float32Array(V);
@@ -604,15 +659,15 @@ export class Reseau {
 // ----------------------------------------------------------------------------------------------------------------
 
 export interface LotBrut { entrees: Int32Array[]; roles?: Int32Array[]; poidsExemple?: Float32Array }
-export interface SeanceReglages { dureeMs: number; signal?: SignalArret; graine: number; lr?: number; tailleLot?: number; maxPas?: number }
-export interface AvanceeBrute { pas: number; morceauxVus: number; perte: number; tempsMs: number; interrompue: boolean }
+export interface SeanceReglages { dureeMs: number; signal?: SignalArret; graine: number; lr?: number; tailleLot?: number; maxPas?: number; fils?: number }
+export interface AvanceeBrute { pas: number; morceauxVus: number; perte: number; tempsMs: number; interrompue: boolean; /** Exemples qui n'avaient rien à apprendre (comptés à part : ni dans la perte, ni dans le pas). */ sansCible?: number }
 
 /** Déroule une séance : accumule `tailleLot` séquences, fait un pas AdamW, recommence jusqu'à épuisement/temps/signal. */
 export function seance(r: Reseau, lots: Iterable<LotBrut>, o: SeanceReglages): AvanceeBrute {
   const t0 = performance.now();
   const lr = o.lr ?? 3e-4, tailleLot = o.tailleLot ?? 8;
   const h = hasard(o.graine);
-  let pas = 0, morceaux = 0, perteTot = 0, perteN = 0, interrompue = false;
+  let pas = 0, morceaux = 0, perteTot = 0, perteN = 0, interrompue = false, sansCible = 0;
   // rassemble toutes les séquences (avec leur rôle/poids) en une liste, puis mélange à la graine.
   const items: Array<{ ids: Int32Array; role?: Int32Array; poids: number }> = [];
   for (const lot of lots) {
@@ -621,15 +676,21 @@ export function seance(r: Reseau, lots: Iterable<LotBrut>, o: SeanceReglages): A
   if (items.length === 0) return { pas: 0, morceauxVus: 0, perte: 0, tempsMs: performance.now() - t0, interrompue: false };
   const ordre = melange(items.length, h);
   let idx = 0;
+  // L'arrêt est lu aussi PENDANT le calcul d'une séquence (entre deux couches) : Odin reprend la main plus vite.
+  r.arret = o.signal;
+  try {
   while (true) {
     if (o.signal?.aborted) { interrompue = true; r.jeterGrad(); break; }
     if (performance.now() - t0 > o.dureeMs) break;
     if (o.maxPas && pas >= o.maxPas) break;
     let dansLot = 0, lotSain = true;
+    const perteAvantLot = perteN;
     for (; dansLot < tailleLot && idx < ordre.length; idx++, dansLot++) {
       const it = items[ordre[idx]];
       if (it.ids.length < 2) continue;
-      const p = r.perteEtGrad(it.ids, it.poids, it.role);
+      let p: number;
+      try { p = r.perteEtGrad(it.ids, it.poids, it.role); } catch (e) { if (e instanceof ArretCalcul) { interrompue = true; break; } throw e; }
+      if (p === RIEN_A_APPRENDRE) { sansCible++; continue; }
       if (Number.isFinite(p)) { perteTot += p; perteN++; } else lotSain = false; // divergence : lot écarté
       morceaux += it.ids.length;
       if (o.signal?.aborted) { interrompue = true; break; }
@@ -637,10 +698,191 @@ export function seance(r: Reseau, lots: Iterable<LotBrut>, o: SeanceReglages): A
     if (interrompue) { r.jeterGrad(); break; }
     // NE JAMAIS EMPIRER : un lot à la perte infinie/non numérique n'est pas appliqué (les poids restent intacts).
     if (!lotSain) { r.jeterGrad(); }
-    else if (dansLot > 0) { r.pasAdamW(lr); pas++; }
+    else if (perteN > perteAvantLot) { r.pasAdamW(lr); pas++; }
+    else r.jeterGrad();
     if (idx >= ordre.length) break; // un seul passage sur les données par séance
   }
-  return { pas, morceauxVus: morceaux, perte: perteN ? perteTot / perteN : 0, tempsMs: performance.now() - t0, interrompue };
+  } finally { r.arret = undefined; }
+  return { pas, morceauxVus: morceaux, perte: perteN ? perteTot / perteN : 0, tempsMs: performance.now() - t0, interrompue, sansCible };
+}
+
+// ----------------------------------------------------------------------------------------------------------------
+// Séance sur PLUSIEURS FILS (réglage de puissance) : parallélisme de données SYNCHRONE. À chaque pas, le lot est
+// partagé entre le fil de Noûs et ses fils d'aide ; chacun calcule les gradients de sa part sur les MÊMES poids (lus
+// en mémoire partagée, personne ne les modifie pendant ce temps) ; le fil de Noûs additionne, dans un ordre fixe, puis
+// fait UN pas AdamW. Le résultat est celui d'un seul fil sur le même lot (à l'ordre des additions près). Le lot vaut
+// le multiple du nombre de fils le plus proche de 8 séquences (chaque fil a la même part). L'arrêt (drapeau
+// partagé) est lu entre deux séquences, par chaque fil.
+// ----------------------------------------------------------------------------------------------------------------
+
+/** Les fils d'aide d'un réseau, et leur mémoire de synchronisation. */
+export interface Aides {
+  n: number;
+  workers: Worker[];
+  sync: Int32Array;      // [0] génération ; [1] fin de séance ; puis par aide k : [2+4k] début, [3+4k] nombre, [4+4k] fait, [5+4k] prêt
+  res: Float64Array;     // par aide k : [4k] somme des pertes, [4k+1] séquences finies, [4k+2] séquences en tout, [4k+3] sans cible
+  grads: Float32Array[]; // les gradients de chaque aide (mémoire partagée)
+  /** Une aide n'a pas répondu (morte, mémoire épuisée) : ces aides ne servent plus, elles sont relancées. */
+  cassees?: boolean;
+}
+/** Le rôle donné au worker du moteur (moteur.ts) : seul un fil de ce rôle écoute les ordres du moteur. */
+export const ROLE_MOTEUR = 'noos-moteur';
+/** Ce que rend perteEtGrad quand un exemple n'a rien à apprendre (une perte est toujours ≥ 0) : compté à part. */
+export const RIEN_A_APPRENDRE = -1;
+/**
+ * La version du CALCUL des plongements, mêlée à l'étiquette des vecteurs (« noos-v<n>-p<k> ») : quand elle change, la
+ * mémoire refait ses vecteurs même si le point de reprise est le même. 1 : sans borne au contexte ; 2 : moyenne par
+ * fenêtres (défaut 1 corrigé).
+ */
+export const VERSION_PLONGEMENT = 2;
+/** Le temps maximal d'attente d'une aide pour sa part d'un pas (une part prend quelques secondes au plus). */
+export let DELAI_AIDE_MS = 30_000;
+/** (essais) raccourcit l'attente d'une aide. */
+export function reglerDelaiAide(ms: number): void { DELAI_AIDE_MS = Math.max(50, ms); }
+const SYNC = (k: number): number => 2 + 4 * k;
+
+/** Lance `n` fils d'aide sur les poids partagés `sab` (et le drapeau d'arrêt `ctrl`). */
+export function lancerAides(hyper: Hyper, sab: SharedArrayBuffer, ctrl: SharedArrayBuffer | undefined, n: number): Aides {
+  const total = disposition(hyper).total;
+  const sync = new Int32Array(new SharedArrayBuffer(4 * (2 + 4 * n)));
+  const res = new Float64Array(new SharedArrayBuffer(8 * 4 * n));
+  const grads: Float32Array[] = [], workers: Worker[] = [];
+  for (let k = 0; k < n; k++) {
+    const g = new SharedArrayBuffer(total * 4); grads.push(new Float32Array(g));
+    const w = new Worker(new URL(import.meta.url), { name: `noos-aide-${k}`, workerData: { role: 'aide', k, hyper, sab, g, sync: sync.buffer, res: res.buffer, ctrl }, resourceLimits: { maxOldGenerationSizeMb: 512, maxYoungGenerationSizeMb: 64 } });
+    w.unref(); w.on('error', (e) => { console.error(`[noos] un fil d'aide s'est arrêté : ${String((e as Error)?.message ?? e)}`); });
+    workers.push(w);
+  }
+  return { n, workers, sync, res, grads };
+}
+/** Arrête les fils d'aide. */
+export async function arreterAides(a: Aides | undefined): Promise<void> {
+  if (!a) return;
+  Atomics.store(a.sync, 1, 1); Atomics.add(a.sync, 0, 1); Atomics.notify(a.sync, 0);
+  await Promise.all(a.workers.map((w) => w.terminate().catch(() => 0)));
+}
+
+/** Une séance sur 1 + aides.n fils. Mêmes règles que seance() : interruptible, un lot malsain n'est pas appliqué. */
+export async function seanceParallele(r: Reseau, lots: Iterable<LotBrut>, o: SeanceReglages, aides: Aides): Promise<AvanceeBrute> {
+  const t0 = performance.now();
+  const lr = o.lr ?? 3e-4, nf = aides.n + 1;
+  const parFil = Math.max(1, Math.round((o.tailleLot ?? 8) / nf)), tailleLot = parFil * nf;
+  const h = hasard(o.graine);
+  const items: Array<{ ids: Int32Array; role?: Int32Array; poids: number }> = [];
+  for (const lot of lots) for (let i = 0; i < lot.entrees.length; i++) items.push({ ids: lot.entrees[i], role: lot.roles?.[i], poids: lot.poidsExemple?.[i] ?? 1 });
+  if (items.length === 0) return { pas: 0, morceauxVus: 0, perte: 0, tempsMs: performance.now() - t0, interrompue: false };
+  const ordre = melange(items.length, h);
+  const enOrdre = Array.from(ordre, (i) => items[i]);
+  const { sync, res } = aides;
+  // Chaque aide reçoit les séquences (dans l'ordre de passage) et répond « prêt ».
+  Atomics.store(sync, 1, 0);
+  for (let k = 0; k < aides.n; k++) Atomics.store(sync, SYNC(k) + 3, 0);
+  const gen0 = Atomics.load(sync, 0);
+  for (let k = 0; k < aides.n; k++) aides.workers[k].postMessage({ type: 'seance', items: enOrdre, gen: gen0 });
+  const depuis = performance.now();
+  for (let k = 0; k < aides.n; k++) {
+    while (Atomics.load(sync, SYNC(k) + 3) !== 1) {
+      await new Promise((ok) => setTimeout(ok, 1));
+      if (performance.now() - depuis > 30_000) throw new Error('un fil d\'aide ne répond pas');
+    }
+  }
+  let pas = 0, morceaux = 0, perteTot = 0, perteN = 0, interrompue = false, idx = 0, sansCible = 0;
+  r.arret = o.signal;
+  try {
+    while (idx < enOrdre.length) {
+      if (o.signal?.aborted) { interrompue = true; break; }
+      if (performance.now() - t0 > o.dureeMs) break;
+      if (o.maxPas && pas >= o.maxPas) break;
+      const debut = idx, fin = Math.min(enOrdre.length, idx + tailleLot); idx = fin;
+      const perteAvantPas = perteN;
+      // Les parts : le fil de Noûs prend la première, l'aide k la (k+2)-ième.
+      const gen = Atomics.load(sync, 0) + 1;
+      for (let k = 0; k < aides.n; k++) {
+        const a = Math.min(fin, debut + parFil * (k + 1)), b = Math.min(fin, a + parFil);
+        Atomics.store(sync, SYNC(k), a); Atomics.store(sync, SYNC(k) + 1, b - a);
+      }
+      Atomics.store(sync, 0, gen); Atomics.notify(sync, 0);
+      let sain = true;
+      for (let i = debut; i < Math.min(fin, debut + parFil); i++) {
+        if (o.signal?.aborted) { interrompue = true; break; }
+        const it = enOrdre[i]; if (it.ids.length < 2) continue;
+        let p: number;
+        try { p = r.perteEtGrad(it.ids, it.poids, it.role); } catch (e) { if (e instanceof ArretCalcul) { interrompue = true; break; } throw e; }
+        if (p === RIEN_A_APPRENDRE) { sansCible++; continue; }
+        if (Number.isFinite(p)) { perteTot += p; perteN++; } else sain = false;
+        morceaux += it.ids.length;
+      }
+      // Attendre chaque aide (ils lisent le même drapeau d'arrêt : au pire une séquence de retard). Jamais sans fin : une
+      // aide qui ne rend pas sa part en DELAI_AIDE_MS (morte, mémoire épuisée) fait abandonner la séance avec une erreur ;
+      // le drapeau d'arrêt est lu aussi (Odin doit pouvoir s'arrêter, même si une aide est morte).
+      const attente0 = performance.now();
+      for (let k = 0; k < aides.n; k++) {
+        let fait = Atomics.load(sync, SYNC(k) + 2);
+        while (fait !== gen) {
+          Atomics.wait(sync, SYNC(k) + 2, fait, 50); fait = Atomics.load(sync, SYNC(k) + 2);
+          if (fait === gen) break;
+          if (o.signal?.aborted) { interrompue = true; break; }
+          if (performance.now() - attente0 > DELAI_AIDE_MS) { aides.cassees = true; r.jeterGrad(); throw new Error('un fil d\'aide ne répond plus (arrêté ou à court de mémoire) : la séance est abandonnée, les aides seront relancées'); }
+        }
+        if (interrompue) break;
+      }
+      if (o.signal?.aborted) interrompue = true;
+      if (interrompue) { r.jeterGrad(); break; }
+      for (let k = 0; k < aides.n; k++) {
+        const somme = res[4 * k], finies = res[4 * k + 1], tout = res[4 * k + 2];
+        sansCible += res[4 * k + 3];
+        if (finies < tout) sain = false;
+        perteTot += somme; perteN += finies;
+        const a = Atomics.load(sync, SYNC(k)), nseq = Atomics.load(sync, SYNC(k) + 1);
+        for (let i = a; i < a + nseq; i++) morceaux += enOrdre[i]?.ids.length ?? 0;
+        if (tout > 0) r.ajouterGrad(aides.grads[k], tout);
+      }
+      if (!sain || perteN === perteAvantPas) r.jeterGrad(); else { r.pasAdamW(lr); pas++; }
+    }
+  } finally {
+    // Fin de séance : les aides retournent attendre la suivante.
+    r.arret = undefined;
+    Atomics.store(sync, 1, 1); Atomics.add(sync, 0, 1); Atomics.notify(sync, 0);
+  }
+  return { pas, morceauxVus: morceaux, perte: perteN ? perteTot / perteN : 0, tempsMs: performance.now() - t0, interrompue, sansCible };
+}
+
+/** Le corps d'un fil d'aide : attend sa part à chaque pas, calcule ses gradients, le signale. */
+function demarrerAide(port: NonNullable<typeof parentPort>, w: { k: number; hyper: Hyper; sab: SharedArrayBuffer; g: SharedArrayBuffer; sync: SharedArrayBuffer; res: SharedArrayBuffer; ctrl?: SharedArrayBuffer }): void {
+  const r = new Reseau(w.hyper, new Float32Array(w.sab));
+  r.partagerGrad(w.g);
+  const sync = new Int32Array(w.sync), res = new Float64Array(w.res), ctrl = w.ctrl ? new Int32Array(w.ctrl) : undefined;
+  const k = w.k, base = SYNC(k);
+  let ctrlSeance = 0;
+  // L'aide lit l'arrêt aussi entre deux couches (même drapeau que le fil de Noûs).
+  if (ctrl) r.arret = { get aborted(): boolean { return Atomics.load(ctrl, 0) !== ctrlSeance; } };
+  port.on('message', (m: { type: string; items?: Array<{ ids: Int32Array; role?: Int32Array; poids: number }>; gen?: number }) => {
+    if (m.type !== 'seance' || !m.items) return;
+    const items = m.items;
+    let vu = m.gen ?? Atomics.load(sync, 0);
+    const ctrl0 = ctrl ? Atomics.load(ctrl, 0) : 0; // l'arrêt = ctrl[0] qui change pendant la séance
+    ctrlSeance = ctrl0;
+    Atomics.store(sync, base + 3, 1);
+    for (;;) {
+      Atomics.wait(sync, 0, vu);
+      const gen = Atomics.load(sync, 0); vu = gen;
+      if (Atomics.load(sync, 1) === 1) { Atomics.store(sync, base + 3, 0); return; }
+      r.jeterGrad();
+      const a = Atomics.load(sync, base), n = Atomics.load(sync, base + 1);
+      let somme = 0, finies = 0, tout = 0, sans = 0;
+      for (let i = a; i < a + n; i++) {
+        if (ctrl && Atomics.load(ctrl, 0) !== ctrl0) break;
+        const it = items[i]; if (!it || it.ids.length < 2) continue;
+        let p: number;
+        try { p = r.perteEtGrad(it.ids, it.poids, it.role); } catch (e) { if (e instanceof ArretCalcul) break; throw e; }
+        if (p === RIEN_A_APPRENDRE) { sans++; continue; }
+        tout++;
+        if (Number.isFinite(p)) { somme += p; finies++; }
+      }
+      res[4 * k] = somme; res[4 * k + 1] = finies; res[4 * k + 2] = tout; res[4 * k + 3] = sans;
+      Atomics.store(sync, base + 2, gen); Atomics.notify(sync, base + 2);
+    }
+  });
 }
 
 // ----------------------------------------------------------------------------------------------------------------
@@ -652,14 +894,19 @@ export function seance(r: Reseau, lots: Iterable<LotBrut>, o: SeanceReglages): A
 
 interface OrdreW { type: string; id?: number; [k: string]: unknown }
 
+// Seulement dans les fils lancés POUR cela (rôle « moteur » ou « aide ») : un autre fil qui importe ce fichier (le
+// worker de préparation, un banc d'essai) garde son canal de messages pour lui (défaut 4 de l'entraînement).
 if (!isMainThread && parentPort) {
-  demarrerWorker(parentPort);
+  const wd = workerData as { role?: string } | undefined;
+  if (wd?.role === 'aide') demarrerAide(parentPort, workerData as Parameters<typeof demarrerAide>[1]);
+  else if (wd?.role === ROLE_MOTEUR) demarrerWorker(parentPort);
 }
 
 function demarrerWorker(port: NonNullable<typeof parentPort>): void {
   let reseau: Reseau | undefined;
   let decoupage: { encoder(t: string): Int32Array; decoder(ids: ArrayLike<number>): string; vocab: number; version: number; arretId?: number } | undefined;
   let ctrl: Int32Array | undefined;
+  let sabPoids: SharedArrayBuffer | undefined, sabCtrl: SharedArrayBuffer | undefined, aides: Aides | undefined;
   const courbe: Array<{ pas: number; perte: number }> = [];
   let grainesCourbe = 0;
   // L'opération en cours d'exécution dans le worker. L'arrêt est demandé en posant ctrl[0] = identifiant de
@@ -687,6 +934,7 @@ function demarrerWorker(port: NonNullable<typeof parentPort>): void {
     switch (o.type) {
       case 'init': {
         const hyper = o.hyper as Hyper;
+        sabPoids = o.sab as SharedArrayBuffer; sabCtrl = o.ctrl as SharedArrayBuffer;
         const poids = new Float32Array(o.sab as SharedArrayBuffer);
         reseau = new Reseau(hyper, poids);
         ctrl = new Int32Array(o.ctrl as SharedArrayBuffer);
@@ -703,7 +951,8 @@ function demarrerWorker(port: NonNullable<typeof parentPort>): void {
       case 'proposer': {
         if (!reseau || !decoupage) throw new Error('Noûs pas initialisé');
         const dmd = o.demande as { texte: string; maxMorceaux?: number; delaiMs?: number; graine?: number };
-        const ids = decoupage.encoder(dmd.texte);
+        // La même forme qu'à l'entraînement des paires : [USER] demande [ASSISTANT], puis la réponse jusqu'à [EOS].
+        const ids = formeDemande(decoupage.encoder(dmd.texte));
         const g = reseau.generer(ids, dmd.maxMorceaux ?? 64, { delaiMs: dmd.delaiMs, signal: sig, graine: dmd.graine, arretId: decoupage.arretId });
         repondre(o.id, { texte: decoupage.decoder(g.ids), confiance: g.confiance, logprob: g.logprob, morceaux: g.morceaux, tempsMs: g.tempsMs, pret: g.pret });
         return;
@@ -723,14 +972,21 @@ function demarrerWorker(port: NonNullable<typeof parentPort>): void {
       }
       case 'score': {
         if (!reseau || !decoupage) throw new Error('Noûs pas initialisé');
-        repondre(o.id, reseau.score(decoupage.encoder(o.demande as string), decoupage.encoder(o.reponse as string)));
+        repondre(o.id, reseau.score(formeDemande(decoupage.encoder(o.demande as string)), formeReponse(decoupage.encoder(o.reponse as string))));
         return;
       }
       case 'seance': {
         if (!reseau) throw new Error('Noûs pas initialisé');
         // L'arrêt : la façade pose ctrl[0] = identifiant de CETTE séance ; la boucle de seance() le lit via sig.
         const reglages = o.reglages as SeanceReglages;
-        const av = seance(reseau, o.lots as LotBrut[], { ...reglages, signal: sig });
+        // Plusieurs fils : les aides sont lancés une fois (et relancés si le nombre change).
+        const nAides = Math.max(0, Math.min(31, (reglages.fils ?? 1) - 1));
+        if (aides?.cassees) { await arreterAides(aides); aides = undefined; } // une aide morte : on les relance toutes
+        if (nAides && (!aides || aides.n !== nAides) && sabPoids) { await arreterAides(aides); aides = lancerAides(reseau.hyper, sabPoids, sabCtrl, nAides); }
+        if (!nAides && aides) { await arreterAides(aides); aides = undefined; }
+        let av: AvanceeBrute;
+        try { av = nAides && aides ? await seanceParallele(reseau, o.lots as LotBrut[], { ...reglages, signal: sig }, aides) : seance(reseau, o.lots as LotBrut[], { ...reglages, signal: sig }); }
+        catch (e) { if (aides?.cassees) { await arreterAides(aides); aides = undefined; } throw e; }
         if (av.pas > 0) courbe.push({ pas: reseau.pas, perte: av.perte });
         repondre(o.id, av);
         return;
@@ -746,7 +1002,7 @@ function demarrerWorker(port: NonNullable<typeof parentPort>): void {
         const mm = reseau.exporterMoments();
         const chemin = await rep.ecrireReprise(o.home as string, o.n as number, {
           hyper: reseau.hyper, decoupage: (await import('./decoupage.ts')).serialiserDecoupage(decoupage as unknown as Parameters<typeof import('./decoupage.ts').serialiserDecoupage>[0]),
-          poids: reseau.poids, m: mm.m, v: mm.v, pas: mm.pas, graine: grainesCourbe, courbe,
+          poids: reseau.poids, m: mm.m, v: mm.v, pas: mm.pas, graine: grainesCourbe, courbe, modeleVersion: typeof o.modeleVersion === 'number' ? o.modeleVersion : undefined,
         });
         repondre(o.id, chemin);
         return;
@@ -761,6 +1017,7 @@ function demarrerWorker(port: NonNullable<typeof parentPort>): void {
         return;
       }
       case 'arreter': {
+        await arreterAides(aides); aides = undefined;
         repondre(o.id, { arrete: true });
         return;
       }
@@ -772,8 +1029,9 @@ function demarrerWorker(port: NonNullable<typeof parentPort>): void {
 /** Perte moyenne sur un jeu tenu à part (porte de qualité) — ne touche pas aux gradients. */
 export function perteSur(r: Reseau, jeu: Int32Array[]): number {
   let s = 0, n = 0;
-  for (const ids of jeu) {
-    if (ids.length < 2) continue;
+  for (const brut of jeu) {
+    if (brut.length < 2) continue;
+    const ids = tete(brut, r.disp.T); // comme à l'entraînement : ce qui dépasse le contexte n'est pas mesuré
     const et = r.avant(ids, true); const logits = et.logits!; const V = r.disp.V;
     for (let t = 0; t < ids.length - 1; t++) {
       const cible = ids[t + 1] | 0, o = t * V;

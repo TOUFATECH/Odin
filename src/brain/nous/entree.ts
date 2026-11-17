@@ -31,6 +31,8 @@ export interface Nourriture {
   fiable: boolean;
   note?: number;
   maitre?: string;
+  /** Le souvenir d'où vient ce qu'on donne (pour l'oubli : effacer le souvenir retire ses exemples). */
+  idSouvenir?: number;
 }
 
 /**
@@ -69,11 +71,18 @@ export function nourrir(deps: NoosDeps, n: Nourriture): void {
       fiable: n.fiable === true,
       note,
       maitre: n.maitre ? str(n.maitre) : undefined,
+      ...(Number.isInteger(n.idSouvenir) && (n.idSouvenir as number) >= 0 ? { idSouvenir: n.idSouvenir } : {}),
       at: (deps.maintenant ?? Date.now)(),
     });
   } catch {
     // NE LÈVE JAMAIS.
   }
+}
+
+/** Le nettoyage que nourrir() applique par défaut (masques techniques et propres à Noûs) : l'oubli s'en sert pour
+ *  reconnaître un texte tel qu'il a été rangé. Ne lève jamais. */
+export function nettoyagePourNous(t: string): string {
+  try { return masqueDe({})(redacteurTech.redact(String(t ?? ''))); } catch { return String(t ?? ''); }
 }
 
 function str(x: unknown): string { return typeof x === 'string' ? x : ''; }

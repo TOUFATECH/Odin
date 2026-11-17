@@ -30,7 +30,7 @@ export interface ContenuReprise {
   courbe: Array<{ pas: number; perte: number }>;
   modeleVersion?: number;
 }
-export interface RepriseLue extends Omit<ContenuReprise, 'decoupage'> { n: number; decoupage: DecoupageConcret; modeleVersion: number }
+export interface RepriseLue extends Omit<ContenuReprise, 'decoupage'> { n: number; decoupage: DecoupageConcret; modeleVersion: number; /** La version rangée du découpage n'est pas celle qu'on recalcule : découpage d'une ancienne règle. */ decoupageAncien: boolean }
 
 /** Dossier des points de reprise (créé au besoin). */
 export function dossierReprise(home: string): string { const d = join(home, DOSSIER); mkdirSync(d, { recursive: true }); return d; }
@@ -97,7 +97,7 @@ function lireFichier(home: string, n: number): RepriseLue {
   const fusionsBuf = Buffer.from(entete.decoupage.fusions, 'base64');
   const fusions = new Int32Array(fusionsBuf.length / 4); Buffer.from(fusions.buffer).set(fusionsBuf);
   const decoupage = lireDecoupageSerialise({ vocab: entete.decoupage.vocab, version: entete.decoupage.version, fusions });
-  return { n, hyper: entete.hyper, decoupage, poids, m, v: vv, pas: entete.pas, graine: entete.graine, courbe: entete.courbe ?? [], modeleVersion: entete.modeleVersion ?? 1 };
+  return { n, hyper: entete.hyper, decoupage, poids, m, v: vv, pas: entete.pas, graine: entete.graine, courbe: entete.courbe ?? [], modeleVersion: entete.modeleVersion ?? 1, decoupageAncien: decoupage.version !== entete.decoupage.version };
 }
 
 /** Lit le point de reprise n (ou le plus récent lisible si n est omis). undefined si aucun n'est valable. */

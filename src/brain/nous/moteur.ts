@@ -12,6 +12,7 @@ import type { Embedder } from '../../muninn/embed.ts';
 import { avecPoids, hyperDe, mesurerEtChoisir, TAILLES, type Hyper, type TailleNom } from './tailles.ts';
 import { apprendreDecoupage, serialiserDecoupage, type DecoupageConcret, type DecoupageSerialise } from './decoupage.ts';
 import { lireReprise } from './reprise.ts';
+import { ROLE_MOTEUR, VERSION_PLONGEMENT } from './calcul.ts';
 import { embedderNoos } from './plongement.ts';
 
 export { TAILLES, mesurerEtChoisir, apprendreDecoupage, embedderNoos };
@@ -50,6 +51,7 @@ export interface Entraineur extends Pick<Moteur, 'hyper' | 'proposer' | 'complet
   perteSur(jeu: Int32Array[]): Promise<number>;
   ecrire(n: number): Promise<string>;
   revenirA(n: number): Promise<void>;
+  arreter(): Promise<void>;
 }
 
 // ----------------------------------------------------------------------------------------------------------------
@@ -93,7 +95,7 @@ class Facade implements Moteur, Entraineur {
     this.sabPoids = new SharedArrayBuffer(a.hyper.poids * 4);
     if (a.poidsInit) new Float32Array(this.sabPoids).set(a.poidsInit);
     this.worker = new Worker(new URL('./calcul.ts', import.meta.url), {
-      name: 'noos',
+      name: 'noos', workerData: { role: ROLE_MOTEUR },
       resourceLimits: { maxOldGenerationSizeMb: 1536, maxYoungGenerationSizeMb: 128 },
     });
     this.worker.on('message', (m: { type: string; id?: number; valeur?: unknown; message?: string }) => {
@@ -114,7 +116,8 @@ class Facade implements Moteur, Entraineur {
   }
 
   get version(): number { return this.modeleVersion; }
-  get modeleEmbedding(): string { return `noos-v${this.modeleVersion}`; }
+  // Le point de reprise ET la version du calcul des plongements : changer l'un ou l'autre fait refaire les vecteurs.
+  get modeleEmbedding(): string { return `noos-v${this.modeleVersion}-p${VERSION_PLONGEMENT}`; }
   get pret(): boolean { return this._pret; }
 
   private tomber(e: unknown): void {
@@ -168,8 +171,13 @@ class Facade implements Moteur, Entraineur {
   }
   async arreter(): Promise<void> {
     if (this.mort) return;
-    try { await this.envoyer('arreter', {}); } catch { /* peu importe */ }
+    // L'opération en cours (une séance) est abandonnée tout de suite ; l'ordre d'arrêt range les aides. Jamais sans fin :
+    // un worker qui ne répond pas en 5 s est terminé de force (Odin doit toujours pouvoir s'arrêter).
+    Atomics.store(this.ctrl, 0, this.prochainId - 1);
+    try { await Promise.race([this.envoyer('arreter', {}), new Promise((ok) => { const t = setTimeout(ok, 5000); (t as { unref?: () => void }).unref?.(); })]); } catch { /* peu importe */ }
     this.mort = true;
+    for (const att of this.attentes.values()) att.ko(new Error('Noûs arrêté'));
+    this.attentes.clear();
     try { await this.worker.terminate(); } catch { /* déjà terminé */ }
   }
 
@@ -179,9 +187,9 @@ class Facade implements Moteur, Entraineur {
     const liste: Lot[] = [];
     if (Symbol.asyncIterator in (lots as object)) { for await (const l of lots as AsyncIterable<Lot>) liste.push(l); }
     else for (const l of lots as Iterable<Lot>) liste.push(l);
-    // o.fils est accepté (contrat), mais l'entraînement tourne aujourd'hui sur UN seul worker (les poids sont déjà en
-    // mémoire partagée pour permettre d'ajouter plus tard un petit pool de fils qui se partagent les gradients).
-    const v = await this.envoyer('seance', { lots: liste, reglages: { dureeMs: o.dureeMs, graine: o.graine } }, o.signal);
+    // o.fils : 1 = le seul fil de Noûs ; davantage = des fils d'aide qui calculent chacun une part du lot sur les mêmes
+    // poids partagés (calcul.ts, seanceParallele). L'arrêt (o.signal) vaut pour tous les fils.
+    const v = await this.envoyer('seance', { lots: liste, reglages: { dureeMs: o.dureeMs, graine: o.graine, fils: Math.max(1, Math.floor(o.fils || 1)) } }, o.signal);
     return v as Avancee;
   }
   async perteSur(jeu: Int32Array[]): Promise<number> {
@@ -190,7 +198,10 @@ class Facade implements Moteur, Entraineur {
   }
   async ecrire(n: number): Promise<string> {
     await this.initFait;
-    const chemin = (await this.envoyer('ecrire', { home: this.home, n })) as string;
+    // Chaque point de reprise est une NOUVELLE version du modèle (n + 1) : la mémoire voit l'étiquette « noos-v<n> »
+    // changer et refait ses vecteurs (avant, la version restait 1 et les anciens vecteurs étaient gardés à tort).
+    const chemin = (await this.envoyer('ecrire', { home: this.home, n, modeleVersion: n + 1 })) as string;
+    this.modeleVersion = n + 1;
     this._pret = true; // un point de reprise valable est désormais en service
     return chemin;
   }

@@ -20,6 +20,8 @@ export interface ExempleEnFile {
   note?: number;
   maitre?: string;
   at: number;
+  /** Le souvenir d'où vient l'exemple (pour l'oubli), s'il est connu. */
+  idSouvenir?: number;
 }
 
 /** Une file bornée en mémoire : pousser ne bloque jamais ; quand elle est pleine, le plus ancien part. */
@@ -28,6 +30,8 @@ export interface FileApprentissage {
   taille(): number;
   prendre(n: number): ExempleEnFile[];
   vider(): void;
+  /** Retire les exemples en attente qui répondent au critère (l'oubli). Rend le nombre retiré. */
+  retirerSi?(critere: (e: ExempleEnFile) => boolean): number;
 }
 
 /** Fabrique une file bornée (anneau). Par défaut 10 000 exemples : largement assez entre deux séances. */
@@ -42,6 +46,7 @@ export function fileBornee(max = 10_000): FileApprentissage {
     taille() { return buf.length; },
     prendre(n) { return buf.splice(0, Math.max(0, n)); },
     vider() { buf.length = 0; },
+    retirerSi(critere) { let n = 0; for (let i = buf.length - 1; i >= 0; i--) { try { if (critere(buf[i])) { buf.splice(i, 1); n++; } } catch { /* critère en panne : on garde */ } } return n; },
   };
 }
 

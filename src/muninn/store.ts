@@ -104,6 +104,9 @@ function groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {
 }
 export const TRASH_DAYS = 7;
 
+/** Prévenus quand un souvenir est oublié (le corpus de Noûs retire ce qu'il en a appris). */
+export const surOubliSouvenir = new Set<(m: { id: number; content: string }) => void>();
+
 export class Mnemosyne {
   /** Le dossier de la mémoire (null : mémoire vive seulement). */
   readonly dir: string | null;
@@ -422,7 +425,14 @@ export class Mnemosyne {
     else this.memories.put({ subject: '', topic: '', source: '', superseded_by: null, ...m } as MemoryRow & Record<string, unknown>);
     const r = this.memories.get(m.id)!; this.memIndex.add(r.id, `${r.content} ${r.tags ?? ''}`);
   }
-  forget(id: number): boolean { this.memIndex.remove(id); this.vectors.delete(id); this.vecCache.oublier(id); this.usesEnAttente.delete(id); return this.memories.delete(id); }
+  forget(id: number): boolean {
+    const avant = this.memories.get(id);
+    this.memIndex.remove(id); this.vectors.delete(id); this.vecCache.oublier(id); this.usesEnAttente.delete(id);
+    const ok = this.memories.delete(id);
+    // Ceux qui ont appris de ce souvenir (le corpus de Noûs) l'oublient aussi.
+    if (ok && avant) for (const f of surOubliSouvenir) { try { f({ id, content: avant.content }); } catch { /* jamais bloquant */ } }
+    return ok;
+  }
   pin(id: number, on = true): void { this.memories.patch(id, { pinned: on ? 1 : 0 }); }
   /** Validation humaine d'une mémoire en quarantaine : elle devient fiable. */
   vouch(id: number): void { this.memories.patch(id, { origin: 'owner', trust: 1 }); }

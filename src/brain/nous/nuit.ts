@@ -11,7 +11,7 @@
 import type { Lot } from './etapes.ts';
 
 /** Avancée d'une séance (contrat §2). */
-export interface Avancee { pas: number; morceauxVus: number; perte: number; tempsMs: number; interrompue: boolean }
+export interface Avancee { pas: number; morceauxVus: number; perte: number; tempsMs: number; interrompue: boolean; /** Exemples sans rien à apprendre (comptés à part). */ sansCible?: number }
 /** Réglages d'une séance (contrat §2). */
 export interface SeanceOpts { dureeMs: number; fils: number; signal: AbortSignal; graine: number }
 

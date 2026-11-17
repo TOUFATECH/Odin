@@ -51,13 +51,13 @@ test('façade : propose, complète, plonge, note, s\'entraîne, écrit et se rec
   const m = await chargerMoteur(home);
   assert.ok(m, 'moteur rechargé');
   assert.equal(m.pret, true);
-  assert.equal(m.modeleEmbedding, 'noos-v1');
+  assert.equal(m.modeleEmbedding, 'noos-v1-p2');
   assert.equal(m.hyper.C, HYPER.C);
   t.after(() => m.arreter());
 
   // l'adaptateur Embedder de la mémoire
   const emb = embedderNoos(m);
-  assert.equal(emb.model, 'noos-v1');
+  assert.equal(emb.model, 'noos-v1-p2');
   const ve = await emb.embed('le serveur de fichiers');
   assert.ok(ve instanceof Float32Array && ve.length === HYPER.C);
 });

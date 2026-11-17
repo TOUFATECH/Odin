@@ -38,7 +38,7 @@
 .no-essai{display:flex;flex-direction:column;gap:8px}
 .no-essai textarea{min-height:60px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:8px;font:inherit;font-size:13px}
 .no-essai .bar{display:flex;gap:6px;flex-wrap:wrap}
-.no-essai button,.no-bar2 button{min-height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 12px;font:600 13px inherit;cursor:pointer}
+.no-essai button,.no-bar2 button{min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 12px;font:600 13px inherit;cursor:pointer}
 .no-out{white-space:pre-wrap;font-size:13px;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--panel2);min-height:24px}
 .no-warn{font-size:12.5px;color:var(--muted);font-style:italic}
 .no-list{display:flex;flex-direction:column;gap:6px}
@@ -54,11 +54,72 @@
 
   // Répartition réelle (part du travail) — jamais un poids forcé, une mesure.
   function carteTravail(t) {
-    const p = t && t.tenus > 0 ? t.profond : 0;
-    return carte('Répartition réelle',
-      el('div', { class: 'no-big' }, t && t.tenus > 0 ? `réel ${p} / ${100 - p}` : 'pas encore de mesure'),
-      el('div', { class: 'no-bar' }, el('span', { style: `width:${p}%` })),
-      el('div', { class: 'no-sub' }, 'cible 80 / 20 — image inspirée du cerveau, pas une mesure du cerveau humain'),
+    const mesure = t && t.tenus > 0;
+    const p = mesure ? t.profond : 0;
+    return carte('Part du travail de Noûs',
+      el('div', { class: 'no-big' }, mesure ? `${p} % des réponses` : 'pas encore mesurée'),
+      mesure ? el('div', { class: 'no-bar' }, el('span', { style: `width:${p}%` })) : null,
+      el('div', { class: 'no-sub' }, mesure ? `mesurée sur ${t.tenus} réponse(s) réelles` : "Noûs ne répond encore à rien : aucune part n'est affichée tant qu'elle n'est pas mesurée."),
+    );
+  }
+
+  const SOURCES = { odin: "Ce qu'Odin est", memoire: 'Tes notes et ta mémoire', mathesis: 'Mathésis', pronoia: 'Prónoia', archytas: 'Archytas' };
+  // Ce que Noûs a lu pour de vrai : son corpus (chiffré sur cette machine) et ce qui attend dans la file.
+  function carteCorpus(lu) {
+    const mo = (lu?.octets ?? 0) / 1048576;
+    return carte('Son corpus',
+      ligne('Exemples rangés', (lu?.total ?? 0).toLocaleString('fr')),
+      ligne('Place sur le disque', mo >= 1 ? `${mo.toFixed(1).replace('.', ',')} Mo` : `${Math.round((lu?.octets ?? 0) / 1024)} Ko`),
+      ligne('En attente dans la file', String(lu?.enFile ?? 0)),
+      ...(lu?.parSource || []).slice(0, 6).map((x) => ligne(SOURCES[x.source] || x.source, (x.n ?? 0).toLocaleString('fr'))),
+      el('div', { class: 'no-sub' }, 'Chiffré avec la clé de cette machine ; jamais en mode privé ; borné par le réglage « disque ».'),
+    );
+  }
+
+  // Le premier corpus : d'où Noûs part (réglage « corpus de départ »), et le changer.
+  function carteDepart(d, onChange) {
+    const choix = el('select', { 'aria-label': 'Corpus de départ', style: 'min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:0 8px;max-width:100%' },
+      ...(d?.choix_possibles || []).map((c) => el('option', { value: c.id, selected: c.id === d.choix }, c.id === 'odin' ? "Ce qu'Odin est" : c.id === 'memoire' ? 'Ma mémoire seulement' : c.id === 'web' ? 'Textes du web' : 'Me demander')));
+    const enregistrer = el('button', { type: 'button', onclick: async () => { const r = await api('/reglages', { corpusDepart: choix.value }); if (r && r.ok) onChange(); } }, 'Enregistrer');
+    return carte('Premier corpus',
+      el('div', { class: 'no-sub' }, d?.texte || ''),
+      ligne('Fait', d?.fait ? `oui (${d.textes ?? 0} textes, ${d.paires ?? 0} paires)${d.incomplet ? ` — incomplet : ${d.incomplet}` : ''}` : 'pas encore'),
+      el('div', { class: 'no-bar2', style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px' }, choix, enregistrer),
+    );
+  }
+
+  // L'entraînement, dit vrai : en train d'apprendre ou non (et pourquoi), depuis quand, combien de pas, la perte,
+  // la dernière amélioration gardée ou refusée, et la puissance (réglable).
+  function carteEntrainement(e, onChange) {
+    e = e || {};
+    const depuis = e.depuis ? new Date(e.depuis).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    const d = e.derniere;
+    const choix = el('select', { 'aria-label': "Puissance de l'entraînement", style: 'min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:0 8px;max-width:100%' },
+      ...(e.puissances || []).map((p) => el('option', { value: p.id, selected: p.id === e.puissance }, `${p.id === 'douce' ? 'Douce' : p.id === 'normale' ? 'Normale' : 'Pleine'} (${p.fils} fil${p.fils > 1 ? 's' : ''})`)));
+    const enregistrer = el('button', { type: 'button', onclick: async () => { const r = await api('/reglages', { puissance: choix.value }); if (r && r.ok) onChange(); } }, 'Enregistrer');
+    const heures = (x) => { const m = Math.round((x || 0) / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+    return carte('Entraînement',
+      el('div', { class: 'no-big' }, e.apprend ? 'en train d\'apprendre' : 'n\'apprend pas en ce moment'),
+      el('div', { class: 'no-sub' }, e.apprend ? `depuis ${depuis}${e.phase && e.phase !== 'apprend' ? ` — ${e.phase}` : ''}` : (e.arret ? `Raison : ${e.arret}.` : 'Il apprend dès qu\'Odin est libre, de jour comme de nuit.')),
+      ligne('Pas d\'apprentissage', (e.pas ?? 0).toLocaleString('fr')),
+      ligne('Temps de calcul', heures(e.tempsMs)),
+      ligne('Perte (entraînement)', e.perte != null ? String(e.perte).replace('.', ',') : '—'),
+      ligne('Perte en service (banc)', e.perteBanc != null ? (Math.round(e.perteBanc * 1000) / 1000).toString().replace('.', ',') : '—'),
+      ligne('Dernière amélioration', d ? `${d.gardee ? 'gardée' : 'refusée'} (${(Math.round(d.perteAvant * 1000) / 1000).toString().replace('.', ',')} → ${(Math.round(d.perteApres * 1000) / 1000).toString().replace('.', ',')})` : 'pas encore'),
+      d ? el('div', { class: 'no-sub' }, `${d.raison} — ${new Date(d.quand).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`) : null,
+      e.dernierArretMs != null ? ligne('Arrêt quand Odin répond', ms(e.dernierArretMs)) : null,
+      el('div', { class: 'no-bar2', style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px' }, choix, enregistrer),
+      el('div', { class: 'no-sub' }, `Puissance : ${(e.puissances || []).find((p) => p.id === e.puissance)?.texte || ''}. La machine a ${e.filsMachine ?? '?'} fils.`),
+    );
+  }
+
+  function carteCoutNous(c) {
+    const v = c?.vidage, d = c?.depart;
+    return carte('Ce que ça coûte à Odin',
+      ligne('Dernier rangement', v ? `${v.ecrits} exemple(s) en ${ms(v.ms)}` : 'pas encore'),
+      ligne('Premier corpus', d ? `${d.textes} textes, ${d.paires} paires : fait en ${ms(d.ms)}, rangé en ${ms(d.rangeMs)}` : 'pas encore'),
+      d?.nonResolues?.length ? el('div', { class: 'no-sub' }, `Demandes sans action réelle trouvée : ${d.nonResolues.join(' ; ')}`) : null,
+      el('div', { class: 'no-sub' }, "Mesuré sur cette machine ; jamais pendant une réponse d'Odin."),
     );
   }
 
@@ -92,7 +153,7 @@
   }
 
   function carteEtapes(e) {
-    const etat = (x) => (x ? `fait ${Math.round((x.avancement || 0) * 100)} %` : 'en attente');
+    const etat = (x) => (x ? (x.texte || `fait ${Math.round((x.avancement || 0) * 100)} %`) : 'en attente');
     return carte('Les trois étapes',
       ligne('1 · Pré-entraînement', etat(e?.etape1)),
       ligne('2 · Ajustement', etat(e?.etape2)),
@@ -179,7 +240,7 @@
     const pause = el('button', { type: 'button', onclick: async () => { const r = await api('/pause', { actif: !actif }); if (r && r.ok) onChange(); } }, actif ? 'Mettre en pause' : 'Reprendre');
     const reglages = el('button', { type: 'button', onclick: async () => reglerPlafonds(etat, onChange) }, 'Réglages');
     return el('div', { class: 'no-bar2', style: 'display:flex;gap:8px;flex-wrap:wrap' }, pause, reglages,
-      el('span', { class: 'no-sub', style: 'margin-left:auto;align-self:center' }, actif ? 'Noûs apprend et propose.' : 'Noûs est en pause.'));
+      el('span', { class: 'no-sub', style: 'margin-left:auto;align-self:center' }, !actif ? "Noûs est en pause : rien n'est appris." : etat?.prive ? "Mode privé : rien n'est appris." : etat?.entrainement?.apprend ? 'Noûs apprend en ce moment.' : "Noûs apprend dès qu'Odin est libre."));
   }
 
   async function reglerPlafonds(etat, onChange) {
@@ -202,6 +263,19 @@
     );
     if (!etat || etat.ok === false) {
       racine.append(el('div', { class: 'no-card' }, el('p', { class: 'no-warn' }, 'Noûs n\'est pas encore prêt (aucun point de reprise en service). Il démarre dès que l\'entraînement a produit un premier réseau valable.')));
+      conteneur.replaceChildren(racine);
+      return;
+    }
+    if (!etat.entraine || !etat.taille) {
+      racine.append(
+        el('div', { class: 'no-card' }, el('p', { class: 'no-warn', style: 'margin:0' }, etat.message || "Noûs n'a pas encore été entraîné."), etat.prive ? el('p', { class: 'no-sub' }, "Mode privé : rien n'est appris.") : null,
+          etat.entrainement?.decoupageAncien ? el('p', { class: 'no-sub' }, `Découpage : ${etat.entrainement.decoupageAncien}.`) : null,
+          etat.modeleDepart ? el('p', { class: 'no-sub' }, `Modèle de départ : ${etat.modeleDepart.texte}.`) : null,
+          etat.oubli ? el('p', { class: 'no-sub' }, etat.oubli) : null),
+        el('div', { class: 'no-grid' },
+          carteEntrainement(etat.entrainement, () => rendre(conteneur)), carteCorpus(etat.lu), carteDepart(etat.depart, () => rendre(conteneur)), carteTravail(etat.travail),
+          carteEtapes(etat.etapes), carteDuels(etat.duels), carteEssai(), carteCoutNous(etat.cout)),
+      );
       conteneur.replaceChildren(racine);
       return;
     }
