@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import { resolve } from '../src/draupnir/engine.ts';
 
 const FLOWS = readFileSync(new URL('../src/web/flows.js', import.meta.url), 'utf8');
 const LIEN = readFileSync(new URL('../src/web/pages/talos-lien.js', import.meta.url), 'utf8');
@@ -19,6 +20,8 @@ type Wf = { nodes: Noeud0[]; connections: Record<string, Array<Array<{ node: str
 interface Logique {
   nomValide: (wf: Wf, ancien: string, texte: unknown) => { ok: boolean; nom?: string; error?: string };
   poserNote: (n: Noeud0, texte: unknown) => boolean;
+  renommerDans: (texte: string, de: string, vers: string, dansJson?: boolean) => string | null;
+  suivreRenommage: (wf: Wf, de: string, vers: string, estJson?: (n: Noeud0, cle: string) => boolean) => { ok: boolean; error?: string; changes?: Array<{ i: number; cle: string; valeur: unknown }> };
 }
 const ici = <X>(x: X): X => JSON.parse(JSON.stringify(x));
 
@@ -489,4 +492,203 @@ test('page : survoler un bloc dont la note est vide ne cache pas la note du bloc
   assert.equal(canvasDe(p).querySelector('.dr-note-bulle')?.textContent, 'Pause pour Tomas', 'le bloc choisi montre sa note');
   await p.bloc('Lancer').emettre('pointerenter', { pointerType: 'mouse' });
   assert.equal(canvasDe(p).querySelector('.dr-note-bulle')?.textContent, 'Pause pour Tomas', 'survoler un bloc à la note vide ne cache pas celle du bloc choisi');
+});
+
+// ------------------------------------------------------------------ renommer : les données prises chez le bloc le suivent
+// Toutes les écritures que le moteur lit (src/draupnir/engine.ts, resolve et readPath) : $node["X"], $node['X'], $node.X,
+// $node[12] (un bloc nommé « 12 »), avec ou sans espaces, suivies de .json, .items, [..] ou de rien. Rien d'autre.
+const lit = (v: unknown, nom: string, json: unknown) => resolve(v, { $json: {}, $node: { [nom]: { json, items: [json] } }, $now: '', $today: '', $index: 0, $items: [], $workflow: { id: '', name: '' } } as never);
+const JSON_FICHE = { nom: 'Ana', a: [7] };
+
+test('renommer : chaque écriture que le moteur lit suit le nouveau nom, et le moteur y relit la même donnée', () => {
+  const L = logique();
+  const formes = [
+    'Bonjour {{ $node["Fiche"].json.nom }} !', '{{ $node[\'Fiche\'].json.nom }}', '{{$node [ "Fiche" ] . json . nom}}',
+    '{{ $node.Fiche.json.nom }}', '{{ $node . Fiche . json.nom }}', '{{ $node["Fiche"].json["nom"] }}', '{{ $node["Fiche"].json.a[0] }}',
+    '{{ $node["Fiche"].items[0].nom }}', '{{ $node["Fiche"].json }}', '{{ $node["Fiche"] }}', 'a {{ $node["Fiche"].json.nom }} b {{ $node.Fiche.json.a }}',
+  ];
+  const noms = ['Fiche lue', 'Fiche2', 'Fiche "A"', 'l\'avis', '[x]', 'a]b', 'a\']b', 'a"]b', 'a\\b', '日本の表 ✓', 'قراءة الملف', 'Ὀδυσσεύς'];
+  for (const t of formes) {
+    const avant = lit(t, 'Fiche', JSON_FICHE);
+    assert.notEqual(avant, undefined); assert.notEqual(avant, '');
+    for (const vers of noms) {
+      const r = L.renommerDans(t, 'Fiche', vers);
+      assert.equal(typeof r, 'string', `${t} → ${vers}`);
+      assert.deepEqual(lit(r, vers, JSON_FICHE), avant, `le moteur relit la même donnée chez « ${vers} » : ${r}`);
+      assert.notDeepEqual(lit(r, 'Fiche', JSON_FICHE), avant, `plus rien ne vise l'ancien nom : ${r}`);
+    }
+  }
+  // L'écriture d'avant est gardée quand le nouveau nom s'y écrit : seul le nom change.
+  assert.equal(L.renommerDans('{{ $node["Fiche"].json.nom }}', 'Fiche', 'Fiche lue'), '{{ $node["Fiche lue"].json.nom }}');
+  assert.equal(L.renommerDans('{{ $node[\'Fiche\'].json.nom }}', 'Fiche', 'Fiche lue'), '{{ $node[\'Fiche lue\'].json.nom }}');
+  assert.equal(L.renommerDans('{{$node [ "Fiche" ] . json . nom}}', 'Fiche', 'Fiche lue'), '{{$node [ "Fiche lue" ] . json . nom}}');
+  assert.equal(L.renommerDans('{{ $node.Fiche.json.nom }}', 'Fiche', 'Fiche2'), '{{ $node.Fiche2.json.nom }}');
+  assert.equal(L.renommerDans('{{ $node.Fiche.json.nom }}', 'Fiche', 'Fiche lue'), '{{ $node["Fiche lue"].json.nom }}', 'le point ne prend pas d\'espace : des crochets');
+  assert.equal(L.renommerDans('{{ $node["Fiche"].json.nom }}', 'Fiche', 'Fiche "A"'), '{{ $node[\'Fiche "A"\'].json.nom }}', 'l\'autre guillemet');
+  assert.equal(L.renommerDans('{{ $node["Fiche"].json.Fiche }}', 'Fiche', 'Fiche lue'), '{{ $node["Fiche lue"].json.Fiche }}', 'une clé du même nom ne bouge pas');
+  // Un bloc nommé par un nombre : $node[12] (et $node[012], que le moteur lit « 12 »).
+  for (const t of ['{{ $node[12].json.nom }}', '{{ $node[012].json.nom }}', '{{ $node.12.json.nom }}']) {
+    const r = L.renommerDans(t, '12', 'Treize')!;
+    assert.equal(lit(t, '12', JSON_FICHE), 'Ana');
+    assert.equal(lit(r, 'Treize', JSON_FICHE), 'Ana', `${t} → ${r}`);
+  }
+  assert.equal(L.renommerDans('{{ $node[12].json.nom }}', '12', '13'), '{{ $node[13].json.nom }}');
+  assert.equal(L.renommerDans('{{ $node[012].json.nom }}', '012', 'X'), '{{ $node[012].json.nom }}', 'le moteur y lit « 12 », pas « 012 »');
+});
+
+test('renommer : un texte hors d\'une expression, un autre bloc au nom voisin, ce que le moteur ne lit pas : rien ne change', () => {
+  const L = logique();
+  for (const t of ['Fiche', 'la Fiche {{ $json.Fiche }}', '$node["Fiche"].json.a', '{{ $node["Fiche 2"].json.a }}', '{{ $node["Ma Fiche"].json.a }}',
+    '{{ $node.Fiches.json.a }}', '{{ $node["Fich"].json.a }}', '{{ $Node["Fiche"].json.a }}', '{{ $nodes["Fiche"].json.a }}', '{{ $node["Fiche"].json.a + 1 }}',
+    '{{ $node["Fiche"]. }}', '{{ $json["Fiche"] }}', '{{ $node["X"].json["Fiche"] }}', '{{ $node["X"].json.Fiche }}', '{ $node["Fiche"].json.a }', '{{ $node }}', '']) {
+    assert.equal(L.renommerDans(t, 'Fiche', 'Fiche lue'), t, `inchangé : ${t}`);
+  }
+});
+
+test('renommer : un nom que l\'expression ne saurait pas écrire → null ; dans des réglages rangés en texte JSON, ni guillemet double ni barre oblique inverse', () => {
+  const L = logique(), t = '{{ $node["Fiche"].json.nom }}', j = '{"x":"{{ $node[\'Fiche\'].json.nom }}"}';
+  for (const vers of ['a{b', 'a}b', 'ligne 1\nligne 2', 'constructor', '__proto__']) assert.equal(L.renommerDans(t, 'Fiche', vers), null, vers);
+  for (const vers of ['Fiche "A"', 'a\\b', 'a\tb']) assert.equal(L.renommerDans(j, 'Fiche', vers, true), null, `JSON : ${vers}`);
+  assert.equal(L.renommerDans('rien de cité', 'Fiche', 'a{b'), 'rien de cité', 'sans citation : rien à écrire, pas de refus');
+  for (const vers of ['l\'avis', '[x]', '日本の表 ✓', 'قراءة الملف']) {
+    const r = L.renommerDans(j, 'Fiche', vers, true)!;
+    assert.equal(typeof r, 'string', vers);
+    assert.doesNotThrow(() => JSON.parse(r), `le JSON reste valide : ${r}`);
+    assert.deepEqual(JSON.parse(String(lit(r, vers, JSON_FICHE))), { x: 'Ana' }, `le moteur y relit la donnée : ${r}`);
+  }
+});
+
+test('renommer dans toute l\'automatisation : chaque bloc qui cite l\'ancien nom (même deux fois), et seulement ses réglages lus par le moteur', () => {
+  const L = logique();
+  const CODE = 'return [{ a: "{{ $node[\\"Fiche\\"].json.a }}" }];';
+  const cle = '{{ $node["Fiche"].json.k }}';
+  const wf = (n: string) => ({ nodes: [
+    { name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [0, 0] },
+    { name: 'Fiche', type: 'temps.attendre', params: { secondes: 1 }, position: [0, 0] },
+    { name: 'Fiche 2', type: 'logique.si', params: { condition: '{{ $node["Fiche 2"].json.a }}' }, position: [0, 0] },
+    { name: 'Si', type: 'logique.si', params: { condition: `{{ $node["${n}"].json.ok }} et {{ $node['${n}'].json.n }}` }, position: [0, 0], note: 'voir {{ $node["Fiche"].json.a }}' },
+    { name: 'Hydre', type: 'module.action', params: { module: 'ymir', action: 'demarrer', entrée: `{"x":"{{ $node['${n}'].json.a }}","y":2}` }, position: [0, 0] },
+    { name: 'Objet', type: 'module.action', params: { module: 'ymir', action: 'demarrer', entrée: { [cle]: [`{{ $node["${n}"].json.a }}`, 3, true, null] } }, position: [0, 0] },
+    { name: 'Code', type: 'données.code', params: { code: CODE }, position: [0, 0] },
+  ], connections: {} }) as unknown as Wf;
+  const estJson = (_n: Noeud0, k: string) => k === 'entrée';
+  const w = wf('Fiche'), r = L.suivreRenommage(w, 'Fiche', 'Fiche lue', estJson);
+  assert.equal(r.ok, true);
+  assert.deepEqual(ici(r.changes!.map((c) => [c.i, c.cle])), [[3, 'condition'], [4, 'entrée'], [5, 'entrée']], 'Fiche 2, la note, le code et la clé d\'un objet ne bougent pas');
+  assert.deepEqual(ici(w), ici(wf('Fiche')), 'rien n\'est écrit avant qu\'on l\'applique');
+  for (const c of r.changes!) w.nodes[c.i].params[c.cle] = c.valeur;
+  assert.deepEqual(ici(w), ici(wf('Fiche lue')));
+  // Un nom que la donnée rangée en texte JSON ne saurait pas écrire : refusé, rien n'est proposé.
+  const r2 = L.suivreRenommage(wf('Fiche'), 'Fiche', 'Fiche "A"', estJson);
+  assert.equal(r2.ok, false); assert.match(r2.error!, /« Hydre »/); assert.equal(r2.changes, undefined);
+  // Sans rien qui le cite, tout nom permis l'est encore.
+  assert.deepEqual(ici(L.suivreRenommage(wf('Fiche'), 'Lancer', 'a{b', estJson)), { ok: true, changes: [] });
+});
+
+test('renommer : un nom que des données visent déjà (un bloc qui n\'existe plus) est refusé, sinon A → B → A ne rendrait pas l\'automatisation de départ', () => {
+  const L = logique();
+  const wf = (cond: unknown, code = '') => ({ nodes: [
+    { name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [0, 0] },
+    { name: 'A', type: 'temps.attendre', params: { secondes: 1 }, position: [0, 0] },
+    { name: 'Si', type: 'logique.si', params: { condition: cond }, position: [0, 0], note: 'voir {{ $node["C"].json.ok }}' },
+    { name: 'Code', type: 'données.code', params: { code }, position: [0, 0] },
+  ], connections: {} }) as unknown as Wf;
+  // Chaque écriture que lit le moteur, dans un texte, une liste, un objet : refusé, avec le bloc qui la porte.
+  for (const orpheline of ['{{ $node["B"].json.ok }}', '{{ $node[\'B\'].json.ok }}', '{{ $node.B.json.ok }}', ['x', '{{$node [ "B" ] . json}}'], { k: '{{ $node["B"].json.ok }}' }]) {
+    const cond = Array.isArray(orpheline) ? ['{{ $node["A"].json.ok }}', ...orpheline] : typeof orpheline === 'object' ? { a: '{{ $node["A"].json.ok }}', ...orpheline } : `{{ $node["A"].json.ok }} / ${orpheline}`;
+    const w = wf(cond), avant = ici(w), r = L.suivreRenommage(w, 'A', 'B');
+    assert.equal(r.ok, false, JSON.stringify(orpheline)); assert.match(r.error!, /« Si ».*« B »/); assert.equal(r.changes, undefined);
+    assert.deepEqual(ici(w), avant, 'rien n\'est écrit');
+  }
+  const n12 = L.suivreRenommage(wf('{{ $node["A"].json.ok }} / {{ $node[012].json.ok }}'), 'A', '12');
+  assert.equal(n12.ok, false, 'le bloc « 12 » visé par $node[012]');
+  // Ce que le moteur ne résout pas (la note, le code d'un bloc « Code », le texte hors {{ }}, un nom voisin) ne compte pas.
+  const libre = wf('B : {{ $node["A"].json.ok }} / {{ $node["B 2"].json.ok }} / {{ $nodes["B"].json }}', 'return [{ a: "{{ $node[\\"C\\"].json.a }}" }];');
+  assert.equal(L.suivreRenommage(libre, 'A', 'B').ok, true);
+  assert.equal(L.suivreRenommage(libre, 'A', 'C').ok, true);
+});
+
+/** Lancer → Fiche → Fiche 2 → Si → Hydre : Si et Hydre prennent des données chez « Fiche » (et Si chez « Fiche 2 »). */
+const FLOW_D = { id: 'f2', name: 'Données', active: false, nodes: [
+  { name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] },
+  { name: 'Fiche', type: 'temps.attendre', params: { secondes: 1 }, position: [340, 160] },
+  { name: 'Fiche 2', type: 'temps.attendre', params: { secondes: 2 }, position: [620, 160] },
+  { name: 'Si', type: 'logique.si', params: { condition: 'Fiche : {{ $node["Fiche"].json.ok }} et {{ $node[\'Fiche\'].json.n }} puis {{ $node["Fiche 2"].json.ok }}' }, position: [900, 160] },
+  { name: 'Hydre', type: 'module.action', params: { module: 'ymir', action: 'verifier_isos', entrée: '{"x":"{{ $node[\'Fiche\'].json.a }}"}' }, position: [1180, 160] },
+], connections: { Lancer: [[{ node: 'Fiche' }]], Fiche: [[{ node: 'Fiche 2' }]], 'Fiche 2': [[{ node: 'Si' }]], Si: [[{ node: 'Hydre' }], []] } };
+
+async function renommerParMenu(p: P, de: string, vers: string, touche = 'Enter') {
+  await clicDroit(p.bloc(de));
+  await p.bouton('Renommer', menu()!)!.emettre('click'); await attendre();
+  const inp = p.bloc(de).querySelector('.dr-renom')!; inp.value = vers;
+  if (touche) { await inp.emettre('keydown', { key: touche }); await attendre(); }
+  return inp;
+}
+
+test('page : renommer par le menu, puis par le double-clic sur le nom : les données suivent ; revenir au premier nom rend l\'automatisation de départ', async () => {
+  const p = await page(FLOW_D);
+  await renommerParMenu(p, 'Fiche', 'Fiche lue');
+  let f = await p.enregistre();
+  assert.equal(f.nodes[3].params.condition, 'Fiche : {{ $node["Fiche lue"].json.ok }} et {{ $node[\'Fiche lue\'].json.n }} puis {{ $node["Fiche 2"].json.ok }}');
+  assert.equal((f.nodes[4].params as Record<string, unknown>).entrée, '{"x":"{{ $node[\'Fiche lue\'].json.a }}"}');
+  assert.equal(f.nodes[2].params.secondes, 2);
+  for (let i = 0; i < 2; i++) {
+    const nom = nomDe(p, 'Fiche lue');
+    await nom.emettre('pointerdown', { clientX: 400, clientY: 170, pointerId: 1, button: 0, pointerType: 'mouse' });
+    await nom.emettre('pointerup', { clientX: 400, clientY: 170, pointerId: 1, pointerType: 'mouse' });
+  }
+  const inp = p.bloc('Fiche lue').querySelector('.dr-renom')!; inp.value = 'Fiche';
+  await inp.emettre('keydown', { key: 'Enter' }); await attendre();
+  f = await p.enregistre();
+  assert.deepEqual(ici(f), ici(FLOW_D), 'A → B → A : l\'automatisation de départ, à l\'identique');
+});
+
+test('page : le panneau ouvert sur un bloc qui prend une donnée chez le bloc renommé montre aussitôt le nouveau nom', async () => {
+  const p = await page(FLOW_D);
+  await p.bloc('Si').emettre('keydown', { key: 'Enter' }); await attendre();
+  const avant = p.body.querySelector('#drp-condition')!;
+  assert.deepEqual(avant.querySelectorAll('.dr-pastille').map((x) => x.querySelector('.dr-p-t')!.textContent), ['Fiche · ok', 'Fiche · n', 'Fiche 2 · ok']);
+  await renommerParMenu(p, 'Fiche', 'Fiche lue');
+  const pa = p.body.querySelector('#drp-condition')!.querySelectorAll('.dr-pastille');
+  assert.deepEqual(pa.map((x) => x.querySelector('.dr-p-t')!.textContent), ['Fiche lue · ok', 'Fiche lue · n', 'Fiche 2 · ok']);
+  assert.ok(pa.every((x) => !x.classList.contains('bad')), 'aucune n\'est marquée « renommé »');
+  assert.deepEqual(pa.map((x) => x.getAttribute('data-src')), ['{{ $node["Fiche lue"].json.ok }}', '{{ $node[\'Fiche lue\'].json.n }}', '{{ $node["Fiche 2"].json.ok }}']);
+  // Par le champ « Nom de l'étape » du panneau.
+  await p.bloc('Fiche lue').emettre('keydown', { key: 'Enter' }); await attendre();
+  const nn = p.body.querySelector('#drNn')!; nn.value = 'Fiche ✓'; await nn.emettre('change', { target: { value: 'Fiche ✓' } }); await attendre();
+  const f = await p.enregistre();
+  assert.equal(f.nodes[1].name, 'Fiche ✓');
+  assert.equal(f.nodes[3].params.condition, 'Fiche : {{ $node["Fiche ✓"].json.ok }} et {{ $node[\'Fiche ✓\'].json.n }} puis {{ $node["Fiche 2"].json.ok }}');
+  assert.equal((f.nodes[4].params as Record<string, unknown>).entrée, '{"x":"{{ $node[\'Fiche ✓\'].json.a }}"}');
+});
+
+test('page : un renommage refusé (nom pris, vide, ou que les données ne sauraient pas écrire) ne réécrit rien', async () => {
+  const p = await page(FLOW_D);
+  let inp = await renommerParMenu(p, 'Fiche', 'Fiche 2');
+  assert.match(p.bloc('Fiche').querySelector('.dr-renom-e')!.textContent, /« Fiche 2 » est déjà pris/);
+  inp.value = ''; await inp.emettre('keydown', { key: 'Enter' });
+  assert.match(p.bloc('Fiche').querySelector('.dr-renom-e')!.textContent, /vide/);
+  inp.value = 'Fiche "A"'; await inp.emettre('keydown', { key: 'Enter' }); await attendre();
+  assert.ok(p.bloc('Fiche').querySelector('.dr-renom'), 'toujours en cours : on peut corriger');
+  assert.match(p.bloc('Fiche').querySelector('.dr-renom-e')!.textContent, /« Hydre »/, 'la raison nomme le bloc dont la donnée ne s\'écrirait pas');
+  await inp.emettre('keydown', { key: 'Escape' }); await attendre();
+  // Quitter le champ avec ce nom : refusé aussi, la raison dans la ligne d'état.
+  inp = await renommerParMenu(p, 'Fiche', 'Fiche "A"', '');
+  await inp.emettre('focusout', { relatedTarget: null }); await attendre();
+  assert.ok(p.bloc('Fiche')); assert.match(p.body.querySelector('#drSt')!.textContent, /Nom inchangé.*« Hydre »/);
+  // Par le panneau.
+  await p.bloc('Fiche').emettre('keydown', { key: 'Enter' }); await attendre();
+  const nn = p.body.querySelector('#drNn')!; nn.value = 'Fiche "A"'; await nn.emettre('change', { target: nn }); await attendre();
+  assert.equal(nn.value, 'Fiche');
+  assert.deepEqual(ici(await p.enregistre()), ici(FLOW_D), 'rien n\'a changé');
+});
+
+test('page : renommer un bloc du nom d\'un bloc qui n\'existe plus et que des données visent encore est refusé, avec la raison ; rien ne change', async () => {
+  const flow = ici(FLOW_D); flow.nodes[3].params.condition += ' et {{ $node["Fiche 3"].json.ok }}';
+  const p = await page(flow);
+  const inp = await renommerParMenu(p, 'Fiche', 'Fiche 3');
+  assert.ok(p.bloc('Fiche').querySelector('.dr-renom'), 'toujours en cours : on peut corriger');
+  assert.match(p.bloc('Fiche').querySelector('.dr-renom-e')!.textContent, /« Si ».*« Fiche 3 »/);
+  await inp.emettre('keydown', { key: 'Escape' }); await attendre();
+  assert.deepEqual(ici(await p.enregistre()), ici(flow), 'rien n\'a changé');
 });

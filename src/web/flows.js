@@ -309,6 +309,86 @@
     if (!blocsAvant(wf, nom).includes(d.bloc)) return { ok: false, raison: `« ${d.bloc} » n'est pas avant ce bloc : cette donnée sera vide.` };
     return { ok: true };
   }
+  // ---------------- Renommer un bloc : les données prises chez lui suivent son nouveau nom (fonctions pures). Seulement
+  // dans les {{ … }} que le moteur lit en entier (resolve et readPath), et seulement le morceau qui nomme le bloc :
+  // $node["X"], $node['X'], $node.X, $node[12] (un bloc nommé « 12 »). Le reste du texte ne change pas, à l'octet près.
+  const NOM_ILLISIBLE = new Set(['__proto__', 'constructor', 'prototype']); // le moteur n'y lit rien (engine.ts, get)
+  /** Le bloc que cite une expression (le texte entre {{ et }}) : { nom, debut, fin (du nom), sDebut, sFin (du morceau), forme, q } ou null. */
+  function citation(expr) {
+    const m = /^\s*(\$[a-z]+)/i.exec(expr); if (!m || m[1] !== '$node') return null;
+    const k = morceauxChemin(expr); if (!k || k.length < 2) return null;
+    const apres = expr.slice(m[0].length), rest = apres.trimStart(), o = m[0].length + apres.length - rest.length;
+    let mm;
+    if ((mm = /^\.\s*([\p{L}\p{N}_$-]+)/u.exec(rest))) return { nom: mm[1], debut: o + mm[0].length - mm[1].length, fin: o + mm[0].length, sDebut: o, sFin: o + mm[0].length, forme: '.' };
+    if ((mm = /^\[\s*(["'])(.*?)\1\s*\]/.exec(rest))) { const d = o + mm[0].indexOf(mm[1]) + 1; return { nom: mm[2], debut: d, fin: d + mm[2].length, sDebut: o, sFin: o + mm[0].length, forme: '[', q: mm[1] }; }
+    if ((mm = /^\[\s*(\d+)\s*\]/.exec(rest))) { const d = o + mm[0].indexOf(mm[1]); return { nom: String(Number(mm[1])), debut: d, fin: d + mm[1].length, sDebut: o, sFin: o + mm[0].length, forme: '0' }; }
+    return null;
+  }
+  /** L'expression `expr` (qui cite `c`) réécrite pour citer `vers`, relue par le moteur à l'identique sauf le nom ; null sinon. */
+  function citer(expr, c, vers, dansJson) {
+    if (/[{}]/.test(vers) || NOM_ILLISIBLE.has(vers) || (dansJson && /["\\\u0000-\u001f]/.test(vers))) return null;
+    const k0 = morceauxChemin(expr), attendu = JSON.stringify(k0.slice(2));
+    const bon = (e) => { const k = morceauxChemin(e); return Boolean(k && k[0] === '$node' && String(k[1]) === vers && JSON.stringify(k.slice(2)) === attendu); };
+    const essais = c.forme === '[' ? [] : [expr.slice(0, c.debut) + vers + expr.slice(c.fin)]; // la même écriture d'abord
+    // Des crochets : le guillemet d'avant s'il ne gêne pas, sinon l'autre (dans du JSON, seulement l'apostrophe).
+    const qs = [...new Set([c.q, '"', '\''].filter((q) => q && (!dansJson || q === c.q || q === '\'')))].sort((a, b) => Number(vers.includes(a)) - Number(vers.includes(b)));
+    for (const q of qs) essais.push(c.forme === '[' ? expr.slice(0, c.debut - 1) + q + vers + q + expr.slice(c.fin + 1) : `${expr.slice(0, c.sDebut)}[${q}${vers}${q}]${expr.slice(c.sFin)}`);
+    return essais.find(bon) ?? null;
+  }
+  /**
+   * Un texte de réglage où le bloc `de` s'appelle maintenant `vers` : chaque {{ … }} qui le cite est réécrit, rien d'autre.
+   * → le texte (le même s'il ne le cite pas) ; null si une citation ne saurait pas s'écrire avec ce nom (le texte reste tel quel).
+   * `dansJson` : le réglage est un texte JSON (le moteur remplace avant de le lire) : ni guillemet double ni \ dans le nom.
+   */
+  function renommerDans(texte, de, vers, dansJson = false) {
+    const t = String(texte ?? ''); let rate = false;
+    const out = t.replace(RE_EXPR, (tout, expr) => {
+      const c = citation(expr); if (!c || c.nom !== de) return tout;
+      const e = citer(expr, c, vers, dansJson); if (e === null) { rate = true; return tout; }
+      return tout.replace(expr, () => e);
+    });
+    if (rate) return null;
+    // Un texte qui était un JSON le reste.
+    if (out !== t) { let avant = false; try { JSON.parse(t); avant = true; } catch { /* pas un JSON */ } if (avant) { try { JSON.parse(out); } catch { return null; } } }
+    return out;
+  }
+  const IMPOSSIBLE = Symbol('impossible');
+  /** Une valeur de réglage (texte, liste, objet : comme resolve, les valeurs seulement) réécrite ; la même si rien ne change ; IMPOSSIBLE sinon. */
+  function suivreValeur(v, de, vers, dansJson) {
+    if (typeof v === 'string') { const r = renommerDans(v, de, vers, dansJson); return r === null ? IMPOSSIBLE : r === v ? v : r; }
+    if (Array.isArray(v)) { let ch = false; const out = []; for (const x of v) { const r = suivreValeur(x, de, vers, false); if (r === IMPOSSIBLE) return r; ch ||= r !== x; out.push(r); } return ch ? out : v; }
+    if (v && typeof v === 'object') { let ch = false; const out = {}; for (const [k, x] of Object.entries(v)) { const r = suivreValeur(x, de, vers, false); if (r === IMPOSSIBLE) return r; ch ||= r !== x; out[k] = r; } return ch ? out : v; }
+    return v;
+  }
+  /** Une valeur de réglage (texte, liste, objet : les valeurs seulement, comme resolve) cite-t-elle le bloc `nom` ? */
+  function citeLeBloc(v, nom) {
+    if (typeof v === 'string') { for (const m of v.matchAll(RE_EXPR)) if (citation(m[1])?.nom === nom) return true; return false; }
+    if (Array.isArray(v)) return v.some((x) => citeLeBloc(x, nom));
+    if (v && typeof v === 'object') return Object.values(v).some((x) => citeLeBloc(x, nom));
+    return false;
+  }
+  /**
+   * Le bloc `de` renommé `vers` : les réglages de TOUS les blocs qui le citent, réécrits. → { ok, changes: [{ i, cle, valeur }] }
+   * (rien n'est écrit ici) ou { ok: false, error } si une donnée ne saurait pas s'écrire avec ce nom, ou vise déjà un bloc
+   * de ce nom (qui n'existe pas : nomValide refuse un nom pris). `estJson(bloc, clé)` :
+   * ce réglage est-il un texte JSON ? Le code d'un bloc « Code » est lu tel quel par le moteur, jamais résolu : il ne change pas.
+   */
+  function suivreRenommage(wf, de, vers, estJson = () => false) {
+    const changes = [], nodes = wf?.nodes ?? [];
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      for (const [cle, v] of Object.entries(n.params ?? {})) {
+        if (n.type === 'données.code' && cle === 'code') continue;
+        // Une donnée qui vise déjà un bloc « vers » (qui n'existe plus) prendrait, sans le dire, celles de « de » ; et
+        // revenir à l'ancien nom l'emporterait avec elle : refusé.
+        if (citeLeBloc(v, vers)) return { ok: false, error: `Une donnée de « ${n.name} » vise déjà un bloc « ${vers} » qui n'existe pas : avec ce nom, elle prendrait celles de « ${de} ». Choisis un autre nom, ou change d'abord cette donnée.` };
+        const r = suivreValeur(v, de, vers, typeof v === 'string' && Boolean(estJson(n, cle)));
+        if (r === IMPOSSIBLE) return { ok: false, error: `Le nom « ${vers} » ne peut pas s'écrire dans la donnée que « ${n.name} » prend chez « ${de} » (une accolade, un retour à la ligne, ou, dans des réglages en JSON, un guillemet double ou une barre oblique inverse) : choisis un autre nom.` };
+        if (r !== v) changes.push({ i, cle, valeur: r });
+      }
+    }
+    return { ok: true, changes };
+  }
   // Session expirée pendant l'usage : on revient à la page de connexion. Sur la page de connexion elle-même,
   // on ne recharge rien (sinon elle se rechargerait en boucle et effacerait ce que tu tapes).
   const appShown = () => { const a = document.querySelector('#app'); return Boolean(a && !a.hidden); };
@@ -700,7 +780,7 @@
     let fini = false;
     const valider = (rester) => {
       if (fini) return;
-      const n = wf.nodes.find((x) => x.name === nom), v = nomValide(wf, nom, inp.value);
+      const n = wf.nodes.find((x) => x.name === nom), v = n ? nomPossible(n, inp.value) : nomValide(wf, nom, inp.value);
       if (n && !v.ok && rester) { err.textContent = v.error; err.hidden = false; inp.setAttribute('aria-invalid', 'true'); inp.focus?.(); return; }
       fini = true;
       if (!n || !v.ok) { draw(); if (v.error) dire(`Nom inchangé : ${v.error}`); return; }
@@ -1146,7 +1226,7 @@
       if (cible) {
         const auto = infoAppli(cible, applisListe)?.auto, r = remplacer(wf, cible.name, c, auto, applisListe);
         if (!r.ok) { void window.OdinDialog?.alert(r.error); return; }
-        fermerChoix(); if (r.change) dirty = true; if (r.nom) rename(cible, r.nom);
+        fermerChoix(); if (r.change) dirty = true; if (r.nom) rename(cible, r.nom, { donnees: false });
         sel = cible.name; draw(); drawSide();
         const s = $('#drSt'); if (s && r.change) s.textContent = `✓ « ${cible.name} » changé.`;
         $('#drSide .dr-app button')?.focus?.();
@@ -1204,16 +1284,35 @@
     }
     etape1();
   }
-  /** Renomme un bloc (les fils suivent) : → { ok, nom } ou { ok: false, error } (nom vide ou déjà pris : rien ne change). */
-  function rename(n, texte) {
+  /** Ce réglage du bloc `n` est-il rangé en texte JSON (le moteur y remplace les {{ … }} avant de le lire) ? */
+  const estJsonDe = (n, cle) => cat(n.type)?.params?.find((p) => p.key === cle)?.kind === 'json';
+  /** Le nom tapé pour le bloc `n`, et les données que les autres blocs prennent chez lui savent-elles s'écrire avec ? */
+  function nomPossible(n, texte) {
     const v = nomValide(wf, n.name, texte); if (!v.ok || v.nom === n.name) return v;
-    const from = n.name, to = v.nom; n.name = to; renommes.set(from, to); // (une pastille qui nommait l'ancien nom le dira)
+    const s = suivreRenommage(wf, n.name, v.nom, estJsonDe);
+    return s.ok ? v : { ok: false, error: s.error };
+  }
+  /**
+   * Renomme un bloc : les fils suivent, et les données que les blocs prennent chez lui ({{ $node["X"]… }}) aussi.
+   * → { ok, nom } ou { ok: false, error } (nom vide, déjà pris, ou qu'une donnée ne saurait pas écrire : rien ne change).
+   * `donnees: false` (le nom donné tout seul quand on change la fonction d'un bloc) : les données ne suivent pas, comme avant.
+   */
+  function rename(n, texte, { donnees = true } = {}) {
+    const v = nomValide(wf, n.name, texte); if (!v.ok || v.nom === n.name) return v;
+    const s = donnees ? suivreRenommage(wf, n.name, v.nom, estJsonDe) : { ok: true, changes: [] };
+    if (!s.ok) return { ok: false, error: s.error };
+    const from = n.name, to = v.nom; n.name = to; renommes.set(from, to); // (une pastille qui nommerait encore l'ancien nom le dira)
+    for (const c of s.changes) wf.nodes[c.i].params[c.cle] = c.valeur;
     if (wf.connections[from]) { wf.connections[to] = wf.connections[from]; delete wf.connections[from]; }
     for (const list of Object.values(wf.connections)) for (const t of list) for (const l of t) if (l.node === from) l.node = to;
     if (outs[from]) { outs[to] = outs[from]; delete outs[from]; }
     if (armed?.node === from) armed = null;
     if (sel === from) sel = to;
-    dirty = true; draw(); return v;
+    dirty = true; draw();
+    // Le panneau ouvert montre un champ dont une donnée vient d'être réécrite : il se redessine (sinon le champ, à la
+    // prochaine frappe, remettrait l'ancienne expression qu'il garde).
+    if (s.changes.some((c) => wf.nodes[c.i].name === sel)) drawSide();
+    return v;
   }
   function addNode(c) {
     let name = c.label, k = 2; while (wf.nodes.some((n) => n.name === name)) name = `${c.label} ${k++}`;
@@ -1246,5 +1345,5 @@
   window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; fermerChoix(); },
     logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
       appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie,
-      decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote } };
+      decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote, renommerDans, suivreRenommage } };
 })();

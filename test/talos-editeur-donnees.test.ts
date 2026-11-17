@@ -358,25 +358,32 @@ test('page : survol ou focus d\'une pastille → le bloc d\'origine s\'illumine 
   assert.match(p.css, /prefers-reduced-motion[^}]*\.dr-node\.dr-source/, 'l\'illumination ne bouge pas si l\'appareil demande moins de mouvement');
 });
 
-test('page : bloc d\'origine renommé ou retiré : la pastille le dit au lieu de pointer dans le vide', async () => {
+test('page : bloc d\'origine renommé : la pastille suit son nouveau nom ; retiré : la pastille le dit au lieu de pointer dans le vide', async () => {
   const p = await page();
   let side = await p.choisir('Fiche');
   const nn = side.querySelector('#drNn')!; nn.value = 'Fiche lue'; await nn.emettre('change', { target: { value: 'Fiche lue' } });
   side = await p.choisir('Hydre : Démarrer');
   const pa = p.champ(side, 'Machine').querySelector('.dr-pastille')!;
-  assert.ok(pa.classList.contains('bad'), 'marquée');
-  assert.match(side.textContent, /« Fiche » a été renommé « Fiche lue »/, 'écrit sous le champ');
+  assert.equal(pa.classList.contains('bad'), false, 'pas marquée : elle suit le bloc');
+  assert.match(pa.textContent, /Fiche lue · nom/, 'elle montre le nouveau nom');
+  assert.equal(pa.getAttribute('data-src'), '{{ $node[\'Fiche lue\'].json.nom }}');
+  assert.doesNotMatch(side.textContent, /a été renommé/);
   // La liste propose le nouveau nom.
   const l = await liste(p.champ(side, 'Machine'));
   assert.ok(l.querySelectorAll('h4').some((h) => h.textContent.startsWith('Fiche lue')));
-  // Retiré.
+  // L'expression enregistrée suit, dans les deux blocs qui prennent une donnée chez lui ; le reste du texte ne bouge pas.
+  let w = await p.enregistre();
+  assert.equal((w.nodes.find((n) => n.name === DEM)!.params as { entrée: string }).entrée, '{"nom":"vm-{{ $node[\'Fiche lue\'].json.nom }}","attendre":true}');
+  assert.equal(w.nodes.find((n) => n.name === 'Après')!.params.message, `Fait pour {{ $node["Fiche lue"].json.nom }} ${PIEGE} {{ $json.x }} {{ $node["${PIEGE}"].json.a }}`);
+  // Retiré : la pastille le dit (comme avant).
   side = await p.choisir('Fiche lue');
   await p.bouton('Retirer', side)!.emettre('click'); await attendre();
   side = await p.choisir('Hydre : Démarrer');
-  assert.match(side.textContent, /« Fiche » a été retiré|« Fiche lue » a été retiré|n'existe pas/);
-  // Rien n'est réécrit tant qu'on ne touche pas au champ : l'expression reste celle d'avant.
-  const w = await p.enregistre();
-  assert.match((w.nodes.find((n) => n.name === DEM)!.params as { entrée: string }).entrée, /\$node\['Fiche'\]/);
+  assert.ok(p.champ(side, 'Machine').querySelector('.dr-pastille')!.classList.contains('bad'), 'marquée');
+  assert.match(side.textContent, /« Fiche lue » a été retiré/);
+  // Retirer un bloc ne réécrit rien : l'expression reste celle d'avant le retrait.
+  w = await p.enregistre();
+  assert.match((w.nodes.find((n) => n.name === DEM)!.params as { entrée: string }).entrée, /\$node\['Fiche lue'\]/);
 });
 
 test('page : sans dernier passage, la liste dit qu\'il faut d\'abord tester ; un bloc sans rien avant le dit aussi', async () => {
