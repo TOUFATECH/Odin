@@ -66,12 +66,12 @@ test('Signal : messages reçus par signal-cli-rest-api, réponse envoyée', asyn
 });
 
 test('mail : seul un mail authentifié du propriétaire compte ; la citation est retirée', () => {
-  assert.equal(addrOf('Djin <Djin@Gmail.com>'), 'djin@gmail.com');
-  const ok = 'Authentication-Results: mx.google.com;\r\n       dkim=pass header.i=@gmail.com header.s=20230601;\r\n       spf=pass smtp.mailfrom=djin@gmail.com;\r\n       dmarc=pass (p=NONE) header.from=gmail.com\r\nFrom: Djin <djin@gmail.com>';
-  assert.equal(mailAuthOk(ok, 'Djin <djin@gmail.com>'), true);
-  assert.equal(mailAuthOk('Authentication-Results: mx.google.com; dkim=none; spf=softfail; dmarc=fail header.from=gmail.com', 'djin@gmail.com'), false, 'usurpation');
-  assert.equal(mailAuthOk('From: djin@gmail.com', 'djin@gmail.com'), false, 'pas de preuve = refusé');
-  assert.equal(mailAuthOk('Authentication-Results: x; dkim=pass header.d=pirate.com', 'djin@gmail.com'), false, 'signature d\'un autre domaine');
+  assert.equal(addrOf('Alex <Alex@Example.org>'), 'alex@example.org');
+  const ok = 'Authentication-Results: mx.example.org;\r\n       dkim=pass header.i=@example.org header.s=20230601;\r\n       spf=pass smtp.mailfrom=alex@example.org;\r\n       dmarc=pass (p=NONE) header.from=example.org\r\nFrom: Alex <alex@example.org>';
+  assert.equal(mailAuthOk(ok, 'Alex <alex@example.org>'), true);
+  assert.equal(mailAuthOk('Authentication-Results: mx.example.org; dkim=none; spf=softfail; dmarc=fail header.from=example.org', 'alex@example.org'), false, 'usurpation');
+  assert.equal(mailAuthOk('From: alex@example.org', 'alex@example.org'), false, 'pas de preuve = refusé');
+  assert.equal(mailAuthOk('Authentication-Results: x; dkim=pass header.d=pirate.com', 'alex@example.org'), false, 'signature d\'un autre domaine');
   assert.equal(stripQuoted('Oui vas-y\n\nLe ven. 6 nov. 2026 à 21:00, Odin <odin@x.fr> a écrit :\n> On redémarre ?'), 'Oui vas-y');
 });
 
