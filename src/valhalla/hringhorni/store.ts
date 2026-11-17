@@ -4,11 +4,14 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ImageConfig, Descriptor } from './registry.ts';
+import { dossierOdinParDefaut, processusJetable } from '../../vault.ts';
 
 export const isRoot = () => typeof process.getuid === 'function' && process.getuid() === 0;
-/** Le dossier du moteur : /var/lib/odin/hringhorni en administrateur, sinon dans le compte. */
+/** Le dossier du moteur : /var/lib/odin/hringhorni en administrateur, sinon dans le compte. Sous un essai ou un banc :
+ *  dans le dossier d'Odin jetable (ODIN_HOME), jamais dans le compte de la personne (refus franc sinon). */
 export function defaultDir(): string {
   if (process.env.ODIN_HRINGHORNI) return process.env.ODIN_HRINGHORNI;
+  if (processusJetable()) return join(dossierOdinParDefaut('Hringhorni'), 'hringhorni');
   return isRoot() ? '/var/lib/odin/hringhorni' : join(process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'), 'odin', 'hringhorni');
 }
 

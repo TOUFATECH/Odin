@@ -16,8 +16,12 @@ import { hasCommand } from '../learn/environment.ts';
 import { sudoRefused, withAdmin } from '../machines/access.ts';
 import { bool, obj, str, type Tool, type ToolContext } from './registry.ts';
 import { APP_ROOT } from './self.ts';
+import { dossierOdinParDefaut, processusJetable } from '../vault.ts';
 
 const s = (v: unknown) => String(v ?? '');
+/** Le dossier d'Odin des applis quand le contexte n'en donne pas : ~/.odin pour une vraie installation (inchangé) ;
+ *  sous un essai ou un banc, le dossier jetable (ODIN_HOME), jamais le vrai ~/.odin (refus franc sinon). */
+const homeDe = (ctx: ToolContext): string => ctx.home ?? (processusJetable() ? dossierOdinParDefaut('les applis') : join(homedir(), '.odin'));
 const run = (cmd: string, args: string[], o: { cwd?: string; timeout?: number; env?: NodeJS.ProcessEnv; signal?: AbortSignal } = {}) => new Promise<{ ok: boolean; out: string; err: string }>((res) =>
   execFile(cmd, args, { cwd: o.cwd, timeout: o.timeout ?? 600_000, maxBuffer: 32 << 20, env: { ...process.env, ...o.env }, signal: o.signal }, (e, out, err) => res({ ok: !e, out: String(out), err: String(err) })));
 const sh = (command: string, o: { cwd?: string; timeout?: number; home: string; signal?: AbortSignal }) => { const a = withAdmin(command, o.home); return run('bash', ['-c', a.command], { cwd: o.cwd, timeout: o.timeout, env: a.env, signal: o.signal }).then((r) => ({ ...r, hint: a.hint })); };
@@ -44,7 +48,7 @@ const lanIp = () => Object.values(networkInterfaces()).flat().find((n) => n && n
 interface Vetting { repo: string; commit: string; dir: string; score: number; libre: boolean; license: string; notes: string[]; findings: Finding[]; plan: ReturnType<typeof installPlan>; fit: string[]; readme: string; info: RepoInfo }
 
 async function vet(repo: { owner: string; name: string }, ctx: ToolContext): Promise<Vetting> {
-  const home = ctx.home ?? join(homedir(), '.odin');
+  const home = homeDe(ctx);
   const info = await gh<RepoInfo>(`/repos/${repo.owner}/${repo.name}`, ctx.signal);
   const rep = reputation(info);
   const dir = join(home, 'apps', `${repo.owner}-${repo.name}`.toLowerCase());
@@ -153,7 +157,7 @@ export function resumeMontages(m: Montages): string {
 const montagesVus = new Map<string, string>();
 
 async function install(v: Vetting, ctx: ToolContext): Promise<string> {
-  const home = ctx.home ?? join(homedir(), '.odin');
+  const home = homeDe(ctx);
   const docker = (args: string[], timeout = 1_800_000) => run('docker', args, { cwd: v.dir, timeout, signal: ctx.signal }).then(async (r) => (r.ok || !/permission denied/i.test(r.err) ? r : sh(`sudo docker ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`, { cwd: v.dir, home, timeout, signal: ctx.signal })));
   if (v.plan.method === 'docker-compose' || v.plan.method === 'docker') {
     const miss = await ensureDocker(home, ctx.signal);
@@ -227,7 +231,7 @@ export const githubApp: Tool = {
     return `lancer sur la machine d'Odin, sans cage, un dépôt venu d'un lien (${s(i.cible).slice(0, 100)})${vu ? ` — ${vu}` : ''}${i.malgre_alertes ? ' — malgré des alertes de sécurité dans son code' : ''}`;
   },
   async run(i, ctx) {
-    const home = ctx.home ?? join(homedir(), '.odin');
+    const home = homeDe(ctx);
     const action = s(i.action), cible = s(i.cible).trim();
     if (action === 'chercher') {
       // 1) le sujet GitHub « <appli>-alternative » (ex. notion-alternative), 2) « alternative to <appli> »

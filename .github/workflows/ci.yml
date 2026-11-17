@@ -13,6 +13,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # l'essai des dossiers réels compare le coffre au code d'avant, pris dans l'historique
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}

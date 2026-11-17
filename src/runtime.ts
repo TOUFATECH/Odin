@@ -9,6 +9,7 @@ import { KV_REGLAGES, reglageKvEcrit } from './reglages-note.ts';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanupRestore } from './backup.ts';
+import { refuserDossierReelEnEssai } from './vault.ts';
 import { machineSecrets } from './machines/access.ts';
 import { BROWSER_TOOLS, closeBrowsers } from './tools/browser.ts';
 import { webSearchTool } from './tools/search.ts';
@@ -114,6 +115,8 @@ function catalogueMetisChat(home: string): boolean {
 
 export function createOdin(opts: CreateOptions = {}): Odin {
   const paths = odinPaths(opts.home);
+  // Un essai ou un banc qui vise le vrai ~/.odin (donné ou par défaut) : refus AVANT toute écriture ou suppression.
+  refuserDossierReelEnEssai(paths.home, 'Odin');
   initHome(paths);
   try { cleanupRestore(paths); } catch { /* copies d'avant restauration : pas bloquant */ }
   loadEnvFile(paths); // clés enregistrées depuis l'interface web ou l'installateur

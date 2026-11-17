@@ -26,6 +26,7 @@ function fauxProfil(): Faux {
   for (const d of [profil, tmp, local, join(profil, 'AppData', 'Roaming')]) mkdirSync(d, { recursive: true });
   const env: NodeJS.ProcessEnv = { ...process.env, USERPROFILE: profil, HOME: profil, LOCALAPPDATA: local, APPDATA: join(profil, 'AppData', 'Roaming'), TEMP: tmp, TMP: tmp, TMPDIR: tmp };
   for (const k of ['ODIN_HOME', 'ODIN_CLE_DIR', 'NODE_TEST_CONTEXT', 'ODIN_ESSAI', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME']) delete env[k];
+  for (const k of Object.keys(env)) if (/^GIT_/i.test(k)) delete env[k]; // un GIT_DIR hérité ferait agir git sur un autre dépôt
   const clesReelles = process.platform === 'win32' ? join(local, 'Odin', 'cles') : join(profil, '.config', 'odin-cles');
   return { base, profil, tmp, odinReel: join(profil, '.odin'), clesReelles, env };
 }
@@ -86,9 +87,13 @@ test('(1) un Odin jetable monté sans ODIN_CLE_DIR ne dépose aucune clé dans l
   } finally { nettoyer(f); }
 });
 
+/** L'environnement sans aucune variable GIT_* : un GIT_DIR, GIT_WORK_TREE ou GIT_INDEX_FILE hérité ferait agir git
+ *  sur un AUTRE dépôt (le 17/11 : un faux commit « v1 » posé dans le vrai dépôt). */
+const sansGit = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => Object.fromEntries(Object.entries(env).filter(([k]) => !/^GIT_/i.test(k)));
+
 /** Un dépôt git d'application, avec une retouche locale (updateApp en fait une copie de côté). */
 function depot(f: Faux): string {
-  const g = (cwd: string, ...a: string[]) => { const r = spawnSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, encoding: 'utf8', env: f.env }); assert.equal(r.status, 0, r.stderr); };
+  const g = (cwd: string, ...a: string[]) => { const r = spawnSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, encoding: 'utf8', env: sansGit(f.env) }); assert.equal(r.status, 0, r.stderr); };
   const up = join(f.base, 'up'); mkdirSync(up);
   g(up, 'init', '-q', '-b', 'main'); writeFileSync(join(up, 'a.txt'), 'un\n'); g(up, 'add', '.'); g(up, 'commit', '-qm', 'v1');
   g(f.base, 'clone', '-q', '-c', 'core.autocrlf=false', up, 'app');
@@ -151,17 +156,31 @@ test('(3) ODIN_HOME vide ne désigne jamais le vrai dossier', { skip: !avecGit }
   } finally { nettoyer(f); }
 });
 
-/** Le code du coffre d'AVANT ce garde-fou (le parent du commit qui l'a introduit, ou HEAD tant qu'il n'est pas commité). */
+/** Dernier commit de src/vault.ts AVANT ce garde-fou (nommé : il ne bouge plus). */
+const COMMIT_AVANT = '504905a1';
+/**
+ * Le code du coffre d'AVANT ce garde-fou, cherché dans l'ordre : le parent du commit qui l'a introduit (ou HEAD tant
+ * qu'il n'est pas commité), le commit nommé, puis un fichier donné par ODIN_VAULT_AVANT (copie sans git). git en
+ * lecture seule, sans aucune variable GIT_* héritée (sinon il lirait un autre dépôt).
+ */
 function vaultAvant(): string | undefined {
-  const g = (...a: string[]) => spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...a], { encoding: 'utf8' });
-  const intro = g('log', '--reverse', '--format=%H', '-S', 'estJetable', '--', 'src/vault.ts').stdout.trim().split('\n')[0];
-  const r = g('show', `${intro ? `${intro}^` : 'HEAD'}:src/vault.ts`);
-  return r.status === 0 && !r.stdout.includes('estJetable') ? r.stdout : undefined;
+  const bon = (code: string | undefined) => (code && code.includes('machineKey') && !code.includes('estJetable') ? code : undefined);
+  const g = (...a: string[]) => spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...a], { encoding: 'utf8', env: sansGit(process.env) });
+  if (avecGit) {
+    const intro = g('log', '--reverse', '--format=%H', '-S', 'estJetable', '--', 'src/vault.ts').stdout?.trim().split('\n')[0];
+    for (const rev of [intro ? `${intro}^` : 'HEAD', COMMIT_AVANT]) {
+      const r = g('show', `${rev}:src/vault.ts`);
+      if (r.status === 0 && bon(r.stdout)) return r.stdout;
+    }
+  }
+  const fichier = process.env.ODIN_VAULT_AVANT;
+  return fichier && existsSync(fichier) ? bon(readFileSync(fichier, 'utf8')) : undefined;
 }
 
-test('(4) une vraie installation garde son dossier de clés, sa clé et son coffre (coffre fait par le code d\'avant)', { skip: !avecGit || root0 }, (t) => {
+test('(4) une vraie installation garde son dossier de clés, sa clé et son coffre (coffre fait par le code d\'avant)', { skip: root0 }, () => {
   const ancien = vaultAvant();
-  if (!ancien) { t.skip('code d\'avant introuvable dans git'); return; }
+  // Jamais sauté en silence : sans le code d'avant, la preuve n'est pas faite, et l'essai le dit en échouant.
+  assert.ok(ancien, `code du coffre d'avant introuvable (ni dans git — commit ${COMMIT_AVANT} —, ni dans ODIN_VAULT_AVANT) : la preuve « une vraie installation garde son coffre » n'est pas faite. Joue cet essai dans le dépôt git, ou pose ODIN_VAULT_AVANT sur une copie du src/vault.ts d'avant.`);
   const f = fauxProfil();
   try {
     const dAncien = join(f.base, 'ancien'); mkdirSync(dAncien); writeFileSync(join(dAncien, 'vault.ts'), ancien);
@@ -355,5 +374,113 @@ test('(7) un essai qui oublie ODIN_HOME reçoit un dossier jetable (test/helpers
       assert.equal(existsSync(home), false, 'retiré à la fin de l\'essai');
     }
     assert.equal(existsSync(f.odinReel), false);
+  } finally { nettoyer(f); }
+});
+
+test('(12) un essai ou un banc qui donne lui-même le vrai ~/.odin (ou un dossier qui le contient) à createOdin est refusé avant toute écriture ou suppression', { skip: root0 }, () => {
+  for (const contexte of [{ ODIN_ESSAI: '1' }, { NODE_TEST_CONTEXT: 'child-v8' }]) {
+    const f = fauxProfil();
+    try {
+      mkdirSync(join(f.odinReel, 'memoire'), { recursive: true });
+      writeFileSync(join(f.odinReel, 'memoire', 'notes.json.avant-restauration'), 'copie précieuse');
+      writeFileSync(join(f.odinReel, 'config.json'), '{"reglage":"du proprietaire"}');
+      const avantOdin = fichiers(f.odinReel).sort(), avantProfil = fichiers(f.profil).sort();
+      const r = lancer(f, `
+        const { createOdin } = await import(${JSON.stringify(src('runtime.ts'))});
+        const { MockProvider } = await import(${JSON.stringify(src('providers/mock.ts'))});
+        const erreurs = [];
+        for (const home of [${JSON.stringify(f.odinReel)}, ${JSON.stringify(f.profil)}]) {
+          try { const o = createOdin({ home, provider: new MockProvider([]) }); try { o.close(); } catch {} erreurs.push(''); } catch (e) { erreurs.push(e.message); }
+        }
+        console.log(JSON.stringify({ erreurs }));
+        process.exit(0);`, contexte);
+      const quoi = Object.keys(contexte)[0];
+      assert.ok(r.ok, r.brut);
+      for (const e of r.out.erreurs as string[]) assert.match(e, /vrai dossier d'Odin/, `${quoi} : refus franc (${r.brut})`);
+      assert.deepEqual(fichiers(f.odinReel).sort(), avantOdin, `${quoi} : rien écrit ni supprimé dans le (faux) ~/.odin`);
+      assert.deepEqual(fichiers(f.profil).sort(), avantProfil, `${quoi} : rien écrit ni supprimé dans le (faux) profil`);
+      assert.equal(readFileSync(join(f.odinReel, 'memoire', 'notes.json.avant-restauration'), 'utf8'), 'copie précieuse');
+      assert.equal(readFileSync(join(f.odinReel, 'config.json'), 'utf8'), '{"reglage":"du proprietaire"}');
+      assert.ok(!r.brut.includes(f.profil), `${quoi} : aucun message ne montre le chemin du profil`);
+    } finally { nettoyer(f); }
+  }
+});
+
+/** Ce que rendent, dans un sous-processus, les dossiers par défaut des applis (github_app « arreter ») et de Hringhorni. */
+const sondeDefauts = (entre: string, avant = '') => `
+  ${avant}
+  const { githubApp } = await import(${JSON.stringify(src('tools/apps.ts'))});
+  const { defaultDir } = await import(${JSON.stringify(src('valhalla/hringhorni/store.ts'))});
+  const applis = async () => { try { return String(await githubApp.run({ action: 'arreter', cible: 'exemple/appli' }, {})); } catch (e) { return 'refus : ' + e.message; } };
+  const hr = () => { try { return defaultDir(); } catch (e) { return 'refus : ' + e.message; } };
+  const premier = { applis: await applis(), hr: hr() };
+  ${entre}
+  const second = { applis: await applis(), hr: hr() };
+  console.log(JSON.stringify({ ...(globalThis.extra ?? {}), premier, second }));
+  process.exit(0);`;
+
+test('(13) sous un essai ou un banc, les dossiers par défaut qui ignoraient ODIN_HOME (applis, Hringhorni) ne visent plus le profil', { skip: root0 }, () => {
+  for (const contexte of [{ ODIN_ESSAI: '1' }, { NODE_TEST_CONTEXT: 'child-v8' }]) {
+    const f = fauxProfil();
+    try {
+      // Une appli « installée » dans le (faux) ~/.odin : un essai ne doit jamais la voir (ni lancer docker dedans).
+      mkdirSync(join(f.odinReel, 'apps', 'exemple-appli'), { recursive: true });
+      const avant = fichiers(f.profil).sort();
+      const r = lancer(f, sondeDefauts('delete process.env.ODIN_HOME;'), contexte);
+      const quoi = Object.keys(contexte)[0];
+      assert.ok(r.ok, r.brut);
+      const o = r.out as { premier: { applis: string; hr: string }; second: { applis: string; hr: string } };
+      // a) ODIN_HOME jetable (posé au chargement) : les défauts le prennent
+      assert.match(o.premier.applis, /pas installée/, `${quoi} : applis cherchées dans le dossier jetable, pas dans ~/.odin (${r.brut})`);
+      assert.ok(o.premier.hr.toLowerCase().startsWith(f.tmp.toLowerCase()), `${quoi} : Hringhorni dans le dossier jetable (${o.premier.hr})`);
+      // b) ODIN_HOME retiré ensuite : refus franc, jamais le profil
+      assert.match(o.second.applis, /^refus : .*jetable/, `${quoi} : applis sans dossier : refus (${o.second.applis})`);
+      assert.match(o.second.hr, /^refus : .*jetable/, `${quoi} : Hringhorni sans dossier : refus (${o.second.hr})`);
+      assert.deepEqual(fichiers(f.profil).sort(), avant, `${quoi} : rien écrit dans le (faux) profil`);
+      assert.ok(!r.brut.includes(f.profil), `${quoi} : aucun message ne montre le chemin du profil`);
+    } finally { nettoyer(f); }
+  }
+});
+
+test('(14) une vraie installation ne change en rien : même dossier d\'Odin, mêmes défauts pour les applis et Hringhorni', { skip: root0 }, () => {
+  const f = fauxProfil();
+  try {
+    mkdirSync(join(f.odinReel, 'apps', 'exemple-appli'), { recursive: true });
+    const autre = join(f.base, 'odin-ailleurs');
+    const r = lancer(f, sondeDefauts(`process.env.ODIN_HOME = ${JSON.stringify(autre)};`, `
+      const { createOdin } = await import(${JSON.stringify(src('runtime.ts'))});
+      const { MockProvider } = await import(${JSON.stringify(src('providers/mock.ts'))});
+      const homes = [];
+      for (const home of [undefined, ${JSON.stringify(f.odinReel)}]) { const o = createOdin({ home, provider: new MockProvider([]) }); homes.push(o.paths.home); try { o.close(); } catch {} }
+      globalThis.extra = { homes };`));
+    assert.ok(r.ok, r.brut);
+    const o = r.out as { homes: string[]; premier: { applis: string; hr: string }; second: { applis: string; hr: string } };
+    assert.deepEqual(o.homes, [f.odinReel, f.odinReel], `createOdin sans dossier ou avec ~/.odin : le vrai ~/.odin, comme avant (${r.brut})`);
+    const hrReel = join(f.profil, '.local', 'share', 'odin', 'hringhorni');
+    for (const [k, v] of Object.entries({ 'sans ODIN_HOME': o.premier, 'avec ODIN_HOME': o.second })) {
+      assert.doesNotMatch(v.applis, /pas installée|refus/, `${k} : l'appli de ~/.odin est toujours vue (${v.applis})`);
+      assert.equal(v.hr, hrReel, `${k} : Hringhorni au même endroit qu'avant`);
+    }
+    assert.equal(existsSync(autre), false);
+  } finally { nettoyer(f); }
+});
+
+test('(15) la fabrique de dépôt de ces essais n\'agit que sur son propre dépôt, même avec GIT_DIR, GIT_WORK_TREE et GIT_INDEX_FILE hérités', { skip: !avecGit }, () => {
+  const f = fauxProfil();
+  try {
+    // Un LEURRE jetable joue le dépôt qu'un GIT_DIR hérité viserait (l'incident du 17/11 : le vrai dépôt).
+    const leurre = join(f.base, 'leurre'); mkdirSync(leurre);
+    const propre = { ...f.env };
+    const gl = (...a: string[]) => spawnSync('git', ['-c', 'safe.directory=*', '-C', leurre, ...a], { encoding: 'utf8', env: propre });
+    assert.equal(gl('init', '-q').status, 0);
+    f.env.GIT_DIR = join(leurre, '.git'); f.env.GIT_WORK_TREE = leurre; f.env.GIT_INDEX_FILE = join(leurre, '.git', 'index-leurre');
+    let erreur = '', app = '';
+    try { app = depot(f); } catch (e) { erreur = (e as Error).message; }
+    assert.notEqual(gl('rev-parse', '-q', '--verify', 'HEAD').status, 0, `aucun commit dans le leurre (${gl('log', '--oneline').stdout})`);
+    assert.equal(existsSync(join(leurre, '.git', 'index-leurre')), false, 'aucun index posé dans le leurre');
+    assert.deepEqual(readdirSync(leurre), ['.git'], 'rien dans l\'arbre du leurre');
+    assert.equal(erreur, '', 'le dépôt d\'essai se fabrique quand même');
+    const log = spawnSync('git', ['-c', 'safe.directory=*', '-C', app, 'log', '--format=%s'], { encoding: 'utf8', env: propre });
+    assert.equal(log.stdout.trim(), 'v1', 'le commit est dans son propre dépôt');
   } finally { nettoyer(f); }
 });
