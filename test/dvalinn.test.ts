@@ -15,7 +15,7 @@ import { outil } from '../src/valhalla/dvalinn/outils.ts';
 test('Alchimie : recettes (pures)', () => {
   assert.equal(familyOf('a.MKV'), 'video'); assert.equal(familyOf('b.heic'), 'image'); assert.equal(familyOf('c.zip'), undefined);
   const v = plan('/x/film.mov', 'mp4', '/o', { codec: 'h265', qualite: 'legere', hauteur: 720 });
-  assert.equal(v.cmd, 'ffmpeg'); assert.ok(v.args.includes('libx265') && v.args.includes('30') && v.args.includes('hvc1')); assert.equal(v.out, '/o/film.mp4');
+  assert.equal(v.cmd, 'ffmpeg'); assert.ok(v.args.includes('libx265') && v.args.includes('30') && v.args.includes('hvc1')); assert.equal(v.out, join('/o', 'film.mp4'), 'chemin de sortie avec le séparateur du système');
   assert.ok(plan('/x/film.mp4', 'mp3', '/o').args.includes('-vn'));
   assert.match(plan('/x/clip.mp4', 'gif', '/o', { debut: '00:00:05', duree: '3' }).args.join(' '), /-ss 00:00:05 -i \/x\/clip\.mp4 -t 3 .*palettegen/);
   assert.equal(plan('/x/a.png', 'webp', '/o').cmd, 'magick'); assert.equal(plan('/x/a.png', 'webp', '/o').alt?.cmd, 'convert');

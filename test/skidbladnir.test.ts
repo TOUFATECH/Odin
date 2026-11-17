@@ -23,7 +23,9 @@ test('rangement : chemins sûrs, versions, corbeille, archive .zip lisible', asy
   try {
     assert.throws(() => S.cleanRel('../etc/passwd'), /interdit/); assert.throws(() => S.cleanName('.versions'), /invalide/); assert.equal(S.cleanName('a/b'), 'ab', 'pas de chemin dans un nom');
     assert.equal(S.cleanRel('/a//b/./c/'), 'a/b/c');
-    symlinkSync('/etc', join(root, 'dehors')); assert.throws(() => S.inside(root, 'dehors/passwd'), /lien vers l'extérieur/);
+    // Windows sans droits refuse les liens symboliques (EPERM) mais accepte une jonction, qui mène dehors tout autant.
+    try { symlinkSync('/etc', join(root, 'dehors')); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EPERM') throw e; symlinkSync(out, join(root, 'dehors'), 'junction'); }
+    assert.throws(() => S.inside(root, 'dehors/passwd'), /lien vers l'extérieur/);
     S.mkdir(root, 'Vacances'); writeFileSync(join(root, 'Vacances', 'liste.txt'), 'v1');
     S.keepVersion(root, 'Vacances/liste.txt', 2, 'awa'); writeFileSync(join(root, 'Vacances', 'liste.txt'), 'v2');
     S.keepVersion(root, 'Vacances/liste.txt', 2, 'ali'); writeFileSync(join(root, 'Vacances', 'liste.txt'), 'v3');
@@ -40,8 +42,14 @@ test('rangement : chemins sûrs, versions, corbeille, archive .zip lisible', asy
     writeFileSync(join(root, 'Vacances', 'é photo.jpg'), Buffer.alloc(70_000, 7));
     const zf = join(out, 'a.zip'), { createWriteStream } = await import('node:fs'), ws = createWriteStream(zf);
     await S.zipTo(ws, S.filesUnder(root, 'Vacances')); await new Promise<void>((ok) => ws.end(ok));
-    const check = execFileSync('python3', ['-I', '-c', 'import zipfile,sys;z=zipfile.ZipFile(sys.argv[1]);print(z.testzip());print(sorted(z.namelist()))', zf], { encoding: 'utf8' });
-    assert.match(check, /^None\n/, 'CRC justes'); assert.match(check, /é photo\.jpg/);
+    // Relue par un lecteur indépendant : Python s'il est là, sinon unzip (Windows n'a souvent qu'un faux « python3 » qui renvoie au Store).
+    const lance = (cmd: string, args: string[]) => { try { return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); } catch { return undefined; } };
+    const check = lance('python3', ['-I', '-c', 'import zipfile,sys;z=zipfile.ZipFile(sys.argv[1]);print(z.testzip());print(sorted(z.namelist()))', zf]);
+    if (check !== undefined) { assert.match(check, /^None\n/, 'CRC justes'); assert.match(check, /é photo\.jpg/); }
+    else {
+      const t = lance('unzip', ['-t', zf]); assert.ok(t !== undefined, 'ni Python ni unzip pour relire l\'archive');
+      assert.match(t, /No errors detected/, 'CRC justes'); assert.match(t, /é photo\.jpg/);
+    }
     assert.equal(inlineType('a.html'), undefined, 'une page web se télécharge, jamais affichée'); assert.equal(inlineType('a.svg'), undefined); assert.equal(inlineType('a.JPG'), 'image/jpeg');
   } finally { rmSync(root, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
 });

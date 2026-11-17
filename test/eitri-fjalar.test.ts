@@ -4,9 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { DEFAULT_CONFIG } from '../src/config.ts';
@@ -91,7 +91,11 @@ test('sources officielles (faux sites) : Ubuntu, Debian, Fedora, GitHub, Firefox
 test('Andromède : dossier, reconnaître, vérifier, télécharger (empreinte), reprise, garder 2, Windows sans réponse de Microsoft, historique, vue', async () => {
   const w = world();
   try {
-    assert.equal((await w.act('eitri', 'dossier', { chemin: '/etc/iso' })).ok, false);
+    // Un dossier système (/etc/…) est refusé. Sous Windows, ce chemin tombe à la racine du disque courant : si Odin
+    // l'acceptait à tort, l'essai efface ce qu'il vient d'y créer, et seulement cela (un nom unique, et /etc s'il n'existait pas).
+    const systeme = `/etc/odin-essai-${process.pid}-${Date.now()}`, etc = resolve('/etc'), etcAvant = existsSync(etc);
+    try { assert.equal((await w.act('eitri', 'dossier', { chemin: systeme })).ok, false); }
+    finally { rmSync(resolve(systeme), { recursive: true, force: true }); if (!etcAvant) { try { rmdirSync(etc); } catch { /* pas vide : laissé tel quel */ } } }
     mkdirSync(w.dir, { recursive: true });
     writeFileSync(join(w.dir, 'ubuntu-24.04.2-desktop-amd64.iso'), 'ancienne ubuntu'); mkdirSync(join(w.dir, 'Debian'));
     writeFileSync(join(w.dir, 'Debian', 'debian-13.2.0-amd64-netinst.iso'), 'debian'); writeFileSync(join(w.dir, 'Win11_25H2_French_x64.iso'), 'windows'); writeFileSync(join(w.dir, 'notes.txt'), '?');

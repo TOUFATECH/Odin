@@ -26,7 +26,7 @@ test('noms, adresses, configuration LXC et ligne de commande QEMU', () => {
   assert.deepEqual(parseLxcInfo('Name: x\nState: RUNNING\nPID: 4242\nIP: 10.0.3.60\nCPU use: 1500000000\nMemory use: 52428800\n'), { state: 'RUNNING', pid: 4242, ip: '10.0.3.60', cpuNs: 1500000000, mem: 52428800 });
   const vm = M({ genre: 'vm', uefi: true });
   const a = qemuArgs(vm, '/vm/x', { kvm: false, ovmf: '/ovmf.fd', installer: '/iso/win.iso' }).join(' ');
-  assert.match(a, /accel=tcg/); assert.match(a, /-cpu max/); assert.match(a, /-bios \/ovmf\.fd/); assert.match(a, /-cdrom \/iso\/win\.iso -boot once=d/); assert.match(a, /ifname=ov-a1b2c3d4,script=no/); assert.match(a, /-qmp unix:\/vm\/x\/qmp\.sock,server=on,wait=off/);
+  assert.match(a, /accel=tcg/); assert.match(a, /-cpu max/); assert.match(a, /-bios \/ovmf\.fd/); assert.match(a, /-cdrom \/iso\/win\.iso -boot once=d/); assert.match(a, /ifname=ov-a1b2c3d4,script=no/); assert.ok(a.includes(`-qmp unix:${join('/vm/x', 'qmp.sock')},server=on,wait=off`), a); // séparateur du système
   assert.match(qemuArgs({ ...vm, quarantaine: { depuis: 1, raison: '', journal: [] } }, '/vm/x', { kvm: true }).join(' '), /accel=kvm.*-nic none/);
 });
 
@@ -45,6 +45,8 @@ test('capture d\'écran PPM → PNG réduit, console sans couleurs, chemins d\'a
 });
 
 // ---------------- Parcours complet avec un faux LXC ----------------
+// Sous Windows, le tar de Git (GNU) lit « C:\… » comme une machine distante ; celui du système (bsdtar) lit les lettres de lecteur.
+const TAR = process.platform === 'win32' && existsSync(join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe')) ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
 function fakeLxc(home: string) {
   const calls: string[][] = [], state = new Map<string, string>();
   const run = async (cmd: string, args: string[]) => {
@@ -59,7 +61,7 @@ function fakeLxc(home: string) {
     if (cmd === 'lxc-copy') { const N = args[args.indexOf('-N') + 1]; await new Promise((ok) => execFile('cp', ['-a', join(P, name), join(P, N)], ok)); return { code: 0, out: '', err: '' }; }
     if (cmd === 'lxc-destroy') { rmSync(join(P, name), { recursive: true, force: true }); return { code: 0, out: '', err: '' }; }
     if (cmd === 'lxc-attach' || cmd === 'lxc-cgroup' || cmd === 'ip' || cmd === 'df') return { code: 0, out: '', err: '' };
-    if (cmd === 'tar') return new Promise<{ code: number; out: string; err: string }>((ok) => execFile('tar', args.filter((x) => x !== '--numeric-owner'), { maxBuffer: 1 << 24 }, (e, out, err) => ok({ code: e ? 1 : 0, out, err })));
+    if (cmd === 'tar') return new Promise<{ code: number; out: string; err: string }>((ok) => execFile(TAR, args.filter((x) => x !== '--numeric-owner'), { maxBuffer: 1 << 24 }, (e, out, err) => ok({ code: e ? 1 : 0, out, err })));
     return { code: 1, out: '', err: `commande inattendue ${cmd}` };
   };
   return { run, calls, state, home };
@@ -106,9 +108,9 @@ test('créer un LXC, ranger, ressources, quarantaine (règle « rouge = isoler �
     const c2 = readFileSync(join(P, 'copie-nextcloud', 'config'), 'utf8'); assert.match(c2, /lxc\.uts\.name = copie-nextcloud/); assert.match(c2, new RegExp(`rootfs\\.path = dir:${join(P, 'copie-nextcloud')}/rootfs`)); assert.match(c2, /10\.0\.3\.62\/24/);
     assert.equal(readFileSync(join(P, 'copie-nextcloud', 'rootfs', 'etc', 'hostname'), 'utf8'), nom, 'le disque est bien là');
     // Un .ody modifié : refusé.
-    const bad = join(home, 'bad'); mkdirSync(bad); await new Promise((ok) => execFile('tar', ['-C', bad, '-xf', ody], ok));
+    const bad = join(home, 'bad'); mkdirSync(bad); await new Promise((ok) => execFile(TAR, ['-C', bad, '-xf', ody], ok));
     const man = JSON.parse(readFileSync(join(bad, 'manifest.json'), 'utf8')); man.sha256 = '0'.repeat(64); writeFileSync(join(bad, 'manifest.json'), JSON.stringify(man));
-    await new Promise((ok) => execFile('tar', ['-C', bad, '-cf', join(home, 'abime.ody'), 'manifest.json', 'machine.tgz'], ok));
+    await new Promise((ok) => execFile(TAR, ['-C', bad, '-cf', join(home, 'abime.ody'), 'manifest.json', 'machine.tgz'], ok));
     assert.match((await v.act('ymir', 'importer_machine', { fichier: join(home, 'abime.ody') })).text, /empreinte différente/);
     // Clone et suppression (grave).
     assert.match((await v.act('ymir', 'cloner_machine', { machine: nom, nom: 'Nextcloud test' })).text, /nextcloud-test : copie prête \(10\.0\.3\.63\)/);

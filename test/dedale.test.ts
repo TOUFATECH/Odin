@@ -18,6 +18,8 @@ import { masquer } from '../src/valhalla/ivaldi/terminaux.ts';
 type R = { ok?: boolean; text?: string; confirm?: string; data?: Record<string, unknown> };
 const acte = async (v: VraiOdin, action: string, input: Record<string, unknown> = {}, confirm = false) => (await v.json('/api/valhalla/act', { module: 'ivaldi', action, input, ...(confirm ? { confirm: true } : {}) })).body as R;
 const a = (c: string) => spawnSync('sh', ['-c', `command -v ${c}`]).status === 0;
+/** Python qui tourne pour de vrai : sous Windows, « python3 » est souvent un simple renvoi vers le Store, présent mais inutilisable. */
+const python = spawnSync('python3', ['-c', 'print(1)'], { encoding: 'utf8' }).stdout?.trim() === '1';
 const libre = () => new Promise<number>((r) => { const s = createServer(); s.listen(0, '127.0.0.1', () => { const p = (s.address() as { port: number }).port; s.close(() => r(p)); }); });
 const ouvert = (port: number) => new Promise<boolean>((r) => { const c = connect(port, '127.0.0.1'); c.on('connect', () => { c.destroy(); r(true); }); c.on('error', () => r(false)); });
 
@@ -46,7 +48,7 @@ test('masquer : les secrets d\'une ligne tapée ne vont jamais au journal (pur)'
   assert.equal(masquer('git push ghp_abcdefghijklmnopqrstuvwxyz123456'), 'git push ••••');
 });
 
-test('terminaux : une vraie session qui dure, retrouvée telle quelle, Heimdall sur chaque ligne, journal sans secret, limite et fermeture pour inactivité', { timeout: 120_000, skip: !a('python3') && 'python3 absent' }, async () => {
+test('terminaux : une vraie session qui dure, retrouvée telle quelle, Heimdall sur chaque ligne, journal sans secret, limite et fermeture pour inactivité', { timeout: 120_000, skip: !python && 'python3 absent' }, async () => {
   const tt = new T();
   try {
     const v = await vraiOdin(tt, { compte: true }), va = valhallaOf()!;
@@ -116,7 +118,7 @@ test('terminal sur un autre poste : un vrai serveur SSH d\'essai', { timeout: 12
   } finally { for (const e of enfants) { try { e.kill('SIGKILL'); } catch { /* fini */ } } await tt.end(); rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('projets : parcourir, modifier (accord, version d\'avant), lancer un vrai projet Node et une page web, aperçu isolé à travers Odin', { timeout: 120_000, skip: !a('python3') && 'python3 absent' }, async () => {
+test('projets : parcourir, modifier (accord, version d\'avant), lancer un vrai projet Node et une page web, aperçu isolé à travers Odin', { timeout: 120_000, skip: !python && 'python3 absent' }, async () => {
   const tt = new T();
   try {
     const v = await vraiOdin(tt, { compte: true }), va = valhallaOf()!, code = tt.tmp('code-');

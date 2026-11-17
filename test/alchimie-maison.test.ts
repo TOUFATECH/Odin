@@ -228,20 +228,26 @@ test('cartes : GeoJSON, KML, GPX se convertissent entre eux ; un tableau de lieu
 });
 
 // ---------------- Archives ----------------
+/** Les noms d'un ZIP lus par un lecteur indépendant. Sous Windows, l'unzip de Git ignore le drapeau UTF-8 des entrées
+ *  marquées « faites sous MS-DOS » et abîme les accents : on y lit avec le lecteur ZIP du système (.NET), qui le respecte. */
+const nomsZip = (f: string): string[] => process.platform === 'win32'
+  ? execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', 'Add-Type -AssemblyName System.IO.Compression.FileSystem; $z = [IO.Compression.ZipFile]::OpenRead($env:ZIP_A_LIRE); $z.Entries | ForEach-Object { [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($_.FullName)) }; $z.Dispose()'], { encoding: 'utf8', env: { ...process.env, ZIP_A_LIRE: f } }).trim().split(/\r?\n/).map((b) => Buffer.from(b, 'base64').toString('utf8'))
+  : execFileSync('unzip', ['-Z1', f], { encoding: 'utf8' }).trim().split('\n');
 test('archives : ZIP, TAR, TAR.GZ entre elles ; relues par tar et unzip ; jamais de chemin qui sort du dossier', { skip: !a('tar') || !a('unzip') ? 'tar ou unzip absent' : false }, () => {
   const d = mkdtempSync(join(tmpdir(), 'arch-')), long = `${'dossier-vraiment-long/'.repeat(6)}fichier.txt`;
   try {
     const l = [{ nom: 'site/index.html', data: Buffer.from('<h1>Bonjour</h1>') }, { nom: 'site/été/photo.bin', data: Buffer.alloc(3000, 7) }, { nom: long, data: Buffer.from('long') }, { nom: 'vide.txt', data: Buffer.alloc(0) }];
     const tar = ecrireTar(l); assert.deepEqual(lireTarMemoire(tar).map((x) => [x.nom, x.data.length]), l.map((x) => [x.nom, x.data.length]));
     writeFileSync(join(d, 'a.tar'), tar);
-    assert.deepEqual(execFileSync('tar', ['--quoting-style=literal', '-tf', join(d, 'a.tar')], { encoding: 'utf8' }).trim().split('\n'), l.map((x) => x.nom), 'tar relit l\'archive d\'Alchimie (noms longs et accents compris)');
-    mkdirSync(join(d, 'x')); execFileSync('tar', ['-xf', join(d, 'a.tar'), '-C', join(d, 'x')]); assert.equal(readFileSync(join(d, 'x', 'site/index.html'), 'utf8'), '<h1>Bonjour</h1>');
+    // tar reçoit des noms relatifs (cwd) : sous Windows, le tar de Git lit « C:\… » comme une machine distante.
+    assert.deepEqual(execFileSync('tar', ['--quoting-style=literal', '-tf', 'a.tar'], { encoding: 'utf8', cwd: d }).trim().split('\n'), l.map((x) => x.nom), 'tar relit l\'archive d\'Alchimie (noms longs et accents compris)');
+    mkdirSync(join(d, 'x')); execFileSync('tar', ['-xf', 'a.tar', '-C', 'x'], { cwd: d }); assert.equal(readFileSync(join(d, 'x', 'site/index.html'), 'utf8'), '<h1>Bonjour</h1>');
     // L'archive de tar (GNU), relue par Alchimie, puis convertie en ZIP relu par unzip.
-    execFileSync('tar', ['-czf', join(d, 'b.tar.gz'), '-C', join(d, 'x'), '.']);
+    execFileSync('tar', ['-czf', 'b.tar.gz', '-C', 'x', '.'], { cwd: d });
     const z = convertirMaison('b.tar.gz', readFileSync(join(d, 'b.tar.gz')), 'zip'); assert.equal(z.nom, 'b.zip'); writeFileSync(join(d, z.nom), z.data);
-    assert.deepEqual(execFileSync('unzip', ['-Z1', join(d, 'b.zip')], { encoding: 'utf8' }).trim().split('\n').sort(), l.map((x) => x.nom).sort());
+    assert.deepEqual(nomsZip(join(d, 'b.zip')).sort(), l.map((x) => x.nom).sort(), 'un lecteur de ZIP indépendant relit les noms (accents compris)');
     assert.equal(unzip(z.data).get('site/index.html')?.toString(), '<h1>Bonjour</h1>');
-    const t2 = convertirMaison('b.zip', z.data, 'tar.gz'); writeFileSync(join(d, 'c.tar.gz'), t2.data); assert.equal(execFileSync('tar', ['-xzOf', join(d, 'c.tar.gz'), long], { encoding: 'utf8' }), 'long');
+    const t2 = convertirMaison('b.zip', z.data, 'tar.gz'); writeFileSync(join(d, 'c.tar.gz'), t2.data); assert.equal(execFileSync('tar', ['-xzOf', 'c.tar.gz', long], { encoding: 'utf8', cwd: d }), 'long');
     assert.equal(convertirMaison('a.tar', tar, 'zip').nom, 'a.zip');
     // Une archive piégée (« ../../etc/passwd », chemin absolu) : les noms sont ramenés dans le dossier.
     const piege = zip([{ name: '../../etc/passwd', data: Buffer.from('x') }, { name: '/racine.txt', data: Buffer.from('y') }, { name: 'a/./b/../c.txt', data: Buffer.from('z') }]);

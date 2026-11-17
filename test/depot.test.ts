@@ -77,8 +77,14 @@ test('envoyer un fichier à une appli : connexion exigée, endroit fixé par l\'
     assert.equal(d.status, 200); assert.equal(d.headers.get('content-type'), 'application/octet-stream'); assert.match(d.headers.get('content-disposition') ?? '', /^attachment/); await d.arrayBuffer();
     // Refus : sans connexion, hors de l'atelier, fichier protégé, lien vers l'extérieur, appli qui ne remet rien, fichier absent, dossier.
     assert.equal((await prendre({ module: 'dvalinn', ref: 'atelier:film.ass' }, {})).status, 401);
-    writeFileSync(join(atelier, 'compte.json'), '{"secret":1}'); symlinkSync('/etc/hostname', join(atelier, 'lien-dehors.txt')); mkdirSync(join(atelier, 'sous-dossier'), { recursive: true });
-    for (const ref of ['atelier:../../compte.json', '../../../etc/passwd', '/etc/passwd', 'atelier:compte.json', 'atelier:lien-dehors.txt', 'atelier:absent.vtt', 'atelier:sous-dossier', 'inconnu:film.ass', ''])
+    writeFileSync(join(atelier, 'compte.json'), '{"secret":1}'); mkdirSync(join(atelier, 'sous-dossier'), { recursive: true });
+    // Windows sans droits refuse les liens symboliques (EPERM) : une jonction vers un dossier du dehors mène dehors tout autant.
+    try { symlinkSync('/etc/hostname', join(atelier, 'lien-dehors.txt')); } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EPERM') throw e;
+      const dehors = tt.tmp('depot-dehors-'); writeFileSync(join(dehors, 'hostname'), 'machine');
+      symlinkSync(dehors, join(atelier, 'lien-dehors.txt'), 'junction');
+    }
+    for (const ref of ['atelier:../../compte.json', '../../../etc/passwd', '/etc/passwd', 'atelier:compte.json', 'atelier:lien-dehors.txt', 'atelier:lien-dehors.txt/hostname', 'atelier:absent.vtt', 'atelier:sous-dossier', 'inconnu:film.ass', ''])
       assert.equal((await prendre({ module: 'dvalinn', ref })).status, 404, `refusé : ${ref || '(vide)'}`);
     assert.equal((await prendre({ module: 'ullr', ref: 'atelier:film.ass' })).status, 404); assert.equal((await prendre({ module: 'nexiste-pas', ref: 'atelier:film.ass' })).status, 404);
     // La page propose l'envoi sur les bons réglages (et seulement ceux-là).

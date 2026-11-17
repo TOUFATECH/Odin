@@ -74,7 +74,7 @@ function fakeCloud(bin: string, o: { digest?: boolean } = {}) {
   return { st, fetch: fetch as typeof globalThis.fetch };
 }
 
-test('tunnel : création, publication (DNS + règle), refus d\'écraser, Odin publié, programme vérifié, retrait', async () => {
+test('tunnel : création, publication (DNS + règle), refus d\'écraser, Odin publié, programme vérifié, retrait', async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'bru-'));
   const saved = process.env.CLOUDFLARE_API_TOKEN;
   // Un faux cloudflared : vérifie qu'il reçoit le jeton par l'environnement (jamais en argument) puis attend.
@@ -93,7 +93,7 @@ test('tunnel : création, publication (DNS + règle), refus d\'écraser, Odin pu
     const c = await b('creer', { domaine: 'odin.exemple.fr' });
     assert.ok(c.ok, c.text); assert.match(c.text, /créé/);
     assert.equal(readFileSync(join(v.ctx('bru').dir, 'jeton-tunnel'), 'utf8'), 'JETON-DU-TUNNEL-SECRET');
-    assert.equal(statSync(join(v.ctx('bru').dir, 'jeton-tunnel')).mode & 0o777, 0o600, 'jeton lisible par Odin seul');
+    if (process.platform !== 'win32') assert.equal(statSync(join(v.ctx('bru').dir, 'jeton-tunnel')).mode & 0o777, 0o600, 'jeton lisible par Odin seul');
     assert.deepEqual(cloud.st.ingress, [{ service: 'http_status:404' }]);
     assert.match((await b('creer', { domaine: 'exemple.fr' })).text, /existe déjà/);
     assert.deepEqual([...cloud.st.auth], ['Bearer cle-de-test-cloudflare-123456'], 'clé envoyée seulement à Cloudflare');
@@ -126,13 +126,21 @@ test('tunnel : création, publication (DNS + règle), refus d\'écraser, Odin pu
     assert.equal(rule.service, `${DEFAULT_CONFIG.web.tls.enabled ? 'https' : 'http'}://localhost:${DEFAULT_CONFIG.web.port}`); assert.equal(rule.originRequest.httpHostHeader, 'localhost');
 
     // Démarrage : programme téléchargé, empreinte vérifiée, jeton par l'environnement.
-    v.ctx('bru').saveSettings({ waitMs: 400 });
-    const d = await b('demarrer');
-    assert.ok(d.ok, d.text); assert.match(d.text, /en bonne santé, 4 connexion/);
-    const file = join(v.ctx('bru').home, 'bin', 'cloudflared');
-    assert.ok(existsSync(file)); assert.equal(readFileSync(file, 'utf8'), bin);
-    const e = await b('etat');
-    assert.match(e.text, /programme en marche/); assert.match(e.text, /args=tunnel --no-autoupdate run/); assert.ok(!e.text.includes('JETON-DU-TUNNEL'), 'jeton jamais affiché');
+    // Le faux programme est un script sh : Windows ne sait pas le lancer (spawn UNKNOWN), cette partie n'y tourne pas.
+    if (process.platform === 'win32') {
+      // Le téléchargement et l'empreinte se vérifient quand même ; seul le lancement n'est pas essayé.
+      v.ctx('bru').saveSettings({ waitMs: 400 }); await b('demarrer');
+      assert.equal(readFileSync(join(v.ctx('bru').home, 'bin', 'cloudflared.exe'), 'utf8'), bin, 'programme téléchargé, empreinte vérifiée');
+      t.diagnostic('lancement du tunnel non essayé : Windows ne lance pas le faux programme (script sh)');
+    } else {
+      v.ctx('bru').saveSettings({ waitMs: 400 });
+      const d = await b('demarrer');
+      assert.ok(d.ok, d.text); assert.match(d.text, /en bonne santé, 4 connexion/);
+      const file = join(v.ctx('bru').home, 'bin', 'cloudflared');
+      assert.ok(existsSync(file)); assert.equal(readFileSync(file, 'utf8'), bin);
+      const e = await b('etat');
+      assert.match(e.text, /programme en marche/); assert.match(e.text, /args=tunnel --no-autoupdate run/); assert.ok(!e.text.includes('JETON-DU-TUNNEL'), 'jeton jamais affiché');
+    }
     const view = await bru.view(v.ctx('bru'), new URLSearchParams());
     assert.ok(view.sections.some((x) => x.kind === 'graph'));
 

@@ -41,17 +41,20 @@ test('Alchimie rapide : tuiles, estimations, qualité, rognage, date (pur)', () 
   assert.throws(() => jpegAvecDate(Buffer.from('pas une image'), new Date()), /JPEG/);
   // recettes d'image : redressée, rognée au centre, qualité précise
   const p = plan('/x/a.heic', 'jpg', '/o', { pct: 85, cadre: { w: 300, h: 300 } }).args.join(' ');
-  assert.match(p, /-auto-orient -gravity center -crop 300x300\+0\+0 \+repage .*-quality 85 -strip \/o\/a\.jpg/);
+  assert.match(p, /-auto-orient -gravity center -crop 300x300\+0\+0 \+repage .*-quality 85 -strip /);
+  assert.ok(p.endsWith(`-strip ${join('/o', 'a.jpg')}`), p); // le chemin de sortie, avec le séparateur du système
   // 4 clics : Alchimie, tout de suite, sans question
   assert.equal(DEFAULT_CLICKS2['4'], 'alchimie'); assert.equal(CLICK_CATALOG.find((a) => a.id === 'alchimie')?.grave, false);
 });
 
 const sh = (cmd: string, args: string[], o: { timeoutMs?: number } = {}) => new Promise<{ code: number; out: string; err: string }>((ok) => execFile(cmd, args, { timeout: o.timeoutMs ?? 120000, maxBuffer: 1 << 24 }, (e, out, err) => ok({ code: e ? (typeof (e as { code?: unknown }).code === 'number' ? (e as { code: number }).code : 1) : 0, out: String(out), err: String(err) })));
 const has = async (c: string) => (await sh('sh', ['-c', `command -v ${c}`])).code === 0;
+/** ImageMagick pour de vrai : sous Windows, « convert » est d'abord l'outil système de conversion de disque (System32), qu'on ne lance jamais. */
+const imagemagick = async (c: string) => { const r = await sh('sh', ['-c', `command -v ${c}`]); return r.code === 0 && !/system32/i.test(r.out); };
 const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
 
 test('Alchimie rapide : pour de vrai (antivirus, PNG → JPG daté et rogné, récentes, fichier joint, sans IA)', { timeout: 180000 }, async (t) => {
-  const im = (await has('magick')) || (await has('convert'));
+  const imc = (await imagemagick('magick')) ? 'magick' : (await imagemagick('convert')) ? 'convert' : undefined, im = imc !== undefined;
   const home = mkdtempSync(join(tmpdir(), 'alchimie-rapide-'));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: join(home, 'workspace') }, cfg: DEFAULT_CONFIG } as never), { run: (c, a, o) => sh(c, a, o), fetch: (async () => new Response('')) as unknown as typeof fetch, notify: async () => {}, autonomy: () => 'equilibre' });
   const at = join(v.ctx('dvalinn').dir, 'atelier'); mkdirSync(at, { recursive: true });
@@ -64,8 +67,8 @@ test('Alchimie rapide : pour de vrai (antivirus, PNG → JPG daté et rogné, r�
     assert.match((await v.act('dvalinn', 'preparer', { fichiers: 'atelier:absent.png' })).text, /introuvable/);
     if (!im) { t.diagnostic('ImageMagick absent : conversions d\'images sautées'); return; }
     // Deux vraies images (une photo en paysage) : préparées, vérifiées, puis converties en JPG.
-    await sh('convert', ['-size', '400x300', 'gradient:#8DB3C9-#34505F', join(at, 'IMG_2031.png')]);
-    await sh('convert', ['-size', '200x200', 'plasma:fractal', join(at, 'IMG_2032.png')]);
+    await sh(imc!, ['-size', '400x300', 'gradient:#8DB3C9-#34505F', join(at, 'IMG_2031.png')]);
+    await sh(imc!, ['-size', '200x200', 'plasma:fractal', join(at, 'IMG_2032.png')]);
     r = await v.act('dvalinn', 'preparer', { fichiers: 'atelier:IMG_2031.png,atelier:IMG_2032.png', qualite: 85 });
     assert.notEqual(r.ok, false, r.text); assert.match(r.text, /2 fichier\(s\) · PNG · .* · vérifiés par Asclépios/);
     const d = r.data as { tuiles: Array<{ format: string }>; fichiers: Array<{ ref: string }>; antivirus: string };
@@ -100,7 +103,7 @@ test('Alchimie rapide : pour de vrai (antivirus, PNG → JPG daté et rogné, r�
       assert.throws(() => lireHeif(Buffer.from('pas une photo')), /HEIC/);
     } else t.diagnostic('python3 ou libx265 absent : photo HEIC non essayée');
     // Un fichier joint dans la Discussion (inbox/…) : « Odin, convertis ce fichier en PDF ».
-    const inbox = join(home, 'workspace', 'inbox'); mkdirSync(inbox, { recursive: true }); await sh('convert', ['-size', '120x80', 'xc:#4F7FF0', join(inbox, 'recu.png')]);
+    const inbox = join(home, 'workspace', 'inbox'); mkdirSync(inbox, { recursive: true }); await sh(imc!, ['-size', '120x80', 'xc:#4F7FF0', join(inbox, 'recu.png')]);
     r = await v.act('dvalinn', 'convertir', { fichier: 'inbox/recu.png', format: 'pdf' }); assert.notEqual(r.ok, false, r.text); assert.ok(existsSync(join(inbox, 'recu.pdf')), 'le résultat est écrit à côté du fichier joint');
     // Sans IA (Logos) : la phrase et le fichier joint arrivent chez Alchimie, le format est compris (« en JPG »).
     const o = await v.order('Odin, convertis ce fichier en JPG\n\n[Fichier reçu : inbox/recu.png (image/png, 1 Ko)]', 'essai-1');

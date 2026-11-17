@@ -1236,8 +1236,15 @@ test('tous les liens entre applis sont automatiques, et chacun a sa vérificatio
   } finally { w.end(); }
 });
 
+// Ce que ce système ne peut pas faire, dit par l'appli elle-même : le moteur VPN d'Odin ne tourne que sous Linux
+// (modules/gjoll.ts, engineReady) ; sous Windows, Tirésias ne lit pas encore la santé des disques (modules/durinn.ts).
+const santeDisques = process.platform === 'win32' ? 'Windows : Tirésias ne lit pas encore la santé des disques de cette machine (voulu, il le dit)' : false;
+const PAS_ICI: Record<string, string | false> = {
+  'gjoll>garmr': process.platform !== 'linux' ? `le moteur VPN d'Odin ne tourne que sous Linux (cette machine : ${process.platform})` : false,
+  'durinn>forseti': santeDisques, 'durinn>sindri': santeDisques, 'durinn>askr': santeDisques, 'durinn>hel': santeDisques,
+};
 for (const l of LINKS) {
-  test(`lien ${l.from} → ${l.to} (${l.kind}) : quand ${l.when}, ${l.does}`, async () => {
+  test(`lien ${l.from} → ${l.to} (${l.kind}) : quand ${l.when}, ${l.does}`, { skip: PAS_ICI[`${l.from}>${l.to}`] ?? false }, async () => {
     const w = world();
     try { await CHECKS[`${l.from}>${l.to}`](w); } finally { w.end(); }
   });

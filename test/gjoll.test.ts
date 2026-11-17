@@ -34,8 +34,10 @@ function world(o: { python?: boolean; on?: boolean } = {}) {
   return { v, ran, home, end: () => { v.stop(); rmSync(home, { recursive: true, force: true }); } };
 }
 const act = async (v: Valhalla, a: string, i: Record<string, unknown> = {}) => v.act('gjoll', a, i);
+/** Le moteur VPN d'Odin ne tourne que sous Linux (src/valhalla/modules/gjoll.ts, engineReady) : ailleurs, l'allumer n'est pas possible. */
+const horsLinux = process.platform !== 'linux' ? `le moteur VPN d'Odin ne tourne que sous Linux (cette machine : ${process.platform})` : false;
 
-test('Vortex : la mise en route se fait pas à pas, chaque étape avec son bouton, et disparaît une fois finie', async () => {
+test('Vortex : la mise en route se fait pas à pas, chaque étape avec son bouton, et disparaît une fois finie', { skip: horsLinux }, async () => {
   const w = world();
   try {
     const steps = async () => { const view = await w.v.module('gjoll')!.view(w.v.ctx('gjoll'), new URLSearchParams()); return view.sections.find((s) => s.kind === 'steps') as { items: Array<{ title: string; done: boolean; action?: string }> } | undefined; };
@@ -57,7 +59,7 @@ test('Vortex : la mise en route se fait pas à pas, chaque étape avec son bouto
   } finally { w.end(); }
 });
 
-test('Vortex : un appareil ajouté donne tout de suite son QR code et son fichier ; on le modifie, on le coupe à une date', async () => {
+test('Vortex : un appareil ajouté donne tout de suite son QR code et son fichier ; on le modifie, on le coupe à une date', { skip: horsLinux }, async () => {
   const w = world();
   try {
     await act(w.v, 'detecter'); await act(w.v, 'allumer');
@@ -117,9 +119,11 @@ test('Vortex : réglages du tunnel (port, MTU, maintien) vérifiés et appliqué
 test('Vortex : si la machine ne peut pas faire tourner le moteur, Odin le dit au lieu de faire semblant', async () => {
   const w = world({ python: false });
   try {
+    // Sous Linux, c'est Python qui manque ici ; ailleurs, c'est le système lui-même : Odin le dit tout autant.
+    const raison = horsLinux ? 'le moteur VPN d\'Odin tourne pour l\'instant sur Linux' : 'Python 3 manque';
     const r = await act(w.v, 'allumer');
-    assert.equal(r.ok, false); assert.match(r.text, /Python 3 manque/); assert.equal(engine(), undefined);
+    assert.equal(r.ok, false); assert.match(r.text, new RegExp(raison)); assert.equal(engine(), undefined);
     const st = (await w.v.module('gjoll')!.view(w.v.ctx('gjoll'), new URLSearchParams())).sections.find((s) => s.kind === 'steps') as { items: Array<{ done: boolean; detail?: string }> };
-    assert.equal(st.items[0].done, false); assert.match(st.items[0].detail ?? '', /Pas prêt : Python 3 manque/);
+    assert.equal(st.items[0].done, false); assert.match(st.items[0].detail ?? '', new RegExp(`Pas prêt : ${raison}`));
   } finally { w.end(); }
 });

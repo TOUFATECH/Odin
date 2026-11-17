@@ -27,8 +27,13 @@ import { unzip } from '../src/files/zip.ts';
 const NEUF = ['mimisbrunnr', 'gefjon', 'sol', 'fensalir', 'hlid', 'ivaldi', 'heidrun', 'leikvangr', 'snotra'];
 function world(prefix = 'applis-') {
   const home = mkdtempSync(join(tmpdir(), prefix));
+  // Le dossier personnel de l'essai est jetable : sans cela, Plume (~/Documents) et Hélios (~/Pictures…) prennent ceux de la
+  // personne qui lance l'essai. homedir() lit HOME sous Linux et macOS, USERPROFILE sous Windows : les deux sont posés.
+  const avant = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE }, perso = join(home, 'perso'); mkdirSync(perso);
+  process.env.HOME = perso; process.env.USERPROFILE = perso;
+  const remettre = () => { for (const [k, x] of Object.entries(avant)) { if (x === undefined) delete process.env[k]; else process.env[k] = x; } };
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), { notify: async () => {}, autonomy: () => 'equilibre' } as never);
-  return { v, home, mod: (id: string) => v.modules().find((m) => m.id === id)!, end: () => { v.stop(); rmSync(home, { recursive: true, force: true }); } };
+  return { v, home, mod: (id: string) => v.modules().find((m) => m.id === id)!, end: () => { v.stop(); remettre(); rmSync(home, { recursive: true, force: true }); } };
 }
 const vieux = (f: string, jours: number) => { const t = (Date.now() - jours * 864e5) / 1000; utimesSync(f, t, t); };
 

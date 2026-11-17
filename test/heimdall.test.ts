@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_CONFIG } from '../src/config.ts';
@@ -52,14 +52,33 @@ test('délai de validation dépassé = refus', async () => {
   assert.equal((await h.gate({ ...base, tool: 'shell', risk: 'exec', command: 'make' })).allowed, false);
 });
 
+/** Windows sans droits d'administrateur ni mode développeur refuse de créer un lien symbolique (EPERM). */
+const peutLier = (() => {
+  const d = mkdtempSync(join(tmpdir(), 'lien-'));
+  try { symlinkSync(join(d, 'absent'), join(d, 'l')); return true; } catch { return false; } finally { rmSync(d, { recursive: true, force: true }); }
+})();
+
 test('prison de chemins : .., absolu et lien symbolique refusés', () => {
+  const root = mkdtempSync(join(tmpdir(), 'jail-')), dehors = peutLier ? '' : mkdtempSync(join(tmpdir(), 'dehors-'));
+  try {
+    mkdirSync(join(root, 'a'));
+    assert.equal(jailPath(root, 'a/b.txt').endsWith(join('a', 'b.txt')), true);
+    assert.throws(() => jailPath(root, '../etc/passwd'));
+    assert.throws(() => jailPath(root, '/etc/passwd'));
+    // Un lien vers un dossier du dehors. Windows sans droits refuse les liens symboliques (EPERM) mais
+    // accepte une jonction, qui mène dehors tout autant : la prison doit la refuser de la même façon.
+    if (peutLier) symlinkSync('/etc', join(root, 'evasion'));
+    else symlinkSync(dehors, join(root, 'evasion'), 'junction');
+    assert.throws(() => jailPath(root, 'evasion/passwd'));
+  } finally {
+    // La cible d'abord : le lien qui reste dans root ne mène plus nulle part quand root est effacé.
+    if (dehors) rmSync(dehors, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('prison de chemins : lien symbolique cassé refusé', { skip: peutLier ? false : 'ce système refuse de créer un lien symbolique (Windows sans droits ni mode développeur)' }, () => {
   const root = mkdtempSync(join(tmpdir(), 'jail-'));
-  mkdirSync(join(root, 'a'));
-  assert.equal(jailPath(root, 'a/b.txt').endsWith(join('a', 'b.txt')), true);
-  assert.throws(() => jailPath(root, '../etc/passwd'));
-  assert.throws(() => jailPath(root, '/etc/passwd'));
-  symlinkSync('/etc', join(root, 'evasion'));
-  assert.throws(() => jailPath(root, 'evasion/passwd'));
   // Lien cassé vers un fichier qui n'existe pas encore : écrire à travers lui le créerait dehors.
   symlinkSync(join(tmpdir(), `absent-${Date.now()}`, 'piege.txt'), join(root, 'casse'));
   assert.throws(() => jailPath(root, 'casse'));

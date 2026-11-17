@@ -30,6 +30,10 @@ const fx = (n: string) => readFileSync(join(FIX, `${n}.json`), 'utf8');
 const VARIANTES = JSON.parse(fx('variantes')) as Record<string, unknown>;
 const root = process.getuid?.() === 0;
 const a = (cmd: string) => spawnSync('sh', ['-c', `command -v ${cmd} || ls /usr/sbin/${cmd}`], { encoding: 'utf8' }).status === 0;
+/** Sous Windows, Tirésias dit lui-même qu'il ne lit pas encore la santé des disques de la machine (modules/durinn.ts, panne « windows »). */
+const SANS_SANTE = process.platform === 'win32' ? 'Windows : Tirésias ne lit pas encore la santé des disques de cette machine (voulu, il le dit)' : false;
+/** Windows n'a pas de /dev : ce chemin y est refusé parce qu'il n'existe pas ; ailleurs, parce que c'est un disque brut. */
+const BRUT = process.platform === 'win32' ? /n'existe pas/ : /jamais sur un disque brut/;
 const VRAI_SMARTCTL = ['/usr/sbin/smartctl', '/usr/local/sbin/smartctl', '/sbin/smartctl'].find((f) => existsSync(f));
 
 /** Le faux smartctl : rend les exemples du dossier `d` (« sda.json », « sdc.sat.json » avec -d sat, « dort.json » si « sda.dort » existe et -n standby). */
@@ -168,7 +172,7 @@ test('Tirésias · vitesse : où tester, place, comparaison, réponse de dd (pur
   const mounts = '/dev/sda2 / ext4 rw,relatime 0 0\nproc /proc proc rw 0 0\n/dev/sdb1 /mnt/donn\\040ees ext4 rw 0 0\n/dev/sdc1 /media/cd iso9660 ro 0 0\ntmpfs /tmp tmpfs rw 0 0\n/dev/loop0 /snap/x squashfs ro 0 0\n';
   assert.deepEqual(volumes(mounts).map((v) => v.point), ['/', '/mnt/donn ees']);
   assert.equal(volumeDe('/mnt/donn ees/photos', mounts)?.source, '/dev/sdb1');
-  assert.throws(() => controler('relatif', 1), /chemin complet/); assert.throws(() => controler('/dev', 1), /jamais sur un disque brut/);
+  assert.throws(() => controler('relatif', 1), /chemin complet/); assert.throws(() => controler('/dev', 1), BRUT);
   assert.throws(() => controler(tmpdir(), 1e15), /pas assez de place : il reste .* il en faut/);
   const r = (l: number, e: number, quand: string): Resultat => ({ id: quand, quand, poste: '', nomPoste: 'cette machine', dossier: '/', octets: 1, dureeS: 1, direct: true, reserves: [], mesures: { seq1m_q8: { lecture: { moS: l, acces: 1, latMs: 1 }, ecriture: { moS: e, acces: 1, latMs: 1 } } } });
   assert.match(comparer(r(300, 100, '2026-11-13T10:00:00Z'), r(500, 200, '2026-11-01T10:00:00Z'))!, /lecture séquentielle −40 %, écriture séquentielle −50 %\. Une baisse aussi nette/);
@@ -180,7 +184,7 @@ test('Tirésias · vitesse : où tester, place, comparaison, réponse de dd (pur
 });
 
 // ---------------------------------------------------------------- de bout en bout, faux smartctl
-test('Tirésias · de bout en bout (faux smartctl dans le PATH) : état de chaque disque, alertes, historique, page à onglets', { timeout: 120_000 }, async () => {
+test('Tirésias · de bout en bout (faux smartctl dans le PATH) : état de chaque disque, alertes, historique, page à onglets', { timeout: 120_000, skip: SANS_SANTE }, async () => {
   const w = monde();
   try {
     const r = await act(w, 'sante');
@@ -272,7 +276,7 @@ test('Tirésias · de bout en bout (faux smartctl dans le PATH) : état de chaqu
   } finally { w.fin(); }
 });
 
-test('Tirésias · liens : avec l\'appli de récupération, un disque Mauvais propose de récupérer ses fichiers ; Hygie renvoie vers le détail', { timeout: 60_000 }, async () => {
+test('Tirésias · liens : avec l\'appli de récupération, un disque Mauvais propose de récupérer ses fichiers ; Hygie renvoie vers le détail', { timeout: 60_000, skip: SANS_SANTE }, async () => {
   const w = monde({ hel: true });
   try {
     await act(w, 'sante');
@@ -285,7 +289,7 @@ test('Tirésias · liens : avec l\'appli de récupération, un disque Mauvais pr
   } finally { w.fin(); }
 });
 
-test('Tirésias · smartctl absent : dit clairement quoi installer, et propose de le faire', { timeout: 30_000 }, async () => {
+test('Tirésias · smartctl absent : dit clairement quoi installer, et propose de le faire', { timeout: 30_000, skip: SANS_SANTE }, async () => {
   const w = monde({ faux: false, run: async (cmd: string) => ({ code: cmd === 'sh' ? 1 : 0, out: '', err: '' }) });
   try {
     const r = await act(w, 'sante');
@@ -328,7 +332,7 @@ test('Tirésias · test de vitesse réel dans un fichier de test : mesures, fich
     assert.match((await act(w, 'resultats')).text, /Tests d'avant :/);
 
     // Refus clairs, rien de créé.
-    assert.match((await act(w, 'banc', { dossier: '/dev', taille: '32 Mo' })).text, /jamais sur un disque brut/);
+    assert.match((await act(w, 'banc', { dossier: '/dev', taille: '32 Mo' })).text, BRUT);
     assert.match((await act(w, 'banc', { dossier: join(lieu, 'absent'), taille: '32 Mo' })).text, /n'existe pas/);
     assert.match((await act(w, 'banc', { dossier: 'relatif', taille: '32 Mo' })).text, /chemin complet/);
 

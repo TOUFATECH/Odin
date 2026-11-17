@@ -19,6 +19,8 @@ import { fakeEngine } from './helpers.ts';
 type R = { ok?: boolean; text?: string; confirm?: string; data?: Record<string, unknown> & { fautes?: Array<{ regle: string; suggestions: string[] }> }; fichiers?: Array<{ nom: string; ref: string }> };
 const acte = async (v: VraiOdin, action: string, input: Record<string, unknown> = {}, confirm = false, module = 'snotra') => (await v.json('/api/valhalla/act', { module, action, input, ...(confirm ? { confirm: true } : {}) })).body as R;
 const outil = (cmd: string) => { try { execFileSync('sh', ['-c', `command -v ${cmd}`], { stdio: 'ignore' }); return true; } catch { return false; } };
+/** ImageMagick pour de vrai : sous Windows, « convert » est d'abord l'outil système de conversion de disque (System32), qui ne fait pas d'image. */
+const imagemagick = () => { try { return !/system32/i.test(execFileSync('sh', ['-c', 'command -v convert'], { encoding: 'utf8' })); } catch { return false; } };
 
 test('correcteur de base : de vraies phrases, des fautes trouvées, rien d\'inventé sur un texte juste', () => {
   const t = 'bonjour Karim , les maison de Mamoudzou sont belles.  Il à plu toute la nuit ! Merci de venir parmis nous, en faite c\'est le le jour.';
@@ -91,7 +93,7 @@ test('Plume sur un vrai Odin : correcteur maison puis LanguageTool (relié, puis
     assert.equal(dl.status, 200); const corps = await dl.text(); assert.match(corps, /^<\?xml[\s\S]*<svg [\s\S]*<ellipse /);
     if (outil('xmllint')) { const f = join(tt.tmp('plume-'), 'a.svg'); writeFileSync(f, corps); execFileSync('xmllint', ['--noout', f]); }
     assert.equal((await fetch(`${v.url}/api/valhalla/fichier?module=snotra&ref=${encodeURIComponent('export:../tableaux/x.json')}`, { headers: { cookie: v.session } })).status, 404);
-    if (outil('rsvg-convert') || outil('convert')) {
+    if (outil('rsvg-convert') || imagemagick()) {
       r = await acte(v, 'exporter_tableau', { id, format: 'png' }); assert.notEqual(r.ok, false, r.text);
       const png = Buffer.from(await (await fetch(`${v.url}/api/valhalla/fichier?module=snotra&ref=${encodeURIComponent(r.fichiers![0].ref)}`, { headers: { cookie: v.session } })).arrayBuffer());
       assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'signature PNG'); assert.equal(png.subarray(12, 16).toString(), 'IHDR'); assert.ok(png.readUInt32BE(16) > 40 && png.readUInt32BE(20) > 40, 'une vraie image');

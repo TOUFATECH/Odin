@@ -54,16 +54,19 @@ test('le catalogue : large, officiel, rangé (système, type, architecture, cat�
   for (const t of ['bureau', 'serveur', 'utilitaire', 'hyperviseur', 'NAS', 'pare-feu', 'secours']) assert.ok(f.types.includes(t), t);
   const ids = (x: EntreeStore[]) => x.map((e) => e.id).sort();
   assert.deepEqual(ids(filtrer(l, { systeme: 'BSD', type: 'serveur' })), ['freebsd', 'netbsd', 'openbsd']);
-  assert.deepEqual(ids(filtrer(l, { arch: 'arm64' })), ['debian-arm64', 'ubuntu-server-arm64']);
+  assert.deepEqual(ids(filtrer(l, { arch: 'arm64' })), ['debian-arm64', 'ubuntu-server-arm64', 'windows11-arm64']);
   assert.deepEqual(ids(filtrer(l, { type: 'hyperviseur' })), ['esxi', 'proxmox', 'xcp-ng']);
   assert.deepEqual(ids(filtrer(l, { type: 'pare-feu' })), ['ipfire', 'opnsense', 'pfsense']); assert.deepEqual(ids(filtrer(l, { type: 'NAS' })), ['openmediavault', 'truenas', 'unraid']);
   // Recherche par nom : sans accents, sans majuscules, mots dans le désordre ; « tous » ne filtre pas.
   assert.deepEqual(ids(filtrer(l, { q: 'KUBUNTU' })), ['kubuntu']); assert.deepEqual(ids(filtrer(l, { q: 'live debian' })), ['debian-live-gnome', 'debian-live-kde']);
   assert.deepEqual(ids(filtrer(l, { q: 'depannage', systeme: 'tous' })).filter((x) => ['hirens', 'systemrescue'].includes(x)), ['hirens', 'systemrescue']);
   assert.equal(filtrer(l, { q: 'rien-de-tel' }).length, 0); assert.equal(filtrer(l, {}).length, l.length);
-  // Windows et macOS par les voies officielles : pas de téléchargement automatique, la raison et la page sont dites.
-  const mac = l.find((e) => e.id === 'macos')!, win = l.find((e) => e.id === 'windows11')!;
-  assert.equal(mac.etat, 'manuel'); assert.match(mac.manuel!, /Apple ne publie pas d'ISO/); assert.match(mac.page, /support\.apple\.com/); assert.match(win.manuel!, /Microsoft ne permet pas/);
+  // macOS et Windows Server par les voies officielles : pas de téléchargement automatique, la raison et la page sont dites.
+  // Windows 11, lui, se télécharge chez Microsoft depuis le 16/11 (forge/microsoft.ts, commit 5d30f618) : il n'est plus manuel.
+  const mac = l.find((e) => e.id === 'macos')!, win = l.find((e) => e.id === 'windows11')!, serveur = l.find((e) => e.id === 'windows-server')!;
+  assert.equal(mac.etat, 'manuel'); assert.match(mac.manuel!, /Apple ne publie pas d'ISO/); assert.match(mac.page, /support\.apple\.com/);
+  assert.equal(serveur.etat, 'manuel'); assert.match(serveur.manuel!, /formulaire/); assert.match(serveur.page, /^https:\/\/www\.microsoft\.com/);
+  assert.notEqual(win.etat, 'manuel'); assert.equal(win.manuel, undefined);
   // Les icônes : dessinées ici, une par famille (aucune image prise ailleurs).
   assert.ok(l.every((e) => e.icone.startsWith('data:image/svg+xml;base64,'))); assert.notEqual(win.icone, mac.icone);
   // Logiciels : catégories et systèmes.
@@ -119,7 +122,7 @@ test('Store des ISO : il liste, filtre et cherche ; télécharger met en surveil
     const store = vue.sections.find((s) => s.title === `Store (${ISO.length})`) as { onglet?: string; items: Array<{ title: string; icon?: string; badge?: string; meta?: string; actions?: Array<{ action: string }> }> };
     assert.equal(store.onglet, 'Store'); assert.ok(store.items.every((c) => c.icon?.startsWith('data:image/svg')));
     const ck = store.items.find((c) => c.title === 'Kubuntu (LTS)')!; assert.equal(ck.badge, 'à jour'); assert.match(ck.meta!, /version 26\.04\.1 · 146 Ko · dans le dossier : 26\.04\.1/);
-    assert.deepEqual(store.items.find((c) => c.title === 'Windows 11')!.actions, [], 'pas de bouton Télécharger pour ce qui est manuel');
+    assert.deepEqual(store.items.find((c) => c.title === 'Windows Server')!.actions, [], 'pas de bouton Télécharger pour ce qui est manuel (Windows 11 se télécharge depuis le commit 5d30f618)');
     const mes = vue.sections.find((s) => s.title === 'Mes ISO') as { onglet?: string; items: Array<{ title: string; badge?: string; meta?: string; actions: Array<{ action: string; label: string }> }> };
     assert.equal(mes.onglet, 'Surveillés'); assert.deepEqual(mes.items.map((c) => `${c.title}:${c.badge}`), ['Kubuntu (LTS):à jour']); assert.match(mes.items[0].meta!, /dernière version vue : 26\.04\.1 · prochaine vérification : /);
     assert.ok(mes.items[0].actions.some((a) => a.action === 'ne_plus_suivre' && a.label === 'Retirer'));
@@ -289,7 +292,7 @@ test('la page du Store exécutée (faux navigateur) : cartes du catalogue, reche
     const fauxFetch = async (_u: string, init: { body: string }) => { const b = JSON.parse(init.body) as { module: string; action: string; input: Record<string, unknown> }; const r = await w.v.act(b.module, b.action, b.input); return { json: async () => r }; };
     const win: Record<string, unknown> = { OdinNotices: { local: (x: { title: string }) => notes.push(x.title) }, OdinDialog: { confirm: async () => true } };
     const vm = await import('node:vm');
-    vm.runInNewContext(readFileSync(new URL('../src/web/pages/store.js', import.meta.url), 'utf8'), { window: win, document: { createElement: (t: string) => new N(t), createTextNode: (t: string) => ({ t }), getElementById: () => null, head: new N('head') }, Node: N, fetch: fauxFetch, setTimeout, clearTimeout, setInterval, clearInterval, performance, console });
+    vm.runInNewContext(readFileSync(new URL('../src/web/pages/store.js', import.meta.url), 'utf8'), { window: win, document: { createElement: (t: string) => new N(t), createTextNode: (t: string) => ({ t }), getElementById: () => null, head: new N('head') }, Node: N, fetch: fauxFetch, AbortSignal, setTimeout, clearTimeout, setInterval, clearInterval, performance, console });
     const vue = await w.v.module('eitri')!.view(w.v.ctx('eitri'), new URLSearchParams());
     const generic = vue.sections.map((s) => { const n = new N('section'); n.textContent = s.title; return n; }), host = new N('div');
     const pages = win.OdinPages as Record<string, (o: Record<string, unknown>) => Promise<unknown>>;
@@ -308,7 +311,7 @@ test('la page du Store exécutée (faux navigateur) : cartes du catalogue, reche
     const sys = tous(host, (x) => x.tag === 'select' && x.attrs['aria-label'] === 'Système')[0]; sys.ecoute.change({ target: { value: 'BSD' } });
     assert.deepEqual(noms().sort(), ['FreeBSD', 'NetBSD', 'OPNsense', 'OpenBSD', 'pfSense']); sys.ecoute.change({ target: { value: '' } });
     // Une entrée « manuelle » n'a pas de bouton Télécharger, mais sa page officielle.
-    const win11 = tous(host, (x) => x.className === 'st-c').find((c) => texte(tous(c, (y) => y.tag === 'b')[0]) === 'Windows 11')!;
+    const win11 = tous(host, (x) => x.className === 'st-c').find((c) => texte(tous(c, (y) => y.tag === 'b')[0]) === 'Windows Server')!; // toujours manuel (Windows 11 se télécharge depuis 5d30f618)
     assert.deepEqual(tous(win11, (x) => x.tag === 'button').map(texte), []); assert.match(tous(win11, (x) => x.tag === 'a')[0].attrs.href, /^https:\/\/www\.microsoft\.com/);
     // Télécharger : la barre au centre pendant le téléchargement, puis l'entrée est à jour et surveillée.
     q.ecoute.input({ target: { value: 'kubuntu' } }); await attendre(() => noms().length === 1);
@@ -321,6 +324,6 @@ test('la page du Store exécutée (faux navigateur) : cartes du catalogue, reche
     tous(host, (x) => x.attrs.role === 'tab')[2].ecoute.click({});
     assert.deepEqual(tous(host, (x) => x.tag === 'section').map((x) => x.textContent), ['Mes ISO', 'Surveillance']);
     tous(host, (x) => x.attrs.role === 'tab')[3].ecoute.click({});
-    assert.deepEqual(tous(host, (x) => x.tag === 'section').map((x) => x.textContent), ['Dossier', 'Surveillance et vérification des ISO', 'Vérifier maintenant', 'Programmation à jours fixes (facultatif)', 'Historique']);
+    assert.deepEqual(tous(host, (x) => x.tag === 'section').map((x) => x.textContent), ['Dossier', 'Surveillance et vérification des ISO', 'Vérifier maintenant', 'Programmation à jours fixes (facultatif)', 'Historique', 'Windows (site de Microsoft)']); // réglage Windows ajouté par le commit 5d30f618
   } finally { w.fin(); }
 });

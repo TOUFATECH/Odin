@@ -83,7 +83,9 @@ function fakeEng(o: { exitAfterRun?: boolean } = {}) {
   return ran;
 }
 
-test('installer un conteneur : port pris corrigé, santé vérifiée, suivi branché (moteur d\'Odin, sans Docker)', async () => {
+// Les dossiers d'un conteneur s'écrivent « /hôte:/dedans » (chemins Linux, parc.ts parseMounts) et les conteneurs d'Odin ne tournent
+// que sous Linux (unshare, hringhorni/engine.ts) : ailleurs, le dossier temporaire de l'essai (« C:\… ») ne peut pas servir d'hôte.
+test('installer un conteneur : port pris corrigé, santé vérifiée, suivi branché (moteur d\'Odin, sans Docker)', { skip: process.platform !== 'linux' ? 'conteneurs et dossiers montés : Linux seulement' : false }, async () => {
   const ran = fakeEng(), f = fakeCtx(), dir = mkdtempSync(join(tmpdir(), 'parc-'));
   try {
     const r = await installDocker(f.ctx, { image: 'jellyfin/jellyfin:10.11.1', ports: '8096:8096', dossiers: `${dir}/jf:/config`, memoire: '4g' }, async () => {});

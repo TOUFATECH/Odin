@@ -370,6 +370,8 @@ test('un vrai Odin : export de quatre applis de genres différents dans les quat
     for (const [id, a] of Object.entries(attendu)) {
       const vue = ((await v.json(`/api/valhalla/view?id=${id}`)).body.view) as View;
       const titres = [...vue.sections, ...(vue.side ?? [])].filter((s) => !['form', 'depot', 'actions'].includes(s.kind)).map((s) => s.title);
+      // Une section rangée dans un onglet devient « ### » sous le titre « ## » de son onglet (export/markdown.ts) ; Chronos en a depuis ef08f5ef.
+      const niveau = new Map([...vue.sections, ...(vue.side ?? [])].map((s) => [s.title, s.onglet ? '###' : '##']));
       for (const f of FORMATS) {
         const x = await prendre({ id, format: f.id }); assert.equal(x.status, 200, `${id} en ${f.id}`);
         // Les mêmes protections que les fichiers remis par les applis : toujours un téléchargement, jamais affiché par Odin.
@@ -378,7 +380,7 @@ test('un vrai Odin : export de quatre applis de genres différents dans les quat
         assert.equal(x.headers.get('content-disposition'), `attachment; filename="${a.nom} - ${jour()}.${f.ext}"; filename*=UTF-8''${encodeURIComponent(`${a.nom} - ${jour()}.${f.ext}`)}`);
         const buf = Buffer.from(await x.arrayBuffer()); assert.equal(Number(x.headers.get('content-length')), buf.length);
         let texte = '';
-        if (f.id === 'md') { texte = buf.toString('utf8'); assert.ok(texte.startsWith(`# ${a.nom}\n\n`)); assert.match(texte, new RegExp(`\n_Page ${a.nom} d'Odin, prise le \\d\\d/\\d\\d/\\d{4} à \\d\\d:\\d\\d_\n`)); for (const t of titres) assert.ok(texte.includes(`\n## ${t.replace(/[\\`*[\]<>]/g, '\\$&')}\n`), `${id} : section « ${t} » dans le Markdown`); }
+        if (f.id === 'md') { texte = buf.toString('utf8'); assert.ok(texte.startsWith(`# ${a.nom}\n\n`)); assert.match(texte, new RegExp(`\n_Page ${a.nom} d'Odin, prise le \\d\\d/\\d\\d/\\d{4} à \\d\\d:\\d\\d_\n`)); for (const t of titres) assert.ok(texte.includes(`\n${niveau.get(t)} ${t.replace(/[\\`*[\]<>]/g, '\\$&')}\n`), `${id} : section « ${t} » dans le Markdown`); }
         else if (f.id === 'json') { const p = JSON.parse(buf.toString('utf8')) as PageExport; texte = JSON.stringify(p); assert.equal(p.app.id, id); assert.equal(p.app.name, a.nom); assert.deepEqual(p.sections.map((s) => s.title), titres); for (const k of a.kinds) assert.ok(p.sections.some((s) => s.kind === k), `${id} : une section « ${k} »`); assert.ok(!/"(actions|icon|color|params|submit)":/.test(texte), 'JSON sans bouton, icône, couleur ni formulaire'); }
         else if (f.id === 'docx') { const d = await ouvrirDocx(buf, dir); texte = d.texte; assert.ok(d.tableaux >= 1); for (const t of titres) assert.ok(texte.includes(t), `${id} : section « ${t} » dans le .docx`); }
         else { const d = await ouvrirPdf(buf, dir); texte = sansEspaces(d.texte); assert.ok(d.pages >= 1); for (const t of titres) assert.ok(texte.includes(sansEspaces(latin(t))), `${id} : section « ${t} » dans le PDF (${d.via})`); }
