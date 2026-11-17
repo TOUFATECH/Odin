@@ -9,3 +9,12 @@ tools/guide/odin-guide.html
 
 # Odin OS : images construites (plusieurs centaines de Mo) et clé de signature locale
 os/sortie/
+
+# Applications de l'OS (produits de fabrication)
+applications/pegase/node_modules/
+applications/pegase/dist/
+applications/pegase/src/ui/odin-icones.json
+applications/pegase/test/securite/resultats.json
+applications/pegase/paquets/
+applications/agora-poste/node_modules/
+applications/agora-poste/dist/

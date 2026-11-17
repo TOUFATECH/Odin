@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Agora « géré par Odin » : aucune règle imposée au téléphone, seulement le droit d'installer et désinstaller sans toucher. -->
+<device-admin>
+    <uses-policies />
+</device-admin>

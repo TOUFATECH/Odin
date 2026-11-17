@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Le logo de Pégase (icône validée pegase-choisie.svg) pour l'écran de lancement et la connexion. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path android:pathData="M15,0h34a15,15 0 0 1 15,15v34a15,15 0 0 1 -15,15h-34a15,15 0 0 1 -15,-15v-34a15,15 0 0 1 15,-15z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="64" android:endY="64"
+                android:startColor="#FF7F00FF" android:endColor="#FFE100FF" />
+        </aapt:attr>
+    </path>
+    <path android:fillColor="#47FFFFFF" android:pathData="M15,0h34a15,15 0 0 1 15,15v9Q32,32 0,24v-9a15,15 0 0 1 15,-15z" />
+    <group>
+        <group android:translateX="38.68" android:translateY="6" android:scaleX="-0.62" android:scaleY="0.62">
+            <path android:fillColor="#FFFFFFFF" android:pathData="M14,42 C18,28 30,16 50,10 C46,19 38,28 24,40 Z" />
+            <path android:fillColor="#EBFFFFFF" android:pathData="M16,45 C24,34 36,26 54,23 C48,31 38,37 22,45 Z" />
+            <path android:fillColor="#D6FFFFFF" android:pathData="M18,48 C27,41 39,36 54,35 C47,42 37,46 22,49 Z" />
+            <path android:fillColor="#C2FFFFFF" android:pathData="M20,50 C28,47 38,46 50,47 C43,51 34,53 23,52 Z" />
+            <path android:fillColor="#FFFFFFFF" android:pathData="M10,47 C10,40 15,36 21,37 C23,42 25,47 27.5,51.5 C20,54.5 10,54 10,47 Z" />
+        </group>
+        <group android:translateX="25" android:translateY="6" android:scaleX="0.62" android:scaleY="0.62">
+            <path android:fillColor="#FFFFFFFF" android:pathData="M14,42 C18,28 30,16 50,10 C46,19 38,28 24,40 Z" />
+            <path android:fillColor="#EBFFFFFF" android:pathData="M16,45 C24,34 36,26 54,23 C48,31 38,37 22,45 Z" />
+            <path android:fillColor="#D6FFFFFF" android:pathData="M18,48 C27,41 39,36 54,35 C47,42 37,46 22,49 Z" />
+            <path android:fillColor="#C2FFFFFF" android:pathData="M20,50 C28,47 38,46 50,47 C43,51 34,53 23,52 Z" />
+            <path android:fillColor="#FFFFFFFF" android:pathData="M10,47 C10,40 15,36 21,37 C23,42 25,47 27.5,51.5 C20,54.5 10,54 10,47 Z" />
+        </group>
+        <path android:fillColor="#FFFFFFFF" android:pathData="M22,43a10,10 0 1,0 20,0a10,10 0 1,0 -20,0" />
+        <path android:strokeColor="#FF7F00FF" android:strokeWidth="1.8" android:pathData="M27.8,43a4.2,10 0 1,0 8.4,0a4.2,10 0 1,0 -8.4,0" />
+        <path android:strokeColor="#FF7F00FF" android:strokeWidth="1.8" android:pathData="M22,43 H42" />
+    </group>
+<path android:strokeColor="#38FFFFFF" android:strokeWidth="1.5" android:pathData="M15,0.75h34a14.25,14.25 0 0 1 14.25,14.25v34a14.25,14.25 0 0 1 -14.25,14.25h-34a14.25,14.25 0 0 1 -14.25,-14.25v-34a14.25,14.25 0 0 1 14.25,-14.25z" />
+</vector>

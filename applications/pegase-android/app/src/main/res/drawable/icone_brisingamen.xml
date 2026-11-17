@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de Thésauros (Odin, src/web/app-icons.js), convertie pour Android. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="64dp" android:height="64dp" android:viewportWidth="64" android:viewportHeight="64">
+    <path android:pathData="M15,0h34a15,15 0 0 1 15,15v34a15,15 0 0 1 -15,15h-34a15,15 0 0 1 -15,-15v-34a15,15 0 0 1 15,-15z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="64" android:endY="64"
+                android:startColor="#FF2FD35C" android:endColor="#FF0D9A3A" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M15,0h34a15,15 0 0 1 15,15v9Q32,32 0,24v-9a15,15 0 0 1 15,-15z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="0" android:endY="32"
+                android:startColor="#47FFFFFF" android:endColor="#00FFFFFF" />
+        </aapt:attr>
+    </path>
+    <group android:translateX="8.41" android:translateY="8.41" android:scaleX="0.737" android:scaleY="0.737">
+    <path android:pathData="M32 6 L54 14 V30 Q54 49 32 58 Q10 49 10 30 V14 Z" android:fillColor="#FFF5B83A" />
+    <path android:pathData="M32 11 L49 17.5 V30 Q49 45 32 52.5 Z" android:fillColor="#38FFFFFF" />
+    <path android:pathData="M25.5,28.0a6.5,6.5 0 1,0 13.0,0a6.5,6.5 0 1,0 -13.0,0" android:fillColor="#FF14113D" />
+    <path android:pathData="M28.5 31 L26.5 44 H37.5 L35.5 31z" android:fillColor="#FF14113D" />
+    </group>
+</vector>

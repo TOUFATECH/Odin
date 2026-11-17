@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de Chronos (Odin, src/web/app-icons.js), convertie pour Android. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="64dp" android:height="64dp" android:viewportWidth="64" android:viewportHeight="64">
+    <path android:pathData="M15,0h34a15,15 0 0 1 15,15v34a15,15 0 0 1 -15,15h-34a15,15 0 0 1 -15,-15v-34a15,15 0 0 1 15,-15z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="64" android:endY="64"
+                android:startColor="#FFA35CFF" android:endColor="#FF7426F0" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M15,0h34a15,15 0 0 1 15,15v9Q32,32 0,24v-9a15,15 0 0 1 15,-15z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="0" android:endY="32"
+                android:startColor="#47FFFFFF" android:endColor="#00FFFFFF" />
+        </aapt:attr>
+    </path>
+    <group android:translateX="8.41" android:translateY="8.41" android:scaleX="0.737" android:scaleY="0.737">
+    <path android:pathData="M17.0,6.0h30.0a3.0,3.0 0 0 1 3.0,3.0v0.0a3.0,3.0 0 0 1 -3.0,3.0h-30.0a3.0,3.0 0 0 1 -3.0,-3.0v-0.0a3.0,3.0 0 0 1 3.0,-3.0z" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M17.0,52.0h30.0a3.0,3.0 0 0 1 3.0,3.0v0.0a3.0,3.0 0 0 1 -3.0,3.0h-30.0a3.0,3.0 0 0 1 -3.0,-3.0v-0.0a3.0,3.0 0 0 1 3.0,-3.0z" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M18 12 H46 Q46 26 35 32 Q46 38 46 52 H18 Q18 38 29 32 Q18 26 18 12Z" android:fillColor="#FFFFF3E6" />
+    <path android:pathData="M22 16 H42 Q41 24 32 29 Q23 24 22 16Z" android:fillColor="#FFFFC83D" />
+    <path android:pathData="M32 33 V44" android:strokeColor="#FFFFC83D" android:strokeWidth="2.5" />
+    <path android:pathData="M22 50 Q24 42 32 40 Q40 42 42 50Z" android:fillColor="#FFFFC83D" />
+    </group>
+</vector>

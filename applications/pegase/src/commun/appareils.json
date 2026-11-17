@@ -1,0 +1,37 @@
+{
+  "_note": "Appareils de l'affichage mobile. Tailles en pixels CSS (largeur × hauteur en portrait), dpr = densité de l'écran. « ouvert » / « ferme » pour les pliables. aConfirmer = chiffres non officiels.",
+  "agents": {
+    "iphone": "Mozilla/5.0 (iPhone; CPU iPhone OS 26_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Mobile/15E148 Safari/604.1",
+    "ipad": "Mozilla/5.0 (iPad; CPU OS 26_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Mobile/15E148 Safari/604.1",
+    "galaxy": "Mozilla/5.0 (Linux; Android 16; SM-S948B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Mobile Safari/537.36",
+    "galaxyTab": "Mozilla/5.0 (Linux; Android 16; SM-X930) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+  },
+  "groupes": [
+    { "nom": "Téléphones Apple", "appareils": [
+      { "id": "iphone-18-pro-max", "nom": "iPhone 18 Pro Max", "w": 440, "h": 956, "dpr": 3, "agent": "iphone" },
+      { "id": "iphone-18-pro", "nom": "iPhone 18 Pro", "w": 402, "h": 874, "dpr": 3, "agent": "iphone" },
+      { "id": "iphone-ultra", "nom": "iPhone pliable (Ultra)", "ouvert": [820, 727], "ferme": [360, 793], "dpr": 3, "agent": "iphone", "aConfirmer": true }
+    ] },
+    { "nom": "Téléphones Samsung", "appareils": [
+      { "id": "galaxy-s26-ultra", "nom": "Galaxy S26 Ultra", "w": 412, "h": 892, "dpr": 3.5, "agent": "galaxy" },
+      { "id": "galaxy-z-fold8-ultra", "nom": "Galaxy Z Fold8 Ultra", "ouvert": [954, 859], "ferme": [412, 960], "dpr": 2.625, "agent": "galaxy" },
+      { "id": "galaxy-z-fold8", "nom": "Galaxy Z Fold8", "ouvert": [704, 933], "ferme": [475, 751], "dpr": 2.625, "agent": "galaxy" },
+      { "id": "galaxy-z-flip8", "nom": "Galaxy Z Flip8", "w": 412, "h": 960, "dpr": 2.625, "agent": "galaxy" }
+    ] },
+    { "nom": "Tablettes Apple", "appareils": [
+      { "id": "ipad-pro-13-m5", "nom": "iPad Pro 13 pouces (M5)", "w": 1032, "h": 1376, "dpr": 2, "agent": "ipad" },
+      { "id": "ipad-pro-11-m5", "nom": "iPad Pro 11 pouces (M5)", "w": 834, "h": 1210, "dpr": 2, "agent": "ipad" }
+    ] },
+    { "nom": "Tablettes Samsung", "appareils": [
+      { "id": "galaxy-tab-s11-ultra", "nom": "Galaxy Tab S11 Ultra", "w": 924, "h": 1480, "dpr": 2, "agent": "galaxyTab" },
+      { "id": "galaxy-tab-s11", "nom": "Galaxy Tab S11", "w": 800, "h": 1280, "dpr": 2, "agent": "galaxyTab" }
+    ] }
+  ],
+  "largeursRapides": [["Petit", 320], ["Moyen", 375], ["Grand", 430], ["Tablette", 768], ["Ordinateur", 1024], ["Large", 1440]],
+  "reseaux": {
+    "rapide": null,
+    "4g": { "latence": 60, "descente": 2500000, "montee": 750000, "nom": "4G" },
+    "3g": { "latence": 300, "descente": 187500, "montee": 93750, "nom": "3G" },
+    "horsligne": { "horsLigne": true, "nom": "Hors ligne" }
+  }
+}

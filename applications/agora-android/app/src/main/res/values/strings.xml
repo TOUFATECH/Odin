@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Agora</string>
+    <string name="canal_store">Store d\'Odin</string>
+    <string name="notif_store">Agora · à jour avec Odin</string>
+</resources>

@@ -1,0 +1,105 @@
+# Agora sur l'ordinateur (le store d'Odin ; une application de l'OS, dossier applications/agora-poste/) : types,
+# construction des installateurs Windows (NSIS), Mac (.dmg) et Linux (AppImage, .deb), et sous Linux l'essai pour de vrai
+# (un vrai Odin, le vrai store sous xvfb, une vraie AppImage installée, mise à jour, refusée si son empreinte est fausse,
+# puis désinstallée).
+# L'essai pour de vrai a besoin de l'application Odin : la fabrication récupère la branche main dans le dossier « odin »,
+# y dépose l'essai (applications/agora-poste/essais-odin/agora-poste.test.ts) sous odin/test/ et lui donne le dossier du
+# store par AGORA_POSTE.
+# Les installateurs sont dans les « artifacts » de l'exécution (onglet Actions de GitHub). Ils ne sont pas signés :
+# Windows (SmartScreen) et Mac (Gatekeeper) préviennent au premier lancement tant qu'on n'a pas de certificat de signature.
+# Ce fichier vit sur la branche odin-os : le lancement à la main (workflow_dispatch) n'est proposé par GitHub que pour les
+# fabrications de la branche par défaut ; on lance par un envoi (push) sur odin-os.
+name: Agora (store du poste)
+
+on:
+  push:
+    branches: [odin-os]
+    paths:
+      - 'applications/agora-poste/**'
+      - 'applications/commun/odin-sso.mjs'
+      - '.github/workflows/agora-poste.yml'
+  pull_request:
+    branches: [odin-os]
+    paths:
+      - 'applications/agora-poste/**'
+      - '.github/workflows/agora-poste.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agora-poste-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  construire:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cible: linux
+          - os: windows-latest
+            cible: win
+          - os: macos-latest
+            cible: mac
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: applications/agora-poste
+    env:
+      # Pas de certificat de signature ici : construction non signée.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: applications/agora-poste/package-lock.json
+
+      - name: Dépendances du store
+        run: npm ci
+
+      - name: Types
+        run: npm run types
+
+      - name: Installateurs (${{ matrix.cible }})
+        run: npm run dist:${{ matrix.cible }}
+
+      - name: L'application Odin (branche main), pour l'essai pour de vrai
+        if: matrix.cible == 'linux'
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          path: odin
+
+      - name: Essai pour de vrai (Linux) — dépendances d'Odin et écran virtuel
+        if: matrix.cible == 'linux'
+        working-directory: odin
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
+          npm ci
+          cp ../applications/agora-poste/essais-odin/agora-poste.test.ts test/agora-poste.test.ts
+
+      - name: Essai pour de vrai (Linux) — vrai Odin, vrai store, vraie AppImage
+        if: matrix.cible == 'linux'
+        working-directory: odin
+        env:
+          AGORA_POSTE: ${{ github.workspace }}/applications/agora-poste
+        run: node --experimental-strip-types --no-warnings --test test/agora-poste.test.ts
+
+      - name: Installateurs
+        uses: actions/upload-artifact@v4
+        with:
+          name: agora-${{ matrix.cible }}
+          path: |
+            applications/agora-poste/sortie/*.exe
+            applications/agora-poste/sortie/*.dmg
+            applications/agora-poste/sortie/*.AppImage
+            applications/agora-poste/sortie/*.deb
+          if-no-files-found: error

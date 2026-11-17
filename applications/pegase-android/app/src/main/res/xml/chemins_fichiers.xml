@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Les téléchargements gardés (après analyse) et les exports .ics, pour « Ouvrir » et « Partager » -->
+    <files-path name="garde" path="garde/" />
+    <cache-path name="exports" path="exports/" />
+</paths>

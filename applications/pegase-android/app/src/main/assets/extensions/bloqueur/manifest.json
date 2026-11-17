@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "Bloqueur de Pégase",
+  "description": "Bloque les publicités et les pisteurs dans les pages, et relie les pages à Pégase (vidéos qui te suivent, « Demander à Odin »).",
+  "version": "1.0.0",
+  "browser_specific_settings": { "gecko": { "id": "bloqueur@pegase.toufatech" } },
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "tabs",
+    "<all_urls>",
+    "nativeMessaging",
+    "nativeMessagingFromContent",
+    "geckoViewAddons"
+  ],
+  "background": { "scripts": ["filtres.js", "fond.js"] },
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["page.js"], "run_at": "document_start", "all_frames": false }
+  ]
+}
