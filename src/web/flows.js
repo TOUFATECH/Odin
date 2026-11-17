@@ -206,6 +206,93 @@
   }
   /** Deux touchers (ou clics) rapprochés au même endroit : { t, x, y } chacun. */
   const estDoubleTouche = (a, b) => Boolean(a && b && b.t - a.t >= 0 && b.t - a.t < 400 && Math.hypot(b.x - a.x, b.y - a.y) < 24);
+  // ---------------- Les données des blocs d'avant (fonctions pures). La pastille n'est qu'une autre façon d'écrire et de
+  // montrer l'expression d'aujourd'hui, {{ $node["Bloc"].json.chemin }} : c'est elle, telle quelle, qui est enregistrée.
+  // Les règles de lecture sont celles du moteur (src/draupnir/engine.ts : resolve et readPath).
+  const RE_EXPR = /\{\{\s*([^{}]+?)\s*\}\}/g;
+  const RE_CLE = /^[\p{L}\p{N}_$-]+$/u;
+  /** Les morceaux d'un chemin comme le moteur les lit (`$node["X"].json.a[0]` → ['$node', 'X', 'json', 'a', 0]) ; null s'il ne le lit pas. */
+  function morceauxChemin(expr) {
+    const m = /^\s*(\$[a-z]+)/i.exec(expr); if (!m) return null;
+    const out = [m[1]]; let rest = expr.slice(m[0].length).trim();
+    while (rest) {
+      let mm;
+      if ((mm = /^\.\s*([\p{L}\p{N}_$-]+)/u.exec(rest))) out.push(mm[1]);
+      else if ((mm = /^\[\s*(["'])(.*?)\1\s*\]/.exec(rest))) out.push(mm[2]);
+      else if ((mm = /^\[\s*(\d+)\s*\]/.exec(rest))) out.push(Number(mm[1]));
+      else return null;
+      rest = rest.slice(mm[0].length).trim();
+    }
+    return out;
+  }
+  /** Le texte d'un champ en morceaux : { texte } ou, pour une donnée d'un bloc ({{ $node["X"].json.… }}), { src, bloc, chemin }. */
+  function decouper(texte) {
+    const t = String(texte ?? ''), out = []; let i = 0;
+    for (const m of t.matchAll(RE_EXPR)) {
+      const k = morceauxChemin(m[1]);
+      if (!k || k[0] !== '$node' || typeof k[1] !== 'string' || k[2] !== 'json' || k.length < 4) continue; // le reste : du texte
+      if (m.index > i) out.push({ texte: t.slice(i, m.index) });
+      out.push({ src: m[0], bloc: k[1], chemin: k.slice(3) }); i = m.index + m[0].length;
+    }
+    if (i < t.length) out.push({ texte: t.slice(i) });
+    return out;
+  }
+  const assembler = (ms) => (ms ?? []).map((m) => m.src ?? m.texte ?? '').join('');
+  /**
+   * L'expression d'une donnée du bloc `bloc` : {{ $node["Bloc"].json.chemin }}. Dans des réglages rangés en texte JSON
+   * (`dansJson`), les guillemets doubles seraient échappés et le moteur lirait vide : des guillemets simples.
+   * → null quand le moteur ne saurait pas la relire (accolade, les deux guillemets, barre oblique inverse dans du JSON).
+   */
+  function exprDonnee(bloc, chemin, dansJson = false) {
+    const qs = dansJson ? ['\''] : ['"', '\''];
+    const entre = (k) => { if (/[{}]/.test(k) || (dansJson && /[\\\u0000-\u001f]/.test(k))) return null; const q = qs.find((x) => !k.includes(x)); return q ? `[${q}${k}${q}]` : null; };
+    if (typeof bloc !== 'string' || !Array.isArray(chemin) || !chemin.length) return null;
+    let s = entre(bloc); if (!s) return null;
+    s = `$node${s}.json`;
+    for (const k of chemin) {
+      const p = typeof k === 'number' ? (Number.isInteger(k) && k >= 0 ? `[${k}]` : null) : typeof k === 'string' ? (RE_CLE.test(k) ? `.${k}` : entre(k)) : null;
+      if (!p) return null; s += p;
+    }
+    return `{{ ${s} }}`;
+  }
+  const libelleChemin = (c) => (c ?? []).map((k) => (typeof k === 'number' ? `[${k}]` : k)).join(' › ');
+  /** Les blocs situés avant `nom` (ceux d'où un fil mène jusqu'à lui), le plus lointain d'abord ; jamais lui-même. */
+  function blocsAvant(wf, nom) {
+    const parents = new Map();
+    for (const [de, sorties] of Object.entries(wf?.connections ?? {})) for (const t of sorties ?? []) for (const l of t ?? []) if (l?.node) { if (!parents.has(l.node)) parents.set(l.node, []); parents.get(l.node).push(de); }
+    const dist = new Map(), file = [[nom, 0]];
+    while (file.length) { const [x, d] = file.shift(); for (const p of parents.get(x) ?? []) if (p !== nom && !dist.has(p)) { dist.set(p, d + 1); file.push([p, d + 1]); } }
+    const ordre = new Map((wf?.nodes ?? []).map((n, i) => [n.name, i]));
+    return [...dist.keys()].filter((x) => ordre.has(x)).sort((a, b) => dist.get(b) - dist.get(a) || ordre.get(a) - ordre.get(b));
+  }
+  /**
+   * Les données vues au dernier passage d'un bloc : { chemin, exemple }, sans doublon, bornées. Seulement celles de son
+   * PREMIER élément : c'est le seul que le moteur donne à $node["Bloc"].json (une clé des suivants y serait vide).
+   */
+  function donneesVues(items, max = 80) {
+    const vus = new Map();
+    const voir = (v, chemin, prof) => {
+      if (vus.size >= max) return;
+      if (chemin.length) { const k = JSON.stringify(chemin); if (!vus.has(k)) vus.set(k, { chemin, exemple: v }); }
+      if (v && typeof v === 'object' && !Array.isArray(v) && prof < 4) for (const [k, x] of Object.entries(v)) voir(x, [...chemin, k], prof + 1);
+    };
+    const it = Array.isArray(items) ? items[0] : undefined;
+    if (it && typeof it === 'object' && !Array.isArray(it)) voir(it, [], 0);
+    return [...vus.values()];
+  }
+  /** Une donnée posée dans le réglage du bloc `nom` : { ok } ou { ok: false, raison } (bloc renommé, retiré, pas avant). */
+  function etatDonnee(d, wf, nom, renommes, retires) {
+    const existe = (x) => (wf?.nodes ?? []).some((n) => n.name === x);
+    if (!existe(d.bloc)) {
+      let v = d.bloc; for (let k = 0; renommes?.has(v) && k < 50; k++) v = renommes.get(v);
+      if (v !== d.bloc && existe(v)) return { ok: false, raison: `« ${d.bloc} » a été renommé « ${v} » : cette donnée ne suit pas le nouveau nom.` };
+      if (retires?.has(v) || retires?.has(d.bloc)) return { ok: false, raison: `« ${v} » a été retiré : cette donnée sera vide.` };
+      return { ok: false, raison: `Le bloc « ${d.bloc} » n'existe pas (renommé ou retiré ?) : cette donnée sera vide.` };
+    }
+    if (d.bloc === nom) return { ok: false, raison: 'Cette donnée vient de ce bloc lui-même : elle n\'existe pas encore quand il part.' };
+    if (!blocsAvant(wf, nom).includes(d.bloc)) return { ok: false, raison: `« ${d.bloc} » n'est pas avant ce bloc : cette donnée sera vide.` };
+    return { ok: true };
+  }
   // Session expirée pendant l'usage : on revient à la page de connexion. Sur la page de connexion elle-même,
   // on ne recharge rien (sinon elle se rechargerait en boucle et effacerait ce que tu tapes).
   const appShown = () => { const a = document.querySelector('#app'); return Boolean(a && !a.hidden); };
@@ -275,7 +362,22 @@
 .dr-side .dr-manque{display:block;color:var(--bad);font-size:13px;margin-top:4px}.dr-side .dr-manque[hidden]{display:none}.dr-side .dr-champs small.sub{display:block;margin-top:4px}
 .dr-av summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}.dr-av textarea{min-height:120px}
 @keyframes dr-ch-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.dr-choix,.dr-fil-menu{animation:none}.dr-plus span{transition:none}}
+.dr-df-l{display:flex;gap:6px;align-items:flex-start}.dr-df .btn.dr-df-b{flex:none;min-height:44px;min-width:44px}
+.dr-saisie{flex:1;min-width:0;min-height:44px;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75;font-size:14px;cursor:text}
+.dr-saisie.multi{min-height:88px}.dr-saisie:focus{outline:2px solid var(--accent);outline-offset:1px}.dr-saisie:empty::before{content:attr(data-placeholder);color:var(--dim)}
+.dr-pastille{display:inline-flex;align-items:center;gap:3px;max-width:100%;box-sizing:border-box;margin:0 1px;padding:0 1px 0 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 16%,var(--panel));border:1px solid color-mix(in srgb,var(--accent) 55%,transparent);color:var(--ink);font-size:13px;line-height:22px;white-space:nowrap;vertical-align:baseline;user-select:none;cursor:default}
+.dr-pastille .dr-p-t{overflow:hidden;text-overflow:ellipsis}.dr-pastille.bad{background:color-mix(in srgb,var(--bad) 14%,var(--panel));border-color:var(--bad)}.dr-p-a{font-weight:700;color:var(--bad)}
+.dr-p-x{position:relative;flex:none;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer}
+.dr-p-x::after{content:'';position:absolute;inset:-12px}.dr-p-x:hover,.dr-p-x:focus-visible{background:color-mix(in srgb,var(--ink) 14%,transparent);color:var(--ink);outline:none}
+.dr-donnees{margin-top:6px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);padding:8px 10px 10px;display:flex;flex-direction:column;gap:6px;max-height:360px;overflow:auto}
+.dr-dn-h{display:flex;align-items:center;gap:8px}.dr-dn-h h3{flex:1;margin:0;font-size:14px}.dr-donnees .dr-dn-h .btn{min-height:44px}
+.dr-donnees h4{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:6px 0 0;font-size:13.5px;overflow-wrap:anywhere}.dr-donnees h4 small{font-weight:400}
+.dr-dn-l{display:flex;flex-direction:column;gap:4px}
+.dr-dn-i{display:flex;flex-direction:column;align-items:flex-start;text-align:left;width:100%;min-height:44px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font:inherit;cursor:pointer}
+.dr-dn-i b{font-size:13.5px;overflow-wrap:anywhere}.dr-dn-i small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}.dr-dn-i:hover{border-color:var(--accent)}.dr-dn-i:focus-visible{outline:2px solid var(--accent)}.dr-dn-i[disabled]{opacity:.55;cursor:not-allowed}
+.dr-node.dr-source{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel));outline:3px solid var(--accent);outline-offset:3px;box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 40%,transparent);animation:dr-pulse .9s ease-in-out infinite alternate}
+@keyframes dr-pulse{from{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}to{box-shadow:0 0 0 9px color-mix(in srgb,var(--accent) 45%,transparent)}}
+@media (prefers-reduced-motion:reduce){.dr-node.dr-source,.dr-choix,.dr-fil-menu{animation:none}.dr-plus span{transition:none}}
 `;
   let st = null, wf = null, outs = {}, sel = null, armed = null, last = null, view = { x: 40, y: 40, k: 1 }, dirty = false;
   const cat = (t) => st?.catalog.find((c) => c.type === t);
@@ -331,11 +433,11 @@
     btn.disabled = false;
     if (r.ok) dit(r.resultat?.ok !== false, r.resultat?.texte, r.resultat?.ms); else dit(false, r.error);
   }
-  function newFlow() { wf = { id: '', name: 'Nouvelle automatisation', active: false, nodes: [{ name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] }], connections: {} }; outs = {}; dirty = true; editor(); }
+  function newFlow() { wf = { id: '', name: 'Nouvelle automatisation', active: false, nodes: [{ name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] }], connections: {} }; outs = {}; last = null; renommes = new Map(); retires = new Set(); dirty = true; editor(); }
   async function openFlow(id) {
     const r = await api(`/api/draupnir/flow?id=${encodeURIComponent(id)}`); if (!r.ok) { await window.OdinDialog.alert(r.error); return; }
     if (!st) st = await api('/api/draupnir/state');
-    wf = r.flow; outs = r.outputs; last = r.runs[0] ?? null; sel = null; dirty = false; editor(r);
+    wf = r.flow; outs = r.outputs; last = r.runs[0] ?? null; renommes = new Map(); retires = new Set(); sel = null; dirty = false; editor(r);
   }
   /**
    * Une automatisation que le serveur vient de créer (« Créer avec Odin », un modèle, un import) : elle est déjà enregistrée,
@@ -555,12 +657,13 @@
   }
   async function removeNode(name) {
     if (!(await window.OdinDialog.confirm(`Retirer l'étape « ${name} » ?`))) return;
-    wf.nodes = wf.nodes.filter((n) => n.name !== name); delete wf.connections[name];
+    wf.nodes = wf.nodes.filter((n) => n.name !== name); delete wf.connections[name]; retires.add(name);
     for (const list of Object.values(wf.connections)) for (const t of list) for (let i = t.length - 1; i >= 0; i--) if (t[i].node === name) t.splice(i, 1);
     sel = null; dirty = true; draw(); drawSide();
   }
   function drawSide() {
     const side = $('#drSide'); if (!side) return;
+    fermerDonnees(); for (const d of elems.values()) d.classList.remove('dr-source'); // (le panneau change : sa liste et ses pastilles partent)
     const n = wf.nodes.find((x) => x.name === sel);
     if (!n) {
       const groups = [...new Set(st.catalog.map((c) => c.group))];
@@ -591,6 +694,11 @@
           : el('textarea', { id, spellcheck: 'false', oninput: (e) => { try { setR(JSON.parse(e.target.value)); } catch { /* pas encore un JSON */ } } }, JSON.stringify(v, null, 2));
         return [el('label', { for: id }, p.label, p.required ? ' *' : ''), input, p.help ? el('small', { class: 'sub' }, p.help) : null];
       }
+      // Un texte (une ligne ou plusieurs) : un champ à pastilles, où l'on peut poser une donnée d'un bloc d'avant.
+      if ((p.kind === undefined || p.kind === 'text' || p.kind === 'textarea') && typeof v === 'string') {
+        const s = saisie({ id, valeur: v, multi: p.kind === 'textarea', nom: n.name, label: p.label, donnees: !c?.trigger, attrs: { 'aria-required': p.required ? 'true' : undefined }, onChange: set });
+        return [el('label', { for: id, id: `${id}-lab`, onclick: () => document.getElementById(id)?.focus?.() }, p.label, p.required ? ' *' : ''), s.boite, p.help ? el('small', { class: 'sub' }, p.help) : null];
+      }
       const input = p.kind === 'select' ? el('select', { id, onchange: (e) => set(e.target.value) }, ...(p.options ?? []).map((o) => el('option', { selected: o === v ? true : undefined }, o)))
         : p.kind === 'boolean' ? el('input', { id, type: 'checkbox', checked: v === true ? true : undefined, onchange: (e) => set(e.target.checked) })
         : p.kind === 'textarea' || p.kind === 'json' ? el('textarea', { id, oninput: (e) => set(e.target.value), spellcheck: 'false' }, typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v))
@@ -602,7 +710,7 @@
       ...(ia ? panneauAppli(n, ia) : []),
       ...fields.flat().filter(Boolean), // (un réglage sans aide donnait null, écrit « null » à l'écran)
       el('label', { class: 'va-chk', style: 'display:flex;gap:8px;align-items:center;font-weight:500' }, el('input', { type: 'checkbox', checked: n.disabled ? true : undefined, onchange: (e) => { n.disabled = e.target.checked || undefined; dirty = true; draw(); } }), 'Désactiver cette étape'),
-      el('p', { class: 'sub', style: 'margin:0;font-size:13px' }, 'Expressions : {{ $json.champ }}, {{ $node["Étape"].json.champ }}, {{ $now }}.'),
+      el('p', { class: 'sub', style: 'margin:0;font-size:13px' }, '« Données » à côté d\'un champ : y poser une donnée d\'un bloc d\'avant. Expressions : {{ $json.champ }}, {{ $node["Étape"].json.champ }}, {{ $now }}.'),
       el('div', { class: 'dr-row' }, el('button', { class: 'btn small', type: 'button', onclick: () => test(n.name) }, 'Tester jusqu\'ici'), el('button', { class: 'btn small', type: 'button', onclick: () => removeNode(n.name) }, 'Retirer'), el('button', { class: 'btn small', type: 'button', onclick: () => { sel = null; draw(); drawSide(); } }, 'Fermer')),
       ...(run ? [el('h2', { style: 'margin-top:6px' }, 'Dernier passage'), el('pre', { class: 'dr-out' }, run.error ? `✗ ${run.error}` : JSON.stringify(run.items.slice(0, 5), null, 2))] : []));
   }
@@ -651,7 +759,7 @@
         manque.hidden = !(p.required && vide(val));
         const m = manquants(n, f).length > 0; if (m !== manquait) { manquait = m; draw(); }
       };
-      const lab = el('label', { for: id }, p.label, p.required ? ' *' : '');
+      const lab = el('label', { for: id, id: `${id}-lab` }, p.label, p.required ? ' *' : '');
       const attrs = { id, 'aria-required': p.required ? 'true' : undefined, 'aria-describedby': [aide, `${id}-manque`].filter(Boolean).join(' ') };
       const defaut = p.default === undefined || p.default === '' ? '' : ` (par défaut : ${typeof p.default === 'boolean' ? (p.default ? 'oui' : 'non') : String(p.default)})`;
       let input;
@@ -660,13 +768,149 @@
         const opts = c.sorte === 'ouinon' ? [['oui', 'Oui'], ['non', 'Non']] : (p.options ?? []).map((o) => [o, o]);
         const cur = c.sorte === 'ouinon' ? (c.valeur === true ? 'oui' : c.valeur === false ? 'non' : '') : c.valeur ?? '';
         input = el('select', { ...attrs, onchange: (e) => set(valeurChamp(c.sorte, e.target.value)) }, el('option', { value: '', selected: cur === '' ? true : undefined }, `—${defaut}`), ...opts.map(([v, t]) => el('option', { value: v, selected: v === cur ? true : undefined }, t)));
-      } else if (c.sorte === 'long') input = el('textarea', { ...attrs, spellcheck: 'false', placeholder: defaut ? defaut.slice(2, -1) : undefined, oninput: (e) => set(valeurChamp('long', e.target.value)) }, c.valeur ?? '');
-      else input = el('input', { ...attrs, type: c.sorte === 'secret' ? 'password' : 'text', inputmode: c.sorte === 'nombre' ? 'decimal' : undefined, value: c.valeur === undefined ? '' : String(c.valeur), placeholder: defaut ? defaut.slice(2, -1) : undefined, autocomplete: c.sorte === 'secret' ? 'new-password' : 'off', spellcheck: 'false', oninput: (e) => set(valeurChamp(c.sorte, e.target.value)) });
-      if (c.sorte === 'long') input.value = c.valeur ?? '';
+      } else if (c.sorte === 'texte' || c.sorte === 'nombre' || c.sorte === 'long') {
+        // Un champ à pastilles : on y tape, ou on y pose une donnée d'un bloc d'avant (« Données »).
+        lab.addEventListener('click', () => document.getElementById(id)?.focus?.());
+        const s = saisie({ id, valeur: c.valeur === undefined ? '' : String(c.valeur), multi: c.sorte === 'long', nom: n.name, label: p.label, placeholder: defaut ? defaut.slice(2, -1) : undefined,
+          dansJson: !(n.params['entrée'] && typeof n.params['entrée'] === 'object'), attrs: { ...attrs, inputmode: c.sorte === 'nombre' ? 'decimal' : undefined }, onChange: (t) => set(valeurChamp(c.sorte, t)) });
+        return [lab, s.boite, p.help ? el('small', { class: 'sub', id: aide }, p.help) : null, manque];
+      } else input = el('input', { ...attrs, type: 'password', value: c.valeur === undefined ? '' : String(c.valeur), placeholder: defaut ? defaut.slice(2, -1) : undefined, autocomplete: 'new-password', spellcheck: 'false', oninput: (e) => set(valeurChamp(c.sorte, e.target.value)) }); // (un mot de passe : sans pastille)
       return [lab, input, p.help ? el('small', { class: 'sub', id: aide }, p.help) : null, manque];
     }
     peindre();
     return [tete, zone, av];
+  }
+  // ---------------- Les champs à pastilles : un réglage où l'on pose une donnée d'un bloc d'avant. Le champ reste un texte
+  // qu'on tape ; une donnée y est une pastille (le bloc et la donnée) qui garde, telle quelle, l'expression qu'elle montre.
+  // Ce qui est enregistré : le texte et ces expressions, rien d'autre (lireSaisie).
+  let renommes = new Map(), retires = new Set(), listeDn = null;
+  const pointDe = new WeakMap(); // la dernière place du curseur dans chaque champ
+  /** Le bloc d'origine d'une pastille s'illumine sur le schéma (au survol, au focus). */
+  function allumer(bloc, on) { elems.get(bloc)?.classList.toggle('dr-source', on); }
+  /** Le contenu d'un champ remis en texte : le texte tel quel, chaque pastille par son expression. */
+  function lireSaisie(champ, multi) {
+    let s = '';
+    const kids = [...(champ.childNodes ?? [])];
+    kids.forEach((k, i) => {
+      if (k.nodeType === 3) s += k.nodeValue ?? '';
+      else if (k.nodeType !== 1) return;
+      else if (k.classList?.contains('dr-pastille')) s += k.getAttribute('data-src') ?? '';
+      else if (k.tagName === 'BR') { if (multi && i < kids.length - 1) s += '\n'; } // (le dernier : celui que le navigateur ajoute)
+      else { if (multi && s && !s.endsWith('\n')) s += '\n'; s += lireSaisie(k, multi); }
+    });
+    return s;
+  }
+  const apercu = (v) => { const t = v === null || v === undefined ? 'vide' : Array.isArray(v) ? `liste de ${v.length}` : typeof v === 'object' ? JSON.stringify(v) : String(v); return t.length > 60 ? `${t.slice(0, 59)}…` : t; };
+  function pastilleEl(d, nom, dansJson, retiree) {
+    let e = etatDonnee(d, wf, nom, renommes, retires);
+    // Dans des réglages rangés en texte JSON, des guillemets doubles sont échappés : le moteur lirait vide.
+    if (e.ok && dansJson && d.src.includes('"')) e = { ok: false, raison: 'Dans ces réglages, les guillemets doubles de cette donnée sont échappés : elle sera vide. Retire-la et pose-la de nouveau avec « Données ».' };
+    const nomD = `${d.bloc} · ${libelleChemin(d.chemin)}`;
+    const p = el('span', { class: `dr-pastille${e.ok ? '' : ' bad'}`, contenteditable: 'false', 'data-src': d.src, 'data-bloc': d.bloc, 'data-raison': e.ok ? undefined : e.raison, title: e.ok ? `Donnée de « ${d.bloc} » : ${libelleChemin(d.chemin)}` : e.raison },
+      e.ok ? null : el('span', { class: 'dr-p-a', 'aria-hidden': 'true' }, '!'), el('span', { class: 'dr-p-t' }, nomD),
+      el('button', { type: 'button', class: 'dr-p-x', 'aria-label': `Retirer la donnée ${nomD}${e.ok ? '' : ` (${e.raison})`}`, onmousedown: (ev) => ev.preventDefault(),
+        onclick: (ev) => { ev.preventDefault(); ev.stopPropagation(); allumer(d.bloc, false); p.remove(); retiree(); } }, '×'));
+    const on = () => allumer(d.bloc, true), off = () => allumer(d.bloc, false);
+    p.addEventListener('pointerenter', on); p.addEventListener('pointerleave', off); p.addEventListener('focusin', on); p.addEventListener('focusout', off);
+    return p;
+  }
+  /** Pose un nœud à la place du curseur dans le champ (jamais dans une pastille), sinon à la fin. */
+  function poserNoeud(champ, k) {
+    const s = window.getSelection?.(), vif = s?.rangeCount ? s.getRangeAt(0) : null, garde = pointDe.get(champ);
+    let r = vif && champ.contains(vif.startContainer) ? vif : garde && champ.contains(garde.startContainer) ? garde.cloneRange() : null;
+    if (!r) { champ.append(k); return; }
+    const dans = (x) => (x?.nodeType === 3 ? x.parentNode : x)?.closest?.('.dr-pastille');
+    const p = dans(r.startContainer) || dans(r.endContainer);
+    if (p && champ.contains(p)) { r.setStartAfter(p); r.collapse(true); } else r.deleteContents();
+    r.insertNode(k); r.setStartAfter(k); r.collapse(true);
+    try { champ.focus?.({ preventScroll: true }); s?.removeAllRanges(); s?.addRange(r); } catch { /* rien */ }
+    pointDe.set(champ, r.cloneRange());
+  }
+  /** La pastille juste avant (ou après) le curseur : Retour arrière (ou Suppr) la retire comme un caractère. */
+  function pastilleVoisine(champ, avant) {
+    const s = window.getSelection?.(); if (!s?.rangeCount || !s.isCollapsed) return null;
+    const n = s.anchorNode, o = s.anchorOffset; if (!n || !champ.contains(n)) return null;
+    let k;
+    if (n.nodeType === 3) { if (avant ? o > 0 : o < (n.nodeValue ?? '').length) return null; k = avant ? n.previousSibling : n.nextSibling; } else k = avant ? n.childNodes[o - 1] : n.childNodes[o];
+    return k?.nodeType === 1 && k.classList?.contains('dr-pastille') ? k : null;
+  }
+  /**
+   * Un champ de réglage à pastilles : { boite, champ }. `valeur` : le texte enregistré (montré tel quel, ses données en
+   * pastilles) ; `onChange(texte)` seulement quand on y touche. `dansJson` : le réglage est rangé dans un texte JSON
+   * (les réglages d'une appli). `donnees` false : pas de bouton « Données » (un déclencheur n'a rien avant lui).
+   */
+  function saisie({ id, valeur, multi = false, nom, dansJson = false, label, attrs = {}, placeholder, donnees = true, onChange }) {
+    const champ = el('div', { ...attrs, id, class: `dr-saisie${multi ? ' multi' : ''}`, role: 'textbox', contenteditable: 'plaintext-only', 'aria-multiline': multi ? 'true' : 'false', spellcheck: 'false', autocapitalize: 'off', 'data-placeholder': placeholder,
+      // (un <label for> ne nomme pas un div : le nom vient du libellé par son id ; le texte d'exemple, dit aussi)
+      'aria-labelledby': `${id}-lab`, 'aria-placeholder': placeholder,
+      'aria-describedby': [attrs['aria-describedby'], `${id}-dn`].filter(Boolean).join(' ') });
+    const alerte = el('small', { class: 'dr-manque', id: `${id}-dn`, hidden: true });
+    const bouton = donnees ? el('button', { type: 'button', class: 'btn small dr-df-b', 'aria-expanded': 'false', 'aria-controls': `${id}-liste`, title: 'Prendre une donnée d\'un bloc d\'avant', 'aria-label': `Prendre une donnée d'un bloc d'avant pour « ${label} »` }, 'Données') : null;
+    const zone = el('div', {});
+    const boite = el('div', { class: 'dr-df' }, el('div', { class: 'dr-df-l' }, champ, bouton), alerte, zone);
+    const verifier = () => { const r = [...new Set([...champ.querySelectorAll('.dr-pastille.bad')].map((x) => x.getAttribute('data-raison')))]; alerte.textContent = r.join(' '); alerte.hidden = !r.length; };
+    const change = () => { onChange(lireSaisie(champ, multi)); verifier(); };
+    const ctx = { champ, bouton, zone, nom, dansJson, label, change };
+    ctx.pastille = (d) => pastilleEl(d, nom, dansJson, () => { change(); champ.focus?.(); });
+    for (const m of decouper(valeur)) champ.append(m.src ? ctx.pastille(m) : m.texte);
+    verifier();
+    const garder = () => { const s = window.getSelection?.(); if (s?.rangeCount) { const r = s.getRangeAt(0); if (champ.contains(r.startContainer)) pointDe.set(champ, r.cloneRange()); } };
+    for (const t of ['keyup', 'pointerup', 'focusout']) champ.addEventListener(t, garder);
+    champ.addEventListener('input', () => { garder(); change(); });
+    champ.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !multi) { e.preventDefault(); return; }
+      if (e.key === 'Escape' && listeDn?.champ === champ) { e.preventDefault(); e.stopPropagation(); fermerDonnees(); return; }
+      if (e.key !== 'Backspace' && e.key !== 'Delete') return;
+      const p = pastilleVoisine(champ, e.key === 'Backspace');
+      if (p) { e.preventDefault(); allumer(p.getAttribute('data-bloc'), false); p.remove(); change(); }
+    });
+    // Coller : seulement du texte (et sur une ligne, pour un champ d'une ligne).
+    champ.addEventListener('paste', (e) => {
+      const t = e.clipboardData?.getData?.('text/plain'); if (typeof t !== 'string') return;
+      e.preventDefault(); const u = multi ? t.replace(/\r\n?/g, '\n') : t.replace(/\r?\n/g, ' ');
+      if (!document.execCommand?.('insertText', false, u)) { poserNoeud(champ, document.createTextNode(u)); change(); }
+    });
+    if (bouton) {
+      bouton.addEventListener('click', () => { if (listeDn?.champ === champ) fermerDonnees(true); else ouvrirDonnees(ctx, true); });
+      // Un clic dans le champ ouvre aussi la liste (sous le champ, sans prendre le focus : on peut continuer à taper).
+      champ.addEventListener('click', (e) => { if (e.target?.closest?.('.dr-p-x')) return; if (listeDn?.champ !== champ && blocsAvant(wf, nom).length) ouvrirDonnees(ctx, false); });
+    }
+    return { boite, champ };
+  }
+  function fermerDonnees(rendre = false) {
+    if (!listeDn) return;
+    const { champ, bouton, boite } = listeDn; listeDn = null;
+    boite.remove(); bouton?.setAttribute('aria-expanded', 'false');
+    if (rendre) champ.focus?.();
+  }
+  /** La liste des données des blocs d'avant, sous le champ : rangée par bloc ; une donnée touchée s'y pose en pastille. */
+  function ouvrirDonnees(ctx, focusListe) {
+    fermerDonnees();
+    const { champ, bouton, zone, nom, dansJson, label } = ctx, avant = blocsAvant(wf, nom);
+    const p = (t) => el('p', { class: 'sub', style: 'margin:0;font-size:13px' }, t);
+    const kids = [el('div', { class: 'dr-dn-h' }, el('h3', { id: `${champ.id}-liste-t` }, 'Données des blocs d\'avant'), el('button', { type: 'button', class: 'btn small', onclick: () => fermerDonnees(true) }, 'Fermer'))];
+    if (!avant.length) kids.push(p('Aucun bloc n\'est relié avant celui-ci : relie un bloc à son entrée pour prendre ses données.'));
+    else kids.push(p(`Touche une donnée pour la poser dans « ${label} ». Ce sont celles vues au dernier passage de chaque bloc : un bloc ne dit pas d'avance ce qu'il rend.`));
+    for (const b of avant) {
+      const m = wf.nodes.find((x) => x.name === b), ia = infoAppli(m, applisListe), run = last?.nodes?.[b];
+      kids.push(el('h4', {}, ia && window.OdinLien?.icone ? window.OdinLien.icone(ia.a, 18) : null, b, el('small', { class: 'sub' }, ` · ${ia ? `${ia.a.nom} : ${ia.titre}` : cat(m.type)?.label ?? m.type}`)));
+      if (!run) { kids.push(p('Pas encore de données connues : lance « Tester » (en haut) pour voir ce que ce bloc rend.')); continue; }
+      if (run.error) { kids.push(p('Au dernier passage, ce bloc a échoué : aucune donnée.')); continue; }
+      const vues = donneesVues(run.items);
+      if (!vues.length) { kids.push(p('Au dernier passage, ce bloc n\'a rendu aucune donnée nommée.')); continue; }
+      const l = el('div', { class: 'dr-dn-l', role: 'group', 'aria-label': `Données de ${b}` }, ...vues.map((v) => {
+        const src = exprDonnee(b, v.chemin, dansJson);
+        return el('button', { type: 'button', class: 'dr-dn-i', disabled: src ? undefined : true, onmousedown: (e) => e.preventDefault(),
+          onclick: () => { if (!src) return; poserNoeud(champ, ctx.pastille({ src, bloc: b, chemin: v.chemin })); ctx.change(); } },
+          el('b', {}, libelleChemin(v.chemin)), el('small', {}, src ? `Exemple : ${apercu(v.exemple)}` : 'Ce nom ne peut pas s\'écrire dans ces réglages.'));
+      }));
+      fleches(l); kids.push(l);
+    }
+    const boite = el('div', { class: 'dr-donnees', id: `${champ.id}-liste`, role: 'group', 'aria-labelledby': `${champ.id}-liste-t` }, ...kids);
+    boite.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermerDonnees(true); } });
+    zone.replaceChildren(boite); bouton?.setAttribute('aria-expanded', 'true');
+    listeDn = { champ, bouton, boite };
+    if (focusListe) (boite.querySelector('.dr-dn-i:not([disabled])') ?? boite.querySelector('button'))?.focus?.();
   }
   // ---------------- La fenêtre du « + » : la grille des applis (icônes, recherche), puis les fonctions de l'appli
   // choisie (les graves grisées) ; plus bas, les outils de Talos. Fenêtre vide : d'abord QUAND elle part.
@@ -781,7 +1025,7 @@
   }
   function rename(n, to) {
     if (!to || to === n.name) return; if (wf.nodes.some((x) => x.name === to)) { void window.OdinDialog.alert('Ce nom est déjà pris.'); return; }
-    const from = n.name; n.name = to;
+    const from = n.name; n.name = to; renommes.set(from, to); // (une pastille qui nommait l'ancien nom le dira)
     if (wf.connections[from]) { wf.connections[to] = wf.connections[from]; delete wf.connections[from]; }
     for (const list of Object.values(wf.connections)) for (const t of list) for (const l of t) if (l.node === from) l.node = to;
     if (outs[from]) { outs[to] = outs[from]; delete outs[from]; }
@@ -817,5 +1061,6 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; fermerChoix(); },
     logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
-      appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie } };
+      appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie,
+      decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin } };
 })();

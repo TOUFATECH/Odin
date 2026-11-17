@@ -160,6 +160,9 @@ class Noeud {
   get disabled() { return 'disabled' in this.attrs; }
   set innerHTML(h: string) { this.html = h; }
   get children() { return this.enfants.filter((x): x is Noeud => x !== null && x.nodeType === 1); }
+  get childNodes() { return this.enfants.filter((x): x is Noeud => x !== null); }
+  get nodeValue() { return this.nodeType === 3 ? this.texte : null; }
+  contains(n: Noeud | null) { for (let x = n; x; x = x.parent) if (x === this) return true; return false; }
   get textContent(): string { return this.nodeType === 3 ? this.texte : this.enfants.map((x) => (x === null ? 'null' : x.textContent)).join(''); }
   set textContent(t: string) { this.enfants = []; if (t) this.ajouter(new Texte(String(t))); }
   get isConnected() { let n: Noeud | null = this; while (n.parent) n = n.parent; return n === racine; }
@@ -273,26 +276,26 @@ test('page : le panneau d\'un bloc d\'appli : appli et fonction en clair, « Cha
   assert.ok(p.bouton('Changer', side), 'un bouton « Changer »');
   assert.ok(![side, ...side.tous()].some((x) => x.enfants.includes(null)), 'un réglage sans aide n\'écrit pas « null »');
   assert.match(side.querySelector('.dr-app')!.textContent, /Hydre.*Démarrer une machine/);
-  assert.equal(side.querySelectorAll('input').filter((x) => x.getAttribute('value') === 'ymir' || x.getAttribute('value') === 'demarrer').length, 0, 'plus d\'identifiant à taper');
+  assert.equal(side.querySelectorAll('input, .dr-saisie').filter((x) => ['ymir', 'demarrer'].includes(x.getAttribute('value') ?? x.textContent)).length, 0, 'plus d\'identifiant à taper');
   const lab = side.querySelectorAll('label').find((x) => x.textContent.startsWith('Machine'))!;
   assert.match(lab.textContent, /\*/, 'obligatoire');
   const nom = side.querySelector(`#${lab.getAttribute('for')}`)!;
-  assert.equal(nom.getAttribute('value'), 'vm1'); assert.equal(nom.getAttribute('aria-required'), 'true');
+  assert.equal(nom.textContent, 'vm1', 'un champ à pastilles (étape 4), qui montre la valeur telle quelle'); assert.equal(nom.getAttribute('aria-required'), 'true');
   const att = side.querySelector(`#${side.querySelectorAll('label').find((x) => x.textContent.startsWith('Attendre'))!.getAttribute('for')}`)!;
   assert.equal(att.tagName, 'SELECT', 'oui/non');
   assert.equal(att.querySelectorAll('option').find((o) => o.getAttribute('selected') !== null)!.textContent, 'Non');
   assert.match(side.textContent, /extra/, 'un réglage hors des champs est signalé');
   const av = side.querySelector('details')!; assert.match(av.querySelector('summary')!.textContent, /Réglages avancés/);
   // Un champ modifié : l'entrée change à cet endroit seulement.
-  nom.value = 'vm2'; await nom.emettre('input');
+  nom.textContent = 'vm2'; await nom.emettre('input');
   assert.equal(side.querySelector('textarea')!.value, '{"nom":"vm2","extra":1,"attendre":false}', 'le JSON avancé suit');
   att.value = 'oui'; await att.emettre('change');
   // Vide : ça se voit, dans le panneau et sur le bloc, avant d'enregistrer.
-  nom.value = ''; await nom.emettre('input');
+  nom.textContent = ''; await nom.emettre('input');
   const manque = side.querySelectorAll('.dr-manque').find((x) => !x.hidden);
   assert.ok(manque, 'le champ obligatoire vide se voit'); assert.match(manque!.textContent, /obligatoire/i);
   assert.ok(p.body.querySelector('#drCanvas')!.querySelectorAll('.dr-node').some((b) => b.querySelector('.dr-manque')), 'et sur le bloc');
-  nom.value = 'vm3'; await nom.emettre('input');
+  nom.textContent = 'vm3'; await nom.emettre('input');
   await p.bouton('Enregistrer')!.emettre('click'); await attendre();
   const f = p.appels.find((a) => a.chemin === '/api/draupnir/save')!.corps!.flow as { nodes: Noeud0[] };
   assert.deepEqual(ici(f.nodes[1].params), { module: 'ymir', action: 'demarrer', entrée: '{"extra":1,"attendre":true,"nom":"vm3"}' }, 'dans la même entrée qu\'avant (vidé puis rempli : le réglage revient à la fin)');
@@ -315,9 +318,9 @@ test('page : expression → « Réglages avancés » ouverts ; appli inconnue �
   assert.match(side.textContent, /Réglages avancés/);
   ta.value = '{"nom":"vmX"}'; await ta.emettre('input'); await ta.emettre('change');
   const lab = side.querySelectorAll('label').find((x) => x.textContent.startsWith('Machine'))!;
-  assert.equal(side.querySelector(`#${lab.getAttribute('for')}`)!.getAttribute('value'), 'vmX', 'les champs relisent le JSON');
+  assert.equal(side.querySelector(`#${lab.getAttribute('for')}`)!.textContent, 'vmX', 'les champs relisent le JSON');
   side = await choisir(p.body, 'Inconnu');
-  assert.ok(side.querySelectorAll('input').some((x) => x.getAttribute('value') === 'disparue'), 'appli introuvable : le champ d\'avant reste');
+  assert.ok(side.querySelectorAll('.dr-saisie').some((x) => x.textContent === 'disparue'), 'appli introuvable : le champ d\'avant reste');
   assert.ok(side.querySelector('textarea'), 'et son JSON');
   side = await choisir(p.body, 'Hydre : Vérifier');
   assert.match(side.textContent, /ne déclare pas de réglage/);
@@ -329,7 +332,7 @@ test('page : une valeur piégée reste du texte dans son champ', async () => {
   const p = await page({ ...APPLIS, nodes: [{ ...APPLIS.nodes[1], params: { module: 'ymir', action: 'demarrer', entrée: JSON.stringify({ nom: piege, [piege]: 1 }) } }], connections: {} });
   const side = await choisir(p.body, 'Hydre : Démarrer');
   assert.equal(side.querySelectorAll('img').length, 0, 'aucune image créée');
-  assert.ok(side.querySelectorAll('input').some((x) => x.getAttribute('value') === piege), 'la valeur telle quelle');
+  assert.ok(side.querySelectorAll('.dr-saisie').some((x) => x.textContent === piege && !x.querySelector('.dr-pastille')), 'la valeur telle quelle');
   assert.ok(side.textContent.includes(piege), 'la clé en plus s\'écrit en texte');
 });
 
