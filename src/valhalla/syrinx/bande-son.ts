@@ -16,7 +16,6 @@ export interface Oreille {
   analyserSon(source: SourceSon, o?: OptionsAnalyse): Promise<ResultatEcoute>;
   ouvrirModeleSons(o: { dossier: string; attendu?: { sha256?: string } }): Promise<ModeleSons>;
   etatModeleSons(dossier: string): { present: boolean; verifie: boolean; aTourne: boolean; quand?: string; mesure?: Mesure };
-  telechargerModeleSons(o: { dossier: string; fetch: typeof fetch; signal?: AbortSignal }): Promise<{ ok: boolean; texte: string }>;
   voterEmpreinte(q: EmpreinteSon, trouves: Array<{ id: string; code: number; t: number }>): Array<{ id: string; score: number; decalageS: number; meme: boolean }>;
   sonFabrique(genre: 'clics120' | 'accordDo' | 'silencePuisBruit', sec: number): Uint8Array;
   readonly CATALOGUE_SONS: { readonly taille: number; readonly licence: string };
@@ -92,8 +91,6 @@ export async function modeleSonsLocal(dossier: string): Promise<ModeleSons | und
     return m.pret ? m : undefined;
   } catch { return undefined; }
 }
-/** Oublie le modèle gardé (après un téléchargement). */
-export function oublierModeleSons(dossier?: string): void { if (dossier) cacheModele.delete(dossier); else cacheModele.clear(); }
 
 /** La bande son d'une vidéo : lignes 🎵 (musique) et 🔊 (sons reconnus) pour la ligne de temps. Ne lève jamais. */
 export async function bandeSon(fichierAudio: string, o: { home: string; signal?: AbortSignal }): Promise<Array<{ t: number; end?: number; text: string; src: 'musique' | 'sons' }>> {

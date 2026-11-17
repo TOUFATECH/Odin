@@ -118,7 +118,8 @@ import { exportConversations, type ExportFormat } from '../muninn/export.ts';
 import { TTS_DEFAULTS, forSpeech, hear, listVoices, pronounce, speak, speakAudio, sttReady, ttsIsLocal, ttsReady, voixFrancaise } from '../voice/voice.ts';
 import { genreOdin } from '../core/genre.ts';
 import { voixCloner, voixCopies, voixRetirer } from './voix-api.ts';
-import { ensureLocalVoice, resumeVoiceInstall, voiceBlocked } from '../voice/local.ts';
+import { resumeVoiceInstall, voiceBlocked } from '../voice/local.ts';
+import { pasEntraine } from '../langue/pas-entraine.ts';
 import { forget as forgetAcquis, loadAcquis } from '../learn/acquis.ts';
 import { savingsOf } from '../providers/savings.ts';
 
@@ -1069,16 +1070,16 @@ export class WebChannel implements Channel {
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/voice/transcribe') {
-      // Micro de l'interface : l'audio arrive brut, Whisper le transforme en texte.
-      // Rien de prêt : Odin s'installe lui-même en arrière-plan (sans faire attendre la page).
-      if (!sttReady(v)) { const blocked = voiceBlocked(this.odin.paths.home); if (blocked) return json(res, 200, { ok: false, error: blocked }); void ensureLocalVoice((msg) => this.push({ type: 'message', peer: 'principal', role: 'assistant', text: msg })); return json(res, 200, { ok: false, error: 'J\'installe de quoi comprendre ta voix (gratuit, tout reste chez toi) : 5 à 15 minutes. Je te préviens quand c\'est prêt ; en attendant, écris-moi.' }); }
+      // Micro de l'interface : l'audio arrive brut, le modèle d'écoute d'Odin le transformera en texte. Tant qu'il n'est
+      // pas entraîné, la réponse est « pas encore » : rien n'est installé ni lancé.
+      if (!sttReady(v)) return json(res, 200, { ok: false, error: voiceBlocked(this.odin.paths.home) });
       try { const audio = await readRaw(req, 25 * 1024 * 1024); const h = await hear(audio, String(req.headers['content-type'] ?? 'audio/webm'), v); return json(res, 200, { ok: true, text: h.text, lang: h.language }); }
       catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/rodd/dictee' && req.method === 'POST') {
       // Écho : la dictée (navigateur, téléphone, agent des PC) — audio → texte (tes mots) → mise en forme, ou une demande à Odin.
       const va = valhallaOf(); if (!va) return json(res, 503, { ok: false, error: 'applis non démarrées' });
-      if (!sttReady(v)) return json(res, 200, { ok: false, error: 'L\'écoute n\'est pas encore installée : dis-moi « installe la voix locale ».' });
+      if (!sttReady(v)) return json(res, 200, { ok: false, error: voiceBlocked(this.odin.paths.home) });
       try {
         const audio = await readRaw(req, 25 * 1024 * 1024), h = await hear(audio, String(req.headers['content-type'] ?? 'audio/webm'), v);
         const r = await dictee(va.ctx('rodd'), h.text, { mode: (url.searchParams.get('mode') ?? undefined) as never, ou: (url.searchParams.get('ou') ?? 'Odin (web)').slice(0, 60), langue: url.searchParams.get('langue') ?? undefined });
@@ -1199,7 +1200,7 @@ export class WebChannel implements Channel {
     // du navigateur n'a pas ce travail, la page le demande ici avant de parler.
     if (url.pathname === '/api/voice/texte') return json(res, 200, { ok: true, text: pronounce(forSpeech(String(body.text ?? '').slice(0, 5000), undefined, v.speech?.pronunciations), v.speech?.pronunciations) });
     if (url.pathname === '/api/voice/speak') {
-      if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'La synthèse vocale n\'est pas configurée (Réglages → Voix)' });
+      if (!ttsReady(v)) return json(res, 200, { ok: false, error: pasEntraine('parler', v.stt.language) });
       try {
         // Essai d'une voix (homme / femme) depuis les réglages, sans changer le réglage.
         const vv = body.gender === 'femme' || body.gender === 'homme' ? { ...v, gender: body.gender as 'homme' | 'femme' } : v;
@@ -1371,7 +1372,7 @@ export class WebChannel implements Channel {
         const ctx = { muninn: this.odin.muninn } as never;
         try {
           if (b.vacFrom) await alarmTool.run({ action: 'vacances', du: String(b.vacFrom), au: String(b.vacTo || b.vacFrom) }, ctx);
-          await alarmTool.run({ action: 'appel', telephone: String(b.phone ?? ''), twilio_from: String(b.from ?? ''), ha_phone: String(b.haPhone ?? ''), enceinte: String(b.speaker ?? '') }, ctx);
+          await alarmTool.run({ action: 'appel', telephone: String(b.phone ?? ''), twilio_from: String(b.from ?? ''), ha_phone: String(b.haPhone ?? '') }, ctx);
           const text = await alarmTool.run(b.enabled ? { action: 'regler', travail: String(b.work ?? ''), repos: String(b.off ?? ''), jours: String(b.days ?? '') } : { action: 'couper' }, ctx);
           return { ok: true, text };
         } catch (e) { return { ok: false, error: (e as Error).message }; }

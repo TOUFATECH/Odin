@@ -4,6 +4,7 @@
 
 import { lanRequest } from './lan.ts';
 import { obj, str, type Tool, type ToolContext } from './registry.ts';
+import { pasEntraine } from '../langue/pas-entraine.ts';
 
 const s = (v: unknown) => String(v ?? '');
 export interface HaState { entity_id: string; state: string; attributes: { friendly_name?: string; unit_of_measurement?: string; [k: string]: unknown } }
@@ -46,40 +47,23 @@ export const haCall: Tool = {
   schema: obj({ domain: str('domaine (light, switch, climate, cover, scene, script, automation…)'), service: str('service (turn_on, turn_off, toggle, set_temperature…)'), entity_id: str('entité(s), séparées par des virgules, ou « all »'), data: str('paramètres en JSON (facultatif)') }, ['domain', 'service']),
   summarize: (i) => `Maison : ${s(i.domain)}.${s(i.service)}${i.entity_id ? ` → ${s(i.entity_id)}` : ''}`,
   async run(i, ctx) {
-    const { url, token } = conf(ctx);
     if (!/^[a-z_]+$/.test(s(i.domain)) || !/^[a-z_]+$/.test(s(i.service))) return 'Domaine ou service invalide.';
+    // La synthèse vocale de la box (Google Translate, Piper, Nabu Casa…) est un modèle d'autrui : pas par ce détour non
+    // plus. Ni directement (tts.*), ni par l'annonce d'un satellite vocal (assist_satellite.*), ni par un son que la box
+    // fabriquerait elle-même (media-source://tts/… donné à un lecteur).
+    if (s(i.domain) === 'tts' || s(i.domain) === 'assist_satellite') return pasEntraine('annoncer');
     let data: Record<string, unknown> = {};
     if (s(i.data)) { try { data = JSON.parse(s(i.data)) as Record<string, unknown>; } catch { return 'data doit être du JSON valide.'; } }
+    // Lu après décodage : un « \/ » ou un « / » du JSON ne cache pas l'adresse.
+    if (/media-source:\/\/tts/i.test(JSON.stringify(data))) return pasEntraine('annoncer');
+    const { url, token } = conf(ctx);
     if (s(i.entity_id)) data.entity_id = s(i.entity_id).includes(',') ? s(i.entity_id).split(',').map((x) => x.trim()) : s(i.entity_id);
     const r = await haApi(url, token, 'POST', `/services/${s(i.domain)}/${s(i.service)}`, data) as HaState[] | null;
     return `Fait : ${s(i.domain)}.${s(i.service)}${Array.isArray(r) && r.length ? `\n${r.slice(0, 15).map((x) => `${x.entity_id} → ${x.state}`).join('\n')}` : ''}`;
   },
 };
 
-/** Service de synthèse vocale à utiliser (pur, testable) : tts.speak (récent) s'il y a une entité tts, sinon tts.<moteur>_say. */
-export function speakPlan(states: HaState[], player: string, message: string): { path: string; data: Record<string, unknown> } {
-  const tts = states.find((x) => x.entity_id.startsWith('tts.'));
-  if (tts) return { path: '/services/tts/speak', data: { entity_id: tts.entity_id, media_player_entity_id: player, message, language: 'fr' } };
-  return { path: '/services/tts/google_translate_say', data: { entity_id: player, message, language: 'fr' } };
-}
+// Parler sur une enceinte passait par la synthèse vocale de Home Assistant (Google Translate, Piper, Nabu Casa) : des
+// modèles qui ne sont pas ceux d'Odin. Retiré le 17/11/2026 ; il reviendra avec le modèle de voix d'Odin.
 
-export const haSpeak: Tool = {
-  name: 'ha_speak',
-  description: 'Home Assistant : Odin parle à voix haute sur une enceinte de la maison (Google Home, Sonos, Alexa reliée…). Sans enceinte précisée : la première trouvée. Pour une annonce, un rappel, réveiller, prévenir quelqu\'un dans une autre pièce.',
-  risk: 'external',
-  schema: obj({ message: str('ce qu\'Odin doit dire'), speaker: str('enceinte (entité media_player.… ou mot de son nom, facultatif)') }, ['message']),
-  summarize: (i) => `Maison : dire « ${s(i.message).slice(0, 80)} » sur ${s(i.speaker) || 'l\'enceinte'}`,
-  async run(i, ctx) {
-    const { url, token } = conf(ctx);
-    const states = await haApi(url, token, 'GET', '/states') as HaState[];
-    const q = s(i.speaker).toLowerCase();
-    const players = states.filter((x) => x.entity_id.startsWith('media_player.'));
-    const p = players.find((x) => x.entity_id === q) ?? players.find((x) => q && `${x.entity_id} ${x.attributes.friendly_name ?? ''}`.toLowerCase().includes(q)) ?? (q ? undefined : players[0]);
-    if (!p) return players.length ? `Enceinte introuvable. Disponibles : ${players.map((x) => `${x.entity_id} (${x.attributes.friendly_name ?? ''})`).join(', ')}` : 'Aucune enceinte (media_player) dans Home Assistant.';
-    const plan = speakPlan(states, p.entity_id, s(i.message).slice(0, 1000));
-    await haApi(url, token, 'POST', plan.path, plan.data);
-    return `Annoncé sur ${p.attributes.friendly_name ?? p.entity_id}.`;
-  },
-};
-
-export const HA_TOOLS: Tool[] = [haStates, haCall, haSpeak];
+export const HA_TOOLS: Tool[] = [haStates, haCall];

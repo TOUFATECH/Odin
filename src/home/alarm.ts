@@ -1,9 +1,11 @@
 // Réveil : Odin te réveille à l'heure des jours de travail (ex. 3 h) et à celle des jours de repos ou de
 // vacances (ex. 4 h). Il t'APPELLE : vrai appel téléphonique (Twilio), sonnerie d'alarme sur ton
-// téléphone par l'application Home Assistant (même en silencieux), annonce sur les enceintes, note vocale
-// et notification. Il recommence toutes les 5 minutes tant que tu n'as pas dit « je suis réveillé ».
+// téléphone par l'application Home Assistant (même en silencieux), message et notification. Il recommence
+// toutes les 5 minutes tant que tu n'as pas dit « je suis réveillé ». L'annonce sur une enceinte passait par la
+// synthèse vocale de Home Assistant (un modèle d'autrui) : retirée le 17/11/2026, elle répond « pas encore ».
 
 import { haApi } from '../tools/homeassistant.ts';
+import { pasEntraine } from '../langue/pas-entraine.ts';
 import { obj, str, type Tool } from '../tools/registry.ts';
 import { parseWhen } from '../cron/reminders.ts';
 
@@ -25,8 +27,6 @@ export interface AlarmConf {
   phone?: string; twilioFrom?: string;
   /** Application Home Assistant du téléphone (service notify, ex. mobile_app_pixel_8). */
   haPhone?: string;
-  /** Enceinte(s) Home Assistant pour l'annonce (media_player.chambre). */
-  speaker?: string;
 }
 export const DEFAULT_ALARM: AlarmConf = { enabled: false, work: '03:00', off: '04:00', workDays: [1, 2, 3, 4, 5], vacations: [], skip: [] };
 export const getAlarm = (kv: Kv): AlarmConf => { try { return { ...DEFAULT_ALARM, ...(JSON.parse(kv.getKv('alarm') ?? '{}') as Partial<AlarmConf>) }; } catch { return { ...DEFAULT_ALARM }; } };
@@ -86,9 +86,9 @@ export async function haPhoneAlarm(haUrl: string, token: string, service: string
 
 export const alarmTool: Tool = {
   name: 'alarm_set',
-  description: 'Réveil du propriétaire : Odin l\'APPELLE (appel téléphonique Twilio, alarme sur le téléphone via Home Assistant, enceintes, note vocale) et insiste toutes les 5 min. action : regler (travail HH:MM, repos HH:MM ou vide, jours de travail : semaine | lun,mar…), vacances (du, au : « du 20 au 30 décembre »), sans_vacances, sauter (date : « demain »), appel (telephone +262…, twilio_from, ha_phone : service notify de l\'app HA, enceinte : media_player…), couper, etat.',
+  description: 'Réveil du propriétaire : Odin l\'APPELLE (appel téléphonique Twilio, alarme sur le téléphone via Home Assistant, message et notification) et insiste toutes les 5 min. action : regler (travail HH:MM, repos HH:MM ou vide, jours de travail : semaine | lun,mar…), vacances (du, au : « du 20 au 30 décembre »), sans_vacances, sauter (date : « demain »), appel (telephone +262…, twilio_from, ha_phone : service notify de l\'app HA), couper, etat.',
   risk: 'write',
-  schema: obj({ action: str('regler | vacances | sans_vacances | sauter | appel | couper | etat'), travail: str('HH:MM'), repos: str('HH:MM ou vide'), jours: str('jours de travail'), du: str('début des vacances'), au: str('fin des vacances'), date: str('jour sans réveil'), telephone: str('+262…'), twilio_from: str('numéro Twilio'), ha_phone: str('ex. mobile_app_pixel_8'), enceinte: str('media_player.…') }, ['action']),
+  schema: obj({ action: str('regler | vacances | sans_vacances | sauter | appel | couper | etat'), travail: str('HH:MM'), repos: str('HH:MM ou vide'), jours: str('jours de travail'), du: str('début des vacances'), au: str('fin des vacances'), date: str('jour sans réveil'), telephone: str('+262…'), twilio_from: str('numéro Twilio'), ha_phone: str('ex. mobile_app_pixel_8') }, ['action']),
   summarize: (i) => `réveil : ${String(i.action)} ${[i.travail, i.repos, i.du, i.au, i.date].filter(Boolean).join(' ')}`,
   async run(i, ctx) {
     const kv = ctx.muninn, a = getAlarm(kv), act = String(i.action ?? '').toLowerCase(), s = (x: unknown) => String(x ?? '').trim();
@@ -113,13 +113,17 @@ export const alarmTool: Tool = {
       if (s(i.telephone)) { if (!/^\+\d{6,15}$/.test(s(i.telephone).replace(/\s/g, ''))) throw new Error('numéro au format international : +262639…'); a.phone = s(i.telephone).replace(/\s/g, ''); }
       if (s(i.twilio_from)) a.twilioFrom = s(i.twilio_from).replace(/\s/g, '');
       if (s(i.ha_phone)) a.haPhone = s(i.ha_phone).replace(/^notify\./, '');
-      if (s(i.enceinte)) a.speaker = s(i.enceinte);
     } else if (act.startsWith('coup')) a.enabled = false;
+    // Une enceinte (demandée, ou enregistrée avant le 17/11/2026) n'est plus gardée : l'annonce passait par la
+    // synthèse vocale de Home Assistant. Le reste du réglage est enregistré, et Odin le dit franchement.
+    const enceinte = s(i.enceinte) || s((a as { speaker?: unknown }).speaker);
+    delete (a as { speaker?: unknown }).speaker;
     setAlarm(kv, a);
     const next = [0, 1, 2].map((k) => { const d = new Date(); d.setDate(d.getDate() + k); return alarmTime(a, d); }).find((x) => x && x.at.getTime() > Date.now());
-    const ways = [a.phone && process.env.TWILIO_ACCOUNT_SID ? `appel au ${a.phone}` : '', a.haPhone ? 'alarme sur ton téléphone (Home Assistant)' : '', a.speaker ? `annonce sur ${a.speaker}` : '', 'note vocale et notification'].filter(Boolean);
-    return a.enabled
+    const ways = [a.phone && process.env.TWILIO_ACCOUNT_SID ? `appel au ${a.phone}` : '', a.haPhone ? 'alarme sur ton téléphone (Home Assistant)' : '', 'message et notification'].filter(Boolean);
+    const pasEnceinte = enceinte ? `${pasEntraine('annoncer')}\n` : '';
+    return pasEnceinte + (a.enabled
       ? `Réveil : ${a.work} les jours de travail (${a.workDays.map((d) => ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d]).join(', ')}), ${a.off ? `${a.off} les jours de repos et de vacances` : 'pas de réveil les jours de repos'}.${a.vacations.length ? ` Vacances : ${a.vacations.map((v) => `${v.from} → ${v.to}`).join(', ')}.` : ''}${next ? ` Prochain : ${next.at.toLocaleString('fr-FR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })} (${next.kind}).` : ''}\nPour te réveiller : ${ways.join(', ')}. J'insiste toutes les 5 min jusqu'à « je suis réveillé ».${!a.phone || !process.env.TWILIO_ACCOUNT_SID ? '\nPour un vrai appel téléphonique : Réglages → Réveil → « Vrai appel téléphonique » (compte Twilio) et ton numéro.' : ''}`
-      : 'Réveil coupé.';
+      : 'Réveil coupé.');
   },
 };

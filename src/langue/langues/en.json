@@ -279,7 +279,8 @@
     "jeNeConnaisPas": "{action}: I don't know « {chose} » there. I did nothing: say it again with the exact name (or « never mind »).",
     "heure": "It's {heure}, {date}.",
     "abandonne": "OK, I'm dropping this request.",
-    "faitSansIA": "Done without an AI: none is answering right now."
+    "faitSansIA": "Done without an AI: none is answering right now.",
+    "modelePasEntraine": "I can't {quoi} yet: my own {sorte} model isn't trained yet. What I can do right now: {proche}."
   },
   "pasEncore": {
     "reserver": {
@@ -329,6 +330,51 @@
     "llm": {
       "quoi": "serve a language model to other machines",
       "proche": "Métis reads an open model for my own use (Métis page)"
+    }
+  },
+  "modeles": {
+    "sortes": {
+      "langue": "language",
+      "voix": "voice",
+      "ecoute": "listening",
+      "image": "image",
+      "sons": "sound",
+      "lecture": "reading",
+      "meteo": "weather forecast"
+    },
+    "choses": {
+      "ecouter": {
+        "quoi": "listen to a sound or a voice message",
+        "proche": "read what you write to me"
+      },
+      "parler": {
+        "quoi": "answer you out loud",
+        "proche": "answer you in writing"
+      },
+      "copierVoix": {
+        "quoi": "copy a voice",
+        "proche": "answer you in writing"
+      },
+      "conversationDirect": {
+        "quoi": "hold a live spoken conversation",
+        "proche": "talk in writing"
+      },
+      "annoncer": {
+        "quoi": "speak on the speakers in the house",
+        "proche": "send you the message in writing"
+      },
+      "traduire": {
+        "quoi": "translate a conversation",
+        "proche": "keep the written conversation and its archive"
+      },
+      "prevoirMeteo": {
+        "quoi": "forecast the weather with my own model",
+        "proche": "compare the forecasts from public sources"
+      },
+      "reconnaitreSons": {
+        "quoi": "recognise everyday sounds (doorbell, alarm, barking)",
+        "proche": "measure a sound without a model: silence, volume, tempo, key"
+      }
     }
   }
 }

@@ -23,7 +23,7 @@ import { enteteWav16k, versS16 } from './wav.ts';
 export * from './contrat.ts';
 export { ErreurSon } from './bornes.ts';
 export { ouvrirModeleSons } from './modele-sons.ts';
-export { CATALOGUE_SONS, etatModeleSons, telechargerModeleSons } from './catalogue.ts';
+export { CATALOGUE_SONS, etatModeleSons } from './catalogue.ts';
 export { voterEmpreinte } from './empreinte.ts';
 export { formatSon, lireWav, ecrireWav16k, sonFabrique } from './wav.ts';
 

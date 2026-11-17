@@ -84,7 +84,8 @@
     "jeNeConnaisPas": "{action}：「{chose}」はわかりません。何もしていません。正確な名前でもう一度言ってください。",
     "heure": "{date}、{heure}です。",
     "abandonne": "わかりました。このお願いはやめます。",
-    "faitSansIA": "AIなしで行いました。今はAIが応答していません。"
+    "faitSansIA": "AIなしで行いました。今はAIが応答していません。",
+    "modelePasEntraine": "まだ{quoi}はできません。私自身の{sorte}モデルはまだ学習が済んでいません。今すぐできること：{proche}。"
   },
   "pasEncore": {
     "reserver": {
@@ -102,6 +103,51 @@
     "mails": {
       "quoi": "AIなしでメールやメッセージを読む・整理する・返信する・送ること",
       "proche": "AIがあれば行います。送信や削除は必ずあなたの承認を待ちます"
+    }
+  },
+  "modeles": {
+    "sortes": {
+      "langue": "言語",
+      "voix": "音声",
+      "ecoute": "聞き取り",
+      "image": "画像",
+      "sons": "音",
+      "lecture": "読み取り",
+      "meteo": "天気予報"
+    },
+    "choses": {
+      "ecouter": {
+        "quoi": "音や音声メッセージを聞くこと",
+        "proche": "書いてくれた文章を読むこと"
+      },
+      "parler": {
+        "quoi": "声に出して答えること",
+        "proche": "文字で答えること"
+      },
+      "copierVoix": {
+        "quoi": "声をコピーすること",
+        "proche": "文字で答えること"
+      },
+      "conversationDirect": {
+        "quoi": "声でリアルタイムに会話すること",
+        "proche": "文字で会話すること"
+      },
+      "annoncer": {
+        "quoi": "家のスピーカーで話すこと",
+        "proche": "メッセージを文字で送ること"
+      },
+      "traduire": {
+        "quoi": "会話を翻訳すること",
+        "proche": "書かれた会話とその記録を残すこと"
+      },
+      "prevoirMeteo": {
+        "quoi": "自分のモデルで天気を予報すること",
+        "proche": "公開されている予報を比べること"
+      },
+      "reconnaitreSons": {
+        "quoi": "日常の音（呼び鈴、警報、犬の鳴き声）を聞き分けること",
+        "proche": "モデルなしで音を測ること（無音、音量、テンポ、調）"
+      }
     }
   }
 }

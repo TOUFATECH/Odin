@@ -47,7 +47,8 @@ export async function extract(ctx: ModCtx, file: string, langs = LANGS): Promise
     return { text: ext === 'html' || ext === 'htm' ? raw.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \t]+/g, ' ') : raw, how: 'fichier texte' };
   }
   if (fam === 'audio' || fam === 'video') {
-    const h = await hear(file, ctx.home).catch((e: Error) => { throw new Error(/non installé/.test(e.message) ? 'pour écouter, installe la voix locale d\'Odin (Orphée → « installer la voix locale »)' : e.message); });
+    // Tant que le modèle d'écoute d'Odin n'est pas entraîné, l'erreur « pas encore » remonte telle quelle.
+    const h = await hear(file, ctx.home);
     return { text: h.text, how: `ce qui est dit (${h.language})` };
   }
   // Formats modernes et ouverts : lus NATIVEMENT dans Odin, sans aucun logiciel de bureautique (ni soffice, ni pdftotext

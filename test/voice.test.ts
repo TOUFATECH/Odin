@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import { TelegramChannel } from '../src/bifrost/channels/telegram.ts';
 import { DEFAULT_CONFIG, type OdinConfig } from '../src/config.ts';
-import { cloneVoice, forSpeech, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../src/voice/voice.ts';
+import { forSpeech, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../src/voice/voice.ts';
 import { WebChannel, ensureWebToken } from '../src/web/server.ts';
 import { call, makeOdin } from './helpers.ts';
 
@@ -27,7 +27,8 @@ async function mock(handler: (h: Hit) => { status?: number; type?: string; body:
   return { url: `http://127.0.0.1:${(srv.address() as AddressInfo).port}`, hits, close: () => srv.close() };
 }
 
-// Ces essais visent les services en ligne : le mode 100 % local est coupé ici.
+// Depuis le 17/11/2026, Odin n'utilise aucun modèle qui ne soit pas le sien : Whisper, ElevenLabs, OpenAI et Piper ne
+// sont plus appelés, même avec une adresse et une clé. Ces essais le vérifient avec de faux services qui notent tout.
 const voiceCfg = (stt: string, tts: string, voiceId = 'voixTest123'): OdinConfig['voice'] => ({
   ...DEFAULT_CONFIG.voice, localOnly: false,
   enabled: true, speakReplies: false, voiceReplies: true,
@@ -36,64 +37,31 @@ const voiceCfg = (stt: string, tts: string, voiceId = 'voixTest123'): OdinConfig
 });
 const env = { ELEVEN_TEST: 'cle-eleven', OPENAI_TEST: 'cle-openai' };
 
-test('Whisper : audio envoyé en multipart avec modèle et langue, texte renvoyé', async () => {
-  const m = await mock(() => ({ body: JSON.stringify({ text: ' Allume la lumière du salon. ' }) }));
+test('Whisper, ElevenLabs, serveur Piper, OpenAI : plus aucun appel ; « pas encore » à la place', async () => {
+  const m = await mock(() => ({ body: JSON.stringify({ text: 'bonjour', voice_id: 'clone42' }) }));
   try {
     const v = voiceCfg(m.url, m.url);
-    const text = await transcribe(new Uint8Array([1, 2, 3]), 'audio/webm', v, undefined, env);
-    assert.equal(text, 'Allume la lumière du salon.');
-    const h = m.hits[0];
-    assert.equal(h.url, '/v1/audio/transcriptions');
-    assert.equal(h.headers.authorization, 'Bearer cle-openai');
-    const body = h.body.toString('latin1');
-    assert.match(body, /name="model"\r\n\r\nwhisper-1/);
-    assert.doesNotMatch(body, /name="language"/, 'langue détectée toute seule (réponse dans la langue parlée)');
-    assert.match(body, /name="response_format"\r\n\r\nverbose_json/);
-    assert.match(body, /filename="parole\.webm"/);
-    assert.equal(sttReady(v, env), true);
-    assert.equal(sttReady({ ...v, stt: { ...v.stt, baseUrl: 'https://api.openai.com/v1' } }, {}), false, 'service distant sans clé : pas prêt');
-    assert.equal(sttReady({ ...v, stt: { ...v.stt, baseUrl: 'http://localhost:8000/v1' } }, {}), true, 'serveur Whisper local : sans clé');
+    await assert.rejects(transcribe(new Uint8Array([1, 2, 3]), 'audio/webm', v, undefined, env), /mon propre modèle d'écoute n'est pas encore entraîné/);
     await assert.rejects(transcribe(new Uint8Array(), 'audio/webm', v, undefined, env), /vide/);
+    await assert.rejects(speak('Bonjour', v, 'opus_48000_64', undefined, env), /mon propre modèle de voix n'est pas encore entraîné/);
+    const piper = { ...v, tts: { provider: 'piper' as const, voiceId: '', voiceName: '', model: '', baseUrl: m.url, apiKeyEnv: '' } };
+    const oa = { ...v, tts: { provider: 'openai' as const, voiceId: 'nova', voiceName: 'nova', model: 'tts-1', baseUrl: `${m.url}/v1`, apiKeyEnv: 'ABSENTE' } };
+    for (const w of [v, piper, oa]) {
+      assert.equal(sttReady(w, env), false); assert.equal(ttsReady(w, env), false);
+      await assert.rejects(speakAudio('Salut', w, 'mp3_44100_128', undefined, env), /pas encore entraîné/);
+    }
+    assert.equal(ttsIsLocal(piper), true, 'un ancien réglage local se lit toujours comme local');
+    assert.equal(m.hits.length, 0, 'aucune demande n\'est partie');
   } finally { m.close(); }
 });
 
-test('ElevenLabs : texte nettoyé pour la parole, clé envoyée, audio renvoyé', async () => {
-  const m = await mock((h) => (h.url.startsWith('/v1/text-to-speech/') ? { type: 'audio/mpeg', body: Buffer.from('ID3fakeaudio') } : { status: 404, body: '{}' }));
-  try {
-    const v = voiceCfg(m.url, m.url);
-    const audio = await speak('**Voilà** : `npm test` passe. Détails sur https://exemple.fr\n\n⚡ Odin Breaker', v, 'opus_48000_64', undefined, env);
-    assert.equal(Buffer.from(audio).toString(), 'ID3fakeaudio');
-    const h = m.hits[0];
-    assert.equal(h.url, '/v1/text-to-speech/voixTest123?output_format=opus_48000_64');
-    assert.equal(h.headers['xi-api-key'], 'cle-eleven');
-    const sent = JSON.parse(h.body.toString()) as { text: string; model_id: string };
-    assert.equal(sent.model_id, 'eleven_multilingual_v2');
-    assert.equal(sent.text, 'Voilà : npm test passe. Détails sur le lien affiché. Odin Breaker', 'une fin de ligne devient une pause');
-    assert.equal(ttsReady(v, env), true);
-    assert.equal(ttsReady({ ...v, tts: { ...v.tts, voiceId: '' } }, env), true, 'sans voix choisie : la voix d\'homme prête à l\'emploi sert, une clé suffit');
-    assert.equal(ttsReady({ ...v, tts: { ...v.tts, voiceId: '' } }, {}), false, 'sans clé : pas prêt');
-    assert.match(forSpeech('```js\nx()\n```'), /code affiché/);
-  } finally { m.close(); }
+test('texte préparé pour être dit : nettoyé (outil sans modèle, gardé pour la future voix d\'Odin)', () => {
+  assert.equal(forSpeech('**Voilà** : `npm test` passe. Détails sur https://exemple.fr\n\n⚡ Odin Breaker'), 'Voilà : npm test passe. Détails sur le lien affiché. Odin Breaker', 'une fin de ligne devient une pause');
+  assert.match(forSpeech('```js\nx()\n```'), /code affiché/);
 });
 
-test('copie de voix : jamais sans consentement, identifiant renvoyé sinon', async () => {
-  const m = await mock(() => ({ body: JSON.stringify({ voice_id: 'clone42' }) }));
-  try {
-    const v = voiceCfg(m.url, m.url);
-    const sample = [{ data: new Uint8Array([9, 9]), mime: 'audio/mpeg', filename: 'moi.mp3' }];
-    await assert.rejects(cloneVoice('Ma voix', sample, false, v, env), /accord/);
-    assert.equal(m.hits.length, 0, 'rien n\'est envoyé sans consentement');
-    assert.deepEqual(await cloneVoice('Ma voix', sample, true, v, env), { voiceId: 'clone42', needsCheck: false });
-    assert.equal(m.hits[0].url, '/v1/voices/add');
-    assert.match(m.hits[0].body.toString('latin1'), /name="name"\r\n\r\nMa voix/);
-  } finally { m.close(); }
-});
-
-test('interface web : micro → Whisper, lecture → ElevenLabs, copie enregistrée dans la config', async () => {
-  const m = await mock((h) => h.url.includes('transcriptions') ? { body: JSON.stringify({ text: 'bonjour Odin' }) }
-    : h.url.includes('text-to-speech') ? { type: 'audio/mpeg', body: Buffer.from('MP3') }
-    : h.url.includes('voices/add') ? { body: JSON.stringify({ voice_id: 'clonee99' }) }
-    : { body: JSON.stringify({ voices: [{ voice_id: 'v1', name: 'Rachel', category: 'premade' }] }) });
+test('interface web : micro, lecture, liste des voix et copie répondent « pas encore », sans aucun appel', async () => {
+  const m = await mock(() => ({ body: JSON.stringify({ text: 'bonjour Odin', voice_id: 'clonee99', voices: [{ voice_id: 'v1', name: 'Rachel', category: 'premade' }] }) }));
   process.env.ELEVEN_TEST = 'cle-eleven'; process.env.OPENAI_TEST = 'cle-openai';
   const o = makeOdin([], { config: (c) => ({ ...c, voice: voiceCfg(m.url, m.url) }) });
   const port = 21000 + Math.floor(Math.random() * 20000), token = ensureWebToken(o.paths);
@@ -102,24 +70,22 @@ test('interface web : micro → Whisper, lecture → ElevenLabs, copie enregistr
   await gw.start();
   const B = `http://127.0.0.1:${port}`, h = { authorization: `Bearer ${token}`, 'x-odin': '1' };
   try {
-    const t = await (await fetch(`${B}/api/voice/transcribe`, { method: 'POST', headers: { ...h, 'content-type': 'audio/webm' }, body: new Uint8Array([1, 2, 3]) })).json() as { ok: boolean; text: string; lang: string };
-    assert.equal(t.ok, true); assert.equal(t.text, 'bonjour Odin'); assert.equal(t.lang, 'fr');
-    const s = await fetch(`${B}/api/voice/speak`, { method: 'POST', headers: { ...h, 'content-type': 'application/json' }, body: JSON.stringify({ text: 'Salut' }) });
-    assert.equal(s.headers.get('content-type'), 'audio/mpeg');
-    assert.equal(Buffer.from(await s.arrayBuffer()).toString(), 'MP3');
-    const list = await (await fetch(`${B}/api/voice/voices`, { headers: h })).json() as { voices: Array<{ name: string }> };
-    assert.equal(list.voices[0].name, 'Rachel');
-    const refused = await (await fetch(`${B}/api/voice/clone?name=Moi`, { method: 'POST', headers: { ...h, 'content-type': 'audio/mpeg' }, body: new Uint8Array([1]) })).json() as { ok: boolean; error: string };
-    assert.match(refused.error, /accord/);
-    const ok = await (await fetch(`${B}/api/voice/clone?name=Moi&consent=1`, { method: 'POST', headers: { ...h, 'content-type': 'audio/mpeg' }, body: new Uint8Array([1]) })).json() as { ok: boolean };
-    assert.equal(ok.ok, true);
-    assert.equal(o.cfg.voice.tts.voiceId, 'clonee99');
+    const t = await (await fetch(`${B}/api/voice/transcribe`, { method: 'POST', headers: { ...h, 'content-type': 'audio/webm' }, body: new Uint8Array([1, 2, 3]) })).json() as { ok: boolean; error: string };
+    assert.equal(t.ok, false); assert.match(t.error, /pas encore entraîné/);
+    const s = await (await fetch(`${B}/api/voice/speak`, { method: 'POST', headers: { ...h, 'content-type': 'application/json' }, body: JSON.stringify({ text: 'Salut' }) })).json() as { ok: boolean; error: string };
+    assert.equal(s.ok, false); assert.match(s.error, /pas encore entraîné/);
+    const list = await (await fetch(`${B}/api/voice/voices`, { headers: h })).json() as { voices: unknown[] };
+    assert.deepEqual(list.voices, []);
+    const copie = await (await fetch(`${B}/api/voice/clone?name=Moi&consent=1`, { method: 'POST', headers: { ...h, 'content-type': 'audio/mpeg' }, body: new Uint8Array([1]) })).json() as { ok: boolean; error: string };
+    assert.equal(copie.ok, false); assert.match(copie.error, /copier une voix/);
+    assert.equal(o.cfg.voice.tts.voiceId, 'voixTest123', 'aucune voix copiée');
     const page = await fetch(`${B}/`, { headers: { cookie: `odin_token=${token}` } });
     assert.match(page.headers.get('content-security-policy')!, /media-src 'self' blob:/);
+    assert.equal(m.hits.length, 0, 'aucune demande n\'est partie');
   } finally { await gw.stop(); o.cleanup(); m.close(); delete process.env.ELEVEN_TEST; delete process.env.OPENAI_TEST; }
 });
 
-test('Telegram : note vocale transcrite, réponse écrite + note vocale ; fichier déposé dans inbox', async () => {
+test('Telegram : réponse écrite à une note vocale (texte fourni par le canal), sans note vocale en retour ; fichier déposé dans inbox', async () => {
   let served = false;
   const tg = await mock((h) => {
     if (h.url.endsWith('/getMe')) return { body: JSON.stringify({ ok: true, result: { username: 'odin_bot' } }) };
@@ -143,40 +109,17 @@ test('Telegram : note vocale transcrite, réponse écrite + note vocale ; fichie
   await gw.start();
   try {
     const until = Date.now() + 5000;
-    // On attend les deux réponses écrites ET la note vocale (elle part après le texte ; une machine chargée la retarde).
     const sent = (t: string) => tg.hits.some((x) => x.url.endsWith('/sendMessage') && JSON.parse(x.body.toString()).text === t);
-    while (Date.now() < until && !(sent('La lumière est allumée.') && sent('Facture rangée.') && tg.hits.some((x) => x.url.endsWith('/sendVoice')))) await new Promise((r) => setTimeout(r, 50));
+    while (Date.now() < until && !(sent('La lumière est allumée.') && sent('Facture rangée.'))) await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 300));
     const msgs = tg.hits.filter((x) => x.url.endsWith('/sendMessage')).map((x) => JSON.parse(x.body.toString()).text as string);
     assert.ok(msgs.some((t) => t === 'La lumière est allumée.'), 'texte seul, sans émoji');
     assert.match(o.provider.calls[0].messages.at(-1)!.content, /allume la lumière/);
-    assert.ok(tg.hits.some((x) => x.url.endsWith('/sendVoice')), 'réponse vocale envoyée');
+    assert.equal(tg.hits.some((x) => x.url.endsWith('/sendVoice')), false, 'aucune note vocale');
+    assert.equal(eleven.hits.length, 0, 'ElevenLabs n\'est pas appelé');
     const fileMsg = o.provider.calls[1].messages.at(-1)!.content;
     assert.match(fileMsg, /Range ça[\s\S]*\[Document joint : inbox\/.*facture mars\.pdf \(application\/pdf[\s\S]*doc_read/);
   } finally { await gw.stop(); o.cleanup(); tg.close(); eleven.close(); delete process.env.ELEVEN_TEST; }
-});
-
-test('voix locale : Piper (WAV, sans clé) et serveur compatible OpenAI, tout reste sur la machine', async () => {
-  // Le serveur Piper actuel synthétise sur POST /synthesize (voir test/voix.test.ts pour ses deux protocoles en détail).
-  const m = await mock((h) => (h.url === '/synthesize' && h.method === 'POST' ? { type: 'audio/wav', body: Buffer.from('RIFFfakewav') } : h.url === '/v1/audio/speech' ? { type: 'audio/mpeg', body: Buffer.from('ID3local') } : { status: 404, body: '{}' }));
-  try {
-    const base = voiceCfg(m.url, m.url);
-    const piper = { ...base, tts: { provider: 'piper' as const, voiceId: '', voiceName: '', model: '', baseUrl: m.url, apiKeyEnv: '' } };
-    assert.equal(ttsReady(piper, {}), true, 'Piper : aucune clé, aucune voix à choisir');
-    const a = await speakAudio('Bonjour **toi**', piper, 'mp3_44100_128', undefined, {});
-    assert.equal(a.mime, 'audio/wav');
-    assert.equal(Buffer.from(a.data).toString(), 'RIFFfakewav');
-    assert.deepEqual(JSON.parse(m.hits[0].body.toString()), { text: 'Bonjour toi' });
-    assert.equal(ttsIsLocal(piper), true);
-
-    const oa = { ...base, tts: { provider: 'openai' as const, voiceId: 'nova', voiceName: 'nova', model: 'tts-1', baseUrl: `${m.url}/v1`, apiKeyEnv: 'ABSENTE' } };
-    assert.equal(ttsReady(oa, {}), true, 'serveur local compatible OpenAI : sans clé');
-    assert.equal(ttsReady({ ...oa, tts: { ...oa.tts, baseUrl: 'https://api.openai.com/v1' } }, {}), false, 'OpenAI en ligne : clé requise');
-    const b = await speakAudio('Salut', oa, 'opus_48000_64', undefined, {});
-    assert.equal(b.mime, 'audio/ogg');
-    const sent = JSON.parse(m.hits[1].body.toString());
-    assert.equal(sent.voice, 'nova'); assert.equal(sent.response_format, 'opus'); assert.equal(sent.input, 'Salut');
-    assert.equal(m.hits[1].headers.authorization, undefined, 'pas de clé envoyée quand il n\'y en a pas');
-  } finally { m.close(); }
 });
 
 test('Telegram : « écrit… » pendant le travail, mise en forme propre, visage d\'Odin en émoji à la fin', async () => {
@@ -254,19 +197,16 @@ test('Telegram : message de progression comme Hermes (compétence, terminal, scr
   } finally { await gw.stop(); o.cleanup(); tg.close(); }
 });
 
-test('vocal dans une autre langue : langue détectée, réponse dans cette langue ; écoute prête sans rien cocher avec une clé', async () => {
+test('vocal dans une autre langue : plus d\'écoute (« pas encore ») ; la langue d\'un texte écrit se devine toujours sans modèle', async () => {
   const { hear, spokenLanguage, guessLang } = await import('../src/voice/voice.ts');
-  const { parseWhisperOut } = await import('../src/voice/local.ts');
-  const m = await mock(() => ({ body: JSON.stringify({ text: 'Turn on the living room light', language: 'english', segments: [{ start: 0, end: 2.1, text: ' Turn on the living room light' }] }) }));
+  const m = await mock(() => ({ body: JSON.stringify({ text: 'Turn on the living room light', language: 'english' }) }));
   try {
-    const v = { ...voiceCfg(m.url, m.url), enabled: false };
-    const h = await hear(new Uint8Array([1, 2, 3]), 'audio/ogg', v, undefined, env);
-    assert.equal(h.language, 'en');
-    assert.equal(h.segments[0].text, 'Turn on the living room light');
-    assert.equal(spokenLanguage('Turn on the living room light'), 'en');
+    const v = { ...voiceCfg(m.url, m.url), enabled: false, stt: { ...voiceCfg(m.url, m.url).stt, language: 'en' } };
+    await assert.rejects(hear(new Uint8Array([1, 2, 3]), 'audio/ogg', v, undefined, env), /my own listening model isn't trained yet/);
+    assert.equal(spokenLanguage('Turn on the living room light'), undefined);
+    assert.equal(m.hits.length, 0, 'aucune demande n\'est partie');
   } finally { m.close(); }
   assert.equal(guessLang('Hello, can you tell me what is the weather like today?'), 'en');
   assert.equal(guessLang('Bonjour, est-ce que tu peux allumer la lumière ?'), 'fr');
   assert.equal(guessLang('Habari, wewe ni nani na unaweza kunisaidia sana'), 'sw');
-  assert.deepEqual(parseWhisperOut('[00:00:00.000 --> 00:00:02.500]   Bonjour à tous.\n[00:00:02.500 --> 00:00:05.000]   [Musique]\n[00:01:00.000 --> 00:01:03.200]  Fin.'), [{ start: 0, end: 2.5, text: 'Bonjour à tous.' }, { start: 60, end: 63.2, text: 'Fin.' }]);
 });

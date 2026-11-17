@@ -190,7 +190,7 @@ test('sources des signatures : d\'où elles viennent, dernière et prochaine mis
     assert.equal(s('cisa-kev').etat, 'ok'); assert.equal(s('cisa-kev').nombre, 2); assert.ok(Date.parse(s('cisa-kev').derniere!) > Date.now() - 60_000);
     assert.ok(Math.abs(Date.parse(s('cisa-kev').prochaine!) - (Date.now() + 24 * 3600_000)) < 120_000, 'prochaine : dans 24 h (son rythme)');
     assert.equal(s('stalkerware').etat, 'échec'); assert.match(s('stalkerware').erreur!, /503/); assert.equal(s('stalkerware').echecs, 1);
-    assert.equal(s('malwarebazaar').etat, 'clé absente'); assert.equal(s('clamav-daily').etat, 'désactivée'); assert.equal(s('virustotal').etat, 'à la demande'); assert.equal(s('clamav').etat, 'référence');
+    assert.equal(s('malwarebazaar').etat, 'clé absente'); assert.equal(s('clamav-daily').etat, 'désactivée'); assert.equal(d.sources.some((x) => x.id === 'virustotal'), false, 'VirusTotal retiré'); assert.equal(s('malwarebazaar-api').etat, 'à la demande'); assert.equal(s('clamav').etat, 'référence');
     assert.deepEqual(d.failles.map((f) => f.cve), ['CVE-2026-4242', 'CVE-2025-0001'], 'les plus récentes d\'abord');
     assert.match(r.text, /CISA KEV : ok · 2 failles · dernière .* · prochaine /); assert.match(r.text, /Failles récemment déclarées \(CISA KEV\) :\n- .* · CVE-2026-4242 · Exemple Serveur : Exécution de code à distance \(rançongiciels\)/);
     // La page : l'onglet Sources (tableau des sources, failles récentes, bouton de mise à jour).

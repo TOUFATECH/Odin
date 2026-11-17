@@ -287,7 +287,6 @@ export function fausseOreille(rendu: (src: SourceSon, op: OptionsAnalyse) => Ana
     async analyserSon(src, op = {}) { appels.push({ src, op }); return { analyse: rendu(src, op), empreinte: { sha: 'x', codes: new Uint32Array(0), instants: new Uint32Array(0) } }; },
     async ouvrirModeleSons() { return { pret, classes: 1, libelles: ['verre cassé'], classer: async () => ({ probas: Float32Array.of(0.9), parPas: Float32Array.of(0.9), pas: 1, plongement: new Float32Array(192) }) }; },
     etatModeleSons: () => ({ present: pret, verifie: pret, aTourne: false }),
-    async telechargerModeleSons() { return { ok: false, texte: 'non' }; },
     voterEmpreinte: () => [],
     sonFabrique: () => new Uint8Array(8),
   };

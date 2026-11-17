@@ -4,7 +4,6 @@
 
 import type { Valhalla } from './service.ts';
 import { accord } from '../core/genre.ts';
-import { horn } from './modules/bragi.ts';
 import { observe } from './modules/ullr.ts';
 import { SENSORS } from './ullr/incidents.ts';
 
@@ -26,7 +25,6 @@ export const LINKS: Link[] = [
   { from: 'ymir', to: 'forseti', when: 'une machine virtuelle s\'arrête ou un nœud sature', does: 'alerte', auto: true, kind: 'donnée' },
   { from: 'hermod', to: 'forseti', when: 'une machine du parc disparaît du réseau', does: 'alerte', auto: true, kind: 'donnée' },
   { from: 'himinbjorg', to: 'midgard', when: 'mouvement détecté aux heures surveillées', does: 'la scène « Alerte intrusion » est lancée si elle existe', auto: true, kind: 'réflexe' },
-  { from: 'forseti', to: 'bragi', when: 'alerte critique', does: 'Orphée (Triton) la dit à voix haute sur les enceintes (si activé)', auto: true, kind: 'réflexe' },
   { from: 'appareils', to: 'midgard', when: 'un appareil change d\'état', does: 'le tableau de bord de la maison est à jour ; les scènes le commandent', auto: true, kind: 'donnée' },
   { from: 'brokkr', to: 'appareils', when: 'un module est branché sur Odin', does: 'il apparaît dans Constellation puis Midgard', auto: true, kind: 'donnée' },
   { from: 'rodd', to: 'bragi', when: 'tu parles à Odin (web, téléphone, Telegram, Hestia)', does: 'tes mots de Écho sont soufflés à l\'écoute puis corrigés : ta voix est mieux comprise partout', auto: true, kind: 'donnée' },
@@ -228,9 +226,9 @@ export function wireReflexes(v: Valhalla, o: { retryMs?: number } = {}): () => v
       (t as { unref?: () => void }).unref?.(); timers.add(t);
     }
   };
-  const onAlert = (a: { level: string; title: string; module: string }) => { if (a.level === 'critique') void horn(v.ctx('bragi'), `Alerte : ${a.title}`); };
-  v.events.on('event', onEvent); v.events.on('alert', onAlert);
-  return () => { v.events.off('event', onEvent); v.events.off('alert', onAlert); for (const t of timers) clearTimeout(t); timers.clear(); };
+  // Une alerte critique n'est plus dite à voix haute (Triton) : la synthèse vocale de Home Assistant est retirée (17/11/2026).
+  v.events.on('event', onEvent);
+  return () => { v.events.off('event', onEvent); for (const t of timers) clearTimeout(t); timers.clear(); };
 }
 
 /** Modèles d'automatisations entre applis (Talos). */

@@ -145,7 +145,7 @@ export interface RunResult {
   timing?: Record<string, number>;
 }
 
-const SUBAGENT_FORBIDDEN = new Set(['delegate', 'send_message', 'schedule_task', 'schedule_cancel', 'reminder_set', 'skill_propose', 'memory_save', 'codex_run']);
+const SUBAGENT_FORBIDDEN = new Set(['delegate', 'send_message', 'schedule_task', 'schedule_cancel', 'reminder_set', 'skill_propose', 'memory_save']);
 
 export class Agent {
   readonly deps: AgentDeps;

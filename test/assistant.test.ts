@@ -5,7 +5,6 @@ import { Gateway } from '../src/bifrost/gateway.ts';
 import type { Channel } from '../src/bifrost/channel.ts';
 import { nags, parseRepeat, parseTime, parseWhen, reminderReply } from '../src/cron/reminders.ts';
 import { weatherLine, weatherWords, morningBriefing } from '../src/bifrost/briefing.ts';
-import { installScript } from '../src/voice/local.ts';
 import { call, makeOdin } from './helpers.ts';
 
 const NOW = new Date(2026, 10, 6, 21, 30); // vendredi 6 novembre 2026, 21 h 30
@@ -113,11 +112,10 @@ test('briefing du matin : météo (Open-Meteo), rappels du jour, nuit', async ()
   o.cleanup();
 });
 
-test('voix locale : le script installe Whisper et Piper (voix tom), sans rien d\'autre', () => {
-  const s = installScript({ stt: true, tts: true, model: 'small' });
-  assert.match(s, /whisper\.cpp/); assert.match(s, /ggml-small\.bin/); assert.match(s, /fr_FR-tom-medium/); assert.match(s, /fr_FR-siwis-medium/); assert.match(s, /fr\/fr_FR\/siwis\/medium/);
-  assert.doesNotMatch(installScript({ stt: false, tts: true, model: 'small' }), /whisper\.cpp/);
-  assert.doesNotMatch(s, /rm -rf/);
+test('voix locale : plus d’outil pour installer Whisper et Piper (modèles d’autrui)', async () => {
+  const a = await import('../src/tools/assistant.ts');
+  assert.equal('voiceSetup' in a, false);
+  assert.equal(a.ASSISTANT_TOOLS.some((t) => t.name === 'voice_setup'), false);
 });
 
 import { detectHabits, habitCron, keywords, recordAnswer, revokeTrust, trusted, type Ask } from '../src/learn/habits.ts';

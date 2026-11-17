@@ -6,7 +6,8 @@
 //  - `applis` : des tournures qui S'AJOUTENT à celles d'une appli (clé « appli ») ou d'une action (« appli.action ») ;
 //  - `pasEncoreMots` : les mots qui désignent ce qu'Odin ne sait pas encore faire (mêmes clés que PAS_ENCORE) ;
 //  - `heure`, `abandon` : « quelle heure est-il », « laisse tomber » dans cette langue ;
-//  - `textes` et `pasEncore` : ce qu'Odin répond sans modèle dans cette langue.
+//  - `textes` et `pasEncore` : ce qu'Odin répond sans modèle dans cette langue ;
+//  - `modeles` : ce qu'une fonction dit tant que le modèle d'Odin qu'elle attend n'est pas entraîné (voir pas-entraine.ts).
 // RECONNAÎTRE une langue ne demande pas de fichier ici : les profils (`profils.json`, des centaines de langues) s'en
 // chargent. Un fichier ici sert à la COMPRENDRE sans modèle et à y RÉPONDRE ; sans lui, Odin dit la langue reconnue et
 // qu'il lui faut un modèle de langue pour la comprendre.
@@ -30,8 +31,10 @@ export interface TableLangue {
   abandon: string[];
   textes: Partial<Record<CleTexte, string>>;
   pasEncore: Record<string, { quoi: string; proche: string }>;
+  /** Les sortes de modèles (« d'écoute », « de voix »…) et ce que chaque fonction en attente dit d'elle-même. */
+  modeles: { sortes: Record<string, string>; choses: Record<string, { quoi: string; proche: string }> };
 }
-export type CleTexte = 'rienCompris' | 'garde' | 'pasEncore' | 'pasCetteLangue' | 'ilMeManque' | 'jeNeConnaisPas' | 'heure' | 'abandonne' | 'faitSansIA';
+export type CleTexte = 'rienCompris' | 'garde' | 'pasEncore' | 'pasCetteLangue' | 'ilMeManque' | 'jeNeConnaisPas' | 'heure' | 'abandonne' | 'faitSansIA' | 'modelePasEntraine';
 
 const DOSSIER = fileURLToPath(new URL('./langues/', import.meta.url));
 let cache: Map<string, TableLangue> | undefined;
@@ -44,7 +47,7 @@ export function langues(): Map<string, TableLangue> {
     try {
       const j = JSON.parse(readFileSync(DOSSIER + f, 'utf8')) as Partial<TableLangue>;
       if (!j.code) continue;
-      m.set(j.code, { code: j.code, iso3: j.iso3, nom: j.nom ?? j.code, petitsMots: j.petitsMots ?? [], indices: j.indices ?? [], formes: j.formes ?? {}, applis: j.applis ?? {}, pasEncoreMots: j.pasEncoreMots ?? {}, heure: j.heure ?? [], abandon: j.abandon ?? [], textes: j.textes ?? {}, pasEncore: j.pasEncore ?? {} });
+      m.set(j.code, { code: j.code, iso3: j.iso3, nom: j.nom ?? j.code, petitsMots: j.petitsMots ?? [], indices: j.indices ?? [], formes: j.formes ?? {}, applis: j.applis ?? {}, pasEncoreMots: j.pasEncoreMots ?? {}, heure: j.heure ?? [], abandon: j.abandon ?? [], textes: j.textes ?? {}, pasEncore: j.pasEncore ?? {}, modeles: { sortes: j.modeles?.sortes ?? {}, choses: j.modeles?.choses ?? {} } });
     } catch { /* fichier de langue illisible : ignoré */ }
   }
   cache = m;

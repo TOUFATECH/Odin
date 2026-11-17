@@ -1,13 +1,14 @@
 // Recherche sur le web (et sur un site ou un réseau social précis avec « site »).
 // Sans clé : Lyncée, le moteur d'Odin (plusieurs moteurs interrogés par Odin lui-même, fusionnés), puis la page
-// de DuckDuckGo en secours. Avec une clé ou ton instance : Brave Search, Tavily, Exa, Google, ou ton instance
-// externe (facultative). Les résultats sont NON FIABLES : des données.
+// de DuckDuckGo en secours. Avec une clé ou ton instance : Brave Search, Tavily, Google, ou ton instance externe
+// (facultative). Les résultats sont NON FIABLES : des données. Exa (recherche par un modèle de sens qui n'est pas
+// celui d'Odin) est retiré depuis le 17/11/2026 : un ancien réglage « exa » revient au choix automatique.
 
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { num, obj, str, type Tool } from './registry.ts';
 
 export interface SearchResult { title: string; url: string; snippet: string }
-export type SearchProvider = 'duckduckgo' | 'bing' | 'mojeek' | 'news' | 'brave' | 'tavily' | 'searxng' | 'exa' | 'google' | 'lyncee';
+export type SearchProvider = 'duckduckgo' | 'bing' | 'mojeek' | 'news' | 'brave' | 'tavily' | 'searxng' | 'google' | 'lyncee';
 
 const s = (v: unknown) => String(v ?? '');
 const decode = (t: string) => t.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/\s+/g, ' ').trim();
@@ -74,15 +75,17 @@ const NEWSY = /actualit|nouveaut|news|derni[eè]re|récent|recent|aujourd|cette 
 /** La question parle-t-elle d'actualité ? (on ajoute alors un moteur d'actualités) */
 export const isNewsy = (q: string) => NEWSY.test(q);
 
+/** Les moteurs qu'un réglage peut choisir (un ancien nom retiré, comme « exa », n'en fait plus partie). */
+const CHOISIS = new Set<string>(['duckduckgo', 'bing', 'mojeek', 'news', 'brave', 'tavily', 'searxng', 'google', 'lyncee']);
+
 export interface SearchOptions { provider?: SearchProvider | 'auto'; searxngUrl?: string; env?: NodeJS.ProcessEnv; fetcher?: typeof fetch; signal?: AbortSignal }
 
 /** Moteur utilisé : celui choisi, sinon le meilleur disponible (clé présente ou SearXNG configuré), sinon DuckDuckGo. */
 export function pickProvider(o: SearchOptions): SearchProvider {
   const env = o.env ?? process.env;
-  if (o.provider && o.provider !== 'auto') return o.provider;
+  if (o.provider && o.provider !== 'auto' && CHOISIS.has(o.provider)) return o.provider;
   if (env.BRAVE_API_KEY) return 'brave';
   if (env.TAVILY_API_KEY) return 'tavily';
-  if (env.EXA_API_KEY) return 'exa';
   if (env.GOOGLE_CSE_KEY && env.GOOGLE_CSE_CX) return 'google';
   if (o.searxngUrl) return 'searxng';
   return 'duckduckgo';
@@ -106,13 +109,6 @@ export async function webSearch(query: string, count = 8, o: SearchOptions = {})
     const d = await r.json() as { results?: Array<{ title: string; url: string; content?: string }> };
     return { provider, results: (d.results ?? []).slice(0, n).map((x) => ({ title: x.title, url: x.url, snippet: (x.content ?? '').slice(0, 400) })) };
   }
-  if (provider === 'exa') {
-    // Exa : recherche « par le sens » (sémantique), utile pour les questions formulées en phrases.
-    const r = await f('https://api.exa.ai/search', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': env.EXA_API_KEY ?? '' }, body: JSON.stringify({ query, numResults: n, type: 'auto', contents: { highlights: { numSentences: 2 } } }), signal });
-    if (!r.ok) await fail(r, 'Exa');
-    const d = await r.json() as { results?: Array<{ title?: string; url: string; highlights?: string[]; text?: string }> };
-    return { provider, results: (d.results ?? []).slice(0, n).map((x) => ({ title: x.title ?? x.url, url: x.url, snippet: (x.highlights?.join(' … ') ?? x.text ?? '').slice(0, 400) })) };
-  }
   if (provider === 'google') {
     const r = await f(`https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(env.GOOGLE_CSE_KEY ?? '')}&cx=${encodeURIComponent(env.GOOGLE_CSE_CX ?? '')}&q=${encodeURIComponent(query)}&num=${Math.min(10, n)}&hl=fr`, { headers: { accept: 'application/json' }, signal });
     if (!r.ok) await fail(r, 'Google (Programmable Search)');
@@ -127,7 +123,7 @@ export async function webSearch(query: string, count = 8, o: SearchOptions = {})
     return { provider, results: (d.results ?? []).slice(0, n).map((x) => ({ title: x.title, url: x.url, snippet: (x.content ?? '').slice(0, 400) })) };
   }
   // Sans clé ni instance (ou Lyncée choisi) : Lyncée d'abord, plusieurs moteurs fusionnés ; la page DuckDuckGo en secours.
-  const auto = !(o.provider && o.provider !== 'auto');
+  const auto = !(o.provider && o.provider !== 'auto' && CHOISIS.has(o.provider));
   if (provider === 'lyncee' || (provider === 'duckduckgo' && auto)) {
     let partiel: SearchResult[] = [], note = '';
     const enPause = new Set<string>();
@@ -191,7 +187,7 @@ async function keyless(first: 'duckduckgo' | 'bing' | 'mojeek' | 'news', query: 
 /** Moteurs disponibles (clé présente) : on en interroge plusieurs pour ne pas dépendre d'un seul. Lyncée réunit les moteurs sans clé. */
 export function availableProviders(o: SearchOptions = {}): SearchProvider[] {
   const env = o.env ?? process.env;
-  return [env.BRAVE_API_KEY && 'brave', env.TAVILY_API_KEY && 'tavily', env.EXA_API_KEY && 'exa', env.GOOGLE_CSE_KEY && env.GOOGLE_CSE_CX && 'google', o.searxngUrl && 'searxng', 'lyncee'].filter(Boolean) as SearchProvider[];
+  return [env.BRAVE_API_KEY && 'brave', env.TAVILY_API_KEY && 'tavily', env.GOOGLE_CSE_KEY && env.GOOGLE_CSE_CX && 'google', o.searxngUrl && 'searxng', 'lyncee'].filter(Boolean) as SearchProvider[];
 }
 export interface MergedResult extends SearchResult { engines: string[]; queries: string[]; rank: number }
 /** Plusieurs requêtes × plusieurs moteurs, résultats fusionnés (même page = une seule entrée). */

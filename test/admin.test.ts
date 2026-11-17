@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { diagnose, dropIn, fixAdmin, fixAdminWindows, inContainer, noNewPrivs, parseShow, unitOf, type Facts, type Shell } from '../src/machines/admin.ts';
 import { sudoRefused } from '../src/machines/access.ts';
-import { voiceBlocked, voiceFailure } from '../src/voice/local.ts';
+import { voiceBlocked } from '../src/voice/local.ts';
 
 const base: Facts = { platform: 'linux', uid: 1001, elevated: false, noNewPrivs: false, sudo: true, sudoFree: false, password: false, container: false, user: 'odin', command: '/usr/bin/node /opt/odin/bin/odin.mjs' };
 
@@ -50,25 +50,13 @@ test('droits administrateur : service, conteneur et verrou reconnus d\'après ce
 test('droits administrateur : sudo a-t-il vraiment refusé ? (sinon on montre la vraie erreur)', () => {
   for (const out of ['sudo: a password is required', 'sudo: a terminal is required to read the password; either use the -S option', 'sudo: The "no new privileges" flag is set, which prevents sudo from running as root.', 'bash: line 1: sudo: command not found', 'sh: 1: sudo: not found', 'sudo: effective uid is not 0, is /usr/bin/sudo on a file system with the \'nosuid\' option set']) assert.equal(sudoRefused(out), true, out);
   for (const out of ['E: Unable to locate package cmake', 'CMake Error at CMakeLists.txt:3', 'curl: (6) Could not resolve host: huggingface.co', 'fatal: unable to access \'https://github.com/\'', '']) assert.equal(sudoRefused(out), false, out);
-  // L'écoute : droits manquants → la cause du diagnostic ; autre échec → la vraie dernière ligne, sans parler de mot de passe.
-  const adm = voiceFailure('Paquets à installer : cmake g++ ffmpeg\nsudo: a password is required', true, 'Pas encore administrateur : sudo me demande un mot de passe. Dis-moi une fois…');
-  assert.match(adm, /il manque cmake, g\+\+, ffmpeg[\s\S]*droits administrateur[\s\S]*sudo me demande un mot de passe[\s\S]*je relance l'installation tout seul/);
-  const real = voiceFailure('→ Whisper (compréhension des vocaux)\nCMake Error at CMakeLists.txt:3 (project): No CMAKE_CXX_COMPILER could be found.', false);
-  assert.match(real, /a échoué : CMake Error at CMakeLists\.txt:3/); assert.doesNotMatch(real, /mot de passe/);
 });
 
-test('écoute des vocaux : sans droits pour installer ses outils, Odin le dit une fois, avec la vraie cause et la commande', { skip: process.platform !== 'linux' && 'cette installation ne concerne que Linux' }, () => {
-  const home = mkdtempSync(join(tmpdir(), 'odin-voix-'));
-  try {
-    const locked = diagnose({ ...base, noNewPrivs: true, unit: { name: 'odin.service', scope: 'system' } });
-    const msg = voiceBlocked(home, (c) => !['cmake', 'g++', 'ffmpeg'].includes(c), () => locked)!;
-    assert.match(msg, /^Je ne peux pas encore écouter tes vocaux : il manque cmake, g\+\+, ffmpeg sur ce poste/);
-    assert.match(msg, /NoNewPrivileges[\s\S]*admin fix --unit odin\.service --user odin[\s\S]*je l'installe tout seul/);
-    assert.doesNotMatch(msg, /Réglages → Droits et machines|mot de passe admin de ce poste/, 'pas de mot de passe réclamé quand il ne servirait à rien');
-    // Tout est là, ou Odin est administrateur : rien ne bloque, l'installation peut partir.
-    assert.equal(voiceBlocked(home, () => true, () => locked), undefined);
-    assert.equal(voiceBlocked(home, () => false, () => diagnose({ ...base, sudoFree: true })), undefined);
-  } finally { rmSync(home, { recursive: true, force: true }); }
+test('écoute des vocaux : plus rien à installer ; Odin dit « pas encore », sans parler de droits ni de mot de passe', () => {
+  // Retrait des modèles d'autrui (17/11/2026) : Whisper n'est plus installé, les droits administrateur n'y changent rien.
+  const msg = voiceBlocked();
+  assert.match(msg, /mon propre modèle d'écoute n'est pas encore entraîné/);
+  assert.doesNotMatch(msg, /administrateur|mot de passe|installe/);
 });
 
 test('odin admin fix : seuls les réglages qui bloquent sont retirés', () => {

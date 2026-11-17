@@ -63,8 +63,10 @@ test('Champollion : vraies lectures (photo, PDF scanné, PDF cherchable, documen
     r = await v.act('champollion', 'lire', { fichier: 'vocal.ogg' }); assert.match(r.text, /ce qui est dit \(fr\)/); // « demain » se compte à partir d'aujourd'hui : la date attendue aussi (et pas une date écrite en dur).
     const demain = new Date(Date.now() + 864e5).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     assert.ok(r.text.includes(`réunion · ${demain} à 15 h 00`), r.text);
-    useHear(async () => { throw new Error('Whisper local non installé'); });
-    assert.match((await v.act('champollion', 'lire', { fichier: 'vocal.ogg' })).text, /installe la voix locale/);
+    // Sans écoute simulée : le modèle d'écoute d'Odin n'est pas encore entraîné, et la lecture le dit (rien d'autre n'est proposé).
+    useHear();
+    const sans = (await v.act('champollion', 'lire', { fichier: 'vocal.ogg' })).text;
+    assert.match(sans, /pas encore entraîné/); assert.doesNotMatch(sans, /installe/);
     useHear();
     // Un texte collé, et garder une lecture dans le Cerveau
     r = await v.act('champollion', 'texte', { texte: 'Livraison prévue le 18/11/2026 entre 8h et 12h, commande 7781.' }); assert.match(r.text, /livraison · mercredi 18 novembre 2026 à 08 h 00/, r.text);

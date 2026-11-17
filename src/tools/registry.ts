@@ -56,7 +56,7 @@ export interface ToolContext {
   calendar?: OdinConfig['calendar'];
   docs?: OdinConfig['docs'];
   /** Recherche web (moteur, instance SearXNG). */
-  search?: { provider?: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng' | 'exa' | 'google'; searxngUrl?: string };
+  search?: { provider?: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng' | 'google'; searxngUrl?: string };
   /** Réglages de la voix (transcription de fichiers audio). */
   voice?: OdinConfig['voice'];
   /** Isolation du shell (conteneur Docker) si configurée. */

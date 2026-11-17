@@ -177,7 +177,7 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     routing: { ...cfg.routing, showModel: cfg.routing.showModel ?? 'web', directFirst: cfg.routing.directFirst !== false, cheapestFirst: cfg.routing.cheapestFirst !== false, learnDirect: cfg.learning.direct !== false },
     presets: Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, model: p.model, baseUrl: p.baseUrl ?? '', keyEnv: p.keyEnv ?? '', models: p.models ?? [], note: p.note ?? '' }])),
     secrets: Object.fromEntries(SECRET_NAMES.map((n) => [n, secretHint(n, env)])),
-    search: { provider: cfg.search.provider, searxngUrl: cfg.search.searxngUrl },
+    search: { provider: (cfg.search.provider as string) === 'exa' ? 'auto' : cfg.search.provider, searxngUrl: cfg.search.searxngUrl },
     assist: { ...{ spelling: 'auto', tips: true, roam: true }, ...(cfg.assist ?? {}) },
     telegram: { enabled: Boolean(cfg.channels.telegram?.enabled), owners: (cfg.channels.telegram?.owners ?? []).map(String) },
     venus: { url: cfg.venus?.url ?? '', key: Boolean(process.env.VENUS_API_KEY) },
@@ -419,13 +419,13 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       return false; // rien à redémarrer
     }
     case 'search': {
-      const provider = String(b.provider ?? 'auto');
-      if (!['auto', 'duckduckgo', 'brave', 'tavily', 'searxng', 'exa', 'google'].includes(provider)) throw new Error('moteur inconnu');
+      // « exa » est retiré (17/11/2026) : un ancien réglage revient au choix automatique, il ne bloque pas l'enregistrement.
+      const provider = String(b.provider ?? 'auto') === 'exa' ? 'auto' : String(b.provider ?? 'auto');
+      if (!['auto', 'duckduckgo', 'brave', 'tavily', 'searxng', 'google'].includes(provider)) throw new Error('moteur inconnu');
       const url = str('searxngUrl')?.trim() ?? cfg.search.searxngUrl;
       if (url && !/^https?:\/\//.test(url)) throw new Error('adresse SearXNG invalide (ex. http://192.168.1.20:8080)');
       if (str('braveKey')) writeSecret(paths, 'BRAVE_API_KEY', str('braveKey')!);
       if (str('tavilyKey')) writeSecret(paths, 'TAVILY_API_KEY', str('tavilyKey')!);
-      if (str('exaKey')) writeSecret(paths, 'EXA_API_KEY', str('exaKey')!);
       if (str('googleKey')) writeSecret(paths, 'GOOGLE_CSE_KEY', str('googleKey')!);
       if (str('googleCx')) writeSecret(paths, 'GOOGLE_CSE_CX', str('googleCx')!);
       setConfigValue(paths, ['search'], { provider, searxngUrl: url.replace(/\/$/, '') });

@@ -13,7 +13,7 @@ import { tacheEnPause } from '../automatismes.ts';
 import { fuseauOdin, lireRythme, murale, phrase, prochaine, verifierRythme, type Rythme } from '../../draupnir/rythme.ts';
 import { adressesDe, LIGNE_SOURCES, lireJours, lireMultiModeles, MODELES, modele, modelesChoisis, REFERENCE, urlArchive, urlPrevisions, urlSaisonMois, urlSaisonSemaines, type JourValeurs, type Point, type Valeurs } from '../zeus/sources.ts';
 import { COURT_GRANDEUR, GRANDEURS, MOT, NOM_GRANDEUR, PHRASE_VERT, pire, TON, valeurTexte, verdictDuJour, verdictGrandeur, type Couleur, type Prediction, type Verdict } from '../zeus/comparer.ts';
-import { adresseStrataValide, etat as etatStrata, PAS_DE_SERVEUR, PAS_SI_LOIN, prevision as previsionStrata, type JourStrata } from '../zeus/strata.ts';
+import { adresseStrataValide, etat as etatStrata, PAS_DE_SERVEUR, PAS_SI_LOIN, PLUS_INTERROGE } from '../zeus/strata.ts';
 import { lignesMois, lireEc46, lireSeas5, moisAVenir, type AnomalieMois, type AnomalieSemaine, type LigneMois } from '../zeus/saisonnier.ts';
 import { bilan as calculerBilan, decaler, empreinteLieu, journal, type Entree } from '../zeus/bilan.ts';
 
@@ -62,34 +62,23 @@ export async function comparaison(ctx: ModCtx, lieu: LieuZeus, frais = false): P
 const vide: Valeurs = { tmax: null, tmin: null, pluie: null, vent: null };
 const valeursDe = (c: Comparaison, m: string, jour: string): Valeurs | undefined => { const x = c.parModele[m]?.find((y) => y.jour === jour); return x ? { tmax: x.tmax, tmin: x.tmin, pluie: x.pluie, vent: x.vent } : undefined; };
 
-// ---------------- STRATA : la dernière réponse gardée (au plus un appel par jour, plus le bouton « Essayer ») ----------------
-interface StrataGarde { at: string; ok: boolean; couleur?: 'gris' | 'rouge'; texte?: string; jours?: JourStrata[]; carte?: string; etatInitial?: { source?: string; date?: string } }
+// ---------------- STRATA : plus interrogé depuis le 17/11/2026 (un modèle qui n'est pas celui d'Odin) ----------------
+// Il ne reste que la ligne grise qui le dit ; une ancienne réponse gardée n'est plus lue ni comparée.
+interface StrataGarde { at: string; ok: false; couleur: 'gris'; texte: string }
 const adresseStrata = (ctx: ModCtx) => s(ctx.settings.strata);
-const strataGarde = (ctx: ModCtx): StrataGarde | undefined => (ctx.settings.strataDernier && typeof ctx.settings.strataDernier === 'object' ? ctx.settings.strataDernier as StrataGarde : undefined);
-/** La ligne STRATA, toujours présente : grise « Non branché » sans réglage, jamais verte sans vraie réponse. */
+const strataGarde = (ctx: ModCtx): StrataGarde | undefined => { const g = ctx.settings.strataDernier; return g && typeof g === 'object' && !(g as { ok?: unknown }).ok && typeof (g as { texte?: unknown }).texte === 'string' ? g as StrataGarde : undefined; };
+/** La ligne STRATA, toujours grise : « Non branché » sans réglage, sinon la raison pour laquelle il n'est plus interrogé. */
 export function ligneStrata(ctx: ModCtx): { titre: string; detail: string; tone: Tone; mot: string } {
   if (!adresseStrata(ctx)) return { titre: 'STRATA · Non branché', detail: PAS_DE_SERVEUR, tone: 'neutre', mot: 'Non branché' };
-  const g = strataGarde(ctx);
-  if (!g) return { titre: 'STRATA · Pas encore essayé', detail: 'Serveur réglé, pas encore interrogé : bouton « Essayer le serveur STRATA » (onglet Sources), ou le relevé du matin.', tone: 'neutre', mot: '—' };
-  if (!g.ok) return { titre: `STRATA · ${g.couleur === 'gris' ? '—' : 'Souci'}`, detail: g.texte ?? 'Souci : le serveur STRATA ne répond pas', tone: g.couleur === 'gris' ? 'neutre' : 'mauvais', mot: g.couleur === 'gris' ? '—' : 'Souci' };
-  const ini = g.etatInitial?.source ? ` · état initial : ${g.etatInitial.source}${g.etatInitial.date ? ` (${g.etatInitial.date})` : ''}` : '';
-  return { titre: 'STRATA · Branché', detail: `Réponse du ${g.at.slice(0, 16).replace('T', ' à ')} UTC, ${g.jours?.length ?? 0} jour(s)${g.carte ? ` · ${g.carte}` : ''}${ini}. ${PAS_SI_LOIN}.`, tone: 'neutre', mot: 'Branché' };
+  return { titre: 'STRATA · —', detail: strataGarde(ctx)?.texte ?? PLUS_INTERROGE, tone: 'neutre', mot: '—' };
 }
-async function interrogerStrata(ctx: ModCtx, lieu: LieuZeus): Promise<StrataGarde> {
-  const adr = adresseStrata(ctx);
-  const e = await etatStrata(ctx.fetch, adr);
-  let g: StrataGarde;
-  if (!e.ok) g = { at: ctx.now().toISOString(), ok: false, couleur: e.couleur, texte: e.texte };
-  else if (!e.data.pret) g = { at: ctx.now().toISOString(), ok: false, couleur: 'rouge', texte: `Souci : le serveur STRATA n'est pas prêt${e.data.raison ? ` (${e.data.raison})` : ''}` };
-  else {
-    const p = await previsionStrata(ctx.fetch, adr, lieu, Math.min(3, e.data.joursMax));
-    g = p.ok ? { at: ctx.now().toISOString(), ok: true, jours: p.data.jours, ...(e.data.carte ? { carte: e.data.carte } : {}), ...(p.data.etatInitial ?? e.data.etatInitial ? { etatInitial: p.data.etatInitial ?? e.data.etatInitial } : {}) }
-      : { at: ctx.now().toISOString(), ok: false, couleur: p.couleur, texte: p.texte };
-  }
+/** Ce qu'il y a à dire de STRATA : rien n'est demandé au serveur, la réponse gardée dit seulement pourquoi. */
+async function interrogerStrata(ctx: ModCtx): Promise<StrataGarde> {
+  const e = await etatStrata(ctx.fetch, adresseStrata(ctx));
+  const g: StrataGarde = { at: ctx.now().toISOString(), ok: false, couleur: e.couleur, texte: e.texte };
   ctx.saveSettings({ strataDernier: g });
   return g;
 }
-const strataDuJour = (ctx: ModCtx, jour: string): JourStrata | undefined => { const g = strataGarde(ctx); return g?.ok ? g.jours?.find((x) => x.jour === jour) : undefined; };
 
 // ---------------- Les verdicts du jour ----------------
 export interface JourCompare { jour: string; ref: Valeurs | null; preds: Prediction[]; verdict: Verdict & { details: unknown[] } }
@@ -99,8 +88,6 @@ export function joursCompares(ctx: ModCtx, c: Comparaison, n: number): JourCompa
   return c.jours.slice(0, n).map((jour) => {
     const ref = refPanne ? null : valeursDe(c, REFERENCE, jour) ?? vide;
     const preds: Prediction[] = c.modeles.filter((m) => m !== REFERENCE).map((m) => (c.pannes.includes(m) ? { source: court(m), panne: true } : { source: court(m), valeurs: valeursDe(c, m, jour) ?? null }));
-    const st = strataDuJour(ctx, jour);
-    if (st) preds.push({ source: COURT_STRATA, valeurs: st, ...(st.ventApproche ? { nonComptees: ['vent' as const] } : {}) });
     return { jour, ref, preds, verdict: verdictDuJour(ref, preds) };
   });
 }
@@ -152,9 +139,7 @@ export async function releverPrevisions(ctx: ModCtx, lieu: LieuZeus): Promise<Ac
   const pannes = [...c.pannes], repondu = c.modeles.filter((m) => !c.pannes.includes(m));
   let strata = '';
   if (adresseStrata(ctx)) {
-    const g = await interrogerStrata(ctx, lieu);
-    if (g.ok) { repondu.push('strata'); for (const x of g.jours ?? []) garder('strata', x.jour, { tmax: x.tmax, tmin: x.tmin, pluie: x.pluie, vent: x.ventApproche ? null : x.vent }); strata = ' · STRATA a répondu'; }
-    else { if (g.couleur === 'rouge') pannes.push('strata'); strata = ` · ${g.texte}`; }
+    strata = ` · ${(await interrogerStrata(ctx)).texte}`;
   }
   noterPannes(ctx, auj, pannes, repondu);
   const texte = `🌦 Relevé : ${n} prédiction(s) gardée(s) pour J+1 à J+3${pannes.length ? ` · sans réponse : ${pannes.map(NOMS_SOURCES).join(', ')}` : ''}${strata}.`;
@@ -298,14 +283,14 @@ export const zeus: Module = {
         if (!t) { ctx.saveSettings({ strata: '', strataDernier: '' }); return { ok: true, text: `STRATA débranché. ${PAS_DE_SERVEUR}.` }; }
         const v = adresseStrataValide(t); if (!v.ok) return { ok: false, text: `Adresse refusée : ${v.raison}.` };
         ctx.saveSettings({ strata: v.url, strataDernier: '' });
-        return { ok: true, text: `Serveur STRATA réglé : ${v.url}. Essaie-le avec « Essayer le serveur STRATA » ; ensuite, il est interrogé une fois par jour, pendant le relevé du matin.` };
+        return { ok: true, text: `Adresse STRATA gardée : ${v.url}. ${PLUS_INTERROGE}` };
       } },
-    { id: 'essayer_strata', label: 'Essayer le serveur STRATA', what: 'Demande au serveur STRATA son état et sa prévision des 3 prochains jours (un seul appel)',
+    { id: 'essayer_strata', label: 'Essayer le serveur STRATA', what: 'Dit où en est STRATA (il n\'est plus interrogé : aucun appel)',
       words: ['essaie strata', 'essayer le serveur strata'], run: async (ctx) => {
         if (!adresseStrata(ctx)) return { ok: false, text: `${PAS_DE_SERVEUR}. Règle d'abord son adresse (onglet Sources).` };
-        const lieu = lieuZeus(); if (!lieu) return PAS_DE_LIEU;
-        const g = await interrogerStrata(ctx, lieu), l = ligneStrata(ctx);
-        return { ok: g.ok, text: `${l.titre} : ${l.detail}${g.ok ? `\n${(g.jours ?? []).map((x) => `${nomJour(x.jour)} : ${valeurTexte('tmin', x.tmin)} → ${valeurTexte('tmax', x.tmax)}, pluie ${valeurTexte('pluie', x.pluie)}, vent ${valeurTexte('vent', x.vent)}${x.ventApproche ? ' (vent approché)' : ''}`).join('\n')}` : ''}` };
+        await interrogerStrata(ctx);
+        const l = ligneStrata(ctx);
+        return { ok: false, text: `${l.titre} : ${l.detail}` };
       } },
     { id: 'releve', label: 'Faire le relevé maintenant', what: 'Garde ce que chaque source prévoit (prevu), lit le temps mesuré (mesure), ou les deux',
       params: [{ key: 'quoi', label: 'Quoi', kind: 'select', options: ['tout', 'prevu', 'mesure'], default: 'tout' }],
@@ -373,7 +358,7 @@ export const zeus: Module = {
     sections.push({ ...B(So), kind: 'table', title: 'D\'où vient la météo dans Odin', columns: ['Adresse', 'Ce qu\'elle donne', 'Portée', 'Qui s\'en sert'], rows: LIGNE_SOURCES.map((x) => ({ cells: [`${x.nom} · ${adr[x.adresse] ?? x.adresse}`, x.donne, x.portee, x.qui] })) });
     sections.push({ ...B(So), kind: 'table', title: 'Modèles comparés', columns: ['Modèle', 'Qui le fait tourner', 'Portée', 'Comparé'], rows: MODELES.map((m) => ({ cells: [`${m.nom} (${m.id})`, m.qui, m.portee, modeles.includes(m.id) ? 'oui' : 'non'] })) });
     side.push({ ...B(So), kind: 'form', title: 'Adresse du serveur STRATA', action: 'regler_strata', submit: 'Enregistrer', params: [{ key: 'adresse', label: 'Adresse du serveur STRATA', kind: 'text', default: adresseStrata(ctx), help: 'Une machine Linux avec carte NVIDIA, sur ton réseau (contrat : docs/strata-contrat.md). Vide : débranché.' }], aide: st.detail });
-    side.push({ ...B(So), kind: 'actions', title: 'STRATA', boutons: [{ action: 'essayer_strata', label: 'Essayer le serveur STRATA', primary: true }], aide: 'Un seul appel ; ensuite, une fois par jour pendant le relevé du matin.' });
+    side.push({ ...B(So), kind: 'actions', title: 'STRATA', boutons: [{ action: 'essayer_strata', label: 'Essayer le serveur STRATA', primary: true }], aide: PLUS_INTERROGE });
     side.push({ ...B(So), kind: 'form', title: 'Modèles comparés', action: 'modeles', submit: 'Garder ces modèles', params: [{ key: 'modeles', label: 'Modèles (séparés par des virgules)', kind: 'text', default: modeles.join(', '), help: MODELES.map((m) => m.id).join(', ') }] });
     return { subtitle: lieu ? `Météo comparée · ${lieu.nom}` : 'Météo comparée', kpis, onglets: [C, Bi, M, So], sections, side };
   },

@@ -1,13 +1,15 @@
-// Voix copiées (Réglages → Voix) : copier une voix avec l'accord noté, voir les accords, en retirer un.
-// - L'accord est vérifié et noté AVANT que l'enregistrement parte chez ElevenLabs ; sans accord, rien ne part.
+// Voix copiées (Réglages → Voix) : voir les accords, en retirer un. La copie elle-même passait par ElevenLabs (un modèle
+// qui n'est pas celui d'Odin) : depuis le 17/11/2026 elle répond « pas encore », sans rien noter ni envoyer.
+// - Une copie autrefois faite chez ElevenLabs : l'accord noté reste dans le registre, jusqu'à ce qu'il soit retiré.
 // - L'enregistrement n'est jamais écrit sur le disque d'Odin : il traverse la mémoire, puis il est oublié.
-// - Retirer un accord : Odin arrête tout de suite de parler avec cette voix, puis elle est effacée chez ElevenLabs.
+// - Retirer un accord : Odin arrête tout de suite de parler avec cette voix ; Odin n'appelle plus ElevenLabs, c'est au
+//   propriétaire d'y effacer la voix (elevenlabs.io, Voices).
 
 import type { OdinConfig, OdinPaths } from '../config.ts';
 import { setConfigValue } from '../config.ts';
 import { voiceFor } from '../profiles.ts';
-import { accords, majAccord, noteAccord, oublieAccord, phraseAccord } from '../voice/accords.ts';
-import { cloneBlocked, cloneVoice, removeVoice } from '../voice/voice.ts';
+import { accords, majAccord } from '../voice/accords.ts';
+import { cloneBlocked } from '../voice/voice.ts';
 
 type Deps = { paths: OdinPaths; cfg: OdinConfig };
 
@@ -17,32 +19,12 @@ export function voixCopies(o: Deps): { ok: true; copies: Array<{ id: string; at:
   return { ok: true, copies: accords(o.paths.home).filter((a) => a.voiceId).map((a) => ({ id: a.id, at: a.at, nom: a.voiceName, de: a.de, personne: a.personne, phrase: a.phrase, aVerifier: Boolean(a.aVerifier), retire: a.retire ?? '', effacee: Boolean(a.effacee), actuelle: !a.retire && a.voiceId === cur })) };
 }
 
-/** Copie une voix : accord vérifié et noté, enregistrement envoyé, voix choisie pour Odin. */
-export async function voixCloner(o: Deps, q: URLSearchParams, audio: Uint8Array, type: string, par: string): Promise<{ ok: boolean; error?: string; voiceId?: string; verify?: boolean; text?: string }> {
-  const home = o.paths.home, v = o.cfg.voice;
-  let noted = '';
-  try {
-    const who = phraseAccord({ consent: q.get('consent') === '1', de: q.get('de') ?? 'moi', personne: q.get('personne') ?? '' });
-    const name = (q.get('name') ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 60);
-    if (!name) throw new Error('donne un nom à la voix');
-    if (!audio.byteLength) throw new Error('ajoute un enregistrement (une minute de parole claire suffit)');
-    const blocked = cloneBlocked(v); if (blocked) throw new Error(blocked);
-    noted = noteAccord(home, { ...who, par, voiceName: name, service: 'elevenlabs', sample: audio, type }).id;
-    const c = await cloneVoice(name, [{ data: audio, mime: type || 'audio/mpeg', filename: (q.get('file') ?? 'echantillon.mp3').replace(/[^\w.\- ]+/g, '_').slice(0, 80) || 'echantillon.mp3' }], true, v);
-    majAccord(home, noted, { voiceId: c.voiceId, aVerifier: c.needsCheck });
-    noted = '';
-    if (c.needsCheck) return { ok: true, voiceId: c.voiceId, verify: true, text: 'Voix copiée et accord noté. ElevenLabs demande encore de vérifier que c\'est bien ta voix : ouvre elevenlabs.io → Voices, fais la vérification, puis reviens ici, touche « Charger mes voix » et choisis-la.' };
-    // La voix copiée devient celle d'Odin, pour le genre choisi (homme ou femme).
-    if (v.gender === 'femme') { setConfigValue(o.paths, ['voice', 'femaleVoiceId'], c.voiceId); v.femaleVoiceId = c.voiceId; }
-    else { setConfigValue(o.paths, ['voice', 'tts'], { ...v.tts, voiceId: c.voiceId, voiceName: name }); v.tts.voiceId = c.voiceId; v.tts.voiceName = name; }
-    return { ok: true, voiceId: c.voiceId, verify: false, text: 'Voix copiée, accord noté : Odin parle maintenant avec elle.' };
-  } catch (e) {
-    if (noted) oublieAccord(home, noted); // la copie n'a pas eu lieu : aucun accord à garder
-    return { ok: false, error: (e as Error).message };
-  }
+/** Copier une voix : pas encore. Rien n'est noté ni envoyé ; l'enregistrement reçu est oublié aussitôt. */
+export async function voixCloner(o: Deps, _q: URLSearchParams, _audio: Uint8Array, _type: string, _par: string): Promise<{ ok: boolean; error?: string; voiceId?: string; verify?: boolean; text?: string }> {
+  return { ok: false, error: cloneBlocked(o.cfg.voice) };
 }
 
-/** Retire un accord : Odin ne parle plus avec cette voix, et elle est effacée chez ElevenLabs. */
+/** Retire un accord : Odin ne parle plus avec cette voix (son effacement chez ElevenLabs revient au propriétaire). */
 export async function voixRetirer(o: Deps, id: string): Promise<{ ok: boolean; error?: string; text?: string }> {
   const home = o.paths.home, v = o.cfg.voice;
   const a = accords(home).find((x) => x.id === id && x.voiceId);
@@ -53,11 +35,7 @@ export async function voixRetirer(o: Deps, id: string): Promise<{ ok: boolean; e
     if (v.femaleVoiceId === a.voiceId) { setConfigValue(o.paths, ['voice', 'femaleVoiceId'], ''); v.femaleVoiceId = ''; }
     if (o.cfg.profiles?.list?.some((p) => p.voiceId === a.voiceId)) { for (const p of o.cfg.profiles.list) if (p.voiceId === a.voiceId) p.voiceId = ''; setConfigValue(o.paths, ['profiles'], o.cfg.profiles); }
   } catch (e) { return { ok: false, error: `réglage de la voix impossible à changer : ${(e as Error).message}` }; }
-  // 2. Elle est effacée chez ElevenLabs (ses enregistrements partent avec elle).
-  let why = '';
-  try { await removeVoice(a.voiceId, v); } catch (e) { why = (e as Error).message; }
-  majAccord(home, a.id, { retire: a.retire ?? new Date().toISOString(), effacee: !why });
-  return why
-    ? { ok: false, error: `Odin ne parle plus avec « ${a.voiceName} », mais je n'ai pas pu l'effacer chez ElevenLabs : ${why}. Réessaie ici, ou efface-la sur elevenlabs.io (Voices).` }
-    : { ok: true, text: `Accord retiré : Odin ne parle plus avec « ${a.voiceName} », et elle est effacée chez ElevenLabs.` };
+  // 2. Odin n'appelle plus ElevenLabs (17/11/2026) : la voix copiée là-bas, c'est au propriétaire de l'y effacer.
+  majAccord(home, a.id, { retire: a.retire ?? new Date().toISOString(), effacee: Boolean(a.effacee) });
+  return { ok: true, text: `Accord retiré : Odin ne parle plus avec « ${a.voiceName} ».${a.effacee ? '' : ' Odin n\'appelle plus ElevenLabs : si cette voix y est encore, efface-la toi-même sur elevenlabs.io (Voices).'}` };
 }

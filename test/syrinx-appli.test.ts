@@ -46,7 +46,6 @@ function fausseOreille() {
     },
     async ouvrirModeleSons() { return { pret: false, raison: 'pas téléchargé', classes: 0, libelles: [], classer: async () => { throw new Error('pas prêt'); } }; },
     etatModeleSons: () => ({ present: false, verifie: false, aTourne: false }),
-    async telechargerModeleSons(op) { await op.fetch('https://depot.exemple.invalid/sons-petit.safetensors'); etat.fetchs++; return { ok: true, texte: 'téléchargé (faux)' }; },
     voterEmpreinte: (q, trouves) => { const n = new Map<string, number>(); for (const t of trouves) n.set(t.id, (n.get(t.id) ?? 0) + 1); return [...n].map(([id, k]) => ({ id, score: k / q.codes.length, decalageS: 0, meme: k === q.codes.length })); },
     sonFabrique: () => new Uint8Array(64).fill(7),
   };
@@ -162,19 +161,15 @@ test('purger efface aussi les empreintes et les corrections liées', async () =>
   v.stop();
 });
 
-test('télécharger le modèle : action grave, et seul le faux fetch est appelé', async () => {
-  const { o, etat } = fausseOreille(); oreilleEssai(o);
+test('modèle de sons : plus de téléchargement (modèle d’autrui), ni action, ni bouton, ni appel', async () => {
+  const { o } = fausseOreille(); oreilleEssai(o);
   const appels: string[] = [];
   const faux: typeof fetch = async (u) => { appels.push(String(u)); return new Response('x'); };
   const { v, mod } = monter({ ecouter: null, demander: null }, { fetch: faux });
-  const a = mod.actions.find((x) => x.id === 'telecharger_modele')!;
-  assert.match(a.grave?.({}) ?? '', /télécharger 22 Mo \(licence Apache-2\.0\)/);
-  const auto = await v.act('syrinx', 'telecharger_modele', {}, { auto: true });
-  assert.equal(auto.ok, false, 'jamais lancé par une automatisation');
-  assert.equal(etat.fetchs, 0);
+  assert.equal(mod.actions.some((x) => x.id === 'telecharger_modele'), false);
   const r = await v.act('syrinx', 'telecharger_modele', {});
-  assert.equal(r.ok, true, r.text);
-  assert.deepEqual(appels, ['https://depot.exemple.invalid/sons-petit.safetensors']);
+  assert.equal(r.ok, false);
+  assert.deepEqual(appels, []);
   v.stop();
 });
 

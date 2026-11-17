@@ -96,9 +96,8 @@ export async function conversationRoute(req: IncomingMessage, res: ServerRespons
       const langue = b.langue, texte = String(b.texte ?? '').trim();
       if (!estLangue(langue)) { json(res, 400, { ok: false, error: 'langue inconnue (fr, en ou ja)' }); return true; }
       if (!texte) { json(res, 400, { ok: false, error: 'rien à dire' }); return true; }
-      const d = await dire(texte, langue, v, reglages, deps);
-      if ('data' in d) { res.writeHead(200, { 'content-type': d.mime, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(Buffer.from(d.data)); }
-      else json(res, 200, { ok: true, ...d });
+      // La consigne de faire dire la phrase par le navigateur (aucune voix d'autrui ne fabrique de son).
+      json(res, 200, { ok: true, ...await dire(texte, langue, v, reglages, deps) });
       return true;
     }
     const histo = garderTours(reglages, v.privacy?.privateMode || o.odin.cfg.voice?.privacy?.privateMode) ? historiqueDe(ctx) : undefined;

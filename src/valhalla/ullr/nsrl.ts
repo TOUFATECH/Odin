@@ -1,6 +1,6 @@
 // Asclépios — la liste blanche LOCALE des fichiers connus-sains (NSRL du NIST, export en masse de CIRCL
 // hashlookup). Elle est consultée AVANT toute analyse en ligne : si l'empreinte d'un fichier est connue
-// comme celle d'un logiciel légitime, on court-circuite MalwareBazaar et VirusTotal (on ne demande rien
+// comme celle d'un logiciel légitime, on court-circuite MalwareBazaar et CIRCL (on ne demande rien
 // dehors) et on gagne du temps. Rien ne sort jamais : la liste est un fichier local.
 //
 // Pour tenir des millions d'empreintes sans un gros fichier ni une recherche lente, on range les empreintes

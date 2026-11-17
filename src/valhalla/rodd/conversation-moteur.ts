@@ -1,37 +1,28 @@
-// Écho · mode « Conversation » : le moteur. Écoute (Whisper, langue reconnue ou imposée), traduction (le modèle
-// d'Odin, ou un serveur LibreTranslate sur la machine ou le réseau de la maison) et voix (service, Piper, ou la
-// voix du navigateur). Toutes les briques extérieures passent par `Deps` : les essais les remplacent, rien de réel.
+// Écho · mode « Conversation » : le moteur. Écoute, traduction (le modèle d'Odin) et voix (celle du navigateur).
+// Toutes les briques extérieures passent par `Deps` : les essais les remplacent, rien de réel.
 //
+// Depuis le 17/11/2026, Odin n'utilise aucun modèle qui ne soit pas le sien : plus de Whisper ni de service d'écoute,
+// plus de serveur LibreTranslate, plus de voix de service ni de Piper. L'écoute et la traduction disent « pas encore »
+// tant que les modèles d'Odin ne sont pas entraînés ; la voix du navigateur reste (décision du propriétaire).
 // - Le son n'est jamais gardé (privacy.keepAudio forcé à faux sur la copie de la config).
-// - Le japonais ne va JAMAIS à Piper (aucune voix Piper japonaise : il le lirait avec la voix française).
-// - « tout sur la machine » (réglage de la conversation) : écoute sur la machine, modèle seulement s'il est local,
-//   serveur de traduction seulement sur la machine ou la maison, voix du navigateur seulement si elle est locale.
-import { existsSync } from 'node:fs';
-import { basename, join } from 'node:path';
-import { ensurePiperVoice, localPiper, localWhisper, PIPER_LANG, speakLocal, voiceHome, type Heard } from '../../voice/local.ts';
-import { forSpeech, hear, providerReady, speakAudio, type VoiceConfig } from '../../voice/voice.ts';
-import { BCP47, consigneTraduction, hallucination, langueDe, lireTraduction, nettoyer, parole, pasCompris, quiParle, RIEN, serveurPermis, validerTraduction, type Langue, type Qui, type Reglages } from './conversation.ts';
+import type { Heard } from '../../voice/local.ts';
+import { hear, type VoiceConfig } from '../../voice/voice.ts';
+import { pasEntraine } from '../../langue/pas-entraine.ts';
+import { BCP47, consigneTraduction, hallucination, langueDe, lireTraduction, nettoyer, parole, pasCompris, quiParle, RIEN, validerTraduction, type Langue, type Qui, type Reglages } from './conversation.ts';
 
 export interface ModeleTraduction {
   demander(system: string, user: string, signal?: AbortSignal): Promise<string>;
-  /** tous les fournisseurs configurés sont sur la machine ou la maison (Ollama…) */
+  /** le modèle est sur la machine ou la maison */
   local: boolean;
   nom: string;
 }
 export interface Deps {
   entendre?: (audio: Uint8Array, mime: string, v: VoiceConfig, signal?: AbortSignal) => Promise<Heard>;
   modele?: ModeleTraduction;
-  fetch?: typeof fetch;
-  parlerMachine?: (texte: string, home: string | undefined, voix: string, langue: string, vitesse: number) => Promise<Uint8Array>;
-  parlerService?: typeof speakAudio;
-  piperVoix?: (langue: string) => Promise<string | undefined>;
-  whisper?: () => { bin: string; model: string } | undefined;
-  piper?: () => { bin: string; model: string } | undefined;
   env?: NodeJS.ProcessEnv;
 }
 
 const ECOUTE_MS = 60_000, TRADUCTION_MS = 20_000;
-const estLocale = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(u);
 
 /** La config de la voix pour UNE écoute : langue détectée ou imposée (« fr! »), son jamais gardé. */
 export function configEcoute(v: VoiceConfig, reglages: Pick<Reglages, 'local'>, langue: Langue | 'auto'): VoiceConfig {
@@ -43,17 +34,10 @@ export function configEcoute(v: VoiceConfig, reglages: Pick<Reglages, 'local'>, 
   };
 }
 
-export interface EtatEcoute { pret: boolean; ou: 'machine' | 'service' | null; modele: string | null; japonais: boolean; raison?: string }
-/** L'écoute est-elle prête, où, avec quel modèle Whisper, et comprend-elle le japonais ? */
-export function etatEcoute(v: VoiceConfig, reglages: Pick<Reglages, 'local'>, deps: Deps = {}): EtatEcoute {
-  const cv = configEcoute(v, reglages, 'auto'), env = deps.env ?? process.env;
-  const service = !cv.localOnly && (Boolean(env[v.stt.apiKeyEnv]) || (v.enabled && estLocale(v.stt.baseUrl)));
-  const w = (deps.whisper ?? localWhisper)();
-  const modele = w ? basename(w.model) : null;
-  const jaMachine = Boolean(modele && /small|medium|large/i.test(modele) && !/\.en\b|\.en\.bin$|-en\b/i.test(modele));
-  if (service) return { pret: true, ou: 'service', modele, japonais: true };
-  if (w) return { pret: true, ou: 'machine', modele, japonais: jaMachine, ...(jaMachine ? {} : { raison: `Le modèle Whisper installé (${modele}) comprend mal le japonais : installe le modèle « small » ou plus grand (multilingue, jamais « .en »).` }) };
-  return { pret: false, ou: null, modele: null, japonais: false, raison: cv.localOnly ? 'L\'écoute n\'est pas installée sur la machine : dis à Odin « installe la voix locale ».' : 'L\'écoute n\'est pas prête : dis à Odin « installe la voix locale », ou ajoute une clé dans Réglages → Voix.' };
+export interface EtatEcoute { pret: boolean; ou: null; modele: string | null; japonais: boolean; raison?: string }
+/** L'écoute n'est jamais prête : Whisper et les services d'écoute sont retirés ; le modèle d'écoute d'Odin n'est pas encore entraîné. */
+export function etatEcoute(v: VoiceConfig, _reglages: Pick<Reglages, 'local'>, _deps: Deps = {}): EtatEcoute {
+  return { pret: false, ou: null, modele: null, japonais: false, raison: pasEntraine('ecouter', v.stt.language) };
 }
 
 // Les écoutes passent une par une (Whisper sur la machine est lourd).
@@ -108,38 +92,9 @@ export async function ecouterTour(d: DemandeEcoute, v: VoiceConfig, reglages: Pi
 
 // ---------------- Traduction ----------------
 export interface Traduction { texte: string; moteur: 'modele' | 'hors-ligne' | null; erreur?: string; rien?: boolean; verifier?: string; aide?: string }
-const AIDE_MODELE = 'Configure un modèle dans Réglages → Modèle, ou lance un serveur de traduction LibreTranslate sur la machine (pip install libretranslate, puis libretranslate --load-only en,fr,ja).';
+const AIDE_MODELE = pasEntraine('traduire');
 
-const sonde = new Map<string, { at: number; ok: boolean; langues: string[] }>();
-/** Le serveur LibreTranslate répond-il, et avec quelles langues ? (une fois par minute au plus, 800 ms d'attente) */
-export async function sonderLibre(url: string, f: typeof fetch = fetch, maintenant = Date.now()): Promise<{ ok: boolean; langues: string[] }> {
-  const base = serveurPermis(url); if (!base) return { ok: false, langues: [] };
-  const c = sonde.get(base); if (c && maintenant - c.at < 60_000) return c;
-  let r = { at: maintenant, ok: false, langues: [] as string[] };
-  try {
-    const res = await f(`${base}/languages`, { signal: AbortSignal.timeout(800), redirect: 'error' });
-    if (res.ok) { const l = await res.json() as Array<{ code?: string }>; const codes = Array.isArray(l) ? l.map((x) => String(x.code ?? '')).filter(Boolean) : []; r = { at: maintenant, ok: codes.includes('en'), langues: codes }; }
-  } catch { /* ne répond pas */ }
-  sonde.set(base, r); return r;
-}
-/** Oublie la sonde (essais, ou réglage changé). */
-export const oublierSonde = () => sonde.clear();
-
-/** Traduit avec LibreTranslate ; fr ↔ ja passe par l'anglais (Argos ne traduit pas directement). */
-export async function traduireLibre(url: string, q: string, de: Langue, vers: Langue, f: typeof fetch = fetch, signal?: AbortSignal): Promise<string> {
-  const base = serveurPermis(url);
-  if (!base) throw new Error('adresse du serveur de traduction refusée : seulement la machine ou le réseau de la maison');
-  const un = async (t: string, s: Langue, c: Langue) => {
-    const res = await f(`${base}/translate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ q: t, source: s, target: c, format: 'text' }), signal: signal ?? AbortSignal.timeout(TRADUCTION_MS), redirect: 'error' });
-    if (!res.ok) throw new Error(`le serveur de traduction a refusé (HTTP ${res.status})`);
-    const j = await res.json() as { translatedText?: unknown };
-    return String(j.translatedText ?? '').trim();
-  };
-  if (de !== 'en' && vers !== 'en') return un(await un(q, de, 'en'), 'en', vers);
-  return un(q, de, vers);
-}
-
-/** Traduit un tour : modèle puis serveur hors ligne (selon le réglage), sortie vérifiée ; jamais de fausse traduction. */
+/** Traduit un tour par le modèle d'Odin, sortie vérifiée ; sinon « pas encore » ; jamais de fausse traduction. */
 export async function traduire(texte: string, de: Langue, vers: Langue, reglages: Pick<Reglages, 'local' | 'moteur' | 'serveur'>, deps: Deps = {}, signal?: AbortSignal, qui: Qui = 'moi'): Promise<Traduction> {
   const t = texte.trim(); if (!t) return { texte: '', moteur: null, rien: true };
   const essais: Array<'modele' | 'hors-ligne'> = reglages.moteur === 'modele' ? ['modele'] : reglages.moteur === 'hors-ligne' ? ['hors-ligne'] : ['modele', 'hors-ligne'];
@@ -158,74 +113,33 @@ export async function traduire(texte: string, de: Langue, vers: Langue, reglages
         erreurs.push(`modèle : ${v.raison}`);
       } catch (e) { erreurs.push(`modèle : ${(e as Error).message.slice(0, 160)}`); }
     } else {
-      const f = deps.fetch ?? fetch;
-      if (!serveurPermis(reglages.serveur)) { erreurs.push('adresse du serveur de traduction refusée'); continue; }
-      const s = await sonderLibre(reglages.serveur, f);
-      if (!s.ok) { erreurs.push('aucun serveur de traduction ne répond sur la machine'); continue; }
-      if (![de, vers].every((l) => s.langues.includes(l))) { erreurs.push(`le serveur de traduction n'a pas le ${[de, vers].filter((l) => !s.langues.includes(l)).join(', ')}`); continue; }
-      try {
-        const lu = lireTraduction(await traduireLibre(reglages.serveur, t, de, vers, f, signal)), v = validerTraduction(t, lu, vers);
-        if (v.ok) return { texte: lu, moteur: 'hors-ligne', ...(v.verifier ? { verifier: v.verifier } : {}) };
-        erreurs.push(`hors ligne : ${v.raison}`);
-      } catch (e) { erreurs.push(`hors ligne : ${(e as Error).message.slice(0, 160)}`); }
+      // L'ancien serveur de traduction (LibreTranslate) est un modèle d'autrui : plus jamais appelé.
+      erreurs.push(pasEntraine('traduire'));
     }
   }
   const aucun = !deps.modele || (reglages.local && !deps.modele.local);
   return { texte: '', moteur: null, erreur: `Pas de traduction : ${erreurs.join(' ; ')}.`, ...(aucun ? { aide: AIDE_MODELE } : {}) };
 }
 
-/** L'état de la traduction pour la page (le serveur est sondé une fois par minute au plus). */
+/** L'état de la traduction pour la page. */
 export async function etatTraduction(reglages: Pick<Reglages, 'local' | 'moteur' | 'serveur'>, deps: Deps = {}): Promise<{ pret: boolean; moteur: 'modele' | 'hors-ligne' | null; nom: string; local: boolean; raison?: string; aide?: string }> {
   const mo = deps.modele, modeleOk = reglages.moteur !== 'hors-ligne' && mo && (!reglages.local || mo.local);
   if (modeleOk) return { pret: true, moteur: 'modele', nom: mo!.nom || 'modèle d\'Odin', local: mo!.local };
-  if (reglages.moteur !== 'modele') {
-    const s = await sonderLibre(reglages.serveur, deps.fetch ?? fetch);
-    if (s.ok) return { pret: true, moteur: 'hors-ligne', nom: 'traduction hors ligne, approximative (LibreTranslate)', local: true };
-  }
-  const raison = !mo ? 'Aucun modèle d\'IA n\'est configuré, et aucun serveur de traduction ne répond sur la machine.' : reglages.local ? '« Tout sur la machine » : le modèle configuré est en ligne, et aucun serveur de traduction ne répond sur la machine.' : reglages.moteur === 'modele' ? 'Le modèle est choisi, mais il n\'est pas disponible.' : 'Aucun serveur de traduction ne répond.';
-  return { pret: false, moteur: null, nom: '', local: Boolean(reglages.local), raison, aide: AIDE_MODELE };
+  return { pret: false, moteur: null, nom: '', local: Boolean(reglages.local), raison: pasEntraine('traduire'), aide: AIDE_MODELE };
 }
 
 // ---------------- Voix ----------------
-export type OuVoix = 'service' | 'machine' | 'navigateur';
-/** Le fichier de la voix Piper d'une langue, s'il est déjà là (sans rien télécharger). */
-export function voixPiperPresente(langue: string, home?: string): string | undefined {
-  const p = PIPER_LANG[langue]; if (!p) return undefined;
-  const [, loc, who, q] = p.split('/'), f = join(voiceHome(home), 'piper-voices', `${loc}-${who}-${q}.onnx`);
-  return existsSync(f) && existsSync(`${f}.json`) ? f : undefined;
-}
+export type OuVoix = 'navigateur';
 /**
- * Le service de voix sait-il lire les trois langues ? ElevenLabs avec un modèle multilingue, ou l'API d'OpenAI.
- * Un modèle anglais seul (eleven_turbo_v2…) ou un serveur de la maison (Kokoro, voix française…) : seulement le français,
- * la langue d'Odin ; l'anglais et le japonais passent à Piper ou au navigateur.
+ * Qui dit la phrase : toujours le navigateur, dans la bonne langue. Les voix de service (ElevenLabs, OpenAI) et Piper
+ * sur la machine sont des modèles d'autrui : retirés le 17/11/2026, jusqu'au modèle de voix d'Odin.
  */
-export function serviceMultilingue(v: Pick<VoiceConfig, 'tts'>): boolean {
-  if (v.tts.provider === 'elevenlabs') return /multilingual|v2_5|v3/i.test(v.tts.model || 'eleven_multilingual_v2');
-  if (v.tts.provider === 'openai') { try { return new URL(v.tts.baseUrl || 'https://api.openai.com/v1').hostname === 'api.openai.com'; } catch { return false; } }
-  return false;
+export async function voixPour(_langue: Langue, _v: VoiceConfig, _reglages: Pick<Reglages, 'local'>, _deps: Deps = {}, _o: { telecharger?: boolean } = {}): Promise<OuVoix> {
+  return 'navigateur';
 }
-/** Qui dit la phrase dans cette langue : le service (s'il est permis), Piper (jamais en japonais), ou le navigateur. */
-export async function voixPour(langue: Langue, v: VoiceConfig, reglages: Pick<Reglages, 'local'>, deps: Deps = {}, o: { telecharger?: boolean } = {}): Promise<OuVoix> {
-  const env = deps.env ?? process.env;
-  if (!reglages.local && !v.localOnly && v.enabled && (v.tts.provider === 'openai' || v.tts.provider === 'elevenlabs') && providerReady(v, env) && (langue === 'fr' || serviceMultilingue(v))) return 'service';
-  if (langue === 'ja') return 'navigateur'; // aucune voix Piper japonaise : jamais la voix française
-  if (!(deps.piper ?? (() => localPiper()))()) return 'navigateur';
-  if (langue === 'fr') return 'machine';
-  const fichier = o.telecharger === false && !deps.piperVoix ? voixPiperPresente(langue) : await (deps.piperVoix ?? ((l: string) => ensurePiperVoice(l)))(langue).catch(() => undefined);
-  return fichier ? 'machine' : 'navigateur';
-}
-export type Dit = { data: Uint8Array; mime: string } | { navigateur: true; langue: string; localSeulement: boolean };
-/** Dit un texte : le son, ou la consigne de le faire dire par le navigateur (dans la bonne langue). */
-export async function dire(texte: string, langue: Langue, v: VoiceConfig, reglages: Pick<Reglages, 'local' | 'vitesse'>, deps: Deps = {}, signal?: AbortSignal): Promise<Dit> {
-  const nav: Dit = { navigateur: true, langue: BCP47[langue], localSeulement: Boolean(reglages.local || v.localOnly) };
-  const t = texte.trim().slice(0, 2000); if (!t) throw new Error('rien à dire');
-  const ou = await voixPour(langue, v, reglages, deps);
-  try {
-    if (ou === 'service') { const a = await (deps.parlerService ?? speakAudio)(t, { ...v, speech: { ...v.speech, rate: reglages.vitesse } }, 'mp3_44100_128', signal, deps.env ?? process.env, langue); return { data: a.data, mime: a.mime }; }
-    if (ou === 'machine') {
-      const genre = v.gender === 'femme' || /siwis/.test(v.tts.voiceId) ? 'femme' : '';
-      return { data: await (deps.parlerMachine ?? speakLocal)(forSpeech(t, langue), undefined, genre, langue, reglages.vitesse), mime: 'audio/wav' };
-    }
-  } catch { /* la voix ne marche pas : le navigateur prend le relais */ }
-  return nav;
+export type Dit = { navigateur: true; langue: string; localSeulement: boolean };
+/** Dit un texte : la consigne de le faire dire par le navigateur (dans la bonne langue). */
+export async function dire(texte: string, langue: Langue, v: VoiceConfig, reglages: Pick<Reglages, 'local' | 'vitesse'>, _deps: Deps = {}, _signal?: AbortSignal): Promise<Dit> {
+  if (!texte.trim()) throw new Error('rien à dire');
+  return { navigateur: true, langue: BCP47[langue], localSeulement: Boolean(reglages.local || v.localOnly) };
 }

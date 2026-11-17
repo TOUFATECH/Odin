@@ -88,7 +88,8 @@
     "jeNeConnaisPas": "{action} : je ne connais pas « {chose} » ici. Je n'ai rien fait : redis-le avec le nom exact (ou « laisse tomber »).",
     "heure": "Il est {heure}, {date}.",
     "abandonne": "D'accord, j'abandonne cette demande.",
-    "faitSansIA": "Je l'ai fait sans IA : aucune ne me répond en ce moment."
+    "faitSansIA": "Je l'ai fait sans IA : aucune ne me répond en ce moment.",
+    "modelePasEntraine": "Je ne sais pas encore {quoi} : mon propre modèle {sorte} n'est pas encore entraîné. Ce que je peux faire tout de suite : {proche}."
   },
   "pasEncore": {
     "reserver": {
@@ -138,6 +139,51 @@
     "llm": {
       "quoi": "faire tourner un modèle de langue pour d'autres machines",
       "proche": "Métis lit un modèle ouvert pour moi-même (page Métis)"
+    }
+  },
+  "modeles": {
+    "sortes": {
+      "langue": "de langue",
+      "voix": "de voix",
+      "ecoute": "d'écoute",
+      "image": "d'image",
+      "sons": "de sons",
+      "lecture": "de lecture",
+      "meteo": "de prévision météo"
+    },
+    "choses": {
+      "ecouter": {
+        "quoi": "écouter un son ou un message vocal",
+        "proche": "lire ce que tu m'écris"
+      },
+      "parler": {
+        "quoi": "te répondre à voix haute",
+        "proche": "te répondre par écrit"
+      },
+      "copierVoix": {
+        "quoi": "copier une voix",
+        "proche": "te répondre par écrit"
+      },
+      "conversationDirect": {
+        "quoi": "tenir une conversation à voix haute en direct",
+        "proche": "converser par écrit"
+      },
+      "annoncer": {
+        "quoi": "parler sur les enceintes de la maison",
+        "proche": "t'envoyer le message par écrit"
+      },
+      "traduire": {
+        "quoi": "traduire une conversation",
+        "proche": "garder la conversation écrite et son archive"
+      },
+      "prevoirMeteo": {
+        "quoi": "prévoir le temps avec mon propre modèle",
+        "proche": "comparer les prévisions des sources publiques"
+      },
+      "reconnaitreSons": {
+        "quoi": "reconnaître les sons du quotidien (sonnette, alarme, aboiement)",
+        "proche": "mesurer un son sans modèle : silence, volume, tempo, tonalité"
+      }
     }
   }
 }

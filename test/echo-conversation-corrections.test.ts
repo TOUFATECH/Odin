@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import vm from 'node:vm';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 import { consigneTraduction, heureLocale, langueDe, nettoyer, reglagesConversation, validerTraduction } from '../src/valhalla/rodd/conversation.ts';
-import { douteux, ecouterTour, oublierSonde, serviceMultilingue, voixPour, type Deps } from '../src/valhalla/rodd/conversation-moteur.ts';
+import { douteux, ecouterTour, voixPour, type Deps } from '../src/valhalla/rodd/conversation-moteur.ts';
 import { historiqueDe } from '../src/valhalla/rodd/conversation-historique.ts';
 import { conversationRoute } from '../src/web/conversation-api.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
@@ -78,31 +78,20 @@ test('langue reconnue : un mot japonais dans une phrase française reste du fran
   assert.equal(e.qui, 'moi'); assert.equal(e.de, 'fr');
 });
 
-test('voix du service : seulement si elle sait lire la langue', async () => {
-  const deps: Deps = { piper: () => ({ bin: 'piper', model: 'fr.onnx' }), piperVoix: async () => 'en.onnx', env: { ELEVENLABS_API_KEY: 'essai', OPENAI_API_KEY: 'essai' } };
+test('voix du service : plus jamais (ElevenLabs, OpenAI, serveur de la maison) ; le navigateur dit chaque langue', async () => {
+  const deps: Deps = { env: { ELEVENLABS_API_KEY: 'essai', OPENAI_API_KEY: 'essai' } };
   const eleven = (model: string) => ({ ...VOIX, enabled: true, tts: { ...VOIX.tts, provider: 'elevenlabs' as const, voiceId: 'abc', model, baseUrl: 'https://api.elevenlabs.io', apiKeyEnv: 'ELEVENLABS_API_KEY' } });
-  assert.equal(serviceMultilingue(eleven('eleven_turbo_v2')), false);
-  assert.equal(serviceMultilingue(eleven('eleven_monolingual_v1')), false);
-  assert.equal(serviceMultilingue(eleven('eleven_flash_v2_5')), true);
-  assert.equal(serviceMultilingue(eleven('')), true, 'modèle par défaut : eleven_multilingual_v2');
-  assert.equal(await voixPour('ja', eleven('eleven_turbo_v2'), R, deps), 'navigateur', 'modèle anglais seul : jamais pour le japonais');
-  assert.equal(await voixPour('en', eleven('eleven_turbo_v2'), R, deps), 'machine', 'anglais : Piper');
-  assert.equal(await voixPour('fr', eleven('eleven_turbo_v2'), R, deps), 'service', 'le français reste au service');
-  assert.equal(await voixPour('ja', eleven('eleven_multilingual_v2'), R, deps), 'service');
   const maison = { ...VOIX, enabled: true, tts: { ...VOIX.tts, provider: 'openai' as const, voiceId: 'ff_siwis', baseUrl: 'http://127.0.0.1:8880/v1', apiKeyEnv: '' } };
-  assert.equal(serviceMultilingue(maison), false);
-  assert.equal(await voixPour('ja', maison, R, deps), 'navigateur', 'serveur de la maison (voix française) : pas pour le japonais');
-  assert.equal(await voixPour('fr', maison, R, deps), 'service');
+  for (const v of [eleven('eleven_multilingual_v2'), eleven('eleven_turbo_v2'), maison]) for (const l of ['fr', 'en', 'ja'] as const) assert.equal(await voixPour(l, v, R, deps), 'navigateur', `${v.tts.provider} ${l}`);
 });
 
 /** Un Odin de page avec faux Whisper et faux modèle. */
 async function page(voix: VoiceConfig, rep: (t: string) => string) {
-  oublierSonde();
   const home = mkdtempSync(join(tmpdir(), 'odin-conv-')), settings: Record<string, unknown> = { conversation: { moi: 'fr', lui: 'en' } };
   const ctx = { home, dir: join(home, 'rodd'), settings, saveSettings: (p: Record<string, unknown>) => Object.assign(settings, p) };
   const modele = { local: false, nom: 'faux', demander: async (_s: string, u: string) => rep(u.replace(/<\/?parole>/g, '').trim()) };
   const odin = { demo: false, cfg: { providers: [{ model: 'faux' }], voice: voix }, agent: { ask: async () => '' }, paths: {} } as never;
-  const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => voix, ctx: () => ctx as never, deps: { entendre: fauxWhisper(), modele, fetch: (async () => { throw new Error('coupé'); }) as unknown as typeof fetch, whisper: () => undefined, piper: () => undefined } }); });
+  const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => voix, ctx: () => ctx as never, deps: { entendre: fauxWhisper(), modele } }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const u = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/conversation`;
   const post = async (p: string, body: string | Uint8Array) => (await (await fetch(`${u}/${p}`, { method: 'POST', headers: { 'x-odin': '1' }, body })).json()) as Record<string, unknown>;

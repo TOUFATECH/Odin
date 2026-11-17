@@ -1,7 +1,7 @@
-// Outils d'assistant personnel : régler le briefing du matin, installer la voix locale (gratuite).
+// Outils d'assistant personnel : régler le briefing du matin, les mises à jour de nuit, la voix choisie.
+// L'outil qui installait Whisper et Piper (modèles d'autrui) est retiré depuis le 17/11/2026.
 
 import { setConfigValue } from '../config.ts';
-import { installLocalVoice, localPiper, localWhisper, PIPER_VOICE } from '../voice/local.ts';
 import { bool, obj, str, type Tool, type ToolContext } from './registry.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -31,28 +31,6 @@ export const briefingSet: Tool = {
     if (i.voice != null) { setCfg(ctx, ['journal', 'morningVoice'], Boolean(i.voice)); done.push(i.voice ? 'version vocale en plus' : 'sans vocal'); }
     if (i.enabled != null) { setCfg(ctx, ['journal', 'enabled'], Boolean(i.enabled)); done.push(i.enabled ? 'briefing activé' : 'briefing coupé'); }
     return done.length ? `Briefing du matin réglé : ${done.join(', ')}.` : 'Rien à changer.';
-  },
-};
-
-export const voiceSetup: Tool = {
-  name: 'voice_setup',
-  description: 'Installe la voix locale et gratuite d\'Odin sur sa machine : Whisper (comprendre les messages vocaux) et Piper (répondre à voix haute, voix d\'homme française). Rien ne sort de la machine, aucune clé. Plusieurs minutes (compilation, ~500 Mo). Puis active les vocaux.',
-  risk: 'exec',
-  schema: obj({ listen: bool('installer la compréhension des vocaux (oui par défaut)'), speak: bool('installer la voix (oui par défaut)'), model: str('modèle Whisper : small (défaut, bon en français), base (plus léger), medium (plus précis, plus lent)') }),
-  summarize: () => 'installer la voix locale (Whisper + Piper) dans ~/.odin/voice',
-  async run(i, ctx) {
-    const already = { stt: Boolean(localWhisper(ctx.home)), tts: Boolean(localPiper(ctx.home)) };
-    const stt = i.listen !== false && !already.stt, tts = i.speak !== false && !already.tts;
-    let log = '';
-    if (stt || tts) {
-      const r = await installLocalVoice({ stt, tts, model: s(i.model) || 'small', home: ctx.home });
-      log = r.log;
-      if (!r.ok) return `Installation interrompue :\n${r.log}`;
-    }
-    const ok = { stt: Boolean(localWhisper(ctx.home)), tts: Boolean(localPiper(ctx.home)) };
-    if (ok.stt || ok.tts) setCfg(ctx, ['voice', 'enabled'], true);
-    if (ok.tts) { setCfg(ctx, ['voice', 'voiceReplies'], true); if (ctx.careCfg && ctx.careCfg.voice.tts.provider === 'piper') { setCfg(ctx, ['voice', 'tts', 'baseUrl'], 'local'); setCfg(ctx, ['voice', 'tts', 'voiceId'], PIPER_VOICE); } }
-    return `Voix locale : ${ok.stt ? '✅ je comprends tes vocaux' : '❌ compréhension des vocaux absente'} · ${ok.tts ? '✅ je réponds en vocal (voix « tom »)' : '❌ voix absente'}.${log ? `\n${log.split('\n').slice(-6).join('\n')}` : ''}`;
   },
 };
 
@@ -91,4 +69,4 @@ export const voiceSet: Tool = {
   },
 };
 
-export const ASSISTANT_TOOLS: Tool[] = [briefingSet, voiceSetup, maintenanceSet, voiceSet];
+export const ASSISTANT_TOOLS: Tool[] = [briefingSet, maintenanceSet, voiceSet];

@@ -295,7 +295,6 @@ export const SOURCES: Source[] = [
     fetch: async (c) => { let t = ''; for (const u of [c.url('cisa-kev', 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json'), 'https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json']) { try { t = (await get(c, u)).toString('utf8'); if (parseKev(t).length) break; } catch { /* source suivante */ } } const kev = parseKev(t); if (!kev.length) throw new Error('catalogue indisponible'); return { kev, count: kev.length }; } },
   { id: 'clamav-daily', name: 'ClamAV daily (signatures officielles)', what: 'Empreintes SHA-256 des signatures officielles de ClamAV (fichier daily.cvd, mis à jour plusieurs fois par jour)', home: 'https://www.clamav.net/', gives: 'empreintes', mode: 'automatique', everyHours: 24, on: false, licence: 'Signatures publiées par Cisco Talos pour ClamAV (GPL) ; fichier lourd (environ 60 Mo), à activer si tu veux',
     fetch: async (c) => { const hashes = parseCvd(await get(c, c.url('clamav-daily', 'https://database.clamav.net/daily.cvd'), { 'user-agent': 'Odin (ClamAV compatible)' }, 600_000)); if (!hashes.length) throw new Error('aucune empreinte SHA-256 dans le fichier'); return { hashes, count: hashes.length }; } },
-  { id: 'virustotal', name: 'VirusTotal', what: 'Avis de dizaines d\'antivirus sur une empreinte (jamais d\'envoi de fichier)', home: 'https://www.virustotal.com/', gives: 'réputation', mode: 'à la demande', needs: 'VT_API_KEY', licence: 'Clé gratuite : 4 demandes par minute, 500 par jour, interdite dans un produit ou service commercial' },
   { id: 'malwarebazaar-api', name: 'MalwareBazaar (recherche)', what: 'Famille et étiquettes d\'une empreinte', home: 'https://bazaar.abuse.ch/api/', gives: 'réputation', mode: 'à la demande', needs: 'ABUSE_CH_KEY', licence: 'Même clé abuse.ch ; usage raisonnable' },
   { id: 'circl', name: 'CIRCL hashlookup', what: 'Fichiers connus de logiciels légitimes : évite les fausses alertes', home: 'https://www.circl.lu/services/hashlookup/', gives: 'fichiers sains', mode: 'à la demande', licence: 'Service public gratuit du CIRCL (Luxembourg)' },
   { id: 'firehol', name: 'FireHOL et Feodo Tracker', what: 'Adresses IP malveillantes (botnets, serveurs de commande)', home: 'https://iplists.firehol.org/', gives: 'adresses IP', mode: 'automatique', licence: 'Listes publiques ; gérées par l\'appli Méduse (connexions sortantes)' },
@@ -311,17 +310,12 @@ export const SOURCES: Source[] = [
 ];
 
 // ---------------------------------------------------------------- Réputation à la demande (empreinte seulement)
-export interface Reputation { sha: string; at: string; vt?: { malicious: number; suspicious: number; harmless: number; undetected: number; label?: string; name?: string } | 'inconnu'; mb?: { family?: string; tags: string[]; type?: string } | 'inconnu'; circl?: { name?: string; product?: string } | 'inconnu'; errors?: string[] }
-export async function reputation(sha256: string, c: FetchCtx, o: { vt?: boolean; mb?: boolean; circl?: boolean } = { vt: true, mb: true, circl: true }): Promise<Reputation> {
+/** La réputation d'une empreinte. VirusTotal n'est plus interrogé (17/11/2026 : retiré, il fait juger par des modèles qui ne sont pas ceux d'Odin). */
+export interface Reputation { sha: string; at: string; mb?: { family?: string; tags: string[]; type?: string } | 'inconnu'; circl?: { name?: string; product?: string } | 'inconnu'; errors?: string[] }
+export async function reputation(sha256: string, c: FetchCtx, o: { mb?: boolean; circl?: boolean } = { mb: true, circl: true }): Promise<Reputation> {
   if (!/^[a-f0-9]{64}$/i.test(sha256)) throw new Error('empreinte SHA-256 attendue (64 caractères)');
   const out: Reputation = { sha: sha256.toLowerCase(), at: c.now().toISOString(), errors: [] };
-  const vtKey = c.key('VT_API_KEY'), abKey = c.key('ABUSE_CH_KEY');
-  if (o.vt !== false && vtKey) {
-    try { const r = await c.fetch(`${c.url('virustotal', 'https://www.virustotal.com/api/v3/files')}/${out.sha}`, { headers: { 'x-apikey': vtKey }, signal: AbortSignal.timeout(30_000) });
-      if (r.status === 404) out.vt = 'inconnu'; else if (r.status === 429) out.errors!.push('VirusTotal : quota atteint (4 par minute, 500 par jour)'); else if (!r.ok) out.errors!.push(`VirusTotal : ${r.status}`);
-      else { const a = ((await r.json()) as { data?: { attributes?: { last_analysis_stats?: Record<string, number>; popular_threat_classification?: { suggested_threat_label?: string }; meaningful_name?: string } } }).data?.attributes; const s = a?.last_analysis_stats ?? {}; out.vt = { malicious: s.malicious ?? 0, suspicious: s.suspicious ?? 0, harmless: s.harmless ?? 0, undetected: s.undetected ?? 0, label: a?.popular_threat_classification?.suggested_threat_label, name: a?.meaningful_name }; }
-    } catch (e) { out.errors!.push(`VirusTotal : ${(e as Error).message.slice(0, 80)}`); }
-  }
+  const abKey = c.key('ABUSE_CH_KEY');
   if (o.mb !== false && abKey) {
     try { const r = await c.fetch(c.url('malwarebazaar-api', 'https://mb-api.abuse.ch/api/v1/'), { method: 'POST', headers: { 'Auth-Key': abKey, 'content-type': 'application/x-www-form-urlencoded' }, body: `query=get_info&hash=${out.sha}`, signal: AbortSignal.timeout(30_000) });
       const j = (await r.json()) as { query_status?: string; data?: Array<{ signature?: string; tags?: string[]; file_type?: string }> };
@@ -339,9 +333,8 @@ export async function reputation(sha256: string, c: FetchCtx, o: { vt?: boolean;
 /** Résumé lisible d'une réputation, et ce qu'elle change au verdict. */
 export function reputationText(r: Reputation): { text: string; malicious: boolean; trusted: boolean } {
   const parts: string[] = []; let malicious = false, trusted = false;
-  if (r.vt && r.vt !== 'inconnu') { const n = r.vt.malicious + r.vt.suspicious, total = n + r.vt.harmless + r.vt.undetected; parts.push(`VirusTotal : ${n} antivirus sur ${total} le jugent dangereux${r.vt.label ? ` (${r.vt.label})` : ''}`); if (r.vt.malicious >= 5) malicious = true; if (n === 0 && total >= 40) trusted = true; } else if (r.vt === 'inconnu') parts.push('VirusTotal : jamais vu');
   if (r.mb && r.mb !== 'inconnu') { parts.push(`MalwareBazaar : malware connu${r.mb.family ? ` (${r.mb.family})` : ''}`); malicious = true; } else if (r.mb === 'inconnu') parts.push('MalwareBazaar : inconnu');
   if (r.circl && r.circl !== 'inconnu') { parts.push(`CIRCL : fichier connu d'un logiciel légitime${r.circl.name ? ` (${r.circl.name})` : ''}`); trusted = true; } else if (r.circl === 'inconnu') parts.push('CIRCL : pas dans les logiciels connus');
   for (const e of r.errors ?? []) parts.push(e);
-  return { text: parts.join(' · ') || 'Aucune source de réputation disponible (ajoute une clé VirusTotal ou abuse.ch dans le coffre).', malicious, trusted: trusted && !malicious };
+  return { text: parts.join(' · ') || 'Aucune source de réputation disponible (ajoute une clé abuse.ch dans le coffre).', malicious, trusted: trusted && !malicious };
 }

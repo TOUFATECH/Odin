@@ -8,7 +8,6 @@ import { anomalies, weeklyReport } from '../src/guard/insight.ts';
 import { rememberBefore, undo, undoList } from '../src/undo.ts';
 import { formatChecks } from '../src/selftest.ts';
 import { machineKeyFile, machineKeyLost, readSecretFile, resetVaultCache, vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock, writeSecretFile } from '../src/vault.ts';
-import { speakPlan } from '../src/tools/homeassistant.ts';
 import { makeOdin } from './helpers.ts';
 
 test('corrections reconnues, catégorie de tâche, modèle préféré selon les réussites', () => {
@@ -109,11 +108,9 @@ test('coffre : secrets toujours chiffrés (clé de la machine), mot de passe ma�
   } finally { vaultLock(home); rmSync(home, { recursive: true, force: true }); }
 });
 
-test('enceintes : tts.speak si disponible, sinon ancien service', () => {
-  const p = speakPlan([{ entity_id: 'tts.piper', state: 'ok', attributes: {} }], 'media_player.salon', 'Bonjour');
-  assert.equal(p.path, '/services/tts/speak');
-  assert.equal(p.data.media_player_entity_id, 'media_player.salon');
-  assert.equal(speakPlan([], 'media_player.salon', 'x').path, '/services/tts/google_translate_say');
+test('enceintes : plus de synthèse vocale de Home Assistant (un modèle d’autrui) ; les autres outils de la maison restent', async () => {
+  const { HA_TOOLS } = await import('../src/tools/homeassistant.ts');
+  assert.deepEqual(HA_TOOLS.map((x) => x.name), ['ha_states', 'ha_call']);
 });
 
 test('raccourci Siri / Android : /api/ask répond en texte simple, jeton Bearer obligatoire (pas de cookie)', async () => {

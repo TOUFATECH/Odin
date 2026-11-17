@@ -27,7 +27,7 @@ import { voiceFor } from '../src/profiles.ts';
 import { applySettings, settingsView } from '../src/settings.ts';
 import { describeSettings } from '../src/tools/reglages.ts';
 import { direListe, direNombre, heureDite, nombreEnLettres, ordinal, pourLaVoix } from '../src/voice/dire.ts';
-import { etiquettesVoix, forSpeech, listVoices, voixFrancaise } from '../src/voice/voice.ts';
+import { forSpeech, listVoices, voixFrancaise } from '../src/voice/voice.ts';
 import { makeOdin } from './helpers.ts';
 
 const RACINE = fileURLToPath(new URL('..', import.meta.url));
@@ -307,7 +307,7 @@ test('voix du navigateur : une voix française du bon genre, la plus naturelle, 
   assert.equal(N.sansSymboles('**Gras** et [lien](https://x.fr)\n- un\n- deux ✅'), 'Gras et lien. un. deux');
 });
 
-test('voix d\'un service : une voix par genre d\'office, et une voix française du compte est repérée', async () => {
+test('voix d\'un service : une voix par genre d\'office, plus aucune liste de voix demandée à un service', async () => {
   // Chaque façon de parler a sa voix d'homme et sa voix de femme, sans rien régler.
   const base = { ...DEFAULT_CONFIG.voice, localOnly: false };
   for (const [provider, homme, femme] of [['elevenlabs', 'onwK4e9ZLuTAKqWW03F9', 'XB0fDUnXU5powFXDhCwa'], ['openai', 'onyx', 'nova'], ['piper', 'fr_FR-tom-medium', 'fr_FR-siwis-medium']] as const) {
@@ -316,31 +316,19 @@ test('voix d\'un service : une voix par genre d\'office, et une voix française 
     // Et elle se change : une voix précise passe devant celle d'office.
     assert.equal(voiceFor({ ...cfg, gender: 'femme', femaleVoiceId: 'MaVoix' }, DEFAULT_CONFIG).tts.voiceId, 'MaVoix'); assert.equal(voiceFor({ ...cfg, gender: 'homme', tts: { ...cfg.tts, voiceId: 'SaVoix' } }, DEFAULT_CONFIG).tts.voiceId, 'SaVoix');
   }
-  // Ce que disent les étiquettes d'ElevenLabs, sans rien supposer.
-  assert.deepEqual(etiquettesVoix({ labels: { gender: 'female', language: 'fr', accent: 'standard' } }), { genre: 'femme', francaise: true });
-  assert.deepEqual(etiquettesVoix({ labels: { gender: 'male', accent: 'british', language: 'en' } }), { genre: 'homme' });
-  assert.deepEqual(etiquettesVoix({ labels: { gender: 'male', accent: 'French' } }), { genre: 'homme', francaise: true });
-  assert.deepEqual(etiquettesVoix({ labels: null }), {}); assert.deepEqual(etiquettesVoix({}), {});
-  // Un faux ElevenLabs : la liste des voix du compte, avec leurs étiquettes.
-  const srv = createServer((req, res) => {
-    res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify(req.url?.startsWith('/v2/voices') ? { has_more: false, voices: [
-      { voice_id: 'onwK4e9ZLuTAKqWW03F9', name: 'Daniel', category: 'premade', labels: { gender: 'male', accent: 'british', language: 'en' } },
-      { voice_id: 'XB0fDUnXU5powFXDhCwa', name: 'Charlotte', category: 'premade', labels: { gender: 'female', accent: 'swedish', language: 'en' } },
-      { voice_id: 'voixClonee1', name: 'Ma voix', category: 'cloned', labels: {} },
-      { voice_id: 'frHomme1', name: 'Mathieu', category: 'professional', labels: { gender: 'male', language: 'fr', accent: 'standard' } },
-      { voice_id: 'frFemme1', name: 'Claire', category: 'professional', labels: { gender: 'female', language: 'fr', accent: 'parisian' } },
-    ] } : {}));
-  });
+  // Les voix d'un service ne sont plus demandées (17/11/2026 : aucun modèle d'autrui) : aucune requête ne part.
+  let demandes = 0;
+  const srv = createServer((_req, res) => { demandes++; res.end('{}'); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
   try {
     const url = `http://127.0.0.1:${(srv.address() as { port: number }).port}`;
-    const voix = await listVoices({ ...base, tts: { provider: 'elevenlabs', voiceId: '', voiceName: '', model: 'eleven_multilingual_v2', baseUrl: url, apiKeyEnv: 'ELEVENLABS_API_KEY' } }, { ELEVENLABS_API_KEY: 'cle-de-test' });
-    assert.equal(voix[0].id, 'voixClonee1', 'tes voix copiées d\'abord');
-    assert.deepEqual(voix.find((x) => x.id === 'frFemme1'), { id: 'frFemme1', name: 'Claire', category: 'professional', genre: 'femme', francaise: true });
-    assert.equal(voixFrancaise(voix, 'femme')?.name, 'Claire'); assert.equal(voixFrancaise(voix, 'homme')?.name, 'Mathieu');
-    assert.equal(voixFrancaise(voix.filter((x) => x.category === 'premade'), 'femme'), undefined, 'aucune voix française sur le compte : la voix d\'office reste');
+    assert.deepEqual(await listVoices({ ...base, tts: { provider: 'elevenlabs', voiceId: '', voiceName: '', model: 'eleven_multilingual_v2', baseUrl: url, apiKeyEnv: 'ELEVENLABS_API_KEY' } }, { ELEVENLABS_API_KEY: 'cle-de-test' }), []);
+    assert.equal(demandes, 0);
   } finally { await new Promise((r) => srv.close(r)); }
+  // Le choix d'une voix française du bon genre, dans une liste donnée, reste juste.
+  const liste = [{ id: 'a', name: 'Daniel', category: 'premade', genre: 'homme' as const }, { id: 'b', name: 'Mathieu', category: 'pro', genre: 'homme' as const, francaise: true }, { id: 'c', name: 'Claire', category: 'pro', genre: 'femme' as const, francaise: true }];
+  assert.equal(voixFrancaise(liste, 'femme')?.name, 'Claire'); assert.equal(voixFrancaise(liste, 'homme')?.name, 'Mathieu');
+  assert.equal(voixFrancaise(liste.slice(0, 1), 'femme'), undefined);
 });
 
 test('interface : la voix du navigateur passe par ce choix, et le réglage se voit au premier démarrage et dans Réglages → Voix', () => {

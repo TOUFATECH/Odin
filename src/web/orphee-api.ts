@@ -73,7 +73,7 @@ export async function orpheeApi(req: IncomingMessage, res: ServerResponse, url: 
   }
   if (req.method === 'POST' && quoi === 'session') {
     const pret = svc.pret || await svc.demarrer();
-    if (!pret) { json(res, 200, { ok: false, repli: true, error: `Conversation en direct indisponible (${svc.raison || svc.etat}) : je garde la voix habituelle, maintiens le bouton pour parler.` }); return true; }
+    if (!pret) { json(res, 200, { ok: false, repli: true, error: svc.raison || `Conversation en direct indisponible (${svc.etat}).` }); return true; }
     const cfg = { sensibilite: v.listen?.sensitivity ?? 6, fin_ms: v.listen?.endSilenceMs ?? 1500, coupures: v.interrupt?.bargeIn !== false, ignorer_acquiescements: v.interrupt?.ignoreBackchannel !== false, mots_arret: v.interrupt?.stopWords ?? [], invite: prompt(mots(o.home)) };
     const r = await svc.appeler('/sessions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cfg) }).then((x) => x.json() as Promise<{ ok: boolean; id: string; trame_ms: number; taux: number }>).catch((e: Error) => ({ ok: false, error: e.message }) as never);
     if (!r.ok || !ID.test(r.id)) { json(res, 200, { ok: false, repli: true, error: 'Le service temps réel n\'a pas ouvert la conversation : je garde la voix habituelle.' }); return true; }

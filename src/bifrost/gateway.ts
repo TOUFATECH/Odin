@@ -53,7 +53,7 @@ import { adminDiagnosis, listMachines } from '../machines/access.ts';
 import { savingsText } from '../providers/savings.ts';
 import { resumeVoiceInstall, voiceWaitsAdmin } from '../voice/local.ts';
 import { validHhmm } from '../mimir/decisions.ts';
-import { LANG_NAME, setVoiceNotifier, speakAudio, spokenLanguage, toVoiceNote, ttsReady } from '../voice/voice.ts';
+import { LANG_NAME, speakAudio, spokenLanguage, toVoiceNote, ttsReady } from '../voice/voice.ts';
 import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminderText, whenFr } from '../cron/reminders.ts';
 import { morningBriefing } from './briefing.ts';
 import { resolveShortcut } from '../learn/shortcuts.ts';
@@ -62,7 +62,6 @@ import { accord, accorder, commandeGenre } from '../core/genre.ts';
 import { applyParental, extend as extendParental } from '../home/parental.ts';
 import { checkLocalAlerts } from '../guard/alerts.ts';
 import { alarmTime, getAlarm, haPhoneAlarm, twilioCall, wakeText } from '../home/alarm.ts';
-import { haApi, speakPlan, type HaState } from '../tools/homeassistant.ts';
 import { diagnose, errorsSince, measure, trimLogs } from '../guard/selfcheck.ts';
 import { budgetReport, checkPrices, getMode, modeFromText, setMode, upcomingCharges } from '../tools/everyday.ts';
 import { syncMemoryFiles } from '../muninn/files.ts';
@@ -129,7 +128,6 @@ export class Gateway {
     declarerProprietaires(opts.owners);
     brancherPauseGlobale(() => this.initiativeEnPause());
     // Odin s'installe tout seul pour comprendre les vocaux : il te prévient.
-    setVoiceNotifier((msg) => { void this.tellOwner(msg, 'home', true).catch(() => {}); });
     // Confiance apprise : Odin te dit ce qu'il fera seul désormais, et comment revenir en arrière.
     const onLearned = (kv: unknown, tr: Trust) => { if (kv === odin.muninn) void this.tellOwner(`🧠 J'ai remarqué que tu acceptes toujours : « ${tr.example.slice(0, 120)} ». Désormais je le fais ${accord('seul', 'seule')} et je te le signale. Dis « redemande-moi » pour revenir comme avant.`, 'home', true).catch(() => {}); };
     habitEvents.on('learned', onLearned);
@@ -1060,13 +1058,12 @@ export class Gateway {
     return true;
   }
 
-  /** Une sonnerie : appel, alarme sur le téléphone, enceintes, message avec boutons, note vocale, notification. Passe toujours (même « Ne pas déranger »). */
+  /** Une sonnerie : appel, alarme sur le téléphone, message avec boutons, note vocale, notification. Passe toujours (même « Ne pas déranger »). */
   private async wakeUp(kind: string, attempt: number, now: number): Promise<void> {
     const a = getAlarm(this.odin.muninn), text = wakeText(kind, new Date(now), attempt), jobs: Array<Promise<unknown>> = [];
     if (a.phone && a.twilioFrom && process.env.TWILIO_ACCOUNT_SID) jobs.push(twilioCall(a.phone, a.twilioFrom, `${text} Réponds-moi « je suis réveillé » sur ton téléphone.`));
     const ha = this.odin.cfg.homeAssistant?.url, haTok = process.env.HA_TOKEN;
     if (ha && haTok && a.haPhone) jobs.push(haPhoneAlarm(ha, haTok, a.haPhone, text));
-    if (ha && haTok && a.speaker) jobs.push((async () => { const states = await haApi(ha, haTok, 'GET', '/states') as HaState[]; const plan = speakPlan(states, a.speaker!, text); await haApi(ha, haTok, 'POST', plan.path, plan.data); })());
     const t = this.ownerTarget();
     if (t) {
       jobs.push(t.ch.send(t.peer, `⏰ ${text}`, { alarm: { attempt } }));

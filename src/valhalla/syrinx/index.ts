@@ -14,8 +14,9 @@ import type { Action, ActionResult, Kpi, ModCtx, Module, Section, TacheAppli } f
 import type { OdinConfig } from '../../config.ts';
 import type { AnalyseSon, Demander, Ecouter, EmpreinteSon, ModeleSons, OptionsAnalyse } from '../../audio/contrat.ts';
 import { tacheEnPause } from '../automatismes.ts';
+import { pasEntraine } from '../../langue/pas-entraine.ts';
 import { brancherSyrinx } from './base.ts';
-import { codeErreur, ecouteurLocal, modeleSonsLocal, oreille, oublierModeleSons, texteErreur, type Oreille } from './bande-son.ts';
+import { codeErreur, ecouteurLocal, modeleSonsLocal, oreille, texteErreur, type Oreille } from './bande-son.ts';
 import { comprendreSon, fois, horloge, ligneDeTemps, NOM_ETAPE, quandLocal, rapportSon, texteLigne, texteMesure, texteModeleAbsent, type SensSon } from './ligne-de-temps.ts';
 import { ajouterCorrection, ajouterMesures, enteteDe, lireContenu, lireCorrections, lireEmpreinte, lireMesures, listerSons, medianeMesures, purger, rangerAnalyse, shaFichierFlux, trouverParShaFichier } from './magasin.ts';
 import { prototypeProche, retrouverParPhrase, retrouverParSon, type Trouve } from './memoire-sons.ts';
@@ -33,9 +34,8 @@ const court = (n: string, max = 48): string => (n.length > max ? `${n.slice(0, m
 const vrai = (v: unknown): boolean => v === true || v === 'true' || v === 'on' || v === 1 || v === '1';
 const PAS_PRETE = 'l\'oreille n\'est pas encore prête sur cette machine (le calcul du son n\'est pas installé)';
 const PAROLE_ABSENTE = 'la transcription locale n\'est pas installée sur ce poste (Réglages → Voix)';
-const MODELE_ABSENT = 'modèle de sons : pas téléchargé (22 Mo, Apache-2.0)';
+const MODELE_ABSENT = pasEntraine('reconnaitreSons');
 const MODELE_PAS_ESSAYE = 'codé, pas encore essayé sur du vrai modèle';
-const GRAVE_TELECHARGER = 'télécharger 22 Mo (licence Apache-2.0) depuis le dépôt public de modèles';
 const ANNONCE = { titre: 'Odin entend maintenant le son, la musique et les bruits, sur ta machine (Syrinx).', detail: 'Rien ne part en ligne ; l\'écoute des caméras reste éteinte tant que tu ne l\'allumes pas.' };
 
 /** Le dernier son entendu, gardé EN MÉMOIRE pour la page (même en mode privé, rien n'est rangé). */
@@ -203,18 +203,6 @@ export function syrinx(o: () => OptionsSyrinx): Module {
     },
   };
 
-  const telechargerA: Action = {
-    id: 'telecharger_modele', label: 'Télécharger le modèle de sons',
-    what: 'Télécharge une fois le modèle de sons ouvert (22 Mo, licence Apache-2.0), vérifie son empreinte, et note sa licence à côté',
-    grave: () => GRAVE_TELECHARGER,
-    async run(ctx) {
-      const or = await oreille(); if (!or) return { ok: false, text: PAS_PRETE };
-      const r = await or.telechargerModeleSons({ dossier: dossierPoids(ctx), fetch: ctx.fetch });
-      oublierModeleSons(dossierPoids(ctx));
-      return { ok: r.ok, text: r.texte };
-    },
-  };
-
   const mesurerA: Action = {
     id: 'mesurer', label: 'Mesurer la vitesse', read: true,
     what: 'Écoute un son fabriqué de 60 s (clics à 120 BPM, aucun son privé) et mesure le temps de chaque étape sur cette machine',
@@ -296,7 +284,7 @@ export function syrinx(o: () => OptionsSyrinx): Module {
       'lit un son (WAV directement, les autres formats par l\'outil média local) et en tire la forme d\'onde et le spectre',
       'entend sans modèle : silence ou son, volume, tempo, tonalité, structure (refrain probable, estimation), changements',
       'reconnaît un son déjà entendu par son empreinte, pour ne jamais l\'analyser deux fois',
-      'reconnaît les sons du quotidien (sonnette, alarme, aboiement, verre cassé, pleurs…) par un modèle de sons ouvert, téléchargé une fois avec ton accord',
+      'reconnaître les sons du quotidien (sonnette, alarme, aboiement, verre cassé, pleurs…) : à venir, avec le modèle de sons d\'Odin (pas encore entraîné)',
       'transcrit la parole avec la transcription locale d\'Odin si elle est prête, dit la langue et sépare les tours de parole (personne n\'est reconnu par sa voix)',
       'réunit parole, musique et sons sur une ligne de temps, avec un résumé, les moments marquants et l\'ambiance',
       'retrouve un son par une phrase ou par un autre son ; on peut la corriger, elle apprend sur place',
@@ -306,7 +294,7 @@ export function syrinx(o: () => OptionsSyrinx): Module {
     from: [], upstream: [],
     words: ['syrinx', 'qu entends tu', 'ecoute ce son', 'analyse ce son', 'analyse la musique', 'quel est ce bruit', 'reconnais ce bruit', 'tempo', 'tonalite'],
     depot: (ctx) => ({ dossier: join(ctx.dir, 'atelier'), ref: (nom) => `atelier:${nom}` }),
-    actions: [ecouterA, sonsA, musiqueA, paroleA, retrouverA, corrigerA, telechargerA, mesurerA, purgerA, reglerA, clipA],
+    actions: [ecouterA, sonsA, musiqueA, paroleA, retrouverA, corrigerA, mesurerA, purgerA, reglerA, clipA],
     async start(ctx) {
       brancherSyrinx(ctx.dir); // pose la base SYRINX_ODIN (sinon elle n'est jamais créée)
       // Les fichiers de travail (parole en WAV) sont effacés après chaque écoute ; après un arrêt brutal, on les efface ici.
@@ -342,7 +330,7 @@ export function syrinx(o: () => OptionsSyrinx): Module {
       ];
       const ecouter: Section[] = [
         { kind: 'depot', title: 'Écouter un son ou une musique', action: 'ecouter', champ: 'fichier', texte: 'Dépose un son ou une musique', aide: `WAV lu par Odin seul ; les autres formats passent par l'outil média local. Le son reste sur ta machine${resume ? ' ; le résumé passe par le modèle de texte d\'Odin' : ''}.` },
-        { kind: 'actions', title: 'L\'oreille sur cette machine', boutons: [{ action: 'mesurer', label: 'Mesurer la vitesse', primary: true }, { action: 'telecharger_modele', label: 'Télécharger le modèle de sons' }], aide: modeleTexte },
+        { kind: 'actions', title: 'L\'oreille sur cette machine', boutons: [{ action: 'mesurer', label: 'Mesurer la vitesse', primary: true }], aide: modeleTexte },
         { kind: 'log', title: 'État honnête', lines: [
           modeleTexte,
           ec.ecouter ? 'parole : transcription locale prête sur ce poste' : `parole : pas prête sur ce poste (${ec.raison ?? PAROLE_ABSENTE})`,

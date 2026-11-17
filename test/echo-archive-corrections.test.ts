@@ -80,7 +80,7 @@ test('défaut 1 (bout en bout) : le navigateur écoute la copie sonore via le vr
 /** Monte conversationRoute sur un petit serveur et rend une fonction pour poser un tour (son → traduction). */
 async function montageTour(ctx: { home: string; dir: string; settings: Record<string, unknown> }, voix: VoiceConfig) {
   const odin = { demo: false, cfg: { providers: [{ model: 'faux' }], voice: voix }, agent: { ask: async () => '' }, paths: {} } as never;
-  const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => voix, ctx: () => ctx as never, deps: { entendre: fauxWhisper(), modele: fauxModele('I would like a coffee'), fetch: (async () => { throw new Error('coupé'); }) as unknown as typeof fetch } }); });
+  const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => voix, ctx: () => ctx as never, deps: { entendre: fauxWhisper(), modele: fauxModele('I would like a coffee') } }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const base = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/conversation`;
   const tour = (q: string, texte = 'je voudrais un café', langue = 'fr') => fetch(`${base}/tour?conv=${q}`, { method: 'POST', headers: { 'x-odin': '1' }, body: son({ text: texte, language: langue }) });

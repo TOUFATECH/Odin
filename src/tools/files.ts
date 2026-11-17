@@ -14,7 +14,7 @@ import { convertMedia, IMAGE_MIME, mediaInfo, type ConvertOptions } from '../fil
 import { createDocx, createPptx, createXlsx, parseCsv, readDocx, readPptx, readXlsx, toCsv, type Slide } from '../files/office.ts';
 import { createPdf, readPdf } from '../files/pdf.ts';
 import { bool, num, obj, str, type Tool, type ToolContext, type ToolResult } from './registry.ts';
-import { isExternal, safeEnv } from './builtin.ts';
+import { isExternal } from './builtin.ts';
 import { ocrPdf, ocrReady, understanding } from '../valhalla/champollion/ocr.ts';
 import { entreeFfmpeg } from '../files/ffmpeg-entree.ts';
 
@@ -207,29 +207,4 @@ function runFfmpeg(args: string[], signal: AbortSignal): Promise<void> {
   });
 }
 
-export const codexRun: Tool = {
-  name: 'codex_run',
-  description: 'Confie une tâche de programmation à Codex, l\'agent de code d\'OpenAI (écrire, corriger, refactoriser, tester du code dans un dossier). Renvoie son compte rendu. Nécessite le programme « codex » et un compte OpenAI.',
-  risk: 'exec',
-  schema: obj({ task: str('la tâche de code, précise et autonome'), dir: str('dossier du projet dans l\'espace de travail (racine par défaut)') }, ['task']),
-  summarize: (i) => `Codex : « ${s(i.task).slice(0, 120)} » dans ${s(i.dir) || '.'}`,
-  command: (i) => `codex exec ${s(i.task)}`,
-  async run(i, ctx) {
-    if (!hasCommand('codex')) return 'Codex n\'est pas installé : « npm install -g @openai/codex », puis « codex login » (ou une clé OPENAI_API_KEY).';
-    const dir = toolPath(ctx, s(i.dir) || '.');
-    mkdirSync(dir, { recursive: true });
-    // Pas de secrets d'Odin pour un agent tiers : seule la clé OpenAI (ou la session « codex login ») lui sert.
-    const env = { ...safeEnv(), ...(process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}) };
-    return new Promise((resolve) => {
-      // Mode non interactif, bac à sable « écriture dans le dossier » de Codex.
-      const p = spawn('codex', ['exec', '--full-auto', '--skip-git-repo-check', '-C', dir, s(i.task)], { env, signal: ctx.signal, windowsHide: true, timeout: 30 * 60_000 });
-      let out = '', err = '';
-      p.stdout.on('data', (d) => { out = (out + d).slice(-60_000); });
-      p.stderr.on('data', (d) => { err = (err + d).slice(-8_000); });
-      p.on('error', (e) => resolve(`Codex n'a pas pu démarrer : ${e.message}`));
-      p.on('close', (code) => resolve(ctx.redactor.redact(clip(`Codex (code ${code}) :\n${out.trim() || err.trim() || '(aucune sortie)'}`, 30_000))));
-    });
-  },
-};
-
-export const FILE_TOOLS: Tool[] = [docRead, docCreate, imageView, mediaInfoTool, mediaConvert, audioTranscribe, codexRun];
+export const FILE_TOOLS: Tool[] = [docRead, docCreate, imageView, mediaInfoTool, mediaConvert, audioTranscribe];

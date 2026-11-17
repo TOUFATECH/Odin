@@ -152,7 +152,8 @@
     "jeNeConnaisPas": "{action}: « {chose} » kenne ich dort nicht. Ich habe nichts getan: sag es noch einmal mit dem genauen Namen (oder « vergiss es »).",
     "heure": "Es ist {heure}, {date}.",
     "abandonne": "In Ordnung, ich lasse diese Anfrage fallen.",
-    "faitSansIA": "Ohne KI erledigt: Gerade antwortet keine."
+    "faitSansIA": "Ohne KI erledigt: Gerade antwortet keine.",
+    "modelePasEntraine": "Ich kann noch nicht {quoi}: Mein eigenes {sorte} ist noch nicht trainiert. Was ich jetzt schon kann: {proche}."
   },
   "pasEncore": {
     "reserver": {
@@ -202,6 +203,51 @@
     "llm": {
       "quoi": "ein Sprachmodell für andere Maschinen bereitstellen",
       "proche": "Métis liest ein offenes Modell für meinen eigenen Gebrauch"
+    }
+  },
+  "modeles": {
+    "sortes": {
+      "langue": "Sprachmodell",
+      "voix": "Stimmmodell",
+      "ecoute": "Hörmodell",
+      "image": "Bildmodell",
+      "sons": "Geräuschmodell",
+      "lecture": "Lesemodell",
+      "meteo": "Wettermodell"
+    },
+    "choses": {
+      "ecouter": {
+        "quoi": "einen Ton oder eine Sprachnachricht anhören",
+        "proche": "lesen, was du mir schreibst"
+      },
+      "parler": {
+        "quoi": "dir laut antworten",
+        "proche": "dir schriftlich antworten"
+      },
+      "copierVoix": {
+        "quoi": "eine Stimme kopieren",
+        "proche": "dir schriftlich antworten"
+      },
+      "conversationDirect": {
+        "quoi": "ein gesprochenes Gespräch live führen",
+        "proche": "schriftlich mit dir sprechen"
+      },
+      "annoncer": {
+        "quoi": "über die Lautsprecher im Haus sprechen",
+        "proche": "dir die Nachricht schriftlich schicken"
+      },
+      "traduire": {
+        "quoi": "ein Gespräch übersetzen",
+        "proche": "das schriftliche Gespräch und sein Archiv behalten"
+      },
+      "prevoirMeteo": {
+        "quoi": "das Wetter mit meinem eigenen Modell vorhersagen",
+        "proche": "die Vorhersagen der öffentlichen Quellen vergleichen"
+      },
+      "reconnaitreSons": {
+        "quoi": "Alltagsgeräusche erkennen (Türklingel, Alarm, Bellen)",
+        "proche": "einen Ton ohne Modell messen: Stille, Lautstärke, Tempo, Tonart"
+      }
     }
   }
 }

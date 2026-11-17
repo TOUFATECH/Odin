@@ -9,8 +9,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 
-import { ouvrirModeleSons, etatModeleSons, analyserSon, sonFabrique, CATALOGUE_SONS, telechargerModeleSons } from '../src/audio/index.ts';
-import { telechargerSelon, type FicheModele } from '../src/audio/catalogue.ts';
+import { ouvrirModeleSons, etatModeleSons, analyserSon, sonFabrique, CATALOGUE_SONS } from '../src/audio/index.ts';
+import { type FicheModele } from '../src/audio/catalogue.ts';
 import { logMel } from '../src/audio/spectre.ts';
 import type { ModeleSonsOuvert } from '../src/audio/modele-sons.ts';
 import { ecrireMiniModele, ecrireModele, fauxFetch, sinus, LIBELLES_MINI, hasard } from './syrinx-outils-essai.ts';
@@ -131,51 +131,8 @@ function ficheEssai(octets: Uint8Array): FicheModele {
     taille: octets.length,
     sha256: createHash('sha256').update(octets).digest('hex'),
     urlPoids: 'https://essai.invalid/poids',
-    urlConfig: 'https://essai.invalid/config',
   };
 }
-
-test('téléchargement contre un FAUX fetch : bon fichier accepté, mauvais sha refusé et .part effacé, taille démesurée coupée', async () => {
-  const d = dossierEssai('telechargement');
-  try {
-    const h = hasard(77);
-    const octets = Uint8Array.from({ length: 300_000 }, () => Math.floor(h() * 256));
-    const config = JSON.stringify({ id2label: { 0: 'Speech', 1: 'Glass' } });
-    const fiche = ficheEssai(octets);
-    // Bon fichier.
-    let r = await telechargerSelon(fiche, { dossier: d, fetch: fauxFetch({ [fiche.urlPoids]: octets, [fiche.urlConfig]: config }) });
-    assert.equal(r.ok, true, r.texte);
-    assert.ok(existsSync(join(d, 'sons-petit.safetensors')));
-    assert.ok(existsSync(join(d, 'sons-petit.config.json')));
-    assert.match(readFileSync(join(d, 'sons-petit.licence.txt'), 'utf8'), /licence=Apache-2\.0 ; source=https:\/\/essai\.invalid\/poids/);
-    assert.ok(!existsSync(join(d, 'sons-petit.safetensors.part')));
-    // Mauvais sha.
-    const d2 = dossierEssai('telechargement2');
-    try {
-      r = await telechargerSelon({ ...fiche, sha256: '0'.repeat(64) }, { dossier: d2, fetch: fauxFetch({ [fiche.urlPoids]: octets, [fiche.urlConfig]: config }) });
-      assert.equal(r.ok, false);
-      assert.match(r.texte, /empreinte non conforme/);
-      assert.deepEqual(readdirSync(d2), [], 'le .part est effacé');
-      // Taille démesurée : coupée.
-      const gros = new Uint8Array(octets.length + 100_000);
-      r = await telechargerSelon(fiche, { dossier: d2, fetch: fauxFetch({ [fiche.urlPoids]: gros, [fiche.urlConfig]: config }) });
-      assert.equal(r.ok, false);
-      assert.match(r.texte, /coupé/);
-      assert.deepEqual(readdirSync(d2), []);
-      // Taille annoncée démesurée : refusée avant d'écrire.
-      r = await telechargerSelon(fiche, { dossier: d2, fetch: fauxFetch({ [fiche.urlPoids]: octets, [fiche.urlConfig]: config }, { annonce: 10 ** 10 }) });
-      assert.equal(r.ok, false);
-      assert.deepEqual(readdirSync(d2), []);
-      // Configuration illisible : refusée, rien ne reste.
-      r = await telechargerSelon(fiche, { dossier: d2, fetch: fauxFetch({ [fiche.urlPoids]: octets, [fiche.urlConfig]: '{pas du json' }) });
-      assert.equal(r.ok, false);
-      assert.deepEqual(readdirSync(d2), []);
-      // Le vrai catalogue avec un faux fetch qui ne sert rien : refus propre, aucune exception.
-      r = await telechargerModeleSons({ dossier: d2, fetch: fauxFetch({}) });
-      assert.equal(r.ok, false);
-    } finally { rmSync(d2, { recursive: true, force: true }); }
-  } finally { rmSync(d, { recursive: true, force: true }); }
-});
 
 test('mesure : une passe de la VRAIE forme (poids aléatoires) sur 10 s', async (t) => {
   const d = dossierEssai('vraie-forme');

@@ -111,23 +111,6 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     w.v.ctx('himinbjorg').emit('mouvement', { caméra: 'Entrée', part: 12, surveillé: false }); await wait(60);
     assert.ok(!w.events.some((e) => e.module === 'midgard'), 'hors des heures surveillées : rien');
   },
-  'forseti>bragi': async (w) => {
-    // Une fausse box domotique (protocole Home Assistant) : on y lit ce que Orphée demande de dire.
-    const said: string[] = [];
-    const ha = createServer((req, res) => { let b = ''; req.on('data', (c: Buffer) => { b += c; }); req.on('end', () => {
-      if (req.url === '/api/states') { res.setHeader('content-type', 'application/json'); return void res.end(JSON.stringify([{ entity_id: 'media_player.salon', state: 'idle', attributes: { friendly_name: 'Enceinte salon' } }, { entity_id: 'tts.demo', state: 'unknown', attributes: {} }])); }
-      if (/^\/api\/services\/tts\//.test(req.url ?? '')) said.push(b);
-      res.setHeader('content-type', 'application/json'); res.end('[]');
-    }); });
-    await new Promise<void>((r) => ha.listen(0, '127.0.0.1', r));
-    try {
-      w.v.ctx('bragi').saveSettings({ horn: true, hornHours: '0-24', hornWhere: 'salon', haUrl: `http://127.0.0.1:${(ha.address() as { port: number }).port}` });
-      w.v.alert('eir', { level: 'critique', title: 'Disque plein', key: 'k1' });
-      assert.ok(await until(() => said.some((x) => /Alerte : Disque plein/.test(x) && /media_player\.salon/.test(x))), `l'alerte critique est dite sur l'enceinte du salon (${said.join(' | ').slice(0, 200)})`);
-      const n = said.length; w.v.alert('eir', { level: 'haute', title: 'Mémoire haute', key: 'k2' }); await wait(80);
-      assert.equal(said.length, n, 'une alerte non critique n\'est pas dite à voix haute');
-    } finally { ha.close(); }
-  },
   'appareils>midgard': async (w) => {
     // Port libre pris au hasard : un autre fichier de tests peut avoir son relais en marche au même moment
     w.v.ctx('appareils').saveSettings({ port: 0, devices: { l1: { id: 'l1', name: 'Lampe salon', kind: 'light', room: 'Salon', network: 'MQTT', state: 'ON', stateTopic: 'a/b', commandTopic: 'a/c' } } });
@@ -239,7 +222,7 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     const r = await w.v.act('rodd', 'dicter', { texte: 'lance ringorni', mode: 'tel quel' }); assert.equal(r.text, 'lance Hringhorni');
   },
   'volva>bragi': async () => {
-    // Une vraie voix pour cet essai : un faux serveur Piper (protocole actuel, POST /synthesize) qui rend un petit WAV.
+    // Un faux serveur Piper réglé comme voix : il ne doit plus rien recevoir (modèle d'autrui, retiré le 17/11/2026).
     const wav = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVEfmt '), Buffer.alloc(40)]), dit: string[] = [];
     const srv = createServer((req, res) => { let b = ''; req.on('data', (d) => { b += d; }); req.on('end', () => { if (req.method === 'POST' && req.url === '/synthesize') { dit.push((JSON.parse(b) as { text: string }).text); res.end(wav); } else { res.writeHead(404); res.end(); } }); });
     await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
@@ -251,10 +234,8 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
       const vide = await v.act('volva', 'ecouter', {}); assert.equal(vide.ok, false); assert.match(vide.text, /aucune recherche à lire/);
       writeFileSync(join(v.ctx('volva').dir, 'historique.json'), JSON.stringify([{ id: 'abc123', at: 1, q: 'Quel est le chef-lieu de Mayotte ?', focus: 'tout', answer: '**Mamoudzou** est le chef-lieu de Mayotte [1].', sources: [], engines: [], followups: [], apps: [], ai: false, errors: [] }]));
       const r = await v.act('volva', 'ecouter', {});
-      assert.equal(r.ok, true, r.text); assert.ok(faits.includes('bragi.dire'), 'c\'est Orphée qui lit');
-      assert.deepEqual(dit, ['Mamoudzou est le chef-lieu de Mayotte.'], 'la réponse est dite sans ses renvois ni ses étoiles');
-      const son = v.module('volva')!.retrait!(v.ctx('volva'), r.fichiers![0].ref)!;
-      assert.match(son, /bragi[\\/]audio[\\/]odin-\d+\.wav$/); assert.deepEqual(readFileSync(son), wav, 'le son d\'Orphée est remis par la page de Pythie');
+      assert.equal(r.ok, false); assert.match(r.text, /pas encore entraîné/); assert.equal(r.fichiers, undefined, 'aucun son fabriqué');
+      assert.deepEqual(dit, [], 'le serveur Piper n\'a rien reçu');
       assert.equal(v.module('volva')!.retrait!(v.ctx('volva'), '../réglages.json'), undefined, 'rien d\'autre ne sort par là');
       const u = (await v.order('lis la dernière recherche')).understood as { kind: string; module?: string; action?: string } | undefined;
       assert.deepEqual([u?.kind, u?.module, u?.action], ['action', 'volva', 'ecouter'], '« lis la dernière recherche » arrive chez Pythie, sans IA');

@@ -69,7 +69,6 @@ const HTTP_WRITE = /\b(post|put|patch|delete)\b/;
 function sendsOut(a: ActionState): number {
   if (a.tool === 'send_message') return 0.97;
   if (a.tool === 'http_request') return HTTP_WRITE.test(a.text) ? 0.97 : 0.8; // requête vers un appareil ou un service : ça sort de la machine
-  if (a.tool === 'codex_run') return 0.6; // Codex parle à OpenAI et lit l'espace de travail
   if (any(a.cmd, SEND_CMD) || URL_WITH_VARS.test(a.cmd)) return STRONG;
   if (/\b(curl|wget|iwr|invoke-webrequest)\b/.test(a.cmd)) return 0.4; // simple lecture d'une page : incertain
   if (a.tool === 'system_update_apply') return UNLIKELY;
@@ -114,7 +113,7 @@ const IRREVERSIBLE_CMD = [/\brm\s+-\w*r\w*f|\brm\s+-\w*f\w*r/, /\bshred\b/, /\s-
 function irreversible(a: ActionState): number {
   if (a.tool === 'send_message') return LIKELY; // un message envoyé ne se reprend pas
   if (a.tool === 'http_request') return HTTP_WRITE.test(a.text) ? LIKELY : UNLIKELY;
-  if (a.tool === 'codex_run' || a.tool === 'media_convert') return 0.45; // modifie des fichiers du projet / écrase la sortie
+  if (a.tool === 'media_convert') return 0.45; // écrase la sortie
   if (any(a.cmd, IRREVERSIBLE_CMD)) return STRONG;
   if (sendsOut(a) >= 0.7) return LIKELY;
   if (/(^|[\s;&|])rm\s/.test(a.cmd) || /(^|\s)del\s/.test(a.cmd)) return 0.6; // sans -r/-f : souvent récupérable… ou pas
@@ -148,7 +147,7 @@ function actionIntents(a: ActionState, d: number, s: number, c: number): string[
   else if (c >= 0.7) out.add('run');
   if (a.tool === 'fs_write' || a.tool === 'fs_edit' || a.tool === 'doc_create' || a.tool === 'media_convert') out.add('write');
   if (a.tool === 'shell' && !out.size) out.add('run');
-  if (a.tool === 'codex_run' || a.tool === 'system_update_apply' || a.tool === 'net_scan') out.add('run');
+  if (a.tool === 'system_update_apply' || a.tool === 'net_scan') out.add('run');
   if (a.tool === 'http_request') { out.add('send'); if (HTTP_WRITE.test(a.text)) out.add('run'); } // piloter un appareil = agir dessus
   if (a.tool === 'schedule_task' || a.tool === 'reminder_set') out.add('schedule');
   if (a.tool === 'schedule_cancel') out.add('delete');

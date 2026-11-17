@@ -13,6 +13,7 @@ import { posteDuJeton } from '../valhalla/rodd/capsule.ts';
 import { dictee, MODES, type Mode } from '../valhalla/modules/rodd.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import { hear, sttReady } from '../voice/voice.ts';
+import { pasEntraine } from '../langue/pas-entraine.ts';
 
 type Voix = OdinConfig['voice'];
 const json = (res: ServerResponse, code: number, corps: unknown) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(JSON.stringify(corps)); };
@@ -48,7 +49,7 @@ export async function capsuleRoute(req: IncomingMessage, res: ServerResponse, ur
   const v = o.voix();
   if (v.localOnly && !adresseMaison(o.ip)) { json(res, 403, { ok: false, error: '« 100 % local » : Odin ne reçoit la voix que depuis le réseau de la maison.' }); return true; }
   const entendre = o.entendre ?? ((a, m, vv) => hear(a, m, vv));
-  if (!o.entendre && !sttReady(v)) { json(res, 200, { ok: false, error: 'L\'écoute n\'est pas encore installée sur Odin : dis-lui « installe la voix locale ».' }); return true; }
+  if (!o.entendre && !sttReady(v)) { json(res, 200, { ok: false, error: pasEntraine('ecouter', v.stt?.language) }); return true; }
   const audio = await lire(req, 25 * 1024 * 1024);
   if (!audio) { json(res, 413, { ok: false, error: 'enregistrement trop long (25 Mo au plus)' }); return true; }
   if (!audio.length) { json(res, 400, { ok: false, error: 'enregistrement vide' }); return true; }

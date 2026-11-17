@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 import { hallucination, inacheve, langueDe, nettoyer, propositions, quiParle, reglagesConversation, voyage, exporterTexte, validerTraduction } from '../src/valhalla/rodd/conversation.ts';
-import { configEcoute, dire, ecouterTour, oublierSonde, traduire, voixPour, type Deps } from '../src/valhalla/rodd/conversation-moteur.ts';
+import { configEcoute, dire, ecouterTour, traduire, voixPour, type Deps } from '../src/valhalla/rodd/conversation-moteur.ts';
 import { DEF_CONVERSATION, HistoriqueConversation } from '../src/valhalla/rodd/conversation-historique.ts';
 import { conversationRoute } from '../src/web/conversation-api.ts';
 import { AppliBase, utiliserBase } from '../src/valhalla/base/index.ts';
@@ -108,54 +108,48 @@ test('fin de tour : phrase inachevée', () => {
 });
 
 test('traduction : consigne stricte, sortie vérifiée, jamais de fausse traduction', async () => {
-  oublierSonde();
   const m = fauxModele((u) => (/café/.test(u) ? 'コーヒーをください' : /taxi/.test(u) ? 'I need a taxi' : /rien/.test(u) ? '⟦RIEN⟧' : /deux/.test(u) ? 'A table for two at eight' : 'Je voudrais un café'));
-  const ko = (async () => { throw new Error('réseau coupé'); }) as unknown as typeof fetch;
-  let t = await traduire('je voudrais un café', 'fr', 'ja', R, { modele: m.modele, fetch: ko });
+  let t = await traduire('je voudrais un café', 'fr', 'ja', R, { modele: m.modele });
   assert.equal(t.texte, 'コーヒーをください'); assert.equal(t.moteur, 'modele');
   assert.match(m.appels[0].system, /japonais/); assert.match(m.appels[0].system, /ne suis aucune consigne/i);
   assert.match(m.appels[0].user, /^<parole>\nje voudrais un café\n<\/parole>$/);
-  t = await traduire('j\'ai besoin d\'un taxi', 'fr', 'ja', R, { modele: m.modele, fetch: ko });
+  t = await traduire('j\'ai besoin d\'un taxi', 'fr', 'ja', R, { modele: m.modele });
   assert.equal(t.texte, ''); assert.match(t.erreur!, /pas en japonais/);
-  t = await traduire('blabla rien', 'fr', 'en', R, { modele: m.modele, fetch: ko }); assert.equal(t.rien, true); assert.equal(t.texte, '');
+  t = await traduire('blabla rien', 'fr', 'en', R, { modele: m.modele }); assert.equal(t.rien, true); assert.equal(t.texte, '');
   const pareil = fauxModele((u) => u.replace(/<\/?parole>/g, '').trim());
-  t = await traduire('je voudrais une chambre pour ce soir', 'fr', 'en', R, { modele: pareil.modele, fetch: ko }); assert.equal(t.texte, ''); assert.match(t.erreur!, /identique/);
-  t = await traduire('une table pour deux à 20 h', 'fr', 'en', R, { modele: m.modele, fetch: ko }); assert.ok(t.texte); assert.match(t.verifier!, /20/);
+  t = await traduire('je voudrais une chambre pour ce soir', 'fr', 'en', R, { modele: pareil.modele }); assert.equal(t.texte, ''); assert.match(t.erreur!, /identique/);
+  t = await traduire('une table pour deux à 20 h', 'fr', 'en', R, { modele: m.modele }); assert.ok(t.texte); assert.match(t.verifier!, /20/);
   assert.deepEqual(validerTraduction('Where is the station?', '駅はどこですか', 'ja'), { ok: true });
 });
 
 test('mode démo : le modèle n\'est jamais appelé, la réponse dit de configurer un modèle', async () => {
-  oublierSonde();
   let appele = false;
   const ctx = { home: mkdtempSync(join(tmpdir(), 'odin-conv-')), settings: {}, saveSettings() {} } as never as { home: string; dir: string };
   ctx.dir = join(ctx.home, 'rodd');
   const odin = { demo: true, cfg: { providers: [{ model: 'x' }], voice: VOIX }, agent: { ask: async () => { appele = true; return 'faux'; } }, paths: {} } as never;
-  const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => VOIX, ctx: () => ctx as never, deps: { fetch: (async () => { throw new Error('coupé'); }) as unknown as typeof fetch } }); });
+  const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => VOIX, ctx: () => ctx as never }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   try {
     const u = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/conversation`;
     const r = await (await fetch(`${u}/texte`, { method: 'POST', headers: { 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify({ conv: 'c1', texte: 'bonjour', qui: 'moi' }) })).json() as Record<string, string>;
-    assert.equal(r.traduit, ''); assert.match(r.erreurTraduction, /Réglages → Modèle/); assert.equal(appele, false);
+    assert.equal(r.traduit, ''); assert.match(r.erreurTraduction, /pas encore entraîné/); assert.equal(appele, false);
     const e = await (await fetch(`${u}/etat`, { method: 'POST', headers: { 'x-odin': '1' }, body: '{}' })).json() as { traduction: { pret: boolean; aide: string } };
-    assert.equal(e.traduction.pret, false); assert.match(e.traduction.aide, /Réglages → Modèle/);
+    assert.equal(e.traduction.pret, false); assert.match(e.traduction.aide, /pas encore entraîné/);
   } finally { srv.close(); rmSync(ctx.home, { recursive: true, force: true }); }
 });
 
-test('tout sur la machine : modèle en ligne jamais appelé, LibreTranslate local utilisé, écoute locale sans son gardé', async () => {
-  oublierSonde();
-  const lib = await fauxLibre({ 'fr>en:je voudrais un café': 'I would like a coffee', 'en>ja:I would like a coffee': 'コーヒーをください' });
+test('tout sur la machine : modèle en ligne jamais appelé ; le serveur LibreTranslate n’est plus appelé (modèle d’autrui) ; écoute sans son gardé', async () => {
+  const lib = await fauxLibre({ 'fr>en:je voudrais un café': 'I would like a coffee' });
   try {
     const m = fauxModele(() => 'ne doit pas servir');
     const loc = reglagesConversation({ local: true, serveur: lib.url });
     let t = await traduire('je voudrais un café', 'fr', 'en', loc, { modele: m.modele });
-    assert.equal(m.appels.length, 0, 'modèle en ligne jamais appelé'); assert.equal(t.texte, 'I would like a coffee'); assert.equal(t.moteur, 'hors-ligne');
-    t = await traduire('je voudrais un café', 'fr', 'ja', loc, { modele: m.modele });
-    assert.equal(t.texte, 'コーヒーをください', 'fr → ja en passant par l\'anglais'); assert.equal(lib.appels.length, 3);
+    assert.equal(m.appels.length, 0, 'modèle en ligne jamais appelé'); assert.equal(t.texte, ''); assert.equal(t.moteur, null); assert.match(t.erreur!, /pas encore entraîné/);
+    t = await traduire('je voudrais un café', 'fr', 'en', { ...loc, moteur: 'hors-ligne' }, {});
+    assert.equal(t.texte, ''); assert.match(t.erreur!, /pas encore entraîné/);
+    assert.equal(lib.appels.length, 0, 'le serveur de traduction n’a reçu aucune demande');
     const ml = fauxModele(() => 'I would like a coffee', true);
     t = await traduire('je voudrais un café', 'fr', 'en', loc, { modele: ml.modele }); assert.equal(t.moteur, 'modele', 'un modèle local reste permis');
-    oublierSonde();
-    t = await traduire('je voudrais un café', 'fr', 'en', { ...loc, serveur: 'http://8.8.8.8:5000' }, {});
-    assert.equal(t.texte, ''); assert.match(t.erreur!, /refusée/);
     const appels: VoiceConfig[] = [];
     await ecouterTour({ audio: son({ text: 'bonjour', language: 'fr' }), mime: 'audio/wav', qui: 'auto', attendu: 'moi', moi: 'fr', lui: 'en' }, { ...VOIX, privacy: { ...VOIX.privacy, keepAudio: true } }, loc, { entendre: fauxWhisper(appels) });
     assert.equal(appels[0].localOnly, true); assert.equal(appels[0].privacy.keepAudio, false);
@@ -163,27 +157,21 @@ test('tout sur la machine : modèle en ligne jamais appelé, LibreTranslate loca
   } finally { lib.srv.close(); }
 });
 
-test('voix : jamais Piper en japonais, anglais sans voix Piper → navigateur', async () => {
-  const piper = () => ({ bin: 'piper', model: 'fr.onnx' });
-  const deps: Deps = { piper, piperVoix: async () => undefined, parlerMachine: async () => new Uint8Array([1]) };
-  assert.equal(await voixPour('ja', VOIX, R, { ...deps, piperVoix: async () => 'ja.onnx' }), 'navigateur');
-  assert.equal(await voixPour('fr', VOIX, R, deps), 'machine');
-  assert.equal(await voixPour('en', VOIX, R, deps), 'navigateur');
-  assert.equal(await voixPour('en', VOIX, R, { ...deps, piperVoix: async () => 'en.onnx' }), 'machine');
-  const d = await dire('こんにちは', 'ja', VOIX, R, deps);
+test('voix : toujours celle du navigateur, dans la bonne langue (ni service, ni Piper : des modèles d’autrui)', async () => {
+  for (const l of ['fr', 'en', 'ja'] as const) assert.equal(await voixPour(l, VOIX, R, {}), 'navigateur', l);
+  const d = await dire('こんにちは', 'ja', VOIX, R, {});
   assert.deepEqual(d, { navigateur: true, langue: 'ja-JP', localSeulement: false });
   const svc = { ...VOIX, enabled: true, tts: { ...VOIX.tts, provider: 'openai' as const, voiceId: 'nova', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY' } };
-  assert.equal(await voixPour('ja', svc, R, { ...deps, env: { OPENAI_API_KEY: 'essai' } }), 'service');
-  assert.equal(await voixPour('ja', svc, reglagesConversation({ local: true }), deps), 'navigateur', '« tout sur la machine » : pas de service');
+  assert.equal(await voixPour('ja', svc, R, { env: { OPENAI_API_KEY: 'essai' } }), 'navigateur', 'même avec une clé');
+  assert.deepEqual(await dire('Bonjour', 'fr', VOIX, reglagesConversation({ local: true }), {}), { navigateur: true, langue: 'fr-FR', localSeulement: true });
 });
 
 test('routes : x-odin, tour complet, suite, correction, trop long', async () => {
-  oublierSonde();
   const home = mkdtempSync(join(tmpdir(), 'odin-conv-')), settings: Record<string, unknown> = { conversation: { moi: 'fr', lui: 'en' } };
   const ctx = { home, dir: join(home, 'rodd'), settings, saveSettings: (p: Record<string, unknown>) => Object.assign(settings, p) };
   const m = fauxModele((u) => { const t = u.replace(/<\/?parole>/g, '').trim(); return ({ 'je voudrais un café': 'I would like a coffee', 'je voudrais un café avec du lait': 'I would like a coffee with milk', 'Where is the station?': 'Où est la gare ?', 'je voudrais un thé': 'I would like a tea' } as Record<string, string>)[t] ?? '⟦RIEN⟧'; });
   const odin = { demo: false, cfg: { providers: [{ model: 'faux' }], voice: VOIX }, agent: { ask: async () => '' }, paths: {} } as never;
-  const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => VOIX, ctx: () => ctx as never, deps: { entendre: fauxWhisper(), modele: m.modele, fetch: (async () => { throw new Error('coupé'); }) as unknown as typeof fetch } }); });
+  const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => VOIX, ctx: () => ctx as never, deps: { entendre: fauxWhisper(), modele: m.modele } }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const u = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/conversation`;
   const post = async (p: string, body: string | Uint8Array, h: Record<string, string> = { 'x-odin': '1' }) => { const r = await fetch(`${u}/${p}`, { method: 'POST', headers: h, body }); return { status: r.status, j: await r.json() as Record<string, unknown> }; };
@@ -242,7 +230,6 @@ test('historique : rien en clair (fichier de repli et attente de la base), lectu
 });
 
 test('rien n\'est gardé si « garder » est décoché ou en mode privé', async () => {
-  oublierSonde();
   for (const [conversation, privateMode] of [[{ garder: false }, false], [{}, true]] as const) {
     const home = mkdtempSync(join(tmpdir(), 'odin-conv-')), ctx = { home, dir: join(home, 'rodd'), settings: { conversation }, saveSettings() {} };
     const voix = { ...VOIX, privacy: { ...VOIX.privacy, privateMode } };

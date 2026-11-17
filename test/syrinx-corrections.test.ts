@@ -130,7 +130,6 @@ function fausseOreille() {
     },
     async ouvrirModeleSons() { return { pret: false, raison: 'pas téléchargé', classes: 0, libelles: [], classer: async () => { throw new Error('pas prêt'); } }; },
     etatModeleSons: () => ({ present: false, verifie: false, aTourne: false }),
-    async telechargerModeleSons() { return { ok: false, texte: 'non' }; },
     voterEmpreinte: () => [],
     sonFabrique: () => new Uint8Array(64).fill(7),
   };

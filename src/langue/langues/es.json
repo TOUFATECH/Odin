@@ -180,7 +180,8 @@
     "jeNeConnaisPas": "{action}: no conozco « {chose} » ahí. No he hecho nada: dilo de nuevo con el nombre exacto (o « olvídalo »).",
     "heure": "Son las {heure}, {date}.",
     "abandonne": "De acuerdo, abandono esta petición.",
-    "faitSansIA": "Hecho sin IA: ninguna responde ahora mismo."
+    "faitSansIA": "Hecho sin IA: ninguna responde ahora mismo.",
+    "modelePasEntraine": "Todavía no sé {quoi}: mi propio modelo {sorte} aún no está entrenado. Lo que puedo hacer ya: {proche}."
   },
   "pasEncore": {
     "reserver": {
@@ -230,6 +231,51 @@
     "llm": {
       "quoi": "servir un modelo de lenguaje a otras máquinas",
       "proche": "Métis lee un modelo abierto para mi propio uso"
+    }
+  },
+  "modeles": {
+    "sortes": {
+      "langue": "de lenguaje",
+      "voix": "de voz",
+      "ecoute": "de escucha",
+      "image": "de imagen",
+      "sons": "de sonidos",
+      "lecture": "de lectura",
+      "meteo": "de previsión del tiempo"
+    },
+    "choses": {
+      "ecouter": {
+        "quoi": "escuchar un sonido o un mensaje de voz",
+        "proche": "leer lo que me escribes"
+      },
+      "parler": {
+        "quoi": "responderte en voz alta",
+        "proche": "responderte por escrito"
+      },
+      "copierVoix": {
+        "quoi": "copiar una voz",
+        "proche": "responderte por escrito"
+      },
+      "conversationDirect": {
+        "quoi": "mantener una conversación hablada en directo",
+        "proche": "conversar por escrito"
+      },
+      "annoncer": {
+        "quoi": "hablar por los altavoces de la casa",
+        "proche": "enviarte el mensaje por escrito"
+      },
+      "traduire": {
+        "quoi": "traducir una conversación",
+        "proche": "guardar la conversación escrita y su archivo"
+      },
+      "prevoirMeteo": {
+        "quoi": "prever el tiempo con mi propio modelo",
+        "proche": "comparar las previsiones de las fuentes públicas"
+      },
+      "reconnaitreSons": {
+        "quoi": "reconocer los sonidos cotidianos (timbre, alarma, ladridos)",
+        "proche": "medir un sonido sin modelo: silencio, volumen, tempo, tonalidad"
+      }
     }
   }
 }

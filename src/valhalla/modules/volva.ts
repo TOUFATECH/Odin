@@ -1,6 +1,6 @@
 // Pythie · la recherche : une question en français, plusieurs moteurs interrogés ensemble (Lyncée, le moteur
 // d'Odin, qui interroge lui-même DuckDuckGo, Brave, Yahoo, Bing, Wikipédia… sans clé ni instance externe ; ton
-// instance externe si tu en as une ; Brave, Tavily, Exa selon tes clés), résultats fusionnés et dédoublonnés,
+// instance externe si tu en as une ; Brave, Tavily selon tes clés), résultats fusionnés et dédoublonnés,
 // pages lues, réponse rédigée par l'IA réglée dans Odin avec des sources numérotées cliquables, questions de
 // suite, et les applis d'Odin qui peuvent agir sur le sujet. Toutes les recherches d'Odin passent par Pythie.
 import { randomBytes } from 'node:crypto';
@@ -31,7 +31,6 @@ export const ENGINES: Record<string, { label: string; need?: string; env?: strin
   wikipedia: { label: 'Wikipédia', keyless: true },
   duckduckgo_ia: { label: 'DuckDuckGo (réponses instantanées)', keyless: true },
   tavily: { label: 'Tavily', env: ['TAVILY_API_KEY'] },
-  exa: { label: 'Exa (recherche par le sens)', env: ['EXA_API_KEY'] },
   google: { label: 'Google (Programmable Search)', env: ['GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX'], note: 'fermé aux nouveaux clients ; Google l\'arrête le 1er janvier 2027' },
   duckduckgo: { label: 'DuckDuckGo (page web)', keyless: true, note: 'secours sans clé' },
   mojeek: { label: 'Mojeek (page web)', keyless: true, note: 'souvent bloqué par un captcha' },
@@ -175,7 +174,7 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
     id: 'volva', name: 'Pythie', family: 'Données',
     what: 'La recherche d\'Odin : une question, Lyncée interroge plusieurs moteurs ensemble, une réponse rédigée par ton IA avec des sources cliquables, et les applis d\'Odin qui peuvent agir.',
     modes: ['Lyncée · le moteur de recherche d\'Odin'],
-    does: ['Lyncée, le moteur d\'Odin : DuckDuckGo, Brave, Yahoo, Bing, Wikipédia, Wikidata… interrogés par Odin lui-même, sans clé et sans instance externe', 'santé des moteurs : un moteur qui bloque ou limite est mis en pause, jamais contourné, et la recherche continue avec les autres', 'Web, Actualités, Images et Vidéos avec leurs vignettes, Savoir (Wikipédia, Wikidata)', 'plus, si tu les as : Brave, Tavily, Exa avec une clé, ton instance externe (facultative)', 'résultats fusionnés et dédoublonnés (une page vue par plusieurs moteurs passe devant), 3 pages au plus par site', 'pages lues, réponse rédigée par l\'IA réglée dans Odin, chaque phrase avec ses sources [1][2], sans rien inventer', 'sans IA : les meilleurs extraits, chacun avec sa source', 'questions de suite, conversation (la suite comprend la question d\'avant), focus Actualités, Wikipédia, Science, Vidéos', 'les applis d\'Odin qui peuvent agir sur le sujet, avec leur bouton', 'historique, export Markdown et JSON, lien de partage, impression en PDF', 'toutes les recherches d\'Odin passent par Pythie et Lyncée', 'Odin comme moteur de recherche de tes navigateurs (mode d\'emploi : /recherche/navigateurs)', 'facultatif : installe et lance une instance externe à côté d\'Odin (Docker)'],
+    does: ['Lyncée, le moteur d\'Odin : DuckDuckGo, Brave, Yahoo, Bing, Wikipédia, Wikidata… interrogés par Odin lui-même, sans clé et sans instance externe', 'santé des moteurs : un moteur qui bloque ou limite est mis en pause, jamais contourné, et la recherche continue avec les autres', 'Web, Actualités, Images et Vidéos avec leurs vignettes, Savoir (Wikipédia, Wikidata)', 'plus, si tu les as : Brave, Tavily avec une clé, ton instance externe (facultative)', 'résultats fusionnés et dédoublonnés (une page vue par plusieurs moteurs passe devant), 3 pages au plus par site', 'pages lues, réponse rédigée par l\'IA réglée dans Odin, chaque phrase avec ses sources [1][2], sans rien inventer', 'sans IA : les meilleurs extraits, chacun avec sa source', 'questions de suite, conversation (la suite comprend la question d\'avant), focus Actualités, Wikipédia, Science, Vidéos', 'les applis d\'Odin qui peuvent agir sur le sujet, avec leur bouton', 'historique, export Markdown et JSON, lien de partage, impression en PDF', 'toutes les recherches d\'Odin passent par Pythie et Lyncée', 'Odin comme moteur de recherche de tes navigateurs (mode d\'emploi : /recherche/navigateurs)', 'facultatif : installe et lance une instance externe à côté d\'Odin (Docker)'],
     from: ['Perplexity', 'Perplexica', 'SearXNG', 'Farfalle'], upstream: ['ItzCrazyKns/Perplexica', 'searxng/searxng', 'rashadphz/farfalle'],
     words: ['völva', 'volva', 'recherche', 'cherche sur internet', 'moteur de recherche', 'searxng', 'pose une question à internet', 'lyncée', 'lyncee', 'moteur de recherche du navigateur'],
     actions: [
