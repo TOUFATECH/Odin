@@ -454,7 +454,7 @@
   // prennent la couleur de leur groupe, les noms apparaissent en zoomant ou au survol. Simulation de
   // forces (Barnes-Hut) : des milliers de notes restent fluides. Réglages à droite, retenus.
   let raf = 0;
-  function stopGraph() { cancelAnimationFrame(raf); raf = 0; }
+  function stopGraph() { cancelAnimationFrame(raf); raf = 0; if (GE) { const g = GE; GE = null; try { g.detacher(); } catch { /* déjà retiré */ } } }
   // Plein écran du graphe (pages/plein-ecran.js) : absent, le graphe marche comme avant.
   const grapheEnPlein = () => Boolean(window.OdinPleinEcran?.actif?.()?.classList?.contains('br-cvw'));
   function quitterPleinEcran() { if (grapheEnPlein()) window.OdinPleinEcran.sortir(); }
@@ -474,7 +474,15 @@
     listAlt.classList.add('sr'); // lue par les lecteurs d'écran, cachée à l'œil : le graphe prend toute la place
     const pe = window.OdinPleinEcran?.bouton?.(wrap); if (pe) wrap.querySelector('.g-tools')?.prepend(pe);
     const etaitPlein = grapheEnPlein(); // un réglage redessine le graphe : il reste en plein écran
-    main.replaceChildren(el('div', { class: 'br-gw' }, wrap, listAlt));
+    // « Graphe | Graphe 3D » (pages/graphe-espace.js) : « Graphe » est le dessin d'ici, inchangé ; sans le composant, comme avant.
+    const hote = window.OdinGrapheEspace ? el('div', { class: 'br-g3', style: 'flex:1;min-height:420px;position:relative' }) : null;
+    main.replaceChildren(el('div', { class: 'br-gw' }, hote || wrap, listAlt));
+    const dessiner2D = () => { if (etaitPlein && wrap.isConnected) window.OdinPleinEcran.remplacer(wrap); G = drawGraph(cv, r, intro && GS.intro); };
+    if (hote) {
+      GE = choixGraphe(hote, r, (boite) => { boite.replaceChildren(wrap); dessiner2D(); intro = false; return { detacher() { cancelAnimationFrame(raf); raf = 0; G?.detacher?.(); }, redessiner() { G?.draw(); } }; });
+      if (GE) return;
+      main.replaceChildren(el('div', { class: 'br-gw' }, wrap, listAlt));
+    }
     if (etaitPlein) window.OdinPleinEcran.remplacer(wrap);
     G = drawGraph(cv, r, intro && GS.intro);
   }
@@ -523,14 +531,11 @@
     for (const c of q.k) repulse(c, n, strength);
   }
 
-  function drawGraph(cv, data, intro = false) {
-    const dpr = window.devicePixelRatio || 1;
-    let W = cv.clientWidth || 800, H = cv.clientHeight || 560;
-    cv.width = W * dpr; cv.height = H * dpr;
-    const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
-    const css = getComputedStyle(document.documentElement);
-    const accent = '#4CC38A', hubColor = '#4CC38A';
-    const PAL = GS.light ? { bg: '#F7F7F8', node: '#8B9099', link: 'rgba(60,64,72,.22)', linkHi: accent, text: '#2A2D33', dim: 0.12 } : { bg: '#1E1F22', node: '#A6A9AF', link: 'rgba(170,174,182,.22)', linkHi: accent, text: '#DADCE0', dim: 0.1 };
+  /**
+   * Les notes et les liens que montre le graphe, réglages appliqués (connecteurs, liens devinés, liens vivants,
+   * étiquettes, dossiers, notes isolées, 4 000 points au plus). Le 2D et le « Graphe 3D » partent de ce même calcul.
+   */
+  function donneesGraphe(data) {
     // Données : notes (+ étiquettes en nœuds si demandé), filtres.
     let nodes = data.nodes.filter((n) => GS.connectors || n.type !== 'connecteur').map((n) => ({ ...n }));
     let edges = data.edges.filter((e) => GS.guessed || e.kind === 'lien' || e.kind === 'source' || e.kind === 'appris' || e.kind === 'frein');
@@ -556,8 +561,64 @@
     for (const n of nodes) n.degree = deg.get(n.id) || 0;
     if (!GS.orphans) nodes = nodes.filter((n) => n.degree > 0);
     if (nodes.length > 4000) nodes = nodes.sort((a, b) => b.degree - a.degree).slice(0, 4000);
+    const garde = new Set(nodes.map((n) => n.id));
+    edges = edges.filter((e) => garde.has(e.from) && garde.has(e.to));
+    return { nodes, edges };
+  }
+
+  // ---------------- « Graphe 3D » du Cerveau (composant commun pages/graphe-espace.js) ----------------
+  // Les mêmes notes et les mêmes liens que le 2D. Groupe = le type de la note (Projet, Tâche, Personne…) : une liste
+  // courte et fixe, déjà colorée et légendée dans le 2D (« Par type de note ») ; les dossiers, eux, sont libres et
+  // nombreux (trop de noms de groupes à l'écran) et restent des points reliés à leurs notes, comme dans le 2D.
+  // Taille : le composant la tire du nombre de liens. Au-delà de ESPACE_MAX notes, le placement en 3D (calcul en n²,
+  // plafonné en tours) ne donnerait plus qu'une boule sans forme : on montre les plus liées, et on le dit à l'écran.
+  const ESPACE_MAX = 600;
+  const COULEUR_ESPACE = { dossier: '#3B8EEA', étiquette: '#7F8AA3', connecteur: '#E3AC3F' };
+  const LIBELLE_ESPACE = { dossier: 'Dossier', étiquette: 'Étiquette' };
+  function versEspace(data, max = ESPACE_MAX) {
+    const { nodes, edges } = donneesGraphe(data);
+    const total = nodes.length;
+    const montres = total > max ? [...nodes].sort((a, b) => b.degree - a.degree).slice(0, max) : nodes;
+    const ids = new Set(montres.map((n) => n.id));
+    const nomType = (t) => TYPE_LABEL[t] || LIBELLE_ESPACE[t] || String(t || '');
+    const couleur = (t) => TYPE_COLOR[t] || COULEUR_ESPACE[t] || '#A6A9AF';
+    const types = [...new Set(montres.map((n) => n.type))];
+    const liens = edges.filter((e) => ids.has(e.from) && ids.has(e.to)).map((e) => [e.from, e.to]);
+    return {
+      label: 'Cerveau',
+      nodes: montres.map((n) => ({ id: n.id, label: String(n.title ?? n.id), sub: nomType(n.type), groupe: nomType(n.type), color: couleur(n.type), title: `${n.title} · ${nomType(n.type)} · ${n.degree} lien${n.degree > 1 ? 's' : ''}` })),
+      edges: liens,
+      legend: types.map((t) => [couleur(t), nomType(t)]),
+      // Le compteur en haut du 3D : quand tout ne tient pas, il dit combien sont montrés et lesquels. « Éléments » :
+      // les points comptent aussi les dossiers, les étiquettes et les connecteurs (comme l'étiquette d'accès du 2D).
+      counter: (ns, es) => (total > ns.length ? `${ns.length} éléments les plus liés sur ${total} · ${es.length} liens` : `${ns.length} éléments · ${es.length} liens`),
+      onOpen: (id) => ouvrirPoint(montres.find((n) => n.id === id)),
+    };
+  }
+  /** Toucher un point du 3D : comme un clic dans le 2D (une note s'ouvre, un dossier ou une étiquette se cherche). */
+  function ouvrirPoint(n) {
+    if (!n || n.type === 'connecteur') return;
+    if (n.type === 'dossier' || n.type === 'étiquette') { const q = $('#brQ'); if (!q) return; q.value = n.type === 'dossier' ? n.folder : n.title.slice(1); onSearch(); openSide(); return; }
+    openNote(n.id);
+  }
+  let GE = null; // le choix « Graphe | Graphe 3D » monté
+  /** Le choix « Graphe | Graphe 3D », retenu sous « cerveau » ; `monter2D(boite)` dessine le graphe d'avant. Null sans le composant. */
+  function choixGraphe(hote, r, monter2D) {
+    const E = window.OdinGrapheEspace;
+    if (!E || typeof E.choix !== 'function') return null;
+    return E.choix(hote, { cle: 'cerveau', donnees: versEspace(r), plein: true, monter2D });
+  }
+
+  function drawGraph(cv, data, intro = false) {
+    const dpr = window.devicePixelRatio || 1;
+    let W = cv.clientWidth || 800, H = cv.clientHeight || 560;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+    const css = getComputedStyle(document.documentElement);
+    const accent = '#4CC38A', hubColor = '#4CC38A';
+    const PAL = GS.light ? { bg: '#F7F7F8', node: '#8B9099', link: 'rgba(60,64,72,.22)', linkHi: accent, text: '#2A2D33', dim: 0.12 } : { bg: '#1E1F22', node: '#A6A9AF', link: 'rgba(170,174,182,.22)', linkHi: accent, text: '#DADCE0', dim: 0.1 };
+    let { nodes, edges } = donneesGraphe(data);
     const byId = new Map(nodes.map((n) => [n.id, n]));
-    edges = edges.filter((e) => byId.has(e.from) && byId.has(e.to));
     const sorted = [...nodes].map((n) => n.degree).sort((a, b) => b - a);
     const hubMin = Math.max(4, sorted[Math.floor(sorted.length * 0.04)] || 4);
     // Positions de départ : en spirale (les plus reliés au centre).
@@ -570,13 +631,13 @@
     // Échanges et neurones passent par une seule demande d'image : jamais deux dessins dans la même trame, 30 i/s au plus.
     let trame = 0, derniere = 0;
     const bientot = () => { if (trame) return; if (typeof requestAnimationFrame !== 'function') { if (!raf) draw(); return; } trame = requestAnimationFrame((t) => { trame = 0; if (t - derniere < 30) { bientot(); return; } derniere = t; if (!raf && cv.clientWidth) draw(); }); };
-    ECH?.brancher(bientot, () => cv.isConnected, 30);
+    const lacherEch = ECH?.brancher(bientot, () => cv.isConnected, 30);
     // Liens vivants : même résolveur que les échanges (Odin au centre, une appli par sa fiche) ; heure du serveur pour « il y a… ».
     const noeudCarte = (id, nom) => { if (id === 'odin') return { id: 'odin', x: 0, y: 0, r: 0 }; const n = fichesApplis.get(nom) || byId.get(id); return n && { id: n.id, x: n.x, y: n.y, r: radius(n) }; };
     const decal = typeof data.neurones?.maintenant === 'number' ? data.neurones.maintenant - Date.now() : 0; let lienVu = null;
     // L'explication d'un lien ne reste pas affichée quand le pointeur part ou que la vue bouge (elle ne correspondrait plus).
     const cacherLien = () => { if (!lienVu) return; lienVu = null; if (!hover) $('#brTip').hidden = true; };
-    NEU?.brancher(bientot, () => cv.isConnected, { edges, noeud: (id, nom) => fichesApplis.get(nom) || byId.get(id), actif: () => GS.forces });
+    const lacherNeu = NEU?.brancher(bientot, () => cv.isConnected, { edges, noeud: (id, nom) => fichesApplis.get(nom) || byId.get(id), actif: () => GS.forces });
     let hover = null, drag = null, pan = null, alpha = 1, moved = false;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const radius = (n) => (n.type === 'connecteur' ? 6 : n.type === 'dossier' ? 5 + Math.sqrt(n.degree) * 0.9 : n.type === 'étiquette' ? 3 : 2.4 + Math.sqrt(n.degree) * 1.8) * GS.nodeSize;
@@ -762,7 +823,8 @@
     cv.onpointerleave = () => { cacherLien(); if (hover) { hover = null; $('#brTip').hidden = true; if (!raf) draw(); } };
     // Liens vivants : au survol d'un lien, pourquoi il existe ; clic droit sur un lien appris : l'oublier (après confirmation).
     const nomDe = (id) => byId.get(id)?.title || id;
-    cv.addEventListener('pointermove', (e) => { if (!NEU || !GS.forces || drag || pan || hover) return; const l = NEU.pickLien(edges, at(e), view.k), tip = $('#brTip'); if (l) { tip.hidden = false; tip.textContent = NEU.texteLien(l, nomDe, Date.now() + decal); cv.title = ''; } else if (lienVu) tip.hidden = true; lienVu = l; });
+    const survolLien = (e) => { if (!NEU || !GS.forces || drag || pan || hover) return; const l = NEU.pickLien(edges, at(e), view.k), tip = $('#brTip'); if (l) { tip.hidden = false; tip.textContent = NEU.texteLien(l, nomDe, Date.now() + decal); cv.title = ''; } else if (lienVu) tip.hidden = true; lienVu = l; };
+    cv.addEventListener('pointermove', survolLien);
     cv.oncontextmenu = async (e) => {
       const l = NEU && GS.forces ? NEU.pickLien(edges, at(e), view.k) : null; if (!l || l.kind !== 'appris') return;
       e.preventDefault(); drag = null; pan = null;
@@ -775,8 +837,9 @@
     cv.onwheel = (e) => { e.preventDefault(); cam = null; follow = false; cacherLien(); const b = cv.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top, f = Math.exp(-e.deltaY * 0.0015); const k = Math.max(0.05, Math.min(6, view.k * f)); view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; if (!raf) draw(); };
     // La boîte change de taille (pleine page, plein écran, fenêtre) : le canevas suit, le centre reste au centre.
     const boite = cv.parentElement;
+    let ro = null;
     if (boite && typeof ResizeObserver === 'function') {
-      const ro = new ResizeObserver(() => {
+      ro = new ResizeObserver(() => {
         if (!cv.isConnected) { ro.disconnect(); return; }
         const w = boite.clientWidth, h = boite.clientHeight;
         if (!w || !h || (w === W && h === H)) return;
@@ -787,7 +850,7 @@
       ro.observe(boite);
     }
     // Clavier (pages/plein-ecran.js) : flèches pour se déplacer, + et − pour zoomer, 0 pour tout voir, Entrée pour ouvrir.
-    window.OdinPleinEcran?.clavier?.(cv, {
+    const lacherClavier = window.OdinPleinEcran?.clavier?.(cv, {
       deplacer: (dx, dy) => { cam = null; follow = false; cacherLien(); view.x += dx; view.y += dy; if (!raf) draw(); },
       zoomer: (f) => { cam = null; follow = false; cacherLien(); const k = Math.max(0.05, Math.min(6, view.k * f)); view.x = W / 2 - (W / 2 - view.x) * (k / view.k); view.y = H / 2 - (H / 2 - view.y) * (k / view.k); view.k = k; if (!raf) draw(); },
       recadrer: () => { cam = null; follow = false; fit(); },
@@ -797,7 +860,9 @@
         if (best) openNote(best.id);
       },
     });
-    return { reheat, draw: () => { if (!raf) draw(); }, fit, data };
+    // Détacher avant de redessiner sur la même toile (retour du 3D au « Graphe ») : sinon survol, observateur et clavier s'empilent.
+    const detacher = () => { cv.removeEventListener('pointermove', survolLien); ro?.disconnect(); ro = null; for (const f of [lacherClavier, lacherEch, lacherNeu]) if (typeof f === 'function') f(); if (trame) { cancelAnimationFrame(trame); trame = 0; } };
+    return { reheat, draw: () => { if (!raf) draw(); }, fit, data, detacher };
   }
 
   // ---------------- Petits éléments ----------------
@@ -817,6 +882,8 @@
     },
     memories: (q) => openMemories(q),
     md,
+    // Le « Graphe 3D » du Cerveau, vérifié par test/cerveau-graphe-3d.test.ts.
+    graphe3D: { versEspace, donneesGraphe, choixGraphe, drawGraph, ESPACE_MAX },
   };
   // Changement d'écran ou d'onglet : ce qui est en cours d'écriture est enregistré.
   document.addEventListener('visibilitychange', () => { if (document.hidden && S.dirty) saveNow(); });
