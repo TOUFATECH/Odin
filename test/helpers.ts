@@ -19,6 +19,15 @@ definirDecouverteParDefaut(async () => ({ subnets: [], found: [] }));
 // dans le vrai dossier de la machine) : un vocal sans rien de prêt reçoit une phrase claire, tout de suite.
 process.env.ODIN_NO_VOICE_INSTALL ??= '1';
 
+// Garde-fou des dossiers réels : un essai qui oublierait de donner un dossier d'Odin ne tombe jamais sur le vrai
+// (~/.odin, par odinPaths() et les autres valeurs par défaut) : sans ODIN_HOME (ou vide), il en reçoit un jetable,
+// retiré à la fin. Le coffre et l'auto-modification refusent de toute façon le vrai dossier sous essai (src/vault.ts).
+if (!process.env.ODIN_HOME?.trim()) {
+  const jetable = mkdtempSync(join(tmpdir(), 'odin-essai-home-'));
+  process.env.ODIN_HOME = jetable;
+  process.on('exit', () => { try { rmSync(jetable, { recursive: true, force: true }); } catch { /* tant pis : dossier temporaire */ } });
+}
+
 export interface TestOdin extends Odin {
   provider: MockProvider;
   approvals: ApprovalRequest[];

@@ -12,9 +12,9 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { bool, obj, str, type Tool, type ToolContext } from './registry.ts';
+import { dossierOdinParDefaut, refuserDossierReelEnEssai } from '../vault.ts';
 import { GRAVE_ACCEPTER, GRAVE_RESTAURER, cheminReelRelatif, ecrireReference, empreinteFichier, estNoyau, noterReferenceConnue, figerReference, verifierNoyau, FICHIER_EMPREINTES } from '../heimdall/noyau.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -40,7 +40,8 @@ export const hasGit = (root = APP_ROOT) => existsSync(join(root, '.git')) && git
 // ---------- sauvegardes avant modification ----------
 
 interface ChangeSet { id: string; at: string; files: string[]; reason?: string }
-const backupsDir = (home: string) => join(home, 'self-backups');
+/** Dossier des copies de côté. Sous un essai ou un banc, jamais celui du vrai dossier d'Odin (refus franc). */
+const backupsDir = (home: string) => { refuserDossierReelEnEssai(home, 'l\'auto-modification'); return join(home, 'self-backups'); };
 const manifest = (home: string) => join(backupsDir(home), 'journal.json');
 function readJournal(home: string): ChangeSet[] { try { return JSON.parse(readFileSync(manifest(home), 'utf8')) as ChangeSet[]; } catch { return []; } }
 function writeJournal(home: string, j: ChangeSet[]) { mkdirSync(backupsDir(home), { recursive: true }); writeFileSync(manifest(home), JSON.stringify(j.slice(-30), null, 2)); }
@@ -90,19 +91,37 @@ export function checkApp(root = APP_ROOT, tests = false): { ok: boolean; output:
   if (load.status !== 0) return { ok: false, output: `Le code ne se charge plus :\n${out}` };
   if (tests && existsSync(join(root, 'test'))) {
     const files = readdirSync(join(root, 'test')).filter((f) => f.endsWith('.test.ts')).map((f) => join('test', f));
-    const t = spawnSync(node, [...flags, '--test', ...files], { encoding: 'utf8', timeout: 900_000, cwd: root, env: { ...process.env, ODIN_HOME: '' } });
+    const t = spawnSync(node, [...flags, '--test', ...files], { encoding: 'utf8', timeout: 900_000, cwd: root, env: envEssais() });
     const summary = `${t.stdout}${t.stderr}`.split('\n').filter((l) => /^# (tests|pass|fail)|^not ok|✖/.test(l)).slice(0, 40).join('\n');
     out += `\ntests :\n${summary}`;
     if (t.status !== 0) return { ok: false, output: out };
   }
   return { ok: true, output: out };
 }
+/**
+ * L'environnement des essais lancés par Odin lui-même : sans SON dossier ni SON dossier de clés (ODIN_HOME,
+ * ODIN_CLE_DIR retirés, pas vidés : une variable vide se lisait comme « le dossier par défaut », donc le vrai). Chaque
+ * essai prend ses dossiers jetables ; le lanceur d'essais pose NODE_TEST_CONTEXT, qui garde le reste.
+ */
+function envEssais(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const e: NodeJS.ProcessEnv = { ...process.env, ...extra };
+  delete e.ODIN_HOME; delete e.ODIN_CLE_DIR;
+  return e;
+}
 const pathToUrl = (p: string) => `file://${p.startsWith('/') ? '' : '/'}${p.replace(/\\/g, '/')}`;
 
 // ---------- le code installé : conflits, retouches locales mises de côté ----------
 
-/** Dossier d'Odin, pour y ranger une copie lisible des retouches mises de côté. */
-const defaultHome = () => process.env.ODIN_HOME || join(homedir(), '.odin');
+/**
+ * Dossier d'Odin par défaut, pour y ranger une copie lisible des retouches mises de côté : ODIN_HOME, sinon ~/.odin
+ * (vraie installation, inchangé). Refus franc (jamais le vrai dossier en silence) : ODIN_HOME posé mais vide, ou un
+ * essai / un banc qui n'a pas donné de dossier.
+ */
+function defaultHome(quoi: string): string {
+  const v = process.env.ODIN_HOME;
+  if (v !== undefined && !v.trim()) throw new Error(`ODIN_HOME est posé mais vide : ${quoi} ne sait pas où ranger ses copies de côté. Donne un dossier (ODIN_HOME=<dossier>) ou retire la variable.`);
+  return dossierOdinParDefaut(quoi);
+}
 
 /**
  * Fichiers du code restés en plein conflit : fusion ratée, ou marqueurs de conflit dans un fichier
@@ -135,7 +154,7 @@ export function treeState(root = APP_ROOT): string {
  * de git (« git stash list »). Sert quand une retouche locale empêche le code de se charger, ou
  * qu'une fusion ratée a laissé des marqueurs de conflit dans les fichiers.
  */
-export function restorePublished(root = APP_ROOT, home = defaultHome()): { ok: boolean; aside?: string; files: string[] } {
+export function restorePublished(root = APP_ROOT, home = defaultHome('restorePublished')): { ok: boolean; aside?: string; files: string[] } {
   if (!hasGit(root)) return { ok: false, files: [] };
   const bad = conflicted(root), dirty = isDirty(root);
   if (!bad.length && !dirty) return { ok: true, files: [] };
@@ -155,7 +174,7 @@ export function restorePublished(root = APP_ROOT, home = defaultHome()): { ok: b
  * retouches sont mises de côté (copie .patch + réserve git) : le code n'est jamais laissé en conflit.
  * `stashed` : les retouches attendent dans la réserve (à réappliquer si on revient à la version d'avant).
  */
-export function updateApp(root = APP_ROOT, home = defaultHome()): { ok: boolean; message: string; aside?: string; stashed?: boolean } {
+export function updateApp(root = APP_ROOT, home = defaultHome('updateApp')): { ok: boolean; message: string; aside?: string; stashed?: boolean } {
   if (!hasGit(root)) return { ok: false, message: 'Odin n\'a pas été installé avec git : relance l\'installateur pour le mettre à jour.' };
   const notes: string[] = [];
   let aside: string | undefined, stashed = false;
@@ -528,7 +547,7 @@ export function essaisDuLot(root: string, fichiers: string[]): { ok: boolean; ou
   if (existsSync(join(root, 'test', 'noyau.test.ts')) && !tests.includes('noyau.test.ts')) tests.push('noyau.test.ts');
   tests = tests.slice(0, 12);
   if (!tests.length) return { ok: true, output: 'aucun essai lié', essais: [] };
-  const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '--test', ...tests.map((t) => join('test', t))], { encoding: 'utf8', timeout: 600_000, cwd: root, env: (() => { const e: NodeJS.ProcessEnv = { ...process.env, ODIN_NO_RESTART: '1' }; delete e.NODE_TEST_CONTEXT; return e; })() });
+  const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '--test', ...tests.map((t) => join('test', t))], { encoding: 'utf8', timeout: 600_000, cwd: root, env: (() => { const e = envEssais({ ODIN_NO_RESTART: '1' }); delete e.NODE_TEST_CONTEXT; return e; })() });
   return { ok: r.status === 0, output: `${tests.join(', ')}\n${(r.stdout || '') + (r.stderr || '')}`.slice(-6000), essais: tests };
 }
 
