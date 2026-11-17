@@ -1,11 +1,14 @@
 // Banc de rapidité : SOUL (Noûs) sur le processeur — où part le temps d'un pas d'entraînement et d'une réponse.
 //
-//   node --disable-warning=ExperimentalWarning test/rapidite/soul.ts [profil|noyaux|fils] …
+//   node --disable-warning=ExperimentalWarning test/rapidite/soul.ts [profil|noyaux|maquettes|fils|comparer] …
 //
 // profil : un réseau « moyen » (poids au hasard : même calcul qu'un réseau entraîné), N suites de 128 morceaux,
 //          perte + gradients sur le fil principal, sous le profil processeur ; temps propre par fonction, ramasse-miettes,
 //          débit en morceaux/s ; puis la génération (une réponse de 32 morceaux).
 // noyaux : GFLOP/s du produit de matrices d'Odin (WebAssembly SIMD) pour chaque forme utilisée par le gabarit « moyen ».
+// fils : débit réel d'une séance (1 fil, ou fils d'aide) + génération + mémoire, pour un dossier de code donné.
+// comparer : AVANT (copie du dernier commit hors du dépôt) / APRÈS sur 1, 4 et 7 fils, dans les mêmes minutes.
+//   RAPIDITE_SORTIE=…/rapidite/processeur node … test/rapidite/soul.ts comparer <copie avant> [tours] [pas]
 // Lecture seule de src/brain/nous : rien n'y est modifié.
 
 process.env.ODIN_ESSAI = '1';
@@ -123,8 +126,92 @@ async function maquettes() {
   return res;
 }
 
+/**
+ * Débit d'un pas d'entraînement « moyen » sur `nFils` fils (séance réelle : seance() sur 1 fil, seanceParallele() avec
+ * des fils d'aide au-delà), puis d'une génération, et la mémoire. `racine` : le dossier qui contient src/brain/nous
+ * (le dépôt, ou une copie du dernier commit hors du dépôt pour la mesure « avant »). Le noyau peut être forcé par
+ * ODIN_NOYAU (fma, bloc, ancien, js) dans le code qui le connaît.
+ */
+async function fils(racine: string, nFils: number, nPas: number) {
+  const { pathToFileURL } = await import('node:url');
+  const { join } = await import('node:path');
+  const base = (f: string) => pathToFileURL(join(racine, 'src/brain/nous', f)).href;
+  const calc = await import(base('calcul.ts')) as typeof import('../../src/brain/nous/calcul.ts');
+  const { hyperDe: hy } = await import(base('tailles.ts')) as typeof import('../../src/brain/nous/tailles.ts');
+  const h = hy('moyen'), sab = new SharedArrayBuffer(h.poids * 4);
+  const r = new calc.Reseau(h, new Float32Array(sab)); r.initialiser(1);
+  const nf = Math.max(1, nFils), parFil = Math.max(1, Math.round(8 / nf)), lot = parFil * nf;
+  const donnees = suites(lot * (nPas + 1) * 2 + 8, h.contexte, h.vocab, 7);
+  const aides = nf > 1 ? calc.lancerAides(h, sab, undefined, nf - 1) : undefined;
+  const lancer = async (entrees: Int32Array[], maxPas: number) => {
+    const o = { dureeMs: 600_000, graine: 3, tailleLot: 8, maxPas };
+    // RAPIDITE_SANS_REPARTI=1 : le pas (addition des gradients + AdamW) fait par le seul fil de Noûs, comme avant.
+    const a = aides && process.env.RAPIDITE_SANS_REPARTI === '1' ? { ...aides, reparti: undefined } : aides;
+    return a ? calc.seanceParallele(r, [{ entrees }], o, a) : calc.seance(r, [{ entrees }], o);
+  };
+  await lancer(donnees.slice(0, lot * 2), 2); // chauffe (fils d'aide prêts, noyaux compilés)
+  // Charge de la machine : 1 s juste avant (les autres programmes seuls), puis pendant la mesure (le fil de mesure est
+  // bloqué, donc par différence des compteurs) : occupation totale, et la part des AUTRES programmes que ce banc.
+  const chargeAvant = await chargeMachine(1000);
+  const { cpus } = await import('node:os');
+  const occ = () => cpus().reduce((s, c) => { const t = c.times; return { occupe: s.occupe + t.user + t.nice + t.sys + t.irq, total: s.total + t.user + t.nice + t.sys + t.irq + t.idle }; }, { occupe: 0, total: 0 });
+  const o0 = occ(), c0 = process.cpuUsage();
+  const av = await lancer(donnees.slice(lot * 2), nPas);
+  const cpu = process.cpuUsage(c0), o1 = occ();
+  const totalMs = o1.total - o0.total, occupeMs = o1.occupe - o0.occupe, banc = (cpu.user + cpu.system) / 1000;
+  const chargePendant = { machine: Math.round((1000 * occupeMs) / totalMs) / 10, autres: Math.round((1000 * Math.max(0, occupeMs - banc)) / totalMs) / 10 };
+  const amorce = donnees[0].subarray(0, 16);
+  r.generer(amorce, 8);
+  const tg = performance.now(); for (let i = 0; i < 3; i++) r.generer(amorce, 32, { graine: i }); const msGen = (performance.now() - tg) / 3;
+  const mem = process.memoryUsage();
+  if (aides) await calc.arreterAides(aides);
+  return {
+    racine, fils: nf, lot, pas: av.pas, morceaux: av.morceauxVus, ms: Math.round(av.tempsMs), morceauxParS: Math.round(av.morceauxVus / (av.tempsMs / 1000)),
+    msParPas: Math.round(av.tempsMs / Math.max(1, av.pas)), perte: av.perte, generation32Ms: Math.round(msGen), morceauxGeneresParS: Math.round(32 / (msGen / 1000)),
+    cpuBancMs: Math.round(banc), chargeAvant: chargeAvant.occupation, chargePendant,
+    memoire: { rssMo: Math.round(mem.rss / 1e6), tasMo: Math.round(mem.heapUsed / 1e6), tamponsMo: Math.round(mem.arrayBuffers / 1e6), externeMo: Math.round(mem.external / 1e6) },
+    noyau: (r as unknown as { modeNoyau?: string }).modeNoyau ?? 'ancien (code d\'origine)',
+  };
+}
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const quoi = process.argv[2] ?? 'profil';
+  if (quoi === 'comparer') {
+    // node test/rapidite/soul.ts comparer <racine avant> [tours] [nPas] : AVANT (copie du dernier commit hors du dépôt) et
+    // APRÈS (ce dépôt) en processus séparés, l'un juste après l'autre (ordre alterné d'un tour à l'autre), sur 1, 4 et 7
+    // fils ; à 1 fil, aussi le code APRÈS avec un noyau forcé (bloc sans fusion, ancien) pour séparer les gains.
+    const { execFileSync } = await import('node:child_process');
+    const { resolve } = await import('node:path');
+    const avant = resolve(process.argv[3] ?? '.'), apres = resolve('.'), tours = Number(process.argv[4] ?? 2), nPas = Number(process.argv[5] ?? 4);
+    const lancer = (racine: string, n: number, noyau?: string) => JSON.parse(execFileSync(process.execPath, ['--disable-warning=ExperimentalWarning', fileURLToPath(import.meta.url), 'fils', racine, String(n), String(nPas)], { env: { ...process.env, ...(noyau ? { ODIN_NOYAU: noyau } : {}) }, encoding: 'utf8', maxBuffer: 1 << 24 }).trim().split('\n').pop()!);
+    const lignes: Array<Record<string, unknown>> = [];
+    for (let t = 0; t < tours; t++) {
+      for (const n of [1, 4, 7]) {
+        const variantes: Array<[string, string, string | undefined]> = [['avant', avant, undefined], ['après', apres, undefined]];
+        if (n === 1) variantes.push(['après, noyau bloc', apres, 'bloc'], ['après, noyau ancien', apres, 'ancien']);
+        if (t % 2) variantes.reverse();
+        const heure = new Date().toISOString();
+        for (const [quoiV, racine, noyau] of variantes) { const r = lancer(racine, n, noyau); lignes.push({ tour: t, heure, fils: n, variante: quoiV, ...r }); console.log(t, n, quoiV, r.morceauxParS, 'morceaux/s', r.generation32Ms, 'ms/32', 'charge', r.chargeAvant, JSON.stringify(r.chargePendant)); }
+      }
+    }
+    const lig = (n: number, v: string) => lignes.filter((l) => l.fils === n && l.variante === v);
+    const med = (xs: number[]) => stat(xs).mediane;
+    const tab: Array<Array<string | number>> = [];
+    for (const n of [1, 4, 7]) for (const v of ['avant', 'après', 'après, noyau bloc', 'après, noyau ancien']) {
+      const l = lig(n, v); if (!l.length) continue;
+      const a = lig(n, 'avant');
+      const rapports = l.map((x) => { const y = a.find((z) => z.tour === x.tour)!; return (x.morceauxParS as number) / (y.morceauxParS as number); });
+      tab.push([n, v, med(l.map((x) => x.morceauxParS as number)), med(l.map((x) => x.msParPas as number)), v === 'avant' ? '—' : `×${med(rapports).toFixed(2)}`, med(l.map((x) => x.generation32Ms as number)), med(l.map((x) => (x.memoire as { rssMo: number }).rssMo)), l.map((x) => `${x.chargeAvant}/${(x.chargePendant as { autres: number }).autres}`).join(' '), String(l[0].noyau)]);
+    }
+    const texte = `Soul « moyen » : avant (dernier commit, copie hors du dépôt) et après, mêmes minutes, ${tours} tours, ${nPas} pas par mesure.\n` +
+      tableau(['fils', 'code', 'morceaux/s', 'ms/pas', 'rapport', 'génération 32 (ms)', 'mémoire (Mo)', 'charge avant/autres pendant (%)', 'noyau'], tab) + '\n';
+    ecrireResultat('soul-processeur', { lignes }, texte); console.log(texte); process.exit(0);
+  }
+  if (quoi === 'fils') {
+    // node test/rapidite/soul.ts fils <racine> <nFils> [nPas] : une ligne JSON (le pilote compare avant / après).
+    const { resolve } = await import('node:path');
+    const res = await fils(resolve(process.argv[3] ?? '.'), Number(process.argv[4] ?? 1), Number(process.argv[5] ?? 4));
+    console.log(JSON.stringify(res)); process.exit(0);
+  }
   if (quoi === 'maquettes') {
     const c = await chargeMachine(1000), r = await maquettes() as { noyaux: Array<Array<string | number>>; attention: { bouclesMs: number; produitsMs: number; ecartMax: number }; perte: { deuxExpMs: number; uneExpMs: number; ecartMax: number }; ramasseMiettes: unknown };
     const texte = `Maquettes Soul — charge ${c.occupation} %\n` + tableau(['noyau / forme', 'actuel GFLOP/s', 'maquette GFLOP/s', 'sans recopie', 'écart relatif'], r.noyaux) +

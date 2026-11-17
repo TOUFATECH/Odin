@@ -4,6 +4,8 @@
 // 8 registres de 128 bits pendant toute la somme sur K : B est lu une fois pour 4 lignes, C n'est écrit qu'à la fin.
 // Option « fma » : la multiplication-addition fusionnée de « relaxed SIMD » (f32x4.relaxed_madd), si la machine l'a.
 // Rien ici n'est branché dans Odin : c'est une copie de travail, comparée au noyau actuel sur les mêmes données.
+// (Depuis, le vrai noyau par blocs est dans src/brain/nous/wasm.ts — mmb4/mmb1, bords compris, avec replis ; cette
+// maquette reste pour le mode « maquettes » du banc.)
 
 function uleb(n: number): number[] { const o: number[] = []; let v = n >>> 0; do { let b = v & 0x7f; v >>>= 7; if (v) b |= 0x80; o.push(b); } while (v); return o; }
 function sleb(n: number): number[] { const o: number[] = []; let v = n | 0, more = true; while (more) { let b = v & 0x7f; v >>= 7; if ((v === 0 && !(b & 0x40)) || (v === -1 && (b & 0x40))) more = false; else b |= 0x80; o.push(b); } return o; }

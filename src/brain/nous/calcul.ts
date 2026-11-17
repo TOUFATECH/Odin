@@ -15,6 +15,22 @@ import { hasard, graineDe, melange, type Hasard } from './hasard.ts';
 import { noyaux, type Noyaux } from './wasm.ts';
 
 // ----------------------------------------------------------------------------------------------------------------
+// Où tourne le calcul : LE point unique où se lit le choix « processeur » ou « carte graphique ».
+// Aujourd'hui, seule la voie processeur existe : Node n'expose aucun accès au calcul sur carte graphique (pas de
+// navigator.gpu, vérifié), et le propriétaire refuse toute dépendance. Demander la carte graphique ne casse rien : le
+// calcul reste sur le processeur et le message le dit franchement.
+// ----------------------------------------------------------------------------------------------------------------
+
+export type VoieCalcul = 'processeur' | 'carte-graphique';
+export interface ChoixCalcul { voie: 'processeur'; noyaux: Noyaux; /** Présent quand la voie demandée n'est pas celle qui tourne. */ message?: string }
+export const MESSAGE_CARTE_GRAPHIQUE = 'Calcul sur la carte graphique non disponible : Odin tourne dans Node, qui ne donne aucun accès à la carte graphique pour le calcul. Soul calcule sur le processeur.';
+/** Les noyaux de calcul selon la voie voulue (défaut : processeur). */
+export function choisirCalcul(voulue: VoieCalcul = 'processeur'): ChoixCalcul {
+  const k = noyaux();
+  return voulue === 'carte-graphique' ? { voie: 'processeur', noyaux: k, message: MESSAGE_CARTE_GRAPHIQUE } : { voie: 'processeur', noyaux: k };
+}
+
+// ----------------------------------------------------------------------------------------------------------------
 // Disposition des poids dans un seul tableau Float32 (facile à sceller, partager, recharger).
 // ----------------------------------------------------------------------------------------------------------------
 
@@ -93,6 +109,35 @@ interface Etat {
 // Le réseau.
 // ----------------------------------------------------------------------------------------------------------------
 
+/** Les paramètres d'un pas AdamW (n : séquences accumulées ; c1, c2 : corrections de biais du pas). */
+export interface ParamAdam { n: number; lr: number; b1: number; b2: number; eps: number; decay: number; c1: number; c2: number }
+/** Les mémoires partagées des gradients et moments du fil de Noûs (séance sur plusieurs fils). */
+export interface PartageAdam { g: SharedArrayBuffer; m: SharedArrayBuffer; v: SharedArrayBuffer }
+
+/**
+ * Un pas AdamW sur la tranche [a,b[ des poids, en ajoutant d'abord à G les gradients des aides `gs`, dans leur ordre
+ * (mêmes arrondis Float32 que des ajouterGrad successifs). G est remis à zéro sur la tranche. Le résultat d'un élément ne
+ * dépend que de cet élément : découper le travail en tranches (entre plusieurs fils) donne exactement le même calcul.
+ */
+export function adamTranche(P: Float32Array, G: Float32Array, M: Float32Array, Vm: Float32Array, gs: Float32Array[], a: number, b: number, p: ParamAdam): void {
+  const { n, lr, b1, b2, eps, decay, c1, c2 } = p, fr = Math.fround;
+  for (let i = a; i < b; i++) {
+    let s = G[i];
+    for (let k = 0; k < gs.length; k++) s = fr(s + gs[k][i]);
+    const gi = s / n;
+    const mi = M[i] = b1 * M[i] + (1 - b1) * gi;
+    const vi = Vm[i] = b2 * Vm[i] + (1 - b2) * gi * gi;
+    const mh = mi * c1, vh = vi * c2;
+    P[i] -= lr * (mh / (Math.sqrt(vh) + eps) + decay * P[i]);
+    G[i] = 0;
+  }
+}
+/** Les bornes de la tranche j sur nf (alignées sur 16 flottants). */
+function tranche(total: number, j: number, nf: number): [number, number] {
+  const borne = (x: number): number => (x >= nf ? total : Math.floor((total * x) / nf) & ~15);
+  return [borne(j), borne(j + 1)];
+}
+
 /** Un signal d'arrêt minimal : seul `aborted` compte (un vrai AbortSignal convient, un drapeau partagé aussi). */
 export interface SignalArret { readonly aborted: boolean }
 export interface GenOpts { maxMorceaux?: number; delaiMs?: number; signal?: SignalArret; graine?: number; temperature?: number; arretId?: number }
@@ -131,16 +176,32 @@ export class Reseau {
   pas = 0;
   private nAccum = 0; // nombre de séquences accumulées dans grads
   private noy: Noyaux;
+  // Copies de travail des poids (dans la mémoire du noyau, ou transposées) : valables tant que `versionPoids` ne bouge
+  // pas. Hors séance, chaque calcul public commence par un nouveau numéro (on ne sait pas qui a pu écrire dans
+  // `poids`) ; pendant une séance (`gel` > 0), seuls pasAdamW, importerPoids, initialiser et poidsModifies le changent.
+  private versionPoids = 0;
+  private gel = 0;
+  private transposees = new Map<string, { v: number; t: Float32Array }>();
 
-  constructor(hyper: Hyper, poids?: Float32Array) {
+  constructor(hyper: Hyper, poids?: Float32Array, noy?: Noyaux) {
     this.hyper = hyper;
     this.disp = disposition(hyper);
     this.poids = poids ?? new Float32Array(this.disp.total);
     this.grads = new Float32Array(this.disp.total);
     this.m = new Float32Array(this.disp.total);
     this.vMom = new Float32Array(this.disp.total);
-    this.noy = noyaux();
+    this.noy = noy ?? choisirCalcul().noyaux;
   }
+
+  /** Le noyau de calcul utilisé (« fma », « bloc », « ancien » ou « js »). */
+  get modeNoyau(): string { return this.noy.mode; }
+  /** À appeler après avoir écrit dans `poids` par un autre chemin que les méthodes du réseau (copies refaites). */
+  poidsModifies(): void { this.versionPoids++; }
+  /** Pendant une séance, les poids ne changent que par le réseau lui-même : les copies de travail restent valables. */
+  figerPoids(): void { if (this.gel++ === 0) this.versionPoids++; }
+  libererPoids(): void { if (this.gel > 0) this.gel--; }
+  /** Début d'un calcul public : hors séance, les copies de travail sont refaites (les poids ont pu changer). */
+  private entree(): void { if (this.gel === 0) this.versionPoids++; }
 
   /** Nombre réel de poids. */
   get nombrePoids(): number { return this.disp.total; }
@@ -159,6 +220,7 @@ export class Reseau {
     }
     for (let i = 0; i < d.C; i++) this.poids[d.lnfg + i] = 1;
     this.m.fill(0); this.vMom.fill(0); this.pas = 0; this.nAccum = 0; this.grads.fill(0);
+    this.versionPoids++;
   }
 
   // --- vues sur un tenseur de poids ---
@@ -167,6 +229,93 @@ export class Reseau {
 
   // --- produits de matrices via les noyaux ---
   private mm(c: Float32Array, a: Float32Array, b: Float32Array, M: number, K: number, N: number): void { this.noy.mm(c, a, b, M, K, N); }
+  /**
+   * C[M,N] = A[M,K]·W, où W est un tenseur de poids rangé [K,N] à `off` — ou, si `transp`, la transposée d'un tenseur
+   * rangé [N,K]. La copie de W (dans la mémoire du noyau, ou transposée en JavaScript) est gardée sous le nom `nom` et
+   * refaite seulement quand les poids changent (versionPoids).
+   */
+  private mmW(c: Float32Array, a: Float32Array, nom: string, off: number, M: number, K: number, N: number, transp = false): void {
+    const len = K * N, noy = this.noy;
+    const remplir = (dst: Float32Array): void => {
+      if (transp) transpose(dst, this.poids.subarray(off, off + len), N, K); else dst.set(this.poids.subarray(off, off + len));
+    };
+    if (noy.resident && noy.mmResident) {
+      const adr = noy.resident(this, nom, this.versionPoids, len, remplir);
+      if (adr >= 0) { noy.mmResident(c, a, adr, M, K, N); return; }
+    }
+    if (!transp) { noy.mm(c, a, this.poids.subarray(off, off + len), M, K, N); return; }
+    let e = this.transposees.get(nom);
+    if (!e || e.t.length !== len) { e = { v: -1, t: new Float32Array(len) }; this.transposees.set(nom, e); }
+    if (e.v !== this.versionPoids) { remplir(e.t); e.v = this.versionPoids; }
+    noy.mm(c, a, e.t, M, K, N);
+  }
+
+  /**
+   * Attention causale d'une couche, tête par tête, par deux produits de matrices : scores = Q·Kᵀ (mis à l'échelle,
+   * softmax sur j ≤ i, zéro au-delà), puis sortie = P·V. Remplit p [H,T,T] (gardé pour la rétropropagation) et ao [T,C].
+   */
+  private attentionAvant(p: Float32Array, ao: Float32Array, q: Float32Array, k: Float32Array, v: Float32Array, T: number): void {
+    const d = this.disp, C = d.C, H = d.H, hd = d.hd, inv = 1 / Math.sqrt(hd);
+    const qh = new Float32Array(T * hd), khT = new Float32Array(hd * T), vh = new Float32Array(T * hd), oh = new Float32Array(T * hd);
+    for (let hh = 0; hh < H; hh++) {
+      const hoff = hh * hd, poff = hh * T * T;
+      for (let i = 0; i < T; i++) {
+        const src = i * C + hoff, dst = i * hd;
+        for (let c = 0; c < hd; c++) { qh[dst + c] = q[src + c]; khT[c * T + i] = k[src + c]; vh[dst + c] = v[src + c]; }
+      }
+      const sc = p.subarray(poff, poff + T * T);
+      this.mm(sc, qh, khT, T, hd, T);
+      for (let i = 0; i < T; i++) {
+        const o = i * T; let mx = -Infinity;
+        for (let j = 0; j <= i; j++) { const s = sc[o + j] * inv; sc[o + j] = s; if (s > mx) mx = s; }
+        let som = 0;
+        for (let j = 0; j <= i; j++) { const e = Math.exp(sc[o + j] - mx); sc[o + j] = e; som += e; }
+        const r = 1 / som;
+        for (let j = 0; j <= i; j++) sc[o + j] *= r;
+        for (let j = i + 1; j < T; j++) sc[o + j] = 0; // causal : rien du futur
+      }
+      this.mm(oh, sc, vh, T, T, hd);
+      for (let i = 0; i < T; i++) { const src = i * hd, dst = i * C + hoff; for (let c = 0; c < hd; c++) ao[dst + c] = oh[src + c]; }
+    }
+  }
+
+  /**
+   * Rétropropagation de l'attention, tête par tête, par produits de matrices :
+   *   dV = Pᵀ·dO ; dP = dO·Vᵀ ; dS = P ⊙ (dP − Σⱼ P·dP) / √hd (j ≤ i) ; dQ = dS·K ; dK = dSᵀ·Q.
+   * dq, dk, dv sont neufs (à zéro) : chaque tête écrit ses propres colonnes.
+   */
+  private attentionArriere(dq: Float32Array, dk: Float32Array, dv: Float32Array, dAo: Float32Array, ec: EtatCouche, T: number): void {
+    const d = this.disp, C = d.C, H = d.H, hd = d.hd, inv = 1 / Math.sqrt(hd);
+    const dOh = new Float32Array(T * hd), vhT = new Float32Array(hd * T), qh = new Float32Array(T * hd), kh = new Float32Array(T * hd);
+    const dp = new Float32Array(T * T), tT = new Float32Array(T * T), r = new Float32Array(T * hd);
+    for (let hh = 0; hh < H; hh++) {
+      const hoff = hh * hd, poff = hh * T * T;
+      for (let i = 0; i < T; i++) {
+        const src = i * C + hoff, dst = i * hd;
+        for (let c = 0; c < hd; c++) { dOh[dst + c] = dAo[src + c]; vhT[c * T + i] = ec.v[src + c]; qh[dst + c] = ec.q[src + c]; kh[dst + c] = ec.k[src + c]; }
+      }
+      const P = ec.p.subarray(poff, poff + T * T);
+      // dV = Pᵀ·dO
+      transpose(tT, P, T, T);
+      this.mm(r, tT, dOh, T, T, hd);
+      for (let i = 0; i < T; i++) { const src = i * hd, dst = i * C + hoff; for (let c = 0; c < hd; c++) dv[dst + c] = r[src + c]; }
+      // dP = dO·Vᵀ, puis dS (rangé dans dp)
+      this.mm(dp, dOh, vhT, T, hd, T);
+      for (let i = 0; i < T; i++) {
+        const o = i * T; let dot = 0;
+        for (let j = 0; j <= i; j++) dot += P[o + j] * dp[o + j];
+        for (let j = 0; j <= i; j++) dp[o + j] = P[o + j] * (dp[o + j] - dot) * inv;
+        for (let j = i + 1; j < T; j++) dp[o + j] = 0;
+      }
+      // dQ = dS·K
+      this.mm(r, dp, kh, T, T, hd);
+      for (let i = 0; i < T; i++) { const src = i * hd, dst = i * C + hoff; for (let c = 0; c < hd; c++) dq[dst + c] = r[src + c]; }
+      // dK = dSᵀ·Q
+      transpose(tT, dp, T, T);
+      this.mm(r, tT, qh, T, T, hd);
+      for (let i = 0; i < T; i++) { const src = i * hd, dst = i * C + hoff; for (let c = 0; c < hd; c++) dk[dst + c] = r[src + c]; }
+    }
+  }
 
   // ------------------------------------------------------------------------------------------------------------
   // Passe avant. avecLogits => calcule aussi les logits [T,V]. Renvoie l'état (gardé pour la rétropropagation).
@@ -176,6 +325,7 @@ export class Reseau {
     // Jamais plus de positions que le contexte : au-delà, la « position » se lirait — et, à l'entraînement,
     // s'écrirait — dans les poids de la première couche, rangés juste après la table des positions.
     if (T > d.T) throw new RangeError(`Noûs : suite de ${T} morceaux, le contexte en porte ${d.T}`);
+    this.entree();
     const x0 = new Float32Array(T * C);
     for (let t = 0; t < T; t++) {
       const id = ids[t] | 0, we = d.wte + id * C, pe = d.wpe + t * C, xo = t * C;
@@ -183,7 +333,6 @@ export class Reseau {
     }
     let x = x0;
     const couches: EtatCouche[] = [];
-    const inv = 1 / Math.sqrt(hd);
     for (let l = 0; l < d.L; l++) {
       this.verifierArret();
       const cp = d.couches[l];
@@ -193,34 +342,15 @@ export class Reseau {
       this.layernorm(a, m1, r1, x, this.t(cp.ln1g, C), this.t(cp.ln1b, C), T, C);
       // q,k,v = a·W
       const q = new Float32Array(T * C), k = new Float32Array(T * C), v = new Float32Array(T * C);
-      this.mm(q, a, this.t(cp.wq, C * C), T, C, C);
-      this.mm(k, a, this.t(cp.wk, C * C), T, C, C);
-      this.mm(v, a, this.t(cp.wv, C * C), T, C, C);
-      // attention causale par tête
+      this.mmW(q, a, `wq${l}`, cp.wq, T, C, C);
+      this.mmW(k, a, `wk${l}`, cp.wk, T, C, C);
+      this.mmW(v, a, `wv${l}`, cp.wv, T, C, C);
+      // attention causale par tête (produits de matrices)
       const p = new Float32Array(H * T * T), ao = new Float32Array(T * C);
-      for (let hh = 0; hh < H; hh++) {
-        const hoff = hh * hd, poff = hh * T * T;
-        for (let i = 0; i < T; i++) {
-          // scores
-          let mx = -Infinity;
-          for (let j = 0; j <= i; j++) {
-            let s = 0; const qi = i * C + hoff, kj = j * C + hoff;
-            for (let c = 0; c < hd; c++) s += q[qi + c] * k[kj + c];
-            s *= inv; p[poff + i * T + j] = s; if (s > mx) mx = s;
-          }
-          // softmax (0..i)
-          let som = 0;
-          for (let j = 0; j <= i; j++) { const e = Math.exp(p[poff + i * T + j] - mx); p[poff + i * T + j] = e; som += e; }
-          const r = 1 / som;
-          for (let j = 0; j <= i; j++) p[poff + i * T + j] *= r;
-          // sortie = somme p*v
-          const ai = i * C + hoff;
-          for (let c = 0; c < hd; c++) { let s = 0; for (let j = 0; j <= i; j++) s += p[poff + i * T + j] * v[j * C + hoff + c]; ao[ai + c] = s; }
-        }
-      }
+      this.attentionAvant(p, ao, q, k, v, T);
       // o = ao·Wo ; x = x + o
       const o = new Float32Array(T * C);
-      this.mm(o, ao, this.t(cp.wo, C * C), T, C, C);
+      this.mmW(o, ao, `wo${l}`, cp.wo, T, C, C);
       const xMid = new Float32Array(T * C);
       for (let i = 0; i < T * C; i++) xMid[i] = xEntree[i] + o[i];
       // ln2
@@ -228,13 +358,13 @@ export class Reseau {
       this.layernorm(b, m2, r2, xMid, this.t(cp.ln2g, C), this.t(cp.ln2b, C), T, C);
       // ffn : h1 = b·W1 + b1 ; g = gelu(h1) ; f = g·W2 + b2 ; x = xMid + f
       const h1 = new Float32Array(T * C4);
-      this.mm(h1, b, this.t(cp.w1, C * C4), T, C, C4);
+      this.mmW(h1, b, `w1${l}`, cp.w1, T, C, C4);
       const b1 = this.t(cp.b1, C4);
       for (let i = 0; i < T; i++) for (let c = 0; c < C4; c++) h1[i * C4 + c] += b1[c];
       const gact = new Float32Array(T * C4);
       for (let i = 0; i < T * C4; i++) gact[i] = gelu(h1[i]);
       const f = new Float32Array(T * C);
-      this.mm(f, gact, this.t(cp.w2, C4 * C), T, C4, C);
+      this.mmW(f, gact, `w2${l}`, cp.w2, T, C4, C);
       const b2 = this.t(cp.b2, C);
       const xNext = new Float32Array(T * C);
       for (let i = 0; i < T; i++) for (let c = 0; c < C; c++) xNext[i * C + c] = xMid[i * C + c] + f[i * C + c] + b2[c];
@@ -246,10 +376,8 @@ export class Reseau {
     this.layernorm(y, mf, rf, x, this.t(d.lnfg, C), this.t(d.lnfb, C), T, C);
     const et: Etat = { T, x0, couches, xFinal: x, mf, rf, y };
     if (avecLogits) {
-      const wteT = new Float32Array(C * V);
-      transpose(wteT, this.t(d.wte, V * C), V, C);
       const logits = new Float32Array(T * V);
-      this.mm(logits, y, wteT, T, C, V);
+      this.mmW(logits, y, 'wteT', d.wte, T, C, V, true);
       et.logits = logits;
     }
     return et;
@@ -285,21 +413,24 @@ export class Reseau {
     this.verifierArret();
     const logits = et.logits!;
     const dLogits = new Float32Array(T * V);
-    let perte = 0, nPred = 0;
+    // Combien de positions à prédire : l'échelle (poids de l'exemple / nombre de prédictions) est connue d'avance, et
+    // le gradient de chaque ligne s'écrit en UNE passe d'exponentielles : e = exp(x − max) gardé, puis e·(échelle/somme).
+    let nPred = 0;
+    for (let t = 0; t < T - 1; t++) if (!rolesMasque || rolesMasque[t]) nPred++;
+    if (nPred === 0) return RIEN_A_APPRENDRE;
+    const ech = (poidsExemple / nPred);
+    let perte = 0;
     for (let t = 0; t < T - 1; t++) {
       if (rolesMasque && !rolesMasque[t]) continue;
       const cible = ids[t + 1] | 0, o = t * V;
       let mx = -Infinity; for (let vv = 0; vv < V; vv++) if (logits[o + vv] > mx) mx = logits[o + vv];
-      let som = 0; for (let vv = 0; vv < V; vv++) som += Math.exp(logits[o + vv] - mx);
-      const lse = mx + Math.log(som);
-      perte += lse - logits[o + cible];
-      nPred++;
-      for (let vv = 0; vv < V; vv++) dLogits[o + vv] = Math.exp(logits[o + vv] - lse);
-      dLogits[o + cible] -= 1;
+      let som = 0;
+      for (let vv = 0; vv < V; vv++) { const e = Math.exp(logits[o + vv] - mx); dLogits[o + vv] = e; som += e; }
+      perte += mx + Math.log(som) - logits[o + cible];
+      const f = ech / som;
+      for (let vv = 0; vv < V; vv++) dLogits[o + vv] *= f;
+      dLogits[o + cible] -= ech;
     }
-    if (nPred === 0) return RIEN_A_APPRENDRE;
-    const ech = (poidsExemple / nPred);
-    for (let i = 0; i < T * V; i++) dLogits[i] *= ech;
     this.retropropagation(ids, et, dLogits);
     this.nAccum += 1;
     return perte / nPred;
@@ -307,11 +438,10 @@ export class Reseau {
 
   /** Rétropropagation complète : remplit this.grads (accumulation). dLogits déjà mis à l'échelle. */
   private retropropagation(ids: ArrayLike<number>, et: Etat, dLogits: Float32Array): void {
-    const d = this.disp, C = d.C, C4 = d.C4, H = d.H, hd = d.hd, V = d.V, T = et.T;
-    const inv = 1 / Math.sqrt(hd);
+    const d = this.disp, C = d.C, C4 = d.C4, V = d.V, T = et.T;
     // tête de sortie : logits = y·wteᵀ
     const dY = new Float32Array(T * C);
-    this.mm(dY, dLogits, this.t(d.wte, V * C), T, V, C); // dY = dLogits·wte
+    this.mmW(dY, dLogits, 'wte', d.wte, T, V, C); // dY = dLogits·wte
     // dWte (part « tête ») = dLogitsᵀ·y
     const dLogitsT = new Float32Array(V * T); transpose(dLogitsT, dLogits, T, V);
     const tmpVC = new Float32Array(V * C);
@@ -329,16 +459,14 @@ export class Reseau {
       const df = dx; // [T,C]
       const db2 = this.g(cp.b2, C); for (let i = 0; i < T; i++) for (let c = 0; c < C; c++) db2[c] += df[i * C + c];
       // f = g·W2 ; dG = df·W2ᵀ ; dW2 = gᵀ·df
-      const W2 = this.t(cp.w2, C4 * C), W2T = new Float32Array(C * C4); transpose(W2T, W2, C4, C);
-      const dG = new Float32Array(T * C4); this.mm(dG, df, W2T, T, C, C4);
+      const dG = new Float32Array(T * C4); this.mmW(dG, df, `w2T${l}`, cp.w2, T, C, C4, true);
       const gT = new Float32Array(C4 * T); transpose(gT, ec.g, T, C4);
       const dW2 = new Float32Array(C4 * C); this.mm(dW2, gT, df, C4, T, C); this.ajoute(this.g(cp.w2, C4 * C), dW2, C4 * C);
       // g = gelu(h1) ; dH1 = dG * gelu'(h1)
       const dH1 = new Float32Array(T * C4); for (let i = 0; i < T * C4; i++) dH1[i] = dG[i] * dgelu(ec.h1[i]);
       // h1 = b·W1 + b1 ; db1 = somme dH1 ; dB = dH1·W1ᵀ ; dW1 = bᵀ·dH1
       const db1 = this.g(cp.b1, C4); for (let i = 0; i < T; i++) for (let c = 0; c < C4; c++) db1[c] += dH1[i * C4 + c];
-      const W1 = this.t(cp.w1, C * C4), W1T = new Float32Array(C4 * C); transpose(W1T, W1, C, C4);
-      const dB = new Float32Array(T * C); this.mm(dB, dH1, W1T, T, C4, C);
+      const dB = new Float32Array(T * C); this.mmW(dB, dH1, `w1T${l}`, cp.w1, T, C4, C, true);
       const bT = new Float32Array(C * T); transpose(bT, ec.b, T, C);
       const dW1 = new Float32Array(C * C4); this.mm(dW1, bT, dH1, C, T, C4); this.ajoute(this.g(cp.w1, C * C4), dW1, C * C4);
       // ln2 : dB -> dxMid (plus le résidu df qui va aussi vers xMid)
@@ -349,45 +477,21 @@ export class Reseau {
       // xMid = xEntree + o ; dxEntree += dxMid ; do = dxMid
       const doo = dxMid; // [T,C]
       // o = ao·Wo ; dAo = do·Woᵀ ; dWo = aoᵀ·do
-      const Wo = this.t(cp.wo, C * C), WoT = new Float32Array(C * C); transpose(WoT, Wo, C, C);
-      const dAo = new Float32Array(T * C); this.mm(dAo, doo, WoT, T, C, C);
+      const dAo = new Float32Array(T * C); this.mmW(dAo, doo, `woT${l}`, cp.wo, T, C, C, true);
       const aoT = new Float32Array(C * T); transpose(aoT, ec.ao, T, C);
       const dWo = new Float32Array(C * C); this.mm(dWo, aoT, doo, C, T, C); this.ajoute(this.g(cp.wo, C * C), dWo, C * C);
-      // attention : remonter dAo vers dq, dk, dv
+      // attention : remonter dAo vers dq, dk, dv (produits de matrices, tête par tête)
       const dq = new Float32Array(T * C), dk = new Float32Array(T * C), dv = new Float32Array(T * C);
-      for (let hh = 0; hh < H; hh++) {
-        const hoff = hh * hd, poff = hh * T * T;
-        // dv[j] += sum_i p[i,j]*dAo[i] ; dp[i,j] = dAo[i]·v[j]
-        const dp = new Float32Array(T * T);
-        for (let i = 0; i < T; i++) {
-          const ai = i * C + hoff;
-          for (let j = 0; j <= i; j++) {
-            const pij = ec.p[poff + i * T + j]; const vj = j * C + hoff;
-            let dpij = 0;
-            for (let c = 0; c < hd; c++) { dv[vj + c] += pij * dAo[ai + c]; dpij += dAo[ai + c] * ec.v[vj + c]; }
-            dp[i * T + j] = dpij;
-          }
-        }
-        // softmax arrière : ds[i,j] = p[i,j]*(dp[i,j] - sum_j' p[i,j']*dp[i,j'])
-        for (let i = 0; i < T; i++) {
-          let dot = 0; for (let j = 0; j <= i; j++) dot += ec.p[poff + i * T + j] * dp[i * T + j];
-          const qi = i * C + hoff;
-          for (let j = 0; j <= i; j++) {
-            const ds = ec.p[poff + i * T + j] * (dp[i * T + j] - dot) * inv;
-            const kj = j * C + hoff;
-            for (let c = 0; c < hd; c++) { dq[qi + c] += ds * ec.k[kj + c]; dk[kj + c] += ds * ec.q[qi + c]; }
-          }
-        }
-      }
+      this.attentionArriere(dq, dk, dv, dAo, ec, T);
       // q = a·Wq (idem k, v) : dA += dq·Wqᵀ + dk·Wkᵀ + dv·Wvᵀ ; dWq = aᵀ·dq …
       const aT = new Float32Array(C * T); transpose(aT, ec.a, T, C);
       const dA = new Float32Array(T * C);
-      const ajouteProjArriere = (W: number, dOut: Float32Array): void => {
-        const Wm = this.t(W, C * C), WmT = new Float32Array(C * C); transpose(WmT, Wm, C, C);
-        const tmp = new Float32Array(T * C); this.mm(tmp, dOut, WmT, T, C, C); for (let i = 0; i < T * C; i++) dA[i] += tmp[i];
-        const dW = new Float32Array(C * C); this.mm(dW, aT, dOut, C, T, C); this.ajoute(this.g(W, C * C), dW, C * C);
+      const tmp = new Float32Array(T * C), dW = new Float32Array(C * C);
+      const ajouteProjArriere = (nom: string, W: number, dOut: Float32Array): void => {
+        this.mmW(tmp, dOut, nom, W, T, C, C, true); for (let i = 0; i < T * C; i++) dA[i] += tmp[i];
+        this.mm(dW, aT, dOut, C, T, C); this.ajoute(this.g(W, C * C), dW, C * C);
       };
-      ajouteProjArriere(cp.wq, dq); ajouteProjArriere(cp.wk, dk); ajouteProjArriere(cp.wv, dv);
+      ajouteProjArriere(`wqT${l}`, cp.wq, dq); ajouteProjArriere(`wkT${l}`, cp.wk, dk); ajouteProjArriere(`wvT${l}`, cp.wv, dv);
       // ln1 : dA -> dxEntree (plus le résidu doo)
       const dxEntree = new Float32Array(T * C);
       this.dLayernorm(dxEntree, this.g(cp.ln1g, C), this.g(cp.ln1b, C), dA, ec.xEntree, ec.m1, ec.r1, this.t(cp.ln1g, C), T, C);
@@ -431,24 +535,37 @@ export class Reseau {
   // ------------------------------------------------------------------------------------------------------------
   pasAdamW(lr: number, b1 = 0.9, b2 = 0.999, eps = 1e-8, decay = 0.01): void {
     if (this.nAccum === 0) return;
-    const n = this.nAccum, G = this.grads, M = this.m, Vm = this.vMom, P = this.poids;
-    this.pas += 1; const t = this.pas;
-    const c1 = 1 / (1 - Math.pow(b1, t)), c2 = 1 / (1 - Math.pow(b2, t));
-    for (let i = 0; i < G.length; i++) {
-      const gi = G[i] / n;
-      const mi = M[i] = b1 * M[i] + (1 - b1) * gi;
-      const vi = Vm[i] = b2 * Vm[i] + (1 - b2) * gi * gi;
-      const mh = mi * c1, vh = vi * c2;
-      P[i] -= lr * (mh / (Math.sqrt(vh) + eps) + decay * P[i]);
-    }
-    G.fill(0); this.nAccum = 0;
+    const p = this.ouvrirPas(this.nAccum, lr, b1, b2, eps, decay);
+    adamTranche(this.poids, this.grads, this.m, this.vMom, [], 0, this.grads.length, p);
+    this.fermerPas();
   }
+  /** Début d'un pas AdamW (compteur de pas, corrections de biais) pour `n` séquences accumulées en tout. */
+  ouvrirPas(n: number, lr: number, b1 = 0.9, b2 = 0.999, eps = 1e-8, decay = 0.01): ParamAdam {
+    this.pas += 1; const t = this.pas;
+    return { n, lr, b1, b2, eps, decay, c1: 1 / (1 - Math.pow(b1, t)), c2: 1 / (1 - Math.pow(b2, t)) };
+  }
+  /** Fin d'un pas AdamW : gradients oubliés (adamTranche les a remis à zéro), copies de travail des poids à refaire. */
+  fermerPas(): void { this.nAccum = 0; this.versionPoids++; }
+  /** Nombre de séquences accumulées dans les gradients. */
+  get accumulees(): number { return this.nAccum; }
   /** Oublie les gradients accumulés sans toucher aux poids (ex. après une interruption). */
   jeterGrad(): void { this.grads.fill(0); this.nAccum = 0; }
   /** Ajoute des gradients calculés ailleurs (un fil d'aide) pour `n` séquences. */
   ajouterGrad(g: Float32Array, n: number): void { const G = this.grads; for (let i = 0; i < G.length; i++) G[i] += g[i]; this.nAccum += n; }
   /** Gradients rangés dans une mémoire partagée (fil d'aide : le fil principal de Noûs les lit sans copie). */
   partagerGrad(sab: SharedArrayBuffer): void { this.grads = new Float32Array(sab); }
+  /**
+   * Gradients et moments AdamW rangés dans des mémoires partagées (valeurs actuelles recopiées) : les fils d'aide
+   * peuvent alors faire leur tranche de l'addition des gradients et du pas AdamW.
+   */
+  partagerEtat(p: PartageAdam): void {
+    if (this.grads.buffer === p.g) return;
+    const g = new Float32Array(p.g), m = new Float32Array(p.m), v = new Float32Array(p.v);
+    g.set(this.grads); m.set(this.m); v.set(this.vMom);
+    this.grads = g; this.m = m; this.vMom = v;
+  }
+  /** Les tableaux d'AdamW (usage interne : la séance sur plusieurs fils). */
+  etatAdam(): { P: Float32Array; G: Float32Array; M: Float32Array; V: Float32Array } { return { P: this.poids, G: this.grads, M: this.m, V: this.vMom }; }
 
   // ------------------------------------------------------------------------------------------------------------
   // Plongement : moyenne de la sortie normalisée finale. [C]
@@ -459,12 +576,16 @@ export class Reseau {
     const d = this.disp, C = d.C, T = Math.min(ids.length, d.T * FENETRES_PLONGEMENT);
     const out = new Float32Array(C);
     if (T === 0) return out;
-    for (let debut = 0; debut < T; debut += d.T) {
-      const n = Math.min(d.T, T - debut);
-      const fen = new Int32Array(n); for (let i = 0; i < n; i++) fen[i] = ids[debut + i] | 0;
-      const et = this.avant(fen, false);
-      for (let t = 0; t < n; t++) for (let c = 0; c < C; c++) out[c] += et.y[t * C + c];
-    }
+    // Les poids ne changent pas d'une fenêtre à l'autre : leurs copies de travail sont faites une fois pour l'appel.
+    this.figerPoids();
+    try {
+      for (let debut = 0; debut < T; debut += d.T) {
+        const n = Math.min(d.T, T - debut);
+        const fen = new Int32Array(n); for (let i = 0; i < n; i++) fen[i] = ids[debut + i] | 0;
+        const et = this.avant(fen, false);
+        for (let t = 0; t < n; t++) for (let c = 0; c < C; c++) out[c] += et.y[t * C + c];
+      }
+    } finally { this.libererPoids(); }
     for (let c = 0; c < C; c++) out[c] /= T;
     return out;
   }
@@ -499,10 +620,9 @@ export class Reseau {
     if (ids.length > d.T) ids = Array.prototype.slice.call(ids, -d.T) as number[]; // les derniers morceaux, comme generer()
     const T = ids.length;
     const et = this.avant(ids, false);
-    const wteT = new Float32Array(C * V); transpose(wteT, this.t(d.wte, V * C), V, C);
     const out = new Float32Array(V);
     const yLast = et.y.subarray((T - 1) * C, T * C);
-    this.mm(out, yLast, wteT, 1, C, V);
+    this.mmW(out, yLast, 'wteT', d.wte, 1, C, V, true);
     return out;
   }
 
@@ -520,7 +640,7 @@ export class Reseau {
     for (let l = 0; l < L; l++) { Kc.push(new Float32Array(T * C)); Vc.push(new Float32Array(T * C)); }
     let pos = 0; const sortie: number[] = []; let logprob = 0; let pret = true;
     const inv = 1 / Math.sqrt(hd);
-    const wteT = new Float32Array(C * V); transpose(wteT, this.t(d.wte, V * C), V, C); // transposée de la tête, une seule fois
+    this.entree(); // la tête et les poids sont recopiés une fois pour toute la réponse
     // traite la position `pos` avec le jeton `id` ; renvoie les logits de cette position.
     const etape = (id: number): Float32Array => {
       const x = new Float32Array(C);
@@ -529,9 +649,9 @@ export class Reseau {
         const cp = d.couches[l];
         const a = new Float32Array(C); this.lnVec(a, x, this.t(cp.ln1g, C), this.t(cp.ln1b, C), C);
         const q = new Float32Array(C), k = new Float32Array(C), v = new Float32Array(C);
-        this.mm(q, a, this.t(cp.wq, C * C), 1, C, C);
-        this.mm(k, a, this.t(cp.wk, C * C), 1, C, C);
-        this.mm(v, a, this.t(cp.wv, C * C), 1, C, C);
+        this.mmW(q, a, `wq${l}`, cp.wq, 1, C, C);
+        this.mmW(k, a, `wk${l}`, cp.wk, 1, C, C);
+        this.mmW(v, a, `wv${l}`, cp.wv, 1, C, C);
         for (let c = 0; c < C; c++) { Kc[l][pos * C + c] = k[c]; Vc[l][pos * C + c] = v[c]; }
         const ao = new Float32Array(C);
         for (let hh = 0; hh < H; hh++) {
@@ -542,16 +662,16 @@ export class Reseau {
           const r = 1 / som; for (let j = 0; j <= pos; j++) sc[j] *= r;
           for (let c = 0; c < hd; c++) { let s = 0; for (let j = 0; j <= pos; j++) s += sc[j] * Vc[l][j * C + hoff + c]; ao[hoff + c] = s; }
         }
-        const oo = new Float32Array(C); this.mm(oo, ao, this.t(cp.wo, C * C), 1, C, C);
+        const oo = new Float32Array(C); this.mmW(oo, ao, `wo${l}`, cp.wo, 1, C, C);
         for (let c = 0; c < C; c++) x[c] += oo[c];
         const b = new Float32Array(C); this.lnVec(b, x, this.t(cp.ln2g, C), this.t(cp.ln2b, C), C);
-        const h1 = new Float32Array(d.C4); this.mm(h1, b, this.t(cp.w1, C * d.C4), 1, C, d.C4);
+        const h1 = new Float32Array(d.C4); this.mmW(h1, b, `w1${l}`, cp.w1, 1, C, d.C4);
         const b1 = this.t(cp.b1, d.C4); for (let c = 0; c < d.C4; c++) h1[c] = gelu(h1[c] + b1[c]);
-        const f = new Float32Array(C); this.mm(f, h1, this.t(cp.w2, d.C4 * C), 1, d.C4, C);
+        const f = new Float32Array(C); this.mmW(f, h1, `w2${l}`, cp.w2, 1, d.C4, C);
         const b2 = this.t(cp.b2, C); for (let c = 0; c < C; c++) x[c] += f[c] + b2[c];
       }
       const y = new Float32Array(C); this.lnVec(y, x, this.t(d.lnfg, C), this.t(d.lnfb, C), C);
-      const logits = new Float32Array(V); this.mm(logits, y, wteT, 1, C, V);
+      const logits = new Float32Array(V); this.mmW(logits, y, 'wteT', d.wte, 1, C, V, true);
       return logits;
     };
     // consomme l'amorce (sauf le dernier jeton, qui lance la génération)
@@ -588,7 +708,7 @@ export class Reseau {
     const inv = 1 / Math.sqrt(hd);
     const Kc: Float32Array[] = [], Vc: Float32Array[] = [];
     for (let l = 0; l < L; l++) { Kc.push(new Float32Array(T * C)); Vc.push(new Float32Array(T * C)); }
-    const wteT = new Float32Array(C * V); transpose(wteT, this.t(d.wte, V * C), V, C);
+    this.entree();
     let logits = new Float32Array(V);
     for (let pos = 0; pos < T; pos++) {
       const id = ids[pos] | 0;
@@ -598,7 +718,7 @@ export class Reseau {
         const cp = d.couches[l];
         const a = new Float32Array(C); this.lnVec(a, x, this.t(cp.ln1g, C), this.t(cp.ln1b, C), C);
         const q = new Float32Array(C), k = new Float32Array(C), v = new Float32Array(C);
-        this.mm(q, a, this.t(cp.wq, C * C), 1, C, C); this.mm(k, a, this.t(cp.wk, C * C), 1, C, C); this.mm(v, a, this.t(cp.wv, C * C), 1, C, C);
+        this.mmW(q, a, `wq${l}`, cp.wq, 1, C, C); this.mmW(k, a, `wk${l}`, cp.wk, 1, C, C); this.mmW(v, a, `wv${l}`, cp.wv, 1, C, C);
         for (let c = 0; c < C; c++) { Kc[l][pos * C + c] = k[c]; Vc[l][pos * C + c] = v[c]; }
         const ao = new Float32Array(C);
         for (let hh = 0; hh < H; hh++) {
@@ -608,16 +728,16 @@ export class Reseau {
           const r = 1 / som; for (let j = 0; j <= pos; j++) sc[j] *= r; // normalise, puis somme pondérée (même ordre que la passe complète)
           for (let c = 0; c < hd; c++) { let s = 0; for (let j = 0; j <= pos; j++) s += sc[j] * Vc[l][j * C + hoff + c]; ao[hoff + c] = s; }
         }
-        const oo = new Float32Array(C); this.mm(oo, ao, this.t(cp.wo, C * C), 1, C, C);
+        const oo = new Float32Array(C); this.mmW(oo, ao, `wo${l}`, cp.wo, 1, C, C);
         for (let c = 0; c < C; c++) x[c] += oo[c];
         const b = new Float32Array(C); this.lnVec(b, x, this.t(cp.ln2g, C), this.t(cp.ln2b, C), C);
-        const h1 = new Float32Array(d.C4); this.mm(h1, b, this.t(cp.w1, C * d.C4), 1, C, d.C4);
+        const h1 = new Float32Array(d.C4); this.mmW(h1, b, `w1${l}`, cp.w1, 1, C, d.C4);
         const b1 = this.t(cp.b1, d.C4); for (let c = 0; c < d.C4; c++) h1[c] = gelu(h1[c] + b1[c]);
-        const f = new Float32Array(C); this.mm(f, h1, this.t(cp.w2, d.C4 * C), 1, d.C4, C);
+        const f = new Float32Array(C); this.mmW(f, h1, `w2${l}`, cp.w2, 1, d.C4, C);
         const b2 = this.t(cp.b2, C); for (let c = 0; c < C; c++) x[c] += f[c] + b2[c];
       }
       const y = new Float32Array(C); this.lnVec(y, x, this.t(d.lnfg, C), this.t(d.lnfb, C), C);
-      logits = new Float32Array(V); this.mm(logits, y, wteT, 1, C, V);
+      logits = new Float32Array(V); this.mmW(logits, y, 'wteT', d.wte, 1, C, V, true);
     }
     return logits;
   }
@@ -646,7 +766,7 @@ export class Reseau {
   /** Copie des poids (pour un point de reprise). */
   exporterPoids(): Float32Array { return Float32Array.from(this.poids); }
   /** Remplace les poids (chargement d'un point de reprise). */
-  importerPoids(p: Float32Array): void { if (p.length !== this.disp.total) throw new Error('taille de poids incompatible'); this.poids.set(p); }
+  importerPoids(p: Float32Array): void { if (p.length !== this.disp.total) throw new Error('taille de poids incompatible'); this.poids.set(p); this.versionPoids++; }
   /** Copie des moments AdamW (pour un point de reprise). */
   exporterMoments(): { m: Float32Array; v: Float32Array; pas: number } { return { m: Float32Array.from(this.m), v: Float32Array.from(this.vMom), pas: this.pas }; }
   importerMoments(m: Float32Array, v: Float32Array, pas: number): void { this.m.set(m); this.vMom.set(v); this.pas = pas; }
@@ -677,7 +797,9 @@ export function seance(r: Reseau, lots: Iterable<LotBrut>, o: SeanceReglages): A
   const ordre = melange(items.length, h);
   let idx = 0;
   // L'arrêt est lu aussi PENDANT le calcul d'une séquence (entre deux couches) : Odin reprend la main plus vite.
+  // Pendant la séance, seul le réseau touche à ses poids : leurs copies de travail servent d'un pas à l'autre.
   r.arret = o.signal;
+  r.figerPoids();
   try {
   while (true) {
     if (o.signal?.aborted) { interrompue = true; r.jeterGrad(); break; }
@@ -702,7 +824,7 @@ export function seance(r: Reseau, lots: Iterable<LotBrut>, o: SeanceReglages): A
     else r.jeterGrad();
     if (idx >= ordre.length) break; // un seul passage sur les données par séance
   }
-  } finally { r.arret = undefined; }
+  } finally { r.arret = undefined; r.libererPoids(); }
   return { pas, morceauxVus: morceaux, perte: perteN ? perteTot / perteN : 0, tempsMs: performance.now() - t0, interrompue, sansCible };
 }
 
@@ -713,17 +835,25 @@ export function seance(r: Reseau, lots: Iterable<LotBrut>, o: SeanceReglages): A
 // fait UN pas AdamW. Le résultat est celui d'un seul fil sur le même lot (à l'ordre des additions près). Le lot vaut
 // le multiple du nombre de fils le plus proche de 8 séquences (chaque fil a la même part). L'arrêt (drapeau
 // partagé) est lu entre deux séquences, par chaque fil.
+// Le pas lui-même (addition des gradients des aides + AdamW) est aussi RÉPARTI : chaque fil fait sa tranche des poids,
+// avec les mêmes paramètres ; un élément ne dépend que de lui-même, le résultat est donc identique à un seul fil.
 // ----------------------------------------------------------------------------------------------------------------
 
 /** Les fils d'aide d'un réseau, et leur mémoire de synchronisation. */
 export interface Aides {
   n: number;
   workers: Worker[];
-  sync: Int32Array;      // [0] génération ; [1] fin de séance ; puis par aide k : [2+4k] début, [3+4k] nombre, [4+4k] fait, [5+4k] prêt
+  sync: Int32Array;      // [0] génération ; [1] fin de séance ; puis par aide k : [2+4k] début, [3+4k] nombre, [4+4k] fait, [5+4k] dans la séance
   res: Float64Array;     // par aide k : [4k] somme des pertes, [4k+1] séquences finies, [4k+2] séquences en tout, [4k+3] sans cible
   grads: Float32Array[]; // les gradients de chaque aide (mémoire partagée)
+  /** Pas réparti (absent : le fil de Noûs fait tout le pas, comme avant) : gradients et moments du fil de Noûs en mémoire
+   *  partagée ; ordre[0] = numéro de génération du pas en cours (0 : aucun pas), ordre[1+k] = pas fait par l'aide k ;
+   *  parametres : n, lr, b1, b2, eps, decay, c1, c2. */
+  reparti?: { partage: PartageAdam; ordre: Int32Array; parametres: Float64Array };
   /** Une aide n'a pas répondu (morte, mémoire épuisée) : ces aides ne servent plus, elles sont relancées. */
   cassees?: boolean;
+  /** La mémoire des poids que lisent (et, pour le pas réparti, écrivent) les aides. */
+  poids?: SharedArrayBuffer;
 }
 /** Le rôle donné au worker du moteur (moteur.ts) : seul un fil de ce rôle écoute les ordres du moteur. */
 export const ROLE_MOTEUR = 'noos-moteur';
@@ -747,13 +877,17 @@ export function lancerAides(hyper: Hyper, sab: SharedArrayBuffer, ctrl: SharedAr
   const sync = new Int32Array(new SharedArrayBuffer(4 * (2 + 4 * n)));
   const res = new Float64Array(new SharedArrayBuffer(8 * 4 * n));
   const grads: Float32Array[] = [], workers: Worker[] = [];
+  const partage: PartageAdam = { g: new SharedArrayBuffer(total * 4), m: new SharedArrayBuffer(total * 4), v: new SharedArrayBuffer(total * 4) };
+  const ordre = new Int32Array(new SharedArrayBuffer(4 * (1 + n))), parametres = new Float64Array(new SharedArrayBuffer(8 * 8));
+  for (let k = 0; k < n; k++) grads.push(new Float32Array(new SharedArrayBuffer(total * 4)));
+  const tousG = grads.map((g) => g.buffer as SharedArrayBuffer);
   for (let k = 0; k < n; k++) {
-    const g = new SharedArrayBuffer(total * 4); grads.push(new Float32Array(g));
-    const w = new Worker(new URL(import.meta.url), { name: `noos-aide-${k}`, workerData: { role: 'aide', k, hyper, sab, g, sync: sync.buffer, res: res.buffer, ctrl }, resourceLimits: { maxOldGenerationSizeMb: 512, maxYoungGenerationSizeMb: 64 } });
+    const g = tousG[k];
+    const w = new Worker(new URL(import.meta.url), { name: `noos-aide-${k}`, workerData: { role: 'aide', k, hyper, sab, g, sync: sync.buffer, res: res.buffer, ctrl, reparti: { partage, ordre: ordre.buffer, parametres: parametres.buffer, tousG } }, resourceLimits: { maxOldGenerationSizeMb: 512, maxYoungGenerationSizeMb: 64 } });
     w.unref(); w.on('error', (e) => { console.error(`[noos] un fil d'aide s'est arrêté : ${String((e as Error)?.message ?? e)}`); });
     workers.push(w);
   }
-  return { n, workers, sync, res, grads };
+  return { n, workers, sync, res, grads, reparti: { partage, ordre, parametres }, poids: sab };
 }
 /** Arrête les fils d'aide. */
 export async function arreterAides(a: Aides | undefined): Promise<void> {
@@ -774,20 +908,27 @@ export async function seanceParallele(r: Reseau, lots: Iterable<LotBrut>, o: Sea
   const ordre = melange(items.length, h);
   const enOrdre = Array.from(ordre, (i) => items[i]);
   const { sync, res } = aides;
-  // Chaque aide reçoit les séquences (dans l'ordre de passage) et répond « prêt ».
+  // Le pas réparti suppose que les aides écrivent dans les poids mêmes du réseau ; sinon le fil de Noûs fait tout le
+  // pas (comme avant), et rien n'est perdu.
+  const reparti = aides.reparti && aides.poids && r.poids.buffer === aides.poids ? aides.reparti : undefined;
+  // Une aide encore dans la séance précédente (réveillée en retard) ne doit jamais voir la fin de séance effacée : on
+  // attend que chacune l'ait quittée avant de rouvrir. Une aide qui ne la quitte pas : les aides sont à relancer.
+  const enSeance = (k: number): boolean => Atomics.load(sync, SYNC(k) + 3) !== 0;
+  // L'arrêt demandé pendant ces attentes rend la main tout de suite (séance vide, interrompue).
+  const vide = (): AvanceeBrute => ({ pas: 0, morceauxVus: 0, perte: 0, tempsMs: performance.now() - t0, interrompue: true });
+  if (!await attendreAides(aides, (k) => !enSeance(k), 'un fil d\'aide ne répond plus (il n\'a pas quitté la séance précédente)', o.signal)) return vide();
   Atomics.store(sync, 1, 0);
-  for (let k = 0; k < aides.n; k++) Atomics.store(sync, SYNC(k) + 3, 0);
+  // Chaque aide reçoit les séquences (dans l'ordre de passage) et répond « dans la séance ».
   const gen0 = Atomics.load(sync, 0);
   for (let k = 0; k < aides.n; k++) aides.workers[k].postMessage({ type: 'seance', items: enOrdre, gen: gen0 });
-  const depuis = performance.now();
-  for (let k = 0; k < aides.n; k++) {
-    while (Atomics.load(sync, SYNC(k) + 3) !== 1) {
-      await new Promise((ok) => setTimeout(ok, 1));
-      if (performance.now() - depuis > 30_000) throw new Error('un fil d\'aide ne répond pas');
-    }
-  }
+  let pretes: boolean;
+  try { pretes = await attendreAides(aides, enSeance, 'un fil d\'aide ne répond pas', o.signal); }
+  catch (e) { finSeance(aides); throw e; }
+  if (!pretes) { finSeance(aides); return vide(); }
   let pas = 0, morceaux = 0, perteTot = 0, perteN = 0, interrompue = false, idx = 0, sansCible = 0;
+  if (reparti) r.partagerEtat(reparti.partage);
   r.arret = o.signal;
+  r.figerPoids();
   try {
     while (idx < enOrdre.length) {
       if (o.signal?.aborted) { interrompue = true; break; }
@@ -797,6 +938,7 @@ export async function seanceParallele(r: Reseau, lots: Iterable<LotBrut>, o: Sea
       const perteAvantPas = perteN;
       // Les parts : le fil de Noûs prend la première, l'aide k la (k+2)-ième.
       const gen = Atomics.load(sync, 0) + 1;
+      if (reparti) Atomics.store(reparti.ordre, 0, 0); // ordre de calcul (aucun pas en cours)
       for (let k = 0; k < aides.n; k++) {
         const a = Math.min(fin, debut + parFil * (k + 1)), b = Math.min(fin, a + parFil);
         Atomics.store(sync, SYNC(k), a); Atomics.store(sync, SYNC(k) + 1, b - a);
@@ -828,6 +970,7 @@ export async function seanceParallele(r: Reseau, lots: Iterable<LotBrut>, o: Sea
       }
       if (o.signal?.aborted) interrompue = true;
       if (interrompue) { r.jeterGrad(); break; }
+      let nTotal = r.accumulees;
       for (let k = 0; k < aides.n; k++) {
         const somme = res[4 * k], finies = res[4 * k + 1], tout = res[4 * k + 2];
         sansCible += res[4 * k + 3];
@@ -835,27 +978,94 @@ export async function seanceParallele(r: Reseau, lots: Iterable<LotBrut>, o: Sea
         perteTot += somme; perteN += finies;
         const a = Atomics.load(sync, SYNC(k)), nseq = Atomics.load(sync, SYNC(k) + 1);
         for (let i = a; i < a + nseq; i++) morceaux += enOrdre[i]?.ids.length ?? 0;
-        if (tout > 0) r.ajouterGrad(aides.grads[k], tout);
+        if (!reparti && tout > 0) r.ajouterGrad(aides.grads[k], tout);
+        nTotal += tout;
       }
-      if (!sain || perteN === perteAvantPas) r.jeterGrad(); else { r.pasAdamW(lr); pas++; }
+      if (!sain || perteN === perteAvantPas) r.jeterGrad();
+      else if (!reparti) { r.pasAdamW(lr); pas++; }
+      else if (nTotal > 0) { pasReparti(r, aides, reparti, nTotal, lr); pas++; }
+      else r.jeterGrad();
     }
   } finally {
     // Fin de séance : les aides retournent attendre la suivante.
-    r.arret = undefined;
-    Atomics.store(sync, 1, 1); Atomics.add(sync, 0, 1); Atomics.notify(sync, 0);
+    r.arret = undefined; r.libererPoids();
+    finSeance(aides);
   }
   return { pas, morceauxVus: morceaux, perte: perteN ? perteTot / perteN : 0, tempsMs: performance.now() - t0, interrompue, sansCible };
 }
 
+/** Fin de séance : plus aucun ordre « pas » en place, PUIS la fin est posée et les aides réveillées. */
+function finSeance(aides: Aides): void {
+  if (aides.reparti) Atomics.store(aides.reparti.ordre, 0, 0);
+  Atomics.store(aides.sync, 1, 1); Atomics.add(aides.sync, 0, 1); Atomics.notify(aides.sync, 0);
+}
+/**
+ * Attend que `pret(k)` soit vrai pour chaque aide, au plus DELAI_AIDE_MS ; sinon les aides sont à relancer (erreur).
+ * Rend faux si l'arrêt est demandé pendant l'attente (Odin doit toujours pouvoir s'arrêter).
+ */
+async function attendreAides(aides: Aides, pret: (k: number) => boolean, message: string, signal?: SignalArret): Promise<boolean> {
+  const depuis = performance.now();
+  for (let k = 0; k < aides.n; k++) {
+    while (!pret(k)) {
+      if (signal?.aborted) return false;
+      if (performance.now() - depuis > DELAI_AIDE_MS) { aides.cassees = true; throw new Error(`${message} : la séance est abandonnée, les aides seront relancées`); }
+      await new Promise((ok) => setTimeout(ok, 1));
+    }
+  }
+  return true;
+}
+
+/**
+ * Le pas réparti : le fil de Noûs ouvre le pas (compteur, corrections de biais), donne l'ordre « pas » aux aides, fait
+ * sa tranche (la première), puis attend la leur. Chaque tranche ajoute les gradients des aides dans le même ordre et
+ * applique AdamW : le résultat est celui de ajouterGrad × n puis pasAdamW, à l'identique.
+ */
+function pasReparti(r: Reseau, aides: Aides, rep: NonNullable<Aides['reparti']>, n: number, lr: number): void {
+  const p = r.ouvrirPas(n, lr), { P, G, M, V } = r.etatAdam();
+  const par = rep.parametres;
+  par[0] = p.n; par[1] = p.lr; par[2] = p.b1; par[3] = p.b2; par[4] = p.eps; par[5] = p.decay; par[6] = p.c1; par[7] = p.c2;
+  const sync = aides.sync, gen = Atomics.load(sync, 0) + 1;
+  // L'ordre « pas » porte le numéro de génération : une aide ne fait sa tranche que pour CE pas-là.
+  Atomics.store(rep.ordre, 0, gen);
+  Atomics.store(sync, 0, gen); Atomics.notify(sync, 0);
+  const [a, b] = tranche(G.length, 0, aides.n + 1);
+  adamTranche(P, G, M, V, aides.grads, a, b, p);
+  const t0 = performance.now();
+  for (let k = 0; k < aides.n; k++) {
+    let fait = Atomics.load(rep.ordre, 1 + k);
+    while (fait !== gen) {
+      Atomics.wait(rep.ordre, 1 + k, fait, 50); fait = Atomics.load(rep.ordre, 1 + k);
+      if (fait !== gen && performance.now() - t0 > DELAI_AIDE_MS) {
+        // Pas abandonné : une partie des tranches est faite, pas l'autre. Rien n'est laissé à moitié dans le réseau
+        // (plus de séquences comptées, gradients à zéro, copies de travail à refaire sur les poids tels qu'ils sont).
+        aides.cassees = true;
+        r.jeterGrad(); r.fermerPas();
+        throw new Error('un fil d\x27aide ne répond plus pendant le pas (arrêté ou à court de mémoire) : la séance est abandonnée, les aides seront relancées');
+      }
+    }
+  }
+  r.fermerPas();
+}
+
 /** Le corps d'un fil d'aide : attend sa part à chaque pas, calcule ses gradients, le signale. */
-function demarrerAide(port: NonNullable<typeof parentPort>, w: { k: number; hyper: Hyper; sab: SharedArrayBuffer; g: SharedArrayBuffer; sync: SharedArrayBuffer; res: SharedArrayBuffer; ctrl?: SharedArrayBuffer }): void {
+interface RepartiAide { partage: PartageAdam; ordre: SharedArrayBuffer; parametres: SharedArrayBuffer; tousG: SharedArrayBuffer[] }
+function demarrerAide(port: NonNullable<typeof parentPort>, w: { k: number; hyper: Hyper; sab: SharedArrayBuffer; g: SharedArrayBuffer; sync: SharedArrayBuffer; res: SharedArrayBuffer; ctrl?: SharedArrayBuffer; reparti?: RepartiAide }): void {
   const r = new Reseau(w.hyper, new Float32Array(w.sab));
   r.partagerGrad(w.g);
   const sync = new Int32Array(w.sync), res = new Float64Array(w.res), ctrl = w.ctrl ? new Int32Array(w.ctrl) : undefined;
   const k = w.k, base = SYNC(k);
   let ctrlSeance = 0;
+  // Le pas réparti : la tranche k+1 des poids, avec les gradients et moments du fil de Noûs (mémoire partagée).
+  const rep = w.reparti && {
+    ordre: new Int32Array(w.reparti.ordre), par: new Float64Array(w.reparti.parametres),
+    G: new Float32Array(w.reparti.partage.g), M: new Float32Array(w.reparti.partage.m), V: new Float32Array(w.reparti.partage.v),
+    gs: w.reparti.tousG.map((b) => new Float32Array(b)), nf: w.reparti.tousG.length + 1,
+  };
   // L'aide lit l'arrêt aussi entre deux couches (même drapeau que le fil de Noûs).
   if (ctrl) r.arret = { get aborted(): boolean { return Atomics.load(ctrl, 0) !== ctrlSeance; } };
+  // Les poids partagés ne changent qu'entre deux pas (AdamW sur le fil de Noûs) : l'aide refait ses copies de travail au
+  // début de chaque part, et les garde pendant la part.
+  r.figerPoids();
   port.on('message', (m: { type: string; items?: Array<{ ids: Int32Array; role?: Int32Array; poids: number }>; gen?: number }) => {
     if (m.type !== 'seance' || !m.items) return;
     const items = m.items;
@@ -867,7 +1077,13 @@ function demarrerAide(port: NonNullable<typeof parentPort>, w: { k: number; hype
       Atomics.wait(sync, 0, vu);
       const gen = Atomics.load(sync, 0); vu = gen;
       if (Atomics.load(sync, 1) === 1) { Atomics.store(sync, base + 3, 0); return; }
-      r.jeterGrad();
+      if (rep && Atomics.load(rep.ordre, 0) === gen) {
+        const q = rep.par, [a, b] = tranche(rep.G.length, k + 1, rep.nf);
+        adamTranche(r.poids, rep.G, rep.M, rep.V, rep.gs, a, b, { n: q[0], lr: q[1], b1: q[2], b2: q[3], eps: q[4], decay: q[5], c1: q[6], c2: q[7] });
+        Atomics.store(rep.ordre, 1 + k, gen); Atomics.notify(rep.ordre, 1 + k);
+        continue;
+      }
+      r.jeterGrad(); r.poidsModifies();
       const a = Atomics.load(sync, base), n = Atomics.load(sync, base + 1);
       let somme = 0, finies = 0, tout = 0, sans = 0;
       for (let i = a; i < a + n; i++) {
@@ -1029,16 +1245,20 @@ function demarrerWorker(port: NonNullable<typeof parentPort>): void {
 /** Perte moyenne sur un jeu tenu à part (porte de qualité) — ne touche pas aux gradients. */
 export function perteSur(r: Reseau, jeu: Int32Array[]): number {
   let s = 0, n = 0;
-  for (const brut of jeu) {
-    if (brut.length < 2) continue;
-    const ids = tete(brut, r.disp.T); // comme à l'entraînement : ce qui dépasse le contexte n'est pas mesuré
-    const et = r.avant(ids, true); const logits = et.logits!; const V = r.disp.V;
-    for (let t = 0; t < ids.length - 1; t++) {
-      const cible = ids[t + 1] | 0, o = t * V;
-      let mx = -Infinity; for (let vv = 0; vv < V; vv++) if (logits[o + vv] > mx) mx = logits[o + vv];
-      let som = 0; for (let vv = 0; vv < V; vv++) som += Math.exp(logits[o + vv] - mx);
-      s += (mx + Math.log(som)) - logits[o + cible]; n++;
+  // Les poids ne changent pas pendant la mesure : leurs copies de travail sont faites une fois pour tout le jeu.
+  r.figerPoids();
+  try {
+    for (const brut of jeu) {
+      if (brut.length < 2) continue;
+      const ids = tete(brut, r.disp.T); // comme à l'entraînement : ce qui dépasse le contexte n'est pas mesuré
+      const et = r.avant(ids, true); const logits = et.logits!; const V = r.disp.V;
+      for (let t = 0; t < ids.length - 1; t++) {
+        const cible = ids[t + 1] | 0, o = t * V;
+        let mx = -Infinity; for (let vv = 0; vv < V; vv++) if (logits[o + vv] > mx) mx = logits[o + vv];
+        let som = 0; for (let vv = 0; vv < V; vv++) som += Math.exp(logits[o + vv] - mx);
+        s += (mx + Math.log(som)) - logits[o + cible]; n++;
+      }
     }
-  }
+  } finally { r.libererPoids(); }
   return n ? s / n : 0;
 }
