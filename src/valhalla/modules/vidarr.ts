@@ -173,9 +173,9 @@ async function startServer(ctx: ModCtx): Promise<string> {
     local: () => dhcpNames(ctx),
     log: (e) => record(ctx, e),
     // Lien Sphinx → Forseti : un appareil demande un site dangereux (il est bloqué, et tu es prévenu).
-    onThreat: (e) => { ctx.alert({ level: 'haute', title: `${e.clientName ?? e.client} a voulu joindre un site dangereux`, detail: `${e.name} (${e.list}) : bloqué par Sphinx. Un logiciel de cet appareil est peut-être infecté : lance une analyse (Asclépios).`, key: `dns-menace-${e.client}-${e.name}`, data: { ip: e.client, domaine: e.name } }); ctx.emit('dns_menace', { ip: e.client, domaine: e.name, liste: e.list ?? '' }); },
+    onThreat: (e) => { ctx.alert({ level: 'haute', title: `${e.clientName ?? e.client} a voulu joindre un site dangereux`, detail: `${e.name} (${e.list}) : bloqué par Sphinx. Un logiciel de cet appareil est peut-être infecté : lance une analyse (Asclépios).`, key: `dns-menace-${e.client}-${e.name}`, lien: 'vidarr-alerte-site-dangereux', data: { ip: e.client, domaine: e.name } }); ctx.emit('dns_menace', { ip: e.client, domaine: e.name, liste: e.list ?? '' }); },
     // Lien Sphinx → Cerbère : une machine qui inonde le DNS (boucle, virus, attaque).
-    onFlood: (ip, n) => { ctx.alert({ level: 'moyenne', title: `${inventoryName?.(ip) ?? ip} inonde le DNS`, detail: `${n} requêtes par seconde : les suivantes sont ignorées pendant un moment. Si ce n'est pas une machine à toi, bannis-la (Cerbère).`, key: `dns-flood-${ip}`, data: { ip } }); ctx.emit('dns_inondation', { ip, par_seconde: n }); },
+    onFlood: (ip, n) => { ctx.alert({ level: 'moyenne', title: `${inventoryName?.(ip) ?? ip} inonde le DNS`, detail: `${n} requêtes par seconde : les suivantes sont ignorées pendant un moment. Si ce n'est pas une machine à toi, bannis-la (Cerbère).`, key: `dns-flood-${ip}`, lien: 'vidarr-alerte-inondation-dns', data: { ip } }); ctx.emit('dns_inondation', { ip, par_seconde: n }); },
   });
   const where = await d.start(port, Array.isArray(ctx.settings.listen) && (ctx.settings.listen as string[]).length ? ctx.settings.listen as string[] : undefined);
   srv = d;
@@ -189,7 +189,7 @@ async function startDhcp(ctx: ModCtx): Promise<string> {
     config: () => dhcpConfig(ctx), leases: () => leasesOf(ctx), save: (l) => ctx.saveSettings({ leases: l }), now: () => ctx.now().getTime(),
     log: (l) => ctx.emit('dhcp_journal', { ligne: l }),
     // Lien DHCP → Forseti et registre : un appareil jamais vu rejoint le réseau.
-    onLease: (l, isNew) => { ctx.emit('dhcp_bail', { mac: l.mac, ip: l.ip, nom: l.name ?? '' }); noterBail(ctx, { t: ctx.now().getTime(), mac: l.mac, ip: l.ip, nom: l.name, utilisateur: inventoryName?.(l.ip), action: isNew ? 'donne' : 'renouvele' }); if (isNew) ctx.emit('dhcp_nouveau', { ip: l.ip, mac: l.mac, nom: l.name ?? '' }); if (isNew) ctx.alert({ level: 'info', title: `Nouvel appareil sur le réseau : ${l.name ?? l.mac}`, detail: `Adresse ${l.ip} (MAC ${l.mac}). Si tu ne le connais pas, bloque-le (Réseau) ou donne-lui une adresse fixe et un nom (Sphinx → DHCP).`, key: `dhcp-nouveau-${l.mac}`, data: { ip: l.ip, mac: l.mac } }); },
+    onLease: (l, isNew) => { ctx.emit('dhcp_bail', { mac: l.mac, ip: l.ip, nom: l.name ?? '' }); noterBail(ctx, { t: ctx.now().getTime(), mac: l.mac, ip: l.ip, nom: l.name, utilisateur: inventoryName?.(l.ip), action: isNew ? 'donne' : 'renouvele' }); if (isNew) ctx.emit('dhcp_nouveau', { ip: l.ip, mac: l.mac, nom: l.name ?? '' }); if (isNew) ctx.alert({ level: 'info', title: `Nouvel appareil sur le réseau : ${l.name ?? l.mac}`, detail: `Adresse ${l.ip} (MAC ${l.mac}). Si tu ne le connais pas, bloque-le (Réseau) ou donne-lui une adresse fixe et un nom (Sphinx → DHCP).`, key: `dhcp-nouveau-${l.mac}`, lien: 'vidarr-alerte-appareil-inconnu', data: { ip: l.ip, mac: l.mac } }); },
     // Liste d'autorisation : une MAC inconnue demande une adresse → en attente d'approbation (elle n'a pas de réseau).
     onPending: (mac, info) => {
       const pol = macPolicy(ctx); if (pol.attente.includes(mac) || pol.etats[mac]) return;
@@ -673,7 +673,7 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       // Surveillance de la résolution : beaucoup d'échecs ces 5 dernières minutes = Internet ou les serveurs amont en panne.
       const now = ctx.now().getTime(), recent = ring.filter((e) => now - e.t < 300_000 && (e.status === 'ok' || e.status === 'erreur')), bad = recent.filter((e) => e.status === 'erreur').length;
       upstreamErrors.splice(0, upstreamErrors.length, ...upstreamErrors.filter((t) => now - t < 300_000));
-      if (recent.length >= 10 && bad / recent.length > 0.5) { ctx.alert({ level: 'haute', title: 'Le DNS n\'arrive plus à joindre Internet', detail: `${bad} échecs sur ${recent.length} questions en 5 minutes (serveurs : ${settingsOf(ctx).upstreams.join(', ')}). Vérifie la connexion de la box ; Odin bascule tout seul sur les serveurs de secours.`, key: 'dns-amont' }); ctx.emit('dns_amont_panne', { echecs: bad, total: recent.length }); }
+      if (recent.length >= 10 && bad / recent.length > 0.5) { ctx.alert({ level: 'haute', title: 'Le DNS n\'arrive plus à joindre Internet', detail: `${bad} échecs sur ${recent.length} questions en 5 minutes (serveurs : ${settingsOf(ctx).upstreams.join(', ')}). Vérifie la connexion de la box ; Odin bascule tout seul sur les serveurs de secours.`, key: 'dns-amont', lien: 'vidarr-alerte-dns-amont' }); ctx.emit('dns_amont_panne', { echecs: bad, total: recent.length }); }
     } },
   };
   return m;

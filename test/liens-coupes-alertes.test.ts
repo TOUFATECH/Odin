@@ -20,13 +20,16 @@ import { vraiOdin } from './banc/odin-vrai.ts';
 import { allModules, valhallaOf } from '../src/valhalla/odin.ts';
 import { relierProprietaire } from '../src/valhalla/sso/etat.ts';
 import { startDraupnir } from '../src/draupnir/odin.ts';
+import { gna } from '../src/valhalla/modules/gna.ts';
+import { tousLesChoix } from '../src/valhalla/gna/historique.ts';
+import { resetVordr, runOne, vordr } from '../src/valhalla/modules/vordr.ts';
 
 const { LINKS } = liens;
 const BRANCHEES = (liens as { ALERTES_BRANCHEES?: ReadonlySet<string> }).ALERTES_BRANCHEES;
 const VALHALLA = fileURLToPath(new URL('../src/valhalla/', import.meta.url));
 
-// Combien d'appels d'alerte portent la clé, lien par lien (relus à la main : carnet couper-un-lien-l2a). Un appel
-// ajouté ou retiré fait échouer l'essai : il faut le relire.
+// Combien d'appels d'alerte portent la clé, lien par lien (relus à la main : carnets couper-un-lien-l2a et
+// couper-un-lien-l2b). Un appel ajouté ou retiré fait échouer l'essai : il faut le relire.
 const APPELS: Record<string, number> = {
   'ullr-alerte-menace': 5,
   'sindri-alerte-sauvegarde': 2,
@@ -34,7 +37,20 @@ const APPELS: Record<string, number> = {
   'naglfar-alerte-conteneur': 1,
   'ymir-alerte-machine-virtuelle': 3,
   'hermod-alerte-machine-disparue': 1,
+  // Deuxième lot (L2b).
+  'svalinn-alerte-wifi': 2,
+  'skuld-alerte-sauvegarde-base': 1,
+  'vidarr-alerte-site-dangereux': 1,
+  'vidarr-alerte-inondation-dns': 1,
+  'vidarr-alerte-dns-amont': 1,
+  'vidarr-alerte-appareil-inconnu': 1,
+  'mimisbrunnr-alerte-message-repete': 1,
+  'gna-alerte-historique': 1,
+  'vordr-alerte-sonde': 3,
 };
+/** Les liens du deuxième lot. */
+const LOT2 = ['svalinn-alerte-wifi', 'skuld-alerte-sauvegarde-base', 'vidarr-alerte-site-dangereux', 'vidarr-alerte-inondation-dns',
+  'vidarr-alerte-dns-amont', 'vidarr-alerte-appareil-inconnu', 'mimisbrunnr-alerte-message-repete', 'gna-alerte-historique', 'vordr-alerte-sonde'];
 
 /** Les fichiers d'une appli : son module, et son dossier s'il existe. */
 function fichiersDe(app: string): Array<[string, string]> {
@@ -79,7 +95,7 @@ function appelsAlerte(src: string): string[] {
   return out;
 }
 
-test('six applis branchées : chaque lien d\'alerte porte sa clé sur les appels qui en relèvent, et seulement eux', () => {
+test('douze applis branchées : chaque lien d\'alerte porte sa clé sur les appels qui en relèvent, et seulement eux', () => {
   assert.ok(BRANCHEES, 'links.ts dit quels liens d\'alerte sont branchés (ALERTES_BRANCHEES)');
   assert.deepEqual([...BRANCHEES!].sort(), Object.keys(APPELS).sort());
   for (const id of BRANCHEES!) {
@@ -101,33 +117,34 @@ test('six applis branchées : chaque lien d\'alerte porte sa clé sur les appels
     }
   }
   assert.deepEqual(Object.fromEntries([...vus].sort()), Object.fromEntries(Object.entries(APPELS).sort()));
-  // Une clé posée seule (hors d'un appel d'alerte) dans les six applis : rien.
-  for (const app of ['ullr', 'sindri', 'eir', 'naglfar', 'ymir', 'hermod']) for (const [f, t] of fichiersDe(app)) {
+  // Une clé posée seule (hors d'un appel d'alerte) dans les applis branchées : rien.
+  for (const app of new Set([...BRANCHEES!].map((id) => LINKS.find((x) => x.id === id)!.from))) for (const [f, t] of fichiersDe(app)) {
     const dansAlertes = appelsAlerte(t).reduce((n, a) => n + [...a.matchAll(/\blien: '[a-z0-9-]+-alerte-[a-z0-9-]+'/g)].length, 0);
     assert.equal([...t.matchAll(/\blien: '[a-z0-9-]+-alerte-[a-z0-9-]+'/g)].length, dansAlertes, `${f} : une clé de lien hors d'un appel d'alerte`);
   }
 });
 
-test('les liens qui se coupent d\'ici : les 21 à point unique et les 6 alertes branchées ; les autres alertes « pas encore »', () => {
+test('les liens qui se coupent d\'ici : les 21 à point unique et les 15 alertes branchées ; les autres alertes « pas encore »', () => {
   const lignes = lignesLiensEcrits(undefined);
   const coupables = lignes.filter((x) => x.coupable).map((x) => x.id.slice(5));
   const attendus = LINKS.filter((l) => 'par' in l.coupure && (l.coupure.par === 'reflexe' || (l.coupure.par === 'alerte' && BRANCHEES?.has(l.id)))).map((l) => l.id);
   assert.deepEqual(coupables, attendus);
-  assert.equal(coupables.length, 21 + 6);
-  // Les 23 autres liens d'alerte ne se coupent pas encore d'ici.
+  assert.equal(coupables.length, 21 + 6 + 9);
+  for (const id of LOT2) assert.ok(coupables.includes(id), `${id} se coupe d'ici`);
+  // Les 14 autres liens d'alerte ne se coupent pas encore d'ici.
   const autres = LINKS.filter((l) => 'par' in l.coupure && l.coupure.par === 'alerte' && !BRANCHEES?.has(l.id));
-  assert.equal(autres.length, 23);
+  assert.equal(autres.length, 14);
   for (const l of autres) assert.equal(lignes.find((x) => x.id === `lien:${l.id}`)!.coupable, false, l.id);
 });
 
 /** Une Valhalla neuve avec deux applis d'essai, qui note les messages envoyés et les alertes émises. */
-function bancValhalla(fichierAutomatismes?: string) {
+function bancValhalla(fichierAutomatismes?: string, autres: Array<string | Module> = []) {
   const home = mkdtempSync(join(tmpdir(), 'liens-coupes-alertes-'));
   if (fichierAutomatismes !== undefined) { mkdirSync(join(home, 'valhalla'), { recursive: true }); writeFileSync(join(home, 'valhalla', 'automatismes.json'), fichierAutomatismes); }
   let now = new Date('2026-11-18T10:00:00Z');
   const messages: string[] = [], emises: Alert[] = [];
   const mod = (id: string, name: string) => ({ id, name, family: 'Système', what: 'essai', does: [], from: [], upstream: [], words: [], actions: [], view: () => ({ sections: [] }) }) as unknown as Module;
-  const v = new Valhalla(home, [mod('hermod', 'Hermès'), mod('ullr', 'Asclépios')], { notify: async (t) => { messages.push(t); }, now: () => now });
+  const v = new Valhalla(home, [mod('hermod', 'Hermès'), mod('ullr', 'Asclépios'), ...autres.map((x) => (typeof x === 'string' ? mod(x, x) : x))], { notify: async (t) => { messages.push(t); }, now: () => now });
   v.events.on('alert', (a: Alert) => emises.push(a));
   return { v, messages, emises, get now() { return now; }, set now(d: Date) { now = d; }, fin: () => { v.stop(); rmSync(home, { recursive: true, force: true }); } };
 }
@@ -224,6 +241,92 @@ test('une alerte retenue pendant la coupure n\'est pas « déjà envoyée » : a
   } finally { b.fin(); }
 });
 
+// Deuxième lot : pour chaque lien, une alerte qui en relève (titre et clé des appels qui portent la clé) et une alerte
+// de la même appli qui n'en relève pas (titre et clé d'un appel laissé sans clé, carnet couper-un-lien-l2b). Toutes au
+// niveau « haute » pour que le message parte au seuil par défaut.
+const LOT2_ALERTES: Record<string, { releve: { title: string; key: string }; horsLien: { title: string; key: string } }> = {
+  'svalinn-alerte-wifi': { releve: { title: 'Wi-Fi : WPS allumé', key: 'svalinn-urgent' }, horsLien: { title: 'La box ne répond plus depuis le changement', key: 'svalinn-retour' } },
+  'skuld-alerte-sauvegarde-base': { releve: { title: '💾 Sauvegarde de Ventes ratée', key: 'skuld-b1' }, horsLien: { title: '💾 Ventes : copie au 2e site ratée', key: 'skuld-site-b1' } },
+  'vidarr-alerte-site-dangereux': { releve: { title: 'Tablette-1 a voulu joindre un site dangereux', key: 'dns-menace-10.0.0.5-mal.exemple' }, horsLien: { title: 'Odin a remarqué quelque chose sur le réseau', key: 'revue-x' } },
+  'vidarr-alerte-inondation-dns': { releve: { title: '10.0.0.6 inonde le DNS', key: 'dns-flood-10.0.0.6' }, horsLien: { title: 'Le DNS d\'Odin n\'a pas pu démarrer', key: 'dns-demarrage' } },
+  'vidarr-alerte-dns-amont': { releve: { title: 'Le DNS n\'arrive plus à joindre Internet', key: 'dns-amont' }, horsLien: { title: 'Le DHCP d\'Odin n\'a pas pu démarrer', key: 'dhcp-demarrage' } },
+  'vidarr-alerte-appareil-inconnu': { releve: { title: 'Nouvel appareil sur le réseau : 02:00:00:00:00:01', key: 'dhcp-nouveau-02:00:00:00:00:01' }, horsLien: { title: 'Appareil en attente d\'approbation : 02:00:00:00:00:02', key: 'dhcp-attente-02:00:00:00:00:02' } },
+  'mimisbrunnr-alerte-message-repete': { releve: { title: 'Chroniques : « Failed password » 10 fois en 5 min', key: 'chroniques:r1:1' }, horsLien: { title: 'mimisbrunnr : surveillance en échec', key: 'watch:mimisbrunnr' } },
+  'gna-alerte-historique': { releve: { title: 'Trajets : l\'historique n\'est plus gardé comme prévu', key: 'gna-dossier' }, horsLien: { title: 'gna : surveillance en échec', key: 'watch:gna' } },
+  'vordr-alerte-sonde': { releve: { title: '❌ Box est en panne', key: 'vordr-m1' }, horsLien: { title: '⏫ Toujours pas pris en main : Mémoire', key: 'vordr-esc-p1-1' } },
+};
+
+test('deuxième lot : pour chacun des neuf liens, coupé → l\'alerte est rangée et son message ne part pas ; une alerte de l\'appli hors du lien part ; rétabli → le message part', () => {
+  assert.deepEqual(Object.keys(LOT2_ALERTES).sort(), [...LOT2].sort());
+  for (const id of LOT2) {
+    const l = LINKS.find((x) => x.id === id)!;
+    const b = bancValhalla(undefined, [l.from]);
+    try {
+      const ctx = b.v.ctx(l.from), { releve, horsLien } = LOT2_ALERTES[id];
+      const lien: LienACouper = { id, nom: `${l.from} → Forseti`, de: l.from, protege: l.protege ? { raison: l.protege.raison } : false, qui: QUI };
+      assert.equal(couperLien(lien, true, { confirme: true }).ok, true, id);
+      assert.equal(lienCoupe(id), true, id);
+      const n = b.messages.length; // l'alerte de coupure (haute) d'un lien qui protège
+      const r = ctx.alert({ level: 'haute', ...releve, lien: id }) as unknown as Alert & { nonEnvoye?: string };
+      assert.equal(b.messages.length, n, `${id} coupé : le message ne part pas`);
+      assert.equal(r.nonEnvoye, 'message non envoyé : lien coupé par toi', id);
+      assert.ok(b.v.alerts({ module: l.from }).some((a) => a.title === releve.title && a.lien === id), `${id} : l'alerte est rangée`);
+      // Une alerte de la même appli qui ne relève pas du lien : son message part toujours.
+      ctx.alert({ level: 'haute', ...horsLien });
+      assert.equal(b.messages.length, n + 1, `${id} coupé : « ${horsLien.title} » part toujours`);
+      // Vidarr : couper un de ses quatre liens ne retient pas les alertes des trois autres.
+      if (l.from === 'vidarr') for (const autre of LOT2.filter((x) => x.startsWith('vidarr-') && x !== id)) {
+        const m = b.messages.length;
+        ctx.alert({ level: 'haute', ...LOT2_ALERTES[autre].releve, lien: autre });
+        assert.equal(b.messages.length, m + 1, `${id} coupé : l'alerte de ${autre} part`);
+      }
+      // Rétabli : le message part de nouveau (une autre occurrence, et la même alerte retenue).
+      assert.equal(couperLien(lien, false).ok, true, id);
+      const m = b.messages.length;
+      const apres = ctx.alert({ level: 'haute', ...releve, lien: id }) as unknown as Alert & { nonEnvoye?: string };
+      assert.ok(apres, `${id} rétabli : l'alerte retenue passe`); assert.equal(apres.nonEnvoye, undefined);
+      assert.equal(b.messages.length, m + 1, `${id} rétabli : le message part`);
+      assert.ok(b.messages.at(-1)!.includes(releve.title), id);
+    } finally { b.fin(); }
+  }
+});
+
+test('deuxième lot, par le code des applis : l\'alerte de Gná (historique) et la panne d\'une sonde de Vörðr portent leur clé', async () => {
+  // Gná : le fichier des choix illisible est signalé ; la surveillance lève l'alerte « historique » (clé posée).
+  {
+    const b = bancValhalla(undefined, [gna]);
+    try {
+      const ctx = b.v.ctx('gna');
+      const lien: LienACouper = { id: 'gna-alerte-historique', nom: 'Gná → Forseti', de: 'gna', protege: false, qui: QUI };
+      assert.equal(couperLien(lien, true, { confirme: true }).ok, true);
+      const n = b.messages.length;
+      mkdirSync(ctx.dir, { recursive: true }); writeFileSync(join(ctx.dir, 'choix.json'), '{ abîmé');
+      tousLesChoix(ctx.dir);
+      await gna.watch!.run(ctx);
+      const a = b.v.alerts({ module: 'gna' }).find((x) => x.key === 'gna:gna-dossier') as (Alert & { nonEnvoye?: string }) | undefined;
+      assert.ok(a, 'l\'alerte est rangée'); assert.equal(a!.lien, 'gna-alerte-historique');
+      assert.equal(a!.nonEnvoye, 'message non envoyé : lien coupé par toi');
+      assert.equal(b.messages.length, n, 'lien coupé : le message ne part pas');
+    } finally { b.fin(); }
+  }
+  // Vörðr : une sonde « signe de vie » sans battement passe en panne ; l'alerte de panne porte la clé.
+  {
+    resetVordr();
+    const b = bancValhalla(undefined, [vordr]);
+    try {
+      const ctx = b.v.ctx('vordr');
+      const lien: LienACouper = { id: 'vordr-alerte-sonde', nom: 'Vörðr → Forseti', de: 'vordr', protege: false, qui: QUI };
+      assert.equal(couperLien(lien, true, { confirme: true }).ok, true);
+      const n = b.messages.length;
+      const m = { id: 'essai-push', name: 'Sonde-essai', kind: 'push', target: '', every: 300, retries: 1, timeoutMs: 1000, group: 'Maison', token: 'jeton-essai' } as unknown as Parameters<typeof runOne>[1];
+      await runOne(ctx, m, b.now.getTime());
+      const a = b.v.alerts({ module: 'vordr' }).find((x) => x.title === '❌ Sonde-essai est en panne') as (Alert & { nonEnvoye?: string }) | undefined;
+      assert.ok(a, 'l\'alerte de panne est rangée'); assert.equal(a!.lien, 'vordr-alerte-sonde');
+      assert.equal(b.messages.length, n, 'lien coupé : le message ne part pas');
+    } finally { b.fin(); resetVordr(); }
+  }
+});
+
 test('un état illisible ne coupe rien : le message part', () => {
   for (const f of ['{ pas du JSON', JSON.stringify({ pauses: { 'lien:hermod-alerte-machine-disparue': { depuis: 'hier', lien: true, protege: false } } }),
     JSON.stringify({ pauses: { 'lien:ullr-alerte-menace': { depuis: '2026-11-18T09:00:00Z', lien: true, protege: true } } })]) {
@@ -272,8 +375,8 @@ test('la route : le propriétaire coupe un lien d\'alerte (la confirmation dit q
     const h = await v.json(P, { id: 'lien:naglfar-alerte-conteneur', pause: true });
     assert.equal(h.body.code, 'accord'); assert.match(String(h.body.confirm), /continue/);
     // Un lien d'alerte d'une autre appli : pas encore, même par le propriétaire.
-    const s = await v.json(P, { id: 'lien:svalinn-alerte-wifi', pause: true, confirme: true });
-    assert.notEqual(s.body.ok, true); assert.equal(await coupe('lien:svalinn-alerte-wifi'), undefined);
+    const s = await v.json(P, { id: 'lien:askr-alerte-garantie', pause: true, confirme: true });
+    assert.notEqual(s.body.ok, true); assert.equal(await coupe('lien:askr-alerte-garantie'), undefined);
     const tentatives: Array<[string, Promise<{ status: number; body: Record<string, unknown> }>]> = [
       ['clé d\'accès en Bearer', v.json(P, { id: ID, pause: true, confirme: true }, { authorization: `Bearer ${v.token}` })],
       ['session + clé en paramètre', v.json(`${P}?token=${v.token}`, { id: ID, pause: true, confirme: true })],

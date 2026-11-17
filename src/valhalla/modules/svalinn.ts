@@ -63,7 +63,7 @@ export async function refresh(ctx: ModCtx): Promise<Etat> {
   const a = assess(facts);
   const e: Etat = { at: ctx.now().toISOString(), gateway: gw, nets: sc.nets, mine, box, upnpSeen, debit: prev?.debit, facts, ...a, source: [box ? (box.model && box.model.toLowerCase().includes(box.brand.toLowerCase()) ? box.model : `${box.brand}${box.model ? ` ${box.model}` : ''}`) : err ? `box : ${err}` : boxCfg(ctx) ? 'box non pilotée' : 'box non reliée', sc.how].join(' · ') };
   mkdirSync(ctx.dir, { recursive: true, mode: 0o700 }); writeFileSync(etatFile(ctx), JSON.stringify(e), { mode: 0o600 });
-  if (a.fixes.some((f) => f.level === 'urgent')) ctx.alert({ level: 'haute', title: `Wi-Fi : ${a.fixes.filter((f) => f.level === 'urgent').map((f) => f.title).join(', ')}`, detail: `Note ${a.note}/100. Zéphyr propose de corriger (avec ton accord).`, key: 'svalinn-urgent' });
+  if (a.fixes.some((f) => f.level === 'urgent')) ctx.alert({ level: 'haute', title: `Wi-Fi : ${a.fixes.filter((f) => f.level === 'urgent').map((f) => f.title).join(', ')}`, detail: `Note ${a.note}/100. Zéphyr propose de corriger (avec ton accord).`, key: 'svalinn-urgent', lien: 'svalinn-alerte-wifi' });
   return e;
 }
 const devicesOf = async (ctx: ModCtx, e?: Etat) => e?.box?.devices ?? await neigh(ctx);
@@ -152,7 +152,7 @@ export const svalinn: Module = {
       ctx.saveSettings({ attente: undefined, dernier: p });
       let back = -1; try { back = (await driver(ctx)?.read(ctx.now()))?.devices.filter((x) => x.active && x.wifi).length ?? -1; } catch { back = -1; }
       if (p.undo && p.wifiBefore >= 2 && back >= 0 && back < Math.ceil(p.wifiBefore / 2)) {
-        try { await applyChange(ctx, p.undo); ctx.saveSettings({ attente: undefined }); ctx.alert({ level: 'haute', title: `Wi-Fi : ${p.label} annulé tout seul`, detail: `Seulement ${back} appareil(s) en Wi-Fi sur ${p.wifiBefore} sont revenus en 3 minutes : l'ancien réglage est remis.`, key: 'svalinn-retour' }); }
+        try { await applyChange(ctx, p.undo); ctx.saveSettings({ attente: undefined }); ctx.alert({ level: 'haute', title: `Wi-Fi : ${p.label} annulé tout seul`, detail: `Seulement ${back} appareil(s) en Wi-Fi sur ${p.wifiBefore} sont revenus en 3 minutes : l'ancien réglage est remis.`, key: 'svalinn-retour', lien: 'svalinn-alerte-wifi' }); }
         catch (e) { ctx.alert({ level: 'critique', title: 'Wi-Fi : retour automatique impossible', detail: (e as Error).message, key: 'svalinn-retour' }); }
       } else if (back < 0 && driver(ctx)) ctx.alert({ level: 'haute', title: 'La box ne répond plus depuis le changement', detail: `${p.label} : vérifie la box (« Revenir en arrière » dans Zéphyr quand elle répond).`, key: 'svalinn-retour' });
     }

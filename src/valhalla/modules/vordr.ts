@@ -223,7 +223,7 @@ export async function runOne(ctx: ModCtx, m: Monitor, now = Date.now()): Promise
   if (b.ok) {
     if (l.status === 'en panne') {
       const mins = Math.max(1, Math.round((now - (l.downAt ?? now)) / 60_000));
-      ctx.alert({ level: 'info', title: `✅ ${m.name} répond de nouveau`, detail: `Après ${mins} min de panne. ${b.msg}.`, key: `vordr-retour-${m.id}-${now}` });
+      ctx.alert({ level: 'info', title: `✅ ${m.name} répond de nouveau`, detail: `Après ${mins} min de panne. ${b.msg}.`, key: `vordr-retour-${m.id}-${now}`, lien: 'vordr-alerte-sonde' });
       ctx.emit('retour', { nom: m.name, cible: m.target, minutes: mins });
       closeProblem(ctx, 'sonde', m.id, now);
       recordBeat(ctx, m, b, 'retour');
@@ -240,7 +240,7 @@ export async function runOne(ctx: ModCtx, m: Monitor, now = Date.now()): Promise
       openProblem(ctx, { source: 'sonde', ref: m.id, name: `${m.name} est en panne`, severity: m.level === 'critique' ? 'desastre' : m.level === 'moyenne' ? 'moyen' : 'haut', start: now, comments: [], escalated: 0 }, dep ? problems(ctx).find((p) => p.source === 'sonde' && p.ref === dep.id && !p.end)?.id : undefined);
       if (dep) { ctx.emit('panne', { nom: m.name, cible: m.target, genre: m.kind, erreur: b.msg, groupe: m.group, symptome: dep.name }); return b; }
       const why = await cause(ctx, m);
-      ctx.alert({ level: m.level ?? 'haute', title: `❌ ${m.name} est en panne`, detail: `${b.msg} (${l.fails} essai(s) d'affilée).${why ? `\n${why}` : ''}`, key: `vordr-${m.id}`, data: { cible: m.target } });
+      ctx.alert({ level: m.level ?? 'haute', title: `❌ ${m.name} est en panne`, detail: `${b.msg} (${l.fails} essai(s) d'affilée).${why ? `\n${why}` : ''}`, key: `vordr-${m.id}`, lien: 'vordr-alerte-sonde', data: { cible: m.target } });
       ctx.emit('panne', { nom: m.name, cible: m.target, genre: m.kind, erreur: b.msg, groupe: m.group });
     } else recordBeat(ctx, m, b);
   }
@@ -248,7 +248,7 @@ export async function runOne(ctx: ModCtx, m: Monitor, now = Date.now()): Promise
   if (m.kind === 'http' && /^https:/i.test(m.target) && (!l.certAt || now - l.certAt > 6 * 3600_000)) {
     l.certAt = now;
     try { const u = new URL(m.target); l.cert = await certDaysLeft(u.hostname, Number(u.port) || 443, m.timeoutMs);
-      if (l.cert < (m.certDays ?? 14)) ctx.alert({ level: l.cert < 3 ? 'critique' : 'haute', title: `🔐 Le certificat de ${m.name} expire dans ${l.cert} jour(s)`, detail: 'Renouvelle-le (Let\'s Encrypt, ton hébergeur) avant que les visiteurs voient une erreur.', key: `vordr-cert-${m.id}` });
+      if (l.cert < (m.certDays ?? 14)) ctx.alert({ level: l.cert < 3 ? 'critique' : 'haute', title: `🔐 Le certificat de ${m.name} expire dans ${l.cert} jour(s)`, detail: 'Renouvelle-le (Let\'s Encrypt, ton hébergeur) avant que les visiteurs voient une erreur.', key: `vordr-cert-${m.id}`, lien: 'vordr-alerte-sonde' });
     } catch { /* certificat illisible : la vérification HTTP dit déjà s'il y a un souci */ }
   }
   return b;

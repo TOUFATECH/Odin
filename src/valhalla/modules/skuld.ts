@@ -200,7 +200,7 @@ export const skuld: Module = {
       if (!due(p, lastOk ? new Date(lastOk.at) : undefined, now) || tacheEnPause('skuld', tacheDuPlanBase(p.base))) continue;
       if (lastTry && !lastTry.ok && now.getTime() - Date.parse(lastTry.at) < 3600_000) continue; // un essai par heure après un échec
       const e = await backupNow(ctx, b, 'plan');
-      if (!e.ok) ctx.alert({ level: 'haute', title: `💾 Sauvegarde de ${b.nom} ratée`, detail: e.erreur, key: `skuld-${b.id}`, steps: ['Regarde l\'erreur dans Arche', 'Mot de passe changé ? redonne-le dans Alexandrie (« relier » à nouveau)', 'Puis « Sauvegarder maintenant »'], fix: { action: 'sauvegarder', label: 'Réessayer', input: { base: b.id } } });
+      if (!e.ok) ctx.alert({ level: 'haute', title: `💾 Sauvegarde de ${b.nom} ratée`, detail: e.erreur, key: `skuld-${b.id}`, lien: 'skuld-alerte-sauvegarde-base', steps: ['Regarde l\'erreur dans Arche', 'Mot de passe changé ? redonne-le dans Alexandrie (« relier » à nouveau)', 'Puis « Sauvegarder maintenant »'], fix: { action: 'sauvegarder', label: 'Réessayer', input: { base: b.id } } });
     }
   } },
 };

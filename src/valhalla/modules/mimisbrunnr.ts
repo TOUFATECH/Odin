@@ -156,6 +156,6 @@ export const mimisbrunnr: Module = {
     const regles = (ctx.settings.regles as Regle[] | undefined) ?? []; if (!regles.length) return;
     const l = await collecter(ctx, Math.ceil(Math.max(...regles.map((r) => r.minutes)) / 60) || 1), now = ctx.now().getTime();
     const hors = l.filter((x) => !(x.source === 'Odin' && x.prog === 'mimisbrunnr'));   // jamais ses propres alertes : une règle se relancerait toute seule
-    for (const r of regles) { const n = declenche(r, hors, now); if (n) ctx.alert({ level: r.niveau, title: `Chroniques : « ${r.motif} » ${n} fois en ${r.minutes} min`, detail: hors.find((x) => contient(x.texte, r.motif))?.texte.slice(0, 300), key: `chroniques:${r.id}:${Math.floor(now / (r.minutes * 60_000))}` }); }
+    for (const r of regles) { const n = declenche(r, hors, now); if (n) ctx.alert({ level: r.niveau, title: `Chroniques : « ${r.motif} » ${n} fois en ${r.minutes} min`, detail: hors.find((x) => contient(x.texte, r.motif))?.texte.slice(0, 300), key: `chroniques:${r.id}:${Math.floor(now / (r.minutes * 60_000))}`, lien: 'mimisbrunnr-alerte-message-repete' }); }
   } },
 };

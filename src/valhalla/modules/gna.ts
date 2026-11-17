@@ -464,7 +464,7 @@ export const gna: Module = {
     menage(ctx);
     // Un souci d'écriture ou de lecture : une alerte, sans aucune position.
     const x = souci(ctx.dir, true);
-    if (x) ctx.alert({ level: 'haute', title: 'Trajets : l\'historique n\'est plus gardé comme prévu', detail: `Odin a un souci avec le dossier des trajets : ${x.quoi}. Tant que ce n'est pas réglé, des positions peuvent ne pas être gardées.`, key: 'gna-dossier', steps: ['Ouvre Hygie : reste-t-il de la place sur le disque ?', 'Ouvre Ulysse, onglet Réglages : l\'historique de chaque membre est-il toujours comme il l\'a choisi ?', 'Si un historique est repassé à « éteint », son membre le rallume lui-même (ou toi, avec son accord).'] });
+    if (x) ctx.alert({ level: 'haute', title: 'Trajets : l\'historique n\'est plus gardé comme prévu', detail: `Odin a un souci avec le dossier des trajets : ${x.quoi}. Tant que ce n'est pas réglé, des positions peuvent ne pas être gardées.`, key: 'gna-dossier', lien: 'gna-alerte-historique', steps: ['Ouvre Hygie : reste-t-il de la place sur le disque ?', 'Ouvre Ulysse, onglet Réglages : l\'historique de chaque membre est-il toujours comme il l\'a choisi ?', 'Si un historique est repassé à « éteint », son membre le rallume lui-même (ou toi, avec son accord).'] });
   } },
   view(ctx) {
     const l = membres(ctx), cs = l.map((m) => ({ m, c: choixDe(ctx.dir, m.id) })), f = fond(ctx);
