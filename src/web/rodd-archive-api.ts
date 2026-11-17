@@ -40,7 +40,7 @@ async function lireJson(req: IncomingMessage): Promise<Record<string, unknown> |
 
 const AIDE = 'Configure un modèle dans Réglages → Modèle (le résumé est écrit par le modèle d\'Odin, jamais inventé).';
 const AIDE_CORR = 'Configure un modèle dans Réglages → Modèle (la correction est écrite par le modèle d\'Odin, jamais inventée).';
-/** Le modèle utilisable pour résumer : aucun en mode démo, aucun modèle en ligne si « tout sur la machine ». */
+/** Le modèle utilisable pour résumer : aucun sans modèle de langue, aucun modèle en ligne si « tout sur la machine ». */
 function modeleUtilisable(modele: ReturnType<typeof modeleDe>, reglages: Pick<Reglages, 'local'>): ReturnType<typeof modeleDe> {
   if (!modele) return undefined;
   if (reglages.local && !modele.local) return undefined;

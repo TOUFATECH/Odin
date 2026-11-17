@@ -65,7 +65,7 @@ export function monter(o: { pages?: Record<string, FaussePage>; resultats?: Reco
   const moteurRecherche = fauxMoteur(o.resultats ?? {});
   const muninn = new Mnemosyne(':memory:');
   const file: FileApprentissage = fileBornee();
-  const nous: NoosDeps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => muninn.privateMode, demo: false, essai: false, file, maintenant: horloge.maintenant };
+  const nous: NoosDeps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => muninn.privateMode, essai: false, file, maintenant: horloge.maintenant };
   const magasin = new MagasinMemoire();
   const m = creerMathesis({
     dossier: 'inutile-en-memoire', home: 'inutile-en-memoire', magasin, transport: site.transport, resoudre: fauxResolveur(o.resolveur),

@@ -70,7 +70,7 @@ export interface BilanCorpusLivraison { exemples: number; textes: number; paires
  */
 export function corpusLivraison(sources: SourcesDepart): { exemples: ExempleTexte[]; bilan: BilanCorpusLivraison } {
   const file = fileBornee(500_000);
-  const deps: NoosDeps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, demo: false, essai: false, file };
+  const deps: NoosDeps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, essai: false, file };
   const b = fabriquerDepart('', deps, 'livraison', sources);
   const exemples: ExempleTexte[] = [];
   for (const e of file.prendre(500_000)) {
@@ -335,13 +335,12 @@ export function departInstalle(home: string): EtatDepartInstalle | undefined { t
 /**
  * Au premier lancement : installe le modèle de départ s'il n'existe AUCUN point de reprise. Vérifie les empreintes,
  * puis l'écrit comme un point de reprise ordinaire, SCELLÉ avec la clé de la machine (moments de l'optimiseur à zéro :
- * l'entraînement sur place repart de ces poids). Rien si Noûs est coupé, en mode privé ou en démonstration. Ne lève jamais.
+ * l'entraînement sur place repart de ces poids). Rien si Noûs est coupé ou en mode privé. Ne lève jamais.
  */
 export async function installerModeleDepart(odin: OdinPourNous, o: { dossier?: string; maintenant?: () => number; epingle?: string } = {}): Promise<{ installe: boolean; raison: string; point?: number }> {
   try {
     const c = odin.cfg;
     if (c.nous?.actif === false) return { installe: false, raison: 'Noûs est en pause' };
-    if (odin.demo) return { installe: false, raison: 'démonstration' };
     if (c.voice?.privacy?.privateMode === true) return { installe: false, raison: 'mode privé' };
     const home = odin.paths.home;
     if (listerReprises(home).length) return { installe: false, raison: 'un point de reprise existe déjà : rien n\'est écrasé' };

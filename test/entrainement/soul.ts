@@ -86,7 +86,7 @@ async function faireCorpus(): Promise<void> {
       souvenirs: () => [] as Array<{ content: string; origin: string }>,
     };
     const file = fileBornee(200_000);
-    const deps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, demo: false, essai: false, file };
+    const deps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, essai: false, file };
     const bilan = fabriquerDepart(o.paths.home, deps, 'odin', sources);
     const tout = file.prendre(file.taille());
     const textes: Texte[] = [], paires: Paire[] = [];

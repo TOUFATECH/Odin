@@ -44,7 +44,7 @@ const fauxModele = (rep: string): Deps['modele'] => ({ local: false, nom: 'faux'
 test('défaut 1 (unité) : le GET « son » ne réclame pas x-odin ; les POST le réclament toujours', async () => {
   const home = mkdtempSync(join(tmpdir(), 'odin-arch-'));
   const ctx = { home, dir: join(home, 'rodd'), settings: {}, saveSettings() {} } as never as { home: string; dir: string };
-  const odin = { demo: false, cfg: { providers: [{ model: 'faux' }], voice: VOIX }, agent: { ask: async () => '' }, paths: {} } as never;
+  const odin = { modele: { pret: () => true }, cfg: { providers: [{ model: 'faux' }], voice: VOIX }, agent: { ask: async () => '' }, paths: {} } as never;
   const srv = createServer((req, res) => { void archiveRoute(req, res, new URL(req.url!, 'http://x'), { odin, ctx: () => ctx as never }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const u = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/archive`;
@@ -79,7 +79,7 @@ test('défaut 1 (bout en bout) : le navigateur écoute la copie sonore via le vr
 
 /** Monte conversationRoute sur un petit serveur et rend une fonction pour poser un tour (son → traduction). */
 async function montageTour(ctx: { home: string; dir: string; settings: Record<string, unknown> }, voix: VoiceConfig) {
-  const odin = { demo: false, cfg: { providers: [{ model: 'faux' }], voice: voix }, agent: { ask: async () => '' }, paths: {} } as never;
+  const odin = { modele: { pret: () => true }, cfg: { providers: [{ model: 'faux' }], voice: voix }, agent: { ask: async () => '' }, paths: {} } as never;
   const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => voix, ctx: () => ctx as never, deps: { entendre: fauxWhisper(), modele: fauxModele('I would like a coffee') } }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const base = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/conversation`;

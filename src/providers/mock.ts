@@ -1,4 +1,4 @@
-// Fournisseur simulé : rejoue un scénario. Sert aux tests et au mode démo (`odin chat --demo`).
+// Fournisseur simulé : rejoue un scénario écrit dans un essai (ce n'est pas un modèle appris). Sert aux essais.
 import type { CompletionRequest, ModelResponse, Provider, ToolCall } from '../types.ts';
 
 type Step = Partial<ModelResponse> | ((req: CompletionRequest) => Partial<ModelResponse>);
@@ -28,16 +28,3 @@ export class MockProvider implements Provider {
   }
 }
 
-/** Démo hors ligne : Odin répond en écho et sait chercher dans sa mémoire. */
-export function demoProvider(): MockProvider {
-  return new MockProvider((req) => {
-    if (req.system.startsWith('Résume')) return { text: 'Résumé de démonstration.' };
-    const last = req.messages[req.messages.length - 1];
-    if (last?.role === 'tool') return { text: `Voici ce que j'ai trouvé :\n${last.content.slice(0, 500)}` };
-    const text = last?.content ?? '';
-    if (/souviens|mémoire|remember/i.test(text)) {
-      return { toolCalls: [{ id: `demo_${Date.now()}`, name: 'memory_search', input: { query: text } }] };
-    }
-    return { text: `(mode démo, sans modèle) Tu as dit : « ${text.slice(0, 200)} ». Choisis un modèle dans l'onglet Réglages de l'interface web (odin web) pour un vrai cerveau.` };
-  });
-}

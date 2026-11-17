@@ -275,6 +275,10 @@
       "reconnaitreSons": {
         "quoi": "reconocer los sonidos cotidianos (timbre, alarma, ladridos)",
         "proche": "medir un sonido sin modelo: silencio, volumen, tempo, tonalidad"
+      },
+      "rediger": {
+        "quoi": "redactar una respuesta libre",
+        "proche": "lo que reconozco con mis acciones directas y mi memoria"
       }
     }
   }

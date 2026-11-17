@@ -169,3 +169,25 @@ export function plafonnerAutonomie(d: PlafondDeps): { pose: boolean; avant?: Aut
   console.error(`[mímir] autonomie remise sur « prudent » (avant : ${avant}) : le juge ${raisons.join(', ')} est retiré, le juge local seul est parfois plus souple`);
   return { pose: true, avant, raisons };
 }
+
+/** La bulle à montrer, telle que la passerelle la donne à `postNotice` (src/valhalla/notices.ts). */
+export interface BullePlafond { level: 'souci'; module: string; app: string; title: string; detail: string; page: { view: string }; source: 'info' }
+
+/**
+ * Au démarrage de la passerelle : si le plafond a été posé et que son message n'a pas encore été montré, une bulle le
+ * dit, dans la langue du message (la file « deferred » et la notification ne suffisent pas à un Odin sans messagerie ni appareil abonné). La marque
+ * passe à « dit » seulement quand la bulle est vraiment partie (`poster` rend quelque chose) : sans bulles (applis pas
+ * démarrées), elle sera redite au démarrage suivant. Ne lève jamais.
+ */
+export function direPlafondUneFois(kv: { getKv(k: string): string | undefined; setKv(k: string, v: string): void }, poster: (b: BullePlafond) => unknown): boolean {
+  try {
+    const brut = kv.getKv(MARQUE_JUGE_LOCAL);
+    if (!brut) return false;
+    const m = JSON.parse(brut) as { pose?: unknown; dit?: unknown; message?: unknown };
+    if (m.pose !== true || m.dit !== false || typeof m.message !== 'string' || !m.message) return false;
+    const fait = poster({ level: 'souci', module: 'odin', app: 'Mímir', title: '🛡️ Mímir', detail: m.message, page: { view: 'settings' }, source: 'info' });
+    if (!fait) return false;
+    kv.setKv(MARQUE_JUGE_LOCAL, JSON.stringify({ ...m, dit: true }));
+    return true;
+  } catch { return false; }
+}

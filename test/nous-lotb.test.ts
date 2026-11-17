@@ -186,12 +186,11 @@ test('raisonnement : honnête — une étape sans fait reste non prouvée, pas d
 });
 
 // ---------------------------------------------------------------------------------------------------
-// nourrir() : ne fait rien en privé/observe=false/démo/essai, ne lève jamais, range quand tout va bien.
+// nourrir() : ne fait rien en privé/observe=false/essai, ne lève jamais, range quand tout va bien.
 function deps(extra: Partial<NoosDeps> = {}): NoosDeps {
   return {
     cfg: { learning: { observe: true }, nous: { actif: true } },
     privateMode: () => false,
-    demo: false,
     essai: false, // on force « pas en essai » pour tester la mise en file
     file: fileBornee(),
     maintenant: () => 1000,
@@ -228,11 +227,10 @@ test('nourrir : les secrets TECHNIQUES (Heimdall) et carte/NIR n\'entrent jamais
   }
 });
 
-test('nourrir : ne fait RIEN en mode privé, observe=false, démo, interrupteur coupé ou essai', () => {
+test('nourrir : ne fait RIEN en mode privé, observe=false, interrupteur coupé ou essai', () => {
   for (const d of [
     deps({ privateMode: () => true }),
     deps({ cfg: { learning: { observe: false }, nous: { actif: true } } }),
-    deps({ demo: true }),
     deps({ cfg: { learning: { observe: true }, nous: { actif: false } } }),
     deps({ essai: true }),
   ]) {

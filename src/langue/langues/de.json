@@ -247,6 +247,10 @@
       "reconnaitreSons": {
         "quoi": "Alltagsgeräusche erkennen (Türklingel, Alarm, Bellen)",
         "proche": "einen Ton ohne Modell messen: Stille, Lautstärke, Tempo, Tonart"
+      },
+      "rediger": {
+        "quoi": "eine freie Antwort schreiben",
+        "proche": "was ich über meine direkten Aktionen und mein Gedächtnis erkenne"
       }
     }
   }

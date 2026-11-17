@@ -22,7 +22,7 @@ after(() => { for (const d of dossiers) rmSync(d, { recursive: true, force: true
 const jetable = (p: string) => { const d = mkdtempSync(join(tmpdir(), p)); dossiers.push(d); return d; };
 /** L'épingle des essais (jamais celle du dépôt) : chaque export la réécrit, l'installation la lit. */
 const EPINGLE = join(mkdtempSync(join(tmpdir(), 'soul-epingle-')), 'epingle.json');
-const odinDe = (home: string, o: { actif?: boolean; prive?: boolean; demo?: boolean } = {}): OdinPourNous => ({ cfg: { learning: { observe: true }, nous: { actif: o.actif ?? true }, voice: { privacy: { privateMode: o.prive ?? false } } }, demo: o.demo ?? false, paths: { home } });
+const odinDe = (home: string, o: { actif?: boolean; prive?: boolean } = {}): OdinPourNous => ({ cfg: { learning: { observe: true }, nous: { actif: o.actif ?? true }, voice: { privacy: { privateMode: o.prive ?? false } } }, paths: { home } });
 
 // Des sources « Odin » de taille d'essai (toutes publiques), avec des TÉMOINS semés dans la partie privée.
 const TEMOINS = ['Jean-Baptiste Lemarchand', 'salon-nas-7f3', 'mon-blog-secret.example', 'La clé du coffre est sous le pot de basilic'];
@@ -62,7 +62,7 @@ test('essai 6 : rien de privé — en mode « livraison » aucun témoin ; le pr
   assert.ok(c.exemples.length > 50);
   assert.deepEqual(L.temoinsTrouves(c.exemples.map((e) => e.texte), TEMOINS), [], 'aucun témoin en mode livraison');
   const file = fileBornee(100_000);
-  fabriquerDepart('', { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, demo: false, essai: false, file }, 'odin', s);
+  fabriquerDepart('', { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, essai: false, file }, 'odin', s);
   const odinTextes = file.prendre(100_000).map((e) => e.texte || `${e.demande}\n${e.reponse}`);
   assert.ok(L.temoinsTrouves(odinTextes, TEMOINS).length >= 3, 'le choix « odin » mêle le privé : il ne sert jamais à la livraison');
   // Les compétences livrées sont celles du dépôt, jamais celles écrites chez le propriétaire.
@@ -104,13 +104,13 @@ test('chaîne complète : petit modèle entraîné → export (float16, manifest
   assert.equal(encore.installe, false); assert.match(encore.raison, /existe déjà/);
 });
 
-test('essais 3 et 7 : un octet modifié → refusé, rien d\'installé ; mode privé, Soul coupé, démonstration → rien d\'installé', async () => {
+test('essais 3 et 7 : un octet modifié → refusé, rien d\'installé ; mode privé, Soul coupé → rien d\'installé', async () => {
   const fab = jetable('soul-fab2-'), home = join(fab, 'odin');
   const c = L.corpusLivraison(sourcesEssai());
   await petitModele(home, c.exemples, 0);
   const sortie = join(fab, 'livre');
   assert.equal((await L.exporterModeleDepart({ home, sortie, corpus: c, temoins: TEMOINS, version: 1, licence: join(process.cwd(), 'LICENSE'), epingle: EPINGLE })).ok, true);
-  for (const o of [{ prive: true }, { actif: false }, { demo: true }]) {
+  for (const o of [{ prive: true }, { actif: false }]) {
     const h = jetable('soul-garde-');
     const r = await L.installerModeleDepart(odinDe(h, o), { dossier: sortie, epingle: EPINGLE });
     assert.equal(r.installe, false, JSON.stringify(o)); assert.deepEqual(listerReprises(h), []);

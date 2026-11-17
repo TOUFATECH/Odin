@@ -43,7 +43,7 @@ import { Agent } from './core/agent.ts';
 import { type Approver, denyAll, Heimdall } from './heimdall/policy.ts';
 import { Redactor } from './heimdall/redact.ts';
 import { Mnemosyne } from './muninn/store.ts';
-import { buildProvider, detecterMetis, type Route, Router } from './providers/router.ts';
+import { buildProvider, detecterMetis, Router } from './providers/router.ts';
 import { routeContext } from './providers/journal.ts';
 import { routingHistory } from './tools/routing.ts';
 import { BUILTIN_TOOLS, ensureWorkspace } from './tools/builtin.ts';
@@ -70,6 +70,7 @@ import { plafonnerAutonomie } from './migrations/aucun-modele-externe.ts';
 import { Mimir } from './mimir/decisions.ts';
 import { loadEnvFile } from './settings.ts';
 import { brancherGenre } from './core/genre.ts';
+import { estUnModele, fournisseurSansModele, SANS_MODELE, type PorteModele } from './brain/porte-modele.ts';
 
 export interface Odin {
   paths: OdinPaths;
@@ -82,15 +83,17 @@ export interface Odin {
   inventory: Inventory;
   mimir?: Mimir;
   redactor: Redactor;
-  /** Vrai quand Odin tourne sans vrai modèle (mode démo) : l'interface propose alors la configuration. */
-  demo?: boolean;
+  /** La porte du modèle de langue : `pret()` est faux tant qu'aucun modèle ne peut répondre. « Sans modèle » n'est pas
+   *  une démonstration : Soul, les mises à jour, les alertes et l'accès marchent pareil ; seul ce qui demandait un
+   *  modèle de langue le teste ici. */
+  modele: PorteModele;
   close(): void;
 }
 
 export interface CreateOptions {
   home?: string;
   approver?: Approver;
-  /** Remplace les fournisseurs configurés (tests, mode démo). */
+  /** Remplace les fournisseurs configurés (essais). */
   provider?: Provider;
   send?: ToolContext['send'];
   configOverride?: (c: OdinConfig) => OdinConfig;
@@ -177,17 +180,30 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   try { const n = loadPlugins(paths.home, paths.workspace, tools); if (n.length) console.error(`[extensions] ${n.length} extension(s) Python : ${n.join(', ')}`); } catch (e) { console.error('[extensions]', (e as Error).message); }
   const inventory = new Inventory(muninn);
 
-  const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];
-  const router = opts.provider ? new Router(fixed) : Router.fromConfig(cfg, [], paths);
-  router.onPause = (name, reason, until) => console.error(`[modèles] ${name} mis de côté jusqu'à ${new Date(until).toLocaleTimeString('fr-FR')} : ${reason}`);
-  // Coûts rattachés à la vraie conversation (et plus à la finalité), journal de chaque appel.
-  router.onUsage = (provider, tin, tout, cost, purpose) => muninn.recordUsage(routeContext()?.sessionId || purpose, provider, tin, tout, cost, purpose);
-  router.onRoute = (e) => { try { muninn.recordRoute({ ...e, request: redactor.redact(e.request) }); } catch (x) { console.error('[routage]', (x as Error).message); } };
-  // Budget mensuel : au-delà, seuls les modèles gratuits servent (voir Router.complete).
-  router.overBudget = () => cfg.routing.monthlyBudgetUsd > 0 && muninn.monthCost() >= cfg.routing.monthlyBudgetUsd;
-  // Sans Internet : modèle local ouvert (GGUF) lu par Métis, ajouté en dernier recours — aucun serveur à côté.
-  if (!opts.provider && process.env.ODIN_NO_LOCAL_BRAIN !== '1') void detecterMetis(router, paths.home).then((m) => { if (m) console.error(`[modèles] modèle local ouvert prêt (Métis) : ${m}`); }).catch(() => undefined);
-  const cheapProvider = !opts.provider && cfg.cheapProvider ? buildProvider(cfg.cheapProvider, process.env, paths) : undefined;
+  // Aucun modèle de langue utilisable : la place du modèle est tenue par un fournisseur vide qui répond « pas encore »
+  // (dans la langue réglée), sans réessai ni attente. Odin démarre quand même, en vrai (ce n'est pas une démonstration).
+  let router: Router;
+  if (opts.provider) router = new Router([{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }]);
+  else {
+    try { router = Router.fromConfig(cfg, [], paths); } catch (e) {
+      if (!/Aucun fournisseur/.test((e as Error).message)) throw e;
+      router = new Router([{ provider: fournisseurSansModele(cfg.voice?.stt?.language), cfg: { kind: 'mock', model: SANS_MODELE } }], 0);
+    }
+  }
+  const modele: PorteModele = { pret: () => router.routes.some((r) => estUnModele(r.provider)) };
+  const pret = modele.pret();
+  if (pret) {
+    router.onPause = (name, reason, until) => console.error(`[modèles] ${name} mis de côté jusqu'à ${new Date(until).toLocaleTimeString('fr-FR')} : ${reason}`);
+    // Coûts rattachés à la vraie conversation (et plus à la finalité), journal de chaque appel.
+    router.onUsage = (provider, tin, tout, cost, purpose) => muninn.recordUsage(routeContext()?.sessionId || purpose, provider, tin, tout, cost, purpose);
+    router.onRoute = (e) => { try { muninn.recordRoute({ ...e, request: redactor.redact(e.request) }); } catch (x) { console.error('[routage]', (x as Error).message); } };
+    // Budget mensuel : au-delà, seuls les modèles gratuits servent (voir Router.complete).
+    router.overBudget = () => cfg.routing.monthlyBudgetUsd > 0 && muninn.monthCost() >= cfg.routing.monthlyBudgetUsd;
+  }
+  // Sans Internet : modèle local ouvert (GGUF) lu par Métis, ajouté en dernier recours. Jamais quand Odin n'a aucun
+  // modèle : la porte reste vide (aucun modèle qui ne soit pas le sien n'y entre par ce chemin).
+  if (!opts.provider && pret && process.env.ODIN_NO_LOCAL_BRAIN !== '1') void detecterMetis(router, paths.home).then((m) => { if (m) console.error(`[modèles] modèle local ouvert prêt (Métis) : ${m}`); }).catch(() => undefined);
+  const cheapProvider = !opts.provider && pret && cfg.cheapProvider ? buildProvider(cfg.cheapProvider, process.env, paths) : undefined;
   const cheapRouter = cheapProvider ? new Router([{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes]) : undefined;
   if (cheapRouter) { cheapRouter.onUsage = router.onUsage; cheapRouter.onRoute = router.onRoute; cheapRouter.overBudget = router.overBudget; }
 
@@ -239,10 +255,11 @@ export function createOdin(opts: CreateOptions = {}): Odin {
     // Le moteur de Noûs se recharge tout seul quand un nouveau point de reprise apparaît (src/brain/nous/plongement.ts).
     embedder = embedderQuiSeRecharge(paths.home);
   }
-  const agent = new Agent({ embedder, paths, cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, home: paths.home, persona, send: opts.send, inventory, mimir });
+  // Sans modèle : Odin répond par ses actions directes, sa mémoire et Soul (offlineOnly), jamais par un écho.
+  const agent = new Agent({ embedder, paths, cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, home: paths.home, persona, send: opts.send, inventory, mimir, offlineOnly: !pret });
   // Juste après le démarrage, EN ARRIÈRE-PLAN : lire les notes du Cerveau et construire son index de recherche, pour
   // que le premier message ne le paie pas. Une demande qui arrive avant ne fait que l'attendre (même travail).
   const prechauffe = setTimeout(() => { try { const v = brainOf({ home: paths.home, careCfg: cfg, workspace: paths.workspace }); v.all(); v.search('odin', 1); } catch { /* facultatif */ } }, 30);
   (prechauffe as { unref?: () => void }).unref?.();
-  return { paths, cfg, agent, muninn, skills, heimdall, tools, inventory, mimir, redactor, close: () => { closeBrowsers(); muninn.close(); } };
+  return { paths, cfg, agent, muninn, skills, heimdall, tools, inventory, mimir, redactor, modele, close: () => { closeBrowsers(); muninn.close(); } };
 }

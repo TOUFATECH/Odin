@@ -21,7 +21,7 @@ export class Table<T extends Row> {
   readonly file: string | null;
   private readonly keyOf: (r: T) => Key;
 
-  /** `file` à null : table en mémoire seulement (tests, mode démo). */
+  /** `file` à null : table en mémoire seulement (essais). */
   constructor(file: string | null, keyOf: (r: T) => Key) {
     this.file = file; this.keyOf = keyOf;
     if (file && existsSync(file)) this.load(file);

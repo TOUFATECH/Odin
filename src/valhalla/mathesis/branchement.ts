@@ -9,19 +9,18 @@ import { chercheurOdin } from './recherche.ts';
 
 /** Ce dont le branchement a besoin d'Odin (sa configuration et, quand il tourne, sa mémoire). */
 export interface OdinPourMathesis {
-  cfg: { voice?: { privacy?: { privateMode?: boolean } }; learning?: { observe?: boolean }; nous?: { actif?: boolean }; demo?: boolean };
+  cfg: { voice?: { privacy?: { privateMode?: boolean } }; learning?: { observe?: boolean }; nous?: { actif?: boolean } };
   muninn?: MemoireApprentissage & { forget(id: number): boolean };
-  /** Odin en démonstration : jamais de réseau. */
-  demo?: boolean;
 }
 
 /**
  * Faut-il couper TOUT accès au web ? Oui sous le lanceur d'essais (NODE_TEST_CONTEXT), pour une instance d'essai ou
- * de banc (ODIN_ESSAI, posé par test/banc/odin-vrai.ts — déjà utilisé pour ne pas lire les vrais dossiers), et en
- * démonstration. Alors aucune recherche, aucune résolution de nom, aucune demande ne part.
+ * de banc (ODIN_ESSAI, posé par test/banc/odin-vrai.ts — déjà utilisé pour ne pas lire les vrais dossiers).
+ * Alors aucune recherche, aucune résolution de nom, aucune demande ne part. Un Odin sans modèle de langue cherche
+ * comme les autres : ce n'est pas une démonstration.
  */
-export function sansReseau(env: Record<string, string | undefined> = process.env, demo = false): boolean {
-  return demo || Boolean(env.NODE_TEST_CONTEXT) || Boolean(env.ODIN_ESSAI);
+export function sansReseau(env: Record<string, string | undefined> = process.env): boolean {
+  return Boolean(env.NODE_TEST_CONTEXT) || Boolean(env.ODIN_ESSAI);
 }
 
 /**
@@ -35,16 +34,16 @@ export function optionsOdin(odin: OdinPourMathesis, op: { env?: Record<string, s
   // « stop » du propriétaire (clé initiative-pause posée par la passerelle) : Mathésis s'arrête aussi, jusqu'à « reprends ».
   const enPause = (): boolean => { try { return (odin.muninn as { getKv?(k: string): string | undefined } | undefined)?.getKv?.('initiative-pause') === '1'; } catch { return false; } };
   const o: OptionsModuleMathesis = { prive, occupe: () => odinRepond() || enPause(), chercher: chercheurOdin() };
-  // Essais, banc d'affichage, démonstration : jamais de réseau réel (les essais qui veulent un site passent leurs faux).
-  if (sansReseau(op.env ?? process.env, odin.demo === true || odin.cfg.demo === true)) {
-    const non = async (): Promise<never> => { throw new Error('aucun réseau dans une instance d\'essai ou de démonstration'); };
+  // Essais, banc d'affichage : jamais de réseau réel (les essais qui veulent un site passent leurs faux).
+  if (sansReseau(op.env ?? process.env)) {
+    const non = async (): Promise<never> => { throw new Error('aucun réseau dans une instance d\'essai'); };
     o.chercher = async () => []; o.transport = non; o.resoudre = non;
   }
   const mem = odin.muninn;
   if (mem) {
     const nous: NoosDeps = {
       cfg: { learning: { observe: odin.cfg.learning?.observe !== false }, nous: { actif: odin.cfg.nous?.actif !== false } },
-      privateMode: prive, demo: odin.cfg.demo === true, file: fileNousMathesis,
+      privateMode: prive, file: fileNousMathesis,
     };
     o.apprentissage = { memoire: mem, nous };
     o.oublierSouvenir = (id) => { try { return mem.forget(id); } catch { return false; } };

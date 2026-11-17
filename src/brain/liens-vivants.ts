@@ -344,9 +344,9 @@ export class LiensVivants {
   }
 
   // ---------- La nuit ----------
-  /** Consolidation de la nuit (3 h à 5 h, ou dès 36 h sans nuit) : jamais pendant un travail ni en démonstration. */
-  nuitSiBesoin(now: number, o: { occupe?: boolean; demo?: boolean; vault?: Vault; apps?: AppsLike; force?: boolean }): (Bilan & { at: number }) | undefined {
-    if (o.occupe || o.demo || !o.vault || !this.actif() || this.muninn.privateMode) return undefined;
+  /** Consolidation de la nuit (3 h à 5 h, ou dès 36 h sans nuit) : jamais pendant un travail. */
+  nuitSiBesoin(now: number, o: { occupe?: boolean; vault?: Vault; apps?: AppsLike; force?: boolean }): (Bilan & { at: number }) | undefined {
+    if (o.occupe || !o.vault || !this.actif() || this.muninn.privateMode) return undefined;
     const last = Number(this.muninn.getKv('cerveau-nuit') ?? 0) || 0, h = new Date(now).getHours();
     if (!o.force && !((h >= 3 && h < 5 && now - last > 20 * HEURE) || now - last > 36 * HEURE)) return undefined;
     const apps = o.apps === undefined ? valhallaOf() : o.apps;

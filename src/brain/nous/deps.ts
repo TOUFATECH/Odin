@@ -63,8 +63,6 @@ export interface NoosDeps {
   cfg: { learning: { observe: boolean }; nous?: { actif?: boolean } };
   /** Vrai en mode privé de la voix (muninn). */
   privateMode: () => boolean;
-  /** Vrai en démonstration (odin.demo). */
-  demo: boolean;
   /** Forçage d'essai : vrai => nourrir() ne fait rien (comme sous le lanceur d'essais). */
   essai?: boolean;
   /** Masquage propre à Noûs avant le corpus ; par défaut masquer(). */

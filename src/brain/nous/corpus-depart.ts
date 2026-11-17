@@ -9,7 +9,7 @@
 //      et quelques demandes du propriétaire résolues seulement si l'action existe vraiment), pour l'étape d'ajustement.
 // Ce que Mathésis apprend arrive ensuite par la file, au fil de l'eau.
 //
-// Tout passe par nourrir() (masquage, mode privé, démonstration, interrupteur de Noûs) puis par le lecteur de la file
+// Tout passe par nourrir() (masquage, mode privé, interrupteur de Noûs) puis par le lecteur de la file
 // (src/brain/nous/file-odin.ts), qui l'écrit chiffré et borné. Fait UNE fois par version (fichier « depart.json », écrit seulement quand tout est rangé).
 import { DEMANDES_LANGUES } from './demandes-langues.ts';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -85,7 +85,6 @@ export function fabriquerDepart(home: string, deps: NoosDeps, choix: ChoixDepart
     if (choix === 'demander') return fin('aucun choix encore : rien n\'est fait');
     if (choix === 'web') return fin('« textes libres du web » n\'est pas encore fait : rien n\'est téléchargé');
     if (deps.cfg.nous?.actif === false) return fin('Noûs est coupé');
-    if (deps.demo) return fin('démonstration');
     let prive = true; try { prive = deps.privateMode() === true; } catch { prive = true; }
     if (prive) return fin('mode privé : rien n\'est appris');
     // (l'appelant donne une file à lui, assez grande pour tout le premier corpus, et la vide aussitôt vers le corpus)

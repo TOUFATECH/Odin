@@ -207,9 +207,8 @@ test('10. la base MATHESIS_ODIN reçoit chaque écriture (contenu chiffré), une
 });
 
 // ------------------------------------------------------------------ B. instance d'essai : jamais le web
-test('B. une instance d\'essai ou de démonstration (ODIN_ESSAI, démo) ne fait aucune demande vers le web', async () => {
+test('B. une instance d\'essai (ODIN_ESSAI) ne fait aucune demande vers le web ; un Odin sans modèle cherche comme les autres', async () => {
   assert.equal(sansReseau({ ODIN_ESSAI: '1' }), true);
-  assert.equal(sansReseau({}, true), true, 'démo');
   assert.equal(sansReseau({}), false);
   const o = optionsOdin({ cfg: {} }, { env: { ODIN_ESSAI: '1' } });
   assert.deepEqual(await o.chercher!('x'), []);

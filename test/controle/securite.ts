@@ -118,7 +118,7 @@ export const SECURITE: Scenario[] = [
       const { nourrir } = await import('../../src/brain/nous/entree.ts');
       const { fileBornee } = await import('../../src/brain/nous/deps.ts');
       const file = fileBornee(10);
-      const deps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, demo: false, essai: false, file };
+      const deps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, essai: false, file };
       nourrir(deps, { sorte: 'echange', demande: 'retiens : le mot de passe du wifi est Zebre-Orange-42 et mon mail awa@exemple.yt', reponse: 'C\'est noté.', source: 'controle', fiable: true });
       const pris = file.prendre(10);
       const tout = JSON.stringify(pris);

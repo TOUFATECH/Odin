@@ -214,7 +214,7 @@ async function temoins(fichier: string): Promise<void> {
     const { fabriquerDepart } = await import('../../src/brain/nous/corpus-depart.ts');
     const { fileBornee } = await import('../../src/brain/nous/deps.ts');
     const file = fileBornee(500_000);
-    fabriquerDepart(join(DOS, 'contre-epreuve'), { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, demo: false, essai: false, file }, 'odin', sources as never);
+    fabriquerDepart(join(DOS, 'contre-epreuve'), { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => false, essai: false, file }, 'odin', sources as never);
     const contre = L.temoinsTrouves(file.prendre(500_000).map((x) => x.texte), T);
     const r = { semes: T.length, souvenirsSemes: o.muninn.listMemories(100).length, livraison: { exemples: c.bilan.exemples, temoinsTrouves: trouves }, contreEpreuveModeOdin: { temoinsTrouves: contre.length } };
     writeFileSync(join(DOS, 'preuve-temoins.json'), JSON.stringify(r, null, 1));
@@ -225,7 +225,7 @@ async function temoins(fichier: string): Promise<void> {
 async function installer(fichierTemoins?: string): Promise<void> {
   const home = join(DOS, 'odin-neuf'); mkdirSync(home, { recursive: true });
   const T = fichierTemoins ? readFileSync(fichierTemoins, 'utf8').split(/\r?\n/).filter(Boolean) : [];
-  const odin = { cfg: { nous: { actif: true } }, demo: false, paths: { home } };
+  const odin = { cfg: { nous: { actif: true } }, paths: { home } };
   const r1 = await L.installerModeleDepart(odin as never, process.env.SOUL_MODELE ? { dossier: process.env.SOUL_MODELE } : {});
   const r2 = await L.installerModeleDepart(odin as never, process.env.SOUL_MODELE ? { dossier: process.env.SOUL_MODELE } : {}); // deuxième passage : rien n'est écrasé
   const m = await moteur.chargerMoteur(home);

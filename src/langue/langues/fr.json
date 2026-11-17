@@ -183,6 +183,10 @@
       "reconnaitreSons": {
         "quoi": "reconnaître les sons du quotidien (sonnette, alarme, aboiement)",
         "proche": "mesurer un son sans modèle : silence, volume, tempo, tonalité"
+      },
+      "rediger": {
+        "quoi": "rédiger une réponse libre",
+        "proche": "ce que je reconnais par mes actions directes et ma mémoire"
       }
     }
   }

@@ -23,7 +23,7 @@ const R: RechercheVerifiee = {
 function monter() {
   const muninn = new Mnemosyne(':memory:');
   const file = fileBornee();
-  const nous: NoosDeps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => muninn.privateMode, demo: false, essai: false, file };
+  const nous: NoosDeps = { cfg: { learning: { observe: true }, nous: { actif: true } }, privateMode: () => muninn.privateMode, essai: false, file };
   return { muninn, file, deps: { memoire: muninn, nous, maintenant: () => NOW } };
 }
 
@@ -74,7 +74,7 @@ test('seul le propriétaire, dans une conversation non marquée, hors mode priv�
   assert.equal(peutApprendreDeLaRecherche({ proprietaire: true, marquee: false, prive: true }), false, 'mode privé : rien');
 });
 
-test('Noûs coupé, en démonstration, ou sans configuration : la recherche ne remplit pas sa file', () => {
+test('Noûs coupé ou sans configuration : la recherche ne remplit pas sa file', () => {
   // essai: false pour que la garde de Noûs soit vraiment jugée (sous le lanceur d'essais, nourrir() ne fait rien).
   const deps = (odin?: Parameters<typeof depsRecherche>[1]) => {
     const d = depsRecherche(new Mnemosyne(':memory:'), odin);
@@ -82,7 +82,6 @@ test('Noûs coupé, en démonstration, ou sans configuration : la recherche ne r
   };
   const cas = [
     { cfg: { nous: { actif: false } }, paths: { home: '' } },
-    { cfg: { nous: { actif: true } }, demo: true, paths: { home: '' } },
     undefined,
   ];
   for (const odin of cas) {

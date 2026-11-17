@@ -28,7 +28,7 @@ test('archive : enregistrement, son chiffré en flux, résumé par le modèle, p
   const home = mkdtempSync(join(tmpdir(), 'odin-arch-'));
   const ctx = { home, dir: join(home, 'rodd'), settings: {}, saveSettings() {} } as never as { home: string; dir: string; settings: Record<string, unknown> };
   const notes: PointeurConversation[] = []; brancherMemoireConversation({ noter: (p) => notes.push(p), oublier() {} });
-  const odin = { demo: false, cfg: { providers: [{ model: 'faux' }], voice: DEFAULT_CONFIG.voice }, agent: { ask: async () => '' }, paths: {} } as never;
+  const odin = { modele: { pret: () => true }, cfg: { providers: [{ model: 'faux' }], voice: DEFAULT_CONFIG.voice }, agent: { ask: async () => '' }, paths: {} } as never;
   const srv = createServer((req, res) => { void archiveRoute(req, res, new URL(req.url!, 'http://x'), { odin, ctx: () => ctx as never, modele: fauxModele('Réservation pour deux à 20 h.') }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const u = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/archive`;
@@ -75,10 +75,10 @@ test('archive : enregistrement, son chiffré en flux, résumé par le modèle, p
   } finally { srv.close(); brancherMemoireConversation(undefined); rmSync(home, { recursive: true, force: true }); }
 });
 
-test('résumé sans modèle (démo) : jamais de faux texte, l\'aide est donnée', async () => {
+test('résumé sans modèle de langue : jamais de faux texte, l\'aide est donnée', async () => {
   const home = mkdtempSync(join(tmpdir(), 'odin-arch-'));
   const ctx = { home, dir: join(home, 'rodd'), settings: {}, saveSettings() {} } as never as { home: string };
-  const odin = { demo: true, cfg: { providers: [{ model: 'x' }], voice: DEFAULT_CONFIG.voice }, agent: { ask: async () => 'ne doit pas servir' }, paths: {} } as never;
+  const odin = { modele: { pret: () => false }, cfg: { providers: [{ model: 'x' }], voice: DEFAULT_CONFIG.voice }, agent: { ask: async () => 'ne doit pas servir' }, paths: {} } as never;
   const srv = createServer((req, res) => { void archiveRoute(req, res, new URL(req.url!, 'http://x'), { odin, ctx: () => ctx as never }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const u = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/archive`;

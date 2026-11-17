@@ -122,11 +122,11 @@ test('traduction : consigne stricte, sortie vérifiée, jamais de fausse traduct
   assert.deepEqual(validerTraduction('Where is the station?', '駅はどこですか', 'ja'), { ok: true });
 });
 
-test('mode démo : le modèle n\'est jamais appelé, la réponse dit de configurer un modèle', async () => {
+test('sans modèle de langue : le modèle n\'est jamais appelé, la réponse dit de configurer un modèle', async () => {
   let appele = false;
   const ctx = { home: mkdtempSync(join(tmpdir(), 'odin-conv-')), settings: {}, saveSettings() {} } as never as { home: string; dir: string };
   ctx.dir = join(ctx.home, 'rodd');
-  const odin = { demo: true, cfg: { providers: [{ model: 'x' }], voice: VOIX }, agent: { ask: async () => { appele = true; return 'faux'; } }, paths: {} } as never;
+  const odin = { modele: { pret: () => false }, cfg: { providers: [{ model: 'x' }], voice: VOIX }, agent: { ask: async () => { appele = true; return 'faux'; } }, paths: {} } as never;
   const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => VOIX, ctx: () => ctx as never }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   try {
@@ -170,7 +170,7 @@ test('routes : x-odin, tour complet, suite, correction, trop long', async () => 
   const home = mkdtempSync(join(tmpdir(), 'odin-conv-')), settings: Record<string, unknown> = { conversation: { moi: 'fr', lui: 'en' } };
   const ctx = { home, dir: join(home, 'rodd'), settings, saveSettings: (p: Record<string, unknown>) => Object.assign(settings, p) };
   const m = fauxModele((u) => { const t = u.replace(/<\/?parole>/g, '').trim(); return ({ 'je voudrais un café': 'I would like a coffee', 'je voudrais un café avec du lait': 'I would like a coffee with milk', 'Where is the station?': 'Où est la gare ?', 'je voudrais un thé': 'I would like a tea' } as Record<string, string>)[t] ?? '⟦RIEN⟧'; });
-  const odin = { demo: false, cfg: { providers: [{ model: 'faux' }], voice: VOIX }, agent: { ask: async () => '' }, paths: {} } as never;
+  const odin = { modele: { pret: () => true }, cfg: { providers: [{ model: 'faux' }], voice: VOIX }, agent: { ask: async () => '' }, paths: {} } as never;
   const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => VOIX, ctx: () => ctx as never, deps: { entendre: fauxWhisper(), modele: m.modele } }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const u = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/conversation`;
@@ -233,7 +233,7 @@ test('rien n\'est gardé si « garder » est décoché ou en mode privé', async
   for (const [conversation, privateMode] of [[{ garder: false }, false], [{}, true]] as const) {
     const home = mkdtempSync(join(tmpdir(), 'odin-conv-')), ctx = { home, dir: join(home, 'rodd'), settings: { conversation }, saveSettings() {} };
     const voix = { ...VOIX, privacy: { ...VOIX.privacy, privateMode } };
-    const odin = { demo: false, cfg: { providers: [], voice: voix }, agent: { ask: async () => '' }, paths: {} } as never;
+    const odin = { modele: { pret: () => true }, cfg: { providers: [], voice: voix }, agent: { ask: async () => '' }, paths: {} } as never;
     const m = fauxModele(() => 'I would like a coffee');
     const srv = createServer((req, res) => { void conversationRoute(req, res, new URL(req.url!, 'http://x'), { odin, voix: () => voix, ctx: () => ctx as never, deps: { modele: m.modele } }); });
     await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));

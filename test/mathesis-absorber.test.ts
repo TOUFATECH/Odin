@@ -194,7 +194,7 @@ test('l\'adresse de la page dans la source : sans adresse, rien ne change ; avec
   const { Mnemosyne } = await import('../src/muninn/store.ts');
   const { fileBornee } = await import('../src/brain/nous/deps.ts');
   const memoire = new Mnemosyne(':memory:');
-  const deps = { memoire, nous: { cfg: { learning: { observe: true }, nous: { actif: false } }, privateMode: () => false, demo: false, file: fileBornee() }, maintenant: () => Date.UTC(2026, 10, 17) };
+  const deps = { memoire, nous: { cfg: { learning: { observe: true }, nous: { actif: false } }, privateMode: () => false, file: fileBornee() }, maintenant: () => Date.UTC(2026, 10, 17) };
   const fait = { texte: 'Le protocole WireGuard utilise le port UDP 51820 par défaut sur la plupart des installations.' };
   const a = apprendreDeTout(deps, { sorte: 'lecture', source: 'web:a.example.org', date: Date.UTC(2026, 10, 17), faits: [fait] });
   assert.equal(memoire.recall('WireGuard port UDP 51820', 3, true)[0]?.source, 'web:a.example.org@2026-11-17', 'sans adresse : la source d\'avant');

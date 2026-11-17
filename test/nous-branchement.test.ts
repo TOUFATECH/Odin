@@ -17,9 +17,9 @@ import { fileNousPronoia } from '../src/valhalla/pronoia/branchement.ts';
 
 const homes: string[] = [];
 after(() => { fileNousOdin.vider(); for (const h of homes) rmSync(h, { recursive: true, force: true }); });
-function faux(o: { actif?: boolean; prive?: boolean; demo?: boolean; disqueMaxMo?: number; corpusDepart?: string } = {}): OdinPourNous & { cfg: Record<string, unknown> & OdinPourNous['cfg']; paths: { home: string; config: string } } {
+function faux(o: { actif?: boolean; prive?: boolean; disqueMaxMo?: number; corpusDepart?: string } = {}): OdinPourNous & { cfg: Record<string, unknown> & OdinPourNous['cfg']; paths: { home: string; config: string } } {
   const home = mkdtempSync(join(tmpdir(), 'nous-')); homes.push(home);
-  return { cfg: { learning: { observe: true }, nous: { actif: o.actif ?? true, disqueMaxMo: o.disqueMaxMo ?? 2000, corpusDepart: o.corpusDepart ?? 'odin', heuresNuit: 8, filsNuit: 3 }, voice: { privacy: { privateMode: o.prive ?? false } } }, demo: o.demo ?? false, paths: { home, config: join(home, 'config.json') } } as never;
+  return { cfg: { learning: { observe: true }, nous: { actif: o.actif ?? true, disqueMaxMo: o.disqueMaxMo ?? 2000, corpusDepart: o.corpusDepart ?? 'odin', heuresNuit: 8, filsNuit: 3 }, voice: { privacy: { privateMode: o.prive ?? false } } }, paths: { home, config: join(home, 'config.json') } } as never;
 }
 /** Le texte de tous les exemples du corpus (déchiffrés, octets → texte). */
 function lireCorpus(home: string): string[] {
@@ -52,7 +52,7 @@ test('étape 1 : le lecteur range la file dans le corpus — chiffré, sans doub
   console.log(`# mesuré : 300 exemples rangés en ${b.ms} ms (${Math.round(tailleCorpus(dir) / 1024)} Ko sur le disque)`);
 });
 
-test('étape 1 : borné par « disqueMaxMo » ; rien si Noûs est coupé, en mode privé ou en démonstration', () => {
+test('étape 1 : borné par « disqueMaxMo » ; rien si Noûs est coupé ou en mode privé', () => {
   const plein = faux({ disqueMaxMo: 1 }), f1 = fileBornee(10_000);
   const d = depsEssai(plein, f1);
   const raisons: string[] = [];
@@ -64,7 +64,7 @@ test('étape 1 : borné par « disqueMaxMo » ; rien si Noûs est coupé, en mod
   const t = tailleCorpus(dossierCorpus(plein.paths.home));
   assert.ok(t <= 1024 * 1024, `${t} octets pour 1 Mo permis`);
   assert.ok(raisons.some((r) => /corpus plein/.test(r)), 'le surplus est refusé et c\'est dit');
-  for (const [nom, odin] of [['coupé', faux({ actif: false })], ['privé', faux({ prive: true })], ['démo', faux({ demo: true })]] as const) {
+  for (const [nom, odin] of [['coupé', faux({ actif: false })], ['privé', faux({ prive: true })]] as const) {
     const f = fileBornee(100);
     f.pousser({ sorte: 'note', texte: 'quelque chose', demande: '', reponse: '', source: 'x', fiable: true, at: Date.now() });
     const b = viderVersCorpus(odin, { file: f });

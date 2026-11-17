@@ -12,7 +12,7 @@ import type { EvenementDate } from './types.ts';
 
 /** Ce dont le branchement a besoin d'Odin. */
 export interface OdinPourPronoia {
-  cfg: { voice?: { privacy?: { privateMode?: boolean } }; learning?: { observe?: boolean }; nous?: { actif?: boolean }; demo?: boolean };
+  cfg: { voice?: { privacy?: { privateMode?: boolean } }; learning?: { observe?: boolean }; nous?: { actif?: boolean } };
 }
 
 /** La file d'apprentissage de Noûs : LA file unique d'Odin (src/brain/nous/file-odin.ts), vidée vers le corpus. */
@@ -22,7 +22,7 @@ export function optionsOdin(odin: OdinPourPronoia): OptionsPronoia {
   const prive = (): boolean => { try { return odin.cfg.voice?.privacy?.privateMode === true; } catch { return true; } };
   const nous: NoosDeps = {
     cfg: { learning: { observe: odin.cfg.learning?.observe !== false }, nous: { actif: odin.cfg.nous?.actif !== false } },
-    privateMode: prive, demo: odin.cfg.demo === true, file: fileNousPronoia,
+    privateMode: prive, file: fileNousPronoia,
   };
   return { prive, nourrir: (n) => nourrir(nous, n) };
 }

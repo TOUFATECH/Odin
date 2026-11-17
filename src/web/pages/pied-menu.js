@@ -34,7 +34,7 @@
   function lignes(state, dernier) {
     const st = state || {}, reglages = st.settings || {};
     const prets = (Array.isArray(reglages.providers) ? reglages.providers : []).filter((p) => p && p.ready);
-    const autonome = Boolean(reglages.demo) || !prets.length;
+    const autonome = reglages.modelePret === false || !prets.length;
     let ia = [];
     if (!autonome) {
       const enCours = prets.find((p) => correspond(p, dernier)) || prets[0];

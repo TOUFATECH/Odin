@@ -21,7 +21,7 @@ function etatEntrainement(home: string, puissance: Puissance): Record<string, un
   return { ...e, puissance, fils: filsPour(puissance), filsMachine: availableParallelism(), puissances: Object.entries(PUISSANCES).map(([id, texte]) => ({ id, texte, fils: filsPour(id) })) };
 }
 
-type OdinNous = Pick<Odin, 'cfg' | 'paths'> & { demo?: boolean };
+type OdinNous = Pick<Odin, 'cfg' | 'paths'>;
 const nousCfg = (odin: OdinNous) => (odin.cfg.nous ??= { actif: true, corpusDepart: 'odin', puissance: 'pleine', filsJour: 1, filsNuit: 3, heuresNuit: 8, disqueMaxMo: 2000, delaiMsN1: 250, seuilReflexe: 0.9, arbitreGrand: false, metisRaisonnement: 'regles' });
 
 // La lecture du corpus déchiffre ses tranches : on la garde une minute (la page se recharge souvent).
@@ -40,7 +40,6 @@ export function nousEtat(odin: OdinNous): Record<string, unknown> {
     ok: true,
     actif: c.actif !== false,
     prive: odin.cfg.voice?.privacy?.privateMode === true,
-    demo: odin.demo === true,
     entraine: reprises.length > 0,
     message: reprises.length
       ? 'Un point de reprise existe, mais Noûs n\'est pas encore branché sur les réponses (étape suivante).'

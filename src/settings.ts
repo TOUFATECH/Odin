@@ -165,11 +165,12 @@ export async function testProvider(p: ProviderConfig, timeoutMs = 20_000, env: N
 
 // ---------------------------------------------------------------- Vue d'ensemble
 
-export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.ProcessEnv = process.env, paths?: OdinPaths) {
+export function settingsView(cfg: OdinConfig, modelePret: boolean, env: NodeJS.ProcessEnv = process.env, paths?: OdinPaths) {
   const main = cfg.providers[0];
   const cx = paths ? loadCodexAuth(paths) : undefined;
   return {
-    demo,
+    /** Un modèle de langue peut-il répondre ? (faux : Odin répond par ses actions directes, ce n'est pas une démo) */
+    modelePret,
     // Connexion ChatGPT (Codex) : jamais les jetons, seulement l'état.
     codex: { connected: Boolean(cx), email: cx?.email ?? '', plan: cx?.plan ?? '', expiresAt: cx?.expires_at ?? 0, models: CODEX_MODELS },
     model: { preset: detectPreset(main), model: main?.model ?? '', baseUrl: main?.baseUrl ?? '', tier: tierOf(main ?? { kind: 'mock', model: '' }) },

@@ -2,7 +2,7 @@
 //   - au besoin, le PREMIER CORPUS (une fois par version, selon `nous.corpusDepart`), rangé par petits lots qui
 //     rendent la main à Odin entre chaque lot (jamais un long blocage) ;
 //   - puis le vidage de la file unique vers le corpus chiffré et borné.
-// Rien si Noûs est coupé, en mode privé ou en démonstration. Toutes les 5 minutes au plus. Ne lève jamais.
+// Rien si Noûs est coupé ou en mode privé. Toutes les 5 minutes au plus. Ne lève jamais.
 import type { FileApprentissage, NoosDeps } from './deps.ts';
 import { enEssai, fileBornee } from './deps.ts';
 import { depsNousOdin, viderVersCorpus, type BilanVidage, type OdinPourNous } from './file-odin.ts';
@@ -63,7 +63,7 @@ export function faireDepartParLots(odin: OdinPourNous, sources: SourcesDepart, o
   return new Promise((fin) => {
     const lot = () => {
       try {
-        // Noûs coupé, mode privé ou démonstration entre deux lots : viderVersCorpus vide la file sans rien garder.
+        // Noûs coupé ou mode privé entre deux lots : viderVersCorpus vide la file sans rien garder.
         const v = viderVersCorpus(odin, { file, max: LOT_DEPART, dir: o.dir });
         ajouter(vidage, v); lots++; pire = Math.max(pire, v.ms);
         if (file.taille() && v.pris && !v.raison) { setImmediate(lot); return; }
@@ -83,7 +83,7 @@ export function tacheNous(odin: OdinPourNous, maintenant: number, sources: () =>
   try {
     if (!o.forcer && maintenant - dernier < PERIODE_MS) return;
     dernier = maintenant;
-    if (odin.cfg.nous?.actif === false || odin.demo || odin.cfg.voice?.privacy?.privateMode === true) { viderVersCorpus(odin, { dir: o.dir }); return; }
+    if (odin.cfg.nous?.actif === false || odin.cfg.voice?.privacy?.privateMode === true) { viderVersCorpus(odin, { dir: o.dir }); return; }
     // Le modèle de départ livré avec Odin, au premier passage : seulement s'il n'existe aucun point de reprise.
     if (!departVerifie.has(odin.paths.home) && !enEssai({})) { departVerifie.add(odin.paths.home); void installerModeleDepart(odin).then((r) => { derniersBilans.installation = { ...r, quand: new Date().toISOString() }; }); }
     const choix = (odin.cfg.nous?.corpusDepart ?? 'demander') as ChoixDepart;

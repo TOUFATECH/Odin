@@ -15,7 +15,7 @@ import { CASES, FRESH, HOLDOUT, type Case } from '../mimir/cases.ts';
 import { ACTION_QUESTIONS, INJECTION_QUESTIONS, MEMORY_QUESTIONS, REFLECTION_QUESTIONS, ROUTING_QUESTIONS } from '../mimir/questions.ts';
 import { createOdin, type Odin } from '../runtime.ts';
 import type { Approver } from '../heimdall/policy.ts';
-import { demoProvider } from '../providers/mock.ts';
+import { fournisseurSansModele } from '../brain/porte-modele.ts';
 import { buildProvider } from '../providers/router.ts';
 import { Gateway } from '../bifrost/gateway.ts';
 import { TelegramChannel } from '../bifrost/channels/telegram.ts';
@@ -61,15 +61,16 @@ import { BANNER, c, printEvent, table } from './ui.ts';
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith('--')));
 const pos = args.filter((a) => !a.startsWith('--'));
-const demo = flags.has('--demo');
+/** Ce qu'Odin dit au démarrage quand son propre modèle de langue n'est pas encore là (ce n'est pas une démonstration). */
+const SANS_MODELE_TXT = 'Modèle de langue d\'Odin : pas encore entraîné. Odin répond par ses actions directes, sa mémoire et Soul.';
 
 const HELP = `${BANNER}
 
 Usage : odin <commande>
 
   init                         crée ~/.odin (config, SOUL.md, USER.md, MEMORY.md, dossiers)
-  chat [--demo]                conversation interactive dans le terminal
-  demande "<demande>" [--demo] une seule demande, puis quitte (aussi « run "<demande>" »)
+  chat                         conversation interactive dans le terminal
+  demande "<demande>"          une seule demande, puis quitte (aussi « run "<demande>" »)
 
 Conteneurs (moteur d'Odin, sans démon, sans Docker ni Podman) :
   run [-d] [--name N] [-p 8080:80] [-v /dossier:/dans] [-e CLE=v] [--restart unless-stopped] <image> [cmd…]
@@ -150,7 +151,7 @@ function cliApprover(lr: () => LineReader): Approver {
 }
 
 function open(approver?: Approver): Odin {
-  return createOdin({ approver, provider: demo ? demoProvider() : undefined });
+  return createOdin({ approver });
 }
 
 async function chat(): Promise<void> {
@@ -162,7 +163,7 @@ async function chat(): Promise<void> {
     if (ctrl) { ctrl.abort(); console.log(c.yellow('\n  ⏹ interruption…')); }
     else { lr.close(); }
   });
-  console.log(`${BANNER}\n${c.dim(`session ${sessionId} · /help pour l'aide · Ctrl+C pour interrompre`)}${demo ? c.yellow('\nmode démo : aucun modèle réel') : ''}\n`);
+  console.log(`${BANNER}\n${c.dim(`session ${sessionId} · /help pour l'aide · Ctrl+C pour interrompre`)}${odin.modele.pret() ? '' : c.dim(`\n${SANS_MODELE_TXT}`)}\n`);
 
   for (;;) {
     const raw = await lr.ask(c.cyan('ᛟ › '));
@@ -222,16 +223,12 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   // d'API chargées d'abord : aucune ne doit partir dans la base)
   try { loadEnvFile(odinPaths()); } catch { /* pas encore de clés */ }
   const amorce = await amorcerReglages(odinPaths().home);
-  try { odin = createOdin({ provider: demo ? demoProvider() : undefined, send }); if (demo) odin.demo = true; } catch (e) {
-    if (!/Aucun fournisseur/.test((e as Error).message)) throw e;
-    console.log(c.yellow('Aucun modèle configuré : démarrage en mode démo. Ouvre l\'interface web, onglet Réglages, pour en choisir un.'));
-    odin = createOdin({ provider: demoProvider(), send });
-    odin.demo = true;
-  }
+  // Sans modèle de langue, Odin démarre quand même, en vrai : il répond par ses actions directes, sa mémoire et Soul
+  // (la porte du modèle est vide), et tout le reste tourne (Soul, mises à jour, alertes, accès).
+  odin = createOdin({ send });
+  if (!odin.modele.pret()) console.log(c.dim(SANS_MODELE_TXT));
   // Les réglages de la mémoire (réveil…) mis d'accord avec la base.
   await amorce.brancherMemoire(odin.muninn);
-  // Sans modèle : le cerveau de secours répond (mémoire, rappels, réseau…), pas un simple écho.
-  if (odin.demo) odin.agent.deps.offlineOnly = true;
   const owners: Record<string, string[]> = {};
   gw = new Gateway(odin, { owners });
   const tg = odin.cfg.channels.telegram;
@@ -343,7 +340,6 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       if (tls?.selfSigned) console.log(c.dim(`  Certificat auto-signé : accepte-le dans le navigateur après avoir vérifié l'empreinte\n  ${tls.fingerprint}`));
       if (access === 'wan' && w.behindProxy) console.log(c.dim('  Internet via ton proxy HTTPS (web.behindProxy).'));
       console.log(c.dim(web.accounts.exists() ? '  (connecte-toi avec ton adresse e-mail et ton mot de passe ; mot de passe oublié : « odin compte oublier »)\n' : '  (lien de première connexion : il sert à créer ton compte, ne le partage pas)\n'));
-      if (odin.demo) console.log(c.yellow('  → Termine la configuration dans l\'onglet Réglages.\n'));
     } else console.log(c.dim('[odin] services relancés'));
     if (openBrowser) openUrl(web.url);
     // Accès depuis l'extérieur (Tailscale / Cloudflare), relancé avec Odin s'il était activé.
@@ -461,7 +457,8 @@ async function doctor(): Promise<void> {
       catch (e) { ok(false, 'ChatGPT (Codex)', (e as Error).message); }
     } else if (cfg.providers.some((p) => p.kind === 'openai-codex')) ok(false, 'ChatGPT (Codex)', 'pas connecté : « odin auth add openai-codex »');
   }
-  ok(usable.length > 0, 'Au moins un modèle utilisable', 'définis une clé, ou utilise --demo');
+  // Sans modèle de langue, Odin marche (actions directes, mémoire, Soul) : ce n'est pas une erreur.
+  if (!usable.length) console.log(c.dim(`  (${SANS_MODELE_TXT})`));
   ok(cfg.policy.modes.exec !== 'allow', 'Shell soumis à validation', 'policy.modes.exec = allow est risqué');
   {
     const w = cfg.web, where = { local: 'cette machine seulement', lan: `réseau local (${allowedNetworks(w).join(', ') || 'aucun réseau privé détecté'})`, wan: w.behindProxy ? 'Internet via un proxy HTTPS' : 'Internet' }[w.access];
@@ -477,13 +474,13 @@ async function doctor(): Promise<void> {
     ok(Boolean(process.env[cfg.channels.telegram.tokenEnv]), 'Jeton Telegram', `variable ${cfg.channels.telegram.tokenEnv}`);
     ok(cfg.channels.telegram.owners.length > 0, 'Propriétaire Telegram défini', 'channels.telegram.owners');
   }
-  const odin = createOdin({ provider: demoProvider() });
+  const odin = createOdin({ provider: fournisseurSansModele() });
   console.log(c.dim(`  ${odin.skills.list().length} compétence(s) active(s), ${odin.skills.drafts().length} brouillon(s), ${odin.muninn.listMemories(10000).length} souvenir(s), ${odin.muninn.listJobs().length} tâche(s) planifiée(s)`));
   odin.close();
 }
 
 async function admin(): Promise<void> {
-  const odin = createOdin({ provider: demoProvider() });
+  const odin = createOdin({ provider: fournisseurSansModele() });
   const [cmd, sub, a, b] = pos;
   try {
     if (cmd === 'skills') {
@@ -913,7 +910,7 @@ async function main(): Promise<void> {
     const odin = createOdin();
     console.log(`${c.cyan('ᛟ')} Odin teste tout ce qui est relié…\n`);
     const { selfTest, formatChecks } = await import('../selftest.ts');
-    const r = await selfTest({ cfg: odin.cfg, paths: odin.paths, router: odin.agent.deps.router, demo: odin.demo });
+    const r = await selfTest({ cfg: odin.cfg, paths: odin.paths, router: odin.agent.deps.router, modelePret: odin.modele.pret() });
     console.log(formatChecks(r));
     odin.close();
     process.exitCode = r.some((x) => x.ok === false) ? 1 : 0;

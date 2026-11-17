@@ -1,6 +1,6 @@
 // Noûs, étape 4 : Odin lance lui-même l'entraînement dès qu'il est libre (jour ou nuit), à la puissance réglée ;
-// arrêt immédiat quand Odin répond ; porte de qualité et retour arrière ; rien si Noûs est coupé, en mode privé ou en
-// démonstration. Faux moteur (aucune charge) ; un essai court avec le vrai moteur, sur plusieurs fils.
+// arrêt immédiat quand Odin répond ; porte de qualité et retour arrière ; rien si Noûs est coupé ou en mode privé.
+// Faux moteur (aucune charge) ; un essai court avec le vrai moteur, sur plusieurs fils.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
@@ -15,11 +15,11 @@ import type { Avancee } from '../src/brain/nous/nuit.ts';
 const homes: string[] = [];
 after(() => { for (const h of homes) rmSync(h, { recursive: true, force: true }); });
 
-function faux(o: { actif?: boolean; prive?: boolean; demo?: boolean; puissance?: string } = {}) {
+function faux(o: { actif?: boolean; prive?: boolean; puissance?: string } = {}) {
   const home = mkdtempSync(join(tmpdir(), 'nous-ent-')); homes.push(home);
   // un corpus non vide (le pilote ne lance rien sur un corpus vide)
   mkdirSync(dossierCorpus(home), { recursive: true }); writeFileSync(join(dossierCorpus(home), 'tranche-20261117-odin.bin'), Buffer.from('ODR1'));
-  return { cfg: { learning: { observe: true }, nous: { actif: o.actif ?? true, puissance: o.puissance ?? 'pleine', disqueMaxMo: 2000 }, voice: { privacy: { privateMode: o.prive ?? false } } }, demo: o.demo ?? false, paths: { home } } as never as { cfg: { nous: Record<string, unknown> }; paths: { home: string }; demo: boolean };
+  return { cfg: { learning: { observe: true }, nous: { actif: o.actif ?? true, puissance: o.puissance ?? 'pleine', disqueMaxMo: 2000 }, voice: { privacy: { privateMode: o.prive ?? false } } }, paths: { home } } as never as { cfg: { nous: Record<string, unknown> }; paths: { home: string } };
 }
 
 /** Un faux entraîneur : chaque séance « apprend » (la perte du banc baisse de `gain`) jusqu'à la fin ou au signal. */
@@ -105,9 +105,9 @@ test('Odin répond : la séance s\'arrête TOUT DE SUITE (mesuré), puis reprend
   await p.fermer();
 });
 
-test('rien si Noûs est coupé, en mode privé, en démonstration, sous le lanceur d\'essais, ou si la machine est chargée', async () => {
+test('rien si Noûs est coupé, en mode privé, sous le lanceur d\'essais, ou si la machine est chargée', async () => {
   for (const [nom, odin, opts] of [
-    ['coupé', faux({ actif: false }), {}], ['privé', faux({ prive: true }), {}], ['démo', faux({ demo: true }), {}],
+    ['coupé', faux({ actif: false }), {}], ['privé', faux({ prive: true }), {}],
     ['lanceur d\'essais', faux(), { essai: undefined }], ['machine chargée', faux(), { charge: () => 0.9 }],
   ] as const) {
     const m = fauxMoteur({ pertes: [5, 4] });

@@ -84,7 +84,7 @@ test('réinstallation sans modèle ni messagerie : la première connexion reste 
   const { writeFileSync } = await import('node:fs');
   const { join } = await import('node:path');
   const o = makeOdin([]);
-  (o as unknown as { demo: boolean }).demo = true;
+  o.modele = { pret: () => false };
   writeFileSync(join(o.paths.home, 'web-claimed'), 'ancienne installation\n');
   const p = port(), token = ensureWebToken(o.paths);
   const gw = new Gateway(o, { owners: { web: ['*'] } });

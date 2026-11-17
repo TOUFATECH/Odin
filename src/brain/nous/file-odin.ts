@@ -5,7 +5,7 @@
 // et par source, chiffrées avec la clé de la machine (coffre, AES-256-GCM), doublons retirés, part plafonnée par source,
 // et la place totale bornée par `nous.disqueMaxMo`. Aucun calcul de réseau ici : on range seulement.
 //
-// Garde : rien si Noûs est coupé (`nous.actif`), en mode privé, en démonstration ; rien sans la clé de la machine
+// Garde : rien si Noûs est coupé (`nous.actif`) ou en mode privé (sans modèle de langue, il range pareil) ; rien sans la clé de la machine
 // (jamais un corpus en clair). Jamais sur le chemin de réponse : appelé par la tâche périodique de la passerelle.
 import { appendFileSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,22 +20,21 @@ import { ecrireOublis, filtreOublis, lireOublis, noterOubli, sansOublis, type Fi
 /** LA file d'apprentissage d'Odin (une seule, en mémoire, bornée à 10 000 exemples). */
 export const fileNousOdin: FileApprentissage = fileBornee(10_000);
 
-/** Ce dont Noûs a besoin d'Odin (sa configuration, le mode privé, la démonstration). */
+/** Ce dont Noûs a besoin d'Odin (sa configuration, le mode privé). */
 export interface OdinPourNous {
   cfg: { learning?: { observe?: boolean }; nous?: { actif?: boolean; disqueMaxMo?: number; corpusDepart?: string }; voice?: { privacy?: { privateMode?: boolean } } };
-  demo?: boolean;
   paths: { home: string };
   /** La mémoire d'Odin (facultative) : on y lit la pause de l'initiative posée par « stop » (clé `initiative-pause`). */
   muninn?: { getKv(k: string): string | undefined };
 }
 
-/** Les dépendances de `nourrir()` pour un Odin lancé : la file unique, la garde (coupé, privé, démo). */
+/** Les dépendances de `nourrir()` pour un Odin lancé : la file unique, la garde (coupé, privé). */
 export function depsNousOdin(odin: OdinPourNous): NoosDeps {
   brancherOubli(odin.paths?.home);
   const prive = (): boolean => { try { return odin.cfg.voice?.privacy?.privateMode === true; } catch { return true; } };
   return {
     cfg: { learning: { observe: odin.cfg.learning?.observe !== false }, nous: { actif: odin.cfg.nous?.actif !== false } },
-    privateMode: prive, demo: odin.demo === true, file: fileNousOdin,
+    privateMode: prive, file: fileNousOdin,
   };
 }
 
@@ -116,7 +115,6 @@ export function viderVersCorpus(odin: OdinPourNous, o: { max?: number; file?: Fi
     if (oublis.aPurger) { const p = purgerOublis(odin.paths.home, o.dir ?? dossierCorpus(odin.paths.home), oublis); if (p.raison) bilan.raison = p.raison; }
     const filtre = filtreOublis(oublis);
     if (odin.cfg.nous?.actif === false) { file.vider(); return fin('Noûs est coupé : rien n\'est rangé (la file est vidée)'); }
-    if (odin.demo) { file.vider(); return fin('démonstration : rien n\'est rangé'); }
     if (odin.cfg.voice?.privacy?.privateMode === true) { file.vider(); return fin('mode privé : rien n\'est rangé'); }
     if (!file.taille()) return fin();
     const dir = o.dir ?? dossierCorpus(odin.paths.home);

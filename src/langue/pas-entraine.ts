@@ -20,6 +20,7 @@ export const CHOSES = {
   traduire: 'langue',
   prevoirMeteo: 'meteo',
   reconnaitreSons: 'sons',
+  rediger: 'langue',
 } as const satisfies Record<string, SorteModele>;
 export type ChosePasEncore = keyof typeof CHOSES;
 

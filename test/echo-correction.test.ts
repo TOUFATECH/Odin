@@ -1,7 +1,7 @@
 // Écho · demande 1 : corriger l'orthographe sur une transcription CONSERVÉE, chaque tour DANS SA LANGUE.
 // Aucun service réel : faux modèle (il met juste une majuscule et un point, et note la consigne reçue pour vérifier
 // sa langue). On couvre : la consigne écrite dans la langue du tour ; la correction du texte entendu (pas la
-// traduction) ; la route qui montre l'avant/après puis garde le texte corrigé (chiffré) ; le mode démo (pas de modèle).
+// traduction) ; la route qui montre l'avant/après puis garde le texte corrigé (chiffré) ; sans modèle de langue.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -50,10 +50,10 @@ test('corrigerTours : corrige le texte entendu de chaque tour dans sa langue (co
   assert.ok(consignes.some((s) => /français/.test(s)), 'consigne en français pour le tour fr');
 });
 
-async function montage(modele?: ModeleTraduction, demo = false) {
+async function montage(modele?: ModeleTraduction, sansModele = false) {
   const home = mkdtempSync(join(tmpdir(), 'odin-corr-'));
   const ctx = { home, dir: join(home, 'rodd'), settings: { conversation: {} }, saveSettings() {} };
-  const odin = { demo, cfg: { providers: demo ? [] : [{ model: 'faux' }], voice: VOIX }, agent: { ask: async () => '' }, paths: {} } as never;
+  const odin = { modele: { pret: () => !sansModele }, cfg: { providers: sansModele ? [] : [{ model: 'faux' }], voice: VOIX }, agent: { ask: async () => '' }, paths: {} } as never;
   const srv = createServer((req, res) => { void archiveRoute(req, res, new URL(req.url!, 'http://x'), { odin, ctx: () => ctx as never, modele }); });
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const u = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/rodd/archive`;
@@ -82,7 +82,7 @@ test('route corriger : montre avant/après, puis « garder » remplace le texte 
   } finally { m.fin(); }
 });
 
-test('route corriger : POST exige x-odin ; sans modèle (démo) le dit et propose de configurer', async () => {
+test('route corriger : POST exige x-odin ; sans modèle de langue le dit et propose de configurer', async () => {
   const m = await montage(undefined, true);
   try {
     historiqueDe(m.ctx as never).ajouter({ conv: 'c1', qui: 'moi', de: 'fr', vers: 'en', entendu: 'bonjour', traduit: 'hi', at: '2026-11-16T00:00:00Z' });

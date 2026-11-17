@@ -44,7 +44,6 @@ export function nourrir(deps: NoosDeps, n: Nourriture): void {
     if (!deps || !n || typeof n !== 'object') return;
     // Garde-fous : on ne range rien dans ces cas.
     if (enEssai(deps)) return;
-    if (deps.demo) return;
     if (deps.cfg?.learning?.observe === false) return;
     if (deps.cfg?.nous?.actif === false) return;
     if (safePrivate(deps)) return;

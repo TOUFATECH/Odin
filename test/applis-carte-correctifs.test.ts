@@ -73,7 +73,7 @@ test('pied du menu : le nom du modèle passe à la ligne, « en service » est u
   const document = { getElementById: (id: string) => els[id] ?? null, createElement: () => ({}), head: { append: () => {} } };
   const win: { OdinPiedMenu?: { peindre: (s: unknown) => void } } = {};
   vm.runInNewContext(src, { window: win, document, setTimeout });
-  win.OdinPiedMenu!.peindre({ settings: { demo: false, providers: [{ index: 0, ready: true, model: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (Anthropic)', baseUrl: 'http://10.0.0.5/v1' }] }, usage: { tokens_in: 300, tokens_out: 60, cost_usd: 0 } });
+  win.OdinPiedMenu!.peindre({ settings: { modelePret: true, providers: [{ index: 0, ready: true, model: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (Anthropic)', baseUrl: 'http://10.0.0.5/v1' }] }, usage: { tokens_in: 300, tokens_out: 60, cost_usd: 0 } });
   const html = String(els.piedIA.innerHTML);
   assert.match(html, /<i class="pm-on" title="en service"><\/i><span>Anthropic · Claude Sonnet 5\.5<span class="pm-sr"> \(en service\)<\/span><\/span>/);
   assert.match(html, /principal · claude-sonnet-5-5/);

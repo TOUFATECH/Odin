@@ -17,7 +17,7 @@ const homes: string[] = [];
 after(() => { fileNousOdin.vider(); fermerCorpus(); for (const h of homes) rmSync(h, { recursive: true, force: true }); });
 export function faux(o: { actif?: boolean; disqueMaxMo?: number; corpusDepart?: string } = {}): OdinPourNous & { paths: { home: string; config: string } } {
   const home = mkdtempSync(join(tmpdir(), 'nous-corr-')); homes.push(home);
-  return { cfg: { learning: { observe: true }, nous: { actif: o.actif ?? true, disqueMaxMo: o.disqueMaxMo ?? 2000, corpusDepart: o.corpusDepart ?? 'odin' }, voice: { privacy: { privateMode: false } } }, demo: false, paths: { home, config: join(home, 'config.json') } } as never;
+  return { cfg: { learning: { observe: true }, nous: { actif: o.actif ?? true, disqueMaxMo: o.disqueMaxMo ?? 2000, corpusDepart: o.corpusDepart ?? 'odin' }, voice: { privacy: { privateMode: false } } }, paths: { home, config: join(home, 'config.json') } } as never;
 }
 /** Le texte de tous les exemples du corpus (déchiffrés, octets → texte), et leur fiabilité. */
 function lireCorpus(home: string): Array<{ texte: string; fiable: boolean; id?: number }> {

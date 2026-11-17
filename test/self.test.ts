@@ -54,13 +54,16 @@ test('mise à jour : récupère la nouvelle version en gardant les amélioration
     g(up, 'init', '-q', '-b', 'main'); writeFileSync(join(up, 'a.txt'), 'un\n'); writeFileSync(join(up, 'b.txt'), 'b\n'); g(up, 'add', '.'); g(up, 'commit', '-qm', 'v1');
     g(base, 'clone', '-q', '-c', 'core.autocrlf=false', up, 'app'); // contenu comparé à l'octet près : pas de conversion des fins de ligne (Windows)
     const app = join(base, 'app');
+    // Le dossier d'Odin est donné, jetable : sans lui, updateApp range ses copies de côté dans le VRAI dossier de
+    // la personne qui lance les essais (~/.odin/self-backups).
+    const home = join(base, 'home');
     writeFileSync(join(app, 'b.txt'), 'b amélioré par Odin\n');
     writeFileSync(join(up, 'a.txt'), 'deux\n'); g(up, 'commit', '-qam', 'v2');
-    const r = updateApp(app);
+    const r = updateApp(app, home);
     assert.ok(r.ok, r.message);
     assert.match(r.message, /Mis à jour/);
     assert.equal(readFileSync(join(app, 'a.txt'), 'utf8'), 'deux\n');
     assert.equal(readFileSync(join(app, 'b.txt'), 'utf8'), 'b amélioré par Odin\n');
-    assert.match(updateApp(app).message, /Déjà à jour/);
+    assert.match(updateApp(app, home).message, /Déjà à jour/);
   } finally { rmSync(base, { recursive: true, force: true }); }
 });

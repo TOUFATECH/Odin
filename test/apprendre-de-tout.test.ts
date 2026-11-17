@@ -15,7 +15,6 @@ function monter(): { deps: DepsApprentissage; muninn: Mnemosyne; file: FileAppre
   const nous: NoosDeps = {
     cfg: { learning: { observe: true }, nous: { actif: true } },
     privateMode: () => muninn.privateMode,
-    demo: false,
     essai: false, // on force : sinon NODE_TEST_CONTEXT tairait nourrir()
     file,
     maintenant: () => NOW,

@@ -10,6 +10,7 @@
 // - Jamais de traduction inventée : un échec donne traduit '' et erreurTraduction.
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Odin } from '../runtime.ts';
+import { modelePret } from '../brain/porte-modele.ts';
 import type { ModCtx } from '../valhalla/types.ts';
 import type { VoiceConfig } from '../voice/voice.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
@@ -21,7 +22,7 @@ import { enregistrementDe } from '../valhalla/rodd/conversation-son.ts';
 import { noterConversation } from '../valhalla/rodd/conversation-memoire.ts';
 
 export interface OptionsConversation {
-  odin: Pick<Odin, 'cfg' | 'agent' | 'demo' | 'paths'>;
+  odin: Pick<Odin, 'cfg' | 'agent' | 'modele' | 'paths'>;
   voix: () => VoiceConfig;
   /** briques remplacées (essais) */
   deps?: Partial<Deps>;
@@ -65,9 +66,9 @@ function retenir(r: Omit<Retenu, 'quand'>): void {
 }
 const retenu = (id: string | null | undefined) => { const x = id ? retenus.get(id) : undefined; return x && Date.now() - x.quand <= MEMOIRE_MS ? x : undefined; };
 
-/** Le modèle d'Odin pour traduire : aucun en mode démo (jamais de faux texte). */
+/** Le modèle d'Odin pour traduire : aucun tant que la porte du modèle est vide (jamais de faux texte). */
 export function modeleDe(odin: OptionsConversation['odin']): Deps['modele'] {
-  if (odin.demo) return undefined;
+  if (!modelePret(odin)) return undefined;
   const p = odin.cfg.providers ?? [];
   return { demander: (s, u, sig) => odin.agent.ask(s, u, 800, sig), local: p.length > 0 && p.every((x) => tierOf(x) === 'local'), nom: p[0]?.model ?? '' };
 }

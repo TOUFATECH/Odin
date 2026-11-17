@@ -20,7 +20,7 @@ export interface Check { name: string; ok: boolean | null; detail: string; fix?:
 
 const time = async <T>(f: () => Promise<T>, ms = 30_000): Promise<T> => Promise.race([f(), new Promise<T>((_, rej) => setTimeout(() => rej(new Error('trop long (plus de 30 s)')), ms))]);
 
-export async function selfTest(o: { cfg: OdinConfig; paths: OdinPaths; router: Router; demo?: boolean; env?: NodeJS.ProcessEnv; only?: string }): Promise<Check[]> {
+export async function selfTest(o: { cfg: OdinConfig; paths: OdinPaths; router: Router; modelePret?: boolean; env?: NodeJS.ProcessEnv; only?: string }): Promise<Check[]> {
   const env = o.env ?? process.env, cfg = o.cfg, out: Check[] = [];
   const run = async (name: string, on: boolean, f: () => Promise<string>, fix?: string) => {
     if (o.only && o.only !== name) return;
@@ -28,7 +28,9 @@ export async function selfTest(o: { cfg: OdinConfig; paths: OdinPaths; router: R
     const t0 = Date.now();
     try { out.push({ name, ok: true, detail: `${await time(f)} (${Date.now() - t0} ms)` }); } catch (e) { out.push({ name, ok: false, detail: (e as Error).message.slice(0, 300), fix }); }
   };
-  await run('Modèle', !o.demo, async () => {
+  // Sans modèle de langue : une ligne qui le dit, ni rouge ni erreur (son propre modèle n'est pas encore entraîné).
+  if (o.modelePret === false) { if (!o.only || o.only === 'Modèle') out.push({ name: 'Modèle', ok: null, detail: 'Modèle de langue d\'Odin : pas encore entraîné (Odin répond par ses actions directes)' }); }
+  else await run('Modèle', true, async () => {
     const r = await o.router.complete({ system: 'Réponds exactement : OK', messages: [{ role: 'user', content: 'Test : réponds OK.' }], tools: [], maxTokens: 20 }, { purpose: 'test' });
     if (!/ok/i.test(r.text)) throw new Error(`réponse inattendue : ${r.text.slice(0, 80)}`);
     return `${r.providerName} répond`;

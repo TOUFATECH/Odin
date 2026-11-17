@@ -20,7 +20,7 @@ const dossiers: string[] = [];
 after(() => { for (const d of dossiers) rmSync(d, { recursive: true, force: true }); });
 const jetable = (p: string) => { const d = mkdtempSync(join(tmpdir(), p)); dossiers.push(d); return d; };
 const sha = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
-const odinDe = (home: string): OdinPourNous => ({ cfg: { learning: { observe: true }, nous: { actif: true }, voice: { privacy: { privateMode: false } } }, demo: false, paths: { home } });
+const odinDe = (home: string): OdinPourNous => ({ cfg: { learning: { observe: true }, nous: { actif: true }, voice: { privacy: { privateMode: false } } }, paths: { home } });
 const SOURCES: SourcesDepart = { modules: Array.from({ length: 12 }, (_, k) => ({ id: `appli${k}`, name: `Appli ${k}`, what: `L'appli ${k} range les objets ${k}.`, actions: [{ id: `ouvrir_${k}`, label: `Ouvrir ${k}`, words: [`ouvre la carte ${k}`, `montre ${k}`] }] })) };
 
 /** Un modèle exporté (petit, non entraîné) avec son épingle ; rend les chemins. */

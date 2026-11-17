@@ -15,7 +15,7 @@
 // Avant le premier réseau : le VRAI découpage est appris sur le corpus (worker de préparation), puis les textes sont
 // réencodés avec lui à chaque tranche (le corpus reste rangé en octets, sans perte).
 //
-// Rien si Noûs est coupé, en mode privé ou en démonstration ; rien sans corpus. Disque borné : 2 points de reprise
+// Rien si Noûs est coupé ou en mode privé (sans modèle de langue, il apprend pareil) ; rien sans corpus. Disque borné : 2 points de reprise
 // (reprise.ts), le corpus par `disqueMaxMo`. Temps borné : une tranche à la fois, jamais pendant une réponse.
 import { cpus, availableParallelism } from 'node:os';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
@@ -171,11 +171,10 @@ export class PiloteNous {
     try { const f = this.fichier('entrainement.json'); writeFileSync(`${f}.tmp`, JSON.stringify({ ...this.etat, apprend: false }), { mode: 0o600 }); renameSync(`${f}.tmp`, f); } catch { /* rien */ }
   }
 
-  /** Noûs a-t-il le droit d'apprendre (interrupteur, mode privé, démonstration) ? */
+  /** Noûs a-t-il le droit d'apprendre (interrupteur, mode privé) ? */
   private permis(): string | undefined {
     const c = this.o.odin.cfg;
     if (c.nous?.actif === false) return 'Noûs est en pause';
-    if (this.o.odin.demo) return 'démonstration';
     if (c.voice?.privacy?.privateMode === true) return 'mode privé';
     // « stop » : plus aucune initiative jusqu'à « reprends » — l'entraînement non plus.
     try { if (this.o.odin.muninn?.getKv('initiative-pause') === '1') return 'en pause après « stop » (jusqu\'à « reprends »)'; } catch { /* mémoire indisponible : rien */ }

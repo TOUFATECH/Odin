@@ -13,6 +13,7 @@ import type { OdinConfig, ProviderConfig } from '../config.ts';
 import type { CompletionRequest, ModelResponse, Provider } from '../types.ts';
 import { AnthropicProvider } from './anthropic.ts';
 import { HttpError } from './http.ts';
+import { ModelePasEntraine } from '../langue/pas-entraine.ts';
 import { OpenAIProvider } from './openai.ts';
 import { CodexProvider, loadCodexAuth } from './codex.ts';
 import { odinPaths, type OdinPaths } from '../config.ts';
@@ -247,6 +248,8 @@ export class Router {
   private async completeInner(req: Omit<CompletionRequest, 'model'>, o: CompleteOptions, attempts: RouteAttempt[], log: (route: Route | undefined, position: number, r?: ModelResponse, cost?: number) => void): Promise<RoutedResponse> {
     const errors: string[] = [];
     const notices: string[] = [];
+    // « Pas encore » (aucun modèle de langue d'Odin) : si c'est la seule réponse, elle repart telle quelle.
+    const pasEncore: ModelePasEntraine[] = [];
     let candidates = this.order(o);
     if (!candidates.length) throw new Error('Aucun fournisseur disponible pour cette demande.');
     // Budget mensuel atteint : seuls les modèles gratuits (locaux) servent, s'il y en a.
@@ -279,6 +282,7 @@ export class Router {
           return { ...r, providerName: route.provider.name, costUsd: cost, ...(notices.length ? { notice: notices.join(' ') } : {}) };
         } catch (e) {
           if (req.signal?.aborted) throw e;
+          if (e instanceof ModelePasEntraine) { attempts.push({ provider: route.provider.name, ok: false, ms: this.now() - ta, error: 'pas encore entraîné' }); pasEncore.push(e); break; }
           attempts.push({ provider: route.provider.name, ok: false, ms: this.now() - ta, error: shortError(e) });
           errors.push(`${route.provider.name} (essai ${attempt + 1}) : ${(e as Error).message.slice(0, 200)}`);
           if (isQuotaError(e)) {
@@ -306,6 +310,9 @@ export class Router {
         }
       }
     }
+    // Aucun autre échec que « pas encore » : l'erreur garde son type et son message dans la langue de la personne
+    // (ni « Tous les fournisseurs », ni le nom interne de la place vide).
+    if (pasEncore.length && !errors.length) throw pasEncore[0];
     throw new Error(`Tous les fournisseurs ont échoué :\n- ${errors.join('\n- ')}`);
   }
 

@@ -19,22 +19,22 @@ function charger(): Pied {
 const p = (index: number, label: string, model: string, extra: Record<string, unknown> = {}) => ({ index, preset: 'custom', model, baseUrl: 'http://10.0.0.5:11434/v1', tier: 'standard', ready: true, label, ...extra });
 const USAGE = { tokens_in: 1200, tokens_out: 300, cost_usd: 0.0425 };
 
-test('pied du menu : mode démo ou aucun modèle prêt → Cerveau d\'Odin autonome, sans consommation', () => {
+test('pied du menu : sans modèle de langue ou aucun modèle prêt → Cerveau d\'Odin autonome, sans consommation', () => {
   const { logique } = charger();
-  const a = logique.lignes({ settings: { demo: true, providers: [p(0, 'Claude Sonnet 5.5 (Anthropic)', 'claude-sonnet-5-5')] }, usage: USAGE });
+  const a = logique.lignes({ settings: { modelePret: false, providers: [p(0, 'Claude Sonnet 5.5 (Anthropic)', 'claude-sonnet-5-5')] }, usage: USAGE });
   assert.equal(a.autonome, true);
   assert.equal(a.ia.length, 0);
   assert.equal(a.conso, null);
   assert.equal(a.pastille.cerveau, true);
   assert.match(a.pastille.titre, /Cerveau d'Odin · autonome/);
-  const b = logique.lignes({ settings: { demo: false, providers: [p(0, 'Kimi K2.6 (Kimi)', 'kimi-k2.6', { ready: false })] }, usage: USAGE });
+  const b = logique.lignes({ settings: { modelePret: true, providers: [p(0, 'Kimi K2.6 (Kimi)', 'kimi-k2.6', { ready: false })] }, usage: USAGE });
   assert.equal(b.autonome, true, 'un modèle non prêt ne compte pas');
   assert.match(SRC, /Cerveau d'Odin · autonome/);
 });
 
 test('pied du menu : un modèle prêt → service, modèle, identifiant brut, principal en service, consommation', () => {
   const { logique } = charger();
-  const r = logique.lignes({ settings: { demo: false, providers: [p(0, 'Claude Sonnet 5.5 (Anthropic)', 'claude-sonnet-5-5')] }, usage: USAGE });
+  const r = logique.lignes({ settings: { modelePret: true, providers: [p(0, 'Claude Sonnet 5.5 (Anthropic)', 'claude-sonnet-5-5')] }, usage: USAGE });
   assert.equal(r.autonome, false);
   assert.equal(r.ia.length, 1);
   const l = r.ia[0];

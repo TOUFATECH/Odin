@@ -49,7 +49,7 @@ test('choix du modèle : préréglages, modèle local par Métis (plus de preset
 
 test('onglet Réglages : état sans secret, enregistrement, redémarrage des services', async () => {
   const o = makeOdin([]);
-  o.demo = true;
+  o.modele = { pret: () => false };
   const port = 21000 + Math.floor(Math.random() * 20000);
   const token = ensureWebToken(o.paths);
   let reloads = 0;
@@ -62,8 +62,9 @@ test('onglet Réglages : état sans secret, enregistrement, redémarrage des ser
   const before = process.env.OPENROUTER_API_KEY;
 
   try {
-    const st = await (await fetch(`${B}/api/state`, { headers: h })).json() as { settings: { demo: boolean; model: { preset: string }; secrets: Record<string, unknown> } };
-    assert.equal(st.settings.demo, true);
+    const st = await (await fetch(`${B}/api/state`, { headers: h })).json() as { settings: { modelePret: boolean; model: { preset: string }; secrets: Record<string, unknown> } };
+    assert.equal(st.settings.modelePret, false, 'sans modèle de langue');
+    assert.equal('demo' in st.settings, false, 'plus de démo');
     assert.equal(st.settings.model.preset, 'anthropic');
 
     const r = await act({ kind: 'settings_save', section: 'model', preset: 'openrouter', model: 'meta/llama-4', apiKey: 'sk-or-v1-abcdefghijklmnopqrstuvwxyz' });

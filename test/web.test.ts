@@ -94,17 +94,19 @@ test('première connexion sans jeton : une seule fois, depuis le réseau local, 
   } finally { await gw.stop(); o.cleanup(); }
 });
 
-test('première configuration : sans jeton même après l\'heure, tant qu\'Odin n\'est pas configuré', async () => {
+test('première configuration sans modèle : sans jeton dans l\'heure, plus après (la fenêtre se ferme, modèle ou pas)', async () => {
   const o = makeOdin([]);
-  o.demo = true;
+  o.modele = { pret: () => false };
   const port = 21000 + Math.floor(Math.random() * 20000);
   const token = ensureWebToken(o.paths);
   const web = new WebChannel(o, { scanNetwork: async () => undefined }, { port, host: '127.0.0.1', token, scryptN: 1024 });
-  (web as unknown as { startedAt: number }).startedAt = Date.now() - 5 * 3600_000; // démarré il y a 5 h
   const gw = new Gateway(o, { owners: { web: ['*'] } }); gw.add(web); await gw.start();
+  const creer = () => fetch(`http://127.0.0.1:${port}/api/account/create`, { method: 'POST', headers: { 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify({ prenom: 'Awa', nom: 'Saïd', email: 'awa@exemple.yt', password: 'un-cheval-bleu-traverse-mamoudzou' }) });
   try {
-    const made = await fetch(`http://127.0.0.1:${port}/api/account/create`, { method: 'POST', headers: { 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify({ prenom: 'Awa', nom: 'Saïd', email: 'awa@exemple.yt', password: 'un-cheval-bleu-traverse-mamoudzou' }) });
-    assert.equal(made.status, 200, 'le compte se crée depuis le réseau local, sans lien');
+    (web as unknown as { startedAt: number }).startedAt = Date.now() - 5 * 3600_000; // démarré il y a 5 h
+    assert.equal((await creer()).status, 403, 'plus d\'une heure : il faut le lien ou une demande d\'accès (avant : ouvert sans limite)');
+    (web as unknown as { startedAt: number }).startedAt = Date.now(); // redémarré : la fenêtre se rouvre
+    assert.equal((await creer()).status, 200, 'le compte se crée depuis le réseau local, sans lien');
   } finally { await gw.stop(); o.cleanup(); }
 });
 

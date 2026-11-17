@@ -3,6 +3,8 @@
 // propriétaire, et exécute les tâches planifiées.
 
 import { postNotice } from '../valhalla/notices.ts';
+import { modelePret } from '../brain/porte-modele.ts';
+import { direPlafondUneFois } from '../migrations/aucun-modele-externe.ts';
 import { vendorOf } from '../hlidskjalf/vendors.ts';
 import { MOODS, cleAutocollant, moodSticker } from '../mood/stickers.ts';
 import { MOOD_EMOJI, type Mood } from '../mood/mood.ts';
@@ -162,13 +164,18 @@ export class Gateway {
     // Coffre verrouillé : Odin ne peut rien faire d'utile ; il te le dit (notification push, hors coffre).
     if (vaultState(this.odin.paths.home) === 'locked') void pushAll(this.odin.paths.home, { title: 'Odin — coffre verrouillé', body: 'Odin a redémarré : ouvre l\'application et déverrouille le coffre pour qu\'il reprenne le travail.', view: 'home', tag: 'odin-coffre' }).catch(() => 0);
     // Missions coupées par un redémarrage : Odin les reprend là où il en était.
-    else if (this.odin.cfg.continuous?.autoResume && !this.odin.demo) {
+    else if (this.odin.cfg.continuous?.autoResume && this.modelePret()) {
       for (const m of this.odin.muninn.interruptedMissions(Date.now() - 86_400_000)) {
         this.odin.muninn.endMission(m.id, 'en attente', 'interrompue par un redémarrage');
         setTimeout(() => void this.resume(m.session_id, 'Odin a redémarré pendant ta mission : reprends-la là où tu t\'étais arrêté (vérifie d\'abord ce qui est déjà fait).').catch((e) => console.error('[reprise]', (e as Error).message)), 5000);
       }
     }
+    // Autonomie ramenée à « prudent » par le retrait de l'ancien juge : une bulle le dit, une seule fois.
+    direPlafondUneFois(this.odin.muninn, (b) => postNotice(b));
   }
+
+  /** Un modèle de langue peut-il répondre ? Seul ce qui en demandait un (tâches rédigées) le teste. */
+  private modelePret(): boolean { return modelePret(this.odin); }
 
   async stop(): Promise<void> {
     clearInterval(this.timer);
@@ -621,7 +628,7 @@ export class Gateway {
     let { text } = breakerDigest(join(this.odin.paths.logs, 'audit.jsonl'), now - 86_400_000);
     // Initiative du soir : Odin relit sa journée et met lui-même en place routines et rappels utiles.
     const t = this.ownerTarget();
-    if (m.breaker.proactive && !this.odin.demo) {
+    if (m.breaker.proactive && this.modelePret()) {
       // Le bilan du soir (rapport à 21 h) peut tomber hors de la plage « nuit » : on applique Breaker le temps du bilan.
       const wasBreaker = this.odin.heimdall.breakerActive();
       if (!wasBreaker) this.odin.heimdall.setBreaker({ ...m.breaker, schedule: 'always' });
@@ -734,9 +741,9 @@ export class Gateway {
     }
     const mstamp = join(this.odin.paths.logs, 'memory-decay.txt');
     if (!(existsSync(mstamp) && readFileSync(mstamp, 'utf8').trim() === new Date(now).toDateString())) { writeFileSync(mstamp, new Date(now).toDateString()); const n = this.odin.muninn.decay(now); if (n) console.error(`[mémoire] ${n} souvenir(s) périmé(s) oublié(s)`); this.odin.muninn.pruneRoutes(now); const gone = this.odin.muninn.purgeTrash(now); if (gone) console.error(`[mémoire] ${gone} conversation(s) effacée(s) de la corbeille`); }
-    try { liensDe(this.odin.muninn).nuitSiBesoin(now, { occupe: this.aborts.size > 0, demo: Boolean(this.odin.demo), vault: brainOf({ home: this.odin.paths.home, careCfg: this.odin.cfg, workspace: this.odin.paths.workspace }) }); } catch { /* liens vivants : facultatif */ }
+    try { liensDe(this.odin.muninn).nuitSiBesoin(now, { occupe: this.aborts.size > 0, vault: brainOf({ home: this.odin.paths.home, careCfg: this.odin.cfg, workspace: this.odin.paths.workspace }) }); } catch { /* liens vivants : facultatif */ }
     // Noûs : le premier corpus (une fois) et le vidage de la file unique vers le corpus chiffré (toutes les 5 min au plus ;
-    // rien si Noûs est coupé, en mode privé ou en démonstration ; jamais pendant une réponse).
+    // rien si Noûs est coupé, ou en mode privé ; aussi sans modèle de langue ; jamais pendant une réponse).
     if (!this.aborts.size) tacheNous(this.odin, now, () => sourcesDepartOdin(this.odin));
     // Un garde-fou modifié hors de la version de référence : dit au propriétaire une fois par démarrage.
     { const alerte = alerteNoyauUneFois(); if (alerte) await this.tellOwner(alerte, 'home', true).catch(() => undefined); }
@@ -763,7 +770,7 @@ export class Gateway {
     const c = { ...DEFAULT_CONTINUOUS, ...this.odin.cfg.continuous };
     const breakerOn = this.odin.heimdall.breakerActive(new Date(now));
     // Odin Breaker = carte blanche : il travaille de lui-même même si le « travail continu » est coupé.
-    if (!(c.enabled || breakerOn) || this.odin.demo || this.aborts.size || vaultState(this.odin.paths.home) === 'locked') return undefined;
+    if (!(c.enabled || breakerOn) || !this.modelePret() || this.aborts.size || vaultState(this.odin.paths.home) === 'locked') return undefined;
     if (breakerOn && !this.wasBreaker) this.lastContinuous = 0; // Breaker vient de s'allumer : il s'y met tout de suite
     this.wasBreaker = breakerOn;
     if (!force && now - this.lastContinuous < (breakerOn ? Math.min(c.intervalMin * 0.5, 15) : c.intervalMin) * 60_000) return undefined;
@@ -850,7 +857,7 @@ export class Gateway {
 
   async breakerRoutines(now = Date.now()): Promise<number> {
     if (this.initiativeEnPause()) return 0;
-    if (this.odin.demo || !this.odin.heimdall.breakerActive(new Date(now))) return 0;
+    if (!this.modelePret() || !this.odin.heimdall.breakerActive(new Date(now))) return 0;
     const done = new Set((this.odin.muninn.getKv('breaker-routines') ?? '').split(',').filter(Boolean));
     const target = this.ownerTarget(); if (!target) return 0;
     const jobs = this.odin.muninn.listJobs();
@@ -866,7 +873,7 @@ export class Gateway {
 
   /** Rangement de la mémoire : une fois par jour (la nuit de préférence), quand Odin ne travaille pas. */
   async garden(now = Date.now(), force = false): Promise<GardenReport | undefined> {
-    if (this.odin.demo || this.aborts.size) return undefined;
+    if (!this.modelePret() || this.aborts.size) return undefined;
     const d = new Date(now), stamp = this.odin.muninn.getKv('memory-garden-day');
     if (!force && (stamp === d.toDateString() || (d.getHours() >= 7 && d.getHours() < 23))) return undefined;
     this.odin.muninn.setKv('memory-garden-day', d.toDateString());
@@ -909,7 +916,7 @@ export class Gateway {
       if (appVersions().running === to) { kv.setKv('updated-to', ''); const ch = (kv.getKv('update-changes') ?? '').split('\n').filter(Boolean).slice(0, 6); kv.setKv('update-changes', ''); postNotice({ level: 'ok', module: 'odin', app: 'Mises à jour', title: `Odin est à jour : v${done.replace('→', ' → v')}`, detail: ch.length ? ch.map((c) => c.replace(/^v[\d.]+\s*:\s*/, '')).join(' · ') : 'Installée et redémarrée sans souci.', steps: ['Rien à faire.', 'Les nouveautés sont dans Réglages → Mises à jour.'], page: { view: 'settings' }, source: 'maj' }); await this.tellOwner(`✅ Odin est à jour : v${done.replace('→', ' → v')}.${ch.length ? `\nNouveautés :\n${ch.map((c) => `• ${c.replace(/^v[\d.]+\s*:\s*/, '')}`).join('\n')}` : ''}`, 'home').catch(() => {}); }
     }
     const cfg = this.odin.cfg.update ?? { auto: 'notify', everyHours: 6 };
-    if (this.odin.demo || cfg.auto === 'off') return;
+    if (cfg.auto === 'off') return;
     const last = Number(kv.getKv('update-checked') ?? 0);
     if (!force && now - last < Math.max(1, cfg.everyHours) * 3600_000) return;
     kv.setKv('update-checked', String(now));
@@ -930,7 +937,6 @@ export class Gateway {
 
   /** Met Odin à jour maintenant (vérifie le nouveau code, revient en arrière s'il ne se charge pas), puis redémarre. */
   async updateNow(): Promise<string> {
-    if (this.odin.demo) return 'Mode démo : pas de mise à jour.';
     const before = lastUpdateInfo(this.odin.muninn);
     if (before?.changes.length) this.odin.muninn.setKv('update-changes', before.changes.join('\n'));
     const r = applyAppUpdate(undefined, this.odin.paths.home);
@@ -950,7 +956,7 @@ export class Gateway {
    * Odin ne travaille pas, il vérifie que le nouveau code se charge, puis redémarre tout seul.
    */
   async applyUpdate(): Promise<boolean> {
-    if (this.odin.demo || process.env.ODIN_NO_RESTART || this.aborts.size) return false;
+    if (process.env.ODIN_NO_RESTART || this.aborts.size) return false;
     const { appVersions, restartSelf, treeState } = await import('../tools/self.ts');
     const { healInstalled } = await import('../tools/update.ts');
     const v = appVersions();
@@ -1016,7 +1022,7 @@ export class Gateway {
   async veille(now = Date.now(), force = false): Promise<string | undefined> {
     if (this.initiativeEnPause()) return undefined;
     const v = this.odin.cfg.veille ?? { enabled: true, at: '12:30' };
-    if (this.odin.demo || !v.enabled) return undefined;
+    if (!this.modelePret() || !v.enabled) return undefined;
     const d = new Date(now), [h, mi] = v.at.split(':').map(Number), kv = this.odin.muninn;
     if (!force && (kv.getKv('veille-day') === d.toDateString() || d.getHours() * 60 + d.getMinutes() < h * 60 + mi)) return undefined;
     kv.setKv('veille-day', d.toDateString());
@@ -1100,10 +1106,9 @@ export class Gateway {
       if (d.fix === 'vacuum' && new Date(now).getHours() >= 2 && new Date(now).getHours() < 5) { try { kv.compactAll(); } catch { /* plus tard */ } continue; }
       await say(d.key, d.text, d.key === 'disk');
     }
-    if (!this.odin.demo) {
-      for (const msg of await checkPrices(kv, now).catch(() => [])) await say(`prix:${msg.slice(0, 40)}`, msg);
-      if (new Date(now).getHours() >= 9) for (const s of upcomingCharges(kv, now, 2)) await say(`prelev:${s.name}:${new Date(now).toDateString()}`, `💳 Prélèvement dans 2 jours : ${s.name}, ${s.amount.toFixed(2).replace('.', ',')} €.`);
-    }
+    // Prix suivis et prélèvements : du code, pas de modèle (ils tournent aussi sans modèle de langue).
+    for (const msg of await checkPrices(kv, now).catch(() => [])) await say(`prix:${msg.slice(0, 40)}`, msg);
+    if (new Date(now).getHours() >= 9) for (const s of upcomingCharges(kv, now, 2)) await say(`prelev:${s.name}:${new Date(now).toDateString()}`, `💳 Prélèvement dans 2 jours : ${s.name}, ${s.amount.toFixed(2).replace('.', ',')} €.`);
     kv.setKv('selfcheck-told', JSON.stringify(told));
     return sent;
   }
@@ -1147,15 +1152,26 @@ export class Gateway {
     const facts = dayFacts(this.odin, now, now - 12 * 3600_000);
     let night = facts;
     const waiting = JSON.parse(this.odin.muninn.getKv('deferred') ?? '[]') as string[];
-    if (!this.odin.demo) {
+    if (this.modelePret()) {
       const r = await this.odin.agent.run(`${MORNING_PROMPT}\n\n${wrapUntrusted('faits de la nuit', `${facts}${waiting.length ? `\nMessages gardés pendant la nuit :\n${waiting.join('\n').slice(0, 4000)}` : ''}`)}`, { sessionId: 'journal:matin', channel: 'web', peer: 'principal', trusted: true, unattended: true, signal: this.signalFond(), automatique: MORNING_PROMPT }).catch(() => undefined);
       if (r?.text.trim()) night = r.text.trim().slice(0, 1500);
     }
     // Briefing : météo, agenda, mails, rappels du jour, machines (assemblé par le code : le contenu des mails ne passe jamais par le modèle).
     const b = await morningBriefing(this.odin, night, now).catch((e) => ({ text: `☀️ Bonjour !\n\n🌙 ${night}\n(briefing incomplet : ${(e as Error).message})`, speech: '' }));
-    if (waiting.length) this.odin.muninn.setKv('deferred', '');
     const t = this.ownerTarget();
-    if (t) await t.ch.send(t.peer, b.text + (waiting.length ? `\n\n— Gardé pendant la nuit :\n${waiting.join('\n\n').slice(0, 2500)}` : '')).catch(() => {});
+    // Les messages gardés ne quittent la file qu'une fois remis au propriétaire : personne de joignable (Odin sans
+    // messagerie, envoi raté), ils attendent le prochain rapport ou le prochain message d'Odin. Seuls les messages
+    // entrés EN ENTIER dans le rapport (2 500 caractères au plus) sont remis ; les suivants attendent le rapport suivant.
+    const partis = waiting.slice(0, messagesEntiers(waiting, 2500)), resteAvant = waiting.length - partis.length;
+    const garde = partis.length ? `\n\n— Gardé pendant la nuit :\n${partis.join('\n\n').slice(0, 2500)}${resteAvant ? `\n(+ ${resteAvant} au prochain rapport)` : ''}` : '';
+    const remis = t ? await t.ch.send(t.peer, b.text + garde).then(() => true, () => false) : false;
+    if (partis.length && remis) {
+      // Seulement ceux qui viennent de partir : un message gardé pendant l'envoi, ou pas entré dans le rapport, reste.
+      let apres: string[] = []; try { const l = JSON.parse(this.odin.muninn.getKv('deferred') || '[]') as unknown; if (Array.isArray(l)) apres = l.filter((x): x is string => typeof x === 'string'); } catch { /* illisible : vidée */ }
+      const reste = [...apres];
+      for (const w of partis) { const i = reste.indexOf(w); if (i >= 0) reste.splice(i, 1); }
+      this.odin.muninn.setKv('deferred', reste.length ? JSON.stringify(reste) : '');
+    }
     void pushAll(this.odin.paths.home, { title: 'Odin — briefing du matin', body: b.text.slice(0, 400), view: 'home', tag: 'odin-matin' }).catch(() => 0);
     for (const ch of this.channels.values()) ch.notify?.('watch');
     // Version à écouter (note vocale), si tu l'as demandée et que la voix est prête.
@@ -1174,7 +1190,7 @@ export class Gateway {
     writeFileSync(stamp, d.toDateString());
     const facts = dayFacts(this.odin, now);
     let text = `📓 Journal de bord — ${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}\n${facts}`;
-    if (!this.odin.demo) {
+    if (this.modelePret()) {
       const r = await this.odin.agent.run(`${JOURNAL_PROMPT}\n\n${wrapUntrusted('faits du jour', facts)}`, { sessionId: 'journal:soir', channel: 'web', peer: 'principal', trusted: true, unattended: true, signal: this.signalFond(), automatique: JOURNAL_PROMPT }).catch(() => undefined);
       if (r?.text.trim()) text = `📓 Journal de bord — ${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}\n${r.text.trim().slice(0, 2500)}`;
     }
@@ -1230,7 +1246,7 @@ export class Gateway {
       saveThread(this.odin.muninn, { ...th, archived: now });
     }
     // Questions gardées pendant une panne de modèle : on réessaie toutes les 10 min, et on répond pour de vrai.
-    if (!this.odin.demo && now - Number(this.odin.muninn.getKv('offline-tick') ?? 0) >= 10 * 60_000) {
+    if (this.modelePret() && now - Number(this.odin.muninn.getKv('offline-tick') ?? 0) >= 10 * 60_000) {
       this.odin.muninn.setKv('offline-tick', String(now));
       await this.retryOffline(now).catch((e) => console.error('[hors ligne]', (e as Error).message));
     }
@@ -1244,12 +1260,12 @@ export class Gateway {
     }
     // Alertes locales (météo dangereuse, cyclone, coupures…) : toutes les 2 h ; l'urgent passe même la nuit.
     const al = this.odin.cfg.alerts ?? { enabled: true, region: '' };
-    if (!this.odin.demo && al.enabled && now - Number(this.odin.muninn.getKv('alerts-tick') ?? 0) >= 2 * 3600_000) {
+    if (al.enabled && now - Number(this.odin.muninn.getKv('alerts-tick') ?? 0) >= 2 * 3600_000) {
       this.odin.muninn.setKv('alerts-tick', String(now));
       for (const a of await checkLocalAlerts(this.odin.muninn, this.odin.cfg.journal.city ?? '', al.region, new Date(now)).catch(() => [])) await this.tellOwner(a.text, 'home', a.urgent).catch(() => {});
     }
     // Mises à jour de nuit pas encore activées alors qu'Odin gère des machines : il le propose une fois (ou l'active en autonome).
-    if (!this.odin.demo && !this.odin.cfg.updates.enabled && !this.odin.muninn.getKv('maint-proposed') && new Date(now).getHours() >= 19 && listMachines(this.odin.paths.home).length) {
+    if (!this.odin.cfg.updates.enabled && !this.odin.muninn.getKv('maint-proposed') && new Date(now).getHours() >= 19 && listMachines(this.odin.paths.home).length) {
       this.odin.muninn.setKv('maint-proposed', String(now));
       const auto = this.odin.cfg.mimir.autonomy === 'breaker' || this.odin.cfg.mimir.autonomy === 'autonome';
       if (auto) {
@@ -1493,5 +1509,18 @@ export function continuousTodo(odin: Odin, recentTargets: Set<string> = new Set(
 }
 
 const MORNING_PROMPT = `Écris la partie « cette nuit » du briefing du matin, en français, très court (4 lignes au plus, sans titre ni salutation) : ce que tu as fait cette nuit, ce qui attend sa validation ou son attention, puis un conseil pour la journée. Appuie-toi UNIQUEMENT sur les faits ci-dessous ; n'invente rien. N'agis pas : n'utilise aucun outil.`;
+
+/**
+ * Combien des premiers messages gardés entrent EN ENTIER dans `max` caractères (séparés par une ligne vide). Le
+ * premier compte toujours (l'appelant le coupe à `max` s'il est plus long : la file ne reste jamais bloquée). Pur.
+ */
+export function messagesEntiers(messages: string[], max: number): number {
+  let k = 0, n = 0;
+  for (const m of messages) {
+    if (k && n + 2 + m.length > max) break;
+    n += (k ? 2 : 0) + m.length; k++;
+  }
+  return k;
+}
 
 function tomorrowAt9(): Date { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d; }

@@ -374,6 +374,10 @@
       "reconnaitreSons": {
         "quoi": "recognise everyday sounds (doorbell, alarm, barking)",
         "proche": "measure a sound without a model: silence, volume, tempo, key"
+      },
+      "rediger": {
+        "quoi": "write a free-form answer",
+        "proche": "what I recognise through my direct actions and my memory"
       }
     }
   }
