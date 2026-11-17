@@ -59,11 +59,24 @@ function ceQuiAgit(wf: { nodes: Array<{ name: string; type: string; params?: Rec
   }
   return out;
 }
+/**
+ * Ce que fera `id` (nom ou identifiant) si elle porte la marque « écrite par Odin » et qu'elle agit, ou rien. Lit les
+ * marques de ce Talos-là : sert aussi à Talos quand une automatisation en lance une autre (draupnir/service.ts, call).
+ */
+export function attendAccord(d: Talos, id: string): { nom: string; agit: string[] } | undefined {
+  const wf = d.get(id); if (!wf || !marques(d).has(wf.id)) return undefined;
+  const agit = ceQuiAgit(wf); if (!agit.length) return undefined; // rien d'engageant : sans risque, comme avant
+  return { nom: wf.name, agit };
+}
 /** La raison de demander l'accord avant de lancer `id` (nom ou identifiant), ou rien : partagée avec l'appli Talos. */
 export function graveExecuter(id: string): string | undefined {
-  const d = current, wf = d?.get(id); if (!d || !wf || !marques(d).has(wf.id)) return undefined;
-  const agit = ceQuiAgit(wf); if (!agit.length) return undefined; // rien d'engageant : sans risque, comme avant
-  return `lancer « ${wf.name} », une automatisation qu'Odin vient d'écrire et que tu n'as pas encore validée : ${agit.join(' ; ')}`;
+  const a = current ? attendAccord(current, id) : undefined; if (!a) return undefined;
+  return `lancer « ${a.nom} », une automatisation qu'Odin vient d'écrire et que tu n'as pas encore validée : ${a.agit.join(' ; ')}`;
+}
+/** L'automatisation qui porte déjà ce nom (sans tenir compte des majuscules ni des espaces autour), ou rien. */
+export function nomDejaPris(d: Talos, nom: string): { name: string } | undefined {
+  const n = String(nom ?? '').trim().toLowerCase();
+  return d.list().find((w) => w.name.trim().toLowerCase() === n || w.id === String(nom ?? ''));
 }
 
 export const draupnirTool: Tool = {
@@ -84,7 +97,7 @@ export const draupnirTool: Tool = {
       if (!ctx.llm) return 'Aucune IA disponible pour écrire l\'automatisation.';
       const draft = await flowFromDescription((sys, user) => ctx.llm!(sys, user, 6000), s(i.description));
       // Jamais une copie du même nom qu'une automatisation existante : un nom mène à une seule (« flux.exécuter », « Lancer »).
-      const nom = s(draft.name).trim().toLowerCase(), pris = d.list().find((w) => w.name.trim().toLowerCase() === nom || w.id === s(draft.name));
+      const pris = nomDejaPris(d, s(draft.name));
       if (pris) return `⚠️ Pas créée : une automatisation s'appelle déjà « ${pris.name} ». Je ne la double pas, pour qu'un nom ne mène qu'à une seule. Redemande avec un autre nom, ou ouvre Talos pour modifier celle-là.`;
       const wf = d.save({ ...draft, active: false });
       marquer(d, wf.id, true);
@@ -93,6 +106,9 @@ export const draupnirTool: Tool = {
     if (a === 'modele') {
       const t = templates().find((x) => x.id === id || x.name.toLowerCase() === id.toLowerCase());
       if (!t) return `Modèles : ${templates().map((x) => `${x.id} (${x.what})`).join(' ; ')}.`;
+      // Comme « creer » : jamais une copie d'un nom déjà pris (un nom ne mène qu'à une seule automatisation).
+      const pris = nomDejaPris(d, s(t.flow.name ?? t.name));
+      if (pris) return `⚠️ Modèle pas ajouté : une automatisation s'appelle déjà « ${pris.name} ». Je ne la double pas, pour qu'un nom ne mène qu'à une seule. Renomme celle-là dans Talos si tu veux ajouter le modèle.`;
       const wf = d.save({ ...t.flow, active: false });
       marquer(d, wf.id, true);
       return `✅ Modèle « ${wf.name} » ajouté (désactivé). ${t.what}`;

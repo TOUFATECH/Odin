@@ -43,6 +43,7 @@ import { cleNom, ecrireDossiers, ecrireJson, lireDossiers, lireSupprimes, MAX_DO
 import { automatisationsDepart, liensEntreApplis, type Depart } from './depart.ts';
 import { runCode } from './code.ts';
 import { CATALOG, NODES, fetchFige, parseFeed, versOdin } from './nodes.ts';
+import { attendAccord } from '../tools/draupnir.ts';
 
 /** La lecture d'un déclencheur « flux » ou « surveiller une page » : même contrôle que les blocs web (jamais Odin lui-même
  *  ni la machine d'Odin ; chaque redirection contrôlée ; sans fetch injecté, l'adresse contrôlée est celle de la connexion). */
@@ -450,6 +451,15 @@ export class Talos {
   /** Sous-automatisation : démarre par « Appelée par une automatisation » (sinon son premier déclencheur). */
   async call(idOrName: string, items: Item[], depth: number): Promise<Item[]> {
     const wf = this.get(idOrName); if (!wf) throw new Error(`automatisation introuvable : ${idOrName}`);
+    // Écrite par Odin, pas encore lancée avec l'accord du propriétaire, et elle agit : elle ne part pas d'ici (sinon
+    // une automatisation du propriétaire qui appelle un nom encore libre la lancerait sans lui). Il est prévenu comme
+    // pour un échec d'exécution ; celle du propriétaire, déjà validée ou qui n'agit pas part comme avant.
+    const attend = attendAccord(this, wf.id);
+    if (attend) {
+      const err = `« ${wf.name} » attend ton accord : lance-la une fois toi-même avec « Lancer » dans l'appli Talos, ou demande à Odin de la lancer ; « Tester » dans l'éditeur ne la valide pas (Odin l'a écrite et tu ne l'as pas encore validée ; ${attend.agit.join(' ; ')})`;
+      await this.deps.notify?.(`⚠️ Talos — ${err}`).catch(() => {});
+      throw new Error(err);
+    }
     const start = wf.nodes.find((n) => n.type === 'déclencheur.appel') ?? wf.nodes.find((n) => CATALOG.get(n.type)?.trigger);
     const ex = await this.run(wf.id, items, 'déclencheur', start?.name, { depth });
     if (ex.status !== 'succès') throw new Error(`« ${wf.name} » : ${ex.error}`);
