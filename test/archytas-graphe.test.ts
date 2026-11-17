@@ -62,3 +62,21 @@ test('graphe : sans WebGL, mount bascule vers la vue 2D (onReplier appelé)', ()
   assert.equal(replie, true, 'le faux navigateur n\'a pas de WebGL → repli demandé');
   assert.equal(pilote.replie, true);
 });
+
+test('graphe : quand le graphe 3D commun est chargé, c\'est lui qui dessine, chaque script à sa place (placer)', () => {
+  const nav = fauxNavigateur();
+  const ctx = vm.createContext(nav.sandbox);
+  vm.runInContext(src, ctx);
+  const recu: Array<{ data: { nodes: Array<{ id: string; pos: { x: number; y: number; z: number }; groupe: string }> }; o: { onOpen?: unknown } }> = [];
+  (nav.window as Record<string, unknown>).OdinGrapheEspace = { mount: (_b: unknown, data: never, o: never) => { recu.push({ data, o }); return { replie: false, detacher() {}, update() {} }; } };
+  const G = (nav.window as unknown as { OdinGraphe3D: { mount: (b: unknown, d: unknown, o?: unknown) => { replie: boolean }; logique: { placer: (n: unknown) => { x: number; y: number; z: number } } } }).OdinGraphe3D;
+  const n = { id: 'a', label: 'a', sub: 'arroser', usage: 1, frais: 0.5 };
+  const ouvrir = () => {};
+  const pilote = G.mount(nav.make('div'), { nodes: [n], edges: [] }, { onOpen: ouvrir });
+  assert.equal(pilote.replie, false);
+  assert.equal(recu.length, 1);
+  const p = G.logique.placer(n), q = recu[0].data.nodes[0];
+  assert.deepEqual([q.pos.x, q.pos.y, q.pos.z], [p.x, p.y, p.z], 'la place qui a un sens est gardée');
+  assert.equal(q.groupe, 'arroser', 'la mission fait le groupe');
+  assert.equal(recu[0].o.onOpen, ouvrir, 'le même onOpen');
+});

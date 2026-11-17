@@ -3,8 +3,8 @@
 //   - Les données viennent de /api/plugins/* (propriétaire seul). Tout texte affiché passe par textContent.
 //   - Un connecteur ne se branche qu'après la confirmation du propriétaire (OdinDialog.confirm) ; son jeton n'est
 //     jamais relu ni affiché : la page sait seulement s'il y en a un.
-//   - Le 3D est un faux-3D sur toile 2D (aucune bibliothèque) qui se sert de OdinGraphe3D.logique ; le 2D se sert de
-//     OdinGraph.mount. Ni l'un ni l'autre n'est modifié ici.
+//   - « Graphe | Graphe 3D » : le 3D est le graphe 3D commun (OdinGrapheEspace, src/web/pages/graphe-espace.js) avec
+//     les places d'ici ; le 2D se sert de OdinGraph.mount. Ni l'un ni l'autre n'est modifié ici.
 // window.OdinPlugins.logique (sans document) : placer, rangs, ecarter, camera, placerEtiquettes, couleurDe, formeDe,
 // tronquer, etatTexte, accesTexte, modeInitial, listeAccessible, provenanceTexte, horsPlugin — vérifiées par
 // test/plugins-page.test.ts.
@@ -249,6 +249,7 @@
 .pl-leg{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);align-items:center}
 .pl-leg span{display:inline-flex;align-items:center;gap:5px}
 .pl-leg svg{width:14px;height:14px;flex:none}
+.pl-leg .pl-pt{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
 #plGraphe{position:relative;width:100%;height:460px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--panel) 75%,var(--bg));touch-action:none}
 #plGraphe canvas.pl-3d{display:block;width:100%;height:100%;cursor:grab}
 #plGraphe canvas.pl-3d.on{cursor:pointer}#plGraphe canvas.pl-3d.drag{cursor:grabbing}
@@ -488,9 +489,12 @@
   /** La légende de la vue choisie : formes et trois traits en 3D ; en 2D, le graphe a sa propre légende des couleurs, et deux traits seulement. */
   function legende(m) {
     if (m === '2d') return el('div', { class: 'pl-leg', id: 'plLeg' }, el('span', {}, iconeTrait(''), 'déclaré'), el('span', {}, iconeTrait('4 3'), 'cité, constaté, Brain ou Mémoire'));
+    // En 3D, les couleurs sont celles des groupes dans l'espace (le composant commun les choisit, toujours les mêmes).
+    const E = espace(), coul = E && E.logique && E.logique.couleurGroupe;
+    const pastille3D = (sorte) => { if (!coul) return iconeForme(sorte); const i = el('i', { 'aria-hidden': 'true', class: 'pl-pt' }); i.style.background = coul(GROUPES_3D[sorte]); return i; };
     return el('div', { class: 'pl-leg', id: 'plLeg' },
-      el('span', {}, iconeForme('brain'), 'Brain / Mémoire / Soul'), el('span', {}, iconeForme('plugin'), 'plugin'),
-      el('span', {}, iconeForme('skill'), 'compétence'), el('span', {}, iconeForme('mcp'), 'connecteur MCP'),
+      el('span', {}, pastille3D('brain'), 'Brain / Mémoire / Soul'), el('span', {}, pastille3D('plugin'), 'plugin'),
+      el('span', {}, pastille3D('skill'), 'compétence'), el('span', {}, pastille3D('mcp'), 'connecteur MCP'),
       el('span', {}, iconeTrait(''), 'déclaré'), el('span', {}, iconeTrait('4 3'), 'cité ou constaté'), el('span', {}, iconeTrait('1.5 3'), 'Brain ou Mémoire'));
   }
 
@@ -500,9 +504,11 @@
     if (!etat) { pan.replaceChildren(el('div', { class: 'empty' }, erreurEtat || 'Chargement…')); return; }
     const r = etat.resume || {};
     const resume = `${r.plugins || 0} plugin(s) · ${r.competences || 0} compétence(s) · ${r.connecteurs || 0} connecteur(s) · ${r.seuls || 0} point(s) sans aucun lien${r.brouillons > 0 ? ` · ${r.brouillons} brouillon(s) non montrés` : ''}`;
-    const seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Vue du graphe' },
-      el('button', { type: 'button', 'data-mode': '3d', 'aria-pressed': 'false', onclick: () => changerMode('3d') }, '3D'),
-      el('button', { type: 'button', 'data-mode': '2d', 'aria-pressed': 'false', onclick: () => changerMode('2d') }, '2D'));
+    // « Graphe | Graphe 3D », avec les mots du graphe commun (dans la langue de la page) quand il est chargé.
+    const mots = (window.OdinGrapheEspace && window.OdinGrapheEspace.textes && window.OdinGrapheEspace.textes()) || { graphe: 'Graphe', graphe3d: 'Graphe 3D', vue: 'Vue du graphe' };
+    const seg = el('div', { class: 'seg', role: 'group', 'aria-label': mots.vue },
+      el('button', { type: 'button', 'data-mode': '2d', 'aria-pressed': 'false', onclick: () => changerMode('2d') }, mots.graphe),
+      el('button', { type: 'button', 'data-mode': '3d', 'aria-pressed': 'false', onclick: () => changerMode('3d') }, mots.graphe3d));
     const caseFixes = el('input', { type: 'checkbox', id: 'plFixes', onchange: (e) => { avecFixes = e.target.checked; peindreGraphe(); } });
     caseFixes.checked = avecFixes;
     const cartes = (etat.plugins || []).map(cartePlugin);
@@ -586,11 +592,8 @@
       if (m === '2d' && (reducedMotion() || !webglDispo())) motif = 'Vue 2D : ton appareil demande peu de mouvement, ou la vue 3D était trop lente.';
       mode = m;
     }
-    if (mode === '3d' && !G3()) mode = '2d';
-    const pan = $('skPanPlug');
-    for (const b of [...(pan ? pan.querySelectorAll('button') : [])].filter((x) => x.getAttribute('data-mode'))) b.setAttribute('aria-pressed', b.getAttribute('data-mode') === mode ? 'true' : 'false');
-    const m = $('plMotif'); if (m) { m.textContent = motif; if (motif) m.removeAttribute('hidden'); else m.setAttribute('hidden', ''); }
-    const leg = $('plLeg'); if (leg && leg.replaceWith) leg.replaceWith(legende(mode));
+    if (mode === '3d' && !espace()) mode = '2d';
+    majChoix();
     const nonFixes = (etat.noeuds || []).filter((n) => !estFixe(n.sorte));
     if (!nonFixes.length) { boite.replaceChildren(el('div', { class: 'empty' }, 'Rien à montrer : aucune compétence active ni connecteur. Les compétences apparaissent ici dès qu\'Odin en apprend une ou que tu en approuves une.')); return; }
     const vue = filtrer(etat, avecFixes);
@@ -611,115 +614,38 @@
     return { detacher() {}, g };
   }
 
+  /** Le nom du groupe d'une sorte dans le graphe 3D (écrit en capitales dans l'espace, et dans la légende). */
+  const GROUPES_3D = { brain: 'Brain / Mémoire / Soul', memoire: 'Brain / Mémoire / Soul', soul: 'Brain / Mémoire / Soul', plugin: 'plugin', skill: 'compétence', mcp: 'connecteur MCP' };
+  const espace = () => (window.OdinGrapheEspace && typeof window.OdinGrapheEspace.mount === 'function' ? window.OdinGrapheEspace : null);
+
+  /**
+   * Le graphe 3D : le composant commun (OdinGrapheEspace), avec les places d'ici (étages par sorte, points répartis
+   * puis écartés sur leur anneau). Sans lui, ou si l'appareil ne peut pas, le graphe 2D.
+   */
   function graphe3D(boite, vue) {
-    const L = G3();
-    const n = vue.noeuds.length, nl = vue.liens.length;
-    const cvs = el('canvas', { class: 'pl-3d', tabindex: '0', role: 'img', 'aria-label': `Graphe 3D des compétences, connecteurs et plugins : ${n} points, ${nl} liens.` });
-    const tip = el('div', { class: 'pl-tip', hidden: true });
-    const sr = el('div', { class: 'pl-sr' }, ...listeAccessible({ noeuds: vue.noeuds }).map((x) => el('button', { type: 'button', onclick: () => ouvrirFiche(x.id) }, x.libelle)));
-    boite.replaceChildren(cvs, tip, sr);
-    const ctx = cvs.getContext && cvs.getContext('2d');
-    if (!ctx) { mode = '2d'; motif = 'Vue 2D : ton appareil demande peu de mouvement, ou la vue 3D était trop lente.'; return graphe2D(boite, vue); }
-    // Répartis à intervalle régulier, puis écartés s'ils restent trop proches sur leur anneau.
+    const E = espace();
+    if (!E) { mode = '2d'; return graphe2D(boite, vue); }
     const rg = rangs(vue.noeuds);
     const p3s = ecarter(vue.noeuds.map((nd) => placer(nd, undefined, rg.get(nd.id))));
-    const places = vue.noeuds.map((nd, i) => ({ nd, p3: p3s[i] }));
-    let rot = 0, points = [], dpr = 1, larg = 0, haut = 0;
-    const taille = () => {
-      const r = cvs.getBoundingClientRect();
-      larg = Math.max(1, Math.round(r.width)); haut = Math.max(1, Math.round(r.height));
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-      cvs.width = Math.round(larg * dpr); cvs.height = Math.round(haut * dpr);
-    };
-    const forme = (f, x, y, t) => {
-      ctx.beginPath();
-      if (f === 'carre') ctx.rect(x - t, y - t, t * 2, t * 2);
-      else if (f === 'losange') { ctx.moveTo(x, y - t * 1.2); ctx.lineTo(x + t * 1.2, y); ctx.lineTo(x, y + t * 1.2); ctx.lineTo(x - t * 1.2, y); ctx.closePath(); }
-      else if (f === 'triangle') { ctx.moveTo(x, y - t * 1.15); ctx.lineTo(x + t * 1.1, y + t * 0.85); ctx.lineTo(x - t * 1.1, y + t * 0.85); ctx.closePath(); }
-      else ctx.arc(x, y, t, 0, Math.PI * 2);
-    };
-    function dessiner() {
-      if (document.hidden || !larg) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, larg, haut);
-      const couleur = {}; for (const s of Object.keys(COULEURS)) couleur[s] = cssVar(couleurDe(s), '#888');
-      const ink = cssVar('--ink', '#ddd'), muted = cssVar('--muted', '#999'), bad = cssVar('--bad', '#c33');
-      // Projection : la scène est ramenée dans la boîte (les points du bas et leurs noms restent visibles).
-      // Sur une boîte large, l'anneau s'étire en largeur (après projection) : les noms se chevauchent moins.
-      const etire = Math.min(2.2, Math.max(1, larg / haut));
-      const etireY = Math.min(1.6, 1.25 * Math.max(1, haut / larg));
-      // Caméra un peu au-dessus (camera) : la rotation est faite ici, projeter reçoit donc rot = 0.
-      points = places.map(({ nd, p3 }) => { const c = camera(p3, rot); const p = L.projeter({ x: c.x, y: c.y * 0.86 + 0.04, z: c.z }, larg, haut, 0); return { id: nd.id, nd, ...p, sx: larg / 2 + (p.sx - larg / 2) * etire, sy: haut / 2 + (p.sy - haut / 2) * etireY, taille: p.taille * (ECHELLES[nd.sorte] || 1) * 0.85 }; });
-      const parId = new Map(points.map((p) => [p.id, p]));
-      ctx.lineWidth = 1.2;
-      for (const l of vue.liens) {
-        const a = parId.get(l.a), b = parId.get(l.b); if (!a || !b) continue;
-        const av = ((a.prof + b.prof) / 2 + 1) / 2;
-        ctx.globalAlpha = 0.25 + 0.45 * av; ctx.strokeStyle = muted; ctx.setLineDash(trait(l));
-        ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
-      }
-      ctx.setLineDash([]);
-      const ordre = points.slice().sort((p, q) => p.prof - q.prof);
-      for (const p of ordre) {
-        const av = (p.prof + 1) / 2, s = p.nd.sorte, f = formeDe(s);
-        ctx.globalAlpha = 0.45 + 0.55 * av;
-        forme(f, p.sx, p.sy, p.taille);
-        if (s === 'mcp' && p.nd.etat === 'a-relier') { ctx.lineWidth = 2; ctx.strokeStyle = couleur[s]; ctx.stroke(); }
-        else { ctx.fillStyle = couleur[s]; ctx.fill(); }
-        if (s === 'mcp' && p.nd.etat === 'panne') { ctx.lineWidth = 2.5; ctx.strokeStyle = bad; forme(f, p.sx, p.sy, p.taille + 3); ctx.stroke(); }
-      }
-      // Les noms, toujours écrits et à pleine opacité (lisibles en clair comme en sombre), sur un liseré de la couleur
-      // du fond. Ceux de devant sont placés d'abord : dessous, au-dessus, à droite ou à gauche de leur point.
-      ctx.font = '12px system-ui, sans-serif'; ctx.textBaseline = 'top';
-      const devant = ordre.slice().reverse(), court = larg < 520 ? 14 : 22;
-      const textes = devant.map((p) => tronquer(p.nd.nom, court));
-      const places2 = placerEtiquettes(devant, textes.map((t) => ctx.measureText(t).width + 6), larg, haut);
-      const fond = cssVar('--panel', '#222');
-      ctx.globalAlpha = 1; ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = fond; ctx.fillStyle = ink;
-      for (let i = devant.length - 1; i >= 0; i--) {
-        const e = places2[i];
-        ctx.textAlign = e.align;
-        ctx.strokeText(textes[i], e.x, e.y); ctx.fillText(textes[i], e.x, e.y);
-      }
-      ctx.globalAlpha = 1;
-    }
-    taille();
-    const t0 = performance.now(); dessiner(); const duree = performance.now() - t0;
-    if (L.doitReplier({ webgl: true, premiereImageMs: duree }) && lire('odin.plugins.vue') !== '3d') {
-      mode = '2d'; motif = 'Vue 2D : ton appareil demande peu de mouvement, ou la vue 3D était trop lente.';
-      return graphe2D(boite, vue);
-    }
-    // Tourner à la main (aucune rotation automatique) ; un appui sans glisser ouvre la fiche du point.
-    let glisse = null;
-    const local = (e) => { const r = cvs.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-    cvs.addEventListener('pointerdown', (e) => { glisse = { x: e.clientX, y: e.clientY, rot, bouge: false }; try { cvs.setPointerCapture(e.pointerId); } catch { /* rien */ } });
-    cvs.addEventListener('pointermove', (e) => {
-      if (glisse) {
-        if (!glisse.bouge && Math.hypot(e.clientX - glisse.x, e.clientY - glisse.y) >= 4) { glisse.bouge = true; cvs.classList.add('drag'); tip.setAttribute('hidden', ''); }
-        if (glisse.bouge) { rot = glisse.rot + (e.clientX - glisse.x) / 140; dessiner(); }
-        return;
-      }
-      const p = local(e), id = L.choisir(points, p.x, p.y);
-      cvs.classList.toggle('on', Boolean(id));
-      if (id) {
-        const pt = points.find((x) => x.id === id);
-        tip.textContent = `${pt.nd.nom} — ${pt.nd.sous}`; tip.removeAttribute('hidden');
-        tip.style.left = `${Math.max(4, Math.min(larg - 200, pt.sx + 10))}px`; tip.style.top = `${Math.max(4, pt.sy - 34)}px`;
-      } else tip.setAttribute('hidden', '');
+    const acc = new Map(listeAccessible({ noeuds: vue.noeuds }).map((x) => [x.id, x.libelle]));
+    const nodes = vue.noeuds.map((n, i) => ({ id: n.id, label: n.nom, sub: n.sous, title: `${n.nom} — ${n.sous}`, libelle: acc.get(n.id), hub: estFixe(n.sorte), groupe: GROUPES_3D[n.sorte] || n.sorte, pos: p3s[i], alert: n.sorte === 'mcp' && n.etat === 'panne' ? { n: 1 } : undefined }));
+    const edges = vue.liens.map((l) => { const d = trait(l); return { a: l.a, b: l.b, title: l.titre, dash: d.length ? d : undefined }; });
+    let replie = false;
+    const c = E.mount(boite, { nodes, edges, label: 'Graphe des compétences, connecteurs et plugins' }, {
+      onOpen: (id) => ouvrirFiche(id),
+      // Choisi à la main (« Graphe 3D » touché) : montré même si l'appareil demande peu de mouvement (sans animation).
+      force: lire('odin.plugins.vue') === '3d',
+      onReplier: () => { replie = true; },
     });
-    cvs.addEventListener('pointerleave', () => { if (!glisse) tip.setAttribute('hidden', ''); });
-    cvs.addEventListener('pointerup', (e) => {
-      if (!glisse) return;
-      const bouge = glisse.bouge; glisse = null; cvs.classList.remove('drag');
-      if (!bouge) { const p = local(e), id = L.choisir(points, p.x, p.y); if (id) ouvrirFiche(id); }
-    });
-    cvs.addEventListener('pointercancel', () => { glisse = null; cvs.classList.remove('drag'); });
-    cvs.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { rot += (e.key === 'ArrowLeft' ? -1 : 1) * Math.PI / 12; dessiner(); e.preventDefault(); } });
-    let obs = null;
-    try { obs = new ResizeObserver(() => { taille(); dessiner(); }); obs.observe(cvs); } catch { /* taille figée */ }
-    const visible = () => dessiner();
-    document.addEventListener('visibilitychange', visible);
-    return { detacher() { try { if (obs) obs.disconnect(); } catch { /* rien */ } document.removeEventListener('visibilitychange', visible); } };
+    if (replie || c.replie) { mode = '2d'; motif = 'Vue 2D : ton appareil demande peu de mouvement, ou la vue 3D était trop lente.'; majChoix(); return graphe2D(boite, vue); }
+    return { detacher() { c.detacher(); } };
+  }
+  /** Les boutons « Graphe | Graphe 3D » et la note suivent le mode réellement montré. */
+  function majChoix() {
+    const pan = $('skPanPlug');
+    for (const b of [...(pan ? pan.querySelectorAll('button') : [])].filter((x) => x.getAttribute('data-mode'))) b.setAttribute('aria-pressed', b.getAttribute('data-mode') === mode ? 'true' : 'false');
+    const m = $('plMotif'); if (m) { m.textContent = motif; if (motif) m.removeAttribute('hidden'); else m.setAttribute('hidden', ''); }
+    const leg = $('plLeg'); if (leg && leg.replaceWith) leg.replaceWith(legende(mode));
   }
 
   // ---------------- Les fiches (un clic sur un point)

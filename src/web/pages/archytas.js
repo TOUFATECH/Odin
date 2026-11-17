@@ -4,7 +4,8 @@
 //     choisi (ce qu'il fait, ses déclencheurs, ses dates, son usage, et son contenu) avec un bouton « Éditer » pour
 //     le modifier à la main. À l'enregistrement, Odin le range de partout (mémoire, Cerveau, Noûs) — côté serveur.
 //   - Suivi : la vue 2D riche (OdinArchytasSuivi) — le plus utilisé, les récents, les anciens, utilisés / jamais.
-//   - Graphe : le graphe 3D léger (OdinGraphe3D), avec repli 2D automatique sur une petite machine.
+//   - Graphe : « Graphe | Graphe 3D » (OdinGrapheEspace.choix) ; sans le composant commun, le 3D léger (OdinGraphe3D)
+//     avec repli vers la vue 2D riche sur une petite machine.
 // La page ne connaît ni la base ni aucun serveur : elle n'appelle que les routes /api/archytas/* d'Odin (connexion
 // exigée ; le code n'est servi qu'au propriétaire). Toute confirmation passe par OdinDialog. Lisible à 1280 px comme
 // à 390 px. HONNÊTE : le code libre est une « barrière fortement renforcée, PAS une prison parfaite ».
@@ -142,7 +143,7 @@
     const racine = el('div', { class: 'ar' }, intro, tabs, corps);
     host.replaceChildren(racine);
 
-    const ONGLETS = [['scripts', 'Scripts'], ['suivi', 'Suivi'], ['graphe', 'Graphe 3D']];
+    const ONGLETS = [['scripts', 'Scripts'], ['suivi', 'Suivi'], ['graphe', 'Graphe']];
     function peindreTabs() {
       tabs.replaceChildren(...ONGLETS.map(([id, lab]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(etat.onglet === id), onclick: () => onglet(id) }, lab)));
     }
@@ -248,6 +249,17 @@
       const data = r.j && Array.isArray(r.j.nodes) ? r.j : { nodes: etat.scripts.map(versNoeud), edges: [] };
       const boite = el('div');
       corps.replaceChildren(boite);
+      // « Graphe | Graphe 3D » : les mêmes scripts dans les deux vues. En 3D, chaque script garde sa place qui a un sens
+      // (hauteur = combien il sert, profondeur = sa fraîcheur : les récents devant, les anciens au fond).
+      const espace = window.OdinGrapheEspace, L3 = window.OdinGraphe3D && window.OdinGraphe3D.logique;
+      if (espace && window.OdinGraph) {
+        const ouvrirScript = (nom) => { etat.onglet = 'scripts'; choisir(nom); };
+        // Un léger écart tiré du nom (toujours le même) : deux scripts de même mission, usage et fraîcheur ne se cachent pas.
+        const ecart = (id, k) => { const g = espace.logique && espace.logique.graine ? espace.logique.graine(`${id}|${k}`) : 0; return ((g % 1000) / 1000 - 0.5) * 0.12; };
+        const nodes = (data.nodes || []).map((n) => { const p = L3 ? L3.placer(n) : null; return { ...n, groupe: n.sub || '', title: `${n.label || n.id}${n.sub ? ` — ${n.sub}` : ''}`, pos: p ? { x: p.x + ecart(n.id, 'x'), y: p.y + ecart(n.id, 'y'), z: p.z + ecart(n.id, 'z') } : undefined }; });
+        grapheCtrl = espace.choix(boite, { cle: 'archytas:scripts', defaut: '3d', donnees: { label: 'Carte des scripts', nodes, edges: data.edges || [], search: 'Chercher un script…', onOpen: ouvrirScript } });
+        return;
+      }
       if (!window.OdinGraphe3D) { replierSuivi(); return; }
       grapheCtrl = window.OdinGraphe3D.mount(boite, data, {
         onOpen: (nom) => { etat.onglet = 'scripts'; choisir(nom); },

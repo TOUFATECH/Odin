@@ -6,7 +6,8 @@
 // de boutons (cachée à l'œil) garde le clavier et les lecteurs d'écran.
 //   Repli automatique vers la vue 2D riche (OdinArchytasSuivi) si : pas de carte graphique (WebGL absent),
 //   « mouvement réduit » demandé, pas de contexte 2D, ou la première image met trop de temps (~12 ms).
-// Chargée toute seule ; la page appelle OdinGraphe3D.mount(boîte, { nodes, edges }, { onOpen, onReplier }).
+// Chargée toute seule ; la page appelle OdinGraphe3D.mount(boîte, { nodes, edges }, { onOpen, onReplier }). Quand le
+// graphe 3D commun (graphe-espace.js, OdinGrapheEspace) est chargé, c'est lui qui dessine, avec les places d'ici.
 // OdinGraphe3D.logique (sans document) : placer, projeter, choisir, doitReplier — vérifiées par archytas-graphe.test.ts.
 (() => {
   'use strict';
@@ -104,6 +105,13 @@
    * opts.onReplier(boite) si on bascule en 2D. Rend un petit pilote { replie, detacher, update }.
    */
   function mount(boite, data, opts = {}) {
+    // Le graphe 3D commun (OdinGrapheEspace) quand il est chargé : chaque script garde sa place (placer), dans l'espace.
+    const E = window.OdinGrapheEspace;
+    if (E && typeof E.mount === 'function') {
+      const nds = (data && Array.isArray(data.nodes) ? data.nodes : []).map((n) => { const p = placer(n); return { ...n, groupe: n.sub || '', pos: { x: p.x, y: p.y, z: p.z } }; });
+      const c = E.mount(boite, { label: 'Carte des scripts', nodes: nds, edges: (data && data.edges) || [] }, { onOpen: opts.onOpen, onReplier: (b) => { if (typeof opts.onReplier === 'function') opts.onReplier(b); } });
+      return { replie: c.replie, detacher: () => c.detacher(), update: (d2) => c.update({ nodes: ((d2 && d2.nodes) || []).map((n) => { const p = placer(n); return { ...n, groupe: n.sub || '', pos: { x: p.x, y: p.y, z: p.z } }; }), edges: (d2 && d2.edges) || [] }) };
+    }
     style();
     const nodes = (data && Array.isArray(data.nodes) ? data.nodes : []);
     const edges = (data && Array.isArray(data.edges) ? data.edges : []);

@@ -109,7 +109,12 @@
         title: `${nameOf(p.a)} → ${nameOf(p.b)} : ${p.ab} paquet(s) · ${nameOf(p.b)} → ${nameOf(p.a)} : ${p.ba} · ${size(p.bytes)} · ${[...p.apps].join(', ')}${p.site ? ` · ${p.site}` : ''}` }));
       const data = { legend: [['#4F9DDE', 'Internet'], ['#57C98A', 'diffusion'], ['#E8EAEC', 'réseau local'], ['#7d8791', 'hors ligne']], nodes, edges, label: 'Carte des communications', search: 'Chercher une machine, un site…', counter: () => `${nodes.length} machines et sites · ${edges.length} liens`,
         onOpen: (id) => { sel = id; peer = ''; drawMap(); paintCom(); loadPackets(); paintBack(); }, onEdge: (a, b) => { sel = a; peer = b; drawMap(); paintCom(); loadPackets(); paintBack(); } };
-      if (graph && mapBox.contains(graph.el)) graph.update(data); else graph = window.OdinGraph.mount(mapBox, data);
+      // « Graphe | Graphe 3D » à côté de la carte : les mêmes données, le choix retenu (toute la maison, ou par machine).
+      if (graph && mapBox.contains(graph.el)) graph.update(data);
+      else {
+        if (graph && graph.detacher) { try { graph.detacher(); } catch { /* rien */ } } // l'ancienne carte : débranchée
+        graph = window.OdinGrapheEspace ? window.OdinGrapheEspace.choix(mapBox, { cle: scope ? 'ariane:machine' : 'ariane:reseau', donnees: data }) : window.OdinGraph.mount(mapBox, data);
+      }
     }
     function paintCom() {
       const me = sel || scope;

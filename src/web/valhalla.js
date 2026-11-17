@@ -380,6 +380,8 @@
     box.append(dyn, res.out, res.dl, res.close);
     peindre();
   }
+  /** Le graphe monté pour chaque appli (pour le débrancher quand la page se redessine). */
+  const graphesApplis = new Map();
   /** Graphe d'une appli (même dessin que le Cerveau) : un clic sur un point ouvre sa fiche à droite. */
   function graphSection(mod, s, box) {
     const fiche = el('div', { class: 'va-fiche', 'aria-live': 'polite' });
@@ -398,7 +400,12 @@
     box.append(el('div', { class: 'va-gr' }, host, el('div', {}, fiche)));
     const first = Object.keys(s.details)[0];
     if (first) showDetail(first); else fiche.append(el('p', { class: 'sub' }, 'Clique sur un point pour voir sa fiche.'));
-    if (window.OdinGraph) window.OdinGraph.mount(host, { dark: true, nodes: s.nodes, edges: s.edges, legend: s.legend, label: s.title, search: 'Chercher (nom, adresse, domaine)…', counter: (n, e) => `${n.length} points · ${e.length} liens`, onOpen: (id) => showDetail(id) });
+    const donnees = { dark: true, nodes: s.nodes, edges: s.edges, legend: s.legend, label: s.title, search: 'Chercher (nom, adresse, domaine)…', counter: (n, e) => `${n.length} points · ${e.length} liens`, onOpen: (id) => showDetail(id) };
+    // « Graphe | Graphe 3D » à côté du graphe de chaque appli : les mêmes données, le choix retenu pour cette appli.
+    // L'ancien graphe de cette appli (page redessinée) est débranché d'abord : rien ne reste en mémoire.
+    const avant = graphesApplis.get(mod); if (avant && avant.detacher) { try { avant.detacher(); } catch { /* rien */ } }
+    if (window.OdinGrapheEspace) graphesApplis.set(mod, window.OdinGrapheEspace.choix(host, { cle: `appli:${mod}`, donnees }));
+    else if (window.OdinGraph) window.OdinGraph.mount(host, donnees);
   }
   async function runOther(m, action, input) {
     const r = await api('/api/valhalla/act', { module: m, action, input });
@@ -534,15 +541,21 @@
     if (!st?.ok || !window.OdinGraph) return;
     const fams = [...new Set(st.modules.map((m) => m.family))];
     const nodes = [{ id: 'odin', label: 'Odin', hub: true, size: 20, color: '#E3AC3F', title: 'Odin : toutes ses applis' },
-      ...fams.map((f) => ({ id: `fam:${f}`, label: `${icon[f] ?? ''} ${f}`.trim(), hub: true, title: `Famille ${f}` })),
-      ...st.modules.map((m) => ({ id: m.id, label: m.name, icon: m.id, size: 16, what: m.what, sub: m.family, search: `${m.what} ${(m.does || []).join(' ')}`,
+      ...fams.map((f) => ({ id: `fam:${f}`, label: `${icon[f] ?? ''} ${f}`.trim(), hub: true, title: `Famille ${f}`, groupe: f })),
+      // `groupe` : la famille (le 3D en fait un amas de sa couleur, avec son nom ; le 2D ne s'en sert pas).
+      ...st.modules.map((m) => ({ id: m.id, label: m.name, icon: m.id, size: 16, what: m.what, sub: m.family, groupe: m.family, search: `${m.what} ${(m.does || []).join(' ')}`,
         alert: m.alerts ? { n: m.alerts, level: m.grave ? 'grave' : 'attention' } : undefined, update: m.updates || 0,
         title: `${m.name} — ${m.what}${m.alerts ? ` · ${m.alerts} alerte(s)` : ''}${m.updates ? ` · ${m.updates} nouveauté(s) de son projet d'origine` : ''}` }))];
     const edges = [...fams.map((f) => ['odin', `fam:${f}`]), ...st.modules.map((m) => [`fam:${m.family}`, m.id]), ...st.links.filter((l) => l.from !== l.to).map((l) => [l.from, l.to])];
     // Carte en pleine page (vue « Carte ») : plein écran, clavier, liste lue par les lecteurs d'écran, fiche habillée et cliquable.
     const ficheDe = (m) => (window.OdinFicheAppli ? window.OdinFicheAppli.construire(m, { ouvrir: () => openApp(m.id) }) : appCard(m));
     const data = { nodes, edges, echanges: true, plein: true, liste: 'cachee', pleinEcran: true, clavier: true, carte: 'interactive', card: (n) => { const m = st.modules.find((x) => x.id === n.id); return m ? ficheDe(m) : null; }, label: 'Graphe des applis d\'Odin', search: 'Chercher une appli…', counter: (n, e) => `${st.modules.length} applis · ${e.length} liens`, onOpen: (id) => { if (id === 'odin' || id.startsWith('fam:')) return; openApp(id); } };
-    if (graphUi && into.contains(graphUi.el)) graphUi.update(data); else graphUi = window.OdinGraph.mount(into, data);
+    // La carte des applis a aussi son « Graphe 3D » à côté (même données, choix retenu).
+    if (graphUi && into.contains(graphUi.el)) graphUi.update(data);
+    else {
+      if (graphUi && graphUi.detacher) { try { graphUi.detacher(); } catch { /* rien */ } }
+      graphUi = window.OdinGrapheEspace ? window.OdinGrapheEspace.choix(into, { cle: 'applis:carte', donnees: data, plein: true }) : window.OdinGraph.mount(into, data);
+    }
   }
   /** Les manips d'Odin (réflexes, soins, automatisations) qui attendent ta décision. */
   async function manips(into) {

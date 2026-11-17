@@ -82,6 +82,9 @@ export const ECRANS: Cible[] = [
   spa('activite', 'Activité', `window.OdinShow('missions')`, '#v-missions'),
   spa('memoire', 'Souvenirs (dans le Cerveau)', `window.OdinShow('memory')`, '#v-brain'),
   spa('competences', 'Compétences', `window.OdinShow('skills')`, '#v-skills'),
+  // Le « Graphe 3D » commun (src/web/pages/graphe-espace.js) : à côté du graphe d'une appli, et sur la carte des applis.
+  spa('graphe-3d:appli', 'Graphe 3D d\'une appli (Surveillance)', `void window.OdinApps.app('vordr').then(() => setTimeout(() => document.querySelector('#v-app .ge-seg [data-vue="3d"]')?.click(), 300))`, '#v-app', { pret: '#v-app .ge canvas' }),
+  spa('graphe-3d:carte', 'Graphe 3D de la carte des applis', `window.OdinShow('apps'); setTimeout(() => { document.querySelector('#v-apps .seg [data-vue="carte"]')?.click(); setTimeout(() => document.querySelector('#vaPaneCarte .ge-seg [data-vue="3d"]')?.click(), 300); }, 400)`, '#v-apps', { pret: '#vaPaneCarte .ge canvas' }),
   spa('taches', 'Tâches planifiées', `window.OdinShow('jobs')`, '#v-jobs'),
   spa('decisions', 'Décisions', `window.OdinShow('audit')`, '#v-audit'),
   spa('palette', 'Chercher ou faire (Ctrl K)', `window.OdinShow('home'); document.querySelector('#palBtn').click()`, 'body'),

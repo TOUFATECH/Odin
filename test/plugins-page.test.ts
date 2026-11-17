@@ -272,3 +272,15 @@ test('34. rien à dessiner : seuls les trois points fixes donnent le message pr�
   assert.ok(p.$('plGraphe').textContent.startsWith('Rien à montrer : aucune compétence active ni connecteur.'));
   assert.ok(p.$('skPanPlug').textContent.includes('Aucun plugin. Un plugin réunit des compétences et des connecteurs'));
 });
+
+test('35. « Graphe | Graphe 3D » à côté du graphe des plugins (2D d\'abord, puis 3D), avec ou sans le graphe 3D commun', async () => {
+  const p = await monterPage(() => ({ status: 200, body: etatComplet }));
+  p.$('skTab-plug').click(); await p.attendre();
+  const seg = p.$('skPanPlug').querySelectorAll('button').filter((b) => b.getAttribute('data-mode'));
+  assert.deepEqual(seg.map((b) => `${b.getAttribute('data-mode')}:${b.textContent}`), ['2d:Graphe', '3d:Graphe 3D']);
+  // Sans toile dans le faux navigateur : le 2D est montré, et son bouton est enfoncé.
+  assert.equal(seg[0].getAttribute('aria-pressed'), 'true');
+  const src3d = readFileSync(new URL('../src/web/pages/graphe-espace.js', import.meta.url), 'utf8');
+  assert.match(src, /window\.OdinGrapheEspace/, 'le 3D passe par le composant commun');
+  assert.match(src3d, /function choix\(/);
+});
