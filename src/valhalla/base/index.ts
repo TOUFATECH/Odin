@@ -177,6 +177,8 @@ export class BaseOdin extends EventEmitter {
   readonly home: string;
   etat: Etat = 'absente';
   message = 'La base d\'Odin n\'est pas encore préparée.';
+  /** la raison seule de la dernière préparation manquée (sans la phrase autour), tant qu'elle vaut */
+  cause?: string;
   cible?: Cible;
   /** connexions administrateur : « postgres » (créer, renommer) et une par base d'appli */
   private admins = new Map<string, Reserve>(); private admin?: Reserve; private pwAdmin?: string;
@@ -216,7 +218,8 @@ export class BaseOdin extends EventEmitter {
     try { await this.preparer(); }
     catch (e) {
       const was = this.etat as Etat; this.etat = was === 'perdue' || was === 'prete' ? 'perdue' : 'absente';
-      this.message = `La base d'Odin ne répond pas (${(e as Error).message}). Odin marche quand même : les écritures des applis attendent sur le disque et partiront dès qu'elle revient.`;
+      this.cause = (e as Error).message;
+      this.message =`La base d'Odin ne répond pas (${(e as Error).message}). Odin marche quand même : les écritures des applis attendent sur le disque et partiront dès qu'elle revient.`;
       if (was !== (this.etat as Etat) || was === 'preparation') this.emit('etat', this.etat, this.message);
     }
   }
@@ -301,10 +304,10 @@ export class BaseOdin extends EventEmitter {
   }
 
   private async preparer(): Promise<void> {
-    if (this.etat !== 'perdue') { this.etat = 'preparation'; this.message = 'La base d\'Odin se prépare…'; }
+    if (this.etat !== 'perdue') { this.etat = 'preparation'; this.message = 'La base d\'Odin se prépare…'; this.cause = undefined; }
     let c = this.o.cible ?? cibleGardee(this.home);
-    if (!c || !motDePasseAdmin(this.home)) c = (await choisir(this.home)) ?? (this.o.hringhorni === false ? undefined : await hringhorni(this.home));
-    if (!c) throw new Error('pas de PostgreSQL sur cette machine : installe-le (paquet « postgresql ») ou laisse Hringhorni le faire');
+    if (!c || !motDePasseAdmin(this.home)) c = (await choisir(this.home)) ?? (this.o.hringhorni === false || !HRINGHORNI_POSSIBLE ? undefined : await hringhorni(this.home));
+    if (!c) throw new Error(HRINGHORNI_POSSIBLE ? 'pas de PostgreSQL sur cette machine : installe-le (paquet « postgresql ») ou laisse Hringhorni le faire' : `pas de PostgreSQL utilisable sur cette machine (${process.platform}) : Odin ne sait en préparer un que sous Linux pour l'instant`);
     if (c.mode === 'locale') await demarrerLocale(c);
     if (c.mode === 'hringhorni') c = { ...c, ...(await adresseHringhorni(c)) };
     this.cible = c;
@@ -354,6 +357,9 @@ function inscrireAncienne(home: string, c: Cible, existe: boolean): void {
   saveBases(home, [...l, { id: ID_ALEXANDRIE, nom: 'Ancienne base commune d\'Odin (copie de secours)', type: 'postgres', ...(c.mode === 'hringhorni' ? { conteneur: c.conteneur } : { hote: c.hote, port: c.port }), utilisateur: LECTURE, base: ANCIENNE_BASE, ssl: 'non', version: undefined, ajoutee: bases(home).find((b) => b.id === ID_ALEXANDRIE)?.ajoutee ?? new Date().toISOString() }]);
 }
 
+/** Hringhorni a besoin de Linux (espaces de noms, unshare) : ailleurs, il n'est pas essayé (il téléchargerait l'image
+ *  PostgreSQL sur un registre extérieur, attendrait dix minutes pour rien, et recommencerait à chaque vérification). */
+const HRINGHORNI_POSSIBLE = process.platform === 'linux';
 /** 3. Hringhorni : le serveur « odin-pg » d'Alexandrie (créé s'il n'existe pas, attendu). */
 async function hringhorni(home: string): Promise<Cible | undefined> {
   try {

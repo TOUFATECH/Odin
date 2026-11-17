@@ -258,7 +258,8 @@ export async function amorcerReglages(home: string, o: OptionsAmorce = {}): Prom
     clearTimeout(minuterie);
   }
   try {
-    if (a && !a.prete) throw new Error(a.erreur ?? b?.message ?? 'la base d\'Odin ne répond pas');
+    // Base absente : la cause seule (le message entier de la base, emboîté ici, redirait « ne répond pas »).
+    if (a && !a.prete) throw new Error(a.erreur ?? (b?.etat === 'absente' && b.cause ? b.cause : b?.message) ?? 'la base d\'Odin ne répond pas');
     am.bilan = await lireBase();
     am.source = 'base'; am.message = 'Réglages lus dans la base d\'Odin (Alexandrie).';
   } catch (e) {
