@@ -14,16 +14,35 @@ class FakeChannel implements Channel {
   async stop() {}
 }
 
-test('un membre programme « lance une commande » : à l\'heure, elle tourne avec SES droits (Breaker du propriétaire : refusée)', async () => {
+// Programmer une tâche n'est pas dans ce qu'un membre fait faire seul (décision du propriétaire, 17/11 : « pour tout le
+// reste, Odin te demande à toi ») : la programmation lui est demandée, même en Breaker avec « toujours » pour les tâches.
+test('un membre programme une tâche : demandé au propriétaire ; sans son accord, rien n\'est programmé', async () => {
+  const o = makeOdin([call('schedule_task', { cron: '0 3 * * *', prompt: 'lance la commande de nettoyage' }), { text: 'programmé' }]);
+  try {
+    o.heimdall.setBreaker({ ...o.heimdall.getBreaker(), schedule: 'always' });
+    o.heimdall.setAutonomy('breaker');
+    await o.agent.run('programme le nettoyage chaque nuit', { sessionId: 'fake:lea', channel: 'fake', peer: 'lea', speaker: { name: 'Léa', role: 'member', autonomy: 'prudent' } });
+    assert.deepEqual(o.approvals.map((a) => a.tool), ['schedule_task'], 'la programmation est demandée au propriétaire');
+    assert.equal(o.muninn.listJobs().length, 0, 'refusée : aucune tâche programmée');
+  } finally { o.cleanup(); }
+});
+
+test('un membre programme « lance une commande », le propriétaire l\'accepte : la tâche est à son nom et, à l\'heure, tourne avec SES droits (Breaker du propriétaire : refusée)', async () => {
   const o = makeOdin([
     call('schedule_task', { cron: '0 3 * * *', prompt: 'lance la commande de nettoyage' }), { text: 'programmé' },
     call('shell', { command: 'touch pirate.txt' }), { text: 'fait' },
   ]);
+  // Le propriétaire accepte la programmation, et rien d'autre.
+  const demandes: string[] = [];
+  o.heimdall.setApprover({ approve: async (r) => { demandes.push(r.tool); return r.tool === 'schedule_task'; } });
   o.heimdall.setBreaker({ ...o.heimdall.getBreaker(), schedule: 'always' });
   o.heimdall.setAutonomy('breaker');
   await o.agent.run('programme le nettoyage chaque nuit', { sessionId: 'fake:lea', channel: 'fake', peer: 'lea', speaker: { name: 'Léa', role: 'member', autonomy: 'prudent' } });
+  assert.deepEqual(demandes, ['schedule_task'], 'la programmation a été demandée au propriétaire');
   const job = o.muninn.listJobs()[0];
-  assert.ok(job, 'tâche programmée');
+  assert.ok(job, 'tâche programmée après son accord');
+  const auteur = JSON.parse(o.muninn.getKv(`tache-auteur:${job.id}`) ?? 'null') as { role?: string; nom?: string } | null;
+  assert.equal(auteur?.role, 'member', 'programmée au nom du membre, pas du propriétaire'); assert.equal(auteur?.nom, 'Léa');
   const gw = new Gateway(o, { owners: { fake: ['boss'] } }).add(new FakeChannel());
   // (en Breaker, le travail continu et les rondes appelleraient aussi le faux modèle : coupés pour cet essai)
   for (const k of ['continuous', 'breakerRoutines', 'breakerReport', 'veille', 'morning', 'journal', 'care', 'weekly', 'garden']) (gw as unknown as Record<string, unknown>)[k] = async () => undefined;

@@ -320,8 +320,16 @@ export class Heimdall {
     // Recherche web et lecture de pages : jamais de validation (Odin cite ses sources), même après
     // avoir lu du contenu non fiable — sauf si le réseau est interdit ou une manipulation détectée.
     if (g.lookup && mode !== 'deny' && !g.suspicious) return this.log(g, { allowed: true, via: 'policy', why: 'consultation en lecture seule (web, agenda, réseau de la maison)' });
-    const autonomy = capAutonomy(this.effectiveAutonomy(), g.maxAutonomy);
+    let autonomy = capAutonomy(this.effectiveAutonomy(), g.maxAutonomy);
     if (g.maxAutonomy && autonomy !== this.effectiveAutonomy()) notes.push(`membre : autonomie plafonnée à ${autonomy}`);
+    // Un membre de la famille (décision du propriétaire, 17/11) : ce qu'il demande LUI-MÊME et qui est dans la liste
+    // (SANS_RISQUE_MEMBRE) part seul ; toute autre action engageante t'est demandée, quel que soit son niveau d'autonomie.
+    // Ni une conversation marquée, ni un contenu manipulateur, ni une tâche automatique ou sans surveillance.
+    if (g.maxAutonomy !== undefined && ENGAGEANT.has(g.risk)) {
+      const chose = !g.tainted && !g.suspicious && !g.automatique && !g.unattended ? sansRisqueMembre(g.tool, g.summary) : undefined;
+      if (chose && mode !== 'deny') { mode = 'allow'; notes.push(`membre de la famille (${g.sessionId}) : ${chose}, permis sans ta validation`); }
+      else { autonomy = 'prudent'; if (mode === 'allow') { mode = 'ask'; notes.push('membre de la famille : hors de ce qu\'il fait faire seul, ta validation'); } }
+    }
 
     // Liste blanche shell : seulement pour des commandes simples, sans métacaractères.
     if (g.command !== undefined && mode === 'ask' && g.maxAutonomy === undefined && this.isAllowlisted(g.command)) {
@@ -532,6 +540,37 @@ export const SANS_RISQUE_AUTOMATIQUE: ReadonlySet<string> = new Set(['note_save'
 /** Seul, Odin peut PROPOSER une routine : schedule_task la range inactive (elle ne part qu'une fois activée par le
  *  propriétaire). Ni script programmé, ni rappel. */
 export const PROPOSE_SEUL: ReadonlySet<string> = new Set(['schedule_task']);
+
+/**
+ * Ce qu'un MEMBRE DE LA FAMILLE fait faire à Odin sans la validation du propriétaire (décisions du propriétaire, 17/11 :
+ * « une chose sans risque, comme note ça ou mets-moi un rappel → il le fait seul », puis les quatre qu'il a cochées).
+ * RIEN D'AUTRE : tout le reste lui est demandé. Gardée ICI (dans le noyau) : un outil ne peut pas se l'accorder.
+ *  - noter (note_save) et rappeler (reminder_set) ;
+ *  - mettre de la musique : Apollon (aegir) « jouer » ;
+ *  - allumer ou éteindre une lumière : ha_call, domaine light, turn_on / turn_off / toggle, sur des entités light.*
+ *    nommées (ni « all », ni une prise, ni une serrure, même par le même outil) ;
+ *  - convertir un document : Alchimie (dvalinn) « convertir » écrit un nouveau fichier à côté (jamais par-dessus).
+ *    Sur un fichier jugé dangereux, une conversion qui ne vient pas du propriétaire est refusée : l'original reste à
+ *    sa place, rien n'est mis en quarantaine, le propriétaire est prévenu (dvalinn.ts, asclepios →
+ *    « isoler_avant_conversion », réservée au propriétaire). media_convert, qui peut écrire sur l'original, n'y est pas ;
+ *  - faire analyser un fichier : Asclépios (ullr) « fichier » est une lecture, déjà libre (rien à ajouter ici).
+ *    « analyser » un dossier n'y est PAS : sur une menace sûre, cette analyse met le fichier à l'écart d'elle-même
+ *    (réflexe « isoler ») — et la mise à l'écart reste demandée au propriétaire. « reanalyser » n'y est pas non plus :
+ *    il réécrit la fiche de la quarantaine et son registre, ce n'est pas une lecture.
+ * Lu dans le résumé technique de l'outil (`summarize`), écrit par le code de l'outil à partir de son entrée.
+ */
+export const SANS_RISQUE_MEMBRE: ReadonlyArray<{ chose: string; outil: string; resume?: RegExp }> = [
+  { chose: 'noter', outil: 'note_save' },
+  { chose: 'un rappel', outil: 'reminder_set' },
+  { chose: 'mettre de la musique', outil: 'valhalla', resume: /^applis action (?:aegir|apollon) jouer $/ },
+  { chose: 'allumer ou éteindre une lumière', outil: 'ha_call', resume: /^maison : light\.(?:turn_on|turn_off|toggle) → light\.[a-z0-9_]+(?: ?, ?light\.[a-z0-9_]+)*$/ },
+  { chose: 'convertir un document', outil: 'valhalla', resume: /^applis action (?:dvalinn|alchimie) convertir $/ },
+];
+/** La chose sans risque qu'un membre demande (voir SANS_RISQUE_MEMBRE), ou undefined. Pur. */
+export function sansRisqueMembre(tool: string, summary: string): string | undefined {
+  const r = summary.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return SANS_RISQUE_MEMBRE.find((x) => x.outil === tool && (!x.resume || x.resume.test(r)))?.chose;
+}
 
 const DONNEES_NOYAU = /(^|[\\/])\.odin[\\/](config\.json|logs[\\/]audit[^\\/]*|noyau-reference-connue\.txt)$/i;
 

@@ -37,7 +37,11 @@ export const NOYAU_FICHIERS = ['src/vault.ts', 'src/tools/self.ts', 'src/tools/r
 export const SENSIBLE_DOSSIERS = ['src/tools/'] as const;
 export const SENSIBLE_FICHIERS = ['src/core/agent.ts', 'src/bifrost/gateway.ts', 'src/runtime.ts', 'src/config.ts', 'src/valhalla/service.ts', 'src/web/server.ts', 'src/valhalla/sso/garde.ts', 'src/web/valhalla-api.ts', 'package.json', 'tools/noyau-empreintes.ts',
   // qui est le propriétaire, un membre, un invité ; l'appairage ; les rôles rangés ; le juge ; les autres portes d'entrée
-  'src/muninn/store.ts', 'src/web/access.ts', 'src/web/pairing.ts', 'src/valhalla/keryx/auth.ts', 'src/valhalla/keryx/canal.ts', 'src/web/maison-api.ts', 'src/valhalla/modules/midgard.ts', 'src/mimir/client.ts', 'src/valhalla/mcp.ts', 'src/types.ts', 'src/cli/main.ts'] as const;
+  'src/muninn/store.ts', 'src/web/access.ts', 'src/web/pairing.ts', 'src/valhalla/keryx/auth.ts', 'src/valhalla/keryx/canal.ts', 'src/web/maison-api.ts', 'src/valhalla/modules/midgard.ts', 'src/mimir/client.ts', 'src/valhalla/mcp.ts', 'src/types.ts', 'src/cli/main.ts',
+  // la fenêtre Profil : qui est appairé, sur quel canal (userFor, pairingStatus)
+  'src/muninn/personnes.ts',
+  // Vénus : qui peut déclarer un dossier de médias et lire les médias (estMembre)
+  'src/valhalla/venus/routes.ts'] as const;
 /** Une commande système qui touche au code d'Odin (son dossier, son noyau) ou à sa référence. Pur sur le texte. */
 export function commandeSurLeCode(texte: string, dossiers: string[], racine = RACINE_APPLI, contenants: string[] = []): 'reference' | 'code' | undefined {
   const t = texte.replace(/\\/g, '/').toLowerCase();

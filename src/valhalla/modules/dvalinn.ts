@@ -82,10 +82,16 @@ function remember(ctx: ModCtx, h: Hist) { ctx.saveSettings({ historique: [h, ...
 // ---------------------------------------------------------------- l'antivirus d'abord (Asclépios)
 /** Verdicts déjà rendus (chemin, taille, date) : un fichier vérifié au dépôt n'est pas revérifié pour sa conversion. */
 const verdicts = new Map<string, Verdict>();
+/** Fichiers dangereux dont la mise à l'écart a déjà été signalée au propriétaire (clé : chemin, taille, date). */
+const prevenus = new Set<string>();
 export interface Verdict { sain: boolean; absent?: boolean; quoi?: string; suite?: string }
+const RESTE = 'Il est resté où il était, sans avoir été ouvert.';
 /**
  * Fait vérifier un fichier par l'antivirus d'Odin (Asclépios) avant de l'ouvrir. Dangereux : mis en quarantaine
  * (réversible) ; un simple doute ou le fichier d'essai des antivirus : laissé où il est, jamais ouvert.
+ * La mise en quarantaine passe par « isoler_avant_conversion », réservée au propriétaire : quand la conversion ne vient
+ * pas de lui (membre, invité, automatisation, réflexe, Odin seul, conversation marquée), l'original n'est PAS mis à
+ * l'écart — il reste à sa place, jamais ouvert, et le propriétaire est prévenu : la mise à l'écart lui reste demandée.
  */
 export async function asclepios(ctx: ModCtx, path: string): Promise<Verdict> {
   if (!ctx.modules().some((m) => m.id === 'ullr')) return { sain: true, absent: true };
@@ -95,9 +101,24 @@ export async function asclepios(ctx: ModCtx, path: string): Promise<Verdict> {
   let r: Verdict = { sain: true };
   if (d?.level && ['moyenne', 'haute', 'critique'].includes(d.level)) {
     const quoi = [...new Set((d.findings ?? []).map((x) => x.threat).filter(Boolean))].slice(0, 3).join(', ') || d.level, essai = (d.findings ?? []).length > 0 && (d.findings ?? []).every((x) => x.klass === 'test');
-    let suite = 'Il est resté où il était, sans avoir été ouvert.';
-    if (!essai && d.level !== 'moyenne') { const q = await ctx.call('ullr', 'isoler', { fichier: path, menace: quoi }, 'fichier reconnu dangereux avant conversion').catch(() => undefined); if (q && q.ok !== false) suite = 'Je l\'ai mis en quarantaine (antivirus) : il ne peut plus être ouvert, et tu peux l\'en ressortir si c\'est une erreur.'; }
+    let suite = RESTE, demande = false;
+    if (!essai && d.level !== 'moyenne') {
+      // Étape interne : elle garde qui a lancé la conversion (une autre appli ne sert pas de détour).
+      const q = await ctx.call('dvalinn', 'isoler_avant_conversion', { fichier: path, menace: quoi }, undefined, { interne: true }).catch(() => undefined);
+      if (q && q.ok !== false) suite = 'Je l\'ai mis en quarantaine (antivirus) : il ne peut plus être ouvert, et tu peux l\'en ressortir si c\'est une erreur.';
+      else if (q && !(q.data as { lancee?: boolean } | undefined)?.lancee) { // refusée avant de partir : ce n'est pas le propriétaire
+        demande = true; suite = `${RESTE} Le mettre à l'écart est demandé au propriétaire.`;
+        // Un seul message par fichier (même chemin, taille et date) : relancer la conversion ne le répète pas.
+        if (!prevenus.has(cle)) {
+          if (prevenus.size > 500) prevenus.clear();
+          prevenus.add(cle);
+          await ctx.notify(`🛡 ${basename(path)} : l'antivirus y a trouvé ${quoi}. Une conversion demandée sans toi en direct (un membre, une automatisation, ou après un contenu extérieur) a été refusée ; le fichier est resté à sa place, sans avoir été ouvert. Le mettre en quarantaine, c'est toi qui le décides (Asclépios · Mettre en quarantaine).`).catch(() => undefined);
+        }
+      }
+    }
     r = { sain: false, quoi, suite };
+    // Mise à l'écart laissée au propriétaire : le verdict n'est pas gardé, pour que sa propre conversion l'isole comme avant.
+    if (demande) return r;
   }
   if (verdicts.size > 500) verdicts.clear();
   verdicts.set(cle, r); return r;
@@ -322,6 +343,14 @@ export const dvalinn: Module = {
         return { text: `✅ ${basename(f.abs)} → ${out.length > 1 ? `${out.length} fichiers` : basename(out[0])} (${human(size)}, ${Math.round((Date.now() - t0) / 100) / 10} s)\n${out.slice(0, 10).map((x) => relOf(f.folder, x)).join('\n')}`, data: { sorties: out.map((x) => relOf(f.folder, x)), avant, apres: size, antivirus: av.absent ? 'absent' : 'sain' }, fichiers: out.map((x) => ({ nom: basename(x), ref: relOf(f.folder, x) })) };
       } catch (e) { remember(ctx, { at: ctx.now().toISOString(), what: `${basename(f.abs)} → ${to}`, ok: false, err: (e as Error).message }); throw e; }
     } },
+    // L'étape « mettre à l'écart » d'une conversion (asclepios) : réservée au propriétaire. Lancée par une conversion
+    // qui ne vient pas de lui, elle est refusée avant de partir (service.ts, « propriétaire seul ») : l'original reste.
+    { id: 'isoler_avant_conversion', label: 'Mettre à l\'écart un fichier dangereux avant conversion', what: 'Étape d\'une conversion que tu lances : un fichier jugé dangereux par l\'antivirus est mis en quarantaine (réversible). Jamais pour une conversion demandée par quelqu\'un d\'autre', quick: false, proprietaireSeul: true,
+      params: [{ key: 'fichier', label: 'Fichier', kind: 'text', required: true }, { key: 'menace', label: 'Raison', kind: 'text', default: '' }],
+      run: async (ctx, i) => {
+        const q = await ctx.call('ullr', 'isoler', { fichier: s(i.fichier), menace: s(i.menace) }, 'fichier reconnu dangereux avant conversion');
+        return { ...q, data: { ...((q.data as Record<string, unknown> | undefined) ?? {}), lancee: true } };
+      } },
     { id: 'depuis_lien', label: 'Convertir depuis un lien', what: 'Télécharge un fichier (http ou https), le fait vérifier par l\'antivirus, puis le convertit ; l\'original et le résultat vont dans l\'atelier (dossier « arrivees »)', words: ['convertis le lien', 'convertis ce lien'], external: true,
       params: [{ key: 'lien', label: 'Lien du fichier (https://…)', kind: 'text', required: true }, { key: 'format', label: 'Vers (mp3, pdf, srt, csv…)', kind: 'text', required: true }, { key: 'utilisateur', label: 'Identifiant (si le lien en demande un)', kind: 'text' }, { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password' }],
       // Une adresse de la maison (NAS, autre poste) : Odin ne va y chercher un fichier qu'avec ton accord.
@@ -340,7 +369,7 @@ export const dvalinn: Module = {
       const av = await asclepios(ctx, path);
       if (!av.sain) {
         remember(ctx, { at: ctx.now().toISOString(), what: `${nom} (lien) → ${to}`, ok: false, err: `fichier suspect (${av.quoi}), non converti` });
-        throw new Error(`fichier suspect (${av.quoi}) : je ne le convertis pas. ${av.suite === 'Il est resté où il était, sans avoir été ouvert.' ? `Il est resté dans atelier:arrivees/${basename(path)}, sans avoir été ouvert.` : av.suite}`);
+        throw new Error(`fichier suspect (${av.quoi}) : je ne le convertis pas. ${av.suite?.startsWith(RESTE) ? `Il est resté dans atelier:arrivees/${basename(path)}, sans avoir été ouvert.${av.suite.slice(RESTE.length)}` : av.suite}`);
       }
       try {
         const out = await convertirFichier(ctx, path, to, dest, optsOf(i));
