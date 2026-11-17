@@ -31,6 +31,8 @@ export function startDraupnir(odin: Odin, notify: (text: string) => Promise<void
     secret: (name) => process.env[`DRAUPNIR_${name.replace(/^DRAUPNIR_/, '')}`] ?? (name === 'TELEGRAM_BOT_TOKEN' ? process.env.TELEGRAM_BOT_TOKEN : undefined),
   });
   setDraupnir(d);
+  // Automatisations de départ, une seule fois (Odin neuf) ; un échec n'empêche jamais Talos de démarrer.
+  try { d.installerDepart(); } catch { /* Talos démarre quand même */ }
   d.start();
   const onChange = (e: { kind: string; path: string; title?: string; type?: string }) => { void d.onSaga(e).catch(() => {}); };
   vaultEvents.on('change', onChange);

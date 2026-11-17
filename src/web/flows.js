@@ -70,19 +70,20 @@
     box.replaceChildren();
     if (!st.ok) { box.append(el('p', { class: 'sub' }, st.error)); return; }
     const msg = el('p', { class: 'sub', role: 'status' });
-    box.append(el('form', { class: 'dr-top', onsubmit: async (e) => { e.preventDefault(); const d = $('#drAsk').value.trim(); if (!d) return; msg.textContent = 'Odin écrit l\'automatisation…'; const r = await api('/api/draupnir/create', { description: d }); if (r.ok) openFlow(r.flow.id); else msg.textContent = `✗ ${r.error}`; } },
+    box.append(el('form', { class: 'dr-top', onsubmit: async (e) => { e.preventDefault(); const d = $('#drAsk').value.trim(); if (!d) return; msg.textContent = 'Odin écrit l\'automatisation…'; const r = await api('/api/draupnir/create', { description: d }); if (r.ok) ouvrirNeuve(r.flow.id); else msg.textContent = `✗ ${r.error}`; } },
       el('label', { for: 'drAsk', class: 'sr' }, 'Décris ton automatisation'), el('input', { id: 'drAsk', placeholder: 'Ex. chaque matin à 7 h, envoie-moi les tâches en retard', autocomplete: 'off' }), el('button', { class: 'btn primary', type: 'submit' }, 'Créer avec Odin'), lienBtn(), el('button', { class: 'btn', type: 'button', onclick: newFlow }, 'Partir de zéro')), msg);
-    if (st.flows.length) box.append(el('div', { class: 'dr-list' }, ...st.flows.map((w) => el('article', { class: 'dr-card' },
+    // Les dossiers de Talos (onglets Actives, Brouillons, tes dossiers, Corbeille) : pages/talos-dossiers.js ; sans lui, la grille d'avant.
+    if (!window.OdinTalosDossiers?.monter(box, st, { ouvrir: openFlow, lancer, recharger: openList })) { if (st.flows.length) box.append(el('div', { class: 'dr-list' }, ...st.flows.map((w) => el('article', { class: 'dr-card' },
       el('div', { class: 'dr-h' }, el('b', {}, w.name), el('input', { type: 'checkbox', class: 'g-sw', 'aria-label': `Activer ${w.name}`, checked: w.active ? true : undefined, onchange: async (e) => { if (e.target.checked && !(await window.OdinDialog.confirm(`Activer « ${w.name} » ? Elle agira seule ensuite.`))) { e.target.checked = false; return; } const r = await api('/api/draupnir/toggle', { id: w.id, on: e.target.checked }); if (!r.ok) { e.target.checked = !e.target.checked; await window.OdinDialog.alert(r.error); } } })),
       el('div', { class: 'dr-steps' }, w.nodes.map((n) => n.label).join(' → ')),
       w.phrase || w.prochaineTexte ? el('div', { class: 'dr-steps' }, [w.phrase, w.active && w.prochaineTexte ? `Prochaine : ${w.prochaineTexte}` : ''].filter(Boolean).join(' · ')) : null,
       el('div', { class: 'dr-row' }, w.last ? el('span', { class: `pill ${w.last.status === 'succès' ? 'good' : w.last.status === 'erreur' ? 'bad' : ''}` }, `${w.last.status} · ${new Date(w.last.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`) : el('span', { class: 'pill' }, 'jamais lancée'), w.failed ? el('span', { class: 'pill bad' }, `${w.failed} échec(s)`) : null),
-      el('div', { class: 'dr-row' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => openFlow(w.id) }, 'Ouvrir'), el('button', { class: 'btn small', type: 'button', onclick: (e) => lancer(e.currentTarget, w) }, 'Lancer maintenant')), el('div', { class: 'dr-steps', role: 'status' }))))); else box.append(el('p', { class: 'sub' }, 'Aucune automatisation pour l\'instant.'));
+      el('div', { class: 'dr-row' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => openFlow(w.id) }, 'Ouvrir'), el('button', { class: 'btn small', type: 'button', onclick: (e) => lancer(e.currentTarget, w) }, 'Lancer maintenant')), el('div', { class: 'dr-steps', role: 'status' }))))); else box.append(el('p', { class: 'sub' }, 'Aucune automatisation pour l\'instant.')); }
     // Tout ce qui tourne tout seul dans Odin (applis, tâches planifiées, rappels) : la même liste, sous les automatisations.
     if (window.OdinAutomatismes) { const zone = el('div', {}); box.append(zone); window.OdinAutomatismes.monter(zone); }
-    box.append(el('section', { class: 'card', style: 'margin-bottom:16px' }, el('h2', { style: 'font-size:17px;margin:0 0 8px' }, 'Modèles prêts'), el('div', { class: 'dr-tpl' }, ...st.templates.map((t) => el('article', {}, el('b', {}, t.name), el('p', {}, t.what), el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const r = await api('/api/draupnir/template', { id: t.id }); if (r.ok) openFlow(r.flow.id); else { e.target.textContent = `✗ ${r.error}`; } } }, 'Utiliser'))))));
+    box.append(el('section', { class: 'card', style: 'margin-bottom:16px' }, el('h2', { style: 'font-size:17px;margin:0 0 8px' }, 'Modèles prêts'), el('div', { class: 'dr-tpl' }, ...st.templates.map((t) => el('article', {}, el('b', {}, t.name), el('p', {}, t.what), el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const r = await api('/api/draupnir/template', { id: t.id }); if (r.ok) ouvrirNeuve(r.flow.id); else { e.target.textContent = `✗ ${r.error}`; } } }, 'Utiliser'))))));
     box.append(el('details', { class: 'card' }, el('summary', { style: 'cursor:pointer;min-height:40px;display:flex;align-items:center;font-weight:600' }, 'Importer une automatisation n8n (JSON)'),
-      el('form', { onsubmit: async (e) => { e.preventDefault(); const r = await api('/api/draupnir/import', { json: $('#drImp').value }); if (r.ok) { if (r.todo?.length) await window.OdinDialog.alert(`À revoir :\n${r.todo.join('\n')}`); openFlow(r.flow.id); } else await window.OdinDialog.alert(r.error); } }, el('label', { for: 'drImp', class: 'sub' }, 'Colle le JSON exporté'), el('textarea', { id: 'drImp', style: 'width:100%;min-height:120px' }), el('button', { class: 'btn', type: 'submit' }, 'Importer'))));
+      el('form', { onsubmit: async (e) => { e.preventDefault(); const r = await api('/api/draupnir/import', { json: $('#drImp').value }); if (r.ok) { if (r.todo?.length) await window.OdinDialog.alert(`À revoir :\n${r.todo.join('\n')}`); ouvrirNeuve(r.flow.id); } else await window.OdinDialog.alert(r.error); } }, el('label', { for: 'drImp', class: 'sub' }, 'Colle le JSON exporté'), el('textarea', { id: 'drImp', style: 'width:100%;min-height:120px' }), el('button', { class: 'btn', type: 'submit' }, 'Importer'))));
   }
   /** « Faire un lien » : montré seulement quand Talos sait en faire (sinon la barre reste comme avant). */
   function lienBtn() {
@@ -113,6 +114,24 @@
     if (!st) st = await api('/api/draupnir/state');
     wf = r.flow; outs = r.outputs; last = r.runs[0] ?? null; sel = null; dirty = false; editor(r);
   }
+  /**
+   * Une automatisation que le serveur vient de créer (« Créer avec Odin », un modèle, un import) : elle est déjà enregistrée,
+   * en brouillon et sans dossier. On l'ouvre, puis on propose le même choix qu'au premier enregistrement (dossier, état) ;
+   * « Annuler » la laisse telle quelle.
+   */
+  async function ouvrirNeuve(id) {
+    await openFlow(id);
+    const T = window.OdinTalosDossiers;
+    if (!T || wf?.id !== id) return;
+    const c = await T.choisir(wf);
+    if (!c || wf?.id !== id) return;
+    const s = $('#drSt');
+    if (c.dossier) { const r = await api('/api/draupnir/ranger', { id, dossier: c.dossier }).catch((e) => ({ ok: false, error: e.message })); if (!r.ok) { if (s) s.textContent = `✗ ${r.error}`; return; } if (wf?.id === id) wf.dossier = c.dossier; }
+    if (c.active) { const r = await api('/api/draupnir/toggle', { id, on: true }).catch((e) => ({ ok: false, error: e.message })); if (!r.ok) { if (s) s.textContent = `✗ ${r.error}`; return; } if (wf?.id === id) wf.active = true; }
+    if (wf?.id !== id) return;
+    $('#v-flows .dr-bar .td-barre')?.replaceWith(T.barre(wf, () => wf));
+    if (s) s.textContent = c.active ? '✓ Enregistrée, active.' : '✓ Enregistrée en brouillon.';
+  }
   const outputsOf = (n) => outs[n.name] ?? cat(n.type)?.outputs ?? ['sortie'];
   function editor(r) {
     const box = $('#v-flows .body');
@@ -123,11 +142,13 @@
     const status = el('span', { class: 'sub', role: 'status', id: 'drSt' });
     box.replaceChildren(
       el('div', { class: 'dr-bar' }, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!dirty || await window.OdinDialog.confirm('Quitter sans enregistrer ?')) openList(); } }, '← Automatisations'), el('label', { for: 'drName', class: 'sr' }, 'Nom'), el('input', { id: 'drName', class: 'dr-name', value: wf.name, oninput: (e) => { wf.name = e.target.value; dirty = true; } }),
+        wf.id && window.OdinTalosDossiers ? window.OdinTalosDossiers.barre(wf, () => wf) : null,
         el('button', { class: 'btn small primary', type: 'button', onclick: save }, 'Enregistrer'), el('button', { class: 'btn small', type: 'button', onclick: () => test() }, 'Tester'), el('button', { class: 'btn small', type: 'button', onclick: () => { sel = null; drawSide(); } }, '+ Étape'),
         wf.id ? el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Mettre cette automatisation à la corbeille ?', { danger: true }))) return; await api('/api/draupnir/trash', { id: wf.id }); openList(); } }, 'Corbeille') : null, status),
       el('div', { class: 'dr-ed' }, canvas, side),
-      r ? el('section', { class: 'card', style: 'margin-top:12px' }, el('h2', { style: 'font-size:16px;margin:0' }, 'Dernières exécutions'), r.runs.length ? el('ul', { class: 'dr-runs' }, ...r.runs.slice(0, 10).map((x) => { const net = /attente.*internet|internet.*attente|en-attente-internet/i.test(`${x.status} ${x.error ?? ''}`); return el('li', {}, el('span', { class: `pill ${x.status === 'succès' ? 'good' : net ? '' : x.status === 'erreur' ? 'bad' : ''}` }, net ? 'en attente d\'Internet' : x.status), ` ${new Date(x.startedAt).toLocaleString('fr-FR')} · ${x.mode} · ${x.ms} ms${net ? ' · en attente du retour d\'Internet' : x.error ? ` · ${x.error}` : ''}`); })) : el('p', { class: 'sub' }, 'Jamais lancée.'),
-        r.versions?.length ? el('details', {}, el('summary', { style: 'cursor:pointer;min-height:36px;display:flex;align-items:center' }, `Versions (${r.versions.length})`), el('ul', { class: 'dr-runs' }, ...r.versions.slice(0, 15).map((v) => el('li', {}, `${new Date(v.at).toLocaleString('fr-FR')} · ${v.nodes} étapes `, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Revenir à cette version ?'))) return; const x = await api('/api/draupnir/restore', { id: wf.id, at: v.at }); if (x.ok) openFlow(wf.id); } }, 'Restaurer'))))) : null) : null);
+      // (Pas d'exécution ni de version quand on part de zéro : rien, et surtout pas le mot « null ».)
+      ...(r ? [el('section', { class: 'card', style: 'margin-top:12px' }, el('h2', { style: 'font-size:16px;margin:0' }, 'Dernières exécutions'), r.runs.length ? el('ul', { class: 'dr-runs' }, ...r.runs.slice(0, 10).map((x) => { const net = /attente.*internet|internet.*attente|en-attente-internet/i.test(`${x.status} ${x.error ?? ''}`); return el('li', {}, el('span', { class: `pill ${x.status === 'succès' ? 'good' : net ? '' : x.status === 'erreur' ? 'bad' : ''}` }, net ? 'en attente d\'Internet' : x.status), ` ${new Date(x.startedAt).toLocaleString('fr-FR')} · ${x.mode} · ${x.ms} ms${net ? ' · en attente du retour d\'Internet' : x.error ? ` · ${x.error}` : ''}`); })) : el('p', { class: 'sub' }, 'Jamais lancée.'),
+        r.versions?.length ? el('details', {}, el('summary', { style: 'cursor:pointer;min-height:36px;display:flex;align-items:center' }, `Versions (${r.versions.length})`), el('ul', { class: 'dr-runs' }, ...r.versions.slice(0, 15).map((v) => el('li', {}, `${new Date(v.at).toLocaleString('fr-FR')} · ${v.nodes} étapes `, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Revenir à cette version ?'))) return; const x = await api('/api/draupnir/restore', { id: wf.id, at: v.at }); if (x.ok) openFlow(wf.id); } }, 'Restaurer'))))) : null)] : []));
     pan(canvas, world); draw(); drawSide();
   }
   function nodeEl(n) {
@@ -243,9 +264,14 @@
   }
   async function save() {
     for (const n of wf.nodes) for (const p of cat(n.type)?.params ?? []) if (p.kind === 'json' && typeof n.params[p.key] === 'string' && n.params[p.key].trim()) { try { JSON.parse(n.params[p.key]); } catch { if (!/\{\{/.test(n.params[p.key])) { await window.OdinDialog.alert(`« ${n.name} » : ${p.label} n'est pas un JSON valide.`); return false; } } }
+    // Premier enregistrement : dans quel dossier, brouillon ou active (pages/talos-dossiers.js) ; « Annuler » n'enregistre rien.
+    if (!wf.id && window.OdinTalosDossiers) { const c = await window.OdinTalosDossiers.choisir(wf); if (!c) return false; if (c.dossier) wf.dossier = c.dossier; else delete wf.dossier; wf.active = c.active; }
+    const neuve = !wf.id;
     const r = await api('/api/draupnir/save', { flow: wf });
     if (!r.ok) { await window.OdinDialog.alert(r.error); return false; }
-    wf = r.flow; dirty = false; const s = $('#drSt'); if (s) s.textContent = '✓ Enregistré.'; return true;
+    wf = r.flow; dirty = false;
+    // Elle vient d'être créée : le choix « Dossier » rejoint la barre tout de suite (sinon seulement à la réouverture).
+    if (neuve && wf.id && window.OdinTalosDossiers && !$('#v-flows .dr-bar .td-barre')) $('#drName')?.insertAdjacentElement('afterend', window.OdinTalosDossiers.barre(wf, () => wf)); const s = $('#drSt'); if (s) s.textContent = '✓ Enregistré.'; return true;
   }
   async function test(stopAfter) {
     if (!(await save())) return;

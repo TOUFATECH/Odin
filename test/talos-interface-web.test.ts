@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const lire = (f: string) => readFileSync(new URL(`../src/web/pages/${f}`, import.meta.url), 'utf8');
-const FICHIERS = ['talos-automatismes.js', 'talos-lien.js', 'talos-rythme.js', 'epingles.js', 'appli-auto.js'];
+const FICHIERS = ['talos-automatismes.js', 'talos-lien.js', 'talos-rythme.js', 'talos-dossiers.js', 'epingles.js', 'appli-auto.js'];
 
 /** Le texte des arguments de chaque appel `replaceChildren(…)` (parenthèses équilibrées). */
 function appels(t: string): string[] {

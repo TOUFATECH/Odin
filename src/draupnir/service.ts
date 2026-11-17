@@ -2,7 +2,7 @@
 // pages surveillées), journal des exécutions, création à partir d'une phrase, import d'un workflow n8n.
 
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { lireRythme, phrase, prochaine, type Rythme } from './rythme.ts';
 
@@ -38,11 +38,17 @@ export function suivreRythme(avant: Workflow | undefined, apres: Partial<Workflo
   }
   return { ...apres, ...(name !== undefined ? { name } : {}), ...(settings !== undefined ? { settings } : {}), ...(connections !== undefined ? { connections } : {}), nodes };
 }
-import { checkFlow, execute, normalize, type Deps, type Execution, type FlowNode, type Item, type Workflow } from './engine.ts';
+import { checkFlow, execute, normalize, rid, type Deps, type Execution, type FlowNode, type Item, type Workflow } from './engine.ts';
+import { cleNom, ecrireDossiers, ecrireJson, lireDossiers, lireSupprimes, MAX_DOSSIERS, RE_CLE, RE_DOSSIER, RE_ID, validerNomDossier, type Dossier, type TraceCorbeille } from './dossiers.ts';
+import { automatisationsDepart } from './depart.ts';
 import { runCode } from './code.ts';
 import { CATALOG, NODES, parseFeed } from './nodes.ts';
 
 const KEEP_RUNS = 40;
+
+/** La marque d'installation des automatisations de départ (state/depart.json). */
+export type EtatDepart = 'installe' | 'propose' | 'refuse';
+interface MarqueDepart { version: 1; etat: EtatDepart; le: string; ids: string[] }
 
 export class Talos {
   private timers = new Map<string, Array<ReturnType<typeof setTimeout>>>();
@@ -67,9 +73,42 @@ export class Talos {
     return readdirSync(join(this.dir, 'flows')).filter((f) => f.endsWith('.json')).map((f) => { try { return JSON.parse(readFileSync(join(this.dir, 'flows', f), 'utf8')) as Workflow; } catch { return undefined; } }).filter((w): w is Workflow => Boolean(w)).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   }
   get(id: string): Workflow | undefined { const f = this.file(id); return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) as Workflow : this.list().find((w) => w.name.toLowerCase() === id.toLowerCase()); }
+  /**
+   * L'identifiant propre tiré d'un ancien identifiant (d'avant la règle `[\w-]`, que l'IA pouvait inventer) : le nom
+   * de son fichier, sans « v- » au début (réservé aux anciennes versions dans la corbeille).
+   */
+  private idPropre(id: string): string {
+    const p = String(id).replace(/[^\w-]/g, '').slice(0, 64);
+    return p && !p.startsWith('v-') ? p : rid();
+  }
   save(input: Partial<Workflow>): Workflow {
-    const old = input.id ? this.get(input.id) : undefined;
-    const wf = normalize(suivreRythme(old, { ...input, createdAt: old?.createdAt ?? input.createdAt }));
+    // L'identifiant devient un nom de fichier et de dossier (versions/<id>) : jamais de chemin.
+    let ancienFichier: string | undefined;
+    if (input.id && !RE_ID.test(String(input.id))) {
+      // Une automatisation d'avant la règle garde sa vie : elle reçoit un identifiant propre (son fichier ne bouge
+      // pas si son nom était déjà propre). Un identifiant dangereux pour une automatisation nouvelle est refusé.
+      const avant = this.get(String(input.id));
+      if (!avant || avant.id !== input.id || !existsSync(this.file(avant.id))) throw new Error('identifiant invalide');
+      ancienFichier = this.file(avant.id);
+      input = { ...input, id: this.idPropre(avant.id) };
+      if (this.file(String(input.id)) !== ancienFichier && existsSync(this.file(String(input.id)))) input = { ...input, id: rid() };
+    }
+    // « v-… » est réservé aux anciennes versions rangées dans la corbeille : jamais pour une automatisation nouvelle.
+    if (input.id && String(input.id).startsWith('v-') && !this.parId(String(input.id))) throw new Error('identifiant invalide');
+    const old = ancienFichier ? JSON.parse(readFileSync(ancienFichier, 'utf8')) as Workflow : input.id ? this.get(input.id) : undefined;
+    // Dossier : sans la clé, il reste celui d'avant (activer, régler le rythme, l'outil de l'agent ne font pas perdre
+    // le rangement) ; '' ou null le retire ; un dossier nouveau doit exister.
+    const aCle = Object.prototype.hasOwnProperty.call(input, 'dossier');
+    const voulu: unknown = aCle ? (input as { dossier?: unknown }).dossier : old?.dossier;
+    let dossier: string | undefined;
+    if (voulu === '' || voulu === null || voulu === undefined) dossier = undefined;
+    else if (voulu === old?.dossier) dossier = old?.dossier;
+    else if (typeof voulu === 'string' && this.dossiers().some((d) => d.id === voulu)) dossier = voulu;
+    // Un dossier supprimé entre-temps (éditeur resté ouvert) : l'automatisation s'enregistre « sans dossier ».
+    else if (typeof voulu === 'string' && lireSupprimes(this.fichierDossiers).includes(voulu)) dossier = undefined;
+    else throw new Error('dossier inconnu');
+    const sans = { ...input }; delete sans.dossier;
+    const wf = normalize(suivreRythme(old, { ...sans, ...(dossier ? { dossier } : {}), createdAt: old?.createdAt ?? input.createdAt }));
     // Webhook : chaque déclencheur reçoit un chemin secret (l'adresse ne se devine pas).
     for (const n of wf.nodes) if ((n.type === 'déclencheur.webhook' || n.type === 'déclencheur.formulaire') && !String(n.params.chemin ?? '').match(/^[\w-]{12,}$/)) n.params.chemin = randomBytes(12).toString('base64url');
     const err = checkFlow(wf, CATALOG);
@@ -80,18 +119,224 @@ export class Talos {
       writeFileSync(join(vd, `${Date.now()}.json`), JSON.stringify(old));
       const all = readdirSync(vd).sort(); for (const f of all.slice(0, Math.max(0, all.length - 20))) renameSync(join(vd, f), join(this.dir, 'corbeille', `v-${wf.id}-${f}`));
     }
-    writeFileSync(this.file(wf.id), JSON.stringify(wf, null, 2));
+    ecrireJson(this.file(wf.id), wf);
+    if (ancienFichier && ancienFichier !== this.file(wf.id)) { this.disarm(String(old?.id)); try { unlinkSync(ancienFichier); } catch { /* déjà parti */ } }
     this.arm(wf);
     return wf;
   }
-  /** Corbeille (récupérable), jamais d'effacement direct. */
-  trash(id: string): void { const w = this.get(id); if (!w) throw new Error('automatisation introuvable'); this.disarm(w.id); renameSync(this.file(w.id), join(this.dir, 'corbeille', `${w.id}-${Date.now()}.json`)); }
+  /**
+   * Corbeille (récupérable), jamais d'effacement direct. Le fichier jeté garde la trace de son dossier et de son état ;
+   * Le fichier est d'abord DÉPLACÉ (un seul renommage : jamais à deux endroits à la fois), puis la trace est ajoutée.
+   * Son nom vient de l'identifiant nettoyé, jamais du contenu brut du fichier (aucun chemin possible).
+   */
+  trash(id: string): void {
+    const w = this.get(id); if (!w) throw new Error('automatisation introuvable');
+    const source = this.file(w.id); if (!existsSync(source)) throw new Error('automatisation introuvable');
+    this.disarm(w.id);
+    const now = Date.now();
+    const base = (String(w.id).replace(/[^\w-]/g, '').slice(0, 64) || 'automatisation').replace(/^v-/, 'v_');
+    const dest = join(this.dir, 'corbeille', `${base}-${now}.json`);
+    const corbeille: TraceCorbeille = { le: new Date(now).toISOString(), ...(typeof w.dossier === 'string' && RE_DOSSIER.test(w.dossier) ? { dossier: w.dossier } : {}), etaitActive: w.active === true };
+    renameSync(source, dest);
+    ecrireJson(dest, { ...w, corbeille });
+  }
   versions(id: string): Array<{ at: number; name: string; nodes: number }> {
+    if (!RE_ID.test(id)) return [];
     const vd = join(this.dir, 'versions', id); if (!existsSync(vd)) return [];
     return readdirSync(vd).sort().reverse().map((f) => { const w = JSON.parse(readFileSync(join(vd, f), 'utf8')) as Workflow; return { at: Number(f.replace('.json', '')), name: w.name, nodes: w.nodes.length }; });
   }
-  restore(id: string, at: number): Workflow { const f = join(this.dir, 'versions', id, `${at}.json`); if (!existsSync(f)) throw new Error('version introuvable'); return this.save({ ...JSON.parse(readFileSync(f, 'utf8')) as Workflow, id }); }
+  /** Reprend une version : tout revient, sauf le dossier, qui reste celui d'aujourd'hui. */
+  restore(id: string, at: number): Workflow {
+    if (!RE_ID.test(id)) throw new Error('identifiant invalide');
+    const f = join(this.dir, 'versions', id, `${Number(at)}.json`); if (!existsSync(f)) throw new Error('version introuvable');
+    const v = JSON.parse(readFileSync(f, 'utf8')) as Workflow;
+    return this.save({ ...v, id, dossier: this.get(id)?.dossier ?? '' });
+  }
   setActive(id: string, on: boolean): Workflow { const w = this.get(id); if (!w) throw new Error('automatisation introuvable'); return this.save({ ...w, active: on }); }
+
+  // ---------------- Dossiers du propriétaire et corbeille
+  private get fichierDossiers(): string { return join(this.dir, 'dossiers.json'); }
+  /** Les dossiers du propriétaire, dans l'ordre de création. */
+  dossiers(): Dossier[] { return lireDossiers(this.fichierDossiers); }
+  nomDossier(id: string): string | undefined { return this.dossiers().find((d) => d.id === id)?.nom; }
+  creerDossier(nom: string): Dossier {
+    const tous = this.dossiers(), propre = validerNomDossier(nom, tous);
+    if (tous.length >= MAX_DOSSIERS) throw new Error(`${MAX_DOSSIERS} dossiers au plus`);
+    let id = ''; do id = `d-${rid().toLowerCase()}`; while (!RE_DOSSIER.test(id) || tous.some((d) => d.id === id));
+    const d: Dossier = { id, nom: propre, cree: new Date().toISOString() };
+    ecrireDossiers(this.fichierDossiers, [...tous, d]);
+    return d;
+  }
+  renommerDossier(id: string, nom: string): Dossier {
+    const tous = this.dossiers(), d = tous.find((x) => x.id === id);
+    if (!d) throw new Error('dossier introuvable');
+    const propre = validerNomDossier(nom, tous, id);
+    if (propre === d.nom) return d;
+    const neuf = { ...d, nom: propre };
+    ecrireDossiers(this.fichierDossiers, tous.map((x) => (x.id === id ? neuf : x)));
+    return neuf;
+  }
+  /**
+   * Supprime un dossier : ses automatisations perdent seulement leur champ `dossier` (ni version, ni réarmement, état
+   * inchangé). La corbeille n'est pas touchée. Rend le nombre d'automatisations libérées.
+   */
+  supprimerDossier(id: string): number {
+    const tous = this.dossiers();
+    if (!tous.some((x) => x.id === id)) throw new Error('dossier introuvable');
+    let n = 0;
+    for (const w of this.list()) {
+      if (w.dossier !== id || !RE_ID.test(w.id) || !existsSync(this.file(w.id))) continue;
+      const reste: Partial<Workflow> = { ...w }; delete reste.dossier;
+      ecrireJson(this.file(w.id), reste); n++;
+    }
+    ecrireDossiers(this.fichierDossiers, tous.filter((x) => x.id !== id), [...lireSupprimes(this.fichierDossiers), id]);
+    return n;
+  }
+  /** Une automatisation par son identifiant exact, jamais par son nom. */
+  parId(id: string): Workflow | undefined {
+    if (typeof id !== 'string' || !RE_ID.test(id)) return undefined;
+    const f = join(this.dir, 'flows', `${id}.json`);
+    if (!existsSync(f)) return undefined;
+    try { const w = JSON.parse(readFileSync(f, 'utf8')) as Workflow; return w && typeof w === 'object' && w.id === id ? w : undefined; } catch { return undefined; }
+  }
+  /**
+   * Range une automatisation dans un dossier ('' : aucun). Écrit seulement ce champ : aucune version, rien n'est
+   * réarmé, `updatedAt` ne bouge pas.
+   */
+  ranger(id: string, dossier: string | null | undefined): Workflow {
+    if (typeof id !== 'string' || !RE_ID.test(id)) throw new Error('identifiant invalide');
+    const w = this.parId(id); if (!w) throw new Error('automatisation introuvable');
+    const neuf: Workflow = { ...w }; delete neuf.dossier;
+    if (dossier !== '' && dossier !== null && dossier !== undefined) {
+      if (typeof dossier !== 'string' || !this.dossiers().some((d) => d.id === dossier)) throw new Error('dossier inconnu');
+      neuf.dossier = dossier;
+    }
+    ecrireJson(this.file(id), neuf);
+    return neuf;
+  }
+  /** Ce qui est à la corbeille (sans les anciennes versions « v-… »), le plus récemment jeté d'abord. */
+  listeCorbeille(): Array<{ cle: string; id: string; nom: string; jeteeLe: number; dossier?: string; etaitActive?: boolean }> {
+    this.reprendreRestaurations();
+    const dir = join(this.dir, 'corbeille'), out: ReturnType<Talos['listeCorbeille']> = [];
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.json') || f.startsWith('v-')) continue;
+      const cle = f.slice(0, -5); if (!RE_CLE.test(cle)) continue;
+      let w: (Partial<Workflow> & { corbeille?: Partial<TraceCorbeille> }) | undefined;
+      try { w = JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { continue; }
+      if (!w || typeof w !== 'object' || Array.isArray(w)) continue;
+      const t = w.corbeille && typeof w.corbeille === 'object' ? w.corbeille : undefined;
+      const tiret = cle.lastIndexOf('-'), le = typeof t?.le === 'string' ? Date.parse(t.le) : NaN, duNom = tiret >= 0 ? Number(cle.slice(tiret + 1)) : NaN;
+      out.push({ cle, id: typeof w.id === 'string' ? w.id : cle.slice(0, Math.max(0, tiret)), nom: String(w.name ?? cle), jeteeLe: Number.isFinite(le) ? le : Number.isFinite(duNom) ? duNom : 0,
+        ...(typeof t?.dossier === 'string' && RE_DOSSIER.test(t.dossier) ? { dossier: t.dossier } : {}), ...(typeof t?.etaitActive === 'boolean' ? { etaitActive: t.etaitActive } : {}) });
+    }
+    return out.sort((a, b) => b.jeteeLe - a.jeteeLe);
+  }
+  /**
+   * Sort une automatisation de la corbeille : elle revient toujours en brouillon, dans son dossier s'il existe encore.
+   * Si son identifiant est repris entre-temps, elle en reçoit un nouveau (et ses adresses secrètes changent).
+   */
+  /**
+   * Une restauration coupée au milieu (Odin arrêté) : le fichier jeté porte alors le nom
+   * `<clé>.vers-<id>.restauration`. Si l'automatisation est déjà revenue dans flows/, il est effacé ; sinon il retourne
+   * à la corbeille. Jamais de doublon, jamais de perte.
+   */
+  private reprendreRestaurations(): void {
+    const dir = join(this.dir, 'corbeille');
+    for (const f of readdirSync(dir)) {
+      const m = /^([\w-]{1,90})\.vers-([\w-]{1,64})\.restauration$/.exec(f); if (!m) continue;
+      try { if (existsSync(this.file(m[2]))) unlinkSync(join(dir, f)); else renameSync(join(dir, f), join(dir, `${m[1]}.json`)); } catch { /* repris au prochain passage */ }
+    }
+  }
+  restaurerCorbeille(cle: string): Workflow {
+    if (typeof cle !== 'string' || !RE_CLE.test(cle) || cle.startsWith('v-')) throw new Error('identifiant invalide');
+    this.reprendreRestaurations();
+    const f = join(this.dir, 'corbeille', `${cle}.json`);
+    if (!existsSync(f)) throw new Error('élément introuvable');
+    let w: Workflow & { corbeille?: unknown };
+    try { w = JSON.parse(readFileSync(f, 'utf8')); } catch { throw new Error('élément introuvable'); }
+    if (!w || typeof w !== 'object' || !Array.isArray(w.nodes)) throw new Error('élément introuvable');
+    const flow: Partial<Workflow> & { corbeille?: unknown } = { ...w, active: false }; delete flow.corbeille;
+    flow.dossier = typeof w.dossier === 'string' && this.dossiers().some((d) => d.id === w.dossier) ? w.dossier : '';
+    if (typeof flow.id !== 'string' || !RE_ID.test(flow.id) || flow.id.startsWith('v-') || existsSync(this.file(flow.id))) {
+      flow.id = rid();
+      flow.nodes = (flow.nodes ?? []).map((n) => (n.type === 'déclencheur.webhook' || n.type === 'déclencheur.formulaire' ? { ...n, params: { ...(n.params ?? {}), chemin: '' } } : n));
+    }
+    // D'abord le fichier jeté change de nom (il porte l'identifiant visé), puis l'automatisation est enregistrée,
+    // enfin il est effacé : une coupure entre deux étapes se reprend sans doublon (reprendreRestaurations).
+    const enCours = join(this.dir, 'corbeille', `${cle}.vers-${flow.id}.restauration`);
+    renameSync(f, enCours);
+    let sauve: Workflow;
+    try { sauve = this.save(flow); } catch (e) {
+      // Refusée avant d'être écrite : l'élément retourne à la corbeille. Écrite quand même : il n'y retourne pas.
+      try { if (existsSync(this.file(String(flow.id)))) unlinkSync(enCours); else renameSync(enCours, f); } catch { /* repris au prochain passage */ }
+      throw e;
+    }
+    try { unlinkSync(enCours); } catch { /* repris au prochain passage */ }
+    return sauve;
+  }
+  /** Efface pour de bon ce que la corbeille montre (les anciennes versions « v-… » restent). Rend le nombre effacé. */
+  viderCorbeille(): number {
+    let n = 0;
+    for (const e of this.listeCorbeille()) { try { unlinkSync(join(this.dir, 'corbeille', `${e.cle}.json`)); n++; } catch { /* déjà parti */ } }
+    return n;
+  }
+
+  // ---------------- Automatisations de départ (installées une seule fois)
+  private get fichierDepart(): string { return join(this.dir, 'state', 'depart.json'); }
+  /**
+   * La marque d'installation, ou undefined si elle n'existe pas. Une marque présente mais abîmée (elle est écrite d'un
+   * coup, donc jamais à moitié par une coupure) dit qu'une décision a déjà été prise : elle se lit « installe », pour
+   * que des automatisations jetées ou une proposition refusée ne reviennent jamais.
+   */
+  marqueDepart(): MarqueDepart | undefined {
+    if (!existsSync(this.fichierDepart)) return undefined;
+    try {
+      const m = JSON.parse(readFileSync(this.fichierDepart, 'utf8')) as MarqueDepart;
+      if (m && (m.etat === 'installe' || m.etat === 'propose' || m.etat === 'refuse')) return m;
+    } catch { /* abîmée */ }
+    return { version: 1, etat: 'installe', le: '', ids: [] };
+  }
+  private marquer(etat: EtatDepart): void {
+    ecrireJson(this.fichierDepart, { version: 1, etat, le: new Date().toISOString(), ids: automatisationsDepart().map((x) => String(x.flow.id)) } satisfies MarqueDepart);
+  }
+  /**
+   * Installe les automatisations de départ, une seule fois. Appelée au démarrage d'Odin (jamais par le constructeur).
+   * - La marque existe : rien (une automatisation de départ jetée, modifiée ou désactivée ne revient jamais).
+   * - Odin neuf (aucune automatisation à soi, ni dans flows/ ni à la corbeille) : tout est installé, puis marqué.
+   *   Une reprise après coupure saute ce qui existe déjà : aucun doublon.
+   * - Odin qui a déjà ses automatisations : rien n'est ajouté ; la page les propose (marque « propose »).
+   * `accepter` : le propriétaire a dit « Les ajouter » à la proposition (seulement depuis « propose »).
+   */
+  installerDepart(o: { accepter?: boolean } = {}): { etat: EtatDepart; installees: number } {
+    const marque = this.marqueDepart(), defs = automatisationsDepart(), ids = new Set(defs.map((x) => String(x.flow.id)));
+    if (marque && !(o.accepter && marque.etat === 'propose')) {
+      if (o.accepter) throw new Error(marque.etat === 'installe' ? 'déjà installées' : 'proposition refusée');
+      return { etat: marque.etat, installees: 0 };
+    }
+    const jetees = this.listeCorbeille();
+    if (!o.accepter && (this.list().some((w) => !ids.has(w.id)) || jetees.some((e) => !ids.has(e.id)))) { this.marquer('propose'); return { etat: 'propose', installees: 0 }; }
+    // Les dossiers : réutilisés s'il en existe un du même nom.
+    const dossierDe = new Map<string, string | undefined>();
+    for (const nom of new Set(defs.map((x) => x.dossier))) {
+      let id = this.dossiers().find((d) => cleNom(d.nom) === cleNom(nom))?.id;
+      if (!id) { try { id = this.creerDossier(nom).id; } catch { id = undefined; /* 50 dossiers : rangée sans dossier */ } }
+      dossierDe.set(nom, id);
+    }
+    const pris = new Set([...this.list().map((w) => w.id), ...jetees.map((e) => e.id)]);
+    let n = 0;
+    for (const x of defs) {
+      if (pris.has(String(x.flow.id))) continue;
+      try { this.save({ ...x.flow, dossier: dossierDe.get(x.dossier) ?? '' }); n++; } catch { /* une définition refusée n'empêche pas les autres */ }
+    }
+    this.marquer('installe');
+    return { etat: 'installe', installees: n };
+  }
+  /** « Non merci » à la proposition : elle ne revient plus. */
+  refuserDepart(): void {
+    if (this.marqueDepart()?.etat === 'installe') throw new Error('déjà installées');
+    this.marquer('refuse');
+  }
+
   runs(id?: string, n = 20): Execution[] {
     const files = id ? [`${id}.json`] : readdirSync(join(this.dir, 'runs'));
     return files.flatMap((f) => { try { return JSON.parse(readFileSync(join(this.dir, 'runs', f), 'utf8')) as Execution[]; } catch { return []; } }).sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, n);
@@ -306,7 +551,8 @@ export async function flowFromDescription(llm: (system: string, user: string) =>
     try {
       const wf = parseFlowJson(await llm(flowPrompt(), k ? `${description}\n\nTa réponse précédente était refusée : ${last}. Corrige.` : description));
       const err = checkFlow(normalize(wf), CATALOG);
-      if (!err) return { ...wf, active: false, origin: 'odin' };
+      // Une automatisation écrite par l'IA est toujours neuve : aucun identifiant ni dossier venu de sa réponse.
+      if (!err) { const neuve = { ...wf }; delete neuve.id; delete neuve.dossier; return { ...neuve, active: false, origin: 'odin' }; }
       last = err;
     } catch (e) { last = (e as Error).message; }
   }

@@ -59,9 +59,11 @@ export const CLASSEMENT: Record<string, Classement> = {
   ivaldi: V('Terminaux et projets', 'Ferme les terminaux inactifs, vérifie les projets git toutes les 12 h.'),
   kvasir: T('Nouveautés des projets d\'origine', 'Nouvelles versions sur GitHub, résumé, base Évolutions.', ['heures', 'jour', 'semaine']),
   leikvangr: T('Rangement des jeux', 'Relit les dossiers de jeux.', ['heures', 'jour']),
+  mathesis: V('Odin apprend tout seul', 'Cherche ce qu\'il ne sait pas et lit des pages publiques, sous les budgets du jour ; s\'arrête dès qu\'Odin doit répondre.'),
   mimisbrunnr: V('Règles sur les journaux', 'Prévient quand un motif revient trop.', true),
   naglfar: V('Conteneurs', 'Relance les services voulus.'),
   pegase: V('Ronde de Pégase', 'Ronde des appareils, installateurs chaque jour.'),
+  pronoia: V('Prévisions à juger', 'Juge les prévisions arrivées à échéance et purge chaque nuit les plus anciennes.'),
   ran: V('Connexions vers l\'étranger', 'Pays inhabituels par appareil.', true),
   sindri: V('Plans de sauvegarde', 'Lance chaque plan à son heure, prévient s\'il est en retard, vérification le dimanche à 4 h 30.'),
   skidbladnir: V('Synchros et envois', 'Synchronise les dossiers, met les envois expirés à la corbeille.'),
@@ -69,6 +71,7 @@ export const CLASSEMENT: Record<string, Classement> = {
   skuld: V('Sauvegardes des bases', 'Lance les plans de sauvegarde des bases.'),
   svalinn: V('Retour Wi-Fi', 'Annule un changement Wi-Fi si les appareils ne reviennent pas.'),
   syn: V('Seuils des tableaux de bord', 'Prévient quand un seuil est franchi.'),
+  syrinx: V('Purge des sons de la nuit', 'Une fois par nuit, efface les écoutes devenues trop anciennes.'),
   thjalfi: V('Postes en installation', 'Suit les postes en cours d\'installation.'),
   ullr: V('Antivirus', 'Pièges, quarantaine, supports amovibles, analyses planifiées.', true),
   valgrind: V('Porte d\'entrée (proxy)', 'Relance le proxy et met à jour les bannis.', true),
@@ -159,6 +162,10 @@ const LONGUES = new Set(['sindri', 'skuld', 'ymir', 'eitri', 'fjalar', 'gefjon',
 /** Les surveillances qui protègent sans être des veilles de sécurité : leur pause sans fin pose une alerte haute. */
 const PROTEGENT = new Set(['sindri', 'skuld', 'svalinn']);
 
+/** « Stop » du propriétaire : tant que l'initiative est en pause, aucun automatisme des applis ne démarre. */
+let pauseGlobale: () => boolean = () => false;
+export function brancherPauseGlobale(f: () => boolean): void { pauseGlobale = f; }
+
 export class Automatismes {
   private hote: HoteAutomatismes;
   private fichier: string;
@@ -214,7 +221,7 @@ export class Automatismes {
       return;
     }
     // Comme avant : premier passage entre 20 et 40 s, puis toutes les `every` secondes.
-    const auto = () => void this.passer(`veille:${m.id}`, false).catch(() => undefined);
+    const auto = () => { if (!pauseGlobale()) void this.passer(`veille:${m.id}`, false).catch(() => undefined); };
     this.minuteries.set(m.id, [setTimeout(auto, 20_000 + Math.random() * 20_000), setInterval(auto, m.watch.every * 1000)]);
   }
   arreter(): void {
@@ -225,6 +232,7 @@ export class Automatismes {
   }
   /** Le tour de l'horloge (toutes les 30 s) : reprise des pauses échues, passages dus des rythmes changés. */
   async verifierDus(): Promise<void> {
+    if (pauseGlobale()) return;
     for (const id of Object.keys(this.etat.pauses)) this.enPause(id);
     const now = this.hote.now().getTime();
     for (const [mid, quand] of [...this.dus]) {

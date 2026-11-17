@@ -48,7 +48,11 @@ export function infosFlow(wf: Pick<Workflow, 'nodes' | 'active' | 'origin'>, v?:
   else if (pl.length > 1) dit = `${pl.length} plannings`;
   else {
     const t = wf.nodes.find((n) => CATALOG.get(n.type)?.trigger && !n.disabled);
-    if (t?.type === 'déclencheur.module') dit = `Quand ${nomAppliV(v, s(t.params?.module))} signale`;
+    if (t?.type === 'déclencheur.module') {
+      // L'événement attendu complète la phrase (sinon « Quand Durinn signale » reste en suspens).
+      const app = nomAppliV(v, s(t.params?.module)), ev = s(t.params?.['événement']).replace(/_/g, ' ').trim();
+      dit = ev === 'alerte' ? `Quand ${app} lance une alerte (${s(t.params?.niveau) || 'haute'} ou plus)` : ev ? `Quand ${app} signale « ${ev} »` : `Quand ${app} signale un événement`;
+    }
     else if (t) dit = PHRASE_DECLENCHEUR[t.type] ?? CATALOG.get(t.type)?.label;
   }
   const suivante = un && wf.active ? prochaine(un.rythme, now) : undefined;

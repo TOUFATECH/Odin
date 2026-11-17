@@ -3,7 +3,9 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CATALOG, NODES } from '../draupnir/nodes.ts';
-import { flowFromDescription, importN8n, templates } from '../draupnir/service.ts';
+import { automatisationsDepart } from '../draupnir/depart.ts';
+import { RE_ID } from '../draupnir/dossiers.ts';
+import { flowFromDescription, importN8n, templates, type Talos } from '../draupnir/service.ts';
 import type { Odin } from '../runtime.ts';
 import { secretHint, writeSecret } from '../settings.ts';
 import { draupnirOf } from '../tools/draupnir.ts';
@@ -23,17 +25,46 @@ export function catalogForUi() {
   return NODES.map((n) => ({ type: n.type, label: n.label, group: n.group, what: n.what, trigger: Boolean(n.trigger), inputs: n.inputs ?? ['entrée'], outputs: typeof n.outputs === 'function' ? null : n.outputs ?? ['sortie'], params: n.params }));
 }
 
+/** Les dossiers du propriétaire avec leur nombre d'automatisations, et les compteurs des onglets fixes. */
+function resumeDossiers(d: Talos) {
+  const flows = d.list(), dossiers = d.dossiers(), connus = new Set(dossiers.map((x) => x.id));
+  return {
+    connus,
+    dossiers: dossiers.map((x) => ({ id: x.id, nom: x.nom, nombre: flows.filter((w) => w.dossier === x.id).length })),
+    actives: flows.filter((w) => w.active).length, brouillons: flows.filter((w) => !w.active).length, corbeille: d.listeCorbeille().length,
+  };
+}
+/** Une automatisation visée par une route : identifiant exact seulement, jamais son nom. */
+function parIdExact(d: Talos, id: unknown) {
+  const v = s(id);
+  if (!RE_ID.test(v)) throw new Error('identifiant invalide');
+  const w = d.parId(v); if (!w) throw new Error('automatisation introuvable');
+  return w;
+}
+
 export async function draupnirGet(odin: Odin, path: string, q: URLSearchParams, base: string): Promise<unknown> {
   const d = draupnirOf(); if (!d) return { ok: false, error: 'Talos n\'est pas démarré' };
   switch (path) {
     case '/api/draupnir/state': {
       const creds = Object.keys(process.env).filter((k) => /^DRAUPNIR_[A-Z0-9_]+$/.test(k)).map((k) => ({ name: k.slice(9), ...secretHint(k) }));
-      return { ok: true, base, flows: d.list().map((w) => { const r = d.runs(w.id, 5), i = infosFlow(w, valhallaOf()); return { id: w.id, name: w.name, active: w.active, nodes: w.nodes.map((n) => ({ name: n.name, type: n.type, label: CATALOG.get(n.type)?.label ?? n.type })), updatedAt: w.updatedAt, last: r[0] ? { status: r[0].status, at: r[0].startedAt, error: r[0].error } : null, failed: r.filter((x) => x.status === 'erreur').length, ...(i.phrase ? { phrase: i.phrase } : {}), ...(i.prochaine ? { prochaine: i.prochaine, prochaineTexte: i.prochaineTexte } : {}), applis: i.applis, ...(i.origin ? { origin: i.origin } : {}) }; }), catalog: catalogForUi(), templates: allTemplates().map((t) => ({ id: t.id, name: t.name, what: t.what })), creds };
+      const rd = resumeDossiers(d);
+      return { ok: true, base, dossiers: rd.dossiers, corbeille: rd.corbeille, flows: d.list().map((w) => { const r = d.runs(w.id, 5), i = infosFlow(w, valhallaOf()); return { id: w.id, name: w.name, active: w.active, nodes: w.nodes.map((n) => ({ name: n.name, type: n.type, label: CATALOG.get(n.type)?.label ?? n.type })), updatedAt: w.updatedAt, last: r[0] ? { status: r[0].status, at: r[0].startedAt, error: r[0].error } : null, failed: r.filter((x) => x.status === 'erreur').length, ...(i.phrase ? { phrase: i.phrase } : {}), ...(i.prochaine ? { prochaine: i.prochaine, prochaineTexte: i.prochaineTexte } : {}), applis: i.applis, ...(i.origin ? { origin: i.origin } : {}), ...(w.dossier && rd.connus.has(w.dossier) ? { dossier: w.dossier } : {}) }; }), catalog: catalogForUi(), templates: allTemplates().map((t) => ({ id: t.id, name: t.name, what: t.what })), creds };
     }
     case '/api/draupnir/flow': {
       const w = d.get(s(q.get('id'))); if (!w) return { ok: false, error: 'automatisation introuvable' };
       return { ok: true, flow: w, outputs: Object.fromEntries(w.nodes.map((n) => [n.name, outs(n.type, n.params)])), runs: d.runs(w.id, 20), versions: d.versions(w.id) };
     }
+    // Dossiers (onglets de la page) et corbeille. Un dossier inconnu se lit comme « aucun dossier ».
+    case '/api/draupnir/dossiers': { const rd = resumeDossiers(d); return { ok: true, dossiers: rd.dossiers, actives: rd.actives, brouillons: rd.brouillons, corbeille: rd.corbeille }; }
+    case '/api/draupnir/corbeille': {
+      const noms = new Map(d.dossiers().map((x) => [x.id, x.nom]));
+      return { ok: true, elements: d.listeCorbeille().map((e) => ({ ...e, ...(e.dossier && noms.has(e.dossier) ? { dossierNom: noms.get(e.dossier) } : {}) })) };
+    }
+    // Automatisations de départ : l'état de la marque et ce qu'elles font (pour l'encart de proposition).
+    case '/api/draupnir/depart': return {
+      ok: true, etat: d.marqueDepart()?.etat ?? null,
+      liste: automatisationsDepart().map((x) => ({ id: x.flow.id, nom: x.flow.name, dossier: x.dossier, active: x.flow.active === true, phrase: x.flow.settings?.description ?? '' })),
+    };
     // Automatismes, onglet « Auto », liens, rythmes, agenda (talos-api.ts).
     default: return talosGet(odin, path, q);
   }
@@ -43,11 +74,31 @@ export async function draupnirPost(odin: Odin, path: string, b: Record<string, u
   const d = draupnirOf(); if (!d) return { ok: false, error: 'Talos n\'est pas démarré' };
   try {
     switch (path) {
-      case '/api/draupnir/save': return { ok: true, flow: d.save(b.flow as never) };
+      case '/api/draupnir/save': {
+        // Une automatisation déjà enregistrée change de dossier par /ranger (barre de l'éditeur, menu, glisser) : la
+        // copie que garde l'éditeur ne peut ni défaire un rangement fait entre-temps, ni échouer sur un dossier supprimé.
+        if (!b.flow || typeof b.flow !== 'object' || Array.isArray(b.flow)) return { ok: true, flow: d.save(b.flow as never) };
+        const f = { ...(b.flow as Record<string, unknown>) };
+        if (typeof f.id === 'string' && d.get(f.id)?.id === f.id) delete f.dossier;
+        return { ok: true, flow: d.save(f as never) };
+      }
       case '/api/draupnir/toggle': return { ok: true, flow: d.setActive(s(b.id), b.on === true) };
       case '/api/draupnir/trash': d.trash(s(b.id)); return { ok: true };
       case '/api/draupnir/run': return { ok: true, run: await d.run(s(b.id), Array.isArray(b.items) ? b.items as never : undefined, 'test', s(b.start) || undefined, { stopAfter: s(b.stopAfter) || undefined, pinned: (b.pinned ?? undefined) as never }) };
       case '/api/draupnir/restore': return { ok: true, flow: d.restore(s(b.id), Number(b.at)) };
+      // Dossiers du propriétaire, rangement, brouillon / active, corbeille.
+      case '/api/draupnir/dossier/creer': { const x = d.creerDossier(s(b.nom)); return { ok: true, dossier: { id: x.id, nom: x.nom } }; }
+      case '/api/draupnir/dossier/renommer': { const x = d.renommerDossier(s(b.id), s(b.nom)); return { ok: true, dossier: { id: x.id, nom: x.nom } }; }
+      case '/api/draupnir/dossier/supprimer': return { ok: true, liberees: d.supprimerDossier(s(b.id)) };
+      case '/api/draupnir/ranger': { const w = parIdExact(d, b.id); return { ok: true, flow: d.ranger(w.id, b.dossier === null || b.dossier === undefined ? '' : s(b.dossier)) }; }
+      case '/api/draupnir/brouillon': { const w = parIdExact(d, b.id); return { ok: true, flow: d.setActive(w.id, false) }; }
+      // L'interface demande confirmation avant d'appeler (comme pour /toggle).
+      case '/api/draupnir/activer': { const w = parIdExact(d, b.id); return { ok: true, flow: d.setActive(w.id, true) }; }
+      case '/api/draupnir/corbeille/restaurer': return { ok: true, flow: d.restaurerCorbeille(s(b.cle)) };
+      case '/api/draupnir/corbeille/vider': if (b.confirmer !== true) return { ok: false, error: 'confirmation manquante' }; return { ok: true, effacees: d.viderCorbeille() };
+      // Proposition des automatisations de départ (Odin qui avait déjà les siennes) : « Les ajouter » ou « Non merci ».
+      case '/api/draupnir/depart/installer': return { ok: true, installees: d.installerDepart({ accepter: true }).installees };
+      case '/api/draupnir/depart/refuser': d.refuserDepart(); return { ok: true };
       case '/api/draupnir/template': { const t = allTemplates().find((x) => x.id === s(b.id)); if (!t) return { ok: false, error: 'modèle inconnu' }; return { ok: true, flow: d.save({ ...t.flow, active: false } as never) }; }
       case '/api/draupnir/import': { const src = typeof b.json === 'string' ? JSON.parse(b.json) : b.json; const r = importN8n(src as never); return { ok: true, flow: d.save({ ...r.flow, active: false }), todo: r.todo }; }
       case '/api/draupnir/create': {

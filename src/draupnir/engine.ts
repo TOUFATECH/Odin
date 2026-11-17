@@ -6,6 +6,7 @@
 // Aucune évaluation de code : uniquement des chemins (pas d'injection possible par les données).
 
 import { doitAttendre, messageAttente, replanifierAuRetour } from './attente-internet.ts';
+import { RE_DOSSIER } from './dossiers.ts';
 
 export interface Item { json: Record<string, unknown> }
 export interface FlowNode { id?: string; name: string; type: string; params: Record<string, unknown>; position?: [number, number]; disabled?: boolean; note?: string }
@@ -16,6 +17,8 @@ export interface Workflow {
   connections: Record<string, Link[][]>;
   settings?: { retry?: number; notifyOnError?: boolean; description?: string };
   createdAt?: string; updatedAt?: string; origin?: string;
+  /** Dossier du propriétaire où elle est rangée (son identifiant, jamais son nom). Absent : aucun dossier. */
+  dossier?: string;
 }
 export interface NodeRun { count: number; items: Array<Record<string, unknown>>; ms: number; error?: string; outputs?: number[] }
 export interface Execution {
@@ -118,7 +121,7 @@ export function resolve(v: unknown, scope: Scope): unknown {
 // ---------------------------------------------------------------- Exécution
 
 const MAX_STEPS = 1000, MAX_ITEMS = 10_000, KEEP = 20;
-const rid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+export const rid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
 export function outputsOf(def: NodeDef, params: Record<string, unknown>): string[] {
   const o = typeof def.outputs === 'function' ? def.outputs(params) : def.outputs;
@@ -250,5 +253,5 @@ export function checkFlow(wf: Partial<Workflow>, catalog: Map<string, NodeDef>):
 export function normalize(wf: Partial<Workflow>): Workflow {
   const nodes = (wf.nodes ?? []).map((n, i) => ({ id: n.id || rid(), name: String(n.name), type: String(n.type), params: n.params ?? {}, position: n.position ?? [40 + i * 200, 200] as [number, number], ...(n.disabled ? { disabled: true } : {}), ...(n.note ? { note: n.note } : {}) }));
   const t = new Date().toISOString();
-  return { id: wf.id || rid(), name: String(wf.name ?? 'Automatisation'), active: Boolean(wf.active), nodes, connections: wf.connections ?? {}, settings: { retry: 0, notifyOnError: true, ...(wf.settings ?? {}) }, createdAt: wf.createdAt ?? t, updatedAt: t, ...(wf.origin ? { origin: wf.origin } : {}) };
+  return { id: wf.id || rid(), name: String(wf.name ?? 'Automatisation'), active: Boolean(wf.active), nodes, connections: wf.connections ?? {}, settings: { retry: 0, notifyOnError: true, ...(wf.settings ?? {}) }, createdAt: wf.createdAt ?? t, updatedAt: t, ...(wf.origin ? { origin: wf.origin } : {}), ...(typeof wf.dossier === 'string' && RE_DOSSIER.test(wf.dossier) ? { dossier: wf.dossier } : {}) };
 }

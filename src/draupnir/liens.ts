@@ -50,7 +50,7 @@ export const EVENEMENTS: Record<string, string[]> = {
   // Vénus : le fichier s'appelle venus.ts, l'appli a pour identifiant « freyja ».
   venus: ['arrivee', 'enregistrement_echoue'],
   freyja: ['arrivee', 'enregistrement_echoue'],
-  vidarr: ['dhcp_bail', 'dhcp_journal', 'dhcp_nouveau', 'dns_amont_panne', 'dns_inondation', 'dns_menace', 'machine_coupee', 'reseau_anomalie'],
+  vidarr: ['dhcp_approuver', 'dhcp_attente', 'dhcp_bail', 'dhcp_journal', 'dhcp_mac_etat', 'dhcp_mode', 'dhcp_nouveau', 'dns_amont_panne', 'dns_inondation', 'dns_menace', 'machine_coupee', 'reseau_anomalie'],
   zeus: ['releve', 'bilan', 'source_en_panne'],
   volva: ['recherche'],
   vordr: ['panne', 'probleme', 'retour'],
