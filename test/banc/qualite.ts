@@ -88,6 +88,9 @@ export const ECRANS: Cible[] = [
   spa('graphe:cerveau', 'Graphe du Cerveau', `window.OdinShow('brain'); setTimeout(() => { document.querySelector('#v-brain .br-item[data-mode="graphe"]')?.click(); setTimeout(() => document.querySelector('#v-brain .ge-seg [data-vue="2d"]')?.click(), 600); }, 400)`, '#v-brain', { pret: '#v-brain .br-cv' }),
   spa('graphe-3d:cerveau', 'Graphe 3D du Cerveau', `window.OdinShow('brain'); setTimeout(() => { document.querySelector('#v-brain .br-item[data-mode="graphe"]')?.click(); setTimeout(() => document.querySelector('#v-brain .ge-seg [data-vue="3d"]')?.click(), 600); }, 400)`, '#v-brain', { pret: '#v-brain .ge canvas' }),
   spa('graphe-3d:carte', 'Graphe 3D de la carte des applis', `window.OdinShow('apps'); setTimeout(() => { document.querySelector('#v-apps .seg [data-vue="carte"]')?.click(); setTimeout(() => document.querySelector('#vaPaneCarte .ge-seg [data-vue="3d"]')?.click(), 300); }, 400)`, '#v-apps', { pret: '#vaPaneCarte .ge canvas' }),
+  // La carte du réseau de la maison : son dessin d'avant sous « Graphe », le composant commun sous « Graphe 3D ».
+  spa('graphe:reseau', 'Carte du réseau (Graphe)', `window.OdinShow('net'); setTimeout(() => { document.querySelector('#v-net [data-nt="map"]')?.click(); setTimeout(() => document.querySelector('#netGraph .ge-seg [data-vue="2d"]')?.click(), 300); }, 400)`, '#v-net', { pret: '#netGraph .og canvas' }),
+  spa('graphe-3d:reseau', 'Carte du réseau (Graphe 3D)', `window.OdinShow('net'); setTimeout(() => { document.querySelector('#v-net [data-nt="map"]')?.click(); setTimeout(() => document.querySelector('#netGraph .ge-seg [data-vue="3d"]')?.click(), 300); }, 400)`, '#v-net', { pret: '#netGraph .ge canvas' }),
   spa('taches', 'Tâches planifiées', `window.OdinShow('jobs')`, '#v-jobs'),
   spa('decisions', 'Décisions', `window.OdinShow('audit')`, '#v-audit'),
   spa('profil', 'Profil', `window.OdinShow('profil')`, '#v-profil', { pret: '#v-profil .pf' }),

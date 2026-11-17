@@ -3214,13 +3214,14 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     for (const n of nets) nodes.push({ id: `net:${n}`, label: n, hub: true, size: 18, color: '#E3AC3F', title: `Réseau ${n}` });
     for (const x of all) {
       const net = `net:${x.network || 'réseau'}`;
-      if (x.kind === 'routeur') { nodes.push({ id: x.id, label: mapName(x), sub: x.ip, hub: true, size: 17, color: '#E3AC3F', off: x.status !== 'online', title: `${x.label} · ${x.ip}` }); edges.push([net, x.id]); continue; }
+      // groupe (pour le « Graphe 3D ») : la famille d'appareils qui range déjà la carte ; le 2D l'ignore.
       const cat = NET_CATS.find((c) => c[0] === x.kind) || ['', '•', 'Autres'];
+      if (x.kind === 'routeur') { nodes.push({ id: x.id, label: mapName(x), sub: x.ip, hub: true, size: 17, color: '#E3AC3F', off: x.status !== 'online', title: `${x.label} · ${x.ip}`, groupe: cat[2] }); edges.push([net, x.id]); continue; }
       const cid = `cat:${x.network || 'réseau'}:${cat[2]}`;
-      if (!cats.has(cid)) { cats.set(cid, true); nodes.push({ id: cid, label: `${cat[1]} ${cat[2]}`, hub: true, title: cat[2] }); edges.push([net, cid]); }
+      if (!cats.has(cid)) { cats.set(cid, true); nodes.push({ id: cid, label: `${cat[1]} ${cat[2]}`, hub: true, title: cat[2], groupe: cat[2] }); edges.push([net, cid]); }
       const risk = byIp.get(x.ip), down = x.status !== 'online', watched = isWatched(x);
       const alert = risk ? { n: risk.n + (down && watched ? 1 : 0), level: risk.grave || (down && watched) ? 'grave' : 'attention' } : down && watched ? { n: 1, level: 'grave' } : undefined;
-      nodes.push({ id: x.id, label: mapName(x), sub: x.ip, search: [x.label, x.hostname, x.vendor, x.model, x.os, x.kind].filter(Boolean).join(' '), off: down, alert,
+      nodes.push({ id: x.id, label: mapName(x), sub: x.ip, search: [x.label, x.hostname, x.vendor, x.model, x.os, x.kind].filter(Boolean).join(' '), off: down, alert, groupe: cat[2],
         title: `${x.label} · ${x.ip}${x.os ? ' · ' + x.os : ''}${down ? ' · hors ligne' : ''}${risk ? ' · ' + risk.t.join(' ; ') : ''}${down && watched ? ' · surveillé : tombé' : ''}` });
       edges.push([cid, x.id]);
     }
@@ -3228,11 +3229,15 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     for (const x of all.filter((y) => y.kind === 'routeur')) for (const c of cats.keys()) if (c.startsWith(`cat:${x.network || 'réseau'}:`)) edges.push([x.id, c]);
     const on = all.filter((x) => x.status === 'online').length, bad = nodes.filter((n) => n.alert).length;
     const data = { nodes, edges, label: 'Graphe du réseau', search: 'Chercher (nom, IP, système)…', counter: () => `${all.length} appareils · ${on} en ligne${bad ? ` · ${bad} à regarder` : ''}`, onOpen: (id) => { if (!/^(net|cat):/.test(String(id))) openDevice(id); } };
-    if (mapGraph && host.contains(mapGraph.el)) mapGraph.update(data); else mapGraph = window.OdinGraph.mount(host, data);
+    // « Graphe | Graphe 3D » (pages/graphe-espace.js), retenu sous « reseau » : « Graphe » est le dessin d'avant ; le 3D
+    // reçoit les mêmes données. Un rafraîchissement met à jour la vue montée (le 3D garde la place des points connus).
+    if (mapGraph && host.contains(mapGraph.el)) { mapGraph.update(data); return; }
+    mapGraph?.detacher?.();
+    mapGraph = window.OdinGrapheEspace ? window.OdinGrapheEspace.choix(host, { cle: 'reseau', donnees: data }) : window.OdinGraph.mount(host, data);
   }
   function renderMap() {
     const all = (state.devices || []).filter((x) => x.status !== 'removed');
-    if (!all.length) { $('#netGraph').replaceChildren(el('div', { class: 'empty' }, 'Aucun appareil : lance un balayage.')); mapGraph = null; return; }
+    if (!all.length) { mapGraph?.detacher?.(); $('#netGraph').replaceChildren(el('div', { class: 'empty' }, 'Aucun appareil : lance un balayage.')); mapGraph = null; return; }
     renderMapGraph(all);
   }
   // ---------- Fiche d'un appareil (page entière) ----------
