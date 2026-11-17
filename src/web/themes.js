@@ -70,7 +70,9 @@
 :root[data-odin-theme] body::before{content:'';position:fixed;inset:0;pointer-events:none;background:${t.dark ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.22)'};z-index:0}
 :root[data-odin-theme] nav.side{background:color-mix(in srgb,var(--panel2) 86%,transparent);backdrop-filter:blur(10px)}
 :root[data-odin-theme] .card,:root[data-odin-theme] .hpanel,:root[data-odin-theme] .hcard{background:color-mix(in srgb,var(--panel) 94%,transparent)}
-:root[data-odin-theme] main{position:relative;z-index:1}`;
+:root[data-odin-theme] main{position:relative;z-index:1;background:var(--bg)}`;
+    // (Zone de travail sur fond uni, choix du propriétaire du 17/11 : le décor ne passe jamais derrière un texte ; il ne se
+    //  voit plus que derrière la barre de côté.)
     // La mascotte en liberté et sa copie dans la discussion prennent la couleur du thème au repos.
     window.OdinFace?.tintBase?.(t.mascot);
     document.querySelector('meta[name=theme-color]')?.setAttribute('content', t.sky[0]);
