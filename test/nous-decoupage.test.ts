@@ -41,3 +41,42 @@ test('reproductible : même corpus + même graine => mêmes fusions', () => {
   assert.equal(a.version, b.version);
   assert.deepEqual(Array.from(a.fusions), Array.from(b.fusions));
 });
+
+// Défauts trouvés en entraînant pour de vrai (17/11) : la même fusion était rechoisie sans fin, et une fusion bâtie
+// sur une autre portait un mauvais identifiant. Le réseau travaillait alors presque octet par octet.
+function pairesDe(fusions: ArrayLike<number>): string[] {
+  const out: string[] = [];
+  for (let i = 0; i + 1 < fusions.length; i += 2) out.push(`${fusions[i]},${fusions[i + 1]}`);
+  return out;
+}
+
+test('apprentissage : une paire n\'est jamais apprise deux fois', () => {
+  // « ab » fusionne d'abord (le plus fréquent) ; dans « abcbc », cette fusion retire UNE des deux paires « bc ».
+  // L'autre reste : elle doit être fusionnée à son tour, une seule fois.
+  const texte = 'ab '.repeat(100) + 'abcbc '.repeat(10);
+  const d = apprendreDecoupage([texte], 300, 5);
+  const paires = pairesDe(d.fusions);
+  assert.equal(new Set(paires).size, paires.length, `des fusions en double : ${paires.join(' ')}`);
+  // le mot est toujours précédé d'un espace dans ce corpus : avec son espace, il tient en UN morceau
+  assert.equal(d.encoder(' abcbc').length, 1, `« abcbc » en ${d.encoder(' abcbc').length} morceaux`);
+});
+
+test('apprentissage : une fusion bâtie sur une autre vise le bon morceau', () => {
+  const d = apprendreDecoupage([CORPUS.join(' ').repeat(20)], 4096, 123);
+  const paires = pairesDe(d.fusions), n = paires.length;
+  assert.equal(new Set(paires).size, n, 'aucune fusion en double');
+  // chaque fusion ne s'appuie que sur des morceaux définis AVANT elle
+  for (let i = 0; i < n; i++) for (const x of [d.fusions[2 * i], d.fusions[2 * i + 1]]) {
+    assert.ok(x < 264 + i, `la fusion ${i} renvoie au morceau ${x}, pas encore défini`);
+  }
+  // et un mot répété vingt fois dans le corpus (avec l'espace qui le précède) finit en un seul morceau
+  assert.equal(d.encoder(' Mamoudzou').length, 1, `« Mamoudzou » en ${d.encoder(' Mamoudzou').length} morceaux`);
+  assert.equal(d.decoder(d.encoder(' Mamoudzou')), ' Mamoudzou');
+});
+
+test('pré-découpage : l\'espace reste collé au mot qui le suit', () => {
+  const d = apprendreDecoupage([CORPUS.join(' ').repeat(20)], 4096, 123);
+  // « la maison de Mamoudzou » au milieu d'une phrase : quatre mots, quatre morceaux (aucun espace à part)
+  assert.equal(d.encoder(' la maison de Mamoudzou').length, 4);
+  for (const s of ['a  b', '  deux espaces', 'fin   ', 'ligne\n suite', ' ', '\t', 'a b']) assert.equal(d.decoder(d.encoder(s)), s, `aller-retour de ${JSON.stringify(s)}`);
+});

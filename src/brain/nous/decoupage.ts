@@ -16,8 +16,12 @@ const NSPEC = 8;
 const BASE = NSPEC;          // premier identifiant d'octet
 const DEBUT_FUSIONS = NSPEC + 256; // premier identifiant de fusion
 
-// Pré-découpage : runs de lettres, de chiffres, de ponctuation, d'espaces. Un espace de tête reste collé au morceau.
-const PRE = /\s+|[^\s\p{L}\p{N}]+|\p{L}+|\p{N}+/gu;
+// Pré-découpage : suites de lettres, de chiffres, de ponctuation, d'espaces. UN espace de tête reste collé au morceau
+// qui le suit (« le chat » → « le », « ·chat ») : sinon chaque espace coûte un morceau à lui seul, soit près de deux
+// morceaux sur cinq d'un texte courant. Toute suite d'espaces qui précède un mot lui laisse donc son dernier espace.
+const PRE = / ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
+/** Numéro de la règle de pré-découpage, mêlé à la version : un découpage appris sous une autre règle n'a pas la même. */
+const REGLE_PRE = 2;
 function morceaux(texte: string): string[] { return texte.match(PRE) ?? []; }
 
 const enc = new TextEncoder();
@@ -83,7 +87,7 @@ export interface DecoupageConcret extends Decoupage {
 
 /** Hachage 32 bits des fusions + vocab : la « version » scellée avec les poids. */
 function hachage(fusions: Int32Array, vocab: number): number {
-  let h = 2166136261 ^ vocab;
+  let h = 2166136261 ^ vocab ^ Math.imul(REGLE_PRE, 0x9e3779b1);
   for (let i = 0; i < fusions.length; i++) { h ^= fusions[i]; h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
@@ -107,14 +111,16 @@ export function apprendreDecoupage(textes: Iterable<string>, vocab: number, grai
     compte.set(k, (compte.get(k) ?? 0) + f);
     let s = ou.get(k); if (!s) { s = new Set(); ou.set(k, s); } s.add(pi);
   };
-  const retirerPaire = (k: number, f: number, pi: number): void => {
+  // La pièce n'est PAS retirée de `ou` : elle peut contenir la même paire ailleurs, et l'en retirer laissait un compte
+  // positif que plus aucune pièce ne portait (la même fusion était alors rechoisie sans fin). `ou` reste un
+  // sur-ensemble sans danger : la boucle de fusion relit la suite réelle de chaque pièce.
+  const retirerPaire = (k: number, f: number): void => {
     const c = (compte.get(k) ?? 0) - f; if (c <= 0) compte.delete(k); else compte.set(k, c);
-    ou.get(k)?.delete(pi);
   };
   for (let pi = 0; pi < pieces.length; pi++) { const { seq, f } = pieces[pi]; for (let i = 0; i + 1 < seq.length; i++) ajouterPaire(cle(seq[i], seq[i + 1]), f, pi); }
 
   const fus: number[] = [];
-  for (let m = 0; m < cibleFusions; m++) {
+  while (fus.length / 2 < cibleFusions) {
     // meilleure paire : fréquence max, égalité tranchée par un hachage à graine.
     let bestK = -1, bestC = 0, bestTie = -1;
     for (const [k, c] of compte) {
@@ -123,7 +129,11 @@ export function apprendreDecoupage(textes: Iterable<string>, vocab: number, grai
     }
     if (bestK < 0 || bestC < 2) break;
     const a = Math.floor(bestK / 0x4000000), b = bestK % 0x4000000;
-    const nouv = DEBUT_FUSIONS + fus.length; fus.push(a, b);
+    // L'identifiant de la fusion est son RANG — `fus` range DEUX nombres par fusion — : c'est celui que fabriquer()
+    // lui donnera. (Compté en nombres rangés, il valait le double, et toute fusion bâtie sur une autre visait un
+    // mauvais morceau.)
+    const nouv = DEBUT_FUSIONS + fus.length / 2;
+    let faites = 0;
     // applique la fusion (a,b)->nouv dans chaque pièce concernée, en mettant à jour les compteurs.
     for (const pi of [...(ou.get(bestK) ?? [])]) {
       const p = pieces[pi]; const seq = p.seq, f = p.f;
@@ -131,16 +141,20 @@ export function apprendreDecoupage(textes: Iterable<string>, vocab: number, grai
       while (i + 1 < seq.length) {
         if (seq[i] === a && seq[i + 1] === b) {
           // retire les paires (gauche,a),(a,b),(b,droite)
-          if (i > 0) retirerPaire(cle(seq[i - 1], a), f, pi);
-          retirerPaire(cle(a, b), f, pi);
-          if (i + 2 < seq.length) retirerPaire(cle(b, seq[i + 2]), f, pi);
-          seq[i] = nouv; seq.splice(i + 1, 1);
+          if (i > 0) retirerPaire(cle(seq[i - 1], a), f);
+          retirerPaire(cle(a, b), f);
+          if (i + 2 < seq.length) retirerPaire(cle(b, seq[i + 2]), f);
+          seq[i] = nouv; seq.splice(i + 1, 1); faites++;
           // ajoute les nouvelles paires (gauche,nouv),(nouv,droite)
           if (i > 0) ajouterPaire(cle(seq[i - 1], nouv), f, pi);
           if (i + 1 < seq.length) ajouterPaire(cle(nouv, seq[i + 1]), f, pi);
         } else i++;
       }
     }
+    // La paire n'existe plus nulle part : jamais rechoisie, quoi qu'il reste dans les comptes. Une fusion qui n'a rien
+    // fusionné n'est pas gardée (elle ne prend pas de place dans le vocabulaire).
+    compte.delete(bestK); ou.delete(bestK);
+    if (faites > 0) fus.push(a, b);
   }
   return fabriquer(Int32Array.from(fus), vocab);
 }
