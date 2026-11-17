@@ -1,6 +1,7 @@
 // Fenêtre Profil, lot 2 — la route des personnes qui parlent à Odin : la liste, la carte de la personne choisie, sa
 // ligne de temps (paginée), la note libre du propriétaire, l'effacement à la main (aperçu puis confirmation), et le
-// signalement d'une erreur par un membre sur SA fiche.
+// signalement d'une erreur par un membre sur SA fiche. Lot 3 : ce qu'Odin a mesuré d'une personne (lecture, mêmes gardes)
+// et, pour le propriétaire seul, cacher, corriger ou annuler la correction d'une mesure.
 // - QUI VOIT : une seule fonction décide, peutVoir (src/muninn/personnes.ts). Le propriétaire voit tout ; un membre de la
 //   maison seulement la sienne, en lecture, et seulement si le lien entre son compte Persona et sa personne est sûr ; un
 //   invité rien ; sans connexion : refus.
@@ -14,9 +15,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
 import type { Mnemosyne } from '../muninn/store.ts';
 import {
-  PROPRIETAIRE, apercuEffacement, carte, cartes, contexteVisibilite, effacerHistoriquePersonne, historiquePersonne, peutVoir, preuveDe,
-  type BilanEffacement, type Carte, type Demandeur,
+  PROPRIETAIRE, apercuEffacement, carte, cartes, contexteVisibilite, effacerHistoriquePersonne, historiquePersonne, mesuresPersonne, peutVoir, preuveDe,
+  reglerMesure, type BilanEffacement, type Carte, type Demandeur,
 } from '../muninn/personnes.ts';
+import type { CleMesure } from '../muninn/traits.ts';
 import { membreDe } from '../valhalla/sso/garde.ts';
 import { aDroit, applisDe, lierProprietaire, nomAppli, persona, personnes } from '../valhalla/sso/etat.ts';
 import { postNotice } from '../valhalla/notices.ts';
@@ -78,6 +80,13 @@ function periode(corps: Record<string, unknown> | undefined, maintenant: number)
   const jusqua = Math.min(j ?? maintenant, maintenant);
   if (depuis !== undefined && depuis > jusqua) return undefined;
   return { ...(depuis !== undefined ? { depuis } : {}), jusqua };
+}
+
+/** Les mesures d'une personne telles que le demandeur a le droit de les voir (la fonction de Muninn décide). */
+function mesuresVues(d: DepsPersonnes, dm: Demandeur, id: string, maintenant: number): Sortie {
+  const m = mesuresPersonne(d.mu, dm, id, { maintenant });
+  if (!m.ok) return m.raison === 'personne-inconnue' ? refus(404, 'inconnu') : refus(403, 'refuse', { raison: m.raison });
+  return ok({ calculeLe: m.calculeLe, mesures: m.mesures });
 }
 
 // Un membre ne signale pas plus de 3 erreurs par heure (le propriétaire n'est pas inondé).
@@ -151,9 +160,29 @@ export function traiterPersonnes(q: Requete, d: DepsPersonnes): Sortie {
     return ok({ lignes, total: tous.length, ...(apres.length > n && der ? { suite: `${der.t}-${der.id}` } : {}) });
   }
 
+  // GET /api/personnes/:id/mesures : ce qu'Odin a mesuré d'elle (lot 3). Un membre : les siennes, sans les mesures
+  // cachées ni la valeur d'origine d'une mesure corrigée (mesuresPersonne repasse par peutVoir et retire les deux).
+  if (parts[1] === 'mesures' && parts.length === 2) {
+    if (!get) return refus(405, 'methode');
+    return mesuresVues(d, dm, id, maintenant);
+  }
+
   // Tout le reste écrit : le propriétaire seul.
   if (!post) return refus(405, 'methode');
   if (!proprio) return refus(403, 'reserve');
+
+  // POST /api/personnes/:id/mesures/:cle { cacher: bool } | { corriger: valeur } | { annuler: true } : une action à la fois.
+  if (parts[1] === 'mesures' && parts.length === 3) {
+    const corps = q.corps ?? {}, actions = ['cacher', 'corriger', 'annuler'].filter((k) => corps[k] !== undefined);
+    if (actions.length !== 1) return refus(400, 'invalide', { raison: 'une-action' });
+    const a = actions[0];
+    if (a === 'cacher' && typeof corps.cacher !== 'boolean') return refus(400, 'invalide', { raison: 'une-action' });
+    if (a === 'annuler' && corps.annuler !== true) return refus(400, 'invalide', { raison: 'une-action' });
+    let r: ReturnType<typeof reglerMesure>;
+    try { r = reglerMesure(d.mu, dm, id, parts[2] as CleMesure, a === 'cacher' ? { cacher: corps.cacher as boolean } : a === 'corriger' ? { corriger: corps.corriger } : { annuler: true }); } catch { return refus(500, 'disque'); }
+    if (!r.ok) return r.raison === 'proprietaire-seul' ? refus(403, 'reserve') : r.raison === 'personne-inconnue' ? refus(404, 'inconnu') : refus(400, 'invalide', { raison: r.raison });
+    return mesuresVues(d, dm, id, maintenant);
+  }
 
   // POST /api/personnes/:id/note { texte } : la note libre du propriétaire (écrite, corrigée, ou vidée).
   if (parts[1] === 'note' && parts.length === 2) {

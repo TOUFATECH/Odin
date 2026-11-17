@@ -166,6 +166,81 @@ test('signaler une erreur : un membre sur SA fiche prévient le propriétaire (b
   assert.equal(prevenus.length, 4);
 });
 
+// ---------------------------------------------------------------- Lot 3 : les mesures sur la carte
+const demandes = (mu: Mnemosyne, qui: string, n: number) => { for (let i = 0; i < n; i++) mu.noterHistorique({ t: 1000 + i, qui, session: 'telegram:2001', canal: 'telegram', sorte: 'demande', preuve: 'appareil-appaire', partage: false }); };
+type MesureVue = { cle: string; etat: string; n: number; tropPeu: boolean; valeur: unknown; cache: boolean; corrigeParProprietaire: boolean; valeurMesuree?: unknown };
+const mesuresDe = (r: { body: Record<string, unknown> }) => r.body.mesures as MesureVue[];
+
+test('les mesures : le propriétaire lit celles de chacun, avec N et « trop peu » ; un membre les siennes seulement', () => {
+  const { mu, nour, sami, d } = monde();
+  demandes(mu, nour.id, 25); demandes(mu, sami.id, 3);
+  const r = traiterPersonnes(req(PROPRIO, `/${nour.id}/mesures`), d);
+  assert.equal(r.code, 200);
+  assert.equal(typeof r.body.calculeLe, 'number');
+  const m = Object.fromEntries(mesuresDe(r).map((x) => [x.cle, x]));
+  assert.deepEqual(Object.keys(m).sort(), ['abouties', 'applis', 'heures', 'langues', 'longueur']);
+  assert.equal(m.heures.n, 25); assert.equal(m.heures.tropPeu, false);
+  assert.equal(m.applis.etat, 'non-mesure');
+  assert.equal(mesuresDe(traiterPersonnes(req(PROPRIO, `/${sami.id}/mesures`), d)).find((x) => x.cle === 'heures')!.tropPeu, true, '3 observations : trop peu');
+  // Le propriétaire sans fiche a aussi les siennes.
+  assert.equal(traiterPersonnes(req(PROPRIO, `/${PROPRIETAIRE}/mesures`), d).code, 200);
+  // Un membre : les siennes ; celles d'un autre ou d'une personne qui n'existe pas, refusées, sans rien dire.
+  assert.equal(traiterPersonnes(req(NOUR, `/${nour.id}/mesures`), d).code, 200);
+  for (const id of [sami.id, PROPRIETAIRE, 'u_inexistant']) {
+    const x = traiterPersonnes(req(NOUR, `/${id}/mesures`), d);
+    assert.equal(x.code, 403, id); assert.equal(x.body.raison, 'autre-personne'); assert.equal('mesures' in x.body, false);
+  }
+  assert.equal(traiterPersonnes(req({ sorte: 'invite' }, `/${nour.id}/mesures`), d).code, 403);
+  assert.equal(traiterPersonnes(req({ sorte: 'membre', personaId: 'p-inconnu' }, `/${nour.id}/mesures`), d).code, 403);
+});
+
+test('cacher, corriger, annuler : le propriétaire seul ; un membre ne voit ni la mesure cachée ni la valeur d\'origine', () => {
+  const { mu, nour, sami, d } = monde();
+  demandes(mu, nour.id, 25);
+  const regler = (dm: Demandeur, id: string, cle: string, corps: Record<string, unknown>) => traiterPersonnes(req(dm, `/${id}/mesures/${cle}`, { methode: 'POST', corps }), d);
+  // Un membre ne peut ni cacher ni corriger, ni sur la sienne ni sur une autre ; rien ne change.
+  for (const id of [nour.id, sami.id]) {
+    assert.equal(regler(NOUR, id, 'heures', { cacher: true }).code, 403);
+    assert.equal(regler(NOUR, id, 'abouties', { corriger: { part: 1 } }).code, 403);
+  }
+  assert.ok(mesuresDe(traiterPersonnes(req(NOUR, `/${nour.id}/mesures`), d)).every((x) => !x.cache && !x.corrigeParProprietaire));
+  // Le propriétaire cache « heures » : elle disparaît pour le membre, reste marquée pour lui.
+  const c = regler(PROPRIO, nour.id, 'heures', { cacher: true });
+  assert.equal(c.code, 200); assert.equal(mesuresDe(c).find((x) => x.cle === 'heures')!.cache, true, 'la réponse porte les mesures à jour');
+  assert.equal(mesuresDe(traiterPersonnes(req(NOUR, `/${nour.id}/mesures`), d)).some((x) => x.cle === 'heures'), false);
+  // Il corrige « abouties » : le membre voit la valeur corrigée, sans la valeur d'Odin ; lui voit les deux.
+  assert.equal(regler(PROPRIO, nour.id, 'abouties', { corriger: { part: 0.5 } }).code, 200);
+  const vm = mesuresDe(traiterPersonnes(req(NOUR, `/${nour.id}/mesures`), d)).find((x) => x.cle === 'abouties')!;
+  assert.deepEqual(vm.valeur, { part: 0.5 }); assert.equal(vm.corrigeParProprietaire, true); assert.equal('valeurMesuree' in vm, false);
+  const vp = mesuresDe(traiterPersonnes(req(PROPRIO, `/${nour.id}/mesures`), d)).find((x) => x.cle === 'abouties')!;
+  assert.equal(vp.corrigeParProprietaire, true); assert.ok('valeurMesuree' in vp);
+  // L'aperçu d'effacement compte ses réglages qui restent.
+  assert.equal((traiterPersonnes(req(PROPRIO, `/${nour.id}/effacer/apercu`, { methode: 'POST', corps: {} }), d).body.bilan as { reste: { mesuresCorrigees: number } }).reste.mesuresCorrigees, 2);
+  // Annuler, remettre.
+  assert.equal(regler(PROPRIO, nour.id, 'abouties', { annuler: true }).code, 200);
+  assert.equal(regler(PROPRIO, nour.id, 'heures', { cacher: false }).code, 200);
+  assert.ok(mesuresDe(traiterPersonnes(req(NOUR, `/${nour.id}/mesures`), d)).every((x) => !x.cache && !x.corrigeParProprietaire));
+  // Mal formé : refus, rien ne change.
+  assert.equal(regler(PROPRIO, nour.id, 'abouties', { corriger: { part: 7 } }).body.raison, 'correction-invalide');
+  assert.equal(regler(PROPRIO, nour.id, 'humeur', { cacher: true }).code, 400);
+  assert.equal(regler(PROPRIO, nour.id, 'heures', { cacher: true, annuler: true }).code, 400, 'une seule action à la fois');
+  assert.equal(regler(PROPRIO, nour.id, 'heures', {}).code, 400);
+  assert.equal(regler(PROPRIO, nour.id, 'heures', { cacher: 'oui' }).code, 400);
+  assert.equal(traiterPersonnes(req(PROPRIO, `/${nour.id}/mesures/heures`), d).code, 405);
+  assert.ok(mesuresDe(traiterPersonnes(req(PROPRIO, `/${nour.id}/mesures`), d)).every((x) => !x.cache && !x.corrigeParProprietaire));
+});
+
+test('les mesures sans connexion : 401 ; un POST sans l\'en-tête x-odin : refusé', async () => {
+  const { personnesRoute } = await import('../src/web/personnes-api.ts');
+  const { d, nour } = monde();
+  let code = 0;
+  const res = { writeHead: (c: number) => { code = c; }, end: () => {} };
+  await personnesRoute({ method: 'GET', headers: {} } as never, res as never, new URL(`http://x/api/personnes/${nour.id}/mesures`), { proprietaire: () => false, mu: d.mu, fail: () => {} }, d);
+  assert.equal(code, 401);
+  await personnesRoute({ method: 'POST', headers: {} } as never, res as never, new URL(`http://x/api/personnes/${nour.id}/mesures/heures`), { proprietaire: () => true, mu: d.mu, fail: () => {} }, d);
+  assert.equal(code, 403);
+});
+
 test('les codes d\'erreur sont une liste fermée (la page doit tous les traduire)', () => {
   assert.ok(CODES_ERREUR.includes('refuse') && CODES_ERREUR.includes('reserve') && CODES_ERREUR.includes('connexion'));
 });
