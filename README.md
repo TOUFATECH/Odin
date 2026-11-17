@@ -54,6 +54,8 @@ dans ton dossier personnel), installe Odin (`~/.odin/app`, ou `%LOCALAPPDATA%\Od
 commande `odin`, prépare `~/.odin`, puis te pose trois questions : qui peut ouvrir l'interface, l'inventaire du réseau
 local, le démarrage automatique. Sans question : `ODIN_YES=1`.
 
+**Sous Windows**, le démarrage automatique est une tâche planifiée « Odin », à ton nom, lancée à l'ouverture de ta session et **sans fenêtre** (aucun terminal à fermer par erreur). Odin n'y prépare pas de base de données (rien n'est téléchargé pour cela) : il garde ses réglages en fichiers, et son journal dit pourquoi.
+
 **Ce qui est vraiment nécessaire** : Node.js, rien d'autre. Ni serveur de modèles, ni base de données, ni Docker.
 
 **Ce qui sert à certaines applis, si tu le veux** (Odin te le dit quand il en a besoin, et sait souvent l'installer
@@ -64,7 +66,6 @@ lui-même) :
 | `ffmpeg` | sons et vidéos (conversion, lecture d'une vidéo) |
 | `tesseract`, `pdftoppm` | texte d'une image ou d'un PDF scanné (Théia) |
 | `git` | mises à jour d'Odin, dépôts de code |
-| compilateur C (`cc`, `make`) | aujourd'hui, la reconnaissance de la voix sur ta machine (Odin compile `whisper.cpp` et télécharge son modèle) ; ce modèle téléchargé sera remplacé par celui d'Odin |
 | `lxc`, `qemu` (Linux) | créer des machines sur ce PC (Hydre) |
 | Docker | seulement pour essayer une appli venue d'un dépôt qui se lance avec Docker, ou pour isoler les commandes (`policy.sandbox`) |
 
@@ -218,7 +219,7 @@ montre aussi.
 - Apprendre de tout (chemin rapide) — Une entrée commune pour ce qu'Odin apprend : confiance, source, date, sans doublon.
 - Archytas, la fenêtre Script — Créer, garder, suivre et améliorer des scripts, dans un bac à sable.
 - Kéryx, l'assistant joignable de dehors — Il agit sur tes messages après un code secret ; SMS et appel écrits mais pas essayés sur du vrai matériel, éteints.
-- Métis : les modèles de langue ouverts dans Odin, sans serveur — Odin lit lui-même les modèles ouverts (GGUF), sans serveur de modèles à côté. Ce branchement va être retiré : Odin n'utilisera que ses propres modèles.
+- Métis : les modèles de langue ouverts dans Odin, sans serveur — Odin lit lui-même les modèles ouverts (GGUF), sans serveur de modèles à côté. Ce branchement est en cours de retrait : Odin n'utilisera que ses propres modèles.
 - Théia, l'œil d'Odin — Voir les images, lire tout document, même scanné.
 - Syrinx, l'oreille d'Odin — Parole, musique et sons de la maison compris sur la machine.
 - Mathésis (Odin apprend tout seul) et Prónoia (prévoir) — Il cherche ce qu'il ne sait pas, lit des pages publiques dans les règles des sites, et prévoit d'après ce qu'il a appris chez toi.
@@ -236,19 +237,38 @@ montre aussi.
 - Thèmes à décor : un fond uni dans la zone de travail — Le décor (pluie, orage…) ne passe plus sous le texte ; il reste visible derrière la barre de côté.
 - Mathésis : le rythme de lecture des sites, réglable — Pages par jour et par site (1 000 000 par défaut) et attente entre deux pages d'un même site (2 secondes par défaut, jamais moins ; la consigne du site l'emporte), dans les Réglages de Mathésis ou par la parole. Seul le propriétaire peut monter le rythme.
 - Ce qu'Odin fait seul : le sans-risque, le reste attend — En tâche automatique, Odin peut seul garder une fiche (écrite à côté, jamais par-dessus, marquée « écrit par Odin seul ») et nommer un appareil sans nom ; une routine qu'il voudrait créer est préparée inactive et annoncée, et ne part que quand tu l'actives dans Talos ; tout le reste qui engage est refusé.
+- Droits des personnes : seul le propriétaire en donne — Donner un accès à une appli, un groupe, un rôle, de l'autonomie, une identité reliée, une adresse de retour ou un mot de passe à une fiche passe par ta validation, qui dit pour qui et montre l'avant et l'après ; retirer s'applique tout de suite. Ni un membre, ni une automatisation, ni une conversation qui a lu un contenu extérieur ne donnent un droit.
+- Ce qu'un membre de la famille fait faire sans toi — Six choses, demandées par lui en direct : noter, mettre un rappel, mettre de la musique, allumer ou éteindre une lumière, convertir un fichier (tous les formats d'Alchimie, pas seulement les documents ; un nouveau fichier à côté, l'original intact), faire analyser un fichier. Tout le reste t'est demandé, une tâche qu'il programme aussi ; un invité ne gagne rien. Un fichier jugé dangereux n'est jamais mis à l'écart sans toi : la conversion est refusée et tu es prévenu.
+- Ouvrir un port du pare-feu : ta validation quand tu le demandes — La demande dit le port, le protocole, pour quoi, et si la box s'ouvre aussi vers Internet. Une automatisation ne peut pas ouvrir un port. Aujourd'hui, une appli qui appelle Cerbère d'elle-même peut encore en ouvrir un sans ta validation (c'est noté dans les manips) ; la correction est en cours.
+- Modèles extérieurs : trois premières tranches retirées — Plus aucune sortie vers un service de voix, de traduction, de recherche par modèle ou d'analyse en ligne ; plus de programme d'écoute ou de voix d'autrui sur la machine ; le juge local décide seul ; sans modèle, Odin n'est plus « en démonstration ». Ce qui en dépendait répond « pas encore », dans la langue de la personne.
+- Profil, premier lot : la fiche et l'historique de chaque personne — Des données seulement, pas encore d'écran : une fiche par personne qui parle à Odin, et chaque demande notée (qui, quand, ce que ça a donné), sans copie du texte ; rien en mode privé ; un inconnu non appairé n'est qu'un compteur.
+- Graphe 3D à côté de chaque graphe — Un espace sombre où les points brillent par groupe, qu'on tourne, qu'on zoome et où l'on va vers un point : carte des applis, page d'une appli qui a un graphe, Plugins, scripts, paquets. Un seul composant, écrit dans Odin, sans bibliothèque.
+- Vénus : déclarer un dossier de médias et lancer un film — Vénus → Odéon : coller le chemin d'un dossier, « Ajouter le dossier », « Scanner maintenant », toucher un titre : il se lit dans le navigateur. Un dossier introuvable est refusé avec la raison ; l'absence de FFmpeg est dite. Réservé au propriétaire.
+- Sous Windows : démarrage sans fenêtre, pas de base à préparer — La tâche d'ouverture de session n'ouvre plus de terminal visible ; au premier démarrage, Odin n'essaie plus de préparer une base qu'il ne peut pas faire tourner (plus de téléchargement ni d'attente en boucle), et le journal dit pourquoi.
+- Automatisations : la série « Liens entre applis » — Dans Talos, des liens d'une appli à une autre : une nouvelle adresse vue par Persona est vérifiée par Méduse et tu es prévenu (actif : il ne fait que lire) ; une machine créée par Hydre est ajoutée à l'inventaire d'Atlas (en brouillon). Sur un Odin déjà installé, ils sont proposés dans un encart et rien n'est ajouté sans « Les ajouter ».
+- La page d'une appli en premier — Quand une appli a sa propre page, elle s'affiche juste sous l'en-tête ; les chiffres et les boutons génériques passent après, la présentation reste repliée dans l'en-tête. Une appli sans page propre ne change pas.
+- Lire les médias reçus : photos, musique, vidéos — Odin lit seul ce qui est rangé dans un fichier : date, appareil et lieu d'une photo ; titre, artiste et album d'une musique ; durée, pistes et sous-titres d'une vidéo ; informations d'un document. Ce qu'il ne comprend pas encore (décrire, transcrire), il le dit avec la raison. Un faux fichier vidéo ne peut plus faire lire un autre fichier de la machine.
+- Graphe 3D du Cerveau — Le choix « Graphe | Graphe 3D » à côté du graphe du Cerveau : les mêmes notes et les mêmes liens dans l'espace, groupés par type de note ; toucher une note l'ouvre. Au-delà de 600 éléments, les plus liés sont montrés, et c'est dit à l'écran.
+- Les chemins sous Windows — Les copies de machines, les fichiers retrouvés et les journaux trouvent le bon chemin sous Windows ; Odin y refuse de ranger des fichiers dans les dossiers du système, même désignés par un autre nom ; les essais n'émettent plus rien sur le vrai réseau.
 
 **En cours (écrit, en relecture ou en correction, pas encore publié)**
 
-- Soul, version 3 : trouver la bonne appli — Aucun modèle n'est livré aujourd'hui : un Odin neuf commence avec un Soul vide. En préparation : un banc de mesure figé, sur des demandes jamais vues, et un premier étage qui sait dire « je ne suis pas sûr ». L'objectif du propriétaire : la bonne application à 100 %. L'outil qui fabrique un modèle de départ sans rien de privé sait maintenant enchaîner plusieurs passages.
-- Lire les médias reçus : photos, musique, vidéos — Date, appareil et lieu d'une photo ; titre, artiste et album d'une musique ; ce qu'une vidéo montre et dit.
+- Soul, version 3 : trouver la bonne appli — Aucun modèle n'est livré : un Odin neuf commence avec un Soul vide. Un banc figé (toutes les applis, quinze langues, demandes jamais vues) mesure l'aiguilleur de Soul : la bonne appli du premier coup pour 576 demandes sur 690 au troisième tour. Cet aiguilleur n'est pas branché sur la discussion (décision du propriétaire : rien à brancher pour l'instant) ; c'est toujours Logos qui choisit l'appli. L'objectif : la bonne application à 100 %.
 - L'entraînement de contrôle et le rapport d'entraînement — Des scénarios par domaine, et un rapport qui sépare ce qui marche, ce qui est un défaut et ce qui n'est pas encore codé.
 - Pygmalion : produire des documents, des graphes, des images — Écrit, en correction ; pas encore dans l'installation.
+- La fenêtre Profil — Voir les fiches et l'historique : toi, toutes ; un membre, seulement la sienne ; un invité, rien. Effacer l'historique par personne ou par période.
+- Automatisations : se manier comme un éditeur de scénarios — Déjà là : un « + » sur chaque bloc, au centre d'une fenêtre vide et au double-clic ouvre la grille des applis puis leurs fonctions, et pose le bloc suivant, déjà relié. En cours : les vrais champs d'une fonction à la place du texte à taper, et les liens déjà écrits entre applis montrés dans la fenêtre, en lecture seule (les couper viendra après ta réponse).
+- Validations des actions qui ouvrent quelque chose — Une appli démarrée par une automatisation (le proxy, par exemple) n'ouvre plus de port au pare-feu ; quand c'est toi qui la démarres, la validation dit quels ports s'ouvrent. Reste à fermer : une appli qui appelle Cerbère d'elle-même ouvre encore un port sans ta validation.
+- Retirer les derniers modèles qui ne sont pas ceux d'Odin — Tranche en cours : plus aucun fournisseur de modèle de langue construit, les clés de ces services effacées du coffre, Métis retiré. Aujourd'hui, ces branchements existent encore dans le code.
 
 **À venir**
 
-- Retirer tous les modèles qui ne sont pas ceux d'Odin — Plus de fournisseur de modèle en ligne, plus de poids ouverts téléchargés, plus de modèle de voix téléchargé. Aujourd'hui ces branchements existent encore dans le code.
 - Ses propres réseaux : langue, son, musique, image, vidéo — Écrits dans Odin et entraînés sur sa machine, comme Soul et Brain, avec les données du propriétaire (qui restent chez lui) et des jeux de données publics à licence libre, vérifiée et notée. Reconnaître les personnes désignées (voix, puis visage, avec leur accord, en local et chiffré) et créer des images se feront avec eux.
 - Ce que cela veut dire, franchement — Tant que son propre modèle de langue n'est pas entraîné, Odin répond avec Soul et ses actions directes, sans rédiger de longues réponses ni raisonner. Sur un processeur à 4 cœurs, ces réseaux resteront longtemps petits et spécialisés.
+- Profil, la suite : la carte et le graphe d'une personne, ses droits — Sa personnalité et sa façon de parler mesurées par Odin (chaque trait avec son nombre d'observations) et ta note ; un portrait en phrases quand son propre modèle sera entraîné. Limiter ou donner des droits depuis la fiche ; une personne dont l'accès est limité l'apprend seulement si elle essaie.
+- Automatisations : la suite des gestes de l'éditeur de scénarios — Les autres étapes, une à la fois ; couper un lien entre applis, avec une confirmation pour ceux qui protègent ; plus tard, un déclencheur à l'arrivée d'un mail ou d'un message.
+- Graphe 3D, les autres endroits — La carte du réseau de la Maison, le proxy (avec le DNS et le DHCP), le reverse proxy, le VPN, le Profil, une carte d'Internet.
+- Vénus complet, sans rien d'extérieur — Envoyer un média depuis un appareil ; trouver et télécharger films et séries par Odin lui-même ; YouTube et l'envoi vers une télé existent mais passent encore par un outil extérieur : les faire par Odin lui-même.
 - La liste « à valider » retrouvée au retour — Ce qu'Odin a voulu faire seul et qui engage t'attend, avec oui ou non.
 - Soul sur le processeur, au maximum ; choix « processeur ou carte graphique » — Plus de calcul utile par seconde. Le choix « carte graphique » existera mais dira qu'il n'est pas disponible : sans programme ajouté, Odin ne peut pas faire calculer la partie graphique d'un processeur.
 - Brain et Soul branchés ensemble — Chacun a son identité ; si l'un manque, Odin le dit (« il me manque mon âme ») et aide à réparer ; export et import.
@@ -261,7 +281,6 @@ montre aussi.
 - Lui parler à la voix, à plusieurs
 - Des widgets posés par la parole ; le nouvel accueil — « Mets la météo en haut à gauche », « agrandis-le », « remets comme avant » ; puis l'accueil et l'écran de la maison redessinés.
 - Parler à Odin en SSH — Une porte écrite dans Odin : la même conversation dans un terminal, avec la mascotte en caractères ; clés seulement ; réseau de la maison ; fermée tant que tu ne l'ouvres pas dans les Réglages.
-- Plus d'automatisations qui relient deux applis — Celles qui agissent arrivent en brouillon.
 - Mails, factures et actualités — Tri, résumé, brouillon par défaut, plusieurs boîtes ; factures et abonnements ; actualités en fiches.
 - Comptes et adresses de façade — S'inscrire pour toi pas à pas, une adresse par site sur ton domaine, un registre de qui connaît quoi ; un CAPTCHA reste ton geste.
 - Navigateur, achats, cinéma — Toujours validé au paiement.

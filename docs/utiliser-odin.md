@@ -35,6 +35,8 @@ La **visite guidée** ne se lance que si tu la demandes (« visite guidée », R
 
 Comme le Cerveau, **Applis** et **Maison → Carte** s'affichent en graphe : on glisse, on zoome, on cherche, on touche un point pour l'ouvrir. Les applis sont reliées à leur famille et aux applis avec lesquelles elles travaillent ; les appareils, à leur famille et à la box. Les pastilles montrent ce qui demande ton attention : **rouge ou orange** pour les alertes d'une appli ou un problème sur une machine (risque repéré, appareil surveillé tombé), **bleue** pour les nouveautés du projet d'origine d'une appli ; un point **gris** est hors ligne.
 
+**Graphe 3D** : à côté du bouton **Graphe**, un bouton **Graphe 3D** montre les mêmes points dans un espace sombre : chaque point brille de la couleur de son groupe, le nom des groupes est écrit en capitales. On tourne en glissant, on zoome à la molette ou en pinçant, et toucher un point fait voler la vue vers lui et l'ouvre. Il est proposé sur la **carte des applis**, sur la page d'une **appli qui montre un graphe**, dans l'onglet **Plugins** des compétences, dans le graphe des **scripts** (Archytas), sur la carte **Qui parle à qui** des paquets (Ariane) et dans le graphe du **Cerveau** (les notes groupées par type ; au-delà de 600 éléments, les plus liés sont montrés et c'est dit à l'écran). Odin retient ton choix pour chaque endroit. Le dessin est fait par Odin lui-même, sans bibliothèque extérieure. Pas encore : la carte du réseau de la Maison, le Profil.
+
 ### Paquets réseau (Ariane)
 
 Comme Wireshark : Ariane **lit les paquets en entier et les décode couche par couche** (modèle OSI : trame, liaison Ethernet, réseau IPv4/IPv6, transport TCP/UDP, chiffrement TLS, application), avec tous les champs et le contenu brut en hexadécimal. Il reconnaît DNS (questions et réponses), HTTP (requêtes, en-têtes, début du contenu), HTTPS (nom du site demandé), QUIC, DHCP, ARP, ICMP, SSH, mDNS, UPnP, NTP, WireGuard…, et apprend le nom des sites d'Internet (réponses DNS, noms TLS) pour les afficher à la place des adresses.
@@ -48,7 +50,7 @@ Points de capture : la machine d'Odin, plus **chaque machine où Odin a un accè
 
 ### Connexion unique (Persona)
 
-Toutes les applis se connectent avec ton compte Odin : Pégase, Vénus, et tout logiciel qui sait faire OpenID (Penpot…). Odin est le fournisseur d'identité (OpenID Connect avec PKCE, jetons ES256 de 15 minutes, renouvellement lié à l'appareil). Sur un ordinateur, la première appli connectée range un jeton dans le coffre du système (Windows, Mac, Linux) : les autres s'ouvrent déjà connectées. Dans Persona, l'onglet **Accès** dit qui a droit à quelle appli ; sans droit, l'appli est cachée ou un message dit à qui demander. Toi seul changes les droits et les comptes des personnes : **donner** (un accès à une appli, une case cochée, l'entrée dans un groupe — dans Persona comme dans Agora —, une appli du store ouverte à un groupe, un nouveau compte, une invitation, un site ouvert à plus de monde, une adresse de retour de plus pour une appli) te demande toujours de confirmer, et la demande dit pour qui, quoi, avant → après (ex. « autorisés : admin → admin, @personne-a ») ; **retirer** ou décocher s'applique tout de suite (sauf enlever quelqu'un de son dernier groupe : il passe dans « invite », et la demande le montre). Annuler une manip qui redonnerait un droit (« annule <code> », « annule tout ») demande aussi ta confirmation ; garder ou annuler les manips, c'est toi seul. Une personne qui a l'accès à Persona ou à Agora (même du groupe admin) n'y change rien, ni pour elle ni pour les autres, pas plus qu'une automatisation, un réflexe, Odin seul ou une conversation qui vient de lire un contenu extérieur — y compris en passant par une autre appli. Les applis sauvegardent leur base sur Odin (`/api/sauvegardes/<appli>`), chiffrée, avec des versions. Contrat : `docs/sso-protocole.md` ; bibliothèque cliente sans dépendance : `clients/odin-sso.mjs`.
+Toutes les applis se connectent avec ton compte Odin : Pégase, Vénus, et tout logiciel qui sait faire OpenID (Penpot…). Odin est le fournisseur d'identité (OpenID Connect avec PKCE, jetons ES256 de 15 minutes, renouvellement lié à l'appareil). Sur un ordinateur, la première appli connectée range un jeton dans le coffre du système (Windows, Mac, Linux) : les autres s'ouvrent déjà connectées. Dans Persona, l'onglet **Accès** dit qui a droit à quelle appli ; sans droit, l'appli est cachée ou un message dit à qui demander. Toi seul changes les droits et les comptes des personnes : **donner** (un accès à une appli, une case cochée, l'entrée dans un groupe — dans Persona comme dans Agora —, une appli du store ouverte à un groupe, un nouveau compte, un mot de passe donné à une fiche, une invitation, un site ouvert à plus de monde, une adresse de retour de plus pour une appli) te demande toujours de confirmer, et la demande dit pour qui, quoi, avant → après (ex. « autorisés : admin → admin, @personne-a ») ; **retirer** ou décocher s'applique tout de suite (sauf enlever quelqu'un de son dernier groupe : il passe dans « invite », et la demande le montre). Annuler une manip qui redonnerait un droit (« annule <code> », « annule tout ») demande aussi ta confirmation ; garder ou annuler les manips, c'est toi seul. Une personne qui a l'accès à Persona ou à Agora (même du groupe admin) n'y change rien, ni pour elle ni pour les autres, pas plus qu'une automatisation, un réflexe, Odin seul ou une conversation qui vient de lire un contenu extérieur — y compris en passant par une autre appli. Les applis sauvegardent leur base sur Odin (`/api/sauvegardes/<appli>`), chiffrée, avec des versions. Contrat : `docs/sso-protocole.md` ; bibliothèque cliente sans dépendance : `clients/odin-sso.mjs`.
 
 ### Pégase : ton navigateur relié à Odin
 
@@ -61,6 +63,18 @@ Pégase (Windows, Mac, Linux, Android) se connecte à Odin avec ton compte (le m
 Tu mets une personne dans un groupe de Persona : les applis autorisées à ce groupe apparaissent dans son espace Odin et dans le store de ses ordinateurs et téléphones. Dans Odin, l'appli **Agora** (réservée aux admins ; les autres y voient seulement leur store) a quatre onglets : **Catalogue** (applis d'Odin en web, installateurs Windows, Mac, Linux et Android avec leur version, leur empreinte SHA-256 et l'avis d'Asclépios), **Groupes** (pour chaque groupe et chaque appli : *Proposée*, *Installée d'office* ou *Retirée*), **Appareils** (en ligne ou non, ce qui y est installé, « Forcer » une installation ou une désinstallation, avec ton accord) et **Journal**. Le droit est celui de la connexion unique : rien en double avec Persona.
 
 Les stores des appareils se connectent avec le compte Odin (connexion unique, appli « agora ») et reçoivent les ordres à la seconde (`/api/agora/*`, flux SSE). Sur l'ordinateur : ce qui est imposé s'installe ou se désinstalle tout seul (Linux : AppImage dans `~/Applications` ou paquet .deb ; Windows : installateur silencieux ; Mac : .dmg vers Applications), le reste d'un clic, et chaque installateur est vérifié (empreinte) avant d'être installé. Sur Android, Android demande un toucher pour confirmer, sauf si le téléphone est « géré par Odin » (Agora propriétaire de l'appareil). Sur iPhone, Apple ne permet pas d'installer hors de l'App Store : les applis d'Odin y passent par le web. Alertes dans Forseti : installation échouée, appareil inconnu, nouvel appareil.
+
+### Vénus dans Odin : tes films sur tes dossiers
+
+Vénus lit tes films, séries et musiques là où ils sont déjà, sur la machine d'Odin, et les joue dans ton navigateur. En trois gestes, dans **Vénus → Odéon** :
+
+1. colle le chemin complet d'un dossier de la machine d'Odin (par exemple `D:\Films`) et choisis sa catégorie (films, séries, musique…) ;
+2. touche **Ajouter le dossier** ;
+3. touche **Scanner maintenant**, puis touche un titre : il se lit dans le navigateur.
+
+Tant que la bibliothèque est vide, ce panneau des dossiers est en haut de la page. Un dossier introuvable est refusé avec la raison ; après un scan, Odin dit combien de fichiers il a lus et pourquoi il en a laissé de côté. Il lui faut le programme FFmpeg sur sa machine : s'il manque, la page le dit et explique comment l'installer. Une vidéo déjà au bon format d'image (un MKV en H.264, le plus souvent) est recopiée telle quelle pour le navigateur, sans être réencodée. Vénus ouvre les dossiers de la machine : **toi seul** y entres ; un membre de la famille n'y a pas accès, même s'il peut ouvrir l'appli.
+
+**Pas encore là** : envoyer un film depuis ton téléphone ou un autre appareil ; le téléchargement de films et de séries fait par Odin lui-même (l'onglet Acquisition ne fait que montrer, en lecture seule). YouTube et l'envoi vers une télé existent, mais passent encore par un outil extérieur ; les faire par Odin lui-même est à venir. Les phrases ci-dessous (« mets le dernier épisode… ») passent par un serveur Vénus à part, relié dans les réglages.
 
 ### Venus (Vénus) : épisodes et VF
 
@@ -198,31 +212,32 @@ Odin lit et produit les formats du quotidien, sans rien installer :
 | Excel `.xlsx` | chaque feuille en tableau | classeur multi-feuilles, formules (`=SUM(B2:B9)`) |
 | PowerPoint `.pptx` | texte de chaque diapositive | présentation titre + puces |
 | Images | description, lecture du texte (vision du modèle) | conversion, redimensionnement |
-| Vidéo, audio | informations, **transcription** (Whisper) | format, découpe, extraction du son, miniature (`ffmpeg`) |
+| Vidéo, audio | informations ; la transcription attend le modèle d'écoute d'Odin (pas encore entraîné) | format, découpe, extraction du son, miniature (`ffmpeg`) |
 
-Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, puis demande : « résume ce PDF », « fais-en un Excel », « transcris cette réunion ». Un fichier venu de l'extérieur est traité comme un contenu non fiable.
+Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, puis demande : « résume ce PDF », « fais-en un Excel ». Un fichier venu de l'extérieur est traité comme un contenu non fiable.
+
+**Ce qui est rangé dans un fichier reçu**, Odin le lit seul, sans programme ajouté : la date, l'appareil et le lieu d'une photo ; le titre, l'artiste et l'album d'une musique ; le format, la durée, les pistes et les sous-titres d'une vidéo ; les informations d'un document. Ce qu'il ne peut pas encore comprendre (décrire une image, transcrire la parole), il le dit, avec la raison.
 
 ## Voix
 
-**Par défaut, la voix est 100 % locale** : whisper.cpp pour comprendre, Piper (voix « tom » ou « siwis ») pour parler, installés par Odin sur sa machine. Aucune clé, rien n'est envoyé en ligne, même si une clé OpenAI est présente. Pour utiliser un service en ligne, coupe « 100 % local » dans Réglages → Voix.
+**Aujourd'hui, Odin n'écoute pas et ne parle pas encore avec sa propre voix.** Depuis le 17/11, il n'utilise plus aucun modèle de voix qui ne soit pas le sien : ni service en ligne, ni programme d'écoute ou de voix installé sur la machine, ni copie de voix. Comprendre ce que tu dis au micro, transcrire une note vocale, lire une réponse à voix haute et copier une voix répondent « pas encore », dans ta langue, jusqu'à ce que les modèles d'écoute et de voix d'Odin soient entraînés sur ta machine. Rien n'est envoyé dehors. Un programme de ce genre déjà présent sur le disque est ignoré, pas effacé : c'est à toi d'en décider.
 
 - **Réponse en voix ou en texte** : bouton Voix, Réglages → Voix, ou à l'oral (« réponds par écrit », « parle-moi »). En texte seul, Odin écrit sa réponse même quand tu lui parles au micro, et n'envoie plus de note vocale sur Telegram.
 - **Réglages** : texte en direct, annulation d'écho, sensibilité du micro, attente en fin de phrase, mot de réveil, maintenir pour parler, mots d'arrêt, « oui / mmh » ignorés, vitesse et volume de la voix, lexique de prononciation, cerveau (« auto » ou « sans IA » pour les demandes à la voix), mode privé (rien n'est retenu ni écrit).
-- **Odin, homme ou femme** : un seul réglage pour sa voix et pour ses accords (« je suis prêt » ou « je suis prête »), choisi à l'installation, au premier démarrage, dans Réglages → Voix, par `odin genre femme`, ou en le disant : « parle avec une voix de femme », « parle comme un homme » (sans IA aussi) ; le choix sert dès la phrase suivante, sans relancer Odin. Ce qu'il dit à voix haute est préparé pour sonner naturel : aucun symbole lu, nombres, heures et unités en toutes lettres, listes dites « d'abord…, ensuite…, enfin… ». Avec ElevenLabs, une clé suffit : une voix d'homme ou de femme prête à l'emploi parle tout de suite.
-- **Copier ta voix** (ElevenLabs) : la page demande si c'est ta voix ou celle de quelqu'un d'autre (son nom est alors obligatoire) ; l'accord est noté avant tout envoi, et « Retirer l'accord » efface la voix copiée chez ElevenLabs.
-- **À voix haute** : sur Telegram, « dis-le à voix haute » envoie une note vocale ; dans Pythie, « Écouter une réponse » la fait lire par Orphée (fichier à télécharger).
-- **Conversation en direct** (page d'Orphée → « Parler en direct ») : un service vocal en Python ([voix-temps-reel/](../voix-temps-reel/README.md)), lancé et surveillé par Odin, sait quand tu parles et quand ta phrase est finie, écrit en direct, et coupe Odin en moins de 200 ms quand tu reprends la parole ; « continue » reprend au premier mot jamais dit. Sans Python, la voix habituelle reste.
+- **Odin, homme ou femme** : un seul réglage pour ses accords (« je suis prêt » ou « je suis prête ») et, plus tard, pour sa voix ; choisi à l'installation, au premier démarrage, dans Réglages → Voix, par `odin genre femme`, ou en le disant (« parle comme un homme ») ; le choix sert dès la phrase suivante. Ce qu'il dira à voix haute est déjà préparé pour sonner naturel : aucun symbole lu, nombres, heures et unités en toutes lettres.
+- **Voix copiées autrefois** : Réglages → Voix montre les accords notés ; « Retirer l'accord » fait qu'Odin ne parle plus avec cette voix. Odin n'appelle plus le service qui l'avait copiée : l'y effacer reste ton geste.
+- **Conversation en direct** (page d'Orphée) : le service vocal à part n'est plus lancé ; la page le dit et garde l'écrit.
 - **Logos pour la voix** : un mot mal entendu qui sonne comme un mot connu est corrigé (« mon nase est plein » → NAS) ; « non, je voulais dire … » le fait retenir (avec tes mots d'Écho).
 - **Projet actif** (Mnémosyne) : choisis le dossier d'un projet, Odin répond à son sujet sans IA en citant le fichier et les lignes (les fichiers de secrets ne sont jamais lus).
 - **Audio brut** : jamais gardé, sauf si tu coches « Garder l'audio brut » (jamais en mode privé ; effacé au bout du nombre de jours choisi).
 - **Dictée sur les PC du parc** : Satellites installe la capsule d'Écho sur un poste Linux ou Mac (« installe la capsule de dictée sur pc-salon ») ; un raccourci clavier lance `python3 ~/.odin-capsule/capsule.py dicter`.
 - Cahier des charges complet de la voix : [docs/voix-v2.md](voix-v2.md).
 
-Services possibles quand « 100 % local » est coupé : **Whisper** (OpenAI, ou un serveur local sans clé, ex. [speaches](https://github.com/speaches-ai/speaches)) transcrit ce que tu dis : micro de l'interface, notes vocales Telegram, fichiers audio. Pour parler, au choix : **ElevenLabs** (voix naturelles, **copie de ta voix** à partir d'un enregistrement d'une minute, avec ton accord explicite), **Piper** (gratuit, hors ligne, sur ta machine : `pip install piper-tts` puis `python3 -m piper.http_server --model fr_FR-tom-medium`), ou tout serveur **compatible OpenAI** `/v1/audio/speech` (Kokoro, openedai-speech…). Avec Piper et un Whisper local, ta voix ne quitte jamais la maison ; les notes vocales Telegram sont converties en Opus par ffmpeg s'il est là.
-
 ## Modèles : le bon pour chaque tâche
 
-Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secours, et leur palier : **installé/gratuit** (un modèle ouvert lu par Métis, sur la machine), **standard**, **le plus capable**. Odin choisit le moins cher qui suffit : question simple → modèle local, tâche ordinaire → standard, tâche complexe → le plus capable. Quand un modèle arrive **à bout de quota**, il passe au suivant tout seul et te le dit. Pour une **décision risquée**, il croise l'avis de plusieurs modèles et retient le plus prudent (seulement quand un vrai danger est probable, et un même verdict est réutilisé dix minutes : ça ne coûte pas à chaque fichier écrit). **Codex** (OpenAI) peut recevoir les tâches de code : `npm install -g @openai/codex`.
+> **En cours de retrait.** Ce qui suit décrit les branchements à des modèles qui ne sont pas ceux d'Odin (fournisseurs en ligne, modèles ouverts lus par Métis, abonnement par Codex) : ils existent encore dans le code d'aujourd'hui, et leur retrait est en cours d'écriture. Ensuite, Odin n'utilisera que ses propres modèles, entraînés sur ta machine. Déjà retirés (17/11) : la voix, la traduction, la recherche et l'analyse par un service en ligne, et le second avis d'un modèle dans les décisions. Sans modèle, Odin n'est pas « en démonstration » : Soul, les mises à jour et les alertes tournent.
+
+Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secours, et leur palier : **installé/gratuit** (un modèle ouvert lu par Métis, sur la machine), **standard**, **le plus capable**. Odin choisit le moins cher qui suffit : question simple → modèle local, tâche ordinaire → standard, tâche complexe → le plus capable. Quand un modèle arrive **à bout de quota**, il passe au suivant tout seul et te le dit. Pour une **décision risquée**, c'est le juge local d'Odin qui décide, seul (voir « Qui répond aux questions ? »). **Codex** (OpenAI) peut recevoir les tâches de code : `npm install -g @openai/codex`.
 
 **Ton abonnement ChatGPT via Codex** (comme `hermes auth add openai-codex`) : Réglages → Modèle → *OpenAI Codex (abonnement ChatGPT)* → **Se connecter avec un code** : Odin affiche un code, tu le saisis sur la page OpenAI depuis n'importe quel appareil (téléphone compris) et il termine tout seul — plus d'adresse `localhost` à recopier. Il faut activer une fois dans ChatGPT : Réglages → Sécurité → « Device code authorization ». En ligne de commande :
 
@@ -266,6 +281,8 @@ Marque tes appareils importants avec ★ dans Réseau : Odin te prévient (Teleg
 ## Sécurité du réseau
 
 Onglet Réseau → Sécurité : Telnet ou Docker ouverts sans protection, bureau à distance, VNC, FTP, MQTT, Redis exposés, interfaces d'administration non chiffrées, appareils inconnus récents — chacun avec un conseil, et un bouton pour demander à Odin de corriger (avec ta validation). Odin observe, il n'attaque rien. Outil `net_security`.
+
+**Ouvrir un port du pare-feu (Cerbère → Ouvrir un port)** : quand tu le demandes, à la page ou en lui parlant, Odin te demande ta validation. La demande dit le port, le protocole (TCP ou UDP), pour quoi, et surtout si l'ouverture reste sur la machine d'Odin ou s'ouvre aussi sur la box, donc **depuis Internet**. Une automatisation ne peut pas ouvrir un port. **Attention** : aujourd'hui, une appli qui appelle Cerbère d'elle-même peut encore en ouvrir un sans ta validation (c'est noté dans les manips, et tu peux l'annuler) ; la correction est en cours.
 
 ## Antivirus (Asclépios)
 
@@ -351,12 +368,13 @@ Chaque disque (HDD, SSD, NVMe, USB) avec son état en clair : **Bon, Attention o
 Toutes les applis ont la même page :
 
 - **en haut** : le retour aux applis, l'icône, le nom et une ligne d'explication. « En savoir plus » déplie l'histoire du nom et la liste des fonctions ;
+- **sa propre page d'abord** : quand une appli a sa propre page (Vénus, par exemple), elle s'affiche juste sous l'en-tête ; les chiffres et les boutons génériques passent après elle, et la présentation reste repliée dans l'en-tête. Une appli sans page propre garde la présentation ci-dessous ;
 - **« Sur quel poste ? »**, pour les applis qui savent travailler sur un autre poste (Asclépios, Hygie, Pyramide, Thermopyles, Chroniques, Némésis) : des pastilles sur ordinateur, une liste sur téléphone ;
 - **des onglets** quand l'appli fait beaucoup de choses (quatre au plus, toujours sur une seule ligne) : Asclépios a « Analyser », « Résultats », « Règles », « Réglages » ; Alchimie a « Convertir », « PDF », « Automatique », « Outils ». Le premier onglet contient ce qu'on vient faire le plus souvent ; « Autres actions », les alertes et les liens avec les autres applis sont dans le dernier.
 
 Le résultat d'une action reste affiché (sous le formulaire, sous la barre de boutons ou sous le titre du tableau) jusqu'à l'action suivante, ou jusqu'au bouton « Fermer ». Quand l'action a fabriqué des fichiers, un bouton « Télécharger » par fichier les remet à ton appareil.
 
-Champollion (lire une photo, un PDF, un document) et Orphée (transcrire un vocal) acceptent eux aussi un fichier envoyé depuis ton appareil.
+Champollion (lire une photo, un PDF, un document) et Orphée (un vocal ; sa transcription attend le modèle d'écoute d'Odin) acceptent eux aussi un fichier envoyé depuis ton appareil.
 
 ## Sites web (Arachné)
 
@@ -495,14 +513,14 @@ La recherche web et la lecture de pages ne demandent **jamais de validation** : 
 
 ## Analyse de vidéos (YouTube, TikTok, Instagram, Facebook)
 Envoie un lien (vidéo YouTube, Short, TikTok, Reel Instagram, vidéo ou Reel Facebook) ou un fichier vidéo (Telegram, interface). Odin :
-- **écoute** : sous-titres s'il y en a, sinon transcription Whisper horodatée (par minute) ;
+- **écoute** : les sous-titres s'il y en a ; sans sous-titres, la transcription attend le modèle d'écoute d'Odin (pas encore entraîné) ;
 - **regarde** : images clés aux changements de scène (FFmpeg) et au moins toutes les 45 s, décrites par le modèle de vision (scènes, objets, gestes) ;
 - **lit** : textes à l'écran et code visible recopiés exactement (Tesseract en appoint) ;
 - **fusionne** paroles, images, textes, chapitres et informations (titre, description, date) sur une seule ligne de temps.
 
 Ensuite, selon ta demande : **résumé**, **tutoriel** en étapes, **vérification des faits** (recherche vérifiée sur le web), **code** extrait et expliqué, **analyse marketing** (accroche, structure, appel à l'action), **traduction**, **question** libre, ou **apprendre** : technologies et étapes montrées, vérification dans les documentations officielles, plan d'implémentation pour ton projet, et une **compétence réutilisable proposée** (à valider). Odin distingue toujours « ✔ montré dans la vidéo » de « ➕ déduit ou complété ». Avec « retiens-le », les connaissances vont en mémoire avec leur source (lien, date). Tout est gardé dans `videos/` (transcription, ligne de temps, images, analyse).
 
-Accès : seulement les vidéos publiques, ou celles de tes comptes si tu fournis toi-même un fichier de cookies (`~/.odin/video-cookies.txt`) ; rien de privé n'est contourné. Outils sur la machine d'Odin : `ffmpeg`, `yt-dlp` (et `tesseract` en appoint) ; transcription : Réglages → Voix.
+Accès : seulement les vidéos publiques, ou celles de tes comptes si tu fournis toi-même un fichier de cookies (`~/.odin/video-cookies.txt`) ; rien de privé n'est contourné. Outils sur la machine d'Odin : `ffmpeg`, `yt-dlp` (et `tesseract` en appoint) ; la transcription viendra avec le modèle d'écoute d'Odin.
 
 ## Recherche vérifiée (équipe de vérification)
 Pour une question importante, Odin lance une **recherche vérifiée** (`web_research`) menée par une équipe d'agents spécialisés :
@@ -564,12 +582,16 @@ Réglages → Personnes (ou `odin pairing approve telegram CODE --membre Léa`).
 | Rôle | Ce qu'Odin fait avec |
 |---|---|
 | **Propriétaire** | tout : demandes, validations, réglages |
-| **Membre** | de confiance (ses messages ne sont pas traités comme une donnée externe), Odin l'aide volontiers et retient ce qu'il apprend de lui à son nom ; son autonomie est **plafonnée** (prudent par défaut, jamais Breaker), ses demandes importantes **te sont soumises** (il est prévenu), il ne peut ni valider ni changer un réglage |
+| **Membre** | de confiance (ses messages ne sont pas traités comme une donnée externe), Odin l'aide volontiers et retient ce qu'il apprend de lui à son nom. **Sans ta validation**, il fait faire à Odin six choses : **noter**, **mettre un rappel**, **mettre de la musique** (Apollon), **allumer ou éteindre une lumière**, **convertir un fichier** avec Alchimie (tous les formats d'Alchimie, pas seulement les documents ; un nouveau fichier est créé à côté, l'original n'est pas touché) et **faire analyser un fichier** par l'antivirus (une lecture). **Tout le reste t'est demandé** (il est prévenu), quel que soit son niveau d'autonomie : payer, envoyer, supprimer, éteindre une machine, installer, ouvrir une serrure, l'alarme ou le portail, programmer une tâche… Il ne peut ni valider ni changer un réglage. |
 | **Invité** | appairé, mais ses messages restent du contenu non fiable : rien d'important sans ta validation |
 
 Quand quelqu'un écrit au bot Telegram, sa demande apparaît dans Réglages → Personnes : **Accepter comme membre**, **Comme invité**, ou **Refuser**.
 
 Monter le rôle ou l'autonomie de quelqu'un, créer un propriétaire, ou relier une identité (ex. `telegram:123…`) à une personne qui a plus de droits qu'elle n'en avait demande ta confirmation, qui dit pour qui et avant → après (ex. « rôle : member → owner ») ; baisser s'applique tout de suite. Accepter une demande comme membre (ou créer un membre neuf) est déjà ton geste à toi : il ne redemande pas de confirmation, même si tu lui donnes l'autonomie « autonome ».
+
+**Les six choses d'un membre, en détail.** Elles ne valent que quand il les demande lui-même, en direct : pas dans une tâche programmée, pas sans surveillance, pas après la lecture d'un contenu extérieur. La lumière, c'est une lampe nommée (ni « tout allumer », ni une prise, ni une serrure). Si l'antivirus juge dangereux un fichier qu'un membre veut convertir, la conversion est refusée, le fichier reste à sa place, et **toi**, tu es prévenu : le mettre à l'écart reste ta décision. Une analyse qui mettrait d'elle-même un fichier à l'écart (l'analyse d'un dossier entier) t'est demandée. Une tâche qu'un membre veut programmer attend ta validation. Un **invité** ne gagne rien de tout cela.
+
+**Fiche et historique de chaque personne (Profil, premier lot : des données, pas encore d'écran).** Odin tient une fiche pour chaque personne qui lui parle et note chaque demande qui lui arrive par ses canaux de discussion : qui a demandé, quand, et ce que cela a donné. Il garde des renvois, jamais une copie du texte. En mode privé, rien n'est noté. Un inconnu qui n'est pas appairé n'a pas de fiche : seul un compteur par canal augmente. La fenêtre **Profil**, pour voir ces fiches, leur historique et y régler les droits, est en cours d'écriture ; d'ici là, rien de cela ne s'affiche.
 
 ## Sauvegarde et restauration
 
@@ -603,7 +625,7 @@ Avant chaque action qui écrit, exécute ou envoie, Odin se pose 7 questions sim
 Le quatrième niveau. Odin mène ses missions **sans presque plus rien te demander**, tâches planifiées comprises ; il discute simplement avec toi quand tu lui parles. Restent toujours demandés : payer, envoyer en ton nom à quelqu'un d'autre, ouvrir une serrure, désarmer l'alarme ou ouvrir le portail, toucher à ses garde-fous ; et, après la lecture d'un contenu extérieur, toute action engageante que tu n'as pas demandée.
 
 - **Initiative** : quand il repère un besoin, il prépare une routine ; seule, sans toi (travail continu, rondes), il ne fait que le sans-risque — garder une fiche (écrite à côté, jamais par-dessus une fiche existante, marquée « écrit par Odin seul »), nommer un appareil encore sans nom — et une routine qu'il voudrait créer reste **inactive** jusqu'à ce que tu l'actives dans Talos ; tout le reste qui engage est refusé. À venir : la liste « à valider » retrouvée à ton retour.
-- **Les modèles** : aujourd'hui, Odin peut encore se servir de modèles extérieurs (fournisseurs en ligne, modèles ouverts téléchargés, voix téléchargées) ; ces branchements vont être retirés : Odin n'utilisera que ses propres modèles, entraînés sur ta machine.
+- **Les modèles** : aujourd'hui, Odin peut encore se servir d'un modèle de langue extérieur (fournisseur en ligne, modèle ouvert lu par Métis) ; leur retrait est en cours. La voix et le second avis dans les décisions sont déjà retirés. Ensuite, Odin n'utilisera que ses propres modèles, entraînés sur ta machine.
 - **Réseau local ouvert** : il agit directement sur tes appareils et services locaux (box, NAS, imprimante, domotique, API locales) avec `http_request`, inventaire et mises à jour compris.
 - **Missions longues** : jusqu'à 100 étapes par mission et un plafond de coût réglable (5 $ par défaut, 0 = sans plafond).
 - **Rapport du soir** (21 h par défaut) : tout ce qu'il a fait seul, les actions graves, et ce qu'il a refusé pour te protéger.
@@ -618,17 +640,9 @@ Activer : onglet Décisions ou Réglages (bouton **⚡ Odin Breaker**), ou `odin
 
 ## Qui répond aux questions ?
 
-Par défaut, un **juge local** : hors ligne, sans clé, moins d'une milliseconde, rien ne sort de ta machine. Quand il ne sait pas (programme inconnu, tournure inédite), il répond « incertain », et Odin te demande. Tu peux lui adjoindre un juge plus fin, consulté **seulement quand le juge local hésite** :
+Un **juge local**, et lui seul : hors ligne, sans clé, moins d'une milliseconde, rien ne sort de ta machine. Quand il ne sait pas (programme inconnu, tournure inédite), il répond « incertain », et Odin te demande. Depuis le 17/11, il n'y a plus de juge qui passe par un modèle (ni second avis quand le juge local hésite, ni avis croisé de plusieurs modèles) : un ancien réglage qui en nommait un est lu comme « local », avec un avertissement, et une installation qui s'en servait repasse en autonomie « prudent » (Odin te le dit).
 
-| `odin mimir use …` | Clé | Réseau |
-|---|---|---|
-| `local` (défaut) | aucune | aucun |
-| `local+llm` | aucune avec un modèle local (Métis) | seulement si le juge local hésite |
-| `local+jev` | `JEV_API_KEY` ([Jev de TypeSafe](https://docs.typesafe.ai)) | seulement si le juge local hésite |
-| `llm` · `jev` | idem | à chaque question |
-
-`odin mimir test` montre les jugements sur 5 exemples ; `odin mimir eval` mesure le juge sur 140 cas étiquetés (ajoute les tiens dans `src/mimir/cases.ts`). Sur des cas écrits après le gel de ses règles, le juge local voit juste 78 % du temps ; ses erreurs ajoutent moins de protection, jamais moins de sécurité, car les règles de base de Heimdall restent en place. Une panne du juge n'est jamais lue comme un « non ».
-
+`odin mimir test` montre les jugements sur 5 exemples fictifs ; `odin mimir eval` mesure le juge sur des cas étiquetés (ajoute les tiens dans `src/mimir/cases.ts`). Ses erreurs ajoutent moins de protection, jamais moins de sécurité, car les règles de base de Heimdall restent en place. Une panne du juge n'est jamais lue comme un « non ».
 
 ## Toutes les commandes
 
