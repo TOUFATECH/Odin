@@ -12,9 +12,9 @@ const tout = () => true;
 const APPLIS = Array.from({ length: 14 }, (_, i) => `a${i}`);
 const ok = (r: ReturnType<typeof traiterEpingles>) => { assert.equal(r.reponse.ok, true, JSON.stringify(r.reponse)); return r.reponse as { ok: true; epingles: string[]; vues?: unknown[]; max?: number; proprietaire?: boolean }; };
 
-test('par défaut : le propriétaire a les 6 vues dans l\'ordre du menu, un membre n\'a rien', () => {
+test('par défaut : le propriétaire a les 7 vues dans l\'ordre du menu, un membre n\'a rien', () => {
   const p = ok(traiterEpingles({}, P, true, tout));
-  assert.deepEqual(p.epingles, ['vue:flows', 'vue:runes', 'vue:missions', 'vue:skills', 'vue:jobs', 'vue:audit']);
+  assert.deepEqual(p.epingles, ['vue:flows', 'vue:runes', 'vue:missions', 'vue:skills', 'vue:jobs', 'vue:audit', 'vue:profil']);
   assert.equal(p.max, 12); assert.equal(p.proprietaire, true); assert.deepEqual(p.vues, VUES);
   const m = ok(traiterEpingles({}, 'awa', false, tout));
   assert.deepEqual(m.epingles, []); assert.deepEqual(m.vues, [], 'aucune vue pour un membre'); assert.equal(m.proprietaire, false);
@@ -23,7 +23,7 @@ test('par défaut : le propriétaire a les 6 vues dans l\'ordre du menu, un memb
 test('épingler, retirer, ordonner, défaut ; 12 applis au plus (les vues ne comptent pas)', () => {
   let e: EtatEpingles = {};
   for (const a of APPLIS.slice(0, MAX_EPINGLES)) { const r = traiterEpingles(e, P, true, tout, { faire: 'epingler', id: `appli:${a}` }); ok(r); e = r.etat; }
-  assert.equal(e[P].length, 6 + 12, 'à la suite des vues');
+  assert.equal(e[P].length, 7 + 12, 'à la suite des vues');
   const deja = traiterEpingles(e, P, true, tout, { faire: 'epingler', id: 'appli:a0' }); assert.equal(deja.change, false, 'déjà épinglée : rien ne change');
   const trop = traiterEpingles(e, P, true, tout, { faire: 'epingler', id: 'appli:a12' });
   assert.equal(trop.reponse.ok, false); assert.equal((trop.reponse as { code: string }).code, 'max');

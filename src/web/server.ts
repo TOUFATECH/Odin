@@ -73,6 +73,7 @@ import { quarantaineDabord } from '../valhalla/ullr/garde.ts';
 import { agoraRoute } from './agora-api.ts';
 import { plumeRoute } from './plume-api.ts';
 import { epinglesRoute } from './epingles-api.ts';
+import { personnesRoute } from './personnes-api.ts';
 import { venusRoute } from '../valhalla/venus/routes.ts';
 import { archytasRoute } from '../valhalla/archytas/routes.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
@@ -644,6 +645,8 @@ export class WebChannel implements Channel {
     if (url.pathname.startsWith('/api/plume/') && await plumeRoute(req, res, url, { proprietaire: () => this.authed(req), nomProprietaire: this.accounts.profile()?.prenom ?? '', fail: () => this.throttle.fail(ip), ip })) return;
     // Épingles du menu (« Plus ») : par compte, propriétaire ou membre (avant la garde des membres ; la route filtre elle-même).
     if (url.pathname === '/api/epingles' && await epinglesRoute(req, res, url, { proprietaire: () => this.authed(req), fail: () => this.throttle.fail(ip) })) return;
+    // Profil (les personnes qui parlent à Odin) : le propriétaire tout, un membre la sienne en lecture (avant la garde des membres ; la route décide elle-même qui voit quoi).
+    if (url.pathname.startsWith('/api/personnes') && await personnesRoute(req, res, url, { proprietaire: () => this.authed(req) && !estMembre(req), mu: this.odin.muninn, direct, fail: () => this.throttle.fail(ip) })) return;
     // Archytas (fenêtre Script) : scripts privés, propriétaire seul (le code n'est servi qu'au propriétaire).
     if (url.pathname.startsWith('/api/archytas/') && await archytasRoute(req, res, url, { proprietaire: () => this.authed(req) && !estMembre(req), home: this.odin.paths.home, fail: () => this.throttle.fail(ip) })) return;
     // Kéryx (l'assistant joignable de dehors) : réglages, code secret, historique, essais — propriétaire seul.

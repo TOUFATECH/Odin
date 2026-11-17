@@ -1199,6 +1199,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     <button class="tab" data-view="skills"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.3 5.2 5.2 2.3-5.2 2.3L12 18.5l-2.3-5.2L4.5 11l5.2-2.3z"/><path d="M19 17v4M17 19h4"/></svg><span class="lbl">Compétences</span> <span class="badge" id="b-drafts" hidden>0</span></button>
     <button class="tab" data-view="jobs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span class="lbl">Tâches planifiées</span></button>
     <button class="tab" data-view="audit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="lbl">Décisions</span></button>
+    <button class="tab" data-view="profil"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg><span class="lbl">Profil</span></button>
     <div id="navEpingles" class="nav-epingles" role="group" aria-label="Épinglés"></div>
     </div>
     <button class="tab" data-view="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="lbl">Réglages</span></button>
@@ -1324,6 +1325,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         <h2 style="font-size:18px;margin:32px 0 12px">Autorisations permanentes</h2>
         <div class="wrap"><table class="tbl"><thead><tr><th>Type d'action</th><th>Exemple</th><th>Utilisations</th><th></th></tr></thead><tbody id="grants"></tbody></table></div>
       </div>
+    </section>
+    <section class="view" id="v-profil" aria-label="Profil">
+      <div class="head"><div><h1>Profil</h1><div class="sub">Les personnes qui parlent à Odin : leur carte et leur historique.</div></div></div>
+      <div class="body"><div id="profilBox"></div></div>
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine.</div></div></div>
@@ -1607,6 +1612,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
               <span class="hint">L'identité Telegram d'une personne s'affiche quand elle écrit au bot (code d'appairage) ; tu peux aussi l'accepter directement ci-dessus.</span>
             </details>
             <div class="status" id="p-status" role="status"></div>
+            <p class="sub" style="margin:0">La carte de chaque personne, son historique et ta note sont dans Profil. <button class="btn small" type="button" id="p-profil">Ouvrir Profil</button></p>
           </div></article>
 
           <article class="card" data-sec="voix"><form class="form" id="f-voice2">
@@ -2067,7 +2073,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   $('#moreBtn').addEventListener('click', () => toggleNav(!sideNav.classList.contains('open')));
   scrim.addEventListener('click', () => toggleNav(false));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sideNav.classList.contains('open')) toggleNav(false); });
-  const SECONDARY = ['flows', 'runes', 'missions', 'skills', 'jobs', 'audit'];
+  const SECONDARY = ['flows', 'runes', 'missions', 'skills', 'jobs', 'audit', 'profil'];
   function navMore(open) { const b = $('#navMoreBtn'), m = $('#navMore'); if (!b) return; m.hidden = !open; b.setAttribute('aria-expanded', String(open)); try { localStorage.setItem('odin.navmore', open ? '1' : '0'); } catch {} }
   function show(v) {
     toggleNav(false);
@@ -3133,7 +3139,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // ---------- Barre de commande (Ctrl K, « / ») : un écran, un réglage, une action, ou une demande ----------
   const palette = $('#palette'), palIn = $('#palIn'), palList = $('#palList');
   let palItems = [], palSel = 0;
-  const VIEWS = [['home', 'Aujourd\'hui'], ['chat', 'Discussion'], ['net', 'Maison et réseau'], ['settings', 'Réglages'], ['missions', 'Activité et missions'], ['brain', 'Cerveau (notes, fiches des applis)'], ['memory', 'Cerveau : souvenirs (mémoire)'], ['skills', 'Compétences et scripts'], ['jobs', 'Tâches planifiées'], ['audit', 'Journal des décisions']];
+  const VIEWS = [['home', 'Aujourd\'hui'], ['chat', 'Discussion'], ['net', 'Maison et réseau'], ['settings', 'Réglages'], ['missions', 'Activité et missions'], ['brain', 'Cerveau (notes, fiches des applis)'], ['memory', 'Cerveau : souvenirs (mémoire)'], ['skills', 'Compétences et scripts'], ['jobs', 'Tâches planifiées'], ['audit', 'Journal des décisions'], ['profil', 'Profil (personnes, historique)']];
   const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   function palSource() {
     const out = [];
@@ -4648,6 +4654,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('td', {}, el('button', { class: 'btn small danger', onclick: async () => { if (await OdinDialog.confirm(`Retirer ${u.name} ?`, { danger: true })) act({ kind: 'user_delete', id: u.id }); } }, 'Retirer')))));
     if (!P.users.length) $('#peopleTable').append(el('tr', {}, el('td', { colspan: 5, class: 'empty' }, 'Personne d\'autre que toi pour l\'instant.')));
   }
+  $('#p-profil').addEventListener('click', () => show('profil'));
   $('#p-add').addEventListener('click', async () => {
     const r = await avecValidation({ kind: 'user_save', name: $('#p-name').value, role: $('#p-role').value, autonomy: $('#p-auto').value });
     if (!r) return; if (!r.ok) return st('#p-status', r.error, false);

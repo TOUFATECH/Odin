@@ -29,13 +29,13 @@ test('épingles : épingler va à la fin, une seconde fois retire', () => {
   assert.deepEqual(ici(L.basculer(b.liste, 'vue:flows').liste), ['appli:ymir', 'appli:sindri'], 'une vue se retire comme une appli');
 });
 
-test('épingles : 12 applis au plus, les 6 vues ne comptent pas', () => {
+test('épingles : 12 applis au plus, les 7 vues ne comptent pas', () => {
   const L = charger();
   assert.equal(L.MAX, 12);
-  assert.deepEqual(ici(L.VUES), ['vue:flows', 'vue:runes', 'vue:missions', 'vue:skills', 'vue:jobs', 'vue:audit']);
+  assert.deepEqual(ici(L.VUES), ['vue:flows', 'vue:runes', 'vue:missions', 'vue:skills', 'vue:jobs', 'vue:audit', 'vue:profil']);
   let l = [...L.VUES];
   for (let i = 0; i < 12; i++) { const r = L.basculer(l, `appli:a${i}`); assert.equal(r.code, undefined, `appli ${i + 1}`); l = r.liste; }
-  assert.equal(l.length, 18);
+  assert.equal(l.length, 19);
   const trop = L.basculer(l, 'appli:treize'); assert.equal(trop.code, 'max'); assert.deepEqual(ici(trop.liste), ici(l), 'la liste ne change pas');
   // Une vue retirée se remet même avec 12 applis.
   const sansVue = L.basculer(l, 'vue:jobs').liste; assert.equal(L.basculer(sansVue, 'vue:jobs').code, undefined);

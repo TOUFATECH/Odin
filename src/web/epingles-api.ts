@@ -17,6 +17,7 @@ export const MAX_EPINGLES = 12;
 export const VUES: Array<{ id: string; nom: string }> = [
   { id: 'vue:flows', nom: 'Automatisations' }, { id: 'vue:runes', nom: 'Papyrus' }, { id: 'vue:missions', nom: 'Activité' },
   { id: 'vue:skills', nom: 'Compétences' }, { id: 'vue:jobs', nom: 'Tâches planifiées' }, { id: 'vue:audit', nom: 'Journal' },
+  { id: 'vue:profil', nom: 'Profil' },
 ];
 export type EtatEpingles = Record<string, string[]>;
 export type Reponse = { ok: true; epingles: string[]; max?: number; proprietaire?: boolean; vues?: Array<{ id: string; nom: string }> } | { ok: false; code: 'max' | 'interdit' | 'inconnu' | 'invalide'; error: string };

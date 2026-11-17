@@ -13,9 +13,15 @@
   // ---------------- Logique pure (sans document)
   const MAX = 12;
   /** Les vues d'Odin rangées sous « Plus », dans leur ordre de départ. */
-  const VUES = ['vue:flows', 'vue:runes', 'vue:missions', 'vue:skills', 'vue:jobs', 'vue:audit'];
+  const VUES = ['vue:flows', 'vue:runes', 'vue:missions', 'vue:skills', 'vue:jobs', 'vue:audit', 'vue:profil'];
   const FORME = /^appli:[a-z0-9_-]+$/;
   const estVue = (id) => VUES.includes(id);
+  /** Les vues jamais cachées, même non épinglées : Profil (un membre ne peut pas épingler de vue, et chacun doit pouvoir y voir sa fiche). */
+  const TOUJOURS = ['vue:profil'];
+  /** Les vues à cacher du menu : celles qui ne sont pas épinglées, sauf les vues toujours là. */
+  const vuesCachees = (liste) => VUES.filter((v) => !liste.includes(v) && !TOUJOURS.includes(v));
+  /** Les vues toujours là qui ne sont pas épinglées : montrées à part, juste avant la tuile Script. */
+  const vuesToujours = (liste) => TOUJOURS.filter((v) => !liste.includes(v));
   const nbApplis = (liste) => liste.filter((x) => !estVue(x)).length;
   /** Épingle (à la fin) ou retire. { liste, code? } : code 'max' quand il y a déjà 12 applis (les vues ne comptent pas). */
   function basculer(liste, id, max = MAX) {
@@ -197,10 +203,12 @@
       lignes.push(rangee(id, boutonAppli(appId, nom), nom));
     }
     // Les vues retirées restent dans la page (cachées) : leurs pastilles et leurs raccourcis continuent de marcher.
-    const cachees = VUES.filter((v) => !etat.epingles.includes(v)).map(boutonVue).filter(Boolean);
+    const cachees = vuesCachees(etat.epingles).map(boutonVue).filter(Boolean);
     for (const b of cachees) b.hidden = true;
+    const toujours = vuesToujours(etat.epingles).map(boutonVue).filter(Boolean);
+    for (const b of toujours) b.hidden = false;
     const ajout = el('button', { class: 'tab nav-ep-add', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirListe }, svg(I.epingle, 20), el('span', { class: 'lbl' }, 'Épingler une appli…'));
-    ancre.replaceChildren(...lignes, ...cachees, tuileScript(), ajout);
+    ancre.replaceChildren(...lignes, ...cachees, ...toujours, tuileScript(), ajout);
   }
   function majBouton(b) {
     const id = b.dataset.epId, nom = b.dataset.epNom, oui = estEpingle(id);
@@ -290,5 +298,5 @@
   }
   if (typeof document !== 'undefined' && document.addEventListener) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init(); }
 
-  window.OdinEpingles = { bouton, estEpingle, ouvrir: ouvrirListe, recharger: charger, logique: { MAX, VUES, estVue, basculer, deplacer, nettoyer } };
+  window.OdinEpingles = { bouton, estEpingle, ouvrir: ouvrirListe, recharger: charger, logique: { MAX, VUES, estVue, basculer, deplacer, nettoyer, vuesCachees, vuesToujours } };
 })();

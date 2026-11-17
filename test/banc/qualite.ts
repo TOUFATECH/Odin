@@ -90,6 +90,7 @@ export const ECRANS: Cible[] = [
   spa('graphe-3d:carte', 'Graphe 3D de la carte des applis', `window.OdinShow('apps'); setTimeout(() => { document.querySelector('#v-apps .seg [data-vue="carte"]')?.click(); setTimeout(() => document.querySelector('#vaPaneCarte .ge-seg [data-vue="3d"]')?.click(), 300); }, 400)`, '#v-apps', { pret: '#vaPaneCarte .ge canvas' }),
   spa('taches', 'Tâches planifiées', `window.OdinShow('jobs')`, '#v-jobs'),
   spa('decisions', 'Décisions', `window.OdinShow('audit')`, '#v-audit'),
+  spa('profil', 'Profil', `window.OdinShow('profil')`, '#v-profil', { pret: '#v-profil .pf' }),
   spa('palette', 'Chercher ou faire (Ctrl K)', `window.OdinShow('home'); document.querySelector('#palBtn').click()`, 'body'),
   spa('guide', 'Guide d\'Odin', `window.OdinShow('home'); window.OdinGuide.open()`, 'body', { options: { dessus: ['.guide'] } }),
   spa('menu', 'Menu ouvert (téléphone)', `window.OdinShow('home'); document.querySelector('#moreBtn').click()`, 'body', { options: { dessus: ['#sideNav'] } }),
