@@ -23,11 +23,14 @@
       ],
       "chercher": [
         "cherche dans mes notes le mot facture",
-        "retrouve ce que j'avais écrit sur le serveur de sauvegarde"
+        "retrouve ce que j'avais écrit sur le serveur de sauvegarde",
+        "retrouve dans mes notes ce que j'avais écrit sur le plombier"
       ],
       "noter": [
         "note : rappeler le plombier jeudi",
-        null
+        null,
+        "note quelque part que le code du portail change lundi",
+        "mets dans mes notes : acheter des ampoules pour le garage"
       ],
       "attention": [
         null,
@@ -60,7 +63,11 @@
       ],
       "client": [
         "crée la fiche du client Léon Marchal",
-        "mets à jour la fiche client de la boulangerie Martin"
+        "mets à jour la fiche client de la boulangerie Martin",
+        "crée la fiche du nouveau client, monsieur Diallo, avec son téléphone"
+      ],
+      "evolution": [
+        "note une évolution à faire : exporter les factures en PDF"
       ]
     },
     "draupnir": {
@@ -149,6 +156,9 @@
       "arreter_processus": [
         "arrête ce programme qui tourne en boucle",
         "ferme proprement le processus qui bloque"
+      ],
+      "mesures": [
+        "montre la courbe du processeur sur les dernières 24 heures"
       ]
     },
     "skogul": {
@@ -223,7 +233,8 @@
       ],
       "bannis": [
         "liste les adresses bannies",
-        "qui est bloqué au pare-feu et pour combien de temps ?"
+        "qui est bloqué au pare-feu et pour combien de temps ?",
+        "qui est banni par le pare-feu en ce moment ?"
       ],
       "bannir": [
         "bannis l'adresse 198.51.100.50",
@@ -232,6 +243,9 @@
       "debannir": [
         "débannis 198.51.100.14",
         "enlève le bannissement de mon collègue"
+      ],
+      "proteger": [
+        "ne bannis jamais l'adresse de la maison de mes parents"
       ]
     },
     "geri": {
@@ -261,6 +275,14 @@
       "listes": [
         "mets à jour les listes d'adresses malveillantes",
         "rafraîchis les listes de serveurs dangereux"
+      ],
+      "verifier": [
+        null,
+        null,
+        "cette adresse IP est-elle connue comme dangereuse ?"
+      ],
+      "journal": [
+        "avec quels serveurs mes machines ont discuté cette nuit ?"
       ]
     },
     "ran": {
@@ -312,7 +334,8 @@
       ],
       "analyser": [
         "analyse le dossier Téléchargements",
-        "lance un scan de tout le disque"
+        "lance un scan de tout le disque",
+        "lance un scan antivirus sur le disque externe"
       ],
       "etat": [
         "je suis bien protégé ?",
@@ -321,6 +344,11 @@
       "quarantaine": [
         "fais voir les fichiers que tu as mis de côté par sécurité",
         "qu'est-ce qui a été mis à l'écart et pourquoi ?"
+      ],
+      "fichier": [
+        null,
+        null,
+        "vérifie si cette pièce jointe contient un virus"
       ]
     },
     "loki": {
@@ -374,7 +402,8 @@
       ],
       "incidents": [
         "incidents du parc en cours",
-        "montre les incidents de sécurité des postes"
+        "montre les incidents de sécurité des postes",
+        "y a-t-il eu des incidents de sécurité sur les postes du bureau ?"
       ],
       "chronologie": [
         "chronologie du poste de Lina",
@@ -437,6 +466,9 @@
       "creer": [
         "crée une base pour le site du club",
         "nouvelle base de données postgres pour l'inventaire"
+      ],
+      "lignes": [
+        "affiche le contenu de la table commandes"
       ]
     },
     "skuld": {
@@ -457,7 +489,8 @@
       ],
       "sauvegarder": [
         "sauvegarde la base boutique maintenant",
-        "dump la base postgres tout de suite"
+        "dump la base postgres tout de suite",
+        "lance tout de suite une copie de la base PostgreSQL"
       ],
       "plan": [
         "planifie une sauvegarde de la base chaque nuit à 2 h",
@@ -466,6 +499,9 @@
       "restaurer": [
         "restaure la sauvegarde de la base d'avant-hier",
         "remets la base compta comme elle était lundi"
+      ],
+      "verifier_site": [
+        "la copie de mes bases envoyée sur l'autre site est-elle intacte ?"
       ]
     },
     "rodd": {
@@ -523,7 +559,8 @@
       ],
       "tester_debit": [
         "teste la vitesse de la connexion",
-        "combien je tire en débit là ?"
+        "combien je tire en débit là ?",
+        "vérifie si mon fournisseur me donne bien le débit que je paie"
       ]
     },
     "ymir": {
@@ -700,6 +737,12 @@
       "baux": [
         "quelle ip la box, enfin toi, a donnée à chaque bidule ?",
         "liste des baux dhcp"
+      ],
+      "bloquer_horaires": [
+        "bloque YouTube après 21h pour les enfants"
+      ],
+      "dhcp_fixe": [
+        "donne toujours la même adresse IP au NAS"
       ]
     },
     "vordr": {
@@ -720,7 +763,8 @@
       ],
       "ajouter": [
         "surveille le site example.org",
-        "ajoute une sonde sur le serveur de mails"
+        "ajoute une sonde sur le serveur de mails",
+        "préviens-moi si mon site web ne répond plus"
       ],
       "problemes": [
         "problèmes ouverts du plus grave au moins grave",
@@ -729,6 +773,9 @@
       "historique": [
         "historique de disponibilité de la sonde du site sur 30 jours",
         "combien de pannes sur le serveur cette année ?"
+      ],
+      "prendre_en_main": [
+        "je m'occupe de cette panne, mets mon nom dessus"
       ]
     },
     "askr": {
@@ -758,6 +805,9 @@
       "preter": [
         "prête la caméra à Hugo jusqu'au 30",
         "note que le portable 3 part chez Sarah"
+      ],
+      "attribuer": [
+        "attribue une licence Windows au portable de la comptable"
       ]
     },
     "valgrind": {
@@ -811,11 +861,15 @@
       ],
       "mot_de_passe": [
         "change le mot de passe du compte de Léo",
-        "nouveau mot de passe pour l'utilisatrice Emma"
+        "nouveau mot de passe pour l'utilisatrice Emma",
+        "mon fils ne se souvient plus de son mot de passe Odin, remets-lui en un"
       ],
       "double_auth": [
         "mets la double authentification sur mon compte",
         "active le code à 6 chiffres pour Nadia"
+      ],
+      "inviter": [
+        "envoie une invitation à ma sœur pour qu'elle se crée un compte"
       ]
     },
     "bru": {
@@ -956,7 +1010,8 @@
       ],
       "suivi": [
         "suivi des installations en cours",
-        "où en sont les postes qui s'installent ?"
+        "où en sont les postes qui s'installent ?",
+        "où en sont les installations lancées par le réseau ?"
       ],
       "allumer": [
         "mets en route le serveur pxe pour que les pc démarrent dessus",
@@ -989,7 +1044,8 @@
       ],
       "bouton": [
         "ajoute un bouton pour lancer la scène cinéma",
-        "un bouton sur l'écran pour couper le wifi des enfants"
+        "un bouton sur l'écran pour couper le wifi des enfants",
+        "ajoute sur l'écran mural un bouton qui lance la scène cinéma"
       ]
     },
     "zeus": {
@@ -1014,7 +1070,8 @@
       ],
       "bilan": [
         "qui avait vu juste ces 14 derniers jours ?",
-        "score de chaque source météo"
+        "score de chaque source météo",
+        "classe les fournisseurs de prévisions selon leur fiabilité ce mois-ci"
       ],
       "mois": [
         "tendance des trois prochains mois",
@@ -1048,6 +1105,12 @@
       "allumer": [
         "allume l'historique des positions pour Lou",
         "commence à garder mes trajets"
+      ],
+      "exporter": [
+        "exporte mon trajet d'hier en fichier GPX"
+      ],
+      "nommer_lieu": [
+        "appelle cet endroit « chez mamie »"
       ]
     },
     "apparence": {
@@ -1068,7 +1131,8 @@
       ],
       "theme": [
         "mets le thème automatique",
-        "passe au thème forêt"
+        "passe au thème forêt",
+        "change le thème d'Odin pour quelque chose de plus sombre"
       ],
       "cacher": [
         "cache Odin de mes écrans",
@@ -1097,7 +1161,8 @@
       ],
       "chercher": [
         "trouve la commande qui vide le cache dns",
-        "quelle commande fait une sauvegarde de base ?"
+        "quelle commande fait une sauvegarde de base ?",
+        "quelle commande je tape pour redémarrer le DNS ?"
       ],
       "liste": [
         "sors-moi l'aide complète de toutes les invites",
@@ -1122,7 +1187,8 @@
       ],
       "chercher": [
         "recherche : prix du kWh en 2026",
-        "cherche des infos sur la réparation d'une fuite de chasse d'eau"
+        "cherche des infos sur la réparation d'une fuite de chasse d'eau",
+        "cherche sur le web les horaires d'ouverture de la mairie"
       ],
       "brut": [
         "résultats bruts pour 'serveur raspberry pi'",
@@ -1210,7 +1276,9 @@
       ],
       "commander": [
         "allume la lampe du bureau",
-        "mets le radiateur de la chambre à 19 degrés"
+        "mets le radiateur de la chambre à 19 degrés",
+        "éteins la prise connectée du salon",
+        "allume la lampe du bureau"
       ],
       "lister": [
         "liste les appareils de la maison",
@@ -1277,6 +1345,12 @@
       "maison": [
         "comment se porte la baraque en ce moment ?",
         "fais-moi le tour des pièces, ce qui est allumé, la température"
+      ],
+      "commander": [
+        "monte le chauffage de la chambre à 21 degrés"
+      ],
+      "pont": [
+        "relie ma passerelle Zigbee à Odin"
       ]
     },
     "himinbjorg": {
@@ -1365,6 +1439,9 @@
       "nouveautes": [
         "les nouveautés de la semaine",
         "quels films sont arrivés récemment ?"
+      ],
+      "livre_ajouter": [
+        "ajoute ce roman à ma bibliothèque de livres"
       ]
     },
     "aegir": {
@@ -1422,7 +1499,11 @@
       ],
       "reserver": [
         "réserve un rendez-vous pour Julie Morel samedi 11 h",
-        "prends un rendez-vous pour un client lundi"
+        "prends un rendez-vous pour un client lundi",
+        "réserve un créneau jeudi 15h pour madame Leroy"
+      ],
+      "prestation": [
+        "ajoute la coloration à la liste de mes prestations"
       ]
     },
     "kvasir": {
@@ -1447,7 +1528,8 @@
       ],
       "verifier": [
         "vérifie les dépôts suivis maintenant",
-        "lance la veille"
+        "lance la veille",
+        "regarde ce qui a changé dans les projets d'origine d'Odin"
       ],
       "carnet": [
         "qu'est-ce qu'on a noté comme fonctions à piquer aux autres projets ?",
@@ -1540,6 +1622,9 @@
       "pdf_cherchable": [
         null,
         "ajoute le texte invisible sous les pages du scan"
+      ],
+      "garder": [
+        "range le texte de cette photo dans le Cerveau"
       ]
     },
     "mimisbrunnr": {
@@ -1594,7 +1679,8 @@
       ],
       "demarrage": [
         "liste ce qui démarre automatiquement avec la session",
-        "qu'est-ce qui se lance tout seul quand j'allume ?"
+        "qu'est-ce qui se lance tout seul quand j'allume ?",
+        "quels programmes se lancent tout seuls à l'allumage ?"
       ],
       "carte": [
         "fais-moi un plan de ce qui occupe le disque, dossier par dossier",
@@ -1628,6 +1714,9 @@
       "album": [
         "crée un album mariage avec les photos de juin 2022",
         "fais un album des photos du ski"
+      ],
+      "dossier": [
+        "ajoute le dossier Images du disque externe à ma photothèque"
       ]
     },
     "fensalir": {
@@ -1715,6 +1804,9 @@
       "ouvrir_terminal": [
         "donne-moi une console qui reste ouverte sur la machine",
         "un terminal sur le poste build par ssh"
+      ],
+      "journal": [
+        "montre les derniers commits du dépôt"
       ]
     },
     "heidrun": {
@@ -1768,7 +1860,8 @@
       ],
       "jeux": [
         "liste mes jeux snes",
-        "quels jeux j'ai sur la playstation ?"
+        "quels jeux j'ai sur la playstation ?",
+        "montre la liste de mes jeux rétro"
       ],
       "ranger": [
         "range les jeux du dossier",
@@ -1797,7 +1890,8 @@
       ],
       "creer": [
         "crée un document avec ce texte",
-        "fais un docx à partir de ces notes"
+        "fais un docx à partir de ces notes",
+        "écris-moi un document pour résilier mon abonnement internet"
       ],
       "tableur": [
         "crée un tableur avec ces lignes",
@@ -1830,7 +1924,8 @@
       ],
       "etat": [
         "fais le bilan de ce qu'on voit de moi en ligne",
-        "bilan de ma visibilité en ligne"
+        "bilan de ma visibilité en ligne",
+        "est-ce que mon nom apparaît sur des sites d'annuaires ?"
       ]
     },
     "durinn": {
@@ -1880,7 +1975,8 @@
       ],
       "recuperer": [
         "récupère les fichiers effacés de la carte sd",
-        "recopie les photos supprimées sur le disque D"
+        "recopie les photos supprimées sur le disque D",
+        "récupère les fichiers effacés de la carte SD"
       ],
       "chercher": [
         "fouille le disque pour retrouver la partition qui a sauté",
@@ -1947,6 +2043,9 @@
       "catalogue": [
         "qu'est-ce qu'on peut installer depuis notre boutique d'applis interne ?",
         "ce qu'il y a dans le store et pour qui"
+      ],
+      "forcer": [
+        "installe d'office ce logiciel sur l'ordinateur de mon fils"
       ]
     },
     "achille": {
@@ -1975,7 +2074,8 @@
       ],
       "controle_passif": [
         "jette un œil discret aux cookies et en-têtes de mes domaines",
-        "regarde les en-têtes de sécurité de mon domaine"
+        "regarde les en-têtes de sécurité de mon domaine",
+        "vérifie les défauts de sécurité de mon propre site"
       ]
     },
     "atalante": {
@@ -2092,6 +2192,9 @@
       "sons": [
         "reconnais les sons du quotidien",
         "quels sons tu as reconnus aujourd'hui ?"
+      ],
+      "purger": [
+        "efface les enregistrements sonores les plus anciens"
       ]
     },
     "mathesis": {
@@ -2150,6 +2253,9 @@
       "prevoir": [
         "prévois maintenant",
         "estime ce qui va probablement se passer"
+      ],
+      "couper": [
+        "arrête d'anticiper mes habitudes"
       ]
     },
     "keryx": {
@@ -2178,7 +2284,8 @@
       ],
       "historique": [
         "historique des échanges par message",
-        null
+        null,
+        "qu'est-ce que l'assistant a fait à partir de mes messages ?"
       ]
     }
   },

@@ -18,11 +18,14 @@
       ],
       "chercher": [
         "notlarda internet faturasıyla ilgili ne varsa bul",
-        "notlarımda modem kelimesini ara"
+        "notlarımda modem kelimesini ara",
+        "notlarımda tesisatçı hakkında ne yazmıştım, bul"
       ],
       "noter": [
         "not al: perşembe tesisatçıyı ara",
-        null
+        null,
+        "bir yere not et, kapının şifresi pazartesi değişiyor",
+        "notlarıma ekle: garaj için ampul alınacak"
       ],
       "attention": [
         null,
@@ -50,7 +53,11 @@
       ],
       "client": [
         "Ahmet Yılmaz için müşteri kartı aç",
-        "müşterinin telefonu değişti, kartını güncelle"
+        "müşterinin telefonu değişti, kartını güncelle",
+        "yeni müşteri Bay Diallo için telefonuyla birlikte bir müşteri kartı aç"
+      ],
+      "evolution": [
+        "yapılacak bir geliştirme not et: faturaları PDF olarak dışa aktarmak"
       ]
     },
     "draupnir": {
@@ -123,6 +130,9 @@
       "arreter_processus": [
         "donan chrome sürecini öldür",
         "tüm belleği yiyen işlemi durdur"
+      ],
+      "mesures": [
+        "son 24 saatin işlemci grafiğini göster"
       ]
     },
     "skogul": {
@@ -189,7 +199,8 @@
       ],
       "bannis": [
         "banlı adreslerin listesi",
-        "şu an kimler banlı?"
+        "şu an kimler banlı?",
+        "şu anda güvenlik duvarının engellediği kimler var?"
       ],
       "bannir": [
         "198.51.100.23 adresini banla",
@@ -198,6 +209,9 @@
       "debannir": [
         "198.51.100.40 adresinin banını kaldır",
         "iş yerimin IP'sinin engelini aç"
+      ],
+      "proteger": [
+        "annemlerin evinin IP adresini asla engelleme"
       ]
     },
     "geri": {
@@ -217,11 +231,15 @@
       ],
       "verifier": [
         "198.51.100.77 adresini kara listelerde kontrol et",
-        "bu domain zararlı listesinde mi?"
+        "bu domain zararlı listesinde mi?",
+        "bu IP adresi zararlı olarak biliniyor mu?"
       ],
       "listes": [
         "tehlikeli adres listelerini güncelle",
         "kara listeleri tazele"
+      ],
+      "journal": [
+        "bu gece makinelerim hangi sunucularla konuştu?"
       ]
     },
     "ran": {
@@ -263,11 +281,13 @@
       ],
       "analyser": [
         "taramayı başlat",
-        "sistemi hızlıca virüs için tara"
+        "sistemi hızlıca virüs için tara",
+        "harici diski virüs taramasından geçir"
       ],
       "fichier": [
         "indirilenlerdeki setup.exe dosyasını kontrol et",
-        "bu arşivi tara"
+        "bu arşivi tara",
+        "bu ekte virüs var mı kontrol et"
       ],
       "quarantaine": [
         "karantinada ne var?",
@@ -311,7 +331,8 @@
       ],
       "incidents": [
         "filodaki açık olaylar",
-        "hangi olaylar çözülmedi?"
+        "hangi olaylar çözülmedi?",
+        "ofis bilgisayarlarında güvenlik olayı oldu mu?"
       ],
       "postes": [
         "iş istasyonları ve korumaları",
@@ -368,6 +389,9 @@
       "sql": [
         "select * from users limit 10 çalıştır",
         "veritabanında sorgu yürüt"
+      ],
+      "lignes": [
+        "siparişler tablosundaki satırları göster"
       ]
     },
     "skuld": {
@@ -389,7 +413,8 @@
       ],
       "sauvegarder": [
         "veritabanının dökümünü şimdi al",
-        "müşteri veritabanını hemen yedekle"
+        "müşteri veritabanını hemen yedekle",
+        "PostgreSQL veritabanının hemen yedeğini al"
       ],
       "plan": [
         "veritabanı yedeğini her gece saat 3'e kur",
@@ -398,6 +423,9 @@
       "restaurer": [
         "veritabanını pazartesiki döküme geri al",
         "veritabanını yedekten geri yükle"
+      ],
+      "verifier_site": [
+        "ikinci konuma gönderilen veritabanı kopyası sağlam mı?"
       ]
     },
     "rodd": {
@@ -445,7 +473,8 @@
       ],
       "tester_debit": [
         "wifi hızını test et",
-        "salonda hız ne kadar bak"
+        "salonda hız ne kadar bak",
+        "sağlayıcım parasını ödediğim hızı veriyor mu, kontrol et"
       ]
     },
     "ymir": {
@@ -606,6 +635,12 @@
       "pause": [
         "reklam engellemeyi beş dakika kapat",
         "engelleyiciyi duraklat"
+      ],
+      "bloquer_horaires": [
+        "çocuklar için YouTube'u saat 21'den sonra engelle"
+      ],
+      "dhcp_fixe": [
+        "NAS'a her zaman aynı IP adresini ver"
       ]
     },
     "vordr": {
@@ -621,7 +656,8 @@
       ],
       "ajouter": [
         "example.org için kontrol ekle",
-        "198.51.100.10 üzerinde 22 portunu izle"
+        "198.51.100.10 üzerinde 22 portunu izle",
+        "sitem yanıt vermezse bana haber ver"
       ],
       "problemes": [
         "açık sorunlar neler?",
@@ -630,6 +666,9 @@
       "page_publique": [
         "herkese açık durum sayfası yap",
         "müşteriler için durum sayfasını aç"
+      ],
+      "prendre_en_main": [
+        "bu arızayla ben ilgileniyorum, adımı yaz"
       ]
     },
     "askr": {
@@ -654,6 +693,9 @@
       "etiquette": [
         "dizüstü için QR etiketi yap",
         "kasaya yapıştırılacak etiket bas"
+      ],
+      "attribuer": [
+        "muhasebecinin dizüstüne bir Windows lisansı tanımla"
       ]
     },
     "valgrind": {
@@ -703,11 +745,15 @@
       ],
       "mot_de_passe": [
         "Zeynep'in giriş şifresini değiştir",
-        "hesabının şifresini unutmuş, sıfırla"
+        "hesabının şifresini unutmuş, sıfırla",
+        "oğlum Odin şifresini hatırlamıyor, sıfırla"
       ],
       "double_auth": [
         "hesabımda iki aşamalı doğrulamayı aç",
         "giriş için ikinci faktör ayarla"
+      ],
+      "inviter": [
+        "kız kardeşime hesap açması için davet gönder"
       ]
     },
     "bru": {
@@ -831,6 +877,11 @@
       "cle_preparer": [
         "kurulum için usb hazırla",
         "önyükleme flaş belleğini yaz"
+      ],
+      "suivi": [
+        null,
+        null,
+        "ağ üzerinden başlatılan kurulumlar ne durumda?"
       ]
     },
     "gladsheim": {
@@ -855,6 +906,11 @@
       "positions": [
         "bizimkiler nerede?",
         "ailenin yerini haritada göster"
+      ],
+      "bouton": [
+        null,
+        null,
+        "duvar ekranına sinema sahnesini başlatan bir düğme ekle"
       ]
     },
     "zeus": {
@@ -874,7 +930,8 @@
       ],
       "bilan": [
         "hangi kaynak daha az yanıldı?",
-        "dün havayı kim bildi?"
+        "dün havayı kim bildi?",
+        "bu ay tahmin sağlayıcılarını güvenilirliğe göre sırala"
       ],
       "mois": [
         "önümüzdeki aylarda hava nasıl olacak?",
@@ -903,6 +960,12 @@
       "pause": [
         "şimdilik hareketlerimi kaydetme",
         "konum geçmişini duraklat"
+      ],
+      "exporter": [
+        "dünkü güzergahımı GPX dosyası olarak dışa aktar"
+      ],
+      "nommer_lieu": [
+        "bu yerin adını 'babaannemin evi' koy"
       ]
     },
     "apparence": {
@@ -918,7 +981,8 @@
       ],
       "theme": [
         "kış temasını koy",
-        "koyu görünümü aç"
+        "koyu görünümü aç",
+        "Odin'in temasını daha koyu bir şeyle değiştir"
       ],
       "etat": [
         "hangi tema seçili?",
@@ -942,7 +1006,8 @@
       ],
       "chercher": [
         "konteyneri yeniden başlatma komutunu bul",
-        "diski kontrol eden komut hangisi?"
+        "diski kontrol eden komut hangisi?",
+        "DNS'i yeniden başlatmak için hangi komutu yazmalıyım?"
       ],
       "liste": [
         "bütün komutlar",
@@ -962,7 +1027,8 @@
       ],
       "chercher": [
         "ara: vlan nasıl kurulur",
-        "güneş panelleri hakkında bilgi bul"
+        "güneş panelleri hakkında bilgi bul",
+        "belediyenin çalışma saatlerini internette ara"
       ],
       "historique": [
         "dün ne aramıştım?",
@@ -1046,7 +1112,9 @@
       ],
       "commander": [
         "koridorun ışığını kapat",
-        "su ısıtıcının prizini aç"
+        "su ısıtıcının prizini aç",
+        "salondaki akıllı prizi kapat",
+        "çalışma odasının lambasını yak"
       ],
       "appairer": [
         "yeni sensörü eşleştir",
@@ -1099,6 +1167,12 @@
       "creer_scene": [
         "sabah sahnesi oluştur: ışık ve kahve makinesi",
         "parti için yeni sahne"
+      ],
+      "commander": [
+        "yatak odasının ısıtmasını 21 dereceye çıkar"
+      ],
+      "pont": [
+        "Zigbee ağ geçidimi Odin'e bağla"
       ]
     },
     "himinbjorg": {
@@ -1171,6 +1245,9 @@
       "enregistrer": [
         "saat dokuzdaki programı kaydet",
         "filmi kayda al"
+      ],
+      "livre_ajouter": [
+        "bu romanı kitap kütüphaneme ekle"
       ]
     },
     "aegir": {
@@ -1219,6 +1296,14 @@
       "rendez_vous": [
         "yeni randevu: Selin, salı, sabah 10",
         "yarına randevu yaz"
+      ],
+      "reserver": [
+        null,
+        null,
+        "Leroy Hanım için perşembe saat 15'e randevu ayır"
+      ],
+      "prestation": [
+        "boyamayı hizmetler listeme ekle"
       ]
     },
     "kvasir": {
@@ -1234,7 +1319,8 @@
       ],
       "verifier": [
         "güncellemeleri şimdi kontrol et",
-        "yeni ne çıkmış?"
+        "yeni ne çıkmış?",
+        "Odin'in dayandığı projelerde ne yenilik var bak"
       ],
       "etudier": [
         "github.com/example/proje'yi incele",
@@ -1315,6 +1401,9 @@
       "pdf_cherchable": [
         null,
         "taramaya metin katmanı ekle"
+      ],
+      "garder": [
+        "bu fotoğraftaki yazıyı Beyin'e kaydet"
       ]
     },
     "mimisbrunnr": {
@@ -1367,7 +1456,8 @@
       ],
       "demarrage": [
         "başlangıçta neler açılıyor?",
-        "sistem açılışındaki programlar"
+        "sistem açılışındaki programlar",
+        "açılışta kendiliğinden başlayan programlar hangileri?"
       ]
     },
     "sol": {
@@ -1392,6 +1482,9 @@
       "album": [
         "düğün albümü oluştur",
         "bayramdan albüm yap"
+      ],
+      "dossier": [
+        "harici diskteki Resimler klasörünü fotoğraf arşivime ekle"
       ]
     },
     "fensalir": {
@@ -1468,6 +1561,9 @@
       "cloner": [
         "github.com/example/app'i klonla",
         "depoyu kopyala"
+      ],
+      "journal": [
+        "depodaki son commit'leri göster"
       ]
     },
     "heidrun": {
@@ -1509,7 +1605,8 @@
       ],
       "jeux": [
         "oyun listesi",
-        "hangi oyunlar var?"
+        "hangi oyunlar var?",
+        "retro oyunlarımın listesini göster"
       ],
       "lancer": [
         "tetris'i başlat",
@@ -1533,7 +1630,8 @@
       ],
       "creer": [
         "yeni belge: dilekçe",
-        "metin dosyası oluştur"
+        "metin dosyası oluştur",
+        "internet aboneliğimi iptal etmek için bir belge yaz"
       ],
       "chercher": [
         "belgelerde kira kelimesini bul",
@@ -1557,7 +1655,8 @@
       ],
       "etat": [
         "internette nerede çıkıyorum?",
-        "çevrimiçi görünürlüğüm"
+        "çevrimiçi görünürlüğüm",
+        "adım kişi arama sitelerinde çıkıyor mu?"
       ],
       "chercher": [
         "nerelerde anıldığımı şimdi kontrol et",
@@ -1605,7 +1704,8 @@
       ],
       "recuperer": [
         "silinen dosyaları kurtar",
-        "silinmiş fotoğrafları çıkar"
+        "silinmiş fotoğrafları çıkar",
+        "SD karttan silinen dosyaları kurtar"
       ],
       "chercher": [
         "kayıp bölümleri ara",
@@ -1662,6 +1762,9 @@
       "ajouter_personne": [
         "Deniz'i tasarımcılar grubuna ekle",
         "birini gruba koy"
+      ],
+      "forcer": [
+        "bu programı oğlumun bilgisayarına zorunlu kur"
       ]
     },
     "achille": {
@@ -1686,6 +1789,11 @@
       "defauts": [
         "bulunan zafiyetler",
         "sitede ne bulundu?"
+      ],
+      "controle_passif": [
+        null,
+        null,
+        "kendi web sitemi güvenlik açıkları için kontrol et"
       ]
     },
     "atalante": {
@@ -1782,6 +1890,9 @@
       "musique": [
         "şarkıyı analiz et",
         "müziğin temposu kaç?"
+      ],
+      "purger": [
+        "en eski ses kayıtlarını sil"
       ]
     },
     "mathesis": {
@@ -1830,6 +1941,9 @@
       "bilan": [
         "doğru tahmin oranı",
         "tahminler ne kadar isabetli?"
+      ],
+      "couper": [
+        "alışkanlıklarımı tahmin etmeyi bırak"
       ]
     },
     "keryx": {
@@ -1849,7 +1963,8 @@
       ],
       "historique": [
         "mesaj geçmişi",
-        null
+        null,
+        "asistan mesajlarıma göre neler yaptı?"
       ],
       "ajouter_numero": [
         "annemin numarasını ekle",

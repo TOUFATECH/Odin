@@ -333,3 +333,69 @@ test('validation croisée (M1) : les phrases sœurs (même groupe) tombent dans 
   assert.equal(cas.length, 2);
   for (const c of cas) assert.ok(c.vote.sim1 < 0.5, `la sœur a voté (ressemblance ${c.vote.sim1})`);
 });
+
+// ------------------------------------------------------------------------------------------------ tour 3 (Soul v3)
+test('« seul » (tour 3) : sur des cas sûrs justes 96 fois sur 100 seulement, l\'aiguilleur n\'agit plus seul', () => {
+  // 200 cas rangés par confiance décroissante ; une appli fausse tous les 25 cas, en commençant par le plus sûr : les
+  // premiers cas ne sont jamais justes à plus de 96 %. Visé à 95 % (tour 2), « seul » restait permis ; visé à 97 %
+  // (tour 3 : avec la matière ajoutée, « décide seul et se trompe » montait sur le jeu de travail), il ne l'est plus.
+  const conf = Array.from({ length: 200 }, (_, i) => 1 - i / 200), juste = conf.map((_, i) => i % 25 !== 0);
+  assert.ok(REGLAGES.viseSeul >= 0.97, `viseSeul ${REGLAGES.viseSeul}`);
+  assert.equal(seuilPour(conf, juste, REGLAGES.viseSeul), 1.01, 'aucun seuil « seul » sous 97 % de justesse');
+  assert.ok(seuilPour(conf, juste, 0.95) < 1.01, 'à 95 %, le même jeu permettait « seul »');
+});
+
+test('matière (tour 3) : les actions complétées ont une phrase sœur dans chacune des quinze langues', () => {
+  // Une même idée, à la même place de la liste, dans les quinze fichiers (groupe « appli.action#n ») : ni une langue
+  // oubliée, ni des listes désalignées. Le shimaoré et le kibushi n'y sont pas : leur matière viendra du propriétaire.
+  const LANGUES = ['ar', 'de', 'en', 'es', 'fr', 'hi', 'it', 'ja', 'ko', 'nl', 'pt', 'ru', 'sw', 'tr', 'zh'];
+  const dossierMatiere = new URL('../src/brain/nous/matiere/', import.meta.url);
+  const fichiers = LANGUES.map((l) => JSON.parse(readFileSync(new URL(`${l}.json`, dossierMatiere), 'utf8')) as { langue: string; applis: Record<string, Record<string, Array<string | null>>> });
+  for (let i = 0; i < LANGUES.length; i++) assert.equal(fichiers[i].langue, LANGUES[i]);
+  const CLES = ('saga.noter saga.chercher runes.client runes.evolution garmr.bannis garmr.proteger geri.verifier geri.journal ullr.analyser ullr.fichier argos.incidents urdr.lignes skuld.sauvegarder '
+    + 'skuld.verifier_site svalinn.tester_debit vidarr.bloquer_horaires vidarr.dhcp_fixe vordr.prendre_en_main vordr.ajouter askr.attribuer var.inviter var.mot_de_passe thjalfi.suivi gladsheim.bouton '
+    + 'zeus.bilan gna.exporter gna.nommer_lieu apparence.theme commandes.chercher volva.chercher appareils.commander midgard.commander midgard.pont freyja.livre_ajouter frigg.reserver frigg.prestation '
+    + 'kvasir.verifier champollion.garder gefjon.demarrage sol.dossier ivaldi.journal leikvangr.jeux hlin.etat hel.recuperer agora.forcer achille.controle_passif syrinx.purger pronoia.couper '
+    + 'keryx.historique snotra.creer eir.mesures').split(' ');
+  const sansSoeurs = CLES.filter((k) => {
+    const [a, b] = k.split('.'), listes = fichiers.map((f) => f.applis[a]?.[b] ?? []);
+    const L = Math.max(...listes.map((l) => l.length));
+    for (let n = 0; n < L; n++) if (listes.every((l) => typeof l[n] === 'string' && l[n]!.trim() !== '')) return false;
+    return true;
+  });
+  assert.deepEqual(sansSoeurs, []);
+});
+
+test('matière (tour 3, relecture) : aucune phrase des actions complétées n\'est presque une demande des deux jeux de l\'aiguilleur ni du jeu figé des tâches', async () => {
+  // Une phrase de matière presque identique à une demande du banc fausse sa mesure. fuites.ts ne signale qu'à partir de
+  // 0,8 (trigrammes) : ici, plus serré, pour les actions complétées au tour 3 : 75 % des mots en commun (phrases d'au
+  // moins 4 mots) ou 0,7 de trigrammes. Le message ne donne que des repères (langue, action, numéro), jamais une phrase.
+  // Le jeu figé des tâches (taches-principal : demandes et choix) est aussi couvert : une phrase sw de svalinn.tester_debit
+  // y ressemblait (repère tp177).
+  const { normaliser, trigrammes, jaccard } = await import('./soul-banc/fuites.ts');
+  const LANGUES = ['ar', 'de', 'en', 'es', 'fr', 'hi', 'it', 'ja', 'ko', 'nl', 'pt', 'ru', 'sw', 'tr', 'zh'];
+  const CLES = ('saga.noter saga.chercher runes.client runes.evolution garmr.bannis garmr.proteger geri.verifier geri.journal ullr.analyser ullr.fichier argos.incidents urdr.lignes skuld.sauvegarder '
+    + 'skuld.verifier_site svalinn.tester_debit vidarr.bloquer_horaires vidarr.dhcp_fixe vordr.prendre_en_main vordr.ajouter askr.attribuer var.inviter var.mot_de_passe thjalfi.suivi gladsheim.bouton '
+    + 'zeus.bilan gna.exporter gna.nommer_lieu apparence.theme commandes.chercher volva.chercher appareils.commander midgard.commander midgard.pont freyja.livre_ajouter frigg.reserver frigg.prestation '
+    + 'kvasir.verifier champollion.garder gefjon.demarrage sol.dossier ivaldi.journal leikvangr.jeux hlin.etat hel.recuperer agora.forcer achille.controle_passif syrinx.purger pronoia.couper '
+    + 'keryx.historique snotra.creer eir.mesures').split(' ');
+  const mots = (t: string) => new Set(normaliser(t).split(' ').filter(Boolean));
+  const partMots = (a: Set<string>, b: Set<string>) => { const i = [...a].filter((x) => b.has(x)).length; return i / (a.size + b.size - i || 1); };
+  const demandes = ['principal', 'developpement', 'taches-principal'].flatMap((j) => {
+    const x = JSON.parse(readFileSync(new URL(`./soul-banc/jeux/${j}.json`, import.meta.url), 'utf8')) as { demandes: Array<{ id: string; phrase: string }>; choix?: Array<{ id: string; phrase: string }> };
+    return [...x.demandes, ...(x.choix ?? [])];
+  }).map((d) => ({ id: d.id, m: mots(d.phrase), t: trigrammes(d.phrase) }));
+  const proches: string[] = [];
+  for (const l of LANGUES) {
+    const f = JSON.parse(readFileSync(new URL(`../src/brain/nous/matiere/${l}.json`, import.meta.url), 'utf8')) as { applis: Record<string, Record<string, Array<string | null>>> };
+    for (const k of CLES) {
+      const [a, b] = k.split('.');
+      (f.applis[a]?.[b] ?? []).forEach((p, n) => {
+        if (typeof p !== 'string') return;
+        const m = mots(p), t = trigrammes(p);
+        for (const d of demandes) if ((m.size >= 4 && partMots(m, d.m) >= 0.75) || jaccard(t, d.t) >= 0.7) proches.push(`${l}:${k}#${n}~${d.id}`);
+      });
+    }
+  }
+  assert.deepEqual(proches, []);
+});

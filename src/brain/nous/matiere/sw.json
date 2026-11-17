@@ -18,11 +18,14 @@
       ],
       "chercher": [
         "tafuta kwenye madokezo kila kitu kuhusu bili ya intaneti",
-        "tafuta neno ruta kwenye maandishi yangu"
+        "tafuta neno ruta kwenye maandishi yangu",
+        "tafuta kwenye maelezo yangu nilichoandika kuhusu fundi bomba"
       ],
       "noter": [
         "andika dokezo: Alhamisi nimpigie fundi bomba",
-        null
+        null,
+        "andika mahali kwamba namba ya siri ya geti inabadilika jumatatu",
+        "weka kwenye maelezo yangu: kununua balbu za gereji"
       ],
       "attention": [
         null,
@@ -50,7 +53,11 @@
       ],
       "client": [
         "fungua kadi ya mteja kwa ajili ya Juma Mwangi",
-        "sasisha kadi ya mteja, simu yake imebadilika"
+        "sasisha kadi ya mteja, simu yake imebadilika",
+        "tengeneza kadi ya mteja mpya, bwana Diallo, pamoja na namba yake ya simu"
+      ],
+      "evolution": [
+        "andika maboresho ya kufanya: kutoa ankara kama PDF"
       ]
     },
     "draupnir": {
@@ -123,6 +130,9 @@
       "arreter_processus": [
         "ua mchakato wa chrome uliokwama",
         "simamisha mchakato uliokula kumbukumbu yote"
+      ],
+      "mesures": [
+        "nionyeshe grafu ya kichakataji kwa saa 24 zilizopita"
       ]
     },
     "skogul": {
@@ -189,7 +199,8 @@
       ],
       "bannis": [
         "orodha ya anwani zilizopigwa marufuku",
-        "nani yuko marufukuni sasa?"
+        "nani yuko marufukuni sasa?",
+        "nani amefungiwa na firewall kwa sasa?"
       ],
       "bannir": [
         "piga marufuku 198.51.100.23",
@@ -198,6 +209,9 @@
       "debannir": [
         "ondoa marufuku kwa 198.51.100.40",
         "fungulia IP ya ofisini kwangu"
+      ],
+      "proteger": [
+        "usiwahi kufungia anwani ya IP ya nyumba ya wazazi wangu"
       ]
     },
     "geri": {
@@ -217,11 +231,15 @@
       ],
       "verifier": [
         "kagua anwani 198.51.100.77 kwenye orodha nyeusi",
-        "kikoa hiki kiko kwenye orodha za hasidi?"
+        "kikoa hiki kiko kwenye orodha za hasidi?",
+        "je, anwani hii ya IP inajulikana kuwa hatari?"
       ],
       "listes": [
         "sasisha orodha za anwani hatari",
         "leta orodha nyeusi mpya"
+      ],
+      "journal": [
+        "mashine zangu ziliwasiliana na seva gani usiku wa jana?"
       ]
     },
     "ran": {
@@ -263,11 +281,13 @@
       ],
       "analyser": [
         "anza kuchanganua",
-        "fanya ukaguzi wa haraka wa virusi kwenye mfumo"
+        "fanya ukaguzi wa haraka wa virusi kwenye mfumo",
+        "changanua diski ya nje kutafuta virusi"
       ],
       "fichier": [
         "kagua faili setup.exe kwenye vipakuliwa",
-        "chunguza faili hili lililobanwa"
+        "chunguza faili hili lililobanwa",
+        "angalia kama kiambatisho hiki kina virusi"
       ],
       "quarantaine": [
         "nini kiko karantini?",
@@ -311,7 +331,8 @@
       ],
       "incidents": [
         "matukio yaliyo wazi kwenye vituo",
-        "matukio gani hayajashughulikiwa?"
+        "matukio gani hayajashughulikiwa?",
+        "kumekuwa na matukio ya usalama kwenye kompyuta za ofisi?"
       ],
       "postes": [
         "orodha ya vituo vya kazi na ulinzi wao",
@@ -368,6 +389,9 @@
       "sql": [
         "endesha select * from users limit 10",
         "tekeleza swali kwenye hifadhidata"
+      ],
+      "lignes": [
+        "nionyeshe safu za jedwali la oda"
       ]
     },
     "skuld": {
@@ -389,7 +413,8 @@
       ],
       "sauvegarder": [
         "chukua dump ya hifadhidata sasa hivi",
-        "hifadhi hifadhidata ya wateja mara moja"
+        "hifadhi hifadhidata ya wateja mara moja",
+        "hifadhi nakala ya hifadhidata ya PostgreSQL sasa hivi"
       ],
       "plan": [
         "weka nakala ya hifadhidata kila usiku saa tisa",
@@ -398,6 +423,9 @@
       "restaurer": [
         "rudisha hifadhidata kwenye dump ya Jumatatu",
         "rejesha hifadhidata kutoka kwenye nakala"
+      ],
+      "verifier_site": [
+        "nakala ya hifadhidata zangu iliyotumwa eneo la pili iko salama?"
       ]
     },
     "rodd": {
@@ -445,7 +473,8 @@
       ],
       "tester_debit": [
         "jaribu kasi ya wifi",
-        "angalia kasi sebuleni"
+        "angalia kasi sebuleni",
+        "hakikisha kama mtoa huduma ananipa kasi ninayolipia"
       ]
     },
     "ymir": {
@@ -606,6 +635,12 @@
       "pause": [
         "zima uzuiaji wa matangazo kwa dakika tano",
         "sitisha kizuizi kwa muda"
+      ],
+      "bloquer_horaires": [
+        "zuia YouTube baada ya saa tatu usiku kwa watoto"
+      ],
+      "dhcp_fixe": [
+        "ipe NAS anwani ile ile ya IP kila mara"
       ]
     },
     "vordr": {
@@ -621,7 +656,8 @@
       ],
       "ajouter": [
         "ongeza ukaguzi kwa example.org",
-        "fuatilia mlango 22 kwenye 198.51.100.10"
+        "fuatilia mlango 22 kwenye 198.51.100.10",
+        "nijulishe kama tovuti yangu itaacha kujibu"
       ],
       "problemes": [
         "matatizo gani yako wazi sasa?",
@@ -630,6 +666,9 @@
       "page_publique": [
         "tengeneza ukurasa wa hali wa umma",
         "fungua ukurasa wa hali kwa wateja"
+      ],
+      "prendre_en_main": [
+        "nitashughulikia hitilafu hii, weka jina langu"
       ]
     },
     "askr": {
@@ -654,6 +693,9 @@
       "etiquette": [
         "tengeneza kibandiko cha QR kwa laptop",
         "chapisha lebo ya kubandika kwenye kompyuta"
+      ],
+      "attribuer": [
+        "mpe kompyuta ndogo ya mhasibu leseni ya Windows"
       ]
     },
     "valgrind": {
@@ -703,11 +745,15 @@
       ],
       "mot_de_passe": [
         "badilisha nywila ya kuingia ya Rehema",
-        "amesahau nywila ya akaunti yake, iweke upya"
+        "amesahau nywila ya akaunti yake, iweke upya",
+        "mwanangu amesahau nenosiri lake la Odin, mwekee jipya"
       ],
       "double_auth": [
         "washa uthibitisho wa hatua mbili kwenye akaunti yangu sasa",
         "weka kipengele cha pili cha kuingia"
+      ],
+      "inviter": [
+        "mtumie dada yangu mwaliko ili afungue akaunti"
       ]
     },
     "bru": {
@@ -831,6 +877,11 @@
       "cle_preparer": [
         "andaa flash ya kusakinisha",
         "andika flash ya kuwasha mfumo"
+      ],
+      "suivi": [
+        null,
+        null,
+        "usakinishaji kupitia mtandao umefika wapi?"
       ]
     },
     "gladsheim": {
@@ -855,6 +906,11 @@
       "positions": [
         "watu wetu wako wapi?",
         "onyesha kwenye ramani familia ilipo"
+      ],
+      "bouton": [
+        null,
+        null,
+        "weka kitufe kwenye skrini ya ukutani kinachowasha mandhari ya sinema"
       ]
     },
     "zeus": {
@@ -874,7 +930,8 @@
       ],
       "bilan": [
         "chanzo gani kilikosea kidogo?",
-        "nani alipatia hali ya hewa ya jana?"
+        "nani alipatia hali ya hewa ya jana?",
+        "panga watoa utabiri kwa uaminifu wao mwezi huu"
       ],
       "mois": [
         "hali ya hewa itakuwaje miezi ijayo?",
@@ -903,6 +960,12 @@
       "pause": [
         "usirekodi mienendo yangu kwa sasa",
         "sitisha historia ya mahali"
+      ],
+      "exporter": [
+        "toa njia yangu ya jana kama faili ya GPX"
+      ],
+      "nommer_lieu": [
+        "paite mahali hapa 'kwa bibi'"
       ]
     },
     "apparence": {
@@ -918,7 +981,8 @@
       ],
       "theme": [
         "weka mandhari ya baridi",
-        "washa mwonekano wa giza"
+        "washa mwonekano wa giza",
+        "badilisha mandhari ya Odin iwe ya giza zaidi"
       ],
       "etat": [
         "mandhari gani imechaguliwa?",
@@ -942,7 +1006,8 @@
       ],
       "chercher": [
         "tafuta amri ya kuanzisha upya kontena",
-        "amri gani inakagua diski?"
+        "amri gani inakagua diski?",
+        "niandike amri gani kuwasha upya DNS?"
       ],
       "liste": [
         "amri zote",
@@ -962,7 +1027,8 @@
       ],
       "chercher": [
         "tafuta: jinsi ya kuweka vlan",
-        "pata habari kuhusu paneli za sola"
+        "pata habari kuhusu paneli za sola",
+        "tafuta mtandaoni saa za kufunguliwa kwa ofisi ya manispaa"
       ],
       "historique": [
         "jana nilitafuta nini?",
@@ -1046,7 +1112,9 @@
       ],
       "commander": [
         "zima taa ya korido",
-        "washa soketi ya birika"
+        "washa soketi ya birika",
+        "zima soketi janja ya sebuleni",
+        "washa taa ya ofisini"
       ],
       "appairer": [
         "oanisha kihisi kipya",
@@ -1099,6 +1167,12 @@
       "creer_scene": [
         "unda mandhari ya asubuhi: taa na mashine ya kahawa",
         "mandhari mpya kwa sherehe"
+      ],
+      "commander": [
+        "ongeza joto la chumba cha kulala hadi nyuzi 21"
+      ],
+      "pont": [
+        "unganisha lango langu la Zigbee na Odin"
       ]
     },
     "himinbjorg": {
@@ -1171,6 +1245,9 @@
       "enregistrer": [
         "rekodi kipindi cha saa tatu usiku",
         "weka filamu irekodiwe"
+      ],
+      "livre_ajouter": [
+        "ongeza riwaya hii kwenye maktaba yangu ya vitabu"
       ]
     },
     "aegir": {
@@ -1219,6 +1296,14 @@
       "rendez_vous": [
         "miadi mpya: Zawadi, Jumanne, saa nne asubuhi",
         "weka miadi kesho"
+      ],
+      "reserver": [
+        null,
+        null,
+        "mwekee bi Leroy nafasi alhamisi saa tisa mchana"
+      ],
+      "prestation": [
+        "ongeza kupaka rangi nywele kwenye orodha ya huduma zangu"
       ]
     },
     "kvasir": {
@@ -1234,7 +1319,8 @@
       ],
       "verifier": [
         "kagua masasisho sasa",
-        "nini kipya kimetoka?"
+        "nini kipya kimetoka?",
+        "angalia kuna nini kipya kwenye miradi ambayo Odin imetokana nayo"
       ],
       "etudier": [
         "soma github.com/example/mradi",
@@ -1315,6 +1401,9 @@
       "pdf_cherchable": [
         null,
         "ongeza tabaka la maandishi kwenye skani"
+      ],
+      "garder": [
+        "hifadhi maandishi ya picha hii kwenye Ubongo"
       ]
     },
     "mimisbrunnr": {
@@ -1367,7 +1456,8 @@
       ],
       "demarrage": [
         "nini kinaanza mfumo ukiwaka?",
-        "programu za kuanza na mfumo"
+        "programu za kuanza na mfumo",
+        "programu gani zinajiwasha zenyewe kompyuta ikiwashwa?"
       ]
     },
     "sol": {
@@ -1392,6 +1482,9 @@
       "album": [
         "unda albamu ya harusi",
         "tengeneza albamu ya sikukuu"
+      ],
+      "dossier": [
+        "ongeza folda ya Picha kutoka diski ya nje kwenye maktaba yangu ya picha"
       ]
     },
     "fensalir": {
@@ -1468,6 +1561,9 @@
       "cloner": [
         "nakili github.com/example/app",
         "clone hazina"
+      ],
+      "journal": [
+        "nionyeshe commit za mwisho za hazina"
       ]
     },
     "heidrun": {
@@ -1509,7 +1605,8 @@
       ],
       "jeux": [
         "orodha ya michezo",
-        "kuna michezo gani?"
+        "kuna michezo gani?",
+        "nionyeshe orodha ya michezo yangu ya zamani"
       ],
       "lancer": [
         "anzisha tetris",
@@ -1533,7 +1630,8 @@
       ],
       "creer": [
         "hati mpya: barua ya maombi",
-        "unda faili la maandishi"
+        "unda faili la maandishi",
+        "niandikie hati ya kusitisha usajili wangu wa intaneti"
       ],
       "chercher": [
         "tafuta neno kodi ya nyumba kwenye hati",
@@ -1557,7 +1655,8 @@
       ],
       "etat": [
         "ninaonekana wapi mtandaoni?",
-        "uonekano wangu kwenye intaneti"
+        "uonekano wangu kwenye intaneti",
+        "je, jina langu linaonekana kwenye tovuti za kutafuta watu?"
       ],
       "chercher": [
         "kagua sasa ninatajwa wapi",
@@ -1605,7 +1704,8 @@
       ],
       "recuperer": [
         "rejesha mafaili yaliyofutwa",
-        "toa picha zilizofutwa"
+        "toa picha zilizofutwa",
+        "rejesha mafaili yaliyofutwa kwenye kadi ya SD"
       ],
       "chercher": [
         "tafuta sehemu zilizopotea",
@@ -1662,6 +1762,9 @@
       "ajouter_personne": [
         "mweke Upendo kwenye kundi la wabunifu",
         "weka mtu kwenye kundi"
+      ],
+      "forcer": [
+        "sakinisha programu hii kwa lazima kwenye kompyuta ya mwanangu"
       ]
     },
     "achille": {
@@ -1686,6 +1789,11 @@
       "defauts": [
         "udhaifu uliogunduliwa",
         "nini kimepatikana kwenye tovuti?"
+      ],
+      "controle_passif": [
+        null,
+        null,
+        "kagua tovuti yangu mwenyewe kwa mapungufu ya usalama"
       ]
     },
     "atalante": {
@@ -1782,6 +1890,9 @@
       "musique": [
         "chambua wimbo",
         "mdundo wa muziki ni upi?"
+      ],
+      "purger": [
+        "futa rekodi za sauti za zamani zaidi"
       ]
     },
     "mathesis": {
@@ -1830,6 +1941,9 @@
       "bilan": [
         "kiwango cha utabiri sahihi",
         "utabiri ni sahihi kiasi gani?"
+      ],
+      "couper": [
+        "acha kutabiri mazoea yangu"
       ]
     },
     "keryx": {
@@ -1849,7 +1963,8 @@
       ],
       "historique": [
         "historia ya jumbe",
-        null
+        null,
+        "msaidizi amefanya nini kutokana na ujumbe wangu?"
       ],
       "ajouter_numero": [
         "ongeza namba ya mama",

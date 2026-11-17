@@ -154,9 +154,12 @@ export interface Reglages {
  * main : la matière ne couvre pas encore les écritures qu'il protège, la validation croisée ne peut pas le régler.
  * Après la relecture du tour 2 (matière des 15 langues) : « seul » visé sur l'appli (l'action a sa propre confiance),
  * `couvertureDecider` 0,6 réglé en retirant une langue entière par pli.
+ * Tour 3 (795 phrases de matière ajoutées dans les 15 langues) : « seul » visé à 97 %. Visé à 95 %, le seuil tiré de la
+ * validation croisée baissait et « décide seul et se trompe d'appli » passait de 4 à 6 sur le jeu de travail ; à 97 %,
+ * 1 erreur pour 81 décisions seules.
  */
 export const REGLAGES: Reglages = {
-  nMin: 1, nMax: 4, k: 25, puissance: 2, poidsMots: 0.3, rangR: 3, bonusContexte: 0.35, poidsPrecedent: 0.3, contexte: 'proche', viseSeul: 0.95, viseTrois: 0.85, poidsDemande: 2, prior: 0, poidsHorsChamp: 1,
+  nMin: 1, nMax: 4, k: 25, puissance: 2, poidsMots: 0.3, rangR: 3, bonusContexte: 0.35, poidsPrecedent: 0.3, contexte: 'proche', viseSeul: 0.97, viseTrois: 0.85, poidsDemande: 2, prior: 0, poidsHorsChamp: 1,
   vote: 'voisins', parAppli: 3, couvertureMin: 0.02, couvertureNMin: 1, couvertureDecider: 0.6, margePreference: 0.1, casMax: 1500, idfAppli: 0.5, poidsCentre: 4, rapportHorsChamp: 0.5, perteHorsChamp: 0, plisGroupes: false,
 };
 
