@@ -3,7 +3,8 @@
 // fonctions, avec ses réglages ; puis, si on veut, une autre appli à la suite (8 au plus). Talos crée l'automatisation
 // (POST /api/draupnir/lien) et l'ouvre dans l'éditeur à nœuds, où elle reste modifiable.
 // Ce fichier est chargé avant les autres scripts de l'interface : rien ne touche au document à son chargement.
-// API : OdinLien.ouvrir({ appli? }) ; OdinLien.dispo() → Promise<boolean> ; OdinLien.logique (fonctions pures).
+// API : OdinLien.ouvrir({ appli? }) ; OdinLien.dispo() → Promise<boolean> ; OdinLien.logique (fonctions pures) ;
+// OdinLien.applis(), grilleApplis(), listeFonctions(), icone() : les morceaux repris par le « + » de l'éditeur.
 (() => {
   'use strict';
   if (window.OdinLien) return;
@@ -88,7 +89,8 @@
 .li-e{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--panel2)}
 .li-eh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.li-eh b{flex:1 1 160px;font-size:16px}
 .li-fn{display:flex;flex-direction:column;gap:6px}.li-fn label{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);cursor:pointer;min-height:44px}
-.li-fn label:has(input:checked){border-color:var(--accent)}.li-fn label.li-gr{opacity:.55;cursor:not-allowed}.li-fn small{display:block;color:var(--muted)}.li-fn input{margin-top:3px;accent-color:var(--accent)}
+.li-fn label:has(input:checked){border-color:var(--accent)}.li-fn label.li-gr{opacity:.55;cursor:not-allowed}
+.li-fn button{display:block;text-align:left;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;cursor:pointer;min-height:44px}.li-fn button:hover:not(:disabled){border-color:var(--accent)}.li-fn button:focus-visible{outline:2px solid var(--accent)}.li-fn button.li-gr{opacity:.55;cursor:not-allowed}.li-fn small{display:block;color:var(--muted)}.li-fn input{margin-top:3px;accent-color:var(--accent)}
 .li-p label{display:block;font-size:14px;font-weight:600;margin:6px 0 4px}.li-p input:not([type=checkbox]),.li-p textarea,.li-p select,.li-s select,.li-s input,.li-nom{box-sizing:border-box;width:100%;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--field,var(--line));background:var(--panel);color:var(--ink);font:inherit}
 .li-p textarea{min-height:80px;padding:8px 12px}.li-s{display:flex;flex-wrap:wrap;gap:10px}.li-s>div{flex:1 1 200px;min-width:0}.li-s label{display:block;font-size:14px;font-weight:600;margin:0 0 4px}
 .li-err{color:var(--bad);margin:0;font-size:14px}.li-err:empty{display:none}.li-cherche{min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--field,var(--line));background:var(--panel);color:var(--ink);font:inherit}
@@ -106,6 +108,30 @@
   const dispo = async () => Boolean(await applis());
 
   const icone = (a, taille) => { const s = el('span', { 'aria-hidden': 'true', style: 'line-height:0' }); if (window.OdinAppIcons) s.innerHTML = window.OdinAppIcons.tile(a.id, a.nom, taille); return s; };
+  const RAISON = 'Action grave : elle demande ton accord et ne part pas d\'une automatisation.';
+  /**
+   * La grille des applis (icône et nom), partagée par « Faire un lien » et le « + » de l'éditeur à nœuds.
+   * `choisir(appli)` au clic ; `remplir(texte)` ne garde que les applis dont le nom contient ce texte (en minuscules).
+   */
+  function grilleApplis(liste, choisir) {
+    style();
+    const grille = el('div', { class: 'li-g', role: 'list', 'aria-label': 'Applis' });
+    const remplir = (t) => grille.replaceChildren(...liste.filter((x) => !t || x.nom.toLowerCase().includes(t)).map((x) => el('button', { type: 'button', role: 'listitem', title: x.nom, onclick: () => choisir(x) }, icone(x, 40), el('span', { class: 'li-nm' }, x.nom))));
+    remplir('');
+    return { grille, remplir };
+  }
+  /**
+   * Les fonctions d'une appli, les graves grisées avec leur raison. Deux formes : des boutons radio (`nom` : le
+   * groupe, `choisie` : celle cochée), comme dans « Faire un lien » ; ou des boutons (`boutons: true`), un clic = un choix.
+   */
+  function listeFonctions(a, { nom = '', choisie = '', choisir, boutons = false } = {}) {
+    style();
+    const texte = (x) => [el('b', {}, x.label), el('small', {}, x.grave ? x.raison || RAISON : x.what ?? '')];
+    if (boutons) return el('div', { class: 'li-fn', role: 'list', 'aria-label': `Fonctions de ${a.nom}` }, ...(a.actions ?? []).map((x) => el('button', { type: 'button', role: 'listitem', class: x.grave ? 'li-gr' : '', disabled: x.grave ? true : undefined, title: x.grave ? x.raison ?? '' : x.what ?? '', onclick: () => { if (!x.grave) choisir(x); } }, ...texte(x))));
+    return el('div', { class: 'li-fn', role: 'radiogroup', 'aria-label': `Fonctions de ${a.nom}` }, ...(a.actions ?? []).map((x) => el('label', { class: x.grave ? 'li-gr' : '', title: x.grave ? x.raison ?? '' : x.what ?? '' },
+      el('input', { type: 'radio', name: nom, value: x.id, disabled: x.grave ? true : undefined, checked: choisie === x.id ? true : undefined, onchange: () => choisir(x) }),
+      el('span', {}, ...texte(x)))));
+  }
   /** Un champ de réglage, comme dans la page des applis (texte, nombre, liste, case, texte long). */
   function champ(p, id, valeur, set) {
     const v = valeur ?? p.default ?? '';
@@ -161,14 +187,10 @@
       const a = parId.get(e.appli), err = el('p', { class: 'li-err', role: 'alert' }, erreurs[i] ?? '');
       const retirer = etat.etapes.length > 1 ? el('button', { class: 'btn small', type: 'button', onclick: () => { etat.etapes.splice(i, 1); erreurs = {}; peindreFaire(); } }, 'Retirer') : null;
       if (!a) {
-        const grille = el('div', { class: 'li-g', role: 'list', 'aria-label': 'Applis' });
-        const remplir = (t) => grille.replaceChildren(...liste.filter((x) => !t || x.nom.toLowerCase().includes(t)).map((x) => el('button', { type: 'button', role: 'listitem', title: x.nom, onclick: () => { e.appli = x.id; e.action = ''; e.entree = {}; peindreFaire(); document.getElementById(`li-e${i}`)?.focus(); } }, icone(x, 40), el('span', { class: 'li-nm' }, x.nom))));
-        remplir('');
+        const { grille, remplir } = grilleApplis(liste, (x) => { e.appli = x.id; e.action = ''; e.entree = {}; peindreFaire(); document.getElementById(`li-e${i}`)?.focus(); });
         return el('div', { class: 'li-e' }, el('div', { class: 'li-eh' }, el('b', {}, i ? `Puis (${i + 1})` : 'Quelle appli ?'), el('input', { class: 'li-cherche', type: 'search', placeholder: 'Chercher une appli', 'aria-label': 'Chercher une appli', oninput: (ev) => remplir(ev.target.value.trim().toLowerCase()) }), retirer), grille, err);
       }
-      const fonctions = el('div', { class: 'li-fn', role: 'radiogroup', 'aria-label': `Fonctions de ${a.nom}` }, ...(a.actions ?? []).map((x) => el('label', { class: x.grave ? 'li-gr' : '', title: x.grave ? x.raison ?? '' : x.what ?? '' },
-        el('input', { type: 'radio', name: `li-fn${i}`, value: x.id, disabled: x.grave ? true : undefined, checked: e.action === x.id ? true : undefined, onchange: () => { e.action = x.id; e.entree = Object.fromEntries((x.params ?? []).filter((p) => p.default !== undefined && p.default !== '').map((p) => [p.key, p.default])); delete erreurs[i]; peindreFaire(); } }),
-        el('span', {}, el('b', {}, x.label), el('small', {}, x.grave ? x.raison || 'Action grave : elle demande ton accord et ne part pas d\'une automatisation.' : x.what ?? '')))));
+      const fonctions = listeFonctions(a, { nom: `li-fn${i}`, choisie: e.action, choisir: (x) => { e.action = x.id; e.entree = Object.fromEntries((x.params ?? []).filter((p) => p.default !== undefined && p.default !== '').map((p) => [p.key, p.default])); delete erreurs[i]; peindreFaire(); } });
       const action = (a.actions ?? []).find((x) => x.id === e.action);
       const reglages = action?.params?.length ? el('div', { class: 'li-p' }, el('b', {}, 'Réglages'), ...action.params.map((p) => {
         const id = `li-p${i}-${p.key}`, set = (v) => { e.entree[p.key] = v; };
@@ -209,5 +231,6 @@
     box.scrollTop = 0;
   }
 
-  window.OdinLien = { ouvrir, dispo, logique: { MAX_ETAPES, versRequete, etapeValide, valideTout, ajouter } };
+  // `applis`, `grilleApplis`, `listeFonctions`, `icone` : repris par le « + » de l'éditeur à nœuds (flows.js).
+  window.OdinLien = { ouvrir, dispo, applis, grilleApplis, listeFonctions, icone, logique: { MAX_ETAPES, versRequete, etapeValide, valideTout, ajouter } };
 })();

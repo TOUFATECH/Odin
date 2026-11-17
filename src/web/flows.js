@@ -15,6 +15,67 @@
     return n;
   };
   const sv = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) n.setAttribute(k, v); return n; };
+
+  // ---------------- Le « + » : où poser un bloc, à quoi le relier (fonctions pures, sans document).
+  const NODE_W = 190, PAS_X = 280, PAS_Y = 110;
+  const RAISON_GRAVE = 'Action grave : elle demande ton accord et ne part pas d\'une automatisation.';
+  /** Les réglages qui ont une valeur par défaut (`sansVide` : sauf la chaîne vide). */
+  const parDefaut = (params, sansVide = false) => Object.fromEntries((params ?? []).filter((p) => p.default !== undefined && !(sansVide && p.default === '')).map((p) => [p.key, p.default]));
+  /** Un nom pas encore pris : « Nom », sinon « Nom 2 », « Nom 3 »… */
+  function nomLibre(nodes, base) { let name = base, k = 2; while (nodes.some((n) => n.name === name)) name = `${base} ${k++}`; return name; }
+  /** Une place libre : [x, y], sinon plus bas, jusqu'à ne recouvrir aucun bloc. */
+  function placeLibre(nodes, x, y) {
+    let yy = Math.round(y);
+    for (let i = 0; i < 40 && nodes.some((n) => Math.abs((n.position?.[0] ?? 0) - x) < NODE_W + 20 && Math.abs((n.position?.[1] ?? 0) - yy) < 90); i++) yy += PAS_Y;
+    return [Math.round(x), yy];
+  }
+  /** La sortie d'où part le « + » d'un bloc : la première qui n'a pas encore de lien, sinon la première. */
+  function sortieDuPlus(wf, nom, sorties = 1) { const c = wf.connections?.[nom] ?? []; for (let i = 0; i < sorties; i++) if (!(c[i] ?? []).length) return i; return 0; }
+  /** Fenêtre vide : le premier bloc dit quand l'automatisation part (un déclencheur) ; sinon, ce qu'elle fait ensuite. */
+  const modeChoix = (wf) => (wf.nodes.length ? 'faire' : 'quand');
+  /** Le bloc d'une fonction d'appli ; refusé si elle est grave (elle ne part pas d'une automatisation). */
+  function blocFonction(appli, f) {
+    if (!appli?.id || !f?.id) return { ok: false, error: 'Choisis une appli et une de ses fonctions.' };
+    if (f.grave) return { ok: false, error: f.raison || RAISON_GRAVE };
+    return { ok: true, bloc: { name: `${appli.nom} · ${f.label}`, type: 'module.action', params: { module: appli.id, action: f.id, entrée: JSON.stringify(parDefaut(f.params, true)) } } };
+  }
+  /** Le déclencheur « quand une appli signale » : ev '' = tout ce qu'elle signale, 'alerte' = ses alertes. */
+  function blocSignal(appli, ev = '') {
+    const name = ev === 'alerte' ? `Quand ${appli.nom} lance une alerte` : ev ? `Quand ${appli.nom} signale « ${ev} »` : `Quand ${appli.nom} signale`;
+    return { ok: true, bloc: { name, type: 'déclencheur.module', trigger: true, params: { module: appli.id, événement: ev, niveau: 'haute' } } };
+  }
+  /** Le bloc d'un outil du catalogue de Talos (Si, Attendre, Aiguillage…). */
+  const blocOutil = (c) => ({ ok: true, bloc: { name: c.label, type: c.type, trigger: Boolean(c.trigger), params: parDefaut(c.params) } });
+  function relier(wf, from, out, to) {
+    if (from === to) return false;
+    const c = wf.connections[from] ?? (wf.connections[from] = []);
+    while (c.length <= out) c.push([]);
+    if (!c[out].some((l) => l.node === to)) c[out].push({ node: to });
+    return true;
+  }
+  /**
+   * Pose un bloc. Depuis le « + » d'un bloc (`de` : { node, out }) : à droite de lui (plus bas si la place est prise)
+   * et relié à lui. Depuis le « + » central ou un double-clic (`a` : [x, y]) : posé là, sans lien.
+   * → { ok: true, name, lien? } ou { ok: false, error }.
+   */
+  function poser(wf, choix, { de, a } = {}) {
+    if (!choix?.ok) return { ok: false, error: choix?.error ?? 'Rien à ajouter.' };
+    const b = choix.bloc, depart = de ? wf.nodes.find((n) => n.name === de.node) : null;
+    if (de && !depart) return { ok: false, error: 'Ce bloc n\'existe plus.' };
+    const name = nomLibre(wf.nodes, b.name);
+    const position = depart ? placeLibre(wf.nodes, (depart.position?.[0] ?? 0) + PAS_X, depart.position?.[1] ?? 0) : placeLibre(wf.nodes, a?.[0] ?? 60, a?.[1] ?? 160);
+    wf.nodes.push({ name, type: b.type, params: b.params, position });
+    if (depart && !b.trigger) { const out = de.out ?? 0; relier(wf, depart.name, out, name); return { ok: true, name, lien: { de: depart.name, out } }; }
+    return { ok: true, name };
+  }
+  /** La flèche du clavier dans une grille de `cols` colonnes : la nouvelle place (la même au bord). */
+  function pasFleche(i, total, cols, touche) {
+    const c = Math.max(1, Math.floor(cols) || 1);
+    const j = touche === 'ArrowRight' ? i + 1 : touche === 'ArrowLeft' ? i - 1 : touche === 'ArrowDown' ? i + c : touche === 'ArrowUp' ? i - c : touche === 'Home' ? 0 : touche === 'End' ? total - 1 : i;
+    return j < 0 || j >= total ? i : j;
+  }
+  /** Deux touchers (ou clics) rapprochés au même endroit : { t, x, y } chacun. */
+  const estDoubleTouche = (a, b) => Boolean(a && b && b.t - a.t >= 0 && b.t - a.t < 400 && Math.hypot(b.x - a.x, b.y - a.y) < 24);
   // Session expirée pendant l'usage : on revient à la page de connexion. Sur la page de connexion elle-même,
   // on ne recharge rien (sinon elle se rechargerait en boucle et effacerait ce que tu tapes).
   const appShown = () => { const a = document.querySelector('#app'); return Boolean(a && !a.hidden); };
@@ -53,15 +114,31 @@
 .dr-out{white-space:pre-wrap;font-size:12.5px;background:var(--panel2);border-radius:10px;padding:8px;max-height:240px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace}
 .dr-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.dr-bar input.dr-name{flex:1 1 220px;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--field);background:var(--panel);font-weight:600}
 .dr-runs{font-size:13.5px}.dr-runs li{padding:4px 0}
+.dr-plus{position:absolute;right:-22px;bottom:-22px;width:44px;height:44px;padding:0;border:0;background:none;display:grid;place-items:center;cursor:pointer;z-index:1}
+.dr-plus span{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--on-accent,#fff);display:grid;place-items:center;font-size:19px;font-weight:700;line-height:1;box-shadow:var(--shadow);transition:transform .15s}
+.dr-plus:hover span,.dr-plus:focus-visible span{transform:scale(1.15)}.dr-plus:focus-visible{outline:2px solid var(--accent);border-radius:50%}
+.dr-vide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center;pointer-events:none}
+.dr-vide button{pointer-events:auto;width:96px;height:96px;border-radius:50%;border:2px dashed var(--accent);background:var(--panel);color:var(--accent);font-size:52px;line-height:1;cursor:pointer;box-shadow:var(--shadow)}
+.dr-vide button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}.dr-vide p{margin:0;color:var(--muted);font-size:14px;max-width:320px}
+.dr-choix-fond{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,10,14,.55)}
+.dr-choix{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);width:min(640px,100%);max-height:min(86vh,720px);display:flex;flex-direction:column;overflow:hidden;animation:dr-ch-in .16s ease-out}
+.dr-ch-h{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;border-bottom:1px solid var(--line)}.dr-ch-h h2{flex:1;margin:0;font-size:17px;display:flex;align-items:center;gap:10px;min-width:0;overflow-wrap:anywhere}
+.dr-ch-x{flex:none;width:44px;height:44px;border:0;border-radius:10px;background:none;color:var(--ink);font-size:24px;cursor:pointer}.dr-ch-x:hover{background:var(--panel2)}
+.dr-ch-c{padding:12px 16px 16px;overflow:auto;display:flex;flex-direction:column;gap:10px;min-height:0}.dr-ch-c .li-g{max-height:none}.dr-ch-c>.btn{align-self:flex-start;min-height:44px}
+.dr-ch-c h3{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin:6px 0 0}.dr-ch-c h4{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+.dr-ch-o{display:flex;flex-direction:column;gap:6px}.dr-ch-o button{text-align:left;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:8px 12px;min-height:44px;color:var(--ink);font:inherit;cursor:pointer}
+.dr-ch-o button:hover{border-color:var(--accent)}.dr-ch-o button:focus-visible{outline:2px solid var(--accent)}.dr-ch-o b{display:block;font-size:14px}.dr-ch-o small{display:block;color:var(--muted);font-size:12.5px}
+@keyframes dr-ch-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.dr-choix{animation:none}.dr-plus span{transition:none}}
 `;
   let st = null, wf = null, outs = {}, sel = null, armed = null, last = null, view = { x: 40, y: 40, k: 1 }, dirty = false;
   const cat = (t) => st?.catalog.find((c) => c.type === t);
-  const NODE_W = 190;
+  let elems = new Map();
 
   // Un autre écran de Talos (« Faire un lien ») a pris la page : la liste ne revient qu'à la demande.
   let ailleurs = false, jeton = 0;
   async function openList() {
-    wf = null; ailleurs = false; const j = ++jeton;
+    wf = null; ailleurs = false; fermerChoix(); const j = ++jeton;
     const box = $('#v-flows .body'); if (!box) return;
     $('#v-flows .head h1').textContent = 'Automatisations';
     $('#v-flows .head .sub').textContent = 'Talos, le moteur d\'Odin : décris ce que tu veux automatiser, ou pars d\'un modèle. Tout est relié à Thot, Papyrus et tes applis.';
@@ -135,7 +212,7 @@
   const outputsOf = (n) => outs[n.name] ?? cat(n.type)?.outputs ?? ['sortie'];
   function editor(r) {
     const box = $('#v-flows .body');
-    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes, relie une sortie (rond à droite) à une entrée (rond à gauche), clique une étape pour la régler.';
+    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes, relie une sortie (rond à droite) à une entrée (rond à gauche), clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc.';
     const canvas = el('div', { class: 'dr-canvas', id: 'drCanvas', role: 'application', 'aria-label': 'Schéma de l\'automatisation' });
     const svg = sv('svg'); const world = el('div', { class: 'dr-world' }); canvas.append(svg, world);
     const side = el('aside', { class: 'dr-side', id: 'drSide', 'aria-label': 'Réglages' });
@@ -156,23 +233,29 @@
     const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': `${n.name} (${c?.label ?? n.type})`, style: `left:${n.position?.[0] ?? 0}px;top:${n.position?.[1] ?? 0}px` },
       el('small', {}, c?.group ?? '?', ' · ', c?.label ?? n.type), el('b', {}, n.name), run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null);
     if (!c?.trigger) d.append(el('button', { class: 'dr-port in', type: 'button', 'aria-label': `Entrée de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (armed) { link(armed.node, armed.out, n.name); armed = null; draw(); } } }));
-    outputsOf(n).forEach((o, i, all) => d.append(el('button', { class: `dr-port out${armed && armed.node === n.name && armed.out === i ? ' armed' : ''}`, type: 'button', style: `top:${18 + i * 22}px`, 'aria-label': `Sortie ${o} de ${n.name}`, onclick: (e) => { e.stopPropagation(); armed = armed && armed.node === n.name && armed.out === i ? null : { node: n.name, out: i }; draw(); } }, all.length > 1 ? el('span', { class: 'dr-pl' }, o) : null)));
+    const sorties = outputsOf(n);
+    sorties.forEach((o, i, all) => d.append(el('button', { class: `dr-port out${armed && armed.node === n.name && armed.out === i ? ' armed' : ''}`, type: 'button', style: `top:${18 + i * 22}px`, 'aria-label': `Sortie ${o} de ${n.name}`, onclick: (e) => { e.stopPropagation(); armed = armed && armed.node === n.name && armed.out === i ? null : { node: n.name, out: i }; draw(); } }, all.length > 1 ? el('span', { class: 'dr-pl' }, o) : null)));
+    // Le « + » du côté de la sortie : un bloc de plus, posé à droite et relié à celui-ci.
+    d.append(el('button', { class: 'dr-plus', type: 'button', title: 'Ajouter un bloc à la suite', 'aria-label': `Ajouter un bloc après ${n.name}`, onclick: (e) => { e.stopPropagation(); void ouvrirChoix({ de: { node: n.name, out: sortieDuPlus(wf, n.name, sorties.length) } }); } }, el('span', { 'aria-hidden': 'true' }, '+')));
     let start = null;
-    d.addEventListener('pointerdown', (e) => { if (e.target.closest('.dr-port')) return; e.stopPropagation(); d.setPointerCapture(e.pointerId); start = { x: e.clientX, y: e.clientY, p: [...(n.position ?? [0, 0])], moved: false }; });
+    d.addEventListener('pointerdown', (e) => { if (e.target.closest('.dr-port') || e.target.closest('.dr-plus')) return; e.stopPropagation(); d.setPointerCapture(e.pointerId); start = { x: e.clientX, y: e.clientY, p: [...(n.position ?? [0, 0])], moved: false }; });
     d.addEventListener('pointermove', (e) => { if (!start) return; const dx = (e.clientX - start.x) / view.k, dy = (e.clientY - start.y) / view.k; if (Math.abs(dx) + Math.abs(dy) > 3) start.moved = true; n.position = [Math.round(start.p[0] + dx), Math.round(start.p[1] + dy)]; d.style.left = `${n.position[0]}px`; d.style.top = `${n.position[1]}px`; lines(); });
-    d.addEventListener('pointerup', () => { if (start?.moved) dirty = true; else { sel = n.name; draw(); drawSide(); } start = null; });
-    d.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sel = n.name; draw(); drawSide(); } if (e.key === 'Delete') removeNode(n.name); });
+    // Un toucher parti d'un rond ou du « + » n'est pas un clic sur le bloc : on ne redessine pas (le bouton doit recevoir son clic).
+    d.addEventListener('pointerup', () => { if (!start) return; if (start.moved) dirty = true; else { sel = n.name; draw(); drawSide(); } start = null; });
+    // Entrée sur un bouton du bloc (rond, « + ») appartient à ce bouton.
+    d.addEventListener('keydown', (e) => { if (e.target !== d) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sel = n.name; draw(); drawSide(); } if (e.key === 'Delete') removeNode(n.name); });
     return d;
   }
-  function link(from, out, to) {
-    if (from === to) return;
-    const c = wf.connections[from] ?? (wf.connections[from] = []);
-    while (c.length <= out) c.push([]);
-    if (!c[out].some((l) => l.node === to)) c[out].push({ node: to }); dirty = true;
-  }
+  function link(from, out, to) { if (relier(wf, from, out, to)) dirty = true; }
+  /** Le point de la fenêtre (en coordonnées du schéma) où poser un bloc centré sous [px, py] (pixels dans la fenêtre). */
+  const pointSchema = (px, py) => [Math.round((px - view.x) / view.k - NODE_W / 2), Math.round((py - view.y) / view.k - 30)];
   function draw() {
     const world = $('#drCanvas .dr-world'); if (!world) return;
-    world.replaceChildren(...wf.nodes.map(nodeEl)); lines();
+    elems = new Map();
+    world.replaceChildren(...wf.nodes.map((n) => { const d = nodeEl(n); elems.set(n.name, d); return d; })); lines();
+    // Fenêtre vide : un grand « + » au centre, pour le premier bloc.
+    const canvas = $('#drCanvas'); canvas.querySelector('.dr-vide')?.remove();
+    if (!wf.nodes.length) canvas.append(el('div', { class: 'dr-vide' }, el('button', { type: 'button', class: 'dr-vide-plus', 'aria-label': 'Ajouter le premier bloc', onclick: () => { const r = canvas.getBoundingClientRect(); void ouvrirChoix({ a: r.width ? pointSchema(r.width / 2, r.height / 2) : [60, 160] }); } }, '+'), el('p', {}, 'Ajoute le premier bloc : ce qui fait partir l\'automatisation.')));
   }
   function lines() {
     const svg = $('#drCanvas svg'); if (!svg) return; svg.replaceChildren();
@@ -199,9 +282,16 @@
       view.k = Math.min(1.1, Math.max(0.4, Math.min(r.width / (x1 - x0), r.height / (y1 - y0))));
       view.x = (r.width - (x1 - x0) * view.k) / 2 - x0 * view.k; view.y = (r.height - (y1 - y0) * view.k) / 2 - y0 * view.k; apply();
     });
-    canvas.addEventListener('pointerdown', (e) => { if (e.target !== canvas && !e.target.closest('svg')) return; s = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; canvas.setPointerCapture(e.pointerId); if (armed) { armed = null; draw(); } });
-    canvas.addEventListener('pointermove', (e) => { if (!s) return; view.x = s.vx + e.clientX - s.x; view.y = s.vy + e.clientY - s.y; apply(); });
-    canvas.addEventListener('pointerup', () => { s = null; });
+    canvas.addEventListener('pointerdown', (e) => { if (e.target !== canvas && !e.target.closest('svg')) return; s = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false }; canvas.setPointerCapture(e.pointerId); if (armed) { armed = null; draw(); } });
+    canvas.addEventListener('pointermove', (e) => { if (!s) return; if (Math.abs(e.clientX - s.x) + Math.abs(e.clientY - s.y) > 6) s.moved = true; view.x = s.vx + e.clientX - s.x; view.y = s.vy + e.clientY - s.y; apply(); });
+    // Double-clic (ou double toucher) sur un endroit vide : la même fenêtre que le « + », le bloc se pose là.
+    let tap = null;
+    canvas.addEventListener('pointerup', (e) => {
+      const t = s && !s.moved ? { t: e.timeStamp, x: e.clientX, y: e.clientY } : null; s = null;
+      if (!t) { tap = null; return; }
+      if (!estDoubleTouche(tap, t)) { tap = t; return; }
+      tap = null; const r = canvas.getBoundingClientRect(); void ouvrirChoix({ a: pointSchema(t.x - r.left, t.y - r.top) });
+    });
     canvas.addEventListener('wheel', (e) => { e.preventDefault(); const k = Math.min(1.6, Math.max(0.4, view.k * (e.deltaY < 0 ? 1.1 : 0.9))); const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; apply(); }, { passive: false });
     apply();
   }
@@ -241,11 +331,102 @@
     });
     side.replaceChildren(el('h2', {}, c?.label ?? n.type), el('p', { class: 'sub', style: 'margin:0' }, c?.what ?? ''),
       el('label', { for: 'drNn' }, 'Nom de l\'étape'), el('input', { id: 'drNn', value: n.name, onchange: (e) => rename(n, e.target.value.trim()) }),
-      ...fields.flat(),
+      ...fields.flat().filter(Boolean), // (un réglage sans aide donnait null, écrit « null » à l'écran)
       el('label', { class: 'va-chk', style: 'display:flex;gap:8px;align-items:center;font-weight:500' }, el('input', { type: 'checkbox', checked: n.disabled ? true : undefined, onchange: (e) => { n.disabled = e.target.checked || undefined; dirty = true; draw(); } }), 'Désactiver cette étape'),
       el('p', { class: 'sub', style: 'margin:0;font-size:13px' }, 'Expressions : {{ $json.champ }}, {{ $node["Étape"].json.champ }}, {{ $now }}.'),
       el('div', { class: 'dr-row' }, el('button', { class: 'btn small', type: 'button', onclick: () => test(n.name) }, 'Tester jusqu\'ici'), el('button', { class: 'btn small', type: 'button', onclick: () => removeNode(n.name) }, 'Retirer'), el('button', { class: 'btn small', type: 'button', onclick: () => { sel = null; draw(); drawSide(); } }, 'Fermer')),
-      run ? [el('h2', { style: 'margin-top:6px' }, 'Dernier passage'), el('pre', { class: 'dr-out' }, run.error ? `✗ ${run.error}` : JSON.stringify(run.items.slice(0, 5), null, 2))] : null);
+      ...(run ? [el('h2', { style: 'margin-top:6px' }, 'Dernier passage'), el('pre', { class: 'dr-out' }, run.error ? `✗ ${run.error}` : JSON.stringify(run.items.slice(0, 5), null, 2))] : []));
+  }
+  // ---------------- La fenêtre du « + » : la grille des applis (icônes, recherche), puis les fonctions de l'appli
+  // choisie (les graves grisées) ; plus bas, les outils de Talos. Fenêtre vide : d'abord QUAND elle part.
+  // La grille et la liste des fonctions sont celles de « Faire un lien » (pages/talos-lien.js).
+  let choix = null;
+  function fermerChoix() { if (!choix) return; const { fond, retour } = choix; choix = null; fond.remove(); if (retour?.isConnected) retour.focus?.(); }
+  const sansAccent = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  /** Les flèches déplacent le focus parmi les boutons de `box` (`cols` : le nombre de colonnes, 1 pour une liste). */
+  function fleches(box, cols = () => 1) {
+    box.addEventListener('keydown', (e) => {
+      if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+      const bs = [...box.querySelectorAll('button')].filter((b) => !b.disabled), i = bs.indexOf(document.activeElement); if (i < 0) return;
+      const j = pasFleche(i, bs.length, cols(bs), e.key); if (j !== i) { e.preventDefault(); bs[j].focus(); }
+    });
+  }
+  const colonnes = (bs) => { const t = bs[0]?.offsetTop; return Math.max(1, bs.filter((b) => b.offsetTop === t).length); };
+  let applisChargees = false, applisListe = null;
+  /** Le bloc posé hors de la fenêtre (téléphone surtout) : on fait glisser le schéma juste assez pour le voir. */
+  function montrer(n) {
+    const canvas = $('#drCanvas'), world = $('#drCanvas .dr-world'), r = canvas?.getBoundingClientRect?.();
+    if (!n || !world || !r?.width) return;
+    const x = n.position[0] * view.k + view.x, y = n.position[1] * view.k + view.y, w = NODE_W * view.k, h = 70 * view.k, m = 24;
+    if (x + w + m > r.width) view.x -= x + w + m - r.width; else if (x < m) view.x += m - x;
+    if (y + h + m > r.height) view.y -= y + h + m - r.height; else if (y < m) view.y += m - y;
+    world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
+  }
+  async function ouvrirChoix(ou = {}) {
+    fermerChoix();
+    const quand = modeChoix(wf) === 'quand', L = window.OdinLien;
+    const titre = el('h2', { id: 'drChT' }), corps = el('div', { class: 'dr-ch-c' });
+    const boite = el('div', { class: 'dr-choix', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'drChT' }, el('div', { class: 'dr-ch-h' }, titre, el('button', { class: 'dr-ch-x', type: 'button', 'aria-label': 'Fermer', onclick: fermerChoix }, '×')), corps);
+    const fond = el('div', { class: 'dr-choix-fond', onclick: (e) => { if (e.target === fond) fermerChoix(); } }, boite);
+    boite.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermerChoix(); return; }
+      if (e.key !== 'Tab') return;
+      const f = [...boite.querySelectorAll('button, input')].filter((x) => !x.disabled); // ordre du document = ordre de l'écran
+      const premier = boite.querySelector('.dr-ch-x'), dernier = f.filter((x) => x !== premier).pop() ?? premier;
+      if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); } else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
+    });
+    choix = { fond, retour: document.activeElement };
+    document.body.append(fond);
+    const prendre = (c) => {
+      const r = poser(wf, c, ou);
+      if (!r.ok) { void window.OdinDialog?.alert(r.error); return; }
+      fermerChoix(); sel = r.name; dirty = true; montrer(wf.nodes.find((n) => n.name === r.name)); draw(); drawSide();
+      const s = $('#drSt'); if (s) s.textContent = r.lien ? `✓ « ${r.name} » ajouté après « ${r.lien.de} ».` : `✓ « ${r.name} » ajouté.`;
+      elems.get(r.name)?.focus?.();
+    };
+    const outils = (st?.catalog ?? []).filter((c) => (quand ? c.trigger && c.type !== 'déclencheur.module' : !c.trigger && c.type !== 'module.action'));
+    const zoneOutils = el('div', { class: 'dr-ch-o', 'aria-label': quand ? 'Déclencheurs' : 'Outils de Talos' }); fleches(zoneOutils);
+    function etape1() {
+      titre.textContent = quand ? 'Quand l\'automatisation part-elle ?' : 'Ajouter un bloc';
+      const cherche = el('input', { class: 'li-cherche', type: 'search', placeholder: 'Chercher une appli ou un outil', 'aria-label': 'Chercher une appli ou un outil', autocomplete: 'off' });
+      const zoneApplis = el('div', {});
+      let grille = null;
+      const peindreOutils = (t) => {
+        const garde = outils.filter((c) => !t || sansAccent(`${c.label} ${c.group}`).includes(t));
+        const groupes = quand ? [''] : [...new Set(garde.map((c) => c.group))];
+        zoneOutils.replaceChildren(...(garde.length ? groupes.flatMap((g) => [g ? el('h4', {}, g) : null, ...garde.filter((c) => !g || c.group === g).map((c) => el('button', { type: 'button', title: c.what ?? '', onclick: () => prendre(blocOutil(c)) }, el('b', {}, c.label), c.what ? el('small', {}, c.what) : null))]) : [el('p', { class: 'sub', style: 'margin:0' }, 'Aucun outil de ce nom.')]).filter(Boolean));
+      };
+      const peindreApplis = () => {
+        if (!applisListe || !L?.grilleApplis) { zoneApplis.replaceChildren(el('p', { class: 'sub', style: 'margin:0' }, 'Les applis ne sont pas disponibles ici.')); return; }
+        grille = L.grilleApplis(applisListe, etape2); fleches(grille.grille, colonnes); zoneApplis.replaceChildren(grille.grille);
+        const t = cherche.value.trim(); if (t) grille.remplir(t.toLowerCase());
+      };
+      cherche.addEventListener('input', () => { const t = cherche.value.trim(); grille?.remplir(t.toLowerCase()); peindreOutils(sansAccent(t)); });
+      cherche.addEventListener('keydown', (e) => { if (e.key !== 'ArrowDown') return; const b = zoneApplis.querySelector('button') ?? zoneOutils.querySelector('button'); if (b) { e.preventDefault(); b.focus(); } });
+      corps.replaceChildren(...[quand ? el('p', { class: 'sub', style: 'margin:0' }, 'Le premier bloc dit quand elle part : quand une appli signale quelque chose, ou un des déclencheurs plus bas.') : null,
+        cherche, el('h3', {}, 'Applis'), zoneApplis, el('h3', {}, quand ? 'Déclencheurs' : 'Outils de Talos'), zoneOutils].filter(Boolean));
+      peindreOutils('');
+      if (applisChargees || !L?.applis) peindreApplis();
+      else {
+        zoneApplis.replaceChildren(el('p', { class: 'sub', style: 'margin:0' }, 'Chargement des applis…'));
+        void L.applis().then((l) => { applisChargees = Boolean(l); applisListe = Array.isArray(l) ? l : null; if (choix?.fond === fond && zoneApplis.isConnected !== false && corps.contains?.(zoneApplis) !== false) peindreApplis(); });
+      }
+      cherche.focus?.();
+    }
+    function etape2(a) {
+      titre.replaceChildren(L.icone ? L.icone(a, 28) : '', a.nom);
+      const retour = el('button', { class: 'btn small', type: 'button', onclick: etape1 }, '← Applis');
+      let liste;
+      if (quand) {
+        const ev = [...new Set(a.evenements ?? [])].filter((x) => x !== 'alerte');
+        const opts = [['', 'Quand elle signale quelque chose', 'Tout ce qu\'elle signale.'], ['alerte', 'Quand elle lance une alerte', 'À partir du niveau « haute », réglable ensuite.'], ...ev.map((x) => [x, `Quand elle signale « ${x} »`, ''])];
+        liste = el('div', { class: 'li-fn', role: 'list', 'aria-label': `Ce que ${a.nom} signale` }, ...opts.map(([v, b, s]) => el('button', { type: 'button', role: 'listitem', onclick: () => prendre(blocSignal(a, v)) }, el('b', {}, b), s ? el('small', {}, s) : null)));
+      } else if ((a.actions ?? []).length) liste = L.listeFonctions(a, { boutons: true, choisir: (f) => prendre(blocFonction(a, f)) });
+      if (liste) fleches(liste);
+      corps.replaceChildren(...[retour, el('h3', {}, quand ? 'Quand ?' : 'Ses fonctions'), liste ?? el('p', { class: 'sub', style: 'margin:0' }, 'Cette appli n\'a pas de fonction à lancer.')]);
+      ([...(liste?.querySelectorAll('button') ?? [])].find((b) => !b.disabled) ?? retour).focus?.();
+    }
+    etape1();
   }
   function rename(n, to) {
     if (!to || to === n.name) return; if (wf.nodes.some((x) => x.name === to)) { void window.OdinDialog.alert('Ce nom est déjà pris.'); return; }
@@ -283,5 +464,6 @@
   }
   function init() { document.head.append(el('style', {}, css)); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-  window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; } };
+  window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; fermerChoix(); },
+    logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche } };
 })();

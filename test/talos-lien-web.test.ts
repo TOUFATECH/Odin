@@ -65,6 +65,16 @@ test('lien : une action grave, une fonction sans son réglage obligatoire, une a
   assert.equal(L.valideTout({ quand: { sorte: 'main' }, etapes: [{ appli: 'ymir', action: 'verifier_isos' }] }, [HYDRE]).ok, true);
 });
 
+test('lien : la grille des applis et la liste des fonctions sont des morceaux repris par l\'éditeur à nœuds', () => {
+  const win: { OdinLien?: Record<string, unknown> } = {};
+  vm.runInNewContext(readFileSync(new URL('../src/web/pages/talos-lien.js', import.meta.url), 'utf8'), { window: win });
+  for (const f of ['applis', 'grilleApplis', 'listeFonctions', 'icone', 'ouvrir', 'dispo'] as const) assert.equal(typeof win.OdinLien?.[f], 'function', f);
+  // « Faire un lien » passe par ces mêmes morceaux (pas une seconde grille écrite à côté).
+  const src = readFileSync(new URL('../src/web/pages/talos-lien.js', import.meta.url), 'utf8');
+  assert.equal(src.match(/class: 'li-g'/g)?.length, 1, 'une seule grille des applis');
+  assert.match(src, /grilleApplis\(liste, /); assert.match(src, /listeFonctions\(a, \{ nom: `li-fn\$\{i\}`/);
+});
+
 test('lien : 8 applis au plus à la suite, la 9e est refusée', () => {
   const L = charger();
   assert.equal(L.MAX_ETAPES, 8);
