@@ -353,27 +353,27 @@ export function syrinx(o: () => OptionsSyrinx): Module {
         { kind: 'text', title: 'Vie privée', tone: 'neutre', text: `Le son est calculé sur ta machine ; la parole n'est transcrite que par la transcription locale (jamais un service en ligne, l'audio brut n'est pas gardé). ${resume ? 'Le résumé et le sujet des paroles passent par le modèle de texte d\'Odin, qui peut être en ligne selon tes réglages.' : 'Le résumé par le modèle de texte d\'Odin est éteint : rien ne part en ligne.'} Les analyses, empreintes et corrections rangées sont chiffrées ; le son déposé reste tel quel dans l'atelier ${Number(ctx.settings.conserverJours ?? 30)} jours, puis il est oublié. En mode privé, rien n'est rangé et le son déposé est effacé juste après l'écoute. Personne n'est reconnu par sa voix (voix 1, voix 2 : estimation). L'écoute des caméras est éteinte tant que tu ne l'allumes pas.` },
       ];
       const resultat: Section[] = [];
-      if (!d) resultat.push({ kind: 'text', title: 'Dernier son', text: 'Dépose un son dans l\'onglet Écouter.', onglet: 'Résultat' });
+      if (!d) resultat.push({ kind: 'text', title: 'Dernier son', text: 'Dépose un son dans l\'onglet Écoute.', onglet: 'Entendu' });
       else {
         const a = d.analyse, n = a.onde.length;
         // Des journaux (retours à la ligne gardés, hauteur bornée) ; le nom du fichier dans le texte, raccourci, jamais en titre.
-        resultat.push({ kind: 'log', title: 'Dernier son', onglet: 'Résultat', lines: [
+        resultat.push({ kind: 'log', title: 'Dernier son', onglet: 'Entendu', lines: [
           court(d.nom), d.id ? `rangé (${d.id})` : prive() ? 'mode privé : rien n\'est rangé' : 'pas rangé', ...(d.appris ? [`appris chez toi : ${d.appris.libelle}`] : []), '',
           ...rapportSon(a, d.sens).split('\n'),
         ] });
-        resultat.push({ kind: 'courbe', title: 'Forme d\'onde', onglet: 'Résultat', labels: a.onde.map((_, k) => horloge((k * a.duree) / Math.max(1, n))), series: [{ name: 'crête', tone: 'neutre', points: a.onde.map((x) => Math.round(Math.max(0, Math.min(1, x)) * 100)) }], unit: '%', empty: 'son vide' });
+        resultat.push({ kind: 'courbe', title: 'Forme d\'onde', onglet: 'Entendu', labels: a.onde.map((_, k) => horloge((k * a.duree) / Math.max(1, n))), series: [{ name: 'crête', tone: 'neutre', points: a.onde.map((x) => Math.round(Math.max(0, Math.min(1, x)) * 100)) }], unit: '%', empty: 'son vide' });
         // Un tableau, pas des barres : une probabilité brute de 61 % ne doit pas remplir une barre comme une certitude.
-        if (a.sons.etat === 'fait') resultat.push({ kind: 'table', title: 'Sons reconnus (probabilité brute)', onglet: 'Résultat', columns: ['Son', 'Probabilité brute', 'Seuil', 'Au-dessus ?'], rows: [...a.sons.etiquettes].sort((x, y) => y.p - x.p).slice(0, 12).map((e) => ({ cells: [e.libelle, `${pct(e.p)} %`, `${pct(e.seuil)} %`, e.p >= e.seuil ? 'oui' : 'non'], tone: e.p >= e.seuil ? 'bon' as const : undefined })), empty: 'rien au-dessus du bruit' });
-        else resultat.push({ kind: 'text', title: 'Sons reconnus', onglet: 'Résultat', text: texteModeleAbsent(a.sons.raison) });
+        if (a.sons.etat === 'fait') resultat.push({ kind: 'table', title: 'Sons reconnus (probabilité brute)', onglet: 'Entendu', columns: ['Son', 'Probabilité brute', 'Seuil', 'Au-dessus ?'], rows: [...a.sons.etiquettes].sort((x, y) => y.p - x.p).slice(0, 12).map((e) => ({ cells: [e.libelle, `${pct(e.p)} %`, `${pct(e.seuil)} %`, e.p >= e.seuil ? 'oui' : 'non'], tone: e.p >= e.seuil ? 'bon' as const : undefined })), empty: 'rien au-dessus du bruit' });
+        else resultat.push({ kind: 'text', title: 'Sons reconnus', onglet: 'Entendu', text: texteModeleAbsent(a.sons.raison) });
         const ev = ligneDeTemps(a);
-        resultat.push({ kind: 'log', title: 'Ligne de temps', onglet: 'Résultat', lines: ev.length ? [...texteLigne(ev.slice(0, 80)).split('\n'), ...(a.sons.etat === 'fait' ? ['(courbe par pas moins calibrée que le score global)'] : [])] : ['rien de reconnu'] });
-        resultat.push({ kind: 'table', title: 'Temps mesuré par étape', onglet: 'Résultat', columns: ['Étape', 'ms', '× temps réel'], rows: a.mesures.map((m) => ({ cells: [NOM_ETAPE[m.etape] ?? m.etape, String(Math.round(m.ms)), m.xTempsReel ? fois(m.xTempsReel) : '—'] })), empty: 'pas mesuré' });
-        if (d.id) resultat.push({ kind: 'form', title: 'Corriger ce qu\'Odin entend', onglet: 'Résultat', action: 'corriger', submit: 'Corriger', params: [{ key: 'analyse', label: 'Son', kind: 'text', required: true, default: d.id }, { key: 'libelle', label: 'Le bon mot', kind: 'text', required: true }, { key: 'debut', label: 'Début (s)', kind: 'number' }, { key: 'fin', label: 'Fin (s)', kind: 'number' }] });
+        resultat.push({ kind: 'log', title: 'Ligne de temps', onglet: 'Entendu', lines: ev.length ? [...texteLigne(ev.slice(0, 80)).split('\n'), ...(a.sons.etat === 'fait' ? ['(courbe par pas moins calibrée que le score global)'] : [])] : ['rien de reconnu'] });
+        resultat.push({ kind: 'table', title: 'Temps mesuré par étape', onglet: 'Entendu', columns: ['Étape', 'ms', '× temps réel'], rows: a.mesures.map((m) => ({ cells: [NOM_ETAPE[m.etape] ?? m.etape, String(Math.round(m.ms)), m.xTempsReel ? fois(m.xTempsReel) : '—'] })), empty: 'pas mesuré' });
+        if (d.id) resultat.push({ kind: 'form', title: 'Corriger ce qu\'Odin entend', onglet: 'Entendu', action: 'corriger', submit: 'Corriger', params: [{ key: 'analyse', label: 'Son', kind: 'text', required: true, default: d.id }, { key: 'libelle', label: 'Le bon mot', kind: 'text', required: true }, { key: 'debut', label: 'Début (s)', kind: 'number' }, { key: 'fin', label: 'Fin (s)', kind: 'number' }] });
       }
       const retrouver: Section[] = [
-        { kind: 'form', title: 'Retrouver un son par une phrase', onglet: 'Retrouver', action: 'retrouver', submit: 'Retrouver', params: [{ key: 'phrase', label: 'Phrase', kind: 'text', required: true }], aide: 'Par les mots des étiquettes, du résumé et du sujet. La recherche par le sens d\'une phrase n\'est pas encore branchée.' },
-        { kind: 'depot', title: 'Retrouver par un son', onglet: 'Retrouver', action: 'retrouver', champ: 'fichier', texte: 'Dépose un son à comparer' },
-        { kind: 'table', title: 'Dernières corrections', onglet: 'Retrouver', columns: ['Quand', 'Son', 'Le bon mot'], rows: corrections.slice(0, 20).map((c) => ({ cells: [quandLocal(c.quand), c.analyse, c.libelle] })), empty: 'Aucune correction pour l\'instant.' },
+        { kind: 'form', title: 'Retrouver un son par une phrase', onglet: 'Trouver', action: 'retrouver', submit: 'Retrouver', params: [{ key: 'phrase', label: 'Phrase', kind: 'text', required: true }], aide: 'Par les mots des étiquettes, du résumé et du sujet. La recherche par le sens d\'une phrase n\'est pas encore branchée.' },
+        { kind: 'depot', title: 'Retrouver par un son', onglet: 'Trouver', action: 'retrouver', champ: 'fichier', texte: 'Dépose un son à comparer' },
+        { kind: 'table', title: 'Dernières corrections', onglet: 'Trouver', columns: ['Quand', 'Son', 'Le bon mot'], rows: corrections.slice(0, 20).map((c) => ({ cells: [quandLocal(c.quand), c.analyse, c.libelle] })), empty: 'Aucune correction pour l\'instant.' },
       ];
       const cams = (ctx.settings.camerasEcoutees as string[] | undefined) ?? [];
       const reglages: Section[] = [
@@ -387,7 +387,7 @@ export function syrinx(o: () => OptionsSyrinx): Module {
       ];
       return {
         subtitle: `${modeleTexte} · ${ec.ecouter ? 'parole prête' : 'parole : pas prête sur ce poste'} · ${sons} son(s) rangé(s)`,
-        kpis, onglets: ['Écouter', 'Résultat', 'Retrouver', 'Réglages'],
+        kpis, onglets: ['Écoute', 'Entendu', 'Trouver', 'Réglages'],
         sections: [...ecouter, ...resultat, ...retrouver, ...reglages],
       };
     },
