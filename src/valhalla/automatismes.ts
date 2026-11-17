@@ -172,6 +172,8 @@ export interface LienACouper {
   aussi?: string[];
   /** qui fait le geste (journal) */
   qui: string;
+  /** une précision dite dans la confirmation et dans l'alerte de coupure (un lien d'alerte : l'appli continue d'agir) */
+  note?: string;
 }
 export type EtatLien = { depuis: string; jusqua?: string };
 /** Coupe (`couper` vrai) ou rétablit un lien écrit. RÉSERVÉ à la route de la page, appelée par la session du propriétaire. */
@@ -428,8 +430,9 @@ export class Automatismes {
       if (!Number.isFinite(voulu) || voulu <= now) return { ok: false, code: 'invalide', error: 'La fin de la coupure doit être dans le futur.' };
       jusqua = Math.min(voulu, now + MAX_PAUSE_SECU);
     }
-    const fin = jusqua ? texteDate(new Date(jusqua), undefined, new Date(now)).replace(/^aujourd'hui /, '') : undefined;
-    const aussi = l.aussi?.length ? ` Le même interrupteur coupe aussi : ${l.aussi.map((x) => `« ${x} »`).join(', ')}.` : '';
+    // « jusqu'à 11 h 00 » aujourd'hui, « jusqu'à demain à 11 h 00 » sinon (pas « jusqu'à à »).
+    const fin = jusqua ? texteDate(new Date(jusqua), undefined, new Date(now)).replace(/^aujourd'hui à /, '') : undefined;
+    const aussi = `${l.aussi?.length ? ` Le même interrupteur coupe aussi : ${l.aussi.map((x) => `« ${x} »`).join(', ')}.` : ''}${l.note ? ` ${l.note}` : ''}`;
     if (o.confirme !== true) {
       return { ok: false, code: 'accord', error: 'Confirme la coupure de ce lien.', confirm: l.protege
         ? `Couper « ${l.nom} » jusqu'à ${fin} ? Ce lien protège : ${l.protege.raison}. Cela ne sera plus fait jusqu'à ${fin} ; il se rétablira tout seul, et une alerte restera visible en attendant.${aussi}`

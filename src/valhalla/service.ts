@@ -310,20 +310,30 @@ export class Valhalla {
     const now = this.deps.now?.() ?? new Date();
     const key = `${module}:${a.key ?? a.title}`;
     const last = this.recent.get(key);
-    // Même alerte dans les 6 h : comptée, pas renvoyée.
-    if (last && now.getTime() - last < 6 * 3600_000) { this.bump(key); return undefined; }
+    // Une alerte qui porte la clé d'un lien écrit (links.ts, « par son alerte ») que le propriétaire a coupé depuis
+    // Talos : rangée et visible comme d'habitude, mais son message ne part pas, et elle le dit. Un état illisible ne
+    // coupe rien ; une alerte sans clé ne change pas.
+    const coupeDe = (): boolean => { if (typeof a.lien !== 'string') return false; try { return this.automatismes.lienCoupe(a.lien) === true; } catch { return false; } };
+    let coupe: boolean | undefined;
+    // Même alerte dans les 6 h : comptée, pas renvoyée — sauf une alerte retenue par un lien coupé (son message n'est
+    // jamais parti) : une fois le lien rétabli, sa première occurrence passe.
+    if (last && now.getTime() - last < 6 * 3600_000 && (!this.retenues.has(key) || (coupe = coupeDe()))) { this.bump(key); return undefined; }
+    coupe ??= coupeDe();
     this.recent.set(key, now.getTime());
-    const al: Alert = { ...a, id: Math.random().toString(36).slice(2, 10), at: now.toISOString(), module, count: 1, key };
+    if (coupe) this.retenues.add(key); else this.retenues.delete(key);
+    const al: Alert = { ...a, id: Math.random().toString(36).slice(2, 10), at: now.toISOString(), module, count: 1, key, ...(coupe ? { nonEnvoye: 'message non envoyé : lien coupé par toi' } : {}) };
     this.journalAlertes.ajouter(al);
     this.events.emit('alert', al);
     const min = (this.settings().alertLevel as Level) ?? 'haute';
-    if (RANK[a.level] >= RANK[min]) {
+    if (!coupe && RANK[a.level] >= RANK[min]) {
       const m = this.mods.get(module);
       // Une alerte critique passe même en « Ne pas déranger » ; une photo (caméra) part avec le message.
       void this.deps.notify?.(`${ICON[a.level]} ${m?.name ?? module} — ${a.title}${a.detail ? `\n${a.detail}` : ''}`, { urgent: a.level === 'critique', ...(a.photo ? { photo: a.photo } : {}) }).catch(() => {});
     }
     return al;
   }
+  /** Les alertes rangées sans que leur message parte (lien coupé) : elles ne comptent pas comme « déjà envoyées ». */
+  private retenues = new Set<string>();
   private bump(key: string): void { this.counts.set(key, (this.counts.get(key) ?? 1) + 1); }
   private counts = new Map<string, number>();
   alerts(o: { module?: string; level?: Level; q?: string; limit?: number } = {}): Alert[] {

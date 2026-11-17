@@ -140,7 +140,7 @@ export async function fin(ctx: ModCtx, a: AgentInscrit, id: string, corps: Recor
   let envoi = '', ok = true;
   if (p.destination && P.distant(p)) {
     try { const t = (await import('./transport.ts')).transportDe(ctx.home, p.destination), e = await P.envoyerDepot(x.repo, t, p.garderLocal !== false); envoi = `copiée et vérifiée sur ${t.nom} (${e.envoyes} fichier(s))`; }
-    catch (e) { ok = false; envoi = `copie vers la destination en échec : ${(e as Error).message}`; ctx.alert({ level: 'haute', title: `Sauvegarde de ${a.poste} : copie en échec`, detail: (e as Error).message, key: `agent-envoi:${a.poste}` }); }
+    catch (e) { ok = false; envoi = `copie vers la destination en échec : ${(e as Error).message}`; ctx.alert({ level: 'haute', title: `Sauvegarde de ${a.poste} : copie en échec`, detail: (e as Error).message, key: `agent-envoi:${a.poste}`, lien: 'sindri-alerte-sauvegarde' }); }
   }
   const last = (ctx.settings.last as Record<string, unknown>) ?? {}, totale = snap.parent ? P.contenu(x.repo, snap).length : files.length;
   ctx.saveSettings({

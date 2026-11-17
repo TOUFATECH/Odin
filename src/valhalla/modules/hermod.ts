@@ -87,7 +87,7 @@ export const hermod: Module = {
     for (const m of listMachines(ctx.home)) {
       const up = (await probe(m.host, m.port || 22, 2500)) === 'open', was = i[m.id]?.online;
       i[m.id] = { ...(i[m.id] ?? {}), online: up ? 'en ligne' : 'injoignable', at: ctx.now().toISOString() } as Inv;
-      if (was === 'en ligne' && !up) { ctx.alert({ level: 'moyenne', title: `${m.label} ne répond plus`, key: `down:${m.id}` }); ctx.emit('machine_hors_ligne', { machine: m.label }); }
+      if (was === 'en ligne' && !up) { ctx.alert({ level: 'moyenne', title: `${m.label} ne répond plus`, key: `down:${m.id}`, lien: 'hermod-alerte-machine-disparue' }); ctx.emit('machine_hors_ligne', { machine: m.label }); }
       if (Number(String(i[m.id].disk ?? '').replace('%', '')) >= 90) ctx.alert({ level: 'haute', title: `Disque de ${m.label} presque plein (${i[m.id].disk})`, key: `disk:${m.id}` });
     }
     ctx.saveSettings({ inventory: i });

@@ -18,8 +18,8 @@ import { lienCoupe } from './automatismes.ts';
  * `id` : écrit à la main, court, stable, jamais tiré du texte (les capteurs : `capteur-<appli>`). La liste est figée
  * dans l'essai : le changer ou le retirer le fait échouer.
  * `coupure` : posé à la main sur CHAQUE lien, dit COMMENT il peut ou pourra se couper. Les 21 liens à point unique
- * (`par: 'reflexe'`) se coupent et se rétablissent depuis la fenêtre des automatisations, par le propriétaire seul ;
- * les autres sont seulement montrés.
+ * (`par: 'reflexe'`) et les liens d'alerte déjà branchés (`ALERTES_BRANCHEES`) se coupent et se rétablissent depuis la
+ * fenêtre des automatisations, par le propriétaire seul ; les autres sont seulement montrés.
  */
 export interface Protection { genre: 'sécurité' | 'sauvegarde'; raison: string }
 /**
@@ -35,6 +35,16 @@ export type Coupure =
   | { pas_encore: string }
   | { jamais: string };
 export interface Link { from: string; to: string; when: string; does: string; auto: true; kind: 'réflexe' | 'soin' | 'donnée'; protege: Protection | false; id: string; coupure: Coupure }
+/**
+ * Les liens d'alerte (`par: 'alerte'`) déjà branchés : la clé du lien est posée à la main (`lien: '<id>'`) sur les
+ * appels d'alerte de l'appli source qui en relèvent, et seulement eux (relus un par un). Coupé, l'alerte est rangée et
+ * visible comme d'habitude, seul son message ne part pas (`Valhalla.alert`) ; l'appli continue d'agir. Les autres liens
+ * d'alerte ne se coupent pas encore.
+ */
+export const ALERTES_BRANCHEES: ReadonlySet<string> = new Set([
+  'ullr-alerte-menace', 'sindri-alerte-sauvegarde', 'eir-alerte-saturation', 'naglfar-alerte-conteneur',
+  'ymir-alerte-machine-virtuelle', 'hermod-alerte-machine-disparue',
+]);
 export const LINKS: Link[] = [
   { from: 'loki', to: 'garmr', when: 'un pirate tape un mot de passe ou une commande dans un piège', does: 'son adresse est bannie de tes vrais services', auto: true, kind: 'réflexe', protege: { genre: 'sécurité', raison: 'bannit l\'adresse d\'un pirate pris dans un piège' }, id: 'loki-garmr-bannir-pirate', coupure: { par: 'appel' } },
   { from: 'loki', to: 'ullr', when: 'un pirate fait télécharger un fichier à un piège', does: 'le fichier est gardé à l\'écart (jamais exécuté) et analysé ; le verdict part avec l\'alerte, et l\'attaque rejoint les incidents', auto: true, kind: 'réflexe', protege: { genre: 'sécurité', raison: 'met à l\'écart et fait analyser le fichier déposé par un pirate' }, id: 'loki-ullr-fichier-piege', coupure: { par: 'appel' } },

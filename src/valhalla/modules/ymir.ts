@@ -162,8 +162,8 @@ export const ymir: Module = {
     } catch { /* Hermès absent */ }
     const { res } = await resources(ctx); if (!res.length) return;
     const was = (ctx.settings.running as number[] | undefined) ?? [], now = res.filter((r) => r.vmid && r.status === 'running').map((r) => r.vmid!);
-    for (const id of was) if (!now.includes(id)) { const r = res.find((x) => x.vmid === id); ctx.alert({ level: 'haute', title: `La machine ${r?.name ?? id} s'est arrêtée`, key: `vm:${id}` }); ctx.emit('vm_arretee', { vmid: id, nom: r?.name }); }
-    for (const n of res.filter((r) => r.type === 'node')) { if (n.status !== 'online') ctx.alert({ level: 'critique', title: `Nœud ${n.node} injoignable`, key: `node:${n.node}` }); else if ((n.mem ?? 0) / (n.maxmem || 1) > 0.95) ctx.alert({ level: 'haute', title: `Nœud ${n.node} : mémoire saturée`, key: `nodemem:${n.node}` }); }
+    for (const id of was) if (!now.includes(id)) { const r = res.find((x) => x.vmid === id); ctx.alert({ level: 'haute', title: `La machine ${r?.name ?? id} s'est arrêtée`, key: `vm:${id}`, lien: 'ymir-alerte-machine-virtuelle' }); ctx.emit('vm_arretee', { vmid: id, nom: r?.name }); }
+    for (const n of res.filter((r) => r.type === 'node')) { if (n.status !== 'online') ctx.alert({ level: 'critique', title: `Nœud ${n.node} injoignable`, key: `node:${n.node}` }); else if ((n.mem ?? 0) / (n.maxmem || 1) > 0.95) ctx.alert({ level: 'haute', title: `Nœud ${n.node} : mémoire saturée`, key: `nodemem:${n.node}`, lien: 'ymir-alerte-machine-virtuelle' }); }
     ctx.saveSettings({ running: now });
   } },
 };

@@ -434,7 +434,7 @@ export const sindri: Module = {
     for (const p of plans(ctx)) {
       const tous = (p.tousLes ?? 1) * 864e5, retard = p.agent ? 7 * 864e5 : tous + 26 * 3600_000;
       if (p.at === hm && !tacheEnPause('sindri', tacheDuPlan(p)) && (!l[p.name] || now.getTime() - Date.parse(l[p.name].at) > (p.tousLes ? tous - 3600_000 : 3600_000))) {
-        try { await runPlan(ctx, p); } catch (e) { ctx.saveSettings({ last: { ...l, [p.name]: { at: now.toISOString(), ok: false, error: (e as Error).message } } }); ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » échouée`, detail: (e as Error).message, key: `fail:${p.name}` }); ctx.emit('sauvegarde_echec', { plan: p.name, erreur: (e as Error).message }); }
+        try { await runPlan(ctx, p); } catch (e) { ctx.saveSettings({ last: { ...l, [p.name]: { at: now.toISOString(), ok: false, error: (e as Error).message } } }); ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » échouée`, detail: (e as Error).message, key: `fail:${p.name}`, lien: 'sindri-alerte-sauvegarde' }); ctx.emit('sauvegarde_echec', { plan: p.name, erreur: (e as Error).message }); }
       } else if (l[p.name] && now.getTime() - Date.parse(l[p.name].at) > Math.max(50 * 3600_000, retard)) ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » en retard`, detail: `Dernière : ${l[p.name].at.slice(0, 16).replace('T', ' ')}`, key: `late:${p.name}` });
     }
     if (dimanche && hm === '04:30') await Promise.resolve(sindri.actions.find((x) => x.id === 'verifier')!.run(ctx, {})).catch(() => undefined);

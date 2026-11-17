@@ -16,7 +16,7 @@ import { draupnirOf } from '../tools/draupnir.ts';
 import { couperLien, etatLien, nomMoyen, sourcesOdin, type ElementAgenda, type EtatLien, type Ligne, type SourceJobs } from '../valhalla/automatismes.ts';
 import { bookingsDe, oublierRappel } from '../valhalla/frigg/perso.ts';
 import { lieuCourant } from '../valhalla/lieu.ts';
-import { LINKS, type Coupure, type Link, type Protection } from '../valhalla/links.ts';
+import { ALERTES_BRANCHEES, LINKS, type Coupure, type Link, type Protection } from '../valhalla/links.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import type { Valhalla } from '../valhalla/service.ts';
 
@@ -127,15 +127,16 @@ function lignesRdv(c: Contexte): Ligne[] {
 
 /**
  * Un lien automatique écrit dans le code d'Odin (src/valhalla/links.ts), montré tel quel dans la liste : quand telle
- * appli signale telle chose → ce qui se fait. Les 21 liens à point unique (`coupure.par === 'reflexe'`) se coupent et
- * se rétablissent depuis la page (`coupable`, et `coupe` quand ils sont coupés) ; les autres restent en lecture seule.
+ * appli signale telle chose → ce qui se fait. Les 21 liens à point unique (`coupure.par === 'reflexe'`) et les liens
+ * d'alerte branchés (`ALERTES_BRANCHEES`) se coupent et se rétablissent depuis la page (`coupable`, et `coupe` quand ils
+ * sont coupés) ; les autres restent en lecture seule.
  * `id` : `lien:` + l'identifiant écrit à la main dans links.ts ; `coupure` : comment il pourra se couper.
  * Gardé à part des autres lignes (ni dans l'agenda, ni dans l'onglet « Auto » d'une appli, ni dans les routes qui agissent).
  */
 export interface LigneLien {
   id: string; sorte: 'lien_ecrit'; de: string; vers: string; deNom: string; versNom: string;
   quand: string; fait: string; genre: Link['kind']; etat: 'actif' | 'inactif'; protege: Protection | false; coupure: Coupure;
-  /** se coupe d'ici (un des 21 liens à point unique) */
+  /** se coupe d'ici (un des 21 liens à point unique, ou un lien d'alerte branché) */
   coupable: boolean;
   /** coupé : depuis quand, et jusqu'à quand pour un lien qui protège */
   coupe?: EtatLien;
@@ -149,7 +150,7 @@ export function lignesLiensEcrits(v?: Valhalla, liens: readonly Link[] = LINKS):
   const ids = new Set(v?.modules().map((m) => m.id) ?? []);
   const pourquoi = (l: Link) => (!v ? 'les applis d\'Odin ne tournent pas' : [l.from, l.to].filter((x) => !ids.has(x)).map((x) => `appli absente : ${x}`).join(' ; '));
   return liens.map((l) => {
-    const p = pourquoi(l), coupable = 'par' in l.coupure && l.coupure.par === 'reflexe';
+    const p = pourquoi(l), coupable = seCoupeDIci(l);
     const coupe = coupable ? etatLien(pointDeCoupure(l)) : undefined;
     return {
       id: `lien:${l.id}`, sorte: 'lien_ecrit', de: l.from, vers: l.to, deNom: nom(l.from), versNom: nom(l.to),
@@ -159,26 +160,33 @@ export function lignesLiensEcrits(v?: Valhalla, liens: readonly Link[] = LINKS):
   });
 }
 
+/** Se coupe-t-il d'ici : un des 21 liens à point unique, ou un lien d'alerte dont la clé est posée sur ses alertes. */
+const seCoupeDIci = (l: Link) => 'par' in l.coupure && (l.coupure.par === 'reflexe' || (l.coupure.par === 'alerte' && ALERTES_BRANCHEES.has(l.id)));
 /** L'identifiant sous lequel un lien se coupe : le sien, ou celui du lien qui partage son point (`memePointQue`). */
 const pointDeCoupure = (l: Link) => ('memePointQue' in l.coupure && l.coupure.memePointQue) || l.id;
 /**
- * Couper ou rétablir un des 21 liens à point unique. SEULEMENT la session du navigateur du propriétaire (ni la clé
+ * Couper ou rétablir un des 21 liens à point unique ou un lien d'alerte branché. SEULEMENT la session du navigateur du propriétaire (ni la clé
  * d'accès, ni un membre, ni une automatisation, ni l'agent) : server.ts le dit dans `sessionProprio`.
  */
 function couperDepuisLaPage(c: Contexte, id: string, b: Record<string, unknown>, o: { sessionProprio?: boolean }) {
   if (o.sessionProprio !== true) return ko('interdit', 'Un lien entre applis ne se coupe que par toi, connecté dans ton navigateur, depuis la page des automatisations.');
   const l = LINKS.find((x) => `lien:${x.id}` === id);
   if (!l) return ko('introuvable', 'Lien introuvable.');
-  if (!('par' in l.coupure) || l.coupure.par !== 'reflexe') return ko('interdit', "Ce lien ne se coupe pas encore d'ici.");
+  if (!seCoupeDIci(l)) return ko('interdit', "Ce lien ne se coupe pas encore d'ici.");
   if (!c.v) return ko('introuvable', 'Les applis ne sont pas démarrées.');
   const point = pointDeCoupure(l), cible = LINKS.find((x) => x.id === point) ?? l;
   const nom = (x: Link) => `${c.v?.module(x.from)?.name ?? x.from} → ${c.v?.module(x.to)?.name ?? x.to}`;
   // Tous les liens coupés par ce même interrupteur (le capteur et le lien écrit qui le double).
   const memes = LINKS.filter((x) => x.id !== l.id && pointDeCoupure(x) === point && 'par' in x.coupure && x.coupure.par === 'reflexe');
   const prot = l.protege || cible.protege;
+  // Un lien d'alerte : le couper n'arrête pas ce que fait l'appli, seul le message ne part plus (dit en clair).
+  const appli = c.v.module(l.from)?.name ?? l.from;
+  const note = 'par' in l.coupure && l.coupure.par === 'alerte'
+    ? `${appli} continue de faire son travail comme avant ; seul le message des alertes de ce lien (quand ${l.when}) sur ta messagerie ne part plus : l'alerte reste rangée et visible dans Odin.`
+    : undefined;
   const r = couperLien({
     id: point, nom: `${nom(l)} (quand ${l.when})`, de: cible.from, protege: prot ? { raison: prot.raison } : false,
-    ...(memes.length ? { aussi: memes.map((x) => `${nom(x)} (quand ${x.when})`) } : {}),
+    ...(memes.length ? { aussi: memes.map((x) => `${nom(x)} (quand ${x.when})`) } : {}), ...(note ? { note } : {}),
     qui: 'le propriétaire, depuis la page des automatisations (session du navigateur)',
   }, b.pause === true, { jusqua: s(b.jusqua) || undefined, confirme: b.confirme === true });
   if (!r.ok) return r;

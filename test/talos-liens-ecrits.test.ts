@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { LINKS } from '../src/valhalla/links.ts';
+import { ALERTES_BRANCHEES, LINKS } from '../src/valhalla/links.ts';
 import { SENSORS } from '../src/valhalla/ullr/incidents.ts';
 import { lignesLiensEcrits, lignesTalos, contexteTalos, agendaTalos, talosGet, talosPost } from '../src/web/talos-api.ts';
 import { T } from './banc/lib.ts';
@@ -178,7 +178,7 @@ test('un lien n\'est pas dit « actif » quand ses applis ne sont pas là', () =
   assert.ok(l.some((x) => x.etat === 'inactif') && l.some((x) => x.etat === 'actif'));
 });
 
-test('la route des automatismes porte les liens à part (ni dans les lignes, ni dans l\'agenda) ; seuls les 21 liens à point unique se coupent', async () => {
+test('la route des automatismes porte les liens à part (ni dans les lignes, ni dans l\'agenda) ; seuls les 21 liens à point unique et les 6 alertes branchées se coupent', async () => {
   const r = await talosGet(undefined, '/api/draupnir/automatismes', new URLSearchParams()) as { ok: boolean; lignes: Array<{ sorte: string }>; liens?: Array<{ id: string; sorte: string }> };
   assert.equal(r.ok, true);
   assert.equal(r.liens?.length, LINKS.length, 'tous les liens écrits sont dans la réponse');
@@ -199,10 +199,12 @@ test('la route des automatismes porte les liens à part (ni dans les lignes, ni 
   assert.doesNotMatch(wire, /protege/);
   // La déclaration « coupure » non plus : wireReflexes demande seulement, lien par lien, s'il est coupé (lienCoupe).
   assert.doesNotMatch(wire, /coupure|LINKS/);
-  // Seuls les 21 liens à point unique se coupent d'ici ; aucun n'est coupé dans cet essai.
+  // Seuls les 21 liens à point unique et les 6 liens d'alerte branchés (liens-coupes-alertes.test.ts) se coupent d'ici ;
+  // les 23 autres alertes, pas encore. Aucun n'est coupé dans cet essai.
   const coupables = r.liens!.filter((x) => (x as { coupable?: boolean }).coupable).map((x) => x.id.slice(5));
-  assert.deepEqual(coupables, LINKS.filter((l) => 'par' in l.coupure && l.coupure.par === 'reflexe').map((l) => l.id));
-  assert.equal(coupables.length, 21);
+  assert.deepEqual(coupables, LINKS.filter((l) => 'par' in l.coupure && (l.coupure.par === 'reflexe' || (l.coupure.par === 'alerte' && ALERTES_BRANCHEES.has(l.id)))).map((l) => l.id));
+  assert.equal(coupables.length, 21 + 6);
+  assert.equal(LINKS.filter((l) => 'par' in l.coupure && l.coupure.par === 'alerte' && !coupables.includes(l.id)).length, 23);
   assert.ok(r.liens!.every((x) => !('coupe' in x) && !('etatCoupure' in x)), 'aucun état « coupé »');
 });
 

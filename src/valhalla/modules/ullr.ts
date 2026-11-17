@@ -219,7 +219,7 @@ export async function garder(ctx: ModCtx, a: Arrivee): Promise<Passage> {
   if (!bloque) {
     // Un simple soupçon n'arrête rien, mais il est dit (et noté parmi les détections, à vérifier).
     const doute = !libere && Boolean(top && v.level);
-    if (doute && !a.silencieux) ctx.alert({ level: 'moyenne', title: `Asclépios : ${nom} à vérifier`, detail: `Venu de ${a.origine}${a.source ? ` (${a.source})` : ''}. Rien de sûr, seulement des indices : ${pourquoi.slice(0, 2).join(' ; ')}. Il n'a pas été bloqué.`, key: `arrivee-doute:${v.sha256}` });
+    if (doute && !a.silencieux) ctx.alert({ level: 'moyenne', title: `Asclépios : ${nom} à vérifier`, detail: `Venu de ${a.origine}${a.source ? ` (${a.source})` : ''}. Rien de sûr, seulement des indices : ${pourquoi.slice(0, 2).join(' ; ')}. Il n'a pas été bloqué.`, key: `arrivee-doute:${v.sha256}`, lien: 'ullr-alerte-menace' });
     return { ...base, ok: true, bloque: false, texte: libere ? `✓ ${nom} : libéré par toi auparavant, laissé passer.` : doute ? `⚠ ${nom} : à vérifier (${top!.threat}), pas bloqué.` : `✓ ${nom} : rien de dangereux trouvé.` };
   }
   // En quarantaine AVANT tout usage : brouillé, à l'écart, réversible.
@@ -241,7 +241,7 @@ export async function garder(ctx: ModCtx, a: Arrivee): Promise<Passage> {
         `Pourquoi : ${q.threat}, trouvé par ${par ?? 'analyse'}. ${pourquoi.slice(0, 3).join(' ; ')}.`,
         `Ce qui a été fait : mis à l'écart (n° ${id}) AVANT ${a.usage ? `de ${a.usage}` : 'tout usage'} ; rien n'a été ouvert, installé ni lancé.${essai ? ' C\'est le fichier d\'essai des antivirus : inoffensif, traité comme un vrai virus.' : ''}`,
         `À toi de décider : « Accepter » (il est rangé à sa place) ou « Refuser » (il est supprimé définitivement). Sans réponse dans ${Math.round(delaiDecision(ctx) / 60) || 1} min, il reste en quarantaine.`].join('\n'),
-      key: `arrivee:${v.sha256}`, data: { empreinte: v.sha256, quarantaine: id, origine: a.origine, decision: true },
+      key: `arrivee:${v.sha256}`, lien: 'ullr-alerte-menace', data: { empreinte: v.sha256, quarantaine: id, origine: a.origine, decision: true },
       steps: ['Ne le récupère pas par un autre chemin et ne l\'ouvre pas.', `Regarde le détail dans Asclépios → Quarantaine (n° ${id}) : la signature, la règle ou l'indice trouvé.`, '« Accepter » seulement si tu es sûr que c\'est une erreur (Odin te demande ton accord) ; « Refuser » le supprime définitivement.'],
       fix: { action: 'refuser', input: { id }, label: 'Refuser (supprimer)' } });
     ctx.emit('menace', { fichier: dest, menace: q.threat, gravité: q.level, action: 'bloqué à l\'arrivée', score: v.score, empreinte: v.sha256, genre: top?.klass ?? 'malware', origine: a.origine });
@@ -288,7 +288,7 @@ async function handle(ctx: ModCtx, v: Verdict, o: { auto?: boolean; quiet?: bool
   const d: Detection = { id: randomBytes(4).toString('hex'), at: ctx.now().toISOString(), file: v.file, sha256: v.sha256, threat: top.threat, klass: top.klass, level, score: v.score, by: [...new Set(all.map((f) => f.by))].join(' + '), why: [...all.slice(0, 6).map((f) => `${f.threat} : ${f.why}${f.file !== v.file ? ` (dans ${f.file.split('!').slice(1).join(' › ')})` : ''}`), ...(extra ? [extra] : [])], action, attack: top.attack };
   ctx.saveSettings({ hits: [d, ...dets(ctx).filter((x) => !(x.file === d.file && x.threat === d.threat))].slice(0, 300) });
   if (!o.quiet) {
-    ctx.alert({ level, title: `Asclépios : ${top.threat}`, detail: `${v.file} — ${action}. Score ${v.score}/100. ${d.why.slice(0, 3).join(' ; ')}${action === 'à vérifier' ? ` Dis « isole ${v.file} » pour le mettre à l'écart, ou « faux positif ${d.id} ».` : ''}`, key: `hit:${v.sha256}:${top.threat}`, data: { empreinte: v.sha256, score: v.score } });
+    ctx.alert({ level, title: `Asclépios : ${top.threat}`, detail: `${v.file} — ${action}. Score ${v.score}/100. ${d.why.slice(0, 3).join(' ; ')}${action === 'à vérifier' ? ` Dis « isole ${v.file} » pour le mettre à l'écart, ou « faux positif ${d.id} ».` : ''}`, key: `hit:${v.sha256}:${top.threat}`, lien: 'ullr-alerte-menace', data: { empreinte: v.sha256, score: v.score } });
     ctx.emit('menace', { fichier: v.file, menace: top.threat, gravité: level, action, score: v.score, empreinte: v.sha256, genre: top.klass });
   }
   return d;
@@ -358,7 +358,7 @@ function noterDistante(ctx: ModCtx, m: Machine, f: FichierLu, v: Verdict): Detec
   const d: Detection = { id: randomBytes(4).toString('hex'), at: ctx.now().toISOString(), file, sha256: v.sha256, threat: top.threat, klass: top.klass, level: v.level, score: v.score, by: [...new Set(all.map((x) => x.by))].join(' + '), why: all.slice(0, 6).map((x) => `${x.threat} : ${x.why}${x.file !== v.file ? ` (dans ${x.file.split('!').slice(1).join(' › ')})` : ''}`), action, attack: top.attack, poste: m.id, posteNom: m.label, distant: { ...(f.partage ? { partage: f.partage } : {}), relatif: f.relatif } };
   ctx.saveSettings({ hits: [d, ...dets(ctx).filter((x) => !(x.file === d.file && x.threat === d.threat))].slice(0, 300) });
   if (!kept) {
-    ctx.alert({ level: v.level, title: `Asclépios : ${top.threat} sur ${m.label}`, detail: `${v.file} — score ${v.score}/100. ${d.why.slice(0, 3).join(' ; ')}. Rien n'a été touché sur le poste${action === 'à vérifier' ? ` : dis « isole la détection ${d.id} » pour mettre le fichier à l'écart là-bas, ou « faux positif ${d.id} ».` : '.'}`, key: `hit:${m.id}:${v.sha256}:${top.threat}`, data: { empreinte: v.sha256, score: v.score, poste: m.label } });
+    ctx.alert({ level: v.level, title: `Asclépios : ${top.threat} sur ${m.label}`, detail: `${v.file} — score ${v.score}/100. ${d.why.slice(0, 3).join(' ; ')}. Rien n'a été touché sur le poste${action === 'à vérifier' ? ` : dis « isole la détection ${d.id} » pour mettre le fichier à l'écart là-bas, ou « faux positif ${d.id} ».` : '.'}`, key: `hit:${m.id}:${v.sha256}:${top.threat}`, lien: 'ullr-alerte-menace', data: { empreinte: v.sha256, score: v.score, poste: m.label } });
     ctx.emit('menace', { fichier: file, menace: top.threat, gravité: v.level, action, score: v.score, empreinte: v.sha256, genre: top.klass, poste: m.label });
   }
   return d;
@@ -808,7 +808,7 @@ export const ullr: Module = {
     // Un fichier envoyé pour analyse mais jamais analysé (page fermée, connexion coupée) ne reste pas : effacé au bout d'une heure.
     try { const d = join(ctx.dir, 'depots'); for (const f of readdirSync(d)) { const p = join(d, f); if (now.getTime() - statSync(p).mtimeMs > 3_600_000) rmSync(p, { force: true }); } } catch { /* pas de dossier d'arrivée : rien à faire */ }
     // Supports amovibles : un nouveau support monté est analysé (les 20 000 premiers fichiers).
-    const mounts = new Set(removable()); if (x.mounts && ctx.settings.usb !== false) for (const mnt of mounts) if (!x.mounts.has(mnt) && !x.running) { ctx.emit('support_branche', { dossier: mnt }); void runScan(ctx, mnt, { max: 20_000 }).then((r) => { if (r.detections.length) ctx.alert({ level: 'haute', title: `Asclépios : ${r.detections.length} menace(s) sur le support ${basename(mnt)}`, detail: reportText(r).slice(0, 700), key: `usb:${mnt}:${r.id}` }); }).catch(() => undefined); }
+    const mounts = new Set(removable()); if (x.mounts && ctx.settings.usb !== false) for (const mnt of mounts) if (!x.mounts.has(mnt) && !x.running) { ctx.emit('support_branche', { dossier: mnt }); void runScan(ctx, mnt, { max: 20_000 }).then((r) => { if (r.detections.length) ctx.alert({ level: 'haute', title: `Asclépios : ${r.detections.length} menace(s) sur le support ${basename(mnt)}`, detail: reportText(r).slice(0, 700), key: `usb:${mnt}:${r.id}`, lien: 'ullr-alerte-menace' }); }).catch(() => undefined); }
     x.mounts = mounts;
     // Sources dues (chacune à son rythme), hors de toute analyse en cours.
     if (!x.running && !x.busy && now.getTime() - Date.parse(s(ctx.settings.checkedAt) || '2000-01-01') > 3600_000 && !tacheEnPause('ullr', 'sources')) void update(ctx).catch(() => undefined);

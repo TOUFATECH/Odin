@@ -236,6 +236,6 @@ export async function machinesWatch(ctx: ModCtx): Promise<void> {
     }
   }
   const was = (ctx.settings.machinesEnMarche as string[] | undefined) ?? [], on: string[] = [];
-  for (const m of L.list()) { const e = await L.etat(m).catch(() => ({ state: 'inconnue' as const })); if (e.state === 'en marche') on.push(m.id); else if (e.state === 'éteinte' && was.includes(m.id) && !m.arretVoulu) ctx.alert({ level: 'haute', title: `La machine ${m.nom} s'est arrêtée toute seule`, detail: `${m.genre === 'lxc' ? 'LXC' : 'VM'} ${m.systeme} · ${m.ip}`, key: `ymir-arret-${m.id}`, fix: { action: 'demarrer_machine', label: 'Redémarrer', input: { machine: m.id } } }); }
+  for (const m of L.list()) { const e = await L.etat(m).catch(() => ({ state: 'inconnue' as const })); if (e.state === 'en marche') on.push(m.id); else if (e.state === 'éteinte' && was.includes(m.id) && !m.arretVoulu) ctx.alert({ level: 'haute', title: `La machine ${m.nom} s'est arrêtée toute seule`, detail: `${m.genre === 'lxc' ? 'LXC' : 'VM'} ${m.systeme} · ${m.ip}`, key: `ymir-arret-${m.id}`, lien: 'ymir-alerte-machine-virtuelle', fix: { action: 'demarrer_machine', label: 'Redémarrer', input: { machine: m.id } } }); }
   ctx.saveSettings({ machinesEnMarche: on });
 }
