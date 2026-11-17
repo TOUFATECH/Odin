@@ -221,6 +221,74 @@
     if (n.note === t) return false;
     n.note = t; return true;
   }
+  // ---------------- « Exécuter ce bloc seul » (fonctions pures) : son entrée, ce qu'il fait, ce qui tournerait.
+  const hote = (u) => { try { return new URL(String(u ?? '')).host || 'une adresse à calculer'; } catch { return 'une adresse à calculer'; } };
+  /**
+   * Les blocs qui agissent ou qui sortent sur le réseau, en clair : la MÊME liste que celle écrite pour l'accord d'Odin
+   * (src/tools/draupnir.ts, AGIT ; un essai vérifie qu'elles restent pareilles). Les autres lisent ou calculent.
+   */
+  const AGIT = {
+    'web.requête': (p) => `appelle ${hote(p.url)} (${String(p['méthode'] ?? 'GET')})`,
+    'web.flux': (p) => `lit un flux sur ${hote(p.url)}`,
+    'odin.message': (p) => `envoie un message ${String(p.service ?? '')}`.trim(),
+    'odin.mail': (p) => `envoie un mail à ${String(p['à'] ?? '?')}`,
+    'odin.prévenir': () => 'te prévient sur ta messagerie',
+    'odin.demander': (p) => (String(p.envoyer ?? 'non') === 'non' ? undefined : 'te renvoie la réponse d\'Odin'),
+    'odin.agent': () => 'confie une tâche à l\'agent Odin (ses outils)',
+    'saga.écrire': (p) => (String(p.mode ?? 'créer') === 'ajouter' ? 'ajoute du texte à une note de Thot' : 'écrit une note dans Thot'),
+    'runes.ajouter': (p) => `ajoute une ligne à la base ${String(p.base ?? '')}`.trim(),
+    'module.action': (p) => `lance l'action « ${String(p.action ?? '?')} » de l'appli ${String(p.module ?? '?')}`,
+    'flux.exécuter': () => 'lance une autre automatisation',
+    'données.code': () => 'exécute du code (isolé)',
+    'web.répondre': () => 'répond au webhook',
+  };
+  /** Ce que fait le bloc `n` s'il agit (en clair), sinon undefined. `connu` false : un type que le catalogue ignore compte comme agissant. */
+  function ceQuAgit(n, connu = true) {
+    if (Object.prototype.hasOwnProperty.call(AGIT, n?.type)) return AGIT[n.type](n.params ?? {});
+    return connu ? undefined : `bloc inconnu (${n?.type})`;
+  }
+  /** Un texte stable (clés rangées) : deux copies d'une même automatisation donnent le même. */
+  const stable = (v) => (Array.isArray(v) ? `[${v.map(stable).join(',')}]` : v && typeof v === 'object' ? `{${Object.keys(v).filter((k) => v[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${stable(v[k])}`).join(',')}}` : JSON.stringify(v) ?? 'null');
+  /** Ce qui tourne (blocs, réglages, fils) est-il le même dans `a` (l'écran) et `b` (l'enregistrée) ? La place des blocs, leurs notes et le nom de l'automatisation n'y changent rien. */
+  function pareilQuEnregistre(a, b) {
+    if (!a || !b) return false;
+    const forme = (w) => stable({ nodes: (w.nodes ?? []).map((n) => ({ name: n.name, type: n.type, params: n.params ?? {}, disabled: Boolean(n.disabled) })), connections: w.connections ?? {} });
+    return forme(a) === forme(b);
+  }
+  /**
+   * « Exécuter ce bloc seul » : ce que le bloc `nom` recevrait, d'après le dernier passage (`last`) des blocs d'avant —
+   * par la sortie qui mène à lui — et les données de tous les blocs d'avant (lues par {{ $node["X"]… }}, sans qu'ils
+   * tournent). → { ok: true, items, pinned, tronque } ou { ok: false, raison, tester? } (`tester` : le bloc d'avant sur
+   * lequel proposer « Tester jusqu'ici »). Rien n'est inventé : sans données vues, il ne part pas.
+   */
+  function entreeSeul(wf, nom, last, cat) {
+    const n = (wf?.nodes ?? []).find((x) => x.name === nom);
+    if (!n) return { ok: false, raison: 'Ce bloc n\'existe plus.' };
+    const c = cat?.(n.type);
+    if (c?.trigger) return { ok: false, raison: `« ${nom} » est un déclencheur : seul, il ne fait rien (il transmet ce qui fait partir l'automatisation, et le moteur inventerait un élément vide). Lance « Tester » pour le voir passer.` };
+    if (n.disabled) return { ok: false, raison: `« ${nom} » est désactivé : seul, il ne ferait rien (le moteur laisse passer ses données telles quelles). Réactive-le d'abord.` };
+    if ((c?.inputs ?? []).length > 1) return { ok: false, raison: `« ${nom} » attend plusieurs branches (${c.inputs.join(', ')}) : seul, on ne saurait pas laquelle est laquelle. Lance « Tester jusqu'ici ».` };
+    const parents = [];
+    for (const [de, sorties] of Object.entries(wf.connections ?? {})) (sorties ?? []).forEach((t, i) => { if ((t ?? []).some((l) => l?.node === nom) && de !== nom) parents.push({ de, out: i }); });
+    if (!parents.length) return { ok: false, raison: `Aucun bloc n'est relié avant « ${nom} » : il n'a pas de données d'entrée. Relie-le à un bloc, puis lance « Tester jusqu'ici ».` };
+    const items = []; let tronque = false;
+    for (const { de, out } of parents) {
+      const r = last?.nodes?.[de];
+      if (!r) return { ok: false, tester: parents.length === 1 ? de : undefined, raison: `« ${de} » n'a pas encore de données connues : « ${nom} » n'a rien à recevoir. Lance d'abord « Tester jusqu'ici » sur « ${de} » (ce bloc-ci ne tournera pas).` };
+      if (r.error) return { ok: false, raison: `Au dernier passage, « ${de} » a échoué : il n'a rien donné à « ${nom} ». Corrige-le, puis lance « Tester jusqu'ici ».` };
+      const vus = Array.isArray(r.items) ? r.items : [], o = Array.isArray(r.outputs) ? r.outputs : [];
+      let part;
+      if (o.length <= 1) part = vus;
+      else if (o.reduce((s, x) => s + x, 0) === r.count) { const d = o.slice(0, out).reduce((s, x) => s + x, 0); part = vus.slice(d, d + (o[out] ?? 0)); }
+      else return { ok: false, raison: `On ne sait pas quelles données de « ${de} » sont allées vers « ${nom} » au dernier passage (il a tourné plusieurs fois). Lance « Tester jusqu'ici ».` };
+      if ((o.length <= 1 ? r.count : o[out] ?? 0) > part.length) tronque = true;
+      items.push(...part);
+    }
+    if (!items.length) return { ok: false, raison: `Au dernier passage, aucun élément n'est arrivé à « ${nom} » par ses liens : il n'aurait pas tourné.` };
+    const pinned = {};
+    for (const b of blocsAvant(wf, nom)) { const r = last?.nodes?.[b]; if (r && !r.error && Array.isArray(r.items)) pinned[b] = r.items; }
+    return { ok: true, items: items.map((j) => ({ json: j && typeof j === 'object' ? j : {} })), pinned, tronque };
+  }
   const APPUI_LONG = 500; // ms : au doigt, l'appui long ouvre le menu d'un bloc
   // ---------------- Les données des blocs d'avant (fonctions pures). La pastille n'est qu'une autre façon d'écrire et de
   // montrer l'expression d'aujourd'hui, {{ $node["Bloc"].json.chemin }} : c'est elle, telle quelle, qui est enregistrée.
@@ -485,9 +553,14 @@
 .dr-renom[aria-invalid=true]{border-color:var(--bad)}.dr-renom-e{display:block;padding:4px 8px;border-radius:8px;background:var(--panel);border:1px solid var(--bad);color:var(--bad);font-size:12px;line-height:1.35;white-space:normal}.dr-renom-e[hidden]{display:none}
 .dr-note-ed label{font-size:13.5px;font-weight:600}.dr-note-ed textarea{box-sizing:border-box;width:100%;min-height:130px;padding:10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);color:var(--ink);font:inherit;font-size:14.5px;resize:vertical}
 .dr-note-ed .dr-row .btn{min-height:44px}
+.dr-seul{position:absolute;left:-11px;top:-11px;min-width:22px;height:22px;box-sizing:border-box;padding:0 6px;border-radius:11px;background:var(--good);color:var(--panel);font-size:12px;font-weight:700;line-height:22px;text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--panel);transform-origin:100% 100%;transform:scale(var(--dr-ik,1))}.dr-seul.bad{background:var(--bad)}
 @media (prefers-reduced-motion:reduce){.dr-node.dr-source,.dr-choix,.dr-fil-menu{animation:none}.dr-plus span,.dr-mb span{transition:none}}
 `;
   let st = null, wf = null, outs = {}, sel = null, armed = null, last = null, view = { x: 40, y: 40, k: 1 }, dirty = false;
+  // enregistree : la copie de l'automatisation telle qu'enregistrée (ce que le serveur fait tourner) ; seuls : les blocs
+  // exécutés seuls depuis le dernier « Tester » (marqués d'un rond).
+  let enregistree = null, seuls = new Set();
+  const copie = (x) => (x ? JSON.parse(JSON.stringify(x)) : null);
   const cat = (t) => st?.catalog.find((c) => c.type === t);
   let elems = new Map();
 
@@ -541,11 +614,28 @@
     btn.disabled = false;
     if (r.ok) dit(r.resultat?.ok !== false, r.resultat?.texte, r.resultat?.ms); else dit(false, r.error);
   }
-  function newFlow() { wf = { id: '', name: 'Nouvelle automatisation', active: false, nodes: [{ name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] }], connections: {} }; outs = {}; last = null; renommes = new Map(); retires = new Set(); dirty = true; editor(); }
+  function newFlow() { wf = { id: '', name: 'Nouvelle automatisation', active: false, nodes: [{ name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] }], connections: {} }; outs = {}; last = null; enregistree = null; seuls = new Set(); renommes = new Map(); retires = new Set(); dirty = true; editor(); }
+  /**
+   * Le dernier passage à la réouverture. L'historique (`runs`, le plus récent d'abord) garde aussi les blocs exécutés
+   * seuls (leur exécution part d'un bloc qui n'est pas un déclencheur) : le dernier passage est le dernier lancé depuis
+   * un déclencheur, et par-dessus, ce qu'ont rendu les blocs exécutés seuls depuis (marqués d'un rond), comme avant de
+   * fermer. → { last, seuls }.
+   */
+  function dernierPassage(runs, flow, catDe) {
+    const seulDe = (x) => { const n = x?.trigger ? flow?.nodes?.find((m) => m.name === x.trigger) : null; return n && !catDe(n.type)?.trigger ? n.name : null; };
+    const liste = Array.isArray(runs) ? runs : [];
+    const i = liste.findIndex((x) => !seulDe(x));
+    const base = i >= 0 ? liste[i] : null, seuls = new Set(), nodes = { ...(base?.nodes ?? {}) };
+    for (const x of (i >= 0 ? liste.slice(0, i) : liste).reverse()) { // du plus ancien au plus récent
+      const nom = seulDe(x);
+      nodes[nom] = x.nodes?.[nom] ?? { count: 0, items: [], error: x.error || 'il n\'a pas tourné' }; seuls.add(nom);
+    }
+    return { last: base || seuls.size ? { ...(base ?? {}), nodes } : null, seuls };
+  }
   async function openFlow(id) {
     const r = await api(`/api/draupnir/flow?id=${encodeURIComponent(id)}`); if (!r.ok) { await window.OdinDialog.alert(r.error); return; }
     if (!st) st = await api('/api/draupnir/state');
-    wf = r.flow; outs = r.outputs; last = r.runs[0] ?? null; renommes = new Map(); retires = new Set(); sel = null; dirty = false; editor(r);
+    wf = r.flow; outs = r.outputs; ({ last, seuls } = dernierPassage(r.runs, wf, cat)); enregistree = copie(r.flow); renommes = new Map(); retires = new Set(); sel = null; dirty = false; editor(r);
   }
   /**
    * Une automatisation que le serveur vient de créer (« Créer avec Odin », un modèle, un import) : elle est déjà enregistrée,
@@ -568,7 +658,7 @@
   const outputsOf = (n) => outs[n.name] ?? cat(n.type)?.outputs ?? ['sortie'];
   function editor(r) {
     const box = $('#v-flows .body');
-    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes ; relie-les en tirant un fil d\'une sortie (rond à droite) jusqu\'à une étape, ou en touchant la sortie puis l\'entrée (rond à gauche). Touche un fil pour le retirer ou y ajouter un bloc. Clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc. Clic droit, appui long ou « ⋯ » sur une étape : la renommer, y mettre une note, la retirer (double-clic sur son nom : la renommer).';
+    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes ; relie-les en tirant un fil d\'une sortie (rond à droite) jusqu\'à une étape, ou en touchant la sortie puis l\'entrée (rond à gauche). Touche un fil pour le retirer ou y ajouter un bloc. Clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc. Clic droit, appui long ou « ⋯ » sur une étape : l\'exécuter seule, la renommer, y mettre une note, la retirer (double-clic sur son nom : la renommer).';
     const canvas = el('div', { class: 'dr-canvas', id: 'drCanvas', role: 'application', 'aria-label': 'Schéma de l\'automatisation' });
     const svg = sv('svg'); const world = el('div', { class: 'dr-world' }); canvas.append(svg, world);
     const side = el('aside', { class: 'dr-side', id: 'drSide', 'aria-label': 'Réglages' });
@@ -598,9 +688,12 @@
       : [el('small', {}, c?.group ?? '?', ' · ', c?.label ?? n.type), el('b', { class: 'dr-nom' }, n.name)];
     // La note : une petite marque sur le bloc ; son texte décrit le bloc (lecteur d'écran) et se lit dans une bulle (bulle()).
     const aNote = typeof n.note === 'string' && n.note !== '', idNote = aNote ? `drnote-${wf.nodes.indexOf(n)}` : undefined;
-    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`, 'aria-describedby': idNote, style: `left:${n.position?.[0] ?? 0}px;top:${n.position?.[1] ?? 0}px` },
+    // Exécuté seul : un rond avec le nombre d'éléments rendus (« ! » en cas d'erreur), dit aussi au lecteur d'écran.
+    const seul = run && seuls.has(n.name) ? (run.error ? `exécuté seul : erreur, ${run.error}` : `exécuté seul : ${run.count} élément(s)`) : '';
+    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': `${ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`}${seul ? `, ${seul}` : ''}`, 'aria-describedby': idNote, style: `left:${n.position?.[0] ?? 0}px;top:${n.position?.[1] ?? 0}px` },
       ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null,
-      aNote ? el('span', { class: 'dr-note-m', 'aria-hidden': 'true' }) : null, aNote ? el('span', { class: 'sr', id: idNote }, `Note : ${n.note}`) : null);
+      aNote ? el('span', { class: 'dr-note-m', 'aria-hidden': 'true' }) : null, aNote ? el('span', { class: 'sr', id: idNote }, `Note : ${n.note}`) : null,
+      seul ? el('span', { class: `dr-seul${run.error ? ' bad' : ''}`, title: `${n.name} : ${seul}`, 'aria-hidden': 'true' }, run.error ? '!' : String(run.count)) : null);
     // Le bouton « ⋯ » : le menu du bloc. Zone de 44 px à l'écran (comme les ronds), au milieu du bord haut, loin des ronds, et au-dessus du bloc : même dézoomé, le corps du bloc reste à toucher (choisir, glisser).
     // Un toucher dessus ouvre le menu (pointerup plus bas) ; un geste parti de lui fait glisser le bloc, comme partout sur le bloc.
     const mb = el('button', { class: 'dr-mb', type: 'button', title: 'Menu du bloc', 'aria-haspopup': 'menu', 'aria-label': `Menu de ${n.name}`, onclick: (e) => {
@@ -628,7 +721,7 @@
       e.stopPropagation(); d.setPointerCapture(e.pointerId); start = { x: e.clientX, y: e.clientY, p: [...(n.position ?? [0, 0])], moved: false, nom: Boolean(e.target.closest('.dr-nom')), menu: Boolean(e.target.closest('.dr-mb')) };
       // Au doigt : un appui long (sans bouger) ouvre le menu du bloc, au lieu de le choisir.
       finLong();
-      if (e.pointerType === 'touch' || e.pointerType === 'pen') long = setTimeout(() => { long = 0; if (!start || start.moved) return; start = null; const r = $('#drCanvas')?.getBoundingClientRect?.() ?? { left: 0, top: 0 }; menuBloc(n.name, [e.clientX - r.left, e.clientY - r.top]); }, APPUI_LONG);
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') long = setTimeout(() => { long = 0; if (!start || start.moved) return; start = null; const r = $('#drCanvas')?.getBoundingClientRect?.() ?? { left: 0, top: 0 }; menuBloc(n.name, [e.clientX - r.left, e.clientY - r.top], true); }, APPUI_LONG);
     });
     d.addEventListener('pointermove', (e) => { if (!start) return; const dx = (e.clientX - start.x) / view.k, dy = (e.clientY - start.y) / view.k; if (Math.abs(dx) + Math.abs(dy) > 3) { start.moved = true; finLong(); } n.position = [Math.round(start.p[0] + dx), Math.round(start.p[1] + dy)]; d.style.left = `${n.position[0]}px`; d.style.top = `${n.position[1]}px`; lines(); });
     // Un toucher parti d'un rond ou du « + » n'est pas un clic sur le bloc : on ne redessine pas (le bouton doit recevoir son clic).
@@ -730,27 +823,36 @@
       ['Ajouter un bloc ici', () => void ouvrirChoix({ milieu: fil })]] });
   }
   /**
-   * Le menu d'un bloc (clic droit, appui long, « ⋯ », touche Menu) : Renommer, Ajouter / Modifier la note, Retirer.
+   * Le menu d'un bloc (clic droit, appui long, « ⋯ », touche Menu) : Exécuter ce bloc seul, Renommer, Ajouter / Modifier la note, Retirer.
    * Même dessin et mêmes gestes que celui d'un fil ; Échap rend le focus au bloc.
    */
-  function menuBloc(nom, point) {
+  function menuBloc(nom, point, auDoigt = false) {
     const n = wf?.nodes.find((x) => x.name === nom); if (!n) return;
-    menuDe({ label: `Bloc ${nom}`, point, bloc: nom, retour: () => elems.get(nom), choix: [
+    menuDe({ label: `Bloc ${nom}`, point, bloc: nom, auDoigt, retour: () => elems.get(nom), choix: [
+      ['Exécuter ce bloc seul', () => void executerSeul(nom)],
       ['Renommer', () => commencerRenommer(nom)],
       [typeof n.note === 'string' && n.note !== '' ? 'Modifier la note' : 'Ajouter une note', () => ouvrirNote(nom)],
       ['Retirer', () => removeNode(nom)]] });
   }
   /** Le point (dans la fenêtre du schéma) sous le « ⋯ » d'un bloc : où s'ouvre son menu au clavier. */
   const coinBloc = (n) => [((n.position?.[0] ?? 0) + NODE_W - 70) * view.k + view.x, ((n.position?.[1] ?? 0) + 22) * view.k + view.y];
-  function menuDe({ label, point: [x, y], zone, retour, choix: items, bloc }) {
+  function menuDe({ label, point: [x, y], zone, retour, choix: items, bloc, auDoigt = false }) {
     fermerMenu();
     const canvas = $('#drCanvas'); if (!canvas) return;
     const r = canvas.getBoundingClientRect();
-    const gauche = r.width ? Math.max(8, Math.min(x, r.width - 216)) : x, haut = r.height ? Math.max(8, Math.min(y, r.height - 20 - 46 * items.length)) : y;
-    const action = (f) => () => { fermerMenu(true); f(); };
+    // Le bas : celui du schéma, ou plus haut s'il passe sous la barre du bas de l'écran (téléphone) ; rien ne défile
+    // (au doigt, faire défiler pendant l'appui long amènerait un choix sous le doigt levé).
+    const nav = document.querySelector('.bnav')?.getBoundingClientRect?.(), vue = typeof window.innerHeight === 'number' ? Math.min(window.innerHeight, nav?.height ? nav.top : window.innerHeight) - r.top : Infinity;
+    const gauche = r.width ? Math.max(8, Math.min(x, r.width - 216)) : x, haut = r.height ? Math.max(8, Math.min(y, Math.min(r.height, vue) - 20 - 46 * items.length)) : y;
+    // Menu ouvert par l'appui long : un clic de pointeur ne compte que s'il a commencé sur le menu ouvert ; le doigt levé
+    // après l'appui long ne choisit rien, même s'il tombe sur un choix. Le clavier (detail 0) choisit. Ouvert autrement
+    // (souris, clavier, « ⋯ », un fil), tout clic compte : un clic simulé sans appui (aide technique) choisit aussi.
+    let appuiDedans = !auDoigt;
+    const action = (f) => (e) => { if (e?.detail && !appuiDedans) return; fermerMenu(true); f(); };
     const boite = el('div', { class: 'dr-fil-menu', role: 'menu', 'aria-label': label, style: `left:${Math.round(gauche)}px;top:${Math.round(haut)}px` },
       ...items.map(([t, f]) => el('button', { type: 'button', role: 'menuitem', onclick: action(f) }, t)));
     boite.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermerMenu(true); } });
+    boite.addEventListener('pointerdown', () => { appuiDedans = true; });
     // (la touche Menu, ou un clic droit, sur le menu lui-même : pas de menu du navigateur par-dessus)
     boite.addEventListener('contextmenu', (e) => e.preventDefault());
     // Sortir du menu par Tab le referme. (Un focus perdu sans destination — un clic sur un choix, selon le navigateur — ne le ferme pas.)
@@ -762,7 +864,7 @@
     zone?.classList.add('on');
     canvas.append(boite);
     document.addEventListener('pointerdown', dehors, true);
-    boite.querySelector('button')?.focus?.();
+    boite.querySelector('button')?.focus?.({ preventScroll: true });
   }
   // ---------------- Renommer sur place, la note d'un bloc et sa bulle.
   let tapNom = null, survol = null; // (le dernier toucher sur le nom d'un bloc ; le bloc survolé ou qui a le focus)
@@ -1328,7 +1430,7 @@
     const neuve = !wf.id;
     const r = await api('/api/draupnir/save', { flow: wf });
     if (!r.ok) { await window.OdinDialog.alert(r.error); return false; }
-    wf = r.flow; dirty = false;
+    wf = r.flow; dirty = false; enregistree = copie(r.flow);
     // Elle vient d'être créée : le choix « Dossier » rejoint la barre tout de suite (sinon seulement à la réouverture).
     if (neuve && wf.id && window.OdinTalosDossiers && !$('#v-flows .dr-bar .td-barre')) $('#drName')?.insertAdjacentElement('afterend', window.OdinTalosDossiers.barre(wf, () => wf)); const s = $('#drSt'); if (s) s.textContent = '✓ Enregistré.'; return true;
   }
@@ -1337,13 +1439,45 @@
     const s = $('#drSt'); if (s) s.textContent = 'Test en cours…';
     const r = await api('/api/draupnir/run', { id: wf.id, stopAfter });
     if (!r.ok) { if (s) s.textContent = `✗ ${r.error}`; return; }
-    last = r.run; if (s) s.textContent = `${r.run.status === 'succès' ? '✓' : '✗'} ${r.run.status} en ${r.run.ms} ms${r.run.error ? ` : ${r.run.error}` : ''}`;
+    last = r.run; seuls = new Set(); if (s) s.textContent = `${r.run.status === 'succès' ? '✓' : '✗'} ${r.run.status} en ${r.run.ms} ms${r.run.error ? ` : ${r.run.error}` : ''}`;
     draw(); drawSide();
+  }
+  /**
+   * « Exécuter ce bloc seul » (menu d'un bloc) : le bloc tourne SEUL, au serveur, avec les données vues au dernier passage
+   * des blocs d'avant ; les suivants ne tournent pas ; rien n'est enregistré ni activé. Ce qui tourne est l'automatisation
+   * enregistrée : changée depuis (autre chose que la place des blocs ou une note), il ne part pas. Un bloc qui agit
+   * demande une confirmation à chaque fois, qui dit ce qu'il va faire. Ses données rejoignent celles du dernier passage
+   * (« Données » des blocs suivants) ; une erreur se montre sur lui.
+   */
+  async function executerSeul(nom) {
+    const D = window.OdinDialog, titre = 'Exécuter ce bloc seul';
+    if (!wf?.id || !enregistree) { await D.alert('Cette automatisation n\'est pas encore enregistrée : rien ne peut tourner. Enregistre-la d\'abord.', { titre }); return; }
+    if (!pareilQuEnregistre(wf, enregistree)) { await D.alert('Ce qui tourne est l\'automatisation enregistrée, et elle a changé depuis : ce bloc ne tournerait pas comme tu le vois. Enregistre d\'abord (« Enregistrer »), puis exécute-le seul.', { titre }); return; }
+    const n = wf.nodes.find((x) => x.name === nom); if (!n) return;
+    const e = entreeSeul(wf, nom, last, cat);
+    if (!e.ok) {
+      if (e.tester) { if (await D.confirm(`${e.raison}\n\nLancer « Tester jusqu'ici » sur « ${e.tester} » maintenant ?`, { titre, ok: 'Tester jusqu\'ici' })) await test(e.tester); }
+      else await D.alert(e.raison, { titre });
+      return;
+    }
+    const agit = ceQuAgit(n, Boolean(cat(n.type)));
+    // Le réglage « relancer en cas d'échec » de l'automatisation enregistrée vaut aussi ici (moteur : 5 fois de plus au plus).
+    const relances = Math.max(0, Math.min(5, Math.ceil(Number(enregistree.settings?.retry ?? 0)) || 0));
+    if (agit && !(await D.confirm(`« ${nom} » agit : il ${agit}.${relances ? `\n\nS'il échoue, il sera relancé jusqu'à ${relances} fois de plus (réglage de l'automatisation), sans nouvelle question : il peut donc agir plusieurs fois.` : ''}\n\nIl recevra les données vues au dernier passage des blocs d'avant${e.tronque ? ' (les 20 premiers éléments vus)' : ''} ; les blocs suivants ne tourneront pas. L'automatisation n'est ni enregistrée ni activée.`, { titre, ok: 'Exécuter', danger: true }))) { dire(`Rien n'a été exécuté : « ${nom} » n'a pas tourné.`); elems.get(nom)?.focus?.(); return; }
+    dire(`« ${nom} » tourne seul…`);
+    const w = wf, r = await api('/api/draupnir/run', { id: wf.id, start: nom, stopAfter: nom, items: e.items, pinned: e.pinned }).catch((x) => ({ ok: false, error: x.message }));
+    if (wf !== w) return; // (une autre automatisation a été ouverte entre-temps)
+    if (!r.ok) { dire(`✗ « ${nom} » n'a pas tourné : ${r.error}`); return; }
+    const run = r.run?.nodes?.[nom] ?? { count: 0, items: [], error: r.run?.error || 'il n\'a pas tourné' };
+    last = { ...(last ?? {}), nodes: { ...(last?.nodes ?? {}), [nom]: run } }; seuls.add(nom);
+    dire(run.error ? `✗ « ${nom} » exécuté seul : erreur : ${run.error}` : `✓ « ${nom} » exécuté seul : ${run.count} élément(s)${e.tronque ? ' (à partir des 20 premiers éléments vus)' : ''}. Ses données sont disponibles pour les blocs suivants ; les blocs suivants n'ont pas tourné ; l'automatisation n'est ni enregistrée ni activée.`);
+    draw(); drawSide(); elems.get(nom)?.focus?.();
   }
   function init() { document.head.append(el('style', {}, css)); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; fermerChoix(); },
     logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
       appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie,
-      decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote, renommerDans, suivreRenommage } };
+      decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote, renommerDans, suivreRenommage,
+      entreeSeul, ceQuAgit, pareilQuEnregistre, dernierPassage, AGIT_TYPES: Object.keys(AGIT) } };
 })();

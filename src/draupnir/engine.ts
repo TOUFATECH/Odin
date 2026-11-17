@@ -139,6 +139,10 @@ export async function execute(wf: Workflow, catalog: Map<string, NodeDef>, deps:
   const queue: Array<{ node: FlowNode; items: Item[]; input: number; inputs?: Item[][] }> = [{ node: first, items: start.items?.length ? start.items : [{ json: {} }], input: 0 }];
   let steps = 0;
   const byName = new Map(wf.nodes.map((n) => [n.name, n]));
+  // Départ à un bloc du milieu (« exécuter ce bloc seul ») : les données imposées des autres blocs, qui ne tournent pas,
+  // se lisent par {{ $node["Bloc"]… }} comme s'ils venaient de passer (sans compter dans l'exécution).
+  // (Seulement quand le bloc de départ est aussi le dernier : sinon un bloc fourni qui tourne ensuite compterait deux fois.)
+  if (start.node && start.stopAfter === first.name) for (const [k, v] of Object.entries(start.pinned ?? {})) if (k !== first.name && byName.has(k) && Array.isArray(v)) outputsSeen[k] = v.filter((j) => j && typeof j === 'object').map((j) => ({ json: { ...j } }));
   // Nœuds à plusieurs entrées : on garde ce qui arrive jusqu'à ce qu'aucune branche en cours ne puisse encore les atteindre.
   const waiting = new Map<string, Item[][]>();
   const reach = (from: string, to: string, seen = new Set<string>()): boolean => { if (from === to) return true; if (seen.has(from)) return false; seen.add(from); return (wf.connections[from] ?? []).some((o) => (o ?? []).some((l) => reach(l.node, to, seen))); };
