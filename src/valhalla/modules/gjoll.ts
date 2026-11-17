@@ -414,7 +414,7 @@ export const gjoll: Module = {
     if (late.length) {
       ctx.saveSettings({ peers: peers(ctx).map((p) => (late.some((x) => x.name === p.name) ? { ...p, enabled: false } : p)) });
       await apply(ctx);
-      for (const p of late) ctx.alert({ level: 'info', title: `Accès VPN de « ${p.name} » terminé`, detail: `Fin prévue le ${p.expires}. Pour le rouvrir : Modifier → nouvelle date de fin.`, key: `vpn-fin-${p.name}` });
+      for (const p of late) ctx.alert({ level: 'info', title: `Accès VPN de « ${p.name} » terminé`, detail: `Fin prévue le ${p.expires}. Pour le rouvrir : Modifier → nouvelle date de fin.`, key: `vpn-fin-${p.name}`, lien: 'gjoll-alerte-fin-acces' });
     }
     if (!dev) return;
     const d = live(), was = (ctx.settings.online as string[] | undefined) ?? [], now: string[] = [];

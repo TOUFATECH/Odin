@@ -48,6 +48,9 @@ export const ALERTES_BRANCHEES: ReadonlySet<string> = new Set([
   'svalinn-alerte-wifi', 'skuld-alerte-sauvegarde-base', 'vidarr-alerte-site-dangereux', 'vidarr-alerte-inondation-dns',
   'vidarr-alerte-dns-amont', 'vidarr-alerte-appareil-inconnu', 'mimisbrunnr-alerte-message-repete', 'gna-alerte-historique',
   'vordr-alerte-sonde',
+  // Troisième lot.
+  'askr-alerte-garantie', 'valgrind-alerte-service', 'var-alerte-compte-verrouille', 'bru-alerte-tunnel',
+  'thjalfi-alerte-installation', 'skidbladnir-alerte-fichiers', 'gjoll-alerte-fin-acces',
 ]);
 export const LINKS: Link[] = [
   { from: 'loki', to: 'garmr', when: 'un pirate tape un mot de passe ou une commande dans un piège', does: 'son adresse est bannie de tes vrais services', auto: true, kind: 'réflexe', protege: { genre: 'sécurité', raison: 'bannit l\'adresse d\'un pirate pris dans un piège' }, id: 'loki-garmr-bannir-pirate', coupure: { par: 'appel' } },

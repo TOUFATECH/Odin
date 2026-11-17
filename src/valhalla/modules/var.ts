@@ -116,7 +116,7 @@ ${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}<button type="submit"
     const fail = (why: string, msg = 'Identifiant ou mot de passe incorrect.') => {
       tries.set(ip, [...t, now]); log(ctx, { t: now, login: login.slice(0, 32), ip, ok: false, why });
       if (p) { const n = p.fails + 1, lock = n >= 5 ? now + 15 * 60_000 : p.lockedUntil; savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? { ...x, fails: n, lockedUntil: lock } : x)));
-        if (n === 5) { ctx.alert({ level: 'haute', title: `Compte « ${p.login} » verrouillé 15 minutes`, detail: `5 mauvais essais, le dernier depuis ${ip}. Si ce n'est pas cette personne, quelqu'un essaie de deviner son mot de passe.`, key: `var-verrou-${p.id}-${Math.floor(now / 900_000)}` }); ctx.emit('verrouillage', { login: p.login, ip }); void ctx.call('garmr', 'bannir', { ip, raison: `5 mauvais mots de passe sur le compte ${p.login} (Persona)`, minutes: 60 }, 'trop d\'essais de mot de passe').catch(() => undefined); } }
+        if (n === 5) { ctx.alert({ level: 'haute', title: `Compte « ${p.login} » verrouillé 15 minutes`, detail: `5 mauvais essais, le dernier depuis ${ip}. Si ce n'est pas cette personne, quelqu'un essaie de deviner son mot de passe.`, key: `var-verrou-${p.id}-${Math.floor(now / 900_000)}`, lien: 'var-alerte-compte-verrouille' }); ctx.emit('verrouillage', { login: p.login, ip }); void ctx.call('garmr', 'bannir', { ip, raison: `5 mauvais mots de passe sur le compte ${p.login} (Persona)`, minutes: 60 }, 'trop d\'essais de mot de passe').catch(() => undefined); } }
       ctx.emit('connexion_refusee', { login: login.slice(0, 32), ip, essais: t.length + 1 });
       r.writeHead(401, headers); r.end(form(msg, 'mdp', login));
     };

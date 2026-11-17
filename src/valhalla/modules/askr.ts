@@ -269,9 +269,9 @@ export function askr(o: { seen?: () => Seen[] } = {}): Module {
       try { await sync(ctx); } catch { /* registre indisponible : au prochain tour */ }
       const on = today(ctx); if (ctx.settings.checkedOn === on) return;
       const dd = due(assets(ctx), on);
-      for (const { a, left } of dd.warranty) ctx.alert({ level: left <= 7 ? 'haute' : 'moyenne', title: left < 0 ? `Garantie de ${a.name} finie depuis ${-left} jour(s)` : `Garantie de ${a.name} : plus que ${left} jour(s)`, detail: `${a.tag}${a.model ? ` · ${a.model}` : ''}${a.serial ? ` · S/N ${a.serial}` : ''}. Si l'appareil a un défaut, c'est le moment de le faire réparer.`, key: `askr-garantie-${a.id}` });
-      for (const { a, late } of dd.late) ctx.alert({ level: 'moyenne', title: `${a.name} n'est pas rendu (${late} jour(s) de retard)`, detail: `Prêté à ${a.loan!.to} le ${a.loan!.since}, retour prévu le ${a.loan!.due}.`, key: `askr-pret-${a.id}` });
-      for (const l of licences(ctx)) if (l.expires) { const left = days(on, l.expires); if (left <= 30 && left >= -7) ctx.alert({ level: 'moyenne', title: `Licence ${l.name} : ${left < 0 ? `expirée depuis ${-left} jour(s)` : `expire dans ${left} jour(s)`}`, key: `askr-licence-${l.id}` }); }
+      for (const { a, left } of dd.warranty) ctx.alert({ level: left <= 7 ? 'haute' : 'moyenne', title: left < 0 ? `Garantie de ${a.name} finie depuis ${-left} jour(s)` : `Garantie de ${a.name} : plus que ${left} jour(s)`, detail: `${a.tag}${a.model ? ` · ${a.model}` : ''}${a.serial ? ` · S/N ${a.serial}` : ''}. Si l'appareil a un défaut, c'est le moment de le faire réparer.`, key: `askr-garantie-${a.id}`, lien: 'askr-alerte-garantie' });
+      for (const { a, late } of dd.late) ctx.alert({ level: 'moyenne', title: `${a.name} n'est pas rendu (${late} jour(s) de retard)`, detail: `Prêté à ${a.loan!.to} le ${a.loan!.since}, retour prévu le ${a.loan!.due}.`, key: `askr-pret-${a.id}`, lien: 'askr-alerte-garantie' });
+      for (const l of licences(ctx)) if (l.expires) { const left = days(on, l.expires); if (left <= 30 && left >= -7) ctx.alert({ level: 'moyenne', title: `Licence ${l.name} : ${left < 0 ? `expirée depuis ${-left} jour(s)` : `expire dans ${left} jour(s)`}`, key: `askr-licence-${l.id}`, lien: 'askr-alerte-garantie' }); }
       ctx.saveSettings({ checkedOn: on });
     } },
   };

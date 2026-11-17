@@ -77,7 +77,7 @@ export async function verifierPersonne(ctx: ModCtx, d: DepsSSO, ident: string, m
     if (p && !p.proprio) {
       const n = p.fails + 1, lock = n >= 5 ? now + 15 * 60_000 : p.lockedUntil, id = p.id;
       ctx.saveSettings({ people: personnes(ctx).map((x) => (x.id === id ? { ...x, fails: n, lockedUntil: lock } : x)) });
-      if (n === 5) { ctx.alert({ level: 'haute', title: `Compte « ${p.login} » verrouillé 15 minutes`, detail: `5 mauvais essais (${quoi}), le dernier depuis ${d.ip}. Si ce n'est pas cette personne, quelqu'un essaie de deviner son mot de passe.`, key: `var-verrou-${p.id}-${Math.floor(now / 900_000)}` }); void ctx.call('garmr', 'bannir', { ip: d.ip, raison: `5 mauvais mots de passe sur le compte ${p.login} (connexion unique)`, minutes: 60 }, 'trop d\'essais de mot de passe').catch(() => undefined); }
+      if (n === 5) { ctx.alert({ level: 'haute', title: `Compte « ${p.login} » verrouillé 15 minutes`, detail: `5 mauvais essais (${quoi}), le dernier depuis ${d.ip}. Si ce n'est pas cette personne, quelqu'un essaie de deviner son mot de passe.`, key: `var-verrou-${p.id}-${Math.floor(now / 900_000)}`, lien: 'var-alerte-compte-verrouille' }); void ctx.call('garmr', 'bannir', { ip: d.ip, raison: `5 mauvais mots de passe sur le compte ${p.login} (connexion unique)`, minutes: 60 }, 'trop d\'essais de mot de passe').catch(() => undefined); }
     }
     return { ok: false, status: 401, code: codeErr, message: msg };
   };

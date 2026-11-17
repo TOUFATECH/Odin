@@ -201,7 +201,8 @@ export function suivi(d: SuiviDeps) {
   const t = (ctx: ModCtx) => { const n = ctx.now().getTime(); depart ??= n; return n; };
   /** les notifications regroupées (lots.ts) */
   let dernierCtx: ModCtx | undefined;
-  const lots = new Lots((a) => { dernierCtx?.alert(a); });
+  // Tout ce qui passe ici (début, fin, échec, abandon, poste inconnu, et leurs lots) relève du lien écrit de Genèse.
+  const lots = new Lots((a) => { dernierCtx?.alert({ ...a, lien: 'thjalfi-alerte-installation' }); });
   const prevenir = (ctx: ModCtx, genre: Genre, nom: string, a: AlertIn) => { dernierCtx = ctx; lots.dire(genre, nom, a, t(ctx)); };
   /** « postes non autorisés seulement » : l'adresse IP d'où chaque poste autorisé passe sans mot de passe (une seule, 12 h) */
   const exemptes = new Map<string, { ip: string; at: number }>();
@@ -531,7 +532,7 @@ export function suivi(d: SuiviDeps) {
     // Son adresse IP est gardée : sans adresse MAC (ou avec une autre, jamais vue), il reste refusé.
     adresseBloquee(ctx, mac, [from], now);
     if (now - (refusNote.get(mac) ?? 0) > 600_000) { if (refusNote.size > 500) refusNote.clear(); refusNote.set(mac, now); noter(ctx, { quoi: 'refus', mac, nom: nomDe(ctx, mac, m), detail: `poste bloqué, adresse ${from}` }); }
-    ctx.alert({ level: 'moyenne', title: `🚫 Poste bloqué : ${titre(ctx, mac, m)} a retenté de démarrer par le réseau`, detail: `Poste ${mac} · adresse ${from}. Il n'a reçu ni menu ni fichier : il démarre sur son disque.${bloques(ctx)[mac]?.raison ? ` Raison du blocage : ${bloques(ctx)[mac].raison}.` : ''}`, key: `thjalfi-bloque-${mac}`, data: { mac }, fix: { action: 'debloquer', label: 'Débloquer ce poste', input: { mac } } });
+    ctx.alert({ level: 'moyenne', title: `🚫 Poste bloqué : ${titre(ctx, mac, m)} a retenté de démarrer par le réseau`, detail: `Poste ${mac} · adresse ${from}. Il n'a reçu ni menu ni fichier : il démarre sur son disque.${bloques(ctx)[mac]?.raison ? ` Raison du blocage : ${bloques(ctx)[mac].raison}.` : ''}`, key: `thjalfi-bloque-${mac}`, data: { mac }, fix: { action: 'debloquer', label: 'Débloquer ce poste', input: { mac } }, lien: 'thjalfi-alerte-installation' });
   }
   /** Avant le menu : rien (le menu normal part), ou le script à envoyer à la place (refus, ou menu fermé par le mot de passe). */
   function garde(ctx: ModCtx, mac: string, _fw: string, from: string): string | undefined {

@@ -309,14 +309,14 @@ export const valgrind: Module = {
     const b = await ctx.call('garmr', 'bannis', {}).catch(() => undefined); if (Array.isArray(b?.data)) banned = new Set((b.data as Array<{ ip: string }>).map((x) => x.ip));
     if (ctx.settings.on === true && !srv) { try { await startProxy(ctx); } catch { /* alerte déjà donnée */ } }
     const now = Date.now(), recent = ring.filter((e) => now - e.t < 600_000);
-    for (const h of hosts(ctx)) { const l = recent.filter((e) => h.domains.includes(e.host) && !e.why?.includes('mot de passe')), bad = l.filter((e) => e.status >= 502 && e.status <= 504).length; if (l.length >= 10 && bad / l.length > 0.5) ctx.alert({ level: 'haute', title: `Le service derrière ${h.domains[0]} ne répond plus`, detail: `${bad} erreurs sur ${l.length} requêtes en 10 minutes (cible ${h.target}). Vérifie que la machine et le programme tournent.`, key: `valgrind-5xx-${h.id}` }); }
+    for (const h of hosts(ctx)) { const l = recent.filter((e) => h.domains.includes(e.host) && !e.why?.includes('mot de passe')), bad = l.filter((e) => e.status >= 502 && e.status <= 504).length; if (l.length >= 10 && bad / l.length > 0.5) ctx.alert({ level: 'haute', title: `Le service derrière ${h.domains[0]} ne répond plus`, detail: `${bad} erreurs sur ${l.length} requêtes en 10 minutes (cible ${h.target}). Vérifie que la machine et le programme tournent.`, key: `valgrind-5xx-${h.id}`, lien: 'valgrind-alerte-service' }); }
     if (ctx.settings.certsCheckedOn === day(now)) return;
     ctx.saveSettings({ certsCheckedOn: day(now) });
     for (const h of hosts(ctx).filter((x) => x.enabled && x.tls !== 'aucun')) {
       const c = readCert(ctx, h.domains[0]); let left = -1; try { if (c) left = certInfo(c.cert, now).days; } catch { /* illisible : on refait */ }
       if (left >= 30) continue;
       try { if (h.tls === 'auto') selfSigned(ctx, h); else await letsEncrypt(ctx, h); ctx.emit('certificat_renouvele', { site: h.domains[0] }); }
-      catch (e) { ctx.alert({ level: left < 7 ? 'critique' : 'haute', title: `Certificat de ${h.domains[0]} : renouvellement raté`, detail: `${(e as Error).message}. Il reste ${Math.max(0, left)} jour(s) avant que les navigateurs refusent le site.`, key: `valgrind-cert-${h.id}` }); }
+      catch (e) { ctx.alert({ level: left < 7 ? 'critique' : 'haute', title: `Certificat de ${h.domains[0]} : renouvellement raté`, detail: `${(e as Error).message}. Il reste ${Math.max(0, left)} jour(s) avant que les navigateurs refusent le site.`, key: `valgrind-cert-${h.id}`, lien: 'valgrind-alerte-service' }); }
     }
     // Journal détaillé : 14 jours.
     try { const dd = join(ctx.dir, 'journal'), lim = day(now - 14 * 86400_000); for (const f of readdirSync(dd)) if (f.slice(0, 10) < lim) unlinkSync(join(dd, f)); } catch { /* pas de journal */ }

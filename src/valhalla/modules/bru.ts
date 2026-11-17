@@ -237,7 +237,7 @@ export const bru: Module = {
     const t = tunnelOf(ctx); if (!t || ctx.settings.on !== true) return;
     if (!child) { try { launch(ctx, await ensureBinary(ctx)); ctx.emit('tunnel_relance', {}); } catch { /* alerte au tour suivant */ } }
     if (lastStatus && Date.now() - lastStatus.at < 290_000) return;
-    try { const st = await status(ctx, t); if (st.status === 'down' || st.status === 'inactive') ctx.alert({ level: 'haute', title: 'Le tunnel Cloudflare est coupé', detail: `Cloudflare le voit « ${ST[st.status]} » : tes noms publiés ne répondent plus depuis Internet. Odin relance le programme ; vérifie la connexion de la box.`, key: 'bru-coupe', steps: ['Vérifie la box : voyants, Internet de la maison.', 'Si la clé Cloudflare a été supprimée ou a expiré, colle-en une nouvelle dans Réglages → Accès.', 'Relance le tunnel (bouton) ; en attendant, le VPN reste possible si son port est ouvert.'], fix: { action: 'demarrer', label: 'Relancer le tunnel' } }); }
+    try { const st = await status(ctx, t); if (st.status === 'down' || st.status === 'inactive') ctx.alert({ level: 'haute', title: 'Le tunnel Cloudflare est coupé', detail: `Cloudflare le voit « ${ST[st.status]} » : tes noms publiés ne répondent plus depuis Internet. Odin relance le programme ; vérifie la connexion de la box.`, key: 'bru-coupe', steps: ['Vérifie la box : voyants, Internet de la maison.', 'Si la clé Cloudflare a été supprimée ou a expiré, colle-en une nouvelle dans Réglages → Accès.', 'Relance le tunnel (bouton) ; en attendant, le VPN reste possible si son port est ouvert.'], fix: { action: 'demarrer', label: 'Relancer le tunnel' }, lien: 'bru-alerte-tunnel' }); }
     catch { /* API injoignable : on réessaiera */ }
   } },
 };

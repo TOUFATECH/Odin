@@ -1,4 +1,5 @@
-// Couper un lien d'alerte (livraison L2, premier lot : ullr, sindri, eir, naglfar, ymir, hermod). Une alerte porte la
+// Couper un lien d'alerte (livraison L2, premier lot : ullr, sindri, eir, naglfar, ymir, hermod ; deuxième : svalinn,
+// skuld, vidarr, mimisbrunnr, gna, vordr ; troisième : askr, valgrind, var, bru, thjalfi, skidbladnir, gjoll). Une alerte porte la
 // clé de son lien ; au point central (`Valhalla.alert`), si ce lien est coupé, l'alerte est rangée et visible comme
 // d'habitude, mais son message ne part pas sur la messagerie, et elle garde la trace « message non envoyé : lien coupé
 // par toi ». Couper le lien n'arrête pas ce que fait l'appli : seul le message est en jeu. Une alerte sans clé ne
@@ -23,13 +24,16 @@ import { startDraupnir } from '../src/draupnir/odin.ts';
 import { gna } from '../src/valhalla/modules/gna.ts';
 import { tousLesChoix } from '../src/valhalla/gna/historique.ts';
 import { resetVordr, runOne, vordr } from '../src/valhalla/modules/vordr.ts';
+import { askr } from '../src/valhalla/modules/askr.ts';
+import { skidbladnir } from '../src/valhalla/modules/skidbladnir.ts';
+import { suivi } from '../src/valhalla/thjalfi/suivi.ts';
 
 const { LINKS } = liens;
 const BRANCHEES = (liens as { ALERTES_BRANCHEES?: ReadonlySet<string> }).ALERTES_BRANCHEES;
 const VALHALLA = fileURLToPath(new URL('../src/valhalla/', import.meta.url));
 
-// Combien d'appels d'alerte portent la clé, lien par lien (relus à la main : carnets couper-un-lien-l2a et
-// couper-un-lien-l2b). Un appel ajouté ou retiré fait échouer l'essai : il faut le relire.
+// Combien d'appels d'alerte portent la clé, lien par lien (relus à la main : carnets couper-un-lien-l2a,
+// couper-un-lien-l2b et couper-un-lien-l2c). Un appel ajouté ou retiré fait échouer l'essai : il faut le relire.
 const APPELS: Record<string, number> = {
   'ullr-alerte-menace': 5,
   'sindri-alerte-sauvegarde': 2,
@@ -47,17 +51,32 @@ const APPELS: Record<string, number> = {
   'mimisbrunnr-alerte-message-repete': 1,
   'gna-alerte-historique': 1,
   'vordr-alerte-sonde': 3,
+  // Troisième lot (L2c). Genèse : l'envoi commun des notifications regroupées (thjalfi/suivi.ts : début, fin, échec,
+  // abandon, poste inconnu) et le poste bloqué qui se présente.
+  'askr-alerte-garantie': 3,
+  'valgrind-alerte-service': 2,
+  'var-alerte-compte-verrouille': 2,
+  'bru-alerte-tunnel': 1,
+  'thjalfi-alerte-installation': 2,
+  'skidbladnir-alerte-fichiers': 3,
+  'gjoll-alerte-fin-acces': 1,
 };
 /** Les liens du deuxième lot. */
 const LOT2 = ['svalinn-alerte-wifi', 'skuld-alerte-sauvegarde-base', 'vidarr-alerte-site-dangereux', 'vidarr-alerte-inondation-dns',
   'vidarr-alerte-dns-amont', 'vidarr-alerte-appareil-inconnu', 'mimisbrunnr-alerte-message-repete', 'gna-alerte-historique', 'vordr-alerte-sonde'];
+/** Les liens du troisième lot. */
+const LOT3 = ['askr-alerte-garantie', 'valgrind-alerte-service', 'var-alerte-compte-verrouille', 'bru-alerte-tunnel', 'thjalfi-alerte-installation',
+  'skidbladnir-alerte-fichiers', 'gjoll-alerte-fin-acces'];
 
-/** Les fichiers d'une appli : son module, et son dossier s'il existe. */
+/** Un fichier rangé ailleurs où l'appli lève elle-même une alerte de son lien (même contexte) : déclaré à la main, un par un. */
+const AUSSI: Record<string, string[]> = { var: ['sso/oidc.ts'] };
+/** Les fichiers d'une appli : son module, son dossier s'il existe, et ceux déclarés ci-dessus. */
 function fichiersDe(app: string): Array<[string, string]> {
   const out: Array<[string, string]> = [];
   const tour = (d: string) => { for (const n of readdirSync(d)) { const p = join(d, n); if (statSync(p).isDirectory()) tour(p); else if (n.endsWith('.ts')) out.push([relative(VALHALLA, p).replace(/\\/g, '/'), readFileSync(p, 'utf8')]); } };
   try { out.push([`modules/${app}.ts`, readFileSync(join(VALHALLA, 'modules', `${app}.ts`), 'utf8')]); } catch { /* pas de module */ }
   try { if (statSync(join(VALHALLA, app)).isDirectory()) tour(join(VALHALLA, app)); } catch { /* pas de dossier */ }
+  for (const f of AUSSI[app] ?? []) out.push([f, readFileSync(join(VALHALLA, f), 'utf8')]);
   return out;
 }
 /** Tous les fichiers de src/valhalla. */
@@ -95,7 +114,7 @@ function appelsAlerte(src: string): string[] {
   return out;
 }
 
-test('douze applis branchées : chaque lien d\'alerte porte sa clé sur les appels qui en relèvent, et seulement eux', () => {
+test('dix-neuf applis branchées : chaque lien d\'alerte porte sa clé sur les appels qui en relèvent, et seulement eux', () => {
   assert.ok(BRANCHEES, 'links.ts dit quels liens d\'alerte sont branchés (ALERTES_BRANCHEES)');
   assert.deepEqual([...BRANCHEES!].sort(), Object.keys(APPELS).sort());
   for (const id of BRANCHEES!) {
@@ -112,7 +131,7 @@ test('douze applis branchées : chaque lien d\'alerte porte sa clé sur les appe
     for (const a of appelsAlerte(t)) for (const m of a.matchAll(/\blien: '([a-z0-9-]+)'/g)) {
       const l = LINKS.find((x) => x.id === m[1]);
       assert.ok(l && BRANCHEES!.has(m[1]), `${f} : la clé « ${m[1]} » n'est pas un lien d'alerte branché`);
-      assert.ok(f === `modules/${l!.from}.ts` || f.startsWith(`${l!.from}/`), `${f} : la clé « ${m[1]} » est posée hors de ${l!.from}`);
+      assert.ok(f === `modules/${l!.from}.ts` || f.startsWith(`${l!.from}/`) || (AUSSI[l!.from] ?? []).includes(f), `${f} : la clé « ${m[1]} » est posée hors de ${l!.from}`);
       vus.set(m[1], (vus.get(m[1]) ?? 0) + 1);
     }
   }
@@ -124,16 +143,16 @@ test('douze applis branchées : chaque lien d\'alerte porte sa clé sur les appe
   }
 });
 
-test('les liens qui se coupent d\'ici : les 21 à point unique et les 15 alertes branchées ; les autres alertes « pas encore »', () => {
+test('les liens qui se coupent d\'ici : les 21 à point unique et les 22 alertes branchées ; les autres alertes « pas encore »', () => {
   const lignes = lignesLiensEcrits(undefined);
   const coupables = lignes.filter((x) => x.coupable).map((x) => x.id.slice(5));
   const attendus = LINKS.filter((l) => 'par' in l.coupure && (l.coupure.par === 'reflexe' || (l.coupure.par === 'alerte' && BRANCHEES?.has(l.id)))).map((l) => l.id);
   assert.deepEqual(coupables, attendus);
-  assert.equal(coupables.length, 21 + 6 + 9);
-  for (const id of LOT2) assert.ok(coupables.includes(id), `${id} se coupe d'ici`);
-  // Les 14 autres liens d'alerte ne se coupent pas encore d'ici.
+  assert.equal(coupables.length, 21 + 6 + 9 + 7);
+  for (const id of [...LOT2, ...LOT3]) assert.ok(coupables.includes(id), `${id} se coupe d'ici`);
+  // Les 7 autres liens d'alerte ne se coupent pas encore d'ici.
   const autres = LINKS.filter((l) => 'par' in l.coupure && l.coupure.par === 'alerte' && !BRANCHEES?.has(l.id));
-  assert.equal(autres.length, 14);
+  assert.equal(autres.length, 7);
   for (const l of autres) assert.equal(lignes.find((x) => x.id === `lien:${l.id}`)!.coupable, false, l.id);
 });
 
@@ -327,6 +346,113 @@ test('deuxième lot, par le code des applis : l\'alerte de Gná (historique) et 
   }
 });
 
+// Troisième lot : comme le deuxième. L'alerte « hors du lien » est celle d'un appel laissé sans clé (carnet
+// couper-un-lien-l2c), au niveau « haute » pour que le message parte au seuil par défaut.
+const LOT3_ALERTES: Record<string, { releve: { title: string; key: string }; horsLien: { title: string; key: string } }> = {
+  'askr-alerte-garantie': { releve: { title: 'Garantie de Portable-1 : plus que 3 jour(s)', key: 'askr-garantie-a1' }, horsLien: { title: 'Atlas : surveillance en échec', key: 'watch:askr' } },
+  'valgrind-alerte-service': { releve: { title: 'Le service derrière site.exemple ne répond plus', key: 'valgrind-5xx-h1' }, horsLien: { title: 'Le proxy d\'Odin n\'a pas pu démarrer', key: 'valgrind-demarrage' } },
+  'var-alerte-compte-verrouille': { releve: { title: 'Compte « nour » verrouillé 15 minutes', key: 'var-verrou-p1-1' }, horsLien: { title: 'Un e-mail de Persona n\'a pas pu partir', key: 'var-courrier' } },
+  'bru-alerte-tunnel': { releve: { title: 'Le tunnel Cloudflare est coupé', key: 'bru-coupe' }, horsLien: { title: 'Le tunnel Cloudflare n\'a pas pu démarrer', key: 'bru-demarrage' } },
+  'thjalfi-alerte-installation': { releve: { title: '❌ Installation ratée sur pc-1', key: 'thjalfi-echec-1' }, horsLien: { title: '🖥 pc-2 demande « Installer pour moi » : Ubuntu 24.04', key: 'thjalfi-demande-d1' } },
+  'skidbladnir-alerte-fichiers': { releve: { title: 'Fichier dangereux reçu dans « Famille » : essai.exe', key: 'skid-virus-1' }, horsLien: { title: 'Les fichiers (Nébuleuse) n\'ont pas pu démarrer', key: 'skid-demarrage' } },
+  'gjoll-alerte-fin-acces': { releve: { title: 'Accès VPN de « tablette » terminé', key: 'vpn-fin-tablette' }, horsLien: { title: 'Le VPN n\'a pas pu redémarrer', key: 'vpn-demarrage' } },
+};
+
+test('troisième lot : pour chacun des sept liens, coupé → l\'alerte est rangée et son message ne part pas ; une alerte de l\'appli hors du lien part ; rétabli → le message part', () => {
+  assert.deepEqual(Object.keys(LOT3_ALERTES).sort(), [...LOT3].sort());
+  for (const id of LOT3) {
+    const l = LINKS.find((x) => x.id === id)!;
+    const b = bancValhalla(undefined, [l.from]);
+    try {
+      const ctx = b.v.ctx(l.from), { releve, horsLien } = LOT3_ALERTES[id];
+      const lien: LienACouper = { id, nom: `${l.from} → Forseti`, de: l.from, protege: l.protege ? { raison: l.protege.raison } : false, qui: QUI };
+      assert.equal(couperLien(lien, true, { confirme: true }).ok, true, id);
+      assert.equal(lienCoupe(id), true, id);
+      const n = b.messages.length;
+      const r = ctx.alert({ level: 'haute', ...releve, lien: id }) as unknown as Alert & { nonEnvoye?: string };
+      assert.equal(b.messages.length, n, `${id} coupé : le message ne part pas`);
+      assert.equal(r.nonEnvoye, 'message non envoyé : lien coupé par toi', id);
+      assert.ok(b.v.alerts({ module: l.from }).some((a) => a.title === releve.title && a.lien === id), `${id} : l'alerte est rangée`);
+      ctx.alert({ level: 'haute', ...horsLien });
+      assert.equal(b.messages.length, n + 1, `${id} coupé : « ${horsLien.title} » part toujours`);
+      assert.equal(couperLien(lien, false).ok, true, id);
+      const m = b.messages.length;
+      const apres = ctx.alert({ level: 'haute', ...releve, lien: id }) as unknown as Alert & { nonEnvoye?: string };
+      assert.ok(apres, `${id} rétabli : l'alerte retenue passe`); assert.equal(apres.nonEnvoye, undefined);
+      assert.equal(b.messages.length, m + 1, `${id} rétabli : le message part`);
+      assert.ok(b.messages.at(-1)!.includes(releve.title), id);
+    } finally { b.fin(); }
+  }
+});
+
+test('troisième lot, par le code des applis : Atlas (garantie, licence), Nébuleuse (espace plein), Genèse (notifications regroupées) portent leur clé', async () => {
+  // Atlas : la surveillance du jour lève la garantie (haute : 3 jours) et la licence ; lien coupé, rien ne part.
+  {
+    const b = bancValhalla(undefined, [askr({ seen: () => [] })]);
+    try {
+      const ctx = b.v.ctx('askr');
+      const a = { id: 'a1', tag: 'ODN-0001', name: 'Portable-1', kind: 'portable', state: 'en service', warrantyEnd: '2026-11-21', source: 'essai', firstSeen: 0, history: [] };
+      ctx.saveSettings({ assets: [a], licences: [{ id: 'l1', name: 'Suite-essai', seats: 1, expires: '2026-11-25', assets: [] }] });
+      const lien: LienACouper = { id: 'askr-alerte-garantie', nom: 'Atlas → Forseti', de: 'askr', protege: false, qui: QUI };
+      assert.equal(couperLien(lien, true, { confirme: true }).ok, true);
+      const n = b.messages.length;
+      await b.v.modules().find((m) => m.id === 'askr')!.watch!.run(ctx);
+      const g = b.v.alerts({ module: 'askr' }).find((x) => x.key === 'askr:askr-garantie-a1') as (Alert & { nonEnvoye?: string }) | undefined;
+      assert.ok(g, 'la garantie est rangée'); assert.equal(g!.level, 'haute'); assert.equal(g!.lien, 'askr-alerte-garantie');
+      assert.equal(g!.nonEnvoye, 'message non envoyé : lien coupé par toi');
+      const lc = b.v.alerts({ module: 'askr' }).find((x) => x.key === 'askr:askr-licence-l1');
+      assert.ok(lc); assert.equal(lc!.lien, 'askr-alerte-garantie');
+      assert.equal(b.messages.length, n, 'lien coupé : le message de la garantie ne part pas');
+      // Rétabli, le lendemain : la garantie part de nouveau.
+      assert.equal(couperLien(lien, false).ok, true);
+      b.now = new Date(b.now.getTime() + 24 * 3600_000);
+      await b.v.modules().find((m) => m.id === 'askr')!.watch!.run(ctx);
+      assert.equal(b.messages.length, n + 1); assert.match(b.messages.at(-1)!, /Garantie de Portable-1/);
+    } finally { b.fin(); }
+  }
+  // Nébuleuse : un espace plein à plus de 90 % ; l'alerte porte la clé et sa trace (moyenne : sous le seuil du message).
+  {
+    const b = bancValhalla(undefined, [skidbladnir]);
+    const dossier = mkdtempSync(join(tmpdir(), 'liens-coupes-espace-'));
+    try {
+      const ctx = b.v.ctx('skidbladnir');
+      writeFileSync(join(dossier, 'gros.bin'), Buffer.alloc(2048));
+      ctx.saveSettings({ spaces: [{ id: 'famille', name: 'Famille', path: dossier, read: ['famille'], write: ['famille'], quotaGb: 1 / 1024 ** 3 * 1024, versions: 0 }], lastPurge: Date.now() });
+      const lien: LienACouper = { id: 'skidbladnir-alerte-fichiers', nom: 'Nébuleuse → Forseti', de: 'skidbladnir', protege: { raison: 'te prévient d\'un fichier suspect arrivé dans tes espaces' }, qui: QUI };
+      assert.equal(couperLien(lien, true, { confirme: true }).ok, true);
+      await b.v.modules().find((m) => m.id === 'skidbladnir')!.watch!.run(ctx);
+      const a = b.v.alerts({ module: 'skidbladnir' }).find((x) => x.key === 'skidbladnir:skid-plein-famille') as (Alert & { nonEnvoye?: string }) | undefined;
+      assert.ok(a, 'l\'alerte d\'espace plein est rangée'); assert.equal(a!.lien, 'skidbladnir-alerte-fichiers');
+      assert.equal(a!.nonEnvoye, 'message non envoyé : lien coupé par toi');
+    } finally { b.fin(); rmSync(dossier, { recursive: true, force: true }); }
+  }
+  // Genèse : l'envoi commun des notifications (la première tout de suite, les suivantes regroupées) porte la clé.
+  {
+    const b = bancValhalla(undefined, ['thjalfi']);
+    const S = suivi({} as never);
+    try {
+      const ctx = b.v.ctx('thjalfi');
+      const lien: LienACouper = { id: 'thjalfi-alerte-installation', nom: 'Genèse → Forseti', de: 'thjalfi', protege: { raison: 'te signale aussi un poste inconnu ou bloqué qui se présente pour s\'installer' }, qui: QUI };
+      assert.equal(couperLien(lien, true, { confirme: true }).ok, true);
+      const n = b.messages.length;
+      S.prevenir(ctx, 'échec', 'pc-1', { level: 'haute', title: '❌ Installation ratée sur pc-1', detail: 'essai', key: 'thjalfi-echec-pc-1' });
+      S.prevenir(ctx, 'échec', 'pc-2', { level: 'haute', title: '❌ Installation ratée sur pc-2', detail: 'essai', key: 'thjalfi-echec-pc-2' });
+      S.prevenir(ctx, 'échec', 'pc-3', { level: 'haute', title: '❌ Installation ratée sur pc-3', detail: 'essai', key: 'thjalfi-echec-pc-3' });
+      b.now = new Date(b.now.getTime() + 60_000);
+      S.prevenir(ctx, 'début', 'pc-4', { level: 'info', title: '▶ pc-4 démarre', key: 'thjalfi-debut-pc-4' });
+      const l = b.v.alerts({ module: 'thjalfi' }) as Array<Alert & { nonEnvoye?: string }>;
+      const premiere = l.find((x) => x.title === '❌ Installation ratée sur pc-1'), lot = l.find((x) => /2 autres installations ratées/.test(x.title));
+      assert.ok(premiere && lot, 'la première et le lot sont rangés');
+      for (const x of [premiere!, lot!]) { assert.equal(x.lien, 'thjalfi-alerte-installation', x.title); assert.equal(x.nonEnvoye, 'message non envoyé : lien coupé par toi', x.title); }
+      assert.equal(b.messages.length, n, 'lien coupé : aucun message');
+      // Rétabli : la notification suivante part.
+      assert.equal(couperLien(lien, false).ok, true);
+      S.prevenir(ctx, 'fini', 'pc-5', { level: 'haute', title: '✅ pc-5 installée', key: 'thjalfi-fini-pc-5' });
+      assert.equal(b.messages.length, n + 1); assert.match(b.messages.at(-1)!, /pc-5 installée/);
+    } finally { S.fermer(); b.fin(); }
+  }
+});
+
 test('un état illisible ne coupe rien : le message part', () => {
   for (const f of ['{ pas du JSON', JSON.stringify({ pauses: { 'lien:hermod-alerte-machine-disparue': { depuis: 'hier', lien: true, protege: false } } }),
     JSON.stringify({ pauses: { 'lien:ullr-alerte-menace': { depuis: '2026-11-18T09:00:00Z', lien: true, protege: true } } })]) {
@@ -375,8 +501,8 @@ test('la route : le propriétaire coupe un lien d\'alerte (la confirmation dit q
     const h = await v.json(P, { id: 'lien:naglfar-alerte-conteneur', pause: true });
     assert.equal(h.body.code, 'accord'); assert.match(String(h.body.confirm), /continue/);
     // Un lien d'alerte d'une autre appli : pas encore, même par le propriétaire.
-    const s = await v.json(P, { id: 'lien:askr-alerte-garantie', pause: true, confirme: true });
-    assert.notEqual(s.body.ok, true); assert.equal(await coupe('lien:askr-alerte-garantie'), undefined);
+    const s = await v.json(P, { id: 'lien:idunn-alerte-site', pause: true, confirme: true });
+    assert.notEqual(s.body.ok, true); assert.equal(await coupe('lien:idunn-alerte-site'), undefined);
     const tentatives: Array<[string, Promise<{ status: number; body: Record<string, unknown> }>]> = [
       ['clé d\'accès en Bearer', v.json(P, { id: ID, pause: true, confirme: true }, { authorization: `Bearer ${v.token}` })],
       ['session + clé en paramètre', v.json(`${P}?token=${v.token}`, { id: ID, pause: true, confirme: true })],

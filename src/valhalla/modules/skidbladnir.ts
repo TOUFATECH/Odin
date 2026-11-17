@@ -93,7 +93,7 @@ function hub(ctx: ModCtx): Hub {
       // Mis de côté (pas publié, pas effacé) : le propriétaire décide.
       const id = randomBytes(5).toString('hex'), d = join(sp.root, '.attente'); mkdirSync(d, { recursive: true }); const to = join(d, `${id}-${basename(name)}`); renameSync(file, to);
       ctx.saveSettings({ held: [...held(ctx), { id, space: sp.id, rel, file: to, why: why || `menace ${level}`, by, at: Date.now() }].slice(-200) });
-      ctx.alert({ level: level === 'moyenne' ? 'haute' : 'critique', title: `Fichier ${level === 'moyenne' ? 'suspect' : 'dangereux'} reçu dans « ${sp.name} » : ${name}`, detail: `Envoyé par ${by}. L'antivirus a trouvé : ${why || level}. Le fichier est mis de côté (pas visible, pas effacé).`, key: `skid-virus-${id}`, steps: ['Ne l\'ouvre pas et ne le fais pas suivre.', `Demande à ${by} d'où vient ce fichier ; si son appareil est infecté, analyse-le.`, 'Si c\'est une erreur de l\'antivirus, tu peux le publier quand même (bouton).'], fix: { action: 'liberer', input: { id }, label: 'Le publier quand même' } });
+      ctx.alert({ level: level === 'moyenne' ? 'haute' : 'critique', title: `Fichier ${level === 'moyenne' ? 'suspect' : 'dangereux'} reçu dans « ${sp.name} » : ${name}`, detail: `Envoyé par ${by}. L'antivirus a trouvé : ${why || level}. Le fichier est mis de côté (pas visible, pas effacé).`, key: `skid-virus-${id}`, steps: ['Ne l\'ouvre pas et ne le fais pas suivre.', `Demande à ${by} d'où vient ce fichier ; si son appareil est infecté, analyse-le.`, 'Si c\'est une erreur de l\'antivirus, tu peux le publier quand même (bouton).'], fix: { action: 'liberer', input: { id }, label: 'Le publier quand même' }, lien: 'skidbladnir-alerte-fichiers' });
       journal(ctx, { what: 'mis de côté (antivirus)', who: by, space: sp.id, path: rel, detail: why });
       return { ok: false, why: why || `menace ${level}`, id };
     },
@@ -130,7 +130,7 @@ function runSync(ctx: ModCtx, j: SyncJob): string {
   const r = syncPair(A, j.dir, j.way, { trashA: (p) => S.toTrash(root, rel(p), 'synchro'), nameB: basename(j.dir) });
   const t = `${r.copiedAB.length} vers le dossier, ${r.copiedBA.length} vers l'espace, ${r.deletedA.length + r.deletedB.length} à la corbeille, ${r.conflicts.length} conflit(s)${r.errors.length ? `, ${r.errors.length} erreur(s)` : ''}`;
   ctx.saveSettings({ syncs: syncs(ctx).map((x) => (x.id === j.id ? { ...x, last: Date.now(), result: t } : x)) });
-  if (r.conflicts.length) ctx.alert({ level: 'moyenne', title: `Synchro « ${sp.name} » : ${r.conflicts.length} conflit(s)`, detail: `Un fichier a changé des deux côtés : les deux versions sont gardées (${r.conflicts.slice(0, 3).join(', ')}).`, key: `skid-conflit-${j.id}`, steps: ['Ouvre les deux versions et garde la bonne.', 'Supprime la copie « conflit » une fois réglé.'] });
+  if (r.conflicts.length) ctx.alert({ level: 'moyenne', title: `Synchro « ${sp.name} » : ${r.conflicts.length} conflit(s)`, detail: `Un fichier a changé des deux côtés : les deux versions sont gardées (${r.conflicts.slice(0, 3).join(', ')}).`, key: `skid-conflit-${j.id}`, steps: ['Ouvre les deux versions et garde la bonne.', 'Supprime la copie « conflit » une fois réglé.'], lien: 'skidbladnir-alerte-fichiers' });
   if (r.errors.length) ctx.alert({ level: 'moyenne', title: `Synchro « ${sp.name} » : ${r.errors.length} fichier(s) non copiés`, detail: r.errors.slice(0, 3).join(' · '), key: `skid-err-${j.id}` });
   journal(ctx, { what: 'synchro', space: sp.id, detail: t });
   return t;
@@ -277,6 +277,6 @@ export const skidbladnir: Module = {
       const pr = join(base(ctx), 'personnes'); if (existsSync(pr)) for (const l of readdirSync(pr)) { try { S.purge(join(pr, l), 30); } catch { /* */ } }
       ctx.saveSettings({ lastPurge: Date.now() });
     }
-    for (const sp of spacesOf(ctx)) { if (!sp.quotaGb) continue; const root = rootOf(ctx, sp); if (!existsSync(root)) continue; const u = S.usage(root), q = sp.quotaGb * 1024 ** 3; if (u > 0.9 * q) ctx.alert({ level: 'moyenne', title: `L'espace « ${sp.name} » est plein à ${Math.round(u / q * 100)} %`, detail: `${human(u)} sur ${sp.quotaGb} Go. Au-delà, plus aucun envoi n'est accepté.`, key: `skid-plein-${sp.id}`, steps: ['Vide la corbeille de l\'espace (bouton).', 'Supprime ou déplace les gros fichiers (vidéos).', 'Ou augmente la place maximale de l\'espace.'], fix: { action: 'vider_corbeille', input: { espace: sp.id }, label: 'Vider la corbeille' } }); }
+    for (const sp of spacesOf(ctx)) { if (!sp.quotaGb) continue; const root = rootOf(ctx, sp); if (!existsSync(root)) continue; const u = S.usage(root), q = sp.quotaGb * 1024 ** 3; if (u > 0.9 * q) ctx.alert({ level: 'moyenne', title: `L'espace « ${sp.name} » est plein à ${Math.round(u / q * 100)} %`, detail: `${human(u)} sur ${sp.quotaGb} Go. Au-delà, plus aucun envoi n'est accepté.`, key: `skid-plein-${sp.id}`, steps: ['Vide la corbeille de l\'espace (bouton).', 'Supprime ou déplace les gros fichiers (vidéos).', 'Ou augmente la place maximale de l\'espace.'], fix: { action: 'vider_corbeille', input: { espace: sp.id }, label: 'Vider la corbeille' }, lien: 'skidbladnir-alerte-fichiers' }); }
   } },
 };
