@@ -62,8 +62,23 @@ export const LOGICIELS: Record<string, { nom: string; retour: (dom: string) => s
   'home-assistant': { nom: 'Home Assistant', retour: (d) => `https://${d}/auth/openid/callback`, conf: (c) => ['Home Assistant n\'a pas OpenID Connect de base : installe l\'intégration communautaire « hass-openid » (HACS), puis donne-lui :', `découverte : ${c.iss}/.well-known/openid-configuration`, `client_id : ${c.id}`, 'client_secret : <secret du coffre>', 'scope : openid profile email groups', 'nom d\'utilisateur : preferred_username', `Adresse de retour déclarée : ${c.retour} (vérifie-la dans la documentation de l'intégration ; sinon « Ajouter une adresse de retour »).`] },
 };
 const P_ACCES: Param[] = [{ key: 'appli', label: 'Appli (ex. venus, pegase, garmr)', kind: 'text', required: true }, { key: 'qui', label: 'Groupe (ex. famille) ou @identifiant', kind: 'text', required: true }];
+
+// ---------------- Donner un droit : la validation du propriétaire montre pour qui, quoi, avant → après
+/** « admin, famille → admin, famille, @personne-a » (une liste vide : « aucun » ; « * » : toute personne connectée). */
+export const avantApres = (avant: string[], apres: string[]) => { const l = (x: string[]) => x.map((g) => (g === '*' ? 'toute personne connectée' : g)).join(', ') || 'aucun'; return `${l(avant)} → ${l(apres)}`; };
+/** Pour qui, en clair : « toute personne connectée », « personne-a », « le groupe famille ». */
+export const pourQui = (q: string) => (q === '*' ? 'toute personne connectée' : q.startsWith('@') ? q.slice(1) : `le groupe ${q}`);
+/** Le texte de validation d'un droit donné ; une entrée invalide n'en a pas (l'action dira l'erreur). */
+export const siDonne = (f: (i: Record<string, unknown>, ctx: ModCtx) => string | undefined) => (i: Record<string, unknown>, ctx?: ModCtx): string | undefined => {
+  if (!ctx) return undefined; try { return f(i, ctx); } catch { return undefined; }
+};
+/** Les applis ouvertes à ce groupe (ou à cette personne « @… »), par leur nom. */
+const applisDeQui = (ctx: ModCtx, q: string) => applisConnues(ctx).filter((a) => groupesDe(ctx, a.id).includes(q)).map((a) => a.nom);
+
 export const ssoActions: Action[] = [
-  { id: 'donner_acces', label: 'Donner l\'accès à une appli', what: 'Un groupe (ou une personne : @identifiant) peut ouvrir cette appli', params: P_ACCES, words: ['donne l accès à', 'donner l accès à', 'donne accès à', 'autorise le groupe'], run: (ctx, i) => {
+  { id: 'donner_acces', label: 'Donner l\'accès à une appli', what: 'Un groupe (ou une personne : @identifiant) peut ouvrir cette appli', params: P_ACCES, words: ['donne l accès à', 'donner l accès à', 'donne accès à', 'autorise le groupe'], proprietaireSeul: true,
+    grave: siDonne((i, ctx) => { const a = appliValide(ctx, s(i.appli)), q = quiValide(ctx, s(i.qui)), g = groupesDe(ctx, a); return g.includes(q) ? undefined : `donner à ${pourQui(q)} l'accès à ${nomAppli(ctx, a)} — autorisés : ${avantApres(g, [...g, q])}`; }),
+    run: (ctx, i) => {
     const a = appliValide(ctx, s(i.appli)), q = quiValide(ctx, s(i.qui)), l = changerDroit(ctx, a, q, true);
     return { text: `✅ ${q === '*' ? 'Toute personne connectée' : q.startsWith('@') ? q.slice(1) : `Le groupe ${q}`} a accès à ${nomAppli(ctx, a)} (autorisés : ${l.join(', ')}, et toujours le groupe admin).` };
   }, undo: (i) => ({ action: 'retirer_acces', input: { appli: i.appli, qui: i.qui }, label: 'Retirer l\'accès' }) },
@@ -72,7 +87,16 @@ export const ssoActions: Action[] = [
     for (const x of sessionsApplis(ctx)) if (x.appli === a && !x.revoque) { const p = personnes(ctx).find((y) => y.id === x.sub); if (!aDroit(ctx, p, a)) revoquerSession(ctx, x.id); }
     return { text: `🚫 ${q.startsWith('@') ? q.slice(1) : `Le groupe ${q}`} n'a plus accès à ${nomAppli(ctx, a)} (autorisés : ${l.join(', ') || 'admin seulement'}). Ses connexions ouvertes à cette appli sont coupées.` };
   }, undo: (i) => ({ action: 'donner_acces', input: { appli: i.appli, qui: i.qui }, label: 'Redonner l\'accès' }) },
-  { id: 'acces_cases', label: 'Accès aux applis (cases)', what: 'Les cases cochées d\'un groupe ou d\'une personne', quick: false, params: [{ key: 'qui', label: 'Groupe ou @identifiant', kind: 'text', required: true }], run: (ctx, i) => {
+  { id: 'acces_cases', label: 'Accès aux applis (cases)', what: 'Les cases cochées d\'un groupe ou d\'une personne', quick: false, params: [{ key: 'qui', label: 'Groupe ou @identifiant', kind: 'text', required: true }], proprietaireSeul: true,
+    // Décocher reste immédiat ; une case nouvellement cochée demande la validation.
+    grave: siDonne((i, ctx) => {
+      const q = quiValide(ctx, s(i.qui)), on = (a: string) => i[a] === true || i[a] === 'true';
+      const nouvelles = applisConnues(ctx).filter((a) => a.id in i && on(a.id) && !groupesDe(ctx, a.id).includes(q));
+      if (!nouvelles.length) return undefined;
+      const avant = applisDeQui(ctx, q), apres = applisConnues(ctx).filter((a) => (a.id in i ? on(a.id) : groupesDe(ctx, a.id).includes(q))).map((a) => a.nom);
+      return `donner à ${pourQui(q)} l'accès à ${nouvelles.map((a) => a.nom).join(', ')} — applis : ${avantApres(avant, apres)}`;
+    }),
+    run: (ctx, i) => {
     const q = quiValide(ctx, s(i.qui)); let plus = 0, moins = 0;
     for (const a of applisConnues(ctx)) { if (!(a.id in i)) continue; const on = i[a.id] === true || i[a.id] === 'true', has = groupesDe(ctx, a.id).includes(q); if (on && !has) { changerDroit(ctx, a.id, q, true); plus++; } if (!on && has) { changerDroit(ctx, a.id, q, false); moins++; } }
     for (const x of sessionsApplis(ctx)) if (!x.revoque) { const p = personnes(ctx).find((y) => y.id === x.sub); if (!aDroit(ctx, p, x.appli)) revoquerSession(ctx, x.id); }
@@ -82,13 +106,18 @@ export const ssoActions: Action[] = [
     const l = applisConnues(ctx).map((a) => `- ${a.nom} : ${groupesDe(ctx, a.id).join(', ')}`);
     return { text: `Le groupe admin a toutes les applis.\n${l.join('\n')}`, data: { droits: Object.fromEntries(applisConnues(ctx).map((a) => [a.id, groupesDe(ctx, a.id)])) } };
   } },
-  { id: 'ajouter_appli', label: 'Ajouter une appli cliente', what: 'Une appli qui se connecte avec le compte Odin (OpenID) : son identifiant, son nom, ses adresses de retour', quick: false, params: [{ key: 'id', label: 'Identifiant (ex. jellyfin)', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', required: true }, { key: 'retours', label: 'Adresses de retour (séparées par des espaces)', kind: 'textarea', required: true }, { key: 'groupes', label: 'Groupes autorisés', kind: 'text', default: 'famille' }], run: (ctx, i) => {
+  { id: 'ajouter_appli', label: 'Ajouter une appli cliente', what: 'Une appli qui se connecte avec le compte Odin (OpenID) : son identifiant, son nom, ses adresses de retour', quick: false, params: [{ key: 'id', label: 'Identifiant (ex. jellyfin)', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', required: true }, { key: 'retours', label: 'Adresses de retour (séparées par des espaces)', kind: 'textarea', required: true }, { key: 'groupes', label: 'Groupes autorisés', kind: 'text', default: 'famille' }], proprietaireSeul: true,
+    grave: siDonne((i, ctx) => `ouvrir la nouvelle appli « ${s(i.nom) || s(i.id)} » — autorisés : ${avantApres([], ['admin', ...s(i.groupes || 'famille').split(/[\s,;]+/).filter(Boolean).map((g) => quiValide(ctx, g))])}`),
+    run: (ctx, i) => {
     const id = s(i.id).toLowerCase(); if (!/^[a-z][a-z0-9_-]{1,30}$/.test(id)) throw new Error('identifiant : 2 à 31 lettres minuscules, chiffres, _ -'); if (client(ctx, id)) throw new Error('cette appli existe déjà');
     const c: Client = { id, nom: s(i.nom).slice(0, 40) || id, retours: retoursDe(i.retours), ajoute: Date.now() }; if (!c.retours.length) throw new Error('au moins une adresse de retour');
     sauverClient(ctx, c); for (const g of s(i.groupes || 'famille').split(/[\s,;]+/).filter(Boolean)) changerDroit(ctx, id, quiValide(ctx, g), true);
     return { text: `🔑 ${c.nom} peut se connecter avec le compte Odin (client_id « ${id} », PKCE obligatoire). Adresses de retour : ${c.retours.join(', ')}.` };
   } },
-  { id: 'ajouter_retour', label: 'Ajouter une adresse de retour', what: 'Une adresse de plus où une appli reçoit la connexion (ex. Vénus servi à une autre adresse)', quick: false, params: [{ key: 'appli', label: 'Appli', kind: 'text', required: true }, { key: 'adresse', label: 'Adresse (ex. http://192.168.1.20:8096/auth/odin/retour)', kind: 'text', required: true }], run: (ctx, i) => {
+  { id: 'ajouter_retour', label: 'Ajouter une adresse de retour', what: 'Une adresse de plus où une appli reçoit la connexion (ex. Vénus servi à une autre adresse)', quick: false, params: [{ key: 'appli', label: 'Appli', kind: 'text', required: true }, { key: 'adresse', label: 'Adresse (ex. http://192.168.1.20:8096/auth/odin/retour)', kind: 'text', required: true }],
+    // Une adresse de retour reçoit les codes de connexion des personnes : en ajouter une, c'est donner (validation).
+    grave: siDonne((i, ctx) => { const c = client(ctx, appliValide(ctx, s(i.appli))); if (!c || c.id === 'odin') return undefined; const r = retoursDe(i.adresse).filter((x) => !c.retours.includes(x)); return r.length ? `${c.nom} — adresses de retour : ${avantApres(c.retours, [...c.retours, ...r])}` : undefined; }),
+    run: (ctx, i) => {
     const c = client(ctx, appliValide(ctx, s(i.appli))); if (!c || c.id === 'odin') throw new Error('appli cliente inconnue');
     const r = retoursDe(i.adresse); sauverClient(ctx, { ...c, retours: [...new Set([...c.retours, ...r])] });
     return { text: `↩ ${c.nom} : adresse de retour ajoutée (${r.join(', ')}).` };
@@ -109,7 +138,9 @@ export const ssoActions: Action[] = [
     if (revoquerSession(ctx, id)) return { text: '✂ Connexion coupée : l\'appli devra se reconnecter.' };
     throw new Error('connexion inconnue (déjà coupée ?)');
   } },
-  { id: 'inscrire_logiciel', label: 'Connexion Odin pour un logiciel', what: 'Un logiciel qui sait faire OpenID Connect (Nextcloud, Gitea, Grafana, Penpot, Home Assistant…) : Odin l\'inscrit et donne sa configuration ; le secret va dans le coffre', quick: false, words: ['connexion odin pour', 'inscris le logiciel', 'openid pour'], params: [{ key: 'logiciel', label: 'Logiciel', kind: 'select', options: [...Object.keys(LOGICIELS), 'autre'], default: 'nextcloud' }, { key: 'domaine', label: 'Son adresse (ex. cloud.exemple.fr)', kind: 'text', required: true }, { key: 'retour', label: 'Adresse de retour (seulement pour « autre »)', kind: 'text', default: '' }, { key: 'odin', label: 'Adresse d\'Odin vue par ce logiciel et par le navigateur (vide : réseau local)', kind: 'text', default: '' }, { key: 'groupes', label: 'Groupes autorisés', kind: 'text', default: 'famille' }], run: async (ctx, i) => {
+  { id: 'inscrire_logiciel', label: 'Connexion Odin pour un logiciel', what: 'Un logiciel qui sait faire OpenID Connect (Nextcloud, Gitea, Grafana, Penpot, Home Assistant…) : Odin l\'inscrit et donne sa configuration ; le secret va dans le coffre', quick: false, words: ['connexion odin pour', 'inscris le logiciel', 'openid pour'], params: [{ key: 'logiciel', label: 'Logiciel', kind: 'select', options: [...Object.keys(LOGICIELS), 'autre'], default: 'nextcloud' }, { key: 'domaine', label: 'Son adresse (ex. cloud.exemple.fr)', kind: 'text', required: true }, { key: 'retour', label: 'Adresse de retour (seulement pour « autre »)', kind: 'text', default: '' }, { key: 'odin', label: 'Adresse d\'Odin vue par ce logiciel et par le navigateur (vide : réseau local)', kind: 'text', default: '' }, { key: 'groupes', label: 'Groupes autorisés', kind: 'text', default: 'famille' }], proprietaireSeul: true,
+    grave: siDonne((i, ctx) => `ouvrir le logiciel ${LOGICIELS[s(i.logiciel)]?.nom ?? s(i.domaine)} avec le compte Odin — autorisés : ${avantApres([], ['admin', ...s(i.groupes || 'famille').split(/[\s,;]+/).filter(Boolean).map((g) => quiValide(ctx, g))])}`),
+    run: async (ctx, i) => {
     const log = s(i.logiciel) || 'nextcloud', fiche = LOGICIELS[log], dom = s(i.domaine).toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     if (!/^[a-z0-9.-]+(:\d+)?$/.test(dom)) throw new Error('adresse du logiciel invalide');
     const retour = fiche ? fiche.retour(dom) : retoursDe(i.retour)[0];

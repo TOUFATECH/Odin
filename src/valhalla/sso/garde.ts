@@ -133,6 +133,16 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
     const parts: Buffer[] = []; let n = 0; for await (const c of req) { n += (c as Buffer).length; if (n > 1024 * 1024) { erreur(res, 413, 'trop_gros', 'Trop long.'); return true; } parts.push(c as Buffer); }
     let b: Record<string, unknown> = {}; try { b = JSON.parse(Buffer.concat(parts).toString('utf8') || '{}') as Record<string, unknown>; } catch { erreur(res, 400, 'requete_invalide', 'JSON illisible.'); return true; }
     if (path === '/api/valhalla/act' && !ok(s(b.module))) { noter(ctx, { login: p.login, ip: d.ip, ok: false, why: `interface d'Odin · ${nomAppli(ctx, s(b.module))} · pas le droit` }); json(res, 403, { ok: false, code: 'refuse', error: messageRefus(ctx, s(b.module)), text: messageRefus(ctx, s(b.module)) }); return true; }
+    // Une action « propriétaire seul » (changer les droits ou les comptes des personnes…) : refusée ici, avant même de
+    // demander une confirmation (Valhalla la refuserait de toute façon : le membre agit en son nom).
+    if (path === '/api/valhalla/act') {
+      const f = v.action(s(b.module), s(b.action)), input = (b.input && typeof b.input === 'object' ? b.input : {}) as Record<string, unknown>;
+      const seul = f ? auNomDe(qui, () => (typeof f.a.proprietaireSeul === 'function' ? f.a.proprietaireSeul(input, v.ctx(f.m.id)) : f.a.proprietaireSeul === true)) : false;
+      if (f && seul) {
+        noter(ctx, { login: p.login, ip: d.ip, ok: false, why: `interface d'Odin · ${f.m.name} · ${f.a.label} · réservé au propriétaire` });
+        const t = `${f.m.name} · ${f.a.label} : seul le propriétaire le règle lui-même.`; json(res, 403, { ok: false, code: 'reserve', error: t, text: t }); return true;
+      }
+    }
     const r = await auNomDe(qui, () => valhallaPost(path, { ...b, session: `membre-${p.login}` }));
     json(res, 200, r); return true;
   }

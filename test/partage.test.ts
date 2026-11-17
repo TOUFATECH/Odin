@@ -121,8 +121,13 @@ test('un vrai Odin : liens public et privé, accord, invités, onglet, ouverture
     assert.match(t401, /Ce lien est privé/); assert.ok(!t401.includes('Hygie'), 'rien de la page sans connexion'); assert.ok(!/<script/i.test(t401));
     const moi = await ouvrir(priv.chemin!, S); assert.equal(moi.status, 200); const tmoi = lisible(await moi.text()); assert.match(tmoi, /Hygie/); assert.match(tmoi, /Lien privé, réservé aux personnes invitées/);
     // Puis des personnes de Persona : Awa est invitée, Bao non.
-    assert.equal((await v.json('/api/valhalla/act', { module: 'var', action: 'ajouter', input: { login: 'awa', nom: 'Awa', groupes: 'famille', mot_de_passe: 'une phrase assez longue' } })).body.ok, true);
-    assert.equal((await v.json('/api/valhalla/act', { module: 'var', action: 'ajouter', input: { login: 'bao', nom: 'Bao', groupes: 'amis', mot_de_passe: 'une autre phrase longue' } })).body.ok, true);
+    // Créer un compte donne des droits : la page demande d'abord ta validation (avant → après), puis tu confirmes.
+    const ajouterPersonne = async (input: Record<string, unknown>) => {
+      const d = await v.json('/api/valhalla/act', { module: 'var', action: 'ajouter', input }); assert.equal(d.body.ok, false); assert.match(String(d.body.confirm), /créer le compte .* groupes : aucun → /);
+      return (await v.json('/api/valhalla/act', { module: 'var', action: 'ajouter', input, confirm: true })).body.ok;
+    };
+    assert.equal(await ajouterPersonne({ login: 'awa', nom: 'Awa', groupes: 'famille', mot_de_passe: 'une phrase assez longue' }), true);
+    assert.equal(await ajouterPersonne({ login: 'bao', nom: 'Bao', groupes: 'amis', mot_de_passe: 'une autre phrase longue' }), true);
     // (leurs sessions, comme après une connexion au portail de Persona : la vérification, elle, est celle de Persona)
     const sessionDe = (login: string) => { const tok = randomBytes(32).toString('base64url'), now = Date.now(); const c = va.ctx('var'); c.saveSettings({ sessions: [...((c.settings.sessions as unknown[]) ?? []), { id: createHash('sha256').update(tok).digest('hex'), login, created: now, expires: now + 3600_000, ip: '127.0.0.1', agent: 'essai', seen: now }] }); return { cookie: `odin_var=${tok}` }; };
     const awa = sessionDe('awa'), bao = sessionDe('bao');

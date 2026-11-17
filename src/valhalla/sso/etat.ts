@@ -102,7 +102,7 @@ export function aDroit(ctx: ModCtx, p: Personne | undefined, appli: string): boo
 }
 export const nomAppli = (ctx: ModCtx | undefined, id: string) => (ctx ? client(ctx, id)?.nom : undefined) ?? NAMES[id] ?? id;
 export function prenomProprio(ctx: ModCtx): string { const p = new Accounts(ctx.home).profile(); return p?.prenom || personnes(ctx).find((x) => x.proprio)?.name || 'l\'administrateur d\'Odin'; }
-/** « Tu n'as pas accès à Vénus. Demande à Awa de t'ajouter au groupe famille. » */
+/** « Tu n'as pas accès à Vénus. Demande à <le propriétaire> de t'ajouter au groupe famille. » */
 export function messageRefus(ctx: ModCtx, appli: string): string {
   const g = groupesDe(ctx, appli).filter((x) => x !== 'admin' && x !== '*' && !x.startsWith('@'))[0];
   return `Tu n'as pas accès à ${nomAppli(ctx, cleDroit(appli))}. Demande à ${prenomProprio(ctx)} ${g ? `de t'ajouter au groupe ${g}` : 'de te donner l\'accès'}.`;

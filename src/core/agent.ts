@@ -968,7 +968,7 @@ Réponds en JSON seul : {"propositions": [{"type": "<type, un mot>", "icone": "<
 préférences (façon de travailler, formats, horaires), environnement (machines, appareils, dossiers, logiciels, comptes), missions et projets en cours, personnes importantes.
 Ignore le ponctuel, les politesses, et tout secret (mots de passe, clés, codes). N'invente rien. Ne répète pas ce qui est déjà connu :
 ${known}
-Pour chaque fait, donne aussi son SUJET (proprietaire, ou l'appareil / la personne / le projet concerné, ex. « nas », « proxmox », « personne:mariam ») et sa CLÉ (ce qu'il dit du sujet, ex. « adresse_ip », « heure_reveil », « role ») : un nouveau fait de même sujet et même clé remplacera l'ancien (ex. le NAS a changé d'adresse).
+Pour chaque fait, donne aussi son SUJET (proprietaire, ou l'appareil / la personne / le projet concerné, ex. « nas », « proxmox », « personne:nom ») et sa CLÉ (ce qu'il dit du sujet, ex. « adresse_ip », « heure_reveil », « role ») : un nouveau fait de même sujet et même clé remplacera l'ancien (ex. le NAS a changé d'adresse).
 Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|mission|person","text":"phrase courte et autonome","sujet":"…","cle":"…"}]} (liste vide si rien).`,
       messages: [{ role: 'user', content: `${speaker ? `${speaker} (membre, pas le propriétaire)` : 'Propriétaire'} : ${userText.slice(0, 4000)}${evidence ? `\n\nCe que l'agent a constaté avec ses outils (sur ses machines) :\n${evidence}` : ''}\n\nRéponse de l'agent : ${answer.slice(0, 2000)}` }],
       tools: [], maxTokens: 500, signal,

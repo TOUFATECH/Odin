@@ -99,7 +99,8 @@ test('Agora, le store d\'Odin, pour de vrai', { timeout: 180_000 }, async (t) =>
       const vue = ((await v.json('/api/valhalla/view?id=agora', undefined, { cookie: membre })).body as { view: { onglets?: string[]; sections: Array<{ title: string }> } }).view;
       assert.equal(vue.onglets, undefined); assert.deepEqual(vue.sections.map((x) => x.title), ['Mon store', 'Mes appareils']);
       const act = await v.json('/api/valhalla/act', { module: 'agora', action: 'definir_mode', input: { element: 'bloc-notes', groupe: 'invite', mode: 'Proposée' }, confirm: true }, { cookie: membre });
-      assert.equal((act.body as { ok: boolean }).ok, false); assert.match(String((act.body as { text: string }).text), /réservée aux admins/);
+      // Qui a droit à quoi : seul le propriétaire le change (refusé avant même la confirmation).
+      assert.equal((act.body as { ok: boolean }).ok, false); assert.match(String((act.body as { text: string }).text), /seul le propriétaire/);
       const forcer = await v.json('/api/valhalla/act', { module: 'agora', action: 'forcer', input: { appareil: 'pc-salon-essai-01', element: 'bloc-notes' }, confirm: true }, { cookie: membre });
       assert.equal((forcer.body as { ok: boolean }).ok, false);
       // Le propriétaire voit les quatre onglets.

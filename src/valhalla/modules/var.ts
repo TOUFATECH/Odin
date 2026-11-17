@@ -6,11 +6,12 @@
 import { connexions } from '../sso/connexions.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
-import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Param, Tone } from '../types.ts';
+import type { Action, GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Param, Tone } from '../types.ts';
 import { hashPassword, checkPassword } from '../valgrind/proxy.ts';
 import { totp } from './brisingamen.ts';
 import { svg as qrSvg } from '../qr.ts';
-import { ssoActions, ssoSections } from '../sso/persona.ts';
+import { avantApres, siDonne, ssoActions, ssoSections } from '../sso/persona.ts';
+import { agissant } from '../sso/acces.ts';
 import { revoquerPersonne } from '../sso/etat.ts';
 import { brancherPersona } from '../sso/registre.ts';
 import { arreterFluxSauvegardes } from '../sso/sauvegardes.ts';
@@ -175,7 +176,19 @@ async function vault(ctx: ModCtx, p: { login: string; name: string }, pass: stri
   const r = await ctx.call('brisingamen', 'ajouter', { nom: `Compte Odin · ${p.name}`, identifiant: p.login, mot_de_passe: pass, site: portalUrl() ?? '', coffre: 'Personnel' }, `ranger le mot de passe de ${p.name}`).catch(() => ({ ok: false }));
   return r.ok !== false;
 }
-const ADD: Param[] = [{ key: 'login', label: 'Identifiant (ex. awa)', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', required: true }, { key: 'groupes', label: 'Groupes (ex. famille, admins)', kind: 'text', default: 'famille' }, { key: 'email', label: 'E-mail (facultatif, reste sur Odin)', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un, rangé dans le coffre)', kind: 'password', default: '' }];
+/**
+ * Seul le propriétaire change les droits et les comptes des personnes : chaque action de Persona qui change quelque chose
+ * est « propriétaire seul » (ni un membre, même avec l'accès à Persona, ni une automatisation, ni un réflexe, ni Odin
+ * seul, ni une conversation marquée). Les lectures restent ouvertes. Une action qui a sa propre règle la garde.
+ */
+const auProprietaire = (l: Action[]): Action[] => l.map((a) => (a.read || a.proprietaireSeul !== undefined ? a : { ...a, proprietaireSeul: true }));
+/** Ce changement d'un site réservé laisse-t-il entrer quelqu'un de plus ? Rend la règle actuelle si oui. */
+function siteElargi(ctx: ModCtx, i: Record<string, unknown>): Rule | undefined {
+  const r = rules(ctx).find((x) => x.domain === s(i.domaine).toLowerCase()); if (!r || r.groups.includes('*')) return undefined;
+  // Le groupe admin entre partout : le nommer n'ajoute personne.
+  const apres = groupsOf(i.groupes || '*'); return apres.some((g) => g === '*' || (g !== 'admin' && !r.groups.includes(g))) ? r : undefined;
+}
+const ADD: Param[] = [{ key: 'login', label: 'Identifiant (ex. personne-a)', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', required: true }, { key: 'groupes', label: 'Groupes (ex. famille, admins)', kind: 'text', default: 'famille' }, { key: 'email', label: 'E-mail (facultatif, reste sur Odin)', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un, rangé dans le coffre)', kind: 'password', default: '' }];
 
 export const varModule: Module = {
   id: 'var', name: 'Persona', family: 'Accès',
@@ -188,8 +201,10 @@ export const varModule: Module = {
     'mot de passe oublié : un lien par e-mail (30 minutes, une seule fois), toutes ses connexions coupées ensuite'],
   from: ['Authelia', 'Authentik', 'Keycloak'], upstream: ['authelia/authelia', 'goauthentik/authentik', 'keycloak/keycloak'],
   words: ['identité', 'identités', 'connexion unique', 'sso', 'comptes', 'utilisateurs', 'double authentification', '2fa', 'groupes', 'portail de connexion'],
-  actions: [
-    { id: 'ajouter', label: 'Ajouter une personne', what: 'Un compte pour entrer sur les sites d\'Odin', params: ADD, run: async (ctx, i) => {
+  actions: auProprietaire([
+    { id: 'ajouter', label: 'Ajouter une personne', what: 'Un compte pour entrer sur les sites d\'Odin', params: ADD,
+      grave: siDonne((i) => `créer le compte de ${s(i.nom).slice(0, 60)} (« ${s(i.login).toLowerCase()} ») — groupes : ${avantApres([], groupsOf(i.groupes || 'famille'))}`),
+      run: async (ctx, i) => {
       const login = s(i.login).toLowerCase(), name = s(i.nom).slice(0, 60); if (!LOGIN.test(login)) throw new Error('identifiant : 2 à 32 lettres minuscules, chiffres, . _ -'); if (!name) throw new Error('nom affiché ?');
       if (people(ctx).some((p) => p.login === login)) throw new Error('cet identifiant existe déjà');
       if (s(i.email) && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s(i.email))) throw new Error('adresse e-mail invalide');
@@ -199,7 +214,15 @@ export const varModule: Module = {
       const inVault = await vault(ctx, p, pass);
       return { text: `👤 ${name} (« ${login} », groupes ${p.groups.join(', ')}) ajouté. ${inVault ? 'Son mot de passe est dans le coffre Thésauros.' : s(i.mot_de_passe) ? '' : '⚠ Le coffre n\'a pas pu garder le mot de passe : choisis-en un toi-même.'}` };
     }, undo: (i) => ({ action: 'retirer', input: { login: i.login }, label: 'Retirer la personne' }) },
-    { id: 'modifier', label: 'Modifier une personne', what: 'Nom, groupes, compte actif', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', default: '' }, { key: 'groupes', label: 'Groupes (vide : inchangés)', kind: 'text', default: '' }, { key: 'actif', label: 'Compte', kind: 'select', options: ['inchangé', 'actif', 'coupé'], default: 'inchangé' }], run: (ctx, i) => {
+    { id: 'modifier', label: 'Modifier une personne', what: 'Nom, groupes, compte actif', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', default: '' }, { key: 'groupes', label: 'Groupes (vide : inchangés)', kind: 'text', default: '' }, { key: 'actif', label: 'Compte', kind: 'select', options: ['inchangé', 'actif', 'coupé'], default: 'inchangé' }],
+      // Des groupes en plus, ou un compte coupé rendu actif : validation. En moins, ou coupé : tout de suite.
+      grave: siDonne((i, ctx) => {
+        const p = byLogin(ctx, i.login), gs = s(i.groupes) ? groupsOf(i.groupes) : p.groups, out: string[] = [];
+        if (gs.some((g) => !p.groups.includes(g))) out.push(`groupes : ${avantApres(p.groups, gs)}`);
+        if (s(i.actif) === 'actif' && !p.active) out.push('compte : coupé → actif');
+        return out.length ? `${p.name} (« ${p.login} ») — ${out.join(' ; ')}` : undefined;
+      }),
+      run: (ctx, i) => {
       const p = { ...byLogin(ctx, i.login) }; if (s(i.nom)) p.name = s(i.nom).slice(0, 60); if (s(i.groupes)) p.groups = groupsOf(i.groupes); if (s(i.actif) === 'actif') p.active = true; if (s(i.actif) === 'coupé') p.active = false;
       savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? p : x))); if (!p.active) { ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); revoquerPersonne(ctx, p.login); } else reappliquer(ctx);
       return { text: `✏️ ${p.name} : groupes ${p.groups.join(', ') || '—'}, compte ${p.active ? 'actif' : 'coupé (sessions fermées)'}.` };
@@ -223,7 +246,11 @@ export const varModule: Module = {
       return { text: `✅ Double authentification active pour ${p.name} : un code sera demandé à chaque connexion.` };
     } },
     { id: 'couper_sessions', label: 'Couper les sessions', what: 'La personne devra se reconnecter partout', quick: false, words: ['couper les sessions', 'déconnecter partout', 'fermer les sessions'], params: [{ key: 'login', label: 'Identifiant (vide : tout le monde)', kind: 'text', default: '' }], run: (ctx, i) => { const l = s(i.login).toLowerCase(), before = sessions(ctx).length, left = sessions(ctx).filter((x) => l && x.login !== l); ctx.saveSettings({ sessions: left }); return { text: `✂ ${before - left.length} session(s) fermée(s).` }; } },
-    { id: 'proteger_site', label: 'Réserver un site', what: 'Un site du proxy demande la connexion d\'Odin, pour certains groupes', params: [{ key: 'domaine', label: 'Site (nom du proxy)', kind: 'text', required: true }, { key: 'groupes', label: 'Groupes autorisés (« * » : toute personne connectée)', kind: 'text', default: '*' }], run: async (ctx, i) => {
+    { id: 'proteger_site', label: 'Réserver un site', what: 'Un site du proxy demande la connexion d\'Odin, pour certains groupes', params: [{ key: 'domaine', label: 'Site (nom du proxy)', kind: 'text', required: true }, { key: 'groupes', label: 'Groupes autorisés (« * » : toute personne connectée)', kind: 'text', default: '*' }],
+      // Réserver un site encore ouvert le ferme aux autres (le réflexe de Nébuleuse le fait) ; élargir une réservation, c'est donner.
+      proprietaireSeul: (i, ctx) => Boolean(agissant()) || Boolean(ctx && siteElargi(ctx, i)),
+      grave: siDonne((i, ctx) => { const r = siteElargi(ctx, i); return r ? `${r.domain} — autorisés : ${avantApres(r.groups, groupsOf(i.groupes || '*'))}` : undefined; }),
+      run: async (ctx, i) => {
       const d = s(i.domaine).toLowerCase(), gs = groupsOf(i.groupes || '*');
       if (!conf(ctx).portal) throw new Error('règle d\'abord le portail (Réglages : son nom, ex. connexion.exemple.fr)');
       const r = await ctx.call('valgrind', 'connexion_unique', { domaine: d, actif: true }, `réserver ${d} aux personnes connectées`);
@@ -231,7 +258,9 @@ export const varModule: Module = {
       ctx.saveSettings({ rules: [...rules(ctx).filter((x) => x.domain !== d), { domain: d, groups: gs }] });
       return { text: `🛡 ${d} demande maintenant la connexion d'Odin (${gs.includes('*') ? 'toute personne connectée' : `groupes ${gs.join(', ')}`}).` };
     } },
-    { id: 'liberer_site', label: 'Libérer un site', what: 'Plus besoin de se connecter', quick: false, params: [{ key: 'domaine', label: 'Site', kind: 'text', required: true }], run: async (ctx, i) => { const d = s(i.domaine).toLowerCase(); await ctx.call('valgrind', 'connexion_unique', { domaine: d, actif: false }).catch(() => undefined); ctx.saveSettings({ rules: rules(ctx).filter((x) => x.domain !== d) }); return { text: `🔓 ${d} ne demande plus de connexion.` }; } },
+    { id: 'liberer_site', label: 'Libérer un site', what: 'Plus besoin de se connecter', quick: false, params: [{ key: 'domaine', label: 'Site', kind: 'text', required: true }],
+      grave: siDonne((i, ctx) => { const r = rules(ctx).find((x) => x.domain === s(i.domaine).toLowerCase()); return r ? `ouvrir ${r.domain} sans connexion — autorisés : ${avantApres(r.groups, ['tout le monde'])}` : undefined; }),
+      run: async (ctx, i) => { const d = s(i.domaine).toLowerCase(); await ctx.call('valgrind', 'connexion_unique', { domaine: d, actif: false }).catch(() => undefined); ctx.saveSettings({ rules: rules(ctx).filter((x) => x.domain !== d) }); return { text: `🔓 ${d} ne demande plus de connexion.` }; } },
     { id: 'reglages', label: 'Réglages', what: 'Le nom du portail, le domaine, la durée des sessions, la double authentification obligatoire', quick: false, params: [{ key: 'portail', label: 'Nom du portail (ex. connexion.exemple.fr)', kind: 'text', required: true }, { key: 'domaine', label: 'Domaine commun (ex. exemple.fr)', kind: 'text', required: true }, { key: 'heures', label: 'Durée d\'une session (heures)', kind: 'number', default: 12 }, { key: 'double_auth', label: 'Double authentification obligatoire pour les groupes', kind: 'text', default: 'admins' }], run: async (ctx, i) => {
       const portal = s(i.portail).toLowerCase(), dom = s(i.domaine).toLowerCase().replace(/^\./, ''), h = Number(i.heures) || 12;
       if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(portal)) throw new Error('nom du portail invalide'); if (!within(portal, dom)) throw new Error(`le portail doit être dans le domaine commun (${portal} n'est pas dans ${dom})`);
@@ -250,7 +279,7 @@ export const varModule: Module = {
     ...groupesActions,
     ...comptesActions,
     { id: 'journal', label: 'Journal des connexions', what: 'Qui s\'est connecté, d\'où, et les échecs', read: true, run: (ctx) => ({ text: journal(ctx).slice(-40).reverse().map((e) => `${new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} ${e.ok ? '✅' : '❌'} ${e.login} depuis ${e.ip} (${e.why})`).join('\n') || 'Rien.' }) },
-  ],
+  ]),
   view(ctx) {
     appCtx = ctx;
     const ps = people(ctx), ss = sessions(ctx), rs = rules(ctx), c = conf(ctx), now = Date.now(), j = journal(ctx), fails = j.filter((e) => !e.ok && now - e.t < 86400_000).length;

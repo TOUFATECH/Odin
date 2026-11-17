@@ -12,7 +12,7 @@
 
 import type { Action, ModCtx, Param, Section } from '../types.ts';
 import { aDroit, droits, nomAppli, personnes, revoquerSession, sessionsApplis, type Personne } from './etat.ts';
-import { applisConnues } from './persona.ts';
+import { applisConnues, avantApres, siDonne } from './persona.ts';
 
 export interface Groupe { id: string; description?: string; cree: number }
 interface Regle { domain: string; groups: string[] }
@@ -88,7 +88,9 @@ export const groupesActions: Action[] = [
     const n = remplacer(ctx, g, ''), c = reappliquer(ctx);
     return { text: `🗑 Groupe « ${g} » supprimé : retiré de ${n.personnes} personne(s), ${n.applis} appli(s), ${n.sites} site(s)${c ? ` ; ${c} connexion(s) coupée(s)` : ''}.` };
   } },
-  { id: 'mettre_dans_groupe', label: 'Mettre dans un groupe', what: 'La personne reçoit les applis et les sites du groupe', words: ['mets dans le groupe', 'ajoute au groupe'], params: [P_PERSONNE, P_GROUPE], run: (ctx, i) => {
+  { id: 'mettre_dans_groupe', label: 'Mettre dans un groupe', what: 'La personne reçoit les applis et les sites du groupe', words: ['mets dans le groupe', 'ajoute au groupe'], params: [P_PERSONNE, P_GROUPE], proprietaireSeul: true,
+    grave: siDonne((i, ctx) => { const p = parLogin(ctx, i.login), g = groupeConnu(ctx, i.groupe); return p.groups.includes(g) ? undefined : `mettre ${p.name} (« ${p.login} ») dans le groupe ${g} — groupes : ${avantApres(p.groups, [...p.groups, g])}`; }),
+    run: (ctx, i) => {
     const p = parLogin(ctx, i.login), g = groupeConnu(ctx, i.groupe);
     if (p.groups.includes(g)) return { text: `${p.name} est déjà dans le groupe ${g}.` };
     if (g === 'admin' && !p.totp && exige2fa(ctx).includes('admin')) throw new Error(`${p.name} doit d'abord activer la double authentification (le groupe admin l'exige)`);
@@ -108,7 +110,10 @@ export const groupesActions: Action[] = [
     const sans = personnes(ctx).filter((p) => p.groups.includes(g) && !p.totp && !p.proprio).map((p) => p.name);
     return { text: `🔐 Groupe ${g} : double authentification ${on ? 'obligatoire' : 'facultative'}.${on && sans.length ? `\n⚠ Sans code pour l'instant (ne pourront plus se connecter par mot de passe seul) : ${sans.join(', ')}. Active-la pour elles (Double authentification), ou qu'elles utilisent une clé d'accès.` : ''}` };
   } },
-  { id: 'donner_site', label: 'Donner un site à un groupe', what: 'Le groupe peut entrer sur ce site du proxy (connexion d\'Odin)', params: [P_GROUPE, { key: 'domaine', label: 'Site (nom du proxy)', kind: 'text', required: true }], run: async (ctx, i) => {
+  { id: 'donner_site', label: 'Donner un site à un groupe', what: 'Le groupe peut entrer sur ce site du proxy (connexion d\'Odin)', params: [P_GROUPE, { key: 'domaine', label: 'Site (nom du proxy)', kind: 'text', required: true }], proprietaireSeul: true,
+    // Un site déjà réservé : le groupe s'ajoute à ceux qui y entrent (validation) ; un site encore ouvert devient réservé (il se ferme aux autres).
+    grave: siDonne((i, ctx) => { const g = groupeConnu(ctx, i.groupe), d = s(i.domaine).toLowerCase(), r = regles(ctx).find((x) => x.domain === d); return !r || r.groups.includes(g) || r.groups.includes('*') ? undefined : `laisser entrer le groupe ${g} sur ${d} — autorisés : ${avantApres(r.groups, [...r.groups, g])}`; }),
+    run: async (ctx, i) => {
     const g = groupeConnu(ctx, i.groupe), d = s(i.domaine).toLowerCase(), r = regles(ctx).find((x) => x.domain === d);
     if (!/^[a-z0-9*][a-z0-9.-]*\.[a-z]{2,}$/.test(d)) throw new Error('nom de site invalide (ex. nas.exemple.fr)');
     if (!r) { const x = await ctx.call('var', 'proteger_site', { domaine: d, groupes: g }, `réserver ${d} au groupe ${g}`, { interne: true }); if (x.ok === false) throw new Error(x.text); return { text: `🛡 ${d} est réservé au groupe ${g} (connexion d'Odin demandée).` }; }

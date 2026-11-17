@@ -163,6 +163,19 @@ export interface WebHooks {
   gardenNow?(): Promise<unknown>;
 }
 
+const RANG_ROLE: Record<string, number> = { guest: 0, member: 1, owner: 2 }, RANG_AUTO: Record<string, number> = { prudent: 0, equilibre: 1, autonome: 2 };
+/**
+ * Ce qu'un changement donne de plus à une personne des conversations (rôle, autonomie d'un membre), ou rien.
+ * `avant` absent : une personne nouvelle (`base` : le rôle qu'elle a déjà, ex. une identité pas encore reliée).
+ */
+function droitsEnPlus(avant: { role: string; autonomy?: string } | undefined, apres: { role: string; autonomy?: string }, base?: string): string | undefined {
+  const role = avant?.role ?? base, out: string[] = [];
+  if (role === undefined ? apres.role === 'owner' : (RANG_ROLE[apres.role] ?? 0) > (RANG_ROLE[role] ?? 0)) out.push(`rôle : ${role ?? 'aucun'} → ${apres.role}`);
+  const aa = avant?.autonomy ?? 'prudent', ap = apres.autonomy ?? 'prudent';
+  if (apres.role === 'member' && role !== undefined && role !== 'owner' && (RANG_AUTO[ap] ?? 0) > (RANG_AUTO[aa] ?? 0)) out.push(`autonomie : ${aa} → ${ap}`);
+  return out.join(' ; ') || undefined;
+}
+
 const UI = readFileSync(new URL('./ui.html', import.meta.url), 'utf8');
 /** La mascotte d'Odin (celle de l'écran de connexion), reprise sur la page d'activation du téléphone. */
 const MASCOT = /<div id="login"[\s\S]*?(<svg viewBox="0 0 120 120"[\s\S]*?<\/svg>)/.exec(UI)?.[1] ?? '';
@@ -1588,9 +1601,19 @@ export class WebChannel implements Channel {
       case 'memory_garden_now': { if (!this.hooks.gardenNow) return { ok: false, error: 'indisponible' }; try { const r = await this.hooks.gardenNow(); this.notify('state'); return { ok: true, report: r }; } catch (e) { return { ok: false, error: (e as Error).message }; } }
       case 'memory_undo': { const n = undoGarden(muninn, Number(b.at)); this.notify('state'); return n ? { ok: true, restored: n } : { ok: false, error: 'rien à annuler' }; }
       case 'mission_resume': { const m = muninn.getMission(String(b.id)); if (!m) return { ok: false, error: 'mission inconnue' }; if (!this.hooks.resume) return { ok: false, error: 'reprise indisponible' }; void this.hooks.resume(m.session_id).catch((e) => console.error('[missions]', (e as Error).message)); return { ok: true, started: true }; }
-      case 'user_save': { try { const u = muninn.saveUser({ id: b.id ? String(b.id) : undefined, name: String(b.name ?? ''), role: String(b.role ?? 'member') as 'member', autonomy: b.autonomy ? String(b.autonomy) as 'prudent' : undefined }); return { ok: true, id: u.id }; } catch (e) { return { ok: false, error: (e as Error).message }; } }
+      // Donner plus (un rôle ou une autonomie plus hauts, une identité reliée à quelqu'un qui a plus de droits) passe par
+      // ta validation, qui montre pour qui et avant → après ; descendre s'applique tout de suite.
+      case 'user_save': {
+        const u = { id: b.id ? String(b.id) : undefined, name: String(b.name ?? ''), role: String(b.role ?? 'member') as 'member', autonomy: b.autonomy ? String(b.autonomy) as 'prudent' : undefined };
+        if (b.confirm !== true) { const why = droitsEnPlus(muninn.listUsers().find((x) => x.id === u.id), u); if (why) return { ok: false, confirm: `Confirmer : ${u.name.trim().slice(0, 60)} — ${why} ?`, error: why }; }
+        try { return { ok: true, id: muninn.saveUser(u).id }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
       case 'user_delete': muninn.deleteUser(String(b.id)); break;
-      case 'user_link': { try { muninn.linkIdentity(String(b.channel), String(b.peer), String(b.id)); } catch (e) { return { ok: false, error: (e as Error).message }; } break; }
+      case 'user_link': {
+        const qui = muninn.listUsers().find((x) => x.id === String(b.id)), avant = muninn.userFor(String(b.channel), String(b.peer));
+        if (qui && b.confirm !== true && qui.id !== avant?.id) { const why = droitsEnPlus(avant, qui, 'guest'); if (why) return { ok: false, confirm: `Confirmer : ${String(b.channel)}:${String(b.peer)} devient ${qui.name} — ${why} ?`, error: why }; }
+        try { muninn.linkIdentity(String(b.channel), String(b.peer), String(b.id)); } catch (e) { return { ok: false, error: (e as Error).message }; } break;
+      }
       case 'user_unlink': muninn.unlinkIdentity(String(b.channel), String(b.peer)); break;
       case 'pairing_approve': {
         const r = muninn.approvePairing(String(b.channel), String(b.code));

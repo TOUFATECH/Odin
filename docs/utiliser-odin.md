@@ -48,7 +48,7 @@ Points de capture : la machine d'Odin, plus **chaque machine où Odin a un accè
 
 ### Connexion unique (Persona)
 
-Toutes les applis se connectent avec ton compte Odin : Pégase, Vénus, et tout logiciel qui sait faire OpenID (Penpot…). Odin est le fournisseur d'identité (OpenID Connect avec PKCE, jetons ES256 de 15 minutes, renouvellement lié à l'appareil). Sur un ordinateur, la première appli connectée range un jeton dans le coffre du système (Windows, Mac, Linux) : les autres s'ouvrent déjà connectées. Dans Persona, l'onglet **Accès** dit qui a droit à quelle appli ; sans droit, l'appli est cachée ou un message dit à qui demander. Les applis sauvegardent leur base sur Odin (`/api/sauvegardes/<appli>`), chiffrée, avec des versions. Contrat : `docs/sso-protocole.md` ; bibliothèque cliente sans dépendance : `clients/odin-sso.mjs`.
+Toutes les applis se connectent avec ton compte Odin : Pégase, Vénus, et tout logiciel qui sait faire OpenID (Penpot…). Odin est le fournisseur d'identité (OpenID Connect avec PKCE, jetons ES256 de 15 minutes, renouvellement lié à l'appareil). Sur un ordinateur, la première appli connectée range un jeton dans le coffre du système (Windows, Mac, Linux) : les autres s'ouvrent déjà connectées. Dans Persona, l'onglet **Accès** dit qui a droit à quelle appli ; sans droit, l'appli est cachée ou un message dit à qui demander. Toi seul changes les droits et les comptes des personnes : **donner** (un accès à une appli, une case cochée, l'entrée dans un groupe — dans Persona comme dans Agora —, une appli du store ouverte à un groupe, un nouveau compte, une invitation, un site ouvert à plus de monde, une adresse de retour de plus pour une appli) te demande toujours de confirmer, et la demande dit pour qui, quoi, avant → après (ex. « autorisés : admin → admin, @personne-a ») ; **retirer** ou décocher s'applique tout de suite (sauf enlever quelqu'un de son dernier groupe : il passe dans « invite », et la demande le montre). Annuler une manip qui redonnerait un droit (« annule <code> », « annule tout ») demande aussi ta confirmation ; garder ou annuler les manips, c'est toi seul. Une personne qui a l'accès à Persona ou à Agora (même du groupe admin) n'y change rien, ni pour elle ni pour les autres, pas plus qu'une automatisation, un réflexe, Odin seul ou une conversation qui vient de lire un contenu extérieur — y compris en passant par une autre appli. Les applis sauvegardent leur base sur Odin (`/api/sauvegardes/<appli>`), chiffrée, avec des versions. Contrat : `docs/sso-protocole.md` ; bibliothèque cliente sans dépendance : `clients/odin-sso.mjs`.
 
 ### Pégase : ton navigateur relié à Odin
 
@@ -568,6 +568,8 @@ Réglages → Personnes (ou `odin pairing approve telegram CODE --membre Léa`).
 | **Invité** | appairé, mais ses messages restent du contenu non fiable : rien d'important sans ta validation |
 
 Quand quelqu'un écrit au bot Telegram, sa demande apparaît dans Réglages → Personnes : **Accepter comme membre**, **Comme invité**, ou **Refuser**.
+
+Monter le rôle ou l'autonomie de quelqu'un, créer un propriétaire, ou relier une identité (ex. `telegram:123…`) à une personne qui a plus de droits qu'elle n'en avait demande ta confirmation, qui dit pour qui et avant → après (ex. « rôle : member → owner ») ; baisser s'applique tout de suite. Accepter une demande comme membre (ou créer un membre neuf) est déjà ton geste à toi : il ne redemande pas de confirmation, même si tu lui donnes l'autonomie « autonome ».
 
 ## Sauvegarde et restauration
 

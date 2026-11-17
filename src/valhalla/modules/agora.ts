@@ -16,6 +16,7 @@ import type { Action as Act, Module, ModCtx, Param, Section, Tone } from '../typ
 import type { Verdict } from '../ullr/engine.ts';
 import { cleDroit, clients, groupesDe, nomAppli, personnes, changerDroit, type Personne } from '../sso/etat.ts';
 import { agissant } from '../sso/acces.ts';
+import { avantApres, pourQui } from '../sso/persona.ts';
 import { FORMATS, MODES, OUVERT, formatDe, nouvelId, oublier, paquetPour, PLATEFORMES, type Element, type Mode, type Paquet, type Plateforme } from '../agora/store.ts';
 import { ACTIONS, changerMode, depot, estAdmin, groupesElement, modePour, personaDe, quiAgit, reconcilier, reveillerPersona, storeDe } from '../agora/regles.ts';
 
@@ -40,6 +41,21 @@ function appliOdin(ctx: ModCtx, x: string): { id: string; nom: string } | undefi
 function elementDe(ctx: ModCtx, x: unknown): Element { const e = depot(ctx).element(s(x)); if (!e) throw new Error(`« ${s(x)} » n'est pas dans le store (regarde l'onglet Catalogue)`); return e; }
 function appareilDe(ctx: ModCtx, x: unknown) { const a = depot(ctx).appareil(s(x)); if (!a || a.retire) throw new Error(`appareil « ${s(x)} » inconnu (regarde l'onglet Appareils)`); return a; }
 const groupeValide = (x: unknown): string => { const g = s(x).toLowerCase().replace(/^groupe\s+/, ''); if (!/^@?[\w-]{1,30}$/.test(g)) throw new Error('groupe : lettres, chiffres, - et _ (ex. famille), ou @identifiant pour une personne'); return g; };
+const modeDe = (x: unknown): Mode | 'aucun' | undefined => LIBELLES[s(x)] ?? (['proposee', 'office', 'retiree', 'aucun'].includes(s(x)) ? s(x) as Mode | 'aucun' : undefined);
+/**
+ * Seul le propriétaire change qui a droit à quoi (ni un membre du groupe admin, ni une automatisation, ni un réflexe) ;
+ * donner passe par sa validation, qui montre pour qui, quoi, avant → après. Une entrée invalide n'en a pas (l'action dira l'erreur).
+ */
+const siDonne = (f: (ctx: ModCtx, i: Record<string, unknown>) => string | undefined) => (i: Record<string, unknown>, ctx?: ModCtx): string | undefined => { if (!ctx) return undefined; try { return f(ctx, i); } catch { return undefined; } };
+/** Les éléments que ce changement ouvre à ce groupe (ou à cette personne « @… ») : rien si le droit y est déjà. */
+function ouvre(ctx: ModCtx, g: string, l: Array<{ e: Element; m: Mode | 'aucun' }>): string | undefined {
+  if (g === 'admin') return undefined;
+  const pctx = personaDe(ctx), a = (e: Element) => (pctx ? groupesDe(pctx, e.droit).includes(g) : false);
+  const neufs = l.filter((x) => (x.m === 'proposee' || x.m === 'office') && !a(x.e)).map((x) => x.e);
+  if (!neufs.length) return undefined;
+  const avant = depot(ctx).elements.filter(a).map((e) => e.nom);
+  return `donner à ${pourQui(g)} l'accès à ${neufs.map((e) => e.nom).join(', ')} — applis du store : ${avantApres(avant, [...avant, ...neufs.map((e) => e.nom)])}`;
+}
 
 /** Les groupes connus : ceux de Persona, ceux qui ont un droit ou un mode, et ceux créés ici. */
 export function groupesAgora(ctx: ModCtx): string[] {
@@ -182,16 +198,18 @@ export const agora: Module = {
         d.noter(now, quiAgit(ctx), `${e.nom} retiré du store`, true); reconcilier(ctx);
         return { text: `🗑 ${e.nom} n'est plus dans le store. Ce qui est déjà installé reste sur les appareils.` };
       }) },
-    { id: 'definir_mode', label: 'Choisir le mode d\'un groupe', what: 'Proposée, Installée d\'office, Retirée ou Pas pour ce groupe ; le droit de la connexion unique suit', params: P_MODE, words: ['installe d office', 'installée d office', 'propose à la famille', 'retire du groupe'],
+    { id: 'definir_mode', label: 'Choisir le mode d\'un groupe', what: 'Proposée, Installée d\'office, Retirée ou Pas pour ce groupe ; le droit de la connexion unique suit', params: P_MODE, words: ['installe d office', 'installée d office', 'propose à la famille', 'retire du groupe'], proprietaireSeul: true,
+      grave: siDonne((ctx, i) => { const m = modeDe(i.mode); return m ? ouvre(ctx, groupeValide(i.groupe), [{ e: elementDe(ctx, i.element), m }]) : undefined; }),
       run: admin(async (ctx, i) => {
         await reveillerPersona(ctx);
-        const e = elementDe(ctx, i.element), g = groupeValide(i.groupe), m = LIBELLES[s(i.mode)] ?? (['proposee', 'office', 'retiree', 'aucun'].includes(s(i.mode)) ? s(i.mode) as Mode | 'aucun' : undefined);
+        const e = elementDe(ctx, i.element), g = groupeValide(i.groupe), m = modeDe(i.mode);
         if (!m) return { ok: false, text: `Mode inconnu : choisis ${CHOIX_MODE.join(', ')}.` };
         changerMode(ctx, e, g, m, quiAgit(ctx));
         return { text: `✅ ${e.nom} · ${g.startsWith('@') ? g.slice(1) : `groupe ${g}`} : ${m === 'aucun' ? 'pas pour ce groupe' : MODES[m].toLowerCase()}. ${m === 'office' ? 'Les appareils en ligne l\'installent tout de suite.' : m === 'retiree' ? 'Il est désinstallé des appareils et disparaît de l\'espace Odin.' : m === 'proposee' ? 'Il apparaît dans leur store et leur espace Odin.' : ''}`.trim() };
       }),
       undo: (i) => ({ action: 'definir_mode', input: { ...i, mode: 'Pas pour ce groupe' }, label: 'Enlever ce mode' }) },
-    { id: 'modes_groupe', label: 'Store du groupe', what: 'Le mode de chaque élément pour un groupe (formulaire de l\'onglet Groupes)', quick: false, params: [P_GROUPE],
+    { id: 'modes_groupe', label: 'Store du groupe', what: 'Le mode de chaque élément pour un groupe (formulaire de l\'onglet Groupes)', quick: false, params: [P_GROUPE], proprietaireSeul: true,
+      grave: siDonne((ctx, i) => { const g = groupeValide(i.groupe); return ouvre(ctx, g, depot(ctx).elements.filter((e) => e.id in i && LIBELLES[s(i[e.id])] && LIBELLES[s(i[e.id])] !== (e.modes[g]?.mode ?? 'aucun')).map((e) => ({ e, m: LIBELLES[s(i[e.id])] }))); }),
       run: admin(async (ctx, i) => {
         await reveillerPersona(ctx);
         const g = groupeValide(i.groupe), qui = quiAgit(ctx); let n = 0;
@@ -202,7 +220,12 @@ export const agora: Module = {
         }
         return { text: n ? `✅ Groupe ${g} : ${n} changement(s) enregistré(s) ; les appareils en ligne les reçoivent tout de suite.` : 'Rien n\'a changé.' };
       }) },
-    { id: 'ajouter_personne', label: 'Mettre quelqu\'un dans un groupe', what: 'Ses applis apparaissent dans son espace Odin et dans le store de ses appareils (par Persona)', params: [{ key: 'login', label: 'Personne (identifiant)', kind: 'text', required: true }, P_GROUPE], quick: false,
+    { id: 'ajouter_personne', label: 'Mettre quelqu\'un dans un groupe', what: 'Ses applis apparaissent dans son espace Odin et dans le store de ses appareils (par Persona)', params: [{ key: 'login', label: 'Personne (identifiant)', kind: 'text', required: true }, P_GROUPE], quick: false, proprietaireSeul: true,
+      grave: siDonne((ctx, i) => {
+        const pctx = personaDe(ctx), g = groupeValide(i.groupe).replace(/^@/, ''), p = pctx ? personnes(pctx).find((x) => x.login === s(i.login).toLowerCase() || x.name.toLowerCase() === s(i.login).toLowerCase()) : undefined;
+        if (!p) return `mettre « ${s(i.login)} » dans le groupe ${g}`;
+        return p.groups.includes(g) ? undefined : `${p.name} (« ${p.login} ») — groupes : ${avantApres(p.groups, [...p.groups, g])}`;
+      }),
       run: admin(async (ctx, i) => {
         const pctx = await reveillerPersona(ctx), g = groupeValide(i.groupe).replace(/^@/, ''), p = pctx ? personnes(pctx).find((x) => x.login === s(i.login).toLowerCase() || x.name.toLowerCase() === s(i.login).toLowerCase()) : undefined;
         if (!p) return { ok: false, text: `Personne « ${s(i.login)} » inconnue dans Persona : ajoute-la d'abord dans Persona.` };
@@ -213,7 +236,12 @@ export const agora: Module = {
         return { text: `👥 ${p.name} est dans le groupe ${g} : son store et son espace Odin sont à jour.` };
       }),
       undo: (i) => ({ action: 'enlever_personne', input: i, label: 'L\'enlever du groupe' }) },
-    { id: 'enlever_personne', label: 'Enlever quelqu\'un d\'un groupe', what: 'Les applis du groupe lui sont retirées (désinstallées de ses appareils)', params: [{ key: 'login', label: 'Personne (identifiant)', kind: 'text', required: true }, P_GROUPE], quick: false,
+    { id: 'enlever_personne', label: 'Enlever quelqu\'un d\'un groupe', what: 'Les applis du groupe lui sont retirées (désinstallées de ses appareils)', params: [{ key: 'login', label: 'Personne (identifiant)', kind: 'text', required: true }, P_GROUPE], quick: false, proprietaireSeul: true,
+      // Enlever est immédiat ; mais de son dernier groupe, la personne passe dans « invite » (ce qu'il donne) : validation.
+      grave: siDonne((ctx, i) => {
+        const pctx = personaDe(ctx), g = groupeValide(i.groupe).replace(/^@/, ''), p = pctx ? personnes(pctx).find((x) => x.login === s(i.login).toLowerCase()) : undefined;
+        return p && p.groups.includes(g) && !p.groups.some((x) => x !== g) && g !== 'invite' ? `${p.name} (« ${p.login} ») — groupes : ${avantApres(p.groups, ['invite'])}` : undefined;
+      }),
       run: admin(async (ctx, i) => {
         const pctx = await reveillerPersona(ctx), g = groupeValide(i.groupe).replace(/^@/, ''), p = pctx ? personnes(pctx).find((x) => x.login === s(i.login).toLowerCase()) : undefined;
         if (!p) return { ok: false, text: `Personne « ${s(i.login)} » inconnue.` };

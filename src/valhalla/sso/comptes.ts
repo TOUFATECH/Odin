@@ -21,6 +21,7 @@ import { lierProprietaire, noter, parSub, persona, personnes, prenomProprio, rev
 import { erreur, issuerDe, json, ouvrirNavigateur, sessionNavigateur, verifierPersonne, demandeValide, type DepsSSO } from './oidc.ts';
 import { WEBAUTHN_JS, nouveauDefi, optionsConnexion, optionsInscription, siteWebauthn, verifierConnexion, verifierInscription, type CleAcces } from './cles-acces.ts';
 import { groupeExiste, nomGroupe } from './groupes.ts';
+import { avantApres, siDonne } from './persona.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 const esc = (x: string) => x.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -261,7 +262,9 @@ ${err(msg)}<button type="submit">Changer le mot de passe</button></form>`));
 // ---------------- Actions de Persona (invitations, adresse des liens, clés d'accès)
 const P_INV: Param[] = [{ key: 'nom', label: 'Nom de la personne', kind: 'text', required: true }, { key: 'groupes', label: 'Groupes (ex. famille)', kind: 'text', default: 'famille' }, { key: 'email', label: 'E-mail (vide : tu donnes le lien toi-même)', kind: 'text', default: '' }, { key: 'jours', label: 'Valable (jours)', kind: 'number', default: 7 }];
 export const comptesActions: Action[] = [
-  { id: 'inviter', label: 'Inviter par lien', what: 'Un lien pour que la personne crée elle-même son compte (identifiant, mot de passe), dans les groupes choisis ; envoyé par e-mail si tu donnes son adresse', params: P_INV, words: ['invite', 'inviter', 'invitation', 'envoie une invitation'], run: async (ctx, i) => {
+  { id: 'inviter', label: 'Inviter par lien', what: 'Un lien pour que la personne crée elle-même son compte (identifiant, mot de passe), dans les groupes choisis ; envoyé par e-mail si tu donnes son adresse', params: P_INV, words: ['invite', 'inviter', 'invitation', 'envoie une invitation'], proprietaireSeul: true,
+    grave: siDonne((i) => `inviter ${s(i.nom).slice(0, 60)} (un lien crée son compte) — groupes : ${avantApres([], [...new Set(s(i.groupes || 'famille').toLowerCase().split(/[\s,;]+/).filter(Boolean))])}`),
+    run: async (ctx, i) => {
     const nom = s(i.nom).slice(0, 60); if (!nom) throw new Error('le nom de la personne ?');
     const gs = [...new Set(s(i.groupes || 'famille').toLowerCase().split(/[\s,;]+/).filter(Boolean).map(nomGroupe))];
     if (gs.includes('admin')) throw new Error('on n\'invite pas dans le groupe admin : ajoute la personne, puis mets-la dans le groupe à la main');

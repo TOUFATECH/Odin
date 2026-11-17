@@ -86,7 +86,7 @@ export const valhallaTool: Tool = {
   grave: (i) => {
     const v = valhallaOf(); if (!v) return undefined;
     // Annuler une manip = lancer son action inverse : si celle-ci est grave, ton accord est demandé.
-    if (s(i.action) === 'manip' && s(i.quoi) === 'annuler') { const x = v.manips({ limit: 500 }).find((m) => m.id === s(i.appli)); const f = x?.undo ? v.action(x.undo.module ?? x.module, x.undo.action) : undefined; try { return f?.a.grave?.(x!.undo!.input, v.ctx(f.m.id)); } catch { return undefined; } }
+    if (s(i.action) === 'manip' && s(i.quoi) === 'annuler') return v.graveAnnulation(s(i.appli)); // un code, « tout » ou « dernière »
     if (s(i.action) !== 'action') return undefined;
     const f = v.action(s(i.appli), s(i.quoi)); try { return f?.a.grave?.(parse(i.entree), v.ctx(f.m.id)); } catch { return undefined; }
   },
@@ -98,7 +98,8 @@ export const valhallaTool: Tool = {
     if (a === 'alertes') { const l = v.alerts({ limit: 20 }); return l.length ? l.map((x) => `- ${x.at.slice(5, 16).replace('T', ' ')} ${x.level} · ${v.module(x.module)?.name ?? x.module} : ${x.title}${x.count > 1 ? ` (×${x.count})` : ''}`).join('\n') : 'Aucune alerte.'; }
     if (a === 'conseiller') return advise(v, s(i.besoin || i.appli));
     if (a === 'manips') { const l = v.manips({ limit: 20 }); return l.length ? l.map((x) => `- [${x.id}] ${x.at.slice(5, 16).replace('T', ' ')} · ${x.label} — ${x.text} · ${x.state}${x.undo ? '' : ' (pas d\'annulation automatique)'}`).join('\n') : 'Aucune manip faite par Odin de lui-même.'; }
-    if (a === 'manip') { const r = await v.decide(s(i.appli), s(i.quoi) !== 'annuler'); return r.text; }
+    // L'action inverse part au nom de qui parle (membre, conversation marquée, tâche sans surveillance), comme « action ».
+    if (a === 'manip') { const alone = /^(auto|breaker|journal|cron|mission):/.test(ctx?.sessionId ?? ''); const r = await v.decide(s(i.appli), s(i.quoi) !== 'annuler', 'toi', { qui: ctx?.auteur?.role ?? 'owner', marque: ctx?.isTainted?.() === true, ...(alone || ctx?.automatique ? { by: 'odin' as const } : {}) }); return r.text; }
     // Sans IA (Logos) : comprend la demande ; une lecture est lancée tout de suite, le reste est expliqué
     // (une action qui change quelque chose passe par « action », donc par Heimdall).
     if (a === 'auto') {

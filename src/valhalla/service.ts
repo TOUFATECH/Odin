@@ -4,6 +4,7 @@
 
 import { Metrics, setMetrics } from './metrics.ts';
 import { accord } from '../core/genre.ts';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -22,6 +23,13 @@ import { relayerEvenement } from './pronoia/branchement.ts';
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
 const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+/**
+ * L'action en cours, pour les appels qu'elle fait à d'autres applis pendant qu'elle tourne. `pasLui` : elle n'a pas été
+ * lancée par le propriétaire en personne (automatisation, réflexe, Odin seul, membre, conversation marquée) — tout ce
+ * qu'elle déclenche ne l'est pas non plus. `valide` : le propriétaire l'a lancée et elle montrait ce qui change (son
+ * « grave ») : sa validation couvre ce qu'elle demande ensuite.
+ */
+const enCours = new AsyncLocalStorage<{ pasLui: boolean; valide: boolean; fini?: boolean }>();
 
 export interface ValhallaDeps {
   notify?(text: string, o?: NotifyOpts): Promise<void>;
@@ -135,25 +143,35 @@ export class Valhalla {
   act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean; by?: By; why?: string; /** l'appli qui demande (appel entre applis) */ de?: string; /** qui parle à Odin (outil de l'agent) */ qui?: 'owner' | 'member' | 'guest'; /** conversation marquée (contenu extérieur lu) */ marque?: boolean } = {}): Promise<ActionResult> {
     if (!o.de) return this.agir(moduleId, actionId, input, o);
     // Même promesse rendue que sans échange (aucune attente en plus pour l'appli qui appelle) : la réponse part juste après.
-    const { de, ...reste } = o, fin = this.echange(de, moduleId, actionId), p = this.agir(moduleId, actionId, input, reste);
+    const { de, ...reste } = o, fin = this.echange(de, moduleId, actionId), p = this.agir(moduleId, actionId, input, { ...reste, entreApplis: true });
     if (fin) p.then((r) => fin(r.ok !== false), () => fin(false));
     return p;
   }
-  private async agir(moduleId: string, actionId: string, input: Record<string, unknown>, o: { auto?: boolean; by?: By; why?: string; qui?: 'owner' | 'member' | 'guest'; marque?: boolean }): Promise<ActionResult> {
+  private async agir(moduleId: string, actionId: string, input: Record<string, unknown>, o: { auto?: boolean; by?: By; why?: string; qui?: 'owner' | 'member' | 'guest'; marque?: boolean; /** demandé par une appli (ctx.call) */ entreApplis?: boolean }): Promise<ActionResult> {
     const f = this.action(moduleId, actionId);
     if (!f) return { ok: false, text: `Action inconnue : ${moduleId} → ${actionId}` };
     const refus = refusAppli(f.m.id, o.by); if (refus) return { ok: false, text: refus }; // droits par appli (personne de Persona)
     // « Propriétaire seul » : ni une automatisation, ni un réflexe, ni Odin seul, ni un membre, ni une personne de Persona,
     // ni une conversation marquée. (La fonction « grave » ne sait pas qui appelle : c'est décidé ici.)
+    // Un appel entre applis (même « interne ») garde qui a lancé l'action de départ : une autre appli ne sert pas de détour.
+    // Sans action de départ en cours (veille, démarrage, route d'une appli, minuteur armé par une action finie) : ce n'est
+    // pas le propriétaire en personne.
+    const enDirect = enCours.getStore(), parent = o.entreApplis && enDirect && !enDirect.fini ? enDirect : undefined;
+    const pasLui = Boolean(o.auto || (o.by !== undefined && o.by !== 'toi') || (o.qui !== undefined && o.qui !== 'owner') || o.marque || agissant() || (o.entreApplis && !parent) || parent?.pasLui);
     const seul = typeof f.a.proprietaireSeul === 'function' ? f.a.proprietaireSeul(input, this.ctx(f.m.id)) : f.a.proprietaireSeul === true;
-    if (seul && (o.auto || (o.by !== undefined && o.by !== 'toi') || (o.qui !== undefined && o.qui !== 'owner') || o.marque || agissant()))
+    if (seul && pasLui)
       return { ok: false, text: `${f.m.name} · ${f.a.label} : seul le propriétaire le règle lui-même (pas une automatisation, pas quelqu'un d'autre, pas après un contenu extérieur).` };
     const why = f.a.grave?.(input, this.ctx(f.m.id));
     if (o.auto && why) return { ok: false, text: `${f.m.name} · ${f.a.label} : action grave (${why}), elle demande ton accord et ne part pas d'une automatisation.` };
+    // Demandé par une autre action en cours : ce qui est réservé au propriétaire et qui demande sa validation ne passe que
+    // si l'action de départ l'a eue (elle montrait ce qui change).
+    if (parent && seul && why && !parent.valide) return { ok: false, text: `${f.m.name} · ${f.a.label} : ${why} — cela demande ta validation, et l'action qui le demandait ne l'a pas eue.` };
     for (const p of f.a.params ?? []) if (p.required && (input[p.key] === undefined || input[p.key] === '')) return { ok: false, text: `Il manque « ${p.label} ».` };
     const by: By = o.by ?? (o.auto ? 'automatisation' : 'toi');
     try {
-      const r = await f.a.run(this.ctx(f.m.id), input);
+      // La validation ne vaut que pendant l'action : ce qu'elle laisse derrière elle (minuteur, promesse) n'en hérite pas.
+      const ici: { pasLui: boolean; valide: boolean; fini?: boolean } = { pasLui, valide: parent ? parent.valide : !pasLui && Boolean(why) };
+      let r: ActionResult; try { r = await enCours.run(ici, () => f.a.run(this.ctx(f.m.id), input)); } finally { ici.valide = false; ici.fini = true; }
       this.events.emit('action', { module: f.m.id, action: f.a.id, ok: r.ok !== false, by });
       if (r.ok !== false && by !== 'toi' && !f.a.read && !f.a.quiet) this.noteManip(f.m, f.a, input, r, by, o.why);
       return { ok: true, ...r };
@@ -185,7 +203,13 @@ export class Valhalla {
     const u = await understand(this, text, session);
     if (!u) return { ok: false, text: 'Je n\'ai pas compris quelle appli utiliser. Dis-le avec le nom de l\'appli ou de la chose (« arrête le conteneur web », « bannis 203.0.113.9 », « les alertes »).' };
     if (u.kind === 'say' || u.kind === 'ask') return { ok: true, text: u.text, understood: u };
-    if (u.kind === 'manip') { const r = await this.decide(u.id, u.keep); return { ok: r.ok, text: r.text, understood: u }; }
+    if (u.kind === 'manip') {
+      // Garder ou annuler ce qu'Odin a fait seul : le propriétaire, pas un membre (qui ne lit pas non plus ce que ce serait).
+      if (agissant()) return { ok: false, text: 'Garder ou annuler ce qu\'Odin a fait de lui-même, c\'est le propriétaire qui le décide.', understood: u };
+      // Annuler lance l'action inverse : si elle est grave (redonner un droit…), elle demande la validation, comme sur la page.
+      if (!u.keep && !o.confirm) { const why = this.graveAnnulation(u.id); if (why) return { ok: false, text: `${why}. C'est une action grave : confirme-la.`, confirm: why, understood: u }; }
+      const r = await this.decide(u.id, u.keep); return { ok: r.ok, text: r.text, understood: u };
+    }
     const f = this.action(u.module, u.action)!;
     const why = f.a.grave?.(u.input, this.ctx(f.m.id));
     if (why && !o.confirm) return { ok: false, text: `${u.label} : ${why}. C'est une action grave : confirme-la.`, confirm: why, understood: u };
@@ -239,18 +263,30 @@ export class Valhalla {
     if (o.module) l = l.filter((x) => x.module === o.module);
     return l.slice(0, o.limit ?? 100);
   }
-  /** « garde » ou « annule » une manip (`id`, ou « tout » / « dernière »). Annuler lance l'action inverse. */
-  async decide(id: string, keep: boolean, by = 'toi'): Promise<{ ok: boolean; text: string; manips: Manip[] }> {
-    const all = this.readManips(), now = (this.deps.now?.() ?? new Date()).toISOString();
+  /** Les manips visées par `id` : un code, « tout » (celles à décider) ou « dernière ». */
+  private choisirManips(all: Manip[], id: string): Manip[] {
     const want = id.trim().toLowerCase();
-    const pick = /^(tout|toutes|tous)$/.test(want) ? all.filter((x) => x.state === 'à décider') : /^(derni[eè]re|dernier|la derni[eè]re)$/.test(want) || !want ? all.filter((x) => x.state !== 'annulée').slice(-1) : all.filter((x) => x.id === want);
+    return /^(tout|toutes|tous)$/.test(want) ? all.filter((x) => x.state === 'à décider') : /^(derni[eè]re|dernier|la derni[eè]re)$/.test(want) || !want ? all.filter((x) => x.state !== 'annulée').slice(-1) : all.filter((x) => x.id === want);
+  }
+  /** Ce que montrerait la validation pour annuler `id` (un code, « tout » ou « dernière ») : rien si aucune action inverse n'est grave. */
+  graveAnnulation(id: string): string | undefined {
+    const l = this.choisirManips(this.readManips(), id).filter((x) => x.state !== 'annulée' && x.undo).map((x) => { const g = this.action(x.undo!.module ?? x.module, x.undo!.action); try { return g?.a.grave?.(x.undo!.input, this.ctx(g.m.id)); } catch { return undefined; } }).filter(Boolean);
+    return l.length ? l.join(' ; ') : undefined;
+  }
+  /**
+   * « garde » ou « annule » une manip (`id`, ou « tout » / « dernière »). Annuler lance l'action inverse, au nom de qui
+   * le demande (`comme` : l'outil de l'agent passe qui parle et si la conversation est marquée).
+   */
+  async decide(id: string, keep: boolean, by = 'toi', comme: { by?: By; qui?: 'owner' | 'member' | 'guest'; marque?: boolean } = {}): Promise<{ ok: boolean; text: string; manips: Manip[] }> {
+    const all = this.readManips(), now = (this.deps.now?.() ?? new Date()).toISOString();
+    const want = id.trim().toLowerCase(), pick = this.choisirManips(all, id);
     if (!pick.length) return { ok: false, text: want && !/^(tout|toutes|tous|derni)/.test(want) ? `Je ne trouve pas la manip « ${id} ». Dis « mes manips » pour voir les codes.` : 'Aucune manip en attente.', manips: [] };
     const out: string[] = []; let ok = true;
     for (const x of pick) {
       if (keep) { if (x.state === 'annulée') { out.push(`${x.label} : déjà annulée.`); ok = false; continue; } x.state = 'gardée'; x.decidedBy = by; x.decidedAt = now; out.push(`✓ Gardé : ${x.label} — ${x.text}`); continue; }
       if (x.state === 'annulée') { out.push(`${x.label} : déjà annulée.`); continue; }
       if (!x.undo) { out.push(`✗ ${x.label} : je ne sais pas l'annuler ${accord('tout seul', 'toute seule')} (${x.text}).`); ok = false; continue; }
-      const r = await this.act(x.undo.module ?? x.module, x.undo.action, x.undo.input, { by: 'toi' });
+      const r = await this.act(x.undo.module ?? x.module, x.undo.action, x.undo.input, { ...comme, by: comme.by ?? 'toi' });
       if (r.ok === false) { out.push(`✗ ${x.label} : l'annulation a échoué (${r.text.slice(0, 160)}).`); ok = false; continue; }
       x.state = 'annulée'; x.decidedBy = by; x.decidedAt = now; out.push(`↩ Annulé : ${x.label} (${x.undo.label}).`);
     }

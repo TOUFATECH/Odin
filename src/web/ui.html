@@ -4629,9 +4629,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 
   // ---------- Personnes ----------
   const ROLE_FR = { owner: 'Propriétaire', member: 'Membre', guest: 'Invité' }, AUTO_FR = { prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome' };
+  // Donner plus de droits à quelqu'un demande ta validation (le serveur dit ce qui change) ; sinon rien n'est fait.
+  const avecValidation = async (body) => { const r = await api('/api/action', body); if (r.ok || !r.confirm) return r; if (!(await OdinDialog.confirm(r.confirm))) return undefined; return api('/api/action', { ...body, confirm: true }); };
   function renderPeople() {
     const P = state.people; if (!P) return;
-    const act = async (body) => { const r = await api('/api/action', body); st('#p-status', r.ok ? '✓ Enregistré.' : r.error, Boolean(r.ok)); refresh(); };
+    const act = async (body) => { const r = await avecValidation(body); if (r) st('#p-status', r.ok ? '✓ Enregistré.' : r.error, Boolean(r.ok)); refresh(); };
     const pend = $('#peoplePending'); pend.textContent = '';
     for (const p of P.pending) pend.append(el('div', { class: 'notice', style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px' },
       el('span', {}, `${p.name || 'Quelqu\'un'} veut parler à Odin sur ${p.channel} (${p.peer}) · code ${p.code}`),
@@ -4647,10 +4649,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (!P.users.length) $('#peopleTable').append(el('tr', {}, el('td', { colspan: 5, class: 'empty' }, 'Personne d\'autre que toi pour l\'instant.')));
   }
   $('#p-add').addEventListener('click', async () => {
-    const r = await api('/api/action', { kind: 'user_save', name: $('#p-name').value, role: $('#p-role').value, autonomy: $('#p-auto').value });
-    if (!r.ok) return st('#p-status', r.error, false);
+    const r = await avecValidation({ kind: 'user_save', name: $('#p-name').value, role: $('#p-role').value, autonomy: $('#p-auto').value });
+    if (!r) return; if (!r.ok) return st('#p-status', r.error, false);
     const ident = $('#p-ident').value.trim().match(/^([a-z]+):(.+)$/);
-    if (ident) { const l = await api('/api/action', { kind: 'user_link', id: r.id, channel: ident[1], peer: ident[2] }); if (!l.ok) return st('#p-status', l.error, false); }
+    if (ident) { const l = await avecValidation({ kind: 'user_link', id: r.id, channel: ident[1], peer: ident[2] }); if (!l) { refresh(); return; } if (!l.ok) return st('#p-status', l.error, false); }
     st('#p-status', '✓ Personne ajoutée.', true); $('#p-name').value = ''; $('#p-ident').value = ''; refresh();
   });
 
