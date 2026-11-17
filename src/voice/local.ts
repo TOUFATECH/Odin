@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { hasCommand } from '../learn/environment.ts';
 import { fetchPropre } from '../net/fetch-propre.ts';
 import { ADMIN_HINT, adminDiagnosis, sudoRefused, withAdmin } from '../machines/access.ts';
+import { entreeFfmpeg } from '../files/ffmpeg-entree.ts';
 
 export const voiceHome = (home = process.env.ODIN_HOME ?? join(homedir(), '.odin')) => join(home, 'voice');
 const WHISPER_MODELS = ['small', 'base', 'medium', 'large-v3-turbo', 'tiny'];
@@ -96,7 +97,7 @@ export async function hearLocal(audio: Uint8Array | { file: string }, language =
   try {
     const src = 'file' in audio ? audio.file : join(dir, 'in.audio'), wav = join(dir, 'in.wav');
     if (!('file' in audio)) writeFileSync(src, audio);
-    const c = await run('ffmpeg', ['-v', 'error', '-y', '-i', src, '-vn', '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', wav], { timeout: Math.max(60_000, timeoutMs / 3) });
+    const c = await run('ffmpeg', ['-v', 'error', '-y', ...entreeFfmpeg('media'), '-i', src, '-vn', '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', wav], { timeout: Math.max(60_000, timeoutMs / 3) });
     if (c.code !== 0) throw new Error(`conversion audio impossible : ${c.err.slice(-200)}`);
     // Langue détectée toute seule (« auto ») : il te répond dans la langue que tu parles.
     // (Sans -np : la ligne « auto-detected language » est écrite dans les journaux, les résultats restent seuls sur la sortie.)

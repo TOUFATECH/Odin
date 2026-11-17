@@ -6,6 +6,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, basename } from 'node:path';
 import { haApi, type HaState } from '../../tools/homeassistant.ts';
 import type { ModCtx, Module } from '../types.ts';
+import { entreeFfmpeg } from '../../files/ffmpeg-entree.ts';
 
 export interface Track { file: string; title: string; artist: string; album: string; sec: number }
 export interface Radio { name: string; url: string }
@@ -37,7 +38,7 @@ function walk(dir: string, out: string[] = [], depth = 0): string[] {
 async function tags(ctx: ModCtx, file: string, probe: boolean): Promise<Track> {
   const f = fromName(file), album = basename(join(file, '..'));
   if (probe) {
-    const r = await ctx.run('ffprobe', ['-v', 'quiet', '-print_format', 'json', '-show_format', file], { timeoutMs: 8000 });
+    const r = await ctx.run('ffprobe', ['-v', 'quiet', '-print_format', 'json', '-show_format', ...entreeFfmpeg('son'), file], { timeoutMs: 8000 });
     try { const j = JSON.parse(r.out) as { format?: { duration?: string; tags?: Record<string, string> } }; const t = Object.fromEntries(Object.entries(j.format?.tags ?? {}).map(([k, v]) => [k.toLowerCase(), v])); return { file, title: t.title || f.title, artist: t.artist || t.album_artist || f.artist, album: t.album || album, sec: Math.round(Number(j.format?.duration ?? 0)) }; } catch { /* repli sur le nom */ }
   }
   return { file, ...f, album, sec: 0 };

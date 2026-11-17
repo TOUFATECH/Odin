@@ -4,6 +4,7 @@
 //   - PDF : qpdf (fusion, découpe, rotation, mot de passe, allègement), Ghostscript si présent (compression forte),
 //     Poppler (texte, images), OCRmyPDF si présent (texte reconnu) ;  livres : Calibre si présent.
 import { basename, dirname, extname, join } from 'node:path';
+import { entreeFfmpeg } from '../../files/ffmpeg-entree.ts';
 
 export type Family = 'video' | 'audio' | 'image' | 'document' | 'tableur' | 'presentation' | 'texte' | 'pdf' | 'livre';
 const FAM: Record<string, Family> = {};
@@ -46,7 +47,7 @@ export function plan(src: string, to: string, outDir: string, o: Opts = {}): Ste
   const stem = basename(src, extname(src)), out = join(outDir, `${stem}.${to === 'pdfa' ? 'pdfa.pdf' : to}`);
   const q = o.qualite ?? 'normale';
   if (from === 'video' || from === 'audio') {
-    const a = ['-hide_banner', '-nostdin', '-y'];
+    const a = ['-hide_banner', '-nostdin', '-y', ...entreeFfmpeg('media')];
     if (time(o.debut)) a.push('-ss', time(o.debut)!);
     a.push('-i', src);
     if (time(o.duree)) a.push('-t', time(o.duree)!);

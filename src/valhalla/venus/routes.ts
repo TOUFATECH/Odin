@@ -17,6 +17,7 @@ import { ACTIONS_ECRAN, decouvrirEcrans, piloterEcran, planEnvoi, type ActionEcr
 import { creerTelecommande, empreinteTelephone, jetonDe, nombreTelephones, qrTelecommande, regenerer, revoquer, telecommandes, validerJeton } from './telecommande.ts';
 import { abonnements, abonner, accueil, ajouterHistoriqueYt, chaine, desabonner, effacerHistoriqueYt, historiqueYt, recherche, reglagesYt, reglerYt, segmentsASauter, video, type Http } from './youtube.ts';
 import { fluxAutorise } from './cast.ts';
+import { entreeFfmpeg } from '../../files/ffmpeg-entree.ts';
 
 export interface VenusRouteCtx {
   home: string;
@@ -59,7 +60,7 @@ const execJson = (cmd: string, args: string[], timeout = 60_000): Promise<string
 /** ffprobe réel → forme Probe. */
 export async function ffprobeReel(chemin: string): Promise<Probe | null> {
   try {
-    const j = JSON.parse(await execJson('ffprobe', ['-v', 'error', '-show_format', '-show_streams', '-print_format', 'json', chemin])) as { format?: { duration?: string }; streams?: Array<Record<string, unknown>> };
+    const j = JSON.parse(await execJson('ffprobe', ['-v', 'error', '-show_format', '-show_streams', '-print_format', 'json', ...entreeFfmpeg('media'), chemin])) as { format?: { duration?: string }; streams?: Array<Record<string, unknown>> };
     const streams = j.streams ?? [];
     const v = streams.find((x) => x.codec_type === 'video');
     return {

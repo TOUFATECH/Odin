@@ -16,6 +16,7 @@ import { createPdf, readPdf } from '../files/pdf.ts';
 import { bool, num, obj, str, type Tool, type ToolContext, type ToolResult } from './registry.ts';
 import { isExternal, safeEnv } from './builtin.ts';
 import { ocrPdf, ocrReady, understanding } from '../valhalla/champollion/ocr.ts';
+import { entreeFfmpeg } from '../files/ffmpeg-entree.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const clip = (t: string, n = 40_000) => (t.length > n ? `${t.slice(0, n)}\n… [${t.length - n} caractères tronqués]` : t);
@@ -143,7 +144,8 @@ export const mediaInfoTool: Tool = {
   async run(i, ctx) {
     const info = mediaInfo(toolPath(ctx, s(i.path)));
     const d = info.durationSec;
-    return `${info.format} · ${d ? `${Math.floor(d / 60)} min ${Math.round(d % 60)} s · ` : ''}${info.sizeKo} Ko\n${info.streams.map((x) => `- ${x}`).join('\n')}`;
+    // Les étiquettes d'un fichier sont écrites par d'autres (déjà enveloppées par mediaInfo) : le tour est marqué.
+    return { output: `${info.format} · ${d ? `${Math.floor(d / 60)} min ${Math.round(d % 60)} s · ` : ''}${info.sizeKo} Ko\n${info.streams.map((x) => `- ${x}`).join('\n')}`, tainted: true };
   },
 };
 
@@ -185,7 +187,7 @@ export const audioTranscribe: Tool = {
     if (!['.mp3', '.m4a', '.ogg', '.oga', '.wav', '.webm'].includes(ext) || statSync(p).size > 24 * 1024 * 1024) {
       const tmp = toolPath(ctx, `.odin-tmp/transcription-${Date.now()}.mp3`);
       mkdirSync(dirname(tmp), { recursive: true });
-      await runFfmpeg(['-hide_banner', '-loglevel', 'error', '-y', '-i', p, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', tmp], ctx.signal);
+      await runFfmpeg(['-hide_banner', '-loglevel', 'error', '-y', ...entreeFfmpeg('media'), '-i', p, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', tmp], ctx.signal);
       p = tmp;
     }
     const mime = { '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.oga': 'audio/ogg', '.wav': 'audio/wav', '.webm': 'audio/webm' }[extname(p).toLowerCase()] ?? 'audio/mpeg';

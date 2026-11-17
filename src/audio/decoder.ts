@@ -13,6 +13,7 @@ import { ErreurSon, enErreurSon, maxSecEffectif, verifierArret } from './bornes.
 import { FS, MAX_OCTETS, MAX_SEC, TRANCHE_S, type Lanceur, type SourceSon } from './contrat.ts';
 import { formatSon, lireEnteteWav, versMono, type EnteteWav, type LireA } from './wav.ts';
 import { Reechantillonneur } from './reech.ts';
+import { FORMATS_ENTREE } from '../files/ffmpeg-entree.ts';
 
 /** Ce qu'on sait de la source. */
 export interface InfoSon { format: string; fs: number; canaux: number; via: 'natif' | 'outil-media' }
@@ -52,7 +53,7 @@ export const lanceurParDefaut: Lanceur = (cmd, args, o) => {
  *  (« -protocol_whitelist file,pipe ») : un fichier hostile déguisé en liste de lecture ne peut faire ouvrir aucune
  *  adresse du réseau à l'outil. */
 export function argumentsOutil(fichier: string): string[] {
-  return ['-nostdin', '-v', 'error', '-protocol_whitelist', 'file,pipe', '-i', `file:${resolve(fichier)}`, '-vn', '-ac', '1', '-ar', String(FS), '-f', 'f32le', 'pipe:1'];
+  return ['-nostdin', '-v', 'error', '-protocol_whitelist', 'file,pipe', '-format_whitelist', FORMATS_ENTREE.media, '-i', `file:${resolve(fichier)}`, '-vn', '-ac', '1', '-ar', String(FS), '-f', 'f32le', 'pipe:1'];
 }
 
 /** Regroupe des morceaux en tranches de taille fixe. */

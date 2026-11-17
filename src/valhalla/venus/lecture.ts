@@ -6,6 +6,7 @@
 // FFmpeg est injecté (lancer un transcodage = une fonction) : les essais passent un faux, aucun flux réel.
 import { extname } from 'node:path';
 import type { Probe } from './bibliotheque.ts';
+import { entreeFfmpeg } from '../../files/ffmpeg-entree.ts';
 
 // Ce qu'un navigateur lit sans transcodage : conteneur MP4/WebM et codecs répandus.
 const CONTENEURS_OK = new Set(['.mp4', '.m4v', '.webm', '.mov']);
@@ -53,7 +54,7 @@ export function lireRange(entete: string | undefined, taille: number): { debut: 
 
 /** Les arguments FFmpeg d'un transcodage à la volée (pur, testable). `depuis` = secondes de départ (reprise/seek). */
 export function argsTranscodage(fichier: string, mode: 'mp4' | 'hls', depuis = 0): string[] {
-  const base = ['-v', 'error', ...(depuis > 0 ? ['-ss', String(Math.max(0, Math.round(depuis)))] : []), '-i', fichier];
+  const base = ['-v', 'error', ...entreeFfmpeg('media'), ...(depuis > 0 ? ['-ss', String(Math.max(0, Math.round(depuis)))] : []), '-i', fichier];
   if (mode === 'hls') {
     return [...base, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-b:a', '160k', '-f', 'hls', '-hls_time', '4', '-hls_playlist_type', 'event', '-hls_flags', 'independent_segments', 'pipe:1'];
   }
@@ -63,7 +64,7 @@ export function argsTranscodage(fichier: string, mode: 'mp4' | 'hls', depuis = 0
 
 /** Les arguments FFmpeg pour extraire/convertir une piste de sous-titres en WebVTT (pur). */
 export function argsSousTitres(fichier: string, o: { index?: number } = {}): string[] {
-  return ['-v', 'error', '-i', fichier, ...(o.index !== undefined ? ['-map', `0:${o.index}`] : []), '-f', 'webvtt', 'pipe:1'];
+  return ['-v', 'error', ...entreeFfmpeg('video'), '-i', fichier, ...(o.index !== undefined ? ['-map', `0:${o.index}`] : []), '-f', 'webvtt', 'pipe:1'];
 }
 
 /** Choisit la piste de sous-titres à servir pour une langue voulue. Pur. */

@@ -13,6 +13,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { hasCommand } from '../learn/environment.ts';
 import { sudoRefused, withAdmin } from '../machines/access.ts';
+import { entreeFfmpeg } from '../files/ffmpeg-entree.ts';
 
 export type Platform = 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'fichier' | 'autre';
 
@@ -131,7 +132,7 @@ export async function transcribeVideo(file: string, dir: string, transcribe: Tra
   const out: Line[] = [], step = 60;
   for (let t = 0; t < Math.max(duration, 1) && t < 3 * 3600; t += step) {
     const f = join(dir, `a${t}.mp3`);
-    const r = await run('ffmpeg', ['-v', 'error', '-y', '-ss', String(t), '-t', String(step), '-i', file, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '48k', f], { signal });
+    const r = await run('ffmpeg', ['-v', 'error', '-y', ...entreeFfmpeg('media'), '-ss', String(t), '-t', String(step), '-i', file, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '48k', f], { signal });
     if (!r.ok || !existsSync(f) || statSync(f).size < 2000) continue;
     const text = (await transcribe(readFileSync(f), 'audio/mpeg').catch(() => '')).trim();
     if (text) out.push({ t, end: Math.min(t + step, duration || t + step), text, src: 'paroles' });
@@ -142,14 +143,14 @@ export async function transcribeVideo(file: string, dir: string, transcribe: Tra
 /** Extrait la piste audio (mono 16 kHz, compressée : ~15 Mo par heure). */
 export async function extractAudio(file: string, dir: string, signal?: AbortSignal): Promise<string | undefined> {
   const f = join(dir, 'audio.mp3');
-  const r = await run('ffmpeg', ['-v', 'error', '-y', '-i', file, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', f], { signal, timeout: 1_800_000 });
+  const r = await run('ffmpeg', ['-v', 'error', '-y', ...entreeFfmpeg('media'), '-i', file, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', f], { signal, timeout: 1_800_000 });
   return r.ok && existsSync(f) && statSync(f).size > 2000 ? f : undefined;
 }
 
 /** Une image toutes les `every` secondes, en une passe (déroulé seconde par seconde). */
 export async function framesEvery(file: string, dir: string, every: number, signal?: AbortSignal): Promise<Frame[]> {
   const sub = join(dir, 'secondes'); mkdirSync(sub, { recursive: true });
-  const r = await run('ffmpeg', ['-v', 'error', '-y', '-i', file, '-vf', `fps=1/${every},scale=640:-2`, '-q:v', '5', join(sub, 's%05d.jpg')], { signal, timeout: 1_800_000 });
+  const r = await run('ffmpeg', ['-v', 'error', '-y', ...entreeFfmpeg('video'), '-i', file, '-vf', `fps=1/${every},scale=640:-2`, '-q:v', '5', join(sub, 's%05d.jpg')], { signal, timeout: 1_800_000 });
   if (!r.ok) return [];
   return readdirSync(sub).filter((f) => /^s\d+\.jpg$/.test(f)).sort().map((f) => ({ t: (Number(f.slice(1, 6)) - 1) * every, file: join(sub, f) }));
 }
@@ -183,13 +184,13 @@ export function perSecond(frames: Frame[], lines: Line[], step: number): string 
 export interface Frame { t: number; file: string; seen?: string }
 /** Images clés : changements de scène (FFmpeg), au moins une toutes les 45 s, 16 au plus. */
 export async function keyFrames(file: string, dir: string, duration: number, max = 16, signal?: AbortSignal): Promise<Frame[]> {
-  const scenes = await run('ffmpeg', ['-v', 'info', '-i', file, '-vf', "select='gt(scene,0.32)',showinfo", '-an', '-f', 'null', '-'], { signal, timeout: 600_000 });
+  const scenes = await run('ffmpeg', ['-v', 'info', ...entreeFfmpeg('video'), '-i', file, '-vf', "select='gt(scene,0.32)',showinfo", '-an', '-f', 'null', '-'], { signal, timeout: 600_000 });
   const times = [...scenes.err.matchAll(/pts_time:([\d.]+)/g)].map((m) => Number(m[1]));
   const want = pickTimes(times, duration, max);
   const frames: Frame[] = [];
   for (const t of want) {
     const f = join(dir, `f${String(Math.round(t)).padStart(5, '0')}.jpg`);
-    const r = await run('ffmpeg', ['-v', 'error', '-y', '-ss', t.toFixed(2), '-i', file, '-frames:v', '1', '-vf', 'scale=960:-2', '-q:v', '4', f], { signal });
+    const r = await run('ffmpeg', ['-v', 'error', '-y', ...entreeFfmpeg('video'), '-ss', t.toFixed(2), '-i', file, '-frames:v', '1', '-vf', 'scale=960:-2', '-q:v', '4', f], { signal });
     if (r.ok && existsSync(f)) frames.push({ t, file: f });
   }
   return frames;

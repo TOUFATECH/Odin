@@ -4,6 +4,7 @@
 // Écrit d'après la norme HEIF et la norme ISO BMFF (ISO/IEC 14496-12) ; aucun code repris d'ailleurs. Pur, sauf `heicVersPng`.
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { entreeFfmpeg } from '../../files/ffmpeg-entree.ts';
 
 interface Boite { type: string; debut: number; corps: number; fin: number }
 /** Les boîtes ISO BMFF d'un morceau de fichier. */
@@ -112,7 +113,7 @@ export async function heicVersPng(run: Run, src: string, png: string): Promise<{
   const h = lireHeif(readFileSync(src)), d = mkdtempSync(join(png, '..', '.heic-'));
   try {
     const flux = join(d, 'tuiles.hevc'); writeFileSync(flux, h.annexB);
-    const r = await run('ffmpeg', ['-hide_banner', '-nostdin', '-loglevel', 'error', '-y', '-f', 'hevc', '-i', flux, '-vf', filtreHeif(h), '-frames:v', '1', png], { timeoutMs: 120e3 });
+    const r = await run('ffmpeg', ['-hide_banner', '-nostdin', '-loglevel', 'error', '-y', ...entreeFfmpeg('image', 'hevc'), '-f', 'hevc', '-i', flux, '-vf', filtreHeif(h), '-frames:v', '1', png], { timeoutMs: 120e3 });
     if (r.code !== 0) throw new Error(`photo HEIC non décodée : ${(r.err || r.out).trim().split('\n').slice(-1)[0] || `ffmpeg code ${r.code}`}`);
     return h.date ? { date: h.date } : {};
   } finally { rmSync(d, { recursive: true, force: true }); }

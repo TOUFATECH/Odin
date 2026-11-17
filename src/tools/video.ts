@@ -7,6 +7,7 @@ import { readJson, research } from '../research/research.ts';
 import { clock, detectPlatform, ensureFfmpeg, extractAudio, fetchVideo, framesEvery, keyFrames, lookFrames, lookFramesFast, ocr, parseVtt, perSecond, saveText, secondStep, timeline, type Frame, type Line, type VideoMeta } from '../video/video.ts';
 import { obj, str, type Tool, type ToolContext } from './registry.ts';
 import { wrapUntrusted } from '../heimdall/injection.ts';
+import { entreeFfmpeg } from '../files/ffmpeg-entree.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const MODES = ['analyse', 'résumé', 'transcription', 'seconde', 'tutoriel', 'faits', 'code', 'marketing', 'traduction', 'apprendre', 'question'] as const;
@@ -143,7 +144,7 @@ export async function analyzeVideo(source: string, ctx: ToolContext, o: { perSec
 
 async function probeDuration(file: string): Promise<number> {
   const { execFile } = await import('node:child_process');
-  return new Promise((res) => execFile('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], (e, out) => res(e ? 0 : Number(String(out).trim()) || 0)));
+  return new Promise((res) => execFile('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', ...entreeFfmpeg('media'), file], (e, out) => res(e ? 0 : Number(String(out).trim()) || 0)));
 }
 
 export const VIDEO_TOOLS: Tool[] = [videoAnalyze];
