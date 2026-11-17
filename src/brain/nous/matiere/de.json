@@ -788,7 +788,7 @@
         "Wenn eine Maschine einen kritischen Alarm bekommt, isolier sie automatisch, ohne auf mich zu warten."
       ],
       "arreter": [
-        "Fahr die VM 104 sauber herunter"
+        null
       ],
       "arreter_machine": [
         "Halt die Maschine labo-web auf diesem PC an, zur Not hart"

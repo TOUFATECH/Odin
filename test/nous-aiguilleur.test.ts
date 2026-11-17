@@ -366,25 +366,66 @@ test('matière (tour 3) : les actions complétées ont une phrase sœur dans cha
   assert.deepEqual(sansSoeurs, []);
 });
 
+// Contrôle de ressemblance (tour 5, corrections) : TOUS les champs de texte de TOUS les jeux de test/soul-banc/jeux
+// (phrase, demande, question, choix, souvenirs, réglages attendus, notes…), pas seulement les champs « phrase » : les
+// « demande » des jeux de décisions n'étaient jamais comparés. Chaque chaîne non vide est gardée avec un repère
+// « jeu/identifiant/champ » (identifiant de l'objet le plus proche qui en a un). Index inversés : seules les chaînes qui
+// partagent un mot ou un trigramme avec la phrase sont comparées ; les mesures restent celles de fuites.ts (Jaccard des
+// trigrammes, part des mots en commun). Rien n'est jamais affiché d'un jeu : seulement des repères.
+type TexteDeJeu = { ref: string; m: Set<string>; t: Set<string> };
+let textesDesJeuxCache: Promise<{ textes: TexteDeJeu[]; proches: (p: string, seuilTri: number, seuilMots: number) => string[] }> | null = null;
+function textesDesJeux() {
+  textesDesJeuxCache ??= (async () => {
+    const { normaliser, trigrammes } = await import('./soul-banc/fuites.ts');
+    const { readdirSync } = await import('node:fs');
+    const mots = (t: string) => new Set(normaliser(t).split(' ').filter(Boolean));
+    const dossier = new URL('./soul-banc/jeux/', import.meta.url), textes: TexteDeJeu[] = [];
+    const collecter = (x: unknown, ref: string, champ: string): void => {
+      if (typeof x === 'string') { if (x.trim()) textes.push({ ref: `${ref}/${champ}`, m: mots(x), t: trigrammes(x) }); return; }
+      if (Array.isArray(x)) { x.forEach((v) => collecter(v, ref, champ)); return; }
+      if (!x || typeof x !== 'object') return;
+      const o = x as Record<string, unknown>, jeu = ref.split('/')[0], ici = typeof o.id === 'string' ? `${jeu}/${o.id}` : ref;
+      for (const [k, v] of Object.entries(o)) collecter(v, ici, k);
+    };
+    for (const n of readdirSync(dossier).filter((n) => n.endsWith('.json'))) collecter(JSON.parse(readFileSync(new URL(n, dossier), 'utf8')), n.replace(/\.json$/, ''), '');
+    const indexer = (cle: 'm' | 't') => { const ix = new Map<string, number[]>(); textes.forEach((d, j) => { for (const x of d[cle]) { let l = ix.get(x); if (!l) ix.set(x, l = []); l.push(j); } }); return ix; };
+    const IXM = indexer('m'), IXT = indexer('t');
+    const communs = (s: Set<string>, ix: Map<string, number[]>) => { const c = new Map<number, number>(); for (const x of s) for (const j of ix.get(x) ?? []) c.set(j, (c.get(j) ?? 0) + 1); return c; };
+    // Une phrase est « proche » d'un texte de jeu si elle partage avec lui au moins seuilTri de trigrammes (Jaccard), ou,
+    // phrase d'au moins 4 mots, au moins seuilMots de ses mots (même mesure que les contrôles des tours 3 à 5).
+    const proches = (p: string, seuilTri: number, seuilMots: number) => {
+      const m = mots(p), t = trigrammes(p), ct = communs(t, IXT), cm = m.size >= 4 ? communs(m, IXM) : new Map<number, number>(), out: string[] = [];
+      for (const j of new Set([...ct.keys(), ...cm.keys()])) {
+        const d = textes[j], it = ct.get(j) ?? 0, im = cm.get(j) ?? 0;
+        if (it / (t.size + d.t.size - it) >= seuilTri || (m.size >= 4 && im / (m.size + d.m.size - im || 1) >= seuilMots)) out.push(d.ref);
+      }
+      return out;
+    };
+    return { textes, proches };
+  })();
+  return textesDesJeuxCache;
+}
+
+test('contrôle de ressemblance (tour 5, corrections) : il lit tous les champs de texte de tous les jeux, pas seulement « phrase »', async () => {
+  const { textes } = await textesDesJeux();
+  const champs = new Set(textes.map((d) => d.ref.split('/').pop()));
+  for (const c of ['phrase', 'demande', 'question', 'options', 'texte', 'note']) assert.ok(champs.has(c), `champ ${c} non lu`);
+  assert.ok(textes.length > 40_000, `textes lus ${textes.length}`);
+});
+
 test('matière (tour 3, relecture) : aucune phrase des actions complétées n\'est presque une demande des deux jeux de l\'aiguilleur ni du jeu figé des tâches', async () => {
   // Une phrase de matière presque identique à une demande du banc fausse sa mesure. fuites.ts ne signale qu'à partir de
   // 0,8 (trigrammes) : ici, plus serré, pour les actions complétées au tour 3 : 75 % des mots en commun (phrases d'au
   // moins 4 mots) ou 0,7 de trigrammes. Le message ne donne que des repères (langue, action, numéro), jamais une phrase.
   // Le jeu figé des tâches (taches-principal : demandes et choix) est aussi couvert : une phrase sw de svalinn.tester_debit
-  // y ressemblait (repère tp177).
-  const { normaliser, trigrammes, jaccard } = await import('./soul-banc/fuites.ts');
+  // y ressemblait (repère tp177). Depuis les corrections du tour 5 : tous les champs de texte de tous les jeux.
+  const { proches: prochesDe } = await textesDesJeux();
   const LANGUES = ['ar', 'de', 'en', 'es', 'fr', 'hi', 'it', 'ja', 'ko', 'nl', 'pt', 'ru', 'sw', 'tr', 'zh'];
   const CLES = ('saga.noter saga.chercher runes.client runes.evolution garmr.bannis garmr.proteger geri.verifier geri.journal ullr.analyser ullr.fichier argos.incidents urdr.lignes skuld.sauvegarder '
     + 'skuld.verifier_site svalinn.tester_debit vidarr.bloquer_horaires vidarr.dhcp_fixe vordr.prendre_en_main vordr.ajouter askr.attribuer var.inviter var.mot_de_passe thjalfi.suivi gladsheim.bouton '
     + 'zeus.bilan gna.exporter gna.nommer_lieu apparence.theme commandes.chercher volva.chercher appareils.commander midgard.commander midgard.pont freyja.livre_ajouter frigg.reserver frigg.prestation '
     + 'kvasir.verifier champollion.garder gefjon.demarrage sol.dossier ivaldi.journal leikvangr.jeux hlin.etat hel.recuperer agora.forcer achille.controle_passif syrinx.purger pronoia.couper '
     + 'keryx.historique snotra.creer eir.mesures').split(' ');
-  const mots = (t: string) => new Set(normaliser(t).split(' ').filter(Boolean));
-  const partMots = (a: Set<string>, b: Set<string>) => { const i = [...a].filter((x) => b.has(x)).length; return i / (a.size + b.size - i || 1); };
-  const demandes = ['principal', 'developpement', 'taches-principal'].flatMap((j) => {
-    const x = JSON.parse(readFileSync(new URL(`./soul-banc/jeux/${j}.json`, import.meta.url), 'utf8')) as { demandes: Array<{ id: string; phrase: string }>; choix?: Array<{ id: string; phrase: string }> };
-    return [...x.demandes, ...(x.choix ?? [])];
-  }).map((d) => ({ id: d.id, m: mots(d.phrase), t: trigrammes(d.phrase) }));
   const proches: string[] = [];
   for (const l of LANGUES) {
     const f = JSON.parse(readFileSync(new URL(`../src/brain/nous/matiere/${l}.json`, import.meta.url), 'utf8')) as { applis: Record<string, Record<string, Array<string | null>>> };
@@ -392,8 +433,7 @@ test('matière (tour 3, relecture) : aucune phrase des actions complétées n\'e
       const [a, b] = k.split('.');
       (f.applis[a]?.[b] ?? []).forEach((p, n) => {
         if (typeof p !== 'string') return;
-        const m = mots(p), t = trigrammes(p);
-        for (const d of demandes) if ((m.size >= 4 && partMots(m, d.m) >= 0.75) || jaccard(t, d.t) >= 0.7) proches.push(`${l}:${k}#${n}~${d.id}`);
+        for (const r of prochesDe(p, 0.7, 0.75)) proches.push(`${l}:${k}#${n}~${r}`);
       });
     }
   }
@@ -430,27 +470,17 @@ test('matière (tour 4) : 82 actions reçoivent une idée de plus, en phrases s�
     const L = Math.max(...listes.map((l) => l.length));
     for (let n = 0; n < L; n++) if (listes.every((l) => typeof l[n] === 'string' && l[n]!.trim() !== '')) completes++;
   }
-  // 112 idées complètes dans les quinze langues avant le tour 4, une de plus par action ensuite.
-  assert.ok(completes >= 112 + 82, `idées complètes ${completes}`);
+  // 112 idées complètes dans les quinze langues avant le tour 4, une de plus par action ensuite. Corrections du tour 5 :
+  // le contrôle de ressemblance étendu à tous les champs de tous les jeux a retiré (null, sans réécriture) trois phrases
+  // de ces listes (en ullr.analyser#0, fr saga.chercher#2, fr apparence.theme#1) : trois idées ne sont plus complètes.
+  assert.ok(completes >= 112 + 82 - 3, `idées complètes ${completes}`);
 });
 
 test('matière (tour 4) : aucune phrase des actions complétées n\'est presque une demande d\'un des jeux du banc', async () => {
   // Mêmes seuils que le contrôle du tour 3 (75 % des mots pour une phrase d'au moins 4 mots, ou 0,7 de trigrammes),
-  // contre TOUS les jeux de test/soul-banc/jeux (demandes et choix). Le message ne donne que des repères, jamais une phrase.
-  const { normaliser, trigrammes, jaccard } = await import('./soul-banc/fuites.ts');
-  const { readdirSync } = await import('node:fs');
-  const mots = (t: string) => new Set(normaliser(t).split(' ').filter(Boolean));
-  const partMots = (a: Set<string>, b: Set<string>) => { const i = [...a].filter((x) => b.has(x)).length; return i / (a.size + b.size - i || 1); };
-  const dossierJeux = new URL('./soul-banc/jeux/', import.meta.url);
-  const demandes: Array<{ id: string; m: Set<string>; t: Set<string> }> = [];
-  const collecter = (x: unknown): void => {
-    if (Array.isArray(x)) { x.forEach(collecter); return; }
-    if (!x || typeof x !== 'object') return;
-    const o = x as Record<string, unknown>;
-    if (typeof o.phrase === 'string' && typeof o.id === 'string') demandes.push({ id: o.id, m: mots(o.phrase), t: trigrammes(o.phrase) });
-    for (const v of Object.values(o)) if (v && typeof v === 'object') collecter(v);
-  };
-  for (const n of readdirSync(dossierJeux).filter((n) => n.endsWith('.json'))) collecter(JSON.parse(readFileSync(new URL(n, dossierJeux), 'utf8')));
+  // contre TOUS les jeux de test/soul-banc/jeux (depuis les corrections du tour 5 : tous leurs champs de texte). Le message
+  // ne donne que des repères, jamais une phrase.
+  const { textes, proches: prochesDe } = await textesDesJeux();
   const fichiers = lireMatiereTour4(), proches: string[] = [];
   fichiers.forEach((f, i) => {
     for (const k of CLES_TOUR4) {
@@ -458,11 +488,10 @@ test('matière (tour 4) : aucune phrase des actions complétées n\'est presque 
       // L'idée du tour 4 est la dernière de la liste.
       const p = l[l.length - 1];
       if (typeof p !== 'string') continue;
-      const m = mots(p), t = trigrammes(p);
-      for (const d of demandes) if ((m.size >= 4 && partMots(m, d.m) >= 0.75) || jaccard(t, d.t) >= 0.7) proches.push(`${LANGUES_TOUR4[i]}:${k}#${l.length - 1}~${d.id}`);
+      for (const r of prochesDe(p, 0.7, 0.75)) proches.push(`${LANGUES_TOUR4[i]}:${k}#${l.length - 1}~${r}`);
     }
   });
-  assert.ok(demandes.length > 1000, `demandes lues ${demandes.length}`);
+  assert.ok(textes.length > 1000, `textes lus ${textes.length}`);
   assert.deepEqual(proches, []);
 });
 
@@ -524,28 +553,19 @@ test('matière (tour 5) : 300 actions reçoivent une idée, à la même place da
     if (presentes === 15) completes++;
     if (presentes < 11) minces.push(`${k} (${presentes})`);
   }
-  assert.deepEqual(minces, [], 'une idée du tour 5 a gardé au moins onze langues');
-  assert.ok(completes >= 277, `idées du tour 5 complètes dans les quinze langues : ${completes}`);
+  // Corrections du tour 5 : le contrôle étendu à tous les champs de tous les jeux a retiré (null, sans réécriture) trois
+  // phrases de ces idées (fr ymir.demarrer#0, de ymir.arreter#0, ja vidarr.retirer_horaire#0) ; ymir.demarrer, qui en
+  // avait onze, en garde dix. 277 idées complètes au tour 5, 275 après ces retraits.
+  assert.deepEqual(minces, ['ymir.demarrer (10)'], 'une idée du tour 5 a gardé au moins onze langues (sauf ymir.demarrer, dix)');
+  assert.ok(completes >= 275, `idées du tour 5 complètes dans les quinze langues : ${completes}`);
 });
 
 test('matière (tour 5) : aucune phrase des actions ajoutées ne ressemble à une demande d\'un des jeux du banc', async () => {
   // Contrôle plus serré que celui des tours 3 et 4 (0,7 / 75 %) : c'est le seuil du tri du tour 5, 0,5 de trigrammes ou
   // 60 % des mots en commun (phrase d'au moins 4 mots), contre TOUS les jeux de test/soul-banc/jeux (demandes et choix).
-  // Le message ne donne que des repères (langue, action, numéro, identifiant de la demande), jamais une phrase.
-  const { normaliser, trigrammes, jaccard } = await import('./soul-banc/fuites.ts');
-  const { readdirSync } = await import('node:fs');
-  const mots = (t: string) => new Set(normaliser(t).split(' ').filter(Boolean));
-  const partMots = (a: Set<string>, b: Set<string>) => { const i = [...a].filter((x) => b.has(x)).length; return i / (a.size + b.size - i || 1); };
-  const dossierJeux = new URL('./soul-banc/jeux/', import.meta.url);
-  const demandes: Array<{ id: string; m: Set<string>; t: Set<string> }> = [];
-  const collecter = (x: unknown): void => {
-    if (Array.isArray(x)) { x.forEach(collecter); return; }
-    if (!x || typeof x !== 'object') return;
-    const o = x as Record<string, unknown>;
-    if (typeof o.phrase === 'string' && typeof o.id === 'string') demandes.push({ id: o.id, m: mots(o.phrase), t: trigrammes(o.phrase) });
-    for (const v of Object.values(o)) if (v && typeof v === 'object') collecter(v);
-  };
-  for (const n of readdirSync(dossierJeux).filter((n) => n.endsWith('.json'))) collecter(JSON.parse(readFileSync(new URL(n, dossierJeux), 'utf8')));
+  // Le message ne donne que des repères (langue, action, numéro, jeu/identifiant/champ), jamais une phrase. Depuis les
+  // corrections du tour 5 : tous les champs de texte de tous les jeux (les « demande » des jeux de décisions compris).
+  const { textes, proches: prochesDe } = await textesDesJeux();
   const proches: string[] = [];
   lireMatiereTour4().forEach((f, i) => {
     for (const k of CLES_TOUR5) {
@@ -553,11 +573,23 @@ test('matière (tour 5) : aucune phrase des actions ajoutées ne ressemble à un
       // Toutes les phrases de ces listes (tour 5, et les deux phrases d'avant en arabe, russe, swahili et turc pour huit d'entre elles).
       l.forEach((p, n) => {
         if (typeof p !== 'string') return;
-        const m = mots(p), t = trigrammes(p);
-        for (const d of demandes) if ((m.size >= 4 && partMots(m, d.m) >= 0.6) || jaccard(t, d.t) >= 0.5) proches.push(`${LANGUES_TOUR4[i]}:${k}#${n}~${d.id}`);
+        for (const r of prochesDe(p, 0.5, 0.6)) proches.push(`${LANGUES_TOUR4[i]}:${k}#${n}~${r}`);
       });
     }
   });
-  assert.ok(demandes.length > 4000, `demandes lues ${demandes.length}`);
+  assert.ok(textes.length > 40_000, `textes lus ${textes.length}`);
   assert.deepEqual(proches, []);
+});
+
+test('matière (tour 5, corrections) : les phrases néerlandaises des actions ajoutées n\'ont pas de mot français', () => {
+  // Relecture du tour 5 : « logés » était resté dans la phrase néerlandaise de var.supprimer_groupe. Le néerlandais
+  // n'a pas ces lettres ; « é » n'y vient que dans « één » (ou « ééN »). Repères seuls dans le message.
+  const nl = lireMatiereTour4()[LANGUES_TOUR4.indexOf('nl')], fautes: string[] = [];
+  for (const k of CLES_TOUR5) {
+    const [a, b] = k.split('.');
+    (nl.applis[a]?.[b] ?? []).forEach((p, n) => {
+      if (typeof p === 'string' && /[àâçèéêîôùûœ]/iu.test(p.replace(/één/giu, ''))) fautes.push(`${k}#${n}`);
+    });
+  }
+  assert.deepEqual(fautes, []);
 });

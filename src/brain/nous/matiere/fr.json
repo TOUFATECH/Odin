@@ -24,7 +24,7 @@
       "chercher": [
         "cherche dans mes notes le mot facture",
         "retrouve ce que j'avais écrit sur le serveur de sauvegarde",
-        "retrouve dans mes notes ce que j'avais écrit sur le plombier",
+        null,
         "retrouve ce que j'avais écrit sur la recette de la tarte aux pommes"
       ],
       "noter": [
@@ -857,7 +857,7 @@
         "coupe la VM de test de tout réseau, elle se comporte bizarrement"
       ],
       "demarrer": [
-        "allume la machine virtuelle 104"
+        null
       ],
       "verifier_ip": [
         "avant de la donner à une nouvelle machine : est-ce que l'adresse 192.168.1.50 est libre ?"
@@ -1885,7 +1885,7 @@
       ],
       "theme": [
         "mets le thème automatique",
-        "passe au thème forêt",
+        null,
         "change le thème d'Odin pour quelque chose de plus sombre",
         "change le look d'Odin pour quelque chose de plus sombre ce soir"
       ],

@@ -328,7 +328,7 @@
         "that file is fine, it's a false positive"
       ],
       "analyser": [
-        "scan the Downloads folder",
+        null,
         "run a full disk scan",
         "run a virus scan on the external drive",
         "run the antivirus over the whole Downloads folder"
