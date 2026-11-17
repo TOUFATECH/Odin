@@ -4,14 +4,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, lstatSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, posix, resolve, win32 } from 'node:path';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 import { cmpVersion, customSource, highest, ISO, parseIndex, parseSums, SOFT } from '../src/valhalla/forge/sources.ts';
-import { due, monogram, nextRun, scan, toPrune } from '../src/valhalla/forge/forge.ts';
+import { dossierSysteme, due, monogram, nextRun, scan, toPrune } from '../src/valhalla/forge/forge.ts';
 
 const sha = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
 const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
@@ -62,6 +62,31 @@ test('outils purs : versions, empreintes, index, programmation, ménage, motifs'
   assert.throws(() => customSource({ id: 'y', name: 'Y', kind: 'logiciel', url: 'https://x/y.exe', pattern: 'sans-version.exe' }), /\{version\}/);
   assert.match(monogram('Proxmox VE', '#E57000'), /^data:image\/svg\+xml;base64,/);
   assert.match(Buffer.from(monogram('<script>', 'red').split(',')[1], 'base64').toString(), /fill="#6B7280"/);
+  // Dossiers système : sous Linux et macOS, les mêmes qu'avant ; sous Windows, ceux de Windows en plus, et les noms de Linux sur tout lecteur.
+  for (const non of ['/etc', '/etc/iso', '/usr/share/x', '/var/lib/x', '/boot', '/lib64']) assert.ok(dossierSysteme(non, '/home/ana', posix), non);
+  for (const oui of ['/mnt/nas/iso', '/home/ana/iso', '/srv/iso', '/var/iso', '/etcetera', 'C:/Windows']) assert.ok(!dossierSysteme(oui, '/home/ana', posix), oui);
+  for (const non of ['C:\\', 'D:\\', 'C:\\Windows', 'c:\\windows\\system32', 'C:\\Program Files\\X', 'C:\\Program Files (x86)', 'C:\\Users', 'C:\\Users\\Public', 'C:\\Users\\Leo\\ISO', 'D:\\etc\\iso', 'E:\\usr']) assert.ok(dossierSysteme(non, 'C:\\Users\\Ana', win32), non);
+  for (const oui of ['C:\\Users\\Ana\\ISO', 'c:\\users\\ana\\iso', 'D:\\ISO', 'E:\\nas\\logiciels']) assert.ok(!dossierSysteme(oui, 'C:\\Users\\Ana', win32), oui);
+  // Sous Windows, un autre nom du même dossier ne passe pas : flux NTFS (« : » après le lecteur), nom court, jonction (le chemin réel est vérifié).
+  const reels: Record<string, string> = { 'c:\\progra~1\\x': 'C:\\Program Files\\X', 'c:\\documents and settings\\leo\\iso': 'C:\\Users\\Leo\\iso', 'd:\\lien\\iso': 'C:\\Windows\\iso' };
+  const reel = (p: string) => reels[win32.resolve(p).toLowerCase()] ?? p;
+  for (const non of ['C:/Windows::$INDEX_ALLOCATION/x', 'C:\\Windows:flux\\x', 'C:/PROGRA~1/X', 'C:/Documents and Settings/Leo/iso', 'D:\\lien\\iso']) assert.ok(dossierSysteme(non, 'C:\\Users\\Ana', win32, reel), non);
+  assert.ok(!dossierSysteme('D:\\ISO', 'C:\\Users\\Ana', win32, reel), 'un dossier ordinaire reste permis');
+  assert.ok(!dossierSysteme('/srv/a:b', '/home/ana', posix, reel), 'sous Linux, rien ne change');
+});
+
+test('Windows : une jonction vers le dossier de Windows, créée dans un dossier temporaire, est refusée', { skip: process.platform !== 'win32' && 'Windows seulement' }, () => {
+  const t = mkdtempSync(join(tmpdir(), 'eitri-jonction-')), lien = join(t, 'lien');
+  try {
+    symlinkSync(process.env.SystemRoot ?? 'C:\\Windows', lien, 'junction');
+    assert.ok(dossierSysteme(join(lien, 'iso'), join(t, 'moi')), 'jonction');
+    assert.ok(!dossierSysteme(join(t, 'iso'), join(t, 'moi')), 'le dossier temporaire lui-même reste permis');
+  } finally {
+    // La jonction d'abord, seule ; le dossier temporaire n'est vidé que si elle n'y est plus (jamais de parcours vers Windows).
+    try { rmdirSync(lien); } catch { /* pas créée */ }
+    let reste = true; try { lstatSync(lien); } catch { reste = false; }
+    if (!reste) rmSync(t, { recursive: true, force: true });
+  }
 });
 
 test('sources officielles (faux sites) : Ubuntu, Debian, Fedora, GitHub, Firefox, VS Code, Node.js', async () => {

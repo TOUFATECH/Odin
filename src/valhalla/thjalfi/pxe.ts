@@ -37,10 +37,12 @@ export interface ProxyDeps { server: () => string; httpPort: () => number; allow
 /** Le proxy DHCP : répond seulement aux machines PXE, sans jamais donner d'adresse (la box s'en charge). */
 export class ProxyDhcp {
   private socks: dgram.Socket[] = []; ports = { dhcp: 67, pxe: 4011 }; clientPort = 68;
+  /** Où part la réponse à une machine qui n'a pas encore d'adresse : la diffusion sur le réseau local (seul un essai la change). */
+  diffusion = '255.255.255.255';
   private d: ProxyDeps;
   constructor(d: ProxyDeps) { this.d = d; }
-  async start(dhcpPort = 67, pxePort = 4011, clientPort = 68, host = '0.0.0.0'): Promise<void> {
-    this.clientPort = clientPort;
+  async start(dhcpPort = 67, pxePort = 4011, clientPort = 68, host = '0.0.0.0', diffusion = '255.255.255.255'): Promise<void> {
+    this.clientPort = clientPort; this.diffusion = diffusion;
     for (const [port, kind] of [[dhcpPort, 'dhcp'], [pxePort, 'pxe']] as const) {
       const s = dgram.createSocket({ type: 'udp4', reuseAddr: true });
       await new Promise<void>((ok, ko) => { s.once('error', ko); s.bind(port, host, () => { s.off('error', ko); ok(); }); });
@@ -63,6 +65,6 @@ export class ProxyDhcp {
     // En proxy, on ne donne jamais d'adresse : yiaddr reste vide (la box l'a donnée ou va la donner).
     const out = buildPacket({ op: 2, xid: p.xid, flags: p.flags, ciaddr: p.ciaddr, yiaddr: '0.0.0.0', siaddr: server, giaddr: p.giaddr, mac: p.mac, file: boot.file, options: [[53, Buffer.from([answer])], [54, ipBuf(server)], ...boot.options] });
     if (kind === 'pxe') s.send(out, r.port, r.address);
-    else s.send(out, this.clientPort, p.ciaddr !== '0.0.0.0' ? p.ciaddr : '255.255.255.255');
+    else s.send(out, this.clientPort, p.ciaddr !== '0.0.0.0' ? p.ciaddr : this.diffusion);
   }
 }

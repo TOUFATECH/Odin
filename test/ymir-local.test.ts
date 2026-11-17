@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix, win32 } from 'node:path';
 import { inflateSync } from 'node:zlib';
-import { consoleTail, ipLibre, lxcConfig, nomAuto, parseLxcInfo, pngFromRgb, qemuArgs, readPpm, rewriteConfig, safeEntries, RESEAU_DEFAUT, type Machine } from '../src/valhalla/ymir/local.ts';
+import { cheminCopie, consoleTail, ipLibre, lxcConfig, nomAuto, parseLxcInfo, pngFromRgb, qemuArgs, readPpm, rewriteConfig, safeEntries, RESEAU_DEFAUT, type Machine } from '../src/valhalla/ymir/local.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { DEFAULT_CONFIG } from '../src/config.ts';
@@ -28,6 +28,18 @@ test('noms, adresses, configuration LXC et ligne de commande QEMU', () => {
   const a = qemuArgs(vm, '/vm/x', { kvm: false, ovmf: '/ovmf.fd', installer: '/iso/win.iso' }).join(' ');
   assert.match(a, /accel=tcg/); assert.match(a, /-cpu max/); assert.match(a, /-bios \/ovmf\.fd/); assert.match(a, /-cdrom \/iso\/win\.iso -boot once=d/); assert.match(a, /ifname=ov-a1b2c3d4,script=no/); assert.ok(a.includes(`-qmp unix:${join('/vm/x', 'qmp.sock')},server=on,wait=off`), a); // séparateur du système
   assert.match(qemuArgs({ ...vm, quarantaine: { depuis: 1, raison: '', journal: [] } }, '/vm/x', { kvm: true }).join(' '), /accel=kvm.*-nic none/);
+  // Disque d'une copie importée : sous Linux, comme avant ; sous Windows, le chemin avec « \ » passe aussi sous la copie.
+  assert.equal(cheminCopie('/var/lib/lxc/web/rootfs', 'web', '/srv/lxc/web-2', posix), '/srv/lxc/web-2/rootfs');
+  assert.equal(cheminCopie('/var/lib/lxc/web/rootdev', 'web', '/srv/lxc/web-2', posix), '/srv/lxc/web-2/rootdev', 'disque en boucle');
+  assert.equal(cheminCopie('/data/web/lxc/web/rootfs', 'web', '/srv/lxc/web-2', posix), '/srv/lxc/web-2/rootfs', 'le dossier le plus proche qui porte son nom');
+  assert.equal(cheminCopie('/autre/rootfs', 'web', '/srv/lxc/web-2', posix), '/autre/rootfs', 'sans son dossier : inchangé');
+  assert.equal(cheminCopie('/var/lib/lxc/web', 'web', '/srv/lxc/web-2', posix), '/var/lib/lxc/web', 'le dossier lui-même : inchangé, comme avant');
+  assert.equal(cheminCopie('D:\\machines\\web\\rootfs', 'web', 'D:\\machines\\web-2', win32), 'D:\\machines\\web-2\\rootfs');
+  // Les cas limites de Linux restent ceux d'avant : barre finale réécrite, chemin relatif inchangé, overlay « bas:haut » où seule la couche de l'original change.
+  assert.equal(cheminCopie('/var/lib/lxc/web/', 'web', '/srv/lxc/web-2', posix), '/srv/lxc/web-2/', 'barre finale');
+  assert.equal(cheminCopie('web/rootfs', 'web', '/srv/lxc/web-2', posix), 'web/rootfs', 'chemin relatif : inchangé, comme avant');
+  assert.equal(cheminCopie('/var/lib/lxc/base/rootfs:/var/lib/lxc/web/delta0', 'web', '/srv/lxc/web-2', posix), '/var/lib/lxc/base/rootfs:/srv/lxc/web-2/delta0', 'overlay');
+  assert.equal(cheminCopie('D:/machines/web/rootfs', 'web', 'D:\\machines\\web-2', win32), 'D:\\machines\\web-2\\rootfs', 'barres « / » sous Windows');
 });
 
 test('capture d\'écran PPM → PNG réduit, console sans couleurs, chemins d\'archive sûrs', () => {
@@ -105,7 +117,7 @@ test('créer un LXC, ranger, ressources, quarantaine (règle « rouge = isoler �
     const ody = (ex.data as { fichier: string }).fichier;
     const im = await v.act('ymir', 'importer_machine', { fichier: ody, nom: 'copie-nextcloud' });
     assert.match(im.text, /📥 copie-nextcloud importée \(LXC Debian 13\) · 10\.0\.3\.62 · empreinte vérifiée/);
-    const c2 = readFileSync(join(P, 'copie-nextcloud', 'config'), 'utf8'); assert.match(c2, /lxc\.uts\.name = copie-nextcloud/); assert.match(c2, new RegExp(`rootfs\\.path = dir:${join(P, 'copie-nextcloud')}/rootfs`)); assert.match(c2, /10\.0\.3\.62\/24/);
+    const c2 = readFileSync(join(P, 'copie-nextcloud', 'config'), 'utf8'); assert.match(c2, /lxc\.uts\.name = copie-nextcloud/); assert.ok(c2.includes(`lxc.rootfs.path = dir:${join(P, 'copie-nextcloud', 'rootfs')}\n`), c2); assert.match(c2, /10\.0\.3\.62\/24/);
     assert.equal(readFileSync(join(P, 'copie-nextcloud', 'rootfs', 'etc', 'hostname'), 'utf8'), nom, 'le disque est bien là');
     // Un .ody modifié : refusé.
     const bad = join(home, 'bad'); mkdirSync(bad); await new Promise((ok) => execFile(TAR, ['-C', bad, '-xf', ody], ok));

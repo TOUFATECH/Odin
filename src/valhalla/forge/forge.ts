@@ -7,9 +7,10 @@
 //     événement, et un résumé chaque jour à l'heure choisie.
 import { journalDe } from '../base/journal.ts';
 import { createHash } from 'node:crypto';
-import { appendFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { open } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { basename, dirname, isAbsolute, join, posix, relative, resolve, win32, type PlatformPath } from 'node:path';
 import type { Action, ModCtx, Module, Param, Section, Tone } from '../types.ts';
 import { cmpVersion, customSource, type Kind, type Release, type Source } from './sources.ts';
 import './catalogue.ts';
@@ -27,6 +28,40 @@ interface Job { source: string; name: string; file: string; version: string; don
 interface Custom { id: string; name: string; repo?: string; url?: string; pattern: string; sha256?: string }
 
 // ---------------- Pur ----------------
+const NATIF: PlatformPath = process.platform === 'win32' ? win32 : posix;
+const SYSTEME_POSIX = /^\/(?:etc|bin|sbin|usr|boot|proc|sys|dev|lib|lib64|var\/lib)(?:\/|$)/;
+/** Un dossier de Windows qu'on ne confie pas à une appli : la racine d'un lecteur (ou d'un partage), le dossier de Windows,
+ * Program Files, ou le profil d'un autre utilisateur (ni celui de `home`, ni celui du compte qui fait tourner Odin). Sans tenir compte des majuscules, comme Windows. */
+export function systemeWindows(p: string, home: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  const r = win32.resolve(p).toLowerCase(), racine = win32.parse(r).root, haut = r.slice(racine.length).split(win32.sep)[0];
+  if (!haut) return true;
+  const dans = (d: string | undefined) => { if (!d) return false; const x = win32.resolve(d).toLowerCase(); return r === x || r.startsWith(x.endsWith(win32.sep) ? x : x + win32.sep); };
+  if (['windows', 'program files', 'program files (x86)'].includes(haut) || [env.SystemRoot, env.windir, env.ProgramFiles, env['ProgramFiles(x86)'], env.ProgramW6432].some(dans)) return true;
+  if (haut !== 'users') return false;
+  const profil = r.slice(racine.length).split(win32.sep)[1] ?? '';
+  return !profil || !(dans(home) || profil === (env.USERNAME ?? '').toLowerCase());
+}
+/** Le même chemin Windows écrit comme sous Linux, sans son lecteur (« D:\etc\iso » → « /etc/iso »), en minuscules. */
+export const sansLecteur = (p: string): string => { const r = win32.resolve(p).toLowerCase(); return posix.join('/', ...r.slice(win32.parse(r).root.length).split(win32.sep)); };
+/** Le chemin tel que Windows le voit vraiment : la plus longue partie qui existe déjà, dépliée (nom court « PROGRA~1 »,
+ * jonction, lien), suivie du reste. Ailleurs que sous Windows, ou si rien n'est lisible : le chemin tel quel. */
+export function cheminReelWindows(p: string): string {
+  if (process.platform !== 'win32') return p;
+  let d = win32.resolve(p); const reste: string[] = [];
+  for (;;) {
+    try { return win32.join(realpathSync.native(d), ...reste); } catch { /* on remonte d'un cran */ }
+    const haut = win32.dirname(d); if (haut === d) return p; reste.unshift(win32.basename(d)); d = haut;
+  }
+}
+/** Un dossier système, refusé comme dossier de rangement : ceux de Linux (et sous Windows, ces mêmes noms sur n'importe
+ * quel lecteur, plus ceux de Windows, vérifiés aussi sur le chemin réel ; un « : » après le lecteur, qui viserait un flux
+ * NTFS, est refusé). `chemins` et `reel` : les règles de chemin du système, à changer seulement pour un essai. */
+export function dossierSysteme(abs: string, home: string, chemins: PlatformPath = NATIF, reel: (p: string) => string = cheminReelWindows): boolean {
+  if (SYSTEME_POSIX.test(abs)) return true;
+  if (chemins !== win32) return false;
+  const windows = (p: string) => { const r = win32.resolve(p); return r.slice(win32.parse(r).root.length).includes(':') || SYSTEME_POSIX.test(sansLecteur(r)) || systemeWindows(r, home); };
+  return windows(abs) || windows(reel(abs));
+}
 /** Le prochain passage programmé après `now` (jours de la semaine + heure, ou une date), à l'heure du lieu d'Odin. Pur. */
 export function nextRun(p: Plan, now: Date, fuseau?: string): Date | undefined {
   const heure = lireHeure(p.at); if (!heure) return undefined;
@@ -310,7 +345,7 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
     { id: 'dossier', label: 'Choisir le dossier', what: `Où ranger les ${o.nouns} : un disque, ou un partage réseau monté (ex. /mnt/nas/${o.kind === 'iso' ? 'iso' : 'logiciels'})`, params: [{ key: 'chemin', label: 'Dossier', kind: 'text', required: true }], words: [`dossier des ${o.nouns}`, `emplacement des ${o.nouns}`], run: (ctx, i) => {
       const p = s(i.chemin).trim(); if (!isAbsolute(p) && !p.startsWith('~/')) throw new Error('donne un chemin complet (ex. /mnt/nas/iso)');
       const abs = p.startsWith('~/') ? join(ctx.home, p.slice(2)) : resolve(p);
-      if (/^\/(?:etc|bin|sbin|usr|boot|proc|sys|dev|lib|lib64|var\/lib)(?:\/|$)/.test(abs)) throw new Error('dossier système : choisis un dossier à toi');
+      if (dossierSysteme(abs, homedir())) throw new Error('dossier système : choisis un dossier à toi');
       mkdirSync(abs, { recursive: true }); const probe = join(abs, `.odin-${o.id}`); writeFileSync(probe, 'ok'); rmSync(probe);
       ctx.saveSettings({ dossier: abs }); const sc = scan(abs, all(ctx));
       return { text: `📁 ${o.name} range dans ${abs}. ${sc.found.length} ${o.noun}(s) reconnu(s)${sc.unknown.length ? `, ${sc.unknown.length} non reconnu(s)` : ''}.` };

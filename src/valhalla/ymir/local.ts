@@ -11,7 +11,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { cpus, freemem, loadavg, totalmem } from 'node:os';
-import { join } from 'node:path';
+import { join, posix, win32, type PlatformPath } from 'node:path';
 import { crc32, deflateSync } from 'node:zlib';
 import type { ModCtx } from '../types.ts';
 
@@ -106,6 +106,15 @@ export function qemuArgs(m: Machine, dir: string, o: { kvm: boolean; ovmf?: stri
 /** Le fichier du disque d'un LXC monté en boucle (« lxc.rootfs.path = loop:/…/rootdev »), ou rien pour un disque en dossier. Pur. */
 export function disqueLxc(config: string): string | undefined {
   const m = /^\s*lxc\.rootfs\.path\s*=\s*loop:(.+)$/m.exec(config); return m?.[1].trim() || undefined;
+}
+/** Le chemin du disque d'une copie importée : ce qui est sous le dossier de l'original (le dossier qui porte son nom,
+ * suivi d'un séparateur) passe sous le dossier de la copie ; sans ce dossier dans le chemin, il reste tel quel. Un « : »
+ * sépare les couches d'un overlay, et seule la couche qui contient ce dossier change. Les séparateurs sont ceux du système
+ * (« / » sous Linux et macOS, « \ » ou « / » sous Windows, où le « : » d'un lecteur fait partie du chemin). Pur. */
+export function cheminCopie(p: string, original: string, dossierCopie: string, chemins: PlatformPath = process.platform === 'win32' ? win32 : posix): string {
+  const nom = original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), win = chemins === win32;
+  const motif = win ? new RegExp(`(?:[A-Za-z]:)?[^:]*[\\\\/]${nom}[\\\\/]`) : new RegExp(`[^:]*/${nom}/`);
+  return p.replace(motif, () => `${dossierCopie}${chemins.sep}`);
 }
 const QC_SIMPLES: Record<string, string> = { ' ': 'spc', '\n': 'ret', '\t': 'tab', '-': 'minus', '=': 'equal', '[': 'bracket_left', ']': 'bracket_right', '\\': 'backslash', ';': 'semicolon', '\'': 'apostrophe', '`': 'grave_accent', ',': 'comma', '.': 'dot', '/': 'slash' };
 const QC_MAJ: Record<string, string> = { '!': '1', '@': '2', '#': '3', $: '4', '%': '5', '^': '6', '&': '7', '*': '8', '(': '9', ')': '0', _: 'minus', '+': 'equal', '{': 'bracket_left', '}': 'bracket_right', '|': 'backslash', ':': 'semicolon', '"': 'apostrophe', '~': 'grave_accent', '<': 'comma', '>': 'dot', '?': 'slash' };
@@ -474,7 +483,7 @@ export class Local {
       renameSync(join(x, man.nom), join(base, m.nom));
       if (m.genre === 'lxc') {
         const cf = join(base, m.nom, 'config');
-        const txt = readFileSync(cf, 'utf8').split('\n').map((l) => l.replace(/^(\s*lxc\.uts\.name\s*=).*/, `$1 ${m.nom}`).replace(/^(\s*lxc\.rootfs\.path\s*=\s*(?:\w+:)?)(.*)$/, (_a, k: string, p: string) => `${k}${p.replace(new RegExp(`[^:]*/${man.nom}/`), `${join(base, m.nom)}/`)}`)).join('\n');
+        const txt = readFileSync(cf, 'utf8').split('\n').map((l) => l.replace(/^(\s*lxc\.uts\.name\s*=).*/, `$1 ${m.nom}`).replace(/^(\s*lxc\.rootfs\.path\s*=\s*(?:\w+:)?)(.*)$/, (_a, k: string, p: string) => `${k}${cheminCopie(p, man.nom, join(base, m.nom))}`)).join('\n');
         writeFileSync(cf, rewriteConfig(txt, lxcConfig(m, r, this.lxcDir)));
       } else writeFileSync(join(base, m.nom, 'vm.json'), JSON.stringify(m, null, 1));
       this.save([...this.list(), m]); return m;

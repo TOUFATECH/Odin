@@ -5,7 +5,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, statfsSync, writeFileSync, writeSync } from 'node:fs';
 import { open } from 'node:fs/promises';
-import { basename, dirname, extname, join } from 'node:path';
+import { basename, dirname, extname, join, posix, relative, sep } from 'node:path';
 import { effacesExfat, effacesFat, type Efface } from './fat.ts';
 import { propre, taille as tailleLisible } from './octets.ts';
 import { debutConforme, familleDuNom, fouiller, verifier, type Famille } from './signatures.ts';
@@ -166,6 +166,9 @@ async function recopier(l: Lecteur, pos: number, n: number, cible: string): Prom
   const fd = openSync(cible, 'wx');
   try { for (let o = 0; o < n; o += MO) { const b = await l.lire(pos + o, Math.min(MO, n - o)); writeSync(fd, b); } } finally { closeSync(fd); }
 }
+/** Le chemin d'un fichier retrouvé, vu depuis le dossier de la récupération, toujours écrit avec « / » (comme sous Linux),
+ * pour que le rapport et la page se lisent pareil sur tous les systèmes. */
+export const dansLeRapport = (racine: string, cible: string): string => relative(racine, cible).split(sep).join(posix.sep);
 /** De la place pour `n` octets de plus, avec une marge (on ne remplit jamais un disque jusqu'au dernier octet). */
 function place(rep: string, n: number): boolean { try { const f = statfsSync(rep); return f.bavail * f.bsize > n + 64 * MO; } catch { return true; } }
 
@@ -208,7 +211,7 @@ export async function recuperer(s: Support, dest: string, o: OptionsRecup): Prom
         const rep = join(racine, famille, ...(etat === 'abîmé' ? ['abîmés'] : []), ...e.chemin.split('/').filter(Boolean).map(sur)), cible = libre(rep, sur(e.nom));
         await recopier(l, 0, lu, cible);
         const note = etat === 'abîmé' ? ver.note ?? e.note : e.etat === 'incertain' ? e.note : undefined;
-        noter({ chemin: cible.slice(racine.length + 1), famille, taille: lu, etat, origine: 'nom', pos: debut + e.morceaux[0][0], ...(note ? { note } : {}) });
+        noter({ chemin: dansLeRapport(racine, cible), famille, taille: lu, etat, origine: 'nom', pos: debut + e.morceaux[0][0], ...(note ? { note } : {}) });
         if (etat === 'entier') for (const [p, n] of e.morceaux) sauter.push([debut + p, debut + p + n]);
         await pause();
       }
@@ -225,7 +228,7 @@ export async function recuperer(s: Support, dest: string, o: OptionsRecup): Prom
       const etat: Etat = !f.entier ? 'abîmé' : f.fragile ? 'non vérifiable' : 'entier', base = `f${f.pos}${f.nom ? `-${sur(basename(f.nom))}` : ''}`;
       const nom = base.toLowerCase().endsWith(`.${f.ext}`) ? base : `${base}.${f.ext}`, cible = libre(join(racine, f.famille, ...(etat === 'abîmé' ? ['abîmés'] : [])), nom);
       await recopier(s, f.pos, f.taille, cible);
-      noter({ chemin: cible.slice(racine.length + 1), famille: f.famille, taille: f.taille, etat, origine: 'signature', pos: f.pos, ...(f.note ? { note: f.note } : etat === 'non vérifiable' ? { note: 'format sans contrôle interne : la taille vient de son en-tête, le contenu n\'a pas pu être vérifié' } : {}) });
+      noter({ chemin: dansLeRapport(racine, cible), famille: f.famille, taille: f.taille, etat, origine: 'signature', pos: f.pos, ...(f.note ? { note: f.note } : etat === 'non vérifiable' ? { note: 'format sans contrôle interne : la taille vient de son en-tête, le contenu n\'a pas pu être vérifié' } : {}) });
     }
   }
   r.arretee = o.arret.stop && !r.erreur; r.illisibles = s.illisibles; r.octetsLus = Math.max(r.octetsLus, o.suivi.fait);

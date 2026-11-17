@@ -85,10 +85,13 @@ function discover(mac: string, arch: number, ipxe = false, port?: number): Buffe
   return buildPacket({ op: 1, xid: 0x1234, mac, options: [[53, Buffer.from([MSG.DISCOVER])], [60, Buffer.from('PXEClient:Arch:00007:UNDI:003016')], [93, a], ...(ipxe ? [[77, Buffer.from('iPXE')] as [number, Buffer]] : [])], ...(port ? {} : {}) });
 }
 test('proxy DHCP : seules les machines PXE reçoivent le chargeur qui leur va, sans jamais d\'adresse', async () => {
-  const c = dgram.createSocket({ type: 'udp4', reuseAddr: true }); await new Promise<void>((ok) => c.bind(0, '0.0.0.0', ok)); const cport = (c.address() as { port: number }).port;
+  // Tout reste sur la boucle locale : la réponse « en diffusion » est envoyée à 127.0.0.1, jamais sur le vrai réseau.
+  const c = dgram.createSocket({ type: 'udp4', reuseAddr: true }); await new Promise<void>((ok) => c.bind(0, '127.0.0.1', ok)); const cport = (c.address() as { port: number }).port;
   const got: Buffer[] = []; c.on('message', (m) => got.push(m));
   const seen: string[] = [];
-  const p = new ProxyDhcp({ server: () => '192.168.1.10', httpPort: () => 16000, seen: (mac, fw) => seen.push(`${mac} ${fw}`) }); await p.start(0, 0, cport, '0.0.0.0');
+  const p = new ProxyDhcp({ server: () => '192.168.1.10', httpPort: () => 16000, seen: (mac, fw) => seen.push(`${mac} ${fw}`) });
+  assert.equal(p.diffusion, '255.255.255.255', 'en vrai : la diffusion du réseau local');
+  await p.start(0, 0, cport, '127.0.0.1', '127.0.0.1');
   const send = (b: Buffer) => c.send(b, p.ports.dhcp, '127.0.0.1');
   try {
     send(discover('52:54:00:00:00:01', 7)); send(discover('52:54:00:00:00:02', 0)); send(discover('52:54:00:00:00:03', 7, true));

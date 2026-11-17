@@ -3,6 +3,7 @@
 // endroit. Recherche par mot, gravité, source et période ; les messages qui se répètent sont regroupés ;
 // des règles « si ce message revient N fois en M minutes, préviens-moi ». Lecture seule : rien n'est effacé.
 import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
 import { choixDePoste, PARAM_POSTE, posteDe } from '../postes.ts';
 import type { Kpi, ModCtx, Module, Tone } from '../types.ts';
 
@@ -129,7 +130,7 @@ export const mimisbrunnr: Module = {
       if (rest.length === l.length) throw new Error('règle introuvable'); ctx.saveSettings({ regles: rest }); return { text: 'Règle retirée.' };
     } },
     { id: 'fichier', label: 'Lire un fichier de journal en plus', what: 'Ajoute un fichier (ex. le journal d\'une de tes applis)', words: ['ajoute un fichier aux journaux du système'], params: [{ key: 'chemin', label: 'Chemin du fichier', kind: 'text', required: true }], run: (ctx, i) => {
-      const f = s(i.chemin).trim(); if (!f.startsWith('/') || f.includes('\0')) throw new Error('chemin absolu attendu'); if (!existsSync(f)) throw new Error('fichier introuvable');
+      const f = s(i.chemin).trim(); if (!isAbsolute(f) || f.includes('\0')) throw new Error('chemin absolu attendu'); if (!existsSync(f)) throw new Error('fichier introuvable');
       ctx.saveSettings({ fichiers: [...new Set([...((ctx.settings.fichiers as string[] | undefined) ?? []), f])] }); return { text: `📄 ${f} est lu avec les autres journaux.` };
     } },
   ],

@@ -14,6 +14,7 @@ import { valhallaOf } from '../src/valhalla/odin.ts';
 import { attendreHel } from '../src/valhalla/modules/hel.ts';
 import { ouvrir } from '../src/valhalla/hel/support.ts';
 import { lireTable } from '../src/valhalla/hel/tables.ts';
+import { dansLeRapport } from '../src/valhalla/hel/travail.ts';
 
 const FX = join(import.meta.dirname, 'fixtures', 'hel'), ORIG = join(FX, 'fichiers');
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
@@ -25,6 +26,8 @@ async function attendre(): Promise<void> { const va = valhallaOf()!; await atten
 function effacer(img: string, zones: Array<[number, number]>): void { const fd = openSync(img, 'r+'); try { for (const [pos, n] of zones) writeSync(fd, Buffer.alloc(n), 0, n, pos); } finally { closeSync(fd); } }
 
 test('Perséphone : fichiers effacés retrouvés avec leur nom (FAT) et par signature, comparés octet par octet ; la source n\'est jamais modifiée', { timeout: 180_000 }, async () => {
+  // Le chemin d'un fichier retrouvé s'écrit avec « / » sur tous les systèmes (sous Windows, le dossier a des « \ »).
+  assert.equal(dansLeRapport(join('r', 'x'), join('r', 'x', 'photos', 'DCIM', 'a.jpg')), 'photos/DCIM/a.jpg');
   const tt = new T();
   try {
     const v = await vraiOdin(tt, { compte: true }), va = valhallaOf()!, dir = tt.tmp("hel-");

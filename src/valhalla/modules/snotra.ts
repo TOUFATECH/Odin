@@ -3,9 +3,9 @@
 // et en crée de nouveaux à partir d'un texte simple : document (.docx, .odt, .html, .md) ou tableur (.xlsx) avec
 // nombres et formules. Lecteurs et écrivains faits maison (les fichiers Office sont des archives ZIP de XML).
 // Plume ne lit que dans tes dossiers de documents, jamais ailleurs. Pour convertir en PDF : Alchimie.
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, extname, join, resolve, sep } from 'node:path';
+import { basename, extname, join, posix, resolve, sep, win32, type PlatformPath } from 'node:path';
 import { unzip, zip } from '../../files/zip.ts';
 import type { Kpi, ModCtx, Module } from '../types.ts';
 import { ACTIONS_PLUME, retraitExport, sectionsPlume } from '../snotra/actions.ts';
@@ -184,11 +184,47 @@ export const MODELES: Record<string, { nom: string; texte: string }> = {
 // ---------------- Les dossiers ----------------
 const dossiers = (ctx: ModCtx): string[] => { const l = (ctx.settings.dossiers as string[] | undefined) ?? []; return l.length ? l : [join(homedir(), 'Documents')].filter((d) => existsSync(d)); };
 /** Un dossier qu'on peut confier à Plume ? (jamais la racine, le dossier personnel entier, un dossier caché, ni les données d'Odin). Pur. */
-export function dossierPermis(d: string, home = homedir(), odin = ''): boolean {
-  const r = resolve(d); if (r === resolve('/') || r === resolve(home) || r.split(sep).some((x) => x.startsWith('.') && x.length > 1)) return false;
-  if (odin && (r === resolve(odin) || r.startsWith(resolve(odin) + sep) || resolve(odin).startsWith(r + sep))) return false;
-  return !/^\/(etc|proc|sys|dev|boot|root|var\/lib)(\/|$)/.test(r);
+export function dossierPermis(d: string, home = homedir(), odin = '', chemins: PlatformPath = process.platform === 'win32' ? win32 : posix, reel: (p: string) => string = cheminReelWindows): boolean {
+  const { resolve, sep } = chemins, win = chemins === win32;
+  // Sous Windows, les majuscules ne comptent pas : « c:\users\ana » est le même dossier que « C:\Users\Ana ».
+  const n = (x: string) => (win ? resolve(x).toLowerCase() : resolve(x));
+  const h = n(home), o = odin ? n(odin) : '';
+  const systeme = /^\/(etc|proc|sys|dev|boot|root|var\/lib)(\/|$)/;
+  const refuse = (r: string): boolean => {
+    if (r === n('/') || r === h || r.split(sep).some((x) => x.startsWith('.') && x.length > 1)) return true;
+    if (o && (r === o || r.startsWith(o + sep) || o.startsWith(r + sep))) return true;
+    if (systeme.test(r)) return true;
+    // Sous Windows : un « : » après le lecteur (un flux NTFS), ces noms sur tout lecteur, et les dossiers de Windows
+    // (racine d'un lecteur, Windows, Program Files, profil d'un autre utilisateur).
+    return win && (r.slice(win32.parse(r).root.length).includes(':') || systeme.test(sansLecteur(r)) || systemeWindows(r, home));
+  };
+  const r = n(d);
+  // Sous Windows, le chemin réel aussi (nom court « PROGRA~1 », jonction) : la garde ne se contourne pas par un autre nom.
+  return !refuse(r) && !(win && refuse(n(reel(r))));
 }
+/** Le chemin tel que Windows le voit vraiment : la plus longue partie qui existe déjà, dépliée (nom court, jonction, lien),
+ * suivie du reste. Ailleurs que sous Windows, ou si rien n'est lisible : le chemin tel quel. */
+function cheminReelWindows(p: string): string {
+  if (process.platform !== 'win32') return p;
+  let d = win32.resolve(p); const reste: string[] = [];
+  for (;;) {
+    try { return win32.join(realpathSync.native(d), ...reste); } catch { /* on remonte d'un cran */ }
+    const haut = win32.dirname(d); if (haut === d) return p; reste.unshift(win32.basename(d)); d = haut;
+  }
+}
+/** Un dossier de Windows qu'on ne confie pas à Plume : la racine d'un lecteur (ou d'un partage), le dossier de Windows,
+ * Program Files, ou le profil d'un autre utilisateur (ni celui de `home`, ni celui du compte qui fait tourner Odin). Sans tenir compte des majuscules, comme Windows. */
+function systemeWindows(p: string, home: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  const r = win32.resolve(p).toLowerCase(), racine = win32.parse(r).root, haut = r.slice(racine.length).split(win32.sep)[0];
+  if (!haut) return true;
+  const dans = (d: string | undefined) => { if (!d) return false; const x = win32.resolve(d).toLowerCase(); return r === x || r.startsWith(x.endsWith(win32.sep) ? x : x + win32.sep); };
+  if (['windows', 'program files', 'program files (x86)'].includes(haut) || [env.SystemRoot, env.windir, env.ProgramFiles, env['ProgramFiles(x86)'], env.ProgramW6432].some(dans)) return true;
+  if (haut !== 'users') return false;
+  const profil = r.slice(racine.length).split(win32.sep)[1] ?? '';
+  return !profil || !(dans(home) || profil === (env.USERNAME ?? '').toLowerCase());
+}
+/** Le même chemin Windows écrit comme sous Linux, sans son lecteur (« D:\etc » → « /etc »), en minuscules. */
+const sansLecteur = (p: string): string => { const r = win32.resolve(p).toLowerCase(); return posix.join('/', ...r.slice(win32.parse(r).root.length).split(win32.sep)); };
 const dedans = (p: string, roots: string[]) => { const r = resolve(p); return roots.some((d) => r.startsWith(resolve(d) + sep)); };
 export interface Doc { chemin: string; nom: string; genre: Genre; octets: number; mtime: number }
 export function lister(roots: string[], max = 2000): Doc[] {

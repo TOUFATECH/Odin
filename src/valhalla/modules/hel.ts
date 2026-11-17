@@ -8,7 +8,7 @@
 // Le travail (lecture du support, tables, systèmes de fichiers, signatures) est dans `src/valhalla/hel/`.
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { basename, join, resolve, sep } from 'node:path';
 import { taille } from '../hel/octets.ts';
 import { FAMILLES, type Famille } from '../hel/signatures.ts';
 import { estSysteme, lireLsblk, montesSur, disqueDe, ouvrir, peutRanger, type Peripherique } from '../hel/support.ts';
@@ -278,7 +278,7 @@ export const hel: Module & { similaires: string[] } = {
       sections.push({ kind: 'text', title: `Dernière récupération (${new Date(dernier.debut).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })})`, text: resume(dernier), onglet: Re, tone: dernier.compte.abimes || dernier.erreur ? 'attention' : 'bon' });
       sections.push({ kind: 'bars', title: 'Par type', onglet: Re, items: Object.entries(dernier.parFamille).map(([k, x]) => ({ label: NOMS_FAMILLE[k] ?? k, value: x.n, display: `${x.n} · ${taille(x.octets)}` })) });
       sections.push({ kind: 'actions', title: 'Avant d\'ouvrir les fichiers', onglet: Re, boutons: [{ action: 'analyser', label: `Analyser avec ${nomAppli(ctx, 'ullr', 'Asclépios')}`, input: { rapport: dernier.id }, primary: true }], aide: 'Ils viennent d\'un support dont on ne sait rien : une analyse antivirus d\'abord.' });
-      sections.push({ kind: 'list', title: 'Fichiers retrouvés', onglet: Re, large: true, empty: 'Aucun fichier.', aide: dernier.fichiers.length > 60 ? `Les 60 premiers ; la liste complète est dans rapport-${dernier.id}.txt.` : undefined, items: dernier.fichiers.slice(0, 60).map((f) => ({ title: f.chemin, detail: `${taille(f.taille)} · ${f.origine === 'nom' ? 'avec son nom' : 'par signature'}${f.note ? ` · ${f.note}` : ''}`, meta: f.etat, tone: f.etat === 'entier' ? 'bon' as Tone : f.etat === 'abîmé' ? 'mauvais' as Tone : 'neutre' as Tone, fichier: { nom: f.chemin.split('/').at(-1)!, ref: `${dernier.id}/${f.chemin}` } })) });
+      sections.push({ kind: 'list', title: 'Fichiers retrouvés', onglet: Re, large: true, empty: 'Aucun fichier.', aide: dernier.fichiers.length > 60 ? `Les 60 premiers ; la liste complète est dans rapport-${dernier.id}.txt.` : undefined, items: dernier.fichiers.slice(0, 60).map((f) => ({ title: f.chemin, detail: `${taille(f.taille)} · ${f.origine === 'nom' ? 'avec son nom' : 'par signature'}${f.note ? ` · ${f.note}` : ''}`, meta: f.etat, tone: f.etat === 'entier' ? 'bon' as Tone : f.etat === 'abîmé' ? 'mauvais' as Tone : 'neutre' as Tone, fichier: { nom: basename(f.chemin), ref: `${dernier.id}/${f.chemin}` } })) });
       if (dernier.perdus.length) sections.push({ kind: 'list', title: 'Vus, mais perdus (place reprise)', onglet: Re, items: dernier.perdus.slice(0, 30).map((x) => ({ title: x.chemin, detail: x.note, tone: 'attention' as Tone })) });
     } else sections.push({ kind: 'text', title: 'Pas encore de récupération', text: 'Suis les trois étapes de l\'onglet « Récupérer ».', onglet: Re });
     if (tous.length > 1) sections.push({ kind: 'table', title: 'Récupérations précédentes', onglet: Re, columns: ['Quand', 'Support', 'Entiers', 'Abîmés', 'Dossier'], rows: tous.slice(1, 20).map((r) => ({ cells: [new Date(r.debut).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }), r.source, String(r.compte.entiers), String(r.compte.abimes), r.dossier] })) });

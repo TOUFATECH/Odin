@@ -8,7 +8,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix, win32 } from 'node:path';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { DEFAULT_CONFIG } from '../src/config.ts';
@@ -501,6 +501,20 @@ test('Plume : un texte simple devient un document Word, OpenDocument, une page w
   assert.deepEqual(compter('Bonjour à tous, c\'est l\'été : 3 jours !'), { mots: 7, caracteres: 31, minutes: 1 });
   assert.ok(dossierPermis('/home/moi/Documents', '/home/moi')); for (const non of ['/', '/home/moi', '/home/moi/.ssh', '/etc/ssl', '/home/moi/Documents/.cache']) assert.ok(!dossierPermis(non, '/home/moi'), non);
   assert.ok(!dossierPermis('/home/moi/.odin/x', '/home/moi', '/home/moi/.odin')); assert.ok(!dossierPermis('/srv', '/home/moi', '/srv/odin'), 'un dossier qui contient les données d\'Odin est refusé');
+  // Les mêmes réponses avec les règles de chemin de Linux et macOS, quel que soit le système qui joue l'essai.
+  assert.ok(dossierPermis('/home/moi/Documents', '/home/moi', '', posix)); for (const non of ['/', '/home/moi', '/home/moi/.ssh', '/etc/ssl', '/root/x', '/var/lib/x']) assert.ok(!dossierPermis(non, '/home/moi', '', posix), non);
+  // Windows : ses dossiers système, et les noms de Linux sur tout lecteur.
+  for (const oui of ['C:\\Users\\Moi\\Documents', 'D:\\Documents', 'E:\\partage\\textes']) assert.ok(dossierPermis(oui, 'C:\\Users\\Moi', '', win32), oui);
+  for (const non of ['C:\\', 'D:\\', 'C:\\Windows\\System32', 'C:\\Program Files\\X', 'C:\\Program Files (x86)\\X', 'C:\\Users', 'C:\\Users\\Moi', 'C:\\Users\\Zoe\\Documents', 'D:\\etc\\ssl', 'C:\\Users\\Moi\\.ssh']) assert.ok(!dossierPermis(non, 'C:\\Users\\Moi', '', win32), non);
+  // Windows : les majuscules ne comptent pas (dossier personnel, données d'Odin), et un autre nom du même dossier ne passe pas
+  // (flux NTFS, nom court, jonction : le chemin réel est vérifié).
+  assert.ok(!dossierPermis('c:/users/moi', 'C:\\Users\\Moi', '', win32), 'le dossier personnel, en minuscules');
+  assert.ok(!dossierPermis('c:/users/moi/appdata/local/odin/notes', 'C:\\Users\\Moi', 'C:\\Users\\Moi\\AppData\\Local\\Odin', win32), 'les données d\'Odin, en minuscules');
+  const reels: Record<string, string> = { 'c:\\progra~1\\x': 'C:\\Program Files\\X', 'c:\\documents and settings\\zoe\\documents': 'C:\\Users\\Zoe\\Documents', 'd:\\lien\\notes': 'C:\\Users\\Moi\\AppData\\Local\\Odin\\notes' };
+  const reel = (p: string) => reels[win32.resolve(p).toLowerCase()] ?? p;
+  for (const non of ['C:/Windows::$INDEX_ALLOCATION/x', 'D:\\textes:flux', 'C:/PROGRA~1/X', 'C:/Documents and Settings/Zoe/Documents', 'D:\\lien\\notes']) assert.ok(!dossierPermis(non, 'C:\\Users\\Moi', 'C:\\Users\\Moi\\AppData\\Local\\Odin', win32, reel), non);
+  assert.ok(dossierPermis('D:\\Documents', 'C:\\Users\\Moi', 'C:\\Users\\Moi\\AppData\\Local\\Odin', win32, reel), 'un dossier ordinaire reste permis');
+  assert.ok(dossierPermis('/srv/a:b', '/home/moi', '', posix, reel), 'sous Linux, rien ne change');
 });
 
 test('Plume : les fichiers créés s\'ouvrent dans de vrais lecteurs (python-docx, openpyxl) quand ils sont là', { skip: spawnSync('python3', ['-c', 'import docx, openpyxl']).status !== 0 ? 'python-docx / openpyxl absents' : false }, () => {
