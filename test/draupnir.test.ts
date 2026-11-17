@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkFlow, execute, readPath, resolve, type Deps, type Workflow } from '../src/draupnir/engine.ts';
-import { CATALOG, parseFeed, test as cond } from '../src/draupnir/nodes.ts';
+import { CATALOG, parseFeed, reseauOdin, test as cond } from '../src/draupnir/nodes.ts';
 import { Talos, flowFromDescription, importN8n, templates } from '../src/draupnir/service.ts';
 
 const scope = { $json: { a: { b: 2 }, 'é t': 'x', l: [1, 2] }, $node: { Avant: { json: { n: 5 }, items: [] } }, $now: '2026-11-11T10:00:00Z', $today: '2026-11-11', $index: 0, $items: [], $workflow: { id: 'w', name: 'W' } };
@@ -67,6 +67,9 @@ test('Talos : rangement, webhook secret, Thot, flux (nouveautés seulement), pag
   let feed = '<rss><channel><item><title>Un</title><link>https://b/1</link><guid>1</guid></item></channel></rss>', page = '<p>Prix 10 €</p>';
   const d = deps({ fetch: (async (u: string) => new Response(String(u).includes('flux') ? feed : page)) as unknown as typeof fetch });
   const dr = new Talos(home, d);
+  // Les lectures des déclencheurs sont contrôlées (jamais Odin lui-même) : le nom d'essai « site » est déclaré comme un
+  // site, sans attendre la résolution du système (lente pour un nom court, elle laissait partir la lecture automatique).
+  const sauveReseau = { ...reseauOdin }; reseauOdin.resoudre = async (n) => (n === 'site' ? ['203.0.113.1'] : sauveReseau.resoudre(n));
   try {
     const hook = dr.save({ name: 'Formulaire', active: true, nodes: [
       { id: '', name: 'Formulaire', type: 'déclencheur.webhook', params: { réponse: 'à la fin' } },
@@ -97,7 +100,7 @@ test('Talos : rangement, webhook secret, Thot, flux (nouveautés seulement), pag
     assert.equal(await dr.poll(pg.id, 'Change'), 1); assert.equal(d.told.at(-1), 'Prix 8 €');
 
     dr.trash(pg.id); assert.equal(dr.get(pg.id), undefined);
-  } finally { dr.stop(); }
+  } finally { dr.stop(); Object.assign(reseauOdin, sauveReseau); }
 });
 
 test('Talos : modèles valides, création par l\'IA, import n8n, flux RSS/Atom', async () => {

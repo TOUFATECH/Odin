@@ -10,6 +10,7 @@ import { connect, type AddressInfo } from 'node:net';
 import { gzipSync } from 'node:zlib';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import { execute, type Deps, type Workflow } from '../src/draupnir/engine.ts';
+import { startDraupnir } from '../src/draupnir/odin.ts';
 import { CATALOG, REFUS_VERS_ODIN, fetchFige, lookupHorsOdin, reseauOdin, versOdin } from '../src/draupnir/nodes.ts';
 import { arreter, demarrer, reinitialiser, sonderMaintenant } from '../src/net/etat-internet.ts';
 import { WebChannel, ensureWebToken } from '../src/web/server.ts';
@@ -235,5 +236,34 @@ test('Talos : un nom qui change d\'adresse entre le contrôle et la connexion n\
     Object.assign(reseauOdin, sauve);
     arreter(); reinitialiser();
     await gw.stop(); local.closeAllConnections(); await ferme(local); o.cleanup();
+  }
+});
+
+// L'adresse publique réglée dans la configuration (web.publicUrl) : un Odin jetable démarre Talos comme en vrai
+// (startDraupnir) ; un bloc web vers ce nom est refusé, sans rien envoyer, quelle que soit l'écriture du nom.
+test('Talos : l\'adresse publique réglée d\'Odin est refusée aux blocs web (branchement de démarrage)', async () => {
+  const sauve = { ...reseauOdin };
+  reseauOdin.resoudre = async (n) => { if (n === 'odin.exemple.test') return ['203.0.113.9']; if (n === 'site.exemple') return ['203.0.113.5']; throw Object.assign(new Error('nom inconnu'), { code: 'ENOTFOUND' }); };
+  reseauOdin.adressesMachine = () => ['127.0.0.1', '::1'];
+  reseauOdin.nomMachine = () => 'poste-odin';
+  reinitialiser();
+  demarrer({ sondes: { passerelle: async () => true, parNom: async () => true, parIp: async () => true }, intervalleMs: 1e9 });
+  await sonderMaintenant();
+  const o = makeOdin([], { config: (c) => ({ ...c, web: { ...c.web, publicUrl: 'https://odin.exemple.test' } }) });
+  const arreterTalos = startDraupnir(o, async () => {});
+  const appels: string[] = [];
+  const f = (async (u: string) => { appels.push(String(u)); return new Response('{}'); }) as unknown as typeof fetch;
+  try {
+    for (const h of ['odin.exemple.test', 'ODIN.exemple.TEST.', 'odin.exemple.test:8443']) {
+      const ex = await execute(flux('web.requête', { url: `https://${h}/api/state`, identifiant: 'ODIN_CLE' }), CATALOG, { fetch: f, secret: () => 'cle-essai' });
+      assert.equal(ex.status, 'erreur', h); assert.match(ex.error ?? '', REFUS, h);
+    }
+    assert.deepEqual(appels, [], 'rien n\'est parti vers l\'adresse publique');
+    const site = await execute(flux('web.requête', { url: 'https://site.exemple/ok' }), CATALOG, { fetch: f });
+    assert.equal(site.status, 'succès', site.error);
+  } finally {
+    arreterTalos();
+    Object.assign(reseauOdin, sauve);
+    arreter(); reinitialiser(); o.cleanup();
   }
 });

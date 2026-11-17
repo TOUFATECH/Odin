@@ -42,7 +42,23 @@ import { checkFlow, execute, normalize, rid, type Deps, type Execution, type Flo
 import { cleNom, ecrireDossiers, ecrireJson, lireDossiers, lireSupprimes, MAX_DOSSIERS, RE_CLE, RE_DOSSIER, RE_ID, validerNomDossier, type Dossier, type TraceCorbeille } from './dossiers.ts';
 import { automatisationsDepart, liensEntreApplis, type Depart } from './depart.ts';
 import { runCode } from './code.ts';
-import { CATALOG, NODES, parseFeed } from './nodes.ts';
+import { CATALOG, NODES, fetchFige, parseFeed, versOdin } from './nodes.ts';
+
+/** La lecture d'un déclencheur « flux » ou « surveiller une page » : même contrôle que les blocs web (jamais Odin lui-même
+ *  ni la machine d'Odin ; chaque redirection contrôlée ; sans fetch injecté, l'adresse contrôlée est celle de la connexion). */
+async function lireHorsOdin(fi: typeof fetch | undefined, url: string, init: RequestInit): Promise<Response> {
+  const f = fi ?? (fetchFige as unknown as typeof fetch);
+  let u = url;
+  for (let saut = 0; ; saut++) {
+    const refus = await versOdin(u); if (refus) throw new Error(refus);
+    const r = await f(u, { ...init, redirect: 'manual' });
+    const loc = r.headers.get('location');
+    if (![301, 302, 303, 307, 308].includes(r.status) || !loc) return r;
+    if (saut >= 10) throw new Error('trop de redirections');
+    void r.body?.cancel().catch(() => {});
+    u = new URL(loc, u).href;
+  }
+}
 
 const KEEP_RUNS = 40;
 
@@ -518,9 +534,9 @@ export class Talos {
   /** Flux et pages surveillées : la première lecture sert de référence, puis seules les nouveautés déclenchent. */
   async poll(id: string, nodeName: string): Promise<number> {
     const wf = this.get(id), n = wf?.nodes.find((x) => x.name === nodeName); if (!wf || !n) return 0;
-    const f = this.deps.fetch ?? fetch, url = String(n.params.url ?? '');
+    const url = String(n.params.url ?? '');
     if (!/^https?:\/\//.test(url)) return 0;
-    const r = await f(url, { signal: AbortSignal.timeout(30_000), headers: { 'user-agent': 'Odin-Draupnir/1.0' } });
+    const r = await lireHorsOdin(this.deps.fetch, url, { signal: AbortSignal.timeout(30_000), headers: { 'user-agent': 'Odin-Draupnir/1.0' } });
     if (!r.ok) return 0;
     const text = await r.text(), key = `${wf.id}:${n.name}:${url}`;
     if (n.type === 'déclencheur.flux') {
