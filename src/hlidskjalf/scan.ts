@@ -5,8 +5,15 @@ import { type Inventory, type ScanReport } from './inventory.ts';
 
 export type DiscoverFn = (o: DiscoverOptions) => Promise<{ subnets: Subnet[]; found: Found[] }>;
 
-export async function scanNetwork(inv: Inventory, cfg: OdinConfig['network'], full: boolean, discoverFn: DiscoverFn = discover): Promise<ScanReport> {
-  const { subnets, found } = await discoverFn({ full });
+/**
+ * La découverte utilisée quand l'appelant n'en donne pas : le vrai réseau de la machine. Les essais la remplacent
+ * (test/helpers.ts) pour ne JAMAIS balayer le réseau de la maison par accident.
+ */
+let decouverteParDefaut: DiscoverFn = discover;
+export function definirDecouverteParDefaut(fn?: DiscoverFn): void { decouverteParDefaut = fn ?? discover; }
+
+export async function scanNetwork(inv: Inventory, cfg: OdinConfig['network'], full: boolean, discoverFn?: DiscoverFn): Promise<ScanReport> {
+  const { subnets, found } = await (discoverFn ?? decouverteParDefaut)({ full });
   return inv.applyScan(found, subnets.map((s) => s.cidr), Date.now(), cfg.removeAfterDays, full);
 }
 

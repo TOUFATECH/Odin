@@ -8,6 +8,12 @@ import { createOdin, type Odin } from '../src/runtime.ts';
 import type { OdinConfig } from '../src/config.ts';
 import type { Judge } from '../src/mimir/client.ts';
 import { verifierNoyau } from '../src/heimdall/noyau.ts';
+import { definirDecouverteParDefaut } from '../src/hlidskjalf/scan.ts';
+
+// Aucun essai ne balaie le VRAI réseau de la machine : sans découverte donnée par l'essai (option `discover` de la
+// passerelle), un balayage ne trouve rien. Sinon une ronde d'Odin Breaker sondait tout le réseau de la maison pendant
+// les essais, et sa durée dépendait des appareils allumés ce jour-là.
+definirDecouverteParDefaut(async () => ({ subnets: [], found: [] }));
 
 // Pendant les essais, Odin n'installe jamais la voix locale tout seul (compilation de Whisper, 500 Mo téléchargés
 // dans le vrai dossier de la machine) : un vocal sans rien de prêt reçoit une phrase claire, tout de suite.
