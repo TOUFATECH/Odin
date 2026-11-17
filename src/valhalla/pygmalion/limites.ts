@@ -8,6 +8,10 @@
 //     certificat… quand ils sont dits faux, officiels, à l'en-tête ou au tampon d'un autre, ou au nom d'un organisme ;
 //   - une œuvre demandée en entier (chanson, livre, chapitre d'un livre, paroles…) et le logo d'une marque : s'inspirer,
 //     résumer, écrire une œuvre originale, mon logo, mon en-tête : oui ;
+//   - la pièce ÉMISE par une institution qui n'est pas la mienne (« de la banque », « from the X Clinic »), par une
+//     personne désignée (« le reçu de mon propriétaire »), signée par un autre, qu'on fait passer pour celle d'un autre
+//     (« comme si elle venait de… », « qui a l'air d'être envoyé par… ») ; dans le CONTENU, une institution qui certifie
+//     ou l'en-tête d'une institution publique au-dessus d'une pièce ;
 //   - rien qui se fasse passer pour une vraie photo ou un vrai enregistrement.
 // C'est un FILTRE DE MOTS, prudent mais pas infaillible, et il le dit à l'écran. Il lit le français, l'anglais et
 // l'espagnol (LANGUES_FILTRE) ; une demande dans une autre langue ne passe pas en silence : elle est refusée en le disant
@@ -42,6 +46,12 @@ const PERSONNES = ens([
   'actor actress singer comedian journalist presenter anchor celebrity influencer youtuber athlete footballer rapper politician',
   'hermana hermano madre padre mama papa esposa esposo marido hijo hija nino nina primo prima tio tia sobrino sobrina abuela abuelo vecino vecina jefe jefa colega amigo amiga profesor profesora presidenta ministro ministra alcalde alcaldesa rey reina principe princesa senador directora medico medica doctora abogado abogada juez policia',
   'actriz cantante comediante periodista presentador presentadora famoso famosa celebridad deportista jugador jugadora futbolista rapero rapera politico politica',
+  // les fonctions et les titres (dirigeants, autorités, religieux) : « notre PDG », « le préfet », « the CEO »
+  'pdg dg gerant gerante fondateur fondatrice entraineur entraineuse prefet prefete commissaire general colonel eveque cure pretre imam rabbin pasteur',
+  'ceo cfo founder owner chairman chairwoman chair coach sheriff chancellor premier secretary priest bishop rabbi pastor',
+  'gerente dueno duena fundador fundadora entrenador entrenadora gobernador gobernadora sacerdote obispo rabino',
+  // les proches et les liens (« mon ex », « mi casero »)
+  'ex proprio coloc colocataire roommate flatmate girlfriend boyfriend partner fiance fiancee casero casera arrendador arrendadora novio novia pareja',
 ].join(' '));
 /** Noms communs qui suivent « voix de », « visage de » sans être une personne (« une voix de robot ») ; « quelqu'un ». */
 const GENERIQUES = ens([
@@ -52,6 +62,8 @@ const GENERIQUES = ens([
 const PREP = ens('de d du des of from del a au aux pour for para en in sur on avec with dans con por que qui that which');
 /** Après ces mots, un nom est un lieu ou un destinataire (« à Paris », « pour Lina »), pas la personne qu'on fait parler. */
 const LIEU_OU_DESTINATAIRE = ens('a au aux en in at to pour for para chez vers');
+/** Les fêtes et les occasions : « pour l'anniversaire de Mathis » nomme celui qu'on fête. */
+const OCCASION = ens('anniversaire fete mariage bapteme retraite depart naissance noel birthday party wedding retirement anniversary christening shower cumpleanos fiesta boda bautizo jubilacion santo');
 /** Les verbes de parole : « Lina annonce… » (un nom en tête de phrase, suivi d'un de ces verbes, est une personne). */
 const PAROLE = ens('dit disent annonce annoncent declare parle chante avoue lit explique affirme raconte insulte confesse appelle crie says said announces announced admits sings reads speaks declares confesses tells calls yells dice anuncia canta habla admite declara confiesa lee llama grita');
 
@@ -74,7 +86,14 @@ function designe(suite: string[], det = false): 'nom' | 'designee' | 'chose' {
 }
 const personne = (s: string[], det = false) => designe(s, det) !== 'chose';
 /** Le sujet d'un verbe (« où Lina Varek annonce », « make my neighbor say ») : nommé, désigné, ou non. */
-const sujet = (s: string) => personne(mots(s));
+const POSSESSIFS = ens('mon ma mes ton ta tes son sa ses notre nos votre vos leur leurs my your his her their our mi mis tu tus su sus nuestro nuestra vuestro vuestra');
+/** Qui PARLE en étant désigné par un possessif (« où mon ex dit… », « where our coach says… ») est une personne,
+ *  sauf un animal, un robot, un personnage… connus (« mon perroquet dit bonjour »). */
+const sujet = (s: string) => {
+  const m = mots(s);
+  if (POSSESSIFS.has(m[0] ?? '') && m[1] && !GENERIQUES.has(m[1]) && !PRONOMS.has(m[1])) return true;
+  return personne(m);
+};
 
 /** Les mots de la demande telle qu'écrite (pour les majuscules) : forme plate, majuscule initiale, sigle, début de phrase. */
 interface Jeton { w: string; p: string; maj: boolean; sigle: boolean; debut: boolean }
@@ -96,6 +115,14 @@ function nomPropre(js: Jeton[], i: number): boolean {
   const j = js[i];
   if (!j.maj || courant(j.p)) return false;
   if (i > 0 && LIEU_OU_DESTINATAIRE.has(js[i - 1].p)) return false;
+  // « Lucas et Marta », « Lucas y Marta » : le second nom suit le sort du premier
+  if (i > 1 && !j.debut && ['et', 'and', 'y', 'e'].includes(js[i - 1].p) && js[i - 2].maj) return nomPropre(js, i - 2);
+  // un destinataire ou une fête plus loin : « pour l'anniversaire de Mathis », « la boda de Lucas », « for the wedding
+  // of Kofi » (seulement des déterminants et « de » entre les deux) — celui qu'on fête, pas celui qu'on fait parler
+  for (let k = i - 1; k >= Math.max(0, i - 5) && !js[k + 1].debut; k--) {
+    if (LIEU_OU_DESTINATAIRE.has(js[k].p) || OCCASION.has(js[k].p)) return false;
+    if (!DET.has(js[k].p) && !['de', 'd', 'of', 'del'].includes(js[k].p)) break;
+  }
   if (!j.debut) return true;
   const s = js[i + 1];
   return Boolean(s && !s.debut && ((s.maj && !courant(s.p)) || PAROLE.has(s.p)));
@@ -133,7 +160,9 @@ const MEDIA_DE_PAROLE = re(`\\b(?:audio|audios|video|videos|enregistrement|podca
 // « chante comme X », « sound like X », « canta como X »
 const COMME = re(`\\b(?:comme|like|como)${SUITE}`);
 /** Une demande de voix, d'audio, de vidéo, de visage, de chant. */
-const MEDIA = /\b(voix|vocal|vocale|vocaux|audio|audios|sonore|enregistrement|enregistre|podcast|video|videos|film|clip|visage|visages|tete|tetes|appel|chante|chanter|chantant|deepfake|voice|voices|recording|record|face|faces|head|call|voicemail|sing|sings|singing|sound|sounds|voz|voces|grabacion|graba|pelicula|cara|caras|rostro|rostros|llamada|canta|cantar|cantando)\b/;
+const MEDIA = /\b(voix|vocal|vocale|vocaux|audio|audios|sonore|enregistrement|enregistre|podcast|video|videos|film|clip|visage|visages|tete|tetes|appel|chante|chanter|chantant|deepfake|voice|voices|recording|record|face|faces|head|call|voicemail|sing|sings|singing|sound|sounds|voz|voces|grabacion|graba|pelicula|cara|caras|rostro|rostros|llamada|canta|cantar|cantando|mp3|mp4|wav|m4a|ogg|opus|webm|mov|avi|entendre|hear|escuchar|oir|filme|filmee|filmer|filmed|filming|footage|filmado|filmada|filmar|timbre|intonation|entonacion|doublage|dub|dubbing|doblaje|tts|text to speech|speech synthesis)\b/;
+/** « en-tête » n'est pas une tête : « une facture à l'en-tête de ma société » ne demande aucun visage. */
+const sansEntete = (t: string) => t.replace(/ en tete /g, ' entete ');
 /** Une image : une personne nommée juste après (« une photo de Lina Varek ») est refusée. */
 const PHOTO = /\b(photo|photos|photographie|image|images|picture|pictures|foto|fotos|imagen|imagenes)\b/;
 const VISAGE_OU_VOIX = /\b(visage|visages|tete|tetes|voix|face|faces|head|heads|voice|cara|caras|rostro|rostros|cabeza|voz)\b/;
@@ -154,7 +183,8 @@ function designee(t: string): boolean {
   return false;
 }
 
-function trucage(t: string, brut: string): boolean {
+function trucage(t0: string, brut: string): boolean {
+  const t = sansEntete(t0);
   if (TRUCAGE.test(t)) return true;
   if (INVENTE.test(t)) return false;
   const media = MEDIA.test(t);
@@ -198,7 +228,7 @@ const DELIVRES = new RegExp('\\b(' + [
   'certificats? medicaux?', 'certificat medical', 'arrets? (de travail|maladie)', 'actes? de (naissance|mariage|deces)', 'casier judiciaire', 'extrait kbis', 'kbis', 'feuilles? de soins',
   'justificatifs? de (domicile|revenus?|ressources|residence)', 'certificats? de (scolarite|residence|travail|domicile)', 'attestations? (employeur|de travail|d emploi|de salaire|de securite sociale|d assurance maladie|pole emploi|france travail|caf)',
   'factures? (d electricite|d eau|de gaz|de telephone|d energie)',
-  'pay ?slips?', 'pay ?stubs?', 'bank statements?', 'account statements?', 'tax (notice|assessment|bill)s?', 'id cards?', 'identity (card|document)s?', 'passports?', 'driv(er|ers|ing) licen[cs]es?',
+  'pay ?slips?', '(pay|earnings) statements?', 'attestations? de droits', 'pay ?stubs?', 'bank statements?', 'account statements?', 'tax (notice|assessment|bill)s?', 'id cards?', 'identity (card|document)s?', 'passports?', 'driv(er|ers|ing) licen[cs]es?',
   'residence permits?', 'work permits?', 'diplomas?', 'degree certificates?', 'academic transcripts?', 'prescriptions?', 'medical certificates?', 'sick notes?', 'doctor s notes?',
   '(birth|marriage|death) certificates?', 'criminal records?', 'social security cards?', 'utility bills?', '(electricity|water|gas|phone|energy) bills?', 'proofs? of (address|residence|income|employment|identity)',
   '(employment|income|salary|enrollment|enrolment) verification( letters?)?', 'letters? of employment', 'certificates? of (enrollment|enrolment|residence|employment)',
@@ -206,9 +236,17 @@ const DELIVRES = new RegExp('\\b(' + [
   '(carnet|licencia|permiso)s? de conducir', 'permisos? de residencia', 'titulos? universitarios?', 'recetas? medicas?', 'certificados? medicos?', 'bajas? medicas?',
   '(partida|acta|certificado)s? de (nacimiento|matrimonio|defuncion)', 'antecedentes penales', 'facturas? de (la )?(luz|agua|gas|electricidad|telefono)',
   'certificados? de (empadronamiento|escolaridad|estudios|residencia|trabajo|empresa)', 'empadronamiento', 'justificantes? de (domicilio|ingresos)', 'vida laboral',
+  // les familles qu'une autorité seule émet : amendes, cartes d'embarquement, formulaires fiscaux, taxes, récépissés, titres d'études
+  'amendes?', 'contraventions?', 'proces verbal', 'multas?', '(parking|speeding|traffic) tickets?', 'boarding pass(es)?', 'cartes? d embarquement', '(tarjeta|pase)s? de (embarque|abordar)',
+  'taxes? (fonciere|d habitation)s?', 'tax (forms?|returns?)', 'w ?2( forms?)?', '1099( forms?)?', 'declaracion de la renta', 'recepisses?', 'titulos? de (bachiller|grado|licenciad\\w*|master|doctor\\w*)',
 ].join('|') + ')\\b', 'g');
 /** Une demande qui PARLE de ces pièces (« un résumé de mes relevés », « une présentation sur les permis ») ne les fabrique pas. */
-const TOPIQUE = ens('resume resumer summary summarize summarise resumen resumir tableau suivi table tracker tabla seguimiento analyse analyser analysis analyze analisis analizar liste list lista checklist inventaire inventory inventario essai essay article expose presentation presentacion cours lesson leccion lecon affiche poster cartel guide guia explication explanation explicacion remise ceremonie ceremony graduation classement rangement');
+const TOPIQUE = ens('resume resumer summary summarize summarise resumen resumir tableau suivi table tracker tabla seguimiento analyse analyser analysis analyze analisis analizar liste list lista checklist inventaire inventory inventario essai essay article expose presentation presentacion cours lesson leccion lecon affiche poster cartel guide guia explication explanation explicacion remise ceremonie ceremony graduation classement rangement diaporama slides slideshow histoire history historia contestation contester contest appeal recours reclamation recurso explique expliquer explain explica explicar comment how');
+/** « une fiche sur LES actes de naissance », « an essay about passports » : on PARLE de ces pièces en général (pas « sur un relevé »). */
+const aPropos = (avant: string[]) => avant.some((w, k) => ['about', 'concernant', 'regarding', 'acerca'].includes(w)
+  || (['sur', 'sobre'].includes(w) && ['les', 'los', 'las'].includes(avant[k + 1] ?? '')));
+/** Après « sur », ces mots disent qu'on imite la pièce au lieu d'en parler : « sur le modèle d'un relevé ». */
+const IMITATION = ens('modele model modelo template plantilla style estilo facon maniere format formato base');
 /** « bulletin de notes pour ma classe » : l'enseignant, pour ses élèves. */
 const CLASSE = ens('classe eleves class students pupils clase alumnos');
 /** Le mot qui dit « faux » : avec lui, aucune exemption. */
@@ -216,7 +254,7 @@ const FAUX_MOTS = ens('faux fausse fausses falsifie falsifiee falsifies falsifie
 /** Ce qui fait « officiel » : refusé, sauf quand c'est le mien (« le tampon de mon entreprise », « mon en-tête »). */
 const MARQUE_MOTS = ens('officiel officiels officielle officielles entete tampon tampons cachet cachets sceau sceaux official letterhead stamp stamps seal seals oficial oficiales membrete sello sellos');
 /** Documents ordinaires… sauf dits faux, officiels, à l'en-tête / au tampon d'un autre. */
-const PIECE_MOTS = ens('facture factures devis quittance quittances attestation attestations certificat certificats contrat contrats recu recus justificatif justificatifs document documents lettre lettres courrier courriers papier papiers invoice invoices receipt receipts quote quotes certificate certificates contract contracts letter letters factura facturas recibo recibos presupuesto presupuestos certificado certificados constancia constancias justificante justificantes contrato contratos carta cartas documento documentos');
+const PIECE_MOTS = ens('facture factures devis bon bons voucher vouchers albaran albaranes quittance quittances attestation attestations certificat certificats contrat contrats recu recus justificatif justificatifs document documents lettre lettres courrier courriers papier papiers invoice invoices receipt receipts quote quotes certificate certificates contract contracts letter letters factura facturas recibo recibos presupuesto presupuestos certificado certificados constancia constancias justificante justificantes contrato contratos carta cartas documento documentos');
 /** Les pièces qu'un organisme émet : « une attestation de la CAF », « une facture ZORBEX à mon nom » sont refusées. */
 const PIECE_ORG = ens('facture factures attestation attestations certificat certificats justificatif justificatifs quittance quittances recu recus releve releves invoice invoices bill bills receipt receipts certificate certificates statement statements factura facturas recibo recibos certificado certificados constancia constancias justificante justificantes');
 
@@ -226,7 +264,7 @@ function delivre(t: string): boolean {
     if (faux) return true;
     const avant = mots(t.slice(0, m.index)).slice(-5);
     const apres = mots(t.slice((m.index ?? 0) + m[0].length)).slice(0, 4);
-    if (avant.some((w) => TOPIQUE.has(w))) continue;
+    if ((avant.some((w) => TOPIQUE.has(w)) || aPropos(avant)) && !avant.some((w) => IMITATION.has(w))) continue;
     if (avant.length >= 2 && ['avec', 'with', 'con'].includes(avant[avant.length - 2]) && A_MOI.has(avant[avant.length - 1])) continue; // « mon CV avec mes diplômes »
     if (['drug', 'drugs', 'price', 'prices', 'prix', 'precio', 'precios', 'photo', 'photos'].includes(apres[0] ?? '')) continue; // « prescription drug », « passport photo »
     if (/^(bulletins? de notes|releves? de notes)$/.test(m[1]) && apres.some((w) => CLASSE.has(w))) continue;
@@ -266,13 +304,96 @@ function pieceDunAutre(t: string, brut: string): boolean {
   return piece && /\b(a mon nom|in my name|a mi nombre)\b/.test(t);
 }
 
+/** Les institutions qui émettent des pièces (banque, tribunal, préfecture, assureur, université, société…). */
+const INSTITUTIONS = ens([
+  'banque banques tribunal tribunaux cour prefecture mairie municipalite administration ministere gouvernement police gendarmerie impots impot taxe taxes fisc tresor douane douanes',
+  'agence societe compagnie entreprise employeur universite faculte ecole college lycee academie rectorat hopital clinique assurance assureur assurances mutuelle mutuelles caisse notaire huissier consulat ambassade',
+  'bank banks court tribunal prefecture municipality council government ministry police tax treasury customs agency company corporation corp inc ltd llc employer university college school hospital clinic insurer insurance notary consulate embassy airline',
+  'banco bancos juzgado tribunal ayuntamiento municipio administracion ministerio gobierno policia hacienda aduana agencia sociedad compania empresa empleador universidad facultad escuela colegio hospital clinica aseguradora seguro seguros notario consulado embajada aerolinea',
+].join(' '));
+/** Ce qu'émet une institution : une pièce, un billet, une carte, une convocation, un formulaire, un avis… */
+const EMIS = ens('carte cartes billet billets ticket tickets convocation convocations avis formulaire formulaires titre titres contrat contrats lettre lettres courrier releve releves card cards pass passes notice notices summons form forms contract letter statement tarjeta tarjetas billete billetes boleto boletos citacion formulario titulo titulos carta poliza polizas preuve preuves proof proofs prueba pruebas comprobante comprobantes notification notifications notificacion notificaciones'
+  // les messages : « un mail de la banque », « an email from the clinic » (l'hameçonnage)
+  + ' mail mails email emails courriel courriels message messages sms texto correo correos mensaje mensajes');
+const ORIGINE = ens('de d du des from of by par del');
+/** Ce qu'on écrit soi-même : « de » n'y dit l'émetteur que devant une institution désignée. */
+const ECRITS = ens('lettre lettres courrier courriers contrat contrats document documents papier papiers devis facture factures letter letters contract contracts quote quotes invoice invoices carta cartas contrato contratos documento documentos presupuesto presupuestos factura facturas mail mails email emails courriel courriels message messages sms texto correo correos mensaje mensajes');
+const DET_DEF = ens('la le l les the el los las un une a an una');
+/** « comme si elle venait de… », « as if it came from… » : faire passer une pièce pour celle d'un autre. */
+const COMME_SI = /\b(comme si|as if|as though|como si|faire passer pour|faire croire|pass(?:ed)? off as|hacer pasar por|que parezca|qu on croie|look like it came|a l air d|a l air de|avoir l air d|ait l air d|ressemble a|semble venir|looks like|look like|appears to|seems to|parezca|parece)\b((?: [\p{L}\p{N}]+){1,9})/gu;
+const VERBES_ORIGINE = ens('venait provenait envoye envoyee envoyait emis emise emanait came sent issued viniera enviado enviada emitido emitida expedido');
+/** « certifie que », « hereby certify », « hace constar » : une institution qui atteste, dans une pièce. */
+const CERTIFIE = ens('certifie certifions atteste attestons confirme confirmons certify certifies certified hereby confirm confirms certifica certificamos confirma confirmamos constar');
+/** Moi (ou nous tous), celui qui demande : « signé par moi », « firmada por mí », « signée par toute la classe ». */
+const SOI = ens('moi me myself mi yo nous us we nosotros tous toutes toute tout all todos todas toda everyone everybody');
+
+/**
+ * La pièce ÉMISE par une institution qui n'est pas la mienne : « une carte de mutuelle », « un billet de la compagnie
+ * Railvane », « une convocation du tribunal » ; une pièce qu'on fait passer pour celle d'un autre (« comme si elle
+ * venait de… ») ; signée par un autre (« avec la signature de son gérant ») ; ou où une institution certifie.
+ */
+function pieceEmise(t: string): boolean {
+  const m = mots(t);
+  const pieceIci = (w: string) => EMIS.has(w) || PIECE_MOTS.has(w) || PIECE_ORG.has(w);
+  // une institution, pas la mienne : « de la banque », « du tribunal » — « de mon entreprise » ne l'est pas
+  // — y compris après son nom : « from the Halvorsen Clinic », « de Corvid Logistics LLC » (trois mots au plus)
+  const institution = (k: number) => {
+    for (let q = DET_DEF.has(m[k] ?? '') ? k + 1 : k; q < Math.min(m.length, k + 4); q++) {
+      if (INSTITUTIONS.has(m[q])) return true;
+      if (PREP.has(m[q]) || A_MOI.has(m[q])) return false;
+    }
+    return false;
+  };
+  // une pièce qu'émet une personne désignée : « le reçu de mon propriétaire », « my landlord's receipt »
+  const parUnePersonne = (k: number) => designe(m.slice(k, k + 3)) === 'designee' || PERSONNES.has(m[k] ?? '');
+  for (let i = 0; i < m.length; i++) {
+    if (pieceIci(m[i])) {
+      const avant = m.slice(Math.max(0, i - 5), i);
+      if (avant.some((w) => TOPIQUE.has(w)) || aPropos(avant)) continue;
+      // de + (la) institution, dans les six mots qui suivent la pièce ; pour ce qu'on écrit soi-même (lettre, contrat,
+      // facture), l'institution doit être désignée (« de LA banque ») : « mon contrat d'assurance » en dit le sujet
+      const ecrit = ECRITS.has(m[i]);
+      for (let k = i + 1; k < Math.min(m.length, i + 7); k++) {
+        if (ORIGINE.has(m[k]) && institution(k + 1) && (!ecrit || DET_DEF.has(m[k + 1]) || ['du', 'des', 'del'].includes(m[k]))) return true;
+        if (!ecrit && PIECE_ORG.has(m[i]) && ORIGINE.has(m[k]) && parUnePersonne(k + 1)) return true;
+      }
+      // « my landlord s rent receipt » : la personne, puis « s », puis la pièce
+      if (!ecrit && PIECE_ORG.has(m[i])) for (let k = Math.max(0, i - 3); k < i; k++) if (m[k] === 's' && PERSONNES.has(m[k - 1] ?? '') && DET.has(m[k - 2] ?? '')) return true;
+    }
+    // signée par un autre : « avec la signature de son gérant », « firmada por mi padre » (pas « par moi »)
+    if (/^(signature|signatures|signe|signee|signes|signees|signed|firma|firmas|firmado|firmada)$/.test(m[i])
+      && ['de', 'd', 'du', 'by', 'par', 'por', 'of'].includes(m[i + 1] ?? '')) {
+      const k = i + 2;
+      const soi = SOI.has(m[k] ?? '') && !PERSONNES.has(m[k + 1] ?? '');
+      if (!soi && (personne(m.slice(k, k + 4), m[i + 1] === 'du') || institution(k)) && m.some(pieceIci)) return true;
+    }
+    // une institution qui certifie : « La Banque Corvanne certifie que… »
+    if (CERTIFIE.has(m[i]) && m.slice(Math.max(0, i - 6), i).some((w) => INSTITUTIONS.has(w))) return true;
+  }
+  // « comme si elle venait de l'agence… », « as if it came from… »
+  if (m.some(pieceIci)) for (const x of t.matchAll(COMME_SI)) if (mots(x[2]).some((w) => VERBES_ORIGINE.has(w) || INSTITUTIONS.has(w))) return true;
+  return false;
+}
+
 // ------------------------------------------------------------------ œuvres et marques
-const OEUVRES = /^(chansons?|livres?|romans?|chapitres?|paroles|poemes?|scenarios?|films?|bd|mangas?|articles?|albums?|partitions?|episodes?|songs?|lyrics|books?|novels?|chapters?|poems?|scripts?|screenplays?|movies?|comics?|canciones|cancion|letras?|libros?|novelas?|capitulos?|poemas?|guion|guiones|peliculas?|articulos?|episodios?)$/;
-const EN_ENTIER = /\b(en entier|entier|entiere|entierement|integral|integrale|integralement|integralite|complet|complete|completes|completement|mot a mot|mot pour mot|a l identique|tel quel|recopie|recopier|reproduis|reproduire|retranscris|retranscrire|in full|full|whole|entire|entirely|complete|word for word|verbatim|copy|reproduce|transcribe|entero|entera|completo|completa|integro|integra|palabra por palabra|al pie de la letra|copia|reproduce|transcribe)\b/;
+const OEUVRES = /^(chansons?|livres?|romans?|chapitres?|paroles|poemes?|scenarios?|films?|bd|mangas?|articles?|albums?|partitions?|episodes?|songs?|lyrics|books?|novels?|chapters?|poems?|scripts?|screenplays?|movies?|comics?|canciones|cancion|letras?|libros?|novelas?|capitulos?|poemas?|guion|guiones|peliculas?|articulos?|episodios?|contes?|tales?|cuentos?|tomes?|tomos?|recueils?|poemarios?|couplets?|verses|stanzas?|strophes?|estrofas?)$/;
+const EN_ENTIER = /\b(en entier|entier|entiere|entierement|integral|integrale|integralement|integralite|complet|complete|completes|completement|mot a mot|mot pour mot|a l identique|tel quel|recopie|recopier|reproduis|reproduire|retranscris|retranscrire|in full|full|whole|entire|entirely|complete|word for word|verbatim|copy|reproduce|transcribe|entero|entera|completo|completa|integro|integra|palabra por palabra|al pie de la letra|copia|all the|tout le|toute la|tous les|toutes les|todo el|toda la|todos los|todas las|reproduce|transcribe|tel qu (?:il|elle) (?:est|a ete) (?:publiee?|ecrite?|imprimee?)|as (?:it was )?(?:published|printed)|tal (?:como|cual) (?:se publico|fue publicad[oa]|esta publicad[oa]))\b/;
+/** « le texte de la chanson », « the words of the song », « el texto de la canción » : ses paroles. */
+const TEXTE_DE_CHANSON = /\b(?:texte|textes|text|words|texto|textos) (?:de|d|du|of|to|del) (?:la |le |l |the |el |cette |this |esta )?(?:chanson|song|cancion|poeme|poem|poema)\b/;
 const RESUME = /\b(resum\w*|summar\w*|analys\w*|analiz\w*)\b/;
 const PAROLES = /\b(paroles|lyrics|letra)\b/;
-const LOGO_DE = re(`\\blogos? (?:de|d|du|des|of|from|del)${SUITE}`);
-const LE_LOGO = re(`\\b(?:le|la|les|the|el) logos? (${W})`);
+/** Le logo, le logotype, l'emblème, l'insigne d'une marque. */
+const LOGOS = '(?:logos?|logotypes?|logotipos?|emblemes?|emblems?|insignes?|insignias?)';
+const LOGO_DE = re(`\\b${LOGOS}(?: (?:officiel|officielle|official|oficial|original|originale|exact|exacte))? (?:de|d|du|des|of|from|del)${SUITE}`);
+const LE_LOGO = re(`\\b(?:le|la|les|the|el) ${LOGOS} (${W})`);
+const UN_LOGO = new RegExp(`^${LOGOS}$`);
+/** Ce qui dit À QUI est le logo (« de mon club ») — pas pour quoi il est fait (« pour mon t-shirt »). */
+const DE_QUI = ens('de d du des of from del');
+/** « un logo de chat » décrit le dessin ; « le logo de Zorbex », « un logo de Zorbex » nomment une marque. */
+function description(t: string, index: number, premier: string, brut: string): boolean {
+  if (!INDEFINI.has(mots(t.slice(0, index)).at(-1) ?? '') || !premier || DET.has(premier)) return false;
+  return !jetons(brut).some((j) => j.p === premier && (j.maj || j.sigle));
+}
 /** Après l'œuvre, ces mots disent qu'on en écrit une originale : « des paroles sur la mer », « lyrics about my dog ». */
 const SUJET_DE = ens('sur about on sobre pour for para');
 
@@ -308,13 +429,14 @@ function oeuvre(t: string, brut: string): boolean {
     if (chapitreDuneOeuvre(brut)) return true;
     const i = m.findIndex((w) => PAROLES.test(w));
     if (i >= 0 && aUnAutre(m, i)) return true;
+    if (TEXTE_DE_CHANSON.test(t)) return true;
   }
-  for (const x of t.matchAll(LOGO_DE)) if (!A_MOI.has(mots(x[1])[0] ?? '')) return true;
+  for (const x of t.matchAll(LOGO_DE)) if (!A_MOI.has(mots(x[1])[0] ?? '') && !description(t, x.index ?? 0, mots(x[1])[0] ?? '', brut)) return true;
   for (const x of t.matchAll(LE_LOGO)) {
     if (PREP.has(x[1]) || A_MOI.has(x[1])) continue;
     // « le logo et le tampon de mon entreprise » : le mien
     const suite = mots(t.slice((x.index ?? 0) + x[0].length - x[1].length - 1)).slice(0, 7);
-    if (suite.some((w, k) => PREP.has(w) && A_MOI.has(suite[k + 1] ?? ''))) continue;
+    if (suite.some((w, k) => DE_QUI.has(w) && A_MOI.has(suite[k + 1] ?? ''))) continue;
     return true;
   }
   // « le texte complet de L'Étranger », « toute la pièce Le Cid » : le texte entier d'une œuvre au titre écrit en majuscules
@@ -325,7 +447,16 @@ function oeuvre(t: string, brut: string): boolean {
       if (js.slice(i + 1, i + 5).some((j) => j.maj && !j.debut && !courant(j.p))) return true;
     }
   }
-  if (/\b(?:the|a|an) \p{Lu}[\p{L}\p{N}-]* logos?\b/u.test(brut)) return true; // « the Zorbex logo »
+  // « the Zorbex logo », « the Brightfold app logo » : une marque en majuscule juste avant le logo (pas « my », ni « for my … »)
+  const js = jetons(brut);
+  for (let i = 0; i < js.length; i++) {
+    if (!UN_LOGO.test(js[i].p)) continue;
+    const avant = js.slice(Math.max(0, i - 3), i);
+    if (avant.some((j) => A_MOI.has(j.p))) continue;
+    const suite = js.slice(i + 1, i + 8).map((j) => j.p);
+    if (suite.some((w, k) => DE_QUI.has(w) && A_MOI.has(suite[k + 1] ?? ''))) continue;
+    if (avant.slice(-2).some((j) => !j.debut && (j.sigle || (j.maj && !courant(j.p))))) return true;
+  }
   return false;
 }
 
@@ -336,11 +467,25 @@ const DOCS = [
   'document file list note notes memo report summary budget quote invoice letter table schedule plan agenda menu recipe program project card invitation poster contract resume presentation slides inventory tracker journal calendar timetable shopping annual monthly weekly secret new draft title text page week month day year birthday party meeting wedding trip holidays school work home family write make create prepare generate add thanks',
   'documento archivo lista nota notas informe resumen presupuesto factura carta tabla horario plan agenda menu receta programa proyecto tarjeta invitacion cartel contrato curriculum presentacion inventario seguimiento diario calendario compras anual mensual semanal secreto nuevo nueva borrador titulo texto pagina semana mes dia ano cumpleanos fiesta reunion boda viaje vacaciones escuela trabajo casa familia escribe haz crea prepara genera gracias',
 ].join(' ');
+/**
+ * Les mots ajoutés aux règles APRÈS le réglage de la vérification de langue : ils ne comptent pas comme « connus ».
+ * Renforcer une règle (« le CEO », « mon ex ») ne doit jamais faire passer en silence une demande écrite dans une
+ * langue que le filtre ne lit pas (« ordine del CEO », « lettera del general ») : ce qui est vérifié pour ces langues
+ * ne change pas. Tout mot ajouté plus tard à une liste ci-dessus se range aussi ici.
+ */
+const HORS_LEXIQUE = ens([
+  'pdg dg gerant gerante fondateur fondatrice entraineur entraineuse prefet prefete commissaire general colonel eveque cure pretre imam rabbin pasteur',
+  'ceo cfo founder owner chairman chairwoman chair coach sheriff chancellor premier secretary priest bishop rabbi pastor',
+  'gerente dueno duena fundador fundadora entrenador entrenadora gobernador gobernadora sacerdote obispo rabino',
+  'ex proprio coloc colocataire roommate flatmate girlfriend boyfriend partner fiance fiancee casero casera arrendador arrendadora novio novia pareja',
+  'slideshow histoire history historia contestation contester contest appeal recours reclamation recurso expliquer explain explica explicar comment',
+  'bon bons voucher vouchers albaran albaranes',
+].join(' '));
 let lex: Set<string> | undefined;
 function lexique(): Set<string> {
   if (lex) return lex;
   lex = new Set<string>();
-  for (const s of [DET, A_MOI, PRONOMS, PERSONNES, GENERIQUES, PREP, PAROLE, TOPIQUE, PIECE_MOTS, FAUX_MOTS, ens(DOCS)]) for (const w of s) lex.add(w);
+  for (const s of [DET, A_MOI, PRONOMS, PERSONNES, GENERIQUES, PREP, PAROLE, TOPIQUE, PIECE_MOTS, FAUX_MOTS, ens(DOCS)]) for (const w of s) if (!HORS_LEXIQUE.has(w)) lex.add(w);
   for (const code of LANGUES_FILTRE) {
     const t = langues().get(code);
     for (const w of [...(t?.petitsMots ?? []), ...(t?.indices ?? [])]) for (const x of mots(plat(w))) lex.add(x);
@@ -380,9 +525,15 @@ function langueNonLue(brut: string, titre: boolean): string | undefined {
 /** Les mêmes règles de faux documents, pour le CONTENU d'un document (son titre et son début) : un faux bulletin titré « Document » ne passe pas. */
 export function refusContenu(entete: string): string | undefined {
   const t = plat(entete);
-  if (delivre(t) || faussePiece(t) || pieceDunAutre(t, entete)) return REFUS_FAUX;
+  if (delivre(t) || faussePiece(t) || pieceDunAutre(t, entete) || pieceEmise(t)) return REFUS_FAUX;
+  // l'en-tête d'une institution publique ou financière (« CAISSE PRIMAIRE — Attestation… ») au-dessus d'une pièce
+  const m = mots(t);
+  const enTete = m.slice(0, 6).some((w, k) => EN_TETE_PUBLIC.has(w) && !LIEU_OU_DESTINATAIRE.has(m[k - 1] ?? '') && !POSSESSIFS.has(m[k - 1] ?? ''));
+  if (enTete && m.some((w) => PIECE_MOTS.has(w) || PIECE_ORG.has(w) || EMIS.has(w) || CERTIFIE.has(w))) return REFUS_FAUX;
   return undefined;
 }
+/** Les institutions publiques ou financières dont l'en-tête fait une pièce officielle. */
+const EN_TETE_PUBLIC = ens('tributaria tributaire fiscal fiscale fiscales banque caisse tribunal prefecture mairie ministere impots tresor assurance assureur mutuelle universite rectorat hopital police gendarmerie consulat ambassade bank court ministry treasury hospital university insurer insurance police consulate embassy banco juzgado ministerio hacienda ayuntamiento aseguradora seguros universidad hospital policia consulado embajada');
 const REFUS_FAUX = `refusé : Odin ne fabrique pas de faux document, ni rien qui imite un document officiel ou la pièce d'un autre (paie, relevé bancaire, RIB, impôt, identité, justificatif de domicile, certificat, diplôme, ordonnance, état civil ; facture, attestation ou certificat dits faux, officiels, à l'en-tête ou au tampon d'un autre, ou au nom d'un organisme).${NOTE}`;
 
 /**
@@ -393,7 +544,7 @@ export function refus(demande: string, o: { titre?: boolean } = {}): string | un
   const brut = String(demande ?? '');
   const t = plat(brut);
   if (trucage(t, brut)) return `refusé : Odin ne fabrique ni la voix, ni le visage, ni un audio ou une vidéo d'une personne réelle, nommée ou désignée (anti-trucage). Il peut produire une voix ou un visage inventés, présentés comme tels : si c'est un personnage inventé, dis-le (« personnage inventé »).${NOTE}`;
-  if (delivre(t) || faussePiece(t) || pieceDunAutre(t, brut)) return REFUS_FAUX;
+  if (delivre(t) || faussePiece(t) || pieceDunAutre(t, brut) || pieceEmise(t)) return REFUS_FAUX;
   if (oeuvre(t, brut)) return `refusé : Odin ne reproduit pas une œuvre protégée (en entier, un chapitre, des paroles) ni la marque ou le logo de quelqu'un d'autre. Il peut écrire une œuvre originale, s'en inspirer librement, ou en faire un court résumé.${NOTE}`;
   if (/\b(comme|presente[rz]? comme|fais passer pour) (une )?(vraie|veritable) (photo|photographie|video|enregistrement)\b/.test(t)) {
     return 'refusé : une création d\'Odin est toujours marquée comme telle, jamais présentée comme une vraie photo, une vraie vidéo ou un vrai enregistrement.';
