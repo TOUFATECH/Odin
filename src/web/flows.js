@@ -234,14 +234,19 @@
     return c;
   }
   /**
-   * Colle la copie `c` : un nom libre (« Nom 2 »…), un peu décalée (jamais pile sur un autre bloc), SANS fil. Les données
-   * qu'elle prend chez d'autres blocs restent telles quelles. Un déclencheur se colle comme les autres blocs : l'éditeur
-   * et le moteur permettent déjà plusieurs déclencheurs. → { ok, name }.
+   * Colle la copie `c` : un nom libre (« Nom 2 »…), à la première place libre sous le bloc copié (elle ne recouvre ni lui,
+   * ni son « + », ni un autre bloc ; collée plusieurs fois, chaque copie va à la place libre suivante), SANS fil. L'écart
+   * suit le zoom `k` : la zone de toucher du « ⋯ » de la copie (44 px à l'écran, au-dessus d'elle) ne doit pas couvrir le
+   * nom du bloc du dessus — dézoomé (téléphone), l'écart grandit. Les données qu'elle prend chez d'autres blocs restent
+   * telles quelles. Un déclencheur se colle comme les autres blocs : l'éditeur et le moteur permettent déjà plusieurs
+   * déclencheurs. → { ok, name }.
    */
-  function collerBloc(wf, c) {
+  function collerBloc(wf, c, k = 1) {
     const name = nomLibre(wf.nodes, c.name);
-    let x = (c.position?.[0] ?? 0) + 40, y = (c.position?.[1] ?? 0) + 40;
-    for (let i = 0; i < 200 && wf.nodes.some((n) => n.position?.[0] === x && n.position?.[1] === y); i++) { x += 40; y += 40; }
+    // (un bloc fait environ 60 px de haut ; sa zone « ⋯ » monte de zoneToucher(k) - 10 px au-dessus de lui)
+    const ecart = Math.max(PAS_Y, Math.ceil((60 + zoneToucher(k)) / 10) * 10), x = Math.round(c.position?.[0] ?? 0);
+    let y = Math.round(c.position?.[1] ?? 0) + ecart;
+    for (let i = 0; i < 40 && wf.nodes.some((m) => Math.abs((m.position?.[0] ?? 0) - x) < NODE_W + 20 && Math.abs((m.position?.[1] ?? 0) - y) < ecart); i++) y += ecart;
     const n = { name, type: c.type, params: JSON.parse(JSON.stringify(c.params ?? {})), position: [x, y] };
     // Le chemin secret d'un Webhook ou d'un Formulaire ne se recopie pas : deux blocs au même chemin partiraient ensemble
     // (ou l'un jamais). Vide, le serveur en tire un neuf à l'enregistrement (même règle que la copie d'une automatisation).
@@ -592,6 +597,8 @@
 .dr-note-ed .dr-row .btn{min-height:44px}
 .dr-seul{position:absolute;left:-11px;top:-11px;min-width:22px;height:22px;box-sizing:border-box;padding:0 6px;border-radius:11px;background:var(--good);color:var(--panel);font-size:12px;font-weight:700;line-height:22px;text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--panel);transform-origin:100% 100%;transform:scale(var(--dr-ik,1))}.dr-seul.bad{background:var(--bad)}
 #v-flows .dr-bar .btn.dr-hist{min-height:44px;min-width:44px}.dr-bar .btn.dr-hist[disabled]{opacity:.45;cursor:default}
+.dr-actions{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}.dr-actions #drSt{flex:1 1 220px;min-width:0;align-self:center;overflow-wrap:anywhere}
+@media (max-width:600px){.dr-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.dr-actions .btn{white-space:normal;min-height:44px}.dr-actions #drSt{grid-column:1/-1}}
 @media (prefers-reduced-motion:reduce){.dr-node.dr-source,.dr-choix,.dr-fil-menu{animation:none}.dr-plus span,.dr-mb span{transition:none}}
 `;
   let st = null, wf = null, outs = {}, sel = null, armed = null, last = null, view = { x: 40, y: 40, k: 1 }, dirty = false;
@@ -648,11 +655,14 @@
   }
   function collerCopie() {
     if (!wf || !presse || !$('#drCanvas')) return false;
-    const r = collerBloc(wf, presse);
+    const r = collerBloc(wf, presse, view.k);
     sel = r.name; dirty = true; noter(`coller « ${r.name} »`);
     montrer(wf.nodes.find((n) => n.name === r.name)); draw(); drawSide();
     dire(`✓ « ${r.name} » collé, sans ses liens.`);
     elems.get(r.name)?.focus?.();
+    // Le « + » dépasse sous le bloc : la page défile au plus près pour le montrer aussi (au téléphone, le bloc seul
+    // s'arrêtait au ras de la barre du bas et son « + » restait dessous). montrer() l'a déjà mis dans le schéma.
+    elems.get(r.name)?.querySelector?.('.dr-plus')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     return true;
   }
   /** On écrit dans un champ, ou une fenêtre est ouverte : les touches sont à eux (Ctrl+C, Ctrl+V, Ctrl+Z y gardent leur sens). */
@@ -794,11 +804,13 @@
     box.replaceChildren(
       el('div', { class: 'dr-bar' }, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!dirty || await window.OdinDialog.confirm('Quitter sans enregistrer ?')) openList(); } }, '← Automatisations'), el('label', { for: 'drName', class: 'sr' }, 'Nom'), el('input', { id: 'drName', class: 'dr-name', value: wf.name, oninput: (e) => { wf.name = e.target.value; dirty = true; } }),
         wf.id && window.OdinTalosDossiers ? window.OdinTalosDossiers.barre(wf, () => wf) : null,
+        // (les boutons et le message d'état : un groupe sur sa propre ligne ; au téléphone, une grille de trois colonnes)
+        el('div', { class: 'dr-actions' },
         el('button', { class: 'btn small primary', type: 'button', onclick: save }, 'Enregistrer'), el('button', { class: 'btn small', type: 'button', onclick: () => test() }, 'Tester'), el('button', { class: 'btn small', type: 'button', onclick: () => { sel = null; drawSide(); } }, '+ Étape'),
         // (au doigt, pas de Ctrl+Z : deux boutons ; grisés quand il n'y a rien)
         el('button', { id: 'drUndo', class: 'btn small dr-hist', type: 'button', disabled: true, 'aria-keyshortcuts': 'Control+Z', title: 'Annuler (Ctrl+Z) : rien pour l\'instant', onclick: () => revenir(true) }, 'Annuler'),
         el('button', { id: 'drRedo', class: 'btn small dr-hist', type: 'button', disabled: true, 'aria-keyshortcuts': 'Control+Y Control+Shift+Z', title: 'Refaire (Ctrl+Y) : rien pour l\'instant', onclick: () => revenir(false) }, 'Refaire'),
-        wf.id ? el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Mettre cette automatisation à la corbeille ?', { danger: true }))) return; await api('/api/draupnir/trash', { id: wf.id }); openList(); } }, 'Corbeille') : null, status),
+        wf.id ? el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Mettre cette automatisation à la corbeille ?', { danger: true }))) return; await api('/api/draupnir/trash', { id: wf.id }); openList(); } }, 'Corbeille') : null, status)),
       el('div', { class: 'dr-ed' }, canvas, side),
       // (Pas d'exécution ni de version quand on part de zéro : rien, et surtout pas le mot « null ».)
       ...(r ? [el('section', { class: 'card', style: 'margin-top:12px' }, el('h2', { style: 'font-size:16px;margin:0' }, 'Dernières exécutions'), r.runs.length ? el('ul', { class: 'dr-runs' }, ...r.runs.slice(0, 10).map((x) => { const net = /attente.*internet|internet.*attente|en-attente-internet/i.test(`${x.status} ${x.error ?? ''}`); return el('li', {}, el('span', { class: `pill ${x.status === 'succès' ? 'good' : net ? '' : x.status === 'erreur' ? 'bad' : ''}` }, net ? 'en attente d\'Internet' : x.status), ` ${new Date(x.startedAt).toLocaleString('fr-FR')} · ${x.mode} · ${x.ms} ms${net ? ' · en attente du retour d\'Internet' : x.error ? ` · ${x.error}` : ''}`); })) : el('p', { class: 'sub' }, 'Jamais lancée.'),

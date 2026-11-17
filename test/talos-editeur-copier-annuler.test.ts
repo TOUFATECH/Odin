@@ -1,6 +1,7 @@
 // Talos, l'éditeur à nœuds (src/web/flows.js) : copier / coller un bloc, annuler / refaire, le zoom au clavier (étape 5c).
 // - Logique (sans document) : la copie d'un bloc (réglages, note, état désactivé ; ni ses fils ni son identifiant) ; le
-//   collage sous un nom libre (« Nom 2 »), un peu décalé, sans fil ; le zoom borné, le même que la molette.
+//   collage sous un nom libre (« Nom 2 »), à une place libre sous le bloc (aucun bloc recouvert, ni son « + » ni son
+//   « ⋯ »), sans fil ; le zoom borné, le même que la molette.
 // - Page (petit document simulé, aucun navigateur) : « Copier » dans le menu d'un bloc, Ctrl+C / Ctrl+V ; la copie reste
 //   dans la page (rien dans le presse-papiers du système) ; Ctrl+Z / Ctrl+Y (et Ctrl+Maj+Z) pour chaque sorte de geste,
 //   l'état exact d'avant puis d'après ; la borne ; rien n'est envoyé au serveur ; ni « Tester » ni « Enregistrer » ne
@@ -19,7 +20,7 @@ type Wf = { nodes: Noeud0[]; connections: Record<string, Array<Array<{ node: str
 type Vue = { x: number; y: number; k: number };
 interface Logique {
   copieDe: (n: Noeud0) => Noeud0;
-  collerBloc: (wf: Wf, c: Noeud0) => { ok: boolean; name?: string; error?: string };
+  collerBloc: (wf: Wf, c: Noeud0, k?: number) => { ok: boolean; name?: string; error?: string };
   zoomer: (v: Vue, facteur: number, mx: number, my: number) => Vue;
   MAX_HISTOIRE: number;
 }
@@ -53,7 +54,7 @@ test('copier : la copie garde le type, les réglages (à part), la note et l\'é
   assert.equal('note' in sans, false); assert.equal('disabled' in sans, false, 'un bloc sans note ni désactivation n\'a rien de plus');
 });
 
-test('coller : un nom libre (« Si 2 », puis « Si 3 »), un peu décalé, sans fil ; les données prises chez d\'autres blocs restent telles quelles', () => {
+test('coller : un nom libre (« Si 2 », puis « Si 3 »), à une place libre sous le bloc, sans fil ; les données prises chez d\'autres blocs restent telles quelles', () => {
   const L = logique();
   const wf: Wf = { nodes: [
     { name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] },
@@ -64,11 +65,11 @@ test('coller : un nom libre (« Si 2 », puis « Si 3 »), un peu décalé, sans
   const r1 = L.collerBloc(wf, c);
   assert.deepEqual(ici(r1), { ok: true, name: 'Si 3' }, '« Si 2 » est pris : « Si 3 »');
   const n1 = wf.nodes[3];
-  assert.deepEqual(ici(n1), { name: 'Si 3', type: 'logique.si', params: { condition: '{{ $node["Lancer"].json.n }} > 3' }, position: [380, 200], note: 'à revoir' });
+  assert.deepEqual(ici(n1), { name: 'Si 3', type: 'logique.si', params: { condition: '{{ $node["Lancer"].json.n }} > 3' }, position: [340, 270], note: 'à revoir' });
   assert.equal(JSON.stringify(wf.connections), liens, 'aucun fil ajouté');
   const r2 = L.collerBloc(wf, c);
   assert.equal(r2.name, 'Si 4');
-  assert.deepEqual(ici(wf.nodes[4].position), [420, 240], 'une deuxième copie ne tombe pas pile sur la première');
+  assert.deepEqual(ici(wf.nodes[4].position), [340, 380], 'une deuxième copie va à la place libre suivante, sous la première');
   assert.notEqual(wf.nodes[3].params, wf.nodes[4].params, 'chaque copie a ses propres réglages');
   assert.notEqual(wf.nodes[3].params, c.params);
 });
@@ -91,6 +92,52 @@ test('coller un déclencheur Webhook ou Formulaire : la copie n\'emporte pas le 
   const wf: Wf = { nodes: [{ name: 'Lire', type: 'fichier.lire', params: { chemin: 'notes.txt' }, position: [0, 0] }], connections: {} };
   L.collerBloc(wf, L.copieDe(wf.nodes[0]));
   assert.equal(wf.nodes[1].params.chemin, 'notes.txt');
+});
+
+// Ce qu'un bloc couvre à l'écran (en pixels du schéma) : 190 de large, environ 70 de haut (la hauteur que montrer() prend
+// pour un bloc), plus son « ⋯ » au-dessus (8 px), son rond d'entrée à gauche, son rond de sortie à droite et son « + » en
+// bas à droite (13 px).
+const couvre = (p: [number, number]) => ({ g: p[0] - 13, d: p[0] + 190 + 13, h: p[1] - 8, b: p[1] + 70 + 13 });
+function chevauchements(nodes: Noeud0[]) {
+  const r: string[] = [];
+  for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+    const a = couvre(nodes[i].position), z = couvre(nodes[j].position);
+    if (a.g < z.d && z.g < a.d && a.h < z.b && z.h < a.b) r.push(`${nodes[i].name} / ${nodes[j].name}`);
+  }
+  return r;
+}
+
+test('coller : la copie ne recouvre ni le bloc d\'origine ni un autre bloc ; trois collages de suite vont chacun à une place libre différente, près de l\'origine', () => {
+  const L = logique();
+  // La rangée des captures de l'étape 5c : Lancer → Fiche → Calcul → Prévenir.
+  const rangee = (): Wf => ({ nodes: [
+    { name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] },
+    { name: 'Fiche', type: 'données.définir', params: {}, position: [330, 160] },
+    { name: 'Calcul', type: 'données.définir', params: {}, position: [600, 160] },
+    { name: 'Prévenir', type: 'odin.prévenir', params: {}, position: [870, 160] },
+  ], connections: { Lancer: [[{ node: 'Fiche' }]], Fiche: [[{ node: 'Calcul' }]], Calcul: [[{ node: 'Prévenir' }]] } });
+  const un = rangee();
+  L.collerBloc(un, L.copieDe(un.nodes[2]));
+  assert.deepEqual(chevauchements(un.nodes), [], 'un collage : aucun bloc recouvert');
+  const trois = rangee(), c = L.copieDe(trois.nodes[2]);
+  for (let i = 0; i < 3; i++) L.collerBloc(trois, c);
+  assert.deepEqual(chevauchements(trois.nodes), [], 'trois collages de suite : aucun bloc recouvert');
+  const places = trois.nodes.slice(4).map((n) => JSON.stringify(n.position));
+  assert.equal(new Set(places).size, 3, 'trois places différentes');
+  for (const n of trois.nodes.slice(4)) assert.ok(Math.abs(n.position[0] - 600) <= 300 && Math.abs(n.position[1] - 160) <= 400, `${n.name} reste près de « Calcul » (${n.position})`);
+  // Un bloc déjà posé juste sous l'origine : la copie va à la place libre suivante.
+  const occupe = rangee(); occupe.nodes.push({ name: 'Note', type: 'temps.attendre', params: {}, position: [620, 280] });
+  L.collerBloc(occupe, L.copieDe(occupe.nodes[2]));
+  assert.deepEqual(chevauchements(occupe.nodes), [], 'la place prise est sautée');
+  // Dézoomé (téléphone, zoom 0,4) : la zone de toucher du « ⋯ » de la copie (44 px à l'écran, soit 110 px du schéma, au-dessus
+  // d'elle) ne couvre pas le bloc du dessus (environ 60 px de haut) — sinon toucher son nom ouvrirait le menu de la copie.
+  const loin = rangee(), cl = L.copieDe(loin.nodes[2]);
+  for (let i = 0; i < 3; i++) L.collerBloc(loin, cl, 0.4);
+  const ys = [160, ...loin.nodes.slice(4).map((n) => n.position[1])];
+  for (let i = 1; i < ys.length; i++) assert.ok(ys[i] + 10 - 110 >= ys[i - 1] + 60, `zoom 0,4 : la zone « ⋯ » de la copie ${i} reste sous le bloc du dessus (${ys})`);
+  assert.deepEqual(chevauchements(loin.nodes), []);
+  const r1 = rangee(); L.collerBloc(r1, cl, 1);
+  assert.deepEqual(ici(r1.nodes[4].position), [600, 270], 'au zoom 1 : juste sous l\'origine');
 });
 
 test('zoom : borné entre 0,4 et 1,6 ; le point visé reste sous le pointeur', () => {
@@ -149,6 +196,8 @@ class Noeud {
     return empeche;
   }
   focus() { actif = this; } setPointerCapture() {} releasePointerCapture() {}
+  /** Les demandes « fais-moi voir » reçues (le navigateur ferait défiler la page) : notées pour les essais. */
+  vus: unknown[] = []; scrollIntoView(o?: unknown) { this.vus.push(o); }
   getBoundingClientRect() { return { ...this.boite, right: this.boite.left + this.boite.width, bottom: this.boite.top + this.boite.height, x: this.boite.left, y: this.boite.top }; }
   closest(s: string): Noeud | null { let n: Noeud | null = this; while (n) { if (n.correspond(s)) return n; n = n.parent; } return null; }
   correspond(s: string): boolean {
@@ -243,7 +292,7 @@ test('page : « Copier » est dans le menu d\'un bloc (après « Renommer ») ; 
   assert.equal(p.fil('Lancer', 'Si 2') ?? p.fil('Si 2', 'Fin') ?? null, null, 'sans fil');
   const f = await p.enregistre();
   assert.deepEqual(f.nodes.map((n) => n.name), ['Lancer', 'Si', 'Attendre', 'Fin', 'Si 2']);
-  assert.deepEqual(f.nodes[4], { name: 'Si 2', type: 'logique.si', params: { condition: '' }, position: [380, 200], note: 'Seuil choisi avec Maëlle' });
+  assert.deepEqual(f.nodes[4], { name: 'Si 2', type: 'logique.si', params: { condition: '' }, position: [340, 270], note: 'Seuil choisi avec Maëlle' });
   assert.deepEqual(f.connections, ici(FLOW.connections), 'aucun fil ajouté ni changé');
   await p.touche('v', { ctrl: true });
   assert.ok(p.bloc('Si 3'), 'une deuxième fois : « Si 3 »');
@@ -258,7 +307,7 @@ test('page : Ctrl+C sur le bloc choisi, Ctrl+V : la copie garde ses données pri
   assert.equal(await p.touche('c', { ctrl: true, cible: p.bloc('Attendre') }), true);
   await p.touche('v', { ctrl: true });
   const f = await p.enregistre();
-  assert.deepEqual(f.nodes[4], { name: 'Attendre 2', type: 'temps.attendre', params: { secondes: '{{ $node["Si"].json.n }}' }, position: [940, 100] });
+  assert.deepEqual(f.nodes[4], { name: 'Attendre 2', type: 'temps.attendre', params: { secondes: '{{ $node["Si"].json.n }}' }, position: [900, 170] });
   assert.match(p.body.querySelector('#drNn')?.getAttribute('value') ?? '', /^Attendre 2$/, 'la copie est choisie');
   assert.deepEqual(p.pressePapiers, []);
 });
@@ -268,7 +317,7 @@ test('page : un déclencheur se copie comme un autre bloc (deux déclencheurs so
   await choisir(p, 'Lancer');
   await p.touche('c', { ctrl: true }); await p.touche('v', { ctrl: true });
   const f = await p.enregistre();
-  assert.deepEqual(f.nodes[4], { name: 'Lancer 2', type: 'déclencheur.manuel', params: {}, position: [100, 200] });
+  assert.deepEqual(f.nodes[4], { name: 'Lancer 2', type: 'déclencheur.manuel', params: {}, position: [60, 270] });
 });
 
 test('page : coller dans une autre automatisation ouverte ensuite dans la même page', async () => {
@@ -383,6 +432,45 @@ test('page : les boutons « Annuler » et « Refaire » (44 px, grisés quand il
   await refaireB(p).emettre('click'); await attendre();
   assert.ok(p.bloc('Fin 2'), 'refait');
   assert.equal(refaireB(p).disabled, true);
+});
+
+test('page : trois collages de suite, chacun à une place libre ; annuler les retire, refaire les remet aux mêmes places', async () => {
+  const p = await page();
+  await clicDroit(p.bloc('Si')); await p.bouton('Copier', menu()!)!.emettre('click'); await attendre();
+  for (let i = 0; i < 3; i++) await p.touche('v', { ctrl: true });
+  const colle = await p.enregistre();
+  assert.deepEqual(colle.nodes.slice(4).map((n) => [n.name, n.position]), [['Si 2', [340, 270]], ['Si 3', [340, 380]], ['Si 4', [340, 490]]]);
+  assert.deepEqual(chevauchements(colle.nodes as Noeud0[]), [], 'aucun bloc recouvert');
+  for (let i = 0; i < 3; i++) await annulerB(p).emettre('click');
+  await attendre();
+  assert.deepEqual(await p.enregistre(), ici(FLOW), 'annulés : les trois copies sont parties');
+  for (let i = 0; i < 3; i++) await refaireB(p).emettre('click');
+  await attendre();
+  assert.deepEqual(await p.enregistre(), colle, 'refaits : aux mêmes places');
+});
+
+test('page : collée, la copie est montrée avec son « + » (la page défile au plus près, sans rien d\'autre : au téléphone, le « + » ne reste pas sous la barre du bas)', async () => {
+  const p = await page();
+  await clicDroit(p.bloc('Si')); await p.bouton('Copier', menu()!)!.emettre('click'); await attendre();
+  await p.touche('v', { ctrl: true });
+  const plus = p.bloc('Si 2').querySelector('.dr-plus')!;
+  assert.deepEqual(ici(plus.vus), [{ block: 'nearest', inline: 'nearest' }], 'le « + » de la copie est amené à l\'écran, au plus près');
+  assert.deepEqual(p.bloc('Si').querySelector('.dr-plus')!.vus, [], 'celui du bloc d\'origine n\'est pas touché');
+});
+
+test('page : la barre de l\'éditeur en deux groupes — le nom et son dossier, puis les boutons et le message d\'état ; aucun bouton retiré ni ajouté', async () => {
+  const p = await page();
+  const bar = p.body.querySelector('.dr-bar')!, g = bar.querySelector('.dr-actions')!;
+  assert.ok(g, 'le groupe des boutons existe');
+  assert.deepEqual(g.querySelectorAll('button').map((b) => b.textContent), ['Enregistrer', 'Tester', '+ Étape', 'Annuler', 'Refaire', 'Corbeille']);
+  assert.ok(g.querySelector('#drSt'), 'le message d\'état est avec les boutons');
+  assert.deepEqual(bar.querySelectorAll('button').map((b) => b.textContent), ['← Automatisations', 'Enregistrer', 'Tester', '+ Étape', 'Annuler', 'Refaire', 'Corbeille'], 'les mêmes boutons qu\'avant, dans le même ordre');
+  assert.equal(bar.children.findIndex((n) => n.id === 'drName') >= 0, true, 'le nom reste dans la barre elle-même (le choix « Dossier » se pose juste après lui)');
+  // Le groupe prend sa propre ligne ; au téléphone, une grille de trois colonnes (pas un bouton seul sur une ligne) et le message sur toute la largeur.
+  assert.match(p.css, /\.dr-actions\{[^}]*flex:1 1 100%/);
+  assert.match(p.css, /@media \(max-width:600px\)\{[^}]*\.dr-actions\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(p.css, /\.dr-actions #drSt\{[^}]*grid-column:1\/-1/);
+  assert.match(p.css, /@media \(max-width:600px\)\{[^}]*\}\.dr-actions \.btn\{[^}]*min-height:44px/, 'au téléphone, chaque bouton fait 44 px de haut');
 });
 
 test('page : l\'historique est borné à 100 gestes et vidé à l\'ouverture d\'une autre automatisation', async () => {
