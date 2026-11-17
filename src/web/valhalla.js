@@ -653,10 +653,12 @@
       el('div', { class: 'va-story' }, r.story ? el('div', {}, el('h4', {}, 'D\'où vient le nom'), el('p', {}, r.story)) : null, fonctions, similaires));
   }
   /** L'en-tête : retour, icône, nom, une ligne d'explication, puis la fiche de l'appli (dépliée en entrant). */
-  function entete(id, r, retour, titre) {
+  function entete(id, r, retour, titre, o) {
     const v = r.view, ic = el('span', { class: 'va-ic', 'aria-hidden': 'true' }); if (!titre && window.OdinAppIcons) ic.innerHTML = window.OdinAppIcons.tile(id, r.name, 44);
     const plus = titre ? null : fiche(id, r);
-    if (plus) { plus.open = plusOuvert[id] ?? ficheOuverte(); plus.addEventListener('toggle', () => { plusOuvert[id] = plus.open; ficheOuverte(plus.open); }); }
+    // `o.replie` (appli qui a sa propre page) : la fiche est repliée en entrant, et l'ouvrir ou la fermer ici
+    // ne change pas le réglage des autres applis.
+    if (plus) { plus.open = plusOuvert[id] ?? (o?.replie ? false : ficheOuverte()); plus.addEventListener('toggle', () => { plusOuvert[id] = plus.open; if (!o?.replie) ficheOuverte(plus.open); }); }
     return el('div', { class: 'va-head' }, el('button', { class: 'btn va-back', type: 'button', id: 'vaRetour', title: `Retour : ${retour.label}`, onclick: retour.go }, ico(I.retour), el('span', {}, retour.label)), titre ? null : ic,
       el('div', { class: 'va-tt' }, el('h1', {}, titre?.titre ?? r.name), el('p', { class: 'va-desc' }, titre?.texte ?? r.what), !titre && v.subtitle && v.subtitle !== r.what ? el('p', { class: 'va-etat', role: 'status' }, v.subtitle) : null), titre ? null : boutonPartage(id, r), titre ? null : window.OdinEpingles?.bouton(`appli:${id}`, r.name) ?? null, plus);
   }
@@ -891,11 +893,15 @@
     const page = window.OdinPages?.[id];
     if (page) {
       // La page rend false quand elle n'a rien à montrer : la page générique reste comme avant.
-      const generic = [...main.childNodes], host = el('div', { class: 'va-custom', style: 'margin:0 0 18px' }); main.replaceChildren(); wide.append(host);
+      const generic = [...main.childNodes], host = el('div', { class: 'va-custom', style: 'margin:0 0 18px' }); main.replaceChildren(); wide.insertBefore(host, wide.firstChild);
       let done = false;
       try { done = (await page({ host, generic, view: v, info: r, quiet: Boolean(quiet), reload: () => openApp(id, true), toast, show: (n) => window.OdinShow?.(n) })) !== false; } catch (e) { host.replaceChildren(el('p', { class: 'sub' }, String(e?.message ?? e))); }
       if (done) { main.hidden = true; side.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 16px;align-items:start'; }
       else { if (!host.childNodes.length) host.remove(); main.replaceChildren(...generic); }
+      // La page propre vient en premier, juste sous l'en-tête : les chiffres et boutons rapides génériques passent après elle.
+      if (done) return [wide, top, el('div', { class: 'va-page' }, main, side)];
+      // Page refusée : noté sur les blocs de CET affichage (pas dans une variable commune, qu'un autre affichage en cours écraserait).
+      return Object.assign([top, wide, el('div', { class: 'va-page' }, main, side)], { refusee: true });
     }
     return [top, wide, el('div', { class: 'va-page' }, main, side)];
   }
@@ -907,7 +913,8 @@
       onkeydown: (e) => { const k = e.key, j = k === 'ArrowRight' || k === 'ArrowLeft' ? 1 - i : k === 'Home' ? 0 : k === 'End' ? 1 : -1; if (j >= 0) { e.preventDefault(); va(noms[j]); } } }, n)));
     O.decorer(liste.lastChild, r.name);
     if (sel === O.ONGLET) return [liste, el('div', { class: 'va-cells', role: 'tabpanel', id: 'va-panneau', 'aria-labelledby': 'va-tab-1' }, O.panneau(id, autoData[id], { recharger: () => rechargerAuto(id) }))];
-    return [liste, el('div', { role: 'tabpanel', id: 'va-panneau', 'aria-labelledby': 'va-tab-0' }, ...(await pageSimple(id, r, quiet)))];
+    const blocs = await pageSimple(id, r, quiet);
+    return Object.assign([liste, el('div', { role: 'tabpanel', id: 'va-panneau', 'aria-labelledby': 'va-tab-0' }, ...blocs)], { refusee: Boolean(blocs.refusee) });
   }
   /** Après une action de Talos dans l'onglet « Auto » : relit ce que Talos dit de l'appli, puis redessine. */
   async function rechargerAuto(id) {
@@ -925,7 +932,9 @@
     const haut = resultBox(`p:${id}`);   // le résultat d'un écran à part (« analyse de PC-SALON lancée ») reste en haut de la page
     const corps = v.onglets?.length && !window.OdinPages?.[id] ? pageOnglets(id, r) : autoData[id] && window.OdinOngletAuto ? await pageAvecAuto(id, r, quiet) : await pageSimple(id, r, quiet);
     if (cur !== id) return;
-    box.replaceChildren(...[entete(id, r, { label: 'Applis', go: () => window.OdinShow?.('apps') }), v.postes ? selecteur(id, r) : null, haut.out, haut.dl, haut.close, ...corps].filter(Boolean));
+    // Une appli qui a sa propre page : sa présentation (à quoi elle sert, applicatifs similaires) reste dans l'en-tête, repliée.
+    const replie = Boolean(window.OdinPages?.[id]) && !corps.refusee;
+    box.replaceChildren(...[entete(id, r, { label: 'Applis', go: () => window.OdinShow?.('apps') }, undefined, { replie }), v.postes ? selecteur(id, r) : null, haut.out, haut.dl, haut.close, ...corps].filter(Boolean));
   }
   async function openApp(id, quiet) {
     // Une nouvelle visite repart de zéro : cette machine, premier onglet, sans anciens résultats ni fichier en attente.
