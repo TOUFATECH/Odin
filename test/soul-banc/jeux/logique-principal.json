@@ -1,0 +1,9810 @@
+{
+ "version": 2,
+ "origine": "Écrit par un agent le 2026-11-17 à partir des actions et des réglages des modules de src/valhalla/ (catalogue réel), sans reprendre les listes de mots, les exemples des modules, les demandes d'apprentissage ni les phrases des autres jeux du banc. Non relu par une personne. Les demandes marquées aRelire doivent être relues par quelqu'un qui parle la langue. Version 2 (2026-11-17) : corrigée après une relecture par un agent ; les demandes ajoutées ou réécrites sont aussi écrites par un agent, non relues par une personne.",
+ "fige": true,
+ "maintenant": "2026-11-17T10:00:00",
+ "demandes": [
+  {
+   "id": "lp001",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "éteins l'atelier, la véranda et la salle de jeux, sauf la lampe de l'aquarium",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "atelier",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "véranda",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "salle de jeux",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp002",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "n'ouvre surtout pas le portillon, ce n'est pas le livreur",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp003",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "inutile de tout redémarrer : seul le conteneur mosquitto a besoin d'être relancé",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "mosquitto"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp004",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "évite la caméra du cellier, prends en photo l'allée",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "allée"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp005",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête de couper internet à Maëlys, elle a fini",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "reprendre",
+     "reglages": {
+      "nom": "Maëlys"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp006",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ne garde pas cette note, en fait n'écris rien",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp007",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "baisse les stores de la mezzanine et du dressing, pas ceux de l'entrée",
+   "logique": [
+    "negation",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "stores de la mezzanine",
+      "valeur": "fermer"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "stores du dressing",
+      "valeur": "fermer"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp008",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pas d'annonce partout : seulement à l'étage, dis que la douche est libre",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "message": "la douche est libre",
+      "ou": "étage"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp009",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ne retire pas 198.51.100.140 de la liste des bannis",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp010",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pas de rock dans la chambre d'amis, mets plutôt de la bossa nova",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "quoi": "bossa nova",
+      "ou": "chambre d'amis"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp011",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "n'enregistre pas toute la série, juste l'épisode de ce soir de Kaamelott",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "enregistrer",
+     "reglages": {
+      "quoi": "Kaamelott"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp012",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "aucune sauvegarde avant demain, je change le disque",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp013",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ne réveille pas le portable de Jules, réveille la tour du grenier",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "hermod",
+     "action": "reveiller",
+     "reglages": {
+      "machine": "tour du grenier"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp014",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "évite de toucher au thermostat, allume seulement le sèche-serviettes",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "sèche-serviettes",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp015",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "relance tous les sites sauf la boutique : le blog et le portfolio",
+   "logique": [
+    "negation",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "idunn",
+     "action": "relancer",
+     "reglages": {
+      "site": "blog"
+     }
+    },
+    {
+     "appli": "idunn",
+     "action": "relancer",
+     "reglages": {
+      "site": "portfolio"
+     }
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp016",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ne mets pas pause sur le téléchargement, laisse-le finir",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp017",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "n'efface pas mes trajets d'hier, montre-les-moi",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gna",
+     "action": "trajets",
+     "reglages": {
+      "jour": "hier"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp018",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pas besoin de chercher sur internet, regarde dans mes notes la recette du far breton",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "saga",
+     "action": "chercher",
+     "reglages": {
+      "q": "recette du far breton"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp019",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "switch off the garage, the shed and the pool lights, but leave the gate light alone",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "garage",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "shed",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "pool lights",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp020",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "don't unban 198.51.100.202, it's still attacking us",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp021",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "not the living room speaker, play the audiobook in the study",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "quoi": "audiobook",
+      "ou": "study"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp022",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "no need to reboot the whole server, just restart the grafana container",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "grafana"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp023",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "please don't touch the heating tonight",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp024",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "no cierres la persiana de la cocina, cierra la del despacho",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": {
+       "un_de": [
+        "persiana del despacho",
+        "la del despacho"
+       ]
+      },
+      "valeur": "fermer"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp025",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "no hace falta grabar nada esta noche",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp026",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "lass das Wohnzimmer an, schalte nur das Arbeitszimmer aus",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "Arbeitszimmer",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp027",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "starte nicht den Container nginx neu, sondern caddy",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "caddy"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp028",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "non chiudere il cancello, apri solo il garage",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "garage",
+      "valeur": "ouvrir"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp029",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "non serve nessuna foto, grazie",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp030",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "não desligues a luz da sala, desliga a do escritório",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": {
+       "un_de": [
+        "escritório",
+        "a do escritório"
+       ]
+      },
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp031",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "не перезапускай весь сервер, только контейнер redis",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "redis"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp032",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "не надо ничего записывать",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp033",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "子ども部屋のエアコンは消さないで、書斎のだけ消して",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "書斎",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp034",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "不要录整部剧，只录今晚这一集",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "enregistrer",
+     "reglages": {}
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp035",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "لا تفتح الباب الأمامي، افتح باب الحديقة فقط",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "باب الحديقة",
+      "valeur": "ouvrir"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp036",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "현관 카메라 말고 주차장 카메라로 사진 찍어 줘",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "주차장"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp037",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "रसोई का पंखा बंद मत करो, सिर्फ़ बैठक का बंद करो",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "बैठक",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp038",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "yatak odasının ışığını kapatma, sadece koridorunkini kapat",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "koridor",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp039",
+   "langue": "el",
+   "ecriture": "Grek",
+   "phrase": "μην κλείσεις το φως στο χολ, κλείσε μόνο της κουζίνας",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "κουζίνας",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp040",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "doe het licht in de gang niet uit, alleen in de badkamer",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "badkamer",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp041",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "phrase": "nie wyłączaj światła w salonie, wyłącz tylko w kuchni",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "kuchni",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp042",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "s'il y a du vent fort demain à Biarritz, rentre le store banne",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Biarritz"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "store banne",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp043",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si le portillon est ouvert, préviens dans la cuisine",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "midgard",
+     "action": "maison",
+     "reglages": {}
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "ou": "cuisine"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp044",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "uniquement si le conteneur vaultwarden ne tourne pas, relance-le",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "lister",
+     "reglages": {}
+    },
+    {
+     "appli": "naglfar",
+     "action": "demarrer",
+     "reglages": {
+      "conteneur": "vaultwarden"
+     },
+     "si": true,
+     "aussi": [
+      "naglfar.redemarrer"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp045",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si le site du club est en panne, redéploie-le",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "idunn",
+     "action": "etat",
+     "reglages": {
+      "site": "club"
+     }
+    },
+    {
+     "appli": "idunn",
+     "action": "deployer",
+     "reglages": {
+      "site": "club"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp046",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lorsqu'il gèlera cette nuit à Annecy, mets le hors-gel du garage",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Annecy"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "hors-gel du garage",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp047",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si quelqu'un sonne au portail, prends une photo",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "cameras",
+     "reglages": {}
+    },
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "portail"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp048",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si j'ai un rendez-vous vendredi après-midi, dis-le-moi",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "agenda",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp049",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "au cas où un processus dépasse 4 Go de mémoire, arrête-le",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire"
+     }
+    },
+    {
+     "appli": "eir",
+     "action": "arreter_processus",
+     "reglages": {},
+     "si": true,
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp050",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si le match commence après 22 h, enregistre-le plutôt que de le regarder",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "programme",
+     "reglages": {
+      "quoi": "match"
+     }
+    },
+    {
+     "appli": "freyja",
+     "action": "enregistrer",
+     "reglages": {
+      "quoi": "match"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp051",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "s'il fait beau dimanche à Colmar, programme la balade à vélo à 10 h",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Colmar"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "balade à vélo",
+      "quand": "2026-11-22 10:00"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp052",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si Élio n'est pas couché à 21 h, coupe-lui internet",
+   "logique": [
+    "condition",
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "rapport",
+     "reglages": {
+      "nom": "Élio"
+     }
+    },
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Élio"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp053",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si le disque du serveur est presque plein, fais le ménage des images de conteneurs",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "etat",
+     "reglages": {}
+    },
+    {
+     "appli": "naglfar",
+     "action": "nettoyer",
+     "reglages": {},
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp054",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quand la température dépassera 30 degrés à Avignon, ferme les volets côté sud",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Avignon"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "volets côté sud",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp055",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si l'adresse 198.51.100.61 n'est pas déjà bannie, bannis-la",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannis",
+     "reglages": {}
+    },
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.61"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp056",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "seulement s'il reste de la place, télécharge l'ISO de Debian",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "etat",
+     "reglages": {}
+    },
+    {
+     "appli": "atalante",
+     "action": "ajouter",
+     "reglages": {},
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp057",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "if it rains tomorrow in Seattle, close the skylight",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Seattle"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "skylight",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp058",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "if the backup container is stopped, start it",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "lister",
+     "reglages": {}
+    },
+    {
+     "appli": "naglfar",
+     "action": "demarrer",
+     "reglages": {
+      "conteneur": "backup"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp059",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "in case anyone's at the front door, snap a picture",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "cameras",
+     "reglages": {}
+    },
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "front door"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp060",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "if it gets below freezing tonight in Calgary, turn on the pipe heater",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Calgary"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "pipe heater",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp061",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "si el contenedor de nextcloud está parado, arráncalo",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "lister",
+     "reglages": {}
+    },
+    {
+     "appli": "naglfar",
+     "action": "demarrer",
+     "reglages": {
+      "conteneur": "nextcloud"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp062",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "si hace sol el sábado en Valencia, apúntame la paella con los amigos a las 14",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Valencia"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "paella con los amigos",
+      "quand": "2026-11-21 14:00"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp063",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "wenn es morgen in München regnet, mach die Markise zu",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "München"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "Markise",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp064",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "nur wenn der Container gitea nicht läuft, starte ihn",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "lister",
+     "reglages": {}
+    },
+    {
+     "appli": "naglfar",
+     "action": "demarrer",
+     "reglages": {
+      "conteneur": "gitea"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp065",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "se domani piove a Bologna, chiudi le finestre del sottotetto",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Bologna"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "finestre del sottotetto",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp066",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "se amanhã fizer frio em Braga, liga o aquecedor do quarto",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Braga"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "aquecedor do quarto",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp067",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "если ворота открыты, закрой их",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "midgard",
+     "action": "maison",
+     "reglages": {}
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "ворота",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp068",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "明日札幌で雪が降るなら、みんなにスピーカーで知らせて",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "札幌"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {},
+     "si": true
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp069",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "如果明天上海下雨，就把阳台的窗户关上",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "上海"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "阳台的窗户",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp070",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "إذا كان الجو حاراً غداً في دبي، شغّل مكيف الصالة",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "دبي"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "مكيف الصالة",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp071",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "내일 서울에 눈이 오면 차고 히터를 켜 줘",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "서울"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "차고 히터",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp072",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "अगर कल मुंबई में बारिश होगी तो छत की खिड़की बंद कर देना",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "मुंबई"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "छत की खिड़की",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp073",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "yarın Ankara'da kar yağarsa garajın ısıtıcısını aç",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Ankara"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "garajın ısıtıcısı",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp074",
+   "langue": "el",
+   "ecriture": "Grek",
+   "phrase": "αν βρέξει αύριο στη Θεσσαλονίκη, κλείσε τα παντζούρια",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Θεσσαλονίκη"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "παντζούρια",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp075",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "phrase": "jeśli jutro w Krakowie będzie padać, zamknij rolety w salonie",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Krakowie"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "rolety w salonie",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp076",
+   "langue": "sv",
+   "ecriture": "Latn",
+   "phrase": "om det snöar i Umeå i morgon, slå på motorvärmaren",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Umeå"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "motorvärmaren",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp077",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sauvegarde d'abord le plan musique, ensuite redémarre le conteneur navidrome",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "sindri",
+     "action": "sauvegarder",
+     "reglages": {
+      "plan": "musique"
+     }
+    },
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "navidrome"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp078",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe la radio, puis annonce dans la véranda que le thé est servi",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "message": "le thé est servi",
+      "ou": "véranda"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp079",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume les guirlandes du balcon et le lampadaire du jardin",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "guirlandes du balcon",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "lampadaire du jardin",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp080",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "réveille la machine de montage et lance tout de suite sa sauvegarde",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "hermod",
+     "action": "reveiller",
+     "reglages": {
+      "machine": "machine de montage"
+     }
+    },
+    {
+     "appli": "hermod",
+     "action": "phenix_lancer",
+     "reglages": {
+      "machine": "machine de montage"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp081",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "photographie l'allée avant d'ouvrir la barrière",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "allée"
+     }
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "barrière",
+      "valeur": "ouvrir"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp082",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "suspends internet pour Clémence, Aaron et Inaya",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Clémence"
+     }
+    },
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Aaron"
+     }
+    },
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Inaya"
+     }
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp083",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête le conteneur postgres, sauvegarde le plan comptabilité, puis redémarre postgres",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "arreter",
+     "reglages": {
+      "conteneur": "postgres"
+     }
+    },
+    {
+     "appli": "sindri",
+     "action": "sauvegarder",
+     "reglages": {
+      "plan": "comptabilité"
+     }
+    },
+    {
+     "appli": "naglfar",
+     "action": "demarrer",
+     "reglages": {
+      "conteneur": "postgres"
+     },
+     "aussi": [
+      "naglfar.redemarrer"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp084",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retire 198.51.100.84 des bannis et protège-la pour de bon",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "debannir",
+     "reglages": {
+      "ip": "198.51.100.84"
+     }
+    },
+    {
+     "appli": "garmr",
+     "action": "proteger",
+     "reglages": {
+      "ip": "198.51.100.84"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp085",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "du reggae sur la terrasse et de la musique classique dans le bureau",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "quoi": "reggae",
+      "ou": "terrasse"
+     }
+    },
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "quoi": "musique classique",
+      "ou": "bureau"
+     }
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp086",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance la scène cinéma puis mets le film Amélie sur la télé du salon",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "midgard",
+     "action": "scene",
+     "reglages": {
+      "scene": "cinéma"
+     }
+    },
+    {
+     "appli": "freyja",
+     "action": "regarder",
+     "reglages": {
+      "quoi": "Amélie",
+      "ou": "télé du salon"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp087",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve dans mes notes la marque de peinture du salon, puis annonce-la à l'atelier",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "saga",
+     "action": "chercher",
+     "reglages": {
+      "q": "marque de peinture du salon"
+     }
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "ou": "atelier"
+     },
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp088",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ferme le port 2222 puis rouvre le 22 en tcp",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "fermer_port",
+     "reglages": {
+      "port": 2222
+     },
+     "aussi": [
+      "hlid.fermer_port"
+     ]
+    },
+    {
+     "appli": "garmr",
+     "action": "ouvrir_port",
+     "reglages": {
+      "port": 22,
+      "proto": "tcp"
+     },
+     "aussi": [
+      "hlid.ouvrir_port"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp089",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un album « Vendanges 2026 » avec les photos de septembre 2026, puis montre-moi les doublons",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "sol",
+     "action": "album",
+     "reglages": {
+      "nom": "Vendanges 2026",
+      "annee": 2026,
+      "mois": 9
+     }
+    },
+    {
+     "appli": "sol",
+     "action": "doublons",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp090",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "note « réviser la chaudière » puis ajoute un rendez-vous avec le chauffagiste mercredi prochain à 14 h",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "saga",
+     "action": "noter",
+     "reglages": {
+      "titre": "réviser la chaudière"
+     }
+    },
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "chauffagiste",
+      "quand": {
+       "un_de": [
+        "2026-11-18 14:00",
+        "2026-11-25 14:00"
+       ]
+      }
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp091",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets en pause les profils internet de Tom et de Zoé",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Tom"
+     }
+    },
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Zoé"
+     }
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp092",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "commence par la photo du jardin, termine par celle du garage",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "jardin"
+     }
+    },
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "garage"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp093",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "change le thème de l'écran de la maison en nuit puis ouvre-le",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "theme",
+     "reglages": {
+      "theme": "nuit"
+     }
+    },
+    {
+     "appli": "gladsheim",
+     "action": "ouvrir",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp094",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prête le vidéoprojecteur à Soline et préviens-la dans le salon",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "askr",
+     "action": "preter",
+     "reglages": {
+      "appareil": "vidéoprojecteur",
+      "a": "Soline"
+     }
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "ou": "salon"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp095",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "first take a backup of the wiki plan, then update the wiki container",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "sindri",
+     "action": "sauvegarder",
+     "reglages": {
+      "plan": "wiki"
+     }
+    },
+    {
+     "appli": "naglfar",
+     "action": "mettre_a_jour",
+     "reglages": {
+      "conteneur": "wiki"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp096",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn on the hallway and the stairs lights",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "hallway",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "stairs lights",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp097",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "pause the music, then announce in the garage that dinner's ready",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "message": "dinner's ready",
+      "ou": "garage"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp098",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "wake up the media pc and then restart it properly",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "hermod",
+     "action": "reveiller",
+     "reglages": {
+      "machine": "media pc"
+     }
+    },
+    {
+     "appli": "hermod",
+     "action": "redemarrer",
+     "reglages": {
+      "machine": "media pc"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp099",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "primero haz una foto de la entrada y luego abre la puerta del garaje",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "entrada"
+     }
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "puerta del garaje",
+      "valeur": "ouvrir"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp100",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "apaga la luz del baño y la del vestidor",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "luz del baño",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": {
+       "un_de": [
+        "la del vestidor",
+        "luz del vestidor"
+       ]
+      },
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp101",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "stopp zuerst den Container jellyfin und starte ihn dann wieder",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "arreter",
+     "reglages": {
+      "conteneur": "jellyfin"
+     }
+    },
+    {
+     "appli": "naglfar",
+     "action": "demarrer",
+     "reglages": {
+      "conteneur": "jellyfin"
+     },
+     "aussi": [
+      "naglfar.redemarrer"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp102",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "mach das Licht im Keller und auf dem Dachboden an",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "Keller",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "Dachboden",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp103",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "prima ferma la musica, poi annuncia in cucina che la pasta è pronta",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "message": "la pasta è pronta",
+      "ou": "cucina"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp104",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "primeiro tira uma foto da garagem, depois fecha o portão",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "garagem"
+     }
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "portão",
+      "valeur": "fermer"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp105",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "сначала сфотографируй крыльцо, потом открой калитку",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "крыльцо"
+     }
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "калитку",
+      "valeur": "ouvrir"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp106",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "先に写真のプランをバックアップして、そのあと immich のコンテナを再起動して",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "sindri",
+     "action": "sauvegarder",
+     "reglages": {
+      "plan": "写真"
+     }
+    },
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "immich"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp107",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "先暂停音乐，再在卧室播报该睡觉了",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "message": "该睡觉了",
+      "ou": "卧室"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp108",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أطفئ ضوء الشرفة وضوء الممر",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "ضوء الشرفة",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "ضوء الممر",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": true
+  },
+  {
+   "id": "lp109",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "먼저 대문을 사진 찍고 그다음에 열어 줘",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "대문"
+     }
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "대문",
+      "valeur": "ouvrir"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp110",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "बालकनी और सीढ़ियों की लाइट जला दो",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "बालकनी",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "सीढ़ियों की लाइट",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": true
+  },
+  {
+   "id": "lp111",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "önce müziği kapat, sonra yatak odasının ışığını aç",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "yatak odası",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp112",
+   "langue": "el",
+   "ecriture": "Grek",
+   "phrase": "σταμάτα πρώτα τη μουσική και μετά άναψε το φως στην αυλή",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "αυλή",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp113",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "doe het licht op zolder en in de schuur uit",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "zolder",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "schuur",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": true
+  },
+  {
+   "id": "lp114",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "phrase": "najpierw zatrzymaj muzykę, potem zapal światło w sypialni",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "sypialni",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp115",
+   "langue": "sv",
+   "ecriture": "Latn",
+   "phrase": "tänd lampan i hallen och i köket",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "hallen",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "köket",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": true
+  },
+  {
+   "id": "lp116",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute l'ostéopathe dans trois heures",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "ostéopathe",
+      "quand": "2026-11-17 13:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp117",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "inscris le vaccin du chat après-demain à 17 h 45",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "vaccin du chat",
+      "quand": "2026-11-19 17:45"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp118",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre Arte demain à 22 h 15 pendant 55 minutes",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "enregistrer_plage",
+     "reglages": {
+      "chaine": "Arte",
+      "debut": "2026-11-18 22:15",
+      "minutes": 55
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp119",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis 198.51.100.171 pour deux jours",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.171",
+      "minutes": 2880
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp120",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets l'audience au tribunal le 9 décembre à 9 h 30, rappel la veille au soir",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "audience au tribunal",
+      "quand": "2026-12-09 09:30",
+      "rappel": "la veille à 18 h"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp121",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le conseil de classe, jeudi 26 novembre à 17 h, préviens-moi juste au moment",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "conseil de classe",
+      "quand": "2026-11-26 17:00",
+      "rappel": "au moment"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp122",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "filme la véranda pendant quatre minutes et demie",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "enregistrer",
+     "reglages": {
+      "camera": "véranda",
+      "secondes": 270
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp123",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "dans vingt minutes j'ai l'électricien, ajoute-le",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "électricien",
+      "quand": "2026-11-17 10:20"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp124",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute l'anniversaire de Nour samedi à 15 h, pour trois heures",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "anniversaire de Nour",
+      "quand": "2026-11-21 15:00",
+      "duree": 180
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp125",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis 198.51.100.29 un quart d'heure",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.29",
+      "minutes": 15
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp126",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rendez-vous à la mairie lundi prochain à 10 h 30",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "mairie",
+      "quand": "2026-11-23 10:30"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp127",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre TF1 ce soir de 21 h 10 à 23 h",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "enregistrer_plage",
+     "reglages": {
+      "chaine": "TF1",
+      "debut": "2026-11-17 21:10",
+      "minutes": 110
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp128",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute la livraison du canapé vendredi entre 8 h et midi",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "livraison du canapé",
+      "quand": "2026-11-20 08:00",
+      "duree": 240
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp129",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les heures creuses du téléchargement : de 23 h à 5 h",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "plage",
+     "reglages": {
+      "debut": "23:00",
+      "fin": "05:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp130",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rendez-vous avec la maîtresse demain à 16 h 40, un quart d'heure avant préviens-moi",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "maîtresse",
+      "quand": "2026-11-18 16:40",
+      "rappel": "15 min avant"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp131",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "réserve la séance de yoga d'après-demain 7 h, une heure",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "séance de yoga",
+      "quand": "2026-11-19 07:00",
+      "duree": 60
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp132",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre-moi mes trajets d'avant-hier",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gna",
+     "action": "trajets",
+     "reglages": {
+      "jour": "avant-hier"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp133",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets le RDV banque le 1er décembre à 14 h",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "banque",
+      "quand": "2026-12-01 14:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp134",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add the physio in four hours",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "physio",
+      "quand": "2026-11-17 14:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp135",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "block 198.51.100.230 for a whole week",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.230",
+      "minutes": 10080
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp136",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "record the back yard camera for two and a half minutes",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "enregistrer",
+     "reglages": {
+      "camera": "back yard",
+      "secondes": 150
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp137",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "parent-teacher meeting next Tuesday at 6 pm, remind me 15 minutes before",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "parent-teacher meeting",
+      "quand": "2026-11-24 18:00",
+      "rappel": "15 min avant"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp138",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "ponme el fisioterapeuta pasado mañana a las once",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "fisioterapeuta",
+      "quand": "2026-11-19 11:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp139",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "bloquea 198.51.100.240 durante tres días",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.240",
+      "minutes": 4320
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp140",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "trag den Zahnarzt am Freitag um halb zehn ein",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "Zahnarzt",
+      "quand": "2026-11-20 09:30"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp141",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "nimm die Kamera im Garten zwei Minuten lang auf",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "enregistrer",
+     "reglages": {
+      "camera": "Garten",
+      "secondes": 120
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp142",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "metti il dentista giovedì alle quindici e trenta",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "dentista",
+      "quand": "2026-11-19 15:30"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp143",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "blocca 198.51.100.250 per un'ora e mezza",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.250",
+      "minutes": 90
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp144",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "marca o veterinário para sexta às 9h30",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "veterinário",
+      "quand": "2026-11-20 09:30"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp145",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "добавь встречу с юристом послезавтра в 11 утра",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": {
+       "un_de": [
+        "юристом",
+        "юрист"
+       ]
+      },
+      "quand": "2026-11-19 11:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp146",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "заблокируй 198.51.100.252 на два часа",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.252",
+      "minutes": 120
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp147",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "金曜日の朝9時に眼科の予約を入れて",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "眼科",
+      "quand": "2026-11-20 09:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp148",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "帮我把明天下午两点的会议加到日程里",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "会议",
+      "quand": "2026-11-18 14:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp149",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أضف موعد الحلاق بعد غد الساعة العاشرة صباحاً",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "الحلاق",
+      "quand": "2026-11-19 10:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp150",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "금요일 오후 4시에 치과 예약 넣어 줘",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "치과",
+      "quand": "2026-11-20 16:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp151",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "शुक्रवार दोपहर 3 बजे दाँतों के डॉक्टर का समय जोड़ दो",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "दाँतों के डॉक्टर",
+      "quand": "2026-11-20 15:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp152",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "perşembe saat 10'da diş hekimi randevusu ekle",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "diş hekimi",
+      "quand": "2026-11-19 10:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp153",
+   "langue": "el",
+   "ecriture": "Grek",
+   "phrase": "βάλε ραντεβού με τον οδοντίατρο την Πέμπτη στις 11",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "οδοντίατρο",
+      "quand": "2026-11-19 11:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp154",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "zet de kapper vrijdag om tien uur in de agenda",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "kapper",
+      "quand": "2026-11-20 10:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp155",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "phrase": "dodaj wizytę u fryzjera w czwartek o 15",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": {
+       "un_de": [
+        "fryzjera",
+        "fryzjer"
+       ]
+      },
+      "quand": "2026-11-19 15:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp156",
+   "langue": "sv",
+   "ecriture": "Latn",
+   "phrase": "lägg in tandläkaren på fredag klockan nio",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "tandläkaren",
+      "quand": "2026-11-20 09:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp157",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "limite les téléchargements au tiers de 9 Mo par seconde",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "vitesse",
+     "reglages": {
+      "mo": 3
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp158",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "garde les enregistrements des caméras un mois de 30 jours",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "reglages",
+     "reglages": {
+      "jours": 30
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp159",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute une prestation massage d'une heure et demie à 60 euros",
+   "logique": [
+    "quantite",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "prestation",
+     "reglages": {
+      "nom": "massage",
+      "minutes": 90,
+      "prix": 60
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp160",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "monte le chauffage de la salle de bain de trois degrés, il est à 20",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "chauffage de la salle de bain",
+      "valeur": 23
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp161",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "affiche les douze processus les plus gourmands en mémoire",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire",
+      "n": 12
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp162",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "les seuils de mémoire : suivre à 70, attention à 85, grave à 97",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "seuils",
+     "reglages": {
+      "mesure": "mem",
+      "suivre": 70,
+      "attention": 85,
+      "grave": 97
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp163",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre la caméra de l'entrée le triple de vingt secondes",
+   "logique": [
+    "quantite",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "enregistrer",
+     "reglages": {
+      "camera": "entrée",
+      "secondes": 60
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp164",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets la lampe du bureau aux trois quarts",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "lampe du bureau",
+      "valeur": "75%"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp165",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "télécharge en 6 morceaux",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "morceaux",
+     "reglages": {
+      "n": 6
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp166",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "conserve les positions de la famille dix jours",
+   "logique": [
+    "quantite",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "duree_positions",
+     "reglages": {
+      "jours": 10
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp167",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute une prestation brushing d'une demi-heure à 25 euros",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "prestation",
+     "reglages": {
+      "nom": "brushing",
+      "minutes": 30,
+      "prix": 25
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp168",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets le chauffage du séjour à la moitié de 42 degrés",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "chauffage du séjour",
+      "valeur": 21
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp169",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "donne-moi les 3 processus les plus lourds pour le processeur",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "processeur",
+      "n": 3
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp170",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "règle la caméra du garage : garder 5 jours, clips de 40 secondes",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "reglages",
+     "reglages": {
+      "camera": "garage",
+      "jours": 5,
+      "secondes": 40
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp171",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "limit downloads to half of 10 megabytes per second",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "vitesse",
+     "reglages": {
+      "mo": 5
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp172",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show the eight heaviest processes by memory",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire",
+      "n": 8
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp173",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "dim the bedroom lamp to a fifth",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "bedroom lamp",
+      "valeur": "20%"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp174",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pon la lámpara del pasillo al setenta y cinco por ciento",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "lámpara del pasillo",
+      "valeur": "75%"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp175",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "muéstrame los quince procesos que más memoria usan",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire",
+      "n": 15
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp176",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "zeig mir die zehn Prozesse mit der höchsten CPU-Last",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "processeur",
+      "n": 10
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp177",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "mostra i sette processi che usano più memoria",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire",
+      "n": 7
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp178",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "limita os downloads a 2 megabytes por segundo",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "vitesse",
+     "reglages": {
+      "mo": 2
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp179",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "カメラの映像を二週間保存して",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "reglages",
+     "reglages": {
+      "jours": 14
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp180",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "把下载速度限制在每秒6兆",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "vitesse",
+     "reglages": {
+      "mo": 6
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp181",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "거실 조명을 절반으로 낮춰 줘",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "거실 조명",
+      "valeur": "50%"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp182",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "покажи пять процессов, которые больше всего грузят процессор",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "processeur",
+      "n": 5
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp183",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "خفّض ضوء غرفة الجلوس إلى الربع",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "غرفة الجلوس",
+      "valeur": "25%"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp184",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quel conteneur mange le plus de mémoire ? arrête-le",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire"
+     },
+     "aussi": [
+      "naglfar.lister"
+     ]
+    },
+    {
+     "appli": "naglfar",
+     "action": "arreter",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp185",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tue le programme qui monopolise le processeur",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "processeur"
+     }
+    },
+    {
+     "appli": "eir",
+     "action": "arreter_processus",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp186",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "samedi pour un massage, prends le dernier créneau de la journée pour Inès Morel, ines@example.org",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "creneaux",
+     "reglages": {
+      "service": "massage",
+      "jour": "2026-11-21"
+     }
+    },
+    {
+     "appli": "frigg",
+     "action": "reserver",
+     "reglages": {
+      "service": "massage",
+      "nom": "Inès Morel",
+      "contact": "ines@example.org"
+     },
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp187",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quel modèle météo a eu le plus souvent raison ?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "zeus",
+     "action": "bilan",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp188",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "c'est quoi mon tout prochain rendez-vous ?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "agenda",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp189",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lequel de mes sites a le plus de soucis ce matin ?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "idunn",
+     "action": "sites",
+     "reglages": {},
+     "aussi": [
+      "idunn.evenements"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp190",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quel disque est le plus lent ?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "durinn",
+     "action": "resultats",
+     "reglages": {},
+     "aussi": [
+      "eir.etat"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp191",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quelle machine du parc est la plus chargée ?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "hermod",
+     "action": "parc",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp192",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quelle source de prévision annonce le plus de pluie cette semaine ?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "zeus",
+     "action": "comparer",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp193",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "parmi mes enfants, qui a passé le plus de temps sur internet aujourd'hui ?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "profils",
+     "reglages": {},
+     "aussi": [
+      "heidrun.rapport"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp194",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "which process uses the most memory? end it",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire"
+     }
+    },
+    {
+     "appli": "eir",
+     "action": "arreter_processus",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp195",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what's my soonest appointment?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "agenda",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp196",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "which forecast source was most accurate lately?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "zeus",
+     "action": "bilan",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp197",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿qué proceso consume más procesador? páralo",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "processeur"
+     }
+    },
+    {
+     "appli": "eir",
+     "action": "arreter_processus",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp198",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "welcher Container braucht am meisten Speicher? starte ihn neu",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire"
+     },
+     "aussi": [
+      "naglfar.lister"
+     ]
+    },
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp199",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "qual è il mio prossimo appuntamento?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "agenda",
+     "reglages": {}
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp200",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "qual é o processo que usa mais memória?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp201",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "一番メモリを使っているプロセスを止めて",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire"
+     }
+    },
+    {
+     "appli": "eir",
+     "action": "arreter_processus",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp202",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "какой процесс больше всех грузит процессор? останови его",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "processeur"
+     }
+    },
+    {
+     "appli": "eir",
+     "action": "arreter_processus",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp203",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "ما هو أقرب موعد لدي؟",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "agenda",
+     "reglages": {}
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp204",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et dans le cellier aussi",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "cellier",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "allume la lumière de la buanderie"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp205",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "finalement, retire cet enregistrement",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "annuler_enregistrement",
+     "reglages": {
+      "titre": "Capitaine Marleau"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "enregistre Capitaine Marleau jeudi"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp206",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "non, plutôt le bureau",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "bureau",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "éteins la salle à manger"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp207",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et vendredi ?",
+   "logique": [
+    "relance",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Grenoble"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "quel temps fera-t-il à Grenoble jeudi"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp208",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "idem pour radarr",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "radarr"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "redémarre le conteneur sonarr"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp209",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rouvre-les",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "volets de l'étage",
+      "valeur": "ouvrir"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "ferme les volets de l'étage"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp210",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "moins fort",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": {
+       "un_de": [
+        "enceinte de la cuisine",
+        "cuisine"
+       ]
+      },
+      "valeur": "moins fort"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "mets la radio sur l'enceinte de la cuisine"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp211",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pas celle-ci, celle du potager",
+   "logique": [
+    "relance",
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "potager"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "prends une photo avec la caméra de la cour"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp212",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "triple la durée",
+   "logique": [
+    "relance",
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.57",
+      "minutes": 90
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "bannis 198.51.100.57 pendant une demi-heure"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp213",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "non, finalement ne fais rien",
+   "logique": [
+    "relance"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "contexte": {
+    "precedent": "lance la sauvegarde du plan documents"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp214",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "repousse-le d'une demi-heure",
+   "logique": [
+    "relance",
+    "temps",
+    "ordre"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "annuler",
+     "reglages": {},
+     "depend": true
+    },
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "vétérinaire",
+      "quand": "2026-11-20 15:30"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "ajoute le vétérinaire vendredi à 15 h"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp215",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et pour Mathis ?",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Mathis"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "coupe internet à Lilou"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp216",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rends-le-lui",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "reprendre",
+     "reglages": {
+      "nom": "Sacha"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "mets en pause internet pour Sacha"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp217",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et l'autre ?",
+   "logique": [
+    "relance"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "contexte": {
+    "precedent": "redémarre un des deux serveurs"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp218",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "même chose demain",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "enregistrer_plage",
+     "reglages": {
+      "chaine": "France 2",
+      "debut": "2026-11-18 20:00",
+      "minutes": 60
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "enregistre France 2 ce soir à 20 h pendant une heure"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp219",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "and the porch too",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "porch",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "turn on the garden lights"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp220",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "no, the side gate camera",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "side gate"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "grab a photo from the patio camera"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp221",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "undo that",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "debannir",
+     "reglages": {
+      "ip": "198.51.100.26"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "ban 198.51.100.26"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp222",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "same for the other kid",
+   "logique": [
+    "relance"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "contexte": {
+    "precedent": "pause internet for one of the kids"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp223",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "y en el salón también",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "ou": "salón"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "pon jazz en el dormitorio"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp224",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "deshazlo",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "reprendre",
+     "reglages": {
+      "nom": "Lucía"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "córtale internet a Lucía"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp225",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "und im Bad auch",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "Bad",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "mach das Licht in der Küche aus"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp226",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "e domani?",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Milano"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "che tempo fa a Milano"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp227",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "não, antes na varanda",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "ou": "varanda"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "põe música na cozinha"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp228",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "寝室も",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "寝室",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "台所の電気を消して"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp229",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "卧室也一样",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "卧室",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "把客厅的灯打开"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp230",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "отмени это",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "debannir",
+     "reglages": {
+      "ip": "198.51.100.35"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "заблокируй 198.51.100.35"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp231",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "안방도",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "안방",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "거실 불 꺼 줘"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp232",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "والمطبخ أيضاً",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "المطبخ",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "شغّل ضوء الصالة"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp233",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "mutfakta da",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "mutfak",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "salonun ışığını aç"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp234",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume la mezzanine, ah non, le grenier",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "grenier",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp235",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "redémarre sonarr… non, je voulais dire lidarr",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "lidarr"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp236",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets la coiffeuse jeudi, non vendredi, à 11 h",
+   "logique": [
+    "correction",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "coiffeuse",
+      "quand": "2026-11-20 11:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp237",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis 198.51.100.110, enfin plutôt 198.51.100.111",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.111"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp238",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets du Nina Simone, euh non, de l'Ella Fitzgerald, dans la cuisine",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "quoi": "Ella Fitzgerald",
+      "ou": "cuisine"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp239",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets la lumière à 60 %, non, à 45 %",
+   "logique": [
+    "correction",
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "valeur": "45%"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp240",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "filme une minute la caméra de l'allée, ou plutôt celle du jardin",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "enregistrer",
+     "reglages": {
+      "camera": "jardin",
+      "secondes": 60
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp241",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe internet à Nathan, ah non, à Ilyes",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Ilyes"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp242",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ferme le volet du salon… pardon, celui de la cuisine",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": {
+       "un_de": [
+        "volet de la cuisine",
+        "cuisine"
+       ]
+      },
+      "valeur": "fermer"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp243",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre M6 demain à 21 h, non, à 21 h 05, une heure",
+   "logique": [
+    "correction",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "enregistrer_plage",
+     "reglages": {
+      "chaine": "M6",
+      "debut": "2026-11-18 21:05",
+      "minutes": 60
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp244",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "réveille la tour du salon, enfin, le portable de Lison",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "hermod",
+     "action": "reveiller",
+     "reglages": {
+      "machine": "portable de Lison"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp245",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "annonce « on part dans 5 minutes » dans l'entrée, non, partout",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "message": "on part dans 5 minutes"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp246",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn on the study light, sorry, the guest room",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "guest room",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp247",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "put the dentist on Wednesday, no, Thursday at 2",
+   "logique": [
+    "correction",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "dentist",
+      "quand": "2026-11-19 14:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp248",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "restart the sonarr container, I mean prowlarr",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "prowlarr"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp249",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "enciende la luz de la cocina, perdón, la del garaje",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": {
+       "un_de": [
+        "garaje",
+        "la del garaje"
+       ]
+      },
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp250",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pon el médico el lunes, no, el martes a las 10",
+   "logique": [
+    "correction",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "médico",
+      "quand": "2026-11-24 10:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp251",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "starte den Container sonarr neu, nein, radarr",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "radarr"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp252",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "accendi la luce del bagno, anzi, quella della camera",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": {
+       "un_de": [
+        "camera",
+        "quella della camera"
+       ]
+      },
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp253",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "põe jazz na sala, não, no quarto",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "quoi": "jazz",
+      "ou": "quarto"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp254",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "включи свет на кухне, нет, в коридоре",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "коридоре",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp255",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "リビングの電気をつけて、いや、玄関の電気",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "玄関の電気",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp256",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "거실 불 켜 줘, 아니 부엌 불",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "부엌 불",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp257",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "बैठक की लाइट जलाओ, नहीं, रसोई की",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "रसोई",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp258",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "salonun ışığını aç, hayır, mutfağınkini",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "mutfak",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp259",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "phrase": "włącz światło w kuchni, nie, w łazience",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "łazience",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp260",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre et ferme le portail au même moment",
+   "logique": [
+    "contradiction"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp261",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute un rendez-vous le 31 septembre",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp262",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends-moi rendez-vous chez l'ophtalmo avant-hier",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp263",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis 198.51.100.256 tout de suite",
+   "logique": [
+    "contradiction"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp264",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "règle le congélateur à 40 degrés au-dessus de zéro pour qu'il congèle",
+   "logique": [
+    "contradiction",
+    "quantite"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp265",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe internet à Lina tout en lui laissant internet",
+   "logique": [
+    "contradiction",
+    "negation"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp266",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre la caméra pendant zéro seconde",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp267",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume la lampe du salon en la laissant éteinte",
+   "logique": [
+    "contradiction"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp268",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre le port 70000",
+   "logique": [
+    "contradiction",
+    "quantite"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp269",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets le rendez-vous à 25 h demain",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp270",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "redémarre le conteneur sans l'arrêter ni le relancer",
+   "logique": [
+    "contradiction"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp271",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rappelle-moi le rendez-vous d'hier demain à hier",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp272",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "book me in for the 31st of June",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp273",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "open the garage and keep it shut",
+   "logique": [
+    "contradiction"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp274",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "set the downloads to minus 5 megabytes per second",
+   "logique": [
+    "contradiction",
+    "quantite"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp275",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pon una cita el 30 de febrero",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp276",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "mach das Licht an und lass es aus",
+   "logique": [
+    "contradiction"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp277",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "segnami un appuntamento ieri alle tre",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp278",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "abre e fecha o portão ao mesmo tempo",
+   "logique": [
+    "contradiction"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp279",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "電気をつけて、でも消したままにして",
+   "logique": [
+    "contradiction"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp280",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "帮我约2月30号",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp281",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أضف موعداً في الثلاثين من فبراير",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp282",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "запиши меня на 31 июня",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp283",
+   "langue": "el",
+   "ecriture": "Grek",
+   "phrase": "κλείσε ραντεβού στις 31 Νοεμβρίου",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp284",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends celui qui coûte le moins",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp285",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "préviens-moi la veille de son départ",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp286",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si c'est encore le cas demain, fais-le",
+   "logique": [
+    "condition"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp287",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "n'allume pas celle-là mais l'autre",
+   "logique": [
+    "negation"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp288",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais-les toutes les deux",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp289",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "pick whichever is closer",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp290",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "avísame el día antes de su cumpleaños",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp291",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "se è ancora così stasera, fallo",
+   "logique": [
+    "condition"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp292",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "安い方にして",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp293",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "s'il fait plus de 28 degrés demain à Marseille, baisse les stores de la chambre puis allume le climatiseur",
+   "logique": [
+    "condition",
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Marseille"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "stores de la chambre",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "climatiseur",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp294",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête tous les conteneurs sauf mariadb : commence par wordpress, puis phpmyadmin",
+   "logique": [
+    "negation",
+    "plusieurs",
+    "ordre"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "arreter",
+     "reglages": {
+      "conteneur": "wordpress"
+     }
+    },
+    {
+     "appli": "naglfar",
+     "action": "arreter",
+     "reglages": {
+      "conteneur": "phpmyadmin"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp295",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre la 3 demain à 19 h, pendant une heure trois quarts",
+   "logique": [
+    "temps",
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "enregistrer_plage",
+     "reglages": {
+      "chaine": 3,
+      "debut": "2026-11-18 19:00",
+      "minutes": 105
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp296",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe la cuisine et ensuite le salon, ah non, inverse : le salon en premier",
+   "logique": [
+    "correction",
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "salon",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "cuisine",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp297",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si le processus le plus gourmand en mémoire dépasse 8 Go, arrête-le",
+   "logique": [
+    "condition",
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire"
+     }
+    },
+    {
+     "appli": "eir",
+     "action": "arreter_processus",
+     "reglages": {},
+     "si": true,
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp298",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ne mets pas le contrôle technique jeudi, mets-le vendredi à 14 h",
+   "logique": [
+    "negation",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "contrôle technique",
+      "quand": "2026-11-20 14:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp299",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "puis coupe aussi la musique",
+   "logique": [
+    "relance",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    }
+   ],
+   "contexte": {
+    "precedent": "éteins les lumières de la terrasse"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp300",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si Romy n'a pas rangé sa chambre, ne lui rends pas internet",
+   "logique": [
+    "condition",
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp301",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "n'ouvre rien mais ouvre le portail",
+   "logique": [
+    "negation",
+    "contradiction"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp302",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête la musique puis lance la scène veillée",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "midgard",
+     "action": "scene",
+     "reglages": {
+      "scene": "veillée"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp303",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sauvegarde le plan projets, puis vérifie les sauvegardes",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "sindri",
+     "action": "sauvegarder",
+     "reglages": {
+      "plan": "projets"
+     }
+    },
+    {
+     "appli": "sindri",
+     "action": "verifier",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp304",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche « horaires piscine » sur internet puis note le résultat",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "volva",
+     "action": "chercher",
+     "reglages": {
+      "question": "horaires piscine"
+     }
+    },
+    {
+     "appli": "saga",
+     "action": "noter",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp305",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute deux fiches client : Lucien Faure et Anaïs Petit",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "runes",
+     "action": "client",
+     "reglages": {
+      "nom": "Lucien Faure"
+     }
+    },
+    {
+     "appli": "runes",
+     "action": "client",
+     "reglages": {
+      "nom": "Anaïs Petit"
+     }
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp306",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre la note « courses » et ajoute-lui « farine et levure »",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "saga",
+     "action": "completer",
+     "reglages": {
+      "note": "courses",
+      "texte": "farine et levure"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp307",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "réserve un brushing jeudi à 16 h pour Lou Garnier, lou@example.org, puis confirme-le",
+   "logique": [
+    "ordre",
+    "plusieurs",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "reserver",
+     "reglages": {
+      "service": "brushing",
+      "jour": "2026-11-19",
+      "heure": "16:00",
+      "nom": "Lou Garnier",
+      "contact": "lou@example.org"
+     }
+    },
+    {
+     "appli": "frigg",
+     "action": "confirmer",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp308",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "s'il neige vendredi à Chamonix, déplace la randonnée à samedi 9 h",
+   "logique": [
+    "condition",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Chamonix"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "frigg",
+     "action": "annuler",
+     "reglages": {},
+     "si": true,
+     "depend": true
+    },
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "randonnée",
+      "quand": "2026-11-21 09:00"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp309",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ne coupe pas le wifi, mais redémarre la tour du bureau puis réveille le portable de Mia",
+   "logique": [
+    "negation",
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "hermod",
+     "action": "redemarrer",
+     "reglages": {
+      "machine": "tour du bureau"
+     }
+    },
+    {
+     "appli": "hermod",
+     "action": "reveiller",
+     "reglages": {
+      "machine": "portable de Mia"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp310",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre le port juste avant 9000 en udp",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "ouvrir_port",
+     "reglages": {
+      "port": 8999,
+      "proto": "udp"
+     },
+     "aussi": [
+      "hlid.ouvrir_port"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp311",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ferme le port 8080, et aussi celui juste au-dessus",
+   "logique": [
+    "quantite",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "fermer_port",
+     "reglages": {
+      "port": 8080
+     },
+     "aussi": [
+      "hlid.fermer_port"
+     ]
+    },
+    {
+     "appli": "garmr",
+     "action": "fermer_port",
+     "reglages": {
+      "port": 8081
+     },
+     "aussi": [
+      "hlid.fermer_port"
+     ]
+    }
+   ],
+   "aRelire": false,
+   "ordreLibre": true
+  },
+  {
+   "id": "lp312",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "non, ne le bannis pas finalement",
+   "logique": [
+    "relance",
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "contexte": {
+    "precedent": "bannis 198.51.100.88"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp313",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si dimanche il fait beau à Arcachon, ajoute le pique-nique à midi",
+   "logique": [
+    "condition",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Arcachon"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "pique-nique",
+      "quand": "2026-11-22 12:00"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp314",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prête le perforateur à Gaspard jusqu'à mercredi prochain et note-le",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "askr",
+     "action": "preter",
+     "reglages": {
+      "appareil": "perforateur",
+      "a": "Gaspard",
+      "retour": {
+       "un_de": [
+        "2026-11-18",
+        "2026-11-25"
+       ]
+      }
+     }
+    },
+    {
+     "appli": "saga",
+     "action": "noter",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp315",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée la fiche client de Bastien Roux, 06 99 00 31 31, puis réserve-lui une coupe vendredi à 9 h",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "runes",
+     "action": "client",
+     "reglages": {
+      "nom": "Bastien Roux",
+      "contact": "06 99 00 31 31"
+     }
+    },
+    {
+     "appli": "frigg",
+     "action": "reserver",
+     "reglages": {
+      "service": "coupe",
+      "jour": "2026-11-20",
+      "heure": "09:00",
+      "nom": "Bastien Roux",
+      "contact": "06 99 00 31 31"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp316",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "écris un document « Compte rendu AG » puis range-le dans mes notes",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "snotra",
+     "action": "creer",
+     "reglages": {
+      "titre": "Compte rendu AG"
+     }
+    },
+    {
+     "appli": "saga",
+     "action": "noter",
+     "reglages": {
+      "titre": "Compte rendu AG"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp317",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "télécharge cette ISO seulement en heures creuses",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp318",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "trouve le conteneur qui redémarre le plus souvent et montre-moi ses journaux",
+   "logique": [
+    "comparaison",
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "lister",
+     "reglages": {}
+    },
+    {
+     "appli": "naglfar",
+     "action": "journaux",
+     "reglages": {},
+     "depend": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp319",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ne baisse pas la lumière du salon sous 30 %, mets-la à 30 % pile",
+   "logique": [
+    "negation",
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "lumière du salon",
+      "valeur": "30%"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp320",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume la cuisine puis éteins-la tout en la gardant allumée",
+   "logique": [
+    "contradiction",
+    "plusieurs"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp321",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si mon colis arrive avant midi, prends une photo du portail",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "cameras",
+     "reglages": {}
+    },
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "portail"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp322",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "demain matin, d'abord le dentiste à 9 h, ensuite le garagiste à 11 h",
+   "logique": [
+    "temps",
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "dentiste",
+      "quand": "2026-11-18 09:00"
+     }
+    },
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "garagiste",
+      "quand": "2026-11-18 11:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp323",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis 198.51.100.73 pour une heure de plus que les deux heures prévues",
+   "logique": [
+    "temps",
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.73",
+      "minutes": 180
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp324",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume la cuisine et le salon, non, la cuisine et l'entrée",
+   "logique": [
+    "correction",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "cuisine",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "entrée",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp325",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "évite d'annoncer quoi que ce soit, les petits dorment",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp326",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quel téléchargement est le plus avancé ?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "file",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp327",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre la caméra du salon une minute de moins que trois minutes",
+   "logique": [
+    "quantite",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "enregistrer",
+     "reglages": {
+      "camera": "salon",
+      "secondes": 120
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp328",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "joue la playlist partout sauf dans la chambre du bébé : salon, cuisine, bureau",
+   "logique": [
+    "negation",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "ou": "salon"
+     }
+    },
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "ou": "cuisine"
+     }
+    },
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "ou": "bureau"
+     }
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp329",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si internet de Léon est coupé, rends-le-lui",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "profils",
+     "reglages": {}
+    },
+    {
+     "appli": "heidrun",
+     "action": "reprendre",
+     "reglages": {
+      "nom": "Léon"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp330",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute l'entretien d'embauche jeudi 3 décembre à 10 h 15",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "entretien d'embauche",
+      "quand": "2026-12-03 10:15"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp331",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pas jeudi, mercredi",
+   "logique": [
+    "relance",
+    "correction",
+    "ordre"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "annuler",
+     "reglages": {},
+     "depend": true
+    },
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "kinésithérapeute",
+      "quand": "2026-11-18 18:00"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "ajoute le kinésithérapeute jeudi à 18 h"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp332",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "redémarre le PC de la cuisine, attends qu'il revienne, puis lance sa sauvegarde",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "hermod",
+     "action": "redemarrer",
+     "reglages": {
+      "machine": "PC de la cuisine"
+     }
+    },
+    {
+     "appli": "hermod",
+     "action": "phenix_lancer",
+     "reglages": {
+      "machine": "PC de la cuisine"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp333",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute la fête du 32 décembre",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp334",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si quelqu'un est devant le portail, prends une photo, puis annonce-le dans le bureau",
+   "logique": [
+    "condition",
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "cameras",
+     "reglages": {}
+    },
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "portail"
+     },
+     "si": true
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "ou": "bureau"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp335",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "non, laisse la cuisine allumée",
+   "logique": [
+    "negation",
+    "relance"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "contexte": {
+    "precedent": "éteins tout le rez-de-chaussée"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp336",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "règle la vitesse de téléchargement à 1,5 Mo par seconde",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "vitesse",
+     "reglages": {
+      "mo": 1.5
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp337",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quel est le site qui a été déployé le plus récemment ?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "idunn",
+     "action": "deploiements",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp338",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "restart every container except postgres, first the api and then the worker",
+   "logique": [
+    "negation",
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "api"
+     }
+    },
+    {
+     "appli": "naglfar",
+     "action": "redemarrer",
+     "reglages": {
+      "conteneur": "worker"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp339",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "if the garage is open, snap a photo first, then shut it",
+   "logique": [
+    "condition",
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "midgard",
+     "action": "maison",
+     "reglages": {}
+    },
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "garage"
+     },
+     "si": true
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "garage",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp340",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "record BBC One tomorrow from 8 to 9:30 pm",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "enregistrer_plage",
+     "reglages": {
+      "chaine": "BBC One",
+      "debut": "2026-11-18 20:00",
+      "minutes": 90
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp341",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "keep camera clips for three weeks",
+   "logique": [
+    "quantite",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "reglages",
+     "reglages": {
+      "jours": 21
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp342",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add a vet visit next Wednesday at 10 and remind me the evening before",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "vet visit",
+      "quand": {
+       "un_de": [
+        "2026-11-18 10:00",
+        "2026-11-25 10:00"
+       ]
+      },
+      "rappel": "la veille à 18 h"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp343",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "don't play it in the bedroom, play the news in the kitchen",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "quoi": "news",
+      "ou": "kitchen"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp344",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "set the fridge to 50 degrees so it stays cold",
+   "logique": [
+    "contradiction",
+    "quantite"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp345",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "actually, drop it, no backup today",
+   "logique": [
+    "relance"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "contexte": {
+    "precedent": "start the backup of the music plan"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp346",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "stop the music, then tell the living room the movie's starting",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "message": "the movie's starting",
+      "ou": "living room"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp347",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "ban 198.51.100.18, no, 198.51.100.81",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.81"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp348",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "no reinicies ningún contenedor hoy",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp349",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pon la reunión el jueves a las 9, no, a las 12",
+   "logique": [
+    "correction",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "reunión",
+      "quand": "2026-11-19 12:00"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp350",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "apaga la música y después cierra la puerta del garaje",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "puerta del garaje",
+      "valeur": "fermer"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp351",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "mach überall das Licht aus außer im Flur: Küche, Wohnzimmer und Bad",
+   "logique": [
+    "negation",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "Küche",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "Wohnzimmer",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "Bad",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp352",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "trag mir etwas am 30. Februar ein",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp353",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "bewahre die Videos der Kameras zwei Wochen auf",
+   "logique": [
+    "quantite",
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "reglages",
+     "reglages": {
+      "jours": 14
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp354",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "spegni la musica e poi apri il garage",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "garage",
+      "valeur": "ouvrir"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp355",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "se chover amanhã no Porto, fecha as janelas e liga o desumidificador",
+   "logique": [
+    "condition",
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Porto"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "janelas",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "desumidificador",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp356",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "если завтра в Казани будет мороз, включи обогреватель в гараже",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Казани"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "обогреватель в гараже",
+      "valeur": "on"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp357",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "音楽を止めてから、リビングでご飯ができたと知らせて",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "message": "ご飯ができた",
+      "ou": "リビング"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp358",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "除了儿童房，把书房和走廊的灯都关掉",
+   "logique": [
+    "negation",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "书房",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "走廊",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": true
+  },
+  {
+   "id": "lp359",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "شغّل ضوء غرفة النوم، لا، ضوء الشرفة",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "ضوء الشرفة",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp360",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "पहले गाना बंद करो फिर रसोई की लाइट बुझा दो",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "रसोई की लाइट",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp361",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "아이 방 불은 끄지 말고 거실 불만 꺼 줘",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "거실 불",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp362",
+   "langue": "el",
+   "ecriture": "Grek",
+   "phrase": "κλείσε πρώτα τη μουσική και μετά τα φώτα της κουζίνας",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "φώτα της κουζίνας",
+      "valeur": "off"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp363",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "yarın Bursa'da yağmur yağarsa balkon kapısını kapat",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Bursa"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "balkon kapısı",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp364",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "speel klassiek in de keuken, nee, in de slaapkamer",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "quoi": "klassiek",
+      "ou": "slaapkamer"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp365",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "phrase": "jeśli jutro w Gdańsku będzie wiało, zamknij markizę",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {
+      "ville": "Gdańsku"
+     },
+     "aussi": [
+      "zeus.comparer"
+     ]
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "markizę",
+      "valeur": "fermer"
+     },
+     "si": true,
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp366",
+   "langue": "sv",
+   "ecriture": "Latn",
+   "phrase": "stäng av musiken först och tänd sedan lampan i vardagsrummet",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "vardagsrummet",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp367",
+   "langue": "sv",
+   "ecriture": "Latn",
+   "phrase": "boka en tid den 31 juni",
+   "logique": [
+    "contradiction",
+    "temps"
+   ],
+   "decision": "refuser",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp368",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "phrase": "zablokuj 198.51.100.217 na cały dzień",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.217",
+      "minutes": 1440
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp369",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "phrase": "laat de tien zwaarste processen voor het geheugen zien",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "memoire",
+      "n": 10
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp370",
+   "langue": "el",
+   "ecriture": "Grek",
+   "phrase": "μην παίξεις μουσική στο υπνοδωμάτιο, βάλε τη στην κουζίνα",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "jouer",
+     "reglages": {
+      "ou": "κουζίνα"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp371",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "और रसोई में भी",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "रसोई",
+      "valeur": "on"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "contexte": {
+    "precedent": "बैठक की लाइट जला दो"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp372",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "phrase": "indirme hızını saniyede 4 megabayta sınırla",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "vitesse",
+     "reglages": {
+      "mo": 4
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp373",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "내일 오전 11시에 미용실 예약 넣어 줘",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "미용실",
+      "quand": "2026-11-18 11:00"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp374",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "التقط صورة للمدخل أولاً ثم افتح البوابة",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "photo",
+     "reglages": {
+      "camera": "المدخل"
+     }
+    },
+    {
+     "appli": "appareils",
+     "action": "commander",
+     "reglages": {
+      "appareil": "البوابة",
+      "valeur": "ouvrir"
+     },
+     "aussi": [
+      "midgard.commander"
+     ]
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp375",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "显示占用处理器最多的五个进程",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "processus",
+     "reglages": {
+      "tri": "processeur",
+      "n": 5
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp376",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "何も録画しなくていいよ",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp377",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "выключи музыку и потом объяви на кухне, что ужин готов",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "aegir",
+     "action": "stop",
+     "reglages": {}
+    },
+    {
+     "appli": "bragi",
+     "action": "annoncer",
+     "reglages": {
+      "message": "ужин готов",
+      "ou": "кухне"
+     }
+    }
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "lp393",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "which of my downloads is closest to finishing?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "atalante",
+     "action": "file",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp379",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "pause internet for both Liam and Ava",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Liam"
+     }
+    },
+    {
+     "appli": "heidrun",
+     "action": "pause",
+     "reglages": {
+      "nom": "Ava"
+     }
+    }
+   ],
+   "ordreLibre": true,
+   "aRelire": false
+  },
+  {
+   "id": "lp380",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "block 198.51.100.199 for forty-five minutes",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "garmr",
+     "action": "bannir",
+     "reglages": {
+      "ip": "198.51.100.199",
+      "minutes": 45
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp381",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "only if the wiki site is down, roll it back",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "idunn",
+     "action": "etat",
+     "reglages": {
+      "site": "wiki"
+     }
+    },
+    {
+     "appli": "idunn",
+     "action": "revenir",
+     "reglages": {
+      "site": "wiki"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp382",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "graba la cámara del jardín durante un minuto y medio",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "himinbjorg",
+     "action": "enregistrer",
+     "reglages": {
+      "camera": "jardín",
+      "secondes": 90
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp383",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿cuál de mis sitios tiene más errores ahora?",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "idunn",
+     "action": "sites",
+     "reglages": {},
+     "aussi": [
+      "idunn.evenements"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp384",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "mach das rückgängig, bitte",
+   "logique": [
+    "relance"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "heidrun",
+     "action": "reprendre",
+     "reglages": {
+      "nom": "Jonas"
+     }
+    }
+   ],
+   "contexte": {
+    "precedent": "sperr Jonas das Internet"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp385",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "zeichne heute Abend ZDF von 20:15 bis 21:45 auf",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "enregistrer_plage",
+     "reglages": {
+      "chaine": "ZDF",
+      "debut": "2026-11-17 20:15",
+      "minutes": 90
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp386",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute la visite de l'appartement dans une heure et demie",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "rendez_vous",
+     "reglages": {
+      "titre": "visite de l'appartement",
+      "quand": "2026-11-17 11:30"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp387",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "règle les alertes du disque : suivre à 75, attention à 90, grave à 98",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "eir",
+     "action": "seuils",
+     "reglages": {
+      "mesure": "fs",
+      "suivre": 75,
+      "attention": 90,
+      "grave": 98
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp388",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets le lieu de la météo sur Quimper puis donne-moi la météo",
+   "logique": [
+    "ordre",
+    "plusieurs"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "gladsheim",
+     "action": "lieu",
+     "reglages": {
+      "ville": "Quimper"
+     }
+    },
+    {
+     "appli": "gladsheim",
+     "action": "meteo",
+     "reglages": {},
+     "aussi": [
+      "zeus.comparer"
+     ]
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp389",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pas Lyncée, cherche juste dans mes documents le contrat d'assurance",
+   "logique": [
+    "negation"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "snotra",
+     "action": "chercher",
+     "reglages": {
+      "q": "contrat d'assurance"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp390",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "supprime le conteneur test, non, arrête-le seulement",
+   "logique": [
+    "correction"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "naglfar",
+     "action": "arreter",
+     "reglages": {
+      "conteneur": "test"
+     }
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp391",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si un nouvel épisode des Simpson sort cette semaine, enregistre-le",
+   "logique": [
+    "condition"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "freyja",
+     "action": "programme",
+     "reglages": {
+      "quoi": "Simpson"
+     }
+    },
+    {
+     "appli": "freyja",
+     "action": "enregistrer",
+     "reglages": {
+      "quoi": "Simpson"
+     },
+     "si": true
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp392",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "combien de jours avant mon rendez-vous chez le dermatologue ?",
+   "logique": [
+    "temps"
+   ],
+   "decision": "agir",
+   "etapes": [
+    {
+     "appli": "frigg",
+     "action": "agenda",
+     "reglages": {}
+    }
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "lp394",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "réserve-moi le créneau le moins cher",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp395",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rappelle-moi ça une heure avant le match",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp396",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets le dentiste à la même heure que la dernière fois",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp397",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "s'il fait comme hier, ferme tout",
+   "logique": [
+    "condition"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp398",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "si elle n'est pas rentrée à l'heure, coupe-lui internet",
+   "logique": [
+    "condition"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp399",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "n'éteins pas tout, seulement ce qu'on n'utilise pas",
+   "logique": [
+    "negation"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp400",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et dans les trois autres pièces, pareil",
+   "logique": [
+    "relance",
+    "plusieurs"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "contexte": {
+    "precedent": "éteins la lampe du bureau"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp401",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "commence par le plus urgent, ensuite fais le reste",
+   "logique": [
+    "ordre"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp402",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prête la perceuse à Gaspard pour la même durée que la fois d'avant",
+   "logique": [
+    "temps",
+    "quantite"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp403",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume la lampe de l'entrée… enfin non, pas celle-là",
+   "logique": [
+    "correction"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp404",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "débannis-le",
+   "logique": [
+    "relance"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "contexte": {
+    "precedent": "bannis 198.51.100.21 et 198.51.100.22"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp405",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bloque mon agenda pendant les vacances de Jade",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp406",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "monte le chauffage d'autant que tu l'avais baissé",
+   "logique": [
+    "quantite"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp407",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn off the one I switched on earlier",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp408",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "now stop it",
+   "logique": [
+    "relance"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "contexte": {
+    "precedent": "restart the nginx and redis containers"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp409",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "book whichever Saturday slot costs less",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp410",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "pon la alarma para cuando vuelva Lucía",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp411",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "apaga las que no estemos usando",
+   "logique": [
+    "plusieurs"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp412",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "und das andere auch",
+   "logique": [
+    "relance"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "contexte": {
+    "precedent": "schalte das Licht im Flur aus"
+   },
+   "aRelire": true
+  },
+  {
+   "id": "lp413",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "erinnere mich eine Stunde vor ihrem Flug",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp414",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "spegni quella che ho acceso prima, non questa",
+   "logique": [
+    "negation"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp415",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "marca para o mesmo horário da semana passada",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp416",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "выключи ту, что слева",
+   "logique": [
+    "comparaison"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp417",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "さっきと同じ時間でもう一度予約して",
+   "logique": [
+    "temps"
+   ],
+   "decision": "demander",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp418",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "laisse le portail comme il est",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp419",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pas la peine de redémarrer le serveur, ça remarche",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp420",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "attends, non, laisse-lui encore un peu",
+   "logique": [
+    "relance",
+    "correction"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "contexte": {
+    "precedent": "coupe internet à Romy"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp421",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "inutile de relancer la sauvegarde, celle de cette nuit a marché",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp422",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "s'il pleut demain à Lyon, ne ferme rien, les volets sont déjà baissés",
+   "logique": [
+    "condition",
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp423",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "never mind the lights, leave them as they are",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp424",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "wait, don't, keep them",
+   "logique": [
+    "relance",
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "contexte": {
+    "precedent": "delete the old backups"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "lp425",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "deja la música como está, gracias",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": false
+  },
+  {
+   "id": "lp426",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "lass die Rollläden heute unten, nichts ändern",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": true
+  },
+  {
+   "id": "lp427",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "아무것도 끄지 마",
+   "logique": [
+    "negation"
+   ],
+   "decision": "rien",
+   "etapes": [],
+   "aRelire": true
+  }
+ ],
+ "historique": [
+  {
+   "version": 1,
+   "date": "2026-11-17",
+   "quoi": "première écriture"
+  },
+  {
+   "version": 2,
+   "date": "2026-11-17",
+   "pourquoi": "relecture du 17/11 (file-attente/carnets/relecture-soul-v3.md, constats G1 à P8)",
+   "changements": [
+    "P4 : écritures alignées sur les autres jeux (Hans pour le chinois, Kore pour le coréen)",
+    "M4 : chaque étape de port (lp088, lp310…) accepte garmr ou hlid (« aussi » croisé)",
+    "P6 : lp311 réécrite (le calcul était artificiel) : même sorte « quantité », deux ports",
+    "M3 : lp184 et lp198 (quel conteneur prend le plus de mémoire) : la première étape accepte aussi naglfar.lister (aucune action ne classe les conteneurs)",
+    "M3 : lp083, lp044 (et lp101, même genre) : « relancer / redémarrer » accepte naglfar.demarrer ou naglfar.redemarrer",
+    "M3 : lp090, lp314, lp342 : « mercredi prochain » dit un mardi accepte le 18 ou le 25",
+    "P6 : lp352 marquée à relire",
+    "M3 : lp378 (caméra qui a vu le plus de mouvement : aucune action n'y répond) remplacée par une comparaison qui a une réponse (atalante.file)",
+    "M8 : 24 demandes « demander » et 10 « rien » ajoutées (lp394 à lp427)",
+    "M1 (code) : « ouvrir » / « fermer » acceptent désormais « open », « close », « ferme »… (comprehension.ts) ; les 30 étapes concernées n'ont pas changé"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,6012 @@
+{
+ "version": 2,
+ "origine": "Écrit par un agent le 2026-11-17 : souvenirs entièrement inventés (personnes, lieux, adresses example.org et 198.51.100.x fictifs), questions dites autrement que les souvenirs. Non relu par une personne. Les souvenirs et questions marqués aRelire doivent être relus par quelqu'un qui parle la langue. Version 2 (2026-11-17) : corrigée après une relecture par un agent ; les demandes ajoutées ou réécrites sont aussi écrites par un agent, non relues par une personne.",
+ "fige": false,
+ "maintenant": "2026-11-17T10:00:00",
+ "souvenirs": [
+  {
+   "id": "md-a001",
+   "texte": "Le code du digicode de l'immeuble de mamie est 4B712.",
+   "sorte": "fait",
+   "date": "2026-03-04T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a002",
+   "texte": "Ysée ne boit jamais de café après 16 heures, elle préfère une tisane verveine.",
+   "sorte": "preference",
+   "date": "2025-11-20T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a003",
+   "texte": "Rendez-vous chez l'orthodontiste pour Rose le mercredi 25 novembre à 14 h 30.",
+   "sorte": "rendez-vous",
+   "date": "2026-11-10T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a004",
+   "texte": "Le numéro de série de la chaudière est GZ-88213-T, posée en 2019 par Thermi Ouest.",
+   "sorte": "fait",
+   "date": "2026-02-11T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a005",
+   "texte": "Pistache est vacciné contre le typhus jusqu'en juin 2027.",
+   "sorte": "fait",
+   "date": "2026-06-02T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a006",
+   "texte": "Idée cadeau pour Timothée : un microscope de poche et un livre sur les insectes.",
+   "sorte": "note",
+   "date": "2026-09-15T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a007",
+   "texte": "La box internet est au fond du placard de l'entrée, derrière les manteaux.",
+   "sorte": "fait",
+   "date": "2026-01-08T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a008",
+   "texte": "Je préfère être réveillé avec de la musique douce plutôt qu'une sonnerie.",
+   "sorte": "preference",
+   "date": "2026-05-19T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a009",
+   "texte": "Le voisin du 12, Gaspard, garde un double de nos clés.",
+   "sorte": "fait",
+   "date": "2026-04-22T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a010",
+   "texte": "L'assurance habitation est chez Mutuelle Armor, contrat numéro HAB-55102.",
+   "sorte": "fait",
+   "date": "2025-12-03T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a011",
+   "texte": "Penser à purger les radiateurs de l'étage avant l'hiver.",
+   "sorte": "note",
+   "date": "2026-10-28T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a012",
+   "texte": "Le mot de passe du wifi invités est « pistache-en-vacances ».",
+   "sorte": "fait",
+   "date": "2026-07-14T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a013",
+   "texte": "Rose est allergique aux noix de cajou.",
+   "sorte": "preference",
+   "date": "2026-02-02T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a014",
+   "texte": "Réunion parents-professeurs de Timothée jeudi 19 novembre à 18 h, salle 4.",
+   "sorte": "rendez-vous",
+   "date": "2026-11-12T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a015",
+   "texte": "Le garagiste habituel est Garage Le Floch, rue des Tanneurs, tél. 02 99 00 41 41.",
+   "sorte": "fait",
+   "date": "2026-08-30T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a016",
+   "texte": "Le compteur d'eau est sous la trappe du jardin, à gauche du portillon.",
+   "sorte": "fait",
+   "date": "2026-03-21T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a017",
+   "texte": "Ysée aime les pivoines blanches, pas les roses rouges.",
+   "sorte": "preference",
+   "date": "2026-06-18T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a018",
+   "texte": "La cantine de l'école se paie en ligne avant le 5 de chaque mois.",
+   "sorte": "fait",
+   "date": "2026-09-02T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a019",
+   "texte": "Recette des crêpes de la mamie : 250 g de farine, 4 œufs, un demi-litre de lait, une pincée de sel.",
+   "sorte": "note",
+   "date": "2026-10-05T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a020",
+   "texte": "Le NAS est rangé dans le bureau, sur l'étagère du haut, il s'appelle « coffre ».",
+   "sorte": "fait",
+   "date": "2026-04-09T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a021",
+   "texte": "Le pédiatre des enfants est le docteur Kervella, cabinet place du Marché.",
+   "sorte": "fait",
+   "date": "2025-10-17T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a022",
+   "texte": "Le dimanche matin, pas de bruit avant 9 heures : on fait la grasse matinée.",
+   "sorte": "preference",
+   "date": "2026-01-25T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a023",
+   "texte": "Le vélo cargo a un antivol à code : 3907.",
+   "sorte": "fait",
+   "date": "2026-05-03T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a024",
+   "texte": "Liste pour la fête de Rose : ballons dorés, gâteau au chocolat, jeu de piste dans le jardin.",
+   "sorte": "note",
+   "date": "2026-11-01T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a025",
+   "texte": "La place de parking réservée est la numéro 38 au sous-sol.",
+   "sorte": "fait",
+   "date": "2026-02-27T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a026",
+   "texte": "Le contrat d'électricité est en heures creuses de 22 h à 6 h.",
+   "sorte": "fait",
+   "date": "2026-07-01T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a027",
+   "texte": "Timothée déteste les épinards mais adore les brocolis.",
+   "sorte": "preference",
+   "date": "2026-03-11T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a028",
+   "texte": "Le passeport d'Ysée expire le 3 mars 2027.",
+   "sorte": "fait",
+   "date": "2026-08-12T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a029",
+   "texte": "La clé de la boîte aux lettres est accrochée dans le placard sous l'escalier.",
+   "sorte": "fait",
+   "date": "2026-06-25T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a030",
+   "texte": "Dîner chez Amaury et Lise samedi 21 novembre à 20 h, apporter le dessert.",
+   "sorte": "rendez-vous",
+   "date": "2026-11-14T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a031",
+   "texte": "Le chauffe-eau a été détartré en avril 2026.",
+   "sorte": "fait",
+   "date": "2026-04-30T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a032",
+   "texte": "Le film que Rose voulait voir : « Le Royaume des loutres ».",
+   "sorte": "note",
+   "date": "2026-09-29T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a033",
+   "texte": "L'imprimante du bureau a pour adresse 198.51.100.23.",
+   "sorte": "fait",
+   "date": "2026-01-15T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a034",
+   "texte": "Je veux recevoir les alertes importantes par message, jamais par appel la nuit.",
+   "sorte": "preference",
+   "date": "2026-05-27T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a035",
+   "texte": "La taille de chaussures de Timothée est maintenant 33.",
+   "sorte": "fait",
+   "date": "2026-10-11T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a036",
+   "texte": "Le cours de judo de Timothée est le mercredi à 15 h au dojo municipal.",
+   "sorte": "fait",
+   "date": "2025-09-08T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a037",
+   "texte": "Le vétérinaire de Pistache est la clinique des Lilas, docteure Hamon.",
+   "sorte": "fait",
+   "date": "2026-02-19T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a038",
+   "texte": "Notre bon plan vacances : le camping des Dunes à Erquy, emplacement 112.",
+   "sorte": "note",
+   "date": "2026-07-22T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a039",
+   "texte": "Le disjoncteur du garage est le troisième en partant de la gauche.",
+   "sorte": "fait",
+   "date": "2026-03-30T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a040",
+   "texte": "Ysée préfère qu'on lui écrive plutôt qu'on l'appelle au travail.",
+   "sorte": "preference",
+   "date": "2026-08-04T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a041",
+   "texte": "Our landlord is Mr. Okafor, his email is okafor@example.org.",
+   "sorte": "fait",
+   "date": "2026-05-12T09:00:00",
+   "langue": "en",
+   "aRelire": false
+  },
+  {
+   "id": "md-a042",
+   "texte": "The spare car key is in the blue tin on top of the fridge.",
+   "sorte": "note",
+   "date": "2026-08-19T09:00:00",
+   "langue": "en",
+   "aRelire": false
+  },
+  {
+   "id": "md-a043",
+   "texte": "La abuela de Ysée vive en Granada, calle Mirlo 7.",
+   "sorte": "fait",
+   "date": "2026-04-03T09:00:00",
+   "langue": "es",
+   "aRelire": false
+  },
+  {
+   "id": "md-a044",
+   "texte": "Der Rasenmäher braucht Benzin, kein Öl-Gemisch.",
+   "sorte": "fait",
+   "date": "2026-06-30T09:00:00",
+   "langue": "de",
+   "aRelire": false
+  },
+  {
+   "id": "md-a045",
+   "texte": "Rose preferisce la pizza margherita senza basilico.",
+   "sorte": "preference",
+   "date": "2026-09-09T09:00:00",
+   "langue": "it",
+   "aRelire": false
+  },
+  {
+   "id": "md-a046",
+   "texte": "A senha do portão eletrónico da garagem é 8812.",
+   "sorte": "fait",
+   "date": "2026-02-08T09:00:00",
+   "langue": "pt",
+   "aRelire": false
+  },
+  {
+   "id": "md-a047",
+   "texte": "رقم هاتف السبّاك هو 0699004242.",
+   "sorte": "fait",
+   "date": "2026-03-17T09:00:00",
+   "langue": "ar",
+   "aRelire": true
+  },
+  {
+   "id": "md-a048",
+   "texte": "Ключ от подвала висит на гвоздике у двери кухни.",
+   "sorte": "fait",
+   "date": "2026-01-29T09:00:00",
+   "langue": "ru",
+   "aRelire": true
+  },
+  {
+   "id": "md-a049",
+   "texte": "ローズの好きな色は水色です。",
+   "sorte": "note",
+   "date": "2026-07-07T09:00:00",
+   "langue": "ja",
+   "aRelire": true
+  },
+  {
+   "id": "md-a050",
+   "texte": "家里的备用灯泡放在车库左边的柜子里。",
+   "sorte": "fait",
+   "date": "2026-10-20T09:00:00",
+   "langue": "zh",
+   "aRelire": true
+  },
+  {
+   "id": "md-a051",
+   "texte": "Le code de l'alarme de la maison est 1975.",
+   "sorte": "fait",
+   "date": "2025-06-10T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "maison",
+   "cle": "code_alarme",
+   "aRelire": false
+  },
+  {
+   "id": "md-a052",
+   "texte": "Nouveau code de l'alarme : 6042, l'ancien ne marche plus.",
+   "sorte": "fait",
+   "date": "2026-10-02T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "maison",
+   "cle": "code_alarme",
+   "aRelire": false
+  },
+  {
+   "id": "md-a053",
+   "texte": "Mon médecin traitant est le docteur Lemaire.",
+   "sorte": "fait",
+   "date": "2025-11-05T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "proprietaire",
+   "cle": "medecin_traitant",
+   "aRelire": false
+  },
+  {
+   "id": "md-a054",
+   "texte": "J'ai changé de médecin traitant : c'est maintenant la docteure Nguyen.",
+   "sorte": "fait",
+   "date": "2026-09-14T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "proprietaire",
+   "cle": "medecin_traitant",
+   "aRelire": false
+  },
+  {
+   "id": "md-a055",
+   "texte": "Timothée porte du 8 ans.",
+   "sorte": "fait",
+   "date": "2025-08-20T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "timothee",
+   "cle": "taille_vetements",
+   "aRelire": false
+  },
+  {
+   "id": "md-a056",
+   "texte": "Timothée est passé en taille 10 ans pour les vêtements.",
+   "sorte": "fait",
+   "date": "2026-10-30T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "timothee",
+   "cle": "taille_vetements",
+   "aRelire": false
+  },
+  {
+   "id": "md-a057",
+   "texte": "Ysée travaille chez Atelier Brume, à Vannes.",
+   "sorte": "fait",
+   "date": "2026-01-12T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "ysee",
+   "cle": "employeur",
+   "aRelire": false
+  },
+  {
+   "id": "md-a058",
+   "texte": "Depuis septembre, Ysée a rejoint l'agence Nord Cap à Lorient.",
+   "sorte": "fait",
+   "date": "2026-09-01T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "ysee",
+   "cle": "employeur",
+   "aRelire": false
+  },
+  {
+   "id": "md-a059",
+   "texte": "Our internet provider is NetLigne.",
+   "sorte": "fait",
+   "date": "2025-12-01T09:00:00",
+   "langue": "en",
+   "origine": "agent",
+   "sujet": "maison",
+   "cle": "fournisseur_internet",
+   "aRelire": false
+  },
+  {
+   "id": "md-a060",
+   "texte": "We switched our internet provider to FibreSud.",
+   "sorte": "fait",
+   "date": "2026-08-08T09:00:00",
+   "langue": "en",
+   "origine": "agent",
+   "sujet": "maison",
+   "cle": "fournisseur_internet",
+   "aRelire": false
+  },
+  {
+   "id": "md-a061",
+   "texte": "La piscine municipale ouvre à 7 h en semaine.",
+   "sorte": "fait",
+   "date": "2025-07-03T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a062",
+   "texte": "Correction : la piscine municipale ouvre désormais à 8 h en semaine.",
+   "sorte": "fait",
+   "date": "2026-10-25T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a063",
+   "texte": "La nounou du mercredi s'appelle Clarisse.",
+   "sorte": "fait",
+   "date": "2025-09-20T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a064",
+   "texte": "Clarisse est partie ; la nouvelle nounou du mercredi est Ophélie.",
+   "sorte": "fait",
+   "date": "2026-09-23T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a065",
+   "texte": "Le ramassage des poubelles jaunes a lieu le lundi.",
+   "sorte": "fait",
+   "date": "2025-04-14T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a066",
+   "texte": "Changement : les poubelles jaunes sont ramassées le jeudi.",
+   "sorte": "fait",
+   "date": "2026-07-06T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a067",
+   "texte": "Le loyer est de 980 euros par mois.",
+   "sorte": "fait",
+   "date": "2025-10-01T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a068",
+   "texte": "Le loyer a été augmenté à 1 012 euros par mois.",
+   "sorte": "fait",
+   "date": "2026-10-01T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a069",
+   "texte": "Der Judokurs kostet 160 Euro im Jahr.",
+   "sorte": "fait",
+   "date": "2025-05-05T09:00:00",
+   "langue": "de",
+   "aRelire": false
+  },
+  {
+   "id": "md-a070",
+   "texte": "Neuer Preis: der Judokurs kostet jetzt 175 Euro im Jahr.",
+   "sorte": "fait",
+   "date": "2026-09-05T09:00:00",
+   "langue": "de",
+   "aRelire": false
+  },
+  {
+   "id": "md-a071",
+   "texte": "Le code de la carte bleue de secours est noté dans le carnet rouge.",
+   "sorte": "fait",
+   "date": "2026-05-08T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a072",
+   "texte": "Ancienne adresse de Lise : 4 impasse des Mouettes, Saint-Malo.",
+   "sorte": "note",
+   "date": "2026-06-12T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a073",
+   "texte": "Le surnom que Rose donne à son doudou est Monsieur Plume.",
+   "sorte": "fait",
+   "date": "2026-02-14T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a074",
+   "texte": "My old work badge number was 77310.",
+   "sorte": "note",
+   "date": "2026-04-01T09:00:00",
+   "langue": "en",
+   "aRelire": false
+  },
+  {
+   "id": "md-a075",
+   "texte": "Le premier code wifi de la maison était « brume2024 ».",
+   "sorte": "fait",
+   "date": "2026-03-03T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a076",
+   "texte": "Le robinet d'arrivée d'eau générale est sous l'évier de la cuisine.",
+   "sorte": "fait",
+   "date": "2026-05-21T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a077",
+   "texte": "Pas de notification sur la télé quand on regarde un film.",
+   "sorte": "preference",
+   "date": "2026-02-23T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a078",
+   "texte": "La date de la rentrée de Rose en CE1 est le 1er septembre.",
+   "sorte": "fait",
+   "date": "2026-08-27T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a079",
+   "texte": "Le capteur de température du salon a une pile CR2032.",
+   "sorte": "fait",
+   "date": "2026-06-08T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a080",
+   "texte": "La tondeuse a été prêtée à Gaspard le 16 octobre.",
+   "sorte": "fait",
+   "date": "2026-10-16T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a081",
+   "texte": "Mot de la maîtresse : apporter une boîte à chaussures vide pour le bricolage.",
+   "sorte": "note",
+   "date": "2026-09-03T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a082",
+   "texte": "Le sapin artificiel est au grenier, dans la grande boîte verte.",
+   "sorte": "fait",
+   "date": "2025-12-22T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a083",
+   "texte": "Le thermostat de la chambre doit rester à 17 degrés la nuit.",
+   "sorte": "preference",
+   "date": "2026-04-17T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a084",
+   "texte": "Le numéro client du fournisseur de gaz est GZ-901-445.",
+   "sorte": "fait",
+   "date": "2026-03-25T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a085",
+   "texte": "Le ramoneur passe le 4 décembre entre 8 h et 10 h.",
+   "sorte": "rendez-vous",
+   "date": "2026-11-15T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a086",
+   "texte": "Le cadenas du local à vélos s'ouvre avec 0614.",
+   "sorte": "fait",
+   "date": "2026-07-29T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a087",
+   "texte": "Livre conseillé par Lise : « Les Jardins d'hiver » de Mona Garrec.",
+   "sorte": "note",
+   "date": "2026-08-15T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a088",
+   "texte": "La mutuelle rembourse les lunettes une fois tous les deux ans.",
+   "sorte": "fait",
+   "date": "2026-01-03T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a089",
+   "texte": "Le soir, j'aime une lumière chaude et tamisée dans le salon.",
+   "sorte": "preference",
+   "date": "2026-06-01T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a090",
+   "texte": "Le badge de la piscine de Rose porte le numéro 2207.",
+   "sorte": "fait",
+   "date": "2026-09-18T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a091",
+   "texte": "Le parrain de Timothée s'appelle Erwan et vit à Quimper.",
+   "sorte": "fait",
+   "date": "2026-05-30T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a092",
+   "texte": "Les fusibles de rechange sont dans le tiroir du haut de l'établi.",
+   "sorte": "fait",
+   "date": "2026-02-06T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a093",
+   "texte": "Idée de sortie : le marché de Noël de Josselin, ouvert les week-ends de décembre.",
+   "sorte": "note",
+   "date": "2026-10-08T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a094",
+   "texte": "Le lave-vaisselle est encore sous garantie jusqu'en avril 2028.",
+   "sorte": "fait",
+   "date": "2026-04-25T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a095",
+   "texte": "La prise connectée du salon s'appelle « prise-lampadaire ».",
+   "sorte": "fait",
+   "date": "2026-08-22T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a096",
+   "texte": "Ne jamais commander chez le traiteur Delices & Co, mauvaise expérience.",
+   "sorte": "preference",
+   "date": "2026-01-19T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a097",
+   "texte": "La batterie de la voiture a été changée en juillet 2026.",
+   "sorte": "fait",
+   "date": "2026-07-10T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a098",
+   "texte": "Le code de l'abri de jardin est 2580.",
+   "sorte": "fait",
+   "date": "2026-03-08T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a099",
+   "texte": "La table de la salle à manger mesure 1,80 m sur 90 cm.",
+   "sorte": "fait",
+   "date": "2025-11-30T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a100",
+   "texte": "La voiture doit passer au contrôle technique d'ici le 15 janvier 2027.",
+   "sorte": "rendez-vous",
+   "date": "2026-11-13T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a101",
+   "texte": "I like my coffee black with no sugar.",
+   "sorte": "preference",
+   "date": "2026-03-14T09:00:00",
+   "langue": "en",
+   "aRelire": false
+  },
+  {
+   "id": "md-a102",
+   "texte": "The kids' bikes are stored in the shed behind the compost bin.",
+   "sorte": "fait",
+   "date": "2026-06-21T09:00:00",
+   "langue": "en",
+   "aRelire": false
+  },
+  {
+   "id": "md-a103",
+   "texte": "Remember to renew the fishing licence before March.",
+   "sorte": "note",
+   "date": "2026-09-12T09:00:00",
+   "langue": "en",
+   "aRelire": false
+  },
+  {
+   "id": "md-a104",
+   "texte": "The smoke detector in the hallway was tested in February.",
+   "sorte": "fait",
+   "date": "2026-02-17T09:00:00",
+   "langue": "en",
+   "aRelire": false
+  },
+  {
+   "id": "md-a105",
+   "texte": "The router admin page is at 198.51.100.1.",
+   "sorte": "fait",
+   "date": "2026-08-01T09:00:00",
+   "langue": "en",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a106",
+   "texte": "El cumpleaños de la abuela Carmen es el 9 de diciembre.",
+   "sorte": "fait",
+   "date": "2026-05-15T09:00:00",
+   "langue": "es",
+   "aRelire": false
+  },
+  {
+   "id": "md-a107",
+   "texte": "A Ysée le encanta el turrón de Jijona.",
+   "sorte": "preference",
+   "date": "2026-07-19T09:00:00",
+   "langue": "es",
+   "aRelire": false
+  },
+  {
+   "id": "md-a108",
+   "texte": "Die Garantie des Kühlschranks läuft bis August 2027.",
+   "sorte": "fait",
+   "date": "2026-03-02T09:00:00",
+   "langue": "de",
+   "aRelire": false
+  },
+  {
+   "id": "md-a109",
+   "texte": "Für den Winter: Reifenwechsel bei der Werkstatt Le Floch buchen.",
+   "sorte": "note",
+   "date": "2026-10-12T09:00:00",
+   "langue": "de",
+   "aRelire": false
+  },
+  {
+   "id": "md-a110",
+   "texte": "Lo zio Paolo arriva sempre in treno da Torino.",
+   "sorte": "fait",
+   "date": "2026-04-11T09:00:00",
+   "langue": "it",
+   "aRelire": false
+  },
+  {
+   "id": "md-a111",
+   "texte": "Comprar areia para o gato no sábado.",
+   "sorte": "note",
+   "date": "2026-06-27T09:00:00",
+   "langue": "pt",
+   "aRelire": true
+  },
+  {
+   "id": "md-a112",
+   "texte": "زوجتي تحب الشاي بالنعناع بعد العشاء.",
+   "sorte": "preference",
+   "date": "2026-02-09T09:00:00",
+   "langue": "ar",
+   "aRelire": true
+  },
+  {
+   "id": "md-a113",
+   "texte": "Пароль от роутера записан на обратной стороне коробки.",
+   "sorte": "fait",
+   "date": "2026-08-24T09:00:00",
+   "langue": "ru",
+   "aRelire": true
+  },
+  {
+   "id": "md-a114",
+   "texte": "猫のピスタチオは毎朝7時にごはんを食べる。",
+   "sorte": "fait",
+   "date": "2026-05-06T09:00:00",
+   "langue": "ja",
+   "aRelire": true
+  },
+  {
+   "id": "md-a115",
+   "texte": "蒂莫泰不喜欢吃辣的。",
+   "sorte": "preference",
+   "date": "2026-09-25T09:00:00",
+   "langue": "zh",
+   "aRelire": true
+  },
+  {
+   "id": "md-a116",
+   "texte": "우리 집 와이파이 공유기는 거실 TV 뒤에 있다.",
+   "sorte": "fait",
+   "date": "2026-04-04T09:00:00",
+   "langue": "ko",
+   "aRelire": true
+  },
+  {
+   "id": "md-a117",
+   "texte": "बिजली का बिल हर महीने की 10 तारीख़ तक भरना होता है।",
+   "sorte": "fait",
+   "date": "2026-07-16T09:00:00",
+   "langue": "hi",
+   "aRelire": true
+  },
+  {
+   "id": "md-a118",
+   "texte": "Kombinin bakımı her yıl ekimde yapılıyor.",
+   "sorte": "fait",
+   "date": "2026-03-28T09:00:00",
+   "langue": "tr",
+   "aRelire": true
+  },
+  {
+   "id": "md-a119",
+   "texte": "Η Ρόουζ δεν τρώει ψάρι.",
+   "sorte": "preference",
+   "date": "2026-06-14T09:00:00",
+   "langue": "el",
+   "aRelire": true
+  },
+  {
+   "id": "md-a120",
+   "texte": "De reservesleutel van de schuur ligt onder de bloempot.",
+   "sorte": "fait",
+   "date": "2026-02-01T09:00:00",
+   "langue": "nl",
+   "aRelire": true
+  },
+  {
+   "id": "md-a121",
+   "texte": "Le docteur a dit à Ysée de prendre de la vitamine D tout l'hiver.",
+   "sorte": "fait",
+   "date": "2026-05-02T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a122",
+   "texte": "Le bus scolaire de Rose passe à 7 h 52 devant la boulangerie.",
+   "sorte": "fait",
+   "date": "2026-09-07T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a123",
+   "texte": "Ne pas oublier de rendre la perceuse à Amaury.",
+   "sorte": "note",
+   "date": "2026-10-19T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a124",
+   "texte": "La hotte de la cuisine prend des filtres à charbon modèle FC-60.",
+   "sorte": "fait",
+   "date": "2026-01-21T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a125",
+   "texte": "Le week-end, je ne veux pas de résumé des mails avant midi.",
+   "sorte": "preference",
+   "date": "2026-08-09T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a126",
+   "texte": "Le cousin Mathurin a un camion pour les déménagements.",
+   "sorte": "fait",
+   "date": "2026-06-04T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a127",
+   "texte": "La caméra du jardin s'appelle « cam-potager ».",
+   "sorte": "fait",
+   "date": "2026-03-16T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a128",
+   "texte": "En cas d'intoxication, appeler l'antipoison de Rennes au 02 99 00 59 22.",
+   "sorte": "fait",
+   "date": "2025-12-14T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a129",
+   "texte": "Acheter une ampoule E14 pour la lampe de chevet de Timothée.",
+   "sorte": "note",
+   "date": "2026-11-08T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a130",
+   "texte": "Le chauffagiste recommande une pression de 1,5 bar dans la chaudière.",
+   "sorte": "fait",
+   "date": "2026-04-28T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a131",
+   "texte": "Ysée veut qu'on parte en vacances hors des périodes scolaires quand c'est possible.",
+   "sorte": "preference",
+   "date": "2026-07-25T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a132",
+   "texte": "La photocopie du livret de famille est dans la pochette orange.",
+   "sorte": "fait",
+   "date": "2026-02-12T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a133",
+   "texte": "Gaspard part en voyage du 1er au 15 décembre ; on arrose ses plantes.",
+   "sorte": "fait",
+   "date": "2026-10-23T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a134",
+   "texte": "Le thermostat connecté se règle aussi depuis le téléphone de Ysée.",
+   "sorte": "fait",
+   "date": "2026-05-24T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a135",
+   "texte": "Ysée a récupéré son nouveau permis de conduire en août 2026.",
+   "sorte": "fait",
+   "date": "2026-08-17T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a136",
+   "texte": "Lise et Amaury ont un fils, Basile, qui a l'âge de Rose.",
+   "sorte": "note",
+   "date": "2026-09-21T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a137",
+   "texte": "Le restaurant préféré de la famille est La Marée Haute à Cancale.",
+   "sorte": "fait",
+   "date": "2026-06-11T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a138",
+   "texte": "Je préfère les trajets en train aux trajets en voiture pour Paris.",
+   "sorte": "preference",
+   "date": "2026-01-30T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a139",
+   "texte": "L'école ferme à 16 h 30 le vendredi.",
+   "sorte": "fait",
+   "date": "2026-03-19T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a140",
+   "texte": "La sauvegarde du NAS part chaque nuit à 2 h vers le disque USB.",
+   "sorte": "fait",
+   "date": "2026-07-31T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a141",
+   "texte": "La pharmacie de garde se trouve sur le site de la mairie.",
+   "sorte": "fait",
+   "date": "2026-02-25T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a142",
+   "texte": "Rose fait de la danse le samedi à 10 h.",
+   "sorte": "fait",
+   "date": "2026-04-19T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a143",
+   "texte": "Mesures du canapé pour la housse : 2,10 m de long.",
+   "sorte": "note",
+   "date": "2026-08-28T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a144",
+   "texte": "Le parking de la gare coûte 6 euros la journée.",
+   "sorte": "fait",
+   "date": "2026-06-19T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a145",
+   "texte": "Le code de la porte du local poubelles est 1408.",
+   "sorte": "fait",
+   "date": "2025-10-26T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a146",
+   "texte": "Timothée aime dormir avec la porte entrouverte.",
+   "sorte": "preference",
+   "date": "2026-05-29T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a147",
+   "texte": "Le lave-linge fait un bruit bizarre en essorage depuis septembre.",
+   "sorte": "fait",
+   "date": "2026-09-30T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a148",
+   "texte": "Le numéro fiscal de la famille est 3021 456 789 012.",
+   "sorte": "fait",
+   "date": "2026-01-06T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a149",
+   "texte": "Ysée voudrait repeindre la chambre de Rose en vert sauge.",
+   "sorte": "note",
+   "date": "2026-10-31T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a150",
+   "texte": "Le kayak se range accroché au plafond du garage.",
+   "sorte": "fait",
+   "date": "2026-07-03T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a151",
+   "texte": "Rose est à l'école des Embruns.",
+   "sorte": "fait",
+   "date": "2025-03-03T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "rose",
+   "cle": "ecole",
+   "aRelire": false
+  },
+  {
+   "id": "md-a152",
+   "texte": "Rose a changé d'école : elle est à l'école du Pressoir depuis la rentrée.",
+   "sorte": "fait",
+   "date": "2026-09-01T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "sujet": "rose",
+   "cle": "ecole",
+   "aRelire": false
+  },
+  {
+   "id": "md-a153",
+   "texte": "Le dentiste de la famille est le docteur Le Guen.",
+   "sorte": "fait",
+   "date": "2025-11-11T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a154",
+   "texte": "Le docteur Le Guen est parti à la retraite ; notre dentiste est maintenant la docteure Salaün.",
+   "sorte": "fait",
+   "date": "2026-10-14T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a155",
+   "texte": "Le mot de passe de la box est « Arvor-7781 ».",
+   "sorte": "fait",
+   "date": "2026-02-03T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a156",
+   "texte": "J'ai changé le mot de passe de la box : c'est « Lanvaux-9902 ».",
+   "sorte": "fait",
+   "date": "2026-11-05T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a157",
+   "texte": "Timothée's football coach is Mr. Dorval.",
+   "sorte": "fait",
+   "date": "2025-08-08T09:00:00",
+   "langue": "en",
+   "origine": "agent",
+   "sujet": "timothee",
+   "cle": "football_coach",
+   "aRelire": false
+  },
+  {
+   "id": "md-a158",
+   "texte": "This season Timothée's football coach is Ms. Quéré.",
+   "sorte": "fait",
+   "date": "2026-09-10T09:00:00",
+   "langue": "en",
+   "origine": "agent",
+   "sujet": "timothee",
+   "cle": "football_coach",
+   "aRelire": false
+  },
+  {
+   "id": "md-a159",
+   "texte": "Mi número de móvil del trabajo es el 600 00 11 22.",
+   "sorte": "fait",
+   "date": "2025-06-01T09:00:00",
+   "langue": "es",
+   "aRelire": false
+  },
+  {
+   "id": "md-a160",
+   "texte": "Nuevo móvil del trabajo: 600 00 33 44.",
+   "sorte": "fait",
+   "date": "2026-08-20T09:00:00",
+   "langue": "es",
+   "aRelire": false
+  },
+  {
+   "id": "md-a161",
+   "texte": "Lise m'a confié qu'elle cherche un nouveau travail.",
+   "sorte": "note",
+   "date": "2026-07-12T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a162",
+   "texte": "Le code de la consigne à bagages de la gare était 5531.",
+   "sorte": "fait",
+   "date": "2026-04-02T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a163",
+   "texte": "Mein altes Passwort für das Steuerportal war Herbst2025.",
+   "sorte": "fait",
+   "date": "2026-01-10T09:00:00",
+   "langue": "de",
+   "aRelire": false
+  },
+  {
+   "id": "md-a164",
+   "texte": "Le numéro de la crèche de quartier est le 02 99 00 77 10.",
+   "sorte": "fait",
+   "date": "2026-06-29T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a165",
+   "texte": "La batterie du vélo électrique se recharge en 4 heures.",
+   "sorte": "fait",
+   "date": "2026-04-07T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a166",
+   "texte": "Ysée n'aime pas les films d'horreur.",
+   "sorte": "preference",
+   "date": "2026-03-27T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a167",
+   "texte": "Le grenier se ferme avec la clé à tête ronde du trousseau bleu.",
+   "sorte": "fait",
+   "date": "2026-09-26T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a168",
+   "texte": "Réserver le gîte de Paimpont pour les vacances de février.",
+   "sorte": "note",
+   "date": "2026-10-26T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a169",
+   "texte": "Le chat a peur de l'aspirateur robot.",
+   "sorte": "fait",
+   "date": "2026-02-21T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a170",
+   "texte": "La piscine du camping ferme à 19 h.",
+   "sorte": "fait",
+   "date": "2026-08-02T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a171",
+   "texte": "Le capteur d'ouverture de la porte d'entrée s'appelle « porte-principale ».",
+   "sorte": "fait",
+   "date": "2026-05-10T09:00:00",
+   "langue": "fr",
+   "origine": "agent",
+   "aRelire": false
+  },
+  {
+   "id": "md-a172",
+   "texte": "La carte de bibliothèque de Timothée a le numéro 88 041.",
+   "sorte": "fait",
+   "date": "2026-01-17T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a173",
+   "texte": "J'aime que les volets s'ouvrent à 7 h 30 en semaine.",
+   "sorte": "preference",
+   "date": "2026-07-08T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a174",
+   "texte": "Le pneu arrière gauche de la voiture perd de l'air.",
+   "sorte": "fait",
+   "date": "2026-11-02T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a175",
+   "texte": "Le menuisier qui a posé la cuisine est Atelier Bois Doré.",
+   "sorte": "fait",
+   "date": "2026-03-09T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a176",
+   "texte": "Sur la carte Vitale de Rose, le numéro débute par 2 18.",
+   "sorte": "fait",
+   "date": "2025-12-09T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a177",
+   "texte": "Planter des tomates cerises le long du mur sud au printemps.",
+   "sorte": "note",
+   "date": "2026-06-23T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a178",
+   "texte": "La salle de sport ouvre à 6 h 30 du lundi au samedi.",
+   "sorte": "fait",
+   "date": "2026-10-04T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a179",
+   "texte": "La copine de Rose s'appelle Anaëlle, sa maman est Sterenn.",
+   "sorte": "fait",
+   "date": "2026-04-13T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a180",
+   "texte": "Le matin, je veux la météo et l'agenda, mais pas les actualités.",
+   "sorte": "preference",
+   "date": "2026-08-25T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a181",
+   "texte": "Le robot tondeuse est en pause d'hiver dans l'abri.",
+   "sorte": "fait",
+   "date": "2026-02-15T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a182",
+   "texte": "Le prochain plein de fioul est prévu pour octobre 2027.",
+   "sorte": "fait",
+   "date": "2026-05-17T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a183",
+   "texte": "Ysée veut apprendre le breton : cours le jeudi soir à la MJC.",
+   "sorte": "note",
+   "date": "2026-09-05T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a184",
+   "texte": "La caution de l'appartement était de 980 euros.",
+   "sorte": "fait",
+   "date": "2026-03-12T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a185",
+   "texte": "La glacière électrique se branche sur l'allume-cigare.",
+   "sorte": "fait",
+   "date": "2026-07-27T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a186",
+   "texte": "Le cousin Mathurin fête ses 40 ans le 12 décembre.",
+   "sorte": "fait",
+   "date": "2026-01-23T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a187",
+   "texte": "Le ticket de la cordonnerie pour les bottes d'Ysée est le 4417.",
+   "sorte": "fait",
+   "date": "2026-10-09T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a188",
+   "texte": "Le soir, je préfère que tu me parles doucement, sans annonce forte.",
+   "sorte": "preference",
+   "date": "2026-06-06T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a189",
+   "texte": "La télé du salon s'appelle « tv-salon » sur le réseau.",
+   "sorte": "fait",
+   "date": "2026-04-23T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a190",
+   "texte": "Le panneau solaire produit en moyenne 9 kWh par jour en été.",
+   "sorte": "fait",
+   "date": "2026-08-11T09:00:00",
+   "langue": "fr",
+   "aRelire": false
+  },
+  {
+   "id": "md-a191",
+   "texte": "Ysée's blood type is A positive.",
+   "sorte": "fait",
+   "date": "2026-07-21T09:00:00",
+   "langue": "en",
+   "aRelire": false
+  },
+  {
+   "id": "md-a192",
+   "texte": "Book the chimney sweep every autumn.",
+   "sorte": "note",
+   "date": "2026-10-03T09:00:00",
+   "langue": "en",
+   "aRelire": false
+  },
+  {
+   "id": "md-a193",
+   "texte": "Der Wasserfilter im Kühlschrank wird alle sechs Monate gewechselt.",
+   "sorte": "fait",
+   "date": "2026-05-25T09:00:00",
+   "langue": "de",
+   "aRelire": false
+  },
+  {
+   "id": "md-a194",
+   "texte": "El seguro de viaje cubre hasta 30 días fuera del país.",
+   "sorte": "fait",
+   "date": "2026-08-06T09:00:00",
+   "langue": "es",
+   "aRelire": false
+  },
+  {
+   "id": "md-a195",
+   "texte": "La password del frigorifero smart è Frigo-2026.",
+   "sorte": "fait",
+   "date": "2026-03-29T09:00:00",
+   "langue": "it",
+   "aRelire": true
+  },
+  {
+   "id": "md-a196",
+   "texte": "O dentista da Ysée fica na rua das Flores, 12.",
+   "sorte": "fait",
+   "date": "2026-09-16T09:00:00",
+   "langue": "pt",
+   "aRelire": true
+  },
+  {
+   "id": "md-a197",
+   "texte": "Купить новый фильтр для пылесоса.",
+   "sorte": "note",
+   "date": "2026-06-09T09:00:00",
+   "langue": "ru",
+   "aRelire": true
+  },
+  {
+   "id": "md-a198",
+   "texte": "車のタイヤの空気圧は2.4バールにする。",
+   "sorte": "fait",
+   "date": "2026-02-26T09:00:00",
+   "langue": "ja",
+   "aRelire": true
+  },
+  {
+   "id": "md-a199",
+   "texte": "罗丝的游泳课在星期二下午五点。",
+   "sorte": "fait",
+   "date": "2026-04-15T09:00:00",
+   "langue": "zh",
+   "aRelire": true
+  },
+  {
+   "id": "md-a200",
+   "texte": "موعد تجديد عقد الإيجار في شهر مارس.",
+   "sorte": "fait",
+   "date": "2026-10-18T09:00:00",
+   "langue": "ar",
+   "aRelire": true
+  }
+ ],
+ "oublis": [
+  "md-a071",
+  "md-a072",
+  "md-a073",
+  "md-a074",
+  "md-a075",
+  "md-a161",
+  "md-a162",
+  "md-a163"
+ ],
+ "questions": [
+  {
+   "id": "md-q001",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment j'entre chez ma grand-mère, il y a une porte avec des touches ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a001"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q002",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qu'est-ce que je peux proposer à ma compagne en fin d'après-midi ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a002"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q003",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand est-ce que la petite a son contrôle d'appareil dentaire ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a003"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q004",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "j'ai besoin de la référence de l'appareil de chauffage pour le dépanneur",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a004"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q005",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "jusqu'à quand le chat est-il protégé ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a005"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q006",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qu'est-ce que je pourrais offrir à mon fils pour Noël ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a006"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q007",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où se trouve le routeur dans la maison ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a007"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q008",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment j'aime qu'on me tire du sommeil le matin ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a008"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q009",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "j'ai claqué la porte sans clés, qui peut m'aider dans la rue ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a009"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q010",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui assure notre logement ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a010"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q011",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qu'est-ce qu'il fallait faire sur le chauffage du haut avant le froid ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a011"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q012",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "mes amis veulent se connecter au réseau, je leur donne quoi ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a012"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q013",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je fais un gâteau pour le goûter de ma fille, je dois éviter quelque chose ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a013"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q014",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quelle heure je vois les enseignants de mon garçon ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a014"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q015",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "chez qui je fais réparer la voiture d'habitude ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a015"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q016",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je relève la consommation d'eau ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a016"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q017",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel bouquet acheter pour l'anniversaire de ma compagne ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a017"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q018",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "il y a une date limite pour régler les repas de l'école ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a018"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q019",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "les proportions de la pâte de ma grand-mère, c'était quoi ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a019"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q020",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où est physiquement le serveur de fichiers ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a020"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q021",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel médecin suit les petits ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a021"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q022",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je peux passer l'aspirateur à 8 h le dimanche ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a022"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q023",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je ne me rappelle plus la combinaison du cadenas du gros vélo",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a023"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q024",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qu'est-ce qu'on avait prévu pour l'anniversaire de ma fille ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a024"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q025",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je gare l'auto dans le garage souterrain ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a025"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q026",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand est-ce que ça coûte moins cher de lancer la machine à laver ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a026"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q027",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quels légumes verts mon fils accepte de manger ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a027"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q028",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "les papiers de voyage de ma compagne sont valables jusqu'à quand ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a028"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q029",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où on range la petite clé pour relever le courrier ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a029"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q030",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je dois préparer quelque chose à manger pour samedi soir ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a030"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q031",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand a-t-on fait l'entretien du ballon d'eau chaude ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a031"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q032",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "c'était quoi le titre du dessin animé que ma fille réclamait ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a032"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q033",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle est l'IP de la machine qui imprime ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a033"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q034",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "s'il y a un problème à 3 h du matin, tu m'appelles ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a034"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q035",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle pointure prendre pour les baskets de mon fils ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a035"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q036",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quel moment de la semaine mon garçon fait son sport de combat ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a036"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q037",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "chez qui j'emmène le félin quand il est malade ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a037"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q038",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où est-ce qu'on avait aimé dormir sous la tente l'été dernier ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a038"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q039",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "si le courant saute dans l'atelier, quel interrupteur je remonte ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a039"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q040",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment joindre ma compagne pendant ses heures de bureau ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a040"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q041",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je contacte le propriétaire de l'appartement ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a041"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q042",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "who do we rent the flat from?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a041"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q043",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je ne retrouve plus la deuxième clé de la voiture, on l'a mise où ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a042"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q044",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle est l'adresse de l'aïeule de ma compagne en Espagne ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a043"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q045",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je mets quoi comme carburant dans la tondeuse ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a044"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q046",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "che tipo di pizza ordino per la bambina?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a045"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q047",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "qual é o código para abrir a garagem?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a046"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q048",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "j'ai oublié la combinaison pour ouvrir le garage",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a046"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q049",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "كيف أتصل بمصلّح الأنابيب؟",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a047"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q050",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "где ключ от погреба?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a048"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q051",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "娘はどの色が好きだっけ？",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a049"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q052",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "换灯泡的话，新的放在哪里？",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a050"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q053",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what's the guest wifi password?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a012"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q054",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿mi hija tiene alguna alergia alimentaria?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a013"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q055",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "bei wem lassen wir das Auto meistens reparieren?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a015"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q056",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "fino a quando il gatto è vaccinato?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a005"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q057",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "quando vence o passaporte da minha companheira?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a028"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q058",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "где стоит наш NAS?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a020"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q059",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "自転車の鍵の番号は何ですか？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a023"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q060",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "女儿什么时候去看牙齿矫正？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a003"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q061",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "من هو طبيب الأطفال؟",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a021"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q062",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "question": "할머니 크레페 반죽 비율이 어떻게 돼?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a019"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q063",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "question": "पिस्ताश को किस डॉक्टर के पास ले जाते हैं?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a037"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q064",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "question": "arabayı otoparkta hangi yere park ediyorum?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a025"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q065",
+   "langue": "el",
+   "ecriture": "Grek",
+   "question": "ποια είναι η διεύθυνση IP του εκτυπωτή;",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a033"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q066",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel chiffre je tape pour désactiver la sirène en rentrant ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a052"
+   ],
+   "interdits": [
+    "md-a051"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q067",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui est mon généraliste en ce moment ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a054"
+   ],
+   "interdits": [
+    "md-a053"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q068",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je commande un pull pour le grand, quelle taille ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a056"
+   ],
+   "interdits": [
+    "md-a055"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q069",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "dans quelle boîte bosse ma compagne actuellement ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a058"
+   ],
+   "interdits": [
+    "md-a057"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q070",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "who is our broadband company now?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a060"
+   ],
+   "interdits": [
+    "md-a059"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q071",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à partir de quand je peux aller nager le matin en semaine ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a062"
+   ],
+   "interdits": [
+    "md-a061"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q072",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui garde les enfants le mercredi maintenant ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a064"
+   ],
+   "interdits": [
+    "md-a063"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q073",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel jour je sors le bac de tri ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a066"
+   ],
+   "interdits": [
+    "md-a065"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q074",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "combien on paie pour l'appartement chaque mois ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a068"
+   ],
+   "interdits": [
+    "md-a067"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q075",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wie viel zahlen wir jährlich für den Kampfsport des Jungen?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a070"
+   ],
+   "interdits": [
+    "md-a069"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "md-q076",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où est noté le code de la carte de secours ?",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a071"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q077",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où habitait Lise avant ?",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a072"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q078",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment ma fille appelle sa peluche ?",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a073"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q079",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what was my previous badge ID at the office?",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a074"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q080",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "redonne-moi le tout premier mot de passe wifi qu'on avait",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a075"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q081",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle est la marque de la machine à café ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q082",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quelle heure part le train de mon frère ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q083",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "combien mesure la fenêtre de la salle de bain ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q084",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Timothée est-il allergique à la pénicilline ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q085",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où avons-nous acheté le canapé ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q086",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui a gagné le tournoi de pétanque du quartier ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q087",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel est le numéro de la carte grise de la moto ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q088",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand est-ce que la tante Odile vient nous voir ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q089",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle pointure fait Ysée ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q090",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "combien de litres contient l'aquarium ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q091",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui est le parrain de Rose ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q092",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel est le prénom de la maîtresse de CP ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q093",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what is the license plate of the van?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q094",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿cuándo es el cumpleaños del vecino?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q095",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wann wurde das Dach zuletzt gereinigt?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q096",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "qual è il colore preferito di Timothée?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q097",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "qual é o número do seguro do carro?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q098",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "掃除機はいつ買いましたか？",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q099",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ما هو رقم الحساب البنكي للمدرسة؟",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q100",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "когда приезжает тётя?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q101",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "il y a une fuite, comment je coupe toute l'eau de la maison ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a076"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q102",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "tu peux m'afficher des alertes sur l'écran pendant la séance cinéma ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a077"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q103",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "ma fille a repris l'école quel jour ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a078"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q104",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel modèle de batterie acheter pour la sonde du séjour ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a079"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q105",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je ne trouve plus l'engin pour couper l'herbe, quelqu'un l'a ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a080"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q106",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qu'est-ce que l'institutrice a demandé d'apporter ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a081"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q107",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où est rangé l'arbre de Noël en plastique ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a082"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q108",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à combien je règle le chauffage là où on dort ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a083"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q109",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle référence je donne quand j'appelle pour le gaz ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a084"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q110",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand vient l'homme qui nettoie la cheminée ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a085"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q111",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle combinaison pour la remise où on range les bicyclettes ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a086"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q112",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "mon amie m'avait recommandé un roman, lequel ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a087"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q113",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quelle fréquence je peux me faire rembourser une monture ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a088"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q114",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle ambiance lumineuse je veux dans le séjour après le dîner ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a089"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q115",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel est l'identifiant de la carte d'accès aquatique de ma fille ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a090"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q116",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui est le parrain de mon fils ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a091"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q117",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où je trouve des fusibles neufs ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a092"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q118",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qu'est-ce qu'on pourrait faire un samedi de décembre en famille ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a093"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q119",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "si la machine à vaisselle tombe en panne, c'est couvert ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a094"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q120",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment s'appelle la prise commandée près du lampadaire ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a095"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q121",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je peux réserver le buffet chez Délices pour la fête ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a096"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q122",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand l'accumulateur de l'auto a-t-il été remplacé ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a097"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q123",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "j'ai besoin d'ouvrir la cabane au fond de la cour, c'est quoi la combinaison ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a098"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q124",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelles dimensions pour la nappe ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a099"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q125",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "jusqu'à quand j'ai pour passer la révision obligatoire de l'auto ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a100"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q126",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je prends mon café ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a101"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q127",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "where do the children keep their bicycles?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a102"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q128",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what permit do I need to renew this winter?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a103"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q129",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "when did we last check the fire alarm in the corridor?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a104"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q130",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "which address opens the modem settings?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a105"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q131",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿qué día cumple años la yaya?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a106"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q132",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "mamie Carmen souffle ses bougies quel jour ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a106"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q133",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿qué dulce le gusta a mi pareja en Navidad?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a107"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q134",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "bis wann ist der Eisschrank abgesichert?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a108"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q135",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "was muss ich vor dem Schnee am Auto machen lassen?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a109"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q136",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "come viaggia di solito lo zio?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a110"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q137",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "o que preciso comprar para o bichano?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a111"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q138",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ماذا تشرب زوجتي في المساء؟",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a112"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q139",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "где найти пароль от вайфай-роутера?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a113"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q140",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "ピスタチオの朝食は何時？",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a114"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q141",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "儿子能吃辣吗？",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a115"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q142",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "question": "공유기가 어디에 있지?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a116"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q143",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "question": "लाइट का बिल कब तक जमा करना है?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a117"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q144",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "question": "kombi servisi hangi ay geliyor?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a118"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q145",
+   "langue": "el",
+   "ecriture": "Grek",
+   "question": "τρώει η κόρη μου θαλασσινά;",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a119"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q146",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "waar is de extra sleutel van het tuinhuis?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a120"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q147",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel complément ma compagne doit avaler pendant la saison froide ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a121"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q148",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quelle heure ma fille doit être dehors le matin ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a122"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q149",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "j'ai un outil emprunté à rendre, à qui ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a123"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q150",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle référence de filtre pour l'aspiration au-dessus des plaques ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a124"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q151",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "tu me fais le point sur ma messagerie samedi à 9 h ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a125"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q152",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui pourrait nous aider à transporter l'armoire ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a126"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q153",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "sous quel nom est enregistrée la caméra qui filme les légumes ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a127"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q154",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "ma fille a avalé un produit ménager, qui j'appelle ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a128"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q155",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel culot pour l'éclairage de nuit du grand ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a129"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q156",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à combien doit être l'aiguille du manomètre du chauffage ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a130"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q157",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "ma compagne aime partir en plein mois d'août ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a131"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q158",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où est la copie du document officiel de la famille ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a132"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q159",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "on a une mission chez le voisin en décembre ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a133"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q160",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui d'autre peut changer la température avec son portable ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a134"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q161",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand ma compagne a-t-elle refait son permis ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a135"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q162",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "est-ce que nos amis ont un enfant pour jouer avec la petite ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a136"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q163",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où on va manger quand on veut se faire plaisir ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a137"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q164",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment j'aime monter à la capitale ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a138"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q165",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quelle heure récupérer les enfants en fin de semaine ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a139"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q166",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quel moment se fait la copie de sécurité du serveur de fichiers ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a140"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q167",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "dimanche soir j'ai besoin d'un médicament, comment savoir quelle officine est ouverte ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a141"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q168",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand est le cours de ballet de ma fille ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a142"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q169",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle longueur fait le sofa ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a143"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q170",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "si je laisse l'auto à la station toute la journée, ça me coûte combien ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a144"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q171",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment j'ouvre la pièce où on dépose les déchets ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a145"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q172",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "mon fils veut-il qu'on ferme sa chambre le soir ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a146"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q173",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "il y avait un souci avec la machine à laver ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a147"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q174",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel identifiant pour déclarer nos revenus ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a148"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q175",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle couleur pour les murs de la chambre de la petite ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a149"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q176",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où est l'embarcation gonflable ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a150"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q177",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "can I vacuum early on Sunday morning?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a022"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q178",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿dónde está el router de internet?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a007"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q179",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wie viel Mehl braucht man für Omas Pfannkuchen?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a019"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q180",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "quali sono le ore a tariffa ridotta per la corrente?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a026"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q181",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "a que horas é o judo do meu filho?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a036"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q182",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "в каком кемпинге мы останавливались?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a038"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q183",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "寝室の暖房は夜何度に設定する？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a083"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q184",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "花园小屋的密码是多少？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a098"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q185",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "في أي ساعة تأتي حافلة روز صباحاً؟",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a122"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q186",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "question": "쓰레기 버리는 곳 문 번호 알려 줘",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a145"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q187",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "question": "शुक्रवार को बच्चों को स्कूल से कब लेना है?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a139"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q188",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "question": "kızım dansa hangi gün gidiyor?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a142"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q189",
+   "langue": "el",
+   "ecriture": "Grek",
+   "question": "ποιο είναι το αγαπημένο μας εστιατόριο;",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a137"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q190",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "wat is de code van het afvalhok?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a145"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q191",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "where does Ysée's grandmother live?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a043"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q192",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "how does uncle Paolo usually travel here?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a110"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q193",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wo stehen die Fahrräder der Kinder?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a102"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q194",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "le frigo est garanti jusqu'à quand ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a108"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q195",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quelle heure mange le chat le matin ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a114"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q196",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où est écrit le mot de passe du modem ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a113"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q197",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "si je n'ai pas mes clés, comment j'entre dans la remise du jardin ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a120"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q198",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "avant quel jour il faut régler la facture d'électricité ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a117"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q199",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui a changé la batterie de l'auto cet été, on y retourne ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a097",
+    "md-a015"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q200",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je passe au magasin pour la fête de Rose, je prends quoi ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a024"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q201",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "ces chaussures en 32 iront à mon garçon ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a035"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q202",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à qui j'envoie le préavis de départ du logement ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a041"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q203",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "mets une ambiance dans le séjour ce soir, tu sais ce que je préfère",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a089"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q204",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "la télécommande de la porte du garage est cassée, comment j'entre ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a046"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q205",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "dans quel établissement va ma fille cette année ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a152"
+   ],
+   "interdits": [
+    "md-a151"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q206",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "chez quel chirurgien-dentiste prendre rendez-vous ?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a154"
+   ],
+   "interdits": [
+    "md-a153"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q207",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "redis-moi le code d'accès de l'interface du modem",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a156"
+   ],
+   "interdits": [
+    "md-a155"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q208",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "who coaches my son's soccer team now?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a158"
+   ],
+   "interdits": [
+    "md-a157"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q209",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿cuál es mi teléfono profesional ahora?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a160"
+   ],
+   "interdits": [
+    "md-a159"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "md-q210",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "Lise veut-elle changer d'emploi ?",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a161"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q211",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "tu te rappelles la combinaison de la consigne où on avait laissé les valises ?",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a162"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q212",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wie lautete mein früheres Kennwort beim Finanzamt-Portal?",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a163"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q213",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quelle heure ferme la déchetterie le dimanche ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q214",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel est le numéro de la plaque de la voiture d'Ysée ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q215",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui a offert le vélo de Rose ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q216",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "combien de chaises on a dans le grenier ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q217",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel est le code de la porte de l'école ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q218",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand a-t-on repeint la façade ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q219",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui est le pharmacien du bourg ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q220",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle est la taille de la piscine gonflable ?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q221",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "when is the next dentist appointment for Ysée?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q222",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "冰箱是什么牌子？",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q223",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "question": "할아버지 생신이 언제야?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q224",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "question": "कार का बीमा कब ख़त्म होता है?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q225",
+   "langue": "el",
+   "ecriture": "Grek",
+   "question": "πότε έρχεται ο υδραυλικός;",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q226",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "question": "çamaşır makinesinin markası ne?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q227",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment je joins la garderie des tout-petits ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a164"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q228",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "combien de temps pour que le VAE soit plein ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a165"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q229",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je lance un film qui fait peur pour notre soirée à deux ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a166"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q230",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle clé ouvre les combles ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a167"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q231",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel hébergement fallait-il bloquer pour l'hiver prochain ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a168"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q232",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je programme le robot de ménage quand Pistache est dans le salon ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a169"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q233",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "jusqu'à quelle heure on pouvait se baigner au camping ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a170"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q234",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel nom porte le détecteur de la porte de devant ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a171"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q235",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "avec quel numéro mon fils emprunte des livres ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a172"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q236",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quelle heure on lève les persiennes du lundi au vendredi ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a173"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q237",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "il y a une roue de l'auto qui se dégonfle ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a174"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q238",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qui a installé les meubles de cuisine ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a175"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q239",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "par quoi commence le matricule de santé de ma fille ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a176"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q240",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qu'est-ce que je voulais semer contre le mur ensoleillé ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a177"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q241",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à partir de quand je peux aller m'entraîner à la gym ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a178"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q242",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "le prénom de la maman d'Anaëlle, c'est quoi déjà ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a179"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q243",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "qu'est-ce que je veux entendre au réveil ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a180"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q244",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "où est la machine qui coupe le gazon toute seule ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a181"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q245",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quand est-ce qu'on recommande du mazout ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a182"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q246",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quelle langue régionale ma compagne veut étudier ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a183"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q247",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "combien on avait versé de dépôt de garantie ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a184"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q248",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "comment on alimente le frigo portable ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a185"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q249",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel âge va avoir le cousin en décembre ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a186"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q250",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "je passe chercher les bottes réparées, il me faut quel numéro ?",
+   "sorte": "indirecte",
+   "attendus": [
+    "md-a187"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q251",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "à quel volume tu dois t'adresser à moi après le dîner ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a188"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q252",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "sous quel nom on trouve le téléviseur du séjour ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a189"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q253",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "combien d'énergie fait la toiture photovoltaïque en juillet ?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a190"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q254",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "question": "quel est le groupe sanguin de ma compagne ?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a191"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q255",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "how often should we get the flue cleaned?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a192"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q256",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wie oft tausche ich die Filterpatrone im Kühlgerät?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a193"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q257",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿cuánto tiempo en el extranjero cubre la póliza de viaje?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a194"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q258",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "qual è la chiave per il frigo connesso?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a195"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q259",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "onde é o consultório dentário da minha companheira?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a196"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q260",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "что нужно было купить для уборки?",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a197"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q261",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "車のタイヤには何バール入れる？",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a198"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q262",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "女儿星期几上游泳课？",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a199"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q263",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "متى يجب تجديد عقد الشقة؟",
+   "sorte": "reformulee",
+   "attendus": [
+    "md-a200"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q264",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what can I offer Ysée to drink late in the afternoon?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a002"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q265",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what's the serial number of our boiler?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a004"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q266",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "any gift idea for Timothée?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a006"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q267",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "how do I like to be woken up?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a008"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q268",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "which neighbour has a copy of our keys?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a009"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q269",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "who is our home insurer?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a010"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q270",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "where is the water meter?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a016"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q271",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what flowers does Ysée like?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a017"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q272",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "which green vegetables will my son eat?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a027"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q273",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "when was the water heater descaled?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a031"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q274",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "should you phone me at night for an alert?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a034"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q275",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "which breaker is the garage one?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a039"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q276",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what's the current alarm code?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a052"
+   ],
+   "interdits": [
+    "md-a051"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q277",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "where did Lise use to live?",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a072"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q278",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿qué había que hacer con los radiadores de arriba?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a011"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q279",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿cuándo es la reunión con los profesores de Timothée?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a014"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q280",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿hasta qué día se paga el comedor escolar?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a018"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q281",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿qué preparamos para la fiesta de Rose?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a024"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q282",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿con qué se abre el buzón y dónde lo guardamos?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a029"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q283",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿a qué hora es la cena en casa de Amaury y Lise?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a030"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q284",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿qué número de zapato usa Timothée?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a035"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q285",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿quién es mi médico de cabecera ahora?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a054"
+   ],
+   "interdits": [
+    "md-a053"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q286",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿de qué color es el coche de Gaspard?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q287",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wie erreiche ich Ysée am besten während der Arbeit?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a040"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q288",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wo ist der Hauptwasserhahn?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a076"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q289",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wann ist Rose wieder in die Schule gegangen?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a078"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q290",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wer hat gerade unseren Rasenmäher?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a080"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q291",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wo ist der künstliche Weihnachtsbaum?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a082"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q292",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wie lautet unsere Kundennummer beim Gasversorger?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a084"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q293",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "an welchem Tag wird der gelbe Sack abgeholt?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a066"
+   ],
+   "interdits": [
+    "md-a065"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "md-q294",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wie heißt der Hund der Nachbarn?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q295",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "quando passa lo spazzacamino?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a085"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q296",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "qual è la combinazione del deposito bici?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a086"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q297",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "che libro mi ha consigliato Lise?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a087"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q298",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "ogni quanto la mutua rimborsa gli occhiali?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a088"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q299",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "chi è il padrino di Timothée?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a091"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q300",
+   "langue": "it",
+   "ecriture": "Latn",
+   "question": "chi è la tata del mercoledì adesso?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a064"
+   ],
+   "interdits": [
+    "md-a063"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "md-q301",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "onde estão os fusíveis de reserva?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a092"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q302",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "até quando a máquina de lavar loiça tem garantia?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a094"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q303",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "quando foi trocada a bateria do carro?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a097"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q304",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "quais são as medidas da mesa de jantar?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a099"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q305",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "question": "quanto pagamos de renda agora?",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a068"
+   ],
+   "interdits": [
+    "md-a067"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "md-q306",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "متى يجب إجراء الفحص الفني للسيارة؟",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a100"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q307",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ما الفيتامين الذي يجب أن تأخذه إيزيه في الشتاء؟",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a121"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q308",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "لمن يجب أن أعيد المثقاب؟",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a123"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q309",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "بأي رقم أتصل في حالة تسمم؟",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a128"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q310",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "question": "ما لون سيارة الجار؟",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q311",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "какую лампочку купить для ночника Тимоте?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a129"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q312",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "какое давление должно быть в котле?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a130"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q313",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "когда Гаспар уезжает в путешествие?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a133"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q314",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "когда Изе обновила водительские права?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a135"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q315",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "question": "как дочка называет свою игрушку?",
+   "sorte": "oubli",
+   "attendus": [],
+   "interdits": [
+    "md-a073"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "md-q316",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "家族のお気に入りのレストランはどこ？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a137"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q317",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "NASのバックアップは何時に始まる？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a140"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q318",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "ローズのダンスは何曜日？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a142"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q319",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "駅に一日車を置くと料金はどれくらい？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a144"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q320",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "question": "市民プールは平日何時に開く？",
+   "sorte": "plus-recent",
+   "attendus": [
+    "md-a062"
+   ],
+   "interdits": [
+    "md-a061"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "md-q321",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "儿子睡觉时门要开着吗？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a146"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q322",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "洗衣机有什么问题？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a147"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q323",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "罗丝的房间要刷成什么颜色？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a149"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q324",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "皮划艇放在哪里？",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a150"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q325",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "question": "邻居家的狗叫什么名字？",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q326",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "question": "어린이집 전화번호가 뭐야?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a164"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q327",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "question": "전기 자전거 충전하는 데 얼마나 걸려?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a165"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q328",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "question": "다락방 열쇠는 어떤 거야?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a167"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q329",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "question": "캠핑장 수영장은 몇 시에 닫았어?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a170"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q330",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "question": "तिमोते का लाइब्रेरी कार्ड नंबर क्या है?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a172"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q331",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "question": "हफ़्ते के दिनों में शटर कितने बजे खुलते हैं?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a173"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q332",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "question": "गाड़ी का कौन सा टायर हवा छोड़ रहा है?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a174"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q333",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "question": "रसोई किसने लगाई थी?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a175"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q334",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "question": "spor salonu kaçta açılıyor?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a178"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q335",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "question": "Rose'un arkadaşının annesinin adı ne?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a179"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q336",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "question": "sabahları ne duymak istiyorum?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a180"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q337",
+   "langue": "tr",
+   "ecriture": "Latn",
+   "question": "bir sonraki yakıt siparişi ne zaman?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a182"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q338",
+   "langue": "el",
+   "ecriture": "Grek",
+   "question": "ποια γλώσσα θέλει να μάθει η Υζέ;",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a183"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q339",
+   "langue": "el",
+   "ecriture": "Grek",
+   "question": "πόση ήταν η εγγύηση του διαμερίσματος;",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a184"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q340",
+   "langue": "el",
+   "ecriture": "Grek",
+   "question": "πότε έχει γενέθλια ο ξάδερφος Ματυρέν;",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a186"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q341",
+   "langue": "el",
+   "ecriture": "Grek",
+   "question": "πώς λέγεται η τηλεόραση του σαλονιού στο δίκτυο;",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a189"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q342",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "hoeveel stroom maken de zonnepanelen in de zomer?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a190"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q343",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "welke naam heeft de deursensor bij de ingang?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a171"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q344",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "welk vakantiehuisje moest ik reserveren?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a168"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q345",
+   "langue": "nl",
+   "ecriture": "Latn",
+   "question": "houdt Ysée van horrorfilms?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a166"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q346",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "question": "czego boi się kot?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a169"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q347",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "question": "gdzie stoi robot koszący?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a181"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q348",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "question": "jak zasilić lodówkę turystyczną?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a185"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q349",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "question": "jaki jest numer kwitu od szewca?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a187"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q350",
+   "langue": "pl",
+   "ecriture": "Latn",
+   "question": "ile lat ma sąsiad Gaspard?",
+   "sorte": "sans-reponse",
+   "attendus": [],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q351",
+   "langue": "sv",
+   "ecriture": "Latn",
+   "question": "hur ska du prata med mig på kvällen?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a188"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q352",
+   "langue": "sv",
+   "ecriture": "Latn",
+   "question": "vad börjar Roses personnummer med?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a176"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q353",
+   "langue": "sv",
+   "ecriture": "Latn",
+   "question": "vad ville jag plantera vid södra väggen?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a177"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q354",
+   "langue": "sv",
+   "ecriture": "Latn",
+   "question": "hur lång är soffan?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a143"
+   ],
+   "interdits": [],
+   "aRelire": true
+  },
+  {
+   "id": "md-q355",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what's our family tax number?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a148"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q356",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "does Ysée like holidays during school breaks?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a131"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q357",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "who has a van for moving furniture?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a126"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q358",
+   "langue": "en",
+   "ecriture": "Latn",
+   "question": "what's the vegetable garden camera called?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a127"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q359",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿dónde está la copia del libro de familia?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a132"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q360",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿quién más puede cambiar el termostato desde el móvil?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a134"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q361",
+   "langue": "es",
+   "ecriture": "Latn",
+   "question": "¿cómo se llama el hijo de Lise y Amaury?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a136"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q362",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wie fahre ich am liebsten nach Paris?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a138"
+   ],
+   "interdits": [],
+   "aRelire": false
+  },
+  {
+   "id": "md-q363",
+   "langue": "de",
+   "ecriture": "Latn",
+   "question": "wo finde ich die Notdienst-Apotheke?",
+   "sorte": "autre-langue",
+   "attendus": [
+    "md-a141"
+   ],
+   "interdits": [],
+   "aRelire": false
+  }
+ ],
+ "historique": [
+  {
+   "version": 1,
+   "date": "2026-11-17",
+   "quoi": "première écriture"
+  },
+  {
+   "version": 2,
+   "date": "2026-11-17",
+   "pourquoi": "relecture du 17/11 (file-attente/carnets/relecture-soul-v3.md, constats G1 à P8)",
+   "changements": [
+    "P4 : écritures alignées (Hans, Kore)",
+    "M7 : 17 questions et 4 souvenirs réécrits (trop proches d'un texte d'un jeu figé) : md-q043, md-q055, md-q063, md-q084, md-q132, md-q185, md-q186, md-q187, md-q197, md-q200, md-q203, md-q211, md-q242, md-q282, md-q309, md-q319, md-q343, md-a100, md-a128, md-a135, md-a176"
+   ]
+  }
+ ]
+}

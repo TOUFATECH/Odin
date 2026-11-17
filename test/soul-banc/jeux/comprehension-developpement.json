@@ -1,0 +1,5214 @@
+{
+ "version": 2,
+ "origine": "Écrit par un agent le 2026-11-17 à partir des actions et des réglages des modules de src/valhalla/ (catalogue réel), sans reprendre les listes de mots, les exemples des modules ni les demandes d'apprentissage. Non relu par une personne. Les demandes marquées aRelire doivent être relues par quelqu'un qui parle la langue. Jeu de travail : ses phrases servent à analyser les erreurs. Version 2 (2026-11-17) : corrigée après une relecture par un agent ; les demandes ajoutées ou réécrites sont aussi écrites par un agent, non relues par une personne.",
+ "fige": false,
+ "maintenant": "2026-11-17T10:00:00",
+ "demandes": [
+  {
+   "id": "cd001",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve dans mes notes la recette du rougail saucisse",
+   "appli": "saga",
+   "action": "chercher",
+   "reglages": {
+    "q": "recette du rougail saucisse"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd002",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute à la note que le code du portillon est 4512",
+   "appli": "saga",
+   "action": "completer",
+   "reglages": {
+    "texte": "le code du portillon est 4512"
+   },
+   "manque": [
+    "note"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd003",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "search my notes for router password reset steps",
+   "appli": "saga",
+   "action": "chercher",
+   "reglages": {
+    "q": "router password reset steps"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd004",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée une fiche client pour Amina Saïd, son mail c'est amina@example.org",
+   "appli": "runes",
+   "action": "client",
+   "reglages": {
+    "nom": "Amina Saïd",
+    "contact": "amina@example.org"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd005",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre une fiche client pour la dame qui a appelé ce matin",
+   "appli": "runes",
+   "action": "client",
+   "reglages": {},
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd006",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "déclenche l'automatisation je-pars",
+   "appli": "draupnir",
+   "action": "executer",
+   "reglages": {
+    "nom": "je-pars"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd007",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "starte bitte eine Automatisierung",
+   "appli": "draupnir",
+   "action": "executer",
+   "reglages": {},
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd008",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "affiche le script nettoyage-photos",
+   "appli": "archytas",
+   "action": "voir_script",
+   "reglages": {
+    "nom": "nettoyage-photos"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd009",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels sont les 5 processus qui prennent le plus de mémoire",
+   "appli": "eir",
+   "action": "processus",
+   "reglages": {
+    "tri": "memoire",
+    "n": 5
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd010",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "¿qué diez programas se comen más RAM? enséñamelos",
+   "appli": "eir",
+   "action": "processus",
+   "reglages": {
+    "tri": "memoire",
+    "n": 10
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd011",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "règle les seuils d'alerte de la température",
+   "appli": "eir",
+   "action": "seuils",
+   "reglages": {
+    "mesure": "temp"
+   },
+   "manque": [
+    "suivre",
+    "attention",
+    "grave"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd012",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tue le processus 48213",
+   "appli": "skogul",
+   "action": "tuer",
+   "reglages": {
+    "pid": 48213
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd013",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "убей процесс 7731",
+   "appli": "skogul",
+   "action": "tuer",
+   "reglages": {
+    "pid": 7731
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd014",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête ce programme qui mouline depuis une heure",
+   "appli": "skogul",
+   "action": "tuer",
+   "reglages": {},
+   "manque": [
+    "pid"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd015",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "chasse les connexions vers 203.0.113.77",
+   "appli": "forseti",
+   "action": "chercher",
+   "reglages": {
+    "q": "connexions vers 203.0.113.77"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd016",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis 203.0.113.45 pendant deux heures",
+   "appli": "garmr",
+   "action": "bannir",
+   "reglages": {
+    "ip": "203.0.113.45",
+    "minutes": 120
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd017",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "ban 198.51.100.200 for 30 minutes",
+   "appli": "garmr",
+   "action": "bannir",
+   "reglages": {
+    "ip": "198.51.100.200",
+    "minutes": 30
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd018",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis l'adresse qui essaie de forcer le SSH depuis cette nuit",
+   "appli": "garmr",
+   "action": "bannir",
+   "reglages": {},
+   "manque": [
+    "ip"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd019",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "احظر العنوان 203.0.113.9",
+   "appli": "garmr",
+   "action": "bannir",
+   "reglages": {
+    "ip": "203.0.113.9"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd020",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "débannis 198.51.100.14, c'est l'ordi de mon frère",
+   "appli": "garmr",
+   "action": "debannir",
+   "reglages": {
+    "ip": "198.51.100.14"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd021",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il faut le port 25565 ouvert en tcp, c'est pour le Minecraft des enfants",
+   "appli": "garmr",
+   "action": "ouvrir_port",
+   "reglages": {
+    "port": 25565,
+    "proto": "tcp"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false,
+   "aussi": [
+    "hlid.ouvrir_port"
+   ]
+  },
+  {
+   "id": "cd022",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "apri la porta 51413 in udp",
+   "appli": "garmr",
+   "action": "ouvrir_port",
+   "reglages": {
+    "port": 51413,
+    "proto": "udp"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true,
+   "aussi": [
+    "hlid.ouvrir_port"
+   ]
+  },
+  {
+   "id": "cd023",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ferme le port qu'on avait ouvert pour la console",
+   "appli": "garmr",
+   "action": "fermer_port",
+   "reglages": {},
+   "manque": [
+    "port"
+   ],
+   "sorte": "manque",
+   "aRelire": false,
+   "aussi": [
+    "hlid.fermer_port"
+   ]
+  },
+  {
+   "id": "cd024",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "est-ce que l'adresse 203.0.113.120 est connue comme dangereuse ?",
+   "appli": "geri",
+   "action": "verifier",
+   "reglages": {
+    "ip": "203.0.113.120"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd025",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "查一下 198.51.100.66 这个地址安全吗",
+   "appli": "geri",
+   "action": "verifier",
+   "reglages": {
+    "ip": "198.51.100.66"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd026",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "qu'est-ce qui passe sur le réseau pour 192.0.2.30 depuis un quart d'heure",
+   "appli": "ran",
+   "action": "expliquer",
+   "reglages": {
+    "ip": "192.0.2.30",
+    "minutes": 15
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd027",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "analyse le fichier /home/lina/Téléchargements/facture.pdf.exe",
+   "appli": "ullr",
+   "action": "fichier",
+   "reglages": {
+    "chemin": "/home/lina/Téléchargements/facture.pdf.exe"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd028",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "is this link safe? https://promo.example.net/win",
+   "appli": "ullr",
+   "action": "adresse",
+   "reglages": {
+    "lien": "https://promo.example.net/win"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd029",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "vérifie le lien que m'a envoyé ma banque, il a l'air bizarre",
+   "appli": "ullr",
+   "action": "adresse",
+   "reglages": {},
+   "manque": [
+    "lien"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd030",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "planifie une analyse antivirus du dossier Documents chaque semaine à 2h",
+   "appli": "ullr",
+   "action": "plan",
+   "reglages": {
+    "dossier": "Documents",
+    "quand": "semaine",
+    "heure": "02:00"
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd031",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "analisa o ficheiro D:\\instaladores\\setup.exe",
+   "appli": "ullr",
+   "action": "fichier",
+   "reglages": {
+    "chemin": "D:\\instaladores\\setup.exe"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd032",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "éteins le piège fenrir",
+   "appli": "loki",
+   "action": "eteindre",
+   "reglages": {
+    "piege": "fenrir"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd033",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre la chronologie du poste portable-lina",
+   "appli": "argos",
+   "action": "chronologie",
+   "reglages": {
+    "poste": "portable-lina"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd034",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "le conteneur nextcloud est figé, redémarre-le",
+   "appli": "naglfar",
+   "action": "redemarrer",
+   "reglages": {
+    "conteneur": "nextcloud"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd035",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "what does the jellyfin container say in its logs?",
+   "appli": "naglfar",
+   "action": "journaux",
+   "reglages": {
+    "conteneur": "jellyfin"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd036",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "arrête le conteneur qui plante",
+   "appli": "naglfar",
+   "action": "arreter",
+   "reglages": {},
+   "manque": [
+    "conteneur"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd037",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "lade das Image postgres:17 herunter",
+   "appli": "naglfar",
+   "action": "tirer",
+   "reglages": {
+    "image": "postgres:17"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd038",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "récupère l'image nginx:1.27",
+   "appli": "naglfar",
+   "action": "tirer",
+   "reglages": {
+    "image": "nginx:1.27"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd039",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre les lignes de la table commandes dans la base boutique",
+   "appli": "urdr",
+   "action": "lignes",
+   "reglages": {
+    "base": "boutique",
+    "table": "commandes"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd040",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre-moi les lignes de la base boutique",
+   "appli": "urdr",
+   "action": "lignes",
+   "reglages": {
+    "base": "boutique"
+   },
+   "manque": [
+    "table"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd041",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sauvegarde tout de suite la base facturation",
+   "appli": "skuld",
+   "action": "sauvegarder",
+   "reglages": {
+    "base": "facturation"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd042",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "inventaire のデータベースを今すぐバックアップして",
+   "appli": "skuld",
+   "action": "sauvegarder",
+   "reglages": {
+    "base": "inventaire"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd043",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "apprends le mot Mamoudzou à la dictée",
+   "appli": "rodd",
+   "action": "ajouter_mot",
+   "reglages": {
+    "mot": "Mamoudzou"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd044",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "boot up vm 210",
+   "appli": "ymir",
+   "action": "demarrer",
+   "reglages": {
+    "vmid": 210
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd045",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un instantané de la machine 101 appelé avant-maj",
+   "appli": "ymir",
+   "action": "instantane",
+   "reglages": {
+    "vmid": 101,
+    "nom": "avant-maj"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd046",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends un instantané de la VM avant que je touche à la config",
+   "appli": "ymir",
+   "action": "instantane",
+   "reglages": {},
+   "manque": [
+    "vmid"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd047",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "donne 4 cœurs et 8 Go de mémoire à la machine web",
+   "appli": "ymir",
+   "action": "ressources_machine",
+   "reglages": {
+    "machine": "web",
+    "coeurs": 4,
+    "memoire": 8
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd048",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "passe la machine web à 2 cœurs",
+   "appli": "ymir",
+   "action": "ressources_machine",
+   "reglages": {
+    "machine": "web",
+    "coeurs": 2
+   },
+   "manque": [
+    "memoire"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd049",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "clone la machine modele-debian sous le nom essai-2",
+   "appli": "ymir",
+   "action": "cloner_machine",
+   "reglages": {
+    "machine": "modele-debian",
+    "nom": "essai-2"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd050",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "клонируй машину build под именем build-copy",
+   "appli": "ymir",
+   "action": "cloner_machine",
+   "reglages": {
+    "machine": "build",
+    "nom": "build-copy"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd051",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "garde un œil sur boutique.example.org, préviens-moi s'il tombe",
+   "appli": "idunn",
+   "action": "ajouter",
+   "reglages": {
+    "adresse": "boutique.example.org"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd052",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "vigila la web https://tienda.example.com",
+   "appli": "idunn",
+   "action": "ajouter",
+   "reglages": {
+    "adresse": "https://tienda.example.com"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd053",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance une sauvegarde complète du plan photos",
+   "appli": "sindri",
+   "action": "sauvegarder",
+   "reglages": {
+    "plan": "photos",
+    "sorte": "complète"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd054",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais une sauvegarde complète maintenant",
+   "appli": "sindri",
+   "action": "sauvegarder",
+   "reglages": {
+    "sorte": "complète"
+   },
+   "manque": [
+    "plan"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd055",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve budget-2025.xlsx dans les sauvegardes",
+   "appli": "sindri",
+   "action": "chercher",
+   "reglages": {
+    "nom": "budget-2025.xlsx"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd056",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "such in den Sicherungen nach der Datei steuer.pdf",
+   "appli": "sindri",
+   "action": "chercher",
+   "reglages": {
+    "nom": "steuer.pdf"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd057",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il me faut un mot de passe tout neuf, long de 32 caractères",
+   "appli": "brisingamen",
+   "action": "generer",
+   "reglages": {
+    "longueur": 32
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd058",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "make up a fresh password, 16 characters long",
+   "appli": "brisingamen",
+   "action": "generer",
+   "reglages": {
+    "longueur": 16
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd059",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche dans le coffre le mot de passe du wifi du bureau",
+   "appli": "brisingamen",
+   "action": "chercher",
+   "reglages": {
+    "q": "wifi du bureau"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd060",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "24자리 비밀번호 만들어 줘",
+   "appli": "brisingamen",
+   "action": "generer",
+   "reglages": {
+    "longueur": 24
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd061",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "affiche le QR code VPN de telephone-noah",
+   "appli": "gjoll",
+   "action": "qr",
+   "reglages": {
+    "nom": "telephone-noah"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd062",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre-moi le QR code du VPN pour le nouveau téléphone",
+   "appli": "gjoll",
+   "action": "qr",
+   "reglages": {},
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd063",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "révoque l'accès VPN de tablette-ancienne",
+   "appli": "gjoll",
+   "action": "revoquer",
+   "reglages": {
+    "nom": "tablette-ancienne"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd064",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bloque le domaine paris-en-ligne.example.com",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {
+    "domaine": "paris-en-ligne.example.com"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd065",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "block ads.example.net on the whole network",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {
+    "domaine": "ads.example.net"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd066",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bloque ce site de jeux d'argent pour toute la maison",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {},
+   "manque": [
+    "domaine"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd067",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "autorise cdn.example.org, la page de l'école ne s'affiche plus",
+   "appli": "vidarr",
+   "action": "autoriser",
+   "reglages": {
+    "domaine": "cdn.example.org"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd068",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe TikTok sur le réseau",
+   "appli": "vidarr",
+   "action": "services",
+   "reglages": {
+    "service": "tiktok",
+    "coupe": true
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd069",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "corta YouTube en toda la casa",
+   "appli": "vidarr",
+   "action": "services",
+   "reglages": {
+    "service": "youtube",
+    "coupe": true
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd070",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets le blocage des pubs en pause dix minutes",
+   "appli": "vidarr",
+   "action": "pause",
+   "reglages": {
+    "minutes": 10
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd071",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe Internet à la machine 192.0.2.44",
+   "appli": "vidarr",
+   "action": "couper_machine",
+   "reglages": {
+    "ip": "192.0.2.44"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd072",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bloque jeux.example.com de 22h à 6h",
+   "appli": "vidarr",
+   "action": "bloquer_horaires",
+   "reglages": {
+    "domaine": "jeux.example.com",
+    "de": "22:00",
+    "a": "06:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd073",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bloque ce site entre 21h et 7h",
+   "appli": "vidarr",
+   "action": "bloquer_horaires",
+   "reglages": {
+    "de": "21:00",
+    "a": "07:00"
+   },
+   "manque": [
+    "domaine"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd074",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "est-ce que meteo.example.org est bloqué ?",
+   "appli": "vidarr",
+   "action": "tester",
+   "reglages": {
+    "domaine": "meteo.example.org"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd075",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute une sonde ping appelée routeur vers 192.0.2.1",
+   "appli": "vordr",
+   "action": "ajouter",
+   "reglages": {
+    "nom": "routeur",
+    "genre": "ping",
+    "cible": "192.0.2.1"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd076",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "surveille https://wiki.example.org avec une sonde http",
+   "appli": "vordr",
+   "action": "ajouter",
+   "reglages": {
+    "genre": "http",
+    "cible": "https://wiki.example.org"
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd077",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets la sonde imprimante en pause",
+   "appli": "vordr",
+   "action": "pause",
+   "reglages": {
+    "nom": "imprimante"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd078",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "riprendi la sonda nas",
+   "appli": "vordr",
+   "action": "reprendre",
+   "reglages": {
+    "nom": "nas"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd079",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prête la tablette-salon à Noah jusqu'à vendredi",
+   "appli": "askr",
+   "action": "preter",
+   "reglages": {
+    "appareil": "tablette-salon",
+    "a": "Noah",
+    "retour": "2026-11-20"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd080",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "note que j'ai prêté la perceuse",
+   "appli": "askr",
+   "action": "preter",
+   "reglages": {
+    "appareil": "perceuse"
+   },
+   "manque": [
+    "a"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd081",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "lend camera-2 to Sofia until Sunday",
+   "appli": "askr",
+   "action": "preter",
+   "reglages": {
+    "appareil": "camera-2",
+    "a": "Sofia",
+    "retour": "2026-11-22"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd082",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "publie photos.example.org vers 192.0.2.20:2342",
+   "appli": "valgrind",
+   "action": "ajouter",
+   "reglages": {
+    "domaines": "photos.example.org",
+    "cible": "192.0.2.20:2342"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd083",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "redirige old.example.org vers https://new.example.org",
+   "appli": "valgrind",
+   "action": "rediriger",
+   "reglages": {
+    "domaine": "old.example.org",
+    "vers": "https://new.example.org"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd084",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "redirige ancien.example.org",
+   "appli": "valgrind",
+   "action": "rediriger",
+   "reglages": {
+    "domaine": "ancien.example.org"
+   },
+   "manque": [
+    "vers"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd085",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un compte ines pour Inès Martin dans le groupe famille",
+   "appli": "var",
+   "action": "ajouter",
+   "reglages": {
+    "login": "ines",
+    "nom": "Inès Martin",
+    "groupes": "famille"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd086",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute Yanis Haddad comme utilisateur",
+   "appli": "var",
+   "action": "ajouter",
+   "reglages": {
+    "nom": "Yanis Haddad"
+   },
+   "manque": [
+    "login"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd087",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "log sofia out everywhere",
+   "appli": "var",
+   "action": "couper_sessions",
+   "reglages": {
+    "login": "sofia"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd088",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un lien de partage de l'espace Famille valable 3 jours",
+   "appli": "skidbladnir",
+   "action": "lien",
+   "reglages": {
+    "espace": "Famille",
+    "jours": 3
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd089",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un lien de partage pour une semaine",
+   "appli": "skidbladnir",
+   "action": "lien",
+   "reglages": {
+    "jours": 7
+   },
+   "manque": [
+    "espace"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd090",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un espace Asso de 50 Go",
+   "appli": "skidbladnir",
+   "action": "espace",
+   "reglages": {
+    "nom": "Asso",
+    "quota_go": 50
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd091",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "va chercher la dernière ISO Debian et télécharge-la",
+   "appli": "eitri",
+   "action": "telecharger",
+   "reglages": {
+    "nom": "Debian"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd092",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "download the Ubuntu Server ISO",
+   "appli": "eitri",
+   "action": "telecharger",
+   "reglages": {
+    "nom": "Ubuntu Server"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd093",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "télécharge l'installateur de VLC",
+   "appli": "fjalar",
+   "action": "telecharger",
+   "reglages": {
+    "nom": "VLC"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd094",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pour la météo, suis désormais Lyon",
+   "appli": "gladsheim",
+   "action": "lieu",
+   "reglages": {
+    "ville": "Lyon"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd095",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "muda a cidade da meteorologia para o Porto",
+   "appli": "gladsheim",
+   "action": "lieu",
+   "reglages": {
+    "ville": "Porto"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd096",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il fait beau à Brest en ce moment ?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "reglages": {
+    "ville": "Brest"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd097",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets le thème braise sur l'écran de la maison",
+   "appli": "gladsheim",
+   "action": "theme",
+   "reglages": {
+    "theme": "braise"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd098",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets côte à côte les prévisions des différents modèles pour les 5 prochains jours",
+   "appli": "zeus",
+   "action": "comparer",
+   "reglages": {
+    "jours": 5
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd099",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "affiche le parcours de Jade d'hier",
+   "appli": "gna",
+   "action": "trajets",
+   "reglages": {
+    "membre": "Jade",
+    "jour": "hier"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd100",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "enséñame los trayectos de Mateo de anteayer",
+   "appli": "gna",
+   "action": "trajets",
+   "reglages": {
+    "membre": "Mateo",
+    "jour": "avant-hier"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd101",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "appelle ce lieu « Club de foot »",
+   "appli": "gna",
+   "action": "nommer_lieu",
+   "reglages": {
+    "nom": "Club de foot"
+   },
+   "manque": [
+    "membre"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd102",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "passe Odin au thème forêt",
+   "appli": "apparence",
+   "action": "theme",
+   "reglages": {
+    "theme": "foret"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd103",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quelle commande sert à redémarrer un conteneur ?",
+   "appli": "commandes",
+   "action": "chercher",
+   "reglages": {
+    "q": "redémarrer un conteneur"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd104",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche les actualités sur la fusion nucléaire",
+   "appli": "volva",
+   "action": "chercher",
+   "reglages": {
+    "question": "fusion nucléaire",
+    "focus": "actualites"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd105",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "look up how do tides work",
+   "appli": "volva",
+   "action": "chercher",
+   "reglages": {
+    "question": "how do tides work"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd106",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "réveille pc-bureau",
+   "appli": "hermod",
+   "action": "reveiller",
+   "reglages": {
+    "machine": "pc-bureau"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd107",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "démarre mon PC à distance, je ne suis pas à la maison",
+   "appli": "hermod",
+   "action": "reveiller",
+   "reglages": {},
+   "manque": [
+    "machine"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd108",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "starte pc-kinderzimmer neu",
+   "appli": "hermod",
+   "action": "redemarrer",
+   "reglages": {
+    "machine": "pc-kinderzimmer"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd109",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "la petite lampe à côté du canapé, allume-la",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": {
+     "un_de": [
+      "petite lampe à côté du canapé",
+      "lampe à côté du canapé"
+     ]
+    },
+    "valeur": "on"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "cd110",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ferme le volet de la cuisine",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": "volet de la cuisine",
+    "valeur": "fermer"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "cd111",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets la clim de la chambre à 21",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": "clim de la chambre",
+    "valeur": "21"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "cd112",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn off the porch light",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": "porch light",
+    "valeur": "off"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "cd113",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "enciende el ventilador del dormitorio",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": "ventilador del dormitorio",
+    "valeur": "on"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "cd114",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أطفئ مصباح المطبخ",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": "مصباح المطبخ",
+    "valeur": "off"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "cd115",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "リビングの照明をつけて",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": "リビングの照明",
+    "valeur": "on"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "cd116",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "baisse à 50 %",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "valeur": "50%"
+   },
+   "manque": [
+    "appareil"
+   ],
+   "sorte": "manque",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": false
+  },
+  {
+   "id": "cd117",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets-le à 20",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": false
+  },
+  {
+   "id": "cd118",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "passe en scène cinéma, on commence le film",
+   "appli": "midgard",
+   "action": "scene",
+   "reglages": {
+    "scene": "cinéma"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd119",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "включи сцену «ночь»",
+   "appli": "midgard",
+   "action": "scene",
+   "reglages": {
+    "scene": "ночь"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd120",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais-moi un cliché de ce que voit la caméra du portail",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "reglages": {
+    "camera": {
+     "un_de": [
+      "portail",
+      "caméra du portail"
+     ]
+    }
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd121",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre la caméra du garage pendant une minute",
+   "appli": "himinbjorg",
+   "action": "enregistrer",
+   "reglages": {
+    "camera": "garage",
+    "secondes": 60
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd122",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre 30 secondes de vidéo",
+   "appli": "himinbjorg",
+   "action": "enregistrer",
+   "reglages": {
+    "secondes": 30
+   },
+   "manque": [
+    "camera"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd123",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "用门口的摄像头拍一张照片",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "reglages": {
+    "camera": "门口"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd124",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "dis « à table ! »",
+   "appli": "bragi",
+   "action": "dire",
+   "reglages": {
+    "texte": "à table !"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd125",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "annonce dans la cuisine : le repas est prêt",
+   "appli": "bragi",
+   "action": "annoncer",
+   "reglages": {
+    "message": "le repas est prêt",
+    "ou": "cuisine"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd126",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "announce everywhere: the bus leaves in five minutes",
+   "appli": "bragi",
+   "action": "annoncer",
+   "reglages": {
+    "message": "the bus leaves in five minutes",
+    "ou": {
+     "un_de": [
+      "everywhere",
+      "partout"
+     ]
+    }
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd127",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais une annonce dans le salon",
+   "appli": "bragi",
+   "action": "annoncer",
+   "reglages": {
+    "ou": "salon"
+   },
+   "manque": [
+    "message"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd128",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance Le Roi Lion sur l'écran du salon",
+   "appli": "freyja",
+   "action": "regarder",
+   "reglages": {
+    "quoi": "Le Roi Lion",
+    "ou": {
+     "un_de": [
+      "salon",
+      "écran du salon"
+     ]
+    }
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd129",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre France 2 ce soir à 21h pendant deux heures",
+   "appli": "freyja",
+   "action": "enregistrer_plage",
+   "reglages": {
+    "chaine": "France 2",
+    "debut": "21:00",
+    "minutes": 120
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd130",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre à 20h45 pendant 1h30",
+   "appli": "freyja",
+   "action": "enregistrer_plage",
+   "reglages": {
+    "debut": "20:45",
+    "minutes": 90
+   },
+   "manque": [
+    "chaine"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd131",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "est-ce qu'on a Kaamelott dans la vidéothèque ?",
+   "appli": "freyja",
+   "action": "chercher",
+   "reglages": {
+    "quoi": "Kaamelott"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd132",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "request the movie Dune Part Two",
+   "appli": "freyja",
+   "action": "demander",
+   "reglages": {
+    "titre": "Dune Part Two",
+    "type": "film"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd133",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "metti La vita è bella sulla tv della camera",
+   "appli": "freyja",
+   "action": "regarder",
+   "reglages": {
+    "quoi": "La vita è bella",
+    "ou": {
+     "un_de": [
+      "camera",
+      "tv della camera"
+     ]
+    }
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd134",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute la radio Radio Mayotte avec le flux https://flux.example.org/radio.mp3",
+   "appli": "aegir",
+   "action": "radio",
+   "reglages": {
+    "nom": "Radio Mayotte",
+    "adresse": "https://flux.example.org/radio.mp3"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd135",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute la radio Radio Soleil",
+   "appli": "aegir",
+   "action": "radio",
+   "reglages": {
+    "nom": "Radio Soleil"
+   },
+   "manque": [
+    "adresse"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd136",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "toca Cesária Évora",
+   "appli": "aegir",
+   "action": "jouer",
+   "reglages": {
+    "quoi": "Cesária Évora"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd137",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels créneaux sont libres jeudi pour un massage ?",
+   "appli": "frigg",
+   "action": "creneaux",
+   "reglages": {
+    "service": "massage",
+    "jour": "2026-11-19"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd138",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "réserve une coupe vendredi à 15h pour Malik Benali, téléphone 01 99 00 12 34",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "coupe",
+    "jour": "2026-11-20",
+    "heure": "15:00",
+    "nom": "Malik Benali",
+    "contact": "01 99 00 12 34"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd139",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "réserve une coupe demain à 10h30",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "coupe",
+    "jour": "2026-11-18",
+    "heure": "10:30"
+   },
+   "manque": [
+    "nom",
+    "contact"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd140",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "prends rendez-vous pour une manucure au nom de Chloé Durand, chloe@example.org",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "manucure",
+    "nom": "Chloé Durand",
+    "contact": "chloe@example.org"
+   },
+   "manque": [
+    "jour",
+    "heure"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd141",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute un rendez-vous chez le dentiste jeudi à 14h30",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "dentiste",
+    "quand": "2026-11-19 14:30"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd142",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "note un rendez-vous chez le garagiste",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "garagiste"
+   },
+   "manque": [
+    "quand"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd143",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "add a parent-teacher meeting tomorrow at 5 pm",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "parent-teacher meeting",
+    "quand": "2026-11-18 17:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd144",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute une prestation soin du visage de 45 minutes à 35 euros",
+   "appli": "frigg",
+   "action": "prestation",
+   "reglages": {
+    "nom": "soin du visage",
+    "minutes": 45,
+    "prix": 35
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd145",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute la prestation pédicure à 25 euros",
+   "appli": "frigg",
+   "action": "prestation",
+   "reglages": {
+    "nom": "pédicure",
+    "prix": 25
+   },
+   "manque": [
+    "minutes"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd146",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "welche Termine sind morgen für eine Massage frei?",
+   "appli": "frigg",
+   "action": "creneaux",
+   "reglages": {
+    "service": "Massage",
+    "jour": "2026-11-18"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd147",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "étudie https://github.com/example/serveur-photos",
+   "appli": "kvasir",
+   "action": "etudier",
+   "reglages": {
+    "lien": "https://github.com/example/serveur-photos"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd148",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un tableau de bord Réseau maison sur 7 jours",
+   "appli": "syn",
+   "action": "creer",
+   "reglages": {
+    "nom": "Réseau maison",
+    "periode": "7j"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd149",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un PDF à partir de rapport.docx",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "reglages": {
+    "fichier": "rapport.docx",
+    "format": "pdf"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd150",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "convert holiday.mov to mp4",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "reglages": {
+    "fichier": "holiday.mov",
+    "format": "mp4"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd151",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "convertis cette photo en webp",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "reglages": {
+    "format": "webp"
+   },
+   "manque": [
+    "fichier"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd152",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "surveille le dossier /srv/scans et convertis tout en pdf",
+   "appli": "dvalinn",
+   "action": "surveiller",
+   "reglages": {
+    "dossier": "/srv/scans",
+    "format": "pdf"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd153",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "اقرأ النص العربي في ملف عقد.pdf",
+   "appli": "champollion",
+   "action": "lire",
+   "reglages": {
+    "fichier": "عقد.pdf",
+    "langues": "ara"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd154",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre les erreurs des journaux des 6 dernières heures",
+   "appli": "mimisbrunnr",
+   "action": "chercher",
+   "reglages": {
+    "niveau": "erreur",
+    "heures": 6
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd155",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "cherche « disk full » dans les journaux des deux derniers jours",
+   "appli": "mimisbrunnr",
+   "action": "chercher",
+   "reglages": {
+    "q": "disk full",
+    "heures": 48
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd156",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "vide la corbeille de la machine",
+   "appli": "gefjon",
+   "action": "nettoyer",
+   "reglages": {
+    "categorie": "corbeille"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd345",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "освободи место на диске: убери все временные файлы",
+   "appli": "gefjon",
+   "action": "nettoyer",
+   "reglages": {
+    "categorie": "temporaires"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd158",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre mes photos de juillet 2024",
+   "appli": "sol",
+   "action": "chercher",
+   "reglages": {
+    "annee": 2024,
+    "mois": 7
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd159",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un album Vacances Réunion avec les photos de 2025",
+   "appli": "sol",
+   "action": "album",
+   "reglages": {
+    "nom": "Vacances Réunion",
+    "annee": 2025
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd160",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais un album avec toutes les photos de 2023",
+   "appli": "sol",
+   "action": "album",
+   "reglages": {
+    "annee": 2023
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd161",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "busca mis fotos de diciembre de 2022",
+   "appli": "sol",
+   "action": "chercher",
+   "reglages": {
+    "annee": 2022,
+    "mois": 12
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd162",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "partage le dossier /mnt/disque2/musique sous le nom Musique",
+   "appli": "fensalir",
+   "action": "ajouter_partage",
+   "reglages": {
+    "nom": "Musique",
+    "chemin": "/mnt/disque2/musique"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd163",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "partage /mnt/disque1/films sur le réseau",
+   "appli": "fensalir",
+   "action": "ajouter_partage",
+   "reglages": {
+    "chemin": "/mnt/disque1/films"
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd164",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ouvre le port 8443 en tcp sur le pare-feu",
+   "appli": "hlid",
+   "action": "ouvrir_port",
+   "reglages": {
+    "port": 8443,
+    "proto": "tcp"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false,
+   "aussi": [
+    "garmr.ouvrir_port"
+   ]
+  },
+  {
+   "id": "cd165",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "clone le dépôt https://github.com/example/boite-a-outils",
+   "appli": "ivaldi",
+   "action": "cloner",
+   "reglages": {
+    "adresse": "https://github.com/example/boite-a-outils"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd166",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "show the last commits of odin-site",
+   "appli": "ivaldi",
+   "action": "journal",
+   "reglages": {
+    "depot": "odin-site"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd167",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "Noah doit faire ses devoirs : pause Internet pour Noah",
+   "appli": "heidrun",
+   "action": "pause",
+   "reglages": {
+    "nom": "Noah"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd168",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un profil ado pour Léa avec coupure de 22h à 7h",
+   "appli": "heidrun",
+   "action": "profil",
+   "reglages": {
+    "nom": "Léa",
+    "age": "ado",
+    "coucher_de": "22:00",
+    "coucher_a": "07:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd169",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "coupe Internet aux enfants le temps du repas",
+   "appli": "heidrun",
+   "action": "pause",
+   "reglages": {},
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd170",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أعد الإنترنت إلى يوسف",
+   "appli": "heidrun",
+   "action": "reprendre",
+   "reglages": {
+    "nom": "يوسف"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd171",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "lance Super Mario World",
+   "appli": "leikvangr",
+   "action": "lancer",
+   "reglages": {
+    "jeu": "Super Mario World"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd172",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "montre ma collection de jeux Game Boy Advance",
+   "appli": "leikvangr",
+   "action": "jeux",
+   "reglages": {
+    "console": "gba"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd173",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un document odt « Courrier mairie » avec le texte « Demande de place de stationnement »",
+   "appli": "snotra",
+   "action": "creer",
+   "reglages": {
+    "titre": "Courrier mairie",
+    "texte": "Demande de place de stationnement",
+    "format": "odt"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd174",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "corrige : je sui aller au marché hier",
+   "appli": "snotra",
+   "action": "corriger",
+   "reglages": {
+    "texte": "je sui aller au marché hier",
+    "langue": "fr"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd175",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "proofread this: their going to the park tomorow",
+   "appli": "snotra",
+   "action": "corriger",
+   "reglages": {
+    "texte": "their going to the park tomorow",
+    "langue": {
+     "un_de": [
+      "en-US",
+      "en-GB"
+     ]
+    }
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd176",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "comment rendre mon Instagram plus privé ?",
+   "appli": "hlin",
+   "action": "guide",
+   "reglages": {
+    "reseau": "Instagram"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd177",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "règle les températures d'alerte des NVMe",
+   "appli": "durinn",
+   "action": "seuils",
+   "reglages": {
+    "genre": "NVMe"
+   },
+   "manque": [
+    "attention",
+    "alerte"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd178",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "alerte-moi pour les SSD à 55 degrés et alerte grave à 65",
+   "appli": "durinn",
+   "action": "seuils",
+   "reglages": {
+    "genre": "SSD",
+    "attention": 55,
+    "alerte": 65
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd179",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "récupère les photos effacées",
+   "appli": "hel",
+   "action": "recuperer",
+   "reglages": {
+    "familles": "photos"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd348",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve les déplacements de Noé du 10 novembre",
+   "appli": "gna",
+   "action": "trajets",
+   "reglages": {
+    "membre": "Noé",
+    "date": "2026-11-10"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd181",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "encode « bonjour Odin » en base64",
+   "appli": "achille",
+   "action": "encoder",
+   "reglages": {
+    "format": "base64",
+    "texte": "bonjour Odin"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd182",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "télécharge https://dl.example.org/logiciel.iso pendant les heures creuses",
+   "appli": "atalante",
+   "action": "ajouter",
+   "reglages": {
+    "lien": "https://dl.example.org/logiciel.iso",
+    "heures_creuses": true
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd183",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pas plus de 5 Mo/s pour les téléchargements, s'il te plaît",
+   "appli": "atalante",
+   "action": "vitesse",
+   "reglages": {
+    "mo": 5
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd184",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie un GET sur https://api.example.org/sante",
+   "appli": "dodone",
+   "action": "envoyer",
+   "reglages": {
+    "methode": "GET",
+    "url": "https://api.example.org/sante"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd185",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie une requête POST à l'API",
+   "appli": "dodone",
+   "action": "envoyer",
+   "reglages": {
+    "methode": "POST"
+   },
+   "manque": [
+    "url"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd186",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retrouve les images avec un chien sur la plage",
+   "appli": "theia",
+   "action": "retrouver",
+   "reglages": {
+    "phrase": "un chien sur la plage"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd187",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "apprends en priorité l'élevage des abeilles",
+   "appli": "mathesis",
+   "action": "confier",
+   "reglages": {
+    "quoi": "l'élevage des abeilles"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd188",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "interdis-toi le site forum.example.com",
+   "appli": "mathesis",
+   "action": "interdire",
+   "reglages": {
+    "genre": "site",
+    "valeur": "forum.example.com"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd189",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "retire le +33 1 99 00 45 67 de la liste blanche",
+   "appli": "keryx",
+   "action": "retirer_numero",
+   "reglages": {
+    "numero": "+33 1 99 00 45 67"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd190",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "publie jeux.example.org sur Internet",
+   "appli": "bru",
+   "action": "publier",
+   "reglages": {
+    "domaine": "jeux.example.org"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd191",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie la commande reboot au module 192.0.2.51",
+   "appli": "brokkr",
+   "action": "commande",
+   "reglages": {
+    "ip": "192.0.2.51",
+    "commande": "reboot"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd192",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "allume le réseau wifi des invités",
+   "appli": "svalinn",
+   "action": "invites",
+   "reglages": {
+    "allume": true
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd193",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "analyse https://colis.example.com/suivi",
+   "appli": "geri",
+   "action": "analyser",
+   "reglages": {
+    "cible": "https://colis.example.com/suivi"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd194",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute Le Petit Prince à la base Lectures",
+   "appli": "runes",
+   "action": "ajouter",
+   "reglages": {
+    "base": "Lectures",
+    "titre": "Le Petit Prince"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd195",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute une fiche Dune",
+   "appli": "runes",
+   "action": "ajouter",
+   "reglages": {
+    "titre": "Dune"
+   },
+   "manque": [
+    "base"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd196",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "entsperre 192.0.2.88",
+   "appli": "garmr",
+   "action": "debannir",
+   "reglages": {
+    "ip": "192.0.2.88"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd197",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "termina il processo 9921",
+   "appli": "skogul",
+   "action": "tuer",
+   "reglages": {
+    "pid": 9921
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd198",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "bloqueia o domínio apostas.example.com",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {
+    "domaine": "apostas.example.com"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd199",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "game.example.jp をブロックして",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {
+    "domaine": "game.example.jp"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd200",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "把家里的 Netflix 关掉",
+   "appli": "vidarr",
+   "action": "services",
+   "reglages": {
+    "service": "netflix",
+    "coupe": true
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd201",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "घर के नेटवर्क पर Instagram बंद कर दो",
+   "appli": "vidarr",
+   "action": "services",
+   "reglages": {
+    "service": "instagram",
+    "coupe": true
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd202",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "거실 조명 꺼 줘",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": "거실 조명",
+    "valeur": "off"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "cd203",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "запиши меня к стоматологу в пятницу в 9:30",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "стоматолог",
+    "quand": "2026-11-20 09:30"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd204",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أضف موعدا مع طبيب الأسنان غدا الساعة 16:00",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "طبيب الأسنان",
+    "quand": "2026-11-18 16:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd205",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "木曜日の11時に歯医者の予定を入れて",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "歯医者",
+    "quand": "2026-11-19 11:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd206",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "在客厅电视上播放流浪地球",
+   "appli": "freyja",
+   "action": "regarder",
+   "reglages": {
+    "quoi": "流浪地球",
+    "ou": "客厅"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd207",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "लता मंगेशकर के गाने बजाओ",
+   "appli": "aegir",
+   "action": "jouer",
+   "reglages": {
+    "quoi": "लता मंगेशकर के गाने"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd208",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "아이유 노래 틀어 줘",
+   "appli": "aegir",
+   "action": "jouer",
+   "reglages": {
+    "quoi": "아이유"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd209",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "включи джаз на кухне",
+   "appli": "aegir",
+   "action": "jouer",
+   "reglages": {
+    "quoi": "джаз",
+    "ou": "кухня"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd210",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أريد أن أسمع أغاني أم كلثوم",
+   "appli": "aegir",
+   "action": "jouer",
+   "reglages": {
+    "quoi": {
+     "un_de": [
+      "أم كلثوم",
+      "أغاني أم كلثوم"
+     ]
+    }
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd211",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "札幌の天気は？",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "reglages": {
+    "ville": "札幌"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd212",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "把天气的城市改成成都",
+   "appli": "gladsheim",
+   "action": "lieu",
+   "reglages": {
+    "ville": "成都"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd213",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "जयपुर में मौसम कैसा है",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "reglages": {
+    "ville": "जयपुर"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd214",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "부산 날씨 어때",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "reglages": {
+    "ville": "부산"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd215",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "какая погода в Казани?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "reglages": {
+    "ville": "Казань"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd216",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "غير مدينة الطقس إلى الرباط",
+   "appli": "gladsheim",
+   "action": "lieu",
+   "reglages": {
+    "ville": "الرباط"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd217",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "明日カットの予約を入れて",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "カット",
+    "jour": "2026-11-18"
+   },
+   "manque": [
+    "heure",
+    "nom",
+    "contact"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd218",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "帮我预约一个按摩",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "按摩"
+   },
+   "manque": [
+    "jour",
+    "heure",
+    "nom",
+    "contact"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd219",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "забань адрес, который ломится в SSH",
+   "appli": "garmr",
+   "action": "bannir",
+   "reglages": {},
+   "manque": [
+    "ip"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd220",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "احجب هذا الموقع على كل الشبكة",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {},
+   "manque": [
+    "domaine"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd221",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "रसोई में एक घोषणा करो",
+   "appli": "bragi",
+   "action": "annoncer",
+   "reglages": {},
+   "manque": [
+    "message"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd222",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "컴퓨터 원격으로 켜 줘",
+   "appli": "hermod",
+   "action": "reveiller",
+   "reglages": {},
+   "manque": [
+    "machine"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd223",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "book a haircut for Tom Becker",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "haircut",
+    "nom": "Tom Becker"
+   },
+   "manque": [
+    "jour",
+    "heure",
+    "contact"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd224",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "restart the container that keeps crashing",
+   "appli": "naglfar",
+   "action": "redemarrer",
+   "reglages": {},
+   "manque": [
+    "conteneur"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd225",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "anota que he prestado el taladro",
+   "appli": "askr",
+   "action": "preter",
+   "reglages": {
+    "appareil": "taladro"
+   },
+   "manque": [
+    "a"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd226",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "mach ein Album mit allen Fotos von 2024",
+   "appli": "sol",
+   "action": "album",
+   "reglages": {
+    "annee": 2024
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd346",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "trasforma questo filmato in un audio mp3, per favore",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "reglages": {
+    "format": "mp3"
+   },
+   "manque": [
+    "fichier"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd228",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "marca uma consulta no dentista",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "dentista"
+   },
+   "manque": [
+    "quand"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd229",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "give the media machine 6 cores and 16 GB of RAM",
+   "appli": "ymir",
+   "action": "ressources_machine",
+   "reglages": {
+    "machine": "media",
+    "coeurs": 6,
+    "memoire": 16
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd230",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "nimm ZDF heute um 20:15 Uhr für 90 Minuten auf",
+   "appli": "freyja",
+   "action": "enregistrer_plage",
+   "reglages": {
+    "chaine": "ZDF",
+    "debut": "20:15",
+    "minutes": 90
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd231",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "di «la cena está lista»",
+   "appli": "bragi",
+   "action": "dire",
+   "reglages": {
+    "texte": "la cena está lista"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd232",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "che tempo fa a Napoli?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "reglages": {
+    "ville": "Napoli"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd233",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "pausa o bloqueio de anúncios por 15 minutos",
+   "appli": "vidarr",
+   "action": "pause",
+   "reglages": {
+    "minutes": 15
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd234",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "any free massage slots on Saturday?",
+   "appli": "frigg",
+   "action": "creneaux",
+   "reglages": {
+    "service": "massage",
+    "jour": "2026-11-21"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd235",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "éteins les lumières du salon et de la cuisine",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": [
+     "salon",
+     "cuisine"
+    ],
+    "valeur": "off"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": true,
+   "note": "une seule action pour deux pièces : la forme attendue (liste) est discutable"
+  },
+  {
+   "id": "cd236",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bannis 198.51.100.3 pour une journée",
+   "appli": "garmr",
+   "action": "bannir",
+   "reglages": {
+    "ip": "198.51.100.3",
+    "minutes": 1440
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd237",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "rappelle-moi la réunion de chantier dans deux heures",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "réunion de chantier",
+    "quand": "2026-11-17 12:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true,
+   "note": "« rappelle-moi » pourrait aussi viser un rappel (Talos) ; heure attendue = maintenant + 2 h"
+  },
+  {
+   "id": "cd238",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "enregistre Arte à 21",
+   "appli": "freyja",
+   "action": "enregistrer_plage",
+   "reglages": {
+    "chaine": "Arte",
+    "debut": "21:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd239",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "il reste de la place demain matin pour une coupe ?",
+   "appli": "frigg",
+   "action": "creneaux",
+   "reglages": {
+    "service": "coupe",
+    "jour": "2026-11-18"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd240",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "supprime-le",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": false
+  },
+  {
+   "id": "cd241",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "fais tourner une sauvegarde",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": false,
+   "note": "Phénix (plan) ou Arche (base) : on ne peut pas savoir"
+  },
+  {
+   "id": "cd242",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute Lina",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": false
+  },
+  {
+   "id": "cd243",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "redémarre-la",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": false
+  },
+  {
+   "id": "cd244",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "bloque-le pour la nuit",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": false
+  },
+  {
+   "id": "cd245",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "turn it up",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": false
+  },
+  {
+   "id": "cd246",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "apágalo",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": true
+  },
+  {
+   "id": "cd247",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "mach das wieder rückgängig, aber nur das zweite",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": true
+  },
+  {
+   "id": "cd248",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets la lumière à fond",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": false,
+   "note": "quelle lumière ? plusieurs pièces possibles"
+  },
+  {
+   "id": "cd249",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "tu peux m'ouvrir un port ?",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "ambigue",
+   "aRelire": false
+  },
+  {
+   "id": "cd250",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "commande une pizza margherita",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "cd251",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "achète-moi un billet d'avion pour Montréal",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "cd252",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "envoie 50 euros sur le compte de Lina",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "cd253",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "order me a taxi to the airport",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "cd254",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "compra acciones de una empresa tecnológica",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "cd255",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "kauf mir bitte eine neue Kaffeemaschine",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "cd256",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "commande un sac de litière pour le chat",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": false
+  },
+  {
+   "id": "cd257",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "اطلب لي سيارة أجرة إلى المطار",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "cd347",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "近所のお寿司屋さんに出前を頼んでおいて",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "cd259",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "купи мне билет на самолёт до Москвы",
+   "appli": null,
+   "action": null,
+   "reglages": {},
+   "manque": [],
+   "sorte": "hors-champ",
+   "aRelire": true
+  },
+  {
+   "id": "cd260",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "au nom de Lina Moreau, joignable au 01 99 00 77 88",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "massage",
+    "jour": "2026-11-18",
+    "heure": "10:00",
+    "nom": "Lina Moreau",
+    "contact": "01 99 00 77 88"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "contexte": {
+    "precedent": "réserve un massage demain à 10h"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "cd261",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "pareil pour celle de la chambre",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": "lampe de la chambre",
+    "valeur": "off"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "contexte": {
+    "precedent": "éteins la lampe du salon"
+   },
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": true,
+   "note": "la relance remplace l'appareil : la valeur vient du tour précédent"
+  },
+  {
+   "id": "cd262",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "et à Toulouse ?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "reglages": {
+    "ville": "Toulouse"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "contexte": {
+    "precedent": "quel temps fait-il à Bordeaux ?"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "cd263",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "celui-là aussi : video.example.net",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {
+    "domaine": "video.example.net"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "contexte": {
+    "precedent": "bloque le domaine jeux.example.net"
+   },
+   "aRelire": false
+  },
+  {
+   "id": "cd264",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "how is the shop site doing right now?",
+   "appli": "idunn",
+   "action": "etat",
+   "reglages": {
+    "site": "shop"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd265",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "list the rows of the customers table in the crm database",
+   "appli": "urdr",
+   "action": "lignes",
+   "reglages": {
+    "base": "crm",
+    "table": "customers"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd266",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "make me a share link that expires in two days",
+   "appli": "skidbladnir",
+   "action": "lien",
+   "reglages": {
+    "jours": 2
+   },
+   "manque": [
+    "espace"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd267",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "create a ping probe named printer for 192.0.2.9",
+   "appli": "vordr",
+   "action": "ajouter",
+   "reglages": {
+    "nom": "printer",
+    "genre": "ping",
+    "cible": "192.0.2.9"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd268",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "set up a child profile for Emma, internet off from 8:30 pm to 7 am",
+   "appli": "heidrun",
+   "action": "profil",
+   "reglages": {
+    "nom": "Emma",
+    "age": "enfant",
+    "coucher_de": "20:30",
+    "coucher_a": "07:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd269",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "scan the Downloads folder every day",
+   "appli": "ullr",
+   "action": "plan",
+   "reglages": {
+    "dossier": "Downloads",
+    "quand": "jour"
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd270",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "share /data/photos on the network as Photos",
+   "appli": "fensalir",
+   "action": "ajouter_partage",
+   "reglages": {
+    "nom": "Photos",
+    "chemin": "/data/photos"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd271",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "clone the template-web machine",
+   "appli": "ymir",
+   "action": "cloner_machine",
+   "reglages": {
+    "machine": "template-web"
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd272",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "reserva un corte el jueves a las 16:00 para Lucía Pérez, correo lucia@example.org",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "corte",
+    "jour": "2026-11-19",
+    "heure": "16:00",
+    "nom": "Lucía Pérez",
+    "contact": "lucia@example.org"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd273",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "banea la IP 203.0.113.150 durante una hora",
+   "appli": "garmr",
+   "action": "bannir",
+   "reglages": {
+    "ip": "203.0.113.150",
+    "minutes": 60
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd274",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "reinicia el contenedor gitea",
+   "appli": "naglfar",
+   "action": "redemarrer",
+   "reglages": {
+    "conteneur": "gitea"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd275",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "apúntame una cita con el mecánico",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "mecánico"
+   },
+   "manque": [
+    "quand"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd276",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "convierte informe.docx a pdf",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "reglages": {
+    "fichier": "informe.docx",
+    "format": "pdf"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd277",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "arranca la máquina virtual 305",
+   "appli": "ymir",
+   "action": "demarrer",
+   "reglages": {
+    "vmid": 305
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd278",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "crea una cuenta para Diego Ruiz",
+   "appli": "var",
+   "action": "ajouter",
+   "reglages": {
+    "nom": "Diego Ruiz"
+   },
+   "manque": [
+    "login"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd279",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "corrige esto: ayer fuimos a la playa y hací mucho calor",
+   "appli": "snotra",
+   "action": "corriger",
+   "reglages": {
+    "texte": "ayer fuimos a la playa y hací mucho calor",
+    "langue": "es"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd280",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "wie wird das Wetter in Hamburg?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "reglages": {
+    "ville": "Hamburg"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd281",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "sperr die Domain werbung.example.de",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {
+    "domaine": "werbung.example.de"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd282",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "buch eine Massage für Samstag um 11 Uhr",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "Massage",
+    "jour": "2026-11-21",
+    "heure": "11:00"
+   },
+   "manque": [
+    "nom",
+    "contact"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd283",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "zeig mir meine Fotos vom August 2023",
+   "appli": "sol",
+   "action": "chercher",
+   "reglages": {
+    "annee": 2023,
+    "mois": 8
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd284",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "sag in der Küche durch: das Essen ist fertig",
+   "appli": "bragi",
+   "action": "annoncer",
+   "reglages": {
+    "message": "das Essen ist fertig",
+    "ou": "Küche"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd285",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "gib der Maschine datenbank 12 GB Arbeitsspeicher",
+   "appli": "ymir",
+   "action": "ressources_machine",
+   "reglages": {
+    "machine": "datenbank",
+    "memoire": 12
+   },
+   "manque": [
+    "coeurs"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd286",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "erzeuge ein Passwort mit 40 Zeichen",
+   "appli": "brisingamen",
+   "action": "generer",
+   "reglages": {
+    "longueur": 40
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd287",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "segna un appuntamento dal dentista lunedì alle 10",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "dentista",
+    "quand": "2026-11-23 10:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd288",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "abbiamo Il commissario Montalbano nella videoteca?",
+   "appli": "freyja",
+   "action": "chercher",
+   "reglages": {
+    "quoi": "Il commissario Montalbano"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd289",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "apri una porta udp sul firewall",
+   "appli": "hlid",
+   "action": "ouvrir_port",
+   "reglages": {
+    "proto": "udp"
+   },
+   "manque": [
+    "port"
+   ],
+   "sorte": "manque",
+   "aRelire": true,
+   "aussi": [
+    "garmr.ouvrir_port"
+   ]
+  },
+  {
+   "id": "cd290",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "sospendi il blocco della pubblicità per mezz'ora",
+   "appli": "vidarr",
+   "action": "pause",
+   "reglages": {
+    "minutes": 30
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd291",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "quali sono i 3 processi che usano più CPU?",
+   "appli": "eir",
+   "action": "processus",
+   "reglages": {
+    "tri": "processeur",
+    "n": 3
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd292",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "avvia subito il backup del piano documenti",
+   "appli": "sindri",
+   "action": "sauvegarder",
+   "reglages": {
+    "plan": "documenti"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd293",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "ci sono posti liberi per un massaggio?",
+   "appli": "frigg",
+   "action": "creneaux",
+   "reglages": {
+    "service": "massaggio"
+   },
+   "manque": [
+    "jour"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd294",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "como está o tempo em Lisboa?",
+   "appli": "gladsheim",
+   "action": "meteo",
+   "reglages": {
+    "ville": "Lisboa"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": false
+  },
+  {
+   "id": "cd295",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "acende o candeeiro grande da sala",
+   "appli": "midgard",
+   "action": "commander",
+   "reglages": {
+    "appareil": "candeeiro grande da sala",
+    "valeur": "on"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aussi": [
+    "appareils.commander"
+   ],
+   "aRelire": true
+  },
+  {
+   "id": "cd296",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "mostra os registos do contentor immich",
+   "appli": "naglfar",
+   "action": "journaux",
+   "reglages": {
+    "conteneur": "immich"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd297",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "quero marcar um corte de cabelo",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "corte de cabelo"
+   },
+   "manque": [
+    "jour",
+    "heure",
+    "nom",
+    "contact"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd298",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "procura no cofre a senha da conta do banco",
+   "appli": "brisingamen",
+   "action": "chercher",
+   "reglages": {
+    "q": "conta do banco"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd299",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "empresta o portatil-2 à Joana até terça",
+   "appli": "askr",
+   "action": "preter",
+   "reglages": {
+    "appareil": "portatil-2",
+    "a": "Joana",
+    "retour": "2026-11-24"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true,
+   "note": "« até terça » dit un mardi, le jour même : la semaine suivante (24/11) est retenue"
+  },
+  {
+   "id": "cd300",
+   "langue": "pt",
+   "ecriture": "Latn",
+   "phrase": "revoga o acesso VPN daquele telemóvel perdido",
+   "appli": "gjoll",
+   "action": "revoquer",
+   "reglages": {},
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd301",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "احظر النطاق ads.example.com",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {
+    "domaine": "ads.example.com"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd302",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "شغل الآلة الافتراضية 120",
+   "appli": "ymir",
+   "action": "demarrer",
+   "reglages": {
+    "vmid": 120
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd303",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "سجل موعدا مع الميكانيكي",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "الميكانيكي"
+   },
+   "manque": [
+    "quand"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd304",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أنشئ كلمة مرور من 20 حرفا",
+   "appli": "brisingamen",
+   "action": "generer",
+   "reglages": {
+    "longueur": 20
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd305",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "حول الملف تقرير.docx إلى pdf",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "reglages": {
+    "fichier": "تقرير.docx",
+    "format": "pdf"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd306",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "التقط صورة من الكاميرا",
+   "appli": "himinbjorg",
+   "action": "photo",
+   "reglages": {},
+   "manque": [
+    "camera"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd307",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "заблокируй домен casino.example.com",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {
+    "domaine": "casino.example.com"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd308",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "покажи логи контейнера grafana",
+   "appli": "naglfar",
+   "action": "journaux",
+   "reglages": {
+    "conteneur": "grafana"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd309",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "запиши на массаж завтра в 15:00",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "массаж",
+    "jour": "2026-11-18",
+    "heure": "15:00"
+   },
+   "manque": [
+    "nom",
+    "contact"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd310",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "сгенерируй пароль из 18 символов",
+   "appli": "brisingamen",
+   "action": "generer",
+   "reglages": {
+    "longueur": 18
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd311",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "покажи мои фото за май 2021 года",
+   "appli": "sol",
+   "action": "chercher",
+   "reglages": {
+    "annee": 2021,
+    "mois": 5
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd312",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "сконвертируй этот документ в pdf",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "reglages": {
+    "format": "pdf"
+   },
+   "manque": [
+    "fichier"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd313",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "homeassistant のコンテナを再起動して",
+   "appli": "naglfar",
+   "action": "redemarrer",
+   "reglages": {
+    "conteneur": "homeassistant"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd314",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "30文字のパスワードを作って",
+   "appli": "brisingamen",
+   "action": "generer",
+   "reglages": {
+    "longueur": 30
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd315",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "仮想マシンを起動して",
+   "appli": "ymir",
+   "action": "demarrer",
+   "reglages": {},
+   "manque": [
+    "vmid"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd316",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "家のネットワークでYouTubeを止めて",
+   "appli": "vidarr",
+   "action": "services",
+   "reglages": {
+    "service": "youtube",
+    "coupe": true
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd317",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "2020年4月の写真を見せて",
+   "appli": "sol",
+   "action": "chercher",
+   "reglages": {
+    "annee": 2020,
+    "mois": 4
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd318",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "停止 jellyfin 容器",
+   "appli": "naglfar",
+   "action": "arreter",
+   "reglages": {
+    "conteneur": "jellyfin"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd319",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "生成一个12位的密码",
+   "appli": "brisingamen",
+   "action": "generer",
+   "reglages": {
+    "longueur": 12
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd320",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "记一下投影仪借出去了",
+   "appli": "askr",
+   "action": "preter",
+   "reglages": {
+    "appareil": "投影仪"
+   },
+   "manque": [
+    "a"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd321",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "把报告.docx转换成pdf",
+   "appli": "dvalinn",
+   "action": "convertir",
+   "reglages": {
+    "fichier": "报告.docx",
+    "format": "pdf"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd322",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "周五下午三点约了牙医，帮我记上",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "牙医",
+    "quand": "2026-11-20 15:00"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd323",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "वर्चुअल मशीन 110 चालू करो",
+   "appli": "ymir",
+   "action": "demarrer",
+   "reglages": {
+    "vmid": 110
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd324",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "16 अक्षरों का पासवर्ड बनाओ",
+   "appli": "brisingamen",
+   "action": "generer",
+   "reglages": {
+    "longueur": 16
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd325",
+   "langue": "hi",
+   "ecriture": "Deva",
+   "phrase": "डॉक्टर के साथ अपॉइंटमेंट लिख लो",
+   "appli": "frigg",
+   "action": "rendez_vous",
+   "reglages": {
+    "titre": "डॉक्टर"
+   },
+   "manque": [
+    "quand"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd326",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "game.example.kr 도메인 차단해 줘",
+   "appli": "vidarr",
+   "action": "bloquer",
+   "reglages": {
+    "domaine": "game.example.kr"
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd327",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "2022년 3월 사진 보여 줘",
+   "appli": "sol",
+   "action": "chercher",
+   "reglages": {
+    "annee": 2022,
+    "mois": 3
+   },
+   "manque": [],
+   "sorte": "complete",
+   "aRelire": true
+  },
+  {
+   "id": "cd328",
+   "langue": "ko",
+   "ecriture": "Kore",
+   "phrase": "마사지 예약해 줘",
+   "appli": "frigg",
+   "action": "reserver",
+   "reglages": {
+    "service": "마사지"
+   },
+   "manque": [
+    "jour",
+    "heure",
+    "nom",
+    "contact"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd329",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "quels créneaux me restent vendredi ?",
+   "appli": "frigg",
+   "action": "creneaux",
+   "reglages": {
+    "jour": "2026-11-20"
+   },
+   "manque": [
+    "service"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd330",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets musique.example.org derrière le proxy",
+   "appli": "valgrind",
+   "action": "ajouter",
+   "reglages": {
+    "domaines": "musique.example.org"
+   },
+   "manque": [
+    "cible"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd331",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "ajoute ines à un groupe",
+   "appli": "var",
+   "action": "mettre_dans_groupe",
+   "reglages": {
+    "login": "ines"
+   },
+   "manque": [
+    "groupe"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd332",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "sauvegarde la base de données tout de suite",
+   "appli": "skuld",
+   "action": "sauvegarder",
+   "reglages": {},
+   "manque": [
+    "base"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd333",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "regarde ce dépôt GitHub dont je t'ai parlé et dis-moi s'il vaut le coup",
+   "appli": "kvasir",
+   "action": "etudier",
+   "reglages": {},
+   "manque": [
+    "lien"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd334",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "crée un profil pour un petit avec les réglages de base",
+   "appli": "heidrun",
+   "action": "profil",
+   "reglages": {
+    "age": "petit"
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd335",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "préviens-moi à 50 degrés pour les disques durs",
+   "appli": "durinn",
+   "action": "seuils",
+   "reglages": {
+    "genre": "disque dur",
+    "attention": 50
+   },
+   "manque": [
+    "alerte"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd336",
+   "langue": "fr",
+   "ecriture": "Latn",
+   "phrase": "mets la sonde en pause pendant les travaux",
+   "appli": "vordr",
+   "action": "pause",
+   "reglages": {},
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": false
+  },
+  {
+   "id": "cd337",
+   "langue": "en",
+   "ecriture": "Latn",
+   "phrase": "make a playlist with rainy day songs",
+   "appli": "aegir",
+   "action": "liste",
+   "reglages": {
+    "q": "rainy day songs"
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd338",
+   "langue": "de",
+   "ecriture": "Latn",
+   "phrase": "leite die alte Seite auf https://neu.example.de um",
+   "appli": "valgrind",
+   "action": "rediriger",
+   "reglages": {
+    "vers": "https://neu.example.de"
+   },
+   "manque": [
+    "domaine"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd339",
+   "langue": "es",
+   "ecriture": "Latn",
+   "phrase": "ponle nombre a este sitio en los trayectos de Lucía",
+   "appli": "gna",
+   "action": "nommer_lieu",
+   "reglages": {
+    "membre": "Lucía"
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd340",
+   "langue": "it",
+   "ecriture": "Latn",
+   "phrase": "condividi in rete una cartella chiamata Film",
+   "appli": "fensalir",
+   "action": "ajouter_partage",
+   "reglages": {
+    "nom": "Film"
+   },
+   "manque": [
+    "chemin"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd341",
+   "langue": "ru",
+   "ecriture": "Cyrl",
+   "phrase": "запиши 45 секунд видео",
+   "appli": "himinbjorg",
+   "action": "enregistrer",
+   "reglages": {
+    "secondes": 45
+   },
+   "manque": [
+    "camera"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd342",
+   "langue": "ja",
+   "ecriture": "Jpan",
+   "phrase": "ユーザー haruto を追加して",
+   "appli": "var",
+   "action": "ajouter",
+   "reglages": {
+    "login": "haruto"
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd343",
+   "langue": "zh",
+   "ecriture": "Hans",
+   "phrase": "添加一个足疗的服务项目",
+   "appli": "frigg",
+   "action": "prestation",
+   "reglages": {
+    "nom": "足疗"
+   },
+   "manque": [
+    "minutes"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  },
+  {
+   "id": "cd344",
+   "langue": "ar",
+   "ecriture": "Arab",
+   "phrase": "أنشئ مساحة مشتركة بسعة 20 جيجابايت",
+   "appli": "skidbladnir",
+   "action": "espace",
+   "reglages": {
+    "quota_go": 20
+   },
+   "manque": [
+    "nom"
+   ],
+   "sorte": "manque",
+   "aRelire": true
+  }
+ ],
+ "historique": [
+  {
+   "version": 1,
+   "date": "2026-11-17",
+   "quoi": "première écriture"
+  },
+  {
+   "version": 2,
+   "date": "2026-11-17",
+   "pourquoi": "relecture du 17/11 (file-attente/carnets/relecture-soul-v3.md, constats G1 à P8)",
+   "changements": [
+    "M4 : chaque demande de port accepte garmr ou hlid (« aussi » croisé)",
+    "G3 : cd157, cd227, cd258, retrouvées dans src/brain/nous/matiere/, remplacées par cd345, cd346, cd347",
+    "P8 : cd180 (pegase.historique) remplacée par cd348, une recherche datée dans gna.trajets",
+    "M7 : cd010, cd094, cd099, cd109, cd120, cd128, cd183, cd192, cd210, cd256, cd261 réécrites (trop proches d'une phrase d'un jeu figé)"
+   ]
+  }
+ ]
+}
