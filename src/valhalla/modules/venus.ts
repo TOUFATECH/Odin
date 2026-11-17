@@ -124,6 +124,8 @@ export function venus(url: () => string): Module {
   const bygulQuery = (i: Record<string, unknown>) => { const k = kindOf(s(i.type)), y = s(i.annee); const q = new URLSearchParams({ q: s(i.titre), kind: k, ...(k === 'movie' && y ? { year: y } : {}), ...(k === 'episode' ? { season: y || '1', episode: s(i.episode) || '1' } : {}) }); return venusApi<{ results: BygulHit[]; errors: string[] }>(conf(), 'GET', `/api/admin/acquire/search?${q}`); };
   /** Un livre audio de Venus, par numéro ou par titre. */
   const livreAudio = async (q: string): Promise<VCard> => { const cards = await venusApi<VCard[]>(conf(), 'GET', '/api/library?type=audiobook'); const c = /^\d+$/.test(q) ? cards.find((x) => x.id === Number(q)) : bestMatch(cards, q); if (!c) throw new Error(`aucun livre audio « ${q} » dans Venus`); return c; };
+  /** Le serveur Vénus à part est-il relié (adresse ET clé) ? Sans lui, tout ce qui suit reste dans Odin (Odéon). */
+  const relie = () => Boolean(url() && process.env.VENUS_API_KEY);
   const m: Module = {
     id: 'freyja', name: 'Vénus', family: 'Maison',
     what: 'Ton serveur multimédia : films, séries, chaînes, programmes, enregistrements, sur tous tes écrans.',
@@ -146,7 +148,16 @@ export function venus(url: () => string): Module {
       { id: 'regarder', label: 'Regarder', what: 'Film, série ou chaîne (nom ou numéro) sur un écran', params: [{ key: 'quoi', label: 'Quoi', kind: 'text', required: true }, { key: 'ou', label: 'Écran (facultatif)', kind: 'text', default: '' }], words: ['mets', 'regarder', 'lance'], run: async (ctx, i) => {
         // Natif : l'œuvre est dans VENUS_ODIN et un écran de la maison (Home Assistant) joue le flux d'Odin.
         const ha = haDe(ctx), origine = origineDe(ctx);
-        if (ha && origine) { const oe = trouverOeuvre(mag(ctx), s(i.quoi)); if (oe) { try { const lien = `${origine}/venus/flux/${encodeURIComponent(oe.id)}?cle=${encodeURIComponent(jetonFlux(ctx.home, oe.id))}`; const ec = await envoyerSurEcran(ha, s(i.ou), lien, oe.data.type === 'album' || oe.data.type === 'livre_audio' ? 'audio' : 'video'); return { text: `▶️ « ${s(oe.data.titre)} » lancé sur ${ec.nom}.` }; } catch { /* repli sur le serveur externe */ } } }
+        const oe = trouverOeuvre(mag(ctx), s(i.quoi));
+        let rate = '';
+        if (ha && origine && oe) { try { const lien = `${origine}/venus/flux/${encodeURIComponent(oe.id)}?cle=${encodeURIComponent(jetonFlux(ctx.home, oe.id))}`; const ec = await envoyerSurEcran(ha, s(i.ou), lien, oe.data.type === 'album' || oe.data.type === 'livre_audio' ? 'audio' : 'video'); return { text: `▶️ « ${s(oe.data.titre)} » lancé sur ${ec.nom}.` }; } catch (e) { rate = (e as Error).message; /* repli plus bas */ } }
+        // Sans serveur Vénus à part, on ne renvoie plus vers lui (« Venus n'est pas relié ») : on dit où le titre se lit
+        // dans Odin (le navigateur), et ce qu'il manque pour l'envoyer sur une télé.
+        if (!relie()) {
+          if (!oe) return { text: `« ${s(i.quoi)} » n'est pas dans ta bibliothèque de Vénus. Déclare le dossier qui le contient (Vénus → Odéon → Dossiers média), puis « Scanner maintenant ».` };
+          const ecran = ha && origine ? (rate ? ` L'envoi sur un écran a échoué : ${rate}.` : '') : " Pour l'envoyer sur une télé, relie Home Assistant (Réglages → Maison) : Vénus s'en sert pour trouver les écrans de la maison.";
+          return { text: `« ${s(oe.data.titre)} » est dans ta bibliothèque de Vénus : ouvre Vénus → Odéon et clique dessus, il se lit dans le navigateur.${ecran}`, data: { oeuvre: oe.id, type: oe.data.type, lire: `/venus/flux/${encodeURIComponent(oe.id)}` } };
+        }
         return { text: await tool({ action: 'regarder', quoi: s(i.quoi), ou: s(i.ou) }) };
       } },
       { id: 'programme', label: 'Programme', what: 'Ce qui passe maintenant (filtre facultatif)', read: true, params: [{ key: 'quoi', label: 'Chaîne ou émission', kind: 'text', default: '' }], words: ['programme', 'qu est ce qui passe', 'ce soir a la tele', 'programme tv'], run: async (_c, i) => ({ text: await tool({ action: 'programme', quoi: s(i.quoi) }) }) },
@@ -185,7 +196,7 @@ export function venus(url: () => string): Module {
       } },
       { id: 'chercher', label: 'Chercher', what: 'Dans la bibliothèque', read: true, params: [{ key: 'quoi', label: 'Titre', kind: 'text', required: true }], words: ['cherche', 'trouve'], run: async (ctx, i) => {
         const nat = bibNative(mag(ctx), { q: s(i.quoi) });
-        if (!url()) return { text: nat.length ? nat.slice(0, 20).map(carteNat).join('\n') : `Rien dans la bibliothèque de Vénus pour « ${s(i.quoi)} ».`, data: nat };
+        if (!relie()) return { text: nat.length ? nat.slice(0, 20).map(carteNat).join('\n') : `Rien dans la bibliothèque de Vénus pour « ${s(i.quoi)} ».`, data: nat };
         const ext = await tool({ action: 'chercher', quoi: s(i.quoi) });
         return { text: nat.length ? `${nat.slice(0, 12).map(carteNat).join('\n')}\n${ext}` : ext, data: { natif: nat } };
       } },
@@ -293,7 +304,7 @@ export function venus(url: () => string): Module {
       } },
       { id: 'ma_liste', label: 'Ma liste', what: 'Titres gardés pour plus tard', read: true, run: async (ctx) => {
         const nat = maListeNative(mag(ctx), 'moi');
-        if (nat.length || !url()) return { text: nat.length ? nat.slice(0, 40).map((x) => `- ${x.titre}${x.annee ? ` (${x.annee})` : ''}`).join('\n') : 'Liste vide.', data: nat };
+        if (nat.length || !relie()) return { text: nat.length ? nat.slice(0, 40).map((x) => `- ${x.titre}${x.annee ? ` (${x.annee})` : ''}`).join('\n') : 'Liste vide.', data: nat };
         const l = await venusApi<Array<{ title: string; year?: number; type: string }>>(conf(), 'GET', '/api/mylist');
         return { text: l.slice(0, 40).map((x) => `- ${x.title}${x.year ? ` (${x.year})` : ''}`).join('\n') || 'Liste vide.' };
       } },
@@ -364,7 +375,8 @@ export function venus(url: () => string): Module {
       // Odyssée : la bibliothèque de lecture d'Odin marche aussi sans Venus (livres déposés).
       const prog = progressions(ctx.dir), lect = livres(ctx.dir);
       const odyssee = { kind: 'list' as const, title: 'Odyssée · mes livres', items: lect.map((b) => ({ title: b.titre, detail: `${b.format === 'cbz' ? 'bande dessinée' : 'livre'}${b.auteur ? ` · ${b.auteur}` : ''}${b.source === 'venus' ? ' · de Venus' : ''}`, meta: prog[b.id] ? `${b.format === 'cbz' ? 'page' : 'chapitre'} ${prog[b.id].chapitre + 1}` : 'pas commencé' })), empty: 'Aucun livre : ajoute un EPUB ou un CBZ (« Ajouter un livre à lire »).' };
-      if (!url() || !process.env.VENUS_API_KEY) return { subtitle: 'Venus n\'est pas relié.', sections: [...carteSauvegarde('venus'), odyssee, { kind: 'text', title: 'Relier Venus', text: 'Réglages → Maison → Venus : l\'adresse de ton serveur, et une clé API créée dans Venus (Serveur → Clés API), rangée dans le coffre (VENUS_API_KEY).' }] };
+      // Sans serveur à part, la page montre la bibliothèque d'Odin (Odéon) : le sous-titre parle d'elle, pas du serveur absent.
+      if (!relie()) return { subtitle: `Bibliothèque dans Odin : ${compterNative(mag(ctx)).oeuvres} titre(s). Le serveur Vénus à part n'est pas relié (facultatif).`, sections: [...carteSauvegarde('venus'), odyssee, { kind: 'text', title: 'Relier Venus', text: 'Réglages → Maison → Venus : l\'adresse de ton serveur, et une clé API créée dans Venus (Serveur → Clés API), rangée dans le coffre (VENUS_API_KEY).' }] };
       const [recs, screens] = await Promise.all([recordings().catch(() => [] as Rec[]), venusApi<Array<{ name: string; tv: boolean; playing: boolean }>>(conf(), 'GET', '/api/devices/open').catch(() => [])]);
       const next = recs.filter((r) => ['scheduled', 'recording'].includes(r.status)).sort((a, b) => a.start - b.start), failed = recs.filter(failedRec);
       return {
@@ -395,5 +407,10 @@ export function venus(url: () => string): Module {
       ctx.saveSettings({ arrivalsSince: r.now ?? now });
     } },
   };
+  // Sans serveur Vénus relié, les actions qui ne parlent qu'à lui quittent la barre de boutons du haut (elles répondaient
+  // toutes « Venus n'est pas relié » au-dessus de la vraie bibliothèque) : elles restent dans « Autres actions ».
+  for (const a of m.actions) if (a.quick !== false && !ACTIONS_NATIVES.has(a.id)) Object.defineProperty(a, 'quick', { get: relie, enumerable: true, configurable: true });
   return m;
 }
+/** Les actions de Vénus qui marchent dans Odin, sans le serveur à part (leur bouton rapide reste toujours). */
+export const ACTIONS_NATIVES = new Set(['etat', 'regarder', 'chercher', 'ma_liste', 'livre_ajouter', 'mes_livres', 'livre_lire', 'livre_position', 'livre_retirer']);

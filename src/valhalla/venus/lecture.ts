@@ -53,10 +53,17 @@ export function lireRange(entete: string | undefined, taille: number): { debut: 
 }
 
 /** Les arguments FFmpeg d'un transcodage à la volée (pur, testable). `depuis` = secondes de départ (reprise/seek). */
-export function argsTranscodage(fichier: string, mode: 'mp4' | 'hls', depuis = 0): string[] {
+export function argsTranscodage(fichier: string, mode: 'mp4' | 'hls', depuis = 0, probe?: Probe): string[] {
   const base = ['-v', 'error', ...entreeFfmpeg('media'), ...(depuis > 0 ? ['-ss', String(Math.max(0, Math.round(depuis)))] : []), '-i', fichier];
   if (mode === 'hls') {
     return [...base, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-b:a', '160k', '-f', 'hls', '-hls_time', '4', '-hls_playlist_type', 'event', '-hls_flags', 'independent_segments', 'pipe:1'];
+  }
+  // Vidéo déjà en H.264 (un MKV, le plus souvent) : on la RECOPIE dans le MP4 au lieu de la réencoder (presque rien à
+  // calculer, même sans carte graphique) ; l'audio AAC est recopié aussi, le reste passe en AAC. Les sous-titres ne
+  // vont pas dans ce flux (ils sont servis à part, en WebVTT) : une piste d'images (PGS) ferait échouer la copie.
+  if (probe && /^(h264|avc)/i.test(probe.codecs[0] ?? '')) {
+    const audio = /^aac/i.test(probe.audio[0] ?? '') ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '160k'];
+    return [...base, '-map', '0:v:0', '-map', '0:a:0?', '-sn', '-c:v', 'copy', ...audio, '-movflags', 'frag_keyframe+empty_moov+faststart', '-f', 'mp4', 'pipe:1'];
   }
   // MP4 progressif « fragmenté » pour pouvoir le diffuser sans fichier temporaire.
   return [...base, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-b:a', '160k', '-movflags', 'frag_keyframe+empty_moov+faststart', '-f', 'mp4', 'pipe:1'];

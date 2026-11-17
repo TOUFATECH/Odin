@@ -7,17 +7,18 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { spawn } from 'node:child_process';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
-import { extname } from 'node:path';
+import { extname, isAbsolute, resolve } from 'node:path';
 import { fetchPropre } from '../../net/fetch-propre.ts';
 import { haApi, type HaState } from '../../tools/homeassistant.ts';
 import { dirVenus, magasinVenus, type MagasinVenus } from './base.ts';
-import { ajouterDossier, ajouterHistorique, ajouterMaListe, bibliotheque, demander, demandes, dossiers, episodes, fichierDeCible, maListe, noterReprise, pistes, reprise, retirerDossier, retirerMaListe, scanner, type Categorie, type Outils, type Probe, type TypeOeuvre } from './bibliotheque.ts';
+import { ajouterDossier, nettoyerChemin, raisonDossierRefuse, ajouterHistorique, ajouterMaListe, bibliotheque, demander, demandes, dossiers, episodes, fichierDeCible, maListe, noterReprise, pistes, reprise, retirerDossier, retirerMaListe, scanner, type Categorie, type Outils, type Probe, type TypeOeuvre } from './bibliotheque.ts';
 import { argsSousTitres, argsTranscodage, choisirSousTitres, lireRange, planLecture, srtVersVtt, estVtt } from './lecture.ts';
 import { ACTIONS_ECRAN, decouvrirEcrans, piloterEcran, planEnvoi, type ActionEcran, type HaCaller } from './ecrans.ts';
 import { creerTelecommande, empreinteTelephone, jetonDe, nombreTelephones, qrTelecommande, regenerer, revoquer, telecommandes, validerJeton } from './telecommande.ts';
 import { abonnements, abonner, accueil, ajouterHistoriqueYt, chaine, desabonner, effacerHistoriqueYt, historiqueYt, recherche, reglagesYt, reglerYt, segmentsASauter, video, type Http } from './youtube.ts';
 import { fluxAutorise } from './cast.ts';
 import { entreeFfmpeg } from '../../files/ffmpeg-entree.ts';
+import { estMembre } from '../sso/garde.ts';
 
 export interface VenusRouteCtx {
   home: string;
@@ -73,6 +74,30 @@ export async function ffprobeReel(chemin: string): Promise<Probe | null> {
     };
   } catch { return null; }
 }
+/**
+ * FFmpeg et ffprobe sont-ils joignables par CE processus d'Odin ? (Odin démarré avant l'installation de FFmpeg ne les
+ * voit pas : son PATH est celui de son démarrage.) Gardé 30 s, par valeur du PATH.
+ */
+const dispoCache = new Map<string, { ok: boolean; quand: number }>();
+export function outilDispo(cmd: 'ffprobe' | 'ffmpeg'): Promise<boolean> {
+  const cle = `${cmd}|${process.env.PATH ?? process.env.Path ?? ''}`, c = dispoCache.get(cle);
+  if (c && Date.now() - c.quand < 30_000) return Promise.resolve(c.ok);
+  return new Promise((resolve) => {
+    let fini = false;
+    const fin = (ok: boolean) => { if (fini) return; fini = true; dispoCache.set(cle, { ok, quand: Date.now() }); resolve(ok); };
+    try {
+      const p = spawn(cmd, ['-version'], { stdio: 'ignore' });
+      const t = setTimeout(() => { try { p.kill('SIGKILL'); } catch { /* déjà fini */ } fin(false); }, 15_000); t.unref?.();
+      p.on('error', () => { clearTimeout(t); fin(false); });
+      p.on('close', (code) => { clearTimeout(t); fin(code === 0); });
+    } catch { fin(false); }
+  });
+}
+/** Ce que le propriétaire doit faire quand FFmpeg manque (dit à l'écran, au lieu d'un « 0 œuvre » muet). */
+export const MESSAGE_FFMPEG_ABSENT = "FFmpeg est introuvable pour Odin (ffprobe sert à lire les médias, ffmpeg à convertir ceux que le navigateur ne lit pas). Installe FFmpeg sur la machine d'Odin (sous Windows : winget install Gyan.FFmpeg), puis redémarre Odin : un Odin démarré avant l'installation ne le voit pas.";
+/** Un exemple de chemin qui ressemble à ceux de la machine d'Odin. */
+const exempleChemin = () => (process.platform === 'win32' ? 'D:\\Films' : '/mnt/films');
+
 /** Les outils réels pour un scan (ffprobe ; la vignette reste facultative). */
 export const outilsReels = (): Outils => ({ ffprobe: ffprobeReel });
 
@@ -93,6 +118,9 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
   const mag = magasinVenus(ctx.home, dirVenus(ctx.home));
   const meth = req.method ?? 'GET';
   const profil = ctx.profil || 'moi';
+  // Le propriétaire SEUL : la session d'un membre (ou d'un invité) vaut « connecté » pour le serveur, mais Vénus ouvre
+  // les dossiers de la machine et lit leurs médias ; un membre n'y entre pas, même s'il a le droit d'ouvrir Vénus.
+  const proprietaire = () => ctx.proprietaire() && !estMembre(req);
 
   try {
     // Télécommande publique d'UN écran (jeton limité/révocable). Portée = ce seul écran, rien d'autre d'Odin.
@@ -103,20 +131,26 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
     // diffusion à portée restreinte (cette cible, limité dans le temps) est accepté, vérifié AVANT la garde propriétaire.
     if (meth === 'GET' && p.startsWith('/venus/flux/')) {
       const cibleId = decode(p.slice('/venus/flux/'.length));
-      if (ctx.proprietaire() || fluxAutorise(ctx.home, cibleId, s(url.searchParams.get('cle')))) {
-        return servirFlux(res, mag, cibleId, { range: req.headers.range, depuis: Number(url.searchParams.get('depuis')) || 0, profil });
+      if (proprietaire() || fluxAutorise(ctx.home, cibleId, s(url.searchParams.get('cle')))) {
+        return await servirFlux(res, mag, cibleId, { range: req.headers.range, depuis: Number(url.searchParams.get('depuis')) || 0, profil });
       }
       ctx.fail(); json(res, 401, { error: 'Connecte-toi à Odin.' }); return true;
     }
 
     // Tout le reste est réservé au propriétaire connecté.
-    if (!ctx.proprietaire()) { ctx.fail(); json(res, 401, { error: 'Connecte-toi à Odin.' }); return true; }
+    if (!proprietaire()) { ctx.fail(); json(res, 401, { error: 'Connecte-toi à Odin.' }); return true; }
 
     if (meth === 'GET' && p === '/venus/bibliotheque') { json(res, 200, { oeuvres: bibliotheque(mag, { type: s(url.searchParams.get('type')) as TypeOeuvre | undefined || undefined, q: s(url.searchParams.get('q')) }) }); return true; }
     if (meth === 'GET' && p.startsWith('/venus/oeuvre/')) return servirOeuvre(res, mag, decode(p.slice('/venus/oeuvre/'.length)), profil);
     // Déclarer un dossier média et lancer le scan (ODÉON se remplit ici ; sans ça la bibliothèque reste vide).
     if (p === '/venus/dossiers') return await routeDossiers(req, res, meth, mag);
-    if (meth === 'POST' && p === '/venus/scan') { const bilan = await scanner(mag, outilsReels()); json(res, 200, { bilan }); return true; }
+    if (meth === 'POST' && p === '/venus/scan') {
+      const ffprobe = await outilDispo('ffprobe');
+      const bilan = await scanner(mag, outilsReels());
+      json(res, 200, { bilan, ...(ffprobe ? {} : { alerte: MESSAGE_FFMPEG_ABSENT }) }); return true;
+    }
+    // Avant de lire : comment ce titre sera servi, et pourquoi il ne peut pas l'être (le lecteur l'affiche s'il échoue).
+    if (meth === 'GET' && p.startsWith('/venus/plan/')) return await servirPlan(res, mag, decode(p.slice('/venus/plan/'.length)));
     if (meth === 'GET' && p.startsWith('/venus/sous-titres/')) return await servirSousTitres(res, mag, decode(p.slice('/venus/sous-titres/'.length)), s(url.searchParams.get('lang')));
     if (meth === 'GET' && p.startsWith('/venus/vignette/')) return servirVignette(res, mag, decode(p.slice('/venus/vignette/'.length)));
 
@@ -156,9 +190,10 @@ function noterVu(mag: MagasinVenus, profil: string, cibleId: string): void {
   if (ep) { ajouterHistorique(mag, profil, cibleId, 'episode', `${titreParent(ep)} S${String(ep.data.saison ?? 0).padStart(2, '0')}E${String(ep.data.episode ?? 0).padStart(2, '0')}`.trim()); return; }
   if (pi) ajouterHistorique(mag, profil, cibleId, 'piste', `${titreParent(pi)} · ${String(pi.data.titre ?? '')}`.trim());
 }
-function servirFlux(res: ServerResponse, mag: MagasinVenus, cibleId: string, o: { range?: string; depuis?: number; profil?: string } = {}): boolean {
+async function servirFlux(res: ServerResponse, mag: MagasinVenus, cibleId: string, o: { range?: string; depuis?: number; profil?: string } = {}): Promise<boolean> {
   const c = fichierDeCible(mag, cibleId);
-  if (!c || !existsSync(c.fichier)) { json(res, 404, { error: 'cible introuvable' }); return true; }
+  if (!c) { json(res, 404, { error: 'cible introuvable' }); return true; }
+  if (!existsSync(c.fichier)) { json(res, 404, { error: "Le fichier de ce titre n'est plus à sa place (disque débranché, fichier déplacé) : rebranche-le ou relance un scan." }); return true; }
   // Historique (privé) à l'OUVERTURE seulement (pas à chaque seek) : requête sans Range, ou Range depuis 0.
   if (o.profil && estOuverture(o.range)) noterVu(mag, o.profil, cibleId);
   const plan = planLecture({ chemin: c.fichier, probe: c.probe, type: c.type, duree: c.duree });
@@ -172,12 +207,22 @@ function servirFlux(res: ServerResponse, mag: MagasinVenus, cibleId: string, o: 
   // le navigateur ne peut pas chercher dans un tuyau, donc le saut se refait côté serveur (relance à `depuis`). Le HLS
   // en segments (scrubbing complet des longs transcodés) reste à faire : voir AVANCEMENT. Jamais de HLS en tuyau nu.
   const mime = c.type === 'audio' ? 'audio/mp4' : 'video/mp4';
-  const ff = spawn('ffmpeg', argsTranscodage(c.fichier, 'mp4', Math.max(0, o.depuis ?? 0)), { stdio: ['ignore', 'pipe', 'ignore'] });
+  if (!(await outilDispo('ffmpeg'))) { json(res, 503, { error: MESSAGE_FFMPEG_ABSENT }); return true; }
+  const ff = spawn('ffmpeg', argsTranscodage(c.fichier, 'mp4', Math.max(0, o.depuis ?? 0), c.type === 'video' ? c.probe : undefined), { stdio: ['ignore', 'pipe', 'ignore'] });
   res.writeHead(200, { 'content-type': mime, 'cache-control': 'no-store' });
   ff.stdout.pipe(res);
   const stop = () => { try { ff.kill('SIGKILL'); } catch { /* déjà fini */ } };
   res.on('close', stop); ff.on('error', () => { try { res.destroy(); } catch { /* ignore */ } });
   return true;
+}
+/** Le plan de lecture d'une cible, et ce qui l'empêche (fichier absent, FFmpeg absent pour un format à convertir). */
+async function servirPlan(res: ServerResponse, mag: MagasinVenus, cibleId: string): Promise<boolean> {
+  const c = fichierDeCible(mag, cibleId);
+  if (!c) { json(res, 404, { pret: false, error: "Ce titre n'est pas (ou plus) dans la bibliothèque : relance un scan." }); return true; }
+  if (!existsSync(c.fichier)) { json(res, 200, { pret: false, error: "Le fichier de ce titre n'est plus à sa place (disque débranché, fichier déplacé) : rebranche-le ou relance un scan." }); return true; }
+  const plan = planLecture({ chemin: c.fichier, probe: c.probe, type: c.type, duree: c.duree });
+  if (plan.mode !== 'direct' && !(await outilDispo('ffmpeg'))) { json(res, 200, { pret: false, mode: plan.mode, raison: plan.raison, error: MESSAGE_FFMPEG_ABSENT }); return true; }
+  json(res, 200, { pret: true, mode: plan.mode, raison: plan.raison }); return true;
 }
 /** L'œuvre et, pour une série / un album / un livre audio, ses épisodes ou ses pistes (avec la reprise). */
 function servirOeuvre(res: ServerResponse, mag: MagasinVenus, id: string, profil: string): boolean {
@@ -191,11 +236,18 @@ function servirOeuvre(res: ServerResponse, mag: MagasinVenus, id: string, profil
 }
 /** Déclarer / lister / retirer un dossier média (GET liste, POST ajoute ou retire). */
 async function routeDossiers(req: IncomingMessage, res: ServerResponse, meth: string, mag: MagasinVenus): Promise<boolean> {
-  if (meth === 'GET') { json(res, 200, { dossiers: dossiers(mag) }); return true; }
-  const b = await corps(req); const chemin = s(b.chemin), cat = s(b.categorie) as Categorie;
-  if (!chemin) { json(res, 400, { error: 'chemin attendu' }); return true; }
-  if (s(b.faire) === 'retirer') { retirerDossier(mag, chemin); json(res, 200, { dossiers: dossiers(mag) }); return true; }
+  // La liste dit aussi si FFmpeg est là et donne un exemple de chemin qui ressemble à ceux de cette machine.
+  if (meth === 'GET') { json(res, 200, { dossiers: dossiers(mag), exemple: exempleChemin(), outils: { ffprobe: await outilDispo('ffprobe'), ffmpeg: await outilDispo('ffmpeg') } }); return true; }
+  const b = await corps(req); const brut = nettoyerChemin(s(b.chemin)), cat = s(b.categorie) as Categorie;
+  if (!brut) { json(res, 400, { error: 'chemin attendu' }); return true; }
+  // Un chemin complet seulement (« . » ou « Films » seraient lus depuis le dossier où Odin a été lancé), rangé sous une
+  // seule forme (« D:\Films\ » et « D:\Films » sont le même dossier).
+  const chemin = isAbsolute(brut) ? resolve(brut) : brut;
+  if (s(b.faire) === 'retirer') { if (!retirerDossier(mag, brut)) retirerDossier(mag, chemin); json(res, 200, { dossiers: dossiers(mag) }); return true; }
   if (!['films', 'series', 'musique', 'livres_audio'].includes(cat)) { json(res, 400, { error: 'catégorie attendue : films, series, musique, livres_audio' }); return true; }
+  if (!isAbsolute(brut)) { json(res, 400, { error: `Donne le chemin complet du dossier, depuis le début (par exemple ${exempleChemin()}), pas « ${brut} ».` }); return true; }
+  // Un dossier qui n'existe pas est refusé tout de suite, avec la raison (avant : accepté, puis ignoré sans un mot au scan).
+  const refus = raisonDossierRefuse(chemin); if (refus) { json(res, 400, { error: refus }); return true; }
   ajouterDossier(mag, chemin, cat); json(res, 200, { dossiers: dossiers(mag) }); return true;
 }
 async function servirSousTitres(res: ServerResponse, mag: MagasinVenus, cibleId: string, lang: string): Promise<boolean> {

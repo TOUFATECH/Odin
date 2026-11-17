@@ -37,6 +37,8 @@
       if (cible && cible.source === 'yt') return `/venus/yt/flux/${encodeURIComponent(String(cible.id))}`;
       return `/venus/flux/${encodeURIComponent(String(cible && cible.id))}`;
     },
+    /** Adresse où Odin dit comment une cible se lit, et ce qui l'en empêche (après un échec de lecture). */
+    planUrl(id) { return `/venus/plan/${encodeURIComponent(String(id))}`; },
     /** Ajoute la position de départ (reprise/seek) à l'adresse d'un flux : le serveur relance le transcodage à `depuis`
      *  (le navigateur ne peut pas chercher dans un tuyau transcodé). Pur. */
     avecDepuis(url, depuis) {
@@ -127,7 +129,13 @@
     });
     video.addEventListener('pause', noter);
     video.addEventListener('ended', () => { noter(); opts.surFin?.(cible); });
-    video.addEventListener('error', () => { cadre.replaceChildren(el('p', { class: 'vl-err' }, 'Lecture impossible pour le moment (flux indisponible). Essaie « Envoyer sur un écran ».')); });
+    // Lecture ratée : on demande à Odin POURQUOI (fichier absent, FFmpeg absent…) et on le dit, au lieu d'un message vague.
+    video.addEventListener('error', async () => {
+      const msg = el('p', { class: 'vl-err', role: 'alert' }, 'Lecture impossible pour le moment (flux indisponible).');
+      cadre.replaceChildren(msg);
+      if (cible.source === 'yt' || !cible.id) return;
+      try { const r = await fetch(logique.planUrl(cible.id), { headers: { 'x-odin': '1' } }); const d = await r.json(); if (d && d.error) msg.textContent = `Lecture impossible : ${d.error}`; } catch { /* Odin injoignable : le message général reste */ }
+    });
     try { await video.play?.(); } catch { /* le navigateur attend parfois un geste : les contrôles sont là */ }
     return ouvert;
   }

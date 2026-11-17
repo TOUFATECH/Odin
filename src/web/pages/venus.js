@@ -117,20 +117,66 @@
 
   // Catégories d'un dossier média à déclarer (pour peupler Odéon).
   const CATS_DOSSIER = [['films', 'Films'], ['series', 'Séries'], ['musique', 'Musique'], ['livres_audio', 'Livres audio']];
-  const champ = (attrs) => el('input', { ...attrs, style: 'flex:1;min-width:140px;min-height:38px;border-radius:12px;border:1px solid var(--line);background:var(--field);color:inherit;padding:0 12px;font:inherit' });
+  // Le chemin prend toute la ligne sur un téléphone (390 px) : un chemin se lit en entier, la catégorie et les boutons passent dessous.
+  const champ = (attrs) => el('input', { ...attrs, style: 'flex:1 1 260px;min-width:0;min-height:38px;border-radius:12px;border:1px solid var(--line);background:var(--field);color:inherit;padding:0 12px;font:inherit' });
+
+  // Ce que le bilan d'un scan dit des fichiers laissés de côté : la raison en clair, et quelques noms (jamais tu).
+  const RAISONS = {
+    dossier_introuvable: 'dossier introuvable sur la machine d\'Odin',
+    pas_un_media: 'pas une vidéo ni un son',
+    illisible: 'illisible par ffprobe (fichier abîmé, ou FFmpeg absent)',
+    hors_categorie: 'pas du bon genre pour la catégorie du dossier',
+    episode_sans_numero: 'épisode sans numéro dans son nom (il faut S01E02 ou 1x02)',
+  };
+  Object.assign(logique, {
+    /** Le bilan d'un scan en lignes lisibles : comptes, alerte (FFmpeg absent), dossiers introuvables, raisons. Pur. */
+    bilanLignes(r) {
+      const b = (r && r.bilan) || {}, out = [];
+      if (r && r.error) return [String(r.error)];
+      if (r && r.alerte) out.push(String(r.alerte));
+      out.push(`Scan terminé : ${b.oeuvres || 0} œuvre(s), ${b.episodes || 0} épisode(s), ${b.pistes || 0} piste(s).`);
+      for (const d of (b.dossiersIntrouvables || [])) out.push(`Dossier introuvable : ${d} (disque débranché ou chemin mal tapé ?).`);
+      const raisons = Object.entries(b.raisons || {}).filter(([k]) => k !== 'dossier_introuvable');
+      if (raisons.length) out.push(`Laissés de côté : ${raisons.map(([k, n]) => `${n} ${RAISONS[k] || k}`).join(' ; ')}.`);
+      const ex = (b.exemples || []).slice(0, 5);
+      if (ex.length) out.push(`Par exemple : ${ex.map((x) => `${x.fichier} (${RAISONS[x.raison] || x.raison})`).join(', ')}.`);
+      return out;
+    },
+    /** Ce qu'il manque d'outils pour lire les médias (rien = tout va bien). Pur. */
+    outilsManquants(o) { if (!o) return ''; const m = ['ffprobe', 'ffmpeg'].filter((k) => o[k] === false); return m.length ? `FFmpeg est introuvable pour Odin (${m.join(' et ')} manquant). Installe FFmpeg sur la machine d'Odin (sous Windows : winget install Gyan.FFmpeg), puis redémarre Odin : un Odin démarré avant l'installation ne le voit pas.` : ''; },
+  });
 
   // Déclarer un dossier média et lancer le scan (sans ça, ODÉON reste vide). `onScan` recharge la bibliothèque.
   function panneauDossiers(onScan) {
-    const etat = el('p', { class: 'vn-note' }, 'Chargement des dossiers…');
-    const chemin = champ({ type: 'text', placeholder: 'Chemin d\'un dossier (ex. /mnt/films)', 'aria-label': 'Dossier média' });
+    const etat = el('p', { class: 'vn-note', role: 'status' }, 'Chargement des dossiers…');
+    // Les erreurs et alertes restent affichées (avant : un ajout raté ne disait rien).
+    const alerte = el('p', { class: 'vn-note', role: 'alert', style: 'color:var(--bad,#ff6b6b);font-weight:600', hidden: true });
+    const dire = (t) => { alerte.textContent = t || ''; alerte.hidden = !t; };
+    const chemin = champ({ type: 'text', placeholder: 'Chemin d\'un dossier de la machine d\'Odin', 'aria-label': 'Dossier média' });
     const cat = el('select', { 'aria-label': 'Catégorie', style: 'min-height:38px;border-radius:12px;border:1px solid var(--line);background:var(--field);color:inherit;padding:0 10px;font:inherit' }, ...CATS_DOSSIER.map(([v, l]) => el('option', { value: v }, l)));
-    const majListe = async () => { try { const d = await vget('/venus/dossiers'); const l = d.dossiers || []; etat.textContent = l.length ? `Dossiers : ${l.map((x) => `${x.chemin} (${x.categorie})`).join(' · ')}` : 'Aucun dossier déclaré. Ajoute-en un puis lance un scan.'; } catch { etat.textContent = 'Dossiers indisponibles.'; } };
-    const ajouter = async () => { const c = chemin.value.trim(); if (!c) return; await vpost('/venus/dossiers', { chemin: c, categorie: cat.value }); chemin.value = ''; await majListe(); };
-    const scanner = async () => { etat.textContent = 'Scan en cours…'; try { const r = await vpost('/venus/scan'); const b = (r && r.bilan) || {}; etat.textContent = `Scan terminé : ${b.oeuvres || 0} œuvre(s), ${b.episodes || 0} épisode(s), ${b.pistes || 0} piste(s).`; onScan && onScan(); } catch { etat.textContent = 'Scan impossible pour le moment.'; } };
+    const majListe = async () => {
+      try {
+        const d = await vget('/venus/dossiers'); const l = d.dossiers || [];
+        if (d.exemple) chemin.placeholder = `Chemin d'un dossier de la machine d'Odin (ex. ${d.exemple})`;
+        const manque = logique.outilsManquants(d.outils); if (manque) dire(manque);
+        etat.textContent = l.length ? `Dossiers : ${l.map((x) => `${x.chemin} (${x.categorie})`).join(' · ')}. Lance « Scanner maintenant » pour les relire.` : '1. Colle le chemin d\'un dossier de films, séries ou musique et choisis sa catégorie. 2. « Ajouter le dossier ». 3. « Scanner maintenant » : tes médias apparaissent, un clic les lit dans le navigateur.';
+      } catch { etat.textContent = 'Dossiers indisponibles.'; }
+    };
+    const ajouter = async () => {
+      const c = chemin.value.trim(); if (!c) { dire('Colle d\'abord le chemin d\'un dossier.'); return; }
+      const r = await vpost('/venus/dossiers', { chemin: c, categorie: cat.value });
+      if (r && r.error) { dire(r.error); return; }
+      dire(''); chemin.value = ''; await majListe();
+    };
+    const scanner = async () => {
+      etat.textContent = 'Scan en cours… (chaque fichier est lu par ffprobe : une grosse bibliothèque prend du temps)';
+      try { const r = await vpost('/venus/scan'); const lignes = logique.bilanLignes(r); dire(r && (r.alerte || r.error) ? String(r.alerte || r.error) : ''); etat.textContent = lignes.filter((x) => x !== (r && (r.alerte || r.error))).join(' '); onScan && onScan(); }
+      catch { etat.textContent = 'Scan impossible pour le moment.'; }
+    };
     majListe();
     return el('div', { class: 'vn-sec' }, el('h3', {}, 'Dossiers média'),
       el('div', { class: 'vn-sous' }, chemin, cat, el('button', { class: 'vn-b', type: 'button', onclick: ajouter }, 'Ajouter le dossier'), el('button', { class: 'vn-b ac', type: 'button', onclick: scanner }, 'Scanner maintenant')),
-      etat);
+      alerte, etat);
   }
 
   // --- Onglet Odéon : la bibliothèque + Odyssée (lecteur de livres gardé tel quel) ----------------
@@ -142,7 +188,9 @@
     const zone = el('div');
     const gestion = el('div');
     const extras = el('div', { style: 'display:flex;flex-direction:column;gap:16px' });
-    host.replaceChildren(sous, zone, gestion, extras);
+    // Une colonne espacée : la grille, le panneau des dossiers et « Ma liste » ne se collent plus l'un à l'autre.
+    const pile = el('div', { style: 'display:flex;flex-direction:column;gap:16px' }, sous, zone, gestion, extras);
+    host.replaceChildren(pile);
 
     const rendre = async () => {
       // mettre à jour l'état pressé des filtres
@@ -153,8 +201,9 @@
         const oeuvres = d.oeuvres || d.items || [];
         const grille = el('div', { class: 'vn-grille' });
         const detail = el('div');
-        if (!oeuvres.length) zone.replaceChildren(el('p', { class: 'vn-vide' }, S.q ? `Rien pour « ${S.q} » dans ${logique.typeLabel(S.type).toLowerCase()}.` : `Aucun titre dans ${logique.typeLabel(S.type).toLowerCase()} (déclare un dossier ci-dessous puis lance un scan).`));
-        else { grille.append(...oeuvres.map((o) => carte(o, (x) => ouvrirOeuvre(x, detail, ctx.toast)))); zone.replaceChildren(grille, detail); }
+        // Bibliothèque vide : le panneau des dossiers passe AU-DESSUS (c'est la seule chose à faire), sinon il reste dessous.
+        if (!oeuvres.length) { zone.replaceChildren(el('p', { class: 'vn-vide' }, S.q ? `Rien pour « ${S.q} » dans ${logique.typeLabel(S.type).toLowerCase()}.` : `Aucun titre dans ${logique.typeLabel(S.type).toLowerCase()} : déclare un dossier de médias ci-dessus, puis lance un scan.`)); if (!S.q) pile.insertBefore(gestion, zone); }
+        else { grille.append(...oeuvres.map((o) => carte(o, (x) => ouvrirOeuvre(x, detail, ctx.toast)))); zone.replaceChildren(grille, detail); if (gestion.previousSibling === sous) pile.insertBefore(zone, gestion); }
       } catch { zone.replaceChildren(el('p', { class: 'vn-vide' }, 'Bibliothèque indisponible (serveur en cours de démarrage ou scan en cours).')); }
     };
     rendre();
@@ -248,7 +297,9 @@
       else if (S.onglet === 'etat') { corps.replaceChildren(); await etat(corps); }
     };
     await rendre();
-    return true; // Vénus prend toute la page (la page générique du module ne s'affiche pas).
+    // Vénus prend la largeur de la page : les sections génériques du module sont cachées ; ses actions qui ne parlent
+    // qu'au serveur à part restent dans « Autres actions », sous la page (et hors de la barre du haut tant qu'il n'est pas relié).
+    return true;
   };
 
   window.OdinVenus = { logique, suitePrecedente: suite };

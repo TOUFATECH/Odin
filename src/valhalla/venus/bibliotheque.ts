@@ -6,7 +6,7 @@
 // l'appelant), jamais d'un titre deviné. Les outils externes (ffprobe, FFmpeg) sont injectés : les essais passent un
 // faux, aucun service réel n'est touché.
 import { randomBytes } from 'node:crypto';
-import { readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import type { Collection, Enr, MagasinVenus } from './base.ts';
 
@@ -39,7 +39,8 @@ export function analyserNom(nom: string): NomLu {
   const titre = titrePropre(an ? base.slice(0, an.index) : base);
   return { titre: titre || titrePropre(base), ...(an ? { annee: Number(an[1]) } : {}) };
 }
-function titrePropre(t: string): string { return t.replace(NETTOYER, ' ').replace(/[\s.\-_]+$/,'').replace(/\s+/g, ' ').trim(); }
+// La parenthèse ou le crochet ouvert avant l'année (« Titre (2001) ») part aussi : sinon le titre finit par « ( ».
+function titrePropre(t: string): string { return t.replace(NETTOYER, ' ').replace(/[\s.\-_([{]+$/, '').replace(/\s+/g, ' ').trim(); }
 
 /** Un fichier trouvé sur le disque. */
 export interface FichierVu { chemin: string; taille: number; mtime: number }
@@ -60,8 +61,13 @@ export interface Outils {
 export function parcourirReel(dossier: string): FichierVu[] {
   const out: FichierVu[] = [];
   const pile = [dossier];
+  // Les liens et jonctions sont suivis (un dossier de films peut en être un), mais chaque dossier réel n'est lu
+  // qu'une fois : un lien vers un dossier parent ne fait plus tourner le parcours sans fin.
+  const vus = new Set<string>();
   while (pile.length) {
     const d = pile.pop()!;
+    let reel: string; try { reel = realpathSync.native(d); } catch { continue; }
+    if (vus.has(reel)) continue; vus.add(reel);
     let noms: string[]; try { noms = readdirSync(d); } catch { continue; }
     for (const n of noms) {
       if (n.startsWith('.')) continue;
@@ -84,8 +90,18 @@ export function sousTitresVoisins(chemin: string, tous: FichierVu[]): Array<{ la
     .map((f) => { const reste = f.chemin.slice(sansExt.length, f.chemin.length - extname(f.chemin).length); const l = /([a-z]{2,3})$/i.exec(reste.replace(/[._-]+$/, '')); return { ...(l ? { langue: l[1].toLowerCase() } : {}), fichier: f.chemin }; });
 }
 
-/** Bilan d'un scan. */
-export interface Bilan { oeuvres: number; episodes: number; pistes: number; fichiers: number; ignores: number }
+/** Pourquoi un fichier (ou un dossier) n'est pas entré dans la bibliothèque : dit à l'écran, jamais tu. */
+export type RaisonIgnore = 'dossier_introuvable' | 'pas_un_media' | 'illisible' | 'hors_categorie' | 'episode_sans_numero';
+export const RAISONS_IGNORE: Record<RaisonIgnore, string> = {
+  dossier_introuvable: "dossier introuvable sur la machine d'Odin",
+  pas_un_media: 'pas une vidéo ni un son',
+  illisible: 'illisible par ffprobe (fichier abîmé, ou FFmpeg absent)',
+  hors_categorie: 'pas du bon genre pour la catégorie du dossier (un son dans « Films », une vidéo dans « Musique »…)',
+  episode_sans_numero: 'épisode sans numéro dans son nom (il faut S01E02 ou 1x02)',
+};
+/** Bilan d'un scan : les comptes, et pour ce qui est laissé de côté, la raison (avec quelques noms de fichiers). */
+export interface Bilan { oeuvres: number; episodes: number; pistes: number; fichiers: number; ignores: number;
+  raisons: Partial<Record<RaisonIgnore, number>>; exemples: Array<{ fichier: string; raison: RaisonIgnore }>; dossiersIntrouvables: string[] }
 
 /**
  * Scanne tous les dossiers actifs et range la bibliothèque dans le magasin. N'efface rien : met à jour.
@@ -93,17 +109,27 @@ export interface Bilan { oeuvres: number; episodes: number; pistes: number; fich
  */
 export async function scanner(mag: MagasinVenus, outils: Outils): Promise<Bilan> {
   const parcourir = outils.parcourir ?? parcourirReel;
-  const b: Bilan = { oeuvres: 0, episodes: 0, pistes: 0, fichiers: 0, ignores: 0 };
+  const b: Bilan = { oeuvres: 0, episodes: 0, pistes: 0, fichiers: 0, ignores: 0, raisons: {}, exemples: [], dossiersIntrouvables: [] };
+  const ignorer = (fichier: string, raison: RaisonIgnore) => {
+    b.ignores++; b.raisons[raison] = (b.raisons[raison] ?? 0) + 1;
+    if (b.exemples.length < 12) b.exemples.push({ fichier: basename(fichier), raison });
+  };
   const oeuvresVues = new Set<string>();
   for (const d of mag.liste('dossiers')) {
     const { chemin, categorie, actif } = d.data as { chemin: string; categorie: Categorie; actif?: boolean };
     if (actif === false || !chemin) continue;
+    // Un dossier qui n'existe pas (débranché, mal tapé) est DIT, au lieu de rendre « 0 œuvre » sans raison.
+    if (!outils.parcourir && !dossierExiste(chemin)) { b.dossiersIntrouvables.push(chemin); b.raisons.dossier_introuvable = (b.raisons.dossier_introuvable ?? 0) + 1; continue; }
     const tous = parcourir(chemin);
     for (const f of tous) {
       const ext = extname(f.chemin).toLowerCase();
-      if (!EXT_VIDEO.has(ext) && !EXT_AUDIO.has(ext)) { if (!EXT_SOUS.has(ext)) b.ignores++; continue; }
+      if (!EXT_VIDEO.has(ext) && !EXT_AUDIO.has(ext)) { if (!EXT_SOUS.has(ext)) ignorer(f.chemin, 'pas_un_media'); continue; }
+      // Un fichier qui n'a rien à faire dans la catégorie du dossier est écarté AVANT d'appeler ffprobe.
+      const bonGenre = categorie === 'films' || categorie === 'series' ? estVideo(f.chemin) : estAudio(f.chemin);
+      if (!bonGenre) { ignorer(f.chemin, 'hors_categorie'); continue; }
+      if (categorie === 'series' && analyserNom(basename(f.chemin)).saison === undefined) { ignorer(f.chemin, 'episode_sans_numero'); continue; }
       const probe = await outils.ffprobe(f.chemin).catch(() => null);
-      if (!probe) { b.ignores++; continue; }
+      if (!probe) { ignorer(f.chemin, 'illisible'); continue; }
       const lu = analyserNom(basename(f.chemin));
       const vignette = outils.vignette ? await outils.vignette(f.chemin, probe.duree).catch(() => undefined) : undefined;
       mag.poser('fichiers', cheminId(f.chemin), { chemin: f.chemin, taille: f.taille, mtime: f.mtime, probe });
@@ -127,7 +153,7 @@ export async function scanner(mag: MagasinVenus, outils: Outils): Promise<Bilan>
         const num = numeroDePiste(basename(f.chemin));
         mag.poser('pistes', `${oid}:p${num}:${slug(basename(f.chemin))}`, { oeuvre_id: oid, num, titre: lu.titre || basename(f.chemin, extname(f.chemin)), fichier: f.chemin, duree: probe.duree });
         b.pistes++;
-      } else { b.ignores++; }
+      } else { ignorer(f.chemin, 'hors_categorie'); }
     }
   }
   return b;
@@ -143,6 +169,23 @@ const cheminId = (c: string) => c.replace(/[^A-Za-z0-9_.:-]/g, '_').slice(-199);
 const numeroDePiste = (nom: string): number => { const m = /^\s*(\d{1,3})\b/.exec(nom); return m ? Number(m[1]) : 0; };
 
 // ---------------- Déclarer les dossiers média ----------------
+const dossierExiste = (c: string): boolean => { try { return existsSync(c) && statSync(c).isDirectory(); } catch { return false; } };
+/**
+ * Le chemin tel que le propriétaire l'a collé, rendu propre : espaces autour retirés, et les guillemets qui l'entourent
+ * (« Copier en tant que chemin » de l'Explorateur de Windows les ajoute) enlevés. Pur.
+ */
+export function nettoyerChemin(c: string): string {
+  let t = String(c ?? '').trim();
+  while (t.length >= 2 && ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'")))) t = t.slice(1, -1).trim();
+  return t;
+}
+/** Pourquoi ce dossier ne peut pas être déclaré (rien = il est bon). Lit le disque de la machine d'Odin. */
+export function raisonDossierRefuse(chemin: string): string | undefined {
+  if (!chemin) return "Donne le chemin d'un dossier.";
+  if (!existsSync(chemin)) return `Ce dossier n'existe pas sur la machine d'Odin : ${chemin}. Vérifie le chemin (sous Windows, par exemple D:\\Films ; ailleurs, par exemple /mnt/films).`;
+  try { if (!statSync(chemin).isDirectory()) return `C'est un fichier, pas un dossier : ${chemin}. Donne le dossier qui le contient.`; } catch { return `Odin ne peut pas lire ce dossier : ${chemin}.`; }
+  return undefined;
+}
 export function ajouterDossier(mag: MagasinVenus, chemin: string, categorie: Categorie): Enr {
   return mag.poser('dossiers', cheminId(chemin), { chemin, categorie, actif: true });
 }
