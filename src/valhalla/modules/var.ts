@@ -6,6 +6,8 @@
 import { connexions } from '../sso/connexions.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Action, GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Param, Tone } from '../types.ts';
 import { hashPassword, checkPassword } from '../valgrind/proxy.ts';
 import { totp } from './brisingamen.ts';
@@ -188,6 +190,21 @@ function siteElargi(ctx: ModCtx, i: Record<string, unknown>): Rule | undefined {
   // Le groupe admin entre partout : le nommer n'ajoute personne.
   const apres = groupsOf(i.groupes || '*'); return apres.some((g) => g === '*' || (g !== 'admin' && !r.groups.includes(g))) ? r : undefined;
 }
+/** Les réglages d'une autre appli, lus sans rien changer (pour ce que montre une validation). */
+function reglagesDe(ctx: ModCtx, appli: 'bru' | 'valgrind'): Record<string, unknown> {
+  try { return JSON.parse(readFileSync(join(ctx.dir, '..', appli, 'réglages.json'), 'utf8')) as Record<string, unknown>; } catch { return {}; }
+}
+/** Le site du proxy qui demande la connexion d'Odin sous ce nom (et le service où il mène). */
+const siteSso = (ctx: ModCtx, d: string) => ((reglagesDe(ctx, 'valgrind').hosts as Array<{ domains?: string[]; target?: string; sso?: boolean }> | undefined) ?? []).find((h) => h.sso === true && (h.domains ?? []).includes(d));
+/**
+ * Ce que les réglages exposent de nouveau : le portail servi sous un autre nom par le proxy, ou publié sur Internet
+ * (un tunnel de Bifröst existe et ce nom n'y est pas encore publié). Le même nom déjà publié : rien de nouveau.
+ */
+function nouveauPortail(ctx: ModCtx, i: Record<string, unknown>): { portal: string; avant: string; servir: boolean; publier: boolean; avantPublie: boolean } {
+  const portal = s(i.portail).toLowerCase(), avant = conf(ctx).portal, b = reglagesDe(ctx, 'bru');
+  const publies = ((b.published as Array<{ hostname?: string }> | undefined) ?? []).map((p) => s(p.hostname));
+  return { portal, avant, servir: portal !== avant, publier: Boolean(b.tunnel) && !publies.includes(portal), avantPublie: Boolean(avant) && publies.includes(avant) };
+}
 const ADD: Param[] = [{ key: 'login', label: 'Identifiant (ex. personne-a)', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', required: true }, { key: 'groupes', label: 'Groupes (ex. famille, admins)', kind: 'text', default: 'famille' }, { key: 'email', label: 'E-mail (facultatif, reste sur Odin)', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un, rangé dans le coffre)', kind: 'password', default: '' }];
 
 export const varModule: Module = {
@@ -259,17 +276,37 @@ export const varModule: Module = {
       return { text: `🛡 ${d} demande maintenant la connexion d'Odin (${gs.includes('*') ? 'toute personne connectée' : `groupes ${gs.join(', ')}`}).` };
     } },
     { id: 'liberer_site', label: 'Libérer un site', what: 'Plus besoin de se connecter', quick: false, params: [{ key: 'domaine', label: 'Site', kind: 'text', required: true }],
-      grave: siDonne((i, ctx) => { const r = rules(ctx).find((x) => x.domain === s(i.domaine).toLowerCase()); return r ? `ouvrir ${r.domain} sans connexion — autorisés : ${avantApres(r.groups, ['tout le monde'])}` : undefined; }),
-      run: async (ctx, i) => { const d = s(i.domaine).toLowerCase(); await ctx.call('valgrind', 'connexion_unique', { domaine: d, actif: false }).catch(() => undefined); ctx.saveSettings({ rules: rules(ctx).filter((x) => x.domain !== d) }); return { text: `🔓 ${d} ne demande plus de connexion.` }; } },
-    { id: 'reglages', label: 'Réglages', what: 'Le nom du portail, le domaine, la durée des sessions, la double authentification obligatoire', quick: false, params: [{ key: 'portail', label: 'Nom du portail (ex. connexion.exemple.fr)', kind: 'text', required: true }, { key: 'domaine', label: 'Domaine commun (ex. exemple.fr)', kind: 'text', required: true }, { key: 'heures', label: 'Durée d\'une session (heures)', kind: 'number', default: 12 }, { key: 'double_auth', label: 'Double authentification obligatoire pour les groupes', kind: 'text', default: 'admins' }], run: async (ctx, i) => {
+      // Le site perd la connexion unique (règle de Persona, ou site du proxy qui la demande) : validation, en voyant lequel et vers quoi.
+      grave: siDonne((i, ctx) => {
+        const d = s(i.domaine).toLowerCase(), r = rules(ctx).find((x) => x.domain === d), h = siteSso(ctx, d); if (!r && !h) return undefined;
+        return `${d} perd la connexion unique d'Odin : qui atteint ce site${h?.target ? ` (il mène à ${h.target})` : ''} entre sans se connecter — autorisés : ${avantApres(r?.groups ?? ['*'], ['tout le monde'])}`;
+      }),
+      run: async (ctx, i) => {
+        const d = s(i.domaine).toLowerCase();
+        // Le proxy d'abord : s'il refuse, le site reste protégé et la règle est gardée (jamais dit « libéré » à tort).
+        if (siteSso(ctx, d)) { const r = await ctx.call('valgrind', 'connexion_unique', { domaine: d, actif: false }, `libérer ${d}`).catch((e) => ({ ok: false, text: (e as Error).message })); if (r.ok === false) return { ok: false, text: `${d} demande toujours la connexion d'Odin : ${r.text}` }; }
+        ctx.saveSettings({ rules: rules(ctx).filter((x) => x.domain !== d) }); return { text: `🔓 ${d} ne demande plus de connexion.` };
+      } },
+    { id: 'reglages', label: 'Réglages', what: 'Le nom du portail, le domaine, la durée des sessions, la double authentification obligatoire', quick: false, params: [{ key: 'portail', label: 'Nom du portail (ex. connexion.exemple.fr)', kind: 'text', required: true }, { key: 'domaine', label: 'Domaine commun (ex. exemple.fr)', kind: 'text', required: true }, { key: 'heures', label: 'Durée d\'une session (heures)', kind: 'number', default: 12 }, { key: 'double_auth', label: 'Double authentification obligatoire pour les groupes', kind: 'text', default: 'admins' }],
+      // Un nouveau nom servi par le proxy, ou une publication sur Internet : validation, en voyant quoi, où, pour qui.
+      // Le même nom, déjà publié (la durée, la double authentification…) : rien de nouveau, pas de validation en plus.
+      grave: siDonne((i, ctx) => {
+        const n = nouveauPortail(ctx, i), out: string[] = []; if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(n.portal)) return undefined;
+        if (n.servir) out.push(`servir la page de connexion sous ${n.portal}${n.avant ? ` (au lieu de ${n.avant}${n.avantPublie ? `, qui reste publié sur Internet` : ''})` : ''} par le proxy d'Odin : ce nom mène à cette machine dans le DNS de la maison, avec un certificat demandé pour lui`);
+        if (n.publier) out.push(`publier https://${n.portal} sur Internet par le tunnel Cloudflare (Bifröst) : la page de connexion devient joignable par n'importe qui sur Internet (entrer demande un compte de Persona)`);
+        return out.length ? `portail de connexion — ${out.join(' ; ')}` : undefined;
+      }),
+      run: async (ctx, i) => {
       const portal = s(i.portail).toLowerCase(), dom = s(i.domaine).toLowerCase().replace(/^\./, ''), h = Number(i.heures) || 12;
       if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(portal)) throw new Error('nom du portail invalide'); if (!within(portal, dom)) throw new Error(`le portail doit être dans le domaine commun (${portal} n'est pas dans ${dom})`);
       if (h < 1 || h > 24 * 30) throw new Error('durée entre 1 heure et 30 jours');
+      const n = nouveauPortail(ctx, i); // lu avant d'enregistrer : ce qui est nouveau (ce que la validation a montré)
       ctx.saveSettings({ portal, cookieDomain: dom, hours: h, require2fa: s(i.double_auth) ? groupsOf(i.double_auth) : [] });
-      const r = await ctx.call('valgrind', 'portail', { domaine: portal }, 'servir le portail de connexion').catch((e) => ({ ok: false, text: (e as Error).message }));
+      // Seulement ce qui est nouveau : un autre nom à servir, une publication à faire (le même nom déjà publié : rien).
+      const r = n.servir ? await ctx.call('valgrind', 'portail', { domaine: portal }, 'servir le portail de connexion').catch((e) => ({ ok: false, text: (e as Error).message })) : undefined;
       // Avec un tunnel Cloudflare (Bifröst), le portail est aussi publié sur Internet.
-      const pub = await ctx.call('bru', 'publier', { domaine: portal }, 'publier le portail de connexion sur Internet').catch(() => ({ ok: false, text: '' }));
-      return { text: `⚙️ Portail ${portal} (sessions de ${h} h, valables sur *.${dom})${r.ok !== false ? ' servi par le proxy.' : ` — ⚠ le proxy n'a pas pu le servir : ${r.text}`}${pub.ok !== false && pub.text ? `\n${pub.text}` : ''}` };
+      const pub = n.publier ? await ctx.call('bru', 'publier', { domaine: portal }, 'publier le portail de connexion sur Internet').catch(() => ({ ok: false, text: '' })) : undefined;
+      return { text: `⚙️ Portail ${portal} (sessions de ${h} h, valables sur *.${dom})${!r ? '.' : r.ok !== false ? ' servi par le proxy.' : ` — ⚠ le proxy n'a pas pu le servir : ${r.text}`}${pub && pub.ok !== false && pub.text ? `\n${pub.text}` : ''}` };
     } },
     { id: 'personnes', label: 'Personnes et groupes', what: 'Qui a un compte et dans quels groupes (sans aucun mot de passe)', read: true, quiet: true, run: (ctx) => {
       const l = people(ctx).map((p) => ({ login: p.login, name: p.name, groups: p.groups, active: p.active }));

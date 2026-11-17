@@ -240,7 +240,10 @@ export const valgrind: Module = {
       return { text: `↪ ${d} → ${s(i.vers)} (${s(i.code) === '302' ? 'temporaire' : 'définitive'}).` };
     } },
     { id: 'connexion_unique', label: 'Connexion unique (Persona)', what: 'Le site demande la connexion d\'Odin', quick: false, grave: (i) => (i.actif === false ? `ouvrir ${s(i.domaine)} sans connexion d'Odin : qui atteint le site entre sans se connecter` : undefined), params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => { const h = byDomain(ctx, i.domaine); saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, sso: i.actif !== false } : x))); return { text: `${i.actif !== false ? '🛡' : '🔓'} ${h.domains[0]} ${i.actif !== false ? 'demande la connexion d\'Odin (Persona)' : 'ne demande plus la connexion d\'Odin'}.` }; } },
-    { id: 'portail', label: 'Servir le portail de connexion', what: 'Le nom du portail de Persona, avec son certificat', quick: false, params: [{ key: 'domaine', label: 'Nom du portail', kind: 'text', required: true }], run: async (ctx, i) => {
+    { id: 'portail', label: 'Servir le portail de connexion', what: 'Le nom du portail de Persona, avec son certificat', quick: false, params: [{ key: 'domaine', label: 'Nom du portail', kind: 'text', required: true }],
+      // Servir la page de connexion sous un nom l'expose : ta validation, en voyant lequel et ce qui est fait pour lui.
+      grave: (i) => `servir la page de connexion de Persona sous ${s(i.domaine).toLowerCase()} par le proxy d'Odin : ce nom mène à cette machine dans le DNS de la maison, et un certificat est demandé pour lui (à Let's Encrypt si le proxy écoute sur le port 80 : le nom devient public ; sinon auto-signé)`,
+      run: async (ctx, i) => {
       const d = s(i.domaine).toLowerCase(); if (!DOMAIN.test(d) || d.startsWith('*.')) throw new Error('nom invalide');
       if (hosts(ctx).some((h) => h.domains.includes(d))) throw new Error(`${d} est déjà un site du proxy`);
       const fake: Host = { id: 'portail', domains: [d], target: 'http://127.0.0.1', enabled: true, tls: 'letsencrypt' };

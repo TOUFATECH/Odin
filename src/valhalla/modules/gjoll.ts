@@ -50,9 +50,11 @@ async function ready(ctx: ModCtx): Promise<Server> {
   const sv = server(ctx); let changed = false;
   if (!sv.lan) { sv.lan = homeLans().filter((c) => !c.startsWith(`${sv.net}.`)); changed = true; }
   if (!sv.dns || sv.dns === `${sv.net}.1`) {
-    // Le DNS de la box (il connaît aussi les noms de la maison) ; à défaut, un résolveur public.
+    // Le DNS de la box (il connaît aussi les noms de la maison). Box introuvable : on garde ce qui était
+    // (celui d'Odin, ou rien = celui de l'appareil) ; Odin ne choisit jamais seul un DNS hors de la maison,
+    // c'est au propriétaire de le donner (« Réseaux de la maison », avec sa validation).
     const gw = /default via (\d+\.\d+\.\d+\.\d+)/.exec((await ctx.run('ip', ['route', 'show', 'default'])).out)?.[1];
-    sv.dns = gw && isPrivateV4(gw) ? gw : '1.1.1.1'; changed = true;
+    if (gw && isPrivateV4(gw)) { sv.dns = gw; changed = true; }
   }
   if (!sv.nat) { sv.nat = (await ctx.has('iptables')) ? 'iptables' : (await ctx.has('nft')) ? 'nft' : 'aucun'; changed = true; }
   if (changed) ctx.saveSettings({ server: sv });
@@ -357,19 +359,33 @@ export const gjoll: Module = {
       grave: (i) => (i.actif === true ? `rouvrir l'accès au VPN de la maison pour l'appareil « ${s(i.nom)} »` : undefined), // couper reste libre
       run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).map((p) => (p.name === s(i.nom) ? { ...p, enabled: i.actif === true } : p)) }); return { text: `${i.actif === true ? '✅ Réactivé' : '⏸ Désactivé'} : ${s(i.nom)}\n${await apply(ctx)}` }; } },
     { id: 'revoquer', label: 'Révoquer', what: 'Supprime définitivement l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], grave: (i) => `révoquer l'accès VPN de « ${s(i.nom)} »`, run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).filter((p) => p.name !== s(i.nom)) }); await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${s(i.nom)}` }, 'accès VPN révoqué').catch(() => undefined); return { text: `🗝 Accès de ${s(i.nom)} révoqué.\n${await apply(ctx)}` }; } },
-    { id: 'adresse', label: 'Adresse publique', what: 'Adresse ou domaine par lequel on joint la maison', params: [{ key: 'adresse', label: 'Adresse ou domaine', kind: 'text', required: true }, { key: 'port', label: 'Port', kind: 'number', default: 51820 }], run: async (ctx, i) => { const sv = await ready(ctx), adr = s(i.adresse).trim(); if (!/^[\w.-]{1,200}$/.test(adr)) throw new Error('adresse ou domaine invalide'); ctx.saveSettings({ server: { ...sv, endpoint: adr, port: Number(i.port) || 51820 } }); return { text: `🌍 Les appareils joindront ${adr}:${Number(i.port) || 51820}. Pense à ouvrir ce port (UDP) sur ta box vers cette machine.\n${await apply(ctx)}` }; } },
-    { id: 'reseaux', label: 'Réseaux de la maison', what: 'Réseaux ouverts aux appareils du VPN, et DNS donné aux appareils', params: [{ key: 'reseaux', label: 'Réseaux (ex. 192.168.1.0/24, séparés par des virgules)', kind: 'text', default: '' }, { key: 'dns', label: 'DNS (vide = celui de la box)', kind: 'text', default: '' }],
-      // Ouvrir un réseau de plus aux appareils du VPN : validation, avant → après. Retirer un réseau, changer le DNS : libre.
+    { id: 'adresse', label: 'Adresse publique', what: 'Adresse ou domaine par lequel on joint la maison', params: [{ key: 'adresse', label: 'Adresse ou domaine', kind: 'text', required: true }, { key: 'port', label: 'Port', kind: 'number', default: 51820 }],
+      // Changer l'adresse publique du VPN (ou son port) : validation, avant → après. La même : rien à valider.
       grave: (i, ctx) => {
-        const avant = ((ctx?.settings.server as Server | undefined)?.lan) ?? [], apres = s(i.reseaux).split(',').map((x) => x.trim()).filter(Boolean);
-        return apres.some((x) => !avant.includes(x)) ? `ouvrir aux appareils du VPN les réseaux de la maison : ${avant.join(', ') || 'aucun'} → ${apres.join(', ')}` : undefined;
+        const sv = ctx?.settings.server as Server | undefined, adr = s(i.adresse).trim(), port = Number(i.port) || 51820, p0 = portVpn(ctx);
+        const avant = sv?.endpoint && !/^\[/.test(sv.endpoint) ? `${sv.endpoint}:${p0}` : 'pas encore connue', apres = `${adr}:${port}`;
+        if (!/^[\w.-]{1,200}$/.test(adr) || avant === apres) return undefined;
+        return `changer l'adresse publique du VPN de la maison : ${avant} → ${apres} (les appareils joindront la maison par ${apres})${port !== p0 ? ` ; le VPN écoutera sur le port ${port}/udp au lieu de ${p0}/udp (le pare-feu de la machine n'est pas changé)` : ''}`;
+      },
+      run: async (ctx, i) => { const sv = await ready(ctx), adr = s(i.adresse).trim(); if (!/^[\w.-]{1,200}$/.test(adr)) throw new Error('adresse ou domaine invalide'); ctx.saveSettings({ server: { ...sv, endpoint: adr, port: Number(i.port) || 51820 } }); return { text: `🌍 Les appareils joindront ${adr}:${Number(i.port) || 51820}. Pense à ouvrir ce port (UDP) sur ta box vers cette machine.\n${await apply(ctx)}` }; } },
+    { id: 'reseaux', label: 'Réseaux de la maison', what: 'Réseaux ouverts aux appareils du VPN, et DNS donné aux appareils', params: [{ key: 'reseaux', label: 'Réseaux (ex. 192.168.1.0/24, séparés par des virgules)', kind: 'text', default: '' }, { key: 'dns', label: 'DNS (vide = celui de la box)', kind: 'text', default: '' }],
+      // Ouvrir un réseau de plus aux appareils du VPN : validation, avant → après. Retirer un réseau : libre.
+      // Un DNS hors de la maison (ni une adresse de la maison, ni Odin) : validation ; celui de la maison ou d'Odin : libre.
+      grave: (i, ctx) => {
+        const sv = ctx?.settings.server as Server | undefined, out: string[] = [];
+        const avant = sv?.lan ?? [], apres = s(i.reseaux).split(',').map((x) => x.trim()).filter(Boolean);
+        if (apres.some((x) => !avant.includes(x))) out.push(`ouvrir aux appareils du VPN les réseaux de la maison : ${avant.join(', ') || 'aucun'} → ${apres.join(', ')}`);
+        const dns = s(i.dns).split(',').map((x) => x.trim()).filter(Boolean), net = sv?.net ?? '10.8.0';
+        const dehors = dns.filter((x) => !isPrivateV4(x) && !x.startsWith(`${net}.`));
+        if (dehors.length && dns.join(', ') !== (sv?.dns ?? '').split(',').map((x) => x.trim()).join(', ')) out.push(`donner aux appareils du VPN un DNS hors de la maison : ${sv?.dns || 'celui de la box'} → ${dns.join(', ')} ; leurs demandes de noms (les sites qu'ils visitent) partiront vers ce serveur extérieur (${dehors.join(', ')})`);
+        return out.length ? out.join(' ; ') : undefined;
       },
       run: async (ctx, i) => {
       const sv = await ready(ctx), lan = s(i.reseaux).split(',').map((x) => x.trim()).filter(Boolean), dns = s(i.dns).trim();
       if (lan.some((c) => !/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(c))) throw new Error('réseau attendu sous la forme 192.168.1.0/24');
       if (dns && !/^\d{1,3}(\.\d{1,3}){3}(,\s*\d{1,3}(\.\d{1,3}){3})*$/.test(dns)) throw new Error('DNS : une ou plusieurs adresses IP');
       ctx.saveSettings({ server: { ...sv, ...(s(i.reseaux).trim() ? { lan } : {}), ...(dns ? { dns } : {}) } });
-      return { text: `🏠 Réseaux ouverts au VPN : ${(lan.length ? lan : sv.lan ?? []).join(', ') || 'aucun'} · DNS : ${dns || sv.dns}. Les appareils déjà ajoutés doivent rescanner leur QR code.` };
+      return { text: `🏠 Réseaux ouverts au VPN : ${(lan.length ? lan : sv.lan ?? []).join(', ') || 'aucun'} · DNS : ${dns || sv.dns || 'aucun donné (chaque appareil garde le sien)'}. Les appareils déjà ajoutés doivent rescanner leur QR code.` };
     } },
   ],
   async view(ctx) {
