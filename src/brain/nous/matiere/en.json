@@ -19,17 +19,20 @@
       "chercher": [
         "search my notes for invoice",
         "find what I wrote about the backup server",
-        "find what I wrote in my notes about the plumber"
+        "find what I wrote in my notes about the plumber",
+        "find what I wrote down about the apple pie recipe"
       ],
       "noter": [
         "take a note: call the plumber on Thursday",
         null,
         "jot down somewhere that the gate code changes on Monday",
-        "put in my notes: buy light bulbs for the garage"
+        "put in my notes: buy light bulbs for the garage",
+        "park this thought for me: call the plumber about the leak under the sink"
       ],
       "attention": [
         null,
-        "are there deadlines coming up that I've forgotten about?"
+        "are there deadlines coming up that I've forgotten about?",
+        "is there stuff I've left hanging for weeks?"
       ]
     },
     "runes": {
@@ -54,10 +57,12 @@
       "client": [
         "create a client record for Leon Marshall",
         "update the customer card for Martin's bakery",
-        "create a customer card for the new client, Mr Diallo, with his phone number"
+        "create a customer card for the new client, Mr Diallo, with his phone number",
+        "set up a record for my new customer, Lumen Ltd, contact person Sami"
       ],
       "evolution": [
-        "log a feature request: export invoices as PDF"
+        "log a feature request: export invoices as PDF",
+        "add to the improvements list: being able to sort invoices by month"
       ]
     },
     "draupnir": {
@@ -69,7 +74,13 @@
         "connect two apps so they talk to each other",
         "show my automations",
         "something like Zapier but self-hosted",
-        "can I trigger something when someone rings the bell?"
+        "can I trigger something when someone rings the bell?",
+        null,
+        null,
+        null,
+        null,
+        null,
+        "every Friday evening, automatically send me a summary of the week"
       ],
       "lister": [
         "which automations are running right now?",
@@ -121,7 +132,8 @@
       ],
       "etat": [
         "system status",
-        "how's the server doing right now?"
+        "how's the server doing right now?",
+        "is the machine holding up? CPU, memory, disks"
       ],
       "processus": [
         "which programs are using the most?",
@@ -132,7 +144,8 @@
         "kill the process that's hanging, gently"
       ],
       "mesures": [
-        "show the CPU graph for the last 24 hours"
+        "show the CPU graph for the last 24 hours",
+        "how has the CPU load changed since yesterday?"
       ]
     },
     "skogul": {
@@ -177,6 +190,11 @@
       "vu": [
         "mark all alerts as read",
         "I've seen the alerts, clear the new flag"
+      ],
+      "chercher": [
+        null,
+        null,
+        "dig through the alerts and logs: did anyone try to break in last night?"
       ]
     },
     "garmr": {
@@ -193,7 +211,8 @@
       "bannis": [
         "list the banned addresses",
         "who's blocked at the firewall and for how long?",
-        "who is currently banned by the firewall?"
+        "who is currently banned by the firewall?",
+        "who is currently locked out by the intrusion protection?"
       ],
       "bannir": [
         "ban 198.51.100.50",
@@ -204,7 +223,11 @@
         "lift the ban on my colleague"
       ],
       "proteger": [
-        "never ban my parents' house IP address"
+        "never ban my parents' house IP address",
+        "whitelist 192.0.2.10 on the firewall, it's the backup server"
+      ],
+      "journal": [
+        "also watch my mail server's logs to catch people brute-forcing their way in"
       ]
     },
     "geri": {
@@ -233,10 +256,12 @@
       "verifier": [
         null,
         null,
-        "is this IP address known to be malicious?"
+        "is this IP address known to be malicious?",
+        "the domain promo-gift.example in an email, is it known to be dangerous?"
       ],
       "journal": [
-        "which servers did my machines talk to last night?"
+        "which servers did my machines talk to last night?",
+        "which servers did my programs talk to overnight?"
       ]
     },
     "ran": {
@@ -278,7 +303,8 @@
       "analyser": [
         "scan the Downloads folder",
         "run a full disk scan",
-        "run a virus scan on the external drive"
+        "run a virus scan on the external drive",
+        "run the antivirus over the whole Downloads folder"
       ],
       "etat": [
         "am I properly protected?",
@@ -291,7 +317,11 @@
       "fichier": [
         null,
         null,
-        "check whether this attachment has a virus"
+        "check whether this attachment has a virus",
+        "the attachment invoice.pdf I got this morning, is it clean?"
+      ],
+      "plan": [
+        "have the Documents folder checked for viruses once a week without me thinking about it"
       ]
     },
     "loki": {
@@ -336,7 +366,8 @@
       "incidents": [
         "open incidents across the fleet",
         "show endpoint security incidents",
-        "have there been any security incidents on the office computers?"
+        "have there been any security incidents on the office computers?",
+        "were there any security incidents on the office computers this week?"
       ],
       "chronologie": [
         "timeline for Lina's workstation",
@@ -391,7 +422,11 @@
         "new Postgres database for the inventory"
       ],
       "lignes": [
-        "show me the rows in the orders table"
+        "show me the rows in the orders table",
+        "display the first ten entries of the orders table"
+      ],
+      "base_sauvegarder": [
+        "secure your own database right away with an encrypted copy"
       ]
     },
     "skuld": {
@@ -408,7 +443,8 @@
       "sauvegarder": [
         "back up the shop database now",
         "dump the Postgres database right away",
-        "back up the PostgreSQL database right now"
+        "back up the PostgreSQL database right now",
+        "kick off a backup of the shop's PostgreSQL database right now"
       ],
       "plan": [
         "schedule a database backup every night at 2am",
@@ -493,6 +529,9 @@
       "machines": [
         "how many VMs have I got and what state are they in?",
         "status of all VMs"
+      ],
+      "isoler_machine": [
+        "cut the test VM off from every network, it's behaving strangely"
       ]
     },
     "idunn": {
@@ -517,6 +556,9 @@
       "revenir": [
         "go back to the previous deployment",
         "undo yesterday's production release"
+      ],
+      "vider_cache": [
+        "visitors still see the old front page, get the site's cached copies purged"
       ]
     },
     "sindri": {
@@ -537,7 +579,8 @@
       ],
       "sauvegarder": [
         "run the backup now",
-        "back up my documents straight away"
+        "back up my documents straight away",
+        "run the backup of my Photos folder to the external drive now"
       ],
       "restaurer": [
         "restore the Invoices folder from Monday",
@@ -566,6 +609,9 @@
       "bilan": [
         "vault security report",
         "which passwords are reused or weak?"
+      ],
+      "ajouter": [
+        "put the router SIM card PIN in the vault: 7314"
       ]
     },
     "gjoll": {
@@ -577,7 +623,13 @@
         "who's on the VPN right now?",
         "I'm on public wifi, I want to route through home",
         "give me the config file for the laptop",
-        "open the VPN port on the router"
+        "open the VPN port on the router",
+        null,
+        null,
+        null,
+        null,
+        null,
+        "from the hotel I can't get into my home network through the encrypted tunnel anymore"
       ],
       "ajouter": [
         "add a device to the VPN",
@@ -614,13 +666,16 @@
       ],
       "baux": [
         "who got which IP address?",
-        "list DHCP leases"
+        "list DHCP leases",
+        "which address did each device in the house get?"
       ],
       "bloquer_horaires": [
-        "block YouTube after 9pm for the kids"
+        "block YouTube after 9pm for the kids",
+        "block YouTube on the kid's tablet from 9pm to 7am"
       ],
       "dhcp_fixe": [
-        "always give the NAS the same IP address"
+        "always give the NAS the same IP address",
+        "always hand the NAS the same address and name it storage"
       ]
     },
     "vordr": {
@@ -637,7 +692,8 @@
       "ajouter": [
         "monitor example.org",
         "add a check on the mail server",
-        "let me know if my website stops responding"
+        "let me know if my website stops responding",
+        "let me know if the office server stops answering pings"
       ],
       "problemes": [
         "open problems, most serious first",
@@ -648,7 +704,8 @@
         "how many outages on the server this year?"
       ],
       "prendre_en_main": [
-        "I'll take this incident, put my name on it"
+        "I'll take this incident, put my name on it",
+        "I'm taking ownership of the site outage, stop escalating to the others"
       ]
     },
     "askr": {
@@ -675,7 +732,8 @@
         "log that laptop 3 is going to Sarah"
       ],
       "attribuer": [
-        "assign a Windows license to the accountant's laptop"
+        "assign a Windows license to the accountant's laptop",
+        "assign one seat of the antivirus licence to Lea's laptop"
       ]
     },
     "valgrind": {
@@ -700,6 +758,14 @@
       "rediriger": [
         "redirect blog.example.org to www.example.org",
         "set up a redirect from the old domain"
+      ],
+      "proteger": [
+        null,
+        null,
+        "put a login and password in front of my personal dashboard online"
+      ],
+      "ouvrir_ports": [
+        "I want my services reachable straight from the Internet without a tunnel, open what's needed on the router"
       ]
     },
     "var": {
@@ -720,14 +786,19 @@
       "mot_de_passe": [
         "change Leo's account password",
         "set a new password for user Emma",
-        "my son can't remember his Odin password, reset it for him"
+        "my son can't remember his Odin password, reset it for him",
+        "change the password on Ines's account and sign her out everywhere"
       ],
       "double_auth": [
         "set up 2FA on my account",
         "enable the six-digit code for Nadia"
       ],
       "inviter": [
-        "send my sister an invite so she can create an account"
+        "send my sister an invite so she can create an account",
+        "send my neighbour a link so she can set up her own account"
+      ],
+      "creer_groupe": [
+        "make a 'guests' access group for friends who drop by"
       ]
     },
     "bru": {
@@ -767,7 +838,8 @@
       ],
       "lien": [
         "create a share link for quote.pdf",
-        "make a public link to the holiday folder"
+        "make a public link to the holiday folder",
+        "make a link to the invoices folder that expires in a week"
       ],
       "espace": [
         null,
@@ -800,6 +872,9 @@
       "verifier": [
         "check for new ISOs",
         "compare my ISOs against the official sites"
+      ],
+      "dossier": [
+        "keep the installation disc images on the second hard drive"
       ]
     },
     "fjalar": {
@@ -824,6 +899,9 @@
       "catalogue": [
         "which programs are in the catalogue?",
         "catalogue of available installers"
+      ],
+      "surveilles": [
+        "which installers are you keeping up to date for me right now?"
       ]
     },
     "thjalfi": {
@@ -849,6 +927,14 @@
       "allumer": [
         "turn on network boot",
         "start the network install server"
+      ],
+      "mot_de_passe": [
+        "require a code before a machine can start a network install"
+      ],
+      "reinstaller": [
+        null,
+        null,
+        "do a clean reinstall of the front desk computer over the network, wipe everything"
       ]
     },
     "gladsheim": {
@@ -873,7 +959,8 @@
       "bouton": [
         "add a button to start the movie scene",
         "a button on the screen to cut the kids' wifi",
-        "put a button on the wall display that starts the movie scene"
+        "put a button on the wall display that starts the movie scene",
+        "on the kitchen screen, put a shortcut that starts the morning playlist"
       ]
     },
     "zeus": {
@@ -889,7 +976,8 @@
       ],
       "comparer": [
         "forecasts side by side",
-        "compare the models for the next 5 days"
+        "compare the models for the next 5 days",
+        "put the forecasts from the different services side by side for Saturday"
       ],
       "bilan": [
         "who called it right over the last 14 days?",
@@ -898,7 +986,11 @@
       ],
       "mois": [
         "outlook for the next three months",
-        "will next month be warmer than normal?"
+        "will next month be warmer than normal?",
+        "is the coming spring looking dry or wet?"
+      ],
+      "sources": [
+        "where do the weather forecasts you show me come from?"
       ]
     },
     "gna": {
@@ -925,10 +1017,17 @@
         "start keeping my trips"
       ],
       "exporter": [
+        "export yesterday's route as a GPX file",
         "export yesterday's route as a GPX file"
       ],
       "nommer_lieu": [
-        "name this place 'grandma's'"
+        "name this place 'grandma's'",
+        "the place I stopped at noon, call it 'grandma's'"
+      ],
+      "pause": [
+        null,
+        null,
+        "while I'm on holiday, don't keep any of my locations"
       ]
     },
     "apparence": {
@@ -945,7 +1044,8 @@
       "theme": [
         "set the theme to automatic",
         "switch to the forest theme",
-        "switch Odin's theme to something darker"
+        "switch Odin's theme to something darker",
+        "switch Odin's look to something darker tonight"
       ],
       "cacher": [
         "hide Odin from my screens",
@@ -953,7 +1053,11 @@
       ],
       "etat": [
         "what's the current theme?",
-        "why this theme today?"
+        "why this theme today?",
+        "why is Odin all blue today, which theme is it?"
+      ],
+      "mascotte": [
+        "what is the mascot showing on every screen right now?"
       ]
     },
     "commandes": {
@@ -970,7 +1074,8 @@
       "chercher": [
         "find the command that flushes the DNS cache",
         "which command backs up a database?",
-        "what command do I type to restart the DNS?"
+        "what command do I type to restart the DNS?",
+        "what's the command to list Pulsar's probes in the terminal?"
       ],
       "liste": [
         "command list",
@@ -991,7 +1096,8 @@
       "chercher": [
         "search: electricity price per kWh in 2026",
         "look up how to fix a running toilet",
-        "look up the town hall's opening hours online"
+        "look up the town hall's opening hours online",
+        "search the web for how long an egg keeps in the fridge, with sources"
       ],
       "brut": [
         "raw results for 'raspberry pi server'",
@@ -1066,7 +1172,8 @@
         "switch on the desk lamp",
         "set the bedroom radiator to 19 degrees",
         "turn off the smart plug in the living room",
-        "switch on the office lamp"
+        "switch on the office lamp",
+        "turn off the smart plug on the water heater"
       ],
       "lister": [
         "list the devices in the house",
@@ -1122,13 +1229,16 @@
       ],
       "maison": [
         "house status",
-        "summary by room"
+        "summary by room",
+        "give me a room-by-room rundown of what's running at home"
       ],
       "commander": [
-        "turn the bedroom heating up to 21 degrees"
+        "turn the bedroom heating up to 21 degrees",
+        "it's freezing in the living room, turn the heater up a bit"
       ],
       "pont": [
-        "link my Zigbee gateway to Odin"
+        "link my Zigbee gateway to Odin",
+        "add my Zigbee hub from the garage to the home dashboard"
       ]
     },
     "himinbjorg": {
@@ -1178,6 +1288,9 @@
       "dire": [
         "say welcome home out loud",
         "make an audio clip saying goodnight kids"
+      ],
+      "mot_entendu": [
+        "when I say 'Nour' you hear 'nora', remember the right word"
       ]
     },
     "freyja": {
@@ -1205,7 +1318,13 @@
         "which films have arrived lately?"
       ],
       "livre_ajouter": [
-        "add this novel to my book library"
+        "add this novel to my book library",
+        "put this EPUB in my reading library"
+      ],
+      "programme": [
+        null,
+        null,
+        "what's on TV right now on the sports channels?"
       ]
     },
     "aegir": {
@@ -1254,10 +1373,12 @@
       "reserver": [
         "book an appointment for Julie Morel Saturday at 11",
         "schedule a client for Monday",
-        "book a slot on Thursday at 3pm for Mrs Leroy"
+        "book a slot on Thursday at 3pm for Mrs Leroy",
+        "book Mr Ortiz in on Thursday at 3pm for a massage session"
       ],
       "prestation": [
-        "add hair colouring to my list of services"
+        "add hair colouring to my list of services",
+        "new service on the menu: manicure, 45 minutes, 30 euros"
       ]
     },
     "kvasir": {
@@ -1278,7 +1399,8 @@
       "verifier": [
         "check followed repos now",
         "run the watch",
-        "check what's new in the projects Odin is based on"
+        "check what's new in the projects Odin is based on",
+        "check now whether the GitHub projects you follow have released anything new"
       ],
       "carnet": [
         "work log",
@@ -1357,7 +1479,8 @@
         "add a hidden text layer under the scan"
       ],
       "garder": [
-        "keep the text from this photo in the Brain"
+        "keep the text from this photo in the Brain",
+        "file the summary of this scan as a note in the Brain"
       ]
     },
     "mimisbrunnr": {
@@ -1403,7 +1526,8 @@
       "demarrage": [
         "startup programs",
         "what launches by itself when I switch on?",
-        "which programs launch by themselves at power-on?"
+        "which programs launch by themselves at power-on?",
+        "what launches on its own when I turn the computer on? startup is crawling"
       ],
       "carte": [
         "disk space map",
@@ -1502,14 +1626,16 @@
       ],
       "cloner": [
         "clone https://github.com/example/tool.git",
-        "copy this git repo locally"
+        "copy this git repo locally",
+        "grab a copy of the repo git@example.org:me/notes.git into my code folder"
       ],
       "ouvrir_terminal": [
         "give me a shell that stays open on the box",
         "a terminal on the build box over SSH"
       ],
       "journal": [
-        "show the latest commits in the repo"
+        "show the latest commits in the repo",
+        "what got committed lately in the website repo?"
       ]
     },
     "heidrun": {
@@ -1554,11 +1680,15 @@
       "jeux": [
         "list my SNES games",
         "which PlayStation games do I have?",
-        "show me my list of retro games"
+        "show me my list of retro games",
+        "show me my Super Nintendo games"
       ],
       "ranger": [
         "sort the games in the folder",
         "file my ROMs by console"
+      ],
+      "listes_retroarch": [
+        "build the .lpl files for my consoles for the emulator"
       ]
     },
     "snotra": {
@@ -1579,7 +1709,8 @@
       "creer": [
         "create a document from this text",
         "make a docx from these notes",
-        "write me a document to cancel my internet subscription"
+        "write me a document to cancel my internet subscription",
+        "draw up a document with the shopping list for the party"
       ],
       "tableur": [
         "create a spreadsheet with these rows",
@@ -1608,7 +1739,14 @@
       "etat": [
         "where do I appear online?",
         "summary of my online exposure",
-        "does my name show up on people-search sites?"
+        "does my name show up on people-search sites?",
+        "are my name and address floating around on directory sites?"
+      ],
+      "demandes": [
+        "the sites I asked to delete my info, have they answered?"
+      ],
+      "resultat": [
+        "this result showing my phone number, how do I get it taken down?"
       ]
     },
     "durinn": {
@@ -1649,7 +1787,8 @@
       "recuperer": [
         "recover deleted files from the SD card",
         "copy the deleted photos onto drive D",
-        "recover the deleted files from the SD card"
+        "recover the deleted files from the SD card",
+        "the USB stick crashed and my documents vanished, try to bring them back"
       ],
       "chercher": [
         "look for lost partitions",
@@ -1658,6 +1797,9 @@
       "supports": [
         "which media can I search?",
         "list drives and sticks to scan"
+      ],
+      "resultats": [
+        "the last file recovery, how did it turn out?"
       ]
     },
     "pegase": {
@@ -1708,7 +1850,8 @@
         "what's in the store and who gets it"
       ],
       "forcer": [
-        "force-install this software on my son's computer"
+        "force-install this software on my son's computer",
+        "remove TikTok from Malik's phone outright, without asking him"
       ]
     },
     "achille": {
@@ -1733,7 +1876,11 @@
       "controle_passif": [
         "passive check of my sites",
         "look at my domain's security headers",
-        "check my own website for security flaws"
+        "check my own website for security flaws",
+        "take a look at my online shop's headers and certificate, without attacking it"
+      ],
+      "declarer_domaine": [
+        "I want to prove that the domain workshop.example belongs to me"
       ]
     },
     "atalante": {
@@ -1833,7 +1980,11 @@
         "which sounds did you pick up today?"
       ],
       "purger": [
-        "delete the oldest sound recordings"
+        "delete the oldest sound recordings",
+        "delete the audio recordings that are more than a month old"
+      ],
+      "ecouter_clip": [
+        "in the front door camera video, can you hear the dog barking?"
       ]
     },
     "mathesis": {
@@ -1884,7 +2035,8 @@
         "estimate what's probably going to happen"
       ],
       "couper": [
-        "stop predicting my habits"
+        "stop predicting my habits",
+        "stop trying to predict my habits, I don't want that anymore"
       ]
     },
     "keryx": {

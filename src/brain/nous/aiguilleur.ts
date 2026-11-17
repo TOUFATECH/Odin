@@ -157,10 +157,16 @@ export interface Reglages {
  * Tour 3 (795 phrases de matière ajoutées dans les 15 langues) : « seul » visé à 97 %. Visé à 95 %, le seuil tiré de la
  * validation croisée baissait et « décide seul et se trompe d'appli » passait de 4 à 6 sur le jeu de travail ; à 97 %,
  * 1 erreur pour 81 décisions seules.
+ * Tour 4 (1 230 phrases de plus, 82 actions, 15 langues) : la validation croisée teste 10 000 cas au plus (1 500
+ * avant). Avec 1 500 cas tirés, le seuil « seul » visé à 97 % sautait selon le tirage (sur le jeu de travail : aucune
+ * décision seule avec la nouvelle matière, 84 avec l'ancienne dont 1 fausse) ; avec 10 000 et 40 000 cas il ne bouge
+ * plus (0,908 tous les deux) et « décide seul et se trompe d'appli » tombe à 0 (30 décisions seules, dont 7 avec la
+ * bonne appli mais une autre action). Calibration plus longue,
+ * gardée sur le disque comme avant.
  */
 export const REGLAGES: Reglages = {
   nMin: 1, nMax: 4, k: 25, puissance: 2, poidsMots: 0.3, rangR: 3, bonusContexte: 0.35, poidsPrecedent: 0.3, contexte: 'proche', viseSeul: 0.97, viseTrois: 0.85, poidsDemande: 2, prior: 0, poidsHorsChamp: 1,
-  vote: 'voisins', parAppli: 3, couvertureMin: 0.02, couvertureNMin: 1, couvertureDecider: 0.6, margePreference: 0.1, casMax: 1500, idfAppli: 0.5, poidsCentre: 4, rapportHorsChamp: 0.5, perteHorsChamp: 0, plisGroupes: false,
+  vote: 'voisins', parAppli: 3, couvertureMin: 0.02, couvertureNMin: 1, couvertureDecider: 0.6, margePreference: 0.1, casMax: 10_000, idfAppli: 0.5, poidsCentre: 4, rapportHorsChamp: 0.5, perteHorsChamp: 0, plisGroupes: false,
 };
 
 /**

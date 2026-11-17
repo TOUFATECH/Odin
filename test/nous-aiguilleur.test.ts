@@ -399,3 +399,69 @@ test('matière (tour 3, relecture) : aucune phrase des actions complétées n\'e
   }
   assert.deepEqual(proches, []);
 });
+
+// ------------------------------------------------------------------------------------------------ tour 4 (Soul v3)
+const CLES_TOUR4 = ('saga.noter saga.attention saga.chercher runes.evolution runes.client draupnir.* eir.mesures forseti.chercher garmr.bannis garmr.proteger garmr.journal geri.verifier '
+  + 'geri.journal ullr.analyser ullr.fichier ullr.plan argos.incidents urdr.base_sauvegarder urdr.lignes skuld.sauvegarder ymir.isoler_machine idunn.vider_cache brisingamen.ajouter gjoll.* '
+  + 'vidarr.bloquer_horaires vidarr.dhcp_fixe vidarr.baux vordr.prendre_en_main askr.attribuer valgrind.proteger valgrind.ouvrir_ports var.inviter var.creer_groupe skidbladnir.lien eitri.dossier '
+  + 'fjalar.surveilles thjalfi.mot_de_passe gladsheim.bouton zeus.mois zeus.sources zeus.comparer gna.pause gna.exporter gna.nommer_lieu apparence.theme apparence.etat apparence.mascotte '
+  + 'commandes.chercher appareils.commander midgard.commander midgard.pont midgard.maison bragi.mot_entendu freyja.programme freyja.livre_ajouter frigg.reserver frigg.prestation kvasir.verifier '
+  + 'champollion.garder gefjon.demarrage ivaldi.cloner ivaldi.journal leikvangr.jeux leikvangr.listes_retroarch hlin.etat hlin.demandes hlin.resultat hel.recuperer hel.resultats agora.forcer '
+  + 'achille.controle_passif achille.declarer_domaine syrinx.ecouter_clip syrinx.purger pronoia.couper vordr.ajouter sindri.sauvegarder volva.chercher eir.etat snotra.creer var.mot_de_passe '
+  + 'thjalfi.reinstaller').split(' ');
+const LANGUES_TOUR4 = ['ar', 'de', 'en', 'es', 'fr', 'hi', 'it', 'ja', 'ko', 'nl', 'pt', 'ru', 'sw', 'tr', 'zh'];
+const lireMatiereTour4 = () => LANGUES_TOUR4.map((l) => JSON.parse(readFileSync(new URL(`../src/brain/nous/matiere/${l}.json`, import.meta.url), 'utf8')) as { langue: string; applis: Record<string, Record<string, Array<string | null>>> });
+
+test('calibration (tour 4) : la validation croisée teste assez de cas pour que le seuil « seul » ne dépende pas du tirage', () => {
+  // Sur le jeu de travail, avec la matière du tour 4 : 1 500 cas → aucun seuil « seul » ; 3 000 → 45 décisions seules
+  // dont 2 fausses ; 10 000 et 40 000 → le même seuil (0,908), 0 fausse. En dessous de 10 000, le seuil saute.
+  assert.ok(REGLAGES.casMax >= 10_000, `casMax ${REGLAGES.casMax}`);
+  assert.ok(REGLAGES.viseSeul >= 0.97, `viseSeul ${REGLAGES.viseSeul}`);
+});
+
+test('matière (tour 4) : 82 actions reçoivent une idée de plus, en phrases sœurs dans les quinze langues', () => {
+  // Le shimaoré et le kibushi n'y sont pas : leur matière viendra du propriétaire (demandes du 17/11, section 23).
+  const fichiers = lireMatiereTour4();
+  for (let i = 0; i < LANGUES_TOUR4.length; i++) assert.equal(fichiers[i].langue, LANGUES_TOUR4[i]);
+  assert.equal(CLES_TOUR4.length, 82);
+  let completes = 0;
+  for (const k of CLES_TOUR4) {
+    const [a, b] = k.split('.'), listes = fichiers.map((f) => f.applis[a]?.[b] ?? []);
+    const L = Math.max(...listes.map((l) => l.length));
+    for (let n = 0; n < L; n++) if (listes.every((l) => typeof l[n] === 'string' && l[n]!.trim() !== '')) completes++;
+  }
+  // 112 idées complètes dans les quinze langues avant le tour 4, une de plus par action ensuite.
+  assert.ok(completes >= 112 + 82, `idées complètes ${completes}`);
+});
+
+test('matière (tour 4) : aucune phrase des actions complétées n\'est presque une demande d\'un des jeux du banc', async () => {
+  // Mêmes seuils que le contrôle du tour 3 (75 % des mots pour une phrase d'au moins 4 mots, ou 0,7 de trigrammes),
+  // contre TOUS les jeux de test/soul-banc/jeux (demandes et choix). Le message ne donne que des repères, jamais une phrase.
+  const { normaliser, trigrammes, jaccard } = await import('./soul-banc/fuites.ts');
+  const { readdirSync } = await import('node:fs');
+  const mots = (t: string) => new Set(normaliser(t).split(' ').filter(Boolean));
+  const partMots = (a: Set<string>, b: Set<string>) => { const i = [...a].filter((x) => b.has(x)).length; return i / (a.size + b.size - i || 1); };
+  const dossierJeux = new URL('./soul-banc/jeux/', import.meta.url);
+  const demandes: Array<{ id: string; m: Set<string>; t: Set<string> }> = [];
+  const collecter = (x: unknown): void => {
+    if (Array.isArray(x)) { x.forEach(collecter); return; }
+    if (!x || typeof x !== 'object') return;
+    const o = x as Record<string, unknown>;
+    if (typeof o.phrase === 'string' && typeof o.id === 'string') demandes.push({ id: o.id, m: mots(o.phrase), t: trigrammes(o.phrase) });
+    for (const v of Object.values(o)) if (v && typeof v === 'object') collecter(v);
+  };
+  for (const n of readdirSync(dossierJeux).filter((n) => n.endsWith('.json'))) collecter(JSON.parse(readFileSync(new URL(n, dossierJeux), 'utf8')));
+  const fichiers = lireMatiereTour4(), proches: string[] = [];
+  fichiers.forEach((f, i) => {
+    for (const k of CLES_TOUR4) {
+      const [a, b] = k.split('.'), l = f.applis[a]?.[b] ?? [];
+      // L'idée du tour 4 est la dernière de la liste.
+      const p = l[l.length - 1];
+      if (typeof p !== 'string') continue;
+      const m = mots(p), t = trigrammes(p);
+      for (const d of demandes) if ((m.size >= 4 && partMots(m, d.m) >= 0.75) || jaccard(t, d.t) >= 0.7) proches.push(`${LANGUES_TOUR4[i]}:${k}#${l.length - 1}~${d.id}`);
+    }
+  });
+  assert.ok(demandes.length > 1000, `demandes lues ${demandes.length}`);
+  assert.deepEqual(proches, []);
+});

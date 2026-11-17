@@ -19,17 +19,20 @@
       "chercher": [
         "zoek in mijn notities alles over de begroting",
         "vind de notitie met de code van het hek",
-        "zoek in mijn notities wat ik over de loodgieter schreef"
+        "zoek in mijn notities wat ik over de loodgieter schreef",
+        "zoek op wat ik had genoteerd over het recept voor appeltaart"
       ],
       "noter": [
         "noteer: donderdag de loodgieter bellen",
         null,
         "schrijf ergens op dat de code van het hek maandag verandert",
-        "zet in mijn notities: lampen kopen voor de garage"
+        "zet in mijn notities: lampen kopen voor de garage",
+        "bewaar deze gedachte: de loodgieter bellen over het lek onder de gootsteen"
       ],
       "attention": [
         null,
-        "welke deadlines glippen me door de vingers?"
+        "welke deadlines glippen me door de vingers?",
+        "zijn er dingen die ik al weken laat liggen?"
       ]
     },
     "runes": {
@@ -54,10 +57,12 @@
       "client": [
         "maak een klantkaart voor Bakkerij De Vries",
         "werk het telefoonnummer van klant Eva Jansen bij",
-        "maak een klantkaart aan voor de nieuwe klant, meneer Diallo, met zijn telefoonnummer"
+        "maak een klantkaart aan voor de nieuwe klant, meneer Diallo, met zijn telefoonnummer",
+        "maak een klantkaart aan voor mijn nieuwe klant, bedrijf Lumen, contactpersoon Sami"
       ],
       "evolution": [
-        "noteer een verbetering: facturen als PDF exporteren"
+        "noteer een verbetering: facturen als PDF exporteren",
+        "zet op de lijst met verbeteringen: facturen per maand kunnen sorteren"
       ]
     },
     "draupnir": {
@@ -69,7 +74,13 @@
         "koppel het alarm aan de lampen in de gang",
         "ik doe steeds hetzelfde met de hand, kan dat automatisch?",
         "zoals IFTTT of Zapier, maar thuis",
-        "start een actie als de temperatuur onder de 18 komt"
+        "start een actie als de temperatuur onder de 18 komt",
+        null,
+        null,
+        null,
+        null,
+        null,
+        "stuur me elke vrijdagavond automatisch een samenvatting van de week"
       ],
       "lister": [
         "welke automatiseringen draaien er?",
@@ -121,7 +132,8 @@
       ],
       "etat": [
         "geef me de toestand van de machine nu",
-        "hoe staat de kantoorserver ervoor qua CPU en geheugen?"
+        "hoe staat de kantoorserver ervoor qua CPU en geheugen?",
+        "houdt de machine het vol? processor, geheugen, schijven"
       ],
       "processus": [
         "welk proces vreet het geheugen op?",
@@ -132,7 +144,8 @@
         "stop dat programma dat niet reageert"
       ],
       "mesures": [
-        "laat de grafiek van de processor van de laatste 24 uur zien"
+        "laat de grafiek van de processor van de laatste 24 uur zien",
+        "hoe is de processorbelasting sinds gisteren verlopen?"
       ]
     },
     "skogul": {
@@ -177,6 +190,11 @@
       "vu": [
         "markeer alle meldingen als gezien",
         "ik heb ze al gelezen, haal het nieuw weg"
+      ],
+      "chercher": [
+        null,
+        null,
+        "doorzoek de meldingen en logs: heeft iemand vannacht geprobeerd binnen te komen?"
       ]
     },
     "garmr": {
@@ -193,7 +211,8 @@
       "bannis": [
         "welke adressen zijn nu verbannen en hoe lang nog?",
         "lijst van IP's die geblokkeerd zijn door inlogpogingen",
-        "wie is er nu verbannen door de firewall?"
+        "wie is er nu verbannen door de firewall?",
+        "wie wordt op dit moment buitengesloten door de inbraakbeveiliging?"
       ],
       "bannir": [
         "verban het IP 198.51.100.23",
@@ -204,7 +223,11 @@
         "haal de blokkade van 198.51.100.40 weg"
       ],
       "proteger": [
-        "ban nooit het IP-adres van het huis van mijn ouders"
+        "ban nooit het IP-adres van het huis van mijn ouders",
+        "zet 192.0.2.10 op de witte lijst van de firewall, dat is de backupserver"
+      ],
+      "journal": [
+        "houd ook de logs van mijn mailserver in de gaten om inbraakpogingen te betrappen"
       ]
     },
     "geri": {
@@ -233,10 +256,12 @@
       "verifier": [
         null,
         null,
-        "staat dit IP-adres bekend als gevaarlijk?"
+        "staat dit IP-adres bekend als gevaarlijk?",
+        "het domein gratis-cadeau.example uit een mail, staat dat bekend als gevaarlijk?"
       ],
       "journal": [
-        "met welke servers hebben mijn computers vannacht gepraat?"
+        "met welke servers hebben mijn computers vannacht gepraat?",
+        "met welke servers hebben mijn programma's vannacht gepraat?"
       ]
     },
     "ran": {
@@ -277,7 +302,8 @@
       "analyser": [
         "scan de map Documenten",
         "scan de hele usb-stick",
-        "laat de virusscanner over de externe schijf lopen"
+        "laat de virusscanner over de externe schijf lopen",
+        "haal de hele map Downloads door de virusscanner"
       ],
       "etat": [
         "is alles in orde met de beveiliging?",
@@ -290,7 +316,11 @@
       "fichier": [
         null,
         null,
-        "controleer of deze bijlage een virus bevat"
+        "controleer of deze bijlage een virus bevat",
+        "de bijlage factuur.pdf van vanochtend, is die schoon?"
+      ],
+      "plan": [
+        "laat de map Documenten één keer per week op virussen controleren, zonder dat ik eraan hoef te denken"
       ]
     },
     "loki": {
@@ -335,7 +365,8 @@
       "incidents": [
         "lijst van open incidenten in het park",
         "zijn er incidenten op de kantoor-pc's?",
-        "zijn er beveiligingsincidenten geweest op de kantoorcomputers?"
+        "zijn er beveiligingsincidenten geweest op de kantoorcomputers?",
+        "waren er deze week beveiligingsincidenten op de kantoorcomputers?"
       ],
       "chronologie": [
         "tijdlijn van de laptop van Daan",
@@ -390,7 +421,11 @@
         "nieuwe database met de naam voorraad"
       ],
       "lignes": [
-        "laat de rijen van de tabel bestellingen zien"
+        "laat de rijen van de tabel bestellingen zien",
+        "toon de eerste tien regels van de tabel bestellingen"
+      ],
+      "base_sauvegarder": [
+        "zet je eigen database meteen veilig met een versleutelde kopie"
       ]
     },
     "skuld": {
@@ -407,7 +442,8 @@
       "sauvegarder": [
         "maak nu direct een back-up van de bestellingendatabase",
         "sla de database op voordat ik iets aanraak",
-        "maak nu meteen een back-up van de PostgreSQL-database"
+        "maak nu meteen een back-up van de PostgreSQL-database",
+        "start nu meteen een back-up van de PostgreSQL-database van de webwinkel"
       ],
       "plan": [
         "plan databaseback-ups elke 6 uur",
@@ -492,6 +528,9 @@
       "machines": [
         "toon mijn virtuele machines en hun status",
         "welke machines heb ik in Hydra?"
+      ],
+      "isoler_machine": [
+        "koppel de test-VM los van elk netwerk, hij doet raar"
       ]
     },
     "idunn": {
@@ -516,6 +555,9 @@
       "revenir": [
         "ga terug naar de vorige deployment van de blog",
         "draai de laatste release terug"
+      ],
+      "vider_cache": [
+        "bezoekers zien nog de oude startpagina, laat de gecachte kopieën van de site legen"
       ]
     },
     "sindri": {
@@ -535,7 +577,8 @@
       ],
       "sauvegarder": [
         "maak de back-up nu",
-        "draai het fotoplan meteen"
+        "draai het fotoplan meteen",
+        "start nu de back-up van mijn map Foto's naar de externe schijf"
       ],
       "restaurer": [
         "zet de map Facturen terug uit de back-up van dinsdag",
@@ -564,6 +607,9 @@
       "bilan": [
         "zijn er zwakke of gelekte wachtwoorden in de manager?",
         "veiligheidsrapport van mijn wachtwoordkluis"
+      ],
+      "ajouter": [
+        "zet de pincode van de simkaart van de router in de kluis: 7314"
       ]
     },
     "gjoll": {
@@ -575,7 +621,13 @@
         "geef me een QR-code om de telefoon op de VPN aan te sluiten",
         "telefoon kwijt, haal zijn toegang tot het thuisnetwerk weg",
         "veilig surfen op de wifi van het vliegveld via thuis",
-        "welke apparaten hebben VPN?"
+        "welke apparaten hebben VPN?",
+        null,
+        null,
+        null,
+        null,
+        null,
+        "vanuit het hotel kom ik via de versleutelde tunnel niet meer op mijn thuisnetwerk"
       ],
       "ajouter": [
         "voeg de nieuwe laptop toe aan de VPN",
@@ -611,13 +663,16 @@
       ],
       "baux": [
         "welk apparaat kreeg welk IP?",
-        "lijst van DHCP-leases"
+        "lijst van DHCP-leases",
+        "welk adres heeft elk apparaat in huis gekregen?"
       ],
       "bloquer_horaires": [
-        "blokkeer YouTube na 21 uur voor de kinderen"
+        "blokkeer YouTube na 21 uur voor de kinderen",
+        "blokkeer YouTube op de tablet van de kleine van 21 tot 7 uur"
       ],
       "dhcp_fixe": [
-        "geef de NAS altijd hetzelfde IP-adres"
+        "geef de NAS altijd hetzelfde IP-adres",
+        "geef de NAS altijd hetzelfde adres en noem hem opslag"
       ]
     },
     "vordr": {
@@ -634,7 +689,8 @@
       "ajouter": [
         "voeg een monitor toe voor example.org",
         "houd de ping van de router in de gaten",
-        "laat het me weten als mijn website niet meer reageert"
+        "laat het me weten als mijn website niet meer reageert",
+        "laat het me weten als de server van de praktijk niet meer op ping reageert"
       ],
       "problemes": [
         "wat ligt er nu plat?",
@@ -645,7 +701,8 @@
         "storingsgeschiedenis van de mailserver"
       ],
       "prendre_en_main": [
-        "ik neem deze storing op me, zet mijn naam erbij"
+        "ik neem deze storing op me, zet mijn naam erbij",
+        "ik neem de storing van de site op me, stop met de anderen op te roepen"
       ]
     },
     "askr": {
@@ -672,7 +729,8 @@
         "noteer dat de beamer bij de buurvrouw is"
       ],
       "attribuer": [
-        "wijs een Windows-licentie toe aan de laptop van de boekhouder"
+        "wijs een Windows-licentie toe aan de laptop van de boekhouder",
+        "wijs een plek van de antiviruslicentie toe aan de laptop van Lea"
       ]
     },
     "valgrind": {
@@ -697,6 +755,14 @@
       "rediriger": [
         "stuur het oude adres door naar het nieuwe",
         "www.example.org moet naar example.org gaan"
+      ],
+      "proteger": [
+        null,
+        null,
+        "zet een gebruikersnaam en wachtwoord voor mijn persoonlijke dashboard online"
+      ],
+      "ouvrir_ports": [
+        "ik wil mijn diensten zonder tunnel rechtstreeks vanaf internet bereiken, zet open wat nodig is op de router"
       ]
     },
     "var": {
@@ -717,14 +783,19 @@
       "mot_de_passe": [
         "geef het account van Joris een nieuw wachtwoord en log hem overal uit",
         "reset het wachtwoord van mijn gebruiker",
-        "mijn zoon weet zijn Odin-wachtwoord niet meer, stel een nieuw in"
+        "mijn zoon weet zijn Odin-wachtwoord niet meer, stel een nieuw in",
+        "wijzig het wachtwoord van het account van Ines en log haar overal uit"
       ],
       "double_auth": [
         "zet tweefactorauthenticatie aan voor mijn account",
         "geef me de QR-code voor de authenticator-app"
       ],
       "inviter": [
-        "stuur mijn zus een uitnodiging zodat ze een account maakt"
+        "stuur mijn zus een uitnodiging zodat ze een account maakt",
+        "stuur mijn buurvrouw een link zodat ze zelf een account aanmaakt"
+      ],
+      "creer_groupe": [
+        "maak een toegangsgroep 'gasten' voor vrienden die langskomen"
       ]
     },
     "bru": {
@@ -768,7 +839,8 @@
       ],
       "lien": [
         "maak een deellink voor deze video die na een week verloopt",
-        "link met wachtwoord voor de klantmap"
+        "link met wachtwoord voor de klantmap",
+        "maak een link naar de map met facturen die over een week verloopt"
       ],
       "synchro": [
         "synchroniseer mijn fotomap met de usb-schijf",
@@ -797,6 +869,9 @@
       "verifier": [
         "kijk of er nieuwe ISO's zijn zonder iets te downloaden",
         "zijn er updates voor de ISO's?"
+      ],
+      "dossier": [
+        "bewaar de installatie-images op de tweede harde schijf"
       ]
     },
     "fjalar": {
@@ -821,6 +896,9 @@
       "catalogue": [
         "welke programma's kun je downloaden?",
         "toon de softwarecatalogus"
+      ],
+      "surveilles": [
+        "welke installatiebestanden houd je nu voor me bij?"
       ]
     },
     "thjalfi": {
@@ -846,6 +924,14 @@
       "allumer": [
         "zet netwerkopstart aan",
         "start de PXE-server"
+      ],
+      "mot_de_passe": [
+        "vraag een code voordat een computer een installatie via het netwerk mag starten"
+      ],
+      "reinstaller": [
+        null,
+        null,
+        "doe een schone herinstallatie via het netwerk van de receptiecomputer, alles gaat eraf"
       ]
     },
     "gladsheim": {
@@ -870,7 +956,8 @@
       "bouton": [
         "voeg een knop toe die alle lampen uitdoet",
         "maak een knop op het scherm om de garagedeur te openen",
-        "zet op het wandscherm een knop die de bioscoopscène start"
+        "zet op het wandscherm een knop die de bioscoopscène start",
+        "zet op het keukenscherm een knop die de ochtendplaylist start"
       ]
     },
     "zeus": {
@@ -886,7 +973,8 @@
       ],
       "comparer": [
         "voorspellingen naast elkaar voor deze week",
-        "vergelijk DWD en Météo-France voor morgen"
+        "vergelijk DWD en Météo-France voor morgen",
+        "zet de verwachtingen van de verschillende diensten voor zaterdag naast elkaar"
       ],
       "bilan": [
         "welke bron zat de afgelopen twee weken het best?",
@@ -895,7 +983,11 @@
       ],
       "mois": [
         "wordt het de komende maanden warmer dan normaal?",
-        "seizoensverwachting voor de lente"
+        "seizoensverwachting voor de lente",
+        "wordt de komende lente eerder droog of nat?"
+      ],
+      "sources": [
+        "waar komen de weersverwachtingen vandaan die je me laat zien?"
       ]
     },
     "gna": {
@@ -922,10 +1014,17 @@
         "zet de geschiedenis van Sem aan met zijn toestemming"
       ],
       "exporter": [
-        "exporteer mijn route van gisteren als GPX-bestand"
+        "exporteer mijn route van gisteren als GPX-bestand",
+        "zet de route van gisteren om naar een GPX-bestand"
       ],
       "nommer_lieu": [
-        "noem deze plek 'bij oma'"
+        "noem deze plek 'bij oma'",
+        "de plek waar ik om twaalf uur stopte, noem die 'bij oma'"
+      ],
+      "pause": [
+        null,
+        null,
+        "bewaar tijdens mijn vakantie geen enkele locatie van me"
       ]
     },
     "apparence": {
@@ -942,7 +1041,8 @@
       "theme": [
         "zet het bosthema aan",
         "schakel naar automatisch thema",
-        "zet het thema van Odin op iets donkerders"
+        "zet het thema van Odin op iets donkerders",
+        "zet het uiterlijk van Odin vanavond op iets donkerders"
       ],
       "cacher": [
         "verstop je",
@@ -950,7 +1050,11 @@
       ],
       "etat": [
         "welk thema heb je aan en waarom?",
-        "vertel me het huidige uiterlijk"
+        "vertel me het huidige uiterlijk",
+        "waarom is Odin vandaag helemaal blauw, welk thema is dat?"
+      ],
+      "mascotte": [
+        "wat laat de mascotte nu op alle schermen zien?"
       ]
     },
     "commandes": {
@@ -967,7 +1071,8 @@
       "chercher": [
         "welk commando blokkeert een domein?",
         "zoek de opdracht die een camerafoto maakt",
-        "welk commando typ ik om de DNS te herstarten?"
+        "welk commando typ ik om de DNS te herstarten?",
+        "wat is het commando om in de terminal de sondes van Pulsar te zien?"
       ],
       "liste": [
         "commando's van de muziek-app",
@@ -988,7 +1093,8 @@
       "chercher": [
         "wat is de hoofdstad van Australië? met bronnen",
         "zoek informatie over thuiswerken in Nederland",
-        "zoek online de openingstijden van het gemeentehuis op"
+        "zoek online de openingstijden van het gemeentehuis op",
+        "zoek op internet hoe lang een ei goed blijft in de koelkast, met bronnen"
       ],
       "brut": [
         "geef me de ruwe resultaten zonder samenvatting",
@@ -1062,7 +1168,8 @@
         "doe boven alle lampen uit",
         "zet de verwarming hoger",
         "zet de slimme stekker in de woonkamer uit",
-        "doe de lamp in de werkkamer aan"
+        "doe de lamp in de werkkamer aan",
+        "zet de slimme stekker van de boiler uit"
       ],
       "lister": [
         "lijst van apparaten in huis",
@@ -1118,13 +1225,16 @@
       ],
       "maison": [
         "toestand van het huis per kamer",
-        "hoe staat elke kamer ervoor?"
+        "hoe staat elke kamer ervoor?",
+        "geef me per kamer een overzicht van wat er thuis aanstaat"
       ],
       "commander": [
-        "zet de verwarming in de slaapkamer op 21 graden"
+        "zet de verwarming in de slaapkamer op 21 graden",
+        "het is ijskoud in de woonkamer, zet de verwarming wat hoger"
       ],
       "pont": [
-        "koppel mijn Zigbee-gateway aan Odin"
+        "koppel mijn Zigbee-gateway aan Odin",
+        "voeg mijn Zigbee-hub uit de garage toe aan het huisdashboard"
       ]
     },
     "himinbjorg": {
@@ -1173,6 +1283,9 @@
       "dire": [
         "maak audio die welkom zegt",
         "maak een spraakbestand van deze tekst"
+      ],
+      "mot_entendu": [
+        "als ik 'Nour' zeg hoor jij 'nu', onthoud het goede woord"
       ]
     },
     "freyja": {
@@ -1199,7 +1312,13 @@
         "nieuwe films van deze week"
       ],
       "livre_ajouter": [
-        "voeg deze roman toe aan mijn boekenbibliotheek"
+        "voeg deze roman toe aan mijn boekenbibliotheek",
+        "zet dit EPUB-bestand in mijn leesbibliotheek"
+      ],
+      "programme": [
+        null,
+        null,
+        "wat is er nu op tv op de sportzenders?"
       ]
     },
     "aegir": {
@@ -1248,10 +1367,12 @@
       "reserver": [
         "plan mevrouw Bakker in op dinsdag om 10 uur",
         "voeg maandag een controleafspraak toe",
-        "reserveer donderdag om 15 uur een plek voor mevrouw Leroy"
+        "reserveer donderdag om 15 uur een plek voor mevrouw Leroy",
+        "plan meneer Ortiz in op donderdag 15 uur voor een massage"
       ],
       "prestation": [
-        "voeg kleuren toe aan mijn lijst met behandelingen"
+        "voeg kleuren toe aan mijn lijst met behandelingen",
+        "nieuwe dienst op de lijst: manicure, 45 minuten, 30 euro"
       ]
     },
     "kvasir": {
@@ -1272,7 +1393,8 @@
       "verifier": [
         "controleer nu de repo's die ik volg",
         "zijn er nieuwe versies van wat ik volg?",
-        "kijk wat er nieuw is in de projecten waar Odin op gebaseerd is"
+        "kijk wat er nieuw is in de projecten waar Odin op gebaseerd is",
+        "kijk nu of de GitHub-projecten die je volgt iets nieuws hebben uitgebracht"
       ],
       "carnet": [
         "laat het schrift met openstaande functies zien",
@@ -1351,7 +1473,8 @@
         "leg een tekstlaag onder de pdf"
       ],
       "garder": [
-        "bewaar de tekst van deze foto in het Brein"
+        "bewaar de tekst van deze foto in het Brein",
+        "bewaar de samenvatting van deze scan als notitie in het Brein"
       ]
     },
     "mimisbrunnr": {
@@ -1396,7 +1519,8 @@
       "demarrage": [
         "opstartprogramma's",
         "wat start er mee bij het opstarten van Windows?",
-        "welke programma's starten vanzelf bij het aanzetten?"
+        "welke programma's starten vanzelf bij het aanzetten?",
+        "wat start er vanzelf op als ik de computer aanzet? het opstarten duurt eindeloos"
       ],
       "carte": [
         "kaart van de schijfruimte",
@@ -1495,14 +1619,16 @@
       ],
       "cloner": [
         "clone https://example.org/project.git",
-        "kopieer de repo van de blog"
+        "kopieer de repo van de blog",
+        "haal een kopie van de repo git@example.org:ik/notities.git binnen in mijn codemap"
       ],
       "ouvrir_terminal": [
         "open een terminal op de NAS",
         "blijvende terminal op de machine van Odin"
       ],
       "journal": [
-        "laat de laatste commits van de repository zien"
+        "laat de laatste commits van de repository zien",
+        "wat is er de laatste tijd gecommit in de repo van de website?"
       ]
     },
     "heidrun": {
@@ -1547,11 +1673,15 @@
       "jeux": [
         "lijst van SNES-spellen",
         "welke spellen heb ik?",
-        "laat de lijst van mijn retrogames zien"
+        "laat de lijst van mijn retrogames zien",
+        "laat mijn Super Nintendo-spellen zien"
       ],
       "ranger": [
         "ruim de spellenmap op",
         "sorteer de ROMs"
+      ],
+      "listes_retroarch": [
+        "maak de .lpl-bestanden van mijn consoles voor de emulator"
       ]
     },
     "snotra": {
@@ -1572,7 +1702,8 @@
       "creer": [
         "maak een document met de titel Notulen",
         "maak een docx van deze lijst",
-        "schrijf een document om mijn internetabonnement op te zeggen"
+        "schrijf een document om mijn internetabonnement op te zeggen",
+        "maak een document met de boodschappenlijst voor het feest"
       ],
       "tableur": [
         "maak een Excel met naam en aantal",
@@ -1601,7 +1732,14 @@
       "etat": [
         "wat is er over mij zichtbaar en hoe riskant?",
         "stand van mijn verwijderverzoeken",
-        "staat mijn naam op sites die mensen opzoeken?"
+        "staat mijn naam op sites die mensen opzoeken?",
+        "staan mijn naam en adres ergens op gidssites?"
+      ],
+      "demandes": [
+        "de sites die ik heb gevraagd mijn gegevens te wissen, hebben die gereageerd?"
+      ],
+      "resultat": [
+        "dit resultaat met mijn telefoonnummer, hoe krijg ik dat verwijderd?"
       ]
     },
     "durinn": {
@@ -1642,7 +1780,8 @@
       "recuperer": [
         "herstel de verwijderde bestanden van de stick naar een andere schijf",
         "red de foto's van de SD",
-        "haal de gewiste bestanden van de SD-kaart terug"
+        "haal de gewiste bestanden van de SD-kaart terug",
+        "de usb-stick is gecrasht en mijn documenten zijn weg, probeer ze terug te halen"
       ],
       "chercher": [
         "zoek verloren partities op de externe schijf",
@@ -1651,6 +1790,9 @@
       "supports": [
         "welke schijven kan ik doorzoeken?",
         "lijst van opslagmedia"
+      ],
+      "resultats": [
+        "de laatste bestandsherstel, wat heeft dat opgeleverd?"
       ]
     },
     "pegase": {
@@ -1701,7 +1843,8 @@
         "catalogus van de store"
       ],
       "forcer": [
-        "installeer deze software verplicht op de computer van mijn zoon"
+        "installeer deze software verplicht op de computer van mijn zoon",
+        "verwijder TikTok gewoon van Maliks telefoon, zonder het hem te vragen"
       ]
     },
     "achille": {
@@ -1726,7 +1869,11 @@
       "controle_passif": [
         "controleer headers en cookies van mijn site",
         "passieve controle van example.org",
-        "controleer mijn eigen website op beveiligingsfouten"
+        "controleer mijn eigen website op beveiligingsfouten",
+        "kijk naar de headers en het certificaat van mijn webwinkel, zonder hem aan te vallen"
+      ],
+      "declarer_domaine": [
+        "ik wil bewijzen dat het domein werkplaats.example van mij is"
       ]
     },
     "atalante": {
@@ -1825,7 +1972,11 @@
         "welke geluiden heb je vannacht gehoord?"
       ],
       "purger": [
-        "wis de oudste geluidsopnames"
+        "wis de oudste geluidsopnames",
+        "wis de geluidsopnames die ouder zijn dan een maand"
+      ],
+      "ecouter_clip": [
+        "hoor je in de video van de voordeurcamera de hond blaffen?"
       ]
     },
     "mathesis": {
@@ -1876,7 +2027,8 @@
         "wat gaat er morgen gebeuren?"
       ],
       "couper": [
-        "stop met het voorspellen van mijn gewoontes"
+        "stop met het voorspellen van mijn gewoontes",
+        "stop met mijn gewoontes te voorspellen, dat wil ik niet meer"
       ]
     },
     "keryx": {
