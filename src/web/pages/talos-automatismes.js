@@ -17,11 +17,13 @@
     { id: 'odin', label: 'Tâches d\'Odin' },
     { id: 'pause', label: 'En pause' },
     { id: 'echec', label: 'En échec' },
+    { id: 'liens', label: 'Liens entre applis' },
   ];
   /** Les lignes que montre un filtre. Les automatisations ont déjà leurs cartes au-dessus : elles ne sont pas répétées ici. */
   function filtrer(lignes, filtre) {
     const l = (lignes ?? []).filter((x) => x.sorte !== 'automatisation');
     switch (filtre) {
+      case 'liens': return []; // les liens écrits ont leur propre bloc (voir grouperLiens)
       case 'tache': return l.filter((x) => x.sorte === 'tache');
       case 'veille': return l.filter((x) => x.sorte === 'veille');
       case 'rappels': return l.filter((x) => x.sorte === 'rappel' || x.sorte === 'rendez_vous');
@@ -38,6 +40,22 @@
     if (ms < 60_000) return `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
     return `${Math.round(ms / 60_000)} min`;
   }
+  /**
+   * Les liens écrits entre applis, rangés par l'appli qui signale (ordre alphabétique de son nom) ; `protege` : seulement
+   * ceux qui protègent. Chaque lien reste une fois et une seule.
+   */
+  function grouperLiens(liens, protege = false) {
+    const g = new Map();
+    for (const l of liens ?? []) {
+      if (protege && !l.protege) continue;
+      if (!g.has(l.de)) g.set(l.de, { de: l.de, deNom: l.deNom || l.de, liens: [] });
+      g.get(l.de).liens.push(l);
+    }
+    return [...g.values()].sort((a, b) => a.deNom.localeCompare(b.deNom, 'fr'));
+  }
+  const GENRES = { 'réflexe': 'Réflexe', 'donnée': 'Donnée', soin: 'Soin' };
+  /** La phrase d'un lien, tirée du lien lui-même : « Quand … → … ». */
+  const phraseLien = (l) => `Quand ${l.quand} → ${l.fait}`;
 
   // ---------------- Dessin
   const el = (t, a = {}, ...kids) => {
@@ -70,6 +88,12 @@
 .au-r{grid-column:2;font-size:13.5px;overflow-wrap:anywhere}.au-r:empty{display:none}.au-r .pill{margin-right:6px}
 .au-x{grid-column:2;display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:10px;background:var(--panel2)}.au-x:empty{display:none}
 .au-x select{min-height:44px;border-radius:10px;border:1px solid var(--field,var(--line));background:var(--panel);color:var(--ink);font:inherit;padding:0 10px}
+.au-ln{margin:16px 0 0;min-width:0}.au-ln>h3{font-size:16px;margin:0 0 2px}.au-ln>.au-sub{margin:0 0 10px;color:var(--muted);font-size:14px}
+.au-g{border-top:1px solid var(--line);min-width:0}.au-g:last-child{border-bottom:1px solid var(--line)}
+.au-g>summary{min-height:44px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;padding:6px 0;font-size:15px;overflow-wrap:anywhere}
+.au-g>summary::-webkit-details-marker{display:none}.au-g>summary::before{content:'▸';color:var(--muted);transition:transform .15s}.au-g[open]>summary::before{transform:rotate(90deg)}
+.au-g>summary small{color:var(--muted);font-size:13px}.au-g>.au-list{padding-left:4px}
+.au-pr{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
 .au-h{margin:0;padding-left:18px;font-size:13px}.au-al{border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent);border-radius:10px;padding:8px 12px;margin:0 0 10px;font-size:14px}
 `;
   let styled = false;
@@ -213,6 +237,49 @@
   /** Une liste de lignes (sert aussi à l'onglet « Auto » de chaque appli). */
   const liste = (lignes, opts) => el('ul', { class: 'au-list' }, ...lignes.map((l) => ligne(l, opts)));
 
+  /** Un lien écrit entre applis : LECTURE SEULE (aucun bouton : on ne le coupe pas d'ici pour l'instant). */
+  function ligneLien(l) {
+    style();
+    const titre = l.de === l.vers ? `${l.deNom} (sur elle-même)` : `${l.deNom} → ${l.versNom}`;
+    const ic = el('span', { class: 'au-ic', 'aria-hidden': 'true' });
+    if (window.OdinAppIcons) ic.innerHTML = window.OdinAppIcons.tile(l.de, l.deNom, 32); else ic.append(el('span', { class: 'au-odin' }, 'ᛟ'));
+    const p = l.protege;
+    return el('li', { class: 'au-l', 'data-id': l.id },
+      ic,
+      el('div', { class: 'au-t' }, el('b', {}, titre), el('p', {}, phraseLien(l))),
+      el('div', { class: 'au-m' },
+        el('span', { class: 'pill' }, 'Lien entre applis'),
+        l.etat === 'actif' ? el('span', { class: 'pill good' }, 'Actif') : el('span', { class: 'pill warn', title: l.pourquoi || '' }, `Inactif${l.pourquoi ? ` (${l.pourquoi})` : ''}`),
+        GENRES[l.genre] ? el('span', {}, GENRES[l.genre]) : null,
+        p ? el('span', { class: 'pill warn' }, `Protège (${p.genre})`) : null),
+      p ? el('p', { class: 'au-pr', style: 'margin:0' }, `Pourquoi : ${p.raison}.`) : null);
+  }
+
+  /** Le bloc « Liens entre applis » : un groupe repliable par appli qui signale, et un filtre « Qui protègent ». */
+  function blocLiens(liens) {
+    let seul = false;
+    const box = el('div', { class: 'au-ln' });
+    const groupes = el('div', {});
+    const puces = el('div', { class: 'au-f', role: 'group', 'aria-label': 'Filtrer les liens' });
+    const nbP = liens.filter((l) => l.protege).length;
+    const peindre = () => {
+      puces.replaceChildren(
+        el('button', { type: 'button', 'aria-pressed': String(!seul), onclick: () => { seul = false; peindre(); } }, 'Tous', el('small', {}, String(liens.length))),
+        el('button', { type: 'button', 'aria-pressed': String(seul), onclick: () => { seul = true; peindre(); } }, 'Qui protègent', el('small', {}, String(nbP))));
+      groupes.replaceChildren(...grouperLiens(liens, seul).map((g) => {
+        const n = g.liens.length, np = g.liens.filter((l) => l.protege).length;
+        return el('details', { class: 'au-g' },
+          el('summary', {}, el('b', {}, g.deNom), el('small', {}, `${n} lien${n > 1 ? 's' : ''}${!seul && np ? ` · ${np} protège${np > 1 ? 'nt' : ''}` : ''}`)),
+          el('ul', { class: 'au-list' }, ...g.liens.map(ligneLien)));
+      }));
+    };
+    box.append(el('h3', {}, 'Liens entre applis'),
+      el('p', { class: 'au-sub' }, `Écrits dans Odin : quand une appli signale quelque chose, une autre agit. Ils marchent seuls dès que leurs deux applis sont là ; ici on les voit seulement.`),
+      puces, groupes);
+    peindre();
+    return box;
+  }
+
   /** La section « Automatismes des applis » de Talos. Rien n'est montré quand Odin ne sait pas encore la remplir. */
   async function monter(box) {
     if (!box) return;
@@ -224,10 +291,16 @@
     const corps = el('div', {});
     const recharger = () => monter(box);
     const puces = el('div', { class: 'au-f', role: 'group', 'aria-label': 'Filtrer' });
+    const liens = Array.isArray(r.liens) ? r.liens : [];
     const peindre = () => {
-      puces.replaceChildren(...FILTRES.map((f) => { const n = filtrer(r.lignes, f.id).length; return f.id !== 'tout' && !n ? null : el('button', { type: 'button', 'aria-pressed': String(f.id === filtre), onclick: () => { filtre = f.id; peindre(); } }, f.label, el('small', {}, String(n))); }).filter(Boolean));
+      puces.replaceChildren(...FILTRES.map((f) => { const n = f.id === 'liens' ? liens.length : filtrer(r.lignes, f.id).length; return f.id !== 'tout' && !n ? null : el('button', { type: 'button', 'aria-pressed': String(f.id === filtre), onclick: () => { filtre = f.id; peindre(); } }, f.label, el('small', {}, String(n))); }).filter(Boolean));
       const l = filtrer(r.lignes, filtre);
-      corps.replaceChildren(l.length ? liste(l, { recharger }) : el('p', { class: 'sub' }, 'Rien ici.'));
+      // « Tout » : les lignes puis les liens écrits ; « Liens entre applis » : les liens seuls.
+      const avecLiens = liens.length > 0 && (filtre === 'tout' || filtre === 'liens');
+      corps.replaceChildren(...[
+        filtre === 'liens' ? null : l.length ? liste(l, { recharger }) : el('p', { class: 'sub' }, 'Rien ici.'),
+        avecLiens ? blocLiens(liens) : null,
+      ].filter(Boolean));
     };
     // Une surveillance de sécurité en pause se voit tout de suite, en haut.
     const enPause = r.lignes.filter((l) => l.securite && l.etat === 'pause');
@@ -239,5 +312,5 @@
     box.replaceChildren(sec);
   }
 
-  window.OdinAutomatismes = { monter, ligne, liste, noms, ouvrir, logique: { FILTRES, filtrer, duree } };
+  window.OdinAutomatismes = { monter, ligne, liste, noms, ouvrir, logique: { FILTRES, filtrer, duree, grouperLiens, phraseLien } };
 })();

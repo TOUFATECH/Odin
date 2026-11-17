@@ -16,6 +16,7 @@ import { draupnirOf } from '../tools/draupnir.ts';
 import { nomMoyen, sourcesOdin, type ElementAgenda, type Ligne, type SourceJobs } from '../valhalla/automatismes.ts';
 import { bookingsDe, oublierRappel } from '../valhalla/frigg/perso.ts';
 import { lieuCourant } from '../valhalla/lieu.ts';
+import { LINKS, type Link, type Protection } from '../valhalla/links.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import type { Valhalla } from '../valhalla/service.ts';
 
@@ -122,6 +123,36 @@ function lignesRdv(c: Contexte): Ligne[] {
   });
 }
 
+// ---------------------------------------------------------------- Les liens écrits entre les applis (LINKS)
+
+/**
+ * Un lien automatique écrit dans le code d'Odin (src/valhalla/links.ts), montré tel quel dans la liste : quand telle
+ * appli signale telle chose → ce qui se fait. LECTURE SEULE (ni pause, ni bouton) : les couper viendra plus tard.
+ * Gardé à part des autres lignes (ni dans l'agenda, ni dans l'onglet « Auto » d'une appli, ni dans les routes qui agissent).
+ */
+export interface LigneLien {
+  id: string; sorte: 'lien_ecrit'; de: string; vers: string; deNom: string; versNom: string;
+  quand: string; fait: string; genre: Link['kind']; etat: 'actif' | 'inactif'; protege: Protection | false;
+  /** Pourquoi un lien est inactif : les applis d'Odin ne tournent pas, ou l'une des deux applis du lien est absente. */
+  pourquoi?: string;
+}
+/** Une empreinte courte et stable d'un texte (FNV-1a 32 bits), pour l'identifiant d'un lien. */
+const empreinte = (t: string) => { let h = 0x811c9dc5; for (const ch of t) { h ^= ch.codePointAt(0)!; h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(36); };
+/** Chaque lien écrit, une fois et une seule, dans l'ordre du fichier. */
+export function lignesLiensEcrits(v?: Valhalla, liens: readonly Link[] = LINKS): LigneLien[] {
+  const nom = (id: string) => v?.module(id)?.name ?? id;
+  // Un lien ne marche que si les applis d'Odin tournent et que ses deux applis sont là (comparaison exacte des identifiants).
+  const ids = new Set(v?.modules().map((m) => m.id) ?? []);
+  const pourquoi = (l: Link) => (!v ? 'les applis d\'Odin ne tournent pas' : [l.from, l.to].filter((x) => !ids.has(x)).map((x) => `appli absente : ${x}`).join(' ; '));
+  return liens.map((l) => {
+    const p = pourquoi(l);
+    return {
+      id: `lien:${l.from}>${l.to}:${empreinte(l.when)}`, sorte: 'lien_ecrit', de: l.from, vers: l.to, deNom: nom(l.from), versNom: nom(l.to),
+      quand: l.when, fait: l.does, genre: l.kind, etat: p ? 'inactif' : 'actif', ...(p ? { pourquoi: p } : {}), protege: l.protege,
+    };
+  });
+}
+
 /** Toutes les lignes de la liste « Automatismes ». */
 export function lignesTalos(c: Contexte): Ligne[] {
   const out: Ligne[] = [];
@@ -180,7 +211,9 @@ export async function talosGet(odin: Odin | undefined, path: string, q: URLSearc
   switch (path) {
     case '/api/draupnir/automatismes': {
       const lignes = lignesTalos(c);
-      return { ok: true, fuseau: fuseauOdin(), ...(lieuCourant()?.nom ? { ville: lieuCourant()!.nom } : {}), maintenant: c.now.toISOString(), lignes, compte: compte(lignes) };
+      // `liens` : les liens écrits entre applis, à part des lignes (lecture seule).
+      let liens: LigneLien[] = []; try { liens = lignesLiensEcrits(c.v); } catch { /* liste indisponible */ }
+      return { ok: true, fuseau: fuseauOdin(), ...(lieuCourant()?.nom ? { ville: lieuCourant()!.nom } : {}), maintenant: c.now.toISOString(), lignes, compte: compte(lignes), liens };
     }
     case '/api/draupnir/appli': {
       const m = c.v ? trouverAppli(c.v.modules(), s(q.get('id'))) : undefined;
