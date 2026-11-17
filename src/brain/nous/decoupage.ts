@@ -25,7 +25,7 @@ const REGLE_PRE = 2;
 function morceaux(texte: string): string[] { return texte.match(PRE) ?? []; }
 
 const enc = new TextEncoder();
-const dec = new TextDecoder();
+const dec = new TextDecoder('utf-8', { ignoreBOM: true }); // la marque d'ordre des octets en tête d'un texte n'est pas avalée
 
 /** Fabrique une instance de découpage à partir de la liste des fusions (paires d'identifiants, par priorité). */
 function fabriquer(fusions: Int32Array, vocab: number): DecoupageConcret {

@@ -80,3 +80,8 @@ test('pré-découpage : l\'espace reste collé au mot qui le suit', () => {
   assert.equal(d.encoder(' la maison de Mamoudzou').length, 4);
   for (const s of ['a  b', '  deux espaces', 'fin   ', 'ligne\n suite', ' ', '\t', 'a b']) assert.equal(d.decoder(d.encoder(s)), s, `aller-retour de ${JSON.stringify(s)}`);
 });
+
+test("aller-retour : la marque d'ordre des octets en tête et les fins de ligne Windows sont gardées", () => {
+  const d = apprendreDecoupage([CORPUS.join(' ').repeat(20)], 4096, 123);
+  for (const s of ['\ufeffmarque en tête', 'fin de ligne\r\nWindows', '\ufeff']) assert.equal(d.decoder(d.encoder(s)), s, `aller-retour de ${JSON.stringify(s)}`);
+});
