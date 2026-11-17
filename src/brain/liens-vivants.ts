@@ -11,6 +11,8 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import type { Mnemosyne } from '../muninn/store.ts';
+import { rendre, reserver, surPression } from './budget-memoire.ts';
+import { viveCoupee } from './memoire-vive.ts';
 import type { Table } from '../muninn/tables.ts';
 import type { Message } from '../types.ts';
 import { fold, keywords } from '../valhalla/besoin.ts';
@@ -112,6 +114,12 @@ export interface Vue {
 }
 
 const MAGASINS = new Set<WeakRef<LiensVivants>>();
+/** Ce que coûte en mémoire la table des voisins gardée (index des notes, liens écrits et d'usage), en octets : prudent. */
+const octetsTable = (st: Statique) => st.notes.length * 600 + (st.ecrit.size + st.usage.size + st.orphelins.length) * 400;
+// Sous pression (comptable de la mémoire) : chaque magasin lâche sa table des voisins ; elle sera refaite à la demande.
+surPression(() => { for (const r of [...MAGASINS]) { const m = r.deref(); if (!m) { MAGASINS.delete(r); continue; } m.lacher(); } });
+const RENDRE = new FinalizationRegistry<string>((nom) => rendre(nom));
+let numero = 0;
 // Une note renommée par Odin : ses liens la suivent (événement à part, pas « change » : les automatisations ne le voient pas).
 vaultEvents.on('renommée', (e: { ancien?: string; nouveau?: string }) => {
   for (const r of [...MAGASINS]) { const m = r.deref(); if (!m) { MAGASINS.delete(r); continue; } try { if (e?.ancien && e.nouveau) m.renommer(e.ancien, e.nouveau); } catch { /* facultatif */ } }
@@ -124,11 +132,35 @@ export class LiensVivants {
   private st?: Statique;
   private repos = new Map<string, number>();
   private readonly muninn: Mnemosyne;
+  /** Nom de la part réservée auprès du comptable de la mémoire. */
+  private readonly nomBudget = `cerveau-liens-${++numero}`;
+  /** Le comptable a refusé la place de la table : elle ne resservira pas, la prochaine demande la refait. */
+  private jetable = false;
   constructor(muninn: Mnemosyne) {
     this.muninn = muninn;
     this.table = muninn.table<Ligne>('cerveau-liens', (r) => r.id);
     MAGASINS.add(new WeakRef(this));
+    RENDRE.register(this, this.nomBudget);
   }
+  /** Lâche la table des voisins gardée (machine à court de mémoire) et rend sa part ; refaite à la demande suivante. */
+  lacher(): void { this.st = undefined; this.jetable = false; this.mo = 0; rendre(this.nomBudget); }
+  /** Ce que la table des voisins a réservé auprès du comptable de la mémoire, en Mo (0 : rien de gardé). */
+  reserveMo(): number { return this.mo; }
+  private mo = 0;
+  /** Après chaque table refaite ou mise à jour : sa place auprès du comptable (refusée : elle ne sera pas gardée). */
+  private tenir(st: Statique): void {
+    if (viveCoupee()) return;
+    const mo = Math.max(1, Math.ceil(octetsTable(st) / 1_048_576));
+    this.jetable = !reserver(this.nomBudget, mo);
+    if (this.jetable) { rendre(this.nomBudget); this.mo = 0; this.lacherApres(); } else this.mo = mo;
+  }
+  /** Place refusée : la table sert à la demande en cours, puis elle est lâchée (refaite à la demande suivante). */
+  private lacherApres(): void {
+    if (this.lacherPrevu) return;
+    this.lacherPrevu = setImmediate(() => { this.lacherPrevu = undefined; if (this.jetable) this.st = undefined; });
+    this.lacherPrevu.unref?.();
+  }
+  private lacherPrevu?: ReturnType<typeof setImmediate>;
 
   // ---------- Réglage ----------
   actif(): boolean { return this.muninn.getKv('cerveau-liens-actif') !== 'non'; }
@@ -159,12 +191,13 @@ export class LiensVivants {
   // ---------- Table des voisins ----------
   private statique(vault: Vault, apps?: AppsLike): Statique {
     const notes = vault.all();
-    const s = this.st;
+    // Place refusée par le comptable : la table d'avant n'est pas réutilisée, elle est refaite (juste, plus lent).
+    const s = this.jetable && !viveCoupee() ? undefined : this.st;
     // Le coffre relu sans changement rend un nouveau tableau avec les mêmes notes : la table sert encore.
     if (s && s.apps === apps && (s.notes === notes || (s.notes.length === notes.length && s.notes.every((n, i) => n === notes[i])))) { s.notes = notes; return s; }
     // Quelques notes écrites ou ajoutées (le cas courant : Odin vient d'écrire une note) : la table est mise à jour pour
     // elles seules. Même table qu'une reconstruction ; dès qu'un cas sort de l'ordinaire, on refait tout.
-    if (s && s.apps === apps && this.majPartielle(s, notes)) return s;
+    if (s && s.apps === apps && this.majPartielle(s, notes)) { this.tenir(s); return s; }
     const st: Statique = { notes, apps, parChemin: new Map(), parSansMd: new Map(), parCle: new Map(), ecrit: new Set(), usage: new Set(), adj: new Map(), freins: new Map(), ficheApp: new Map(), appFiche: new Map(), noms: new Map(), nbEcrit: new Map(), sortants: new Map(), orphelins: [] };
     for (const n of notes) {
       st.parChemin.set(n.path, n);
@@ -194,6 +227,7 @@ export class LiensVivants {
     for (const l of LINKS) lier(st.usage, `a:${l.from}`, `a:${l.to}`);
     for (const u of USAGES) for (let k = 1; k < u.chain.length; k++) lier(st.usage, `a:${u.chain[k - 1]}`, `a:${u.chain[k]}`);
     this.st = st;
+    this.tenir(st);
     return st;
   }
 

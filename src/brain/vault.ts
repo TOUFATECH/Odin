@@ -10,9 +10,10 @@
 
 import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, watch, writeFileSync, type FSWatcher, type Stats } from 'node:fs';
 import { basename, dirname, extname, join, relative, sep } from 'node:path';
 import { IndexNotes } from './index-notes.ts';
+import { MemoireVive, octetsGardes, parent, viveCoupee } from './memoire-vive.ts';
 
 export interface NoteMeta { [k: string]: string | number | boolean | string[] | undefined }
 export interface Note { path: string; title: string; meta: NoteMeta; body: string; links: string[]; tags: string[]; mtime: number; size: number }
@@ -167,7 +168,23 @@ export class Vault {
    *  - au départ de la surveillance, une relecture complète suit (une écriture faite pendant son démarrage est vue).
    */
   private veille?: { w: FSWatcher; sale: boolean; prouvee: boolean; identite: string } | null;
-  constructor(root: string) { this.root = root; mkdirSync(root, { recursive: true }); }
+  /**
+   * La mémoire vive (memoire-vive.ts) : le miroir du dossier et la part réservée auprès du comptable de la mémoire.
+   * Surveillance qui a fait ses preuves + changements signalés : seuls les dossiers et les notes touchés sont relus,
+   * la liste est refaite en mémoire dans l'ordre d'un parcours complet. Budget refusé ou machine à court de mémoire :
+   * rien n'est gardé entre deux demandes (juste, plus lent). ODIN_MEMOIRE_VIVE=non : le chemin d'avant, tel quel.
+   */
+  private readonly vive: MemoireVive;
+  /** Moment du dernier parcours complet du disque (la relecture de sécurité se compte depuis lui). */
+  private completA = 0;
+  /** Préparation en attente (liste des notes, index des noms) après un changement : la question suivante la trouve prête. */
+  private preparation?: ReturnType<typeof setTimeout>;
+  constructor(root: string) {
+    this.root = root; mkdirSync(root, { recursive: true });
+    this.vive = new MemoireVive(() => { this.known.clear(); this.cache = undefined; this.idx = undefined; this.rech = undefined; });
+  }
+  /** Ce que le coffre a réservé auprès du comptable de la mémoire, en Mo (0 : rien de gardé entre deux demandes). */
+  reserveMo(): number { return this.vive.reserveMo; }
 
   /** Pose la surveillance du dossier, une fois (rien sous SURVEILLER_DES notes : la relecture y est déjà rapide). */
   private surveiller(n: number): void {
@@ -182,14 +199,20 @@ export class Vault {
         // Ce que le Cerveau ne lit pas (.obsidian, corbeille, fichiers cachés) ne compte pas : sinon Obsidian, qui écrit
         // sans cesse ses réglages, ferait tout relire à chaque demande.
         const n = typeof nom === 'string' ? nom.replace(/\\/g, '/') : '';
+        // La sonde posée au départ (mémoire vive) : la surveillance de CE dossier marche, elle a fait ses preuves.
+        if (n.startsWith('.odin-sonde')) { v.prouvee = true; return; }
         if (n && n.split('/').some((x) => x.startsWith('.') || SKIP.has(x))) return;
         v.sale = true; v.prouvee = true;
+        if (!viveCoupee()) { this.vive.signaler(n || null); this.preparerBientot(); }
         // Le Cerveau lui-même a disparu (dossier effacé) : on arrête de surveiller (sinon le système insiste en boucle).
         if (!existsSync(this.root)) this.arreterVeille();
       }), sale: true, prouvee: false, identite: identiteDossier(this.root) };
       v.w.on('error', () => this.arreterVeille());
       v.w.unref();
       this.veille = v;
+      // Mémoire vive : une sonde (fichier caché, effacé aussitôt) montre tout de suite que les changements de ce dossier
+      // arrivent bien ; sinon il faudrait attendre un vrai changement pour lui faire confiance.
+      if (!viveCoupee()) { const f = join(this.root, `.odin-sonde-${process.pid}-${Date.now()}`); try { writeFileSync(f, ''); unlinkSync(f); } catch { /* coffre en lecture seule : on attend un vrai changement */ } }
     } catch { this.veille = null; } // surveillance impossible ici : la relecture toutes les 3 s reste
   }
   private arreterVeille(): void { try { this.veille?.w.close(); } catch { /* déjà fermée */ } this.veille = null; if (this.cache) this.cache.at = 0; }
@@ -201,6 +224,11 @@ export class Vault {
     if (!v.prouvee) return 3000;
     // Le dossier a été déplacé ou remplacé (même chemin, autre dossier) : la surveillance suit l'ancien ; on la refait.
     if (identiteDossier(this.root) !== v.identite) { try { v.w.close(); } catch { /* */ } this.veille = undefined; return 0; }
+    // Rien de réservé auprès du comptable : la liste ne sert que le temps d'une demande, comme sans surveillance.
+    if (!viveCoupee() && !this.vive.accordee) return 3000;
+    // Mémoire vive : la relecture de sécurité se compte depuis le dernier parcours COMPLET, pas depuis la dernière
+    // relecture partielle (sinon chaque changement la repousserait, jusqu'à près de 120 s).
+    if (!viveCoupee() && this.cache && this.completA) return Math.max(0, Math.min(RELECTURE_SECURITE_MS, this.completA + RELECTURE_SECURITE_MS - this.cache.at));
     return RELECTURE_SECURITE_MS;
   }
 
@@ -216,27 +244,122 @@ export class Vault {
   /** Toutes les notes (mises en cache 3 s : le graphe et la recherche relisent souvent). */
   all(force = false): Note[] {
     if (!force && this.cache && Date.now() - this.cache.at < this.validite()) return this.cache.notes;
+    const vive = !viveCoupee();
+    if (vive && !force) { const r = this.relireLeChange(); if (r) return r; }
     const v = this.veille;
     if (v) v.sale = false; // posé AVANT la relecture : un changement pendant la relecture la refera la fois suivante
+    // Mémoire vive : le parcours complet pose aussi le miroir du dossier (ce qui était signalé est couvert par lui).
+    const miroir = vive ? this.vive.dossiers : undefined;
+    if (vive) { this.vive.prendre(); this.vive.toutRelire = false; this.vive.complet = false; this.vive.dossiers.clear(); }
     const notes: Note[] = [];
-    const walk = (dir: string, depth: number) => {
+    const walk = (dir: string, relDir: string, depth: number) => {
       if (depth > 8) return;
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const entrees = readdirSync(dir, { withFileTypes: true });
+      if (miroir) miroir.set(relDir, entrees.map((e) => ({ nom: e.name, dossier: e.isDirectory(), fichier: e.isFile() })));
+      for (const e of entrees) {
         if (SKIP.has(e.name) || e.name.startsWith('.')) continue;
         const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p, depth + 1);
+        if (e.isDirectory()) walk(p, relDir ? `${relDir}/${e.name}` : e.name, depth + 1);
         else if (e.isFile() && extname(e.name) === '.md' && notes.length < 20_000) {
           const st = statSync(p), rel = relative(this.root, p).split(sep).join('/');
-          // Rien n'a bougé depuis la dernière lecture : la note déjà lue sert (le Cerveau répond vite, même gros).
-          const old = this.known.get(rel);
-          if (old && old.mtime === st.mtimeMs && old.size === st.size) { notes.push(old); continue; }
-          const text = st.size < 2_000_000 ? readFileSync(p, 'utf8') : '';
-          const { meta, body } = parseNote(text);
-          notes.push({ path: rel, title: String(meta.titre ?? meta.title ?? basename(e.name, '.md')), meta, body, links: extractLinks(body), tags: extractTags(body, meta), mtime: st.mtimeMs, size: st.size });
+          notes.push(this.noteDe(p, rel, e.name, st));
         }
       }
     };
-    walk(this.root, 0);
+    walk(this.root, '', 0);
+    if (vive) { this.vive.complet = true; this.completA = Date.now(); }
+    return this.poser(notes);
+  }
+
+  /** La note à ce chemin : celle déjà lue si sa date et sa taille n'ont pas bougé, sinon relue et analysée. */
+  private noteDe(p: string, rel: string, nom: string, st: { mtimeMs: number; size: number }): Note {
+    // Rien n'a bougé depuis la dernière lecture : la note déjà lue sert (le Cerveau répond vite, même gros).
+    const old = this.known.get(rel);
+    if (old && old.mtime === st.mtimeMs && old.size === st.size) return old;
+    const text = st.size < 2_000_000 ? readFileSync(p, 'utf8') : '';
+    const { meta, body } = parseNote(text);
+    return { path: rel, title: String(meta.titre ?? meta.title ?? basename(nom, '.md')), meta, body, links: extractLinks(body), tags: extractTags(body, meta), mtime: st.mtimeMs, size: st.size };
+  }
+
+  /**
+   * Mémoire vive : la surveillance a fait ses preuves et a signalé des chemins ; seuls ceux-là (et les dossiers dont la
+   * liste a pu changer) sont relus, puis la liste des notes est refaite EN MÉMOIRE dans l'ordre exact d'un parcours
+   * complet. Rend undefined dès que quelque chose sort de l'ordinaire : le parcours complet d'avant s'en charge.
+   */
+  private relireLeChange(): Note[] | undefined {
+    const v = this.veille, m = this.vive;
+    if (!v || !v.prouvee || !m.complet || m.toutRelire || !m.accordee || !this.cache) return undefined;
+    if (Date.now() - this.completA >= RELECTURE_SECURITE_MS) return undefined; // relecture de sécurité : tout
+    if (identiteDossier(this.root) !== v.identite) return undefined;
+    v.sale = false;
+    const signales = m.prendre();
+    if (m.toutRelire) return undefined;
+    const vus = new Map<string, Stats | undefined>();
+    const statOu = (rel: string) => {
+      if (vus.has(rel)) return vus.get(rel);
+      let st; try { st = statSync(join(this.root, rel)); } catch { st = undefined; }
+      vus.set(rel, st); return st;
+    };
+    const aRelire = new Set<string>(), dossiers = new Set<string>();
+    for (const rel of signales) {
+      const st = statOu(rel);
+      // Un dossier (nouveau, effacé, renommé) : on l'oublie, la liste de son parent est relue, il est rebalayé s'il est là.
+      if (st?.isDirectory() || m.dossiers.has(rel)) { m.oublierDossier(rel); dossiers.add(parent(rel)); continue; }
+      if (extname(rel) !== '.md') continue; // ni dossier ni note (fichier passager d'une écriture, image…) : rien à refaire
+      aRelire.add(rel);
+      const d = parent(rel), liste = m.dossiers.get(d), nom = d ? rel.slice(d.length + 1) : rel;
+      const i = liste ? liste.findIndex((e) => e.nom === nom) : -1;
+      if (!st) { if (liste && i >= 0) liste.splice(i, 1); continue; } // note partie : retirée, l'ordre des autres ne bouge pas
+      if (i < 0 || liste![i].fichier !== st.isFile() || liste![i].dossier) dossiers.add(d); // note nouvelle : sa place vient du système
+    }
+    const lire = (rel: string): boolean => {
+      let es; try { es = readdirSync(join(this.root, rel), { withFileTypes: true }); } catch { return false; }
+      m.dossiers.set(rel, es.map((e) => ({ nom: e.name, dossier: e.isDirectory(), fichier: e.isFile() })));
+      return true;
+    };
+    const profondeur = (rel: string) => (rel ? rel.split('/').length : 0);
+    // Dossiers entrés d'un bloc (nouveaux, ou oubliés puis relus) : le système ne signale que le dossier, pas ses notes.
+    // Une note à un chemin déjà connu peut y être une AUTRE note (sauvegarde rentrée, dossier remis propre) : ses notes
+    // passent toutes par le contrôle de date et de taille, comme dans un parcours complet.
+    const neufs = new Set<string>();
+    const balayerNeufs = (rel: string): void => {
+      if (profondeur(rel) >= 8) return; // ses sous-dossiers (profondeur > 8) ne sont jamais lus
+      for (const e of m.dossiers.get(rel) ?? []) {
+        if (!e.dossier || SKIP.has(e.nom) || e.nom.startsWith('.')) continue;
+        const c = rel ? `${rel}/${e.nom}` : e.nom;
+        if (!m.dossiers.has(c) && lire(c)) { neufs.add(c); balayerNeufs(c); }
+      }
+    };
+    for (let d of dossiers) {
+      while (d && !m.dossiers.has(d)) d = parent(d); // dossiers créés en chaîne : on part du premier connu
+      if (!lire(d)) { m.toutRelire = true; return undefined; } // un dossier connu a disparu : parcours complet
+      balayerNeufs(d);
+    }
+    const notes: Note[] = [];
+    let manque = false;
+    const walk = (rel: string, depth: number) => {
+      if (depth > 8) return;
+      const l = m.dossiers.get(rel); if (!l) { manque = true; return; }
+      for (const e of l) {
+        if (SKIP.has(e.nom) || e.nom.startsWith('.')) continue;
+        const r = rel ? `${rel}/${e.nom}` : e.nom;
+        if (e.dossier) walk(r, depth + 1);
+        else if (e.fichier && extname(e.nom) === '.md' && notes.length < 20_000) {
+          const old = this.known.get(r);
+          if (old && !aRelire.has(r) && !neufs.has(rel)) { notes.push(old); continue; }
+          const st = statOu(r);
+          if (!st) { manque = true; continue; }
+          notes.push(this.noteDe(join(this.root, r), r, e.nom, st));
+        }
+      }
+    };
+    walk('', 0);
+    if (manque) { m.toutRelire = true; return undefined; }
+    return this.poser(notes);
+  }
+
+  /** Pose la liste des notes lue (parcours complet ou mémoire vive) et la part gardée auprès du comptable. */
+  private poser(notes: Note[]): Note[] {
     this.known = new Map(notes.map((n) => [n.path, n]));
     // Si rien n'a bougé (mêmes objets-notes, même ordre), on RÉUTILISE le tableau précédent : l'index de
     // recherche, construit par identité de ce tableau (voir search()), n'est alors PAS reconstruit à froid
@@ -245,7 +368,46 @@ export class Vault {
     const inchange = !!prev && prev.length === notes.length && prev.every((n, i) => n === notes[i]);
     this.cache = { at: Date.now(), notes: inchange ? prev! : notes };
     this.surveiller(notes.length);
-    return this.cache.notes;
+    const out = this.cache.notes;
+    // Le budget ne suffit pas (ou la machine manque de mémoire) : la liste sert le temps de cette demande, puis tout est
+    // lâché (liste, notes lues, index des noms et de recherche) ; la demande suivante relit le disque.
+    if (!viveCoupee() && !this.vive.tenir(octetsGardes(out) + this.vive.octetsMiroir())) { this.cache = { at: Date.now(), notes: out }; this.lacherApres(); }
+    return out;
+  }
+  /** Rien de réservé : ce qui a servi à la demande en cours est lâché dès qu'elle est servie (fin du tour en cours). */
+  private lacherApres(): void {
+    if (this.lacher) return;
+    this.lacher = setImmediate(() => {
+      this.lacher = undefined;
+      if (viveCoupee() || this.vive.accordee) return; // place accordée entre-temps : on garde
+      this.cache = undefined; this.idx = undefined; this.rech = undefined; this.known.clear();
+    });
+    this.lacher.unref?.();
+  }
+  private lacher?: ReturnType<typeof setImmediate>;
+
+  /** Après un changement : la liste des notes et l'index des noms sont refaits un peu plus tard, hors de la question. */
+  private preparerBientot(): void {
+    if (viveCoupee() || this.preparation) return;
+    this.preparation = setTimeout(() => { this.preparation = undefined; try { this.preparer(); } catch { /* coffre parti : la demande suivante relira */ } }, 25);
+    this.preparation.unref?.();
+  }
+  /**
+   * Tient prêts la liste des notes et l'index des noms (fonctions de la seule liste : les préparer plus tôt ne change
+   * rien à ce qu'ils rendent). L'index de recherche et la table des liens vivants, eux, se mettent à jour à la demande,
+   * comme avant : les préparer en plusieurs fois pourrait changer l'ordre de notes ex aequo.
+   * Seulement la relecture de ce qui a changé : jamais un parcours complet de tout le coffre sans que personne ne demande
+   * rien (rafale de fichiers, changement sans nom, relecture de sécurité due) ; celui-là attend la demande suivante.
+   */
+  preparer(): void {
+    const v = this.veille, m = this.vive;
+    if (viveCoupee() || !v || !v.prouvee || !m.complet || m.toutRelire || !m.accordee || !this.cache) return;
+    if (Date.now() - this.completA >= RELECTURE_SECURITE_MS || !existsSync(this.root)) return;
+    const notes = Date.now() - this.cache.at < this.validite() ? this.cache.notes : this.relireLeChange();
+    if (notes) { this.indexNoms(notes); return; }
+    // La relecture partielle n'a pas pu se faire : la demande suivante relira tout (rien de périmé ne sert).
+    if (this.veille) this.veille.sale = true;
+    if (this.cache) this.cache.at = 0;
   }
   /**
    * Après une écriture d'Odin : la liste est refaite, et la note écrite est relue pour de bon (réécrite dans la même
@@ -254,6 +416,14 @@ export class Vault {
    * Sans chemin (renommage qui touche d'autres notes, restauration) : tout est oublié, comme avant.
    */
   private invalidate(...chemins: string[]) {
+    // Mémoire vive : la note écrite est signalée comme un changement vu par la surveillance ; seule elle est relue.
+    const v = this.veille;
+    if (!viveCoupee() && chemins.length && v && v.prouvee && this.vive.complet && this.vive.accordee && this.cache) {
+      for (const c of chemins) { this.known.delete(c); this.vive.signaler(c); }
+      v.sale = true;
+      this.preparerBientot();
+      return;
+    }
     this.cache = undefined; this.idx = undefined;
     if (!chemins.length) { this.known.clear(); return; }
     for (const c of chemins) this.known.delete(c);
@@ -262,7 +432,11 @@ export class Vault {
   /** Trouve une note par chemin, nom de fichier ou titre (comme les liens d'Obsidian). */
   find(ref: string): Note | undefined {
     const k = noteKey(ref.split('/').pop() ?? ref), path = ref.replace(/\.md$/, '');
-    const notes = this.all();
+    const idx = this.indexNoms(this.all());
+    return idx.byPath.get(path) ?? idx.byKey.get(k);
+  }
+  /** L'index des noms (chemin, nom de fichier, titre), refait seulement quand la liste des notes change. */
+  private indexNoms(notes: Note[]): { notes: Note[]; byPath: Map<string, Note>; byKey: Map<string, Note> } {
     if (this.idx?.notes !== notes) {
       // La première note qui porte ce chemin, ce nom de fichier ou ce titre (même ordre qu'avant l'index).
       const byPath = new Map<string, Note>(), byKey = new Map<string, Note>();
@@ -272,7 +446,7 @@ export class Vault {
       }
       this.idx = { notes, byPath, byKey };
     }
-    return this.idx.byPath.get(path) ?? this.idx.byKey.get(k);
+    return this.idx;
   }
 
   read(path: string): Note | undefined { return this.find(path); }
@@ -420,11 +594,8 @@ export class Vault {
     return { nodes, edges };
   }
 
-  /** Recherche classée : titre, étiquettes, propriétés, texte ; extrait autour du mot trouvé. */
-  search(q: string, limit = 20): Array<{ note: Note; score: number; snippet: string }> {
-    const words = noteKey(q).split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 2);
-    if (!words.length) return [];
-    const notes = this.all();
+  /** L'index de recherche « mot → notes », mis à jour seulement quand la liste des notes change. */
+  private indexRecherche(notes: Note[]): IndexNotes {
     // Index inversé « mot → notes » : on ne classe plus que les notes candidates au lieu de balayer TOUT le
     // Cerveau (85-97 ms → quelques ms). Reconstruit seulement quand la liste des notes change (donc jamais
     // entre deux demandes rapprochées). Résultat identique : les notes écartées auraient eu un score nul.
@@ -438,9 +609,17 @@ export class Vault {
         this.rech = { notes, index };
       } else { const index = new IndexNotes(); index.construire(notes); this.rech = { notes, index }; }
     }
+    return this.rech.index;
+  }
+
+  /** Recherche classée : titre, étiquettes, propriétés, texte ; extrait autour du mot trouvé. */
+  search(q: string, limit = 20): Array<{ note: Note; score: number; snippet: string }> {
+    const words = noteKey(q).split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 2);
+    if (!words.length) return [];
+    const index = this.indexRecherche(this.all());
     const now = Date.now();
     const out: Array<{ note: Note; score: number; hit: number }> = [];
-    for (const n of this.rech.index.candidats(q)) {
+    for (const n of index.candidats(q)) {
       const { title, body, props, tags } = folded(n);
       let score = 0, hit = -1;
       for (const w of words) {
