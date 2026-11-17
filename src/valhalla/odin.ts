@@ -9,7 +9,7 @@ import type { Odin } from '../runtime.ts';
 import { writeSecret } from '../settings.ts';
 import { setConfigValue } from '../config.ts';
 import { brainOf } from '../tools/brain.ts';
-import { draupnirOf } from '../tools/draupnir.ts';
+import { draupnirOf, graveExecuter, marquer as marquerEcriteParOdin } from '../tools/draupnir.ts';
 import { runesOf } from '../tools/runes.ts';
 import { templates as flowTemplates } from '../draupnir/service.ts';
 import { LINKS, linkTemplates, wireReflexes } from './links.ts';
@@ -161,8 +161,10 @@ export function coreModules(odin: Pick<Odin, 'paths' | 'cfg'>): Module[] {
     words: ['automatisation', 'automatisations', 'automatise', 'automatique', 'workflow', 'chaque matin', 'chaque jour', 'webhook', 'formulaire'],
     actions: [
       { id: 'lister', label: 'Automatisations', what: 'Liste', read: true, run: () => ({ text: draupnirOf()?.list().map((w) => `- ${w.active ? '🟢' : '⚪'} ${w.name}`).join('\n') || 'Aucune automatisation.' }) },
-      { id: 'executer', label: 'Lancer', what: 'Lance une automatisation', params: [{ key: 'nom', label: 'Automatisation', kind: 'text', required: true }], run: async (_c, i) => { const d = draupnirOf(); if (!d) throw new Error('Talos arrêté'); const w = d.get(s(i.nom)); if (!w) throw new Error('automatisation introuvable'); const ex = await d.run(w.id, undefined, 'manuel'); return { text: `${w.name} : ${ex.status}${ex.error ? ` (${ex.error})` : ''}` }; } },
-      { id: 'modele', label: 'Ajouter un modèle', what: 'Modèle d\'automatisation entre applis', params: [{ key: 'id', label: 'Modèle', kind: 'select', options: [...flowTemplates().map((t) => t.id), ...linkTemplates().map((t) => t.id)], required: true }], run: (_c, i) => { const d = draupnirOf(); if (!d) throw new Error('Talos arrêté'); const t = [...flowTemplates(), ...linkTemplates()].find((x) => x.id === s(i.id)); if (!t) throw new Error('modèle inconnu'); const w = d.save({ ...(t.flow as object), active: false } as never); return { text: `✅ « ${w.name} » ajouté (désactivé) : ouvre Talos pour l'essayer.` }; } },
+      // Même règle que le geste « executer » de l'outil : une automatisation écrite par Odin et qui agit demande l'accord
+      // (sinon ce serait un détour : l'outil crée, l'appli lance). Lancée après cette décision, elle est validée.
+      { id: 'executer', label: 'Lancer', what: 'Lance une automatisation', params: [{ key: 'nom', label: 'Automatisation', kind: 'text', required: true }], grave: (i) => graveExecuter(s(i.nom)), run: async (_c, i) => { const d = draupnirOf(); if (!d) throw new Error('Talos arrêté'); const w = d.get(s(i.nom)); if (!w) throw new Error('automatisation introuvable'); marquerEcriteParOdin(d, w.id, false); const ex = await d.run(w.id, undefined, 'manuel'); return { text: `${w.name} : ${ex.status}${ex.error ? ` (${ex.error})` : ''}` }; } },
+      { id: 'modele', label: 'Ajouter un modèle', what: 'Modèle d\'automatisation entre applis', params: [{ key: 'id', label: 'Modèle', kind: 'select', options: [...flowTemplates().map((t) => t.id), ...linkTemplates().map((t) => t.id)], required: true }], run: (_c, i) => { const d = draupnirOf(); if (!d) throw new Error('Talos arrêté'); const t = [...flowTemplates(), ...linkTemplates()].find((x) => x.id === s(i.id)); if (!t) throw new Error('modèle inconnu'); const w = d.save({ ...(t.flow as object), active: false } as never); marquerEcriteParOdin(d, w.id, true); return { text: `✅ « ${w.name} » ajouté (désactivé) : ouvre Talos pour l'essayer.` }; } },
     ],
     view: () => ({ subtitle: 'Ouvre l\'onglet Talos pour l\'éditeur.', sections: [{ kind: 'list', title: 'Modèles entre applis', items: linkTemplates().map((t) => ({ title: t.name, detail: t.what })) }] }),
   };

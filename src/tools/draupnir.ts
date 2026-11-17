@@ -26,7 +26,8 @@ function marques(d: Talos): Set<string> {
   try { const l: unknown = JSON.parse(readFileSync(fichierMarques(d), 'utf8')); if (Array.isArray(l)) for (const id of l) if (typeof id === 'string') m.add(id); } catch { /* aucun fichier : aucune marque écrite */ }
   return m;
 }
-function marquer(d: Talos, id: string, ecrite: boolean): void {
+/** Pose (ou retire, une fois validée) la marque « écrite par Odin » : aussi pour l'appli Talos (valhalla/odin.ts). */
+export function marquer(d: Talos, id: string, ecrite: boolean): void {
   if (ecrite) ecritesParOdin.add(id); else ecritesParOdin.delete(id);
   const m = marques(d); if (ecrite) m.add(id); else m.delete(id);
   try { ecrireJson(fichierMarques(d), [...m]); } catch { /* la marque reste en mémoire */ }
@@ -58,7 +59,8 @@ function ceQuiAgit(wf: { nodes: Array<{ name: string; type: string; params?: Rec
   }
   return out;
 }
-function graveExecuter(id: string): string | undefined {
+/** La raison de demander l'accord avant de lancer `id` (nom ou identifiant), ou rien : partagée avec l'appli Talos. */
+export function graveExecuter(id: string): string | undefined {
   const d = current, wf = d?.get(id); if (!d || !wf || !marques(d).has(wf.id)) return undefined;
   const agit = ceQuiAgit(wf); if (!agit.length) return undefined; // rien d'engageant : sans risque, comme avant
   return `lancer « ${wf.name} », une automatisation qu'Odin vient d'écrire et que tu n'as pas encore validée : ${agit.join(' ; ')}`;
@@ -81,6 +83,9 @@ export const draupnirTool: Tool = {
     if (a === 'creer') {
       if (!ctx.llm) return 'Aucune IA disponible pour écrire l\'automatisation.';
       const draft = await flowFromDescription((sys, user) => ctx.llm!(sys, user, 6000), s(i.description));
+      // Jamais une copie du même nom qu'une automatisation existante : un nom mène à une seule (« flux.exécuter », « Lancer »).
+      const nom = s(draft.name).trim().toLowerCase(), pris = d.list().find((w) => w.name.trim().toLowerCase() === nom || w.id === s(draft.name));
+      if (pris) return `⚠️ Pas créée : une automatisation s'appelle déjà « ${pris.name} ». Je ne la double pas, pour qu'un nom ne mène qu'à une seule. Redemande avec un autre nom, ou ouvre Talos pour modifier celle-là.`;
       const wf = d.save({ ...draft, active: false });
       marquer(d, wf.id, true);
       return `✅ Automatisation « ${wf.name} » créée (désactivée) : ${wf.nodes.map((n) => n.name).join(' → ')}.\nOuvre Talos pour la voir et la tester, puis dis « active-la ».`;
