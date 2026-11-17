@@ -1,7 +1,7 @@
 // L'état d'Internet, partagé par toute l'interface. Odin sait s'il a Internet (champ state.internet, poussé par le serveur
 // dans ce que la page reçoit déjà) ; cette page le relit et le donne aux autres : OdinReseau.etat() / .enLigne() / .ecouter(cb).
 // Elle monte aussi LE bandeau global discret quand Internet est coupé (« Pas d'Internet depuis 14 h 02 : Odin continue en
-// local… »), une seule alerte, refermée toute seule au retour, sans cacher le contenu ni gêner la mascotte.
+// local… »), une seule alerte, refermée toute seule au retour, en haut du contenu : elle pousse la page, ne la recouvre pas.
 // Aucun deuxième flux : on écoute l'événement 'odin:etat' que refresh() envoie après chaque /api/state.
 (() => {
   'use strict';
@@ -40,16 +40,41 @@
   }
 
   // --------- le bandeau global ---------
+  // Il ne flotte plus par-dessus la page : il prend sa place tout en haut de la zone de contenu (<main> de l'interface,
+  // donc à droite de la barre de côté sur ordinateur et sous l'en-tête sur téléphone) et pousse la page vers le bas.
+  // Pas de z-index : une confirmation, un menu ou le lecteur en plein écran restent toujours au-dessus de lui.
   let styleFaite = false;
   const STYLE = `
-#odin-bandeau-reseau{position:fixed;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:60;max-width:calc(100vw - 24px);display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;border:1px solid var(--warn-l,#5A4520);background:var(--warn-bg,#1F1D16);color:var(--ink,#E6ECEF);font:13px/1.35 var(--body,system-ui),sans-serif;box-shadow:var(--shadow,0 8px 24px rgba(0,0,0,.25));pointer-events:auto;animation:odin-bandeau-ar .25s ease}
-#odin-bandeau-reseau .pt{width:8px;height:8px;border-radius:50%;background:var(--warn,#F0B860);flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--warn,#F0B860) 30%,transparent)}
-#odin-bandeau-reseau span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@keyframes odin-bandeau-ar{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translateX(-50%)}}
-@media (max-width:520px){#odin-bandeau-reseau span{white-space:normal}}`;
+.odin-bandeau-reseau{flex:none;display:flex;align-items:center;gap:10px;padding:8px 16px;overflow:hidden;border-bottom:1px solid var(--warn-l,#5A4520);background:var(--warn-bg,#1F1D16);color:var(--ink,#E6ECEF);font:13px/1.4 var(--body,system-ui),sans-serif;animation:odin-bandeau-ar .25s ease;transition:max-height .25s ease,padding .25s ease,opacity .2s ease}
+.odin-bandeau-reseau .pt{width:8px;height:8px;border-radius:50%;background:var(--warn,#F0B860);flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--warn,#F0B860) 30%,transparent)}
+.odin-bandeau-reseau span{min-width:0;overflow-wrap:anywhere}
+.odin-bandeau-reseau.sort{padding-top:0;padding-bottom:0;opacity:0;border-bottom-width:0}
+@keyframes odin-bandeau-ar{from{max-height:0;padding-top:0;padding-bottom:0;opacity:0}to{max-height:160px;opacity:1}}
+@media (prefers-reduced-motion:reduce){.odin-bandeau-reseau{animation:none;transition:none}}`;
   function poserStyle() {
     if (styleFaite) return; styleFaite = true;
     try { const s = document.createElement('style'); s.textContent = STYLE; document.head.append(s); } catch { /* pas de document */ }
+  }
+
+  // Sa place : le haut du contenu de l'interface ; à défaut (une page sans <main>), le haut de la page.
+  function place() {
+    try { if (typeof document.querySelector === 'function') return document.querySelector('#app > main') || document.querySelector('main') || document.body; } catch { /* sélecteur indisponible */ }
+    return document.body;
+  }
+
+  // Au retour d'Internet : le bandeau n'est plus annoncé tout de suite, se replie en douceur (la page remonte sans saut)
+  // puis s'en va. Sans animation possible (mouvement réduit, pas de hauteur connue), il s'en va aussitôt.
+  function retirer(b) {
+    b.id = 'odin-bandeau-reseau-sortant';
+    try { b.removeAttribute('role'); b.removeAttribute('aria-live'); } catch { /* idem */ }
+    b.setAttribute('aria-hidden', 'true');
+    let reduit = false;
+    try { reduit = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch { /* idem */ }
+    const h = b.offsetHeight;
+    if (reduit || !h || typeof requestAnimationFrame !== 'function' || typeof setTimeout !== 'function') { b.remove(); return; }
+    b.style.maxHeight = `${h}px`;
+    requestAnimationFrame(() => { b.classList.add('sort'); b.style.maxHeight = '0px'; });
+    setTimeout(() => b.remove(), 320);
   }
 
   function heure(ms) {
@@ -69,15 +94,16 @@
   function majBandeau() {
     if (typeof document === 'undefined' || !document.body) return;
     const existant = document.getElementById('odin-bandeau-reseau');
-    if (enLigne()) { if (existant) existant.remove(); return; }
+    if (enLigne()) { if (existant) retirer(existant); return; }
     poserStyle();
     const txt = texteBandeau(courant);
-    if (existant) { const s = existant.querySelector('span'); if (s) s.textContent = txt; return; }
+    if (existant) { const s = existant.querySelector('span:not(.pt)'); if (s) s.textContent = txt; return; }
+    const sortant = document.getElementById('odin-bandeau-reseau-sortant'); if (sortant) sortant.remove();
     const b = document.createElement('div');
-    b.id = 'odin-bandeau-reseau'; b.setAttribute('role', 'status'); b.setAttribute('aria-live', 'polite');
+    b.id = 'odin-bandeau-reseau'; b.className = 'odin-bandeau-reseau'; b.setAttribute('role', 'status'); b.setAttribute('aria-live', 'polite');
     const pt = document.createElement('span'); pt.className = 'pt'; pt.setAttribute('aria-hidden', 'true');
     const sp = document.createElement('span'); sp.textContent = txt;
-    b.append(pt, sp); document.body.append(b);
+    b.append(pt, sp); place().prepend(b);
   }
 
   window.OdinReseau = { etat, enLigne, ecouter, appliquer, texteBandeau };

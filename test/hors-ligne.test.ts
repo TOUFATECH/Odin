@@ -29,6 +29,7 @@ class Noeud {
   addEventListener(t: string, fn: (e?: unknown) => void) { const l = this.handlers.get(t) ?? []; l.push(fn); this.handlers.set(t, l); }
   fire(t: string, e?: unknown) { for (const fn of this.handlers.get(t) ?? []) fn(e); }
   append(...n: Array<Noeud | string>) { for (const x of n) { const nd = typeof x === 'string' ? txtNode(x) : x; nd.parentNode = this; this.kids.push(nd); } }
+  prepend(...n: Noeud[]) { for (const x of [...n].reverse()) { x.parentNode = this; this.kids.unshift(x); } }
   remove() { if (!this.parentNode) return; const i = this.parentNode.kids.indexOf(this); if (i >= 0) this.parentNode.kids.splice(i, 1); this.parentNode = null; }
   replaceWith(n: Noeud) { if (!this.parentNode) return; const i = this.parentNode.kids.indexOf(this); if (i >= 0) { n.parentNode = this.parentNode; this.parentNode.kids[i] = n; } }
   replaceChild(neuf: Noeud, vieux: Noeud) { const i = this.kids.indexOf(vieux); if (i >= 0) { neuf.parentNode = this; this.kids[i] = neuf; } }
