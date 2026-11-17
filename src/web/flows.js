@@ -206,6 +206,22 @@
   }
   /** Deux touchers (ou clics) rapprochés au même endroit : { t, x, y } chacun. */
   const estDoubleTouche = (a, b) => Boolean(a && b && b.t - a.t >= 0 && b.t - a.t < 400 && Math.hypot(b.x - a.x, b.y - a.y) < 24);
+  // ---------------- Le menu d'un bloc (fonctions pures) : le nom qu'on lui donne, sa note.
+  /** Le nom tapé pour le bloc `ancien` : { ok, nom } (sans les espaces autour) ou { ok: false, error } (vide, déjà pris). */
+  function nomValide(wf, ancien, texte) {
+    const nom = String(texte ?? '').trim();
+    if (!nom) return { ok: false, error: 'Le nom est vide : un bloc a besoin d\'un nom.' };
+    if (nom !== ancien && (wf?.nodes ?? []).some((x) => x.name === nom)) return { ok: false, error: `Le nom « ${nom} » est déjà pris par un autre bloc.` };
+    return { ok: true, nom };
+  }
+  /** Pose, change ou retire (texte vide) la note d'un bloc : un texte libre, rangé dans son champ `note`. → true si elle a changé. */
+  function poserNote(n, texte) {
+    const t = String(texte ?? '').trim();
+    if (!t) { if (!Object.prototype.hasOwnProperty.call(n, 'note')) return false; delete n.note; return true; }
+    if (n.note === t) return false;
+    n.note = t; return true;
+  }
+  const APPUI_LONG = 500; // ms : au doigt, l'appui long ouvre le menu d'un bloc
   // ---------------- Les données des blocs d'avant (fonctions pures). La pastille n'est qu'une autre façon d'écrire et de
   // montrer l'expression d'aujourd'hui, {{ $node["Bloc"].json.chemin }} : c'est elle, telle quelle, qui est enregistrée.
   // Les règles de lecture sont celles du moteur (src/draupnir/engine.ts : resolve et readPath).
@@ -377,7 +393,19 @@
 .dr-dn-i b{font-size:13.5px;overflow-wrap:anywhere}.dr-dn-i small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}.dr-dn-i:hover{border-color:var(--accent)}.dr-dn-i:focus-visible{outline:2px solid var(--accent)}.dr-dn-i[disabled]{opacity:.55;cursor:not-allowed}
 .dr-node.dr-source{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel));outline:3px solid var(--accent);outline-offset:3px;box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 40%,transparent);animation:dr-pulse .9s ease-in-out infinite alternate}
 @keyframes dr-pulse{from{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}to{box-shadow:0 0 0 9px color-mix(in srgb,var(--accent) 45%,transparent)}}
-@media (prefers-reduced-motion:reduce){.dr-node.dr-source,.dr-choix,.dr-fil-menu{animation:none}.dr-plus span{transition:none}}
+.dr-mb{position:absolute;width:var(--dr-z,44px);height:var(--dr-z,44px);left:calc(95px - var(--dr-z,44px) / 2);z-index:1;top:calc(10px - var(--dr-z,44px));padding:0;border:0;background:none;display:grid;place-items:end center;cursor:pointer;touch-action:none}
+.dr-mb span{min-width:28px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);color:var(--muted);font-size:15px;font-weight:700;line-height:13px;text-align:center;transition:border-color .15s,color .15s}
+.dr-mb:hover span,.dr-mb:focus-visible span,.dr-mb[aria-expanded=true] span{border-color:var(--accent);color:var(--accent)}.dr-mb:focus-visible{outline:none}.dr-mb:focus-visible span{outline:2px solid var(--accent);outline-offset:1px}
+.dr-node{-webkit-touch-callout:none}.dr-node .dr-nom.dr-cache{visibility:hidden}
+.dr-note-m{position:absolute;left:14px;top:-10px;width:18px;height:18px;box-sizing:border-box;border-radius:5px;border:1.5px solid var(--accent);background:var(--panel);pointer-events:none}
+.dr-note-m::before{content:'';position:absolute;left:3px;right:3px;top:4px;height:5px;border-top:1.5px solid var(--accent);border-bottom:1.5px solid var(--accent)}
+.dr-note-bulle{position:absolute;z-index:2;max-width:260px;box-sizing:border-box;padding:8px 10px;border-radius:10px;background:var(--panel);color:var(--ink);border:1px solid var(--accent);box-shadow:var(--shadow);font-size:13px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:hidden;pointer-events:none}
+.dr-renom-z{position:absolute;left:4px;width:182px;z-index:4;transform-origin:0 0;transform:scale(var(--dr-ik,1));display:flex;flex-direction:column;gap:3px}
+.dr-renom{box-sizing:border-box;width:100%;min-height:30px;padding:3px 8px;border-radius:8px;border:1.5px solid var(--accent);background:var(--panel);color:var(--ink);font:inherit;font-size:14px;font-weight:600}.dr-renom:focus{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+.dr-renom[aria-invalid=true]{border-color:var(--bad)}.dr-renom-e{display:block;padding:4px 8px;border-radius:8px;background:var(--panel);border:1px solid var(--bad);color:var(--bad);font-size:12px;line-height:1.35;white-space:normal}.dr-renom-e[hidden]{display:none}
+.dr-note-ed label{font-size:13.5px;font-weight:600}.dr-note-ed textarea{box-sizing:border-box;width:100%;min-height:130px;padding:10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);color:var(--ink);font:inherit;font-size:14.5px;resize:vertical}
+.dr-note-ed .dr-row .btn{min-height:44px}
+@media (prefers-reduced-motion:reduce){.dr-node.dr-source,.dr-choix,.dr-fil-menu{animation:none}.dr-plus span,.dr-mb span{transition:none}}
 `;
   let st = null, wf = null, outs = {}, sel = null, armed = null, last = null, view = { x: 40, y: 40, k: 1 }, dirty = false;
   const cat = (t) => st?.catalog.find((c) => c.type === t);
@@ -460,7 +488,7 @@
   const outputsOf = (n) => outs[n.name] ?? cat(n.type)?.outputs ?? ['sortie'];
   function editor(r) {
     const box = $('#v-flows .body');
-    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes ; relie-les en tirant un fil d\'une sortie (rond à droite) jusqu\'à une étape, ou en touchant la sortie puis l\'entrée (rond à gauche). Touche un fil pour le retirer ou y ajouter un bloc. Clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc.';
+    $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes ; relie-les en tirant un fil d\'une sortie (rond à droite) jusqu\'à une étape, ou en touchant la sortie puis l\'entrée (rond à gauche). Touche un fil pour le retirer ou y ajouter un bloc. Clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc. Clic droit, appui long ou « ⋯ » sur une étape : la renommer, y mettre une note, la retirer (double-clic sur son nom : la renommer).';
     const canvas = el('div', { class: 'dr-canvas', id: 'drCanvas', role: 'application', 'aria-label': 'Schéma de l\'automatisation' });
     const svg = sv('svg'); const world = el('div', { class: 'dr-world' }); canvas.append(svg, world);
     const side = el('aside', { class: 'dr-side', id: 'drSide', 'aria-label': 'Réglages' });
@@ -482,12 +510,25 @@
     const c = cat(n.type), run = last?.nodes?.[n.name];
     // Un bloc d'appli : l'icône et le nom de l'appli, puis sa fonction (ou ce qu'elle signale) en clair ; son nom s'il a été changé.
     const ia = infoAppli(n, applisListe), manque = ia?.f ? manquants(n, ia.f) : [];
-    const tete = ia ? [el('div', { class: 'dr-ap' }, window.OdinLien?.icone ? window.OdinLien.icone(ia.a, 22) : null, el('small', {}, ia.a.nom)), el('b', {}, ia.titre),
-      n.name !== ia.auto && n.name !== ia.titre ? el('small', { class: 'dr-nn' }, n.name) : null,
+    // (.dr-nom : là où se lit le nom du bloc ; un double-clic dessus le renomme)
+    const nomAPart = ia && n.name !== ia.auto && n.name !== ia.titre;
+    const tete = ia ? [el('div', { class: 'dr-ap' }, window.OdinLien?.icone ? window.OdinLien.icone(ia.a, 22) : null, el('small', {}, ia.a.nom)), el('b', { class: nomAPart ? undefined : 'dr-nom' }, ia.titre),
+      nomAPart ? el('small', { class: 'dr-nn dr-nom' }, n.name) : null,
       manque.length ? el('span', { class: 'dr-manque' }, `À remplir : ${manque.join(', ')}`) : null]
-      : [el('small', {}, c?.group ?? '?', ' · ', c?.label ?? n.type), el('b', {}, n.name)];
-    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`, style: `left:${n.position?.[0] ?? 0}px;top:${n.position?.[1] ?? 0}px` },
-      ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null);
+      : [el('small', {}, c?.group ?? '?', ' · ', c?.label ?? n.type), el('b', { class: 'dr-nom' }, n.name)];
+    // La note : une petite marque sur le bloc ; son texte décrit le bloc (lecteur d'écran) et se lit dans une bulle (bulle()).
+    const aNote = typeof n.note === 'string' && n.note !== '', idNote = aNote ? `drnote-${wf.nodes.indexOf(n)}` : undefined;
+    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`, 'aria-describedby': idNote, style: `left:${n.position?.[0] ?? 0}px;top:${n.position?.[1] ?? 0}px` },
+      ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null,
+      aNote ? el('span', { class: 'dr-note-m', 'aria-hidden': 'true' }) : null, aNote ? el('span', { class: 'sr', id: idNote }, `Note : ${n.note}`) : null);
+    // Le bouton « ⋯ » : le menu du bloc. Zone de 44 px à l'écran (comme les ronds), au milieu du bord haut, loin des ronds, et au-dessus du bloc : même dézoomé, le corps du bloc reste à toucher (choisir, glisser).
+    // Un toucher dessus ouvre le menu (pointerup plus bas) ; un geste parti de lui fait glisser le bloc, comme partout sur le bloc.
+    const mb = el('button', { class: 'dr-mb', type: 'button', title: 'Menu du bloc', 'aria-haspopup': 'menu', 'aria-label': `Menu de ${n.name}`, onclick: (e) => {
+      e.stopPropagation(); if (e.detail) return; // (souris, doigt : déjà ouvert au lever ; ici, le clavier)
+      ouvrirParBouton();
+    } }, el('span', { 'aria-hidden': 'true' }, '⋯'));
+    const ouvrirParBouton = () => { const b = mb.getBoundingClientRect?.(), r = $('#drCanvas')?.getBoundingClientRect?.(); menuBloc(n.name, b && r && b.width ? [b.left - r.left, b.top + b.height - r.top] : coinBloc(n)); };
+    d.append(mb);
     // Les ronds : la zone touchable fait 44 px à l'écran quel que soit le zoom (--dr-z) ; le rond dessiné garde ses 18 px,
     // à la même place (::before). Entrée touchée sans sortie armée : comme toucher le bloc (sa zone mord sur le bloc).
     if (!c?.trigger) d.append(el('button', { class: 'dr-port in', type: 'button', 'aria-label': `Entrée de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (armed) { link(armed.node, armed.out, n.name); armed = null; draw(); } else { sel = n.name; draw(); drawSide(); } } }));
@@ -499,13 +540,50 @@
     sorties.forEach((o, i, all) => { const b = el('button', { class: `dr-port out${armed && armed.node === n.name && armed.out === i ? ' armed' : ''}`, type: 'button', style: styleSortie(i, all.length), 'aria-label': `Sortie ${o} de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (e.timeStamp - tireFin < 500) return; armed = armed && armed.node === n.name && armed.out === i ? null : { node: n.name, out: i }; draw(); } }, all.length > 1 ? el('span', { class: 'dr-pl' }, o) : null); tirable(b, n, i); d.append(b); });
     // Le « + » du côté de la sortie : un bloc de plus, posé à droite et relié à celui-ci.
     d.append(el('button', { class: 'dr-plus', type: 'button', title: 'Ajouter un bloc à la suite', 'aria-label': `Ajouter un bloc après ${n.name}`, onclick: (e) => { e.stopPropagation(); void ouvrirChoix({ de: { node: n.name, out: sortieDuPlus(wf, n.name, sorties.length) } }); } }, el('span', { 'aria-hidden': 'true' }, '+')));
-    let start = null;
-    d.addEventListener('pointerdown', (e) => { if (e.target.closest('.dr-port') || e.target.closest('.dr-plus')) return; e.stopPropagation(); d.setPointerCapture(e.pointerId); start = { x: e.clientX, y: e.clientY, p: [...(n.position ?? [0, 0])], moved: false }; });
-    d.addEventListener('pointermove', (e) => { if (!start) return; const dx = (e.clientX - start.x) / view.k, dy = (e.clientY - start.y) / view.k; if (Math.abs(dx) + Math.abs(dy) > 3) start.moved = true; n.position = [Math.round(start.p[0] + dx), Math.round(start.p[1] + dy)]; d.style.left = `${n.position[0]}px`; d.style.top = `${n.position[1]}px`; lines(); });
+    let start = null, long = 0;
+    const finLong = () => { if (long) clearTimeout(long); long = 0; };
+    d.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.dr-port') || e.target.closest('.dr-plus') || e.target.closest('.dr-renom-z')) return;
+      if (e.button > 0) return; // (le clic droit ne fait pas glisser le bloc : il ouvre son menu)
+      e.stopPropagation(); d.setPointerCapture(e.pointerId); start = { x: e.clientX, y: e.clientY, p: [...(n.position ?? [0, 0])], moved: false, nom: Boolean(e.target.closest('.dr-nom')), menu: Boolean(e.target.closest('.dr-mb')) };
+      // Au doigt : un appui long (sans bouger) ouvre le menu du bloc, au lieu de le choisir.
+      finLong();
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') long = setTimeout(() => { long = 0; if (!start || start.moved) return; start = null; const r = $('#drCanvas')?.getBoundingClientRect?.() ?? { left: 0, top: 0 }; menuBloc(n.name, [e.clientX - r.left, e.clientY - r.top]); }, APPUI_LONG);
+    });
+    d.addEventListener('pointermove', (e) => { if (!start) return; const dx = (e.clientX - start.x) / view.k, dy = (e.clientY - start.y) / view.k; if (Math.abs(dx) + Math.abs(dy) > 3) { start.moved = true; finLong(); } n.position = [Math.round(start.p[0] + dx), Math.round(start.p[1] + dy)]; d.style.left = `${n.position[0]}px`; d.style.top = `${n.position[1]}px`; lines(); });
     // Un toucher parti d'un rond ou du « + » n'est pas un clic sur le bloc : on ne redessine pas (le bouton doit recevoir son clic).
-    d.addEventListener('pointerup', () => { if (!start) return; if (start.moved) dirty = true; else { sel = n.name; draw(); drawSide(); } start = null; });
-    // Entrée sur un bouton du bloc (rond, « + ») appartient à ce bouton.
-    d.addEventListener('keydown', (e) => { if (e.target !== d) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sel = n.name; draw(); drawSide(); } if (e.key === 'Delete') removeNode(n.name); });
+    // Deux touchers rapprochés sur le NOM du bloc : on le renomme.
+    d.addEventListener('pointerup', (e) => {
+      finLong(); if (!start) return;
+      if (start.moved) { dirty = true; start = null; return; }
+      if (start.menu) { start = null; tapNom = null; ouvrirParBouton(); return; }
+      const t = { t: e.timeStamp, x: e.clientX, y: e.clientY, bloc: n.name }, surNom = start.nom; start = null;
+      if (surNom && tapNom?.bloc === n.name && estDoubleTouche(tapNom, t)) { tapNom = null; commencerRenommer(n.name); return; }
+      tapNom = surNom ? t : null;
+      sel = n.name; draw(); drawSide();
+    });
+    d.addEventListener('pointercancel', () => { finLong(); start = null; });
+    // Le clic droit sur le bloc : son menu, à la place de celui du navigateur (le champ du nom garde celui du navigateur).
+    d.addEventListener('contextmenu', (e) => {
+      if (e.target?.closest?.('.dr-renom-z')) return;
+      e.preventDefault(); e.stopPropagation?.();
+      if (menuFil?.bloc === n.name) return; // (après un appui long, le navigateur du téléphone l'envoie aussi : un seul menu)
+      finLong(); start = null;
+      const r = $('#drCanvas')?.getBoundingClientRect?.() ?? { left: 0, top: 0 };
+      menuBloc(n.name, e.clientX || e.clientY ? [e.clientX - r.left, e.clientY - r.top] : coinBloc(n));
+    });
+    // La bulle de la note : au survol (souris) et au focus du bloc.
+    d.addEventListener('pointerenter', (e) => { if (e.pointerType && e.pointerType !== 'mouse') return; survol = n.name; bulle(); });
+    d.addEventListener('pointerleave', () => { if (survol === n.name) { survol = null; bulle(); } });
+    d.addEventListener('focusin', (e) => { if (e.target === d) { survol = n.name; bulle(); } });
+    d.addEventListener('focusout', (e) => { if (e.target === d && survol === n.name) { survol = null; bulle(); } });
+    // Entrée sur un bouton du bloc (rond, « + ») appartient à ce bouton. La touche Menu (ou Maj+F10) ouvre le menu du bloc.
+    d.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && menuFil?.bloc === n.name) { e.preventDefault(); fermerMenu(true); return; } // (focus resté sur le bloc, après un toucher)
+      if (e.target !== d) return;
+      if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) { e.preventDefault(); menuBloc(n.name, coinBloc(n)); return; }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sel = n.name; draw(); drawSide(); } if (e.key === 'Delete') removeNode(n.name);
+    });
     return d;
   }
   function link(from, out, to) { if (relier(wf, from, out, to)) dirty = true; }
@@ -560,37 +638,139 @@
   const cleFil = (f) => JSON.stringify([f.de, f.out, f.vers]);
   function fermerMenu(rendre = false) {
     if (!menuFil) return;
-    const { boite, fil, dehors } = menuFil; menuFil = null;
+    const { boite, dehors, retour } = menuFil; menuFil = null;
     boite.remove(); document.removeEventListener?.('pointerdown', dehors, true);
     $('#drCanvas svg .dr-fil.on')?.classList.remove('on');
-    if (rendre) [...($('#drCanvas svg')?.querySelectorAll('.dr-fil') ?? [])].find((x) => x.getAttribute('data-cle') === cleFil(fil))?.focus?.();
+    if (rendre) retour?.()?.focus?.();
   }
   /** Ouvre le menu du fil `fil` ({ de, out, vers }) au point [x, y] de la fenêtre du schéma. */
-  function ouvrirMenu(fil, [x, y], zone) {
+  function ouvrirMenu(fil, point, zone) {
+    menuDe({ label: `Lien ${fil.de} → ${fil.vers}`, point, zone, retour: () => [...($('#drCanvas svg')?.querySelectorAll('.dr-fil') ?? [])].find((x) => x.getAttribute('data-cle') === cleFil(fil)), choix: [
+      ['Retirer ce lien', async () => { if (!(await window.OdinDialog.confirm(`Retirer le lien ${fil.de} → ${fil.vers} ?`))) return; if (retirerLien(wf, fil.de, fil.out, fil.vers)) { dirty = true; draw(); } }],
+      ['Ajouter un bloc ici', () => void ouvrirChoix({ milieu: fil })]] });
+  }
+  /**
+   * Le menu d'un bloc (clic droit, appui long, « ⋯ », touche Menu) : Renommer, Ajouter / Modifier la note, Retirer.
+   * Même dessin et mêmes gestes que celui d'un fil ; Échap rend le focus au bloc.
+   */
+  function menuBloc(nom, point) {
+    const n = wf?.nodes.find((x) => x.name === nom); if (!n) return;
+    menuDe({ label: `Bloc ${nom}`, point, bloc: nom, retour: () => elems.get(nom), choix: [
+      ['Renommer', () => commencerRenommer(nom)],
+      [typeof n.note === 'string' && n.note !== '' ? 'Modifier la note' : 'Ajouter une note', () => ouvrirNote(nom)],
+      ['Retirer', () => removeNode(nom)]] });
+  }
+  /** Le point (dans la fenêtre du schéma) sous le « ⋯ » d'un bloc : où s'ouvre son menu au clavier. */
+  const coinBloc = (n) => [((n.position?.[0] ?? 0) + NODE_W - 70) * view.k + view.x, ((n.position?.[1] ?? 0) + 22) * view.k + view.y];
+  function menuDe({ label, point: [x, y], zone, retour, choix: items, bloc }) {
     fermerMenu();
     const canvas = $('#drCanvas'); if (!canvas) return;
     const r = canvas.getBoundingClientRect();
-    const gauche = r.width ? Math.max(8, Math.min(x, r.width - 216)) : x, haut = r.height ? Math.max(8, Math.min(y, r.height - 112)) : y;
+    const gauche = r.width ? Math.max(8, Math.min(x, r.width - 216)) : x, haut = r.height ? Math.max(8, Math.min(y, r.height - 20 - 46 * items.length)) : y;
     const action = (f) => () => { fermerMenu(true); f(); };
-    const boite = el('div', { class: 'dr-fil-menu', role: 'menu', 'aria-label': `Lien ${fil.de} → ${fil.vers}`, style: `left:${Math.round(gauche)}px;top:${Math.round(haut)}px` },
-      el('button', { type: 'button', role: 'menuitem', onclick: action(async () => { if (!(await window.OdinDialog.confirm(`Retirer le lien ${fil.de} → ${fil.vers} ?`))) return; if (retirerLien(wf, fil.de, fil.out, fil.vers)) { dirty = true; draw(); } }) }, 'Retirer ce lien'),
-      el('button', { type: 'button', role: 'menuitem', onclick: action(() => void ouvrirChoix({ milieu: fil })) }, 'Ajouter un bloc ici'));
+    const boite = el('div', { class: 'dr-fil-menu', role: 'menu', 'aria-label': label, style: `left:${Math.round(gauche)}px;top:${Math.round(haut)}px` },
+      ...items.map(([t, f]) => el('button', { type: 'button', role: 'menuitem', onclick: action(f) }, t)));
     boite.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermerMenu(true); } });
+    // (la touche Menu, ou un clic droit, sur le menu lui-même : pas de menu du navigateur par-dessus)
+    boite.addEventListener('contextmenu', (e) => e.preventDefault());
     // Sortir du menu par Tab le referme. (Un focus perdu sans destination — un clic sur un choix, selon le navigateur — ne le ferme pas.)
-    boite.addEventListener('focusout', (e) => { const vers = e.relatedTarget; if (vers && vers.closest?.('.dr-fil-menu') !== boite && menuFil?.boite === boite) fermerMenu(); });
+    // Au doigt, le navigateur donne le focus au bloc touché (ou à son « ⋯ ») APRÈS l'ouverture du menu : ce n'est pas en sortir.
+    boite.addEventListener('focusout', (e) => { const vers = e.relatedTarget; if (vers && vers.closest?.('.dr-fil-menu') !== boite && !(bloc && vers.closest?.('.dr-node') === elems.get(bloc)) && menuFil?.boite === boite) fermerMenu(); });
     fleches(boite);
     const dehors = (e) => { if (!e.target?.closest?.('.dr-fil-menu')) fermerMenu(); };
-    menuFil = { boite, fil, dehors };
+    menuFil = { boite, dehors, retour, bloc };
     zone?.classList.add('on');
     canvas.append(boite);
     document.addEventListener('pointerdown', dehors, true);
     boite.querySelector('button')?.focus?.();
+  }
+  // ---------------- Renommer sur place, la note d'un bloc et sa bulle.
+  let tapNom = null, survol = null; // (le dernier toucher sur le nom d'un bloc ; le bloc survolé ou qui a le focus)
+  const dire = (t) => { const s = $('#drSt'); if (s) s.textContent = t; };
+  /** Le nom se modifie sur le bloc : Entrée valide, Échap annule, quitter le champ valide (un nom refusé ne change rien). */
+  function commencerRenommer(nom) {
+    const d = elems.get(nom); if (!d || !wf.nodes.some((x) => x.name === nom)) return;
+    fermerMenu();
+    const place = d.querySelector('.dr-nom');
+    const err = el('small', { class: 'dr-renom-e', id: 'drRenomE', role: 'alert', hidden: true });
+    const inp = el('input', { class: 'dr-renom', type: 'text', value: nom, 'aria-label': `Nouveau nom de l'étape « ${nom} »`, 'aria-describedby': 'drRenomE', spellcheck: 'false', autocomplete: 'off', enterkeyhint: 'done' });
+    const zone = el('span', { class: 'dr-renom-z' }, inp, err);
+    zone.style.top = `${Math.max(0, (place?.offsetTop ?? 22) - 4)}px`;
+    place?.classList.add('dr-cache');
+    let fini = false;
+    const valider = (rester) => {
+      if (fini) return;
+      const n = wf.nodes.find((x) => x.name === nom), v = nomValide(wf, nom, inp.value);
+      if (n && !v.ok && rester) { err.textContent = v.error; err.hidden = false; inp.setAttribute('aria-invalid', 'true'); inp.focus?.(); return; }
+      fini = true;
+      if (!n || !v.ok) { draw(); if (v.error) dire(`Nom inchangé : ${v.error}`); return; }
+      if (v.nom === nom) draw(); else { rename(n, v.nom); dire(`✓ « ${nom} » renommé « ${v.nom} ».`); }
+      if (sel === v.nom) drawSide();
+      if (rester) elems.get(v.nom)?.focus?.();
+    };
+    inp.addEventListener('keydown', (e) => {
+      e.stopPropagation?.();
+      if (e.key === 'Enter') { e.preventDefault(); valider(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); fini = true; draw(); elems.get(nom)?.focus?.(); }
+    });
+    inp.addEventListener('focusout', () => valider(false));
+    d.append(zone);
+    // Le champ garde une taille d'écran lisible (--dr-ik) : s'il dépasse de la fenêtre du schéma, il se décale vers l'intérieur.
+    const c = $('#drCanvas')?.getBoundingClientRect?.(), z = zone.getBoundingClientRect?.();
+    if (c?.width && z?.width) { const dx = z.right > c.right - 6 ? z.right - c.right + 6 : z.left < c.left + 6 ? z.left - c.left - 6 : 0; if (dx) zone.style.left = `${Math.round(4 - dx / (view.k || 1))}px`; }
+    try { inp.focus?.({ preventScroll: true }); } catch { inp.focus?.(); }
+    inp.select?.();
+  }
+  /** La note d'un bloc : une fenêtre avec son texte ; « Enregistrer la note », « Retirer la note », « Annuler » (ou Échap). */
+  function ouvrirNote(nom) {
+    const n = wf?.nodes.find((x) => x.name === nom); if (!n) return;
+    fermerChoix(); fermerMenu();
+    const avant = typeof n.note === 'string' ? n.note : '';
+    const finir = (texte) => {
+      fermerChoix();
+      const m = wf.nodes.find((x) => x.name === nom);
+      if (texte !== null && m && poserNote(m, texte)) { dirty = true; draw(); dire(m.note ? `✓ Note de « ${nom} » enregistrée.` : `✓ Note de « ${nom} » retirée.`); }
+      elems.get(nom)?.focus?.();
+    };
+    const ta = el('textarea', { id: 'drNoteT', spellcheck: 'true' }, avant);
+    const boite = el('div', { class: 'dr-choix dr-note-ed', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'drNoteH' },
+      el('div', { class: 'dr-ch-h' }, el('h2', { id: 'drNoteH' }, `Note de « ${nom} »`), el('button', { class: 'dr-ch-x', type: 'button', 'aria-label': 'Fermer', onclick: () => finir(null) }, '×')),
+      el('div', { class: 'dr-ch-c' }, el('label', { for: 'drNoteT' }, 'Ta note sur ce bloc (elle ne change rien à ce qu\'il fait)'), ta,
+        el('div', { class: 'dr-row' }, el('button', { class: 'btn primary', type: 'button', onclick: () => finir(ta.value) }, 'Enregistrer la note'),
+          avant ? el('button', { class: 'btn', type: 'button', onclick: () => finir('') }, 'Retirer la note') : null,
+          el('button', { class: 'btn', type: 'button', onclick: () => finir(null) }, 'Annuler'))));
+    const fond = el('div', { class: 'dr-choix-fond', onclick: (e) => { if (e.target === fond) finir(null); } }, boite);
+    boite.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finir(null); return; }
+      if (e.key !== 'Tab') return; // Tab et Maj+Tab tournent dans la fenêtre
+      const f = [...boite.querySelectorAll('button, textarea')], premier = f[0], dernier = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); } else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
+    });
+    choix = { fond, retour: null };
+    document.body.append(fond);
+    ta.focus?.();
+  }
+  /** La bulle de la note du bloc survolé (ou qui a le focus, sinon du bloc choisi) : au-dessus de lui, à taille d'écran. */
+  function bulle() {
+    const canvas = $('#drCanvas'); if (!canvas) return;
+    const aNote = (x) => { const t = wf?.nodes.find((m) => m.name === x)?.note; return typeof t === 'string' && t !== ''; };
+    const nom = survol && aNote(survol) ? survol : sel, n = nom && wf ? wf.nodes.find((x) => x.name === nom) : null, d = nom ? elems.get(nom) : null;
+    let b = canvas.querySelector('.dr-note-bulle');
+    if (!n || !d || typeof n.note !== 'string' || !n.note) { b?.remove(); return; }
+    if (!b) { b = el('div', { class: 'dr-note-bulle', 'aria-hidden': 'true' }); canvas.append(b); }
+    b.textContent = n.note;
+    const c = canvas.getBoundingClientRect(), r = d.getBoundingClientRect(), w = Math.min(260, Math.max(120, (c.width || 276) - 16));
+    b.style.maxWidth = `${w}px`;
+    const h = b.offsetHeight || 0, haut = r.top - c.top - h - 8;
+    b.style.left = `${Math.round(Math.max(8, Math.min(r.left - c.left, (c.width || 0) - w - 8)))}px`;
+    b.style.top = `${Math.round(haut >= 4 ? haut : r.top - c.top + r.height + 8)}px`;
   }
   /** Le point de la fenêtre (en coordonnées du schéma) où poser un bloc centré sous [px, py] (pixels dans la fenêtre). */
   const pointSchema = (px, py) => [Math.round((px - view.x) / view.k - NODE_W / 2), Math.round((py - view.y) / view.k - 30)];
   function draw() {
     const world = $('#drCanvas .dr-world'); if (!world) return;
     fermerMenu(); // (le schéma change : le fil du menu peut ne plus exister)
+    survol = null; // (les blocs sont refaits : celui qui était survolé ou avait le focus n'existe plus ; la bulle suit le bloc choisi)
     elems = new Map();
     world.replaceChildren(...wf.nodes.map((n) => { const d = nodeEl(n); elems.set(n.name, d); return d; })); lines();
     // Fenêtre vide : un grand « + » au centre, pour le premier bloc.
@@ -614,10 +794,11 @@
         g.append(sv('path', { class: 'dr-link', d }), z);
       }));
     }
+    bulle(); // (le schéma a bougé : la bulle d'une note suit son bloc)
   }
   function pan(canvas, world) {
     // (--dr-z, --dr-zf : les zones de toucher des ronds et des fils gardent 44 et 22 px à l'écran, même dézoomé)
-    const apply = () => { world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`; canvas.style.setProperty?.('--dr-z', `${zoneToucher(view.k)}px`); canvas.style.setProperty?.('--dr-zf', `${zoneToucher(view.k, 22)}px`); lines(); };
+    const apply = () => { world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`; canvas.style.setProperty?.('--dr-z', `${zoneToucher(view.k)}px`); canvas.style.setProperty?.('--dr-zf', `${zoneToucher(view.k, 22)}px`); canvas.style.setProperty?.('--dr-ik', String(Math.max(1, 1 / (view.k || 1)))); lines(); };
     let s = null;
     // Cadrage : tout le schéma visible à l'ouverture.
     requestAnimationFrame(() => {
@@ -706,7 +887,7 @@
       return [el('label', { for: id }, p.label, p.required ? ' *' : ''), input, p.help ? el('small', { class: 'sub' }, p.help) : null];
     });
     side.replaceChildren(el('h2', {}, c?.label ?? n.type), el('p', { class: 'sub', style: 'margin:0' }, c?.what ?? ''),
-      el('label', { for: 'drNn' }, 'Nom de l\'étape'), el('input', { id: 'drNn', value: n.name, onchange: (e) => rename(n, e.target.value.trim()) }),
+      el('label', { for: 'drNn' }, 'Nom de l\'étape'), el('input', { id: 'drNn', value: n.name, onchange: (e) => { const r = rename(n, e.target.value); if (!r.ok) { e.target.value = n.name; void window.OdinDialog.alert(r.error); } } }),
       ...(ia ? panneauAppli(n, ia) : []),
       ...fields.flat().filter(Boolean), // (un réglage sans aide donnait null, écrit « null » à l'écran)
       el('label', { class: 'va-chk', style: 'display:flex;gap:8px;align-items:center;font-weight:500' }, el('input', { type: 'checkbox', checked: n.disabled ? true : undefined, onchange: (e) => { n.disabled = e.target.checked || undefined; dirty = true; draw(); } }), 'Désactiver cette étape'),
@@ -1023,13 +1204,16 @@
     }
     etape1();
   }
-  function rename(n, to) {
-    if (!to || to === n.name) return; if (wf.nodes.some((x) => x.name === to)) { void window.OdinDialog.alert('Ce nom est déjà pris.'); return; }
-    const from = n.name; n.name = to; renommes.set(from, to); // (une pastille qui nommait l'ancien nom le dira)
+  /** Renomme un bloc (les fils suivent) : → { ok, nom } ou { ok: false, error } (nom vide ou déjà pris : rien ne change). */
+  function rename(n, texte) {
+    const v = nomValide(wf, n.name, texte); if (!v.ok || v.nom === n.name) return v;
+    const from = n.name, to = v.nom; n.name = to; renommes.set(from, to); // (une pastille qui nommait l'ancien nom le dira)
     if (wf.connections[from]) { wf.connections[to] = wf.connections[from]; delete wf.connections[from]; }
     for (const list of Object.values(wf.connections)) for (const t of list) for (const l of t) if (l.node === from) l.node = to;
     if (outs[from]) { outs[to] = outs[from]; delete outs[from]; }
-    sel = to; dirty = true; draw();
+    if (armed?.node === from) armed = null;
+    if (sel === from) sel = to;
+    dirty = true; draw(); return v;
   }
   function addNode(c) {
     let name = c.label, k = 2; while (wf.nodes.some((n) => n.name === name)) name = `${c.label} ${k++}`;
@@ -1062,5 +1246,5 @@
   window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; fermerChoix(); },
     logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
       appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie,
-      decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin } };
+      decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote } };
 })();
