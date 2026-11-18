@@ -5,15 +5,15 @@
 //       disparaît de tout ce qui est gardé (mémoire et disque) ;
 //   (d) la mémoire gardée est bornée par le comptable (budget-memoire.ts) et rendue sous pression ;
 //   (e) sans rien de gardé, les réponses restent les mêmes.
-// Applis d'essai (pas celles du produit) et dossiers d'Odin jetables, sauf le dernier essai qui rejoue tout le jeu de
-// travail du banc (test/soul-banc/jeux/developpement.json) sur les applis du produit, dans un dossier jetable.
-import { test } from 'node:test';
+// Applis d'essai (pas celles du produit) et dossiers d'Odin jetables, sauf les trois derniers essais qui rejouent tout le
+// jeu de travail du banc (test/soul-banc/jeux/developpement.json) sur les applis du produit, dans un dossier jetable.
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  IndexNgrammes, REGLAGES, cheminDeReference, creerAiguilleurSync, fichierCorrections, kPlusProches, oublierCalibrations,
+  IndexNgrammes, REGLAGES, cheminDeReference, creerAiguilleurSync, fichierCorrections, kPlusProches, oublierCalibrations, partagerSecondTemps, partageSecondTempsVu,
   type ContexteAiguilleur, type ModuleMatiere,
 } from '../src/brain/nous/aiguilleur.ts';
 import {
@@ -337,31 +337,62 @@ test('relecture 3 : deux cœurs gardés au plus, quel que soit le budget', () =>
   oublierPreparations();
 });
 
-test('jeu de travail du banc, applis du produit : le vote rapide et l\'aiguilleur prêt rendent exactement les réponses de l\'ancien chemin', async () => {
-  const home = dossier();
+// Le jeu de travail du banc, en trois essais qui se suivent (chacun le sien, pour que chacun reste court) : (1) l'aiguilleur
+// prêt (vote rapide) calcule sa calibration ; (2) l'ancien chemin (référence) refait la sienne, qui doit être la même ;
+// (3) les réponses de l'ancien chemin, de l'aiguilleur prêt et de l'aiguilleur relu du disque doivent être les mêmes.
+// Les traits du second temps calculés en (1) sont repris en (2), mais SEULEMENT pour des entrées identiques (mêmes
+// candidates, mêmes parts au dernier chiffre près) : si les deux chemins votent autrement, ils sont recalculés, ce qui
+// se compte et fait échouer l'essai (partagerSecondTemps, aiguilleur.ts).
+type Aig = { aiguiller: (p: string, c?: ContexteAiguilleur) => unknown };
+const travail: { home?: string; o?: Parameters<typeof creerAiguilleurSync>[0]; tout?: (a: Aig) => unknown[]; vite?: unknown[]; cal?: unknown; ancien?: Aig } = {};
+after(() => { partagerSecondTemps(false); cheminDeReference(false); if (travail.home) rmSync(travail.home, { recursive: true, force: true }); oublierPreparations(); });
+
+test('jeu de travail du banc, applis du produit (1/3) : l\'aiguilleur prêt calcule sa préparation et sa calibration', async () => {
+  const home = travail.home = dossier();
   process.env.ODIN_ESSAI = '1'; process.env.ODIN_NO_VOICE_INSTALL = '1';
-  try {
-    const { allModules } = await import('../src/valhalla/odin.ts');
-    const { USAGES } = await import('../src/valhalla/links.ts');
-    const { SURVOL } = await import('../src/valhalla/survol.ts');
-    const { contexteDe } = await import('./soul-banc/mesure.ts');
-    const mods = allModules({ paths: { home, workspace: home }, cfg: { venus: {}, voice: {} } } as never);
-    const jeu = JSON.parse(readFileSync(new URL('./soul-banc/jeux/developpement.json', import.meta.url), 'utf8')) as { demandes: Array<{ phrase: string; contexte?: unknown }> };
-    const o = { modules: mods, usages: USAGES, survol: SURVOL, reglages: { poidsMots: 0 } };
-    const tout = (a: { aiguiller: (p: string, c?: ContexteAiguilleur) => unknown }) => jeu.demandes.map((d) => a.aiguiller(d.phrase, contexteDe(d.contexte) as ContexteAiguilleur));
-    oublierCalibrations(); oublierPreparations();
-    cheminDeReference(true);
-    let ref: unknown[], cal: unknown;
-    try { const a = creerAiguilleurSync(o); ref = tout(a); cal = a.bilan.calibration; } finally { cheminDeReference(false); }
-    oublierCalibrations();
-    const b = creerAiguilleurPret({ ...o, home });
-    assert.equal(b.bilan.preparationDe, 'calcul');
-    const { ms: _1, ...c1 } = cal as { ms: number }, { ms: _2, ...c2 } = b.bilan.calibration;
-    assert.deepEqual(c2, c1);
-    assert.deepEqual(tout(b), ref);
-    oublierPreparations(); oublierCalibrations();
-    const c = creerAiguilleurPret({ ...o, home });
-    assert.equal(c.bilan.preparationDe, 'fichier'); assert.equal(c.bilan.calibrationDe, 'fichier');
-    assert.deepEqual(tout(c), ref);
-  } finally { rmSync(home, { recursive: true, force: true }); oublierPreparations(); }
+  const { allModules } = await import('../src/valhalla/odin.ts');
+  const { USAGES } = await import('../src/valhalla/links.ts');
+  const { SURVOL } = await import('../src/valhalla/survol.ts');
+  const { contexteDe } = await import('./soul-banc/mesure.ts');
+  const mods = allModules({ paths: { home, workspace: home }, cfg: { venus: {}, voice: {} } } as never);
+  const jeu = JSON.parse(readFileSync(new URL('./soul-banc/jeux/developpement.json', import.meta.url), 'utf8')) as { demandes: Array<{ phrase: string; contexte?: unknown }> };
+  const o = travail.o = { modules: mods, usages: USAGES, survol: SURVOL, reglages: { poidsMots: 0 } };
+  const tout = travail.tout = (a) => jeu.demandes.map((d) => a.aiguiller(d.phrase, contexteDe(d.contexte) as ContexteAiguilleur));
+  oublierCalibrations(); oublierPreparations();
+  partagerSecondTemps(true);
+  const b = creerAiguilleurPret({ ...o, home });
+  assert.equal(b.bilan.preparationDe, 'calcul'); assert.equal(b.bilan.calibrationDe, 'calcul');
+  assert.ok(partageSecondTempsVu().calcules > 0, 'le second temps est calculé');
+  travail.cal = b.bilan.calibration; travail.vite = tout(b);
+});
+
+test('jeu de travail du banc, applis du produit (2/3) : l\'ancien chemin (référence) refait exactement la même calibration', () => {
+  const { o, cal } = travail;
+  assert.ok(o && cal, 'l\'aiguilleur prêt (1/3) est fait');
+  oublierCalibrations();
+  const vu = partageSecondTempsVu();
+  cheminDeReference(true);
+  try { travail.ancien = creerAiguilleurSync(o); } finally { cheminDeReference(false); }
+  const a = travail.ancien as ReturnType<typeof creerAiguilleurSync>;
+  assert.equal(a.bilan.calibrationDe, 'calcul');
+  // Les mêmes votes que le chemin rapide : chaque trait du second temps est repris, aucun n'est recalculé.
+  const apres = partageSecondTempsVu();
+  assert.equal(apres.calcules, vu.calcules, 'mêmes candidates et mêmes parts que le chemin rapide, pour chaque cas');
+  assert.equal(apres.repris - vu.repris, vu.calcules);
+  partagerSecondTemps(false);
+  const { ms: _1, ...c1 } = a.bilan.calibration, { ms: _2, ...c2 } = cal as { ms: number };
+  assert.deepEqual(c2, c1);
+});
+
+test('jeu de travail du banc, applis du produit (3/3) : l\'ancien chemin, l\'aiguilleur prêt et l\'aiguilleur relu du disque rendent exactement les mêmes réponses', () => {
+  const { home, o, tout, vite, ancien } = travail;
+  assert.ok(home && o && tout && vite && ancien, 'les essais 1/3 et 2/3 sont faits');
+  cheminDeReference(true);
+  let ref: unknown[];
+  try { ref = tout(ancien); } finally { cheminDeReference(false); }
+  assert.deepEqual(vite, ref);
+  oublierPreparations(); oublierCalibrations();
+  const c = creerAiguilleurPret({ ...o, home });
+  assert.equal(c.bilan.preparationDe, 'fichier'); assert.equal(c.bilan.calibrationDe, 'fichier');
+  assert.deepEqual(tout(c), ref);
 });
