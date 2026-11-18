@@ -22,6 +22,7 @@ import { erreur, issuerDe, json, ouvrirNavigateur, sessionNavigateur, verifierPe
 import { WEBAUTHN_JS, nouveauDefi, optionsConnexion, optionsInscription, siteWebauthn, verifierConnexion, verifierInscription, type CleAcces } from './cles-acces.ts';
 import { groupeExiste, nomGroupe } from './groupes.ts';
 import { avantApres, siDonne } from './persona.ts';
+import { noterChangementDroit } from './droits-journal.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 const esc = (x: string) => x.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -185,6 +186,8 @@ async function invitation(ctx: ModCtx, req: IncomingMessage, res: ServerResponse
   const fini = (p: Personne) => {
     sauverInvitations(ctx, invitations(ctx).map((x) => (x.id === inv.id ? { ...x, etat: 'utilisée' as const, login: p.login } : x)));
     ouvrirNavigateur(ctx, req, res, p, d); noter(ctx, { login: p.login, ip: d.ip, ok: true, why: 'compte créé par invitation' });
+    // Au journal des droits, comme une personne ajoutée à la main (rangé au nom du propriétaire, qui a validé l'invitation).
+    noterChangementDroit({ registre: 'persona', canal: 'invitation', pour: `@${p.login}`, quoi: 'groupes', avant: '', apres: p.groups.join(','), sens: 'donne' });
     ctx.alert({ level: 'info', title: `${p.name} a accepté l'invitation`, detail: `Compte « ${p.login} », groupes ${p.groups.join(', ') || '—'}.`, key: `var-invitation-${inv.id}` }); ctx.emit('invitation_acceptee', { login: p.login });
     return page(res, 200, 'Bienvenue · Odin', carte(`Bienvenue ${p.name}`, `Ton compte « ${p.login} » est prêt : il sert pour toutes les applis d'Odin auxquelles tu as droit.`, '<p><a href="/sso/compte" style="color:inherit">Ajouter une clé d\'accès (plus besoin de mot de passe)</a></p><p><a href="/sso/odin" style="color:inherit">Ouvrir Odin</a></p>'));
   };

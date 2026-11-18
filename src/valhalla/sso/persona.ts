@@ -29,8 +29,11 @@ export function applisConnues(ctx: ModCtx): Array<{ id: string; nom: string }> {
   for (const m of valhallaOf()?.modules() ?? []) { const k = cleDroit(m.id); if (!out.has(k)) out.set(k, m.name); }
   return [...out].map(([id, nom]) => ({ id, nom })).sort((a, b) => (a.id === 'odin' ? -1 : b.id === 'odin' ? 1 : a.nom.localeCompare(b.nom, 'fr')));
 }
+/** Les groupes qui ont leurs cases d'applis : les groupes créés dans Persona (même vides), ceux des personnes et des droits. */
 export function groupesConnus(ctx: ModCtx): string[] {
   const g = new Set<string>(['famille', 'invite']);
+  // Les groupes créés (lus comme groupes.ts, sans l'importer : groupes.ts importe déjà ce fichier).
+  for (const x of (ctx.settings.groupes as Array<{ id?: unknown }> | undefined) ?? []) if (typeof x?.id === 'string' && x.id) g.add(x.id);
   for (const p of personnes(ctx)) for (const x of p.groups) g.add(x);
   for (const l of Object.values(droits(ctx))) for (const x of l) if (!x.startsWith('@') && x !== '*') g.add(x);
   g.delete('admin'); return [...g].sort();
