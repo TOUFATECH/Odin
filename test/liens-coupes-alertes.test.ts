@@ -72,7 +72,8 @@ const APPELS: Record<string, number> = {
   'syn-alerte-seuil': 1,
   'hlin-alerte-donnees-perso': 2,
   'durinn-alerte-disque': 2,
-  'pegase-alerte-telechargement': 2,
+  'pegase-alerte-telechargement': 3,
+  'agora-alerte-store': 3,
   'hel-alerte-recuperation': 3,
 };
 /** Les liens du deuxième lot. */
@@ -86,7 +87,7 @@ const LOT4 = ['idunn-alerte-site', 'syn-alerte-seuil', 'hlin-alerte-donnees-pers
   'hel-alerte-recuperation'];
 
 /** Un fichier rangé ailleurs où l'appli lève elle-même une alerte de son lien (même contexte) : déclaré à la main, un par un. */
-const AUSSI: Record<string, string[]> = { var: ['sso/oidc.ts'] };
+const AUSSI: Record<string, string[]> = { var: ['sso/oidc.ts'], agora: ['../web/agora-api.ts'], pegase: ['../web/pegase-api.ts'] };
 /** Les fichiers d'une appli : son module, son dossier s'il existe, et ceux déclarés ci-dessus. */
 function fichiersDe(app: string): Array<[string, string]> {
   const out: Array<[string, string]> = [];
@@ -100,7 +101,10 @@ function fichiersDe(app: string): Array<[string, string]> {
 function toutValhalla(): Array<[string, string]> {
   const out: Array<[string, string]> = [];
   const tour = (d: string) => { for (const n of readdirSync(d)) { const p = join(d, n); if (statSync(p).isDirectory()) tour(p); else if (n.endsWith('.ts')) out.push([relative(VALHALLA, p).replace(/\\/g, '/'), readFileSync(p, 'utf8')]); } };
-  tour(VALHALLA); return out;
+  tour(VALHALLA);
+  // Les fichiers déclarés à la main qui vivent hors de src/valhalla (les routes web d'une appli).
+  for (const f of Object.values(AUSSI).flat()) if (f.startsWith('../')) out.push([f, readFileSync(join(VALHALLA, f), 'utf8')]);
+  return out;
 }
 /**
  * Le texte de chaque appel `alert(` d'un fichier, de la parenthèse ouvrante à la fermante (les chaînes, y compris les
@@ -160,16 +164,16 @@ test('vingt-cinq applis branchées : chaque lien d\'alerte porte sa clé sur les
   }
 });
 
-test('les liens qui se coupent d\'ici : les 21 à point unique et les 28 alertes branchées ; la dernière alerte « pas encore »', () => {
+test('les liens qui se coupent d\'ici : les 21 à point unique et les 29 alertes : toutes sont branchées', () => {
   const lignes = lignesLiensEcrits(undefined);
   const coupables = lignes.filter((x) => x.coupable).map((x) => x.id.slice(5));
   const attendus = LINKS.filter((l) => 'par' in l.coupure && (l.coupure.par === 'reflexe' || (l.coupure.par === 'alerte' && BRANCHEES?.has(l.id)))).map((l) => l.id);
   assert.deepEqual(coupables, attendus);
-  assert.equal(coupables.length, 21 + 6 + 9 + 7 + 6);
+  assert.equal(coupables.length, 21 + 6 + 9 + 7 + 6 + 1);
   for (const id of [...LOT2, ...LOT3, ...LOT4]) assert.ok(coupables.includes(id), `${id} se coupe d'ici`);
-  // Le seul lien d'alerte qui ne se coupe pas encore d'ici : Agora (ses alertes du lien sont dans src/web/agora-api.ts).
+  // Plus aucun lien d'alerte ne reste « pas encore » : Agora est branché par ses routes web (table AUSSI).
   const autres = LINKS.filter((l) => 'par' in l.coupure && l.coupure.par === 'alerte' && !BRANCHEES?.has(l.id));
-  assert.deepEqual(autres.map((l) => l.id), ['agora-alerte-store']);
+  assert.deepEqual(autres.map((l) => l.id), []);
   for (const l of autres) assert.equal(lignes.find((x) => x.id === `lien:${l.id}`)!.coupable, false, l.id);
 });
 
@@ -633,9 +637,9 @@ test('la route : le propriétaire coupe un lien d\'alerte (la confirmation dit q
     // Un lien qui ne protège pas : la confirmation le dit aussi.
     const h = await v.json(P, { id: 'lien:naglfar-alerte-conteneur', pause: true });
     assert.equal(h.body.code, 'accord'); assert.match(String(h.body.confirm), /continue/);
-    // Un lien d'alerte d'une autre appli : pas encore, même par le propriétaire.
-    const s = await v.json(P, { id: 'lien:agora-alerte-store', pause: true, confirme: true });
-    assert.notEqual(s.body.ok, true); assert.equal(await coupe('lien:agora-alerte-store'), undefined);
+    // Un lien d'une autre famille, déclaré « pas encore » : refusé, même par le propriétaire.
+    const s = await v.json(P, { id: 'lien:urdr-coffre-mot-de-passe', pause: true, confirme: true });
+    assert.notEqual(s.body.ok, true); assert.equal(await coupe('lien:urdr-coffre-mot-de-passe'), undefined);
     const tentatives: Array<[string, Promise<{ status: number; body: Record<string, unknown> }>]> = [
       ['clé d\'accès en Bearer', v.json(P, { id: ID, pause: true, confirme: true }, { authorization: `Bearer ${v.token}` })],
       ['session + clé en paramètre', v.json(`${P}?token=${v.token}`, { id: ID, pause: true, confirme: true })],

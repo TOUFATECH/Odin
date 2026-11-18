@@ -83,7 +83,7 @@ async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, rout
     d.sauverAppareils();
     if (neuf) {
       d.noter(now, p.name, `Appareil inscrit : ${a.nom} (${plateforme}${a.systeme ? ` ${a.systeme}` : ''}) depuis ${ip}`);
-      ag.alert({ level: 'info', title: `Agora : nouvel appareil pour ${p.name}`, detail: `« ${a.nom} » (${plateforme}${a.systeme ? `, ${a.systeme}` : ''}, depuis ${ip}) s'est inscrit au store avec le compte de ${p.name}. Si ce n'est pas toi ou un proche, retire-le et coupe la connexion dans Persona.`, key: `agora:nouvel:${a.id}`, fix: { action: 'retirer_appareil', label: 'Retirer cet appareil', input: { appareil: a.id }, module: 'agora' } });
+      ag.alert({ lien: 'agora-alerte-store', level: 'info', title: `Agora : nouvel appareil pour ${p.name}`, detail: `« ${a.nom} » (${plateforme}${a.systeme ? `, ${a.systeme}` : ''}, depuis ${ip}) s'est inscrit au store avec le compte de ${p.name}. Si ce n'est pas toi ou un proche, retire-le et coupe la connexion dans Persona.`, key: `agora:nouvel:${a.id}`, fix: { action: 'retirer_appareil', label: 'Retirer cet appareil', input: { appareil: a.id }, module: 'agora' } });
       ag.emit('nouvel_appareil', { appareil: a.nom, personne: p.name, systeme: plateforme });
     } else if (avant !== p.login) d.noter(now, p.name, `${a.nom} est maintenant à ${p.name} (avant : ${avant})`);
     reconcilier(ag);
@@ -93,7 +93,7 @@ async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, rout
   // ---- Les autres routes : l'appareil doit être inscrit, et à cette personne.
   const a = d.appareils.find((x) => x.id === idAp && !x.retire);
   if (!a) {
-    ag.alert({ level: 'moyenne', title: 'Agora : appareil inconnu', detail: `Un appareil pas (ou plus) inscrit au store (« ${propre(j.session.appareil.nom, 60)} », compte ${p.name}, depuis ${ip}) a voulu ${route === 'flux' ? 'recevoir les ordres' : route === 'telecharger' ? 'télécharger un installateur' : 'parler au store'}. Il doit d'abord s'inscrire ; si tu l'as retiré, c'est normal qu'il soit refusé.`, key: `agora:inconnu:${idAp}` });
+    ag.alert({ lien: 'agora-alerte-store', level: 'moyenne', title: 'Agora : appareil inconnu', detail: `Un appareil pas (ou plus) inscrit au store (« ${propre(j.session.appareil.nom, 60)} », compte ${p.name}, depuis ${ip}) a voulu ${route === 'flux' ? 'recevoir les ordres' : route === 'telecharger' ? 'télécharger un installateur' : 'parler au store'}. Il doit d'abord s'inscrire ; si tu l'as retiré, c'est normal qu'il soit refusé.`, key: `agora:inconnu:${idAp}` });
     return err(res, 404, 'appareil_inconnu', 'Cet appareil n\'est pas inscrit au store d\'Odin : inscris-le de nouveau.');
   }
   if (a.sub !== p.id) return err(res, 409, 'autre_personne', `Cet appareil est inscrit au nom de ${a.nomPersonne} : inscris-le de nouveau avec ton compte.`);
@@ -155,7 +155,7 @@ async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, rout
         else if (etat === 'erreur') {
           o.etat = 'echec'; o.erreur = erreur || 'raison inconnue';
           d.noter(now, a.nomPersonne, `${ACTIONS[o.action]} ${e.nom} sur ${a.nom} : ÉCHEC (${o.erreur})`, true);
-          ag.alert({ level: 'moyenne', title: `Agora : ${o.action === 'desinstaller' ? 'désinstallation' : 'installation'} de ${e.nom} échouée sur ${a.nom}`, detail: `${a.nom} (${a.nomPersonne}) dit : « ${o.erreur} ». ${o.tentative < 3 ? 'Le store réessaiera.' : 'Trois essais ratés : il attend que tu relances.'}`, key: `agora:echec:${a.id}:${e.id}`, fix: { action: 'reessayer', label: 'Réessayer', input: { appareil: a.id, element: e.id }, module: 'agora' } });
+          ag.alert({ lien: 'agora-alerte-store', level: 'moyenne', title: `Agora : ${o.action === 'desinstaller' ? 'désinstallation' : 'installation'} de ${e.nom} échouée sur ${a.nom}`, detail: `${a.nom} (${a.nomPersonne}) dit : « ${o.erreur} ». ${o.tentative < 3 ? 'Le store réessaiera.' : 'Trois essais ratés : il attend que tu relances.'}`, key: `agora:echec:${a.id}:${e.id}`, fix: { action: 'reessayer', label: 'Réessayer', input: { appareil: a.id, element: e.id }, module: 'agora' } });
           ag.emit('installation_echouee', { appareil: a.nom, element: e.nom, erreur: o.erreur });
         } else if (etat === 'installation' || etat === 'desinstallation') { o.etat = 'en_cours'; if (Number.isFinite(prog)) o.progression = Math.max(0, Math.min(100, Math.round(prog))); }
         o.maj = now;

@@ -199,12 +199,12 @@ test('la route des automatismes porte les liens à part (ni dans les lignes, ni 
   assert.doesNotMatch(wire, /protege/);
   // La déclaration « coupure » non plus : wireReflexes demande seulement, lien par lien, s'il est coupé (lienCoupe).
   assert.doesNotMatch(wire, /coupure|LINKS/);
-  // Seuls les 21 liens à point unique et les 28 liens d'alerte branchés (liens-coupes-alertes.test.ts : 6 au premier
-  // lot, 9 au deuxième, 7 au troisième, 6 au quatrième) se coupent d'ici ; la dernière alerte (Agora), pas encore. Aucun n'est coupé dans cet essai.
+  // Seuls les 21 liens à point unique et les 29 liens d'alerte, tous branchés (liens-coupes-alertes.test.ts : 6 au premier
+  // lot, 9 au deuxième, 7 au troisième, 6 au quatrième, puis Agora) se coupent d'ici. Aucun n'est coupé dans cet essai.
   const coupables = r.liens!.filter((x) => (x as { coupable?: boolean }).coupable).map((x) => x.id.slice(5));
   assert.deepEqual(coupables, LINKS.filter((l) => 'par' in l.coupure && (l.coupure.par === 'reflexe' || (l.coupure.par === 'alerte' && ALERTES_BRANCHEES.has(l.id)))).map((l) => l.id));
-  assert.equal(coupables.length, 21 + 6 + 9 + 7 + 6);
-  assert.deepEqual(LINKS.filter((l) => 'par' in l.coupure && l.coupure.par === 'alerte' && !coupables.includes(l.id)).map((l) => l.id), ['agora-alerte-store']);
+  assert.equal(coupables.length, 21 + 6 + 9 + 7 + 6 + 1);
+  assert.deepEqual(LINKS.filter((l) => 'par' in l.coupure && l.coupure.par === 'alerte' && !coupables.includes(l.id)).map((l) => l.id), []);
   assert.ok(r.liens!.every((x) => !('coupe' in x) && !('etatCoupure' in x)), 'aucun état « coupé »');
 });
 

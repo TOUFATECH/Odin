@@ -176,7 +176,7 @@ async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, rout
   const id = await identifier(peg, varCtx, s(req.headers.authorization).replace(/^Bearer\s+/i, ''), { proprietaire: deps.nomProprietaire, nomAppareil: s(req.headers['x-pegase-appareil']), ip, req });
   if (!id.ok) { if (id.code === 'jeton_invalide') deps.fail(); return err(res, id.http, id.code, id.texte); }
   const { personne: p, appareil: a } = id, pid = p.id;
-  if (id.nouveau) peg.alert({ level: 'moyenne', title: `Pégase : nouvel appareil pour ${p.name}`, detail: `« ${a.nom} » s'est connecté par la connexion unique d'Odin.`, key: `pegase:appareil:${a.id}`, fix: { action: 'revoquer', label: 'Révoquer cet appareil', input: { appareil: a.id }, module: 'pegase' } });
+  if (id.nouveau) peg.alert({ lien: 'pegase-alerte-telechargement', level: 'moyenne', title: `Pégase : nouvel appareil pour ${p.name}`, detail: `« ${a.nom} » s'est connecté par la connexion unique d'Odin.`, key: `pegase:appareil:${a.id}`, fix: { action: 'revoquer', label: 'Révoquer cet appareil', input: { appareil: a.id }, module: 'pegase' } });
   m.touche(a.id, { vu: now, ip });
   const voir = (): Voir => m.prefs(pid, voirParDefaut(p)).voir;
 
