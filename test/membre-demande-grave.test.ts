@@ -189,3 +189,11 @@ test('sans prénom du propriétaire, le refus ne se répète pas', async () => {
   assert.doesNotMatch(f('Confirmer : annuler le rendez-vous a ?', 'l\'administrateur d\'Odin').texte, /Odin.*\(le propriétaire d'Odin\)/);
   assert.match(f('Confirmer : annuler le rendez-vous a ?', 'Awa').texte, /^Annuler le rendez-vous a : .*Awa \(le propriétaire d'Odin\)/);
 });
+
+// ---------------------------------------------------------------- la demande chez le propriétaire : son refus ne fait rien partir
+test('le propriétaire refuse les demandes que le membre lui a envoyées : rien ne part, rien n\'est noté à son nom', async () => {
+  for (let i = 0; i < 5; i++) { await v.json('/api/message', { text: '/no' }); await new Promise((r) => setTimeout(r, 100)); }
+  await new Promise((r) => setTimeout(r, 300));
+  assert.deepEqual(valhallaOf()!.manips({ limit: 500 }).filter((m) => m.by === 'membre' && m.action === 'annuler'), []);
+  for (const id of RDV.slice(0, n)) if (statut(id) === 'annulé') assert.ok(!manipsDe(id).some((m) => m.by === 'membre'), id);
+});

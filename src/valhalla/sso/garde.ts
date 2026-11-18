@@ -20,6 +20,8 @@ import { routeSauvegardes } from './sauvegardes.ts';
 import { routeVenus } from './fiches.ts';
 import { routeComptes } from './comptes.ts';
 import { echangeBus, echangesRecents, type Echange } from '../echanges.ts';
+import { understand } from '../huginn.ts';
+import type { GateDecision, GateInput } from '../../heimdall/policy.ts';
 
 export interface DepsGarde extends DepsSSO {
   /** l'appli du port direct par lequel la requête arrive */ direct?: string;
@@ -27,6 +29,12 @@ export interface DepsGarde extends DepsSSO {
   /** l'état complet de l'interface (vidé pour un membre) */ etat(): unknown;
   /** l'adresse de Vénus (son adresse de retour préinscrite) */ venus?: string;
   /** la page de connexion de l'interface d'Odin (son port à elle), avec le message de refus pour cette appli */ accueil?: (appli: string) => string;
+  /**
+   * Le validateur d'Odin (Heimdall et sa passerelle, le même que pour les demandes venues des messageries) : la demande
+   * d'un membre part chez le propriétaire, là où il les reçoit déjà ; rend sa décision (refus sans réponse dans le délai).
+   * Absent : le membre reçoit le refus, sans demande.
+   */
+  demander?: (g: GateInput) => Promise<GateDecision>;
 }
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 
@@ -74,6 +82,98 @@ export function refusGrave(confirm: string, proprio: string): { quoi: string; te
   const quoi = (court[0] ?? '').toUpperCase() + court.slice(1).join('');
   const qui = proprio === 'l\'administrateur d\'Odin' ? proprio : `${proprio} (le propriétaire d'Odin)`;
   return { quoi, texte: `${quoi} : c'est une action grave, seul ${qui} la confirme. Demande-la-lui.` };
+}
+
+/**
+ * Un texte venu d'un membre (ou d'une appli qui le recopie), montré au propriétaire : sur une ligne, sans caractère de
+ * contrôle ni de sens d'écriture, sans commande (« /yes … » ne se lit plus comme une réponse), sans lien ni bloc de code
+ * (crochets et accents graves remplacés), coupé à `max` caractères.
+ */
+export function ligneSure(t: string, max: number): string {
+  const sur: Record<string, string> = { '[': '(', ']': ')', '`': '\'', '<': '‹', '>': '›' };
+  const l = [...t.replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]+/g, ' ').replace(/\/(?=\p{L})/gu, '\u2215').replace(/[[\]`<>]/g, (c) => sur[c]).replace(/\s+/g, ' ').trim()];
+  return (l.length > max ? [...l.slice(0, max - 1), '…'] : l).join('');
+}
+
+/**
+ * Les demandes d'actions graves des membres, en mémoire (comme les validations qui attendent le propriétaire). Une rafale
+ * est bornée : au plus 3 demandes en attente par membre et 10 en tout ; une demande identique à une demande en attente
+ * n'est pas renvoyée. Une demande répondue est oubliée dès que le membre a lu sa réponse (à sa prochaine action).
+ */
+interface Demande { cle: string; quoi: string; etat: 'en attente' | 'faite' | 'pas validée' | 'pas faite'; detail?: string; vue?: boolean }
+const demandes = new Map<string, Demande[]>();
+const MAX_ATTENTE_MEMBRE = 3, MAX_ATTENTE = 10;
+const enAttente = (l: Demande[]) => l.filter((x) => x.etat === 'en attente');
+const quiConfirme = (ctx: ModCtx) => { const p = prenomProprio(ctx); return p === 'l\'administrateur d\'Odin' ? p : `${p} (le propriétaire d'Odin)`; };
+
+/** Ce que le membre apprend en revenant : la réponse à ses demandes (une seule fois chacune). */
+function nouvelles(login: string, ctx: ModCtx): string {
+  const l = demandes.get(login) ?? [], proprio = prenomProprio(ctx), out: string[] = [];
+  for (const x of l) {
+    if (x.etat === 'en attente' || x.vue) continue;
+    x.vue = true;
+    out.push(x.etat === 'faite' ? `Ta demande « ${x.quoi} » : ${proprio} l'a validée, c'est fait.`
+      : x.etat === 'pas validée' ? `Ta demande « ${x.quoi} » n'a pas été validée par ${proprio} (refusée ou restée sans réponse) : rien n'est parti.`
+      : `Ta demande « ${x.quoi} » a été validée par ${proprio}, mais l'action n'est pas partie${x.detail ? ` (${x.detail})` : ''}.`);
+  }
+  demandes.set(login, l.filter((x) => x.etat === 'en attente' || !x.vue));
+  return out.slice(-3).join('\n');
+}
+/** Ce qu'il vient de faire d'abord, puis la réponse à ses demandes. */
+const avecNouvelles = (login: string, t: string, ctx: ModCtx) => { const n = nouvelles(login, ctx); return n ? (t ? `${t}\n${n}` : n) : t; };
+
+/**
+ * L'action grave qu'un membre a touchée part chez le propriétaire par le validateur d'Odin. Rend ce que lit le membre
+ * (« Demande envoyée à … »), ou undefined quand elle ne peut pas être demandée (il reçoit alors le refus habituel).
+ * Oui : l'action part au nom du membre (son droit est recontrôlé, et ce doit être exactement l'action montrée).
+ * Non, ou sans réponse dans le délai du validateur : rien ne part.
+ */
+async function demanderAuProprietaire(ctx: ModCtx, p: Personne, qui: Agissant, path: string, b: Record<string, unknown>, confirm: string, quoi: string, d: DepsGarde): Promise<string | undefined> {
+  const v = valhallaOf(), demander = d.demander; if (!v || !demander) return undefined;
+  // L'action exacte : celle du bouton, ou celle que la barre des applis a comprise (sans rien lancer).
+  let cible: { module: string; action: string; input: Record<string, unknown> } | undefined;
+  if (path === '/api/valhalla/act') cible = { module: s(b.module), action: s(b.action), input: (b.input && typeof b.input === 'object' && !Array.isArray(b.input) ? b.input : {}) as Record<string, unknown> };
+  else {
+    const u = await auNomDe(qui, () => understand(v, s(b.text).slice(0, 2000).trim(), `web:${`membre-${p.login}`.replace(/[^\w-]/g, '').slice(0, 40)}`)).catch(() => undefined);
+    if (u?.kind === 'action') cible = { module: u.module, action: u.action, input: u.input };
+  }
+  const f = cible ? v.action(cible.module, cible.action) : undefined;
+  if (!cible || !f || !aDroit(ctx, p, f.m.id)) return undefined;
+  const input = cible.input;
+  // « Propriétaire seul » : jamais demandé (refusé, comme avant).
+  if (auNomDe(qui, () => (typeof f.a.proprietaireSeul === 'function' ? f.a.proprietaireSeul(input, v.ctx(f.m.id)) : f.a.proprietaireSeul === true))) return undefined;
+  // Ce que le propriétaire valide est exactement ce qui a été montré : la même demande de confirmation.
+  const graveDe = (): string | undefined => { try { return auNomDe(qui, () => f.a.grave?.(input, v.ctx(f.m.id))); } catch { return undefined; } };
+  const w = graveDe(); if (!w || `Confirmer : ${w} ?` !== confirm) return undefined;
+  // Le propriétaire valide l'action entière : trop longue pour lui être montrée sans la couper, elle n'est pas demandée
+  // (le membre garde le refus). Même mesure que refusGrave, qui coupe au-delà de 100 caractères.
+  if ([...w.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').replace(/\s+/g, ' ').trim()].length > 100) return undefined;
+  // Une rafale est bornée.
+  const l = demandes.get(p.login) ?? [], cle = sha256hex(JSON.stringify([f.m.id, f.a.id, input])), proprio = quiConfirme(ctx);
+  demandes.set(p.login, l);
+  if (enAttente(l).some((x) => x.cle === cle)) return `Demande déjà envoyée à ${proprio} : elle attend sa réponse.`;
+  const total = [...demandes.values()].reduce((n, x) => n + enAttente(x).length, 0);
+  if (enAttente(l).length >= MAX_ATTENTE_MEMBRE) return `Tu as déjà ${enAttente(l).length} demandes en attente chez ${proprio} : attends sa réponse avant d'en envoyer une autre.`;
+  if (total >= MAX_ATTENTE) return `Trop de demandes sont déjà en attente chez ${proprio} : réessaie plus tard.`;
+  const x: Demande = { cle, quoi, etat: 'en attente' }; l.push(x);
+  const nom = ligneSure(p.name, 40), appli = ligneSure(f.m.name, 30), montre = ligneSure(quoi, 110);
+  noter(ctx, { login: p.login, ip: d.ip, ok: true, why: `interface d'Odin · demande au propriétaire · ${[...montre].slice(0, 50).join('')} · envoyée` });
+  // Même chemin que la demande d'un membre venue d'une messagerie : Heimdall (verrou « grave », jamais d'autorisation
+  // permanente, refus sans réponse dans son délai), puis la passerelle, qui la porte au propriétaire. « membre:… » ne
+  // désigne aucune messagerie : la demande va là où le propriétaire reçoit les siennes.
+  const g: GateInput = { tool: 'valhalla', risk: 'exec', summary: `${nom} (membre de la famille) demande, dans ${appli} : ${montre}`, grave: `${ligneSure(w, 160)} — demandé par ${nom}, membre de la famille`, sessionId: `membre:${p.login}`, tainted: false, maxAutonomy: 'prudent' };
+  void (async () => {
+    let dec: GateDecision; try { dec = await demander(g); } catch { dec = { allowed: false, reason: 'validateur indisponible' }; }
+    if (!dec.allowed) { x.etat = 'pas validée'; noter(ctx, { login: p.login, ip: d.ip, ok: false, why: `interface d'Odin · demande au propriétaire · ${[...montre].slice(0, 50).join('')} · pas validée` }); return; }
+    // Validée : elle part au nom du membre, s'il a toujours le droit et si c'est toujours la même action.
+    const pp = personnes(ctx).find((y) => y.login === p.login && y.active);
+    if (!pp || !aDroit(ctx, pp, f.m.id) || graveDe() !== w) { x.etat = 'pas faite'; x.detail = !pp || !aDroit(ctx, pp, f.m.id) ? 'tu n\'as plus le droit sur cette appli' : 'elle a changé depuis ta demande'; return; }
+    const r = await auNomDe({ ...qui, accord: quoi }, () => valhallaPost('/api/valhalla/act', { module: f.m.id, action: f.a.id, input, confirm: true })) as Record<string, unknown> | undefined;
+    x.etat = r?.ok === true ? 'faite' : 'pas faite'; if (r?.ok !== true) x.detail = ligneSure(s(r?.text ?? r?.error), 100);
+    noter(ctx, { login: p.login, ip: d.ip, ok: x.etat === 'faite', why: `interface d'Odin · demande au propriétaire · ${[...montre].slice(0, 50).join('')} · ${x.etat === 'faite' ? 'validée, faite' : 'validée, pas faite'}` });
+  })().catch(() => { x.etat = 'pas faite'; });
+  // Ce que le membre lit dit vrai : la demande n'est montrée que sur Odin ouvert ou sur la messagerie du propriétaire.
+  return `Demande envoyée à ${proprio} : ${quoi}. Elle ne part qu'après sa validation : elle lui est montrée sur Odin s'il est ouvert, ou sur sa messagerie ; sans sa réponse à temps, rien ne part.`;
 }
 
 /** Rend true si la requête est servie ici. */
@@ -165,8 +265,13 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
       if (s(r.module) && !ok(s(r.module))) { const t = messageRefus(ctx, s(r.module)); json(res, 403, { ok: false, code: 'refuse', error: t, text: t }); return true; }
       const { quoi, texte } = refusGrave(s(r.confirm), prenomProprio(ctx));
       noter(ctx, { login: p.login, ip: d.ip, ok: false, why: `interface d'Odin · action grave · ${[...quoi].slice(0, 55).join('')} · réservé au propriétaire` });
-      json(res, 403, { ok: false, code: 'reserve', error: texte, text: texte }); return true;
+      // La demande part chez le propriétaire, par le validateur d'Odin ; il ne l'exécute toujours pas lui-même. Sans
+      // validateur, ou si l'action ne peut pas lui être demandée (« propriétaire seul »…) : le refus, comme avant.
+      const envoi = d.demander ? await demanderAuProprietaire(ctx, p, qui, path, b, s(r.confirm), quoi, d) : undefined;
+      const t = avecNouvelles(p.login, envoi ?? texte, ctx);
+      json(res, 403, { ok: false, code: 'reserve', error: t, text: t, ...(envoi ? { demande: true } : {}) }); return true;
     }
+    if (r && typeof r === 'object') r.text = avecNouvelles(p.login, s(r.text), ctx) || r.text;
     json(res, 200, r); return true;
   }
   if (path === '/api/message' || path === '/api/ask') { erreur(res, 403, 'reserve', 'La conversation avec l\'IA d\'Odin est réservée à son propriétaire. Ouvre directement une de tes applis, ou demande-lui en une phrase dans la barre des applis.'); return true; }

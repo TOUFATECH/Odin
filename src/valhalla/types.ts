@@ -12,15 +12,17 @@ export interface Alert extends AlertIn { id: string; at: string; module: string;
   /** le message n'est pas parti sur la messagerie (son lien est coupé) : « message non envoyé : lien coupé par toi » */
   nonEnvoye?: string }
 
-/** Qui a lancé une action : toi (clic, demande explicite), Odin de lui-même, un réflexe entre applis, une automatisation Talos, un autre assistant (MCP). */
-export type By = 'toi' | 'odin' | 'réflexe' | 'automatisation' | 'assistant';
+/** Qui a lancé une action : toi (clic, demande explicite), Odin de lui-même, un réflexe entre applis, une automatisation Talos, un autre assistant (MCP), un membre de la famille (personne de Persona connectée à l'interface d'Odin, avec son droit sur l'appli). */
+export type By = 'toi' | 'odin' | 'réflexe' | 'automatisation' | 'assistant' | 'membre';
 /** Comment défaire une action : l'action inverse (de la même appli, sauf mention). */
 export interface Undo { action: string; input: Record<string, unknown>; label: string; module?: string }
 /**
  * Une « manip » : une action faite sans que tu l'aies demandée toi-même (Odin seul, réflexe, automatisation).
  * Odin te prévient ; tu réponds « garde » ou « annule ». En mode Odin Breaker, il décide seul de garder.
  */
-export interface Manip { id: string; at: string; module: string; action: string; label: string; input: Record<string, unknown>; text: string; by: By; why?: string; undo?: Undo; state: 'à décider' | 'gardée' | 'annulée'; decidedBy?: string; decidedAt?: string }
+export interface Manip { id: string; at: string; module: string; action: string; label: string; input: Record<string, unknown>; text: string; by: By; why?: string; undo?: Undo; state: 'à décider' | 'gardée' | 'annulée'; decidedBy?: string; decidedAt?: string;
+  /** « membre » : le membre de la famille qui l'a faite (journal seulement : ne donne aucun droit) */
+  par?: { login: string; name: string } }
 
 export interface Param { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'password' | 'image'; options?: string[]; default?: unknown; required?: boolean; help?: string;
   /** réglage privé (numéro de téléphone, nom d'une personne…) : saisi en clair, mais jamais recopié dans le journal des manips */

@@ -5,7 +5,9 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-export interface Agissant { login: string; name: string; groups: string[] }
+export interface Agissant { login: string; name: string; groups: string[];
+  /** l'action grave que le propriétaire a validée pour cette personne (pour le journal des manips seulement : ne donne aucun droit) */
+  accord?: string }
 const courant = new AsyncLocalStorage<Agissant>();
 let verif: ((moduleId: string, qui: Agissant) => string | undefined) | undefined;
 

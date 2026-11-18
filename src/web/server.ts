@@ -657,7 +657,7 @@ export class WebChannel implements Channel {
     if (url.pathname.startsWith('/api/metis/') && await metisRoute(req, res, url, { home: this.odin.paths.home, authed: this.authed(req) && !estMembre(req), fail: () => this.throttle.fail(ip) })) return;
     if (url.pathname.startsWith('/api/plugins/') && await pluginsRoute(req, res, url, { proprietaire: () => this.authed(req) && !estMembre(req), membre: () => this.authed(req) && estMembre(req), odin: this.odin, fail: () => this.throttle.fail(ip) })) return;
     // Connexion unique (Persona, OpenID, sauvegardes des applis) et droits par appli des personnes qui ne sont pas le propriétaire.
-    if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state(), accueil: (appli) => this.accueilRefus(req, nomAppli(persona(), appli)) })) return;
+    if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state(), accueil: (appli) => this.accueilRefus(req, nomAppli(persona(), appli)), demander: (g) => this.odin.heimdall.gate(g) })) return;
 
     if (req.method === 'GET' && url.pathname === '/') {
       const t = url.searchParams.get('token');

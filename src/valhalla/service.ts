@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { understand, type Understood } from './huginn.ts';
 import { explainListen } from './hostports.ts';
 import type { Action, ActionResult, Alert, AlertIn, By, Level, Manip, ModCtx, Module, NotifyOpts } from './types.ts';
-import { refusAppli, agissant } from './sso/acces.ts';
+import { refusAppli, agissant, type Agissant } from './sso/acces.ts';
 import { Journal } from './base/journal.ts';
 import { noterEchange, numeroEchange, type Echange } from './echanges.ts';
 import { Automatismes } from './automatismes.ts';
@@ -32,6 +32,17 @@ const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
 const enCours = new AsyncLocalStorage<{ pasLui: boolean; valide: boolean; fini?: boolean }>();
 /** Fermetures qui ont une validation (elle dit ce qui ne sera plus joignable) : la règle du réflexe ne les vise pas. */
 const FERMETURES = new Set(['garmr.fermer_port', 'gjoll.fermer_port', 'hlid.fermer_box']);
+/**
+ * Le journal des manips garde les 500 dernières faites sans toi (Odin, réflexe, automatisation, autre assistant), comme
+ * avant ; ce que fait un membre de la famille a sa propre limite (les 200 dernières de chacun) : ses actions ne chassent
+ * jamais du journal ce qu'Odin a fait seul et qui attend ta décision, ni ce qu'a fait un autre membre.
+ */
+function bornerManips(l: Manip[]): Manip[] {
+  const garde = new Set(l.filter((x) => x.by !== 'membre').slice(-500)), parMembre = new Map<string, Manip[]>();
+  for (const x of l) if (x.by === 'membre') { const k = x.par?.login ?? '', t = parMembre.get(k); if (t) t.push(x); else parMembre.set(k, [x]); }
+  for (const m of parMembre.values()) for (const x of m.slice(-200)) garde.add(x);
+  return l.filter((x) => garde.has(x));
+}
 
 export interface ValhallaDeps {
   notify?(text: string, o?: NotifyOpts): Promise<void>;
@@ -177,13 +188,17 @@ export class Valhalla {
       return { ok: false, text: `${f.m.name} · ${f.a.label} : ${why} — cela demande ta validation, et l'action qui le demandait ne l'a pas eue.` };
     }
     for (const p of f.a.params ?? []) if (p.required && (input[p.key] === undefined || input[p.key] === '')) return { ok: false, text: `Il manque « ${p.label} ».` };
-    const by: By = o.by ?? (o.auto ? 'automatisation' : 'toi');
+    // Un membre de la famille (personne de Persona connectée à l'interface d'Odin) qui agit lui-même : noté à son nom dans
+    // « mes manips », sans déranger le propriétaire. Son droit sur l'appli a déjà été contrôlé plus haut avec le « by »
+    // reçu (refusAppli) : ce « membre » ne sert qu'au journal. Les étapes internes d'une action restent sous l'action de départ.
+    const membre = !o.auto && !o.entreApplis && (o.by === undefined || o.by === 'toi') ? agissant() : undefined;
+    const by: By = membre ? 'membre' : o.by ?? (o.auto ? 'automatisation' : 'toi');
     try {
       // La validation ne vaut que pendant l'action : ce qu'elle laisse derrière elle (minuteur, promesse) n'en hérite pas.
       const ici: { pasLui: boolean; valide: boolean; fini?: boolean } = { pasLui, valide: parent ? parent.valide : !pasLui && Boolean(why) };
       let r: ActionResult; try { r = await enCours.run(ici, () => f.a.run(this.ctx(f.m.id), input)); } finally { ici.valide = false; ici.fini = true; }
       this.events.emit('action', { module: f.m.id, action: f.a.id, ok: r.ok !== false, by });
-      if (r.ok !== false && by !== 'toi' && !f.a.read && !f.a.quiet) this.noteManip(f.m, f.a, input, r, by, o.why);
+      if (r.ok !== false && by !== 'toi' && !f.a.read && !f.a.quiet) this.noteManip(f.m, f.a, input, r, by, o.why, membre);
       return { ok: true, ...r };
     } catch (e) { this.events.emit('action', { module: f.m.id, action: f.a.id, ok: false, by }); return { ok: false, text: `${f.m.name} · ${f.a.label} : ${(e as Error).message}` }; }
   }
@@ -230,11 +245,11 @@ export class Valhalla {
   // ---------------- Manips : ce qu'Odin a fait sans que tu le demandes (garder / annuler)
   private get manipsFile(): string { return join(this.dir, 'manips.json'); }
   private readManips(): Manip[] { try { const l = JSON.parse(readFileSync(this.manipsFile, 'utf8')) as Manip[]; return Array.isArray(l) ? l : []; } catch { return []; } }
-  private writeManips(l: Manip[]): void { const tmp = `${this.manipsFile}.tmp`; writeFileSync(tmp, JSON.stringify(l.slice(-500))); renameSync(tmp, this.manipsFile); }
+  private writeManips(l: Manip[]): void { const tmp = `${this.manipsFile}.tmp`; writeFileSync(tmp, JSON.stringify(bornerManips(l))); renameSync(tmp, this.manipsFile); }
   private told: number[] = [];
   private extra = 0;
   private extraTimer?: ReturnType<typeof setTimeout>;
-  private noteManip(m: Module, a: Action, input: Record<string, unknown>, r: ActionResult, by: By, why?: string): void {
+  private noteManip(m: Module, a: Action, input: Record<string, unknown>, r: ActionResult, by: By, why?: string, membre?: Agissant): void {
     const now = this.deps.now?.() ?? new Date(), all = this.readManips();
     let id = ''; do { id = Math.random().toString(36).slice(2, 6); } while (!/^[a-z]/.test(id) || all.some((x) => x.id === id));
     let undo: Manip['undo']; try { undo = a.undo?.(input, r, this.ctx(m.id)); } catch { /* pas d'annulation proposée */ }
@@ -245,10 +260,14 @@ export class Valhalla {
     // Simple tenue de registre par réflexe (une fiche créée, une configuration rangée au coffre) : rien à
     // annuler, rien à décider — c'est noté dans le journal, sans te déranger.
     const bookkeeping = by === 'réflexe' && !undo;
-    const manip: Manip = { id, at: now.toISOString(), module: m.id, action: a.id, label: `${m.name} · ${a.label}`, input: safe, text: r.text.split('\n')[0].slice(0, 300), by, why, undo, state: breaker || bookkeeping ? 'gardée' : 'à décider', ...(breaker ? { decidedBy: 'Odin (mode Breaker)', decidedAt: now.toISOString() } : bookkeeping ? { decidedBy: 'réflexe (rien à annuler)', decidedAt: now.toISOString() } : {}) };
+    // Ce qu'un membre de la famille fait lui-même : rangé à son nom, sans te déranger (rien à décider : il en avait le
+    // droit, ou tu as validé sa demande) ; tu peux toujours l'annuler depuis « mes manips ».
+    const par = membre ? { login: membre.login.slice(0, 64), name: membre.name.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').slice(0, 80) } : undefined;
+    const manip: Manip = { id, at: now.toISOString(), module: m.id, action: a.id, label: `${m.name} · ${a.label}`, input: safe, text: r.text.split('\n')[0].slice(0, 300), by, why: par ? why ?? `fait par ${par.name} (membre de la famille)${membre?.accord ? ', sa demande validée par toi' : ''}` : why, undo, state: breaker || bookkeeping || par ? 'gardée' : 'à décider',
+      ...(par ? { par, decidedBy: membre?.accord ? 'toi (sa demande validée)' : `${par.name} (son droit sur l'appli)`, decidedAt: now.toISOString() } : breaker ? { decidedBy: 'Odin (mode Breaker)', decidedAt: now.toISOString() } : bookkeeping ? { decidedBy: 'réflexe (rien à annuler)', decidedAt: now.toISOString() } : {}) };
     try { this.writeManips([...all, manip]); } catch { /* disque plein ou dossier disparu : la manip reste faite, le journal non */ }
     this.events.emit('manip', manip);
-    if (bookkeeping) return;
+    if (bookkeeping || par) return;
     // Tu es prévenu : au plus 3 messages par 10 minutes, puis un seul message de rattrapage.
     const t = now.getTime(); this.told = this.told.filter((x) => t - x < 600_000);
     if (this.told.length >= 3) {
@@ -262,7 +281,7 @@ export class Valhalla {
   }
   /** Le message envoyé pour une manip (aussi lu par la mascotte). */
   manipText(x: Manip): string {
-    const who = { odin: 'de moi-même', 'réflexe': 'par réflexe', automatisation: 'par une automatisation', assistant: 'à la demande d\'un autre assistant', toi: '' }[x.by];
+    const who = { odin: 'de moi-même', 'réflexe': 'par réflexe', automatisation: 'par une automatisation', assistant: 'à la demande d\'un autre assistant', membre: `par ${x.par?.name ?? 'un membre de la famille'}`, toi: '' }[x.by];
     const tail = x.state === 'à décider' ? (x.undo ? ` Réponds « garde ${x.id} » ou « annule ${x.id} ».` : ` Je ne sais pas l'annuler ${accord('tout seul', 'toute seule')}. Réponds « garde ${x.id} » pour la valider.`)
       : x.state === 'gardée' && x.decidedBy?.startsWith('Odin') ? ` Je la garde (mode Breaker).${x.undo ? ` « annule ${x.id} » pour revenir en arrière.` : ''}` : '';
     return `🤖 Manip faite ${who} : ${x.label} — ${x.text}${x.why ? ` (${x.why})` : ''}.${tail}`;
@@ -276,7 +295,8 @@ export class Valhalla {
   /** Les manips visées par `id` : un code, « tout » (celles à décider) ou « dernière ». */
   private choisirManips(all: Manip[], id: string): Manip[] {
     const want = id.trim().toLowerCase();
-    return /^(tout|toutes|tous)$/.test(want) ? all.filter((x) => x.state === 'à décider') : /^(derni[eè]re|dernier|la derni[eè]re)$/.test(want) || !want ? all.filter((x) => x.state !== 'annulée').slice(-1) : all.filter((x) => x.id === want);
+    // « La dernière » : ce qu'Odin (ou un réflexe, une automatisation…) a fait sans toi, jamais l'action d'un membre de la famille.
+    return /^(tout|toutes|tous)$/.test(want) ? all.filter((x) => x.state === 'à décider') : /^(derni[eè]re|dernier|la derni[eè]re)$/.test(want) || !want ? all.filter((x) => x.state !== 'annulée' && x.by !== 'membre').slice(-1) : all.filter((x) => x.id === want);
   }
   /** Ce que montrerait la validation pour annuler `id` (un code, « tout » ou « dernière ») : rien si aucune action inverse n'est grave. */
   graveAnnulation(id: string): string | undefined {
