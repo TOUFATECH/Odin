@@ -75,6 +75,7 @@ import { plumeRoute } from './plume-api.ts';
 import { epinglesRoute } from './epingles-api.ts';
 import { personnesRoute } from './personnes-api.ts';
 import { venusRoute } from '../valhalla/venus/routes.ts';
+import { sansLigneLireVenus } from '../valhalla/modules/venus.ts';
 import { archytasRoute } from '../valhalla/archytas/routes.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { terminalApi } from './terminal-api.ts';
@@ -554,7 +555,7 @@ export class WebChannel implements Channel {
     if (w) { this.waiters.delete(peer); w(text); }
     this.push({ type: 'message', peer, role: 'assistant', text, ...(opts.model ? { model: opts.model } : {}) });
     // Appli fermée : la réponse arrive quand même en notification sur tes appareils abonnés.
-    if (!this.clients.size) void pushAll(this.odin.paths.home, { title: 'Odin', body: text.replace(/\[humeur:[^\]]*\]/g, '').trim(), view: 'chat', tag: 'odin-reponse' }).catch(() => 0);
+    if (!this.clients.size) void pushAll(this.odin.paths.home, { title: 'Odin', body: sansLigneLireVenus(text.replace(/\[humeur:[^\]]*\]/g, '')).trim(), view: 'chat', tag: 'odin-reponse' }).catch(() => 0);
   }
   event(peer: string, e: AgentEvent): void {
     this.push({ type: 'event', peer, event: e });
@@ -1061,7 +1062,7 @@ export class WebChannel implements Channel {
         void onMessage({ channel: 'web', peer, name: 'raccourci', text: text.slice(0, 4000) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
       });
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
-      return void res.end(reply.replace(/\[humeur:[^\]]*\]/g, '').replace(/[*_`#]/g, '').trim());
+      return void res.end(sansLigneLireVenus(reply.replace(/\[humeur:[^\]]*\]/g, '')).replace(/[*_`#]/g, '').trim());
     }
 
     if (req.method !== 'POST') return json(res, 405, { error: 'méthode refusée' });
