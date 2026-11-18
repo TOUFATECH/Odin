@@ -1617,6 +1617,21 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
             </details>
             <div class="status" id="p-status" role="status"></div>
             <p class="sub" style="margin:0">La carte de chaque personne, son historique et ta note sont dans Profil. <button class="btn small" type="button" id="p-profil">Ouvrir Profil</button></p>
+            <details class="field" id="p-inv" hidden><summary style="cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600"><span id="p-inv-fl" aria-hidden="true" style="color:var(--muted,#888);margin-right:8px">▸</span>Inviter quelqu'un de la famille</summary>
+              <p class="sub" style="margin:8px 0 0">Un lien à usage unique : la personne choisit elle-même son identifiant et son mot de passe, dans le groupe que tu choisis ici. Tu valides avant que le lien soit créé. Son compte arrive dans Persona (Persona → Personnes), pas dans le tableau ci-dessus, qui montre les personnes qui parlent à Odin par les messageries ; dans Profil, elle apparaît une fois reliée à la main.</p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
+                <div class="field" style="flex:1 1 160px"><label for="p-inv-nom">Nom</label><input id="p-inv-nom" autocomplete="off" maxlength="60"></div>
+                <div class="field" style="flex:2 1 200px"><label for="p-inv-email">E-mail (facultatif : Odin lui envoie le lien)</label><input id="p-inv-email" type="email" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+                <div class="field" style="flex:0 1 110px"><label for="p-inv-jours">Valable (jours)</label><input id="p-inv-jours" type="number" min="1" max="30" value="7" inputmode="numeric"></div>
+                <div class="field" style="flex:1 1 140px"><label for="p-inv-groupe">Groupe</label><select id="p-inv-groupe"></select></div>
+                <div><button class="btn small primary" type="button" id="p-inv-go">Créer le lien</button></div>
+              </div>
+              <div id="p-inv-lien"></div>
+              <div class="status" id="p-inv-status" role="status"></div>
+              <h3 style="margin:12px 0 6px;font-size:14px">Invitations en cours</h3>
+              <div id="p-inv-liste"></div>
+              <p class="sub" style="margin:8px 0 0"><button class="btn small" type="button" id="p-inv-persona">Ouvrir Persona</button></p>
+            </details>
           </div></article>
 
           <article class="card" data-sec="voix"><form class="form" id="f-voice2">
@@ -4689,6 +4704,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // Donner plus de droits à quelqu'un demande ta validation (le serveur dit ce qui change) ; sinon rien n'est fait.
   const avecValidation = async (body) => { const r = await api('/api/action', body); if (r.ok || !r.confirm) return r; if (!(await OdinDialog.confirm(r.confirm))) return undefined; return api('/api/action', { ...body, confirm: true }); };
   function renderPeople() {
+    // Inviter quelqu'un de la famille : le propriétaire seul (l'état d'un membre porte « membre »).
+    const inv = $('#p-inv'); if (inv) inv.hidden = !state || Boolean(state.membre);
     const P = state.people; if (!P) return;
     const act = async (body) => { const r = await avecValidation(body); if (r) st('#p-status', r.ok ? '✓ Enregistré.' : r.error, Boolean(r.ok)); refresh(); };
     const pend = $('#peoplePending'); pend.textContent = '';
@@ -4712,6 +4729,78 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const ident = $('#p-ident').value.trim().match(/^([a-z]+):(.+)$/);
     if (ident) { const l = await avecValidation({ kind: 'user_link', id: r.id, channel: ident[1], peer: ident[2] }); if (!l) { refresh(); return; } if (!l.ok) return st('#p-status', l.error, false); }
     st('#p-status', '✓ Personne ajoutée.', true); $('#p-name').value = ''; $('#p-ident').value = ''; refresh();
+  });
+
+  // ---------- Personnes : inviter quelqu'un de la famille ----------
+  // Le lien d'invitation de Persona (action « inviter » : propriétaire seul, validée par lui), proposé ici. Rien de neuf
+  // côté serveur : même action, même garde, même validation. Le bloc n'est montré qu'au propriétaire ; le lien n'est
+  // affiché qu'ici, jamais gardé dans le navigateur. Les invitations en cours sont lues dans la page de Persona.
+  const INV_T = {
+    nomVide: 'Écris le nom de la personne.', attente: 'Création du lien…', annule: 'Annulé : aucune invitation créée.',
+    lien: 'Lien d\'invitation (usage unique)', copier: 'Copier le lien', copie: 'Copié', copieKo: 'Copie impossible : le lien est sélectionné, copie-le à la main.', qr: 'QR code de l\'invitation',
+    maison: 'Ce lien ne s\'ouvrira qu\'à la maison (il porte l\'adresse d\'Odin sur ton réseau). Pour qu\'il s\'ouvre de partout, règle « Adresse d\'Odin dans les liens » dans Persona.',
+    partout: (h) => `Ce lien porte l'adresse ${h} : il s'ouvre partout où cette adresse répond.`,
+    aucune: 'Aucune invitation en cours.', annuler: 'Annuler', annulee: (nom) => `Invitation de ${nom} annulée : le lien ne marche plus.`, jusqu: (d) => `jusqu'au ${d}`,
+    persona: 'Persona ne répond pas : les invitations ne peuvent pas être lues pour l\'instant.',
+    choisir: 'Choisis un groupe', groupeVide: 'Choisis le groupe de la personne.',
+    panne: 'Pas de réponse d\'Odin : regarde les invitations en cours avant de recommencer.',
+  };
+  /** Le lien ne s'ouvre-t-il qu'à la maison (machine, réseau local, nom sans domaine) ? Pur. */
+  const invMaisonSeule = (lien) => { let h = ''; try { h = new URL(lien).hostname.toLowerCase().replace(/^\[|\]$/g, ''); } catch { return true; } return h === 'localhost' || (!h.includes('.') && !h.includes(':')) || /\.(local|lan|home|internal|localdomain)$/.test(h) || /^(10|127)\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\.|^169\.254\.|^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) || /^(::1$|f[cd]|fe[89ab])/.test(h); };
+  /** Les groupes proposés (jamais « admin ») et celui choisi d'avance : « famille » s'il existe, sinon « invite », sinon aucun (le propriétaire choisit) ; sans aucun groupe, « famille » (l'invitation l'accepte toujours). Pur. */
+  const invGroupes = (ids) => { const l = [...new Set((ids || []).map((g) => String(g)).filter((g) => g && g !== 'admin'))]; if (!l.length) l.push('famille'); return { liste: l, defaut: l.includes('famille') ? 'famille' : l.includes('invite') ? 'invite' : '' }; };
+  /** Ce que la page de Persona dit des groupes (ceux qu'on peut supprimer : tous sauf « admin ») et des invitations en cours (celles qu'on peut annuler). Pur. */
+  const invLire = (vue) => { const acts = ((vue && vue.view && vue.view.sections) || []).flatMap((s) => (s && s.kind === 'table' && Array.isArray(s.rows) ? s.rows : [])).flatMap((r) => (r.actions || []).map((a) => ({ a, r }))); return { groupes: acts.filter((x) => x.a.action === 'supprimer_groupe').map((x) => String(x.a.input?.groupe || '')), enCours: acts.filter((x) => x.a.action === 'annuler_invitation').map((x) => ({ id: String(x.a.input?.id || ''), nom: String(x.r.cells?.[0] ?? ''), groupes: String(x.r.cells?.[1] ?? ''), jusqu: String(x.r.cells?.[3] ?? '') })) }; };
+  const invAct = (action, input, confirm) => api('/api/valhalla/act', { module: 'var', action, input, ...(confirm ? { confirm: true } : {}) });
+  // Le lien affiché (et l'id de son invitation) : retiré de la page quand le bloc se ferme ou que l'invitation est annulée.
+  let invLienId = '';
+  const invViderLien = () => { invLienId = ''; $('#p-inv-lien').replaceChildren(); };
+  async function chargerInvitations() {
+    const box = $('#p-inv'); if (!box || box.hidden) return;
+    let vue = null; try { vue = await api('/api/valhalla/view?id=var'); } catch { vue = null; }
+    if (!vue?.ok) return $('#p-inv-liste').replaceChildren(el('p', { class: 'sub', style: 'margin:0' }, INV_T.persona));
+    const L = invLire(vue), G = invGroupes(L.groupes), sel = $('#p-inv-groupe'), garde = sel.value;
+    sel.replaceChildren(...(G.defaut ? [] : [el('option', { value: '' }, INV_T.choisir)]), ...G.liste.map((g) => el('option', { value: g }, g)));
+    sel.value = G.liste.includes(garde) ? garde : G.defaut;
+    $('#p-inv-liste').replaceChildren(...(L.enCours.length ? L.enCours.map((x) => el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px' },
+      el('span', { style: 'flex:1 1 200px;min-width:0;overflow-wrap:anywhere' }, `${x.nom} · ${x.groupes} · ${INV_T.jusqu(x.jusqu)}`),
+      el('button', { class: 'btn small', type: 'button', onclick: async (e) => {
+        const b = e.currentTarget; if (b.disabled) return; b.disabled = true;
+        let r; try { r = await invAct('annuler_invitation', { id: x.id }); } catch { r = { ok: false, error: INV_T.panne }; } finally { b.disabled = false; }
+        if (r.ok && x.id === invLienId) invViderLien();
+        st('#p-inv-status', r.ok ? INV_T.annulee(x.nom) : `✗ ${r.text || r.error}`, Boolean(r.ok)); chargerInvitations();
+      } }, INV_T.annuler)))
+      : [el('p', { class: 'sub', style: 'margin:0' }, INV_T.aucune)]));
+  }
+  $('#p-inv').addEventListener('toggle', () => { const o = $('#p-inv').open; $('#p-inv-fl').textContent = o ? '▾' : '▸'; if (o) chargerInvitations(); else invViderLien(); });
+  $('#p-inv-persona').addEventListener('click', () => { show('apps'); setTimeout(() => window.OdinApps?.app('var'), 150); });
+  $('#p-inv-go').addEventListener('click', async () => {
+    const go = $('#p-inv-go'); if (go.disabled) return;
+    const nom = $('#p-inv-nom').value.trim(); if (!nom) return st('#p-inv-status', INV_T.nomVide, false);
+    const groupe = $('#p-inv-groupe').value; if (!groupe) return st('#p-inv-status', INV_T.groupeVide, false);
+    const input = { nom, groupes: groupe, email: $('#p-inv-email').value.trim(), jours: Number($('#p-inv-jours').value) || 7 };
+    st('#p-inv-status', INV_T.attente); invViderLien();
+    // Un seul envoi à la fois : un double clic ne donne ni deux validations ni deux invitations.
+    go.disabled = true;
+    let r;
+    try {
+      r = await invAct('inviter', input);
+      if (r.confirm) { if (!(await OdinDialog.confirm(r.confirm))) return st('#p-inv-status', INV_T.annule); r = await invAct('inviter', input, true); }
+    } catch { st('#p-inv-status', `✗ ${INV_T.panne}`, false); chargerInvitations(); return; } finally { go.disabled = false; }
+    if (!r.ok) return st('#p-inv-status', `✗ ${r.text || r.error}`, false);
+    const d = r.data || {}, lien = String(d.lien || ''), champ = el('input', { readonly: true, value: lien, 'aria-label': INV_T.lien, style: 'flex:1 1 220px;min-width:0', onfocus: (e) => e.target.select() });
+    let hote = ''; try { hote = new URL(lien).host; } catch { hote = ''; }
+    $('#p-inv-lien').replaceChildren(
+      el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px' }, champ,
+        el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(lien); e.target.textContent = INV_T.copie; } catch { champ.select(); e.target.textContent = INV_T.copieKo; } } }, INV_T.copier)),
+      d.svg ? el('img', { src: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(d.svg)))}`, alt: INV_T.qr, style: 'display:block;width:180px;max-width:100%;height:auto;margin-top:8px;background:#fff;border-radius:12px;padding:6px' }) : null,
+      el('p', { class: 'sub', style: 'margin:8px 0 0' }, invMaisonSeule(lien) ? INV_T.maison : INV_T.partout(hote)));
+    invLienId = String(d.id || '');
+    // La première ligne de la réponse (pour qui, groupes, durée, e-mail parti ou non) ; le lien est sur la suivante.
+    // « ⚠ » : l'e-mail n'a pas pu partir, ce n'est pas une réussite complète (le lien est là, à donner à la main).
+    const ligne = String(r.text || '').split('\n')[0];
+    st('#p-inv-status', ligne, !ligne.includes('⚠'));
+    $('#p-inv-nom').value = ''; $('#p-inv-email').value = ''; chargerInvitations();
   });
 
   // ---------- Sauvegarde ----------

@@ -50,7 +50,7 @@
       ['Touche une personne pour voir sa carte et sa ligne de temps ; ta note sur elle s\'écrit là.', 'Un membre de la famille ne voit que sa propre fiche, et peut te signaler une erreur.'],
       ['« Effacer l\'historique » retire les lignes d\'une personne ou d\'une période : la confirmation dit ce qui part et ce qui reste ailleurs.', 'Les droits se règlent encore dans Réglages → Personnes.']],
     settings: ['Réglages', 'Mon modèle d\'IA, ma voix, mon autonomie, tes accès et ton compte.',
-      ['Les rubriques sont à gauche, dans l\'ordre conseillé : Modèle, Telegram, Voix, Autonomie, Droits, Réseau…', 'Chaque rubrique a un bouton « Tester » : il vérifie que tout marche.'],
+      ['Les rubriques sont à gauche, dans l\'ordre conseillé : Modèle, Telegram, Voix, Autonomie, Droits, Réseau…', 'Chaque rubrique a un bouton « Tester » : il vérifie que tout marche.', 'Personnes → « Inviter quelqu\'un de la famille » : un lien à usage unique (et son QR code), créé après ta validation ; la personne choisit son identifiant et son mot de passe, et son compte arrive dans Persona.'],
       ['Commence par le Modèle (sans lui je réponds quand même, sans IA).', 'Puis Telegram pour me parler de partout, et la Voix.', 'Réglages → Plus : visite guidée et arbre d\'évolution.']],
     device: ['Appareil', 'La fiche d\'un appareil de ta maison : son nom, sa pièce, ce qu\'il fait sur le réseau.',
       ['« Identifier à fond » : je cherche ce qu\'est cet appareil (marque, système, services).', '« Renommer » : donne-lui un nom clair ; l\'étoile : je te préviens quand il tombe et quand il revient.', 'En bas, ses paquets réseau : « En direct » pour les voir passer.', '« ← Réseau » : retour à la liste.'],
