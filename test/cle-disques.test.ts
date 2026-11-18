@@ -97,3 +97,66 @@ test('source simulée : aucune commande, une fausse liste rendue telle quelle', 
   l[0].partitions.push({ nom: 'faux', tailleOctets: 0 });
   assert.equal((await s.lister())[0].partitions.length, 0);
 });
+
+// ---- Étape 0 (défaut trouvé par l'étude du disque chiffré, pas une demande) : sous Windows, la vraie source lit
+// BitLocker par lettre. Sorties ENREGISTRÉES (texte figé) rendues par un faux lanceur : rien n'est lancé.
+import { sourceReelle } from '../src/valhalla/thjalfi/disques.ts';
+
+const W_DISQUES = JSON.stringify([{ Number: 0, FriendlyName: 'Disque interne A', Size: 512 * GO, BusType: 'NVMe', IsSystem: true }]);
+const W_PARTS = JSON.stringify([
+  { DiskNumber: 0, PartitionNumber: 1, Type: 'System', Size: 300 * 1024 ** 2 },
+  { DiskNumber: 0, PartitionNumber: 2, DriveLetter: 'C', Size: 400 * GO, Type: 'Basic' },
+  { DiskNumber: 0, PartitionNumber: 3, DriveLetter: 'D', Size: 100 * GO, Type: 'Basic' },
+]);
+// Get-Volume rend « NTFS » pour un volume BitLocker déverrouillé : c'est pourquoi il était vu non chiffré.
+const W_VOLUMES = JSON.stringify([
+  { DriveLetter: 'C', FileSystem: 'NTFS', FileSystemLabel: 'Systeme', Size: 400 * GO, SizeRemaining: 100 * GO },
+  { DriveLetter: 'D', FileSystem: 'NTFS', FileSystemLabel: 'Donnees', Size: 100 * GO, SizeRemaining: 50 * GO },
+]);
+/** Un faux lanceur : il rend la sortie enregistrée de chaque commande et note ce qu'on lui a demandé. */
+function fauxWindows(bitlocker: string | Error) {
+  const vus: string[] = [];
+  const lancer = async (cmd: string, args: string[]) => {
+    const t = args.join(' '); vus.push(`${cmd} ${t}`);
+    if (/EncryptableVolume/.test(t)) { if (bitlocker instanceof Error) throw bitlocker; return bitlocker; }
+    if (/Get-Disk/.test(t)) return W_DISQUES;
+    if (/Get-Partition/.test(t)) return W_PARTS;
+    if (/Get-Volume/.test(t)) return W_VOLUMES;
+    return '[]';
+  };
+  return { lancer, vus };
+}
+const partition = (d: Awaited<ReturnType<ReturnType<typeof sourceReelle>['lister']>>, lettre: string) => d[0].partitions.find((p) => p.montage === `${lettre}:`)!;
+
+test('étape 0 · Windows, vraie source : un volume BitLocker protégé est vu « chiffré (BitLocker) » (il était vu non chiffré)', async () => {
+  // Sortie enregistrée de la lecture BitLocker (Win32_EncryptableVolume : lettre, protection, conversion ; jamais de clé).
+  const sortie = JSON.stringify({ edition: 'Professional', lecture: 'ok', volumes: [{ DriveLetter: 'C:', ProtectionStatus: 1, ConversionStatus: 1 }, { DriveLetter: 'D:', ProtectionStatus: 0, ConversionStatus: 0 }] });
+  const f = fauxWindows(sortie);
+  const d = await sourceReelle('win32', f.lancer).lister();
+  assert.equal(partition(d, 'C').chiffre, 'bitlocker', 'C: est chiffré par BitLocker');
+  assert.equal(partition(d, 'D').chiffre, undefined, 'D: n\'est pas chiffré');
+  assert.equal(partition(d, 'D').chiffreInconnu, undefined, 'D: est lu, donc pas inconnu');
+  assert.ok(f.vus.some((x) => /EncryptableVolume/.test(x)), 'la lecture BitLocker est lancée');
+  // La commande ne demande jamais un protecteur ni une clé de récupération.
+  for (const x of f.vus) assert.doesNotMatch(x, /KeyProtector|RecoveryPassword|NumericalPassword|Get-BitLockerVolume|manage-bde/i);
+});
+
+test('étape 0 · Windows : une protection BitLocker SUSPENDUE reste un disque BitLocker (Genèse n\'y touche pas)', async () => {
+  const sortie = JSON.stringify({ edition: 'Professional', lecture: 'ok', volumes: [{ DriveLetter: 'C:', ProtectionStatus: 0, ConversionStatus: 1 }, { DriveLetter: 'D:', ProtectionStatus: 0, ConversionStatus: 0 }] });
+  const d = await sourceReelle('win32', fauxWindows(sortie).lancer).lister();
+  assert.equal(partition(d, 'C').chiffre, 'bitlocker');
+});
+
+test('étape 0 · Windows : sans les droits d\'administrateur, l\'état BitLocker est « inconnu », jamais « non chiffré »', async () => {
+  for (const sortie of [
+    JSON.stringify({ edition: 'Professional', lecture: 'droits-manquants', volumes: [] }),
+    new Error('commande refusée'),
+    '',
+  ]) {
+    const d = await sourceReelle('win32', fauxWindows(sortie).lancer).lister();
+    for (const l of ['C', 'D']) {
+      assert.equal(partition(d, l).chiffre, undefined);
+      assert.equal(partition(d, l).chiffreInconnu, true, `${l}: inconnu (${sortie instanceof Error ? 'erreur' : sortie || 'vide'})`);
+    }
+  }
+});

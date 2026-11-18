@@ -57,6 +57,11 @@ import { fileURLToPath } from 'node:url';
 import { nextRun } from '../cron/cron.ts';
 import { lineDiff } from '../yggdrasil/skills.ts';
 import { BANNER, c, printEvent, table } from './ui.ts';
+import { couper, phrase, rendre, verifierDisqueOdin } from '../securite/disque-chiffre.ts';
+import { machineKeyDir } from '../vault.ts';
+import { backupDir } from '../guard/watch.ts';
+import { inContainer } from '../machines/admin.ts';
+import { selfIdentity } from '../tools/scripts.ts';
 
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith('--')));
@@ -463,6 +468,28 @@ async function doctor(): Promise<void> {
   {
     const w = cfg.web, where = { local: 'cette machine seulement', lan: `réseau local (${allowedNetworks(w).join(', ') || 'aucun réseau privé détecté'})`, wan: w.behindProxy ? 'Internet via un proxy HTTPS' : 'Internet' }[w.access];
     ok(w.access !== 'wan' || servesTls(w) || w.behindProxy, `Interface web : ${where}${servesTls(w) ? ', HTTPS' : ''}, port ${w.port}`, 'Internet sans HTTPS');
+  }
+  {
+    // Disque d'Odin chiffré ? (SEC-28 : il le dit et guide, sans rien bloquer ; il ne lance aucun chiffrement et ne
+    // lit jamais de clé : voir securite/disque-chiffre.ts pour les seules lectures faites.)
+    const langue = Intl.DateTimeFormat().resolvedOptions().locale;
+    try {
+      const linux = process.platform === 'linux';
+      let cgroup = ''; if (linux) { try { cgroup = readFileSync('/proc/self/cgroup', 'utf8'); } catch { /* pas de /proc */ } }
+      const bilan = await verifierDisqueOdin({
+        plateforme: process.platform,
+        chemins: { dossier: paths.home, cles: machineKeyDir(paths.home), application: fileURLToPath(new URL('../..', import.meta.url)), sauvegardes: backupDir(paths, cfg.autoBackup) },
+        lancer: async (cmd, argv) => { const r = spawnSync(cmd, argv, { encoding: 'utf8', timeout: 20_000, windowsHide: true }); if (r.error) throw r.error; return r.stdout ?? ''; },
+        ...(linux ? { conteneur: { inContainer: inContainer(cgroup), identite: selfIdentity().container } } : {}),
+      });
+      const r = rendre(bilan, langue);
+      console.log(`${r.symbole === '✓' ? c.green('✓') : r.symbole === '✗' ? c.red('✗') : c.yellow('?')} ${r.ligne}`);
+      // Coupé aux espaces à la largeur du terminal (80 si on ne la connaît pas), la suite en retrait de 6.
+      const larg = Math.max(30, (process.stdout.columns || 80) - 7);
+      const montrer = (debut: string, texte: string) => couper(texte, larg).forEach((l, i) => console.log(c.dim(`${i ? '      ' : debut}${l}`)));
+      for (const d of r.details) montrer('    ', d);
+      for (const g of r.guide) montrer('    → ', g);
+    } catch (e) { console.log(`${c.yellow('?')} ${phrase('titre', langue)}${phrase('sep', langue)}${phrase('decision.inconnu', langue)}${c.dim(` — ${(e as Error).message}`)}`); }
   }
   if (cfg.mimir.enabled) ok(true, 'Mímir actif (juge local, rien ne sort de la machine)');
   else console.log(c.dim('  (Mímir désactivé : « odin mimir enable » pour l\'activer)'));

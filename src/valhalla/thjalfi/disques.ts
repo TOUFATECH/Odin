@@ -8,6 +8,8 @@
 // PURS — ils prennent la sortie figée d'une commande et rendent la liste des disques, sans rien lancer. Pour
 // les essais, une « source simulée » rend une fausse liste : jamais un vrai disque n'est touché.
 
+import { ARGS_BITLOCKER, bitLockerPourGenese, lireBitLocker, type SortieBitLocker } from '../../securite/disque-chiffre.ts';
+
 /** Le genre d'un disque, deviné par le bus et la taille (pour l'icône de la page, façon Utilitaire de disque). */
 export type Genre = 'cle' | 'disque-externe' | 'ssd' | 'carte' | 'interne';
 /** Un système reconnu sur une partition, d'après son système de fichiers et son nom. */
@@ -31,6 +33,8 @@ export interface Partition {
   chiffre?: Chiffrement;
   /** le point de montage, s'il est monté */
   montage?: string;
+  /** vrai : son chiffrement n'a pas pu être lu (droits d'administrateur manquants…) — ni « chiffré » ni « non chiffré » */
+  chiffreInconnu?: true;
 }
 
 export interface Disque {
@@ -148,14 +152,14 @@ export function parseLsblk(json: string, racineSysteme?: string): Disque[] {
   return out;
 }
 
-// ---------------- Windows : Get-Disk / Get-Partition / Get-Volume / manage-bde ----------------
+// ---------------- Windows : Get-Disk / Get-Partition / Get-Volume / BitLocker (Win32_EncryptableVolume) ----------------
 /** Ce qu'Odin ramasse côté Windows (chaque commande rendue en JSON, réunies dans un objet). */
 export interface SortieWindows {
   disks: Array<{ Number: number; FriendlyName?: string; Model?: string; Size?: number; BusType?: string; IsBoot?: boolean; IsSystem?: boolean; Path?: string }>;
   partitions: Array<{ DiskNumber: number; PartitionNumber: number; DriveLetter?: string | null; Size?: number; Type?: string; GptType?: string; IsBoot?: boolean; IsSystem?: boolean }>;
   volumes: Array<{ DriveLetter?: string | null; FileSystem?: string | null; FileSystemLabel?: string | null; Size?: number; SizeRemaining?: number }>;
-  /** la protection BitLocker par lettre de lecteur (sortie de manage-bde -status, déjà réduite) */
-  bitlocker?: Record<string, boolean>;
+  /** BitLocker par lettre de lecteur (lecture de securite/disque-chiffre.ts, déjà réduite) : vrai, faux, ou « inconnu » si elle n'a pas pu se faire */
+  bitlocker?: Record<string, boolean | 'inconnu'>;
 }
 const BUS_WIN: Record<string, string> = { USB: 'usb', SATA: 'sata', NVMe: 'nvme', RAID: 'raid', SAS: 'sas', ATA: 'sata', SD: 'sd', MMC: 'sd', 'File Backed Virtual': 'virtuel' };
 
@@ -183,7 +187,9 @@ export function parseGetDisk(w: SortieWindows): Disque[] {
       };
       const sys: SystemePresent | undefined = efi ? 'efi' : recovery ? 'recovery' : systemeDe(v?.FileSystem ?? undefined, v?.FileSystemLabel ?? undefined);
       if (sys) part.systeme = sys;
-      if (lettre && w.bitlocker?.[lettre]) part.chiffre = 'bitlocker';
+      const bl = lettre ? w.bitlocker?.[lettre] : undefined;
+      if (bl === true) part.chiffre = 'bitlocker';
+      else if (bl === 'inconnu') part.chiffreInconnu = true;
       parts.push(part);
     }
     const chemin = d.Path ?? `\\\\.\\PhysicalDrive${d.Number}`;
@@ -237,6 +243,12 @@ export function sourceReelle(plateforme: NodeJS.Platform, lancer: Lanceur, racin
           partitions: lire(await ps('Get-Partition | Select-Object DiskNumber,PartitionNumber,DriveLetter,Size,Type,GptType,IsBoot,IsSystem')),
           volumes: lire(await ps('Get-Volume | Select-Object DriveLetter,FileSystem,FileSystemLabel,Size,SizeRemaining')),
         };
+        // BitLocker par lettre (Get-Volume rend « NTFS » pour un volume BitLocker ouvert). Lecture seule, sans clé ;
+        // sans les droits d'administrateur, chaque lettre vaut « inconnu », jamais « non chiffré ».
+        let bl: SortieBitLocker = { lecture: 'illisible', parLettre: {} };
+        try { bl = lireBitLocker(await lancer('powershell', [...ARGS_BITLOCKER])); } catch { /* lecture impossible : inconnu */ }
+        const lettres = new Set([...w.volumes, ...w.partitions].map((x) => String(x.DriveLetter ?? '').toUpperCase()).filter((l) => /^[A-Z]$/.test(l)));
+        w.bitlocker = Object.fromEntries([...lettres].map((l) => [l, bitLockerPourGenese(bl.parLettre[l])]));
         return parseGetDisk(w);
       }
       let json = '[]'; try { json = await lancer('lsblk', ['-J', '-O', '-b']); } catch { /* lsblk absent */ }
