@@ -4,6 +4,8 @@
 // Aucune page HTML construite à partir de texte : tout est créé élément par élément.
 (() => {
   'use strict';
+  // Textes du retour vers Odin (en haut de l'écran).
+  const MOTS = { retour: '← Odin', retourTitre: 'Revenir à Odin' };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // ---------- Clé de tablette : lue dans #cle=…, gardée sur l'appareil, retirée de l'adresse ----------
   let key = '';
@@ -266,6 +268,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
   const hello = () => { const h = new Date().getHours(); return h < 5 ? 'Bonne nuit' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : h < 22 ? 'Bonsoir' : 'Bonne nuit'; };
   const match = (t) => !q || t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q);
 
+  // Le retour vers Odin : seulement pour une session (pas avec une clé de tablette) et quand la page n'est pas dans un cadre.
+  const retourVisible = (cle, encadre) => !cle && !encadre;
   function nav(id, label, ic) { return el('button', { class: 'nav', 'aria-label': label, title: label, 'aria-current': view === id ? 'page' : null, onclick: () => { view = id; draw(); } }, icon(ic, 22)); }
   function draw() {
     if (!D) return;
@@ -276,6 +280,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       el('div', { class: 'top' },
         el('div', { class: 'hello' }, el('h1', {}, `${hello()}${D.name ? `, ${D.name}` : ''} !`), el('p', {}, `${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · semaine ${week(new Date())}`)),
         el('div', { class: 'tools' },
+          retourVisible(key, window.top !== window) ? el('a', { class: 'btn retour', href: '/', title: MOTS.retourTitre, 'aria-label': MOTS.retourTitre, style: { minHeight: '44px', minWidth: '44px', color: 'var(--text)' } }, MOTS.retour) : null,
           el('label', { class: 'search' }, icon('search', 18), el('input', { type: 'search', placeholder: 'Chercher un appareil, une appli…', 'aria-label': 'Chercher', value: q, oninput: (e) => { q = e.target.value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); drawSoon(); } })),
           el('button', { class: 'round', 'aria-label': `Alertes (${unread})`, onclick: () => pet.news() }, icon('bell', 20), unread ? el('span', { class: 'dot' }, String(unread)) : null),
           el('button', { class: 'round', 'aria-label': voice ? 'Couper la voix de la mascotte' : 'Activer la voix de la mascotte', 'aria-pressed': String(voice), onclick: () => { voice = !voice; try { localStorage.setItem('odin.maison.voix', voice ? '1' : '0'); } catch { /* */ } draw(); if (voice) pet.say('Je parlerai à voix haute.', 'ok', 'joie'); } }, icon('sound', 20)))),
