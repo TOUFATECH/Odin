@@ -78,6 +78,10 @@ Dans le lecteur, un film qu'Odin doit convertir pour ton navigateur montre sa **
 
 **Envoyer un média depuis ton téléphone ou ton ordinateur** : toujours dans Odéon, sous les dossiers, la zone « Envoyer des films, séries ou musique depuis cet appareil ». Choisis le dossier d'arrivée parmi ceux que tu as déclarés, puis un ou plusieurs fichiers. Chaque fichier a sa barre ; une coupure ne fait pas tout recommencer. Le fichier reçu est analysé (antivirus, puis sa vraie nature lue dans son contenu) avant d'être rangé, sans jamais écraser un fichier ; un refus dit pourquoi. Toi seul peux envoyer. Un envoi est refusé s'il ne laissait pas un dixième du disque libre, et un envoi abandonné est effacé au bout de deux jours.
 
+**Le demander dans la discussion, puis « Lire »** : écris par exemple « lance-moi Brume », « joue Brume » ou « mets-moi Jardin Noir S02E10 » (ou « à la saison 3 épisode 7 »). Odin cherche le titre dans ta bibliothèque de Vénus, sans modèle de langue, et sa réponse porte un bouton **« Lire »** : un clic ouvre Vénus et démarre le lecteur à l'endroit où tu t'étais arrêté. Rien ne se lance sans ce clic. Cela marche aussi en anglais, en espagnol, en allemand et en japonais. Si un titre porte aussi le nom d'autre chose, Odin te pose la question au lieu de choisir. Une personne qui n'a pas le droit d'ouvrir Vénus n'apprend rien de ta bibliothèque. Le bouton n'existe que dans la discussion de l'application : sur une messagerie (Telegram, Signal, WhatsApp…), par le raccourci du téléphone ou dans une notification, la réponse arrive sans lui.
+
+**Les titres dans toutes les écritures** : un film, une série ou un album dont le titre est écrit en japonais, en arabe, en cyrillique, en grec, en chinois, en coréen, en hindi… a son propre identifiant et se retrouve par son titre ou ses premiers mots, au lieu de se confondre avec les autres sous « sans-titre ». Un titre qui avait déjà son identifiant, en alphabet latin ou mêlé, le garde à l'identique : sa reprise de lecture et ses « vus » ne bougent pas.
+
 **Pas encore là** : le téléchargement de films et de séries fait par Odin lui-même (l'onglet Acquisition ne fait que montrer, en lecture seule). YouTube et l'envoi vers une télé existent, mais passent encore par un outil extérieur ; les faire par Odin lui-même est à venir. Les phrases ci-dessous (« mets le dernier épisode… ») passent par un serveur Vénus à part, relié dans les réglages.
 
 ### Venus (Vénus) : épisodes et VF
@@ -408,6 +412,20 @@ Réglages → Sauvegarde : une sauvegarde chiffrée chaque nuit, dans le dossier
 
 Accueil → Routines : « Créer le résumé du matin » programme chaque jour, à l'heure choisie, un résumé (météo vérifiée, état du réseau, rappels du jour, ce qui mérite ton attention).
 
+## Automatisations : l'éditeur de blocs
+
+Dans **Automatisations**, une automatisation est une suite de blocs reliés par des fils.
+
+- **Le menu d'un bloc** (clic droit, appui long ou « ⋯ ») : exécuter ce bloc seul, le renommer, le copier, y mettre une note, le retirer.
+- **Copier et coller un bloc** : « Copier » dans son menu, ou Ctrl+C sur le bloc choisi, puis Ctrl+V. La copie prend un nom libre (« Nom 2 »…), garde ses réglages et sa note, mais pas ses fils. Elle se pose à la première place libre sous le bloc copié, sans recouvrir un autre bloc. La copie reste dans la page : rien ne part dans le presse-papiers de ton appareil. Un déclencheur « webhook » ou « formulaire » collé reçoit sa propre adresse quand tu enregistres.
+- **Annuler et refaire** : Ctrl+Z et Ctrl+Y, ou les boutons « Annuler » et « Refaire », jusqu'à cent gestes. Seul l'écran change : rien n'est envoyé à Odin tant que tu n'enregistres pas. Ce qui a déjà été fait (Tester, Exécuter ce bloc seul, Enregistrer) ne s'annule pas.
+- **Zoomer** : les touches + et −.
+- Ces raccourcis ne jouent pas pendant que tu écris dans un champ.
+- **Dernières exécutions** : quand un seul bloc a tourné, la ligne dit « bloc seul : » suivi de son nom.
+- **Relances après une erreur** : de 0 à 5. Un réglage qui n'est pas un nombre entier ne fait aucune relance.
+
+**Les liens entre applis.** Les 137 liens qu'Odin fait déjà d'une appli à l'autre sont montrés dans la fenêtre, rangés par appli, et chacun dit s'il protège. Aujourd'hui, **50 se coupent** d'un interrupteur, par toi seul, depuis ton navigateur : 21 liens directs et les 29 liens qui passent par une alerte. Couper un lien qui protège demande une confirmation qui dit ce qui ne sera plus protégé. Un lien qui protège se rétablit seul (au bout d'une heure par défaut, 24 heures au plus) ; les autres restent coupés jusqu'à ce que tu les rétablisses. Pour un lien qui passe par une alerte, l'alerte reste visible dans Odin : seul son message ne part plus, et l'appli continue son travail. Les 87 autres liens ne se coupent pas encore.
+
 ## Mains libres
 
 Bouton « Mains libres » dans la discussion : dis « Odin, … » et ta demande part toute seule (ou « Odin », puis ta demande). Utilise la reconnaissance vocale du navigateur (Chrome, Edge, Safari) ; sur Chrome, la voix passe par le service de reconnaissance de Google. Coupe-le d'un toucher.
@@ -591,7 +609,7 @@ Réglages → Personnes (ou `odin pairing approve telegram CODE --membre Léa`).
 
 Quand quelqu'un écrit au bot Telegram, sa demande apparaît dans Réglages → Personnes : **Accepter comme membre**, **Comme invité**, ou **Refuser**.
 
-Monter le rôle ou l'autonomie de quelqu'un, créer un propriétaire, ou relier une identité (ex. `telegram:123…`) à une personne qui a plus de droits qu'elle n'en avait demande ta confirmation, qui dit pour qui et avant → après (ex. « rôle : member → owner ») ; baisser s'applique tout de suite. Accepter une demande comme membre (ou créer un membre neuf) est déjà ton geste à toi : il ne redemande pas de confirmation, même si tu lui donnes l'autonomie « autonome ».
+Monter le rôle ou l'autonomie de quelqu'un, ou créer un propriétaire, demande ta confirmation, qui dit pour qui et avant → après (ex. « rôle : member → owner ») ; baisser s'applique tout de suite. **Lier un compte de messagerie ou un téléphone à une personne** (ex. `telegram:123…`) demande **toujours** ta confirmation, même si elle n'a pas plus de droits : la demande dit les droits que ce compte reçoit (son rôle et, pour un membre, son autonomie, avant → après). Délier s'applique tout de suite. Chaque droit donné ou limité (rôle, autonomie, accès aux applis, groupes, compte, identité liée) est écrit au journal des personnes : qui, quoi, pour qui, avant → après, quand — jamais un mot de passe ni une clé. La personne dont tu limites les droits n'en est pas prévenue. Accepter une demande comme membre (ou créer un membre neuf) est déjà ton geste à toi : il ne redemande pas de confirmation, même si tu lui donnes l'autonomie « autonome ».
 
 **Les six choses d'un membre, en détail.** Elles ne valent que quand il les demande lui-même, en direct : pas dans une tâche programmée, pas sans surveillance, pas après la lecture d'un contenu extérieur. La lumière, c'est une lampe nommée (ni « tout allumer », ni une prise, ni une serrure). Si l'antivirus juge dangereux un fichier qu'un membre veut convertir, la conversion est refusée, le fichier reste à sa place, et **toi**, tu es prévenu : le mettre à l'écart reste ta décision. Une analyse qui mettrait d'elle-même un fichier à l'écart (l'analyse d'un dossier entier) t'est demandée. Une tâche qu'un membre veut programmer attend ta validation. Un **invité** ne gagne rien de tout cela.
 

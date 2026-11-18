@@ -1,6 +1,6 @@
 {
   "note": "L'état de chaque chose d'Odin : « fait » (commité), « en cours » (écrit, pas encore commité, ou en relecture), « à venir » (décrit dans une note, pas encore écrit). Ce fichier est la SEULE source : le guide (site/guide.html) et le README la lisent (npm run guide). Passer un élément à « fait » = changer son « etat » et donner son « commit » ; l'essai test/doc-etat.test.ts refuse « fait » si un de ses fichiers n'est pas commité.",
-  "maj": "2026-11-17",
+  "maj": "2026-11-18",
   "elements": [
     {
       "id": "applis",
@@ -433,10 +433,10 @@
     },
     {
       "id": "soul-v3",
-      "nom": "Soul, version 3 : trouver la bonne appli",
+      "nom": "Soul, version 3 : trouver la bonne appli — le tour 7",
       "etat": "en cours",
       "famille": "Brain et Soul",
-      "resume": "Aucun modèle n'est livré : un Odin neuf commence avec un Soul vide. Un banc figé (toutes les applis, quinze langues, demandes jamais vues) mesure l'aiguilleur de Soul : la bonne appli du premier coup pour 581 demandes sur 690 au quatrième tour comme au cinquième (576 au troisième) : écrire plus d'exemples ne suffit plus, un sixième tour essaie trois autres façons de calculer. Cet aiguilleur n'est pas branché sur la discussion (décision du propriétaire : rien à brancher pour l'instant) ; c'est toujours Logos qui choisit l'appli. L'objectif : la bonne application à 100 %."
+      "resume": "En cours : le tour 7. Mesuré une fois au jeu figé : 609 bonnes applis du premier coup sur 690 (605 au tour 6). Pas encore enregistré : sa préparation est d'abord ramenée sous la limite de temps de la suite d'essais, et un défaut trouvé à la relecture est à corriger. Aucun modèle n'est livré : un Odin neuf commence avec un Soul vide. L'aiguilleur n'est pas branché sur la discussion. L'objectif : la bonne application à 100 %."
     },
     {
       "id": "medias-recus",
@@ -470,42 +470,124 @@
       "nom": "La fenêtre Profil",
       "etat": "fait",
       "famille": "Odin",
-      "resume": "Un onglet Profil : la liste des personnes qui parlent à Odin, la carte de chacune (rôle, autonomie, identités et leur preuve, accès aux applis en lecture, ta note) et son historique. Sur la carte, « Ce qu'Odin a observé » : langues employées, longueur des demandes, heures habituelles, part de demandes abouties, chacune avec son nombre d'observations et grisée sous vingt ; toi seul peux cacher ou corriger une mesure. Toi, tu vois tout ; un membre, seulement la sienne, et il peut te signaler une erreur ; un invité, rien. Effacer l'historique d'une personne ou d'une période passe par une confirmation qui dit ce qui part et ce qui reste ailleurs. Les droits se règlent encore dans Réglages → Personnes."
+      "resume": "Un onglet Profil : la liste des personnes qui parlent à Odin, la carte de chacune (rôle, autonomie, identités et leur preuve, accès aux applis en lecture, ta note) et son historique. Sur la carte, « Ce qu'Odin a observé » : langues employées, longueur des demandes, heures habituelles, part de demandes abouties, chacune avec son nombre d'observations et grisée sous vingt ; toi seul peux cacher ou corriger une mesure. Toi, tu vois tout ; un membre, seulement la sienne, et il peut te signaler une erreur ; un invité, rien. Effacer l'historique d'une personne ou d'une période passe par une confirmation qui dit ce qui part et ce qui reste ailleurs. Les droits se règlent encore dans Réglages → Personnes.",
+      "fichiers": [
+        "src/web/pages/personnes.js",
+        "test/profil-page.test.ts"
+      ],
+      "commit": "c6dea704"
     },
     {
       "id": "automatisations-editeur",
-      "nom": "Automatisations : le « + », les vrais champs, les fils, les données, le menu d'un bloc, les liens entre applis montrés et les premiers qui se coupent",
+      "nom": "Automatisations : le « + », les vrais champs, les fils, les données, le menu d'un bloc, copier, coller, annuler, refaire, et 50 liens entre applis qui se coupent",
       "etat": "fait",
       "famille": "Applis",
-      "resume": "Un « + » sur chaque bloc, au centre d'une fenêtre vide et au double-clic ouvre la grille des applis puis leurs fonctions, et pose le bloc suivant, déjà relié. Le bloc d'une appli montre son icône et le nom de sa fonction ; son panneau montre un champ par réglage, avec son aide (le texte reste derrière « Réglages avancés »). À côté d'un champ, « Données » ouvre la liste des données des blocs d'avant, vues au dernier passage : celle que tu choisis se pose en pastille. Toucher un fil ouvre un petit menu (retirer le lien, ajouter un bloc au milieu), et l'on peut relier en tirant un fil. Un clic droit, un appui long ou le « ⋯ » d'un bloc ouvre son menu : l'exécuter seul (il reçoit les données vues au dernier passage, les blocs suivants ne tournent pas, et un bloc qui agit te demande une confirmation à chaque fois), le renommer, y mettre une note, le retirer ; quand tu renommes un bloc, les données que les autres blocs prennent chez lui suivent son nouveau nom. Les 137 liens déjà écrits entre applis sont montrés dans la fenêtre, rangés par appli, et chacun dit s'il protège. Trente-six d'entre eux se coupent et se rétablissent d'un interrupteur, par toi seul, depuis ton navigateur : couper un lien qui protège demande une confirmation qui dit ce qui ne sera plus protégé, lève une alerte, et le lien se rétablit seul (1 heure par défaut, 24 heures au plus). Pour un lien qui passe par une alerte (quinze le font déjà), l'alerte reste visible dans Odin et seul son message ne part plus ; l'appli continue son travail."
+      "resume": "Un « + » sur chaque bloc, au centre d'une fenêtre vide et au double-clic ouvre la grille des applis puis leurs fonctions, et pose le bloc suivant, déjà relié. Le bloc d'une appli montre son icône et le nom de sa fonction ; son panneau montre un champ par réglage, avec son aide (le texte reste derrière « Réglages avancés »). À côté d'un champ, « Données » ouvre la liste des données des blocs d'avant, vues au dernier passage : celle que tu choisis se pose en pastille. Toucher un fil ouvre un petit menu (retirer le lien, ajouter un bloc au milieu), et l'on peut relier en tirant un fil. Un clic droit, un appui long ou le « ⋯ » d'un bloc ouvre son menu : l'exécuter seul (il reçoit les données vues au dernier passage, les blocs suivants ne tournent pas, et un bloc qui agit te demande une confirmation à chaque fois), le renommer, le copier, y mettre une note, le retirer ; quand tu renommes un bloc, les données que les autres blocs prennent chez lui suivent son nouveau nom. « Copier » (ou Ctrl+C) puis Ctrl+V colle une copie au nom libre, avec ses réglages et sa note, sans ses fils, à la première place libre sous le bloc copié ; elle reste dans la page, jamais dans le presse-papiers de ton appareil, et un déclencheur webhook ou formulaire collé reçoit sa propre adresse. Ctrl+Z et Ctrl+Y, ou « Annuler » et « Refaire », défont et refont un geste de l'éditeur (cent au plus) sans rien envoyer à Odin ; + et − zooment ; aucun raccourci pendant que tu écris dans un champ. Dans « Dernières exécutions », une ligne dit « bloc seul : » et le nom du bloc quand un seul bloc a tourné ; un réglage de relance qui n'est pas un nombre entier ne relance pas. Les 137 liens déjà écrits entre applis sont montrés dans la fenêtre, rangés par appli, et chacun dit s'il protège. Cinquante d'entre eux se coupent et se rétablissent d'un interrupteur, par toi seul, depuis ton navigateur (21 liens directs et les 29 liens qui passent par une alerte) : couper un lien qui protège demande une confirmation qui dit ce qui ne sera plus protégé, lève une alerte, et le lien se rétablit seul (1 heure par défaut, 24 heures au plus). Pour un lien qui passe par une alerte, l'alerte reste visible dans Odin et seul son message ne part plus ; l'appli continue son travail. Les 87 autres liens ne se coupent pas encore.",
+      "fichiers": [
+        "src/web/flows.js",
+        "src/web/talos-api.ts",
+        "src/valhalla/links.ts",
+        "test/liens-coupes-alertes.test.ts",
+        "test/talos-moteur-petits.test.ts"
+      ],
+      "commit": "448469f1"
     },
     {
       "id": "cerveau-3d",
       "nom": "Graphe 3D du Cerveau",
       "etat": "fait",
       "famille": "Brain et Soul",
-      "resume": "Le choix « Graphe | Graphe 3D » à côté du graphe du Cerveau : les mêmes notes et les mêmes liens dans l'espace, groupés par type de note ; toucher une note l'ouvre. Au-delà de 600 éléments, les plus liés sont montrés, et c'est dit à l'écran."
+      "resume": "Le choix « Graphe | Graphe 3D » à côté du graphe du Cerveau : les mêmes notes et les mêmes liens dans l'espace, groupés par type de note ; toucher une note l'ouvre. Au-delà de 600 éléments, les plus liés sont montrés, et c'est dit à l'écran.",
+      "fichiers": [
+        "src/web/brain.js",
+        "test/cerveau-graphe-3d.test.ts"
+      ],
+      "commit": "861d983e"
     },
     {
       "id": "ouvertures",
       "nom": "Validations des actions qui ouvrent quelque chose",
       "etat": "fait",
       "famille": "Sûreté",
-      "resume": "Une appli ou une automatisation ne peut plus, par un appel entre applis, ouvrir un port ni publier quelque chose sur Internet sans que tu aies validé l'action de départ : c'est refusé, et tu es prévenu. Fermer un port reste libre. Démarrer le proxy, le tunnel, le VPN ou le DNS, publier un partage, une page publique ou le portail de Persona, libérer un site de la connexion unique, changer l'adresse du VPN ou donner à ses appareils un serveur de noms hors de la maison : la validation dit quoi, où et vers qui. Un bloc d'appel web d'une automatisation, comme ses déclencheurs « flux » et « surveiller une page », ne peut pas non plus viser Odin lui-même ni sa machine, y compris par l'adresse de son tunnel ou par un nom que le proxy mène à lui. Avant de lancer une automatisation qu'il a écrite lui-même et qui agit (appel web, note, message…), Odin te demande ton accord en disant ce que fera chaque bloc ; tant que tu ne l'as pas validée, une autre automatisation ne peut pas la lancer non plus."
+      "resume": "Une appli ou une automatisation ne peut plus, par un appel entre applis, ouvrir un port ni publier quelque chose sur Internet sans que tu aies validé l'action de départ : c'est refusé, et tu es prévenu. Fermer un port reste libre. Démarrer le proxy, le tunnel, le VPN ou le DNS, publier un partage, une page publique ou le portail de Persona, libérer un site de la connexion unique, changer l'adresse du VPN ou donner à ses appareils un serveur de noms hors de la maison : la validation dit quoi, où et vers qui. Un bloc d'appel web d'une automatisation, comme ses déclencheurs « flux » et « surveiller une page », ne peut pas non plus viser Odin lui-même ni sa machine, y compris par l'adresse de son tunnel ou par un nom que le proxy mène à lui. Avant de lancer une automatisation qu'il a écrite lui-même et qui agit (appel web, note, message…), Odin te demande ton accord en disant ce que fera chaque bloc ; tant que tu ne l'as pas validée, une autre automatisation ne peut pas la lancer non plus.",
+      "fichiers": [
+        "src/valhalla/service.ts",
+        "test/ouvertures-validation.test.ts"
+      ],
+      "commit": "4d022a36"
     },
     {
       "id": "windows-chemins",
       "nom": "Les chemins sous Windows",
       "etat": "fait",
       "famille": "Odin",
-      "resume": "Les copies de machines, les fichiers retrouvés et les journaux trouvent le bon chemin sous Windows ; Odin y refuse de ranger des fichiers dans les dossiers du système, même désignés par un autre nom ; les essais n'émettent plus rien sur le vrai réseau."
+      "resume": "Les copies de machines, les fichiers retrouvés et les journaux trouvent le bon chemin sous Windows ; Odin y refuse de ranger des fichiers dans les dossiers du système, même désignés par un autre nom ; les essais n'émettent plus rien sur le vrai réseau.",
+      "fichiers": [
+        "src/valhalla/forge/forge.ts",
+        "src/valhalla/ymir/local.ts"
+      ],
+      "commit": "4594e817"
+    },
+    {
+      "id": "venus-lire",
+      "nom": "Vénus : le bouton « Lire » dans la discussion, et les titres dans toutes les écritures",
+      "etat": "fait",
+      "famille": "Médias",
+      "resume": "« Lance-moi », « joue » ou « mets-moi » suivis d'un titre de ta bibliothèque, avec « S02E10 » ou « à la saison 3 épisode 7 », trouvent le bon fichier sans modèle de langue, aussi en anglais, espagnol, allemand et japonais. La réponse porte un bouton « Lire » qui ouvre Vénus et démarre le lecteur à la reprise ; rien ne se lance sans ce clic. Un titre qui porte le nom d'autre chose fait poser la question au lieu de choisir ; une personne sans droit sur Vénus n'apprend rien de la bibliothèque ; le bouton n'existe que dans la discussion de l'application (ni sur les messageries, ni par le raccourci du téléphone, ni dans les notifications). Un titre écrit en japonais, arabe, cyrillique, grec, chinois, coréen, hindi… a son propre identifiant et se retrouve par son titre, au lieu de se confondre sous « sans-titre » ; un titre qui avait déjà son identifiant le garde, avec sa reprise et ses « vus ».",
+      "fichiers": [
+        "src/valhalla/modules/venus.ts",
+        "src/valhalla/venus/bibliotheque.ts",
+        "test/venus-lire-discussion.test.ts",
+        "test/venus-titres-ecritures.test.ts"
+      ],
+      "commit": "20556242"
+    },
+    {
+      "id": "profil-lier",
+      "nom": "Profil, les droits : lier un compte à une personne toujours validé, chaque droit au journal",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Lier un compte de messagerie ou un téléphone à une personne demande toujours ta validation, qui montre le rôle et l'autonomie que ce compte reçoit, avant → après ; délier s'applique tout de suite. Chaque droit donné ou limité (rôle, autonomie, accès aux applis, groupes, compte, identité liée) est écrit au journal des personnes, sans mot de passe ni clé. La personne dont les droits sont limités n'est pas prévenue.",
+      "fichiers": [
+        "src/valhalla/sso/droits-journal.ts",
+        "test/profil-droits.test.ts"
+      ],
+      "commit": "d2bdbb0b"
+    },
+    {
+      "id": "soul-tour6",
+      "nom": "Soul, version 3, tour 6 : 605 bonnes applis du premier coup sur 690",
+      "etat": "fait",
+      "famille": "Brain et Soul",
+      "resume": "Au jeu figé (toutes les applis, quinze langues, demandes jamais vues), l'aiguilleur de Soul trouve la bonne appli du premier coup pour 605 demandes sur 690 (581 aux tours 4 et 5) : un second temps reclasse ses trois premières applis. Sa préparation est environ deux fois plus rapide, sans changer une seule réponse (mesure non officielle). Aucun modèle ni poids n'est livré dans le dépôt. Dit franchement : cet aiguilleur n'est pas encore branché sur Odin (décision du propriétaire : rien à brancher pour l'instant) ; dans la discussion, c'est toujours Logos qui choisit l'appli.",
+      "fichiers": [
+        "src/brain/nous/reclasse.ts",
+        "src/brain/nous/aiguilleur.ts",
+        "test/nous-aiguilleur-second-temps.test.ts",
+        "test/nous-aiguilleur-cout.test.ts"
+      ],
+      "commit": "ad844d3a"
     },
     {
       "id": "retrait-externes",
       "nom": "Retirer les derniers modèles qui ne sont pas ceux d'Odin",
       "etat": "en cours",
       "famille": "Brain et Soul",
-      "resume": "Tranche en cours : plus aucun fournisseur de modèle de langue construit, les clés de ces services effacées du coffre, Métis retiré. Aujourd'hui, ces branchements existent encore dans le code."
+      "resume": "Une tranche est écrite et attend ta décision avant d'être enregistrée : la porte du modèle, et la migration qui efface du coffre les clés des services de modèles. Ensuite : plus aucun fournisseur de modèle de langue construit, Métis retiré. Aujourd'hui, ces branchements existent encore dans le code."
+    },
+    {
+      "id": "maquette-accueil",
+      "nom": "La maquette validée de l'Accueil et de l'écran de la maison",
+      "etat": "en cours",
+      "famille": "Odin",
+      "resume": "Le plan est écrit : 80 livraisons (lots 0 à 62). Aucun lot n'est encore enregistré : rien de cette maquette n'est dans Odin aujourd'hui. Le premier lot (les thèmes rangés par familles, 49 au choix au lieu de 33) est en train d'être écrit. D'abord les 73 thèmes de la maquette (plus le choix « Automatique ») dans Réglages → Apparence, deux menus (noms à choisir) vers l'accueil et l'écran de la maison, les blocs des automatisations en cercles ; ensuite le verre, la grille de l'accueil, les widgets de tes applis avec tes vraies données, l'écran de la maison jusqu'à la maison 3D, et les bulles des automatisations."
+    },
+    {
+      "id": "lieu-suppose",
+      "nom": "Ne plus montrer comme ta ville une ville seulement supposée",
+      "etat": "à venir",
+      "famille": "Odin",
+      "resume": "Tant que tu n'as pas réglé ta ville, l'accueil ne montrera plus comme la tienne une ville seulement supposée d'après l'horloge de la machine : il dira que c'est une supposition et proposera de régler ta ville sur place. Pas commencé."
     },
     {
       "id": "propres-modeles",
@@ -523,17 +605,17 @@
     },
     {
       "id": "profil-suite",
-      "nom": "Profil, la suite : la carte et le graphe d'une personne, ses droits",
-      "etat": "à venir",
+      "nom": "Profil, la suite : les droits sur la fiche, le graphe d'une personne",
+      "etat": "en cours",
       "famille": "Odin",
-      "resume": "Le graphe d'une personne ; limiter ou donner des droits depuis la fiche (une personne dont l'accès est limité l'apprend seulement si elle essaie) ; demander à Odin « qui a demandé quoi, quand » ; la mesure des applis les plus demandées ; un portrait en phrases quand son propre modèle sera entraîné."
+      "resume": "En cours : le bloc « Droits » sur la carte d'une personne (limiter en un geste, donner avec ta validation, « Couper tout ») ; écrit en partie, pas encore relu ni enregistré. Aujourd'hui, les droits se règlent dans Réglages → Personnes. À venir : le graphe d'une personne ; demander à Odin « qui a demandé quoi, quand » ; la mesure des applis les plus demandées ; un portrait en phrases quand son propre modèle sera entraîné."
     },
     {
       "id": "automatisations-editeur-suite",
       "nom": "Automatisations : la suite des gestes de l'éditeur de scénarios",
-      "etat": "en cours",
+      "etat": "à venir",
       "famille": "Applis",
-      "resume": "En cours : copier et coller un bloc, annuler et refaire ; couper les liens d'alerte des applis qui restent. À venir, une étape à la fois : l'exécution montrée bloc par bloc, les branches et les conditions sur un fil, le planning réglé depuis le déclencheur, que faire en cas d'erreur ; couper les autres liens (les appels d'une appli à l'autre, les sondes) ; plus tard, un déclencheur à l'arrivée d'un mail ou d'un message."
+      "resume": "Le dessin en cercles et en bulles que tu as demandé le 18/11 : il est dans le plan de la maquette validée, pas encore codé. Une étape à la fois : l'exécution montrée bloc par bloc, les branches et les conditions sur un fil, le planning réglé depuis le déclencheur, que faire en cas d'erreur ; couper les autres liens (les appels d'une appli à l'autre, les sondes…) ; plus tard, un déclencheur à l'arrivée d'un mail ou d'un message."
     },
     {
       "id": "graphe-3d-suite",
@@ -544,10 +626,10 @@
     },
     {
       "id": "venus-complet",
-      "nom": "Vénus complet, sans rien d'extérieur",
-      "etat": "en cours",
+      "nom": "Vénus complet, sans rien d'extérieur : la suite",
+      "etat": "à venir",
       "famille": "Médias",
-      "resume": "Déjà là : envoyer un film, une série ou une musique depuis un téléphone ou un ordinateur ; dans le lecteur, la durée entière et le saut à un endroit d'un film converti à la volée ; « lance tel film, telle série, à tel épisode » trouve le bon fichier (le film, l'épisode demandé, l'épisode suivant, la première piste d'un album). En cours : un bouton « Lire » sous la réponse, dans la discussion, et la même demande dite avec tes mots, dans toutes les langues suivies. À venir : les affiches et le scan en arrière-plan ; trouver et récupérer films et séries par Odin lui-même ; YouTube et l'envoi vers une télé existent mais passent encore par un outil extérieur : les faire par Odin lui-même."
+      "resume": "Déjà là : envoyer un film, une série ou une musique depuis un téléphone ou un ordinateur ; dans le lecteur, la durée entière et le saut à un endroit d'un film converti à la volée ; « lance tel film, telle série, à tel épisode » trouve le bon fichier ; le bouton « Lire » dans la discussion ; les titres dans toutes les écritures. À venir : la même demande dans les autres langues suivies ; les affiches et le scan en arrière-plan ; trouver et récupérer films et séries par Odin lui-même ; YouTube et l'envoi vers une télé existent mais passent encore par un outil extérieur : les faire par Odin lui-même."
     },
     {
       "id": "a-valider",
