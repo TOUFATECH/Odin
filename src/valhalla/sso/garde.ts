@@ -14,7 +14,7 @@ import { sessionCookie, clearSessionCookie, SESSION_RE } from '../../web/account
 import { valhallaGet, valhallaPost } from '../../web/valhalla-api.ts';
 import { b64u, sha256, sha256hex } from './jwt.ts';
 import { auNomDe, setVerificateur, type Agissant } from './acces.ts';
-import { aDroit, setVenusUrl, lierProprietaire, messageRefus, nomAppli, noter, persona, personnes, type Personne } from './etat.ts';
+import { aDroit, setVenusUrl, lierProprietaire, messageRefus, nomAppli, noter, persona, personnes, prenomProprio, type Personne } from './etat.ts';
 import { consommerCode, erreur, issuerDe, json, routeOidc, type DepsSSO } from './oidc.ts';
 import { routeSauvegardes } from './sauvegardes.ts';
 import { routeVenus } from './fiches.ts';
@@ -62,6 +62,19 @@ export function vider(x: unknown): unknown {
 }
 /** Les pages servies à part et l'appli qui les fournit. */
 const PAGES: Array<[RegExp, string]> = [[/^\/(maison|maison\.js)$|^\/api\/maison\/|^\/api\/owntracks$/, 'gladsheim'], [/^\/(recherche|recherche\.js)$|^\/api\/recherche\//, 'volva']];
+
+/**
+ * Le refus d'une action grave à un membre : ce qu'elle ferait (la demande de confirmation de l'appli, sur une ligne,
+ * coupée à 100 caractères, avec une majuscule au début) et qui seul la confirme. Sans prénom du propriétaire,
+ * prenomProprio rend déjà « l'administrateur d'Odin » : on ne le redit pas.
+ */
+export function refusGrave(confirm: string, proprio: string): { quoi: string; texte: string } {
+  const l = [...confirm.replace(/^Confirmer : /, '').replace(/ \?$/, '').replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').replace(/\s+/g, ' ').trim()];
+  const court = l.length > 100 ? [...l.slice(0, 99), '…'] : l;
+  const quoi = (court[0] ?? '').toUpperCase() + court.slice(1).join('');
+  const qui = proprio === 'l\'administrateur d\'Odin' ? proprio : `${proprio} (le propriétaire d'Odin)`;
+  return { quoi, texte: `${quoi} : c'est une action grave, seul ${qui} la confirme. Demande-la-lui.` };
+}
 
 /** Rend true si la requête est servie ici. */
 export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: URL, d: DepsGarde): Promise<boolean> {
@@ -143,7 +156,17 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
         const t = `${f.m.name} · ${f.a.label} : seul le propriétaire le règle lui-même.`; json(res, 403, { ok: false, code: 'reserve', error: t, text: t }); return true;
       }
     }
-    const r = await auNomDe(qui, () => valhallaPost(path, { ...b, session: `membre-${p.login}` }));
+    // Une action grave n'est jamais confirmée par un membre (page, barre des applis, port direct) : elle part sans sa
+    // confirmation, donc Valhalla ne la lance pas et rend ce qu'il faudrait confirmer ; le membre reçoit alors le refus.
+    // Seul le propriétaire la confirme (« la famille ne peut pas faire de manip critique sur Odin »).
+    const r = await auNomDe(qui, () => valhallaPost(path, { ...b, confirm: false, session: `membre-${p.login}` })) as Record<string, unknown> | undefined;
+    if (r?.confirm) {
+      // Une phrase vers une appli à laquelle il n'a pas droit : le refus habituel (rien de ce qu'elle ferait n'est dit).
+      if (s(r.module) && !ok(s(r.module))) { const t = messageRefus(ctx, s(r.module)); json(res, 403, { ok: false, code: 'refuse', error: t, text: t }); return true; }
+      const { quoi, texte } = refusGrave(s(r.confirm), prenomProprio(ctx));
+      noter(ctx, { login: p.login, ip: d.ip, ok: false, why: `interface d'Odin · action grave · ${[...quoi].slice(0, 55).join('')} · réservé au propriétaire` });
+      json(res, 403, { ok: false, code: 'reserve', error: texte, text: texte }); return true;
+    }
     json(res, 200, r); return true;
   }
   if (path === '/api/message' || path === '/api/ask') { erreur(res, 403, 'reserve', 'La conversation avec l\'IA d\'Odin est réservée à son propriétaire. Ouvre directement une de tes applis, ou demande-lui en une phrase dans la barre des applis.'); return true; }
