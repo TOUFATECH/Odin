@@ -156,6 +156,9 @@ export class Reclasseur {
       // Chaque z[c] est la même somme, dans le même ordre des n-grammes, que dans le calcul classe par classe.
       if (nS === 3) { let z0 = b[0], z1 = b[1], z2 = b[2]; for (let k = k0; k < k1; k++) { const o = nums[k], x = poids[k]; z0 += W[o] * x; z1 += W[o + 1] * x; z2 += W[o + 2] * x; } z[0] = z0; z[1] = z1; z[2] = z2; }
       else if (nS === 2) { let z0 = b[0], z1 = b[1]; for (let k = k0; k < k1; k++) { const o = nums[k], x = poids[k]; z0 += W[o] * x; z1 += W[o + 1] * x; } z[0] = z0; z[1] = z1; }
+      // (tour 7, coût) Quatre et cinq candidates : les mêmes sommes, dans le même ordre, sans relire le tableau `z`.
+      else if (nS === 4) { let z0 = b[0], z1 = b[1], z2 = b[2], z3 = b[3]; for (let k = k0; k < k1; k++) { const o = nums[k], x = poids[k]; z0 += W[o] * x; z1 += W[o + 1] * x; z2 += W[o + 2] * x; z3 += W[o + 3] * x; } z[0] = z0; z[1] = z1; z[2] = z2; z[3] = z3; }
+      else if (nS === 5) { let z0 = b[0], z1 = b[1], z2 = b[2], z3 = b[3], z4 = b[4]; for (let k = k0; k < k1; k++) { const o = nums[k], x = poids[k]; z0 += W[o] * x; z1 += W[o + 1] * x; z2 += W[o + 2] * x; z3 += W[o + 3] * x; z4 += W[o + 4] * x; } z[0] = z0; z[1] = z1; z[2] = z2; z[3] = z3; z[4] = z4; }
       else { for (let c = 0; c < nS; c++) z[c] = b[c]; for (let k = k0; k < k1; k++) { const o = nums[k], x = poids[k]; for (let c = 0; c < nS; c++) z[c] += W[o + c] * x; } }
       let mx = -Infinity; for (let c = 0; c < nS; c++) if (z[c] > mx) mx = z[c];
       let se = 0; for (let c = 0; c < nS; c++) { z[c] = Math.exp(z[c] - mx); se += z[c]; }
@@ -170,6 +173,8 @@ export class Reclasseur {
       // Une candidate dont l'écart est nul n'est pas touchée (comme avant : un zéro signé ne change jamais de signe).
       if (nS === 3 && e[0] !== 0 && e[1] !== 0 && e[2] !== 0) { const e0 = e[0], e1 = e[1], e2 = e[2]; for (let k = k0; k < k1; k++) { const o = nums[k], x = poids[k]; W[o] -= e0 * x; W[o + 1] -= e1 * x; W[o + 2] -= e2 * x; } }
       else if (nS === 2 && e[0] !== 0 && e[1] !== 0) { const e0 = e[0], e1 = e[1]; for (let k = k0; k < k1; k++) { const o = nums[k], x = poids[k]; W[o] -= e0 * x; W[o + 1] -= e1 * x; } }
+      else if (nS === 4 && actifs === 4) { const e0 = e[0], e1 = e[1], e2 = e[2], e3 = e[3]; for (let k = k0; k < k1; k++) { const o = nums[k], x = poids[k]; W[o] -= e0 * x; W[o + 1] -= e1 * x; W[o + 2] -= e2 * x; W[o + 3] -= e3 * x; } }
+      else if (nS === 5 && actifs === 5) { const e0 = e[0], e1 = e[1], e2 = e[2], e3 = e[3], e4 = e[4]; for (let k = k0; k < k1; k++) { const o = nums[k], x = poids[k]; W[o] -= e0 * x; W[o + 1] -= e1 * x; W[o + 2] -= e2 * x; W[o + 3] -= e3 * x; W[o + 4] -= e4 * x; } }
       else for (let c = 0; c < nS; c++) { const ec = e[c]; if (ec === 0) continue; for (let k = k0; k < k1; k++) W[nums[k] + c] -= ec * poids[k]; }
     }
     const outs = qs.map((q) => {

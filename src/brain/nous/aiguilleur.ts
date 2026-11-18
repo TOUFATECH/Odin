@@ -21,7 +21,11 @@
 //   5. les relances : le tour précédent et l'appli active comptent dans le choix ;
 //   6. (tour 6) chaque appli pèse aussi par la part de la demande que ses meilleures paires expliquent ENSEMBLE, puis un
 //      second temps (reclasse.ts) départage les trois premières avec un petit modèle appris par validation croisée sur
-//      la matière ; l'ancien calcul reste disponible (CALCUL_TOUR5).
+//      la matière ; l'ancien calcul reste disponible (CALCUL_TOUR5) ;
+//   7. (tour 7) le second temps reçoit jusqu'à cinq candidates (celles dont la part du vote compte encore, voir
+//      nbCandidates), et l'action dans les trois premières applis est choisie par ce qui oppose les actions de l'appli
+//      (action.ts : voisins re-pondérés et modèle par appli, appris sur la matière) ; le calcul du tour 6 reste
+//      disponible (CALCUL_TOUR6).
 // Rien ne suppose le français. Rien n'est branché dans le produit à ce stade : le banc (test/soul-banc) le mesure.
 //
 // À TENIR AU BRANCHEMENT (relecture du 17/11, M7) :
@@ -39,6 +43,7 @@ import { DEMANDES_V2 } from './demandes-v2.ts';
 import { langues } from '../../langue/tables.ts';
 import { DOSSIER_MATIERE, lireMatiere, type BilanMatiere } from './matiere.ts';
 import { NB_TRAITS, Reclasseur, ajusterReclasse, codeDuReclasse, noterReclasse, ordreReclasse, type ModeleReclasse, type TotauxReclasse } from './reclasse.ts';
+import { choisirAction, codeDeAction } from './action.ts';
 
 // ------------------------------------------------------------------------------------------------ types
 export type DecisionAiguilleur = 'seul' | 'trois' | 'main';
@@ -165,6 +170,19 @@ export interface Reglages {
    * autre appli passe devant la première (`reclasseMarge`).
    */
   reclasser: boolean; reclasseAlpha: number; reclasseBeta: number; reclasseTours: number; reclasseMarge: number;
+  /**
+   * (tour 7) Combien des premières du vote vont au second temps : les trois premières toujours, puis, jusqu'à
+   * `candidatesSecond`, chaque suivante tant que sa part atteint `candidatesRapport` fois celle de la première (voir
+   * nbCandidates). 3 : le calcul du tour 6. Les trois choix rendus restent les trois premiers de la liste revue.
+   */
+  candidatesSecond: number; candidatesRapport: number;
+  /**
+   * (tour 7, action.ts) L'action dans les trois premières applis : voisins re-pondérés par la rareté de chaque n-gramme
+   * parmi les actions de l'appli (puissance `actionRarete` ; 0 : les voisins du tour 6), mélangés au modèle de l'appli
+   * (part `actionModele` ; 0 : sans), appris en `actionTours` passes à partir du pas `actionPas`. La part de cette action
+   * ne sert qu'à la confiance dans l'ACTION : la confiance dans l'appli et le choix de l'appli n'en dépendent pas.
+   */
+  actionRarete: number; actionModele: number; actionTours: number; actionPas: number;
 }
 /**
  * Réglages par défaut : choisis par validation croisée sur la matière (carnet soul-v3, sections de l'aiguilleur). Tour 2
@@ -187,6 +205,7 @@ export const REGLAGES: Reglages = {
   nMin: 1, nMax: 4, k: 25, puissance: 2, poidsMots: 0.3, rangR: 3, bonusContexte: 0.35, poidsPrecedent: 0.3, contexte: 'proche', viseSeul: 0.97, viseTrois: 0.85, poidsDemande: 2, prior: 0, poidsHorsChamp: 1,
   vote: 'voisins', parAppli: 3, couvertureMin: 0.02, couvertureNMin: 1, couvertureDecider: 0.6, margePreference: 0.1, casMax: 10_000, idfAppli: 0.5, poidsCentre: 4, rapportHorsChamp: 0.5, perteHorsChamp: 0, plisGroupes: false,
   explique: 0.5, expliqueParAppli: 5, expliqueNMin: 1, reclasser: true, reclasseAlpha: 0.1, reclasseBeta: 0.5, reclasseTours: 5, reclasseMarge: 1,
+  candidatesSecond: 5, candidatesRapport: 0.2, actionRarete: 2, actionModele: 0.3, actionTours: 4, actionPas: 1,
 };
 /**
  * Le calcul du tour 5 (sans part expliquée ni second temps), gardé derrière le même contrat : `reglages: CALCUL_TOUR5`.
@@ -194,7 +213,14 @@ export const REGLAGES: Reglages = {
  * impair, 243 demandes du champ), la bonne appli du premier coup passe de 203 (tour 5) à 216 avec les deux, sans décision
  * seule fausse de plus ni hors champ qui agit seul.
  */
-export const CALCUL_TOUR5: Partial<Reglages> = { explique: 0, reclasser: false };
+export const CALCUL_TOUR5: Partial<Reglages> = { explique: 0, reclasser: false, candidatesSecond: 3, candidatesRapport: 0, actionRarete: 0, actionModele: 0 };
+/**
+ * Le calcul du tour 6 (second temps sur les trois premières seulement, action par les voisins simples), gardé derrière
+ * le même contrat : `reglages: CALCUL_TOUR6`. Tour 7 (carnet soul-v3-tour-7) : réglés sur la moitié A du jeu de travail
+ * (rang pair), mesurés sur la moitié B (rang impair, 243 demandes du champ) : appli du premier coup 216 → 217, appli +
+ * action 145 → 155, « seul » 24 (appli fausse 0, action fausse 7) inchangé, hors champ agit seul 0/17 inchangé.
+ */
+export const CALCUL_TOUR6: Partial<Reglages> = { candidatesSecond: 3, candidatesRapport: 0, actionRarete: 0, actionModele: 0 };
 
 /**
  * Quand deux applis sont vraiment possibles, celle que le propriétaire préfère (règle du 17/11) : [préférée, autre].
@@ -546,7 +572,11 @@ export function matiere(modules: ModuleMatiere[], o: { usages?: Array<{ need: st
 }
 
 // ------------------------------------------------------------------------------------------------ le vote
-interface Candidat { appli: string; part: number; action: string | null; partAction: number }
+interface Candidat {
+  appli: string; part: number; action: string | null; partAction: number;
+  /** (tour 7) Part de l'action choisie par action.ts (confiance dans l'action seulement) ; absente : l'action du tour 6. */
+  partActionC?: number;
+}
 interface Vote {
   candidats: Candidat[]; sim1: number; motsTete: string | null; motsVide: boolean;
   /** Part de la demande que la matière connaît (voir IndexNgrammes.couverture). */
@@ -720,7 +750,7 @@ function voter(ix: IndexNgrammes, parAppli: Map<string, number[]>, phrase: strin
   // Pour chaque appli candidate : l'action, par les ressemblances de ses propres paires.
   // Les ressemblances par indice de paire : un tableau plein (l'ancien chemin : une table d'association refaite ici).
   const dense = REFERENCE ? undefined : ix.remplirDense(idx, sim), carte = REFERENCE ? new Map(idx.map((d, i) => [d, sim[i]])) : undefined;
-  const candidats: Candidat[] = classement.slice(0, 5).map((a) => {
+  const candidats: Candidat[] = classement.slice(0, 5).map((a, rang) => {
     if (a === HORS_CHAMP) return { appli: a, part: parts.get(a) ?? 0, action: null, partAction: 0 };
     const parAction = new Map<string, number[]>();
     for (const d of parAppli.get(a) ?? []) { const s = dense ? dense[d] : carte!.get(d); if (!s) continue; const p = ix.paire(d); if (!p.action) continue; const l = parAction.get(p.action) ?? []; l.push(s * (p.poids ?? 1)); parAction.set(p.action, l); }
@@ -729,8 +759,16 @@ function voter(ix: IndexNgrammes, parAppli: Map<string, number[]>, phrase: strin
       const s = l.sort((x, y) => y - x).slice(0, 3).reduce((u, v) => u + v * v, 0);
       tot2 += s; if (s > bs) { bs = s; best = act; }
     }
+    // (tour 7) Dans les trois premières, l'action par ce qui OPPOSE les actions de l'appli (action.ts) ; `bs` reste
+    // celui du tour 6 (relance, et confiance dans l'appli).
+    let nouveau: { action: string; part: number } | undefined;
+    if (rang < 3 && (R.actionRarete > 0 || R.actionModele > 0)) {
+      const simple = () => new Map([...parAction.entries()].map(([k, l]) => [k, l.slice(0, 3).reduce((u, v) => u + v * v, 0)]));
+      nouveau = choisirAction(ix, a, parAppli.get(a) ?? [], q, R.actionRarete, R.actionModele, { tours: R.actionTours, pas: R.actionPas, l2: 1e-4, poidsDemande: R.poidsDemande }, exclu, (d) => (dense ? dense[d] : carte!.get(d)) ?? 0, simple);
+    }
     // Relance sans indice d'action dans la phrase : l'action précédente si on reste dans la même appli.
     if (ctx?.appli === a && typeof ctx.actionPrecedente === 'string' && (!best || bs < 0.04)) { best = ctx.actionPrecedente; bs = Math.max(bs, 0.04); tot2 = Math.max(tot2, bs); }
+    else if (nouveau) return { appli: a, part: parts.get(a) ?? 0, action: nouveau.action, partAction: tot2 > 0 ? bs / tot2 : 0, partActionC: nouveau.part };
     const mx = m.find((x) => x.appli === a);
     if (!best && mx?.action) { best = mx.action; bs = 1; tot2 = 1; }
     return { appli: a, part: parts.get(a) ?? 0, action: best, partAction: tot2 > 0 ? bs / tot2 : 0 };
@@ -757,6 +795,8 @@ function signes(v: Vote): number[] {
   const accord = v.motsVide ? 0.5 : v.motsTete === c[0]?.appli ? 1 : 0;
   return [1, marge, p1, Math.min(1, v.sim1), accord, c[0]?.partAction ?? 0, v.couverture, v.partHorsChamp];
 }
+/** (tour 7) Les signes de la confiance dans l'ACTION : la part de l'action est celle d'action.ts quand il l'a choisie. */
+function signesAction(v: Vote): number[] { const x = signes(v), c = v.candidats[0]; if (c?.partActionC !== undefined) x[5] = c.partActionC; return x; }
 /** Nombre de signes (et donc de poids de la calibration). */
 export const NB_SIGNES = 8;
 const sigmoide = (z: number) => 1 / (1 + Math.exp(-z));
@@ -863,8 +903,8 @@ export function calibrer(cas: CasValidation[], R: Reglages): Calibration {
   const seuilSeul = seuilPour(conf, dans.map((c) => c.appliJuste), R.viseSeul);
   const seuilTrois = Math.min(seuilSeul, seuilPour(conf, dans.map((c) => c.appliJuste3 ?? c.juste3), R.viseTrois));
   const avecAction = dans.filter((c) => c.appliJuste && c.action !== null && c.vote.candidats[0]?.action);
-  const poidsAction = avecAction.length ? ajusterLogistique(avecAction.map((c) => signes(c.vote)), avecAction.map((c) => (c.juste1 ? 1 : 0))) : [];
-  const confA = avecAction.map((c) => sigmoide(signes(c.vote).reduce((s, v, j) => s + v * poidsAction[j], 0)));
+  const poidsAction = avecAction.length ? ajusterLogistique(avecAction.map((c) => signesAction(c.vote)), avecAction.map((c) => (c.juste1 ? 1 : 0))) : [];
+  const confA = avecAction.map((c) => sigmoide(signesAction(c.vote).reduce((s, v, j) => s + v * poidsAction[j], 0)));
   const seuilAction = poidsAction.length ? seuilPour(confA, avecAction.map((c) => c.juste1), R.viseSeul) : 1.01;
   // « Pas encore » : une seconde régression (mêmes signes) dit si la demande est hors du champ. Son seuil est le plus
   // bas qui ne fait pas perdre plus de `perteHorsChamp` des demandes du champ (comptées sur celles dont la première
@@ -908,15 +948,25 @@ export const RECLASSE_EXEMPLES_MIN = 30;
  * « pas encore » est en tête, si la bonne appli n'est pas parmi elles ou s'il n'y a qu'une candidate.
  */
 export function exempleReclasse(rc: Reclasseur, p: Paire, vote: Vote, tot: TotauxReclasse, exclu: Uint8Array): { X: number[][]; y: number } | undefined {
-  const e = candidatesReclasse(p, vote);
+  const e = candidatesReclasse(p, vote, nbCandidates(vote.candidats, rc.ix.reglages));
   if (!e) return undefined;
   const X = rc.traits(e.texte, e.S, e.parts, tot, exclu);
   return X.length ? { X, y: e.y } : undefined;
 }
-/** Ce dont un exemple du second temps a besoin (la demande, ses candidates, leurs parts, le rang de la bonne), ou rien (voir exempleReclasse). */
-function candidatesReclasse(p: Paire, vote: Vote): { texte: string; S: string[]; parts: number[]; y: number } | undefined {
+/**
+ * (tour 7) Combien des premières du vote vont au second temps : les trois premières toujours, puis, jusqu'à
+ * `candidatesSecond`, chaque suivante tant que sa part atteint `candidatesRapport` fois celle de la première.
+ */
+export function nbCandidates(c: ReadonlyArray<{ part: number }>, R: Reglages): number {
+  const K = Math.max(3, R.candidatesSecond ?? 3), p0 = c[0]?.part ?? 0;
+  let n = Math.min(3, c.length);
+  while (n < Math.min(K, c.length) && c[n].part >= (R.candidatesRapport ?? 0) * p0) n++;
+  return n;
+}
+/** Ce dont un exemple du second temps a besoin (la demande, ses `K` premières candidates, leurs parts, le rang de la bonne), ou rien (voir exempleReclasse). */
+function candidatesReclasse(p: Paire, vote: Vote, K: number): { texte: string; S: string[]; parts: number[]; y: number } | undefined {
   if (p.appli === null) return undefined;
-  const c3 = vote.candidats.slice(0, 3);
+  const c3 = vote.candidats.slice(0, K);
   if (!c3.length || c3[0].appli === HORS_CHAMP) return undefined;
   const c = c3.filter((x) => x.appli !== HORS_CHAMP), S = c.map((x) => x.appli), y = S.indexOf(p.appli);
   if (S.length < 2 || y < 0) return undefined;
@@ -928,7 +978,7 @@ function candidatesReclasse(p: Paire, vote: Vote): { texte: string; S: string[];
  * SEULEMENT (partagerSecondTemps) ; Odin ne le passe jamais hors essai, rien n'y est alors ni gardé ni repris.
  */
 export function exemplesReclasse(rc: Reclasseur, cas: Array<{ p: Paire; vote: Vote }>, tot: TotauxReclasse, exclu: Uint8Array, partage?: { cle: string; table: Map<string, number[][]> }): Array<{ X: number[][]; y: number }> {
-  const lot = cas.map((x) => candidatesReclasse(x.p, x.vote)).filter((e) => e !== undefined);
+  const lot = cas.map((x) => candidatesReclasse(x.p, x.vote, nbCandidates(x.vote.candidats, rc.ix.reglages))).filter((e) => e !== undefined);
   // Partage (essais, voir partagerSecondTemps) : des traits déjà calculés pour EXACTEMENT les mêmes entrées (même index,
   // mêmes phrases retirées, même demande, mêmes candidates et mêmes parts, au dernier chiffre près) sont repris.
   const cles = partage ? lot.map((e) => `${partage.cle}\u0001${e.texte}\u0001${e.S.join('\u0002')}\u0001${e.parts.map(String).join('\u0002')}`) : undefined;
@@ -1093,7 +1143,7 @@ export function oublierCalibrations(): void { CALIBRATIONS.clear(); }
 function empreinte(paires: Paire[], R: Reglages, avecMots: boolean, prefs: ReadonlyArray<readonly [string, string]> = PREFERENCES): string {
   const h = createHash('sha256');
   h.update(JSON.stringify({ R, avecMots, prefs }));
-  h.update(voter.toString()); h.update(partager.toString()); h.update(explication.toString()); h.update(IndexNgrammes.prototype.expliquer.toString()); h.update(codeDuReclasse()); h.update(apprendreReclasse.toString()); h.update(exempleReclasse.toString()); h.update(candidatesReclasse.toString()); h.update(exemplesReclasse.toString()); h.update(centres.toString()); h.update(kPlusProches.toString()); h.update(signes.toString()); h.update(validationCroisee.toString()); h.update(hacher.toString()); h.update(calibrer.toString()); h.update(nettoyer.toString()); h.update(String(SIGNES_FACULTATIFS));
+  h.update(voter.toString()); h.update(partager.toString()); h.update(explication.toString()); h.update(IndexNgrammes.prototype.expliquer.toString()); h.update(codeDuReclasse()); h.update(apprendreReclasse.toString()); h.update(exempleReclasse.toString()); h.update(candidatesReclasse.toString()); h.update(nbCandidates.toString()); h.update(exemplesReclasse.toString()); h.update(centres.toString()); h.update(kPlusProches.toString()); h.update(signes.toString()); h.update(signesAction.toString()); h.update(codeDeAction()); h.update(validationCroisee.toString()); h.update(hacher.toString()); h.update(calibrer.toString()); h.update(nettoyer.toString()); h.update(String(SIGNES_FACULTATIFS));
   for (const p of paires) h.update(`${JSON.stringify([p.texte, p.appli, p.action, p.poids ?? 1, Boolean(p.demande), p.source, p.groupe ?? null])}\n`);
   return h.digest('hex');
 }
@@ -1256,20 +1306,27 @@ export function creerAiguilleurSync(o: OptionsAiguilleur): Aiguilleur {
   const reclasserChoix = (choix: ChoixAiguilleur[], c: Candidat[], v: Vote, propre: string, ctx?: ContexteAiguilleur): boolean => {
     const mr = calibration.reclasse;
     if (!mr || v.correction || v.correctionTete || (typeof ctx?.appli === 'string' && ctx.appli) || !choix.length || choix[0].appli === null) return false;
-    const places = choix.map((y, i) => (y.appli !== null ? i : -1)).filter((i) => i >= 0);
+    // (tour 7) Les premières du vote (voir nbCandidates) sont départagées ; « pas encore » garde sa place ; les trois
+    // premières de la liste revue deviennent les trois choix.
+    // Limite connue (relecture du tour 7, constat 5) : une candidate de rang 4 ou 5 qui remonte dans les trois garde
+    // l'action du tour 6 (le vote ne calcule l'action d'action.ts que pour les trois premières).
+    const K = nbCandidates(c, R);
+    const liste: ChoixAiguilleur[] = c.slice(0, K).map((x, i) => (i < choix.length ? choix[i] : { appli: x.appli === HORS_CHAMP ? null : x.appli, action: x.appli === HORS_CHAMP ? null : x.action, score: 0 }));
+    const places = liste.map((y, i) => (y.appli !== null ? i : -1)).filter((i) => i >= 0);
     if (places.length < 2) return false;
     const rc = reclasseurDe(ix);
     if (horsReclasse?.ix !== ix) {
       const exclu = new Uint8Array(ix.paires.length); ix.paires.forEach((p, i) => { if (p.source === 'correction') exclu[i] = 1; });
       horsReclasse = { ix, exclu, tot: rc.totaux(exclu) };
     }
-    const X = rc.traits(propre, places.map((i) => choix[i].appli!), places.map((i) => c[i].part), horsReclasse.tot, horsReclasse.exclu);
+    const X = rc.traits(propre, places.map((i) => liste[i].appli!), places.map((i) => c[i].part), horsReclasse.tot, horsReclasse.exclu);
     if (!X.length) return false;
     const ordre = ordreReclasse(noterReclasse(mr, X), R.reclasseMarge);
     if (ordre.every((o2, j) => o2 === j)) return false;
     const avant = choix[0].appli, parts = new Map(c.map((y) => [y.appli, y.part]));
-    const vieux = places.map((i) => choix[i]);
-    places.forEach((pl, j) => { choix[pl] = vieux[ordre[j]]; });
+    const vieux = places.map((i) => liste[i]);
+    places.forEach((pl, j) => { liste[pl] = vieux[ordre[j]]; });
+    for (let i = 0; i < choix.length; i++) choix[i] = liste[i];
     if (choix[0].appli !== avant && R.margePreference > 0 && choix[1]?.appli) {
       const x0 = choix[0].appli!, y0 = choix[1].appli, px = parts.get(x0) ?? 0, py = parts.get(y0) ?? 0;
       if (prefs.some(([pref, autre]) => pref === y0 && autre === x0) && py >= (1 - R.margePreference) * px) { const t = choix[0]; choix[0] = choix[1]; choix[1] = t; }
@@ -1314,7 +1371,7 @@ export function creerAiguilleurSync(o: OptionsAiguilleur): Aiguilleur {
       // La confiance a été réglée sur la première du vote : une autre tête n'agit jamais seule.
       if (change && decision === 'seul') decision = 'trois';
       const pa = calibration.poidsAction ?? [];
-      const confA = !change && choix[0]?.action && pa.length ? Number(sigmoide(x.reduce((s, val, j) => s + val * (pa[j] ?? 0), 0)).toFixed(4)) : undefined;
+      const xa = signesAction(v), confA = !change && choix[0]?.action && pa.length ? Number(sigmoide(xa.reduce((s, val, j) => s + val * (pa[j] ?? 0), 0)).toFixed(4)) : undefined;
       const r = reponse(choix, decision, Number(conf.toFixed(4)), malConnue ? `la matière connaît mal cette demande (couverture ${v.couverture.toFixed(3)}) : des pistes, pas de choix` : decision === 'trois' ? (change ? 'trois choix (ordre revu par le second temps)' : 'trois choix') : 'pas sûr', confA);
       if (r.decision === 'seul') r.raison = r.actionSure ? 'sûr de l\'appli et de l\'action' : 'sûr de l\'appli ; l\'action est à demander';
       return r;
@@ -1345,8 +1402,8 @@ export async function creerAiguilleur(o: OptionsAiguilleur): Promise<Aiguilleur>
 /**
  * Pour le banc (test/soul-banc/methodes.ts) : l'aiguilleur sur les applis du produit, dans le dossier jetable du banc.
  * Variante (seulement pour mesurer) par la variable ODIN_AIGUILLEUR_VARIANTE : « ngrammes » (défaut depuis le tour 2 :
- * n-grammes seuls, meilleurs au tour 1), « fusion » (n-grammes + mots) ou « tour5 » (n-grammes seuls, le calcul du tour
- * 5 : sans part expliquée ni second temps, voir CALCUL_TOUR5).
+ * n-grammes seuls, meilleurs au tour 1), « fusion » (n-grammes + mots), « tour5 » (n-grammes seuls, le calcul du tour
+ * 5 : sans part expliquée ni second temps, voir CALCUL_TOUR5) ou « tour6 » (le calcul du tour 6, voir CALCUL_TOUR6).
  */
 export async function methodeBanc(o: { home: string }): Promise<{ repondre(phrase: string, ctx?: ContexteAiguilleur): ReponseAiguilleur; bilan: Aiguilleur['bilan'] }> {
   const { allModules } = await import('../../valhalla/odin.ts');
@@ -1359,10 +1416,10 @@ export async function methodeBanc(o: { home: string }): Promise<{ repondre(phras
   const parId = new Map(mods.map((m) => [m.id, m]));
   const porteur = { modules: () => mods };
   const finder = { find: (need: string) => Valhalla.prototype.find.call(porteur as never, need), module: (id: string) => parId.get(id) };
-  const v = process.env.ODIN_AIGUILLEUR_VARIANTE, variante = v === 'fusion' || v === 'tour5' ? v : 'ngrammes';
+  const v = process.env.ODIN_AIGUILLEUR_VARIANTE, variante = v === 'fusion' || v === 'tour5' || v === 'tour6' ? v : 'ngrammes';
   const mots: MotsFn = (p) => appsFor(finder, p, 5).map((x) => ({ appli: x.m.id, action: x.action?.id ?? null, score: x.score }));
   // L'aiguilleur prêt (aiguilleur-pret.ts) : mêmes réponses, l'index gardé en mémoire vive et sur le disque.
   const { creerAiguilleurPret } = await import('./aiguilleur-pret.ts');
-  const a = creerAiguilleurPret({ modules: mods, home: o.home, mots: variante === 'fusion' ? mots : undefined, usages: USAGES, survol: SURVOL, reglages: variante === 'fusion' ? {} : { poidsMots: 0, ...(variante === 'tour5' ? CALCUL_TOUR5 : {}) } });
+  const a = creerAiguilleurPret({ modules: mods, home: o.home, mots: variante === 'fusion' ? mots : undefined, usages: USAGES, survol: SURVOL, reglages: variante === 'fusion' ? {} : { poidsMots: 0, ...(variante === 'tour5' ? CALCUL_TOUR5 : variante === 'tour6' ? CALCUL_TOUR6 : {}) } });
   return { repondre: (p, c) => a.aiguiller(p, c), bilan: a.bilan };
 }

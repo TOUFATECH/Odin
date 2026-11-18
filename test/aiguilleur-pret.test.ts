@@ -337,17 +337,18 @@ test('relecture 3 : deux cœurs gardés au plus, quel que soit le budget', () =>
   oublierPreparations();
 });
 
-// Le jeu de travail du banc, en trois essais qui se suivent (chacun le sien, pour que chacun reste court) : (1) l'aiguilleur
-// prêt (vote rapide) calcule sa calibration ; (2) l'ancien chemin (référence) refait la sienne, qui doit être la même ;
-// (3) les réponses de l'ancien chemin, de l'aiguilleur prêt et de l'aiguilleur relu du disque doivent être les mêmes.
-// Les traits du second temps calculés en (1) sont repris en (2), mais SEULEMENT pour des entrées identiques (mêmes
+// Le jeu de travail du banc, en quatre essais qui se suivent (chacun le sien, pour que chacun reste court) : (1) l'aiguilleur
+// prêt (vote rapide) calcule sa calibration ; (2) il répond au jeu de travail ; (3) l'ancien chemin (référence) refait sa
+// calibration, qui doit être la même ; (4) les réponses de l'ancien chemin, de l'aiguilleur prêt et de l'aiguilleur relu
+// du disque doivent être les mêmes.
+// Les traits du second temps calculés en (1) sont repris en (3), mais SEULEMENT pour des entrées identiques (mêmes
 // candidates, mêmes parts au dernier chiffre près) : si les deux chemins votent autrement, ils sont recalculés, ce qui
 // se compte et fait échouer l'essai (partagerSecondTemps, aiguilleur.ts).
 type Aig = { aiguiller: (p: string, c?: ContexteAiguilleur) => unknown };
-const travail: { home?: string; o?: Parameters<typeof creerAiguilleurSync>[0]; tout?: (a: Aig) => unknown[]; vite?: unknown[]; cal?: unknown; ancien?: Aig } = {};
+const travail: { home?: string; o?: Parameters<typeof creerAiguilleurSync>[0]; tout?: (a: Aig) => unknown[]; vite?: unknown[]; cal?: unknown; ancien?: Aig; pret?: Aig } = {};
 after(() => { partagerSecondTemps(false); cheminDeReference(false); if (travail.home) rmSync(travail.home, { recursive: true, force: true }); oublierPreparations(); });
 
-test('jeu de travail du banc, applis du produit (1/3) : l\'aiguilleur prêt calcule sa préparation et sa calibration', async () => {
+test('jeu de travail du banc, applis du produit (1/4) : l\'aiguilleur prêt calcule sa préparation et sa calibration', async () => {
   const home = travail.home = dossier();
   process.env.ODIN_ESSAI = '1'; process.env.ODIN_NO_VOICE_INSTALL = '1';
   const { allModules } = await import('../src/valhalla/odin.ts');
@@ -363,12 +364,19 @@ test('jeu de travail du banc, applis du produit (1/3) : l\'aiguilleur prêt calc
   const b = creerAiguilleurPret({ ...o, home });
   assert.equal(b.bilan.preparationDe, 'calcul'); assert.equal(b.bilan.calibrationDe, 'calcul');
   assert.ok(partageSecondTempsVu().calcules > 0, 'le second temps est calculé');
-  travail.cal = b.bilan.calibration; travail.vite = tout(b);
+  travail.cal = b.bilan.calibration; travail.pret = b;
 });
 
-test('jeu de travail du banc, applis du produit (2/3) : l\'ancien chemin (référence) refait exactement la même calibration', () => {
+test('jeu de travail du banc, applis du produit (2/4) : l\'aiguilleur prêt répond au jeu de travail', () => {
+  const { tout, pret } = travail;
+  assert.ok(tout && pret, 'l\'aiguilleur prêt (1/4) est fait');
+  travail.vite = tout(pret);
+  travail.pret = undefined; // plus servi ensuite : la mémoire est rendue avant le chemin de référence (3/4)
+});
+
+test('jeu de travail du banc, applis du produit (3/4) : l\'ancien chemin (référence) refait exactement la même calibration', () => {
   const { o, cal } = travail;
-  assert.ok(o && cal, 'l\'aiguilleur prêt (1/3) est fait');
+  assert.ok(o && cal, 'l\'aiguilleur prêt (1/4) est fait');
   oublierCalibrations();
   const vu = partageSecondTempsVu();
   cheminDeReference(true);
@@ -384,9 +392,9 @@ test('jeu de travail du banc, applis du produit (2/3) : l\'ancien chemin (réfé
   assert.deepEqual(c2, c1);
 });
 
-test('jeu de travail du banc, applis du produit (3/3) : l\'ancien chemin, l\'aiguilleur prêt et l\'aiguilleur relu du disque rendent exactement les mêmes réponses', () => {
+test('jeu de travail du banc, applis du produit (4/4) : l\'ancien chemin, l\'aiguilleur prêt et l\'aiguilleur relu du disque rendent exactement les mêmes réponses', () => {
   const { home, o, tout, vite, ancien } = travail;
-  assert.ok(home && o && tout && vite && ancien, 'les essais 1/3 et 2/3 sont faits');
+  assert.ok(home && o && tout && vite && ancien, 'les essais 1/4, 2/4 et 3/4 sont faits');
   cheminDeReference(true);
   let ref: unknown[];
   try { ref = tout(ancien); } finally { cheminDeReference(false); }

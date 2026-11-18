@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  HORS_CHAMP, IndexNgrammes, PREFERENCES, REGLAGES, exempleReclasse, exemplesReclasse, matiere, validationCroisee, type ModuleMatiere, type Paire,
+  HORS_CHAMP, IndexNgrammes, PREFERENCES, REGLAGES, exempleReclasse, exemplesReclasse, matiere, nbCandidates, validationCroisee, type ModuleMatiere, type Paire,
 } from '../src/brain/nous/aiguilleur.ts';
 import { NB_TRAITS, Reclasseur, type TotauxReclasse } from '../src/brain/nous/reclasse.ts';
 
@@ -150,8 +150,9 @@ test('second temps rapide : chaque trait, modèle local compris, est exactement 
     for (const exclu of [undefined, Uint8Array.from(ps, (_, i) => (i % 3 === 1 ? 1 : 0)), Uint8Array.from(ps, (p) => (p.demande ? 1 : 0))]) {
       const tot = rc.totaux(exclu);
       let n = 0;
-      // Deux, trois et quatre candidates (le chemin général), dans plusieurs ordres.
-      for (let k = 0; k < applis.length; k++) for (const nS of [2, 3, 4]) {
+      // Deux, trois, quatre et cinq candidates (quatre et cinq : les chemins déroulés du lot « coût » du tour 7), dans
+      // plusieurs ordres.
+      for (let k = 0; k < applis.length; k++) for (const nS of [2, 3, 4, 5]) {
         const S = Array.from({ length: nS }, (_, j) => applis[(k + j * 2) % applis.length]);
         if (new Set(S).size < nS) continue;
         const parts = S.map((_, j) => 1 / (j + 2));
@@ -190,8 +191,8 @@ test('second temps rapide : les exemples d\'un pli (en lot, et repris d\'un part
       assert.equal(x.length, unParUn.length);
       x.forEach((e, j) => { assert.equal(e.y, unParUn[j].y); memesNombres(e.X, unParUn[j].X, `pli ${plis}, exemple ${j}`); });
     }
-    // Et chacun est celui du calcul figé du tour 6.
-    unParUn.forEach((e, j) => { const c = cas.filter((y) => exempleReclasse(rc, y.p, y.vote, tot, exclu))[j]; const S = c.vote.candidats.slice(0, 3).filter((y) => y.appli !== HORS_CHAMP); memesNombres(e.X, calculTour6(rc, c.p.texte, S.map((y) => y.appli), S.map((y) => y.part), tot, exclu), `pli ${plis}, exemple ${j} (tour 6)`); });
+    // Et chacun est celui du calcul figé du tour 6 (sur les candidates que le tour 7 donne au second temps, voir nbCandidates).
+    unParUn.forEach((e, j) => { const c = cas.filter((y) => exempleReclasse(rc, y.p, y.vote, tot, exclu))[j]; const S = c.vote.candidats.slice(0, nbCandidates(c.vote.candidats, ix.reglages)).filter((y) => y.appli !== HORS_CHAMP); memesNombres(e.X, calculTour6(rc, c.p.texte, S.map((y) => y.appli), S.map((y) => y.part), tot, exclu), `pli ${plis}, exemple ${j} (tour 6)`); });
     exemples += unParUn.length; plis++;
   });
   assert.equal(plis, 5);

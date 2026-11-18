@@ -38,7 +38,7 @@ function calibrationQuiRenverse(): Calibration {
 
 test('réglages (tour 6) : la part expliquée et le second temps sont en service ; le calcul du tour 5 reste disponible', () => {
   assert.ok(REGLAGES.explique > 0 && REGLAGES.reclasser, 'tour 6 en service');
-  assert.deepEqual(CALCUL_TOUR5, { explique: 0, reclasser: false });
+  assert.deepEqual(CALCUL_TOUR5, { explique: 0, reclasser: false, candidatesSecond: 3, candidatesRapport: 0, actionRarete: 0, actionModele: 0 });
   assert.ok(REGLAGES.reclasseMarge >= 1, `marge ${REGLAGES.reclasseMarge} : une autre appli ne passe devant que nettement`);
   assert.ok(REGLAGES.viseSeul >= 0.97, '« seul » reste prudent');
   // Ancien calcul : aucun second temps n'est appris, et ses réponses ne dépendent pas des réglages du tour 6.
