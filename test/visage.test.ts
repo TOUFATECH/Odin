@@ -543,7 +543,8 @@ test('yeux : les pastilles restent blanches quelle que soit la situation (émoti
   assert.ok(clairs.includes('joie') && clairs.includes('espoir') && clairs.length >= 8, `${clairs.length} émotions au corps clair`);
   for (const id of clairs) assert.equal(encreDe(id), '#fff', id);
   // Au repos, il a la couleur du thème : blanc pour chaque couleur de mascotte des thèmes et pour chaque couleur de fête.
-  const themes = [...readFileSync(new URL('../src/web/themes.js', import.meta.url), 'utf8').matchAll(/"?mascot"?\s*:\s*['"](#[0-9a-fA-F]{6})['"]/g)].map((x) => x[1]);
+  // (themes.js, et les thèmes « Mis en avant » de la maquette : src/web/pages/themes-catalogue.js)
+  const themes = ['../src/web/themes.js', '../src/web/pages/themes-catalogue.js'].flatMap((f) => [...readFileSync(new URL(f, import.meta.url), 'utf8').matchAll(/"?mascot"?\s*:\s*['"](#[0-9a-fA-F]{6})['"]/g)].map((x) => x[1]));
   assert.ok(themes.length >= 40, `${themes.length} couleurs de thème lues`);
   const { EVENTS } = await import('../src/valhalla/fetes.ts');
   const f = charger();

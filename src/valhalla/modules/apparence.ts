@@ -22,6 +22,9 @@ export const THEME_NAMES: Record<string, string> = {
   veille: 'Veille de l\'aube', lagon: 'Lagon', volcan: 'Volcan', savane: 'Savane', lavande: 'Lavande', cerisier: 'Cerisiers', minuit: 'Minuit',
   gel: 'Gel (0° et moins)', froid: 'Froid (1° à 9°)', frais: 'Frais (10° à 17°)', chaud: 'Chaud (28° à 31°)', torride: 'Torride (32° à 35°)', canicule: 'Canicule (36° et plus)',
   valhalla: 'Valhalla (classique)',
+  // Les thèmes « Mis en avant » de la maquette validée qui n'existaient pas encore (mêmes identifiants et mêmes noms
+  // que src/web/pages/themes-catalogue.js ; « glace » y est aussi, sous son identifiant d'avant).
+  vitre: 'Vitre', glacenuit: 'Glace nuit', neon: 'Néon', ha: 'Home Assistant', clair: 'Maison claire',
   // Les 16 thèmes des événements de l'année (mêmes identifiants et mêmes noms que EVENT_THEMES dans themes.js) :
   // ils se choisissent comme les autres, mais « au hasard » ne tombe jamais dessus.
   'ev-noel': 'Noël', 'ev-nouvelan': 'Nouvel An', 'ev-carnaval': 'Carnaval', 'ev-paques': 'Pâques', 'ev-abolition': '27 avril', 'ev-travail': '1er mai',

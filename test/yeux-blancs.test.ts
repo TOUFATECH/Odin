@@ -76,7 +76,8 @@ test('yeux blancs : face.js, rendu de chaque émotion à chaque taille, et de ch
   };
   for (const id of ids) for (const taille of ['grand', 'petit', 'mini']) verifier(`${id} (${taille})`, F.dessin(id, { taille }));
   // Au repos, toutes les couleurs de thème et de fête, et des couleurs très claires ou très sombres.
-  const themes = [...lire('src/web/themes.js').matchAll(/"?mascot"?\s*:\s*['"](#[0-9a-fA-F]{6})['"]/g)].map((x) => x[1]);
+  // (themes.js, et les thèmes « Mis en avant » de la maquette : src/web/pages/themes-catalogue.js)
+  const themes = ['src/web/themes.js', 'src/web/pages/themes-catalogue.js'].flatMap((f) => [...lire(f).matchAll(/"?mascot"?\s*:\s*['"](#[0-9a-fA-F]{6})['"]/g)].map((x) => x[1]));
   const { EVENTS } = await import('../src/valhalla/fetes.ts');
   for (const c of [...themes, ...EVENTS.map((e) => e.color), '#ffffff', '#f2f2f2', '#fff4c2', '#000000', '#2a2f3a']) { F.tintBase(c); verifier(`repos ${c}`, F.dessin('neutre')); }
 });
@@ -85,7 +86,7 @@ test('yeux blancs : face.js, rendu de chaque émotion à chaque taille, et de ch
 const CSS_MASCOTTE = [
   'src/web/ui.html', 'src/web/face.js', 'src/web/mascotte.js', 'src/web/companion.js', 'src/web/notices.js', 'src/web/dialog.js',
   'src/web/maison.js', 'src/web/maison-api.ts', 'src/web/alchimie.js', 'src/web/guide.js', 'src/web/vie.js', 'src/web/recherche.js',
-  'src/web/recherche-api.ts', 'src/web/themes.js', 'src/web/pages/rodd.js', 'src/web/pages/naglfar.js', 'src/web/activate.ts',
+  'src/web/recherche-api.ts', 'src/web/themes.js', 'src/web/pages/themes-catalogue.js', 'src/web/pages/rodd.js', 'src/web/pages/naglfar.js', 'src/web/activate.ts',
   'src/web/connexion-qr-page.ts', 'src/valhalla/thjalfi/ecran-page.ts', 'tools/site/parts/eyes.css', 'tools/site/parts/face.css',
   'tools/guide/template.html', 'tools/render-moods.cjs', 'tools/planche-humeurs.mjs', 'site/assets/face.js',
 ];
