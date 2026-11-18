@@ -759,12 +759,14 @@
    * fermer. → { last, seuls }.
    */
   function dernierPassage(runs, flow, catDe) {
-    const seulDe = (x) => { const n = x?.trigger ? flow?.nodes?.find((m) => m.name === x.trigger) : null; return n && !catDe(n.type)?.trigger ? n.name : null; };
+    // La marque `seul` (le nom du bloc) posée par le serveur ; une ligne d'avant, sans marque : partie d'un bloc qui
+    // n'est pas un déclencheur.
+    const seulDe = (x) => { if (typeof x?.seul === 'string' && x.seul) return x.seul; const n = x?.trigger ? flow?.nodes?.find((m) => m.name === x.trigger) : null; return n && !catDe(n.type)?.trigger ? n.name : null; };
     const liste = Array.isArray(runs) ? runs : [];
     const i = liste.findIndex((x) => !seulDe(x));
     const base = i >= 0 ? liste[i] : null, seuls = new Set(), nodes = { ...(base?.nodes ?? {}) };
     for (const x of (i >= 0 ? liste.slice(0, i) : liste).reverse()) { // du plus ancien au plus récent
-      const nom = seulDe(x);
+      const nom = seulDe(x); if (!flow?.nodes?.some((m) => m.name === nom)) continue; // (bloc renommé ou retiré depuis)
       nodes[nom] = x.nodes?.[nom] ?? { count: 0, items: [], error: x.error || 'il n\'a pas tourné' }; seuls.add(nom);
     }
     return { last: base || seuls.size ? { ...(base ?? {}), nodes } : null, seuls };
@@ -813,7 +815,7 @@
         wf.id ? el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Mettre cette automatisation à la corbeille ?', { danger: true }))) return; await api('/api/draupnir/trash', { id: wf.id }); openList(); } }, 'Corbeille') : null, status)),
       el('div', { class: 'dr-ed' }, canvas, side),
       // (Pas d'exécution ni de version quand on part de zéro : rien, et surtout pas le mot « null ».)
-      ...(r ? [el('section', { class: 'card', style: 'margin-top:12px' }, el('h2', { style: 'font-size:16px;margin:0' }, 'Dernières exécutions'), r.runs.length ? el('ul', { class: 'dr-runs' }, ...r.runs.slice(0, 10).map((x) => { const net = /attente.*internet|internet.*attente|en-attente-internet/i.test(`${x.status} ${x.error ?? ''}`); return el('li', {}, el('span', { class: `pill ${x.status === 'succès' ? 'good' : net ? '' : x.status === 'erreur' ? 'bad' : ''}` }, net ? 'en attente d\'Internet' : x.status), ` ${new Date(x.startedAt).toLocaleString('fr-FR')} · ${x.mode} · ${x.ms} ms${net ? ' · en attente du retour d\'Internet' : x.error ? ` · ${x.error}` : ''}`); })) : el('p', { class: 'sub' }, 'Jamais lancée.'),
+      ...(r ? [el('section', { class: 'card', style: 'margin-top:12px' }, el('h2', { style: 'font-size:16px;margin:0' }, 'Dernières exécutions'), r.runs.length ? el('ul', { class: 'dr-runs' }, ...r.runs.slice(0, 10).map((x) => { const net = /attente.*internet|internet.*attente|en-attente-internet/i.test(`${x.status} ${x.error ?? ''}`); const seul = typeof x.seul === 'string' && x.seul ? x.seul : ''; return el('li', {}, el('span', { class: `pill ${x.status === 'succès' ? 'good' : net ? '' : x.status === 'erreur' ? 'bad' : ''}` }, seul ? `bloc seul : ${seul}` : net ? 'en attente d\'Internet' : x.status), ` ${new Date(x.startedAt).toLocaleString('fr-FR')} · ${x.mode} · ${x.ms} ms${seul && x.status !== 'succès' && !net ? ` · ${x.status}` : ''}${net ?' · en attente du retour d\'Internet' : x.error ? ` · ${x.error}` : ''}`); })) : el('p', { class: 'sub' }, 'Jamais lancée.'),
         r.versions?.length ? el('details', {}, el('summary', { style: 'cursor:pointer;min-height:36px;display:flex;align-items:center' }, `Versions (${r.versions.length})`), el('ul', { class: 'dr-runs' }, ...r.versions.slice(0, 15).map((v) => el('li', {}, `${new Date(v.at).toLocaleString('fr-FR')} · ${v.nodes} étapes `, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Revenir à cette version ?'))) return; const x = await api('/api/draupnir/restore', { id: wf.id, at: v.at }); if (x.ok) openFlow(wf.id); } }, 'Restaurer'))))) : null)] : []));
     pan(canvas, world); draw(); drawSide();
     // Les blocs d'appli se dessinent avec l'icône et le nom de leur appli : on lit la liste des applis une fois.

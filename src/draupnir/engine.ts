@@ -172,7 +172,9 @@ export async function execute(wf: Workflow, catalog: Map<string, NodeDef>, deps:
       if (!def) throw new Error(`type de nœud inconnu : ${node.type}`);
       if (node.disabled) outs = [items];
       else {
-        const tries = Math.max(0, Math.min(5, Number(wf.settings?.retry ?? 0)));
+        // Relances : un entier, 5 au plus ; tout autre réglage (texte, objet, non entier, infini, NaN) n'en donne aucune
+        // (avant : NaN rendait la condition d'arrêt toujours fausse, la relance ne s'arrêtait plus).
+        const r0 = wf.settings?.retry, tries = typeof r0 === 'number' && Number.isInteger(r0) ? Math.max(0, Math.min(5, r0)) : 0;
         for (let k = 0; ; k++) {
           const pin = start.pinned?.[node.name];
           if (pin) { outs = [pin.map((j) => ({ json: { ...j } }))]; break; }

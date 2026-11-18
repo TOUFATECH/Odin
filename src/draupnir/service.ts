@@ -435,7 +435,12 @@ export class Talos {
     this.running.add(key);
     try {
       const ex = await execute(wf, CATALOG, this.deps, { node: trigger, items, mode, ...opts });
-      this.record(ex);
+      // « Exécuter ce bloc seul » (parti d'un bloc qui n'est pas un déclencheur et arrêté sur lui) : la ligne d'historique
+      // le dit (`seul` : le nom du bloc), pour ne pas passer pour une exécution entière. Champ facultatif : une ligne
+      // ancienne n'en a pas.
+      const debut = trigger === undefined ? undefined : wf.nodes.find((n) => n.name === trigger || n.id === trigger);
+      const seul = debut && opts.stopAfter === debut.name && !CATALOG.get(debut.type)?.trigger ? debut.name : undefined;
+      this.record(seul ? { ...ex, seul } as Execution : ex);
       if (ex.status === 'erreur' && mode === 'déclencheur') {
         if (wf.settings?.notifyOnError !== false) await this.deps.notify?.(`⚠️ Talos — « ${wf.name} » a échoué${ex.failedNode ? ` à l'étape « ${ex.failedNode} »` : ''} : ${ex.error}`).catch(() => {});
         // Automatisations « Quand une automatisation échoue » (jamais pour elles-mêmes : pas de boucle).
