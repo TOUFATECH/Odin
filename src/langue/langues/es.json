@@ -134,6 +134,22 @@
     "volva": [
       "busca en internet",
       "buscar en internet"
+    ],
+    "freyja.regarder": [
+      "pon",
+      "ponme",
+      "reproduce",
+      "película",
+      "pelicula"
+    ]
+  },
+  "reglages": {
+    "freyja.regarder.saison": [
+      "temporada"
+    ],
+    "freyja.regarder.episode": [
+      "episodio",
+      "capítulo"
     ]
   },
   "pasEncoreMots": {

@@ -204,6 +204,17 @@
       "fix this",
       "proofread",
       "find the document"
+    ],
+    "freyja.regarder": [
+      "play",
+      "put on",
+      "movie"
+    ]
+  },
+  "reglages": {
+    "freyja.regarder.saison": [
+      "season",
+      "series"
     ]
   },
   "pasEncoreMots": {

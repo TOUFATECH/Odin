@@ -13,8 +13,11 @@ import { LINKS, USAGES } from './links.ts';
 import { forgetsId } from './names.ts';
 import type { Valhalla } from './service.ts';
 import type { Action, Module, Param, View } from './types.ts';
-import { motsAjoutes, SANS_ESPACES, toutesFormes, tousPetitsMots, langues } from '../langue/tables.ts';
+import { motsAjoutes, motsDuReglage, SANS_ESPACES, toutesFormes, tousPetitsMots, langues } from '../langue/tables.ts';
 import { reconnaitre } from '../langue/reconnaitre.ts';
+import { magasinVenus } from './venus/base.ts';
+import { lireDemande, norm as normTitre, trouverOeuvre } from './venus/bibliotheque.ts';
+import { refusAppli } from './sso/acces.ts';
 
 export type Understood =
   | { kind: 'action'; module: string; action: string; input: Record<string, unknown>; label: string; read: boolean; /** Une partie de la phrase n'est pas expliquée par cette appli et cette action : Odin devine. Avec une IA sous la main, c'est à elle de comprendre. */ doubt?: string; /** Le doute porte sur un détail d'une demande qui était bien pour cette appli (utile à dire) ; sinon la demande n'avait sans doute rien à voir. */ near?: boolean }
@@ -57,7 +60,7 @@ const SYN: Array<[RegExp, string[]]> = [
   [/^(bannir)/, ['bannis', 'bloque', 'interdis']],
   [/^(photo)/, ['photo', 'image', 'capture', 'regarde la camera', 'montre la camera']],
   [/^(journaux|journal)/, ['journaux', 'journal', 'logs', 'log']],
-  [/^(regarder)/, ['regarde', 'mets', 'lance', 'ouvre']],
+  [/^(regarder)/, ['regarde', 'mets', 'lance', 'ouvre', 'joue']],
   [/^(enregistrer|enregistrer_plage|instantane)/, ['enregistre', 'garde une copie', 'instantane', 'snapshot']],
   [/^(reserver|reservation)/, ['reserve', 'prends rendez-vous', 'rendez-vous pour']],
   [/^(generer)/, ['genere', 'invente', 'propose un mot de passe']],
@@ -69,6 +72,9 @@ const SYN: Array<[RegExp, string[]]> = [
   [/^(surveiller|evenements|controler)/, ['surveille', 'evenements', 'que se passe', 'quoi de neuf']],
 ];
 
+/** Les verbes qui demandent de lire un titre (ceux des actions « regarder… ») : « lance-moi … » y perd son pronom. */
+const VERBES_LIRE = new Set(SYN.filter(([re]) => re.test('regarder')).flatMap(([, syn]) => syn).map(stem));
+
 /** « laisse tomber » dans les autres langues connues. */
 const ABANDON = [...langues().values()].flatMap((t) => t.abandon).map(norm).filter((x) => x.length > 1);
 const enrichis = new WeakMap<Module, Module>();
@@ -79,9 +85,38 @@ const enrichis = new WeakMap<Module, Module>();
 export function avecLangues(m: Module): Module {
   const deja = enrichis.get(m); if (deja) return deja;
   const plus = motsAjoutes(m.id);
-  const actions = m.actions.map((a) => { const w = motsAjoutes(`${m.id}.${a.id}`); return w.length ? { ...a, words: [...(a.words ?? []), ...w] } : a; });
+  const actions = m.actions.map((a) => {
+    const w = motsAjoutes(`${m.id}.${a.id}`);
+    // Les mots qui annoncent un réglage chiffré dans ces langues (« season », « Staffel », « 第{n}話 ») : portés par le réglage.
+    const params = a.params?.map((p): ParamLu => { const mots = motsDuReglage(`${m.id}.${a.id}.${p.key}`); return mots.length ? { ...p, mots } : p; });
+    const autres = Boolean(params?.some((p, k) => p !== a.params![k]));
+    return w.length || autres ? { ...a, ...(w.length ? { words: [...(a.words ?? []), ...w] } : {}), ...(autres ? { params } : {}) } : a;
+  });
   const r = plus.length || actions.some((a, k) => a !== m.actions[k]) ? { ...m, words: [...m.words, ...plus], actions } : m;
   enrichis.set(m, r); return r;
+}
+
+/** Un réglage avec les mots des autres langues qui l'annoncent (`reglages` des fichiers de langue). */
+type ParamLu = Param & { mots?: string[] };
+/** Minuscules, sans accents, SANS toucher aux espaces : chaque caractère garde sa place (sert à retirer un passage du texte dit). */
+const plat = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').normalize('NFC');
+const echappe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/**
+ * Un nombre annoncé par un des mots d'un réglage dans les autres langues (`t` déjà mis à plat) : « season 2 »,
+ * « Staffel 2 », « temporada 2 » (le mot, puis le nombre) ; « 第10話 », « 7話 » (« {n} » marque la place du nombre).
+ * Le passage le plus tôt dans la phrase l'emporte, le plus long à égalité. Jamais un nombre seul.
+ */
+function nombreNomme(t: string, mots: string[]): { n: number; debut: number; fin: number } | undefined {
+  let best: { n: number; debut: number; fin: number } | undefined;
+  for (const w of mots) {
+    const x = plat(w).trim(); if (!x) continue;
+    const [avant, apres] = x.includes('{n}') ? x.split('{n}') : [x, ''];
+    const colle = SANS_ESPACES.test(x);
+    const re = new RegExp(`${colle || !avant ? '' : '(?<![\\p{L}\\p{N}])'}${echappe(avant)}${!colle && avant && !apres ? '\\p{L}*' : ''}\\s*(?:n[o°]\\s*)?(?<!\\p{N})(\\d{1,4})(?!\\p{N})${apres ? `\\s*${echappe(apres)}` : ''}`, 'u');
+    const m = re.exec(t); if (!m) continue;
+    if (!best || m.index < best.debut || (m.index === best.debut && m.index + m[0].length > best.fin)) best = { n: Number(m[1]), debut: m.index, fin: m.index + m[0].length };
+  }
+  return best;
 }
 
 /** Noms connus de l'appli (ce que sa page affiche) : conteneurs, caméras, appareils, plans… par réglage. */
@@ -186,8 +221,10 @@ export function fill(a: Action, text: string, names: Names, now = new Date()): R
     if (/^(machine)$/.test(k) && mac) { input[p.key] = mac; continue; }
     if (p.kind === 'number' || /^(vmid|pid|port|id)$/.test(k)) {
       const after = new RegExp(`\\b(?:${[k, ...lab.split(/[^a-z]+/).filter((x) => x.length > 2)].map(stem).filter(Boolean).join('|')})\\w*\\s*(?:n[o°]\\s*)?(\\d+)`).exec(s);
-      const n = after ? Number(after[1]) : numbers[usedNum];
-      if (n !== undefined && !Number.isNaN(n)) { input[p.key] = n; if (!after) usedNum++; }
+      // … ou annoncé par un mot d'une autre langue (« season 2 », « Staffel 2 », « 第10話 »).
+      const dit = after ? undefined : nombreNomme(s, (p as ParamLu).mots ?? []);
+      const n = after ? Number(after[1]) : dit ? dit.n : numbers[usedNum];
+      if (n !== undefined && !Number.isNaN(n)) { input[p.key] = n; if (!after && !dit) usedNum++; }
       continue;
     }
     if (/^(nom|client)$/.test(k) && creates) { const who = /(?:au nom de|pour|de la part de|nomm[ée]e?|appel[ée]e?)\s+((?:[A-ZÀ-Ý][\p{L}'-]+)(?:\s+[A-ZÀ-Ý][\p{L}'-]+){0,2})/u.exec(text)?.[1]; if (who) { input[p.key] = who; continue; } }
@@ -203,9 +240,16 @@ function tail(text: string, verbs: string[], nouns: string[]): string {
   const words = text.replace(/^[\s,.;:!?]+|[\s.;!?]+$/g, '').split(/\s+/);
   const key = (w: string) => norm(w).replace(/^(?:[ldjmtsnc]|qu)'/, '').replace(/[^a-z0-9-]/g, '');
   let i = 0, nouned = 0;
-  while (i < words.length) { const w = key(words[i]); if (!w || STOP.has(w) || vs.has(stem(w))) i++; else break; }
-  while (i < words.length && nouned < 3) { const w = key(words[i]); if (!w || STOP.has(w)) { i++; continue; } if (ns.has(stem(w))) { i++; nouned++; } else break; }
-  while (i < words.length && (!key(words[i]) || STOP.has(key(words[i])))) i++;
+  // Les noms propres de la liste (le nom de l'appli, « Dédale », « Vénus ») ne sont jamais pris pour le début d'un titre.
+  const propres = new Set(nouns.filter((d) => /^\p{Lu}/u.test(d.trim())).flatMap((d) => tokens(d)).map(stem));
+  // Un petit mot écrit avec sa majuscule au milieu de la phrase et suivi d'un autre mot à majuscule (« lance-moi Les Trois
+  // Lunes ») ouvre un nom propre : il en fait partie et reste.
+  const ouvreUnNom = (k: number) => k > 0 && /^\p{Lu}/u.test(words[k]) && /^\p{Lu}/u.test(words[k + 1] ?? '');
+  while (i < words.length) { const w = key(words[i]); if (!w || (STOP.has(w) && !ouvreUnNom(i)) || vs.has(stem(w))) i++; else break; }
+  // Un mot écrit avec sa majuscule au milieu de la phrase (« lance Serie Lumen », « le film Film Orage ») est le début
+  // d'un nom propre, un titre : il reste entier, même s'il ressemble à un mot de l'appli.
+  while (i < words.length && nouned < 3) { const w = key(words[i]); if (!w || (STOP.has(w) && !ouvreUnNom(i))) { i++; continue; } if (ns.has(stem(w)) && !(i > 0 && /^\p{Lu}/u.test(words[i]) && !propres.has(stem(w)))) { i++; nouned++; } else break; }
+  while (i < words.length && (!key(words[i]) || (STOP.has(key(words[i])) && !ouvreUnNom(i)))) i++;
   return words.slice(i).join(' ').replace(/^(?:que\s+|qu'|de\s+|d'|:\s*)/i, '').trim();
 }
 /** Retire du texte libre ce qui a déjà servi à un autre réglage (date, heure, durée, téléphone, adresse). */
@@ -217,6 +261,38 @@ function strip(rest: string, input: Record<string, unknown>): string {
   if (input.minutes !== undefined || input.duree !== undefined) r = r.replace(/\s(?:pendant|durant|pour)?\s*\d+(?:[.,]\d+)?\s*(?:minutes?|min|mn|heures?|h|jours?|j|semaines?)(?=\s)/gi, ' ');
   for (const val of Object.values(input)) { const u = String(val ?? ''); if (u.length >= 2 && typeof val !== 'boolean') r = r.replace(new RegExp(`(^|\\s)(?:(?:pendant|durant|sur|pour|de|du|au|à|a)\\s+)?${u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|$)`, 'i'), ' '); }
   return r.replace(/\s+(?:pour|de|du|à|a|au|sur|et)\s*$/i, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Retire du texte libre « <mot du réglage> N » quand ce N a rempli un réglage chiffré de l'action, lu comme dans `fill`
+ * (son nom et son intitulé, à la racine) : « Serie Lumen saison 2 épisode 5 » → « Serie Lumen » quand saison = 2 et
+ * épisode = 5. Aucune liste de mots ici : ce sont les mots de l'action elle-même.
+ */
+function sansNombresDits(rest: string, a: Action, input: Record<string, unknown>): string {
+  let retire = false;
+  // Les mots des autres langues (« season 2 », « Staffel 2 », « 第10話 ») : le passage qui a donné CE nombre part, là où il est.
+  const parLangue = new Set<string>();
+  for (const p of a.params ?? []) {
+    const n = input[p.key], m = typeof n === 'number' ? nombreNomme(plat(rest), (p as ParamLu).mots ?? []) : undefined;
+    if (m && m.n === n && plat(rest).length === rest.length) { rest = `${rest.slice(0, m.debut)} ${rest.slice(m.fin)}`.replace(/\s+/g, ' ').trim(); parLangue.add(p.key); retire = true; }
+  }
+  const ws = rest.split(/\s+/).filter(Boolean);
+  for (const p of a.params ?? []) {
+    const k = norm(p.key), n = input[p.key];
+    if (!(p.kind === 'number' || /^(vmid|pid|port|id)$/.test(k)) || typeof n !== 'number' || parLangue.has(p.key)) continue;
+    const racines = [k, ...norm(p.label).split(/[^a-z]+/).filter((x) => x.length > 2)].map(stem).filter(Boolean);
+    for (let i = 0; i < ws.length - 1; i++) {
+      // (le petit mot élidé devant, « l'épisode 2 », est lu comme dans `tokens`)
+      const w = norm(ws[i]).replace(/^(?:[ldjmtsnc]|qu)'/, '').replace(/[^\p{L}\p{N}]/gu, '');
+      if (!w || !racines.some((x) => w.startsWith(x))) continue;
+      const j = /^n[o°]$/.test(norm(ws[i + 1])) ? i + 2 : i + 1;
+      if (j < ws.length && Number(ws[j].replace(/[,;:!?.]+$/, '')) === n) { ws.splice(i, j - i + 1); retire = true; break; }
+    }
+  }
+  // Ce qui annonçait ces nombres et reste en bout de titre (« … à la », « … à de la », « Titre, ») part aussi : sinon il
+  // serait pris pour un lieu ou un écran. Seulement des petits mots (toutes langues connues) et la ponctuation.
+  if (retire) while (ws.length > 1) { const d = ws.length - 1, w = norm(ws[d]).replace(/[^\p{L}\p{N}]/gu, ''); if (!w || STOP.has(w)) ws.pop(); else { ws[d] = ws[d].replace(/[,;:]+$/, ''); break; } }
+  return ws.join(' ');
 }
 
 interface Pending { module: string; action: string; input: Record<string, unknown>; missing: string; at: number }
@@ -366,6 +442,195 @@ function doubtOf(e: Evidence): { text: string; near: boolean } | undefined {
  * Renvoie undefined quand rien n'est compris avec assez de certitude.
  */
 export async function understand(v: Valhalla, text: string, session = 'principal', now = new Date()): Promise<Understood | undefined> {
+  const w = pending.get(session), attendait = Boolean(w && now.getTime() - w.at < 5 * 60_000);
+  const r = await comprendre(v, text, session, now);
+  // Une réponse à une question en attente, ou une demande comprise sans doute : rien à revoir.
+  if (attendait || r?.kind === 'manip' || (r?.kind === 'say' && !r.unsure)) return r;
+  // Une personne sans droit sur Vénus : sa bibliothèque n'est pas lue (la réponse ne dit pas qu'un titre existe).
+  if (refusAppli('freyja')) return r;
+  const regarde = r?.kind === 'action' && r.module === 'freyja' && r.action === 'regarder';
+  if (r?.kind === 'action' && !r.doubt) {
+    // Sauf « regarder » avec un titre qui n'est pas EXACTEMENT dans la bibliothèque, quand la phrase en dit un (« Spiel den
+    // Film Été Glacé » : en allemand chaque nom a sa majuscule, et « Film » restait collé au titre).
+    if (!regarde) return r;
+    try { if (titresDeVenus(v).has(exacte(lireDemande(String(r.input.quoi ?? '')).titre))) return r; } catch { return r; }
+  }
+  const t = titreALire(v, text, session, now);
+  if (!t) {
+    // « Spiel ein Spiel » (jouer à un jeu) : le verbe seul, sans titre ni mot de Vénus (« film », « série »), ne lui pose pas
+    // la question « quel titre ? » (la réponse suivante serait prise pour un titre).
+    if (r?.kind === 'ask' && r.module === 'freyja' && r.action === 'regarder' && r.missing === 'quoi') {
+      const f = v.module('freyja'), voc = f ? vocab(avecLangues(f)) : new Set<string>();
+      if (!tokens(corpsDe(text)).some((w) => voc.has(stem(w)))) { pending.delete(session); return undefined; }
+    }
+    if (!r || r.kind !== 'action' || !regarde) return r;
+    // Pas de titre de la bibliothèque, quand seuls les mots des autres langues (« play », « ponme », « Spiel », « 再生して »)
+    // ont mené à « regarder » : deviné loin de la phrase (« Spiel Nebelwald », « ponme Nuit Rouge »), ou un titre que la
+    // recherche de Vénus elle-même ne trouve pas (« Spiel den Film Nuit Rouge », « Pon Brume en la tele del salón »), rien ne
+    // part vers Vénus : rien n'est deviné, jamais une réponse fausse. Les verbes d'avant (« mets Inception sur la télé »)
+    // ne changent pas : Vénus répond elle-même que le titre n'est pas dans la bibliothèque, et comment l'ajouter.
+    if (!parMotsAjoutes(text)) return r;
+    if (r.doubt && !r.near) return undefined;
+    return dansVenus(v, r.input) ? r : undefined;
+  }
+  // Un titre exact de la bibliothèque après un verbe de lecture. Il ne remplace que ce qui n'a rien donné de sûr : rien, une
+  // hésitation, ou Vénus elle-même. Si une AUTRE appli a posé une question ou agi avec un doute (« mets la lumière » quand un
+  // film s'appelle « La Lumière »), la demande n'est jamais détournée en silence : je propose les deux.
+  // (Sauf quand l'autre appli n'a été devinée que par le verbe de lecture, ou par rien, et que le titre est dit tel quel :
+  // « joue Brume », « lance-moi les trois lunes s03e07 », « play Les Trois Lunes ». « ouvre le portail » — un mot retiré devant
+  // le titre — et « mets la lumière » — « lumière » est un mot de l'autre appli — restent une question.)
+  if (r?.kind === 'ask') pending.delete(session);
+  if (!r || r.kind === 'say' || r.module === 'freyja') return t.u;
+  if (t.tel && !nommee(v, r.module, text, t.verbe)) return t.u;
+  const autre = r.kind === 'action' ? r.label : `${v.module(r.module)?.name ?? r.module} · ${v.action(r.module, r.action)?.a.label ?? r.action}`;
+  const titre = String((t.u.kind === 'action' ? t.u.input.quoi : '') ?? '').slice(0, 80);
+  // La phrase qui lève le doute dit « film » ou « série » (« regarde le film La Lumière ») : elle est alors comprise sans doute.
+  let sorte = '';
+  try { const o = trouverOeuvre(magasinVenus(v.ctx('freyja').home, v.ctx('freyja').dir), lireDemande(titre).titre); sorte = o?.data.type === 'film' ? 'le film ' : o?.data.type === 'serie' ? 'la série ' : ''; } catch { /* sans exemple */ }
+  return { kind: 'say', unsure: true, text: `Tu parles de ${autre}, ou de regarder « ${titre} » (Vénus) ? Redis-le avec le nom de l'appli${sorte ? ` (pour Vénus : « regarde ${sorte}${titre} »)` : ''}.` };
+}
+
+/**
+ * Un mot de la phrase, hors du verbe de lecture employé, est-il à cette appli (ses mots, son nom, les mots de ses actions,
+ * toutes langues connues) ? Une écriture sans espaces compte quand un mot de l'appli y est collé.
+ */
+function nommee(v: Valhalla, id: string, text: string, verbe: string[]): boolean {
+  const m0 = v.module(id); if (!m0) return true;
+  const m = avecLangues(m0), liste = [...m.words, m.name, ...(forgetsId(m.id) ? [] : [m.id]), ...m.from, ...m.actions.flatMap((a) => a.words ?? [])];
+  const siens = stemsOf(liste), colles = liste.map(norm).filter((x) => SANS_ESPACES.test(x)), lu = new Set(verbe.map(stem));
+  return tokens(corpsDe(text)).filter((w) => !lu.has(stem(w))).some((w) => {
+    if (siens.has(stem(w))) return true;
+    if (!SANS_ESPACES.test(w)) return false;
+    const reste = verbe.filter((x) => SANS_ESPACES.test(x)).reduce((acc, x) => acc.split(norm(x)).join(' '), w);
+    return colles.some((x) => reste.includes(x));
+  });
+}
+
+/**
+ * La phrase commence (ou, sans espaces, finit) par un mot que les fichiers de langue ajoutent à l'action « regarder » de
+ * Vénus (« play », « put on », « ponme », « Spiel », « 再生して ») : ce sont eux qui l'y ont menée.
+ */
+function parMotsAjoutes(text: string): boolean {
+  const corps = norm(corpsDe(text)).replace(/^[\s,.;:!?¡¿]+|[\s.;!?]+$/g, '');
+  return motsAjoutes('freyja.regarder').map(norm).filter(Boolean)
+    .some((w) => (SANS_ESPACES.test(w) ? corps.includes(w) : corps === w || corps.startsWith(`${w} `)));
+}
+
+/**
+ * La recherche de Vénus elle-même (son action « regarder ») trouve-t-elle ce titre ? Un mot, des mots du titre, à la casse
+ * et aux accents près, ou le titre avant les nombres de saison et d'épisode donnés à part. En cas de doute (bibliothèque
+ * illisible, serveur Vénus à part relié), oui : rien ne change pour lui.
+ */
+function dansVenus(v: Valhalla, input: Record<string, unknown>): boolean {
+  if (process.env.VENUS_API_KEY) return true;
+  try {
+    const c = v.ctx('freyja'), M = magasinVenus(c.home, c.dir), quoi = String(input.quoi ?? ''), dem = lireDemande(quoi);
+    if (!dem.titre) return true;
+    if (trouverOeuvre(M, dem.titre) || trouverOeuvre(M, quoi)) return true;
+    const nums = [input.saison, input.episode].filter((x) => typeof x === 'number'), w = dem.titre.split(' ');
+    const at = w.findIndex((x) => nums.includes(Number(x.replace(/[,;:!?.()[\]]/g, ''))));
+    for (let k = at; k >= Math.max(1, at - 1); k--) if (trouverOeuvre(M, w.slice(0, k).join(' '))) return true;
+    return false;
+  } catch { return true; }
+}
+
+/**
+ * Un titre mis à plat pour une comparaison EXACTE, toutes écritures gardées (« プレイリストCalme » n'est pas « Calme ») :
+ * seuls les accents, la casse et les signes entre les mots ne comptent pas.
+ */
+const exacte = (t: string) => plat(t).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+/** Les titres de la bibliothèque de Vénus, mis à plat ; seulement ceux que sa recherche sait retrouver (lettres latines, chiffres). */
+function titresDeVenus(v: Valhalla): Set<string> {
+  const c = v.ctx('freyja');
+  return new Set(magasinVenus(c.home, c.dir).liste('oeuvres').map((e) => String(e.data.titre ?? '')).filter((t) => normTitre(t)).map(exacte));
+}
+
+/** La phrase sans ce qui la précède (« dis-moi », « Odin, ») et sans le pronom collé à un verbe de lecture en tête. */
+function corpsDe(text: string): string {
+  // Le pronom collé à un verbe de lecture en tête (« lance-moi … », « mets-moi … », verbes de « regarder ») est retiré comme
+  // plus bas pour les expressions (sbx) : le verbe est alors reconnu, et il n'est plus pris pour le début du titre.
+  // (Pas pour les autres verbes : « trouve-moi une idée de cadeau » reste une demande pour une IA.)
+  return text.replace(/^\s*(?:dis|dites)[- ](?:moi|nous|donc|voir)\b[\s,:]*/i, '').replace(/^\s*(?:odin|s'il te pla[iî]t|stp|svp)[\s,:]+/i, '')
+    .replace(/^(\s*)(\p{L}+)-(?:moi|lui|nous|leur)(?=[\s,.;:!?]|$)/u, (tout, sp: string, verbe: string) => (VERBES_LIRE.has(stem(verbe)) ? sp + verbe : tout));
+}
+
+/**
+ * « lance-moi Brume », « joue Brume », « mets-moi Jardin Noir S02E10 » : un verbe de lecture en tête (ceux de l'action
+ * « regarder » de Vénus et de la ligne SYN « regarder », plus ses tournures des autres langues connues), suivi EXACTEMENT
+ * d'un titre de la bibliothèque de Vénus (à la casse, aux accents, à un S02E10 / 2x10 près ; les petits mots devant,
+ * « moi », « le », peuvent tomber, jamais un mot du titre). Rien d'autre n'est deviné : un titre absent de la bibliothèque,
+ * ou approché, ne vient pas ici. Sert quand le reste de Logos n'a rien compris de sûr (aucun titre ne dit « film »).
+ * Les autres langues connues (`src/langue/langues/*.json`) donnent leurs verbes (« play », « put on », « ponme », « Spiel »),
+ * leurs mots de saison et d'épisode (« season 2 », « Staffel 2 », « 第10話 ») ; une écriture sans espaces dont le verbe vient
+ * à la FIN (« Jardin Noirのシーズン2第10話を再生して ») est lue depuis la fin, sans rien changer aux autres langues.
+ */
+/** Un titre lu : la demande, le titre dit tel quel (aucun mot retiré devant), et le verbe de lecture employé. */
+type TitreLu = { u: Understood; tel: boolean; verbe: string[] };
+function titreALire(v: Valhalla, text: string, session: string, now: Date): TitreLu | undefined {
+  try {
+    const f = v.action?.('freyja', 'regarder'); if (!f) return undefined;
+    const a = avecLangues(f.m).actions.find((x) => x.id === 'regarder') ?? f.a;
+    const verbes = new Set([...VERBES_LIRE, ...(a.words ?? []).filter((w) => !w.trim().includes(' ')).map(stem)]);
+    const titres = titresDeVenus(v);
+    const cle = (w: string) => norm(w).replace(/^(?:[ldjmtsnc]|qu)'/, '').replace(/[^\p{L}\p{N}-]/gu, '');
+    // Les mots de Vénus et de l'action (« film », « movie », « película », « 映画 »), toutes langues connues.
+    const siens = [...avecLangues(f.m).words, ...(a.words ?? [])].filter((w) => !w.trim().includes(' '));
+    const devant = new Set(siens.map(cle));
+    /**
+     * Le titre dit, s'il est EXACTEMENT dans la bibliothèque : seuls les petits mots et les mots de Vénus devant (« the movie »,
+     * « den Film ») peuvent tomber, jamais un mot du titre.
+     */
+    const titreDit = (quoi: string): string | undefined => {
+      const ws = quoi.split(/\s+/).filter(Boolean);
+      for (let k = 0; k < ws.length; k++) {
+        const q = ws.slice(k).join(' '), n = exacte(lireDemande(q).titre);
+        if (n && titres.has(n)) return q;
+        if (!STOP.has(cle(ws[k])) && !devant.has(cle(ws[k]))) break;
+      }
+      return undefined;
+    };
+    /** Saison et épisode annoncés par un mot (« saison 2 », « season 2 », « Staffel 2 », « 第10話 ») : jamais un nombre seul. */
+    const nombres = (quoi: string): { reste: string; input: Record<string, unknown> } => {
+      const pris = fill(a, quoi, new Map(), now), input: Record<string, unknown> = {};
+      let reste = quoi;
+      for (const p of a.params ?? []) { const n = pris[p.key]; if (typeof n !== 'number') continue; const r = sansNombresDits(reste, a, { [p.key]: n }); if (r !== reste) { reste = r; input[p.key] = n; } }
+      return { reste, input };
+    };
+    const lire = (quoi: string, verbe: string[]): TitreLu | undefined => {
+      const { reste, input } = nombres(quoi), q = titreDit(reste);
+      return q ? { u: finish(v, f.m, f.a, { quoi: q, ...input }, session, now), tel: q === reste.split(/\s+/).filter(Boolean).join(' '), verbe } : undefined;
+    };
+    const corps = corpsDe(text).replace(/^[\s,.;:!?]+|[\s.;!?]+$/g, '');
+    // 1. Le verbe en tête (« lance-moi Brume », « play Brume », « put on Brume », « ponme Brume », « Spiel Brume »).
+    const ws = corps.split(/\s+/);
+    const groupe = (a.words ?? []).map((w) => norm(w).split(' ')).filter((g) => g.length > 1).find((g) => g.every((x, i) => norm(ws[i] ?? '') === x));
+    const k0 = verbes.has(stem(ws[0])) ? 1 : groupe?.length ?? 0;
+    if (k0 && ws.length > k0) return lire(ws.slice(k0).join(' '), ws.slice(0, k0).map(norm));
+    // 2. Une écriture sans espaces, verbe à la fin (« Brumeを再生して ») : le verbe, puis les petits mots collés (« を »,
+    //    « の »), les mots de l'appli (« 映画 ») et les guillemets autour du titre tombent ; tous viennent des fichiers de langue.
+    if (!SANS_ESPACES.test(corps) || plat(corps).length !== corps.length) return undefined;
+    const colles = (l: string[]) => l.map(plat).filter((w) => SANS_ESPACES.test(w)).sort((x, y) => y.length - x.length);
+    const fin = colles(a.words ?? []).find((w) => plat(corps).endsWith(w)); if (!fin) return undefined;
+    const petits = colles([...STOP]), noms = colles(siens);
+    const SIGNES = /^[\s、。・,.!?！？「」『』"“”()（）]/u;
+    const rogner = (t: string, devant: boolean, liste: string[]): string => {
+      for (;;) {
+        const p = plat(t), sig = devant ? SIGNES.exec(t) : SIGNES.exec(t.slice(-1));
+        if (sig && t) { t = devant ? t.slice(1) : t.slice(0, -1); continue; }
+        const w = liste.find((x) => (devant ? p.startsWith(x) : p.endsWith(x)) && x.length < p.length);
+        if (!w) return t;
+        t = devant ? t.slice(w.length) : t.slice(0, -w.length);
+      }
+    };
+    const { reste, input } = nombres(rogner(corps.slice(0, corps.length - fin.length), false, petits));
+    const avant = rogner(reste, false, petits), q = rogner(avant, true, [...noms, ...petits]).trim();
+    const dit = titreDit(q);
+    return dit === q ? { u: finish(v, f.m, f.a, { quoi: q, ...input }, session, now), tel: q === avant.trim(), verbe: [fin] } : undefined;
+  } catch { /* bibliothèque illisible : rien de deviné */ }
+  return undefined;
+}
+
+async function comprendre(v: Valhalla, text: string, session: string, now: Date): Promise<Understood | undefined> {
   const s = norm(text); if (!s) return undefined;
   const mods = v.modules().map(avecLangues);
 
@@ -406,7 +671,7 @@ export async function understand(v: Valhalla, text: string, session = 'principal
   if (/\b(qui fait quoi|liens? entre (les |tes |mes )?applis?)\b/.test(s)) return { kind: 'say', text: ['Les liens entre mes applis (tous automatiques) :', ...LINKS.map((l) => `- ${v.module(l.from)?.name ?? l.from} → ${v.module(l.to)?.name ?? l.to} : quand ${l.when}, ${l.does}`)].join('\n') };
 
   // 4. Choisir l'appli (d'après ce dont on parle), puis l'action (d'après le verbe et ce que la phrase fournit).
-  const body = text.replace(/^\s*(?:dis|dites)[- ](?:moi|nous|donc|voir)\b[\s,:]*/i, '').replace(/^\s*(?:odin|s'il te pla[iî]t|stp|svp)[\s,:]+/i, '');
+  const body = corpsDe(text);
   const toks = tokens(body), stems = new Set(toks.map(stem)), sb = norm(body);
   // Une expression de plusieurs mots (« crée une vm », « cherche un document ») est aussi reconnue quand le pronom est collé
   // au verbe (« crée-moi une vm », « cherche-moi un document »). Les mots isolés, eux, ne changent pas.
@@ -499,7 +764,7 @@ export async function understand(v: Valhalla, text: string, session = 'principal
       // (appareil, machine, conteneur) : on ne retire que le mot qui dit son genre (« le conteneur web » → « web »).
       const naming = /^(nom|titre)$/.test(target.key) && /^(ajouter|creer|nouveau|prestation|radio|liste|regle|suivre|deployer|preparer|creer_scene|noter|serveur)/.test(a.id); // un nom à créer, pas une chose existante
       const thing = !FREE.test(norm(target.key)) && !naming;
-      let rest = strip(tail(body, verbs, thing ? [target.key, target.label.replace(/\(.*$/, '')] : [...m.words, m.name, ...m.from, 'appli', 'application']), input);
+      let rest = strip(sansNombresDits(tail(body, verbs, thing ? [target.key, target.label.replace(/\(.*$/, '')] : [...m.words, m.name, ...m.from, 'appli', 'application']), a, input), input);
       // « corrige ça : je sui aller… » : un texte à transmettre, donné après deux-points, est pris tel quel (avec son « je »).
       const apres = MESSAGE.test(norm(target.key)) ? /:\s+(\S.*)$/s.exec(body)?.[1] : undefined;
       if (apres) rest = apres.trim();

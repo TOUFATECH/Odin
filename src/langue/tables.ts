@@ -4,6 +4,8 @@
 //  - `indices` : des mots courants propres à la langue, pour la reconnaître seulement ;
 //  - `formes` : des formes d'un mot ramenées à sa racine (« viruses » → « virus ») ;
 //  - `applis` : des tournures qui S'AJOUTENT à celles d'une appli (clé « appli ») ou d'une action (« appli.action ») ;
+//  - `reglages` : les mots qui annoncent un réglage chiffré d'une action (clé « appli.action.réglage ») : « season 2 »,
+//    « Staffel 2 » ; « {n} » marque la place du nombre quand le mot l'entoure ou le suit (« 第{n}話 ») ;
 //  - `pasEncoreMots` : les mots qui désignent ce qu'Odin ne sait pas encore faire (mêmes clés que PAS_ENCORE) ;
 //  - `heure`, `abandon` : « quelle heure est-il », « laisse tomber » dans cette langue ;
 //  - `textes` et `pasEncore` : ce qu'Odin répond sans modèle dans cette langue ;
@@ -26,6 +28,7 @@ export interface TableLangue {
   indices: string[];
   formes: Record<string, string>;
   applis: Record<string, string[]>;
+  reglages: Record<string, string[]>;
   pasEncoreMots: Record<string, string[]>;
   heure: string[];
   abandon: string[];
@@ -47,7 +50,7 @@ export function langues(): Map<string, TableLangue> {
     try {
       const j = JSON.parse(readFileSync(DOSSIER + f, 'utf8')) as Partial<TableLangue>;
       if (!j.code) continue;
-      m.set(j.code, { code: j.code, iso3: j.iso3, nom: j.nom ?? j.code, petitsMots: j.petitsMots ?? [], indices: j.indices ?? [], formes: j.formes ?? {}, applis: j.applis ?? {}, pasEncoreMots: j.pasEncoreMots ?? {}, heure: j.heure ?? [], abandon: j.abandon ?? [], textes: j.textes ?? {}, pasEncore: j.pasEncore ?? {}, modeles: { sortes: j.modeles?.sortes ?? {}, choses: j.modeles?.choses ?? {} } });
+      m.set(j.code, { code: j.code, iso3: j.iso3, nom: j.nom ?? j.code, petitsMots: j.petitsMots ?? [], indices: j.indices ?? [], formes: j.formes ?? {}, applis: j.applis ?? {}, reglages: j.reglages ?? {}, pasEncoreMots: j.pasEncoreMots ?? {}, heure: j.heure ?? [], abandon: j.abandon ?? [], textes: j.textes ?? {}, pasEncore: j.pasEncore ?? {}, modeles: { sortes: j.modeles?.sortes ?? {}, choses: j.modeles?.choses ?? {} } });
     } catch { /* fichier de langue illisible : ignoré */ }
   }
   cache = m;
@@ -73,6 +76,10 @@ export function toutesFormes(): Record<string, string> {
 /** Les tournures ajoutées à une appli (`cle` = « appli ») ou à une action (« appli.action »), toutes langues. */
 export function motsAjoutes(cle: string): string[] {
   const out: string[] = []; for (const t of langues().values()) for (const w of t.applis[cle] ?? []) if (!out.includes(w)) out.push(w); return out;
+}
+/** Les mots qui annoncent un réglage chiffré (`cle` = « appli.action.réglage »), toutes langues. */
+export function motsDuReglage(cle: string): string[] {
+  const out: string[] = []; for (const t of langues().values()) for (const w of t.reglages[cle] ?? []) if (!out.includes(w)) out.push(w); return out;
 }
 
 /**

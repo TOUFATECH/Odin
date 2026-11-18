@@ -28,6 +28,7 @@ import { listScripts, parseScriptJob, type ScriptMeta } from '../tools/scripts.t
 import { DEFAULT_CONFIG } from '../config.ts';
 import { routingReport } from '../providers/journal.ts';
 import { stripMood } from '../mood/mood.ts';
+import { sansLigneLireVenus } from '../valhalla/modules/venus.ts';
 import { brainOf } from '../tools/brain.ts';
 import { liensDe } from '../brain/liens-vivants.ts';
 import { Approbations } from '../heimdall/approbations.ts';
@@ -142,8 +143,9 @@ export class Gateway {
     // Odin, homme ou femme : ce qu'il envoie de tout fait (« je suis prêt », « désolé ») s'accorde au réglage en cours.
     // (Pas ce que TU as dit : un vocal recopié « 🎙 … » reste mot pour mot.)
     { const send = ch.send.bind(ch); ch.send = (peer, text, opts) => send(peer, text.startsWith('🎙') ? text : accorder(text), opts); }
-    // Hors de l'application : jamais de marqueur d'humeur dans le texte (Telegram, Signal, WhatsApp…).
-    if (ch.name !== 'web') { const send = ch.send.bind(ch); ch.send = (peer, text, opts) => send(peer, stripMood(text), opts); }
+    // Hors de l'application : jamais de marqueur d'humeur dans le texte (Telegram, Signal, WhatsApp…), ni la ligne du bouton
+    // « Lire » de Vénus (seule la discussion de l'application en fait un bouton).
+    if (ch.name !== 'web') { const send = ch.send.bind(ch); ch.send = (peer, text, opts) => send(peer, sansLigneLireVenus(stripMood(text)), opts); }
     this.channels.set(ch.name, ch); return this;
   }
 
@@ -689,10 +691,10 @@ export class Gateway {
     let sent = false;
     if (t && photo && t.ch.sendPhoto) {
       // Image jointe (10 Mo au plus) ; si elle est illisible, le texte part quand même.
-      try { const img = readFileSync(photo); if (img.byteLength > 0 && img.byteLength <= 10 * 1024 * 1024) { await t.ch.sendPhoto(t.peer, img, stripMood(text)); sent = true; } } catch { /* texte seul */ }
+      try { const img = readFileSync(photo); if (img.byteLength > 0 && img.byteLength <= 10 * 1024 * 1024) { await t.ch.sendPhoto(t.peer, img, sansLigneLireVenus(stripMood(text))); sent = true; } } catch { /* texte seul */ }
     }
     if (t && !sent) await t.ch.send(t.peer, text).catch(() => {});
-    void pushAll(this.odin.paths.home, { title: 'Odin', body: text, view, tag: 'odin-' + view }).catch(() => 0);
+    void pushAll(this.odin.paths.home, { title: 'Odin', body: sansLigneLireVenus(text), view, tag: 'odin-' + view }).catch(() => 0);
     for (const ch of this.channels.values()) ch.notify?.('watch');
   }
 

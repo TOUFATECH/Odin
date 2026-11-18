@@ -115,6 +115,27 @@ export function arrivalMessages(items: Arrival[], mode: 'tout' | 'vf' = 'tout'):
 }
 /** Le profil de Vénus natif : le même que les routes /venus/* (ma liste, reprise), le propriétaire. */
 const PROFIL = 'moi';
+/**
+ * Identifiant d'une cible de la bibliothèque (film, épisode, piste) : « type:slug », puis au plus deux morceaux
+ * (« serie:titre:s2e5 », « album:titre:p1:nom »). Les slugs n'ont que [a-z0-9-] (bibliotheque.ts, `slug`).
+ */
+export const CIBLE_VENUS = /^[a-z_]{2,20}(?::[a-z0-9-]{1,120}){1,3}$/;
+/**
+ * La ligne que la discussion d'Odin (ui.html) change en bouton « Lire » : elle ne porte QUE l'identifiant de la cible,
+ * jamais une adresse. La page vérifie que ce titre est dans la bibliothèque avant de montrer le bouton. Rien si
+ * l'identifiant n'a pas la forme attendue.
+ */
+export const ligneLireVenus = (cible: string): string => (CIBLE_VENUS.test(cible) ? `[▶ Vénus : ${cible}]` : '');
+/**
+ * Le texte sans cette ligne : pour tout ce qui n'est pas la discussion de l'application (Telegram, Signal, WhatsApp,
+ * notifications, mascotte). Seule la forme que fabrique `ligneLireVenus` part ; le reste de la réponse, qui dit déjà le
+ * titre trouvé et où cliquer, ne change pas.
+ */
+export function sansLigneLireVenus(texte: string): string {
+  if (!texte.includes('[▶ Vénus : ')) return texte;
+  const r = texte.replace(/\n*[ \t]*\[▶ Vénus : ([^\]\n]{1,400})\][ \t]*/g, (tout, cible: string) => (ligneLireVenus(cible) ? '' : tout));
+  return r === texte ? texte : r.trimEnd();
+}
 const hm = (t: number) => new Date(t).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
 
 export function venus(url: () => string): Module {
@@ -160,7 +181,16 @@ export function venus(url: () => string): Module {
         const saison = nb(i.saison) ?? dem.saison, episode = nb(i.episode) ?? dem.episode;
         // Sans titre (« S02E05 » seul), rien n'est cherché ni envoyé sur un écran : on demande lequel.
         if (!dem.titre && !relie()) return { text: `Quel titre veux-tu regarder${saison !== undefined && episode !== undefined ? ` en ${`S${String(saison).padStart(2, '0')}E${String(episode).padStart(2, '0')}`}` : ''} ? Donne le nom du film, de la série ou de l'album (par exemple « Titre S02E05 »).` };
-        const oe = !dem.titre ? undefined : trouverOeuvre(M, dem.titre) ?? (dem.titre !== s(i.quoi) ? trouverOeuvre(M, s(i.quoi)) : undefined);
+        // Saison et épisode donnés à part, mais leurs mots restés dans le titre (« Titre saison 2 episode 4 », envoyé tel quel) :
+        // le titre cherché s'arrête juste avant le premier de ces nombres, ou un mot plus tôt (le mot qui l'annonce, quelle que
+        // soit la langue). Rien n'est retiré sans ces nombres donnés à part, et jamais plus d'un mot avant le nombre.
+        const nums = [nb(i.saison), nb(i.episode)].filter((x): x is number => x !== undefined);
+        const avantLesNombres = (t: string) => {
+          const w = t.split(' '), at = w.findIndex((x) => { const d = x.replace(/[,;:!?.()[\]]/g, ''); return /^\d{1,4}$/.test(d) && nums.includes(Number(d)); });
+          for (let k = at; k >= Math.max(1, at - 1); k--) { const o = trouverOeuvre(M, w.slice(0, k).join(' ')); if (o) return o; }
+          return undefined;
+        };
+        const oe = !dem.titre ? undefined : trouverOeuvre(M, dem.titre) ?? (dem.titre !== s(i.quoi) ? trouverOeuvre(M, s(i.quoi)) : undefined) ?? (nums.length ? avantLesNombres(dem.titre) : undefined);
         // « Titre 1071 » : une série trouvée sans le nombre final = un numéro d'épisode sans saison.
         const fin = oe ? undefined : /^(.*\S)\s+(\d{1,4})$/.exec(dem.titre), numerote = fin ? trouverOeuvre(M, fin[1]) : undefined;
         const c = oe ? cibleAJouer(M, oe, { profil: PROFIL, saison, episode }) : numerote?.data.type === 'serie' ? { manque: 'saison_requise' as const } : undefined;
@@ -184,7 +214,9 @@ export function venus(url: () => string): Module {
           const ou = c.saison !== undefined ? `ouvre Vénus → Odéon → « ${titre} » et clique « ► Lire » sur ${sxe(c.saison, c.episode ?? 0)}` : c.num !== undefined ? `ouvre Vénus → Odéon → « ${titre} » et clique « ► Lire » sur la piste ${c.num}` : 'ouvre Vénus → Odéon et clique dessus';
           // Même seuil et même écriture que le lecteur (« Reprise à 0:35 »).
           const rep = c.reprise_s >= 30 ? `, à la reprise (${Math.floor(c.reprise_s / 3600) ? `${Math.floor(c.reprise_s / 3600)}:${String(Math.floor(c.reprise_s % 3600 / 60)).padStart(2, '0')}` : Math.floor(c.reprise_s / 60)}:${String(Math.floor(c.reprise_s % 60)).padStart(2, '0')})` : '';
-          return { text: `« ${titre} »${quoiJoue(c)} est dans ta bibliothèque de Vénus : ${ou}, il se lit dans le navigateur${rep}.${ecran}`,
+          // Dernière ligne : l'identifiant de CE fichier, que la discussion change en bouton « Lire » (un clic, pas de lecture seule).
+          const bouton = ligneLireVenus(c.cibleId);
+          return { text: `« ${titre} »${quoiJoue(c)} est dans ta bibliothèque de Vénus : ${ou}, il se lit dans le navigateur${rep}.${ecran}${bouton ? `\n\n${bouton}` : ''}`,
             data: { oeuvre: c.oeuvreId, type: c.type, cible: c.cibleId, titre, ...(c.saison !== undefined ? { saison: c.saison, episode: c.episode } : {}), ...(c.num !== undefined ? { piste: c.num } : {}), reprise_s: c.reprise_s, lire: `/venus/flux/${encodeURIComponent(c.cibleId)}` } };
         }
         return { text: await tool({ action: 'regarder', quoi: s(i.quoi), ou: s(i.ou) }) };

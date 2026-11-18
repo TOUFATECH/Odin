@@ -116,6 +116,18 @@
     ],
     "volva": [
       "suche im internet"
+    ],
+    "freyja.regarder": [
+      "spiel",
+      "spiele"
+    ]
+  },
+  "reglages": {
+    "freyja.regarder.saison": [
+      "Staffel"
+    ],
+    "freyja.regarder.episode": [
+      "Folge"
     ]
   },
   "pasEncoreMots": {

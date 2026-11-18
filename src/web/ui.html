@@ -309,6 +309,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .field input,.field select,.field textarea{transition:border-color .15s,box-shadow .15s}
 .field input:focus,.field select:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
 .msg.assistant{background:var(--panel);border:1px solid var(--line);padding:12px 16px;border-radius:14px 14px 14px 4px;box-shadow:var(--shadow)}
+/* Le bouton « Lire » d'une réponse de Vénus : 44 px au doigt, un long titre passe à la ligne (390 px). */
+.msg .lire-venus{min-height:44px;margin-top:10px;max-width:100%;padding:8px 16px;white-space:normal;text-align:left;overflow-wrap:anywhere;line-height:1.3}
 .msg{line-height:1.6}
 .composer{background:var(--bg)}
 .composer textarea{background:var(--panel);box-shadow:var(--shadow);transition:border-color .15s}
@@ -2233,14 +2235,55 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const items = foot.split('\n').filter((l) => /^•/.test(l)).map((l) => { const [what, why] = l.replace(/^•\s*/, '').split(/ — /); return el('li', {}, el('code', {}, what.replace(/^\$\s*/, '').slice(0, 140)), why ? el('span', { class: 'dim' }, ' ' + why.replace(/action que tu n'as pas clairement demandée/, 'non demandé explicitement')) : null); });
     return el('details', { class: 'dec' }, el('summary', {}, '🛡 ' + (label || 'Décisions')), items.length ? el('ul', {}, ...items) : null, el('a', { href: '#', class: 'dim', onclick: (e) => { e.preventDefault(); show('audit'); } }, 'Voir le journal des décisions'));
   }
+  // ---------- Vénus : le bouton « Lire » d'une réponse (début lire-venus) ----------
+  // L'action « regarder » de Vénus finit sa réponse par une ligne « [▶ Vénus : <identifiant>] » (valhalla/modules/venus.ts,
+  // ligneLireVenus). Ici, cette ligne devient un bouton. Il ne porte QUE l'identifiant d'un titre de SA bibliothèque, jamais
+  // une adresse écrite dans la réponse ; le titre affiché vient de la bibliothèque (pas du texte de la réponse), en texte
+  // simple ; il n'apparaît que si la bibliothèque connaît ce titre ET répond à qui regarde (le propriétaire seul : un membre
+  // ou un invité reçoit un refus, donc pas de bouton). Un clic ouvre Vénus et démarre le lecteur sur CE fichier, à la reprise
+  // (pages/venus.js, OdinOpenWant.lire). Rien ne se lance sans ce clic.
+  const LireVenus = (() => {
+    const LIGNE = /^[ \t]*\[▶ Vénus : ([a-z_]{2,20}(?::[a-z0-9-]{1,120}){1,3})\][ \t]*$/gm;
+    /** Retire les lignes « Lire » d'un texte : le texte sans elles, et l'identifiant (un seul ; plusieurs différents → aucun). Pur. */
+    function extraire(text) {
+      const ids = new Set();
+      const texte = String(text ?? '').replace(LIGNE, (_, id) => { ids.add(id); return ''; }).replace(/\n{3,}/g, '\n\n').trim();
+      return { texte, cible: ids.size === 1 ? [...ids][0] : null };
+    }
+    /** Le titre du bouton d'après le détail de l'œuvre (/venus/oeuvre/…) : le film, la série et son épisode, l'album et sa piste ; null si la cible n'y est pas. Pur. */
+    function titreDe(detail, cible) {
+      const o = detail && detail.oeuvre; if (!o || typeof o !== 'object') return null;
+      const t = String(o.titre || '').trim() || 'Sans titre';
+      if (o.id === cible) return t;
+      const e = [...(Array.isArray(detail.episodes) ? detail.episodes : []), ...(Array.isArray(detail.pistes) ? detail.pistes : [])].find((x) => x && x.id === cible);
+      if (!e) return null;
+      if (e.saison != null) return `${t} · S${String(e.saison).padStart(2, '0')}E${String(e.episode ?? 0).padStart(2, '0')}`;
+      return `${t} · ${e.num != null ? `${e.num}. ` : ''}${String(e.titre || '').trim()}`.trim();
+    }
+    /** Le bouton, une fois la cible trouvée dans la bibliothèque ; null sinon (inconnue, refusée, hors ligne). */
+    async function bouton(cible, d) {
+      let detail = null;
+      try { const r = await d.fetch(`/venus/oeuvre/${encodeURIComponent(cible.split(':').slice(0, 2).join(':'))}`, { headers: { 'x-odin': '1' } }); if (r.ok) detail = await r.json(); } catch { detail = null; }
+      const titre = titreDe(detail, cible); if (!titre) return null;
+      return d.el('button', { class: 'btn primary lire-venus', type: 'button', 'data-cible': cible, title: `Ouvrir Vénus et lire « ${titre} »`, onclick: () => d.ouvrir(cible) }, `► Lire « ${titre} »`);
+    }
+    return { extraire, titreDe, bouton };
+  })();
+  // Le clic : Vénus s'ouvre avec l'intention de lire CETTE cible (le même chemin qu'un lien « #app=… »).
+  function ouvrirLecture(cible) { window.OdinOpenWant = { module: 'freyja', lire: cible }; show('apps'); setTimeout(() => window.OdinApps?.app('freyja'), 150); }
+  // (fin lire-venus)
   function addMsg(role, text, model) {
     activity?.classList.add('done'); activity = null;
     if (role === 'user') text = String(text).replace(/\n*\[Plume, le correcteur d'Odin[\s\S]*$/, '').replace(/\n*\[page : [^\]\n]*\]\s*$/, '');
+    let cibleVenus = null;
+    if (role === 'assistant') ({ texte: text, cible: cibleVenus } = LireVenus.extraire(text));
     const m = text.match(/\/yes ([A-Za-z0-9]+)/);
     // Ancien chemin (historique rechargé) : le message texte sert de secours quand aucune carte n'existe déjà.
     if (role === 'assistant' && m && /validation|GRAVE/i.test(text)) { if (cards.has(m[1])) return; return addApproval(text, m[1]); }
     let node;
-    if (role === 'assistant') { const [body, foot] = splitFooter(text.replace(/^\s*\[\s*humeur\s*:[^\]]*\]\s*/i, '')); node = el('div', { class: 'msg assistant' }, el('div', { class: 'who' }, 'Odin'), md(body), footerBox(foot), model ? byIa(model) : null); }
+    if (role === 'assistant') { const [body, foot] = splitFooter(text.replace(/^\s*\[\s*humeur\s*:[^\]]*\]\s*/i, '')); const lire = cibleVenus ? el('div', { class: 'lire-venus-place' }) : null;
+      if (lire) LireVenus.bouton(cibleVenus, { fetch: (u, o) => fetch(u, o), el, ouvrir: ouvrirLecture }).then((b) => { if (b) lire.replaceWith(b); else lire.remove(); }, () => lire.remove());
+      node = el('div', { class: 'msg assistant' }, el('div', { class: 'who' }, 'Odin'), md(body), lire, footerBox(foot), model ? byIa(model) : null); }
     else {
       // Fichiers joints : petites étiquettes au lieu du texte technique
       const re = /^\[(?:Image|Vidéo|Audio|Document|Archive|Fichier|Photo prise par la caméra)[^:]*: (inbox\/[^\s]+) \(([^,]*), ([^)]*)\)[^\]]*\]$/;
@@ -4987,13 +5030,13 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const es = new EventSource('/api/stream');
     es.onmessage = (ev) => {
       const d = JSON.parse(ev.data);
-      if (d.type === 'message' && d.peer === peer) dispatchEvent(new CustomEvent('odin:reply', { detail: { text: d.text } }));
+      if (d.type === 'message' && d.peer === peer) dispatchEvent(new CustomEvent('odin:reply', { detail: { text: LireVenus.extraire(d.text).texte } })); /* sans la ligne « Lire » de Vénus */
       else if (d.type === 'event' && d.peer === peer && d.event.type === 'delta') dispatchEvent(new CustomEvent('odin:delta', { detail: { text: d.event.text } }));
       else if (d.type === 'event' && d.peer === peer && d.event.type === 'approval') dispatchEvent(new CustomEvent('odin:approval', { detail: d.event }));
       // La vie de la mascotte (vie.js) écoute « odin:event » : travail, refus, apprentissage lui arrivent enfin.
       if (d.type === 'event' && d.peer === peer && ['tool_start', 'tool_end', 'blocked', 'learned'].includes(d.event.type)) dispatchEvent(new CustomEvent('odin:event', { detail: d.event }));
       if (d.peer === peer && (d.type === 'message' || (d.type === 'event' && (d.event.type === 'mood' || d.event.type === 'delta')))) chercheFin(); // le tour répond ou finit
-      if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text, d.model); window.OdinPiedMenu?.noterModele(d.model); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
+      if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', LireVenus.extraire(d.text).texte.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text, d.model); window.OdinPiedMenu?.noterModele(d.model); if (!/\/yes \S+/.test(d.text)) sayAloud(LireVenus.extraire(d.text).texte.split('\n\n⚡')[0].split('\n\n🛡')[0]); /* la ligne « Lire » de Vénus n'est pas dite à voix haute */ if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
       else if (d.type === 'secret' && d.peer === peer) addSecret(d.text);
       else if (d.type === 'event' && d.event.type === 'delta' && d.peer === peer) liveAdd(d.event.text);

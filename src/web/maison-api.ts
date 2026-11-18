@@ -14,6 +14,7 @@ import { LIEU_PAR_DEFAUT, THEMES, appStates, familyNow, keyRights, meteoAncienne
 import { cameraNames, preview } from '../valhalla/modules/himinbjorg.ts';
 import { homeDevices, homePeople, homeScenes } from '../valhalla/modules/midgard.ts';
 import { netState } from '../valhalla/modules/vidarr.ts';
+import { sansLigneLireVenus } from '../valhalla/modules/venus.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import { noticesOf } from '../valhalla/notices.ts';
 
@@ -181,7 +182,8 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
         const ha = hp.filter((h) => /famille|tout le monde/.test(q) || h.name.toLowerCase().includes(q));
         if (list.length || ha.length) { json(res, 200, { ok: true, text: [...ha.map((h) => `${h.name} : ${h.state === 'home' ? 'à la maison' : h.state === 'not_home' ? 'absent' : h.state}.`), ...list.filter((f) => !ha.some((h) => h.name.toLowerCase() === f.name.toLowerCase())).map((f) => `${f.name} : ${f.place ?? 'position partagée'} il y a ${Math.max(1, Math.round((Date.now() - f.at) / 60_000))} min${f.batt !== undefined ? ` (batterie ${f.batt} %)` : ''}.`)].join('\n') }); return true; }
       }
-      if (who.rights === 'complet') { json(res, 200, { ok: true, text: (await d.ask(text)).replace(/\[humeur:[^\]]*\]/g, '').trim() }); return true; }
+      // Rendue hors de la discussion (mascotte, tablette) : sans l'humeur ni la ligne du bouton « Lire » de Vénus.
+      if (who.rights === 'complet') { json(res, 200, { ok: true, text: sansLigneLireVenus((await d.ask(text)).replace(/\[humeur:[^\]]*\]/g, '')).trim() }); return true; }
       const u = await understand(v, text, 'maison').catch(() => undefined);
       if (u?.kind === 'action' && !u.doubt && ['midgard', 'gladsheim'].includes(u.module)) { json(res, 200, await run(who, u.module, u.action, u.input, confirm)); return true; }
       json(res, 200, { ok: false, text: 'Depuis cette tablette, je commande la maison (lumières, volets, scènes…). Pour le reste, demande-moi dans Odin.' });

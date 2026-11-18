@@ -56,6 +56,24 @@
     ],
     "naglfar": [
       "コンテナ"
+    ],
+    "freyja.regarder": [
+      "再生して",
+      "再生",
+      "流して",
+      "映画",
+      "ドラマ"
+    ]
+  },
+  "reglages": {
+    "freyja.regarder.saison": [
+      "シーズン{n}",
+      "第{n}シーズン",
+      "第{n}期"
+    ],
+    "freyja.regarder.episode": [
+      "第{n}話",
+      "{n}話"
     ]
   },
   "pasEncoreMots": {
