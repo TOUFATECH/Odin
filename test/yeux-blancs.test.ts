@@ -76,8 +76,10 @@ test('yeux blancs : face.js, rendu de chaque émotion à chaque taille, et de ch
   };
   for (const id of ids) for (const taille of ['grand', 'petit', 'mini']) verifier(`${id} (${taille})`, F.dessin(id, { taille }));
   // Au repos, toutes les couleurs de thème et de fête, et des couleurs très claires ou très sombres.
-  // (themes.js, et les thèmes « Mis en avant » de la maquette : src/web/pages/themes-catalogue.js)
-  const themes = ['src/web/themes.js', 'src/web/pages/themes-catalogue.js'].flatMap((f) => [...lire(f).matchAll(/"?mascot"?\s*:\s*['"](#[0-9a-fA-F]{6})['"]/g)].map((x) => x[1]));
+  // (themes.js, et les thèmes de la maquette : src/web/pages/themes-catalogue.js ; ceux de Hestia y prennent leur accent2)
+  const lus = (f: string) => [...lire(f).matchAll(/"?(?:mascot|accent2)"?\s*:\s*['"](#[0-9a-fA-F]{6})['"]/g)].map((x) => x[1]);
+  const themes = ['src/web/themes.js', 'src/web/pages/themes-catalogue.js'].flatMap(lus);
+  assert.ok(lus('src/web/pages/themes-catalogue.js').length >= 37, 'les 6 « Mis en avant » et les 31 de Hestia');
   const { EVENTS } = await import('../src/valhalla/fetes.ts');
   for (const c of [...themes, ...EVENTS.map((e) => e.color), '#ffffff', '#f2f2f2', '#fff4c2', '#000000', '#2a2f3a']) { F.tintBase(c); verifier(`repos ${c}`, F.dessin('neutre')); }
 });

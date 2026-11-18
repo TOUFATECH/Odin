@@ -25,6 +25,15 @@ export const THEME_NAMES: Record<string, string> = {
   // Les thèmes « Mis en avant » de la maquette validée qui n'existaient pas encore (mêmes identifiants et mêmes noms
   // que src/web/pages/themes-catalogue.js ; « glace » y est aussi, sous son identifiant d'avant).
   vitre: 'Vitre', glacenuit: 'Glace nuit', neon: 'Néon', ha: 'Home Assistant', clair: 'Maison claire',
+  // Les 31 thèmes de Hestia (mêmes identifiants h-… et mêmes noms que src/web/pages/themes-catalogue.js : ceux que
+  // l'écran de la maison leur donne). Un nom pris aussi par un thème d'avant : en parlant, c'est le thème d'avant.
+  'h-verre': 'Verre sombre (tuiles colorées)', 'h-nuit': 'Bleu nuit', 'h-braise': 'Braise (orange)', 'h-acier': 'Acier (gris bleuté)',
+  'h-mural': 'Tablette murale (noir et cyan)', 'h-crepuscule': 'Crépuscule (paysage)', 'h-classique': 'Classique (comme Home Assistant)',
+  'h-violet': 'Violet', 'h-aurore': 'Aurore (violet et soleil)', 'h-lagon': 'Lagon (bleu-vert)', 'h-clair': 'Clair',
+  'h-ocean': 'Bleu océan', 'h-blanc': 'Blanc pur', 'h-rubis': 'Rouge rubis', 'h-foret': 'Vert forêt', 'h-soleil': 'Jaune soleil',
+  'h-plage': 'Plage (palmier)', 'h-etoiles': 'Ciel étoilé', 'h-boreale': 'Aurore boréale', 'h-mayotte': 'Lagon de Mayotte', 'h-coucher': 'Coucher de soleil',
+  'h-montagne': 'Montagne et brume', 'h-tropical': 'Forêt tropicale', 'h-desert': 'Désert', 'h-neige': 'Neige', 'h-abysses': 'Océan profond',
+  'h-neon': 'Néon', 'h-bois': 'Bois et lin', 'h-graphite': 'Graphite', 'h-pastel': 'Pastel', 'h-espace': 'Espace',
   // Les 16 thèmes des événements de l'année (mêmes identifiants et mêmes noms que EVENT_THEMES dans themes.js) :
   // ils se choisissent comme les autres, mais « au hasard » ne tombe jamais dessus.
   'ev-noel': 'Noël', 'ev-nouvelan': 'Nouvel An', 'ev-carnaval': 'Carnaval', 'ev-paques': 'Pâques', 'ev-abolition': '27 avril', 'ev-travail': '1er mai',
