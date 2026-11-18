@@ -22,8 +22,17 @@ export const THEME_NAMES: Record<string, string> = {
   veille: 'Veille de l\'aube', lagon: 'Lagon', volcan: 'Volcan', savane: 'Savane', lavande: 'Lavande', cerisier: 'Cerisiers', minuit: 'Minuit',
   gel: 'Gel (0° et moins)', froid: 'Froid (1° à 9°)', frais: 'Frais (10° à 17°)', chaud: 'Chaud (28° à 31°)', torride: 'Torride (32° à 35°)', canicule: 'Canicule (36° et plus)',
   valhalla: 'Valhalla (classique)',
+  // Les 16 thèmes des événements de l'année (mêmes identifiants et mêmes noms que EVENT_THEMES dans themes.js) :
+  // ils se choisissent comme les autres, mais « au hasard » ne tombe jamais dessus.
+  'ev-noel': 'Noël', 'ev-nouvelan': 'Nouvel An', 'ev-carnaval': 'Carnaval', 'ev-paques': 'Pâques', 'ev-abolition': '27 avril', 'ev-travail': '1er mai',
+  'ev-musique': 'Fête de la musique', 'ev-nationale': '14 juillet', 'ev-ramadan': 'Ramadan', 'ev-aidfitr': 'Aïd el-Fitr', 'ev-aidkebir': 'Aïd el-Kébir',
+  'ev-valentin': 'Saint-Valentin', 'ev-patrick': 'Saint-Patrick', 'ev-halloween': 'Halloween', 'ev-thanksgiving': 'Thanksgiving', 'ev-anniversaire': 'Anniversaire',
 };
 const IDS = Object.keys(THEME_NAMES);
+/** Les thèmes d'Odin, sans ceux des événements. */
+const ODIN_IDS = IDS.filter((x) => !x.startsWith('ev-'));
+/** « Au hasard » : un thème d'Odin, jamais un événement, ni Valhalla, ni le thème en cours. */
+const auHasard = (avant: string) => { const l = ODIN_IDS.filter((x) => x !== avant && x !== 'valhalla'); return l[Math.floor(Math.random() * l.length)]; };
 interface Wx { place?: string; temp?: number; code?: number; wind?: number; lat?: number; lon?: number; /** fuseau du lieu d'Odin (Hestia) */ fuseau?: string }
 /** Le fuseau horaire : celui réglé ici, sinon celui du lieu d'Odin (Hestia : « ma ville est … »), sinon Mayotte. */
 const fuseauDe = (ctx: ModCtx, wx?: Wx) => s(ctx.settings.fuseau) || s(lieuCourant()?.fuseau) || s(wx?.fuseau) || 'Indian/Mayotte';
@@ -104,8 +113,8 @@ export const apparence: Module = (() => {
   const others = (cur: string) => ['glace', 'nuit', 'mayotte'].filter((x) => x !== cur).slice(0, 3).map((x) => THEME_NAMES[x]).concat('Au hasard').join(' · ');
   return {
     id: 'apparence', name: 'Apparence', family: 'Maison',
-    what: 'Les 33 thèmes d\'Odin : couleurs, décor et couleur d\'Odin, choisis par toi ou selon l\'heure et la météo.',
-    does: ['33 thèmes, dont 6 de température (gel, froid, frais, chaud, torride, canicule), plus ceux des fêtes du calendrier', 'le même thème sur tous tes écrans', 'automatique : la fête du jour, puis le temps, la température, et sinon l\'heure selon l\'humeur d\'Odin', 'Odin prend toujours la couleur du thème ; ses humeurs ne le colorent qu\'un instant', '« Odin, change ton thème », aussi sur Telegram'],
+    what: `Les ${ODIN_IDS.length} thèmes d'Odin : couleurs, décor et couleur d'Odin, choisis par toi ou selon l'heure et la météo.`,
+    does: [`${ODIN_IDS.length} thèmes, dont 6 de température (gel, froid, frais, chaud, torride, canicule), plus ceux des fêtes du calendrier`, 'le même thème sur tous tes écrans', 'automatique : la fête du jour, puis le temps, la température, et sinon l\'heure selon l\'humeur d\'Odin', 'Odin prend toujours la couleur du thème ; ses humeurs ne le colorent qu\'un instant', '« Odin, change ton thème », aussi sur Telegram'],
     from: [], upstream: [],
     words: ['change ton thème', 'change de thème', 'thème d\'odin', 'mets le thème', 'remets automatique', 'thèmes', 'réapparais', 'cache-toi', 'prochaines fêtes', 'événements de l\'année'],
     actions: [
@@ -118,11 +127,11 @@ export const apparence: Module = (() => {
           if (/^auto/.test(want)) { ctx.saveSettings({ mode: 'auto', auto: undefined }); const n = await now(ctx); return { text: `🎨 Automatique : en ce moment ${THEME_NAMES[n.theme]} (${n.why}). Il changera selon l'heure et la météo.`, data: { mode: 'auto', theme: n.theme } }; }
           let id = IDS.find((x) => x === want) ?? IDS.find((x) => THEME_NAMES[x].toLowerCase() === want || THEME_NAMES[x].toLowerCase().startsWith(want) && want.length >= 3);
           let why = '';
-          if (!id && /hasard/.test(want)) id = IDS.filter((x) => x !== before && x !== 'valhalla')[Math.floor(Math.random() * (IDS.length - 2))];
+          if (!id && /hasard/.test(want)) id = auHasard(before);
           if (!id && want) throw new Error(`thème inconnu : « ${want} » (${IDS.map((x) => THEME_NAMES[x]).join(', ')})`);
           if (!id) { // « change ton thème » : celui qui va avec le temps, sinon un autre
             const wx = await meteo(ctx), c = autoTheme(hourIn(ctx.now(), fuseauDe(ctx, wx)), wx, currentMood(ctx.now().getTime()));
-            id = c.id !== before ? c.id : IDS.filter((x) => x !== before && x !== 'valhalla')[Math.floor(Math.random() * (IDS.length - 2))]; why = c.id === id ? c.why : '';
+            id = c.id !== before ? c.id : auHasard(before); why = c.id === id ? c.why : '';
           }
           ctx.saveSettings({ mode: 'fixe', theme: id });
           return { text: `🎨 Je passe en ${THEME_NAMES[id]}${why ? ` : ${why}` : ''}. Tu en préfères un autre ? ${others(id)}. Dis « remets automatique » pour suivre l'heure et la météo.`, data: { mode: 'fixe', theme: id } };
