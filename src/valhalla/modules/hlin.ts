@@ -207,7 +207,7 @@ function annoncer(ctx: ModCtx, f: Fiche, b: Bilan): void {
   const haut = b.nouveaux.filter((r) => r.risque === 'élevé').length, moyen = b.nouveaux.filter((r) => r.risque === 'moyen').length;
   const level: Level = haut ? 'haute' : moyen ? 'moyenne' : 'info', tri = [...b.nouveaux].sort((x, y) => ORDRE[x.risque] - ORDRE[y.risque]);
   ctx.alert({
-    level, key: `nouveaux:${f.id}:${jourLocal(ctx.now())}`,
+    level, key: `nouveaux:${f.id}:${jourLocal(ctx.now())}`, lien: 'hlin-alerte-donnees-perso',
     title: `${pl(b.nouveaux.length, 'nouveau résultat', 'nouveaux résultats')} ${sur(f)}${haut ? ` (${haut} à risque élevé)` : ''}`,
     detail: [...tri.slice(0, 5).map(ligne), ...(tri.length > 5 ? [`… et ${tri.length - 5} autre(s)`] : []), ...(b.retires.length ? [b.retires.length > 1 ? `${b.retires.length} résultats n'apparaissent plus : notés « retiré ».` : '1 résultat n\'apparaît plus : noté « retiré ».'] : [])].join('\n'),
     steps: ['Ouvre Gygès, onglet « Résultats » (ou « Sociétés »).', '« Comment le retirer » donne la marche à suivre pour chaque résultat.', 'Si ce n\'est pas toi (un homonyme) : « Pas moi ».'],
@@ -532,7 +532,7 @@ export const hlin: Module = {
     for (const d of dem) {
       if (d.etat !== 'envoyée' && d.etat !== 'relancée') continue;
       if (d.avant && d.avant < aujourdhui && !d.rappel) {
-        ctx.alert({ level: 'moyenne', key: `delai:${d.id}`, title: `Demande de retrait à ${d.site} : délai dépassé, pas de réponse`, detail: `Envoyée le ${jourFr(d.envoyee ?? d.creee)}, réponse attendue avant le ${jourFr(d.avant)} (un mois${d.prolongee ? ', porté à trois' : ''} : RGPD, article 12).`, steps: ['Si le site a répondu entre-temps : note-le dans l\'onglet « Demandes ».', 'Sinon : « Préparer la relance », et envoie-la.', `Toujours rien quinze jours après : plainte à la CNIL (${LIENS.cnilPlainte}).`], fix: { action: 'relancer', label: 'Préparer la relance', input: { demande: d.id } } });
+        ctx.alert({ level: 'moyenne', key: `delai:${d.id}`, lien: 'hlin-alerte-donnees-perso', title: `Demande de retrait à ${d.site} : délai dépassé, pas de réponse`, detail: `Envoyée le ${jourFr(d.envoyee ?? d.creee)}, réponse attendue avant le ${jourFr(d.avant)} (un mois${d.prolongee ? ', porté à trois' : ''} : RGPD, article 12).`, steps: ['Si le site a répondu entre-temps : note-le dans l\'onglet « Demandes ».', 'Sinon : « Préparer la relance », et envoie-la.', `Toujours rien quinze jours après : plainte à la CNIL (${LIENS.cnilPlainte}).`], fix: { action: 'relancer', label: 'Préparer la relance', input: { demande: d.id } } });
         d.rappel = aujourdhui; change = true;
       }
       const relance = d.relances.at(-1);

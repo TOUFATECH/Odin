@@ -130,7 +130,8 @@ async function lirePoste(ctx: ModCtx, poste: Poste, o: { veille?: boolean } = {}
       // Un nouveau disque fixe prend sa fiche dans l'inventaire, une seule fois (jamais recréée si tu la supprimes).
       if (!n.suivi.inventorie && d.serie && !d.usb && typeInventaire(ctx)) { n.suivi.inventorie = true; void inventorier(ctx, d, poste, false).catch(() => undefined); }
       try { ecrireSuivi(ctx.dir, pk, n.suivi); } catch { /* disque plein : pas d'historique cette fois */ }
-      for (const x of a.alertes) ctx.alert(x);
+      // Lien écrit « Tirésias → Forseti » : la dégradation du disque ; pas les erreurs de câble (presque jamais le disque).
+      for (const x of a.alertes) ctx.alert(x.key?.startsWith('cable:') ? x : { ...x, lien: 'durinn-alerte-disque' });
       if (n.avant && n.avant.e !== d.etat) ctx.emit('etat_disque', { disque: d.nom, modele: d.modele ?? '', etat: d.etat, avant: n.avant.e, poste: poste.local ? '' : poste.nom });
     }
     l.disques.push(d);
@@ -147,7 +148,7 @@ async function lirePoste(ctx: ModCtx, poste: Poste, o: { veille?: boolean } = {}
     const presents = new Set(l.disques.filter((d) => d.smart === 'oui').map((d) => cleDisque(d)));
     for (const sv of listerSuivis(ctx.dir, pk)) {
       if (presents.has(sv.cle) || sv.usb || !sv.serie || sv.disparu || now.getTime() - Date.parse(sv.vu) > 30 * 86_400_000) continue;
-      ctx.alert({ level: 'haute', title: `Disque ${appeler(sv)}${poste.local ? '' : ` sur ${poste.nom}`} : il ne répond plus`, detail: `Il répondait encore le ${jourDit(sv.vu.slice(0, 10), now)}. Si tu l'as retiré exprès, tout va bien (« Oublier un disque » le retire du suivi). Sinon il est débranché ou en panne.`, key: `disparu:${sv.cle}`, steps: ['Vérifie que le disque est bien branché (câble de données et alimentation).', 'S\'il ne revient pas : il est sans doute en panne. Remets tes fichiers depuis la sauvegarde sur un disque neuf.', ...(recuperation(ctx) ? [`Pas de sauvegarde ? ${recuperation(ctx)!.nom} peut tenter une récupération.`] : [])], data: { cle: sv.cle } });
+      ctx.alert({ level: 'haute', title: `Disque ${appeler(sv)}${poste.local ? '' : ` sur ${poste.nom}`} : il ne répond plus`, detail: `Il répondait encore le ${jourDit(sv.vu.slice(0, 10), now)}. Si tu l'as retiré exprès, tout va bien (« Oublier un disque » le retire du suivi). Sinon il est débranché ou en panne.`, key: `disparu:${sv.cle}`, lien: 'durinn-alerte-disque', steps: ['Vérifie que le disque est bien branché (câble de données et alimentation).', 'S\'il ne revient pas : il est sans doute en panne. Remets tes fichiers depuis la sauvegarde sur un disque neuf.', ...(recuperation(ctx) ? [`Pas de sauvegarde ? ${recuperation(ctx)!.nom} peut tenter une récupération.`] : [])], data: { cle: sv.cle } });
       try { ecrireSuivi(ctx.dir, pk, { ...sv, disparu: now.toISOString() }); } catch { /* disque plein */ }
     }
   }

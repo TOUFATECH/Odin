@@ -75,7 +75,7 @@ async function texteTable(chemin: string): Promise<ActionResult> {
 function lancer(ctx: ModCtx, t: Omit<Travail, 'fin' | 'debut' | 'arret' | 'suivi'>, f: (arret: { stop: boolean }, suivi: Suivi) => Promise<void>): Travail {
   const arret = { stop: false }, suivi: Suivi = { fait: 0, total: 0, trouves: 0, etape: 'Démarrage' };
   const job: Travail = { ...t, debut: Date.now(), arret, suivi, fin: Promise.resolve() };
-  job.fin = f(arret, suivi).catch((e) => { ctx.alert({ level: 'moyenne', title: `Perséphone : ${t.genre} interrompue`, detail: `${(e as Error).message}. Rien n'a été écrit sur le support.`, key: `hel:echec:${t.source}` }); })
+  job.fin = f(arret, suivi).catch((e) => { ctx.alert({ level: 'moyenne', title: `Perséphone : ${t.genre} interrompue`, detail: `${(e as Error).message}. Rien n'a été écrit sur le support.`, key: `hel:echec:${t.source}`, lien: 'hel-alerte-recuperation' }); })
     .finally(() => { if (travaux.get(ctx.dir) === job) travaux.delete(ctx.dir); });
   travaux.set(ctx.dir, job);
   return job;
@@ -168,7 +168,7 @@ export const hel: Module & { similaires: string[] } = {
         if (!ici.ok) return { ok: false, text: `Je ne peux pas ranger la copie de secours à côté d'Odin : ${ici.raison}. Je n'écris rien.` };
         let m; try { m = await ecrireTable(c, prop.ecritures, rep, { quand: ctx.now().toISOString(), quoi: `table ${prop.genre.toUpperCase()} (${prop.mode === 'copie' ? 'copie refaite' : 'partitions retrouvées'})` }); }
         catch (e) { return { ok: false, text: `Réparation abandonnée : ${(e as Error).message}.` }; }
-        ctx.alert({ level: 'info', title: `Perséphone : table de partitions réparée sur ${c}`, detail: `${prop.explication} Copie de secours ${m.id} gardée ; « Remettre la table d'avant » la remet si besoin.`, key: `hel:table:${m.id}`, fix: { module: 'hel', action: 'remettre', label: 'Remettre la table d\'avant', input: { id: m.id } } });
+        ctx.alert({ level: 'info', title: `Perséphone : table de partitions réparée sur ${c}`, detail: `${prop.explication} Copie de secours ${m.id} gardée ; « Remettre la table d'avant » la remet si besoin.`, key: `hel:table:${m.id}`, lien: 'hel-alerte-recuperation', fix: { module: 'hel', action: 'remettre', label: 'Remettre la table d\'avant', input: { id: m.id } } });
         return { text: `✅ Table ${prop.genre.toUpperCase()} écrite sur ${c} (${prop.partitions.length} partition(s)). Copie de secours « ${m.id} » (début et fin du support) gardée dans les données de Perséphone.\nDébranche et rebranche le support (ou redémarre) pour que le système relise la table.`, data: { secours: m.id } };
       } },
     { id: 'remettre', label: 'Remettre la table d\'avant', what: 'Remet les secteurs gardés avant une réparation : le support revient octet pour octet comme avant', quick: false, params: [{ key: 'id', label: 'Copie de secours', kind: 'text', required: true }],
@@ -206,7 +206,7 @@ export const hel: Module & { similaires: string[] } = {
         r.fin = ctx.now().toISOString();
         mkdirSync(dossierRapports(ctx), { recursive: true }); writeFileSync(join(dossierRapports(ctx), `${id}.json`), JSON.stringify(r));
         const n = r.compte.entiers + r.compte.abimes + r.compte.nonVerifiables, asc = nomAppli(ctx, 'ullr', 'Asclépios');
-        ctx.alert({ level: r.erreur ? 'moyenne' : 'info', title: `Perséphone : ${n} fichier(s) retrouvé(s) depuis ${c}${r.arretee ? ' (arrêtée)' : ''}`, detail: resume(r), key: `hel:recup:${id}`,
+        ctx.alert({ level: r.erreur ? 'moyenne' : 'info', title: `Perséphone : ${n} fichier(s) retrouvé(s) depuis ${c}${r.arretee ? ' (arrêtée)' : ''}`, detail: resume(r), key: `hel:recup:${id}`, lien: 'hel-alerte-recuperation',
           steps: ['Ouvre le dossier retrouvé et garde ce qui compte.', `Fais analyser le dossier par ${asc} avant d'ouvrir les fichiers (ils viennent d'un support dont on ne sait rien).`, 'Les fichiers abîmés sont rangés à part : certains s\'ouvrent quand même en partie.'],
           fix: { module: 'hel', action: 'analyser', label: `Analyser avec ${asc}`, input: { rapport: id } } });
         ctx.emit('recuperation_terminee', { id, source: c, dossier: r.dossier, fichiers: n, abimes: r.compte.abimes });

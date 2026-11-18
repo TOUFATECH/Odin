@@ -179,7 +179,7 @@ export const syn: Module = {
       if (p.attention === undefined && p.grave === undefined) continue;
       for (const x of read(p, 15 * 60e3, now)) {
         const t = toneOf(p, x.value); if (t !== 'mauvais' && t !== 'attention') continue;
-        ctx.alert({ level: t === 'mauvais' ? 'haute' : 'moyenne', title: `${b.nom} · ${p.titre} : ${x.label} ${fmt(x.value, p)}`, detail: `Seuil ${t === 'mauvais' ? 'rouge' : 'orange'} dépassé (${CALC_LABEL[p.calcul]} sur 15 min).`, key: `syn:${b.id}:${p.id}:${x.name}:${t}` });
+        ctx.alert({ level: t === 'mauvais' ? 'haute' : 'moyenne', title: `${b.nom} · ${p.titre} : ${x.label} ${fmt(x.value, p)}`, detail: `Seuil ${t === 'mauvais' ? 'rouge' : 'orange'} dépassé (${CALC_LABEL[p.calcul]} sur 15 min).`, key: `syn:${b.id}:${p.id}:${x.name}:${t}`, lien: 'syn-alerte-seuil' });
       }
     }
   } },

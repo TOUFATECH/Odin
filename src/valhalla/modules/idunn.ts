@@ -65,9 +65,15 @@ function record(ctx: ModCtx, e: Omit<Ev, 'at'>, alert = true, more: Record<strin
   const ev: Ev = { at: ctx.now().toISOString(), ...e, text: clean(e.text, 300), ...(e.link ? { link: clean(e.link, 300) } : {}) };
   evenements(ctx).ajouter(ev);
   ctx.emit(e.type, { site: e.site, source: e.source, texte: ev.text, gravité: e.level, ...(ev.link ? { lien: ev.link } : {}), ...more });
-  if (alert && e.level !== 'info') ctx.alert({ level: e.level, title: `${e.site} : ${ev.text.slice(0, 110)}`, detail: ev.link, key: `${e.site}:${e.type}:${ev.text.slice(0, 60)}` });
+  if (alert && e.level !== 'info') ctx.alert({ level: e.level, title: `${e.site} : ${ev.text.slice(0, 110)}`, detail: ev.link, key: `${e.site}:${e.type}:${ev.text.slice(0, 60)}`, ...(DU_LIEN_SITE.has(e.type) ? { lien: 'idunn-alerte-site' } : {}) });
   return ev;
 }
+/**
+ * Les événements du lien écrit « Arachné → Forseti » (src/valhalla/links.ts : un site tombe, un déploiement ou des
+ * tests échouent, un certificat arrive à sa fin) : leur alerte porte sa clé. Les autres (DNS changé, zone en pause,
+ * certificat pas valable, essai lancé par toi…) n'en relèvent pas : leur message part toujours.
+ */
+const DU_LIEN_SITE = new Set(['hors_ligne', 'deploiement_echec', 'tests_echec', 'certificat']);
 // Le journal garde les 5 000 derniers événements : dans la base d'Odin dès qu'elle est prête (journal « idunn »),
 // sinon evenements.jsonl.
 const evenements = (ctx: ModCtx) => journalDe<Ev>(ctx, 'idunn', 'evenements.jsonl', { garder: 5000 });

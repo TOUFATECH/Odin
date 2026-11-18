@@ -53,7 +53,7 @@ export function rechercheDe(r: Rec): string | undefined {
 /** Nouvel appareil d'un profil : créé, et une alerte part dans le fil commun (Forseti). */
 export function nouvelAppareil(ctx: ModCtx, p: Pick<Personne, 'id' | 'name'>, o: { nom: string; plateforme: string; ip?: string }): { appareil: ReturnType<Magasin['nouvelAppareil']>['appareil']; jeton: string } {
   const r = magOf(ctx).nouvelAppareil(p.id, o);
-  ctx.alert({ level: 'moyenne', title: `Pégase : nouvel appareil pour ${p.name}`, detail: `« ${r.appareil.nom} » (${r.appareil.plateforme}${o.ip ? `, depuis ${o.ip}` : ''}) est maintenant connecté au profil de ${p.name}. Si ce n'est pas toi ou un proche, révoque-le dans l'appli Pégase d'Odin.`, key: `pegase:appareil:${r.appareil.id}`, fix: { action: 'revoquer', label: 'Révoquer cet appareil', input: { appareil: r.appareil.id }, module: 'pegase' } });
+  ctx.alert({ level: 'moyenne', title: `Pégase : nouvel appareil pour ${p.name}`, detail: `« ${r.appareil.nom} » (${r.appareil.plateforme}${o.ip ? `, depuis ${o.ip}` : ''}) est maintenant connecté au profil de ${p.name}. Si ce n'est pas toi ou un proche, révoque-le dans l'appli Pégase d'Odin.`, key: `pegase:appareil:${r.appareil.id}`, lien: 'pegase-alerte-telechargement', fix: { action: 'revoquer', label: 'Révoquer cet appareil', input: { appareil: r.appareil.id }, module: 'pegase' } });
   ctx.emit('nouvel_appareil', { profil: p.name, appareil: r.appareil.nom, systeme: r.appareil.plateforme });
   return { appareil: r.appareil, jeton: r.jeton! };
 }
@@ -73,7 +73,7 @@ export async function analyserFichier(ctx: ModCtx, nom: string, contenu: Buffer,
   const texte = verdict === 'bloque' ? `🚫 ${nom} est bloqué : ${menaces.join(', ') || 'menace connue'}. Ne l'ouvre pas, supprime-le.${tout.every((x) => x.klass === 'test') ? ' (C\'est le fichier d\'essai des antivirus : inoffensif, mais traité comme un vrai virus.)' : ''}`
     : verdict === 'douteux' ? `⚠ ${nom} est douteux : ${menaces.join(', ')}. Ouvre-le seulement si tu sais d'où il vient.`
     : `✓ Rien de connu dans ${nom}. (Aucun antivirus ne voit tout : reste prudent avec les fichiers inattendus.)`;
-  if (verdict === 'bloque') ctx.alert({ level: 'haute', title: `Pégase : fichier bloqué (${nom.slice(0, 60)})`, detail: `${texte}\n${profil ? `Profil : ${nomDe(profil)}. ` : ''}Empreinte : ${v?.sha256 ?? '?'}`, key: `pegase:bloque:${v?.sha256 ?? nom}` });
+  if (verdict === 'bloque') ctx.alert({ level: 'haute', title: `Pégase : fichier bloqué (${nom.slice(0, 60)})`, detail: `${texte}\n${profil ? `Profil : ${nomDe(profil)}. ` : ''}Empreinte : ${v?.sha256 ?? '?'}`, key: `pegase:bloque:${v?.sha256 ?? nom}`, lien: 'pegase-alerte-telechargement' });
   // Le même point de passage que tout le reste (quarantaine d'abord) : le fichier bloqué est gardé, consultable dans Asclépios.
   if (verdict === 'bloque') await (await import('../ullr/garde.ts')).quarantaineDabord({ donnees: contenu, nom: propre, origine: 'Pégase · téléchargement', ...(profil ? { source: nomDe(profil) } : {}), silencieux: true }, ctx).catch(() => undefined);
   ctx.emit('telechargement_analyse', { fichier: nom.slice(0, 80), verdict, ...(menaces.length ? { menaces: menaces.join(', ') } : {}) });

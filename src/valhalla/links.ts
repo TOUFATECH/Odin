@@ -51,6 +51,9 @@ export const ALERTES_BRANCHEES: ReadonlySet<string> = new Set([
   // Troisième lot.
   'askr-alerte-garantie', 'valgrind-alerte-service', 'var-alerte-compte-verrouille', 'bru-alerte-tunnel',
   'thjalfi-alerte-installation', 'skidbladnir-alerte-fichiers', 'gjoll-alerte-fin-acces',
+  // Quatrième lot. agora-alerte-store n'y est pas : ses alertes du lien sont levées dans src/web/agora-api.ts.
+  'idunn-alerte-site', 'syn-alerte-seuil', 'hlin-alerte-donnees-perso', 'durinn-alerte-disque', 'pegase-alerte-telechargement',
+  'hel-alerte-recuperation',
 ]);
 export const LINKS: Link[] = [
   { from: 'loki', to: 'garmr', when: 'un pirate tape un mot de passe ou une commande dans un piège', does: 'son adresse est bannie de tes vrais services', auto: true, kind: 'réflexe', protege: { genre: 'sécurité', raison: 'bannit l\'adresse d\'un pirate pris dans un piège' }, id: 'loki-garmr-bannir-pirate', coupure: { par: 'appel' } },
