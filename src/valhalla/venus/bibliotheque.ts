@@ -5,7 +5,7 @@
 // Rien n'est inventé : l'affiche vient de la vignette du fichier (ou d'une source libre SANS clé fournie par
 // l'appelant), jamais d'un titre deviné. Les outils externes (ffprobe, FFmpeg) sont injectés : les essais passent un
 // faux, aucun service réel n'est touché.
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import type { Collection, Enr, MagasinVenus } from './base.ts';
@@ -20,12 +20,45 @@ export const EXT_VIDEO = new Set(['.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v
 export const EXT_AUDIO = new Set(['.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav', '.aac', '.wma']);
 const EXT_SOUS = new Set(['.srt', '.vtt', '.ass', '.ssa', '.sub']);
 
-/** Normalise un titre pour comparer/chercher (minuscules, sans accents ni signes). Pur. */
+/**
+ * Un caractère gardé par la recherche en plus de a-z et 0-9 : une lettre, un chiffre ou un signe qui fait partie d'une
+ * lettre, d'une écriture autre que latine (japonais, arabe, cyrillique, grec, hindi…). Les caractères latins hors a-z
+ * (ß, lettres pleine chasse, chiffres romains) et ceux communs à toutes les écritures (chiffres pleine chasse, exposants)
+ * restent effacés comme avant : un titre latin se compare exactement comme avant. Aucune table propre à une langue.
+ */
+const AUTRE_ECRITURE = /[\p{L}\p{N}\p{M}]/u, LATIN_OU_COMMUN = /[\p{scx=Latin}\p{scx=Common}\p{scx=Inherited}]/u;
+const garde = (c: string): boolean => (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (AUTRE_ECRITURE.test(c) && !LATIN_OU_COMMUN.test(c));
+/** Le titre en minuscules, sans les accents (diacritiques combinants), recomposé (が, 한 restent entiers). Pur. */
+const aPlat = (t: string): string => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').normalize('NFC');
+/** La forme d'avant (a-z0-9 seulement) : elle fait encore l'identifiant d'un titre latin, qui ne change pas. Pur. */
+const normLatin = (t: string): string => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+/**
+ * Normalise un titre pour comparer/chercher, dans toutes les écritures : minuscules là où la casse existe, sans accents
+ * là où il y en a, sans signes entre les mots ; aucune lettre d'une autre écriture n'est effacée. Pour un titre latin, le
+ * résultat est exactement celui d'avant. Pur.
+ */
 export function norm(t: string): string {
-  return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  let o = '', sep = false;
+  for (const c of aPlat(t)) { if (garde(c)) { if (sep && o) o += ' '; o += c; sep = false; } else sep = true; }
+  return o;
 }
-/** Un identifiant court et stable à partir d'un texte (pour les clés d'œuvres). Pur. */
-export function slug(t: string): string { return norm(t).replace(/\s+/g, '-').slice(0, 80) || 'sans-titre'; }
+/**
+ * Un identifiant court et stable à partir d'un texte (pour les clés d'œuvres), écrit seulement en a-z, 0-9 et « - ».
+ * Tout titre dont l'ancienne forme (a-z0-9) donne un identifiant le garde EXACTEMENT, qu'il soit latin ou mêlé à une
+ * autre écriture (« 霧 Brume » reste « brume ») : sa reprise, ses « vus » et le bouton « Lire » en dépendent. Deux titres
+ * mêlés de même partie latine partagent donc un identifiant, comme avant.
+ * Seul un titre que l'ancienne forme laissait vide (« sans-titre ») reçoit « u-- » et l'empreinte SHA-256 du titre
+ * entier (minuscules, forme NFC, signes entre les mots réduits à une espace) — la même sur toute machine, différente
+ * pour deux titres différents ; le « -- » n'apparaît jamais dans un identifiant latin, les deux ne se mêlent pas. « sans-titre » : seulement un titre sans aucune lettre, aucun chiffre ni symbole. Pur.
+ */
+export function slug(t: string): string {
+  const latin = normLatin(t);
+  if (latin) return latin.replace(/\s+/g, '-').slice(0, 80);
+  const cle = t.normalize('NFC').toLowerCase().normalize('NFC').replace(/[^\p{L}\p{M}\p{N}\p{S}]+/gu, ' ').trim();
+  return cle ? `u--${createHash('sha256').update(cle, 'utf8').digest('hex').slice(0, 40)}` : 'sans-titre';
+}
+/** Un identifiant posé par l'ancienne forme pour un titre qu'elle ne savait pas lire : il a pu mêler plusieurs œuvres. */
+const ANCIEN_SANS_TITRE = /:sans-titre(?:-\d{4})?$/;
 
 /** Ce qu'un nom de fichier dit d'un média. Pur, testable. */
 export interface NomLu { titre: string; annee?: number; saison?: number; episode?: number }
@@ -269,9 +302,14 @@ export const pistes = (mag: MagasinVenus, oeuvreId: string): Enr[] =>
 
 /** Retrouve une œuvre par son identifiant, son titre exact ou ses mots. */
 export function trouverOeuvre(mag: MagasinVenus, q: string): Enr | undefined {
-  const l = mag.liste('oeuvres'); const direct = l.find((e) => e.id === q); if (direct) return direct;
+  let l = mag.liste('oeuvres'); const direct = l.find((e) => e.id === q); if (direct) return direct;
   // Une requête vide (ou sans lettre ni chiffre) ne désigne rien : sinon chaque titre la « contient » et le plus court gagnait.
   const n = norm(q); if (!n) return undefined;
+  // Une œuvre rangée sous « …:sans-titre » par l'ancienne forme (titre non latin) a pu mêler plusieurs œuvres : elle
+  // n'est plus trouvée par son titre (le scan range l'œuvre sous son nouvel identifiant), seulement par son identifiant.
+  // Un titre latin (« Sans titre », « Sans titre 2024 ») garde cet identifiant et reste trouvé par son titre, comme avant :
+  // seule l'œuvre dont le titre reçoit maintenant « u-- » (titre sans partie latine) est écartée.
+  l = l.filter((e) => !ANCIEN_SANS_TITRE.test(e.id) || !slug(String(e.data.titre ?? '')).startsWith('u--'));
   return l.find((e) => norm(String(e.data.titre)) === n) ?? l.filter((e) => n.split(' ').every((w) => norm(String(e.data.titre)).includes(w))).sort((a, b) => String(a.data.titre).length - String(b.data.titre).length)[0];
 }
 /** Le fichier qui joue une cible (œuvre film, épisode ou piste), par identifiant. */
