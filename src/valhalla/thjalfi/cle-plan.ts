@@ -5,7 +5,9 @@
 //
 // Garde-fous (règle absolue du propriétaire) :
 //  - jamais d'effacement d'une partition existante : seulement de l'espace libre, ou une réduction vérifiée ;
-//  - arrêt net si le disque est chiffré sans clé de récupération (BitLocker, FileVault, LUKS) ;
+//  - arrêt net si le disque est chiffré sans clé de récupération (BitLocker, FileVault, LUKS) ; un chiffrement
+//    INCONNU (lecture sans droits d'administrateur, partition sans lettre) vaut « chiffré » : dans le doute, rien ;
+//  - Odin ne demande jamais une clé de récupération : c'est à toi de la garder, hors de la machine ;
 //  - une réduction n'est proposée que si la partition visée a un système de fichiers connu, sain, et assez de
 //    place réellement libre ;
 //  - le disque du système en cours ne se touche qu'avec ce plan, une confirmation forte et l'accord d'Odin.
@@ -47,10 +49,10 @@ export function espaceLibre(d: Disque): number {
   return Math.max(0, d.tailleOctets - pris);
 }
 
-/** Un système de fichiers qu'Odin sait réduire sans risque (Windows NTFS, ext4). Pur. */
+/** Un système de fichiers qu'Odin sait réduire sans risque (Windows NTFS, ext4), ni chiffré ni au chiffrement inconnu. Pur. */
 function reductible(p: Partition): boolean {
   const f = (p.fs ?? '').toLowerCase();
-  return !p.chiffre && (f === 'ntfs' || f === 'ext4' || f === 'ext3');
+  return !p.chiffre && !p.chiffreInconnu && (f === 'ntfs' || f === 'ext4' || f === 'ext3');
 }
 
 /**
@@ -65,7 +67,20 @@ export function planDualBoot(d: Disque, tailleGo = ODIN_MIN_GO): Plan {
   const chiffre = d.chiffre ?? d.partitions.find((p) => p.chiffre)?.chiffre;
   if (chiffre) {
     const nom = { bitlocker: 'BitLocker', filevault: 'FileVault', luks: 'LUKS' }[chiffre];
-    return { possible: false, blocage: `Ce disque est chiffré (${nom}). Odin ne le touche pas tant que tu n'as pas sa clé de récupération : déchiffre-le ou donne la clé, puis recommence.`, etapes: [], sauvegardes: [], avertissements: avert };
+    return { possible: false, blocage: `Ce disque est chiffré (${nom}). Odin ne réduit ni ne partitionne un disque chiffré, et il ne te demande jamais sa clé de récupération : garde-la toi-même, hors de la machine. Pour installer Odin à côté, déchiffre-le toi-même${chiffre === 'bitlocker' ? ' (sous Windows : « Gérer BitLocker »)' : ''}, puis recommence.`, etapes: [], sauvegardes: [], avertissements: avert };
+  }
+  // Chiffrement inconnu (Odin n'a pas pu le lire) : traité comme chiffré, même arrêt net.
+  // La consigne dépend de la cause : avec une lettre, il manque les droits d'administrateur ; SANS lettre, BitLocker
+  // se lit par la lettre, donc les droits n'y changent rien (relancer en administrateur redonnerait le même refus).
+  const inconnues = d.partitions.filter((p) => p.chiffreInconnu);
+  if (inconnues.length) {
+    const lettres = inconnues.map((p) => p.montage).filter((m): m is string => Boolean(m));
+    const sansLettre = inconnues.length - lettres.length;
+    const consignes: string[] = [];
+    if (lettres.length) consignes.push(`pour ${lettres.join(', ')}, il lui faut les droits d'administrateur : relance Odin en administrateur pour qu'il puisse le lire, ou vérifie toi-même dans « Gérer BitLocker » (Windows)`);
+    if (sansLettre) consignes.push(`${sansLettre === 1 ? 'une partition n\'a' : `${sansLettre} partitions n'ont`} pas de lettre : Odin lit le chiffrement par la lettre, donc même en administrateur il ne peut pas le lire ; si tu veux qu'il le lise, donne-lui toi-même une lettre (Windows : « Gestion des disques »), puis relance Odin en administrateur`);
+    const suite = consignes.join(' ; ');
+    return { possible: false, blocage: `Odin ne peut pas lire le chiffrement de ce disque. Dans le doute, il le traite comme chiffré et n'y touche pas : aucune partition créée, rien de réduit. ${suite.charAt(0).toUpperCase()}${suite.slice(1)} ; puis recommence.`, etapes: [], sauvegardes: [], avertissements: avert };
   }
   // macOS : on ne touche pas au disque d'un Mac ici (voir la page : Boot Camp / Asahi, selon le Mac).
   if (d.partitions.some((p) => p.systeme === 'macos')) avert.push('Ce disque contient macOS : sur un Mac, le double démarrage passe par les outils d\'Apple (Boot Camp sur Mac Intel) ou Asahi Linux (Mac Apple Silicon). Voir la page.');

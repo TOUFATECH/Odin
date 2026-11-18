@@ -33,6 +33,22 @@
   // Les couleurs d'occupation par système reconnu (façon Utilitaire de disque).
   const COUL = { windows: '#4f6bed', linux: '#e5783a', macos: '#8a8f98', efi: '#1f9d55', recovery: '#d97706', odin: '#0b7f7c', donnees: '#9aa0aa', libre: 'color-mix(in srgb,currentColor 12%,transparent)' };
   const LIB = { windows: 'Windows', linux: 'Linux', macos: 'macOS', efi: 'Démarrage (EFI)', recovery: 'Récupération', odin: 'Odin', donnees: 'Données' };
+  // Les textes du chiffrement sur la carte d'un disque. Odin ne demande jamais une clé de récupération.
+  // L'aide dit la cause qui s'applique : sans droits (une lettre), sans lettre (les droits n'y changent rien), ou un
+  // disque externe (sa préparation l'efface : on ne dit pas qu'Odin « n'y touche pas »).
+  const T = {
+    chiffreInconnu: 'Chiffrement inconnu',
+    chiffreInconnuDroits: 'Odin ne peut pas lire le chiffrement de ce disque sans les droits d\'administrateur : il le traite comme chiffré et n\'y crée ni n\'y réduit aucune partition. Relance Odin en administrateur, ou vérifie toi-même dans « Gérer BitLocker » (Windows).',
+    chiffreInconnuSansLettre: 'Une partition de ce disque n\'a pas de lettre : Odin ne peut pas lire son chiffrement, même en administrateur. Il le traite comme chiffré et n\'y crée ni n\'y réduit aucune partition. Pour qu\'il le lise, donne-lui toi-même une lettre (Windows : « Gestion des disques »), puis relance Odin en administrateur.',
+    chiffreInconnuExterne: 'Odin n\'a pas pu lire le chiffrement de ce disque. Le préparer peut effacer tout son contenu, chiffré ou non : le plan dit ce qui sera effacé, et rien n\'est écrit sans ton accord.',
+  };
+  /** Les aides d'un disque au chiffrement inconnu (vide s'il est lisible). */
+  const aidesInconnu = (d) => {
+    const inc = d.partitions.filter((p) => p.chiffreInconnu);
+    if (!inc.length) return [];
+    if (d.externe) return [T.chiffreInconnuExterne];
+    return [inc.some((p) => p.montage) && T.chiffreInconnuDroits, inc.some((p) => !p.montage) && T.chiffreInconnuSansLettre].filter(Boolean);
+  };
 
   const ic = (genre, s = 30) => { const v = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); v.setAttribute('viewBox', '0 0 24 24'); v.setAttribute('width', s); v.setAttribute('height', s); v.setAttribute('aria-hidden', 'true'); v.innerHTML = `<path d="${ICONE[genre] || ICONE.interne}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`; return v; };
 
@@ -48,7 +64,7 @@
 .cle-tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 8%,transparent)}
 .cle-tag.sys{background:color-mix(in srgb,var(--cbad) 14%,transparent);color:var(--cbad)}
 .cle-tag.odin{background:color-mix(in srgb,var(--ca) 16%,transparent);color:var(--ca)}
-.cle-tag.lock{background:color-mix(in srgb,var(--cwarn) 16%,transparent);color:var(--cwarn)}
+.cle-tag.lock{background:color-mix(in srgb,var(--warn,var(--cwarn)) 10%,transparent);color:color-mix(in srgb,var(--warn,var(--cwarn)) 85%,var(--ink))}
 .cle-bar{display:flex;height:16px;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
 .cle-bar i{display:block;height:100%}
 .cle-leg{display:flex;gap:10px;flex-wrap:wrap;margin-top:7px;font-size:11.5px;color:var(--muted)}.cle-leg span{display:inline-flex;align-items:center;gap:5px}.cle-leg em{width:9px;height:9px;border-radius:3px;font-style:normal}
@@ -90,6 +106,8 @@
     if (d.estOdin) tags.push(el('span', { class: 'cle-tag odin' }, 'Déjà ODIN'));
     const chiffre = d.chiffre || d.partitions.find((p) => p.chiffre)?.chiffre;
     if (chiffre) tags.push(el('span', { class: 'cle-tag lock' }, { bitlocker: 'BitLocker', luks: 'LUKS', filevault: 'FileVault' }[chiffre] || 'Chiffré'));
+    const aides = chiffre ? [] : aidesInconnu(d);
+    if (aides.length) tags.push(el('span', { class: 'cle-tag lock', title: aides.join(' ') }, T.chiffreInconnu));
     const sys = [...new Set(d.partitions.map((p) => p.systeme).filter((s) => s && LIB[s]))].map((s) => LIB[s]).join(' · ');
     const acts = el('div', { class: 'cle-act' });
     if (d.externe) {
@@ -109,6 +127,7 @@
         el('b', {}, d.modele || d.chemin, ...tags),
         el('div', { class: 'sub' }, `${taille(d.tailleOctets)} · ${d.bus ? d.bus.toUpperCase() : d.genre}${sys ? ` · ${sys}` : ''}`),
         barre(d),
+        ...aides.map((a) => el('p', { class: 'cle-note' }, a)),
         acts,
       ),
     );

@@ -160,3 +160,61 @@ test('étape 0 · Windows : sans les droits d\'administrateur, l\'état BitLocke
     }
   }
 });
+
+// ---- Lot « genese-chiffrement-inconnu » : une partition de données (NTFS) SANS LETTRE n'a pas de BitLocker lisible
+// (la lecture se fait par lettre) : elle est « inconnue », jamais « non chiffrée ». Les partitions de démarrage
+// (EFI, réservée, récupération, système) ne le deviennent pas. Sorties FIGÉES, aucune commande.
+test('parseGetDisk : une partition NTFS sans lettre est « chiffrement inconnu » (GPT et MBR)', () => {
+  const w: SortieWindows = {
+    disks: [
+      { Number: 0, FriendlyName: 'Disque interne G', Size: 1000 * GO, BusType: 'NVMe', IsSystem: true },
+      { Number: 1, FriendlyName: 'Disque interne H', Size: 500 * GO, BusType: 'SATA' },
+    ],
+    partitions: [
+      { DiskNumber: 0, PartitionNumber: 1, Type: 'System', GptType: '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}', Size: 300 * 1024 ** 2, IsSystem: true },
+      { DiskNumber: 0, PartitionNumber: 2, Type: 'Reserved', GptType: '{e3c9e316-0b5c-4db8-817d-f92df00215ae}', Size: 16 * 1024 ** 2 },
+      { DiskNumber: 0, PartitionNumber: 3, DriveLetter: 'C', Type: 'Basic', GptType: '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}', Size: 400 * GO, IsBoot: true },
+      { DiskNumber: 0, PartitionNumber: 4, Type: 'Recovery', GptType: '{de94bba4-06d1-4d40-a16a-bfd50179d6ac}', Size: 700 * 1024 ** 2 },
+      { DiskNumber: 0, PartitionNumber: 5, Type: 'Basic', GptType: '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}', Size: 500 * GO },
+      // MBR : « Réservé au système » (sans lettre, partition système) et une partition NTFS sans lettre.
+      { DiskNumber: 1, PartitionNumber: 1, Type: 'IFS', Size: 500 * 1024 ** 2, IsSystem: true },
+      { DiskNumber: 1, PartitionNumber: 2, Type: 'IFS', Size: 400 * GO },
+    ],
+    volumes: [{ DriveLetter: 'C', FileSystem: 'NTFS', FileSystemLabel: 'Systeme', Size: 400 * GO, SizeRemaining: 100 * GO }],
+    bitlocker: { C: false },
+  };
+  const [g, h] = parseGetDisk(w);
+  const p = (d: typeof g, n: number) => d.partitions.find((x) => x.nom.endsWith(`partition ${n}`))!;
+  assert.equal(p(g, 5).chiffreInconnu, true, 'GPT : données sans lettre → inconnu');
+  assert.equal(p(h, 2).chiffreInconnu, true, 'MBR : NTFS sans lettre → inconnu');
+  for (const [d, n] of [[g, 1], [g, 2], [g, 3], [g, 4], [h, 1]] as const) {
+    assert.equal(p(d, n).chiffreInconnu, undefined, `${d.modele} partition ${n} : pas inconnue`);
+    assert.equal(p(d, n).chiffre, undefined);
+  }
+});
+
+test('contrôle : une partition avec lettre garde l\'état lu (chiffré, non chiffré, inconnu), et une clé USB lisible reste lisible', () => {
+  const w: SortieWindows = {
+    disks: [{ Number: 0, Size: 500 * GO, BusType: 'NVMe' }, { Number: 1, FriendlyName: 'Cle K', Size: 32 * GO, BusType: 'USB' }],
+    partitions: [
+      { DiskNumber: 0, PartitionNumber: 1, DriveLetter: 'C', Type: 'Basic', Size: 200 * GO },
+      { DiskNumber: 0, PartitionNumber: 2, DriveLetter: 'D', Type: 'Basic', Size: 200 * GO },
+      { DiskNumber: 0, PartitionNumber: 3, DriveLetter: 'F', Type: 'Basic', Size: 90 * GO },
+      { DiskNumber: 1, PartitionNumber: 1, DriveLetter: 'E', Type: 'Basic', Size: 32 * GO },
+    ],
+    volumes: [
+      { DriveLetter: 'C', FileSystem: 'NTFS', Size: 200 * GO, SizeRemaining: 50 * GO },
+      { DriveLetter: 'D', FileSystem: 'NTFS', Size: 200 * GO, SizeRemaining: 50 * GO },
+      { DriveLetter: 'F', FileSystem: 'NTFS', Size: 90 * GO, SizeRemaining: 50 * GO },
+      { DriveLetter: 'E', FileSystem: 'exFAT', FileSystemLabel: 'DATA', Size: 32 * GO, SizeRemaining: 30 * GO },
+    ],
+    bitlocker: { C: true, D: false, F: 'inconnu', E: false },
+  };
+  const [d0, d1] = parseGetDisk(w);
+  const m = (l: string) => d0.partitions.find((p) => p.montage === `${l}:`)!;
+  assert.equal(m('C').chiffre, 'bitlocker');
+  assert.equal(m('D').chiffre, undefined); assert.equal(m('D').chiffreInconnu, undefined);
+  assert.equal(m('F').chiffreInconnu, true);
+  assert.equal(d1.partitions[0].chiffre, undefined); assert.equal(d1.partitions[0].chiffreInconnu, undefined);
+  assert.equal(d1.externe, true);
+});

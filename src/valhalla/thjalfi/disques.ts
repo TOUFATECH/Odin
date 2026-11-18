@@ -190,6 +190,11 @@ export function parseGetDisk(w: SortieWindows): Disque[] {
       const bl = lettre ? w.bitlocker?.[lettre] : undefined;
       if (bl === true) part.chiffre = 'bitlocker';
       else if (bl === 'inconnu') part.chiffreInconnu = true;
+      // Une partition de données NTFS (GPT « Basic », MBR « IFS ») SANS LETTRE : BitLocker se lit par lettre, donc
+      // son chiffrement est inconnu, jamais « non chiffré ». EFI, réservée, récupération et partition système
+      // (« Réservé au système » en MBR) ne sont jamais chiffrées par BitLocker : elles ne le deviennent pas.
+      const donnees = type === 'basic' || type === 'ifs' || /ebd0a0a2-b9e5-4433-87c0-68b6b72699c7/.test(gpt);
+      if (!lettre && donnees && !efi && !recovery && !p.IsSystem) part.chiffreInconnu = true;
       parts.push(part);
     }
     const chemin = d.Path ?? `\\\\.\\PhysicalDrive${d.Number}`;
