@@ -92,6 +92,27 @@ export function noterDemande(mu: Mnemosyne, e: { canal: string; pair: string; pr
   } catch { /* jamais bloquant : un message passe toujours */ }
 }
 
+// ---------------------------------------------------------------- Noter un changement de droit (lot 5)
+
+/** Un changement de droit, tel qu'il est écrit (même forme que src/valhalla/sso/droits-journal.ts, ChangementDroit). */
+export interface Droit { registre: 'odin' | 'persona'; pour: string; quoi: string; avant: string; apres: string; sens: 'donne' | 'limite'; canal?: string; t?: number }
+
+/**
+ * Écrit un changement de droit au journal des personnes (sorte « droit ») : qui l'a fait, quoi, pour qui, avant → après,
+ * quand. Seul le propriétaire change un droit (la garde de chaque chemin l'a vérifié avant) : la ligne est rangée à SON
+ * nom, pas à celui de la personne changée — elle ne la voit donc pas sur sa fiche (« prévenir seulement si elle
+ * essaie »). Jamais un mot de passe ni une clé : seulement des noms de droits, de groupes, d'applis et d'identités,
+ * coupés à 300 caractères. Ne lève jamais.
+ */
+export function noterDroit(mu: Mnemosyne, c: Droit): void {
+  try {
+    const court = (v: unknown) => String(v ?? '').slice(0, 300), canal = court(c.canal || 'web').slice(0, 40);
+    const droit = { registre: c.registre === 'persona' ? 'persona' : 'odin', pour: court(c.pour), quoi: court(c.quoi), avant: court(c.avant), apres: court(c.apres), sens: c.sens === 'donne' ? 'donne' : 'limite' };
+    // « droit » n'est pas encore dans SortePersonne (store.ts) : la table garde toute la ligne telle quelle.
+    mu.noterHistorique({ t: c.t ?? Date.now(), qui: proprietaireDe(mu), session: `${canal}:proprietaire`, canal, sorte: 'droit', preuve: 'session-proprietaire', partage: false, droit } as unknown as Omit<LigneHistorique, 'id'>);
+  } catch { /* jamais bloquant : le changement est fait */ }
+}
+
 /** Le propriétaire : sa fiche dans la mémoire s'il en a exactement une, sinon la clé « proprietaire ». */
 function proprietaireDe(mu: Mnemosyne): string {
   const o = mu.listUsers().filter((x) => x.role === 'owner');

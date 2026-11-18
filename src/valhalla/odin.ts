@@ -39,6 +39,8 @@ import { valgrind } from './modules/valgrind.ts';
 import { varModule } from './modules/var.ts';
 import { bru, setOdinWeb } from './modules/bru.ts';
 import { brancherAdresseOdin, brancherCourrier } from './sso/registre.ts';
+import { brancherJournalDroits } from './sso/droits-journal.ts';
+import { noterDroit } from '../muninn/personnes.ts';
 import { brancherLangueOdin } from './forge/microsoft.ts';
 import { buildMail, smtpSend } from '../tools/mail.ts';
 import { Notices } from './notices.ts';
@@ -281,6 +283,8 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
   void v.start();
   // Chaque consultation d'une base d'appli par Odin est retenue par sa mémoire (sujet « base <appli> ») : « quand as-tu regardé la base de Phénix ? »
   brancherMemoire((texte, sujet) => { odin.muninn.remember(texte, 'agent', 'fact', 'base alexandrie', { subject: sujet, topic: 'consultation', source: 'Alexandrie' }); });
+  // Chaque droit donné ou limité dans Persona est écrit au journal des personnes (qui, quoi, pour qui, avant → après).
+  brancherJournalDroits((c) => noterDroit(odin.muninn, c));
   // Archytas (fenêtre Script) : chaque script est relié à la mémoire, au Cerveau et à Noûs (pont no-op sûr tant
   // que Noûs n'est pas câblé). Jamais le code dans ces traces ; le résumé est masqué. Suppression : la trace part aussi.
   try {
@@ -310,7 +314,7 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
     noter: (p) => { const sujet = `dictee:${p.dic}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); const jour = p.date.slice(0, 10); odin.muninn.remember(`Dictée du ${jour}${p.mode && p.mode !== 'tel quel' ? ` (${p.mode})` : ''}`, 'owner', 'dictee', `écho dictée ${p.mode}`.slice(0, 120), { subject: sujet, topic: 'echo', source: 'Écho' }); },
     oublier: (dic) => { const sujet = `dictee:${dic}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); },
   });
-  return () => { brancherMemoire(undefined); brancherArchytas(undefined); brancherMemoireConversation(undefined); brancherMemoireDictee(undefined); void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
+  return () => { brancherMemoire(undefined); brancherJournalDroits(undefined); brancherArchytas(undefined); brancherMemoireConversation(undefined); brancherMemoireDictee(undefined); void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
 }
 
 /** Pour Talos : action d'une appli, sans personne → actions graves refusées. */

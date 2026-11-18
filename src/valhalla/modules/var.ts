@@ -13,6 +13,7 @@ import { hashPassword, checkPassword } from '../valgrind/proxy.ts';
 import { totp } from './brisingamen.ts';
 import { svg as qrSvg } from '../qr.ts';
 import { avantApres, siDonne, ssoActions, ssoSections } from '../sso/persona.ts';
+import { noterChangementDroit } from '../sso/droits-journal.ts';
 import { agissant } from '../sso/acces.ts';
 import { revoquerPersonne } from '../sso/etat.ts';
 import { brancherPersona } from '../sso/registre.ts';
@@ -228,6 +229,7 @@ export const varModule: Module = {
       const pass = s(i.mot_de_passe) || randomBytes(12).toString('base64url'); if (pass.length < 10) throw new Error('mot de passe : 10 caractères au moins');
       const p: Person = { id: randomBytes(5).toString('hex'), login, name, ...(s(i.email) ? { email: s(i.email) } : {}), groups: groupsOf(i.groupes || 'famille'), hash: hashPassword(pass), active: true, created: Date.now(), fails: 0 };
       savePeople(ctx, [...people(ctx), p]);
+      noterChangementDroit({ registre: 'persona', canal: 'persona', pour: `@${login}`, quoi: 'groupes', avant: '', apres: p.groups.join(','), sens: 'donne' });
       const inVault = await vault(ctx, p, pass);
       return { text: `👤 ${name} (« ${login} », groupes ${p.groups.join(', ')}) ajouté. ${inVault ? 'Son mot de passe est dans le coffre Thésauros.' : s(i.mot_de_passe) ? '' : '⚠ Le coffre n\'a pas pu garder le mot de passe : choisis-en un toi-même.'}` };
     }, undo: (i) => ({ action: 'retirer', input: { login: i.login }, label: 'Retirer la personne' }) },
@@ -240,11 +242,14 @@ export const varModule: Module = {
         return out.length ? `${p.name} (« ${p.login} ») — ${out.join(' ; ')}` : undefined;
       }),
       run: (ctx, i) => {
-      const p = { ...byLogin(ctx, i.login) }; if (s(i.nom)) p.name = s(i.nom).slice(0, 60); if (s(i.groupes)) p.groups = groupsOf(i.groupes); if (s(i.actif) === 'actif') p.active = true; if (s(i.actif) === 'coupé') p.active = false;
-      savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? p : x))); if (!p.active) { ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); revoquerPersonne(ctx, p.login); } else reappliquer(ctx);
+      const avant = byLogin(ctx, i.login), p = { ...avant }; if (s(i.nom)) p.name = s(i.nom).slice(0, 60); if (s(i.groupes)) p.groups = groupsOf(i.groupes); if (s(i.actif) === 'actif') p.active = true; if (s(i.actif) === 'coupé') p.active = false;
+      savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? p : x)));
+      if (avant.groups.join('|') !== p.groups.join('|')) noterChangementDroit({ registre: 'persona', canal: 'persona', pour: `@${p.login}`, quoi: 'groupes', avant: avant.groups.join(','), apres: p.groups.join(','), sens: p.groups.some((g) => !avant.groups.includes(g)) ? 'donne' : 'limite' });
+      if (avant.active !== p.active) noterChangementDroit({ registre: 'persona', canal: 'persona', pour: `@${p.login}`, quoi: 'compte', avant: avant.active ? 'actif' : 'coupe', apres: p.active ? 'actif' : 'coupe', sens: p.active ? 'donne' : 'limite' });
+      if (!p.active) { ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); revoquerPersonne(ctx, p.login); } else reappliquer(ctx);
       return { text: `✏️ ${p.name} : groupes ${p.groups.join(', ') || '—'}, compte ${p.active ? 'actif' : 'coupé (sessions fermées)'}.` };
     } },
-    { id: 'retirer', label: 'Retirer une personne', what: 'Son compte et ses sessions disparaissent', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }], grave: () => 'supprimer ce compte (ses sessions sont fermées tout de suite)', run: (ctx, i) => { const p = byLogin(ctx, i.login); savePeople(ctx, people(ctx).filter((x) => x.id !== p.id)); ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); return { text: `🗑 ${p.name} retiré.` }; } },
+    { id: 'retirer', label: 'Retirer une personne', what: 'Son compte et ses sessions disparaissent', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }], grave: () => 'supprimer ce compte (ses sessions sont fermées tout de suite)', run: (ctx, i) => { const p = byLogin(ctx, i.login); savePeople(ctx, people(ctx).filter((x) => x.id !== p.id)); ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); noterChangementDroit({ registre: 'persona', canal: 'persona', pour: `@${p.login}`, quoi: 'personne', avant: `groups=${p.groups.join(',')}`, apres: '', sens: 'limite' }); return { text: `🗑 ${p.name} retiré.` }; } },
     { id: 'mot_de_passe', label: 'Nouveau mot de passe', what: 'Remplace le mot de passe (rangé dans le coffre) et ferme les sessions', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }, { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un)', kind: 'password', default: '' }], run: async (ctx, i) => {
       const p = byLogin(ctx, i.login), pass = s(i.mot_de_passe) || randomBytes(12).toString('base64url'); if (pass.length < 10) throw new Error('10 caractères au moins');
       savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? { ...x, hash: hashPassword(pass), fails: 0, lockedUntil: undefined } : x))); ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); revoquerPersonne(ctx, p.login);

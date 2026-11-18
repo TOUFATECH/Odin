@@ -13,6 +13,7 @@ import {
   relierProprietaire, revoquerPoste, revoquerSession, sauverClient, sessionsApplis, sessionsPostes, vivante, type Client,
 } from './etat.ts';
 import { demanderRestauration, jeux } from './sauvegardes.ts';
+import { noterChangementDroit } from './droits-journal.ts';
 
 // Valhalla, chargé à part (odin.ts importe Persona, qui importe ce fichier : pas d'import direct, pas de boucle).
 let valhallaOf: () => Valhalla | undefined = () => undefined;
@@ -75,15 +76,23 @@ export const siDonne = (f: (i: Record<string, unknown>, ctx: ModCtx) => string |
 /** Les applis ouvertes à ce groupe (ou à cette personne « @… »), par leur nom. */
 const applisDeQui = (ctx: ModCtx, q: string) => applisConnues(ctx).filter((a) => groupesDe(ctx, a.id).includes(q)).map((a) => a.nom);
 
+/** Écrit au journal des personnes le changement d'accès d'une appli pour ce groupe ou cette personne (s'il a changé), en codes. */
+const journal = (ctx: ModCtx, a: string, q: string, avant: string[], sens: 'donne' | 'limite') => {
+  const apres = groupesDe(ctx, a); if (avant.join('|') === apres.join('|')) return;
+  noterChangementDroit({ registre: 'persona', canal: 'persona', pour: q === '*' || q.startsWith('@') ? q : `groupe:${q}`, quoi: `acces:${a}`, avant: avant.join(','), apres: apres.join(','), sens });
+};
+
 export const ssoActions: Action[] = [
   { id: 'donner_acces', label: 'Donner l\'accès à une appli', what: 'Un groupe (ou une personne : @identifiant) peut ouvrir cette appli', params: P_ACCES, words: ['donne l accès à', 'donner l accès à', 'donne accès à', 'autorise le groupe'], proprietaireSeul: true,
     grave: siDonne((i, ctx) => { const a = appliValide(ctx, s(i.appli)), q = quiValide(ctx, s(i.qui)), g = groupesDe(ctx, a); return g.includes(q) ? undefined : `donner à ${pourQui(q)} l'accès à ${nomAppli(ctx, a)} — autorisés : ${avantApres(g, [...g, q])}`; }),
     run: (ctx, i) => {
-    const a = appliValide(ctx, s(i.appli)), q = quiValide(ctx, s(i.qui)), l = changerDroit(ctx, a, q, true);
+    const a = appliValide(ctx, s(i.appli)), q = quiValide(ctx, s(i.qui)), g = groupesDe(ctx, a), l = changerDroit(ctx, a, q, true);
+    journal(ctx, a, q, g, 'donne');
     return { text: `✅ ${q === '*' ? 'Toute personne connectée' : q.startsWith('@') ? q.slice(1) : `Le groupe ${q}`} a accès à ${nomAppli(ctx, a)} (autorisés : ${l.join(', ')}, et toujours le groupe admin).` };
   }, undo: (i) => ({ action: 'retirer_acces', input: { appli: i.appli, qui: i.qui }, label: 'Retirer l\'accès' }) },
   { id: 'retirer_acces', label: 'Retirer l\'accès à une appli', what: 'Ce groupe (ou cette personne) ne peut plus l\'ouvrir', params: P_ACCES, quick: false, words: ['retire l accès à', 'retirer l accès à', 'enlève l accès à'], run: (ctx, i) => {
-    const a = appliValide(ctx, s(i.appli)), q = quiValide(ctx, s(i.qui)), l = changerDroit(ctx, a, q, false);
+    const a = appliValide(ctx, s(i.appli)), q = quiValide(ctx, s(i.qui)), g = groupesDe(ctx, a), l = changerDroit(ctx, a, q, false);
+    journal(ctx, a, q, g, 'limite');
     for (const x of sessionsApplis(ctx)) if (x.appli === a && !x.revoque) { const p = personnes(ctx).find((y) => y.id === x.sub); if (!aDroit(ctx, p, a)) revoquerSession(ctx, x.id); }
     return { text: `🚫 ${q.startsWith('@') ? q.slice(1) : `Le groupe ${q}`} n'a plus accès à ${nomAppli(ctx, a)} (autorisés : ${l.join(', ') || 'admin seulement'}). Ses connexions ouvertes à cette appli sont coupées.` };
   }, undo: (i) => ({ action: 'donner_acces', input: { appli: i.appli, qui: i.qui }, label: 'Redonner l\'accès' }) },
@@ -98,7 +107,7 @@ export const ssoActions: Action[] = [
     }),
     run: (ctx, i) => {
     const q = quiValide(ctx, s(i.qui)); let plus = 0, moins = 0;
-    for (const a of applisConnues(ctx)) { if (!(a.id in i)) continue; const on = i[a.id] === true || i[a.id] === 'true', has = groupesDe(ctx, a.id).includes(q); if (on && !has) { changerDroit(ctx, a.id, q, true); plus++; } if (!on && has) { changerDroit(ctx, a.id, q, false); moins++; } }
+    for (const a of applisConnues(ctx)) { if (!(a.id in i)) continue; const on = i[a.id] === true || i[a.id] === 'true', g = groupesDe(ctx, a.id), has = g.includes(q); if (on && !has) { changerDroit(ctx, a.id, q, true); journal(ctx, a.id, q, g, 'donne'); plus++; } if (!on && has) { changerDroit(ctx, a.id, q, false); journal(ctx, a.id, q, g, 'limite'); moins++; } }
     for (const x of sessionsApplis(ctx)) if (!x.revoque) { const p = personnes(ctx).find((y) => y.id === x.sub); if (!aDroit(ctx, p, x.appli)) revoquerSession(ctx, x.id); }
     return { text: `✅ ${q.startsWith('@') ? q.slice(1) : `Groupe ${q}`} : ${plus} accès donné(s), ${moins} retiré(s).` };
   } },

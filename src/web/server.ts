@@ -74,6 +74,7 @@ import { agoraRoute } from './agora-api.ts';
 import { plumeRoute } from './plume-api.ts';
 import { epinglesRoute } from './epingles-api.ts';
 import { personnesRoute } from './personnes-api.ts';
+import { noterDroit } from '../muninn/personnes.ts';
 import { venusRoute } from '../valhalla/venus/routes.ts';
 import { sansLigneLireVenus } from '../valhalla/modules/venus.ts';
 import { archytasRoute } from '../valhalla/archytas/routes.ts';
@@ -1608,18 +1609,48 @@ export class WebChannel implements Channel {
       case 'mission_resume': { const m = muninn.getMission(String(b.id)); if (!m) return { ok: false, error: 'mission inconnue' }; if (!this.hooks.resume) return { ok: false, error: 'reprise indisponible' }; void this.hooks.resume(m.session_id).catch((e) => console.error('[missions]', (e as Error).message)); return { ok: true, started: true }; }
       // Donner plus (un rôle ou une autonomie plus hauts, une identité reliée à quelqu'un qui a plus de droits) passe par
       // ta validation, qui montre pour qui et avant → après ; descendre s'applique tout de suite.
+      // Chaque changement est écrit au journal des personnes (noterDroit : qui, quoi, pour qui, avant → après), en codes
+      // (rôles, autonomies, identifiants) traduits à l'affichage.
       case 'user_save': {
         const u = { id: b.id ? String(b.id) : undefined, name: String(b.name ?? ''), role: String(b.role ?? 'member') as 'member', autonomy: b.autonomy ? String(b.autonomy) as 'prudent' : undefined };
-        if (b.confirm !== true) { const why = droitsEnPlus(muninn.listUsers().find((x) => x.id === u.id), u); if (why) return { ok: false, confirm: `Confirmer : ${u.name.trim().slice(0, 60)} — ${why} ?`, error: why }; }
-        try { return { ok: true, id: muninn.saveUser(u).id }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+        const avant = muninn.listUsers().find((x) => x.id === u.id);
+        if (b.confirm !== true) { const why = droitsEnPlus(avant, u); if (why) return { ok: false, confirm: `Confirmer : ${u.name.trim().slice(0, 60)} — ${why} ?`, error: why }; }
+        try {
+          const r = muninn.saveUser(u), rang = (x: Record<string, number>, a: string, c: string) => ((x[c] ?? 0) > (x[a] ?? 0) ? 'donne' : 'limite') as 'donne';
+          if (!avant) noterDroit(muninn, { registre: 'odin', pour: r.id, quoi: 'personne', avant: '', apres: `role=${r.role};autonomy=${r.autonomy}`, sens: 'donne' });
+          else {
+            if (avant.role !== r.role) noterDroit(muninn, { registre: 'odin', pour: r.id, quoi: 'role', avant: avant.role, apres: r.role, sens: rang(RANG_ROLE, avant.role, r.role) });
+            if (avant.autonomy !== r.autonomy) noterDroit(muninn, { registre: 'odin', pour: r.id, quoi: 'autonomie', avant: avant.autonomy, apres: r.autonomy, sens: rang(RANG_AUTO, avant.autonomy, r.autonomy) });
+          }
+          return { ok: true, id: r.id };
+        } catch (e) { return { ok: false, error: (e as Error).message }; }
       }
-      case 'user_delete': muninn.deleteUser(String(b.id)); break;
+      case 'user_delete': {
+        const avant = muninn.listUsers().find((x) => x.id === String(b.id)); muninn.deleteUser(String(b.id));
+        if (avant) noterDroit(muninn, { registre: 'odin', pour: avant.id, quoi: 'personne', avant: `role=${avant.role};autonomy=${avant.autonomy};identities=${avant.identities.length}`, apres: '', sens: 'limite' });
+        break;
+      }
+      // Lier une identité à une personne : toujours ta validation (elle reçoit les droits de cette personne), qui dit
+      // lesquels, avant → après. Délier s'applique tout de suite.
       case 'user_link': {
-        const qui = muninn.listUsers().find((x) => x.id === String(b.id)), avant = muninn.userFor(String(b.channel), String(b.peer));
-        if (qui && b.confirm !== true && qui.id !== avant?.id) { const why = droitsEnPlus(avant, qui, 'guest'); if (why) return { ok: false, confirm: `Confirmer : ${String(b.channel)}:${String(b.peer)} devient ${qui.name} — ${why} ?`, error: why }; }
-        try { muninn.linkIdentity(String(b.channel), String(b.peer), String(b.id)); } catch (e) { return { ok: false, error: (e as Error).message }; } break;
+        const qui = muninn.listUsers().find((x) => x.id === String(b.id)), avant = muninn.userFor(String(b.channel), String(b.peer)), ident = `${String(b.channel)}:${String(b.peer)}`;
+        const obtenus = qui ? (qui.role === 'member' ? `rôle : ${avant?.role ?? 'guest'} → ${qui.role} ; autonomie : ${avant?.autonomy ?? 'prudent'} → ${qui.autonomy}` : `rôle : ${avant?.role ?? 'guest'} → ${qui.role}`) : '';
+        if (qui && b.confirm !== true && qui.id !== avant?.id) return { ok: false, confirm: `Confirmer : ${ident} devient ${qui.name} — ${obtenus} ?`, error: obtenus };
+        try { muninn.linkIdentity(String(b.channel), String(b.peer), String(b.id)); } catch (e) { return { ok: false, error: (e as Error).message }; }
+        // Le sens : « limite » seulement si l'identité ne fait que perdre (rôle, ou autonomie d'un membre) ; sinon « donne ».
+        if (qui && qui.id !== avant?.id) {
+          const code = (x: { id: string; role: string; autonomy?: string } | undefined) => `${ident};user=${x?.id ?? ''};role=${x?.role ?? 'guest'};autonomy=${x?.autonomy ?? 'prudent'}`;
+          const perd = !droitsEnPlus(avant, qui, 'guest') && !!droitsEnPlus(qui, avant ?? { role: 'guest', autonomy: 'prudent' });
+          noterDroit(muninn, { registre: 'odin', pour: qui.id, quoi: 'identite', avant: code(avant), apres: code(qui), sens: perd ? 'limite' : 'donne' });
+        }
+        break;
       }
-      case 'user_unlink': muninn.unlinkIdentity(String(b.channel), String(b.peer)); break;
+      case 'user_unlink': {
+        const avant = muninn.userFor(String(b.channel), String(b.peer)), ident = `${String(b.channel)}:${String(b.peer)}`;
+        muninn.unlinkIdentity(String(b.channel), String(b.peer));
+        if (avant) noterDroit(muninn, { registre: 'odin', pour: avant.id, quoi: 'identite', avant: `${ident};user=${avant.id};role=${avant.role};autonomy=${avant.autonomy}`, apres: ident, sens: 'limite' });
+        break;
+      }
       case 'pairing_approve': {
         const r = muninn.approvePairing(String(b.channel), String(b.code));
         if (!r) return { ok: false, error: 'code inconnu ou expiré' };
