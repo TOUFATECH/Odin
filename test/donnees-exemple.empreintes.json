@@ -1,0 +1,169 @@
+{
+ "lisezmoi": "Empreintes des données d'exemple de la maquette (filet 1 du lot 0). Aucun mot ici : seulement des HMAC-SHA-256 calculés avec une clé gardée hors du dépôt (ODIN_GARDE_CLE). n : 1 à 3 = un groupe de mots ; 0 = un nom de domaine ou une adresse IP entiers. A : interdits partout dans src/ et test/. B : interdits dans les fichiers de ce chantier. Fabriqué hors du dépôt ; ne pas modifier à la main.",
+ "forme": "NFKD, sans marques, minuscules, œ→oe, æ→ae, ß→ss ; mots = suites de lettres et de chiffres ; groupes joints par une espace",
+ "controle": "8a18b3fe73659d1b7613a13252a6216107beb5d16482e6c5cece0ccdb34a8ca5",
+ "tetes": [
+  "062f2afda6793ca998adc5cc1257417094d5b909b5cb4ed77887234d6845f066",
+  "267c3f2f275e2a50b26729fabdbb362e163c24b7fcc65bd51a19d00a8ca0c242",
+  "2aebd180e32f7dfe462461b1f3abd3e80de67c820c3c3675942a0c8dde8e0090",
+  "30ee371bdd7a08f94c5da1e33b6816e57b8b7ab74e2bf98c0e869a3f3c379236",
+  "3fcaf9ed09d48123553b0dff1ec7e51f2da663829ab74a8764958f565effaf93",
+  "6facb982fbf44384cc60285e58bf2cf8491b018437d251f94b8cb1e6d42119a0",
+  "821fe2d91f8aa95eb7f3b22b62bcfa104979f01cf68a458e2b066cf1f6589e36",
+  "870619d113e4036d475a524d21fa0bb6f7b89423cf9d2675a41b340c96531260",
+  "a9041254e68626950989851559509a06e8cf474708a0d99363152d3306f197a6",
+  "be2795a68dc2c51b9e8becc77d2a7556019d352bc50ca79a1ead9b42d102e5a2",
+  "c9a3b34a650af77c8ced5d64e93ad4f8354c0135659a328d5f093bc006de338e",
+  "cc5b0318582526fd1e642eea05d10938df3483446691e8b43743abab35ed166b",
+  "daf8ef11b36ba920231b0cd46eedc6625136194ec8ca7cc7ba3c7872e7e103e1",
+  "f564a1c121cca1b644437ad073b2f76591b7496ad81a16a871a5cdf105cdee7c"
+ ],
+ "A": [
+  {
+   "n": 3,
+   "e": "064bec6a98907ac6cad4986623dab03ce42fd85d18effe54460050e707e9dcee"
+  },
+  {
+   "n": 0,
+   "e": "16023f35b185d6a067af2a712c2312438167944145caedf5a7441904607443ef"
+  },
+  {
+   "n": 2,
+   "e": "19385a64a57ca97d0f5944f886817475c768ffbe9cb6ef2e141457768709683a"
+  },
+  {
+   "n": 0,
+   "e": "27b11a9423f01229e301ecd433ec0676ed442f229e703a00d927fff40d77e839"
+  },
+  {
+   "n": 3,
+   "e": "2c17c2e1b212c1da39fc572f89bb38e3470fea05b3f9e4bd9959115118a2f1a2"
+  },
+  {
+   "n": 1,
+   "e": "2e5a40d033cee26f699b4a0e7affc61b6cc8109a770789ca0dfeda1995fc1b04"
+  },
+  {
+   "n": 2,
+   "e": "45137a69aaf062633012b5bbca9c0eb80756465bb7fca6958a2205b3247b4625"
+  },
+  {
+   "n": 3,
+   "e": "45ad56d091dbae954b71ddfa57d17244c1cfbc2187b7c48f339f77580895e0f3"
+  },
+  {
+   "n": 0,
+   "e": "4681c910284531e16b690effe657680dfc2a894ba107f9f826baffdacad25b26"
+  },
+  {
+   "n": 0,
+   "e": "5c3916c2ca141c042053ff94a12aafbe529aefc99928fbfd37cffebb92730ec3"
+  },
+  {
+   "n": 3,
+   "e": "6a47126b2026509866d1c8f9f0b541acd8ed99b3ca333c79be1f7ceb8a6d78cb"
+  },
+  {
+   "n": 3,
+   "e": "75bc8784ed08baa1bbf047f24073ec3cecfe9d585d03dff5d2c188463d47093c"
+  },
+  {
+   "n": 1,
+   "e": "8ae97f54118b5295c422bae166a1b15144830aa719f33c8a0dc78797baecdd5e"
+  },
+  {
+   "n": 1,
+   "e": "902796dd3c4e1a7105512a2b228df766066a36ae90588a425ed9f0eb6d4454e2"
+  },
+  {
+   "n": 1,
+   "e": "c8bbad0260b2e86f3eb589406b7daa161d05765bb2307c32e52edf957fb8706d"
+  },
+  {
+   "n": 0,
+   "e": "d33d739cbd3b367245b35886167187fa49a274f7d15739172ef121904b0a394e"
+  },
+  {
+   "n": 2,
+   "e": "e6c2ee1b453e4f57c5d5d22210ebaeaf84688d60bb7c0dc85a5a9b872edfa68b"
+  },
+  {
+   "n": 3,
+   "e": "ec77890f2ca49204a791438ae1db737885531d7342bc292f97145601d324c3e9"
+  },
+  {
+   "n": 2,
+   "e": "fd5b762a607a7b2a95e7cf1579b29fd2fdfd123e2c9a5760cf283548b123ae0f"
+  }
+ ],
+ "B": [
+  {
+   "n": 3,
+   "e": "0323cbd1e22e5d12bbb3e81df8a60892ccc92bec1e8e76aa325f99f83716ba7d"
+  },
+  {
+   "n": 1,
+   "e": "1643e2e2f9794e179a5efc8c0809839cf1ea482e5d7e5039803764b6aa020536"
+  },
+  {
+   "n": 0,
+   "e": "17895c65dd3cfe4aca9d17fa6a82d34d256e2a2ec5d468adbbf883444067ad5a"
+  },
+  {
+   "n": 1,
+   "e": "26faec8b8906b926b355a95fc7a8ecb450536c40bfd5631f9f2fd28b5a9603c1"
+  },
+  {
+   "n": 1,
+   "e": "364c58037b080ab432aa76910f7dc471c3398661a431370b42ec042b5178d3ad"
+  },
+  {
+   "n": 0,
+   "e": "3936d9affe718514453aed8f28be622d4ee92cd93d58d51d50105b6e00ed4934"
+  },
+  {
+   "n": 0,
+   "e": "6707e7f61786109ff7bbbfdf9d8b66f622afda996d46fc1c57bf99ba9d4b9846"
+  },
+  {
+   "n": 3,
+   "e": "881de902d896c02307c1d82e6155e7e4c3074d6c6cbb866ec6bf2887e8cc0d44"
+  },
+  {
+   "n": 0,
+   "e": "b0cf42343a04b9536c4f5e5b750fa994d2e54ead9a7f98883fba40842db3d98e"
+  },
+  {
+   "n": 1,
+   "e": "ca1360d82a58398ce5608f222a8f1642e9f5f83e099fff0fff254cc3be05a273"
+  },
+  {
+   "n": 0,
+   "e": "cd230c0489232fa5b4046b9b94acea88d36c1fa34e988f0e3853bf5f06dfa2cd"
+  },
+  {
+   "n": 0,
+   "e": "cef99b4905e68e9c0718cf8bb8ef0cbad7809b1dd91432fb81fca4b10c27160f"
+  },
+  {
+   "n": 1,
+   "e": "cf62d2c58c040ba8369ca2167bcfe834fab3350ee78747f0cd6240ddeb59871b"
+  },
+  {
+   "n": 1,
+   "e": "d47531b3f9787a1f71915d6e8116c549b0df796b6f4ce9c258ded85e26bcbe37"
+  },
+  {
+   "n": 0,
+   "e": "df70c049c345cdb70dd20018650ef9d45d5b1420b5f223c6280bebc58ee8ff28"
+  },
+  {
+   "n": 3,
+   "e": "f2ce0fd661dcf195c8ad71d7d45603d8e0d542f87547cbfd6e69b5fbd214e178"
+  },
+  {
+   "n": 3,
+   "e": "f991a8215239e2f52032590f990bdf8acb655543efbadb5732973750efc2ade2"
+  }
+ ]
+}
