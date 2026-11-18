@@ -15,6 +15,7 @@ import { nourrir, oublier } from '../gna/historique.ts';
 import { arrondirPosition, ecrireFichierPrive, lireFichierPrive } from '../../prive.ts';
 import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuCourant, temperature, vitesse, type Region, type Unites } from '../lieu.ts';
 import { fetchPropre } from '../../net/fetch-propre.ts';
+import { agissant } from '../sso/acces.ts';
 
 const s = (v: unknown) => String(v ?? '');
 export const THEMES: Record<string, { label: string; dark: boolean }> = {
@@ -336,7 +337,7 @@ export const gladsheim: Module = {
       const ids = ctx.modules().map((m) => m.id), l = ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : defaultLayout(ids);
       return { text: l.pages.map((p) => `- ${p.name}${p.maison ? ' (écran de la maison)' : ''} : ${p.widgets.length} module(s)`).join('\n'), data: l };
     } },
-    { id: 'regler_fenetre', label: 'Ranger ma fenêtre', what: 'Enregistre les pages et les modules (mode « Modifier »)', quick: false, params: [{ key: 'fenetre', label: 'Fenêtre (JSON)', kind: 'textarea', required: true }], run: (ctx, i) => {
+    { id: 'regler_fenetre', label: 'Ranger ma fenêtre', what: 'Enregistre les pages et les modules (mode « Modifier »)', quick: false, proprietaireSeul: true, params: [{ key: 'fenetre', label: 'Fenêtre (JSON)', kind: 'textarea', required: true }], run: (ctx, i) => {
       let raw: unknown; try { raw = typeof i.fenetre === 'string' ? JSON.parse(i.fenetre) : i.fenetre; } catch { throw new Error('fenêtre illisible'); }
       const l = cleanLayout(raw, ctx.modules().map((m) => m.id)); ctx.saveSettings({ fenetre: l });
       return { text: `✓ Fenêtre rangée : ${l.pages.map((p) => `${p.name} (${p.widgets.length})`).join(', ')}.`, data: l };
@@ -412,7 +413,9 @@ export const gladsheim: Module = {
     }, undo: (i) => ({ action: 'retirer_bouton', input: { nom: i.nom }, label: 'Retirer le bouton' }) },
     { id: 'retirer_bouton', label: 'Retirer un bouton', what: 'Par son texte', quick: false, params: [{ key: 'nom', label: 'Texte du bouton', kind: 'text', required: true }], run: (ctx, i) => { const l = tilesOf(ctx), t = l.find((x) => x.id === s(i.nom) || x.label.toLowerCase() === s(i.nom).trim().toLowerCase()); if (!t) throw new Error('bouton introuvable'); ctx.saveSettings({ tiles: l.filter((x) => x.id !== t.id) }); return { text: `🗑 Bouton « ${t.label} » retiré.` }; } },
     { id: 'boutons', label: 'Boutons', what: 'Les boutons de l\'écran de la maison', read: true, words: ['boutons de l\'écran de la maison', 'mes boutons'], run: (ctx) => ({ text: tilesOf(ctx).map((t) => `- ${t.icon} ${t.label} → ${t.module}.${t.action}`).join('\n') || 'Aucun bouton.' }) },
-    { id: 'cle_tablette', label: 'Clé de tablette', what: 'Un lien pour une tablette murale ou Home Assistant, sans mot de passe (gardé secret)', quick: false, params: [{ key: 'nom', label: 'Nom (ex. Tablette entrée)', kind: 'text', required: true }, { key: 'droits', label: 'Droits', kind: 'select', options: ['maison', 'complet'], default: 'maison', help: 'maison : appareils, scènes, boutons sans action grave ; complet : comme toi (la mascotte fait tout, avec les mêmes validations)' }], words: ['clé de tablette', 'tablette murale'],
+    { id: 'cle_tablette', label: 'Clé de tablette', what: 'Un lien pour une tablette murale ou Home Assistant, sans mot de passe (gardé secret)', quick: false,
+      // Une personne de Persona (un membre) ne s'en crée pas : une clé « complet » lui rendrait les droits du propriétaire.
+      proprietaireSeul: () => Boolean(agissant()), params: [{ key: 'nom', label: 'Nom (ex. Tablette entrée)', kind: 'text', required: true }, { key: 'droits', label: 'Droits', kind: 'select', options: ['maison', 'complet'], default: 'maison', help: 'maison : appareils, scènes, boutons sans action grave ; complet : comme toi (la mascotte fait tout, avec les mêmes validations)' }], words: ['clé de tablette', 'tablette murale'],
       // Une clé ouvre Odin sans mot de passe à qui a le lien : ta validation, en voyant avec quels droits.
       grave: (i) => `créer une clé « ${s(i.nom).trim().slice(0, 40)} » qui ouvre Odin sans mot de passe à qui a le lien (${s(i.droits) === 'complet' ? 'droits complets : comme toi' : 'droits maison : appareils, scènes, boutons sans action grave'})`,
       run: (ctx, i) => {

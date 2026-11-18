@@ -779,9 +779,9 @@ export class WebChannel implements Channel {
     if (url.pathname === '/recherche' || url.pathname === '/recherche.js' || url.pathname.startsWith('/api/recherche/') || url.pathname === '/opensearch.xml' || url.pathname === '/recherche/navigateurs') {
       if (await rechercheRoute(req, res, url, { authed: this.authed(req), mascot: MASCOT, origine: this.requestOrigin(req), ip })) return;
     }
-    // L'écran de la maison (Hestia) : sa page, son script et son API (session, ou clé de tablette).
+    // L'écran de la maison (Hestia) : sa page, son script et son API (session du propriétaire, ou clé de tablette ; une session de membre n'y a aucun droit).
     if (url.pathname === '/maison' || url.pathname === '/maison.js' || url.pathname.startsWith('/api/maison/') || url.pathname === '/api/owntracks') {
-      if (await maisonRoute(req, res, url, { authed: this.authed(req), name: this.accounts.profile()?.prenom ?? '', mascot: MASCOT, fail: () => this.throttle.fail(ip), ask: (text) => this.askAs('maison', text, onMessage) })) return;
+      if (await maisonRoute(req, res, url, { authed: this.authed(req) && !estMembre(req), name: this.accounts.profile()?.prenom ?? '', mascot: MASCOT, fail: () => this.throttle.fail(ip), ask: (text) => this.askAs('maison', text, onMessage) })) return;
     }
     // Ulysse : la page des trajets d'un membre de la famille (/trajets) et son API, avec ses identifiants OwnTracks.
     if (url.pathname === '/trajets' || url.pathname.startsWith('/api/trajets/')) { if (await trajetsRoute(req, res, url, { fail: () => this.throttle.fail(ip), https: this.secure || this.viaHttps(req) })) return; }
