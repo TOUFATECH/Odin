@@ -22,6 +22,7 @@ import type { Redactor } from '../heimdall/redact.ts';
 import type { Mnemosyne } from '../muninn/store.ts';
 import type { Embedder } from '../muninn/embed.ts';
 import type { Router } from '../providers/router.ts';
+import { AGENT_LOCAL, localAvantConnectes } from '../providers/router.ts';
 import { type ToolContext, type ToolRegistry, type ToolResult, validateInput } from '../tools/registry.ts';
 import type { AgentEvent, Message, ToolCall } from '../types.ts';
 import type { Athena } from '../yggdrasil/skills.ts';
@@ -396,6 +397,10 @@ export class Agent {
     const turnLog: Message[] = [];
     let verifyAsked = false, crossAsked = false, triedAsked = false;
     let lastProvider = '';
+    // Classement des agents : l'agent local d'Odin classé avant les agents connectés prend le tour d'abord (voir plus bas).
+    // (Comme les actions directes : jamais dans une conversation marquée ou suspecte.)
+    const localDabord = depth === 0 && trusted && !tainted && !turn.suspicious && !this.deps.offlineOnly && !o.withoutAi && localAvantConnectes(router);
+    let localEssaye = false, localRepond = false;
 
     for (let step = 1; step <= maxSteps; step++) {
       if (signal.aborted) { res.stopReason = 'aborted'; res.text = 'Interrompu.'; break; }
@@ -408,6 +413,34 @@ export class Agent {
       res.steps = step;
       if (missionId) muninn.progressMission(missionId, { steps: step, toolCalls: res.toolCalls, costUsd: spent.usd });
       emit({ type: 'thinking', step });
+
+      // L'agent local d'Odin à sa place dans le classement (avant les agents connectés) : ce qu'il sait faire sans modèle
+      // (ses actions courantes sous le contrôle de Heimdall, le lien avec ce qu'il a appris, sa mémoire) prend le tour ;
+      // s'il ne sait pas répondre, le tour passe aux agents connectés, dans l'ordre. Sans classement : rien ne change.
+      // (La réponse de secours par la mémoire n'en fait pas partie : ses motifs larges répondraient à côté.)
+      if (localDabord && step === 1) {
+        localEssaye = true;
+        const tLocal = Date.now();
+        const demande = userText.split('\n\n[Précision d')[0];
+        const act = await offlineAct(demande, async (name, input) => {
+          const m = await this.execTool({ id: `local_${Date.now().toString(36)}`, name, input }, ctx, o, () => tainted, emit, turn, res.decisions);
+          return { ok: !/^(Erreur|Action refusée|Refusé|\[Mode essai\])/.test(m.content), content: m.content };
+        }, (n) => Boolean(tools.get(n)), o.sessionId).catch(() => undefined);
+        const near = act || !(owner && !tainted && !turn.suspicious && !o.unattended && cfg.routing.directFirst !== false && cfg.learning.direct !== false)
+          ? undefined : proposeNear(demande, { kv: muninn, sessionId: o.sessionId, has: (n) => Boolean(tools.get(n)) });
+        const parLocal = act ?? (near ? redactor.redact(near) : undefined);
+        if (parLocal) {
+          const why = `agent local d'Odin, place ${(router.classement ?? []).indexOf(AGENT_LOCAL) + 1} du classement`;
+          res.text = parLocal; res.stopReason = 'done'; localRepond = true;
+          res.ai = { needed: false, why };
+          muninn.addMessage(o.sessionId, { role: 'assistant', content: res.text });
+          emit({ type: 'text', text: res.text });
+          // Chaque tour est noté : celui de l'agent local aussi (aucun agent connecté, aucun coût).
+          const rc = routeContext();
+          try { muninn.recordRoute({ at: Date.now(), turnId: rc?.turnId ?? '', sessionId: o.sessionId, channel, request: rc?.request ?? '', purpose: 'agent-local', provider: '', label: 'Agent local d\'Odin', tier: '', minTier: '', need: category, reason: why, attempts: [], ok: true, ms: Date.now() - tLocal, tokensIn: 0, tokensOut: 0, costUsd: 0 }); } catch { /* journal facultatif */ }
+          break;
+        }
+      }
 
       let reply;
       try {
@@ -429,7 +462,8 @@ export class Agent {
         // mode, fiches, Venus, réseau) avec ses outils locaux, sous le contrôle de Heimdall ; sinon il
         // répond avec sa mémoire et garde la question pour plus tard.
         if (depth === 0 && step === 1 && trusted) {
-          const act = await offlineAct(userText.split('\n\n[Précision d')[0], async (name, input) => {
+          // (L'agent local déjà essayé à sa place dans le classement n'est pas rejoué : seule sa mémoire répond ici.)
+          const act = localEssaye ? undefined : await offlineAct(userText.split('\n\n[Précision d')[0], async (name, input) => {
             const m = await this.execTool({ id: `hors_ligne_${Date.now().toString(36)}`, name, input }, ctx, o, () => tainted, emit, turn, res.decisions);
             return { ok: !/^(Erreur|Action refusée|Refusé|\[Mode essai\])/.test(m.content), content: m.content };
           }, (n) => Boolean(tools.get(n)), o.sessionId).catch(() => undefined);
@@ -441,7 +475,7 @@ export class Agent {
           }
           // Cerveau direct : rien de reconnu mot pour mot. Odin fait le lien avec ce qu'il a déjà appris, dit comment,
           // et PROPOSE (rien ne part sans ton oui). Seulement pour toi, et jamais dans une discussion qui a lu du contenu extérieur.
-          const near = owner && !tainted && !turn.suspicious && !o.unattended && cfg.routing.directFirst !== false && cfg.learning.direct !== false
+          const near = !localEssaye && owner && !tainted && !turn.suspicious && !o.unattended && cfg.routing.directFirst !== false && cfg.learning.direct !== false
             ? proposeNear(userText.split('\n\n[Précision d')[0], { kv: muninn, sessionId: o.sessionId, has: (n) => Boolean(tools.get(n)) }) : undefined;
           if (near) {
             res.text = redactor.redact(near); res.offline = true; res.stopReason = 'done';
@@ -621,12 +655,13 @@ export class Agent {
 
     // 5. Apprentissage rapide : retenir ce qui compte de cet échange (préférences, environnement,
     //    missions), en arrière-plan, à partir de TES messages seulement (jamais d'une page web).
+    // (Quand l'agent local d'Odin a pris le tour à sa place, rien de ce tour ne part chez un agent connecté.)
     const learning: Array<Promise<unknown>> = [];
-    if (depth === 0 && cfg.learning.observe && trusted && !tainted && res.stopReason === 'done' && userText.trim().length >= 12) {
+    if (depth === 0 && cfg.learning.observe && trusted && !tainted && !localRepond && res.stopReason === 'done' && userText.trim().length >= 12) {
       learning.push(this.observe(userText, res.text, emit, signal, o.speaker?.role === 'member' ? o.speaker.name : undefined, turnLog).catch(() => undefined));
     }
     // Le fil de la conversation : compressé après chaque échange, pour ne jamais le perdre (même compacté, même des jours plus tard).
-    if (depth === 0 && cfg.learning.observe && trusted) {
+    if (depth === 0 && cfg.learning.observe && trusted && !localRepond) {
       learning.push(this.updateThread(o.sessionId, userText, res.text, turnLog, tainted, signal).catch(() => undefined));
     }
     // Liens vivants du Cerveau : ce qui a servi ensemble se relie (usage confirmé seulement, propriétaire, tour fiable).

@@ -61,6 +61,15 @@ export interface OdinConfig {
     directFirst?: boolean;
     /** À palier et spécialité égaux, le modèle le moins cher passe devant (défaut : oui). */
     cheapestFirst?: boolean;
+    /**
+     * Classement des agents, place 1 d'abord (10 places au plus) : identifiants des fournisseurs (« anthropic:claude-… »,
+     * « deepseek:… ») et « odin-local » pour l'agent local d'Odin, toujours présent (ajouté s'il manque). Le premier
+     * prend la demande ; s'il se tait ou refuse, le suivant. Un agent non classé ne reçoit rien du routeur principal
+     * (le fournisseur économique « cheapProvider » n'en tient pas encore compte). La place de l'agent local ne compte
+     * que là où il a une route (aujourd'hui : quand aucun agent n'est connecté). Absent (défaut) : l'ordre automatique
+     * d'aujourd'hui (palier, spécialité, prix), inchangé.
+     */
+    classement?: string[];
   };
   /** Fournisseur (moins cher) pour la compaction, la réflexion et les sous-agents. */
   cheapProvider?: ProviderConfig;

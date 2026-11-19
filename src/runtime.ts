@@ -44,7 +44,7 @@ import { Agent } from './core/agent.ts';
 import { type Approver, denyAll, Heimdall } from './heimdall/policy.ts';
 import { Redactor } from './heimdall/redact.ts';
 import { Mnemosyne } from './muninn/store.ts';
-import { buildProvider, Router } from './providers/router.ts';
+import { buildProvider, idClassement, Router } from './providers/router.ts';
 import { routeContext } from './providers/journal.ts';
 import { routingHistory } from './tools/routing.ts';
 import { BUILTIN_TOOLS, ensureWorkspace } from './tools/builtin.ts';
@@ -68,6 +68,7 @@ import { AUDIO_TOOLS } from './tools/audio.ts';
 import type { Judge } from './mimir/client.ts';
 import { buildJudge } from './mimir/factory.ts';
 import { plafonnerAutonomie, rangerQuestionsGardees } from './migrations/aucun-modele-externe.ts';
+import { fondreConversations } from './migrations/conversation-unique.ts';
 import { Mimir } from './mimir/decisions.ts';
 import { loadEnvFile } from './settings.ts';
 import { brancherGenre } from './core/genre.ts';
@@ -148,6 +149,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   muninn.gardeKv = { cles: new Set(KV_REGLAGES), lire: (k, v) => ouvrirKv(paths.home, k, v), ecrire: (k, v) => fermerKv(paths.home, k, v), ecrit: (k, v) => reglageKvEcrit(paths.home, k, v) };
   // Données privées encore en clair (Odin d'avant) : chiffrées une fois.
   try { const m = migrerDonneesPrivees(paths.home, muninn); if (m.length) console.error(`[réglages] données privées chiffrées : ${m.join(', ')}`); } catch (e) { console.error('[réglages]', (e as Error).message); }
+  try { fondreConversations({ mu: muninn, langue: cfg.voice?.stt?.language }); } catch (e) { console.error('[conversation unique]', (e as Error).message); } // une fois : copie relue, puis une marque par ancienne conversation (aucun message déplacé)
   // Mode privé (Réglages → Voix) : suit le réglage en direct, sans redémarrer.
   Object.defineProperty(muninn, 'privateMode', { get: () => Boolean(cfg.voice.privacy?.privateMode), set: () => {}, configurable: true });
   const skills = new Athena(paths.skills, paths.drafts);
@@ -204,7 +206,13 @@ export function createOdin(opts: CreateOptions = {}): Odin {
     router.overBudget = () => cfg.routing.monthlyBudgetUsd > 0 && muninn.monthCost() >= cfg.routing.monthlyBudgetUsd;
   }
   const cheapProvider = !opts.provider && pret && cfg.cheapProvider ? buildProvider(cfg.cheapProvider, process.env, paths) : undefined;
-  const cheapRouter = cheapProvider ? new Router([{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes]) : undefined;
+  // Classement des agents écrit : le routeur secondaire (résumés, réflexion, aides) suit le même classement ; un agent
+  // non classé (le fournisseur « économique » compris) n'y reçoit rien. Sans classement : rien ne change.
+  const classement = router.classement;
+  const cheapRoutes = cheapProvider ? [{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes] : [];
+  const cheapRouter = !cheapProvider ? undefined
+    : classement ? new Router(cheapRoutes.filter((r) => classement.includes(idClassement(r))), 2, undefined, { classement })
+      : new Router(cheapRoutes);
   if (cheapRouter) { cheapRouter.onUsage = router.onUsage; cheapRouter.onRoute = router.onRoute; cheapRouter.overBudget = router.overBudget; }
 
   // Mímir : le juge local d'Odin, seul (aucun modèle qui ne soit pas le sien). Une installation qui utilisait Jev, un

@@ -3,6 +3,7 @@ import { readSse } from './sse.ts';
 import type { CompletionRequest, Message, ModelResponse, Provider, ToolCall } from '../types.ts';
 import { HttpError } from './http.ts';
 import { fluxAvecInactivite } from '../net/fetch-propre.ts';
+import type { RequeteSuivie } from './router.ts';
 
 type Block = Record<string, unknown>;
 
@@ -31,6 +32,8 @@ export function toAnthropicMessages(messages: Message[]): Array<{ role: 'user' |
 
 export class AnthropicProvider implements Provider {
   readonly name: string;
+  /** Appelle `onActivite` à chaque morceau du flux (texte, appel d'outil, raisonnement). */
+  readonly signaleActivite = true;
   private apiKey: string;
   private baseUrl: string;
   constructor(apiKey: string, baseUrl = 'https://api.anthropic.com', name = 'anthropic') {
@@ -59,7 +62,7 @@ export class AnthropicProvider implements Provider {
       signal: req.signal ?? (req.onDelta ? undefined : AbortSignal.timeout(120_000)),
     });
     if (!res.ok) throw new HttpError(res.status, await res.text(), res.headers.get('retry-after'));
-    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return anthropicStream(fluxAvecInactivite(res, 120_000).body!, req.onDelta);
+    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return anthropicStream(fluxAvecInactivite(res, 120_000).body!, req.onDelta, (req as RequeteSuivie).onActivite);
     const data = (await res.json()) as {
       content: Array<{ type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }>;
       stop_reason: string;
@@ -78,13 +81,17 @@ export class AnthropicProvider implements Provider {
   }
 }
 
-/** Réponse Anthropic en flux : texte transmis au fil de l'eau, appels d'outils reconstitués. */
-export async function anthropicStream(body: ReadableStream<Uint8Array>, onDelta: (t: string) => void): Promise<ModelResponse> {
+/**
+ * Réponse Anthropic en flux : texte transmis au fil de l'eau, appels d'outils reconstitués. `onActivite` est appelé à
+ * chaque début ou morceau de bloc (texte, appel d'outil, raisonnement) ; il ne change rien à ce qui est rendu.
+ */
+export async function anthropicStream(body: ReadableStream<Uint8Array>, onDelta: (t: string) => void, onActivite?: () => void): Promise<ModelResponse> {
   let text = '', stop = 'other', inTok = 0, outTok = 0;
   const blocks = new Map<number, { id: string; name: string; json: string }>();
   for await (const ev of readSse(body)) {
     let d: Record<string, any>;
     try { d = JSON.parse(ev.data); } catch { continue; }
+    if (onActivite && (d.type === 'content_block_start' || d.type === 'content_block_delta')) onActivite();
     if (d.type === 'message_start') { const u = d.message?.usage ?? {}; inTok = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0); }
     else if (d.type === 'content_block_start' && d.content_block?.type === 'tool_use') blocks.set(d.index, { id: d.content_block.id, name: d.content_block.name, json: '' });
     else if (d.type === 'content_block_delta' && d.delta?.type === 'text_delta') { text += d.delta.text; onDelta(d.delta.text); }

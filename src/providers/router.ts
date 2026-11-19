@@ -18,6 +18,91 @@ import { OpenAIProvider } from './openai.ts';
 import { CodexProvider, loadCodexAuth } from './codex.ts';
 import { odinPaths, type OdinPaths } from '../config.ts';
 import { providerLabel, routeContext, serviceOf, type RouteAttempt, type RouteEntry } from './journal.ts';
+import { SANS_MODELE } from '../brain/porte-modele.ts';
+
+export type { RouteAttempt } from './journal.ts';
+
+// Classement des agents (Réglages, places 1 à 10) : quand il est écrit, il remplace le tri automatique (palier,
+// spécialité, prix). L'agent local d'Odin y figure toujours. Le premier agent qui peut faire la tâche la reçoit ;
+// s'il se tait (pas de premier mot, pas de réponse complète) ou refuse (quota, erreur, injoignable), le suivant la
+// reprend. Un agent qui a déjà émis une action dans le tour n'est jamais remplacé en cours de route : on s'arrête.
+// Sans classement écrit, rien ne change : ni l'ordre, ni les délais.
+/** L'agent local d'Odin dans le classement (ce qu'Odin fait seul, Soul, puis son propre modèle). Jamais retiré. */
+export const AGENT_LOCAL = 'odin-local';
+export const CLASSEMENT_MAX = 10;
+/** Délais par défaut avant de passer à l'agent suivant (réglables à la construction du routeur). */
+export const DELAI_PREMIER_MOT_MS = 30_000;
+export const DELAI_REPONSE_MS = 3 * 60_000;
+
+/**
+ * Classement propre : identifiants de fournisseurs (« anthropic:claude-… »), sans doublon, 10 places au plus,
+ * l'agent local d'Odin toujours présent (ajouté à la dernière place s'il manque). Pas une liste : pas de classement.
+ */
+export function normaliserClassement(liste: unknown): string[] | undefined {
+  if (!Array.isArray(liste)) return undefined;
+  const ids: string[] = [];
+  for (const x of liste) {
+    if (typeof x !== 'string') continue;
+    const id = x.trim().slice(0, 200);
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  const tete = ids.slice(0, CLASSEMENT_MAX);
+  if (tete.includes(AGENT_LOCAL)) return tete;
+  return [...ids.filter((x) => x !== AGENT_LOCAL).slice(0, CLASSEMENT_MAX - 1), AGENT_LOCAL];
+}
+
+/** Identifiant d'une route dans le classement (la place vide du modèle d'Odin compte pour l'agent local). */
+export function idClassement(r: Route): string { return r.provider.name === SANS_MODELE ? AGENT_LOCAL : r.provider.name; }
+
+/** Nom d'un agent en clair (la place vide du modèle d'Odin est l'agent local, pas son nom interne). */
+function nomAgent(name: string): string { return name === SANS_MODELE ? 'l\'agent local d\'Odin' : providerLabel(name); }
+
+/**
+ * Demande à un fournisseur, avec le rappel « activité » : appelé à chaque morceau reçu du flux (texte, début ou morceau
+ * d'un appel d'outil, raisonnement). Seul le routeur le pose, et seulement quand un classement est écrit.
+ */
+export type RequeteSuivie = CompletionRequest & { onActivite?: () => void };
+/** Le fournisseur appelle-t-il `onActivite` à chaque morceau de son flux ? (les trois fournisseurs connectés : oui) */
+export function signaleActivite(p: Provider): boolean { return (p as { signaleActivite?: unknown }).signaleActivite === true; }
+
+/**
+ * L'agent local d'Odin est-il classé avant tous les agents connectés de ce routeur ? Alors c'est lui qui prend le tour
+ * (agent.ts) ; s'il ne sait pas répondre, le tour passe aux agents connectés, dans l'ordre. Faux sans classement.
+ */
+export function localAvantConnectes(r: Router): boolean {
+  if (!r.classement) return false;
+  const local = r.classement.indexOf(AGENT_LOCAL) + 1;
+  const connectes = r.routes.filter((x) => idClassement(x) !== AGENT_LOCAL).map((x) => r.place(x)).filter((p) => p > 0);
+  return local > 0 && connectes.length > 0 && connectes.every((p) => local < p);
+}
+
+/** Minuteur (injecté par les essais : aucune vraie attente). */
+export interface Minuteur { poser(fn: () => void, ms: number): unknown; retirer(id: unknown): void }
+const MINUTEUR_REEL: Minuteur = { poser: (fn, ms) => setTimeout(fn, ms), retirer: (id) => clearTimeout(id as ReturnType<typeof setTimeout>) };
+
+/** Essai noté au journal, avec la place de l'agent dans le classement. */
+export interface EssaiClasse extends RouteAttempt { place?: number }
+
+const duree = (ms: number) => (ms < 120_000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60_000)} min`);
+
+/** L'agent s'est tu trop longtemps : on passe au suivant (sa réponse tardive sera ignorée). */
+export class DelaiAgent extends Error {
+  readonly sorte: 'premier-mot' | 'reponse';
+  readonly ms: number;
+  constructor(sorte: 'premier-mot' | 'reponse', ms: number) {
+    super(sorte === 'premier-mot' ? `pas de premier mot en ${duree(ms)}` : `pas de réponse complète en ${duree(ms)}`);
+    this.name = 'DelaiAgent'; this.sorte = sorte; this.ms = ms;
+  }
+}
+
+/** Un agent a déjà émis une action dans ce tour, puis n'a pas répondu : il n'est pas remplacé (rien n'est rejoué). */
+export class AgentDejaEnAction extends Error {
+  readonly agent: string;
+  constructor(agent: string, cause: string) {
+    super(`${providerLabel(agent)} a déjà commencé à agir dans ce tour, puis n'a pas répondu (${cause}) : il n'est pas remplacé en cours de route, aucune action n'est rejouée. Arrêté ici.`);
+    this.name = 'AgentDejaEnAction'; this.agent = agent;
+  }
+}
 
 export type Tier = 'local' | 'standard' | 'strong';
 export const TIER_RANK: Record<Tier, number> = { local: 0, standard: 1, strong: 2 };
@@ -140,9 +225,20 @@ export class Router {
   /** Suit la dépense pendant une période (un tour) ; renvoie la fonction qui arrête le suivi. */
   track(fn: (costUsd: number) => void): () => void { this.trackers.add(fn); return () => this.trackers.delete(fn); }
 
-  constructor(routes: Route[], maxRetries = 2, sleep = (ms: number) => new Promise((r) => setTimeout(r, ms)), opts: { pauseMs?: number; now?: () => number } = {}) {
+  /** Classement des agents (place 1 d'abord), agent local compris ; absent : tri automatique d'aujourd'hui. */
+  readonly classement?: string[];
+  /** Délais avant bascule (classement seulement) : premier mot (première activité d'une réponse en direct), réponse complète. */
+  readonly delais: { premierMotMs: number; reponseMs: number };
+  private minuteur: Minuteur;
+  /** Tour (contexte de routage) → agent qui y a déjà émis une action : lui seul continue ce tour. */
+  private agentQuiAgit = new WeakMap<object, string>();
+
+  constructor(routes: Route[], maxRetries = 2, sleep = (ms: number) => new Promise((r) => setTimeout(r, ms)), opts: { pauseMs?: number; now?: () => number; classement?: string[]; delais?: { premierMotMs?: number; reponseMs?: number }; minuteur?: Minuteur } = {}) {
     this.routes = routes; this.maxRetries = maxRetries; this.sleep = sleep;
     this.pauseMs = opts.pauseMs ?? 15 * 60_000; this.now = opts.now ?? (() => Date.now());
+    this.classement = normaliserClassement(opts.classement);
+    this.delais = { premierMotMs: Math.max(1, opts.delais?.premierMotMs ?? DELAI_PREMIER_MOT_MS), reponseMs: Math.max(1, opts.delais?.reponseMs ?? DELAI_REPONSE_MS) };
+    this.minuteur = opts.minuteur ?? MINUTEUR_REEL;
     if (!routes.length) throw new Error('Aucun fournisseur de modèle utilisable : définis une clé (ex. ANTHROPIC_API_KEY) puis lance « odin doctor ».');
   }
 
@@ -152,8 +248,22 @@ export class Router {
       const provider = buildProvider(p, process.env, paths);
       if (provider) routes.push({ provider, cfg: p });
     }
-    return new Router(routes, 2, undefined, { pauseMs: Math.max(1, cfg.routing?.quotaPauseMin ?? 15) * 60_000 });
+    // Classement écrit : seuls les agents classés sont montés dans ce routeur (le routeur secondaire monté par le
+    // démarrage suit le même classement, runtime.ts).
+    const classement = normaliserClassement(cfg.routing?.classement);
+    const gardees = classement ? routes.filter((r) => classement.includes(idClassement(r))) : routes;
+    // Une place qui ne nomme aucun agent utilisable (faute de frappe, clé absente) est dite : sinon une seule faute
+    // couperait tous les agents sans un mot. L'agent local n'a pas de route ici : ce n'est pas une faute.
+    if (classement) {
+      const connus = new Set(routes.map(idClassement));
+      classement.forEach((id, i) => { if (id !== AGENT_LOCAL && !connus.has(id)) console.error(`[classement] place ${i + 1} « ${id.slice(0, 80)} » : aucun agent utilisable de ce nom (faute de frappe, ou clé absente) ; place ignorée.`); });
+      if (!gardees.length && routes.length) console.error('[classement] aucun agent du classement n\'est utilisable : aucun agent connecté ne reçoit de demande.');
+    }
+    return new Router(gardees, 2, undefined, { pauseMs: Math.max(1, cfg.routing?.quotaPauseMin ?? 15) * 60_000, classement });
   }
+
+  /** Place d'une route dans le classement (1 à 10), 0 sans classement ou si elle n'y est pas. */
+  place(r: Route): number { return this.classement ? this.classement.indexOf(idClassement(r)) + 1 : 0; }
 
   /** Le plus haut palier disponible (pour savoir si une tâche complexe peut être servie). */
   get tiers(): Tier[] { return [...new Set(this.routes.map((r) => tierOf(r.cfg)))]; }
@@ -179,10 +289,13 @@ export class Router {
     const weak = (r: Route) => (o.avoid?.includes(r.provider.name) ? 1 : 0);
     const price = (a: Route, b: Route) => { if (!o.cheapest) return 0; const x = priceOf(a.cfg), y = priceOf(b.cfg); return x === y ? 0 : x < y ? -1 : 1; };
     const isPrivate = (o.need && PRIVATE_NEEDS.has(o.need)) || PRIVATE_PURPOSES.has(o.purpose ?? '');
-    return this.routes
+    const possibles = this.routes
       .filter((r) => !o.exclude?.includes(r.provider.name))
       .filter((r) => !o.vision || visionOf(r.cfg))
-      .filter((r) => !(isPrivate && r.cfg.personal === false))
+      .filter((r) => !(isPrivate && r.cfg.personal === false));
+    // Classement écrit : son ordre, rien d'autre (ni palier, ni prix, ni spécialité) ; un agent non classé est écarté.
+    if (this.classement) return possibles.filter((r) => this.place(r) > 0).map((r, i) => ({ r, i })).sort((a, b) => this.place(a.r) - this.place(b.r) || a.i - b.i).map((x) => x.r);
+    return possibles
       .map((r, i) => ({ r, i }))
       .sort((a, b) => Number(Boolean(a.r.cfg.fallbackOnly)) - Number(Boolean(b.r.cfg.fallbackOnly)) || rank(a.r) - rank(b.r) || weak(a.r) - weak(b.r) || (o.cheapest ? fit(a.r) - fit(b.r) || price(a.r, b.r) || pref(a.r) - pref(b.r) : pref(a.r) - pref(b.r) || fit(a.r) - fit(b.r)) || a.i - b.i)
       .map((x) => x.r);
@@ -218,12 +331,12 @@ export class Router {
     const pausedNow = (n: string) => (this.paused.get(n)?.until ?? 0) > this.now();
     const skipped = this.order(o).filter((r) => pausedNow(r.provider.name) || (this.down.get(r.provider.name) ?? 0) > this.now())
       .map((r) => `${providerLabel(r.provider.name)} ${pausedNow(r.provider.name) ? 'en pause (quota épuisé)' : 'injoignable'}`);
-    const log = (route: Route | undefined, position: number, r?: ModelResponse, cost = 0) => {
+    const log = (route: Route | undefined, position: number, r?: ModelResponse, cost = 0, raison?: string) => {
       const purpose = (o.purpose ?? 'agent') === 'agent' && ctx?.role ? ctx.role : (o.purpose ?? 'agent');
       const e: RouteEntry = {
         at: t0, turnId: ctx?.turnId ?? '', sessionId: ctx?.sessionId ?? '', channel: ctx?.channel ?? 'système', request: ctx?.request ?? '',
         purpose, provider: route?.provider.name ?? '', label: route ? providerLabel(route.provider.name) : '', tier: route ? tierOf(route.cfg) : '',
-        minTier: o.minTier ?? 'standard', need: o.need ?? '', reason: route ? this.why(route, o, position, skipped) : req.signal?.aborted ? 'interrompu' : attempts.length ? 'tous les fournisseurs ont échoué' : 'aucun modèle autorisé pour cette tâche (vie privée, images…) ou tous hors service',
+        minTier: o.minTier ?? 'standard', need: o.need ?? '', reason: route ? (this.classement ? this.pourquoiClasse(route, attempts, skipped) : this.why(route, o, position, skipped)) : raison ?? (req.signal?.aborted ? 'interrompu' : attempts.length ? (this.classement ? 'tous les agents du classement ont échoué' : 'tous les fournisseurs ont échoué') : 'aucun modèle autorisé pour cette tâche (vie privée, images…) ou tous hors service'),
         attempts, ok: Boolean(r), ms: this.now() - t0, tokensIn: r?.usage.inputTokens ?? 0, tokensOut: r?.usage.outputTokens ?? 0, costUsd: cost,
       };
       ctx?.entries.push(e);
@@ -232,9 +345,56 @@ export class Router {
     try {
       return await this.completeInner(req, o, attempts, log);
     } catch (e) {
-      if (!attempts.some((a) => a.ok)) log(undefined, -1);
+      if (!attempts.some((a) => a.ok)) log(undefined, -1, undefined, 0, e instanceof AgentDejaEnAction ? e.message.slice(0, 300) : undefined);
       throw e;
     }
+  }
+
+  /** Pourquoi cet agent (classement) : sa place, et ce qui est arrivé aux places d'avant (sans aucun contenu). */
+  private pourquoiClasse(route: Route, attempts: RouteAttempt[], skipped: string[]): string {
+    const parts = [`place ${this.place(route)} du classement`];
+    const avant = new Map<string, EssaiClasse>();
+    for (const a of attempts as EssaiClasse[]) if (!a.ok && a.provider !== route.provider.name) avant.set(a.provider, a);
+    for (const a of avant.values()) parts.push(`place ${a.place ?? '?'} ${providerLabel(a.provider)} : ${a.error ?? 'échec'}`);
+    for (const s of skipped) if (![...avant.keys()].some((n) => s.startsWith(providerLabel(n))) && !s.startsWith(providerLabel(route.provider.name))) parts.push(s);
+    return parts.join(' ; ');
+  }
+
+  /**
+   * Un appel surveillé (classement) : sans premier mot dans le délai ou sans réponse complète dans le délai, l'appel
+   * est interrompu et rejeté par `DelaiAgent`. Ce qu'il dirait ou ferait ensuite est ignoré : ni son texte, ni ses
+   * actions ne sortent (la bascule ne rejoue rien).
+   * Le « premier mot » est la première ACTIVITÉ d'une réponse en direct : un morceau de texte, un appel d'outil en cours
+   * d'écriture ou un raisonnement (rappel `onActivite` des fournisseurs). Un agent qui écrit une action sans un mot
+   * travaille : il n'est pas coupé (sinon : travail payé deux fois, ou tour arrêté s'il a déjà agi).
+   * Avec des outils, le premier mot n'est attendu que d'un fournisseur qui signale son activité ; un autre (qui ne
+   * signale que le texte) garde la règle d'avant : seul le délai de réponse complète joue.
+   */
+  private appelSurveille(route: Route, req: Omit<CompletionRequest, 'model'>): Promise<ModelResponse> {
+    const ac = new AbortController();
+    const amont = req.signal;
+    const suivre = () => ac.abort(amont?.reason);
+    if (amont) { if (amont.aborted) ac.abort(amont.reason); else amont.addEventListener('abort', suivre, { once: true }); }
+    const { premierMotMs, reponseMs } = this.delais;
+    return new Promise<ModelResponse>((resolve, reject) => {
+      let fini = false, premierMot = false;
+      const minuteurs: unknown[] = [];
+      const finir = (err?: unknown, r?: ModelResponse) => {
+        if (fini) return;
+        fini = true;
+        for (const m of minuteurs) this.minuteur.retirer(m);
+        amont?.removeEventListener('abort', suivre);
+        if (err !== undefined) { if (err instanceof DelaiAgent) ac.abort(err); reject(err); } else resolve(r!);
+      };
+      const onDelta = req.onDelta ? (t: string) => { if (fini) return; premierMot = true; req.onDelta!(t); } : undefined;
+      const onActivite = () => { premierMot = true; };
+      if (onDelta && (!req.tools.length || signaleActivite(route.provider))) minuteurs.push(this.minuteur.poser(() => { if (!premierMot) finir(new DelaiAgent('premier-mot', premierMotMs)); }, premierMotMs));
+      minuteurs.push(this.minuteur.poser(() => finir(new DelaiAgent('reponse', reponseMs)), reponseMs));
+      try {
+        const requete: RequeteSuivie = { ...req, model: route.cfg.model, signal: ac.signal, onDelta, onActivite };
+        route.provider.complete(requete).then((r) => finir(undefined, r), (e) => finir(e ?? new Error('échec')));
+      } catch (e) { finir(e ?? new Error('échec')); }
+    });
   }
 
   private async completeInner(req: Omit<CompletionRequest, 'model'>, o: CompleteOptions, attempts: RouteAttempt[], log: (route: Route | undefined, position: number, r?: ModelResponse, cost?: number) => void): Promise<RoutedResponse> {
@@ -256,27 +416,45 @@ export class Router {
     // Tout est injoignable depuis moins d'une minute : on ne fait pas attendre, le secours répond tout de suite.
     if (candidates.every(isDown)) throw new Error('aucun service d\'IA joignable pour l\'instant (pas d\'Internet ?)');
     const active = candidates.filter((r) => !this.isPaused(r.provider.name) && !isDown(r));
-    const ordered = [...active, ...candidates.filter((r) => !this.isPaused(r.provider.name) && isDown(r)), ...candidates.filter((r) => this.isPaused(r.provider.name))];
+    let ordered = [...active, ...candidates.filter((r) => !this.isPaused(r.provider.name) && isDown(r)), ...candidates.filter((r) => this.isPaused(r.provider.name))];
+    // Classement : un agent qui a déjà émis une action dans ce tour le garde jusqu'au bout ; s'il ne répond plus,
+    // personne d'autre ne reprend (jamais deux agents qui font la même action).
+    const ctx = this.classement ? routeContext() : undefined;
+    const enAction = ctx && req.tools.length ? this.agentQuiAgit.get(ctx) : undefined;
+    if (enAction) {
+      ordered = ordered.filter((r) => r.provider.name === enAction);
+      if (!ordered.length) throw new AgentDejaEnAction(enAction, 'il n\'est plus disponible pour cette demande');
+    }
     const first = ordered[0];
     for (const [position, route] of ordered.entries()) {
+      const place = this.place(route);
+      const essai = (a: RouteAttempt) => { const x: EssaiClasse = this.classement ? { ...a, place } : a; attempts.push(x); };
       for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
         const ta = this.now();
         try {
-          const r = await route.provider.complete({ ...req, model: route.cfg.model });
-          attempts.push({ provider: route.provider.name, ok: true, ms: this.now() - ta });
+          const r = this.classement ? await this.appelSurveille(route, req) : await route.provider.complete({ ...req, model: route.cfg.model });
+          essai({ provider: route.provider.name, ok: true, ms: this.now() - ta });
           this.down.delete(route.provider.name);
+          if (ctx && req.tools.length && r.toolCalls.length) this.agentQuiAgit.set(ctx, route.provider.name);
           if (wasPaused.has(route.provider.name)) { this.paused.delete(route.provider.name); notices.push(`${route.provider.name} est de nouveau disponible.`); }
           const cost = (r.usage.inputTokens * (route.cfg.priceInPerM ?? 0) + r.usage.outputTokens * (route.cfg.priceOutPerM ?? 0)) / 1e6;
           this.onUsage?.(route.provider.name, r.usage.inputTokens, r.usage.outputTokens, cost, o.purpose ?? 'agent');
           for (const t of this.trackers) t(cost);
           log(route, position, r, cost);
-          if (route !== first && errors.length) notices.unshift(`${first.provider.name} indisponible, réponse de ${route.provider.name}.`);
+          if (route !== first && (errors.length || pasEncore.length)) {
+            if (this.classement) {
+              const avant = (attempts as EssaiClasse[]).find((a) => a.provider === first.provider.name && !a.ok);
+              notices.unshift(`Réponse de ${nomAgent(route.provider.name)} (place ${place}) : ${nomAgent(first.provider.name)} (place ${this.place(first)}) ${avant?.error ?? 'indisponible'}.`);
+            } else notices.unshift(`${first.provider.name} indisponible, réponse de ${route.provider.name}.`);
+          }
           return { ...r, providerName: route.provider.name, costUsd: cost, ...(notices.length ? { notice: notices.join(' ') } : {}) };
         } catch (e) {
           if (req.signal?.aborted) throw e;
-          if (e instanceof ModelePasEntraine) { attempts.push({ provider: route.provider.name, ok: false, ms: this.now() - ta, error: 'pas encore entraîné' }); pasEncore.push(e); break; }
-          attempts.push({ provider: route.provider.name, ok: false, ms: this.now() - ta, error: shortError(e) });
+          if (e instanceof ModelePasEntraine) { essai({ provider: route.provider.name, ok: false, ms: this.now() - ta, error: 'pas encore entraîné' }); pasEncore.push(e); break; }
+          essai({ provider: route.provider.name, ok: false, ms: this.now() - ta, error: e instanceof DelaiAgent ? e.message : shortError(e) });
           errors.push(`${route.provider.name} (essai ${attempt + 1}) : ${(e as Error).message.slice(0, 200)}`);
+          // Silence trop long : on n'insiste pas, l'agent suivant prend le tour.
+          if (e instanceof DelaiAgent) break;
           if (isQuotaError(e)) {
             // Quota ou crédit épuisé : inutile d'insister, on passe au suivant pour un moment.
             const until = this.now() + this.pauseMs;
@@ -302,6 +480,7 @@ export class Router {
         }
       }
     }
+    if (enAction) throw new AgentDejaEnAction(enAction, (attempts.at(-1)?.error ?? 'échec'));
     // Aucun autre échec que « pas encore » : l'erreur garde son type et son message dans la langue de la personne
     // (ni « Tous les fournisseurs », ni le nom interne de la place vide).
     if (pasEncore.length && !errors.length) throw pasEncore[0];

@@ -7,6 +7,7 @@ import { readSse } from './sse.ts';
 import type { CompletionRequest, Message, ModelResponse, Provider, ToolCall } from '../types.ts';
 import { HttpError } from './http.ts';
 import { fluxAvecInactivite } from '../net/fetch-propre.ts';
+import type { RequeteSuivie } from './router.ts';
 
 /** Convertit l'historique Odin vers le format OpenAI (pur, testable). */
 export function toOpenAIMessages(system: string, messages: Message[], withReasoning = false): Array<Record<string, unknown>> {
@@ -37,6 +38,8 @@ export function parseArgs(raw: string | undefined): Record<string, unknown> {
 
 export class OpenAIProvider implements Provider {
   readonly name: string;
+  /** Appelle `onActivite` à chaque morceau du flux (texte, appel d'outil, raisonnement). */
+  readonly signaleActivite = true;
   private apiKey: string;
   private baseUrl: string;
   constructor(apiKey: string, baseUrl = 'https://api.openai.com/v1', name = 'openai') {
@@ -60,7 +63,7 @@ export class OpenAIProvider implements Provider {
       signal: req.signal ?? (req.onDelta ? undefined : AbortSignal.timeout(120_000)),
     });
     if (!res.ok) throw new HttpError(res.status, await res.text(), res.headers.get('retry-after'));
-    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return openaiStream(fluxAvecInactivite(res, 120_000).body!, req.onDelta);
+    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return openaiStream(fluxAvecInactivite(res, 120_000).body!, req.onDelta, (req as RequeteSuivie).onActivite);
     const data = (await res.json()) as {
       choices: Array<{ message: { content: string | null; reasoning_content?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> }; finish_reason: string }>;
       usage?: { prompt_tokens: number; completion_tokens: number };
@@ -80,8 +83,11 @@ export class OpenAIProvider implements Provider {
   }
 }
 
-/** Réponse compatible OpenAI en flux : texte au fil de l'eau, appels d'outils reconstitués par index. */
-export async function openaiStream(body: ReadableStream<Uint8Array>, onDelta: (t: string) => void): Promise<ModelResponse> {
+/**
+ * Réponse compatible OpenAI en flux : texte au fil de l'eau, appels d'outils reconstitués par index. `onActivite` est
+ * appelé pour chaque morceau de texte, de raisonnement ou d'appel d'outil ; il ne change rien à ce qui est rendu.
+ */
+export async function openaiStream(body: ReadableStream<Uint8Array>, onDelta: (t: string) => void, onActivite?: () => void): Promise<ModelResponse> {
   let text = '', reasoning = '', finish = '', inTok = 0, outTok = 0;
   const calls = new Map<number, { id: string; name: string; args: string }>();
   for await (const ev of readSse(body)) {
@@ -91,6 +97,9 @@ export async function openaiStream(body: ReadableStream<Uint8Array>, onDelta: (t
     if (d.usage) { inTok = d.usage.prompt_tokens ?? inTok; outTok = d.usage.completion_tokens ?? outTok; }
     const ch = d.choices?.[0];
     if (!ch) continue;
+    // Tout morceau reçu compte, même celui qui ne porte que le rôle : un modèle qui raisonne n'envoie parfois rien d'autre
+    // avant sa réponse, et il ne doit pas être coupé au bout de 30 s (décision de la session, 19/11).
+    if (onActivite && ch.delta) onActivite();
     if (ch.delta?.content) { text += ch.delta.content; onDelta(ch.delta.content); }
     if (ch.delta?.reasoning_content) reasoning += ch.delta.reasoning_content;
     for (const tc of ch.delta?.tool_calls ?? []) {

@@ -47,6 +47,8 @@ import { startQuotidien } from '../learn/quotidien.ts';
 import { brainOf } from '../tools/brain.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
+import { Mnemosyne } from '../muninn/store.ts';
+import { defondre } from '../migrations/conversation-unique.ts';
 import { tunnel } from '../web/tunnel.ts';
 import { adminDiagnosis, adminMode, checkSudoPassword, findMachine, listMachines, removeMachine, saveMachine, setAdminPassword, sudoersLine, testMachine } from '../machines/access.ts';
 import { userInfo } from 'node:os';
@@ -109,6 +111,7 @@ Conteneurs (moteur d'Odin, sans démon, sans Docker ni Podman) :
   machines [list|add ADRESSE UTILISATEUR|test NOM|remove NOM]  machines du réseau (SSH, mot de passe)
   backup [fichier]             sauvegarde chiffrée de ~/.odin (config, clés, mémoire, compétences)
   restore <fichier>            restaure une sauvegarde (Odin arrêté)
+  conversation defondre        défait la réunion des anciennes conversations en une seule (Odin arrêté ; la copie reste)
   decisions [N]                ce qu'Odin a décidé (seul ou avec toi), et pourquoi
   ia [N|bilan|SESSION]         quelle IA a traité chaque demande (journal réel des routages)
   grants [list|revoke ID]      autorisations permanentes (« toujours autoriser »)
@@ -667,6 +670,22 @@ async function backupCmd(): Promise<void> {
   console.log(c.dim('Garde-la hors de cette machine. Restaurer : odin restore ' + out));
 }
 
+/**
+ * « odin conversation defondre » : défait la réunion des anciennes conversations (src/migrations/conversation-unique.ts).
+ * Retire seulement les marques « fondue » ; aucun message, aucune conversation, ni la copie de sécurité ne sont touchés.
+ * Sans démarrer Odin (le démarrage referait la réunion sur une mémoire jamais réunie).
+ */
+async function conversationCmd(): Promise<void> {
+  if (pos[1] !== 'defondre' && pos[1] !== 'défondre') { console.log('usage : odin conversation defondre'); process.exitCode = 1; return; }
+  const paths = odinPaths();
+  if (!existsSync(join(paths.home, 'memoire'))) { console.log('Aucune mémoire d\'Odin ici : rien à défaire.'); return; }
+  console.log(c.yellow('Odin doit être arrêté (service ou « odin web ») : sinon il peut réécrire les marques en enregistrant ses réglages.'));
+  const r = defondre(new Mnemosyne(paths.db));
+  if (r.raison === 'pas-fondue') console.log('Les conversations n\'ont pas été réunies : rien à défaire.');
+  else if (r.raison === 'deja-defondue') console.log(`Déjà défait.${r.copie ? ` La copie de sécurité reste : ${join(paths.home, 'memoire', r.copie)}` : ''}`);
+  else console.log(c.green(`✓ Réunion défaite : ${r.sessions} marque(s) « fondue » retirée(s), aucun message touché.${r.copie ? ` La copie de sécurité reste : ${join(paths.home, 'memoire', r.copie)}` : ''}`));
+}
+
 async function restoreCmd(): Promise<void> {
   const file = pos[1];
   if (!file || !existsSync(file)) throw new Error('usage : odin restore <fichier.odinbk>');
@@ -842,6 +861,7 @@ async function main(): Promise<void> {
   if (cmd === 'model') return modelCmd();
   if (cmd === 'backup') return backupCmd();
   if (cmd === 'restore') return restoreCmd();
+  if (cmd === 'conversation') return conversationCmd();
   if (!cmd || cmd === 'help' || flags.has('--help')) return console.log(HELP);
   if (cmd === 'init') {
     const paths = odinPaths(), created = initHome(paths);

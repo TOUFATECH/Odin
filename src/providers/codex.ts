@@ -20,6 +20,10 @@ import type { OdinPaths } from '../config.ts';
 import type { CompletionRequest, Message, ModelResponse, Provider, ToolCall } from '../types.ts';
 import { HttpError } from './http.ts';
 import { parseArgs } from './openai.ts';
+import type { RequeteSuivie } from './router.ts';
+
+/** Événements du flux Codex qui disent que le modèle travaille (texte, appel d'outil, raisonnement), pas l'accusé de réception. */
+const ACTIVITE_CODEX = /^response\.(output_item\.(added|done)|content_part\.(added|done)|output_text\.delta|function_call_arguments\.(delta|done)|reasoning[\w.]*)$/;
 
 export const CODEX = {
   clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
@@ -273,6 +277,8 @@ export function parseResponsesStream(raw: string): ModelResponse {
 
 export class CodexProvider implements Provider {
   readonly name: string;
+  /** Appelle `onActivite` à chaque morceau du flux (texte, appel d'outil, raisonnement). */
+  readonly signaleActivite = true;
   private paths: OdinPaths;
   private fetcher: typeof fetch;
   private baseUrl: string;
@@ -308,8 +314,10 @@ export class CodexProvider implements Provider {
     if (!req.onDelta || !res.body) return parseResponsesStream(await res.text());
     // En direct : chaque morceau de texte est transmis, puis la réponse complète est reconstruite.
     let raw = '';
+    const activite = (req as RequeteSuivie).onActivite;
     for await (const ev of readSse(res.body)) {
       raw += `data: ${ev.data}\n\n`;
+      if (activite) { try { if (ACTIVITE_CODEX.test(String((JSON.parse(ev.data) as { type?: unknown }).type ?? ''))) activite(); } catch { /* morceau illisible */ } }
       if (ev.data.includes('"response.output_text.delta"')) { try { req.onDelta(String((JSON.parse(ev.data) as { delta?: string }).delta ?? '')); } catch { /* morceau illisible */ } }
     }
     return parseResponsesStream(raw);
