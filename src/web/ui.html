@@ -2338,19 +2338,44 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   function approvalCard(e) {
     if (cards.has(e.id)) return;
-    const text = `${e.severity === 'grave' ? '🛑 GRAVE' : 'Validation'}\nAction : ${e.summary}\nPourquoi : ${e.reason}\n/yes ${e.id}${e.grantable ? ` · /always ${e.id}` : ''} · /no ${e.id}`;
+    const text = `${e.severity === 'grave' ? '🛑 GRAVE' : 'Validation'}\nAction : ${e.summary}\nPourquoi : ${e.reason}${e.quand ? `\n${e.quand}` : ''}\n/yes ${e.id}${e.grantable ? ` · /always ${e.id}` : ''} · /no ${e.id}`;
     addApproval(text, e.id);
   }
   function approvalDone(e) {
     const box = cards.get(e.id); if (!box || answered.has(e.id)) return;
     answered.add(e.id); pending.delete(e.id); box.classList.add('done'); box.querySelector('.row')?.remove();
-    box.append(el('div', { class: 'sub' }, e.answer === 'always' ? 'Autorisé, et autorisé pour la suite.' : e.answer === 'yes' ? 'Autorisé.' : 'Refusé.')); badges();
+    box.append(el('div', { class: 'sub' }, e.answer === 'always' ? 'Autorisé, et autorisé pour la suite.' : e.answer === 'yes' ? 'Autorisé.' : 'Refusé.')); badges(); renderHome();
   }
   const pending = new Set();
+  // Les validations qui attendent encore ta réponse (parties quand la page était fermée, ou dans une autre conversation) :
+  // relues au chargement et à chaque changement de conversation, avec la même carte et les mêmes boutons. Une carte déjà
+  // là n'est pas refaite ; une demande expirée ou tranchée ailleurs perd ses boutons et n'est plus comptée.
+  let minuteurAttente;
+  async function validationsEnAttente() {
+    // Seules les cartes déjà là avant la lecture sont comparées : une carte arrivée en direct pendant la lecture reste.
+    const avant = [...pending], r = await api('/api/validations/attente').catch(() => null); if (!r?.ok || !Array.isArray(r.list)) return;
+    const ids = new Set(r.list.map((x) => x.id));
+    for (const id of avant) if (pending.has(id) && !ids.has(id)) {
+      pending.delete(id); const box = cards.get(id);
+      if (box && !answered.has(id)) { answered.add(id); box.classList.add('done'); box.querySelector('.row')?.remove(); box.append(el('div', { class: 'sub' }, 'Plus en attente (expirée ou déjà répondue).')); }
+    }
+    // Heures lues sur l'horloge de cet appareil (celle d'Odin peut différer un peu : on compte en écarts).
+    const heure = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), ici = Date.now(), la = Number(r.maintenant) || ici;
+    for (const x of r.list) {
+      const box = cards.get(x.id);
+      if (box) { if (!box.isConnected && !box.classList.contains('done')) msgs.append(box); continue; }
+      if (answered.has(x.id)) continue;
+      approvalCard({ ...x, quand: `Demandée à ${heure(ici - (la - x.depuis))} · sans réponse avant ${heure(ici + x.resteSec * 1000)}, rien ne part.` });
+    }
+    badges(); renderHome();
+    // À l'échéance de la plus proche : relue, pour qu'une demande expirée quitte le badge et « À faire ».
+    clearTimeout(minuteurAttente);
+    if (r.list.length) minuteurAttente = setTimeout(validationsEnAttente, (Math.min(...r.list.map((x) => x.resteSec)) + 1) * 1000);
+  }
   async function answer(id, ok, box) {
     answered.add(id); pending.delete(id); box.classList.add('done'); box.querySelector('.row')?.remove();
     box.append(el('div', { class: 'sub' }, ok === 'always' ? 'Autorisé, et autorisé pour la suite.' : ok ? 'Autorisé.' : 'Refusé.'));
-    await api('/api/message', { peer, text: `/${ok === 'always' ? 'always' : ok ? 'yes' : 'no'} ${id}` }); badges();
+    await api('/api/message', { peer, text: `/${ok === 'always' ? 'always' : ok ? 'yes' : 'no'} ${id}` }); badges(); renderHome();
   }
   // Étapes d'Odin pendant qu'il travaille : une ligne résumée, le détail se déplie.
   function addActivity(e) {
@@ -2397,6 +2422,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const h = await api('/api/history?peer=' + encodeURIComponent(peer));
     for (const m of h.messages) { const yes = m.text.match(/\/yes ([A-Za-z0-9]+)/); if (yes) answered.add(yes[1]); addMsg(m.role, m.text); }
     loadingHistory = false;
+    void validationsEnAttente(); // ce qui attend encore ta réponse, quelle que soit la conversation
     if (!h.messages.length) {
       const ideas = ['Quels appareils sont sur mon réseau ?', 'Mets à jour cette machine', 'Cherche sur le web les nouveautés de Proxmox', 'Ouvre le site de la météo et dis-moi le temps demain', 'Range mon dossier Téléchargements', 'Améliore-toi : propose une nouvelle compétence utile'];
       msgs.append(el('div', { class: 'hello' }, el('div', { class: 'hello-t' }, 'Que fait-on ?'), el('div', { class: 'sub' }, 'Écris, parle (micro) ou montre une image. Odin agit sur ta machine, ton réseau et le web.'),
@@ -5138,6 +5164,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       else if (d.type === 'event' && d.event.type === 'liens') window.OdinNeurones?.liens(d.event.changes); // forces des liens du Cerveau : pas une étape du fil
       else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') { addActivity(d.event); moodFromEvent(d.event); }
       else if (d.type === 'refresh') refresh();
+      // Une demande partie dans une autre conversation que celle ouverte (celle d'un membre va sur « principal ») : la liste
+      // est relue, pour que sa carte et le badge soient là tout de suite ; la carte en direct plus haut ne change pas.
+      if (d.type === 'event' && d.event.type === 'approval' && d.peer !== peer) void validationsEnAttente();
       if (d.type === 'notice') window.OdinNotices?.push(d.notice);
       if (d.type === 'echange' || d.type === 'echanges') window.OdinGraph?.echanges?.recevoir(d.echange ?? d.list, d.maintenant); // liens qui brillent entre applis
       if (d.type === 'event' && d.peer === peer && d.event.type === 'consulte') consulte(d.event.etapes); // le chemin suivi dans le Cerveau
@@ -5145,7 +5174,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       if (d.type === 'message' && d.peer === peer) consulte(null);
       if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) window.OdinNotices?.local({ kind: 'Odin a besoin de toi', title: d.event.summary || 'Une validation est demandée.', steps: ['Ouvre la Discussion : Odin t\'explique ce qu\'il veut faire.', 'Accepte ou refuse : rien ne part sans toi.'], page: { view: 'chat' } });
     };
-    es.onopen = () => { if (everOpened) refresh(); everOpened = true; window.OdinNotices?.boot?.(); };
+    es.onopen = () => { if (everOpened) { refresh(); void validationsEnAttente(); /* flux repris (veille, appli reprise) : ce qui attend encore, ou ce qui a été tranché entre-temps */ } everOpened = true; window.OdinNotices?.boot?.(); };
     es.onerror = async () => {
       es.close(); chercheFin(); // flux coupé : la fin du tour ne viendra peut-être jamais
       // Jeton remplacé ou serveur redémarré ? On vérifie avant de réessayer, au lieu d'insister en boucle.

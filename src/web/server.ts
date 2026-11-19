@@ -558,7 +558,26 @@ export class WebChannel implements Channel {
     // Appli fermée : la réponse arrive quand même en notification sur tes appareils abonnés.
     if (!this.clients.size) void pushAll(this.odin.paths.home, { title: 'Odin', body: sansLigneLireVenus(text.replace(/\[humeur:[^\]]*\]/g, '')).trim(), view: 'chat', tag: 'odin-reponse' }).catch(() => 0);
   }
+  /**
+   * Les validations envoyées à l'interface web qui attendent encore la réponse du propriétaire : relues par sa page
+   * quand elle s'ouvre (ou change de conversation), sinon une demande partie pendant que la page était fermée n'était
+   * jamais vue. Une simple liste à montrer : la réponse passe toujours par « /yes id » ou « /no id » (la passerelle et
+   * le noyau). Retirée quand la réponse est donnée (approval_done) ou quand le délai de Heimdall est passé (il a dit non).
+   */
+  private attente = new Map<string, { id: string; peer: string; summary: string; reason: string; severity?: string; grantable: boolean; depuis: number; jusqua: number }>();
+  /** Les validations encore en attente, de la plus ancienne à la plus récente (pour le propriétaire seul). */
+  validationsEnAttente(maintenant = Date.now()): Array<{ id: string; peer: string; summary: string; reason: string; severity?: string; grantable: boolean; depuis: number; resteSec: number }> {
+    for (const [id, x] of this.attente) if (x.jusqua <= maintenant) this.attente.delete(id);
+    return [...this.attente.values()].sort((a, b) => a.depuis - b.depuis).map(({ jusqua, ...x }) => ({ ...x, resteSec: Math.max(0, Math.floor((jusqua - maintenant) / 1000)) }));
+  }
   event(peer: string, e: AgentEvent): void {
+    if (e.type === 'approval_done') this.attente.delete(String(e.id));
+    else if (e.type === 'approval' && typeof e.id === 'string') {
+      // Le délai compte depuis maintenant : l'échéance montrée tombe au plus tôt, jamais après le « non » de Heimdall.
+      const depuis = Date.now();
+      this.validationsEnAttente(depuis);
+      this.attente.set(e.id, { id: e.id, peer, summary: String(e.summary ?? ''), reason: String(e.reason ?? ''), severity: e.severity, grantable: e.grantable === true, depuis, jusqua: depuis + this.odin.cfg.policy.approvalTimeoutSec * 1000 });
+    }
     this.push({ type: 'event', peer, event: e });
     if (e.type === 'approval') void pushAll(this.odin.paths.home, { title: 'Odin a besoin de toi', body: (e as { summary?: string }).summary ?? 'Une validation est demandée.', view: 'chat', tag: 'odin-validation' }).catch(() => 0);
   }
@@ -916,6 +935,11 @@ export class WebChannel implements Channel {
       const sess = this.sessionOf(req); if (sess && !/^Bearer\s+/i.test(req.headers.authorization ?? '')) this.streamSession.set(res, sess);
       req.on('close', () => { this.clients.delete(res); this.streamSession.delete(res); });
       return;
+    }
+    // Les validations qui attendent encore ta réponse (lecture seule, propriétaire seul) : la page les montre en s'ouvrant.
+    if (req.method === 'GET' && url.pathname === '/api/validations/attente') {
+      if (estMembre(req)) return json(res, 403, { ok: false, error: 'réservé au propriétaire' });
+      return json(res, 200, { ok: true, maintenant: Date.now(), list: this.validationsEnAttente() });
     }
     // Ariane : paquets réseau (une machine ou tout le réseau) — historique, qui parle à qui, détail d'un paquet, direct.
     if (req.method === 'GET' && url.pathname.startsWith('/api/ran/')) {

@@ -220,7 +220,7 @@
     if (r.ok && r.data && (r.data.svg || r.data.conf)) show(r.text, r.data);
     setTimeout(() => cur === mod && openApp(mod, true), 600);
     const files = r.ok && Array.isArray(r.fichiers) ? r.fichiers.map((f) => ({ nom: String(f.nom), href: `/api/valhalla/fichier?${new URLSearchParams({ module: String(r.module || mod), ref: String(f.ref) })}` })) : [];
-    return { text: r.ok ? r.text : `✗ ${r.text ?? r.error}`, files };
+    return { text: r.ok ? r.text : rateOuDemande(r), files, demande: !r.ok && r.demande === true };
   }
   async function run(mod, action, input) { return (await runFull(mod, action, input)).text; }
   /** Ce qu'une action rend à voir ou à garder : un QR code (image), un fichier texte à copier ou télécharger. */
@@ -327,7 +327,7 @@
       catch (err) { res.set(`✗ Envoi : ${err.message}`); return false; }
       res.set('…', true);
       const r = await runFull(mod, s.action, { ...(extra ?? {}), [s.champ]: refs.join(', ') }); res.set(r.text, false, r.files); res.out.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-      return !r.text.startsWith('✗') && r.text !== 'Annulé.';
+      return !pasFait(r);
     };
     /** Demande à l'appli ce qu'on peut faire de ce fichier (d'après son nom) : les formats possibles, la qualité… */
     const demander = async (nom) => {
@@ -347,7 +347,7 @@
         go.disabled = true;
         let ok;
         if (e.files.length) ok = await envoyer(e.files, e.sel);
-        else { res.set('…', true); const r = await runFull(mod, s.lien.action, { ...e.sel, [s.lien.champ]: e.lien }); res.set(r.text, false, r.files); ok = !r.text.startsWith('✗') && r.text !== 'Annulé.'; }
+        else { res.set('…', true); const r = await runFull(mod, s.lien.action, { ...e.sel, [s.lien.champ]: e.lien }); res.set(r.text, false, r.files); ok = !pasFait(r); }
         go.disabled = false; if (ok) { vider(); peindre(); }
       } }, s.choix.envoyer.replace('{choix}', choisi()));
       dyn.replaceChildren(...[
@@ -409,12 +409,16 @@
   }
   async function runOther(m, action, input) {
     const r = await api('/api/valhalla/act', { module: m, action, input });
-    if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return 'Annulé.'; const x = await api('/api/valhalla/act', { module: m, action, input, confirm: true }); return x.ok ? x.text : `✗ ${x.text ?? x.error}`; }
+    if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return 'Annulé.'; const x = await api('/api/valhalla/act', { module: m, action, input, confirm: true }); return x.ok ? x.text : rateOuDemande(x); }
     // « Ouvrir » dans une autre appli : on y va (ex. la base d'une appli dans Alexandrie Studio).
     if (r.ok && action === 'ouvrir') { window.OdinOpenWant = { module: m, ...input }; setTimeout(() => openApp(m), 50); return r.text; }
     setTimeout(() => cur && openApp(cur, true), 600);
-    return r.ok ? r.text : `✗ ${r.text ?? r.error}`;
+    return r.ok ? r.text : rateOuDemande(r);
   }
+  /** Ce qui n'est pas fait : « ✗ » pour un refus ou une erreur ; une demande envoyée au propriétaire (demande:true) est une information, pas un échec. */
+  function rateOuDemande(r) { return r.demande === true ? `⏳ ${r.text ?? r.error}` : `✗ ${r.text ?? r.error}`; }
+  /** Ce que rend runFull n'est pas fait : un refus (« ✗ »), une annulation, ou une demande envoyée au propriétaire (pas encore faite). */
+  function pasFait(r) { return r.text.startsWith('✗') || r.demande === true || r.text === 'Annulé.'; }
   function toast(t) { const n = el('div', { class: 'va-out', role: 'status', style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:60;max-width:min(560px,calc(100% - 32px));box-shadow:var(--shadow);background:var(--panel)' }, t); (document.querySelector('dialog[open]') ?? document.body).append(n); setTimeout(() => n.remove(), 4500); }
 
   // ---------------------------------------------------------------- Page Applis en deux vues (16/11/2026)
@@ -557,26 +561,45 @@
       graphUi = window.OdinGrapheEspace ? window.OdinGrapheEspace.choix(into, { cle: 'applis:carte', donnees: data, plein: true }) : window.OdinGraph.mount(into, data);
     }
   }
+  /** Qui est à l'origine d'une manip, en clair : un membre de la famille est nommé (jamais « un assistant »). */
+  function parQui(m) {
+    if (m.by === 'membre') return `à la demande de ${m.par?.name || m.par?.login || 'quelqu\'un'} (membre de la famille)`;
+    return m.by === 'odin' ? 'Odin, de lui-même' : m.by === 'réflexe' ? 'par réflexe' : m.by === 'automatisation' ? 'par une automatisation' : 'à la demande d\'un assistant';
+  }
+  /** La raison notée, sans redire le nom d'un membre déjà dit par parQui (« fait par <nom> (membre de la famille) » noté par Odin). */
+  function raisonMontree(m) {
+    const why = String(m.why ?? ''), deja = m.by === 'membre' ? `fait par ${m.par?.name} (membre de la famille)` : '';
+    return deja && why.startsWith(deja) ? why.slice(deja.length).replace(/^,\s*/, '') : why;
+  }
+  /**
+   * Ce qui est montré : les manips à décider, puis les 5 dernières décidées d'Odin (réflexes à part), puis, dans une
+   * liste à elles, les 5 dernières des membres — cinq actions de la famille ne chassent pas ce qu'Odin a fait lui-même.
+   */
+  function manipsMontrees(l) {
+    const todo = l.filter((m) => m.state === 'à décider'), faites = l.filter((m) => m.state !== 'à décider' && !String(m.decidedBy ?? '').startsWith('réflexe'));
+    return { todo, odin: faites.filter((m) => m.by !== 'membre').slice(0, 5), membres: faites.filter((m) => m.by === 'membre').slice(0, 5) };
+  }
   /** Les manips d'Odin (réflexes, soins, automatisations) qui attendent ta décision. */
   async function manips(into) {
     const box = el('section', { class: 'va-sec va-manips', hidden: true }); into.append(box);
     const draw = async () => {
       const r = await api('/api/valhalla/manips?n=40').catch(() => null); if (!r?.ok) return;
       // La simple tenue de registre (une note écrite, une fiche créée) reste dans le journal : rien à décider, rien à montrer ici.
-      const todo = r.manips.filter((m) => m.state === 'à décider'), done = r.manips.filter((m) => m.state !== 'à décider' && !String(m.decidedBy ?? '').startsWith('réflexe')).slice(0, 5);
-      box.hidden = !todo.length && !done.length; if (box.hidden) return;
+      const { todo, odin: done, membres } = manipsMontrees(r.manips);
+      box.hidden = !todo.length && !done.length && !membres.length; if (box.hidden) return;
       const decide = async (id, keep, confirmed, btn) => {
         if (btn) btn.disabled = true;
         const x = await api('/api/valhalla/manip', { id, keep, confirm: confirmed === true });
         if (x.confirm) { if (await confirmerHorsVolet(x.confirm, btn)) return decide(id, keep, true, btn); if (btn) btn.disabled = false; return; }
         toast(x.text ?? (x.ok ? 'Fait.' : 'Impossible.')); draw();
       };
-      const row = (m) => el('li', { class: 'va-manip' }, el('div', {}, el('b', {}, m.label), el('small', {}, m.text), el('small', {}, `${new Date(m.at).toLocaleString('fr-FR')} · ${m.by === 'odin' ? 'Odin, de lui-même' : m.by === 'réflexe' ? 'par réflexe' : m.by === 'automatisation' ? 'par une automatisation' : 'à la demande d\'un assistant'}${m.why ? ` · ${m.why}` : ''}`)),
+      const row = (m) => el('li', { class: 'va-manip' }, el('div', {}, el('b', {}, m.label), el('small', {}, m.text), el('small', {}, `${new Date(m.at).toLocaleString('fr-FR')} · ${parQui(m)}${raisonMontree(m) ? ` · ${raisonMontree(m)}` : ''}`)),
         m.state === 'à décider' ? el('div', { class: 'va-mbtn' }, el('button', { class: 'btn small primary', type: 'button', onclick: (e) => decide(m.id, true, false, e.target) }, 'Garder'), m.canUndo ? el('button', { class: 'btn small', type: 'button', onclick: (e) => decide(m.id, false, false, e.target) }, 'Annuler') : el('span', { class: 'sub' }, 'pas d\'annulation possible'))
           : el('div', { class: 'va-mbtn' }, el('span', { class: `pill ${m.state === 'annulée' ? 'warn' : ''}` }, m.state), m.state === 'gardée' && m.canUndo ? el('button', { class: 'btn small', type: 'button', onclick: (e) => decide(m.id, false, false, e.target) }, 'Annuler') : null));
-      box.replaceChildren(...[el('h2', {}, todo.length ? `Odin a fait ${todo.length} manip${todo.length > 1 ? 's' : ''} : à toi de décider` : 'Ce qu\'Odin a fait de lui-même'),
+      box.replaceChildren(...[el('h2', {}, todo.length ? `Odin a fait ${todo.length} manip${todo.length > 1 ? 's' : ''} : à toi de décider` : done.length ? 'Ce qu\'Odin a fait de lui-même' : 'Ce qui a été fait dans tes applis'),
         el('p', { class: 'sub' }, r.autonomy === 'breaker' ? 'Mode Odin Breaker : Odin garde seul ses manips ; tu peux encore les annuler.' : 'Chaque manip peut être gardée ou annulée (annuler lance l\'action inverse).'),
         el('ul', { class: 'va-list' }, ...todo.map(row), ...done.map(row)),
+        membres.length ? el('h3', { class: 'sub' }, 'À la demande de la famille') : null, membres.length ? el('ul', { class: 'va-list' }, ...membres.map(row)) : null,
         todo.length > 1 ? el('div', { class: 'va-acts-bar', style: 'margin:10px 0 0' }, el('button', { class: 'btn small', type: 'button', onclick: (e) => decide('tout', true, false, e.target) }, 'Tout garder')) : null].filter(Boolean));
     };
     await draw();
@@ -821,7 +844,7 @@
       const c = E.cartes.find((x) => x.valeur === quoi()), input = { poste: a.poste, [E.champ]: c.valeur };
       if (c.demande) { const val = prec.value.trim(); if (!val) { res.set(`✗ ${c.demande.label}`); prec.focus(); return; } input[c.demande.champ] = val; }
       go.disabled = true; res.set('…', true); const x = await runFull(id, E.action, input); go.disabled = false;
-      if (x.text.startsWith('✗') || x.text === 'Annulé.') { res.set(x.text); return; }
+      if (pasFait(x)) { res.set(x.text); return; }
       // C'est lancé : retour à la page, sur ce poste, avec le résultat en haut.
       kept.delete(`e:${id}`); kept.set(`p:${id}`, { text: x.text, files: x.files }); viewQ[id] = { ...(viewQ[id] ?? {}), poste: a.poste }; fermer();
     }
