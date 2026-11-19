@@ -25,7 +25,9 @@
 //
 // Hors de la fusion : la conversation d'un membre (« web:membre-… »), les messageries, les portes d'autres écrans
 // (maison, vénus, voix, cerveau, réglages), les sous-agents, et « web:raccourci » (les raccourcis du téléphone, POST
-// /api/ask) — ce dernier reste à part en attendant la réponse du propriétaire ; `inclureRaccourci` le prévoit, désactivé.
+// /api/ask) : le fil le montre déjà, chaque message marqué « depuis le téléphone » (réponse du propriétaire du 19/11,
+// « Oui, avec une étiquette ») ; le fil ne lit pas les marques, donc aucune n'est posée pour lui (`inclureRaccourci`
+// reste désactivé, et la fusion déjà faite n'est pas refaite).
 
 import { constants, copyFileSync, mkdirSync, readdirSync, rmdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -38,7 +40,7 @@ export const MARQUE_FUSION = 'migration-conversation-unique';
 export const MARQUE_ECHEC = 'migration-conversation-unique-echec';
 export const PREFIXE_FONDUE = 'fondue:';
 export const SESSION_RACCOURCI = 'web:raccourci';
-/** Le réglage qui fondrait aussi les raccourcis du téléphone : désactivé (question posée au propriétaire). */
+/** Le réglage qui marquerait aussi les raccourcis du téléphone : désactivé (le fil les montre sans marque). */
 export const INCLURE_RACCOURCI = false;
 export const DOSSIER_COPIE = 'avant-conversation-unique';
 
@@ -88,7 +90,7 @@ const lire = <T>(brut: string | undefined): T | undefined => { if (!brut) return
 /** Les anciennes conversations du propriétaire à fondre (celles que le fil lui montre, sauf la principale). */
 export function anciennesConversations(mu: Pick<Mnemosyne, 'listSessions'>, inclureRaccourci = INCLURE_RACCOURCI): string[] {
   const toutes = mu.listSessions(Number.MAX_SAFE_INTEGER).map((s) => ({ id: s.id, channel: s.channel, title: s.title }));
-  const ids = sessionsDuFil({ proprio: true }, toutes).filter((id) => id !== SESSION_PRINCIPALE && id.startsWith('web:'));
+  const ids = sessionsDuFil({ proprio: true }, toutes).filter((id) => id !== SESSION_PRINCIPALE && id !== SESSION_RACCOURCI && id.startsWith('web:'));
   if (inclureRaccourci && toutes.some((s) => s.id === SESSION_RACCOURCI)) ids.push(SESSION_RACCOURCI);
   return ids.sort();
 }

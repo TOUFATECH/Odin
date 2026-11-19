@@ -38,12 +38,12 @@ const separateurs = (l: ElementFil[]) => l.filter((x) => x.type === 'separateur'
 
 test('les sessions d\'une personne : le propriétaire a ses conversations de la Discussion, un membre la sienne seulement', () => {
   const s = (id: string, channel = 'web') => ({ id, channel, title: '' });
-  // « web:raccourci » (POST /api/ask, avec la clé d'API) : laissé à part comme les autres portes, en attendant sa réponse.
+  // « web:raccourci » (POST /api/ask) : dans le fil, marqué « depuis le téléphone » (sa réponse du 19/11 : « Oui, avec une étiquette »).
   const toutes = [s('web:principal'), s('web:c-mabc12'), s('web:maison'), s('web:venus'), s('web:voix'), s('web:cerveau'), s('web:reglages'),
     s('web:raccourci'), s('web:membre-camille'), s('web:principal:sub:1'), s('web:c-mabc12:sub:2'), s('telegram:42', 'telegram'), s('cron:j1', 'cron')];
-  assert.deepEqual(sessionsDuFil({ proprio: true }, toutes).sort(), ['web:c-mabc12', 'web:principal'], 'ni les écrans techniques, ni un membre, ni un sous-agent, ni une messagerie');
+  assert.deepEqual(sessionsDuFil({ proprio: true }, toutes).sort(), ['web:c-mabc12', 'web:principal', 'web:raccourci'], 'ni les écrans techniques, ni un membre, ni un sous-agent, ni une messagerie');
   // Les messageries du propriétaire : un paramètre prévu pour plus tard, que la route ne passe pas.
-  assert.deepEqual(sessionsDuFil({ proprio: true }, toutes, { messageries: ['telegram:42', 'web:membre-camille', 'telegram:inconnu'] }).sort(), ['telegram:42', 'web:c-mabc12', 'web:principal']);
+  assert.deepEqual(sessionsDuFil({ proprio: true }, toutes, { messageries: ['telegram:42', 'web:membre-camille', 'telegram:inconnu'] }).sort(), ['telegram:42', 'web:c-mabc12', 'web:principal', 'web:raccourci']);
   assert.deepEqual(sessionsDuFil({ login: 'camille' }, toutes), ['web:membre-camille'], 'un membre : la sienne seulement');
   assert.deepEqual(sessionsDuFil({ login: 'camille' }, toutes, { messageries: ['telegram:42'] }), ['web:membre-camille'], 'jamais les messageries du propriétaire');
   assert.deepEqual(sessionsDuFil({ login: 'sacha' }, toutes), [], 'un membre sans conversation : rien');

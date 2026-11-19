@@ -66,7 +66,8 @@ export const CLICK_CATALOG: ClickAction[] = [
   { id: 'quoi_de_neuf', label: 'Quoi de neuf', app: 'Odin', ask: 'Je te montre les dernières nouveautés ?', grave: false, def: 57, run: { fn: 'nouveautes' } },
   { id: 'arbre_d_evolution', label: 'Arbre d\'évolution', app: 'Odin', ask: 'J\'ouvre l\'histoire d\'Odin ?', grave: false, def: 58, run: { say: 'Montre-moi l\'arbre d\'évolution.' } },
   { id: 'exporter_la_conversation', label: 'Exporter la conversation', app: 'Odin', ask: 'J\'exporte la conversation en cours ?', grave: false, def: 59, run: { say: 'Exporte la conversation en cours.' } },
-  { id: 'nouvelle_conversation', label: 'Nouvelle conversation', app: 'Odin', ask: 'Je commence une nouvelle conversation ?', grave: false, def: 60, run: { say: 'Commence une nouvelle conversation.' } },
+  // 60 : libre. « Nouvelle conversation » est retirée : une seule conversation avec Odin (décision du 19/11/2026) ; un
+  // ancien choix qui la nommait est simplement ignoré (cleanClicks2 ne garde que les actions connues).
   { id: 'instantane_des_machines', label: 'Instantané des machines', app: 'Hydre', ask: 'Je prends un instantané de tes machines virtuelles ?', grave: false, def: 61, run: { say: 'Prends un instantané de mes machines virtuelles.' } },
   { id: 'etat_des_machines_virtuelles', label: 'État des machines virtuelles', app: 'Hydre', ask: 'Je te montre l\'état de tes machines ?', grave: false, def: 62, run: { act: ['ymir', 'machines'] } },
   { id: 'mettre_a_jour_les_iso', label: 'Mettre à jour les ISO', app: 'Andromède', ask: 'Je vérifie et télécharge les nouvelles ISO ?', grave: false, def: 63, run: { act: ['eitri', 'mettre_a_jour'] } },

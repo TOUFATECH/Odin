@@ -1367,7 +1367,9 @@ export class WebChannel implements Channel {
       // « comment je règle ça ? ». Une ligne à part, que l'interface n'affiche pas dans la conversation.
       const where = String(body.where ?? '').replace(/[\u0000-\u001f\u007f\[\]]+/g, ' ').trim().slice(0, 120);
       if (where) text = `${text}\n\n[page : ${where}]`;
-      const peer = safePeer(body.peer as string);
+      // Une seule conversation avec Odin (décision du 19/11/2026) : le serveur la choisit, jamais la page. Le « peer »
+      // envoyé (une vieille page en cache envoie encore « c-… ») ne compte plus : tout va dans la conversation du compte.
+      const peer = this.defaultPeer;
       void onMessage({ channel: 'web', peer, name: 'navigateur', text });
       return json(res, 202, { ok: true });
     }

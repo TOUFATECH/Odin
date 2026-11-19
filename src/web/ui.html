@@ -688,6 +688,19 @@ details.activity .ai.info{color:#8FC1E3}
 .convs .conv .ct{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-size:14px}
 .convs .conv .cd{flex:none;font-size:11.5px;color:var(--dim)}
 .convrow.cur .conv{background:var(--hover)}
+/* Le fil unique : séparateurs des anciennes conversations, étiquette du téléphone, pages, message trouvé, Historique */
+.fil-sep{align-self:stretch;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12.5px;margin:4px 0}
+.fil-sep::before,.fil-sep::after{content:"";flex:1;min-width:16px;border-top:1px solid var(--line)}
+.fil-sep span{max-width:80%;text-align:center;overflow-wrap:anywhere}
+.fil-tel{font-size:11.5px;opacity:.75;margin-top:4px}
+.fil-haut,.fil-bas{align-self:center}
+.msg.trouve{outline:2px solid var(--accent);outline-offset:3px}
+.histo-l{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);padding:6px 2px 0}
+.histo .conv small{display:block}
+.histo-x{align-self:flex-end;margin-bottom:6px}
+.histo-ex{align-self:flex-start;margin-top:8px}
+/* Sur téléphone, le volet ouvert l'emporte sur « replié » (un choix fait sur ordinateur), et tout se touche au doigt */
+@media (max-width:860px){.chat.convs-hidden .convs.open{display:flex}.fil-haut,.fil-bas,.histo .conv,.histo .csearch,.histo .btn{min-height:44px}}
 .convrow.cur .conv .ct{font-weight:650}
 .convs .cmenu summary{padding:7px 6px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
@@ -1223,12 +1236,12 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 
     <section class="view" id="v-chat" aria-label="Discussion">
       <div class="chat">
-        <div class="convs" id="convs" aria-label="Conversations"></div>
+        <div class="convs histo" id="histo" aria-label="Historique"></div>
         <div class="thread">
           <div class="tip" id="buddyTip" role="status" aria-live="polite" hidden><div class="tip-t" id="tipText"></div><div class="tip-acts" id="tipActs"></div></div>
           <span class="odin chat-buddy" id="buddyChat" aria-hidden="true" title="Odin"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#2F6FE0"/><stop class="s2" offset=".5" stop-color="#3F82F0"/><stop class="s3" offset=".82" stop-color="#7EAEF8"/><stop class="s4" offset="1" stop-color="#C3DBFF"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#C3DBFF" stop-opacity=".65"/><stop offset=".93" stop-color="#C3DBFF" stop-opacity=".38"/><stop offset="1" stop-color="#C3DBFF" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFFFFF" stop-opacity=".72"/><stop offset=".93" stop-color="#FFFFFF" stop-opacity=".4"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
-            <div class="hacts"><button class="hbtn" id="dryBtn" type="button" aria-pressed="false" title="Mode essai : Odin prépare et explique tout, sans rien changer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 15h9"/></svg><span class="hl">Essai</span></button><div class="rmode" role="group" aria-label="Mode de réponse" id="replyMode"><button type="button" data-m="voix" aria-pressed="true" title="Odin parle et écrit sa réponse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/></svg><span>Voix<span class="rlong"> + texte</span></span></button><button type="button" data-m="texte" aria-pressed="false" title="Odin écrit seulement, même quand tu lui parles"><span>Texte<span class="rlong"> seul</span></span></button></div><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn" id="handsBtn" type="button" aria-pressed="false" title="Mains libres : dis « Odin, … » et il t'écoute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><path class="wave" d="M2 9v4M22 9v4"/></svg><span class="hl">Mains libres</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" title="Conversations précédentes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn" id="newConv" type="button" title="Nouvelle conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="hl">Nouvelle</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
+            <div class="hacts"><button class="hbtn" id="dryBtn" type="button" aria-pressed="false" title="Mode essai : Odin prépare et explique tout, sans rien changer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 15h9"/></svg><span class="hl">Essai</span></button><div class="rmode" role="group" aria-label="Mode de réponse" id="replyMode"><button type="button" data-m="voix" aria-pressed="true" title="Odin parle et écrit sa réponse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/></svg><span>Voix<span class="rlong"> + texte</span></span></button><button type="button" data-m="texte" aria-pressed="false" title="Odin écrit seulement, même quand tu lui parles"><span>Texte<span class="rlong"> seul</span></span></button></div><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn" id="handsBtn" type="button" aria-pressed="false" title="Mains libres : dis « Odin, … » et il t'écoute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><path class="wave" d="M2 9v4M22 9v4"/></svg><span class="hl">Mains libres</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" aria-controls="histo" title="Historique : chercher dans tout, ou aller à un jour"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
           <div class="typing" id="typing"></div>
           <form class="composer" id="composer">
@@ -2096,7 +2109,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   $('#app').hidden = false;
 
-  let state = null, peer = localStorage.getItem('odin.peer') || 'principal', busy = false;
+  let state = null, busy = false;
+  const peer = 'principal'; // une seule conversation avec Odin : le serveur la choisit d'après le compte (décision du 19/11/2026)
   const answered = new Set();
 
   async function api(path, body) {
@@ -2439,19 +2453,78 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   window.OdinDevices = () => state?.devices || [];
   window.OdinChat = { addMsg, addActivity, addSecret }; // aperçu et tests de l'affichage
   let loadingHistory = false;
-  async function loadHistory() {
-    msgs.textContent = ''; activity = null; loadingHistory = true;
-    const h = await api('/api/history?peer=' + encodeURIComponent(peer));
-    for (const m of h.messages) { const yes = m.text.match(/\/yes ([A-Za-z0-9]+)/); if (yes) answered.add(yes[1]); addMsg(m.role, m.text); }
+  // Le fil de la Discussion : UNE conversation, lue par pages (GET /api/fil ; le serveur choisit à qui il est). Les
+  // anciennes conversations y sont fondues dans l'ordre des dates, le titre de chacune en séparateur ; les raccourcis
+  // du téléphone y sont, marqués « depuis le téléphone ». « Voir plus haut » ajoute la page plus ancienne au-dessus.
+  let filSuite = null, filSaut = false, filAuBas = false;
+  const jourFil = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+  async function lireFil(avant) {
+    const q = new URLSearchParams({ n: '100' }); if (avant) q.set('avant', avant);
+    let r = null; try { r = await api('/api/fil?' + q); } catch { /* hors ligne : rien */ }
+    return r && r.ok ? r : { elements: [], suite: null, erreur: true }; // une panne n'est pas un fil vide
+  }
+  function filElement(e) {
+    if (e.type === 'separateur') {
+      let titre = e.session === 'web:principal' ? 'Discussion' : String(e.titre || '').replace(/^\[[^\]]*\]\s*/, '').replace(/\s+/g, ' ').trim() || 'sans titre';
+      if (titre.length > 80) titre = titre.slice(0, 79) + '…';
+      // Pas de rôle « separator » : un lecteur d'écran n'en lirait pas le titre.
+      msgs.append(el('div', { class: 'fil-sep' }, el('span', {}, `Conversation « ${titre} » · ${jourFil(e.debut)}`)));
+      return;
+    }
+    const yes = e.texte.match(/\/yes ([A-Za-z0-9]+)/); if (yes) answered.add(yes[1]);
+    const avant = msgs.lastElementChild;
+    addMsg(e.role, e.texte);
+    const n = msgs.lastElementChild;
+    if (!n || n === avant) return;
+    n.dataset.date = String(e.date);
+    // « Pourquoi ? » explique le dernier tour de la Discussion : il n'est pas mis sous une réponse du téléphone.
+    if (e.origine === 'telephone') { n.querySelector('.why')?.remove(); n.append(el('div', { class: 'fil-tel' }, 'depuis le téléphone')); }
+  }
+  function boutonPlusHaut() {
+    msgs.querySelector('.fil-haut')?.remove();
+    if (filSuite) msgs.prepend(el('button', { type: 'button', class: 'btn small fil-haut', onclick: voirPlusHaut }, 'Voir plus haut'));
+  }
+  async function voirPlusHaut(ev) {
+    if (!filSuite) return;
+    if (ev?.currentTarget) ev.currentTarget.disabled = true;
+    const h = await lireFil(filSuite);
+    if (h.erreur) { boutonPlusHaut(); return; } // hors ligne : le bouton revient, on pourra réessayer
+    msgs.querySelector('.fil-haut')?.remove();
+    const hauteur = msgs.scrollHeight, haut = msgs.scrollTop, why = msgs.querySelector('.why'), whyDe = why?.parentNode;
+    const debut = msgs.children.length;
+    // Le bloc d'activité en cours (Odin travaille) reste ouvert : les vieux messages ajoutés au-dessus ne le ferment pas.
+    const act = activity, actFini = act?.classList.contains('done');
+    loadingHistory = true;
+    for (const e of h.elements) filElement(e);
+    loadingHistory = false;
+    activity = act; if (act && !actFini) act.classList.remove('done');
+    const neufs = [...msgs.children].slice(debut);
+    for (const n of neufs) n.querySelectorAll('.why').forEach((b) => b.remove());
+    if (why && whyDe && !why.isConnected) whyDe.append(why); // « Pourquoi » reste sur la dernière réponse
+    msgs.prepend(...neufs);
+    filSuite = h.suite; boutonPlusHaut();
+    msgs.scrollTop = haut + (msgs.scrollHeight - hauteur);
+  }
+  async function loadHistory(o = {}) {
+    msgs.textContent = ''; activity = null; loadingHistory = true; filSaut = Boolean(o.avant);
+    const h = await lireFil(o.avant);
+    for (const e of h.elements) filElement(e);
+    filSuite = h.suite; boutonPlusHaut();
     loadingHistory = false;
     void validationsEnAttente(); // ce qui attend encore ta réponse, quelle que soit la conversation
-    if (!h.messages.length) {
+    if (filSaut) msgs.querySelectorAll('.why').forEach((b) => b.remove()); // « Pourquoi ? » ne vaut que pour le dernier tour
+    if (h.erreur) msgs.append(el('div', { class: 'empty' }, 'Le fil n\'a pas pu être lu. ', el('button', { type: 'button', class: 'btn small', onclick: () => loadHistory(o) }, 'Réessayer')));
+    else if (filSaut) msgs.append(el('button', { type: 'button', class: 'btn small fil-bas', onclick: () => loadHistory() }, 'Revenir aux derniers messages'));
+    else if (!h.elements.length) {
       const ideas = ['Quels appareils sont sur mon réseau ?', 'Mets à jour cette machine', 'Cherche sur le web les nouveautés de Proxmox', 'Ouvre le site de la météo et dis-moi le temps demain', 'Range mon dossier Téléchargements', 'Améliore-toi : propose une nouvelle compétence utile'];
       msgs.append(el('div', { class: 'hello' }, el('div', { class: 'hello-t' }, 'Que fait-on ?'), el('div', { class: 'sub' }, 'Écris, parle (micro) ou montre une image. Odin agit sur ta machine, ton réseau et le web.'),
         el('div', { class: 'ideas' }, ...ideas.map((q) => el('button', { type: 'button', class: 'idea', onclick: () => { $('#input').value = q; send(); } }, q)))));
-    };
-    $('#convTitle').textContent = peer === 'principal' ? 'Discussion' : (state?.conversations.find((c) => c.peer === peer)?.title || 'Conversation');
+    }
+    if (!filSaut) msgs.scrollTop = msgs.scrollHeight;
+    filAuBas = !filSaut && !msgs.clientHeight; // lu pendant que la Discussion est cachée : on ira en bas en l'ouvrant
   }
+  // En ouvrant la Discussion, les derniers messages (pas le haut de la page lue), sauf après un saut à une date.
+  document.addEventListener('odin:vue', (e) => { if (e.detail.vue === 'chat' && filAuBas) setTimeout(() => { if (filSaut || !msgs.clientHeight) return; msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'instant' }); filAuBas = false; }, 0); });
   $('#composer').addEventListener('submit', (ev) => { ev.preventDefault(); send(); });
   $('#input').addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); send(); } });
   const grow = () => { const i = $('#input'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 168) + 'px'; $('#composer').classList.toggle('has-text', i.value.trim() !== ''); document.querySelector('.thread')?.style.setProperty('--composer-h', $('#composer').offsetHeight + 'px'); };
@@ -2480,7 +2553,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (/^(?:(?:fais|lance|montre|refais|démarre)(?:-moi)?\s+)?(?:la\s+|une\s+)?(?:visite guidée|présentation (?:de l'app(?:lication)?|guidée|de l'interface))\s*[.!]?$/i.test(t)) { $('#input').value = ''; grow(); window.OdinTour?.start(true); return; }
     // « continue la visite », « reprends la visite à Telegram », « continue la visite depuis les applis »
     { const m = /^(?:continue|reprends|poursuis|reprend)\s+(?:la\s+)?(?:visite|présentation)(?:\s+(?:à|a|depuis|au|aux|par|avec)\s+(.+?))?\s*[.!]?$/i.exec(t); if (m) { $('#input').value = ''; grow(); window.OdinTour?.resume(m[1] || ''); return; } }
-    $('#input').value = ''; grow(); msgs.querySelector('.empty')?.remove(); msgs.querySelector('.hello')?.remove();
+    $('#input').value = ''; grow(); if (filSaut) await loadHistory(); msgs.querySelector('.empty')?.remove(); msgs.querySelector('.hello')?.remove();
     setBusy(true);
     const files = await takeAttachments();
     if (!t && !files?.length) { setBusy(false); $('#typing').textContent = 'Les fichiers n\'ont pas pu être envoyés.'; return; }
@@ -2491,6 +2564,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   window.OdinChat = {
     send: async (t, where) => {
       t = String(t || '').trim(); if (!t) return false;
+      if (filSaut) await loadHistory();
       msgs.querySelector('.empty')?.remove(); msgs.querySelector('.hello')?.remove();
       setBusy(true); addMsg('user', t);
       try { const r = await api('/api/message', { peer, text: t, where }); if (r && r.error) { setBusy(false); return false; } return true; } catch { setBusy(false); return false; }
@@ -2499,18 +2573,21 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   const faceTpl = document.querySelector('#login .odin');
   function setBusy(b) { busy = b; if (b) liveEnd(); $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); chatBuddy(); }
   $('#stopBtn').addEventListener('click', () => { chercheFin(); return api('/api/message', { peer, text: '/stop' }); });
-  // Historique : volet repliable sur ordinateur (mémorisé), plein écran sur téléphone.
+  // Historique : volet fermé au départ, repliable sur ordinateur (mémorisé), plein écran sur téléphone.
   const chatBox = document.querySelector('#v-chat .chat');
-  try { if (localStorage.getItem('odin.convs') === '0') chatBox.classList.add('convs-hidden'); } catch {}
+  { let ouvert = false; try { ouvert = localStorage.getItem('odin.histo') === '1'; } catch { /* rien */ } if (!ouvert) chatBox.classList.add('convs-hidden'); $('#convsBtn').setAttribute('aria-pressed', String(ouvert)); }
   $('#convsBtn').addEventListener('click', () => {
-    if (matchMedia('(max-width:860px)').matches) { $('#convs').classList.toggle('open'); return; }
-    const hid = chatBox.classList.toggle('convs-hidden'); try { localStorage.setItem('odin.convs', hid ? '0' : '1'); } catch {}
+    if (matchMedia('(max-width:860px)').matches) { const o = $('#histo').classList.toggle('open'); $('#convsBtn').setAttribute('aria-pressed', String(o)); if (o) $('#histo .csearch')?.focus(); return; }
+    const hid = chatBox.classList.toggle('convs-hidden'); try { localStorage.setItem('odin.histo', hid ? '0' : '1'); } catch {}
     $('#convsBtn').setAttribute('aria-pressed', String(!hid));
   });
-  $('#newConv').addEventListener('click', () => { peer = 'c-' + Date.now().toString(36); localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); });
-
-  // Conversations : recherche dans tout l'historique, épingles, renommer, exporter en PDF.
-  let convQuery = '', convHits = null;
+  // Fermer le volet : son bouton « Fermer » ou Échap (sur téléphone, il couvre l'écran et le bouton Historique).
+  function fermerHisto() {
+    if (matchMedia('(max-width:860px)').matches) $('#histo').classList.remove('open');
+    else { chatBox.classList.add('convs-hidden'); try { localStorage.setItem('odin.histo', '0'); } catch {} }
+    $('#convsBtn').setAttribute('aria-pressed', 'false'); $('#convsBtn').focus();
+  }
+  $('#histo').addEventListener('keydown', (e) => { if (e.key === 'Escape') fermerHisto(); });
   async function exportConv(p, title) {
     const h = await api('/api/history?peer=' + encodeURIComponent(p));
     const w = window.open('', '_blank'); if (!w) { say('Autorise les fenêtres pour exporter.', [], 4000); return; }
@@ -2540,7 +2617,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     } catch { etat('L\'export s\'est arrêté en route : aucune archive. Réessaie.', false); }
     finally { b.disabled = false; b.removeAttribute('aria-busy'); }
   }
-  function openExport(p, title) {
+  function openExport(p, title, defaut = 'une') {
     let fmtSel = 'md';
     const fbtn = (v, label) => el('button', { type: 'button', class: 'btn', 'aria-pressed': String(v === fmtSel), 'data-f': v, onclick: (e) => { fmtSel = v; for (const b of dlg.querySelectorAll('[data-f]')) b.setAttribute('aria-pressed', String(b.dataset.f === v)); syncPdf(); } }, label);
     const radio = (v, label, checked) => el('label', { class: 'check' }, el('input', { type: 'radio', name: 'ex-what', value: v, ...(checked ? { checked: true } : {}), onchange: () => syncPdf() }), label);
@@ -2552,8 +2629,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const dlg = el('dialog', { class: 'stdlg', 'aria-labelledby': 'ex-t' },
       el('h2', { id: 'ex-t' }, 'Exporter'),
       el('fieldset', { class: 'field', style: 'border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px' }, el('legend', { class: 'sub' }, 'Quoi'),
-        radio('une', `Cette conversation (${title})`, true), radio('periode', 'Une période', false),
-        el('div', { class: 'ex-dates', style: 'display:flex;gap:8px;flex-wrap:wrap;padding-left:28px' }, el('label', { class: 'sub', style: 'display:flex;flex-direction:column;gap:4px' }, 'Du', d1), el('label', { class: 'sub', style: 'display:flex;flex-direction:column;gap:4px' }, 'Au', d2)), radio('tout', 'Tout l\'historique', false)),
+        radio('une', `Cette conversation (${title})`, defaut === 'une'), radio('periode', 'Une période', false),
+        el('div', { class: 'ex-dates', style: 'display:flex;gap:8px;flex-wrap:wrap;padding-left:28px' }, el('label', { class: 'sub', style: 'display:flex;flex-direction:column;gap:4px' }, 'Du', d1), el('label', { class: 'sub', style: 'display:flex;flex-direction:column;gap:4px' }, 'Au', d2)), radio('tout', 'Tout l\'historique', defaut === 'tout')),
       el('fieldset', { class: 'field', style: 'border:0;padding:0;margin:0' }, el('legend', { class: 'sub' }, 'Format'),
         el('div', { class: 'seg', style: 'display:flex;gap:8px;flex-wrap:wrap' }, fbtn('md', 'Markdown'), fbtn('pdf', 'PDF'), fbtn('json', 'JSON')), pdfHint),
       el('label', { class: 'check' }, raw, 'Inclure les étapes d\'Odin (outils utilisés)'),
@@ -2569,59 +2646,34 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         } }, 'Télécharger')));
     document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal(); syncPdf();
   }
-  function askDelete(p, title) {
-    const forget = el('input', { type: 'checkbox' });
-    const dlg = el('dialog', { class: 'stdlg', role: 'alertdialog', 'aria-labelledby': 'del-t', 'aria-describedby': 'del-d' },
-      el('h2', { id: 'del-t' }, `Supprimer « ${String(title).replace(/^\[[^\]]*\]\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 80)} » ?`),
-      el('p', { id: 'del-d', style: 'margin:0' }, 'Elle part dans la corbeille pendant 7 jours, puis elle est effacée pour de bon : messages et passages retrouvables.'),
-      el('label', { class: 'check' }, forget, 'Oublier aussi ce qu\'Odin a retenu de cette conversation'),
-      el('div', { style: 'display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap' },
-        el('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Garder'),
-        el('button', { type: 'button', class: 'btn danger', style: 'background:var(--bad);color:#fff;border-color:var(--bad)', onclick: async () => {
-          dlg.close();
-          const r = await api('/api/action', { kind: 'conv_delete', peer: p, forget: forget.checked });
-          if (r && r.ok === false) return say(r.error || 'Suppression impossible.', [], 4000);
-          if (p === peer) { peer = 'c-' + Date.now().toString(36); try { localStorage.setItem('odin.peer', peer); } catch {} loadHistory(); }
-          renderConvs();
-          say('Conversation supprimée · corbeille 7 jours', [{ label: 'Annuler', primary: true, run: async () => { await api('/api/action', { kind: 'conv_restore', peer: p }); say('Conversation remise.', [], 2500); } }], 10000);
-        } }, 'Supprimer')));
-    document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal();
+  // Historique : chercher dans tout ce qui a été dit, ou aller à un jour ; le fil s'y ouvre, le message trouvé marqué.
+  // Un résultat hors de la Discussion (écran de la maison, voix…) reste lisible ici, sans lien : il n'est pas dans le fil.
+  let histoQ = '', histoHits = null;
+  const dansLeFil = (p) => p === 'principal' || p === 'raccourci' || /^c-[a-z0-9]{1,38}$/.test(p);
+  async function allerA(t, marquer) {
+    if ($('#histo').classList.contains('open')) { $('#histo').classList.remove('open'); $('#convsBtn').setAttribute('aria-pressed', 'false'); }
+    await loadHistory({ avant: `${Math.floor(t) + 1}-0` });
+    const n = marquer ? [...msgs.querySelectorAll(`[data-date="${Math.floor(t)}"]`)].pop() : null;
+    if (n) { n.classList.add('trouve'); n.scrollIntoView({ block: 'center' }); } else msgs.scrollTop = msgs.scrollHeight;
   }
-  function renderConvs() {
-    const box = $('#convs'); box.textContent = '';
-    const search = el('input', { type: 'search', class: 'csearch', placeholder: 'Chercher dans l\'historique…', 'aria-label': 'Chercher dans les conversations', value: convQuery,
-      oninput: (e) => { convQuery = e.target.value; clearTimeout(renderConvs._t); renderConvs._t = setTimeout(async () => { convHits = convQuery.trim() ? (await api('/api/action', { kind: 'conv_search', q: convQuery })).items || [] : null; renderConvs(); const i = $('#convs .csearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 300); } });
-    box.append(search);
-    if (convHits) {
-      if (!convHits.length) box.append(el('div', { class: 'empty', style: 'padding:10px 4px' }, 'Rien trouvé.'));
-      for (const h of convHits) box.append(el('button', { class: 'conv', onclick: () => { peer = h.peer; try { localStorage.setItem('odin.peer', peer); } catch {} convQuery = ''; convHits = null; $('#convs').classList.remove('open'); loadHistory(); renderConvs(); } },
-        el('span', { class: 'chit' }, h.snippet.replace(/\s+/g, ' ').slice(0, 140)), el('small', {}, `${h.role === 'user' ? 'toi' : 'Odin'} · ${fmt(h.at)}`)));
-      return;
-    }
-    const list = [...(state?.conversations || [])];
-    if (!list.some((c) => c.peer === peer)) list.unshift({ peer, title: 'Nouvelle conversation', updated: Date.now() });
-    // Rangées par date (épinglées en haut), titre sur une ligne, heure ou jour à droite.
-    const day0 = new Date(); day0.setHours(0, 0, 0, 0); const D = day0.getTime(), DAY = 86400000;
-    const when = (u) => u >= D ? 'Aujourd\'hui' : u >= D - DAY ? 'Hier' : u >= D - 7 * DAY ? '7 derniers jours' : u >= D - 30 * DAY ? 'Ce mois-ci' : 'Plus ancien';
-    const short = (u) => u >= D ? new Date(u).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : u >= D - 7 * DAY ? new Date(u).toLocaleDateString('fr-FR', { weekday: 'short' }) : new Date(u).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-    const clean = (s) => String(s || '').replace(/^\[[^\]]*\]\s*/, '').replace(/\s+/g, ' ').trim();
-    box.append(el('button', { type: 'button', class: 'cnew', onclick: () => $('#newConv').click() }, '＋ Nouvelle conversation'));
-    let last = '';
-    for (const c of list.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updated - a.updated)) {
-      const g = c.pinned ? 'Épinglées' : when(c.updated);
-      if (g !== last) { box.append(el('div', { class: 'cgroup' }, g)); last = g; }
-      box.append(el('div', { class: 'convrow' + (c.peer === peer ? ' cur' : '') },
-        el('button', { class: 'conv', title: clean(c.title || c.peer), 'aria-current': c.peer === peer ? 'true' : 'false', onclick: () => { peer = c.peer; try { localStorage.setItem('odin.peer', peer); } catch { /* rien */ } $('#convs').classList.remove('open'); loadHistory(); renderConvs(); } },
-          el('span', { class: 'ct' }, (c.tainted ? '⚠ ' : '') + clean(c.title || c.peer)), el('span', { class: 'cd' }, short(c.updated))),
-        el('details', { class: 'cmenu' }, el('summary', { 'aria-label': 'Options de la conversation', title: 'Options' }, '⋯'),
-          el('div', { class: 'cpop' },
-            el('button', { type: 'button', onclick: () => api('/api/action', { kind: 'conv_pin', peer: c.peer, on: !c.pinned }) }, c.pinned ? 'Désépingler' : 'Épingler'),
-            el('button', { type: 'button', onclick: async () => { const n = await OdinDialog.prompt('Nom de la conversation', c.title || ''); if (n != null) api('/api/action', { kind: 'conv_rename', peer: c.peer, title: n }); } }, 'Renommer'),
-            el('button', { type: 'button', onclick: (e) => { e.target.closest('details').open = false; openExport(c.peer, c.title || 'Conversation avec Odin'); } }, 'Exporter…'),
-            el('hr'),
-            el('button', { type: 'button', class: 'danger', onclick: (e) => { e.target.closest('details').open = false; askDelete(c.peer, c.title || 'cette conversation'); } }, 'Supprimer')))));
+  function dessinerHisto() {
+    const box = $('#histo'); box.textContent = '';
+    const search = el('input', { type: 'search', class: 'csearch', placeholder: 'Chercher dans l\'historique…', 'aria-label': 'Chercher dans l\'historique', value: histoQ,
+      oninput: (e) => { histoQ = e.target.value; clearTimeout(dessinerHisto._t); dessinerHisto._t = setTimeout(async () => { histoHits = histoQ.trim() ? (await api('/api/action', { kind: 'conv_search', q: histoQ })).items || [] : null; dessinerHisto(); const i = $('#histo .csearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 300); } });
+    const jour = el('input', { type: 'date', class: 'csearch', onchange: (e) => { if (e.target.value) allerA(new Date(e.target.value + 'T23:59:59.999').getTime(), false); } });
+    // « Exporter… » : tout l'historique choisi d'avance (le fil réunit plusieurs conversations) ; « Cette conversation »
+    // n'est que la conversation principale, et le dialogue le dit.
+    box.append(el('button', { type: 'button', class: 'btn small histo-x', onclick: fermerHisto }, 'Fermer'), search, el('label', { class: 'histo-l' }, 'Aller au jour', jour),
+      el('button', { type: 'button', class: 'btn small histo-ex', onclick: () => openExport('principal', 'conversation principale seule', 'tout') }, 'Exporter…'));
+    if (!histoHits) return;
+    if (!histoHits.length) box.append(el('div', { class: 'empty', style: 'padding:10px 4px' }, 'Rien trouvé.'));
+    for (const h of histoHits) {
+      const quoi = [el('span', { class: 'chit' }, String(h.snippet || '').replace(/\s+/g, ' ').slice(0, 140)), el('small', {}, `${h.role === 'user' ? 'toi' : 'Odin'} · ${fmt(h.at)}`)];
+      box.append(dansLeFil(h.peer) ? el('button', { type: 'button', class: 'conv', onclick: () => allerA(h.at, true) }, ...quoi)
+        : el('div', { class: 'conv' }, ...quoi, el('small', {}, 'hors de la Discussion')));
     }
   }
+  dessinerHisto();
 
   // ---------- Budget du mois ----------
   function renderBudget() {
@@ -3314,7 +3366,6 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     for (const c of document.querySelectorAll('.schip[data-sec]')) if (!c.hidden && c.dataset.sec !== 'plus') out.push({ g: 'Réglages', label: c.textContent.trim(), run: () => { show('settings'); openSettings(c.dataset.sec); } });
     out.push({ g: 'Actions', label: 'Vérifier la maison maintenant', run: () => { show('home'); $('#homeCheck').click(); } });
     out.push({ g: 'Actions', label: 'Balayage du réseau', run: () => { show('net'); $('#scanQuick').click(); } });
-    out.push({ g: 'Actions', label: 'Nouvelle conversation', run: () => { show('chat'); $('#newConv')?.click(); } });
     out.push({ g: 'Apparence', label: 'Thème : Clair épuré', run: () => setSkin('epure') });
     out.push({ g: 'Apparence', label: 'Thème : Odin (clair / sombre)', run: () => setSkin('odin') });
     out.push({ g: 'Apparence', label: 'Réglages d\'apparence', run: () => { show('settings'); openSettings('apparence'); } });
@@ -3967,7 +4018,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       { v: 'chat', q: '#replyMode', t: '« Voix + texte » : je te réponds à voix haute et par écrit. « Texte seul » : j\'écris seulement, même quand tu me parles. Tu peux aussi me dire « réponds par écrit » ou « parle-moi ».' },
       { v: 'chat', q: '#handsBtn', t: '« Mains libres » : dis « Odin » et je t\'écoute, sans toucher l\'écran. Dis « stop » pour me couper la parole.' },
       { v: 'chat', q: '#dryBtn', t: 'Le mode Essai : je prépare et j\'explique tout, sans rien changer. Parfait pour voir ce que je ferais avant de me laisser agir.' },
-      { v: 'chat', q: '#convsBtn', t: 'L\'historique de tes conversations, rangé par jour. Tu peux en épingler, les renommer ou les exporter en PDF. « Nouvelle » ouvre une conversation vierge.' },
+      { v: 'chat', q: '#convsBtn', t: 'Avec moi, une seule conversation : tout y est, même tes anciennes conversations, dans l\'ordre des dates, et ce que tu m\'as dit depuis le téléphone. « Voir plus haut » remonte le fil ; « Historique » cherche dans tout, ou t\'emmène à un jour.' },
       { v: 'chat', q: '#msgs', t: 'Quand une action importante le demande, je te pose la question ici. Réponds simplement oui ou non. Sur Telegram, des boutons Oui et Non apparaissent sous ma demande.' },
       { v: 'chat', q: '#buddyChat', t: 'Mon petit double, dans la discussion : il suit ce que tu écris, se pose sur mes réponses et réagit. Touche-le : il te propose la suite selon la conversation. Tu peux aussi le déplacer.' },
       { v: 'chat', q: '#v-chat .cbox', t: 'Les mots de passe : donne-les-moi simplement ici, par exemple « le mot de passe root du 192.168.1.10 est … ». Ils sont retirés avant l\'intelligence artificielle. Je me connecte, j\'installe ma propre clé, et je change le mot de passe : le nouveau t\'arrive en privé.' },
@@ -5224,7 +5275,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     // Odin : homme ou femme. Les phrases toutes faites de l'interface s'accordent (OdinNaturel.accord) et la voix suit.
     if (window.OdinNaturel) window.OdinNaturel.genre = state?.settings?.voice?.gender === 'femme' ? 'femme' : 'homme';
     if (window.OdinPiedMenu) window.OdinPiedMenu.peindre(state); else $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); renderVault(); renderApp(); if ($('#v-device').classList.contains('on')) renderDevicePage(false); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length);
+    renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); renderVault(); renderApp(); if ($('#v-device').classList.contains('on')) renderDevicePage(false); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length);
   }
 
   // ---------- Réponse en direct (mot à mot) ----------

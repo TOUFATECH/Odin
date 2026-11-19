@@ -5,8 +5,9 @@
 // Qui lit quoi (le serveur décide d'après le compte connecté, jamais d'après la page) :
 //   - le propriétaire : ses conversations de la Discussion, « web:principal » et les anciennes « web:c-… » ; ni les
 //     portes d'autres écrans (maison, vénus, voix, cerveau, réglages…), ni celle d'un membre, ni un sous-agent ;
-//     ni « web:raccourci » (POST /api/ask, ouvert par la clé d'API et non par une personne) : laissé à part, rien
-//     n'est effacé, en attendant de savoir s'il entre dans le fil avec une étiquette ;
+//     et « web:raccourci » (les raccourcis du téléphone, POST /api/ask avec sa clé d'API) : décision du propriétaire
+//     du 19/11 (« Oui, avec une étiquette ») ; chacun de ses messages porte l'origine « telephone » (la page écrit
+//     « depuis le téléphone ») et ne coupe pas la conversation (pas de séparateur) ;
 //     ses messageries seulement si l'appelant les passe (`messageries`, prévu pour plus tard, pas encore utilisé) ;
 //   - un membre : sa conversation « web:membre-<identifiant> », rien d'autre.
 //
@@ -18,7 +19,7 @@ export type QuiFil = { proprio: true } | { login: string };
 export interface SessionFil { id: string; channel: string; title: string }
 export interface MessageBrut { id: number; session_id: string; role: string; content: string; created_at: number }
 /** Un message du fil : du texte, jamais du HTML (c'est à la page de l'afficher comme du texte). */
-export interface Bulle { type: 'message'; id: number; session: string; role: 'user' | 'assistant'; texte: string; date: number }
+export interface Bulle { type: 'message'; id: number; session: string; role: 'user' | 'assistant'; texte: string; date: number; origine?: 'telephone' }
 /** Le début d'une conversation (ou sa reprise après une autre) : son titre et la date de son premier message. */
 export interface Separateur { type: 'separateur'; session: string; titre: string; debut: number }
 export type ElementFil = Bulle | Separateur;
@@ -26,6 +27,8 @@ export type ElementFil = Bulle | Separateur;
 export const SESSION_PRINCIPALE = 'web:principal';
 /** Une conversation ouverte par « Nouvelle » dans la Discussion (« c- » + la date en base 36, 40 caractères au plus). */
 const ANCIENNE = /^web:c-[a-z0-9]{1,38}$/;
+/** Les raccourcis du téléphone (Siri, Android : POST /api/ask avec la clé d'API du propriétaire). */
+const RACCOURCI = 'web:raccourci';
 export const PAGE_DEFAUT = 100, PAGE_MAX = 200;
 
 /**
@@ -40,7 +43,7 @@ export function sessionDuMembre(login: string): string | undefined {
 export function sessionsDuFil(qui: QuiFil, sessions: SessionFil[], o: { messageries?: string[] } = {}): string[] {
   const existe = new Map(sessions.map((s) => [s.id, s]));
   if ('proprio' in qui) {
-    const web = sessions.filter((s) => s.id === SESSION_PRINCIPALE || ANCIENNE.test(s.id)).map((s) => s.id);
+    const web = sessions.filter((s) => s.id === SESSION_PRINCIPALE || ANCIENNE.test(s.id) || s.id === RACCOURCI).map((s) => s.id);
     // Les messageries : seulement des sessions qui existent et qui ne sont pas des sessions de l'interface.
     const autres = (o.messageries ?? []).filter((id) => { const s = existe.get(id); return Boolean(s && s.channel !== 'web' && !id.startsWith('web:')); });
     return [...new Set([...web, ...autres])];
@@ -55,7 +58,7 @@ export function assembler(sessions: SessionFil[], messagesDe: (id: string) => Me
   for (const s of sessions) {
     for (const m of messagesDe(s.id)) {
       if ((m.role !== 'user' && m.role !== 'assistant') || typeof m.content !== 'string' || !m.content) continue;
-      out.push({ type: 'message', id: m.id, session: s.id, role: m.role, texte: m.content, date: m.created_at, titre: s.title });
+      out.push({ type: 'message', id: m.id, session: s.id, role: m.role, texte: m.content, date: m.created_at, titre: s.title, ...(s.id === RACCOURCI ? { origine: 'telephone' as const } : {}) });
     }
   }
   return out.sort((a, b) => a.date - b.date || a.id - b.id);
@@ -71,6 +74,7 @@ function lireCurseur(c: string): { date: number; id: number } {
 /**
  * Une page du fil : les `n` messages les plus récents strictement avant `avant` (ou les plus récents de tous), dans
  * l'ordre des dates, chacun précédé de son séparateur quand il ouvre une conversation (ou y revient après une autre).
+ * Un message du téléphone n'a pas de séparateur et ne compte pas comme un changement de conversation.
  * `suite` : le curseur de la page plus ancienne, ou null quand il n'y a plus rien au-dessus.
  */
 export function lirePage(bulles: Array<Bulle & { titre: string }>, o: { n?: number; avant?: string }): { elements: ElementFil[]; suite: string | null } {
@@ -82,11 +86,15 @@ export function lirePage(bulles: Array<Bulle & { titre: string }>, o: { n?: numb
     while (fin < bulles.length && (bulles[fin].date < c.date || (bulles[fin].date === c.date && bulles[fin].id < c.id))) fin++;
   }
   const debut = Math.max(0, fin - n), premier = new Map<string, number>();
-  for (const b of bulles) if (!premier.has(b.session)) premier.set(b.session, b.date);
+  for (const b of bulles) if (!b.origine && !premier.has(b.session)) premier.set(b.session, b.date);
   const elements: ElementFil[] = [];
-  for (let i = debut; i < fin; i++) {
+  let derniere: string | undefined; // la conversation du dernier message qui n'est pas du téléphone
+  for (let i = 0; i < fin; i++) {
     const { titre, ...b } = bulles[i];
-    if (i === 0 || bulles[i - 1].session !== b.session) elements.push({ type: 'separateur', session: b.session, titre, debut: premier.get(b.session) ?? b.date });
+    const ouvre = !b.origine && derniere !== b.session;
+    if (!b.origine) derniere = b.session;
+    if (i < debut) continue;
+    if (ouvre) elements.push({ type: 'separateur', session: b.session, titre, debut: premier.get(b.session) ?? b.date });
     elements.push(b);
   }
   return { elements, suite: debut > 0 ? curseurDe(bulles[debut]) : null };
