@@ -24,6 +24,8 @@ export class WhatsAppChannel implements Channel {
   readonly name = 'whatsapp';
   readonly interactive = true;
   private onMessage?: (m: Inbound) => Promise<void>;
+  /** L'écho d'un vocal (« 🎙 … »), gardé jusqu'au tri des secrets de la passerelle : jamais envoyé s'il portait un secret. */
+  private echos = new WeakMap<Inbound, string>();
   private token: string; private phoneId: string; private verify: string; private secret: string; private opts: MessagingOptions; private fetchFn: typeof fetch;
   constructor(cfg: { token: string; phoneId: string; verifyToken: string; appSecret: string }, opts: MessagingOptions = {}, fetchFn: typeof fetch = fetch) {
     this.token = cfg.token; this.phoneId = cfg.phoneId; this.verify = cfg.verifyToken; this.secret = cfg.appSecret; this.opts = opts; this.fetchFn = fetchFn;
@@ -70,10 +72,24 @@ export class WhatsAppChannel implements Channel {
     } else if (['audio', 'voice', 'image', 'document', 'video'].includes(type)) {
       const md = m[type] as { id: string; filename?: string; caption?: string };
       const f = await this.media(md.id);
-      if (type === 'audio' && this.opts.transcribe) { text = await this.opts.transcribe(f.data, f.mime); voice = true; await this.send(from, `🎙 _${text.slice(0, 600)}_`); }
+      if (type === 'audio' && this.opts.transcribe) { text = await this.opts.transcribe(f.data, f.mime); voice = true; }
       else text = `${md.caption ? `${md.caption}\n\n` : ''}${await dropFile(this.opts.inbox, md.filename ?? `${type}.${f.mime.split('/')[1]?.split(';')[0] ?? 'bin'}`, f.mime, f.data)}`;
     }
-    if (text.trim()) await this.onMessage({ channel: this.name, peer: from, name, text: text.trim(), voice });
+    if (!text.trim()) return;
+    const inb: Inbound = { channel: this.name, peer: from, name, text: text.trim(), voice };
+    if (voice) this.echos.set(inb, text);
+    await this.onMessage(inb);
+  }
+
+  /**
+   * Appelé par la passerelle juste après le tri des secrets. WhatsApp ne laisse pas une entreprise effacer un message
+   * reçu : rien à effacer ici (la passerelle demande à la personne de le faire). L'écho du vocal part seulement sans secret.
+   */
+  async apresTriSecrets(inb: Inbound, secret: boolean): Promise<'efface' | 'impossible' | undefined> {
+    const echo = this.echos.get(inb);
+    this.echos.delete(inb);
+    if (!secret && echo) await this.send(inb.peer, `🎙 _${echo.slice(0, 600)}_`).catch(() => undefined);
+    return undefined;
   }
 
   private async post(body: Record<string, unknown>): Promise<void> {

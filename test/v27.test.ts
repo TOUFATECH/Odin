@@ -136,6 +136,8 @@ test('ce que le propriétaire demande lui-même (une adresse, un site) n\'est pa
 });
 
 import { extractSecret, keepSecret, takeSecret, newPassword } from '../src/machines/onboard.ts';
+import { load as loadCoffre } from '../src/valhalla/modules/brisingamen.ts';
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as pjoin } from 'node:path';
@@ -153,17 +155,27 @@ test('mot de passe dans la discussion : retiré avant le modèle, gardé une heu
   assert.equal(takeSecret(home, 2000), 'Tr0ub4dor&3');
   assert.equal(takeSecret(home, 1000 + 3600_001), undefined, 'expiré après une heure');
   const p = newPassword(); assert.match(p, /^[\w]{5}(-[\w]{5}){3}$/); assert.match(p, /\d/);
-  // Par la passerelle : le modèle ne voit jamais le mot de passe.
+  // Par la passerelle : le modèle ne voit jamais le mot de passe. Il n'est plus gardé à part (« secret:dernier ») mais
+  // rangé au coffre, et le modèle s'en sert par sa référence « coffre:Nom/mot de passe », remplacée par le serveur juste
+  // avant l'outil. Décision du propriétaire (19/11, réponses à l'étude « secrets dans la conversation », demandes du
+  // 17/11, section 89) : « le mot de passe est dans le coffre et supprimer du texte » ; et pour la box : « il les supprime
+  // les conserves nulle part et le mettre directement dans le coffre » : aucune copie hors du coffre.
+  const cleAvant = process.env.BRISINGAMEN_KEY;
+  process.env.BRISINGAMEN_KEY = randomBytes(32).toString('hex');
   const o = makeOdin([{ text: 'Je prends la main.' }]);
-  const gw = new Gateway(o, { owners: { web: ['*'] } });
-  const ch: Channel = { name: 'web', interactive: true, defaultPeer: 'principal', start: async () => {}, stop: async () => {}, send: async () => {} };
-  gw.add(ch);
-  await gw.handle({ channel: 'web', peer: 'principal', name: 'moi', text: 'voici le mot de passe root du 192.168.1.102 : S3cret-Pve!' });
-  const seen = JSON.stringify(o.provider.calls);
-  assert.ok(!seen.includes('S3cret-Pve'), 'le modèle ne voit pas le mot de passe');
-  assert.match(seen, /secret:dernier/);
-  assert.equal(takeSecret(o.paths.home), 'S3cret-Pve!');
-  o.cleanup();
+  try {
+    const gw = new Gateway(o, { owners: { web: ['*'] } });
+    const ch: Channel = { name: 'web', interactive: true, defaultPeer: 'principal', start: async () => {}, stop: async () => {}, send: async () => {} };
+    gw.add(ch);
+    // (« navigateur » : la Discussion de l'application, d'où un secret est rangé au coffre de la personne.)
+    await gw.handle({ channel: 'web', peer: 'principal', name: 'navigateur', text: 'voici le mot de passe root du 192.168.1.102 : S3cret-Pve!' });
+    const seen = JSON.stringify(o.provider.calls);
+    assert.ok(!seen.includes('S3cret-Pve'), 'le modèle ne voit pas le mot de passe');
+    assert.match(seen, /du 192\.168\.1\.102 : \[rangé au coffre : [^\]]+ — mot de passe\]/);
+    assert.equal(takeSecret(o.paths.home), undefined, 'plus de copie gardée à part, hors du coffre');
+    const coffre = loadCoffre({ dir: pjoin(o.paths.home, 'valhalla', 'brisingamen') } as never);
+    assert.ok(coffre.some((i) => i.password === 'S3cret-Pve!'), 'la valeur est au coffre');
+  } finally { o.cleanup(); if (cleAvant === undefined) delete process.env.BRISINGAMEN_KEY; else process.env.BRISINGAMEN_KEY = cleAvant; }
 });
 
 import { deniedOutput } from '../src/machines/access.ts';

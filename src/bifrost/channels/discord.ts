@@ -19,6 +19,8 @@ export class DiscordChannel implements Channel {
   private running = false;
   /** Utilisateur → salon où lui répondre (message privé ou salon où il a mentionné le bot). */
   private where = new Map<string, string>();
+  /** L'écho d'un vocal (« 🎙 … »), gardé jusqu'au tri des secrets de la passerelle : jamais envoyé s'il portait un secret. */
+  private echos = new WeakMap<Inbound, string>();
   private token: string; private opts: MessagingOptions; private fetchFn: typeof fetch;
   constructor(token: string, opts: MessagingOptions = {}, fetchFn: typeof fetch = fetch) { this.token = token; this.opts = opts; this.fetchFn = fetchFn; }
 
@@ -68,10 +70,24 @@ export class DiscordChannel implements Channel {
     for (const a of m.attachments ?? []) {
       if (a.size > 50 * 1024 * 1024) continue;
       const data = new Uint8Array(await (await this.fetchFn(a.url)).arrayBuffer());
-      if (/^audio\//.test(a.content_type ?? '') && this.opts.transcribe && !text) { text = await this.opts.transcribe(data, a.content_type ?? 'audio/ogg'); voice = true; await this.send(m.author.id, `🎙 *${text.slice(0, 600)}*`); }
+      if (/^audio\//.test(a.content_type ?? '') && this.opts.transcribe && !text) { text = await this.opts.transcribe(data, a.content_type ?? 'audio/ogg'); voice = true; }
       else text += `${text ? '\n\n' : ''}${await dropFile(this.opts.inbox, a.filename, a.content_type ?? '', data)}`;
     }
-    if (text) await onMessage({ channel: this.name, peer: m.author.id, name: m.author.username, text, voice });
+    if (!text) return;
+    const inb: Inbound = { channel: this.name, peer: m.author.id, name: m.author.username, text, voice };
+    if (voice) this.echos.set(inb, text);
+    await onMessage(inb);
+  }
+
+  /**
+   * Appelé par la passerelle juste après le tri des secrets. Un robot Discord ne peut pas effacer un message privé reçu :
+   * rien à effacer ici (la passerelle demande à la personne de le faire). L'écho du vocal part seulement sans secret.
+   */
+  async apresTriSecrets(inb: Inbound, secret: boolean): Promise<'efface' | 'impossible' | undefined> {
+    const echo = this.echos.get(inb);
+    this.echos.delete(inb);
+    if (!secret && echo) await this.send(inb.peer, `🎙 *${echo.slice(0, 600)}*`).catch(() => undefined);
+    return undefined;
   }
 
   private async onButton(d: Record<string, unknown>, onMessage: (m: Inbound) => Promise<void>): Promise<void> {

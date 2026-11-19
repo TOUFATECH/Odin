@@ -91,6 +91,17 @@ export function proposeNear(text: string, d: Pick<DirectDeps, 'kv' | 'sessionId'
   ].join('\n');
 }
 
+/**
+ * Le mot de passe de ce poste dans le message : sa référence au coffre, tirée de la marque du tri (« [rangé au coffre :
+ * Nom — mot de passe] », une seule), ou l'ancien rangement (« secret:dernier » : aucune référence). Pur.
+ */
+export function referenceAdmin(raw: string): { ref?: string } | undefined {
+  const marques = [...raw.matchAll(/\[rangé au coffre : ([^\]\n]{1,200}) — mot de passe\]/g)];
+  if (marques.length === 1) return { ref: `coffre:${marques[0][1]}/mot de passe` };
+  if (!marques.length && /secret:dernier/.test(raw)) return {};
+  return undefined;
+}
+
 const two = (n: number) => String(n).padStart(2, '0');
 const stamp = (d: Date) => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
 
@@ -103,9 +114,12 @@ export async function tryDirect(text: string, d: DirectDeps): Promise<Direct> {
   let tools = 0;
   const run: DirectRun = async (name, input) => { tools++; return d.run(name, input); };
 
-  // Un mot de passe de ce poste vient d'être donné : devenir administrateur, sans le montrer à une IA.
-  if (d.adminSecret && d.has('admin_enable') && /secret:dernier/.test(raw)) {
-    const r = await run('admin_enable', {});
+  // Un mot de passe de ce poste vient d'être donné : devenir administrateur, sans le montrer à une IA. Il est rangé au
+  // coffre par le tri de l'entrée : admin_enable reçoit sa référence (« coffre:Nom/mot de passe »), que le serveur
+  // remplace par la valeur juste avant l'outil ; l'ancien rangement d'une heure (« secret:dernier ») reste compris.
+  const admin = d.adminSecret && d.has('admin_enable') ? referenceAdmin(raw) : undefined;
+  if (admin) {
+    const r = await run('admin_enable', admin.ref ? { password: admin.ref } : {});
     return { done: true, text: r.content, why: 'mot de passe de ce poste reçu : je m\'en occupe moi-même, aucune IA ne le voit', tools };
   }
 

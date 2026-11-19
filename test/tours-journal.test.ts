@@ -126,7 +126,10 @@ test('Kéryx est marqué ; un courriel collé est marqué « collé » ; un cour
   o.cleanup();
 });
 
-test('un mot de passe : jamais en clair dans les journaux ; la parole exacte est chiffrée, le tour masqué', async () => {
+test('un mot de passe : jamais en clair dans les journaux ; la parole garde le texte sans le secret, le tour masqué', async () => {
+  // Décision du propriétaire (19/11) sur le journal des paroles : « Si il y a un mot de passe, le mot de passe est dans le
+  // coffre et supprimer du texte le texte et le texte qui est gardé sans le mot de passe » : plus de copie chiffrée du
+  // texte exact ; la parole garde le texte sans le secret, marquée « retiré ».
   const o = makeOdin([]);
   const ch = new FakeChannel();
   const gw = new Gateway(o, { owners: { fake: ['boss'] } }).add(ch);
@@ -135,11 +138,12 @@ test('un mot de passe : jamais en clair dans les journaux ; la parole exacte est
   await gw.handle({ channel: 'fake', peer: 'boss', name: 'boss', text: texte });
   assert.ok(!brut(o).includes('Tr3s-S3cret!9'), 'le secret n\'est écrit en clair nulle part');
   const [t] = await tours(o), [p] = await paroles(o);
-  assert.match(t.but, /mot de passe reçu/);
-  assert.equal(p.texte, undefined);
-  assert.equal(p.secret, 'chiffré');
-  const { dechiffrerChamp } = await import('../src/vault.ts');
-  assert.equal(dechiffrerChamp(o.paths.home, p.chiffre!), texte, 'le texte exact se relit avec la clé de la machine');
+  // Sans clé de Thésauros, le coffre est fermé : rien n'est gardé, et le texte le dit ; avec, le secret y est rangé.
+  const sans = /^Connecte-toi au NAS, le mot de passe est \[(?:secret reçu — coffre fermé, non gardé|rangé au coffre : NAS — mot de passe)\] merci$/;
+  assert.match(t.but, sans);
+  assert.match(p.texte!, sans);
+  assert.equal(p.secret, 'retiré');
+  assert.equal(p.chiffre, undefined, 'aucune copie du texte exact, même chiffrée');
   o.cleanup();
 });
 
@@ -251,7 +255,11 @@ test('un secret à cheval sur la coupe d\'un texte très long n\'est jamais écr
   await gw.handle({ channel: 'fake', peer: 'boss', name: 'boss', text: `${'a'.repeat(coupe - 10)}${secret} fin` });
   assert.ok(!brut(o).includes(secret.slice(0, 10)), 'pas même le début du secret');
   const [p] = await paroles(o);
-  assert.equal(p.secret, 'chiffré');
+  // Décision du propriétaire (19/11) sur le journal des paroles : « Si il y a un mot de passe, le mot de passe est dans le
+  // coffre et supprimer du texte le texte et le texte qui est gardé sans le mot de passe » : plus de copie chiffrée du
+  // texte exact ; la parole garde le texte sans le secret, marquée « retiré ».
+  assert.equal(p.secret, 'retiré');
+  assert.equal(p.chiffre, undefined);
   o.cleanup();
 });
 

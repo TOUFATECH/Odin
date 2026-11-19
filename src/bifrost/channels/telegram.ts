@@ -102,7 +102,8 @@ export function tgPlain(md: string): string {
 type TgCallback = { id: string; data?: string; from?: { id: number; first_name?: string }; message?: { message_id: number; chat: { id: number } } };
 type TgFile = { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
 type TgMessage = {
-  chat: { id: number }; from?: { id: number; username?: string; first_name?: string };
+  chat: { id: number; type?: string }; from?: { id: number; username?: string; first_name?: string };
+  message_id?: number; date?: number;
   text?: string; caption?: string;
   voice?: TgFile; audio?: TgFile; video_note?: TgFile;
   document?: TgFile; video?: TgFile; photo?: TgFile[];
@@ -125,6 +126,11 @@ export class TelegramChannel implements Channel {
   private facesPending?: Promise<void>;
   /** Message de progression par conversation (comme Hermes : ce qu'Odin est en train de faire). */
   private prog = new Map<string, { id?: number; lines: Array<{ key: string; html: string; n: number }>; timer?: ReturnType<typeof setTimeout>; sending?: Promise<void> }>();
+  /**
+   * Chaque message remis à la passerelle : de quoi l'effacer de Telegram s'il portait un secret, et l'écho d'un vocal
+   * (« 🎙 … »), envoyé seulement une fois le tri fait et s'il n'y avait pas de secret. Rien n'y reste après le tri.
+   */
+  private recus = new WeakMap<Inbound, { chat: number; id?: number; prive: boolean; date?: number; echo?: string; efface?: Promise<boolean> }>();
   constructor(token: string, api = 'https://api.telegram.org', opts: TelegramOptions = {}) {
     this.token = token; this.api = api; this.opts = opts;
   }
@@ -141,10 +147,13 @@ export class TelegramChannel implements Channel {
   /** Transforme un message Telegram en texte pour Odin (transcription, fichier déposé…). */
   private async toInbound(m: TgMessage): Promise<Inbound | undefined> {
     const base = { channel: this.name, peer: String(m.chat.id), name: m.from?.username ?? m.from?.first_name ?? '?' };
+    const noter = (inb: Inbound, echo?: string): Inbound => { this.recus.set(inb, { chat: m.chat.id, id: m.message_id, prive: m.chat.type === 'private', date: m.date, echo }); return inb; };
     if (m.text) {
-      // Un mot de passe tapé dans Telegram : on efface aussi ton message de la conversation.
-      if (extractSecret(m.text).secret && (m as { message_id?: number }).message_id) void this.call('deleteMessage', { chat_id: m.chat.id, message_id: (m as { message_id?: number }).message_id }).catch(() => undefined);
-      return { ...base, text: m.text };
+      const inb = noter({ ...base, text: m.text });
+      // Un mot de passe tapé dans Telegram : on efface aussi ton message de la conversation, tout de suite (le tri de la
+      // passerelle, juste après, efface tout autre secret trié).
+      if (extractSecret(m.text).secret) void this.effacer(inb);
+      return inb;
     }
     const vocal = m.voice ?? m.video_note;
     if (vocal) {
@@ -152,9 +161,9 @@ export class TelegramChannel implements Channel {
       const { data } = await this.download(vocal);
       const text = await this.opts.transcribe(data, vocal.mime_type ?? 'audio/ogg');
       if (!text) { await this.send(base.peer, '🎙 Je n\'ai rien compris dans ce message vocal.'); return undefined; }
-      // Ce qu'Odin a compris, en petit : tu vois tout de suite s'il t'a mal entendu.
-      void this.call('sendMessage', { chat_id: m.chat.id, text: `🎙 <i>${esc(text.slice(0, 600))}</i>`, parse_mode: 'HTML', disable_notification: true, reply_to_message_id: (m as { message_id?: number }).message_id }).catch(() => undefined);
-      return { ...base, text, voice: true };
+      // Ce qu'Odin a compris, en petit : tu vois s'il t'a mal entendu. Envoyé après le tri des secrets, et jamais s'il en
+      // portait un (apresTriSecrets).
+      return noter({ ...base, text, voice: true }, text);
     }
     const file = m.document ?? m.audio ?? m.video ?? (m.photo?.length ? m.photo[m.photo.length - 1] : undefined);
     if (file && this.opts.inbox) {
@@ -176,8 +185,36 @@ export class TelegramChannel implements Channel {
       // Photo ou vidéo sans légende : Odin regarde et dit ce qu'il y a (et ce qui est dit, pour une vidéo).
       const mime = file.mime_type ?? (m.photo?.length && file === m.photo[m.photo.length - 1] ? 'image/jpeg' : m.video ? 'video/mp4' : '');
       const ask = m.caption ? `${m.caption}\n\n` : /^image\//.test(mime) ? 'Qu\'est-ce qu\'il y a sur cette photo ?\n\n' : /^video\//.test(mime) ? 'Qu\'est-ce qu\'il y a dans cette vidéo, et qu\'est-ce qui est dit ?\n\n' : '';
-      return { ...base, text: `${ask}${attachmentHint(rel, mime, data.byteLength)}` };
+      return noter({ ...base, text: `${ask}${attachmentHint(rel, mime, data.byteLength)}` });
     }
+    return undefined;
+  }
+
+  /**
+   * Efface de Telegram le message de la personne (une fois) : seulement en conversation privée et s'il a moins de 48 h
+   * (règle du service pour un robot). Rend vrai si Telegram l'a effacé.
+   */
+  private effacer(inb: Inbound): Promise<boolean> {
+    const r = this.recus.get(inb);
+    if (!r) return Promise.resolve(false);
+    r.efface ??= (async () => {
+      if (!r.prive || r.id === undefined || (r.date !== undefined && Date.now() / 1000 - r.date >= 48 * 3600 - 60)) return false;
+      const x = await this.call('deleteMessage', { chat_id: r.chat, message_id: r.id }).catch(() => ({ ok: false }));
+      return x.ok === true;
+    })();
+    return r.efface;
+  }
+
+  /**
+   * Appelé par la passerelle juste après le tri des secrets d'un message reçu d'ici. Un secret : le message est effacé
+   * de Telegram (quand c'est permis) et l'écho du vocal n'est pas envoyé. Sinon : l'écho du vocal part.
+   */
+  async apresTriSecrets(inb: Inbound, secret: boolean): Promise<'efface' | 'impossible' | undefined> {
+    const r = this.recus.get(inb);
+    if (!r) return undefined;
+    const echo = r.echo; r.echo = undefined;
+    if (secret) return (await this.effacer(inb)) ? 'efface' : 'impossible';
+    if (echo) void this.call('sendMessage', { chat_id: r.chat, text: `🎙 <i>${esc(echo.slice(0, 600))}</i>`, parse_mode: 'HTML', disable_notification: true, reply_to_message_id: r.id }).catch(() => undefined);
     return undefined;
   }
 

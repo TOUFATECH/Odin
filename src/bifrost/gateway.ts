@@ -8,7 +8,7 @@ import { direPlafondUneFois } from '../migrations/aucun-modele-externe.ts';
 import { vendorOf } from '../hlidskjalf/vendors.ts';
 import { MOODS, cleAutocollant, moodSticker } from '../mood/stickers.ts';
 import { MOOD_EMOJI, type Mood } from '../mood/mood.ts';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Approver, ApprovalAnswer, ApprovalRequest } from '../heimdall/policy.ts';
 import type { Odin } from '../runtime.ts';
@@ -48,7 +48,11 @@ import { reponsesEnCours } from '../brain/nous/occupation.ts';
 const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
 import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
 import { noterDemande } from '../muninn/personnes.ts';
-import { noterArrivee, type SuiviTour } from '../muninn/paroles.ts';
+import { noterArrivee, origineMessage, type SuiviTour } from '../muninn/paroles.ts';
+import { marque, trierSecrets, type ResultatTri } from '../heimdall/secrets-entrants.ts';
+import { load as lireCoffre, rangerSecrets, type Item as ElementCoffre, type ResultatRangement } from '../valhalla/modules/brisingamen.ts';
+import type { ModCtx } from '../valhalla/types.ts';
+import { masquerSession, quiDeSession } from '../muninn/fil.ts';
 import { extractSecret, keepSecret } from '../machines/onboard.ts';
 import { careServices, runUpdates, updateDue } from '../guard/care.ts';
 import { docDirs, indexDocs } from '../tools/docindex.ts';
@@ -96,6 +100,15 @@ export function iaLine(r: { answeredBy?: string; ai?: { needed: boolean; why: st
 export function deleteConvCommand(text: string): boolean {
   const t = text.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.!?\s]+$/, '').replace(/^odin[\s,]+/, '');
   return /^(supprime|efface|oublie)(-la)? (cette|la|notre) (conversation|discussion)( en entier| entierement)?$/.test(t);
+}
+/**
+ * « Masque la conversation » (phrase seule, à l'écrit ou à la voix ; aussi en anglais « hide the conversation ») : comme
+ * « /new », l'écran du fil repart vide et Odin repart à neuf ; rien n'est effacé. Pur.
+ */
+export function masquerCommand(text: string): boolean {
+  const t = text.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[.!?\s]+$/, '').replace(/^odin[\s,]+/, '');
+  return /^(masque|cache)(-la)? (toute )?(cette|la|notre|ma) (conversation|discussion)( en entier| entierement)?$/.test(t)
+    || /^hide (the|this|our|my) (whole )?(conversation|chat)$/.test(t);
 }
 /** « Réponds par écrit » → texte ; « parle-moi » / « réponds-moi à voix haute » → voix. Seulement une phrase seule. Pur. */
 export function replyModeCommand(text: string): 'voix' | 'texte' | undefined {
@@ -218,25 +231,142 @@ export class Gateway {
   }
   /** Point d'entrée de tout message entrant. */
   async handle(m: Inbound): Promise<void> {
-    // Le tour (et la parole d'un humain) : écrits sur le disque AVANT tout traitement ; une panne ne perd plus le message.
+    const recu = m; // le message tel que le canal l'a remis (le canal le reconnaît pour l'effacer chez lui)
     const proprio = this.isOwner(m.channel, m.peer), compte = proprio ? undefined : this.odin.muninn.userFor(m.channel, m.peer); // qui parle : décidé ici (code sensible), jamais dans le journal
-    const tour = noterArrivee(this.odin.muninn, this.odin.paths.home, (s) => this.odin.redactor.redact(s), m, { proprietaire: proprio, compte, appaire: proprio || !!compte || this.odin.muninn.pairingStatus(m.channel, m.peer) === 'approved' });
-    try { await this.traiterMessage(m, tour); } catch (e) { tour.finir('échec'); throw e; }
+    // Les secrets, EN TÊTE : triés, rangés au coffre de la personne, retirés du texte. Rien n'est écrit avant (ni parole,
+    // ni tour, ni conversation, ni mémoire) et aucun agent ne voit le texte d'origine : tout ce qui suit reçoit `m` remplacé.
+    let tri: { m: Inbound; retire: boolean; ligne?: string };
+    // Une panne du tri ne laisse jamais passer le texte d'origine (il pourrait porter un secret) : il n'est pas gardé.
+    try { tri = this.secretsEntrants(m, proprio, compte); } catch { tri = { m: { ...m, text: '[message non trié (erreur du tri) : non gardé]' }, retire: true, ligne: '🔐 Je n\'ai pas pu vérifier ton message : je ne l\'ai pas gardé, renvoie-le.' }; }
+    m = tri.m;
+    // Le tour (et la parole d'un humain) : écrits sur le disque AVANT tout traitement ; une panne ne perd plus le message.
+    const tour = noterArrivee(this.odin.muninn, this.odin.paths.home, (s) => this.odin.redactor.redact(s), m, { proprietaire: proprio, compte, appaire: proprio || !!compte || this.odin.muninn.pairingStatus(m.channel, m.peer) === 'approved', secretRetire: tri.retire });
+    try { await this.direSecretsRetires(recu, tri); await this.traiterMessage(m, tour, tri.retire); } catch (e) { tour.finir('échec'); throw e; }
     tour.finir('réussi'); // traité tout de suite (commande, validation…) : sinon la file l'a déjà fermé
   }
-  private async traiterMessage(m: Inbound, tour: SuiviTour): Promise<void> {
+
+  /**
+   * Les secrets d'un message reçu. Demande du propriétaire (19/11) : « quand on lui envoie, il met dans son coffre, il
+   * supprime du chat automatiquement […] il les supprime les conserves nulle part et le mettre directement dans le coffre » ;
+   * le secret d'un membre : « Son propre coffre ». Pur sauf le rangement : trier (avec les derniers messages du fil et la
+   * dernière question d'Odin), ranger dans Thésauros (coffre du propriétaire, ou du membre qui l'envoie), remplacer.
+   * Rien n'est gardé ailleurs : ni copie, ni journal, ni message d'erreur ; la ligne rendue ne porte que des noms.
+   * Choix (réponses conseillées de l'étude « secrets dans la conversation », retenues par la session) : coffre fermé →
+   * rien gardé ; un IBAN reste dans le texte ; un code à usage unique est retiré, jamais rangé ; un secret dit à voix haute
+   * n'est pas gardé. Prudence : un message dont on ne sait pas qui l'a écrit (courriel, page d'Odin) ne range rien.
+   */
+  private secretsEntrants(m: Inbound, proprio: boolean, compte: { id: string; name: string; role: string } | undefined): { m: Inbound; retire: boolean; ligne?: string } {
+    // Le contexte : les 10 derniers messages du fil (de la personne et d'Odin) ; le dernier, s'il est d'Odin, est sa question.
+    let lus: Array<{ role: string; content: string }> = [];
+    try { lus = this.odin.muninn.allMessages(`${m.channel}:${m.peer}`).filter((x) => x.role === 'user' || x.role === 'assistant').slice(-10); } catch { lus = []; }
+    const dernier = lus.at(-1);
+    const contexte = { derniersMessages: lus.map((x) => String(x.content ?? '').slice(0, 4000)), questionOdin: dernier?.role === 'assistant' ? String(dernier.content ?? '').slice(0, 4000) : undefined, maintenant: new Date() };
+    let r: ResultatTri = trierSecrets(m.text, contexte);
+    // Trop long (ou trop de secrets) pour être trié : le texte n'est pas gardé, et la personne l'apprend.
+    if (r.tropLong) return { m: { ...m, text: r.texte }, retire: false, ligne: '🔐 Ton message était trop long pour que je vérifie qu\'il ne porte pas de secret : je ne l\'ai pas gardé. Envoie-le en plusieurs fois.' };
+    // Un IBAN se donne pour être payé : il reste lisible. Le texte est trié de nouveau, chaque IBAN mis de côté sous une
+    // marque neutre puis remis ; si le second tri touchait une marque, l'IBAN est retiré sans être rangé (le plus prudent).
+    const ibans = [...new Set(r.secrets.filter((s) => s.champ === 'IBAN').map((s) => s.valeur))];
+    const nonGardes: Array<{ nom: string; champ: string }> = [];
+    if (ibans.length) {
+      const place = (k: number) => `${k}`;
+      const r2 = trierSecrets(ibans.reduce((t, v, k) => t.split(v).join(place(k)), m.text), contexte);
+      if (!r2.tropLong && !r2.secrets.some((s) => s.champ === 'IBAN' || /[]/.test(s.valeur))) r = { texte: ibans.reduce((t, v, k) => t.split(place(k)).join(v), r2.texte), secrets: r2.secrets };
+      else { nonGardes.push(...r.secrets.filter((s) => s.champ === 'IBAN')); r = { texte: r.texte, secrets: r.secrets.filter((s) => s.champ !== 'IBAN') }; }
+    }
+    if (!r.secrets.length && !nonGardes.length) return { m: r.texte === m.text ? m : { ...m, text: r.texte }, retire: false };
+    const usageUnique = (s: { champ: string }) => s.champ === 'code de vérification';
+    let aRanger = r.secrets.filter((s) => !usageUnique(s));
+    const o = origineMessage(m, m.text), voix = m.voice === true || o.marques.includes('voix');
+    let rang: ResultatRangement | { ok: false; raison: 'voix' } | undefined;
+    // Un secret « probable » (reconnu d'après la conversation, pas à coup sûr) ne remplace jamais une valeur déjà au coffre :
+    // tant qu'on ne peut pas dire « ce n'était pas un secret », il est retiré du texte, gardé nulle part, et la personne
+    // l'apprend (le plus prudent : une valeur sûre n'est pas écrasée par une supposition).
+    const retenus: Array<{ nom: string; champ: string }> = [];
+    if (aRanger.length) {
+      if (voix) rang = { ok: false, raison: 'voix' };
+      else if (!o.parole) rang = { ok: false, raison: 'non permis' };
+      else {
+        const role = proprio || compte?.role === 'owner' ? 'owner' as const : compte?.role === 'member' ? 'member' as const : 'guest' as const;
+        const home = this.odin.paths.home, dir = join(home, 'valhalla', 'brisingamen');
+        const ctx = { home, dir, now: () => new Date() } as unknown as ModCtx;
+        if (aRanger.some((s) => !s.sur)) {
+          let items: ElementCoffre[] = [];
+          try { items = lireCoffre(ctx); } catch { items = []; } // coffre fermé ou illisible : le rangement le dira
+          const membre = role === 'member' ? String(compte?.id ?? '').trim() : '';
+          const cle = (n: string) => n.toLowerCase().normalize('NFC').replace(/\s+/g, ' ').trim(); // même règle que le rangement
+          const rempli = (nom: string, champ: string, valeur: string) => {
+            const it = items.find((i) => (i.membre ?? '') === membre && cle(i.name) === cle(nom.trim().slice(0, 200) || 'Reçu'));
+            const v = !it ? undefined : champ === 'identifiant' ? it.user : champ === 'mot de passe' ? it.password : Object.hasOwn(it.champs ?? {}, champ) ? it.champs![champ] : undefined;
+            return !!v && v !== valeur;
+          };
+          for (const s of aRanger) if (!s.sur && rempli(s.nom, s.champ, s.valeur)) retenus.push({ nom: s.nom, champ: s.champ });
+          aRanger = aRanger.filter((s) => s.sur || !retenus.some((x) => x.nom === s.nom && x.champ === s.champ));
+        }
+        if (aRanger.length) {
+          try {
+            mkdirSync(dir, { recursive: true });
+            rang = rangerSecrets(ctx, { role, id: compte?.id ?? '', nom: compte?.name ?? '' }, aRanger.map((s) => ({ nom: s.nom, champ: s.champ, valeur: s.valeur, sur: s.sur })));
+          } catch { rang = { ok: false, raison: 'coffre illisible' }; } // aucun message d'erreur : il pourrait porter une valeur
+        }
+      }
+    }
+    // Le texte : « [rangé au coffre : …] » seulement pour ce qui y est vraiment.
+    const DIT: Record<string, string> = { 'coffre fermé': '[secret reçu — coffre fermé, non gardé]', 'coffre illisible': '[secret reçu — coffre illisible, non gardé]', 'non permis': '[secret reçu — non gardé]', voix: '[secret dit à voix haute — non gardé]' };
+    let texte = r.texte;
+    const remplacer = (s: { nom: string; champ: string }, par: string) => { texte = texte.split(marque(s.nom, s.champ)).join(par); };
+    for (const s of r.secrets) if (usageUnique(s)) remplacer(s, '[code à usage unique reçu — non gardé]');
+    for (const s of nonGardes) remplacer(s, '[IBAN retiré — non gardé]');
+    for (const s of retenus) if (!aRanger.some((x) => x.nom === s.nom && x.champ === s.champ)) remplacer(s, '[secret probable retiré — non gardé]');
+    if (rang && !rang.ok) for (const s of aRanger) remplacer(s, DIT[rang.raison]);
+    else if (rang?.ok) for (const s of aRanger) this.odin.redactor.add(s.valeur); // masqué s'il revient (en mémoire vive seulement, comme les clés)
+    // La ligne à la personne : des noms et des champs, jamais une valeur.
+    const dire: string[] = [];
+    if (rang?.ok && rang.ranges.length) {
+      const remplaces = rang.ranges.filter((x) => x.remplaces.length);
+      dire.push(`🔐 J'ai rangé au coffre : ${rang.ranges.map((x) => `${x.nom} — ${x.champs.join(', ')}`).join(' ; ')}${rang.ranges.some((x) => x.probables.length) ? ' (si ce n\'en était pas un, dis-le)' : ''}.${remplaces.length ? ` J'ai remplacé : ${remplaces.map((x) => `${x.nom} — ${x.remplaces.join(', ')}`).join(' ; ')} (l'ancienne valeur est gardée dans l'historique du coffre).` : ''}`);
+    } else if (rang && !rang.ok) dire.push(({
+      'coffre fermé': '🔐 Ton coffre est fermé : je n\'ai rien gardé, renvoie-le quand il sera ouvert.',
+      'coffre illisible': '🔐 Je n\'ai pas pu ouvrir ton coffre : je n\'ai rien gardé, renvoie-le plus tard.',
+      'non permis': '🔐 J\'ai retiré un secret de ton message : je ne l\'ai gardé nulle part.',
+      voix: '🔐 Un secret dit à voix haute : je n\'ai rien gardé. Écris-le plutôt.',
+    } as Record<string, string>)[rang.raison]);
+    for (const s of retenus) dire.push(`🔐 Ce qui ressemblait à : ${s.nom} — ${s.champ}. Je ne l'ai pas rangé, il y en a déjà un au coffre, et je ne l'ai gardé nulle part. Si c'est le nouveau, redis-le en entier (« ${s.champ} de ${s.nom} : … »).`);
+    if (r.secrets.some(usageUnique)) dire.push('🔐 Code à usage unique retiré de la conversation : je ne le garde pas.');
+    if (nonGardes.length) dire.push('🔐 IBAN retiré de la conversation : je ne l\'ai pas gardé.');
+    return { m: { ...m, text: texte }, retire: true, ligne: dire.join(' ') };
+  }
+
+  /** Après le tri : le canal efface chez lui le message qui portait un secret (quand il le peut), puis la ligne à la personne. */
+  private async direSecretsRetires(recu: Inbound, tri: { retire: boolean; ligne?: string }): Promise<void> {
+    const ch = this.channels.get(recu.channel) as (Channel & { apresTriSecrets?(m: Inbound, secret: boolean): Promise<'efface' | 'impossible' | undefined> }) | undefined;
+    if (!ch) return;
+    let retrait: 'efface' | 'impossible' | undefined;
+    try { retrait = await ch.apresTriSecrets?.(recu, tri.retire); } catch { retrait = 'impossible'; }
+    // Un courriel : pas de réponse automatique (l'expéditeur d'un courriel s'imite facilement).
+    if (!tri.ligne || recu.channel === 'mail') return;
+    if (!tri.retire) { await ch.send(recu.peer, tri.ligne).catch(() => {}); return; } // rien retiré à effacer chez le canal
+    const nom = ({ telegram: 'Telegram', whatsapp: 'WhatsApp', signal: 'Signal', discord: 'Discord', slack: 'Slack' } as Record<string, string>)[recu.channel] ?? recu.channel;
+    const efface = retrait === 'efface' ? ` Ton message est aussi effacé de ${nom}.`
+      : retrait === 'impossible' ? ` Je n'ai pas pu effacer ton message de ${nom} : supprime-le toi-même.`
+        : recu.channel === 'web' ? '' : ` Supprime ton message toi-même dans ${nom} : je ne peux pas l'effacer de là-bas.`;
+    await ch.send(recu.peer, tri.ligne + efface).catch(() => {});
+  }
+  private async traiterMessage(m: Inbound, tour: SuiviTour, secretsTries = false): Promise<void> {
     const ch = this.channels.get(m.channel)!;
     const owner = this.isOwner(m.channel, m.peer);
     // Un mot de passe dans le message du propriétaire : retiré AVANT le modèle, gardé à part (chiffré).
     // Une clé collée dans un message (de n'importe qui) : retirée AVANT l'enregistrement et le modèle, rangée au coffre,
     // masquée partout ensuite ; l'expéditeur est prévenu (U6).
-    { const k = extraireCles(m.text); if (k.cles.length) {
+    // Le tri d'entrée (handle) a déjà retiré des secrets : ces anciennes prises ne passent pas sur ses marques
+    // (« mot de passe du NAS est [rangé au coffre : …] » serait pris pour un mot de passe « [rangé »).
+    if (!secretsTries) { const k = extraireCles(m.text); if (k.cles.length) {
       rangerClesRecues(this.odin.paths.home, k.cles);
       for (const c of k.cles) this.odin.redactor.add(c);
       m = { ...m, text: k.text };
       await ch.send(m.peer, `🔐 J'ai mis ${k.cles.length > 1 ? `ces ${k.cles.length} clés` : 'cette clé'} au coffre : je ne la garde pas en clair et elle ne part pas vers l'IA. Change-la si elle a circulé ailleurs.`).catch(() => {});
     } }
-    if (owner) { const x = extractSecret(m.text); if (x.secret) { keepSecret(this.odin.paths.home, x.secret, x.label); this.odin.redactor.add(x.secret); m = { ...m, text: x.text }; } }
+    if (owner && !secretsTries) { const x = extractSecret(m.text); if (x.secret) { keepSecret(this.odin.paths.home, x.secret, x.label); this.odin.redactor.add(x.secret); m = { ...m, text: x.text }; } }
     // Profil : qui a demandé, quand, avec quelle preuve (des renvois, jamais le texte). Après le retrait des secrets ;
     // ne lève jamais et écrit plus tard : ne peut ni faire échouer ni ralentir ce message.
     noterDemande(this.odin.muninn, { canal: m.channel, pair: m.peer, proprietaire: owner, proprietaires: this.opts.owners[m.channel] ?? [] });
@@ -409,7 +539,14 @@ export class Gateway {
       for (const c of this.channels.values()) c.notify?.('state');
       return ch.send(m.peer, on ? '🧪 Mode essai activé : je prépare et j\'explique tout, sans rien changer. (/essai off pour revenir)' : '✅ Mode essai coupé : j\'agis pour de vrai.');
     }
-    if (/^\/new\b/i.test(text)) { this.odin.muninn.resetSession(sessionId); return ch.send(m.peer, '🆕 Nouvelle conversation.'); }
+    // « /new » (Telegram, odin chat) et « masque la conversation » : une seule conversation avec Odin (19/11), on la
+    // masque (src/muninn/fil.ts) : l'écran du fil repart vide et Odin repart à neuf ; rien n'est effacé.
+    if (/^\/new\b/i.test(text) || masquerCommand(text)) {
+      masquerSession(this.odin.muninn, sessionId);
+      if (!quiDeSession(sessionId)) return ch.send(m.peer, '🆕 Je repars à neuf, sans le contexte d\'avant. Rien n\'est effacé.');
+      for (const c of this.channels.values()) c.notify?.('fil');
+      return ch.send(m.peer, '🙈 Conversation masquée : je repars à neuf, sans le contexte d\'avant. Rien n\'est effacé : « Réafficher l\'historique » remet tout.');
+    }
     // « Supprime cette conversation » (à l'écrit ou à la voix) : Odin demande confirmation, puis la met à la corbeille 7 jours.
     if (owner) {
       const pendingKey = `conv-delete-pending:${sessionId}`, pending = Number(this.odin.muninn.getKv(pendingKey) ?? 0);

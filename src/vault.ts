@@ -16,8 +16,10 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSy
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve, isAbsolute } from 'node:path';
 
-/** Secrets que le mot de passe maître verrouille. */
-export const VAULT_FILES = ['env', 'machines.json', 'admin.json', 'backup-pass', 'codex-auth.json'] as const;
+/** Secrets que le mot de passe maître verrouille (dont les clés reçues dans un message : jamais en clair sur le disque). */
+export const VAULT_FILES = ['env', 'machines.json', 'admin.json', 'backup-pass', 'codex-auth.json', 'secrets-cles-recues.json'] as const;
+/** Les clés reçues dans un message (rangées par rangerClesRecues, qui ne lève jamais). */
+const CLES_RECUES = 'secrets-cles-recues.json';
 /** Secrets dont le serveur a besoin dès le démarrage : toujours chiffrés avec la clé de la machine, jamais verrouillés. */
 export const MACHINE_FILES = ['web-token', 'vapid.json'] as const;
 const MAGIC1 = Buffer.from('ODV1'), MAGIC2 = Buffer.from('ODV2');
@@ -295,9 +297,32 @@ export function importMachineKey(home: string, key: Buffer): void {
 const check = (key: Buffer) => seal(key, Buffer.from('odin-coffre'), 'vault.json').toString('base64');
 const checkOk = (key: Buffer, c: string) => { try { return timingSafeEqual(open(key, Buffer.from(c, 'base64'), 'vault.json'), Buffer.from('odin-coffre')); } catch { return false; } };
 
-/** Chiffre les secrets encore en clair d'un dossier (ancien Odin, fichier restauré) avec la bonne clé. */
+/**
+ * Chiffre les secrets encore en clair d'un dossier (ancien Odin, fichier restauré) avec la bonne clé : relu, écrit chiffré,
+ * relu chiffré ; l'ancien n'est effacé que si cette relecture rend exactement son contenu (sinon il est gardé, et le
+ * passage suivant recommence : jamais un secret perdu).
+ */
 function sealPlain(home: string, names: readonly string[], key: Buffer): void {
-  for (const n of names) { const f = join(home, n); if (existsSync(f)) { write600(`${f}.enc`, seal(key, readFileSync(f), n)); shred(f); } }
+  for (const n of names) {
+    const f = join(home, n);
+    if (!existsSync(f)) continue;
+    const clair = readFileSync(f);
+    garderLeChiffre(f, n);
+    write600(`${f}.enc`, seal(key, clair, n));
+    let relu = false;
+    try { relu = open(key, readFileSync(`${f}.enc`), n).equals(clair); } catch { /* illisible : l'ancien est gardé */ }
+    if (relu) shred(f);
+    else console.error(`[coffre] ${n} : la copie chiffrée ne se relit pas à l'identique ; l'ancien fichier est gardé`);
+  }
+}
+/**
+ * Les clés reçues forment une liste qui s'allonge : un fichier en clair revenu à côté du chiffré (ancien code relancé,
+ * restauration) ne le remplace jamais sans que le chiffré soit d'abord mis de côté (copie chiffrée, jamais écrasée).
+ */
+function garderLeChiffre(f: string, n: string): void {
+  if (n !== CLES_RECUES || !existsSync(f) || !existsSync(`${f}.enc`)) return;
+  const c = copieDeCote(`${f}.enc`, '.avant-migration');
+  console.error(`[coffre] ${n} : un fichier en clair est revenu à côté du chiffré ; le chiffré est gardé de côté (${basename(c)})`);
 }
 /** Premier passage : pas de coffre → coffre à clé de machine, et les secrets en clair sont chiffrés puis effacés. */
 export function ensureVault(home: string): void {
@@ -329,7 +354,13 @@ export function readSecretFile(f: string): string | undefined {
   ensureVault(home);
   const key = keyFor(home, n);
   if (!key) return undefined;
-  if (existsSync(f)) sealPlain(home, [n], key); // un fichier en clair déposé depuis (restauration, ancien code) : chiffré tout de suite
+  if (existsSync(f)) {
+    // Un fichier en clair déposé depuis (restauration, ancien code) : chiffré tout de suite. Si cela n'aboutit pas
+    // (écriture impossible, relecture différente), l'ancien fait foi et il est rendu tel quel : jamais une erreur prise
+    // pour « rien », qui ferait réécrire le fichier sans lui. La migration recommence au passage suivant.
+    try { sealPlain(home, [n], key); } catch { console.error(`[coffre] ${n} : pas encore chiffré (écriture impossible) ; l'ancien fichier est gardé`); }
+    if (existsSync(f)) return readFileSync(f, 'utf8');
+  }
   if (!existsSync(`${f}.enc`)) return undefined;
   return open(key, readFileSync(`${f}.enc`), n).toString('utf8');
 }
@@ -341,7 +372,13 @@ export function writeSecretFile(f: string, text: string): void {
   mkdirSync(home, { recursive: true });
   ensureVault(home);
   const key = keyFor(home, n);
-  if (!key) throw new Error('le coffre est verrouillé : déverrouille-le d\'abord (Accueil)');
+  if (!key) {
+    // Coffre fermé : rien n'est écrit, ni chiffré ni en clair. Les clés reçues sont rangées par un appel qui ne lève
+    // jamais : le journal le dit (sans aucune valeur).
+    if (n === CLES_RECUES) console.error('[coffre] coffre fermé : clé reçue non gardée, rien n\'est écrit sur le disque');
+    throw new Error('le coffre est verrouillé : déverrouille-le d\'abord (Accueil)');
+  }
+  garderLeChiffre(f, n);
   write600(`${f}.enc`, seal(key, Buffer.from(text, 'utf8'), n));
   shred(f);
 }
@@ -404,7 +441,12 @@ export function vaultEnable(home: string, pw: string): void {
   write600(meta(home), JSON.stringify({ v: 2, mode: 'password', salt: salt.toString('base64'), n, check: check(key), cle: keyId(home) } satisfies Meta));
   keys.set(home, key);
 }
-export function vaultUnlock(home: string, pw: string): void { keys.set(home, verify(home, pw)); }
+export function vaultUnlock(home: string, pw: string): void {
+  const key = verify(home, pw);
+  keys.set(home, key);
+  // Un ancien fichier de clés reçues encore en clair (écrit avant qu'il soit du coffre, illisible coffre fermé) : chiffré dès l'ouverture.
+  try { sealPlain(home, [CLES_RECUES], key); } catch { console.error(`[coffre] ${CLES_RECUES} : pas chiffré à l'ouverture (écriture impossible) ; l'ancien fichier est gardé`); }
+}
 export function vaultLock(home: string): void { if (vaultMode(home) === 'password') keys.delete(home); }
 /** Retire le mot de passe maître : les secrets restent chiffrés, avec la clé de la machine. */
 export function vaultDisable(home: string, pw: string): void {

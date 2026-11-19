@@ -9,7 +9,7 @@ import { KV_REGLAGES, reglageKvEcrit } from './reglages-note.ts';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanupRestore } from './backup.ts';
-import { refuserDossierReelEnEssai } from './vault.ts';
+import { refuserDossierReelEnEssai, vaultState } from './vault.ts';
 import { machineSecrets } from './machines/access.ts';
 import { BROWSER_TOOLS, closeBrowsers } from './tools/browser.ts';
 import { webSearchTool } from './tools/search.ts';
@@ -42,7 +42,9 @@ import { type OdinConfig, loadConfig, odinPaths, initHome, type OdinPaths, DEFAU
 import { migrerMetis } from './brain/metis/migration.ts';
 import { Agent } from './core/agent.ts';
 import { type Approver, denyAll, Heimdall } from './heimdall/policy.ts';
-import { Redactor } from './heimdall/redact.ts';
+import { chargerClesRecues, Redactor, valeursDuCoffreProprietaire } from './heimdall/redact.ts';
+import { load as chargerThesauros } from './valhalla/modules/brisingamen.ts';
+import type { ModCtx } from './valhalla/types.ts';
 import { Mnemosyne } from './muninn/store.ts';
 import { buildProvider, idClassement, Router } from './providers/router.ts';
 import { routeContext } from './providers/journal.ts';
@@ -157,6 +159,20 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   const redactor = Redactor.fromEnv();
   // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).
   for (const secret of machineSecrets(paths.home)) redactor.add(secret);
+  // Le masqueur nourri : les clés reçues et les valeurs du coffre du propriétaire (Thésauros) sont relues à chaque
+  // démarrage, en mémoire vive seulement (jamais recopiées ailleurs). Coffre fermé ou illisible : il garde ce qu'il
+  // connaît sans lui, et le journal le dit, sans aucune valeur.
+  for (const cle of chargerClesRecues(paths.home)) redactor.add(cle);
+  try {
+    const dirThesauros = join(paths.home, 'valhalla', 'brisingamen');
+    if (existsSync(join(dirThesauros, 'coffre.bin'))) {
+      let lu = false;
+      if (/^[a-f0-9]{64}$/.test(process.env.BRISINGAMEN_KEY ?? '') && vaultState(paths.home) !== 'locked') {
+        try { for (const v of valeursDuCoffreProprietaire(chargerThesauros({ dir: dirThesauros } as ModCtx))) redactor.addCoffre(v); lu = true; } catch { /* illisible : dit ci-dessous, sans le message d'erreur */ }
+      }
+      if (!lu) console.error('[masqueur] coffre fermé ou illisible au démarrage : ses valeurs ne sont pas chargées ; je masque ce que je connais sans lui');
+    }
+  } catch { /* jamais bloquant */ }
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
   // La réécriture du code suit le réglage code.validation, lu à chaque décision (changé par la parole ou les Réglages).
   heimdall.setValidationCode(() => cfg.code?.validation);

@@ -17,6 +17,8 @@ export class SlackChannel implements Channel {
   private running = false;
   private me = '';
   private where = new Map<string, string>();
+  /** L'écho d'un vocal (« 🎙 … »), gardé jusqu'au tri des secrets de la passerelle : jamais envoyé s'il portait un secret. */
+  private echos = new WeakMap<Inbound, string>();
   private botToken: string; private appToken: string; private opts: MessagingOptions; private fetchFn: typeof fetch;
   constructor(botToken: string, appToken: string, opts: MessagingOptions = {}, fetchFn: typeof fetch = fetch) { this.botToken = botToken; this.appToken = appToken; this.opts = opts; this.fetchFn = fetchFn; }
 
@@ -62,10 +64,24 @@ export class SlackChannel implements Channel {
     for (const f of (e.files ?? []) as Array<{ name: string; mimetype: string; url_private: string; size: number }>) {
       if (f.size > 50 * 1024 * 1024) continue;
       const data = new Uint8Array(await (await this.fetchFn(f.url_private, { headers: { authorization: `Bearer ${this.botToken}` } })).arrayBuffer());
-      if (/^audio\//.test(f.mimetype) && this.opts.transcribe && !text) { text = await this.opts.transcribe(data, f.mimetype); voice = true; await this.send(user, `🎙 _${text.slice(0, 600)}_`); }
+      if (/^audio\//.test(f.mimetype) && this.opts.transcribe && !text) { text = await this.opts.transcribe(data, f.mimetype); voice = true; }
       else text += `${text ? '\n\n' : ''}${await dropFile(this.opts.inbox, f.name, f.mimetype, data)}`;
     }
-    if (text) await onMessage({ channel: this.name, peer: user, name: user, text, voice });
+    if (!text) return;
+    const inb: Inbound = { channel: this.name, peer: user, name: user, text, voice };
+    if (voice) this.echos.set(inb, text);
+    await onMessage(inb);
+  }
+
+  /**
+   * Appelé par la passerelle juste après le tri des secrets. Le jeton du robot n'efface que ses propres messages : rien à
+   * effacer ici (la passerelle demande à la personne de le faire). L'écho du vocal part seulement sans secret.
+   */
+  async apresTriSecrets(inb: Inbound, secret: boolean): Promise<'efface' | 'impossible' | undefined> {
+    const echo = this.echos.get(inb);
+    this.echos.delete(inb);
+    if (!secret && echo) await this.send(inb.peer, `🎙 _${echo.slice(0, 600)}_`).catch(() => undefined);
+    return undefined;
   }
 
   private async onButton(p: Record<string, unknown>, onMessage: (m: Inbound) => Promise<void>): Promise<void> {

@@ -138,8 +138,9 @@ test('GET /api/fil : le propriétaire lit toutes ses conversations dans l\'ordre
   assert.match(r.headers.get('content-type') ?? '', /^application\/json/); assert.equal(r.headers.get('x-content-type-options'), 'nosniff');
   const el = r.body.elements as ElementFil[];
   assert.deepEqual(el.map((e) => (e.type === 'separateur' ? `[${e.titre}]` : e.texte)),
-    ['[Box Internet]', 'ancienne question', 'ancienne réponse', '[]', 'bonjour', '<img src=x onerror=alert(1)> **gras**', '[Box Internet]', 'retour dans l\'ancienne', '[]', 'dernière question']);
-  assert.ok(!JSON.stringify(r.body).includes('membre'), 'rien d\'un membre'); assert.ok(!JSON.stringify(r.body).includes('écran de la maison'), 'rien des écrans techniques');
+    ['[Box Internet]', 'ancienne question', 'ancienne réponse', '[]', 'bonjour', '<img src=x onerror=alert(1)> **gras**', 'question de l\'écran de la maison', '[Box Internet]', 'retour dans l\'ancienne', '[]', 'dernière question']);
+  // Les écrans techniques sont dans le fil, étiquetés (sa réponse du 19/11 : « Dans le fil, étiquetés »).
+  assert.ok(!JSON.stringify(r.body).includes('membre'), 'rien d\'un membre'); assert.equal(messages(el).find((m) => m.session === 'web:maison')?.origine, 'maison', 'l\'écran de la maison, étiqueté');
   assert.equal(r.body.suite, null);
   // La page ne choisit pas la personne : ses paramètres sont ignorés.
   const force = await v.json('/api/fil?peer=membre-membre-f&session=web:membre-membre-f&qui=membre-f');
@@ -148,7 +149,7 @@ test('GET /api/fil : le propriétaire lit toutes ses conversations dans l\'ordre
 
 test('la compaction n\'efface rien de ce que /api/fil rend (l\'historique actif, lui, ne garde que la suite)', async () => {
   const mu = v.o.muninn, avant = (await v.json('/api/fil')).body.elements as ElementFil[];
-  assert.equal(messages(avant ?? []).length, 6, 'le fil avant la compaction');
+  assert.equal(messages(avant ?? []).length, 7, 'le fil avant la compaction (écran de la maison compris)');
   const dernier = Math.max(...mu.allMessages('web:principal').map((m) => m.id));
   mu.compact('web:principal', dernier, 'résumé'); mu.resetSession('web:c-ancienne');
   assert.deepEqual(((await v.json('/api/history?peer=principal')).body.messages as unknown[]), [], 'l\'historique actif est vide après la compaction');
@@ -166,7 +167,7 @@ test('par pages, du plus récent au plus ancien : un message arrivé pendant la 
     const p = await v.json(`/api/fil?n=2&avant=${encodeURIComponent(suite)}`); assert.equal(p.status, 200);
     lus.unshift(...messages(p.body.elements as ElementFil[]).map((m) => m.texte)); suite = p.body.suite as string | null;
   }
-  assert.deepEqual(lus, ['ancienne question', 'ancienne réponse', 'bonjour', '<img src=x onerror=alert(1)> **gras**', 'retour dans l\'ancienne', 'dernière question']);
+  assert.deepEqual(lus, ['ancienne question', 'ancienne réponse', 'bonjour', '<img src=x onerror=alert(1)> **gras**', 'question de l\'écran de la maison', 'retour dans l\'ancienne', 'dernière question']);
   const neuf = await v.json('/api/fil?n=1');
   assert.deepEqual(messages(neuf.body.elements as ElementFil[]).map((m) => m.texte), ['arrivé pendant la lecture'], 'le nouveau message est en tête de la première page');
   assert.equal((await v.json('/api/fil?avant=abc')).status, 400);

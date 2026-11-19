@@ -11,6 +11,8 @@ export class SignalChannel implements Channel {
   readonly interactive = true;
   private running = false;
   private timer?: NodeJS.Timeout;
+  /** L'écho d'un vocal (« 🎙 … »), gardé jusqu'au tri des secrets de la passerelle : jamais envoyé s'il portait un secret. */
+  private echos = new WeakMap<Inbound, string>();
   private url: string; private number: string; private opts: MessagingOptions; private fetchFn: typeof fetch;
   constructor(url: string, number: string, opts: MessagingOptions = {}, fetchFn: typeof fetch = fetch) { this.url = url.replace(/\/$/, ''); this.number = number; this.opts = opts; this.fetchFn = fetchFn; }
 
@@ -39,11 +41,25 @@ export class SignalChannel implements Channel {
       for (const a of dm.attachments ?? []) {
         if ((a.size ?? 0) > 50 * 1024 * 1024) continue;
         const data = new Uint8Array(await (await this.fetchFn(`${this.url}/v1/attachments/${encodeURIComponent(a.id)}`)).arrayBuffer());
-        if (/^audio\//.test(a.contentType ?? '') && this.opts.transcribe && !text) { text = await this.opts.transcribe(data, a.contentType ?? 'audio/aac'); voice = true; await this.send(peer, `🎙 « ${text.slice(0, 600)} »`); }
+        if (/^audio\//.test(a.contentType ?? '') && this.opts.transcribe && !text) { text = await this.opts.transcribe(data, a.contentType ?? 'audio/aac'); voice = true; }
         else text += `${text ? '\n\n' : ''}${await dropFile(this.opts.inbox, a.filename || `${a.id}.${(a.contentType ?? 'bin').split('/')[1]}`, a.contentType ?? '', data)}`;
       }
-      if (text) void onMessage({ channel: this.name, peer, name: env.sourceName || peer, text, voice }).catch((x) => console.error('[signal]', (x as Error).message));
+      if (!text) continue;
+      const inb: Inbound = { channel: this.name, peer, name: env.sourceName || peer, text, voice };
+      if (voice) this.echos.set(inb, text);
+      void onMessage(inb).catch((x) => console.error('[signal]', (x as Error).message));
     }
+  }
+
+  /**
+   * Appelé par la passerelle juste après le tri des secrets. Signal ne laisse effacer que ses propres messages : rien à
+   * effacer ici (la passerelle demande à la personne de le faire). L'écho du vocal part seulement sans secret.
+   */
+  async apresTriSecrets(inb: Inbound, secret: boolean): Promise<'efface' | 'impossible' | undefined> {
+    const echo = this.echos.get(inb);
+    this.echos.delete(inb);
+    if (!secret && echo) await this.send(inb.peer, `🎙 « ${echo.slice(0, 600)} »`).catch(() => undefined);
+    return undefined;
   }
 
   async send(peer: string, text: string, opts: Parameters<Channel['send']>[2] = {}): Promise<void> {

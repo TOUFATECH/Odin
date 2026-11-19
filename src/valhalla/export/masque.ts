@@ -48,6 +48,12 @@ export interface Masqueur {
 export function creerMasqueur(connus?: (t: string) => string): Masqueur {
   let n = 0;
   const m = () => { n++; return MASQUE; };
+  // La valeur d'après `avant` (jusqu'à `fin`) : masquée et comptée, sauf si elle n'est déjà que le masque (posé par le
+  // masqueur d'Odin plus haut, entre guillemets ou pas) : laissée telle quelle, pas comptée deux fois.
+  const valeur = (x: string, avant: string, fin = '') => {
+    const v = x.slice(avant.length, x.length - fin.length);
+    return v.replace(/^(["'])(.*)\1$/, '$2') === MASQUE ? x : `${avant}${m()}${fin}`;
+  };
   const texte = (brut: string): string => {
     let t = String(brut ?? '');
     if (!t) return t;
@@ -56,25 +62,25 @@ export function creerMasqueur(connus?: (t: string) => string): Masqueur {
       // une clé privée entière
       .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g, m)
       // identifiants dans une adresse : rtsp://admin:motdepasse@camera → rtsp://admin:•••@camera
-      .replace(/\b([a-z][a-z0-9+.-]{1,15}:\/\/[^\s/:@"'<>]{1,80}):([^\s/@"'<>]{1,200})@/gi, (_x, a: string) => `${a}:${m()}@`)
+      .replace(/\b([a-z][a-z0-9+.-]{1,15}:\/\/[^\s/:@"'<>]{1,80}):([^\s/@"'<>]{1,200})@/gi, (x, a: string) => valeur(x, `${a}:`, '@'))
       // les adresses secrètes d'Odin (réservation, signe de vie, page d'état, webhook, formulaire, partage)
       .replace(/(https?:\/\/[^\s/"'<>]+)\/(r|v|h|f|p|etat|partage)\/[\w-]{12,}/g, (_x, a: string, b: string) => `${a}/${b}/${m()}`)
       .replace(/(^|[\s"'«(=:,])\/(r|v|h|f|p|etat|partage)\/[\w-]{12,}/g, (_x, a: string, b: string) => `${a}/${b}/${m()}`)
       // un secret passé dans une adresse : ?token=…, &key=…
-      .replace(/([?&](?:token|jeton|key|cle|apikey|api_key|access_token|refresh_token|id_token|secret|password|passwd|pwd|pass|motdepasse|mdp|sig|signature|auth|code)=)[^&\s#"'<>]+/gi, (_x, a: string) => `${a}${m()}`)
+      .replace(/([?&](?:token|jeton|key|cle|apikey|api_key|access_token|refresh_token|id_token|secret|password|passwd|pwd|pass|motdepasse|mdp|sig|signature|auth|code)=)[^&\s#"'<>]+/gi, (x, a: string) => valeur(x, a))
       // un secret passé à une commande : --password …, --token=…, mysql -p…, sshpass -p …
-      .replace(/((?:^|\s)--?(?:password|passwd|pass|pwd|token|secret|api[-_]?key|apikey|auth[-_]?token|access[-_]?token|psk|private[-_]?key|cle|jeton|mot[-_]?de[-_]?passe)(?:=|\s+))(?:"[^"]*"|'[^']*'|\S+)/gi, (_x, a: string) => `${a}${m()}`)
-      .replace(/(\b(?:mysql|mysqldump|mysqladmin|mariadb|mariadb-dump|mycli)\b[^\n]*?\s-p)([^\s-]\S*)/g, (_x, a: string) => `${a}${m()}`)
-      .replace(/(\bsshpass\s+-p\s*)(\S+)/g, (_x, a: string) => `${a}${m()}`)
+      .replace(/((?:^|\s)--?(?:password|passwd|pass|pwd|token|secret|api[-_]?key|apikey|auth[-_]?token|access[-_]?token|psk|private[-_]?key|cle|jeton|mot[-_]?de[-_]?passe)(?:=|\s+))(?:"[^"]*"|'[^']*'|\S+)/gi, (x, a: string) => valeur(x, a))
+      .replace(/(\b(?:mysql|mysqldump|mysqladmin|mariadb|mariadb-dump|mycli)\b[^\n]*?\s-p)([^\s-]\S*)/g, (x, a: string) => valeur(x, a))
+      .replace(/(\bsshpass\s+-p\s*)(\S+)/g, (x, a: string) => valeur(x, a))
       // une variable d'environnement : MQTT_PASSWORD=…, GITHUB_TOKEN=…
-      .replace(/\b([A-Za-z0-9_]*(?:PASSWORD|PASSWD|PWD|TOKEN|SECRET|API_?KEY|APIKEY|PRIVATE_?KEY|ACCESS_?KEY|PSK)[A-Za-z0-9_]*\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s"',;]+)/g, (_x, a: string) => `${a}${m()}`)
+      .replace(/\b([A-Za-z0-9_]*(?:PASSWORD|PASSWD|PWD|TOKEN|SECRET|API_?KEY|APIKEY|PRIVATE_?KEY|ACCESS_?KEY|PSK)[A-Za-z0-9_]*\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s"',;]+)/g, (x, a: string) => valeur(x, a))
       // « mot de passe : … », « jeton = … », « PrivateKey = … » quand la suite ressemble à un secret
       .replace(/((?:mots? de passe|\bmdp|passwords?|passphrase|secret|jetons?|tokens?|cl[ée]s? (?:priv[ée]e|secr[èe]te|d['’]api|api|wi-?fi|wpa|de s[ée]curit[ée])|api[ _-]?key|\bpsk|code pin|\bpin|privatekey|presharedkey|preshared key)\b[^\n:=]{0,30}?\s*[:=]\s*["'«“]?\s*)([^\s"'»”,;<>]{4,})/gi, (x, a: string, v: string) => (ressembleASecret(v, { chiffres: /pin/i.test(a) }) ? `${a}${m()}` : x))
       // un jeton d'accès (JWT), une authentification « Basic »
       .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}/g, m)
       .replace(/(\bBasic\s+)([A-Za-z0-9+/=]{12,})/g, (x, a: string, v: string) => (/[0-9=+/]|[a-z][A-Z]/.test(v) ? `${a}${m()}` : x))
       // le mot de passe d'un QR code de Wi-Fi : WIFI:T:WPA;S:Maison;P:…;;
-      .replace(/(WIFI:(?:[^;\s]*;)*?P:)(?:\\.|[^;\s])+/g, (_x, a: string) => `${a}${m()}`);
+      .replace(/(WIFI:(?:[^;\s]*;)*?P:)(?:\\.|[^;\s])+/g, (x, a: string) => valeur(x, a));
   };
   const sous = (intitule: string, valeur: string): string => {
     let v = String(valeur ?? '');

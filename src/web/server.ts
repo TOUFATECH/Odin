@@ -1373,6 +1373,13 @@ export class WebChannel implements Channel {
       void onMessage({ channel: 'web', peer, name: 'navigateur', text });
       return json(res, 202, { ok: true });
     }
+    // Masquer / réafficher le fil (src/web/fil-api.ts) : chacun le sien, d'après la session de ce navigateur ; les pages
+    // ouvertes relisent le fil (« fil »).
+    if (url.pathname === '/api/action' && (body.kind === 'fil_masquer' || body.kind === 'fil_reafficher')) {
+      const r = (await import('./fil-api.ts')).filAction(body.kind, direct ? undefined : this.quiConnecte(req), this.odin.muninn)!;
+      if (r.ok) this.notify('fil');
+      return json(res, r.ok ? 200 : 403, r);
+    }
     // « Son clic » (mise à jour lancée par le propriétaire) : seulement sa session dans son navigateur — pas la clé d'API,
     // pas un membre, pas le port direct d'une appli.
     if (url.pathname === '/api/action') return json(res, 200, await this.action(body, { parClic: this.who(req) === 'session' && !estMembre(req) && !direct }));

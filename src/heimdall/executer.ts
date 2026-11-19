@@ -34,6 +34,7 @@ import { destinataireTiers, graveEnvoi } from './envois.ts';
 import { masquerCodes } from './redact.ts';
 import { graveMaison, type InfoEntite } from './maison.ts';
 import { actionEnCours, cleNumeros, empreinteAction, figer, journalDe, numeroCourt, RISQUES_ENGAGEANTS, type IssueReservee, type JournalActions } from './actions-journal.ts';
+import { referencesDe, retirerValeurs, verifierReferences, type ContexteReference, type Remplacee } from './references-coffre.ts';
 
 /** Ce que Home Assistant dit des entités visées (nom, classe, contenu d'une scène) — pour la garde des ouvertures. */
 export type LireEntite = (ctx: ToolContext, entity: string) => Promise<InfoEntite | undefined>;
@@ -152,6 +153,13 @@ const heure = (t: number): string => `${new Date(t).toISOString().slice(0, 16).r
  * la question t'est posée, sans « toujours », et ton oui ne sert qu'une fois ; faite par le processus d'avant un
  * redémarrage → jamais refaite ; coupée en plein milieu par une panne → la question t'est posée ; sans personne pour
  * répondre → refusée. Deux appels identiques en même temps : le second attend l'issue du premier.
+ *
+ * Les références au coffre (« coffre:Nom/champ », src/heimdall/references-coffre.ts) : vérifiées AVANT la décision
+ * (liste fermée des outils et des champs, coffre de la personne qui demande), remplacées par leur valeur juste avant
+ * l'outil, sur la copie neuve qu'il reçoit ; la demande, le numéro, le résumé et le journal gardent la référence, et la
+ * valeur est retirée de la sortie de l'outil (ou de son erreur) avant qu'elle reparte vers l'agent. La question dit
+ * l'élément du coffre et, pour un site, la page lue à l'instant ; un mot de passe remplacé est confié au masqueur (il
+ * ne revient pas par la lecture suivante d'une page ou d'une machine).
  */
 export async function deciderPuisLancer(heimdall: Heimdall, tool: Tool, input: Record<string, unknown>, ctx: ToolContext, e: EntreeAppel): Promise<{ decision: GateDecision; summary: string; lancer?: () => ReturnType<Tool['run']> }> {
   const fige = figer(input);
@@ -221,11 +229,19 @@ async function decider(heimdall: Heimdall, tool: Tool, fige: Record<string, unkn
       coupee = `j'ai déjà fait cette action dans cette demande (n° ${numero}, ${quoi}) ; la refaire`;
     }
   }
+  // Les références au coffre : une seule place fausse, ou un secret qui n'est pas dans le coffre de la personne qui
+  // demande, et rien n'est demandé ni lancé (aucune valeur n'est gardée par cette vérification).
+  const contexteRef = (): ContexteReference => ({ home: (ctx as { home?: string }).home, sessionId: e.sessionId, channel: ctx.channel, peer: ctx.peer, auteur: ctx.auteur, muninn: ctx.muninn, tainted: e.tainted, suspicious: e.suspicious, unattended: e.unattended, automatique: e.automatique });
+  const verifiees = await verifierReferences(tool.name, fige, contexteRef());
+  if ('refus' in verifiees) return { decision: { allowed: false, reason: `${verifiees.refus}. Rien n'est parti` }, summary };
+  const avecReferences = referencesDe(tool.name, fige).refs.length > 0;
+  // La question (et le résumé noté) disent quel élément du coffre part, et sur quelle page : jamais la valeur.
+  const resumeDemande = avecReferences && verifiees.dit ? `${summary} — ${verifiees.dit}` : summary;
   const autreGrave = tool.grave?.(fige) ?? graveArgent(tool.name, fige, e.sessionId) ?? graveEnvoi(tool.name, fige) ?? graveSuppression(tool.name, fige) ?? await graveHa(tool.name, fige, ctx);
   // La demande porte le numéro de l'action (src/heimdall/approbations.ts le garde avec elle).
   const decision = await actionEnCours.run({ empreinte: n }, () => heimdall.gate({
     ...e,
-    tool: tool.name, risk: tool.risk, summary,
+    tool: tool.name, risk: tool.risk, summary: resumeDemande,
     command: tool.command?.(fige),
     // L'argent : la garde en code (page de paiement, adresse de paiement) s'ajoute à ce que l'outil déclare.
     // Et un envoi en ton nom à un tiers : destinataire et texte exact montrés, toujours ta validation.
@@ -265,12 +281,35 @@ async function decider(heimdall: Heimdall, tool: Tool, fige: Record<string, unkn
       // la décision, ce qui a été décidé ne vaut plus : rien ne part.
       const vu = tour ? journal.etat(tour, n) : undefined;
       if (vu?.etat !== vuDecide?.etat || vu?.t !== vuDecide?.t) throw new Error(`la même action a été ${vu?.etat === 'en cours' ? 'lancée' : vu?.etat ?? 'changée'} dans cette demande depuis la décision (n° ${numero}) : rien n'est parti, redemande-la si tu la veux encore`);
+    }
+    // Les références au coffre, remplacées par leur valeur juste avant l'outil, sur une copie neuve : revues au dernier
+    // moment (le coffre a pu se fermer, l'élément changer, la page du navigateur aussi) ; un refus et rien ne part.
+    let entreeOutil = copie, remplacees: Remplacee[] = [];
+    if (avecReferences) {
+      const x = await verifierReferences(tool.name, copie, contexteRef(), true);
+      if ('refus' in x) throw new Error(`${x.refus} : rien n'est parti`);
+      entreeOutil = x.entree; remplacees = x.remplacees;
+      // Un mot de passe remplacé est confié au masqueur (en mémoire vive, comme les valeurs du coffre lues au
+      // démarrage) : la lecture suivante d'une page (un champ texte montre ce qu'on y a tapé) ou d'une machine ne le
+      // rend pas à l'agent. Même un élément ajouté depuis, ou celui du coffre d'un membre. L'identifiant ne l'est pas
+      // (le masqueur ne cache pas les identifiants dans tout le texte, src/heimdall/redact.ts).
+      for (const v of remplacees) if (v.champ === 'mot de passe') { try { ctx.redactor?.addCoffre?.(v.valeur); } catch { /* rien */ } }
+    }
+    if (journal) {
       // « Lancée » écrite et forcée sur le disque AVANT d'agir ; si elle ne peut pas l'être, rien ne part.
-      const resume = (() => { try { return ctx.redactor ? ctx.redactor.redact(summary).replace(/\s+/g, ' ').slice(0, 160) : undefined; } catch { return undefined; } })();
+      const resume = (() => { try { return ctx.redactor ? ctx.redactor.redact(resumeDemande).replace(/\s+/g, ' ').slice(0, 160) : undefined; } catch { return undefined; } })();
       try { journal.lancer({ n, tour, outil: tool.name, ...(resume ? { resume } : {}) }, ecrire); } catch (x) { throw new Error(`je ne peux pas noter l'action avant de la faire (${(x as Error).message.slice(0, 120)}) : rien n'est parti`); }
     }
     let r: Awaited<ReturnType<Tool['run']>>;
-    try { r = await tool.run(copie, ctx); } catch (x) { journal?.finir({ n, tour, outil: tool.name }, 'échouée', ecrire); throw x; }
+    try { r = await tool.run(entreeOutil, ctx); } catch (x) {
+      journal?.finir({ n, tour, outil: tool.name }, 'échouée', ecrire);
+      // Une erreur qui citerait la valeur repart sans elle.
+      if (remplacees.length) throw new Error(retirerValeurs(String((x as Error)?.message ?? x), remplacees));
+      throw x;
+    }
+    // La sortie repart vers l'agent sans la valeur : la référence revient à sa place.
+    if (remplacees.length) r = typeof r === 'string' ? retirerValeurs(r, remplacees) : { ...r, output: retirerValeurs(r.output, remplacees) };
+    entreeOutil = copie; remplacees = [];
     journal?.finir({ n, tour, outil: tool.name }, 'faite', ecrire);
     if (tool.name.startsWith('browser_')) { try { noterPage(e.sessionId, typeof r === 'string' ? r : r.output); } catch { /* rien */ } }
     // Un mail lu : les codes à usage unique et les liens de réinitialisation ne vont ni au modèle ni à personne (U6).

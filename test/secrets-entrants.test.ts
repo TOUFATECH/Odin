@@ -2,8 +2,11 @@
 // et Odin le dit ; dans un mail lu, un code à usage unique ou un lien de réinitialisation est masqué.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { load as loadCoffre } from '../src/valhalla/modules/brisingamen.ts';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import type { Channel, Inbound } from '../src/bifrost/channel.ts';
 import { makeOdin } from './helpers.ts';
@@ -23,18 +26,27 @@ class FakeChannel implements Channel {
 const CLE = 'sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789';
 
 test('coller une clé : ni l\'historique ni le message envoyé au modèle ne la contiennent ; rangée au coffre ; Odin le dit', async () => {
+  // La clé va au coffre (Thésauros), et nulle part ailleurs : plus de fichier à part des clés reçues
+  // (secrets-cles-recues.json), qui en gardait une copie hors du coffre. Décision du propriétaire (19/11, demandes du
+  // 17/11, section 89) : « il met dans son coffre, il supprime du chat automatiquement tous les clés […] il les supprime
+  // les conserves nulle part et le mettre directement dans le coffre » ; et « le mot de passe est dans le coffre et
+  // supprimer du texte ».
+  const cleAvant = process.env.BRISINGAMEN_KEY;
+  process.env.BRISINGAMEN_KEY = randomBytes(32).toString('hex');
   const o = makeOdin([{ text: 'noté' }]);
-  const ch = new FakeChannel();
-  const gw = new Gateway(o, { owners: { fake: ['boss'] } }).add(ch);
-  await gw.handle({ channel: 'fake', peer: 'boss', name: 'boss', text: `voici ma clé OpenAI ${CLE} garde-la` });
-  assert.ok(o.provider.calls.length >= 1);
-  assert.doesNotMatch(JSON.stringify(o.provider.calls), new RegExp(CLE));
-  const hist = o.muninn.history('fake:boss').map((x) => x.content).join('\n');
-  assert.doesNotMatch(hist, new RegExp(CLE)); assert.match(hist, /\[clé mise au coffre\]/);
-  assert.ok(ch.sent.some((x) => /au coffre.*Change-la si elle a circulé/.test(x.text)));
-  assert.ok(readdirSync(o.paths.home).some((f) => f.startsWith('secrets-cles-recues.json')), 'rangée (chiffrée) au coffre');
-  assert.equal(o.redactor.redact(`x ${CLE}`), 'x [SECRET]');
-  o.cleanup();
+  try {
+    const ch = new FakeChannel();
+    const gw = new Gateway(o, { owners: { fake: ['boss'] } }).add(ch);
+    await gw.handle({ channel: 'fake', peer: 'boss', name: 'boss', text: `voici ma clé OpenAI ${CLE} garde-la` });
+    assert.ok(o.provider.calls.length >= 1);
+    assert.doesNotMatch(JSON.stringify(o.provider.calls), new RegExp(CLE));
+    const hist = o.muninn.history('fake:boss').map((x) => x.content).join('\n');
+    assert.doesNotMatch(hist, new RegExp(CLE)); assert.match(hist, /\[rangé au coffre : [^\]]+\]/);
+    assert.ok(ch.sent.some((x) => /J'ai rangé au coffre/.test(x.text)), JSON.stringify(ch.sent.map((x) => x.text)));
+    assert.ok(!readdirSync(o.paths.home).some((f) => f.startsWith('secrets-cles-recues.json')), 'aucune copie hors du coffre');
+    assert.ok(loadCoffre({ dir: join(o.paths.home, 'valhalla', 'brisingamen') } as never).some((i) => Object.values({ ...(i.champs ?? {}), p: i.password ?? '' }).includes(CLE)), 'rangée au coffre');
+    assert.equal(o.redactor.redact(`x ${CLE}`), 'x [SECRET]');
+  } finally { o.cleanup(); if (cleAvant === undefined) delete process.env.BRISINGAMEN_KEY; else process.env.BRISINGAMEN_KEY = cleAvant; }
 });
 
 test('un mail « Votre code : 482913 » : mail_read ne montre pas 482913 ; un lien de réinitialisation non plus ; le reste ne change pas', async () => {

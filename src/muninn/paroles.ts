@@ -8,13 +8,13 @@
 // Mode privé : rien n'est écrit (ni tour, ni parole), comme Odin le promet. Un inconnu pas encore appairé : son tour est
 // écrit sans son texte, et il n'a pas de parole (comme ailleurs : un compteur, sans texte).
 //
-// Un secret dans le message (clé collée, mot de passe, valeur connue du coffre) : le texte exact n'est PAS écrit en clair.
-// Il est chiffré avec la clé de la machine (même chiffrement que les autres champs privés d'Odin), lisible seulement par
-// le code qui la détient ; le tour, lui, ne garde que le texte masqué. Si le chiffrement est impossible, seul le texte
-// masqué est gardé (marqué « retiré ») : un secret n'est jamais écrit en clair.
+// Un secret dans le message : l'entrée unique l'a déjà retiré du texte (et rangé au coffre) avant d'arriver ici. Décision
+// du propriétaire (19/11) : « Si il y a un mot de passe, le mot de passe est dans le coffre et supprimer du texte le texte
+// et le texte qui est gardé sans le mot de passe ». La parole garde donc le texte SANS le secret, marquée « retiré » ;
+// aucune copie du texte exact, même chiffrée. Ce qu'un masquage reconnaît encore ici (clé, mot de passe annoncé, valeur
+// connue) est masqué de la même façon : un secret n'est jamais écrit.
 
 import { join } from 'node:path';
-import { chiffrerChamp } from '../vault.ts';
 import { extraireCles } from '../heimdall/redact.ts';
 import { extractSecret } from '../machines/onboard.ts';
 import { ajouterLigne, changerTour, etatDeMission, lireLignes, nouvelId, ouvrirTour, TAILLE_MAX_LIGNE, type EtatTour } from './tours.ts';
@@ -28,13 +28,13 @@ export interface Parole {
   qui: string;
   canal: string;
   pair: string;
-  /** Le texte exact écrit par l'humain (absent s'il portait un secret). */
+  /** Le texte écrit par l'humain ; s'il portait un secret, le texte SANS le secret (`secret` vaut alors « retiré »). */
   texte?: string;
-  /** Le texte exact, chiffré (« odc1:… »), quand il portait un secret. */
+  /** Lignes d'avant le 19/11 seulement : le texte exact chiffré (« odc1:… »). Plus jamais écrit. */
   chiffre?: string;
-  /** Il portait un secret : « chiffré » (texte exact dans `chiffre`) ou « retiré » (seul le texte masqué est gardé). */
+  /** Il portait un secret, retiré du texte (« retiré »). « chiffré » : lignes d'avant le 19/11 seulement. */
   secret?: 'chiffré' | 'retiré';
-  /** Le texte masqué, quand le texte exact n'est pas gardé en clair. */
+  /** Lignes d'avant le 19/11 seulement : le texte masqué, à côté de `chiffre`. Plus jamais écrit. */
   masque?: string;
   marques: Marque[];
   /** Longueur du texte écrit par l'humain (en caractères). */
@@ -120,21 +120,33 @@ export function sansSecret(texte: string, masquer: (s: string) => string = (s) =
   return { texte: t, secret: t !== texte };
 }
 
-/** Écrit la parole d'un humain, tout de suite. Rend la parole écrite (sans le texte chiffré). */
-export function noterParole(memoire: string, home: string, p: { qui: string; canal: string; pair: string; texte: string; marques: Marque[]; masquer?: (s: string) => string }, now = Date.now()): Parole {
+// Les marques posées par le tri de l'entrée unique (« [rangé au coffre : Box — mot de passe] », « [secret reçu — …] »).
+const MARQUES_TRI = /\[(?:rangé au coffre : [^[\]\n]{1,300}|secret reçu — [^[\]\n]{1,80}|secret dit à voix haute — non gardé|code à usage unique reçu — non gardé|IBAN retiré — non gardé)\]/gu;
+/**
+ * `sansSecret` autour des marques du tri, jamais sur elles : « mot de passe du NAS est [rangé au coffre : …] » ne doit pas
+ * faire prendre « [rangé » pour un mot de passe. Seulement quand l'entrée a retiré des secrets. Pur, sauf `masquer`.
+ */
+export function sansSecretApresTri(texte: string, masquer: (s: string) => string = (s) => s): { texte: string; secret: boolean } {
+  let out = '', k = 0, secret = false;
+  for (const m of texte.matchAll(MARQUES_TRI)) {
+    const s = sansSecret(texte.slice(k, m.index), masquer);
+    out += s.texte + m[0]; secret ||= s.secret; k = m.index + m[0].length;
+  }
+  const s = sansSecret(texte.slice(k), masquer);
+  return { texte: out + s.texte, secret: secret || s.secret };
+}
+
+/**
+ * Écrit la parole d'un humain, tout de suite. `secretRetire` : l'entrée unique a déjà retiré un secret de ce texte.
+ * Aucune copie du texte exact quand il portait un secret (décision du propriétaire, 19/11) : le texte gardé est celui sans.
+ */
+export function noterParole(memoire: string, _home: string, p: { qui: string; canal: string; pair: string; texte: string; marques: Marque[]; masquer?: (s: string) => string; secretRetire?: boolean }, now = Date.now()): Parole {
   const base: Parole = { id: nouvelId('p', now), at: now, qui: p.qui, canal: p.canal, pair: p.pair, marques: [...new Set(p.marques)], longueur: p.texte.length };
   // Masqué sur le texte ENTIER, puis coupé : un secret à cheval sur la coupe ne serait plus reconnu.
-  const s = sansSecret(p.texte, p.masquer);
-  const exact = p.texte.slice(0, TEXTE_MAX);
-  const coupe = exact.length < p.texte.length ? { coupe: true as const } : {};
-  let l: Parole;
-  if (!s.secret) l = { ...base, texte: exact, ...coupe };
-  else {
-    let chiffre: string | undefined;
-    try { chiffre = chiffrerChamp(home, exact); } catch { chiffre = undefined; }
-    const masque = s.texte.slice(0, TEXTE_MAX);
-    l = chiffre ? { ...base, chiffre, secret: 'chiffré', masque, ...coupe } : { ...base, secret: 'retiré', masque, ...coupe };
-  }
+  const s = p.secretRetire ? sansSecretApresTri(p.texte, p.masquer) : sansSecret(p.texte, p.masquer);
+  const garde = s.texte.slice(0, TEXTE_MAX);
+  const coupe = garde.length < s.texte.length ? { coupe: true as const } : {};
+  const l: Parole = s.secret || p.secretRetire ? { ...base, texte: garde, secret: 'retiré', ...coupe } : { ...base, texte: garde, ...coupe };
   ajouterLigne(dossierParoles(memoire), l, { now });
   return l;
 }
@@ -161,7 +173,7 @@ const dire = (e: unknown) => console.error('[tours]', (e as Error).message);
  * À l'arrivée d'un message, AVANT tout traitement : écrit la parole (si c'est un humain) puis le tour « en file ».
  * Rend de quoi le passer « en cours » puis à son état final (pris de sa mission quand elle existe).
  */
-export function noterArrivee(mem: SourcesArrivee, home: string, masquer: (s: string) => string, m: { channel: string; peer: string; name: string; text: string; voice?: boolean }, auteur: { proprietaire: boolean; compte?: { id: string; role: string }; appaire: boolean }, now = Date.now()): SuiviTour {
+export function noterArrivee(mem: SourcesArrivee, home: string, masquer: (s: string) => string, m: { channel: string; peer: string; name: string; text: string; voice?: boolean }, auteur: { proprietaire: boolean; compte?: { id: string; role: string }; appaire: boolean; /** L'entrée a déjà retiré un secret de `m.text`. */ secretRetire?: boolean }, now = Date.now()): SuiviTour {
   // Mode privé : rien n'est écrit (« rien n'est retenu ni écrit »), ni le tour ni la parole.
   if (!mem.dir || mem.privateMode) return rien;
   const memoire = mem.dir, fil = `${m.channel}:${m.peer}`;
@@ -174,10 +186,11 @@ export function noterArrivee(mem: SourcesArrivee, home: string, masquer: (s: str
     const inconnu = o.humain && !proprietaire && !u && !auteur.appaire;
     const raison = inconnu ? 'inconnu pas encore appairé' : !o.parole ? o.raison : !h.texte ? 'rien d\'écrit par l\'humain' : undefined;
     const marques: Marque[] = h.ajout ? [...o.marques, 'ajout-odin'] : o.marques;
-    const parole = raison === undefined ? noterParole(memoire, home, { qui, canal: m.channel, pair: m.peer, texte: h.texte, marques, masquer }, now) : undefined;
+    const parole = raison === undefined ? noterParole(memoire, home, { qui, canal: m.channel, pair: m.peer, texte: h.texte, marques, masquer, secretRetire: auteur.secretRetire }, now) : undefined;
+    const sans = auteur.secretRetire ? sansSecretApresTri : sansSecret;
     const tour = ouvrirTour(memoire, {
       qui, role: o.humain ? 'humain' : 'agent', canal: m.channel, fil, // le but : masqué sur le texte entier (un secret coupé en deux ne serait plus reconnu), puis coupé à 300
-      but: inconnu ? '' : sansSecret(m.text, masquer).texte.replace(/\s+/g, ' ').trim(),
+      but: inconnu ? '' : sans(m.text, masquer).texte.replace(/\s+/g, ' ').trim(),
       ...(parole ? { message: parole.id } : { sansParole: raison ?? 'aucune' }),
     }, now);
     let depuis = 0, fini = false;
