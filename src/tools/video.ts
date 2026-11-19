@@ -8,6 +8,7 @@ import { clock, detectPlatform, ensureFfmpeg, extractAudio, fetchVideo, framesEv
 import { obj, str, type Tool, type ToolContext } from './registry.ts';
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { entreeFfmpeg } from '../files/ffmpeg-entree.ts';
+import { porteDe } from '../video/envoi-images.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const MODES = ['analyse', 'résumé', 'transcription', 'seconde', 'tutoriel', 'faits', 'code', 'marketing', 'traduction', 'apprendre', 'question'] as const;
@@ -54,7 +55,8 @@ export const videoAnalyze: Tool = {
       return { output: wrapUntrusted('video', `Déroulé seconde par seconde de « ${title} »${r.step && r.step > 1 ? ` (une image toutes les ${r.step} s : vidéo longue)` : ''}\n\n${txt.slice(0, 24_000)}${txt.length > 24_000 ? '\n… (suite dans seconde-par-seconde.txt)' : ''}\n\n${files}`), tainted: true };
     }
     const head = `Vidéo : ${r.meta.title || basename(r.source)}${r.meta.uploader ? ` — ${r.meta.uploader}` : ''}${r.meta.date ? ` — publiée le ${r.meta.date}` : ''}${r.meta.duration ? ` — ${Math.round(r.meta.duration / 60)} min` : ''} (${r.meta.platform})\nSource : ${r.meta.url || r.source}\n${r.meta.description ? `Description : ${r.meta.description.slice(0, 800)}\n` : ''}`;
-    const material = wrapUntrusted('video', `${head}\nLIGNE DE TEMPS :\n${tl.slice(0, 60_000)}`);
+    // Le texte lu par Odin (paroles, textes à l'écran, métadonnées) part vers l'agent sans question, secrets masqués.
+    const material = wrapUntrusted('video', ctx.redactor.redact(`${head}${r.nonEnvoyees ? `Images : non envoyées à un agent connecté (${r.nonEnvoyees}) ; seul le texte lu par Odin est là.\n` : ''}\nLIGNE DE TEMPS :\n${tl.slice(0, 60_000)}`));
     let answer = await ctx.llm(`Tu analyses une vidéo pour l'utilisateur. ${ASK[mode]}\n${RULES}`, `${s(i.question) ? `Demande : ${s(i.question)}\n\n` : ''}${material}`, 4000);
     if (mode === 'faits' || mode === 'apprendre') {
       // Vérification : faits de la vidéo, ou documentation officielle des technologies montrées.
@@ -84,7 +86,7 @@ export const videoAnalyze: Tool = {
 };
 
 /** Récupère et « comprend » la vidéo : paroles, images, textes, métadonnées, fusionnés. */
-export async function analyzeVideo(source: string, ctx: ToolContext, o: { perSecond?: boolean } = {}): Promise<{ source: string; dir: string; meta: VideoMeta; timeline: string; stats: string; transcript: string; language?: string; seconds?: string; step?: number }> {
+export async function analyzeVideo(source: string, ctx: ToolContext, o: { perSecond?: boolean } = {}): Promise<{ source: string; dir: string; meta: VideoMeta; timeline: string; stats: string; transcript: string; language?: string; seconds?: string; step?: number; nonEnvoyees?: string }> {
   await ensureFfmpeg(ctx.signal);
   const p = detectPlatform(source);
   if (p.error) throw new Error(p.error);
@@ -119,17 +121,29 @@ export async function analyzeVideo(source: string, ctx: ToolContext, o: { perSec
   // seulement. Lancée tout de suite, attendue après les images (les deux avancent en même temps).
   const pSon: Promise<Line[]> = audio && ctx.home ? import('../valhalla/syrinx/bande-son.ts').then((m) => m.bandeSon(audio, { home: ctx.home!, signal: ctx.signal })).catch(() => []) : Promise.resolve([]);
   // Images : scènes clés regardées par le modèle de vision (+ Tesseract en appoint).
-  const frames = await keyFrames(file, dir, meta.duration, meta.duration > 1200 ? 20 : 14, ctx.signal);
-  if (ctx.vision) await lookFrames(frames, ctx.vision, ctx.signal);
+  const maxCles = meta.duration > 1200 ? 20 : 14;
+  const frames = await keyFrames(file, dir, meta.duration, maxCles, ctx.signal);
   // Seconde par seconde : une image par seconde (ou par pas, vidéo longue), décrite, + ce qui est dit.
-  let seconds: string | undefined, step: number | undefined;
-  if (o.perSecond && ctx.vision) {
-    step = secondStep(meta.duration || 60);
-    const all: Frame[] = await framesEvery(file, dir, step, ctx.signal);
-    await lookFramesFast(all, ctx.vision, ctx.signal);
-    seconds = perSecond(all, lines, step);
-    saveText(dir, 'seconde-par-seconde.txt', seconds);
+  let seconds: string | undefined, step: number | undefined, all: Frame[] = [];
+  if (o.perSecond && ctx.vision) { step = secondStep(meta.duration || 60); all = await framesEvery(file, dir, step, ctx.signal); }
+  // Vers un agent connecté : UNE question pour toute la vidéo (combien d'images partiraient, au plus combien) ;
+  // sans oui, aucune image ne part et le texte lu par Odin prend le relais (src/video/envoi-images.ts).
+  const porte = porteDe(ctx.vision);
+  let voir = Boolean(ctx.vision), nonEnvoyees: string | undefined, finLot = (): void => {};
+  if (ctx.vision && porte && frames.length + all.length) {
+    const lot = await porte.demanderLot({ quoi: meta.title || basename(file), images: [...frames, ...all].map((f) => ({ mime: 'image/jpeg', data: readFileSync(f.file).toString('base64') })), max: maxCles + (all.length ? 180 : 0) });
+    if (!lot.oui) { voir = false; nonEnvoyees = lot.raison; }
+    finLot = lot.fin;
   }
+  // Les oui de cette vidéo ne valent que pendant qu'elle est regardée (arrêtée en cours : ceux qui restent tombent).
+  try {
+    if (voir && ctx.vision) await lookFrames(frames, ctx.vision, ctx.signal);
+    if (o.perSecond && ctx.vision && step) {
+      if (voir) await lookFramesFast(all, ctx.vision, ctx.signal);
+      seconds = perSecond(all, lines, step);
+      saveText(dir, 'seconde-par-seconde.txt', seconds);
+    }
+  } finally { finLot(); }
   const ocrText: Record<number, string> = {};
   for (const f of frames) if (!f.seen) { const t = await ocr(f.file); if (t.length > 8) ocrText[f.t] = t; }
   const lignesSon = await pSon;
@@ -137,9 +151,10 @@ export async function analyzeVideo(source: string, ctx: ToolContext, o: { perSec
   const transcript = lines.map((l) => `[${clock(l.t)}] ${l.text}`).join('\n');
   saveText(dir, 'transcription.txt', transcript || '(aucune parole reconnue)');
   saveText(dir, 'ligne-de-temps.txt', tl);
-  const stats = `${lines.length ? `${lines.length} passage(s) ${lines[0]?.src === 'sous-titres' ? 'de sous-titres' : 'transcrits'}${language ? ` (langue : ${language})` : ''}` : 'pas de paroles (vidéo muette, ou écoute pas encore installée)'} · ${frames.length} image(s) clé(s)${ctx.vision ? ' regardée(s)' : ' (aucun modèle qui voit les images)'}${seconds ? ` · déroulé toutes les ${step} s` : ''}`;
-  if (!lines.length && !frames.some((f) => f.seen) && !Object.keys(ocrText).length) throw new Error(`rien à analyser : ${stats}. Règle la transcription (Réglages → Voix) et un modèle qui voit les images.`);
-  return { source, dir, meta, timeline: tl, stats, transcript, language, seconds, step };
+  const stats = `${lines.length ? `${lines.length} passage(s) ${lines[0]?.src === 'sous-titres' ? 'de sous-titres' : 'transcrits'}${language ? ` (langue : ${language})` : ''}` : 'pas de paroles (vidéo muette, ou écoute pas encore installée)'} · ${frames.length} image(s) clé(s)${!ctx.vision ? ' (aucun modèle qui voit les images)' : nonEnvoyees ? ` non envoyée(s) à un agent connecté (${nonEnvoyees})` : ' regardée(s)'}${seconds ? ` · déroulé toutes les ${step} s` : ''}`;
+  // Images non envoyées (pas de oui) : Odin dit quand même ce qu'il sait (titre, durée, texte lu par lui).
+  if (!nonEnvoyees && !lines.length && !frames.some((f) => f.seen) && !Object.keys(ocrText).length) throw new Error(`rien à analyser : ${stats}. Règle la transcription (Réglages → Voix) et un modèle qui voit les images.`);
+  return { source, dir, meta, timeline: tl, stats, transcript, language, seconds, step, nonEnvoyees };
 }
 
 async function probeDuration(file: string): Promise<number> {
