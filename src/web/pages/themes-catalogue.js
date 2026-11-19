@@ -78,6 +78,9 @@
       good: '#2e7d32', warn: '#b26a00', bad: '#d32f2f',
     },
   };
+  // Le texte en accent (liens, texte, anneau du thème choisi) de Glace et Maison claire : la même teinte, plus foncée,
+  // pour se lire sur leur fond clair (4,5:1) ; leur accent de la maquette reste pour les fonds et les boutons.
+  const ACCENT_TEXTE = { glace: '#0061c2', clair: '#945f06' };
   // Les 31 thèmes de Hestia (l'écran de la maison) : leurs valeurs de départ (12 champs au plus), recopiées telles
   // quelles de la table T de src/web/maison.js, qui n'est pas touchée. Un essai (test/themes-catalogue.test.ts)
   // compare la copie et l'original champ par champ. « clair » n'a pas de champ `light` : l'écran de la maison le dit
@@ -154,5 +157,5 @@
     };
   }
   for (const [id, h] of Object.entries(HESTIA)) THEMES[`h-${id}`] = depuisHestia(id, h);
-  window.OdinCatalogueThemes = { NOMS, THEMES, HESTIA, DECORS };
+  window.OdinCatalogueThemes = { NOMS, THEMES, HESTIA, DECORS, ACCENT_TEXTE };
 })();

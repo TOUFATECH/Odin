@@ -12,7 +12,9 @@
 
 import { modelePret } from '../brain/porte-modele.ts';
 import { changementNoyau } from '../tools/self.ts';
-import { etatNoyau, noterVerifNoyau, verifierNoyau } from '../heimdall/noyau.ts';
+import { RACINE_APPLI, estNoyau, estSensible, etatNoyau, noterVerifNoyau, verifierNoyau } from '../heimdall/noyau.ts';
+import { fichierVise, lireBrouillon, listerBrouillons, refuserBrouillon, revoirBrouillon } from '../code/brouillons.ts';
+import { compteDifference, difference, finsDeLigne, finsDeLigneChangees, rendreVisible } from '../code/difference.ts';
 import { rythmeEnClair } from './talos-api.ts';
 import { dictee } from '../valhalla/modules/rodd.ts';
 import { conversationRoute } from './conversation-api.ts';
@@ -22,7 +24,7 @@ import { adresseLan } from './adresse-lan.ts';
 import { noticeBus } from '../valhalla/notices.ts';
 import { demarrer as demarrerSondeInternet, etatInternet, surChangement as surChangementInternet } from '../net/etat-internet.ts';
 import { echangeBus, echangesRecents } from '../valhalla/echanges.ts';
-import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import { chmodSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -940,6 +942,26 @@ export class WebChannel implements Channel {
     if (req.method === 'GET' && url.pathname === '/api/validations/attente') {
       if (estMembre(req)) return json(res, 403, { ok: false, error: 'réservé au propriétaire' });
       return json(res, 200, { ok: true, maintenant: Date.now(), list: this.validationsEnAttente() });
+    }
+    // Réécritures proposées (les brouillons du code, gardés hors du code) : les lire en entier, ou en refuser un. Le
+    // propriétaire seul, dans son navigateur : ni un membre, ni la clé d'API, ni le port direct d'une appli. Rien ne
+    // s'applique d'ici : « refuser » ne fait que passer le brouillon à « refusé ».
+    if (url.pathname === '/api/reecritures' || url.pathname === '/api/reecritures/refuser') {
+      if (estMembre(req) || this.who(req) !== 'session' || direct) return json(res, 403, { ok: false, error: 'réservé au propriétaire' });
+      const home = this.odin.paths.home;
+      if (req.method === 'GET' && url.pathname === '/api/reecritures') {
+        if (url.searchParams.get('compte') === '1') return json(res, 200, { ok: true, proposes: listerBrouillons(home).filter((b) => b.etat === 'proposé' && revoirBrouillon(home, b.id)?.etat === 'proposé').length });
+        return json(res, 200, { ok: true, list: reecrituresPourLaPage(home) });
+      }
+      if (req.method === 'POST' && url.pathname === '/api/reecritures/refuser') {
+        if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+        const b = await readJson(req, 4 * 1024), id = typeof b.id === 'string' ? b.id : '', avant = lireBrouillon(home, id);
+        if (!avant) return json(res, 404, { ok: false, error: 'brouillon introuvable' });
+        if (avant.etat !== 'proposé') return json(res, 409, { ok: false, etat: avant.etat, error: `Ce brouillon n'est plus proposé (${avant.etat}).` });
+        const r = refuserBrouillon(home, id, 'refusé par le propriétaire');
+        return r?.etat === 'refusé' ? json(res, 200, { ok: true, etat: r.etat }) : json(res, 409, { ok: false, etat: r?.etat ?? null, error: 'Ce brouillon n\'a pas pu être refusé.' });
+      }
+      return json(res, 405, { ok: false, error: 'méthode refusée' });
     }
     // Ariane : paquets réseau (une machine ou tout le réseau) — historique, qui parle à qui, détail d'un paquet, direct.
     if (req.method === 'GET' && url.pathname.startsWith('/api/ran/')) {
@@ -1909,6 +1931,37 @@ async function readRaw(req: IncomingMessage, max: number): Promise<Uint8Array> {
   const parts: Buffer[] = []; let n = 0;
   for await (const c of req) { n += (c as Buffer).length; if (n > max) throw new Error('fichier trop gros'); parts.push(c as Buffer); }
   return new Uint8Array(Buffer.concat(parts));
+}
+
+/**
+ * Les brouillons de réécriture tels que la page du propriétaire les montre. Un brouillon « proposé » vient EN ENTIER :
+ * la différence complète et numérotée avec le fichier tel qu'il est (s'il a changé depuis le brouillon, le brouillon
+ * devient « périmé » et ne porte plus de texte). Les autres (refusé, périmé, appliqué) viennent sans texte. Tout ce qui
+ * vient du brouillon (fichier, lignes, demande, nom, canal, pourquoi) a ses caractères invisibles écrits en clair ; les
+ * étiquettes « noyau » et « code sensible » ne sont posées que sur les brouillons du propriétaire. N'écrit jamais dans le code.
+ */
+function reecrituresPourLaPage(home: string): Array<Record<string, unknown>> {
+  return listerBrouillons(home).map((b0) => {
+    let b = b0.etat === 'proposé' ? revoirBrouillon(home, b0.id) ?? b0 : b0;
+    let avant: string | undefined;
+    if (b.etat === 'proposé') {
+      const vise = fichierVise(b.fichier);
+      if ('rel' in vise && vise.rel === b.fichier) { try { avant = readFileSync(join(RACINE_APPLI, vise.rel), 'utf8'); } catch { avant = undefined; } }
+      // Le texte lu doit être celui du brouillon ; sinon il a changé entre-temps : revu (périmé), sans texte.
+      if (avant === undefined || createHash('sha256').update(avant.replace(/\r\n/g, '\n')).digest('hex') !== b.empreinteAvant) { b = revoirBrouillon(home, b.id) ?? b; avant = undefined; }
+    }
+    const vue: Record<string, unknown> = {
+      id: b.id, fichier: rendreVisible(b.fichier), etat: b.etat, date: b.date,
+      change: b.change ? { date: b.change.date, pourquoi: rendreVisible(b.change.pourquoi) } : null,
+      demandePar: { role: b.demandePar.role, nom: rendreVisible(b.demandePar.nom), canal: rendreVisible(b.demandePar.canal) },
+      demande: { texte: rendreVisible(b.demande.texte), nonVerifie: true },
+      etiquettes: b.demandePar.role === 'proprietaire' ? [...(estNoyau(b.fichier) ? ['noyau'] : []), ...(estSensible(b.fichier) ? ['code sensible'] : [])] : [],
+      lignes: null,
+    };
+    if (b.etat !== 'proposé' || avant === undefined) return vue;
+    const d = difference(avant, b.apres);
+    return { ...vue, lignes: d.map((l) => [l.genre, l.avant ?? null, l.apres ?? null, rendreVisible(l.texte)]), compte: compteDifference(d), fins: { avant: finsDeLigne(avant), apres: finsDeLigne(b.apres), changees: finsDeLigneChangees(avant, b.apres) } };
+  });
 }
 
 async function readJson(req: IncomingMessage, max = MAX_BODY): Promise<Record<string, unknown>> {

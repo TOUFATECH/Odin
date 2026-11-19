@@ -46,7 +46,8 @@
       const fond = typeof v.bg === 'string' ? derniereCouche(v.bg).match(/#[0-9a-fA-F]{6}\b/g) : null;
       if (!fond || !v.solid || !v.ink || !v.accent || !v.mascot) continue;
       const hestia = id.startsWith('h-'), dessin = hestia ? catalogue.DECORS?.[catalogue.HESTIA?.[id.slice(2)]?.decor] : THEMES[id]?.decor;
-      THEMES[id] = { name: catalogue.NOMS?.[id] || id, dark: v.dark === true, sky: [fond[0], fond[fond.length - 1]], panel: v.solid, ink: v.ink, accent: v.accent, mascot: v.mascot, ...(dessin ? { decor: dessin } : {}), ...(dessin && hestia ? { vue: '0 -30 960 150' } : {}) };
+      const texte = catalogue.ACCENT_TEXTE?.[id];
+      THEMES[id] = { name: catalogue.NOMS?.[id] || id, dark: v.dark === true, sky: [fond[0], fond[fond.length - 1]], panel: v.solid, ink: v.ink, accent: v.accent, ...(typeof texte === 'string' ? { accentTexte: texte } : {}), mascot: v.mascot, ...(dessin ? { decor: dessin } : {}), ...(dessin && hestia ? { vue: '0 -30 960 150' } : {}) };
       (hestia ? HESTIA : EN_AVANT).push(id);
     }
   }
@@ -74,7 +75,9 @@
     const onAccent = contrast('#ffffff', a) >= contrast('#111111', a) ? '#ffffff' : '#111111';
     return {
       '--bg': bg, '--panel': p, '--panel2': mix(p, bg, t.dark ? 0.35 : 0.45), '--line': mix(p, ink, 0.14), '--ink': ink,
-      '--muted': mix(ink, p, 0.28), '--dim': mix(ink, p, 0.36), '--accent': a, '--accent-2': t.dark ? mix(a, '#ffffff', 0.18) : mix(a, '#000000', 0.15),
+      '--muted': mix(ink, p, 0.28), '--dim': mix(ink, p, 0.36), '--accent': a,
+      // Le texte en accent (liens, anneau du thème choisi) : une teinte plus foncée si le thème en a une, sinon l'accent.
+      '--accent-texte': t.accentTexte || a, '--accent-2': t.dark ? mix(a, '#ffffff', 0.18) : mix(a, '#000000', 0.15),
       '--on-accent': onAccent, '--field': mix(p, ink, 0.24), '--field-h': mix(p, ink, 0.34), '--hover': mix(p, ink, 0.06), '--sel': mix(p, a, 0.16),
       '--user': mix(p, a, 0.12), '--user-l': mix(p, a, 0.35), '--off': mix(ink, p, 0.55),
       // Couleurs d'état (vert, ambre, rouge) : celles d'Odin en sombre ou en clair, posées sur le panneau du thème.
@@ -155,7 +158,7 @@
     if (!box) {
       const wrap = document.createElement('div'); wrap.className = 'field'; wrap.innerHTML = '<div id="themeGrid"></div><label class="check" style="margin-top:4px"><input type="checkbox" id="themeAuto"> Automatique : selon l\'heure (veille 3 h – 6 h, jour, après-midi, soir, nuit) et la météo</label><span class="hint" id="themeWhy"></span>';
       card.querySelector('h2').after(wrap);
-      const css = document.createElement('style'); css.textContent = '#themeGrid .tfam{margin:4px 0 12px}#themeGrid h3{margin:0;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:baseline}#themeGrid h3 small{color:var(--muted);font-weight:600}#themeGrid .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-top:8px}#themeGrid button{position:relative;height:72px;border-radius:12px;border:1px solid var(--line);cursor:pointer;overflow:hidden;padding:0;display:flex;align-items:flex-end;justify-content:flex-start}#themeGrid button span{position:relative;z-index:1;margin:6px;padding:2px 7px;border-radius:999px;background:rgba(0,0,0,.45);color:#fff;font-size:12px;font-weight:600;max-width:calc(100% - 12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#themeGrid button i{position:absolute;right:7px;top:7px;width:12px;height:12px;border-radius:50%;border:2px solid #fff}#themeGrid button[aria-pressed=true]{outline:3px solid var(--accent);outline-offset:2px}';
+      const css = document.createElement('style'); css.textContent = '#themeGrid .tfam{margin:4px 0 12px}#themeGrid h3{margin:0;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:baseline}#themeGrid h3 small{color:var(--muted);font-weight:600}#themeGrid .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-top:8px}#themeGrid button{position:relative;height:72px;border-radius:12px;border:1px solid var(--line);cursor:pointer;overflow:hidden;padding:0;display:flex;align-items:flex-end;justify-content:flex-start}#themeGrid button span{position:relative;z-index:1;margin:6px;padding:2px 7px;border-radius:999px;background:rgba(0,0,0,.45);color:#fff;font-size:12px;font-weight:600;max-width:calc(100% - 12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#themeGrid button i{position:absolute;right:7px;top:7px;width:12px;height:12px;border-radius:50%;border:2px solid #fff}#themeGrid button[aria-pressed=true]{outline:3px solid var(--accent-texte,var(--accent));outline-offset:2px}';
       document.head.append(css);
       box = card.querySelector('#themeGrid');
       // Pas de nom pour la grille entière : chaque famille est un groupe nommé par son titre.
