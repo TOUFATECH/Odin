@@ -6,10 +6,10 @@
 // droit d'écrire, d'exécuter ou d'envoyer quoi que ce soit sans validation humaine.
 // C'est vérifié par le code, pas par le prompt.
 
-import { GRAVE_ACCEPTER, GRAVE_RESTAURER, GRAVE_NOYAU, GRAVE_SENSIBLE, estSensible, graveNoyau, integriteNoyau, RACINE_APPLI } from './noyau.ts';
+import { GRAVE_ACCEPTER, GRAVE_RESTAURER, GRAVE_NOYAU, GRAVE_SENSIBLE, estSensible, graveNoyau, integriteNoyau, nomVuParWindows, RACINE_APPLI } from './noyau.ts';
 import { GRAVE_MAISON } from './maison.ts';
 import { appendFileSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { OdinConfig, PolicyMode } from '../config.ts';
 import type { Risk } from '../types.ts';
 import { DEFAULT_BREAKER, effectiveAutonomy, type BreakerConfig } from '../mimir/decisions.ts';
@@ -501,8 +501,28 @@ export function jailPath(root: string, p: string): string {
 
 /** Fichiers d'Odin qui contiennent tes secrets : jamais lus ni écrits par les outils de fichiers. */
 const SECRET_FILES = /(^|[\\/])\.odin[\\/](\.env|env|admin\.json|machines\.json|codex-auth\.json|web-token|compte\.json|sessions\.json|askpass[^\\/]*|id_ed25519[^\\/]*|secrets?[^\\/]*|vault\.json|backup-pass|vapid\.json|[^\\/]*\.enc)$|(^|[\\/])valhalla[\\/]ullr[\\/]signatures[\\/]cle-signatures\.json$|(^|[\\/])valhalla[\\/]valgrind[\\/](certs[\\/][^\\/]*-key\.pem|acme-compte\.pem)$|(^|[\\/])valhalla[\\/]var[\\/]r[ée]glages\.json$|(^|[\\/])valhalla[\\/]bru[\\/]jeton-tunnel$|(^|[\\/])valhalla[\\/]skidbladnir[\\/](r[ée]glages\.json|notes[\\/][^\\/]+)$|(^|[\\/])valhalla[\\/]gladsheim[\\/](r[ée]glages|positions)\.json$|(^|[\\/])valhalla[\\/](thjalfi|urdr|svalinn)[\\/]secrets\.json$|(^|[\\/])var[\\/]lib[\\/]odin-pg([\\/]|$)|(^|[\\/])valhalla[\\/]([^\\/]+[\\/])?avant-base[^\\/]*([\\/]|$)|(^|[\\/])valhalla[\\/](journaux|skuld[\\/]archives|urdr[\\/]donnees|bragi[\\/]copies|partages|hlin|gna|pegase|var[\\/]sso|[^\\/]+[\\/]sauvegardes)([\\/]|$)|(^|[\\/])memoire[\\/]audio([\\/]|$)/i;
-/** Un fichier de secrets d'Odin (ou une copie de tes bases) : jamais lu par les outils de fichiers ni ouvert par Alexandrie. */
-export const isSecretFile = (p: string) => SECRET_FILES.test(p);
+/** Un fichier de secrets d'Odin (ou une copie de tes bases) : jamais lu par les outils de fichiers ni ouvert par Alexandrie. Sous Windows, aussi par un flux NTFS, un point ou une espace final, un nom court, une jonction ou un partage (nomsVus, comme toolPath). */
+export const isSecretFile = (p: string) => SECRET_FILES.test(p) || nomsVus(p).some((x) => SECRET_FILES.test(x));
+
+/**
+ * Les noms qu'un chemin désigne vraiment, pour les règles des secrets et des données du noyau. Sous Windows : tel qu'écrit,
+ * sans flux NTFS ni point ou espace final (nomVuParWindows, la règle du noyau), et le nom que rend le système pour son plus
+ * proche parent existant (realpathSync.native : un nom court 8.3 « ODIN~1 », « VAULT~1.JSO » redevient le vrai nom). Le
+ * chemin rendu par toolPath ne change pas. Ailleurs qu'en Windows : tel qu'écrit, rien ne change.
+ */
+function nomsVus(chemin: string): string[] {
+  if (process.platform !== 'win32') return [chemin];
+  const vu = nomVuParWindows(chemin);
+  let existant = vu, reste = '';
+  for (;;) {
+    try { lstatSync(existant); break; } catch { /* pas encore là : on remonte */ }
+    const p = dirname(existant); if (p === existant) break;
+    reste = reste ? join(basename(existant), reste) : basename(existant); existant = p;
+  }
+  let vrai = vu;
+  try { const n = realpathSync.native(existant); vrai = reste ? join(n, reste) : n; } catch { /* garde le nom vu */ }
+  return [chemin, vu, vrai];
+}
 
 /**
  * Chemin pour les outils de fichiers. Avec l'accès complet (propriétaire), un chemin absolu
@@ -516,11 +536,11 @@ export function toolPath(ctx: { workspace: string; fullAccess?: boolean }, p: st
     const abs = resolve(p.startsWith('~') ? join(home, p.slice(1)) : p);
     let real = abs;
     try { real = realpathSync(abs); } catch { /* n'existe pas encore */ }
-    if (SECRET_FILES.test(abs) || SECRET_FILES.test(real)) throw new Error(`Fichier de secrets d'Odin : ${p} (mots de passe et clés restent hors de la conversation ; utilise Réglages ou « odin admin »)`);
+    if ([abs, real].flatMap(nomsVus).some((x) => SECRET_FILES.test(x))) throw new Error(`Fichier de secrets d'Odin : ${p} (mots de passe et clés restent hors de la conversation ; utilise Réglages ou « odin admin »)`);
     out = real;
   } else out = jailPath(ctx.workspace, p);
   // Les DONNÉES du noyau (configuration, journal d'audit) ne s'écrivent que par leurs outils (Réglages, Heimdall).
-  if (o.ecriture && DONNEES_NOYAU.test(out)) throw new Error(`Donnée des garde-fous d'Odin : ${p} (la configuration se change par les Réglages ; le journal d'audit ne se réécrit jamais)`);
+  if (o.ecriture && nomsVus(out).some((x) => DONNEES_NOYAU.test(x))) throw new Error(`Donnée des garde-fous d'Odin : ${p} (la configuration se change par les Réglages ; le journal d'audit ne se réécrit jamais)`);
   return out;
 }
 

@@ -31,7 +31,7 @@ import { stripMood } from '../mood/mood.ts';
 import { sansLigneLireVenus } from '../valhalla/modules/venus.ts';
 import { brainOf } from '../tools/brain.ts';
 import { liensDe } from '../brain/liens-vivants.ts';
-import { Approbations } from '../heimdall/approbations.ts';
+import { Approbations, TROP_TARD } from '../heimdall/approbations.ts';
 import { deciderPuisLancer } from '../heimdall/executer.ts';
 import { extraireCles, rangerClesRecues } from '../heimdall/redact.ts';
 import { closeBrowsers } from '../tools/browser.ts';
@@ -231,10 +231,18 @@ export class Gateway {
 
     // Commandes prioritaires, traitées même pendant qu'un tour est en cours.
     let cmd = text.match(/^\/(yes|no|oui|non|always|toujours)\s+(\S+)/i);
-    // « oui », « non », « ok », « vas-y », « toujours »… tout court : la dernière demande en attente.
+    // « oui », « non », « ok », « vas-y », « toujours »… tout court : seulement quand UNE seule demande attend ; plusieurs :
+    // rien ne part, Odin donne la liste (chacune avec son identifiant) pour que tu dises laquelle.
     const bare = text.match(/^\/?(yes|no|oui|non|nan|ok|okay|ouais|vas[- ]y|d'accord|daccord|go|always|toujours)[\s.!]*$/i);
-    if (!cmd && bare && owner && this.approbations.taille) cmd = Object.assign([text, bare[1], this.approbations.derniere()!], { index: 0, input: text }) as RegExpMatchArray;
-    else if (!cmd && bare && text.startsWith('/') && owner) return ch.send(m.peer, 'Aucune demande en attente : elle a peut-être expiré. Redemande-moi l\'action, je la referai.');
+    if (!cmd && bare && owner && this.approbations.taille) {
+      const seule = this.approbations.seule();
+      if (!seule) {
+        const l = this.approbations.dansLesTemps();
+        if (!l.length) return ch.send(m.peer, TROP_TARD);
+        return ch.send(m.peer, `Plusieurs demandes ont été faites : rien n'est parti. Réponds avec l'identifiant de celle que tu veux :\n${l.map((x) => `• ${x.resume.replace(/\s+/g, ' ')} → /yes ${x.id} ou /no ${x.id}`).join('\n')}`);
+      }
+      cmd = Object.assign([text, bare[1], seule], { index: 0, input: text }) as RegExpMatchArray;
+    } else if (!cmd && bare && text.startsWith('/') && owner) return ch.send(m.peer, 'Aucune demande en attente : elle a peut-être expiré. Redemande-moi l\'action, je la referai.');
     if (cmd) {
       const rep = this.approbations.repondre(cmd[2], cmd[1], owner);
       if (!rep.ok) return ch.send(m.peer, rep.raison);
@@ -517,8 +525,9 @@ export class Gateway {
       const head = req.severity === 'grave' ? '🛑 Décision GRAVE : Odin a besoin de toi' : '⚠️ Odin demande une validation';
       const options = `Réponds oui ou non${req.grantable ? ' (ou « toujours » pour ne plus te le demander)' : ''}. Réf. /yes ${req.id}`;
       const msg = `${head}\nAction : ${req.summary}\nPourquoi : ${req.reason}\n${options}`;
-      // Heimdall tranche « non » après approvalTimeoutSec ; on oublie la demande peu après pour ne pas accumuler.
-      const answer = this.approbations.attendre(req.id, (this.odin.cfg.policy.approvalTimeoutSec + 60) * 1000);
+      // Heimdall tranche « non » après approvalTimeoutSec : passé ce délai, une réponse dit « trop tard » (rien ne part) ;
+      // on oublie la demande une minute après pour ne pas accumuler.
+      const answer = this.approbations.attendre(req.id, { echeanceMs: this.odin.cfg.policy.approvalTimeoutSec * 1000, resume: req.summary });
       // Canaux qui savent afficher une carte (interface web) : évènement typé, pas de détection par le texte.
       target.ch.event?.(target.peer, { type: 'approval', id: req.id, summary: req.summary, reason: req.reason, severity: req.severity, grantable: req.grantable });
       await target.ch.send(target.peer, msg, { approval: { id: req.id, grantable: req.grantable } });

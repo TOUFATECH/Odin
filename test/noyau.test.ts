@@ -20,6 +20,10 @@ test('la liste fermée du noyau, et les détours : « .. », majuscules, chemin 
   assert.match(graveNoyau('src/heimdall/../heimdall/policy.ts') ?? '', /^modifier un garde-fou d'Odin : src\/heimdall\/policy\.ts$/);
   assert.ok(graveNoyau(join(RACINE_APPLI, 'src', 'vault.ts')), 'chemin absolu');
   if (process.platform === 'win32') assert.ok(graveNoyau('SRC/Heimdall/Policy.ts'), 'majuscules sous Windows');
+  if (process.platform === 'win32') { // les autres noms Windows d'un même fichier (flux NTFS, point ou espace final) : test/noyau-chemins-windows.test.ts
+    assert.ok(estNoyau('src/vault.ts::$DATA')); assert.ok(estNoyau('src/vault.ts.'));
+    assert.match(graveNoyau('src/heimdall:$I30:$INDEX_ALLOCATION/policy.ts') ?? '', /^modifier un garde-fou d'Odin : src\/heimdall\/policy\.ts$/);
+  }
   assert.ok(graveNoyau('src/heimdall/nouveau-fichier.ts'), 'un fichier à créer dans le noyau');
   assert.equal(graveNoyau('src/web/ui.html'), undefined);
   assert.equal(cheminReelRelatif('../../ailleurs.txt'), undefined, 'hors du dossier d\'Odin');

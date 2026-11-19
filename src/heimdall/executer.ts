@@ -9,7 +9,7 @@ import { relative } from 'node:path';
 import type { Tool, ToolContext } from '../tools/registry.ts';
 import type { GateDecision, GateInput, Heimdall } from './policy.ts';
 import { toolPath } from './policy.ts';
-import { cheminReelRelatif, commandeSurLeCode, RACINE_APPLI } from './noyau.ts';
+import { cheminVraiRelatif, commandeSurLeCode, RACINE_APPLI } from './noyau.ts';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
@@ -91,16 +91,16 @@ export function estEnvoi(tool: string, input: Record<string, unknown>): boolean 
 /** Les fichiers du code d'Odin (relatifs à sa racine) qu'un appel va écrire. Vide si aucun. */
 export function cheminsCodeDe(tool: string, input: Record<string, unknown>, ctx: Pick<ToolContext, 'workspace' | 'fullAccess'> & { home?: string }, racine = RACINE_APPLI): string[] {
   // Un retour arrière réécrit les fichiers de son lot : même règle que leur réécriture (noyau, code sensible).
-  if (tool === 'self_rollback') { const h = (ctx as { home?: string }).home; if (!h) return []; try { return fichiersDuLotSync(h, String(input.id ?? '') || undefined).map((f) => cheminReelRelatif(f, racine)).filter((x): x is string => x !== undefined); } catch { return []; } }
+  if (tool === 'self_rollback') { const h = (ctx as { home?: string }).home; if (!h) return []; try { return fichiersDuLotSync(h, String(input.id ?? '') || undefined).map((f) => cheminVraiRelatif(f, racine)).filter((x): x is string => x !== undefined); } catch { return []; } }
   // media_convert écrit dans « output » : c'est ce chemin-là qui compte.
   const p = String((tool === 'media_convert' ? input.output : input.path) ?? '');
   if (!p) return [];
-  if (tool === 'media_convert') { try { const r = cheminReelRelatif(toolPath(ctx, p), racine); return r === undefined ? [] : [r]; } catch { return []; } }
+  if (tool === 'media_convert') { try { const r = cheminVraiRelatif(toolPath(ctx, p), racine); return r === undefined ? [] : [r]; } catch { return []; } }
   try {
-    if (tool === 'self_edit') { const r = cheminReelRelatif(p.replace(/^[\\/]+/, ''), racine); return r === undefined ? [] : [r]; }
+    if (tool === 'self_edit') { const r = cheminVraiRelatif(p.replace(/^[\\/]+/, ''), racine); return r === undefined ? [] : [r]; }
     if (tool === 'fs_write' || tool === 'fs_edit' || tool === 'doc_create') {
       const abs = toolPath(ctx, p);
-      const r = cheminReelRelatif(abs, racine);
+      const r = cheminVraiRelatif(abs, racine);
       return r === undefined ? [] : [r];
     }
   } catch { /* chemin refusé ailleurs */ }

@@ -71,11 +71,31 @@ export function estSensible(rel: string): boolean {
 export const GRAVE_NOYAU = 'modifier un garde-fou d\'Odin';
 
 const insensible = process.platform === 'win32' || process.platform === 'darwin';
-const norme = (rel: string): string => { const r = rel.split(sep).join('/').replace(/\\/g, '/').replace(/^\.\//, ''); return insensible ? r.toLowerCase() : r; };
+const WINDOWS = process.platform === 'win32';
+const CONTROLE = /[\u0000-\u001F\u007F]/;
 
-/** Un chemin RELATIF (déjà résolu) est-il dans le noyau ? Pur. */
+/**
+ * Le nom que Windows lit dans un chemin écrit (pur ; ailleurs qu'en `win32`, rendu tel quel) : dans chaque segment, ce
+ * qui suit le premier « : » est un flux NTFS (« vault.ts::$DATA », « heimdall:$I30:$INDEX_ALLOCATION ») et désigne le
+ * fichier ou le dossier lui-même ; un point ou une espace en fin de segment est retiré par Windows. La lettre du lecteur
+ * est gardée ; « . », « .. » et un segment qui ne serait plus rien sont laissés tels quels.
+ */
+export function nomVuParWindows(chemin: string, plateforme: string = process.platform): string {
+  if (plateforme !== 'win32') return chemin;
+  const lecteur = /^(?:[\\/]{2}[?.][\\/])?[A-Za-z]:/.exec(chemin)?.[0] ?? '';
+  return lecteur + chemin.slice(lecteur.length).split(/([\\/]+)/).map((s, i) => {
+    if (i % 2 || /^\.{1,2}$/.test(s)) return s;
+    const n = s.split(':')[0].replace(/[. ]+$/, '');
+    return n || s;
+  }).join('');
+}
+
+const norme = (rel: string): string => { const r = nomVuParWindows(rel).split(sep).join('/').replace(/\\/g, '/').replace(/^\.\//, ''); return insensible ? r.toLowerCase() : r; };
+
+/** Un chemin RELATIF (déjà résolu) est-il dans le noyau ? Pur. Sous Windows, un caractère de contrôle (jamais le vrai nom d'un fichier) : traité comme le noyau. */
 export function estNoyau(rel: string): boolean {
   const r = norme(rel);
+  if (WINDOWS && CONTROLE.test(r) && !r.startsWith('../') && !isAbsolute(r)) return true;
   if (!r || r.startsWith('../') || r === '..' || isAbsolute(r)) return false;
   return NOYAU_DOSSIERS.some((d) => r.startsWith(norme(d)) || r === norme(d).replace(/\/$/, '')) || NOYAU_FICHIERS.some((f) => r === norme(f));
 }
@@ -83,24 +103,61 @@ export function estNoyau(rel: string): boolean {
 /**
  * Le chemin réel, relatif à la racine, d'un chemin quelconque : `..`, liens symboliques (sur le fichier OU un dossier
  * parent), chemin absolu, majuscules sous Windows. Le fichier peut ne pas exister encore (on résout le plus proche
- * parent existant). Rend undefined s'il est hors de la racine.
+ * parent existant). Rend undefined s'il est hors de la racine. Le nom écrit est gardé tel quel (un flux NTFS ou un nom
+ * court y reste visible, pour qui veut le refuser) : pour le fichier que Windows touchera vraiment, cheminVraiRelatif.
  */
-export function cheminReelRelatif(chemin: string, racine = RACINE_APPLI): string | undefined {
-  const abs = resolve(racine, chemin);
+export function cheminReelRelatif(chemin: string, racine = RACINE_APPLI): string | undefined { return cheminRelatif(chemin, racine, false); }
+
+/**
+ * Comme cheminReelRelatif, mais sous Windows le VRAI nom du fichier que l'écriture touchera : sans flux NTFS ni point ou
+ * espace final (nomVuParWindows), et le nom que rend le système (realpathSync.native : un nom court 8.3 « DECISI~1.TS »
+ * devient « decisions.ts »). C'est ce chemin que la règle de réécriture juge. Ailleurs qu'en Windows : cheminReelRelatif.
+ */
+export function cheminVraiRelatif(chemin: string, racine = RACINE_APPLI): string | undefined { return cheminRelatif(chemin, racine, WINDOWS); }
+
+// Les dossiers qui mènent au noyau et au code sensible (la racine comprise), relatifs, en « / » : les repères d'identité.
+const REPERES = [...new Set(['', ...[...NOYAU_DOSSIERS, ...NOYAU_FICHIERS, ...SENSIBLE_DOSSIERS, ...SENSIBLE_FICHIERS].flatMap((f) => {
+  const s = f.replace(/\/$/, '').split('/'), n = f.endsWith('/') ? s.length : s.length - 1;
+  return Array.from({ length: n }, (_, i) => s.slice(0, i + 1).join('/'));
+})])];
+
+/**
+ * Sous Windows, un chemin dont le TEXTE sort de la racine peut quand même y mener : un partage (« \\localhost\C$\… »,
+ * « \\?\UNC\… », « \\?\GLOBALROOT\Device\Mup\… »), un autre lecteur sur le même disque. On compare l'identité (volume et
+ * numéro de fichier) de chacun de ses dossiers existants avec celle de la racine et des dossiers qui mènent au noyau ou au
+ * code sensible ; trouvé : le chemin est refait depuis la racine (puis jugé comme tout chemin local). Sinon undefined.
+ */
+function parIdentite(abs: string, racine: string): string | undefined {
+  const id = (p: string): string | undefined => { try { const s = statSync(p, { bigint: true }); return s.ino ? `${s.dev}:${s.ino}` : undefined; } catch { return undefined; } };
+  const reperes = new Map<string, string>();
+  for (const d of REPERES) { const i = id(join(racine, d)); if (i && !reperes.has(i)) reperes.set(i, d); }
+  let p = abs, reste = '';
+  for (;;) {
+    const i = id(p);
+    if (i && reperes.has(i)) return cheminRelatif(join(racine, reperes.get(i)!, reste), racine, true, false);
+    const parent = dirname(p); if (parent === p) return undefined;
+    reste = reste ? join(basename(p), reste) : basename(p); p = parent;
+  }
+}
+
+function cheminRelatif(chemin: string, racine: string, vraiNom: boolean, identite = vraiNom): string | undefined {
+  const abs = vraiNom ? nomVuParWindows(resolve(racine, chemin), 'win32') : resolve(racine, chemin);
   let existant = abs, reste = '';
   while (!existsSync(existant)) { const p = dirname(existant); if (p === existant) break; reste = reste ? join(basename(existant), reste) : basename(existant); existant = p; }
   let reel = existant; try { reel = realpathSync(existant); } catch { /* garde le chemin tel quel */ }
   let rac = racine; try { rac = realpathSync(racine); } catch { /* idem */ }
+  if (vraiNom) { try { const n = realpathSync.native(existant), nr = realpathSync.native(racine); reel = n; rac = nr; } catch { /* garde les précédents */ } }
   const final = reste ? join(reel, reste) : reel;
   const rel = relative(rac, final);
   const relI = insensible ? relative(rac.toLowerCase(), final.toLowerCase()) : rel;
-  if (!relI || relI.startsWith('..') || isAbsolute(relI)) return undefined;
+  if (!relI) return undefined;
+  if (relI.startsWith('..') || isAbsolute(relI)) return identite ? parIdentite(abs, racine) : undefined;
   return rel;
 }
 
 /** La raison « grave » si `chemin` (relatif à la racine, ou absolu) touche le noyau ; sinon undefined. */
 export function graveNoyau(chemin: string, racine = RACINE_APPLI): string | undefined {
-  const rel = cheminReelRelatif(chemin, racine);
+  const rel = cheminVraiRelatif(chemin, racine);
   return rel !== undefined && estNoyau(rel) ? `${GRAVE_NOYAU} : ${norme(rel)}` : undefined;
 }
 
