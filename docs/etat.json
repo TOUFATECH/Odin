@@ -1,6 +1,6 @@
 {
   "note": "L'état de chaque chose d'Odin : « fait » (commité), « en cours » (écrit, pas encore commité, ou en relecture), « à venir » (décrit dans une note, pas encore écrit). Ce fichier est la SEULE source : le guide (site/guide.html) et le README la lisent (npm run guide). Passer un élément à « fait » = changer son « etat » et donner son « commit » ; l'essai test/doc-etat.test.ts refuse « fait » si un de ses fichiers n'est pas commité.",
-  "maj": "2026-11-18",
+  "maj": "2026-11-19",
   "elements": [
     {
       "id": "applis",
@@ -100,7 +100,7 @@
       "nom": "Métis : les modèles de langue ouverts dans Odin, sans serveur",
       "etat": "fait",
       "famille": "Brain et Soul",
-      "resume": "Odin lit lui-même les modèles ouverts (GGUF), sans serveur de modèles à côté. Ce branchement est en cours de retrait : Odin n'utilisera que ses propres modèles.",
+      "resume": "Odin lit lui-même les modèles ouverts (GGUF), sans serveur de modèles à côté. Ce branchement est en cours de retrait : Odin n'utilisera que ses propres modèles, sauf pour la programmation (ta décision du 18/11).",
       "fichiers": [
         "src/brain/metis/avant.ts",
         "src/brain/metis/catalogue.ts"
@@ -432,13 +432,6 @@
       "commit": "49d96734"
     },
     {
-      "id": "soul-v3",
-      "nom": "Soul, version 3 : trouver la bonne appli — le tour 7",
-      "etat": "en cours",
-      "famille": "Brain et Soul",
-      "resume": "En cours : le tour 7. Mesuré une fois au jeu figé : 609 bonnes applis du premier coup sur 690 (605 au tour 6). Pas encore enregistré : sa préparation est d'abord ramenée sous la limite de temps de la suite d'essais, et un défaut trouvé à la relecture est à corriger. Aucun modèle n'est livré : un Odin neuf commence avec un Soul vide. L'aiguilleur n'est pas branché sur la discussion. L'objectif : la bonne application à 100 %."
-    },
-    {
       "id": "medias-recus",
       "nom": "Lire les médias reçus : photos, musique, vidéos",
       "etat": "fait",
@@ -569,18 +562,267 @@
       "commit": "ad844d3a"
     },
     {
+      "id": "soul-tour7",
+      "nom": "Soul, version 3, tour 7 : 609 bonnes applis du premier coup sur 690",
+      "etat": "fait",
+      "famille": "Brain et Soul",
+      "resume": "Au jeu figé (toutes les applis, quinze langues, demandes jamais vues), l'aiguilleur de Soul trouve la bonne appli du premier coup pour 609 demandes sur 690 (605 au tour 6) ; l'appli et l'action justes ensemble : 426 (412 au tour 6) ; quand il décide seul, 0 appli fausse sur 69. Le second temps regarde jusqu'à cinq applis candidates, et l'action est choisie en la comparant aux autres actions de la même appli ; une correction refaite change aussi l'action tout de suite. Dit franchement : sa préparation est plus longue qu'au tour 6, aucun modèle ni poids n'est livré dans le dépôt, et cet aiguilleur n'est toujours pas branché sur Odin : dans la discussion, c'est toujours Logos qui choisit l'appli. L'objectif reste la bonne appli à 100 %.",
+      "fichiers": [
+        "src/brain/nous/action.ts",
+        "src/brain/nous/aiguilleur.ts",
+        "test/nous-aiguilleur-tour7.test.ts"
+      ],
+      "commit": "907a3b78"
+    },
+    {
+      "id": "themes-familles",
+      "nom": "Apparence : les thèmes rangés par familles, 49 au choix",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Dans Réglages → Apparence, les thèmes sont rangés par familles, chacune avec son nombre. Ce lot a fait les deux premières : « Les thèmes d'Odin » et « Événements de l'année » (16) ; les thèmes d'événements se choisissent comme les autres, à la main ou en le disant ; le choix est gardé sur tous tes écrans. « Au hasard » ne tombe jamais sur un événement, ni sur le thème en cours. Les familles « Mis en avant » et « Thèmes de Hestia » sont venues ensuite (voir plus bas).",
+      "fichiers": [
+        "src/web/themes.js",
+        "src/valhalla/modules/apparence.ts",
+        "test/themes-choix.test.ts"
+      ],
+      "commit": "95c371de"
+    },
+    {
+      "id": "themes-en-avant",
+      "nom": "Apparence : « Mis en avant », six thèmes de la maquette validée",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "En tête de Réglages → Apparence, la famille « Mis en avant » : Glace (aux couleurs de la maquette), Vitre, Glace nuit, Néon, Home Assistant et Maison claire. Pour l'instant ils sont « à plat » : fond uni, cartes pleines ; le verre de la maquette n'est pas encore là. « Minuit » ne change pas.",
+      "fichiers": [
+        "src/web/pages/themes-catalogue.js",
+        "src/web/themes.js",
+        "src/valhalla/modules/apparence.ts",
+        "test/themes-catalogue.test.ts"
+      ],
+      "commit": "d95e38a2"
+    },
+    {
+      "id": "themes-hestia",
+      "nom": "Apparence : les 31 thèmes de Hestia, 85 thèmes au choix",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Les 31 thèmes de l'écran de la maison se choisissent aussi pour Odin, dans Réglages → Apparence, famille « Thèmes de Hestia », avec leurs décors et les noms que l'écran de la maison leur donne. Un thème de Hestia s'affiche avec le nom de sa famille. En tout, 85 thèmes en quatre familles : Mis en avant (6), Les thèmes d'Odin (32), Thèmes de Hestia (31), Événements de l'année (16). Eux aussi sont « à plat » pour l'instant. L'écran de la maison garde ses propres thèmes. « Au hasard » peut tomber sur un thème mis en avant ou de Hestia, jamais sur un événement.",
+      "fichiers": [
+        "src/web/pages/themes-catalogue.js",
+        "src/web/themes.js",
+        "src/valhalla/modules/apparence.ts",
+        "test/themes-catalogue.test.ts"
+      ],
+      "commit": "1fd27d40"
+    },
+    {
+      "id": "menu-accueil",
+      "nom": "Menu : « Aujourd'hui » devient « Accueil »",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Un seul nom pour le premier écran : dans le menu, la barre du haut, la barre du bas du téléphone, le titre de la page, la palette et le guide de la mascotte. Aucune adresse ne change.",
+      "fichiers": [
+        "src/web/ui.html",
+        "test/menus-noms.test.ts"
+      ],
+      "commit": "8334c532"
+    },
+    {
+      "id": "menu-home-assistant",
+      "nom": "Menu : « Home Assistant » ouvre l'écran de la maison, « ← Odin » ramène à Odin",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Sous « Accueil », l'entrée « Home Assistant » ouvre l'écran de la maison (Hestia). Toi seul la vois, et seulement quand Hestia est là ; un membre de la famille ne la voit jamais. Sur l'écran de la maison, « ← Odin » ramène à Odin (pas sur une tablette ouverte par sa clé). Sur téléphone, ouvrir puis fermer « Plus » ne laisse plus une page vide.",
+      "fichiers": [
+        "src/web/pages/menu-ecrans.js",
+        "src/web/maison.js",
+        "test/menus-ecrans.test.ts"
+      ],
+      "commit": "ba44c53d"
+    },
+    {
+      "id": "maison-membres",
+      "nom": "L'écran de la maison fermé aux membres de la famille",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Une session de membre n'y a plus aucun droit, même s'il a le droit sur Hestia : état, caméras, réseau, thème, discussion et boutons lui sont refusés. Un membre ne se crée plus de clé de tablette, et toi seul ranges la fenêtre. Les clés de tablette et ta session ne changent pas.",
+      "fichiers": [
+        "src/valhalla/modules/gladsheim.ts",
+        "test/maison-membre.test.ts"
+      ],
+      "commit": "1f9a885b"
+    },
+    {
+      "id": "membre-grave-refuse",
+      "nom": "Un membre de la famille ne confirme plus lui-même une action grave",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Depuis la page d'une appli, la barre des applis ou le port direct d'une appli, un membre ne peut pas confirmer lui-même une action grave : elle ne part pas, et c'est noté au journal des connexions. Ce que tu fais, les automatisations et ce qu'un membre fait librement ne changent pas. Sa demande t'est envoyée (élément suivant).",
+      "fichiers": [
+        "src/valhalla/sso/garde.ts",
+        "test/membre-demande-grave.test.ts"
+      ],
+      "commit": "3baa0bb9"
+    },
+    {
+      "id": "membre-demande-proprietaire",
+      "nom": "La demande d'un membre arrive chez toi",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Quand un membre touche une action grave, elle ne part pas : sa demande t'est présentée par le validateur d'Odin, comme celles qui viennent des messageries (qui demande, dans quelle appli, quoi), sur Odin ouvert ou sur ta messagerie. Oui : l'action part à son nom, après un nouveau contrôle de ses droits. Non, ou pas de réponse dans le délai (5 minutes par défaut) : rien ne part. Il lit « Demande envoyée… », puis ta réponse. Au plus 3 demandes en attente par membre et 10 en tout ; une action que toi seul règles reste refusée, sans demande. Ce qu'un membre fait est noté à son nom, sans chasser du journal ce qu'Odin a fait.",
+      "fichiers": [
+        "src/valhalla/sso/garde.ts",
+        "src/valhalla/service.ts",
+        "test/membre-demande-proprietaire.test.ts"
+      ],
+      "commit": "2068d37f"
+    },
+    {
+      "id": "validations-attente",
+      "nom": "Les validations en attente te sont remontrées",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Quand tu ouvres Odin, changes de conversation ou reviens après une coupure, tu vois toutes les demandes qui attendent encore ta réponse, celles d'Odin comme celles d'un membre, avec Autoriser, Refuser et l'heure limite. Une demande expirée ou déjà répondue perd ses boutons. Le membre lit « ⏳ Demande envoyée… ». Dans le suivi des manips, une action faite pour un membre dit « à la demande de … (membre de la famille) », dans une liste à part. Seul le propriétaire lit cette liste d'attente.",
+      "fichiers": [
+        "src/web/server.ts",
+        "src/web/ui.html",
+        "src/web/valhalla.js",
+        "test/validations-en-attente.test.ts"
+      ],
+      "commit": "0c0a6415"
+    },
+    {
+      "id": "garde-donnees-exemple",
+      "nom": "Garde-fou du dépôt public : les données d'exemple de la maquette n'entrent pas dans le code",
+      "etat": "fait",
+      "famille": "Dépôt",
+      "resume": "Deux essais refusent les noms de la maquette de l'accueil et de l'écran de la maison (lieux, machines, adresses, personnes, titres) dans le code. Ils ne connaissent ces mots que par des empreintes chiffrées avec une clé gardée hors du dépôt, et ne disent jamais le mot trouvé : seulement le fichier et la ligne.",
+      "fichiers": [
+        "test/donnees-exemple.test.ts",
+        "test/chantier13-formes.test.ts"
+      ],
+      "commit": "b11d6c78"
+    },
+    {
+      "id": "disque-odin-doctor",
+      "nom": "« Disque d'Odin » dans odin doctor ; BitLocker lu par les clés d'installation",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "« odin doctor » dit si le disque des données d'Odin est chiffré : dossier d'Odin, clé de la machine, application et sauvegardes, liens et jonctions résolus. « Chiffré » seulement si tout l'est ; au moindre doute, « je ne peux pas le savoir » ; avec la marche à suivre pour le chiffrer toi-même. Rien ne bloque, Odin ne lance aucun chiffrement et ne lit jamais la clé. Phrases en français, anglais, allemand, espagnol et japonais (les autres langues : en anglais). Sous Windows, l'onglet « Clé USB » de Genèse lit enfin BitLocker (l'état de chaque lecteur, jamais la clé) et ne touche pas un disque chiffré, suspendu ou en pause.",
+      "fichiers": [
+        "src/securite/disque-chiffre.ts",
+        "src/cli/main.ts",
+        "test/disque-chiffre.test.ts"
+      ],
+      "commit": "be94ee60"
+    },
+    {
+      "id": "cle-chiffrement-inconnu",
+      "nom": "Clés d'installation : un disque au chiffrement inconnu n'est pas touché",
+      "etat": "fait",
+      "famille": "Machines",
+      "resume": "Dans Genèse, onglet « Clé USB » : un disque dont Odin ne peut pas lire le chiffrement (sans droits d'administrateur, ou une partition de données sans lettre) est traité comme chiffré. Aucune partition créée, Windows jamais réduit ; le refus dit pourquoi, lecteur par lecteur, et Odin ne demande jamais la clé de récupération. Une étiquette « Chiffrement inconnu » s'affiche sur le disque.",
+      "fichiers": [
+        "src/valhalla/thjalfi/cle-plan.ts",
+        "src/web/pages/thjalfi-cle.js",
+        "test/cle-plan.test.ts"
+      ],
+      "commit": "08ac5ac2"
+    },
+    {
+      "id": "reglages-invitation",
+      "nom": "Inviter quelqu'un de la famille depuis Réglages → Personnes",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Dans Réglages → Personnes, « Inviter quelqu'un de la famille » : le nom, un e-mail facultatif (Odin y envoie le lien), la durée (1 à 30 jours, 7 par défaut) et le groupe (« famille » par défaut, jamais « admin »). Tu valides, puis tu as le lien à usage unique, « Copier » et un QR code ; la personne choisit elle-même son identifiant et son mot de passe. La liste des invitations en cours a un bouton « Annuler ». Un membre ne voit pas ce bloc. Le lien n'est pas gardé dans le navigateur : il quitte la page quand tu fermes le bloc ou annules l'invitation. C'est le même lien d'invitation que dans Persona, avec la même validation.",
+      "fichiers": [
+        "src/web/ui.html",
+        "test/reglages-invitation.test.ts"
+      ],
+      "commit": "b860eaa6"
+    },
+    {
+      "id": "maquette-filets",
+      "nom": "Les filets de l'accueil et de l'écran de la maison",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Deux essais tiennent tout ce que l'accueil et l'écran de la maison savent faire aujourd'hui (38 choses de l'accueil, dont ton accord avant une action grave ; chaque commande de l'écran de la maison et l'ordre qu'elle envoie ; ce qu'une tablette reçoit et ne reçoit pas), pour qu'aucune livraison de la maquette n'en perde rien. Rien ne change à l'écran.",
+      "fichiers": [
+        "test/accueil-garde.test.ts",
+        "test/maison-garde.test.ts"
+      ],
+      "commit": "6b226dca"
+    },
+    {
+      "id": "persona-groupes-vides",
+      "nom": "Persona : un groupe vide a ses cases d'applis ; une invitation acceptée au journal",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Un groupe qu'on vient de créer, même vide, a tout de suite ses cases d'applis dans l'onglet Accès de Persona. Une invitation acceptée est notée au journal des droits, comme une personne ajoutée à la main.",
+      "fichiers": [
+        "src/valhalla/sso/persona.ts",
+        "src/valhalla/sso/comptes.ts",
+        "test/persona-groupes-vides.test.ts",
+        "test/persona-invitation-journal.test.ts"
+      ],
+      "commit": "247523fa"
+    },
+    {
+      "id": "recode-brouillons",
+      "nom": "Odin se recode, la fondation : le brouillon d'une réécriture",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Rien ne se voit encore et rien n'est branché : c'est la base des étapes suivantes. Le brouillon d'une réécriture est chiffré et gardé hors du code ; sa différence est complète et numérotée, rien n'est coupé. Odin calcule la liste de ce qu'un membre ne pourra jamais demander : le noyau, le code sensible et tout fichier qu'ils chargent (imports suivis, même ceux faits à la demande).",
+      "fichiers": [
+        "src/code/brouillons.ts",
+        "src/code/difference.ts",
+        "src/code/fermeture.ts",
+        "test/code-brouillons.test.ts"
+      ],
+      "commit": "b1510f59"
+    },
+    {
       "id": "retrait-externes",
       "nom": "Retirer les derniers modèles qui ne sont pas ceux d'Odin",
       "etat": "en cours",
       "famille": "Brain et Soul",
-      "resume": "Une tranche est écrite et attend ta décision avant d'être enregistrée : la porte du modèle, et la migration qui efface du coffre les clés des services de modèles. Ensuite : plus aucun fournisseur de modèle de langue construit, Métis retiré. Aujourd'hui, ces branchements existent encore dans le code."
+      "resume": "Une tranche est écrite, pas installée : la porte du modèle, et la migration qui efface du coffre les clés des services de modèles. Ta décision du 18/11 (une exception pour la seule programmation) demande de la revoir avant de l'installer : garder un seul chemin, réservé à la programmation. Aujourd'hui, ces branchements existent encore : si une clé de service de modèles est réglée dans ton Odin, ce service répond encore à tout."
     },
     {
       "id": "maquette-accueil",
       "nom": "La maquette validée de l'Accueil et de l'écran de la maison",
       "etat": "en cours",
       "famille": "Odin",
-      "resume": "Le plan est écrit : 80 livraisons (lots 0 à 62). Aucun lot n'est encore enregistré : rien de cette maquette n'est dans Odin aujourd'hui. Le premier lot (les thèmes rangés par familles, 49 au choix au lieu de 33) est en train d'être écrit. D'abord les 73 thèmes de la maquette (plus le choix « Automatique ») dans Réglages → Apparence, deux menus (noms à choisir) vers l'accueil et l'écran de la maison, les blocs des automatisations en cercles ; ensuite le verre, la grille de l'accueil, les widgets de tes applis avec tes vraies données, l'écran de la maison jusqu'à la maison 3D, et les bulles des automatisations."
+      "resume": "10 livraisons enregistrées sur 80 : le garde-fou des données d'exemple (lot 0), les thèmes par familles (1), « Mis en avant » (2), les thèmes de Hestia (3), « Home Assistant » dans le menu et « ← Odin » (4a), « Accueil » (4b), l'écran de la maison fermé aux membres (24a et 24b, comptés à part comme dans le plan), les filets de l'accueil (12) et de l'écran de la maison (41). Pas encore là : les blocs des automatisations en cercles et leurs bulles, les familles de thèmes sur l'écran de la maison, le verre et le fond qui vit, la grille de l'accueil, les widgets de tes applis avec tes vraies données, l'écran de la maison jusqu'à la maison 3D."
+    },
+    {
+      "id": "automatisations-cercles",
+      "nom": "Automatisations : les blocs en cercles",
+      "etat": "en cours",
+      "famille": "Odin",
+      "resume": "Un croquis t'a été envoyé : chaque bloc en rond, le « + » à droite à mi-hauteur, une pastille chiffrée en haut à droite. Rien n'est codé : la suite attend que tu l'aies vu, et le sens de « bulles » est à te faire confirmer."
+    },
+    {
+      "id": "noyau-correction",
+      "nom": "Une correction des garde-fous d'Odin (le noyau)",
+      "etat": "en cours",
+      "famille": "Sûreté",
+      "resume": "Écrite et relue, pas enregistrée. Elle attend ton accord : elle t'est montrée d'abord, et c'est toi qui acceptes la nouvelle version sur ton Odin. Le détail sera dit ici une fois la correction enregistrée."
+    },
+    {
+      "id": "comptes-infos-age",
+      "nom": "L'âge et les informations d'une personne",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Dans Persona, une personne a, en plus de son nom, une année de naissance et une langue, toutes deux facultatives. Elles se donnent à l'ajout, à la modification, sur la page d'invitation et dans « Mon compte ». Elles sont chiffrées sur le disque. Seule l'année est gardée ; l'âge est recalculé à chaque lecture. Une année impossible (dans l'avenir, avant 1900) est refusée avant toute confirmation. Un membre ne voit et ne corrige que les siennes. Rien de nouveau ne part vers un logiciel relié.",
+      "fichiers": [
+        "src/valhalla/sso/infos.ts",
+        "src/valhalla/modules/var.ts",
+        "src/valhalla/sso/comptes.ts",
+        "src/prive.ts",
+        "test/persona-infos.test.ts"
+      ],
+      "commit": "efe2232a"
     },
     {
       "id": "lieu-suppose",
@@ -588,6 +830,41 @@
       "etat": "à venir",
       "famille": "Odin",
       "resume": "Tant que tu n'as pas réglé ta ville, l'accueil ne montrera plus comme la tienne une ville seulement supposée d'après l'horloge de la machine : il dira que c'est une supposition et proposera de régler ta ville sur place. Pas commencé."
+    },
+    {
+      "id": "comptes-groupes",
+      "nom": "Comptes, groupes, informations d'une personne : la suite",
+      "etat": "à venir",
+      "famille": "Sûreté",
+      "resume": "Tes demandes du 18/11, dans l'ordre de l'étude. Déjà là : l'invitation depuis Réglages, les cases d'un groupe vide, l'invitation au journal, la demande d'un membre qui t'arrive, l'âge et les informations sur la personne de Persona (plus haut). À venir : les mêmes informations sur ton compte d'Odin et sur la carte Profil ; Odin s'en servira pour te répondre ; un groupe « admin » d'une seule appli (après ta réponse) ; s'inscrire sur une page avec tes informations (étude à part avant le code ; accepter les conditions d'un site restera ton geste)."
+    },
+    {
+      "id": "disque-chiffre-suite",
+      "nom": "Disque chiffré et clé de secours : la suite",
+      "etat": "à venir",
+      "famille": "Sûreté",
+      "resume": "Ta demande du 18/11 : à l'installation, le disque sera chiffré et une clé de secours te sera donnée pendant la configuration. Étapes de l'étude : la vérification à chaque démarrage, en avertissement ; la vérification et le guide à l'installation ; un garde-fou pour qu'Odin ne lise ni ne crée jamais lui-même un moyen de récupération ; la clé de secours pendant la configuration (sous Windows, c'est BitLocker qui la crée : Odin te guidera et te demandera de confirmer que tu l'as rangée hors de la machine) ; refuser de fonctionner sur un disque non chiffré, seulement après ta réponse ; un serveur qui redémarre seul. Franchement : une clé de secours perdue, ce seront toutes les données perdues. Pas commencé."
+    },
+    {
+      "id": "odin-se-recode",
+      "nom": "Odin se recode : la demande d'un membre, validée par toi",
+      "etat": "à venir",
+      "famille": "Sûreté",
+      "resume": "Aujourd'hui, toi seul peux faire réécrire son code à Odin, avec ta validation par défaut ; un membre est refusé et tu n'en es pas prévenu (le refus est seulement noté au journal des décisions). Déjà là : la fondation, le brouillon (plus haut). À venir, dans l'ordre de l'étude : une page « Réécritures proposées » qui montre chaque brouillon en entier, avant et après, avec qui l'a demandé ; appliquer seulement ce que tu as vu ; puis la demande d'un membre, que tu valides. Ce qui touche aux garde-fous ne changera qu'avec une nouvelle version que tu accepteras toi-même."
+    },
+    {
+      "id": "programmeur-sites",
+      "nom": "Odin programmeur et créateur de sites",
+      "etat": "à venir",
+      "famille": "Applis",
+      "resume": "Ta demande du 18/11. Étapes de l'étude : un premier site fait sur la machine et visible dans Odin, son serveur sur la machine seulement, des modifications précises avec retour en arrière, les images, vidéos, sons et documents dans le site, vérifier un site et reconnaître un langage, appliquer un correctif donné, le site servi à la maison selon ta réponse, et l'entraînement de Soul à comprendre les demandes de site. Franchement : Soul apprendra à comprendre ces demandes, pas à écrire du code. Rien ne sera ouvert au réseau sans ta validation. Pas commencé."
+    },
+    {
+      "id": "exception-programmation",
+      "nom": "L'exception pour la programmation : un modèle extérieur pour le code seul, chaque envoi validé par toi",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Tes réponses du 18/11 : « Exception pour le code » (un modèle extérieur pour la seule programmation) et « Je valide chaque envoi » (chaque envoi attendra ta validation, avec ce qui part sous tes yeux ; sans ta réponse, rien ne partira). Ta règle du 17/11 tient pour tout le reste : aucun modèle externe. L'étude propose, à confirmer par toi : la programmation, c'est écrire, lire, corriger du code et créer des sites ; ne jamais envoyer le coffre, la mémoire, le Cerveau, les personnes, les autres applis ; tes réponses d'abord (quel service, où tu valides, qui s'en sert, un plafond par mois), puis la tranche du retrait revue, la porte de la programmation, la page où tu valides, un premier usage dans Dédale, l'atelier de code, puis les sites. Rien n'est construit."
     },
     {
       "id": "propres-modeles",
@@ -601,7 +878,7 @@
       "nom": "Ce que cela veut dire, franchement",
       "etat": "à venir",
       "famille": "Brain et Soul",
-      "resume": "Tant que son propre modèle de langue n'est pas entraîné, Odin répond avec Soul et ses actions directes, sans rédiger de longues réponses ni raisonner. Sur un processeur à 4 cœurs, ces réseaux resteront longtemps petits et spécialisés."
+      "resume": "Tant que son propre modèle de langue n'est pas entraîné, Odin répond avec Soul et ses actions directes, sans rédiger de longues réponses ni raisonner. Sur un petit processeur, ces réseaux resteront longtemps petits et spécialisés. Seule exception décidée le 18/11 : la programmation (voir plus bas)."
     },
     {
       "id": "profil-suite",
@@ -615,7 +892,7 @@
       "nom": "Automatisations : la suite des gestes de l'éditeur de scénarios",
       "etat": "à venir",
       "famille": "Applis",
-      "resume": "Le dessin en cercles et en bulles que tu as demandé le 18/11 : il est dans le plan de la maquette validée, pas encore codé. Une étape à la fois : l'exécution montrée bloc par bloc, les branches et les conditions sur un fil, le planning réglé depuis le déclencheur, que faire en cas d'erreur ; couper les autres liens (les appels d'une appli à l'autre, les sondes…) ; plus tard, un déclencheur à l'arrivée d'un mail ou d'un message."
+      "resume": "Le dessin en cercles et en bulles que tu as demandé le 18/11 : voir « les blocs en cercles » (croquis envoyé, rien de codé). Une étape à la fois : l'exécution montrée bloc par bloc, les branches et les conditions sur un fil, le planning réglé depuis le déclencheur, que faire en cas d'erreur ; couper les autres liens (les appels d'une appli à l'autre, les sondes…) ; plus tard, un déclencheur à l'arrivée d'un mail ou d'un message."
     },
     {
       "id": "graphe-3d-suite",
@@ -636,7 +913,7 @@
       "nom": "La liste « à valider » retrouvée au retour",
       "etat": "à venir",
       "famille": "Sûreté",
-      "resume": "Ce qu'Odin a voulu faire seul et qui engage t'attend, avec oui ou non."
+      "resume": "Ce qu'Odin a voulu faire seul et qui engage t'attend, avec oui ou non, même après le délai d'une validation. (Les validations encore dans leur délai te sont déjà remontrées : voir plus haut.)"
     },
     {
       "id": "soul-processeur",

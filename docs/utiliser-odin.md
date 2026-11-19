@@ -10,7 +10,7 @@ Ce document garde le détail des fonctions qui ne tient pas dans le [README](../
 
 | Onglet | Ce que tu y fais |
 |---|---|
-| **Discussion** | parler à Odin, voir ses outils en direct, répondre aux validations en un clic (Autoriser · Toujours autoriser · Refuser) |
+| **Discussion** | parler à Odin, voir ses outils en direct, répondre aux validations en un clic (Autoriser · Toujours autoriser · Refuser) ; celles qui attendent encore reviennent quand tu ouvres Odin |
 | **Missions** | tout ce qu'Odin fait ou a fait : origine (toi, tâche planifiée, initiative), étapes, outils, sous-agents, coût ; **Arrêter** une mission en cours, **Reprendre** une mission interrompue |
 | **Réseau** | appareils en ligne, déconnectés, retirés ; ce qu'Odin peut faire avec chacun ; balayage à la demande |
 | **Mémoire** | souvenirs d'Odin ; valider ceux en quarantaine, épingler, oublier |
@@ -243,7 +243,7 @@ Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, p
 
 ## Modèles : le bon pour chaque tâche
 
-> **En cours de retrait.** Ce qui suit décrit les branchements à des modèles qui ne sont pas ceux d'Odin (fournisseurs en ligne, modèles ouverts lus par Métis, abonnement par Codex) : ils existent encore dans le code d'aujourd'hui, et leur retrait est en cours d'écriture. Ensuite, Odin n'utilisera que ses propres modèles, entraînés sur ta machine. Déjà retirés (17/11) : la voix, la traduction, la recherche et l'analyse par un service en ligne, et le second avis d'un modèle dans les décisions. Sans modèle, Odin n'est pas « en démonstration » : Soul, les mises à jour et les alertes tournent.
+> **En cours de retrait.** Ce qui suit décrit les branchements à des modèles qui ne sont pas ceux d'Odin (fournisseurs en ligne, modèles ouverts lus par Métis, abonnement par Codex) : ils existent encore dans le code d'aujourd'hui, et leur retrait est en cours d'écriture. Ensuite, Odin n'utilisera que ses propres modèles, entraînés sur ta machine, avec une seule exception, décidée le 18/11 : la programmation (écrire, lire, corriger du code, créer des sites) pourra passer par un modèle extérieur, et chaque envoi attendra ta validation, avec ce qui part sous tes yeux. Rien de cette exception n'est encore construit. Déjà retirés (17/11) : la voix, la traduction, la recherche et l'analyse par un service en ligne, et le second avis d'un modèle dans les décisions. Sans modèle, Odin n'est pas « en démonstration » : Soul, les mises à jour et les alertes tournent.
 
 Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secours, et leur palier : **installé/gratuit** (un modèle ouvert lu par Métis, sur la machine), **standard**, **le plus capable**. Odin choisit le moins cher qui suffit : question simple → modèle local, tâche ordinaire → standard, tâche complexe → le plus capable. Quand un modèle arrive **à bout de quota**, il passe au suivant tout seul et te le dit. Pour une **décision risquée**, c'est le juge local d'Odin qui décide, seul (voir « Qui répond aux questions ? »). **Codex** (OpenAI) peut recevoir les tâches de code : `npm install -g @openai/codex`.
 
@@ -279,6 +279,8 @@ Réponses **en direct**, mot à mot (Anthropic, compatibles OpenAI, Codex). Les 
 - Les réponses à enjeu (actions sur tes machines, faits du web) sont **relues par un second modèle** qui compare la réponse aux résultats réels des outils ; tout écart est signalé « ⚠ À vérifier ».
 
 ## Accueil : tout d'un coup d'œil
+
+Le premier écran s'appelle **Accueil** partout : dans le menu, la barre du haut, la barre du bas du téléphone et le titre de la page (il s'appelait « Aujourd'hui »). Juste en dessous dans le menu, **Home Assistant** ouvre l'écran de la maison (Hestia). Toi seul vois cette entrée, et seulement quand Hestia est là ; un membre de la famille ne la voit jamais. Sur l'écran de la maison, **← Odin** ramène à Odin (sauf sur une tablette ouverte par sa clé). La maquette validée de l'accueil et de l'écran de la maison se construit livraison par livraison (10 faites sur 80, dont ces deux noms et les thèmes « Mis en avant » et de Hestia) ; le verre, la grille de widgets et tes applis en widgets ne sont pas encore là : voir [l'état](etat.json).
 
 La page d'accueil résume l'essentiel : modèle et dépenses du mois, ce qui t'attend (validations, compétences à relire, problèmes de sécurité), missions en cours, état du réseau, surveillance (disques, appareils importants), sauvegarde, routines, et les demandes que tu fais souvent (Odin propose d'en faire une tâche automatique, chaque jour ou chaque lundi).
 
@@ -469,7 +471,7 @@ Réglages → Personnalité : un ton (et une voix) par contexte — « Maison »
 Recherche dans toutes tes conversations, épingles, renommage, export en PDF (menu ⋯ de chaque conversation).
 
 ## Tout tester, pour de vrai
-Bouton **Tout tester** sur l'écran Aujourd'hui (ou `odin test`) : Odin essaie réellement chaque fonction reliée — modèle, Telegram, mail, agenda, Proxmox, Home Assistant, recherche web, mémoire par le sens, sauvegardes, accès extérieur, notifications — et dit pour chacune ✅ / ❌ / ⚪ (non reliée) avec quoi faire si ça ne marche pas.
+La commande `odin test` : Odin essaie réellement chaque fonction reliée — modèle, Telegram, mail, agenda, Proxmox, Home Assistant, recherche web, mémoire par le sens, sauvegardes, accès extérieur, notifications — et dit pour chacune ✅ / ❌ / ⚪ (non reliée) avec quoi faire si ça ne marche pas.
 
 ## Il apprend de ses erreurs et choisit le bon modèle
 Quand tu le corriges (« non, c'est… »), Odin en tire une leçon qu'il relit avant les tâches semblables. Il mesure aussi quel modèle réussit le mieux chaque type de tâche (réseau, web, code…) et le choisit en priorité.
@@ -485,6 +487,14 @@ En **Mains libres** avec **Voix** activée, après sa réponse Odin t'écoute de
 
 ## Coffre (facultatif)
 Réglages → Droits et machines → **Coffre** : un mot de passe maître chiffre sur le disque les clés, jetons et mots de passe d'Odin. Après chaque redémarrage, il faut le déverrouiller depuis l'Accueil (Odin t'envoie une notification).
+
+## Disque chiffré : ce qu'Odin vérifie
+
+`odin doctor` affiche une ligne **Disque d'Odin** : *chiffré*, *pas chiffré* ou *je ne peux pas le savoir*. Odin regarde le disque de son dossier, de la clé de la machine, de l'application et des sauvegardes (les vrais emplacements, liens et jonctions suivis). Il ne dit « chiffré » que si tout l'est ; au moindre doute, il dit qu'il ne peut pas le savoir. Sous Windows, lire BitLocker demande un terminal ouvert en administrateur ; dans un conteneur, le disque est celui de la machine hôte, donc Odin ne peut pas le savoir. S'il n'est pas chiffré, Odin donne la marche à suivre pour le faire **toi-même** : une sauvegarde d'abord, puis la clé de récupération notée hors de la machine. Il ne bloque rien, ne lance aucun chiffrement et ne lit jamais la clé. Les phrases existent en français, anglais, allemand, espagnol et japonais ; dans une autre langue, elles s'affichent en anglais.
+
+**Clés d'installation** (Genèse, onglet « Clé USB ») : sous Windows, Odin lit l'état BitLocker de chaque lecteur (jamais la clé) et ne touche pas un disque chiffré, même quand la protection est suspendue ou le chiffrement en pause. Un disque dont il ne peut pas lire le chiffrement (Odin lancé sans droits d'administrateur, ou une partition de données sans lettre) est traité comme chiffré : aucune partition créée, Windows jamais réduit. Le refus dit pourquoi, lecteur par lecteur, et l'étiquette **Chiffrement inconnu** s'affiche sur le disque. Odin ne te demande jamais la clé de récupération.
+
+**Pas encore là** (ta demande du 18/11) : le disque chiffré à l'installation, la vérification à chaque démarrage et la clé de secours donnée pendant la configuration. Voir [l'état](etat.json).
 
 ## Scripts réutilisables et compétences qui s'améliorent
 Comme Hermes, Odin va vite grâce à ses **compétences** (procédures) et à sa **bibliothèque de scripts** (Python, Bash, Node). Tout se fait tout seul :
@@ -522,6 +532,17 @@ Pendant qu'Odin travaille, Telegram affiche « écrit… » en haut de la conver
 ## Son visage et ses humeurs
 
 Odin a un visage, une petite boule aux deux yeux qui **change de couleur selon son humeur** ; ses yeux, toujours droits, changent de taille, de place et de mouvement selon l'émotion (tout petits quand il est gêné, plissés quand il est fâché, mi-clos quand il est fatigué, grands quand il est surpris, un clin d'œil…). Une vingtaine d'humeurs en tout : content, rieur, attendri, fier, enthousiaste, complice, malicieux, surpris, pensif, concentré, perplexe, inquiet, triste, fâché, effrayé, gêné, fatigué, à l'écoute, attentif… **Il choisit lui-même son humeur** à chaque réponse, selon ce qu'il vit avec toi. Entre deux réponses, son visage réagit tout seul : il t'écoute quand tu écris ou parles, se concentre quand il travaille, regarde quand tu lui montres une photo (bouton 📷), parle quand il lit sa réponse à voix haute, **ferme les yeux quand tu tapes une clé** dans les réglages, sourit quand un réglage est enregistré, s'endort si on l'oublie. Touche-le : il saute ; touche-le trop, il se fâche, devient rouge, puis bleu, puis redevient jaune. Chaque mouvement a son petit **son**, synthétisé dans le navigateur : « boing » quand il saute, grognement quand il se fâche, petit « tic » quand il ferme puis rouvre les yeux, carillon montant quand il est content, descendant quand il est triste (bouton pour couper les sons, sur le site comme dans l'interface). Sur **Telegram**, sa réaction est un émoji à la fin de son message, de la même taille que le texte (`mood.emoji` ; l'autocollant de son visage en plus avec `mood.stickers`).
+
+## Apparence : les thèmes
+
+Réglages → Apparence range 85 thèmes en quatre familles, chacune avec son nombre :
+
+- **Mis en avant** (6) : Glace, Vitre, Glace nuit, Néon, Home Assistant et Maison claire, les thèmes de la maquette validée ;
+- **Les thèmes d'Odin** (32) ;
+- **Thèmes de Hestia** (31) : ceux de l'écran de la maison, avec leurs décors et leurs noms ;
+- **Événements de l'année** (16 : Noël, Nouvel An, Ramadan, Aïd el-Fitr, Halloween, Anniversaire…).
+
+Tous se choisissent de la même façon : d'un clic, ou en le disant (« mets le thème Halloween », « remets automatique »). Un thème de Hestia s'affiche avec le nom de sa famille. Six noms existent dans deux familles : en le disant, c'est celui qui n'est pas de Hestia. Le choix est gardé sur tous tes écrans. Les thèmes « Mis en avant » et ceux de Hestia sont pour l'instant **à plat** (fond uni, cartes pleines) : le verre de la maquette n'est pas encore là. Choisir un thème de Hestia change Odin, pas l'écran de la maison, qui garde ses propres thèmes. **Automatique** suit la fête du jour, puis le temps, la température et l'heure. **Au hasard** ne prend jamais un événement, ni le thème déjà affiché.
 
 ## Il t'aide à écrire, te conseille et se déplace
 
@@ -609,9 +630,19 @@ Réglages → Personnes (ou `odin pairing approve telegram CODE --membre Léa`).
 
 Quand quelqu'un écrit au bot Telegram, sa demande apparaît dans Réglages → Personnes : **Accepter comme membre**, **Comme invité**, ou **Refuser**.
 
+**Inviter quelqu'un de la famille.** Dans Réglages → Personnes, ouvre **Inviter quelqu'un de la famille** : écris son nom, un e-mail si tu veux qu'Odin lui envoie le lien, la durée (1 à 30 jours, 7 par défaut) et son groupe (« famille » par défaut, jamais « admin »). Tu valides, puis tu as le lien à usage unique, **Copier** et un QR code. La personne choisit elle-même son identifiant et son mot de passe. Sous **Invitations en cours**, **Annuler** rend un lien inutilisable. Le lien n'est pas gardé dans le navigateur : il quitte la page quand tu fermes le bloc ou annules l'invitation. Un membre ne voit pas ce bloc. C'est le même lien que dans Persona, avec la même validation. Une invitation acceptée est notée au journal des droits, comme une personne ajoutée à la main ; dans Persona, un groupe qu'on vient de créer, même vide, a tout de suite ses cases d'applis dans l'onglet Accès.
+
+**L'année de naissance et la langue d'une personne.** Dans Persona, une personne peut avoir, en plus de son nom, une année de naissance et une langue. Les deux sont facultatives. Elles se donnent quand tu ajoutes ou modifies la personne, sur la page d'invitation, et dans « Mon compte ». Seule l'année est gardée : l'âge est recalculé à chaque fois. Une année impossible (dans l'avenir, avant 1900) est refusée tout de suite, avant toute confirmation. Ces informations sont chiffrées sur le disque. Toi, tu les vois toutes ; un membre ne voit et ne corrige que les siennes. Elles ne partent pas vers les logiciels reliés.
+
 Monter le rôle ou l'autonomie de quelqu'un, ou créer un propriétaire, demande ta confirmation, qui dit pour qui et avant → après (ex. « rôle : member → owner ») ; baisser s'applique tout de suite. **Lier un compte de messagerie ou un téléphone à une personne** (ex. `telegram:123…`) demande **toujours** ta confirmation, même si elle n'a pas plus de droits : la demande dit les droits que ce compte reçoit (son rôle et, pour un membre, son autonomie, avant → après). Délier s'applique tout de suite. Chaque droit donné ou limité (rôle, autonomie, accès aux applis, groupes, compte, identité liée) est écrit au journal des personnes : qui, quoi, pour qui, avant → après, quand — jamais un mot de passe ni une clé. La personne dont tu limites les droits n'en est pas prévenue. Accepter une demande comme membre (ou créer un membre neuf) est déjà ton geste à toi : il ne redemande pas de confirmation, même si tu lui donnes l'autonomie « autonome ».
 
 **Les six choses d'un membre, en détail.** Elles ne valent que quand il les demande lui-même, en direct : pas dans une tâche programmée, pas sans surveillance, pas après la lecture d'un contenu extérieur. La lumière, c'est une lampe nommée (ni « tout allumer », ni une prise, ni une serrure). Si l'antivirus juge dangereux un fichier qu'un membre veut convertir, la conversion est refusée, le fichier reste à sa place, et **toi**, tu es prévenu : le mettre à l'écart reste ta décision. Une analyse qui mettrait d'elle-même un fichier à l'écart (l'analyse d'un dossier entier) t'est demandée. Une tâche qu'un membre veut programmer attend ta validation. Un **invité** ne gagne rien de tout cela.
+
+**Une action grave n'est jamais confirmée par un membre : sa demande t'arrive.** Quand il passe par la page d'une appli, la barre des applis ou le port direct d'une appli, une action grave (annuler un rendez-vous, supprimer un compte…) ne part pas. Sa demande t'est présentée comme celles qui viennent des messageries, sur Odin s'il est ouvert ou sur ta messagerie : qui demande, dans quelle appli, quoi. Si tu dis **oui**, l'action part à son nom, après un nouveau contrôle de ses droits. Si tu dis **non**, ou si tu ne réponds pas dans le délai (5 minutes par défaut), rien ne part. Il lit « Demande envoyée… », puis ta réponse à sa prochaine action. Il a au plus 3 demandes en attente (10 en tout pour la famille). Une action que toi seul règles reste refusée, sans demande. Tout est noté au journal des connexions. Ce que tu fais toi-même, les automatisations et ce qu'un membre fait librement ne changent pas.
+
+**Les demandes qui t'attendent te sont remontrées.** Quand tu ouvres Odin, changes de conversation ou reviens après une coupure, tu vois toutes les validations qui attendent encore ta réponse, celles d'Odin comme celles d'un membre, avec Autoriser, Refuser et l'heure limite. Une demande expirée ou déjà répondue perd ses boutons. Dans le suivi des manips de la page des applis, ce qui a été fait pour un membre dit « à la demande de … (membre de la famille) », dans une liste à part, « À la demande de la famille ».
+
+**L'écran de la maison est fermé aux membres.** Même s'il a le droit sur Hestia, une session de membre n'y a aucun droit : état, caméras, réseau, thème, discussion et boutons lui sont refusés. Un membre ne se crée pas de clé de tablette, et toi seul ranges la fenêtre de l'écran de la maison. Les tablettes ouvertes par leur clé fonctionnent comme avant.
 
 **Profil : la fiche et l'historique de chaque personne.** Odin tient une fiche pour chaque personne qui lui parle et note chaque demande qui lui arrive par ses canaux de discussion : qui a demandé, quand, et ce que cela a donné. Il garde des renvois, jamais une copie du texte. En mode privé, rien n'est noté. Un inconnu qui n'est pas appairé n'a pas de fiche : seul un compteur augmente. La fenêtre **Profil** (dans le menu) montre la liste des personnes, la carte de chacune — son rôle, son autonomie, ses identités et leur preuve, ses accès aux applis en lecture, et **ta note**, que toi seul vois — et son historique, qui se charge en défilant. **Toi, tu vois tout ; un membre de la famille ne voit que sa propre fiche**, en lecture, et peut te signaler une erreur ; un invité ne voit rien. **Effacer l'historique** d'une personne ou d'une période se fait depuis sa carte : Odin montre d'abord ce qui part et ce qui reste ailleurs (les messages, les souvenirs, le journal des décisions, les sauvegardes déjà faites), puis attend ta confirmation. Les droits d'une personne se règlent encore dans Réglages → Personnes. Sur la carte, **« Ce qu'Odin a observé »** montre les langues qu'elle emploie, la longueur de ses demandes, ses heures habituelles et la part de ses demandes abouties ; chaque mesure dit sur combien d'observations elle repose, et reste grisée en dessous de vingt. Ce sont des mesures, jamais un jugement. Toi seul peux en cacher ou en corriger une. Pas encore là : le graphe d'une personne, la mesure des applis qu'elle demande le plus, et le réglage des droits depuis la fiche.
 
@@ -646,8 +677,8 @@ Avant chaque action qui écrit, exécute ou envoie, Odin se pose 7 questions sim
 
 Le quatrième niveau. Odin mène ses missions **sans presque plus rien te demander**, tâches planifiées comprises ; il discute simplement avec toi quand tu lui parles. Restent toujours demandés : payer, envoyer en ton nom à quelqu'un d'autre, ouvrir une serrure, désarmer l'alarme ou ouvrir le portail, toucher à ses garde-fous ; et, après la lecture d'un contenu extérieur, toute action engageante que tu n'as pas demandée.
 
-- **Initiative** : quand il repère un besoin, il prépare une routine ; seule, sans toi (travail continu, rondes), il ne fait que le sans-risque — garder une fiche (écrite à côté, jamais par-dessus une fiche existante, marquée « écrit par Odin seul »), nommer un appareil encore sans nom — et une routine qu'il voudrait créer reste **inactive** jusqu'à ce que tu l'actives dans Talos ; tout le reste qui engage est refusé. À venir : la liste « à valider » retrouvée à ton retour.
-- **Les modèles** : aujourd'hui, Odin peut encore se servir d'un modèle de langue extérieur (fournisseur en ligne, modèle ouvert lu par Métis) ; leur retrait est en cours. La voix et le second avis dans les décisions sont déjà retirés. Ensuite, Odin n'utilisera que ses propres modèles, entraînés sur ta machine.
+- **Initiative** : quand il repère un besoin, il prépare une routine ; seule, sans toi (travail continu, rondes), il ne fait que le sans-risque — garder une fiche (écrite à côté, jamais par-dessus une fiche existante, marquée « écrit par Odin seul »), nommer un appareil encore sans nom — et une routine qu'il voudrait créer reste **inactive** jusqu'à ce que tu l'actives dans Talos ; tout le reste qui engage est refusé. Les validations encore dans leur délai te sont remontrées quand tu ouvres Odin ; à venir : ce qu'Odin a voulu faire seul, gardé pour toi au-delà de ce délai.
+- **Les modèles** : aujourd'hui, Odin peut encore se servir d'un modèle de langue extérieur (fournisseur en ligne, modèle ouvert lu par Métis) ; leur retrait est en cours. La voix et le second avis dans les décisions sont déjà retirés. Ensuite, Odin n'utilisera que ses propres modèles, entraînés sur ta machine, sauf pour la programmation (à venir : chaque envoi validé par toi).
 - **Réseau local ouvert** : il agit directement sur tes appareils et services locaux (box, NAS, imprimante, domotique, API locales) avec `http_request`, inventaire et mises à jour compris.
 - **Missions longues** : jusqu'à 100 étapes par mission et un plafond de coût réglable (5 $ par défaut, 0 = sans plafond).
 - **Rapport du soir** (21 h par défaut) : tout ce qu'il a fait seul, les actions graves, et ce qu'il a refusé pour te protéger.
@@ -671,7 +702,7 @@ Un **juge local**, et lui seul : hors ligne, sans clé, moins d'une milliseconde
 | Commande | Rôle |
 |---|---|
 | `odin init` | crée `~/.odin` et prépare le Cerveau (une fiche par appli) |
-| `odin doctor` | diagnostic complet |
+| `odin doctor` | diagnostic complet, dont la ligne « Disque d'Odin » (chiffré ou non) |
 | `odin web` | interface web + Telegram + API + tâches planifiées |
 | `odin web access [lan\|local\|wan]` | qui peut ouvrir l'interface (`--http`, `--proxy`) |
 | `odin link` (ou `odin web link`) | affiche l'adresse d'Odin (ou le lien de première connexion tant que le compte n'existe pas) |
