@@ -29,7 +29,7 @@ import { chooseCut, historyTokens, repairHistory, SUMMARY_PROMPT, transcriptForS
 import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, setCurrentMood, type Mood } from '../mood/mood.ts';
 import { parlerNaturel, polishReply } from './style.ts';
-import { accord, accorder, genreOdin } from './genre.ts';
+import { accorder, genreOdin } from './genre.ts';
 import { offlineAct } from './offline-act.ts';
 import { MANY, needsThinking, pendingProposal, proposeNear, tryDirect } from './direct.ts';
 import { ETAPE, Jalons } from './jalons.ts';
@@ -55,6 +55,7 @@ import type { Tier } from '../providers/router.ts';
 import { odinCommenceARepondre } from '../valhalla/mathesis/occupe.ts';
 import { debutReponse } from '../brain/nous/occupation.ts';
 import { deciderPuisLancer } from '../heimdall/executer.ts';
+import { PasDeModele } from '../brain/porte-modele.ts';
 
 export interface AgentDeps {
   cfg: OdinConfig;
@@ -451,12 +452,8 @@ export class Agent {
           try {
             const off = offlineAnswer({ muninn, home: this.deps.home, inventory: this.deps.inventory as never }, userText, { channel, peer });
             res.text = off.text; res.offline = true;
-            // Sans modèle local, Odin ne peut plus réfléchir sans Internet : il le dit (une fois par jour).
-            const tipKey = `tip-local-brain:${new Date().toDateString()}`;
-            if (!this.deps.router.routes.some((r) => r.cfg.tier === 'local') && !muninn.getKv(tipKey)) {
-              muninn.setKv(tipKey, '1');
-              res.text += '\n\n💡 Pour que je réfléchisse aussi sans Internet, télécharge un modèle ouvert dans Métis (page Métis) : je le lis moi-même, sans serveur à côté. Je le trouve ' + accord('tout seul', 'toute seule', genreOdin(cfg)) + ' au prochain démarrage.';
-            }
+            // Plus de conseil « télécharge un modèle ouvert dans Métis » : Métis ne branche plus de modèle ouvert
+            // (décision du propriétaire du 17/11/2026, aucun modèle qui ne soit pas le sien).
             if (!off.handled) queueAsk(muninn, { text: userText, sessionId: o.sessionId, channel, peer, at: Date.now() });
             emit({ type: 'text', text: off.text });
           } catch { /* on garde le message d'erreur */ }
@@ -843,8 +840,11 @@ Sinon réponds {"propose":false}. Compétences existantes : ${existing}. Pour am
     return name;
   }
 
-  /** Appel direct au modèle (rangement de la mémoire, rapports…). */
+  /** Appel direct au modèle (rangement de la mémoire, rapports…). Aucun modèle prêt (ni celui d'Odin, ni un agent
+   *  connecté) : `PasDeModele`, « pas encore » dans la langue réglée, sans rien appeler. Chaque appelant garde son
+   *  repli par le code. */
   async ask(system: string, user: string, maxTokens = 2000, signal?: AbortSignal): Promise<string> {
+    if (this.deps.offlineOnly) throw new PasDeModele(this.deps.cfg.voice?.stt?.language);
     return (await this.deps.router.complete({ system, messages: [{ role: 'user', content: user }], tools: [], maxTokens, signal }, { purpose: 'mémoire' })).text;
   }
 

@@ -44,7 +44,7 @@ import { Agent } from './core/agent.ts';
 import { type Approver, denyAll, Heimdall } from './heimdall/policy.ts';
 import { Redactor } from './heimdall/redact.ts';
 import { Mnemosyne } from './muninn/store.ts';
-import { buildProvider, detecterMetis, Router } from './providers/router.ts';
+import { buildProvider, Router } from './providers/router.ts';
 import { routeContext } from './providers/journal.ts';
 import { routingHistory } from './tools/routing.ts';
 import { BUILTIN_TOOLS, ensureWorkspace } from './tools/builtin.ts';
@@ -67,7 +67,7 @@ import { FILE_TOOLS } from './tools/files.ts';
 import { AUDIO_TOOLS } from './tools/audio.ts';
 import type { Judge } from './mimir/client.ts';
 import { buildJudge } from './mimir/factory.ts';
-import { plafonnerAutonomie } from './migrations/aucun-modele-externe.ts';
+import { plafonnerAutonomie, rangerQuestionsGardees } from './migrations/aucun-modele-externe.ts';
 import { Mimir } from './mimir/decisions.ts';
 import { loadEnvFile } from './settings.ts';
 import { brancherGenre } from './core/genre.ts';
@@ -203,9 +203,6 @@ export function createOdin(opts: CreateOptions = {}): Odin {
     // Budget mensuel : au-delà, seuls les modèles gratuits servent (voir Router.complete).
     router.overBudget = () => cfg.routing.monthlyBudgetUsd > 0 && muninn.monthCost() >= cfg.routing.monthlyBudgetUsd;
   }
-  // Sans Internet : modèle local ouvert (GGUF) lu par Métis, ajouté en dernier recours. Jamais quand Odin n'a aucun
-  // modèle : la porte reste vide (aucun modèle qui ne soit pas le sien n'y entre par ce chemin).
-  if (!opts.provider && pret && process.env.ODIN_NO_LOCAL_BRAIN !== '1') void detecterMetis(router, paths.home).then((m) => { if (m) console.error(`[modèles] modèle local ouvert prêt (Métis) : ${m}`); }).catch(() => undefined);
   const cheapProvider = !opts.provider && pret && cfg.cheapProvider ? buildProvider(cfg.cheapProvider, process.env, paths) : undefined;
   const cheapRouter = cheapProvider ? new Router([{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes]) : undefined;
   if (cheapRouter) { cheapRouter.onUsage = router.onUsage; cheapRouter.onRoute = router.onRoute; cheapRouter.overBudget = router.overBudget; }
@@ -220,6 +217,11 @@ export function createOdin(opts: CreateOptions = {}): Odin {
       cfg.mimir = { ...cfg.mimir, autonomy: 'prudent' };
       console.error('[mímir] plafond d\'autonomie', (e as Error).message);
     }
+    // Les questions gardées pour un modèle : rangées dans une note du Cerveau, seulement quand aucun modèle (ni celui
+    // d'Odin, ni un agent connecté) n'est prêt à y répondre. Aucune clé, aucun fournisseur n'est touché.
+    try {
+      rangerQuestionsGardees({ paths, cfg, kv: muninn, pret, noter: (e) => heimdall.noter(e), masquer: (t) => redactor.redact(t), ranger: (titre, corps) => brainOf({ home: paths.home, careCfg: cfg, workspace: paths.workspace }).create(titre, 'note', corps, { fiable: false }) });
+    } catch (e) { console.error('[modèles] questions gardées', (e as Error).message); }
   }
   let mimir: Mimir | undefined;
   if (opts.judge) mimir = new Mimir(opts.judge, cfg.mimir, 'test');

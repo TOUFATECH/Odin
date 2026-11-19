@@ -1,10 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { offlineAct, parseHome, parseStates } from '../src/core/offline-act.ts';
-import { detecterMetis, Router } from '../src/providers/router.ts';
-import type { ModeleCatalogue } from '../src/brain/metis/types.ts';
+import { Router } from '../src/providers/router.ts';
 import type { Tool } from '../src/tools/registry.ts';
-import type { ModelResponse, Provider } from '../src/types.ts';
+import type { Provider } from '../src/types.ts';
 import { makeOdin } from './helpers.ts';
 
 const STATES = 'light.salon_plafond · Plafonnier salon · off\nlight.chambre · Lampe chambre · on\nswitch.salon_prise · Prise salon · on\nclimate.salon · Clim salon · cool\ncover.volet_salon · Volet salon · open';
@@ -78,21 +77,19 @@ test('sans Internet : le service injoignable est mis de côté, la réponse de s
   assert.equal(n, 1, 'pendant 1 min, on ne refrappe pas à la porte');
 });
 
-test('modèle local ouvert trouvé par Métis, utilisé en dernier recours', async () => {
-  const ok: ModelResponse = { text: 'ok', toolCalls: [], usage: { inputTokens: 1, outputTokens: 1 }, stopReason: 'end' };
-  const r = new Router([{ provider: { name: 'anthropic:x', complete: async () => ok }, cfg: { kind: 'anthropic', model: 'x' } }]);
-  // Faux catalogue GGUF (aucun vrai modèle, aucune ouverture de fichier) : un modèle de discussion et un d'embeddings.
-  const catalogue: ModeleCatalogue[] = [
-    { id: 'q1', nom: 'qwen3-4b', chemin: '/x/qwen3-4b.gguf', arch: 'qwen3', tailleOctets: 2_500_000, empreinte: 'aa', quant: 'Q4_0', type: 'chat' },
-    { id: 'q2', nom: 'qwen3-1_7b', chemin: '/x/qwen3-1_7b.gguf', arch: 'qwen3', tailleOctets: 1_200_000, empreinte: 'bb', quant: 'Q4_0', type: 'chat' },
-    { id: 'e1', nom: 'nomic-embed', chemin: '/x/embed.gguf', arch: 'bert', tailleOctets: 500_000, empreinte: 'cc', quant: 'Q8_0', type: 'embeddings' },
-  ];
-  const deps = { lister: async (_home: string) => catalogue, ouvrir: async () => { throw new Error('ne doit pas ouvrir dans ce test'); } };
-  // On prend le plus petit modèle de DISCUSSION (le plus utilisable), jamais celui d'embeddings.
-  assert.equal(await detecterMetis(r, '/home', deps as never), 'qwen3-1_7b');
-  assert.equal(r.routes.at(-1)!.provider.name, 'metis:qwen3-1_7b');
-  // Même pour une tâche « simple », le modèle local passe après tes modèles configurés.
-  assert.equal(r.order({ minTier: 'local' })[0].provider.name, 'anthropic:x');
-  // Déjà un modèle local présent : rien n'est ajouté.
-  assert.equal(await detecterMetis(r, '/home', deps as never), undefined);
+// Suit la décision du propriétaire du 17/11/2026 (aucun modèle qui ne soit pas le sien) : Métis ne branche plus de modèle ouvert.
+test('aucun modèle ouvert ne remplit la porte : Métis n\'ajoute plus de fournisseur (retiré avec les modèles d\'autrui)', async () => {
+  const routeur = await import('../src/providers/router.ts') as Record<string, unknown>;
+  assert.equal(routeur.detecterMetis, undefined, 'plus de recherche d\'un modèle ouvert à brancher');
+  const { existsSync } = await import('node:fs');
+  assert.equal(existsSync(new URL('../src/brain/metis/provider.ts', import.meta.url)), false, 'le fournisseur Métis est supprimé');
+});
+
+test('sans Internet, Odin ne promet pas un modèle ouvert à télécharger (Métis ne branche plus de modèle)', async () => {
+  const o = makeOdin(() => { throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ENOTFOUND' } }); });
+  try {
+    const r = await o.agent.run('écris-moi un poème sur la mer', { sessionId: 'web:principal', channel: 'web' });
+    assert.equal(r.offline, true);
+    assert.doesNotMatch(r.text, /Métis|modèle ouvert/, 'aucun conseil vers un chemin qui n\'existe plus');
+  } finally { o.cleanup(); }
 });

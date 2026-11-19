@@ -5,6 +5,10 @@
 // demandait un modèle de langue dit « pas encore », dans la langue de la personne. « Sans modèle » n'est PAS une
 // démonstration : Soul apprend, les mises à jour, les alertes et l'accès marchent comme d'habitude.
 //
+// Décision du propriétaire du 19/11/2026 (« Classement réglable », puis « Le réviser ») : les agents connectés qu'il
+// configure (services de modèles, connexion par abonnement) remplissent aussi la porte, chaque appel noté au journal
+// des routages ; aucune de leurs clés n'est effacée. Sans aucun agent connecté, la porte reste vide, comme ci-dessus.
+//
 // Ici, seulement ce que la séparation « sans modèle » / « démo » demande : la question `pret()` et le fournisseur vide
 // qui tient la place d'un modèle dans la boucle de l'agent (il ne répond jamais : il lève « pas encore »).
 
@@ -17,12 +21,24 @@ export interface PorteModele {
   pret(): boolean;
 }
 
+/**
+ * L'erreur d'une demande faite à la porte vide (rédiger, résumer, répondre librement) : son message est la phrase
+ * « pas encore » (sorte « de langue »), dans la langue donnée. C'est une `ModelePasEntraine` : le routeur la laisse
+ * repartir telle quelle, sans réessai.
+ */
+export class PasDeModele extends ModelePasEntraine {
+  constructor(langue?: string) {
+    super('rediger', langue);
+    this.name = 'PasDeModele';
+  }
+}
+
 /** Le nom du fournisseur vide (aucun modèle de langue). */
 export const SANS_MODELE = 'aucun-modele';
 
-/** Le fournisseur qui tient la place du modèle absent : chaque demande lève « pas encore » (sorte « de langue »). */
+/** Le fournisseur qui tient la place du modèle absent : chaque demande lève `PasDeModele`. */
 export function fournisseurSansModele(langue?: string): Provider {
-  return { name: SANS_MODELE, complete: async () => { throw new ModelePasEntraine('rediger', langue); } };
+  return { name: SANS_MODELE, complete: async () => { throw new PasDeModele(langue); } };
 }
 
 /** Vrai quand ce fournisseur est un vrai modèle (et pas la place vide). Pur. */
