@@ -32,6 +32,7 @@ import { sansLigneLireVenus } from '../valhalla/modules/venus.ts';
 import { brainOf } from '../tools/brain.ts';
 import { liensDe } from '../brain/liens-vivants.ts';
 import { Approbations, TROP_TARD } from '../heimdall/approbations.ts';
+import { empreinteEnCours, numeroCourt } from '../heimdall/actions-journal.ts';
 import { deciderPuisLancer } from '../heimdall/executer.ts';
 import { extraireCles, rangerClesRecues } from '../heimdall/redact.ts';
 import { closeBrowsers } from '../tools/browser.ts';
@@ -119,6 +120,8 @@ export class Gateway {
   private aborts = new Map<string, AbortController>();
   /** Les validations en attente (src/heimdall/approbations.ts, dans le noyau). */
   private approbations = new Approbations();
+  /** Le numéro de l'action montrée dans chaque demande (src/heimdall/actions-journal.ts) : la réponse le porte. */
+  private numerosMontres = new Map<string, string>();
   private timer?: NodeJS.Timeout;
   private scanning = false;
   private ticking = false;
@@ -254,8 +257,10 @@ export class Gateway {
       cmd = Object.assign([text, bare[1], seule], { index: 0, input: text }) as RegExpMatchArray;
     } else if (!cmd && bare && text.startsWith('/') && owner) return ch.send(m.peer, 'Aucune demande en attente : elle a peut-être expiré. Redemande-moi l\'action, je la referai.');
     if (cmd) {
-      const rep = this.approbations.repondre(cmd[2], cmd[1], owner);
+      // La réponse porte le numéro de l'action montrée dans cette demande : elle ne vaut que pour celle-là.
+      const rep = this.approbations.repondre(cmd[2], cmd[1], owner, Date.now(), this.numerosMontres.get(cmd[2]));
       if (!rep.ok) return ch.send(m.peer, rep.raison);
+      this.numerosMontres.delete(cmd[2]);
       const ans = rep.reponse;
       for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
@@ -539,6 +544,8 @@ export class Gateway {
       // Heimdall tranche « non » après approvalTimeoutSec : passé ce délai, une réponse dit « trop tard » (rien ne part) ;
       // on oublie la demande une minute après pour ne pas accumuler.
       const answer = this.approbations.attendre(req.id, { echeanceMs: this.odin.cfg.policy.approvalTimeoutSec * 1000, resume: req.summary });
+      const montre = empreinteEnCours();
+      if (montre) { this.numerosMontres.set(req.id, numeroCourt(montre)); setTimeout(() => this.numerosMontres.delete(req.id), this.odin.cfg.policy.approvalTimeoutSec * 1000 + 60_000).unref?.(); }
       // Canaux qui savent afficher une carte (interface web) : évènement typé, pas de détection par le texte.
       target.ch.event?.(target.peer, { type: 'approval', id: req.id, summary: req.summary, reason: req.reason, severity: req.severity, grantable: req.grantable });
       await target.ch.send(target.peer, msg, { approval: { id: req.id, grantable: req.grantable } });

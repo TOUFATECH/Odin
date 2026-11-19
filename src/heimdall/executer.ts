@@ -33,6 +33,7 @@ import { graveArgent, noterPage } from './paiement.ts';
 import { destinataireTiers, graveEnvoi } from './envois.ts';
 import { masquerCodes } from './redact.ts';
 import { graveMaison, type InfoEntite } from './maison.ts';
+import { actionEnCours, cleNumeros, empreinteAction, figer, journalDe, numeroCourt, RISQUES_ENGAGEANTS, type IssueReservee, type JournalActions } from './actions-journal.ts';
 
 /** Ce que Home Assistant dit des entités visées (nom, classe, contenu d'une scène) — pour la garde des ouvertures. */
 export type LireEntite = (ctx: ToolContext, entity: string) => Promise<InfoEntite | undefined>;
@@ -136,31 +137,141 @@ export function changementDe(tool: string, input: Record<string, unknown>, home?
   return `${montre}\n… ${complet.length - montre.length} caractères non montrés ici — le changement complet est ${ou}`;
 }
 
+/** Une heure lisible, sans supposer de langue ni de fuseau (UTC). */
+const heure = (t: number): string => `${new Date(t).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+
 /**
  * Demande à Heimdall, puis rend de quoi lancer l'outil — SEULEMENT si c'est permis. `lancer` n'existe pas sinon :
  * l'outil ne peut pas être exécuté sans cette décision.
+ *
+ * Ce qui est demandé, montré et exécuté est une COPIE FIGÉE de l'entrée (profonde et gelée), jamais l'objet que le
+ * modèle tient encore et pourrait changer pendant la question. Une action engageante a un numéro (empreinte de l'outil,
+ * des paramètres exacts et du tour, src/heimdall/actions-journal.ts) : la demande de validation le porte, il est
+ * recalculé juste avant d'agir et doit être le même ; l'action est notée « lancée » avant, « faite » ou « échouée »
+ * après. Ta décision du 19/11 (« Me demander ») : la refaire dans la même demande (déjà faite, échouée ou en cours) →
+ * la question t'est posée, sans « toujours », et ton oui ne sert qu'une fois ; faite par le processus d'avant un
+ * redémarrage → jamais refaite ; coupée en plein milieu par une panne → la question t'est posée ; sans personne pour
+ * répondre → refusée. Deux appels identiques en même temps : le second attend l'issue du premier.
  */
 export async function deciderPuisLancer(heimdall: Heimdall, tool: Tool, input: Record<string, unknown>, ctx: ToolContext, e: EntreeAppel): Promise<{ decision: GateDecision; summary: string; lancer?: () => ReturnType<Tool['run']> }> {
-  const summary = tool.summarize?.(input) ?? `${tool.name} ${JSON.stringify(input).slice(0, 200)}`;
-  const decision = await heimdall.gate({
+  const fige = figer(input);
+  const tour = e.tour ?? '';
+  // Une action engageante d'un tour connu est réservée le temps de sa décision et de son exécution : un appel
+  // identique qui arrive pendant ce temps attend son issue (une seule question à la fois pour la même action).
+  let liberer: ((issue: IssueReservee) => void) | undefined;
+  let refusDeja: string | undefined;
+  if (tour && RISQUES_ENGAGEANTS.has(tool.risk) && !(tool.lookup?.(fige) ?? false)) {
+    try {
+      // Le même numéro que la décision (même clé, même règle d'écriture : voir plus bas).
+      const mem = (ctx as { muninn?: { dir?: string | null; privateMode?: boolean } }).muninn, home = (ctx as { home?: string }).home;
+      const n = empreinteAction(tool.name, fige, tour, cleNumeros(home, Boolean(mem?.dir) && Boolean(home) && !mem?.privateMode));
+      const r = await journalDe(mem?.dir).reserver(tour, n);
+      liberer = r.liberer;
+      if (r.issue === 'refusée') refusDeja = `la même action, demandée en même temps dans cette demande (n° ${numeroCourt(n)}), vient d'être refusée : je ne la redemande pas`;
+    } catch { /* la décision ci-dessous dira ce qui ne va pas (clé ou journal illisible) */ }
+  }
+  let r: Awaited<ReturnType<typeof decider>> | undefined;
+  try {
+    if (refusDeja) return { decision: { allowed: false, reason: refusDeja }, summary: tool.summarize?.(fige) ?? `${tool.name} ${JSON.stringify(fige).slice(0, 200)}` };
+    r = await decider(heimdall, tool, fige, ctx, e, liberer);
+    return r;
+  } finally {
+    // Refusée (ou erreur) : l'appel identique qui attend est libéré tout de suite ; permise : à la fin de l'exécution.
+    if (!r?.lancer) liberer?.('refusée');
+  }
+}
+
+/** Au plus tard, une action permise dont l'exécution n'est jamais lancée libère sa réservation (10 minutes). */
+const RESERVATION_MAX_MS = 10 * 60_000;
+
+async function decider(heimdall: Heimdall, tool: Tool, fige: Record<string, unknown>, ctx: ToolContext, e: EntreeAppel, liberer: ((issue: IssueReservee) => void) | undefined): Promise<{ decision: GateDecision; summary: string; lancer?: () => ReturnType<Tool['run']> }> {
+  const tour = e.tour ?? '';
+  const summary = tool.summarize?.(fige) ?? `${tool.name} ${JSON.stringify(fige).slice(0, 200)}`;
+  const lookup = tool.lookup?.(fige) ?? false;
+  // Le journal des actions : seulement les actions engageantes (une consultation, même par un outil qui peut aussi
+  // agir, n'en est pas une : Heimdall la laisse passer comme lecture) ; « jamais refaite seule » seulement dans un tour connu.
+  const engageant = RISQUES_ENGAGEANTS.has(tool.risk) && !lookup;
+  const mem = (ctx as { muninn?: { dir?: string | null; privateMode?: boolean } }).muninn;
+  const home = (ctx as { home?: string }).home;
+  // Mode privé : rien n'est écrit. Sans dossier d'Odin (où ranger la clé des numéros), rien n'est écrit non plus.
+  const ecrire = Boolean(mem?.dir) && Boolean(home) && !mem?.privateMode;
+  let journal: JournalActions | undefined;
+  // La raison grave ajoutée quand l'action a déjà une histoire dans ce tour (coupée par une panne, ou refaite).
+  let coupee: string | undefined;
+  let vuDecide: { etat: string; t: number } | undefined;
+  // Le numéro : empreinte à clé (un code court ne se retrouve pas à partir du journal). La clé n'est rangée que pour
+  // une action notée ; une lecture prend la clé rangée si elle existe, sinon celle de ce processus.
+  let cle: Buffer;
+  try { cle = cleNumeros(home, ecrire && engageant); } catch (x) { return { decision: { allowed: false, reason: `je ne peux pas lire la clé de mon journal des actions (${(x as Error).message.slice(0, 120)}) : rien n'est parti` }, summary }; }
+  const n = empreinteAction(tool.name, fige, tour, cle), numero = numeroCourt(n);
+  if (engageant) {
+    try { journal = journalDe(mem?.dir); } catch (x) { return { decision: { allowed: false, reason: `je ne peux pas lire mon journal des actions (${(x as Error).message.slice(0, 120)}) : rien n'est parti` }, summary }; }
+    const vu = tour ? journal.etat(tour, n) : undefined;
+    vuDecide = vu ? { etat: vu.etat, t: vu.t } : undefined;
+    // Faite par le processus d'avant un redémarrage : jamais refaite (pas même avec ton oui).
+    if (vu?.avant && vu.etat === 'faite') return { decision: { allowed: false, reason: `action déjà faite avant mon redémarrage, dans cette demande (n° ${numero}, ${heure(vu.t)}) : je ne la refais jamais` }, summary };
+    if (vu?.etat === 'à confirmer') {
+      if (e.unattended) return { decision: { allowed: false, severity: 'grave', reason: `action coupée en plein milieu (n° ${numero}, lancée ${heure(vu.t)}) : je ne sais pas si elle est partie, et personne n'est là pour me le dire : je ne la refais pas` }, summary };
+      coupee = `action coupée en plein milieu (n° ${numero}, lancée ${heure(vu.t)}, jamais finie) : je ne sais pas si elle est partie`;
+    } else if (vu) {
+      // La même action, refaite dans la même demande (faite, échouée ou encore en cours) : ta décision du 19/11,
+      // « Me demander ». Une action échouée est peut-être partie quand même (un délai dépassé après l'envoi).
+      const quoi = vu.etat === 'faite' ? `faite ${heure(vu.t)}` : vu.etat === 'échouée' ? `échouée ${heure(vu.t)}${vu.avant ? ', avant mon redémarrage' : ''} : elle est peut-être partie quand même` : 'encore en cours';
+      if (e.unattended) return { decision: { allowed: false, severity: 'grave', reason: `j'ai déjà fait cette action dans cette demande (n° ${numero}, ${quoi}) et personne n'est là pour me dire de la refaire : je ne la refais pas` }, summary };
+      coupee = `j'ai déjà fait cette action dans cette demande (n° ${numero}, ${quoi}) ; la refaire`;
+    }
+  }
+  const autreGrave = tool.grave?.(fige) ?? graveArgent(tool.name, fige, e.sessionId) ?? graveEnvoi(tool.name, fige) ?? graveSuppression(tool.name, fige) ?? await graveHa(tool.name, fige, ctx);
+  // La demande porte le numéro de l'action (src/heimdall/approbations.ts le garde avec elle).
+  const decision = await actionEnCours.run({ empreinte: n }, () => heimdall.gate({
     ...e,
     tool: tool.name, risk: tool.risk, summary,
-    command: tool.command?.(input),
+    command: tool.command?.(fige),
     // L'argent : la garde en code (page de paiement, adresse de paiement) s'ajoute à ce que l'outil déclare.
     // Et un envoi en ton nom à un tiers : destinataire et texte exact montrés, toujours ta validation.
     // Et ouvrir, déverrouiller ou désarmer la maison (serrures, alarme, portail) : toujours ta validation.
-    grave: tool.grave?.(input) ?? graveArgent(tool.name, input, e.sessionId) ?? graveEnvoi(tool.name, input) ?? graveSuppression(tool.name, input) ?? await graveHa(tool.name, input, ctx),
-    lookup: tool.lookup?.(input) ?? false,
-    cheminsCode: cheminsCodeDe(tool.name, input, ctx),
-    commandeCode: commandeCode(tool.name, input, ctx),
-    changement: changementDe(tool.name, input, (ctx as { home?: string }).home),
-    destinataire: destinataireTiers(tool.name, input),
-    envoi: estEnvoi(tool.name, input),
-  });
+    // Et une action coupée en plein milieu par une panne, ou refaite dans la même demande : jamais refaite sans toi
+    // (ajoutée APRÈS les autres raisons, pour que leurs règles, qui lisent le début, restent les mêmes).
+    grave: autreGrave && coupee ? `${autreGrave} ; ${coupee}` : autreGrave ?? coupee,
+    lookup,
+    cheminsCode: cheminsCodeDe(tool.name, fige, ctx),
+    commandeCode: commandeCode(tool.name, fige, ctx),
+    changement: changementDe(tool.name, fige, (ctx as { home?: string }).home),
+    destinataire: destinataireTiers(tool.name, fige),
+    envoi: estEnvoi(tool.name, fige),
+  }));
   if (!decision.allowed) return { decision, summary };
-  // Ce que le navigateur montre est retenu pour la garde de l'argent (la page suivante d'un clic aussi).
+  // Une exécution jamais lancée ne garde pas la réservation pour toujours.
+  const garde = liberer ? setTimeout(() => liberer('finie'), RESERVATION_MAX_MS) : undefined;
+  garde?.unref?.();
+  let servi = false;
   const lancer = async (): Promise<Awaited<ReturnType<Tool['run']>>> => {
-    let r = await tool.run(input, ctx);
+    // Lancée : la garde ne sert plus ; une action longue garde sa réservation jusqu'à sa fin.
+    if (garde) clearTimeout(garde);
+    try { return await executer(); } finally { liberer?.('finie'); }
+  };
+  // Ce que le navigateur montre est retenu pour la garde de l'argent (la page suivante d'un clic aussi).
+  const executer = async (): Promise<Awaited<ReturnType<Tool['run']>>> => {
+    // L'outil reçoit une copie neuve de la copie figée (il peut compléter sa propre entrée, comme avant), et son
+    // numéro, recalculé juste avant d'agir, doit être celui de l'action validée.
+    const copie = structuredClone(fige) as Record<string, unknown>;
+    const maintenant = empreinteAction(tool.name, copie, tour, cle);
+    if (maintenant !== n) throw new Error(`l'action a changé depuis ta validation (n° ${numero} validé, n° ${numeroCourt(maintenant)} maintenant) : rien n'est parti`);
+    if (journal) {
+      // Un oui (ou une permission) ne sert qu'une fois.
+      if (servi) throw new Error(`cette validation a déjà servi (n° ${numero}) : elle ne vaut qu'une fois, rien n'est parti`);
+      servi = true;
+      // Revu au dernier moment (une question peut durer) : si la même action a été lancée, faite ou a échoué depuis
+      // la décision, ce qui a été décidé ne vaut plus : rien ne part.
+      const vu = tour ? journal.etat(tour, n) : undefined;
+      if (vu?.etat !== vuDecide?.etat || vu?.t !== vuDecide?.t) throw new Error(`la même action a été ${vu?.etat === 'en cours' ? 'lancée' : vu?.etat ?? 'changée'} dans cette demande depuis la décision (n° ${numero}) : rien n'est parti, redemande-la si tu la veux encore`);
+      // « Lancée » écrite et forcée sur le disque AVANT d'agir ; si elle ne peut pas l'être, rien ne part.
+      const resume = (() => { try { return ctx.redactor ? ctx.redactor.redact(summary).replace(/\s+/g, ' ').slice(0, 160) : undefined; } catch { return undefined; } })();
+      try { journal.lancer({ n, tour, outil: tool.name, ...(resume ? { resume } : {}) }, ecrire); } catch (x) { throw new Error(`je ne peux pas noter l'action avant de la faire (${(x as Error).message.slice(0, 120)}) : rien n'est parti`); }
+    }
+    let r: Awaited<ReturnType<Tool['run']>>;
+    try { r = await tool.run(copie, ctx); } catch (x) { journal?.finir({ n, tour, outil: tool.name }, 'échouée', ecrire); throw x; }
+    journal?.finir({ n, tour, outil: tool.name }, 'faite', ecrire);
     if (tool.name.startsWith('browser_')) { try { noterPage(e.sessionId, typeof r === 'string' ? r : r.output); } catch { /* rien */ } }
     // Un mail lu : les codes à usage unique et les liens de réinitialisation ne vont ni au modèle ni à personne (U6).
     if (tool.name === 'mail_read' || tool.name === 'mail_list') r = typeof r === 'string' ? masquerCodes(r) : { ...r, output: masquerCodes(r.output) };

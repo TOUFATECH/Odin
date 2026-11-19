@@ -83,9 +83,9 @@ function demandeDe(ctx: ModCtx, ref: unknown): { d: Demande; l: Demande[] } {
 }
 const ligne = (r: Resultat) => `- ${r.site || r.url} (${r.categorie}) : ${r.montre.length ? `montre ${r.montre.join(', ')}${r.details?.length ? ` (${r.details.join(', ')})` : ''}` : r.titre} · risque ${r.risque}`;
 
-/** La clé Have I Been Pwned, relue dans le coffre (Thésauros) : jamais gardée ailleurs, jamais affichée. */
+/** La clé Have I Been Pwned, relue dans le coffre (Thésauros) du propriétaire seulement — jamais dans celui d'un membre : jamais gardée ailleurs, jamais affichée. */
 function cleFuites(ctx: ModCtx): string | undefined {
-  try { return [...coffre({ dir: join(ctx.dir, '..', 'brisingamen') } as ModCtx)].reverse().find((x) => /have\s*i\s*been\s*pwned|hibp/i.test(`${x.name} ${x.url ?? ''} ${x.user ?? ''}`) && cleHibpValide(x.password))?.password?.trim(); } catch { return undefined; }
+  try { return [...coffre({ dir: join(ctx.dir, '..', 'brisingamen') } as ModCtx)].reverse().find((x) => !(x as { membre?: unknown }).membre && /have\s*i\s*been\s*pwned|hibp/i.test(`${x.name} ${x.url ?? ''} ${x.user ?? ''}`) && cleHibpValide(x.password))?.password?.trim(); } catch { return undefined; }
 }
 
 // ---------------------------------------------------------------- « où j'apparais » : une vérification
