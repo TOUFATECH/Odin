@@ -1071,6 +1071,7 @@ export class WebChannel implements Channel {
       const msgs = this.odin.muninn.history(`web:${peer}`).filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content).map((m) => ({ role: m.role, text: m.content }));
       return json(res, 200, { peer, messages: msgs.slice(-200) });
     }
+    if (url.pathname === '/api/fil' && await (await import('./fil-api.ts')).filRoute(req, res, url, { qui: () => this.quiConnecte(req), direct, mu: this.odin.muninn })) return; // le fil de la personne connectée, par pages (lecture seule)
 
     // Raccourci Siri / Android / Home Assistant : jeton dans « Authorization: Bearer … » (jamais par
     // cookie : une page piégée ne peut donc pas s'en servir), réponse en texte simple quand Odin a fini.
