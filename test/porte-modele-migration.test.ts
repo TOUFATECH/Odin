@@ -106,7 +106,7 @@ const CONFIG_AVANT = {
   mimir: { judge: 'local', autonomy: 'equilibre' },
   voice: { tts: { provider: 'elevenlabs', voiceId: 'abc' }, stt: { provider: 'whisper', model: 'whisper-1', baseUrl: 'https://stt.exemple.test/v1', apiKeyEnv: 'STT_API_KEY', language: 'en' } },
   nous: { arbitreGrand: true },
-  memory: { embedUrl: 'http://192.168.1.5:8080/plongements' },
+  memory: { embedUrl: 'http://198.51.100.5:8080/plongements' },
   search: { provider: 'exa', searxngUrl: '' },
   journal: { enabled: true, at: '21:30', morning: '07:30' },
 };
