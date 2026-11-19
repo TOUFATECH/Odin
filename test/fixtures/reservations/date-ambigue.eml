@@ -1,0 +1,11 @@
+From: Salle Exemple <billetterie@example.org>
+To: noa@example.org
+Subject: Votre billet pour le concert
+Date: Wed, 18 Nov 2026 18:00:00 +0100
+Message-ID: <concert-0011@example.org>
+Content-Type: text/plain; charset=utf-8
+
+Numéro de réservation : SP-3030
+Titulaire : Noa Exemple
+Date : 03/04/2027 20:30
+Lieu : Salle Exemple, Valmonde

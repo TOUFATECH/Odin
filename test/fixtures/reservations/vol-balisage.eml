@@ -1,0 +1,49 @@
+From: Exemple Air <reservations@example.org>
+To: Camille Exemple <camille@example.org>
+Subject: Votre vol est confirmé
+Date: Mon, 16 Nov 2026 09:12:00 +0100
+Message-ID: <vol-0001@example.org>
+Authentication-Results: mx.example.org; dkim=pass header.d=example.org; dmarc=pass header.from=example.org
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="ext"
+
+--ext
+Content-Type: multipart/alternative; boundary="alt"
+
+--alt
+Content-Type: text/plain; charset=utf-8
+
+Bonjour Camille,
+Votre vol est confirmé. Numéro de réservation : XQ7K2P
+Port-Lumière (ZPL) vers Valmonde (ZVM), le 12 mars 2027 à 18:40.
+Arrivée prévue le 12 mars 2027 à 21:05.
+--alt
+Content-Type: text/html; charset=utf-8
+
+<html><head>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"FlightReservation","reservationNumber":"XQ7K2P","reservationStatus":"https://schema.org/ReservationConfirmed",
+  "underName":{"@type":"Person","name":"Camille Exemple"},
+  "reservationFor":{"@type":"Flight","flightNumber":"123","airline":{"@type":"Airline","name":"Exemple Air","iataCode":"ZX"},
+   "departureAirport":{"@type":"Airport","name":"Port-Lumière","iataCode":"ZPL"},"departureTime":"2027-03-12T18:40:00+01:00",
+   "arrivalAirport":{"@type":"Airport","name":"Valmonde","iataCode":"ZVM"},"arrivalTime":"2027-03-12T21:05:00+01:00"},
+  "totalPrice":"129.90","priceCurrency":"EUR",
+  "modifyReservationUrl":"https://gerer.example.org/reservation?ref=XQ7K2P"},
+ {"@type":"FlightReservation","reservationNumber":"XQ7K2P","reservationStatus":"https://schema.org/ReservationConfirmed",
+  "underName":{"@type":"Person","name":"Sam Exemple"},
+  "reservationFor":{"@type":"Flight","flightNumber":"123","airline":{"@type":"Airline","name":"Exemple Air","iataCode":"ZX"},
+   "departureAirport":{"@type":"Airport","name":"Port-Lumière","iataCode":"ZPL"},"departureTime":"2027-03-12T18:40:00+01:00",
+   "arrivalAirport":{"@type":"Airport","name":"Valmonde","iataCode":"ZVM"},"arrivalTime":"2027-03-12T21:05:00+01:00"},
+  "modifyReservationUrl":"https://gerer.example.org/reservation?ref=XQ7K2P"}
+]}
+</script>
+</head><body><p>Bonjour Camille,</p><p>Votre vol est confirmé. Numéro de réservation : <b>XQ7K2P</b></p></body></html>
+--alt--
+--ext
+Content-Type: application/pdf; name="billet-XQ7K2P.pdf"
+Content-Disposition: attachment; filename="billet-XQ7K2P.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJSBiaWxsZXQgZCBleGVtcGxlLCBhdWN1biBjb250ZW51IHJlZWwK
+--ext--

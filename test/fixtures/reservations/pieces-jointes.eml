@@ -1,0 +1,25 @@
+From: Exemple Air <reservations@example.org>
+To: sam@example.org
+Subject: Vos documents de voyage
+Date: Wed, 18 Nov 2026 17:00:00 +0100
+Message-ID: <pj-0010@example.org>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="pj"
+
+--pj
+Content-Type: text/plain; charset=utf-8
+
+Vos documents sont joints.
+--pj
+Content-Type: application/octet-stream; name="../../billet.pdf.exe"
+Content-Disposition: attachment; filename="../../billet.pdf.exe"
+Content-Transfer-Encoding: base64
+
+TVogZmljaGllciBkIGV4ZW1wbGUgaW5lcnRlCg==
+--pj
+Content-Type: application/pdf
+Content-Disposition: attachment; filename*=UTF-8''carte%20d%27embarquement.pdf
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJSBiaWxsZXQgZCBleGVtcGxlLCBhdWN1biBjb250ZW51IHJlZWwK
+--pj--

@@ -1,0 +1,18 @@
+From: Rail Exemple <billets@example.org>
+To: alex@example.org
+Subject: Votre billet de train
+Date: Wed, 18 Nov 2026 14:00:00 +0100
+Message-ID: <piege-0007@example.org>
+Authentication-Results: mx.example.org; dmarc=pass header.from=example.org
+Content-Type: text/html; charset=utf-8
+
+<html><head>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TrainReservation","reservationNumber":"TR1111AA","underName":{"name":"Alex Exemple"},
+ "reservationFor":{"@type":"TrainTrip","departureStation":{"name":"Valmonde"},"departureTime":"2026-12-20T08:00:00+01:00","arrivalStation":{"name":"Port-Lumière"}}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TrainReservation","reservationNumber":"TR1111AA","underName":{"name":"Alex Exemple"},
+ "reservationFor":{"@type":"TrainTrip","departureStation":{"name":"Valmonde"},"departureTime":"2026-12-21T17:30:00+01:00","arrivalStation":{"name":"Port-Lumière"}}}
+</script>
+</head><body><p>Réservation TR1111AA</p></body></html>

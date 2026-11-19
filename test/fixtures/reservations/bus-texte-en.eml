@@ -1,0 +1,14 @@
+From: Coach Example <tickets@example.org>
+To: sam@example.org
+Subject: Your bus ticket
+Date: Tue, 17 Nov 2026 11:00:00 +0000
+Message-ID: <bus-0003@example.org>
+Content-Type: text/plain; charset=utf-8
+
+Hello,
+
+Booking reference: BX9921
+Passenger: Sam Exemple
+Departure: Bergstadt, Dec 12, 2026 6:40 PM
+Arrival: Villaclara, Dec 12, 2026 9:15 PM
+Total: €19.99

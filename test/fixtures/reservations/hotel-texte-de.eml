@@ -1,0 +1,16 @@
+From: Gasthaus Beispiel <buchung@example.org>
+To: noa@example.org
+Subject: =?UTF-8?Q?Ihre_Hotelbuchung_ist_best=C3=A4tigt?=
+Date: Wed, 18 Nov 2026 08:30:00 +0100
+Message-ID: <hotel-0004@example.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Guten Tag,
+
+vielen Dank f=C3=BCr Ihre Buchung im Hotel.
+Buchungsnummer: HB-55210
+Gast: Noa Exemple
+Anreise: 3. M=C3=A4rz 2027
+Abreise: 5. M=C3=A4rz 2027
+Gesamtpreis: 240,00 EUR

@@ -1,0 +1,12 @@
+From: Exemple Air <reservations@example.org>
+To: sam@example.org
+Subject: Votre vol
+Date: Wed, 18 Nov 2026 15:00:00 +0100
+Message-ID: <piege-0008@example.org>
+Authentication-Results: mx.example.org; dmarc=pass header.from=example.org
+Content-Type: text/html; charset=utf-8
+
+<html><head><script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FlightReservation","reservationNumber":"QQ4455","underName":"Sam Exemple",
+ "reservationFor":{"@type":"Flight","departureAirport":{"iataCode":"ZPL"},"departureTime":"2027-02-30T25:61:00+01:00","arrivalAirport":{"iataCode":"ZVM"}}}
+</script></head><body><p>Vol QQ4455</p></body></html>

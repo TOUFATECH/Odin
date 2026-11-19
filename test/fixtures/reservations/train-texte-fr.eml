@@ -1,0 +1,18 @@
+From: Rail Exemple <billets@example.org>
+To: alex@example.org
+Subject: Votre billet de train
+Date: Tue, 17 Nov 2026 10:00:00 +0100
+Message-ID: <train-0002@example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Bonjour,
+
+Merci pour votre réservation.
+Référence de réservation : TR4821KZ
+Voyageur : Alex Exemple
+Départ : Valmonde, 12 déc. 2026 18:40
+Arrivée : Port-Lumière, 12 déc. 2026 21:05
+Total : 19,99 €
+
+Gérer ma réservation : https://billets.example.org/gerer/TR4821KZ
