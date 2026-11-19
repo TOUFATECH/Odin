@@ -6,21 +6,28 @@
 //   maison seulement la sienne, en lecture, et seulement si le lien entre son compte Persona et sa personne est sûr ; un
 //   invité rien ; sans connexion : refus.
 // - Rien de ce qui est ici ne va dans l'état général de la page (/api/state).
-// - Aucun droit n'est donné, retiré ni changé ici : la carte MONTRE les accès aux applis, en lecture.
+// - Aucun droit n'est donné, retiré ni changé ici : la carte MONTRE l'état des droits, en lecture, dans ses deux registres
+//   (rôle et autonomie : mémoire d'Odin ; accès aux applis, groupes, compte, appareils : Persona). Lot 5b : le bloc
+//   « Droits » de la page change un droit en appelant les actions qui existent (/api/action, /api/valhalla/act), jamais ici.
+// - Le propriétaire voit, dans l'historique d'une personne, les lignes du journal des droits qui la concernent (rangées
+//   à son nom à lui) ; un membre ne les voit pas (« prévenir seulement si elle essaie »).
 // - Les réponses portent des CODES (rôle, preuve, résultat, refus) : la page les traduit dans la langue de la personne.
 // Modèle : epingles-api.ts — une fonction pure (traiterPersonnes) et des dépendances injectées ; la route est appelée par
 // le serveur web AVANT la garde des membres, et décide elle-même qui demande.
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
-import type { Mnemosyne } from '../muninn/store.ts';
+import type { LigneHistorique, Mnemosyne } from '../muninn/store.ts';
 import {
   PROPRIETAIRE, apercuEffacement, carte, cartes, contexteVisibilite, effacerHistoriquePersonne, historiquePersonne, mesuresPersonne, peutVoir, preuveDe,
   reglerMesure, type BilanEffacement, type Carte, type Demandeur,
 } from '../muninn/personnes.ts';
 import type { CleMesure } from '../muninn/traits.ts';
 import { membreDe } from '../valhalla/sso/garde.ts';
-import { aDroit, applisDe, lierProprietaire, nomAppli, persona, personnes } from '../valhalla/sso/etat.ts';
+import {
+  POSTE_INACTIF, RENOUV_INACTIF, aDroit, applisDe, groupesDe, lierProprietaire, nomAppli, persona, personnes, sessionsApplis, sessionsPostes, vivante,
+} from '../valhalla/sso/etat.ts';
+import { applisConnues } from '../valhalla/sso/persona.ts';
 import { postNotice } from '../valhalla/notices.ts';
 
 /** Les codes d'erreur que la page sait dire (son dictionnaire doit les avoir tous). */
@@ -35,9 +42,21 @@ export interface DepsPersonnes {
   personnesPersona(): ReadonlyArray<{ id: string; login?: string; name?: string }>;
   /** Les groupes et les applis qu'une personne de Persona peut ouvrir (lecture seule) ; undefined : inconnue ou Persona arrêté. */
   accesDe(personaId: string): { groupes: string[]; applis: Array<{ id: string; nom: string }> } | undefined;
+  /** Ce que Persona dit des droits d'une personne (lecture seule) ; undefined : inconnue ou Persona arrêté. */
+  droitsDe?(personaId: string): DroitsPersona | undefined;
   /** Prévient le propriétaire qu'un membre signale une erreur sur sa fiche ; false si personne ne peut être prévenu. */
   prevenir(s: { nom: string; texte: string }): boolean;
   maintenant?(): number;
+}
+/**
+ * L'état des droits d'une personne dans Persona, en lecture : son compte (actif ou coupé), ses groupes, chaque appli à qui
+ * l'on peut donner un droit avec d'où vient son accès (`personnel` : « @login » à elle seule ; `par` : le groupe admin, ses
+ * groupes autorisés, ou « * » toute personne connectée), et ses appareils connectés. Des codes et des noms : la page traduit.
+ */
+export interface DroitsPersona {
+  login: string; actif: boolean; admin: boolean; groupes: string[];
+  applis: Array<{ id: string; nom: string; personnel: boolean; par: string[] }>;
+  appareils: Array<{ id?: string; sorte: 'poste' | 'appli'; appli?: string; nom: string; plateforme: string; vu: number }>;
 }
 export interface Requete { methode: string; chemin: string; query: URLSearchParams; corps?: Record<string, unknown>; demandeur: Demandeur }
 export interface Sortie { code: number; body: Record<string, unknown> }
@@ -61,11 +80,25 @@ const canauxDe = (c: Carte) => [...new Set(c.identites.map((i) => i.canal))];
 function carteVue(c: Carte & { synthetique?: true }, d: DepsPersonnes, proprio: boolean): Record<string, unknown> {
   const identites = c.identites.map((i) => ({ ...i, preuve: preuveDe({ canal: i.canal, proprietaire: c.role === 'owner', connu: true }) }));
   const acces = c.persona ? d.accesDe(c.persona.id) ?? null : null;
+  // Les droits dans Persona : un membre lit les siens — les seules applis qu'il peut ouvrir (pas tout le catalogue), sans
+  // les identifiants de ses connexions (rien à couper pour lui).
+  const dr = c.persona && d.droitsDe ? d.droitsDe(c.persona.id) ?? null : null;
+  const droits = dr && !proprio
+    ? { ...dr, applis: dr.applis.filter((a) => a.personnel || a.par.length), appareils: dr.appareils.map(({ id: _id, ...x }) => x) }
+    : dr;
   return {
-    id: c.id, nom: c.nom, role: c.role, autonomie: c.synthetique ? null : c.autonomie, identites, persona: c.persona, acces,
+    id: c.id, nom: c.nom, role: c.role, autonomie: c.synthetique ? null : c.autonomie, identites, persona: c.persona, acces, droits,
     ...(proprio ? { note: c.note, notable: !c.synthetique } : {}), portrait: c.portrait, ...(c.synthetique ? { synthetique: true } : {}),
   };
 }
+
+/** Les lignes du journal des droits qui concernent une personne (pour elle : son id, ou « @login » dans Persona). */
+type LigneDroit = LigneHistorique & { droit?: Record<string, unknown> };
+function droitsPour(mu: Mnemosyne, c: Carte): LigneDroit[] {
+  const cles = new Set([c.id, ...(c.persona?.login ? [`@${c.persona.login}`] : [])]);
+  return mu.lignesHistorique((l) => (l.sorte as string) === 'droit' && cles.has(String((l as LigneDroit).droit?.pour ?? ''))) as LigneDroit[];
+}
+const DROIT_CHAMPS = ['registre', 'pour', 'quoi', 'avant', 'apres', 'sens'] as const;
 
 /** Le jeton qui lie la confirmation à l'aperçu : la cible exacte et les lignes exactes qui seront retirées. */
 function jetonDe(qui: string, depuis: number | undefined, jusqua: number, ids: number[]): string {
@@ -149,12 +182,15 @@ export function traiterPersonnes(q: Requete, d: DepsPersonnes): Sortie {
     if (!get) return refus(405, 'methode');
     const n = Math.max(1, Math.min(PAGE_MAX, Math.floor(Number(q.query.get('n')) || PAGE_DEFAUT)));
     const av = /^(\d{1,16})-(\d{1,12})$/.exec(q.query.get('avant') ?? '');
-    const tous = historiquePersonne(d.mu, id).sort((a, b) => b.t - a.t || b.id - a.id);
+    // Le propriétaire voit aussi, chez une autre personne, les changements de ses droits (journal rangé à son nom à lui).
+    const extra = proprio && !c.synthetique && c.role !== 'owner' ? droitsPour(d.mu, c) : [];
+    const tous: LigneDroit[] = [...historiquePersonne(d.mu, id), ...extra].sort((a, b) => b.t - a.t || b.id - a.id);
     const apres = av ? tous.filter((l) => l.t < Number(av[1]) || (l.t === Number(av[1]) && l.id < Number(av[2]))) : tous;
     const page = apres.slice(0, n);
     const lignes = page.map((l) => {
       const m = l.mission ? d.mu.getMission(l.mission) : undefined;
-      return { id: l.id, t: l.t, sorte: l.sorte, canal: l.canal, preuve: l.preuve, partage: l.partage, resultat: l.resultat ?? null, ...(m?.goal ? { quoi: m.goal.slice(0, 240) } : {}) };
+      const dr = proprio && (l.sorte as string) === 'droit' && l.droit ? Object.fromEntries(DROIT_CHAMPS.map((k) => [k, String(l.droit![k] ?? '')])) : undefined;
+      return { id: l.id, t: l.t, sorte: l.sorte, canal: l.canal, preuve: l.preuve, partage: l.partage, resultat: l.resultat ?? null, ...(m?.goal ? { quoi: m.goal.slice(0, 240) } : {}), ...(dr ? { droit: dr } : {}) };
     });
     const der = page.at(-1);
     return ok({ lignes, total: tous.length, ...(apres.length > n && der ? { suite: `${der.t}-${der.id}` } : {}) });
@@ -200,7 +236,9 @@ export function traiterPersonnes(q: Requete, d: DepsPersonnes): Sortie {
     if (!p) return refus(400, 'invalide', { raison: 'periode' });
     const ids = historiquePersonne(d.mu, id, p).map((l) => l.id).sort((a, b) => a - b);
     const jeton = jetonDe(id, p.depuis, p.jusqua, ids);
-    const bilan: BilanEffacement = apercuEffacement(d.mu, { qui: id, ...p });
+    const b0: BilanEffacement = apercuEffacement(d.mu, { qui: id, ...p });
+    // Les changements de ses droits sont au journal du propriétaire : l'effacement ne les retire pas, l'aperçu le dit.
+    const bilan = { ...b0, reste: { ...b0.reste, droits: !c.synthetique && c.role !== 'owner' ? droitsPour(d.mu, c).length : 0 } };
     if (parts.length === 3) return ok({ cible: { id, ...p }, bilan, jeton });
     if (typeof q.corps?.jeton !== 'string' || q.corps.jeton !== jeton) return refus(409, 'change', { cible: { id, ...p }, bilan, jeton });
     try { return ok({ bilan: effacerHistoriquePersonne(d.mu, { qui: id, ...p }) }); } catch { return refus(500, 'disque'); }
@@ -236,6 +274,22 @@ export function depsReelles(mu: Mnemosyne): DepsPersonnes {
       const ctx = persona(); const p = ctx ? personnes(ctx).find((x) => x.id === pid) : undefined;
       if (!ctx || !p) return undefined;
       return { groupes: [...(p.groups ?? [])], applis: applisDe(ctx, p).map((id) => ({ id, nom: nomAppli(ctx, id) })) };
+    },
+    droitsDe: (pid) => {
+      const ctx = persona(); const p = ctx ? personnes(ctx).find((x) => x.id === pid) : undefined;
+      if (!ctx || !p) return undefined;
+      const moi = `@${p.login}`, admin = Boolean(p.proprio || p.groups.includes('admin')), now = Date.now();
+      return {
+        login: p.login, actif: p.active !== false, admin, groupes: [...p.groups],
+        applis: applisConnues(ctx).map((a) => {
+          const g = groupesDe(ctx, a.id);
+          return { id: a.id, nom: a.nom, personnel: g.includes(moi), par: [...(admin ? ['admin'] : []), ...g.filter((x) => x === '*' || (x !== 'admin' && !x.startsWith('@') && p.groups.includes(x)))] };
+        }),
+        appareils: [
+          ...sessionsPostes(ctx).filter((x) => x.sub === p.id && vivante(x, POSTE_INACTIF, now)).map((x) => ({ id: x.id, sorte: 'poste' as const, nom: x.appareil.nom, plateforme: x.appareil.plateforme, vu: x.vu })),
+          ...sessionsApplis(ctx).filter((x) => x.sub === p.id && vivante(x, RENOUV_INACTIF, now)).map((x) => ({ id: x.id, sorte: 'appli' as const, appli: nomAppli(ctx, x.appli), nom: x.appareil.nom, plateforme: x.appareil.plateforme, vu: x.vu })),
+        ],
+      };
     },
     prevenir: ({ nom, texte }) => Boolean(postNotice({
       level: 'souci', module: 'var', app: 'Profil', kind: 'Profil', title: `${nom || 'Une personne'} signale une erreur sur sa fiche`, detail: texte,

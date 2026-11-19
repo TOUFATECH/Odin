@@ -3,8 +3,14 @@
 // propriétaire, emplacement du portrait, vide pour l'instant) et sa ligne de temps — qui a demandé quoi, quand, ce que
 // ça a donné —, chargée au fil du défilement. À 390 px, la liste puis la carte, l'une sous l'autre.
 // Le propriétaire voit tout et efface l'historique à la main (aperçu exact, puis confirmation) ; un membre voit
-// seulement la sienne, en lecture, et peut signaler une erreur au propriétaire. Aucun droit ne se change ici.
-// La page n'appelle que /api/personnes… ; tout est écrit en textContent (jamais de HTML venu d'Odin ou d'une personne).
+// seulement la sienne, en lecture, et peut signaler une erreur au propriétaire.
+// Lot 5b, le bloc « Droits » : ce que la personne peut faire, dans les deux registres nommés (rôle et autonomie : mémoire
+// d'Odin ; applis, groupes, compte, appareils : Persona). Le propriétaire seul le change, et seulement par les actions qui
+// existent, telles qu'elles sont : /api/action (user_save, user_link, user_unlink) et /api/valhalla/act (Persona :
+// acces_cases, modifier, couper_appareil). Limiter part en un geste ; donner reçoit du serveur sa validation (avant →
+// après), montrée telle quelle, et ne repart, avec la confirmation, qu'après le geste du propriétaire. Après chaque
+// changement, la carte est relue du serveur. Un membre voit ses droits, sans rien pour les changer.
+// La page lit /api/personnes… ; tout est écrit en textContent (jamais de HTML venu d'Odin ou d'une personne).
 // Tous les textes sont dans le dictionnaire T, en tête : rien n'est écrit ailleurs.
 (() => {
   'use strict';
@@ -22,7 +28,7 @@
     'carte.partage': 'appareil partagé : le compte, pas forcément la personne', 'carte.acces': 'Accès aux applis',
     'carte.acces.groupes': 'Groupes : {g}', 'carte.acces.aucune': 'Aucune appli.', 'carte.acces.sanslien': 'Aucun compte Persona relié à cette personne : ses accès aux applis ne sont pas connus ici.',
     'carte.acces.inconnu': 'Le compte Persona relié est introuvable (Persona arrêté ou compte retiré).',
-    'carte.regl': 'Lecture seule. Le rôle et l\'autonomie se règlent dans Réglages › Personnes ; les accès aux applis, dans Persona.',
+    'carte.regl': 'Tout se règle aussi dans Réglages › Personnes (mémoire d\'Odin) et dans Persona (accès aux applis).',
     'carte.regl.personnes': 'Réglages › Personnes', 'carte.regl.persona': 'Ouvrir Persona',
     'carte.note': 'Ta note', 'carte.note.aide': 'Ce que tu veux qu\'Odin sache d\'elle. Visible de toi seul.', 'carte.note.enregistrer': 'Enregistrer la note',
     'carte.note.ok': 'Note enregistrée.', 'carte.note.sansfiche': 'Pas de note ici : tu n\'as pas de fiche à ton nom dans la mémoire d\'Odin.',
@@ -73,10 +79,39 @@
     'mes.f.ajouter': 'Ajouter une langue', 'mes.f.invalide': 'Valeur non valable : vérifie les nombres et les codes de langue.',
     'eff.retire.mesures': 'Les mesures gardées de « Ce qu\'Odin a observé » : elles seront recalculées sur ce qui reste.',
     'eff.reste.mesures': '{n} mesure{s} que tu as cachée{s} ou corrigée{s} (tes réglages restent)',
+    // Lot 5b : le bloc « Droits » (deux registres) et le journal des droits, traduit depuis ses codes.
+    'droits.titre': 'Droits', 'droits.aide': 'Limiter s\'applique tout de suite. Donner ouvre ta validation, qui montre avant → après.',
+    'droits.lecture': 'Ce que tu peux faire aujourd\'hui. Seul le propriétaire d\'Odin le change.', 'droits.proprio': 'Le rôle de propriétaire ne se change pas ici.',
+    'droits.odin': 'Dans la mémoire d\'Odin', 'droits.odin.aide': 'quand cette personne lui écrit', 'droits.persona': 'Dans Persona', 'droits.persona.aide': 'les applis ouvertes avec son compte',
+    'droits.compte': 'Compte : {e}', 'droits.compte.actif': 'actif', 'droits.compte.coupe': 'coupé (aucune appli ne s\'ouvre)',
+    'droits.compte.couper': 'Couper le compte', 'droits.compte.reactiver': 'Réactiver le compte…', 'droits.groupes': 'Groupes : {g}', 'droits.groupes.aucun': 'aucun',
+    'droits.applis': 'Applis', 'droits.applis.aucune': 'Aucune appli ouverte.', 'droits.applis.autres': 'Donner une autre appli ({n})',
+    'droits.via.perso': 'accès à elle seule', 'droits.via.groupe': 'par le groupe {g}', 'droits.via.tous': 'ouverte à toute personne connectée', 'droits.via.admin': 'groupe admin : toutes les applis',
+    'droits.via.fixe': 'se change dans Persona (cela touche tout le groupe)', 'droits.via.fixe.tous': 'se change dans Persona (cela touche toute personne connectée)',
+    'droits.appliquer': 'Appliquer', 'droits.appliquer.aria': 'Appliquer : {q}',
+    'eff.reste.droits': '{n} changement{s} de ses droits (journal des droits)',
+    'droits.appareils': 'Appareils connectés', 'droits.appareils.aucun': 'Aucun appareil connecté.', 'droits.appareil.poste': 'poste', 'droits.appareil.vu': 'vu le {d}',
+    'droits.appareil.couper': 'Couper', 'droits.appareil.couper.aria': 'Couper {a}', 'droits.delier': 'Délier', 'droits.delier.aria': 'Délier {i}',
+    'droits.lier': 'Lier…', 'droits.lier.champ': 'Lier une identité (canal:identifiant, ex. telegram:12345)', 'droits.lier.exemple': 'canal:identifiant', 'droits.lier.format': 'Écris l\'identité sous la forme canal:identifiant.',
+    'droits.tout': 'Couper tout…', 'droits.tout.ok': 'Couper tout', 'droits.tout.rien': 'Rien à couper : pas d\'accès à elle seule, et son compte est déjà coupé.',
+    'droits.tout.q': 'Couper tout pour {nom} ?', 'droits.tout.coupe': 'Sera coupé :', 'droits.tout.applis': 'son accès à elle seule à : {l}',
+    'droits.tout.compte': 'son compte Persona : ses connexions ouvertes sont fermées et aucune appli ne s\'ouvre plus pour elle',
+    'droits.tout.reste': 'Reste tel quel :', 'droits.tout.groupes': 'ses groupes ({g}) : avec le compte coupé, ils ne lui ouvrent plus rien',
+    'droits.tout.odin': 'son rôle et son autonomie dans la mémoire d\'Odin, et ses identités liées (elle peut encore écrire à Odin)',
+    'droits.tout.histo': 'Rien n\'est effacé de son historique.',
+    'droits.valider.titre': 'Donner un droit', 'droits.valider.ok': 'Confirmer',
+    'droits.fait': 'C\'est fait : la carte est à jour.', 'droits.annule': 'Rien n\'a changé.', 'droits.refus': 'Refusé : {r}',
+    'sorte.droit': 'Droit changé', 'sens.donne': 'donné', 'sens.limite': 'limité', 'registre.odin': 'Mémoire d\'Odin', 'registre.persona': 'Persona',
+    'droit.ligne': '{quoi} : {avant} → {apres}', 'droit.pour': 'pour {p}', 'droit.rien': 'rien', 'droit.tous': 'toute personne connectée',
+    'droit.acces': 'Accès à {a}', 'droit.groupes': 'Groupes', 'droit.compte': 'Compte', 'droit.identite': 'Identité', 'droit.personne': 'Fiche',
+    'droit.identites': '{n} identité{s}',
   };
   const ROLES = ['owner', 'member', 'guest'], AUTONOMIES = ['prudent', 'equilibre', 'autonome'];
   const PREUVES = ['session-proprietaire', 'appareil-appaire', 'code-prouve', 'non-prouve'];
-  const SORTES = ['demande', 'action', 'decision', 'validation', 'refus', 'connexion'];
+  const SORTES = ['demande', 'action', 'decision', 'validation', 'refus', 'connexion', 'droit'];
+  const SENS = ['donne', 'limite'], REGISTRES = ['odin', 'persona'];
+  // Les deux seules adresses où le bloc « Droits » envoie : les actions qui existent déjà, avec leur validation.
+  const ACTION_ODIN = '/api/action', ACTION_PERSONA = '/api/valhalla/act';
   const RESULTATS = ['reussi', 'echoue', 'en_attente', 'arrete', 'en_cours', 'inconnu', 'sans_tour'];
   const RAISONS = ['proprietaire', 'la-sienne', 'reglage-proprietaire-seul', 'invite', 'lien-absent', 'lien-douteux', 'autre-personne', 'demandeur-inconnu'];
   const MESURES = ['langues', 'longueur', 'heures', 'applis', 'abouties'], A_NOTER = ['appli-du-tour'];
@@ -114,6 +149,7 @@
     const puce = (x) => lignes.push(`• ${x}`);
     if (r.historique) puce(t('eff.reste.historique', { n: r.historique }));
     if (r.mesuresCorrigees) puce(t('eff.reste.mesures', { n: r.mesuresCorrigees }));
+    if (r.droits) puce(t('eff.reste.droits', { n: r.droits }));
     puce(t('eff.reste.messages', { n: r.messages || 0 })); puce(t('eff.reste.missions', { n: r.missions || 0 }));
     puce(t('eff.reste.aiguillage', { n: r.aiguillage || 0 })); puce(t('eff.reste.souvenirs', { n: r.souvenirs || 0 }));
     if (r.note) puce(t('eff.reste.note')); if (r.lienPersona) puce(t('eff.reste.lien'));
@@ -126,7 +162,61 @@
     ...ROLES.map((x) => `role.${x}`), ...AUTONOMIES.map((x) => `autonomie.${x}`), ...PREUVES.map((x) => `preuve.${x}`),
     ...SORTES.map((x) => `sorte.${x}`), ...RESULTATS.map((x) => `resultat.${x}`), ...RAISONS.map((x) => `raison.${x}`),
     ...MESURES.map((x) => `mes.nom.${x}`), ...A_NOTER.map((x) => `mes.anoter.${x}`),
+    ...SENS.map((x) => `sens.${x}`), ...REGISTRES.map((x) => `registre.${x}`),
   ];
+
+  // ---------------- Les droits, dits en clair (codes traduits ici, jamais rangés en une langue)
+  const code = (pre, x) => (Object.prototype.hasOwnProperty.call(T, `${pre}.${x}`) ? t(`${pre}.${x}`) : String(x));
+  /** Un groupe, une personne (« @login ») ou « * » d'une liste de droits. */
+  const quiDit = (g) => { const x = String(g); return x === '*' ? t('droit.tous') : x.startsWith('@') ? x.slice(1) : x.startsWith('groupe:') ? x.slice(7) : x; };
+  /** Une valeur d'avant ou d'après du journal des droits (listes « a,b », « actif »/« coupe », « clé=valeur;… »). */
+  function valeurDroit(quoi, v) {
+    const s = String(v == null ? '' : v);
+    if (!s) return t('droit.rien');
+    if (quoi === 'role') return code('role', s);
+    if (quoi === 'autonomie') return code('autonomie', s);
+    if (quoi === 'compte') return s === 'actif' ? t('droits.compte.actif') : s === 'coupe' ? t('droits.compte.coupe') : s;
+    if (quoi === 'groupes' || quoi.startsWith('acces:')) return s.split(',').filter(Boolean).map(quiDit).join(', ') || t('droit.rien');
+    if (quoi === 'identite') {
+      // « canal:identifiant;user=…;role=…;autonomy=… » : Odin écrit la fin ; l'identifiant, lui, vient de dehors et peut
+      // contenir « ; » ou « = » — il reste du texte, tel quel, et seule la fin est lue comme rôle et autonomie.
+      const m = /^(.*);user=[^;]*;role=([^;]*);autonomy=([^;]*)$/s.exec(s);
+      return m ? [m[1], code('role', m[2]), code('autonomie', m[3])].join(' · ') : s;
+    }
+    const parts = s.split(';').map((x) => {
+      const m = /^(\w+)=(.*)$/.exec(x); if (!m) return x;
+      if (m[1] === 'role') return code('role', m[2]);
+      if (m[1] === 'autonomy') return code('autonomie', m[2]);
+      if (m[1] === 'groups') return m[2].split(',').filter(Boolean).map(quiDit).join(', ') || t('droit.rien');
+      if (m[1] === 'identities') return t('droit.identites', { n: m[2] });
+      return null; // un identifiant interne (user=…) ne se montre pas
+    }).filter(Boolean);
+    return parts.join(' · ') || t('droit.rien');
+  }
+  /** Une ligne du journal des droits en une phrase : « Autonomie : Prudent → Équilibré ». nomAppli : id → nom affiché. */
+  function texteDroit(dr, nomAppli = (x) => x) {
+    const quoi = String((dr && dr.quoi) || '');
+    const sujet = quoi === 'role' ? t('carte.role') : quoi === 'autonomie' ? t('carte.autonomie') : quoi === 'groupes' ? t('droit.groupes') : quoi === 'compte' ? t('droit.compte')
+      : quoi === 'identite' ? t('droit.identite') : quoi === 'personne' ? t('droit.personne') : quoi.startsWith('acces:') ? t('droit.acces', { a: nomAppli(quoi.slice(6)) }) : quoi;
+    return t('droit.ligne', { quoi: sujet, avant: valeurDroit(quoi, dr.avant), apres: valeurDroit(quoi, dr.apres) });
+  }
+  /** D'où vient l'accès à une appli (« accès à elle seule », « par le groupe famille »…). */
+  function viaDe(a) {
+    const out = [];
+    if (a.personnel) out.push(t('droits.via.perso'));
+    for (const g of a.par || []) out.push(g === 'admin' ? t('droits.via.admin') : g === '*' ? t('droits.via.tous') : t('droits.via.groupe', { g }));
+    return out.join(' ; ');
+  }
+  /** La confirmation de « Couper tout » : exactement ce qui sera coupé, et ce qui reste. */
+  function texteCouperTout(nom, dr) {
+    const perso = (dr.applis || []).filter((a) => a.personnel), lignes = [t('droits.tout.q', { nom }), '', t('droits.tout.coupe')];
+    if (perso.length) lignes.push(`• ${t('droits.tout.applis', { l: perso.map((a) => a.nom).join(', ') })}`);
+    if (dr.actif) lignes.push(`• ${t('droits.tout.compte')}`);
+    lignes.push('', t('droits.tout.reste'));
+    if ((dr.groupes || []).length) lignes.push(`• ${t('droits.tout.groupes', { g: dr.groupes.join(', ') })}`);
+    lignes.push(`• ${t('droits.tout.odin')}`, '', t('droits.tout.histo'));
+    return lignes.join('\n');
+  }
 
   // ---------------- Les mesures, dites simplement dans la langue de la personne qui regarde (Intl, aucune liste de mots)
   function pourcent(x) { try { return new Intl.NumberFormat(langue(), { style: 'percent', maximumFractionDigits: 0 }).format(Number(x) || 0); } catch { return `${Math.round((Number(x) || 0) * 100)} %`; } }
@@ -248,8 +338,34 @@
 .pf-hk:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pf-lfs{display:flex;flex-direction:column;gap:6px;margin-top:6px}.pf-lf{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .pf-lf input[type=text]{width:8em}.pf-lf input[type=number]{width:6em}
+.pf-droits{margin-top:14px}.pf-droits>h3{margin-top:0}
+.pf-reg{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px;background:var(--panel2,var(--panel));min-width:0}
+.pf-reg h4{margin:8px 0 2px;font-size:14px;color:var(--ink)}.pf-reg h4:first-child{margin-top:0}.pf-reg h4 small{font-weight:400;color:var(--muted);font-size:12.5px}
+.pf-rang{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;min-height:44px;font-size:14px;min-width:0}.pf-rang>b{font-weight:600;min-width:6.5em}
+.pf-sel{min-height:44px;min-width:44px;border-radius:8px;border:1px solid var(--field,var(--line));background:var(--panel);color:var(--ink);padding:0 8px;font:inherit}
+.pf-cases,.pf-apps{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pf-case{display:flex;gap:10px;align-items:center;min-height:44px;cursor:pointer;font-size:14px;overflow-wrap:anywhere;min-width:0}
+.pf-case input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--accent)}.pf-case input:disabled{cursor:default}
+.pf-case input:focus-visible,.pf-sel:focus-visible,.pf-lier input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pf-case small,.pf-apps small{display:block;color:var(--muted);font-size:12.5px}
+.pf-apps li{display:flex;gap:10px;align-items:center;justify-content:space-between;min-height:44px;font-size:14px;min-width:0;overflow-wrap:anywhere}.pf-apps li>span{min-width:0}
+.pf-plus summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:14px;color:var(--accent)}
+.pf-lier{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+.pf-lier input{flex:1 1 14em;min-width:0;min-height:44px;box-sizing:border-box;border-radius:8px;border:1px solid var(--field,var(--line));background:var(--panel);color:var(--ink);padding:0 10px;font:inherit}
+.pf-tout{margin-top:12px}
+.pf-choix{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;min-width:0}
 `;
   function style() { if (!document.getElementById('pf-css')) document.head.append(el('style', { id: 'pf-css' }, CSS)); }
+
+  /** Envoie à une action qui existe (seulement ces deux adresses) ; la réponse telle quelle. */
+  async function defautPoster(url, corps) {
+    if (url !== ACTION_ODIN && url !== ACTION_PERSONA) return undefined;
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify(corps) });
+      const j = await r.json().catch(() => ({}));
+      return { status: r.status, ...j };
+    } catch { return undefined; }
+  }
 
   async function defautApi(path, opts = {}) {
     try {
@@ -269,7 +385,11 @@
     const D = window.OdinDialog;
     const confirmer = ctx.confirmer || ((txt) => (D ? D.confirm(txt, { ok: t('eff.ok'), danger: true }) : Promise.resolve(false)));
     const demander = ctx.demander || ((txt) => (D && D.prompt ? D.prompt(txt, '') : Promise.resolve(null)));
-    const etat = { liste: null, choisi: null, carte: null, proprietaire: false, lignes: [], suite: undefined, total: 0, charge: false };
+    // Le bloc « Droits » : l'envoi vers une action qui existe, la validation (texte du serveur), la confirmation de « Couper tout ».
+    const poster = ctx.poster || defautPoster;
+    const valider = ctx.valider || ((txt) => (D ? D.confirm(txt, { titre: t('droits.valider.titre'), ok: t('droits.valider.ok') }) : Promise.resolve(false)));
+    const confirmerCoupure = ctx.confirmerCoupure || ((txt) => (D ? D.confirm(txt, { ok: t('droits.tout.ok'), danger: true }) : Promise.resolve(false)));
+    const etat = { liste: null, choisi: null, carte: null, proprietaire: false, lignes: [], suite: undefined, total: 0, charge: false, msgDroits: null, occupe: false };
     let temps, compte, plus, sentinelle, obs; // la ligne de temps de la carte affichée
     let obsZone; // le bloc « Ce qu'Odin a observé » de la carte affichée
 
@@ -292,8 +412,9 @@
     function peindreListe(inconnus) {
       const ul = el('ul', {}, ...etat.liste.map((p) => el('li', {}, el('button', { type: 'button', class: 'pf-p', 'data-id': p.id, 'aria-current': String(etat.choisi === p.id), onclick: () => choisir(p.id, true) },
         el('span', { class: 'pf-n' }, nomDe(p)), el('span', { class: 'pf-s' }, `${t(`role.${p.role}`)} · ${canaux(p)}`)))));
-      zoneListe.replaceChildren(el('h2', {}, t('liste.titre')), etat.liste.length ? ul : el('p', { class: 'pf-vide' }, t('liste.vide')),
-        inconnus && inconnus.total ? el('p', { class: 'pf-inc' }, t('inconnus', { n: inconnus.total })) : null);
+      // replaceChildren écrirait « null » : le compteur des inconnus ne s'ajoute que s'il y en a.
+      zoneListe.replaceChildren(el('h2', {}, t('liste.titre')), etat.liste.length ? ul : el('p', { class: 'pf-vide' }, t('liste.vide')));
+      if (inconnus && inconnus.total) zoneListe.append(el('p', { class: 'pf-inc' }, t('inconnus', { n: inconnus.total })));
     }
 
     async function choisir(id, defiler) {
@@ -319,7 +440,8 @@
         c.autonomie ? [el('dt', {}, t('carte.autonomie')), el('dd', {}, t(`autonomie.${c.autonomie}`))] : null,
         el('dt', {}, t('carte.identites')), el('dd', {}, ids),
         el('dt', {}, t('carte.acces')), el('dd', {}, acces));
-      const blocs = [el('div', { class: 'pf-tete' }, el('h2', {}, nom), el('span', { class: 'pf-pill' }, t(`role.${c.role}`))), dl];
+      // Une personne de la mémoire d'Odin : le bloc « Droits » (ses deux registres) ; l'entrée sans fiche du propriétaire : le résumé.
+      const blocs = [el('div', { class: 'pf-tete' }, el('h2', {}, nom), el('span', { class: 'pf-pill' }, t(`role.${c.role}`))), c.synthetique ? dl : blocDroits(c, nom, ids)];
       if (proprio) {
         blocs.push(el('p', { class: 'pf-aide' }, t('carte.regl')), el('div', { class: 'pf-actes' },
           el('button', { type: 'button', class: 'pf-b', onclick: () => { if (window.openSettings) window.openSettings('personnes'); } }, t('carte.regl.personnes')),
@@ -459,10 +581,161 @@
     }
 
     function ligne(l) {
+      if (l.sorte === 'droit' && l.droit) return ligneDroit(l);
       const tete = el('div', { class: 'pf-lt' }, el('b', {}, t(`sorte.${l.sorte}`)), el('span', {}, quand(l.t)), el('span', {}, t('histo.via', { c: l.canal })),
         el('span', {}, t(`preuve.${l.preuve}`)), l.partage ? el('span', {}, t('histo.partage')) : null,
         l.resultat ? el('span', { class: `pf-tag ${l.resultat}` }, t(`resultat.${l.resultat}`)) : null);
       return el('li', { class: 'pf-l' }, tete, l.quoi ? el('p', { class: 'pf-q' }, l.quoi) : l.sorte === 'demande' ? el('p', { class: 'pf-q vide' }, t('histo.sanstexte')) : null);
+    }
+
+    /** Une ligne du journal des droits : quoi, avant → après, pour qui, dans quel registre, donné ou limité. */
+    function ligneDroit(l) {
+      const dr = l.droit, applis = (etat.carte && etat.carte.droits && etat.carte.droits.applis) || [];
+      const nomAppli = (id) => (applis.find((a) => a.id === id) || {}).nom || id;
+      // Pour qui : son id dans la mémoire d'Odin, ou « @login » de Persona — celui de la carte ouverte se dit par son nom.
+      const pour = String(dr.pour || ''), cp = etat.carte && etat.carte.persona && etat.carte.persona.login;
+      const p = cp && pour === `@${cp}` ? etat.carte : (etat.liste || []).find((x) => x.id === pour);
+      const tete = el('div', { class: 'pf-lt' }, el('b', {}, t('sorte.droit')), el('span', {}, quand(l.t)), el('span', { class: 'pf-tag' }, code('registre', dr.registre)),
+        el('span', { class: `pf-tag ${dr.sens === 'donne' ? 'en_attente' : 'reussi'}` }, code('sens', dr.sens)));
+      return el('li', { class: 'pf-l' }, tete, el('p', { class: 'pf-q' }, `${texteDroit(dr, nomAppli)} — ${t('droit.pour', { p: p ? nomDe(p) : quiDit(pour) })}`));
+    }
+
+    // ---- Le bloc « Droits ». Rien n'est supposé : chaque changement passe par une action qui existe, puis la carte est relue.
+    async function agir(url, corps) {
+      const r = await poster(url, corps);
+      // Donner : le serveur répond d'abord par sa demande de validation (avant → après) ; elle est montrée TELLE QUELLE, et
+      // la même demande ne repart, avec la confirmation, qu'après le geste du propriétaire.
+      if (r && r.ok === false && typeof r.confirm === 'string' && r.confirm) {
+        if (!(await validerSansRepetition(r.confirm))) return { annule: true };
+        return poster(url, { ...corps, confirm: true });
+      }
+      return r;
+    }
+    /** La validation, protégée d'une touche tenue : Entrée (ou Espace) gardée enfoncée sur « Lier… » ou « Réactiver… »
+     *  se répète sur « Confirmer », qui a le focus. Tant que la validation est ouverte, une frappe RÉPÉTÉE de ces touches
+     *  est arrêtée avant tout le reste ; une nouvelle frappe, voulue, passe. */
+    async function validerSansRepetition(txt) {
+      const w = typeof window !== 'undefined' && window && typeof window.addEventListener === 'function' ? window : null;
+      const arreter = (e) => { if (e && e.repeat && (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar')) { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } };
+      if (w) { w.addEventListener('keydown', arreter, true); w.addEventListener('keypress', arreter, true); }
+      try { return await valider(txt); } finally { if (w) { w.removeEventListener('keydown', arreter, true); w.removeEventListener('keypress', arreter, true); } }
+    }
+    /** Un changement : l'envoi, l'état d'avant remis si rien n'a été fait, le message, puis la carte relue du serveur. */
+    async function changer(url, corps, remettre) {
+      if (etat.occupe || !etat.carte) { if (remettre) remettre(); return false; }
+      etat.occupe = true;
+      const id = etat.carte.id;
+      let r; try { r = await agir(url, corps); } finally { etat.occupe = false; }
+      // Un refus : « ok: false », ou un code HTTP d'échec (garde, connexion) même sans « ok » — jamais dit « fait ».
+      const refuse = Boolean(r && !r.annule && (r.ok === false || Number(r.status) >= 400));
+      const fait = Boolean(r && !r.annule && !refuse);
+      if (!fait && remettre) remettre();
+      etat.msgDroits = !r ? { texte: t('erreur.reseau'), bien: false } : r.annule ? { texte: t('droits.annule'), bien: true }
+        : refuse ? { texte: t('droits.refus', { r: String(r.error || r.text || r.code || '') }), bien: false } : { texte: t('droits.fait'), bien: true };
+      if (etat.carte && etat.carte.id === id) await choisir(id);
+      return fait;
+    }
+    function blocDroits(c, nom, ids) {
+      const dr = c.droits || null, change = etat.proprietaire && !c.synthetique && c.role !== 'owner';
+      const st = el('p', { class: 'pf-st pf-dst', role: 'status' });
+      if (etat.msgDroits) { st.textContent = etat.msgDroits.texte; st.className = `pf-st pf-dst ${etat.msgDroits.bien ? 'ok' : 'ko'}`; etat.msgDroits = null; }
+      const rang = (titre, ...x) => el('div', { class: 'pf-rang' }, el('b', {}, titre), ...x);
+      // Un sélecteur ne fait rien partir seul : au clavier, chaque flèche le change (et l'événement « change » part à
+      // chaque fois). « Appliquer » envoie le choix, et seulement s'il diffère de l'état lu du serveur.
+      const appliquer = (sel, quoi, nomQuoi, avant, corps) => {
+        const b = el('button', { type: 'button', class: 'pf-b', 'data-appliquer': quoi, disabled: true, 'aria-label': t('droits.appliquer.aria', { q: nomQuoi }) }, t('droits.appliquer'));
+        sel.addEventListener('change', () => { if (sel.value === avant) b.setAttribute('disabled', ''); else b.removeAttribute('disabled'); });
+        b.addEventListener('click', () => {
+          if (sel.value === avant) return undefined;
+          return changer(ACTION_ODIN, corps(), () => { sel.value = avant; b.setAttribute('disabled', ''); });
+        });
+        return b;
+      };
+      const tete = (cle) => el('h4', {}, t(cle), ' ', el('small', {}, `(${t(`${cle}.aide`)})`));
+
+      // Registre 1 : la mémoire d'Odin (rôle, autonomie, identités).
+      const odin = el('section', { class: 'pf-reg', 'aria-label': t('droits.odin') }, tete('droits.odin'));
+      if (change) {
+        const role = el('select', { class: 'pf-sel', 'data-droit': 'role', 'aria-label': t('carte.role') }, ...ROLES.map((x) => el('option', { value: x, selected: x === c.role }, t(`role.${x}`))));
+        role.value = c.role;
+        odin.append(rang(t('carte.role'), el('span', { class: 'pf-choix' }, role, appliquer(role, 'role', t('carte.role'), c.role, () => ({ kind: 'user_save', id: c.id, name: c.nom, role: role.value, autonomy: c.autonomie })))));
+        if (c.role === 'member') {
+          const auto = el('select', { class: 'pf-sel', 'data-droit': 'autonomie', 'aria-label': t('carte.autonomie') }, ...AUTONOMIES.map((x) => el('option', { value: x, selected: x === c.autonomie }, t(`autonomie.${x}`))));
+          auto.value = c.autonomie;
+          odin.append(rang(t('carte.autonomie'), el('span', { class: 'pf-choix' }, auto, appliquer(auto, 'autonomie', t('carte.autonomie'), c.autonomie, () => ({ kind: 'user_save', id: c.id, name: c.nom, role: c.role, autonomy: auto.value })))));
+        } else if (c.autonomie) odin.append(rang(t('carte.autonomie'), el('span', {}, code('autonomie', c.autonomie))));
+      } else {
+        odin.append(rang(t('carte.role'), el('span', {}, code('role', c.role))));
+        if (c.autonomie) odin.append(rang(t('carte.autonomie'), el('span', {}, code('autonomie', c.autonomie))));
+        if (etat.proprietaire && c.role === 'owner') odin.append(el('p', { class: 'pf-aide' }, t('droits.proprio')));
+      }
+      odin.append(el('h4', {}, t('carte.identites')));
+      if (!c.identites.length) odin.append(el('p', { class: 'pf-aide' }, t('carte.identites.aucune')));
+      else odin.append(el('ul', { class: 'pf-apps' }, c.identites.map((i, k) => el('li', {}, el('span', {}, ids[k]),
+        change ? el('button', { type: 'button', class: 'pf-b', 'aria-label': t('droits.delier.aria', { i: `${i.canal}:${i.pair}` }), onclick: () => changer(ACTION_ODIN, { kind: 'user_unlink', channel: i.canal, peer: i.pair }) }, t('droits.delier')) : null))));
+      if (change) {
+        const champ = el('input', { type: 'text', 'data-droit': 'lier', autocomplete: 'off', spellcheck: 'false', maxlength: '200', 'aria-label': t('droits.lier.champ'), placeholder: t('droits.lier.exemple') });
+        odin.append(el('div', { class: 'pf-lier' }, champ, el('button', { type: 'button', class: 'pf-b', onclick: () => {
+          const m = /^([a-z][a-z0-9_-]*):(.+)$/.exec(String(champ.value || '').trim());
+          if (!m) { st.textContent = t('droits.lier.format'); st.className = 'pf-st pf-dst ko'; return undefined; }
+          return changer(ACTION_ODIN, { kind: 'user_link', id: c.id, channel: m[1], peer: m[2].trim() });
+        } }, t('droits.lier'))));
+      }
+
+      // Registre 2 : Persona (compte, groupes, applis et d'où vient l'accès, appareils).
+      const pers = el('section', { class: 'pf-reg', 'aria-label': t('droits.persona') }, tete('droits.persona'));
+      if (!c.persona) pers.append(el('p', { class: 'pf-aide' }, t('carte.acces.sanslien')));
+      else if (!dr) pers.append(el('p', { class: 'pf-aide' }, t('carte.acces.inconnu')));
+      else {
+        const login = dr.login;
+        pers.append(rang(t('droits.compte', { e: dr.actif ? t('droits.compte.actif') : t('droits.compte.coupe') }),
+          change ? (dr.actif
+            ? el('button', { type: 'button', class: 'pf-b', onclick: () => changer(ACTION_PERSONA, { module: 'var', action: 'modifier', input: { login, actif: 'coupé' } }) }, t('droits.compte.couper'))
+            : el('button', { type: 'button', class: 'pf-b', onclick: () => changer(ACTION_PERSONA, { module: 'var', action: 'modifier', input: { login, actif: 'actif' } }) }, t('droits.compte.reactiver'))) : null));
+        pers.append(el('p', { class: 'pf-aide' }, t('droits.groupes', { g: (dr.groupes || []).length ? dr.groupes.join(', ') : t('droits.groupes.aucun') })));
+        const ouvertes = (dr.applis || []).filter((a) => a.personnel || (a.par || []).length), fermees = (dr.applis || []).filter((a) => !a.personnel && !(a.par || []).length);
+        pers.append(el('h4', {}, t('droits.applis')));
+        if (change) {
+          // Une case par appli : cochée = elle peut l'ouvrir. Seul l'accès « à elle seule » se coche ou se décoche ici ;
+          // un accès venu d'un groupe toucherait tout le groupe : il se change dans Persona.
+          const caseDe = (a) => {
+            const coche = Boolean(a.personnel || (a.par || []).length), fixe = !a.personnel && coche;
+            const box = el('input', { type: 'checkbox', 'data-appli': a.id, checked: coche, disabled: fixe });
+            box.checked = coche;
+            box.addEventListener('change', () => changer(ACTION_PERSONA, { module: 'var', action: 'acces_cases', input: { qui: `@${login}`, [a.id]: !coche } }, () => { box.checked = coche; }));
+            const fixeDit = (a.par || []).includes('*') ? t('droits.via.fixe.tous') : t('droits.via.fixe');
+            return el('li', {}, el('label', { class: 'pf-case' }, box, el('span', {}, a.nom, coche ? el('small', {}, viaDe(a), fixe ? ` — ${fixeDit}` : '') : null)));
+          };
+          pers.append(ouvertes.length ? el('ul', { class: 'pf-cases' }, ouvertes.map(caseDe)) : el('p', { class: 'pf-aide' }, t('droits.applis.aucune')));
+          if (fermees.length) pers.append(el('details', { class: 'pf-plus' }, el('summary', {}, t('droits.applis.autres', { n: fermees.length })), el('ul', { class: 'pf-cases' }, fermees.map(caseDe))));
+        } else {
+          pers.append(ouvertes.length ? el('ul', { class: 'pf-apps' }, ouvertes.map((a) => el('li', {}, el('span', {}, a.nom, el('small', {}, viaDe(a)))))) : el('p', { class: 'pf-aide' }, t('droits.applis.aucune')));
+        }
+        pers.append(el('h4', {}, t('droits.appareils')));
+        const aps = dr.appareils || [];
+        pers.append(aps.length ? el('ul', { class: 'pf-apps pf-apx' }, aps.map((x) => {
+          const quoi = `${x.nom} (${x.plateforme})`;
+          return el('li', {}, el('span', {}, quoi, el('small', {}, `${x.sorte === 'poste' ? t('droits.appareil.poste') : x.appli || ''} · ${t('droits.appareil.vu', { d: quand(x.vu) })}`)),
+            change && x.id ? el('button', { type: 'button', class: 'pf-b', 'aria-label': t('droits.appareil.couper.aria', { a: quoi }), onclick: () => changer(ACTION_PERSONA, { module: 'var', action: 'couper_appareil', input: { id: x.id } }) }, t('droits.appareil.couper')) : null);
+        })) : el('p', { class: 'pf-aide' }, t('droits.appareils.aucun')));
+      }
+
+      const bloc = el('div', { class: 'pf-droits' }, el('h3', {}, t('droits.titre')), el('p', { class: 'pf-aide' }, change ? t('droits.aide') : t('droits.lecture')), odin, pers);
+      // « Couper tout » : un geste lourd (pas un droit donné) — une confirmation simple, qui dit ce qui sera coupé.
+      if (change && dr) bloc.append(el('div', { class: 'pf-actes pf-tout' }, el('button', { type: 'button', class: 'pf-b danger', onclick: () => couperTout(dr) }, t('droits.tout'))));
+      bloc.append(st);
+      return bloc;
+
+      async function couperTout(d0) {
+        const perso = (d0.applis || []).filter((a) => a.personnel);
+        if (!perso.length && !d0.actif) { st.textContent = t('droits.tout.rien'); st.className = 'pf-st pf-dst ok'; return; }
+        if (!(await confirmerCoupure(texteCouperTout(nom, d0)))) { st.textContent = t('droits.annule'); st.className = 'pf-st pf-dst ok'; return; }
+        if (perso.length) {
+          const input = { qui: `@${d0.login}` }; for (const a of perso) input[a.id] = false;
+          if (!(await changer(ACTION_PERSONA, { module: 'var', action: 'acces_cases', input }))) return; // refusé : la raison est dite, rien d'autre ne part
+        }
+        if (d0.actif) await changer(ACTION_PERSONA, { module: 'var', action: 'modifier', input: { login: d0.login, actif: 'coupé' } });
+      }
     }
 
     async function charger() {
@@ -516,5 +789,5 @@
   }
   if (typeof document !== 'undefined' && document.addEventListener) brancher();
 
-  window.OdinProfil = { rendre, logique: { T, t, quand, jour, nomDe, canaux, erreurDe, periodeDe, texteConfirmation, clesAttendues, ROLES, AUTONOMIES, PREUVES, SORTES, RESULTATS, RAISONS } };
+  window.OdinProfil = { rendre, logique: { T, t, quand, jour, nomDe, canaux, erreurDe, periodeDe, texteConfirmation, clesAttendues, texteDroit, valeurDroit, viaDe, texteCouperTout, ROLES, AUTONOMIES, PREUVES, SORTES, RESULTATS, RAISONS } };
 })();

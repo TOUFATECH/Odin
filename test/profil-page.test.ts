@@ -84,12 +84,14 @@ test('le propriétaire : la liste (lui sans fiche, les canaux, le compteur des i
   assert.match(host.querySelector('.pf-inc')!.textContent, /^3 messages d'inconnus non appairés/);
   bouton(host, PIEGE)!.click(); await flush();
   assert.equal(r!.etat.lignes.length, 30, 'une première page');
-  assert.match(host.textContent, /Lecture seule\. Le rôle et l'autonomie se règlent dans Réglages › Personnes/);
+  assert.match(host.textContent, /Tout se règle aussi dans Réglages › Personnes \(mémoire d'Odin\) et dans Persona/);
   assert.match(host.textContent, /appareil appairé · appareil partagé/);
   assert.match(host.textContent, /Aucun compte Persona relié/);
   assert.match(host.textContent, /Vide pour l'instant : Odin le rédigera lui-même/);
-  assert.equal(bouton(host, 'Rôle'), undefined, 'aucun bouton pour changer un droit');
-  assert.ok(!tous(host).some((x) => x.localName === 'select'), 'aucun sélecteur de rôle ou d\'autonomie');
+  // Lot 5b : le propriétaire règle les droits dans le bloc « Droits » (rôle, autonomie) ; sans compte Persona, aucune case d'appli.
+  assert.equal(tous(host).filter((x) => x.localName === 'select').length, 2, 'rôle et autonomie se règlent');
+  assert.ok(!tous(host).some((x) => x.localName === 'input' && x.attributes.type === 'checkbox'), 'aucune case d\'appli sans compte Persona relié');
+  assert.equal(bouton(host, 'Couper tout'), undefined, 'rien à couper dans Persona sans compte relié');
   bouton(host, 'En charger d\'autres')!.click(); await flush();
   assert.equal(r!.etat.lignes.length, 45);
   assert.equal((bouton(host, 'En charger d\'autres') as unknown as { hidden: boolean }).hidden, true, 'fin de l\'historique : plus de bouton');
@@ -135,6 +137,8 @@ test('un membre : sa fiche seulement, en lecture (ni note, ni effacement, ni ré
   assert.equal(host.querySelector('textarea'), null);
   assert.equal(bouton(host, 'Voir ce qui sera effacé'), undefined); assert.equal(bouton(host, 'Ouvrir Persona'), undefined);
   assert.match(host.textContent, /Ta fiche, en lecture\./);
+  assert.ok(!tous(host).some((x) => x.localName === 'select' || x.localName === 'input'), 'aucun sélecteur ni case : ses droits en lecture');
+  assert.equal(bouton(host, 'Délier'), undefined); assert.equal(bouton(host, 'Lier'), undefined);
   bouton(host, 'Signaler une erreur')!.click(); await flush();
   assert.deepEqual(pur(f.appels.at(-1)), { path: '/moi/signaler', opts: { method: 'POST', body: { texte: 'mon canal est faux' } } });
   assert.match(host.textContent, /le propriétaire d'Odin est prévenu/);

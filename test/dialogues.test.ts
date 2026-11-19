@@ -41,3 +41,11 @@ test('dialog.js est servi et chargé par l\'interface', () => {
   assert.match(readFileSync(new URL('server.ts', WEB), 'utf8'), /'\/dialog\.js'/, 'le serveur sert /dialog.js');
   assert.match(readFileSync(new URL('ui.html', WEB), 'utf8'), /<script[^>]*src="\/dialog\.js"/, 'ui.html charge /dialog.js');
 });
+
+test('une touche Entrée ou Espace tenue ne valide jamais une fenêtre d\'Odin', () => {
+  const dlg = readFileSync(new URL('dialog.js', WEB), 'utf8');
+  // La garde est posée en capture sur la fenêtre à l'ouverture, et retirée à la fermeture.
+  assert.match(dlg, /e\.repeat\s*&&\s*\(e\.key === 'Enter' \|\| e\.key === ' '/, 'les répétitions d\'Entrée et d\'Espace sont arrêtées');
+  assert.match(dlg, /window\.addEventListener\('keydown', sansRepetition, true\)/, 'la garde écoute en capture');
+  assert.match(dlg, /window\.removeEventListener\('keydown', sansRepetition, true\)/, 'la garde est retirée à la fermeture');
+});

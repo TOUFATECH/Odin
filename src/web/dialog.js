@@ -81,9 +81,14 @@
       if (genre !== 'alert') { non = bouton(opts.annuler ?? 'Annuler', 'non'); barre.append(non); }
       barre.append(ok); box.append(barre); bg.append(box);
 
+      // Une touche Entrée ou Espace TENUE (répétition du clavier) ne valide jamais : sinon, garder Entrée enfoncée sur
+      // le bouton qui ouvre la fenêtre confirmerait aussitôt, sans que la question ait été vue. Une nouvelle frappe passe.
+      const sansRepetition = (e) => { if (e.repeat && (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar')) { e.preventDefault(); e.stopPropagation(); } };
+      window.addEventListener('keydown', sansRepetition, true);
       let fini = false;
       const fermer = (valeur) => {
         if (fini) return; fini = true;
+        window.removeEventListener('keydown', sansRepetition, true);
         document.removeEventListener('focusin', garde, true);
         bg.remove();
         try { if (avant && avant.isConnected && typeof avant.focus === 'function') avant.focus(); } catch { /* rien */ }
