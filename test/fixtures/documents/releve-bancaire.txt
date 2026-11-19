@@ -1,0 +1,72 @@
+=== fr ===
+RELEVÉ DE COMPTE
+Banque Fictive
+Titulaire du compte : Camille Essai
+Période du 1 mars 2026 au 31 mars 2026
+Ancien solde : 1 200,00 €
+03/03 Virement reçu   +350,00
+15/03 Prélèvement électricité   -60,00
+Nouveau solde : 1 490,00 €
+=== fr ===
+Extrait de compte n° 12
+Opérations du mois
+Date de valeur | Libellé | Débit | Crédit
+Carte magasin exemple | 45,20 |
+Solde créditeur au 30 avril 2026 : 830,15 €
+=== en ===
+BANK STATEMENT
+Sample Bank
+Account holder: Alex Example
+Statement period: 1 May 2026 to 31 May 2026
+Opening balance: $2,000.00
+Direct debit gym    -$40.00
+Paid in salary    +$1,500.00
+Closing balance: $3,460.00
+=== en ===
+Account statement
+Transactions for June
+Debit | Credit | Balance
+Card payment cafe 4.50 | | 995.50
+=== es ===
+EXTRACTO BANCARIO
+Banco Ejemplo
+Titular: Sam Prueba
+Periodo: del 1 de junio de 2026 al 30 de junio de 2026
+Saldo anterior: 500,00 €
+Transferencia recibida   +250,00
+Recibo domiciliación luz   -45,00
+Saldo final: 705,00 €
+=== es ===
+Extracto de movimientos
+Movimientos del mes: cargo de tarjeta 12,00, abono de nómina 900,00
+Saldo: 1.388,00 €
+=== de ===
+KONTOAUSZUG
+Beispielbank
+Kontoinhaber: Kim Muster
+Alter Kontostand: 1.000,00 €
+Buchungstag 03.07.2026 Überweisung Miete   -600,00
+Gutschrift Gehalt   +2.100,00
+Neuer Kontostand: 2.500,00 €
+=== de ===
+Kontoauszug Nr. 7
+Umsätze Juli: Lastschrift Strom 55,00 Soll
+Wertstellung 15.07.2026
+Saldo: 845,00 € Haben
+=== ar ===
+كشف حساب بنكي
+بنك المثال
+صاحب الحساب: سامي التجربة
+الفترة: من ١ يوليو ٢٠٢٦ إلى ٣١ يوليو ٢٠٢٦
+الرصيد الافتتاحي: ٣٠٠٠٫٠٠
+إيداع راتب  ٢٠٠٠٫٠٠
+سحب نقدي  ٥٠٠٫٠٠
+الرصيد الختامي: ٤٥٠٠٫٠٠
+=== sw ===
+TAARIFA YA BENKI
+Benki ya Mfano
+Mwenye akaunti: Juma Majaribio
+Kipindi: 1 Agosti 2026 hadi 31 Agosti 2026
+Salio la mwanzo: TSh 400,000
+Uhamisho uliopokelewa  TSh 150,000
+Salio la mwisho: TSh 550,000

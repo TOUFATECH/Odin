@@ -1,0 +1,76 @@
+=== fr ===
+CURRICULUM VITAE
+Camille Essai
+Expérience professionnelle
+2021-2025 : technicienne de maintenance, Atelier Exemple
+Formation
+BTS électrotechnique
+Compétences : câblage, diagnostic
+Langues : français, anglais
+=== fr ===
+CV — Sam Essai
+Expériences professionnelles : vendeur (2019-2024)
+Diplômes : baccalauréat
+Centres d'intérêt : randonnée, lecture
+=== en ===
+CURRICULUM VITAE
+Alex Example
+Work experience
+2020-2025: junior accountant, Sample Ltd
+Education
+BSc in Accounting
+Skills: spreadsheets, payroll
+Languages: English, Swahili
+=== en ===
+CV of Jo Example
+Professional experience: support technician since 2022
+Qualifications: network certificate
+Hobbies: football, chess
+References available on request
+=== es ===
+CURRÍCULUM VITAE
+Sam Prueba
+Experiencia laboral
+2018-2024: recepcionista, Hotel Ejemplo
+Formación académica
+Técnico en turismo
+Idiomas: español, francés
+Habilidades: atención al cliente
+=== es ===
+CV
+Alex Prueba
+Experiencia profesional: diseñadora gráfica
+Formación: grado en Bellas Artes
+Intereses: fotografía
+=== de ===
+LEBENSLAUF
+Kim Muster
+Persönliche Daten
+Berufserfahrung
+2017-2025: Bürokauffrau, Muster GmbH
+Ausbildung
+Kaufmännische Berufsschule
+Sprachkenntnisse: Deutsch, Englisch
+=== de ===
+Lebenslauf Robin Beispiel
+Beruflicher Werdegang: Elektriker seit 2015
+Kenntnisse: Photovoltaik, Schaltpläne
+Hobbys: Radfahren
+=== ar ===
+السيرة الذاتية
+سامي التجربة
+الخبرات المهنية
+٢٠١٩-٢٠٢٥: محاسب في شركة المثال
+التعليم
+بكالوريوس في المحاسبة
+المهارات: جداول البيانات
+اللغات: العربية، الفرنسية
+=== sw ===
+WASIFU BINAFSI
+Juma Majaribio
+Uzoefu wa kazi
+2018-2025: fundi umeme, Kampuni ya Mfano
+Elimu
+Stashahada ya uhandisi wa umeme
+Ujuzi: kuunganisha nyaya
+Lugha: Kiswahili, Kiingereza

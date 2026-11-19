@@ -1,0 +1,60 @@
+=== fr ===
+ORDONNANCE
+Docteur Exemple, médecin généraliste
+Patient : Sam Essai
+Le 4 mars 2026
+Paracétamol 500 mg : 2 comprimés 3 fois par jour pendant 5 jours
+Sirop contre la toux : 1 cuillère le soir
+=== fr ===
+Ordonnance médicale
+Amoxicilline 1 g, 1 gélule matin et soir, 7 jours
+QSP 1 boîte
+À renouveler une fois
+=== en ===
+PRESCRIPTION
+Doctor: Dr Sample
+Patient: Alex Example
+Date: 6 March 2026
+Ibuprofen 200 mg tablets, one tablet three times a day after meals
+Refills: 0
+=== en ===
+Medical prescription
+Take 1 capsule twice daily for 10 days
+Dosage: 250 mg
+Pharmacist: please dispense 20 capsules
+=== es ===
+RECETA MÉDICA
+Médico: Dra. Ejemplo
+Paciente: Sam Prueba
+Fecha: 7 de marzo de 2026
+Paracetamol 1 g comprimidos, un comprimido cada 8 horas, tres veces al día
+Tratamiento de 5 días
+=== es ===
+Receta médica
+Posología: jarabe 10 ml, dos veces al día
+Farmacia: dispensar un envase
+=== de ===
+KASSENREZEPT
+Ärztin: Dr. Beispiel
+Patientin: Kim Muster
+Datum: 08.03.2026
+Ibuprofen 400 mg, 20 Tabletten, 3 mal täglich 1 Tablette
+=== de ===
+Ärztliche Verordnung
+Dosierung: 2 Kapseln täglich zur Einnahme nach dem Essen
+Packung N1
+Bitte in der Apotheke vorlegen
+=== ar ===
+وصفة طبية
+الطبيب: د. المثال
+المريض: سامي التجربة
+التاريخ: ٩ مارس ٢٠٢٦
+باراسيتامول ٥٠٠ ملغ أقراص: قرص واحد ثلاث مرات يوميا لمدة خمسة أيام
+شراب للسعال مرتين يوميا
+=== sw ===
+MAAGIZO YA DAWA
+Daktari: Dkt. Mfano
+Mgonjwa: Juma Majaribio
+Tarehe: 10 Machi 2026
+Paracetamol 500 mg: vidonge 2 mara tatu kwa siku kwa siku 5
+Sharubati ya kikohozi mara mbili kwa siku

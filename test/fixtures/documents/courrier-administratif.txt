@@ -1,0 +1,71 @@
+=== fr ===
+Caisse Fictive d'Allocations
+Dossier suivi par : service des prestations
+Vos références : 2026-ABC-14
+Objet : mise à jour de votre dossier
+Madame, Monsieur,
+Nous vous informons que votre dossier a été mis à jour le 2 février 2026.
+Veuillez agréer, Madame, Monsieur, nos salutations distinguées.
+=== fr ===
+Mairie de Villefictive
+Objet : demande de pièce justificative
+Madame, Monsieur,
+Merci de nous faire parvenir le document manquant avant le 30 avril 2026.
+Je vous prie d'agréer l'expression de mes sentiments distingués.
+=== en ===
+Sample City Council
+Our reference: CT/2026/118
+Subject: council tax review
+Dear Sir or Madam,
+We are writing to inform you that your account has been reviewed.
+Yours faithfully,
+Revenue Department
+=== en ===
+Example Agency, Licensing Department
+Re: renewal of your permit
+To whom it may concern,
+Please find enclosed the renewed permit.
+Yours sincerely
+=== es ===
+Ayuntamiento de Villaejemplo
+Expediente: 2026/331
+Asunto: notificación de resolución
+Estimado/a señor/a:
+Le comunicamos que su solicitud ha sido aceptada.
+Atentamente,
+=== es ===
+Agencia Tributaria de Prueba
+Su referencia: AT-77
+Asunto: requerimiento de documentación
+Por medio de la presente le solicitamos el documento adjunto.
+Un cordial saludo
+=== de ===
+Stadtverwaltung Musterstadt
+Aktenzeichen: 31-2026-77
+Betreff: Ihr Antrag vom 2. März 2026
+Sehr geehrte Damen und Herren,
+wir teilen Ihnen mit, dass Ihr Antrag bewilligt wurde.
+Mit freundlichen Grüßen
+=== de ===
+Finanzamt Beispielort
+Unser Zeichen: FA/88
+Betreff: Bescheid für 2025
+Sehr geehrter Herr Muster,
+anbei erhalten Sie den Bescheid. Anlage: 1
+Mit freundlichen Grüßen
+=== ar ===
+وزارة المثال
+مديرية الشؤون الإدارية
+المرجع: ٢٠٢٦/٤٤
+الموضوع: تحديث ملفكم
+السيد المحترم، تحية طيبة وبعد،
+نحيطكم علما بأنه تم تحديث ملفكم بتاريخ ٣ مارس ٢٠٢٦.
+وتفضلوا بقبول فائق الاحترام.
+=== sw ===
+HALMASHAURI YA WILAYA YA MFANO
+Kumb: HW/2026/12
+Ndugu Juma Majaribio,
+YAH: MAOMBI YAKO YA KIBALI
+Tunapenda kukujulisha kwamba maombi yako yamekubaliwa.
+Wako mwaminifu,
+Idara ya Mipango

@@ -1,0 +1,89 @@
+=== fr ===
+FACTURE N° F-2026-0142
+Émetteur : Atelier Exemple SARL
+Client : Société Modèle
+Date de facture : 3 mars 2026
+Échéance : 2 avril 2026
+Réparation fenêtre | 2 | 45,00 € | 90,00 €
+Total HT : 90,00 €
+TVA 20 % : 18,00 €
+Total TTC : 108,00 €
+=== fr ===
+Plomberie Fictive
+Facture n° 2026-17 du 12 janvier 2026
+Facturé à : Résidence des Essais
+Remplacement chauffe-eau   650,00 €
+Main-d'œuvre   120,00 €
+Total HT : 770,00 €
+TVA 10 % : 77,00 €
+Net à payer : 847,00 €
+À payer avant le 11 février 2026.
+=== en ===
+INVOICE
+Invoice No: INV-3301
+From: Sample Studio Ltd
+Bill to: Example Corp
+Invoice date: 14 April 2026
+Due date: 14 May 2026
+Logo design    $400.00
+Subtotal: $400.00
+VAT 20%: $80.00
+Amount due: $480.00
+=== en ===
+Tax Invoice #A-77
+Seller: Demo Supplies
+Customer: Test Bakery
+Qty 3 flour sacks    £36.00
+Delivery    £6.00
+Total due: £42.00
+Payment terms: 30 days
+=== es ===
+FACTURA Nº 2026/045
+Emisor: Talleres Ejemplo S.L.
+Cliente: Comercial Prueba
+Fecha de emisión: 5 de marzo de 2026
+Fecha de vencimiento: 4 de abril de 2026
+Reparación motor   300,00 €
+Base imponible: 300,00 €
+IVA 21 %: 63,00 €
+Total a pagar: 363,00 €
+=== es ===
+Factura simplificada n.º T-118
+Concepto: limpieza de oficinas
+Importe total: 95,50 €
+Forma de pago: transferencia
+=== de ===
+RECHNUNG
+Rechnungsnummer: RE-2026-088
+Rechnungsdatum: 02.03.2026
+Kunde: Musterfirma Beispiel
+Beratung   200,00 €
+Zwischensumme: 200,00 €
+MwSt. 19 %: 38,00 €
+Gesamtbetrag: 238,00 €
+Zahlbar bis 01.04.2026
+=== de ===
+Rechnung Nr. 4471
+Lieferant: Beispiel Handel
+Einzelpreis und Menge siehe unten
+Druckerpapier   24,90 €
+Toner   65,10 €
+Rechnungsbetrag: 90,00 €
+=== ar ===
+فاتورة ضريبية
+رقم الفاتورة: ٢٠٢٦-٥٥
+التاريخ: ١٥ مارس ٢٠٢٦
+تاريخ الاستحقاق: ١٥ أبريل ٢٠٢٦
+خدمة صيانة  ٣٠٠٫٠٠ ر.س
+المجموع الفرعي: ٣٠٠٫٠٠ ر.س
+ضريبة القيمة المضافة ١٥٪: ٤٥٫٠٠ ر.س
+الإجمالي: ٣٤٥٫٠٠ ر.س
+=== sw ===
+ANKARA YA KODI
+Namba ya ankara: AK-2026-09
+Kutoka: Duka la Mfano
+Mteja: Kampuni ya Majaribio
+Tarehe: 2 Machi 2026
+Tarehe ya mwisho ya kulipa: 1 Aprili 2026
+Huduma ya ukarabati  TSh 50,000
+Jumla: TSh 50,000

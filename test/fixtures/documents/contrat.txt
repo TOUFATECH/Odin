@@ -1,0 +1,66 @@
+=== fr ===
+CONTRAT DE LOCATION
+Entre les soussignés :
+Le bailleur, Société Immobilière Exemple,
+et le locataire, Camille Essai,
+il a été convenu ce qui suit.
+Article 1 : objet du présent contrat.
+Article 2 : durée du contrat, douze mois, prenant effet le 1 avril 2026.
+Fait en deux exemplaires, lu et approuvé.
+=== fr ===
+Contrat de travail à durée indéterminée
+Contrat n° CT-2026-07
+L'employeur, Association Modèle, engage le salarié en qualité d'agent d'accueil.
+Article 4 : résiliation selon les clauses ci-après.
+Signature des parties
+=== en ===
+TENANCY AGREEMENT
+This agreement is made between the landlord, Sample Homes Ltd (hereinafter the Landlord),
+and the tenant, Alex Example (hereinafter the Tenant).
+Clause 1: the term begins on 1 May 2026.
+Clause 7: termination with two months notice.
+In witness whereof the parties have signed.
+=== en ===
+Service Contract
+Contract No: SC-4410
+Effective date: 15 June 2026
+The parties agree as follows. Governing law: the law of the place of the supplier.
+Whereas the supplier provides cleaning services to the client.
+=== es ===
+CONTRATO DE ARRENDAMIENTO
+Reunidos de una parte el arrendador, Inmuebles Ejemplo S.L.,
+y de otra el arrendatario, Sam Prueba.
+Las partes acuerdan las siguientes cláusulas.
+Primera: duración de un año desde el 1 de julio de 2026.
+Y para que conste, firmado por ambas partes.
+=== es ===
+Contrato de trabajo
+Contrato n.º CT-88
+Empleador: Cooperativa Modelo; trabajador: Noa Ejemplo.
+Cláusula tercera: rescisión con quince días de preaviso.
+=== de ===
+MIETVERTRAG
+Zwischen dem Vermieter, Beispiel Wohnbau GmbH, im Folgenden Vermieter,
+und dem Mieter, Kim Muster, im Folgenden Mieter.
+§ 1 Mietbeginn: 1. Juli 2026
+§ 2 Kündigung mit einer Frist von drei Monaten.
+Ort, Datum, Unterschrift
+=== de ===
+Arbeitsvertrag
+Vertragsnummer: AV-2026-3
+Zwischen Arbeitgeber Muster AG und Arbeitnehmer Robin Beispiel.
+Laufzeit unbefristet; Gerichtsstand ist der Sitz des Arbeitgebers.
+=== ar ===
+عقد إيجار
+حرر هذا العقد بين الطرف الأول المؤجر شركة المثال العقارية
+والطرف الثاني المستأجر سامي التجربة.
+البند الأول: مدة العقد سنة واحدة تبدأ في ١ مايو ٢٠٢٦.
+البند الثاني: يحق لأي من الطرفين فسخ العقد بإشعار مدته شهر.
+التوقيع
+=== sw ===
+MKATABA WA KAZI
+Makubaliano haya ni kati ya mwajiri, Kampuni ya Mfano,
+na mwajiriwa, Juma Majaribio.
+Kifungu cha 1: muda wa mkataba ni mwaka mmoja kuanzia 1 Julai 2026.
+Kifungu cha 2: kusitisha mkataba kwa notisi ya mwezi mmoja.
+Mashahidi: ________

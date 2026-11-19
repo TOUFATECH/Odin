@@ -1,0 +1,68 @@
+=== fr ===
+E-BILLET
+Passager : Noa Exemple
+Référence de réservation : QX7T2P
+Aller : Villefictive Centre → Testville Gare
+Départ : 12 décembre 2026 08:14
+Arrivée : 12 décembre 2026 09:55
+Voiture 7, place 42, 2de classe
+=== fr ===
+Billet de car
+Voyageur : Sam Essai
+Départ : 3 août 2026 07:30, gare routière de Villefictive
+Retour : 10 août 2026 18:00
+Tarif : 25,00 €
+=== en ===
+TRAIN TICKET
+Passenger: Alex Sample
+Booking reference: TK44ZP
+Outbound: Example Central to Testford
+Departure: 5 September 2026 10:15
+Arrival: 5 September 2026 12:40
+Coach C, seat 21, standard class
+=== en ===
+Bus ticket
+Traveller: Jo Example
+Departure: Oct 3, 2026 7:00 AM from platform 4
+Fare: $18.00
+=== es ===
+BILLETE ELECTRÓNICO
+Pasajero: Alex Prueba
+Localizador: BQ93LM
+Salida: 14 de julio de 2026 09:30, Estación Ejemplo
+Llegada: 14 de julio de 2026 12:05
+Coche 5, plaza 11, clase turista
+=== es ===
+Billete de autobús
+Viajero: Sam Ejemplo
+Ida: 2 de agosto de 2026 08:00
+Vuelta: 9 de agosto de 2026 19:00
+Andén 3, tarifa general
+=== de ===
+FAHRKARTE
+Reisender: Kim Muster
+Auftragsnummer: 6Q4ZRT
+Hinfahrt: Beispielstadt Hbf → Musterdorf
+Abfahrt: 20. Juli 2026 08:47
+Ankunft: 20. Juli 2026 11:02
+Wagen 9, Platz 64, 2. Klasse
+=== de ===
+Online-Ticket
+Fahrgast: Robin Beispiel
+Buchungsnummer: 778812
+Abfahrt 01.09.2026 06:30, Gleis 7
+Rückfahrt 03.09.2026 17:10
+=== ar ===
+تذكرة إلكترونية
+اسم المسافر: سامي التجربة
+رقم الحجز: QA78KD
+المغادرة: ١٠ يوليو ٢٠٢٦ من محطة المثال
+الوصول: ١٠ يوليو ٢٠٢٦
+قطار رقم ٤٤، المقعد ١٢، الدرجة الثانية
+=== sw ===
+TIKETI YA BASI
+Abiria: Juma Majaribio
+Namba ya uhifadhi: TZ55RW
+Kuondoka: 4 Agosti 2026 saa 06:00, stendi ya Mfano
+Kuwasili: 4 Agosti 2026
+Kiti 14, daraja la kawaida, nauli TSh 35,000

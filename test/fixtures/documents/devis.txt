@@ -1,0 +1,80 @@
+=== fr ===
+DEVIS N° D-2026-031
+Prestataire : Menuiserie Exemple
+Client : Famille Essai
+Date du devis : 8 février 2026
+Valable jusqu'au 8 mars 2026
+Pose de parquet | 20 m² | 30,00 € | 600,00 €
+Total HT : 600,00 €
+TVA 20 % : 120,00 €
+Total TTC : 720,00 €
+Bon pour accord, date et signature :
+=== fr ===
+Proposition commerciale
+Devis pour la création d'un site vitrine
+Durée de validité : 30 jours
+Prix unitaire : 1 200,00 €
+Acompte demandé à la commande : 30 %
+=== en ===
+QUOTATION
+Quote No: Q-5521
+Prepared for: Sample Garden Club
+Quote date: 2 June 2026
+Valid until: 2 July 2026
+Lawn mowing    $120.00
+Hedge trimming    $80.00
+Subtotal: $200.00
+=== en ===
+Estimate for kitchen painting
+Estimate No. E-88
+Valid for 30 days from issue
+Labour and materials    £950.00
+Deposit required on acceptance: 20%
+=== es ===
+PRESUPUESTO N.º P-2026-12
+Proveedor: Reformas Ejemplo
+Cliente: Comunidad Prueba
+Fecha del presupuesto: 10 de mayo de 2026
+Válido hasta: 10 de junio de 2026
+Pintura de fachada   1.500,00 €
+Base imponible: 1.500,00 €
+IVA 21 %: 315,00 €
+Total: 1.815,00 €
+=== es ===
+Cotización de servicios de jardinería
+Concepto: poda de árboles
+Cantidad: 4
+Precio unitario: 50,00 €
+Aceptación del cliente: ____________
+=== de ===
+ANGEBOT
+Angebotsnummer: AN-2026-14
+Angebotsdatum: 03.06.2026
+Gültig bis 03.07.2026
+Fliesenarbeiten   800,00 €
+Zwischensumme: 800,00 €
+MwSt. 19 %: 152,00 €
+Gesamtbetrag: 952,00 €
+=== de ===
+Kostenvoranschlag
+Für die Reparatur des Daches, Bindefrist vier Wochen
+Bezeichnung: Ziegel ersetzen
+Menge: 40
+Einzelpreis: 3,50 €
+=== ar ===
+عرض سعر
+رقم العرض: ٢٠٢٦-٣٠
+التاريخ: ١ يونيو ٢٠٢٦
+صالح حتى: ١ يوليو ٢٠٢٦
+تركيب مكيف  ١٢٠٠٫٠٠ ر.س
+المجموع الفرعي: ١٢٠٠٫٠٠ ر.س
+ضريبة القيمة المضافة ١٥٪: ١٨٠٫٠٠ ر.س
+الإجمالي: ١٣٨٠٫٠٠ ر.س
+=== sw ===
+NUKUU YA BEI
+Namba ya nukuu: NK-2026-04
+Kwa: Shule ya Mfano
+Tarehe: 5 Mei 2026
+Halali hadi 5 Juni 2026
+Kupaka rangi madarasa  TSh 900,000
+Jumla ndogo: TSh 900,000

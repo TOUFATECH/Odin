@@ -1,0 +1,67 @@
+=== fr ===
+FORMULAIRE D'INSCRIPTION
+À remplir en majuscules
+Nom : ____________________
+Prénom : ____________________
+Date de naissance : ___ / ___ / ______
+Adresse : ____________________
+Cochez la case : [ ] adulte [ ] enfant
+=== fr ===
+Formulaire de demande de carte de bibliothèque
+Pièces à joindre : justificatif de domicile
+Nom : ..........................
+Prénom : ..........................
+Cadre réservé à l'administration
+=== en ===
+APPLICATION FORM
+Please complete in block capitals
+First name: __________
+Surname: __________
+Date of birth: __________
+Tick the box: [ ] full time [ ] part time
+For office use only
+=== en ===
+Registration form
+Fill in all fields
+Last name: ..........
+Place of birth: ..........
+Signature: ..........
+=== es ===
+FORMULARIO DE SOLICITUD
+Rellene en mayúsculas
+Nombre: __________
+Apellidos: __________
+Fecha de nacimiento: __________
+Marque con una X: [ ] sí [ ] no
+=== es ===
+Impreso de solicitud de plaza
+Cumplimente todos los campos
+Domicilio: ..........
+Lugar de nacimiento: ..........
+A rellenar por la administración
+=== de ===
+ANMELDEFORMULAR
+Bitte in Druckbuchstaben ausfüllen
+Vorname: __________
+Nachname: __________
+Geburtsdatum: __________
+Zutreffendes ankreuzen: [ ] ja [ ] nein
+=== de ===
+Antrag auf Ausstellung einer Bescheinigung
+Geburtsort: ..........
+Anschrift: ..........
+Vom Amt auszufüllen
+=== ar ===
+استمارة تسجيل
+يرجى ملء الاستمارة بخط واضح
+الاسم: __________
+اسم العائلة: __________
+تاريخ الميلاد: __________
+ضع علامة: [ ] نعم [ ] لا
+=== sw ===
+FOMU YA MAOMBI
+Tafadhali jaza kwa herufi kubwa
+Jina la kwanza: __________
+Jina la ukoo: __________
+Tarehe ya kuzaliwa: __________
+Weka alama: [ ] ndiyo [ ] hapana

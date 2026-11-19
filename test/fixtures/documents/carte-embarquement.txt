@@ -1,0 +1,65 @@
+=== fr ===
+CARTE D'EMBARQUEMENT
+Passager : EXEMPLE/NOA
+Vol : XY 1234
+Date : 20 décembre 2026
+Porte : B12   Heure d'embarquement : 18:10
+Siège : 14C   Zone 3
+=== fr ===
+Carte d'embarquement / Boarding pass
+Passager : ESSAI/SAM
+Vol XY 880, terminal 2
+Fin d'embarquement 07:40, porte K4
+Siège 22A
+=== en ===
+BOARDING PASS
+Passenger: SAMPLE/ALEX
+Flight: XY 1234
+Date: 20 Dec 2026
+Gate: B12   Boarding time: 18:10
+Seat: 14C
+Zone: 3
+=== en ===
+Boarding Pass
+Passenger: EXAMPLE/JO
+Flight XY 7 to Testford, terminal 1
+Gate closes 30 minutes before departure
+Seat 3F, group 2, sequence 041
+=== es ===
+TARJETA DE EMBARQUE
+Pasajero: PRUEBA/ALEX
+Vuelo: XY 2210
+Fecha: 15 de agosto de 2026
+Puerta: C7   Hora de embarque: 06:45
+Asiento: 9B   Zona 2
+=== es ===
+Tarjeta de embarque
+Pasajero: EJEMPLO/SAM
+Vuelo XY 31, terminal 4
+Embarque 21:10, puerta A2, asiento 30D, grupo 5
+=== de ===
+BORDKARTE
+Passagier: MUSTER/KIM
+Flug: XY 455
+Datum: 12. September 2026
+Flugsteig: A20   Boarding: 13:25
+Sitzplatz: 17A   Gruppe 4
+=== de ===
+Bordkarte / Boarding Pass
+Passagier: BEISPIEL/ROBIN
+Flug XY 9012, Terminal 1
+Einsteigezeit 05:50, Gate D3, Sitz 2C
+=== ar ===
+بطاقة الصعود إلى الطائرة
+اسم المسافر: التجربة/سامي
+رقم الرحلة: XY 610
+التاريخ: ١٨ سبتمبر ٢٠٢٦
+البوابة: ١٢   وقت الصعود: ١٤:٣٠
+المقعد: ٢٢B   المجموعة ٣
+=== sw ===
+PASI YA KUPANDA
+Abiria: MAJARIBIO/JUMA
+Ndege: XY 330
+Tarehe: 9 Oktoba 2026
+Lango: 5   Muda wa kupanda: 09:15
+Kiti: 11D   Kundi 2
