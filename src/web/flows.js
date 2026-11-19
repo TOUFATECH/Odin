@@ -90,8 +90,53 @@
   }
   /** La zone de toucher, en pixels du schéma, pour qu'elle fasse `px` pixels à l'écran au zoom `k` (jamais moins que `px`). */
   const zoneToucher = (k, px = 44) => Math.max(px, px / (k > 0 ? k : 1));
-  /** Le style du rond de sortie i sur m : centré à 27 + 22 i ; entre deux sorties voisines, la zone s'arrête à mi-chemin (11 px). */
-  const styleSortie = (i, m) => `top:calc(${27 + 22 * i}px - var(--dh))${i > 0 ? ';--dh:11px' : ''}${i < m - 1 ? ';--db:11px' : ''}`;
+  // ---------------- Les blocs en cercles (fonctions pures ; mesures du croquis validé, posées avant d'être dessinées).
+  // Tailles en pixels du schéma. La case garde NODE_W de large, le rond est centré dedans, le nom dessous. Ce qui est
+  // enregistré ne change pas : le dessin écarte les blocs en hauteur (y dessiné = y enregistré × ECHELLE_Y), aucune
+  // automatisation n'est déplacée toute seule. Le rond : ROND de diamètre, un anneau clair de ANNEAU autour, l'icône
+  // d'Odin au centre (ICONE_ROND). Sous le rond : le nom (HAUT_NOM), une 2e ligne (HAUT_LIGNE), et après un test la
+  // ligne de résultat (une HAUT_LIGNE de plus). Le « + » : à droite du rond, à mi-hauteur (centre PLUS_X), zone fixe de
+  // ZONE_PLUS. Les ronds de sortie juste après lui (centre SORTIE_X), empilés de ECART_SORTIES ; le rond d'entrée à gauche
+  // (centre ENTREE_X) ; dessinés en PORT_D.
+  const ROND = 96, ANNEAU = 6, ICONE_ROND = 44, HAUT_NOM = 18, HAUT_LIGNE = 16, ECHELLE_Y = 2.2;
+  const HAUT_BLOC = ROND + ANNEAU + HAUT_NOM + HAUT_LIGNE, HAUT_TESTE = HAUT_BLOC + HAUT_LIGNE, MI_ROND = ROND / 2;
+  const PLUS_D = 28, PLUS_X = 151, ZONE_PLUS = 44, SORTIE_X = 195, ENTREE_X = 25, PORT_D = 12, ECART_SORTIES = 22;
+  /** Le y dessiné d'un y enregistré ; et l'inverse, arrondi (ce qui s'enregistre reste un nombre entier). En dixièmes : 110 → 242 tout rond. */
+  const DIXIEMES_Y = Math.round(ECHELLE_Y * 10);
+  const yDessin = (y) => ((Number(y) || 0) * DIXIEMES_Y) / 10;
+  const yEnregistre = (yd) => Math.round(((Number(yd) || 0) * 10) / DIXIEMES_Y);
+  /** Le décalage du rond de sortie i sur m, depuis le milieu du rond : plusieurs sorties s'empilent, centrées. */
+  const decalageSortie = (i, m) => ECART_SORTIES * (i - (Math.max(1, m) - 1) / 2);
+  /** Le style du rond de sortie i sur m : centré sur le milieu du rond, décalé selon la sortie ; entre deux sorties voisines, la zone s'arrête à mi-chemin (11 px). */
+  const styleSortie = (i, m) => `top:calc(${MI_ROND + decalageSortie(i, m)}px - var(--dh))${i > 0 ? `;--dh:${ECART_SORTIES / 2}px` : ''}${i < m - 1 ? `;--db:${ECART_SORTIES / 2}px` : ''}`;
+  /** Le point de départ d'une liaison : la sortie i sur m du bloc posé en `pos` (place enregistrée), dans le schéma dessiné. */
+  const departLien = (pos, i = 0, m = 1) => [(pos?.[0] ?? 0) + NODE_W + 10, yDessin(pos?.[1]) + MI_ROND + decalageSortie(i, m)];
+  /** Son point d'arrivée : le bord gauche du rond d'entrée du bloc posé en `pos`, à mi-hauteur du rond. */
+  const arriveeLien = (pos) => [(pos?.[0] ?? 0) + ENTREE_X - PORT_D / 2, yDessin(pos?.[1]) + MI_ROND];
+  /**
+   * Les rectangles d'un bloc ({ g, h, d, b } : gauche, haut, droite, bas, depuis le coin haut-gauche de sa case dessinée),
+   * au zoom `k`, pour `m` sorties. Les zones des ronds et du « ⋯ » font 44 px à l'écran (zoneToucher) ; celle du « + »
+   * garde ZONE_PLUS du schéma, comme aujourd'hui ; une zone de sortie ne passe jamais à gauche du « + » (elle s'arrête à
+   * mi-chemin entre eux, comme entre deux sorties voisines) : arrêtée à gauche, elle s'allonge vers la droite pour garder
+   * 44 px de large à l'écran.
+   */
+  function zonesBloc(k = 1, m = 1) {
+    const z = zoneToucher(k), cx = NODE_W / 2, cy = MI_ROND, n = Math.max(1, m), r = (g, h, d, b) => ({ g, h, d, b });
+    const bordPlus = PLUS_X + ZONE_PLUS / 2;
+    return {
+      rond: r(cx - ROND / 2, 0, cx + ROND / 2, ROND),
+      nom: r(0, ROND + ANNEAU, NODE_W, ROND + ANNEAU + HAUT_NOM),
+      ligne: r(0, ROND + ANNEAU + HAUT_NOM, NODE_W, HAUT_BLOC),
+      resultat: r(0, HAUT_BLOC, NODE_W, HAUT_TESTE),
+      menu: r(cx - z / 2, 10 - z, cx + z / 2, 10),
+      plus: r(PLUS_X - ZONE_PLUS / 2, cy - ZONE_PLUS / 2, bordPlus, cy + ZONE_PLUS / 2),
+      entree: r(ENTREE_X - z / 2, cy - z / 2, ENTREE_X + z / 2, cy + z / 2),
+      sorties: Array.from({ length: n }, (_, i) => {
+        const c = cy + decalageSortie(i, n), g = Math.max(bordPlus, SORTIE_X - z / 2);
+        return r(g, c - (i > 0 ? ECART_SORTIES / 2 : z / 2), Math.max(g + z, SORTIE_X + z / 2), c + (i < n - 1 ? ECART_SORTIES / 2 : z / 2));
+      }),
+    };
+  }
   /** Le bloc sous le point (x, y) de l'écran parmi `boites` ({ name, left, top, width, height }) : le dernier dessiné l'emporte. */
   function blocSous(boites, x, y) {
     for (let i = (boites ?? []).length - 1; i >= 0; i--) { const b = boites[i]; if (x >= b.left && x <= b.left + b.width && y >= b.top && y <= b.top + b.height) return b.name; }
@@ -519,22 +564,26 @@
 .dr-canvas{position:relative;height:min(64vh,620px);border:1px solid var(--line);border-radius:14px;background:var(--panel2) radial-gradient(circle,var(--line) 1px,transparent 1px) 0 0/22px 22px;overflow:hidden;touch-action:none}
 .dr-canvas>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
 .dr-world{position:absolute;left:0;top:0;transform-origin:0 0}
-.dr-node{position:absolute;width:190px;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:8px 10px 10px;cursor:grab;user-select:none;box-shadow:var(--shadow)}
-.dr-node.sel{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
-.dr-node.trig{border-left:5px solid var(--accent)}.dr-node.off{opacity:.5}
-.dr-node.ok{border-color:var(--good)}.dr-node.err{border-color:var(--bad)}
-.dr-node small{display:block;font-size:11.5px;color:var(--dim)}.dr-node b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dr-node .dr-cnt{font-size:11.5px;color:var(--good)}.dr-node.err .dr-cnt{color:var(--bad)}
-.dr-port{--z:var(--dr-z,44px);--dh:calc(var(--z) / 2);--db:calc(var(--z) / 2);position:absolute;width:var(--z);height:calc(var(--dh) + var(--db));border:0;border-radius:0;background:none;padding:0;cursor:crosshair;touch-action:none}
-.dr-port::before{content:'';position:absolute;left:calc(var(--z) / 2 - 9px);top:calc(var(--dh) - 9px);width:18px;height:18px;box-sizing:border-box;border-radius:50%;border:2px solid var(--accent);background:var(--panel)}
-.dr-port.in{left:calc(-1px - var(--z) / 2);top:calc(33px - var(--z) / 2)}.dr-port.out{right:calc(-1px - var(--z) / 2)}.dr-port.armed::before{background:var(--accent)}
+.dr-node{position:absolute;width:190px;box-sizing:border-box;min-height:136px;padding-top:102px;padding-left:4px;padding-right:4px;text-align:center;cursor:grab;user-select:none}
+.dr-node.off{opacity:.5}
+.dr-rond{position:absolute;left:47px;top:0;width:96px;height:96px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,var(--dr-c0,var(--accent)),var(--dr-c1,var(--accent)));box-shadow:0 0 0 6px color-mix(in srgb,var(--dr-c0,var(--accent)) 28%,var(--panel)),var(--shadow)}
+.dr-node.sel .dr-rond{box-shadow:0 0 0 6px var(--accent),var(--shadow)}
+.dr-node.ok .dr-rond{box-shadow:0 0 0 6px var(--good),var(--shadow)}.dr-node.err .dr-rond{box-shadow:0 0 0 6px var(--bad),var(--shadow)}
+.dr-node:focus-visible{outline:none}.dr-node:focus-visible .dr-rond{outline:2px solid var(--accent);outline-offset:9px}
+.dr-horloge{position:absolute;left:-8px;top:58px;width:40px;height:40px;box-sizing:border-box;border-radius:50%;background:linear-gradient(145deg,var(--dr-c0,var(--accent)),var(--dr-c1,var(--accent)));box-shadow:0 0 0 2px var(--panel2);pointer-events:none}
+.dr-horloge::before{content:'';position:absolute;inset:8px;border:2.5px solid #fff;border-radius:50%}.dr-horloge::after{content:'';position:absolute;left:18px;top:12px;width:6px;height:9px;border-left:2.5px solid #fff;border-bottom:2.5px solid #fff}
+.dr-node small{display:block;font-size:11.5px;line-height:16px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dr-node b{display:block;font-size:14px;line-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-node .dr-cnt{display:block;font-size:11.5px;line-height:16px;color:var(--good);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dr-node.err .dr-cnt{color:var(--bad)}
+.dr-port{--z:var(--dr-z,44px);--dh:calc(var(--z) / 2);--db:calc(var(--z) / 2);--cx:calc(var(--z) / 2);position:absolute;width:var(--z);height:calc(var(--dh) + var(--db));border:0;border-radius:0;background:none;padding:0;cursor:crosshair;touch-action:none}
+.dr-port::before{content:'';position:absolute;left:calc(var(--cx) - 6px);top:calc(var(--dh) - 6px);width:12px;height:12px;box-sizing:border-box;border-radius:50%;border:2px solid var(--accent);background:var(--panel)}
+.dr-port.in{left:calc(25px - var(--z) / 2);top:calc(48px - var(--z) / 2)}.dr-port.out{--g:max(173px,calc(195px - var(--z) / 2));--cx:calc(195px - var(--g));left:var(--g);width:max(var(--z),calc(195px + var(--z) / 2 - var(--g)))}.dr-port.armed::before{background:var(--accent)}
 .dr-port:focus-visible{outline:none}.dr-port:focus-visible::before{outline:2px solid var(--accent);outline-offset:2px}
-.dr-port .dr-pl{position:absolute;left:calc(var(--z) / 2 + 11px);top:calc(var(--dh) - 11px);font-size:10.5px;color:var(--dim);white-space:nowrap;pointer-events:none}
-.dr-link{fill:none;stroke:var(--accent);stroke-width:2.2;opacity:.8;pointer-events:none}
+.dr-port .dr-pl{position:absolute;left:calc(var(--cx) + 11px);top:calc(var(--dh) - 11px);padding:0 2px;border-radius:4px;background:var(--panel2);font-size:10.5px;color:var(--dim);white-space:nowrap;pointer-events:none}
+.dr-link{fill:none;stroke-width:10;stroke-dasharray:0 15;stroke-linecap:round;opacity:.9;pointer-events:none}
 .dr-fil{fill:none;stroke:transparent;stroke-width:var(--dr-zf,22px);pointer-events:stroke;cursor:pointer}.dr-fil:focus{outline:none}
 .dr-fil:hover,.dr-fil:focus-visible,.dr-fil.on{stroke:color-mix(in srgb,var(--accent) 22%,transparent)}
 .dr-tire{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-dasharray:6 5;pointer-events:none}
-.dr-node.dr-cible{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+.dr-node.dr-cible .dr-rond{box-shadow:0 0 0 6px var(--accent),0 0 0 10px color-mix(in srgb,var(--accent) 30%,transparent)}
 .dr-fil-menu{position:absolute;z-index:3;min-width:200px;display:flex;flex-direction:column;gap:2px;padding:6px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);animation:dr-ch-in .12s ease-out}
 .dr-fil-menu button{text-align:left;border:0;background:none;border-radius:8px;padding:0 12px;min-height:44px;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
 .dr-fil-menu button:hover,.dr-fil-menu button:focus-visible{background:var(--panel2);outline:none}.dr-fil-menu button:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
@@ -546,8 +595,8 @@
 .dr-out{white-space:pre-wrap;font-size:12.5px;background:var(--panel2);border-radius:10px;padding:8px;max-height:240px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace}
 .dr-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.dr-bar input.dr-name{flex:1 1 220px;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--field);background:var(--panel);font-weight:600}
 .dr-runs{font-size:13.5px}.dr-runs li{padding:4px 0}
-.dr-plus{position:absolute;right:-22px;bottom:-22px;width:44px;height:44px;padding:0;border:0;background:none;display:grid;place-items:center;cursor:pointer;z-index:1}
-.dr-plus span{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--on-accent,#fff);display:grid;place-items:center;font-size:19px;font-weight:700;line-height:1;box-shadow:var(--shadow);transition:transform .15s}
+.dr-plus{position:absolute;left:129px;top:26px;width:44px;height:44px;padding:0;border:0;background:none;display:grid;place-items:center;cursor:pointer;z-index:1}
+.dr-plus span{width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--on-accent,#fff);display:grid;place-items:center;font-size:20px;font-weight:700;line-height:1;box-shadow:var(--shadow);transition:transform .15s}
 .dr-plus:hover span,.dr-plus:focus-visible span{transform:scale(1.15)}.dr-plus:focus-visible{outline:2px solid var(--accent);border-radius:50%}
 .dr-vide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center;pointer-events:none}
 .dr-vide button{pointer-events:auto;width:96px;height:96px;border-radius:50%;border:2px dashed var(--accent);background:var(--panel);color:var(--accent);font-size:52px;line-height:1;cursor:pointer;box-shadow:var(--shadow)}
@@ -560,8 +609,7 @@
 .dr-ch-c h3{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin:6px 0 0}.dr-ch-c h4{font-size:12.5px;color:var(--muted);margin:6px 0 0}
 .dr-ch-o{display:flex;flex-direction:column;gap:6px}.dr-ch-o button{text-align:left;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:8px 12px;min-height:44px;color:var(--ink);font:inherit;cursor:pointer}
 .dr-ch-o button:hover{border-color:var(--accent)}.dr-ch-o button:focus-visible{outline:2px solid var(--accent)}.dr-ch-o b{display:block;font-size:14px}.dr-ch-o small{display:block;color:var(--muted);font-size:12.5px}
-.dr-node .dr-ap{display:flex;align-items:center;gap:6px;min-width:0;margin:0 0 2px}.dr-node .dr-ap small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dr-node .dr-nn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dr-node .dr-manque{display:block;font-size:11.5px;color:var(--bad)}
+.dr-node .dr-manque{position:absolute;left:118px;top:-5px;width:22px;height:22px;box-sizing:border-box;border-radius:50%;border:2px solid var(--panel2);background:var(--bad);color:var(--panel);font-size:12px;font-weight:700;line-height:18px;text-align:center;pointer-events:none}
 .dr-app{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.dr-app>div{flex:1;min-width:0}
 .dr-app b{display:block;font-size:13px;color:var(--muted);font-weight:600;overflow-wrap:anywhere}.dr-app span.dr-fn{display:block;font-size:15px;font-weight:700;overflow-wrap:anywhere}.dr-app .btn{flex:none;min-height:44px}
 #v-flows .dr-side .dr-champs input,#v-flows .dr-side .dr-champs select,#v-flows .dr-side .dr-champs textarea{min-height:44px}.dr-side .dr-champs textarea{font-family:inherit;font-size:14px}
@@ -581,13 +629,13 @@
 .dr-dn-l{display:flex;flex-direction:column;gap:4px}
 .dr-dn-i{display:flex;flex-direction:column;align-items:flex-start;text-align:left;width:100%;min-height:44px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font:inherit;cursor:pointer}
 .dr-dn-i b{font-size:13.5px;overflow-wrap:anywhere}.dr-dn-i small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}.dr-dn-i:hover{border-color:var(--accent)}.dr-dn-i:focus-visible{outline:2px solid var(--accent)}.dr-dn-i[disabled]{opacity:.55;cursor:not-allowed}
-.dr-node.dr-source{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel));outline:3px solid var(--accent);outline-offset:3px;box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 40%,transparent);animation:dr-pulse .9s ease-in-out infinite alternate}
+.dr-node.dr-source .dr-rond{outline:3px solid var(--accent);outline-offset:3px;box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 40%,transparent);animation:dr-pulse .9s ease-in-out infinite alternate}
 @keyframes dr-pulse{from{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}to{box-shadow:0 0 0 9px color-mix(in srgb,var(--accent) 45%,transparent)}}
 .dr-mb{position:absolute;width:var(--dr-z,44px);height:var(--dr-z,44px);left:calc(95px - var(--dr-z,44px) / 2);z-index:1;top:calc(10px - var(--dr-z,44px));padding:0;border:0;background:none;display:grid;place-items:end center;cursor:pointer;touch-action:none}
 .dr-mb span{min-width:28px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);color:var(--muted);font-size:15px;font-weight:700;line-height:13px;text-align:center;transition:border-color .15s,color .15s}
 .dr-mb:hover span,.dr-mb:focus-visible span,.dr-mb[aria-expanded=true] span{border-color:var(--accent);color:var(--accent)}.dr-mb:focus-visible{outline:none}.dr-mb:focus-visible span{outline:2px solid var(--accent);outline-offset:1px}
 .dr-node{-webkit-touch-callout:none}.dr-node .dr-nom.dr-cache{visibility:hidden}
-.dr-note-m{position:absolute;left:14px;top:-10px;width:18px;height:18px;box-sizing:border-box;border-radius:5px;border:1.5px solid var(--accent);background:var(--panel);pointer-events:none}
+.dr-note-m{position:absolute;left:52px;top:5px;width:18px;height:18px;box-sizing:border-box;border-radius:5px;border:1.5px solid var(--accent);background:var(--panel);pointer-events:none}
 .dr-note-m::before{content:'';position:absolute;left:3px;right:3px;top:4px;height:5px;border-top:1.5px solid var(--accent);border-bottom:1.5px solid var(--accent)}
 .dr-note-bulle{position:absolute;z-index:2;max-width:260px;box-sizing:border-box;padding:8px 10px;border-radius:10px;background:var(--panel);color:var(--ink);border:1px solid var(--accent);box-shadow:var(--shadow);font-size:13px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:hidden;pointer-events:none}
 .dr-renom-z{position:absolute;left:4px;width:182px;z-index:4;transform-origin:0 0;transform:scale(var(--dr-ik,1));display:flex;flex-direction:column;gap:3px}
@@ -595,11 +643,11 @@
 .dr-renom[aria-invalid=true]{border-color:var(--bad)}.dr-renom-e{display:block;padding:4px 8px;border-radius:8px;background:var(--panel);border:1px solid var(--bad);color:var(--bad);font-size:12px;line-height:1.35;white-space:normal}.dr-renom-e[hidden]{display:none}
 .dr-note-ed label{font-size:13.5px;font-weight:600}.dr-note-ed textarea{box-sizing:border-box;width:100%;min-height:130px;padding:10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);color:var(--ink);font:inherit;font-size:14.5px;resize:vertical}
 .dr-note-ed .dr-row .btn{min-height:44px}
-.dr-seul{position:absolute;left:-11px;top:-11px;min-width:22px;height:22px;box-sizing:border-box;padding:0 6px;border-radius:11px;background:var(--good);color:var(--panel);font-size:12px;font-weight:700;line-height:22px;text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--panel);transform-origin:100% 100%;transform:scale(var(--dr-ik,1))}.dr-seul.bad{background:var(--bad)}
+.dr-seul{position:absolute;left:32px;top:23px;min-width:22px;height:22px;box-sizing:border-box;padding:0 6px;border-radius:11px;background:var(--good);color:var(--panel);font-size:12px;font-weight:700;line-height:22px;text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--panel);transform-origin:100% 100%;transform:scale(var(--dr-ik,1))}.dr-seul.bad{background:var(--bad)}
 #v-flows .dr-bar .btn.dr-hist{min-height:44px;min-width:44px}.dr-bar .btn.dr-hist[disabled]{opacity:.45;cursor:default}
 .dr-actions{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}.dr-actions #drSt{flex:1 1 220px;min-width:0;align-self:center;overflow-wrap:anywhere}
 @media (max-width:600px){.dr-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.dr-actions .btn{white-space:normal;min-height:44px}.dr-actions #drSt{grid-column:1/-1}}
-@media (prefers-reduced-motion:reduce){.dr-node.dr-source,.dr-choix,.dr-fil-menu{animation:none}.dr-plus span,.dr-mb span{transition:none}}
+@media (prefers-reduced-motion:reduce){.dr-node.dr-source .dr-rond,.dr-choix,.dr-fil-menu{animation:none}.dr-plus span,.dr-mb span{transition:none}}
 `;
   let st = null, wf = null, outs = {}, sel = null, armed = null, last = null, view = { x: 40, y: 40, k: 1 }, dirty = false;
   // enregistree : la copie de l'automatisation telle qu'enregistrée (ce que le serveur fait tourner) ; seuls : les blocs
@@ -821,22 +869,34 @@
     // Les blocs d'appli se dessinent avec l'icône et le nom de leur appli : on lit la liste des applis une fois.
     if (!applisFaite && wf.nodes.some((n) => n.type === 'module.action' || n.type === 'déclencheur.module')) { const w = wf; void chargerApplis().then(() => { if (wf === w) draw(); }); }
   }
+  /** Les deux couleurs du rond d'un bloc : celles de son appli, celles de Talos pour ses propres blocs ; null si inconnues (l'accent). */
+  function couleursDe(n, ia = infoAppli(n, applisListe)) {
+    const c = window.OdinAppIcons?.couleurs?.(ia ? ia.a.id : 'draupnir');
+    return Array.isArray(c) && c.length === 2 && c.every((x) => typeof x === 'string' && /^#[0-9a-f]{3,8}$/i.test(x)) ? c : null;
+  }
   function nodeEl(n) {
     const c = cat(n.type), run = last?.nodes?.[n.name];
     // Un bloc d'appli : l'icône et le nom de l'appli, puis sa fonction (ou ce qu'elle signale) en clair ; son nom s'il a été changé.
     const ia = infoAppli(n, applisListe), manque = ia?.f ? manquants(n, ia.f) : [];
     // (.dr-nom : là où se lit le nom du bloc ; un double-clic dessus le renomme)
     const nomAPart = ia && n.name !== ia.auto && n.name !== ia.titre;
-    const tete = ia ? [el('div', { class: 'dr-ap' }, window.OdinLien?.icone ? window.OdinLien.icone(ia.a, 22) : null, el('small', {}, ia.a.nom)), el('b', { class: nomAPart ? undefined : 'dr-nom' }, ia.titre),
-      nomAPart ? el('small', { class: 'dr-nn dr-nom' }, n.name) : null,
-      manque.length ? el('span', { class: 'dr-manque' }, `À remplir : ${manque.join(', ')}`) : null]
-      : [el('small', {}, c?.group ?? '?', ' · ', c?.label ?? n.type), el('b', { class: 'dr-nom' }, n.name)];
+    // Le bloc est un rond (croquis validé) : la couleur de son appli et son icône au centre, telle quelle ; un bloc de Talos
+    // (Planning, Si, Attendre…) : un rond plein aux couleurs de Talos, sans icône (comme aujourd'hui : à lui de dire s'il en
+    // veut une) ; l'horloge du déclencheur Planning ; dessous, le nom en gras puis l'appli et la fonction en petit.
+    const teinte = couleursDe(n, ia);
+    const rond = el('span', { class: 'dr-rond', 'aria-hidden': 'true', style: teinte ? `--dr-c0:${teinte[0]};--dr-c1:${teinte[1]}` : undefined },
+      ia && window.OdinLien?.icone ? window.OdinLien.icone(ia.a, ICONE_ROND) : null,
+      n.type === 'déclencheur.planning' ? el('span', { class: 'dr-horloge' }) : null);
+    const tete = ia ? [el('b', { class: 'dr-nom' }, nomAPart ? n.name : ia.titre), el('small', {}, ia.a.nom, nomAPart ? ` · ${ia.titre}` : '')]
+      : [el('b', { class: 'dr-nom' }, n.name), el('small', {}, c?.group ?? '?', ' · ', c?.label ?? n.type)];
+    // Les réglages obligatoires vides : leur nombre, dans une pastille en haut à droite du rond (la liste est dans le panneau).
+    const pastille = manque.length ? el('span', { class: 'dr-manque dr-rond-manque', 'aria-hidden': 'true' }, String(manque.length)) : null;
     // La note : une petite marque sur le bloc ; son texte décrit le bloc (lecteur d'écran) et se lit dans une bulle (bulle()).
     const aNote = typeof n.note === 'string' && n.note !== '', idNote = aNote ? `drnote-${wf.nodes.indexOf(n)}` : undefined;
     // Exécuté seul : un rond avec le nombre d'éléments rendus (« ! » en cas d'erreur), dit aussi au lecteur d'écran.
     const seul = run && seuls.has(n.name) ? (run.error ? `exécuté seul : erreur, ${run.error}` : `exécuté seul : ${run.count} élément(s)`) : '';
-    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': `${ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`}${seul ? `, ${seul}` : ''}`, 'aria-describedby': idNote, style: `left:${n.position?.[0] ?? 0}px;top:${n.position?.[1] ?? 0}px` },
-      ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null,
+    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': `${ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`}${seul ? `, ${seul}` : ''}`, 'aria-describedby': idNote, style: `left:${n.position?.[0] ?? 0}px;top:${yDessin(n.position?.[1])}px` },
+      rond, ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null, pastille,
       aNote ? el('span', { class: 'dr-note-m', 'aria-hidden': 'true' }) : null, aNote ? el('span', { class: 'sr', id: idNote }, `Note : ${n.note}`) : null,
       seul ? el('span', { class: `dr-seul${run.error ? ' bad' : ''}`, title: `${n.name} : ${seul}`, 'aria-hidden': 'true' }, run.error ? '!' : String(run.count)) : null);
     // Le bouton « ⋯ » : le menu du bloc. Zone de 44 px à l'écran (comme les ronds), au milieu du bord haut, loin des ronds, et au-dessus du bloc : même dézoomé, le corps du bloc reste à toucher (choisir, glisser).
@@ -847,13 +907,12 @@
     } }, el('span', { 'aria-hidden': 'true' }, '⋯'));
     const ouvrirParBouton = () => { const b = mb.getBoundingClientRect?.(), r = $('#drCanvas')?.getBoundingClientRect?.(); menuBloc(n.name, b && r && b.width ? [b.left - r.left, b.top + b.height - r.top] : coinBloc(n)); };
     d.append(mb);
-    // Les ronds : la zone touchable fait 44 px à l'écran quel que soit le zoom (--dr-z) ; le rond dessiné garde ses 18 px,
-    // à la même place (::before). Entrée touchée sans sortie armée : comme toucher le bloc (sa zone mord sur le bloc).
+    // Les ronds : la zone touchable fait 44 px à l'écran quel que soit le zoom (--dr-z) ; le rond dessiné fait 12 px
+    // (::before), centré en (25, 48) pour l'entrée, en x 195 pour une sortie (à mi-hauteur du rond, décalé par styleSortie). Entrée touchée sans sortie armée : comme toucher le bloc (sa zone mord sur le bloc).
     if (!c?.trigger) d.append(el('button', { class: 'dr-port in', type: 'button', 'aria-label': `Entrée de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (armed) { link(armed.node, armed.out, n.name); armed = null; draw(); } else { sel = n.name; draw(); drawSide(); } } }));
     const sorties = outputsOf(n);
-    // Plusieurs sorties : le bloc est assez haut pour que la dernière ne passe pas sous le « + » ; les zones de deux
+    // Plusieurs sorties : leurs ronds s'empilent, centrés sur le milieu du rond, à droite du « + » ; les zones de deux
     // sorties voisines se partagent l'écart (le rond le plus proche l'emporte).
-    if (sorties.length > 1) d.style.minHeight = `${58 + 22 * (sorties.length - 1)}px`;
     // Une sortie : un toucher l'arme (puis un toucher sur une entrée relie), ou on en TIRE un fil jusqu'à un bloc.
     sorties.forEach((o, i, all) => { const b = el('button', { class: `dr-port out${armed && armed.node === n.name && armed.out === i ? ' armed' : ''}`, type: 'button', style: styleSortie(i, all.length), 'aria-label': `Sortie ${o} de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (e.timeStamp - tireFin < 500) return; armed = armed && armed.node === n.name && armed.out === i ? null : { node: n.name, out: i }; draw(); } }, all.length > 1 ? el('span', { class: 'dr-pl' }, o) : null); tirable(b, n, i); d.append(b); });
     // Le « + » du côté de la sortie : un bloc de plus, posé à droite et relié à celui-ci.
@@ -868,7 +927,7 @@
       finLong();
       if (e.pointerType === 'touch' || e.pointerType === 'pen') long = setTimeout(() => { long = 0; if (!start || start.moved) return; start = null; const r = $('#drCanvas')?.getBoundingClientRect?.() ?? { left: 0, top: 0 }; menuBloc(n.name, [e.clientX - r.left, e.clientY - r.top], true); }, APPUI_LONG);
     });
-    d.addEventListener('pointermove', (e) => { if (!start) return; const dx = (e.clientX - start.x) / view.k, dy = (e.clientY - start.y) / view.k; if (Math.abs(dx) + Math.abs(dy) > 3) { start.moved = true; finLong(); } n.position = [Math.round(start.p[0] + dx), Math.round(start.p[1] + dy)]; d.style.left = `${n.position[0]}px`; d.style.top = `${n.position[1]}px`; lines(); });
+    d.addEventListener('pointermove', (e) => { if (!start) return; const dx = (e.clientX - start.x) / view.k, dy = (e.clientY - start.y) / view.k; if (Math.abs(dx) + Math.abs(dy) > 3) { start.moved = true; finLong(); } n.position = [Math.round(start.p[0] + dx), yEnregistre(yDessin(start.p[1]) + dy)]; d.style.left = `${n.position[0]}px`; d.style.top = `${yDessin(n.position[1])}px`; lines(); });
     // Un toucher parti d'un rond ou du « + » n'est pas un clic sur le bloc : on ne redessine pas (le bouton doit recevoir son clic).
     // Deux touchers rapprochés sur le NOM du bloc : on le renomme.
     d.addEventListener('pointerup', (e) => {
@@ -930,7 +989,7 @@
       if (!g.moved && Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) < 6) return;
       g.moved = true;
       const svg = $('#drCanvas svg'); if (!svg) return;
-      const x1 = (n.position?.[0] ?? 0) + NODE_W + 10, y1 = (n.position?.[1] ?? 0) + 27 + out * 22, [x2, y2] = sousPointeur(e), dx = Math.max(30, Math.abs(x2 - x1) / 2);
+      const [x1, y1] = departLien(n.position, out, outputsOf(n).length), [x2, y2] = sousPointeur(e), dx = Math.max(30, Math.abs(x2 - x1) / 2);
       let p = svg.querySelector('.dr-tire');
       if (!p) { p = sv('path', { class: 'dr-tire' }); svg.append(p); }
       p.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
@@ -981,7 +1040,7 @@
       ['Retirer', () => removeNode(nom)]] });
   }
   /** Le point (dans la fenêtre du schéma) sous le « ⋯ » d'un bloc : où s'ouvre son menu au clavier. */
-  const coinBloc = (n) => [((n.position?.[0] ?? 0) + NODE_W - 70) * view.k + view.x, ((n.position?.[1] ?? 0) + 22) * view.k + view.y];
+  const coinBloc = (n) => [((n.position?.[0] ?? 0) + NODE_W - 70) * view.k + view.x, (yDessin(n.position?.[1]) + 22) * view.k + view.y];
   function menuDe({ label, point: [x, y], zone, retour, choix: items, bloc, auDoigt = false }) {
     fermerMenu();
     const canvas = $('#drCanvas'); if (!canvas) return;
@@ -1094,7 +1153,7 @@
     b.style.top = `${Math.round(haut >= 4 ? haut : r.top - c.top + r.height + 8)}px`;
   }
   /** Le point de la fenêtre (en coordonnées du schéma) où poser un bloc centré sous [px, py] (pixels dans la fenêtre). */
-  const pointSchema = (px, py) => [Math.round((px - view.x) / view.k - NODE_W / 2), Math.round((py - view.y) / view.k - 30)];
+  const pointSchema = (px, py) => [Math.round((px - view.x) / view.k - NODE_W / 2), yEnregistre((py - view.y) / view.k - MI_ROND)];
   function draw() {
     const world = $('#drCanvas .dr-world'); if (!world) return;
     fermerMenu(); // (le schéma change : le fil du menu peut ne plus exister)
@@ -1108,18 +1167,23 @@
   function lines() {
     const svg = $('#drCanvas svg'); if (!svg) return; svg.replaceChildren();
     const g = sv('g', { transform: `translate(${view.x} ${view.y}) scale(${view.k})` }); svg.append(g);
+    let nGrad = 0;
     for (const [from, list] of Object.entries(wf.connections)) {
       const a = wf.nodes.find((n) => n.name === from); if (!a) continue;
       list.forEach((targets, i) => (targets ?? []).forEach((l) => {
         const b = wf.nodes.find((n) => n.name === l.node); if (!b) return;
-        const x1 = a.position[0] + NODE_W + 10, y1 = a.position[1] + 27 + i * 22, x2 = b.position[0] - 10, y2 = b.position[1] + 33, dx = Math.max(40, Math.abs(x2 - x1) / 2);
+        const [x1, y1] = departLien(a.position, i, outputsOf(a).length), [x2, y2] = arriveeLien(b.position), dx = Math.max(40, Math.abs(x2 - x1) / 2);
         const d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+        // La liaison en petits ronds, de la couleur du bloc de départ à celle du bloc d'arrivée (l'accent si elle est inconnue).
+        const id = `drg-${nGrad++}`, teinte = (n) => couleursDe(n)?.[1] ?? 'var(--accent)';
+        const grad = sv('linearGradient', { id, gradientUnits: 'userSpaceOnUse', x1, y1, x2, y2 });
+        grad.append(sv('stop', { offset: '0', style: `stop-color:${teinte(a)}` }), sv('stop', { offset: '1', style: `stop-color:${teinte(b)}` }));
         // Le fil dessiné, et par-dessus une zone large et invisible qui se touche (et se choisit au clavier) : elle ouvre le menu du fil.
         const fil = { de: from, out: i, vers: l.node }, so = outputsOf(a).length > 1 ? outputsOf(a)[i] ?? '' : '';
         const z = sv('path', { class: 'dr-fil', d, tabindex: '0', role: 'button', 'aria-haspopup': 'menu', 'data-de': from, 'data-vers': l.node, 'data-cle': cleFil(fil), 'aria-label': `Lien ${from} → ${l.node}${so ? ` (sortie ${so})` : ''}` });
         z.addEventListener('click', (e) => { if (glisse) return; const r = $('#drCanvas').getBoundingClientRect(); ouvrirMenu(fil, [e.clientX - r.left, e.clientY - r.top], z); });
         z.addEventListener('keydown', (e) => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); ouvrirMenu(fil, [(x1 + x2) / 2 * view.k + view.x, (y1 + y2) / 2 * view.k + view.y], z); });
-        g.append(sv('path', { class: 'dr-link', d }), z);
+        g.append(grad, sv('path', { class: 'dr-link', d, stroke: `url(#${id})` }), z);
       }));
     }
     bulle(); // (le schéma a bougé : la bulle d'une note suit son bloc)
@@ -1131,8 +1195,9 @@
     // Cadrage : tout le schéma visible à l'ouverture.
     requestAnimationFrame(() => {
       const r = canvas.getBoundingClientRect(); if (!wf.nodes.length || !r.width) return;
-      const xs = wf.nodes.map((n) => n.position[0]), ys = wf.nodes.map((n) => n.position[1]);
-      const x0 = Math.min(...xs) - 30, x1 = Math.max(...xs) + NODE_W + 30, y0 = Math.min(...ys) - 30, y1 = Math.max(...ys) + 90;
+      // (en places dessinées : l'écart vertical est agrandi à l'écran ; un bloc fait au plus HAUT_TESTE de haut)
+      const xs = wf.nodes.map((n) => n.position[0]), ys = wf.nodes.map((n) => yDessin(n.position[1]));
+      const x0 = Math.min(...xs) - 30, x1 = Math.max(...xs) + NODE_W + 30, y0 = Math.min(...ys) - 30, y1 = Math.max(...ys) + HAUT_TESTE + 20;
       view.k = Math.min(1.1, Math.max(0.4, Math.min(r.width / (x1 - x0), r.height / (y1 - y0))));
       view.x = (r.width - (x1 - x0) * view.k) / 2 - x0 * view.k; view.y = (r.height - (y1 - y0) * view.k) / 2 - y0 * view.k; apply();
     });
@@ -1447,7 +1512,7 @@
   function montrer(n) {
     const canvas = $('#drCanvas'), world = $('#drCanvas .dr-world'), r = canvas?.getBoundingClientRect?.();
     if (!n || !world || !r?.width) return;
-    const x = n.position[0] * view.k + view.x, y = n.position[1] * view.k + view.y, w = NODE_W * view.k, h = 70 * view.k, m = 24;
+    const x = n.position[0] * view.k + view.x, y = yDessin(n.position[1]) * view.k + view.y, w = NODE_W * view.k, h = HAUT_BLOC * view.k, m = 24;
     if (x + w + m > r.width) view.x -= x + w + m - r.width; else if (x < m) view.x += m - x;
     if (y + h + m > r.height) view.y -= y + h + m - r.height; else if (y < m) view.y += m - y;
     world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
@@ -1626,5 +1691,6 @@
     logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
       appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie,
       decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote, renommerDans, suivreRenommage,
-      entreeSeul, ceQuAgit, pareilQuEnregistre, dernierPassage, AGIT_TYPES: Object.keys(AGIT), copieDe, collerBloc, zoomer, MAX_HISTOIRE } };
+      entreeSeul, ceQuAgit, pareilQuEnregistre, dernierPassage, AGIT_TYPES: Object.keys(AGIT), copieDe, collerBloc, zoomer, MAX_HISTOIRE,
+      ROND, ANNEAU, ICONE_ROND, HAUT_BLOC, HAUT_TESTE, ECHELLE_Y, PLUS_D, PLUS_X, ZONE_PLUS, SORTIE_X, ENTREE_X, PORT_D, ECART_SORTIES, yDessin, yEnregistre, departLien, arriveeLien, zonesBloc } };
 })();

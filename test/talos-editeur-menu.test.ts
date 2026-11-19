@@ -243,7 +243,8 @@ test('page : le bouton « ⋯ » de chaque bloc ouvre le même menu ; sa zone de
   await mb2.emettre('pointermove', { clientX: 460, clientY: 330, pointerId: 6 });
   await mb2.emettre('pointerup', { clientX: 460, clientY: 330, pointerId: 6 });
   assert.equal(menu(), null, 'pas de menu après un glissement');
-  assert.deepEqual(ici((await p.enregistre()).nodes.find((x) => x.name === 'Fin')!.position), [960, 330], 'le bloc a glissé');
+  // l'écart vertical est agrandi × 2,2 à l'écran seulement (croquis validé)
+  assert.deepEqual(ici((await p.enregistre()).nodes.find((x) => x.name === 'Fin')!.position), [960, 314], 'le bloc a glissé');
   const regle = (sel: string) => new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\{([^}]*)\\}`).exec(p.css)?.[1] ?? '';
   assert.match(regle('.dr-mb'), /width:var\(--dr-z,44px\)/); assert.match(regle('.dr-mb'), /height:var\(--dr-z,44px\)/);
 });

@@ -317,24 +317,25 @@ test('la zone de toucher garde 44 px à l\'écran quel que soit le zoom ; deux s
   const L = logique() as Logique & { zoneToucher: (k: number, px?: number) => number; styleSortie: (i: number, m: number) => string };
   assert.equal(L.zoneToucher(1), 44); assert.equal(L.zoneToucher(0.5), 88, 'dézoomé de moitié : 88 px du schéma = 44 px à l\'écran');
   assert.equal(L.zoneToucher(1.6), 44, 'zoomé : jamais moins de 44 px'); assert.equal(L.zoneToucher(0.5, 22), 44);
-  assert.equal(L.styleSortie(0, 1), 'top:calc(27px - var(--dh))', 'une seule sortie : la zone entière');
-  assert.equal(L.styleSortie(0, 2), 'top:calc(27px - var(--dh));--db:11px', '« oui » s\'arrête à mi-chemin vers « non »');
-  assert.equal(L.styleSortie(1, 2), 'top:calc(49px - var(--dh));--dh:11px');
-  assert.equal(L.styleSortie(1, 3), 'top:calc(49px - var(--dh));--dh:11px;--db:11px');
+  // (blocs en cercles, croquis validé : les sorties s'empilent, centrées sur le milieu du rond, à 48 px du haut)
+  assert.equal(L.styleSortie(0, 1), 'top:calc(48px - var(--dh))', 'une seule sortie : la zone entière');
+  assert.equal(L.styleSortie(0, 2), 'top:calc(37px - var(--dh));--db:11px', '« oui » s\'arrête à mi-chemin vers « non »');
+  assert.equal(L.styleSortie(1, 2), 'top:calc(59px - var(--dh));--dh:11px');
+  assert.equal(L.styleSortie(1, 3), 'top:calc(48px - var(--dh));--dh:11px;--db:11px');
 });
 
-test('page : les ronds à relier ont une zone de toucher de 44 px ; leur dessin reste un rond de 18 px, à la même place', async () => {
+test('page : les ronds à relier ont une zone de toucher de 44 px ; leur dessin est un rond de 12 px, à mi-hauteur du rond du bloc', async () => {
   const p = await page();
   const regle = (sel: string) => new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\{([^}]*)\\}`).exec(p.css)?.[1] ?? '';
   assert.match(regle('.dr-port'), /--z:var\(--dr-z,44px\)/); assert.match(regle('.dr-port'), /width:var\(--z\)/);
-  assert.match(regle('.dr-port::before'), /width:18px;height:18px/);
+  // (blocs en cercles, croquis validé : rond dessiné de 12 px ; entrée centrée en (25, 48), sortie en (195, 48), jamais à gauche du « + »)
+  assert.match(regle('.dr-port::before'), /width:12px;height:12px/);
   assert.match(regle('.dr-port::before'), /border-radius:50%/);
-  // Le centre du rond reste où il était (entrée : 1 px avant le bord gauche, à 33 px du haut ; sortie : 1 px après le bord droit).
-  assert.match(regle('.dr-port.in'), /left:calc\(-1px - var\(--z\) \/ 2\);top:calc\(33px - var\(--z\) \/ 2\)/);
-  assert.match(regle('.dr-port.out'), /right:calc\(-1px - var\(--z\) \/ 2\)/);
+  assert.match(regle('.dr-port.in'), /left:calc\(25px - var\(--z\) \/ 2\);top:calc\(48px - var\(--z\) \/ 2\)/);
+  assert.match(regle('.dr-port.out'), /--g:max\(173px,calc\(195px - var\(--z\) \/ 2\)\);--cx:calc\(195px - var\(--g\)\);left:var\(--g\)/);
   const out = p.bloc('Si').querySelectorAll('.dr-port').filter((x) => x.classList.contains('out'));
-  assert.deepEqual(out.map((x) => x.getAttribute('style')), ['top:calc(27px - var(--dh));--db:11px', 'top:calc(49px - var(--dh));--dh:11px'], '« oui » et « non » aux mêmes hauteurs qu\'avant');
-  assert.equal(p.bloc('Si').style.minHeight, '80px', 'le « non » ne passe plus sous le « + »');
+  assert.deepEqual(out.map((x) => x.getAttribute('style')), ['top:calc(37px - var(--dh));--db:11px', 'top:calc(59px - var(--dh));--dh:11px'], '« oui » et « non » de part et d\'autre du milieu du rond');
+  assert.equal(p.bloc('Si').style.minHeight, undefined, 'les sorties tiennent à côté du rond : le bloc ne grandit plus');
   assert.equal(p.bloc('Fin').style.minHeight, undefined, 'un bloc à une sortie garde sa hauteur');
 });
 

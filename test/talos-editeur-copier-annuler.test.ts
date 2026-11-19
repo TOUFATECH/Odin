@@ -526,7 +526,8 @@ test('page : un geste fait après « Enregistrer » est bien gardé (et s\'annul
   await b.emettre('pointerdown', { clientX: 0, clientY: 0, pointerId: 1, button: 0, pointerType: 'mouse' });
   await b.emettre('pointermove', { clientX: 30, clientY: 20, pointerId: 1 });
   await b.emettre('pointerup', { clientX: 30, clientY: 20, pointerId: 1 });
-  assert.deepEqual((await p.enregistre()).nodes[3].position, [930, 320], 'le déplacement est enregistré');
+  // l'écart vertical est agrandi × 2,2 à l'écran seulement (croquis validé)
+  assert.deepEqual((await p.enregistre()).nodes[3].position, [930, 309], 'le déplacement est enregistré');
   await p.touche('z', { ctrl: true });
   assert.deepEqual(await p.enregistre(), ici(FLOW), 'et il s\'annule');
 });
