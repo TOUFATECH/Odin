@@ -12,7 +12,7 @@
 
 import { modelePret } from '../brain/porte-modele.ts';
 import { changementNoyau } from '../tools/self.ts';
-import { RACINE_APPLI, estNoyau, estSensible, etatNoyau, noterVerifNoyau, verifierNoyau } from '../heimdall/noyau.ts';
+import { RACINE_APPLI, codeMajNoyau, estNoyau, estSensible, etatNoyau, noterVerifNoyau, verifierNoyau } from '../heimdall/noyau.ts';
 import { fichierVise, lireBrouillon, listerBrouillons, refuserBrouillon, revoirBrouillon } from '../code/brouillons.ts';
 import { compteDifference, difference, finsDeLigne, finsDeLigneChangees, rendreVisible } from '../code/difference.ts';
 import { rythmeEnClair } from './talos-api.ts';
@@ -158,8 +158,8 @@ export interface WebHooks {
   /** Journal de bord maintenant. */
   journalNow?(): Promise<string | undefined>;
   morningNow?(): Promise<string | undefined>;
-  /** Met Odin à jour maintenant (puis redémarre). */
-  updateNow?(): Promise<string>;
+  /** Met Odin à jour maintenant (puis redémarre). `parClic` : lancée par le propriétaire dans son navigateur. */
+  updateNow?(parClic?: boolean): Promise<string>;
   /** Canal WhatsApp (messages reçus de Meta sur /hook/whatsapp). */
   whatsapp?(): { webhook(method: string, query: URLSearchParams, raw: Uint8Array, signature: string | undefined): Promise<{ status: number; body: string }> } | undefined;
   /** Odin Breaker : ronde + travail de fond tout de suite. */
@@ -943,6 +943,19 @@ export class WebChannel implements Channel {
       if (estMembre(req)) return json(res, 403, { ok: false, error: 'réservé au propriétaire' });
       return json(res, 200, { ok: true, maintenant: Date.now(), list: this.validationsEnAttente() });
     }
+    // « Voir le code » : les garde-fous acceptés avec une mise à jour officielle (lecture seule ; le propriétaire seul,
+    // dans son navigateur). Le message ; avec « code=1 », la différence COMPLÈTE des fichiers du noyau entre l'ancien et
+    // le nouveau commit, relue dans git à chaque fois (jamais une copie rangée à côté).
+    if (req.method === 'GET' && url.pathname === '/api/noyau/maj') {
+      if (estMembre(req) || this.who(req) !== 'session' || direct) return json(res, 403, { ok: false, error: 'réservé au propriétaire' });
+      let m: { de?: unknown; vers?: unknown; quand?: unknown; fichiers?: unknown } | null = null;
+      try { m = JSON.parse(this.odin.muninn.getKv('noyau-maj-vue') || 'null'); } catch { m = null; }
+      if (!m || typeof m.de !== 'string' || typeof m.vers !== 'string') return json(res, 200, { ok: true, maj: null });
+      const maj = { de: m.de, vers: m.vers, quand: String(m.quand ?? ''), fichiers: Array.isArray(m.fichiers) ? m.fichiers.map(String).slice(0, 200) : [] };
+      if (url.searchParams.get('code') !== '1') return json(res, 200, { ok: true, maj });
+      const c = await codeMajNoyau(maj.de, maj.vers);
+      return json(res, 200, { ok: c.ok, maj, texte: c.texte, ...(c.ok ? {} : { error: 'différence illisible' }) });
+    }
     // Réécritures proposées (les brouillons du code, gardés hors du code) : les lire en entier, ou en refuser un. Le
     // propriétaire seul, dans son navigateur : ni un membre, ni la clé d'API, ni le port direct d'une appli. Rien ne
     // s'applique d'ici : « refuser » ne fait que passer le brouillon à « refusé ».
@@ -1291,7 +1304,9 @@ export class WebChannel implements Channel {
       void onMessage({ channel: 'web', peer, name: 'navigateur', text });
       return json(res, 202, { ok: true });
     }
-    if (url.pathname === '/api/action') return json(res, 200, await this.action(body));
+    // « Son clic » (mise à jour lancée par le propriétaire) : seulement sa session dans son navigateur — pas la clé d'API,
+    // pas un membre, pas le port direct d'une appli.
+    if (url.pathname === '/api/action') return json(res, 200, await this.action(body, { parClic: this.who(req) === 'session' && !estMembre(req) && !direct }));
     return json(res, 404, { error: 'introuvable' });
   }
 
@@ -1391,7 +1406,7 @@ export class WebChannel implements Channel {
     };
   }
 
-  private async action(b: Record<string, unknown>): Promise<unknown> {
+  private async action(b: Record<string, unknown>, o: { parClic?: boolean } = {}): Promise<unknown> {
     const { muninn, skills, inventory } = this.odin;
     const name = String(b.name ?? ''), id = Number(b.id);
     switch (b.kind) {
@@ -1448,7 +1463,7 @@ export class WebChannel implements Channel {
       case 'update_check': { const { checkForUpdate } = await import('../tools/update.ts'); const r = await checkForUpdate(); this.odin.muninn.setKv('update-info', JSON.stringify(r)); this.odin.muninn.setKv('update-checked', String(Date.now())); return { ok: !r.error, error: r.error, info: r }; }
       case 'update_apply': {
         if (!this.hooks.updateNow) return { ok: false, error: 'mise à jour indisponible ici' };
-        const text = await this.hooks.updateNow();
+        const text = await this.hooks.updateNow(o.parClic === true);
         return { ok: !/^⚠️/.test(text), text, error: /^⚠️/.test(text) ? text.replace(/^⚠️\s*/, '') : undefined, restarting: /redémarre/.test(text) };
       }
       case 'host_restart': {

@@ -7,6 +7,7 @@ import { execFile, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { accord } from '../core/genre.ts';
+import { noyauChangeVers } from '../heimdall/noyau.ts';
 import { APP_ROOT, checkApp, restartSelf, restorePublished, updateApp } from './self.ts';
 import { obj, type Tool } from './registry.ts';
 
@@ -28,6 +29,8 @@ export interface UpdateInfo {
   available: boolean;
   /** La mise à jour peut-elle se faire depuis Odin (installé avec git) ? */
   canApply: boolean;
+  /** Les fichiers des garde-fous (noyau) que cette mise à jour change : dit AVANT le clic « Mettre à jour ». */
+  noyau?: string[];
   checkedAt: number;
   error?: string;
 }
@@ -50,7 +53,8 @@ export async function checkForUpdate(root = APP_ROOT, now = Date.now()): Promise
   const behind = Number((await gitA(root, ['rev-list', '--count', `HEAD..${up}`])).stdout.trim() || 0);
   const latest = versionOf((await gitA(root, ['show', `${up}:package.json`])).stdout) || current;
   const changes = behind ? (await gitA(root, ['log', '--format=%s', `HEAD..${up}`])).stdout.trim().split('\n').filter(Boolean).slice(0, 12) : [];
-  return { current, latest, behind, changes, available: behind > 0, canApply: true, checkedAt: now };
+  const noyau = behind ? await noyauChangeVers(up, root) : [];
+  return { current, latest, behind, changes, available: behind > 0, canApply: true, noyau, checkedAt: now };
 }
 
 /**
@@ -61,7 +65,7 @@ export async function checkForUpdate(root = APP_ROOT, now = Date.now()): Promise
  *    publiée, mes retouches sont mises de côté ;
  *  - la nouvelle version elle-même ne se charge pas → retour complet au code d'avant, retouches comprises.
  */
-export function applyUpdate(root = APP_ROOT, home?: string): { ok: boolean; message: string; from: string; to: string; restart: boolean } {
+export function applyUpdate(root = APP_ROOT, home?: string): { ok: boolean; message: string; from: string; to: string; restart: boolean; /** les commits d'avant et d'après (la trace d'un clic les garde) */ de?: string; vers?: string } {
   const from = versionOf(readFileSync(join(root, 'package.json'), 'utf8'));
   const before = hasGit(root) ? git(root, ['rev-parse', 'HEAD']).stdout.trim() : '';
   const u = updateApp(root, home);
@@ -71,13 +75,13 @@ export function applyUpdate(root = APP_ROOT, home?: string): { ok: boolean; mess
   if (before === after) return { ok: true, message: ['Odin est déjà à jour.', ...u.message.split('\n').slice(1)].join('\n').trim(), from, to, restart: false };
   const notes = u.message.split('\n').slice(1, 9).join('\n');
   let c = checkApp(root, false), stashed = Boolean(u.stashed);
-  if (c.ok) return { ok: true, message: `Odin passe de la v${from} à la v${to}.\n${notes}`.trim(), from, to, restart: true };
+  if (c.ok) return { ok: true, message: `Odin passe de la v${from} à la v${to}.\n${notes}`.trim(), from, to, restart: true, de: before, vers: after };
   // 1. Mes retouches locales (réappliquées sans conflit) empêchent peut-être la nouvelle version de se charger : essai sans elles.
   if (git(root, ['status', '--porcelain', '--untracked-files=no']).stdout.trim() !== '') {
     const r = restorePublished(root, home);
     if (r.ok) {
       stashed = true; c = checkApp(root, false);
-      if (c.ok) return { ok: true, message: `Odin passe de la v${from} à la v${to}.\nMes retouches locales (${r.files.slice(0, 3).join(', ')}) ne marchent plus avec cette version : je les ai mises de côté${r.aside ? ` (${r.aside})` : ''}.`, from, to, restart: true };
+      if (c.ok) return { ok: true, message: `Odin passe de la v${from} à la v${to}.\nMes retouches locales (${r.files.slice(0, 3).join(', ')}) ne marchent plus avec cette version : je les ai mises de côté${r.aside ? ` (${r.aside})` : ''}.`, from, to, restart: true, de: before, vers: after };
     }
   }
   // 2. La nouvelle version elle-même ne se charge pas : retour complet au code d'avant, puis mes retouches par-dessus.

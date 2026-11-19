@@ -42,11 +42,12 @@ import { tacheNous } from '../brain/nous/tache-odin.ts';
 import { sourcesDepartOdin } from '../brain/nous/sources-odin.ts';
 import { piloteNous, piloteExistant } from '../brain/nous/entrainement-odin.ts';
 import { remplirVecteurs } from '../brain/nous/vecteurs-fond.ts';
-import { alerteNoyauUneFois } from '../heimdall/noyau.ts';
+import { accepterMiseAJourOfficielle, alerteNoyauUneFois, etatNoyau, verifierNoyau, type TraceMaj } from '../heimdall/noyau.ts';
 import { reponsesEnCours } from '../brain/nous/occupation.ts';
 const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
 import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
 import { noterDemande } from '../muninn/personnes.ts';
+import { noterArrivee, type SuiviTour } from '../muninn/paroles.ts';
 import { extractSecret, keepSecret } from '../machines/onboard.ts';
 import { careServices, runUpdates, updateDue } from '../guard/care.ts';
 import { docDirs, indexDocs } from '../tools/docindex.ts';
@@ -121,6 +122,8 @@ export class Gateway {
   private timer?: NodeJS.Timeout;
   private scanning = false;
   private ticking = false;
+  /** Dernier essai d'accepter les garde-fous d'une mise à jour officielle (0 : pas encore depuis le démarrage). */
+  private majNoyauEssai = 0;
 
   private odin: Odin;
   private opts: GatewayOptions;
@@ -212,6 +215,13 @@ export class Gateway {
   }
   /** Point d'entrée de tout message entrant. */
   async handle(m: Inbound): Promise<void> {
+    // Le tour (et la parole d'un humain) : écrits sur le disque AVANT tout traitement ; une panne ne perd plus le message.
+    const proprio = this.isOwner(m.channel, m.peer), compte = proprio ? undefined : this.odin.muninn.userFor(m.channel, m.peer); // qui parle : décidé ici (code sensible), jamais dans le journal
+    const tour = noterArrivee(this.odin.muninn, this.odin.paths.home, (s) => this.odin.redactor.redact(s), m, { proprietaire: proprio, compte, appaire: proprio || !!compte || this.odin.muninn.pairingStatus(m.channel, m.peer) === 'approved' });
+    try { await this.traiterMessage(m, tour); } catch (e) { tour.finir('échec'); throw e; }
+    tour.finir('réussi'); // traité tout de suite (commande, validation…) : sinon la file l'a déjà fermé
+  }
+  private async traiterMessage(m: Inbound, tour: SuiviTour): Promise<void> {
     const ch = this.channels.get(m.channel)!;
     const owner = this.isOwner(m.channel, m.peer);
     // Un mot de passe dans le message du propriétaire : retiré AVANT le modèle, gardé à part (chiffré).
@@ -287,7 +297,7 @@ export class Gateway {
     if (owner && /^\/(update|maj)\b/i.test(text)) {
       if (/plus tard/i.test(text)) return ch.send(m.peer, '👌 D\'accord, je te le redemanderai à la prochaine version.');
       await ch.send(m.peer, '⬆️ Je me mets à jour…');
-      return ch.send(m.peer, await this.updateNow());
+      return ch.send(m.peer, await this.updateNow(true));
     }
     // Pythie : les boutons de la carte (Écouter · Fiche).
     const vs = owner ? /^\/volva (ecouter|fiche) ([a-f0-9]{6,20})$/.exec(text) : null;
@@ -442,7 +452,8 @@ export class Gateway {
 
     // Une file par conversation : les messages sont traités dans l'ordre, jamais en parallèle.
     const prev = this.queues.get(sessionId) ?? Promise.resolve();
-    const next = prev.then(() => this.runTurn(m, ch, sessionId, owner, speaker)).catch((e) => console.error('[bifrost]', (e as Error).message));
+    const next = prev.then(() => { tour.enCours(); return this.runTurn(m, ch, sessionId, owner, speaker); })
+      .then(() => tour.finir('réussi'), (e) => { tour.finir('échec'); throw e; }).catch((e) => console.error('[bifrost]', (e as Error).message));
     this.queues.set(sessionId, next);
     await next;
   }
@@ -760,6 +771,9 @@ export class Gateway {
     // Noûs : le premier corpus (une fois) et le vidage de la file unique vers le corpus chiffré (toutes les 5 min au plus ;
     // rien si Noûs est coupé, ou en mode privé ; aussi sans modèle de langue ; jamais pendant une réponse).
     if (!this.aborts.size) tacheNous(this.odin, now, () => sourcesDepartOdin(this.odin));
+    // Les garde-fous changés par la mise à jour OFFICIELLE que le propriétaire a lancée : acceptés sans second clic (essayé
+    // avant l'alerte, puis toutes les 30 min tant qu'un écart reste ; sans réseau, on attend et l'alerte part).
+    if (now - this.majNoyauEssai >= 30 * 60_000) { this.majNoyauEssai = now; await this.gardeFousDeLaMaj().catch((e) => console.error('[garde-fous]', (e as Error).message)); }
     // Un garde-fou modifié hors de la version de référence : dit au propriétaire une fois par démarrage.
     { const alerte = alerteNoyauUneFois(); if (alerte) await this.tellOwner(alerte, 'home', true).catch(() => undefined); }
     // Noûs apprend dès qu'Odin est libre (jour ou nuit), à la puissance réglée ; arrêt immédiat quand Odin répond.
@@ -941,17 +955,24 @@ export class Gateway {
     if (!info.available || !info.canApply) return;
     const auto = cfg.auto === 'auto' || this.odin.heimdall.breakerActive();
     const idle = !this.aborts.size && now - Number(kv.getKv('last-inbound') ?? 0) > 15 * 60_000;
-    if (auto && idle) { const msg = await this.updateNow(); if (!/redémarre/.test(msg)) await this.tellOwner(msg, 'home').catch(() => {}); return; }
+    if (auto && idle) { const msg = await this.updateNow(false); if (!/redémarre/.test(msg)) await this.tellOwner(msg, 'home').catch(() => {}); return; }
     if (kv.getKv('update-told') === info.latest) return;
     kv.setKv('update-told', info.latest);
     const t = this.ownerTarget();
-    const text = `⬆️ Nouvelle version d'Odin : v${info.latest} (tu as la v${info.current}).\n${info.changes.slice(0, 6).map((c) => `• ${c.replace(/^v[\d.]+\s*:\s*/, '')}`).join('\n')}${auto ? '\nJe la mettrai en place dès que je ne travaille plus.' : '\nTouche « Mettre à jour » (ou dis « mets-toi à jour ») : je reviens en quelques secondes.'}`;
+    const text = `⬆️ Nouvelle version d'Odin : v${info.latest} (tu as la v${info.current}).\n${info.changes.slice(0, 6).map((c) => `• ${c.replace(/^v[\d.]+\s*:\s*/, '')}`).join('\n')}${info.noyau?.length ? `\n🛡 Cette mise à jour change les garde-fous : ${info.noyau.join(', ')}.` : ''}${auto ? '\nJe la mettrai en place dès que je ne travaille plus.' : '\nTouche « Mettre à jour » (ou dis « mets-toi à jour ») : je reviens en quelques secondes.'}`;
     if (t) await t.ch.send(t.peer, text, auto ? undefined : { update: { version: info.latest } }).catch(() => {});
     void pushAll(this.odin.paths.home, { title: 'Odin — nouvelle version', body: `v${info.latest} est disponible`, view: 'settings', tag: 'odin-maj' }).catch(() => 0);
   }
 
-  /** Met Odin à jour maintenant (vérifie le nouveau code, revient en arrière s'il ne se charge pas), puis redémarre. */
-  async updateNow(): Promise<string> {
+  /**
+   * Met Odin à jour maintenant (vérifie le nouveau code, revient en arrière s'il ne se charge pas), puis redémarre.
+   * `parClic` : vrai SEULEMENT quand le propriétaire l'a lancée lui-même — le bouton « Mettre à jour » dans son
+   * navigateur (pas la clé d'API, pas un membre, pas le port direct d'une appli), ou son « /update » (le bouton du
+   * message de nouvelle version). Par défaut, et pour la mise à jour automatique : faux. La trace (les deux commits) sert
+   * au démarrage suivant : en mode « me prévient », son clic vaut acceptation des garde-fous de la version officielle
+   * (src/heimdall/noyau.ts).
+   */
+  async updateNow(parClic = false): Promise<string> {
     const before = lastUpdateInfo(this.odin.muninn);
     if (before?.changes.length) this.odin.muninn.setKv('update-changes', before.changes.join('\n'));
     const r = applyAppUpdate(undefined, this.odin.paths.home);
@@ -960,10 +981,36 @@ export class Gateway {
     if (!r.ok) return `⚠️ ${r.message}`;
     if (!r.restart) return `✅ ${r.message}`;
     this.odin.muninn.setKv('updated-to', `${r.from}→${r.to}`);
+    if (r.de && r.vers) this.odin.muninn.setKv('maj-noyau-trace', JSON.stringify({ de: r.de, vers: r.vers, parClic, quand: new Date().toISOString() } satisfies TraceMaj));
     if (process.env.ODIN_NO_RESTART) return `✅ ${r.message}\n(redémarrage simulé)`;
     const { restartSelf } = await import('../tools/self.ts');
     restartSelf(3000);
     return `✅ ${r.message}\nJe redémarre : je reviens dans quelques secondes.`;
+  }
+
+  /**
+   * Les garde-fous en écart après une mise à jour : acceptés sans second geste SEULEMENT s'ils sont ceux de la mise à
+   * jour officielle et que le propriétaire a lui-même lancé cette mise à jour (décidé dans le noyau :
+   * accepterMiseAJourOfficielle), par la fonction du clic « Accepter cette version ». Puis l'accueil le dit, avec « Voir
+   * le code ».
+   */
+  async gardeFousDeLaMaj(): Promise<void> {
+    const kv = this.odin.muninn;
+    if (!etatNoyau()?.ecarts.length) return;
+    let trace: TraceMaj | undefined; try { trace = JSON.parse(kv.getKv('maj-noyau-trace') || 'null') ?? undefined; } catch { trace = undefined; }
+    const { selfAcceptCore } = await import('../tools/self.ts');
+    const r = await accepterMiseAJourOfficielle({
+      mode: this.odin.cfg.update?.auto ?? 'notify', trace,
+      ecarts: () => verifierNoyau().ecarts,
+      accepter: () => selfAcceptCore.run({}, { home: this.odin.paths.home, workspace: this.odin.paths.workspace, sessionId: 'maj:officielle', channel: 'maj', peer: 'mise-a-jour-officielle', isTainted: () => false } as never),
+      noter: (e) => this.odin.heimdall.noter(e),
+    });
+    verifierNoyau(); // l'état montré (alerte, Réglages) suit, sans redire l'alerte déjà donnée
+    if (!r.accepte || !r.de || !r.vers) { console.error(`[garde-fous] pas acceptés sans ton clic : ${r.raison}`); return; }
+    kv.setKv('maj-noyau-trace', ''); // une trace ne sert qu'une fois
+    kv.setKv('noyau-maj-vue', JSON.stringify({ de: r.de, vers: r.vers, quand: new Date().toISOString(), fichiers: r.fichiers ?? [] }));
+    postNotice({ level: 'ok', module: 'odin', app: 'Mises à jour', title: 'Les garde-fous ont changé avec la mise à jour', detail: `Version officielle vérifiée (${r.vers.slice(0, 12)}) : ${(r.fichiers ?? []).join(', ')}.`, steps: ['« Voir le code » sur l\'accueil montre chaque ligne qui a changé.'], page: { view: 'home' }, source: 'maj' });
+    for (const c of this.channels.values()) c.notify?.('state');
   }
 
   /**

@@ -144,6 +144,7 @@ main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow
 .btn:hover{border-color:var(--field-h)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
 .btn.small{min-height:34px;padding:0 12px;font-size:14px}
+@media (max-width:640px),(pointer:coarse){[data-noyau-btn]{min-height:44px}}
 .btn.danger{color:var(--bad);border-color:var(--bad-l2)}
 /* Discussion */
 .chat{display:flex;flex:1;min-height:0}
@@ -2831,7 +2832,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const when = U && U.checkedAt ? new Date(U.checkedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
     st.replaceChildren(
       el('p', { style: 'margin:0;font-size:15px' }, el('b', {}, `Version installée : v${V.running || '?'}`)),
-      el('p', { class: 'dim', style: 'margin:4px 0 0' }, !U ? 'Pas encore vérifié.' : U.error ? `⚠️ ${U.error}` : U.available ? `⬆️ v${U.latest} disponible (${U.behind} changement${U.behind > 1 ? 's' : ''}) · vérifié le ${when}` : `✅ Odin est à jour · vérifié le ${when}`));
+      el('p', { class: 'dim', style: 'margin:4px 0 0' }, !U ? 'Pas encore vérifié.' : U.error ? `⚠️ ${U.error}` : U.available ? `⬆️ v${U.latest} disponible (${U.behind} changement${U.behind > 1 ? 's' : ''}) · vérifié le ${when}` : `✅ Odin est à jour · vérifié le ${when}`),
+      // Avant le clic : la mise à jour change-t-elle les garde-fous (noyau) ? Ton clic « Mettre à jour » vaut accord.
+      U && U.available && U.noyau?.length ? el('p', { 'data-maj': 'noyau', style: 'margin:6px 0 0;overflow-wrap:anywhere' }, `🛡 Cette mise à jour change les garde-fous : ${U.noyau.join(', ')}.`) : null,
+      // Les garde-fous acceptés avec la dernière mise à jour officielle : le code se rouvre d'ici, autant de fois que voulu.
+      (() => { let M = null; try { noyauMaj(() => renderMaj(V)); M = noyauMajCache.maj; } catch {} return M ? el('p', { style: 'margin:8px 0 0' }, el('button', { type: 'button', class: 'btn small', 'data-noyau-btn': '', onclick: () => voirCodeNoyau(M) }, '🛡 Voir le code des garde-fous')) : null; })());
     $('#majChanges').replaceChildren(...((U && U.available ? U.changes : []) || []).map((c) => el('li', {}, c.replace(/^v[\d.]+\s*:\s*/, ''))));
     $('#majApply').hidden = !(U && U.available && U.canApply);
     for (const r of document.querySelectorAll('input[name="majAuto"]')) r.checked = r.value === (V.auto || 'notify');
@@ -2862,7 +2867,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const b = $('#updBanner');
     if (avail && !(V.disk && V.running && V.disk !== V.running)) {
       b.hidden = false;
-      b.replaceChildren(el('span', {}, `⬆️ Nouvelle version d'Odin : v${U.latest} (tu as la v${U.current}).`), F.btn('Voir les nouveautés', () => { show('settings'); openSettings('maj'); }), F.btn('Mettre à jour', (e) => runUpdate(e.target), true));
+      b.replaceChildren(el('span', {}, `⬆️ Nouvelle version d'Odin : v${U.latest} (tu as la v${U.current}).${U.noyau?.length ? ' 🛡 Cette mise à jour change les garde-fous.' : ''}`), F.btn('Voir les nouveautés', () => { show('settings'); openSettings('maj'); }), F.btn('Mettre à jour', (e) => runUpdate(e.target), true));
     } else if (V.disk && V.running && V.disk !== V.running) {
       b.hidden = false;
       b.replaceChildren(el('span', {}, `⬆️ Odin v${V.disk} est installé (tu utilises encore la v${V.running}). Il redémarre tout seul dès qu'il ne travaille plus.`), F.btn('Redémarrer maintenant', async (e) => { e.target.disabled = true; e.target.textContent = 'Redémarrage…'; const r = await api('/api/action', { kind: 'app_restart' }); if (!r.ok) { say(r.error, [], 8000); e.target.disabled = false; e.target.textContent = 'Redémarrer maintenant'; return; } setTimeout(() => location.reload(), 6000); }, true));
@@ -3083,6 +3088,43 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   const card = (title, icon, ...kids) => el('article', { class: 'hcard' }, el('div', { class: 'hct' }, iconEl(icon), title), ...kids);
   const go = (v, sec) => () => { show(v); if (sec) openSettings(sec); };
   const bar = (pct) => el('div', { class: 'hbar' + (pct >= 90 ? ' bad' : pct >= 75 ? ' warn' : '') }, el('span', { style: `width:${Math.min(100, pct)}%` }));
+  // Les garde-fous acceptés avec une mise à jour officielle : un message sur l'accueil et « Voir le code » (propriétaire
+  // seul, /api/noyau/maj). Relu au plus une fois par minute ; caché, sur cet appareil, une fois le code ouvert.
+  const noyauMajCache = { at: 0, maj: null };
+  function noyauMaj(cb) {
+    if (Date.now() - noyauMajCache.at > 60000) { noyauMajCache.at = Date.now(); fetch('/api/noyau/maj', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { const m = j && j.maj; const avant = JSON.stringify(noyauMajCache.maj); noyauMajCache.maj = m && typeof m.vers === 'string' ? m : null; if (JSON.stringify(noyauMajCache.maj) !== avant) cb(); }).catch(() => {}); }
+    let vu = ''; try { vu = localStorage.getItem('odin.noyauMajVu') || ''; } catch {}
+    return noyauMajCache.maj && noyauMajCache.maj.vers !== vu ? noyauMajCache.maj : null;
+  }
+  // Le code, posé comme du TEXTE ; ce qui ne se voit pas (contrôles, sens d'écriture, largeurs nulles…) est écrit en clair.
+  const INVISIBLE_NOYAU = /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/gu;
+  const visibleNoyau = (t) => String(t ?? '').replace(INVISIBLE_NOYAU, (c) => (c === '\t' || c === '\n' ? c : `⟦U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}⟧`));
+  async function voirCodeNoyau(M) {
+    let j = null; try { j = await (await fetch('/api/noyau/maj?code=1', { cache: 'no-store' })).json(); } catch {}
+    if (!j || !j.ok) { say((j && j.error) || 'Le code des garde-fous est illisible pour l\'instant.', [], 6000); return; }
+    try { localStorage.setItem('odin.noyauMajVu', M.vers); } catch {}
+    // Tant que la fenêtre est ouverte, la page derrière est inerte (Tab reste dans la fenêtre) ; à la fermeture, le
+    // focus revient au bouton qui l'a ouverte, ou à l'accueil.
+    const ouvreur = document.activeElement, inertes = [...document.body.children].filter((n) => !n.inert);
+    const fermer = () => {
+      fond.remove(); document.removeEventListener('keydown', touche, true);
+      for (const n of inertes) n.inert = false;
+      renderHome();
+      const g = $('#homeGrid');
+      if (ouvreur && ouvreur.isConnected && ouvreur.offsetParent !== null) ouvreur.focus();
+      else if (g) { if (!g.hasAttribute('tabindex')) g.setAttribute('tabindex', '-1'); g.focus(); }
+    };
+    const touche = (e) => { if (e.key === 'Escape') { e.preventDefault(); fermer(); } };
+    const pre = el('pre', { 'data-noyau': 'code', tabindex: '0', style: 'flex:1;margin:0;overflow:auto;padding:12px 16px;font:12.5px/1.5 ui-monospace,Consolas,monospace;white-space:pre;tab-size:4;background:var(--panel2,var(--panel));color:var(--ink);border-top:1px solid var(--line)' });
+    pre.textContent = visibleNoyau(j.texte) || '(aucune ligne des garde-fous n\'a changé)';
+    const x = el('button', { type: 'button', class: 'btn small', 'data-noyau-btn': '', 'aria-label': 'Fermer', onclick: fermer }, 'Fermer');
+    const fond = el('div', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Le code des garde-fous qui a changé', style: 'position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;background:var(--bg);color:var(--ink)' },
+      el('div', { style: 'display:flex;align-items:flex-start;gap:10px;padding:12px 16px' },
+        el('div', { style: 'flex:1;min-width:0' }, el('b', {}, '🛡 Les garde-fous qui ont changé avec la mise à jour'), el('div', { class: 'sub', style: 'overflow-wrap:anywhere' }, visibleNoyau(`De ${M.de.slice(0, 12)} à ${M.vers.slice(0, 12)} · ${(M.fichiers || []).join(', ')}`))), x),
+      pre);
+    for (const n of inertes) n.inert = true;
+    document.body.append(fond); document.addEventListener('keydown', touche, true); x.focus();
+  }
   function renderHome() {
     if (!state) return;
     const S = state.settings || {}, B = state.budget || { spentUsd: 0, monthlyUsd: 0 }, d = state.devices || [];
@@ -3096,6 +3138,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('div', { class: 'hbtns' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => api('/api/action', { kind: 'pair_decide', id: pr.id, ok: true }) }, 'Autoriser'), el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'pair_decide', id: pr.id, ok: false }) }, 'Refuser'))));
     if (pending.size) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('chat'); } }, `${pending.size} validation(s) t'attendent`)));
     { const nR = state.membre ? 0 : window.OdinReecritures?.compte(renderHome) ?? 0; if (nR) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); window.OdinReecritures?.ouvrir(renderHome); } }, `${nR} réécriture(s) proposée(s)`))); }
+    { const M = state.membre ? null : noyauMaj(renderHome); if (M) todo.push(el('li', { 'data-noyau': 'maj' }, el('div', {}, el('b', {}, '🛡 Les garde-fous ont changé avec la mise à jour'), el('div', { class: 'sub', style: 'overflow-wrap:anywhere' }, visibleNoyau(`Version officielle vérifiée · ${(M.fichiers || []).join(', ')}`))), el('div', { class: 'hbtns' }, el('button', { class: 'btn small primary', type: 'button', 'data-noyau-btn': '', onclick: () => voirCodeNoyau(M) }, 'Voir le code')))); }
     if (state.drafts?.length) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('skills'); } }, `${state.drafts.length} compétence(s) à relire`)));
     if (grave) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('net'); netTab('sec'); } }, `${grave} problème(s) de sécurité grave(s)`)));
     if (!state.autoBackup?.enabled) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('settings'); openSettings('sauvegarde'); } }, 'Activer la sauvegarde automatique')));
