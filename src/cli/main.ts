@@ -942,10 +942,28 @@ async function main(): Promise<void> {
       console.log(c.dim('Si Odin tourne en service, redémarre-le pour qu\'il prenne le nouveau lien : systemctl --user restart odin'));
       return;
     }
+    if (pos[1] === 'double-facteur') {
+      // Dernier recours (téléphone perdu, pas d'envoi d'e-mail réglé) : seulement devant la machine d'Odin, Odin arrêté.
+      if (pos[2] !== 'retirer') { console.log('usage : odin compte double-facteur retirer'); process.exitCode = 1; return; }
+      if (!p) { console.log('Aucun compte pour l\'instant.'); return; }
+      if (!acc.deuxFacteur()) { console.log('Le double facteur n\'est pas activé : rien à retirer.'); return; }
+      if (!process.stdin.isTTY || !process.stdout.isTTY || process.env.SSH_CONNECTION || process.env.SSH_CLIENT || process.env.SSH_TTY) { console.log(c.red('Refusé : tape cette commande devant la machine d\'Odin, au clavier (pas par une connexion à distance ni un programme).')); process.exitCode = 1; return; }
+      const { odinEcoute, retirerSurLaMachine } = await import('../web/double-facteur.ts');
+      const w = loadConfig(paths).web;
+      if (await odinEcoute(w.port, ['127.0.0.1', '::1', w.host])) { console.log(c.red(`Refusé : Odin tourne (port ${w.port}). Arrête-le d'abord (service ou « odin web »), puis relance cette commande.`)); process.exitCode = 1; return; }
+      const A = 'ABCDEFGHJKMNPQRSTUVWXYZ', mot = Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join('');
+      const rl = (await import('node:readline/promises')).createInterface({ input: process.stdin, output: process.stdout });
+      const lu = (await rl.question(`Pour retirer le double facteur du compte de ${p.prenom}, tape ${mot} : `)).trim().toUpperCase(); rl.close();
+      if (lu !== mot) { console.log('Rien n\'a changé.'); process.exitCode = 1; return; }
+      retirerSurLaMachine(paths.home);
+      console.log(c.green('✓ Double facteur retiré (noté dans Réglages → Accès). Démarre Odin, connecte-toi avec ton adresse e-mail et ton mot de passe, puis réactive-le avec ton nouveau téléphone.'));
+      return;
+    }
     if (!p) { console.log('Aucun compte pour l\'instant. Il se crée à la première connexion dans le navigateur (prénom, nom, adresse e-mail, mot de passe).'); return; }
     console.log(`${c.cyan('ᛟ')} Compte d'Odin : ${p.prenom} ${p.nom} · ${p.email}`);
     console.log(c.dim(`  créé le ${new Date(p.created).toLocaleDateString('fr-FR')} · ${acc.sessions().length} appareil(s) connecté(s)`));
     console.log(c.dim('  Mot de passe oublié : odin compte oublier'));
+    if (acc.deuxFacteur()) console.log(c.dim('  Double facteur actif · téléphone perdu sans e-mail : odin compte double-facteur retirer (Odin arrêté)'));
     return;
   }
   if (cmd === 'web' && pos[1] === 'rotate') { ensureWebToken(odinPaths(), true); console.log(c.green('✓ Nouvelle clé d\'API : les programmes qui utilisaient l\'ancienne (raccourcis, MCP) doivent être mis à jour.')); return; }

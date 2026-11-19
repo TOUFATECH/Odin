@@ -5,16 +5,39 @@
 //   - une session = un identifiant aléatoire dans un cookie HttpOnly ; sur le disque il n'y a que son
 //     empreinte SHA-256 (un fichier volé ne permet pas d'entrer) ;
 //   - après 5 erreurs de mot de passe, chaque nouvel essai doit attendre (jusqu'à 15 minutes) ;
-//   - fichiers en droits 600, interdits aux outils d'Odin (Heimdall), jamais affichés ni envoyés.
+//   - fichiers en droits 600, interdits aux outils d'Odin (Heimdall), jamais affichés ni envoyés ;
+//   - le double facteur (s'il l'a activé, voir double-facteur.ts) est rangé ici : son secret chiffré avec la clé de la
+//     machine, le dernier pas de 30 s accepté (un code ne sert qu'une fois) et un petit journal (activé, retiré, secours) ;
+//   - ses informations (année de naissance, langue : facultatives, les mêmes que pour une personne de Persona) sont
+//     chiffrées champ par champ avec la clé de la machine ; elles ne sont pas dans profile() (rien de nouveau ne part
+//     vers la page, l'état ou un logiciel relié) : seul infos() les rend, et sa fiche Persona les reprend (etat.ts).
 // Les programmes (raccourcis du téléphone, MCP) n'utilisent pas ce compte mais la clé d'API.
 
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { chmodSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fermer, ouvrir } from '../prive.ts';
+import { CHAMPS_INFOS, lireInfos, type Infos } from '../valhalla/sso/infos.ts';
 
 export interface PassHash { algo: 'scrypt'; N: number; r: number; p: number; salt: string; hash: string }
-export interface Account { prenom: string; nom: string; email: string; created: string; changed: string; pass: PassHash }
-export type Via = 'création du compte' | 'mot de passe' | 'appareil autorisé' | 'activation par téléphone' | 'QR code';
+export interface Account {
+  prenom: string; nom: string; email: string; created: string; changed: string; pass: PassHash;
+  /**
+   * année de naissance et langue, chiffrées (« odc1: »), champ par champ : absente, jamais donnée (sa fiche Persona
+   * garde alors la sienne) ; null, vidée par lui (retirée de sa fiche)
+   */
+  infos?: { naissance?: string | null; langue?: string | null };
+  /** le double facteur, s'il est activé (secret chiffré « odc1: », jamais en clair) */
+  deuxFacteur?: DeuxFacteur;
+  /** ce qui est arrivé au double facteur (20 dernières notes) */
+  deuxFacteurJournal?: NoteDeuxFacteur[];
+}
+/** Le double facteur gardé : secret TOTP chiffré, date d'activation, dernier pas de 30 s accepté (anti-rejeu). */
+export interface DeuxFacteur { secret: string; depuis: string; pas: number }
+export interface NoteDeuxFacteur { at: string; quoi: string; ip: string }
+/** Les informations du compte telles qu'elles sont notées : la valeur, ou null quand il l'a vidée. */
+export type InfosNotees = { [K in keyof Infos]?: Infos[K] | null };
+export type Via = 'création du compte' | 'mot de passe' | 'mot de passe et code' | 'lien de secours et mot de passe' | 'appareil autorisé' | 'activation par téléphone' | 'QR code';
 interface StoredSession { h: string; created: number; seen: number; device: string; ip: string; via: Via }
 export interface SessionInfo { id: string; created: number; seen: number; expires: number; device: string; ip: string; via: Via; current: boolean }
 export interface Profile { prenom: string; nom: string; email: string; created: string; changed: string }
@@ -36,6 +59,11 @@ const plain = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g
 
 export const validEmail = (e: string) => e.length <= 254 && /^[^\s@<>"'(),;:\\]+@[^\s@<>"'(),;:\\]+\.[^\s@<>"'(),;:\\.]{2,}$/.test(e);
 const cleanName = (t: unknown) => String(t ?? '').replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim();
+const CHEMINS_INFOS = CHAMPS_INFOS.map((k) => [k]);
+/** L'année et la langue saisies, vérifiées (erreur lisible, avec une majuscule) ; seules celles qui sont données. */
+function infosSaisies(i: { naissance?: unknown; langue?: unknown }, maintenant: Date): Infos {
+  try { return lireInfos(i, maintenant); } catch (e) { const m = (e as Error).message; throw new Error(m.charAt(0).toUpperCase() + m.slice(1)); }
+}
 
 /** Pourquoi ce mot de passe est refusé (undefined = accepté). Longueur d'abord : pas de règle de « caractères spéciaux ». */
 export function passwordProblem(password: string, who: { prenom?: string; nom?: string; email?: string } = {}): string | undefined {
@@ -85,6 +113,15 @@ export class Accounts {
     try { chmodSync(tmp, 0o600); } catch { /* Windows : droits gérés par le profil utilisateur */ }
     renameSync(tmp, file);
   }
+  /**
+   * Le compte lu avant une attente (vérification du mot de passe) : son double facteur est repris tel qu'il est maintenant
+   * sur le disque (un code accepté, une activation ou un retrait entre-temps ne sont jamais défaits).
+   */
+  private avecDeuxFacteurFrais(a: Account): Account {
+    const frais = this.account(), b: Account = { ...a };
+    delete b.deuxFacteur; delete b.deuxFacteurJournal;
+    return { ...b, ...(frais?.deuxFacteur ? { deuxFacteur: frais.deuxFacteur } : {}), ...(frais?.deuxFacteurJournal ? { deuxFacteurJournal: frais.deuxFacteurJournal } : {}) };
+  }
   private account(): Account | undefined { try { const a = JSON.parse(readFileSync(this.file, 'utf8')) as Account; return a?.pass?.hash ? a : undefined; } catch { return undefined; } }
 
   exists(): boolean { return existsSync(this.file) && Boolean(this.account()); }
@@ -104,18 +141,32 @@ export class Accounts {
     return Boolean(pass) && want.length === k.length && timingSafeEqual(want, k);
   }
 
-  /** Crée le compte (une seule fois). Lève une erreur lisible si une donnée ne va pas. */
-  async create(input: { prenom?: unknown; nom?: unknown; email?: unknown; password?: unknown }): Promise<Profile> {
+  /** Ses informations (année de naissance, langue), déchiffrées ; undefined : jamais données. */
+  infos(): Infos | undefined {
+    const n = this.infosNotees(); if (!n) return undefined;
+    return Object.fromEntries(Object.entries(n).filter(([, v]) => v !== null)) as Infos;
+  }
+  /**
+   * Ses informations telles qu'elles sont notées, champ par champ : la valeur ; null, vidée par lui ; absente, jamais
+   * donnée (ou illisible : compte restauré sur une autre machine). Sa fiche Persona n'applique que les deux premières.
+   */
+  infosNotees(): InfosNotees | undefined { const a = this.account(); return a?.infos ? ouvrir(this.home, a.infos) as InfosNotees : undefined; }
+  /** Les informations chiffrées pour compte.json (une vidée reste null : rien à chiffrer). */
+  private fermerInfos(i: InfosNotees): NonNullable<Account['infos']> { return fermer(this.home, i, CHEMINS_INFOS) as NonNullable<Account['infos']>; }
+
+  /** Crée le compte (une seule fois). Lève une erreur lisible si une donnée ne va pas. Année de naissance et langue : facultatives. */
+  async create(input: { prenom?: unknown; nom?: unknown; email?: unknown; password?: unknown; naissance?: unknown; langue?: unknown }): Promise<Profile> {
     if (this.exists()) throw new Error('Le compte existe déjà : connecte-toi.');
     const prenom = cleanName(input.prenom), nom = cleanName(input.nom), email = String(input.email ?? '').trim().toLowerCase(), password = String(input.password ?? '');
     if (prenom.length < 1 || prenom.length > 60) throw new Error('Indique ton prénom.');
     if (nom.length < 1 || nom.length > 60) throw new Error('Indique ton nom.');
     if (!validEmail(email)) throw new Error('Cette adresse e-mail n\'a pas la bonne forme.');
     const bad = passwordProblem(password, { prenom, nom, email }); if (bad) throw new Error(bad);
+    const infos = infosSaisies(input, new Date(this.now()));
     const pass = await this.hash(password);
     if (this.exists()) throw new Error('Le compte existe déjà : connecte-toi.'); // deux créations en même temps : la première gagne
     const at = new Date(this.now()).toISOString();
-    this.write(this.file, { prenom, nom, email, created: at, changed: at, pass } satisfies Account);
+    this.write(this.file, { prenom, nom, email, created: at, changed: at, pass, ...(Object.keys(infos).length ? { infos: this.fermerInfos(infos) } : {}) } satisfies Account);
     this.fails = 0; this.lockedUntil = 0;
     return { prenom, nom, email, created: at, changed: at };
   }
@@ -137,6 +188,26 @@ export class Accounts {
     return { ok: false, error: 'Adresse e-mail ou mot de passe incorrect.', ...(this.fails >= 5 ? { retryAfter: this.waitSeconds() } : {}) };
   }
 
+  /** Vérifie le mot de passe seul (compté comme un essai : même attente après 5 erreurs que la connexion). */
+  async motDePasseOk(password: unknown): Promise<boolean> {
+    const a = this.account(); if (!a || this.waitSeconds() > 0) return false;
+    if (await this.check(String(password ?? ''), a.pass)) { this.fails = 0; this.lockedUntil = 0; return true; }
+    this.fails++; if (this.fails >= 5) this.lockedUntil = this.now() + Math.min(15 * 60_000, 30_000 * 2 ** (this.fails - 5));
+    return false;
+  }
+
+  /** Le double facteur gardé (secret chiffré), ou undefined s'il n'est pas activé. Jamais envoyé à la page. */
+  deuxFacteur(): DeuxFacteur | undefined { const d = this.account()?.deuxFacteur; return d && typeof d.secret === 'string' && d.secret ? d : undefined; }
+  journalDeuxFacteur(): NoteDeuxFacteur[] { const j = this.account()?.deuxFacteurJournal; return Array.isArray(j) ? j : []; }
+  /** Pose (ou retire : undefined) le double facteur ; une note s'ajoute au journal. Le secret doit déjà être chiffré. */
+  poserDeuxFacteur(df: DeuxFacteur | undefined, note?: { quoi: string; ip: string }): void {
+    const a = this.account(); if (!a) throw new Error('Aucun compte.');
+    if (df && !df.secret.startsWith('odc1:')) throw new Error('secret du double facteur non chiffré : refusé');
+    if (df) a.deuxFacteur = df; else delete a.deuxFacteur;
+    if (note) a.deuxFacteurJournal = [...this.journalDeuxFacteur(), { at: new Date(this.now()).toISOString(), quoi: note.quoi.slice(0, 120), ip: note.ip.slice(0, 60) }].slice(-20);
+    this.write(this.file, a);
+  }
+
   /** Change le mot de passe (l'actuel est exigé) : toutes les autres sessions sont fermées. */
   async changePassword(current: unknown, next: unknown, keepToken?: string): Promise<void> {
     const a = this.account(); if (!a) throw new Error('Aucun compte.');
@@ -145,20 +216,28 @@ export class Accounts {
     const bad = passwordProblem(String(next ?? ''), a); if (bad) throw new Error(bad);
     if (String(next) === String(current)) throw new Error('Le nouveau mot de passe est identique à l\'ancien.');
     a.pass = await this.hash(String(next)); a.changed = new Date(this.now()).toISOString();
-    this.write(this.file, a); this.fails = 0;
+    this.write(this.file, this.avecDeuxFacteurFrais(a)); this.fails = 0;
     this.revokeOthers(keepToken);
   }
 
-  /** Change prénom, nom ou e-mail (le mot de passe est exigé pour l'e-mail, qui sert à se connecter). */
-  async update(patch: { prenom?: unknown; nom?: unknown; email?: unknown }, password?: unknown): Promise<Profile> {
+  /**
+   * Change prénom, nom, e-mail, année de naissance ou langue (le mot de passe est exigé pour l'e-mail, qui sert à se
+   * connecter). Une information non donnée reste telle quelle ; donnée vide, elle est notée vidée (null) et retirée.
+   */
+  async update(patch: { prenom?: unknown; nom?: unknown; email?: unknown; naissance?: unknown; langue?: unknown }, password?: unknown): Promise<Profile> {
     const a = this.account(); if (!a) throw new Error('Aucun compte.');
     const prenom = patch.prenom === undefined ? a.prenom : cleanName(patch.prenom), nom = patch.nom === undefined ? a.nom : cleanName(patch.nom);
     const email = patch.email === undefined ? a.email : String(patch.email).trim().toLowerCase();
     if (prenom.length < 1 || prenom.length > 60 || nom.length < 1 || nom.length > 60) throw new Error('Prénom et nom obligatoires.');
     if (!validEmail(email)) throw new Error('Cette adresse e-mail n\'a pas la bonne forme.');
+    // Les informations données remplacent les anciennes (vide : notée null, pour la retirer de sa fiche) ; les autres restent.
+    const donnees = CHAMPS_INFOS.filter((k) => patch[k] !== undefined), saisies = infosSaisies(patch, new Date(this.now()));
+    let infos: InfosNotees | undefined;
+    if (donnees.length) { const x: Record<string, unknown> = { ...(this.infosNotees() ?? {}) }; for (const k of donnees) x[k] = saisies[k] ?? null; infos = x as InfosNotees; }
     if (email !== a.email && !(await this.check(String(password ?? ''), a.pass))) throw new Error('Mot de passe incorrect : il est demandé pour changer l\'adresse e-mail.');
     Object.assign(a, { prenom, nom, email, changed: new Date(this.now()).toISOString() });
-    this.write(this.file, a);
+    if (infos) a.infos = this.fermerInfos(infos);
+    this.write(this.file, this.avecDeuxFacteurFrais(a));
     return this.profile()!;
   }
 

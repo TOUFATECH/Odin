@@ -1133,7 +1133,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     <input id="siEmail" name="email" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required maxlength="254">
     <label for="siPass">Mot de passe</label>
     <div class="lg-pass"><input id="siPass" name="password" type="password" autocomplete="current-password" required maxlength="200"><button class="btn" type="button" id="siShow" aria-pressed="false" aria-controls="siPass">Voir</button></div>
-    <div id="siCodeBox" hidden style="display:flex;flex-direction:column;gap:6px"><label for="siCode">Code à 6 chiffres (appli d'authentification)</label><input id="siCode" name="one-time-code" autocomplete="one-time-code" inputmode="numeric" maxlength="8"></div>
+    <div id="siCodeBox" hidden style="display:flex;flex-direction:column;gap:6px"><label for="siCode">Code à 6 chiffres (appli d'authentification)</label><input id="siCode" name="one-time-code" autocomplete="one-time-code" inputmode="numeric" maxlength="8"><button class="btn small" type="button" id="siPerdu" hidden style="min-height:44px">J'ai perdu mon téléphone</button></div>
+    <p class="sub lg-c" id="siSecours" role="status" hidden>Lien de secours : tape ton adresse e-mail et ton mot de passe. Le double facteur sera retiré, puis un nouveau QR code te sera proposé.</p>
+    <p class="sub lg-c" id="siInfo" role="status" hidden></p>
     <span class="hint lg-err" role="alert" id="siErr"></span>
     <button class="btn primary" type="submit" id="siBtn">Se connecter</button>
     <button class="btn" type="button" id="siQrBtn">Scanner un QR code avec mon téléphone</button>
@@ -1673,7 +1675,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
               <fieldset class="vsec"><legend>Confidentialité</legend>
                 <label class="check"><input type="checkbox" id="vo-private"> Mode privé : ne rien enregistrer</label>
                 <p class="sub" style="margin:0">Conversations, souvenirs et réglages sont rangés en fichiers dans le dossier d'Odin. Aucune base de données.</p>
-                <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" id="vo-exportAll">Exporter tout l'historique</button></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" id="vo-exportAll">Exporter tout l'historique</button><button class="btn small" type="button" id="vo-exportMem" aria-describedby="vo-memQuoi">Exporter toute la mémoire</button></div>
+                <p class="sub" id="vo-memQuoi" style="margin:0">Toute la mémoire : souvenirs, leçons, compétences, personnes, notes du Cerveau, conversations et tours, en fichiers ouverts (.zip) décrits par un LISEZ-MOI. Les secrets reconnus sont masqués.</p>
+                <div class="status" id="vo-memEtat" role="status"></div>
                 <div class="vtrash" id="vo-trash"></div>
               </fieldset>
             </div>
@@ -1975,6 +1979,21 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       // Renvoyé ici depuis le port d'une appli sans en avoir le droit : on le dit.
       const refus = new URLSearchParams(location.search).get('refus');
       if (refus) { $('#siErr').textContent = `Tu n'as pas accès à ${refus.slice(0, 60)}. Connecte-toi avec un compte qui y a droit, ou demande l'accès à l'administrateur d'Odin.`; history.replaceState(null, '', location.pathname); }
+      // Lien de secours du double facteur (reçu par e-mail) : gardé en mémoire de la page, retiré de l'adresse aussitôt.
+      const secours = (() => { const j = new URLSearchParams(location.search).get('secours') || ''; return /^[A-Za-z0-9_-]{43}$/.test(j) ? j : ''; })();
+      if (new URLSearchParams(location.search).has('secours')) history.replaceState(null, '', location.pathname);
+      if (secours) $('#siSecours').hidden = false;
+      // « J'ai perdu mon téléphone » (écran du code) : Odin envoie un lien de secours à l'adresse e-mail du compte.
+      // Une consigne ou un envoi réussi : une ligne d'information (role=status), jamais la ligne rouge des erreurs.
+      const siInfo = (t) => { $('#siInfo').textContent = t || ''; $('#siInfo').hidden = !t; };
+      $('#siPerdu').addEventListener('click', async () => {
+        const email = $('#siEmail').value.trim(), password = $('#siPass').value;
+        if (!email || !password) { $('#siErr').textContent = 'Indique ton adresse e-mail et ton mot de passe.'; return; }
+        $('#siPerdu').disabled = true; $('#siErr').textContent = ''; siInfo('');
+        const r = await post('/api/account/login', { email, password, perdu: true });
+        $('#siPerdu').disabled = false;
+        if (r.code === 'secours_envoye') siInfo(r.error); else $('#siErr').textContent = r.error || 'Envoi impossible.';
+      });
       // Refus sur le port d'une appli : retour à l'écran de connexion d'Odin (son port à lui).
       const rejete = (r) => { if (!r.refuse || !r.accueil) return false; $('#siErr').textContent = r.error || 'Tu n\'as pas accès à cette appli.'; setTimeout(() => location.replace(r.accueil), 2500); return true; };
       $('#signinBox').addEventListener('submit', async (e) => {
@@ -1982,10 +2001,12 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         const email = $('#siEmail').value.trim(), password = $('#siPass').value, code = $('#siCode').value.trim();
         if (!email || !password) { $('#siErr').textContent = 'Indique ton adresse e-mail et ton mot de passe.'; return; }
         $('#siBtn').disabled = true; $('#siErr').textContent = '';
-        const r = await post('/api/account/login', { email, password, ...(code ? { code } : {}) });
-        if (r.ok) return location.replace(suite);
+        const r = await post('/api/account/login', { email, password, ...(code ? { code } : {}), ...(secours ? { secours } : {}) });
+        if (r.ok) return location.replace(secours && r.suite ? r.suite : suite);
         if (rejete(r)) return;
-        if (r.code === 'code_requis') { $('#siCodeBox').hidden = false; $('#siErr').textContent = r.error; $('#siBtn').disabled = false; $('#siCode').focus(); return; }
+        if (r.code === 'code_requis') { $('#siCodeBox').hidden = false; $('#siPerdu').hidden = !r.secours; siInfo(r.error); $('#siBtn').disabled = false; $('#siCode').focus(); return; }
+        // Code faux ou rejoué : le mot de passe reste tapé, seul le code est à refaire.
+        if (r.code === 'code_faux' || r.code === 'trop_d_essais') { siInfo(''); $('#siCodeBox').hidden = false; $('#siPerdu').hidden = !r.secours; $('#siErr').textContent = r.error || 'Code incorrect.'; $('#siBtn').disabled = false; $('#siCode').value = ''; $('#siCode').focus(); return; }
         $('#siErr').textContent = r.error || 'Connexion impossible.'; $('#siBtn').disabled = false; $('#siPass').value = ''; $('#siCode').value = ''; $('#siPass').focus();
       });
       // Connexion par QR code : un téléphone déjà connecté à Odin autorise cet écran.
@@ -2504,6 +2525,20 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (!r.ok) { let e = 'Rien à exporter.'; try { e = (await r.json()).error || e; } catch {} say(e, [], 4000); return; }
     const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') || '')?.[1] || fallback;
     const a = el('a', { href: URL.createObjectURL(await r.blob()), download: name }); document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  }
+  // Exporter toute la mémoire (Réglages) : le bouton reste occupé jusqu'à la fin (pas de double export), et l'état
+  // (en cours, prête, refusée, coupée en route) s'écrit juste à côté, visible à toutes les largeurs.
+  async function exporterMemoireUI(b, etat) {
+    if (b.disabled) return;
+    b.disabled = true; b.setAttribute('aria-busy', 'true'); etat('Préparation de l\'archive…');
+    try {
+      const r = await fetch('/api/memoire/export', { headers: { 'x-odin': '1' } });
+      if (!r.ok) { let e = 'Export refusé.'; try { e = (await r.json()).error || e; } catch {} etat(e, false); return; }
+      const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') || '')?.[1] || 'memoire-odin.zip';
+      const a = el('a', { href: URL.createObjectURL(await r.blob()), download: name }); document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      etat('✓ Archive prête : ' + name, true);
+    } catch { etat('L\'export s\'est arrêté en route : aucune archive. Réessaie.', false); }
+    finally { b.disabled = false; b.removeAttribute('aria-busy'); }
   }
   function openExport(p, title) {
     let fmtSel = 'md';
@@ -3706,6 +3741,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         if (x.ok) { await renderAccount(); stx('#ac-pst', x, '✓ Mot de passe changé. Les autres appareils sont déconnectés.'); } else stx('#ac-pst', x);
       }, true)),
       F.status('ac-pst'),
+      el('h2', {}, 'Double facteur'),
+      el('div', { id: 'ac-2fa', style: 'display:flex;flex-direction:column;gap:8px' }),
+      F.status('df-st'),
+      el('div', { id: 'ac-2fa-j' }),
       el('h2', {}, 'Appareils connectés'),
       el('ul', { class: 'links', style: 'list-style:none;padding-left:0;display:flex;flex-direction:column;gap:8px' }, ...sess.map((s) => el('li', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
         el('span', { style: 'flex:1 1 200px;min-width:0;overflow-wrap:anywhere' }, `${s.device}${s.current ? ' (cet appareil)' : ''} · ${s.ip} · vu le ${fmt(s.seen)}`),
@@ -3713,6 +3752,46 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       F.row(sess.length > 1 ? F.btn('Déconnecter les autres appareils', async () => { await send('/api/account/revoke', { id: 'autres' }); renderAccount(); }) : null,
         F.btn('Se déconnecter', async () => { await send('/api/account/logout', {}); location.replace('/'); })),
     );
+    await renderDoubleFacteur(send, pw);
+  }
+  // ---------- Double facteur du compte : QR code, premier code, code à chaque connexion ----------
+  async function renderDoubleFacteur(send, pw) {
+    const zone = $('#ac-2fa'); if (!zone) return;
+    // Arrivé ici par le lien de secours : la rubrique s'ouvre sur le nouveau QR code.
+    if (new URLSearchParams(location.search).get('double-facteur') === 'nouveau') { history.replaceState(null, '', location.pathname); window.openSettings?.('acces'); setTimeout(() => zone.scrollIntoView({ block: 'center' }), 200); }
+    const d = await fetch('/api/account/double-facteur', { headers: { 'x-odin': '1' } }).then((x) => x.json()).catch(() => null);
+    if (!d?.ok) { zone.replaceChildren(el('p', { class: 'sub', style: 'margin:0' }, 'État du double facteur indisponible.')); return; }
+    const code = (id, label) => { const f = F.input(id, label, ''); const i = f.querySelector('input'); i.setAttribute('autocomplete', 'one-time-code'); i.setAttribute('inputmode', 'numeric'); i.setAttribute('maxlength', '8'); return f; };
+    // Juste après le lien de secours, le double facteur est déjà retiré : le texte du nouveau QR code le dit.
+    const apresSecours = !d.actif && (d.journal || []).at(-1)?.quoi === 'retiré par le lien de secours';
+    const qr = (n) => [
+      el('p', { class: 'sub', style: 'margin:0' }, apresSecours
+        ? 'Le double facteur vient d\'être retiré par le lien de secours : pour l\'instant, ton mot de passe seul protège ton compte. Scanne ce QR code avec l\'appli d\'authentification du nouveau téléphone, puis tape le code à 6 chiffres qu\'elle affiche : le double facteur revient dès ce premier code confirmé.'
+        : 'Scanne ce QR code avec une appli d\'authentification du téléphone (Aegis, FreeOTP, Google Authenticator…), puis tape le code à 6 chiffres qu\'elle affiche. Rien ne change tant que ce premier code n\'est pas confirmé.'),
+      el('img', { src: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(n.svg)))}`, alt: 'QR code à scanner avec l\'appli d\'authentification du téléphone', width: '200', height: '200', style: 'background:#fff;border-radius:12px;padding:6px;align-self:flex-start;max-width:100%;height:auto' }),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Sans appareil photo, tape cette clé dans l\'appli : ', el('code', { style: 'overflow-wrap:anywhere' }, n.secret.replace(/(.{4})/g, '$1 ').trim())),
+      code('df-c1', 'Code à 6 chiffres affiché par l\'appli'),
+      F.row(F.btn('Confirmer', async () => { const x = await send('/api/account/double-facteur/confirmer', { code: val('df-c1') }); if (x.ok) { await renderDoubleFacteur(send, pw); stx('#df-st', x, '✓ Double facteur activé : le code sera demandé à chaque connexion.'); } else stx('#df-st', x); }, true)),
+    ];
+    const montrer = (x) => { if (!x.ok) return stx('#df-st', x); $('#df-st').textContent = ''; zone.replaceChildren(...qr(x)); setTimeout(() => $('#df-c1')?.focus(), 60); };
+    const journal = (d.journal || []).slice(-5).reverse();
+    const sansEnvoi = d.envoi ? null : el('p', { class: 'sub', style: 'margin:0' }, '⚠ L\'envoi d\'e-mails d\'Odin n\'est pas réglé (Réglages → Mail) : sans lui, si tu perds le téléphone, il faudra la commande ', el('code', {}, 'odin compte double-facteur retirer'), ' sur la machine d\'Odin, Odin arrêté.');
+    zone.replaceChildren(...(d.enAttente ? qr(d.enAttente) : d.actif ? [
+      el('p', { class: 'sub', style: 'margin:0' }, `✓ Actif depuis le ${fmt(d.depuis)}. Le code de ton téléphone est demandé à chaque connexion, après le mot de passe.`),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Téléphone perdu : sur l\'écran du code, « J\'ai perdu mon téléphone » envoie un lien à ton adresse e-mail ; ce lien et ton mot de passe retirent le double facteur.'),
+      sansEnvoi,
+      pw('df-pw', 'Mot de passe actuel', 'current-password'), code('df-c', 'Code actuel du téléphone'),
+      F.row(F.btn('Changer de téléphone', async () => montrer(await send('/api/account/double-facteur/commencer', { password: val('df-pw'), code: val('df-c') }))),
+        el('button', { class: 'btn danger', type: 'button', onclick: async () => { if (!(await OdinDialog.confirm('Retirer le double facteur ? Le mot de passe seul suffira de nouveau pour entrer.', { danger: true }))) return; const x = await send('/api/account/double-facteur/retirer', { password: val('df-pw'), code: val('df-c') }); if (x.ok) { await renderDoubleFacteur(send, pw); stx('#df-st', x, '✓ Double facteur retiré.'); } else stx('#df-st', x); } }, 'Retirer le double facteur')),
+    ] : [
+      el('p', { class: 'sub', style: 'margin:0' }, 'En plus du mot de passe, un code à 6 chiffres donné par une appli du téléphone sera demandé à chaque connexion. Téléphone perdu : un lien envoyé à ton adresse e-mail, avec ton mot de passe.'),
+      sansEnvoi,
+      pw('df-pw', 'Mot de passe actuel', 'current-password'),
+      F.row(F.btn('Activer le double facteur', async () => montrer(await send('/api/account/double-facteur/commencer', { password: val('df-pw') })), true)),
+    ]).filter(Boolean));
+    // Le journal vient après le statut (#df-st), pour que le résultat d'un bouton reste juste sous ce bouton.
+    $('#ac-2fa-j')?.replaceChildren(...(journal.length ? [el('details', {}, el('summary', { style: 'cursor:pointer;padding:10px 0' }, 'Ce qui est arrivé au double facteur'),
+      el('ul', { class: 'sub', style: 'margin:4px 0 0;padding-left:20px' }, ...journal.map((j) => el('li', {}, `${fmt(j.at)} · ${j.quoi} · ${j.ip}`))))] : []));
   }
   // Ton domaine par Cloudflare (Bifröst) : toujours visible dans Réglages → Accès, même sans « accès extérieur ».
   function renderCloudflare() {
@@ -4607,6 +4686,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   });
   $('#vo-try').addEventListener('click', async () => { const was = speakOn; speakOn = true; const err = await sayAloud('Bonjour, je suis Odin. Voici ma voix avec ces réglages.'); speakOn = was; st('#vo-status', typeof err === 'string' ? err : '', typeof err === 'string' ? false : undefined); });
   $('#vo-exportAll').addEventListener('click', () => download('/api/conversations/export?all=1&format=md', 'conversations-odin.md'));
+  $('#vo-exportMem').addEventListener('click', (e) => exporterMemoireUI(e.currentTarget, (t, ok) => st('#vo-memEtat', t, ok)));
   // Réglages de la voix
   let voicesLoaded = false;
   function renderVoice() {

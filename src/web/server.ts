@@ -114,6 +114,7 @@ import { ConnexionQr, DUREE_QR, type Qui } from './connexion-qr.ts';
 import { pageConnexionQr } from './connexion-qr-page.ts';
 import { svg as qrSvg } from '../valhalla/qr.ts';
 import { Accounts, SESSION_RE, clearSessionCookie, sessionCookie, type Via } from './account.ts';
+import { DoubleFacteur, envoiParOdin, type Envoi } from './double-facteur.ts';
 import { activityFeed, guessIntents } from '../core/today.ts';
 import { allThreads } from '../muninn/threads.ts';
 import { ASK_KEY, type Ask } from '../learn/habits.ts';
@@ -299,6 +300,8 @@ export class WebChannel implements Channel {
   private dropDeadStreams(): void { for (const [res, sess] of this.streamSession) if (!this.accounts.valid(sess)) { this.streamSession.delete(res); this.clients.delete(res); try { res.end(); } catch { /* déjà fermé */ } } }
   /** Compte du propriétaire (prénom, nom, e-mail, mot de passe) et sessions des navigateurs. */
   readonly accounts: Accounts;
+  /** Le double facteur du compte du propriétaire (voir double-facteur.ts). */
+  private df: DoubleFacteur;
   /** Jeton précédent après rotation : refusé, mais pas compté comme une attaque. */
   private lastToken = '';
   /** Sonde Internet partagée : démarrée paresseusement au premier /api/state (ne touche pas le démarrage). */
@@ -310,9 +313,13 @@ export class WebChannel implements Channel {
     demarrerSondeInternet();
   }
 
-  constructor(odin: Odin, hooks: WebHooks, opts: { port: number; host: string; token: string; access?: WebAccess; tls?: TlsMaterial; /** coût du hachage (tests seulement) */ scryptN?: number }) {
+  constructor(odin: Odin, hooks: WebHooks, opts: { port: number; host: string; token: string; access?: WebAccess; tls?: TlsMaterial; /** coût du hachage (tests seulement) */ scryptN?: number; /** envoi d'e-mail du secours (essais seulement) */ envoiCourriel?: Envoi }) {
     this.odin = odin; this.hooks = hooks;
     this.accounts = new Accounts(odin.paths.home, opts.scryptN ? { scryptN: opts.scryptN } : {});
+    // Le lien de secours part par l'envoi d'e-mail d'Odin (Réglages → Mail), relu à chaque envoi.
+    // Codes faux en série sur le compte (toutes adresses) : le propriétaire est prévenu.
+    const alerte = (t: string) => { console.log(`[web] ${t}`); void Promise.resolve(this.hooks.tellOwner?.(t)).catch(() => 0); };
+    this.df = new DoubleFacteur(odin.paths.home, this.accounts, { ...(opts.envoiCourriel ? { envoi: opts.envoiCourriel } : envoiParOdin(() => this.odin.cfg.mail)), alerte });
     this.port = opts.port; this.host = opts.host; this.token = opts.token;
     this.access = opts.access ?? 'local'; this.tls = opts.tls;
     // Le certificat de l'interface sert aussi au DNS chiffré (DoT) de Sphinx.
@@ -417,9 +424,10 @@ export class WebChannel implements Channel {
   private sessionOf(req: IncomingMessage): string | undefined { return SESSION_RE.exec(req.headers.cookie ?? '')?.[1]; }
   private get secure(): boolean { return Boolean(this.tls); }
   /** Ouvre une session pour ce navigateur et pose son cookie (l'ancien cookie de jeton est effacé). */
-  private openSession(req: IncomingMessage, res: ServerResponse, via: Via): void {
+  private openSession(req: IncomingMessage, res: ServerResponse, via: Via): string {
     const token = this.accounts.open({ device: deviceName(String(req.headers['user-agent'] ?? '')), ip: this.clientIp(req).replace(/^fwd:/, ''), via });
     res.setHeader('set-cookie', [sessionCookie(token, this.secure || this.viaHttps(req)), 'odin_token=; Max-Age=0; Path=/']);
+    return token;
   }
   /** L'adresse d'Odin vue d'un autre appareil (un téléphone) : « localhost » devient l'adresse de la machine sur le réseau. */
   private publicOrigin(req: IncomingMessage): string {
@@ -678,7 +686,7 @@ export class WebChannel implements Channel {
     if (url.pathname.startsWith('/api/metis/') && await metisRoute(req, res, url, { home: this.odin.paths.home, authed: this.authed(req) && !estMembre(req), fail: () => this.throttle.fail(ip) })) return;
     if (url.pathname.startsWith('/api/plugins/') && await pluginsRoute(req, res, url, { proprietaire: () => this.authed(req) && !estMembre(req), membre: () => this.authed(req) && estMembre(req), odin: this.odin, fail: () => this.throttle.fail(ip) })) return;
     // Connexion unique (Persona, OpenID, sauvegardes des applis) et droits par appli des personnes qui ne sont pas le propriétaire.
-    if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state(), accueil: (appli) => this.accueilRefus(req, nomAppli(persona(), appli)), demander: (g) => this.odin.heimdall.gate(g) })) return;
+    if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => { if (this.df.actif()) { console.log(`[web] connexion du propriétaire par Persona refusée depuis ${ip} : son double facteur est actif (mot de passe et code sur l'écran de connexion)`); return; } this.openSession(req, res, 'mot de passe'); }, etat: () => this.state(), accueil: (appli) => this.accueilRefus(req, nomAppli(persona(), appli)), demander: (g) => this.odin.heimdall.gate(g) })) return;
 
     if (req.method === 'GET' && url.pathname === '/') {
       const t = url.searchParams.get('token');
@@ -822,7 +830,11 @@ export class WebChannel implements Channel {
     if (req.method === 'POST' && url.pathname === '/api/pair/status') {
       if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
       const st = this.pairing.collect(String(req.headers['x-pair'] ?? ''));
-      if (st === 'ok') { this.markClaimed('appareil autorisé'); if (this.accounts.exists()) this.openSession(req, res, 'appareil autorisé'); else res.setHeader('set-cookie', this.cookie(this.token)); }
+      // L'appairage ne sert qu'avant le compte (il donne alors le droit de le créer). Compte créé : jamais de session du
+      // propriétaire par ce chemin (ni mot de passe, ni code du double facteur) ; une demande acceptée ailleurs, par
+      // exemple un profil de la famille (Pégase), ne fait pas entrer en propriétaire.
+      if (st === 'ok' && this.accounts.exists()) return json(res, 200, { state: st, compte: true, error: 'Un compte existe : connecte-toi avec ton adresse e-mail et ton mot de passe.' });
+      if (st === 'ok') { this.markClaimed('appareil autorisé'); res.setHeader('set-cookie', this.cookie(this.token)); }
       return json(res, 200, { state: st });
     }
     // ---- Compte du propriétaire : création (première connexion), connexion, déconnexion ----
@@ -883,7 +895,46 @@ export class WebChannel implements Channel {
         this.throttle.success(ip);
         return this.entrer(req, res, { login: v.p.login }, direct, 'mot de passe');
       }
+      // Double facteur actif : le lien de secours (avec le mot de passe), ou le code demandé après le mot de passe.
+      const deux = this.df.actif(), ipNue = ip.replace(/^fwd:/, '');
+      if (deux && typeof b.secours === 'string') {
+        const s = await this.df.utiliserSecours(b.secours, b.email, b.password, ipNue);
+        if (!s.ok) {
+          console.log(`[web] lien de secours du double facteur refusé depuis ${ip}`);
+          valhallaOf()?.events.emit('event', { module: 'odin', type: 'connexion_refusee', data: { ip }, at: new Date().toISOString() });
+          if (s.retryAfter) res.setHeader('retry-after', String(s.retryAfter));
+          return json(res, s.status, { ok: false, error: s.error, retryAfter: s.retryAfter ?? 0 });
+        }
+        this.accounts.close(this.sessionOf(req));
+        const t = this.openSession(req, res, 'lien de secours et mot de passe');
+        this.df.proposer(t); // un nouveau QR code, aussitôt, dans Réglages → Accès
+        const dit = `Double facteur de ton compte Odin retiré par le lien de secours envoyé à ton adresse e-mail, avec ton mot de passe, depuis ${ipNue} (${deviceName(String(req.headers['user-agent'] ?? ''))}). Si ce n'est pas toi : change ton mot de passe tout de suite (Réglages → Accès).`;
+        console.log(`[web] ${dit}`);
+        void Promise.resolve(this.hooks.tellOwner?.(dit)).catch(() => 0);
+        return json(res, 200, { ok: true, suite: '/?double-facteur=nouveau' });
+      }
+      // L'attente des codes faux (cette adresse, ou le compte entier) n'empêche pas « J'ai perdu mon téléphone » : le lien
+      // part seulement avec le bon mot de passe (lui-même limité), à l'adresse e-mail du compte, au plus une fois par minute.
+      if (deux && b.perdu !== true && this.df.attenteConnexion(ipNue) > 0) { const w = this.df.attenteConnexion(ipNue); res.setHeader('retry-after', String(w)); return json(res, 429, { ok: false, code: 'trop_d_essais', secours: true, error: `Trop de codes faux : réessaie dans ${w >= 60 ? `${Math.ceil(w / 60)} min` : `${w} s`}.`, retryAfter: w }); }
       const r = await this.accounts.login(b.email, b.password);
+      if (r.ok && deux) {
+        if (b.perdu === true) {
+          // « J'ai perdu mon téléphone » : le lien part à l'adresse du compte, vers une adresse d'Odin qu'il connaît (jamais l'en-tête Host seul).
+          const host = String(req.headers.host ?? ''), connues = accessUrls({ ...this.odin.cfg.web, port: this.port }, '', { access: this.access, https: Boolean(this.tls) });
+          const choix = connues.filter((u) => new URL(u).host === host);
+          const d = await this.df.demanderSecours(ipNue, (j) => (choix.length ? choix : connues).map((u) => `${u.replace(/\/?$/, '/')}?secours=${j}`));
+          console.log(`[web] secours du double facteur demandé depuis ${ip} : ${d.ok ? 'lien envoyé' : 'impossible'}`);
+          return json(res, 200, d.ok ? { ok: false, code: 'secours_envoye', error: d.message } : { ok: false, code: 'secours_impossible', error: d.error });
+        }
+        if (!String(b.code ?? '').trim()) return json(res, 401, { ok: false, code: 'code_requis', secours: true, error: 'Tape le code à 6 chiffres de ton appli d\'authentification.' });
+        const v = this.df.verifier(b.code, ipNue);
+        if (!v.ok) {
+          console.log(`[web] code du double facteur refusé depuis ${ip}`);
+          valhallaOf()?.events.emit('event', { module: 'odin', type: 'connexion_refusee', data: { ip }, at: new Date().toISOString() });
+          if (v.attente) res.setHeader('retry-after', String(v.attente));
+          return json(res, v.code === 'trop_d_essais' ? 429 : 401, { ok: false, code: v.code === 'trop_d_essais' ? 'trop_d_essais' : 'code_faux', secours: true, error: v.error, retryAfter: v.attente ?? 0 });
+        }
+      }
       if (!r.ok) {
         this.throttle.fail(ip);
         console.log(`[web] connexion refusée depuis ${ip}`);
@@ -894,7 +945,7 @@ export class WebChannel implements Channel {
       }
       this.throttle.success(ip);
       this.accounts.close(this.sessionOf(req)); // jamais de session réutilisée : une nouvelle à chaque connexion
-      this.openSession(req, res, 'mot de passe');
+      this.openSession(req, res, deux ? 'mot de passe et code' : 'mot de passe');
       console.log(`[web] connexion de ${this.accounts.profile()?.prenom ?? '?'} depuis ${ip} (${deviceName(String(req.headers['user-agent'] ?? ''))})`);
       return json(res, 200, { ok: true });
     }
@@ -915,6 +966,21 @@ export class WebChannel implements Channel {
     }
 
     // ---- Compte : profil, mot de passe, appareils connectés ----
+    // ---- Double facteur du compte : seulement le propriétaire, dans son navigateur (ni la clé d'API, ni un membre) ----
+    if (url.pathname === '/api/account/double-facteur' || url.pathname.startsWith('/api/account/double-facteur/')) {
+      const cur = this.sessionOf(req), ipNue = ip.replace(/^fwd:/, '');
+      if (req.headers.authorization || req.headers['x-api-key'] || !cur || !this.accounts.valid(cur)) return json(res, 403, { ok: false, error: 'Seulement depuis ton navigateur, connecté avec ton compte.' });
+      if (req.method === 'GET' && url.pathname === '/api/account/double-facteur') return json(res, 200, { ok: true, ...this.df.etat(cur) });
+      if (req.method !== 'POST') return json(res, 405, { error: 'méthode non permise' });
+      if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+      const b = await readJson(req, 4 * 1024);
+      try {
+        if (url.pathname === '/api/account/double-facteur/commencer') return json(res, 200, { ok: true, ...(await this.df.commencer(cur, { password: b.password, code: b.code }, ipNue)) });
+        if (url.pathname === '/api/account/double-facteur/confirmer') { this.df.confirmer(cur, b.code, ipNue); console.log(`[web] double facteur du compte activé (depuis ${ip})`); return json(res, 200, { ok: true }); }
+        if (url.pathname === '/api/account/double-facteur/retirer') { await this.df.retirer({ password: b.password, code: b.code }, ipNue); console.log(`[web] double facteur du compte retiré (depuis ${ip})`); return json(res, 200, { ok: true }); }
+      } catch (e) { return json(res, 400, { ok: false, error: (e as Error).message }); }
+      return json(res, 404, { error: 'introuvable' });
+    }
     if (req.method === 'GET' && url.pathname === '/api/account/me') {
       return json(res, 200, { ok: true, profile: this.accounts.profile() ?? null, sessions: this.accounts.sessions(this.sessionOf(req)) });
     }
@@ -1084,6 +1150,7 @@ export class WebChannel implements Channel {
       const msgs = this.odin.muninn.history(`web:${peer}`).filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content).map((m) => ({ role: m.role, text: m.content }));
       return json(res, 200, { peer, messages: msgs.slice(-200) });
     }
+    if (url.pathname === '/api/memoire/export') { const m = await import('./export-memoire-api.ts'); if (await m.exportMemoireRoute(req, res, url, { qui: () => this.quiConnecte(req), direct, sources: () => m.sourcesDOdin(this.odin) })) return; } // toute la mémoire en archive .zip (propriétaire seul, lecture seule)
     if (url.pathname === '/api/fil' && await (await import('./fil-api.ts')).filRoute(req, res, url, { qui: () => this.quiConnecte(req), direct, mu: this.odin.muninn })) return; // le fil de la personne connectée, par pages (lecture seule)
 
     // Raccourci Siri / Android / Home Assistant : jeton dans « Authorization: Bearer … » (jamais par

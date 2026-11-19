@@ -10,6 +10,7 @@ import type { Person } from '../modules/var.ts';
 import { persona as personaCtx } from './registre.ts';
 import { NAMES } from '../names.ts';
 import { Accounts } from '../../web/account.ts';
+import { CHAMPS_INFOS } from './infos.ts';
 
 export type Personne = Person & { /** le compte du propriétaire d'Odin (son mot de passe reste celui de compte.json) */ proprio?: boolean };
 export interface Appareil { id: string; nom: string; plateforme: string }
@@ -121,14 +122,22 @@ export const parSub = (ctx: ModCtx, sub: string) => personnes(ctx).find((p) => p
  */
 export function lierProprietaire(ctx: ModCtx): Personne | undefined {
   if (ctx.settings.proprioDelie === true) return personnes(ctx).find((p) => p.proprio);
-  const a = new Accounts(ctx.home).profile(); if (!a) return undefined;
+  const acc = new Accounts(ctx.home), a = acc.profile(); if (!a) return undefined;
   const l = personnes(ctx), cur = l.find((p) => p.proprio), name = `${a.prenom} ${a.nom}`.trim();
+  // Ses informations (année de naissance, langue), champ par champ : celle que son compte donne la remplace, celle qu'il a
+  // vidée (null) est retirée ; celle qu'il n'a jamais donnée (ou illisible) : la fiche garde la sienne.
+  const notees = acc.infosNotees() ?? {}, donnees = CHAMPS_INFOS.filter((k) => notees[k] !== undefined);
+  const autres = cur !== undefined && donnees.some((k) => (cur[k] ?? null) !== notees[k]);
   if (cur) {
-    if (cur.email !== a.email || cur.name !== name || !cur.groups.includes('admin')) { const p = { ...cur, email: a.email, name, groups: [...new Set(['admin', ...cur.groups])] }; sauverPersonnes(ctx, l.map((x) => (x.id === cur.id ? p : x))); return p; }
+    if (cur.email !== a.email || cur.name !== name || !cur.groups.includes('admin') || autres) {
+      const p: Personne = { ...cur, email: a.email, name, groups: [...new Set(['admin', ...cur.groups])] };
+      for (const k of donnees) { const v = notees[k]; if (v === null) delete p[k]; else Object.assign(p, { [k]: v }); }
+      sauverPersonnes(ctx, l.map((x) => (x.id === cur.id ? p : x))); return p;
+    }
     return cur;
   }
   const taken = new Set(l.map((p) => p.login)); let login = 'proprietaire', i = 2; while (taken.has(login)) login = `proprietaire${i++}`;
-  const p: Personne = { id: nouvelId(), login, name, email: a.email, groups: ['admin'], hash: '', active: true, created: Date.now(), fails: 0, proprio: true };
+  const p: Personne = { id: nouvelId(), login, name, email: a.email, ...acc.infos(), groups: ['admin'], hash: '', active: true, created: Date.now(), fails: 0, proprio: true };
   sauverPersonnes(ctx, [...l, p]); return p;
 }
 export function delierProprietaire(ctx: ModCtx): boolean {
