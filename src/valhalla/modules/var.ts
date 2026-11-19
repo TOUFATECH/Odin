@@ -21,9 +21,10 @@ import { arreterFluxSauvegardes } from '../sso/sauvegardes.ts';
 import { arreterFluxVenus } from '../sso/fiches.ts';
 import { groupesActions, groupesSections, reappliquer } from '../sso/groupes.ts';
 import { comptesActions, comptesSections } from '../sso/comptes.ts';
+import { lireInfos, sansInfos, texteAge, type Infos } from '../sso/infos.ts';
 import { CIEL_JS } from '../../web/ciel.ts';
 
-export interface Person { id: string; login: string; name: string; email?: string; groups: string[]; hash: string; totp?: string; totpPending?: string; active: boolean; created: number; lastLogin?: number; fails: number; lockedUntil?: number }
+export interface Person extends Infos { id: string; login: string; name: string; email?: string; groups: string[]; hash: string; totp?: string; totpPending?: string; active: boolean; created: number; lastLogin?: number; fails: number; lockedUntil?: number }
 export interface Rule { domain: string; groups: string[] }
 interface Session { id: string; login: string; created: number; expires: number; ip: string; agent: string; seen: number }
 interface Entry { t: number; login: string; ip: string; ok: boolean; why: string }
@@ -165,7 +166,7 @@ export function idGraph(ps: Person[], rs: Rule[], ss: Session[], now = Date.now(
     details[id] = {
       kind: 'Personne', title: p.name, subtitle: `${p.login}${p.email ? ` · ${p.email}` : ''}`,
       chips: [{ label: p.active ? 'Active' : 'Coupée', tone: p.active ? 'bon' : 'neutre' }, { label: p.totp ? 'Double authentification' : 'Mot de passe seul', tone: (p.totp ? 'bon' : 'attention') as Tone }, ...(locked ? [{ label: 'Verrouillée', tone: 'mauvais' as Tone }] : []), ...(mine.length ? [{ label: `${mine.length} session(s)`, tone: 'bon' as Tone }] : [])],
-      rows: [{ k: 'Groupes', v: p.groups.join(', ') || '—' }, { k: 'Dernière connexion', v: p.lastLogin ? new Date(p.lastLogin).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais' }, { k: 'Créée le', v: new Date(p.created).toLocaleDateString('fr-FR') }],
+      rows: [{ k: 'Groupes', v: p.groups.join(', ') || '—' }, ...(p.naissance ? [{ k: 'Année de naissance', v: String(p.naissance) }, { k: 'Âge', v: texteAge(p.naissance, new Date(now)) }] : []), ...(p.langue ? [{ k: 'Langue', v: p.langue }] : []), { k: 'Dernière connexion', v: p.lastLogin ? new Date(p.lastLogin).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais' }, { k: 'Créée le', v: new Date(p.created).toLocaleDateString('fr-FR') }],
       list: { title: 'Sessions ouvertes', items: mine.map((x) => ({ text: `${x.ip} · ${x.agent.slice(0, 50) || 'navigateur'}`, meta: `jusqu'à ${new Date(x.expires).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` })) },
       actions: [{ action: 'double_auth', label: p.totp ? 'Refaire la double authentification' : 'Activer la double authentification', input: { login: p.login }, primary: !p.totp }, { action: 'couper_sessions', label: 'Couper ses sessions', input: { login: p.login } }, { action: 'mot_de_passe', label: 'Nouveau mot de passe', input: { login: p.login, mot_de_passe: '' } }],
     };
@@ -206,7 +207,17 @@ function nouveauPortail(ctx: ModCtx, i: Record<string, unknown>): { portal: stri
   const publies = ((b.published as Array<{ hostname?: string }> | undefined) ?? []).map((p) => s(p.hostname));
   return { portal, avant, servir: portal !== avant, publier: Boolean(b.tunnel) && !publies.includes(portal), avantPublie: Boolean(avant) && publies.includes(avant) };
 }
-const ADD: Param[] = [{ key: 'login', label: 'Identifiant (ex. personne-a)', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', required: true }, { key: 'groupes', label: 'Groupes (ex. famille, admins)', kind: 'text', default: 'famille' }, { key: 'email', label: 'E-mail (facultatif, reste sur Odin)', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un, rangé dans le coffre)', kind: 'password', default: '' }];
+/** Les informations d'une personne (facultatives, chiffrées, jamais recopiées au journal des manips). */
+const INFOS = (vide: string): Param[] => [{ key: 'naissance', label: `Année de naissance (facultatif${vide}, ex. 1990)`, kind: 'text', default: '', prive: true }, { key: 'langue', label: `Langue (facultatif${vide})`, kind: 'text', default: '', prive: true }];
+/** L'année et la langue saisies, vérifiées (seulement celles qui sont données). */
+const infosDe = (ctx: ModCtx, i: Record<string, unknown>) => lireInfos(i, ctx.now());
+/**
+ * Pour la confirmation : une saisie refusée même demain n'en demande pas (l'action dit le refus tout de suite). Vérifiée
+ * avec la date de demain, jamais plus large que l'action elle-même : ce qui passe sans confirmation est toujours refusé
+ * (même à minuit le 31 décembre), donc rien ne part sans la validation qu'il aurait eue.
+ */
+const infosRefusees = (ctx: ModCtx, i: Record<string, unknown>) => void lireInfos(i, new Date(ctx.now().getTime() + 86_400_000));
+const ADD: Param[] = [{ key: 'login', label: 'Identifiant (ex. personne-a)', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', required: true }, { key: 'groupes', label: 'Groupes (ex. famille, admins)', kind: 'text', default: 'famille' }, { key: 'email', label: 'E-mail (facultatif, reste sur Odin)', kind: 'text', default: '' }, ...INFOS(''), { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un, rangé dans le coffre)', kind: 'password', default: '' }];
 
 export const varModule: Module = {
   id: 'var', name: 'Persona', family: 'Accès',
@@ -221,28 +232,31 @@ export const varModule: Module = {
   words: ['identité', 'identités', 'connexion unique', 'sso', 'comptes', 'utilisateurs', 'double authentification', '2fa', 'groupes', 'portail de connexion'],
   actions: auProprietaire([
     { id: 'ajouter', label: 'Ajouter une personne', what: 'Un compte pour entrer sur les sites d\'Odin', params: ADD,
-      grave: siDonne((i) => `créer le compte de ${s(i.nom).slice(0, 60)} (« ${s(i.login).toLowerCase()} ») — groupes : ${avantApres([], groupsOf(i.groupes || 'famille'))}`),
+      // Une année ou une langue impossible : pas de confirmation, l'action dit le refus tout de suite (rien n'est créé).
+      grave: siDonne((i, ctx) => (infosRefusees(ctx, i), `créer le compte de ${s(i.nom).slice(0, 60)} (« ${s(i.login).toLowerCase()} ») — groupes : ${avantApres([], groupsOf(i.groupes || 'famille'))}`)),
       run: async (ctx, i) => {
       const login = s(i.login).toLowerCase(), name = s(i.nom).slice(0, 60); if (!LOGIN.test(login)) throw new Error('identifiant : 2 à 32 lettres minuscules, chiffres, . _ -'); if (!name) throw new Error('nom affiché ?');
       if (people(ctx).some((p) => p.login === login)) throw new Error('cet identifiant existe déjà');
       if (s(i.email) && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s(i.email))) throw new Error('adresse e-mail invalide');
       const pass = s(i.mot_de_passe) || randomBytes(12).toString('base64url'); if (pass.length < 10) throw new Error('mot de passe : 10 caractères au moins');
-      const p: Person = { id: randomBytes(5).toString('hex'), login, name, ...(s(i.email) ? { email: s(i.email) } : {}), groups: groupsOf(i.groupes || 'famille'), hash: hashPassword(pass), active: true, created: Date.now(), fails: 0 };
+      const infos = infosDe(ctx, i);
+      const p: Person = { id: randomBytes(5).toString('hex'), login, name, ...(s(i.email) ? { email: s(i.email) } : {}), ...infos, groups: groupsOf(i.groupes || 'famille'), hash: hashPassword(pass), active: true, created: Date.now(), fails: 0 };
       savePeople(ctx, [...people(ctx), p]);
       noterChangementDroit({ registre: 'persona', canal: 'persona', pour: `@${login}`, quoi: 'groupes', avant: '', apres: p.groups.join(','), sens: 'donne' });
       const inVault = await vault(ctx, p, pass);
       return { text: `👤 ${name} (« ${login} », groupes ${p.groups.join(', ')}) ajouté. ${inVault ? 'Son mot de passe est dans le coffre Thésauros.' : s(i.mot_de_passe) ? '' : '⚠ Le coffre n\'a pas pu garder le mot de passe : choisis-en un toi-même.'}` };
     }, undo: (i) => ({ action: 'retirer', input: { login: i.login }, label: 'Retirer la personne' }) },
-    { id: 'modifier', label: 'Modifier une personne', what: 'Nom, groupes, compte actif', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', default: '' }, { key: 'groupes', label: 'Groupes (vide : inchangés)', kind: 'text', default: '' }, { key: 'actif', label: 'Compte', kind: 'select', options: ['inchangé', 'actif', 'coupé'], default: 'inchangé' }],
+    { id: 'modifier', label: 'Modifier une personne', what: 'Nom, groupes, année de naissance, langue, compte actif', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', default: '' }, { key: 'groupes', label: 'Groupes (vide : inchangés)', kind: 'text', default: '' }, ...INFOS(' ; vide : inchangée'), { key: 'actif', label: 'Compte', kind: 'select', options: ['inchangé', 'actif', 'coupé'], default: 'inchangé' }],
       // Des groupes en plus, ou un compte coupé rendu actif : validation. En moins, ou coupé : tout de suite.
+      // Une année ou une langue impossible : le refus d'abord, sans confirmation (rien ne change).
       grave: siDonne((i, ctx) => {
-        const p = byLogin(ctx, i.login), gs = s(i.groupes) ? groupsOf(i.groupes) : p.groups, out: string[] = [];
+        infosRefusees(ctx, i); const p = byLogin(ctx, i.login), gs = s(i.groupes) ? groupsOf(i.groupes) : p.groups, out: string[] = [];
         if (gs.some((g) => !p.groups.includes(g))) out.push(`groupes : ${avantApres(p.groups, gs)}`);
         if (s(i.actif) === 'actif' && !p.active) out.push('compte : coupé → actif');
         return out.length ? `${p.name} (« ${p.login} ») — ${out.join(' ; ')}` : undefined;
       }),
       run: (ctx, i) => {
-      const avant = byLogin(ctx, i.login), p = { ...avant }; if (s(i.nom)) p.name = s(i.nom).slice(0, 60); if (s(i.groupes)) p.groups = groupsOf(i.groupes); if (s(i.actif) === 'actif') p.active = true; if (s(i.actif) === 'coupé') p.active = false;
+      const avant = byLogin(ctx, i.login), p = { ...avant, ...infosDe(ctx, i) }; if (s(i.nom)) p.name = s(i.nom).slice(0, 60); if (s(i.groupes)) p.groups = groupsOf(i.groupes); if (s(i.actif) === 'actif') p.active = true; if (s(i.actif) === 'coupé') p.active = false;
       savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? p : x)));
       if (avant.groups.join('|') !== p.groups.join('|')) noterChangementDroit({ registre: 'persona', canal: 'persona', pour: `@${p.login}`, quoi: 'groupes', avant: avant.groups.join(','), apres: p.groups.join(','), sens: p.groups.some((g) => !avant.groups.includes(g)) ? 'donne' : 'limite' });
       if (avant.active !== p.active) noterChangementDroit({ registre: 'persona', canal: 'persona', pour: `@${p.login}`, quoi: 'compte', avant: avant.active ? 'actif' : 'coupe', apres: p.active ? 'actif' : 'coupe', sens: p.active ? 'donne' : 'limite' });
@@ -324,7 +338,9 @@ export const varModule: Module = {
   ]),
   view(ctx) {
     appCtx = ctx;
-    const ps = people(ctx), ss = sessions(ctx), rs = rules(ctx), c = conf(ctx), now = Date.now(), j = journal(ctx), fails = j.filter((e) => !e.ok && now - e.t < 86400_000).length;
+    // Les informations d'une personne : le propriétaire les voit toutes ; un membre seulement les siennes.
+    const qui = agissant(), ps = people(ctx).map((p) => (!qui || qui.login === p.login ? p : sansInfos(p)));
+    const ss = sessions(ctx), rs = rules(ctx), c = conf(ctx), now = Date.now(), j = journal(ctx), fails = j.filter((e) => !e.ok && now - e.t < 86400_000).length;
     return {
       onglets: ['Personnes', 'Groupes', 'Applis', 'Accès'],
       subtitle: c.portal ? `Portail ${c.portal} · ${ps.length} personne(s) · ${ss.length} session(s)` : 'À régler : le nom du portail de connexion (Réglages).',

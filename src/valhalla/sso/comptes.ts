@@ -23,6 +23,7 @@ import { WEBAUTHN_JS, nouveauDefi, optionsConnexion, optionsInscription, siteWeb
 import { groupeExiste, nomGroupe } from './groupes.ts';
 import { avantApres, siDonne } from './persona.ts';
 import { noterChangementDroit } from './droits-journal.ts';
+import { lireAnnee, lireInfos, sansInfos, texteAge, type Infos } from './infos.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 const esc = (x: string) => x.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -62,6 +63,27 @@ function page(res: ServerResponse, status: number, titre: string, corps: string,
 }
 const carte = (titre: string, texte: string, plus = '') => `<div class="card"><h1>${esc(titre)}</h1>${texte ? `<p>${esc(texte)}</p>` : ''}${plus}</div>`;
 const err = (m: string) => (m ? `<p class="err" role="alert">${esc(m)}</p>` : '');
+/** Un message d'erreur commence par une majuscule. */
+const phrase = (m: string) => m.charAt(0).toUpperCase() + m.slice(1);
+type ErreurInfos = { champ: 'naissance' | 'langue'; msg: string };
+/** Les informations saisies, vérifiées ; ou le champ refusé et pourquoi (pour placer le message sous ce champ). */
+function infosOuErreur(f: Record<string, string>, maintenant: Date): Infos | ErreurInfos {
+  try { lireAnnee(f.naissance, maintenant); } catch (e) { return { champ: 'naissance', msg: phrase((e as Error).message) }; }
+  try { return lireInfos(f, maintenant); } catch (e) { return { champ: 'langue', msg: phrase((e as Error).message) }; }
+}
+const refusee = (x: Infos | ErreurInfos): x is ErreurInfos => 'champ' in x;
+/**
+ * Les champs des informations d'une personne (facultatifs) : année de naissance, langue. Un refus s'affiche sous son
+ * champ, relié à lui (aria-describedby), le champ marqué (aria-invalid) et pris par le focus ; l'âge, sous l'année.
+ */
+const champsInfos = (v: { naissance?: unknown; langue?: unknown }, o: { erreur?: ErreurInfos; age?: string } = {}) => {
+  const champ = (id: string, nom: 'naissance' | 'langue', libelle: string, attrs: string, aide = '') => {
+    const e = o.erreur?.champ === nom ? o.erreur.msg : '', decrit = e ? `${id}-err` : aide ? `${id}-age` : '';
+    return `<label for="${id}">${libelle}</label><input id="${id}" name="${nom}" ${attrs} value="${esc(s(v[nom]))}"${e ? ' aria-invalid="true"' : ''}${decrit ? ` aria-describedby="${decrit}"` : ''}${e ? ' autofocus' : ''}>${e ? `<p class="err" id="${id}-err" role="alert">${esc(e)}</p>` : aide ? `<p id="${id}-age">${esc(aide)}</p>` : ''}`;
+  };
+  return `${champ('ia', 'naissance', 'Année de naissance (facultatif, ex. 1990)', 'inputmode="numeric" autocomplete="bday-year" maxlength="4"', o.age)}
+${champ('il', 'langue', 'Langue (facultatif)', 'autocomplete="language" maxlength="40"')}`;
+};
 async function lireForm(req: IncomingMessage, max = 8000): Promise<Record<string, string>> {
   let raw = ''; for await (const c of req) { raw += c; if (raw.length > max) break; }
   if (/application\/json/i.test(s(req.headers['content-type']))) { try { const j = JSON.parse(raw || '{}') as Record<string, unknown>; return Object.fromEntries(Object.entries(j).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])); } catch { return {}; } }
@@ -126,21 +148,35 @@ async function compte(ctx: ModCtx, req: IncomingMessage, res: ServerResponse, ur
     if (!r.ok) return pageConnexion(res, r.code === 'code_requis' ? '' : r.message, r.code === 'code_requis' ? s(f.identifiant) : '', r.code === 'code_requis', r.code === 'code_requis' ? 200 : r.status);
     ouvrirNavigateur(ctx, req, res, r.p, d); res.writeHead(303, { location: '/sso/compte', 'cache-control': 'no-store' }); return void res.end();
   }
-  if (p0 === '/sso/compte' && m(req) === 'GET') {
-    if (!moi) return pageConnexion(res);
-    const mes = clesAcces(ctx).filter((c) => c.sub === moi.p.id);
+  // La page « Mon compte » de la personne connectée (ses informations, ses clés d'accès).
+  const montrer = (qui: Personne, status = 200, refus?: ErreurInfos, saisie?: Record<string, string>) => {
+    const mes = clesAcces(ctx).filter((c) => c.sub === qui.id);
     let note = ''; try { siteWebauthn(iss); } catch (e) { note = (e as Error).message; }
-    return page(res, 200, 'Mon compte · Odin', carte(`Bonjour ${moi.p.name}`, `Identifiant « ${moi.p.login} » · groupes : ${moi.p.groups.join(', ') || 'aucun'}.`,
-      `<h2 style="font-size:17px;margin:8px 0 0">Clés d'accès</h2><p>Une clé d'accès remplace le mot de passe et le code : ton téléphone ou ton ordinateur te reconnaît (empreinte, visage ou code de l'appareil).</p>
+    return page(res, status, 'Mon compte · Odin', carte(`Bonjour ${qui.name}`, `Identifiant « ${qui.login} » · groupes : ${qui.groups.join(', ') || 'aucun'}.`,
+      `<h2 style="font-size:17px;margin:8px 0 0">Mes informations</h2><p>Vues par toi et par ${esc(prenomProprio(ctx))} seulement ; jamais envoyées aux logiciels reliés.</p>
+<form method="post" action="/sso/compte/infos">${champsInfos(saisie ?? qui, { erreur: refus, age: qui.naissance && !saisie ? texteAge(qui.naissance, new Date()) : undefined })}<button type="submit">Enregistrer mes informations</button></form>
+<h2 style="font-size:17px;margin:8px 0 0">Clés d'accès</h2><p>Une clé d'accès remplace le mot de passe et le code : ton téléphone ou ton ordinateur te reconnaît (empreinte, visage ou code de l'appareil).</p>
 ${mes.length ? `<ul>${mes.map((c) => `<li><form method="post" action="/sso/compte/cle/retirer" style="display:flex;gap:8px;align-items:center"><input type="hidden" name="id" value="${esc(c.id)}"><span style="flex:1">${esc(c.nom)} · ${esc(quand(c.cree))}${c.vu ? ` · servie le ${esc(quand(c.vu))}` : ''}</span><button class="ghost" type="submit" style="width:auto;padding:0 14px">Retirer</button></form></li>`).join('')}</ul>` : '<p>Aucune clé pour l\'instant.</p>'}
 ${note ? `<p class="err">${esc(note)}</p>` : `<label for="n">Nom de la clé</label><input id="n" value="${esc('Mon appareil')}" maxlength="60"><button type="button" id="ajouter">Ajouter une clé d'accès</button><p class="err" id="msg" role="alert"></p>`}
 <form method="post" action="/sso/compte/deconnexion"><button class="ghost" type="submit">Se déconnecter</button></form>`),
     note ? '' : `${WEBAUTHN_JS}const b=document.getElementById('ajouter');b.onclick=async()=>{const m=document.getElementById('msg');m.textContent='';b.disabled=true;try{if(!window.PublicKeyCredential)throw new Error('Ce navigateur ne sait pas créer de clé d’accès.');await odinCleCreer('/sso/compte/cle/debut','/sso/compte/cle/fin',{nom:document.getElementById('n').value});location.reload();}catch(e){m.textContent=e.name==='NotAllowedError'?'Annulé.':e.message;}b.disabled=false;};`);
+  };
+  if (p0 === '/sso/compte' && m(req) === 'GET') {
+    if (!moi) return pageConnexion(res);
+    return montrer(moi.p);
   }
   if (!moi) { if (/application\/json/i.test(s(req.headers['content-type']))) return erreur(res, 401, 'jeton_requis', 'Connecte-toi d\'abord.'); res.writeHead(303, { location: '/sso/compte' }); return void res.end(); }
   if (p0 === '/sso/compte/deconnexion' && m(req) === 'POST') {
     if (moi.nav) ctx.saveSettings({ sessions: ((ctx.settings.sessions as Array<{ id: string }> | undefined) ?? []).filter((x) => x.id !== moi.nav) });
     res.writeHead(303, { location: '/sso/compte', 'set-cookie': `odin_var=; Path=/sso; HttpOnly; SameSite=Lax; Max-Age=0${d.https ? '; Secure' : ''}`, 'cache-control': 'no-store' }); return void res.end();
+  }
+  // Ses informations : la personne connectée corrige les siennes, jamais celles d'un autre (aucun identifiant n'est lu).
+  if (p0 === '/sso/compte/infos' && m(req) === 'POST') {
+    const f = await lireForm(req), x = infosOuErreur(f, new Date());
+    if (refusee(x)) return montrer(moi.p, 400, x, f);
+    const l = personnes(ctx), cur = l.find((p) => p.id === moi.p.id);
+    if (cur) { ctx.saveSettings({ people: l.map((p) => (p.id === cur.id ? { ...sansInfos(cur), ...x } : p)) }); noter(ctx, { login: cur.login, ip: d.ip, ok: true, why: 'informations corrigées dans Mon compte' }); }
+    res.writeHead(303, { location: '/sso/compte', 'cache-control': 'no-store' }); return void res.end();
   }
   if (p0 === '/sso/compte/cle/retirer' && m(req) === 'POST') {
     const f = await lireForm(req), id = s(f.id), l = clesAcces(ctx);
@@ -199,10 +235,12 @@ async function invitation(ctx: ModCtx, req: IncomingMessage, res: ServerResponse
     const ok = { ...p, totp: p.totpPending, totpPending: undefined }; ctx.saveSettings({ people: personnes(ctx).map((x) => (x.id === p.id ? ok : x)) });
     return fini(ok);
   }
-  const formulaire = (msg = '', v: Record<string, string> = {}) => page(res, msg ? 400 : 200, 'Invitation · Odin', carte(`Bonjour ${inv.nom}`, `${prenomProprio(ctx)} t'invite à utiliser Odin. Choisis ton identifiant et ton mot de passe (valable jusqu'au ${quand(inv.exp)}).`,
+  // Un refus des informations s'affiche sous son champ ; les autres messages, en bas du formulaire comme avant.
+  const formulaire = (msg = '', v: Record<string, string> = {}, refus?: ErreurInfos) => page(res, msg || refus ? 400 : 200, 'Invitation · Odin', carte(`Bonjour ${inv.nom}`, `${prenomProprio(ctx)} t'invite à utiliser Odin. Choisis ton identifiant et ton mot de passe (valable jusqu'au ${quand(inv.exp)}).`,
     `<form method="post" action="/sso/invitation"><input type="hidden" name="j" value="${esc(j)}">
 <label for="l">Identifiant</label><input id="l" name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required pattern="[a-z0-9][a-z0-9._\\-]{1,31}" value="${esc(v.login ?? inv.nom.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').slice(0, 32))}">
 ${inv.email ? '' : `<label for="e">E-mail (facultatif : pour retrouver ton mot de passe)</label><input id="e" name="email" type="email" autocomplete="email" value="${esc(v.email ?? '')}">`}
+${champsInfos(v, { erreur: refus })}
 <label for="p">Mot de passe (10 caractères au moins)</label><input id="p" name="motdepasse" type="password" autocomplete="new-password" minlength="10" required>
 <label for="p2">Encore une fois</label><input id="p2" name="motdepasse2" type="password" autocomplete="new-password" minlength="10" required>
 ${err(msg)}<button type="submit">Créer mon compte</button></form>`));
@@ -213,7 +251,8 @@ ${err(msg)}<button type="submit">Créer mon compte</button></form>`));
   if (mdp.length < 10) return formulaire('Le mot de passe doit faire 10 caractères au moins.', f);
   if (mdp !== (f.motdepasse2 ?? '')) return formulaire('Les deux mots de passe sont différents.', f);
   if (email && (!EMAIL.test(email) || personnes(ctx).some((p) => (p.email ?? '').toLowerCase() === email.toLowerCase()))) return formulaire('Adresse e-mail invalide ou déjà utilisée.', f);
-  const p: Personne = { id: randomBytes(5).toString('hex'), login, name: inv.nom, ...(email ? { email } : {}), groups: inv.groupes.filter((g) => g !== 'admin'), hash: hashPassword(mdp), active: true, created: now, fails: 0, ...(exige ? { totpPending: secretTotp() } : {}) };
+  const infos = infosOuErreur(f, new Date(now)); if (refusee(infos)) return formulaire('', f, infos);
+  const p: Personne = { id: randomBytes(5).toString('hex'), login, name: inv.nom, ...(email ? { email } : {}), ...infos, groups: inv.groupes.filter((g) => g !== 'admin'), hash: hashPassword(mdp), active: true, created: now, fails: 0, ...(exige ? { totpPending: secretTotp() } : {}) };
   ctx.saveSettings({ people: [...personnes(ctx), p] });
   if (exige) { sauverInvitations(ctx, invitations(ctx).map((x) => (x.id === inv.id ? { ...x, etat: 'code' as const, login } : x))); return formCode(p); }
   return fini(p);

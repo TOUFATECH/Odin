@@ -13,9 +13,10 @@ export const PRIVES_CONFIG: Chemin[] = [
   ['channels', '*', 'owners'], ['channels', 'signal', 'number'], ['channels', 'whatsapp', 'phoneId'],
   ['mail', 'user'], ['mail', 'from'], ['calendar', 'caldavUser'],
 ];
-/** réglages.json des applis : la position de la maison (Hestia). */
+/** réglages.json des applis : la position de la maison (Hestia), les informations des personnes de Persona. */
 export const PRIVES_APPLIS: Record<string, Chemin[]> = {
   gladsheim: [['lat'], ['lon']],
+  var: [['people', '*', 'naissance'], ['people', '*', 'langue']],
 };
 /** Réglages gardés dans la mémoire d'Odin (memoire/kv.jsonl) : les numéros du réveil. */
 export const PRIVES_KV: Record<string, Chemin[]> = {
@@ -27,14 +28,16 @@ const estObjet = (v: unknown): v is Obj => typeof v === 'object' && v !== null &
 /** Valeur vide : rien à cacher (et les valeurs par défaut restent lisibles). */
 const vide = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 
-/** Parcourt les valeurs d'un objet aux chemins donnés : f(parent, clé). */
+/** Parcourt les valeurs d'un objet aux chemins donnés : f(parent, clé). « * » entre aussi dans un tableau (chaque élément). */
 function parcourir(o: unknown, chemins: readonly Chemin[], f: (parent: Obj, cle: string) => void): void {
   const pas = (n: unknown, c: Chemin): void => {
-    if (!estObjet(n) || !c.length) return;
+    if (!c.length) return;
     const [k, ...reste] = c;
-    for (const cle of k === '*' ? Object.keys(n) : [k]) {
-      if (!(cle in n)) continue;
-      if (reste.length) pas(n[cle], reste); else f(n, cle);
+    if (!estObjet(n) && !(k === '*' && Array.isArray(n))) return;
+    const o = n as Obj;
+    for (const cle of k === '*' ? Object.keys(o) : [k]) {
+      if (!(cle in o)) continue;
+      if (reste.length) pas(o[cle], reste); else f(o, cle);
     }
   };
   for (const c of chemins) pas(o, c);
