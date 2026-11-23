@@ -178,7 +178,7 @@
     root.append(el('div', { class: 'tj-top' }, el('span', { class: 'tj-face', 'aria-hidden': 'true' }, el('i'), el('i')), el('div', {}, el('h2', {}, 'Odin te prévient'), el('p', {}, 'Déploiement réseau : chaque machine, de la demande à « c\'est prêt ».')), tabs), body, gen);
     host.append(root);
     const redraw = async () => {
-      tabs.replaceChildren(...[...(window.OdinGeneseSystemes?.onglets ?? []), ...(window.OdinGeneseLogiciels?.onglets ?? []), ...(window.OdinGeneseDeployer?.onglets ?? []), ['odin', 'Odin te prévient'], ...(window.OdinGeneseSuivi?.onglets ?? []), ...(window.OdinGeneseCle?.onglets ?? []), ['ecran', 'Écran de démarrage'], ['tout', 'Tout']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
+      tabs.replaceChildren(...[...(window.OdinGeneseSystemes?.onglets ?? []), ...(window.OdinGeneseLogiciels?.onglets ?? []), ...(window.OdinGeneseDeployer?.onglets ?? []), ['odin', 'Odin te prévient'], ...(window.OdinGeneseSuivi?.onglets ?? []), ...(window.OdinGeneseReseau?.onglets ?? []), ...(window.OdinGeneseCle?.onglets ?? []), ['ecran', 'Écran de démarrage'], ['tout', 'Tout']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
       gen.hidden = S.tab !== 'tout'; body.hidden = S.tab === 'tout';
       if (S.tab === 'tout') return;
       // Suivi des installations (thjalfi-suivi.js) : Installations, Historique, Protection.
@@ -186,7 +186,8 @@
       // Systèmes (thjalfi-systemes.js) : même greffe ; « aller » ouvre un autre onglet (Déployer → Clé USB).
       // Logiciels et profils (thjalfi-logiciels.js, lot S4) : même greffe.
       // Déployer (thjalfi-deployer.js, lot S5) : même greffe ; « aller » ouvre la clé USB (le pont), Systèmes ou Tout.
-      for (const G of [window.OdinGeneseSystemes, window.OdinGeneseLogiciels].concat(window.OdinGeneseDeployer ?? [])) if (G?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await G.dessiner(n, tab, { post, act, el, ic, note, redraw, aller: (id) => { S.tab = id; void redraw(); } }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
+      // Réseau (thjalfi-reseau.js, lot S8) : le serveur de démarrage, même greffe.
+      for (const G of [window.OdinGeneseSystemes, window.OdinGeneseLogiciels].concat(window.OdinGeneseDeployer ?? [], window.OdinGeneseReseau ?? [])) if (G?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await G.dessiner(n, tab, { post, act, el, ic, note, redraw, aller: (id) => { S.tab = id; void redraw(); } }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
       // Clé USB (thjalfi-cle.js) : onglet « Clé USB », même greffe que le suivi.
       if (window.OdinGeneseCle?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await window.OdinGeneseCle.dessiner(n, tab, { post, act, el, ic, note, redraw }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
       const r = await post('tableau'), D = r.data ?? {}, n = el('div', { class: 'tj' });

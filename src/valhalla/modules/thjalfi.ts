@@ -31,7 +31,8 @@ import { ecranPage } from '../thjalfi/ecran-page.ts';
 import { fenetreFin } from '../thjalfi/ecrans-communs.ts';
 import { TftpServer } from '../thjalfi/tftp.ts';
 import { identite, suivi, type FicheFin, type Passage, type Resultat } from '../thjalfi/suivi.ts';
-import { pxeHook } from '../vidarr/dhcp.ts';
+import { pxeHook, type DhcpConfig, type Lease, type Packet } from '../vidarr/dhcp.ts';
+import { DhcpAPart, MODES_ADRESSES, RESEAU, conclure, lignesBox, modeAdresses, plageParDefaut, refusCarte, refusPartage, verifierPlage, type CarteReseau, type Garde, type PlageComplet } from '../thjalfi/reseau.ts';
 import { cleUsb } from '../thjalfi/cle-ecrire.ts';
 import { EDITIONS, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, masque, supprimerCle } from '../thjalfi/cles-windows.ts';
 import { apercu as apercuScripts, appliquerOptionsWindows, injecterSautExigences, nomCompteValide, optionsWindowsDe, osDuScript, scriptsRevus, type ScriptPerso } from '../thjalfi/scripts.ts';
@@ -185,6 +186,8 @@ export function thjalfi(): Module {
   /** L'adresse d'Odin sur le réseau local (réglable). */
   const serverIp = (ctx: ModCtx): string => {
     if (s(ctx.settings.ip)) return s(ctx.settings.ip);
+    // La carte choisie sur la page Réseau (lot S8) : Odin répond avec son adresse sur cette carte.
+    const choisie = carteChoisie(ctx); if (choisie) return choisie.ip;
     const all = Object.entries(networkInterfaces()).filter(([n]) => !VIRTUAL_IFACE.test(n)).flatMap(([, l]) => l ?? []).filter((a) => a && a.family === 'IPv4' && !a.internal).map((a) => a!.address);
     return all.find((a) => /^192\.168\./.test(a)) ?? all.find((a) => /^10\./.test(a)) ?? all.find((a) => /^172\.(1[6-9]|2\d|3[01])\./.test(a)) ?? all[0] ?? '127.0.0.1';
   };
@@ -659,7 +662,12 @@ export function thjalfi(): Module {
     });
   }
 
-  async function startServers(ctx: ModCtx): Promise<string[]> {
+  // Un démarrage à la fois : deux démarrages mêlés laissaient un serveur ouvert que plus personne ne tenait (ni arrêt, ni veille).
+  let fileDemarrages: Promise<unknown> = Promise.resolve();
+  function startServers(ctx: ModCtx, o: { dejaVerifie?: boolean } = {}): Promise<string[]> {
+    const p = fileDemarrages.then(() => startServersSeul(ctx, o)); fileDemarrages = p.catch(() => undefined); return p;
+  }
+  async function startServersSeul(ctx: ModCtx, o: { dejaVerifie?: boolean } = {}): Promise<string[]> {
     stopServers(); const p = ports(ctx), notes: string[] = [], mode = s(ctx.settings.mode) || 'proxy';
     http = creerHttp(ctx);
     await http.start(p.http);
@@ -667,18 +675,78 @@ export function thjalfi(): Module {
       tftp = new TftpServer({ file: (name) => { const n = basename(name); const f = join(bootDir(ctx), n); return /^(undionly\.kpxe|ipxe(-arm64|-i386)?\.efi|snponly\.efi)$/.test(n) && existsSync(f) ? readFileSync(f) : undefined; }, sent: (name, from) => track(ctx, undefined, from, 'chargeur', { detail: name }) });
       await tftp.start(p.tftp);
     } catch (e) { tftp = undefined; notes.push(`TFTP (port ${p.tftp}) : ${(e as Error).message} — Odin doit pouvoir ouvrir ce port (administrateur).`); }
+    if (mode === 'complet') { const n = await demarrerAPart(ctx, o.dejaVerifie === true); if (n) notes.push(n); }
     if (mode === 'proxy') {
       try { proxy = new ProxyDhcp({ server: () => serverIp(ctx), httpPort: () => http?.port ?? p.http, allowed: (mac) => s(ctx.settings.filtre) !== 'liste' || rules(ctx).some((r) => r.mac === mac), seen: (mac, fw, ipxe) => { if (!ipxe) track(ctx, mac, undefined, 'démarrage réseau', { fw }); } }); await proxy.start(p.dhcp, p.pxe, p.client); }
       catch (e) { proxy = undefined; notes.push(`proxy DHCP (ports ${p.dhcp} et ${p.pxe}) : ${(e as Error).message}`); }
     }
-    // Avec le DHCP d'Odin (Sphinx) : il ajoute lui-même le démarrage par le réseau.
-    if (mode !== 'aucun') pxeHook.get = (pk) => {
-      if (s(ctx.settings.filtre) === 'liste' && !rules(ctx).some((r) => r.mac === pk.mac)) return undefined;
-      const b = bootFor(pk, serverIp(ctx), http?.port ?? p.http); if (b && !/^http/.test(b.file)) track(ctx, pk.mac, undefined, 'démarrage réseau', { fw: firmware(pk.options.get(93)) }); return b;
-    };
+    // Avec le DHCP d'Odin (Sphinx) : il ajoute lui-même le démarrage par le réseau. (Le mode « complet » ajoute le sien,
+    // seulement sur le réseau à part : le serveur d'adresses de la maison n'y gagne rien.)
+    if (mode !== 'aucun' && mode !== 'complet') pxeHook.get = (pk) => demarragePour(ctx, pk, serverIp(ctx));
     return notes;
   }
-  function stopServers(): void { http?.stop(); tftp?.stop(); proxy?.stop(); http = undefined; tftp = undefined; proxy = undefined; pxeHook.get = undefined; for (const i of open.values()) void i.close(); open.clear(); }
+  /** Ce qu'un PC qui démarre reçoit en plus de son adresse (chargeur, puis menu) ; rien s'il n'a pas le droit. */
+  function demarragePour(ctx: ModCtx, pk: Packet, ip: string) {
+    if (s(ctx.settings.filtre) === 'liste' && !rules(ctx).some((r) => r.mac === pk.mac)) return undefined;
+    const b = bootFor(pk, ip, http?.port ?? ports(ctx).http); if (b && !/^http/.test(b.file)) track(ctx, pk.mac, undefined, 'démarrage réseau', { fw: firmware(pk.options.get(93)) }); return b;
+  }
+
+  // ---------------- Le réseau : carte, adresses, garde-fou (maquette « Genèse · Systèmes », lot S8) ----------------
+  let aPart: DhcpAPart | undefined, aPartCarte: CarteReseau | undefined, aPartTour = 0;
+  const cartesDuPc = (): CarteReseau[] => { try { return RESEAU.cartes(); } catch { return []; } };
+  /** La carte réseau choisie (par son nom), si elle est toujours là. */
+  function carteChoisie(ctx: ModCtx, nom?: string): CarteReseau | undefined { const n = nom ?? s(ctx.settings.carte); if (!n) return undefined; try { return RESEAU.cartes().find((c) => c.nom === n); } catch { return undefined; } }
+  const gardeDe = (ctx: ModCtx): Garde => { const g = ctx.settings.garde as Garde | undefined; return g && typeof g === 'object' && typeof g.etat === 'string' ? { ...g, autres: Array.isArray(g.autres) ? g.autres : [] } : { etat: 'non_verifie', autres: [] }; };
+  const plageDe = (ctx: ModCtx): PlageComplet | undefined => ctx.settings.plage as PlageComplet | undefined;
+  const BAUX_A_PART = 'baux-reseau-a-part.json';
+  const bauxAPart = (ctx: ModCtx): Lease[] => { try { const l = JSON.parse(readFileSync(join(ctx.dir, BAUX_A_PART), 'utf8')); return Array.isArray(l) ? l : []; } catch { return []; } };
+  /** Le garde-fou : un autre serveur d'adresses répond-il sur cette carte ? (avant d'allumer, puis chaque minute) */
+  async function verifierCarte(ctx: ModCtx, c: CarteReseau, enMarche: boolean): Promise<Garde> {
+    const p = ports(ctx);
+    const r = await RESEAU.chercher(c, { serveur: p.dhcp, client: p.client }).catch((e: Error) => ({ serveurs: [] as string[], erreur: e.message }));
+    const g = conclure(r, c.nom, ctx.now().getTime(), enMarche); ctx.saveSettings({ garde: g }); return g;
+  }
+  // Chaque arrêt change le tour : un démarrage encore en route (vérification, écoute) se ferme lui-même en arrivant.
+  function arreterAPart(): void { aPartTour++; if (aPart) { aPart.arrete = true; aPart.stop(); } aPart = undefined; aPartCarte = undefined; }
+  /** Coupe tout de suite la distribution d'adresses sur le réseau à part, et le dit (alerte). */
+  function couperAPart(ctx: ModCtx, raison: string, autres: string[] = []): void {
+    const avait = Boolean(aPart); arreterAPart();
+    const g: Garde = { etat: 'coupe', carte: s(ctx.settings.carte), autres, verifie: ctx.now().getTime(), raison: `Odin a arrêté de distribuer les adresses : ${raison.replace(/^Refusé : ça casserait le réseau de la maison\. /, '').replace(/\.$/, '')}.` };
+    ctx.saveSettings({ garde: g }); ctx.emit('journal', { texte: `Réseau à part : ${g.raison}` });
+    if (avait) ctx.alert({ level: 'haute', title: 'Genèse a arrêté de distribuer les adresses', detail: `${g.raison} Deux serveurs d'adresses à la fois couperaient Internet aux appareils de la maison. Les PC du réseau à part ne reçoivent plus d'adresse ; rien d'autre ne change. Vérifie la carte, puis rechoisis « Odin distribue les adresses » sur la page Réseau, ou reste « À côté de la box ».`, key: 'thjalfi-reseau-a-part-coupe', data: { carte: g.carte, autres } });
+  }
+  /** Tout ce qu'il faut AVANT de distribuer des adresses : la carte, la plage, et personne d'autre qui en distribue. */
+  async function preparerAPart(ctx: ModCtx, entree: Record<string, unknown> | undefined, dejaVerifie: boolean, nomCarte?: string): Promise<{ refus: string; garde?: Garde } | { c: CarteReseau; p: PlageComplet }> {
+    const c = carteChoisie(ctx, nomCarte), non = refusCarte(c, RESEAU.plateforme()); if (non || !c) return { refus: non ?? 'Choisis d\'abord la carte réseau du réseau à part.' };
+    const p = verifierPlage(c, (entree ?? plageDe(ctx) ?? {}) as Record<string, unknown>); if ('refus' in p) return { refus: p.refus };
+    const g0 = gardeDe(ctx);
+    if (dejaVerifie && g0.etat === 'libre' && g0.carte === c.nom && ctx.now().getTime() - (g0.verifie ?? 0) < 15_000) { const partage = refusPartage(c, cartesDuPc()); return partage ? { refus: partage } : { c, p }; }
+    const g = await verifierCarte(ctx, c, false); if (g.etat !== 'libre') return { refus: g.raison ?? 'Refusé.', garde: g };
+    // Après la recherche (la box se dit d'abord) : une carte à deux adresses, ou deux cartes sur le même réseau, refusées.
+    const partage = refusPartage(c, cartesDuPc()); if (partage) return { refus: partage };
+    return { c, p };
+  }
+  /** Le serveur d'adresses du réseau à part : n'écoute QUE l'adresse de la carte choisie. Le refus en mots, ou rien. */
+  async function demarrerAPart(ctx: ModCtx, dejaVerifie: boolean): Promise<string | undefined> {
+    arreterAPart(); const tour = aPartTour;
+    // Après une coupure du garde-fou, Odin ne redistribue pas tout seul (redémarrage d'Odin, relance) : seulement quand tu
+    // le rechoisis (Allumer, ou « Odin distribue les adresses »), qui revérifie la carte.
+    const g0 = gardeDe(ctx);
+    if (!dejaVerifie && g0.etat === 'coupe') return `adresses : Odin s'était arrêté de distribuer sur ${g0.carte || 'la carte'} (${String(g0.raison ?? '').replace(/^Odin a arrêté de distribuer les adresses : /, '').replace(/\.$/, '')}). Il ne recommence pas tout seul : rechoisis « Odin distribue les adresses » sur la page Réseau.`;
+    const x = await preparerAPart(ctx, undefined, dejaVerifie); if ('refus' in x) return `adresses : ${x.refus}`;
+    if (tour !== aPartTour) return 'adresses : un autre démarrage a pris la main.';
+    const { c, p } = x, pt = ports(ctx);
+    const config = (): DhcpConfig => ({ server: c.ip, start: p.debut, end: p.fin, mask: p.masque, router: p.passerelle, dns: p.dns, leaseSeconds: p.bail, fixed: [],
+      ...(s(ctx.settings.filtre) === 'liste' ? { macPolicy: { mode: 'liste' as const, etats: Object.fromEntries(rules(ctx).map((r) => [r.mac, 'actif' as const])), attente: [] } } : {}) });
+    const srv: DhcpAPart = new DhcpAPart({ config, carte: () => c, leases: () => bauxAPart(ctx), save: (l) => saveJson(ctx, BAUX_A_PART, l), now: () => ctx.now().getTime(),
+      log: (t) => ctx.emit('journal', { texte: t }), demarrage: (pk) => demarragePour(ctx, pk, c.ip),
+      alerte: (raison, autre) => { if (aPart === srv) couperAPart(ctx, raison, autre ? [autre] : []); } });
+    try { await RESEAU.ecouter(srv, pt.dhcp, pt.client, c.ip); } catch (e) { srv.arrete = true; srv.stop(); return `adresses (port ${pt.dhcp} sur ${c.ip}) : ${(e as Error).message}`; }
+    // Arrêté (ou relancé) pendant l'écoute : ce serveur-ci ne doit pas rester ouvert sans que personne le tienne.
+    if (tour !== aPartTour) { srv.arrete = true; srv.stop(); return 'adresses : un autre démarrage a pris la main.'; }
+    aPart = srv; aPartCarte = c; return undefined;
+  }
+  function stopServers(): void { http?.stop(); tftp?.stop(); proxy?.stop(); arreterAPart(); http = undefined; tftp = undefined; proxy = undefined; pxeHook.get = undefined; for (const i of open.values()) void i.close(); open.clear(); }
   const firmware = (b: Buffer | undefined): Firmware => { const n = b && b.length >= 2 ? b.readUInt16BE(0) : 0; return n === 7 || n === 9 ? 'uefi' : n === 6 ? 'uefi32' : n === 11 ? 'arm64' : 'bios'; };
 
   /** Télécharge un fichier officiel, empreinte gardée ; un fichier suspect pour l'antivirus est jeté. */
@@ -706,11 +774,23 @@ export function thjalfi(): Module {
       C = ctx; const l = await isos(ctx), m = Object.values(live(ctx)).filter((x) => !FINAL.includes(x.step)), ready = LOADERS.filter((x) => existsSync(join(bootDir(ctx), x.file)));
       return { text: `Genèse ${http ? `allumé · http://${serverIp(ctx)}:${http.port}` : 'éteint'} · ${l.filter((i) => i.recipe).length} ISO démarrable(s) (${l.filter((i) => i.recipe?.auto).length} en installation automatique) · chargeurs : ${ready.length}/${LOADERS.length} · ${m.length} machine(s) en cours${m.length ? `\n${m.map((x) => `- ${x.host ?? x.mac} : ${x.step}${x.isoName ? ` (${x.isoName})` : ''}`).join('\n')}` : ''}`, data: { allume: Boolean(http), port: http?.port, ip: serverIp(ctx), isos: l.map((i) => ({ id: i.id, nom: i.name, type: i.recipe?.kind, auto: i.recipe?.auto })), enCours: m } };
     } },
-    { id: 'allumer', label: 'Allumer', what: 'Répond aux machines qui démarrent par le réseau (une machine inconnue démarre sur son disque par défaut)', words: ['allume le pxe', 'allume le démarrage réseau', 'démarre le pxe'],
+    { id: 'allumer', label: 'Allumer', what: 'Répond aux machines qui démarrent par le réseau (une machine inconnue démarre sur son disque par défaut)', words: ['allume le pxe', 'allume le démarrage réseau', 'démarre le pxe'], proprietaireSeul: true,
       // Allumer démarre des services sur le réseau de la maison : ta validation, en voyant lesquels.
-      grave: (_i, ctx) => { const p = ctx ? ports(ctx) : { dhcp: 67, pxe: 4011, tftp: 69, http: 16000 }; return `allumer le démarrage par le réseau : Odin répond sur le réseau de la maison aux machines qui démarrent par le réseau (DHCP ${p.dhcp} et ${p.pxe}/udp, TFTP ${p.tftp}/udp, HTTP ${p.http}/tcp ; mode ${ctx ? s(ctx.settings.mode) || 'proxy' : 'proxy'})`; },
+      grave: (_i, ctx) => {
+        const p = ctx ? ports(ctx) : { dhcp: 67, pxe: 4011, tftp: 69, http: 16000 }, mode = ctx ? modeAdresses(s(ctx.settings.mode) || 'proxy') : 'proxy';
+        if (mode === 'complet' && ctx) { const pl = plageDe(ctx); return `allumer le démarrage par le réseau ET distribuer des adresses sur le réseau à part (carte ${s(ctx.settings.carte) || '?'}${pl ? `, de ${pl.debut} à ${pl.fin}` : ''}) : Odin vérifie d'abord qu'aucun autre serveur d'adresses n'y répond, puis chaque minute (DHCP ${p.dhcp}/udp sur cette carte seulement, TFTP ${p.tftp}/udp, HTTP ${p.http}/tcp)`; }
+        return `allumer le démarrage par le réseau : Odin répond sur le réseau de la maison aux machines qui démarrent par le réseau (DHCP ${p.dhcp} et ${p.pxe}/udp, TFTP ${p.tftp}/udp, HTTP ${p.http}/tcp ; mode ${mode})`;
+      },
       run: async (ctx) => {
-      C = ctx; const notes = await startServers(ctx); ctx.saveSettings({ allume: true });
+      C = ctx;
+      // Distribuer des adresses : la carte, la plage et le garde-fou AVANT d'allumer quoi que ce soit ; un refus n'allume rien.
+      let verifie = false;
+      if (modeAdresses(s(ctx.settings.mode) || 'proxy') === 'complet') {
+        const x = await preparerAPart(ctx, undefined, false);
+        if ('refus' in x) return { ok: false, text: `Genèse reste éteint. ${x.refus}`, data: { garde: gardeDe(ctx) } };
+        verifie = true;
+      }
+      const notes = await startServers(ctx, { dejaVerifie: verifie }); ctx.saveSettings({ allume: true });
       const miss = LOADERS.filter((x) => x.file !== 'wimboot' && x.file !== 'ipxe-arm64.efi' && !existsSync(join(bootDir(ctx), x.file)));
       return { text: `▶ Genèse allumé : menu sur ${base(ctx)}/boot.ipxe · mode ${s(ctx.settings.mode) || 'proxy'}${notes.length ? `\n⚠ ${notes.join('\n⚠ ')}` : ''}${miss.length ? `\n⚠ Chargeurs manquants (${miss.map((x) => x.file).join(', ')}) : dis « prépare le pxe ».` : ''}` };
     }, undo: () => ({ action: 'eteindre', input: {}, label: 'Éteindre' }) },
@@ -736,7 +816,7 @@ export function thjalfi(): Module {
       const x = await findIso(ctx, i.iso); ctx.saveSettings({ defaut: x.id, delai: d });
       return { text: `★ Par défaut : ${x.name} (${x.recipe?.label ?? '?'}) après ${d} s de menu. Une machine non autorisée lance l'installation normale, avec les questions : rien ne s'efface tout seul.` };
     } },
-    { id: 'autoriser', label: 'Autoriser une machine', what: 'Cette machine (par son adresse MAC) démarre l\'ISO choisie ; avec « installation automatique », elle s\'installe toute seule une fois (son disque est effacé)', params: [macParam, { ...isoParam, required: false }, { key: 'nom', label: 'Nom sur le réseau (vide = pc-xxxxxx)', kind: 'text', default: '' }, { key: 'profil', label: 'Profil (compte, paquets, logiciels)', kind: 'text', default: 'standard' }, { key: 'auto', label: 'Installation automatique (efface le disque)', kind: 'boolean', default: false }],
+    { id: 'autoriser', label: 'Autoriser une machine', proprietaireSeul: true, what: 'Cette machine (par son adresse MAC) démarre l\'ISO choisie ; avec « installation automatique », elle s\'installe toute seule une fois (son disque est effacé)', params: [macParam, { ...isoParam, required: false }, { key: 'nom', label: 'Nom sur le réseau (vide = pc-xxxxxx)', kind: 'text', default: '' }, { key: 'profil', label: 'Profil (compte, paquets, logiciels)', kind: 'text', default: 'standard' }, { key: 'auto', label: 'Installation automatique (efface le disque)', kind: 'boolean', default: false }],
       grave: (i) => (i.auto === true || i.auto === 'true' ? `installer automatiquement ${s(i.iso)} sur la machine ${s(i.mac)} : son disque sera EFFACÉ au prochain démarrage par le réseau` : undefined),
       words: ['autorise la machine', 'installe automatiquement', 'déploie sur la machine'], run: async (ctx, i) => {
         const mac = normMac(s(i.mac)); if (!mac) throw new Error('adresse MAC invalide (ex. 52:54:00:12:34:56)');
@@ -749,7 +829,12 @@ export function thjalfi(): Module {
         ctx.saveSettings({ machines: all });
         return { text: `${auto ? '🛠' : '✔'} ${mac}${s(i.nom) ? ` (${hostLabel(s(i.nom))})` : ''} : ${iso ? iso.name : 'menu normal'}${auto ? ` en installation automatique, profil ${p.nom}, au prochain démarrage par le réseau (une seule fois)` : ''}.` };
       }, undo: (i) => ({ action: 'retirer_machine', input: { mac: s(i.mac) }, label: 'Retirer' }) },
-    { id: 'retirer_machine', label: 'Retirer une machine', what: 'Elle redevient une machine inconnue', quick: false, params: [macParam], run: (ctx, i) => { const mac = normMac(s(i.mac)); const all = rules(ctx); if (!all.some((r) => r.mac === mac)) throw new Error('machine absente de la liste'); ctx.saveSettings({ machines: all.filter((r) => r.mac !== mac) }); return { text: `${mac} retirée.` }; } },
+    { id: 'retirer_machine', label: 'Retirer une machine', what: 'Elle redevient une machine inconnue : retirée de la liste du démarrage réseau (et, sur un réseau à part, de ses adresses)', quick: false, proprietaireSeul: true, params: [macParam], run: (ctx, i) => {
+      const mac = normMac(s(i.mac)); const all = rules(ctx); if (!all.some((r) => r.mac === mac)) throw new Error('machine absente de la liste'); ctx.saveSettings({ machines: all.filter((r) => r.mac !== mac) });
+      // Sur un réseau à part avec la liste des PC autorisés : son bail est repris, il n'y a plus d'adresse (« supprimé du réseau »).
+      const baux = bauxAPart(ctx), reste = baux.filter((l) => l.mac !== mac); if (reste.length !== baux.length) saveJson(ctx, BAUX_A_PART, reste);
+      return { text: `${mac} retirée : elle ne démarre plus par le réseau d'Odin${modeAdresses(s(ctx.settings.mode) || 'proxy') === 'complet' && s(ctx.settings.filtre) === 'liste' ? ' et ne reçoit plus aucune adresse du réseau à part' : ''}.` };
+    } },
     { id: 'reinstaller', label: 'Réinstaller', what: 'Relance l\'installation automatique d\'une machine déjà installée (son disque sera effacé)', quick: false, params: [macParam], grave: (i) => `réinstaller la machine ${s(i.mac)} : son disque sera EFFACÉ au prochain démarrage par le réseau`, run: (ctx, i) => { const mac = normMac(s(i.mac)); const all = rules(ctx), r = all.find((x) => x.mac === mac); if (!r?.auto) throw new Error('cette machine n\'a pas d\'installation automatique'); r.fait = false; ctx.saveSettings({ machines: all }); return { text: `🛠 ${mac} se réinstallera au prochain démarrage par le réseau.` }; } },
     { id: 'profil', label: 'Profil d\'installation', what: 'Compte créé, langue, clavier, fuseau, paquets Linux et logiciels Windows (Hermès) ; le mot de passe est généré et rangé dans le coffre', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'utilisateur', label: 'Compte créé', kind: 'text', default: 'admin' }, { key: 'paquets', label: 'Paquets Linux (séparés par des virgules)', kind: 'text', default: '' }, { key: 'logiciels', label: 'Logiciels Windows de Hermès (ex. firefox, vlc, 7zip)', kind: 'text', default: '' }, { key: 'fuseau', label: 'Fuseau', kind: 'text', default: 'Indian/Mayotte' }, { key: 'clavier', label: 'Clavier', kind: 'text', default: 'fr' }, { key: 'langue', label: 'Langue', kind: 'text', default: 'fr_FR.UTF-8' }, { key: 'compagnon', label: 'Compagnon d\'Odin sur la machine (antivirus, mises à jour, failles)', kind: 'boolean', default: true }], quick: false, run: async (ctx, i) => {
       const nom = s(i.nom).trim(); if (!nom) throw new Error('donne un nom'); const id = slug(nom), list = (ctx.settings.profils as Profile[] | undefined) ?? profiles(ctx);
@@ -780,10 +865,34 @@ export function thjalfi(): Module {
       run: (ctx, i) => { const ed = editionDepuisChoix(s(i.edition)); if (!ed) throw new Error('choisis une édition de Windows'); const r = deposerCle(ctx.home, ctx.dir, ed.id, s(i.cle)); return { text: `🔑 Clé rangée pour ${r.edition} (${masque(r.indice)}). Elle sera injectée toute seule à l'installation des images ${r.edition} ; sans clé, l'installation reste sans activation.` }; },
       undo: (i) => { const ed = editionDepuisChoix(s(i.edition)); return ed ? { action: 'retirer_cle_windows', input: { edition: ed.label }, label: 'Retirer la clé' } : undefined; } },
     { id: 'retirer_cle_windows', label: 'Retirer une clé Windows', what: 'Supprime la clé d\'activation déposée pour une édition', quick: false, params: [{ key: 'edition', label: 'Édition', kind: 'select', options: EDITIONS.map((e) => e.label), default: EDITIONS[0].label }], run: (ctx, i) => { const ed = editionDepuisChoix(s(i.edition)); if (!ed) throw new Error('édition inconnue'); const ok = supprimerCle(ctx.dir, ed.id); return { text: ok ? `Clé retirée pour ${ed.label}.` : `Aucune clé déposée pour ${ed.label}.`, ok: ok ? undefined : false }; } },
-    { id: 'mode', label: 'Mode DHCP', what: '« proxy » : ta box donne les adresses, Odin ajoute le démarrage réseau (rien à régler) ; « aucun » : tu règles toi-même ton DHCP', params: [{ key: 'mode', label: 'Mode', kind: 'select', options: ['proxy', 'odin', 'aucun'], default: 'proxy' }, { key: 'filtre', label: 'Répondre à', kind: 'select', options: ['tous', 'liste'], default: 'tous' }], quick: false, run: async (ctx, i) => {
-      ctx.saveSettings({ mode: s(i.mode) || 'proxy', filtre: s(i.filtre) || 'tous' }); if (http) await startServers(ctx);
-      return { text: `Mode ${s(i.mode)} · ${s(i.filtre) === 'liste' ? 'seulement les machines autorisées' : 'toutes les machines qui démarrent par le réseau'}.${s(i.mode) === 'aucun' ? `\nDans ton DHCP : option 66 = ${serverIp(ctx)}, option 67 = undionly.kpxe (BIOS) ou ipxe.efi (UEFI).` : ''}` };
-    } },
+    { id: 'mode', label: 'Mode DHCP', what: '« proxy » : à côté de la box, la box donne les adresses, Odin ajoute le démarrage réseau (rien à régler, conseillé) ; « complet » : Odin distribue les adresses, seulement sur un réseau à part (refusé si un autre serveur d\'adresses répond sur la carte) ; « odin » : le DHCP d\'Odin (Sphinx) ; « aucun » : tu règles toi-même ta box', proprietaireSeul: true,
+      params: [{ key: 'mode', label: 'Mode', kind: 'select', options: [...MODES_ADRESSES], default: 'proxy' }, { key: 'filtre', label: 'Répondre à', kind: 'select', options: ['tous', 'liste'], default: 'tous' },
+        { key: 'carte', label: 'Carte réseau (vide : celle d\'avant)', kind: 'text', default: '' }, { key: 'debut', label: 'Réseau à part : première adresse', kind: 'text', default: '' }, { key: 'fin', label: 'Réseau à part : dernière adresse', kind: 'text', default: '' },
+        { key: 'passerelle', label: 'Réseau à part : passerelle (vide : Odin)', kind: 'text', default: '' }, { key: 'bail', label: 'Réseau à part : durée du bail (secondes)', kind: 'number', default: 7200 }], quick: false,
+      grave: (i, ctx) => {
+        // Le mode non redit garde celui d'avant : changer de carte ou de plage en mode complet demande aussi ton accord.
+        if ((s(i.mode) || (ctx ? s(ctx.settings.mode) : '')) !== 'complet') return undefined;
+        const nom = s(i.carte) || (ctx ? s(ctx.settings.carte) : '');
+        return `distribuer des adresses sur la carte ${nom || '?'} (réseau à part${s(i.debut) && s(i.fin) ? `, de ${s(i.debut)} à ${s(i.fin)}` : ''}) : Odin vérifie d'abord qu'aucun autre serveur d'adresses (la box) n'y répond, refuse s'il en voit un, revérifie chaque minute et s'arrête s'il en apparaît un`;
+      },
+      run: async (ctx, i) => {
+        const mode = s(i.mode) ? modeAdresses(s(i.mode)) : modeAdresses(s(ctx.settings.mode) || 'proxy');
+        if (s(i.mode) && !MODES_ADRESSES.includes(s(i.mode) as never)) throw new Error(`mode inconnu : ${s(i.mode)} (proxy, complet, odin ou aucun)`);
+        const filtre = s(i.filtre) === 'liste' ? 'liste' : s(i.filtre) === 'tous' ? 'tous' : (s(ctx.settings.filtre) === 'liste' ? 'liste' : 'tous');
+        const nomCarte = s(i.carte).trim();
+        if (nomCarte) { let l: CarteReseau[] = []; try { l = RESEAU.cartes(); } catch { /* aucune */ } if (!l.some((c) => c.nom === nomCarte)) throw new Error(`carte réseau introuvable : « ${nomCarte.slice(0, 60)} »`); }
+        if (mode === 'complet') {
+          // Rien n'est gardé tant que tout n'est pas vérifié : un refus laisse la carte et le mode d'avant.
+          const x = await preparerAPart(ctx, i, false, nomCarte || undefined);
+          if ('refus' in x) return { ok: false, text: x.refus, data: { garde: x.garde ?? gardeDe(ctx), refus: true } };
+          ctx.saveSettings({ mode, filtre, carte: x.c.nom, plage: x.p });
+          if (http) { const n = await startServers(ctx, { dejaVerifie: true }); if (n.length) return { ok: false, text: `⚠ ${n.join('\n⚠ ')}`, data: { garde: gardeDe(ctx) } }; }
+          return { text: `🛡 Odin distribue les adresses sur ${x.c.nom} seulement (réseau à part) : de ${x.p.debut} à ${x.p.fin}, bail de ${Math.round(x.p.bail / 360) / 10} h. Aucun autre serveur d'adresses n'y répond ; Odin le revérifie chaque minute et s'arrête s'il en apparaît un.${http ? '' : ' Allume Genèse pour commencer.'}`, data: { garde: gardeDe(ctx) } };
+        }
+        ctx.saveSettings({ mode, filtre, ...(nomCarte ? { carte: nomCarte } : {}), garde: { etat: 'non_verifie', autres: [] } }); if (http) await startServers(ctx);
+        const ip = serverIp(ctx), l = lignesBox(ip, http?.port ?? ports(ctx).http);
+        return { text: `${mode === 'proxy' ? 'À côté de la box : la box garde les adresses, Odin ajoute seulement « où démarrer ». Rien à changer sur la box.' : mode === 'odin' ? 'Le serveur d\'adresses d\'Odin (Sphinx) ajoute le démarrage par le réseau.' : 'Ta box s\'en charge.'} · ${filtre === 'liste' ? 'seulement les machines autorisées' : 'toutes les machines qui démarrent par le réseau'}.${mode === 'aucun' ? `\nDans ta box : ${l.simple.join(' ; ')}.` : ''}` };
+      } },
     { id: 'machines', label: 'Machines', what: 'En cours de déploiement, autorisées, et déjà passées', read: true, words: ['machines en cours de déploiement', 'machines déployées'], run: (ctx) => {
       const m = Object.values(live(ctx)).sort((a, b) => b.updated - a.updated), now = ctx.now().getTime();
       return { text: m.length ? m.map((x) => `- ${STEP_ICON[x.step]} ${x.host ?? x.mac} (${x.mac}${x.ip ? `, ${x.ip}` : ''}) : ${x.step}${x.isoName ? ` · ${x.isoName}` : ''} · ${ago(now - x.updated)}`).join('\n') : 'Aucune machine n\'a encore démarré par le réseau.', data: m };
@@ -845,7 +954,32 @@ export function thjalfi(): Module {
   // Déployer, étapes 1 à 3 (maquette « Genèse · Systèmes », lot S5) : les PC vus au menu de démarrage réseau, d'après ce
   // que le serveur de démarrage sait déjà (fiches vivantes, historique, PC autorisés, PC bloqués) ; lecture seule,
   // propriétaire seul. Rien n'est lancé : le serveur n'est ni allumé ni réglé par cette lecture.
-  actions.push(postesVusAction((ctx) => ({ live: live(ctx), historique: history(ctx, 300), regles: rules(ctx), bloques: (ctx.settings.bloques as SourcePostes['bloques'] | undefined) ?? {}, allume: Boolean(http), mode: s(ctx.settings.mode) || 'proxy' })));
+  // La page Réseau (lot S8) : le serveur de démarrage, ses cartes, qui donne les adresses, le garde-fou, les PC autorisés et
+  // ceux qui démarrent en direct. Lecture seule ; propriétaire seul (adresses MAC, adresses du réseau).
+  actions.push({
+    id: 'reseau', label: 'Réseau : serveur de démarrage', read: true, quick: false, proprietaireSeul: true,
+    what: 'Allumé ou non, la carte réseau, qui donne les adresses (à côté de la box, réseau à part, Sphinx, ta box), le garde-fou, les PC autorisés et ceux qui démarrent en direct',
+    run: (ctx) => {
+      let cartes: CarteReseau[] = []; try { cartes = RESEAU.cartes(); } catch { /* aucune carte lisible */ }
+      const mode = modeAdresses(s(ctx.settings.mode) || 'proxy'), filtre = s(ctx.settings.filtre) === 'liste' ? 'liste' : 'tous', plateforme = RESEAU.plateforme();
+      const regles = rules(ctx), now = ctx.now().getTime(), choisie = carteChoisie(ctx), g = gardeDe(ctx);
+      const nomDe = (mac: string) => regles.find((r) => r.mac === mac)?.nom;
+      const direct = Object.values(live(ctx)).flatMap((m) => (m.steps ?? []).map((st) => ({ at: st.at, mac: m.mac, nom: nomDe(m.mac) ?? m.host ?? '', connu: regles.some((r) => r.mac === m.mac), etape: st.step, detail: st.detail ?? '', fw: m.fw ?? '', ...(m.ip ? { ip: m.ip } : {}) })))
+        .filter((e) => typeof e.at === 'number' && now - e.at < 6 * 3600_000).sort((a, b) => b.at - a.at).slice(0, 30);
+      const ip = serverIp(ctx);
+      return {
+        text: `Genèse ${http ? 'allumé' : 'éteint'} · ${mode === 'proxy' ? 'à côté de la box' : mode === 'complet' ? `Odin distribue les adresses sur ${choisie?.nom ?? '?'}${aPart ? '' : ' (arrêté)'}` : mode === 'odin' ? 'adresses par Sphinx' : 'réglé dans ta box'} · ${regles.length} PC autorisé(s) · ${direct.length} événement(s) récent(s)`,
+        data: {
+          allume: Boolean(http), mode, filtre, ip, carte: choisie?.nom ?? '', distribue: Boolean(aPart),
+          cartes: cartes.map((c) => { const non = refusCarte(c, plateforme); return { ...c, complet: !non, ...(non ? { refus: non } : {}), plage: plageParDefaut(c) }; }),
+          plage: plageDe(ctx) ?? null, garde: g,
+          autorises: regles.map((r) => ({ mac: r.mac, nom: r.nom ?? '', iso: r.iso ? isoName(r.iso) : '', auto: Boolean(r.auto), fait: Boolean(r.fait) })),
+          direct, lignes: lignesBox(ip, http?.port ?? ports(ctx).http),
+        },
+      };
+    },
+  });
+  actions.push(postesVusAction((ctx) => ({ live: live(ctx), historique: history(ctx, 300), regles: rules(ctx), bloques: (ctx.settings.bloques as SourcePostes['bloques'] | undefined) ?? {}, allume: Boolean(http), mode: modeAdresses(s(ctx.settings.mode) || 'proxy') })));
   // Logiciels et profils (maquette « Genèse · Systèmes », lot S4) : les profils de logiciels communs à la clé, au réseau et
   // aux machines virtuelles, gardés par Odin ; lecture et écriture réservées au propriétaire.
   actions.push(...profilsLogicielsActions(antivirusScript));
@@ -1010,19 +1144,41 @@ export function thjalfi(): Module {
       if (counts.length) sections.push({ kind: 'bars', title: 'Déploiements par ISO', items: counts });
       const side: Section[] = [
         { kind: 'text', title: 'Comment ça marche', text: `1. La machine démarre par le réseau (F12 / F11 / Échap au démarrage).\n2. ${s(ctx.settings.mode) === 'aucun' ? 'Ton DHCP' : 'Odin'} lui donne le chargeur iPXE, puis le menu.\n3. Machine inconnue : menu, puis son propre disque après ${Number(ctx.settings.delai ?? 10)} s (sauf ISO par défaut).\n4. Machine autorisée en automatique : l'ISO s'installe toute seule (une fois), puis les logiciels, et elle prévient Odin avec son nom.` },
-        { kind: 'text', title: 'Réglages DHCP', text: s(ctx.settings.mode) === 'aucun' ? `Dans ton DHCP : option 66 = ${serverIp(ctx)}, option 67 = undionly.kpxe (BIOS) ou ipxe.efi (UEFI).` : `Mode ${s(ctx.settings.mode) || 'proxy'} : rien à régler sur la box.` },
+        { kind: 'text', title: 'Réglages DHCP', text: s(ctx.settings.mode) === 'aucun' ? `Dans ton DHCP : option 66 = ${serverIp(ctx)}, option 67 = undionly.kpxe (BIOS) ou ipxe.efi (UEFI).` : s(ctx.settings.mode) === 'complet' ? `Odin distribue les adresses sur le réseau à part (${s(ctx.settings.carte) || '?'}) seulement${aPart ? '' : ' : arrêté en ce moment'} ; la page Réseau montre le garde-fou.` : `Mode ${s(ctx.settings.mode) || 'proxy'} : rien à régler sur la box.` },
+
       ];
       return { subtitle: http ? `Allumé · ${serverIp(ctx)}` : 'Éteint', kpis, sections, side };
     },
-    async start(ctx) { C = ctx; if (ctx.settings.allume === true) await startServers(ctx); },
+    async start(ctx) {
+      C = ctx; if (ctx.settings.allume !== true) return;
+      const notes = await startServers(ctx);
+      // Au démarrage d'Odin, le réseau à part est revérifié avant de distribuer : un refus est dit, jamais tu.
+      if (modeAdresses(s(ctx.settings.mode) || 'proxy') === 'complet' && !aPart) ctx.alert({ level: 'moyenne', title: 'Genèse ne distribue pas les adresses du réseau à part', detail: `${notes.filter((n) => n.startsWith('adresses')).join(' ') || 'La vérification de la carte a échoué.'} Le démarrage par le réseau reste allumé, sans adresses ; vois la page Réseau de Genèse.`, key: 'thjalfi-reseau-a-part-depart' });
+    },
     stop() { stopServers(); S.fermer(); },
-    watch: { every: 60, run(ctx) {
+    watch: { every: 60, async run(ctx) {
       // Chaque minute : un poste sans signe de vie depuis le délai réglé (30 min au départ) est dit « abandonné » ; un poste
       // resté au menu a repris son disque (ce n'est pas un raté) ; une installation à la main est notée « lancée ».
       S.veiller(ctx);
       void C;
+      // Le garde-fou du réseau à part (lot S8) : Odin redemande chaque minute si un autre serveur d'adresses répond sur la
+      // carte ; s'il en voit un (ou ne peut pas vérifier, ou si la carte a disparu), il arrête aussitôt de distribuer.
+      await veillerAPart(ctx);
     } },
   };
+  /** Le garde-fou, chaque minute, tant qu'Odin distribue des adresses sur le réseau à part. */
+  async function veillerAPart(ctx: ModCtx): Promise<void> {
+    const srv = aPart; if (!srv) return;
+    const c = carteChoisie(ctx), avant = aPartCarte, non = c ? refusCarte(c, RESEAU.plateforme(), cartesDuPc()) : undefined;
+    if (!c) { couperAPart(ctx, `la carte ${s(ctx.settings.carte) || '?'} n'est plus là`); return; }
+    // La prise écoute l'adresse d'avant : une carte qui a changé d'adresse (ou de réseau) n'est plus celle qui a été vérifiée.
+    if (avant && (c.ip !== avant.ip || c.prefixe !== avant.prefixe)) { couperAPart(ctx, `la carte ${c.nom} a changé d'adresse (${avant.ip}/${avant.prefixe} → ${c.ip}/${c.prefixe})`); return; }
+    if (non) { couperAPart(ctx, non); return; }
+    const g = await verifierCarte(ctx, c, true);
+    if (g.etat !== 'libre' && aPart === srv) couperAPart(ctx, g.autres.length ? `un autre serveur d'adresses répond sur ${c.nom} (${g.autres.join(', ')})` : g.raison ?? 'vérification impossible', g.autres);
+  }
+  // Pour les essais du réseau à part : le MÊME serveur d'adresses et le même garde-fou ; l'écoute passe par RESEAU.ecouter.
+  Object.defineProperty(mod, 'reseauAPart', { value: () => aPart, enumerable: false });
   // Pour les essais de sûreté : le MÊME traitement que le serveur de démarrage, sans rien écouter (aucun port, aucun PC).
   Object.defineProperty(mod, 'serveurSimule', { value: (ctx: ModCtx) => creerHttp(ctx), enumerable: false });
   return mod;
@@ -1385,7 +1541,7 @@ export function postesVusAction(source: (ctx: ModCtx) => (SourcePostes & { allum
       let vm = false;
       try { vm = ctx.modules().some((m) => m.id === 'ymir' && m.actions.some((a) => a.id === 'creer_machine')); } catch { vm = false; }
       const n = postes.filter((p) => p.auMenu).length;
-      return { ok: true, text: `${postes.length} PC connu(s) du démarrage réseau · ${n} au menu en ce moment${src.allume ? '' : ' · Genèse est éteint'}`, data: { allume: Boolean(src.allume), mode: ['proxy', 'odin', 'aucun'].includes(src.mode) ? src.mode : 'proxy', postes, vm } };
+      return { ok: true, text: `${postes.length} PC connu(s) du démarrage réseau · ${n} au menu en ce moment${src.allume ? '' : ' · Genèse est éteint'}`, data: { allume: Boolean(src.allume), mode: ['proxy', 'complet', 'odin', 'aucun'].includes(src.mode) ? src.mode : 'proxy', postes, vm } };
     },
   };
 }

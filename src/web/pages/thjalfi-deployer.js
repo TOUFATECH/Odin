@@ -74,7 +74,7 @@
     'postes.titre': 'Quels PC ?', 'postes.direct': 'en direct',
     'postes.lead': 'Les PC qui ont démarré par le réseau. Allume un PC et choisis « démarrer par le réseau » dans son menu de démarrage : il apparaît ici tout seul.',
     'serveur.texte': 'Genèse répond aux PC du réseau · ', 'serveur.allume': 'allumé', 'serveur.eteint': 'éteint',
-    'serveur.mode.proxy': 'à côté de la box', 'serveur.mode.odin': 'adresses données par Odin', 'serveur.mode.aucun': 'réglé dans ta box',
+    'serveur.mode.proxy': 'à côté de la box', 'serveur.mode.complet': 'réseau à part', 'serveur.mode.odin': 'adresses données par Odin', 'serveur.mode.aucun': 'réglé dans ta box',
     'serveur.regler': 'Régler', 'serveur.eteint.aide': 'Genèse est éteint : les PC ne reçoivent pas le menu. Allume-le dans l\'onglet « Tout ».',
     'postes.groupe': 'PC du réseau', 'postes.charge': 'Odin regarde les PC du réseau…',
     'postes.vide': 'Aucun PC vu pour l\'instant. Allume un PC et choisis « démarrer par le réseau » : il apparaît ici tout seul.',
@@ -687,7 +687,7 @@
       sec.append(el('div', { class: 'dp-srv', 'data-f': 'serveur' }, ic('net', 18),
         el('span', { class: 'grow' }, mot('serveur.texte'), el('b', {}, mot(d.allume ? 'serveur.allume' : 'serveur.eteint'))),
         el('span', { class: `dp-tag${d.allume ? ' ok' : ''}` }, mot(`serveur.mode.${d.mode || 'proxy'}`)),
-        el('button', { type: 'button', class: 'dp-btn', 'data-f': 'regler', onclick: () => { if (H && H.aller) H.aller('tout'); } }, mot('serveur.regler'))));
+        el('button', { type: 'button', class: 'dp-btn', 'data-f': 'regler', onclick: () => { if (H && H.aller) H.aller(W.OdinGeneseReseau ? 'reseau' : 'tout'); } }, mot('serveur.regler'))));
       if (!d.allume) sec.append(el('p', { class: 'dp-msg' }, mot('serveur.eteint.aide')));
     }
     const grille = el('div', { class: 'dp-pcs', role: 'group', 'aria-label': mot('postes.groupe'), 'data-f': 'pcs' });
