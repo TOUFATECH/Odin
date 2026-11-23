@@ -15,6 +15,20 @@
     return n;
   };
   const sv = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) n.setAttribute(k, v); return n; };
+  // ---------------- Dictionnaire : les textes neufs de l'éditeur (les bulles après un test), à traduire ensemble.
+  // {b} : le nom du bloc ; {n} : un nombre ; {s} : la marque du pluriel ; {e} : le message d'erreur ; {o} : une sortie ; {d} : le détail.
+  const MOTS = {
+    'bulle.elements': '{b} : {n} élément{s} au dernier passage',
+    'bulle.erreur': '{b} : erreur au dernier passage, {e}',
+    'bulle.sortie': '{o} : {n}',
+    'bulle.detail': ' ({d})',
+    'bulle.pluriel': 's',
+  };
+  const mot = (k, v = {}) => String(MOTS[k] ?? k).replace(/\{(\w+)\}/g, (_m, x) => String(v[x] ?? ''));
+  // La langue de la page (son attribut lang ; sinon celle du navigateur) : les nombres et le pluriel la suivent, rien en dur.
+  const langue = () => { try { return document.documentElement?.lang || undefined; } catch { return undefined; } };
+  const nombre = (n) => { try { return n.toLocaleString(langue()); } catch { return String(n); } };
+  const unSeul = (n) => { try { return new Intl.PluralRules(langue()).select(n) === 'one'; } catch { return n <= 1; } };
 
   // ---------------- Le « + » : où poser un bloc, à quoi le relier (fonctions pures, sans document).
   const NODE_W = 190, PAS_X = 280, PAS_Y = 110;
@@ -136,6 +150,32 @@
         return r(g, c - (i > 0 ? ECART_SORTIES / 2 : z / 2), Math.max(g + z, SORTIE_X + z / 2), c + (i < n - 1 ? ECART_SORTIES / 2 : z / 2));
       }),
     };
+  }
+  // ---------------- Les bulles après un test (fonctions pures ; croquis validé : à droite de la pastille, hors du rond).
+  // La zone de la bulle fait 44 px à l'écran (zoneToucher). Son bord gauche : BULLE_G (à droite de la pastille des
+  // réglages manquants, 118 + 22 + 2), jamais sur la zone du « ⋯ » ; son bord bas : 10 px (comme le « ⋯ »), jamais sur
+  // la zone de la première sortie. Elle ne touche donc ni le « ⋯ », ni le « + », ni les ronds à relier, ni la marque de
+  // note (en haut à gauche).
+  const BULLE_G = 142, BULLE_B = 10;
+  /** Le haut de la zone de la première sortie d'un bloc à m sorties (sans le zoom) : ce qui borne la bulle par le bas. */
+  const hautPremiereSortie = (m = 1) => MI_ROND + decalageSortie(0, Math.max(1, m));
+  /** Le rectangle de la bulle ({ g, h, d, b }, depuis le coin haut-gauche de la case dessinée), au zoom k, pour m sorties. */
+  function zoneBulle(k = 1, m = 1) {
+    const z = zoneToucher(k), g = Math.max(BULLE_G, NODE_W / 2 + z / 2), b = Math.min(BULLE_B, hautPremiereSortie(m) - z / 2);
+    return { g, h: b - z, d: g + z, b };
+  }
+  /**
+   * La bulle d'un bloc d'après son dernier passage (`run`, tel que le moteur le rend : count, error, outputs) ; null s'il
+   * n'a pas tourné. → { texte (le nombre, ou « ! »), erreur, nom (nom lisible), sorties ([{ sortie, n }] si le bloc a
+   * plusieurs sorties et que le total se retrouve ; sinon rien : plusieurs passages, on ne sait pas) }.
+   */
+  function bulleDe(nom, run, sorties = []) {
+    if (!run) return null;
+    if (run.error) return { texte: '!', erreur: true, nom: mot('bulle.erreur', { b: nom, e: String(run.error).slice(0, 160) }), sorties: [] };
+    const n = Number(run.count) || 0, o = Array.isArray(run.outputs) ? run.outputs : [];
+    const parSortie = sorties.length > 1 && o.length === sorties.length && o.reduce((s, x) => s + (Number(x) || 0), 0) === n ? sorties.map((s, i) => ({ sortie: s, n: Number(o[i]) || 0 })) : [];
+    const detail = parSortie.length ? mot('bulle.detail', { d: parSortie.map((p) => mot('bulle.sortie', { o: p.sortie, n: nombre(p.n) })).join(', ') }) : '';
+    return { texte: nombre(n), erreur: false, nom: mot('bulle.elements', { b: nom, n: nombre(n), s: unSeul(n) ? '' : mot('bulle.pluriel') }) + detail, sorties: parSortie };
   }
   /** Le bloc sous le point (x, y) de l'écran parmi `boites` ({ name, left, top, width, height }) : le dernier dessiné l'emporte. */
   function blocSous(boites, x, y) {
@@ -569,11 +609,12 @@
 .dr-rond{position:absolute;left:47px;top:0;width:96px;height:96px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,var(--dr-c0,var(--accent)),var(--dr-c1,var(--accent)));box-shadow:0 0 0 6px color-mix(in srgb,var(--dr-c0,var(--accent)) 28%,var(--panel)),var(--shadow)}
 .dr-node.sel .dr-rond{box-shadow:0 0 0 6px var(--accent),var(--shadow)}
 .dr-node.ok .dr-rond{box-shadow:0 0 0 6px var(--good),var(--shadow)}.dr-node.err .dr-rond{box-shadow:0 0 0 6px var(--bad),var(--shadow)}
+.dr-node.sel.ok .dr-rond{box-shadow:0 0 0 4px var(--good),0 0 0 6px var(--panel),0 0 0 10px var(--accent),var(--shadow)}.dr-node.sel.err .dr-rond{box-shadow:0 0 0 4px var(--bad),0 0 0 6px var(--panel),0 0 0 10px var(--accent),var(--shadow)}
 .dr-node:focus-visible{outline:none}.dr-node:focus-visible .dr-rond{outline:2px solid var(--accent);outline-offset:9px}
 .dr-horloge{position:absolute;left:-8px;top:58px;width:40px;height:40px;box-sizing:border-box;border-radius:50%;background:linear-gradient(145deg,var(--dr-c0,var(--accent)),var(--dr-c1,var(--accent)));box-shadow:0 0 0 2px var(--panel2);pointer-events:none}
 .dr-horloge::before{content:'';position:absolute;inset:8px;border:2.5px solid #fff;border-radius:50%}.dr-horloge::after{content:'';position:absolute;left:18px;top:12px;width:6px;height:9px;border-left:2.5px solid #fff;border-bottom:2.5px solid #fff}
 .dr-node small{display:block;font-size:11.5px;line-height:16px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dr-node b{display:block;font-size:14px;line-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dr-node .dr-cnt{display:block;font-size:11.5px;line-height:16px;color:var(--good);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dr-node.err .dr-cnt{color:var(--bad)}
+.dr-node .dr-cnt{display:block;font-size:11.5px;line-height:16px;color:color-mix(in srgb,var(--good) 55%,var(--ink));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dr-node.err .dr-cnt{color:color-mix(in srgb,var(--bad) 55%,var(--ink))}
 .dr-port{--z:var(--dr-z,44px);--dh:calc(var(--z) / 2);--db:calc(var(--z) / 2);--cx:calc(var(--z) / 2);position:absolute;width:var(--z);height:calc(var(--dh) + var(--db));border:0;border-radius:0;background:none;padding:0;cursor:crosshair;touch-action:none}
 .dr-port::before{content:'';position:absolute;left:calc(var(--cx) - 6px);top:calc(var(--dh) - 6px);width:12px;height:12px;box-sizing:border-box;border-radius:50%;border:2px solid var(--accent);background:var(--panel)}
 .dr-port.in{left:calc(25px - var(--z) / 2);top:calc(48px - var(--z) / 2)}.dr-port.out{--g:max(173px,calc(195px - var(--z) / 2));--cx:calc(195px - var(--g));left:var(--g);width:max(var(--z),calc(195px + var(--z) / 2 - var(--g)))}.dr-port.armed::before{background:var(--accent)}
@@ -644,6 +685,12 @@
 .dr-note-ed label{font-size:13.5px;font-weight:600}.dr-note-ed textarea{box-sizing:border-box;width:100%;min-height:130px;padding:10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);color:var(--ink);font:inherit;font-size:14.5px;resize:vertical}
 .dr-note-ed .dr-row .btn{min-height:44px}
 .dr-seul{position:absolute;left:32px;top:23px;min-width:22px;height:22px;box-sizing:border-box;padding:0 6px;border-radius:11px;background:var(--good);color:var(--panel);font-size:12px;font-weight:700;line-height:22px;text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--panel);transform-origin:100% 100%;transform:scale(var(--dr-ik,1))}.dr-seul.bad{background:var(--bad)}
+.dr-bulle{position:absolute;z-index:1;width:var(--dr-z,44px);height:var(--dr-z,44px);left:max(142px,calc(95px + var(--dr-z,44px) / 2));top:calc(min(10px,calc(var(--dr-sh,48px) - var(--dr-z,44px) / 2)) - var(--dr-z,44px));padding:0;border:0;background:none;display:grid;place-items:end start;cursor:pointer}
+.dr-bulle span{min-width:26px;height:24px;padding:0 7px;box-sizing:border-box;border-radius:12px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font-size:12.5px;font-weight:700;line-height:21px;text-align:center;white-space:nowrap;box-shadow:var(--shadow);transform-origin:0 100%;transform:scale(var(--dr-ik,1))}
+.dr-bulle.bad span{background:var(--bad);border-color:var(--bad);color:var(--panel)}
+.dr-bulle:hover span{border-color:var(--accent)}.dr-bulle:focus-visible{outline:none}.dr-bulle:focus-visible span{outline:2px solid var(--accent);outline-offset:2px}
+.dr-node.ok .dr-nom::before{content:'✓ ';color:var(--good)}
+.dr-port .dr-pl .dr-pn{margin-left:4px;padding:0 4px;border-radius:6px;background:var(--panel);border:1px solid var(--line);color:var(--ink);font-weight:700}
 #v-flows .dr-bar .btn.dr-hist{min-height:44px;min-width:44px}.dr-bar .btn.dr-hist[disabled]{opacity:.45;cursor:default}
 .dr-actions{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}.dr-actions #drSt{flex:1 1 220px;min-width:0;align-self:center;overflow-wrap:anywhere}
 @media (max-width:600px){.dr-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.dr-actions .btn{white-space:normal;min-height:44px}.dr-actions #drSt{grid-column:1/-1}}
@@ -817,7 +864,10 @@
       const nom = seulDe(x); if (!flow?.nodes?.some((m) => m.name === nom)) continue; // (bloc renommé ou retiré depuis)
       nodes[nom] = x.nodes?.[nom] ?? { count: 0, items: [], error: x.error || 'il n\'a pas tourné' }; seuls.add(nom);
     }
-    return { last: base || seuls.size ? { ...(base ?? {}), nodes } : null, seuls };
+    // Enregistrée après ce passage (`updatedAt` plus récent que son départ) : les sorties d'un bloc ont pu changer (les cas
+    // d'un aiguillage…) ; le nombre par sortie ne se dit plus (le total, lui, reste celui du passage).
+    const change = Date.parse(flow?.updatedAt) > Date.parse(base?.startedAt);
+    return { last: base || seuls.size ? { ...(base ?? {}), nodes, ...(change ? { sortiesDouteuses: true } : {}) } : null, seuls };
   }
   async function openFlow(id) {
     const r = await api(`/api/draupnir/flow?id=${encodeURIComponent(id)}`); if (!r.ok) { await window.OdinDialog.alert(r.error); return; }
@@ -895,10 +945,18 @@
     const aNote = typeof n.note === 'string' && n.note !== '', idNote = aNote ? `drnote-${wf.nodes.indexOf(n)}` : undefined;
     // Exécuté seul : un rond avec le nombre d'éléments rendus (« ! » en cas d'erreur), dit aussi au lecteur d'écran.
     const seul = run && seuls.has(n.name) ? (run.error ? `exécuté seul : erreur, ${run.error}` : `exécuté seul : ${run.count} élément(s)`) : '';
+    // Après un test : une bulle avec le nombre d'éléments rendus (« ! » en cas d'erreur), à droite de la pastille, hors du
+    // rond ; un vrai bouton (44 px, nommé) qui choisit le bloc et montre « Dernier passage ». Un bloc exécuté seul garde
+    // son rond à la place (un seul nombre par bloc).
+    const sorties = outputsOf(n), bu = seul ? null : bulleDe(n.name, run, last?.sortiesDouteuses ? [] : sorties);
+    const bulleBtn = bu ? el('button', { class: `dr-bulle${bu.erreur ? ' bad' : ''}`, type: 'button', title: bu.nom, 'aria-label': bu.nom, style: `--dr-sh:${hautPremiereSortie(sorties.length)}px`, onclick: (e) => {
+      e.stopPropagation(); sel = n.name; draw(); drawSide();
+      if (!e.detail) elems.get(n.name)?.querySelector('.dr-bulle')?.focus(); // (au clavier : le focus reste sur la bulle)
+    } }, el('span', { 'aria-hidden': 'true' }, bu.texte)) : null;
     const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': `${ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`}${seul ? `, ${seul}` : ''}`, 'aria-describedby': idNote, style: `left:${n.position?.[0] ?? 0}px;top:${yDessin(n.position?.[1])}px` },
       rond, ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null, pastille,
       aNote ? el('span', { class: 'dr-note-m', 'aria-hidden': 'true' }) : null, aNote ? el('span', { class: 'sr', id: idNote }, `Note : ${n.note}`) : null,
-      seul ? el('span', { class: `dr-seul${run.error ? ' bad' : ''}`, title: `${n.name} : ${seul}`, 'aria-hidden': 'true' }, run.error ? '!' : String(run.count)) : null);
+      seul ? el('span', { class: `dr-seul${run.error ? ' bad' : ''}`, title: `${n.name} : ${seul}`, 'aria-hidden': 'true' }, run.error ? '!' : String(run.count)) : null, bulleBtn);
     // Le bouton « ⋯ » : le menu du bloc. Zone de 44 px à l'écran (comme les ronds), au milieu du bord haut, loin des ronds, et au-dessus du bloc : même dézoomé, le corps du bloc reste à toucher (choisir, glisser).
     // Un toucher dessus ouvre le menu (pointerup plus bas) ; un geste parti de lui fait glisser le bloc, comme partout sur le bloc.
     const mb = el('button', { class: 'dr-mb', type: 'button', title: 'Menu du bloc', 'aria-haspopup': 'menu', 'aria-label': `Menu de ${n.name}`, onclick: (e) => {
@@ -910,11 +968,10 @@
     // Les ronds : la zone touchable fait 44 px à l'écran quel que soit le zoom (--dr-z) ; le rond dessiné fait 12 px
     // (::before), centré en (25, 48) pour l'entrée, en x 195 pour une sortie (à mi-hauteur du rond, décalé par styleSortie). Entrée touchée sans sortie armée : comme toucher le bloc (sa zone mord sur le bloc).
     if (!c?.trigger) d.append(el('button', { class: 'dr-port in', type: 'button', 'aria-label': `Entrée de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (armed) { link(armed.node, armed.out, n.name); armed = null; draw(); } else { sel = n.name; draw(); drawSide(); } } }));
-    const sorties = outputsOf(n);
     // Plusieurs sorties : leurs ronds s'empilent, centrés sur le milieu du rond, à droite du « + » ; les zones de deux
     // sorties voisines se partagent l'écart (le rond le plus proche l'emporte).
     // Une sortie : un toucher l'arme (puis un toucher sur une entrée relie), ou on en TIRE un fil jusqu'à un bloc.
-    sorties.forEach((o, i, all) => { const b = el('button', { class: `dr-port out${armed && armed.node === n.name && armed.out === i ? ' armed' : ''}`, type: 'button', style: styleSortie(i, all.length), 'aria-label': `Sortie ${o} de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (e.timeStamp - tireFin < 500) return; armed = armed && armed.node === n.name && armed.out === i ? null : { node: n.name, out: i }; draw(); } }, all.length > 1 ? el('span', { class: 'dr-pl' }, o) : null); tirable(b, n, i); d.append(b); });
+    sorties.forEach((o, i, all) => { const b = el('button', { class: `dr-port out${armed && armed.node === n.name && armed.out === i ? ' armed' : ''}`, type: 'button', style: styleSortie(i, all.length), 'aria-label': `Sortie ${o} de ${n.name}`, onclick: (e) => { e.stopPropagation(); if (e.timeStamp - tireFin < 500) return; armed = armed && armed.node === n.name && armed.out === i ? null : { node: n.name, out: i }; draw(); } }, all.length > 1 ? el('span', { class: 'dr-pl' }, o, bu?.sorties[i] ? el('span', { class: 'dr-pn', 'aria-hidden': 'true' }, String(bu.sorties[i].n)) : null) : null); tirable(b, n, i); d.append(b); });
     // Le « + » du côté de la sortie : un bloc de plus, posé à droite et relié à celui-ci.
     d.append(el('button', { class: 'dr-plus', type: 'button', title: 'Ajouter un bloc à la suite', 'aria-label': `Ajouter un bloc après ${n.name}`, onclick: (e) => { e.stopPropagation(); void ouvrirChoix({ de: { node: n.name, out: sortieDuPlus(wf, n.name, sorties.length) } }); } }, el('span', { 'aria-hidden': 'true' }, '+')));
     let start = null, long = 0;
@@ -1158,6 +1215,9 @@
     const world = $('#drCanvas .dr-world'); if (!world) return;
     fermerMenu(); // (le schéma change : le fil du menu peut ne plus exister)
     survol = null; // (les blocs sont refaits : celui qui était survolé ou avait le focus n'existe plus ; la bulle suit le bloc choisi)
+    // Un bloc qui n'est plus dans le schéma (retiré, ou défait par « Annuler ») oublie son dernier passage : un bloc posé
+    // plus tard sous le même nom n'a pas tourné et n'en hérite pas (ni bulle, ni ligne de résultat, ni « Dernier passage »).
+    if (last?.nodes) for (const nom of Object.keys(last.nodes)) if (!wf.nodes.some((x) => x.name === nom)) { delete last.nodes[nom]; seuls.delete(nom); }
     elems = new Map();
     world.replaceChildren(...wf.nodes.map((n) => { const d = nodeEl(n); elems.set(n.name, d); return d; })); lines();
     // Fenêtre vide : un grand « + » au centre, pour le premier bloc.
@@ -1539,7 +1599,8 @@
       if (cible) {
         const auto = infoAppli(cible, applisListe)?.auto, r = remplacer(wf, cible.name, c, auto, applisListe);
         if (!r.ok) { void window.OdinDialog?.alert(r.error); return; }
-        fermerChoix(); if (r.change) dirty = true; if (r.nom) rename(cible, r.nom, { donnees: false }); noter(`changer « ${cible.name} »`);
+        // (une autre fonction : ce bloc n'a pas tourné comme il est ; son dernier passage ne se montre plus)
+        fermerChoix(); if (r.change) { dirty = true; if (last?.nodes) { delete last.nodes[cible.name]; seuls.delete(cible.name); } } if (r.nom) rename(cible, r.nom, { donnees: false }); noter(`changer « ${cible.name} »`);
         sel = cible.name; draw(); drawSide();
         const s = $('#drSt'); if (s && r.change) s.textContent = `✓ « ${cible.name} » changé.`;
         $('#drSide .dr-app button')?.focus?.();
@@ -1619,6 +1680,7 @@
     if (wf.connections[from]) { wf.connections[to] = wf.connections[from]; delete wf.connections[from]; }
     for (const list of Object.values(wf.connections)) for (const t of list) for (const l of t) if (l.node === from) l.node = to;
     if (outs[from]) { outs[to] = outs[from]; delete outs[from]; }
+    if (last?.nodes?.[from]) { last.nodes[to] = last.nodes[from]; delete last.nodes[from]; if (seuls.delete(from)) seuls.add(to); } // (c'est le même bloc : son passage le suit)
     if (armed?.node === from) armed = null;
     if (sel === from) sel = to;
     dirty = true; if (donnees) noter(`renommer « ${from} » en « ${to} »`); draw();
@@ -1651,6 +1713,11 @@
     const s = $('#drSt'); if (s) s.textContent = 'Test en cours…';
     const r = await api('/api/draupnir/run', { id: wf.id, stopAfter });
     if (!r.ok) { if (s) s.textContent = `✗ ${r.error}`; return; }
+    // Les sorties de l'automatisation qui vient de tourner (les cas d'un aiguillage changés avant « Tester ») : le nombre
+    // par sortie se met sous le bon nom. Le serveur ne les rend qu'avec l'automatisation ; sans réponse, celles d'avant.
+    const w = wf, f = await api(`/api/draupnir/flow?id=${encodeURIComponent(wf.id)}`).catch(() => null);
+    if (wf !== w) return; // (une autre automatisation a été ouverte entre-temps)
+    if (f?.ok && f.outputs && typeof f.outputs === 'object') outs = f.outputs;
     last = r.run; seuls = new Set(); if (s) s.textContent = `${r.run.status === 'succès' ? '✓' : '✗'} ${r.run.status} en ${r.run.ms} ms${r.run.error ? ` : ${r.run.error}` : ''}`;
     draw(); drawSide();
   }
@@ -1691,6 +1758,6 @@
     logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
       appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie,
       decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote, renommerDans, suivreRenommage,
-      entreeSeul, ceQuAgit, pareilQuEnregistre, dernierPassage, AGIT_TYPES: Object.keys(AGIT), copieDe, collerBloc, zoomer, MAX_HISTOIRE,
+      entreeSeul, ceQuAgit, pareilQuEnregistre, MOTS, bulleDe, zoneBulle, BULLE_G, dernierPassage, AGIT_TYPES: Object.keys(AGIT), copieDe, collerBloc, zoomer, MAX_HISTOIRE,
       ROND, ANNEAU, ICONE_ROND, HAUT_BLOC, HAUT_TESTE, ECHELLE_Y, PLUS_D, PLUS_X, ZONE_PLUS, SORTIE_X, ENTREE_X, PORT_D, ECART_SORTIES, yDessin, yEnregistre, departLien, arriveeLien, zonesBloc } };
 })();
