@@ -13,6 +13,7 @@ import { chiffrerChamp, dechiffrerChamp } from '../../../vault.ts';
 import { hoteInterdit } from '../../lien.ts';
 import type { MagasinVenus } from '../base.ts';
 import { norm } from '../bibliotheque.ts';
+import { lienPartageValide } from '../comete/bt/metainfo.ts';
 
 export type TypeSource = 'torznab' | 'newznab';
 export interface Source { id: string; nom: string; type: TypeSource; adresse: string; actif: boolean; priorite: number; aCle: boolean; recherches: number; trouves: number; derniereErreur?: string }
@@ -197,12 +198,19 @@ export function definitionDe(t: string): string | undefined {
 }
 /** Les réglages qui servent au choix. */
 export interface Choix { qualite: Qualite; tailleMaxOctets: number; langue?: 'vf' | 'toutes' }
+let partageAccepte = false;
+/** Comète dit que son moteur de partage de fichiers est là : les liens magnet et .torrent sont gardés. */
+export function accepterPartage(oui: boolean): void { partageAccepte = oui; }
 /**
- * Note un résultat pour une requête : `null` + la raison s'il est écarté. Seuls les liens directs sont pris tant que
- * le moteur de partage de fichiers n'est pas là. Le titre doit vraiment correspondre (mots du titre, année, épisode). Pur.
+ * Note un résultat pour une requête : `null` + la raison s'il est écarté. Les liens directs d'abord ; un lien de
+ * partage de fichiers (magnet, .torrent) est gardé quand le moteur de Comète est là, toujours APRÈS un lien direct qui
+ * convient. Le titre doit vraiment correspondre (mots du titre, année, épisode). Pur (sauf le drapeau du moteur).
  */
 export function noter(x: Resultat, r: Requete, c: Choix): { score: number | null; pourquoi?: string } {
-  if (!x.direct) return { score: null, pourquoi: x.genre === 'partage' ? 'partage de fichiers : pas encore dans Comète' : x.genre === 'nzb' ? 'NZB : pas pris en charge' : "pas un lien direct vers une vidéo" };
+  const partage = x.genre === 'partage';
+  if (partage && !partageAccepte) return { score: null, pourquoi: 'partage de fichiers : pas encore dans Comète' };
+  if (partage && !lienPartageValide(x.lien)) return { score: null, pourquoi: 'lien de partage de fichiers illisible ou invalide' };
+  if (!x.direct && !partage) return { score: null, pourquoi: x.genre === 'nzb' ? 'NZB : pas pris en charge' : "pas un lien direct vers une vidéo" };
   const t = norm(x.titre), mots = norm(r.titre).split(' ').filter(Boolean);
   if (!mots.every((w) => t.split(' ').includes(w))) return { score: null, pourquoi: 'un autre titre' };
   if (r.genre === 'film' && r.annee && /\b(19|20)\d{2}\b/.test(x.titre) && !x.titre.includes(String(r.annee))) return { score: null, pourquoi: 'une autre année' };
@@ -216,6 +224,7 @@ export function noter(x: Resultat, r: Requete, c: Choix): { score: number | null
   let score = 100 + rang * 10 - Math.abs(rang - (voulu || 3)) * 5;
   if (c.langue === 'vf' && /\b(multi|vff?|truefrench|french)\b/i.test(x.titre)) score += 30;
   if (x.taille) score += 1;
+  if (partage) score -= 1000; // un lien direct qui convient passe toujours devant
   return { score };
 }
 /** Le meilleur résultat (ou rien, avec les raisons des écartés). Pur. */

@@ -5,8 +5,8 @@
 // le scan du fichier pour que le titre apparaisse dans Vénus.
 //
 // Deux temps (choix du propriétaire) : d'abord les liens directs (HTTP/HTTPS) ; ensuite un moteur de partage de fichiers
-// écrit dans Odin. L'interface `MoteurComete` est prête à l'accueillir : un moteur s'inscrit (`inscrireMoteur`) pour un
-// genre de lien ; aujourd'hui seul le moteur « direct » existe, un lien de partage n'est donc jamais pris.
+// écrit dans Odin (bt/, lien magnet ou .torrent). Chaque moteur s'inscrit (`inscrireMoteur`) pour un genre de lien ;
+// le fichier qu'il rend passe ensuite par la même chaîne (vidéo seulement, antivirus, mise à part, rangement).
 //
 // Sûreté : seul le propriétaire ajoute un téléchargement (contrôlé par l'action) ; le chemin final est TOUJOURS sous le
 // dossier déclaré (aucun « .. », aucun séparateur venu d'un nom) ; taille maximale ; seule une vidéo est acceptée (nom,
@@ -23,8 +23,9 @@ import { quarantaineDabord } from '../../ullr/garde.ts';
 import { chiffrerChamp, dechiffrerChamp } from '../../../vault.ts';
 import { magasinVenus, type MagasinVenus } from '../base.ts';
 import { dossiers, EXT_VIDEO, rangerFichier, type Categorie, type Outils } from '../bibliotheque.ts';
-import type { Resultat } from '../delta/index.ts';
+import { accepterPartage, type Resultat } from '../delta/index.ts';
 import { fetchBorne, fetchVerifie, type Fetch } from '../reseau.ts';
+import { moteurPartage } from './bt/moteur.ts';
 
 export type EtatTelechargement = 'attente' | 'en_cours' | 'pause' | 'annule' | 'termine' | 'echec' | 'a_part';
 export const MOTS_ETAT: Record<EtatTelechargement, string> = { attente: 'en attente', en_cours: 'en cours', pause: 'en pause', annule: 'annulé', termine: 'terminé', echec: 'échec', a_part: 'mis à part (antivirus)' };
@@ -81,7 +82,7 @@ export interface Progression { (fait: number, total?: number): void }
 export interface MoteurComete {
   id: 'direct' | 'partage'; nom: string;
   sait(r: Pick<Resultat, 'genre' | 'lien'>): boolean;
-  telecharger(ctx: ModCtx, lien: string, o: { nom: string; dossier: string; signal: AbortSignal; progression: Progression; tailleMax: number; debitMo?: number; /** lève une erreur s'il n'y a pas la place pour `taille` octets */ place?: (taille: number) => void }): Promise<{ chemin: string; taille: number }>;
+  telecharger(ctx: ModCtx, lien: string, o: { nom: string; dossier: string; signal: AbortSignal; progression: Progression; tailleMax: number; debitMo?: number; /** lève une erreur s'il n'y a pas la place pour `taille` octets */ place?: (taille: number) => void; /** ce que le fichier deviendra (le moteur de partage y lit l'épisode voulu) */ cible?: Cible }): Promise<{ chemin: string; taille: number }>;
   /** efface ce qu'un téléchargement arrêté a laissé */
   nettoyer(dossier: string, nom: string): void;
 }
@@ -111,7 +112,11 @@ export const MOTEUR_DIRECT: MoteurComete = {
   nettoyer: (dossier, nom) => { for (const p of fichiersDeTravail(dossier, nom)) rmSync(p, { force: true }); rmSync(join(dossier, nom), { force: true }); },
 };
 const moteurs = new Map<string, MoteurComete>([['direct', MOTEUR_DIRECT]]);
-/** Inscrit un moteur (le moteur de partage de fichiers, au lot suivant). */
+// Le moteur de partage de fichiers (bt/) : le réseau vérifié de Comète pour les trackers HTTP ; les pairs locaux ne
+// sont permis qu'avec le réglage d'essai explicite (`reseauEssai`).
+moteurs.set('partage', moteurPartage({ reseau: () => reseauComete(), resoudre: (h) => resoudre(h), essai: () => reseauEssai !== undefined }));
+accepterPartage(true);
+/** Inscrit un moteur (remplace celui du même genre). */
 export function inscrireMoteur(m: MoteurComete): void { moteurs.set(m.id, m); }
 /** Le moteur qui sait prendre ce résultat (aucun pour un lien de partage aujourd'hui). */
 export const moteurPour = (r: Pick<Resultat, 'genre' | 'lien'>): MoteurComete | undefined => [...moteurs.values()].find((m) => m.sait(r));
@@ -191,7 +196,9 @@ export function ajouter(ctx: ModCtx, o: { resultat: Pick<Resultat, 'titre' | 'li
   if (!moteur) throw new Error(o.resultat.genre === 'partage' ? 'lien de partage de fichiers : le moteur de partage de Comète n\'est pas encore là' : 'pas un lien direct vers une vidéo : Comète ne sait pas le prendre');
   const r = reglagesComete(mag), max = r.tailleMaxGo * 1e9;
   if (o.resultat.taille && o.resultat.taille > max) throw new Error(`trop gros (${Math.round(o.resultat.taille / 1e9)} Go) pour la taille maximale (${r.tailleMaxGo} Go)`);
-  const ext = extensionDe(o.resultat.lien, o.resultat.titre); if (!ext) throw new Error('le lien ne mène pas à une vidéo : refusé');
+  // Un partage : l'extension n'est connue qu'avec sa description (le moteur ne garde qu'une vidéo) ; le chemin est
+  // vérifié ici avec « .mkv », puis de nouveau avec la vraie extension au rangement.
+  const ext = extensionDe(o.resultat.lien, o.resultat.titre) ?? (moteur.id === 'partage' ? '.mkv' : undefined); if (!ext) throw new Error('le lien ne mène pas à une vidéo : refusé');
   cheminFinal(o.racine, cheminRelatif(o.cible, ext)); // vérifié dès l'ajout : un titre piégé ne rentre pas dans la file
   const ouvert = fileComete(mag).find((t) => (OUVERTS.includes(t.etat) || t.etat === 'a_part') && t.cible.genre === o.cible.genre && t.cible.titre === o.cible.titre && t.cible.annee === o.cible.annee && t.cible.saison === o.cible.saison && t.cible.episode === o.cible.episode);
   if (ouvert) return ouvert;
@@ -234,12 +241,14 @@ async function lancer(ctx: ModCtx, id: string): Promise<void> {
     const r = reglagesComete(mag);
     // La place : le fichier entier, plus une marge, sur le disque d'Odin (où il arrive) et sur celui de la bibliothèque.
     const place = (taille: number) => { for (const d of [enCours(ctx), t0.racine]) { const l = placeLibre(existsSync(d) ? d : resolve(d, '..')); if (l !== undefined && l < taille + MARGE_DISQUE) throw new Error(`pas assez de place sur le disque de ${d === t0.racine ? 'la bibliothèque' : 'Odin'} (${Math.round(l / 1e9)} Go libres, il en faut ${Math.ceil((taille + MARGE_DISQUE) / 1e9)}) : rien n'est téléchargé`); } };
-    const recu = await moteur.telecharger(ctx, lienDe(mag, id), { nom: nomTravail, dossier: enCours(ctx), signal: slot.ac.signal, progression, tailleMax: r.tailleMaxGo * 1e9, place, ...(r.debitMo ? { debitMo: r.debitMo } : {}) });
+    const recu = await moteur.telecharger(ctx, lienDe(mag, id), { nom: nomTravail, dossier: enCours(ctx), signal: slot.ac.signal, progression, tailleMax: r.tailleMaxGo * 1e9, place, cible: t0.cible, ...(r.debitMo ? { debitMo: r.debitMo } : {}) });
+    const extRecue = EXT_VIDEO.has(extname(recu.chemin).toLowerCase()) ? extname(recu.chemin).toLowerCase() : extname(nomTravail);
     // Annulé pendant les vérifications d'après (antivirus, lecture) : il ne doit jamais finir rangé.
     const arrete = () => { if (slot.pourquoi === 'annule') { rmSync(recu.chemin, { force: true }); throw new Error('annulé'); } };
     arrete();
     const t = maj(mag, id, { fait: recu.taille, total: recu.taille, vitesse: 0, texte: 'vérification' })!;
-    if (t.tailleAnnoncee && Math.abs(recu.taille - t.tailleAnnoncee) > Math.max(1024 * 1024, t.tailleAnnoncee * 0.02)) { rmSync(recu.chemin, { force: true }); throw new Error(`la taille reçue (${recu.taille} octets) ne correspond pas à l'annonce de la source (${t.tailleAnnoncee}) : fichier effacé`); }
+    // (un partage annonce la taille de TOUT le partage ; seule la vidéo est prise, sa taille est garantie par l'empreinte)
+    if (t.moteur === 'direct' && t.tailleAnnoncee && Math.abs(recu.taille - t.tailleAnnoncee) > Math.max(1024 * 1024, t.tailleAnnoncee * 0.02)) { rmSync(recu.chemin, { force: true }); throw new Error(`la taille reçue (${recu.taille} octets) ne correspond pas à l'annonce de la source (${t.tailleAnnoncee}) : fichier effacé`); }
     const sig = signatureRefusee(debut(recu.chemin)); if (sig) { rmSync(recu.chemin, { force: true }); throw new Error(`le fichier reçu est ${sig}, pas une vidéo : effacé, rien n'est lancé`); }
     const p = await quarantaineDabord({ origine: 'Vénus · Comète · téléchargement', fichier: recu.chemin, source: lienSansParametres(lienDe(mag, id)) }, ctx);
     if (p.bloque) throw new Error(`bloqué par l'antivirus : ${p.menace ?? 'menace'} (en quarantaine)`);
@@ -250,12 +259,12 @@ async function lancer(ctx: ModCtx, id: string): Promise<void> {
     // L'antivirus a un doute (sans bloquer) : le fichier est MIS À PART, hors de la bibliothèque, jusqu'à l'accord du
     // propriétaire (comete_accepter ou comete_jeter).
     if (!p.ok) {
-      mkdirSync(aPart(ctx), { recursive: true, mode: 0o700 }); const ici = join(aPart(ctx), nomTravail); deplacer(recu.chemin, ici);
+      mkdirSync(aPart(ctx), { recursive: true, mode: 0o700 }); const ici = join(aPart(ctx), basename(recu.chemin)); deplacer(recu.chemin, ici);
       const x = maj(mag, id, { etat: 'a_part', texte: `mis à part : l'antivirus a un doute (${s((p as { texte?: string }).texte).slice(0, 120) || 'douteux'}) — à accepter ou jeter`, chemin: ici, vitesse: 0 })!;
       noter(mag, 'mis à part', { ...x, lien: lienDe(mag, id) }, 'antivirus douteux : attend ton accord');
       return;
     }
-    await rangerRecu(ctx, id, recu.chemin, extname(nomTravail), 'sain', o);
+    await rangerRecu(ctx, id, recu.chemin, extRecue, 'sain', o);
   } catch (err) {
     if (slot.pourquoi) {
       if (slot.pourquoi === 'annule') { moteur?.nettoyer(enCours(ctx), nomTravail); const x = maj(mag, id, { etat: 'annule', texte: 'annulé', vitesse: 0 }); if (x) { noter(mag, 'annulé', x); prevenir(ctx, x); } }

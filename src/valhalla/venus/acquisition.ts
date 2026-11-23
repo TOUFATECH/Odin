@@ -4,7 +4,8 @@
 //   →  Delta : les sources du propriétaire (format de recherche standard des indexeurs), le meilleur résultat
 //   →  Comète : la file, liens directs par les briques d'Atalante, taille vérifiée, antivirus, renommage, rangement
 //   →  le scan du fichier : le titre est visible et lisible dans Vénus.
-// Odyssée (livres) garde son chemin actuel. Le moteur de partage de fichiers de Comète vient au lot suivant.
+// Odyssée (livres) garde son chemin actuel. Comète prend aussi les liens magnet et .torrent par son propre moteur de
+// partage de fichiers (comete/bt/, écrit dans Odin, aucun logiciel à côté).
 //
 // Règles : seul le propriétaire règle les sources et lance un téléchargement ; un membre (si ses droits sur Vénus le
 // permettent) fait une demande, que le propriétaire valide ; aucune source, aucune adresse, aucune clé n'est fournie
@@ -26,7 +27,7 @@ export const BLOCS: Record<Bloc, { nom: string; role: string; alternative: strin
   sirius: { nom: 'Sirius', role: 'films suivis, qualité, dossier', alternative: 'Radarr' },
   pleiades: { nom: 'Pléiades', role: 'séries et animés suivis, épisodes manquants', alternative: 'Sonarr' },
   odyssee: { nom: 'Odyssée', role: 'livres et livres audio', alternative: 'Readarr' },
-  comete: { nom: 'Comète', role: 'file des téléchargements (liens directs par Atalante ; partage de fichiers au lot suivant)', alternative: 'qBittorrent' },
+  comete: { nom: 'Comète', role: 'file des téléchargements (liens directs par Atalante ; partage de fichiers par son propre moteur)', alternative: 'qBittorrent' },
 };
 export type EtatBloc = 'natif' | 'a_porter';
 export interface EtatAcquisition { bloc: Bloc; nom: string; etat: EtatBloc; delegue: boolean; note: string }

@@ -18,6 +18,7 @@ import { aVenir, chercherTitre, nouveautes, reglagesCatalogue, reglerCatalogue, 
 import { persona, personnes } from '../sso/etat.ts';
 import { ligneSuivi, reglagesSuivi, reglerSuivi, retirerSuivi, suivi, suivis, type Applicatif } from './suivis/index.ts';
 import { chercher, poserSource, retirerSource, sources, testerSource, type Requete } from './delta/index.ts';
+import { ligneReglagesPartage, reglagesPartage, reglerPartage, type ReglagesPartage } from './comete/bt/moteur.ts';
 import { accepter, annuler, fileComete, jeter, journalComete, ligneTelechargement, moteursInscrits, pause, reglagesComete, reglerComete, reprendre, reseauCatalogue as reseauDuCatalogue, retirer, telechargement } from './comete/index.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -157,7 +158,7 @@ export const actionsAcquisition: Action[] = [
       const g = genreDe(i.genre ?? i.type), sn = Number(s(i.saison)), ep = Number(s(i.episode));
       const req: Requete = g === 'film' ? { genre: 'film', titre: s(i.titre), ...(anneeDe(i.annee) ? { annee: anneeDe(i.annee) } : {}) } : { genre: Number.isInteger(ep) && ep > 0 ? 'episode' : 'saison', titre: s(i.titre), saison: Number.isInteger(sn) ? sn : 1, ...(ep > 0 ? { episode: ep } : {}) };
       const r = await chercher(mag(ctx), fetchSources(ctx), req);
-      return { text: [`${r.resultats.length} résultat(s)`, ...r.resultats.slice(0, 20).map((x, k) => `${k + 1}. ${x.titre} · ${x.sourceNom}${x.taille ? ` · ${(x.taille / 1e9).toFixed(1)} Go` : ''} · ${x.direct ? 'lien direct' : x.genre === 'partage' ? 'partage (pas encore)' : 'non pris'}`), ...r.erreurs.map((e) => `⚠ ${e}`)].join('\n'), data: { resultats: r.resultats.map(({ lien: _l, ...x }) => x), erreurs: r.erreurs } };
+      return { text: [`${r.resultats.length} résultat(s)`, ...r.resultats.slice(0, 20).map((x, k) => `${k + 1}. ${x.titre} · ${x.sourceNom}${x.taille ? ` · ${(x.taille / 1e9).toFixed(1)} Go` : ''} · ${x.direct ? 'lien direct' : x.genre === 'partage' ? 'partage de fichiers' : 'non pris'}`), ...r.erreurs.map((e) => `⚠ ${e}`)].join('\n'), data: { resultats: r.resultats.map(({ lien: _l, ...x }) => x), erreurs: r.erreurs } };
     } },
   // ---------------- Comète
   { id: 'comete_file', label: 'En téléchargement', what: 'Comète : la file (en attente, en cours, en pause, fini), progression et vitesse', words: ['file de comete', 'file de comète', 'en telechargement sur venus', 'en téléchargement sur vénus'],
@@ -171,13 +172,23 @@ export const actionsAcquisition: Action[] = [
     run: async (ctx, i) => { const t = await accepter(ctx, s(i.id)); return { ok: t.etat === 'termine', text: `${t.etat === 'termine' ? '✓' : '✗'} ${ligneTelechargement(t)}`, data: { telechargement: t } }; } },
   { id: 'comete_jeter', label: 'Jeter un fichier mis à part', what: "Un fichier dont l'antivirus doute : il est effacé, rien n'entre dans la bibliothèque (noté au journal)", params: [P_T_ID], quick: false, proprietaireSeul: true,
     run: (ctx, i) => { const t = jeter(ctx, s(i.id)); return { text: `🗑 ${ligneTelechargement(t)}`, data: { telechargement: t } }; } },
-  { id: 'comete_regler', label: 'Régler Comète', what: 'Taille maximale d\'un fichier (Go), téléchargements simultanés, débit maximum (Mo/s, 0 = libre)', quick: false, proprietaireSeul: true,
-    params: [{ key: 'taille_max_go', label: 'Taille maximale (Go)', kind: 'number', default: 60 }, { key: 'simultanes', label: 'Simultanés (1 à 4)', kind: 'number', default: 2 }, { key: 'debit_mo', label: 'Débit max (Mo/s, 0 = libre)', kind: 'number', default: 0 }],
-    run: (ctx, i) => { const r = reglerComete(mag(ctx), { ...(i.taille_max_go !== undefined && s(i.taille_max_go) ? { tailleMaxGo: Number(i.taille_max_go) } : {}), ...(i.simultanes !== undefined && s(i.simultanes) ? { simultanes: Number(i.simultanes) } : {}), ...(i.debit_mo !== undefined && s(i.debit_mo) ? { debitMo: Number(i.debit_mo) } : {}) }); return { text: `Comète : ${r.tailleMaxGo} Go au plus · ${r.simultanes} à la fois · ${r.debitMo ? `${r.debitMo} Mo/s` : 'débit libre'}.`, data: { reglages: r } }; } },
+  { id: 'comete_regler', label: 'Régler Comète', what: 'Taille maximale d\'un fichier (Go), téléchargements simultanés, débit maximum (Mo/s, 0 = libre) ; partage de fichiers : pairs à la fois, envoi aux autres pendant le téléchargement (Ko/s, ratio, durée), DHT, écoute entrante (port à ouvrir toi-même sur ta box)', quick: false, proprietaireSeul: true,
+    params: [{ key: 'taille_max_go', label: 'Taille maximale (Go)', kind: 'number', default: 60 }, { key: 'simultanes', label: 'Simultanés (1 à 4)', kind: 'number', default: 2 }, { key: 'debit_mo', label: 'Débit max (Mo/s, 0 = libre)', kind: 'number', default: 0 },
+      { key: 'pairs_max', label: 'Partage : pairs à la fois (1 à 50)', kind: 'number', default: 30 }, { key: 'envoi_pendant', label: 'Partage : envoyer aux autres pendant le téléchargement', kind: 'select', options: ['oui', 'non'], default: 'oui' },
+      { key: 'envoi_ko', label: 'Partage : envoi max (Ko/s)', kind: 'number', default: 100 }, { key: 'ratio', label: 'Partage : ratio max (0 = libre)', kind: 'number', default: 1 }, { key: 'duree_min', label: 'Partage : durée max de l\'envoi (min, 0 = le temps du téléchargement)', kind: 'number', default: 0 },
+      { key: 'dht', label: 'Partage : chercher aussi dans le DHT', kind: 'select', options: ['oui', 'non'], default: 'oui' }, { key: 'ecoute', label: 'Partage : écoute entrante', kind: 'select', options: ['non', 'oui'], default: 'non' }, { key: 'port_ecoute', label: 'Partage : port d\'écoute (1024 à 65535)', kind: 'number', default: 0 }],
+    run: (ctx, i) => {
+      const r = reglerComete(mag(ctx), { ...(i.taille_max_go !== undefined && s(i.taille_max_go) ? { tailleMaxGo: Number(i.taille_max_go) } : {}), ...(i.simultanes !== undefined && s(i.simultanes) ? { simultanes: Number(i.simultanes) } : {}), ...(i.debit_mo !== undefined && s(i.debit_mo) ? { debitMo: Number(i.debit_mo) } : {}) });
+      const ouiNon = (v: unknown) => (s(v) ? oui(v) : undefined), nb = (v: unknown) => (v !== undefined && s(v) ? Number(v) : undefined);
+      const p: Partial<ReglagesPartage> = {}, poser = <K extends keyof ReglagesPartage>(k: K, v: ReglagesPartage[K] | undefined) => { if (v !== undefined) p[k] = v; };
+      poser('maxPairs', nb(i.pairs_max)); poser('envoiPendant', ouiNon(i.envoi_pendant)); poser('envoiKo', nb(i.envoi_ko)); poser('ratio', nb(i.ratio)); poser('dureeMin', nb(i.duree_min)); poser('dht', ouiNon(i.dht)); poser('portEcoute', nb(i.port_ecoute)); poser('ecoute', ouiNon(i.ecoute));
+      const q = Object.keys(p).length ? reglerPartage(mag(ctx), p) : reglagesPartage(mag(ctx));
+      return { text: `Comète : ${r.tailleMaxGo} Go au plus · ${r.simultanes} à la fois · ${r.debitMo ? `${r.debitMo} Mo/s` : 'débit libre'}.\n${ligneReglagesPartage(q)}.`, data: { reglages: r, partage: q } };
+    } },
   { id: 'comete_journal', label: 'Journal des téléchargements', quick: false, external: true, what: 'Chaque ajout, fin, échec, annulation (sans paramètres d\'adresse)', proprietaireSeul: true,
     run: (ctx) => { const l = journalComete(mag(ctx)); return { text: l.length ? l.map((x) => `${new Date(x.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} · ${x.quoi} · ${x.titre}${x.texte ? ` · ${x.texte}` : ''}`).join('\n') : 'Aucun téléchargement noté.', data: { journal: l } }; } },
   { id: 'acquisition', label: 'Applicatifs de Vénus', quick: false, what: 'Hnoss, Sirius, Pléiades, Delta, Comète : ce qui marche dans Odin, les réglages',
-    run: (ctx) => { const m = mag(ctx), e = etatAcquisition(false); if (siennes(ctx)) return { text: e.map((x) => `${x.nom} : ${x.note}`).join('\n'), data: { blocs: e } }; return { text: e.map((x) => `${x.etat === 'natif' ? '✅' : '…'} ${x.nom} : ${x.note}`).join('\n'), data: { blocs: e, sirius: reglagesSuivi(m, 'sirius'), pleiades: reglagesSuivi(m, 'pleiades'), comete: reglagesComete(m), catalogue: catalogue(m), sources: sources(m).length } }; } },
+    run: (ctx) => { const m = mag(ctx), e = etatAcquisition(false); if (siennes(ctx)) return { text: e.map((x) => `${x.nom} : ${x.note}`).join('\n'), data: { blocs: e } }; return { text: e.map((x) => `${x.etat === 'natif' ? '✅' : '…'} ${x.nom} : ${x.note}`).join('\n'), data: { blocs: e, sirius: reglagesSuivi(m, 'sirius'), pleiades: reglagesSuivi(m, 'pleiades'), comete: reglagesComete(m), partage: reglagesPartage(m), catalogue: catalogue(m), sources: sources(m).length } }; } },
 ];
 /** Les identifiants des actions natives (bouton rapide toujours présent, sans le serveur à part). */
 export const IDS_ACQUISITION = actionsAcquisition.map((a) => a.id);
@@ -200,7 +211,8 @@ export const telechargementDe = (ctx: ModCtx, id: string) => telechargement(mag(
  *  delta_sources → data { sources[] } (jamais de clé) · delta_ajouter { nom, type, adresse, cle?, priorite?, actif? } · delta_retirer { id } · delta_tester { id } · delta_chercher { titre, genre, annee?, saison?, episode? }
  *  comete_file     → data { telechargements[] : { id, titre, cible, etat, fait, total, vitesse (octets/s), texte, chemin, bibliotheque } } (à relire toutes les 2 s tant que l'un est en_cours)
  *  état « a_part » : l'antivirus doute, le fichier attend → comete_accepter { id } (grave) ou comete_jeter { id }
- *  comete_pause / comete_reprendre / comete_annuler / comete_retirer { id } · comete_regler { taille_max_go?, simultanes?, debit_mo? } · comete_journal
- *  acquisition     → data { blocs, sirius, pleiades, comete, catalogue, sources }
+ *  comete_pause / comete_reprendre / comete_annuler / comete_retirer { id } · comete_journal
+ *  comete_regler { taille_max_go?, simultanes?, debit_mo?, pairs_max?, envoi_pendant? (oui/non), envoi_ko?, ratio?, duree_min?, dht? (oui/non), ecoute? (oui/non), port_ecoute? } → data { reglages, partage }
+ *  acquisition     → data { blocs, sirius, pleiades, comete, partage, catalogue, sources }
  */
 export const ACTIONS_ACQUISITION_DOC = true;
