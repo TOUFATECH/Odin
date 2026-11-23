@@ -15,8 +15,8 @@
 // Qui parle ? Chaque fiche garde les adresses IP d'où son poste a parlé (« ips ») : avant le chargement, celles qui
 // ont reçu le menu ; une fois le noyau chargé, celle-là seulement. Un retour d'avancement, un fichier de réponses
 // ou un fichier demandé sans adresse MAC n'est accepté que depuis ces adresses.
-import { randomBytes } from 'node:crypto';
-import type { Action, AlertIn, ModCtx, Section } from '../types.ts';
+import { createHash, randomBytes } from 'node:crypto';
+import type { Action, ActionResult, AlertIn, ModCtx, Section } from '../types.ts';
 import { journalDe } from '../base/journal.ts';
 import { ESSAIS_MAX, ESSAIS_MAX_IP, Essais, LONGUEUR_MIN, Passes, RALENTI, empreinte, menuFerme, refusMotDePasse, scriptAccepte, scriptRefus, scriptRefuse, tapeEnAzerty, verifier, type CleSecret, type Pour } from './cle.ts';
 import { Lots, type Genre } from './lots.ts';
@@ -55,7 +55,7 @@ export interface Passage {
 }
 export interface Poste extends Passage { mac: string; ip?: string; fw?: string; iso?: string; isoName?: string; step: string; steps: Array<{ at: number; step: string; detail?: string }>; started: number; updated: number; host?: string; token?: string; profil?: string; logiciels?: Array<{ nom: string; ok: boolean }> }
 /** Ce que le suivi ajoute à une ligne d'historique. */
-export interface FicheFin { id?: string; debut?: number; etapes?: Array<{ at: number; etape: string; detail?: string }>; recette?: string; mode?: string; lancePar?: string; installateur?: string; serie?: string; uuid?: string; marque?: string; modele?: string; fw?: string; raison?: string; arretePar?: string; octets?: number; /** essais ratés à la suite (poste qui tourne en boucle) : une seule ligne pour tous */ tours?: number }
+export interface FicheFin { id?: string; debut?: number; etapes?: Array<{ at: number; etape: string; detail?: string }>; recette?: string; mode?: string; lancePar?: string; installateur?: string; serie?: string; uuid?: string; marque?: string; modele?: string; fw?: string; raison?: string; arretePar?: string; octets?: number; /** essais ratés à la suite (poste qui tourne en boucle) : une seule ligne pour tous */ tours?: number; /** l'empreinte du jeton de l'installation (jamais le jeton) : relie la ligne à son déploiement (lot S7) */ jeton?: string }
 export interface Ligne extends FicheFin { at: number; mac: string; host?: string; ip?: string; iso: string; isoName: string; profil?: string; ms: number; result: Resultat; logiciels?: Array<{ nom: string; ok: boolean }> }
 /** Une entrée du fil durable (journal « thjalfi_etapes »). */
 export interface Evenement { at: number; quoi: 'étape' | 'début' | 'fin' | 'blocage' | 'déblocage' | 'annulation' | 'refus' | 'mot de passe refusé' | 'mot de passe accepté' | 'verrou' | 'suspension' | 'reprise' | 'poste inconnu' | 'réglage' | 'adresse'; mac?: string; id?: string; nom?: string; etape?: string; detail?: string }
@@ -158,6 +158,149 @@ export function csv(l: Ligne[]): string {
   return `${[tete, ...l.map((x) => [d(x.at), d(x.debut), x.host ?? '', x.mac, x.ip ?? '', x.serie ?? '', x.marque ?? '', x.modele ?? '', x.isoName, x.recette ?? '', x.mode ?? '', x.lancePar ?? '', x.installateur ?? '', String(minutes(x.ms)), LIBELLE[x.result] ?? x.result, x.raison ?? '', x.arretePar ?? ''])].map((r) => r.map(c).join(';')).join('\r\n')}\r\n`;
 }
 
+// ---------------- Suivi d'un déploiement, PC par PC (maquette « Genèse · Systèmes », lot S7) ----------------
+// Un déploiement = un lot d'autorisations (lot S6), une par PC. Pour chaque PC : six étapes nommées (Réseau, Chargeur,
+// Système, Installation, Logiciels, Fini), la ligne du moment, et SURTOUT si son disque a déjà été touché : avant que le
+// PC lise son fichier de réponses (étape « Installation »), rien n'est écrit sur son disque.
+/** Les six étapes montrées pour chaque PC, dans l'ordre. */
+export const ETAPES_NOMMEES = ['Réseau', 'Chargeur', 'Système', 'Installation', 'Logiciels', 'Fini'] as const;
+const INDEX_ETAPE: Record<string, number> = { 'démarrage réseau': 0, chargeur: 1, menu: 1, chargement: 2, installation: 3, logiciels: 4, fini: 5 };
+/** Une autorisation de déploiement, telle que le suivi la lit (voir AutorisationPc, thjalfi/server.ts). */
+export interface AutorisationSuivie { id: string; lot: string; mac: string; iso: string; isoNom?: string; facon: 'auto' | 'menu'; nom: string; profil?: string; windows?: Record<string, unknown>; cree: number; expire: number; consommee?: { at: number; mac: string; token?: string }; annulee?: { at: number; raison: string } }
+export type EtatPc = 'attente' | 'en cours' | 'prêt' | 'échec' | 'abandonnée' | 'annulée' | 'bloquée' | 'lancée' | 'expirée' | 'refusée' | 'remplacée';
+/** Le disque du PC : pas touché, déjà écrit (effacé), ou on ne peut pas savoir (installation lancée à la main sur place). */
+export type DisqueTouche = 'non' | 'oui' | 'peut-être';
+export interface PcSuivi {
+  autorisation: string; mac: string; nom: string; prochain: boolean; etat: EtatPc;
+  /** l'étape du moment (0 à 5), -1 : pas encore démarré */
+  etape: number; pct: number; ligne: string; raison: string; disque: DisqueTouche;
+  ip: string; host: string; debut?: number; finA?: number; expire: number;
+  envoye: { octets: number; taille: number } | null; logiciels: { ok: number; rates: number; noms: string[] };
+  deroulement: Array<{ at: number; etape: string; detail: string }>;
+  annulable: boolean; recommencable: boolean; relance: boolean;
+}
+export interface LotSuivi { lot: string; iso: string; isoNom: string; facon: 'auto' | 'menu'; cree: number; profil: string; compte: string; pcs: PcSuivi[]; chiffres: { total: number; attente: number; enCours: number; prets: number; rates: number; annulees: number }; fini: boolean; resteMin: number | null }
+/** L'empreinte courte d'un jeton d'installation : relie une ligne d'historique à son autorisation sans jamais garder le jeton. Pur. */
+export const empreinteJeton = (t: string) => createHash('sha256').update(`genese-jeton|${t}`).digest('hex').slice(0, 20);
+/** Le plus loin qu'un passage est allé (index des six étapes), sans compter les fins. Pur. */
+function plusLoin(steps: Array<{ step?: string; etape?: string }>): number {
+  let k = -1; for (const e of steps) { const n = INDEX_ETAPE[e.step ?? e.etape ?? '']; if (n !== undefined && n > k) k = n; } return k;
+}
+/**
+ * Le disque a-t-il été touché ? Il ne l'est qu'à partir du moment où le PC lit son fichier de réponses (étape
+ * « Installation ») ; une installation à la main (proposée au menu) peut écrire sans le dire : alors « peut-être ». Pur.
+ */
+export function disqueTouche(facon: 'auto' | 'menu', k: number, mode?: string): DisqueTouche {
+  if (k >= 3) return 'oui';
+  if (k === 2 && (facon === 'menu' || (mode !== undefined && mode !== '' && mode !== 'auto'))) return 'peut-être';
+  return 'non';
+}
+const ETAT_RESULTAT: Record<string, EtatPc> = { fini: 'prêt', 'échec': 'échec', 'sans nouvelles': 'abandonnée', 'annulée': 'annulée', 'bloquée': 'bloquée', 'lancée': 'lancée' };
+const RATES: EtatPc[] = ['échec', 'abandonnée', 'expirée', 'refusée', 'bloquée'];
+const FINIS: EtatPc[] = ['prêt', 'échec', 'abandonnée', 'annulée', 'bloquée', 'lancée', 'expirée', 'refusée', 'remplacée'];
+const RECOMMENCABLES: EtatPc[] = ['échec', 'abandonnée', 'annulée', 'expirée', 'refusée'];
+/** Refusé au démarrage parce que ce n'était pas le PC autorisé (son identité) : jamais de « Recommencer » en un clic. */
+const REFUS_IDENTITE = /^(adresse MAC différente|numéro de série (absent|différent)|identifiant de la carte mère (absent|différent)|taille du disque différente)/;
+/** Du texte venu d'un PC (le nom d'un logiciel…) : sans caractère de contrôle ni d'inversion du sens, borné. Pur. */
+const propre = (x: unknown, max = 160) => String(x ?? '').replace(/[\p{C}<>]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+/** Le passage (fiche vivante ou ligne d'historique) qui appartient à CETTE autorisation, ou rien. Pur. */
+function passageDe(a: AutorisationSuivie, mac: string, live: Record<string, Poste>, hist: Ligne[]): { m?: Poste; h?: Ligne } {
+  const c = a.consommee; if (!c || !mac) return {};
+  const m = live[mac], marge = 2000;
+  const vivant = m && (c.token ? m.token === c.token : m.started <= c.at + marge && Math.max(m.updated, m.vie ?? 0) >= c.at) ? m : undefined;
+  const emp = c.token ? empreinteJeton(c.token) : '';
+  const h = replier(hist).filter((x) => x.mac === mac && (x.jeton ? x.jeton === emp : (x.debut ?? x.at - x.ms) <= c.at + marge && x.at >= c.at)).at(-1);
+  return { m: vivant, h };
+}
+/** Un PC d'un déploiement, tel que la page le montre. Pur (aucun accès au disque, aucun secret : ni jeton ni mot de passe). */
+export function pcDeDeploiement(a: AutorisationSuivie, o: { live: Record<string, Poste>; hist: Ligne[]; now: number; relance?: boolean; bloque?: boolean }): PcSuivi {
+  const mac = a.mac || a.consommee?.mac || '';
+  const base: PcSuivi = { autorisation: a.id, mac, nom: a.nom, prochain: !a.mac, etat: 'attente', etape: -1, pct: 0, ligne: '', raison: '', disque: 'non', ip: '', host: '', expire: a.expire, envoye: null, logiciels: { ok: 0, rates: 0, noms: [] }, deroulement: [], annulable: false, recommencable: false, relance: Boolean(o.relance) };
+  if (!a.consommee) {
+    // Odin n'a rien effacé pour cette autorisation. Mais si ce PC a lancé un système à la main au menu ordinaire depuis
+    // (refusé, image pas encore prête…), son disque a peut-être été écrit : la page ne dit alors jamais « rien n'est effacé ».
+    const depuis = (a.annulee?.at ?? a.cree) - 2000, mv = mac ? o.live[mac] : undefined;
+    const manuel = Boolean(mac) && Boolean((mv && mv.started >= depuis && plusLoin(mv.steps.filter((e) => e.at >= depuis)) >= 2) || replier(o.hist).some((x) => x.mac === mac && (x.debut ?? x.at - x.ms) >= depuis && plusLoin(x.etapes ?? []) >= 2));
+    if (manuel) base.disque = 'peut-être';
+    const intact = manuel ? 'Odin n\'a rien effacé, mais un système a été lancé à la main sur ce PC depuis : son disque a peut-être été écrit' : 'rien n\'est effacé';
+    if (a.annulee) {
+      const r = a.annulee.raison ?? '';
+      base.etat = /^remplacée/.test(r) ? 'remplacée' : /\(PC [^)]*au démarrage\)/.test(r) ? 'refusée' : 'annulée';
+      base.raison = base.etat === 'refusée' ? `refusé au démarrage : ${r.replace(/\s*\(PC [^)]*au démarrage\)/, '')} — ${intact}` : r;
+      base.ligne = base.raison; base.finA = a.annulee.at;
+    } else if (o.now >= a.expire) { base.etat = 'expirée'; base.raison = `le PC n'a pas démarré par le réseau à temps : ${intact}`; base.ligne = base.raison; base.finA = a.expire; }
+    else { base.etat = 'attente'; base.ligne = a.mac ? 'Attend son démarrage par le réseau : allume-le' : 'Attend le prochain PC qui démarre par le réseau'; base.annulable = true; }
+    // Refusé parce que ce n'était pas le PC autorisé : « Recommencer » relirait l'identité de l'appareil qui a démarré
+    // (peut-être celui qui recopie l'adresse) ; vérifier le PC, puis passer par « Déployer ».
+    base.recommencable = Boolean(mac) && RECOMMENCABLES.includes(base.etat) && !o.relance && !o.bloque && !(base.etat === 'refusée' && REFUS_IDENTITE.test(a.annulee?.raison ?? ''));
+    return base;
+  }
+  const { m, h } = passageDe(a, mac, o.live, o.hist);
+  const steps = m ? m.steps.map((e) => ({ at: e.at, etape: e.step, detail: e.detail ?? '' })) : (h?.etapes ?? []).map((e) => ({ at: e.at, etape: e.etape, detail: e.detail ?? '' }));
+  // Le déroulement de CE déploiement : à partir du moment où le PC a eu son menu de déploiement.
+  base.deroulement = steps.filter((e) => e.at >= a.consommee!.at - 2000).map((e) => ({ at: e.at, etape: FINALES.includes(e.etape) ? (e.etape === 'fini' ? 'Fini' : e.etape) : ETAPES_NOMMEES[INDEX_ETAPE[e.etape] ?? 0], detail: propre(e.detail) })).slice(-30);
+  const k = plusLoin(steps.filter((e) => e.at >= a.consommee!.at - 2000).map((e) => ({ etape: e.etape }))), mode = m?.mode ?? h?.mode;
+  base.debut = m?.started ?? h?.debut ?? a.consommee.at;
+  base.ip = m?.ip ?? h?.ip ?? ''; base.host = nettoyer(m?.host ?? h?.host ?? '', 63);
+  const lg = m?.logiciels ?? h?.logiciels ?? []; base.logiciels = { ok: lg.filter((x) => x.ok).length, rates: lg.filter((x) => !x.ok).length, noms: lg.slice(-6).map((x) => nettoyer(x.nom, 60)) };
+  base.disque = disqueTouche(a.facon, Math.max(k, 1), mode);
+  if (m && !FINALES.includes(m.step)) {
+    const av = avancement(m);
+    base.etat = 'en cours'; base.etape = Math.max(1, INDEX_ETAPE[m.step] ?? 1); base.pct = av.pct; base.envoye = av.image ? { octets: av.image.octets, taille: av.image.taille } : null;
+    base.ligne = nettoyer(m.steps.at(-1)?.detail, 160) || ETAPES_NOMMEES[base.etape];
+    base.annulable = true;
+  } else {
+    const r: string | undefined = m ? (m.step === 'fini' ? 'fini' : m.fin ?? (m.step === 'échec' ? 'échec' : 'sans nouvelles')) : h?.result;
+    if (!r) { base.etat = 'en cours'; base.etape = 1; base.ligne = 'Menu envoyé : en attente de nouvelles du PC'; base.annulable = false; return base; }
+    base.etat = ETAT_RESULTAT[r] ?? 'abandonnée';
+    base.etape = base.etat === 'prêt' ? 5 : Math.max(0, k);
+    base.pct = base.etat === 'prêt' ? 100 : Math.max(0, Math.min(99, m ? avancement(m).pct : ({ 0: 2, 1: 8, 2: 10, 3: 50, 4: 85 } as Record<number, number>)[k] ?? 0));
+    base.finA = m ? Math.max(m.updated, m.vie ?? 0) : h?.at;
+    base.raison = base.etat === 'prêt' ? '' : nettoyer(m?.raison ?? h?.raison, 200) || (base.etat === 'abandonnée' ? 'plus de nouvelles du PC' : '');
+    base.ligne = base.etat === 'prêt' ? `Prêt${base.host ? ` · ${base.host}` : ''}${base.ip ? ` · ${base.ip}` : ''}` : base.raison || LIBELLE[r as Resultat] || r;
+  }
+  base.recommencable = RECOMMENCABLES.includes(base.etat) && !o.relance && !o.bloque && Boolean(mac);
+  return base;
+}
+/**
+ * Les déploiements récents (les plus récents d'abord), PC par PC, avec leurs chiffres et une estimation honnête du temps
+ * qui reste (la durée moyenne des installations réussies de ce système ; rien si Odin n'en a jamais vu). Pur.
+ */
+export function lotsDeDeploiement(autorisations: AutorisationSuivie[], o: { live: Record<string, Poste>; hist: Ligne[]; now: number; bloques?: Record<string, unknown>; max?: number; profilNom?: (id: string) => string | undefined }): LotSuivi[] {
+  const parLot = new Map<string, AutorisationSuivie[]>();
+  for (const a of autorisations) { if (!a || typeof a.lot !== 'string' || typeof a.id !== 'string') continue; const l = parLot.get(a.lot) ?? []; l.push(a); parLot.set(a.lot, l); }
+  const lots = [...parLot.values()].sort((x, y) => Math.max(...y.map((a) => a.cree)) - Math.max(...x.map((a) => a.cree))).slice(0, Math.max(1, o.max ?? 6));
+  const finies = replier(o.hist).filter((x) => x.result === 'fini' && o.now - x.at < 90 * 864e5);
+  return lots.map((l) => {
+    const a0 = l[0];
+    const pcs = l.map((a) => {
+      const mac = a.mac || a.consommee?.mac || '';
+      const relance = Boolean(mac) && autorisations.some((b) => b.id !== a.id && b.cree > a.cree && (b.mac || b.consommee?.mac) === mac);
+      return pcDeDeploiement(a, { live: o.live, hist: o.hist, now: o.now, relance, bloque: Boolean(mac && o.bloques?.[mac]) });
+    });
+    const n = (f: (p: PcSuivi) => boolean) => pcs.filter(f).length;
+    const memes = finies.filter((x) => x.iso === a0.iso && x.ms > 0), moy = memes.length ? memes.reduce((s0, x) => s0 + x.ms, 0) / memes.length : 0;
+    const enCours = pcs.filter((p) => p.etat === 'en cours');
+    const reste = moy && enCours.length ? Math.max(1, Math.round(Math.max(...enCours.map((p) => moy - (o.now - (p.debut ?? o.now)))) / 60_000)) : null;
+    const w = a0.windows && typeof a0.windows === 'object' ? a0.windows : undefined;
+    return {
+      lot: a0.lot, iso: a0.iso, isoNom: nettoyer(a0.isoNom ?? a0.iso, 120), facon: a0.facon === 'menu' ? 'menu' : 'auto', cree: Math.min(...l.map((a) => a.cree)),
+      profil: a0.profil ? nettoyer(o.profilNom?.(a0.profil) ?? '', 60) : '', compte: w && w.local !== false ? nettoyer(w.compte, 20) : '',
+      pcs, chiffres: { total: pcs.length, attente: n((p) => p.etat === 'attente'), enCours: enCours.length, prets: n((p) => p.etat === 'prêt'), rates: n((p) => RATES.includes(p.etat)), annulees: n((p) => p.etat === 'annulée' || p.etat === 'remplacée') },
+      fini: pcs.every((p) => FINIS.includes(p.etat)), resteMin: reste,
+    };
+  });
+}
+/** Ce que dit « Annuler » pour ce PC, selon son disque. Pur. */
+export function texteAnnulation(p: Pick<PcSuivi, 'nom' | 'etat' | 'disque' | 'prochain'>): string {
+  const qui = p.prochain && p.etat === 'attente' ? 'le prochain PC qui démarre' : p.nom;
+  if (p.etat === 'attente' && p.disque === 'peut-être') return `annuler le déploiement prévu pour ${qui} : Odin n'a rien effacé, mais un système a été lancé à la main sur ce PC depuis le menu : son disque a peut-être été écrit`;
+  if (p.etat === 'attente') return `annuler le déploiement prévu pour ${qui} : il n'a pas encore démarré, son disque n'est pas touché ; il redémarrera sur son système`;
+  if (p.disque === 'oui') return `arrêter l'installation de ${qui} : son disque est déjà effacé (ou en train de l'être) : l'installateur a déjà ses réponses, éteins le PC s'il continue seul ; il ne démarrera pas tant qu'il n'est pas réinstallé (« Recommencer »)`;
+  if (p.disque === 'peut-être') return `arrêter l'installation de ${qui} : elle a été lancée à la main sur le PC, Odin ne peut pas savoir si son disque a déjà été écrit ; éteins le PC s'il continue seul`;
+  return `arrêter l'installation de ${qui} : son disque n'est pas encore touché, il redémarrera sur son système`;
+}
+
 // ---------------- La fabrique : branchée sur le module par ses accès ----------------
 export interface SuiviDeps {
   live(ctx: ModCtx): Record<string, Poste>;
@@ -181,6 +324,13 @@ export interface SuiviDeps {
   look?(ctx: ModCtx): string[] | undefined;
   /** coupe les connexions HTTP ouvertes par cette adresse */
   couper?(ip: string): void;
+  /** Déployer (lot S7) : les autorisations de déploiement du lot S6 (fichier protégé), et leur réécriture */
+  autorisations?(ctx: ModCtx): AutorisationSuivie[];
+  saveAutorisations?(ctx: ModCtx, l: AutorisationSuivie[]): void;
+  /** « Recommencer » : une NOUVELLE autorisation pour ce PC, par le même chemin que « deployer » (phrase, identité, coffre) */
+  redeployer?(ctx: ModCtx, a: AutorisationSuivie, phrase: string): Promise<ActionResult>;
+  /** le nom d'un profil de logiciels (lot S4) */
+  profilNom?(ctx: ModCtx, id: string): string | undefined;
 }
 
 export function suivi(d: SuiviDeps) {
@@ -366,7 +516,7 @@ export function suivi(d: SuiviDeps) {
   }
   /** Ce qu'une fiche vivante apporte à sa ligne d'historique. */
   function fiche(m: Poste): FicheFin {
-    const x: FicheFin = { id: m.id, debut: m.started, etapes: m.steps.map((e) => ({ at: e.at, etape: e.step, ...(e.detail ? { detail: e.detail } : {}) })), recette: m.recette, mode: m.mode, lancePar: m.lancePar, installateur: m.installateur, serie: m.serie, uuid: m.uuid, marque: m.marque, modele: m.modele, fw: m.fw, raison: m.raison, arretePar: m.arretePar, octets: m.octets, tours: (m.tours ?? 1) > 1 ? m.tours : undefined };
+    const x: FicheFin = { id: m.id, debut: m.started, etapes: m.steps.map((e) => ({ at: e.at, etape: e.step, ...(e.detail ? { detail: e.detail } : {}) })), recette: m.recette, mode: m.mode, lancePar: m.lancePar, installateur: m.installateur, serie: m.serie, uuid: m.uuid, marque: m.marque, modele: m.modele, fw: m.fw, raison: m.raison, arretePar: m.arretePar, octets: m.octets, tours: (m.tours ?? 1) > 1 ? m.tours : undefined, jeton: m.token ? empreinteJeton(m.token) : undefined };
     return Object.fromEntries(Object.entries(x).filter(([, v]) => v !== undefined && v !== '')) as FicheFin;
   }
 
@@ -846,6 +996,61 @@ export function suivi(d: SuiviDeps) {
         return { text: r.texte, data: { ...r, lignes: r.lignes.slice(0, 500), csv: csv(r.lignes), fichier: `installations-genese-${new Date(now).toISOString().slice(0, 10)}.csv`, evenements: ev, alertes: ctx.alerts({ module: 'thjalfi', limit: 60 }).map((a) => ({ at: a.at, niveau: a.level, titre: a.title, detail: a.detail ?? '', fois: a.count })) } };
       } },
   ];
+
+  // ---------------- Le suivi d'un déploiement (lot S7) : PC par PC, Annuler, Recommencer ----------------
+  /** Un PC d'un déploiement, retrouvé par l'identifiant de son autorisation (relu à chaque fois, jamais celui de la page). */
+  const pcPour = (ctx: ModCtx, id: string): { a: AutorisationSuivie; p: PcSuivi } | undefined => {
+    if (!d.autorisations || !id || typeof id !== 'string') return undefined;
+    const l = d.autorisations(ctx), a = l.find((x) => x.id === id); if (!a) return undefined;
+    const mac = a.mac || a.consommee?.mac || '';
+    const relance = Boolean(mac) && l.some((b) => b.id !== a.id && b.cree > a.cree && (b.mac || b.consommee?.mac) === mac);
+    return { a, p: pcDeDeploiement(a, { live: d.live(ctx), hist: histo(ctx), now: t(ctx), relance, bloque: Boolean(mac && bloques(ctx)[mac]) }) };
+  };
+  if (d.autorisations) actions.push(
+    { id: 'deploiement_suivi', label: 'Suivi du déploiement', what: 'Les déploiements récents, PC par PC : six étapes (Réseau, Chargeur, Système, Installation, Logiciels, Fini), la ligne du moment, si le disque a déjà été touché, et le tableau de fin', read: true, quick: false, proprietaireSeul: true,
+      run: (ctx) => {
+        const now = t(ctx), lots = lotsDeDeploiement(d.autorisations!(ctx), { live: d.live(ctx), hist: histo(ctx), now, bloques: bloques(ctx), max: 6, profilNom: (id) => d.profilNom?.(ctx, id) });
+        const l0 = lots[0];
+        const text = !l0 ? 'Aucun déploiement récent.' : `${l0.isoNom} sur ${l0.chiffres.total} PC : ${l0.fini ? `${l0.chiffres.prets} prêt(s) sur ${l0.chiffres.total}` : `${l0.chiffres.enCours} en cours, ${l0.chiffres.attente} en attente, ${l0.chiffres.prets} prêt(s)`}${l0.chiffres.rates ? `, ${l0.chiffres.rates} à reprendre` : ''}.`;
+        return { text, data: { maintenant: now, suspendu: suspendu(ctx) ?? null, etapes: [...ETAPES_NOMMEES], lots } };
+      } },
+    { id: 'deploiement_annuler', label: 'Annuler le déploiement d\'un PC', what: 'Arrête le déploiement d\'un PC : s\'il n\'a pas encore démarré, son autorisation est annulée (rien n\'est effacé) ; s\'il s\'installe, plus aucun fichier ne lui est servi. Odin dit si son disque a déjà été touché.', quick: false, proprietaireSeul: true,
+      params: [{ key: 'autorisation', label: 'Le PC (identifiant de son autorisation)', kind: 'text', required: true }],
+      grave: (i, ctx) => { const x = ctx ? pcPour(ctx, s(i.autorisation)) : undefined; return x ? texteAnnulation(x.p) : 'annuler le déploiement d\'un PC'; },
+      run: (ctx, i) => {
+        const x = pcPour(ctx, s(i.autorisation)); if (!x) throw new Error('ce PC ne fait partie d\'aucun déploiement récent');
+        const { p } = x, now = t(ctx);
+        if (p.etat === 'attente') {
+          // Relu juste avant d'écrire : si le PC vient d'utiliser son autorisation, on ne réécrit rien par-dessus.
+          const l = d.autorisations!(ctx), a = l.find((y) => y.id === x.a.id);
+          if (!a || a.consommee || a.annulee || now >= a.expire) return { ok: false, text: 'Ce PC vient de démarrer (ou son autorisation a changé) : relis le suivi, puis annule de nouveau si besoin.' };
+          a.annulee = { at: now, raison: 'annulée depuis le suivi du déploiement' }; d.saveAutorisations!(ctx, l);
+          noter(ctx, { quoi: 'annulation', ...(p.mac ? { mac: p.mac } : {}), nom: p.nom, detail: `déploiement annulé avant le démarrage du PC (${nettoyer(a.isoNom ?? a.iso, 80)}) : rien n'est effacé` });
+          return { text: `✋ Déploiement annulé pour ${p.prochain ? 'le prochain PC qui démarre' : p.nom}. ${p.disque === 'peut-être' ? 'Odin n\'a rien effacé ; mais un système a été lancé à la main sur ce PC depuis le menu : son disque a peut-être été écrit.' : 'Il n\'avait pas démarré : son disque n\'est pas touché, il redémarrera sur son système.'}`, data: { disque: p.disque } };
+        }
+        if (p.etat !== 'en cours' || !p.mac) return { ok: false, text: `Rien à annuler : ${p.nom} est « ${p.etat} ».` };
+        const m = arreter(ctx, p.mac, 'annulée', 'installation annulée depuis le suivi du déploiement', 'Odin (suivi du déploiement)');
+        if (!m) return { ok: false, text: 'Rien à annuler : l\'installation vient de finir. Relis le suivi.' };
+        ctx.alert({ level: 'info', title: `✋ Installation annulée sur ${p.nom}`, detail: `Poste ${p.mac}${m.ip ? ` · ${m.ip}` : ''}${m.isoName ? ` · ${m.isoName}` : ''}. Plus aucun fichier ne lui est servi.`, key: `thjalfi-annulee-${m.id ?? p.mac}`, data: { mac: p.mac, id: m.id } });
+        const dit = p.disque === 'oui' ? 'Son disque était déjà effacé (ou en train de l\'être) : l\'installateur a déjà ses réponses, éteins le PC s\'il continue seul. Il ne démarrera pas tant qu\'il n\'est pas réinstallé (« Recommencer »).' : p.disque === 'peut-être' ? 'L\'installation avait été lancée à la main sur le PC : Odin ne sait pas si son disque a été écrit. Éteins le PC s\'il continue seul.' : 'Son disque n\'était pas encore touché : il redémarrera sur son système.';
+        return { text: `✋ Installation arrêtée sur ${p.nom}. ${dit}`, data: { disque: p.disque } };
+      } },
+    { id: 'recommencer', label: 'Recommencer le déploiement d\'un PC', what: 'Pour un PC dont l\'installation a raté, a été abandonnée ou annulée : une NOUVELLE autorisation, par le même chemin que « Déployer » (la phrase « effacer 1 pc », l\'identité du PC revérifiée à son démarrage, un nouveau mot de passe au coffre). Jamais un effacement sans nouvelle autorisation.', quick: false, proprietaireSeul: true,
+      params: [{ key: 'autorisation', label: 'Le PC (identifiant de son autorisation)', kind: 'text', required: true }, { key: 'phrase', label: 'La phrase à taper (effacer 1 pc)', kind: 'text' }],
+      grave: (i, ctx) => { const x = ctx ? pcPour(ctx, s(i.autorisation)) : undefined; if (!x) return 'recommencer le déploiement d\'un PC (son disque peut être effacé)'; return x.a.facon === 'auto' ? `EFFACER le disque de ${x.p.nom} (${x.p.mac}) et y réinstaller ${nettoyer(x.a.isoNom ?? x.a.iso, 80)} par le réseau, une fois` : `proposer de nouveau ${nettoyer(x.a.isoNom ?? x.a.iso, 80)} au menu de ${x.p.nom} (${x.p.mac}), sans rien effacer`; },
+      run: async (ctx, i) => {
+        const x = pcPour(ctx, s(i.autorisation)); if (!x) throw new Error('ce PC ne fait partie d\'aucun déploiement récent');
+        const { a, p } = x;
+        if (!d.redeployer) return { ok: false, text: 'Recommencer n\'est pas possible ici.' };
+        if (!p.recommencable) {
+          const pourquoi = p.relance ? 'il a déjà été recommencé (regarde le déploiement le plus récent)' : p.etat === 'prêt' ? 'il est prêt ; pour le réinstaller, passe par « Déployer »' : p.etat === 'en cours' || p.etat === 'attente' ? 'son déploiement est encore en cours' : p.mac && bloques(ctx)[p.mac] ? 'il est bloqué dans Genèse : débloque-le d\'abord' : p.etat === 'refusée' ? 'au démarrage, ce n\'était pas le PC autorisé ; vérifie-le (numéro de série sur son étiquette), puis passe par « Déployer »' : `il est « ${p.etat} »`;
+          return { ok: false, text: `Pas de « Recommencer » pour ${p.nom} : ${pourquoi}. Rien n'est autorisé.` };
+        }
+        const r = await d.redeployer(ctx, { ...a, mac: p.mac }, s(i.phrase));
+        if (r.ok !== false) noter(ctx, { quoi: 'réglage', mac: p.mac, nom: p.nom, detail: `déploiement recommencé (${nettoyer(a.isoNom ?? a.iso, 80)}) : nouvelle autorisation, une fois` });
+        return r;
+      } },
+  );
 
   /** Pour la vue générique (onglet « Tout ») : la protection en place et les postes bloqués. */
   function sections(ctx: ModCtx): Section[] {

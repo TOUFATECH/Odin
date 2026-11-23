@@ -16,7 +16,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, statSync, writeFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { basename, join } from 'node:path';
-import type { Action, Kpi, ModCtx, Module, Section } from '../types.ts';
+import type { Action, ActionResult, Kpi, ModCtx, Module, Section } from '../types.ts';
 import { journalDe } from '../base/journal.ts';
 import { Iso } from '../thjalfi/iso.ts';
 import { ProxyDhcp, bootFor, type Firmware } from '../thjalfi/pxe.ts';
@@ -168,6 +168,18 @@ export function thjalfi(): Module {
     isoName: (id) => isoName(id), base: (c) => base(c), couper: (ip) => { http?.couper(ip); },
     infoIso: (id) => { const i = [...isoCache.values()].find((x) => x.id === id); return i ? { recette: i.recipe?.kind, auto: i.recipe?.auto, os: i.recipe?.os, taille: i.size } : undefined; },
     look: (c) => { const t = ecranCfg(c).texte; return textLook(t, fondPerso(c, 'texte') || t !== 'classique' ? `${base(c)}/ecran/fond-texte.png` : undefined); },
+    // Suivi d'un déploiement (lot S7) : les autorisations du lot S6 ; « Recommencer » repasse par « deployer » (phrase, identité, coffre).
+    autorisations: (c) => autorisations(c), saveAutorisations: (c, l) => saveAutorisations(c, l as AutorisationPc[]),
+    // L'appareil vu aujourd'hui avec cette adresse doit être celui de la première autorisation (série, carte mère, disque) :
+    // « deployer » relit l'identité du dernier appareil vu, qui peut être celui qui recopie l'adresse. Sinon : rien.
+    redeployer: async (c, a, phrase) => {
+      const x = a as AutorisationPc, m = live(c)[x.mac], h = history(c, 300).find((y) => y.mac === x.mac);
+      const vu: IdentiteVue = { ...(m?.serie ?? h?.serie ? { serie: m?.serie ?? h?.serie } : {}), ...(m?.uuid ?? h?.uuid ? { uuid: m?.uuid ?? h?.uuid } : {}), ...(m?.disque ? { disque: m.disque } : {}) };
+      const non = x.serie || x.uuid || x.disque ? identiteDifferente({ mac: x.mac, serie: x.serie, uuid: x.uuid, disque: x.disque }, x.mac, vu) : undefined;
+      if (non) return { ok: false, text: `L'appareil vu avec l'adresse ${x.mac} n'est plus celui de la première autorisation (${non}) : Odin ne recommence pas. Vérifie ce PC (numéro de série sur son étiquette), puis passe par « Déployer ». Rien n'est autorisé, rien n'est effacé.` };
+      return actionDeployer.run(c, { pcs: [x.mac], prochain: false, iso: x.iso, facon: x.facon, profil: x.profil ?? '', windows: x.windows ? JSON.stringify(x.windows) : '', phrase }, x.nom);
+    },
+    profilNom: (c, id) => { try { return lireProfils(c).liste.find((x) => x.id === id)?.nom; } catch { return undefined; } },
   });
 
   /** L'adresse d'Odin sur le réseau local (réglable). */
@@ -832,7 +844,8 @@ export function thjalfi(): Module {
   // Déployer, étapes 4 à 6 (maquette « Genèse · Systèmes », lot S6) : l'aperçu de ce qui s'installe à la fin (lecture), et
   // « deployer » : autoriser en lot les PC choisis, UNE fois chacun, pour ce système et ces réglages, un temps limité.
   actions.push(deployerApercuAction(async (ctx) => (await isos(ctx)).filter(prete)));
-  actions.push({
+  // « Recommencer » (lot S7) passe par ce même chemin, avec le nom que le PC avait (nomGarde) : mêmes vérifications.
+  const actionDeployer = {
     id: 'deployer', label: 'Déployer sur des PC du réseau', quick: false, proprietaireSeul: true,
     what: 'Autorise en lot les PC choisis (ou le prochain PC qui démarre) : chacun une seule fois, pour ce système et ces réglages, pendant un temps limité ; « effacer et installer » demande la phrase « effacer N pc », et au démarrage Odin revérifie que c\'est bien ce PC (adresse, numéro de série, taille du disque)',
     params: [{ key: 'pcs', label: 'Adresses MAC des PC', kind: 'textarea' }, { key: 'prochain', label: 'Aussi le prochain PC qui démarre (30 min)', kind: 'boolean', default: false }, { key: 'iso', label: 'Système (identifiant de l\'image)', kind: 'text' }, { key: 'facon', label: 'Façon (auto : effacer et installer ; menu : le proposer sans effacer)', kind: 'select', options: ['auto', 'menu'], default: 'auto' }, { key: 'profil', label: 'Profil de logiciels', kind: 'text', default: '' }, { key: 'windows', label: 'Options Windows', kind: 'textarea' }, { key: 'noms', label: 'Nom de chaque PC (auto : pc-01… ; vu : le nom vu au menu)', kind: 'select', options: ['auto', 'vu'], default: 'auto' }, { key: 'phrase', label: 'La phrase à taper', kind: 'text' }],
@@ -842,7 +855,7 @@ export function thjalfi(): Module {
       const qui = [...d.pcs, ...(d.prochain ? ['le prochain PC qui démarre'] : [])].join(', ');
       return d.facon === 'auto' ? `EFFACER le disque de ${d.n} PC (${qui}) et y installer ${s(i.iso).slice(0, 80)} par le réseau, une fois chacun` : `proposer ${s(i.iso).slice(0, 80)} au menu de ${d.n} PC (${qui}), sans rien effacer`;
     },
-    run: async (ctx, i) => {
+    run: async (ctx: ModCtx, i: Record<string, unknown>, nomGarde?: string): Promise<ActionResult> => {
       const d = demandeDeploiement(i);
       if ('refus' in d) return { ok: false, text: `${d.refus} Rien n'est autorisé.` };
       const target = (await isos(ctx)).filter(prete).find((x) => x.id === s(i.iso));
@@ -876,8 +889,8 @@ export function thjalfi(): Module {
       const ident = (mac: string) => { const m = vivants[mac], h = hist.find((x) => x.mac === mac); const serie = m?.serie ?? h?.serie, uuid = m?.uuid ?? h?.uuid; return { ...(serie ? { serie } : {}), ...(uuid ? { uuid } : {}), ...(m?.disque ? { disque: m.disque } : {}) }; };
       const vusNoms = postesVus({ live: vivants, historique: hist, regles: rules(ctx), bloques: {}, now });
       const pris = l.filter((a) => autorisationValable(a, now) && !(a.mac ? d.pcs.includes(a.mac) : d.prochain)).map((a) => a.nom);
-      const cibles = [...d.pcs.map((mac) => ({ mac, vu: vusNoms.find((p) => p.mac === mac)?.nom })), ...(d.prochain ? [{ mac: '', vu: '' }] : [])];
-      const noms = nomsDesPcs(cibles, s(i.noms) === 'vu' ? 'vu' : 'auto', pris);
+      const cibles = [...d.pcs.map((mac) => ({ mac, vu: nomGarde ?? vusNoms.find((p) => p.mac === mac)?.nom })), ...(d.prochain ? [{ mac: '', vu: '' }] : [])];
+      const noms = nomsDesPcs(cibles, nomGarde || s(i.noms) === 'vu' ? 'vu' : 'auto', pris);
       const lot = randomBytes(6).toString('hex'), out: AutorisationPc[] = [];
       for (const [k, c] of cibles.entries()) {
         const a: AutorisationPc = { id: randomBytes(9).toString('hex'), lot, mac: c.mac, iso: target.id, isoNom: target.name, facon: d.facon, nom: noms[k], ...(prof ? { profil: prof.id } : {}), ...(w ? { windows: w } : {}), ...(c.mac ? ident(c.mac) : {}), cree: now, expire: now + (c.mac ? DUREE_PC : DUREE_PROCHAIN) };
@@ -909,7 +922,8 @@ export function thjalfi(): Module {
         data: { lot, facon: d.facon, iso: target.id, pcs: out.map((a) => ({ mac: a.mac, nom: a.nom, expire: a.expire, prochain: !a.mac })) },
       };
     },
-  });
+  } satisfies Action;
+  actions.push(actionDeployer);
 
   const mod: Module = {
     id: 'thjalfi', name: 'Genèse', family: 'Machines',
