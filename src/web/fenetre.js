@@ -20,7 +20,13 @@
     boutonTailles: 'Choisir une taille', titreTailles: 'Taille du module', aideTailles: 'Ou tire le coin du module en mode Modifier, à la case près ; au clavier, Maj + flèches sur la poignée.',
     miniTailles: (m) => `Plus petit que ${m} : refusé pour ce module.`, aucuneTaille: 'Choisis une taille.', poignee: 'Déplacer (flèches) · Maj + flèches : changer la taille',
     taille: (t) => `Taille ${t}`, remise: (t) => `Taille remise à ${t}.`, refusee: (t) => `Taille ${t} : c'est la plus petite (ou la plus grande) possible pour ce module.`,
+    // Lot 16 : glisser un module.
+    range: '✓ Fenêtre rangée.', enMain: 'Mode Modifier : glisse le module où tu veux, puis « Terminé » pour garder.',
+    place: (n, t) => `Module posé à la place ${n} sur ${t}.`, revenu: 'Déplacement annulé : le module est revenu à sa place.',
+    deplace: 'Module déplacé.', annuler: 'Annuler', annule: 'Déplacement annulé.', tropTard: 'Trop tard pour annuler ce déplacement : la fenêtre a changé depuis.',
   };
+  // Les calculs du glisser (appui long, rang d'insertion, défilement, « Annuler ») : pages/accueil-gestes.js, chargé avant.
+  const OG = window.OdinGestes;
   const act = (module, action, input = {}, confirm) => api('/api/valhalla/act', { module, action, input, ...(confirm ? { confirm: true } : {}) });
   const css = `
 #fenetre{margin:0 0 18px}.fe-bar{display:flex;gap:8px;align-items:center;margin:0 0 12px}.fe-bar .sp{flex:1}
@@ -36,16 +42,21 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
 .fe-h{display:flex;gap:10px;align-items:center;margin:0 0 10px}.fe-h small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}.fe-h b{font-size:15.5px}
 .fe-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--field);font-weight:700;flex:none}.fe-ic-app{background:none}
 .fe-open{margin-left:auto;font-size:12.5px;color:var(--muted);background:none;border:0;cursor:pointer;min-height:32px}
-.fe-edit .fe-w{outline:2px dashed color-mix(in srgb,var(--accent,#0b7f7c) 55%,transparent);outline-offset:3px;touch-action:none}
+.fe-edit .fe-w{outline:2px dashed color-mix(in srgb,var(--accent,#0b7f7c) 55%,transparent);outline-offset:3px;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#fenetre .fe-h{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}@media (hover:hover){#fenetre:not(.fe-edit) .fe-h{cursor:grab}.fe-edit .fe-w{cursor:grab}}
+body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:none!important;user-select:none!important}
 .fe-chrome{display:none;position:absolute;top:-12px;right:-6px;gap:4px}.fe-edit .fe-chrome{display:flex}.fe-chrome button{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:var(--panel);cursor:pointer;display:grid;place-items:center;font-size:14px}
-.fe-grip{display:none;position:absolute;top:-12px;left:-6px;width:30px;height:30px;border-radius:9px;background:#10363a;color:#fff;border:0;cursor:grab;font-size:15px}.fe-edit .fe-grip{display:grid;place-items:center}
+.fe-grip{display:none;position:absolute;top:-12px;left:-6px;width:30px;height:30px;border-radius:9px;background:#10363a;color:#fff;border:0;cursor:grab;font-size:15px;touch-action:none}.fe-edit .fe-grip{display:grid;place-items:center}
 .fe-rz{display:none}.fe-edit .fe-rz{display:block;position:absolute;right:0;bottom:0;width:44px;height:44px;z-index:5;cursor:nwse-resize;touch-action:none;border-radius:0 0 18px 0}
 .fe-edit .fe-rz::before{content:"";position:absolute;right:10px;bottom:10px;width:14px;height:14px;border-right:3px solid var(--accent,#0b7f7c);border-bottom:3px solid var(--accent,#0b7f7c);border-radius:0 0 6px 0}
 .fe-szb{display:none;position:absolute;right:46px;bottom:12px;z-index:5;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:7px;background:var(--accent,#0b7f7c);color:#fff;pointer-events:none;font-variant-numeric:tabular-nums}.fe-w.resizing .fe-szb{display:block}.fe-edit .fe-w.resizing{outline-style:solid}
 /* Carte étroite (moins de 160 px) : boutons de 24 px et poignée en bas à gauche, rien ne se chevauche. */@container (max-width:125px){.fe-edit .fe-chrome{gap:2px}.fe-edit .fe-chrome button{width:24px;height:24px;border-radius:7px;font-size:12px}.fe-edit .fe-grip{top:auto;bottom:-12px}}
 .fe-dit{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .fe-sizes{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin:4px 0}.fe-form .fe-sizes label{display:flex;gap:8px;align-items:center;min-height:44px;margin:0;padding:0 10px;border:1px solid var(--line);border-radius:12px;font-weight:600;cursor:pointer}.fe-form .fe-sizes input{flex:none;width:18px;height:18px;min-height:0;margin:0;padding:0;accent-color:var(--accent,#0b7f7c)}.fe-sizes label:has(input:checked){border-color:var(--accent,#0b7f7c)}.fe-sizes small{color:var(--muted);font-weight:500;margin-left:auto;font-variant-numeric:tabular-nums}
-.fe-w.dragging{opacity:.35}.fe-ghost{position:fixed;z-index:80;pointer-events:none;transform:rotate(-3deg);box-shadow:0 24px 60px rgba(16,54,58,.35);opacity:.95}
+/* Pendant le glisser : un cadre en pointillé à la place du module, une copie qui suit le pointeur. */
+.fe-w.dragging{background:transparent;box-shadow:none;border:2px dashed color-mix(in srgb,var(--accent,#0b7f7c) 70%,transparent);outline:0}.fe-w.dragging>*{visibility:hidden}
+.fe-ghost{position:fixed;left:0;top:0;margin:0;z-index:80;pointer-events:none;box-shadow:0 24px 60px rgba(16,54,58,.35);opacity:.95;will-change:transform;transition:none}
+.fe-annuler{display:flex;gap:12px;align-items:center}.fe-annuler .btn{min-height:44px}
 .fe-drop{border:2px dashed var(--line);border-radius:18px;min-height:90px;display:grid;place-items:center;color:var(--muted)}
 .fe-cat{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;max-height:calc(100vh - 140px);overflow:auto;position:sticky;top:12px}
 .fe-cat h2{font-size:17px;margin:0 0 8px}.fe-cat input{width:100%;min-height:40px;border-radius:12px;border:1px solid var(--field);background:var(--panel2);padding:0 12px;margin:0 0 10px}
@@ -108,6 +119,8 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
     const box = el('article', { class: 'fe-w', 'data-id': w.id, style: G.style(w) });
     const grip = el('button', { class: 'fe-grip', type: 'button', title: TXT.poignee, 'aria-label': 'Déplacer ce module', onkeydown: (e) => { if (e.shiftKey) { if (tailleClavier(w, e.key, box)) e.preventDefault(); return; } if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { move(w.id, -1); e.preventDefault(); } if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { move(w.id, 1); e.preventDefault(); } } }, '⠿');
     grip.addEventListener('pointerdown', (e) => startDrag(e, box, w.id));
+    // Attraper la carte elle-même (lot 16) : à la souris, son en-tête ou son vide (tout, en mode Modifier) ; au doigt, un appui long.
+    box.addEventListener('pointerdown', (e) => attraper(e, box, w.id));
     const chrome = el('div', { class: 'fe-chrome' },
       el('button', { type: 'button', title: 'Taille (4, 8 ou 12 colonnes sur 12)', 'aria-label': 'Changer la taille', onclick: () => { w.w = G.agrandir(w); draw(); } }, '↔'),
       el('button', { type: 'button', title: TXT.boutonTailles, 'aria-label': TXT.boutonTailles, onclick: () => tailles(w) }, '⤡'),
@@ -191,29 +204,203 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
       el('option', { value: '' }, '🎨 Thème…'), el('option', { value: 'automatique' }, 'Automatique'), ...themes.map((t) => el('option', { value: t }, window.OdinThemes.THEMES[t]?.name ?? t)));
     return sel;
   }
-  async function save() {
-    const r = await act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(L) });
-    if (!r.ok) { say(`✗ ${r.text ?? r.error}`); return; }
-    L = r.data; saved = JSON.stringify(L); edit = false; say('✓ Fenêtre rangée.'); await fetchViews(); draw();
+  /**
+   * Les rangements chez Hestia passent un par un, dans l'ordre : deux réponses qui se croisent n'écrasent pas la
+   * fenêtre gardée (`saved`) avec une ancienne.
+   */
+  let fileRangement = Promise.resolve();
+  function enFile(f) { const p = fileRangement.then(f); fileRangement = p.catch(() => undefined); return p; }
+  /**
+   * Range la fenêtre chez Hestia (« Terminé », un déplacement hors du mode Modifier, son « Annuler ») ; `dit` : ce qui
+   * est annoncé. Rend vrai si c'est rangé. `o.deplacement` : la fenêtre `o.fenetre` notée au lâcher est rangée sans
+   * fermer le mode Modifier ouvert depuis et sans écraser ce qui a changé à l'écran depuis, puis « Annuler » est offert.
+   * `o.enFile` : déjà dans la file des rangements.
+   */
+  async function save(_e, dit = TXT.range, o = {}) {
+    if (!o.enFile) return enFile(() => save(_e, dit, { ...o, enFile: true }));
+    const avant = saved, envoye = o.fenetre ?? JSON.stringify(L);
+    if (o.deplacement && envoye === avant) return true; // déjà rangé (un rangement plus récent l'a emporté)
+    const r = await act('gladsheim', 'regler_fenetre', { fenetre: envoye });
+    const rienDepuis = !edit && JSON.stringify(L) === envoye; // l'écran montre encore ce qui vient d'être rangé
+    if (!r.ok) { say(`✗ ${r.text ?? r.error}`); if (o.deplacement && rienDepuis) { L = JSON.parse(avant); if (!glisse && !appuiEnCours) draw(); } return false; }
+    saved = JSON.stringify(r.data);
+    if (o.deplacement) { if (rienDepuis) L = r.data; proposerAnnuler(OG.offre(avant, saved, Date.now())); return true; }
+    L = r.data; edit = false; if (dit) say(dit); await fetchViews(); draw();
+    return true;
   }
-  function move(id, d) { const l = page().widgets, i = l.findIndex((x) => x.id === id), j = i + d; if (i < 0 || j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; draw().then(() => $(`.fe-w[data-id="${id}"] .fe-grip`)?.focus()); }
-  /** Glisser-déposer à la souris et au doigt : on suit le pointeur, on range au-dessus du module visé. */
-  function startDrag(e, box, id) {
-    e.preventDefault(); const r = box.getBoundingClientRect(), ghost = box.cloneNode(true); ghost.classList.add('fe-ghost'); ghost.style.width = `${r.width}px`; ghost.style.left = `${r.left}px`; ghost.style.top = `${r.top}px`;
-    document.body.append(ghost); box.classList.add('dragging');
-    const dx = e.clientX - r.left, dy = e.clientY - r.top;
-    const mv = (ev) => {
-      ghost.style.left = `${ev.clientX - dx}px`; ghost.style.top = `${ev.clientY - dy}px`;
-      ghost.hidden = true; const t = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.fe-w'); ghost.hidden = false;
-      if (t && t !== box) {
-        // Le rang d'insertion (moitié droite ou bas de la carte visée : après elle), puis la carte est remise à ce rang.
-        const cartes = [...t.parentNode.querySelectorAll('.fe-w')], a = cartes.indexOf(box), to = G.rang(a, cartes.indexOf(t), G.apres(ev.clientX, ev.clientY, t.getBoundingClientRect()));
-        if (to !== a) { const reste = cartes.filter((n) => n !== box); t.parentNode.insertBefore(box, reste[to] ?? null); }
-      }
+  function move(id, d) { if (glisse) return; const l = page().widgets, i = l.findIndex((x) => x.id === id), j = i + d; if (i < 0 || j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; draw().then(() => $(`.fe-w[data-id="${id}"] .fe-grip`)?.focus()); }
+  // ------------------------------------------------------------------ glisser un module (lot 16)
+  /** Le glisser en cours (un seul geste à la fois, un seul pointeur), l'appui long qui attend, l'heure du dernier lâcher. */
+  let glisse = null, appuiEnCours = null, finGlisse = 0;
+  const reduit = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+  const idsDe = (grid) => [...grid.querySelectorAll(':scope > .fe-w')].map((n) => n.dataset.id);
+  /** Ce qui défile autour de la grille (la colonne de l'accueil), sinon la page. */
+  function defileur(n) {
+    for (let p = n?.parentElement; p && p !== document.body; p = p.parentElement) { const o = getComputedStyle(p).overflowY; if ((o === 'auto' || o === 'scroll') && p.scrollHeight > p.clientHeight) return p; }
+    return document.scrollingElement || document.documentElement;
+  }
+  /**
+   * Un appui sur la carte d'un module (pas sur sa poignée, ni sur son coin) : selon l'endroit, le pointeur et le mode,
+   * le glisser s'arme, l'appui long attend, ou rien (un bouton, un lien, un texte à sélectionner hors du mode Modifier).
+   */
+  function attraper(e, box, id) {
+    const t = e.target;
+    if (glisse || appuiEnCours || coinEnCours || !t?.closest || t.closest('.fe-grip')) return;
+    const c = t.closest(OG.CONTROLES);
+    const z = OG.zone({ coin: Boolean(t.closest('.fe-rz')), controle: Boolean(c && c !== box && box.contains(c)), entete: Boolean(t.closest('.fe-h')), texte: OG.aDuTexte(t) });
+    const quoi = OG.depart({ pointeur: e.pointerType, modifier: edit, zone: z, bouton: e.button, principal: e.isPrimary !== false });
+    if (quoi === 'glisser') startDrag(e, box, id);
+    else if (quoi === 'appuiLong') appuiLong(e, box, id);
+  }
+  /**
+   * Au doigt : l'appui long (480 ms sans bouger). S'il bouge avant, il fait défiler la page : l'appui est oublié.
+   * Tenu : hors du mode Modifier, ce mode s'ouvre ; puis le module est en main et suit le doigt.
+   */
+  function appuiLong(e, box, id) {
+    const pid = e.pointerId, x0 = e.clientX, y0 = e.clientY, t0 = performance.now(), cible = e.target, r0 = box.getBoundingClientRect();
+    const etat = { x: x0, y: y0, tenu: false, lache: false };
+    appuiEnCours = etat;
+    // La page ne défile plus une fois le module en main (le doigt reste sur sa cible d'origine, même redessinée).
+    const bloque = (t) => { if (etat.tenu || glisse) t.preventDefault(); };
+    const menu = (t) => { if (appuiEnCours || glisse) t.preventDefault(); };
+    cible.addEventListener('touchmove', bloque, { passive: false }); cible.addEventListener('contextmenu', menu);
+    const liberer = () => { cible.removeEventListener('touchmove', bloque); cible.removeEventListener('contextmenu', menu); };
+    const POINTEUR = ['pointermove', 'pointerup', 'pointercancel'];
+    const fini = () => { clearTimeout(minuteur); for (const t of POINTEUR) removeEventListener(t, ev); removeEventListener('blur', ev); if (appuiEnCours === etat) appuiEnCours = null; };
+    function ev(v) {
+      if (v.type === 'blur') { fini(); liberer(); return; }
+      if (v.pointerId !== pid) return;
+      if (v.type !== 'pointermove') { if (etat.tenu) { etat.lache = true; return; } fini(); liberer(); return; }
+      etat.x = v.clientX; etat.y = v.clientY;
+      if (!etat.tenu && OG.appui({ dx: etat.x - x0, dy: etat.y - y0, ecoule: performance.now() - t0 }) === 'annuler') { fini(); liberer(); }
+    }
+    const minuteur = setTimeout(async () => {
+      if (OG.appui({ dx: etat.x - x0, dy: etat.y - y0, ecoule: performance.now() - t0 }) !== 'tenir') { fini(); liberer(); return; }
+      etat.tenu = true;
+      try { navigator.vibrate?.(18); } catch { /* */ }
+      if (!edit) { edit = true; await draw(); say(TXT.enMain); }
+      fini();
+      const nb = [...document.querySelectorAll('#feGrid > .fe-w')].find((n) => n.dataset.id === id);
+      if (etat.lache || !nb) { liberer(); return; }
+      startDrag({ pointerId: pid, pointerType: e.pointerType, button: 0, clientX: etat.x, clientY: etat.y, preventDefault() { /* déjà tenu */ } }, nb, id,
+        { tenu: true, rel: [(x0 - r0.left) / (r0.width || 1), (y0 - r0.top) / (r0.height || 1)], liberer });
+    }, OG.MESURES.appuiLong);
+    for (const t of POINTEUR) addEventListener(t, ev);
+    addEventListener('blur', ev);
+  }
+  /**
+   * Glisser-déposer à la souris et au doigt : la copie suit le pointeur, un cadre en pointillé reste à la place, le
+   * module prend la place de celui qu'il survole (selon la moitié), la page défile près du haut ou du bas.
+   * Un seul pointeur compte ; Échap, ou la fenêtre qui perd le focus, remet l'ordre d'avant.
+   * Au lâcher : en mode Modifier, rien n'est gardé avant « Terminé » ; hors de ce mode, c'est rangé tout de suite et
+   * « Annuler » est offert quelques secondes.
+   */
+  function startDrag(e, box, id, o = {}) {
+    if (glisse || coinEnCours || e.button > 0) { o.liberer?.(); return; }
+    e.preventDefault();
+    const grid = box.parentNode, pid = e.pointerId, x0 = e.clientX, y0 = e.clientY, modifier = edit, M = OG.mouvement(reduit());
+    const ordre0 = idsDe(grid), sel0 = String(window.getSelection?.() ?? ''), scr = defileur(grid);
+    let ghost = null, gx = 0, gy = 0, x = x0, y = y0, lx = x0, dernier = 0, raf = 0;
+    glisse = { id };
+    const pose = () => { ghost.style.transform = `translate(${x - gx}px,${y - gy}px) rotate(${Math.max(-M.incline, Math.min(M.incline, (x - lx) * 0.5))}deg) scale(${M.leve})`; lx = x; };
+    const commencer = () => {
+      const r = box.getBoundingClientRect();
+      gx = o.rel ? Math.min(r.width, o.rel[0] * r.width) : x0 - r.left; gy = o.rel ? Math.min(r.height, o.rel[1] * r.height) : y0 - r.top;
+      ghost = box.cloneNode(true); ghost.classList.add('fe-ghost'); ghost.classList.remove('resizing'); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
+      for (const n of ghost.querySelectorAll('[id]')) n.removeAttribute('id');
+      ghost.style.width = `${r.width}px`; ghost.style.height = `${r.height}px`;
+      document.body.append(ghost); box.classList.add('dragging'); document.body.classList.add('fe-glisse');
+      try { window.getSelection?.()?.removeAllRanges(); } catch { /* */ }
+      pose();
+      if (M.prise && ghost.animate) ghost.animate([{ transform: `translate(${r.left}px,${r.top}px)` }, { transform: ghost.style.transform }], { duration: M.prise, easing: 'ease-out' });
     };
-    const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); ghost.remove(); box.classList.remove('dragging'); const order = [...document.querySelectorAll('#feGrid .fe-w')].map((n) => n.dataset.id); page().widgets.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)); };
-    addEventListener('pointermove', mv); addEventListener('pointerup', up);
+    /**
+     * Le module visé sous le pointeur : le nôtre prend sa place, avant ou après lui. Côte à côte, la moitié droite
+     * (ou le bas) de la carte visée place après elle (la grille) ; une carte seule sur sa rangée (le téléphone) : sa
+     * moitié du bas.
+     */
+    const viser = (ev) => {
+      const now = performance.now(); if (now - dernier < OG.MESURES.echange) return;
+      const t = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.fe-w');
+      if (!t || t === box || t.parentNode !== grid) return;
+      const cartes = [...grid.querySelectorAll(':scope > .fe-w')], a = cartes.indexOf(box), r = t.getBoundingClientRect();
+      const to = OG.seule(r, grid.clientWidth) ? G.rang(a, cartes.indexOf(t), OG.apres(ev.clientX, ev.clientY, r, grid.clientWidth))
+        : G.rang(a, cartes.indexOf(t), G.apres(ev.clientX, ev.clientY, t.getBoundingClientRect()));
+      if (to === a) return;
+      dernier = now;
+      const reste = cartes.filter((n) => n !== box); grid.insertBefore(box, reste[to] ?? null);
+    };
+    const bords = () => { if (scr === document.scrollingElement || scr === document.documentElement) return [0, innerHeight]; const r = scr.getBoundingClientRect(); return [Math.max(0, r.top), Math.min(innerHeight, r.bottom)]; };
+    const defiler = () => {
+      raf = 0; if (!glisse || !ghost) return;
+      const [h, b] = bords(), v = OG.defilement(y, h, b); if (!v) return;
+      const avant = scr.scrollTop; scr.scrollTop += v; if (scr.scrollTop === avant) return;
+      viser({ clientX: x, clientY: y }); raf = requestAnimationFrame(defiler);
+    };
+    const fin = (annule) => {
+      removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); removeEventListener('keydown', touche, true); removeEventListener('blur', touche);
+      if (raf) cancelAnimationFrame(raf); raf = 0; o.liberer?.(); document.body.classList.remove('fe-glisse'); glisse = null;
+      if (!ghost) return; // un simple clic : rien n'a bougé
+      finGlisse = Date.now();
+      const order = idsDe(grid), quoi = OG.auLacher({ modifier, change: order.join('\n') !== ordre0.join('\n'), annule });
+      if (quoi === 'remettre') for (const i of ordre0) { const n = [...grid.children].find((c) => c.dataset?.id === i); if (n) grid.append(n); }
+      const r = box.getBoundingClientRect(), g = ghost, enlever = () => { g.remove(); box.classList.remove('dragging'); };
+      if (M.pose && g.animate) { const a = g.animate([{ transform: g.style.transform }, { transform: `translate(${r.left}px,${r.top}px)` }], { duration: M.pose, easing: 'ease-out' }); g.style.transform = `translate(${r.left}px,${r.top}px)`; a.onfinish = enlever; a.oncancel = enlever; }
+      else enlever();
+      if (quoi === 'remettre') { if (order.join('\n') !== ordre0.join('\n')) dire(TXT.revenu); return; }
+      if (quoi === 'rien') return;
+      page().widgets.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      dire(TXT.place(order.indexOf(id) + 1, order.length));
+      if (quoi === 'ranger') rangerDeplacement();
+    };
+    function geste(v) {
+      const quoi = G.geste(pid, v);
+      // Pendant le glisser, aucune autre touche n'agit (une flèche sur une poignée redessinerait la fenêtre sous le geste).
+      if (quoi === 'ignorer') { if (ghost && v.type === 'keydown') { v.preventDefault(); v.stopPropagation(); } return; }
+      if (quoi === 'suivre') {
+        x = v.clientX; y = v.clientY;
+        if (!ghost) {
+          const s = String(window.getSelection?.() ?? ''), q = OG.suite({ dx: x - x0, dy: y - y0, selection: s !== '' && s !== sel0 });
+          if (q === 'abandonner') { fin(false); return; }
+          if (q === 'attendre') return;
+          commencer();
+        }
+        if (v.cancelable) v.preventDefault();
+        pose(); viser(v); if (!raf) defiler();
+        return;
+      }
+      if (v.type === 'keydown') { if (ghost) { v.preventDefault(); v.stopPropagation(); } }
+      fin(quoi === 'annuler');
+    }
+    const mv = (v) => geste(v), up = (v) => geste(v), touche = (v) => geste(v);
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+    addEventListener('keydown', touche, true); addEventListener('blur', touche);
+    if (o.tenu) commencer();
   }
+  /**
+   * Hors du mode Modifier : le déplacement est rangé au lâcher, et « Annuler » est offert quelques secondes. La fenêtre
+   * est notée au lâcher : chaque déplacement est rangé tel qu'il était, et son « Annuler » ne défait que lui.
+   */
+  function rangerDeplacement() { return save(null, '', { deplacement: true, fenetre: JSON.stringify(L) }); }
+  function proposerAnnuler(o) {
+    $('#feAnnuler')?.remove();
+    const n = el('div', { id: 'feAnnuler', class: 'va-out fe-annuler', role: 'status', style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:90;max-width:min(560px,calc(100% - 32px))' }, el('span', {}, TXT.deplace),
+      el('button', { class: 'btn small', type: 'button', onclick: () => {
+        n.remove(); const quand = Date.now();
+        return enFile(async () => {
+          if (glisse || !OG.peutAnnuler(o, quand, saved, edit)) { say(TXT.tropTard); return; }
+          // La fenêtre a pu changer ailleurs (un autre appareil) : on ne défait que si Hestia garde encore ce déplacement.
+          const f = await act('gladsheim', 'fenetre');
+          if (!f.ok || JSON.stringify(f.data) !== o.apres) { if (f.ok && !edit && !glisse && JSON.stringify(L) === saved) { L = f.data; saved = JSON.stringify(L); draw(); } say(TXT.tropTard); return; }
+          L = JSON.parse(o.avant); await save(null, TXT.annule, { enFile: true });
+        });
+      } }, TXT.annuler));
+    document.body.append(n); setTimeout(() => n.remove(), OG.MESURES.annuler);
+  }
+  // Le clic qui suit un lâcher (sur « Ouvrir › », un lien…) ne compte pas : on déplaçait, on n'ouvrait rien.
+  // Un nouvel appui est un vrai clic (« Modifier » juste après un lâcher compte).
+  addEventListener('click', (e) => { if (Date.now() - finGlisse < 400 && e.target?.closest?.('#fenetre')) { e.stopPropagation(); e.preventDefault(); } }, true);
+  addEventListener('pointerdown', () => { if (!glisse) finGlisse = 0; }, true);
   /** Dit une taille aux lecteurs d'écran (une zone « status » cachée, posée une fois). */
   function dire(t) { let n = $('#feDit'); if (!n) { n = el('div', { id: 'feDit', class: 'fe-dit', role: 'status', 'aria-live': 'polite' }); document.body.append(n); } n.textContent = t; }
   const auTel = () => G.appareil(innerWidth) === 'telephone';
@@ -225,6 +412,7 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
   let coinEnCours = false;
   function startResize(e, box, w, szb) {
     if (!edit || e.button > 0 || coinEnCours) return;
+    if (glisse || appuiEnCours) return; // un seul geste à la fois : pas de coin pendant un glisser
     e.preventDefault(); e.stopPropagation();
     const tel = auTel(), grid = box.parentNode, dep = G.depart(w, tel, box.getBoundingClientRect().height), colonnePx = G.colonne(grid.clientWidth, tel), x0 = e.clientX, y0 = e.clientY;
     const id = e.pointerId, rz = e.currentTarget, avant = G.memo(w);
@@ -340,7 +528,7 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
     const body = $('#v-home .body'); if (!body || $('#fenetre')) return;
     body.prepend(el('div', { id: 'fenetre', 'aria-label': 'Ma fenêtre' }, el('p', { class: 'fe-err' }, 'Chargement de ta fenêtre…')));
     try { await load(); await fetchViews(); await draw(); } catch (e) { host().replaceChildren(el('p', { class: 'fe-err' }, `Fenêtre indisponible : ${e.message}`)); return; }
-    clearInterval(timer); timer = setInterval(async () => { if (edit || document.hidden || !$('#v-home.on')) return; await fetchViews(); draw(); }, 60_000);
+    clearInterval(timer); timer = setInterval(async () => { if (edit || glisse || appuiEnCours || document.hidden || !$('#v-home.on')) return; await fetchViews(); draw(); }, 60_000);
   }
   window.OdinFenetre = { mount, state: () => ({ L, cur, edit }), edit: (on = true) => { edit = on; draw(); } };
   // Après la connexion seulement (la page de connexion n'a pas de fenêtre).
