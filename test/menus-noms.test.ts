@@ -9,7 +9,8 @@ import test from 'node:test';
 // Le nom attendu, et les identifiants qui ne bougent pas.
 const NOM = 'Accueil';
 const VUE = 'home';
-const ORDRE_MENU = ['home', 'chat', 'brain', 'net', 'apps', 'flows', 'runes', 'missions', 'skills', 'jobs', 'audit', 'profil', 'settings'];
+// L'ordre de la maquette validée « Accueil » (lot 20 ; test/menu-ordre.test.ts) : Accueil, Applis, Discussion, Cerveau, le réseau, « Plus », Réglages.
+const ORDRE_MENU = ['home', 'apps', 'chat', 'brain', 'net', 'flows', 'runes', 'missions', 'skills', 'jobs', 'audit', 'profil', 'settings'];
 
 const UI = readFileSync(new URL('../src/web/ui.html', import.meta.url), 'utf8');
 const GUIDE = readFileSync(new URL('../src/web/guide.js', import.meta.url), 'utf8');
