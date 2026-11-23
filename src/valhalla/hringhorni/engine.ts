@@ -88,7 +88,7 @@ export class Engine {
       // l'image est refusée (rien n'est monté ni lancé), la couche part en quarantaine dans Asclépios.
       step('Analyser l\'image (antivirus)', `${n} couche(s)`);
       for (const [i, l] of manifest.layers.entries()) {
-        const p = await quarantaineDabord({ fichier: this.store.blob(l.digest), nom: `couche ${i + 1}/${n} de ${ref.name} (${l.digest.slice(7, 19)})`, origine: 'Argo · image Docker', source: ref.name, usage: 'lancer un conteneur' });
+        const p = await quarantaineDabord({ fichier: this.store.blob(l.digest), nom: `couche ${i + 1}/${n} de ${ref.name} (${l.digest.slice(7, 19)})`, origine: 'Arche · image Docker', source: ref.name, usage: 'lancer un conteneur' });
         if (p.bloque) throw new Bloque({ ...p, texte: `image ${ref.name} refusée par l'antivirus : la couche ${i + 1}/${n} contient ${p.menace ?? 'une menace'} (trouvée par ${p.par ?? 'analyse'}). Rien n'a été dépaqueté ni lancé ; la couche est en quarantaine (n° ${p.quarantaine ?? '—'}).` });
       }
       step('Dépaqueter l\'image', mo(total));

@@ -1,7 +1,7 @@
 // Alexandrie · onglet « Schéma » (comme drawDB, code maison) : les tables de la base en boîtes, les liens entre clés,
 // rangées toutes seules puis déplacées à la souris (ou au doigt), places gardées. On dessine des changements (table,
 // colonne, lien) : ils restent « en attente » (en vert pointillé) jusqu'à « Appliquer », qui montre le SQL et demande
-// ton accord (Arche sauvegarde la base juste avant). Exports : SQL PostgreSQL ou MySQL, SVG, PNG, Markdown.
+// ton accord (Amphore sauvegarde la base juste avant). Exports : SQL PostgreSQL ou MySQL, SVG, PNG, Markdown.
 // Appelé par la page d'Alexandrie (src/web/pages/urdr.js) : window.OdinUrdrSchema(racine, base).
 (() => {
   'use strict';

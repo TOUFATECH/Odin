@@ -1,4 +1,4 @@
-// Argo — tes conteneurs, sur le moteur d'Odin (Hringhorni) : sans Docker, sans Podman, sans démon.
+// Arche (identifiant interne naglfar ; nom affiché lu dans names.ts) — tes conteneurs, sur le moteur d'Odin (Hringhorni) : sans démon.
 // Lancer une appli à partir d'une image Docker, la voir, la démarrer, l'arrêter, lire son journal, lancer une
 // commande dedans, la mettre à jour, la supprimer (avec ton accord). Les mêmes commandes que dans un terminal
 // marchent aussi dans la discussion : « run -d -p 8080:80 nginx », « ps », « logs web », « stop web »…
@@ -13,7 +13,17 @@ import { databaseFor, needsDb, roleOf, SERVER as PG_SERVER } from '../urdr/serve
 import { bases as urdrBases } from '../urdr/bases.ts';
 import type { ModCtx, Module, Param } from '../types.ts';
 import { verifierVersions, type Version } from '../hringhorni/versions.ts';
+import { spawn } from 'node:child_process';
+import { lstatSync, realpathSync, rmSync, statfsSync } from 'node:fs';
+import { cpus, homedir, totalmem } from 'node:os';
+import { basename, dirname, isAbsolute, resolve, sep } from 'node:path';
+import { defaultDir } from '../hringhorni/store.ts';
+import { actionJournal, avecJournal } from '../vidarr/qui-a-fait.ts';
+import { NAMES } from '../names.ts';
+import type { Action } from '../types.ts';
 
+/** Le nom affiché de l'appli (un seul endroit : src/valhalla/names.ts). */
+export const nomArche = (): string => NAMES.naglfar ?? 'Arche';
 const s = (v: unknown) => String(v ?? '');
 const safe = (v: unknown) => { const x = s(v).trim(); if (!/^[\w.:/@-]{1,200}$/.test(x)) throw new Error(`nom invalide : ${x}`); return x; };
 /** Le moteur (remplaçable dans les essais). */
@@ -61,9 +71,9 @@ async function controlerVersions(ctx: ModCtx): Promise<Version[]> {
   return l;
 }
 export const naglfar: Module & { similaires: string[] } = {
-  id: 'naglfar', name: 'Argo', family: 'Machines',
-  what: 'Tes conteneurs, sur le moteur d\'Odin (sans Docker ni Podman, sans démon) : lancer une appli depuis une image Docker, la suivre, l\'arrêter, lire son journal, la mettre à jour.',
-  does: ['lancer une appli à partir d\'une image Docker (Docker Hub, GHCR, Quay…)', 'liste des conteneurs, démarrer, arrêter, redémarrer', 'journal de chaque conteneur', 'lancer une commande dedans', 'mettre à jour l\'image et relancer avec les mêmes réglages', 'images présentes, nettoyage', 'les commandes run, ps, stop, start, rm, logs, exec, pull, images aussi dans la discussion', 'ports publiés, dossiers partagés, limites de mémoire et de processeur, relance automatique'],
+  id: 'naglfar', name: nomArche(), family: 'Machines',
+  what: 'Tes conteneurs, sur le moteur d\'Odin (rien d\'autre à installer, aucun service qui tourne en plus) : lancer une appli depuis une image de conteneur, la suivre, l\'arrêter, lire son journal, la mettre à jour.',
+  does: ['lancer une appli à partir d\'une image de conteneur (registres publics)', 'liste des conteneurs, démarrer, arrêter, redémarrer', 'journal de chaque conteneur', 'lancer une commande dedans', 'mettre à jour l\'image et relancer avec les mêmes réglages', 'images présentes, nettoyage', 'les commandes run, ps, stop, start, rm, logs, exec, pull, images aussi dans la discussion', 'ports publiés, dossiers partagés, limites de mémoire et de processeur, relance automatique'],
   from: ['Portainer CE', 'Podman'], upstream: [],
   similaires: ['Portainer CE', 'Podman', 'Arcane', "What's Up Docker", 'Dozzle', 'CapRover'],
   words: ['conteneur', 'conteneurs', 'docker', 'podman', 'image', 'images docker', 'hringhorni', 'moteur de conteneurs'],
@@ -97,7 +107,7 @@ export const naglfar: Module & { similaires: string[] } = {
         return { container: c.spec.name, name: c.spec.name, note: `${c.spec.name} en marche · sa base « ${db.info.database} » dans la base d'Odin, sauvegardée chaque nuit` };
       }, name);
       if (name) ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), name])] });
-      return { text: `🚢 Installation de ${image} lancée${wantDb ? ', avec sa base dans la base de données d\'Odin (sauvegardée chaque nuit)' : ''} : la barre de progression est dans Argo (téléchargement, montage, démarrage).${placed.ports.length ? `\nPort${placed.ports.length > 1 ? 's' : ''} : ${placed.ports.map((p) => `${p.host} → ${p.inner}`).join(' · ')}${placed.moved.length ? ` (${placed.moved.join(' · ')})` : ''}.` : ''}`, data: { job: j.id, ports: placed.ports } };
+      return { text: `🚢 Installation de ${image} lancée${wantDb ? ', avec sa base dans la base de données d\'Odin (sauvegardée chaque nuit)' : ''} : la barre de progression est dans ${nomArche()} (téléchargement, montage, démarrage).${placed.ports.length ? `\nPort${placed.ports.length > 1 ? 's' : ''} : ${placed.ports.map((p) => `${p.host} → ${p.inner}`).join(' · ')}${placed.moved.length ? ` (${placed.moved.join(' · ')})` : ''}.` : ''}`, data: { job: j.id, ports: placed.ports } };
     } },
     { id: 'executer', label: 'Commande dans un conteneur', what: 'Lance une commande dans un conteneur en marche et montre sa réponse', params: [CT, { key: 'commande', label: 'Commande', kind: 'text', required: true }], grave: (i) => `lancer « ${s(i.commande)} » dans ${s(i.conteneur)}`, external: true, run: async (_ctx, i) => {
       const out: string[] = []; const code = await cli(['exec', safe(i.conteneur), ...splitLine(s(i.commande))], { out: (t) => out.push(t), err: (t) => out.push(t), interactive: false }, engine() as Engine);
@@ -117,11 +127,11 @@ export const naglfar: Module & { similaires: string[] } = {
         const n = await e.run({ image: sp.image, name: sp.name, cmd: sp.cmd, env: sp.env, ports: sp.ports, mounts: sp.mounts, restart: sp.restart, memory: sp.memory, cpus: sp.cpus, user: sp.user, workdir: sp.workdir, hostname: sp.hostname, network: sp.network, labels: sp.labels });
         set({ container: n.spec.name }); return { note: `${n.spec.name} relancé avec la nouvelle image (${img.id.slice(0, 12)})` };
       }, sp.name);
-      return { text: `⬆ Mise à jour de ${sp.name} lancée : suis-la dans Argo.` };
+      return { text: `⬆ Mise à jour de ${sp.name} lancée : suis-la dans ${nomArche()}.` };
     } },
     { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur (ses dossiers partagés sont gardés)', params: [CT], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); const sp = await engine().rm(safe(i.conteneur), true); return { text: `🗑 ${sp.name} supprimé (dossiers partagés conservés).` }; } },
     { id: 'images', label: 'Images', what: 'Les images présentes', read: true, words: ['quelles images'], run: () => { const l = engine().images(); return { text: l.map((x) => `- ${x.names.join(', ')} · ${(x.size / 1e6).toFixed(0)} Mo`).join('\n') || 'Aucune image.', data: l.map((x) => ({ names: x.names, id: x.id.slice(0, 12), size: x.size })) }; } },
-    { id: 'tirer', label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image', 'derniere version de l\'image'], run: async (_ctx, i) => { engine().pullJob(safe(i.image)); return { text: `⬇ Récupération de ${safe(i.image)} lancée : suis-la dans Argo.` }; } },
+    { id: 'tirer', label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image', 'derniere version de l\'image'], run: async (_ctx, i) => { engine().pullJob(safe(i.image)); return { text: `⬇ Récupération de ${safe(i.image)} lancée : suis-la dans ${nomArche()}.` }; } },
     { id: 'supprimer_image', label: 'Supprimer une image', what: 'Supprime une image qui ne sert plus', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], grave: (i) => `supprimer l'image ${s(i.image)}`, run: async (_ctx, i) => { const img = await engine().rmi(safe(i.image)); return { text: `🗑 Image ${img.names.join(', ')} supprimée.` }; } },
     { id: 'nettoyer', label: 'Nettoyer', what: 'Supprime les images qu\'aucun conteneur n\'utilise', grave: () => 'supprimer les images inutilisées', words: ['nettoie', 'place'], run: async () => {
       const e = engine(), used = new Set(e.ps(true).map((c) => c.spec.imageId)), out: string[] = [];
@@ -168,7 +178,7 @@ export const naglfar: Module & { similaires: string[] } = {
     const jobs = err ? [] : e.jobs(), live = jobs.filter((j) => !j.ended);
     let svcs: ReturnType<typeof services> = []; try { svcs = services(e as Engine); } catch { /* pas de service */ }
     return {
-      subtitle: err || `${up} en marche sur ${cts.length} · moteur d'Odin, sans démon`,
+      subtitle: !moteurIci() ? TEXTES_ARCHE.pasDeMoteur : err || `${up} en marche sur ${cts.length} · moteur d'Odin, sans démon`,
       tabs: ['Conteneurs', 'Images'],
       kpis: [...(live.length ? [{ label: 'Installations en cours', value: String(live.length), tone: 'attention' as const }] : []), { label: 'En marche', value: `${up} / ${cts.length}`, tone: up === cts.length ? 'bon' : 'attention' }, { label: 'Images', value: String(imgs.length) }, { label: 'Place des images', value: `${(imgs.reduce((a, i) => a + i.size, 0) / 1e9).toFixed(1)} Go` }],
       refreshMs: live.length ? 1200 : svcs.some((x) => x.state.status === 'en marche') ? 5000 : undefined,
@@ -187,14 +197,14 @@ export const naglfar: Module & { similaires: string[] } = {
           actions: [st.status === 'arrêté' ? { action: 'demarrer_service', label: 'Démarrer', input: { service: sp.name } } : { action: 'arreter_service', label: 'Arrêter', input: { service: sp.name } }, { action: 'regler_service', label: 'Régler', input: { service: sp.name } }, { action: 'supprimer_service', label: 'Supprimer', input: { service: sp.name } }] }; }) },
           ...svcs.filter(({ state: st }) => st.history.length > 2).slice(0, 2).map(({ spec: sp, state: st }) => { const h = st.history.slice(-60); return { kind: 'courbe' as const, title: `${sp.name} · copies et visiteurs`, labels: h.map((x) => x.at.slice(11, 16)), series: [{ name: 'visiteurs en cours', tone: 'neutre' as const, points: h.map((x) => x.active) }, { name: 'copies × 10', tone: 'bon' as const, points: h.map((x) => x.copies * 10) }] }; })] : []),
         // Une appli qui a sa base dans la base d'Odin : un bouton l'ouvre dans Alexandrie Studio.
-        { kind: 'cards', title: 'Conteneurs', empty: err || 'Aucun conteneur : « Lancer une appli », ou dans la discussion « run -d -p 8080:80 nginx ».', items: cts.map((c) => ({
+        { kind: 'cards', title: 'Conteneurs', empty: err || 'Aucun conteneur : « Lancer une appli », ou dans la discussion « run -d -p 8080:80 » suivi du nom de l\'image.', items: cts.map((c) => ({
           title: c.spec.name, sub: `${c.spec.labels['odin.service'] ? `copie de ${c.spec.labels['odin.service']} · ` : ''}${c.spec.labels['odin.grandir'] ? `grandit tout seul (${c.spec.memory} · ${c.spec.cpus} cœurs) · ` : ''}${c.spec.image}${c.state.ip ? ` · ${c.state.ip}` : ''}${c.spec.ports.length ? ` · ${c.spec.ports.map((p) => `${p.host}→${p.inner}`).join(', ')}` : ''}`,
           badge: c.state.status, tone: c.state.status === 'en marche' ? 'bon' as const : c.state.status === 'redémarre' ? 'attention' as const : 'neutre' as const,
           actions: [c.state.status === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: { conteneur: c.spec.name } } : { action: 'demarrer', label: 'Démarrer', input: { conteneur: c.spec.name } }, { action: 'journaux', label: 'Journal', input: { conteneur: c.spec.name } }, { action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: c.spec.name } }, { action: 'supprimer', label: 'Supprimer', input: { conteneur: c.spec.name } }, ...(() => { const b = pgBases.find((x) => x.nom === c.spec.name || x.utilisateur === roleOf(c.spec.name)); return b ? [{ action: 'ouvrir', label: 'Sa base (Alexandrie)', input: { base: b.id }, module: 'urdr' }] : []; })()],
         })) },
         { kind: 'table', title: 'Nouvelles versions', columns: ['Image', 'Conteneurs', 'État'], empty: 'Pas encore vérifié : « Nouvelles versions des images » (fait aussi toutes les 6 heures).', rows: versionsDe(ctx).map((v) => ({ cells: [v.image, v.conteneurs.join(', '), v.erreur ? `pas vérifiée : ${v.erreur}` : v.nouvelle ? 'nouvelle version' : 'à jour'], ...(v.nouvelle ? { tone: 'attention' as const, actions: [{ action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: v.conteneurs[0] } }] } : {}) })) },
         { kind: 'table', title: 'Images', columns: ['Image', 'Identifiant', 'Taille'], empty: 'Aucune image.', rows: imgs.flatMap((i) => i.names.map((n) => ({ cells: [n, i.id.slice(0, 12), `${(i.size / 1e6).toFixed(0)} Mo`] }))) },
-        { kind: 'text', title: 'Dans la discussion aussi', text: 'Écris directement : run -d --name web -p 8080:80 nginx · ps · logs web · stop web · start web · exec web ls / · pull alpine · images · rm web. Lancer, supprimer et exec demandent ton accord.' },
+        { kind: 'text', title: 'Dans la discussion aussi', text: 'Écris directement : run -d --name web -p 8080:80 <image> · ps · logs web · stop web · start web · exec web ls / · pull <image> · images · rm web. Lancer, supprimer et exec demandent ton accord.' },
       ],
       side: [{ kind: 'form', title: 'Lancer une appli', action: 'lancer', submit: 'Lancer', params: LANCER.slice(0, 4) }],
     };
@@ -257,3 +267,292 @@ export function chatCommand(text: string, known: () => string[] = () => engine()
   })();
   return ok ? [verb, ...argv.slice(1)].map((x) => (/[\s'"]/.test(x) || !x ? `'${x.replace(/'/g, `'"'"'`)}'` : x)).join(' ') : undefined;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Lot K1 (maquette « Arche et Hydre » validée le 23/11) : le tableau de bord et la fiche d'un conteneur.
+//   - lectures : `tableau` (ce qui tourne, processeur, mémoire, disque, arrêtés, mises à jour connues), `fiche` (ports,
+//     dossiers, variables aux secrets masqués, redémarrage, limites, données) et `journal_direct` (les dernières lignes,
+//     relues à chaque appel et BORNÉES : le moteur ne lit que la fin du fichier, au plus 400 lignes de 2 000 caractères
+//     renvoyées, secrets des variables masqués) ;
+//   - gestes, au propriétaire seul et notés dans « qui a fait quoi » : `geste_fiche` (démarrer, arrêter,
+//     redémarrer), `ressources` (mémoire et cœurs), `terminal` (UNE commande à la fois, après confirmation : pas de
+//     terminal interactif aujourd'hui), `supprimer_fiche` (ses données sont GARDÉES par défaut ; les effacer exige
+//     son nom tapé à l'identique, et seuls ses dossiers en écriture qui ne sont ni près de la racine, ni le dossier
+//     personnel, ni partagés avec un autre conteneur, ni dans les données d'Odin peuvent partir).
+// Ailleurs que sous Linux, il n'y a pas de moteur aujourd'hui : le tableau le dit (et ce qui viendra), les gestes refusent.
+// ---------------------------------------------------------------------------------------------------------------
+/** Les textes du serveur pour le tableau et la fiche (la page a les siens, dans MOTS). */
+export const TEXTES_ARCHE = {
+  pasDeMoteur: 'Pas de moteur de conteneurs sur ce PC aujourd\'hui : le moteur d\'Odin ne marche que sous Linux.',
+  avenir: 'À venir sur Windows : les conteneurs dans le sous-système Linux livré avec Windows (WSL2), avec les mêmes écrans. En attendant, rien ne se lance ici.',
+  nomFaux: 'Pour effacer ses données, écris son nom exact (« {nom} ») : rien n\'a été supprimé.',
+  interactif: '« {cmd} » attend qu\'on tape dedans : il n\'y a pas encore de terminal interactif. Lance une commande qui finit seule (par exemple « ls -la », « cat fichier », « df -h »).',
+  occupe: 'Une commande tourne déjà dans {nom} : attends qu\'elle finisse (une seule à la fois).',
+  arrete: '{nom} est arrêté : démarre-le pour lancer une commande dedans.',
+  tropLongue: 'Commande trop longue (500 caractères au plus).',
+  vide: 'Quelle commande ?',
+};
+const remplir = (t: string, v: Record<string, string>) => t.replace(/\{(\w+)\}/g, (_m, k: string) => v[k] ?? '');
+/** Ce que le tableau et les gestes demandent au système (remplaçable dans les essais : aucun vrai conteneur). */
+export const systemeArche = {
+  plateforme: (): string => process.platform,
+  stat: (c: Ctr): CgStat | undefined => cgStat(join('/sys/fs/cgroup/odin', c.id.slice(0, 12))),
+  disque: (dir: string): { libre: number; total: number } | undefined => { try { const x = statfsSync(dir); return { libre: x.bavail * x.bsize, total: x.blocks * x.bsize }; } catch { return undefined; } },
+  coeurs: (): number => cpus().length || 1,
+  dossierMoteur: (): string => (engine() as Partial<Engine>).store?.dir ?? defaultDir(),
+  maison: (): string => homedir(),
+};
+const moteurIci = () => systemeArche.plateforme() === 'linux';
+function exigerMoteur(): void { if (!moteurIci()) throw new Error(`${TEXTES_ARCHE.pasDeMoteur} ${TEXTES_ARCHE.avenir}`); }
+
+// ---- secrets : jamais montrés (journal, fiche, sortie du terminal) ----
+const CLE_SECRETE_ENV = /(pass|pwd|secret|token|jeton|cle|key|api|auth|cred|priv|cert|salt|session|cookie|signature|dsn|database_url)/i;
+export const estSecrete = (cle: string): boolean => CLE_SECRETE_ENV.test(cle);
+/** Les valeurs des variables qui ressemblent à des secrets (les plus longues d'abord, pour masquer sans laisser de bout). */
+export function secretsDe(env: Record<string, string>): string[] {
+  const l = Object.entries(env ?? {}).filter(([k, v]) => estSecrete(k) && String(v ?? '').length >= 4).map(([, v]) => String(v));
+  // Un mot de passe glissé dans une adresse (« postgres://appli:motdepasse@hôte/base »), quelle que soit la variable.
+  for (const v of Object.values(env ?? {})) for (const m of String(v ?? '').matchAll(/\/\/[^\s:/@]+:([^\s@/]{4,})@/g)) l.push(decodeURIComponent(m[1]), m[1]);
+  return [...new Set(l)].sort((a, b) => b.length - a.length);
+}
+const MASQUE = '••••••';
+/** Masque les secrets connus et ce qui y ressemble (« password=… », « Bearer … », « utilisateur:motdepasse@ »). Pur. */
+export function masquer(t: string, secrets: string[] = []): string {
+  let x = String(t ?? '');
+  for (const v of secrets) if (v) x = x.split(v).join(MASQUE);
+  // (« "password": "…" » : la clé peut être entre guillemets, comme dans une ligne JSON)
+  x = x.replace(/\b([\w.-]*?(?:pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|auth)[\w.-]*)(["']?\s*[=:]\s*)((?:Bearer|Basic|Token)\s+)?("[^"]*"|'[^']*'|[^\s,;&]+)/gi, (_m, k: string, sp: string, schema?: string) => `${k}${sp}${schema ?? ''}${MASQUE}`);
+  x = x.replace(/\b(Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{8,}/g, `$1 ${MASQUE}`);
+  x = x.replace(/(\/\/[^\s:/@]+:)[^\s@/]+@/g, `$1${MASQUE}@`);
+  return x;
+}
+/** Une ligne écrite par un programme, rendue sûre à montrer comme du texte : sans couleurs du terminal ni caractères de contrôle. */
+const nettoyer = (t: string) => String(t ?? '').replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '');
+
+// ---- le journal, borné ----
+export const JOURNAL_MAX = 400, LIGNE_MAX = 2000;
+export interface LigneJournal { at: string; flux: 'sortie' | 'erreur'; texte: string; coupee?: boolean }
+/** Les dernières lignes du journal d'un conteneur (après `depuis` si donné) : bornées, nettoyées, secrets masqués. */
+export function journalBorne(c: Ctr, o: { depuis?: string; n?: number } = {}): { lignes: LigneJournal[]; borne: number } {
+  const n = Math.min(JOURNAL_MAX, Math.max(1, Math.floor(Number(o.n) || 200))), secrets = secretsDe(c.spec.env);
+  let l = engine().logs(c.spec.name, JOURNAL_MAX);   // le moteur ne lit que la fin du fichier (2 Mo au plus), jamais tout
+  if (o.depuis) l = l.filter((x) => x.at > String(o.depuis));
+  return { borne: JOURNAL_MAX, lignes: l.slice(-n).map((x) => {
+    // Masqué AVANT d'être coupé : un secret à cheval sur la borne ne laisse aucun bout visible.
+    const t = masquer(nettoyer(x.text), secrets), coupee = t.length > LIGNE_MAX;
+    return { at: x.at, flux: x.stream === 'e' ? 'erreur' as const : 'sortie' as const, texte: coupee ? t.slice(0, LIGNE_MAX) : t, ...(coupee ? { coupee } : {}) };
+  }) };
+}
+
+// ---- les données d'un conteneur (ses dossiers en écriture) ----
+const DOSSIERS_PERSO = /^(images|pictures|photos|videos|vidéos|musique|music|documents|bureau|desktop|telechargements|téléchargements|downloads|public|modeles|modèles|templates)$/i;
+/** Un dossier à toi, même rangé plus bas (« …/Documents/notes », « /mnt/c/Users/moi/Images/… ») : jamais effacé. */
+const PERSO_PLUS_BAS = /^(images|pictures|photos|videos|vidéos|musique|music|documents|bureau|desktop|telechargements|téléchargements|downloads|onedrive|dropbox)$/i;
+/** Les dossiers du système (Linux, et Windows vu depuis Linux) : jamais effacés, même si un conteneur y écrit. */
+const SYSTEME_RACINE = /^(etc|usr|bin|sbin|lib|lib32|lib64|libx32|boot|dev|proc|sys|run|root|snap|var|opt|lost\+found)$/i;
+const SYSTEME_PARTOUT = /^(windows|program files|program files \(x86\)|programdata|system32)$/i;
+/** Un système qui ne distingue pas les majuscules (Windows, macOS) : « C:\Odin » et « c:\odin » sont le même dossier. */
+const sansCasse = () => process.platform === 'win32' || process.platform === 'darwin';
+const pour = (p: string) => { const r = resolve(p); return sansCasse() ? r.toLowerCase() : r; };
+const dedansOuEgal = (p: string, racine: string) => { const a = pour(p), b = pour(racine); return a === b || a.startsWith(b.endsWith(sep) ? b : b + sep); };
+const morceaux = (p: string) => resolve(p).split(/[\\/]+/).filter(Boolean).filter((x, i) => !(i === 0 && /^[a-z]:$/i.test(x)));
+const vrai = (p: string): string | undefined => { try { return realpathSync.native(p); } catch { return undefined; } };
+export interface Donnee { dossier: string; dedans: string; effacable: boolean; raison?: string; /** le vrai chemin vérifié (liens suivis) : c'est lui qui est effacé */ reel?: string }
+/** Pourquoi ce chemin ne peut pas être effacé (undefined : il peut). Vérifié sur le chemin écrit ET sur le vrai chemin. */
+function pourquoiGarder(p: string, odinHome: string): string | undefined {
+  const parts = morceaux(p), maison = systemeArche.maison();
+  if (parts.length < 3) return 'trop près de la racine du disque';
+  if (SYSTEME_RACINE.test(parts[0]) || parts.some((x) => SYSTEME_PARTOUT.test(x))) return 'un dossier du système';
+  if (dedansOuEgal(maison, p) || pour(dirname(resolve(p))) === pour(maison) || DOSSIERS_PERSO.test(basename(p)) || parts.some((x) => PERSO_PLUS_BAS.test(x))) return 'ton dossier personnel, ou un de tes dossiers à toi';
+  if (dedansOuEgal(p, odinHome) || dedansOuEgal(odinHome, p)) return 'les données d\'Odin';
+  try { const d = systemeArche.dossierMoteur(); if (dedansOuEgal(p, d) || dedansOuEgal(d, p)) return 'le moteur de conteneurs d\'Odin'; } catch { /* pas de moteur */ }
+  return undefined;
+}
+/** Les dossiers où le conteneur ÉCRIT, et pour chacun s'il peut être effacé avec lui (jamais un dossier système ou personnel). */
+export function donneesDe(c: Ctr, tous: Ctr[], odinHome: string): Donnee[] {
+  return c.spec.mounts.filter((m) => !m.ro).map((m) => {
+    const refus = (r: string): Donnee => ({ dossier: m.host, dedans: m.inner, effacable: false, raison: r });
+    if (!isAbsolute(m.host)) return refus('trop près de la racine du disque');
+    const r1 = pourquoiGarder(m.host, odinHome); if (r1) return refus(r1);
+    let reel: string | undefined;
+    try { if (lstatSync(m.host).isSymbolicLink()) return refus('c\'est un lien vers un autre dossier'); reel = vrai(m.host); } catch { return refus('ce dossier n\'existe plus'); }
+    if (!reel) return refus('ce dossier n\'existe plus');
+    // Un lien ou une jonction posé PLUS HAUT dans le chemin : le vrai dossier est vérifié lui aussi.
+    const r2 = pourquoiGarder(reel, odinHome); if (r2) return refus(pour(reel) === pour(m.host) ? r2 : `${r2} (par un lien plus haut dans le chemin)`);
+    const ici = [m.host, reel];
+    const autre = tous.find((x) => x.id !== c.id && x.spec.mounts.some((y) => [y.host, vrai(y.host)].some((h) => h && ici.some((p) => dedansOuEgal(h, p) || dedansOuEgal(p, h)))));
+    if (autre) return refus(`aussi utilisé par ${autre.spec.name}`);
+    return { dossier: m.host, dedans: m.inner, effacable: true, reel };
+  });
+}
+
+// ---- le tableau de bord ----
+const precedent = new Map<string, CgStat>();
+const REDEMARRAGE: Record<string, string> = { 'sauf-arret': 'sauf si je l\'arrête', toujours: 'toujours', 'si-erreur': 'si erreur', non: 'jamais' };
+const enErreur = (c: Ctr) => c.state.status === 'sorti' && ((c.state.exitCode ?? 0) !== 0 || Boolean(c.state.error));
+function mesure(c: Ctr): { cpu?: number; memoire?: number; memoireMax?: number } {
+  if (c.state.status !== 'en marche') { precedent.delete(c.id); return {}; }
+  const cur = systemeArche.stat(c); if (!cur) return {};
+  const prev = precedent.get(c.id); precedent.set(c.id, cur);
+  const cpu = prev && cur.at > prev.at ? Math.max(0, Math.min(100, ((cur.usageUsec - prev.usageUsec) / ((cur.at - prev.at) * 1000) / systemeArche.coeurs()) * 100)) : undefined;
+  return { ...(cpu === undefined ? {} : { cpu: Math.round(cpu * 10) / 10 }), memoire: cur.memCurrent, memoireMax: cur.memMax };
+}
+export function tableauArche(ctx: ModCtx): Record<string, unknown> {
+  const plateforme = systemeArche.plateforme();
+  if (!moteurIci()) return { moteur: false, nom: nomArche(), plateforme, raison: TEXTES_ARCHE.pasDeMoteur, avenir: TEXTES_ARCHE.avenir, conteneurs: [] };
+  const e = engine(); let cts: Ctr[] = [], erreur = '';
+  try { cts = e.ps(true); } catch (x) { erreur = (x as Error).message; }
+  const vers = versionsDe(ctx).filter((v) => v.nouvelle);
+  const l = cts.map((c) => { const m = mesure(c); return {
+    nom: c.spec.name, id: c.id.slice(0, 12), image: c.spec.image, etat: c.state.status, enMarche: c.state.status === 'en marche', enErreur: enErreur(c),
+    depuis: c.state.status === 'en marche' ? c.state.startedAt : c.state.finishedAt, ip: c.state.ip, ports: c.spec.ports.map((p) => ({ hote: p.host, dedans: p.inner, proto: p.proto ?? 'tcp' })),
+    erreur: c.state.error ? masquer(nettoyer(c.state.error), secretsDe(c.spec.env)).slice(0, 300) : undefined, code: c.state.exitCode, relances: c.state.restarts ?? 0,
+    service: c.spec.labels['odin.service'] || undefined, limiteMemoire: c.spec.memory ? bytes(c.spec.memory) : undefined, coeurs: c.spec.cpus ? Number(c.spec.cpus) : undefined,
+    majDispo: vers.some((v) => v.conteneurs.includes(c.spec.name)), ...m,
+  }; });
+  const imgs = erreur ? [] : e.images(), d = systemeArche.disque(systemeArche.dossierMoteur());
+  const on = l.filter((x) => x.enMarche);
+  return {
+    moteur: true, nom: nomArche(), plateforme, erreur: erreur || undefined, conteneurs: l,
+    totaux: { total: l.length, enMarche: on.length, enErreur: l.filter((x) => x.enErreur).length, arretes: l.filter((x) => !x.enMarche && !x.enErreur).length,
+      cpu: on.some((x) => x.cpu !== undefined) ? Math.round(on.reduce((a, x) => a + (x.cpu ?? 0), 0) * 10) / 10 : undefined, memoire: on.reduce((a, x) => a + (x.memoire ?? 0), 0), memoireMachine: totalmem(), coeurs: systemeArche.coeurs() },
+    disque: { images: imgs.reduce((a, i) => a + i.size, 0), nbImages: imgs.length, ...(d ?? {}) },
+    majs: vers.map((v) => ({ image: v.image, conteneurs: v.conteneurs })),
+    installations: erreur ? 0 : e.jobs().filter((j) => !j.ended).length,
+  };
+}
+export function ficheArche(ctx: ModCtx, nom: string): Record<string, unknown> {
+  exigerMoteur();
+  const e = engine(), c = e.find(nom), tous = e.ps(true), sp = c.spec, secrets = secretsDe(sp.env);
+  const b = (() => { try { return urdrBases(ctx.home).filter((x) => x.conteneur === PG_SERVER).find((x) => x.nom === sp.name || x.utilisateur === roleOf(sp.name)); } catch { return undefined; } })();
+  return {
+    nom: sp.name, id: c.id.slice(0, 12), image: sp.image, cree: sp.created, etat: c.state.status, enMarche: c.state.status === 'en marche', enErreur: enErreur(c),
+    depuis: c.state.startedAt, finiLe: c.state.finishedAt, code: c.state.exitCode, erreur: c.state.error ? masquer(nettoyer(c.state.error), secrets).slice(0, 300) : undefined, relances: c.state.restarts ?? 0, ip: c.state.ip,
+    ports: sp.ports.map((p) => ({ hote: p.host, dedans: p.inner, proto: p.proto ?? 'tcp' })),
+    dossiers: sp.mounts.map((m) => ({ hote: m.host, dedans: m.inner, lecture: m.ro })),
+    variables: Object.entries(sp.env).map(([k, v]) => (estSecrete(k) ? { cle: k, valeur: MASQUE, secrete: true } : { cle: k, valeur: masquer(nettoyer(String(v)), secrets).slice(0, 300) })),
+    redemarrage: REDEMARRAGE[sp.restart] ?? sp.restart, limiteMemoire: sp.memory, limiteCoeurs: sp.cpus, grandir: sp.labels['odin.grandir'] || undefined, reseau: sp.network === 'hote' ? 'celui de la machine' : 'le réseau des conteneurs',
+    service: sp.labels['odin.service'] || undefined, base: b ? { id: b.id, nom: b.nom } : undefined,
+    donnees: donneesDe(c, tous, ctx.home).map(({ reel: _r, ...x }) => x), majDispo: versionsDe(ctx).some((v) => v.nouvelle && v.conteneurs.includes(sp.name)),
+    ...mesure(c),
+  };
+}
+
+// ---- le terminal : une commande à la fois ----
+const INTERACTIFS = /^(vi|vim|nvim|nano|emacs|pico|joe|less|more|most|top|htop|btop|watch|man|ssh|telnet|ftp|screen|tmux|mc|irb|ipython|psql|mysql|mariadb|sqlite3|redis-cli|mongo|mongosh|node|python\d?(\.\d+)?|bash|sh|zsh|ash|dash|fish|ksh|su|sudo|login|passwd)$/;
+/** Vrai si la commande attend qu'on tape dedans (un éditeur, un interpréteur ou un interpréteur de commandes sans rien à lancer). Pur. */
+export function attendQuOnTape(argv: string[]): boolean {
+  const p = (argv[0] ?? '').split('/').pop() ?? '';
+  if (!INTERACTIFS.test(p)) return p === 'tail' && argv.some((a) => a === '-f' || a === '-F' || a === '--follow');
+  if (/^(sudo|su|passwd|login)$/.test(p)) return true;
+  // « sh -c 'ls' », « python3 -c … », « psql -c … », « mysql -e … », « node -e … » finissent seuls.
+  if (argv.some((a) => /^-(c|e|-command|-eval|-execute)$/.test(a))) return false;
+  if (/^(python\d?(\.\d+)?|node|bash|sh|zsh|ash|dash)$/.test(p) && argv.length > 1 && !argv[1].startsWith('-')) return false; // un script donné
+  return !/^(--version|-v|-V|--help)$/.test(argv[1] ?? '');
+}
+const enCoursTerminal = new Set<string>();
+export const TERMINAL = { delaiMs: 30_000, sortieMax: 64 * 1024 };
+async function lancerUne(c: Ctr, argv: string[]): Promise<{ sortie: string; code: number; coupee: boolean; tropLong: boolean; ms: number }> {
+  const x = await engine().execArgs(c.spec.name, argv), t0 = Date.now();
+  return new Promise((ok) => {
+    let out = '', coupee = false, tropLong = false, fini = false, grace: ReturnType<typeof setTimeout> | undefined;
+    // Son propre groupe de processus (hors Windows) : l'outil qui entre dans le conteneur se dédouble, et ce qu'il lance
+    // (ou laisse derrière lui : « sh -c 'sleep 9999 &' ») est tué avec lui ; tuer le seul premier processus laisserait
+    // le reste tourner, la sortie ouverte, et l'action ne rendrait jamais la main (une seule commande à la fois : bloquée).
+    const groupe = process.platform !== 'win32';
+    const p = spawn(x.cmd, x.args, { env: x.env, stdio: ['ignore', 'pipe', 'pipe'], detached: groupe });
+    const tuer = () => { try { if (groupe && p.pid) process.kill(-p.pid, 'SIGKILL'); else p.kill('SIGKILL'); } catch { try { p.kill('SIGKILL'); } catch { /* déjà parti */ } } };
+    const finir = (code: number, sortie = out) => {
+      if (fini) return; fini = true; clearTimeout(minuteur); if (grace) clearTimeout(grace);
+      p.stdout?.destroy(); p.stderr?.destroy();
+      ok({ sortie, code, coupee, tropLong, ms: Date.now() - t0 });
+    };
+    const prendre = (b: Buffer) => { if (out.length >= TERMINAL.sortieMax) { coupee = true; return; } out += b.toString('utf8'); if (out.length > TERMINAL.sortieMax) { out = out.slice(0, TERMINAL.sortieMax); coupee = true; } };
+    p.stdout?.on('data', prendre); p.stderr?.on('data', prendre);
+    const minuteur = setTimeout(() => { tropLong = true; tuer(); grace = setTimeout(() => finir(137), 2000); }, TERMINAL.delaiMs);
+    p.on('error', (er) => finir(127, er.message));
+    // Fini, mais un programme laissé derrière garde la sortie ouverte : il est arrêté, et l'action rend la main.
+    p.on('exit', (code) => { if (!fini && !grace) grace = setTimeout(() => { tuer(); finir(code ?? 1); }, 500); });
+    p.on('close', (code) => finir(code ?? 1));
+  });
+}
+
+const CT_ARCHE: Param = { key: 'conteneur', label: 'Conteneur', kind: 'text', required: true };
+const nomOuTel = (i: Record<string, unknown>) => s(i.conteneur).trim().slice(0, 80);
+/** Le tableau, la fiche et le journal (lectures) ; les gestes de la fiche, au propriétaire seul et notés (« qui a fait quoi »). */
+// Ces trois lectures ne sont pas marquées « read » : le banc figé de Soul photographie les lectures du catalogue
+// (test/soul-banc/jeux/actions-monde.json, sous empreinte) ; elles ne changent rien et restent ouvertes (pas « propriétaire seul »).
+const actionsK1: Action[] = [
+  { id: 'tableau', label: 'Tableau de bord', what: 'Ce qui tourne, processeur, mémoire, disque, conteneurs arrêtés et mises à jour connues', quick: false, quiet: true, run: (ctx) => {
+    const t = tableauArche(ctx) as { moteur: boolean; raison?: string; avenir?: string; totaux?: { enMarche: number; total: number; arretes: number; enErreur: number } };
+    return { text: t.moteur ? `${t.totaux!.enMarche} en marche sur ${t.totaux!.total} · ${t.totaux!.arretes} arrêté(s) · ${t.totaux!.enErreur} en erreur` : `${t.raison} ${t.avenir}`, data: t };
+  } },
+  { id: 'fiche', label: 'Fiche d\'un conteneur', what: 'Ports, dossiers, variables (secrets masqués), redémarrage, limites, ses données', quick: false, quiet: true, params: [CT_ARCHE], run: (ctx, i) => {
+    const f = ficheArche(ctx, safe(i.conteneur)); return { text: `${String(f.nom)} · ${String(f.image)} · ${String(f.etat)}`, data: f };
+  } },
+  { id: 'journal_direct', label: 'Journal en direct', what: `Les dernières lignes du journal d'un conteneur (au plus ${JOURNAL_MAX}, relues à chaque fois, secrets masqués)`, quick: false, quiet: true, external: true,
+    params: [CT_ARCHE, { key: 'depuis', label: 'Après cette heure', kind: 'text', default: '' }, { key: 'n', label: 'Combien de lignes', kind: 'number', default: 200 }], run: (_ctx, i) => {
+      exigerMoteur(); const c = engine().find(safe(i.conteneur)), j = journalBorne(c, { depuis: s(i.depuis) || undefined, n: Number(i.n) || undefined });
+      return { text: j.lignes.map((l) => l.texte).join('\n') || '(journal vide)', data: { conteneur: c.spec.name, enMarche: c.state.status === 'en marche', ...j } };
+    } },
+  { id: 'geste_fiche', label: 'Démarrer, arrêter ou redémarrer', what: 'Le geste de la fiche d\'un conteneur', quick: false, proprietaireSeul: true,
+    params: [CT_ARCHE, { key: 'geste', label: 'Geste', kind: 'select', options: ['redemarrer', 'arreter', 'demarrer'], required: true }],
+    grave: (i) => (s(i.geste) === 'arreter' ? `arrêter le conteneur ${nomOuTel(i)} (ce qu'il sert ne répond plus jusqu'à ce que tu le relances)` : undefined),
+    run: async (ctx, i) => {
+      exigerMoteur(); const n = safe(i.conteneur), g = s(i.geste), e = engine();
+      if (g === 'arreter') { forget(ctx, n); const c = await e.stop(n); return { text: `⏹ ${c.spec.name} arrêté.` }; }
+      if (g === 'demarrer') { const c = await e.start(n); ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), c.spec.name])] }); return { text: `▶ ${c.spec.name} démarré.` }; }
+      if (g === 'redemarrer') { const c = await e.restart(n); return { text: `🔄 ${c.spec.name} redémarré.` }; }
+      throw new Error(`geste inconnu : ${g.slice(0, 20)}`);
+    } },
+  { id: 'ressources', label: 'Ressources d\'un conteneur', what: 'Mémoire et cœurs permis, changés sans l\'arrêter', quick: false, proprietaireSeul: true,
+    params: [CT_ARCHE, { key: 'memoire', label: 'Mémoire max (512m, 2g)', kind: 'text', default: '' }, { key: 'coeurs', label: 'Cœurs max (0.5, 2)', kind: 'text', default: '' }],
+    run: async (_ctx, i) => {
+      exigerMoteur(); const m = s(i.memoire).trim(), k = s(i.coeurs).trim().replace(',', '.');
+      if (!m && !k) throw new Error('donne la mémoire ou les cœurs');
+      if (m && !/^\d+(\.\d+)?[kmg]$/i.test(m)) throw new Error(`mémoire illisible : ${m.slice(0, 20)} (ex. 512m, 2g)`);
+      if (m && bytes(m) < 16 * 1024 ** 2) throw new Error('16 Mo au moins');
+      if (k && !(Number(k) >= 0.1 && Number(k) <= systemeArche.coeurs())) throw new Error(`cœurs : entre 0,1 et ${systemeArche.coeurs()}`);
+      const c = await engine().resize(safe(i.conteneur), { memory: m || undefined, cpus: k || undefined });
+      return { text: `🎚 ${c.spec.name} : ${c.spec.memory ?? 'mémoire libre'} · ${c.spec.cpus ?? 'tous les'} cœurs.` };
+    } },
+  { id: 'terminal', label: 'Une commande dans un conteneur', what: 'Une seule commande, avec les droits du conteneur, après ta confirmation (pas encore de terminal interactif)', quick: false, proprietaireSeul: true, external: true,
+    params: [CT_ARCHE, { key: 'commande', label: 'Commande', kind: 'text', required: true }],
+    // Une commande plus longue que ce que montre la confirmation le dit (rien de caché sans qu'il le sache).
+    grave: (i) => `lancer « ${s(i.commande).trim().slice(0, 120)}${s(i.commande).trim().length > 120 ? ` … » (${s(i.commande).trim().length - 120} caractères de plus, pas montrés ici)` : ' »'} dans ${nomOuTel(i)} : elle agit dans le conteneur avec ses droits, et ce qu'elle change ne se défait pas tout seul`,
+    run: async (_ctx, i) => {
+      exigerMoteur();
+      const ligne = s(i.commande).trim(); if (!ligne) throw new Error(TEXTES_ARCHE.vide); if (ligne.length > 500) throw new Error(TEXTES_ARCHE.tropLongue);
+      const argv = splitLine(ligne), c = engine().find(safe(i.conteneur));
+      if (c.state.status !== 'en marche') throw new Error(remplir(TEXTES_ARCHE.arrete, { nom: c.spec.name }));
+      if (attendQuOnTape(argv)) throw new Error(remplir(TEXTES_ARCHE.interactif, { cmd: argv.slice(0, 2).join(' ').slice(0, 60) }));
+      if (enCoursTerminal.has(c.id)) throw new Error(remplir(TEXTES_ARCHE.occupe, { nom: c.spec.name }));
+      enCoursTerminal.add(c.id);
+      try {
+        const r = await lancerUne(c, argv), sortie = masquer(nettoyer(r.sortie), secretsDe(c.spec.env)).trimEnd();
+        const fin = r.tropLong ? `\n(arrêtée au bout de ${TERMINAL.delaiMs / 1000} s)` : r.coupee ? '\n(sortie coupée à 64 Ko)' : '';
+        return { ok: r.code === 0, text: `${sortie || '(rien)'}${fin}${r.code ? `\n(code ${r.code})` : ''}`, data: { conteneur: c.spec.name, commande: ligne, sortie, code: r.code, coupee: r.coupee, tropLong: r.tropLong, ms: r.ms } };
+      } finally { enCoursTerminal.delete(c.id); }
+    } },
+  { id: 'supprimer_fiche', label: 'Supprimer un conteneur (garde-fou)', what: 'Supprime un conteneur ; ses données sont gardées, sauf si tu écris son nom pour les effacer aussi', quick: false, proprietaireSeul: true,
+    params: [CT_ARCHE, { key: 'donnees', label: 'Ses données', kind: 'select', options: ['garder', 'effacer'], default: 'garder' }, { key: 'nom_tape', label: 'Son nom, pour effacer ses données', kind: 'text', default: '' }],
+    grave: (i) => (s(i.donnees) === 'effacer' ? `supprimer le conteneur ${nomOuTel(i)} ET effacer ses données : elles ne pourront pas revenir` : `supprimer le conteneur ${nomOuTel(i)} (ses données sont gardées)`),
+    run: async (ctx, i) => {
+      exigerMoteur();
+      const e = engine(), c = e.find(safe(i.conteneur)), effacer = s(i.donnees) === 'effacer';
+      // Le nom tapé est vérifié AVANT de toucher à quoi que ce soit.
+      if (effacer && s(i.nom_tape).trim() !== c.spec.name) throw new Error(remplir(TEXTES_ARCHE.nomFaux, { nom: c.spec.name }));
+      const d = donneesDe(c, e.ps(true), ctx.home);
+      forget(ctx, c.spec.name);
+      await e.rm(c.spec.name, true);
+      const parties: string[] = [], gardees = effacer ? d.filter((x) => !x.effacable) : d;
+      if (effacer) for (const x of d.filter((y) => y.effacable)) { try { rmSync(x.reel ?? x.dossier, { recursive: true, force: true }); parties.push(x.dossier); } catch (er) { gardees.push({ ...x, effacable: false, raison: (er as Error).message }); } }
+      const t = [`🗑 ${c.spec.name} supprimé (l'image reste, réutilisable).`,
+        parties.length ? `Données effacées : ${parties.join(', ')}.` : '',
+        gardees.length ? `Données gardées : ${gardees.map((x) => `${x.dossier}${effacer && x.raison ? ` (${x.raison})` : ''}`).join(', ')}.` : ''].filter(Boolean).join('\n');
+      return { text: t, data: { conteneur: c.spec.name, effacees: parties, gardees: gardees.map((x) => x.dossier) } };
+    } },
+];
+/** Les actions du lot K1, déjà passées par « qui a fait quoi » (et sa lecture, au propriétaire seul). */
+export const actionsArche: Action[] = [...avecJournal('naglfar_actes', actionsK1), actionJournal('naglfar_actes', nomArche())];
+naglfar.actions.push(...actionsArche);

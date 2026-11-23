@@ -289,7 +289,7 @@ test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la m�
     assert.ok(r.appli!.port! >= DIRECT_RANGE[0] && r.appli!.port! <= DIRECT_RANGE[1], 'sans numéro : Odin choisit un port libre dans la plage proposée');
     html = await (await fetch(`http://127.0.0.1:${r.appli!.port}/`, { headers: H })).text(); assert.match(html, /data-direct="brain"/); assert.match(html, /<title>Thot · Odin<\/title>/);
 
-    // Les applis voient la même chose : Thermopyles (action, page), le tableau des ports d'Argo.
+    // Les applis voient la même chose : Thermopyles (action, page), le tableau des ports d'Arche.
     const t = await va.act('hlid', 'ports_directs'); assert.match(t.text, new RegExp(`- Vénus : ${p} · écoute · cette machine seulement`)); assert.match(t.text, /- Thot : 22\d{3} · écoute/);
     const view = await va.module('hlid')!.view(va.ctx('hlid'), new URLSearchParams()), tab = view.sections.find((x) => x.kind === 'table' && x.title === 'Ports directs des applis');
     assert.ok(tab && tab.kind === 'table'); assert.deepEqual(tab.rows.find((x) => x.cells[0] === 'Vénus')!.cells, ['Vénus', String(p), 'écoute', 'cette machine seulement']);
@@ -314,7 +314,7 @@ test('port direct : refus clairs (déjà pris et par qui, gardé, hors bornes, s
     assert.equal(r.ok, false); assert.equal(r.text, `le port ${pris} est déjà pris par « node » (programme n° ${autre.pid}) : choisis-en un autre, ou arrête ce programme`); assert.equal(r.error, r.text);
     assert.deepEqual([r.appli!.port, r.appli!.etat], [null, 'fermé'], 'rien n\'a changé');
     // Gardé par le plan.
-    for (const [port, re] of [[v.port, /celui de l'interface d'Odin/], [WEB, /gardé pour Odin : l'interface d'Odin/], [53, /gardé pour Sphinx/], [80, /gardé pour Valgrind/], [8096, /gardé pour Vénus \(Venus\) : interface de Venus/], [20010, /gardé pour n8n \(appli installée par Argo\)/], [20500, /20000 à 20999 sont gardés pour les applis installées/], [21500, /21000 à 21999 sont gardés/], [22, /navigateurs refusent d'ouvrir le port 22 \(ils le gardent pour « ssh »\)/], [6000, /navigateurs refusent/]] as Array<[number, RegExp]>) {
+    for (const [port, re] of [[v.port, /celui de l'interface d'Odin/], [WEB, /gardé pour Odin : l'interface d'Odin/], [53, /gardé pour Sphinx/], [80, /gardé pour Valgrind/], [8096, /gardé pour Vénus \(Venus\) : interface de Venus/], [20010, /gardé pour n8n \(appli installée par Arche\)/], [20500, /20000 à 20999 sont gardés pour les applis installées/], [21500, /21000 à 21999 sont gardés/], [22, /navigateurs refusent d'ouvrir le port 22 \(ils le gardent pour « ssh »\)/], [6000, /navigateurs refusent/]] as Array<[number, RegExp]>) {
       r = await post({ appli: 'garmr', faire: 'regler', port }); assert.equal(r.ok, false, String(port)); assert.match(r.text!, re, String(port));
     }
     // Hors bornes, ou pas un nombre.
@@ -657,12 +657,12 @@ test('appli installée (moteur d\'Odin) : elle reçoit son port fixe ; s\'il est
     assert.deepEqual(e.find('pb1').spec.ports, [{ host: fixe, inner: 8080, proto: 'tcp' }]); assert.equal(e.find('pb1').state.status, 'en marche');
     assert.ok(await until(async () => (await page(fixe)) === 'salut depuis le conteneur', 10_000), 'la page du conteneur répond sur le port fixe');
     // Un port direct ne peut pas prendre le port d'une appli installée : le plan le garde, et la machine dit qui le tient.
-    assert.match(directRefusal(fixe, 'eir') ?? '', /gardé pour PrivateBin \(appli installée par Argo\)/);
+    assert.match(directRefusal(fixe, 'eir') ?? '', /gardé pour PrivateBin \(appli installée par Arche\)/);
     const g = new DirectPorts({ home: dir, web: 8888, host: '127.0.0.1', access: 'local', attach: (s) => s.destroy() }); await g.start();
     try {
       const libre = await freePort(); await e.run({ image: ref, name: 'autre', ports: `${libre}:8080`, network: e.find('pb1').spec.network });
       assert.ok(await until(async () => (await page(libre)) === 'salut depuis le conteneur', 10_000));
-      await assert.rejects(g.set('eir', libre), new RegExp(`le port ${libre} est déjà pris par l'appli installée « autre » \\(Argo\\) : choisis-en un autre, ou arrête ce programme`));
+      await assert.rejects(g.set('eir', libre), new RegExp(`le port ${libre} est déjà pris par l'appli installée « autre » \\(Arche\\) : choisis-en un autre, ou arrête ce programme`));
       await e.rm('autre', true);
       // … et une appli installée ne prend jamais un port direct : elle va au suivant.
       const direct = fixe + 1; setDirectPorts({ eir: direct });

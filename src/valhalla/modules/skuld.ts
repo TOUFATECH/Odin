@@ -1,4 +1,4 @@
-// Arche — la sauvegarde de tes bases de données, comme Portabase : PostgreSQL, MySQL / MariaDB,
+// Amphore — la sauvegarde de tes bases de données, comme Portabase : PostgreSQL, MySQL / MariaDB,
 // MongoDB ; plans (chaque heure, toutes les 6 h, chaque nuit, chaque semaine), durée de garde (jours,
 // semaines, mois), chaque sauvegarde relue pour être sûre, historique, restauration avec ton accord
 // (dans une nouvelle base à côté, conseillé, ou par-dessus après une sauvegarde de l'état actuel).
@@ -121,7 +121,7 @@ export async function backupNow(ctx: ModCtx, b: Base, raison = 'à la main'): Pr
 const pick = (ctx: ModCtx, b: Base, q: string) => { const l = archives(ctx, b); if (!l.length) throw new Error(`aucune sauvegarde de ${b.nom}`); if (!q) return l[0]; const a = l.find((x) => x.f.startsWith(q) || x.at.startsWith(q) || x.at.replace('T', ' ').startsWith(q)); if (!a) throw new Error(`sauvegarde introuvable : ${q} (la plus récente : ${l[0].at})`); return a; };
 
 export const skuld: Module = {
-  id: 'skuld', name: 'Arche', family: 'Données',
+  id: 'skuld', name: 'Amphore', family: 'Données',
   what: 'La sauvegarde de tes bases de données (comme Portabase) : plans, durée de garde, chaque sauvegarde relue et copiée à un 2e site (vérifiée), restauration avec ton accord.',
   does: ['PostgreSQL (pg_dump, dans le conteneur pour une base hébergée par Odin), MySQL / MariaDB (mysqldump), MongoDB (mongodump)', 'plans : chaque heure, toutes les 6 h, chaque nuit, chaque semaine', 'durée de garde : jours, puis une par semaine, puis une par mois', 'chaque sauvegarde est relue (base rouverte ou archive listée)', 'restaurer dans une nouvelle base à côté (conseillé) ou par-dessus, toujours avec ton accord', 'sauvegarde automatique avant toute requête Alexandrie qui modifie une base', 'copie de chaque sauvegarde à un 2e site (disque, partage réseau ou SFTP), relue et comparée (empreinte SHA-256), même durée de garde', 'alerte si une sauvegarde ou sa copie échoue'],
   from: ['Portabase'], upstream: ['Portabase/portabase'],
@@ -200,7 +200,7 @@ export const skuld: Module = {
       if (!due(p, lastOk ? new Date(lastOk.at) : undefined, now) || tacheEnPause('skuld', tacheDuPlanBase(p.base))) continue;
       if (lastTry && !lastTry.ok && now.getTime() - Date.parse(lastTry.at) < 3600_000) continue; // un essai par heure après un échec
       const e = await backupNow(ctx, b, 'plan');
-      if (!e.ok) ctx.alert({ level: 'haute', title: `💾 Sauvegarde de ${b.nom} ratée`, detail: e.erreur, key: `skuld-${b.id}`, lien: 'skuld-alerte-sauvegarde-base', steps: ['Regarde l\'erreur dans Arche', 'Mot de passe changé ? redonne-le dans Alexandrie (« relier » à nouveau)', 'Puis « Sauvegarder maintenant »'], fix: { action: 'sauvegarder', label: 'Réessayer', input: { base: b.id } } });
+      if (!e.ok) ctx.alert({ level: 'haute', title: `💾 Sauvegarde de ${b.nom} ratée`, detail: e.erreur, key: `skuld-${b.id}`, lien: 'skuld-alerte-sauvegarde-base', steps: ['Regarde l\'erreur dans Amphore', 'Mot de passe changé ? redonne-le dans Alexandrie (« relier » à nouveau)', 'Puis « Sauvegarder maintenant »'], fix: { action: 'sauvegarder', label: 'Réessayer', input: { base: b.id } } });
     }
   } },
 };

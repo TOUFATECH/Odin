@@ -1,4 +1,4 @@
-// Argo · surveiller les nouvelles versions des images (l'idée de What's Up Docker, code maison) : pour chaque image
+// Arche · surveiller les nouvelles versions des images (l'idée de What's Up Docker, code maison) : pour chaque image
 // utilisée par un conteneur, Odin demande au registre l'empreinte actuelle de son étiquette (« nginx:latest ») et la
 // compare à celle de l'image qu'il a sur le disque. Rien n'est téléchargé ni changé : on prévient, et le bouton
 // « Mettre à jour » (avec la barre de progression déjà là) fait le reste avec ton accord.

@@ -1,7 +1,7 @@
 // Alexandrie — LA base de données d'Odin : un seul serveur PostgreSQL (« odin-pg ») dans le moteur de conteneurs, à une
 // adresse fixe du réseau privé des conteneurs (jamais publié dehors). Chaque appli qui a besoin d'une base y reçoit
 // la sienne, avec son propre compte (elle ne voit pas celles des autres) ; le mot de passe est généré et rangé dans
-// le coffre, et Arche la sauvegarde chaque nuit. Pas de fichier SQLite pour les applis installées.
+// le coffre, et Amphore la sauvegarde chaque nuit. Pas de fichier SQLite pour les applis installées.
 import { randomBytes } from 'node:crypto';
 import { cpus, totalmem } from 'node:os';
 import { mkdirSync } from 'node:fs';
@@ -40,7 +40,7 @@ export function createServer(home: string, e: Pick<Engine, 'find' | 'runJob'>, n
 /** Attend que le serveur réponde (après sa création ou un redémarrage). */
 export async function waitServer(home: string, e: Pick<Engine, 'find'>, ms = 180_000): Promise<void> {
   const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await serverReady(home, e)) return; await new Promise((r) => setTimeout(r, 1000)); }
-  throw new Error('la base d\'Odin ne répond pas (regarde son journal dans Argo : odin-pg)');
+  throw new Error('la base d\'Odin ne répond pas (regarde son journal dans Arche : odin-pg)');
 }
 export const roleOf = (app: string) => (`app_${app.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`.slice(0, 50).replace(/_$/, '')) || 'app_base';
 

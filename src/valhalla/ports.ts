@@ -199,9 +199,9 @@ export function directRefusal(port: number, app: string, o: { web?: number; name
   if (parDefaut && !o.libres?.has(parDefaut)) return `le port ${port} est celui de ${nom(parDefaut)} (plan des ports) : choisis-en un autre`;
   const p = ODIN_PORTS.find((x) => x.port === port);
   if (p) return `le port ${port} est gardé pour ${p.name} : ${p.what}`;
-  const a = APP_PORTS.find((x) => x.host === port); if (a) return `le port ${port} est gardé pour ${a.name} (appli installée par Argo)`;
-  if (port >= APPS_RANGE[0] && port <= APPS_RANGE[1]) return `les ports ${APPS_RANGE[0]} à ${APPS_RANGE[1]} sont gardés pour les applis installées (Argo)`;
-  if (port >= SERVICES_RANGE[0] && port <= SERVICES_RANGE[1]) return `les ports ${SERVICES_RANGE[0]} à ${SERVICES_RANGE[1]} sont gardés pour les services mis à l'échelle (Argo)`;
+  const a = APP_PORTS.find((x) => x.host === port); if (a) return `le port ${port} est gardé pour ${a.name} (appli installée par Arche)`;
+  if (port >= APPS_RANGE[0] && port <= APPS_RANGE[1]) return `les ports ${APPS_RANGE[0]} à ${APPS_RANGE[1]} sont gardés pour les applis installées (Arche)`;
+  if (port >= SERVICES_RANGE[0] && port <= SERVICES_RANGE[1]) return `les ports ${SERVICES_RANGE[0]} à ${SERVICES_RANGE[1]} sont gardés pour les services mis à l'échelle (Arche)`;
   if (port in BROWSER_BLOCKED) return `les navigateurs refusent d'ouvrir le port ${port}${BROWSER_BLOCKED[port] ? ` (ils le gardent pour « ${BROWSER_BLOCKED[port]} »)` : ''} : la page ne s'afficherait jamais`;
   return undefined;
 }

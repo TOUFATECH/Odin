@@ -1,6 +1,6 @@
 // Tâches de tous les jours, SANS AUCUN MODÈLE (passage 2 de la campagne `test/taches/`) : ce que le propriétaire reçoit.
 //  1. Un doute sans rapport ne lance plus d'action (« restaurant » → restaurer une sauvegarde de Phénix ; « crée-moi une VM
-//     Debian » → Andromède · Suivre ; « crée un conteneur et essaie… » → Argo · Régler la mise à l'échelle).
+//     Debian » → Andromède · Suivre ; « crée un conteneur et essaie… » → Arche · Régler la mise à l'échelle).
 //  2. Home Assistant ne passe plus avant une appli qui porte la demande (« éteins la VM » → Hydre, pas « Je n'arrive pas
 //     à joindre Home Assistant »).
 //  3. Ce qu'Odin ne sait pas encore faire est dit franchement, avec ce qu'il sait faire de proche.
@@ -46,8 +46,10 @@ test('sans modèle : franchise, bonne appli, présentation propre, validations g
     assert.match(r.texte, /Je ne sais pas encore réserver/); assert.doesNotMatch(r.texte, /Alexandrie/);
     r = await dire(s, 'crée un conteneur et essaie cette appli : https://github.com/exemple/appli-inconnue');
     assert.match(r.texte, /Je ne sais pas encore essayer un dépôt GitHub/); assert.equal(r.validations.length, 0);
+    // Hydre sait mettre une VM en pause depuis le lot M1 (23/11) : la demande va à Hydre (plus de « Je ne sais pas encore »),
+    // et sans machine nommée rien n'est lancé ni proposé à valider.
     r = await dire(s, 'mets ma VM en attente');
-    assert.match(r.texte, /Je ne sais pas encore mettre une machine virtuelle en pause/);
+    assert.doesNotMatch(r.texte, /Je ne sais pas encore/); assert.match(r.texte, /Hydre/); assert.equal(r.validations.length, 0);
     r = await dire(s, 'crée une GPO qui bloque les clés USB sur les postes');
     assert.match(r.texte, /Je ne sais pas encore créer ni changer une GPO/); assert.doesNotMatch(r.texte, /Argos/);
     // 1. Un doute sans rapport n'est plus tenté : « commande-moi des piles » ne montre plus les appareils de la maison.
@@ -82,7 +84,8 @@ test('sans modèle : franchise, bonne appli, présentation propre, validations g
     r = await dire(s, 'tafuta habari za leo');
     assert.match(r.texte, /I need a language model/); assert.equal(r.validations.length, 0);
     r = await dire(s, 'pause my VM');
-    assert.match(r.texte, /^I can't pause a virtual machine yet/); assert.equal(r.validations.length, 0);
+    // En anglais aussi, c'est Hydre · Mettre en pause, qui demande quelle machine (rien n'est lancé).
+    assert.doesNotMatch(r.texte, /can't pause a virtual machine yet/); assert.match(r.texte, /^Hydre · Mettre en pause: I need « Machine »/); assert.equal(r.validations.length, 0);
   } finally { s.fermer(); }
 });
 

@@ -89,7 +89,7 @@
       }
       return out;
     }
-    /** « Phénix demande à Arche : vérifier le 2e site » */
+    /** « Phénix demande à Amphore : vérifier le 2e site » */
     const etiquette = (l) => `${l.deNom || l.de} demande à ${l.versNom || l.vers} : ${minuscule(l.libelle || l.action)}${l.n > 1 ? ` (${l.n} fois)` : ''}${l.ok === false ? ' — échec' : ''}`;
     /**
      * Dessine les liens allumés sur un canevas déjà placé (translation et zoom faits). `noeud(idAppli, nom)` → { id, x, y, r }
@@ -313,7 +313,7 @@
       if (pan) { if (Math.hypot(e.clientX - pan.sx, e.clientY - pan.sy) > 4) pan.moved = true; view.x = pan.vx + e.clientX - pan.sx; view.y = pan.vy + e.clientY - pan.sy; draw(); return; }
       const p = at(e), n = pick(p), ed = n || !opts.onEdge ? null : pickEdge(p);
       if (n !== hover || ed !== hoverEdge) { hover = n; hoverEdge = ed; cv.classList.toggle('on', !!(n || ed)); const c = n && opts.card ? opts.card(n) : null; cv.title = c ? '' : n ? (n.title || n.label) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; if (n || !cardI) showCard(n, c); else cacherCarte(250); draw(); }
-      // Lien allumé sous le pointeur : « Phénix demande à Arche : vérifier le 2e site ».
+      // Lien allumé sous le pointeur : « Phénix demande à Amphore : vérifier le 2e site ».
       const lab = n ? '' : survolEchange(echSegs, p, view.k);
       if (lab) { cv.title = lab; cv.classList.add('on'); echTitre = true; } else if (echTitre) { echTitre = false; cv.title = n ? (cv.title) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; cv.classList.toggle('on', !!(n || ed)); }
     });

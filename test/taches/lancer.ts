@@ -155,7 +155,7 @@ function juger(d: Demande, l: Omit<Ligne, 'verdict' | 'pourquoi' | 'sansValidati
 
 // ------------------------------------------------------------------------------------------------ les trois parties
 /**
- * Un FAUX moteur de conteneurs pour Argo (trois conteneurs : samba, web, dc01) : chaque commande est seulement notée
+ * Un FAUX moteur de conteneurs pour Arche (trois conteneurs : samba, web, dc01) : chaque commande est seulement notée
  * dans `moteurNote`, aucun vrai conteneur n'est touché. Posé avant chaque Odin jetable.
  */
 export const moteurNote: string[] = [];

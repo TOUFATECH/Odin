@@ -13,7 +13,7 @@ export interface Echange {
   phase: 'demande' | 'reponse';
   /** la réponse est bonne (toujours vrai pour une demande) */ ok: boolean;
   at: string;
-  /** noms affichés, pour l'étiquette du lien (« Phénix demande à Arche : vérifier le 2e site ») */
+  /** noms affichés, pour l'étiquette du lien (« Phénix demande à Amphore : vérifier le 2e site ») */
   deNom: string; versNom: string; libelle: string;
 }
 

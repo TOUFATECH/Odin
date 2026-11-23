@@ -343,7 +343,7 @@
     },
     "github-essai": {
       "quoi": "try a GitHub repository in a separate container",
-      "proche": "have Pharos study the link; Argo runs an already published Docker image, with your approval"
+      "proche": "have Pharos study the link; Arche runs an already published Docker image, with your approval"
     },
     "llm": {
       "quoi": "serve a language model to other machines",

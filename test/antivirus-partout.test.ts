@@ -151,7 +151,7 @@ test('accepter ou refuser : refuser supprime définitivement ; bloquer aussi ; u
   } finally { w.fin(); }
 });
 
-test('Argo : une image Docker dont une couche est infectée est refusée AVANT d\'être dépaquetée et lancée', async () => {
+test('Arche : une image Docker dont une couche est infectée est refusée AVANT d\'être dépaquetée et lancée', async () => {
   const w = monde(), dir = mkdtempSync(join(tmpdir(), 'odin-argo-'));
   const virus = Buffer.from(`programme piégé dans une couche (simulé) ${Math.random()}`);
   const reg = await fakeRegistry([gzipSync(tarOf(entry('opt/', { type: '5' }), entry('opt/notes.txt', { data: 'rien' }))), gzipSync(tarOf(entry('usr/', { type: '5' }), entry('usr/outil', { data: virus, mode: 0o755 })))]);
@@ -162,7 +162,7 @@ test('Argo : une image Docker dont une couche est infectée est refusée AVANT d
     assert.ok(etapes.includes('Analyser l\'image (antivirus)') && !etapes.includes('Dépaqueter l\'image') && !etapes.includes('Image prête'));
     assert.equal(e.images().length, 0, 'aucune image enregistrée : rien à lancer');
     assert.ok(!existsSync(join(dir, 'images')) || !e.findImage(`127.0.0.1:${reg.port}/odin/boite:1`));
-    const q = Q(w)[0]; assert.match(q.origine!, /Argo · image Docker/); assert.match(q.source!, /odin\/boite:1/); assert.match(q.nom!, /couche 2\/2/);
+    const q = Q(w)[0]; assert.match(q.origine!, /Arche · image Docker/); assert.match(q.source!, /odin\/boite:1/); assert.match(q.nom!, /couche 2\/2/);
     assert.ok(w.alertes.some((a) => /Asclépios a bloqué couche 2\/2/.test(a.title) && /AVANT de lancer un conteneur/.test(a.detail ?? '')));
     await assert.rejects(e.run({ image: `127.0.0.1:${reg.port}/odin/boite:1`, name: 'boite' }), /refusée par l'antivirus|introuvable|couche/, 'lancer l\'image la retire de nouveau, et la refuse de nouveau');
   } finally { reg.srv.close(); w.fin(); rmSync(dir, { recursive: true, force: true }); }

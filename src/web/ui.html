@@ -3955,7 +3955,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       list,
       el('details', {}, el('summary', { style: 'cursor:pointer;min-height:40px;display:flex;align-items:center' }, 'Les ports fixes : services d\'Odin et applis installées'),
         el('ul', { class: 'links' }, ...fixedPorts.map((a) => el('li', {}, `${a.nom} : `, a.services.map((x) => `${x.port}/${x.proto} ${x.quoi} (${x.etat === 'pris' ? `pris${x.par ? ` par ${x.par}` : ''}` : x.etat === 'écoute' ? 'écoute' : x.etat === 'fermé' ? (x.facultatif ? 'éteint' : 'fermé') : 'état inconnu'})`).join(' · '))),
-          ...r.installees.map((c) => el('li', {}, `${c.nom} (installée par Argo, ${c.etat}) : `, c.ports.map((x) => `${x.port} → ${x.vers} dans le conteneur`).join(' · ') || 'aucun port')),
+          ...r.installees.map((c) => el('li', {}, `${c.nom} (installée par Arche, ${c.etat}) : `, c.ports.map((x) => `${x.port} → ${x.vers} dans le conteneur`).join(' · ') || 'aucun port')),
           el('li', {}, `Plages gardées : ${r.plages.installees[0]}-${r.plages.installees[1]} applis installées · ${r.plages.services[0]}-${r.plages.services[1]} services mis à l'échelle · 8101-8599 ports des applis d'Odin (par famille) · ${r.plages.directs[0]}-${r.plages.directs[1]} ports proposés quand une famille est pleine.`))));
     if (said) tell(said, true);
   }

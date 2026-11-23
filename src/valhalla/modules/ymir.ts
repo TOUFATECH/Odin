@@ -61,7 +61,7 @@ const distant = {
 /** Une machine du parc, quel que soit son type (même suivi, mêmes boutons). */
 export interface Unit { key: string; kind: Kind; name: string; auto: string; state: 'en marche' | 'en pause' | 'arrêtée' | 'en installation'; ip?: string; what?: string; cpu?: number; ram?: number; where: string; module: string; ref: Record<string, unknown> }
 const pct = (a?: number, b?: number) => (a !== undefined && b ? Math.round((a / b) * 100) : undefined);
-/** Tout le parc : Proxmox (VM, LXC), Docker (Argo), ordinateurs installés par le réseau (Genèse). Les noms automatiques restent les mêmes. */
+/** Tout le parc : Proxmox (VM, LXC), Docker (Arche), ordinateurs installés par le réseau (Genèse). Les noms automatiques restent les mêmes. */
 export async function parc(ctx: ModCtx): Promise<{ units: Unit[]; errors: string[] }> {
   const names = { ...((ctx.settings.noms as Record<string, string> | undefined) ?? {}) }, taken = new Set(Object.values(names)), errors: string[] = [], units: Unit[] = [];
   const name = (key: string, kind: Kind, what: string) => { if (!names[key]) { names[key] = autoName(kind, what, taken); taken.add(names[key]); } return names[key]; };
@@ -114,11 +114,11 @@ export async function installDocker(ctx: ModCtx, i: Record<string, unknown>, wai
       for (let k = 0; k < 6; k++) { await wait(500); const st = eng.find(name).state; if (st.status === 'sorti' || st.status === 'arrêté') throw new Error(`le conteneur s'est arrêté : ${eng.logs(name, 3).map((l) => l.text).join(' / ') || st.error || `code ${st.exitCode}`}`); }
       return 'en marche';
     });
-  if (done && dbName) await step('Sauvegarde de sa base chaque nuit (Arche)', async () => {
+  if (done && dbName) await step('Sauvegarde de sa base chaque nuit (Amphore)', async () => {
     await ctx.call('brisingamen', 'ajouter', { nom: `Base · ${name}`, identifiant: dbEnv.DB_USER ?? dbEnv.POSTGRES_USER ?? dbEnv.DB_POSTGRESDB_USER ?? name, mot_de_passe: Object.entries(dbEnv).find(([k]) => /PASSWORD|PASSWD/.test(k))?.[1] ?? '', site: 'Base d\'Odin (odin-pg)', coffre: 'TOUFATECH' }, `ranger le mot de passe de la base de ${name}`).catch(() => undefined);
     const r = await ctx.call('skuld', 'plan', { base: dbName, toutes: 'nuit', heure: 3 }, `sauvegarder chaque nuit la base de ${name}`); return r.text.replace(/^🗓 /, '');
   });
-  if (done) await step('Brancher le suivi (Pulsar)', async () => { const p = final[0]; if (!p) return 'pas de port : suivi du conteneur par Argo'; await ctx.call('vordr', 'ajouter', { nom: name, genre: 'tcp', cible: `127.0.0.1:${p.host}`, groupe: 'Machines' }, 'nouveau conteneur installé'); return `sonde sur le port ${p.host}`; });
+  if (done) await step('Brancher le suivi (Pulsar)', async () => { const p = final[0]; if (!p) return 'pas de port : suivi du conteneur par Arche'; await ctx.call('vordr', 'ajouter', { nom: name, genre: 'tcp', cible: `127.0.0.1:${p.host}`, groupe: 'Machines' }, 'nouveau conteneur installé'); return `sonde sur le port ${p.host}`; });
   return { steps, name, ports: final, ok: steps.every((x) => x.state !== 'échec') };
 }
 const STATE_ICON: Record<Step['state'], string> = { ok: '✓', corrigé: '↻', échec: '✗' };

@@ -1,4 +1,4 @@
-// Argo contre un VRAI Docker : pile déployée, liste, journaux, arrêt, redémarrage, alerte
+// Arche contre un VRAI Docker : pile déployée, liste, journaux, arrêt, redémarrage, alerte
 // quand un conteneur tombe tout seul, et aucune fausse alerte quand c'est toi qui l'arrêtes.
 
 import { existsSync, mkdirSync, copyFileSync, symlinkSync } from 'node:fs';
@@ -26,7 +26,7 @@ async function ensureImage(t: T): Promise<void> {
 }
 
 export const docker: Scenario = {
-  id: 'docker', title: 'Argo ↔ Docker', mode: 'réel',
+  id: 'docker', title: 'Arche ↔ Docker', mode: 'réel',
   what: 'Un vrai moteur Docker : déployer une pile, lister, lire les journaux, arrêter, relancer, alerte si un conteneur tombe.',
   async run(t) {
     await t.need('docker');
@@ -63,7 +63,7 @@ export const docker: Scenario = {
     t.ok(events.some((e) => e.type === 'conteneur_arrete' && e.data.conteneur === tache), 'événement « conteneur arrêté » émis (pour Talos)');
 
     const start = await act('demarrer', { conteneur: tache });
-    t.ok(start.ok && /Up/.test((await sh('docker', ['ps', '--filter', `name=${tache}`, '--format', '{{.Status}}'])).out), 'le conteneur est relancé par Argo', start.text);
+    t.ok(start.ok && /Up/.test((await sh('docker', ['ps', '--filter', `name=${tache}`, '--format', '{{.Status}}'])).out), 'le conteneur est relancé par Arche', start.text);
 
     // Arrêt demandé par toi → pas d'alerte.
     await naglfar.watch!.run(v.ctx('naglfar'));

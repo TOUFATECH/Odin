@@ -24,7 +24,7 @@ export const NAMES: Record<string, string> = {
  "commandes": "Glyphes",
  "syn": "Zénith",
  "eir": "Hygie",
- "naglfar": "Argo",
+ "naglfar": "Arche",
  "ymir": "Hydre",
  "idunn": "Arachné",
  "sindri": "Phénix",
@@ -65,7 +65,7 @@ export const NAMES: Record<string, string> = {
  "snotra": "Plume",
  "champollion": "Champollion",
  "leikvangr": "Olympie",
- "skuld": "Arche",
+ "skuld": "Amphore",
  "rodd": "Écho",
  "eitri": "Andromède",
  "hermod": "Satellites",
@@ -90,6 +90,13 @@ export const NAMES: Record<string, string> = {
  "pronoia": "Prónoia",
  "argos": "Argos"
 };
+/** Un nom passé d'une appli à une autre (validé le 23/11 : la sauvegarde des bases, « Arche », devient « Amphore » ; les
+ *  conteneurs, « Argo », prennent « Arche »). Dans CET ordre : la fiche de l'ancienne propriétaire du nom part d'abord,
+ *  et une fiche n'est reprise que si elle est bien de la famille de l'appli (jamais la fiche d'une autre). */
+export const NOMS_REPRIS: ReadonlyArray<{ id: string; de: string; famille: string }> = [
+  { id: 'skuld', de: 'Arche', famille: 'données' },
+  { id: 'naglfar', de: 'Argo', famille: 'machines' },
+];
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
  *  Odin ne les comprend plus et ne les affiche plus (tu as validé les nouveaux). */
 export const OLD_NAMES: Record<string, string> = {
@@ -244,9 +251,9 @@ export const NAME_STORY: Record<string, string> = {
  "ran": "Ariane, dont le fil a guidé Thésée dans le labyrinthe : elle suit le fil de chaque paquet réseau.",
  "ullr": "Asclépios, le dieu grec de la médecine (son bâton au serpent est encore le signe des pharmacies) : il soigne tes fichiers.",
  "loki": "Les Sirènes, dont le chant attirait les marins sur les récifs : de faux services qui attirent les pirates.",
- "naglfar": "L'Argo, le navire qui emportait Jason et toute l'équipe des Argonautes : il transporte tes applis.",
+ "naglfar": "L'Arche, qui emporte tout ce qu'il faut, rangé dans ses cales : elle transporte tes applis.",
  "urdr": "Alexandrie, la plus grande bibliothèque de l'Antiquité : tes bases de données rangées au même endroit.",
- "skuld": "L'Arche, qui met tout à l'abri du déluge : une copie de chaque base, au sec.",
+ "skuld": "L'amphore, le vase où l'on garde au sec : une copie de chaque base, à l'abri.",
  "rodd": "Écho, la nymphe qui répète les paroles qu'elle entend : tu parles, le texte s'écrit.",
  "svalinn": "Zéphyr, le dieu du vent d'ouest, le plus doux des vents : les ondes du Wi-Fi.",
  "ymir": "L'Hydre de Lerne, le monstre aux nombreuses têtes : une machine, plein de machines dedans.",

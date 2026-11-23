@@ -117,7 +117,7 @@ async function agirSansIA(text: string, run: RunTool, has: (tool: string) => boo
   const timed = /\b(?:dans (?:\d+|une?|deux|trois|quelques)|a \d{1,2}\s?h|vers \d{1,2}|jusqu'a|pendant|demain|ce soir|cette nuit|tout a l'heure|plus tard|quand|lorsque|des que|si (?:je|tu|il|elle|on|le|la|les|quelqu)|apres|avant)\b/.test(s);
 
   // Les commandes de conteneurs écrites comme dans un terminal (« run -d -p 8080:80 nginx », « ps », « logs web ») :
-  // le moteur d'Odin, par Argo ; lancer, supprimer et exec demandent ton accord.
+  // le moteur d'Odin, par Arche ; lancer, supprimer et exec demandent ton accord.
   const ct = has('valhalla') ? chatCommand(text) : undefined;
   if (ct) { o.label?.('Conteneurs'); return (await run('valhalla', { action: 'action', appli: 'naglfar', quoi: 'commande', entree: JSON.stringify({ ligne: ct }) })).content; }
 
@@ -227,7 +227,7 @@ async function agirSansIA(text: string, run: RunTool, has: (tool: string) => boo
     if ((strict ? /^(?:avec |c'est )?(?:quelle appli|quel outil)\b/.test(s) : /\b(j'ai besoin|besoin d'|quelle appli|quel outil|comment je fais pour|comment faire pour)\b/.test(s)) && (vh.find(text)[0]?.score ?? 0) >= 2) { o.label?.('Conseil d\'appli'); return (await run('valhalla', { action: 'conseiller', besoin: text })).content; }
     const u = prePris ? pre : await understand(vh, text, sessionId).catch(() => undefined);
     // Ce que je ne sais pas encore faire (réserver un restaurant, acheter un billet…) : seulement quand AUCUNE de mes applis
-    // ne porte sûrement la demande (« réserve la salle de réunion » → Chronos ; « redémarre le conteneur mail » → Argo).
+    // ne porte sûrement la demande (« réserve la salle de réunion » → Chronos ; « redémarre le conteneur mail » → Arche).
     const sur = u?.kind === 'ask' || (u?.kind === 'action' && !u.doubt);
     const pe = sur ? undefined : pasEncore(text);
     // Une langue reconnue que je ne comprends pas encore sans IA : rien n'est deviné (le cerveau de secours dit la langue

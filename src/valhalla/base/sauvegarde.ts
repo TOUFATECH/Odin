@@ -1,7 +1,7 @@
 // La base d'Odin — sauvegardes : pg_dump de la base de CHAQUE appli (PEGASE_ODIN, PERSONA_ODIN… : le nom passe tel quel
 // au programme, la casse est gardée), au format PostgreSQL, relu par pg_restore --list, puis
 // CHIFFRÉ avec le même format que les sauvegardes d'Odin (AES-256-GCM, clé dérivée par scrypt ; clé générée, rangée dans
-// les secrets d'Alexandrie et le coffre). Chaque nuit ; gardées 7 jours, 4 semaines et 3 mois (la règle d'Arche).
+// les secrets d'Alexandrie et le coffre). Chaque nuit ; gardées 7 jours, 4 semaines et 3 mois (la règle d'Amphore).
 // Restauration : dans une NOUVELLE base à côté (<base>_RESTAUREE_<date>), jamais par-dessus sans ton accord.
 // Le mot de passe passe par un fichier temporaire protégé (jamais sur la ligne de commande).
 import { randomBytes } from 'node:crypto';
@@ -69,7 +69,7 @@ async function sauvegarderUne(b: BaseOdin, base: string, now: Date): Promise<Sau
   const tmp = mkdtempSync(join(tmpdir(), 'odin-dump-')); chmodSync(tmp, 0o700);
   try {
     const brut = join(tmp, 'odin.dump');
-    if (c.mode === 'hringhorni') throw new Error('sauvegarde chiffrée du conteneur odin-pg : passe par Arche (plan de la base « odin-pg »)');
+    if (c.mode === 'hringhorni') throw new Error('sauvegarde chiffrée du conteneur odin-pg : passe par Amphore (plan de la base « odin-pg »)');
     await outil(b.home, c, 'pg_dump', ['-Fc', '-d', base, '-f', brut], { sortie: brut });
     // Relue : pg_restore doit lister son contenu.
     const liste = await outil(b.home, c, 'pg_restore', ['--list', brut], { sortie: brut });
@@ -77,7 +77,7 @@ async function sauvegarderUne(b: BaseOdin, base: string, now: Date): Promise<Sau
     if (!elements) throw new Error('sauvegarde vide ou illisible');
     const f = join(d, `${base}-${horodatage(now)}.dump.odinbk`), t = `${f}.tmp`;
     writeFileSync(t, encryptBackup(readFileSync(brut), cleSauvegardes(b.home).cle), { mode: 0o600 }); renameSync(t, f);
-    // Durée de garde (la règle d'Arche) : 7 jours, 4 semaines, 3 mois ; jamais sans la dernière.
+    // Durée de garde (la règle d'Amphore) : 7 jours, 4 semaines, 3 mois ; jamais sans la dernière.
     const l = sauvegardes(b.home).filter((x) => x.base === base), k = keep(l.map((x) => x.date), { jours: 7, semaines: 4, mois: 3 }, now);
     for (const x of l) if (!k.has(x.date)) rmSync(x.fichier, { force: true });
     return { fichier: f, base, date: now.toISOString(), octets: statSync(f).size, elements };

@@ -4,7 +4,7 @@
 // - SQL : l'éditeur, le résultat en tableau, le journal ; ce qui modifie la base passe par ton accord.
 // - Bases : la liste de tes bases (la vue générique d'Alexandrie).
 // Rien n'est écrit sans ton accord : « Enregistrer », « Ajouter », « Supprimer » et le SQL qui écrit demandent confirmation,
-// et Arche sauvegarde la base juste avant une suppression ou une requête qui modifie.
+// et Amphore sauvegarde la base juste avant une suppression ou une requête qui modifie.
 (() => {
   'use strict';
   window.OdinPages = window.OdinPages || {};
@@ -243,7 +243,7 @@
       log.replaceChildren(el('b', { style: 'font-size:14.5px;margin-bottom:4px' }, 'Journal des requêtes'),
         ...l.map((e) => el('div', {}, el('span', { class: 'sub', style: 'font-family:ui-monospace,Menlo,monospace' }, e.at.slice(11, 16)), el('code', { title: `${e.base} · ${e.sql}`, onclick: () => { ed.value = e.sql; S.sql = e.sql; ed.focus(); } }, e.sql), el('span', { class: e.ok ? 'ok' : 'ko' }, e.result))),
         l.length ? null : el('p', { class: 'sub' }, 'Rien encore.'),
-        el('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Une requête qui modifie ou supprime passe toujours par ton accord, et Arche fait une sauvegarde juste avant.'));
+        el('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Une requête qui modifie ou supprime passe toujours par ton accord, et Amphore fait une sauvegarde juste avant.'));
     };
     root.append(el('div', { class: 'ur-sql' }, el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' }, ed,
       el('div', { class: 'ur-bar' }, el('button', { class: 'btn small primary', type: 'button', onclick: go }, ic('play', 13), ' Lancer'),

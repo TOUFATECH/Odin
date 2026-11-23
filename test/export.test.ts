@@ -365,7 +365,7 @@ test('un vrai Odin : export de quatre applis de genres différents dans les quat
       eir: { nom: 'Hygie', kinds: ['table', 'bars', 'list'], textes: ['Processus', 'Disques (place)', 'Système'] },
       frigg: { nom: 'Chronos', kinds: ['table', 'text'], textes: ['Fatima Abdallah', '0639 00 00 00', 'Coupe', '30 min'] },
       gjoll: { nom: 'Vortex', kinds: ['steps', 'graph', 'table'], textes: ['Mettre en route le VPN', 'Graphe du VPN', 'Odin · Vortex'] },
-      naglfar: { nom: 'Argo', kinds: ['cards', 'table', 'text'], textes: ['Conteneurs', 'Images'] },
+      naglfar: { nom: 'Arche', kinds: ['cards', 'table', 'text'], textes: ['Conteneurs', 'Images'] },
     };
     for (const [id, a] of Object.entries(attendu)) {
       const vue = ((await v.json(`/api/valhalla/view?id=${id}`)).body.view) as View;

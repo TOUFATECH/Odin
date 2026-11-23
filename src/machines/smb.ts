@@ -218,7 +218,7 @@ export async function renommerSmb(m: Compte, partage: string, de: string, vers: 
   }
 }
 
-// ---------------- Écrire et relire sur un partage (destinations des sauvegardes de Phénix et d'Arche) ----------------
+// ---------------- Écrire et relire sur un partage (destinations des sauvegardes de Phénix et d'Amphore) ----------------
 export interface EntreeSmb { nom: string; dossier: boolean; octets: number; /** date de modification (heure du poste), en ms */ quand?: number }
 const MOIS: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
 /** Une ligne de « ls » : nom, dossier ou fichier, taille et date. Pur. */

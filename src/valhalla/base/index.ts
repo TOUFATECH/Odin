@@ -15,7 +15,7 @@
 // - Chaque création, migration, déménagement et renommage est noté dans la traçabilité (trace.ts).
 import { EventEmitter } from 'node:events';
 import { randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Pg, PgError } from '../urdr/pg.ts';
 import { bases, dirOf, password, saveBases, setPassword, type Base } from '../urdr/bases.ts';
@@ -26,6 +26,8 @@ import { ident, nomBase, nomConforme } from './noms.ts';
 import { baseExiste, compteExiste, renommerBase, renommerCompte } from './renommage.ts';
 import { ANCIENNE_BASE, demenager } from './demenagement.ts';
 import { tracer } from './trace.ts';
+import { dossierSauvegardes } from './sauvegarde.ts';
+import { NOMS_REPRIS } from '../names.ts';
 import type { Result } from '../urdr/pg.ts';
 
 export type { Valeur, Lien } from './pool.ts';
@@ -255,10 +257,30 @@ export class BaseOdin extends EventEmitter {
   private async preparerBaseAppli(appli: string): Promise<{ nom: string; motDePasse: string }> {
     const c = this.cible!, voulu = nomDeLaBase(this.home, appli), garde = nomsGardes(this.home)[appli];
     if (!garde?.garder && !nomConforme(voulu)) throw new Error(`nom de base invalide pour ${appli} : ${voulu}`);
+    // Un nom repris à une autre appli (23/11 : « Arche » passe de la sauvegarde des bases aux conteneurs) : la base qui
+    // porte encore ce nom est celle de l'autre appli ; elle est renommée d'abord (son nouveau nom), jamais reprise ici.
+    const gardes = nomsGardes(this.home), liste = bases(this.home);
+    const autre = Object.entries(gardes).find(([a, g]) => a !== appli && g.nom === voulu)?.[0];
+    if (autre && nomDeLaBase(this.home, autre) === voulu) throw new Error(`la base ${voulu} est celle de ${autre} : rien n'est touché`);
+    if (autre) await this.baseDe(autre);
+    // Même sans nom gardé (noms-bases.json perdu ou abîmé) : une base qui porte l'ANCIEN nom d'une autre appli
+    // (NOMS_REPRIS) est la sienne ; elle passe d'abord chez elle (si elle ne peut pas partir, l'erreur remonte ici et
+    // rien n'est touché). Après, une base de ce nom encore là ne peut plus être la sienne.
+    const reprisDe = NOMS_REPRIS.filter((r) => r.id !== appli && nomBase(r.id, r.de) === voulu).map((r) => r.id);
+    const aNous = garde?.nom === voulu || liste.some((b) => b.id === idAlexandrie(appli) && b.base === voulu);
+    if (!aNous) for (const r of reprisDe) if (r !== autre) await this.baseDe(r);
+    // Qui d'autre dit qu'un nom de base est le sien (nom gardé, ou entrée d'Alexandrie) : ce nom n'est jamais repris ici.
+    const pris = (n: string) => Object.entries(gardes).some(([a, g]) => a !== appli && g.nom === n) || liste.some((b) => b.id !== idAlexandrie(appli) && b.base === n && b.id.startsWith('odin-'));
     const secret = `base-${appli}`;
     let pw = password(this.home, secret); const nouveau = !pw; if (!pw) pw = randomBytes(24).toString('base64url');
     // Les noms à reprendre : le nom gardé (l'appli a changé de nom), et le même nom écrit sans guillemets (minuscules).
-    const anciens = [...new Set([garde?.nom, voulu.toLowerCase()])].filter((x): x is string => Boolean(x) && x !== voulu);
+    // Sans nom gardé : son entrée d'Alexandrie, et son ancien nom repris par une autre appli (NOMS_REPRIS) — si personne
+    // d'autre ne le dit sien.
+    const secours = garde ? [] : [liste.find((b) => b.id === idAlexandrie(appli))?.base, ...NOMS_REPRIS.filter((r) => r.id === appli).map((r) => nomBase(appli, r.de))].filter((n): n is string => Boolean(n) && !pris(n!));
+    const anciens = [...new Set([garde?.nom, ...secours, voulu.toLowerCase()])].filter((x): x is string => Boolean(x) && x !== voulu);
+    // Un renommage pas fini (le nom gardé n'est pas encore le nouveau) : le mot de passe du compte est remis quoi qu'il
+    // arrive (un compte au mot de passe MD5 le perd en changeant de nom, et une coupure a pu tomber juste entre les deux).
+    const aFinir = anciens.length > 0 && (!garde || garde.nom !== voulu);
     await this.administrateur().avec(async (x) => {
       for (const ancien of anciens) {
         const rb = await renommerBase(x, ancien, voulu);
@@ -269,7 +291,7 @@ export class BaseOdin extends EventEmitter {
         if ((await renommerCompte(x, ancien, voulu, pw)) === 'renommee') tracer(this.home, { qui: 'Odin (démarrage)', appli, base: voulu, op: 'renommage', pourquoi: `compte renommé : ${ancien} → ${voulu}`, ok: true });
       }
       const existe = await compteExiste(x, voulu);
-      if (!existe || nouveau) await x.simple((await x.query(`SELECT format(${existe ? "'ALTER ROLE %I LOGIN PASSWORD %L'" : "'CREATE ROLE %I LOGIN PASSWORD %L'"}, $1::text, $2::text)`, [voulu, pw])).rows[0][0]!);
+      if (!existe || nouveau || aFinir) await x.simple((await x.query(`SELECT format(${existe ? "'ALTER ROLE %I LOGIN PASSWORD %L'" : "'CREATE ROLE %I LOGIN PASSWORD %L'"}, $1::text, $2::text)`, [voulu, pw])).rows[0][0]!);
       if (voulu !== c.admin) await x.simple(`GRANT ${ident(voulu)} TO ${ident(c.admin)}`).catch(() => undefined);
       if (!(await baseExiste(x, voulu))) {
         await x.simple(`CREATE DATABASE ${ident(voulu)} OWNER ${ident(c.admin)} ENCODING 'UTF8' TEMPLATE template0`);
@@ -279,6 +301,9 @@ export class BaseOdin extends EventEmitter {
       await x.simple(`GRANT CONNECT ON DATABASE ${ident(voulu)} TO ${ident(voulu)}, ${LECTURE}`);
     });
     setPassword(this.home, secret, pw);
+    // Les sauvegardes chiffrées de cette base portent son nom (<BASE>-<date>.dump.odinbk) : elles le suivent, sinon une
+    // sauvegarde de l'ancien nom serait prise pour celle de l'appli qui reprend ce nom. Jamais par-dessus un fichier.
+    for (const ancien of anciens) suivreSauvegardes(this.home, ancien, voulu);
     garderNom(this.home, appli, { ...garde, nom: voulu, precedent: garde?.nom && garde.nom !== voulu ? garde.nom : garde?.precedent, depuis: garde?.nom === voulu ? garde.depuis : new Date().toISOString() });
     inscrireDansAlexandrie(this.home, c, appli, voulu);
     return { nom: voulu, motDePasse: pw };
@@ -343,6 +368,16 @@ export class BaseOdin extends EventEmitter {
   private log(t: string): void { (this.o.log ?? ((x: string) => console.log(`[base] ${x}`)))(t); }
 }
 
+/** Les sauvegardes chiffrées d'une base renommée prennent son nouveau nom (même date) ; un fichier déjà là n'est jamais écrasé. */
+function suivreSauvegardes(home: string, ancien: string, nouveau: string): void {
+  const d = dossierSauvegardes(home); let l: string[] = []; try { l = readdirSync(d); } catch { return; }
+  for (const f of l) {
+    const reste = f.startsWith(ancien) ? f.slice(ancien.length) : '';
+    if (!/^-\d{8}-\d{6}\.dump\.odinbk$/.test(reste)) continue;
+    const vers = join(d, `${nouveau}${reste}`); if (existsSync(vers)) continue;
+    try { renameSync(join(d, f), vers); tracer(home, { qui: 'Odin (démarrage)', appli: nouveau, base: nouveau, op: 'renommage', pourquoi: `sauvegarde renommée : ${f} → ${nouveau}${reste}`, ok: true }); } catch { /* réessayé au prochain démarrage */ }
+  }
+}
 /** La base d'une appli dans la liste d'Alexandrie (compte de lecture : Odin la lit pour répondre, Alexandrie Studio la montre). */
 function inscrireDansAlexandrie(home: string, c: Cible, appli: string, nom: string): void {
   const id = idAlexandrie(appli), l = bases(home), avant = l.find((b) => b.id === id);

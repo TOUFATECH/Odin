@@ -817,7 +817,7 @@
       if (drag) { const p = at(e); drag.x = p.x; drag.y = p.y; drag.vx = 0; drag.vy = 0; moved = true; reheat(0.3); return; }
       if (pan) { view.x = pan.vx + e.clientX - pan.x; view.y = pan.vy + e.clientY - pan.y; moved = true; draw(); return; }
       const h = at(e).node;
-      if (ECH) cv.title = h ? '' : window.OdinGraph.survolEchange(echSegs, at(e), view.k); // « Phénix demande à Arche : … »
+      if (ECH) cv.title = h ? '' : window.OdinGraph.survolEchange(echSegs, at(e), view.k); // « Phénix demande à Amphore : … »
       if (h !== hover) { hover = h; cv.style.cursor = h ? 'pointer' : 'grab'; const tip = $('#brTip'); if (h) { tip.hidden = false; tip.textContent = `${h.title} · ${TYPE_LABEL[h.type] || h.type} · ${h.degree} lien${h.degree > 1 ? 's' : ''}`; } else tip.hidden = true; if (!raf) draw(); }
     };
     cv.onpointerleave = () => { cacherLien(); if (hover) { hover = null; $('#brTip').hidden = true; if (!raf) draw(); } };

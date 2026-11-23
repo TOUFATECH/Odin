@@ -1,4 +1,4 @@
-// Argo · nouvelles versions des images (comme What's Up Docker) : un vrai registre OCI d'essai (serveur HTTP local
+// Arche · nouvelles versions des images (comme What's Up Docker) : un vrai registre OCI d'essai (serveur HTTP local
 // qui suit le protocole de distribution, avec jeton anonyme comme Docker Hub) ; l'image du conteneur est comparée à
 // l'étiquette du registre. Rien n'est téléchargé ni changé ; l'alerte propose « Mettre à jour ».
 import { test } from 'node:test';
@@ -18,7 +18,7 @@ const manifeste = (n: number) => Buffer.from(JSON.stringify({ schemaVersion: 2, 
 const empreinte = (b: Buffer) => `sha256:${createHash('sha256').update(b).digest('hex')}`;
 const image = (nom: string, digest: string): Image => ({ id: 'a'.repeat(64), names: [nom], digest, config: {}, configDigest: '', layers: [], size: 1, pulled: '' } as unknown as Image);
 
-test('Argo : une nouvelle version sur le registre est vue (jeton anonyme comme Docker Hub), rien n\'est téléchargé, l\'alerte propose la mise à jour', { timeout: 60_000 }, async () => {
+test('Arche : une nouvelle version sur le registre est vue (jeton anonyme comme Docker Hub), rien n\'est téléchargé, l\'alerte propose la mise à jour', { timeout: 60_000 }, async () => {
   let courant = manifeste(1); const demandes: string[] = [];
   const srv = createServer((req, res) => {
     demandes.push(`${req.method} ${req.url}`);
@@ -39,7 +39,7 @@ test('Argo : une nouvelle version sur le registre est vue (jeton anonyme comme D
     assert.ok(demandes.every((d) => !/blobs/.test(d)), 'aucune couche téléchargée');
     l = await verifierVersions([], [{ nom: 'x', image: `nginx@sha256:${'b'.repeat(64)}` }], { fetch, quand: 'x' }); assert.equal(l[0].nouvelle, false);
     l = await verifierVersions([image(`127.0.0.1:${port}/outils/absent:1`, 'sha256:x')], [{ nom: 'y', image: `127.0.0.1:${port}/outils/absent:1` }], { fetch, quand: 'x' }); assert.match(l[0].erreur ?? '', /introuvable sur le registre/);
-    // Dans Argo : l'action, la surveillance (toutes les 6 heures), l'alerte avec le bouton « Mettre à jour ».
+    // Dans Arche : l'action, la surveillance (toutes les 6 heures), l'alerte avec le bouton « Mettre à jour ».
     const base = fakeEngine([{ Names: 'web', Image: nom, State: 'running' }]);
     useEngine(() => ({ ...base, images: () => [image(nom, empreinte(manifeste(1)))] }) as typeof base);
     const v = new Valhalla(home, [naglfar], { fetch, notify: async () => {}, autonomy: () => 'equilibre' } as never);

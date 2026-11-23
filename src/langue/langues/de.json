@@ -219,7 +219,7 @@
     },
     "github-essai": {
       "quoi": "ein GitHub-Repository in einem eigenen Container ausprobieren",
-      "proche": "Pharos den Link untersuchen lassen; Argo startet ein bereits veröffentlichtes Docker-Image, mit deiner Zustimmung"
+      "proche": "Pharos den Link untersuchen lassen; Arche startet ein bereits veröffentlichtes Docker-Image, mit deiner Zustimmung"
     },
     "llm": {
       "quoi": "ein Sprachmodell für andere Maschinen bereitstellen",

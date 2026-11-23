@@ -1,4 +1,4 @@
-// Phénix et Arche · les destinations des sauvegardes : un disque (ou un partage déjà monté, un disque USB), un
+// Phénix et Amphore · les destinations des sauvegardes : un disque (ou un partage déjà monté, un disque USB), un
 // serveur SFTP / SSH, ou un partage réseau Windows ou NAS (SMB). Les comptes restent dans le coffre des machines :
 // jamais dans un plan, jamais dans un journal (le mot de passe passe par l'environnement de ssh ou de smbclient).
 // Un fichier est toujours écrit sous un nom provisoire puis renommé : un envoi coupé ne passe jamais pour complet.

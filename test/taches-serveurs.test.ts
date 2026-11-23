@@ -1,6 +1,6 @@
 // Tâches de tous les jours, famille « serveurs, machines virtuelles et conteneurs » (campagne `test/taches/`).
 //  - Sans IA, des demandes ordinaires partaient ailleurs : « donne-moi l'IP et l'accès du conteneur web » vers la
-//    CRÉATION d'un service d'Argo, « partage le dossier Photos en Samba » vers la simple liste des partages.
+//    CRÉATION d'un service d'Arche, « partage le dossier Photos en Samba » vers la simple liste des partages.
 //  - La validation demandée pour lancer un conteneur venu d'un lien ne disait pas que tes dossiers y seraient branchés.
 process.env.ODIN_ESSAI = '1';
 import { test } from 'node:test';

@@ -1,5 +1,5 @@
 // Hygie — santé des machines en direct : processeur, mémoire, disques, réseau, charge, températures,
-// processus gourmands. Mesures partagées avec Hydre et Argo (calculées une seule fois ici).
+// processus gourmands. Mesures partagées avec Hydre et Arche (calculées une seule fois ici).
 
 import { readdirSync, readFileSync, statfsSync } from 'node:fs';
 import { cpus, loadavg, totalmem, freemem, uptime } from 'node:os';
@@ -49,7 +49,7 @@ export function topProcs(psOut: string, n = 8): Array<{ pid: number; cpu: number
 }
 
 let prevCpu = cpuTimes(), prevNet = { ...netTotals(), at: Date.now() };
-/** Instantané partagé (utilisé aussi par Hydre, Argo, Forseti). */
+/** Instantané partagé (utilisé aussi par Hydre, Arche, Forseti). */
 export function snapshot(): { cpu: number; mem: { total: number; used: number; pct: number }; net: { rx: number; tx: number }; load: number[]; disks: ReturnType<typeof disks>; temps: ReturnType<typeof temps>; uptime: number; cores: number } {
   const c = cpuTimes(); let cpu = 0;
   if (c && prevCpu && c.total > prevCpu.total) cpu = Math.round((1 - (c.idle - prevCpu.idle) / (c.total - prevCpu.total)) * 100);
@@ -209,7 +209,7 @@ export const eir: Module = {
     metrics()?.put(toSeries(h));
     void slow(ctx).catch(() => {});
     const fsL = limits(ctx, 'fs'), memL = limits(ctx, 'mem'), tL = limits(ctx, 'temp'), mp = (h.mem.used / h.mem.total) * 100;
-    for (const d of h.fs) if (d.pct >= fsL.grave) ctx.alert({ level: d.pct >= 97 ? 'critique' : 'haute', title: `Disque ${d.mount} plein à ${Math.round(d.pct)} %`, detail: `Reste ${human(d.free)}.`, key: `disk:${d.mount}`, lien: 'eir-alerte-saturation', steps: ['Regarde ce qui prend de la place (gros fichiers, journaux, sauvegardes, images Docker).', 'Vide les corbeilles et les vieux journaux ; nettoie Docker (Argo).', 'Ou ajoute un disque.'] });
+    for (const d of h.fs) if (d.pct >= fsL.grave) ctx.alert({ level: d.pct >= 97 ? 'critique' : 'haute', title: `Disque ${d.mount} plein à ${Math.round(d.pct)} %`, detail: `Reste ${human(d.free)}.`, key: `disk:${d.mount}`, lien: 'eir-alerte-saturation', steps: ['Regarde ce qui prend de la place (gros fichiers, journaux, sauvegardes, images Docker).', 'Vide les corbeilles et les vieux journaux ; nettoie Docker (Arche).', 'Ou ajoute un disque.'] });
     if (mp >= Math.max(95, memL.grave)) ctx.alert({ level: 'haute', title: `Mémoire saturée (${Math.round(mp)} %)`, key: 'mem', lien: 'eir-alerte-saturation', steps: ['Regarde les processus qui consomment le plus de mémoire.', 'Redémarre le programme fautif ou arrête-le (avec ton accord).'] });
     for (const x of h.sensors) if (x.kind === 'temp' && (x.value >= Math.max(90, tL.grave) || (x.crit && x.value >= x.crit - 5))) ctx.alert({ level: 'haute', title: `Surchauffe : ${x.label} à ${x.value} °C`, key: `temp:${x.label}`, steps: ['Vérifie que la machine respire (poussière, ventilateurs, pièce chaude).', 'Allège la charge (transcodages, compilations).'] });
     for (const r of h.raid) if (r.state === 'dégradé') ctx.alert({ level: 'critique', title: `RAID ${r.name} dégradé (${r.ok}/${r.disks} disques)`, detail: 'Un disque de la grappe est absent ou en panne : un deuxième incident ferait perdre les données.', key: `raid:${r.name}`, steps: ['Fais une sauvegarde tout de suite (Phénix).', 'Repère le disque en panne (SMART) et remplace-le.', 'Ajoute le nouveau disque à la grappe : la reconstruction se suit ici.'] });

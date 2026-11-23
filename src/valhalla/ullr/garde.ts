@@ -1,5 +1,5 @@
 // Asclépios · « quarantaine d'abord » : le point de passage unique de tout ce qui vient de l'extérieur.
-// Une ISO importée dans Hydre, une couche d'image Docker tirée par Argo, un fichier téléchargé par Odin, une pièce
+// Une ISO importée dans Hydre, une couche d'image Docker tirée par Arche, un fichier téléchargé par Odin, une pièce
 // jointe, un fichier déposé dans une appli, un téléchargement envoyé par Pégase : AVANT d'être utilisé, installé ou
 // lancé, il passe ici. S'il est dangereux, il part en quarantaine (consultable dans Asclépios), il n'est ni utilisé
 // ni lancé, et le propriétaire reçoit une notification claire : quoi, pourquoi, ce qui a été fait, quoi faire.
@@ -14,7 +14,7 @@ import { BASE_RULES, combine, compileGaldr, flat, RuleSet, scanBuffer, type Find
 
 /** Ce qui arrive de l'extérieur. Il faut `fichier` (déjà sur le disque) ou `donnees` (pas encore écrit). */
 export interface Arrivee {
-  /** d'où ça vient, en clair : « Hydre · ISO importée », « Argo · image Docker », « Téléchargement d'Odin »… */
+  /** d'où ça vient, en clair : « Hydre · ISO importée », « Arche · image Docker », « Téléchargement d'Odin »… */
   origine: string;
   /** l'adresse ou le nom d'origine (lien, image, expéditeur, profil Pégase…) */
   source?: string;

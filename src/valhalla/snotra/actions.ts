@@ -107,18 +107,18 @@ export const ACTIONS_PLUME: Action[] = [
   { id: 'installer_correcteur', label: 'Installer le correcteur LanguageTool', what: 'Lance LanguageTool à côté d\'Odin (moteur de conteneurs d\'Odin, port 20126) : un correcteur plus complet, pour toutes les applis', quick: false,
     grave: () => `installer le service LanguageTool (image ${LT_IMAGE}, environ 300 Mo à télécharger, 512 Mo de mémoire) sur le port ${LT_PORT}`,
     run: async (ctx) => {
-      if (!ctx.modules().some((m) => m.id === 'naglfar')) return { ok: false, text: 'Le moteur de conteneurs d\'Odin (Argo) n\'est pas là : installe LanguageTool toi-même puis « Relier un correcteur LanguageTool ».' };
+      if (!ctx.modules().some((m) => m.id === 'naglfar')) return { ok: false, text: 'Le moteur de conteneurs d\'Odin (Arche) n\'est pas là : installe LanguageTool toi-même puis « Relier un correcteur LanguageTool ».' };
       const r = await ctx.call('naglfar', 'lancer', { image: LT_IMAGE, nom: LT_NOM, ports: `${LT_PORT}:8010`, env: 'Java_Xms=256m\nJava_Xmx=512m', redemarrage: 'unless-stopped' }, 'installer le correcteur LanguageTool pour Plume', { interne: true });
       if (r.ok === false) return { ok: false, text: `LanguageTool ne s'installe pas : ${r.text}` };
       ctx.saveSettings({ languagetool: `http://127.0.0.1:${LT_PORT}`, languagetoolLocal: true });
-      return { text: `🚀 LanguageTool s'installe (suis la barre dans Argo). Plume l'utilise dès qu'il répond, en attendant le correcteur de base reste en service.\n${r.text}` };
+      return { text: `🚀 LanguageTool s'installe (suis la barre dans Arche). Plume l'utilise dès qu'il répond, en attendant le correcteur de base reste en service.\n${r.text}` };
     }, undo: () => ({ action: 'retirer_correcteur', input: {}, label: 'Revenir au correcteur de base' }) },
   { id: 'relier_correcteur', label: 'Relier un correcteur LanguageTool', what: 'L\'adresse d\'un LanguageTool déjà installé (ex. http://192.168.1.10:8010) : il est essayé tout de suite', quick: false, params: [{ key: 'adresse', label: 'Adresse', kind: 'text', required: true }], run: async (ctx, i) => {
     const u = s(i.adresse).replace(/\/+$/, ''); if (!/^https?:\/\/[^\s/]+(:\d+)?(\/[^\s]*)?$/.test(u)) return { ok: false, text: 'Donne une adresse comme http://192.168.1.10:8010.' };
     try { const f = await corrigerLanguageTool(ctx.fetch, u, 'Ceci est une essai.', 'fr'); ctx.saveSettings({ languagetool: u, languagetoolLocal: false }); return { text: `✅ LanguageTool répond sur ${u} (essai : ${f.length} faute(s) trouvée(s) dans « Ceci est une essai. »). Plume l'utilise maintenant.` }; }
     catch (e) { return { ok: false, text: `LanguageTool ne répond pas sur ${u} : ${(e as Error).message}. Vérifie l'adresse et que le service tourne.` }; }
   } },
-  { id: 'retirer_correcteur', label: 'Revenir au correcteur de base', what: 'Plume n\'utilise plus LanguageTool (le service n\'est pas supprimé : Argo s\'en charge)', quick: false, run: (ctx) => { ctx.saveSettings({ languagetool: '', languagetoolLocal: false }); return { text: 'Plume utilise de nouveau le correcteur de base.' }; } },
+  { id: 'retirer_correcteur', label: 'Revenir au correcteur de base', what: 'Plume n\'utilise plus LanguageTool (le service n\'est pas supprimé : Arche s\'en charge)', quick: false, run: (ctx) => { ctx.saveSettings({ languagetool: '', languagetoolLocal: false }); return { text: 'Plume utilise de nouveau le correcteur de base.' }; } },
   { id: 'tableaux', label: 'Tableaux et schémas', what: 'Tes tableaux blancs et tes schémas, du plus récent au plus ancien', read: true, words: ['mes tableaux blancs', 'mes schemas'], run: (ctx) => {
     const l = dessins(ctx); return { text: l.length ? l.map((d) => `- ${d.nom} (${d.genre === 'schema' ? 'schéma' : 'tableau'} · ${resume(d)}) · ${d.id}`).join('\n') : 'Aucun tableau ni schéma pour l\'instant.', data: l.map((d) => ({ id: d.id, nom: d.nom, genre: d.genre, maj: d.maj })) };
   } },

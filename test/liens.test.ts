@@ -251,11 +251,11 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.ok(await until(() => w.ran.some((c) => /^odin start web/.test(c))), 'le conteneur arrêté tout seul est relancé');
     const m = w.v.manips()[0];
     assert.equal(m.by, 'odin'); assert.equal(m.state, 'à décider'); assert.match(m.why ?? '', /s'est arrêté tout seul/);
-    assert.match(w.sent.at(-1) ?? '', new RegExp(`Manip faite de moi-même : Argo · Démarrer.*« garde ${m.id} » ou « annule ${m.id} »`));
+    assert.match(w.sent.at(-1) ?? '', new RegExp(`Manip faite de moi-même : Arche · Démarrer.*« garde ${m.id} » ou « annule ${m.id} »`));
     const n = w.ran.filter((c) => /odin start web/.test(c)).length;
     w.v.ctx('naglfar').emit('conteneur_arrete', { conteneur: 'web' }); await wait(60);
     assert.equal(w.ran.filter((c) => /odin start web/.test(c)).length, n, 'pas de boucle : une relance par heure au plus');
-    assert.match((await w.v.decide(m.id, false)).text, /↩ Annulé : Argo · Démarrer \(conteneur arrêté\)/);
+    assert.match((await w.v.decide(m.id, false)).text, /↩ Annulé : Arche · Démarrer \(conteneur arrêté\)/);
     assert.ok(w.ran.some((c) => /^odin stop web/.test(c)), '« annule » : le conteneur est arrêté de nouveau');
   },
   'ymir>ymir': async (w) => {

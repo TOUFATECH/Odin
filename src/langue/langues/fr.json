@@ -130,7 +130,7 @@
     },
     "github-essai": {
       "quoi": "essayer un dépôt GitHub dans un conteneur à part",
-      "proche": "faire étudier le lien par Pharos (« étudie https://github.com/… ») ; Argo lance une image Docker déjà publiée, avec ton accord"
+      "proche": "faire étudier le lien par Pharos (« étudie https://github.com/… ») ; Arche lance une image Docker déjà publiée, avec ton accord"
     },
     "llm": {
       "quoi": "faire tourner un modèle de langue pour d'autres machines",

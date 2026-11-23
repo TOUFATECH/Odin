@@ -1,4 +1,4 @@
-// La base d'Odin — les journaux et historiques des applis (alertes, bulles, historique d'Arche, connexions de
+// La base d'Odin — les journaux et historiques des applis (alertes, bulles, historique d'Amphore, connexions de
 // Persona…) : schéma « journaux », une ligne par entrée. Même usage qu'avant pour l'appli : `ajouter(e)` et `tout()`.
 //
 // - Sans base (ou pas encore) : le rangement d'avant (fichier JSONL, ou ce que l'appli fournit).
@@ -123,7 +123,7 @@ export class Journal<T extends object> {
 
   private brancher(b: BaseOdin): void {
     if (existsSync(this.retour)) return;
-    // Le journal va dans la base de son appli (NOM_ODIN) : alertes → Forseti, connexions → Persona, arche → Arche…
+    // Le journal va dans la base de son appli (NOM_ODIN) : alertes → Forseti, connexions → Persona, arche → Amphore…
     repartirAttenteCommune(b.home);
     const proprio = proprietaireJournal(this.nom);
     const a = b.appli(defJournaux(proprio), dossierJournaux(b.home, proprio)); this.appli = a;

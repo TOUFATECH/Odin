@@ -725,7 +725,7 @@ async function comprendre(v: Valhalla, text: string, session: string, now: Date)
   if (!scored.length) return undefined;
   const order = () => scored.sort((a, b) => (b.ms - a.ms) || (b.nouns - a.nouns) || (b.bs - a.bs));
   order();
-  // Les noms connus départagent (« arrête web » : le conteneur « web » désigne Argo).
+  // Les noms connus départagent (« arrête web » : le conteneur « web » désigne Arche).
   for (const c of [...scored].sort((a, b) => (b.ms + b.bs) - (a.ms + a.bs)).slice(0, 4)) {
     const names = await namesOf(v, c.m), mine = [...names.values()].flat().filter((n) => norm(n).length >= 3 && !COMMON.test(norm(n)));
     if (pickName(body, mine)) { c.ms += 3; c.nouns++; c.bs = 0; c.best = undefined; for (const a of c.m.actions) { const as = actionScore(c.m, a, names); if (as > c.bs) { c.bs = as; c.best = a; } } }

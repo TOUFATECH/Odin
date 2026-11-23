@@ -248,7 +248,7 @@
     },
     "github-essai": {
       "quoi": "probar un repositorio de GitHub en un contenedor aparte",
-      "proche": "que Pharos estudie el enlace; Argo lanza una imagen Docker ya publicada, con tu aprobación"
+      "proche": "que Pharos estudie el enlace; Arche lanza una imagen Docker ya publicada, con tu aprobación"
     },
     "llm": {
       "quoi": "servir un modelo de lenguaje a otras máquinas",

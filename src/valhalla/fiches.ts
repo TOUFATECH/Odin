@@ -9,7 +9,7 @@ import type { Vault } from '../brain/vault.ts';
 import { examples } from './huginn.ts';
 import { LINKS, USAGES } from './links.ts';
 import type { Action, Module } from './types.ts';
-import { OLD_NAMES } from './names.ts';
+import { NOMS_REPRIS, OLD_NAMES } from './names.ts';
 import { RAISONS, resume } from './base/inventaire.ts';
 
 const DIR = 'Odin', APPS = `${DIR}/Applis`, MINE = '## Mes notes';
@@ -116,17 +116,39 @@ export function sheets(all: Module[]): Sheet[] { return [indexSheet(all), linksS
  */
 export function syncSheets(vault: Vault, all: Module[]): { written: number; total: number } {
   let written = 0; const list = sheets(all);
+  // Le Cerveau retrouve une note aussi par son nom seul : ici, seulement la note qui est EXACTEMENT à ce chemin.
+  const exacte = (p: string) => { const n = vault.read(p); return n && n.path.replace(/\.md$/, '') === p ? n : undefined; };
+  const tagsDe = (n: { meta: Record<string, unknown> }) => { const tg = n.meta.tags; return (Array.isArray(tg) ? tg : String(tg ?? '').split(/[,\s]+/)).map((x) => String(x).toLowerCase()); };
+  const cle = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\.md$/, '').trim();
+  // Une note à toi (pas une fiche d'Odin) qui porte aussi ce nom : un lien [[nom]] peut viser la tienne.
+  const aToiAussi = (nom: string) => vault.all(true).some((n) => n.meta['tenue par'] !== 'Odin' && [n.path.split('/').pop() ?? '', n.title].some((k) => cle(k) === cle(nom)));
+  // Un nom passé d'une appli à une autre (Arche → Amphore, puis Argo → Arche) : dans l'ordre, sans jamais écraser une note,
+  // et seulement la fiche de la bonne famille (tenue par Odin) ; tes notes partent avec elle, les liens suivent — sauf si
+  // une note à toi porte l'un des deux noms : alors tes liens ne sont pas touchés (ils pourraient viser ta note).
+  for (const r of NOMS_REPRIS) {
+    const m = all.find((x) => x.id === r.id); if (!m || m.name === r.de) continue;
+    const de = `${APPS}/${r.de}`, vers = `${APPS}/${m.name}`;
+    const n = exacte(de); if (!n || n.meta['tenue par'] !== 'Odin' || exacte(vers) || !tagsDe(n).includes(r.famille)) continue;
+    try {
+      if (aToiAussi(r.de) || aToiAussi(m.name)) { vault.write(vers, n.meta, n.body, { quiet: true }); vault.trash(de, { quiet: true }); }
+      else vault.rename(de, vers);
+    } catch { /* déjà là */ }
+  }
   // Une appli renommée : sa fiche (tenue par Odin) prend le nouveau nom, avec tes notes dedans ; les liens suivent
   for (const m of all) {
     const old = OLD_NAMES[m.id]; if (!old || old === m.name) continue;
-    const n = vault.read(`${APPS}/${old}`);
-    if (n && n.meta['tenue par'] === 'Odin' && !vault.read(`${APPS}/${m.name}`)) { try { vault.rename(`${APPS}/${old}`, `${APPS}/${m.name}`); } catch { /* déjà là */ } }
+    const n = exacte(`${APPS}/${old}`);
+    if (n && n.meta['tenue par'] === 'Odin' && !exacte(`${APPS}/${m.name}`)) { try { vault.rename(`${APPS}/${old}`, `${APPS}/${m.name}`); } catch { /* déjà là */ } }
   }
   for (const s of list) {
-    const old = vault.read(s.path), cut = old ? old.body.indexOf(MINE) : -1;
+    // (le chemin exact : la fiche d'une autre appli ou une note à toi qui porte le même nom ne sont jamais reprises)
+    const old = exacte(s.path) ?? (vault.read(s.path)?.meta['tenue par'] !== 'Odin' ? vault.read(s.path) : undefined), cut = old ? old.body.indexOf(MINE) : -1;
     const mine = cut >= 0 ? old!.body.slice(cut + MINE.length).trim() : '', generated = (cut >= 0 ? old!.body.slice(0, cut) : old?.body ?? '').trim();
     // Une note du même nom que tu aurais écrite toi-même n'est jamais écrasée.
     if (old && old.meta['tenue par'] !== 'Odin') continue;
+    // Un nom repris (NOMS_REPRIS) : la fiche encore là sous ce nom est celle de l'ancienne appli (sa famille) — elle n'a
+    // pas pu partir ; elle n'est jamais réécrite pour la nouvelle, et ses notes restent à elle.
+    if (old && NOMS_REPRIS.some((r) => s.path === `${APPS}/${r.de}` && tagsDe(old).includes(r.famille) && !s.tags.includes(r.famille))) continue;
     if (old && generated === s.body.trim()) continue;
     vault.write(s.path, { type: 'fiche', tags: s.tags, 'tenue par': 'Odin', ...(old?.meta['créé'] ? { créé: old.meta['créé'] } : {}) }, `${s.body.trim()}\n\n${MINE}\n\n${mine || '_Écris ici ce que tu veux retenir : Odin ne touche pas à cette partie._'}\n`, { quiet: true });
     written++;

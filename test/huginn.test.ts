@@ -170,7 +170,7 @@ test('sans IA de bout en bout : Odin agit par ses applis, les actions graves dem
     assert.ok(w.ran.some((c) => /^nft add element inet odin garmr4 \{ 203\.0\.113\.9 timeout 7200s \}/.test(c)), 'le pare-feu a bien reçu l\'ordre');
     assert.deepEqual(calls.at(-1), { name: 'valhalla', action: 'action', appli: 'garmr', quoi: 'bannir', entree: '{"ip":"203.0.113.9","minutes":120,"raison":"à la demande"}' }, 'l\'action passe par l\'outil, donc par Heimdall');
     assert.equal(w.v.manips().length, 0, 'tu l\'as demandé toi-même : ce n\'est pas une manip d\'Odin');
-    assert.match((await offlineAct('liste les conteneurs', run, has, 's1'))!, /Argo · Lister les conteneurs\n[\s\S]*web/);
+    assert.match((await offlineAct('liste les conteneurs', run, has, 's1'))!, /Arche · Lister les conteneurs\n[\s\S]*web/);
     assert.match((await offlineAct('supprime le conteneur web', run, has, 's1'))!, /Action refusée : supprimer/i, 'action grave : jamais sans ton accord');
     assert.ok(!w.ran.some((c) => /\brm\b.*web/.test(c)), 'rien n\'a été supprimé');
     assert.match((await offlineAct('explique Cerbère', run, has, 's1'))!, /Cerbère[\s\S]*Bannit/);
@@ -206,9 +206,9 @@ test('manips : ce qu\'Odin fait seul est noté, annoncé, et se garde ou s\'annu
   await w.v.act('aegir', 'radio', { nom: 'Radio Mayotte', adresse: 'https://radio.exemple/flux' });
   await w.v.act('aegir', 'jouer', { quoi: 'Radio Mayotte', ou: 'ici' }, { by: 'automatisation' });
   assert.equal(w.v.manips({ state: 'à décider' }).length, 2);
-  assert.match((await w.v.order('garde tout', 'm')).text, /✓ Gardé : Argo[\s\S]*✓ Gardé : Apollon/);
+  assert.match((await w.v.order('garde tout', 'm')).text, /✓ Gardé : Arche[\s\S]*✓ Gardé : Apollon/);
   assert.equal(w.v.manips({ state: 'à décider' }).length, 0);
-  assert.match((await w.v.order('mes manips', 'm')).text, /Argo · Démarrer.*gardée/);
+  assert.match((await w.v.order('mes manips', 'm')).text, /Arche · Démarrer.*gardée/);
   // Une lecture, ou ce que tu fais toi-même, n'est jamais une manip.
   const n = w.v.manips().length;
   await w.v.act('naglfar', 'lister', {}, { by: 'odin' }); await w.v.act('garmr', 'bannir', { ip: '203.0.113.78' });

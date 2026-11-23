@@ -23,6 +23,7 @@ import { engine } from './modules/naglfar.ts';
 import { holderOf as hostHolder, listeners, type Listener } from './hostports.ts';
 import { APPS_RANGE, DEFAULT_DIRECT, DIRECT_RANGE, SERVICES_RANGE, WEB, directRefusal, familyRange, planOf, portsOf, setDirectPorts, suggestDirect, type Proto } from './ports.ts';
 import type { Valhalla } from './service.ts';
+import { NOMS_REPRIS } from './names.ts';
 import type { Action, ActionResult, ModCtx, Module, Section } from './types.ts';
 
 export type Access = 'local' | 'lan' | 'wan';
@@ -53,14 +54,14 @@ function save(home: string, m: Map<string, Direct>, retires: Set<string>): void 
   writeFileSync(tmp, JSON.stringify({ applis, ...(retires.size ? { retires: [...retires].sort() } : {}) }, null, 2), { mode: 0o600 }); renameSync(tmp, f);
 }
 
-// ---------------- Qui tient un port (machine : hostports.ts ; applis installées : Argo) ----------------
-/** L'appli installée (Argo) qui publie ce port, s'il y en a une. */
+// ---------------- Qui tient un port (machine : hostports.ts ; applis installées : Arche) ----------------
+/** L'appli installée (Arche) qui publie ce port, s'il y en a une. */
 function containerOn(port: number): string | undefined {
   try { return engine().ps().find((c) => c.spec.ports.some((p) => p.host === port))?.spec.name; } catch { return undefined; }
 }
-/** Qui tient ce port ? « l'appli installée « web » (Argo) », « « nginx » (programme n° 812) » ; rien quand la machine ne le dit pas. */
+/** Qui tient ce port ? « l'appli installée « web » (Arche) », « « nginx » (programme n° 812) » ; rien quand la machine ne le dit pas. */
 export async function holderOf(port: number, proto: Proto = 'tcp', l?: Listener[]): Promise<string | undefined> {
-  const c = containerOn(port); return c ? `l'appli installée « ${c} » (Argo)` : hostHolder(port, proto, l);
+  const c = containerOn(port); return c ? `l'appli installée « ${c} » (Arche)` : hostHolder(port, proto, l);
 }
 
 // ---------------- Le gardien des ports directs (créé par l'interface web, qui lui confie ses connexions) ----------------
@@ -359,7 +360,10 @@ const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
 /** L'appli désignée, par son identifiant ou par son nom affiché. */
 export function findApp(mods: Module[], x: unknown): Module {
   const k = norm(s(x)); if (!k) throw new Error('dis de quelle appli il s\'agit (par exemple Vénus)');
-  const m = mods.find((a) => a.id === k) ?? mods.find((a) => norm(a.name) === k) ?? (k.length >= 3 ? mods.find((a) => norm(a.name).startsWith(k)) : undefined);
+  // Un nom repris (23/11 : « Argo », l'ancien nom des conteneurs) mène encore à son appli tant qu'aucune autre ne le porte,
+  // avant le début de nom (« Argo » ne doit pas ouvrir Argos).
+  const ancien = NOMS_REPRIS.find((r) => norm(r.de) === k && !mods.some((a) => norm(a.name) === k));
+  const m = mods.find((a) => a.id === k) ?? mods.find((a) => norm(a.name) === k) ?? (ancien ? mods.find((a) => a.id === ancien.id) : undefined) ?? (k.length >= 3 ? mods.find((a) => norm(a.name).startsWith(k)) : undefined);
   if (!m) throw new Error(`appli inconnue : « ${s(x).slice(0, 40)} » (donne son nom, par exemple Vénus)`);
   return m;
 }
