@@ -125,8 +125,13 @@ test('relecture · un nom de système trafiqué n\'ajoute rien au menu de démar
   const fin = await X.attendreEcriture(CLE.id);
   assert.equal(fin.ok, true, fin.message);
   const cfg = readFileSync(join(m.img, 'ventoy/ventoy_grub.cfg'), 'utf8');
-  assert.equal((cfg.match(/^menuentry /gm) ?? []).length, 1, cfg);
-  assert.equal(cfg.split('\n').filter((l) => l.trim()).length, 5, 'une seule entrée de quatre lignes (et le titre)');
+  // (lot C7 : le fichier porte maintenant tout le menu texte d'Odin ; l'entrée du Linux installé y est une seule fois,
+  // de quatre lignes, et le nom trafiqué n'y ajoute aucune entrée)
+  assert.equal((cfg.match(/^menuentry .*\(installé\)/gm) ?? []).length, 1, cfg);
+  assert.equal((cfg.match(/^menuentry /gm) ?? []).length, 1 + 5, 'le système, G, D, ODIN, la liste complète, et le Linux installé');
+  assert.doesNotMatch(cfg, /^menuentry "pirate"/m);
+  const bloc = cfg.slice(cfg.search(/^menuentry .*\(installé\)/m)).split('\n').filter((l) => l.trim());
+  assert.equal(bloc.length, 4, 'une seule entrée de quatre lignes');
   assert.doesNotMatch(cfg, /^\s*linux \/pirate/m, 'aucune commande ajoutée');
   assert.match(cfg, /^menuentry "[^"\n]*\(installé\)" --class linux \{$/m, 'le nom reste entre ses guillemets');
 });

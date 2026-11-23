@@ -7,8 +7,8 @@
 // Fonctions PURES : rien n'est téléchargé ni écrit ici ; le lot A télécharge Ventoy (après l'antivirus) et écrit
 // ventoy.json sur la clé.
 import { THEMES } from './ecran.ts';
-import type { PreparationCle, Schema } from './cle-types.ts';
-import { DISPOSITION_CLE, FICHIERS_ODIN } from './cle-types.ts';
+import type { ModeDefaut, PreparationCle, Schema, SystemeCle } from './cle-types.ts';
+import { DELAI_CLE_DEFAUT, DELAI_CLE_MAX, DISPOSITION_CLE, FICHIERS_ODIN, MODE_DEFAUT_CLE } from './cle-types.ts';
 import { entreesPersistance, entreesVdiskAuto } from './cle-install.ts';
 
 /** La version de Ventoy qu'Odin installe, et où la prendre (dépôt officiel). Mise à jour en changeant ces valeurs. */
@@ -127,8 +127,22 @@ export function buildVentoyJson(prepEntiere: PreparationCle): string {
   // Une VM copiée n'a pas d'ISO (fichier vide) : elle vit dans /vdisk (entreesVdiskAuto), jamais une entrée « /ISO/ ».
   const prep: PreparationCle = { ...prepEntiere, systemes: prepEntiere.systemes.filter((s) => s.fichier) };
   const control: Array<Record<string, string>> = [];
-  if (prep.defaut) control.push({ VTOY_DEFAULT_IMAGE: prep.defaut.startsWith('/') ? jsonEcran(prep.defaut) : cheminIso(prep.defaut) });
-  control.push({ VTOY_MENU_TIMEOUT: String(Math.max(0, Math.round(prep.delai))) });
+  const r = reglagesDemarrage(prep);
+  if (r.modeDefaut === 'texte') {
+    // Lot C7 : en mode texte, Ventoy ouvre tout de suite le menu texte d'Odin (son menu « F6 », /ventoy/ventoy_grub.cfg,
+    // écrit par buildMenuTexte de cle-grub.ts) ; c'est ce menu qui compte le délai et démarre le système par défaut.
+    // Relecture C7 : Ventoy choisit l'entrée « F6>… » par son TITRE exact (sinon, au délai, il démarre la 1re image de
+    // sa liste : un installateur). On vise donc une entrée au titre fixe, « ODIN », qui ne fait que relire le menu
+    // texte : l'attente, le délai 0 et le système par défaut restent ceux du menu texte, quelle que soit la façon dont
+    // Ventoy traite « F6> » (ouvrir le menu, ou lancer l'entrée).
+    control.push({ VTOY_DEFAULT_IMAGE: `F6>${TITRE_ENTREE_ODIN}` });
+    control.push({ VTOY_MENU_TIMEOUT: '0' });
+  } else if (prep.defaut) {
+    control.push({ VTOY_DEFAULT_IMAGE: prep.defaut.startsWith('/') ? jsonEcran(prep.defaut) : cheminIso(prep.defaut) });
+    // Relecture C7 : un délai SEULEMENT avec un système par défaut choisi (sans défaut, Ventoy démarrerait au délai la
+    // 1re image de sa liste : un installateur, tout seul) ; délai 0 = on attend qu'on choisisse (Ventoy : pas de délai).
+    if (r.delai > 0) control.push({ VTOY_MENU_TIMEOUT: String(r.delai) });
+  }
   control.push({ VTOY_DEFAULT_MENU_MODE: '0' });
   const aUnWindows = prep.systemes.some((s) => s.famille === 'Windows' || /windows|win1[01]/i.test(s.fichier));
   if (aUnWindows) { control.push({ VTOY_WIN11_BYPASS_CHECK: '1' }, { VTOY_WIN11_BYPASS_NRO: '1' }); }
@@ -136,7 +150,8 @@ export function buildVentoyJson(prepEntiere: PreparationCle): string {
   const theme = {
     file: jsonEcran(`${DISPOSITION_CLE.ventoyTheme}/theme.txt`),
     gfxmode: '1920x1080,1280x1024,auto',
-    display_mode: 'GUI',
+    // Ventoy : GUI = son menu graphique (theme.txt) ; CLI = son mode texte (pas d'Unicode, d'où les textes en ASCII).
+    display_mode: r.modeDefaut === 'texte' ? 'CLI' : 'GUI',
     // La couleur d'accent sert aussi au menu (le reste des couleurs est dans theme.txt).
     ventoy_color: accentDuTheme(prep.theme).replace('#', ''),
   };
@@ -180,3 +195,79 @@ export function buildVentoyJson(prepEntiere: PreparationCle): string {
   }
   return JSON.stringify(doc, null, 2) + '\n';
 }
+
+// ---------- Lot C7 : réglages du démarrage et entrées du menu (communs au menu texte et au menu graphique) ----------
+
+/**
+ * Les réglages du démarrage, lus d'une valeur venue de la page (donc pas sûre) : le mode montré au démarrage
+ * (graphique par défaut, choix du propriétaire : « T » passe en texte, « G » repasse en graphique) et le délai avant
+ * de démarrer seul (0 = attendre qu'on choisisse ; borné à DELAI_CLE_MAX). Pur.
+ */
+export function reglagesDemarrage(x: unknown): { modeDefaut: ModeDefaut; delai: number; langue?: string } {
+  const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+  const modeDefaut: ModeDefaut = o.modeDefaut === 'texte' ? 'texte' : MODE_DEFAUT_CLE;
+  const n = Number(o.delai);
+  const vide = o.delai === undefined || o.delai === null || o.delai === '' || typeof o.delai === 'boolean' || Array.isArray(o.delai);
+  const delai = vide || !Number.isFinite(n) ? DELAI_CLE_DEFAUT : Math.max(0, Math.min(DELAI_CLE_MAX, Math.round(n)));
+  // La langue : un code seul (« fr », « en-GB » → « en », « swb »), jamais un texte libre ; sinon rien (l'anglais).
+  const l = typeof o.langue === 'string' ? o.langue.trim().toLowerCase().split(/[-_.@]/)[0] : '';
+  return { modeDefaut, delai, ...(/^[a-z]{2,3}$/.test(l) ? { langue: l } : {}) };
+}
+
+/** Le titre FIXE de l'entrée du menu texte que vise ventoy.json (« F6>ODIN ») : elle ne fait que relire le menu texte. */
+export const TITRE_ENTREE_ODIN = 'ODIN';
+
+/**
+ * Un texte rendu sûr pour le chargeur en mode texte : en ASCII (le mode texte de Ventoy n'affiche pas l'Unicode :
+ * « é » devient « e », « œ » devient « oe »), sans aucun caractère qui compte pour GRUB (guillemets, $, \, accolades,
+ * point-virgule, retours à la ligne…). `garde` dit quels signes de ponctuation restent permis. Pur.
+ */
+export function asciiMenu(s: unknown, garde = ' .,:!?()+_/#=%*[]\'-', serre = true): string {
+  const base = String(s ?? '').normalize('NFD').replace(/\p{M}+/gu, '')
+    .replace(/[œŒ]/g, (c) => (c === 'œ' ? 'oe' : 'OE')).replace(/[æÆ]/g, (c) => (c === 'æ' ? 'ae' : 'AE'))
+    .replace(/ß/g, 'ss').replace(/[øØ]/g, 'o').replace(/[łŁ]/g, 'l').replace(/[đĐ]/g, 'd').replace(/[þÞ]/g, 'th')
+    .replace(/[’‘`´]/g, '\'').replace(/[«»“”]/g, ' ').replace(/[·•–—]/g, '-');
+  let out = '';
+  for (const c of base) out += /[A-Za-z0-9]/.test(c) || garde.includes(c) ? c : ' ';
+  // `serre` : les blancs répétés deviennent un seul (noms) ; sinon on garde les colonnes alignées (lignes du menu).
+  return serre ? out.replace(/\s+/g, ' ').trim() : out;
+}
+
+/** Le nom d'un système tel qu'il s'écrit dans le menu texte : ASCII, sans apostrophe ni signe du chargeur, 60 signes au plus. Pur. */
+export function nomMenuTexte(nom: unknown): string {
+  return asciiMenu(nom, ' .,:()+_-').slice(0, 60).trim() || 'Systeme';
+}
+
+/** Un nom de fichier accepté par le menu texte (posé dans /ISO, sans dossier ni signe du chargeur). Pur. */
+export const fichierSurMenu = (f: string) => /^[A-Za-z0-9][A-Za-z0-9._+-]{0,200}$/.test(f) && !f.includes('..');
+
+/** Une entrée du menu de démarrage de la clé, la même pour le menu graphique et le menu texte. */
+export interface EntreeMenuCle {
+  /** 1, 2, 3… dans l'ordre choisi */
+  numero: number;
+  /** le nom lisible (le même que celui du menu graphique) */
+  nom: string;
+  /** le nom pour le menu texte (ASCII, sûr) */
+  nomTexte: string;
+  fichier: string;
+  /** le chemin sur la clé (« /ISO/… ») ; vide si le nom de fichier est refusé par le menu texte */
+  chemin: string;
+  famille: SystemeCle['famille'];
+  defaut: boolean;
+}
+
+/**
+ * Les entrées du menu, dans l'ORDRE CHOISI, avec les MÊMES NOMS que le menu graphique (les systèmes qui ont un
+ * fichier dans /ISO, comme l'état figé de l'écran hors ligne). Le système par défaut est celui de `prep.defaut`. Pur.
+ */
+export function entreesMenuCle(prep: PreparationCle): EntreeMenuCle[] {
+  const defaut = prep.defaut ? jsonEcran(prep.defaut).replace(/^\/ISO\//, '') : '';
+  return prep.systemes.filter((s) => s.fichier).map((s, i) => ({
+    numero: i + 1, nom: s.nom, nomTexte: nomMenuTexte(s.nom), fichier: s.fichier,
+    chemin: fichierSurMenu(s.fichier) ? cheminIso(s.fichier) : '',
+    famille: s.famille, defaut: Boolean(defaut) && s.fichier === defaut,
+  }));
+}
+
+/** Le titre d'une entrée dans le menu texte (« 1  Ubuntu Desktop ») : le même pour le menu et pour ventoy.json. Pur. */
+export const titreEntreeTexte = (e: Pick<EntreeMenuCle, 'numero' | 'nomTexte'>) => `${String(e.numero).padStart(2, ' ')}  ${e.nomTexte}`;

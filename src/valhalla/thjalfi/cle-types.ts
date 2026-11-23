@@ -126,7 +126,15 @@ export interface PreparationCle {
   logiciels: LogicielCle[];
   /** le fichier (dans /ISO ou /vdisk) qui démarre seul après le délai, si on en veut un */
   defaut?: string;
+  /** la langue des textes du menu de démarrage (« fr », « en »…) ; absente : l'anglais, qui passe partout */
+  langue?: string;
 }
+
+/** Lot C7 : le mode montré au démarrage quand rien n'est réglé — graphique (choix du propriétaire), T passe en texte. */
+export const MODE_DEFAUT_CLE: ModeDefaut = 'graphique';
+/** Lot C7 : le délai du menu quand rien n'est réglé, et le plus long accepté (en secondes). */
+export const DELAI_CLE_DEFAUT = 10;
+export const DELAI_CLE_MAX = 300;
 
 /**
  * La DISPOSITION DE LA CLÉ : où va chaque chose sur la 1re partition (nommée ODIN). Le lot A écrit ces dossiers,

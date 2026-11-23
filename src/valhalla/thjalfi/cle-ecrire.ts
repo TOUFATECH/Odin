@@ -33,12 +33,12 @@ import { analyserVdisk, type AnalyseVdisk } from './vdisk.ts';
 import type { LogicielCle, PlanPlace, PreparationCle, SourceVm, SystemeCle } from './cle-types.ts';
 import { FICHIERS_ODIN } from './cle-types.ts';
 import type { Recipe } from './recipes.ts';
-import { buildVentoyJson, descripteurVentoy, type DescripteurVentoy } from './cle-boot.ts';
+import { buildVentoyJson, descripteurVentoy, reglagesDemarrage, type DescripteurVentoy } from './cle-boot.ts';
 import { planWinToGo, specPersistance, commandePersistance, planInstallLinux } from './cle-install.ts';
 import { listerVms, planCopieVm } from './cle-vm.ts';
 import { cibleDepuisDisque, ciblesEcrivables, placeInstalle, planPlace, reserveGo } from './cle-cible.ts';
 import { classerRacine, buildScriptScan } from './cle-racine.ts';
-import { buildGrubTheme } from './cle-grub.ts';
+import { buildGrubTheme, buildMenuTexte } from './cle-grub.ts';
 import { buildEcranOffline } from './ecran-offline.ts';
 import { tarGz } from './ecran-pc.ts';
 
@@ -52,11 +52,14 @@ export interface BuildersCle {
   buildVentoyJson(prep: PreparationCle): string;
   buildGrubTheme(texte: TextTheme): Record<string, string>;
   buildEcranOffline(prep: PreparationCle): { fichiers: Record<string, string>; overlay: Buffer };
+  /** lot C7 : le menu texte (/ventoy/ventoy_grub.cfg) ; absent : celui de cle-grub.ts */
+  buildMenuTexte?(prep: PreparationCle, o: { installes?: string[] }): string;
 }
 /** Les VRAIS constructeurs du lot B, câblés par défaut (importés, exercés par les essais : plus de code mort). */
 export const buildersParDefaut: BuildersCle = {
   buildVentoyJson,
   buildGrubTheme,
+  buildMenuTexte,
   buildEcranOffline: (prep) => buildEcranOffline(etatFige(prep)),
 };
 
@@ -416,11 +419,12 @@ export async function ecrireCle(
         }
       }
     }
-    // Les systèmes Linux installés : leurs entrées GRUB chainload posées dans le menu natif de Ventoy (ventoy_grub.cfg).
-    if (grubInstalles.length) {
-      const cfg = `# Menu Odin — systèmes Linux installés (chainload), chargé nativement par Ventoy.\n${grubInstalles.join('\n\n')}\n`;
-      await noter(`${DOSSIER.ventoy}/ventoy_grub.cfg`, await io.ecrire(`${DOSSIER.ventoy}/ventoy_grub.cfg`, cfg));
-    }
+    // Lot C7 : le menu TEXTE d'Odin (touche F6 de Ventoy, ouvert tout seul en mode texte), TOUJOURS écrit : sans lui, le
+    // mode texte renverrait vers un menu absent. Les entrées chainload des Linux installés y sont gardées, à la fin.
+    if (annulee()) return refus(ANNULEE);
+    await garde();
+    const menuTexte = (builders.buildMenuTexte ?? buildMenuTexte)(prep, { installes: grubInstalles });
+    await noter(`${DOSSIER.ventoy}/ventoy_grub.cfg`, await io.ecrire(`${DOSSIER.ventoy}/ventoy_grub.cfg`, menuTexte));
 
     // 6) ventoy.json (greffons, thème, menu, auto-install, injection des scripts).
     if (annulee()) return refus(ANNULEE);
@@ -713,7 +717,7 @@ export function cleUsb(deps: DepsCle = {}): { actions: Action[] } {
     {
       id: 'cle_preparer', label: 'Clé USB : écrire la clé', quick: false, proprietaireSeul: true,
       what: 'Écrit la clé ODIN choisie (systèmes de la bibliothèque, logiciels d\'Hermès, tes scripts, options Windows) ; la phrase tapée, le numéro de série et la taille sont revérifiés ici juste avant d\'écrire',
-      params: [{ key: 'cible', label: 'Cible (clé ou disque)', kind: 'text' }, { key: 'systemes', label: 'Systèmes composés', kind: 'textarea' }, { key: 'phrase', label: 'La phrase à taper', kind: 'text' }, { key: 'windows', label: 'Options Windows', kind: 'textarea' }, { key: 'scripts', label: 'Tes scripts', kind: 'textarea' }],
+      params: [{ key: 'cible', label: 'Cible (clé ou disque)', kind: 'text' }, { key: 'systemes', label: 'Systèmes composés', kind: 'textarea' }, { key: 'phrase', label: 'La phrase à taper', kind: 'text' }, { key: 'windows', label: 'Options Windows', kind: 'textarea' }, { key: 'scripts', label: 'Tes scripts', kind: 'textarea' }, { key: 'modeDefaut', label: 'Mode au démarrage (graphique ou texte)', kind: 'text' }, { key: 'delai', label: 'Délai avant de démarrer seul (s)', kind: 'number' }, { key: 'langue', label: 'Langue du menu de démarrage', kind: 'text' }],
       grave: () => 'écrire sur une clé USB (ce qui est dessus peut être effacé)',
       words: ['préparer la clé', 'écrire la clé', 'créer une clé bootable'],
       run: async (ctx, i) => {
@@ -750,7 +754,10 @@ export function cleUsb(deps: DepsCle = {}): { actions: Action[] } {
         // la bibliothèque entre-temps) : on revérifie ICI, sans plus rien attendre jusqu'à la réservation de la clé.
         if (enCours(d.id)) return { ok: false, text: 'Une écriture est déjà en cours sur cette clé.' };
         const p = deps.profil?.(ctx);
-        const prep: PreparationCle = { schema: 'gpt', secureBoot: true, label: 'ODIN', cible, theme: 'bleu', texte: 'matrix', disposition: 'eventail', modeDefaut: 'graphique', delai: 10, systemes: c.systemes, images: [], vdisks: [], logiciels: c.logiciels };
+        // Lot C7 : le mode montré au démarrage, le délai et la langue du menu, venus de la demande (donc pas sûrs) : tous
+        // passent par reglagesDemarrage (graphique et 10 s si rien n'est dit ; la langue d'Odin si la page n'en dit pas).
+        const rd = reglagesDemarrage({ modeDefaut: i.modeDefaut, delai: i.delai, langue: typeof i.langue === 'string' && i.langue ? i.langue : p?.langue });
+        const prep: PreparationCle = { schema: 'gpt', secureBoot: true, label: 'ODIN', cible, theme: 'bleu', texte: 'matrix', disposition: 'eventail', modeDefaut: rd.modeDefaut, delai: rd.delai, ...(rd.langue ? { langue: rd.langue } : {}), systemes: c.systemes, images: [], vdisks: [], logiciels: c.logiciels };
         ECRITURES.set(d.id, etat);
         const promesse = ecrireCle(prep, io, buildersParDefaut, {
           cible: d.id, cibleEstOdin: cible.estOdin, plan,
