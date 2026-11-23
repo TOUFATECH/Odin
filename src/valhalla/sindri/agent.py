@@ -190,11 +190,25 @@ def supprimer_vss(ident):
         powershell("Get-CimInstance Win32_ShadowCopy | Where-Object { $_.ID -eq '%s' } | Remove-CimInstance" % ident, 120)
 
 
+# ---------------- Chemins longs (Windows) ----------------
+
+def long_ok(p):
+    """Sous Windows, un chemin de plus de 260 caractères ne se lit ni ne s'écrit sans le préfixe des chemins longs (chemin absolu).
+    Sert seulement aux appels au disque : le chemin noté dans la sauvegarde reste celui de toujours, sans préfixe."""
+    if os.name != "nt" or not p or p.startswith("\\\\?\\"):
+        return p
+    p = os.path.abspath(p)
+    return "\\\\?\\UNC\\" + p[2:] if p.startswith("\\\\") else "\\\\?\\" + p
+
+
 # ---------------- Sauvegarde ----------------
 
 def parcourir(racines, exclus):
     for r in racines:
-        for base, dirs, fichiers in os.walk(r):
+        # Parcouru avec le préfixe (les dossiers profonds ne sont plus sautés en silence) ; rendu avec le chemin d'origine.
+        lr = long_ok(r)
+        for base, dirs, fichiers in os.walk(lr):
+            base = os.path.join(r, base[len(lr):].lstrip("\\/")) if base != lr else r
             dirs[:] = [d for d in dirs if not any(x.search(os.path.join(base, d)) for x in exclus)]
             for n in fichiers:
                 f = os.path.join(base, n)
@@ -204,7 +218,7 @@ def parcourir(racines, exclus):
 
 def empreintes(chemin):
     shas = []
-    with open(chemin, "rb") as h:
+    with open(long_ok(chemin), "rb") as h:
         while True:
             b = h.read(MORCEAU)
             if not b:
@@ -244,7 +258,7 @@ def sauvegarder(complete=False):
         present, changes, nouveaux, ouverts = [], [], {}, []
         for f in parcourir(racines, exclus):
             try:
-                st = os.stat(f)
+                st = os.stat(long_ok(f))
             except OSError:
                 continue
             mt, avant = st.st_mtime_ns / 1e6, connus.get(f)
@@ -281,7 +295,7 @@ def sauvegarder(complete=False):
             if f in abimes:
                 continue
             try:
-                with open(lu(f), "rb") as h:
+                with open(long_ok(lu(f)), "rb") as h:
                     h.seek(k * MORCEAU)
                     b = h.read(MORCEAU)
             except OSError:
@@ -345,21 +359,21 @@ def restaurer(o, c, tache):
             continue
         part = cible + ".odin-part"
         try:
-            os.makedirs(os.path.dirname(cible), exist_ok=True)
-            with open(part, "wb") as h:
+            os.makedirs(long_ok(os.path.dirname(cible)), exist_ok=True)
+            with open(long_ok(part), "wb") as h:
                 for m in f["morceaux"]:
                     st, b = o.appel("GET", "/api/sindri/agent/morceau?tache=%s&id=%s" % (t, quote(m["id"])))
                     if st != 200 or (m.get("sha") and hashlib.sha256(b).hexdigest() != m["sha"]):
                         raise RuntimeError("morceau abîmé ou refusé")
                     h.write(b)
-            os.replace(part, cible)
+            os.replace(long_ok(part), long_ok(cible))
             ns = int(float(f["mtime"]) * 1e6)
-            os.utime(cible, ns=(ns, ns))
+            os.utime(long_ok(cible), ns=(ns, ns))
             n += 1
         except (OSError, RuntimeError) as e:
             erreurs.append("%s : %s" % (p, e))
             try:
-                os.remove(part)
+                os.remove(long_ok(part))
             except OSError:
                 pass
     o.json("POST", "/api/sindri/agent/restauration?tache=" + t, {"fait": n, "erreurs": erreurs[:50]})
