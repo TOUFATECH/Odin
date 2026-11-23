@@ -23,12 +23,42 @@
     'bulle.sortie': '{o} : {n}',
     'bulle.detail': ' ({d})',
     'bulle.pluriel': 's',
+    // La bulle des données d'un passage (ouverte en touchant la bulle d'un bloc). {i} : un rang ; {k} : un nombre gardé ;
+    // {t} : une durée déjà écrite selon la langue.
+    'donnees.dialogue': 'Données du dernier passage de {b}',
+    'donnees.fermer': 'Fermer les données de {b}',
+    'donnees.vide': 'Ce bloc n\'a pas encore tourné.',
+    'donnees.resume': '{n} élément{s} au dernier passage',
+    'donnees.duree': 'durée : {t}',
+    'donnees.erreur': 'Erreur',
+    'donnees.rendu': 'Ce qu\'il a rendu',
+    'donnees.rien': 'Il n\'a rien rendu.',
+    'donnees.garde': 'Seuls les {k} premiers sont gardés.',
+    'donnees.element': 'Élément {i} sur {n}',
+    'donnees.element.sortie': 'Élément {i} sur {n} · sortie {o}',
+    'donnees.coupe': ' … (coupé : trop long pour être montré ici)',
+    'donnees.recu': 'Ce qu\'il a reçu',
+    'donnees.recu.element': 'Élément {i}',
+    'donnees.recu.deduit': 'Déduit de ce que le bloc d\'avant a rendu : le moteur ne garde pas ce qu\'un bloc reçoit.',
+    'donnees.recu.tronque': 'Seuls les premiers éléments du bloc d\'avant sont connus.',
+    'donnees.recu.non': 'Ce qu\'il a reçu ne se déduit pas du bloc d\'avant : rien n\'est montré (le moteur ne garde pas ce qu\'un bloc reçoit).',
+    'donnees.recu.declencheur': 'Un déclencheur ne reçoit rien d\'un bloc d\'avant : c\'est lui qui fait partir l\'automatisation.',
+    // Le rond d'un bloc exécuté seul : un vrai bouton, qui ouvre la même bulle des données.
+    'seul.elements': '{b} : exécuté seul, {n} élément{s} rendu{s}',
+    'seul.erreur': '{b} : exécuté seul, erreur, {e}',
   };
   const mot = (k, v = {}) => String(MOTS[k] ?? k).replace(/\{(\w+)\}/g, (_m, x) => String(v[x] ?? ''));
   // La langue de la page (son attribut lang ; sinon celle du navigateur) : les nombres et le pluriel la suivent, rien en dur.
   const langue = () => { try { return document.documentElement?.lang || undefined; } catch { return undefined; } };
   const nombre = (n) => { try { return n.toLocaleString(langue()); } catch { return String(n); } };
   const unSeul = (n) => { try { return new Intl.PluralRules(langue()).select(n) === 'one'; } catch { return n <= 1; } };
+  /** Une durée en millisecondes, écrite selon la langue de la page (en secondes à partir d'une seconde). */
+  const duree = (ms) => {
+    const v = Math.max(0, Number(ms) || 0), s = v >= 1000;
+    try { return new Intl.NumberFormat(langue(), { style: 'unit', unit: s ? 'second' : 'millisecond', unitDisplay: 'short', maximumFractionDigits: s ? 2 : 0 }).format(s ? v / 1000 : v); } catch { return s ? `${nombre(v / 1000)} s` : `${nombre(v)} ms`; }
+  };
+  /** Le passage du bloc `nom` dans le passage `l` : le sien seulement (un bloc nommé « constructor » n'hérite de rien). */
+  const runDe = (l, nom) => (l?.nodes && Object.prototype.hasOwnProperty.call(l.nodes, nom) ? l.nodes[nom] : undefined);
 
   // ---------------- Le « + » : où poser un bloc, à quoi le relier (fonctions pures, sans document).
   const NODE_W = 190, PAS_X = 280, PAS_Y = 110;
@@ -176,6 +206,72 @@
     const parSortie = sorties.length > 1 && o.length === sorties.length && o.reduce((s, x) => s + (Number(x) || 0), 0) === n ? sorties.map((s, i) => ({ sortie: s, n: Number(o[i]) || 0 })) : [];
     const detail = parSortie.length ? mot('bulle.detail', { d: parSortie.map((p) => mot('bulle.sortie', { o: p.sortie, n: nombre(p.n) })).join(', ') }) : '';
     return { texte: nombre(n), erreur: false, nom: mot('bulle.elements', { b: nom, n: nombre(n), s: unSeul(n) ? '' : mot('bulle.pluriel') }) + detail, sorties: parSortie };
+  }
+  // ---------------- La bulle des données d'un passage (fonctions pures). Elle montre ce que le moteur garde déjà d'un bloc :
+  // ce qu'il a rendu (MAX_PASSAGE éléments au plus, comme le moteur), la durée, ou l'erreur entière. Ce qu'il a reçu n'est
+  // pas gardé par le moteur : il n'est montré que s'il se déduit du bloc d'avant, et c'est dit. Tout est du texte.
+  const MAX_PASSAGE = 20, MAX_TEXTE = 4000;
+  /** Le texte d'un élément (JSON lisible) ; coupé au-delà de MAX_TEXTE signes. → { texte, coupe }. */
+  function texteElement(x) {
+    let t;
+    try { t = typeof x === 'string' ? x : JSON.stringify(x, null, 2); } catch { t = String(x); }
+    t = String(t ?? '');
+    return t.length > MAX_TEXTE ? { texte: t.slice(0, MAX_TEXTE), coupe: true } : { texte: t, coupe: false };
+  }
+  /** Les éléments à montrer (MAX_PASSAGE au plus), avec leur titre ; la sortie de chacun quand elle se sait (le total se retrouve). */
+  function elementsDe(items, total, sorties = [], outputs = null, recu = false) {
+    const vus = (Array.isArray(items) ? items : []).slice(0, MAX_PASSAGE), o = Array.isArray(outputs) ? outputs.map((x) => Number(x) || 0) : [];
+    const sait = !recu && sorties.length > 1 && o.length === sorties.length && o.reduce((s, x) => s + x, 0) === total;
+    const sortieDe = (i) => { let d = 0; for (let j = 0; j < o.length; j++) { d += o[j]; if (i < d) return sorties[j]; } return null; };
+    return vus.map((x, i) => {
+      const s = sait ? sortieDe(i) : null;
+      const titre = recu ? mot('donnees.recu.element', { i: nombre(i + 1) }) : mot(s !== null ? 'donnees.element.sortie' : 'donnees.element', { i: nombre(i + 1), n: nombre(total), o: s ?? '' });
+      return { titre, ...texteElement(x) };
+    });
+  }
+  /**
+   * Ce que dit la bulle des données d'un bloc, d'après son dernier passage (`run` : count, items, ms, error, outputs).
+   * `entree` : ce que rend entreeSeul quand l'entrée se déduit sûrement (sinon null) ; `declencheur` : le bloc en est un.
+   * → { vide, texte } sans passage ; sinon { resume, duree, erreur, elements, garde, rien, entree: { montree, mention, elements } }.
+   */
+  function passageDe(run, { sorties = [], entree = null, declencheur = false } = {}) {
+    if (!run) return { vide: true, texte: mot('donnees.vide') };
+    const n = Math.max(0, Number(run.count) || 0), erreur = run.error ? String(run.error) : '';
+    const elements = elementsDe(run.items, n, sorties, run.outputs);
+    const ms = Number(run.ms);
+    let e;
+    if (declencheur) e = { montree: false, mention: mot('donnees.recu.declencheur'), elements: [] };
+    else if (entree?.ok && Array.isArray(entree.items)) {
+      const items = entree.items.map((j) => (j && typeof j === 'object' && 'json' in j ? j.json : j));
+      e = { montree: true, mention: mot('donnees.recu.deduit') + (entree.tronque ? ` ${mot('donnees.recu.tronque')}` : ''), elements: elementsDe(items, items.length, [], null, true) };
+    } else e = { montree: false, mention: mot('donnees.recu.non'), elements: [] };
+    return {
+      vide: false,
+      resume: mot('donnees.resume', { n: nombre(n), s: unSeul(n) ? '' : mot('bulle.pluriel') }),
+      duree: Number.isFinite(ms) && run.ms !== undefined && run.ms !== null ? mot('donnees.duree', { t: duree(ms) }) : '',
+      erreur,
+      elements,
+      garde: elements.length < n && elements.length > 0 ? mot('donnees.garde', { k: nombre(elements.length) }) : '',
+      rien: !erreur && !elements.length ? mot('donnees.rien') : '',
+      entree: e,
+    };
+  }
+  /**
+   * La place de la bulle des données dans la fenêtre du schéma (cw × ch), accrochée au point `a` ({ x, h, b } : le milieu
+   * et les bords haut et bas de ce qu'on a touché) : dessous si elle y tient (ou s'il y a plus de place dessous), sinon
+   * dessus ; jamais hors de la fenêtre (marge de 8 px). La pointe vise le point touché ; sans place (moins de 120 px),
+   * elle prend toute la hauteur, sans pointe. → { left, top, largeur, hmax, sens: 'bas' | 'haut' | 'libre', pointe }.
+   */
+  function placeDonnees(cw, ch, a, bw, bh, marge = 8, ecart = 10) {
+    const largeur = Math.max(0, Math.min(bw, cw - 2 * marge));
+    const left = Math.max(marge, Math.min(a.x - largeur / 2, cw - largeur - marge));
+    const sous = ch - (a.b + ecart) - marge, dessus = a.h - ecart - marge;
+    let r;
+    if (bh <= sous || sous >= dessus) r = { top: a.b + ecart, hmax: sous, sens: 'bas' };
+    else r = { top: a.h - ecart - Math.min(bh, dessus), hmax: dessus, sens: 'haut' };
+    const dedans = a.x >= 0 && a.x <= cw && a.b >= 0 && a.h <= ch; // (ce qu'on a touché se voit encore)
+    if (r.hmax < 120 || !dedans) r = { top: marge, hmax: Math.max(0, ch - 2 * marge), sens: 'libre' };
+    return { left, top: r.top, largeur, hmax: r.hmax, sens: r.sens, pointe: Math.max(14, Math.min(a.x - left, largeur - 14)) };
   }
   /** Le bloc sous le point (x, y) de l'écran parmi `boites` ({ name, left, top, width, height }) : le dernier dessiné l'emporte. */
   function blocSous(boites, x, y) {
@@ -400,7 +496,7 @@
     if (!parents.length) return { ok: false, raison: `Aucun bloc n'est relié avant « ${nom} » : il n'a pas de données d'entrée. Relie-le à un bloc, puis lance « Tester jusqu'ici ».` };
     const items = []; let tronque = false;
     for (const { de, out } of parents) {
-      const r = last?.nodes?.[de];
+      const r = runDe(last, de);
       if (!r) return { ok: false, tester: parents.length === 1 ? de : undefined, raison: `« ${de} » n'a pas encore de données connues : « ${nom} » n'a rien à recevoir. Lance d'abord « Tester jusqu'ici » sur « ${de} » (ce bloc-ci ne tournera pas).` };
       if (r.error) return { ok: false, raison: `Au dernier passage, « ${de} » a échoué : il n'a rien donné à « ${nom} ». Corrige-le, puis lance « Tester jusqu'ici ».` };
       const vus = Array.isArray(r.items) ? r.items : [], o = Array.isArray(r.outputs) ? r.outputs : [];
@@ -413,7 +509,7 @@
     }
     if (!items.length) return { ok: false, raison: `Au dernier passage, aucun élément n'est arrivé à « ${nom} » par ses liens : il n'aurait pas tourné.` };
     const pinned = {};
-    for (const b of blocsAvant(wf, nom)) { const r = last?.nodes?.[b]; if (r && !r.error && Array.isArray(r.items)) pinned[b] = r.items; }
+    for (const b of blocsAvant(wf, nom)) { const r = runDe(last, b); if (r && !r.error && Array.isArray(r.items)) pinned[b] = r.items; }
     return { ok: true, items: items.map((j) => ({ json: j && typeof j === 'object' ? j : {} })), pinned, tronque };
   }
   const APPUI_LONG = 500; // ms : au doigt, l'appui long ouvre le menu d'un bloc
@@ -685,21 +781,39 @@
 .dr-note-ed label{font-size:13.5px;font-weight:600}.dr-note-ed textarea{box-sizing:border-box;width:100%;min-height:130px;padding:10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);color:var(--ink);font:inherit;font-size:14.5px;resize:vertical}
 .dr-note-ed .dr-row .btn{min-height:44px}
 .dr-seul{position:absolute;left:32px;top:23px;min-width:22px;height:22px;box-sizing:border-box;padding:0 6px;border-radius:11px;background:var(--good);color:var(--panel);font-size:12px;font-weight:700;line-height:22px;text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--panel);transform-origin:100% 100%;transform:scale(var(--dr-ik,1))}.dr-seul.bad{background:var(--bad)}
+.dr-seul-b{position:absolute;z-index:1;left:calc(54px - var(--dr-z,44px));top:calc(45px - var(--dr-z,44px));width:var(--dr-z,44px);height:var(--dr-z,44px);padding:0;border:0;border-radius:10px;background:none;cursor:pointer}
+.dr-seul-b:focus-visible{outline:none}.dr-seul-b:focus-visible+.dr-seul,.dr-seul-b:hover+.dr-seul{outline:2px solid var(--accent);outline-offset:2px}
 .dr-bulle{position:absolute;z-index:1;width:var(--dr-z,44px);height:var(--dr-z,44px);left:max(142px,calc(95px + var(--dr-z,44px) / 2));top:calc(min(10px,calc(var(--dr-sh,48px) - var(--dr-z,44px) / 2)) - var(--dr-z,44px));padding:0;border:0;background:none;display:grid;place-items:end start;cursor:pointer}
 .dr-bulle span{min-width:26px;height:24px;padding:0 7px;box-sizing:border-box;border-radius:12px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font-size:12.5px;font-weight:700;line-height:21px;text-align:center;white-space:nowrap;box-shadow:var(--shadow);transform-origin:0 100%;transform:scale(var(--dr-ik,1))}
 .dr-bulle.bad span{background:var(--bad);border-color:var(--bad);color:var(--panel)}
 .dr-bulle:hover span{border-color:var(--accent)}.dr-bulle:focus-visible{outline:none}.dr-bulle:focus-visible span{outline:2px solid var(--accent);outline-offset:2px}
 .dr-node.ok .dr-nom::before{content:'✓ ';color:var(--good)}
+.dr-passage{position:absolute;z-index:3;left:8px;top:8px;width:340px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);animation:dr-ch-in .14s ease-out}
+.dr-passage::before{content:'';position:absolute;left:calc(var(--dr-pointe,50%) - 7px);width:12px;height:12px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);transform:rotate(45deg)}
+.dr-passage.bas::before{top:-7px;border-right:0;border-bottom:0}.dr-passage.haut::before{bottom:-7px;border-left:0;border-top:0}.dr-passage.libre::before{display:none}
+.dr-ps-h{flex:none;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 14px;border-bottom:1px solid var(--line)}.dr-ps-h h2{flex:1;min-width:0;margin:0;font-size:15px;overflow-wrap:anywhere}
+.dr-ps-x{flex:none;width:44px;height:44px;border:0;border-radius:10px;background:none;color:var(--ink);font-size:24px;line-height:1;cursor:pointer}.dr-ps-x:hover{background:var(--panel2)}.dr-ps-x:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.dr-ps-c{min-height:0;overflow:auto;overscroll-behavior:contain;padding:10px 14px 14px;display:flex;flex-direction:column;gap:8px}.dr-ps-c:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:0 0 14px 14px}
+.dr-ps-c h3{margin:4px 0 0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.dr-ps-r{margin:0;font-size:13px;color:var(--muted)}.dr-ps-m{margin:0;font-size:12.5px;line-height:1.4;color:var(--muted);font-style:italic;overflow-wrap:anywhere}
+.dr-ps-l{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.dr-ps-l li{border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:6px 10px}.dr-ps-l b{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.dr-ps-l pre,.dr-ps-e{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px;line-height:1.45;color:var(--ink);font-family:ui-monospace,Menlo,Consolas,monospace}
+.dr-ps-e{padding:8px 10px;border-radius:10px;border:1px solid var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--panel))}
+.dr-ps-recu>*+*{margin-top:6px}.dr-ps-recu summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600;font-size:13.5px}.dr-ps-recu summary:focus-visible{outline:2px solid var(--accent);border-radius:8px}
 .dr-port .dr-pl .dr-pn{margin-left:4px;padding:0 4px;border-radius:6px;background:var(--panel);border:1px solid var(--line);color:var(--ink);font-weight:700}
 #v-flows .dr-bar .btn.dr-hist{min-height:44px;min-width:44px}.dr-bar .btn.dr-hist[disabled]{opacity:.45;cursor:default}
 .dr-actions{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}.dr-actions #drSt{flex:1 1 220px;min-width:0;align-self:center;overflow-wrap:anywhere}
 @media (max-width:600px){.dr-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.dr-actions .btn{white-space:normal;min-height:44px}.dr-actions #drSt{grid-column:1/-1}}
-@media (prefers-reduced-motion:reduce){.dr-node.dr-source .dr-rond,.dr-choix,.dr-fil-menu{animation:none}.dr-plus span,.dr-mb span{transition:none}}
+@media (prefers-reduced-motion:reduce){.dr-node.dr-source .dr-rond,.dr-choix,.dr-fil-menu,.dr-passage{animation:none}.dr-plus span,.dr-mb span{transition:none}}
 `;
   let st = null, wf = null, outs = {}, sel = null, armed = null, last = null, view = { x: 40, y: 40, k: 1 }, dirty = false;
   // enregistree : la copie de l'automatisation telle qu'enregistrée (ce que le serveur fait tourner) ; seuls : les blocs
   // exécutés seuls depuis le dernier « Tester » (marqués d'un rond).
   let enregistree = null, seuls = new Set();
+  // passeSur : l'automatisation telle qu'elle a tourné au dernier passage (null : on ne sait pas) ; ce qu'un bloc a reçu ne
+  // se déduit que si les blocs et les fils n'ont pas changé depuis. passage : la bulle des données ouverte ({ nom, boite, dehors }).
+  let passeSur = null, passage = null;
   const copie = (x) => (x ? JSON.parse(JSON.stringify(x)) : null);
   const cat = (t) => st?.catalog.find((c) => c.type === t);
   let elems = new Map();
@@ -782,6 +896,8 @@
     if (!wf || e.defaultPrevented || e.altKey) return;
     if (!$('#drCanvas') || !$('#v-flows')?.classList?.contains('on')) return;
     // (une fenêtre ouverte par-dessus : une confirmation, la palette ; celles qui sont cachées ne comptent pas)
+    // (dans la bulle des données : Ctrl+C copie le texte choisi, rien ne change le schéma derrière elle)
+    if (e.target?.closest?.('.dr-passage')) return;
     if (choix || enSaisie(e.target) || [...(document.querySelectorAll?.('[aria-modal="true"]') ?? [])].some((x) => !x.hidden && x.getClientRects?.().length)) return;
     const k = String(e.key ?? ''), l = k.toLowerCase(), c = Boolean(e.ctrlKey || e.metaKey);
     let pris = false;
@@ -799,7 +915,7 @@
   // Un autre écran de Talos (« Faire un lien ») a pris la page : la liste ne revient qu'à la demande.
   let ailleurs = false, jeton = 0;
   async function openList() {
-    wf = null; ailleurs = false; fermerChoix(); const j = ++jeton;
+    fermerPassage(); wf = null; ailleurs = false; fermerChoix(); const j = ++jeton;
     const box = $('#v-flows .body'); if (!box) return;
     $('#v-flows .head h1').textContent = 'Automatisations';
     $('#v-flows .head .sub').textContent = 'Talos, le moteur d\'Odin : décris ce que tu veux automatiser, ou pars d\'un modèle. Tout est relié à Thot, Papyrus et tes applis.';
@@ -846,7 +962,7 @@
     btn.disabled = false;
     if (r.ok) dit(r.resultat?.ok !== false, r.resultat?.texte, r.resultat?.ms); else dit(false, r.error);
   }
-  function newFlow() { wf = { id: '', name: 'Nouvelle automatisation', active: false, nodes: [{ name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] }], connections: {} }; outs = {}; last = null; enregistree = null; seuls = new Set(); renommes = new Map(); retires = new Set(); dirty = true; editor(); }
+  function newFlow() { wf = { id: '', name: 'Nouvelle automatisation', active: false, nodes: [{ name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] }], connections: {} }; outs = {}; last = null; passeSur = null; enregistree = null; seuls = new Set(); renommes = new Map(); retires = new Set(); dirty = true; editor(); }
   /**
    * Le dernier passage à la réouverture. L'historique (`runs`, le plus récent d'abord) garde aussi les blocs exécutés
    * seuls (leur exécution part d'un bloc qui n'est pas un déclencheur) : le dernier passage est le dernier lancé depuis
@@ -872,7 +988,10 @@
   async function openFlow(id) {
     const r = await api(`/api/draupnir/flow?id=${encodeURIComponent(id)}`); if (!r.ok) { await window.OdinDialog.alert(r.error); return; }
     if (!st) st = await api('/api/draupnir/state');
-    wf = r.flow; outs = r.outputs; ({ last, seuls } = dernierPassage(r.runs, wf, cat)); enregistree = copie(r.flow); renommes = new Map(); retires = new Set(); sel = null; dirty = false; editor(r);
+    wf = r.flow; outs = r.outputs; ({ last, seuls } = dernierPassage(r.runs, wf, cat)); enregistree = copie(r.flow);
+    // (pas enregistrée depuis le passage : elle a tourné telle quelle ; une date manquante ou illisible : on ne sait pas)
+    passeSur = last && !last.sortiesDouteuses && Date.parse(r.flow?.updatedAt) <= Date.parse(last.startedAt) ? copie(r.flow) : null;
+    renommes = new Map(); retires = new Set(); sel = null; dirty = false; editor(r);
   }
   /**
    * Une automatisation que le serveur vient de créer (« Créer avec Odin », un modèle, un import) : elle est déjà enregistrée,
@@ -892,8 +1011,10 @@
     $('#v-flows .dr-bar .td-barre')?.replaceWith(T.barre(wf, () => wf));
     if (s) s.textContent = c.active ? '✓ Enregistrée, active.' : '✓ Enregistrée en brouillon.';
   }
-  const outputsOf = (n) => outs[n.name] ?? cat(n.type)?.outputs ?? ['sortie'];
+  // (les siennes seulement : un bloc nommé « constructor » ou « toString » n'hérite de rien)
+  const outputsOf = (n) => (outs && Object.prototype.hasOwnProperty.call(outs, n.name) && Array.isArray(outs[n.name]) ? outs[n.name] : null) ?? cat(n.type)?.outputs ?? ['sortie'];
   function editor(r) {
+    fermerPassage(); // (la bulle des données d'une autre automatisation)
     hist = { avant: [], apres: [], pose: etatEditeur(), cle: null }; // (une autre automatisation : historique vide)
     const box = $('#v-flows .body');
     $('#v-flows .head h1').textContent = wf.name; $('#v-flows .head .sub').textContent = 'Glisse les étapes ; relie-les en tirant un fil d\'une sortie (rond à droite) jusqu\'à une étape, ou en touchant la sortie puis l\'entrée (rond à gauche). Touche un fil pour le retirer ou y ajouter un bloc. Clique une étape pour la régler. Le « + » d\'une étape (ou un double-clic sur la fenêtre) ajoute un bloc. Clic droit, appui long ou « ⋯ » sur une étape : l\'exécuter seule, la renommer, la copier, y mettre une note, la retirer (double-clic sur son nom : la renommer). Ctrl+C puis Ctrl+V : copier et coller l\'étape choisie ; Ctrl+Z et Ctrl+Y, ou « Annuler » et « Refaire » : défaire ou refaire un geste ; + et − : zoomer.';
@@ -925,7 +1046,7 @@
     return Array.isArray(c) && c.length === 2 && c.every((x) => typeof x === 'string' && /^#[0-9a-f]{3,8}$/i.test(x)) ? c : null;
   }
   function nodeEl(n) {
-    const c = cat(n.type), run = last?.nodes?.[n.name];
+    const c = cat(n.type), run = runDe(last, n.name);
     // Un bloc d'appli : l'icône et le nom de l'appli, puis sa fonction (ou ce qu'elle signale) en clair ; son nom s'il a été changé.
     const ia = infoAppli(n, applisListe), manque = ia?.f ? manquants(n, ia.f) : [];
     // (.dr-nom : là où se lit le nom du bloc ; un double-clic dessus le renomme)
@@ -949,14 +1070,27 @@
     // rond ; un vrai bouton (44 px, nommé) qui choisit le bloc et montre « Dernier passage ». Un bloc exécuté seul garde
     // son rond à la place (un seul nombre par bloc).
     const sorties = outputsOf(n), bu = seul ? null : bulleDe(n.name, run, last?.sortiesDouteuses ? [] : sorties);
-    const bulleBtn = bu ? el('button', { class: `dr-bulle${bu.erreur ? ' bad' : ''}`, type: 'button', title: bu.nom, 'aria-label': bu.nom, style: `--dr-sh:${hautPremiereSortie(sorties.length)}px`, onclick: (e) => {
-      e.stopPropagation(); sel = n.name; draw(); drawSide();
-      if (!e.detail) elems.get(n.name)?.querySelector('.dr-bulle')?.focus(); // (au clavier : le focus reste sur la bulle)
-    } }, el('span', { 'aria-hidden': 'true' }, bu.texte)) : null;
+    // Toucher la bulle ouvre aussi la bulle des données du passage, accrochée au bloc (la toucher de nouveau la referme) ;
+    // le focus reste sur la bulle. Tab y entre, Échap la ferme.
+    // Le rond d'un bloc exécuté seul fait de même : un vrai bouton (44 px à l'écran) posé sur le rond dessiné.
+    const ouverte = passage?.nom === n.name;
+    const ouvreur = (classe, nom, plus, ...kids) => el('button', { class: classe, type: 'button', title: nom, 'aria-label': nom, 'aria-haspopup': 'dialog', 'aria-expanded': ouverte ? 'true' : 'false', 'aria-controls': ouverte ? 'drPassage' : undefined, ...plus, onclick: (e) => {
+      e.stopPropagation(); const etait = passage?.nom === n.name;
+      sel = n.name; draw(); drawSide();
+      if (etait) fermerPassage(); else ouvrirPassage(n.name);
+      const b = boutonPassage(n.name); // (le bloc est redessiné : le focus va sur le bouton neuf)
+      try { b?.focus?.({ preventScroll: true }); } catch { b?.focus?.(); }
+    }, onkeydown: (e) => {
+      if (passage?.nom !== n.name) return;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermerPassage(true); }
+      else if (e.key === 'Tab' && !e.shiftKey) { const x = passage.boite.querySelector('.dr-ps-x'); if (x) { e.preventDefault(); x.focus?.(); } }
+    } }, ...kids);
+    const bulleBtn = bu ? ouvreur(`dr-bulle${bu.erreur ? ' bad' : ''}`, bu.nom, { style: `--dr-sh:${hautPremiereSortie(sorties.length)}px` }, el('span', { 'aria-hidden': 'true' }, bu.texte)) : null;
+    const seulBtn = seul ? ouvreur('dr-seul-b', run.error ? mot('seul.erreur', { b: n.name, e: String(run.error).slice(0, 160) }) : mot('seul.elements', { b: n.name, n: nombre(Number(run.count) || 0), s: unSeul(Number(run.count) || 0) ? '' : mot('bulle.pluriel') }), {}) : null;
     const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': `${ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`}${seul ? `, ${seul}` : ''}`, 'aria-describedby': idNote, style: `left:${n.position?.[0] ?? 0}px;top:${yDessin(n.position?.[1])}px` },
       rond, ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null, pastille,
       aNote ? el('span', { class: 'dr-note-m', 'aria-hidden': 'true' }) : null, aNote ? el('span', { class: 'sr', id: idNote }, `Note : ${n.note}`) : null,
-      seul ? el('span', { class: `dr-seul${run.error ? ' bad' : ''}`, title: `${n.name} : ${seul}`, 'aria-hidden': 'true' }, run.error ? '!' : String(run.count)) : null, bulleBtn);
+      seulBtn, seul ? el('span', { class: `dr-seul${run.error ? ' bad' : ''}`, 'aria-hidden': 'true' }, run.error ? '!' : String(run.count)) : null, bulleBtn);
     // Le bouton « ⋯ » : le menu du bloc. Zone de 44 px à l'écran (comme les ronds), au milieu du bord haut, loin des ronds, et au-dessus du bloc : même dézoomé, le corps du bloc reste à toucher (choisir, glisser).
     // Un toucher dessus ouvre le menu (pointerup plus bas) ; un geste parti de lui fait glisser le bloc, comme partout sur le bloc.
     const mb = el('button', { class: 'dr-mb', type: 'button', title: 'Menu du bloc', 'aria-haspopup': 'menu', 'aria-label': `Menu de ${n.name}`, onclick: (e) => {
@@ -977,7 +1111,7 @@
     let start = null, long = 0;
     const finLong = () => { if (long) clearTimeout(long); long = 0; };
     d.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.dr-port') || e.target.closest('.dr-plus') || e.target.closest('.dr-renom-z')) return;
+      if (e.target.closest('.dr-port') || e.target.closest('.dr-plus') || e.target.closest('.dr-renom-z') || e.target.closest('.dr-bulle') || e.target.closest('.dr-seul-b')) return; // (la bulle, le rond « seul » reçoivent leur clic)
       if (e.button > 0) return; // (le clic droit ne fait pas glisser le bloc : il ouvre son menu)
       e.stopPropagation(); d.setPointerCapture(e.pointerId); start = { x: e.clientX, y: e.clientY, p: [...(n.position ?? [0, 0])], moved: false, nom: Boolean(e.target.closest('.dr-nom')), menu: Boolean(e.target.closest('.dr-mb')) };
       // Au doigt : un appui long (sans bouger) ouvre le menu du bloc, au lieu de le choisir.
@@ -1099,7 +1233,7 @@
   /** Le point (dans la fenêtre du schéma) sous le « ⋯ » d'un bloc : où s'ouvre son menu au clavier. */
   const coinBloc = (n) => [((n.position?.[0] ?? 0) + NODE_W - 70) * view.k + view.x, (yDessin(n.position?.[1]) + 22) * view.k + view.y];
   function menuDe({ label, point: [x, y], zone, retour, choix: items, bloc, auDoigt = false }) {
-    fermerMenu();
+    fermerMenu(); fermerPassage();
     const canvas = $('#drCanvas'); if (!canvas) return;
     const r = canvas.getBoundingClientRect();
     // Le bas : celui du schéma, ou plus haut s'il passe sous la barre du bas de l'écran (téléphone) ; rien ne défile
@@ -1209,6 +1343,106 @@
     b.style.left = `${Math.round(Math.max(8, Math.min(r.left - c.left, (c.width || 0) - w - 8)))}px`;
     b.style.top = `${Math.round(haut >= 4 ? haut : r.top - c.top + r.height + 8)}px`;
   }
+  // ---------------- La bulle des données d'un passage : accrochée au bloc, dans la fenêtre du schéma. Les données y sont
+  // écrites comme du texte (jamais comme du code de page) ; elles restent dans la page (ni presse-papiers, ni journal).
+  // Elle se ferme par Échap, par son bouton « × » (le focus revient sur la bulle du bloc) ou en touchant ailleurs.
+  /** Ce qu'un bloc a reçu au dernier passage, seulement quand cela se déduit sûrement ; sinon null. */
+  function entreeSure(nom) {
+    if (!passeSur || !pareilQuEnregistre(wf, passeSur) || seuls.has(nom) || last?.sortiesDouteuses) return null;
+    // (un bloc d'avant exécuté seul depuis : ses données ne sont plus celles qu'il a données à ce bloc)
+    for (const [de, t] of Object.entries(wf.connections ?? {})) if ((t ?? []).some((l) => (l ?? []).some((x) => x?.node === nom)) && seuls.has(de)) return null;
+    const e = entreeSeul(wf, nom, last, cat);
+    return e.ok ? e : null;
+  }
+  /** Le bouton du bloc `nom` qui ouvre la bulle des données : sa bulle chiffrée, ou son rond « exécuté seul ». */
+  const boutonPassage = (nom) => elems.get(nom)?.querySelector('.dr-bulle') ?? elems.get(nom)?.querySelector('.dr-seul-b') ?? null;
+  function fermerPassage(rendre = false) {
+    if (!passage) return;
+    const { nom, boite, dehors } = passage; passage = null;
+    boite.remove(); document.removeEventListener?.('pointerdown', dehors, true);
+    const b = boutonPassage(nom);
+    b?.setAttribute('aria-expanded', 'false'); b?.removeAttribute?.('aria-controls');
+    if (rendre) (b ?? elems.get(nom))?.focus?.();
+  }
+  function ouvrirPassage(nom) {
+    fermerPassage(); fermerMenu();
+    const canvas = $('#drCanvas'); if (!canvas || !wf?.nodes.some((x) => x.name === nom)) return;
+    const boite = el('div', { class: 'dr-passage', id: 'drPassage', role: 'dialog', 'aria-modal': 'false' });
+    boite.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermerPassage(true); return; }
+      // Maj+Tab depuis le premier bouton : retour sur le bouton du bloc (sa bulle ou son rond).
+      if (e.key === 'Tab' && e.shiftKey && e.target === boite.querySelector('.dr-ps-x')) { const b = passage ? boutonPassage(passage.nom) : null; if (b) { e.preventDefault(); b.focus?.(); } }
+    });
+    // (la molette fait défiler la bulle, sans zoomer le schéma)
+    boite.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+    const dehors = (e) => {
+      const t = e.target;
+      if (t?.closest?.('.dr-passage')) return;
+      // (son propre bouton : son clic la referme)
+      const bu = t?.closest?.('.dr-bulle') ?? t?.closest?.('.dr-seul-b'); if (bu && passage && bu.closest?.('.dr-node') === elems.get(passage.nom)) return;
+      fermerPassage();
+    };
+    passage = { nom, boite, dehors, run: undefined };
+    canvas.append(boite);
+    document.addEventListener('pointerdown', dehors, true);
+    peindrePassage();
+  }
+  /**
+   * Le contenu de la bulle d'après le passage d'aujourd'hui (redessinée quand le schéma l'est). Redessinée pour le même
+   * passage, elle garde le focus (même bouton, même zone), « Ce qu'il a reçu » ouvert ou non et l'endroit où l'on lisait ;
+   * un nouveau passage la remet en haut, « Ce qu'il a reçu » replié (le focus, lui, reste dans la bulle).
+   */
+  function peindrePassage() {
+    if (!passage) return;
+    const n = wf?.nodes.find((x) => x.name === passage.nom); if (!n) { fermerPassage(); return; }
+    const run = runDe(last, n.name), c = cat(n.type);
+    const avant = passage.boite, actif = document.activeElement, memeRun = passage.run === run;
+    const focusDedans = Boolean(actif && actif.closest?.('.dr-passage') === avant);
+    const ou = !focusDedans ? null : actif.closest?.('.dr-ps-x') ? 'x' : actif.closest?.('summary') ? 'recu' : 'zone';
+    const ouvert = memeRun && Boolean(avant.querySelector('.dr-ps-recu')?.open), defile = memeRun ? Number(avant.querySelector('.dr-ps-c')?.scrollTop) || 0 : 0;
+    passage.run = run;
+    const p = passageDe(run, { sorties: last?.sortiesDouteuses ? [] : outputsOf(n), declencheur: Boolean(c?.trigger), entree: run && !c?.trigger ? entreeSure(n.name) : null });
+    const liste = (items, label) => el('ol', { class: 'dr-ps-l', 'aria-label': label }, ...items.map((it) => el('li', {}, el('b', {}, it.titre), el('pre', {}, it.texte, it.coupe ? mot('donnees.coupe') : ''))));
+    const corps = p.vide ? [el('p', { class: 'dr-ps-m' }, p.texte)] : [
+      el('p', { class: 'dr-ps-r' }, [p.resume, p.duree].filter(Boolean).join(' · ')),
+      ...(p.erreur ? [el('h3', {}, mot('donnees.erreur')), el('pre', { class: 'dr-ps-e' }, p.erreur)] : []),
+      ...(p.elements.length ? [el('h3', {}, mot('donnees.rendu')), p.garde ? el('p', { class: 'dr-ps-m' }, p.garde) : null, liste(p.elements, mot('donnees.rendu'))] : p.rien ? [el('h3', {}, mot('donnees.rendu')), el('p', { class: 'dr-ps-m' }, p.rien)] : []),
+      ...(p.entree.montree ? [el('details', { class: 'dr-ps-recu', open: ouvert, ontoggle: () => placerPassage() }, el('summary', {}, mot('donnees.recu')), el('p', { class: 'dr-ps-m' }, p.entree.mention), liste(p.entree.elements, mot('donnees.recu')))]
+        : [el('h3', {}, mot('donnees.recu')), el('p', { class: 'dr-ps-m' }, p.entree.mention)]),
+    ];
+    const nomDialogue = mot('donnees.dialogue', { b: n.name }), fermer = mot('donnees.fermer', { b: n.name });
+    avant.setAttribute('aria-label', nomDialogue);
+    const zone = el('div', { class: 'dr-ps-c', tabindex: '0', role: 'group', 'aria-label': nomDialogue }, ...corps);
+    avant.replaceChildren(
+      el('div', { class: 'dr-ps-h' }, el('h2', { id: 'drPassageT' }, n.name), el('button', { class: 'dr-ps-x', type: 'button', title: fermer, 'aria-label': fermer, onclick: () => fermerPassage(true) }, el('span', { 'aria-hidden': 'true' }, '×'))),
+      // (la zone qui défile se choisit au clavier : les flèches la font défiler)
+      zone);
+    const b = boutonPassage(n.name);
+    b?.setAttribute('aria-expanded', 'true'); b?.setAttribute('aria-controls', 'drPassage');
+    placerPassage();
+    if (defile) zone.scrollTop = defile;
+    if (ou) { const f = (ou === 'x' && avant.querySelector('.dr-ps-x')) || (ou === 'recu' && avant.querySelector('.dr-ps-recu summary')) || zone; try { f.focus?.({ preventScroll: true }); } catch { f.focus?.(); } }
+  }
+  /** Accroche la bulle à la bulle chiffrée du bloc (sinon à son rond « exécuté seul », sinon à son rond) ; elle reste dans la fenêtre du schéma. */
+  function placerPassage() {
+    if (!passage) return;
+    const canvas = $('#drCanvas'), d = elems.get(passage.nom), boite = passage.boite;
+    const c = canvas?.getBoundingClientRect?.(), cible = d?.querySelector('.dr-bulle') ?? d?.querySelector('.dr-seul') ?? d?.querySelector('.dr-rond') ?? d, r = cible?.getBoundingClientRect?.();
+    if (!c?.width || !r) return; // (pas encore dessinée)
+    // La partie de la fenêtre du schéma qui se voit à l'écran : ni sous le bas de l'écran, ni sous la barre du bas du
+    // téléphone, ni au-dessus du haut de l'écran (la page a défilé) ; c'est là que la bulle se pose.
+    const nav = document.querySelector?.('.bnav')?.getBoundingClientRect?.(), H = typeof window.innerHeight === 'number' && window.innerHeight > 0 ? window.innerHeight : Infinity;
+    const y0 = Math.max(0, -c.top), y1 = Math.max(y0, Math.min(c.height, Math.min(H, nav?.height ? nav.top : H) - c.top));
+    boite.style.maxHeight = `${Math.max(0, y1 - y0 - 16)}px`;
+    const bw = 340, bh = boite.offsetHeight || 0;
+    const pl = placeDonnees(c.width, y1 - y0, { x: r.left + r.width / 2 - c.left, h: r.top - c.top - y0, b: r.top + r.height - c.top - y0 }, bw, bh);
+    pl.top += y0;
+    // (la fenêtre du schéma a pu défiler toute seule, quand le focus va sur un bloc hors de vue : on compte ce décalage)
+    const sx = Number(canvas.scrollLeft) || 0, sy = Number(canvas.scrollTop) || 0;
+    boite.style.width = `${Math.round(pl.largeur)}px`; boite.style.left = `${Math.round(pl.left + sx)}px`; boite.style.top = `${Math.round(pl.top + sy)}px`;
+    boite.style.maxHeight = `${Math.round(pl.hmax)}px`; boite.style.setProperty?.('--dr-pointe', `${Math.round(pl.pointe)}px`);
+    for (const s of ['bas', 'haut', 'libre']) boite.classList.toggle(s, s === pl.sens);
+  }
   /** Le point de la fenêtre (en coordonnées du schéma) où poser un bloc centré sous [px, py] (pixels dans la fenêtre). */
   const pointSchema = (px, py) => [Math.round((px - view.x) / view.k - NODE_W / 2), yEnregistre((py - view.y) / view.k - MI_ROND)];
   function draw() {
@@ -1220,6 +1454,8 @@
     if (last?.nodes) for (const nom of Object.keys(last.nodes)) if (!wf.nodes.some((x) => x.name === nom)) { delete last.nodes[nom]; seuls.delete(nom); }
     elems = new Map();
     world.replaceChildren(...wf.nodes.map((n) => { const d = nodeEl(n); elems.set(n.name, d); return d; })); lines();
+    // La bulle des données suit son bloc (redessinée avec son passage d'aujourd'hui) ; son bloc parti, elle se ferme.
+    if (passage) { if (wf.nodes.some((x) => x.name === passage.nom) && passage.boite.isConnected !== false) peindrePassage(); else fermerPassage(); }
     // Fenêtre vide : un grand « + » au centre, pour le premier bloc.
     const canvas = $('#drCanvas'); canvas.querySelector('.dr-vide')?.remove();
     if (!wf.nodes.length) canvas.append(el('div', { class: 'dr-vide' }, el('button', { type: 'button', class: 'dr-vide-plus', 'aria-label': 'Ajouter le premier bloc', onclick: () => { const r = canvas.getBoundingClientRect(); void ouvrirChoix({ a: r.width ? pointSchema(r.width / 2, r.height / 2) : [60, 160] }); } }, '+'), el('p', {}, 'Ajoute le premier bloc : ce qui fait partir l\'automatisation.')));
@@ -1247,6 +1483,7 @@
       }));
     }
     bulle(); // (le schéma a bougé : la bulle d'une note suit son bloc)
+    placerPassage(); // (et la bulle des données aussi)
   }
   function pan(canvas, world) {
     // (--dr-z, --dr-zf : les zones de toucher des ronds et des fils gardent 44 et 22 px à l'écran, même dézoomé)
@@ -1304,7 +1541,7 @@
       side.replaceChildren(el('h2', {}, 'Ajouter une étape'), el('p', { class: 'sub', style: 'margin:0' }, 'Clique une étape pour l\'ajouter, puis relie-la.'), el('div', { class: 'dr-cat' }, ...groups.flatMap((g) => [el('h3', {}, g), ...st.catalog.filter((c) => c.group === g).map((c) => el('button', { type: 'button', title: c.what, onclick: () => addNode(c) }, c.label))])));
       return;
     }
-    const c = cat(n.type), run = last?.nodes?.[n.name];
+    const c = cat(n.type), run = runDe(last, n.name);
     // Bloc d'appli : l'appli et sa fonction en clair (avec « Changer ») et les réglages en champs, au lieu de les taper.
     // Applis pas encore lues : on attend ; appli ou fonction introuvable : les champs d'avant restent.
     const blocAppli = n.type === 'module.action' || n.type === 'déclencheur.module';
@@ -1526,7 +1763,7 @@
     if (!avant.length) kids.push(p('Aucun bloc n\'est relié avant celui-ci : relie un bloc à son entrée pour prendre ses données.'));
     else kids.push(p(`Touche une donnée pour la poser dans « ${label} ». Ce sont celles vues au dernier passage de chaque bloc : un bloc ne dit pas d'avance ce qu'il rend.`));
     for (const b of avant) {
-      const m = wf.nodes.find((x) => x.name === b), ia = infoAppli(m, applisListe), run = last?.nodes?.[b];
+      const m = wf.nodes.find((x) => x.name === b), ia = infoAppli(m, applisListe), run = runDe(last, b);
       kids.push(el('h4', {}, ia && window.OdinLien?.icone ? window.OdinLien.icone(ia.a, 18) : null, b, el('small', { class: 'sub' }, ` · ${ia ? `${ia.a.nom} : ${ia.titre}` : cat(m.type)?.label ?? m.type}`)));
       if (!run) { kids.push(p('Pas encore de données connues : lance « Tester » (en haut) pour voir ce que ce bloc rend.')); continue; }
       if (run.error) { kids.push(p('Au dernier passage, ce bloc a échoué : aucune donnée.')); continue; }
@@ -1680,8 +1917,9 @@
     if (wf.connections[from]) { wf.connections[to] = wf.connections[from]; delete wf.connections[from]; }
     for (const list of Object.values(wf.connections)) for (const t of list) for (const l of t) if (l.node === from) l.node = to;
     if (outs[from]) { outs[to] = outs[from]; delete outs[from]; }
-    if (last?.nodes?.[from]) { last.nodes[to] = last.nodes[from]; delete last.nodes[from]; if (seuls.delete(from)) seuls.add(to); } // (c'est le même bloc : son passage le suit)
+    if (runDe(last, from)) { last.nodes[to] = last.nodes[from]; delete last.nodes[from]; if (seuls.delete(from)) seuls.add(to); } // (c'est le même bloc : son passage le suit)
     if (armed?.node === from) armed = null;
+    if (passage?.nom === from) passage.nom = to; // (la bulle des données ouverte suit son bloc)
     if (sel === from) sel = to;
     dirty = true; if (donnees) noter(`renommer « ${from} » en « ${to} »`); draw();
     // Le panneau ouvert montre un champ dont une donnée vient d'être réécrite : il se redessine (sinon le champ, à la
@@ -1711,14 +1949,19 @@
   async function test(stopAfter) {
     if (!(await save())) return;
     const s = $('#drSt'); if (s) s.textContent = 'Test en cours…';
-    const r = await api('/api/draupnir/run', { id: wf.id, stopAfter });
+    // Ce qui part : l'automatisation enregistrée à l'instant. Elle peut changer (« Enregistrer ») ou une autre peut s'ouvrir
+    // pendant le passage : le passage reste celui de CETTE automatisation, telle qu'elle a tourné.
+    const id = wf.id, passe = copie(enregistree);
+    const r = await api('/api/draupnir/run', { id, stopAfter });
+    if (!wf || wf.id !== id) return; // (une autre automatisation a été ouverte entre-temps : ce passage n'est pas le sien)
     if (!r.ok) { if (s) s.textContent = `✗ ${r.error}`; return; }
     // Les sorties de l'automatisation qui vient de tourner (les cas d'un aiguillage changés avant « Tester ») : le nombre
     // par sortie se met sous le bon nom. Le serveur ne les rend qu'avec l'automatisation ; sans réponse, celles d'avant.
     const w = wf, f = await api(`/api/draupnir/flow?id=${encodeURIComponent(wf.id)}`).catch(() => null);
     if (wf !== w) return; // (une autre automatisation a été ouverte entre-temps)
     if (f?.ok && f.outputs && typeof f.outputs === 'object') outs = f.outputs;
-    last = r.run; seuls = new Set(); if (s) s.textContent = `${r.run.status === 'succès' ? '✓' : '✗'} ${r.run.status} en ${r.run.ms} ms${r.run.error ? ` : ${r.run.error}` : ''}`;
+    // (enregistrée de nouveau pendant le passage, avec d'autres blocs ou fils : le nombre par sortie ne se dit plus)
+    last = pareilQuEnregistre(passe, enregistree) ? r.run : { ...r.run, sortiesDouteuses: true }; seuls = new Set(); passeSur = passe; if (s) s.textContent = `${r.run.status === 'succès' ? '✓' : '✗'} ${r.run.status} en ${r.run.ms} ms${r.run.error ? ` : ${r.run.error}` : ''}`;
     draw(); drawSide();
   }
   /**
@@ -1754,10 +1997,10 @@
   }
   function init() { document.head.append(el('style', {}, css)); document.addEventListener('keydown', raccourci); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-  window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; fermerChoix(); },
+  window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; fermerPassage(); wf = null; fermerChoix(); },
     logique: { NODE_W, PAS_X, PAS_Y, nomLibre, placeLibre, sortieDuPlus, modeChoix, blocFonction, blocSignal, blocOutil, poser, pasFleche, estDoubleTouche,
       appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie,
       decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote, renommerDans, suivreRenommage,
-      entreeSeul, ceQuAgit, pareilQuEnregistre, MOTS, bulleDe, zoneBulle, BULLE_G, dernierPassage, AGIT_TYPES: Object.keys(AGIT), copieDe, collerBloc, zoomer, MAX_HISTOIRE,
+      entreeSeul, ceQuAgit, pareilQuEnregistre, MOTS, bulleDe, passageDe, placeDonnees, texteElement, MAX_PASSAGE, zoneBulle, BULLE_G, dernierPassage, AGIT_TYPES: Object.keys(AGIT), copieDe, collerBloc, zoomer, MAX_HISTOIRE,
       ROND, ANNEAU, ICONE_ROND, HAUT_BLOC, HAUT_TESTE, ECHELLE_Y, PLUS_D, PLUS_X, ZONE_PLUS, SORTIE_X, ENTREE_X, PORT_D, ECART_SORTIES, yDessin, yEnregistre, departLien, arriveeLien, zonesBloc } };
 })();
