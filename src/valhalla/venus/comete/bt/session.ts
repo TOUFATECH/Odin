@@ -72,7 +72,11 @@ export class Session {
     const stop = () => this.terminer(new Error('arrêté')); sig.addEventListener('abort', stop, { once: true });
     const desinscrire = this.o.inscrire?.(this.o.empreinte, this);
     for (const p of this.o.pairs) this.ajouterPair(p);
-    const tick = setInterval(() => { void this.battement().catch((e) => this.terminer(e as Error)); }, 500);
+    // Le battement de la session (interne, aucun travail planifié) : un coup toutes les 500 ms, le suivant
+    // seulement quand le précédent est fini (jamais deux à la fois), et plus rien dès la fin de la session.
+    let tick: ReturnType<typeof setTimeout> | undefined, arrete = false;
+    const battre = () => { tick = setTimeout(() => { void this.battement().catch((e) => this.terminer(e as Error)).finally(() => { if (!this.fini && !arrete) battre(); }); }, 500); };
+    battre();
     try {
       if (this.partage) await this.preparer();
       void this.annoncer('started');
@@ -84,7 +88,7 @@ export class Session {
       await st.fermer(); st.nettoyerTravail();
       return { chemin: st.chemin, taille, partage: this.partage!, envoye: this.envoye, recu: this.recu, bannis: [...this.bannis] };
     } finally {
-      clearInterval(tick); sig.removeEventListener('abort', stop); desinscrire?.();
+      arrete = true; clearTimeout(tick); sig.removeEventListener('abort', stop); desinscrire?.();
       this.ac.abort(); for (const l of [...this.eux]) l.c.fermer('fin');
       if (this.erreur) await this.stockage?.fermer().catch(() => undefined);
       void this.annoncer('stopped').catch(() => undefined);
