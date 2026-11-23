@@ -13,7 +13,7 @@
 // (qui efface le disque) ne se fait que pour une machine autorisée par toi, une seule fois.
 import { VIRTUAL_IFACE } from '../../hlidskjalf/discover.ts';
 import { createHash, randomBytes } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, statSync, writeFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { basename, join } from 'node:path';
 import type { Action, Kpi, ModCtx, Module, Section } from '../types.ts';
@@ -641,6 +641,9 @@ export function thjalfi(): Module {
   }).actions);
   // Clé USB, étape « Logiciels et scripts » : le script créé tout seul, montré en direct (lecture seule, rien n'est écrit).
   actions.push(apercuScriptCle(profiles));
+  // Systèmes (maquette « Genèse · Systèmes », lot S1) : la bibliothèque d'Hydre et les téléchargements d'Andromède
+  // réunis, carte par carte ; lecture seule, propriétaire seul comme la clé.
+  actions.push(systemesAction(async (ctx) => (await isos(ctx)).map((i) => ({ id: i.id, chemin: i.path, demarre: Boolean(i.recipe) && !i.err, prete: prete(i) }))));
 
   return {
     id: 'thjalfi', name: 'Genèse', family: 'Machines',
@@ -758,6 +761,124 @@ export function apercuScriptCle(profiles: (ctx: ModCtx) => Profile[]): Action {
       const refuses = verdicts.filter((v) => !v.ok).length;
       return { ok: true, text: `${Object.keys(fichiers).length} fichier(s) pour ${nom || famille}${refuses ? ` · ${refuses} script(s) refusé(s)` : ''}. Rien n'est écrit.`,
         data: { famille, fichiers, scripts: verdicts, copies: famille === 'windows' ? pour.copieWindows : pour.copieLinux, cles, activation: act ?? null, edition: reconnue ? { id: reconnue.id, label: reconnue.label } : null, compteValide: nomCompteValide(nomCompte) } };
+    },
+  };
+}
+
+// ---------------- Systèmes (maquette « Genèse · Systèmes », lot S1) ----------------
+/** La famille d'un système pour les filtres de l'onglet : un serveur l'est avant tout ; sinon Windows, outil ou Linux. Pur. */
+export function familleSysteme(o: { systeme?: string; nom?: string; detail?: string; edition?: string }): 'windows' | 'linux' | 'outil' | 'serveur' | 'autre' {
+  const t = `${o.nom ?? ''} ${o.detail ?? ''} ${o.edition ?? ''}`.toLowerCase();
+  if (/server|serveur|proxmox|truenas|esxi/.test(t)) return 'serveur';
+  if (o.systeme === 'Windows' || /windows|win1[01]\b|win2\d/.test(t)) return 'windows';
+  if (/clonezilla|gparted|memtest|rescue|hiren|shredos|virtio|pilotes/.test(t) || o.systeme === 'Autre') return 'outil';
+  if (o.systeme === 'macOS') return 'autre';
+  return 'linux';
+}
+/** Une carte de l'onglet « Systèmes » : un système de la bibliothèque, un téléchargement en cours, ou un fichier jeté. */
+export interface CarteSysteme {
+  id: string; nom: string; version?: string; fichier?: string; famille: ReturnType<typeof familleSysteme>; genre?: string; taille?: number;
+  /** pret : dans la bibliothèque et passé par l'antivirus ; telechargement ; verification (empreinte et antivirus en cours) ; empreinte_fausse (fichier jeté) ; bloque */
+  etat: 'pret' | 'telechargement' | 'verification' | 'empreinte_fausse' | 'bloque';
+  /** editeur : identique à celle publiée par l'éditeur ; calculee : notée par Odin (l'éditeur n'en publie pas) ; changee : ne correspond plus */
+  empreinte?: 'editeur' | 'calculee' | 'changee';
+  antivirus?: 'propre' | 'a_verifier' | 'en_cours' | 'bloque';
+  maj?: { version: string; source: string };
+  telechargement?: { recu: number; total?: number; pct?: number };
+  /** la source d'Andromède (arrêter, retélécharger, mettre à jour) */
+  source?: string;
+  /** Déployer : l'identifiant de l'image pour la clé USB (étape 3), seulement si elle démarre et qu'elle est prête */
+  iso?: string; deployable: boolean; raison?: 'verification' | 'inconnu' | 'bloque' | 'absent';
+  /** quand le fichier a été jeté (empreinte fausse) et pourquoi */
+  le?: number; pourquoi?: string;
+}
+type FicheLue = { chemin: string; nom: string; taille?: number; systeme?: string; detail?: string; version?: string; edition?: string; sha256?: string; editeur?: boolean; ancienne?: boolean; antivirus?: { verdict?: string }; verifiee?: { ok?: boolean } };
+type ImageGenese = { id: string; chemin: string; demarre: boolean; prete: boolean };
+type Dispo = { chemin: string; etat?: string; derniere?: string; source?: string };
+type Surveille = { id: string; nom: string; derniere?: string; enCours?: { recu: number; total?: number; pct?: number } };
+const cheminNet = (p: string) => String(p ?? '').replace(/\\/g, '/').toLowerCase();
+const sansIso = (n: string) => String(n ?? '').replace(/\.iso$/i, '');
+/** Les fichiers jetés pour une empreinte fausse, lus dans l'historique d'Andromède (le plus récent d'abord ; il ne rend que du texte).
+ *  Un fichier retéléchargé depuis n'est plus jeté. Pur. */
+export function jetesDeLHistorique(texte: string, surveilles: Surveille[], now: number, joursMax = 14): Array<{ nom: string; version?: string; source?: string; le: number; pourquoi?: string }> {
+  const vus = new Set<string>(), out: Array<{ nom: string; version?: string; source?: string; le: number; pourquoi?: string }> = [];
+  const parNom = [...surveilles].sort((a, b) => b.nom.length - a.nom.length);
+  for (const l of String(texte ?? '').split('\n')) {
+    const m = /^- (\d{1,2})\/(\d{1,2})\/(\d{4})[\s,à]+(\d{1,2}):(\d{2})(?::(\d{2}))? · ([^·]+?) · (.+)$/.exec(l.trim()); if (!m) continue;
+    const quoi = m[7].trim(), [qui, ...reste] = m[8].split(' · '), q = qui.trim();
+    // Le nom de la source, puis la version (une version ne commence jamais par une parenthèse : « Windows 11 (ARM 64) » est une autre source).
+    const sv = parNom.find((x) => q === x.nom || (q.startsWith(`${x.nom} `) && !q.slice(x.nom.length).trim().startsWith('(')));
+    const nom = sv?.nom ?? q, cle = (sv?.id ?? q).toLowerCase();
+    if (vus.has(cle)) continue;
+    if (quoi === 'téléchargé') { vus.add(cle); continue; }
+    if (quoi !== 'empreinte fausse') continue;
+    vus.add(cle);
+    const le = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5]), Number(m[6] ?? 0)).getTime();
+    if (!Number.isFinite(le) || now - le > joursMax * 864e5) continue;
+    const version = sv && q.length > sv.nom.length ? q.slice(sv.nom.length).trim() : undefined;
+    out.push({ nom, ...(version ? { version } : {}), ...(sv ? { source: sv.id } : {}), le, ...(reste.length ? { pourquoi: reste.join(' · ').slice(0, 300) } : {}) });
+  }
+  return out;
+}
+/** L'onglet « Systèmes » en données : chaque carte avec son état VRAI, les quatre chiffres et la place. Pur (aucune écriture). */
+export function assemblerSystemes(e: { fiches: FicheLue[]; images: ImageGenese[]; disponibles: Dispo[]; surveilles: Surveille[]; historique: string; place?: { total?: number; libre?: number }; now: number }) {
+  const img = new Map(e.images.map((i) => [cheminNet(i.chemin), i])), dispo = new Map(e.disponibles.map((d) => [cheminNet(d.chemin), d]));
+  const cartes: CarteSysteme[] = [];
+  const enCours = e.surveilles.filter((x) => x.enCours);
+  for (const f of e.fiches) {
+    if (f.ancienne) continue; // les anciennes versions restent dans « old » : pas de carte
+    const v = f.antivirus?.verdict, g = img.get(cheminNet(f.chemin)), d = dispo.get(cheminNet(f.chemin));
+    const etat: CarteSysteme['etat'] = v === 'bloqué' ? 'bloque' : !v || v === 'non analysé' ? 'verification' : 'pret';
+    const deployable = etat === 'pret' && Boolean(g?.demarre && g.prete);
+    const nom = f.detail && !/^(Système inconnu|Linux|Windows)$/.test(f.detail) ? f.detail : sansIso(f.nom);
+    cartes.push({
+      id: `iso:${cheminNet(f.chemin)}`, nom, ...(f.version && !nom.includes(f.version) ? { version: f.version } : {}), fichier: f.nom, famille: familleSysteme({ ...f, nom: f.nom }), ...(f.edition ? { genre: f.edition } : {}), taille: Number(f.taille) || 0, etat,
+      ...(f.verifiee?.ok === false ? { empreinte: 'changee' as const } : f.editeur === true ? { empreinte: 'editeur' as const } : f.sha256 ? { empreinte: 'calculee' as const } : {}),
+      antivirus: v === 'sain' ? 'propre' : v === 'à vérifier' ? 'a_verifier' : v === 'bloqué' ? 'bloque' : 'en_cours',
+      ...(d?.etat === 'nouvelle version' && d.derniere && d.source ? { maj: { version: d.derniere, source: d.source }, source: d.source } : d?.source ? { source: d.source } : {}),
+      ...(g ? { iso: g.id } : {}), deployable, ...(deployable ? {} : { raison: etat === 'bloque' ? 'bloque' as const : etat === 'verification' || (g?.demarre && !g.prete) ? 'verification' as const : g ? 'inconnu' as const : 'absent' as const }),
+    });
+  }
+  for (const x of enCours) {
+    // Un téléchargement en cours qui remplace une version déjà là : la carte de la version présente reste, celle-ci s'ajoute.
+    cartes.unshift({ id: `dl:${x.id}`, nom: x.nom, ...(x.derniere ? { version: x.derniere } : {}), famille: familleSysteme({ nom: x.nom }), ...(x.enCours!.total ? { taille: x.enCours!.total } : {}), etat: 'telechargement', telechargement: { ...x.enCours! }, source: x.id, deployable: false, raison: 'absent' });
+  }
+  for (const j of jetesDeLHistorique(e.historique, e.surveilles, e.now)) {
+    if (j.source && enCours.some((x) => x.id === j.source)) continue; // il se retélécharge déjà
+    cartes.push({ id: `faux:${(j.source ?? j.nom).toLowerCase()}`, nom: j.nom, ...(j.version ? { version: j.version } : {}), famille: familleSysteme({ nom: j.nom }), etat: 'empreinte_fausse', ...(j.source ? { source: j.source } : {}), deployable: false, raison: 'absent', le: j.le, ...(j.pourquoi ? { pourquoi: j.pourquoi } : {}) });
+  }
+  const verifs = cartes.filter((c) => c.etat === 'verification'), dl = cartes.filter((c) => c.etat === 'telechargement');
+  const utilise = e.fiches.reduce((n, f) => n + (Number(f.taille) || 0), 0);
+  const premier = dl[0] ? { nom: dl[0].nom, ...(dl[0].telechargement?.pct !== undefined ? { pct: dl[0].telechargement.pct } : {}) } : verifs[0] ? { nom: verifs[0].nom } : undefined;
+  return {
+    cartes,
+    chiffres: { prets: cartes.filter((c) => c.deployable).length, enCours: dl.length + verifs.length, ...(premier ? { premier } : {}), majs: cartes.filter((c) => c.maj).length },
+    place: { utilise, ...(e.place?.total ? { total: e.place.total } : {}), ...(e.place?.libre !== undefined ? { libre: e.place.libre } : {}) },
+  };
+}
+/**
+ * L'action en lecture `systemes` : la bibliothèque d'ISO d'Hydre (bibliotheque_iso), ce qu'Andromède télécharge, ce qui
+ * a une version plus récente et ce qu'elle a jeté (empreinte fausse), et l'image que la clé USB connaît (pour Déployer).
+ * Rien n'est écrit. Propriétaire seul, comme les actions de la clé : ni un membre, ni une tablette, ni une clé d'API.
+ */
+export function systemesAction(images: (ctx: ModCtx) => Promise<ImageGenese[]>): Action {
+  return {
+    id: 'systemes', label: 'Systèmes', read: true, quick: false, proprietaireSeul: true,
+    what: 'Les systèmes téléchargés : prêts à déployer, en téléchargement, en vérification, empreinte fausse, mise à jour disponible',
+    run: async (ctx) => {
+      const lire = async <T,>(m: string, a: string, i: Record<string, unknown>, why: string): Promise<{ data?: T; text: string } | undefined> => { try { const r = await ctx.call(m, a, i, why, { interne: true }); return r.ok === false ? undefined : { data: r.data as T, text: r.text ?? '' }; } catch { return undefined; } };
+      const [b, dsp, srv, hst, g] = await Promise.all([
+        lire<{ dossier?: string; isos?: FicheLue[] }>('ymir', 'bibliotheque_iso', {}, 'les systèmes de Genèse'),
+        lire<{ fichiers?: Dispo[] }>('eitri', 'disponibles', {}, 'les mises à jour des systèmes de Genèse'),
+        lire<{ surveilles?: Surveille[] }>('eitri', 'surveilles', {}, 'les téléchargements des systèmes de Genèse'),
+        lire<unknown>('eitri', 'historique', { n: 200 }, 'les fichiers jetés (empreinte fausse)'),
+        images(ctx).catch(() => [] as ImageGenese[]),
+      ]);
+      const dossier = s(b?.data?.dossier);
+      let place: { total?: number; libre?: number } | undefined;
+      if (dossier) { try { const f = statfsSync(dossier); place = { total: Number(f.blocks) * Number(f.bsize), libre: Number(f.bavail) * Number(f.bsize) }; } catch { /* dossier absent ou illisible */ } }
+      const d = assemblerSystemes({ fiches: b?.data?.isos ?? [], images: g, disponibles: dsp?.data?.fichiers ?? [], surveilles: srv?.data?.surveilles ?? [], historique: hst?.text ?? '', place, now: ctx.now().getTime() });
+      return { ok: true, text: `${d.chiffres.prets} système(s) prêt(s) à déployer · ${d.chiffres.enCours} en cours · ${d.chiffres.majs} mise(s) à jour disponible(s)`, data: { ...d, dossier, lu: { bibliotheque: Boolean(b), telechargements: Boolean(srv) } } };
     },
   };
 }
