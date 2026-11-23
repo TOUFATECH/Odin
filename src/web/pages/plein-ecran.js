@@ -1,7 +1,7 @@
 // Plein écran d'Odin : une partie de la page (la carte des applis, la grille, le graphe du Cerveau) prend tout l'écran.
 // La partie reçoit la classe `pe-plein` (posée par-dessus la page, couche 40) et le navigateur passe en plein écran sur
 // toute la page (jamais sur la partie seule) : la mascotte, les notices, les fenêtres d'Odin et les boîtes de dialogue
-// restent ainsi au-dessus. On sort par Échap (sauf si une boîte de dialogue est ouverte), par la sortie du plein écran
+// restent ainsi au-dessus. On sort par Échap (après ce qui est ouvert par-dessus : il le ferme d'abord), par la sortie du plein écran
 // du navigateur, en changeant d'écran (événement odin:vue) ou en rappuyant sur le bouton.
 // Et le déplacement au clavier dans une carte : flèches, + et −, 0 pour tout voir, Entrée pour ouvrir.
 // Ce fichier est chargé avant les autres scripts de l'interface : rien ne touche au document à son chargement.
@@ -53,13 +53,33 @@ html[data-plein-ecran="1"] main{z-index:auto!important}
   let actuel = null, demande = false, pret = false, nAide = 0;
   const boutons = new Set();
   function styler() { if (!document.getElementById('peCss')) { const s = document.createElement('style'); s.id = 'peCss'; s.textContent = css; document.head.append(s); } }
+  // Ce qui s'ouvre par-dessus et se ferme par Échap (une boîte de dialogue, la barre de commande, le tiroir « Ajouter un
+  // widget », la petite fenêtre pour parler à Odin) : le premier Échap est pour lui, pas pour le plein écran.
+  const DESSUS = 'dialog[open],[aria-modal="true"],#odinTalk,#odinAdvice';
+  function ouvert(n) {
+    if (!n.isConnected || n.hidden) return false;
+    if (n.tagName === 'DIALOG') return Boolean(n.open);
+    return n.checkVisibility ? n.checkVisibility({ visibilityProperty: true }) : n.getClientRects().length > 0 && getComputedStyle(n).visibility !== 'hidden';
+  }
+  const ouverts = () => [...document.querySelectorAll(DESSUS)].filter(ouvert);
   function installer() {
     if (pret) return; pret = true; styler();
+    // Ce qui est ouvert par-dessus est noté avant que quoi que ce soit ne se ferme. On décide une fois l'appui passé par
+    // tout le monde : si l'une de ces fenêtres s'est fermée, ou si quelqu'un a pris la touche, l'appui était pour elle ;
+    // sinon on sort, même si une fenêtre reste ouverte (le focus n'y est plus) : Échap doit toujours finir par marcher,
+    // car dans le plein écran du navigateur la touche est gardée pour la page (garderEchap).
+    let avant = [];
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') avant = actuel ? ouverts() : []; }, true);
     document.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape' || !actuel || document.querySelector('dialog[open]')) return;
-      e.preventDefault(); e.stopPropagation(); sortir();
-    }, true);
-    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && actuel && demande) { demande = false; sortir(); } });
+      if (e.key !== 'Escape' || !actuel) return;
+      const c = actuel, liste = avant; avant = [];
+      setTimeout(() => { if (actuel === c && !e.defaultPrevented && liste.every(ouvert)) sortir(); }, 0);
+    });
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) return;
+      rendreEchap();
+      if (actuel && demande) { demande = false; sortir(); }
+    });
     document.addEventListener('odin:vue', () => { if (actuel) sortir(); });
   }
   function peindreBoutons() {
@@ -73,6 +93,17 @@ html[data-plein-ecran="1"] main{z-index:auto!important}
     }
   }
   function annoncer() { document.dispatchEvent(new CustomEvent('odin:plein-ecran', { detail: { actif: Boolean(actuel), cible: actuel } })); }
+  // Dans le plein écran du navigateur, Échap est pris par le navigateur lui-même (il en sort sans que la page voie la
+  // touche) : là où il le permet, la touche est gardée pour la page, pour que le premier Échap ferme d'abord ce qui est
+  // ouvert par-dessus. Maintenir Échap fait encore sortir du plein écran du navigateur.
+  function garderEchap() { try { const p = navigator.keyboard?.lock?.(['Escape']); if (p && p.catch) p.catch(() => {}); } catch { /* pas permis ici */ } }
+  function rendreEchap() { try { navigator.keyboard?.unlock?.(); } catch { /* rien à rendre */ } }
+  /** Le navigateur a fini d'entrer dans son plein écran. Si on est déjà ressorti entre-temps (deux appuis rapides, un
+   *  changement d'écran), il en ressort aussitôt, et la touche Échap n'est pas gardée. */
+  function entre() {
+    if (actuel && demande) { garderEchap(); return; }
+    try { if (document.fullscreenElement && document.exitFullscreen) { const p = document.exitFullscreen(); if (p && p.catch) p.catch(() => {}); } } catch { /* déjà sorti */ }
+  }
   function entrer(cible) {
     if (!cible) return;
     installer();
@@ -81,7 +112,7 @@ html[data-plein-ecran="1"] main{z-index:auto!important}
     document.documentElement.setAttribute('data-plein-ecran', '1');
     try {
       const de = document.documentElement;
-      if (!document.fullscreenElement && de.requestFullscreen) { demande = true; const p = de.requestFullscreen(); if (p && p.catch) p.catch(() => { demande = false; }); }
+      if (!document.fullscreenElement && de.requestFullscreen) { demande = true; const p = de.requestFullscreen(); if (p && p.then) p.then(entre, () => { demande = false; }); }
     } catch { demande = false; }
     peindreBoutons(); annoncer();
   }
@@ -90,7 +121,7 @@ html[data-plein-ecran="1"] main{z-index:auto!important}
     const c = actuel; actuel = null; c.classList.remove('pe-plein');
     document.documentElement.removeAttribute('data-plein-ecran');
     if (demande && document.fullscreenElement && document.exitFullscreen) { demande = false; try { const p = document.exitFullscreen(); if (p && p.catch) p.catch(() => {}); } catch { /* déjà sorti */ } }
-    demande = false;
+    demande = false; rendreEchap();
     peindreBoutons();
     document.dispatchEvent(new CustomEvent('odin:plein-ecran', { detail: { actif: false, cible: c } }));
   }

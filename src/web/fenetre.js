@@ -24,6 +24,8 @@
     range: '✓ Fenêtre rangée.', enMain: 'Mode Modifier : glisse le module où tu veux, puis « Terminé » pour garder.',
     place: (n, t) => `Module posé à la place ${n} sur ${t}.`, revenu: 'Déplacement annulé : le module est revenu à sa place.',
     deplace: 'Module déplacé.', annuler: 'Annuler', annule: 'Déplacement annulé.', tropTard: 'Trop tard pour annuler ce déplacement : la fenêtre a changé depuis.',
+    // Lot 22a : l'accueil en plein écran.
+    sortiePlein: 'Quitter le plein écran (Échap)', enPlein: 'Plein écran : seulement les widgets. Échap, ou le ✕ en haut à droite, pour sortir.',
   };
   // Les calculs du glisser (appui long, rang d'insertion, défilement, « Annuler ») : pages/accueil-gestes.js, chargé avant.
   const OG = window.OdinGestes;
@@ -69,7 +71,18 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 .fe-wx{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.fe-wx>div{min-width:0}.fe-wx b{font-size:34px}.fe-hours{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;margin-top:10px;font-size:12.5px;color:var(--muted)}.fe-hours span{white-space:nowrap}
 .fe-err{color:var(--muted);font-size:13.5px}
 .fe-clock{display:flex;flex-direction:column;gap:2px}.fe-clock-h{font-size:clamp(22px,24cqi,38px);line-height:1.1;font-variant-numeric:tabular-nums}.fe-clock-d{font-size:15px}.fe-clock-d::first-letter{text-transform:uppercase}.fe-clock small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
-.fe-site{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:4px solid var(--line)}.fe-site b{font-size:20px}.fe-site small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}.fe-site.bon{border-color:var(--good)}.fe-site.mauvais{border-color:var(--bad)}.fe-site.attention{border-color:var(--warn)}`;
+.fe-site{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:4px solid var(--line)}.fe-site b{font-size:20px}.fe-site small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}.fe-site.bon{border-color:var(--good)}.fe-site.mauvais{border-color:var(--bad)}.fe-site.attention{border-color:var(--warn)}
+/* L'accueil en plein écran (lot 22a) : seulement les widgets, pour un écran au mur. Le bandeau, les onglets, les blocs du
+   jour disparaissent (le menu et la barre du bas sont déjà sous l'accueil posé par-dessus) ; le mode Modifier garde sa barre.
+   On sort par Échap ou par le rond discret en haut à droite (44 px). La mascotte n'est pas touchée. */
+#v-home.pe-plein>#homeBandeau,#v-home.pe-plein #vaultBanner,#v-home.pe-plein #todayBox,#v-home.pe-plein #homeGrid,#v-home.pe-plein #fenetre>.fe-bar{display:none!important}
+#v-home.pe-plein>.body{padding:66px 16px calc(24px + env(safe-area-inset-bottom))}#v-home.pe-plein #fenetre{margin:0}
+@media (min-width:900px){#v-home.pe-plein>.body{padding:66px 28px 28px}}
+.fe-sortie{display:none}
+#v-home.pe-plein>.fe-sortie{display:grid;place-items:center;position:fixed;top:calc(10px + env(safe-area-inset-top));right:10px;z-index:41;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;opacity:.45;transition:opacity .3s}
+#v-home.pe-plein>.fe-sortie:hover,#v-home.pe-plein>.fe-sortie:focus-visible{opacity:1}#v-home.pe-plein>.fe-sortie:focus-visible{outline:2px solid var(--accent,#0b7f7c);outline-offset:2px}
+.fe-sortie svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+@media (prefers-reduced-motion:reduce){.fe-sortie{transition:none}}`;
   document.head.append(el('style', {}, css + OA.CSS + OT.CSS));
 
   let L = null, cur = 0, edit = false, saved = '', cat = null, views = new Map(), timer = 0, dessin = { cur: -1, edit: false };
@@ -612,6 +625,31 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     try { await load(); await fetchViews(); await draw(); } catch (e) { host().replaceChildren(el('p', { class: 'fe-err' }, `Fenêtre indisponible : ${e.message}`)); return; }
     clearInterval(timer); timer = setInterval(async () => { if (edit || glisse || appuiEnCours || document.hidden || !$('#v-home.on')) return; await fetchViews(); draw(); }, 60_000);
   }
+  // ------------------------------------------------------------------ l'accueil en plein écran (lot 22a)
+  // Le bouton du bandeau (#homeFull, pages/plein-ecran.js) pose `pe-plein` sur l'accueil : le style ci-dessus ne laisse
+  // que les widgets. Le bandeau disparaît avec son bouton : un rond discret de 44 px, en haut à droite, sert à sortir au
+  // doigt ; Échap aussi (après ce qui est ouvert par-dessus : la barre de commande, le tiroir, une boîte de dialogue).
+  const SORTIE = TXT.sortiePlein;
+  function sortie() {
+    const v = $('#v-home'); if (!v) return null;
+    let b = $('#feSortie');
+    if (!b) {
+      b = el('button', { id: 'feSortie', class: 'fe-sortie', type: 'button', 'aria-label': SORTIE, title: SORTIE, onclick: () => window.OdinPleinEcran?.sortir() });
+      b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+    }
+    if (b.parentNode !== v) v.append(b);
+    return b;
+  }
+  document.addEventListener('odin:plein-ecran', (e) => {
+    const c = e.detail?.cible; if (!c || c.id !== 'v-home') return;
+    const b = sortie(); if (!b) return;
+    const a = document.activeElement;
+    if (e.detail.actif) {
+      // Le focus était sur le bouton du bandeau, maintenant caché : il passe au rond de sortie.
+      if (!a || a === document.body || a.id === 'homeFull' || !a.getClientRects().length) b.focus({ preventScroll: true });
+      say(TXT.enPlein);
+    } else if (!a || a === document.body || a === b) $('#homeFull')?.focus({ preventScroll: true });
+  });
   window.OdinFenetre = { mount, state: () => ({ L, cur, edit }), edit: (on = true) => { edit = on; draw(); } };
   // Après la connexion seulement (la page de connexion n'a pas de fenêtre).
   const tryMount = () => { const app = $('#app'); if (app && !app.hidden && $('#v-home .body')) mount(); else setTimeout(tryMount, 1500); };
