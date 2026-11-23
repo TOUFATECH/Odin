@@ -151,6 +151,8 @@ export interface HoteAutomatismes {
   ack?(ids: string[]): void;
   /** lance l'action d'une appli (par le propriétaire) */
   act(module: string, action: string, input: Record<string, unknown>): Promise<ActionResult>;
+  /** l'appli est-elle désactivée ? (ses surveillances et ses tâches ne passent plus, même à la main) */
+  desactivee?(module: string): boolean;
 }
 /** Une tâche inscrite hors des applis : `faire` remplace l'action de l'appli. */
 export type TacheInscrite = TacheAppli & { faire?: () => Promise<ActionResult | void> };
@@ -256,6 +258,11 @@ export class Automatismes {
     const auto = () => { if (!pauseGlobale()) void this.passer(`veille:${m.id}`, false).catch(() => undefined); };
     this.minuteries.set(m.id, [setTimeout(auto, 20_000 + Math.random() * 20_000), setInterval(auto, m.watch.every * 1000)]);
   }
+  /** Désarme la surveillance d'une appli (désactivée) : plus de minuterie, plus de passage dû. */
+  desarmer(mid: string): void {
+    for (const t of this.minuteries.get(mid) ?? []) { clearTimeout(t); clearInterval(t); }
+    this.minuteries.delete(mid); this.dus.delete(mid); this.ticks.delete(mid);
+  }
   arreter(): void {
     for (const l of this.minuteries.values()) for (const t of l) { clearTimeout(t); clearInterval(t); }
     this.minuteries.clear(); this.dus.clear();
@@ -285,6 +292,8 @@ export class Automatismes {
    * gardé en mémoire (20 par ligne) ; noté sur le disque seulement pour une tâche.
    */
   private async passer(id: string, main: boolean): Promise<Passage | 'en_cours' | 'pause' | 'introuvable'> {
+    // L'appli désactivée : rien ne passe, ni sa surveillance ni ses tâches (pas même lancées à la main).
+    const mid = id.split(':')[1]; if (mid && !id.startsWith('lien:') && this.hote.desactivee?.(mid)) return 'pause';
     if (!main && this.enPause(id)) return 'pause';
     // Une seule chose à la fois par appli : sa surveillance et ses tâches font souvent le même travail (vérification
     // des ISO, sauvegarde d'un plan). Un passage bloqué depuis trop longtemps est déclaré en échec et libère la place.

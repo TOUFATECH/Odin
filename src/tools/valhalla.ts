@@ -93,7 +93,7 @@ export const valhallaTool: Tool = {
   async run(i, ctx) {
     const v = valhallaOf(); if (!v) return 'Les applis d\'Odin ne sont pas démarrées (lance Odin en service).';
     const a = s(i.action);
-    if (a === 'lister') { const fam = [...new Set(v.modules().map((m) => m.family))]; return fam.map((f) => `**${f}**\n${v.modules().filter((m) => m.family === f).map((m) => `- ${m.name} : ${m.what}`).join('\n')}`).join('\n\n'); }
+    if (a === 'lister') { const fam = [...new Set(v.modules().map((m) => m.family))]; return fam.map((f) => `**${f}**\n${v.modules().filter((m) => m.family === f).map((m) => `- ${m.name}${v.estActive(m.id) ? '' : ' (désactivée : ne t\'en sers pas, propose de l\'activer dans Applis)'} : ${m.what}`).join('\n')}`).join('\n\n'); }
     if (a === 'liens') return [`Liens entre applis (tous automatiques) :`, ...LINKS.filter((l) => l.kind !== 'soin').map((l) => `- ${v.module(l.from)?.name} → ${v.module(l.to)?.name} : quand ${l.when}, ${l.does}`), '', 'Ce qu\'Odin répare tout seul (tu peux garder ou annuler) :', ...LINKS.filter((l) => l.kind === 'soin').map((l) => `- ${v.module(l.from)?.name} : quand ${l.when}, ${l.does}`), '', 'Usages de prédilection :', ...USAGES.map((u) => `- ${u.need} : ${u.chain.map((c) => v.module(c)?.name ?? c).join(' → ')}`)].join('\n');
     if (a === 'alertes') { const l = v.alerts({ limit: 20 }); return l.length ? l.map((x) => `- ${x.at.slice(5, 16).replace('T', ' ')} ${x.level} · ${v.module(x.module)?.name ?? x.module} : ${x.title}${x.count > 1 ? ` (×${x.count})` : ''}`).join('\n') : 'Aucune alerte.'; }
     if (a === 'conseiller') return advise(v, s(i.besoin || i.appli));

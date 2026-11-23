@@ -433,6 +433,7 @@
   async function openCatalog() {
     const box = $('#v-apps .body'); if (!box) return;
     st = await api('/api/valhalla/catalog');
+    window.OdinActivation?.retenir(st); // applis actives ou désactivées (grisées)
     if (!st.ok) { pageA = null; $('#v-apps .va-hacts')?.remove(); box.replaceChildren(el('p', { class: 'sub' }, st.error)); return; }
     const neuf = !pageA || !box.contains(pageA.paneA);
     if (neuf) pageA = squeletteApplis(box);
@@ -479,11 +480,15 @@
     p.titre.textContent = `Tes applis (${st.modules.length})`;
     if (!window.OdinAppIcons) return;
     const F = window.OdinFicheAppli, appli = (id) => () => st?.modules.find((x) => x.id === id);
-    // Chaque tuile a, à côté (jamais dedans), son petit bouton « Épingler au menu ».
+    // Chaque tuile a, à côté (jamais dedans), son petit bouton « Épingler au menu » (en haut à gauche) et, en face, celui
+    // qui l'active ou la désactive (propriétaire seul, jamais sur une appli indispensable). Désactivée : tuile grisée.
+    const A = window.OdinActivation;
     p.grid.replaceChildren(...[...st.modules].sort((a, b) => a.name.localeCompare(b.name, 'fr')).map((m) => {
       const b = el('button', { type: 'button', class: 'va-appbtn', title: F ? null : m.what, onclick: () => openApp(m.id) }); b.innerHTML = window.OdinAppIcons.tile(m.id, m.name, 52); b.append(el('span', {}, m.name));
       F?.brancher(b, appli(m.id), { ouvrir: () => openApp(m.id) });
-      return el('div', { class: 'va-appcell', role: 'listitem' }, b, window.OdinEpingles?.bouton(`appli:${m.id}`, m.name, { petit: true }) ?? null);
+      const c = el('div', { class: 'va-appcell', role: 'listitem' }, b, window.OdinEpingles?.bouton(`appli:${m.id}`, m.name, { petit: true }) ?? null, A?.boutonCarte(m.id, m.name) ?? null);
+      A?.marquerCarte(c, m.id);
+      return c;
     }));
   }
   /** Le nombre sur « À voir » : alertes pas encore vues et manips à décider (en rouge s'il faut décider ou si c'est grave). */
@@ -682,8 +687,11 @@
     // `o.replie` (appli qui a sa propre page) : la fiche est repliée en entrant, et l'ouvrir ou la fermer ici
     // ne change pas le réglage des autres applis.
     if (plus) { plus.open = plusOuvert[id] ?? (o?.replie ? false : ficheOuverte()); plus.addEventListener('toggle', () => { plusOuvert[id] = plus.open; if (!o?.replie) ficheOuverte(plus.open); }); }
-    return el('div', { class: 'va-head' }, el('button', { class: 'btn va-back', type: 'button', id: 'vaRetour', title: `Retour : ${retour.label}`, onclick: retour.go }, ico(I.retour), el('span', {}, retour.label)), titre ? null : ic,
-      el('div', { class: 'va-tt' }, el('h1', {}, titre?.titre ?? r.name), el('p', { class: 'va-desc' }, titre?.texte ?? r.what), !titre && v.subtitle && v.subtitle !== r.what ? el('p', { class: 'va-etat', role: 'status' }, v.subtitle) : null), titre ? null : boutonPartage(id, r), titre ? null : window.OdinEpingles?.bouton(`appli:${id}`, r.name) ?? null, plus);
+    const A = window.OdinActivation, off = !titre && A?.estEteinte(id);
+    return el('div', { class: `va-head${off ? ' va-off' : ''}` }, el('button', { class: 'btn va-back', type: 'button', id: 'vaRetour', title: `Retour : ${retour.label}`, onclick: retour.go }, ico(I.retour), el('span', {}, retour.label)), titre ? null : ic,
+      el('div', { class: 'va-tt' }, el('h1', {}, titre?.titre ?? r.name), el('p', { class: 'va-desc' }, titre?.texte ?? r.what), !titre && v.subtitle && v.subtitle !== r.what ? el('p', { class: 'va-etat', role: 'status' }, v.subtitle) : null), titre ? null : boutonPartage(id, r), titre ? null : window.OdinEpingles?.bouton(`appli:${id}`, r.name) ?? null, titre || off ? null : A?.boutonPage(id, r.name) ?? null,
+      // Désactivée : un bandeau dit ce que cela veut dire, avec « Activer » (le propriétaire) ; le contenu dort.
+      titre ? null : A?.bandeau(id, r.name) ?? null, plus);
   }
   /**
    * « Exporter et partager » (en haut de la page) : la page en Word, PDF, Markdown ou JSON (toute la page ou l'onglet
@@ -957,6 +965,7 @@
     if (cur !== id) return;
     // Une appli qui a sa propre page : sa présentation (à quoi elle sert, applicatifs similaires) reste dans l'en-tête, repliée.
     const replie = Boolean(window.OdinPages?.[id]) && !corps.refusee;
+    window.OdinActivation?.endormir([haut.out, ...corps], id); // appli désactivée : contenu grisé et inerte
     box.replaceChildren(...[entete(id, r, { label: 'Applis', go: () => window.OdinShow?.('apps') }, undefined, { replie }), v.postes ? selecteur(id, r) : null, haut.out, haut.dl, haut.close, ...corps].filter(Boolean));
   }
   async function openApp(id, quiet) {
@@ -972,6 +981,7 @@
     if (auto) { const a = await auto; if (cur === id) autoData[id] = a; }
     if (cur !== id) return;
     if (!r.ok) { box.replaceChildren(el('p', { class: 'sub' }, r.error)); return; }
+    window.OdinActivation?.retenirUne(r);
     await render(id, r, quiet);
     if (cur !== id) return;
     if (!quiet) document.getElementById('vaRetour')?.focus?.({ preventScroll: true });
@@ -987,6 +997,13 @@
   function init() {
     const s = el('style', {}, css); document.head.append(s);
     $('#vaBack')?.addEventListener('click', () => { window.OdinShow?.('apps'); });
+    // Une appli activée ou désactivée : la grille et sa page se redessinent (le focus reste sur le bouton touché).
+    document.addEventListener('odin:activation', (e) => {
+      const { id, active } = e.detail ?? {}; const m = st?.modules?.find((x) => x.id === id); if (m) m.active = active;
+      if (pageA && st?.ok) remplirGrille(pageA);
+      const surPage = Boolean(e.detail?.page);
+      if (cur === id && $('#v-app.on')) openApp(id, true).then(() => { if (surPage) document.querySelector('#v-app .va-actb')?.focus(); });
+    });
     setTimeout(badge, 4000); setInterval(() => { st = null; badge(); }, 120_000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

@@ -287,7 +287,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       const transportKeryx = new TelegramChannel(kToken, undefined, { ...chOpts, home: odin.paths.home, owner: cc.keryx.owners.map(String)[0] });
       gw.add(new CanalKeryx(odin.paths.home, transportKeryx, () => lireReglages(odin.paths.home)));
       // Initiative simple (rappels de rendez-vous), sans dépendance à une ligne ; minuteur léger (unref).
-      const proactifKeryx = new Proactif({ notifyOwner: (t, o) => gw!.notifyOwner(t, o), quietNow: (n) => gw!.quietNow(n) }, () => lireReglages(odin.paths.home));
+      const proactifKeryx = new Proactif({ notifyOwner: (t, o) => gw!.notifyOwner(t, o), quietNow: (n) => gw!.quietNow(n), actif: () => valhallaOf()?.estActive('keryx') !== false }, () => lireReglages(odin.paths.home));
       setInterval(() => void proactifKeryx.passer().catch(() => {}), 60_000).unref?.();
     }
   }
@@ -864,7 +864,9 @@ async function main(): Promise<void> {
   if (cmd === 'conversation') return conversationCmd();
   if (!cmd || cmd === 'help' || flags.has('--help')) return console.log(HELP);
   if (cmd === 'init') {
-    const paths = odinPaths(), created = initHome(paths);
+    // Un dossier vraiment neuf : les applis démarrent désactivées, on les active une à une (activation.ts).
+    const { initOdin } = await import('../valhalla/activation.ts');
+    const paths = odinPaths(), created = initOdin(paths);
     console.log(created.length ? `Créé :\n${created.map((f) => `  ${f}`).join('\n')}` : 'Déjà initialisé.');
     // Le Cerveau est prêt dès l'installation : une fiche par appli, leurs liens, le mode de fonctionnement d'Odin.
     try {

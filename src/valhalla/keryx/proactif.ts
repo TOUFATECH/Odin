@@ -11,6 +11,8 @@ import type { ReglagesKeryx, Surveillance } from './types.ts';
 export interface PasserelleProactif {
   notifyOwner(texte: string, o?: { urgent?: boolean }): Promise<void>;
   quietNow(now?: number): string | undefined;
+  /** Kéryx est-elle active dans Applis ? Désactivée : elle n'écrit plus rien. */
+  actif?(): boolean;
 }
 
 /** Combien de minutes avant un rendez-vous prévenir (lu dans le réglage de la surveillance, défaut 30). */
@@ -35,6 +37,7 @@ export class Proactif {
 
   /** Un passage : regarde les surveillances actives et prévient si besoin (sauf en heures calmes). */
   async passer(now = Date.now()): Promise<number> {
+    if (this.gw.actif?.() === false) return 0; // Kéryx désactivée dans Applis : plus aucun rappel
     const r = this.reglages();
     let envoyes = 0;
     for (const s of r.surveillances.filter((x) => x.actif)) {

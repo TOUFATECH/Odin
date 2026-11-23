@@ -102,6 +102,8 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
     const v = valhallaOf(); if (!v) { json(res, 503, []); return true; }
     if (req.method !== 'POST') { json(res, 405, []); return true; }
     const m = memberOf(v.ctx('gladsheim'), s(req.headers.authorization)); if (!m) { d.fail(); res.writeHead(401, { 'www-authenticate': 'Basic realm="Odin"' }); res.end(); return true; }
+    // Hestia désactivée (Applis) : la position n'est ni gardée ni partagée (200 vide : le téléphone ne réessaie pas en boucle).
+    if (!v.estActive('gladsheim')) { json(res, 200, []); return true; }
     let b: Record<string, unknown>; try { b = await readBody(req); } catch { json(res, 413, []); return true; }
     json(res, 200, recordFix(v.ctx('gladsheim'), m, b)); return true;
   }

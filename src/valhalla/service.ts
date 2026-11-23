@@ -19,6 +19,7 @@ import { Automatismes } from './automatismes.ts';
 import { enClair, fermer, migrerAppli, ouvrir, privesAppli } from '../prive.ts';
 import { reglageFichierEcrit } from '../reglages-note.ts';
 import { relayerEvenement } from './pronoia/branchement.ts';
+import { activeDans, basculerDans, ecrireActivation, estEssentielle, lireActivation, texteDesactivee, type EtatActivation } from './activation.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
@@ -75,10 +76,36 @@ export class Valhalla {
     // Les mesures gardées dans le temps (courbes, déclencheurs, tableaux de bord).
     this.metrics = new Metrics(join(this.dir, 'mesures'), deps.now ? () => deps.now!().getTime() : Date.now); setMetrics(this.metrics);
     // Le registre des automatismes : tout ce que les applis font toutes seules, visible et réglable dans Talos.
-    this.automatismes = new Automatismes({ dir: this.dir, now: () => this.deps.now?.() ?? new Date(), modules: () => this.modules(), ctx: (id) => this.ctx(id), alert: (m, a) => this.alert(m, a), ack: (ids) => this.ack(ids), act: (m, a, i) => this.act(m, a, i, { by: 'toi' }) });
+    this.automatismes = new Automatismes({ dir: this.dir, now: () => this.deps.now?.() ?? new Date(), modules: () => this.modules(), ctx: (id) => this.ctx(id), alert: (m, a) => this.alert(m, a), ack: (ids) => this.ack(ids), act: (m, a, i) => this.act(m, a, i, { by: 'toi' }), desactivee: (id) => !this.estActive(id) });
+    // Les applis actives ou désactivées (activation.ts) : sans réglage, toutes actives.
+    this.activation = lireActivation(home);
   }
   readonly metrics: Metrics;
   readonly automatismes: Automatismes;
+
+  // ---------------- Applis actives ou désactivées
+  private activation: EtatActivation;
+  /** Une appli désactivée reste visible (grisée) ; elle ne démarre pas et rien ne la lance. Inconnue : active. */
+  estActive(id: string): boolean { return activeDans(this.activation, id); }
+  /** Une appli indispensable au fonctionnement d'Odin (toujours active). */
+  estEssentielle(id: string): boolean { return estEssentielle(id); }
+  /**
+   * Active (`oui`) ou désactive une appli : le réglage est gardé sur le disque, puis l'appli démarre (avec sa
+   * surveillance) ou s'arrête. Ses données ne sont jamais touchées. La personne qui le demande est vérifiée avant
+   * (route web : le propriétaire seul).
+   */
+  async activer(id: string, oui: boolean): Promise<{ ok: boolean; text: string; active?: boolean }> {
+    const m = this.mods.get(id); if (!m) return { ok: false, text: 'Appli inconnue.' };
+    if (!oui && estEssentielle(m.id)) return { ok: false, text: `${m.name} est indispensable au fonctionnement d'Odin : elle reste active.`, active: true };
+    if (this.estActive(m.id) === oui) return { ok: true, text: oui ? `${m.name} est déjà active.` : `${m.name} est déjà désactivée.`, active: oui };
+    const avant = this.activation, apres = basculerDans(avant, m.id, oui);
+    try { ecrireActivation(join(this.dir, '..'), apres); } catch (e) { return { ok: false, text: `Réglage non enregistré (${(e as Error).message}) : rien n'a changé.`, active: !oui }; }
+    this.activation = apres;
+    if (oui) { if (this.lance && !this.demarres.has(m.id)) await this.demarrerUne(m); }
+    else { this.automatismes.desarmer(m.id); if (this.demarres.delete(m.id)) { try { m.stop?.(); } catch { /* rien */ } } }
+    this.events.emit('activation', { module: m.id, active: oui });
+    return { ok: true, text: oui ? `${m.name} est activée.` : `${m.name} est désactivée : plus de notification, de tâche ni d'automatisation (seule une alerte de sécurité critique passe encore, par Forseti). Ses données sont gardées.`, active: oui };
+  }
 
   modules(): Module[] { return [...this.mods.values()]; }
   module(id: string): Module | undefined {
@@ -104,6 +131,7 @@ export class Valhalla {
       saveSettings: (patch) => { Object.assign(settings, patch); ecrire(); },
       alert: (a) => this.alert(id, a),
       emit: (type, data = {}) => {
+        if (!this.estActive(id)) return; // appli désactivée : aucun événement (ni lien, ni automatisation)
         const e = { module: id, type, data, at: (this.deps.now?.() ?? new Date()).toISOString() };
         this.events.emit('event', e);
         relayerEvenement(home, e); // Prónoia : après coup, jamais bloquant ; rien si elle est coupée ou absente
@@ -111,9 +139,9 @@ export class Valhalla {
       run: this.deps.run ?? run,
       has: async (cmd) => (await (this.deps.run ?? run)('sh', ['-c', `command -v ${cmd.replace(/[^\w.-]/g, '')}`])).code === 0,
       fetch: this.deps.fetch ?? fetch,
-      notify: async (t, o) => { await this.deps.notify?.(t, o); },
+      notify: async (t, o) => { if (this.estActive(id)) await this.deps.notify?.(t, o); },
       ask: this.deps.ask,
-      call: (m, a, input = {}, why, o) => this.act(m, a, input, o?.interne ? { by: 'toi', de: id } : { by: 'réflexe', why: why ?? `réflexe de ${this.mods.get(id)?.name ?? id}`, de: id }),
+      call: (m, a, input = {}, why, o) => !this.estActive(id) ? Promise.resolve({ ok: false, text: texteDesactivee(this.mods.get(id)?.name ?? id) }) : this.act(m, a, input, o?.interne ? { by: 'toi', de: id } : { by: 'réflexe', why: why ?? `réflexe de ${this.mods.get(id)?.name ?? id}`, de: id }),
       now: () => this.deps.now?.() ?? new Date(),
       alerts: (o) => this.alerts(o),
       ack: (ids) => this.ack(ids),
@@ -127,21 +155,34 @@ export class Valhalla {
   // ---------------- Démarrage
   /** Change à chaque arrêt : un démarrage encore en cours s'en aperçoit et s'arrête là. */
   private tour = 0;
+  /** Démarré (start appelé) ; les applis effectivement démarrées. */
+  private lance = false;
+  private demarres = new Set<string>();
   async start(): Promise<void> {
-    const tour = this.tour;
+    const tour = this.tour; this.lance = true;
     for (const m of this.modules()) {
-      try { await m.start?.(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'moyenne', title: `${m.name} n'a pas pu démarrer`, detail: await explainListen(e), key: `start:${m.id}` }); }
-      // Odin arrêté pendant ce démarrage : l'appli qui vient de démarrer est arrêtée à son tour, les suivantes ne
-      // démarrent pas (sinon leurs serveurs et leurs minuteries resteraient ouverts après l'arrêt).
-      if (tour !== this.tour) { try { m.stop?.(); } catch { /* rien */ } return; }
-      if (m.watch) {
-        const tick = async () => { try { await m.watch!.run(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'info', title: `${m.name} : surveillance en échec`, detail: (e as Error).message, key: `watch:${m.id}` }); throw e; } };
-        // Le registre des automatismes (Talos) garde les minuteries : 20-40 s puis toutes les `every` secondes, pause, passage mesuré.
-        this.automatismes.armer(m, tick);
-      }
+      // Une appli désactivée ne démarre pas : ni serveur, ni surveillance (elle démarrera quand on l'active).
+      if (!this.estActive(m.id) || this.demarres.has(m.id)) continue; // déjà démarrée (activée pendant ce démarrage)
+      if (!(await this.demarrerUne(m, tour))) return;
     }
   }
-  stop(): void { this.tour++; this.automatismes.arreter(); if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } try { this.metrics.flush(); } catch { /* disque */ } this.journalAlertes.fermer(); }
+  /** Démarre une appli et arme sa surveillance. false : Odin a été arrêté pendant ce démarrage. */
+  private async demarrerUne(m: Module, tour = this.tour): Promise<boolean> {
+    this.demarres.add(m.id);
+    try { await m.start?.(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'moyenne', title: `${m.name} n'a pas pu démarrer`, detail: await explainListen(e), key: `start:${m.id}` }); }
+    // Odin arrêté pendant ce démarrage : l'appli qui vient de démarrer est arrêtée à son tour, les suivantes ne
+    // démarrent pas (sinon leurs serveurs et leurs minuteries resteraient ouverts après l'arrêt).
+    if (tour !== this.tour) { try { m.stop?.(); } catch { /* rien */ } return false; }
+    // Désactivée pendant son démarrage : arrêtée maintenant qu'elle a fini de démarrer (rien ne reste allumé).
+    if (!this.estActive(m.id)) { this.demarres.delete(m.id); try { m.stop?.(); } catch { /* rien */ } return true; }
+    if (m.watch) {
+      const tick = async () => { try { await m.watch!.run(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'info', title: `${m.name} : surveillance en échec`, detail: (e as Error).message, key: `watch:${m.id}` }); throw e; } };
+      // Le registre des automatismes (Talos) garde les minuteries : 20-40 s puis toutes les `every` secondes, pause, passage mesuré.
+      this.automatismes.armer(m, tick);
+    }
+    return true;
+  }
+  stop(): void { this.tour++; this.lance = false; this.demarres.clear(); this.automatismes.arreter(); if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } try { this.metrics.flush(); } catch { /* disque */ } this.journalAlertes.fermer(); }
 
   // ---------------- Actions
   action(moduleId: string, actionId: string): { m: Module; a: Action } | undefined {
@@ -163,6 +204,8 @@ export class Valhalla {
   private async agir(moduleId: string, actionId: string, input: Record<string, unknown>, o: { auto?: boolean; by?: By; why?: string; qui?: 'owner' | 'member' | 'guest'; marque?: boolean; /** demandé par une appli (ctx.call) */ entreApplis?: boolean }): Promise<ActionResult> {
     const f = this.action(moduleId, actionId);
     if (!f) return { ok: false, text: `Action inconnue : ${moduleId} → ${actionId}` };
+    // Appli désactivée : rien ne la lance (page, parole, automatisation, lien entre applis, tâche) ; Odin propose de l'activer.
+    if (!this.estActive(f.m.id)) return { ok: false, text: texteDesactivee(f.m.name) };
     const refus = refusAppli(f.m.id, o.by); if (refus) return { ok: false, text: refus }; // droits par appli (personne de Persona)
     // « Propriétaire seul » : ni une automatisation, ni un réflexe, ni Odin seul, ni un membre, ni une personne de Persona,
     // ni une conversation marquée. (La fonction « grave » ne sait pas qui appelle : c'est décidé ici.)
@@ -236,6 +279,7 @@ export class Valhalla {
       const r = await this.decide(u.id, u.keep); return { ok: r.ok, text: r.text, understood: u };
     }
     const f = this.action(u.module, u.action)!;
+    if (!this.estActive(f.m.id)) return { ok: false, text: texteDesactivee(f.m.name), understood: u };
     const why = f.a.grave?.(u.input, this.ctx(f.m.id));
     if (why && !o.confirm) return { ok: false, text: `${u.label} : ${why}. C'est une action grave : confirme-la.`, confirm: why, understood: u };
     const r = await this.act(u.module, u.action, u.input, { by: o.by ?? 'toi', de: session.startsWith('appli:') ? session.slice(6) : undefined });
@@ -327,6 +371,13 @@ export class Valhalla {
 
   // ---------------- Alertes
   alert(module: string, a: AlertIn): Alert | undefined {
+    // Appli désactivée : aucune alerte, aucun message (elle ne devrait rien faire ; si un reste tourne, il se tait).
+    // Règle prudente : une alerte CRITIQUE (sûreté : fichier dangereux encore en place…) n'est jamais perdue ; Forseti,
+    // toujours active, la porte à sa place (sans bouton qui viserait l'appli désactivée).
+    if (this.mods.has(module) && !this.estActive(module)) {
+      if (a.level !== 'critique' || !this.mods.has('forseti')) return undefined;
+      return this.alert('forseti', { ...a, title: `${this.mods.get(module)!.name} (désactivée) : ${a.title}`, key: `${module}:${a.key ?? a.title}`, fix: undefined });
+    }
     const now = this.deps.now?.() ?? new Date();
     const key = `${module}:${a.key ?? a.title}`;
     const last = this.recent.get(key);

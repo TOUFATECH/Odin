@@ -1332,7 +1332,8 @@ export class WebChannel implements Channel {
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
     if (url.pathname.startsWith('/api/valhalla/')) {
-      const r = await valhallaPost(url.pathname, body as Record<string, unknown>);
+      // Activer ou désactiver une appli : seulement la session du navigateur du propriétaire (comme couper un lien de Talos).
+      const r = await valhallaPost(url.pathname, body as Record<string, unknown>, { sessionProprio: this.who(req) === 'session' && this.accounts.valid(this.sessionOf(req)) && !req.headers.authorization && !req.headers['x-api-key'] && url.search === '' });
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
     if (url.pathname.startsWith('/api/runes/')) {

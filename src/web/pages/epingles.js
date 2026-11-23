@@ -97,7 +97,7 @@
       if (r.status === 401) { statut = 'attente'; return; }
       if (!r.j || r.j.ok !== true || !Array.isArray(r.j.epingles)) { statut = 'absent'; for (const b of boutons) b.remove(); boutons.clear(); return; }
       etat = { epingles: nettoyer(r.j.epingles), max: Number(r.j.max) || MAX, proprietaire: Boolean(r.j.proprietaire), vues: Array.isArray(r.j.vues) ? r.j.vues : [] };
-      try { const c = await lire('/api/valhalla/catalog'); modules = Array.isArray(c.j?.modules) ? c.j.modules : []; for (const m of modules) NOMS.set(m.id, m.name); } catch { /* sans noms : les applis épinglées attendent */ }
+      try { const c = await lire('/api/valhalla/catalog'); modules = Array.isArray(c.j?.modules) ? c.j.modules : []; for (const m of modules) NOMS.set(m.id, m.name); window.OdinActivation?.retenir(c.j); } catch { /* sans noms : les applis épinglées attendent */ }
       statut = 'pret'; maj();
     })().finally(() => { charge = null; });
     return charge;
@@ -178,8 +178,12 @@
     }
     return r;
   }
+  /** Une appli désactivée : grisée dans le menu, toujours là (son nom dit qu'elle est désactivée). */
+  const eteinte = (appId) => Boolean(window.OdinActivation?.estEteinte(appId));
+  const motEteinte = () => ` (${(window.OdinActivation?.T('desactivee') ?? 'désactivée').toLowerCase()})`;
   function boutonAppli(appId, nom) {
-    const b = el('button', { class: 'tab nav-ep-app', type: 'button', 'data-ep-app': appId, onclick: () => window.OdinApps?.app(appId) }, icone(appId, nom, 20), el('span', { class: 'lbl' }, nom));
+    const off = eteinte(appId);
+    const b = el('button', { class: `tab nav-ep-app${off ? ' nav-ep-off' : ''}`, type: 'button', 'data-ep-app': appId, onclick: () => window.OdinApps?.app(appId) }, icone(appId, nom, 20), el('span', { class: 'lbl' }, nom), off ? el('span', { class: 'sr' }, motEteinte()) : null);
     if (courant === appId) b.setAttribute('aria-current', 'page');
     return b;
   }
@@ -254,7 +258,8 @@
     dlg.querySelector('.ep-c').textContent = `${nb} appli${nb > 1 ? 's' : ''} épinglée${nb > 1 ? 's' : ''} sur ${etat.max}.`;
     const ligne = (id, nom, ic) => {
       const oui = etat.epingles.includes(id);
-      return el('li', { class: 'ep-r' }, ic, el('span', { class: 'ep-n' }, nom),
+      const off = id.startsWith('appli:') && eteinte(id.slice(6));
+      return el('li', { class: `ep-r${off ? ' va-off' : ''}` }, ic, el('span', { class: 'ep-n' }, nom, off ? el('span', { class: 'sr' }, motEteinte()) : null),
         oui ? el('button', { class: 'btn small', type: 'button', 'data-k': `${id}:h`, 'aria-label': `Monter ${nom}`, onclick: async () => { if (await deplacerId(id, -1)) peindreListe(`${id}:h`); } }, '↑') : null,
         oui ? el('button', { class: 'btn small', type: 'button', 'data-k': `${id}:b`, 'aria-label': `Descendre ${nom}`, onclick: async () => { if (await deplacerId(id, 1)) peindreListe(`${id}:b`); } }, '↓') : null,
         el('button', { class: 'btn small', type: 'button', 'data-k': `${id}:e`, 'aria-pressed': String(oui), onclick: async () => { dlg.querySelector('.ep-st').textContent = ''; if (await basculerId(id)) peindreListe(`${id}:e`); } }, oui ? 'Retirer' : 'Épingler'));
@@ -290,6 +295,8 @@
       courant = e.detail?.id ?? null; marquer();
       if (courant && estEpingle(`appli:${courant}`)) { const m = document.getElementById('navMore'); if (m?.hidden) document.getElementById('navMoreBtn')?.click(); }
     });
+    // Une appli activée ou désactivée : le menu la grise ou la rend (rien d'autre ne bouge).
+    document.addEventListener('odin:activation', () => { if (statut === 'pret') maj(); });
     document.addEventListener('odin:vue', (e) => {
       if (e.detail?.vue !== 'app') { courant = null; marquer(); }
       if (statut === 'attente') charger();

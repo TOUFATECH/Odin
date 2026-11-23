@@ -25,11 +25,13 @@ export async function valhallaGet(path: string, q: URLSearchParams): Promise<unk
       // Nouveautés des projets d'origine de chaque appli (veille de Pharos), ces 30 derniers jours : point bleu du graphe
       const since = Date.now() - 30 * 864e5, news = new Map<string, number>();
       try { for (const n of ((v.ctx('kvasir').settings.news as Array<{ module?: string; at?: string }> | undefined) ?? [])) if (n.module && Date.parse(n.at ?? '') > since) news.set(n.module, (news.get(n.module) ?? 0) + 1); } catch { /* veille pas encore lancée */ }
-      return { ok: true, modules: v.modules().map((m) => ({ id: m.id, name: m.name, family: m.family, what: m.what, does: m.does, story: NAME_STORY[m.id] ?? '', similaires: similairesDe(m), survol: SURVOL[m.id] ?? null, from: m.from, modes: m.modes ?? [], actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: alerts.filter((a) => a.module === m.id).length, grave: alerts.some((a) => a.module === m.id && ['critique', 'haute'].includes(String(a.level))), updates: news.get(m.id) ?? 0 })), links: LINKS, usages: USAGES, level: v.settings().alertLevel ?? 'haute' };
+      // `active` : appli activée ou désactivée (grisée) ; `essentielle` : indispensable, jamais désactivable ;
+      // `peutActiver` : la personne qui regarde peut changer ce réglage (le propriétaire ; un membre reçoit false).
+      return { ok: true, peutActiver: true, modules: v.modules().map((m) => ({ id: m.id, name: m.name, family: m.family, active: v.estActive(m.id), essentielle: v.estEssentielle(m.id), what: m.what, does: m.does, story: NAME_STORY[m.id] ?? '', similaires: similairesDe(m), survol: SURVOL[m.id] ?? null, from: m.from, modes: m.modes ?? [], actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: alerts.filter((a) => a.module === m.id).length, grave: alerts.some((a) => a.module === m.id && ['critique', 'haute'].includes(String(a.level))), updates: news.get(m.id) ?? 0 })), links: LINKS, usages: USAGES, level: v.settings().alertLevel ?? 'haute' };
     }
     case '/api/valhalla/view': {
       const m = v.module(s(q.get('id'))); if (!m) return { ok: false, error: 'appli inconnue' };
-      try { return { ok: true, id: m.id, name: m.name, family: m.family, what: m.what, does: m.does ?? [], story: NAME_STORY[m.id] ?? '', similaires: similairesDe(m), view: await m.view(v.ctx(m.id), q), actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: v.alerts({ module: m.id, limit: 30 }), links: LINKS.filter((l) => l.from === m.id || l.to === m.id) }; }
+      try { return { ok: true, peutActiver: true, id: m.id, name: m.name, family: m.family, active: v.estActive(m.id), essentielle: v.estEssentielle(m.id), what: m.what, does: m.does ?? [], story: NAME_STORY[m.id] ?? '', similaires: similairesDe(m), view: await m.view(v.ctx(m.id), q), actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: v.alerts({ module: m.id, limit: 30 }), links: LINKS.filter((l) => l.from === m.id || l.to === m.id) }; }
       catch (e) { return { ok: false, error: (e as Error).message }; }
     }
     case '/api/valhalla/alerts': return { ok: true, alerts: v.alerts({ module: q.get('module') ?? undefined, q: q.get('q') ?? undefined, limit: Number(q.get('n') ?? 200) }) };
@@ -46,9 +48,16 @@ export async function valhallaGet(path: string, q: URLSearchParams): Promise<unk
  * Actions depuis l'interface : la personne qui clique est le propriétaire (jeton web). Une action
  * grave demande une confirmation explicite (`confirm: true`) que l'interface affiche avant d'envoyer.
  */
-export async function valhallaPost(path: string, b: Record<string, unknown>): Promise<unknown> {
+export async function valhallaPost(path: string, b: Record<string, unknown>, o: { /** la session du navigateur du propriétaire (pas une clé, pas un membre, pas une tablette) */ sessionProprio?: boolean } = {}): Promise<unknown> {
   const v = valhallaOf(); if (!v) return { ok: false, error: 'Les applis d\'Odin ne sont pas démarrées.' };
   switch (path) {
+    // Activer ou désactiver une appli : le propriétaire seul, depuis sa session (ni une clé d'API, ni un membre, ni une tablette).
+    case '/api/valhalla/activer': {
+      if (!o.sessionProprio) return { ok: false, code: 'proprietaire', error: 'Seul le propriétaire active ou désactive une appli.' };
+      if (typeof b.actif !== 'boolean') return { ok: false, code: 'invalide', error: '« actif » : true ou false.' };
+      const r = await v.activer(s(b.module).slice(0, 40), b.actif);
+      return { ok: r.ok, text: r.text, ...(r.ok ? {} : { error: r.text }), active: r.active };
+    }
     case '/api/valhalla/act': {
       const f = v.action(s(b.module), s(b.action)); if (!f) return { ok: false, error: 'action inconnue' };
       const input = (b.input && typeof b.input === 'object' ? b.input : {}) as Record<string, unknown>;

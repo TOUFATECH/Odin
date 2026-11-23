@@ -236,6 +236,7 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
     const r = await auNomDe(qui, () => valhallaGet(path, url.searchParams)) as Record<string, unknown> | undefined;
     if (!r) { json(res, 404, { error: 'inconnu' }); return true; }
     if (Array.isArray(r.modules)) r.modules = (r.modules as Array<{ id: string }>).filter((x) => ok(x.id));
+    if ('peutActiver' in r) r.peutActiver = false; // activer ou désactiver une appli : le propriétaire seul
     if (Array.isArray(r.alerts)) r.alerts = (r.alerts as Array<{ module: string }>).filter((x) => ok(x.module));
     if (Array.isArray(r.notices)) r.notices = (r.notices as Array<{ module: string }>).filter((x) => ok(x.module));
     if (Array.isArray(r.found)) r.found = (r.found as Array<{ id: string }>).filter((x) => ok(x.id));
