@@ -93,7 +93,9 @@ export interface DhcpDeps { config: () => DhcpConfig; leases: () => Lease[]; sav
   /** une MAC inconnue (liste d'autorisation) ou refusée demande une adresse : à noter en attente, et à signaler */
   onPending?: (mac: string, info: { name?: string; vendorClass?: string; requested?: string }) => void;
   /** un événement de bail s'est produit (donné, renouvelé, libéré, refusé, bloqué) : à garder dans l'historique */
-  onEvent?: (mac: string, ip: string, action: 'donne' | 'renouvele' | 'libere' | 'refuse' | 'bloque' | 'attente', name?: string) => void }
+  onEvent?: (mac: string, ip: string, action: 'donne' | 'renouvele' | 'libere' | 'refuse' | 'bloque' | 'attente', name?: string) => void;
+  /** la prise réseau est tombée après le démarrage (carte débranchée, envoi impossible) : le serveur a cessé de servir */
+  onError?: (raison: string) => void }
 
 /** Nom propre pour le DNS (« Téléphone d'Awa » → « telephone-d-awa »). */
 export const hostLabel = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
@@ -109,6 +111,8 @@ export class DhcpServer {
     const s = dgram.createSocket({ type: 'udp4', reuseAddr: true });
     await new Promise<void>((ok, ko) => { s.once('error', ko); s.bind(port, host, () => { s.off('error', ko); ok(); }); });
     s.setBroadcast(true); s.on('message', (m, r) => { try { this.onMessage(m, r); } catch (e) { this.d.log?.(`DHCP : ${(e as Error).message}`); } });
+    // Une erreur de la prise ensuite (carte débranchée, envoi impossible) ne fait pas tomber Odin : on arrête de servir et on prévient.
+    s.on('error', (e) => { if (this.sock !== s) return; this.stop(); this.d.log?.(`DHCP : la prise réseau ne répond plus (${e.message}), le serveur s'arrête`); try { this.d.onError?.(e.message); } catch { /* prévenir ne doit rien casser */ } });
     this.sock = s;
   }
   stop(): void { try { this.sock?.close(); } catch { /* déjà fermé */ } this.sock = undefined; }
