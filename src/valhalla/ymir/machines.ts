@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Action, ModCtx } from '../types.ts';
 import { parReflexe } from '../vidarr/qui-a-fait.ts';
-import { famille, Local, MODELES, nomAuto, newMac, slug, TOUCHES, type Genre, type Machine } from './local.ts';
+import { allumee, famille, Local, MODELES, nomAuto, newMac, slug, TOUCHES, type Genre, type Machine } from './local.ts';
 import { bibliotheque, pilotesVirtio, profilVm, trouverIso } from './isos.ts';
 import { bibliothequeActions, synchroEspace } from './bibliotheque.ts';
 
@@ -135,7 +135,7 @@ export function machinesActions(): Action[] {
       } },
     { id: 'modele_machine', label: 'Faire un modèle', what: 'Range une machine éteinte comme modèle (elle ne démarre plus) : on crée ensuite des machines depuis elle, déjà prêtes', params: [machineParam, { key: 'modele', label: 'Modèle', kind: 'boolean', default: true }], run: async (ctx, i) => {
       const L = new Local(ctx), m = L.find(i.machine), on = i.modele !== false && i.modele !== 'false';
-      if (on && (await L.etat(m)).state === 'en marche') throw new Error(`arrête d'abord ${m.nom} : un modèle se fait machine éteinte`);
+      if (on && allumee(await L.etat(m))) throw new Error(`arrête d'abord ${m.nom} : un modèle se fait machine éteinte`);
       if (on) { m.estModele = true; m.arretVoulu = true; } else delete m.estModele; L.update(m);
       return { text: on ? `📐 ${m.nom} est un modèle : « Créer depuis un modèle » en fait des copies prêtes.` : `${m.nom} redevient une machine normale.` };
     } },
@@ -237,6 +237,6 @@ export async function machinesWatch(ctx: ModCtx): Promise<void> {
     }
   }
   const was = (ctx.settings.machinesEnMarche as string[] | undefined) ?? [], on: string[] = [];
-  for (const m of L.list()) { const e = await L.etat(m).catch(() => ({ state: 'inconnue' as const })); if (e.state === 'en marche') on.push(m.id); else if (e.state === 'éteinte' && was.includes(m.id) && !m.arretVoulu) ctx.alert({ level: 'haute', title: `La machine ${m.nom} s'est arrêtée toute seule`, detail: `${m.genre === 'lxc' ? 'LXC' : 'VM'} ${m.systeme} · ${m.ip}`, key: `ymir-arret-${m.id}`, lien: 'ymir-alerte-machine-virtuelle', fix: { action: 'demarrer_machine', label: 'Redémarrer', input: { machine: m.id } } }); }
+  for (const m of L.list()) { const e = await L.etat(m).catch(() => ({ state: 'inconnue' as const })); if (e.state === 'en marche' || e.state === 'en pause') on.push(m.id); else if (e.state === 'éteinte' && was.includes(m.id) && !m.arretVoulu) ctx.alert({ level: 'haute', title: `La machine ${m.nom} s'est arrêtée toute seule`, detail: `${m.genre === 'lxc' ? 'LXC' : 'VM'} ${m.systeme} · ${m.ip}`, key: `ymir-arret-${m.id}`, lien: 'ymir-alerte-machine-virtuelle', fix: { action: 'demarrer_machine', label: 'Redémarrer', input: { machine: m.id } } }); }
   ctx.saveSettings({ machinesEnMarche: on });
 }

@@ -124,10 +124,6 @@
       "quoi": "lire, trier, répondre ni envoyer tes mails et tes messages sans IA",
       "proche": "avec une IA, je le fais, et chaque envoi ou suppression attend ton accord ; « est-ce une arnaque : … » marche déjà sans IA (Asclépios)"
     },
-    "vm-pause": {
-      "quoi": "mettre une machine virtuelle en pause",
-      "proche": "l'arrêter proprement (« éteins la machine … », avec ton accord) ou en faire un instantané (Hydre)"
-    },
     "gpo": {
       "quoi": "créer ni changer une GPO (stratégie de groupe) dans un domaine Windows",
       "proche": "avec une IA, préparer le script PowerShell, que je ne lance qu'avec ton accord"

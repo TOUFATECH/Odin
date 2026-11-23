@@ -23,7 +23,7 @@
   const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: 'Hydre', app: 'Hydre' }); };
   const P = {
     box: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', plus: 'M12 5v14M5 12h14', down: 'M12 4v12M6 12l6 6 6-6M4 20h16', up: 'M12 20V8M6 12l6-6 6 6M4 4h16', copy: 'M8 8h12v12H8zM4 16V4h12',
-    save: 'M5 3h11l3 3v15H5zM8 3v6h8M8 21v-7h8v7', screen: 'M3 4h18v12H3zM8 20h8M12 16v4', term: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5', play: 'M7 5v14l12-7z', stop: 'M6 6h12v12H6z', lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
+    save: 'M5 3h11l3 3v15H5zM8 3v6h8M8 21v-7h8v7', screen: 'M3 4h18v12H3zM8 20h8M12 16v4', term: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5', play: 'M7 5v14l12-7z', pause: 'M7 5h4v14H7zM13 5h4v14h-4z', stop: 'M6 6h12v12H6z', lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
     shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4', check: 'M5 12l5 5L20 7', grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', list: 'M4 6h16M4 12h16M4 18h16',
     alert: 'M12 3 2 20h20zM12 10v4M12 17h.01', mail: 'M3 5h18v14H3zM3 6l9 7 9-7', unlock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 7.5-2',
   };
@@ -52,6 +52,7 @@
 .ym-g{display:flex;gap:14px}.ym-g div{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}.ym-ring{--p:0;width:40px;height:40px;border-radius:50%;background:conic-gradient(var(--yblue) calc(var(--p)*1%),color-mix(in srgb,var(--ink) 10%,transparent) 0);display:grid;place-items:center}.ym-ring b{width:30px;height:30px;border-radius:50%;background:var(--panel);display:grid;place-items:center;font-size:10.5px;color:var(--ink)}
 .ym-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.ym-chip{font-size:11.5px;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 7%,transparent)}.ym-chip.bad{background:var(--ybad);color:#fff}
 .ym-btn{min-height:34px;min-width:34px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:color-mix(in srgb,var(--ink) 4%,transparent);color:var(--ink);font:600 13px inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}.ym-btn:disabled{opacity:.5;cursor:default}
+.ym-c .ym-act .ym-btn{min-height:44px;min-width:44px}
 .ym-btn.pri{background:var(--ya);color:#fff;border-color:transparent}.ym-btn.bad{background:var(--ybad);color:#fff;border-color:transparent}.ym-btn.blue{background:var(--yblue);color:#fff;border-color:transparent}
 .ym-bot{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px}.ym-bot.ym-bot-cr{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}@media (max-width:1000px){.ym-bot,.ym-bot.ym-bot-cr{grid-template-columns:minmax(0,1fr)}}
 .ym-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ym-tile{border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;gap:10px;background:color-mix(in srgb,var(--panel) 88%,transparent);cursor:pointer;text-align:left;color:var(--ink);font:inherit}.ym-tile b{display:block;font-size:14px}.ym-tile span{font-size:12.5px;color:var(--muted)}.ym-tile .ib{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--ya) 14%,transparent);color:var(--ya);flex:none}
@@ -93,17 +94,17 @@
     S.previews[m.id] = box.innerHTML;
   }
   function card(m, D, redraw) {
-    const run = m.etat?.state === 'en marche', q = Boolean(m.quarantaine), cat = (D.categories ?? []).find((c) => c.nom === m.categorie);
-    const pv = el('div', { class: 'ym-pv' }); pv.innerHTML = S.previews[m.id] ?? ''; if (!S.previews[m.id]) pv.append(el('span', { class: 'off' }, run ? 'aperçu…' : 'éteinte'));
+    const run = m.etat?.state === 'en marche', fige = m.etat?.state === 'en pause', q = Boolean(m.quarantaine), cat = (D.categories ?? []).find((c) => c.nom === m.categorie);
+    const pv = el('div', { class: 'ym-pv' }); pv.innerHTML = S.previews[m.id] ?? ''; if (!S.previews[m.id]) pv.append(el('span', { class: 'off' }, run ? 'aperçu…' : fige ? 'en pause' : 'éteinte'));
     const btn = (i, label, fn, cls = '') => el('button', { class: `ym-btn ${cls}`, type: 'button', title: label, 'aria-label': label, onclick: async (e) => { e.stopPropagation(); const b = e.currentTarget; b.disabled = true; const x = await fn(); b.disabled = false; note(x); if (x?.ok !== false) await redraw(); } }, ic(i, 15));
-    const c = el('div', { class: `ym-c${q ? ' q' : ''}`, role: 'button', tabindex: '0', 'aria-current': String(S.sel === m.id), onclick: () => { S.sel = m.id; redraw(); }, onkeydown: (e) => { if (e.key === 'Enter') { S.sel = m.id; redraw(); } } },
+    const c = el('div', { class: `ym-c${q ? ' q' : ''}`, role: 'button', tabindex: '0', 'aria-current': String(S.sel === m.id), onclick: () => { S.sel = m.id; redraw(); }, onkeydown: (e) => { if (e.key === 'Enter' && e.target === e.currentTarget) { S.sel = m.id; redraw(); } } },
       el('div', { class: 'hd' }, el('span', { class: 'lg', style: `background:${LOGO(m)}` }, m.systeme.charAt(0)), el('div', { style: 'min-width:0' }, el('b', {}, m.nom), el('span', {}, `${m.systeme} ${m.version} · ${date(m.cree)}`)), el('em', {}, m.genre === 'lxc' ? 'LXC' : 'VM')),
       pv,
-      el('div', { class: 'ym-st' }, el('i', { style: `background:${q ? 'var(--ybad)' : run ? 'var(--yok)' : '#94a3b8'}` }), q ? 'quarantaine' : run ? 'en marche' : 'éteinte', el('code', {}, m.ip)),
+      el('div', { class: 'ym-st' }, el('i', { style: `background:${q ? 'var(--ybad)' : run ? 'var(--yok)' : fige ? '#f59e0b' : '#94a3b8'}` }), q ? 'quarantaine' : run ? 'en marche' : fige ? 'en pause' : 'éteinte', el('code', {}, m.ip)),
       el('div', { class: 'ym-g' }, el('div', {}, ring(run ? m.etat.cpuPct ?? 0 : 0, 'Processeur'), el('span', {}, 'CPU', el('br'), `${m.cpu} cœur${m.cpu > 1 ? 's' : ''}`)), el('div', {}, ring(run && m.etat.ramMo ? Math.round((m.etat.ramMo / m.ram) * 100) : 0, 'Mémoire'), el('span', {}, 'RAM', el('br'), m.ram >= 1024 ? `${m.ram / 1024} Go` : `${m.ram} Mo`))),
       el('div', { class: 'ym-row' }, ...(m.apps ?? []).slice(0, 3).map((a) => el('span', { class: 'ym-chip' }, (D.apps ?? []).find((x) => x.id === a)?.nom ?? a)), q ? el('span', { class: 'ym-chip bad' }, 'en quarantaine') : null, cat ? el('span', { class: 'ym-chip', style: `margin-left:auto;background:${cat.couleur}22;color:${cat.couleur}` }, cat.nom) : null),
       q ? el('button', { class: 'ym-btn bad', type: 'button', onclick: (e) => { e.stopPropagation(); S.tab = 'quarantaine'; S.sel = m.id; redraw(); } }, ic('lock', 14), 'Voir la quarantaine')
-        : el('div', { class: 'ym-row' }, run ? btn('stop', 'Arrêter', () => act('arreter_machine', { machine: m.id })) : btn('play', 'Démarrer', () => act('demarrer_machine', { machine: m.id }), 'pri'), btn('lock', 'Mettre en quarantaine', () => act('isoler_machine', { machine: m.id, raison: 'à ta demande' })), btn('trash', 'Supprimer', () => act('supprimer_machine', { machine: m.id }))));
+        : el('div', { class: 'ym-row ym-act' }, fige ? btn('play', 'Reprendre', () => act('reprendre_machine', { machine: m.id }), 'pri') : null, run && m.genre === 'vm' ? btn('pause', 'Mettre en pause', () => act('pause_machine', { machine: m.id })) : null, run || fige ? btn('stop', 'Arrêter', () => act('arreter_machine', { machine: m.id })) : btn('play', 'Démarrer', () => act('demarrer_machine', { machine: m.id }), 'pri'), btn('lock', 'Mettre en quarantaine', () => act('isoler_machine', { machine: m.id, raison: 'à ta demande' })), btn('trash', 'Supprimer', () => act('supprimer_machine', { machine: m.id }))));
     if (run) void preview(m, pv);
     return c;
   }
@@ -117,9 +118,9 @@
       host(D.hote, D));
     const main = el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' });
     root.append(el('div', { class: 'ym-lay' }, side, main));
-    const on = all.filter((m) => m.etat?.state === 'en marche').length, q = all.filter((m) => m.quarantaine);
+    const on = all.filter((m) => m.etat?.state === 'en marche').length, fig = all.filter((m) => m.etat?.state === 'en pause').length, q = all.filter((m) => m.quarantaine);
     const cpu = on ? Math.round(all.filter((m) => m.etat?.state === 'en marche').reduce((a, m) => a + (m.etat.cpuPct ?? 0), 0) / on) : 0;
-    main.append(el('div', { class: 'ym-k' }, el('div', {}, el('small', {}, 'En marche'), el('b', {}, `${on} / ${all.length}`), el('span', {}, `${all.length - on} éteinte${all.length - on > 1 ? 's' : ''}`)), el('div', {}, el('small', {}, 'Processeur'), el('b', {}, `${cpu} %`), el('span', {}, 'moyenne des machines')),
+    main.append(el('div', { class: 'ym-k' }, el('div', {}, el('small', {}, 'En marche'), el('b', {}, `${on} / ${all.length}`), el('span', {}, [`${all.length - on - fig} éteinte${all.length - on - fig > 1 ? 's' : ''}`, fig ? `${fig} en pause` : ''].filter(Boolean).join(' · '))), el('div', {}, el('small', {}, 'Processeur'), el('b', {}, `${cpu} %`), el('span', {}, 'moyenne des machines')),
       el('div', {}, el('small', {}, 'Mémoire'), el('b', {}, `${go(all.filter((m) => m.etat?.state === 'en marche').reduce((a, m) => a + (m.etat.ramMo ?? 0), 0) * 1048576)} Go`), el('span', {}, `sur ${go(D.hote?.ramTotal ?? 0)} Go`)),
       el('div', {}, el('small', {}, 'Protégées'), el('b', {}, `${all.filter((m) => (m.apps ?? []).includes('ullr')).length} / ${all.length}`), el('span', {}, 'antivirus chaque nuit')), el('div', {}, el('small', {}, 'Quarantaine'), el('b', { style: q.length ? 'color:var(--ybad)' : '' }, String(q.length)), el('span', {}, q.map((m) => m.nom).join(', ') || '—'))));
     if (!all.length) { main.append(el('div', { class: 'ym-w' }, el('h3', {}, ic('box', 16), 'Aucune machine sur ce PC'), el('p', { class: 'ym-empty' }, (D.manque?.lxc ?? []).length ? `Pour les LXC, installe d'abord sur ce PC : ${D.manque.lxc.join(', ')} (paquet « lxc »).` : 'Crée un LXC (léger, quelques secondes) ou une VM (depuis une ISO d\'Andromède).'), el('button', { class: 'ym-btn pri', type: 'button', onclick: () => { S.tab = 'creer'; redraw(); } }, ic('plus', 14), 'Créer une machine'))); return; }
@@ -173,7 +174,7 @@
         tile('copy', 'Cloner', 'La même, avec un autre nom et une autre adresse.', async () => { const n = await window.OdinDialog.prompt('Nom de la copie ?', `${m.nom}-copie`); return n ? post('cloner_machine', { machine: m.id, nom: n }) : null; }),
         tile('save', 'Sauvegarder', (m.apps ?? []).includes('sindri') ? 'Chaque nuit avec Phénix.' : 'Exporte-la en .ody, ou ajoute Phénix à la création.', async () => ({ text: (m.apps ?? []).includes('sindri') ? 'Phénix la sauvegarde chaque nuit (plan « Machine ' + m.nom + ' »).' : 'Pas de sauvegarde automatique pour cette machine : exporte-la en .ody.' })),
         tile('grid', m.estModele ? 'Ce n\'est plus un modèle' : 'Faire un modèle', m.estModele ? 'Elle redevient une machine qui démarre.' : 'Machine éteinte : on crée ensuite des machines depuis elle.', () => post('modele_machine', { machine: m.id, modele: !m.estModele }))),
-      el('div', { class: 'ym-w', style: 'grid-column:1/-1' }, el('h3', {}, ic('term', 16), m.genre === 'lxc' ? `Console de ${m.nom}` : `Clavier de ${m.nom}`, el('small', { class: 'r' }, run ? (m.genre === 'lxc' ? 'chaque commande demande ton accord' : 'tape sur son écran (aperçu au-dessus)') : 'machine éteinte')),
+      el('div', { class: 'ym-w', style: 'grid-column:1/-1' }, el('h3', {}, ic('term', 16), m.genre === 'lxc' ? `Console de ${m.nom}` : `Clavier de ${m.nom}`, el('small', { class: 'r' }, run ? (m.genre === 'lxc' ? 'chaque commande demande ton accord' : 'tape sur son écran (aperçu au-dessus)') : m.etat?.state === 'en pause' ? 'en pause : reprends-la d\'abord' : 'machine éteinte')),
         el('div', { class: 'ym-row' }, cIn, touche, el('button', { class: 'ym-btn pri ym-send', type: 'button', disabled: !run, onclick: envoyer }, m.genre === 'lxc' ? 'Lancer' : 'Envoyer')), cOut));
   }
   function creer(root, D, redraw) {

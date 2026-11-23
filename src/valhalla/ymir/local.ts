@@ -8,7 +8,7 @@
 //   - .ody : la machine entière dans un fichier vérifié (empreinte SHA-256), pour l'exporter ou l'importer.
 // Rien n'est copié d'un autre projet : Odin appelle les programmes LXC et QEMU installés sur le PC.
 import { createHash, randomBytes } from 'node:crypto';
-import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { cpus, freemem, loadavg, totalmem } from 'node:os';
 import { join, posix, win32, type PlatformPath } from 'node:path';
@@ -29,10 +29,14 @@ export interface Machine {
   /** logiciels d'Hermès installés dans la machine (pour les mises à jour) */
   logiciels?: Array<{ source: string; nom: string; version: string; at: number }>;
   apps: string[]; paquets: string[]; quarantaine?: Quarantaine; arretVoulu?: boolean;
+  /** VM mise en pause (QMP « stop ») : sa mémoire reste en place, elle repart où elle en était (« cont ») */
+  pause?: { depuis: number };
   /** un modèle : il ne démarre pas, on crée des machines depuis lui (copie, puis ressources et adresse à elles) */
   estModele?: boolean;
 }
-export interface Etat { state: 'en marche' | 'éteinte' | 'inconnue'; pid?: number; cpuPct?: number; ramMo?: number; ip?: string }
+export interface Etat { state: 'en marche' | 'en pause' | 'éteinte' | 'inconnue'; pid?: number; cpuPct?: number; ramMo?: number; ip?: string }
+/** Allumée : en marche ou en pause (le processus tourne, le disque est ouvert). */
+export const allumee = (e: Etat): boolean => e.state === 'en marche' || e.state === 'en pause';
 
 /** Les modèles LXC proposés (images officielles de linuxcontainers.org, signées). */
 export const MODELES: Array<{ dist: string; release: string; titre: string; version: string }> = [
@@ -135,6 +139,33 @@ export function qcodes(texte: string): string[][] {
   }
   return out;
 }
+/**
+ * Ce qu'Hydre demande au système pour une VM de ce PC : le système, le canal de contrôle QMP, « le processus vit-il ? »,
+ * les dossiers du socket QMP. Les essais le remplacent (aucune vraie VM n'est lancée).
+ */
+export const systemeVm = {
+  plateforme: (): string => process.platform,
+  qmp: (sock: string, execute: string, args?: Record<string, unknown>): Promise<unknown> => qmp(sock, execute, args),
+  enVie: (pid: number): boolean => existsSync(`/proc/${pid}`),
+  dossiersQmp: (): string[] => ['/run/odin-vm', join('/tmp', `odin-vm-${process.getuid?.() ?? 0}`)],
+  /** l'utilisateur sous lequel Odin tourne (undefined sous Windows) */
+  uid: (): number | undefined => process.getuid?.(),
+};
+/**
+ * Un dossier pour le canal de contrôle QMP n'est gardé que s'il est à Odin seul : un vrai dossier (pas un lien), à son
+ * utilisateur, fermé aux autres (droits 700). Sinon (un dossier /tmp/odin-vm-… créé d'avance par un autre compte), un
+ * autre programme pourrait y remplacer le socket et parler à la place de la VM, ou la figer.
+ */
+export function dossierQmpSur(d: string): boolean {
+  try {
+    const st = lstatSync(d), uid = systemeVm.uid();
+    if (st.isSymbolicLink() || !st.isDirectory()) return false;
+    return uid === undefined || (st.uid === uid && (st.mode & 0o077) === 0);
+  } catch { return false; }
+}
+/** Sous Windows, une VM de ce PC ne tourne pas encore : QEMU y est lancé comme sous Linux (-daemonize, QMP en socket Unix, /dev/kvm). */
+export const VM_WINDOWS = 'Sous Windows, les VM de ce PC ne tournent pas encore dans Hydre (elles sont lancées comme sous Linux : en arrière-plan, avec un canal de contrôle et une accélération que Windows n\'a pas). La pause marche sous Linux, et pour les VM de tes serveurs de virtualisation reliés.';
+
 /** Une commande QMP (socket de la VM) : renvoie la réponse « return ». */
 export function qmp(sock: string, execute: string, args?: Record<string, unknown>, timeoutMs = 8000): Promise<unknown> {
   return new Promise((ok, ko) => {
@@ -204,7 +235,7 @@ export class Local {
   vmDir(m: Pick<Machine, 'nom'>): string { return join(this.dir, 'vm', m.nom); }
   /** Le chemin du socket QMP : court (Linux limite ces chemins à 108 caractères), dans un dossier réservé à Odin. */
   qmpSock(m: Pick<Machine, 'id'>): string {
-    for (const d of ['/run/odin-vm', join('/tmp', `odin-vm-${process.getuid?.() ?? 0}`)]) { try { mkdirSync(d, { recursive: true, mode: 0o700 }); return join(d, `${m.id}.qmp`); } catch { /* suivant */ } }
+    for (const d of systemeVm.dossiersQmp()) { try { mkdirSync(d, { recursive: true, mode: 0o700 }); if (dossierQmpSur(d)) return join(d, `${m.id}.qmp`); } catch { /* suivant */ } }
     return join(this.vmDir(m as Machine), 'qmp.sock');
   }
   reseau(): Reseau { return { ...RESEAU_DEFAUT, ...(this.ctx.settings.reseauMachines as Partial<Reseau> | undefined) }; }
@@ -279,6 +310,8 @@ export class Local {
   // ----- marche / arrêt -----
   async demarrer(m: Machine, installer?: string, o: { analyse?: boolean } = {}): Promise<void> {
     if (m.estModele) throw new Error(`${m.nom} est un modèle : il ne démarre pas, crée une machine depuis lui`);
+    // En pause, elle tourne encore : la relancer en ferait une deuxième sur le même disque.
+    if (m.pause && (await this.etat(m)).state === 'en pause') throw new Error(`${m.nom} est en pause : reprends-la (« reprends la vm ${m.nom} »)`);
     // En quarantaine : pas de démarrage normal ; seulement le mode analyse, sans aucun réseau.
     if (m.quarantaine && !o.analyse) throw new Error(`${m.nom} est en quarantaine (${m.quarantaine.raison}) : elle ne démarre qu'en mode analyse, sans réseau. Sors-la de quarantaine une fois l'origine trouvée.`);
     if (m.genre === 'lxc') { await this.must('lxc-start', ['-P', this.lxcDir, '-n', m.nom, '-d'], 'démarrage'); }
@@ -294,13 +327,54 @@ export class Local {
       if (m.profil?.tpm && await this.ctx.has('swtpm')) { tpm = join(d, 'tpm.sock'); mkdirSync(join(d, 'tpm'), { recursive: true }); rmSync(tpm, { force: true }); await this.run('swtpm', ['socket', '--tpmstate', `dir=${join(d, 'tpm')}`, '--ctrl', `type=unixio,path=${tpm}`, '--tpm2', '--daemon'], 15_000); }
       await this.must('qemu-system-x86_64', qemuArgs(m, d, { kvm: this.kvm(), ovmf: this.ovmf(), installer, qmp: this.qmpSock(m), tpm }), 'démarrage de la VM', 60_000);
     }
-    m.arretVoulu = false; this.update(m);
+    m.arretVoulu = false; delete m.pause; this.update(m);
   }
   async arreter(m: Machine, force = false): Promise<void> {
     m.arretVoulu = true; this.update(m);
     if (m.genre === 'lxc') { await this.must('lxc-stop', ['-P', this.lxcDir, '-n', m.nom, ...(force ? ['-k'] : ['-t', '60'])], 'arrêt', 90_000); return; }
-    const sock = this.qmpSock(m); if (!existsSync(sock)) return;
-    await qmp(sock, force ? 'quit' : 'system_powerdown').catch(() => undefined);
+    const sock = this.qmpSock(m); if (m.pause) { delete m.pause; this.update(m); }
+    if (!existsSync(sock)) return;
+    // Une VM figée ne lit pas le bouton d'arrêt : elle repart d'abord (« cont »), puis s'éteint proprement. Envoyé même
+    // sans marque « en pause » (une pause dont la réponse s'est perdue, une coupure) : sur une VM qui tourne, sans effet.
+    if (!force) await systemeVm.qmp(sock, 'cont').catch(() => undefined);
+    await systemeVm.qmp(sock, force ? 'quit' : 'system_powerdown').catch(() => undefined);
+  }
+  /** Ce qui empêche une pause ou une reprise (LXC, Windows, modèle) ; sinon rien. */
+  private pausable(m: Machine, quoi: string): void {
+    if (m.genre === 'lxc') throw new Error(`${m.nom} est un LXC : ${quoi} d'un LXC n'est pas encore là (seulement pour les VM)`);
+    if (systemeVm.plateforme() === 'win32') throw new Error(VM_WINDOWS);
+    if (m.estModele) throw new Error(`${m.nom} est un modèle : il ne démarre pas, rien à mettre en pause`);
+  }
+  /** L'état vu par QMP (« query-status ») : en marche ou en pause. */
+  private async enMarcheQmp(sock: string): Promise<boolean> {
+    const r = await systemeVm.qmp(sock, 'query-status') as { running?: boolean; status?: string } | undefined;
+    return r?.running === true || r?.status === 'running';
+  }
+  /** Met une VM en pause (QMP « stop ») : elle garde sa mémoire et repart où elle en était. L'état est gardé. */
+  async pause(m: Machine): Promise<void> {
+    this.pausable(m, 'la pause');
+    const e = await this.etat(m);
+    if (e.state === 'en pause') throw new Error(`${m.nom} est déjà en pause`);
+    if (e.state !== 'en marche') throw new Error(`${m.nom} est éteinte : rien à mettre en pause`);
+    const sock = this.qmpSock(m);
+    await systemeVm.qmp(sock, 'stop');
+    // Gardée tout de suite : si la vérification se perd (canal coupé), la VM est vue « en pause » et « Reprendre » reste là.
+    m.pause = { depuis: Date.now() }; this.update(m);
+    let tourne: boolean;
+    try { tourne = await this.enMarcheQmp(sock); } catch (e) { throw new Error(`${m.nom} : pause demandée, mais la VM ne confirme pas (${(e as Error).message}). « Reprendre » la relance si besoin.`); }
+    if (tourne) { delete m.pause; this.update(m); throw new Error(`${m.nom} tourne encore : la pause n'a pas pris`); }
+  }
+  /** Reprend une VM en pause (QMP « cont »). */
+  async reprendre(m: Machine): Promise<void> {
+    this.pausable(m, 'la reprise');
+    const e = await this.etat(m);
+    if (e.state === 'éteinte' || e.state === 'inconnue') { if (m.pause) { delete m.pause; this.update(m); } throw new Error(`${m.nom} est éteinte : démarre-la plutôt`); }
+    const sock = this.qmpSock(m);
+    // Gardée « en marche » mais arrêtée par ailleurs (console QEMU) : QMP le dit, et la reprise marche aussi.
+    if (e.state === 'en marche' && await this.enMarcheQmp(sock)) throw new Error(`${m.nom} n'est pas en pause`);
+    await systemeVm.qmp(sock, 'cont');
+    if (!(await this.enMarcheQmp(sock))) throw new Error(`${m.nom} ne repart pas`);
+    delete m.pause; this.update(m);
   }
   async etat(m: Machine): Promise<Etat> {
     if (m.genre === 'lxc') {
@@ -310,11 +384,11 @@ export class Local {
       return { state: i.state === 'RUNNING' ? 'en marche' : 'éteinte', pid: i.pid, ip: i.ip, ...(cpuPct !== undefined ? { cpuPct: Math.round(cpuPct) } : {}), ...(i.mem !== undefined ? { ramMo: Math.round(i.mem / 1048576) } : {}) };
     }
     const pf = join(this.vmDir(m), 'pid'); let pid: number | undefined; try { pid = Number(readFileSync(pf, 'utf8').trim()); } catch { /* jamais démarrée */ }
-    if (!pid || !existsSync(`/proc/${pid}`)) return { state: 'éteinte' };
+    if (!pid || !systemeVm.enVie(pid)) return { state: 'éteinte' };
     let cpuPct: number | undefined, ramMo: number | undefined;
     try { const st = readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1].split(' '), ticks = Number(st[11]) + Number(st[12]), ns = ticks * 1e7, now = Date.now(), prev = this.last.get(m.id); if (prev && now > prev.at) cpuPct = Math.round(Math.max(0, Math.min(100, ((ns - prev.cpuNs) / 1e6 / (now - prev.at)) * 100 / m.cpu))); this.last.set(m.id, { at: now, cpuNs: ns }); } catch { /* lu au prochain tour */ }
     try { ramMo = Math.round(Number(/VmRSS:\s+(\d+)/.exec(readFileSync(`/proc/${pid}/status`, 'utf8'))?.[1] ?? 0) / 1024); } catch { /* idem */ }
-    return { state: 'en marche', pid, cpuPct, ramMo, ip: m.ip };
+    return { state: m.pause ? 'en pause' : 'en marche', pid, cpuPct, ramMo, ip: m.ip };
   }
   /** L'aperçu en direct : la capture d'écran (VM) ou les dernières lignes de la console (LXC). */
   async apercu(m: Machine): Promise<{ png?: string; lignes?: string[] }> {
@@ -342,7 +416,7 @@ export class Local {
     if (!Number.isInteger(go) || go < 1 || go > 65536) throw new Error('taille du disque invalide (en Go)');
     if (go < m.disque) throw new Error(`${m.nom} a ${m.disque} Go : un disque ne se réduit pas (ses fichiers seraient abîmés), seulement plus grand`);
     if (go === m.disque) return 'rien à changer';
-    if ((await this.etat(m)).state === 'en marche') throw new Error(`arrête d'abord ${m.nom} pour agrandir son disque`);
+    if (allumee(await this.etat(m))) throw new Error(`arrête d'abord ${m.nom} pour agrandir son disque`);
     let how: string;
     if (m.genre === 'lxc') {
       const cf = join(this.lxcDir, m.nom, 'config'), f = existsSync(cf) ? disqueLxc(readFileSync(cf, 'utf8')) : undefined;
@@ -371,7 +445,7 @@ export class Local {
     if (m.genre === 'vm') { if (existsSync(this.vmDir(m))) writeFileSync(join(this.vmDir(m), 'vm.json'), JSON.stringify(m, null, 1)); this.update(m); return `adresse ${ip} réservée : dans le système de la VM, règle la même adresse fixe (masque /${r.masque}, passerelle ${r.passerelle}, DNS ${r.dns})`; }
     const cf = join(this.lxcDir, m.nom, 'config'); if (existsSync(cf)) writeFileSync(cf, rewriteConfig(readFileSync(cf, 'utf8'), lxcConfig(m, r, this.lxcDir)));
     this.update(m);
-    if ((await this.etat(m)).state === 'en marche') { await this.arreter(m); await this.demarrer(m, undefined, { analyse: Boolean(m.quarantaine) }); return 'appliquée (machine redémarrée)'; }
+    if (allumee(await this.etat(m))) { await this.arreter(m); await this.demarrer(m, undefined, { analyse: Boolean(m.quarantaine) }); return 'appliquée (machine redémarrée)'; }
     return 'appliquée au prochain démarrage';
   }
   /** Console d'un LXC : lance une commande dedans et rend sa sortie (texte de la machine : une donnée). */
@@ -387,12 +461,12 @@ export class Local {
     if (m.genre !== 'vm') throw new Error('pour un LXC, envoie une commande à sa console');
     const suite = qcodes(texte.slice(0, 2000));
     if (touche) { const t = TOUCHES[touche]; if (!t) throw new Error(`touche inconnue (${Object.keys(TOUCHES).join(', ')})`); suite.push(t); }
-    const sock = this.qmpSock(m); if ((await this.etat(m)).state !== 'en marche' || !existsSync(sock)) throw new Error(`${m.nom} est éteinte : démarre-la d'abord`);
+    const sock = this.qmpSock(m); const e = await this.etat(m); if (e.state === 'en pause') throw new Error(`${m.nom} est en pause : reprends-la d'abord`); if (e.state !== 'en marche' || !existsSync(sock)) throw new Error(`${m.nom} est éteinte : démarre-la d'abord`);
     for (const keys of suite) await qmp(sock, 'send-key', { keys: keys.map((k) => ({ type: 'qcode', data: k })) });
     return suite.length;
   }
   async cloner(src: Machine, nom: string): Promise<Machine> {
-    if ((await this.etat(src)).state === 'en marche') throw new Error(`arrête d'abord ${src.nom} (une copie se fait machine éteinte)`);
+    if (allumee(await this.etat(src))) throw new Error(`arrête d'abord ${src.nom} (une copie se fait machine éteinte)`);
     const r = this.reseau(), ip = await this.prochaineIp(); if (!ip) throw new Error('plus d\'adresse libre sur le réseau des machines');
     const m: Machine = { ...structuredClone(src), id: randomBytes(6).toString('hex'), nom: slug(nom), ip, mac: newMac(), cree: Date.now(), quarantaine: undefined, arretVoulu: true, estModele: undefined };
     if (this.list().some((x) => x.nom === m.nom)) throw new Error(`le nom « ${m.nom} » est déjà pris`);
@@ -407,7 +481,7 @@ export class Local {
     this.save([...this.list(), m]); return m;
   }
   async supprimer(m: Machine): Promise<void> {
-    if ((await this.etat(m)).state === 'en marche') await this.arreter(m, true);
+    if (allumee(await this.etat(m))) await this.arreter(m, true);
     if (m.genre === 'lxc') await this.must('lxc-destroy', ['-P', this.lxcDir, '-n', m.nom], 'suppression');
     else { await this.run('ip', ['link', 'del', ifname(m)], 10_000); rmSync(this.vmDir(m), { recursive: true, force: true }); }
     this.save(this.list().filter((x) => x.id !== m.id));
@@ -431,7 +505,7 @@ export class Local {
     if (m.genre === 'lxc') { const cf = join(this.lxcDir, m.nom, 'config'); if (existsSync(cf)) writeFileSync(cf, rewriteConfig(readFileSync(cf, 'utf8'), lxcConfig(m, this.reseau(), this.lxcDir))); }
     else if (existsSync(this.vmDir(m))) writeFileSync(join(this.vmDir(m), 'vm.json'), JSON.stringify(m, null, 1));
     const st = await this.etat(m);
-    if (st.state === 'en marche') {
+    if (allumee(st)) {
       if (m.genre === 'lxc') { /* l'interface « empty » n'a pas de carte : le réseau revient au redémarrage */ await this.arreter(m); await this.demarrer(m); }
       else { const r = await this.run('ip', ['link', 'set', ifname(m), 'master', this.reseau().pont, 'up'], 10_000); if (r.code !== 0) { m.quarantaine = q; this.update(m); throw new Error('la VM a démarré sans carte réseau : redémarre-la pour retrouver le réseau'); } }
     }
@@ -440,7 +514,7 @@ export class Local {
 
   // ----- .ody -----
   async exporter(m: Machine, dest: string): Promise<{ fichier: string; taille: number; sha256: string }> {
-    if ((await this.etat(m)).state === 'en marche') throw new Error(`arrête d'abord ${m.nom} (l'export se fait machine éteinte, pour un fichier cohérent)`);
+    if (allumee(await this.etat(m))) throw new Error(`arrête d'abord ${m.nom} (l'export se fait machine éteinte, pour un fichier cohérent)`);
     mkdirSync(dest, { recursive: true });
     const tmp = join(this.dir, `.export-${m.id}`); rmSync(tmp, { recursive: true, force: true }); mkdirSync(tmp, { recursive: true });
     try {

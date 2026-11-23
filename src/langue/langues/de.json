@@ -108,6 +108,19 @@
     "ymir.demarrer": [
       "starte die vm"
     ],
+    "ymir.pause_machine": [
+      "pausiere",
+      "pausiere die vm",
+      "vm pausieren",
+      "pausiere die virtuelle maschine",
+      "halte die vm an"
+    ],
+    "ymir.reprendre_machine": [
+      "fortsetzen",
+      "setze die vm fort",
+      "vm fortsetzen",
+      "setze die virtuelle maschine fort"
+    ],
     "naglfar": [
       "container"
     ],
@@ -199,10 +212,6 @@
     "mails": {
       "quoi": "deine E-Mails und Nachrichten ohne KI lesen, sortieren, beantworten oder senden",
       "proche": "mit einer KI mache ich es, und jedes Senden oder Löschen wartet auf deine Zustimmung"
-    },
-    "vm-pause": {
-      "quoi": "eine virtuelle Maschine pausieren",
-      "proche": "sie sauber herunterfahren (mit deiner Zustimmung) oder einen Snapshot machen (Hydre)"
     },
     "gpo": {
       "quoi": "eine GPO (Gruppenrichtlinie) anlegen oder ändern",

@@ -14,6 +14,7 @@ import { machinesActions, machinesWatch } from '../ymir/machines.ts';
 import { dossierArrivees } from '../ymir/isos.ts';
 import { logicielsHermes, retards, surveillerIsos } from '../ymir/bibliotheque.ts';
 import { Local } from '../ymir/local.ts';
+import { enPauseDistante, nettoyerPauses, pauseActions } from '../ymir/pause.ts';
 import { tacheVerification } from '../forge/bibliotheque.ts';
 import { join } from 'node:path';
 
@@ -25,7 +26,9 @@ function servers(ctx: ModCtx): PveServer[] {
   return list.map((x, i) => ({ ...x, token: x.token ?? process.env[i === 0 ? 'PROXMOX_TOKEN' : `PROXMOX_TOKEN_${x.name.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`] })).filter((x) => x.url && x.token);
 }
 type Res = PveResource & { server: string };
-export async function resources(ctx: ModCtx, api = pveApi): Promise<{ res: Res[]; errors: string[] }> {
+/** L'interface des serveurs reliés (les essais la remplacent : aucun vrai serveur appelé). */
+export const pve = { api: pveApi };
+export async function resources(ctx: ModCtx, api = pve.api): Promise<{ res: Res[]; errors: string[] }> {
   const res: Res[] = [], errors: string[] = [];
   await Promise.all(servers(ctx).map(async (sv) => { try { for (const r of await api(sv.url, sv.token!, 'GET', '/cluster/resources') as PveResource[]) res.push({ ...r, server: sv.name }); } catch (e) { errors.push(`${sv.name} : ${(e as Error).message}`); } }));
   return { res, errors };
@@ -35,12 +38,28 @@ async function act(ctx: ModCtx, vmid: number, what: string, extra?: Record<strin
   if (!g) throw new Error(`aucune machine n° ${vmid}`);
   const sv = servers(ctx).find((x) => x.name === g.server)!, base = `/nodes/${encodeURIComponent(g.node)}/${g.type}/${vmid}`;
   const path = what === 'snapshot' ? `${base}/snapshot` : what === 'rollback' ? `${base}/snapshot/${encodeURIComponent(extra?.snapname ?? '')}/rollback` : `${base}/status/${what}`;
-  const task = await pveApi(sv.url, sv.token!, 'POST', path, extra);
+  const task = await pve.api(sv.url, sv.token!, 'POST', path, extra);
   return `${g.name ?? vmid} (${g.server}) : ${what} lancé (tâche ${s(task).slice(-24)}).`;
 }
+/** Pause et reprise d'une VM d'un serveur relié (suspend / resume de son interface), pour les actions du lot M1. */
+const distant = {
+  liste: async (ctx: ModCtx) => (await resources(ctx)).res.filter((r) => r.vmid).map((r) => ({ vmid: r.vmid!, name: r.name, type: r.type, status: r.status, server: r.server, node: r.node })),
+  // Sur CETTE machine (son serveur, son nœud) : jamais « la première qui porte ce numéro » sur un autre serveur.
+  agir: async (ctx: ModCtx, g: { vmid: number; name?: string; server: string; node: string }, quoi: 'suspend' | 'resume') => {
+    const sv = servers(ctx).find((x) => x.name === g.server); if (!sv) throw new Error(`serveur ${g.server} introuvable`);
+    const task = await pve.api(sv.url, sv.token!, 'POST', `/nodes/${encodeURIComponent(g.node)}/qemu/${g.vmid}/status/${quoi}`);
+    return `${g.name ?? g.vmid} (${g.server}) : ${quoi === 'suspend' ? 'mise en pause demandée' : 'reprise demandée'} (tâche ${s(task).slice(-24)}).`;
+  },
+  // L'état réel (« running », « paused »…) : la liste des ressources dit « running » pour une VM figée.
+  statut: async (ctx: ModCtx, g: { vmid: number; server: string; node: string }) => {
+    const sv = servers(ctx).find((x) => x.name === g.server); if (!sv) return undefined;
+    const r = await pve.api(sv.url, sv.token!, 'GET', `/nodes/${encodeURIComponent(g.node)}/qemu/${g.vmid}/status/current`) as { qmpstatus?: string; status?: string } | undefined;
+    return typeof r?.qmpstatus === 'string' ? r.qmpstatus : undefined;
+  },
+};
 
 /** Une machine du parc, quel que soit son type (même suivi, mêmes boutons). */
-export interface Unit { key: string; kind: Kind; name: string; auto: string; state: 'en marche' | 'arrêtée' | 'en installation'; ip?: string; what?: string; cpu?: number; ram?: number; where: string; module: string; ref: Record<string, unknown> }
+export interface Unit { key: string; kind: Kind; name: string; auto: string; state: 'en marche' | 'en pause' | 'arrêtée' | 'en installation'; ip?: string; what?: string; cpu?: number; ram?: number; where: string; module: string; ref: Record<string, unknown> }
 const pct = (a?: number, b?: number) => (a !== undefined && b ? Math.round((a / b) * 100) : undefined);
 /** Tout le parc : Proxmox (VM, LXC), Docker (Argo), ordinateurs installés par le réseau (Genèse). Les noms automatiques restent les mêmes. */
 export async function parc(ctx: ModCtx): Promise<{ units: Unit[]; errors: string[] }> {
@@ -53,7 +72,7 @@ export async function parc(ctx: ModCtx): Promise<{ units: Unit[]; errors: string
   ]);
   errors.push(...pve.errors);
   for (const r of pve.res.filter((x) => x.vmid)) { const kind: Kind = r.type === 'lxc' ? 'LXC' : 'VM', key = `${kind.toLowerCase()}:${r.server}:${r.vmid}`;
-    units.push({ key, kind, name: r.name ?? `${kind} ${r.vmid}`, auto: name(key, kind, r.name ?? String(r.vmid)), state: r.status === 'running' ? 'en marche' : 'arrêtée', what: `${r.server} / ${r.node}`, cpu: r.cpu !== undefined ? Math.round(r.cpu * 100) : undefined, ram: pct(r.mem, r.maxmem), where: r.server, module: 'ymir', ref: { vmid: r.vmid } }); }
+    units.push({ key, kind, name: r.name ?? `${kind} ${r.vmid}`, auto: name(key, kind, r.name ?? String(r.vmid)), state: r.status === 'running' ? (enPauseDistante(ctx, r.server, r.vmid!) ? 'en pause' : 'en marche') : 'arrêtée', what: `${r.server} / ${r.node}`, cpu: r.cpu !== undefined ? Math.round(r.cpu * 100) : undefined, ram: pct(r.mem, r.maxmem), where: r.server, module: 'ymir', ref: { vmid: r.vmid } }); }
   const piles = new Map<string, typeof dk>();
   for (const c of dk) { const pj = /com\.docker\.compose\.project=([^,]+)/.exec(c.Labels ?? '')?.[1]; if (pj) { piles.set(pj, [...(piles.get(pj) ?? []), c]); continue; }
     const key = `dk:${c.Names}`; units.push({ key, kind: 'Docker', name: c.Names, auto: name(key, 'Docker', c.Image), state: c.State === 'running' ? 'en marche' : 'arrêtée', what: c.Image, where: 'Docker', module: 'naglfar', ref: { conteneur: c.Names } }); }
@@ -106,10 +125,10 @@ const STATE_ICON: Record<Step['state'], string> = { ok: '✓', corrigé: '↻', 
 export const ymir: Module = {
   id: 'ymir', name: 'Hydre', family: 'Machines',
   what: 'Tes machines : les LXC et VM de ce PC (créés par Odin, quarantaine, .ody), et celles de tes serveurs de virtualisation.',
-  does: ['machines de ce PC : LXC (images officielles signées) et VM (QEMU, ISO d\'Andromède), nom automatique, adresse vérifiée', 'aperçu en direct (écran de la VM, console du LXC), processeur et mémoire de chacune', 'console dans Odin : une commande dans un LXC, le clavier d\'une VM (avec ton accord)', 'ressources modifiables : processeur, mémoire, disque agrandi, adresse IP fixe changée', 'modèles : une machine rangée comme modèle, puis des machines créées depuis elle (ou clonées)','quarantaine : la machine débranchée de tout, analyse complète, règle « rouge = isoler »', 'exporter et importer une machine entière en .ody (empreinte vérifiée, antivirus)', 'tous les serveurs réunis (mode Asgard) : nœuds, machines, conteneurs', 'processeur, mémoire, disque de chaque machine', 'démarrer, arrêt propre, arrêt forcé, redémarrer', 'instantanés et retour en arrière (avec ton accord)', 'sauvegarde d\'une machine (Phénix, mode Osiris)', 'alerte si une machine s\'arrête ou si un nœud sature'],
+  does: ['machines de ce PC : LXC (images officielles signées) et VM (QEMU, ISO d\'Andromède), nom automatique, adresse vérifiée', 'aperçu en direct (écran de la VM, console du LXC), processeur et mémoire de chacune', 'console dans Odin : une commande dans un LXC, le clavier d\'une VM (avec ton accord)', 'ressources modifiables : processeur, mémoire, disque agrandi, adresse IP fixe changée', 'modèles : une machine rangée comme modèle, puis des machines créées depuis elle (ou clonées)','quarantaine : la machine débranchée de tout, analyse complète, règle « rouge = isoler »', 'exporter et importer une machine entière en .ody (empreinte vérifiée, antivirus)', 'tous les serveurs réunis (mode Asgard) : nœuds, machines, conteneurs', 'processeur, mémoire, disque de chaque machine', 'démarrer, arrêt propre, arrêt forcé, redémarrer', 'pause et reprise d\'une VM (elle garde sa mémoire), réservées au propriétaire', 'instantanés et retour en arrière (avec ton accord)', 'sauvegarde d\'une machine (Phénix, mode Osiris)', 'alerte si une machine s\'arrête ou si un nœud sature'],
   from: ['Proxmox VE', 'Proxmox Datacenter Manager'], upstream: ['proxmox/pve-manager'],
   modes: ['Asgard · tous les serveurs', 'Osiris · sauvegarde des machines'],
-  words: ['créer une machine', 'crée une machine', 'crée une vm', 'quarantaine', 'isoler une machine', '.ody', 'machines de ce pc', 'machine virtuelle', 'machines virtuelles', 'vm', 'proxmox', 'toutes mes machines', 'parc de machines', 'conteneur lxc', 'lxc', 'hyperviseur', 'virtualisation', 'instantane', 'snapshot', 'noeud', 'nœud'],
+  words: ['créer une machine', 'crée une machine', 'crée une vm', 'quarantaine', 'isoler une machine', '.ody', 'machines de ce pc', 'machine virtuelle', 'machines virtuelles', 'vm', 'proxmox', 'toutes mes machines', 'parc de machines', 'conteneur lxc', 'lxc', 'hyperviseur', 'virtualisation', 'instantane', 'snapshot', 'noeud', 'nœud', 'vm en pause'],
   actions: [
     { id: 'parc', label: 'Toutes mes machines', what: 'Ordinateurs installés par le réseau, VM, LXC et conteneurs Docker, avec leur nom automatique', read: true, words: ['toutes mes machines', 'mon parc', 'parc de machines'], run: async (ctx) => {
       const { units, errors } = await parc(ctx);
@@ -121,13 +140,14 @@ export const ymir: Module = {
         const r = await installDocker(ctx, i);
         return { text: `${r.ok ? '✅' : '⚠️'} ${r.name} : ${r.ok ? 'installé et vérifié' : 'installation arrêtée'}\n${r.steps.map((x) => `${STATE_ICON[x.state]} ${x.t}${x.note ? ` — ${x.note}` : ''} (${(x.ms / 1000).toFixed(1)} s)`).join('\n')}`, data: r };
       } },
-    { id: 'machines', label: 'Machines virtuelles', what: 'Toutes les machines et leur état', read: true, words: ['liste', 'machines', 'vm'], run: async (ctx) => { const { res, errors } = await resources(ctx); const vms = res.filter((r) => r.vmid); return { text: `${vms.map((r) => `- ${r.vmid} ${r.name} (${r.type === 'lxc' ? 'conteneur' : 'VM'}, ${r.server}/${r.node}) · ${r.status} · ${gb(r.mem)} / ${gb(r.maxmem)}`).join('\n') || 'Aucune machine (Réglages → Proxmox).'}${errors.length ? `\n⚠ ${errors.join(' ; ')}` : ''}` }; } },
+    { id: 'machines', label: 'Machines virtuelles', what: 'Toutes les machines et leur état', read: true, words: ['liste', 'machines', 'vm'], run: async (ctx) => { const { res, errors } = await resources(ctx); const vms = res.filter((r) => r.vmid); return { text: `${vms.map((r) => `- ${r.vmid} ${r.name} (${r.type === 'lxc' ? 'conteneur' : 'VM'}, ${r.server}/${r.node}) · ${r.status === 'running' && enPauseDistante(ctx, r.server, r.vmid!) ? 'en pause' : r.status} · ${gb(r.mem)} / ${gb(r.maxmem)}`).join('\n') || 'Aucune machine (Réglages → Proxmox).'}${errors.length ? `\n⚠ ${errors.join(' ; ')}` : ''}` }; } },
     { id: 'demarrer', undo: (i) => ({ action: 'arreter', input: { vmid: i.vmid }, label: 'machine virtuelle arrêtée' }), label: 'Démarrer', what: 'Démarre une machine', params: [{ key: 'vmid', label: 'Numéro', kind: 'number', required: true }], words: ['demarre', 'démarre', 'allume'], run: async (ctx, i) => ({ text: await act(ctx, Number(i.vmid), 'start') }) },
     { id: 'arreter', label: 'Arrêt propre', what: 'Éteint proprement une machine', params: [{ key: 'vmid', label: 'Numéro', kind: 'number', required: true }], grave: (i) => `éteindre la machine ${s(i.vmid)}`, words: ['eteins', 'éteins', 'arrete', 'arrête'], run: async (ctx, i) => { const text = await act(ctx, Number(i.vmid), 'shutdown'); /* arrêt demandé : la surveillance ne doit pas le prendre pour une panne */ ctx.saveSettings({ running: ((ctx.settings.running as number[] | undefined) ?? []).filter((x) => x !== Number(i.vmid)) }); return { text }; } },
     { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre une machine', params: [{ key: 'vmid', label: 'Numéro', kind: 'number', required: true }], grave: (i) => `redémarrer la machine ${s(i.vmid)}`, run: async (ctx, i) => ({ text: await act(ctx, Number(i.vmid), 'reboot') }) },
     { id: 'instantane', label: 'Instantané', what: 'Photo de la machine à cet instant', params: [{ key: 'vmid', label: 'Numéro', kind: 'number', required: true }, { key: 'nom', label: 'Nom', kind: 'text', default: '' }], run: async (ctx, i) => ({ text: await act(ctx, Number(i.vmid), 'snapshot', { snapname: s(i.nom) || `odin-${ctx.now().toISOString().slice(0, 16).replace(/[-:T]/g, '')}` }) }) },
     { id: 'revenir', label: 'Revenir à un instantané', what: 'Remet la machine dans l\'état de l\'instantané', params: [{ key: 'vmid', label: 'Numéro', kind: 'number', required: true }, { key: 'nom', label: 'Instantané', kind: 'text', required: true }], grave: (i) => `remettre la machine ${s(i.vmid)} à l'instantané ${s(i.nom)} (les changements depuis sont perdus)`, run: async (ctx, i) => ({ text: await act(ctx, Number(i.vmid), 'rollback', { snapname: s(i.nom) }) }) },
     ...machinesActions(),
+    ...pauseActions(distant),
     { id: 'serveur', label: 'Ajouter un serveur', what: 'Relier un serveur de virtualisation (jeton d\'API dans le coffre)', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'adresse', label: 'Adresse (https://…:8006)', kind: 'text', required: true }], run: (ctx, i) => { const list = ((ctx.settings.servers as PveServer[]) ?? []).filter((x) => x.name !== s(i.nom)); ctx.saveSettings({ servers: [...list, { name: s(i.nom), url: s(i.adresse).trim() }] }); return { text: `🔗 Serveur ${s(i.nom)} ajouté. Range son jeton d'API dans le coffre (${list.length ? `PROXMOX_TOKEN_${s(i.nom).toUpperCase().replace(/[^A-Z0-9]/g, '_')}` : 'PROXMOX_TOKEN'}).` }; } },
   ],
   // Les ISO envoyées depuis le navigateur arrivent dans l'espace ISO (dossier caché des arrivées), puis passent par l'antivirus.
@@ -144,9 +164,9 @@ export const ymir: Module = {
         ...(['PC', 'VM', 'LXC', 'Docker', 'Pile'] as Kind[]).map((k) => ({ kind: 'cards' as const, title: { PC: 'Ordinateurs', VM: 'Machines virtuelles', LXC: 'Conteneurs LXC', Docker: 'Conteneurs (images Docker)', Pile: 'Groupes de conteneurs' }[k], empty: k === 'Docker' ? 'Aucun conteneur : « Installer un conteneur ».' : 'Aucune.',
           items: p.units.filter((u) => u.kind === k).map((u) => ({ title: u.name, sub: `${u.auto}${u.ip ? ` · ${u.ip}` : ''}${u.what ? ` · ${u.what}` : ''}`, badge: u.state, tone: u.state === 'en marche' ? 'bon' as const : 'neutre' as const, ...(u.cpu !== undefined ? { progress: u.cpu / 100, meta: `processeur ${u.cpu} %${u.ram !== undefined ? ` · mémoire ${u.ram} %` : ''}` } : {}),
             actions: u.kind === 'PC' ? [] : u.kind === 'Pile' ? [] : u.module === 'naglfar' ? [u.state === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: u.ref, module: 'naglfar' } : { action: 'demarrer', label: 'Démarrer', input: u.ref, module: 'naglfar' }, { action: 'journaux', label: 'Journal', input: u.ref, module: 'naglfar' }, { action: 'supprimer', label: 'Supprimer', input: u.ref, module: 'naglfar' }]
-              : [u.state === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: u.ref } : { action: 'demarrer', label: 'Démarrer', input: u.ref }, { action: 'instantane', label: 'Instantané', input: u.ref }] })) })).filter((x) => x.items.length || x.title === 'Conteneurs Docker'),
+              : u.state === 'en pause' ? [{ action: 'reprendre_machine', label: 'Reprendre', input: { machine: String(u.ref.vmid) } }] : [u.state === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: u.ref } : { action: 'demarrer', label: 'Démarrer', input: u.ref }, ...(u.kind === 'VM' && u.state === 'en marche' ? [{ action: 'pause_machine', label: 'Pause', input: { machine: String(u.ref.vmid) } }] : []), { action: 'instantane', label: 'Instantané', input: u.ref }] })) })).filter((x) => x.items.length || x.title === 'Conteneurs Docker'),
         { kind: 'form', title: 'Installer un conteneur', action: 'installer_docker', params: [{ key: 'image', label: 'Image (ex. jellyfin/jellyfin)', kind: 'text', required: true }, { key: 'ports', label: 'Ports (8096:8096)', kind: 'text', default: '' }, { key: 'dossiers', label: 'Dossiers (/data/x:/config)', kind: 'text', default: '' }], submit: 'Installer' },
-        { kind: 'table', title: 'Machines', columns: ['N°', 'Machine', 'Type', 'Serveur / nœud', 'Processeur', 'Mémoire', 'État'], empty: 'Aucune machine.', rows: vms.sort((a, b) => (a.vmid ?? 0) - (b.vmid ?? 0)).map((v) => ({ cells: [String(v.vmid), v.name ?? '', v.type === 'lxc' ? 'conteneur' : 'VM', `${v.server} / ${v.node}`, `${Math.round((v.cpu ?? 0) * 100)} %`, `${gb(v.mem)} / ${gb(v.maxmem)}`, v.status ?? ''], tone: v.status === 'running' ? 'bon' : 'neutre', actions: v.status === 'running' ? [{ action: 'instantane', label: 'Instantané', input: { vmid: v.vmid } }, { action: 'redemarrer', label: 'Redémarrer', input: { vmid: v.vmid } }, { action: 'arreter', label: 'Arrêter', input: { vmid: v.vmid } }] : [{ action: 'demarrer', label: 'Démarrer', input: { vmid: v.vmid } }] })) }],
+        { kind: 'table', title: 'Machines', columns: ['N°', 'Machine', 'Type', 'Serveur / nœud', 'Processeur', 'Mémoire', 'État'], empty: 'Aucune machine.', rows: vms.sort((a, b) => (a.vmid ?? 0) - (b.vmid ?? 0)).map((v) => { const pause = v.status === 'running' && enPauseDistante(ctx, v.server, v.vmid!); return { cells: [String(v.vmid), v.name ?? '', v.type === 'lxc' ? 'conteneur' : 'VM', `${v.server} / ${v.node}`, `${Math.round((v.cpu ?? 0) * 100)} %`, `${gb(v.mem)} / ${gb(v.maxmem)}`, pause ? 'en pause' : v.status ?? ''], tone: pause ? 'attention' as const : v.status === 'running' ? 'bon' as const : 'neutre' as const, actions: pause ? [{ action: 'reprendre_machine', label: 'Reprendre', input: { machine: String(v.vmid) } }] : v.status === 'running' ? [...(v.type === 'qemu' ? [{ action: 'pause_machine', label: 'Pause', input: { machine: String(v.vmid) } }] : []), { action: 'instantane', label: 'Instantané', input: { vmid: v.vmid } }, { action: 'redemarrer', label: 'Redémarrer', input: { vmid: v.vmid } }, { action: 'arreter', label: 'Arrêter', input: { vmid: v.vmid } }] : [{ action: 'demarrer', label: 'Démarrer', input: { vmid: v.vmid } }] }; }) }],
       side: [{ kind: 'list', title: 'Asgard · nœuds', items: nodes.map((n) => ({ title: `${n.server} / ${n.node}`, detail: `${Math.round((n.cpu ?? 0) * 100)} % CPU · ${gb(n.mem)} / ${gb(n.maxmem)}`, tone: n.status === 'online' ? 'bon' : 'mauvais' })), empty: 'Aucun nœud.' }, { kind: 'form', title: 'Relier un serveur', action: 'serveur', submit: 'Ajouter', params: ymir.actions.find((a) => a.id === 'serveur')?.params ?? [] }],
     };
   },
@@ -161,6 +181,7 @@ export const ymir: Module = {
       if (avec.length) { const l = await logicielsHermes(ctx); for (const m of avec) { const r = retards(m, l); if (r.length) ctx.alert({ level: 'moyenne', title: `${m.nom} : ${r.length} logiciel(s) à mettre à jour`, detail: r.map((x) => `${x.nouveau.nom} ${x.installe} → ${x.nouveau.version}`).join(', '), key: `ymir-maj-${m.id}-${r.map((x) => x.nouveau.version).join(',')}`, fix: { action: 'mettre_a_jour_logiciels', input: { machine: m.id }, label: 'Mettre à jour' } }); } }
     } catch { /* Hermès absent */ }
     const { res } = await resources(ctx); if (!res.length) return;
+    nettoyerPauses(ctx, res.filter((r) => r.vmid).map((r) => ({ vmid: r.vmid!, type: r.type, status: r.status, server: r.server, node: r.node })));
     const was = (ctx.settings.running as number[] | undefined) ?? [], now = res.filter((r) => r.vmid && r.status === 'running').map((r) => r.vmid!);
     for (const id of was) if (!now.includes(id)) { const r = res.find((x) => x.vmid === id); ctx.alert({ level: 'haute', title: `La machine ${r?.name ?? id} s'est arrêtée`, key: `vm:${id}`, lien: 'ymir-alerte-machine-virtuelle' }); ctx.emit('vm_arretee', { vmid: id, nom: r?.name }); }
     for (const n of res.filter((r) => r.type === 'node')) { if (n.status !== 'online') ctx.alert({ level: 'critique', title: `Nœud ${n.node} injoignable`, key: `node:${n.node}` }); else if ((n.mem ?? 0) / (n.maxmem || 1) > 0.95) ctx.alert({ level: 'haute', title: `Nœud ${n.node} : mémoire saturée`, key: `nodemem:${n.node}`, lien: 'ymir-alerte-machine-virtuelle' }); }

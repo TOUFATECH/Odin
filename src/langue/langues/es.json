@@ -120,6 +120,20 @@
       "enciende la máquina virtual",
       "arranca la vm"
     ],
+    "ymir.pause_machine": [
+      "pausa",
+      "pausa la vm",
+      "pon en pausa la vm",
+      "pon la vm en pausa",
+      "pausa la máquina virtual",
+      "suspende la vm"
+    ],
+    "ymir.reprendre_machine": [
+      "reanuda",
+      "reanuda la vm",
+      "reanuda la máquina virtual",
+      "quita la pausa de la vm"
+    ],
     "naglfar": [
       "contenedor",
       "contenedores"
@@ -181,10 +195,6 @@
       "correos",
       "envía un mensaje",
       "manda un mensaje"
-    ],
-    "vm-pause": [
-      "pausa la máquina",
-      "pon en pausa"
     ]
   },
   "textes": {
@@ -231,10 +241,6 @@
     "mails": {
       "quoi": "leer, ordenar, responder ni enviar tus correos y mensajes sin IA",
       "proche": "con una IA lo hago, y cada envío o borrado espera tu aprobación"
-    },
-    "vm-pause": {
-      "quoi": "poner en pausa una máquina virtual",
-      "proche": "apagarla limpiamente (con tu aprobación) o hacer una instantánea (Hydre)"
     },
     "gpo": {
       "quoi": "crear o cambiar una GPO (directiva de grupo)",

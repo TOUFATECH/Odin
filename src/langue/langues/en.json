@@ -155,6 +155,22 @@
       "boot the vm",
       "start"
     ],
+    "ymir.pause_machine": [
+      "pause",
+      "pause the vm",
+      "pause my vm",
+      "pause the virtual machine",
+      "suspend the vm",
+      "suspend my vm"
+    ],
+    "ymir.reprendre_machine": [
+      "resume",
+      "unpause",
+      "resume the vm",
+      "resume my vm",
+      "unpause the vm",
+      "resume the virtual machine"
+    ],
     "ymir.redemarrer": [
       "restart the vm",
       "reboot the vm"
@@ -266,11 +282,6 @@
       "spam",
       "reply to my"
     ],
-    "vm-pause": [
-      "pause my vm",
-      "suspend the vm",
-      "pause the vm"
-    ],
     "gpo": [
       "group policy",
       "gpo"
@@ -325,10 +336,6 @@
     "mails": {
       "quoi": "read, sort, answer or send your emails and messages without an AI",
       "proche": "with an AI, I do it, and every send or delete waits for your approval"
-    },
-    "vm-pause": {
-      "quoi": "pause a virtual machine",
-      "proche": "shut it down cleanly (with your approval) or take a snapshot (Hydre)"
     },
     "gpo": {
       "quoi": "create or change a GPO (group policy) in a Windows domain",

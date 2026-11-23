@@ -39,7 +39,6 @@ export const PAS_ENCORE: ReadonlyArray<{ id: string; re: RegExp; avec?: RegExp; 
   { id: 'postuler', re: /\b(?:postul\w*|candidat\w*|apply for|job application)\b/ },
   { id: 'newsletter', re: /\b(?:desabonn\w*|abonne[- ](?:toi|moi)|newsletters?|unsubscribe|subscribe)\b/ },
   { id: 'mails', re: /\b(?:lis|lire|trie|trier|filtre|filtrer|reponds?|repondre|envoie|envoyer|supprime|supprimer|efface|vois|regarde|releve|mets a jour)\b.{0,40}\b(?:mails?|e-?mails?|courriels?|spams?)\b|\b(?:mails?|e-?mails?|courriels?|spams?)\b.{0,20}\b(?:non lus|recus|en attente)\b|\benvoie (?:un )?(?:message|sms|texto)\b|\bsend a (?:text|message)\b|\btext my\b/, sauf: /\b(?:arnaque|phishing|hamecon\w*|scam|mot de passe|conteneur|port|serveur|bannis)\b|\bverifie (?:ce|cet|le)\b/ },
-  { id: 'vm-pause', re: /\b(?:pause|en attente|suspend\w*|hibern\w*)\b/, avec: /\b(?:vm|machines? virtuelles?|machine)\b/ },
   { id: 'gpo', re: /\b(?:gpo|strategies? de groupe|group policy)\b/ },
   { id: 'github-essai', re: /github\.com\/\S+/, avec: /\b(?:conteneur|container|teste?|essaie|test|lance|installe)\b/ },
   { id: 'llm', re: /\b(?:llm|modeles? de langue|language model)\b/, avec: /\b(?:lance|serv\w*|heberg\w*|deploie|installe|run|host)\b/ },
