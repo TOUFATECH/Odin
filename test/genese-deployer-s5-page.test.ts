@@ -113,7 +113,7 @@ class Noeud {
 class Texte extends Noeud { constructor(t: string) { super('#text', 3); this.texte = t; } }
 const calme = async () => { for (let k = 0; k < 20; k++) await new Promise((ok) => setTimeout(ok, 4)); };
 
-const LECTURES = new Set(['thjalfi.tableau', 'thjalfi.systemes', 'thjalfi.postes_vus', 'thjalfi.profils_logiciels', 'thjalfi.isos', 'thjalfi.cle_disques', 'thjalfi.cle_vms', 'thjalfi.cle_place', 'thjalfi.cle_logiciels', 'thjalfi.cle_apercu_script']);
+const LECTURES = new Set(['thjalfi.tableau', 'thjalfi.systemes', 'thjalfi.postes_vus', 'thjalfi.profils_logiciels', 'thjalfi.isos', 'thjalfi.cle_disques', 'thjalfi.cle_vms', 'thjalfi.cle_place', 'thjalfi.cle_logiciels', 'thjalfi.cle_apercu_script', 'thjalfi.deployer_apercu']);
 
 /** La page de Genèse montée, ses demandes notées. */
 async function page(o: { vm?: boolean; postesKo?: boolean } = {}) {
@@ -392,12 +392,12 @@ test('S5 · page : le système depuis la bibliothèque — prêts au choix, les 
   await P.clic('[data-filtre="outil"]');
   assert.deepEqual(P.qa('[data-sys]').map((b) => b.querySelector('b')!.textContent), ['GParted Live 1.6.0']);
   await P.clic('[data-filtre="tout"]');
-  // Les étapes 4 à 6 : « bientôt », rien n'est lancé.
+  // Les étapes 4 à 6 (construites au lot S6, voir genese-deployer-s6-page) : rien n'est lancé en les ouvrant.
   await P.clic('[data-f="continuer"]');
-  assert.match(P.q('[data-f="bientot-4"]')!.textContent, /Bientôt/);
-  assert.match(P.q('[data-f="recap"]')!.textContent, /Système : Windows 11 24H2/);
+  assert.equal(P.etape(4).getAttribute('aria-current'), 'step');
   await P.clic('[data-dp-etape="6"]');
-  assert.match(P.q('[data-f="bientot-6"]')!.textContent, /Rien n'est lancé d'ici/);
+  assert.match(P.q('[data-f="rc-sys"]')!.textContent, /Windows 11 24H2/);
+  assert.match(P.q('[data-f="danger"]')!.textContent, /effacer 1 pc/);
   // Pour une machine virtuelle, un outil ne se choisit pas.
   const V = await page(); await V.ouvrir();
   await V.clic('[data-cible="vm"]'); await V.clic('[data-f="continuer"]'); await V.clic('[data-f="continuer"]');

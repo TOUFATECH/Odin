@@ -7,7 +7,7 @@
 import { createReadStream, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { Socket } from 'node:net';
-import type { Readable } from 'node:stream';
+import { Readable, Writable } from 'node:stream';
 
 /** Adresse du réseau local (ou de la machine elle-même) ? Pur. */
 export function isLocal(ip: string): boolean {
@@ -29,7 +29,8 @@ export interface FileOut { size: number; open: (start: number, end: number) => P
 export interface HttpDeps {
   /** /boot.ipxe → le petit script qui redemande le menu avec l'adresse MAC */
   bootScript: () => string;
-  menu: (mac: string, fw: string, from: string) => Promise<string>;
+  /** q : tout ce que le PC dit de lui dans l'adresse (numéro de série, identifiant, taille du disque) */
+  menu: (mac: string, fw: string, from: string, q?: URLSearchParams) => Promise<string>;
   /** un fichier d'une ISO (« /f/<id>/<chemin> ») ou l'ISO entière (« /iso/<id>.iso ») */
   isoFile: (id: string, path: string | undefined) => Promise<FileOut | undefined>;
   /** un fichier du dossier de démarrage (wimboot, programme d'installation Debian…) */
@@ -91,6 +92,26 @@ export class PxeHttp {
   /** Ferme tout de suite les connexions de cette adresse (téléchargements en cours compris). */
   couper(ip: string): number { const l = [...(this.ouvertes.get(ip) ?? [])]; for (const c of l) c.destroy(); return l.length; }
   stop(): void { this.server?.closeAllConnections?.(); this.server?.close(); this.server = undefined; }
+  /**
+   * Une demande traitée EXACTEMENT comme par le réseau (mêmes règles, même ordre), sans rien écouter : aucun port ouvert,
+   * aucune machine réelle. Sert aux essais de sûreté (un PC qui démarre est simulé par son adresse et ce qu'il demande).
+   */
+  async simuler(method: string, url: string, from: string, headers: Record<string, string> = {}, corps = ''): Promise<{ status: number; headers: Record<string, unknown>; body: string }> {
+    const q = Readable.from(corps ? [Buffer.from(corps)] : []) as unknown as IncomingMessage & { socket: { remoteAddress: string } };
+    Object.assign(q, { method, url, headers: Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])), socket: { remoteAddress: from } });
+    const parts: Buffer[] = [], h: Record<string, unknown> = {}; let status = 200;
+    const w = new Writable({ write(c, _e, cb) { parts.push(Buffer.from(c)); cb(); } }) as unknown as ServerResponse & { headersSent: boolean };
+    let envoye = false;
+    Object.defineProperty(w, 'headersSent', { get: () => envoye });
+    Object.assign(w, {
+      setHeader: (k: string, v: unknown) => { h[k.toLowerCase()] = v; return w; },
+      writeHead: (st: number, hh?: Record<string, unknown>) => { status = st; envoye = true; for (const [k, v] of Object.entries(hh ?? {})) h[k.toLowerCase()] = v; return w; },
+    });
+    const fini = new Promise<void>((ok) => { w.once('finish', () => ok()); w.once('close', () => ok()); });
+    await this.handle(q, w);
+    await fini;
+    return { status, headers: h, body: Buffer.concat(parts).toString('utf8') };
+  }
 
   private async handle(q: IncomingMessage, r: ServerResponse): Promise<void> {
     const from = (q.socket.remoteAddress ?? '').replace(/^::ffff:/, '');
@@ -115,7 +136,7 @@ export class PxeHttp {
       }
       return text(await this.d.cle(normMac(u.searchParams.get('mac') ?? ''), u.searchParams.get('fw') ?? '', from, mdp.slice(0, 200), qui.slice(0, 80)));
     }
-    if (path === '/menu.ipxe') { const mac = normMac(u.searchParams.get('mac') ?? ''); this.d.vu?.(mac, u.searchParams, from); return text(await this.d.menu(mac, u.searchParams.get('fw') ?? '', from)); }
+    if (path === '/menu.ipxe') { const mac = normMac(u.searchParams.get('mac') ?? ''); this.d.vu?.(mac, u.searchParams, from); return text(await this.d.menu(mac, u.searchParams.get('fw') ?? '', from, u.searchParams)); }
     if (this.d.ecran && /^\/ecran(\/|$)/.test(path)) {
       const e = this.d.ecran, mac = normMac(u.searchParams.get('mac') ?? '');
       const json = (x: unknown) => text(JSON.stringify(x), 'application/json; charset=utf-8');
@@ -181,4 +202,87 @@ export class PxeHttp {
 /** « 52-54-00-12-34-56 », « 525400123456 » → « 52:54:00:12:34:56 ». Pur. */
 export function normMac(s: string): string {
   const h = s.toLowerCase().replace(/[^0-9a-f]/g, ''); return h.length === 12 ? h.match(/../g)!.join(':') : '';
+}
+
+// ---------------- Déployer (lot S6) : le PC qui démarre est-il celui autorisé ? ----------------
+/** Ce qu'un PC dit de lui au démarrage, nettoyé : numéro de série, identifiant de carte mère, taille du disque (octets). */
+export interface IdentiteVue { serie?: string; uuid?: string; disque?: number }
+/** L'identité gardée au moment d'autoriser (vue par Odin avant, jamais donnée par la page). */
+export interface IdentiteAttendue { mac: string; serie?: string; uuid?: string; disque?: number }
+/** La taille du disque dite par le PC (« disque=<octets> », par l'écran d'Odin sur le PC) ; iPXE seul ne la connaît pas. Pur. */
+export function tailleDisqueVue(q: URLSearchParams | undefined): number | undefined {
+  const v = (q?.get('disque') ?? '').trim();
+  if (!/^\d{1,16}$/.test(v)) return undefined;
+  const n = Number(v);
+  return Number.isSafeInteger(n) && n >= 1024 ** 3 / 2 ? n : undefined;
+}
+const pareil = (a: string | undefined, b: string | undefined) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+/**
+ * AVANT d'effacer un disque : le PC qui démarre doit être EXACTEMENT celui autorisé. L'adresse MAC d'abord ; puis le
+ * numéro de série et l'identifiant de carte mère connus au moment d'autoriser (un PC qui ne les donne plus, ou en donne
+ * d'autres, est refusé : une adresse MAC se recopie, pas les deux) ; puis la taille du disque quand les deux la
+ * connaissent (iPXE seul ne la connaît pas). Rend la raison du refus, ou rien si c'est bien lui. Pur.
+ */
+export function identiteDifferente(att: IdentiteAttendue, mac: string, vu: IdentiteVue): string | undefined {
+  const m = normMac(mac);
+  if (!att.mac || !m || m !== normMac(att.mac)) return 'adresse MAC différente';
+  if (att.serie) { if (!vu.serie) return 'numéro de série absent'; if (!pareil(att.serie, vu.serie)) return 'numéro de série différent'; }
+  if (att.uuid) { if (!vu.uuid) return 'identifiant de la carte mère absent'; if (!pareil(att.uuid, vu.uuid)) return 'identifiant de la carte mère différent'; }
+  if (att.disque && vu.disque && att.disque !== vu.disque) return 'taille du disque différente';
+  return undefined;
+}
+/** Une autorisation de déploiement : UN PC (ou « le prochain PC qui démarre » : mac vide), pour ce système et ces réglages. */
+export interface AutorisationPc {
+  id: string; lot: string;
+  /** l'adresse du PC autorisé ; vide : le prochain PC qui démarre par le réseau (une seule fois) */
+  mac: string;
+  iso: string; isoNom?: string; facon: 'auto' | 'menu'; nom: string;
+  /** le profil de logiciels (lot S4) et les options Windows (étape 5) */
+  profil?: string; windows?: Record<string, unknown>;
+  /** l'identité gardée au moment d'autoriser */
+  serie?: string; uuid?: string; disque?: number;
+  /** le mot de passe du compte de CE PC, chiffré (jamais en clair sur le disque) */
+  mdp?: string;
+  cree: number; expire: number;
+  /** utilisée : elle ne sert plus jamais (aucun rejeu) */
+  consommee?: { at: number; mac: string; token?: string };
+  /** annulée (identité différente au démarrage, remplacée, ou retirée) */
+  annulee?: { at: number; raison: string };
+}
+/** Encore valable : ni utilisée, ni annulée, ni expirée. Pur. */
+export const autorisationValable = (a: AutorisationPc, now: number) => !a.consommee && !a.annulee && now < a.expire;
+/**
+ * L'autorisation qui vaut pour CE PC qui démarre : la sienne d'abord (par son adresse MAC), sinon « le prochain PC qui
+ * démarre » (la plus ancienne encore valable). Rien d'utilisé, d'annulé ou d'expiré ne revient. « Le prochain » ne va
+ * JAMAIS à un PC déjà pris dans un déploiement depuis moins de 24 h (nommé dans une autorisation, ou qui en a utilisé
+ * une) : un PC déployé qui redémarre par le réseau (l'installateur le fait) n'est pas effacé une deuxième fois, et un PC
+ * refusé (identité différente) ne repasse pas par « le prochain ». Pur.
+ */
+export const PRIS_PAR_UN_DEPLOIEMENT_MS = 24 * 3600_000;
+export function autorisationPour(l: AutorisationPc[], mac: string, now: number): AutorisationPc | undefined {
+  const m = normMac(mac); if (!m) return undefined;
+  const tous = (Array.isArray(l) ? l : []).filter((a) => a && typeof a === 'object');
+  const ok = tous.filter((a) => autorisationValable(a, now));
+  const sienne = ok.find((a) => a.mac && normMac(a.mac) === m); if (sienne) return sienne;
+  const dernier = (a: AutorisationPc) => Math.max(Number(a.cree) || 0, Number(a.consommee?.at) || 0, Number(a.annulee?.at) || 0);
+  const deja = tous.some((a) => ((a.mac && normMac(a.mac) === m) || (a.consommee?.mac && normMac(a.consommee.mac) === m)) && now - dernier(a) < PRIS_PAR_UN_DEPLOIEMENT_MS);
+  return deja ? undefined : ok.filter((a) => !a.mac).sort((a, b) => a.cree - b.cree)[0];
+}
+/** Une identité dite au démarrage pour une adresse MAC (gardée 24 h, pour voir si deux appareils citent la même adresse). */
+export interface IdentiteNotee { serie?: string; uuid?: string; disque?: number; at: number }
+/** Une fenêtre de 24 h : deux identités différentes vues pour la même adresse dans ce temps = adresse peut-être recopiée. */
+export const FENETRE_IDENTITES_MS = 24 * 3600_000;
+/**
+ * Deux appareils différents ont-ils démarré avec cette adresse MAC ces dernières 24 h ? (Autre numéro de série, autre
+ * carte mère, ou autre taille de disque quand les deux la disent.) Une adresse MAC et ce que le PC dit de lui se recopient
+ * par n'importe quelle demande du réseau : avant d'autoriser un effacement, une identité contestée est refusée plutôt que
+ * de garder la dernière venue. Rend les identités en conflit (au plus 3), ou rien. Pur.
+ */
+export function identitesEnConflit(l: IdentiteNotee[] | undefined, now: number): string[] {
+  const r = (Array.isArray(l) ? l : []).filter((x) => x && now - Number(x.at) < FENETRE_IDENTITES_MS && now >= Number(x.at) - 60_000);
+  const cle = (x: IdentiteNotee) => `${String(x.serie ?? '').trim().toLowerCase()}|${String(x.uuid ?? '').trim().toLowerCase()}`;
+  const cles = [...new Set(r.filter((x) => x.serie || x.uuid).map(cle))];
+  const disques = [...new Set(r.map((x) => x.disque).filter((d): d is number => typeof d === 'number' && d > 0))];
+  if (cles.length < 2 && disques.length < 2) return [];
+  return [...cles.map((k) => { const [se, u] = k.split('|'); return [se && `série ${se}`, u && `carte mère ${u.slice(0, 8)}…`].filter(Boolean).join(', '); }), ...(disques.length > 1 ? disques.map((d) => `disque de ${Math.round(d / 1024 ** 3)} Go`) : [])].slice(0, 3);
 }

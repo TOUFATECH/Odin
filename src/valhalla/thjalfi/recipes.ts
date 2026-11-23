@@ -155,14 +155,44 @@ export interface Answer {
   repo?: string; mirror?: string;
   /** à la fin, poser le compagnon d'Odin (Satellites : antivirus, mises à jour, failles, bulles) */
   compagnon?: boolean;
+  /** Déployer (lot S6) : tes scripts, revérifiés par l'antivirus, servis par Odin et lancés dans l'ordre après les logiciels */
+  scriptsApres?: Array<{ nom: string; url: string }>;
+  /** Déployer (lot S6), Linux : les paquets du profil de logiciels (.deb ou .rpm), servis par Odin, installés au premier démarrage */
+  paquetsFichiers?: Array<{ nom: string; url: string; genre: 'deb' | 'rpm' }>;
 }
 const yamlStr = (s: string) => JSON.stringify(s);
 /** Le compagnon d'Odin, posé au premier démarrage (script servi par Genèse, avec son jeton à lui). */
 const compagnonLinux = (a: Answer) => (a.compagnon ? `(curl -fsS "${a.report.replace('/etat/', '/seed/')}/compagnon.sh" || wget -qO- "${a.report.replace('/etat/', '/seed/')}/compagnon.sh") | sh >/var/log/odin-compagnon-installation.log 2>&1; ` : '');
 /** La fin commune sous Linux : un petit service qui prévient Odin au premier démarrage (nom pris, adresse). */
 function linuxFirstBoot(a: Answer): string {
-  return `[Unit]\nDescription=Odin Genèse : fin du deploiement\nWants=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nExecStart=/bin/sh -c 'IP=$(hostname -I | cut -d" " -f1); (curl -fsS "${a.report}?e=fini&nom=$(hostname)&ip=$IP" || wget -qO- "${a.report}?e=fini&nom=$(hostname)&ip=$IP") >/dev/null 2>&1; ${compagnonLinux(a)}systemctl disable odin-thjalfi.service'\n[Install]\nWantedBy=multi-user.target\n`;
+  return `[Unit]\nDescription=Odin Genèse : fin du deploiement\nWants=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nExecStart=/bin/sh -c '${finLinux(a)}IP=$(hostname -I | cut -d" " -f1); (curl -fsS "${a.report}?e=fini&nom=$(hostname)&ip=$IP" || wget -qO- "${a.report}?e=fini&nom=$(hostname)&ip=$IP") >/dev/null 2>&1; ${compagnonLinux(a)}systemctl disable odin-thjalfi.service'\n[Install]\nWantedBy=multi-user.target\n`;
 }
+/** Une adresse servie par Odin, sûre à écrire telle quelle dans un script (ni guillemet, ni %, ni espace, ni $). Pur. */
+const urlSure = (u: string) => /^https?:\/\/[\w.:[\]-]+\/[\w./-]+$/.test(u);
+/**
+ * Déployer (lot S6), Linux : au premier démarrage, avant de dire « fini », les paquets du profil (.deb, .rpm), puis tes
+ * scripts dans l'ordre, chacun pris chez Odin (réseau local) ; chacun est dit à Odin (installé ou raté). Une adresse qui
+ * n'est pas une simple adresse d'Odin n'est jamais écrite dans le script. Pur.
+ */
+function finLinux(a: Answer): string {
+  // « % » se double dans un service systemd (sinon il le lit comme un réglage à lui).
+  const dire = (nom: string, ok: 0 | 1) => `curl -fsS "${a.report}?e=logiciel&nom=${encodeURIComponent(nom).replace(/[!'()*]/g, '_').replace(/%/g, '%%')}&ok=${ok}" >/dev/null 2>&1`;
+  const l: string[] = [];
+  (a.paquetsFichiers ?? []).filter((p) => urlSure(p.url)).forEach((p, k) => {
+    const f = `/tmp/odin-paquet-${k + 1}.${p.genre}`, inst = p.genre === 'deb' ? `apt-get install -y ${f}` : `dnf install -y ${f}`;
+    l.push(`if curl -fsS -o ${f} "${p.url}" && ${inst} >>/var/log/odin-logiciels.log 2>&1; then ${dire(p.nom, 1)}; else ${dire(p.nom, 0)}; fi; rm -f ${f}; `);
+  });
+  (a.scriptsApres ?? []).filter((x) => urlSure(x.url)).forEach((x, k) => {
+    const f = `/tmp/odin-script-${k + 1}.sh`;
+    l.push(`if curl -fsS -o ${f} "${x.url}" && sh ${f} >>/var/log/odin-scripts.log 2>&1; then ${dire(x.nom, 1)}; else ${dire(x.nom, 0)}; fi; rm -f ${f}; `);
+  });
+  return l.join('');
+}
+/** Le script de fin d'un PC Linux déployé (paquets puis tes scripts), lisible ligne par ligne : pour l'aperçu. Pur. */
+export const scriptFinLinux = (a: Answer) => `#!/bin/sh
+# Odin · Genèse : lancé une fois au premier démarrage, avant de prévenir Odin
+${finLinux(a).split('; ').filter(Boolean).map((x) => `${x};`).join('\n').replace(/%%/g, '%')}
+`;
 const b64 = (s: string) => Buffer.from(s).toString('base64');
 /** Signe de vie pendant l'installation : une boucle en fond dit « je suis là » à Odin chaque minute. Détachée de tout (entrées et sorties fermées) : elle ne retient jamais l'installateur. */
 const vieLinux = (a: Answer, outil: 'wget' | 'curl') => `(while :; do ${outil === 'wget' ? 'wget -qO-' : 'curl -fsS'} '${a.report}?e=vie' >/dev/null 2>&1; sleep 60; done) </dev/null >/dev/null 2>&1 &`;
@@ -256,6 +286,13 @@ export function windowsAfter(a: Answer): string {
     const file = `$dir\\${s.url.split('/').pop()!.replace(/[^\w.+-]/g, '_')}`;
     lines.push(`try { (New-Object Net.WebClient).DownloadFile('${s.url}', "${file}"); ${s.msi ? `Start-Process msiexec.exe -ArgumentList '/i', "\`"${file}\`"", '/qn', '/norestart' -Wait` : `Start-Process "${file}" -ArgumentList '${s.args.replace(/'/g, "''")}' -Wait`}; Dire "logiciel" "&nom=${encodeURIComponent(s.name)}&ok=1" } catch { Dire "logiciel" "&nom=${encodeURIComponent(s.name)}&ok=0" }`);
   }
+  // Déployer (lot S6) : tes scripts, dans l'ordre, après les logiciels ; pris chez Odin (réseau local), lancés un par un.
+  (a.scriptsApres ?? []).filter((x) => urlSure(x.url)).forEach((x, k) => {
+    const ext = /\.bat$/i.test(x.nom) ? 'bat' : /\.cmd$/i.test(x.nom) ? 'cmd' : 'ps1', file = `$dir\\script-${k + 1}.${ext}`;
+    const lance = ext === 'ps1' ? `Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "\`"${file}\`"" -Wait` : `Start-Process cmd.exe -ArgumentList '/c', "\`"${file}\`"" -Wait`;
+    const nom = encodeURIComponent(x.nom).replace(/[!'()*]/g, '_');
+    lines.push(`try { (New-Object Net.WebClient).DownloadFile('${x.url}', "${file}"); ${lance}; Dire "logiciel" "&nom=${nom}&ok=1" } catch { Dire "logiciel" "&nom=${nom}&ok=0" }`);
+  });
   // Le compagnon d'Odin (son propre PowerShell, lancé à part : ses « exit » n'arrêtent pas ce script).
   if (a.compagnon) lines.push(`try { $c = Join-Path $dir 'compagnon.ps1'; (New-Object Net.WebClient).DownloadFile('${a.report.replace(/\/etat\//, '/w/')}/compagnon.ps1', $c); Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "\`"$c\`"" -Wait -WindowStyle Hidden; Dire "logiciel" "&nom=Compagnon%20d%27Odin&ok=1" } catch { Dire "logiciel" "&nom=Compagnon%20d%27Odin&ok=0" }`);
   lines.push('$ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" } | Select-Object -First 1).IPAddress', 'Dire "fini" "&nom=$env:COMPUTERNAME&ip=$ip"', 'Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue');
@@ -303,3 +340,34 @@ export function sha512crypt(password: string, salt = randomSalt(), rounds = 5000
   return `$6$${rounds !== 5000 ? `rounds=${rounds}$` : ''}${S.toString()}$${out}`;
 }
 function randomSalt(): string { const r = randomBytes(16); let s = ''; for (const b of r) s += ITOA[b & 63]; return s; }
+
+// ---------------- Déployer (lot S6) : un nom et un mot de passe par PC ----------------
+/** Un nom de PC sur le réseau : lettres sans accents, chiffres, tirets ; 15 au plus (la limite de Windows). Pur. */
+export function nomReseau(n: unknown): string {
+  return String(n ?? '').normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 15).replace(/-+$/, '');
+}
+/**
+ * Le nom de CHAQUE PC : « auto » = pc-01, pc-02… dans l'ordre (en sautant les noms déjà pris) ; « vu » = le nom vu au menu
+ * (ou donné par toi), sinon pc-<fin de l'adresse>. Deux PC n'ont jamais le même nom. Pur.
+ */
+export function nomsDesPcs(pcs: Array<{ mac: string; vu?: string }>, facon: 'auto' | 'vu', pris: string[] = []): string[] {
+  const deja = new Set(pris.map((x) => nomReseau(x)).filter(Boolean)), out: string[] = [];
+  let k = 0;
+  const suivant = () => { let n; do { k++; n = `pc-${String(k).padStart(2, '0')}`; } while (deja.has(n)); return n; };
+  for (const p of pcs) {
+    let n = '';
+    if (facon === 'vu') { n = nomReseau(p.vu); if (!n) { const fin = String(p.mac ?? '').replace(/[^0-9a-f]/gi, '').slice(-6).toLowerCase(); n = fin ? `pc-${fin}` : ''; } }
+    if (!n || deja.has(n)) n = suivant();
+    deja.add(n); out.push(n);
+  }
+  return out;
+}
+/** Un mot de passe neuf pour UN PC : 16 signes faciles à recopier, avec minuscule, majuscule et chiffre (règles de Windows). */
+export function motDePassePc(): string {
+  const A = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (;;) {
+    let p = '';
+    for (const b of randomBytes(48)) { if (b < 224) p += A[b % A.length]; if (p.length === 16) break; }
+    if (p.length === 16 && /[a-z]/.test(p) && /[A-Z]/.test(p) && /\d/.test(p)) return p;
+  }
+}

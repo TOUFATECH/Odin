@@ -14,8 +14,18 @@
 //     à l'étape Vérifier ; sans Hydre : « bientôt » ;
 //   - étape 3 « Système » : la bibliothèque de l'onglet Systèmes (action « systemes ») ; ceux qui ne sont pas prêts sont
 //     grisés avec leur raison.
-// Les étapes 4 à 6 (logiciels, options Windows, vérifier puis lancer) arrivent avec le lot S6 : elles disent « bientôt ».
-// RIEN ici n'efface, n'installe ni n'écrit : seules des lectures partent (postes_vus, systemes, profils_logiciels, isos).
+//   - étape 4 « Logiciels et scripts » (lot S6) : le profil de logiciels (lot S4, commun à la clé), la liste pour ce
+//     système (« tout seul » ou non), le script créé tout seul et tes scripts revérifiés par l'antivirus — tout vient de la
+//     lecture « deployer_apercu », faite côté serveur ;
+//   - étape 5 « Options Windows » (lot S6) : les mêmes interrupteurs que la clé (sans exigences, compte local, sans
+//     questions de confidentialité, langue d'Odin), le nom du compte (son mot de passe : créé par Odin, UN PAR PC, rangé
+//     dans le coffre, jamais montré), le nom de chaque PC, la clé d'activation du coffre (4 derniers caractères) ou aucune ;
+//   - étape 6 « Vérifier » (lot S6) : le récapitulatif PC par PC, puis la phrase « effacer N pc » tapée ET un appui long de
+//     3 s ; l'un sans l'autre ne lance rien. La vraie vérification (phrase, PC bloqués, identité de chaque PC au
+//     démarrage, une seule fois chacun) est faite par le serveur (action grave « deployer », propriétaire seul). « Le
+//     proposer au menu » n'efface rien (un clic). Machine virtuelle : « Créer la machine » par Hydre, après confirmation.
+// Seules ces demandes écrivent : « deployer » (étape 6, après la phrase et l'appui) et « creer_machine » d'Hydre (après
+// confirmation) ; tout le reste est lecture (postes_vus, systemes, profils_logiciels, isos, deployer_apercu).
 // Une adresse MAC ou un nom de PC est toujours écrit comme du texte. Tous les textes sont dans MOTS.
 // Expose window.OdinGeneseDeployer = { onglets, dessiner(root, onglet, hote), MOTS, logique, etat, choisirSysteme }.
 (() => {
@@ -111,14 +121,43 @@
     'sys.installe': 's\'installe tout seul', 'sys.demarre': 'démarre seulement', 'sys.maj': '{version} disponible',
     'sys.dl': '{pct} · en téléchargement', 'sys.dl.sans': 'en téléchargement', 'sys.verif': 'vérification en cours', 'sys.faux': 'empreinte fausse', 'sys.bloque': 'bloqué par l\'antivirus',
     'sys.inconnu': 'Odin ne sait pas encore la démarrer', 'sys.pasvm': 'pas pour une machine virtuelle',
-    'bientot.titre': 'Bientôt',
-    'bientot.4': 'Les logiciels et scripts du déploiement arrivent avec la suite : le profil, la liste pour ce système et le script créé tout seul.',
-    'bientot.5': 'Les options Windows du déploiement arrivent avec la suite : sans exigences, compte local, mot de passe créé par Odin pour chaque PC.',
-    'bientot.6': 'Vérifier puis lancer arrive avec la suite. Rien n\'est lancé d\'ici : aucun PC n\'est effacé, aucune machine n\'est créée.',
-    'recap.titre': 'Ce qui est déjà choisi',
-    'recap.cible.reseau': 'Par le réseau : {pcs}', 'recap.cible.vm': 'Machine virtuelle « {nom} » : {cpu} processeur(s), {mem}, {disk}',
-    'recap.facon.auto': 'Effacer et installer tout seul', 'recap.facon.menu': 'Proposé au menu du PC, sans effacer',
-    'recap.sys': 'Système : {sys}',
+    'log.titre': 'Logiciels et scripts', 'log.lead': 'Installés tout seuls à la fin, sur chaque PC. Servis par Odin sur le réseau local : aucun PC ne va les chercher sur Internet.',
+    'log.profil': 'Profil', 'log.pour': 'Pour {sys}', 'log.vide': 'Ce profil n\'a aucun logiciel pour ce système.', 'log.sansprofil': 'Sans profil : seul le système s\'installe.',
+    'log.toutseul': 'tout seul', 'log.main': 'pas par le réseau', 'log.changer': 'Changer dans Logiciels',
+    'log.script': 'Script créé tout seul', 'log.script.charge': 'Odin prépare le script…', 'log.script.erreur': 'Le script ne peut pas être montré : {raison}',
+    'log.scripts': 'Tes scripts', 'log.scripts.ok': 'lancé à la fin, après les logiciels', 'log.scripts.ko': 'refusé : {raison}', 'log.scripts.vide': 'Aucun script dans ce profil pour ce système.',
+    'log.scripts.accepte': 'accepté', 'log.scripts.refuse': 'refusé',
+    'log.vm': 'Pour une machine virtuelle, Hydre installe le système. Les logiciels du profil y arriveront plus tard.',
+    'win.titre': 'Options Windows', 'win.lead': 'Les mêmes que pour la clé. Tout est écrit dans le fichier de réponses, montré au récapitulatif.',
+    'win.vm': 'Pour une machine virtuelle, Hydre règle Windows lui-même.',
+    'win.exigences': 'Sans les exigences matérielles', 'win.exigences.texte': 'Installe même sans puce TPM 2.0, sans démarrage sécurisé et avec moins de 4 Go de mémoire.',
+    'win.local': 'Compte local, sans compte en ligne', 'win.local.texte': 'Aucun compte en ligne n\'est demandé ; le compte est créé sur le PC.',
+    'win.compte': 'Nom du compte', 'win.compte.aide': 'Le mot de passe est créé par Odin et rangé dans son coffre, un par PC. Il n\'est jamais montré ici.',
+    'win.compte.ko': 'De 1 à 20 caractères, sans " / \\ [ ] : ; | = , + * ? < > @ %, et sans point à la fin.',
+    'win.vie': 'Sans les questions de confidentialité', 'win.vie.texte': 'Les écrans « diagnostic, publicité, localisation » sont passés, tout au plus discret.',
+    'win.langue': 'Langue, clavier et fuseau d\'Odin', 'win.langue.texte': 'Repris des réglages d\'Odin.',
+    'noms.titre': 'Nom de chaque PC sur le réseau', 'noms.auto': 'Automatique (pc-01, pc-02…)', 'noms.vu': 'Garder le nom vu au menu',
+    'act.titre': 'Clé d\'activation', 'act.coffre': 'Celle du coffre : {edition} (••••{fin})', 'act.aucune': 'Aucune (sans activation)',
+    'act.sans': 'Aucune clé pour cette édition dans le coffre : Windows s\'installe sans activation (c\'est permis).',
+    'ver.titre': 'Avant d\'effacer', 'ver.titre.menu': 'Avant de proposer', 'ver.titre.vm': 'Avant de créer', 'ver.lead': 'Rien n\'est encore lancé. Relis, puis confirme.',
+    'ver.pcs': 'Les PC · {n}', 'ver.changer': 'Changer', 'ver.efface': 'disque effacé', 'ver.menu': 'proposé au menu', 'ver.prochain': 'Le prochain PC qui démarre (30 min)',
+    'ver.sys': 'Système', 'ver.empreinte': 'Empreinte', 'ver.empreinte.editeur': 'celle de l\'éditeur', 'ver.empreinte.ok': 'vérifiée',
+    'ver.install': 'Installation', 'ver.install.auto': 'toute seule', 'ver.install.menu': 'au menu, avec ses questions',
+    'ver.fin': 'Installé à la fin', 'ver.profil': 'Profil', 'ver.logiciels': 'Logiciels', 'ver.scripts': 'Tes scripts',
+    'ver.win': 'Windows', 'ver.compte': 'Compte', 'ver.compte.local': '{nom} · mot de passe au coffre, un par PC', 'ver.compte.ligne': 'compte en ligne, demandé par Windows',
+    'ver.exigences': 'Exigences matérielles', 'ver.oui.sans': 'retirées', 'ver.non.avec': 'gardées',
+    'ver.activation': 'Activation', 'ver.act.coffre': 'clé du coffre (••••{fin})', 'ver.act.aucune': 'aucune',
+    'ver.vm': 'La machine virtuelle',
+    'phrase.titre': 'Pour effacer et installer, tape', 'phrase.ok': 'C\'est juste.', 'phrase.ko': 'Pas encore : tape exactement la phrase.',
+    'phrase.qui': '{pcs} : leur disque sera effacé à leur prochain démarrage par le réseau, s\'ils sont bien eux.',
+    appui: 'Garde appuyé 3 s : effacer et installer sur {n} PC',
+    'appui.aide': 'Garde le bouton enfoncé (doigt, souris, ou touche Espace) pendant 3 secondes. Relâcher avant arrête tout.',
+    'appui.ferme': 'Tape d\'abord la phrase.', 'appui.encore': 'Encore {s} s…', 'appui.lache': 'Relâché trop tôt : rien n\'est lancé.',
+    'menu.bouton': 'Proposer au menu de {n} PC', envoi: 'Odin autorise les PC…',
+    'fait.titre': 'C\'est autorisé : chaque PC s\'installe une fois, s\'il est bien lui', 'fait.titre.menu': 'C\'est proposé au menu', suivi: 'Suivi',
+    erreur: 'Refusé : {raison}',
+    'vm.bouton': 'Créer la machine', 'vm.envoi': 'Hydre crée la machine…',
+    'vm.confirm': 'Créer la machine virtuelle « {nom} » ({cpu} processeur(s), {mem}, disque {disk}) avec {sys} ? Rien n\'est effacé.',
     annule: 'Annulé.',
   };
   const mot = (k, v) => String(MOTS[k] ?? k).replace(/\{(\w+)\}/g, (_m, x) => (v && v[x] != null ? String(v[x]) : ''));
@@ -186,6 +225,7 @@
     if (n === 3) return trois;
     const c = carteChoisie(Z);
     if (!trois || !c) return false;
+    if (n === 6 && Z.cible === 'reseau' && c.famille === 'windows' && !compteOk(Z.win)) return false;
     return n !== 5 || c.famille === 'windows';
   }
   /** Le prochain élément (flèches, Début, Fin), en sautant ceux qui sont fermés ; celui des clés USB quand il est là. */
@@ -204,7 +244,36 @@
     return mot('quand.j', { n: nombre(Math.round(d / 86400_000)) });
   }
   const nomPc = (p) => (p && p.nom) || mot('pc.sansnom', { fin: String((p && p.mac) || '').slice(-5) });
-  const logique = { MOTS, mot, NB_ETAPES, CIBLES, FACONS_CLE, VERS_CLE, verifMac, nomVmValide, nomVmPour, choisissable, pcsChoisis, aEffacer, carteChoisie, etapeOuverte, suivant: suivantLocal, quand };
+  // ---- Lot S6 : la phrase, l'appui long, le compte Windows, le nom de chaque PC (les MÊMES règles que le serveur).
+  const APPUI_MS = 3000;
+  /** La phrase à taper pour effacer N PC : « effacer 3 pc ». Pur. */
+  const phrasePour = (n) => `effacer ${Math.max(0, Math.round(Number(n) || 0))} pc`;
+  /** Le texte comparé : sans accents, minuscules, espaces simples (comme le serveur). Pur. */
+  const phraseNormale = (x) => String(x == null ? '' : x).normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const phraseOk = (saisie, attendue) => Boolean(attendue) && phraseNormale(saisie) === phraseNormale(attendue);
+  /** On ne lance QUE si la phrase est juste ET que l'appui a duré 3 s : l'un sans l'autre ne suffit jamais. Pur. */
+  const peutLancer = (o) => Boolean(o && o.phraseOk === true && Number(o.appuiMs) >= APPUI_MS);
+  const resteAppui = (ms) => Math.max(0, Math.ceil((APPUI_MS - Math.max(0, Number(ms) || 0)) / 1000));
+  /** Un nom de compte Windows acceptable (comme le serveur, scripts.ts). Pur. */
+  const nomCompteOk = (n) => { const x = String(n == null ? '' : n).trim(); return x.length >= 1 && x.length <= 20 && !/["/\\[\]:;|=,+*?<>@%\p{Cc}\p{Cf}\p{Cs}\p{Co}]/u.test(x) && !/\.$/.test(x); };
+  const compteOk = (w) => !w || w.local === false || nomCompteOk(w.compte);
+  /** Le nom d'un PC sur le réseau (comme le serveur, recipes.ts nomReseau). Pur. */
+  const nomReseau = (n) => String(n == null ? '' : n).normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 15).replace(/-+$/, '');
+  /** Le nom de chaque PC : « auto » pc-01, pc-02… ; « vu » le nom vu au menu, sinon pc-<fin de l'adresse> ; jamais deux pareils. Pur. */
+  function nomsPcs(l, facon) {
+    const deja = new Set(), out = []; let k = 0;
+    const suite = () => { let n; do { k++; n = `pc-${String(k).padStart(2, '0')}`; } while (deja.has(n)); return n; };
+    for (const p of l) {
+      let n = '';
+      if (facon === 'vu') { n = nomReseau(p.vu); if (!n) { const fin = String(p.mac || '').replace(/[^0-9a-f]/gi, '').slice(-6).toLowerCase(); n = fin ? `pc-${fin}` : ''; } }
+      if (!n || deja.has(n)) n = suite();
+      deja.add(n); out.push(n);
+    }
+    return out;
+  }
+  /** La famille de profil de logiciels d'un système : windows, debian (Ubuntu, Debian…) ou fedora (Fedora, Rocky, Alma). Pur. */
+  const osDe = (c) => (c && c.famille === 'windows' ? 'windows' : /fedora|rocky|alma|centos|rhel/i.test(`${(c && c.nom) || ''} ${(c && c.fichier) || ''}`) ? 'fedora' : 'debian');
+  const logique = { MOTS, mot, NB_ETAPES, CIBLES, FACONS_CLE, VERS_CLE, verifMac, nomVmValide, nomVmPour, choisissable, pcsChoisis, aEffacer, carteChoisie, etapeOuverte, suivant: suivantLocal, quand, APPUI_MS, phrasePour, phraseNormale, phraseOk, peutLancer, resteAppui, nomCompteOk, compteOk, nomsPcs, osDe };
 
   // ---------------------------------------------------------------- l'état (gardé quand on change d'onglet)
   const Z = {
@@ -215,6 +284,10 @@
     postes: { etat: 'rien', data: null, raison: '', sig: '' },
     systemes: { etat: 'rien', data: null, raison: '' },
     profils: { etat: 'rien', liste: [], raison: '' },
+    // Lot S6 : les noms des PC, les options Windows, l'aperçu de la fin, la phrase, l'appui long et l'envoi.
+    noms: 'auto', win: { exigences: true, local: true, compte: 'Utilisateur', viePrivee: true, langue: true, activation: 'auto' },
+    apercu: { etat: 'rien', data: null, raison: '', sig: '' },
+    saisie: '', appui: { debut: 0, minuteur: 0 }, msg: '', envoi: { etat: 'rien', texte: '', data: null },
   };
 
   // ---------------------------------------------------------------- le dessin
@@ -323,6 +396,33 @@
 .dp-soon{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.dp-soon>div{flex:1;min-width:220px}.dp-soon p{margin:4px 0 0;font-size:13.5px}
 .dp-soon ul{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
 .dp-odin{width:64px;height:64px;flex:none;display:inline-block;border-radius:50%;background:var(--accent)}.dp-odin svg{width:100%;height:100%;display:block}.dp-odin:has(svg){background:none}
+.dp-deux{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px;margin-top:6px}.dp-col{min-width:0;display:flex;flex-direction:column;gap:8px}
+.dp-logs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.dp-logs li{display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:12px;min-width:0}
+.dp-logs .lt{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 18%,var(--panel));color:var(--ink);font-weight:800;font-size:12px;flex:none;text-transform:capitalize}
+.dp-logs .nm{flex:1;min-width:0}.dp-logs b{display:block;font-size:14px;overflow-wrap:anywhere}.dp-logs small{display:block;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.dp-pre{margin:0;max-height:260px;overflow:auto;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--ink) 6%,var(--panel));border:1px solid var(--line);font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre;color:var(--ink)}
+.dp-opts{display:flex;flex-direction:column}
+.dp-opt{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}.dp-opt:last-child{border-bottom:0}
+.dp-opt .tx{flex:1;min-width:0}.dp-opt b{display:block;font-size:14.5px}.dp-opt small{display:block;font-size:12.5px;color:var(--muted)}
+.dp-sw{flex:none;position:relative;width:60px;min-height:44px;border:0;background:none;padding:0;cursor:pointer;color:inherit}
+.dp-sw::before{content:"";position:absolute;left:2px;right:2px;top:6px;bottom:6px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--ink) 14%,var(--panel))}
+.dp-sw span{position:absolute;top:10px;left:7px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+.dp-sw[aria-checked=true]::before{background:var(--good);border-color:var(--good)}.dp-sw[aria-checked=true] span{left:29px}
+.dp-rcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.dp-rcs>[data-f=rc-pcs]{grid-column:span 2}@media (max-width:640px){.dp-rcs>[data-f=rc-pcs]{grid-column:auto}}
+.dp-rc{border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0;background:var(--panel)}
+.dp-rc .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}.dp-rc .hd b{font-size:14px}
+.dp-lien{min-height:44px;padding:0 6px;border:0;background:none;color:var(--accent);font:inherit;font-weight:600;font-size:13px;cursor:pointer}
+.dp-li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13px;min-width:0}.dp-li>span{min-width:0;overflow-wrap:anywhere}
+.dp-li b{font-weight:600;text-align:right;overflow-wrap:anywhere}.dp-li b.rouge{color:var(--bad);font-weight:800;white-space:nowrap}.dp-li small.mac{color:var(--muted);font-size:11.5px}
+.dp-danger{margin-top:16px;padding:16px;border-radius:16px;border:2px solid var(--bad);background:var(--bad-bg,color-mix(in srgb,var(--bad) 9%,var(--panel)))}
+.dp-danger .lb{font-size:14px;font-weight:700;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dp-danger code{font:600 13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:3px 8px;border-radius:8px;background:var(--panel);border:1px solid var(--line);color:var(--ink)}
+.dp-appui{position:relative;overflow:hidden;min-height:48px;padding:0 18px;border-radius:12px;border:0;background:var(--bad);color:#fff;font:inherit;font-weight:700;font-size:14px;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;flex:none}
+.dp-appui:disabled{opacity:.45;cursor:not-allowed}.dp-appui .tx{position:relative;display:inline-flex;gap:8px;align-items:center}
+.dp-remplir{position:absolute;inset:0 auto 0 0;width:0;background:rgba(0,0,0,.28)}
+@media (max-width:900px){.dp-deux{grid-template-columns:1fr}}
+@media (max-width:640px){.dp-danger .dp-row{flex-direction:column;align-items:stretch}.dp-appui{width:100%}.dp-rcs{grid-template-columns:1fr}}
 @media (max-width:900px){.dp-choix{grid-template-columns:1fr}.dp-vm{grid-template-columns:1fr}.dp-vm.deux{grid-template-columns:1fr}}
 @media (max-width:640px){
   .dp-card{padding:14px}
@@ -339,7 +439,7 @@
 `;
 
   // ---------------------------------------------------------------- les lectures (aucune écriture)
-  const postModule = async (module, action, input = {}) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module, action, input }) })).json();
+  const postModule = async (module, action, input = {}, confirm = false) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module, action, input, ...(confirm ? { confirm: true } : {}) }) })).json();
   const raisonDe = (r, e) => String((r && r.text) || (e && e.message) || e || '?');
   let H = null; // { post, aller, wrap, redessiner }
 
@@ -382,7 +482,12 @@
   }
 
   // ---------------------------------------------------------------- les choix (rien n'est écrit)
-  function aller(n, focus) { if (!etapeOuverte(n, Z)) return; Z.etape = n; dessinerTout(focus || `etape-${n}`); }
+  function aller(n, focus) {
+    if (!etapeOuverte(n, Z)) return;
+    // Revenir changer quelque chose : la confirmation d'avant ne vaut plus (phrase à retaper, rien de lancé en double).
+    if (n !== Z.etape && Z.envoi.etat !== 'envoi') { Z.envoi = { etat: 'rien', texte: '', data: null }; Z.saisie = ''; Z.msg = ''; }
+    Z.etape = n; dessinerTout(focus || `etape-${n}`);
+  }
   function choisirCible(c) {
     if (!CIBLES.includes(c)) return;
     Z.cible = c;
@@ -659,27 +764,231 @@
   }
 
   function mascotte() { const f = W.OdinGeneseCleEtapes && W.OdinGeneseCleEtapes.mascotte; try { if (typeof f === 'function') { const m = f(); if (m && m.classList) m.classList.add('dp-odin'); return m; } } catch { /* le rond */ } return el('span', { class: 'dp-odin', 'aria-hidden': 'true' }); }
-  function etapeBientot(n) {
-    const c = carteChoisie(Z), recap = [];
-    if (Z.cible === 'reseau') {
-      const l = pcsChoisis(Z).map(nomPc);
-      if (Z.prochain) l.push(mot('garde.prochain'));
-      recap.push(mot('recap.cible.reseau', { pcs: l.join(', ') }), mot(`recap.facon.${Z.facon}`));
-    } else recap.push(mot('recap.cible.vm', { nom: Z.vm.nom, cpu: nombre(Z.vm.cpu), mem: mot('u.go', { n: nombre(Z.vm.mem) }), disk: mot('u.go', { n: nombre(Z.vm.disk) }) }));
-    if (c) recap.push(mot('recap.sys', { sys: nomSys(c) }));
-    const sec = el('section', { class: 'dp-card dp-soon', 'data-f': `bientot-${n}` }, mascotte(),
-      el('div', {}, el('b', {}, mot('bientot.titre')), el('p', {}, mot(`bientot.${n}`)), el('p', { class: 'dp-msg' }, mot('recap.titre')), el('ul', { 'data-f': 'recap' }, ...recap.map((t) => el('li', {}, t)))));
-    const avant = n === 6 && !etapeOuverte(5, Z) ? 4 : n - 1;
-    const apres = n === 4 ? (etapeOuverte(5, Z) ? 5 : 6) : n === 5 ? 6 : 0;
-    return [sec, pied(avant, apres, apres ? !etapeOuverte(apres, Z) : true, '')];
+
+  // ---------------------------------------------------------------- étape 4 « Logiciels et scripts »
+  /** L'aperçu de la fin (lecture « deployer_apercu ») : relu quand le système, le profil ou les options changent. */
+  async function lireApercu() {
+    if (!H) return;
+    const c = carteChoisie(Z);
+    if (!c || !c.iso) { Z.apercu = { etat: 'rien', data: null, raison: '', sig: '' }; return; }
+    const sig = JSON.stringify([c.iso, Z.profil || '', Z.win]);
+    if (Z.apercu.sig === sig && (Z.apercu.etat === 'pret' || Z.apercu.etat === 'charge')) return;
+    Z.apercu = { etat: 'charge', data: Z.apercu.data, raison: '', sig };
+    let r, e;
+    try { r = await H.post('deployer_apercu', { iso: c.iso, profil: Z.profil || '', windows: Z.win }); } catch (x) { e = x; }
+    if (Z.apercu.sig !== sig) return;
+    Z.apercu = r && r.ok !== false && r.data ? { etat: 'pret', data: r.data, raison: '', sig } : { etat: 'erreur', data: null, raison: raisonDe(r, e), sig };
+  }
+  function puces(c) {
+    const box = el('div', { class: 'dp-chips', role: 'group', 'aria-labelledby': 'dp-profil', 'data-f': 'profils' });
+    if (Z.profils.etat === 'pret' && Z.profils.liste.length) {
+      box.append(...Z.profils.liste.map((p) => {
+        const n = (((p.systemes || {})[osDe(c)] || {}).logiciels || []).length;
+        return el('button', { type: 'button', class: 'dp-chip', 'data-profil': p.id, 'data-f': `profil-${p.id}`, 'aria-pressed': String(Z.profil === p.id), onclick: () => { Z.profil = p.id; void lireApercu().then(() => dessinerTout(`profil-${p.id}`)); dessinerTout(`profil-${p.id}`); } }, String(p.nom || '').slice(0, 60), el('small', {}, nombre(n)));
+      }), el('button', { type: 'button', class: 'dp-chip', 'data-profil': '', 'data-f': 'profil-aucun', 'aria-pressed': String(!Z.profil), onclick: () => { Z.profil = ''; void lireApercu().then(() => dessinerTout('profil-aucun')); dessinerTout('profil-aucun'); } }, mot('profil.aucun')));
+      return box;
+    }
+    return el('p', { class: 'dp-msg', role: 'status' }, Z.profils.etat === 'erreur' ? mot('profil.erreur', { raison: Z.profils.raison }) : Z.profils.etat === 'pret' ? mot('profil.vide') : mot('profil.charge'));
+  }
+  function choixNoms() {
+    return [el('div', { class: 'dp-h5', id: 'dp-noms' }, mot('noms.titre')),
+      el('div', { class: 'dp-seg', role: 'group', 'aria-labelledby': 'dp-noms' }, ...['auto', 'vu'].map((k) => el('button', { type: 'button', 'data-f': `noms-${k}`, 'aria-pressed': String(Z.noms === k), onclick: () => { Z.noms = k; dessinerTout(`noms-${k}`); } }, mot(`noms.${k}`))))];
+  }
+  function etapeLogiciels() {
+    const c = carteChoisie(Z);
+    const sec = el('section', { class: 'dp-card', 'aria-labelledby': 'dp-t4' }, el('h4', { id: 'dp-t4' }, mot('log.titre')));
+    const apres = etapeOuverte(5, Z) ? 5 : 6;
+    if (Z.cible === 'vm') { sec.append(el('p', { class: 'dp-lead', 'data-f': 'log-vm' }, mot('log.vm'))); return [sec, pied(3, apres, !etapeOuverte(apres, Z), '')]; }
+    if (Z.profils.etat === 'rien') void lireProfils().then(() => { void lireApercu().then(() => dessinerTout()); });
+    else if (Z.apercu.etat === 'rien' || Z.apercu.sig !== JSON.stringify([c && c.iso, Z.profil || '', Z.win])) void lireApercu().then(() => dessinerTout());
+    sec.append(el('p', { class: 'dp-lead' }, mot('log.lead')), el('div', { class: 'dp-h5', id: 'dp-profil' }, mot('log.profil')), puces(c));
+    const d = Z.apercu.data;
+    const gauche = el('div', { class: 'dp-col' }, el('div', { class: 'dp-h5' }, mot('log.pour', { sys: nomSys(c) })));
+    const droite = el('div', { class: 'dp-col' }, el('div', { class: 'dp-h5' }, mot('log.script')));
+    if (Z.apercu.etat === 'erreur') droite.append(el('p', { class: 'dp-msg ko', role: 'status' }, mot('log.script.erreur', { raison: Z.apercu.raison })));
+    else if (!d) droite.append(el('p', { class: 'dp-msg', role: 'status' }, mot('log.script.charge')));
+    if (d) {
+      const l = Array.isArray(d.logiciels) ? d.logiciels : [];
+      gauche.append(l.length ? el('ul', { class: 'dp-logs', 'data-f': 'logiciels' }, ...l.map((x) => el('li', { 'data-logiciel': String(x.fichier || '') },
+        el('span', { class: 'lt', 'aria-hidden': 'true' }, String(x.nom || '?').slice(0, 2)), el('span', { class: 'nm' }, el('b', {}, String(x.nom || x.fichier || '')), el('small', {}, String(x.fichier || ''))),
+        el('span', { class: `dp-tag${x.toutSeul ? ' ok' : ' warn'}` }, mot(x.toutSeul ? 'log.toutseul' : 'log.main')))))
+        : el('p', { class: 'dp-msg' }, mot(Z.profil ? 'log.vide' : 'log.sansprofil')));
+      droite.append(el('pre', { class: 'dp-pre', 'data-f': 'script', tabindex: '0', 'aria-label': mot('log.script') }, String(d.script || '')));
+      const sc = Array.isArray(d.scripts) ? d.scripts : [];
+      droite.append(el('div', { class: 'dp-h5' }, mot('log.scripts'), ' ', el('span', { class: 'dp-tag' }, nombre(sc.length))),
+        sc.length ? el('ul', { class: 'dp-logs', 'data-f': 'scripts' }, ...sc.map((x) => el('li', { 'data-script': String(x.nom || ''), 'data-ok': String(x.ok === true) },
+          el('span', { class: 'nm' }, el('b', {}, String(x.nom || '')), el('small', {}, x.ok ? mot('log.scripts.ok') : mot('log.scripts.ko', { raison: String(x.raison || '') }))),
+          el('span', { class: `dp-tag${x.ok ? ' ok' : ' bad'}` }, mot(x.ok ? 'log.scripts.accepte' : 'log.scripts.refuse')))))
+          : el('p', { class: 'dp-msg' }, mot('log.scripts.vide')));
+    }
+    gauche.append(el('button', { type: 'button', class: 'dp-btn', 'data-f': 'changer-logiciels', onclick: () => { if (H && H.aller) H.aller('logiciels'); } }, mot('log.changer')));
+    sec.append(el('div', { class: 'dp-deux' }, gauche, droite));
+    if (c && c.famille !== 'windows' && Z.facon === 'auto') sec.append(...choixNoms());
+    return [sec, pied(3, apres, !etapeOuverte(apres, Z), '')];
+  }
+
+  // ---------------------------------------------------------------- étape 5 « Options Windows »
+  function interrupteur(k, titre, texte, plus) {
+    const on = Z.win[k] !== false;
+    return el('div', { class: 'dp-opt' }, el('span', { class: 'tx' }, el('b', { id: `dp-w-${k}` }, mot(titre)), el('small', {}, mot(texte)), plus || null),
+      el('button', { type: 'button', role: 'switch', class: 'dp-sw', 'aria-checked': String(on), 'aria-labelledby': `dp-w-${k}`, 'data-f': `w-${k}`, onclick: () => { Z.win = { ...Z.win, [k]: !on }; dessinerTout(`w-${k}`); } }, el('span', { 'aria-hidden': 'true' })));
+  }
+  function etapeWindows() {
+    const sec = el('section', { class: 'dp-card', 'aria-labelledby': 'dp-t5' }, el('h4', { id: 'dp-t5' }, mot('win.titre')), el('p', { class: 'dp-lead' }, mot('win.lead')));
+    if (Z.cible === 'vm') { sec.append(el('p', { class: 'dp-msg', 'data-f': 'win-vm' }, mot('win.vm'))); return [sec, pied(4, 6, !etapeOuverte(6, Z), '')]; }
+    const ok = compteOk(Z.win);
+    const champ = el('input', { class: 'dp-in', id: 'dp-compte', type: 'text', maxlength: '20', autocomplete: 'off', spellcheck: 'false', 'data-f': 'compte', 'aria-invalid': ok ? null : 'true', 'aria-describedby': 'dp-compte-aide',
+      oninput: (e) => { Z.win = { ...Z.win, compte: String(e.target.value || '') }; const v = compteOk(Z.win); if (e.target.setAttribute) { if (v) e.target.removeAttribute('aria-invalid'); else e.target.setAttribute('aria-invalid', 'true'); } const m = Z.wrap && Z.wrap.querySelector('[data-f="compte-aide"]'); if (m) { m.textContent = mot(v ? 'win.compte.aide' : 'win.compte.ko'); m.className = `dp-msg${v ? '' : ' ko'}`; } const b = Z.wrap && Z.wrap.querySelector('[data-f="continuer"]'); if (b) b.disabled = !v; } });
+    champ.value = Z.win.compte;
+    const compte = Z.win.local !== false ? el('div', { class: 'dp-field', style: 'max-width:360px;margin-top:10px' }, el('label', { for: 'dp-compte' }, mot('win.compte')), champ, el('small', { class: `dp-msg${ok ? '' : ' ko'}`, id: 'dp-compte-aide', 'data-f': 'compte-aide' }, mot(ok ? 'win.compte.aide' : 'win.compte.ko'))) : null;
+    sec.append(el('div', { class: 'dp-opts' }, interrupteur('exigences', 'win.exigences', 'win.exigences.texte'), interrupteur('local', 'win.local', 'win.local.texte', compte), interrupteur('viePrivee', 'win.vie', 'win.vie.texte'), interrupteur('langue', 'win.langue', 'win.langue.texte')));
+    sec.append(...choixNoms());
+    // La clé d'activation : celle du coffre pour cette édition (4 derniers caractères), ou aucune.
+    if (Z.apercu.etat === 'rien' || Z.apercu.sig !== JSON.stringify([carteChoisie(Z) && carteChoisie(Z).iso, Z.profil || '', Z.win])) void lireApercu().then(() => dessinerTout());
+    const act = Z.apercu.data && Z.apercu.data.activation;
+    sec.append(el('div', { class: 'dp-h5', id: 'dp-act' }, mot('act.titre')));
+    if (act) sec.append(el('div', { class: 'dp-seg', role: 'group', 'aria-labelledby': 'dp-act' },
+      el('button', { type: 'button', 'data-f': 'act-auto', 'aria-pressed': String(Z.win.activation !== 'aucune'), onclick: () => { Z.win = { ...Z.win, activation: 'auto' }; dessinerTout('act-auto'); } }, mot('act.coffre', { edition: String(act.edition || ''), fin: String(act.fin || '').slice(-4) })),
+      el('button', { type: 'button', 'data-f': 'act-aucune', 'aria-pressed': String(Z.win.activation === 'aucune'), onclick: () => { Z.win = { ...Z.win, activation: 'aucune' }; dessinerTout('act-aucune'); } }, mot('act.aucune'))));
+    else sec.append(el('p', { class: 'dp-msg', 'data-f': 'act-sans' }, mot(Z.apercu.etat === 'pret' ? 'act.sans' : 'log.script.charge')));
+    return [sec, pied(4, 6, !ok, '')];
+  }
+
+  // ---------------------------------------------------------------- étape 6 « Vérifier »
+  function ligne(k, v, cls, attrs) { return el('div', { class: 'dp-li', ...(attrs || {}) }, el('span', {}, k), el('b', { class: cls || null }, v)); }
+  function carteRecap(titre, n, lignes, f) {
+    return el('section', { class: 'dp-rc', 'data-f': f }, el('div', { class: 'hd' }, el('b', {}, titre), n ? el('button', { type: 'button', class: 'dp-lien', 'data-f': `${f}-changer`, onclick: () => aller(n) }, mot('ver.changer')) : null), ...lignes);
+  }
+  function etapeVerifier() {
+    const c = carteChoisie(Z), cibles = ciblesNommees(Z), auto = Z.facon === 'auto';
+    if (Z.cible === 'vm') return etapeVerifierVm(c);
+    const titre = auto ? 'ver.titre' : 'ver.titre.menu';
+    const sec = el('section', { class: 'dp-card', 'aria-labelledby': 'dp-t6' }, el('h4', { id: 'dp-t6' }, mot(titre)), el('p', { class: 'dp-lead' }, mot('ver.lead')));
+    const d = Z.apercu.data;
+    if (Z.apercu.etat === 'rien' || Z.apercu.sig !== JSON.stringify([c && c.iso, Z.profil || '', Z.win])) void lireApercu().then(() => dessinerTout());
+    const prof = Z.profil ? Z.profils.liste.find((p) => p.id === Z.profil) : null;
+    const cartes = [
+      carteRecap(mot('ver.pcs', { n: nombre(cibles.length) }), 2, cibles.map((x) => ligne(x.prochain ? mot('ver.prochain') : [x.nom, el('small', { class: 'mac' }, ` (${x.mac})`)], mot(auto ? 'ver.efface' : 'ver.menu'), auto ? 'rouge' : null, { 'data-efface': auto ? (x.prochain ? 'prochain' : x.mac) : null })), 'rc-pcs'),
+      carteRecap(mot('ver.sys'), 3, [ligne(nomSys(c), c && c.taille && W.OdinGeneseSystemes && W.OdinGeneseSystemes.logique && typeof W.OdinGeneseSystemes.logique.taille === 'function' ? W.OdinGeneseSystemes.logique.taille(c.taille) : ''), ligne(mot('ver.empreinte'), mot(c && c.empreinte === 'editeur' ? 'ver.empreinte.editeur' : 'ver.empreinte.ok')), ligne(mot('ver.install'), mot(auto ? 'ver.install.auto' : 'ver.install.menu'))], 'rc-sys'),
+      carteRecap(mot('ver.fin'), 4, [ligne(mot('ver.profil'), prof ? String(prof.nom || '').slice(0, 60) : mot('profil.aucun')), ligne(mot('ver.logiciels'), d ? nombre((d.logiciels || []).filter((x) => x.toutSeul).length) : '…'), ligne(mot('ver.scripts'), d ? nombre((d.scripts || []).filter((x) => x.ok).length) : '…')], 'rc-fin'),
+    ];
+    if (c && c.famille === 'windows') cartes.push(carteRecap(mot('ver.win'), 5, [
+      ligne(mot('ver.compte'), Z.win.local !== false ? mot('ver.compte.local', { nom: String(Z.win.compte || '').trim() }) : mot('ver.compte.ligne')),
+      ligne(mot('ver.exigences'), mot(Z.win.exigences !== false ? 'ver.oui.sans' : 'ver.non.avec')),
+      ligne(mot('ver.activation'), Z.win.activation !== 'aucune' && d && d.activation ? mot('ver.act.coffre', { fin: String(d.activation.fin || '').slice(-4) }) : mot('ver.act.aucune'))], 'rc-win'));
+    sec.append(el('div', { class: 'dp-rcs' }, ...cartes));
+    sec.append(Z.envoi.etat === 'fait' ? fait() : auto ? confirmation(cibles) : proposer(cibles));
+    return [sec, pied(etapeOuverte(5, Z) ? 5 : 4, 0, true, '')];
+  }
+  /** Le récapitulatif fait, côté page, comme le serveur le fera (les noms définitifs viennent du serveur). */
+  function ciblesNommees(z) {
+    const l = pcsChoisis(z).map((p) => ({ mac: p.mac, vu: p.nom || '' }));
+    if (z.prochain) l.push({ mac: '', vu: '', prochain: true });
+    const noms = nomsPcs(l, z.noms);
+    return l.map((x, k) => ({ ...x, nom: noms[k] }));
+  }
+  function fait() {
+    const r = Z.envoi.data || {}, l = Array.isArray(r.pcs) ? r.pcs : [];
+    return el('div', { class: 'dp-guard calm', role: 'status', 'data-f': 'fait' }, el('span', { class: 'gi' }, ic('check', 24, 3)),
+      el('div', {}, el('b', {}, mot(Z.facon === 'auto' ? 'fait.titre' : 'fait.titre.menu')), el('p', {}, String(Z.envoi.texte || '')),
+        el('ul', {}, ...l.map((x) => el('li', {}, x.prochain ? mot('ver.prochain') : `${x.nom} (${x.mac})`))),
+        el('button', { type: 'button', class: 'dp-btn pri', 'data-f': 'suivi', onclick: () => { if (H && H.aller) H.aller('installations'); } }, mot('suivi'), ic('right'))));
+  }
+  async function envoyer(attendue) {
+    const c = carteChoisie(Z), cibles = ciblesNommees(Z);
+    Z.envoi = { etat: 'envoi', texte: '', data: null }; dessinerTout('annonce');
+    let r, e;
+    try {
+      r = await H.post('deployer', { pcs: cibles.filter((x) => !x.prochain).map((x) => x.mac), prochain: Z.prochain, iso: c ? c.iso : '', facon: Z.facon, profil: Z.profil || '', windows: c && c.famille === 'windows' ? Z.win : null, noms: Z.noms, ...(attendue ? { phrase: Z.saisie } : {}) }, true);
+    } catch (x) { e = x; }
+    if (r && r.ok !== false) { Z.envoi = { etat: 'fait', texte: String(r.text || ''), data: r.data || null }; Z.saisie = ''; }
+    else Z.envoi = { etat: 'erreur', texte: mot('erreur', { raison: raisonDe(r, e) }), data: null };
+    dessinerTout(Z.envoi.etat === 'fait' ? 'suivi' : 'annonce');
+  }
+  function confirmation(cibles) {
+    const n = cibles.length, attendue = phrasePour(n), juste = phraseOk(Z.saisie, attendue), occupe = Z.envoi.etat === 'envoi';
+    const etat = el('span', { class: `dp-msg${juste ? ' ok' : ''}`, id: 'dp-phrase-etat', role: 'status' }, Z.saisie ? mot(juste ? 'phrase.ok' : 'phrase.ko') : '');
+    const annonce = el('p', { class: `dp-msg${Z.envoi.etat === 'erreur' ? ' ko' : ''}`, role: 'status', 'aria-live': 'assertive', 'data-f': 'annonce' }, Z.envoi.etat === 'erreur' ? Z.envoi.texte : occupe ? mot('envoi') : Z.msg);
+    const remplir = el('span', { class: 'dp-remplir' });
+    const bouton = el('button', { type: 'button', class: 'dp-appui', 'data-f': 'effacer', disabled: !juste || occupe, 'aria-describedby': 'dp-appui-aide' }, remplir, el('span', { class: 'tx' }, ic('warn', 18), mot('appui', { n: nombre(n) })));
+    const champ = el('input', { class: 'dp-in', id: 'dp-phrase', 'data-f': 'phrase', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-describedby': 'dp-phrase-etat', disabled: occupe });
+    champ.value = Z.saisie;
+    const aide = el('small', { class: 'dp-msg', id: 'dp-appui-aide', 'data-f': 'appui-aide' }, mot(juste ? 'appui.aide' : 'appui.ferme'));
+    champ.addEventListener('input', () => {
+      Z.saisie = String(champ.value || ''); const ok = phraseOk(Z.saisie, attendue);
+      etat.className = `dp-msg${ok ? ' ok' : ''}`; etat.textContent = Z.saisie ? mot(ok ? 'phrase.ok' : 'phrase.ko') : '';
+      bouton.disabled = !ok || Z.envoi.etat === 'envoi'; aide.textContent = mot(ok ? 'appui.aide' : 'appui.ferme');
+    });
+    // L'appui long : doigt, souris ou touche (Espace, Entrée). Relâcher avant 3 s arrête tout ; rien n'est envoyé.
+    const commencer = (ev) => {
+      if (bouton.disabled || Z.appui.minuteur) return;
+      if (ev && ev.preventDefault) ev.preventDefault();
+      Z.appui = { debut: Date.now(), minuteur: 0 }; Z.msg = '';
+      let dit = -1;
+      Z.appui.minuteur = setInterval(() => {
+        const ms = Date.now() - Z.appui.debut;
+        remplir.style.width = `${Math.min(100, (ms / APPUI_MS) * 100)}%`;
+        const reste = resteAppui(ms); if (reste !== dit && reste > 0) { dit = reste; annonce.textContent = mot('appui.encore', { s: nombre(reste) }); }
+        if (peutLancer({ phraseOk: phraseOk(Z.saisie, attendue), appuiMs: ms })) { clearInterval(Z.appui.minuteur); Z.appui = { debut: 0, minuteur: 0 }; void envoyer(attendue); }
+      }, 50);
+    };
+    const arreter = () => {
+      if (!Z.appui.minuteur) return;
+      clearInterval(Z.appui.minuteur); Z.appui = { debut: 0, minuteur: 0 };
+      remplir.style.width = '0'; Z.msg = mot('appui.lache'); annonce.textContent = Z.msg;
+    };
+    bouton.addEventListener('pointerdown', commencer);
+    for (const t of ['pointerup', 'pointerleave', 'pointercancel', 'blur']) bouton.addEventListener(t, arreter);
+    bouton.addEventListener('keydown', (ev) => { if ((ev.key === ' ' || ev.key === 'Enter') && !ev.repeat) commencer(ev); else if ((ev.key === ' ' || ev.key === 'Enter') && ev.preventDefault) ev.preventDefault(); });
+    bouton.addEventListener('keyup', (ev) => { if (ev.key === ' ' || ev.key === 'Enter') arreter(); });
+    bouton.addEventListener('contextmenu', (ev) => { if (ev.preventDefault) ev.preventDefault(); });
+    const qui = cibles.map((x) => (x.prochain ? mot('garde.prochain') : x.nom)).join(', ');
+    return el('div', { class: 'dp-danger', 'data-f': 'danger' },
+      el('label', { for: 'dp-phrase', class: 'lb' }, mot('phrase.titre'), ' ', el('code', { 'data-phrase': attendue, translate: 'no' }, attendue)),
+      el('div', { class: 'dp-row' }, el('div', { class: 'dp-field' }, champ), bouton), etat, aide,
+      el('p', { class: 'dp-msg' }, mot('phrase.qui', { pcs: qui })), annonce);
+  }
+  function proposer(cibles) {
+    const occupe = Z.envoi.etat === 'envoi';
+    return el('div', { class: 'dp-guard calm', 'data-f': 'proposer' }, el('span', { class: 'gi' }, ic('shield', 24)),
+      el('div', {}, el('b', {}, mot('garde.menu.titre')), el('p', {}, mot('garde.menu.texte')),
+        el('button', { type: 'button', class: 'dp-btn pri', 'data-f': 'proposer-menu', disabled: occupe, onclick: () => void envoyer('') }, mot('menu.bouton', { n: nombre(cibles.length) })),
+        el('p', { class: `dp-msg${Z.envoi.etat === 'erreur' ? ' ko' : ''}`, role: 'status', 'data-f': 'annonce' }, Z.envoi.etat === 'erreur' ? Z.envoi.texte : occupe ? mot('envoi') : '')));
+  }
+  function etapeVerifierVm(c) {
+    const sec = el('section', { class: 'dp-card', 'aria-labelledby': 'dp-t6' }, el('h4', { id: 'dp-t6' }, mot('ver.titre.vm')), el('p', { class: 'dp-lead' }, mot('ver.lead')));
+    sec.append(el('div', { class: 'dp-rcs' },
+      carteRecap(mot('ver.vm'), 2, [ligne(mot('vm.nom'), Z.vm.nom), ligne(mot('vm.cpu'), nombre(Z.vm.cpu)), ligne(mot('vm.mem'), mot('u.go', { n: nombre(Z.vm.mem) })), ligne(mot('vm.disk'), mot('u.go', { n: nombre(Z.vm.disk) }))], 'rc-vm'),
+      carteRecap(mot('ver.sys'), 3, [ligne(nomSys(c), '')], 'rc-sys')));
+    const occupe = Z.envoi.etat === 'envoi';
+    sec.append(el('div', { class: 'dp-guard calm', 'data-f': 'vm-creer' }, el('span', { class: 'gi' }, ic('shield', 24)),
+      el('div', {}, el('b', {}, mot('vm.garde.titre')), el('p', {}, mot('vm.garde.texte', { n: mot('u.go', { n: nombre(Z.vm.disk) }) })),
+        Z.envoi.etat === 'fait' ? el('p', { class: 'dp-msg ok', role: 'status', 'data-f': 'annonce' }, Z.envoi.texte)
+          : el('button', { type: 'button', class: 'dp-btn pri', 'data-f': 'creer-vm', disabled: occupe || Z.vmDispo !== true, onclick: () => void creerVm(c) }, mot('vm.bouton')),
+        Z.envoi.etat === 'fait' ? null : el('p', { class: `dp-msg${Z.envoi.etat === 'erreur' ? ' ko' : ''}`, role: 'status', 'data-f': 'annonce' }, Z.envoi.etat === 'erreur' ? Z.envoi.texte : occupe ? mot('vm.envoi') : ''))));
+    return [sec, pied(etapeOuverte(5, Z) ? 5 : 4, 0, true, '')];
+  }
+  /** La machine virtuelle : créée par Hydre (« creer_machine »), seulement si elle sait le faire, après ta confirmation. */
+  async function creerVm(c) {
+    if (Z.vmDispo !== true || !c) return;
+    const D = W.OdinDialog;
+    const ok = D && typeof D.confirm === 'function' ? await D.confirm(mot('vm.confirm', { nom: Z.vm.nom, cpu: nombre(Z.vm.cpu), mem: mot('u.go', { n: nombre(Z.vm.mem) }), disk: mot('u.go', { n: nombre(Z.vm.disk) }), sys: nomSys(c) }), { ok: mot('vm.bouton') }) : false;
+    if (!ok) { Z.envoi = { etat: 'erreur', texte: mot('annule'), data: null }; dessinerTout('annonce'); return; }
+    Z.envoi = { etat: 'envoi', texte: '', data: null }; dessinerTout('annonce');
+    let r, e;
+    try { r = await postModule('ymir', 'creer_machine', { genre: 'vm', iso: c.fichier || c.nom || '', nom: Z.vm.nom, coeurs: Z.vm.cpu, memoire: Z.vm.mem, disque: Z.vm.disk, uefi: true }, true); } catch (x) { e = x; }
+    Z.envoi = r && r.ok !== false ? { etat: 'fait', texte: String(r.text || ''), data: null } : { etat: 'erreur', texte: mot('erreur', { raison: raisonDe(r, e) }), data: null };
+    dessinerTout('annonce');
   }
 
   function panneau() {
-    if (Z.etape > 1 && !etapeOuverte(Z.etape, Z)) Z.etape = [3, 2, 1].find((k) => k < Z.etape && etapeOuverte(k, Z)) || 1;
+    if (Z.etape > 1 && !etapeOuverte(Z.etape, Z)) Z.etape = [5, 4, 3, 2, 1].find((k) => k < Z.etape && etapeOuverte(k, Z)) || 1;
     if (Z.etape === 1) return etapeVersQuoi();
     if (Z.etape === 2) return Z.cible === 'vm' ? etapeMachine() : etapePostes();
     if (Z.etape === 3) return etapeSysteme();
-    return etapeBientot(Z.etape);
+    if (Z.etape === 4) return etapeLogiciels();
+    if (Z.etape === 5) return etapeWindows();
+    return etapeVerifier();
   }
   function focaliser(f) {
     if (!f || !Z.wrap) return;
@@ -724,7 +1033,7 @@
   /** Monte l'onglet dans root. hote : { post, aller(onglet) } (la page de Genèse). */
   async function dessiner(root, _onglet, hote) {
     if (typeof document !== 'undefined' && document.head && !(document.getElementById && document.getElementById('dpCss'))) document.head.append(el('style', { id: 'dpCss' }, CSS));
-    const post = (hote && hote.post) || ((a, i) => postModule('thjalfi', a, i));
+    const post = (hote && hote.post) || ((a, i, c) => postModule('thjalfi', a, i, c));
     const wrap = el('div', { class: 'dp', 'data-f': 'deployer' });
     root.append(wrap);
     Z.wrap = wrap;

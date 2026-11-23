@@ -20,9 +20,9 @@ import type { Action, Kpi, ModCtx, Module, Section } from '../types.ts';
 import { journalDe } from '../base/journal.ts';
 import { Iso } from '../thjalfi/iso.ts';
 import { ProxyDhcp, bootFor, type Firmware } from '../thjalfi/pxe.ts';
-import { debianPreseed, detect, kickstart, menu, odinCmd, silentArgs, ubuntuMetaData, ubuntuUserData, unattend, windowsAfter, winpeshl, type Answer, type Recipe } from '../thjalfi/recipes.ts';
+import { debianPreseed, detect, kickstart, menu, motDePassePc, nomsDesPcs, scriptFinLinux, odinCmd, silentArgs, ubuntuMetaData, ubuntuUserData, unattend, windowsAfter, winpeshl, type Answer, type Recipe } from '../thjalfi/recipes.ts';
 import { familleLogiciel, installeAuto, modeInstall, versScripts } from '../thjalfi/logiciels-cle.ts';
-import { normMac, PxeHttp } from '../thjalfi/server.ts';
+import { autorisationPour, autorisationValable, FENETRE_IDENTITES_MS, identiteDifferente, identitesEnConflit, normMac, PxeHttp, tailleDisqueVue, type AutorisationPc, type IdentiteNotee, type IdentiteVue } from '../thjalfi/server.ts';
 import { DISPOSITIONS, TEXT_THEMES, category, TEXT_THEME_IDS, THEMES, odinSays, systems, textLook, textThemeOf, themeOf, type Disposition, type TextTheme } from '../thjalfi/ecran.ts';
 import { imageKind, textBackground } from '../thjalfi/fond.ts';
 import { ALPINE_MIRROR, kioskBoot, kioskOverlay, parseLatest, untar } from '../thjalfi/ecran-pc.ts';
@@ -30,11 +30,13 @@ import { gunzipSync } from 'node:zlib';
 import { ecranPage } from '../thjalfi/ecran-page.ts';
 import { fenetreFin } from '../thjalfi/ecrans-communs.ts';
 import { TftpServer } from '../thjalfi/tftp.ts';
-import { suivi, type FicheFin, type Passage, type Resultat } from '../thjalfi/suivi.ts';
+import { identite, suivi, type FicheFin, type Passage, type Resultat } from '../thjalfi/suivi.ts';
 import { pxeHook } from '../vidarr/dhcp.ts';
 import { cleUsb } from '../thjalfi/cle-ecrire.ts';
 import { EDITIONS, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, masque, supprimerCle } from '../thjalfi/cles-windows.ts';
-import { apercu as apercuScripts, nomCompteValide, optionsWindowsDe, osDuScript, scriptsRevus, type ScriptPerso } from '../thjalfi/scripts.ts';
+import { apercu as apercuScripts, appliquerOptionsWindows, injecterSautExigences, nomCompteValide, optionsWindowsDe, osDuScript, scriptsRevus, type ScriptPerso } from '../thjalfi/scripts.ts';
+import { phraseNormale } from '../thjalfi/cle-ecrire.ts';
+import { chiffrerChamp, dechiffrerChamp } from '../../vault.ts';
 import { BASE_RULES, RuleSet, compileGaldr, flat as plusieursConstats, scanBuffer } from '../ullr/engine.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
@@ -43,8 +45,8 @@ const FINAL: Step[] = ['fini', 'sans nouvelles', 'échec'];
 export interface IsoInfo { id: string; name: string; path: string; size: number; mtime: number; recipe?: Recipe; err?: string; /** son état dans la bibliothèque commune (absent : Hydre n'est pas là) */ etat?: 'prête' | 'scannée' | 'ancienne' }
 export interface Rule { mac: string; nom?: string; iso?: string; profil?: string; auto: boolean; fait?: boolean; ajoute: number }
 export interface Profile { id: string; nom: string; utilisateur: string; paquets: string[]; logiciels: string[]; langue: string; clavier: string; fuseau: string; /** false : pas de compagnon d'Odin à la fin */ compagnon?: boolean }
-export interface Machine extends Passage { mac: string; ip?: string; fw?: string; iso?: string; isoName?: string; step: Step; steps: Array<{ at: number; step: string; detail?: string }>; started: number; updated: number; host?: string; token?: string; profil?: string; logiciels?: Array<{ nom: string; ok: boolean }> }
-interface Session { token: string; mac: string; iso: string; profil: string; host: string; fw: 'uefi' | 'bios'; created: number; files?: Record<string, string>; /** l'installation est finie ou ratée depuis cette heure : le jeton ne sert plus que 10 min */ fin?: number }
+export interface Machine extends Passage { mac: string; ip?: string; fw?: string; iso?: string; isoName?: string; step: Step; steps: Array<{ at: number; step: string; detail?: string }>; started: number; updated: number; host?: string; token?: string; profil?: string; logiciels?: Array<{ nom: string; ok: boolean }>; /** la taille de son disque (octets), quand le PC l'a dite */ disque?: number }
+interface Session { token: string; mac: string; iso: string; profil: string; host: string; fw: 'uefi' | 'bios'; created: number; files?: Record<string, string>; /** l'installation est finie ou ratée depuis cette heure : le jeton ne sert plus que 10 min */ fin?: number; /** Déployer (lot S6) : l'autorisation utilisée, et l'adresse du PC vérifié (ses fichiers ne vont qu'à elle) */ autorisation?: string; from?: string }
 export interface Done extends FicheFin { at: number; mac: string; host?: string; ip?: string; iso: string; isoName: string; profil?: string; ms: number; result: Resultat; logiciels?: Array<{ nom: string; ok: boolean }> }
 /** Un choix fait sur l'écran d'Odin, lu une seule fois par le menu de la machine. */
 /** Le choix fait sur l'écran d'Odin : un système (essai, installation), le disque du PC, ou le menu TEXTE (« T »). */
@@ -61,6 +63,8 @@ export const LOADERS: Array<{ file: string; url: string; what: string }> = [
   { file: 'ipxe-arm64.efi', url: 'https://boot.ipxe.org/arm64-efi/ipxe.efi', what: 'iPXE pour les machines ARM 64 bits' },
   { file: 'wimboot', url: 'https://github.com/ipxe/wimboot/releases/latest/download/wimboot', what: 'wimboot (démarrage du programme d\'installation de Windows)' },
 ];
+/** Déployer (lot S6) : les autorisations de déploiement par le réseau (fichier protégé du dossier de Genèse). */
+const FICHIER_AUTORISATIONS = 'deploiements-autorises.json';
 const slug = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\.iso$/i, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'iso';
 const hostOf = (mac: string) => `pc-${mac.replace(/:/g, '').slice(-6)}`;
 const hostLabel = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
@@ -257,7 +261,7 @@ export function thjalfi(): Module {
     all[x.token] = x; saveSessions(ctx, all); return x;
   }
   // Un jeton vaut 2 jours au plus, et 10 min seulement après la fin de son installation (finie ou ratée).
-  const sessionOf = (ctx: ModCtx, token: string): Session | undefined => { const x = sessions(ctx)[token], now = ctx.now().getTime(); return x && now - x.created < 2 * 864e5 && !(x.fin && now - x.fin > 10 * 60_000) ? x : undefined; };
+  const sessionOf = (ctx: ModCtx, token: string): Session | undefined => { const x = sessions(ctx)[token], now = ctx.now().getTime(); return x && now - x.created < 2 * 864e5 && !(x.fin && now - x.fin > 10 * 60_000) && !(x.autorisation && !autorisations(ctx).some((a) => a.id === x.autorisation && !a.annulee)) ? x : undefined; };
   /** Le mot de passe du compte créé par un profil : généré une fois, rangé dans le coffre (Thésauros) et ici (fichier protégé). */
   async function profilePassword(ctx: ModCtx, p: Profile): Promise<string> {
     const sec = secrets(ctx); const have = sec.profils?.[p.id]; if (have) return have;
@@ -267,16 +271,94 @@ export function thjalfi(): Module {
     return pw;
   }
 
+  // ---------------- Déployer (lot S6) : les PC autorisés en lot, une fois chacun ----------------
+  // Le fichier des autorisations (protégé) : une ligne par PC, pour ce système et ces réglages, valable un temps limité ;
+  // utilisée UNE fois (jamais rejouée), annulée si le PC qui démarre n'est pas exactement celui autorisé. Le mot de passe
+  // de chaque PC n'y est que CHIFFRÉ (clé de la machine) ; il est aussi rangé dans le coffre.
+  const autorisations = (ctx: ModCtx): AutorisationPc[] => { const l = jsonFile<unknown>(ctx, FICHIER_AUTORISATIONS, []); return Array.isArray(l) ? l.filter((a): a is AutorisationPc => Boolean(a) && typeof a === 'object' && typeof (a as AutorisationPc).id === 'string') : []; };
+  const saveAutorisations = (ctx: ModCtx, l: AutorisationPc[]) => {
+    const now = ctx.now().getTime(), garde = l.filter((a) => autorisationValable(a, now) || now - Math.max(a.consommee?.at ?? 0, a.annulee?.at ?? 0, a.expire) < 7 * 864e5).slice(-500);
+    mkdirSync(ctx.dir, { recursive: true });
+    const f = join(ctx.dir, FICHIER_AUTORISATIONS), tmp = `${f}.${randomBytes(4).toString('hex')}.tmp`;
+    writeFileSync(tmp, JSON.stringify(garde), { mode: 0o600 }); renameSync(tmp, f);
+  };
+  /** Une session neuve pour un PC vérifié : son jeton, l'autorisation utilisée et son adresse (ses fichiers ne vont qu'à elle). */
+  function sessionDeploiement(ctx: ModCtx, mac: string, a: AutorisationPc, fw: string, from: string): Session {
+    const all = sessions(ctx), now = ctx.now().getTime();
+    for (const [t, x] of Object.entries(all)) if (now - x.created > 2 * 864e5) delete all[t];
+    const x: Session = { token: randomBytes(18).toString('base64url'), mac, iso: a.iso, profil: a.profil ?? '', host: a.nom, fw: /efi/i.test(fw) ? 'uefi' : 'bios', created: now, autorisation: a.id, from };
+    all[x.token] = x; saveSessions(ctx, all); return x;
+  }
+  /**
+   * Au menu : ce PC a-t-il une autorisation de déploiement ? « auto » (effacer et installer) seulement si c'est EXACTEMENT
+   * le PC autorisé (adresse MAC, numéro de série, identifiant de carte mère, taille du disque quand il la dit) ; sinon
+   * l'autorisation est annulée, Odin te prévient, et le PC a le menu ordinaire (son disque par défaut) : rien n'est effacé.
+   * Une autorisation sert UNE fois : marquée utilisée ici même, avant que le menu parte (aucun rejeu). Synchrone : rien
+   * ne s'intercale entre la lecture et l'écriture du fichier.
+   */
+  function deploiementAuMenu(ctx: ModCtx, mac: string, fw: string, from: string, vu: IdentiteVue, list: IsoInfo[]): { auto: { id: string; token: string; host: string } } | { menu: string } | { refus: string } | undefined {
+    const now = ctx.now().getTime(), l = autorisations(ctx), a = autorisationPour(l, mac, now);
+    if (!a) return undefined;
+    const target = list.find((i) => i.id === a.iso);
+    if (!target) return undefined; // l'image n'est plus prête : rien n'est utilisé, rien n'est lancé
+    if (a.facon === 'auto') {
+      const non = identiteDifferente(a.mac ? { mac: a.mac, serie: a.serie, uuid: a.uuid, disque: a.disque } : { mac }, mac, vu);
+      const windowsSansPartage = target.recipe?.kind === 'windows' && !(ctx.settings.partage as { unc?: string } | undefined)?.unc;
+      if (non || !target.recipe?.auto || windowsSansPartage) {
+        const raison = non ?? (windowsSansPartage ? 'partage Windows absent' : 'le système ne s\'installe plus tout seul');
+        a.annulee = { at: now, raison: `${raison} (PC ${mac} au démarrage)` }; saveAutorisations(ctx, l);
+        track(ctx, mac, from, 'menu', { detail: `déploiement refusé : ${raison} — rien n'est effacé` });
+        ctx.alert({ level: non ? 'haute' : 'moyenne', title: `🛑 Déploiement refusé : ${non ? 'ce n\'est pas le PC autorisé' : raison}`, detail: `Un PC (${mac}, adresse ${from}) a démarré par le réseau pour l'autorisation « ${a.nom} » : ${raison}. Rien n'a été effacé ; il a eu le menu ordinaire (son disque par défaut). L'autorisation est annulée.${non ? ' Deux appareils différents ont cité cette adresse : Odin n\'effacera pas ce PC avant 24 h sans autre appareil vu avec elle ; vérifie-le (numéro de série sur son étiquette).' : ' Relance « Déployer » quand c\'est réglé.'}`, key: `thjalfi-deploiement-refus-${a.id}`, data: { mac, autorisation: a.id } });
+        return { refus: raison };
+      }
+      const x = sessionDeploiement(ctx, mac, a, fw, from);
+      a.consommee = { at: now, mac, token: x.token };
+      saveAutorisations(ctx, l);
+      track(ctx, mac, from, 'menu', { iso: target.id, isoName: target.name, host: a.nom, token: x.token, profil: a.profil ?? '', detail: `déploiement : ${target.name} sur ${a.nom} (identité vérifiée, une seule fois)` });
+      return { auto: { id: target.id, token: x.token, host: a.nom } };
+    }
+    // « Le proposer au menu, sans effacer » : le système par défaut au menu, installation normale (avec ses questions).
+    a.consommee = { at: now, mac };
+    saveAutorisations(ctx, l);
+    track(ctx, mac, from, 'menu', { iso: target.id, isoName: target.name, detail: `proposé au menu, sans effacer : ${target.name}` });
+    return { menu: target.id };
+  }
+
+  // Ce que chaque adresse MAC a dit d'elle au démarrage ces dernières 24 h (fichier protégé, borné) : deux identités
+  // différentes pour la même adresse = un appareil la recopie peut-être ; « deployer » refuse alors d'effacer.
+  const FICHIER_IDENTITES = 'identites-vues.json';
+  const identitesVues = (ctx: ModCtx): Record<string, IdentiteNotee[]> => { const x = jsonFile<unknown>(ctx, FICHIER_IDENTITES, {}); return x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, IdentiteNotee[]> : {}; };
+  function noterIdentite(ctx: ModCtx, mac: string, vu: IdentiteVue): void {
+    try {
+      const now = ctx.now().getTime(), all = identitesVues(ctx), cle = (x: IdentiteVue) => `${x.serie ?? ''}|${x.uuid ?? ''}|${x.disque ?? ''}`;
+      const l = (Array.isArray(all[mac]) ? all[mac] : []).filter((x) => x && now - Number(x.at) < FENETRE_IDENTITES_MS && cle(x) !== cle(vu));
+      all[mac] = [...l, { ...(vu.serie ? { serie: vu.serie } : {}), ...(vu.uuid ? { uuid: vu.uuid } : {}), ...(vu.disque ? { disque: vu.disque } : {}), at: now }].slice(-6);
+      const garde = Object.entries(all).filter(([, v]) => Array.isArray(v) && v.some((x) => now - Number(x?.at) < FENETRE_IDENTITES_MS)).sort((a, b) => Math.max(...b[1].map((x) => Number(x.at) || 0)) - Math.max(...a[1].map((x) => Number(x.at) || 0))).slice(0, 1000);
+      mkdirSync(ctx.dir, { recursive: true });
+      const f = join(ctx.dir, FICHIER_IDENTITES), tmp = `${f}.${randomBytes(4).toString('hex')}.tmp`;
+      writeFileSync(tmp, JSON.stringify(Object.fromEntries(garde)), { mode: 0o600 }); renameSync(tmp, f);
+    } catch { /* disque plein : le menu part quand même ; « deployer » relira ce qui est là */ }
+  }
+
   // ---------------- Le menu, les fichiers, les réponses ----------------
   function bootScript(ctx: ModCtx): string { return `#!ipxe\n# Odin · Genèse\nchain ${base(ctx)}/menu.ipxe?mac=\${netX/mac}&fw=\${platform}&serie=\${serial:uristring}&uuid=\${uuid}&marque=\${manufacturer:uristring}&modele=\${product:uristring} || shell\n`; }
-  async function menuFor(ctx: ModCtx, mac: string, fw: string, from: string): Promise<string> {
+  async function menuFor(ctx: ModCtx, mac: string, fw: string, from: string, q?: URLSearchParams): Promise<string> {
     const list = (await isos(ctx)).filter((i) => i.recipe && prete(i)), r = rules(ctx).find((x) => x.mac === mac);
     // Poste bloqué, installations suspendues, mot de passe pas encore donné ou pas d'adresse MAC : le poste reçoit ce script à la
     // place du menu, et aucune fiche n'est ouverte pour une demande refusée.
     const refus = S.garde(ctx, mac, fw, from); if (refus) return refus;
     track(ctx, mac || undefined, from, 'menu', { fw: fw || undefined });
     let auto: { id: string; token: string; host: string } | undefined, def = s(ctx.settings.defaut) || 'local', timeout = delaiMenu(ctx);
-    if (r?.auto && !r.fait && r.iso) {
+    // Déployer (lot S6) : ce que le PC dit de lui (série, carte mère, taille du disque), revérifié AVANT tout effacement.
+    const vu: IdentiteVue = { ...(q ? identite(q) : {}), ...(tailleDisqueVue(q) ? { disque: tailleDisqueVue(q) } : {}) };
+    if (mac && vu.disque) { const all = live(ctx); if (all[mac]) { all[mac].disque = vu.disque; saveLive(ctx, all); } }
+    if (mac && (vu.serie || vu.uuid || vu.disque)) noterIdentite(ctx, mac, vu);
+    const dep = mac ? deploiementAuMenu(ctx, mac, fw, from, vu, list) : undefined;
+    if (dep && 'auto' in dep) { auto = dep.auto; def = dep.auto.id; timeout = 5; }
+    else if (dep && 'menu' in dep) def = dep.menu;
+    // Refusé (ce n'est pas le PC autorisé) : le menu ordinaire, et AUCUNE autre installation automatique pour lui ce coup-ci.
+    else if (dep && 'refus' in dep) { /* rien d'automatique */ }
+    else if (r?.auto && !r.fait && r.iso) {
       const target = list.find((i) => i.id === r.iso);
       if (target?.recipe?.auto) {
         const p = profiles(ctx).find((x) => x.id === r.profil) ?? profiles(ctx)[0], host = hostLabel(r.nom || hostOf(mac));
@@ -352,8 +434,48 @@ export function thjalfi(): Module {
     ctx.saveSettings({ machines: all });
     return p.nom;
   }
+  /** L'autorisation de déploiement d'une session (lot S6), encore là et pas annulée ; sinon rien. */
+  const autorisationDe = (ctx: ModCtx, x: Session) => (x.autorisation ? autorisations(ctx).find((a) => a.id === x.autorisation && !a.annulee) : undefined);
+  /** La famille de profil de logiciels (lot S4) d'une image : Windows, Ubuntu et Debian (.deb), Fedora et compatibles (.rpm). */
+  const osProfilDe = (kind: string | undefined): OsProfil => (kind === 'windows' ? 'windows' : kind === 'rhel' || kind === 'fedora-live' ? 'fedora' : 'debian');
+  /**
+   * Déployer (lot S6) : ce qui s'installe à la fin sur CE PC, d'après le profil de logiciels choisi (lot S4), relu ICI
+   * (jamais d'après la page) : les logiciels déjà téléchargés dont le mode silencieux est CONNU, servis par Odin au seul PC
+   * vérifié ; tes scripts du bon système, chacun REPASSÉ par l'antivirus à cet instant (un script refusé depuis n'est pas
+   * servi). Rien n'est téléchargé sur Internet par le PC.
+   */
+  async function finDeploiement(ctx: ModCtx, x: Session, a: AutorisationPc, kind: string | undefined): Promise<{ sw: NonNullable<Answer['software']>; paquets: NonNullable<Answer['paquetsFichiers']>; scripts: ScriptPerso[]; files: Record<string, string> }> {
+    const os = osProfilDe(kind), prof = a.profil ? lireProfils(ctx).liste.find((y) => y.id === a.profil) : undefined;
+    const out = { sw: [] as NonNullable<Answer['software']>, paquets: [] as NonNullable<Answer['paquetsFichiers']>, scripts: [] as ScriptPerso[], files: {} as Record<string, string> };
+    if (!prof) return out;
+    let found: Array<{ source: string; nom: string; version: string; chemin: string }> = [];
+    try { found = ((await ctx.call('fjalar', 'etat', {}, 'logiciels à installer sur le PC déployé')).data as { fichiers?: typeof found } | undefined)?.fichiers ?? []; } catch { /* Hermès absent */ }
+    for (const l of prof.systemes[os].logiciels) {
+      const f = found.find((y) => basename(String(y.chemin ?? '')) === l.fichier) ?? found.filter((y) => y.source === l.id).sort((u, v) => (u.version < v.version ? 1 : -1))[0];
+      if (!f?.chemin) continue;
+      const file = basename(f.chemin), quoi = installeAuto(l.id, file);
+      if (os === 'windows' && quoi === 'windows') { out.files[file] = f.chemin; const sa = silentArgs(l.id, file); out.sw.push({ name: f.nom || l.nom, url: `${base(ctx)}/logiciel/${x.token}/${encodeURIComponent(file)}`, args: sa.args, msi: sa.msi }); }
+      else if (os !== 'windows' && quoi === 'linux') {
+        const fam = familleLogiciel(file), genre = fam === 'linux-deb' ? 'deb' as const : fam === 'linux-rpm' ? 'rpm' as const : undefined;
+        if (!genre || (os === 'debian') !== (genre === 'deb')) continue;
+        const cle = `paquet-${out.paquets.length + 1}.${genre}`; out.files[cle] = f.chemin;
+        out.paquets.push({ nom: f.nom || l.nom, url: `${base(ctx)}/logiciel/${x.token}/${cle}`, genre });
+      }
+    }
+    out.scripts = scriptsRevus(prof.systemes[os].scripts, antivirusScript).acceptes.filter((y) => osDuScript(y.nom) === (os === 'windows' ? 'windows' : 'linux'));
+    return out;
+  }
+  /** Le fichier de réponses Windows du déploiement : celui de Genèse (disque effacé, compte de CE PC) et les options de l'étape 5. */
+  function unattendDeploiement(a: Answer, fw: 'uefi' | 'bios', w: Record<string, unknown> | undefined): string {
+    const opt = optionsWindowsDe(w ?? {});
+    // compte local : celui de Genèse (son mot de passe à LUI, du coffre) ; sinon Windows demande son compte.
+    const x = appliquerOptionsWindows(unattend(a, fw), { ...opt, compteLocal: opt.compteLocal ? undefined : false, disqueAuChoix: false });
+    return opt.retirerExigences ? injecterSautExigences(x) : x;
+  }
   async function answer(ctx: ModCtx, x: Session): Promise<Answer> {
     const p = profiles(ctx).find((y) => y.id === x.profil) ?? profiles(ctx)[0];
+    const dep = autorisationDe(ctx, x);
+    if (dep) return answerDeploiement(ctx, x, dep, p);
     const sh = ctx.settings.partage as { unc?: string; utilisateur?: string } | undefined;
     // La clé d'activation déposée pour l'édition de cette image Windows (ou rien : installation sans activation).
     // La clé n'est lue qu'ici (au déploiement), jamais mise dans un journal ni renvoyée à la page.
@@ -366,9 +488,50 @@ export function thjalfi(): Module {
       ...(productKey ? { productKey } : {}),
     };
   }
+  /**
+   * Les réponses d'un PC déployé (lot S6) : SON nom, SON compte et SON mot de passe (tiré du coffre, déchiffré ici
+   * seulement, jamais écrit dans un journal ni renvoyé à la page), la langue d'Odin, la clé d'activation du coffre.
+   */
+  async function answerDeploiement(ctx: ModCtx, x: Session, d: AutorisationPc, p: Profile): Promise<Answer> {
+    const sh = ctx.settings.partage as { unc?: string; utilisateur?: string } | undefined;
+    const img = (await isos(ctx)).find((i) => i.id === x.iso), w = d.windows ?? {}, windows = img?.recipe?.kind === 'windows';
+    let productKey: string | undefined;
+    if (windows && s(w.activation) !== 'aucune') { try { productKey = clePourImage(ctx.home, ctx.dir, img!.name, img!.recipe!.label); } catch { /* sans activation */ } }
+    let password = '';
+    try { password = d.mdp ? dechiffrerChamp(ctx.home, d.mdp) : ''; } catch { password = ''; }
+    // Sans son mot de passe (coffre illisible), on ne pose JAMAIS un compte sans mot de passe : un neuf, jamais montré.
+    if (!password) password = motDePassePc();
+    const userWin = nomCompteValide(s(w.compte)) ? s(w.compte).trim() : 'odin';
+    const userLinux = /^[a-z_][a-z0-9_-]{0,31}$/.test(p.utilisateur) ? p.utilisateur : 'odin';
+    return {
+      host: x.host, user: windows ? userWin : userLinux, password, locale: p.langue, keymap: p.clavier, timezone: p.fuseau, packages: [],
+      report: `${base(ctx)}/etat/${x.token}`, repo: `${base(ctx)}/f/${x.iso}/`, mirror: s(ctx.settings.miroir) || undefined, compagnon: p.compagnon !== false && ctx.modules().some((m) => m.id === 'hermod'),
+      ...(sh?.unc ? { share: { unc: `${sh.unc.replace(/[\\/]+$/, '')}\\.thjalfi\\${x.iso}`, user: sh.utilisateur, password: secrets(ctx).partage } } : {}),
+      ...(productKey ? { productKey } : {}),
+    };
+  }
   async function seed(ctx: ModCtx, token: string, name: string, from: string): Promise<string | undefined> {
     const x = sessionOf(ctx, token); if (!x || S.coupe(ctx, x.mac, from)) return undefined;
+    // Déployer (lot S6) : les fichiers d'un PC vérifié ne vont qu'à l'adresse qui a eu son menu (ni à un voisin qui
+    // aurait vu passer le jeton).
+    if (x.from && from !== x.from) return undefined;
+    const dep = autorisationDe(ctx, x);
+    if (x.autorisation && !dep) return undefined;
+    // Installation finie (ou ratée) : plus aucun fichier de réponses (mot de passe du PC, scripts) ; seul le compagnon,
+    // demandé après « fini » sous Linux, reste servi pendant les 10 min du jeton.
+    if (dep && x.fin && name !== 'compagnon.sh' && name !== 'w:compagnon.ps1') return undefined;
     const a = await answer(ctx, x), m = live(ctx)[x.mac];
+    if (dep) {
+      const img = (await isos(ctx)).find((i) => i.id === x.iso), win = img?.recipe?.kind === 'windows', fin = await finDeploiement(ctx, x, dep, img?.recipe?.kind);
+      const all = sessions(ctx); if (all[x.token]) { all[x.token].files = fin.files; saveSessions(ctx, all); }
+      const ext = (n: string) => (/\.(cmd|bat)$/i.exec(n)?.[1] ?? 'ps1').toLowerCase();
+      a.scriptsApres = fin.scripts.map((y, k) => ({ nom: y.nom, url: `${base(ctx)}/${win ? 'w' : 'seed'}/${x.token}/script-${k + 1}.${win ? ext(y.nom) : 'sh'}` }));
+      a.paquetsFichiers = fin.paquets;
+      const sm = /^(w:)?script-(\d{1,2})\.(ps1|cmd|bat|sh)$/.exec(name);
+      if (sm) { const y = fin.scripts[Number(sm[2]) - 1]; return y && Boolean(sm[1]) === win ? y.contenu : undefined; }
+      if (name === 'unattend.xml') { if (m?.step !== 'fini' && m?.step !== 'échec') track(ctx, x.mac, from, 'installation', { detail: 'fichier de réponses lu (unattend.xml)' }); return unattendDeploiement(a, x.fw, dep.windows); }
+      if (name === 'w:apres.ps1') { if (m?.step !== 'fini' && m?.step !== 'échec') track(ctx, x.mac, from, 'installation', { detail: 'fichier de réponses lu (apres.ps1)' }); return windowsAfter({ ...a, software: fin.sw }); }
+    }
     // Une installation finie ou ratée n'est pas rouverte par une relecture tardive de ses fichiers.
     if (!['meta-data', 'vendor-data'].includes(name) && m?.step !== 'fini' && m?.step !== 'échec') track(ctx, x.mac, from, 'installation', { detail: `fichier de réponses lu (${name.replace(/^w:/, '')})` });
     switch (name) {
@@ -440,10 +603,10 @@ export function thjalfi(): Module {
   }
 
   // ---------------- Démarrer / arrêter les serveurs ----------------
-  async function startServers(ctx: ModCtx): Promise<string[]> {
-    stopServers(); const p = ports(ctx), notes: string[] = [], mode = s(ctx.settings.mode) || 'proxy';
-    http = new PxeHttp({
-      bootScript: () => bootScript(ctx), menu: (mac, fw, from) => menuFor(ctx, mac, fw, from),
+  /** Le serveur HTTP des PC qui démarrent (sans l'ouvrir : start() le fait écouter). */
+  function creerHttp(ctx: ModCtx): PxeHttp {
+    return new PxeHttp({
+      bootScript: () => bootScript(ctx), menu: (mac, fw, from, q) => menuFor(ctx, mac, fw, from, q),
       overlay: (mac) => { const k = kiosk(ctx); return k && mac ? kioskOverlay({ base: base(ctx), mac, branch: k.branch }) : undefined; },
       alpine: (path) => alpineCopy(ctx, path),
       isoFile: async (id, path) => {
@@ -454,7 +617,7 @@ export function thjalfi(): Module {
       },
       bootFile: (path) => { const f = join(bootDir(ctx), path); return path.split('/').includes('..') || !existsSync(f) || statSync(f).isDirectory() ? undefined : f; },
       seed: (t, n, from) => seed(ctx, t, n, from),
-      software: (t, file, from) => { const x = sessionOf(ctx, t); if (x && from && S.coupe(ctx, x.mac, from)) return undefined; const f = x?.files?.[decodeURIComponent(file)]; return f && existsSync(f) ? f : undefined; },
+      software: (t, file, from) => { const x = sessionOf(ctx, t); if (x && from && S.coupe(ctx, x.mac, from)) return undefined; if (x?.from && from !== x.from) return undefined; const f = x?.files?.[decodeURIComponent(file)]; return f && existsSync(f) ? f : undefined; },
       report: (t, q, from) => report(ctx, t, q, from),
       fetched: (mac, what, id, path, from) => {
         if (what === 'fichier') return;
@@ -474,6 +637,11 @@ export function thjalfi(): Module {
       garde: (mac, from, quoi) => S.acces(ctx, mac, from, quoi), vu: (mac, q, from) => S.vu(ctx, mac, q, from), servi: (mac, from, id, n) => S.servi(ctx, mac, from, id, n), cle: (mac, fw, from, mdp, qui) => S.cle(ctx, mac, fw, from, mdp, qui),
       log: (t) => ctx.emit('journal', { texte: t }),
     });
+  }
+
+  async function startServers(ctx: ModCtx): Promise<string[]> {
+    stopServers(); const p = ports(ctx), notes: string[] = [], mode = s(ctx.settings.mode) || 'proxy';
+    http = creerHttp(ctx);
     await http.start(p.http);
     try {
       tftp = new TftpServer({ file: (name) => { const n = basename(name); const f = join(bootDir(ctx), n); return /^(undionly\.kpxe|ipxe(-arm64|-i386)?\.efi|snponly\.efi)$/.test(n) && existsSync(f) ? readFileSync(f) : undefined; }, sent: (name, from) => track(ctx, undefined, from, 'chargeur', { detail: name }) });
@@ -661,8 +829,89 @@ export function thjalfi(): Module {
   // Logiciels et profils (maquette « Genèse · Systèmes », lot S4) : les profils de logiciels communs à la clé, au réseau et
   // aux machines virtuelles, gardés par Odin ; lecture et écriture réservées au propriétaire.
   actions.push(...profilsLogicielsActions(antivirusScript));
+  // Déployer, étapes 4 à 6 (maquette « Genèse · Systèmes », lot S6) : l'aperçu de ce qui s'installe à la fin (lecture), et
+  // « deployer » : autoriser en lot les PC choisis, UNE fois chacun, pour ce système et ces réglages, un temps limité.
+  actions.push(deployerApercuAction(async (ctx) => (await isos(ctx)).filter(prete)));
+  actions.push({
+    id: 'deployer', label: 'Déployer sur des PC du réseau', quick: false, proprietaireSeul: true,
+    what: 'Autorise en lot les PC choisis (ou le prochain PC qui démarre) : chacun une seule fois, pour ce système et ces réglages, pendant un temps limité ; « effacer et installer » demande la phrase « effacer N pc », et au démarrage Odin revérifie que c\'est bien ce PC (adresse, numéro de série, taille du disque)',
+    params: [{ key: 'pcs', label: 'Adresses MAC des PC', kind: 'textarea' }, { key: 'prochain', label: 'Aussi le prochain PC qui démarre (30 min)', kind: 'boolean', default: false }, { key: 'iso', label: 'Système (identifiant de l\'image)', kind: 'text' }, { key: 'facon', label: 'Façon (auto : effacer et installer ; menu : le proposer sans effacer)', kind: 'select', options: ['auto', 'menu'], default: 'auto' }, { key: 'profil', label: 'Profil de logiciels', kind: 'text', default: '' }, { key: 'windows', label: 'Options Windows', kind: 'textarea' }, { key: 'noms', label: 'Nom de chaque PC (auto : pc-01… ; vu : le nom vu au menu)', kind: 'select', options: ['auto', 'vu'], default: 'auto' }, { key: 'phrase', label: 'La phrase à taper', kind: 'text' }],
+    grave: (i) => {
+      const d = demandeDeploiement(i);
+      if ('refus' in d) return `déployer un système par le réseau (demande illisible : ${d.refus})`;
+      const qui = [...d.pcs, ...(d.prochain ? ['le prochain PC qui démarre'] : [])].join(', ');
+      return d.facon === 'auto' ? `EFFACER le disque de ${d.n} PC (${qui}) et y installer ${s(i.iso).slice(0, 80)} par le réseau, une fois chacun` : `proposer ${s(i.iso).slice(0, 80)} au menu de ${d.n} PC (${qui}), sans rien effacer`;
+    },
+    run: async (ctx, i) => {
+      const d = demandeDeploiement(i);
+      if ('refus' in d) return { ok: false, text: `${d.refus} Rien n'est autorisé.` };
+      const target = (await isos(ctx)).filter(prete).find((x) => x.id === s(i.iso));
+      if (!target?.recipe) return { ok: false, text: 'Ce système n\'est pas prêt dans la bibliothèque (ou Odin ne sait pas le démarrer). Rien n\'est autorisé.' };
+      const windows = target.recipe.kind === 'windows';
+      if (d.facon === 'auto' && !target.recipe.auto) return { ok: false, text: `${target.name} ne s'installe pas tout seul : choisis « le proposer au menu ». Rien n'est autorisé.` };
+      if (windows && d.facon === 'menu') return { ok: false, text: 'Windows par le réseau s\'installe seulement en « effacer et installer tout seul ». Rien n\'est autorisé.' };
+      if (windows && !(ctx.settings.partage as { unc?: string } | undefined)?.unc) return { ok: false, text: 'Windows : règle d\'abord le partage réseau (« partage Windows »). Rien n\'est autorisé.' };
+      // La phrase EXACTE, vérifiée ICI (la page ne fait que la demander, avec l'appui long).
+      const attendue = phraseDeploiement(d.n);
+      if (d.facon === 'auto' && phraseNormale(i.phrase) !== phraseNormale(attendue)) return { ok: false, text: `Phrase incorrecte : il faut taper exactement « ${attendue} ». Rien n'est autorisé, rien n'est effacé.`, data: { phrase: attendue } };
+      const bloques = (ctx.settings.bloques as Record<string, unknown> | undefined) ?? {};
+      const b = d.pcs.filter((m) => bloques[m]);
+      if (b.length) return { ok: false, text: `Bloqué dans Genèse : ${b.join(', ')}. Débloque-le d'abord. Rien n'est autorisé.` };
+      // Effacer : l'identité gardée pour chaque PC doit être sûre. Deux appareils différents vus avec la même adresse MAC
+      // ces dernières 24 h (une adresse se recopie, et ce que le PC dit de lui aussi) : refusé, jamais « le dernier venu ».
+      if (d.facon === 'auto') {
+        const vues = identitesVues(ctx), t0 = ctx.now().getTime();
+        for (const mac of d.pcs) {
+          const c = identitesEnConflit(vues[mac], t0);
+          if (c.length) return { ok: false, text: `Deux appareils différents ont démarré avec l'adresse ${mac} ces dernières 24 h (${c.join(' ; ')}) : l'un recopie peut-être l'adresse de l'autre. Vérifie ce PC (numéro de série sur son étiquette) ; tu pourras le déployer quand une seule identité aura été vue pendant 24 h. Rien n'est autorisé, rien n'est effacé.` };
+        }
+      }
+      // Le profil de logiciels : relu ici (jamais celui que la page décrit).
+      const prof = s(i.profil) ? lireProfils(ctx).liste.find((x) => x.id === s(i.profil)) : undefined;
+      if (s(i.profil) && !prof) return { ok: false, text: 'Profil de logiciels introuvable (relis la liste). Rien n\'est autorisé.' };
+      const w = windows ? optionsDeploiement(i.windows) : undefined;
+      if (w && 'refus' in w) return { ok: false, text: `${w.refus} Rien n'est autorisé.` };
+      // L'identité de chaque PC, telle qu'Odin l'a VUE (fiche vivante, sinon la dernière installation) : jamais la page.
+      const vivants = live(ctx), hist = history(ctx, 300), now = ctx.now().getTime(), l = autorisations(ctx);
+      const ident = (mac: string) => { const m = vivants[mac], h = hist.find((x) => x.mac === mac); const serie = m?.serie ?? h?.serie, uuid = m?.uuid ?? h?.uuid; return { ...(serie ? { serie } : {}), ...(uuid ? { uuid } : {}), ...(m?.disque ? { disque: m.disque } : {}) }; };
+      const vusNoms = postesVus({ live: vivants, historique: hist, regles: rules(ctx), bloques: {}, now });
+      const pris = l.filter((a) => autorisationValable(a, now) && !(a.mac ? d.pcs.includes(a.mac) : d.prochain)).map((a) => a.nom);
+      const cibles = [...d.pcs.map((mac) => ({ mac, vu: vusNoms.find((p) => p.mac === mac)?.nom })), ...(d.prochain ? [{ mac: '', vu: '' }] : [])];
+      const noms = nomsDesPcs(cibles, s(i.noms) === 'vu' ? 'vu' : 'auto', pris);
+      const lot = randomBytes(6).toString('hex'), out: AutorisationPc[] = [];
+      for (const [k, c] of cibles.entries()) {
+        const a: AutorisationPc = { id: randomBytes(9).toString('hex'), lot, mac: c.mac, iso: target.id, isoNom: target.name, facon: d.facon, nom: noms[k], ...(prof ? { profil: prof.id } : {}), ...(w ? { windows: w } : {}), ...(c.mac ? ident(c.mac) : {}), cree: now, expire: now + (c.mac ? DUREE_PC : DUREE_PROCHAIN) };
+        if (d.facon === 'auto') {
+          // UN mot de passe par PC : chiffré ici (jamais en clair sur le disque), rangé dans le coffre ; jamais renvoyé.
+          const pw = motDePassePc();
+          try { a.mdp = chiffrerChamp(ctx.home, pw); } catch (e) { return { ok: false, text: `Le coffre d'Odin n'est pas prêt (${(e as Error).message}) : aucun mot de passe ne peut être rangé. Rien n'est autorisé.` }; }
+          const quand = new Date(now).toISOString().slice(0, 16).replace('T', ' ');
+          const rc = await ctx.call('brisingamen', 'ajouter', { nom: `Déploiement · ${a.nom}${c.mac ? ` (${c.mac})` : ' (prochain PC)'} · ${quand}`, identifiant: windows ? (s(w && !('refus' in w) ? w.compte : '') || 'odin') : (profiles(ctx)[0].utilisateur || 'odin'), mot_de_passe: pw, site: `Genèse : ${target.name} par le réseau`, coffre: 'TOUFATECH' }, `ranger le mot de passe du PC ${a.nom}`).catch((e: Error) => ({ ok: false, text: e.message }));
+          // Sans le coffre, personne ne connaîtrait le mot de passe du PC : rien n'est autorisé.
+          if (!rc || rc.ok === false) return { ok: false, text: `Le coffre n'a pas pu ranger le mot de passe de ${a.nom} (${rc?.text ?? 'coffre absent'}). Rien n'est autorisé.` };
+        }
+        out.push(a);
+      }
+      // RELU juste avant d'écrire (rien ne s'intercale d'ici à l'écriture) : pendant l'attente du coffre, un PC a pu utiliser
+      // son autorisation, ou un autre onglet en créer une ; la liste lue plus haut ne réécrit jamais par-dessus (aucun rejeu).
+      // Les autorisations encore valables pour ces PC (ou un « prochain » d'avant) sont remplacées, jamais cumulées.
+      const frais = autorisations(ctx), alors = ctx.now().getTime();
+      for (const a of frais) if (autorisationValable(a, alors) && (a.mac ? d.pcs.includes(a.mac) : d.prochain)) a.annulee = { at: alors, raison: 'remplacée par un nouveau déploiement' };
+      saveAutorisations(ctx, [...frais, ...out]);
+      // Une ancienne installation automatique (« autoriser ») encore prévue pour ces PC est close : jamais deux effacements.
+      const regles = rules(ctx); let vieilles = false;
+      for (const r0 of regles) if (d.pcs.includes(r0.mac) && r0.auto && !r0.fait) { r0.fait = true; vieilles = true; }
+      if (vieilles) ctx.saveSettings({ machines: regles });
+      const liste = out.map((a) => `${a.nom}${a.mac ? ` (${a.mac})` : ' (le prochain PC qui démarre)'}`).join(', ');
+      return {
+        ok: true,
+        text: d.facon === 'auto' ? `🛠 ${out.length} PC autorisé(s) pour ${target.name} : ${liste}. Chacun s'installe UNE fois, à son prochain démarrage par le réseau, s'il est bien celui-là (adresse, numéro de série, taille du disque). Un mot de passe par PC est rangé dans le coffre.` : `✔ ${target.name} proposé au menu de ${out.length} PC : ${liste}. Rien n'est effacé.`,
+        data: { lot, facon: d.facon, iso: target.id, pcs: out.map((a) => ({ mac: a.mac, nom: a.nom, expire: a.expire, prochain: !a.mac })) },
+      };
+    },
+  });
 
-  return {
+  const mod: Module = {
     id: 'thjalfi', name: 'Genèse', family: 'Machines',
     what: 'Le déploiement par le réseau : les ISO d\'Andromède démarrent sur n\'importe quelle machine sans clé USB, s\'installent toutes seules sur les machines que tu autorises, avec les logiciels de Hermès ; tu suis chaque poste jusqu\'à la fin, tu peux le bloquer, annuler son installation ou exiger un mot de passe, et tout reste dans l\'historique.',
     does: ['démarrage par le réseau (PXE) en BIOS et UEFI, sans rien régler sur la box (proxy DHCP) ou avec le DHCP d\'Odin', 'les ISO d\'Andromède lues directement (ISO 9660, Joliet, Rock Ridge, UDF) sans extraction', 'installation automatique : Ubuntu (autoinstall), Debian (preseed), Fedora / Rocky / Alma (Kickstart), Windows (unattend, partage réseau)', 'profils : compte, langue, clavier, fuseau, paquets Linux, logiciels Windows de Hermès en silencieux', 'outils et systèmes live (Clonezilla, GParted, Arch, Alpine…) démarrés depuis le menu', 'suivi en direct : chaque poste reconnu (adresse MAC, nom, numéro de série, marque et modèle), ses étapes avec l\'heure, son avancement, jusqu\'à « terminée », « échouée » (avec la raison) ou « abandonnée » (plus de signe de vie)', 'bloquer un poste (son écran le dit, puis il démarre sur son disque), suspendre toutes les nouvelles installations, annuler une installation en cours (avec ton accord)', 'mot de passe d\'installation : le poste le tape avant d\'avoir le menu et les fichiers ; seule son empreinte est gardée ; 5 erreurs bloquent le poste 15 minutes', 'historique de toutes les installations dans la base de l\'appli, filtrable, avec un rapport (réussies, échecs, abandons, durée moyenne, par image) et un export pour tableur ; nombre de déploiements par ISO', 'Odin prévient : début d\'une installation, échec, abandon, réussite, poste inconnu, poste bloqué qui retente, mots de passe refusés', 'sécurité : machine inconnue = son propre disque ; installation automatique seulement si tu l\'autorises, une seule fois'],
@@ -716,6 +965,77 @@ export function thjalfi(): Module {
       S.veiller(ctx);
       void C;
     } },
+  };
+  // Pour les essais de sûreté : le MÊME traitement que le serveur de démarrage, sans rien écouter (aucun port, aucun PC).
+  Object.defineProperty(mod, 'serveurSimule', { value: (ctx: ModCtx) => creerHttp(ctx), enumerable: false });
+  return mod;
+}
+
+// ---------------- Déployer, étapes 4 à 6 (maquette « Genèse · Systèmes », lot S6) ----------------
+/** Un PC autorisé l'est pour 2 h ; « le prochain PC qui démarre » pour 30 min. */
+export const DUREE_PC = 2 * 3600_000, DUREE_PROCHAIN = 30 * 60_000;
+/** Au plus 50 PC d'un coup. */
+export const PCS_MAX = 50;
+/** La phrase EXACTE à taper pour effacer le disque de N PC : « effacer 3 pc ». Pur. */
+export const phraseDeploiement = (n: number) => `effacer ${Math.max(0, Math.round(Number(n) || 0))} pc`;
+/** Les PC d'une demande de déploiement, revus : adresses MAC valables (sans doublon, 50 au plus), le prochain PC, la façon. Pur. */
+export function demandeDeploiement(i: Record<string, unknown>): { pcs: string[]; prochain: boolean; facon: 'auto' | 'menu'; n: number } | { refus: string } {
+  let brut: unknown = i.pcs;
+  if (typeof brut === 'string') { const t = brut.trim(); if (t.length > 8000) return { refus: 'Trop de PC.' }; try { brut = t.startsWith('[') ? JSON.parse(t) : t.split(/[\s,;]+/).filter(Boolean); } catch { return { refus: 'Liste de PC illisible.' }; } }
+  if (brut === undefined || brut === null || brut === '') brut = [];
+  if (!Array.isArray(brut)) return { refus: 'Liste de PC illisible.' };
+  if (brut.length > PCS_MAX) return { refus: `${PCS_MAX} PC au plus d'un coup.` };
+  const pcs: string[] = [];
+  for (const x of brut) { const m = macPoste(x); if (!m) return { refus: `Adresse MAC refusée : « ${String(x).slice(0, 40)} ».` }; if (!pcs.includes(m)) pcs.push(m); }
+  const prochain = i.prochain === true || i.prochain === 'true';
+  const f = s(i.facon) || 'auto';
+  if (f !== 'auto' && f !== 'menu') return { refus: 'Façon inconnue (auto ou menu).' };
+  const n = pcs.length + (prochain ? 1 : 0);
+  if (!n) return { refus: 'Choisis au moins un PC (ou le prochain PC qui démarre).' };
+  return { pcs, prochain, facon: f, n };
+}
+/** Les options Windows de l'étape 5, revues (comme pour la clé) : interrupteurs, nom du compte, clé d'activation. Pur. */
+export function optionsDeploiement(w: unknown): { exigences: boolean; local: boolean; compte: string; viePrivee: boolean; langue: boolean; activation: 'auto' | 'aucune' } | { refus: string } {
+  let v = w;
+  if (typeof v === 'string') { if (v.length > 4000) return { refus: 'Options Windows illisibles.' }; try { v = v ? JSON.parse(v) : {}; } catch { return { refus: 'Options Windows illisibles.' }; } }
+  const o = v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
+  const local = o.local !== false, compte = typeof o.compte === 'string' ? o.compte.trim() : '';
+  if (local && compte && !nomCompteValide(compte)) return { refus: 'Nom du compte Windows refusé (1 à 20 caractères, sans " / \\ [ ] : ; | = , + * ? < > @ %).' };
+  return { exigences: o.exigences !== false, local, compte: local ? (compte || 'Utilisateur') : '', viePrivee: o.viePrivee !== false, langue: o.langue !== false, activation: o.activation === 'aucune' ? 'aucune' : 'auto' };
+}
+/**
+ * L'aperçu de l'étape 4 « Logiciels et scripts » (et de l'étape 5) pour un déploiement PAR LE RÉSEAU : le profil de
+ * logiciels relu côté serveur, la liste pour le système choisi (« tout seul » ou non), tes scripts revérifiés par
+ * l'antivirus (refusés : montrés avec la raison, jamais servis), le script créé tout seul, et la clé d'activation du coffre
+ * (4 derniers caractères seulement). LECTURE SEULE ; aucun mot de passe (un par PC, créé au lancement, dans le coffre).
+ */
+export function deployerApercuAction(bibliotheque: (ctx: ModCtx) => Promise<IsoInfo[]>): Action {
+  return {
+    id: 'deployer_apercu', label: 'Déployer : aperçu de la fin', read: true, quick: false, proprietaireSeul: true,
+    what: 'Ce qui s\'installera tout seul à la fin sur chaque PC (logiciels du profil, tes scripts revérifiés), et le script créé tout seul ; rien n\'est lancé',
+    params: [{ key: 'iso', label: 'Système', kind: 'text' }, { key: 'profil', label: 'Profil de logiciels', kind: 'text' }, { key: 'windows', label: 'Options Windows', kind: 'textarea' }],
+    run: async (ctx, i) => {
+      const img = (await bibliotheque(ctx)).find((x) => x.id === s(i.iso));
+      if (!img?.recipe) return { ok: false, text: 'Ce système n\'est pas prêt dans la bibliothèque.' };
+      const kind = img.recipe.kind, os: OsProfil = kind === 'windows' ? 'windows' : kind === 'rhel' || kind === 'fedora-live' ? 'fedora' : 'debian';
+      const prof = s(i.profil) ? lireProfils(ctx).liste.find((x) => x.id === s(i.profil)) : undefined;
+      const logiciels = (prof?.systemes[os].logiciels ?? []).map((l) => {
+        const quoi = installeAuto(l.id, l.fichier), fam = familleLogiciel(l.fichier);
+        const ok = os === 'windows' ? quoi === 'windows' : quoi === 'linux' && (os === 'debian' ? fam === 'linux-deb' : fam === 'linux-rpm');
+        return { id: l.id, nom: l.nom, fichier: l.fichier, toutSeul: ok };
+      });
+      const { verdicts, acceptes } = scriptsRevus(prof?.systemes[os].scripts ?? [], antivirusScript);
+      const scripts = acceptes.filter((y) => osDuScript(y.nom) === (os === 'windows' ? 'windows' : 'linux'));
+      const b = 'http://odin', jeton = 'jeton-du-pc';
+      const a: Answer = { host: 'pc-01', user: 'odin', password: '', locale: 'fr_FR.UTF-8', keymap: 'fr', timezone: 'Indian/Mayotte', packages: [], report: `${b}/etat/${jeton}`,
+        software: logiciels.filter((l) => l.toutSeul && os === 'windows').map((l) => { const sa = silentArgs(l.id, l.fichier); return { name: l.nom, url: `${b}/logiciel/${jeton}/${encodeURIComponent(l.fichier)}`, args: sa.args, msi: sa.msi }; }),
+        paquetsFichiers: logiciels.filter((l) => l.toutSeul && os !== 'windows').map((l, k) => ({ nom: l.nom, url: `${b}/logiciel/${jeton}/paquet-${k + 1}.${os === 'debian' ? 'deb' : 'rpm'}`, genre: os === 'debian' ? 'deb' as const : 'rpm' as const })),
+        scriptsApres: scripts.map((y, k) => ({ nom: y.nom, url: os === 'windows' ? `${b}/w/${jeton}/script-${k + 1}.${(/\.(cmd|bat)$/i.exec(y.nom)?.[1] ?? 'ps1').toLowerCase()}` : `${b}/seed/${jeton}/script-${k + 1}.sh` })) };
+      const script = os === 'windows' ? windowsAfter(a) : scriptFinLinux(a);
+      const cles = clesPubliques(ctx.dir), ed = os === 'windows' ? editionDeImage(img.name, img.recipe.label) : undefined, cle = ed ? cles.find((c) => c.id === ed.id) : undefined;
+      return { ok: true, text: `${logiciels.filter((l) => l.toutSeul).length} logiciel(s) et ${scripts.length} script(s) installés tout seuls à la fin. Rien n'est lancé.`,
+        data: { os, systeme: img.name, auto: img.recipe.auto, profil: prof ? { id: prof.id, nom: prof.nom } : null, logiciels, scripts: verdicts, script, edition: ed ? { id: ed.id, label: ed.label } : null, activation: cle ? { edition: cle.edition, fin: String(cle.indice ?? '').slice(-4) } : null } };
+    },
   };
 }
 
