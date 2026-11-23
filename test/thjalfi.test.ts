@@ -232,7 +232,7 @@ test('écran d\'Odin : choisir sur un téléphone, la machine attend puis démar
     const st = JSON.parse((await w.get(`/ecran/etat?mac=${mac}`)).text) as { systemes: Array<{ id: string; modes: string[]; title: string; category: string }>; dit: Record<string, string>; disposition: string };
     const u = st.systemes.find((x) => x.id === U)!; assert.deepEqual(u.modes, ['installer', 'auto']); assert.equal(u.category, 'Serveurs'); assert.equal(st.disposition, 'eventail');
     assert.match(st.dit[U], /je te demande ton accord avant/);
-    // La machine attend : elle redemande toutes les 3 s, puis reprend son disque (5 min).
+    // La machine attend : elle redemande toutes les 3 s, puis reprend son disque (au bout du délai du menu).
     const a0 = (await w.get(`/ecran/attente.ipxe?mac=${mac}&fw=efi&n=0`)).text; assert.match(a0, /sleep 3/); assert.match(a0, /n=1 /); assert.match(a0, /ecran\?mac=52:54:00:cc:00:01/);
     assert.match((await w.get(`/ecran/attente.ipxe?mac=${mac}&fw=efi&n=100`)).text, /Pas de choix[\s\S]*goto local/);
     // Un mode que ce système n'a pas : refusé.
@@ -270,10 +270,38 @@ test('écran d\'Odin : choisir sur un téléphone, la machine attend puis démar
     assert.match((await w.v.act('thjalfi', 'decider', { id: d2.id, accord: 'sans_effacer' })).text, /installation normale/);
     const m2 = (await w.get(`/menu.ipxe?mac=${mac2}&fw=efi`)).text; assert.match(m2, new RegExp(`--default e-${U} --timeout 0 `)); assert.doesNotMatch(m2, /autoinstall/);
     // Réglages de l'écran : par défaut, thème.
-    assert.match((await w.v.act('thjalfi', 'ecran', { parDefaut: true, theme: 'mayotte', disposition: 'liste', attente: 2 })).text, /proposé et par défaut · liste · graphique Mayotte · texte Matrix · attente 2 min/);
+    // Sans choix : le disque au bout du délai du menu (choix du propriétaire, relecture S4) ; « attente » (minutes) n'est plus lu.
+    assert.match((await w.v.act('thjalfi', 'ecran', { parDefaut: true, theme: 'mayotte', disposition: 'liste', attente: 2 })).text, /proposé et par défaut · liste · graphique Mayotte · texte Matrix · sans choix, le disque après 10 s/);
     assert.match((await w.get('/menu.ipxe?mac=52:54:00:cc:00:03&fw=efi')).text, /choose --default ecran --timeout 10000/);
-    assert.match((await w.get('/ecran/attente.ipxe?mac=52:54:00:cc:00:03&n=40')).text, /Pas de choix/, '2 min');
+    assert.match((await w.get('/ecran/attente.ipxe?mac=52:54:00:cc:00:03&n=4')).text, /Pas de choix/, '10 s : 4 tours de 3 s');
     assert.equal(JSON.parse((await w.get('/ecran/etat?mac=52:54:00:cc:00:03')).text).theme, 'mayotte');
+  } finally { w.end(); }
+});
+
+test('écran (relecture S4) : « T » demande le menu texte par le réseau ; sans choix, le disque au bout du délai du menu', async () => {
+  const w = await world();
+  const mac = '52:54:00:cc:00:09';
+  try {
+    // (1) mode=texte : accepté, le PC repasse sur le menu texte (même menu, son délai, jamais renvoyé vers l'écran) — une fois.
+    await w.v.act('thjalfi', 'ecran', { parDefaut: true });
+    const r = JSON.parse((await w.get(`/ecran/choisir?mac=${mac}&iso=&mode=texte`)).text) as { ok: boolean; texte: string };
+    assert.equal(r.ok, true, r.texte); assert.match(r.texte, /menu texte/);
+    assert.equal(JSON.parse((await w.get(`/ecran/etat?mac=${mac}`)).text).relance, true, 'le PC sait qu\'il doit relire le menu');
+    assert.match((await w.get(`/ecran/attente.ipxe?mac=${mac}&fw=efi&n=2`)).text, /chain http:\/\/127\.0\.0\.1:\d+\/menu\.ipxe\?mac=52:54:00:cc:00:09&fw=efi/);
+    const m = (await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text;
+    assert.match(m, /choose --default local --timeout 10000 /, 'le menu texte, avec son délai, et pas l\'écran par défaut');
+    assert.match((await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text, /choose --default ecran /, 'le choix ne sert qu\'une fois');
+    // Les règles de l'écran tiennent : un poste bloqué ne s'en sert pas comme détour.
+    assert.equal((JSON.parse((await w.get('/ecran/choisir?mode=texte')).text) as { ok: boolean }).ok, false, 'sans adresse de machine');
+    // (2) Sans choix : le disque au bout du délai du menu (10 s = 4 tours de 3 s), réglable ; pas 5 minutes.
+    const autre = '52:54:00:cc:00:0a', att = async (n: number) => (await w.get(`/ecran/attente.ipxe?mac=${autre}&fw=efi&n=${n}`)).text;
+    assert.match(await att(3), /sleep 3/); assert.match(await att(4), /Pas de choix[\s\S]*goto local/);
+    assert.match((await w.v.act('thjalfi', 'ecran', { delai: 30 })).text, /sans choix, le disque après 30 s/);
+    assert.match(await att(9), /sleep 3/); assert.match(await att(10), /Pas de choix/);
+    assert.match((await w.get(`/menu.ipxe?mac=${autre}&fw=efi`)).text, /--timeout 30000 /, 'un seul réglage : le délai du menu');
+    await w.v.act('thjalfi', 'ecran', { delai: 0 });
+    assert.match(await att(1), /Pas de choix/, 'délai 0 : le disque tout de suite');
+    assert.equal(((await w.v.act('thjalfi', 'tableau')).data as { delai: number }).delai, 0, 'la page lit le même réglage');
   } finally { w.end(); }
 });
 

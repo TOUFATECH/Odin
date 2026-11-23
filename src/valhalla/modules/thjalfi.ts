@@ -21,7 +21,7 @@ import { journalDe } from '../base/journal.ts';
 import { Iso } from '../thjalfi/iso.ts';
 import { ProxyDhcp, bootFor, type Firmware } from '../thjalfi/pxe.ts';
 import { debianPreseed, detect, kickstart, menu, odinCmd, silentArgs, ubuntuMetaData, ubuntuUserData, unattend, windowsAfter, winpeshl, type Answer, type Recipe } from '../thjalfi/recipes.ts';
-import { installeAuto, versScripts } from '../thjalfi/logiciels-cle.ts';
+import { familleLogiciel, installeAuto, modeInstall, versScripts } from '../thjalfi/logiciels-cle.ts';
 import { normMac, PxeHttp } from '../thjalfi/server.ts';
 import { DISPOSITIONS, TEXT_THEMES, category, TEXT_THEME_IDS, THEMES, odinSays, systems, textLook, textThemeOf, themeOf, type Disposition, type TextTheme } from '../thjalfi/ecran.ts';
 import { imageKind, textBackground } from '../thjalfi/fond.ts';
@@ -34,7 +34,7 @@ import { suivi, type FicheFin, type Passage, type Resultat } from '../thjalfi/su
 import { pxeHook } from '../vidarr/dhcp.ts';
 import { cleUsb } from '../thjalfi/cle-ecrire.ts';
 import { EDITIONS, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, masque, supprimerCle } from '../thjalfi/cles-windows.ts';
-import { apercu as apercuScripts, nomCompteValide, optionsWindowsDe, osDuScript, scriptsRevus } from '../thjalfi/scripts.ts';
+import { apercu as apercuScripts, nomCompteValide, optionsWindowsDe, osDuScript, scriptsRevus, type ScriptPerso } from '../thjalfi/scripts.ts';
 import { BASE_RULES, RuleSet, compileGaldr, flat as plusieursConstats, scanBuffer } from '../ullr/engine.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
@@ -47,7 +47,8 @@ export interface Machine extends Passage { mac: string; ip?: string; fw?: string
 interface Session { token: string; mac: string; iso: string; profil: string; host: string; fw: 'uefi' | 'bios'; created: number; files?: Record<string, string>; /** l'installation est finie ou ratée depuis cette heure : le jeton ne sert plus que 10 min */ fin?: number }
 export interface Done extends FicheFin { at: number; mac: string; host?: string; ip?: string; iso: string; isoName: string; profil?: string; ms: number; result: Resultat; logiciels?: Array<{ nom: string; ok: boolean }> }
 /** Un choix fait sur l'écran d'Odin, lu une seule fois par le menu de la machine. */
-interface Choix { iso: string; mode: 'essai' | 'installer' | 'disque'; at: number }
+/** Le choix fait sur l'écran d'Odin : un système (essai, installation), le disque du PC, ou le menu TEXTE (« T »). */
+interface Choix { iso: string; mode: 'essai' | 'installer' | 'disque' | 'texte'; at: number }
 /** « Installer pour moi » demandé depuis l'écran : rien ne s'efface sans ton accord. */
 export interface Demande { id: string; mac: string; iso: string; isoName: string; at: number; statut: 'attente' | 'acceptee' | 'refusee' | 'sans_effacer'; decide?: number; host?: string; depuis?: string }
 export interface EcranCfg { actif: boolean; parDefaut: boolean; disposition: Disposition; theme: ReturnType<typeof themeOf>; texte: TextTheme; attente: number; /** l'écran graphique sur le PC lui-même (petit système) quand il est prêt */ surPc?: boolean }
@@ -144,6 +145,8 @@ export function thjalfi(): Module {
   const jsonFile = <T,>(ctx: ModCtx, name: string, fallback: T): T => { try { return JSON.parse(readFileSync(join(ctx.dir, name), 'utf8')) as T; } catch { return fallback; } };
   const saveJson = (ctx: ModCtx, name: string, x: unknown) => { mkdirSync(ctx.dir, { recursive: true }); const f = join(ctx.dir, name); writeFileSync(`${f}.tmp`, JSON.stringify(x)); renameSync(`${f}.tmp`, f); };
   const choices = (ctx: ModCtx) => jsonFile<Record<string, Choix>>(ctx, 'ecran-choix.json', {});
+  /** Le délai du menu (secondes, 0 à 300 ; 10 par défaut) : celui du menu texte ET de l'attente d'un choix sur l'écran. */
+  const delaiMenu = (ctx: ModCtx) => { const d = Math.round(Number(ctx.settings.delai ?? 10)); return Number.isFinite(d) ? Math.max(0, Math.min(300, d)) : 10; };
   const demandes = (ctx: ModCtx): Demande[] => jsonFile<Demande[]>(ctx, 'ecran-demandes.json', []);
   const saveDemandes = (ctx: ModCtx, l: Demande[]) => { const now = ctx.now().getTime(); saveJson(ctx, 'ecran-demandes.json', l.filter((d) => now - d.at < 7 * 864e5).slice(-100)); };
   /** Le choix encore valable (30 min) de cette machine ; « prendre » l'efface (une seule fois). */
@@ -272,7 +275,7 @@ export function thjalfi(): Module {
     // place du menu, et aucune fiche n'est ouverte pour une demande refusée.
     const refus = S.garde(ctx, mac, fw, from); if (refus) return refus;
     track(ctx, mac || undefined, from, 'menu', { fw: fw || undefined });
-    let auto: { id: string; token: string; host: string } | undefined, def = s(ctx.settings.defaut) || 'local', timeout = Number(ctx.settings.delai ?? 10);
+    let auto: { id: string; token: string; host: string } | undefined, def = s(ctx.settings.defaut) || 'local', timeout = delaiMenu(ctx);
     if (r?.auto && !r.fait && r.iso) {
       const target = list.find((i) => i.id === r.iso);
       if (target?.recipe?.auto) {
@@ -284,6 +287,8 @@ export function thjalfi(): Module {
     } else if (r?.iso && list.some((i) => i.id === r.iso)) def = r.iso;
     const ec = ecranCfg(ctx), ch = auto || !mac ? undefined : choiceOf(ctx, mac, true);
     if (ch?.mode === 'disque') { def = 'local'; timeout = 0; }
+    // « T » sur l'écran (choix du propriétaire) : le menu texte, tel quel, avec son délai ; il ne renvoie pas vers l'écran.
+    else if (ch?.mode === 'texte') track(ctx, mac, from, 'menu', { detail: 'menu texte demandé sur l\'écran' });
     else if (ch && list.some((i) => i.id === ch.iso)) { const i = list.find((x) => x.id === ch.iso)!; def = i.id; timeout = 0; track(ctx, mac, from, 'menu', { iso: i.id, isoName: i.name, detail: `choisi sur l'écran : ${i.name} (${ch.mode === 'essai' ? 'essai' : 'installation'})` }); }
     if (def !== 'local' && !list.some((i) => i.id === def)) def = 'local';
     if (ec.actif && ec.parDefaut && !ch && !auto && def === 'local') def = 'ecran';
@@ -308,6 +313,8 @@ export function thjalfi(): Module {
     const non = S.refus(ctx, mac, mode); if (non) return { ok: false, texte: non };
     const all = choices(ctx), now = ctx.now().getTime();
     if (mode === 'disque') { all[mac] = { iso: '', mode: 'disque', at: now }; saveJson(ctx, 'ecran-choix.json', all); return { ok: true, texte: 'Le PC démarre sur son disque.' }; }
+    // « T » : le PC repasse sur le menu texte (même menu, mêmes règles, son délai), sans rien installer.
+    if (mode === 'texte') { all[mac] = { iso: '', mode: 'texte', at: now }; saveJson(ctx, 'ecran-choix.json', all); return { ok: true, texte: 'Le PC repasse sur le menu texte.' }; }
     const list = (await isos(ctx)).filter(prete), sys = systems(list, stats(ctx)).find((x) => x.id === iso);
     if (!sys) return { ok: false, texte: 'Ce système n\'est plus dans Odin.' };
     if (!['essai', 'installer', 'auto'].includes(mode) || !sys.modes.includes(mode as 'essai')) return { ok: false, texte: `${sys.title} ne se lance pas de cette façon.` };
@@ -324,7 +331,8 @@ export function thjalfi(): Module {
     track(ctx, mac, undefined, 'menu', { iso, isoName: sys.name, detail: `choisi sur l'écran : ${sys.title} (${mode === 'essai' ? 'essai' : 'installation'})` });
     return { ok: true, texte: `C'est parti : ${sys.title} démarre dans quelques secondes.` };
   }
-  /** Ce que lit la machine pendant qu'elle attend un choix (iPXE) : elle redemande toutes les 3 s, puis reprend son disque. */
+  /** Ce que lit la machine pendant qu'elle attend un choix (iPXE) : elle redemande toutes les 3 s, puis reprend son disque
+   *  au bout du DÉLAI DU MENU (10 s par défaut, réglable ; choix du propriétaire) — plus longtemps si un accord est attendu. */
   function ecranAttente(ctx: ModCtx, mac: string, fw: string, n: number, from: string): string {
     const b = base(ctx), plat = fw ? fw.replace(/[^\w-]/g, '') : '${platform}', local = [':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1'];
     if (!mac) return ['#!ipxe', 'goto local', ...local, ''].join('\n');
@@ -332,7 +340,7 @@ export function thjalfi(): Module {
     const r = rules(ctx).find((x) => x.mac === mac), pending = demandes(ctx).some((d) => d.mac === mac && d.statut === 'attente');
     if (choiceOf(ctx, mac) || (r?.auto && !r.fait)) return ['#!ipxe', `chain ${b}/menu.ipxe?mac=${mac}&fw=${plat} || goto local`, ...local, ''].join('\n');
     if (n === 0) track(ctx, mac, from, 'menu', { fw: fw || undefined, detail: 'attend un choix sur l\'écran d\'Odin' });
-    const max = pending ? 600 : Math.max(1, ecranCfg(ctx).attente) * 20;
+    const max = pending ? 600 : Math.max(1, Math.ceil(delaiMenu(ctx) / 3));
     if (n >= max) return ['#!ipxe', 'echo Pas de choix : la machine demarre sur son disque.', 'goto local', ...local, ''].join('\n');
     return ['#!ipxe', ...(n % 10 === 0 ? [`echo Odin attend ton choix : ouvre ${b}/ecran?mac=${mac}`, `echo sur un telephone ou un PC du reseau${pending ? ' (accord demande)' : ''}.`] : []), 'sleep 3', `chain ${b}/ecran/attente.ipxe?mac=${mac}&fw=${plat}&n=${n + 1} || goto local`, ...local, ''].join('\n');
   }
@@ -603,15 +611,17 @@ export function thjalfi(): Module {
         d.statut = 'refusee'; d.decide = now; saveDemandes(ctx, l); track(ctx, d.mac, undefined, 'menu', { detail: 'demande refusée' });
         return { text: `✋ Refusé : rien n'est touché sur ${d.host ?? d.mac}.` };
       } },
-    { id: 'ecran', label: 'Écran de démarrage', what: 'L\'écran d\'Odin où l\'on choisit le système (sur un téléphone ou un PC du réseau) : disposition, thème, par défaut ou non, temps d\'attente', params: [{ key: 'actif', label: 'Proposer l\'écran dans le menu', kind: 'boolean', default: true }, { key: 'parDefaut', label: 'L\'écran par défaut (au lieu du disque)', kind: 'boolean', default: false }, { key: 'surPc', label: 'L\'écran graphique sur le PC lui-même (petit système Alpine, 2 Go de mémoire)', kind: 'boolean', default: true }, { key: 'disposition', label: 'Disposition', kind: 'select', options: [...DISPOSITIONS], default: 'eventail' }, { key: 'theme', label: 'Thème de l\'écran graphique', kind: 'select', options: Object.keys(THEMES), default: 'bleu', help: Object.entries(THEMES).map(([k, v]) => `${k} : ${v}`).join(' · ') }, { key: 'texte', label: 'Thème de l\'écran texte (iPXE)', kind: 'select', options: TEXT_THEME_IDS, default: 'matrix', help: `${Object.entries(TEXT_THEMES).map(([k, v]) => `${k} : ${v.label}`).join(' · ')} · classique : les couleurs d'iPXE` }, { key: 'attente', label: 'Attente d\'un choix (minutes), puis le disque', kind: 'number', default: 5 },
+    { id: 'ecran', label: 'Écran de démarrage', what: 'L\'écran d\'Odin où l\'on choisit le système (sur un téléphone ou un PC du réseau) : disposition, thème, par défaut ou non, délai sans choix', params: [{ key: 'actif', label: 'Proposer l\'écran dans le menu', kind: 'boolean', default: true }, { key: 'parDefaut', label: 'L\'écran par défaut (au lieu du disque)', kind: 'boolean', default: false }, { key: 'surPc', label: 'L\'écran graphique sur le PC lui-même (petit système Alpine, 2 Go de mémoire)', kind: 'boolean', default: true }, { key: 'disposition', label: 'Disposition', kind: 'select', options: [...DISPOSITIONS], default: 'eventail' }, { key: 'theme', label: 'Thème de l\'écran graphique', kind: 'select', options: Object.keys(THEMES), default: 'bleu', help: Object.entries(THEMES).map(([k, v]) => `${k} : ${v}`).join(' · ') }, { key: 'texte', label: 'Thème de l\'écran texte (iPXE)', kind: 'select', options: TEXT_THEME_IDS, default: 'matrix', help: `${Object.entries(TEXT_THEMES).map(([k, v]) => `${k} : ${v.label}`).join(' · ')} · classique : les couleurs d'iPXE` }, { key: 'delai', label: 'Sans choix, le disque après (secondes, le délai du menu)', kind: 'number', default: 10 },
       { key: 'fond_texte', label: 'Ton image de fond, écran texte (iPXE)', kind: 'image', image: { w: 1024, h: 768, type: 'png', voile: 0.5 }, help: 'Réduite à 1024 × 768 et assombrie pour que le menu se lise. Sans image : le fond du thème.' },
       { key: 'fond_graphique', label: 'Ton image de fond, écran graphique', kind: 'image', image: { w: 1920, h: 1080, type: 'jpeg', voile: 0.3 }, help: 'Elle remplit l\'écran, avec un voile aux couleurs du thème. Sans image : le décor du thème.' },
       { key: 'sans_fond_texte', label: 'Remettre le fond du thème (écran texte)', kind: 'boolean', default: false }, { key: 'sans_fond_graphique', label: 'Remettre le décor du thème (écran graphique)', kind: 'boolean', default: false }], quick: false, words: ['écran de démarrage', 'écran pxe', 'thème de l\'écran'], run: (ctx, i) => {
       const c = ecranCfg(ctx), b = (x: unknown, d: boolean) => (x === undefined || x === '' ? d : x === true || x === 'true');
       const n: EcranCfg = { actif: b(i.actif, c.actif), parDefaut: b(i.parDefaut, c.parDefaut), disposition: (DISPOSITIONS as readonly string[]).includes(s(i.disposition)) ? s(i.disposition) as Disposition : c.disposition, theme: s(i.theme) in THEMES ? themeOf(i.theme) : c.theme, texte: i.texte === undefined || i.texte === '' ? c.texte : textThemeOf(i.texte), surPc: b(i.surPc, c.surPc !== false), attente: Math.max(1, Math.min(60, Number(i.attente ?? c.attente) || 5)) };
       const f = [setFond(ctx, 'texte', i.fond_texte, i.sans_fond_texte), setFond(ctx, 'graphique', i.fond_graphique, i.sans_fond_graphique)].filter(Boolean);
-      ctx.saveSettings({ ecran: n });
-      return { text: `Écran : ${n.actif ? `proposé${n.parDefaut ? ' et par défaut' : ''}` : 'retiré du menu'} · ${n.disposition} · graphique ${THEMES[n.theme]} · texte ${n.texte === 'classique' ? 'classique' : TEXT_THEMES[n.texte].label} · attente ${n.attente} min puis le disque${f.length ? ` · ${f.join(' · ')}` : ''}${http ? ` · ${base(ctx)}/ecran` : ''}.` };
+      // Le délai sans choix est celui du menu (un seul réglage, 0 à 300 s) ; « attente » (minutes) n'est plus lu.
+      const d = i.delai === undefined || i.delai === '' ? delaiMenu(ctx) : Math.max(0, Math.min(300, Math.round(Number(i.delai)) || 0));
+      ctx.saveSettings({ ecran: n, delai: d });
+      return { text: `Écran : ${n.actif ? `proposé${n.parDefaut ? ' et par défaut' : ''}` : 'retiré du menu'} · ${n.disposition} · graphique ${THEMES[n.theme]} · texte ${n.texte === 'classique' ? 'classique' : TEXT_THEMES[n.texte].label} · sans choix, le disque après ${d} s${f.length ? ` · ${f.join(' · ')}` : ''}${http ? ` · ${base(ctx)}/ecran` : ''}.` };
     } },
     { id: 'tableau', label: 'Tableau (Odin te prévient)', what: 'Demandes à décider, machines en direct, fil des événements, chiffres, réglages de l\'écran', read: true, run: async (ctx) => {
       const now = ctx.now().getTime(), m = Object.values(live(ctx)), h = history(ctx, 300), l = await isos(ctx);
@@ -619,7 +629,7 @@ export function thjalfi(): Module {
       const fil = m.flatMap((x) => x.steps.map((st) => ({ at: st.at, mac: x.mac, nom: x.host ?? x.mac, etape: st.step, detail: st.detail ?? '' }))).sort((a, b) => b.at - a.at).slice(0, 40);
       const today = h.filter((d) => now - d.at < 864e5);
       return { text: `${demandes(ctx).filter((d) => d.statut === 'attente').length} demande(s) à décider · ${m.filter((x) => !FINAL.includes(x.step)).length} en cours`, data: {
-        allume: Boolean(http), url: http ? `${base(ctx)}/ecran` : '', ecran: ecranCfg(ctx), themes: THEMES, dispositions: DISPOSITIONS, textes: { ...Object.fromEntries(Object.entries(TEXT_THEMES).map(([k, t]) => [k, t.label])), classique: 'Classique (sans décor)' }, fonds: { texte: fondPerso(ctx, 'texte'), graphique: fondPerso(ctx, 'graphique') },
+        allume: Boolean(http), url: http ? `${base(ctx)}/ecran` : '', ecran: ecranCfg(ctx), delai: delaiMenu(ctx), themes: THEMES, dispositions: DISPOSITIONS, textes: { ...Object.fromEntries(Object.entries(TEXT_THEMES).map(([k, t]) => [k, t.label])), classique: 'Classique (sans décor)' }, fonds: { texte: fondPerso(ctx, 'texte'), graphique: fondPerso(ctx, 'graphique') },
         demandes: demandes(ctx).filter((d) => d.statut === 'attente' || now - (d.decide ?? d.at) < 864e5).reverse(),
         enCours: m.filter((x) => !FINAL.includes(x.step)).sort((a, b) => b.updated - a.updated),
         fil, chiffres: { enCours: m.filter((x) => !FINAL.includes(x.step)).length, aujourdhui: today.filter((d) => d.result === 'fini').length, echecs: today.filter((d) => S.rate(d.result)).length, total: h.filter((d) => d.result === 'fini').length, isos: l.filter((i) => i.recipe).length },
@@ -644,6 +654,9 @@ export function thjalfi(): Module {
   // Systèmes (maquette « Genèse · Systèmes », lot S1) : la bibliothèque d'Hydre et les téléchargements d'Andromède
   // réunis, carte par carte ; lecture seule, propriétaire seul comme la clé.
   actions.push(systemesAction(async (ctx) => (await isos(ctx)).map((i) => ({ id: i.id, chemin: i.path, demarre: Boolean(i.recipe) && !i.err, prete: prete(i) }))));
+  // Logiciels et profils (maquette « Genèse · Systèmes », lot S4) : les profils de logiciels communs à la clé, au réseau et
+  // aux machines virtuelles, gardés par Odin ; lecture et écriture réservées au propriétaire.
+  actions.push(...profilsLogicielsActions(antivirusScript));
 
   return {
     id: 'thjalfi', name: 'Genèse', family: 'Machines',
@@ -881,4 +894,226 @@ export function systemesAction(images: (ctx: ModCtx) => Promise<ImageGenese[]>):
       return { ok: true, text: `${d.chiffres.prets} système(s) prêt(s) à déployer · ${d.chiffres.enCours} en cours · ${d.chiffres.majs} mise(s) à jour disponible(s)`, data: { ...d, dossier, lu: { bibliotheque: Boolean(b), telechargements: Boolean(srv) } } };
     },
   };
+}
+
+// ---------------- Logiciels et profils (maquette « Genèse · Systèmes », lot S4) ----------------
+/** Les systèmes d'un profil de logiciels : un jeu pour Windows, un pour Ubuntu et Debian (.deb), un pour Fedora (.rpm). */
+export const OS_PROFIL = ['windows', 'debian', 'fedora'] as const;
+export type OsProfil = typeof OS_PROFIL[number];
+/** Un logiciel d'un profil : il vient de la bibliothèque des logiciels déjà téléchargés ; « silencieux » est recalculé ici. */
+export interface LogicielProfil { id: string; fichier: string; nom: string; silencieux: boolean }
+/** Un profil de logiciels, COMMUN à la clé USB, au démarrage par le réseau et aux machines virtuelles. */
+export interface ProfilLogiciels { id: string; nom: string; systemes: Record<OsProfil, { logiciels: LogicielProfil[]; scripts: ScriptPerso[] }>; cree: number; modifie: number }
+/** Les bornes : un profil piégé (énorme, trop de lignes) est refusé, jamais tronqué en silence. */
+export const BORNES_PROFILS = { profils: 30, nom: 60, logiciels: 200, scripts: 20, octetsProfil: 512 * 1024, octetsTout: 4 * 1024 * 1024 };
+const FICHIER_PROFILS = 'profils-logiciels.json';
+/** Caractères jamais permis dans un nom : de contrôle, invisibles, de sens d'écriture, privés, non attribués, fins de ligne
+ *  et de paragraphe (U+2028, U+2029), et les « lettres » qui ne se voient pas (remplissage hangul U+115F, U+1160, U+3164,
+ *  U+FFA0 ; braille vide U+2800) : un nom qui se lit autrement qu'il s'écrit. */
+const INVISIBLES = /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{Zl}\p{Zp}\u{115F}\u{1160}\u{3164}\u{FFA0}\u{2800}]/u;
+/** Un nom doit avoir au moins un signe qui se voit (lettre, chiffre, symbole, ponctuation) : pas seulement des accents seuls. */
+const VISIBLE = /[\p{L}\p{N}\p{S}\p{P}]/u;
+/** Les familles de fichiers acceptées pour chaque système d'un profil (même tri que l'onglet). */
+const FAMILLES_OS: Record<OsProfil, string[]> = { windows: ['windows'], debian: ['linux-deb', 'linux-flatpak', 'linux-appimage'], fedora: ['linux-rpm', 'linux-flatpak', 'linux-appimage'] };
+const osScriptDe = (os: OsProfil): 'windows' | 'linux' => (os === 'windows' ? 'windows' : 'linux');
+
+/** Un nom de profil acceptable (1 à 60 caractères, rien d'invisible), ramené à sa forme simple ; sinon undefined. Pur. */
+export function nomProfilValide(n: unknown): string | undefined {
+  if (typeof n !== 'string' || INVISIBLES.test(n)) return undefined;
+  // Les espaces « spéciaux » (insécable, cadratin…) deviennent des espaces simples : deux noms qui se voient pareils sont pareils.
+  const t = n.normalize('NFC').replace(/\p{Zs}/gu, ' ').trim().replace(/ {2,}/g, ' ');
+  return t && VISIBLE.test(t) && [...t].length <= BORNES_PROFILS.nom ? t : undefined;
+}
+type Revu<T> = { ok: true; valeur: T } | { ok: false; raison: string };
+/** « systemes » tel qu'il arrive : un objet (la page) ou son écriture JSON (un formulaire) ; autre chose : undefined. Pur. */
+export function systemesRecus(x: unknown): Record<string, unknown> | undefined {
+  let v = x;
+  if (typeof v === 'string') { if (v.length > BORNES_PROFILS.octetsProfil) return undefined; try { v = JSON.parse(v); } catch { return undefined; } }
+  return v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : undefined;
+}
+/**
+ * Les logiciels et les scripts d'un profil tels que la page les envoie (bruts, peut-être trafiqués), revus un par un :
+ * fichier du bon système, noms sans rien d'invisible, bornes, et CHAQUE script revérifié (extension, commandes
+ * dangereuses, antivirus). Tout écart REFUSE le profil (avec la raison) : rien n'est gardé à moitié. Pur (hors `scan`).
+ */
+export function systemesProfilRevus(brut: unknown, scan?: (nom: string, contenu: string) => string | undefined, o2: { scripts?: boolean } = {}): Revu<ProfilLogiciels['systemes']> {
+  const o = (x: unknown): Record<string, unknown> => (x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, unknown> : {});
+  let taille = 0;
+  try { taille = JSON.stringify(brut ?? {}).length; } catch { return { ok: false, raison: 'Profil illisible.' }; }
+  if (taille > BORNES_PROFILS.octetsProfil) return { ok: false, raison: 'Profil trop gros (512 Ko au plus).' };
+  const b = o(brut), out = {} as ProfilLogiciels['systemes'];
+  for (const os of OS_PROFIL) {
+    const x = o(b[os]), ls = x.logiciels ?? [], sc = x.scripts ?? [];
+    if (!Array.isArray(ls) || !Array.isArray(sc)) return { ok: false, raison: 'Profil illisible.' };
+    if (ls.length > BORNES_PROFILS.logiciels) return { ok: false, raison: `Trop de logiciels (${BORNES_PROFILS.logiciels} au plus par système).` };
+    if (sc.length > BORNES_PROFILS.scripts) return { ok: false, raison: `Trop de scripts (${BORNES_PROFILS.scripts} au plus par système).` };
+    const logiciels: LogicielProfil[] = [], vus = new Set<string>();
+    for (const l0 of ls) {
+      const l = o(l0), fichier = s(l.fichier), id = s(l.id) || fichier, nom = s(l.nom) || fichier;
+      if (!fichier || fichier.length > 255 || /[\\/:]/.test(fichier) || /^\.+$/.test(fichier) || INVISIBLES.test(fichier) || id.length > 120 || INVISIBLES.test(id) || [...nom].length > 120 || INVISIBLES.test(nom)) return { ok: false, raison: 'Un logiciel a un nom ou un fichier refusé.' };
+      if (!FAMILLES_OS[os].includes(familleLogiciel(fichier))) return { ok: false, raison: `« ${fichier} » ne s'installe pas sur ce système.` };
+      if (vus.has(fichier)) continue;
+      vus.add(fichier);
+      const m = modeInstall(id, fichier);
+      logiciels.push({ id, fichier, nom, silencieux: m.silencieux && m.connu });
+    }
+    const scripts: ScriptPerso[] = [];
+    for (const s0 of sc) {
+      const z = o(s0), nom = s(z.nom), contenu = s(z.contenu);
+      if (!nom || nom.length > 120 || /[\\/:]/.test(nom) || /^\.+$/.test(nom) || INVISIBLES.test(nom)) return { ok: false, raison: 'Un script a un nom refusé.' };
+      if (osDuScript(nom) !== osScriptDe(os)) return { ok: false, raison: `« ${nom} » n'est pas un script pour ce système.` };
+      scripts.push({ nom, contenu });
+    }
+    // Le MÊME tri que l'aperçu et l'écriture de la clé (scripts.ts) : un seul script dangereux refuse le profil.
+    // (À la relecture du fichier gardé, o2.scripts = false : le verdict est rendu script par script, voir vuProfils.)
+    const ko = o2.scripts === false ? undefined : scriptsRevus(scripts, scan).verdicts.find((v) => !v.ok);
+    if (ko) return { ok: false, raison: `Le script « ${ko.nom} » est refusé : ${ko.raison ?? 'contenu dangereux'}` };
+    out[os] = { logiciels, scripts };
+  }
+  return { ok: true, valeur: out };
+}
+/** Les profils lus, et ce qui n'a pas pu l'être : `abimes` profils laissés de côté (abîmés à la main, en double, de trop),
+ *  ou tout le fichier illisible (`illisible`). Rien de cela n'est jamais écrasé en silence : voir garderProfils. */
+interface LusProfils { liste: ProfilLogiciels[]; abimes: number; illisible: boolean }
+/** Les profils gardés par Odin (un fichier du dossier de Genèse) ; un profil abîmé à la main est laissé de côté (et compté). */
+function lireProfils(ctx: ModCtx): LusProfils {
+  let texte: string;
+  try { texte = readFileSync(join(ctx.dir, FICHIER_PROFILS), 'utf8'); } catch { return { liste: [], abimes: 0, illisible: false }; }
+  let brut: unknown;
+  try { brut = JSON.parse(texte); } catch { return { liste: [], abimes: 0, illisible: true }; }
+  if (!brut || typeof brut !== 'object' || !Array.isArray((brut as { profils?: unknown }).profils)) return { liste: [], abimes: 0, illisible: true };
+  const l = (brut as { profils: unknown[] }).profils, out: ProfilLogiciels[] = [], ids = new Set<string>();
+  let abimes = Math.max(0, l.length - BORNES_PROFILS.profils);
+  for (const p0 of l.slice(0, BORNES_PROFILS.profils)) {
+    const p = p0 && typeof p0 === 'object' ? p0 as Record<string, unknown> : {};
+    const nom = nomProfilValide(p.nom), id = s(p.id);
+    if (!nom || !/^p-[a-f0-9]{8,32}$/.test(id) || ids.has(id)) { abimes++; continue; }
+    // Relu ici pour la forme ; l'antivirus repasse sur chaque script à chaque usage (vuProfils, l'aperçu, l'écriture).
+    const r = systemesProfilRevus(p.systemes, undefined, { scripts: false });
+    if (!r.ok) { abimes++; continue; }
+    ids.add(id);
+    out.push({ id, nom, systemes: r.valeur, cree: Number(p.cree) || 0, modifie: Number(p.modifie) || 0 });
+  }
+  return { liste: out, abimes, illisible: false };
+}
+/**
+ * Écrit les profils d'un coup (un fichier temporaire NEUF à côté, puis renommé : jamais un fichier à moitié écrit), dans le
+ * dossier de Genèse et nulle part ailleurs. Si la lecture a laissé quelque chose de côté (fichier illisible, profil abîmé à la
+ * main), le fichier d'avant est d'abord COPIÉ à part (profils-logiciels.abime-<date>.json) : rien n'est perdu en silence.
+ * Rend le nom de cette copie, s'il y en a une.
+ */
+function garderProfils(ctx: ModCtx, l: ProfilLogiciels[], lus: LusProfils): string | undefined {
+  const t = JSON.stringify({ v: 1, profils: l });
+  if (t.length > BORNES_PROFILS.octetsTout) throw new Error('Plus de place pour les profils (4 Mo au plus en tout) : retire des scripts ou un profil.');
+  mkdirSync(ctx.dir, { recursive: true });
+  const f = join(ctx.dir, FICHIER_PROFILS);
+  let copie: string | undefined;
+  if (lus.illisible || lus.abimes > 0) {
+    copie = `profils-logiciels.abime-${ctx.now().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}-${randomBytes(2).toString('hex')}.json`;
+    writeFileSync(join(ctx.dir, copie), readFileSync(f), { mode: 0o600, flag: 'wx' });
+  }
+  const tmp = `${f}.${randomBytes(6).toString('hex')}.tmp`;
+  try { writeFileSync(tmp, t, { mode: 0o600, flag: 'wx' }); renameSync(tmp, f); } catch (x) { try { rmSync(tmp, { force: true }); } catch { /* rien */ } throw x; }
+  return copie;
+}
+/** Les profils tels que la page les voit : chaque script REVÉRIFIÉ à chaque lecture (l'antivirus a pu apprendre depuis). */
+function vuProfils(l: ProfilLogiciels[], scan: (nom: string, contenu: string) => string | undefined) {
+  return {
+    profils: l.map((p) => ({ id: p.id, nom: p.nom, modifie: p.modifie,
+      systemes: Object.fromEntries(OS_PROFIL.map((os) => {
+        const { verdicts } = scriptsRevus(p.systemes[os].scripts, scan);
+        return [os, { logiciels: p.systemes[os].logiciels, scripts: p.systemes[os].scripts.map((x, k) => ({ ...x, ok: verdicts[k]?.ok === true, ...(verdicts[k]?.ok ? {} : { raison: verdicts[k]?.raison ?? 'refusé' }) })) }];
+      })) })),
+    bornes: BORNES_PROFILS,
+  };
+}
+/** « Nom (copie) », « Nom (copie 2) »… un nom libre pour un profil dupliqué. Pur. */
+export function nomDeCopie(nom: string, pris: string[]): string {
+  const bas = new Set(pris.map((x) => x.toLowerCase()));
+  for (let k = 1; k < 1000; k++) {
+    const suffixe = k === 1 ? ' (copie)' : ` (copie ${k})`, base = [...nom].slice(0, BORNES_PROFILS.nom - [...suffixe].length).join('').trim();
+    if (!bas.has(`${base}${suffixe}`.toLowerCase())) return `${base}${suffixe}`;
+  }
+  return `${[...nom].slice(0, 40).join('')} ${Date.now()}`;
+}
+const systemesVides = (): ProfilLogiciels['systemes'] => ({ windows: { logiciels: [], scripts: [] }, debian: { logiciels: [], scripts: [] }, fedora: { logiciels: [], scripts: [] } });
+const NOM_FAUX = 'Donne un nom de 1 à 60 caractères, sans caractère invisible.';
+/**
+ * Les profils de logiciels de Genèse (lot S4) : la lecture (`profils_logiciels`) et l'écriture (`profil_logiciels` :
+ * créer, enregistrer, renommer, dupliquer, supprimer). Gardés par Odin, côté serveur ; communs à la clé USB, au réseau et
+ * aux machines virtuelles. Propriétaire seul pour les deux : ni un membre, ni une tablette, ni une clé d'API, ni une
+ * automatisation. Un profil piégé est refusé ici, quoi que dise la page ; supprimer demande la confirmation.
+ */
+export function profilsLogicielsActions(scan: (nom: string, contenu: string) => string | undefined): Action[] {
+  return [
+    {
+      id: 'profils_logiciels', label: 'Profils de logiciels', read: true, quick: false, proprietaireSeul: true,
+      what: 'Les profils de logiciels (communs à la clé USB, au réseau et aux machines virtuelles) : logiciels par système, dans l\'ordre d\'installation, et tes scripts revérifiés par l\'antivirus',
+      words: ['profils de logiciels', 'mes profils de logiciels'],
+      run: (ctx) => {
+        const lus = lireProfils(ctx), l = lus.liste;
+        const abimes = lus.illisible ? 'Le fichier des profils est abîmé : il sera copié à part à la prochaine écriture.' : lus.abimes ? `${lus.abimes} profil(s) abîmé(s) laissé(s) de côté : ils seront copiés à part à la prochaine écriture.` : '';
+        return { ok: true, text: [l.length ? l.map((p) => `- ${p.nom} : ${OS_PROFIL.map((os) => p.systemes[os].logiciels.length).reduce((a, b) => a + b, 0)} logiciel(s)`).join('\n') : 'Aucun profil de logiciels.', abimes].filter(Boolean).join('\n'), data: { ...vuProfils(l, scan), abimes: lus.illisible ? -1 : lus.abimes } };
+      },
+    },
+    {
+      id: 'profil_logiciels', label: 'Changer un profil de logiciels', quick: false, proprietaireSeul: true,
+      what: 'Crée, enregistre, renomme, duplique ou supprime un profil de logiciels (commun à la clé USB, au réseau et aux machines virtuelles)',
+      params: [{ key: 'op', label: 'Quoi (creer, enregistrer, renommer, dupliquer, supprimer)', kind: 'text', required: true }, { key: 'id', label: 'Profil', kind: 'text', default: '' }, { key: 'nom', label: 'Nom', kind: 'text', default: '' }, { key: 'systemes', label: 'Logiciels et scripts par système', kind: 'textarea' }],
+      grave: (i, ctx) => {
+        if (s(i.op) !== 'supprimer') return undefined;
+        const p = ctx ? lireProfils(ctx).liste.find((x) => x.id === s(i.id)) : undefined;
+        return `supprimer le profil de logiciels « ${p?.nom ?? s(i.id).slice(0, 40)} » (les clés déjà écrites ne changent pas)`;
+      },
+      run: (ctx, i) => {
+        const op = s(i.op), lus = lireProfils(ctx), l = lus.liste, id = s(i.id), p = l.find((x) => x.id === id);
+        const fini = (texte: string, liste: ProfilLogiciels[], choisi?: string) => {
+          const copie = garderProfils(ctx, liste, lus);
+          return { ok: true, text: copie ? `${texte} (Ce qui était abîmé dans l'ancien fichier est gardé à part : ${copie}.)` : texte, data: { ...vuProfils(liste, scan), abimes: 0, ...(choisi ? { choisi } : {}) } };
+        };
+        // « systemes » : un objet (ou son écriture JSON) ; enregistrer sans lui viderait le profil en silence → refusé.
+        const recus = i.systemes === undefined || i.systemes === '' ? undefined : systemesRecus(i.systemes);
+        if (i.systemes !== undefined && i.systemes !== '' && !recus) return { ok: false, text: 'Profil illisible : rien n\'a été changé.' };
+        const nomLibre = (n: string, sauf?: string) => !l.some((x) => x.id !== sauf && x.nom.toLowerCase() === n.toLowerCase());
+        const neuf = () => `p-${randomBytes(6).toString('hex')}`;
+        const maintenant = ctx.now().getTime();
+        if (op === 'creer') {
+          const nom = nomProfilValide(i.nom);
+          if (!nom) return { ok: false, text: NOM_FAUX };
+          if (!nomLibre(nom)) return { ok: false, text: `Un profil s'appelle déjà « ${nom} ».` };
+          if (l.length >= BORNES_PROFILS.profils) return { ok: false, text: `${BORNES_PROFILS.profils} profils au plus.` };
+          const r = !recus ? { ok: true as const, valeur: systemesVides() } : systemesProfilRevus(recus, scan);
+          if (!r.ok) return { ok: false, text: r.raison };
+          const n: ProfilLogiciels = { id: neuf(), nom, systemes: r.valeur, cree: maintenant, modifie: maintenant };
+          return fini(`Profil « ${nom} » créé.`, [...l, n], n.id);
+        }
+        if (!p) return { ok: false, text: 'Profil introuvable (relis la liste).' };
+        if (op === 'enregistrer') {
+          if (!recus) return { ok: false, text: 'Rien à enregistrer : envoie les logiciels et les scripts du profil (rien n\'a été changé).' };
+          const r = systemesProfilRevus(recus, scan);
+          if (!r.ok) return { ok: false, text: r.raison };
+          return fini(`Profil « ${p.nom} » enregistré.`, l.map((x) => (x.id === id ? { ...x, systemes: r.valeur, modifie: maintenant } : x)), id);
+        }
+        if (op === 'renommer') {
+          const nom = nomProfilValide(i.nom);
+          if (!nom) return { ok: false, text: NOM_FAUX };
+          if (!nomLibre(nom, id)) return { ok: false, text: `Un profil s'appelle déjà « ${nom} ».` };
+          return fini(`Profil renommé « ${nom} ».`, l.map((x) => (x.id === id ? { ...x, nom, modifie: maintenant } : x)), id);
+        }
+        if (op === 'dupliquer') {
+          if (l.length >= BORNES_PROFILS.profils) return { ok: false, text: `${BORNES_PROFILS.profils} profils au plus.` };
+          const voulu = i.nom ? nomProfilValide(i.nom) : nomDeCopie(p.nom, l.map((x) => x.nom));
+          if (!voulu) return { ok: false, text: NOM_FAUX };
+          if (!nomLibre(voulu)) return { ok: false, text: `Un profil s'appelle déjà « ${voulu} ».` };
+          // La copie repasse par l'antivirus : un script refusé depuis n'est pas recopié en silence.
+          const r = systemesProfilRevus(p.systemes, scan);
+          if (!r.ok) return { ok: false, text: r.raison };
+          const n: ProfilLogiciels = { id: neuf(), nom: voulu, systemes: r.valeur, cree: maintenant, modifie: maintenant };
+          return fini(`Profil « ${voulu} » créé à partir de « ${p.nom} ».`, [...l, n], n.id);
+        }
+        if (op === 'supprimer') return fini(`Profil « ${p.nom} » supprimé.`, l.filter((x) => x.id !== id));
+        return { ok: false, text: 'Je ne sais pas faire ça avec un profil (creer, enregistrer, renommer, dupliquer, supprimer).' };
+      },
+    },
+  ];
 }

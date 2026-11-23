@@ -371,7 +371,8 @@
         }
       };
       void poll();
-      const res = await act('cle_preparer', { cible: etat.cible, systemes: etat.systemes.map(serialiser), racine: etat.racine });
+      const E = window.OdinGeneseCleEtapes, dem = E && typeof E.demarrage === 'function' ? E.demarrage() : {};
+      const res = await act('cle_preparer', { cible: etat.cible, systemes: etat.systemes.map(serialiser), racine: etat.racine, ...dem });
       vivant = false;
       majBarre(100, (res && res.ok !== false) ? 'Terminé.' : 'Arrêté.');
       if (btn) btn.disabled = false;

@@ -97,8 +97,12 @@
     'bientot.ouvrir': 'Ouvrir le composeur pour « {nom} »',
     'bientot.mescles': 'Bientôt : tes clés ODIN, leur contenu et l\'ordre du menu, changés sans rien effacer.',
     'bientot.mescles.avant': 'En attendant, tes disques comme avant : préparer une clé, le plan de double démarrage d\'un disque interne, retirer Odin d\'un disque.',
-    'bientot.demarrage': 'Bientôt : l\'arrivée d\'Odin et le menu de la clé, en mode graphique (par défaut) ou en mode texte.',
-    'bientot.demarrage.apercu': 'Voir l\'aperçu du menu actuel',
+    'dem.titre': 'Démarrage de tes clés',
+    'dem.lead': 'Ce que montre une clé ODIN quand le PC démarre dessus : l\'arrivée d\'Odin, puis le menu. Ces réglages partent avec la prochaine clé préparée ici.',
+    'dem.mode': 'Au démarrage', 'dem.mode.graphique': 'Menu graphique', 'dem.mode.texte': 'Menu texte',
+    'dem.delai': 'Sans choix', 'dem.delai.0': 'Attendre mon choix', 'dem.delai.n': '{n} s',
+    'dem.note': 'Sans choix au bout du délai : le système par défaut de la clé démarre, sinon le disque du PC — jamais un installateur tout seul. T passe au menu texte, G au menu graphique.',
+    'dem.apercu': 'Aperçu (rien n\'est lancé)',
     'bientot.parole': 'Bientôt : « J\'ai branché une clé, prépare-la » — Odin te propose d\'abord, puis attend ta confirmation avant d\'écrire.',
     'bientot.titre': 'Bientôt',
   };
@@ -369,7 +373,16 @@
 `;
 
   // L'état du parcours, gardé quand on change d'onglet de Genèse.
-  const S = { onglet: 'deployer', etape: 1, cle: null, choix: null, data: null, vue: { cles: [], verrous: [] }, charge: true, erreur: '', msg: '', verif: null, signature: '' };
+  const S = { onglet: 'deployer', etape: 1, cle: null, choix: null, data: null, vue: { cles: [], verrous: [] }, charge: true, erreur: '', msg: '', verif: null, signature: '',
+    // Onglet « Démarrage » : le mode et le délai du menu de la prochaine clé (envoyés à cle_preparer, avec la langue de la page).
+    demarrage: { mode: 'graphique', delai: 10 } };
+  const DELAIS = [0, 5, 10, 30, 60];
+  /** Ce que la page envoie à cle_preparer pour le démarrage de la clé : mode, délai (0 à 300 s), langue de la page. Pur. */
+  function reglagesDemarrage(d, lang) {
+    const n = Math.round(Number(d && d.delai));
+    const l = String(lang || '').trim().toLowerCase().split(/[-_.@]/)[0];
+    return { modeDefaut: d && d.mode === 'texte' ? 'texte' : 'graphique', delai: Number.isFinite(n) ? Math.max(0, Math.min(300, n)) : 10, ...(/^[a-z]{2,3}$/.test(l) ? { langue: l } : {}) };
+  }
   let C = null; // { wrap, outils, minuteur, verifMinuteur }
   /** Les étapes 2 et 3 (lot C2), si elles sont chargées. */
   const SYS = () => (W.OdinGeneseCleSystemes && typeof W.OdinGeneseCleSystemes.rendre === 'function' ? W.OdinGeneseCleSystemes : null);
@@ -537,6 +550,27 @@
       bientot(mot('bientot.etape'), el('p', { class: 'm' }, mot('bientot.composeur')), ouvrir),
       pied(n - 1, n < ETAPES ? n + 1 : 0, false, '')];
   }
+  /** L'onglet « Démarrage » : le mode et le délai du menu de la clé, et l'aperçu MONTÉ ICI (le même écran que la clé). */
+  function etapeDemarrage() {
+    const d = S.demarrage, menu = W.OdinGeneseCleMenu;
+    const seg = (nom, f, liste, actuel, quand) => el('div', { class: 'ck-row', role: 'group', 'aria-label': nom }, el('span', { class: 'ck-lbl', style: 'min-width:110px;font-size:13px;color:var(--muted);font-weight:600' }, nom),
+      ...liste.map(([k, t]) => el('button', { type: 'button', class: `ck-btn${k === actuel ? ' pri' : ''}`, 'aria-pressed': String(k === actuel), 'data-f': `${f}-${k}`, onclick: () => { if (k !== actuel) { quand(k); dessiner(`${f}-${k}`); } } }, t)));
+    const zone = el('div', { 'data-f': 'dem-apercu', 'aria-label': mot('dem.apercu'), style: 'margin-top:14px' });
+    const carte = el('section', { class: 'ck-card' }, el('h4', {}, mot('dem.titre')), el('p', { class: 'ck-lead' }, mot('dem.lead')),
+      seg(mot('dem.mode'), 'dem-mode', [['graphique', mot('dem.mode.graphique')], ['texte', mot('dem.mode.texte')]], d.mode, (k) => { S.demarrage = { ...S.demarrage, mode: k }; }),
+      seg(mot('dem.delai'), 'dem-delai', DELAIS.map((n) => [String(n), n ? mot('dem.delai.n', { n: nombre(n, langue()) }) : mot('dem.delai.0')]), String(d.delai), (k) => { S.demarrage = { ...S.demarrage, delai: Number(k) }; }),
+      el('p', { class: 'ck-msg', style: 'margin:10px 0 0' }, mot('dem.note')), zone);
+    // L'aperçu : monté une fois la page posée (il mesure sa largeur), arrêté au dessin suivant.
+    if (menu && typeof menu.monterApercu === 'function') {
+      const moi = C;
+      setTimeout(() => {
+        if (!C || C !== moi || S.onglet !== 'demarrage' || (zone.isConnected === false)) return;
+        if (C.apercu) { try { C.apercu.arreter(); } catch { /* rien */ } }
+        C.apercu = menu.monterApercu(zone, { source: 'cle', entrees: [], delai: d.delai, mascotteAccueil: true, vue: d.mode === 'texte' ? 'texte' : 'arrivee' });
+      }, 0);
+    }
+    return [carte];
+  }
   function panneau() {
     if (S.onglet === 'deployer') {
       const c = S.vue.cles.find((x) => x.id === S.cle);
@@ -565,10 +599,7 @@
       if (C.outils.ancienne) void C.outils.ancienne(avant);
       return [bientot(mot('bientot.mescles'), el('p', { class: 'm' }, mot('bientot.mescles.avant'))), avant];
     }
-    if (S.onglet === 'demarrage') {
-      const menu = W.OdinGeneseCleMenu;
-      return [bientot(mot('bientot.demarrage'), menu && typeof menu.ouvrir === 'function' ? el('div', { class: 'ck-row' }, el('button', { type: 'button', class: 'ck-btn', 'data-f': 'apercu', onclick: () => menu.ouvrir([], { demo: 8, mascotteAccueil: true }) }, ic('eye'), mot('bientot.demarrage.apercu'))) : null)];
-    }
+    if (S.onglet === 'demarrage') return etapeDemarrage();
     return [bientot(mot('bientot.parole'))];
   }
   function focaliser(f) {
@@ -580,6 +611,7 @@
   }
   function dessiner(focus) {
     if (!C) return;
+    if (C.apercu) { try { C.apercu.arreter(); } catch { /* rien */ } C.apercu = null; }
     const actif = focus || (typeof document !== 'undefined' && document.activeElement && C.wrap.contains?.(document.activeElement) ? document.activeElement.getAttribute?.('data-f') : null);
     C.wrap.replaceChildren(
       el('div', { class: 'ck-h' }, el('span', { class: 'ic' }, ic('key', 26)), el('div', { style: 'flex:1;min-width:200px' }, el('h3', {}, mot('tete.titre')), el('p', {}, mot('tete.sous')))),
@@ -655,5 +687,7 @@
   }
 
   // « choisir » : la même porte que le clic sur une carte (une demande directe pour un disque interne est refusée).
-  W.OdinGeneseCleEtapes = { MOTS, logique, monter, choisir: prendre, etat: S, mascotte };
+  W.OdinGeneseCleEtapes = { MOTS, logique, monter, choisir: prendre, etat: S, mascotte, reglagesDemarrage,
+    /** Le démarrage de la prochaine clé (onglet « Démarrage ») tel qu'il part à cle_preparer. */
+    demarrage: () => reglagesDemarrage(S.demarrage, langue()) };
 })();

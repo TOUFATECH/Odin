@@ -139,7 +139,7 @@
     const NAMES = { eventail: 'Éventail', affiches: 'Affiches', liste: 'Liste' };
     const disp = el('div', { class: 'tj-disp', role: 'radiogroup', 'aria-label': 'Disposition par défaut' }, ...(D.dispositions ?? ['eventail', 'affiches', 'liste']).map((k) => el('label', {}, el('input', { type: 'radio', name: 'tjDisp', value: k, checked: e.disposition === k, onchange: () => { e.disposition = k; } }), el('span', { class: 'pv' }, ...pv(k)), NAMES[k] ?? k)));
     const chips = el('div', { class: 'tj-chips' }, ...Object.entries(D.themes ?? {}).map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(e.theme === k), onclick: (ev) => { e.theme = k; for (const b of chips.children) b.setAttribute('aria-pressed', 'false'); ev.currentTarget.setAttribute('aria-pressed', 'true'); } }, el('i', { style: `background:${THEME_DOT[k] ?? '#999'}` }), t)));
-    const wait = el('input', { type: 'number', min: '1', max: '60', value: String(e.attente ?? 5), 'aria-label': 'Minutes d\'attente' });
+    const wait = el('input', { type: 'number', min: '0', max: '300', value: String(D.delai ?? 10), 'aria-label': 'Secondes d\'attente (le délai du menu)' });
     const out = el('p', { class: 'tj-note', role: 'status' });
     // Le thème du menu texte (iPXE) : enregistré avec le reste par « Enregistrer ».
     const chipsTexte = el('div', { class: 'tj-chips' }, ...Object.entries(D.textes ?? {}).map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String((e.texte ?? 'matrix') === k), onclick: (ev) => { e.texte = k; for (const b of chipsTexte.children) b.setAttribute('aria-pressed', 'false'); ev.currentTarget.setAttribute('aria-pressed', 'true'); } }, el('i', { style: `background:${TEXTE_DOT[k] ?? '#999'}` }), t)));
@@ -162,12 +162,12 @@
       el('div', { class: 'tj-w' }, el('h3', {}, 'Thème par défaut'), chips,
         el('div', { class: 'tj-row' }, el('span', {}, 'Proposer l\'écran dans le menu de démarrage'), sw(e.actif, 'Proposer l\'écran', (v) => { e.actif = v; })),
         el('div', { class: 'tj-row' }, el('span', {}, 'L\'écran par défaut ', el('small', {}, '(sinon le disque de la machine)')), sw(e.parDefaut, 'Écran par défaut', (v) => { e.parDefaut = v; })),
-        el('div', { class: 'tj-row' }, el('span', {}, 'Sans choix, la machine reprend son disque après'), wait, el('small', {}, 'min')),
+        el('div', { class: 'tj-row' }, el('span', {}, 'Sans choix, la machine reprend son disque après'), wait, el('small', {}, 's')),
         el('p', { class: 'tj-note' }, 'Sur l\'écran, la touche T change de thème le temps de la session.')),
       el('div', { class: 'tj-w' }, el('h3', {}, 'Thème du menu texte (iPXE)'), chipsTexte, el('p', { class: 'tj-note' }, 'Le menu en mode texte, au tout début du démarrage : flèches, Entrée, Échap.')),
       el('div', { class: 'tj-w' }, el('h3', {}, 'Ton image en arrière-plan'), fondLigne('texte'), fondLigne('graphique'),
         el('p', { class: 'tj-note' }, 'Menu texte : l\'image est réduite à 1024 × 768 et assombrie, le menu passe par-dessus dans son cadre. Écran graphique : l\'image remplit l\'écran, avec un voile aux couleurs du thème. Sans image, chaque thème garde son décor.'))));
-    root.append(el('div', { class: 'tj-btns' }, el('button', { class: 'tj-pill pri', type: 'button', onclick: async (ev) => { ev.currentTarget.disabled = true; const x = await post('ecran', { ...e, attente: Number(wait.value) }); ev.currentTarget.disabled = false; out.textContent = x.text; note(x); } }, 'Enregistrer'),
+    root.append(el('div', { class: 'tj-btns' }, el('button', { class: 'tj-pill pri', type: 'button', onclick: async (ev) => { ev.currentTarget.disabled = true; const x = await post('ecran', { ...e, delai: Number(wait.value) }); ev.currentTarget.disabled = false; out.textContent = x.text; note(x); } }, 'Enregistrer'),
       D.url ? el('a', { class: 'tj-pill n', href: `${D.url}?apercu`, target: '_blank', rel: 'noopener' }, 'Voir l\'aperçu') : el('span', { class: 'tj-note', style: 'margin:0' }, 'Allume Genèse pour voir l\'aperçu.'), out));
   }
 
@@ -178,13 +178,14 @@
     root.append(el('div', { class: 'tj-top' }, el('span', { class: 'tj-face', 'aria-hidden': 'true' }, el('i'), el('i')), el('div', {}, el('h2', {}, 'Odin te prévient'), el('p', {}, 'Déploiement réseau : chaque machine, de la demande à « c\'est prêt ».')), tabs), body, gen);
     host.append(root);
     const redraw = async () => {
-      tabs.replaceChildren(...[...(window.OdinGeneseSystemes?.onglets ?? []), ['odin', 'Odin te prévient'], ...(window.OdinGeneseSuivi?.onglets ?? []), ...(window.OdinGeneseCle?.onglets ?? []), ['ecran', 'Écran de démarrage'], ['tout', 'Tout']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
+      tabs.replaceChildren(...[...(window.OdinGeneseSystemes?.onglets ?? []), ...(window.OdinGeneseLogiciels?.onglets ?? []), ['odin', 'Odin te prévient'], ...(window.OdinGeneseSuivi?.onglets ?? []), ...(window.OdinGeneseCle?.onglets ?? []), ['ecran', 'Écran de démarrage'], ['tout', 'Tout']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
       gen.hidden = S.tab !== 'tout'; body.hidden = S.tab === 'tout';
       if (S.tab === 'tout') return;
       // Suivi des installations (thjalfi-suivi.js) : Installations, Historique, Protection.
       if (window.OdinGeneseSuivi?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await window.OdinGeneseSuivi.dessiner(n, tab, { post, act, el, ic, note, redraw }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
       // Systèmes (thjalfi-systemes.js) : même greffe ; « aller » ouvre un autre onglet (Déployer → Clé USB).
-      if (window.OdinGeneseSystemes?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await window.OdinGeneseSystemes.dessiner(n, tab, { post, act, el, ic, note, redraw, aller: (id) => { S.tab = id; void redraw(); } }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
+      // Logiciels et profils (thjalfi-logiciels.js, lot S4) : même greffe.
+      for (const G of [window.OdinGeneseSystemes, window.OdinGeneseLogiciels]) if (G?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await G.dessiner(n, tab, { post, act, el, ic, note, redraw, aller: (id) => { S.tab = id; void redraw(); } }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
       // Clé USB (thjalfi-cle.js) : onglet « Clé USB », même greffe que le suivi.
       if (window.OdinGeneseCle?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await window.OdinGeneseCle.dessiner(n, tab, { post, act, el, ic, note, redraw }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
       const r = await post('tableau'), D = r.data ?? {}, n = el('div', { class: 'tj' });

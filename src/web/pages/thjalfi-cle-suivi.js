@@ -337,7 +337,9 @@
     Z.envoi = true; O.redessiner('ecrire');
     const s = suite() || {};
     const cible = cibleDe(O.cle);
-    let r; try { r = await O.post('cle_preparer', { cible, systemes: s.systemes || systemes(), windows: s.windows || null, scripts: s.scripts || [], phrase: Z.saisie || attendue }, true); } catch (e) { r = { ok: false, text: String(e && e.message || e) }; }
+    // Le démarrage de la clé (onglet « Démarrage ») : mode, délai et langue, lus par cle-ecrire.ts (reglagesDemarrage).
+    const dem = W.OdinGeneseCleEtapes && typeof W.OdinGeneseCleEtapes.demarrage === 'function' ? W.OdinGeneseCleEtapes.demarrage() : {};
+    let r; try { r = await O.post('cle_preparer', { cible, systemes: s.systemes || systemes(), windows: s.windows || null, scripts: s.scripts || [], ...dem, phrase: Z.saisie || attendue }, true); } catch (e) { r = { ok: false, text: String(e && e.message || e) }; }
     Z.envoi = false;
     if (!r || r.ok === false) { Z.msg = (r && r.text) || '?'; Z.saisie = ''; if (O) O.redessiner('phrase'); return; }
     Z.cible = cible; Z.ecran = 'ecriture'; Z.progres = null; Z.saisie = ''; Z.msg = '';

@@ -84,6 +84,14 @@
     'win.disque.choisir': 'Je choisis au moment d\'installer',
     'win.disque.note': 'Odin n\'efface jamais seul un disque qui contient déjà un système.',
     'aide.compte': 'Donne un nom de compte valable.',
+    'prof.titre': 'Partir d\'un profil',
+    'prof.partir': 'Partir du profil {nom}',
+    'prof.charge': 'Odin lit tes profils de logiciels…',
+    'prof.aucun': 'Aucun profil pour l\'instant : crée-en un dans l\'onglet « Logiciels » de Genèse.',
+    'prof.erreur': 'Les profils ne peuvent pas être lus : {raison}',
+    'prof.applique': 'Profil « {nom} » repris : {n} logiciel(s) coché(s), {s} script(s). Tu peux encore tout changer.',
+    'prof.manque': '{n} logiciel(s) du profil pas encore téléchargé(s) : pas cochés.',
+    'prof.note': 'Les profils sont communs à la clé, au réseau et aux machines virtuelles ; leurs scripts sont revérifiés par l\'antivirus à chaque usage.',
   };
   const mot = (k, v) => String(MOTS[k] ?? k).replace(/\{(\w+)\}/g, (_m, x) => (v && v[x] != null ? String(v[x]) : ''));
 
@@ -155,6 +163,8 @@
     scripts: [], voir: '', msg: '', annonce: '', apercu: {}, vu: {}, enVol: false, refaire: false, uid: 0,
     win: { exigences: true, local: true, compte: mot('win.compte.defaut'), viePrivee: true, langue: true, activation: '', disque: 'choisir' },
     coffre: { etat: 'rien', cles: [], auto: null, sig: '' },
+    // « Partir d'un profil » (lot S4) : les profils de logiciels de Genèse, lus à la demande ; le dernier repris.
+    profils: { etat: 'rien', liste: [], raison: '' }, profil: '', profilMsg: '',
   };
   let O = null; // { cle, sorte, post, redessiner, pied, wrap }
   /** Les systèmes choisis à l'étape 3 (lot C2), Windows et Linux seulement. */
@@ -253,6 +263,70 @@
   function bouger(uid, pas) { Z.scripts = deplacer(Z.scripts, uid, pas); changer(`scr-${pas < 0 ? 'up' : 'down'}-${uid}`); }
   function regler(k, v, focus) { Z.win = { ...Z.win, [k]: v }; Z.apercu = {}; changer(focus); }
 
+  // ------------------------------------------------ « Partir d'un profil » (lot S4)
+  /** Le jeu d'un profil pour un système de l'étape 3 : Windows, Fedora et ses cousins (.rpm), sinon Ubuntu et Debian. Pur. */
+  const osProfilDe = (sys) => (sys.famille === 'windows' ? 'windows' : /fedora|rocky|alma|centos|rhel|red ?hat/i.test(`${sys.nom} ${sys.fichier}`) ? 'fedora' : 'debian');
+  async function chargerProfils() {
+    if (!O || Z.profils.etat === 'charge') return;
+    Z.profils = { ...Z.profils, etat: 'charge' };
+    let r, e;
+    try { r = await O.post('profils_logiciels', {}); } catch (x) { e = x; }
+    Z.profils = r && r.ok !== false && r.data && Array.isArray(r.data.profils) ? { etat: 'pret', liste: r.data.profils, raison: '' } : { etat: 'erreur', liste: [], raison: raisonDe(r, e) };
+    if (O) O.redessiner();
+  }
+  /** Les logiciels d'un OS une fois lus (une lecture déjà en vol est attendue, deux secondes au plus). */
+  async function logicielsLus(os) {
+    if (Z.dispo[os].etat === 'rien' || Z.dispo[os].etat === 'erreur') await chargerLogiciels(os);
+    for (let k = 0; k < 100 && Z.dispo[os].etat === 'charge'; k++) await new Promise((ok) => { setTimeout(ok, 20); });
+    return Z.dispo[os].etat === 'pret' ? Z.dispo[os].liste : [];
+  }
+  /** Préremplir l'étape 4 d'après un profil : ses logiciels DÉJÀ TÉLÉCHARGÉS, dans son ordre, pour chaque système choisi ;
+   *  ses scripts, REVÉRIFIÉS comme un script ajouté ici (« vérifie… » jusqu'au verdict de l'aperçu, qui repasse par
+   *  l'antivirus ; « Continuer » attend), puis encore à l'écriture. Un script déjà refusé reste refusé. Rien d'autre ne change. */
+  async function partirDuProfil(p) {
+    const sys = systemes();
+    if (!p || !sys.length) return;
+    let n = 0, manque = 0;
+    const coches = { ...Z.coches };
+    for (const x of sys) {
+      const os = x.famille === 'windows' ? 'windows' : 'linux', dispo = await logicielsLus(os);
+      const voulus = ((p.systemes && p.systemes[osProfilDe(x)]) || {}).logiciels || [];
+      const l = [];
+      for (const v of voulus) { const d = dispo.find((y) => y.fichier === v.fichier); if (d) l.push({ id: d.id, fichier: d.fichier, nom: d.nom, silencieux: Boolean(d.silencieux) }); else manque++; }
+      coches[x.id] = l; n += l.length;
+    }
+    // Tes scripts : ceux du profil remplacent ceux de l'OS concerné (Windows ; Linux = ceux des jeux Linux pris, sans doublon).
+    const parOs = { windows: [], linux: [] }, vus = new Set();
+    for (const x of sys) {
+      const os = x.famille === 'windows' ? 'windows' : 'linux', jeu = osProfilDe(x);
+      for (const s of ((p.systemes && p.systemes[jeu]) || {}).scripts || []) {
+        const k = JSON.stringify([os, s.nom, s.contenu]);
+        if (vus.has(k) || osDuScript(s.nom) !== os) continue;
+        vus.add(k);
+        parOs[os].push({ uid: `s${++Z.uid}`, nom: propre(s.nom), contenu: String(s.contenu), os, etat: s.ok === false ? 'refuse' : 'verif', raison: s.ok === false ? propre(s.raison) : '' });
+      }
+    }
+    const touches = new Set(sys.map((x) => (x.famille === 'windows' ? 'windows' : 'linux')));
+    Z.coches = coches;
+    const gardes = Z.scripts.filter((x) => !touches.has(x.os)), pris = [...parOs.windows, ...parOs.linux].slice(0, Math.max(0, MAX_SCRIPTS - gardes.length));
+    Z.scripts = [...gardes, ...pris];
+    Z.voir = ''; Z.msg = ''; Z.apercu = {}; Z.profil = p.id;
+    // Le compte dit ce qui a VRAIMENT été repris (20 scripts au plus sur la clé).
+    Z.profilMsg = [mot('prof.applique', { nom: propre(p.nom), n: nombre(n, langue()), s: nombre(pris.length, langue()) }), manque ? mot('prof.manque', { n: nombre(manque, langue()) }) : ''].filter(Boolean).join(' ');
+    changer(`prof-${p.id}`);
+    // Les scripts d'un système qui n'est pas à l'écran sont revérifiés tout de suite (sinon « Continuer » attendrait qu'on
+    // ouvre son onglet) : une demande d'aperçu par famille, la même que la clé ferait.
+    for (const fam of ['windows', 'linux']) {
+      const x = sys.find((y) => (y.famille === 'windows' ? 'windows' : 'linux') === fam);
+      if (!O) return;
+      if (!x || x.id === Z.onglet || !Z.scripts.some((y) => y.os === fam && y.etat === 'verif')) continue;
+      const q = demande(x, Z.coches[x.id], Z.scripts, Z.win);
+      let r; try { r = await O.post('cle_apercu_script', q); } catch { r = null; }
+      if (r && r.ok !== false && r.data) noterVerdicts(q.scripts, r.data.scripts);
+      if (O) O.redessiner();
+    }
+  }
+
   // ---------------------------------------------------------------- la page
   const el = (t, a = {}, ...kids) => {
     const n = document.createElement(t);
@@ -329,6 +403,20 @@
   }
   const h5 = (texte, n) => el('div', { class: 'ck-h5' }, texte, n == null ? null : el('span', { class: 'ck-cnt' }, nombre(n, langue())));
 
+  /** « Partir d'un profil » : un bouton par profil de logiciels de Genèse ; un clic préremplit l'étape. */
+  function blocProfils() {
+    if (Z.profils.etat === 'rien') void chargerProfils();
+    const kids = [h5(mot('prof.titre'))];
+    if (Z.profils.etat === 'charge' || Z.profils.etat === 'rien') kids.push(el('p', { class: 'ckl-note', role: 'status', style: 'margin:0' }, mot('prof.charge')));
+    else if (Z.profils.etat === 'erreur') kids.push(el('p', { class: 'ckl-note', role: 'status', style: 'margin:0' }, mot('prof.erreur', { raison: Z.profils.raison })));
+    else if (!Z.profils.liste.length) kids.push(el('p', { class: 'ckl-note', style: 'margin:0' }, mot('prof.aucun')));
+    else {
+      kids.push(el('div', { class: 'ckl-seg', role: 'group', 'aria-label': mot('prof.titre'), 'data-f': 'profils' }, ...Z.profils.liste.map((p) => el('button', { type: 'button', 'aria-pressed': String(Z.profil === p.id), 'aria-label': mot('prof.partir', { nom: propre(p.nom) }), 'data-f': `prof-${p.id}`, 'data-profil': p.id, onclick: () => partirDuProfil(p) }, propre(p.nom)))));
+      if (Z.profilMsg) kids.push(el('p', { class: 'ckl-note', role: 'status', 'data-f': 'profil-msg' }, Z.profilMsg));
+      kids.push(el('p', { class: 'ckl-note' }, mot('prof.note')));
+    }
+    return el('div', { style: 'margin:0 0 14px' }, ...kids);
+  }
   function blocLogiciels(sys) {
     const os = sys.famille === 'windows' ? 'windows' : 'linux', d = Z.dispo[os], coches = Z.coches[sys.id] || [];
     if (d.etat === 'rien') void chargerLogiciels(os);
@@ -402,7 +490,7 @@
       onclick: () => prendreOnglet(x.id),
       onkeydown: (e) => { const j = suivant(i, sys.length, e.key); if (j < 0) return; e.preventDefault(); prendreOnglet(sys[j].id); },
     }, x.nom, el('span', { class: 'ck-cnt' }, nombre((Z.coches[x.id] || []).length, langue())))));
-    const sec = el('section', { class: 'ck-card' }, el('h4', {}, mot('log.titre')), el('p', { class: 'ck-lead' }, mot('log.lead')), tabs,
+    const sec = el('section', { class: 'ck-card' }, el('h4', {}, mot('log.titre')), el('p', { class: 'ck-lead' }, mot('log.lead')), blocProfils(), tabs,
       el('div', { class: 'ckl-split', id: 'ckl-panneau', role: 'tabpanel', 'aria-labelledby': `ckl-tab-${cur.id}` }, blocLogiciels(cur), el('div', {}, ...blocApercu(cur), ...blocScripts(cur))));
     return [sec, O.pied(3, suite, enVerif(), enVerif() ? mot('aide.verif') : '')];
   }
@@ -463,5 +551,5 @@
     return { systemes: systemesAvec, scripts: Z.scripts.filter((x) => x.etat === 'ok' && osChoisis().has(x.os)).map((x) => ({ nom: x.nom, os: x.os, contenu: x.contenu })), windows: aWindows() ? { ...Z.win } : null };
   }
 
-  W.OdinGeneseCleLogiciels = { MOTS, logique, rendre, aWindows, pret5, pourComposeur, ajouterScript, etat: Z };
+  W.OdinGeneseCleLogiciels = { MOTS, logique, rendre, aWindows, pret5, pourComposeur, ajouterScript, partirDuProfil, etat: Z };
 })();
