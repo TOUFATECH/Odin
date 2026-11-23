@@ -9,7 +9,8 @@
 // Règle tenue avec Hestia (gladsheim.ts, cleanLayout) : quand la largeur `c` change, l'ancienne largeur `w` (1, 2, 3)
 // change avec elle (1 à 4 → 1, 5 à 8 → 2, 9 à 12 → 3), sinon Hestia remettrait `c` d'après `w`.
 // API : window.OdinGrille = { GRILLE, MINI, HAUTEUR, appareil, taille, largeurTel, hauteurTel, hauteurPx, colonne, cases,
-// apres, rang, largeurAncienne, changer, agrandir, nouvelId, style, css }.
+// apres, rang, largeurAncienne, changer, agrandir, nouvelId, style, css, TAILLES, bornes, permise, taillesPossibles,
+// tailleChoisie, depart, tirer, pas, poser, choisir, etiquette, memo, remettre, geste }.
 (() => {
   'use strict';
   if (window.OdinGrille) return;
@@ -100,6 +101,85 @@
       if (!deja.has(id)) return id;
     }
   }
+  // ---------------------------------------------------------------- lot 15 : tirer le coin, les sept tailles
+  /**
+   * Les sept tailles toutes faites de la maquette (colonnes sur 12 × lignes), par leur code : le texte affiché
+   * vient du dictionnaire de celui qui s'en sert. Petit 2×1, Moyen 3×2, Large 4×2, Haut 3×4, Grand 4×4,
+   * Très grand 6×4, Bandeau 12×2.
+   */
+  const TAILLES = Object.freeze([['petit', 2, 1], ['moyen', 3, 2], ['large', 4, 2], ['haut', 3, 4], ['grand', 4, 4], ['tresGrand', 6, 4], ['bandeau', 12, 2]]
+    .map(([nom, c, r]) => Object.freeze({ nom, c, r })));
+  /** Les bornes d'un module : au téléphone de 2 à 4 colonnes, sinon de la mini de sa sorte à 12 ; de la mini à 7 lignes. */
+  function bornes(kind, tel = false) { const m = mini(kind); return { c: [tel ? 2 : m[0], tel ? GRILLE.colonnesTel : GRILLE.colonnes], r: [m[1], GRILLE.lignesMax] }; }
+  /** La taille `n` ({ c, r }, des entiers) tient-elle dans les bornes du module ? Sinon elle est refusée. */
+  function permise(kind, n, tel = false) {
+    const b = bornes(kind, tel), c = entier(n?.c), r = entier(n?.r);
+    return c !== undefined && r !== undefined && c >= b.c[0] && c <= b.c[1] && r >= b.r[0] && r <= b.r[1];
+  }
+  /** Les tailles toutes faites qu'une sorte de module accepte (celles plus petites que sa mini sont retirées). */
+  const taillesPossibles = (kind) => TAILLES.filter((t) => permise(kind, t));
+  /** Le code de la taille toute faite que le module a en ce moment (ordinateur), ou `null`. */
+  function tailleChoisie(w) { const t = taille(w); return TAILLES.find((x) => x.c === t.c && x.r === t.r)?.nom ?? null; }
+  /**
+   * La taille de départ d'un geste : à l'ordinateur `c` × `r` ; au téléphone `pc` × `pr`, et sans `pr` la hauteur
+   * vue à l'écran (`hauteur` px) comptée en lignes du téléphone.
+   */
+  function depart(w, tel = false, hauteur = 0) {
+    const t = taille(w);
+    if (!tel) return { c: t.c, r: t.r };
+    const b = bornes(w?.kind, true), vu = cases(Number(hauteur) + GRILLE.ecartTel, GRILLE.ligneTel, GRILLE.ecartTel);
+    return { c: largeurTel(w), r: t.pr ?? borne(vu || b.r[0], b.r[0], b.r[1]) };
+  }
+  /**
+   * Tirer le coin : de `dx`, `dy` px depuis la taille `dep`, dans une grille dont une colonne fait `colonnePx`.
+   * La taille saute de case en case, et reste dans les bornes (jamais plus petite que la mini de la sorte).
+   */
+  function tirer(w, dep, dx, dy, colonnePx, tel = false) {
+    const b = bornes(w?.kind, tel), e = tel ? GRILLE.ecartTel : GRILLE.ecart;
+    return { c: borne(dep.c + cases(dx, colonnePx, e), b.c[0], b.c[1]), r: borne(dep.r + cases(dy, tel ? GRILLE.ligneTel : GRILLE.ligne, e), b.r[0], b.r[1]) };
+  }
+  /**
+   * Maj + flèche sur la poignée : → une colonne de plus, ← une de moins, ↓ une ligne de plus, ↑ une de moins.
+   * Rend la nouvelle taille, ou `null` si la touche n'en est pas une, ou si la taille sortirait des bornes (refusée).
+   */
+  function pas(w, touche, tel = false, hauteur = 0) {
+    const d = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] }[touche];
+    if (!d) return null;
+    const dep = depart(w, tel, hauteur), n = { c: dep.c + d[0], r: dep.r + d[1] };
+    return permise(w?.kind, n, tel) ? n : null;
+  }
+  /**
+   * Pose la taille `n` ({ c, r }) sur le module (sur place) : à l'ordinateur `c` et `r` (et `w` qui suit `c`),
+   * au téléphone `pc` et `pr`. Une taille hors des bornes est refusée : rien ne change, rend `null` ; sinon ce qui a changé.
+   */
+  function poser(w, n, tel = false) {
+    if (!w || !permise(w.kind, n, tel)) return null;
+    return changer(w, tel ? { pc: n.c, pr: n.r } : { c: n.c, r: n.r });
+  }
+  /** Choisir une des sept tailles par son code (à l'ordinateur). Une taille plus petite que la mini est refusée : `null`. */
+  function choisir(w, nom) { const t = taillesPossibles(w?.kind).find((x) => x.nom === nom); return t ? poser(w, t) : null; }
+  /** L'étiquette d'une taille : « c × r ». */
+  const etiquette = (n) => `${n.c} × ${n.r}`;
+  /** Ce qu'un module garde de sa taille (w, c, r, pc, pr, absents compris), pour la remettre telle quelle. */
+  const CLES_TAILLE = ['w', 'c', 'r', 'pc', 'pr'];
+  const memo = (w) => Object.fromEntries(CLES_TAILLE.map((k) => [k, w?.[k]]));
+  /** Remet sur place la taille gardée par `memo` (une clé absente au départ est retirée). Rend le module. */
+  function remettre(w, m) { for (const k of CLES_TAILLE) { if (m?.[k] === undefined) delete w[k]; else w[k] = m[k]; } return w; }
+  /**
+   * Pendant qu'on tire le coin avec le pointeur `id` : que faire de l'événement `ev` ?
+   * 'suivre' (il bouge), 'finir' (relâché : la taille vue reste, jusqu'à « Terminé »), 'annuler' (Échap, ou la
+   * fenêtre perd le focus : la taille d'avant revient) ou 'ignorer' (un autre doigt, une autre touche).
+   * Une souris qui bouge sans bouton enfoncé a été relâchée ailleurs (hors de la fenêtre) : le geste finit.
+   */
+  function geste(id, ev) {
+    const t = ev?.type;
+    if (t === 'keydown') return ev.key === 'Escape' ? 'annuler' : 'ignorer';
+    if (t === 'blur') return 'annuler';
+    if (ev?.pointerId !== id) return 'ignorer';
+    if (t === 'pointermove') return ev.pointerType === 'mouse' && ev.buttons === 0 ? 'finir' : 'suivre';
+    return t === 'pointerup' || t === 'pointercancel' || t === 'lostpointercapture' ? 'finir' : 'ignorer';
+  }
+
   /** Le style d'une carte : ses tailles en variables (l'écran choisit ordinateur ou téléphone par la règle de `css`). */
   function style(w) {
     const t = taille(w), pr = hauteurTel(w);
@@ -114,5 +194,6 @@
       + `${carte}{grid-column:span var(--pc,4);grid-row:var(--pr,auto);min-height:var(--pmin,${g.minTel}px)}}`;
   }
 
-  window.OdinGrille = Object.freeze({ GRILLE, MINI, HAUTEUR, appareil, taille, largeurTel, hauteurTel, hauteurPx, colonne, cases, apres, rang, largeurAncienne, changer, agrandir, nouvelId, style, css });
+  window.OdinGrille = Object.freeze({ GRILLE, MINI, HAUTEUR, appareil, taille, largeurTel, hauteurTel, hauteurPx, colonne, cases, apres, rang, largeurAncienne, changer, agrandir, nouvelId, style, css,
+    TAILLES, bornes, permise, taillesPossibles, tailleChoisie, depart, tirer, pas, poser, choisir, etiquette, memo, remettre, geste });
 })();

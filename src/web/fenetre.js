@@ -14,6 +14,13 @@
   const api = async (path, body) => { const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : { headers: { 'x-odin': '1' } }); return r.json(); };
   // La grille de la maquette (12 colonnes, 4 au téléphone) : ses calculs sont dans pages/accueil-grille.js, chargé avant.
   const G = window.OdinGrille;
+  // Les textes ajoutés au lot 15 (tirer le coin, les sept tailles), en un seul endroit.
+  const TXT = {
+    tailles: { petit: 'Petit', moyen: 'Moyen', large: 'Large', haut: 'Haut', grand: 'Grand', tresGrand: 'Très grand', bandeau: 'Bandeau' },
+    boutonTailles: 'Choisir une taille', titreTailles: 'Taille du module', aideTailles: 'Ou tire le coin du module en mode Modifier, à la case près ; au clavier, Maj + flèches sur la poignée.',
+    miniTailles: (m) => `Plus petit que ${m} : refusé pour ce module.`, aucuneTaille: 'Choisis une taille.', poignee: 'Déplacer (flèches) · Maj + flèches : changer la taille',
+    taille: (t) => `Taille ${t}`, remise: (t) => `Taille remise à ${t}.`, refusee: (t) => `Taille ${t} : c'est la plus petite (ou la plus grande) possible pour ce module.`,
+  };
   const act = (module, action, input = {}, confirm) => api('/api/valhalla/act', { module, action, input, ...(confirm ? { confirm: true } : {}) });
   const css = `
 #fenetre{margin:0 0 18px}.fe-bar{display:flex;gap:8px;align-items:center;margin:0 0 12px}.fe-bar .sp{flex:1}
@@ -25,13 +32,19 @@
 ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inline-size}@container (max-width:130px){.fe-h{flex-wrap:wrap}.fe-h .fe-ic{display:none}}
 .fe-w{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px 16px;min-width:0;box-shadow:0 10px 26px rgba(16,54,58,.08)}
 .fe-w .va-kpi{padding:8px 10px}.fe-w .va-kpi b{font-size:20px}
-.fe-w .va-sec{background:none;border:0;padding:0;margin:0}.fe-w .va-sec h2{display:none}.fe-w .va-kpis{margin:0;grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+.fe-w .va-sec{background:none;border:0;padding:0;margin:0}.fe-w .va-sec h2{display:none}.fe-w .va-kpis{margin:0;grid-template-columns:repeat(auto-fill,minmax(min(120px,100%),1fr))}
 .fe-h{display:flex;gap:10px;align-items:center;margin:0 0 10px}.fe-h small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}.fe-h b{font-size:15.5px}
 .fe-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--field);font-weight:700;flex:none}.fe-ic-app{background:none}
 .fe-open{margin-left:auto;font-size:12.5px;color:var(--muted);background:none;border:0;cursor:pointer;min-height:32px}
 .fe-edit .fe-w{outline:2px dashed color-mix(in srgb,var(--accent,#0b7f7c) 55%,transparent);outline-offset:3px;touch-action:none}
 .fe-chrome{display:none;position:absolute;top:-12px;right:-6px;gap:4px}.fe-edit .fe-chrome{display:flex}.fe-chrome button{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:var(--panel);cursor:pointer;display:grid;place-items:center;font-size:14px}
 .fe-grip{display:none;position:absolute;top:-12px;left:-6px;width:30px;height:30px;border-radius:9px;background:#10363a;color:#fff;border:0;cursor:grab;font-size:15px}.fe-edit .fe-grip{display:grid;place-items:center}
+.fe-rz{display:none}.fe-edit .fe-rz{display:block;position:absolute;right:0;bottom:0;width:44px;height:44px;z-index:5;cursor:nwse-resize;touch-action:none;border-radius:0 0 18px 0}
+.fe-edit .fe-rz::before{content:"";position:absolute;right:10px;bottom:10px;width:14px;height:14px;border-right:3px solid var(--accent,#0b7f7c);border-bottom:3px solid var(--accent,#0b7f7c);border-radius:0 0 6px 0}
+.fe-szb{display:none;position:absolute;right:46px;bottom:12px;z-index:5;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:7px;background:var(--accent,#0b7f7c);color:#fff;pointer-events:none;font-variant-numeric:tabular-nums}.fe-w.resizing .fe-szb{display:block}.fe-edit .fe-w.resizing{outline-style:solid}
+/* Carte étroite (moins de 160 px) : boutons de 24 px et poignée en bas à gauche, rien ne se chevauche. */@container (max-width:125px){.fe-edit .fe-chrome{gap:2px}.fe-edit .fe-chrome button{width:24px;height:24px;border-radius:7px;font-size:12px}.fe-edit .fe-grip{top:auto;bottom:-12px}}
+.fe-dit{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.fe-sizes{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin:4px 0}.fe-form .fe-sizes label{display:flex;gap:8px;align-items:center;min-height:44px;margin:0;padding:0 10px;border:1px solid var(--line);border-radius:12px;font-weight:600;cursor:pointer}.fe-form .fe-sizes input{flex:none;width:18px;height:18px;min-height:0;margin:0;padding:0;accent-color:var(--accent,#0b7f7c)}.fe-sizes label:has(input:checked){border-color:var(--accent,#0b7f7c)}.fe-sizes small{color:var(--muted);font-weight:500;margin-left:auto;font-variant-numeric:tabular-nums}
 .fe-w.dragging{opacity:.35}.fe-ghost{position:fixed;z-index:80;pointer-events:none;transform:rotate(-3deg);box-shadow:0 24px 60px rgba(16,54,58,.35);opacity:.95}
 .fe-drop{border:2px dashed var(--line);border-radius:18px;min-height:90px;display:grid;place-items:center;color:var(--muted)}
 .fe-cat{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;max-height:calc(100vh - 140px);overflow:auto;position:sticky;top:12px}
@@ -93,13 +106,18 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
   // ------------------------------------------------------------------ dessin d'un module
   async function widget(w) {
     const box = el('article', { class: 'fe-w', 'data-id': w.id, style: G.style(w) });
-    const grip = el('button', { class: 'fe-grip', type: 'button', title: 'Déplacer (ou flèches ← →)', 'aria-label': 'Déplacer ce module', onkeydown: (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { move(w.id, -1); e.preventDefault(); } if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { move(w.id, 1); e.preventDefault(); } } }, '⠿');
+    const grip = el('button', { class: 'fe-grip', type: 'button', title: TXT.poignee, 'aria-label': 'Déplacer ce module', onkeydown: (e) => { if (e.shiftKey) { if (tailleClavier(w, e.key, box)) e.preventDefault(); return; } if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { move(w.id, -1); e.preventDefault(); } if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { move(w.id, 1); e.preventDefault(); } } }, '⠿');
     grip.addEventListener('pointerdown', (e) => startDrag(e, box, w.id));
     const chrome = el('div', { class: 'fe-chrome' },
       el('button', { type: 'button', title: 'Taille (4, 8 ou 12 colonnes sur 12)', 'aria-label': 'Changer la taille', onclick: () => { w.w = G.agrandir(w); draw(); } }, '↔'),
+      el('button', { type: 'button', title: TXT.boutonTailles, 'aria-label': TXT.boutonTailles, onclick: () => tailles(w) }, '⤡'),
       w.kind === 'section' || w.kind === 'chiffres' ? el('button', { type: 'button', title: 'Choisir ce qu\'il montre', 'aria-label': 'Réglages du module', onclick: () => configure(w) }, '⚙') : null,
       el('button', { type: 'button', title: 'Retirer', 'aria-label': 'Retirer ce module', onclick: () => { page().widgets = page().widgets.filter((x) => x.id !== w.id); draw(); } }, '✕'));
-    box.append(grip, chrome);
+    // Le coin (44 px) : tiré à la souris ou au doigt, la taille saute de case en case ; caché aux lecteurs d'écran
+    // (au clavier : Maj + flèches sur la poignée). L'étiquette « c × r » se montre pendant le geste.
+    const rz = el('span', { class: 'fe-rz', 'aria-hidden': 'true' }), szb = el('b', { class: 'fe-szb', 'aria-hidden': 'true' });
+    rz.addEventListener('pointerdown', (e) => startResize(e, box, w, szb));
+    box.append(grip, chrome, rz, szb);
     // L'icône de l'appli (comme sur la page Applis) ; sinon un symbole ou la première lettre.
     const icOf = (mod, icon, title) => { if (mod && window.OdinAppIcons) { const sp = el('span', { class: 'fe-ic fe-ic-app', 'aria-hidden': 'true' }); sp.innerHTML = window.OdinAppIcons.tile(mod, modName(mod), 34); return sp; } return el('span', { class: 'fe-ic', 'aria-hidden': 'true' }, icon ?? (title || '?').slice(0, 1)); };
     const head = (title, small, icon, mod = w.module) => el('div', { class: 'fe-h' }, icOf(mod, icon, title), el('div', {}, el('small', {}, small), el('b', {}, title)),
@@ -195,6 +213,68 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
     };
     const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); ghost.remove(); box.classList.remove('dragging'); const order = [...document.querySelectorAll('#feGrid .fe-w')].map((n) => n.dataset.id); page().widgets.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)); };
     addEventListener('pointermove', mv); addEventListener('pointerup', up);
+  }
+  /** Dit une taille aux lecteurs d'écran (une zone « status » cachée, posée une fois). */
+  function dire(t) { let n = $('#feDit'); if (!n) { n = el('div', { id: 'feDit', class: 'fe-dit', role: 'status', 'aria-live': 'polite' }); document.body.append(n); } n.textContent = t; }
+  const auTel = () => G.appareil(innerWidth) === 'telephone';
+  /**
+   * Tirer le coin (souris et doigt) : la taille suit le pointeur case par case, rien n'est gardé avant « Terminé ».
+   * Un seul geste à la fois, et seul le doigt (ou la souris) posé sur le coin compte : un second doigt ne tire rien.
+   * Échap, ou la fenêtre qui perd le focus, remet la taille d'avant ; une souris relâchée hors de la fenêtre finit le geste.
+   */
+  let coinEnCours = false;
+  function startResize(e, box, w, szb) {
+    if (!edit || e.button > 0 || coinEnCours) return;
+    e.preventDefault(); e.stopPropagation();
+    const tel = auTel(), grid = box.parentNode, dep = G.depart(w, tel, box.getBoundingClientRect().height), colonnePx = G.colonne(grid.clientWidth, tel), x0 = e.clientX, y0 = e.clientY;
+    const id = e.pointerId, rz = e.currentTarget, avant = G.memo(w);
+    let n = dep;
+    try { rz.setPointerCapture(id); } catch { /* ancien navigateur */ }
+    coinEnCours = true; box.classList.add('resizing'); szb.textContent = G.etiquette(dep);
+    const POINTEUR = ['pointermove', 'pointerup', 'pointercancel'];
+    const fin = (annule) => {
+      for (const t of POINTEUR) removeEventListener(t, ev); removeEventListener('keydown', ev, true); removeEventListener('blur', ev); rz.removeEventListener('lostpointercapture', ev);
+      coinEnCours = false; box.classList.remove('resizing');
+      const bouge = n.c !== dep.c || n.r !== dep.r;
+      if (annule) { G.remettre(w, avant); box.setAttribute('style', G.style(w)); if (bouge) dire(TXT.remise(G.etiquette(dep))); return; }
+      if (bouge) { dire(TXT.taille(G.etiquette(n))); draw(); }
+    };
+    function ev(x) {
+      const quoi = G.geste(id, x);
+      if (quoi === 'ignorer') return;
+      if (quoi === 'suivre') {
+        const t = G.tirer(w, dep, x.clientX - x0, x.clientY - y0, colonnePx, tel);
+        if (t.c === n.c && t.r === n.r) return;
+        n = t; G.poser(w, n, tel); box.setAttribute('style', G.style(w)); szb.textContent = G.etiquette(n);
+        return;
+      }
+      if (x.type === 'keydown') { x.preventDefault(); x.stopPropagation(); }
+      fin(quoi === 'annuler');
+    }
+    for (const t of POINTEUR) addEventListener(t, ev);
+    addEventListener('keydown', ev, true); addEventListener('blur', ev); rz.addEventListener('lostpointercapture', ev);
+  }
+  /** Maj + flèche sur la poignée : une colonne ou une ligne de plus ou de moins. Rend vrai pour une flèche. */
+  function tailleClavier(w, touche, box) {
+    if (!touche.startsWith('Arrow')) return false;
+    const tel = auTel(), h = box.getBoundingClientRect().height, n = G.pas(w, touche, tel, h);
+    if (!n) { dire(TXT.refusee(G.etiquette(G.depart(w, tel, h)))); return true; }
+    G.poser(w, n, tel); dire(TXT.taille(G.etiquette(n)));
+    draw().then(() => { const b = $(`.fe-w[data-id="${CSS.escape(w.id)}"]`); if (!b) return; b.querySelector('.fe-grip')?.focus(); const s = b.querySelector('.fe-szb'); if (s) { s.textContent = G.etiquette(n); b.classList.add('resizing'); setTimeout(() => b.classList.remove('resizing'), 1500); } });
+    return true;
+  }
+  /** Les sept tailles toutes faites, dans une liste (celles plus petites que la mini du module n'y sont pas). */
+  function tailles(w) {
+    const now = G.tailleChoisie(w), m = G.bornes(w.kind), possibles = G.taillesPossibles(w.kind);
+    const radios = el('div', { class: 'fe-sizes', role: 'radiogroup', 'aria-label': TXT.titreTailles }, ...possibles.map((t) => el('label', {}, el('input', { type: 'radio', name: 'feTaille', value: t.nom, checked: t.nom === now ? true : undefined }), TXT.tailles[t.nom] ?? t.nom, el('small', {}, G.etiquette(t)))));
+    const retirees = possibles.length < G.TAILLES.length ? el('p', { class: 'sub', style: 'margin:6px 0 0;font-size:12.5px' }, TXT.miniTailles(G.etiquette({ c: m.c[0], r: m.r[0] }))) : null;
+    dialog(TXT.titreTailles, el('div', {}, radios, retirees, el('p', { class: 'sub', style: 'margin:6px 0 0;font-size:12.5px' }, TXT.aideTailles)), () => {
+      const v = radios.querySelector('input:checked')?.value; if (!v) { say(TXT.aucuneTaille); return false; }
+      if (!G.choisir(w, v)) { say(TXT.refusee(G.etiquette(G.TAILLES.find((t) => t.nom === v) ?? { c: 0, r: 0 }))); return false; }
+      dire(TXT.taille(G.etiquette(G.taille(w)))); draw();
+    });
+    // Le focus va sur la taille cochée (sinon sur la première) : une flèche ne change pas le choix sans le vouloir.
+    (radios.querySelector('input:checked') ?? radios.querySelector('input'))?.focus();
   }
   function add(w) { page().widgets.push({ w: 1, ...w, id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) }); views.delete(w.module); fetchViews().then(draw); }
 
