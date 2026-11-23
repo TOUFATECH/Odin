@@ -30,6 +30,9 @@
   // Les 12 animations de déplacement (lot 17) : pages/accueil-animations.js, chargé avant. Celle choisie joue quand un
   // module est déplacé ou agrandi ; avec « moins d'animations », rien ne bouge.
   const OA = window.OdinAnimations;
+  // Le tiroir « Ajouter un widget » (lot 18) : ses textes, son style et ses calculs (familles, recherche, focus gardé)
+  // sont dans pages/accueil-tiroir.js, chargé avant. Il est rempli par le catalogue d'Odin, rien n'y est écrit en dur.
+  const OT = window.OdinTiroir;
   const act = (module, action, input = {}, confirm) => api('/api/valhalla/act', { module, action, input, ...(confirm ? { confirm: true } : {}) });
   const css = `
 #fenetre{margin:0 0 18px}.fe-bar{display:flex;gap:8px;align-items:center;margin:0 0 12px}.fe-bar .sp{flex:1}
@@ -37,7 +40,7 @@
 .fe-tab{flex:none;white-space:nowrap;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 13.5px inherit;cursor:pointer}.fe-tab[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .fe-edit .fe-tab[aria-pressed=true]{background:#fff;color:#10363a}.fe-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-radius:16px;background:#10363a;color:#fff;margin:0 0 12px}
 .fe-tools .fe-tab{background:rgba(255,255,255,.12);color:#fff;border-color:transparent}.fe-tools b{display:flex;gap:6px;align-items:center;margin:0 6px}.fe-tools .btn{min-height:36px}
-.fe-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.fe-edit .fe-wrap{grid-template-columns:minmax(0,1fr) 330px}@media (max-width:980px){.fe-edit .fe-wrap{grid-template-columns:minmax(0,1fr)}}
+.fe-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
 ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inline-size}@container (max-width:130px){.fe-h{flex-wrap:wrap}.fe-h .fe-ic{display:none}}
 .fe-w{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px 16px;min-width:0;box-shadow:0 10px 26px rgba(16,54,58,.08)}
 .fe-w .va-kpi{padding:8px 10px}.fe-w .va-kpi b{font-size:20px}
@@ -61,18 +64,13 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 .fe-ghost{position:fixed;left:0;top:0;margin:0;z-index:80;pointer-events:none;box-shadow:0 24px 60px rgba(16,54,58,.35);opacity:.95;will-change:transform;transition:none}
 .fe-annuler{display:flex;gap:12px;align-items:center}.fe-annuler .btn{min-height:44px}
 .fe-drop{border:2px dashed var(--line);border-radius:18px;min-height:90px;display:grid;place-items:center;color:var(--muted)}
-.fe-cat{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;max-height:calc(100vh - 140px);overflow:auto;position:sticky;top:12px}
-.fe-cat h2{font-size:17px;margin:0 0 8px}.fe-cat input{width:100%;min-height:40px;border-radius:12px;border:1px solid var(--field);background:var(--panel2);padding:0 12px;margin:0 0 10px}
-.fe-cat h3{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
-.fe-item{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);margin:0 0 6px;cursor:grab;color:var(--ink)}.fe-item small{display:block;color:var(--muted)}
-.fe-own{background:#10363a;color:#fff;border-radius:14px;padding:12px;margin:12px 0 0}.fe-own .btn{margin-top:8px}
 .fe-form label{display:block;font-size:13px;font-weight:600;margin:8px 0 4px}.fe-form select,.fe-form input{width:100%;min-height:38px;border-radius:10px;border:1px solid var(--field);padding:0 10px;background:var(--panel)}
 .fe-btnw{display:flex;flex-direction:column;gap:8px}.fe-btnw .btn{min-height:46px;font-size:15px}
 .fe-wx{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.fe-wx>div{min-width:0}.fe-wx b{font-size:34px}.fe-hours{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;margin-top:10px;font-size:12.5px;color:var(--muted)}.fe-hours span{white-space:nowrap}
 .fe-err{color:var(--muted);font-size:13.5px}
 .fe-clock{display:flex;flex-direction:column;gap:2px}.fe-clock-h{font-size:clamp(22px,24cqi,38px);line-height:1.1;font-variant-numeric:tabular-nums}.fe-clock-d{font-size:15px}.fe-clock-d::first-letter{text-transform:uppercase}.fe-clock small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
 .fe-site{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:4px solid var(--line)}.fe-site b{font-size:20px}.fe-site small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}.fe-site.bon{border-color:var(--good)}.fe-site.mauvais{border-color:var(--bad)}.fe-site.attention{border-color:var(--warn)}`;
-  document.head.append(el('style', {}, css + OA.CSS));
+  document.head.append(el('style', {}, css + OA.CSS + OT.CSS));
 
   let L = null, cur = 0, edit = false, saved = '', cat = null, views = new Map(), timer = 0, dessin = { cur: -1, edit: false };
   const host = () => $('#fenetre');
@@ -173,7 +171,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     box.append(s && window.OdinApps?.section ? window.OdinApps.section(w.module, s) : el('p', { class: 'fe-err' }, `« ${w.section} » n'est plus sur la page de ${modName(w.module)}.`));
     return box;
   }
-  function say(t) { const n = el('div', { class: 'va-out', role: 'status', style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:90;max-width:min(560px,calc(100% - 32px))' }, t); document.body.append(n); setTimeout(() => n.remove(), 5000); }
+  function say(t) { const n = el('div', { class: 'va-out', role: 'status', style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:96;max-width:min(560px,calc(100% - 32px))' }, t); document.body.append(n); setTimeout(() => n.remove(), 5000); }
 
   // ------------------------------------------------------------------ la page
   async function draw() {
@@ -190,6 +188,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
         el('button', { class: 'fe-tab', type: 'button', onclick: () => rename(cur) }, 'Renommer'),
         L.pages.length > 1 ? el('button', { class: 'fe-tab', type: 'button', onclick: async () => { if (await window.OdinDialog.confirm(`Supprimer la page « ${page().name} » ?`, { danger: true })) { L.pages.splice(cur, 1); cur = 0; draw(); } } }, 'Supprimer la page') : null,
         el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(Boolean(page().maison)), title: 'Montrer cette page sur l\'écran de la maison', onclick: () => { page().maison = !page().maison; draw(); } }, '🏠 Écran de la maison'),
+        el('button', { class: 'fe-tab', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirTiroir }, OT.TEXTES.bouton),
         el('span', { class: 'sp' }), themeBtn(),
         el('button', { class: 'btn small', type: 'button', onclick: async () => { L = JSON.parse(saved); edit = false; await fetchViews(); draw(); } }, 'Annuler'),
         el('button', { class: 'btn small primary', type: 'button', onclick: save }, 'Terminé'))
@@ -197,9 +196,12 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       : el('div', { class: 'fe-bar' }, el('div', { class: 'fe-tabs', role: 'group', 'aria-label': 'Pages de la fenêtre' }, ...tabs), el('button', { class: 'btn small primary fe-mod', type: 'button', onclick: () => { edit = true; draw(); } }, '✎ Modifier'));
     const grid = el('div', { class: 'fe-grid', id: 'feGrid' });
     for (const w of page().widgets) grid.append(await widget(w));
-    if (!page().widgets.length) grid.append(el('div', { class: 'fe-drop', style: 'grid-column:1/-1' }, edit ? 'Glisse ici un module du catalogue (ou clique dessus).' : 'Page vide : « Modifier » pour ajouter des modules.'));
-    if (edit) { grid.addEventListener('dragover', (e) => e.preventDefault()); grid.addEventListener('drop', (e) => { e.preventDefault(); const d = e.dataTransfer.getData('text/odin-module'); if (d) add(JSON.parse(d)); }); }
-    const poserTout = () => h.replaceChildren(bar, el('div', { class: 'fe-wrap' }, grid, edit ? catalogue() : null));
+    if (!page().widgets.length) grid.append(el('div', { class: 'fe-drop', style: 'grid-column:1/-1' }, edit ? 'Page vide : « Ajouter un widget » pour en poser un.' : 'Page vide : « Modifier » pour ajouter des modules.'));
+    if (edit) { grid.addEventListener('dragover', (e) => e.preventDefault()); grid.addEventListener('drop', (e) => { e.preventDefault(); const w = OT.glisse(e.dataTransfer.getData('text/odin-module')); if (w) add(w); }); }
+    // En mode Modifier : la tuile « Ajouter un widget » en fin de grille, et le tiroir qu'elle ouvre (fermé).
+    const tuile = edit ? el('button', { class: 'fe-ajout', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirTiroir }, el('span', { 'aria-hidden': 'true' }, '＋'), OT.TEXTES.tuile) : null;
+    ouvreur = null; if (!edit) $('#feTiroir')?.remove();
+    const poserTout = () => h.replaceChildren(bar, el('div', { class: 'fe-wrap' }, grid, tuile, edit ? catalogue() : null));
     if (memeVue) OA.jouer(() => h.querySelectorAll('#feGrid > .fe-w'), poserTout); else poserTout();
     dessin = { cur, edit };
     if (carteActive && nomActif && !h.contains(document.activeElement)) [...grid.querySelectorAll('.fe-w')].find((n) => n.dataset.id === carteActive)?.querySelector(`[aria-label="${CSS.escape(nomActif)}"]`)?.focus();
@@ -473,23 +475,94 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // Le focus va sur la taille cochée (sinon sur la première) : une flèche ne change pas le choix sans le vouloir.
     (radios.querySelector('input:checked') ?? radios.querySelector('input'))?.focus();
   }
-  function add(w) { page().widgets.push({ w: 1, ...w, id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) }); views.delete(w.module); fetchViews().then(draw); }
-
-  // ------------------------------------------------------------------ catalogue, réglages d'un module, bouton sur mesure
-  function catalogue() {
-    const list = el('div', {}), q = el('input', { type: 'search', placeholder: 'Chercher un module ou une appli…', 'aria-label': 'Chercher un module', oninput: () => fill(q.value) });
-    const item = (w, title, sub, icon) => { const b = el('button', { class: 'fe-item', type: 'button', draggable: 'true', onclick: () => add(w), ondragstart: (e) => e.dataTransfer.setData('text/odin-module', JSON.stringify(w)) }, el('span', { class: 'fe-ic', 'aria-hidden': 'true' }, icon), el('span', {}, el('b', {}, title), el('small', {}, sub))); return b; };
-    const fill = (term) => {
-      const t = term.trim().toLowerCase(), fams = new Map();
-      for (const m of cat?.modules ?? []) { if (t && !`${m.name} ${m.what} ${m.family}`.toLowerCase().includes(t)) continue; if (!fams.has(m.family)) fams.set(m.family, []); fams.get(m.family).push(m); }
-      list.replaceChildren(item({ kind: 'heure' }, 'Heure et lieu', 'la date et l\'heure là où est Odin', '🕒'), item({ kind: 'meteo' }, 'Météo', 'le temps, heure par heure', '☀'),
-        (cat?.modules ?? []).some((m) => m.id === 'vordr') ? el('button', { class: 'fe-item', type: 'button', onclick: siteSurveille }, el('span', { class: 'fe-ic', 'aria-hidden': 'true' }, '🌐'), el('span', {}, el('b', {}, 'Site surveillé'), el('small', {}, 'un site suivi par Pulsar : en ligne ou en panne'))) : null,
-        ...[...fams].flatMap(([f, ms]) => [el('h3', {}, f), ...ms.map((m) => item({ kind: 'chiffres', module: m.id }, m.name, m.what.slice(0, 70), m.name.slice(0, 1)))]));
-    };
-    fill('');
-    return el('aside', { class: 'fe-cat', 'aria-label': 'Ajouter un module' }, el('h2', {}, 'Ajouter un module'), el('p', { class: 'sub', style: 'margin:-4px 0 10px' }, 'Glisse-le sur la page, ou clique dessus. ⚙ sur un module : choisir la partie de l\'appli à montrer.'), q, list,
-      el('div', { class: 'fe-own' }, el('b', {}, '＋ Bouton sur mesure'), el('div', { style: 'font-size:13.5px;opacity:.9;margin-top:4px' }, 'N\'importe quelle action d\'une appli. Les actions graves te demandent ton accord à chaque clic.'), el('button', { class: 'btn small', type: 'button', onclick: ownButton }, 'Créer un bouton')));
+  /**
+   * Pose un widget à la fin de la page, ferme le tiroir, puis l'écran défile jusqu'à lui et le focus s'y pose (lot 18).
+   * Une appli désactivée, ou absente du catalogue de qui regarde, n'est jamais posée (même glissée d'ailleurs) : c'est
+   * dit, rien ne change.
+   */
+  function add(w) { page().widgets.push({ w: 1, ...w, id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) });
+    const n = page().widgets[page().widgets.length - 1], ok = OT.poser(cat?.modules, n.module);
+    if (ok !== 'ok') { page().widgets.pop(); say(ok === 'desactivee' ? OT.TEXTES.refusee(modName(n.module)) : OT.TEXTES.inconnue); return false; }
+    fermerTiroir(false); views.delete(w.module); fetchViews().then(draw).then(() => montrerAjout(n.id)); return true; }
+  /** Le widget qui vient d'être posé : l'écran défile jusqu'à lui, il apparaît, le focus va sur sa poignée, c'est dit. */
+  function montrerAjout(id) {
+    const b = [...document.querySelectorAll('#feGrid > .fe-w')].find((x) => x.dataset.id === id); if (!b) return;
+    b.scrollIntoView({ behavior: reduit() ? 'auto' : 'smooth', block: 'center' });
+    b.classList.add('fe-pop'); b.addEventListener('animationend', () => b.classList.remove('fe-pop'), { once: true });
+    (b.querySelector('.fe-grip') ?? b).focus({ preventScroll: true });
+    const w = page().widgets.find((x) => x.id === id), T = OT.TEXTES;
+    dire(T.pose(w?.label || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : modName(w?.module ?? ''))));
   }
+
+  // ------------------------------------------------------------------ le tiroir « Ajouter un widget » (lot 18)
+  /** Ce qui a ouvert le tiroir (le focus y revient quand il se ferme) ; la recherche et la famille, gardées d'une ouverture à l'autre. */
+  let ouvreur = null;
+  const etatTiroir = { q: '', famille: OT.TOUT };
+  function ouvrirTiroir(e) {
+    const t = $('#feTiroir'); if (!t || t.classList.contains('open')) return;
+    ouvreur = e?.currentTarget instanceof HTMLElement ? e.currentTarget : document.activeElement;
+    // Posé à la racine de la page : rien de ce qui l'entoure (menu, mascotte) ne passe par-dessus.
+    if (t.parentNode !== document.body) document.body.append(t);
+    t.classList.add('open');
+    t.querySelector('input[type=search]')?.focus({ preventScroll: true });
+  }
+  /** Ferme le tiroir ; `rendre` : le focus revient à ce qui l'a ouvert (pas après un ajout : il va au widget posé). */
+  function fermerTiroir(rendre = true) {
+    const t = $('#feTiroir'); if (!t?.classList.contains('open')) return;
+    t.classList.remove('open'); const o = ouvreur; ouvreur = null;
+    if (rendre && o?.isConnected) o.focus();
+  }
+  /** Échap ferme et rend le focus ; Tab et Maj + Tab restent dans le tiroir. */
+  function toucheTiroir(e) {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermerTiroir(); return; }
+    if (e.key !== 'Tab') return;
+    const l = [...e.currentTarget.querySelectorAll('button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter((n) => n.getClientRects().length > 0);
+    const j = OT.boucle(l.length, l.indexOf(document.activeElement), e.shiftKey);
+    if (j >= 0) { e.preventDefault(); l[j].focus(); }
+  }
+  // Un appui hors du tiroir (pas dans une fenêtre de dialogue qu'il a ouverte) le ferme, sans voler le focus.
+  addEventListener('pointerdown', (e) => { const t = $('#feTiroir'); if (t?.classList.contains('open') && !t.contains(e.target) && !e.target?.closest?.('dialog')) fermerTiroir(false); }, true);
+  // Une autre vue d'Odin s'ouvre (menu, palette, Odin qui l'ouvre) : le tiroir, posé à la racine, ne reste pas par-dessus.
+  document.addEventListener('odin:vue', (e) => { if (e.detail?.vue !== 'home') fermerTiroir(false); });
+  /**
+   * Le tiroir, rempli par le catalogue d'Odin (déjà filtré par les droits) : « Heure et lieu », « Météo », « Site
+   * surveillé » et « Bouton sur mesure » dans « Infos », puis chaque appli dans sa famille. Une appli désactivée est
+   * grisée, avec « désactivée », sans bouton. Fermé tant qu'on ne l'ouvre pas (la tuile ou « ＋ Ajouter »).
+   */
+  function catalogue() {
+    $('#feTiroir')?.remove(); // l'ancien tiroir, s'il a été posé à la racine de la page
+    const T = OT.TEXTES, list = el('div', { class: 'fe-tiroir-corps' }), statut = el('div', { class: 'fe-dit', role: 'status', 'aria-live': 'polite' });
+    const q = el('input', { type: 'search', value: etatTiroir.q, placeholder: T.chercher, 'aria-label': T.chercherNom, autocomplete: 'off', oninput: () => fill(q.value) });
+    const icone = (mod, nom, icon) => { if (mod && window.OdinAppIcons) { const sp = el('span', { class: 'fe-ic fe-ic-app', 'aria-hidden': 'true' }); sp.innerHTML = window.OdinAppIcons.tile(mod, nom, 40); return sp; } return el('span', { class: 'fe-ic', 'aria-hidden': 'true' }, icon ?? String(nom).slice(0, 1)); };
+    // Une ligne qui pose un widget tout prêt : un clic sur « Ajouter », ou glissée sur la page.
+    const item = (w, nom, quoi, icon) => ({ w, nom, quoi, icon, famille: OT.INFOS, onclick: () => add(w) });
+    const vordr = (cat?.modules ?? []).find((m) => m.id === 'vordr');
+    const lignes = [item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo' }, T.meteo, T.meteoQuoi, '☀'),
+      vordr ? { nom: T.site, quoi: T.siteQuoi, icon: '🌐', famille: OT.INFOS, active: OT.active(vordr), onclick: siteSurveille } : null,
+      { nom: T.perso, quoi: T.persoQuoi, icon: '⚡', famille: OT.INFOS, creer: true, onclick: ownButton },
+      ...(cat?.modules ?? []).map((m) => ({ ...item({ kind: 'chiffres', module: m.id }, m.name, String(m.what ?? '').slice(0, 90)), famille: m.family, module: m.id, active: OT.active(m) }))].filter(Boolean);
+    const ligne = (x) => {
+      const ic = icone(x.module, x.nom, x.icon), texte = el('div', { class: 'fe-it-t' }, el('b', {}, x.nom), el('small', {}, x.active === false ? `${x.quoi} · ${T.desactiveeAide}` : x.quoi));
+      if (x.active === false) return el('div', { class: 'fe-it off' }, ic, texte, el('span', { class: 'fe-off' }, T.desactivee));
+      return el('div', { class: 'fe-it', draggable: x.w ? 'true' : undefined, ondragstart: x.w ? (e) => e.dataTransfer.setData('text/odin-module', JSON.stringify(x.w)) : undefined }, ic, texte,
+        el('button', { class: 'btn small', type: 'button', 'aria-label': x.creer ? T.creerNom(x.nom) : T.ajouterNom(x.nom), onclick: x.onclick }, x.creer ? T.creer : T.ajouter));
+    };
+    const fams = OT.familles(cat?.modules); etatTiroir.famille = OT.famille(etatTiroir.famille, fams);
+    const chips = el('div', { class: 'fe-chips', role: 'group', 'aria-label': T.familles }, ...[[OT.TOUT, T.tout], [OT.INFOS, T.infos], ...fams.map((f) => [f, f])].map(([f, nom]) => el('button', { type: 'button', 'data-f': f, 'aria-pressed': String(f === etatTiroir.famille),
+      onclick: () => { etatTiroir.famille = f; for (const b of chips.children) b.setAttribute('aria-pressed', String(b.dataset.f === f)); fill(q.value); } }, nom)));
+    const fill = (term) => {
+      etatTiroir.q = term;
+      const groupes = OT.trouver(lignes, term, etatTiroir.famille), n = groupes.reduce((s, g) => s + g.lignes.length, 0);
+      list.replaceChildren(...(n ? groupes.flatMap((g) => [el('h3', {}, `${g.titre} · ${g.lignes.length}`), ...g.lignes.map(ligne)]) : [el('p', { class: 'fe-tiroir-rien' }, T.rien)]));
+      statut.textContent = n ? T.trouves(n) : T.rien;
+    };
+    fill(etatTiroir.q);
+    return el('div', { id: 'feTiroir', class: 'fe-tiroir', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'feTiroirTitre', onkeydown: toucheTiroir },
+      el('header', {}, el('div', { class: 'fe-tiroir-h' }, el('h2', { id: 'feTiroirTitre' }, T.titre), el('button', { class: 'fe-tiroir-x', type: 'button', 'aria-label': T.fermer, onclick: () => fermerTiroir() }, '✕')), q, chips, el('small', {}, T.aide)),
+      list, statut);
+  }
+
+  // ------------------------------------------------------------------ réglages d'un module, bouton sur mesure
   function dialog(title, body, onOk) {
     const d = el('dialog', { class: 'fe-form', style: 'max-width:min(460px,calc(100% - 32px));border-radius:16px;border:1px solid var(--line);background:var(--panel);color:var(--ink)' }, el('h2', { style: 'margin:0 0 8px;font-size:17px' }, title), body,
       el('div', { class: 'va-acts-bar', style: 'margin:14px 0 0' }, el('button', { class: 'btn small', type: 'button', onclick: () => d.close() }, 'Annuler'), el('button', { class: 'btn small primary', type: 'button', onclick: () => { if (onOk() !== false) d.close(); } }, 'Valider')));
@@ -514,21 +587,21 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const neuf = el('div', {}, el('label', { for: 'feSn' }, 'Nom'), nom, el('label', { for: 'feSu' }, 'Adresse du site'), url);
     sel.onchange = () => { neuf.hidden = Boolean(sel.value); };
     dialog('Site surveillé', el('div', {}, el('label', { for: 'feSo' }, 'Sonde de Pulsar'), sel, neuf), () => {
-      if (sel.value) { add({ kind: 'site', module: 'vordr', label: sel.value }); return; }
+      if (sel.value) return add({ kind: 'site', module: 'vordr', label: sel.value });
       const n = nom.value.trim(), u = url.value.trim();
       if (!n || !/^https?:\/\/\S+$/i.test(u)) { say('Donne un nom et une adresse qui commence par http:// ou https://.'); return false; }
       act('vordr', 'ajouter', { nom: n, genre: 'http', cible: u }).then((r) => { say(r.ok ? `Pulsar surveille maintenant « ${n} ».` : `✗ ${r.text || r.error || 'Pulsar a refusé'}`); if (r.ok) add({ kind: 'site', module: 'vordr', label: n }); });
     });
   }
   function ownButton() {
-    const mods = cat?.modules ?? [], ms = el('select', { id: 'feM' }, ...mods.map((m) => el('option', { value: m.id }, m.name))), as = el('select', { id: 'feA' }), params = el('div', {}), lab = el('input', { id: 'feL', placeholder: 'ex. Bloquer YouTube jusqu\'à 20 h' });
+    const mods = (cat?.modules ?? []).filter(OT.active), ms = el('select', { id: 'feM' }, ...mods.map((m) => el('option', { value: m.id }, m.name))), as = el('select', { id: 'feA' }), params = el('div', {}), lab = el('input', { id: 'feL', placeholder: 'ex. Bloquer YouTube jusqu\'à 20 h' });
     const fillA = () => { const m = mods.find((x) => x.id === ms.value); as.replaceChildren(...(m?.actions ?? []).map((a) => el('option', { value: a.id }, `${a.label}${a.grave ? ' ⚠' : ''}`))); fillP(); };
     const fillP = () => { const a = mods.find((x) => x.id === ms.value)?.actions.find((x) => x.id === as.value); params.replaceChildren(...(a?.params ?? []).filter((p) => p.kind !== 'password').map((p) => el('div', {}, el('label', { for: `feP-${p.key}` }, `${p.label}${p.required ? ' *' : ''}`), p.kind === 'select' ? el('select', { id: `feP-${p.key}`, 'data-k': p.key }, ...(p.options ?? []).map((o) => el('option', { value: o }, o))) : el('input', { id: `feP-${p.key}`, 'data-k': p.key, value: p.default ?? '' })))); };
     ms.onchange = fillA; as.onchange = fillP; fillA();
     dialog('Bouton sur mesure', el('div', {}, el('label', { for: 'feM' }, 'Appli'), ms, el('label', { for: 'feA' }, 'Action'), as, params, el('label', { for: 'feL' }, 'Texte du bouton'), lab), () => {
       const input = Object.fromEntries([...params.querySelectorAll('[data-k]')].map((n) => [n.dataset.k, n.value]).filter(([, v]) => v !== ''));
       const a = mods.find((x) => x.id === ms.value)?.actions.find((x) => x.id === as.value); if (!a) return false;
-      add({ kind: 'bouton', module: ms.value, action: as.value, input, label: lab.value.trim() || a.label });
+      return add({ kind: 'bouton', module: ms.value, action: as.value, input, label: lab.value.trim() || a.label });
     });
   }
 
