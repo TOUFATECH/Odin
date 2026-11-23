@@ -19,6 +19,7 @@ import { abonnements, abonner, accueil, ajouterHistoriqueYt, chaine, desabonner,
 import { fluxAutorise } from './cast.ts';
 import { entreeFfmpeg } from '../../files/ffmpeg-entree.ts';
 import { estMembre } from '../sso/garde.ts';
+import { profilDemande, profilDuTemoin, routeAppli } from './app/appli.ts';
 
 export interface VenusRouteCtx {
   home: string;
@@ -117,7 +118,8 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
   if (!p.startsWith('/venus/') && !p.startsWith('/t/')) return false;
   const mag = magasinVenus(ctx.home, dirVenus(ctx.home));
   const meth = req.method ?? 'GET';
-  const profil = ctx.profil || 'moi';
+  // Le profil choisi dans « Qui regarde ? » (un compte d'Odin, vérifié) ; sinon celui que donne le serveur.
+  const profil = req.headers['x-venus-profil'] || profilDuTemoin(req) ? profilDemande(req, ctx.home) : (ctx.profil || 'moi');
   // Le propriétaire SEUL : la session d'un membre (ou d'un invité) vaut « connecté » pour le serveur, mais Vénus ouvre
   // les dossiers de la machine et lit leurs médias ; un membre n'y entre pas, même s'il a le droit d'ouvrir Vénus.
   const proprietaire = () => ctx.proprietaire() && !estMembre(req);
@@ -138,7 +140,14 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
     }
 
     // Tout le reste est réservé au propriétaire connecté.
-    if (!proprietaire()) { ctx.fail(); json(res, 401, { error: 'Connecte-toi à Odin.' }); return true; }
+    if (!proprietaire()) {
+      // La page de Vénus elle-même : un refus lisible (et un lien vers Odin), pas une réponse de machine. Ouvrir une
+      // page n'est pas un essai de jeton : pas compté (sinon un favori ou un membre redirigé bloque l'adresse 15 min).
+      if (meth === 'GET' && (p === '/venus/app' || p === '/venus/app/')) { res.writeHead(401, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'" }); res.end(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Venus</title><body style="font-family:system-ui,sans-serif;background:#120e0d;color:#eceae4;display:grid;place-items:center;min-height:90vh;margin:0;padding:16px"><p>Venus est réservé au propriétaire d'Odin. <a href="/" style="color:#f4cf9c">Revenir à Odin</a></p></body>`); return true; }
+      ctx.fail(); json(res, 401, { error: 'Connecte-toi à Odin.' }); return true;
+    }
+    // L'interface de Vénus (lot V1) : la page plein écran et ce qu'elle lit (catalogue, fiche, profils, préférences).
+    if (await routeAppli(req, res, url, ctx.home, mag, profil)) return true;
 
     if (meth === 'GET' && p === '/venus/bibliotheque') { json(res, 200, { oeuvres: bibliotheque(mag, { type: s(url.searchParams.get('type')) as TypeOeuvre | undefined || undefined, q: s(url.searchParams.get('q')) }) }); return true; }
     if (meth === 'GET' && p.startsWith('/venus/oeuvre/')) return servirOeuvre(res, mag, decode(p.slice('/venus/oeuvre/'.length)), profil);

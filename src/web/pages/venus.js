@@ -92,6 +92,20 @@
     bibliothequeUrl(type, q) { const p = []; if (type) p.push(`type=${encodeURIComponent(type)}`); if (q) p.push(`q=${encodeURIComponent(q)}`); return `/venus/bibliotheque${p.length ? `?${p.join('&')}` : ''}`; },
     detailUrl(id) { return `/venus/oeuvre/${encodeURIComponent(String(id))}`; },
     ecransUrl() { return '/venus/ecrans'; },
+    /** L'interface plein écran de Venus (servie par Odin). */
+    appliUrl() { return '/venus/app/#/'; },
+    /** Y aller en REMPLAÇANT l'entrée de l'historique : « retour » ramène avant Vénus, pas sur cette page qui renverrait dans Venus. */
+    allerAppli(loc) { loc.replace(this.appliUrl()); },
+    /**
+     * Ouvrir l'interface de Venus plutôt que cette page ? Non pour lire un titre demandé (le lecteur part d'ici), ni quand
+     * Venus a demandé la page de gestion (adresse « /?venus=gestion#app=freyja »). Pur.
+     */
+    versAppli(want, recherche) {
+      if (want && (want.lire || want.onglet || want.tab)) return false;
+      return !/[?&]venus=gestion(&|$)/.test(String(recherche || ''));
+    },
+    /** L'adresse de cette page, demandée depuis Venus (« Médiathèques et écrans »). */
+    gestionUrl() { return '/?venus=gestion#app=freyja'; },
     /** Affiche locale seulement (chemin Odin ou data:) : jamais une image chargée d'un serveur tiers. */
     afficheLocale(o) { const u = o && (o.affiche || o.poster); return typeof u === 'string' && /^(\/|data:)/.test(u) ? u : null; },
     mmss(s) { s = Math.max(0, Math.floor(Number(s) || 0)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; const d2 = (n) => String(n).padStart(2, '0'); return h ? `${h}:${d2(m)}:${d2(x)}` : `${m}:${d2(x)}`; },
@@ -446,6 +460,12 @@
     if (!document.getElementById('vnCss')) document.head.append(el('style', { id: 'vnCss' }, CSS));
     const want = window.OdinOpenWant && window.OdinOpenWant.module === 'freyja' ? window.OdinOpenWant : null;
     if (want) window.OdinOpenWant = undefined;
+    // Vénus s'ouvre en plein écran, avec l'interface de Venus (/venus/app/, « ‹ Odin » pour revenir). Cette page-ci
+    // (dossiers, scan, envoi, écrans, YouTube, acquisition, état) reste là : ouverte depuis Venus (« Médiathèques et
+    // écrans »), ou pour lire un titre demandé dans la discussion.
+    if (logique.versAppli(want, window.location.search)) { logique.allerAppli(window.location); return true; }
+    // Venus a demandé cette page (« ?venus=gestion ») : l'adresse redevient celle d'Odin (rien n'est gardé dans le navigateur).
+    if (/[?&]venus=gestion/.test(window.location.search)) { try { window.history.replaceState(null, '', `/${window.location.hash}`); } catch { /* sans gravité */ } }
     const S = { onglet: (want && (want.onglet || want.tab)) || 'odeon' };
     if (!ONGLETS.some(([id]) => id === S.onglet)) S.onglet = 'odeon';
     const toast = ctx.toast || (() => {});
@@ -457,6 +477,7 @@
     const barre = () => el('div', { class: 'vn-tete' },
       el('span', { class: 'ico' }, '♀'),
       el('div', {}, el('b', {}, 'Vénus'), el('div', { class: 'sub' }, 'Tes films, séries, musique et YouTube — sur tous tes écrans, sans rien d\'extérieur')),
+      el('a', { class: 'vn-b ac', href: logique.appliUrl(), style: 'display:inline-flex;align-items:center;min-height:44px;text-decoration:none' }, 'Ouvrir Venus'),
       el('div', { class: 'vn-seg', role: 'tablist', 'aria-label': 'Parties de Vénus', style: 'margin-left:auto' }, ...ONGLETS.map(([id, lab]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.onglet === id), onclick: () => { if (S.onglet !== id) { S.onglet = id; rendre(); } } }, lab))));
 
     const rendre = async () => {
