@@ -21,3 +21,10 @@ html[data-tone="light"] .ph { color: #fff; } /* le titre écrit sur un fond sans
 @media (max-width: 560px) { .req-q { flex-wrap: wrap; } .req-q .req-q-acts { width: 100%; justify-content: flex-end; } }
 .episode.missing .ep-get { margin-top: 6px; min-height: 44px; }
 .up-ph[style*="--h"], .wish-pic > span { background: linear-gradient(135deg, hsl(var(--h, 220) 45% 32%), hsl(calc(var(--h, 220) + 40) 50% 18%)); color: #fff; }
+/* Lecteur (lot V2) : sur ordinateur, avec tous les boutons d'une série (Ensemble, Épisodes, précédent, suivant…), la barre
+   déborde de quelques pixels et coupait son dernier bouton (plein écran). Elle défile alors comme sur téléphone, sans
+   changer l'aspect du dépôt ; les boutons gardent leur taille. */
+.p-controls { overflow-x: auto; scrollbar-width: none; padding-block: 3px; margin-block: -3px; }
+.p-controls::-webkit-scrollbar { display: none; }
+.p-controls > * { flex-shrink: 0; }
+.p-controls > .spacer { flex-shrink: 1; min-width: 0; }

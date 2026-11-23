@@ -7,6 +7,9 @@
 //   GET /venus/api/titre/<id>       la fiche d'un titre : saisons, épisodes, fichier et fiche technique
 //   GET /venus/api/profils          « Qui regarde ? » : les comptes d'Odin (le propriétaire, puis les personnes de Persona)
 //   GET|POST /venus/api/preferences la planète et le menu choisis, par profil (base VENUS_ODIN, repli fichiers)
+//   GET /venus/api/lecture/<cible>  (lot V2) ce que le lecteur de Venus reçoit : titre, épisode, durée, reprise DU profil,
+//                                   lecture directe ou convertie, sous-titres et pistes audio connus, épisodes voisins ;
+//                                   /venus/app/lecteur.js : le lecteur (public/js/views/player.js du dépôt, réécrit)
 //
 // Tout est derrière la garde de routes.ts : le propriétaire seul (un membre n'ouvre ni la page ni ses données).
 // Rien n'est inventé : un renseignement absent (affiche, genres, notes, distribution) reste absent, et la page le dit.
@@ -15,7 +18,8 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import type { Enr, MagasinVenus } from '../base.ts';
-import { cibleAJouer, episodes, maListe } from '../bibliotheque.ts';
+import { cibleAJouer, episodes, fichierDeCible, maListe } from '../bibliotheque.ts';
+import { choisirSousTitres, planLecture } from '../lecture.ts';
 import { persona, personnes, prenomProprio } from '../../sso/etat.ts';
 import { ageDe } from '../../sso/infos.ts';
 import { Accounts } from '../../../web/account.ts';
@@ -140,6 +144,52 @@ export function fiche(mag: MagasinVenus, profil: string, id: string): Record<str
   return { titre: t, saisons, tech: tech(eps[0]?.data.fichier), sousTitres: sousTitres(eps[0]?.data.sous_titres) };
 }
 
+// ---------------- Lecture (lot V2 : le lecteur de Venus) ----------------
+type Reprises = Map<string, { position: number; duration: number; maj: number }>;
+/** Un épisode pour le lecteur (sans chemin de fichier). */
+const epLecteur = (e: Enr, rep: Reprises) => {
+  const p = rep.get(e.id), d = Number(e.data.duree) || 0;
+  return { id: e.id, season: Number(e.data.saison) || 0, episode: Number(e.data.episode) || 0, ...(d ? { runtime: Math.round(d / 60) } : {}),
+    progress: p ? { position: p.position, duration: p.duration || d, watched: vu(p, d) } : null };
+};
+/**
+ * Ce que le lecteur reçoit pour une cible (film, clip, épisode), pour UN profil : sa reprise à lui seul, jamais celle
+ * d'un autre. Aucun chemin de fichier de la machine : le flux et les sous-titres passent par les routes d'Odin.
+ * Sous-titres : ceux que /venus/sous-titres sait servir (un par langue joignable). Audio : les pistes connues du fichier
+ * (choisir une autre piste n'est pas encore servi : l'écran le dit). Chapitres et génériques : pas encore repérés,
+ * listes vides (l'écran n'en invente pas).
+ */
+export function lecture(mag: MagasinVenus, profil: string, cibleId: string): Record<string, unknown> | undefined {
+  const ep = mag.get('episodes', cibleId), oe = ep ? mag.get('oeuvres', s(ep.data.oeuvre_id)) : mag.get('oeuvres', cibleId);
+  if (!oe || (ep ? oe.data.type !== 'serie' : oe.data.type !== 'film')) return undefined;
+  const c = fichierDeCible(mag, cibleId); if (!c || c.type !== 'video') return undefined;
+  const rep = reprises(mag, profil), p = rep.get(cibleId), duree = Number(c.duree) || Number(c.probe?.duree) || 0;
+  const plan = planLecture({ chemin: c.fichier, probe: c.probe, type: c.type, duree });
+  const st = c.sousTitres ?? [];
+  const subs = st.flatMap((x, k) => {
+    const titre = s((x as { titre?: unknown }).titre).slice(0, 80);
+    return choisirSousTitres(st, s(x.langue)) === x ? [{ id: k, lang: s(x.langue).slice(0, 16), title: titre, forced: /forc/i.test(titre) }] : [];
+  });
+  const audio = (c.probe?.audio ?? []).map((codec, k) => ({ order: k, codec: s(codec).slice(0, 20) }));
+  const h = hauteur(ep ? ep.data.resolution : oe.data.resolution);
+  const base = {
+    id: cibleId, title: s(oe.data.titre) || oe.id, duration: duree, mode: plan.mode === 'direct' ? 'direct' : 'transcode',
+    ...(resDe(h) ? { res: resDe(h) } : {}), ...(Number(oe.data.annee) ? { year: Number(oe.data.annee) } : {}),
+    position: p?.position ?? 0, watched: vu(p, duree), subs, audio, chapters: [] as unknown[], segments: null, present: existsSync(c.fichier),
+  };
+  if (!ep) return { ...base, type: categorieDe(oe) === 'clip' ? 'clip' : 'movie', itemId: oe.id };
+  const eps = episodes(mag, oe.id), i = eps.findIndex((e) => e.id === cibleId), moi = epLecteur(ep, rep);
+  const voisin = (e?: Enr) => (e ? { id: e.id, season: Number(e.data.saison) || 0, episode: Number(e.data.episode) || 0 } : null);
+  return { ...base, type: 'episode', category: categorieDe(oe), showId: oe.id, itemId: cibleId, season: moi.season, episode: moi.episode,
+    next: voisin(eps[i + 1]), prev: voisin(eps[i - 1]), seasonEpisodes: eps.filter((e) => Number(e.data.saison) === moi.season).map((e) => epLecteur(e, rep)) };
+}
+const estEnfant = (home: string, profil: string) => !!profils(home).find((x) => x.id === profil)?.isKids;
+/** Un profil enfant ne voit jamais un chemin de la machine : seul le nom du fichier reste dans la fiche. Pur. */
+export function ficheEnfant(f: Record<string, unknown>): Record<string, unknown> {
+  const tech = f.tech as { fichier?: string } | undefined;
+  return tech && tech.fichier ? { ...f, tech: { ...tech, fichier: String(tech.fichier).split(/[\\/]/).pop() } } : f;
+}
+
 // ---------------- Préférences (planète, menu) ----------------
 const PLANETES = new Set(['mercure', 'venus', 'terre', 'mars', 'jupiter', 'saturne', 'uranus', 'neptune', 'pluton', 'noir', 'blanc', 'tv', 'cinema', 'verre', 'lagon', 'ocean', 'sable']);
 const MENU_IDS = new Set(['home', 'movies', 'shows', 'anime', 'clips', 'request', 'today', 'new', 'tv', 'music', 'photos', 'books', 'mylist', 'collections', 'search', 'seance', 'remote', 'stats', 'downloads', 'dashboard']);
@@ -171,7 +221,7 @@ export function reglerPreferences(mag: MagasinVenus, profil: string, b: Record<s
 
 // ---------------- La page et ses fichiers ----------------
 const TYPES: Record<string, string> = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.woff2': 'font/woff2', '.LICENSE': 'text/plain; charset=utf-8' };
-const FICHIERS = /^(app\.js|planetes\.js|css\/(?:app|odin)\.css|fonts\/[a-z-]+\.(?:woff2|LICENSE)|LICENSE)$/;
+const FICHIERS = /^(app\.js|planetes\.js|lecteur\.js|css\/(?:app|odin)\.css|fonts\/[a-z-]+\.(?:woff2|LICENSE)|LICENSE)$/;
 /** La page de Vénus : un document à elle (le dépôt Venus fixe son rail sur toute la hauteur), avec « ‹ Odin » pour revenir. */
 export function pageAppli(nonce: string, langue = 'fr'): string {
   return `<!doctype html>
@@ -187,7 +237,7 @@ export function pageAppli(nonce: string, langue = 'fr'): string {
 <body>
 <div id="app" aria-busy="true"></div>
 <script nonce="${nonce}" src="/venus/app/planetes.js"></script>
-<script nonce="${nonce}" src="/pages/venus-lecteur.js"></script>
+<script nonce="${nonce}" src="/venus/app/lecteur.js"></script>
 <script nonce="${nonce}" src="/venus/app/app.js"></script>
 </body>
 </html>
@@ -227,7 +277,12 @@ export async function routeAppli(req: IncomingMessage, res: ServerResponse, url:
   if (meth === 'GET' && reste.startsWith('titre/')) {
     let id = reste.slice(6); try { id = decodeURIComponent(id); } catch { /* tel quel */ }
     const f = fiche(mag, profil, id); if (!f) { json(res, 404, { error: 'titre introuvable' }); return true; }
-    json(res, 200, f); return true;
+    json(res, 200, estEnfant(home, profil) ? ficheEnfant(f) : f); return true;
+  }
+  if (meth === 'GET' && reste.startsWith('lecture/')) {
+    let id = reste.slice(8); try { id = decodeURIComponent(id); } catch { /* tel quel */ }
+    const l = lecture(mag, profil, id); if (!l) { json(res, 404, { error: 'Ce titre n’est pas (ou plus) dans la bibliothèque : relancez un scan.' }); return true; }
+    json(res, 200, { ...l, kids: estEnfant(home, profil) }); return true;
   }
   // « choisi » : un profil a déjà été choisi sur cet appareil (témoin valide) ; sinon la page montre « Qui regarde ? ».
   if (meth === 'GET' && reste === 'profils') { const l = profils(home), c = profilDuTemoin(req); json(res, 200, { profils: l, actuel: profil, choisi: l.some((p) => p.id === c) }); return true; }

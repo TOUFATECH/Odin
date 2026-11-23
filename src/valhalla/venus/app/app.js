@@ -26,6 +26,17 @@
       'Ajouter': 'Add', 'Ajouté': 'Added', 'Demander': 'Request', 'Accepter': 'Accept', 'Jeter': 'Discard', 'Annuler': 'Cancel', 'Mettre en pause': 'Pause',
       'Demandes': 'Requests', 'Demandes au nom de chacun': 'Requests on behalf of each person', 'À valider': 'To approve', 'Valider': 'Approve', 'Refuser': 'Decline',
       'Enregistrer': 'Save', 'Tester': 'Test', 'Retirer': 'Remove',
+      // le lecteur (lecteur.js)
+      'Retour': 'Back', 'Lecture / pause': 'Play / pause', 'Reculer de 10 secondes': 'Back 10 seconds', 'Avancer de 10 secondes': 'Forward 10 seconds',
+      'Position de lecture': 'Playback position', 'Audio et sous-titres': 'Audio and subtitles', 'Vitesse de lecture': 'Playback speed', 'Chapitres': 'Chapters',
+      'Épisode suivant': 'Next episode', 'Épisode précédent': 'Previous episode', 'Épisodes': 'Episodes', 'Diffuser sur un écran': 'Play on a screen', 'Plein écran': 'Full screen',
+      'Image dans l’image': 'Picture in picture', 'Mode nuit (son égalisé)': 'Night mode (levelled sound)', 'Minuterie de sommeil': 'Sleep timer', 'Partager un extrait': 'Share a clip',
+      'Format de l’image': 'Picture format', 'Mode Ambiance': 'Ambient mode', 'Regarder ensemble': 'Watch together', 'Ensemble': 'Together', 'Couper le son': 'Mute', 'Remettre le son': 'Unmute',
+      'Volume': 'Volume', 'Passer l’intro': 'Skip intro', 'Passer le générique': 'Skip credits', 'Lecteur vidéo': 'Video player', 'Lecteur vidéo : {t}': 'Video player: {t}',
+      'Lire maintenant': 'Play now', 'Épisode suivant · {e}': 'Next episode · {e}', 'Lire maintenant : {t}': 'Play now: {t}', 'S{s} É{e}': 'S{s} E{e}', 'Saison {s}, épisode {e}': 'Season {s}, episode {e}',
+      'Audio': 'Audio', 'Sous-titres': 'Subtitles', 'Désactivés': 'Off', 'Forcés': 'Forced', 'Décalage': 'Offset', 'Piste {n}': 'Track {n}', 'bientôt': 'coming soon',
+      'Il reste {t}': '{t} left', 'Se termine à {h}': 'Ends at {h}', 'Pendant la pause': 'While paused', 'La série': 'The show', 'La fiche': 'Details', 'Qualité': 'Quality', 'Originale': 'Original',
+      'Réessayer': 'Try again', 'La lecture n’a pas pu démarrer': 'Playback could not start', '{quoi} : bientôt dans Odin.': '{quoi}: coming soon in Odin.', 'Chargement…': 'Loading…',
     },
   };
   const LANG = String((D && D.documentElement.lang) || (W.navigator && W.navigator.language) || 'fr');
@@ -702,18 +713,16 @@
   }
   function palGo(r) { closeSheet(false); if (r.act === 'profiles') { go('/qui-regarde'); return; } if (r.tab) S.setTab = r.tab; if (r.q != null) S.searchQ = r.q; go(r.to); }
 
-  // ---------------------------------------------------------------- lecture (le lecteur d'Odin, en attendant celui de Venus)
+  // ---------------------------------------------------------------- lecture (lot V2 : le lecteur de Venus, lecteur.js)
   async function lire(cibleId, depuisDebut) {
-    const LV = W.OdinVenusLecteur; if (!LV) { toast(t('Lecteur indisponible.')); return; }
-    const oeuvre = cibleId.split(':').slice(0, 2).join(':');
-    let d = null; try { d = await api(`/venus/oeuvre/${encodeURIComponent(oeuvre)}`); } catch { d = null; }
-    const c = d ? L.elementLecteur(d, cibleId) : null;
-    if (!c) { toast(t('Ce titre n’est pas (ou plus) dans la bibliothèque : relancez un scan.')); return; }
-    if (depuisDebut) c.reprise_s = 0;
-    LV.ouvrir(c, { surEcran: () => envoyerEcran(c) });
-    // À la fermeture du lecteur : la progression a changé, la bibliothèque est relue.
-    const obs = new MutationObserver(() => { if (!D.querySelector('.vl')) { obs.disconnect(); charger().then(() => rerender()); } });
-    obs.observe(D.body, { childList: true });
+    const LV = W.VenusLecteur; if (!LV) { toast(t('Lecteur indisponible.')); return; }
+    closeSheet(false); closeDrop();
+    await LV.ouvrir(cibleId, {
+      depuisDebut, profil: S.profile.id, toast, envoyerEcran,
+      allerFiche: (path) => go(path),
+      // À la fermeture du lecteur : la progression a changé, la bibliothèque est relue (la fiche aussi).
+      surFermeture: () => { S.fiche = {}; charger().then(() => rerender()); },
+    });
   }
   async function envoyerEcran(c) {
     const titre = String(c.titre || '').split(' · ')[0];
@@ -967,7 +976,7 @@
     if (tg.id === 'reqq') { S.req.q = tg.value; const p = tg.selectionStart; render(true); const i = $('#reqq'); if (i) { i.focus(); i.setSelectionRange(p, p); } }
   });
   D.addEventListener('keydown', (e) => {
-    if (D.querySelector('.vl')) return; // le lecteur a son propre clavier
+    if (D.querySelector('.player')) return; // le lecteur a son propre clavier
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); if ($('.palette-wrap')) closeSheet(); else openPalette(); return; }
     if ($('.palette-wrap') && e.target.id === 'palq') {
       const res = $('#pal-list')._res || [];
