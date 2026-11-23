@@ -12,6 +12,10 @@
 // TOUT passe par OdinDialog ou par ce panneau : jamais une fenêtre native du navigateur. Clair / sombre, 390 et
 // 1280 px, « prefers-reduced-motion » respecté.
 //
+// Depuis le lot C2 de la maquette « Clés USB », la façon et le choix des systèmes se font dans les étapes 2 et 3
+// (thjalfi-cle-systemes.js), qui reprennent la logique pure d'ici (cibleDepuis, serialiser) ; ouvert depuis les
+// étapes suivantes, ce panneau reçoit ces systèmes (tools.systemes) en attendant les lots des étapes 4 à 6.
+//
 // Expose window.OdinGeneseCleComposer = { ouvrir(disque, tools), logique, rendu } :
 //   - ouvrir : le panneau complet (DOM), ouvert depuis « Préparer » de thjalfi-cle.js ;
 //   - logique : les fonctions PURES (cible, choix, limites, résumé du plan, entrées du menu…) essayées sans navigateur ;
@@ -145,9 +149,16 @@
     return (sys && sys.famille === 'windows') || /windows|win\b/.test(t) ? 'windows' : 'linux';
   }
 
+  /** Vrai pour un simple nom de fichier (pas de dossier, pas de « .. », pas de lecteur, pas de caractère de contrôle). Pur. */
+  const nomFichierSur = (f) => typeof f === 'string' && f.length > 0 && f.length <= 255 && !/[\\/:\u0000-\u001f\u007f]/.test(f) && !/^\.+$/.test(f);
+
   /** Le descripteur SystemeCle (contrat) envoyé au serveur pour le plan et l'écriture. Pur. */
   function serialiser(s) {
     const o = { nom: s.nom, famille: s.famille, choix: s.choix, mode: s.mode || (s.choix === 'iso' ? 'demarrer' : 'installer') };
+    // Le fichier de l'ISO dans la bibliothèque (choisi à l'étape « Systèmes ») : le serveur en a besoin pour l'écrire.
+    // Un simple nom de fichier, jamais un chemin (ni « .. », ni « / » ou « \ », ni lecteur « C: ») : un nom piégé
+    // n'est pas envoyé. (Le serveur devra lui aussi retrouver l'ISO dans SA bibliothèque avant toute copie.)
+    if (nomFichierSur(s.fichier)) o.fichier = s.fichier;
     if (s.winToGo) o.winToGo = s.winToGo;
     if (s.persistance) o.persistance = s.persistance;
     if (s.installPartition) o.installPartition = s.installPartition;
@@ -244,10 +255,11 @@
 `;
 
   async function ouvrir(disque, tools) {
-    void tools;
     if (typeof document === 'undefined') return;
     const D = dialog();
-    const etat = { cible: cibleDepuis(disque), nomCible: disque.modele || disque.chemin || 'ce support', systemes: [], vms: [], racine: [], plan: null, reglages: reglagesDefaut(), catalogue: [], catOuvert: false };
+    // Les systèmes déjà choisis dans le parcours par étapes (étapes « Façon » et « Systèmes ») : repris tels quels.
+    const deja = Array.isArray(tools && tools.systemes) ? tools.systemes.filter((x) => x && typeof x === 'object').map((x, i) => ({ ...x, defaut: i === 0 })) : [];
+    const etat = { cible: cibleDepuis(disque), nomCible: disque.modele || disque.chemin || 'ce support', systemes: deja, vms: [], racine: [], plan: null, reglages: reglagesDefaut(), catalogue: [], catOuvert: false };
     let compteur = 0;
 
     const bg = el('div', { class: 'clc-bg', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Préparer ${etat.nomCible}` });

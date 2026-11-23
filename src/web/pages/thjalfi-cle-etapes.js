@@ -8,8 +8,11 @@
 // Rien ici n'écrit sur un disque : on ne fait que LIRE la liste (cle_disques). Choisir une clé n'écrit rien.
 // « Copier son contenu dans Odin d'abord » : aucune action d'Odin ne copie encore le contenu d'une clé, le bouton
 // n'est donc pas montré (COPIE_POSSIBLE plus bas) ; il viendra avec l'action qui le fait vraiment.
-// Les étapes 2 à 6 et les trois autres onglets arrivent avec leurs lots : en attendant, ils disent « bientôt » et
-// gardent joignable tout ce que l'appli sait déjà faire (le composeur, l'aperçu du menu, les disques comme avant).
+// Les étapes 2 « Façon » et 3 « Systèmes » (lot C2) sont dans thjalfi-cle-systemes.js (window.OdinGeneseCleSystemes) :
+// les étapes 4 à 6 ne s'ouvrent que si l'étape 3 est juste (au moins un système, et tout tient sur la clé).
+// Les étapes 4 à 6 et les trois autres onglets arrivent avec leurs lots : en attendant, ils disent « bientôt » et
+// gardent joignable tout ce que l'appli sait déjà faire (le composeur, qui reçoit les systèmes déjà choisis,
+// l'aperçu du menu, les disques comme avant).
 //
 // Tous les textes sont dans MOTS (aucune phrase écrite dans une donnée) ; tailles et nombres selon la langue de la page.
 // Expose window.OdinGeneseCleEtapes = { MOTS, logique, monter(wrap, outils) } ; « logique » est pure (essais sans page).
@@ -248,8 +251,8 @@
     if (v.phase === 'erreur') return mot('verif.erreur');
     return '';
   }
-  /** Une étape s'ouvre : la 1 toujours ; les suivantes une fois la clé choisie. */
-  const etapeOuverte = (n, cle) => n === 1 || (n >= 2 && n <= ETAPES && Boolean(cle));
+  /** Une étape s'ouvre : la 1 toujours ; la 2 et la 3 une fois la clé choisie ; les suivantes si l'étape 3 est juste. */
+  const etapeOuverte = (n, cle, systemesPrets = true) => n === 1 || (n >= 2 && n <= ETAPES && Boolean(cle) && (n <= 3 || systemesPrets !== false));
   /** Le prochain élément (flèches, Début, Fin) dans une liste, en sautant ceux qui sont fermés. */
   function suivant(i, n, touche, ouvert = () => true) {
     const pas = touche === 'ArrowRight' || touche === 'ArrowDown' ? 1 : touche === 'ArrowLeft' || touche === 'ArrowUp' ? -1 : 0;
@@ -364,6 +367,15 @@
   // L'état du parcours, gardé quand on change d'onglet de Genèse.
   const S = { onglet: 'deployer', etape: 1, cle: null, choix: null, data: null, vue: { cles: [], verrous: [] }, charge: true, erreur: '', msg: '', verif: null, signature: '' };
   let C = null; // { wrap, outils, minuteur, verifMinuteur }
+  /** Les étapes 2 et 3 (lot C2), si elles sont chargées. */
+  const SYS = () => (W.OdinGeneseCleSystemes && typeof W.OdinGeneseCleSystemes.rendre === 'function' ? W.OdinGeneseCleSystemes : null);
+  /** L'étape 3 est-elle juste POUR LA CLÉ CHOISIE MAINTENANT ? (sans le lot C2 chargé : rien ne bloque, comme avant) */
+  const prets = () => {
+    const s = SYS();
+    if (!s || typeof s.pret !== 'function') return true;
+    const c = S.vue.cles.find((x) => x.id === S.cle);
+    return Boolean(c) && s.pret(c.brut);
+  };
   /** L'empreinte de la clé choisie : si un AUTRE disque prend son identifiant (/dev/sdb, PhysicalDrive2 réutilisés), ce n'est pas elle. */
   const empreinte = (c) => ({ serie: c.serie, taille: c.brut ? Number(c.brut.tailleOctets) || 0 : 0, nom: c.nom, sorte: c.sorte });
   const memeCle = (a, c) => { const b = empreinte(c); return a.serie === b.serie && a.taille === b.taille && a.nom === b.nom; };
@@ -415,12 +427,14 @@
   function etapes() {
     const ol = el('ol', { class: 'ck-steps', 'aria-label': mot('etapes.nom') });
     for (let n = 1; n <= ETAPES; n++) {
-      const ouverte = etapeOuverte(n, S.cle), courante = n === S.etape, faite = n < S.etape;
+      const ouverte = etapeOuverte(n, S.cle, prets()), courante = n === S.etape, faite = n < S.etape;
+      const sorte = (S.vue.cles.find((x) => x.id === S.cle) || {}).sorte;
+      const fermee = !S.cle || !SYS() ? mot('etape.fermee') : SYS().MOTS[sorte === 'disque' ? 'etape.fermee.disque' : 'etape.fermee'] || SYS().MOTS['etape.fermee'];
       ol.append(el('li', {}, el('button', {
         type: 'button', 'data-f': `etape-${n}`, 'data-etape': String(n), 'aria-current': courante ? 'step' : null, class: faite ? 'fait' : null, disabled: !ouverte,
-        title: ouverte ? null : mot('etape.fermee'), 'aria-label': `${mot(`etape.${n}`)} · ${mot('etape.position', { n: nombre(n, langue()), total: nombre(ETAPES, langue()) })}`,
-        onclick: () => { if (!etapeOuverte(n, S.cle)) return; S.etape = n; dessiner(`etape-${n}`); },
-        onkeydown: (e) => { const j = suivant(n - 1, ETAPES, e.key, (k) => etapeOuverte(k + 1, S.cle)); if (j < 0) return; e.preventDefault(); focaliser(`etape-${j + 1}`); },
+        title: ouverte ? null : fermee, 'aria-label': `${mot(`etape.${n}`)} · ${mot('etape.position', { n: nombre(n, langue()), total: nombre(ETAPES, langue()) })}`,
+        onclick: () => { if (!etapeOuverte(n, S.cle, prets())) return; S.etape = n; dessiner(`etape-${n}`); },
+        onkeydown: (e) => { const j = suivant(n - 1, ETAPES, e.key, (k) => etapeOuverte(k + 1, S.cle, prets())); if (j < 0) return; e.preventDefault(); focaliser(`etape-${j + 1}`); },
       }, el('i', {}, faite ? ic('check', 14, 3) : nombre(n, langue())), el('span', {}, el('b', {}, mot(`etape.${n}`)), el('small', {}, mot(`etape.${n}.sous`))))));
     }
     return ol;
@@ -485,7 +499,7 @@
   function pied(avant, apres, ferme, aide) {
     return el('div', { class: 'ck-foot' }, el('span', { class: 'grow' }, aide || ''),
       avant ? el('button', { type: 'button', class: 'ck-btn', 'data-f': 'retour', onclick: () => { S.etape = avant; dessiner(`etape-${avant}`); } }, ic('left'), mot('pied.retour')) : null,
-      apres ? el('button', { type: 'button', class: 'ck-btn pri', 'data-f': 'continuer', disabled: ferme, onclick: () => { if (!etapeOuverte(apres, S.cle)) return; S.etape = apres; dessiner(`etape-${apres}`); } }, mot('pied.continuer'), ic('right')) : null);
+      apres ? el('button', { type: 'button', class: 'ck-btn pri', 'data-f': 'continuer', disabled: ferme, onclick: () => { if (!etapeOuverte(apres, S.cle, prets())) return; S.etape = apres; dessiner(`etape-${apres}`); } }, mot('pied.continuer'), ic('right')) : null);
   }
   function bientot(texte, ...plus) {
     return el('section', { class: 'ck-card ck-soon' }, mascotte(), el('div', {}, el('b', {}, mot('bientot.titre')), el('p', {}, texte), ...plus));
@@ -498,7 +512,8 @@
         await relire(true);
         const ici = S.vue.cles.find((x) => x.id === S.cle);
         if (!ici) { dessiner(); return; }
-        await comp.ouvrir(ici.brut, { post: C.outils.post, act: C.outils.act }); void relire(true);
+        // Les systèmes déjà choisis aux étapes 2 et 3 sont repris dans le composeur.
+        await comp.ouvrir(ici.brut, { post: C.outils.post, act: C.outils.act, systemes: SYS() ? SYS().composes() : undefined }); void relire(true);
       } }, ic('open'), mot('bientot.ouvrir', { nom: c.nom })))
       : null;
     return [el('section', { class: 'ck-card' }, el('h4', {}, mot(`etape.${n}`)), el('p', { class: 'ck-lead', style: 'margin:0' }, mot(`etape.${n}.sous`))),
@@ -506,7 +521,13 @@
       pied(n - 1, n < ETAPES ? n + 1 : 0, false, '')];
   }
   function panneau() {
-    if (S.onglet === 'deployer') return [etapes(), ...(S.etape === 1 ? etapeCle() : etapeBientot(S.etape))];
+    if (S.onglet === 'deployer') {
+      const c = S.vue.cles.find((x) => x.id === S.cle);
+      if ((S.etape === 2 || S.etape === 3) && SYS() && c) {
+        return [etapes(), ...SYS().rendre(S.etape, { cle: c.brut, sorte: c.sorte, post: C.outils.post, redessiner: (f) => dessiner(f), pied, wrap: C.wrap })];
+      }
+      return [etapes(), ...(S.etape === 1 ? etapeCle() : etapeBientot(S.etape))];
+    }
     if (S.onglet === 'mescles') {
       const avant = el('div', { class: 'ck-avant' });
       if (C.outils.ancienne) void C.outils.ancienne(avant);
@@ -590,10 +611,12 @@
     await relire(true);
     // Genèse a redessiné l'onglet pendant la lecture : c'est le nouveau montage qui relit, pas celui-ci.
     if (C !== moi) return;
-    // Odin voit la clé arriver toute seule : on relit la liste (lecture seule) toutes les 3 s, tant que la page est là.
+    // Odin voit la clé arriver toute seule : on relit la liste (lecture seule) toutes les 3 s, tant que la page est là,
+    // aux étapes 1 à 3 (une clé débranchée pendant le choix des systèmes est vue : retour à l'étape 1). La page n'est
+    // redessinée que si la liste a changé.
     const h = setInterval(() => {
       if (C !== moi || !wrap.isConnected) { clearInterval(h); if (C === moi && moi.verifMinuteur) { clearInterval(moi.verifMinuteur); moi.verifMinuteur = 0; } return; }
-      if ((typeof document !== 'undefined' && document.hidden) || verifEnCours() || S.onglet !== 'deployer' || S.etape !== 1) return;
+      if ((typeof document !== 'undefined' && document.hidden) || verifEnCours() || S.onglet !== 'deployer' || S.etape > 3) return;
       void relire(false);
     }, 3000);
     moi.minuteur = h;
