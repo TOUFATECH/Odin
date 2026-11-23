@@ -97,6 +97,23 @@
     /** Y aller en REMPLAÇANT l'entrée de l'historique : « retour » ramène avant Vénus, pas sur cette page qui renverrait dans Venus. */
     allerAppli(loc) { loc.replace(this.appliUrl()); },
     /**
+     * La vue « Vénus » d'Odin (#v-venus) : l'interface de Venus DANS la page d'Odin, le menu d'Odin à côté. Pur.
+     *  - poser : le cadre seulement dans la vue, et pour le propriétaire (un membre n'a rien : le serveur le refuse aussi) ;
+     *  - ancre : l'adresse /#venus remplace « #app=freyja » ou « #venus » (retour ne renvoie pas dans Vénus), sinon s'ajoute ;
+     *  - apresAncre : retour ou avance a quitté #venus, vue encore affichée : la vue à rouvrir (« Applis » plutôt que la
+     *    page vide de l'appli) ; null s'il n'y a rien à faire ;
+     *  - retirerAncre : en quittant la vue par le menu, « #venus » est retiré (un rechargement ne rouvre pas Vénus).
+     */
+    vue: {
+      poser(vue, proprietaire) { return vue === 'venus' && proprietaire === true; },
+      remplacer(ancre) { return /^#(app=freyja|venus)$/.test(String(ancre || '')); },
+      apresAncre(ancre, affichee, precedente) {
+        if (!affichee || ancre === '#venus') return null;
+        return !precedente || precedente === 'venus' ? 'home' : precedente === 'app' ? 'apps' : precedente;
+      },
+      retirerAncre(vue, ancre) { return vue !== 'venus' && ancre === '#venus'; },
+    },
+    /**
      * Ouvrir l'interface de Venus plutôt que cette page ? Non pour lire un titre demandé (le lecteur part d'ici), ni quand
      * Venus a demandé la page de gestion (adresse « /?venus=gestion#app=freyja »). Pur.
      */
@@ -463,7 +480,14 @@
     // Vénus s'ouvre en plein écran, avec l'interface de Venus (/venus/app/, « ‹ Odin » pour revenir). Cette page-ci
     // (dossiers, scan, envoi, écrans, YouTube, acquisition, état) reste là : ouverte depuis Venus (« Médiathèques et
     // écrans »), ou pour lire un titre demandé dans la discussion.
-    if (logique.versAppli(want, window.location.search)) { logique.allerAppli(window.location); return true; }
+    // Depuis le 23/11 : DANS la page d'Odin (vue « Vénus », adresse /#venus), le menu d'Odin à côté ; Venus garde son
+    // interface (rail, barre, lecteur) dans le cadre. Un rafraîchissement discret de l'appli n'y ramène pas.
+    if (logique.versAppli(want, window.location.search)) {
+      if (!document.getElementById('v-venus')) { logique.allerAppli(window.location); return true; }
+      if (ctx.quiet && !document.querySelector('#v-app.on')) return true;
+      ouvrirVue();
+      return true;
+    }
     // Venus a demandé cette page (« ?venus=gestion ») : l'adresse redevient celle d'Odin (rien n'est gardé dans le navigateur).
     if (/[?&]venus=gestion/.test(window.location.search)) { try { window.history.replaceState(null, '', `/${window.location.hash}`); } catch { /* sans gravité */ } }
     const S = { onglet: (want && (want.onglet || want.tab)) || 'odeon' };
@@ -497,5 +521,57 @@
     return true;
   };
 
-  window.OdinVenus = { logique, suitePrecedente: suite };
+  // --- La vue « Vénus » d'Odin -----------------------------------------------------------------
+  // Un cadre de la même adresse sur /venus/app/ (sa page, ses scripts, son clavier, Échap compris, restent dedans ; le
+  // lecteur peut passer en plein écran). Retiré en quittant la vue : tout ce qu'il faisait tourner s'arrête avec lui.
+  // Rien à son chargement, sauf écouter la page.
+  const VV = { cadre: null, ouverte: false, precedente: 'home', proprio: false };
+  const MOTS_VUE = { titre: 'Vénus', attente: "Vénus s'ouvre ici pour le propriétaire d'Odin." };
+  function ouvrirVue() {
+    try {
+      const u = `${window.location.pathname}${window.location.search}#venus`;
+      if (logique.vue.remplacer(window.location.hash)) window.history.replaceState(window.history.state, '', u); else window.history.pushState(null, '', u);
+    } catch { /* sans gravité */ }
+    if (window.OdinShow) window.OdinShow('venus');
+  }
+  function peindreVue() {
+    const s = document.getElementById('v-venus'); if (!s) return;
+    if (!logique.vue.poser(VV.ouverte ? 'venus' : '', VV.proprio)) {
+      if (VV.cadre) { VV.cadre.remove(); VV.cadre = null; }
+      if (VV.ouverte && !s.querySelector('.vv-attente')) s.replaceChildren(el('p', { class: 'vv-attente' }, MOTS_VUE.attente));
+      if (!VV.ouverte) s.replaceChildren();
+      return;
+    }
+    if (VV.cadre) return; // déjà posé : jamais deux chargements
+    if (!document.getElementById('vvCss')) document.head.append(el('style', { id: 'vvCss' }, '#v-venus .vv-cadre{flex:1;display:block;width:100%;min-height:0;border:0;background:#120e0d}#v-venus .vv-attente{margin:0;padding:22px 28px;color:var(--muted)}'
+      // Venus n'a pas de mascotte : celle d'Odin ne se promène pas par-dessus son interface.
+      + 'body:has(#v-venus.on) #buddyRoam{visibility:hidden!important;pointer-events:none!important}'));
+    VV.cadre = el('iframe', { class: 'vv-cadre', title: MOTS_VUE.titre, src: logique.appliUrl(), allow: 'fullscreen; picture-in-picture; autoplay', allowfullscreen: true, referrerpolicy: 'no-referrer' });
+    s.replaceChildren(VV.cadre);
+  }
+  if (typeof document !== 'undefined' && document && typeof document.addEventListener === 'function') {
+    document.addEventListener('odin:vue', (e) => {
+      const vue = e && e.detail && e.detail.vue;
+      VV.ouverte = vue === 'venus';
+      if (!VV.ouverte && vue) VV.precedente = vue;
+      if (VV.ouverte) { const m = document.getElementById('mcur'); if (m) m.textContent = MOTS_VUE.titre; }
+      if (logique.vue.retirerAncre(vue, window.location.hash)) { try { window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search); } catch { /* sans gravité */ } }
+      peindreVue();
+    });
+    window.addEventListener('hashchange', () => {
+      const s = document.getElementById('v-venus'), v = logique.vue.apresAncre(window.location.hash, Boolean(s && s.classList.contains('on')), VV.precedente);
+      if (v && window.OdinShow) window.OdinShow(v);
+    });
+    // Le propriétaire seul : l'état d'Odin (« membre » pour un membre de la famille) ; sans état reçu, /api/account/me.
+    let vu = false;
+    const surEtat = (etat) => { vu = true; VV.proprio = Boolean(etat && typeof etat === 'object' && !etat.membre); peindreVue(); };
+    window.addEventListener('odin:etat', (e) => surEtat(e && e.detail));
+    window.addEventListener('load', () => {
+      if (vu) return;
+      fetch('/api/account/me', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null))
+        .then((j) => { if (!vu && j && j.ok) surEtat({ membre: j.membre }); }).catch(() => { /* hors ligne : rien */ });
+    });
+  }
+
+  window.OdinVenus = { logique, suitePrecedente: suite, vue: { ouvrir: () => ouvrirVue(), ouverte: () => VV.ouverte, cadre: () => VV.cadre } };
 })();

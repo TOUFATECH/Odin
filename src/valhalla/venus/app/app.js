@@ -1,7 +1,7 @@
 // Venus dans Odin, l'interface (lot V1). Les écrans reprennent la structure, les classes et les textes des composants du
 // dépôt TOUFATECH/Venus (licence MIT) : web/components/Shell.js (coque), public/js/menu.js (menu, « Plus », « Tout »),
 // pages/Home.js (accueil), Browse.js (Films, Séries, Animés, Clips, Ma liste), pages/Details.js (fiche), Palette.js
-// (Ctrl+K), Search.js (recherche), Gates.js (« Qui regarde ? »), Settings.js (thème et menu). Seul ajout : « ‹ Odin ».
+// (Ctrl+K), Search.js (recherche), Gates.js (« Qui regarde ? »), Settings.js (thème et menu). Seul ajout : « ‹ Odin » (absent quand Vénus est ouverte dans Odin).
 //
 // Les données sont les VRAIES de Vénus dans Odin (bibliothèque déjà scannée, reprise, ma liste) : /venus/api/* et les
 // routes /venus/* d'avant. Les affiches, fonds, résumés, genres, notes et la distribution (lot V3) viennent des fiches
@@ -11,6 +11,10 @@
 (() => {
   const W = typeof window !== 'undefined' ? window : globalThis;
   const D = typeof document !== 'undefined' ? document : null;
+  // Ouverte DANS Odin (la vue « Vénus » de la page d'Odin, un cadre de la même adresse) : le menu d'Odin est déjà à côté,
+  // donc pas de « ‹ Odin » ; un lien vers Odin s'ouvre dans la page d'Odin elle-même, jamais dans ce cadre.
+  const DANS_ODIN = (() => { try { return Boolean(D) && Boolean(W.top) && W.top !== W && W.top.location.origin === W.location.origin; } catch { return false; } })();
+  const versOdin = (u) => { (DANS_ODIN ? W.top : W).location.href = u; };
 
   // ---------------------------------------------------------------- textes (dictionnaire) et formats (Intl)
   // La clé est le texte français ; une langue ajoute ses traductions ici. Ce qui manque reste en français.
@@ -220,7 +224,7 @@
   const AVATAR_HUES = [12, 38, 145, 190, 215, 265, 300, 340];
   const api = async (chemin, corps) => {
     const r = await fetch(chemin, corps === undefined ? { headers: { 'x-odin': '1' } } : { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(corps) });
-    if (r.status === 401) { location.href = '/'; throw new Error('401'); }
+    if (r.status === 401) { versOdin('/'); throw new Error('401'); }
     if (!r.ok) throw new Error(String(r.status));
     return r.json();
   };
@@ -272,7 +276,7 @@
   function Shell(path, body) {
     const p = S.profile, layout = layoutOf(currentPlanet()), c = L.coque(p, M, S.cats);
     return `<nav class="rail" aria-label="${esc(t('Navigation principale'))}">
-    <button class="rail-item f odin-back" data-act="odin" aria-label="${esc(t('Revenir à Odin'))}" title="${esc(t('Revenir à Odin'))}">${ODIN_MARK}<span>${esc(t('‹ Odin'))}</span></button>
+    ${DANS_ODIN ? '' : `<button class="rail-item f odin-back" data-act="odin" aria-label="${esc(t('Revenir à Odin'))}" title="${esc(t('Revenir à Odin'))}">${ODIN_MARK}<span>${esc(t('‹ Odin'))}</span></button>`}
     <a href="${href('/')}" class="home-link f${path === '/' ? ' active' : ''}" aria-label="${esc(t('Venus, accueil'))}">${planetMarkup()}${layout === 'lagon' ? '<span class="rail-brand">venus</span>' : ''}</a>
     ${layout === 'lagon' ? `<button class="rail-search f" aria-label="${esc(t('Rechercher partout (Ctrl+K)'))}" data-act="palette">${I('search')}<span>${esc(t('Titre, année…'))}</span><kbd>Ctrl K</kbd></button>` : ''}
     <div class="rail-scroll">${c.rail.map((it) => ItemLink(it, path)).join('')}${c.plus ? `<button class="rail-item f" aria-label="${esc(t('Plus'))}" data-more="1" data-act="all">${I('more')}<span>${esc(t('Plus'))}</span></button>` : ''}</div>
@@ -280,7 +284,7 @@
     <button class="rail-item f" aria-label="${esc(t('Changer de profil ({n})', { n: p.name }))}" data-act="profiles">${Avatar(p, 'sm')}<span>${esc(p.name)}</span></button>
   </nav>
   <header class="mobile-top">
-    <button class="odin-back f" data-act="odin" aria-label="${esc(t('Revenir à Odin'))}">${I('back')}<span>Odin</span></button>
+    ${DANS_ODIN ? '' : `<button class="odin-back f" data-act="odin" aria-label="${esc(t('Revenir à Odin'))}">${I('back')}<span>Odin</span></button>`}
     <a href="${href('/')}" class="f" aria-label="${esc(t('Accueil'))}">${Brand()}</a>
     <div class="top-actions">
       <button class="icon-btn f" aria-label="${esc(t('Rechercher partout (Ctrl+K)'))}" title="${esc(t('Rechercher partout (Ctrl+K)'))}" data-act="palette">${I('search')}</button>
@@ -446,7 +450,7 @@
   };
 
   // « Qui regarde ? » (Gates.js) : les comptes d'Odin
-  V.profiles = () => `<main><div class="center-screen"><div><h1 tabindex="-1">${esc(t('Qui regarde ?'))}</h1><p class="lead">${esc(t('Chaque profil a sa liste, sa progression et ses réglages.'))}</p><div class="profiles">${S.profils.map((p) => `<button class="profile-tile f" data-act="pickprofile" data-v="${esc(p.id)}"${p.id === S.profile.id ? ' aria-current="true"' : ''}>${Avatar(p)}<span class="name">${esc(p.name)}</span></button>`).join('')}</div><p class="muted small" style="text-align:center;margin-top:32px">${esc(t('Les profils sont les comptes d’Odin.'))}</p><div style="text-align:center;margin-top:16px"><button class="btn btn-ghost btn-small f" data-act="odin">${I('exit')}${esc(t('Revenir à Odin'))}</button></div></div></div></main>`;
+  V.profiles = () => `<main><div class="center-screen"><div><h1 tabindex="-1">${esc(t('Qui regarde ?'))}</h1><p class="lead">${esc(t('Chaque profil a sa liste, sa progression et ses réglages.'))}</p><div class="profiles">${S.profils.map((p) => `<button class="profile-tile f" data-act="pickprofile" data-v="${esc(p.id)}"${p.id === S.profile.id ? ' aria-current="true"' : ''}>${Avatar(p)}<span class="name">${esc(p.name)}</span></button>`).join('')}</div><p class="muted small" style="text-align:center;margin-top:32px">${esc(t('Les profils sont les comptes d’Odin.'))}</p>${DANS_ODIN ? '' : `<div style="text-align:center;margin-top:16px"><button class="btn btn-ghost btn-small f" data-act="odin">${I('exit')}${esc(t('Revenir à Odin'))}</button></div>`}</div></div></main>`;
 
   // Réglages (Settings.js) : Thème et menu ; Médiathèques
   const Actions = (inner) => `<div class="form-actions" style="justify-content:flex-start;flex-wrap:wrap">${inner}</div>`;
@@ -865,8 +869,8 @@
     if (!el) { if ($('#drop') && !e.target.closest('#drop')) closeDrop(); return; }
     const act = el.dataset.act, v = el.dataset.v, kind = el.dataset.kind;
     switch (act) {
-      case 'odin': e.preventDefault(); location.href = '/'; break;
-      case 'classique': e.preventDefault(); location.href = '/?venus=gestion#app=freyja'; break;
+      case 'odin': e.preventDefault(); versOdin('/'); break;
+      case 'classique': e.preventDefault(); versOdin('/?venus=gestion#app=freyja'); break;
       case 'all': e.preventDefault(); openAll(); break;
       case 'profiles': e.preventDefault(); go('/qui-regarde'); break;
       case 'pickprofile': await entrerProfil(v); toast(t('Bonjour {n}', { n: S.profile.name }), 'success'); go('/'); render(); break;

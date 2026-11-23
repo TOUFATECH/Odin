@@ -700,7 +700,7 @@ export class WebChannel implements Channel {
       const nonce = randomBytes(16).toString('base64');
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
-        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob: https:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.dailymotion.com; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
+        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob: https:; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://www.dailymotion.com; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
         // Fenêtre isolée des autres sites ; seuls le micro et la caméra servent (voix, photo) ; l'ancien filtre XSS des navigateurs est coupé (la politique de contenu fait mieux).
         'cross-origin-opener-policy': 'same-origin', 'x-xss-protection': '0',

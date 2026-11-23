@@ -95,6 +95,8 @@ function ecran() {
   ].join('\n');
   const e = vm.runInNewContext(src, {
     document: doc, window: fenetre, root: racine, icon: icone, hello: () => '', week: () => 1, drawSoon: () => {}, startCams: () => {},
+    // La page seule (pas dans Odin) : pas de menu des sections en haut (test/menus-venus-vue*.test.ts le tient dans Odin).
+    dansOdin: false, secs: () => null,
     pet: { news: () => {}, say: () => {} }, localStorage: { setItem: () => {}, getItem: () => null },
     home: () => [marque('accueil')], appsView: () => [marque('applis')], peopleGrid: () => marque('famille'), camGrid: (grand: boolean) => marque(grand ? 'cameras' : 'cameras-accueil'),
     netView: () => [marque('reseau')], tilesView: (grand: boolean) => [marque(grand ? 'boutons' : 'boutons-accueil')], themesView: () => [marque('themes')],

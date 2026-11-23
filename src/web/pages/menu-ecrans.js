@@ -1,5 +1,5 @@
-// Les écrans d'Odin dans le menu : l'entrée « Home Assistant » (#navMaison, ui.html), un lien vers l'écran de la maison
-// (/maison), pas une vue. Elle est cachée au départ et ne se montre qu'au propriétaire, quand la liste des applis compte
+// Les écrans d'Odin dans le menu : l'entrée « Home Assistant » (#navMaison, ui.html), qui ouvre la vue #maison (l'écran de
+// la maison dans Odin, pages/vue-maison.js ; /maison reste la page des tablettes). Elle est cachée au départ et ne se montre qu'au propriétaire, quand la liste des applis compte
 // Hestia (gladsheim). Un membre de la famille ne la voit jamais, même s'il a le droit sur Hestia : la page le sait par
 // l'état (/api/state porte alors « membre »), et la liste des applis n'est alors pas demandée.
 // L'état arrive par l'événement « odin:etat » que refresh() envoie après chaque /api/state (comme pages/reseau.js).

@@ -257,7 +257,10 @@ export function reglerPreferences(mag: MagasinVenus, profil: string, b: Record<s
 // ---------------- La page et ses fichiers ----------------
 const TYPES: Record<string, string> = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.woff2': 'font/woff2', '.LICENSE': 'text/plain; charset=utf-8' };
 const FICHIERS = /^(app\.js|planetes\.js|lecteur\.js|css\/(?:app|odin)\.css|fonts\/[a-z-]+\.(?:woff2|LICENSE)|LICENSE)$/;
-/** La page de Vénus : un document à elle (le dépôt Venus fixe son rail sur toute la hauteur), avec « ‹ Odin » pour revenir. */
+/**
+ * La page de Vénus : un document à elle (le dépôt Venus fixe son rail sur toute la hauteur), avec « ‹ Odin » pour revenir.
+ * Odin la pose aussi dans sa propre page (la vue « Vénus », pages/venus.js) : frame-ancestors 'self', jamais un autre site.
+ */
 export function pageAppli(nonce: string, langue = 'fr'): string {
   return `<!doctype html>
 <html lang="${langue.replace(/[^A-Za-z-]/g, '') || 'fr'}" data-layout="rail" data-planet="venus" data-tone="dark">
@@ -278,7 +281,7 @@ export function pageAppli(nonce: string, langue = 'fr'): string {
 </html>
 `;
 }
-const CSP = (nonce: string) => `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`;
+const CSP = (nonce: string) => `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'self'; base-uri 'none'; form-action 'self'`;
 
 const envoyer = (res: ServerResponse, code: number, type: string, corps: string | Buffer, cache = 'no-cache') => {
   res.writeHead(code, { 'content-type': type, 'cache-control': cache, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer' }); res.end(corps);
@@ -296,7 +299,7 @@ export async function routeAppli(req: IncomingMessage, res: ServerResponse, url:
   if (p === '/venus/app' || p === '/venus/app/') {
     if (meth !== 'GET') { json(res, 405, { error: 'GET attendu' }); return true; }
     const nonce = randomBytes(16).toString('base64'), langue = s(req.headers['accept-language']).split(/[,;]/)[0] || 'fr';
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': CSP(nonce), 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'cross-origin-opener-policy': 'same-origin' });
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': CSP(nonce), 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'SAMEORIGIN', 'cross-origin-opener-policy': 'same-origin' });
     res.end(pageAppli(nonce, langue)); return true;
   }
   if (p.startsWith('/venus/app/')) {

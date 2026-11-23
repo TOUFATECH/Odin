@@ -1,5 +1,5 @@
-// L'entrée « Home Assistant » du menu (un lien vers l'écran de la maison, /maison) et le retour vers Odin depuis cet
-// écran. Lu sans navigateur, comme test/menu-replie.test.ts : on lit la source de la page, on rejoue ses lignes sur un
+// L'entrée « Home Assistant » du menu (depuis le 24/11 : la vue #maison, l'écran de la maison DANS Odin — voir
+// test/menus-maison-vue*.test.ts) et le retour vers Odin depuis la page /maison seule. Lu sans navigateur, comme test/menu-replie.test.ts : on lit la source de la page, on rejoue ses lignes sur un
 // faux document, et src/web/pages/menu-ecrans.js est chargé sans document (rien ne touche la page à son chargement).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -26,10 +26,10 @@ function lienMaison() {
 
 test('menu : l\'entrée de l\'écran de la maison est un lien caché au départ, sous la première entrée', () => {
   const { attrs, corps, index } = lienMaison();
-  assert.match(attrs, / href="\/maison"/, 'href="/maison"');
+  assert.match(attrs, / href="#maison"/, 'href="#maison" : la vue dans Odin, plus la page /maison');
   assert.match(attrs, / id="navMaison"/);
   assert.match(attrs, / hidden(\s|$)/, 'caché au départ');
-  assert.doesNotMatch(attrs, /data-view/, 'pas une vue');
+  assert.match(attrs, / data-view="maison"/, 'une vue d\'Odin');
   assert.match(corps, /<svg class="ic"[^>]*aria-hidden="true"/, 'une icône .ic');
   assert.equal(texte(/<span class="lbl">([\s\S]*?)<\/span>/.exec(corps)?.[1] ?? ''), 'Home Assistant');
   assert.doesNotMatch(corps, /class="badge"/, 'aucune pastille');
@@ -64,7 +64,7 @@ function elementDe(f: Faux) {
 }
 /** Le menu tel que la page le pose : onglets de vue, le lien de la maison, le bouton « Plus » du téléphone (classe tab, sans vue). */
 function fauxDocument() {
-  const tabs = [faux('', ['tab'], { view: 'home' }, 'Accueil'), faux('navMaison', ['tab']), faux('', ['tab'], { view: 'chat' }, 'Discussion'), faux('moreBtn', ['tab', 'bt'])];
+  const tabs = [faux('', ['tab'], { view: 'home' }, 'Accueil'), faux('navMaison', ['tab'], { view: 'maison' }, 'Home Assistant'), faux('', ['tab'], { view: 'chat' }, 'Discussion'), faux('moreBtn', ['tab', 'bt'])];
   const vues = ['home', 'chat'].map((v) => faux('v-' + v, ['view']));
   const autres = new Map([['mcur', faux('mcur', [])], ['moreBtn', tabs[3]]]);
   const els = new Map<Faux, ReturnType<typeof elementDe>>();
@@ -105,10 +105,11 @@ test('menu : la ligne qui branche les onglets ne prend que les onglets de vue', 
   assert.match(lignesNavigation().branche, /querySelectorAll\('\.tab\[data-view\]'\)/);
 });
 
-test('menu : un appui sur le lien de la maison n\'appelle pas show()', () => {
+test('menu : un appui sur l\'entrée de la maison ouvre la vue « maison » d\'Odin', () => {
   const r = rejouer(true);
   r.E(r.tabs[1]).click();
-  assert.deepEqual(r.appels, [], 'le lien suit son adresse, aucune vue n\'est ouverte');
+  assert.deepEqual(r.appels, ['maison'], 'la vue s\'ouvre dans la page');
+  r.appels.length = 0;
   r.E(r.tabs[2]).click();
   assert.deepEqual(r.appels, ['chat'], 'un onglet de vue ouvre toujours sa vue');
 });

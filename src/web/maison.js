@@ -136,6 +136,8 @@ input[type=range]{width:100%;accent-color:#fff}.slide{position:relative;flex:1;m
 .person .av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:18px;background:var(--card2);flex:none}.person.home .av{background:var(--good);color:#fff}.person .row{display:flex;gap:12px;align-items:center}.person{display:flex;flex-direction:column;gap:10px}
 .cam{padding:0;margin:0}.cam img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#000}.cam figcaption{display:flex;justify-content:space-between;align-items:center;padding:10px 14px}.cam .live{color:var(--bad)}.cam.off .live{color:var(--muted)}.cam.off .live::after{content:' (hors ligne)'}.dev.cut{border-color:var(--bad)}
 .bnav{display:none}
+/* Dans Odin (vue « Home Assistant ») au téléphone : la barre du bas d'Odin suffit ; les sections passent dans ce menu, en haut. */
+.secs{display:none}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card2);border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:14px;max-width:min(560px,92vw);z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.35);white-space:pre-wrap}
 dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:20px;padding:20px;max-width:min(440px,92vw)}dialog::backdrop{background:rgba(0,0,0,.55)}dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}.primary{background:var(--accent);color:#111;border-color:transparent}
 .empty{color:var(--muted);padding:12px 0}
@@ -149,7 +151,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
 .bubble form{display:flex;gap:6px}.bubble input{flex:1;min-width:0;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:9px 11px;font:inherit}.bubble .x{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--muted);font-size:18px}
 .ball{position:fixed;left:0;top:0;width:34px;height:34px;border-radius:50%;z-index:49;touch-action:none;cursor:grab;background:radial-gradient(circle at 35% 30%,#fff 0 12%,#ffd23f 13% 45%,#f08c00 46%);box-shadow:0 6px 12px rgba(0,0,0,.35)}
 @media (max-width:820px){.app{grid-template-columns:1fr}.side{display:none}main{padding:16px 14px 110px}.search{display:none}.card.w2{grid-column:span 1}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.wx,.clock{grid-column:1/-1!important}.wx .now{flex-wrap:wrap}.wx .kv{margin-left:0;text-align:left;grid-template-columns:repeat(4,auto);width:100%}.card .big{font-size:34px}.clock .big{font-size:44px}
-.bnav{display:flex;position:fixed;left:10px;right:10px;bottom:10px;z-index:40;justify-content:space-around;padding-right:84px!important;background:color-mix(in srgb,var(--card2) 92%,transparent);border:1px solid var(--line);border-radius:22px;padding:6px;backdrop-filter:blur(14px)}.bnav .nav{width:52px}}
+.bnav{display:flex;position:fixed;left:10px;right:10px;bottom:10px;z-index:40;justify-content:space-around;padding-right:84px!important;background:color-mix(in srgb,var(--card2) 92%,transparent);border:1px solid var(--line);border-radius:22px;padding:6px;backdrop-filter:blur(14px)}.bnav .nav{width:52px}
+html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.dans-odin .secs{display:flex;gap:6px;overflow-x:auto;position:sticky;top:0;z-index:30;margin:-16px -14px 12px;padding:8px 14px;background:color-mix(in srgb,var(--bg2) 94%,transparent);border-bottom:1px solid var(--line);scrollbar-width:none;overscroll-behavior-x:contain}html.dans-odin .secs::-webkit-scrollbar{display:none}.secs button{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);white-space:nowrap}.secs button[aria-current=page]{background:var(--card2);color:var(--accent);border-color:var(--accent)}}
 @media (prefers-reduced-motion:reduce){.pet,.pet .bodyw{transition:none!important;animation:none!important}}`;
 
   // ---------- État ----------
@@ -270,6 +273,25 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
 
   // Le retour vers Odin : seulement pour une session (pas avec une clé de tablette) et quand la page n'est pas dans un cadre.
   const retourVisible = (cle, encadre) => !cle && !encadre;
+  // Dans Odin (la vue « Home Assistant », un cadre de la même adresse) : les liens vers Odin s'ouvrent dans Odin, sans
+  // nouvel onglet ni rechargement. Dans un autre cadre (Home Assistant) : un nouvel onglet. Seule : la page elle-même.
+  const dansOdin = (() => { try { return window.top !== window && window.top.location.origin === location.origin; } catch { return false; } })();
+  const cibleOdin = (dedans, encadre) => (dedans ? '_top' : encadre ? '_blank' : null);
+  // Au téléphone, dans Odin, la barre du bas de cet écran se cache (celle d'Odin reste) : ses sections passent dans un
+  // menu en haut (.secs, 44 px, flèches gauche/droite, Début, Fin). La page seule (tablettes) ne change pas.
+  if (dansOdin) document.documentElement.classList.add('dans-odin');
+  function secs(navs) {
+    const avant = document.querySelector('.secs'), x = avant ? avant.scrollLeft : 0;
+    const boutons = navs.map(([id, label, ic]) => el('button', { type: 'button', 'data-sec': id, 'aria-current': view === id ? 'page' : null, tabindex: view === id ? '0' : '-1',
+      onclick: () => { view = id; draw(); document.querySelector(`.secs [data-sec="${id}"]`)?.focus({ preventScroll: true }); } }, icon(ic, 18), label));
+    const menu = el('nav', { class: 'secs', 'aria-label': "Sections de l'écran de la maison", onkeydown: (e) => {
+      const i = boutons.indexOf(document.activeElement); if (i < 0) return;
+      const j = e.key === 'ArrowRight' ? Math.min(boutons.length - 1, i + 1) : e.key === 'ArrowLeft' ? Math.max(0, i - 1) : e.key === 'Home' ? 0 : e.key === 'End' ? boutons.length - 1 : -1;
+      if (j < 0) return; e.preventDefault(); boutons[j].focus(); boutons[j].scrollIntoView?.({ inline: 'nearest', block: 'nearest' });
+    } }, ...boutons);
+    requestAnimationFrame(() => { menu.scrollLeft = x; });
+    return menu;
+  }
   function nav(id, label, ic) { return el('button', { class: 'nav', 'aria-label': label, title: label, 'aria-current': view === id ? 'page' : null, onclick: () => { view = id; draw(); } }, icon(ic, 22)); }
   function draw() {
     if (!D) return;
@@ -277,6 +299,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     const navs = [['accueil', 'Accueil', 'home'], ...(full ? [['famille', 'Famille', 'people'], ['cameras', 'Caméras', 'cam'], ['reseau', 'Réseau', 'net'], ['applis', 'Mes applis', 'apps']] : []), ['boutons', 'Boutons', 'bolt'], ['themes', 'Thèmes', 'palette']];
     const notes = D.notices || [], unread = notes.filter((n) => n.level !== 'ok').length;
     const main = el('main', { id: 'main' },
+      dansOdin ? secs(navs) : null,
       el('div', { class: 'top' },
         el('div', { class: 'hello' }, el('h1', {}, `${hello()}${D.name ? `, ${D.name}` : ''} !`), el('p', {}, `${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · semaine ${week(new Date())}`)),
         el('div', { class: 'tools' },
@@ -351,7 +374,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     if (!D || D.rights !== 'complet') return [];
     if (!edition) return [el('div', { class: 'fe-barre' }, el('button', { class: 'btn', type: 'button', onclick: () => modifier(true) }, '✎ Modifier l\'écran'))];
     return [el('div', { class: 'fe-barre' }, el('button', { class: 'btn', type: 'button', onclick: () => ajouter({ kind: 'heure' }) }, '＋ Heure et lieu'), el('button', { class: 'btn', type: 'button', onclick: () => ajouter({ kind: 'meteo' }) }, '＋ Météo'),
-      el('button', { class: 'btn', type: 'button', onclick: siteSurveille }, '＋ Site surveillé'), el('a', { class: 'btn', href: '/', target: window.top !== window ? '_blank' : null, rel: 'noopener', title: 'Tous les modules des applis et les boutons sur mesure : accueil d\'Odin, bouton Modifier' }, 'Tous les modules…'),
+      el('button', { class: 'btn', type: 'button', onclick: siteSurveille }, '＋ Site surveillé'), el('a', { class: 'btn', href: dansOdin ? '/#home' : '/', target: cibleOdin(dansOdin, window.top !== window), rel: 'noopener', title: 'Tous les modules des applis et les boutons sur mesure : accueil d\'Odin, bouton Modifier' }, 'Tous les modules…'),
       el('button', { class: 'btn', type: 'button', onclick: () => modifier(false) }, '✓ Terminé')),
     el('p', { class: 'muted', style: { margin: '0 0 10px' } }, 'Glisse un module par sa poignée ⠿ pour le poser ailleurs, ou utilise ◀ ▶. ↔ change sa taille, ✕ le retire.')];
   }
@@ -439,7 +462,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       el('p', { class: 'muted', style: { marginTop: '12px' } }, 'Coupure par le DNS de la maison : un appareil réglé à la main sur un autre DNS y échappe.')];
   }
   function appsGrid(list) {
-    return list.length ? el('div', { class: 'grid' }, ...list.filter((a) => match(`${a.name} ${a.family}`)).map((a) => el('a', { class: 'card appc', href: `/#app=${encodeURIComponent(a.id)}`, target: window.top !== window ? '_blank' : null, rel: 'noopener' },
+    return list.length ? el('div', { class: 'grid' }, ...list.filter((a) => match(`${a.name} ${a.family}`)).map((a) => el('a', { class: 'card appc', href: `/#app=${encodeURIComponent(a.id)}`, target: cibleOdin(dansOdin, window.top !== window), rel: 'noopener' },
       a.alerts ? el('span', { class: 'badge', 'aria-label': `${a.alerts} alerte(s)` }, String(a.alerts)) : null,
       el('b', {}, a.name), el('span', { class: 'muted' }, a.family), ...a.kpis.map((k) => el('div', { class: `k ${k.tone || ''}` }, el('span', {}, k.label), el('b', {}, k.value)))))) : el('p', { class: 'empty' }, 'Aucune appli à montrer.');
   }
@@ -469,7 +492,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       if (first) { first = false; setTimeout(() => pet.say(`${hello()} ! ${d.weather ? `Il fait ${d.weather.temp}° à ${d.weather.place}, ${d.weather.word.toLowerCase()}.` : ''} Touche-moi pour me parler.`, 'ok', 'joie'), 900); }
     } catch (e) {
       if (!D) applyTheme('verre');
-      nuit.montrer(el('h1', {}, 'Écran de la maison'), el('p', {}, e.auth ? 'Connecte-toi à Odin, ou ouvre le lien de tablette donné par Hestia.' : `Odin ne répond pas : ${e.message}. Nouvel essai dans quelques secondes.`), e.auth ? el('a', { href: '/' }, 'Se connecter à Odin') : null);
+      nuit.montrer(el('h1', {}, 'Écran de la maison'), el('p', {}, e.auth ? 'Connecte-toi à Odin, ou ouvre le lien de tablette donné par Hestia.' : `Odin ne répond pas : ${e.message}. Nouvel essai dans quelques secondes.`), e.auth ? el('a', { href: '/', target: cibleOdin(dansOdin, window.top !== window), rel: 'noopener' }, 'Se connecter à Odin') : null);
     }
   }
 
