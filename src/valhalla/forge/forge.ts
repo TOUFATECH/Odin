@@ -7,16 +7,20 @@
 //     événement, et un résumé chaque jour à l'heure choisie.
 import { journalDe } from '../base/journal.ts';
 import { createHash } from 'node:crypto';
-import { appendFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statfsSync, statSync, writeFileSync } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, relative, resolve, win32, type PlatformPath } from 'node:path';
 import type { Action, ModCtx, Module, Param, Section, Tone } from '../types.ts';
-import { cmpVersion, customSource, type Kind, type Release, type Source } from './sources.ts';
+import { canauxDe, cmpVersion, customSource, versionsDe, type Kind, type Release, type Source, type VersionCatalogue } from './sources.ts';
 import './catalogue.ts';
 import { chercherEnLigne, entrees, filtrer, iconeDe, metaDe, motifDe, reconnaitre, sourceHomebrew, valeursFiltres, type EntreeStore, type IndexEtat, type SuiviHomebrew, type Vue } from './store.ts';
 import type { Fiche } from './bibliotheque.ts';
 import { tacheEnPause } from '../automatismes.ts';
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
+import { hoteInterdit } from '../lien.ts';
+import { isPrivateHost } from '../../heimdall/policy.ts';
 import { fuseauOdin, instant, lireHeure, murale, prochaine } from '../../draupnir/rythme.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
@@ -76,14 +80,14 @@ export function due(p: Plan, now: Date, last: number, fuseau?: string): boolean 
   return p.days.includes(w.wd) && now >= at && last < at.getTime();
 }
 /** Reconnaît les fichiers d'un dossier (2 niveaux). Pur sauf la lecture du dossier. */
-export function scan(root: string, sources: Source[]): { found: Found[]; unknown: string[] } {
+export function scan(root: string, sources: Source[], avecOld = false): { found: Found[]; unknown: string[] } {
   const found: Found[] = [], unknown: string[] = [];
   const walk = (dir: string, depth: number) => {
     let names: string[] = []; try { names = readdirSync(dir); } catch { return; }
     for (const n of names) {
       if (n.startsWith('.')) continue; const p = join(dir, n); let st; try { st = statSync(p); } catch { continue; }
       // « old » : les anciennes versions mises de côté (Andromède) ; elles ne comptent pas comme versions suivies.
-      if (st.isDirectory()) { if (depth < 2 && n !== 'old') walk(p, depth + 1); continue; }
+      if (st.isDirectory()) { if (depth < 2 && (n !== 'old' || avecOld)) walk(p, depth + (n === 'old' ? 0 : 1)); continue; }
       const src = sources.find((x) => x.match.test(n)); const v = src ? src.match.exec(n)?.[1] : undefined;
       if (src && v) found.push({ source: src, version: v, path: p, size: st.size, mtime: st.mtimeMs }); else unknown.push(relative(root, p));
     }
@@ -119,18 +123,51 @@ export function monogram(name: string, color: string): string {
   return `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="${/^#[0-9a-f]{6}$/i.test(color) ? color : '#6B7280'}"/><text x="20" y="26" font-family="system-ui,sans-serif" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">${t}</text></svg>`).toString('base64')}`;
 }
 
-/** Télécharge en reprenant un fichier entamé, en calculant l'empreinte au fil de l'eau, avec un débit maximum. */
-export async function download(fetchFn: (u: string, i?: RequestInit) => Promise<Response>, r: Release, dir: string, o: { signal?: AbortSignal; rate?: number; progress?: (done: number, total?: number) => void } = {}): Promise<{ path: string; size: number; sha256: string; checked: boolean }> {
+/** Un nom de fichier que Windows détournerait : flux caché (« a:b »), caractère interdit, nom réservé (CON, NUL, COM1…),
+ *  point ou espace final. Pur. */
+export const nomDetourne = (n: string): boolean => /[<>:"|?*\u0000-\u001f]/.test(n) || /[. ]$/.test(n) || /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\.|$)/i.test(n);
+/** Une adresse d'où une source officielle peut télécharger : https, et un site public (jamais la machine d'Odin, une
+ *  adresse de la maison, un nom local, ni les métadonnées d'un hébergeur). Lève une erreur claire. Pur. */
+export function adresseOfficielle(raw: string): URL {
+  let u: URL; try { u = new URL(raw); } catch { throw new Error('adresse de téléchargement refusée : illisible'); }
+  if (u.protocol !== 'https:') throw new Error(`adresse de téléchargement refusée : https seulement (reçu ${u.protocol.replace(/:$/, '')})`);
+  if (u.username || u.password) throw new Error('adresse de téléchargement refusée : identifiants dans l\'adresse');
+  const h = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (!h || hoteInterdit(h) || isPrivateHost(h) || (!isIP(h) && !h.includes('.'))) throw new Error(`adresse de téléchargement refusée : ${h || '?'} n'est pas un site public (machine d'Odin, maison ou nom local)`);
+  return u;
+}
+/** La résolution DNS du système : un nom public qui mène à une adresse de la maison est refusé aussi. */
+export const RESOLUTION_SYSTEME = async (h: string): Promise<string[]> => (await lookup(h, { all: true })).map((a) => a.address);
+async function hotePublic(u: URL, resoudre?: (h: string) => Promise<string[]>): Promise<void> {
+  const h = u.hostname.replace(/^\[|\]$/g, '').toLowerCase(); if (!resoudre || isIP(h)) return;
+  let l: string[]; try { l = await resoudre(h); } catch { throw new Error(`adresse de téléchargement refusée : ${h} ne se résout pas`); }
+  if (!l.length || l.some((a) => hoteInterdit(a) || isPrivateHost(a))) throw new Error(`adresse de téléchargement refusée : ${h} mène à une adresse de la maison ou de la machine`);
+}
+
+/** Télécharge en reprenant un fichier entamé, en calculant l'empreinte au fil de l'eau, avec un débit maximum.
+ *  `surete` (sources officielles) : https et site public seulement, chaque redirection revérifiée avant d'être suivie. */
+export async function download(fetchFn: (u: string, i?: RequestInit) => Promise<Response>, r: Release, dir: string, o: { signal?: AbortSignal; rate?: number; progress?: (done: number, total?: number) => void; /** avant d'écrire le moindre octet : peut refuser (ex. pas assez de place) */ avant?: (reste: number | undefined) => void; surete?: { resoudre?: (h: string) => Promise<string[]> } } = {}): Promise<{ path: string; size: number; sha256: string; checked: boolean }> {
+  const name = basename(r.file); if (!name || name !== r.file.split('/').pop() || /[\\/]|^\.\.?$/.test(name) || nomDetourne(name)) throw new Error('nom de fichier invalide');
+  if (o.surete) await hotePublic(adresseOfficielle(r.url), o.surete.resoudre);
   mkdirSync(dir, { recursive: true });
-  const name = basename(r.file); if (!name || name !== r.file.split('/').pop() || /[\\/]|^\.\.?$/.test(name)) throw new Error('nom de fichier invalide');
   const part = join(dir, `.${name}.part`), final = join(dir, name), h = createHash('sha256');
   let have = existsSync(part) ? statSync(part).size : 0;
   if (have) await new Promise<void>((ok, ko) => createReadStream(part).on('data', (c) => h.update(c)).on('end', ok).on('error', ko));
-  const res = await fetchFn(r.url, { headers: { 'user-agent': 'Odin-Eitri/1', ...(have ? { range: `bytes=${have}-` } : {}) }, signal: o.signal, redirect: 'follow' });
-  if (have && res.status === 200) { have = 0; h.destroy(); return download(fetchFn, r, (rmSync(part, { force: true }), dir), o); } // le serveur ne sait pas reprendre
+  const init = (): RequestInit => ({ headers: { 'user-agent': 'Odin-Eitri/1', ...(have ? { range: `bytes=${have}-` } : {}) }, signal: o.signal, redirect: o.surete ? 'manual' : 'follow' });
+  let res = await fetchFn(r.url, init());
+  // Une source officielle : chaque redirection (miroir) est revérifiée avant d'être suivie, jamais vers la maison ni en http.
+  for (let k = 0, url = r.url; o.surete && res.status >= 300 && res.status < 400; k++) {
+    const loc = res.headers.get('location'); await res.body?.cancel().catch(() => {});
+    if (!loc || k >= 10) throw new Error(k >= 10 ? 'trop de redirections' : `le site répond ${res.status} sans adresse`);
+    const u = adresseOfficielle(new URL(loc, url).toString()); await hotePublic(u, o.surete.resoudre);
+    url = u.toString(); res = await fetchFn(url, init());
+  }
+  if (have && res.status === 200) { have = 0; h.destroy(); await res.body?.cancel().catch(() => {}); return download(fetchFn, r, (rmSync(part, { force: true }), dir), o); } // le serveur ne sait pas reprendre
   if (!res.ok && res.status !== 206) throw new Error(`le site répond ${res.status}`);
   const total = (Number(res.headers.get('content-length')) || 0) + have || r.size;
-  const fh = await open(part, have ? 'a' : 'w'); let done = have; const t0 = Date.now();
+  // Refuser AVANT d'écrire (disque plein…), jamais au milieu : ce qui reste à recevoir est connu maintenant.
+  if (o.avant) { try { o.avant(total ? Math.max(0, total - have) : undefined); } catch (e) { await res.body?.cancel().catch(() => {}); throw e; } }
+  const fh = await open(part, have ? 'a' : 'w'); let done = have, ko: unknown; const t0 = Date.now();
   try {
     const reader = res.body!.getReader();
     // Délai d'inactivité : si plus rien n'arrive pendant 2 min, on coupe au lieu de bloquer sans fin.
@@ -141,11 +178,45 @@ export async function download(fetchFn: (u: string, i?: RequestInit) => Promise<
       // Débit maximum (Mo/s) : on attend ce qu'il faut.
       if (o.rate) { const ahead = (done - have) / (o.rate * 1024 * 1024) * 1000 - (Date.now() - t0); if (ahead > 20) await new Promise((w) => setTimeout(w, Math.min(ahead, 2000))); }
     }
-  } finally { await fh.close(); }
+  } catch (e) { ko = e; } finally { await fh.close(); }
+  if (ko) {
+    // Disque plein au milieu : le morceau entamé est effacé (sinon le disque reste plein), et rien n'est marqué prêt.
+    if ((ko as { code?: string }).code === 'ENOSPC') { rmSync(part, { force: true }); throw Object.assign(new Error('le disque est plein : le morceau entamé a été effacé, rien n\'est gardé. Fais de la place puis relance.'), { code: 'PLACE' }); }
+    throw ko;
+  }
   const sum = h.digest('hex');
   if (r.sha256 && sum !== r.sha256.toLowerCase()) { rmSync(part, { force: true }); throw Object.assign(new Error(`empreinte fausse : attendu ${r.sha256.slice(0, 16)}…, reçu ${sum.slice(0, 16)}…`), { code: 'SHA' }); }
   renameSync(part, final);
   return { path: final, size: done, sha256: sum, checked: !!r.sha256 };
+}
+
+// ---------------- La file de téléchargement (un à la fois) ----------------
+/** La place libre sur le disque d'un dossier (octets), ou rien si elle ne se lit pas. Remplaçable pour les essais. */
+export const espaceDisque = { libre(dir: string): number | undefined { try { const f = statfsSync(dir); const n = Number(f.bavail) * Number(f.bsize); return Number.isFinite(n) ? n : undefined; } catch { return undefined; } } };
+/** Ce qu'on laisse toujours libre en plus du fichier (le disque ne finit jamais plein à ras). */
+export const MARGE_DISQUE = 512 * 1024 ** 2;
+/** Un téléchargement qui attend son tour : une source du catalogue et une version publiée par l'éditeur. */
+export interface ElementFile { source: string; nom: string; version: string; taille?: number; ajoute: number }
+export const FILE_MAX = 20;
+/** Une version du dossier correspond-elle à celle du catalogue ? (« 42-1.1 » est la 42 publiée sous ce nom.) Pur. */
+export const memeVersion = (present: string, voulue: string): boolean => present === voulue || present.startsWith(`${voulue}-`) || present.startsWith(`${voulue}.`);
+/** Une version telle qu'elle arrive d'une page : du texte court, sans chemin ni caractère étrange ; sinon ''. Pur. */
+export const versionPropre = (x: unknown): string => { const t = typeof x === 'string' ? x.trim() : ''; return t.length <= 60 && /^[\w.+~-]+$/.test(t) ? t : ''; };
+/** La file telle que gardée dans les réglages, relue avec méfiance (forme, doublons, longueur). Pur. */
+export function fileRevue(x: unknown): ElementFile[] {
+  const out: ElementFile[] = [], vus = new Set<string>();
+  for (const e of Array.isArray(x) ? x : []) {
+    if (!e || typeof e !== 'object') continue; const o = e as Record<string, unknown>, src = typeof o.source === 'string' ? o.source.slice(0, 120) : '', v = versionPropre(o.version);
+    if (!src || !v || vus.has(`${src}\n${v}`)) continue; vus.add(`${src}\n${v}`);
+    out.push({ source: src, nom: typeof o.nom === 'string' ? o.nom.slice(0, 120) : src, version: v, ...(Number(o.taille) > 0 ? { taille: Number(o.taille) } : {}), ajoute: Number(o.ajoute) || 0 });
+    if (out.length >= FILE_MAX) break;
+  }
+  return out;
+}
+/** Pas assez de place : le texte du refus, ou rien. `besoin` : ce qui reste à recevoir ; `retenu` : ce que la file réserve déjà. Pur. */
+export function refusPlace(besoin: number | undefined, libre: number | undefined, retenu = 0): string | undefined {
+  if (!besoin || libre === undefined) return undefined;
+  return libre - retenu < besoin + MARGE_DISQUE ? `pas assez de place sur le disque : il faut ${sizeText(besoin + MARGE_DISQUE)} (fichier et marge), il reste ${sizeText(Math.max(0, libre - retenu))}${retenu ? ' en comptant la file' : ''}. Rien n'a été téléchargé.` : undefined;
 }
 
 // ---------------- L'appli ----------------
@@ -170,7 +241,7 @@ export interface ForgeOpts {
   fiche?: { action: string; module?: string };
 }
 
-export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle: (ctx: ModCtx, why: string) => Promise<string> } {
+export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle: (ctx: ModCtx, why: string) => Promise<string>; _file: () => Promise<void> } {
   const jobs = new Map<string, Job>(); let running = false;
   const icons = new Map<string, string>();
   const root = (ctx: ModCtx) => s(ctx.settings.dossier) || join(ctx.home, o.defaultDir);
@@ -215,7 +286,12 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
   const presentsDe = (ctx: ModCtx, found: Found[]) => { const m = new Map<string, string[]>(); for (const x of found) m.set(x.source.id, [...(m.get(x.source.id) ?? []), x.version]); for (const [id, l] of Object.entries(reconnus(ctx))) m.set(id, [...new Set([...(m.get(id) ?? []), ...l])]); return m; };
   const tracked = (ctx: ModCtx, f: Found[]) => { const ids = followed(ctx); for (const x of f) ids.add(x.source.id); for (const x of Object.keys(reconnus(ctx))) ids.add(x); for (const x of ignores(ctx)) ids.delete(x); return all(ctx).filter((x) => ids.has(x.id)); };
   /** Les entrées du Store : tout le catalogue, avec ce qui est présent, surveillé, en cours, et la dernière version vue. */
-  const catalogueStore = (ctx: ModCtx, found: Found[]): EntreeStore[] => { const pres = presentsDe(ctx, found); return entrees({ sources: all(ctx), presents: pres, suivis: new Set(tracked(ctx, found).map((x) => x.id)), vues: vues(ctx), enCours: new Set(jobs.keys()) }); };
+  const catalogueStore = (ctx: ModCtx, found: Found[]): EntreeStore[] => {
+    const pres = presentsDe(ctx, found), enFile = new Map<string, string[]>();
+    for (const y of fileDe(ctx)) enFile.set(y.source, [...(enFile.get(y.source) ?? []), y.version]);
+    const en = [...jobs.values()].map((j) => ({ source: j.source, version: j.version })), p = prepare;
+    return entrees({ sources: all(ctx), presents: pres, suivis: new Set(tracked(ctx, found).map((x) => x.id)), vues: vues(ctx), enCours: new Set([...jobs.keys(), ...(p ? [p.source] : [])]), versions: Object.fromEntries(Object.entries(versionsVues(ctx)).map(([k, v]) => [k, Array.isArray(v?.liste) ? v.liste : []])), enFile, telecharge: Object.fromEntries([...en, ...(p ? [{ source: p.source, version: p.version }] : [])].map((x) => [x.source, x.version])) });
+  };
   const surveiller = (ctx: ModCtx, id: string) => ctx.saveSettings({ suivis: [...new Set([...followed(ctx), id])], ignores: [...ignores(ctx)].filter((y) => y !== id) });
   const icon = async (ctx: ModCtx, src: Source): Promise<string> => {
     const k = src.id; if (icons.has(k)) return icons.get(k)!;
@@ -234,21 +310,32 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
   };
   const say = (ctx: ModCtx, level: 'info' | 'moyenne' | 'haute' | 'critique', title: string, detail: string, extra: Record<string, unknown> = {}) => ctx.alert({ level, title, detail, key: `${o.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, ...extra });
 
-  /** Télécharge la dernière version d'une source, puis range et fait le ménage. */
+  /** Télécharge une version d'une source (la dernière, ou celle choisie dans le catalogue), puis range et fait le ménage. */
   async function fetchOne(ctx: ModCtx, src: Source, rel: Release): Promise<string> {
     const dir = join(root(ctx), src.family === 'Ajoutés par toi' ? 'Autres' : src.name.replace(/\s*\(.*\)\s*$/, '').replace(/[^\w .+-]/g, '').trim() || src.id);
     const ctrl = new AbortController(), job: Job = { source: src.id, name: src.name, file: rel.file, version: rel.version, done: 0, total: rel.size, started: Date.now(), ctrl };
     jobs.set(src.id, job);
-    say(ctx, 'info', `⬇ ${src.name} ${rel.version} : téléchargement`, `${rel.file}${rel.size ? ` (${sizeText(rel.size)})` : ''} depuis le site officiel.`);
     try {
-      const r = await download(ctx.fetch as never, rel, dir, { signal: ctrl.signal, rate: Number(ctx.settings.debit) || undefined, progress: (d, t) => { job.done = d; job.total = t; } });
+      // Jamais un fichier non vérifié : si l'éditeur publie une empreinte pour ce fichier et qu'elle manque, rien ne part.
+      if (rel.empreinteAttendue && !rel.sha256) throw Object.assign(new Error('l\'éditeur publie une empreinte pour ce fichier, mais Odin ne l\'a pas trouvée : rien n\'a été téléchargé'), { code: 'SANS_EMPREINTE' });
+      // La place : refusée AVANT (taille annoncée, puis taille donnée par le site au début de la réponse), jamais au milieu.
+      mkdirSync(dir, { recursive: true });
+      const part = join(dir, `.${basename(rel.file)}.part`), deja = existsSync(part) ? statSync(part).size : 0;
+      const place = (reste: number | undefined) => { const refus = refusPlace(reste, espaceDisque.libre(dir)); if (refus) throw Object.assign(new Error(refus), { code: 'PLACE' }); };
+      if (rel.size) place(Math.max(0, rel.size - deja));
+      say(ctx, 'info', `⬇ ${src.name} ${rel.version} : téléchargement`, `${rel.file}${rel.size ? ` (${sizeText(rel.size)})` : ''} depuis le site officiel.`);
+      const r = await download(ctx.fetch as never, rel, dir, { signal: ctrl.signal, rate: Number(ctx.settings.debit) || undefined, progress: (d, t) => { job.done = d; job.total = t; }, avant: place,
+        // Site officiel : https et site public seulement, chaque redirection revérifiée (et, sur le vrai réseau, ce à quoi le nom mène).
+        surete: { ...(ctx.fetch === globalThis.fetch ? { resoudre: RESOLUTION_SYSTEME } : {}) } });
       const ms = Date.now() - job.started;
       const hold = o.after ? await o.after(ctx, r.path, src, { ...rel, checked: r.checked, sha: r.sha256 }).catch(() => undefined) : undefined;
       if (hold) { const aside = join(root(ctx), '.mis-de-cote'); mkdirSync(aside, { recursive: true }); /* déjà parti en quarantaine (Asclépios) : rien à déplacer */ if (existsSync(r.path)) renameSync(r.path, join(aside, basename(r.path))); log(ctx, { what: 'mis de côté', source: src.id, name: src.name, version: rel.version, file: rel.file, detail: hold }); say(ctx, 'critique', `${src.name} ${rel.version} mis de côté`, `L'antivirus a trouvé : ${hold}. Le fichier n'a pas remplacé l'ancienne version.`, { steps: ['Ne lance pas ce fichier', 'Regarde le détail dans Asclépios', 'Garde l\'ancienne version en attendant'] }); return `🛡 ${src.name} ${rel.version} mis de côté (antivirus : ${hold}).`; }
       log(ctx, { what: 'téléchargé', source: src.id, name: src.name, version: rel.version, file: rel.file, size: r.size, sha256: r.sha256, ms, url: rel.url, editeur: r.checked, detail: r.checked ? 'empreinte de l\'éditeur vérifiée' : 'l\'éditeur ne publie pas d\'empreinte' });
-      // Ménage : seulement les N dernières versions (ou : l'ancienne dans « old », une seule gardée).
-      let pruned: Found[];
-      if (o.old) {
+      // Ménage : seulement les N dernières versions (ou : l'ancienne dans « old », une seule gardée). Une version plus
+      // ancienne choisie dans le catalogue (une plus récente est déjà là) se range à côté : rien n'est déplacé ni effacé.
+      let pruned: Found[] = [];
+      const plusRecente = scan(root(ctx), [src]).found.some((x) => x.path !== r.path && cmpVersion(x.version, rel.version) > 0);
+      if (plusRecente) { /* rien à ranger */ } else if (o.old) {
         const r2 = rangerOld(scan(root(ctx), [src]).found, r.path, src);
         for (const m of r2.deplacer) { mkdirSync(dirname(m.vers), { recursive: true }); renameSync(m.de, m.vers); log(ctx, { what: 'rangé dans old', source: src.id, name: src.name, file: basename(m.de), detail: `remplacé par ${rel.version}` }); }
         for (const x of r2.supprimer) { rmSync(x.path, { force: true }); log(ctx, { what: 'supprimé', source: src.id, name: src.name, version: x.version, file: basename(x.path), size: x.size, detail: 'une seule ancienne version gardée (old)' }); }
@@ -266,6 +353,10 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
       const err = e as Error & { code?: string };
       if (ctrl.signal.aborted) { log(ctx, { what: 'échec', source: src.id, name: src.name, version: rel.version, detail: 'annulé' }); return `⏹ ${src.name} : annulé (le fichier entamé reprendra la prochaine fois).`; }
       log(ctx, { what: err.code === 'SHA' ? 'empreinte fausse' : 'échec', source: src.id, name: src.name, version: rel.version, detail: err.message });
+      if (err.code === 'PLACE' || err.code === 'SANS_EMPREINTE') {
+        say(ctx, 'haute', err.code === 'PLACE' ? `${src.name} ${rel.version} : pas assez de place` : `${src.name} ${rel.version} : empreinte introuvable`, err.message, { steps: err.code === 'PLACE' ? ['Fais de la place dans le dossier (ou choisis un dossier sur un autre disque)', 'Relance le téléchargement : rien n\'a été écrit'] : ['Réessaie plus tard (site de l\'éditeur en cours de mise à jour ?)', 'Ou prends une autre version'] });
+        return `❌ ${src.name} ${rel.version} : ${err.message}`;
+      }
       say(ctx, err.code === 'SHA' ? 'critique' : 'moyenne', err.code === 'SHA' ? `${src.name} : empreinte fausse, fichier jeté` : `${src.name} : téléchargement raté`, err.message, { steps: err.code === 'SHA' ? ['Le fichier reçu n\'est pas celui publié par l\'éditeur : il a été supprimé', 'Réessaie plus tard (miroir pas à jour ?)', 'Si ça recommence, préviens l\'éditeur'] : ['Vérifie la connexion Internet', 'Vérifie la place sur le disque', 'Réessaie : le téléchargement reprend où il s\'était arrêté'], fix: { action: 'telecharger', input: { nom: src.id }, label: 'Réessayer' } });
       return `❌ ${src.name} : ${err.message}`;
     } finally { jobs.delete(src.id); }
@@ -296,7 +387,94 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
       }
       ctx.saveSettings({ lastRun: Date.now() });
       return out.length ? out.join('\n') : `Rien à suivre : choisis des ${o.nouns} dans le catalogue, ou mets les tiens dans ${r0}.`;
-    } finally { running = false; }
+    } finally { running = false; pomper(ctx); }
+  }
+
+  // ---------------- Plusieurs versions, et la file de téléchargement (un à la fois) ----------------
+  /** Les versions lues sur le site officiel (gardées : la page les montre sans relire le site). */
+  // Gardées aussi en mémoire : chaque action a sa copie des réglages, la file et les versions lues restent les mêmes pour toutes.
+  // (une mémoire par dossier de l'appli : deux Odin dans le même processus, comme dans les essais, ne se mélangent pas)
+  const memoires = new Map<string, { file?: ElementFile[]; vv: Record<string, { at: number; liste: VersionCatalogue[] }>; vc: Map<string, { at: number; l: Release[] }> }>();
+  const memoire = (ctx: ModCtx) => { let m = memoires.get(ctx.dir); if (!m) { m = { vv: {}, vc: new Map() }; memoires.set(ctx.dir, m); } return m; };
+  const versionsVues = (ctx: ModCtx): Record<string, { at: number; liste: VersionCatalogue[] }> => {
+    const v = ctx.settings.versionsVues; return { ...(v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, { at: number; liste: VersionCatalogue[] }> : {}), ...memoire(ctx).vv };
+  };
+  /** Les versions publiées d'une source (une par série), lues sur son site officiel ; gardées une heure. */
+  const versionsLues = async (ctx: ModCtx, src: Source, fresh = false): Promise<Release[]> => {
+    const c = memoire(ctx).vc.get(src.id); if (!fresh && c && Date.now() - c.at < 3600_000) return c.l;
+    const l = await versionsDe(ctx.fetch as never, src, ctx.settings);
+    memoire(ctx).vc.set(src.id, { at: Date.now(), l });
+    memoire(ctx).vv[src.id] = { at: Date.now(), liste: canauxDe(src, l) };
+    ctx.saveSettings({ versionsVues: versionsVues(ctx) });
+    return l;
+  };
+  const fileDe = (ctx: ModCtx): ElementFile[] => { const m = memoire(ctx); return (m.file ??= fileRevue(ctx.settings.file)); };
+  const ecrireFile = (ctx: ModCtx, l: ElementFile[]) => { memoire(ctx).file = l; ctx.saveSettings({ file: l }); };
+  /** Celui qu'on prépare (lien et empreinte lus sur le site) avant que le téléchargement commence. */
+  let prepare: ElementFile | undefined;
+  /** « Arrêter » pendant la préparation : rien ne part ensuite. */
+  let prepareArrete = false;
+  let pompe: Promise<void> | undefined;
+  /** Les versions présentes d'une source (dans le dossier, ou reconnues autrement). */
+  const versionsPresentes = (ctx: ModCtx, id: string) => presentsDe(ctx, scan(root(ctx), all(ctx), true).found).get(id) ?? [];
+  /** Télécharge UNE version choisie : seulement une version publiée par le site officiel de la source (jamais une adresse reçue). */
+  async function telechargerVersion(ctx: ModCtx, x: ElementFile): Promise<string> {
+    const src = all(ctx).find((y) => y.id === x.source); if (!src) return `❌ ${x.nom} : n'est plus au catalogue.`;
+    if (src.manual) return `ℹ ${src.name} : ${src.manual} ${src.page}`;
+    if (versionsPresentes(ctx, src.id).some((p) => memeVersion(p, x.version))) return `✔ ${src.name} ${x.version} : déjà dans ton dossier.`;
+    let rel: Release | undefined;
+    // La version telle que listée (« 42 ») ou telle que publiée sous son nom complet (« 42-1.1 », la dernière lue autrement).
+    try { const l = await versionsLues(ctx, src); rel = l.find((r) => r.version === x.version) ?? l.find((r) => memeVersion(x.version, r.version)); } catch (e) { log(ctx, { what: 'échec', source: src.id, name: src.name, version: x.version, detail: `vérification : ${(e as Error).message}` }); return `❌ ${src.name} : ${(e as Error).message}`; }
+    if (!rel) return `❌ ${src.name} ${x.version} : cette version n'est plus publiée sur le site officiel.`;
+    if (rel.obtenir) { try { rel = await rel.obtenir(); } catch (e) { rel = { ...rel, manuel: (e as Error).message }; } }
+    if (rel.manuel) { const pg = rel.page ?? src.page; log(ctx, { what: 'échec', source: src.id, name: src.name, version: x.version, detail: `pas de lien : ${rel.manuel}` }); return `🆕 ${src.name} ${x.version} : ${rel.manuel} ${pg}`; }
+    if (!memeVersion(rel.version, x.version) && !memeVersion(x.version, rel.version)) return `❌ ${src.name} ${x.version} : le site officiel ne donne plus cette version.`;
+    // Arrêté pendant la préparation (lien et empreinte en lecture) : rien ne part.
+    if (prepareArrete) { log(ctx, { what: 'échec', source: src.id, name: src.name, version: x.version, detail: 'annulé avant le début' }); return `⏹ ${src.name} ${x.version} : arrêté avant le début, rien n'a été téléchargé.`; }
+    surveiller(ctx, src.id);
+    return fetchOne(ctx, src, rel);
+  }
+  /** Lance le suivant de la file s'il n'y a rien en cours (un seul téléchargement à la fois). Ne bloque pas. */
+  function pomper(ctx: ModCtx): Promise<void> {
+    if (pompe) return pompe;
+    if (running || !fileDe(ctx).length) return Promise.resolve();
+    pompe = (async () => {
+      try {
+        for (;;) {
+          if (running) return;
+          const l = fileDe(ctx), x = l[0]; if (!x) return;
+          running = true; prepare = x; prepareArrete = false; ecrireFile(ctx, l.slice(1));
+          let t: string;
+          try { t = await telechargerVersion(ctx, x); } catch (e) { t = `❌ ${x.nom} ${x.version} : ${(e as Error).message}`; } finally { prepare = undefined; prepareArrete = false; running = false; }
+          if (/^(❌|🆕|ℹ)/u.test(t)) say(ctx, 'moyenne', `${x.nom} ${x.version} : pas téléchargé`, t.replace(/^\S+\s*/u, ''));
+        }
+      } finally { pompe = undefined; }
+    })();
+    return pompe;
+  }
+  /** Ce qui se télécharge et ce qui attend : pour la page. */
+  const etatFile = (ctx: ModCtx) => {
+    const j = [...jobs.values()][0];
+    const enCours = j ? { source: j.source, nom: j.name, version: j.version, recu: j.done, ...(j.total ? { total: j.total, pct: Math.min(100, Math.round((j.done / j.total) * 100)) } : {}) } : prepare ? { source: prepare.source, nom: prepare.nom, version: prepare.version, recu: 0, prepare: true } : undefined;
+    return { ...(enCours ? { enCours } : {}), file: fileDe(ctx) };
+  };
+  /** Ajoute une version à la file (vérifiée avant : déjà là, déjà en file, place sur le disque), puis lance la file. */
+  function ajouterALaFile(ctx: ModCtx, src: Source, version: string, taille?: number): { ok: boolean; text: string; data: ReturnType<typeof etatFile> } {
+    const l = fileDe(ctx), j = jobs.get(src.id), nom = `${src.name} ${version}`;
+    const non = (text: string) => ({ ok: false, text, data: etatFile(ctx) });
+    if (versionsPresentes(ctx, src.id).some((p) => memeVersion(p, version))) return non(`${nom} est déjà dans ton dossier.`);
+    if ((j && j.version === version) || (prepare && prepare.source === src.id && prepare.version === version)) return non(`${nom} se télécharge déjà.`);
+    if (l.some((y) => y.source === src.id && y.version === version)) return non(`${nom} est déjà dans la file.`);
+    if (l.length >= FILE_MAX) return non(`La file est pleine (${FILE_MAX}) : attends qu'elle avance.`);
+    // La place, avant : ce fichier, plus ce que la file et le téléchargement en cours vont encore prendre.
+    const retenu = l.reduce((n, y) => n + (y.taille ?? 0), 0) + [...jobs.values()].reduce((n, y) => n + Math.max(0, (y.total ?? 0) - y.done), 0);
+    mkdirSync(root(ctx), { recursive: true });
+    const refus = refusPlace(taille, espaceDisque.libre(root(ctx)), retenu); if (refus) return non(`${nom} : ${refus}`);
+    const avant = l[l.length - 1] ?? (j ? { nom: j.name, version: j.version } : prepare);
+    ecrireFile(ctx, [...l, { source: src.id, nom: src.name, version, ...(taille ? { taille } : {}), ajoute: Date.now() }]);
+    surveiller(ctx, src.id);
+    void pomper(ctx);
+    return { ok: true, text: avant ? `⏳ ${nom} attend son tour (après ${avant.nom} ${avant.version}) : un téléchargement à la fois.` : `⬇ ${nom} : téléchargement lancé depuis le site officiel.`, data: etatFile(ctx) };
   }
 
   // ---------------- Disponibles et Surveillés (les mêmes données pour les actions, la page et le Store) ----------------
@@ -362,8 +540,55 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
       return { text: lines.join('\n') };
     } },
     { id: 'mettre_a_jour', label: 'Tout mettre à jour', what: 'Vérifie et télécharge maintenant tout ce qui est nouveau', words: [`mets à jour les ${o.nouns}`, `mettre à jour les ${o.nouns}`], run: async (ctx) => ({ text: await cycle(ctx, 'demande') }) },
-    { id: 'telecharger', label: 'Télécharger', what: `La dernière version d'un ${o.noun}, maintenant (il devient suivi)`, params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }], words: [`télécharge un ${o.noun}`, 'télécharge', 'telecharge'], run: async (ctx, i) => { const x = byName(ctx, i.nom); if (x.manual) return { ok: false, text: `${x.name} : ${x.manual}\nPage officielle : ${x.page}` }; surveiller(ctx, x.id); return { text: await cycle(ctx, 'demande', x) }; } },
-    { id: 'annuler', label: 'Arrêter le téléchargement', what: 'Le fichier entamé reprendra la prochaine fois', quick: false, params: [{ key: 'nom', label: `${o.noun} (vide : tous)`, kind: 'text', default: '' }], run: (ctx, i) => { const l = [...jobs.values()].filter((j) => !s(i.nom).trim() || j.source === byName(ctx, i.nom).id); l.forEach((j) => j.ctrl.abort()); return { text: l.length ? `⏹ Arrêté : ${l.map((j) => j.name).join(', ')}.` : 'Aucun téléchargement en cours.' }; } },
+    { id: 'telecharger', label: 'Télécharger', what: `La dernière version d'un ${o.noun}, maintenant (il devient suivi) ; si un téléchargement est déjà en cours, il attend son tour dans la file`, proprietaireSeul: true, params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }], words: [`télécharge un ${o.noun}`, 'télécharge', 'telecharge'], run: async (ctx, i) => {
+      const x = byName(ctx, i.nom); if (x.manual) return { ok: false, text: `${x.name} : ${x.manual}\nPage officielle : ${x.page}\nDépose le fichier dans : ${root(ctx)}` };
+      // Un seul téléchargement à la fois : s'il y en a un, celui-ci attend son tour (la dernière version publiée).
+      if (running || jobs.size) { let rel: Release; try { rel = await getLatest(ctx, x); } catch (e) { return { ok: false, text: `❌ ${x.name} : ${(e as Error).message}` }; } return ajouterALaFile(ctx, x, rel.version, rel.size ?? (vues(ctx)[x.id]?.version === rel.version ? vues(ctx)[x.id]?.taille : undefined)); }
+      surveiller(ctx, x.id); return { text: await cycle(ctx, 'demande', x) };
+    } },
+    { id: 'annuler', label: 'Arrêter le téléchargement', what: 'Le fichier entamé reprendra la prochaine fois ; la file continue avec le suivant', quick: false, proprietaireSeul: true, params: [{ key: 'nom', label: `${o.noun} (vide : tous)`, kind: 'text', default: '' }], run: (ctx, i) => {
+      const tous = !s(i.nom).trim(), id = tous ? '' : byName(ctx, i.nom).id, l = [...jobs.values()].filter((j) => tous || j.source === id); l.forEach((j) => j.ctrl.abort());
+      // Celui qu'on prépare (lien et empreinte en lecture) : arrêté aussi, il ne partira pas.
+      const p = prepare && !prepareArrete && !jobs.has(prepare.source) && (tous || prepare.source === id) ? prepare : undefined; if (p) prepareArrete = true;
+      const noms = [...l.map((j) => j.name), ...(p ? [`${p.nom} ${p.version}`] : [])];
+      return { text: noms.length ? `⏹ Arrêté : ${noms.join(', ')}.` : 'Aucun téléchargement en cours.' };
+    } },
+    { id: 'versions', label: 'Versions publiées', what: `Les versions d'un ${o.noun} publiées sur son site officiel (une par série : la dernière, les plus anciennes), sans rien télécharger`, read: true, external: true, quick: false,
+      params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }, { key: 'actualiser', label: 'Relire le site officiel', kind: 'boolean', default: false }], run: async (ctx, i) => {
+        const x = byName(ctx, i.nom);
+        if (x.manual || !x.latest) return { ok: true, text: `${x.name} : ${x.manual ?? 'pas de source officielle automatique'} ${x.page}`, data: { id: x.id, versions: [] as VersionCatalogue[], manuel: x.manual ?? '', page: x.page, presents: versionsPresentes(ctx, x.id) } };
+        let l: Release[]; try { l = await versionsLues(ctx, x, i.actualiser === true || i.actualiser === 'true'); } catch (e) { return { ok: false, text: `❌ ${x.name} : ${(e as Error).message}` }; }
+        const v = canauxDe(x, l), t = vues(ctx)[x.id];
+        // La taille connue de la dernière version (lue avec elle) complète la liste.
+        const versions = v.map((y) => (!y.taille && t?.taille && t.version === y.version ? { ...y, taille: t.taille } : y));
+        return { text: `${x.name} : ${versions.map((y) => `${y.version} (${y.canal})`).join(', ') || 'aucune version lue'}`, data: { id: x.id, versions, presents: versionsPresentes(ctx, x.id), file: fileDe(ctx).filter((y) => y.source === x.id).map((y) => y.version) } };
+      } },
+    { id: 'file', label: 'File de téléchargement', what: 'Ce qui se télécharge (un à la fois) et ce qui attend son tour', read: true, quick: false, run: (ctx) => {
+      const e = etatFile(ctx);
+      return { text: [e.enCours ? `En cours : ${e.enCours.nom} ${e.enCours.version}${'pct' in e.enCours && e.enCours.pct !== undefined ? ` (${e.enCours.pct} %)` : ''}` : 'Rien en cours.', ...e.file.map((y, k) => `${k + 1}. ${y.nom} ${y.version}${y.taille ? ` · ${sizeText(y.taille)}` : ''}`)].join('\n'), data: e };
+    } },
+    { id: 'mettre_en_file', label: 'Ajouter à la file de téléchargement', what: `Une version d'un ${o.noun}, publiée sur son site officiel : elle se télécharge à son tour (un à la fois), empreinte vérifiée`, quick: false, proprietaireSeul: true,
+      params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }, { key: 'version', label: 'Version (vide : la dernière)', kind: 'text', default: '' }], run: async (ctx, i) => {
+        const x = byName(ctx, i.nom);
+        if (x.manual || !x.latest) return { ok: false, text: `${x.name} est à déposer : ${x.manual ?? 'pas de téléchargement automatique'}\nPage officielle : ${x.page}\nDépose le fichier dans : ${root(ctx)}` };
+        const voulue = i.version === undefined || i.version === '' ? '' : versionPropre(i.version);
+        if (i.version !== undefined && i.version !== '' && !voulue) return { ok: false, text: 'Version illisible : rien n\'a été ajouté.' };
+        // Seulement une version que le site officiel publie (lue ici, jamais reçue de la page avec une adresse).
+        let l: Release[]; try { l = voulue ? await versionsLues(ctx, x) : [await getLatest(ctx, x)]; } catch (e) { return { ok: false, text: `❌ ${x.name} : ${(e as Error).message}` }; }
+        const rel = voulue ? l.find((r) => r.version === voulue) : l[0];
+        if (!rel) return { ok: false, text: `${x.name} ${voulue} : cette version n'est pas publiée sur le site officiel.` };
+        const t = vues(ctx)[x.id];
+        return ajouterALaFile(ctx, x, rel.version, rel.size ?? (t?.version === rel.version ? t.taille : undefined));
+      } },
+    { id: 'retirer_de_la_file', label: 'Retirer de la file', what: 'Retire un téléchargement qui attend son tour (rien n\'est effacé)', quick: false, proprietaireSeul: true,
+      params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }, { key: 'version', label: 'Version (vide : toutes)', kind: 'text', default: '' }], run: (ctx, i) => {
+        if (i.version !== undefined && i.version !== '' && !versionPropre(i.version)) return { ok: false, text: 'Version illisible : rien n\'a été retiré.' };
+        const x = byName(ctx, i.nom), v = versionPropre(i.version), l = fileDe(ctx), reste = l.filter((y) => !(y.source === x.id && (!v || y.version === v)));
+        const j = jobs.get(x.id), p = prepare;
+        if (reste.length === l.length) return { ok: false, text: (j && (!v || j.version === v)) || (p && p.source === x.id && (!v || p.version === v)) ? `${x.name} se télécharge déjà : utilise « Arrêter ».` : `${x.name}${v ? ` ${v}` : ''} n'est pas dans la file.` };
+        ecrireFile(ctx, reste);
+        return { text: `${x.name}${v ? ` ${v}` : ''} retiré de la file.`, data: etatFile(ctx) };
+      } },
     { id: 'programmer', label: 'Programmer', what: 'Jours et heure des vérifications (ou une date), et téléchargement automatique ou non', params: PLAN, words: [`programme les mises à jour des ${o.nouns}`, 'programmer'], run: (ctx, i) => {
       const hm = /^(\d{1,2})[:h](\d{2})?$/.exec(s(i.heure).trim() || '03:00'); if (!hm || Number(hm[1]) > 23 || Number(hm[2] ?? 0) > 59) throw new Error('heure sous la forme 03:00');
       const at = `${hm[1].padStart(2, '0')}:${hm[2] ?? '00'}`, j = s(i.jours).trim().toLowerCase();
@@ -410,7 +635,7 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
         const ligne = (e: EntreeStore) => `- ${e.nom}${e.version ? ` ${e.version}` : ''} · ${e.systeme} · ${e.type} · ${e.arch}${e.taille ? ` · ${sizeText(e.taille)}` : ''} · ${e.etat}${e.enLigne ? ` · ${e.famille}` : ''}`;
         return { text: [`${local.length} sur ${tout.length} au catalogue${dehors.length ? `, ${dehors.length} en ligne` : ''}.`, ...l.slice(0, 80).map(ligne), ...index.map((x) => (x.ok ? `· ${x.index} : ${x.n} résultat(s)` : `· ${x.index} : en panne (${x.erreur}) — le catalogue local répond seul`))].join('\n'), data: { entrees: l, total: tout.length, filtres: valeursFiltres(tout), index, dossier: root(ctx) } };
       } },
-    { id: 'telecharger_en_ligne', label: 'Télécharger depuis un index en ligne', what: `Un ${o.noun} trouvé dans un index officiel en ligne (Homebrew, GitHub) : téléchargé par l'antivirus d'abord, puis surveillé`, external: true,
+    { id: 'telecharger_en_ligne', label: 'Télécharger depuis un index en ligne', what: `Un ${o.noun} trouvé dans un index officiel en ligne (Homebrew, GitHub) : téléchargé par l'antivirus d'abord, puis surveillé`, external: true, proprietaireSeul: true,
       params: [{ key: 'index', label: 'Index', kind: 'select', options: ['homebrew', 'github'], required: true }, { key: 'ref', label: 'Référence (nom dans l\'index, ou propriétaire/projet)', kind: 'text', required: true }, { key: 'fichier', label: 'Fichier (GitHub)', kind: 'text', default: '' }, { key: 'version', label: 'Version (GitHub)', kind: 'text', default: '' }, { key: 'nom', label: 'Nom affiché', kind: 'text', default: '' }], run: async (ctx, i) => {
         const index = s(i.index), ref = s(i.ref).trim(), nom = s(i.nom).trim().slice(0, 60);
         if (index === 'homebrew') {
@@ -444,7 +669,7 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
     { id: 'historique', label: 'Historique', what: 'Tout ce qui s\'est passé : vérifications, téléchargements, remplacements, échecs', read: true, words: [`historique des ${o.nouns}`, 'historique des téléchargements'], params: [{ key: 'n', label: 'Combien', kind: 'number', default: 30 }], run: (ctx, i) => ({ text: history(ctx, Math.max(1, Math.min(500, Number(i.n) || 30))).map((e) => `- ${new Date(e.at).toLocaleString('fr-FR')} · ${e.what} · ${e.name}${e.version ? ` ${e.version}` : ''}${e.size ? ` · ${sizeText(e.size)}` : ''}${e.detail ? ` · ${e.detail}` : ''}`).join('\n') || 'Rien pour l\'instant.' }) },
   ];
 
-  const mod: Module & { _jobs: () => Job[]; _cycle: (ctx: ModCtx, why: string) => Promise<string> } = {
+  const mod: Module & { _jobs: () => Job[]; _cycle: (ctx: ModCtx, why: string) => Promise<string>; _file: () => Promise<void> } = {
     id: o.id, name: o.name, family: 'Données', what: o.what,
     does: [`reconnaît les ${o.nouns} déjà dans ton dossier (disque ou partage réseau monté)`, 'télécharge depuis les sites officiels seulement, empreinte de l\'éditeur vérifiée, reprise si coupure, débit maximum', 'vérifie aux jours et à l\'heure que tu programmes (ou à une date) ; télécharge tout seul ou te prévient', 'garde 2 versions (l\'ancienne et la nouvelle), nombre réglable', 'historique de tout, contrôle des fichiers abîmés, résumé chaque jour, bulles de la mascotte à chaque événement', 'icônes des éditeurs, catalogue, sources à toi (dépôt GitHub ou adresse officielle)', ...(o.extraDoes ?? [])],
     from: o.from, upstream: o.upstream, words: o.words, actions,
@@ -517,6 +742,8 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
     // Chaque minute : passage programmé, et le résumé du jour.
     watch: { every: 60, async run(ctx) {
       const now = new Date();
+      // La file reprend après un redémarrage d'Odin (ce que tu as mis en file attend toujours son tour).
+      void pomper(ctx);
       // Le passage « jours et heure » seulement si tu l'as programmé ; sinon c'est la surveillance de la bibliothèque (chaque mois par défaut) qui lance le passage.
       if (ctx.settings.plan && due(plan(ctx), now, Number(ctx.settings.lastRun) || 0) && !tacheEnPause(o.id, 'tournee')) { const t = await cycle(ctx, 'programmé'); if (/❌/.test(t)) ctx.emit('passage', { resultat: t }); }
       const rh = s(ctx.settings.resume) || '19:00';
@@ -529,6 +756,7 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
     } },
     _jobs: () => [...jobs.values()],
     _cycle: (ctx, why) => cycle(ctx, why),
+    _file: () => pompe ?? Promise.resolve(),
   };
   return mod;
 }

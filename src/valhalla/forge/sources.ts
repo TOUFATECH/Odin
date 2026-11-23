@@ -15,8 +15,12 @@ export interface Release {
   note?: string;
   /** Le lien se demande au dernier moment (lien temporaire, demandes comptées par l'éditeur) : rend la version prête à télécharger. */
   obtenir?: () => Promise<Release>;
+  /** L'éditeur publie une empreinte pour ce fichier : sans elle, rien n'est téléchargé (jamais un fichier non vérifié). */
+  empreinteAttendue?: boolean;
 }
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
+/** Une façon de lire un site officiel : la dernière version et, quand le site les publie, les autres (`tout`). */
+export type Lecteur = ((f: Fetch) => Promise<Release>) & { tout?: (f: Fetch) => Promise<Release[]> };
 export interface Source {
   id: string; name: string; kind: Kind; family: string;
   /** Une phrase : ce que c'est. */
@@ -77,25 +81,60 @@ export const json = async <T>(f: Fetch, url: string, headers: Record<string, str
 const text2 = async (f: Fetch, url: string, headers: Record<string, string>) => { const r = await f(url, { headers: { 'user-agent': 'Odin-Eitri/1', ...headers }, signal: AbortSignal.timeout(20_000) }); if (!r.ok) throw new Error(`${new URL(url).host} répond ${r.status}`); return r.text(); };
 const join = (base: string, rel: string) => new URL(rel, base.endsWith('/') ? base : `${base}/`).toString();
 
+// ---------------- Plusieurs versions (catalogue : « choisir la version », « toutes les versions ») ----------------
+/** Le nombre de séries gardées au plus dans la liste des versions d'une source. */
+export const VERSIONS_MAX = 8;
+/**
+ * La série d'une version (« 24.04.3 » → « 24.04 », « 8.4-1 » → « 8.4 », « 22.1 » → « 22 », « 42-1.1 » → « 42 ») : une seule
+ * version par série est proposée, la plus haute. Pur.
+ */
+export function serieDe(v: string): string {
+  const p = String(v ?? '').split(/[.\-_]/).filter(Boolean);
+  return p.slice(0, p.length >= 3 || /^\d\d$/.test(p[1] ?? '') ? 2 : 1).join('.') || String(v ?? '');
+}
+/** Une version par série (la plus haute), de la plus récente à la plus ancienne, `max` au plus. Pur. */
+export function parSerie(l: Release[], max = VERSIONS_MAX): Release[] {
+  const m = new Map<string, Release>();
+  for (const r of l) { if (!r || typeof r.version !== 'string' || !r.version) continue; const k = serieDe(r.version), a = m.get(k); if (!a || cmpVersion(r.version, a.version) > 0) m.set(k, r); }
+  return [...m.values()].sort((a, b) => cmpVersion(b.version, a.version)).slice(0, Math.max(1, max));
+}
+/** Ajoute à une façon de lire la liste de toutes les versions publiées. */
+const avecTout = (lire: (f: Fetch) => Promise<Release>, tout: (f: Fetch) => Promise<Release[]>): Lecteur => Object.assign(lire, { tout });
+
 // ---------------- Façons de trouver la dernière version ----------------
-/** Un fichier d'empreintes à une adresse fixe : le fichier qui correspond est la dernière version. */
-export const sumsAt = (dir: string, sums: string, re: RegExp) => async (f: Fetch): Promise<Release> => {
+/** Un fichier d'empreintes à une adresse fixe : le fichier qui correspond est la dernière version ; les autres fichiers reconnus sont les autres versions. */
+export const sumsAt = (dir: string, sums: string, re: RegExp): Lecteur => avecTout(async (f: Fetch): Promise<Release> => {
   const s = parseSums(await text(f, join(dir, sums))), h = highest([...s.keys()], re); if (!h) throw new Error('aucun fichier reconnu dans les empreintes officielles');
   return { version: h.version, file: h.name.split('/').pop()!, url: join(dir, h.name), sha256: s.get(h.name) };
-};
-/** Un index de dossiers par version (« 24.04.3/ ») puis un fichier d'empreintes dans le dossier le plus récent. */
-export const indexThenSums = (index: string, dirRe: RegExp, sums: string | RegExp, re: RegExp, sub = '') => async (f: Fetch): Promise<Release> => {
-  const d = highest(parseIndex(await text(f, index)), dirRe); if (!d) throw new Error('aucune version trouvée sur le site officiel');
-  const dir = join(index, `${d.name.replace(/\/?$/, '/')}${sub}`);
+}, async (f: Fetch): Promise<Release[]> => {
+  const s = parseSums(await text(f, join(dir, sums)));
+  return [...s.keys()].flatMap((n) => { const v = re.exec(n)?.[1]; return v ? [{ version: v, file: n.split('/').pop()!, url: join(dir, n), sha256: s.get(n), empreinteAttendue: true }] : []; });
+});
+/** Dans un dossier de version : son fichier d'empreintes (nom fixe, ou trouvé dans l'index), puis le fichier qui correspond. */
+const dansDossier = (dir: string, sums: string | RegExp, re: RegExp) => async (f: Fetch): Promise<Release> => {
   const sumsName = typeof sums === 'string' ? sums : parseIndex(await text(f, dir)).find((n) => sums.test(n)); if (!sumsName) throw new Error('fichier d\'empreintes introuvable');
   return sumsAt(dir, sumsName, re)(f);
 };
+/** Un index de dossiers par version (« 24.04.3/ ») puis un fichier d'empreintes dans le dossier le plus récent. Les autres
+ *  dossiers sont les autres versions : leur fichier et leur empreinte ne sont lus qu'au moment de les télécharger. */
+export const indexThenSums = (index: string, dirRe: RegExp, sums: string | RegExp, re: RegExp, sub = ''): Lecteur => avecTout(async (f: Fetch): Promise<Release> => {
+  const d = highest(parseIndex(await text(f, index)), dirRe); if (!d) throw new Error('aucune version trouvée sur le site officiel');
+  return dansDossier(join(index, `${d.name.replace(/\/?$/, '/')}${sub}`), sums, re)(f);
+}, async (f: Fetch): Promise<Release[]> => {
+  const dirs = parseIndex(await text(f, index)).flatMap((n) => { const v = dirRe.exec(n)?.[1]; return v ? [{ name: n, version: v }] : []; });
+  return parSerie(dirs.map((d) => ({ version: d.version, file: '', url: '', empreinteAttendue: true, obtenir: () => dansDossier(join(index, `${d.name.replace(/\/?$/, '/')}${sub}`), sums, re)(f).then((r) => ({ ...r, empreinteAttendue: true })) })));
+});
 /** Un index de fichiers, chaque fichier avec son « .sha256 » à côté. */
-export const indexSidecar = (dir: string, re: RegExp) => async (f: Fetch): Promise<Release> => {
+export const indexSidecar = (dir: string, re: RegExp): Lecteur => avecTout(async (f: Fetch): Promise<Release> => {
   const h = highest(parseIndex(await text(f, dir)).filter((n) => !/\.(sha256|sha512|asc|sig|md5)$/i.test(n)), re); if (!h) throw new Error('aucun fichier reconnu sur le site officiel');
   const sha = /([a-f0-9]{64})/i.exec(await text(f, join(dir, `${h.name}.sha256`)))?.[1]?.toLowerCase();
-  return { version: h.version, file: h.name, url: join(dir, h.name), sha256: sha };
-};
+  // L'éditeur publie un « .sha256 » (sinon la lecture échoue plus haut) : illisible, rien ne part sans empreinte.
+  return { version: h.version, file: h.name, url: join(dir, h.name), sha256: sha, empreinteAttendue: true };
+}, async (f: Fetch): Promise<Release[]> => {
+  const l = parseIndex(await text(f, dir)).filter((n) => !/\.(sha256|sha512|asc|sig|md5)$/i.test(n)).flatMap((n) => { const v = re.exec(n)?.[1]; return v ? [{ name: n, version: v }] : []; });
+  return parSerie(l.map((h) => ({ version: h.version, file: h.name, url: join(dir, h.name), empreinteAttendue: true,
+    obtenir: async (): Promise<Release> => ({ version: h.version, file: h.name, url: join(dir, h.name), empreinteAttendue: true, sha256: await text(f, join(dir, `${h.name}.sha256`)).then((t) => /([a-f0-9]{64})/i.exec(t)?.[1]?.toLowerCase(), () => undefined) }) })));
+});
 /** La dernière version d'un dépôt GitHub (le fichier qui correspond, et son empreinte publiée par GitHub). */
 export const github = (repo: string, re: RegExp) => async (f: Fetch): Promise<Release> => {
   const r = await json<{ tag_name: string; html_url: string; assets: Array<{ name: string; browser_download_url: string; size: number; digest?: string | null }> }>(f, `https://api.github.com/repos/${repo}/releases/latest`, { accept: 'application/vnd.github+json' });
@@ -162,6 +201,27 @@ export const SOFT: Source[] = [
   { id: 'putty', name: 'PuTTY', kind: 'logiciel', family: 'Réseau', about: 'Connexion SSH', match: /^putty-64bit-(\d+\.\d+)-installer\.msi$/, color: '#4A5568', page: 'https://www.chiark.greenend.org.uk/~sgtatham/putty/', latest: async (f) => { const base = 'https://the.earth.li/~sgtatham/putty/latest/'; const s = parseSums(await text(f, join(base, 'sha256sums'))); const h = highest([...s.keys()], /^w64\/putty-64bit-(\d+\.\d+)-installer\.msi$/); if (!h) throw new Error('installateur introuvable'); return { version: h.version, file: h.name.split('/').pop()!, url: join(base, h.name), sha256: s.get(h.name) }; } },
   { id: 'wireguard', name: 'WireGuard', kind: 'logiciel', family: 'Réseau', about: 'Client VPN (avec Vortex)', match: /^wireguard-amd64-(\d+\.\d+\.\d+)\.msi$/, icon: 'https://www.wireguard.com/favicon.ico', color: '#88171A', page: 'https://www.wireguard.com/install/', latest: async (f) => { const dir = 'https://download.wireguard.com/windows-client/'; const h = highest(parseIndex(await text(f, dir)), /^wireguard-amd64-(\d+\.\d+\.\d+)\.msi$/); if (!h) throw new Error('installateur introuvable'); return { version: h.version, file: h.name, url: join(dir, h.name) }; } },
 ];
+
+/** Une version telle que le catalogue la montre. `canal` : la dernière publiée, LTS (suivie longtemps), ou une plus ancienne. */
+export interface VersionCatalogue { version: string; canal: 'dernière' | 'LTS' | 'ancienne'; taille?: number; /** montrée sans « Toutes les versions » */ defaut: boolean }
+/**
+ * Les versions qu'une source publie sur son site officiel, une par série, de la plus récente à la plus ancienne. Une
+ * source qui ne publie que sa dernière version (dépôt GitHub, lien demandé à l'éditeur) n'en rend qu'une. Rien n'est
+ * téléchargé : on lit les index et les fichiers d'empreintes.
+ */
+export async function versionsDe(f: Fetch, src: Source, reglages?: Record<string, unknown>): Promise<Release[]> {
+  if (!src.latest) return [];
+  const tout = (src.latest as Lecteur).tout;
+  return parSerie(tout ? await tout(f) : [await src.latest(f, reglages)]);
+}
+/**
+ * Le canal de chaque version : la plus récente est « dernière » (« LTS » pour une source suivie longtemps), les autres
+ * « ancienne ». Sans « Toutes les versions », on montre la dernière, et pour une source LTS (Ubuntu) aussi la LTS d'avant. Pur.
+ */
+export function canauxDe(src: Pick<Source, 'name'>, l: Array<Pick<Release, 'version' | 'size'>>): VersionCatalogue[] {
+  const lts = /\bLTS\b/.test(src.name);
+  return [...l].sort((a, b) => cmpVersion(b.version, a.version)).map((r, i) => ({ version: r.version, canal: i === 0 ? (lts ? 'LTS' : 'dernière') : 'ancienne', ...(r.size ? { taille: r.size } : {}), defaut: i === 0 || (lts && i === 1) }));
+}
 
 /** Une source ajoutée par l'utilisateur : un dépôt GitHub (« proprietaire/projet ») et le motif de son fichier. */
 export function customSource(o: { id: string; name: string; kind: Kind; repo?: string; url?: string; pattern: string; sha256?: string; version?: string }): Source {

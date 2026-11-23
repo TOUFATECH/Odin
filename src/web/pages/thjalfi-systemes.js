@@ -62,6 +62,33 @@
     'pas.biblio': 'La bibliothèque d\'Hydre ne répond pas : les systèmes ne peuvent pas être lus pour l\'instant.',
     erreur: 'Les systèmes ne peuvent pas être lus : {raison}',
     annule: 'Annulé.',
+    // ——— le catalogue (lot S2)
+    store: 'Andromède', 'store.aide': 'Le Store complet d\'Andromède : tes propres sources, les index en ligne.',
+    retour: 'Ma bibliothèque',
+    'c.titre': 'Ajouter un système',
+    'c.lead': 'Seulement depuis les sites officiels des éditeurs. Odin vérifie l\'empreinte publiée, passe le fichier à l\'antivirus, puis le range dans ta bibliothèque et le garde à jour.',
+    'c.groupe': 'Famille', 'c.q': 'Chercher : ubuntu, windows, serveur…', 'c.q.nom': 'Chercher dans le catalogue',
+    'c.arch': 'Architecture', 'c.arch.pc': 'PC (x86_64)', 'c.arch.arm': 'ARM 64', toutes: 'Toutes les versions',
+    'g.windows': 'Windows', 'g.linux': 'Linux', 'g.serveur': 'Serveurs', 'g.outil': 'Outils de dépannage', 'g.autre': 'Autres', 'f.autre': 'Autres',
+    'c.versions': 'Version de {nom}', 'c.canal.ancienne': 'ancienne', 'c.canal.LTS': 'LTS', 'c.canal.dernière': '',
+    'c.pas.lue': 'Version : pas encore lue sur le site officiel.', 'c.voir.versions': 'Voir les versions', 'c.voir.toutes': 'Voir toutes les versions', 'c.voir.versions.nom': 'Lire les versions de {nom} sur le site officiel',
+    'c.lecture': 'Lecture du site officiel…', 'c.lecture.ko': 'Le site officiel ne répond pas : {raison}',
+    'c.dans': 'Dans ta bibliothèque', 'c.voir': 'Voir', 'c.voir.nom': 'Voir {nom} dans ta bibliothèque',
+    'c.tel': 'Télécharger', 'c.tel.taille': 'Télécharger · {taille}', 'c.tel.nom': 'Télécharger {nom}', 'c.tel.derniere': 'Télécharger la dernière',
+    'c.tel.confirme': 'Télécharger {nom} depuis le site officiel ?{taille} L\'empreinte publiée par l\'éditeur est vérifiée, puis l\'antivirus passe. Un seul téléchargement à la fois : il attend son tour si un autre est en cours.',
+    'c.tel.confirme.taille': ' ({taille})',
+    'c.cours': 'Téléchargement · {pct}', 'c.cours.sans': 'Téléchargement en cours', 'c.prepare': 'Préparation…',
+    'c.file': 'En file · après {nom}', 'c.file.retirer': 'Retirer de la file', 'c.file.retirer.nom': 'Retirer {nom} de la file',
+    'c.file.retirer.confirme': 'Retirer {nom} de la file de téléchargement ? Rien n\'est effacé.',
+    'c.deposer': 'à déposer', 'c.page': 'Page officielle', 'c.page.nom': 'Page officielle de {nom} (nouvel onglet)', 'c.ou': 'Où le déposer ?', 'c.ou.nom': 'Où déposer le fichier de {nom}',
+    'c.ou.texte': '{raison}\n\nTélécharge le fichier sur la page officielle, puis dépose-le dans ce dossier :\n{dossier}\n\nOdin le reconnaît, vérifie son empreinte et le passe à l\'antivirus avant de le ranger dans ta bibliothèque.',
+    'c.ou.sans': 'le dossier des ISO d\'Andromède',
+    'c.note': '« À déposer » : l\'éditeur demande un formulaire, un compte ou une licence. Odin ouvre sa page officielle et reconnaît le fichier quand tu le déposes. Il ne contourne rien.',
+    'c.barre.one': '{n} dans la file de téléchargement · un à la fois', 'c.barre.other': '{n} dans la file de téléchargement · un à la fois',
+    'c.barre.cours': '{nom} {version} se télécharge · {n} en attente', 'c.barre.cours.seul': '{nom} {version} se télécharge',
+    'c.relire': 'Relire les versions', 'c.relire.cours': 'Odin relit les dernières versions sur les sites officiels…', 'c.relire.fait': 'Dernières versions relues sur les sites officiels.',
+    'c.vide': 'Rien ne correspond.', 'c.charge': 'Lecture du catalogue…', 'c.erreur': 'Le catalogue ne peut pas être lu : {raison}',
+    'c.reponse': '{texte}',
     'u.to': '{n} To', 'u.go': '{n} Go', 'u.mo': '{n} Mo', 'u.min': '{n} min', 'u.h': '{h} h {m}',
   };
   const mot = (k, v) => String(MOTS[k] ?? k).replace(/\{(\w+)\}/g, (_m, x) => (v && v[x] != null ? String(v[x]) : ''));
@@ -92,10 +119,49 @@
     return { v, ...(maintenant.total ? { resteMs: ((maintenant.total - maintenant.recu) / v) * 1000 } : {}) };
   }
   const nomComplet = (c) => (c.version ? `${c.nom} ${c.version}` : c.nom);
-  const logique = { MOTS, mot, FILTRES, filtrer, vitesse, taille, nomComplet, couleur };
+
+  // ——— le catalogue (lot S2) : les entrées du Store d'Andromède, rangées par famille, avec leurs versions
+  const GROUPES = ['windows', 'linux', 'serveur', 'outil', 'autre'];
+  const FILTRES_CAT = ['tout', 'windows', 'linux', 'outil', 'serveur', 'autre'];
+  /** Les familles du catalogue, chacune avec ses cartes (filtre, recherche sans accents, architecture). Pur. */
+  function groupesCatalogue(entrees, o) {
+    const t = sansAccents(o && o.q).trim(), arm = o && o.arch === 'arm';
+    const l = (Array.isArray(entrees) ? entrees : []).filter((e) => e && e.genre !== 'logiciel' && !e.enLigne)
+      .filter((e) => (o.fil === 'tout' || !FILTRES_CAT.includes(o.fil) || (e.groupe || 'autre') === o.fil) && ((e.arch === 'arm64') === arm)
+        && (!t || t.split(/\s+/).every((m) => sansAccents(`${e.nom} ${e.id} ${e.about} ${e.type} ${e.systeme}`).includes(m))));
+    return GROUPES.map((g) => ({ groupe: g, cartes: l.filter((e) => (GROUPES.includes(e.groupe) ? e.groupe : 'autre') === g).sort((a, b) => String(a.nom).localeCompare(String(b.nom), langue())) })).filter((x) => x.cartes.length);
+  }
+  /** Les versions montrées sur une carte : celles lues sur le site officiel (sans « Toutes les versions » : celles par défaut),
+   *  sinon la dernière vue. Toujours celle qui se télécharge ou attend son tour. Pur. */
+  function versionsMontrees(e, toutes) {
+    const l = Array.isArray(e.versions) && e.versions.length ? e.versions : e.version ? [{ version: e.version, canal: 'dernière', defaut: true, ...(e.taille ? { taille: e.taille } : {}) }] : [];
+    const garde = new Set([...(e.enFile || []), ...(e.telecharge ? [e.telecharge] : [])]);
+    return l.filter((v) => toutes || v.defaut || garde.has(v.version));
+  }
+  /** La version choisie sur une carte (ton choix s'il est encore montré, sinon la première). Pur. */
+  function versionChoisie(e, choix, toutes) { const l = versionsMontrees(e, toutes); return (l.find((v) => v.version === choix) || l[0] || null); }
+  /** Une version est-elle dans la bibliothèque ? (« 42 » au catalogue, « 42-1.1 » dans le dossier). Pur. */
+  const presente = (e, v) => (e.presents || []).some((p) => p === v || String(p).startsWith(`${v}-`) || String(p).startsWith(`${v}.`));
+  /** Ce que montre le bas d'une carte pour la version choisie. Pur. */
+  function etatCarte(e, v, file) {
+    if (e.manuel) return 'deposer';
+    if (!v) return e.telecharge ? 'cours' : 'inconnue';
+    if (e.telecharge === v.version) return 'cours';
+    if ((e.enFile || []).includes(v.version)) return 'file';
+    if (presente(e, v.version)) return 'biblio';
+    return 'telecharger';
+  }
+  /** Qui passe avant cette version dans la file : celui juste avant elle, ou celui qui se télécharge. Pur. */
+  function avantDansFile(f, source, version) {
+    const l = (f && f.file) || [], k = l.findIndex((x) => x.source === source && x.version === version);
+    if (k > 0) return `${l[k - 1].nom} ${l[k - 1].version}`;
+    return f && f.enCours ? `${f.enCours.nom} ${f.enCours.version}` : '';
+  }
+  const logique = { MOTS, mot, FILTRES, filtrer, vitesse, taille, nomComplet, couleur, groupesCatalogue, versionsMontrees, versionChoisie, etatCarte, avantDansFile, presente };
 
   // ---------------------------------------------------------------- l'état (gardé quand on change d'onglet)
-  const Z = { filtre: 'tout', q: '', data: null, erreur: '', vers: '', debits: {}, msg: '' };
+  const Z = { filtre: 'tout', q: '', data: null, erreur: '', vers: '', debits: {}, msg: '', vue: 'biblio',
+    cat: { fil: 'tout', q: '', arch: 'x86_64', toutes: false, choix: {}, data: null, file: null, erreur: '', lecture: {}, msg: '', msgNeuf: false } };
 
   const el = (t, a = {}, ...kids) => {
     const n = document.createElement(t);
@@ -106,7 +172,8 @@
   const P = {
     check: 'M5 12l5 5L20 7', warn: 'M12 3 2 20h20zM12 10v4M12 17h.01', bolt: 'M13 2 4 14h7l-1 8 9-12h-7z', x: 'M6 6l12 12M18 6 6 18',
     refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', plus: 'M12 5v14M5 12h14', search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
-    usb: 'M9 2h6v6H9zM7 8h10v9a5 5 0 0 1-10 0z', net: 'M12 3v6M5 21v-4h14v4M12 9v8M4 9h16', vm: 'M3 4h18v12H3zM8 20h8M12 16v4',
+    usb: 'M9 2h6v6H9zM7 8h10v9a5 5 0 0 1-10 0z', left: 'M15 18l-6-6 6-6', download: 'M12 4v11M7 10l5 5 5-5M5 20h14', clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2',
+    ext: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5', file: 'M6 2h8l5 5v15H6zM14 2v5h5', net: 'M12 3v6M5 21v-4h14v4M12 9v8M4 9h16', vm: 'M3 4h18v12H3zM8 20h8M12 16v4',
   };
   const ic = (n, s = 16, w = 2) => { const v = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); v.setAttribute('viewBox', '0 0 24 24'); v.setAttribute('width', s); v.setAttribute('height', s); v.setAttribute('aria-hidden', 'true'); v.innerHTML = `<path d="${P[n]}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`; return v; };
 
@@ -145,6 +212,24 @@
 .sy-vers>b{font-size:12.5px;color:var(--muted)}.sy-vers .sy-btn{justify-content:flex-start}
 .sy-vers .sy-btn small{margin-left:auto;font-weight:600;color:var(--muted)}
 .sy-msg{margin:0;font-size:13px;color:var(--muted)}
+.sy-back{align-self:flex-start}
+a.sy-btn{text-decoration:none}
+.sy-sel{min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--field,var(--panel));color:var(--ink);padding:0 12px;font:inherit;font-size:14px}
+.sy-sw{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;border:0;background:transparent;color:var(--ink);font:600 13px inherit;cursor:pointer}
+.sy-sw i{width:44px;height:26px;border-radius:999px;background:color-mix(in srgb,var(--ink) 18%,transparent);position:relative;flex:none;transition:background .15s}
+.sy-sw i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+.sy-sw[aria-checked=true] i{background:var(--good,#1f9d55)}.sy-sw[aria-checked=true] i::after{left:21px}
+.sy-grp{display:flex;align-items:center;gap:8px;margin:16px 0 8px;font-size:12.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sy-grp .n{font-size:11.5px;letter-spacing:0;padding:1px 8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
+.sy-pills{display:flex;gap:6px;flex-wrap:wrap}
+.sy-pill{min-height:44px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 13px inherit;cursor:pointer}
+.sy-pill span{font-weight:500;color:var(--muted)}
+.sy-pill[aria-pressed=true]{border-color:var(--accent,#0b7f7c);background:color-mix(in srgb,var(--accent,#0b7f7c) 14%,var(--panel))}
+.sy-tag.acc{background:color-mix(in srgb,var(--accent,#0b7f7c) 16%,transparent);color:color-mix(in srgb,var(--accent,#0b7f7c) 75%,var(--ink))}
+.sy-catacts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:auto}.sy-catacts .sy-btn{flex:1 1 140px}
+.sy-pend{display:flex;margin-bottom:6px;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 12px 10px 16px;border-radius:16px;border:1px solid var(--accent,#0b7f7c);background:color-mix(in srgb,var(--accent,#0b7f7c) 10%,var(--panel));box-shadow:var(--shadow,0 6px 20px rgba(0,0,0,.12))}
+.sy-pend b{font-size:13.5px;overflow-wrap:anywhere}
+@media (prefers-reduced-motion:reduce){.sy-sw i,.sy-sw i::after{transition:none}}
 @media (prefers-reduced-motion:no-preference){.sy-bar.raye i{animation:syRaye 1s linear infinite;background-size:22.6px 22.6px}}
 @keyframes syRaye{to{background-position:22.6px 0}}
 `;
@@ -273,22 +358,36 @@
       el('div', { class: 'sy-acts' }, ...actions(c, hote, redessiner)));
   }
 
-  /** Monte l'onglet dans root. hote : { post, aller(onglet) } (la page de Genèse). */
+  /** Monte l'onglet dans root. hote : { post, aller(onglet) } (la page de Genèse). Deux vues : la bibliothèque, et le
+   *  catalogue (« Ajouter un système ») ; on passe de l'une à l'autre sans quitter l'onglet. */
   async function dessiner(root, _onglet, hote) {
     if (typeof document !== 'undefined' && document.head && !document.getElementById?.('sysCss')) document.head.append(el('style', { id: 'sysCss' }, CSS));
-    const post = (hote && hote.post) || ((a, i) => postModule('thjalfi', a, i));
     const wrap = el('div', { class: 'sy', 'data-f': 'systemes' });
     root.append(wrap);
+    const montrer = async (vue, focus) => {
+      Z.vue = vue === 'catalogue' ? 'catalogue' : 'biblio';
+      // Une zone neuve à chaque vue : celle d'avant, détachée, arrête d'elle-même de se relire.
+      const zone = el('div', { class: 'sy' }); wrap.replaceChildren(zone);
+      if (Z.vue === 'catalogue') await dessinerCatalogue(zone, hote, montrer, focus); else await dessinerBiblio(zone, hote, montrer, focus);
+    };
+    await montrer(Z.vue);
+  }
+
+  /** La bibliothèque (lot S1). */
+  async function dessinerBiblio(wrap, hote, montrer, focusDepart) {
+    const post = (hote && hote.post) || ((a, i) => postModule('thjalfi', a, i));
     const haut = el('div', {}), grille = el('div', { class: 'sy-grid', role: 'list', 'data-f': 'grille' }), note = el('p', { class: 'sy-msg', role: 'status' });
     const chips = el('div', { class: 'sy-chips', role: 'group', 'aria-label': mot('f.groupe') });
     const q = el('input', { class: 'sy-q', type: 'search', placeholder: mot('q'), 'aria-label': mot('q.nom'), value: Z.q, 'data-f': 'recherche', oninput: (e) => { Z.q = e.target.value; rendreGrille(); } });
     q.value = Z.q;
-    const ajouter = el('button', { type: 'button', class: 'sy-btn pri', 'data-f': 'ajouter', onclick: () => { location.hash = '#app=eitri'; } }, ic('plus', 15), mot('ajouter'));
+    // « Ajouter un système » ouvre le catalogue ici ; le Store complet d'Andromède (tes sources, les index en ligne) reste à un clic.
+    const ajouter = [el('button', { type: 'button', class: 'sy-btn pri', 'data-f': 'catalogue', onclick: () => { void montrer('catalogue', 'retour'); } }, ic('plus', 15), mot('ajouter')),
+      el('button', { type: 'button', class: 'sy-btn', 'data-f': 'ajouter', title: mot('store.aide'), onclick: () => { location.hash = '#app=eitri'; } }, mot('store'), ic('ext', 14))];
     // Les filtres restent les mêmes boutons (seul « aria-pressed » change) : le focus du clavier ne se perd pas.
     const boutonsFiltre = FILTRES.map((f) => el('button', { type: 'button', class: 'sy-chip', 'data-filtre': f, 'aria-pressed': String(Z.filtre === f), onclick: () => { Z.filtre = f; for (const b of boutonsFiltre) b.setAttribute('aria-pressed', String(b.getAttribute('data-filtre') === Z.filtre)); rendreGrille(); } }, mot(`f.${f}`)));
     chips.append(...boutonsFiltre);
     wrap.append(haut, el('section', { class: 'sy-card', 'aria-labelledby': 'sy-titre' }, el('h4', { id: 'sy-titre' }, mot('titre')), el('p', { class: 'sy-lead' }, mot('lead')),
-      el('div', { class: 'sy-tools' }, chips, q, ajouter), note, grille));
+      el('div', { class: 'sy-tools' }, chips, q, ...ajouter), note, grille));
 
     /** Où est le focus dans la grille : { carte, f } (la carte et le bouton), pour le rendre après un nouveau dessin. */
     function focusDansGrille() {
@@ -348,6 +447,161 @@
       armer();
     }
     await redessiner(true);
+    if (focusDepart === 'catalogue') { const n = wrap.querySelector('[data-f="catalogue"]'); if (n && n.focus) n.focus(); }
+  }
+
+  // ---------------------------------------------------------------- le catalogue (lot S2)
+  /** « Ajouter un système » : le catalogue d'Andromède rangé par familles, la version à choisir sur chaque carte,
+   *  « Toutes les versions », PC ou ARM 64, la file de téléchargement (un à la fois) et « à déposer ». Les gestes
+   *  (télécharger, retirer de la file, arrêter) demandent ton accord et passent par Andromède, réservés au propriétaire. */
+  async function dessinerCatalogue(wrap, hote, montrer, focusDepart) {
+    const C = Z.cat;
+    const eitri = (a, i = {}) => postModule('eitri', a, i).catch((e) => ({ ok: false, text: String((e && e.message) || e) }));
+    const retour = el('button', { type: 'button', class: 'sy-btn sy-back', 'data-f': 'retour', onclick: () => { void montrer('biblio', 'catalogue'); } }, ic('left', 15), mot('retour'));
+    const note = el('p', { class: 'sy-msg', role: 'status' }), corps = el('div', { 'data-f': 'catalogue-corps' }), barre = el('div', {});
+    const chips = el('div', { class: 'sy-chips', role: 'group', 'aria-label': mot('c.groupe') });
+    const boutonsFil = FILTRES_CAT.map((f) => el('button', { type: 'button', class: 'sy-chip', 'data-cfiltre': f, 'aria-pressed': String(C.fil === f), onclick: () => { C.fil = f; for (const b of boutonsFil) b.setAttribute('aria-pressed', String(b.getAttribute('data-cfiltre') === C.fil)); rendre(); } }, mot(f === 'autre' ? 'f.autre' : `f.${f}`)));
+    chips.append(...boutonsFil);
+    const q = el('input', { class: 'sy-q', type: 'search', placeholder: mot('c.q'), 'aria-label': mot('c.q.nom'), 'data-f': 'c-recherche', oninput: (e) => { C.q = e.target.value; rendre(); } });
+    q.value = C.q;
+    const arch = el('select', { class: 'sy-sel', 'aria-label': mot('c.arch'), 'data-f': 'c-arch', onchange: (e) => { C.arch = e.target.value === 'arm' ? 'arm' : 'x86_64'; rendre(); } },
+      el('option', { value: 'x86_64' }, mot('c.arch.pc')), el('option', { value: 'arm' }, mot('c.arch.arm')));
+    arch.value = C.arch;
+    const toutes = el('button', { type: 'button', class: 'sy-sw', role: 'switch', 'aria-checked': String(C.toutes), 'data-f': 'c-toutes', onclick: () => { C.toutes = !C.toutes; toutes.setAttribute('aria-checked', String(C.toutes)); rendre(); } }, el('i', { 'aria-hidden': 'true' }), mot('toutes'));
+    // Relire les dernières versions sur les sites officiels (une lecture, rien n'est téléchargé), comme dans le Store.
+    const relireB = el('button', { type: 'button', class: 'sy-btn', 'data-f': 'c-relire', onclick: async () => {
+      relireB.disabled = true; C.msg = mot('c.relire.cours'); C.msgNeuf = true; rendre();
+      const r = await eitri('store', { actualiser: true }); C.msg = r && r.ok !== false ? mot('c.relire.fait') : mot('c.lecture.ko', { raison: (r && r.text) || '?' }); C.msgNeuf = true;
+      relireB.disabled = false; await relire();
+    } }, ic('refresh', 15), mot('c.relire'));
+    wrap.append(retour, el('section', { class: 'sy-card', 'aria-labelledby': 'sy-c-titre', 'data-f': 'catalogue' },
+      el('h4', { id: 'sy-c-titre' }, mot('c.titre')), el('p', { class: 'sy-lead' }, mot('c.lead')),
+      el('div', { class: 'sy-tools' }, chips), el('div', { class: 'sy-tools' }, q, arch, toutes, relireB), note, barre, corps,
+      el('p', { class: 'sy-msg', style: 'margin-top:12px' }, mot('c.note'))));
+
+    const parId = (id) => ((C.data && C.data.entrees) || []).find((e) => e.id === id);
+    function focusIci() {
+      const a = typeof document !== 'undefined' ? document.activeElement : null;
+      if (!a || !corps.contains(a)) return undefined;
+      let x = a; while (x && x !== corps && !(x.getAttribute && x.getAttribute('data-ccarte') != null)) x = x.parentNode;
+      return x && x !== corps ? { carte: x.getAttribute('data-ccarte'), f: a.getAttribute && a.getAttribute('data-f'), v: a.getAttribute && a.getAttribute('data-v') } : undefined;
+    }
+    function rendreFocus(g) {
+      if (!g || !g.carte) return;
+      const k = Array.from(corps.querySelectorAll('[data-ccarte]')).find((n) => n.getAttribute('data-ccarte') === g.carte); if (!k) return;
+      const l = Array.from(k.querySelectorAll('button,a'));
+      const n = l.find((b) => g.f && b.getAttribute('data-f') === g.f && (g.v == null || b.getAttribute('data-v') === g.v)) || l.find((b) => g.f && b.getAttribute('data-f') === g.f) || l.find((b) => b.getAttribute('data-f') === 'c-tel') || l[0];
+      if (n && n.focus) n.focus();
+    }
+    async function geste(e, v, quoi) {
+      const nom = v ? `${e.nom} ${v.version}` : e.nom;
+      if (quoi === 'tel') {
+        const t = v && v.taille ? mot('c.tel.confirme.taille', { taille: taille(v.taille) }) : '';
+        if (!(await W.OdinDialog.confirm(mot('c.tel.confirme', { nom, taille: t })))) return;
+        const r = await eitri('mettre_en_file', { nom: e.id, version: v ? v.version : '' }); C.msg = mot('c.reponse', { texte: (r && r.text) || '?' });
+      } else if (quoi === 'retirer') {
+        if (!(await W.OdinDialog.confirm(mot('c.file.retirer.confirme', { nom })))) return;
+        const r = await eitri('retirer_de_la_file', { nom: e.id, version: v ? v.version : '' }); C.msg = (r && r.text) || '';
+      } else if (quoi === 'arreter') {
+        if (!(await W.OdinDialog.confirm(mot('arreter.confirme', { nom }), { danger: true }))) return;
+        const r = await eitri('annuler', { nom: e.id }); C.msg = (r && r.text) || '';
+      }
+      C.msgNeuf = true;
+      await relire();
+    }
+    async function lireVersions(e) {
+      C.lecture[e.id] = 'charge'; rendre({ carte: e.id, f: 'c-versions' });
+      const r = await eitri('versions', { nom: e.id, actualiser: true });
+      if (r && r.ok !== false && r.data && Array.isArray(r.data.versions)) {
+        delete C.lecture[e.id];
+        const x = parId(e.id); if (x) { x.versions = r.data.versions; if (Array.isArray(r.data.presents)) x.presents = r.data.presents; }
+      } else C.lecture[e.id] = mot('c.lecture.ko', { raison: (r && r.text) || '?' });
+      rendre({ carte: e.id, f: 'c-pill' });
+    }
+    function carteCat(e) {
+      const lettre = (String(e.nom).trim().charAt(0) || '?').toUpperCase();
+      const choisie = versionChoisie(e, C.choix[e.id], C.toutes), montrees = versionsMontrees(e, C.toutes), etat = etatCarte(e, choisie, C.file);
+      const nomV = choisie ? `${e.nom} ${choisie.version}` : e.nom, lect = C.lecture[e.id];
+      const pills = montrees.length ? el('div', { class: 'sy-pills', role: 'group', 'aria-label': mot('c.versions', { nom: e.nom }) }, ...montrees.map((v) => {
+        const canal = v.canal === 'dernière' ? '' : mot(`c.canal.${v.canal}`);
+        return el('button', { type: 'button', class: 'sy-pill', 'data-f': 'c-pill', 'data-v': v.version, 'aria-pressed': String(Boolean(choisie && choisie.version === v.version)), onclick: () => { C.choix[e.id] = v.version; rendre({ carte: e.id, f: 'c-pill', v: v.version }); } }, v.version, canal ? el('span', {}, ` · ${canal}`) : null);
+      })) : (e.manuel ? null : el('p', { class: 'sy-about' }, mot('c.pas.lue')));
+      // Lire les versions sur le site officiel : quand rien n'est lu, ou que « Toutes les versions » est demandé.
+      const aLire = !e.manuel && (!Array.isArray(e.versions) || !e.versions.length) && C.toutes;
+      const lire = aLire ? el('button', { type: 'button', class: 'sy-btn', 'data-f': 'c-versions', 'aria-label': mot('c.voir.versions.nom', { nom: e.nom }), disabled: lect === 'charge', onclick: () => { void lireVersions(e); } }, ic('refresh', 15), lect === 'charge' ? mot('c.lecture') : C.toutes ? mot('c.voir.toutes') : mot('c.voir.versions')) : null;
+      const acts = [];
+      if (etat === 'deposer') {
+        if (e.page) acts.push(el('a', { class: 'sy-btn', 'data-f': 'c-page', href: e.page, target: '_blank', rel: 'noopener noreferrer', 'aria-label': mot('c.page.nom', { nom: e.nom }) }, ic('ext', 15), mot('c.page')));
+        acts.push(el('button', { type: 'button', class: 'sy-btn', 'data-f': 'c-ou', 'aria-label': mot('c.ou.nom', { nom: e.nom }), onclick: () => { void W.OdinDialog.alert(mot('c.ou.texte', { raison: e.manuel, dossier: (C.data && C.data.dossier) || mot('c.ou.sans') }), { title: e.nom }); } }, ic('file', 15), mot('c.ou')));
+      } else if (etat === 'biblio') {
+        acts.push(el('span', { class: 'sy-tag ok' }, ic('check', 12, 3), mot('c.dans')), el('button', { type: 'button', class: 'sy-btn', 'data-f': 'c-voir', 'aria-label': mot('c.voir.nom', { nom: nomV }), onclick: () => { Z.q = String(e.nom).replace(/\s*\(.*\)\s*$/, ''); Z.filtre = 'tout'; void montrer('biblio'); } }, mot('c.voir')));
+      } else if (etat === 'cours') {
+        const f = C.file && C.file.enCours, p = f && f.source === e.id ? f.pct : undefined;
+        acts.push(el('span', { class: 'sy-tag acc', 'data-f': 'c-cours' }, ic('download', 12), f && f.prepare ? mot('c.prepare') : p != null ? mot('c.cours', { pct: pct(p) }) : mot('c.cours.sans')),
+          el('button', { type: 'button', class: 'sy-btn', 'data-f': 'c-arreter', 'aria-label': mot('arreter.nom', { nom: nomV }), onclick: () => { void geste(e, choisie, 'arreter'); } }, ic('x', 15), mot('arreter')));
+      } else if (etat === 'file') {
+        const av = avantDansFile(C.file, e.id, choisie.version);
+        acts.push(el('span', { class: 'sy-tag acc', 'data-f': 'c-enfile' }, ic('clock', 12), av ? mot('c.file', { nom: av }) : mot('c.file', { nom: '…' })),
+          el('button', { type: 'button', class: 'sy-btn', 'data-f': 'c-retirer', 'aria-label': mot('c.file.retirer.nom', { nom: nomV }), onclick: () => { void geste(e, choisie, 'retirer'); } }, mot('c.file.retirer')));
+      } else {
+        acts.push(el('button', { type: 'button', class: 'sy-btn pri', 'data-f': 'c-tel', 'aria-label': mot('c.tel.nom', { nom: nomV }), onclick: () => { void geste(e, choisie, 'tel'); } }, ic('download', 15),
+          !choisie ? mot('c.tel.derniere') : choisie.taille ? mot('c.tel.taille', { taille: taille(choisie.taille) }) : mot('c.tel')));
+      }
+      const sous = [mot(`g.${GROUPES.includes(e.groupe) ? e.groupe : 'autre'}`), e.arch === 'arm64' ? mot('c.arch.arm') : 'x86_64'].join(' · ');
+      return el('div', { class: 'sy-sys', role: 'listitem', 'data-ccarte': e.id, 'data-etat': etat },
+        el('div', { class: 'top' }, el('span', { class: 'sy-mono', style: `background:${couleur({ nom: e.nom, famille: e.groupe })}`, 'aria-hidden': 'true' }, lettre),
+          el('span', { class: 'nm' }, el('b', {}, e.nom), el('small', {}, sous)), e.manuel ? el('span', { class: 'sy-tag warn', 'data-f': 'c-deposer' }, mot('c.deposer')) : null),
+        e.about ? el('p', { class: 'sy-about' }, e.about) : null,
+        e.manuel ? el('p', { class: 'sy-about' }, e.manuel) : null,
+        pills, lect && lect !== 'charge' ? el('p', { class: 'sy-about', role: 'alert' }, lect) : null,
+        el('div', { class: 'sy-catacts' }, ...acts, lire));
+    }
+    function rendre(focus) {
+      const garde = focus || focusIci();
+      note.textContent = C.erreur ? mot('c.erreur', { raison: C.erreur }) : !C.data ? mot('c.charge') : C.msg;
+      if (!C.data) { corps.replaceChildren(); return; }
+      const gs = groupesCatalogue(C.data.entrees, C);
+      corps.replaceChildren(...gs.flatMap((g) => [el('div', { class: 'sy-grp', 'data-groupe': g.groupe }, mot(`g.${g.groupe}`), el('span', { class: 'n' }, nombre(g.cartes.length))),
+        el('div', { class: 'sy-grid', role: 'list' }, ...g.cartes.map(carteCat))]));
+      if (!gs.length) corps.append(el('p', { class: 'sy-msg' }, mot('c.vide')));
+      // La barre du bas : ce qui se télécharge et combien attendent, un à la fois.
+      const f = C.file, n = f && Array.isArray(f.file) ? f.file.length : 0;
+      barre.replaceChildren(...(f && (f.enCours || n) ? [el('div', { class: 'sy-pend', role: 'status', 'data-f': 'c-barre' },
+        el('b', {}, f.enCours ? (n ? mot('c.barre.cours', { nom: f.enCours.nom, version: f.enCours.version, n: nombre(n) }) : mot('c.barre.cours.seul', { nom: f.enCours.nom, version: f.enCours.version })) : mot(n > 1 ? 'c.barre.other' : 'c.barre.one', { n: nombre(n) })),
+        el('button', { type: 'button', class: 'sy-btn', 'data-f': 'c-biblio', onclick: () => { void montrer('biblio'); } }, mot('retour')))] : []));
+      rendreFocus(garde);
+    }
+    let minuteur = 0;
+    const visible = () => { if (!wrap.isConnected) return false; for (let x = wrap; x; x = x.parentNode) if (x.hidden) return false; return true; };
+    function armer() {
+      clearTimeout(minuteur); minuteur = 0;
+      const f = C.file; if (!f || !(f.enCours || (Array.isArray(f.file) && f.file.length))) return;
+      const tic = () => { minuteur = 0; if (!visible()) return; if (typeof document !== 'undefined' && document.hidden) { minuteur = setTimeout(tic, 3000); return; } void relire(); };
+      minuteur = setTimeout(tic, 3000);
+    }
+    /** Ce qui change le dessin (pas l'avancement d'un téléchargement : lui se met à jour sur place). */
+    const signature = () => JSON.stringify([C.erreur, (C.data && C.data.entrees || []).map((e) => [e.id, e.etat, e.presents, e.enFile, e.telecharge, e.versions, e.version, e.taille]),
+      C.file && C.file.file, C.file && C.file.enCours && [C.file.enCours.source, C.file.enCours.version, Boolean(C.file.enCours.prepare)]]);
+    let dessine = '';
+    async function relire() {
+      const [s, f] = await Promise.all([eitri('store', {}), eitri('file', {})]);
+      if (s && s.ok !== false && s.data) {
+        // Les versions lues pendant ce passage sont gardées (le serveur les garde aussi).
+        const avant = C.data; C.data = s.data; C.erreur = '';
+        if (avant) for (const e of C.data.entrees || []) { const a = (avant.entrees || []).find((x) => x.id === e.id); if (a && Array.isArray(a.versions) && !e.versions) e.versions = a.versions; }
+      } else C.erreur = (s && s.text) || '?';
+      C.file = f && f.ok !== false && f.data ? f.data : C.file;
+      // Rien n'a changé sauf l'avancement : seul le pourcentage est réécrit, les cartes restent (ni clic perdu, ni focus bougé).
+      const sig = signature(), e = C.file && C.file.enCours;
+      if (sig === dessine && !C.msgNeuf) {
+        const k = e && Array.from(corps.querySelectorAll('[data-ccarte]')).find((n) => n.getAttribute('data-ccarte') === e.source), t = k && k.querySelector('[data-f="c-cours"]');
+        if (t && e.pct != null) t.lastChild && (t.lastChild.textContent = mot('c.cours', { pct: pct(e.pct) }));
+      } else { dessine = sig; C.msgNeuf = false; rendre(); }
+      armer();
+    }
+    rendre();
+    await relire();
+    if (focusDepart === 'retour') retour.focus && retour.focus();
   }
 
   W.OdinGeneseSystemes = { onglets: [['systemes', MOTS.onglet]], dessiner, MOTS, logique, etat: Z };

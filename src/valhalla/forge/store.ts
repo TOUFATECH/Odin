@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'no
 import { join } from 'node:path';
 import { iconeCategorie, iconeType, logoSysteme, type Fiche } from './bibliotheque.ts';
 import { MOTIF_LOGICIEL } from './logiciels.ts';
-import { cmpVersion, type Fetch, type Kind, type Release, type Source } from './sources.ts';
+import { cmpVersion, type Fetch, type Kind, type Release, type Source, type VersionCatalogue } from './sources.ts';
 
 /** La dernière version vue d'une source (gardée dans les réglages : sert au Store, aux Disponibles et aux Surveillés). */
 export interface Vue { version: string; at: number; taille?: number; sha256?: string; url?: string; erreur?: string }
@@ -32,6 +32,25 @@ export interface EntreeStore {
   etat: 'à télécharger' | 'présent' | 'à jour' | 'nouvelle version' | 'manuel' | 'en cours';
   /** trouvé dans un index en ligne (pas encore au catalogue) */
   enLigne?: { index: 'homebrew' | 'flathub' | 'github'; ref: string; fichier?: string; url?: string; sha256?: string; verifie?: boolean };
+  /** le rangement du catalogue (ISO) : windows, linux, serveur, outil, autre */
+  groupe?: GroupeCatalogue;
+  /** les versions publiées, déjà lues sur le site officiel (une par série) */
+  versions?: VersionCatalogue[];
+  /** les versions qui attendent leur tour dans la file de téléchargement */
+  enFile?: string[];
+  /** la version qui se télécharge en ce moment */
+  telecharge?: string;
+}
+export type GroupeCatalogue = 'windows' | 'linux' | 'serveur' | 'outil' | 'autre';
+/** Le rangement d'une ISO dans le catalogue : Windows, Linux, Serveurs (serveur, hyperviseur, NAS, pare-feu), Outils de
+ *  dépannage, Autres. Pur. */
+export function groupeDe(m: { systeme: string; type: string }, famille: string, nom = ''): GroupeCatalogue {
+  if (famille === 'Outils' || /^(secours|utilitaire)$/.test(m.type)) return 'outil';
+  // Une image d'installation par le réseau, un DVD ou un système à essayer (Debian) reste avec son système, pas avec les serveurs.
+  if (famille === 'Serveur' || /^(hyperviseur|NAS|pare-feu)$/.test(m.type) || (m.type === 'serveur' && !/netinst|dvd|live/i.test(nom))) return 'serveur';
+  if (m.systeme === 'Windows') return 'windows';
+  if (m.systeme === 'Linux') return 'linux';
+  return 'autre';
 }
 
 const plat = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -51,12 +70,14 @@ export function metaDe(src: Source): { systeme: string; arch: string; type: stri
 export const iconeDe = (genre: Kind, o: { systeme: string; nom: string; type: string }): string => (genre === 'iso' ? logoSysteme({ systeme: o.systeme, detail: o.nom }) : iconeCategorie(o.type));
 
 /** Les entrées du catalogue, avec ce qu'on sait d'elles ici (présentes, surveillées, dernière version vue, en cours). Pur. */
-export function entrees(o: { sources: Source[]; presents: Map<string, string[]>; suivis: Set<string>; vues: Record<string, Vue>; enCours: Set<string> }): EntreeStore[] {
+export function entrees(o: { sources: Source[]; presents: Map<string, string[]>; suivis: Set<string>; vues: Record<string, Vue>; enCours: Set<string>; versions?: Record<string, VersionCatalogue[]>; enFile?: Map<string, string[]>; telecharge?: Record<string, string> }): EntreeStore[] {
   return o.sources.map((src) => {
     const m = metaDe(src), v = o.vues[src.id], la = [...(o.presents.get(src.id) ?? [])].sort((a, b) => cmpVersion(b, a)), derniere = v?.erreur ? undefined : v?.version;
     const etat: EntreeStore['etat'] = o.enCours.has(src.id) ? 'en cours' : la.length ? (derniere ? (cmpVersion(derniere, la[0]) > 0 ? 'nouvelle version' : 'à jour') : 'présent') : src.manual ? 'manuel' : 'à télécharger';
     return { id: src.id, nom: src.name, genre: src.kind, famille: src.family, ...m, about: src.about, page: src.page, icone: iconeDe(src.kind, { systeme: m.systeme, nom: src.name, type: m.type }), ...(src.manual ? { manuel: src.manual } : {}),
-      ...(derniere ? { version: derniere, vuLe: v!.at } : {}), ...(v?.taille ? { taille: v.taille } : {}), presents: la, surveille: o.suivis.has(src.id), etat };
+      ...(derniere ? { version: derniere, vuLe: v!.at } : {}), ...(v?.taille ? { taille: v.taille } : {}), presents: la, surveille: o.suivis.has(src.id), etat,
+      ...(src.kind === 'iso' ? { groupe: groupeDe(m, src.family, src.name) } : {}), ...(o.versions?.[src.id]?.length ? { versions: o.versions[src.id] } : {}),
+      ...(o.enFile?.get(src.id)?.length ? { enFile: o.enFile.get(src.id) } : {}), ...(o.telecharge?.[src.id] ? { telecharge: o.telecharge[src.id] } : {}) };
   });
 }
 export interface Filtre { q?: string; systeme?: string; famille?: string; arch?: string; type?: string }

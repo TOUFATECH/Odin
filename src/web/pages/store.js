@@ -63,7 +63,8 @@
     // La page générique a changé de forme : on la laisse faire.
     if (!noms.includes('Store') || generic.length !== secs.length) return false;
     if (!document.getElementById('stCss')) document.head.append(el('style', { id: 'stCss' }, CSS));
-    const S = etats[module] ?? (etats[module] = { tab: 'Store', q: '', systeme: '', type: '', arch: '', famille: '', enligne: false });
+    const S = etats[module] ?? (etats[module] = { tab: 'Store', q: '', systeme: '', type: '', arch: '', famille: '', enligne: false, choix: {} });
+    S.choix = S.choix ?? {};
     if (!noms.includes(S.tab)) S.tab = 'Store';
     // Tout appel porte un délai maximal (jamais de barre de chargement sans fin) et rend un message propre si Odin est injoignable.
     const post = async (action, input = {}, confirm = false, ms = 60000) => {
@@ -79,8 +80,22 @@
     const dansOnglet = (nom) => secs.map((s, i) => [s, generic[i]]).filter(([s]) => (s.onglet ?? noms[0]) === nom);
     let donnees = null, timer = 0;
 
+    // La version choisie sur une carte (lot S2) : celles lues sur le site officiel ; la première est la dernière publiée.
+    const choisie = (e) => { const l = e.versions ?? []; return l.find((v) => v.version === S.choix[e.id])?.version ?? l[0]?.version ?? ''; };
+    const versionsCarte = (e) => {
+      if (e.enLigne || e.manuel) return null;
+      const l = e.versions ?? [];
+      if (l.length > 1) return el('label', { class: 'st-chk' }, 'Version', el('select', { 'aria-label': `Version de ${e.nom}`, onchange: (ev) => { S.choix[e.id] = ev.target.value; montrer(); } }, ...l.map((v) => el('option', { value: v.version, selected: v.version === choisie(e) }, `${v.version}${v.canal === 'dernière' ? '' : ` · ${v.canal}`}`))));
+      return l.length ? null : el('button', { class: 'st-btn', type: 'button', onclick: () => voirVersions(e) }, 'Voir les versions');
+    };
+    async function voirVersions(e) {
+      const r = await post('versions', { nom: e.id, actualiser: true });
+      if (r.ok !== false && Array.isArray(r.data?.versions)) { e.versions = r.data.versions; if (r.data.versions.length < 2) note({ ok: true, text: `${e.nom} : seule la dernière version est publiée.` }); } else note(r);
+      montrer();
+    }
     const cartes = (l) => l.length ? el('div', { class: 'st-grid' }, ...l.map((e) => {
-      const enLigne = e.enLigne, peut = !e.manuel && e.etat !== 'en cours';
+      const enLigne = e.enLigne, v = choisie(e), derniere = e.versions?.[0]?.version, autre = Boolean(v && derniere && v !== derniere), enFile = Boolean(v && e.enFile?.includes(v));
+      const peut = !e.manuel && e.etat !== 'en cours' && !enFile && !(v && e.telecharge === v);
       const etat = el('span', { class: `st-chip${e.etat === 'à jour' ? ' ok' : e.etat === 'nouvelle version' || e.etat === 'en cours' ? ' new' : ''}` }, e.surveille && e.etat === 'à télécharger' ? 'surveillé' : e.etat);
       return el('div', { class: 'st-c' }, el('img', { src: e.icone, alt: '', width: '44', height: '44' }),
         el('div', { class: 't' }, el('b', {}, e.nom),
@@ -88,9 +103,13 @@
           e.about ? el('small', {}, e.about) : null,
           e.presents?.length ? el('small', {}, `Dans ton dossier : ${e.presents.join(', ')}`) : null,
           e.manuel ? el('small', {}, e.manuel) : null,
-          el('div', { class: 'a' }, etat, enLigne ? el('span', { class: 'st-chip web' }, `${e.famille}${enLigne.verifie ? ' · vérifié par l\'éditeur' : ''}`) : null, e.surveille && e.etat !== 'à télécharger' ? el('span', { class: 'st-chip' }, 'surveillé') : null),
+          e.manuel && donnees?.dossier ? el('small', {}, `À déposer : télécharge-le sur la page officielle, puis dépose-le dans ${donnees.dossier}`) : null,
+          versionsCarte(e),
+          el('div', { class: 'a' }, etat, enLigne ? el('span', { class: 'st-chip web' }, `${e.famille}${enLigne.verifie ? ' · vérifié par l\'éditeur' : ''}`) : null, e.surveille && e.etat !== 'à télécharger' ? el('span', { class: 'st-chip' }, 'surveillé') : null,
+            enFile ? el('span', { class: 'st-chip new' }, `${v} en file · un à la fois`) : null, e.manuel ? el('span', { class: 'st-chip new' }, 'à déposer') : null),
           el('div', { class: 'a' },
-            peut ? el('button', { class: 'st-btn pri', type: 'button', onclick: () => telecharger(e) }, e.presents?.length ? 'Retélécharger' : 'Télécharger') : null,
+            peut ? el('button', { class: 'st-btn pri', type: 'button', onclick: () => (autre ? enFileAjouter(e, v) : telecharger(e)) }, autre ? (e.presents?.includes(v) ? `Retélécharger ${v}` : `Télécharger ${v}`) : e.presents?.length ? 'Retélécharger' : 'Télécharger') : null,
+            enFile ? el('button', { class: 'st-btn', type: 'button', onclick: async () => { const r = await act('retirer_de_la_file', { nom: e.id, version: v }); note(r); await lire(); } }, 'Retirer de la file') : null,
             e.page ? el('a', { class: 'st-btn', href: e.page, target: '_blank', rel: 'noopener noreferrer' }, 'Page officielle') : null)));
     })) : el('p', { class: 'st-vide' }, 'Rien ne correspond. Essaie un autre mot, retire un filtre, ou cherche aussi dans les index en ligne.');
 
@@ -107,6 +126,11 @@
       if (r.ok === false) note(r);
       montrer();
     };
+    /** Une version choisie (pas la dernière) : elle rejoint la file de téléchargement d'Andromède, un à la fois. */
+    async function enFileAjouter(e, v) {
+      if (!(await window.OdinDialog.confirm(`Télécharger ${e.nom} ${v} depuis le site officiel ? L'empreinte publiée par l'éditeur est vérifiée ; il attend son tour si un autre téléchargement est en cours.`))) return;
+      const r = await act('mettre_en_file', { nom: e.id, version: v }); note(r); await lire();
+    }
     /** Télécharge une entrée : la barre au centre, avec l'avancement lu dans « Surveillés ». */
     async function telecharger(e) {
       const c = charge(`Je télécharge ${e.nom}…`); c.maj({ detail: 'depuis le dépôt officiel · antivirus d\'abord, puis rangé et surveillé' });
