@@ -8,6 +8,7 @@
 // PURS — ils prennent la sortie figée d'une commande et rendent la liste des disques, sans rien lancer. Pour
 // les essais, une « source simulée » rend une fausse liste : jamais un vrai disque n'est touché.
 
+import { homedir } from 'node:os';
 import { ARGS_BITLOCKER, bitLockerPourGenese, lireBitLocker, type SortieBitLocker } from '../../securite/disque-chiffre.ts';
 
 /** Le genre d'un disque, deviné par le bus et la taille (pour l'icône de la page, façon Utilitaire de disque). */
@@ -43,6 +44,9 @@ export interface Disque {
   /** le chemin du périphérique (/dev/sda, \\.\PhysicalDrive0…) */
   chemin: string;
   modele?: string;
+  /** le numéro de série donné par le disque (lsblk « serial », Get-Disk « SerialNumber »), s'il est lisible : il sert à
+   *  reconnaître la MÊME clé quand on la débranche puis la rebranche, et montré (ses derniers caractères) dans le garde-fou */
+  serie?: string;
   tailleOctets: number;
   genre: Genre;
   /** vrai : disque externe (clé, disque externe, carte) ; faux : disque interne du PC */
@@ -63,6 +67,67 @@ export interface Disque {
 export interface Disques { externes: Disque[]; internes: Disque[] }
 
 const KILO = 1024;
+
+/**
+ * Un numéro de série lisible, ou rien. Pur. Les commandes rendent parfois des espaces autour, des points, des
+ * caractères de contrôle, ou un faux numéro (que des zéros, des « F », des tirets) que plusieurs clés partagent :
+ * un tel numéro ne prouve rien, il est ignoré (jamais un faux « c'est la même clé »).
+ */
+export function serieLisible(brut: unknown): string | undefined {
+  if (typeof brut !== 'string') return undefined;
+  // Caractères de contrôle ET invisibles (sens d'écriture U+202E, espaces de largeur nulle) : jamais montrés ni comparés.
+  const s = brut.replace(/[\p{Cc}\p{Cf}]+/gu, '').trim().replace(/\.+$/, '').trim();
+  if (s.length < 4 || s.length > 64) return undefined;
+  const utile = s.replace(/[\s_.:-]+/g, '');
+  if (utile.length < 4 || /^0+$/.test(utile) || /^f+$/i.test(utile)) return undefined;
+  return s;
+}
+
+/**
+ * Vrai : ce disque peut être choisi pour devenir une clé ODIN (étape « Clé »). Pur. Seuls les disques branchés de
+ * l'extérieur (USB, carte) et retirables ; JAMAIS un disque interne, JAMAIS le disque d'où tourne le système, même
+ * s'il est branché en USB. Une demande directe pour un autre disque est refusée par la même règle.
+ */
+export function choisissable(d: Pick<Disque, 'externe' | 'amovible' | 'systemeEnCours'> | undefined | null): boolean {
+  return Boolean(d && d.externe === true && d.amovible === true && !d.systemeEnCours);
+}
+/** Vrai seulement pour un « oui » franc : true, 1, « 1 », « true ». Un ancien lsblk rend « 0 » en texte : « 0 » est faux. Pur. */
+const vrai = (x: unknown): boolean => x === true || x === 1 || (typeof x === 'string' && /^(1|true)$/i.test(x.trim()));
+
+/**
+ * Les points de montage qui disent « le système tourne depuis ce disque » (Linux) : la racine et le démarrage, les
+ * dossiers du système montés à part, la mémoire d'échange en service, et le support d'où démarre un système « live »
+ * (sa racine est en mémoire : seule la clé montée sous /run/live/medium, /cdrom… la trahit).
+ */
+const MONTAGES_SYSTEME = new Set(['/', '/boot', '/boot/efi', '/efi', '/boot/firmware', '/usr', '/var', '/home', '/opt', '[SWAP]',
+  '/cdrom', '/isodevice', '/run/archiso/bootmnt', '/run/initramfs/live', '/run/initramfs/isoscan', '/run/miso/bootmnt']);
+const montageSysteme = (m: string) => MONTAGES_SYSTEME.has(m) || /^\/(run\/live|lib\/live\/mount)\//.test(m);
+/** Vrai : ce point de montage contient un chemin vital (le programme d'Odin, son dossier, celui de l'utilisateur). Pur. */
+const porteVital = (montage: string, vitaux: readonly string[]) => {
+  if (!montage.startsWith('/')) return false;
+  const m = montage.endsWith('/') ? montage : `${montage}/`;
+  return vitaux.some((v) => v === montage || v.startsWith(m));
+};
+/** Les lettres de lecteur (Windows) des chemins vitaux : « e:\Odin » → « E ». Pur. */
+const lettresVitales = (vitaux: readonly string[]) => new Set(vitaux.map((v) => /^([a-z]):/i.exec(v)?.[1]?.toUpperCase()).filter((x): x is string => Boolean(x)));
+/**
+ * Les chemins dont Odin a besoin pour tourner : son programme, son dossier de travail, son dossier de données et celui
+ * de l'utilisateur. Le disque qui en porte un est traité comme le disque du système (jamais proposé).
+ */
+export function cheminsVitaux(): string[] {
+  let maison: string | undefined;
+  try { maison = homedir(); } catch { /* pas de dossier personnel */ }
+  return [process.execPath, process.cwd(), process.env.ODIN_HOME, maison].filter((x): x is string => typeof x === 'string' && x.length > 0);
+}
+/** Un même numéro de série sur deux disques branchés ne prouve rien : il est retiré des deux. */
+function oterSeriesEnDouble(disques: Disque[]): Disque[] {
+  const cle = (s: string) => s.toUpperCase();
+  const compte = new Map<string, number>();
+  for (const d of disques) if (d.serie) compte.set(cle(d.serie), (compte.get(cle(d.serie)) ?? 0) + 1);
+  for (const d of disques) if (d.serie && (compte.get(cle(d.serie)) ?? 0) > 1) delete d.serie;
+  return disques;
+}
+
 /** Un identifiant stable et lisible tiré du chemin du disque. Pur. */
 const idDe = (chemin: string) => chemin.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'disque';
 
@@ -100,8 +165,8 @@ export function chiffrementDe(fstype: string | undefined, type: string | undefin
 
 // ---------------- Linux : lsblk -J -O -b ----------------
 interface LsblkNode {
-  name?: string; path?: string; type?: string; size?: number | string; model?: string; serial?: string;
-  tran?: string; rm?: boolean; hotplug?: boolean; ro?: boolean; label?: string; fstype?: string;
+  name?: string; path?: string; type?: string; size?: number | string; model?: string; serial?: string | null;
+  tran?: string | null; rm?: boolean | string | number; hotplug?: boolean | string | number; ro?: boolean | string; label?: string; fstype?: string;
   fsused?: number | string; mountpoint?: string | null; mountpoints?: Array<string | null>; pkname?: string | null;
   children?: LsblkNode[];
 }
@@ -111,13 +176,16 @@ const nombre = (x: number | string | undefined): number => (typeof x === 'number
  * Lit la sortie JSON de `lsblk -J -O -b` (Linux) et rend la liste des disques. Pur.
  * Un disque branché en USB (tran=usb) ou amovible (rm=1) est « externe » ; les cartes SD (tran=sd/mmc) aussi.
  */
-export function parseLsblk(json: string, racineSysteme?: string): Disque[] {
+export function parseLsblk(json: string, racineSysteme?: string, vitaux: readonly string[] = []): Disque[] {
   let root: { blockdevices?: LsblkNode[] };
   try { root = JSON.parse(json); } catch { return []; }
   const out: Disque[] = [];
   for (const d of root.blockdevices ?? []) {
     if (d.type !== 'disk' && d.type !== 'loop') continue;
-    const bus = d.tran ?? undefined, amovible = Boolean(d.rm) || Boolean(d.hotplug) || bus === 'usb' || bus === 'sd';
+    // « Branchable à chaud » (HOTPLUG) ne veut PAS dire externe : un disque SATA interne l'est souvent. Seuls le bus USB,
+    // une carte mémoire, ou le drapeau « amovible » (RM) font un disque externe ; « 0 » en texte vaut faux.
+    const bus = typeof d.tran === 'string' && d.tran.trim() ? d.tran.trim().toLowerCase() : undefined;
+    const amovible = vrai(d.rm) || bus === 'usb' || bus === 'sd' || bus === 'mmc';
     const taille = nombre(d.size);
     const parts: Partition[] = [];
     let systemeEnCours = false;
@@ -125,7 +193,7 @@ export function parseLsblk(json: string, racineSysteme?: string): Disque[] {
       for (const c of n.children ?? []) {
         if (c.type === 'crypt') { chercherParts(c); continue; }
         const montages = (c.mountpoints ?? [c.mountpoint ?? null]).filter(Boolean) as string[];
-        if (montages.includes('/') || montages.includes('/boot') || montages.includes('/boot/efi')) systemeEnCours = true;
+        if (montages.some((m) => montageSysteme(m) || porteVital(m, vitaux))) systemeEnCours = true;
         const chiffre = chiffrementDe(c.fstype, c.type);
         const p: Partition = {
           nom: c.name ?? '', ...(c.label ? { label: c.label } : {}), ...(c.fstype ? { fs: c.fstype } : {}),
@@ -141,40 +209,51 @@ export function parseLsblk(json: string, racineSysteme?: string): Disque[] {
     chercherParts(d);
     const chemin = d.path ?? `/dev/${d.name ?? ''}`;
     if (racineSysteme && chemin === racineSysteme) systemeEnCours = true;
+    const serie = serieLisible(d.serial);
     const dis: Disque = {
-      id: idDe(chemin), chemin, ...(d.model ? { modele: d.model.trim() } : {}), tailleOctets: taille,
+      id: idDe(chemin), chemin, ...(d.model ? { modele: d.model.trim() } : {}), ...(serie ? { serie } : {}), tailleOctets: taille,
       genre: genreDisque(bus, amovible, taille), externe: amovible, ...(bus ? { bus } : {}), amovible,
       ...(systemeEnCours ? { systemeEnCours: true } : {}), partitions: parts,
     };
     if (parts.some((p) => p.label?.toUpperCase() === 'ODIN')) dis.estOdin = true;
     out.push(dis);
   }
-  return out;
+  return oterSeriesEnDouble(out);
 }
 
 // ---------------- Windows : Get-Disk / Get-Partition / Get-Volume / BitLocker (Win32_EncryptableVolume) ----------------
 /** Ce qu'Odin ramasse côté Windows (chaque commande rendue en JSON, réunies dans un objet). */
 export interface SortieWindows {
-  disks: Array<{ Number: number; FriendlyName?: string; Model?: string; Size?: number; BusType?: string; IsBoot?: boolean; IsSystem?: boolean; Path?: string }>;
+  disks: Array<{ Number: number; FriendlyName?: string; Model?: string; SerialNumber?: string | null; Size?: number; BusType?: string; IsBoot?: boolean; IsSystem?: boolean; Path?: string }>;
   partitions: Array<{ DiskNumber: number; PartitionNumber: number; DriveLetter?: string | null; Size?: number; Type?: string; GptType?: string; IsBoot?: boolean; IsSystem?: boolean }>;
   volumes: Array<{ DriveLetter?: string | null; FileSystem?: string | null; FileSystemLabel?: string | null; Size?: number; SizeRemaining?: number }>;
   /** BitLocker par lettre de lecteur (lecture de securite/disque-chiffre.ts, déjà réduite) : vrai, faux, ou « inconnu » si elle n'a pas pu se faire */
   bitlocker?: Record<string, boolean | 'inconnu'>;
 }
 const BUS_WIN: Record<string, string> = { USB: 'usb', SATA: 'sata', NVMe: 'nvme', RAID: 'raid', SAS: 'sas', ATA: 'sata', SD: 'sd', MMC: 'sd', 'File Backed Virtual': 'virtuel' };
+/** Le bus rendu en nombre (MSFT_Disk.BusType) si la commande le donne ainsi : 7 = USB, 12 = SD, 13 = MMC… */
+const BUS_WIN_NUM: Record<number, string> = { 1: 'scsi', 2: 'atapi', 3: 'sata', 4: '1394', 6: 'fibre', 7: 'usb', 8: 'raid', 9: 'iscsi', 10: 'sas', 11: 'sata', 12: 'sd', 13: 'sd', 14: 'virtuel', 15: 'virtuel', 16: 'espaces', 17: 'nvme' };
+const busWindows = (b: unknown): string | undefined => {
+  if (typeof b === 'number') return BUS_WIN_NUM[b];
+  const t = typeof b === 'string' ? b.trim() : '';
+  return BUS_WIN[t] ?? (t.toLowerCase() || undefined);
+};
 
 /** Lit les sorties de Get-Disk/Get-Partition/Get-Volume (+ BitLocker) et rend la liste des disques. Pur. */
-export function parseGetDisk(w: SortieWindows): Disque[] {
+export function parseGetDisk(w: SortieWindows, vitaux: readonly string[] = []): Disque[] {
+  const lettresOdin = lettresVitales(vitaux);
   const volParLettre = new Map<string, SortieWindows['volumes'][number]>();
   for (const v of w.volumes ?? []) if (v.DriveLetter) volParLettre.set(String(v.DriveLetter).toUpperCase(), v);
   const out: Disque[] = [];
   for (const d of w.disks ?? []) {
-    const bus = BUS_WIN[d.BusType ?? ''] ?? ((d.BusType ?? '').toLowerCase() || undefined);
+    const bus = busWindows(d.BusType);
+    let vital = false;
     const amovible = bus === 'usb' || bus === 'sd';
     const taille = Number(d.Size) || 0;
     const parts: Partition[] = [];
     for (const p of (w.partitions ?? []).filter((x) => x.DiskNumber === d.Number)) {
       const lettre = p.DriveLetter ? String(p.DriveLetter).toUpperCase() : '';
+      if (lettre && lettresOdin.has(lettre)) vital = true;
       const v = lettre ? volParLettre.get(lettre) : undefined;
       const gpt = (p.GptType ?? '').toLowerCase(), type = (p.Type ?? '').toLowerCase();
       const efi = type === 'system' || /c12a7328-f81f-11d2-ba4b-00a0c93ec93b/.test(gpt);
@@ -198,15 +277,16 @@ export function parseGetDisk(w: SortieWindows): Disque[] {
       parts.push(part);
     }
     const chemin = d.Path ?? `\\\\.\\PhysicalDrive${d.Number}`;
+    const serie = serieLisible(d.SerialNumber);
     const dis: Disque = {
-      id: idDe(`physicaldrive${d.Number}`), chemin, ...(d.FriendlyName || d.Model ? { modele: (d.FriendlyName ?? d.Model ?? '').trim() } : {}),
+      id: idDe(`physicaldrive${d.Number}`), chemin, ...(d.FriendlyName || d.Model ? { modele: (d.FriendlyName ?? d.Model ?? '').trim() } : {}), ...(serie ? { serie } : {}),
       tailleOctets: taille, genre: genreDisque(bus, amovible, taille), externe: amovible, ...(bus ? { bus } : {}), amovible,
-      ...(d.IsBoot || d.IsSystem ? { systemeEnCours: true } : {}), partitions: parts,
+      ...(vrai(d.IsBoot) || vrai(d.IsSystem) || vital ? { systemeEnCours: true } : {}), partitions: parts,
     };
     if (parts.some((p) => p.label?.toUpperCase() === 'ODIN')) dis.estOdin = true;
     out.push(dis);
   }
-  return out;
+  return oterSeriesEnDouble(out);
 }
 
 /** Range les disques en « externes » et « internes » (l'ordre : d'abord le genre, puis le modèle). Pur. */
@@ -237,14 +317,14 @@ export type Lanceur = (cmd: string, args: string[]) => Promise<string>;
  * Rien n'est écrit. Les commandes sont passées par un « lanceur » (injecté), jamais appelées en dur ici, pour
  * que ce module reste testable sans toucher au système.
  */
-export function sourceReelle(plateforme: NodeJS.Platform, lancer: Lanceur, racineSysteme?: string): SourceDisques {
+export function sourceReelle(plateforme: NodeJS.Platform, lancer: Lanceur, racineSysteme?: string, vitaux: readonly string[] = cheminsVitaux()): SourceDisques {
   return {
     async lister(): Promise<Disque[]> {
       if (plateforme === 'win32') {
         const ps = async (expr: string) => { try { return await lancer('powershell', ['-NoProfile', '-NonInteractive', '-Command', `${expr} | ConvertTo-Json -Depth 3 -Compress`]); } catch { return '[]'; } };
         const lire = <T,>(t: string): T[] => { try { const v = JSON.parse(t || '[]'); return Array.isArray(v) ? v : [v]; } catch { return []; } };
         const w: SortieWindows = {
-          disks: lire(await ps('Get-Disk | Select-Object Number,FriendlyName,Model,Size,BusType,IsBoot,IsSystem,Path')),
+          disks: lire(await ps('Get-Disk | Select-Object Number,FriendlyName,Model,SerialNumber,Size,BusType,IsBoot,IsSystem,Path')),
           partitions: lire(await ps('Get-Partition | Select-Object DiskNumber,PartitionNumber,DriveLetter,Size,Type,GptType,IsBoot,IsSystem')),
           volumes: lire(await ps('Get-Volume | Select-Object DriveLetter,FileSystem,FileSystemLabel,Size,SizeRemaining')),
         };
@@ -254,10 +334,10 @@ export function sourceReelle(plateforme: NodeJS.Platform, lancer: Lanceur, racin
         try { bl = lireBitLocker(await lancer('powershell', [...ARGS_BITLOCKER])); } catch { /* lecture impossible : inconnu */ }
         const lettres = new Set([...w.volumes, ...w.partitions].map((x) => String(x.DriveLetter ?? '').toUpperCase()).filter((l) => /^[A-Z]$/.test(l)));
         w.bitlocker = Object.fromEntries([...lettres].map((l) => [l, bitLockerPourGenese(bl.parLettre[l])]));
-        return parseGetDisk(w);
+        return parseGetDisk(w, vitaux);
       }
       let json = '[]'; try { json = await lancer('lsblk', ['-J', '-O', '-b']); } catch { /* lsblk absent */ }
-      return parseLsblk(json, racineSysteme);
+      return parseLsblk(json, racineSysteme, vitaux);
     },
   };
 }
