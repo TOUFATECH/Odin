@@ -121,10 +121,12 @@ const MESSAGE = String.raw`(?:'(?:[^'\\\n]|\\.)+'|"(?:[^"\\\n]|\\.)+"|\`(?:[^\`\
 
 test('accueil gardé : la tête, sa date, et le bouton « Vérifier » (#homeCheck) qui lance la vérification watch_now', () => {
   const v = vueDeDepart();
-  assert.match(v, /class="head"/, 'la vue a sa tête');
+  // Lot 19 : la tête devient le bandeau du haut (classe « head bandeau ») ; la date est écrite par renderToday, avec le salut.
+  assert.match(v, /class="head(?: [^"]*)?"/, 'la vue a sa tête');
   assert.match(v, /<h1>[^<]+<\/h1>/, 'la tête a un titre (son mot n\'est pas figé)');
   assert.match(v, /id="homeSub"/, 'la ligne sous le titre existe');
-  assert.match(home(), /\$\('#homeSub'\)\.textContent = new Date\(\)\.toLocaleDateString\(/, 'renderHome y écrit la date du jour');
+  assert.match(today(), /const jour = new Date\(\)\.toLocaleDateString\(/, 'renderToday lit la date du jour');
+  assert.match(today(), /el\('span', \{ id: 'homeSub' \}, jour\b/, 'et l\'écrit sous le salut (#homeSub)');
   assert.match(v, /<button[^>]*type="button"[^>]*id="homeCheck"/, 'le bouton « Vérifier » est dans la tête de la vue');
   const geste = apres(UI, '$(\'#homeCheck\').addEventListener(', 'ui.html, geste de « Vérifier »');
   assert.match(geste, /^\$\('#homeCheck'\)\.addEventListener\('click'/, 'il réagit au clic');
@@ -160,13 +162,18 @@ test('accueil gardé : le salut selon l\'heure, avec la mascotte, et sa phrase v
   assert.match(t, /\$\('#todayBox'\)/, 'renderToday dessine dans #todayBox');
   assert.match(t, /new Date\(\)\.getHours\(\)/, 'le salut dépend de l\'heure');
   assert.match(t, /class: 'greet'/, 'le salut est dessiné');
-  const hello = blocDuJour('hello');
+  // Lot 19 : le salut n'est plus posé dans #todayBox mais dans le bandeau du haut (#homeHello, dans la tête de la vue).
+  assert.match(vueDeDepart(), /<div class="head[^"]*"[^>]*><div class="hello" id="homeHello">/, 'la place du salut est dans la tête de la vue');
+  assert.equal(t.split('const hello = ').length - 1, 1, 'renderToday définit hello, une seule fois');
+  assert.match(t, /\$\('#homeHello'\)\.replaceChildren\(hello\)/, 'renderToday pose le salut dans le bandeau');
+  const hello = t.slice(t.indexOf('const hello = '), t.indexOf('$(\'#homeHello\').replaceChildren(hello)'));
   assert.match(hello, /^const hello = el\('div', \{ class: 'greet' \}/, 'le bloc posé est bien le salut');
   assert.match(hello, /buddyClone\(/, 'avec la mascotte');
   const phrase = hello.slice(hello.indexOf('class: \'greet\''));
   avant(phrase, 'grave ?', 'waiting ?', 'la phrase dit d\'abord les problèmes graves, puis ce qui attend');
   avant(phrase, 'waiting ?', 'live.length ?', 'puis les tâches en cours, sinon le calme');
-  assert.match(t, /const waiting = pending\.size \+ todoItems\.length/, 'ce qui attend : validations et choses à faire, comptées pour de vrai');
+  // Relecture du lot 19 : les validations ont déjà leur ligne dans « À faire » ; elles ne sont plus comptées deux fois.
+  assert.match(t, /const waiting = pending\.size \+ Math\.max\(0, todoItems\.length - \(pending\.size \? 1 : 0\)\)/, 'ce qui attend : validations et choses à faire, comptées pour de vrai (une seule fois)');
   assert.match(UI, /\brenderToday\(items, live\)/, 'renderHome passe les choses à faire et les tâches en cours au salut');
 });
 

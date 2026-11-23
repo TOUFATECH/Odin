@@ -825,7 +825,43 @@ h2{font-weight:600}.kpi b{font-weight:600}
 .ffilter{display:flex;gap:6px}.ffilter button{border:1px solid var(--line);background:none;border-radius:999px;min-height:30px;padding:0 10px;font-size:13px;color:var(--muted)}.ffilter button[aria-pressed=true]{border-color:var(--accent);color:var(--ink)}
 @media (max-width:860px){.today-cols{grid-template-columns:1fr}}
 @media (max-width:640px){.ctrls{grid-template-columns:1fr}.guesses{grid-template-columns:1fr}.fitem{grid-template-columns:44px 1fr auto}}
-@media (max-width:700px){#v-home > .head{display:none}}
+/* Le bandeau du haut de l'accueil : le salut et la phrase vraie, la recherche (Ctrl K), le plein écran, la cloche (le
+   vrai nombre : validations en attente et problèmes graves) et « Vérifier ». Visible aussi sur téléphone. Rien d'écrit
+   en dur : sans rien à voir, la cloche n'a ni nombre ni point. */
+#v-home>.bandeau{flex-wrap:nowrap;justify-content:flex-start;gap:10px 12px}
+#v-home>.bandeau>.hello{display:block;min-width:0;flex:0 1 auto;text-align:left}
+#v-home>.bandeau .greet,#v-home>.bandeau .greet-x{min-width:0}
+#v-home>.bandeau h1{display:block;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#v-home>.bandeau .sub{display:block;margin-top:2px;color:var(--muted);font-size:var(--fs-s);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#v-home>.bandeau .perch{flex:1 1 0;min-width:16px;align-self:stretch}
+#v-home>.bandeau>.hacts{display:flex;flex-wrap:nowrap;width:auto;gap:8px;flex:none}
+#v-home>.bandeau .bd-search{width:min(340px,30vw);justify-content:flex-start;padding:0 8px 0 13px}
+#v-home>.bandeau .bd-search .hl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left}
+#v-home>.bandeau .bd-search kbd{flex:none;font:600 11px/1 var(--body);padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--muted)}
+#v-home>.bandeau .bd-ic,#v-home>.bandeau .pe-btn{width:38px;padding:0;justify-content:center;position:relative;flex:none}
+#v-home>.bandeau .bd-ic .hl,#v-home>.bandeau .pe-btn .hl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+#v-home>.bandeau .bd-n{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;line-height:18px;text-align:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--bg)}
+#v-home>.bandeau .bd-n.grave{background:var(--bad);color:#fff}
+#v-home>.bandeau .bd-n[hidden]{display:none}
+@media (max-width:1100px){#v-home>.bandeau .bd-search kbd{display:none}}
+@media (max-width:860px){
+  #v-home>.bandeau{flex-wrap:wrap}
+  #v-home>.bandeau>.hello{flex:1 1 100%}
+  #v-home>.bandeau .bd-search .hl,#v-home>.bandeau #homeCheck .hl{display:inline}
+  #v-home>.bandeau #homeCheck{flex:none;padding:0 12px}
+  #v-home>.bandeau .perch{display:none}
+  #v-home>.bandeau>.hacts{width:100%}
+  #v-home>.bandeau .hbtn{height:44px}
+  #v-home>.bandeau .bd-search{flex:1 1 auto;width:auto;min-width:0}
+  #v-home>.bandeau .bd-tape{display:none}
+  #v-home>.bandeau .sub{white-space:normal}
+  #v-home>.bandeau .bd-ic,#v-home>.bandeau .pe-btn{width:44px}
+}
+/* Téléphone étroit : la recherche prend sa ligne entière, pour que « Demande à Odin » se lise en entier. */
+@media (max-width:480px){
+  #v-home>.bandeau>.hacts{flex-wrap:wrap}
+  #v-home>.bandeau .bd-search{flex:1 1 100%}
+}
 .snavrow{display:flex;align-items:center;gap:8px;background:var(--bg);border-bottom:1px solid var(--line);padding-right:16px}.snavrow .snav{flex:1;min-width:0;border-bottom:0}.snavrow .sall-btn{flex:none}
 /* Maison */
 .hstate{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);margin-bottom:14px;flex-wrap:wrap}
@@ -1229,8 +1265,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   <main>
     <div id="updBanner" class="updbar" hidden></div>
     <section class="view on" id="v-home" aria-label="Accueil">
-      <div class="head"><div><h1>Accueil</h1><div class="sub" id="homeSub">Ce qui compte maintenant.</div></div>
-        <div class="hacts"><button class="hbtn" type="button" id="homeCheck" title="Vérifier maintenant les appareils importants, les disques et les certificats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="hl">Vérifier</span></button></div></div>
+      <div class="head bandeau" id="homeBandeau"><div class="hello" id="homeHello"><h1>Accueil</h1><div class="sub" id="homeSub">Ce qui compte maintenant.</div></div><span class="perch" aria-hidden="true"></span>
+        <div class="hacts" id="homeActs"><button class="hbtn bd-search" type="button" id="homeSearch" aria-haspopup="dialog" aria-controls="palette" aria-keyshortcuts="Control+K" title="Chercher un écran, un réglage, ou demander à Odin (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span class="hl">Demande à Odin<span class="bd-tape">, ou tape /</span></span><kbd>Ctrl K</kbd></button><button class="hbtn bd-ic" type="button" id="homeBell" aria-label="À faire"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 2h-14z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg><span class="hl">À faire</span><span class="bd-n" id="homeBellN" aria-hidden="true" hidden></span></button><button class="hbtn" type="button" id="homeCheck" title="Vérifier maintenant les appareils importants, les disques et les certificats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="hl">Vérifier</span></button></div></div>
       <div class="body"><div id="vaultBanner"></div><div class="today" id="todayBox"></div><div class="hgrid" id="homeGrid"></div></div>
     </section>
 
@@ -3304,9 +3340,40 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     renderToday(items, live);
     grid.replaceChildren(el('details', { class: 'mx hmore' }, el('summary', {}, 'État détaillé : missions, surveillance, sauvegarde, coûts'), kpis, el('div', { class: 'hcols' }, doneBox), tiles));
     renderAppCard();
-    $('#homeSub').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    bandeau();
     $('#b-home').hidden = !(grave || pending.size); $('#b-home').textContent = '!';
   }
+
+  // ---------- Le bandeau du haut de l'accueil : la recherche, le plein écran, la cloche, « Vérifier » ----------
+  // La cloche compte, dans l'état, les validations qui t'attendent et les problèmes graves : jamais un nombre écrit.
+  function compteCloche(st, enAttente) {
+    const graves = (st?.watch?.findings || []).filter((f) => f.level === 'grave').length;
+    const validations = Math.max(0, Math.floor(Number(enAttente) || 0));
+    return { validations, graves, total: validations + graves };
+  }
+  function cloche() {
+    const b = $('#homeBell'), n = $('#homeBellN'); if (!b || !n) return;
+    const c = compteCloche(state, pending.size);
+    // Rien à voir : ni nombre ni point. Le rouge seulement s'il y a un problème grave.
+    n.hidden = !c.total; n.textContent = c.total ? String(c.total) : ''; n.classList.toggle('grave', c.graves > 0);
+    const dit = [c.validations ? `${c.validations} validation(s) en attente` : '', c.graves ? `${c.graves} problème(s) grave(s)` : ''].filter(Boolean).join(', ');
+    // À zéro, elle dit ce qu'elle compte : « À faire » peut avoir d'autres lignes (la sauvegarde à activer…).
+    const lib = dit ? `À faire : ${dit}` : 'À faire : aucune validation ni problème grave';
+    b.setAttribute('aria-label', lib); b.title = lib;
+  }
+  function bandeau() {
+    // Le plein écran vient de pages/plein-ecran.js, chargé après ce script : posé au premier dessin de l'accueil.
+    if (!$('#homeFull') && window.OdinPleinEcran?.bouton) { const pe = window.OdinPleinEcran.bouton($('#v-home')); pe.id = 'homeFull'; $('#homeBell').before(pe); }
+    cloche();
+  }
+  $('#homeSearch').addEventListener('click', () => palOpen(true));
+  // La cloche mène à « À faire » : l'écran y descend et le focus s'y pose.
+  $('#homeBell').addEventListener('click', () => {
+    if (!$('#v-home').classList.contains('on')) show('home');
+    const t = $('#homeAFaire'); if (!t) return;
+    t.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    t.focus({ preventScroll: true });
+  });
 
   // ---------- Aujourd'hui : ce qu'Odin devine, les 3 réglages du moment, le fil d'activité ----------
   const CTRL = {
@@ -3323,10 +3390,15 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const T = state.today || { guesses: [], controls: {}, feed: [] }, C = T.controls || {};
     const h = new Date().getHours(), hi = h < 5 ? 'Bonne nuit' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
     const grave = (state.watch?.findings || []).filter((f) => f.level === 'grave').length;
-    const waiting = pending.size + todoItems.length;
-    const hello = el('div', { class: 'greet' }, buddyClone('buddyHome'), el('div', {},
-      el('p', { class: 'greet-t' }, `${hi}.`),
-      el('div', { class: 'greet-s' }, grave ? `${grave} problème(s) à régler à la maison.` : waiting ? `${waiting} chose(s) t'attendent.` : live.length ? `Je travaille sur ${live.length} tâche(s).` : 'Tout est calme. Je surveille le reste.')));
+    // Ce qui attend : chaque validation, plus les autres lignes d'« À faire » (les validations y ont déjà une ligne à elles).
+    const waiting = pending.size + Math.max(0, todoItems.length - (pending.size ? 1 : 0));
+    // Le salut et sa phrase vraie : posés dans le bandeau du haut de l'accueil (#homeHello), pas dans les blocs du jour.
+    const jour = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const hello = el('div', { class: 'greet' }, buddyClone('buddyHome'), el('div', { class: 'greet-x' },
+      el('h1', { class: 'greet-t' }, `${hi} !`),
+      el('div', { class: 'sub greet-s' }, el('span', { id: 'homeSub' }, jour.charAt(0).toUpperCase() + jour.slice(1)), ' · ',
+        el('span', { id: 'homePhrase' }, grave ? `${grave} problème(s) à régler à la maison.` : waiting ? `${waiting} chose(s) t'attendent.` : live.length ? `Je travaille sur ${live.length} tâche(s).` : 'Tout est calme. Je surveille le reste.'))));
+    $('#homeHello').replaceChildren(hello);
     // Ce que tu veux probablement faire (approbations d'abord : elles bloquent Odin).
     const G = [...(pending.size ? [{ id: 'approvals', label: `Valider ${pending.size} demande(s)`, why: 'Odin attend ta réponse', view: 'chat' }] : []), ...(T.guesses || [])].slice(0, 4);
     const guesses = G.length ? el('section', {}, el('h2', { class: 'sect-t' }, 'Tu veux sans doute'),
@@ -3342,7 +3414,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('div', { class: 'ctrl' }, el('div', { class: 'ctrl-t' }, el('span', {}, 'Disponibilité' + until)), seg('mode', ['disponible', 'occupe', 'conduite', 'sommeil'].includes(C.mode) ? C.mode : 'occupe', (v) => api('/api/action', { kind: 'set_control', control: 'mode', value: v }))),
       el('div', { class: 'ctrl' }, el('div', { class: 'ctrl-t' }, el('span', {}, 'Discrétion')), seg('discretion', C.discretion || 'essentiel', (v) => api('/api/action', { kind: 'set_control', control: 'discretion', value: v })))));
     // À faire + fil d'activité.
-    const todo = el('section', { class: 'hpanel' }, el('h2', {}, 'À faire'), todoItems.length ? el('div', { class: 'tlist' }, ...todoItems) : el('div', { class: 'hok' }, 'Rien ne t\'attend.'));
+    const todo = el('section', { class: 'hpanel', id: 'homeAFaire', tabindex: '-1' }, el('h2', {}, 'À faire'), todoItems.length ? el('div', { class: 'tlist' }, ...todoItems) : el('div', { class: 'hok' }, 'Rien ne t\'attend.'));
     const F = (T.feed || []).filter((x) => feedFilter === 'tout' || (feedFilter === 'seul' ? x.who === 'seul' : x.who === 'refusé'));
     const fbtn = (v, l) => el('button', { type: 'button', 'aria-pressed': String(feedFilter === v), onclick: () => { feedFilter = v; try { localStorage.setItem('odin.feed', v); } catch {} renderToday(todoItems, live); } }, l);
     const feed = el('section', { class: 'hpanel' }, el('h2', {}, 'Ce qu\'Odin a fait', el('div', { class: 'ffilter', role: 'group', 'aria-label': 'Filtrer' }, fbtn('tout', 'Tout'), fbtn('seul', 'Seul'), fbtn('refuse', 'Refusé'))),
@@ -3351,7 +3423,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         el('time', { datetime: new Date(x.at).toISOString(), title: new Date(x.at).toLocaleString('fr-FR') }, new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })),
         el('div', { class: 'ft' }, x.text, el('span', { class: 'fw', title: x.why || '' }, x.who === 'seul' ? 'fait seul' : x.who === 'toi' ? 'validé par toi' : `refusé pour te protéger${x.why ? ` · ${x.why}` : ''}`)),
         x.undoId && !x.undone ? el('button', { type: 'button', class: 'btn small', onclick: async (e) => { const r = await api('/api/action', { kind: 'undo', id: x.undoId }); e.target.replaceWith(el('span', { class: 'pill ' + (r.ok ? 'good' : 'bad') }, r.ok ? 'annulé' : 'impossible')); } }, 'Annuler') : x.undone ? el('span', { class: 'pill' }, 'annulé') : el('span')))) : el('div', { class: 'hok' }, feedFilter === 'tout' ? 'Rien pour l\'instant aujourd\'hui.' : 'Rien dans ce filtre.'));
-    box.replaceChildren(hello, guesses || '', ctrls, el('div', { class: 'today-cols' }, todo, feed));
+    box.replaceChildren(guesses || '', ctrls, el('div', { class: 'today-cols' }, todo, feed));
   }
   // Mascotte sur l'écran Aujourd'hui : une copie qui vit comme les autres.
   function buddyClone(id) {
@@ -3412,8 +3484,20 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     palList.replaceChildren(...kids); palIn.setAttribute('aria-activedescendant', 'pal-' + palSel);
   }
   function palMark() { palList.querySelectorAll('[role=option]').forEach((li) => { const on = li.id === 'pal-' + palSel; li.setAttribute('aria-selected', String(on)); li.querySelector('.k')?.remove(); if (on) { li.append(el('span', { class: 'k' }, 'Entrée')); li.scrollIntoView({ block: 'nearest' }); } }); palIn.setAttribute('aria-activedescendant', 'pal-' + palSel); }
-  function palRun(i) { const x = palItems[i]; palOpen(false); x?.run(); }
-  function palOpen(o) { palette.hidden = !o; if (o) { palIn.value = ''; palSel = 0; palRender(); setTimeout(() => palIn.focus(), 0); } }
+  // L'action choisie peut changer d'écran : le focus n'est rendu qu'après elle, et seulement à un élément encore visible.
+  function palRun(i) {
+    const x = palItems[i], a = palAvant; palAvant = null; palOpen(false); x?.run();
+    const ici = document.activeElement;
+    if (a && a !== document.body && a.isConnected && a.getClientRects().length && (!ici || ici === document.body || palette.contains(ici))) a.focus({ preventScroll: true });
+  }
+  // À la fermeture, le focus revient là d'où la barre a été ouverte (la recherche du bandeau, par exemple).
+  let palAvant = null;
+  function palOpen(o) {
+    if (o && palette.hidden) palAvant = document.activeElement;
+    palette.hidden = !o; if (o) { palIn.value = ''; palSel = 0; palRender(); setTimeout(() => palIn.focus(), 0); return; }
+    const a = palAvant, ici = document.activeElement; palAvant = null;
+    if (a && a !== document.body && a.isConnected && a.getClientRects().length && (!ici || ici === document.body || palette.contains(ici))) a.focus({ preventScroll: true });
+  }
   palIn.addEventListener('input', () => { palSel = 0; palRender(); });
   palIn.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); palSel = Math.min(palItems.length - 1, palSel + 1); palMark(); }
@@ -4034,6 +4118,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     ] },
     { name: 'L\'accueil', steps: [
       { v: 'home', q: ['#sideNav', '.bnav'], t: 'Le menu : Accueil, Discussion, Missions et Réseau. « Plus » ouvre le reste : mémoire, compétences, tâches planifiées, décisions. Sur téléphone, le menu est en bas de l\'écran.' },
+      { v: 'home', q: '#homeBandeau', t: 'En haut de l\'accueil, je te salue et je te dis où on en est. La recherche (Ctrl K) trouve un écran, un réglage, ou me pose ta question. Puis le plein écran, la cloche qui compte ce qui t\'attend vraiment (validations et problèmes graves) et t\'emmène à « À faire », et « Vérifier », qui contrôle tout de suite tes appareils importants, tes disques et tes certificats.' },
       { v: 'home', q: '#homeGrid .kpis', t: 'L\'Accueil en un coup d\'œil : tes appareils en ligne, mes missions en cours, les risques repérés, ce que j\'ai dépensé et mon mode d\'autonomie. Touche un chiffre pour voir le détail.' },
       { v: 'home', q: ['#homeGrid .hcols .hpanel'], t: '« À faire maintenant » : ce qui t\'attend vraiment. Validations, alertes, et réglages que je te propose selon ce que je vois chez toi. Si c\'est vide, tout va bien.' },
       { v: 'home', q: '#homeGrid .hcols .hpanel:last-child', t: '« Ce que j\'ai fait » : tout ce que j\'ai fait, à ta demande ou de moi-même, avec l\'heure.' },
@@ -5294,7 +5379,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       for (const tr of t.querySelectorAll('tbody tr')) [...tr.children].forEach((td, i) => { if (heads[i] && !td.hasAttribute('colspan')) td.setAttribute('data-label', heads[i]); });
     }
   }
-  function badges() { $('#b-approvals').hidden = !pending.size; $('#b-approvals').textContent = pending.size; if (pending.size) $('#b-menu').hidden = false; }
+  function badges() { $('#b-approvals').hidden = !pending.size; $('#b-approvals').textContent = pending.size; if (pending.size) $('#b-menu').hidden = false; cloche(); }
 
   async function refresh() {
     state = await api('/api/state');
