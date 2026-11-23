@@ -81,9 +81,11 @@ export async function cli(argv: string[], io: CliIO = { out: (s) => console.log(
         for (const f of a.opts['env-file'] ? [a.opts['env-file']] : []) for (const l of readFileSync(f, 'utf8').split('\n')) { const m = /^\s*([A-Za-z_]\w*)=(.*)$/.exec(l); if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, ''); }
         for (const e of a.multi.e ?? []) { const i = e.indexOf('='); if (i > 0) env[e.slice(0, i)] = e.slice(i + 1); else if (process.env[e] !== undefined) env[e] = process.env[e]!; }
         const labels = Object.fromEntries((a.multi.label ?? []).map((l) => [l.split('=')[0], l.split('=').slice(1).join('=')]));
-        const net = a.opts.network === 'host' || a.opts.network === 'hote' ? 'hote' : a.opts.network ? 'pont' : undefined;
+        // --network host|hote, none|aucun, bridge|pont (le réseau de tous), ou le nom d'un réseau à part
+        const nw = a.opts.network, net = nw === 'host' || nw === 'hote' ? 'hote' : nw === 'none' || nw === 'aucun' ? 'aucun' : nw ? 'pont' : undefined;
+        const reseau = net === 'pont' && nw && !['bridge', 'pont', 'conteneurs'].includes(nw) ? nw : undefined;
         if (!eng.findImage(image)) await eng.pull(image, () => {}, barWriter(io));
-        const c = await eng.run({ image, name: a.opts.name, cmd, entrypoint: a.opts.entrypoint ? splitLine(a.opts.entrypoint) : undefined, env, ports: (a.multi.p ?? []).join(','), mounts: (a.multi.v ?? []).join(','), restart: a.opts.restart ? restartOf(a.opts.restart) : undefined, memory: a.opts.m, cpus: a.opts.cpus, user: a.opts.u, workdir: a.opts.w, hostname: a.opts.hostname, network: net, rm: !!a.flags.rm, labels });
+        const c = await eng.run({ image, name: a.opts.name, cmd, entrypoint: a.opts.entrypoint ? splitLine(a.opts.entrypoint) : undefined, env, ports: (a.multi.p ?? []).join(','), mounts: (a.multi.v ?? []).join(','), restart: a.opts.restart ? restartOf(a.opts.restart) : undefined, memory: a.opts.m, cpus: a.opts.cpus, user: a.opts.u, workdir: a.opts.w, hostname: a.opts.hostname, network: net, reseau, rm: !!a.flags.rm, labels });
         if (a.flags.d || !io.interactive) { io.out(a.flags.d ? c.id.slice(0, 12) : `${c.spec.name} démarré (${c.id.slice(0, 12)})`); return 0; }
         return follow(eng, c.id, io, true);
       }
@@ -156,7 +158,7 @@ export const HELP = `Hringhorni, le moteur de conteneurs d'Odin (sans démon, sa
   run [options] <image> [cmd…]      crée et démarre un conteneur
       -d  --name N  -p 8080:80[/udp]  -v /dossier:/dans[:ro]  -e CLE=valeur  --env-file f
       --restart no|always|on-failure|unless-stopped  --memory 2g  --cpus 1.5  -u utilisateur
-      -w dossier  --entrypoint cmd  --hostname h  --network pont|hote  --rm
+      -w dossier  --entrypoint cmd  --hostname h  --network pont|hote|aucun|<réseau>  --rm
   ps [-a]                           conteneurs (en marche, ou tous)
   start · stop · restart · rm [-f]  <conteneur…>
   logs [-f] [--tail N] <conteneur>  journal

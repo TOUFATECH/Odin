@@ -253,7 +253,7 @@
     const sys = t.plateforme === 'win32' ? T('pc.windows') : T('pc.autre', { plateforme: t.plateforme });
     return el('section', { class: 'ark-sec ark-host', role: 'status' }, odinFace(),
       el('div', {}, el('b', { class: 't' }, T('pc.titre', { systeme: sys })),
-        el('ul', {}, el('li', {}, t.raison), el('li', {}, t.avenir), el('li', {}, T('pc.rien')), el('li', {}, T('pc.deja')))));
+        el('ul', {}, el('li', {}, t.raison), el('li', {}, t.avenir), el('li', {}, T('pc.rien')), el('li', {}, T('pc.deja')), el('li', {}, T('pc.k2')))));
   }
 
   // ---------------------------------------------------------------- le tableau de bord
@@ -418,17 +418,158 @@
     ];
   }
 
+  // =================================================================================================================
+  // Lot K2 : les volumes et les réseaux (deux onglets à côté du tableau de bord).
+  // =================================================================================================================
+  Object.assign(MOTS, {
+    'pc.k2': 'Les volumes et les réseaux sont prêts aussi : ils viendront avec le moteur.',
+    'v.tableau': 'Tableau de bord', 'v.volumes': 'Volumes', 'v.reseaux': 'Réseaux', 'v.parties': 'Parties d\'{nom}',
+    // Volumes
+    'vo.titre': 'Volumes', 'vo.lead': 'Les données des conteneurs. Elles restent quand on supprime ou met à jour un conteneur, et rien d\'autre ne peut les lire.',
+    'vo.vide': 'Aucun volume. Un conteneur en reçoit un avec « nom:/dossier/dedans » (créé tout seul), ou crée-le ci-dessous.',
+    'vo.utilise': 'utilisé par {qui}', 'vo.personne': 'plus aucun conteneur ne s\'en sert', 'vo.sans': 'sans conteneur', 'vo.plus': ' (compté sur une partie)',
+    'vo.sauve': 'sauvegardé chaque nuit', 'vo.sauve.nom': 'Sauvegarder {nom} chaque nuit (Phénix)',
+    'vo.phenix': 'Sauvegarde par Phénix : plan « {plan} », chaque nuit à 02:15 · dernière : {derniere}.', 'vo.jamais': 'jamais',
+    'vo.phenixAbsent': 'Phénix (la sauvegarde) ne peut pas sauvegarder les volumes pour l\'instant : {raison}',
+    'vo.supprimer': 'Supprimer', 'vo.supprimer.nom': 'Supprimer le volume {nom}',
+    'vo.s.titre': 'Supprimer le volume « {nom} » ({taille}) ?', 'vo.s.aucun': 'Aucun conteneur ne s\'en sert.',
+    'vo.s.jamais': 'Il n\'a jamais été sauvegardé : ses données ne pourront pas revenir.', 'vo.s.sauve': 'Phénix en garde les sauvegardes (dernière : {derniere}).',
+    'vo.s.confirmer': 'Écris « {nom} » pour confirmer :', 'vo.s.ok': 'Supprimer', 'vo.s.non': 'Garder',
+    'vo.creer': 'Créer un volume', 'vo.creer.champ': 'Nom du volume (minuscules, chiffres, - _ .)', 'vo.creer.ok': 'Créer',
+    // Réseaux
+    're.titre': 'Réseaux', 're.lead': 'Qui parle à qui. Sans service à côté : Odin crée le pont et ses règles au premier conteneur qui s\'y branche.',
+    're.tous': 'Réseau des conteneurs', 're.tous.sous': '{sr} · tous les conteneurs par défaut', 're.tous.texte': 'Internet : oui · les réseaux à part : non',
+    're.part': 'Réseau « {nom} »', 're.part.sous': '{sr} · à part', 're.part.texte': 'Internet : {internet} · les autres conteneurs : non',
+    're.oui': 'oui', 're.non': 'non',
+    're.aucun': 'Aucun réseau', 're.aucun.sous': '—', 're.aucun.texte': 'ni Internet ni la maison',
+    're.machine': 'Le réseau de ce PC', 're.machine.sous': 'pas isolé', 're.machine.texte': 'il voit et ouvre ce que voit ce PC',
+    're.n': '{n} conteneur(s)', 're.retirer': 'Retirer', 're.retirer.nom': 'Retirer le réseau {nom}',
+    're.creer': 'Créer un réseau à part', 're.creer.champ': 'Nom du réseau (minuscules, chiffres, - _ .)', 're.creer.internet': 'Internet', 're.creer.ok': 'Créer',
+    're.note': 'Un conteneur choisit son réseau quand il est lancé : « --network nom », ou « --network aucun ».',
+  });
+  Object.assign(K, { vue: 'tableau', vsupp: '', vsuppTxt: '', rInternet: true, focus: '' });
+  /** Remet le clavier sur l'élément voulu une fois la page redessinée (le dessin est asynchrone). */
+  const refocus = () => { const id = K.focus; if (!id) return; K.focus = ''; setTimeout(() => document.getElementById(id)?.focus?.(), 0); };
+  const VUES = [['tableau', 'v.tableau'], ['volumes', 'v.volumes'], ['reseaux', 'v.reseaux']];
+  const CSS_K2 = `
+.ark-vol{display:grid;grid-template-columns:44px minmax(0,1fr) auto minmax(112px,auto);gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:8px;min-width:0}
+@media (max-width:640px){.ark-vol{grid-template-columns:44px minmax(0,1fr)}.ark-vol .ark-sw,.ark-vol .ark-acts{grid-column:1/-1}}
+.ark-ico{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--accent);flex:none}
+.ark-sw{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:0 6px;border:0;background:none;color:var(--muted);font:500 13px inherit;cursor:pointer;text-align:left}
+.ark-sw i{position:relative;flex:none;width:48px;height:28px;border-radius:999px;background:color-mix(in srgb,var(--ink) 18%,transparent);transition:background .15s}
+.ark-sw i::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+.ark-sw[aria-checked="true"] i{background:var(--good)}.ark-sw[aria-checked="true"] i::after{left:23px}
+@media (prefers-reduced-motion:reduce){.ark-sw i,.ark-sw i::after{transition:none}}
+.ark-nets{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:10px}
+.ark-net{border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.ark-net .hd{display:flex;gap:12px;align-items:flex-start;min-width:0}.ark-net .hd b{font-size:15px;overflow-wrap:anywhere}.ark-net .hd small{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.ark-net p{margin:0;font-size:13.5px;overflow-wrap:anywhere}.ark-net .qui{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+`;
+  const ICONES = {
+    volume: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
+    reseau: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg>',
+    aucun: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+  };
+  // (des dessins fixes, écrits par Odin : jamais un texte venu d'ailleurs)
+  const icone = (k) => { const s = el('span', { class: 'ark-ico', 'aria-hidden': 'true' }); s.innerHTML = ICONES[k] ?? ''; return s; };
+  const dateCourte = (iso) => { if (!iso) return T('vo.jamais'); const d = new Date(iso); return Number.isNaN(d.getTime()) ? T('vo.jamais') : d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); };
+  Object.assign(logique, { dateCourte });
+
+  function ongletsVues(o) {
+    const aller = (k) => { if (K.vue === k) return; K.vue = k; K.msg = ''; K.vsupp = ''; K.vsuppTxt = ''; K.focus = `ark-v-${k}`; arreterMinuteur(); o.reload(); };
+    return el('div', { class: 'ark-tabs', role: 'tablist', 'aria-label': T('v.parties', { nom: o.nom }) }, ...VUES.map(([k, m], i) => el('button', {
+      type: 'button', role: 'tab', id: `ark-v-${k}`, 'aria-selected': String(K.vue === k), tabindex: K.vue === k ? '0' : '-1', onclick: () => aller(k),
+      onkeydown: (e) => { const j = e.key === 'ArrowRight' ? (i + 1) % VUES.length : e.key === 'ArrowLeft' ? (i + VUES.length - 1) % VUES.length : e.key === 'Home' ? 0 : e.key === 'End' ? VUES.length - 1 : -1; if (j >= 0) { e.preventDefault(); aller(VUES[j][0]); } },
+    }, T(m))));
+  }
+  function gardeVolume(v, d, o) {
+    const champ = el('input', { id: 'arkVolNom', type: 'text', autocomplete: 'off', spellcheck: 'false', value: K.vsuppTxt });
+    const non = bouton(T('vo.s.non'), () => { K.vsupp = ''; K.vsuppTxt = ''; o.reload(); });
+    const ok = bouton(T('vo.s.ok'), async () => {
+      if (!peutEffacer(K.vsuppTxt, v.nom)) return;
+      const r = await geste('naglfar', 'supprimer_volume', { volume: v.nom, nom_tape: K.vsuppTxt });
+      if (r.ok !== false) { K.vsupp = ''; K.vsuppTxt = ''; }
+      o.reload();
+    }, { cls: 'danger-fill', disabled: !peutEffacer(K.vsuppTxt, v.nom) });
+    champ.addEventListener('input', () => { K.vsuppTxt = champ.value; ok.disabled = !peutEffacer(K.vsuppTxt, v.nom); });
+    champ.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !ok.disabled) { e.preventDefault(); ok.click(); } });
+    setTimeout(() => champ.focus?.(), 0);
+    return el('section', { class: 'ark-guard', role: 'alertdialog', 'aria-labelledby': 'arkVolT', onkeydown: (e) => { if (e.key === 'Escape') { e.preventDefault(); non.click(); } } },
+      el('b', { id: 'arkVolT' }, T('vo.s.titre', { nom: v.nom, taille: octets(v.octets) })),
+      el('p', {}, `${T('vo.s.aucun')} ${v.jamaisSauvegarde ? T('vo.s.jamais') : T('vo.s.sauve', { derniere: dateCourte(d.derniere) })}`),
+      el('div', { class: 'ark-confirm' }, el('label', { for: 'arkVolNom' }, T('vo.s.confirmer', { nom: v.nom })), champ),
+      el('div', { class: 'ark-row' }, ok, non));
+  }
+  function vueVolumes(d, o) {
+    const l = d.volumes ?? [];
+    const ligne = (v) => {
+      const qui = v.utilisePar.length ? T('vo.utilise', { qui: v.utilisePar.join(', ') }) : T('vo.personne');
+      const sw = el('button', { type: 'button', class: 'ark-sw', role: 'switch', 'aria-checked': String(!!v.sauvegarde), 'aria-label': T('vo.sauve.nom', { nom: v.nom }), disabled: d.phenix === false,
+        onclick: () => geste('naglfar', 'sauvegarde_volume', { volume: v.nom, sauver: v.sauvegarde ? 'non' : 'oui' }, o.reload) }, el('i', { 'aria-hidden': 'true' }), T('vo.sauve'));
+      return [el('div', { class: 'ark-vol' }, icone('volume'),
+        el('span', { class: 'ark-nm' }, el('b', {}, v.nom), v.sansConteneur ? tag('warn', T('vo.sans')) : null, el('small', {}, `${qui} · ${octets(v.octets)}${v.compteCoupe ? T('vo.plus') : ''}`)),
+        sw,
+        el('span', { class: 'ark-acts' }, v.sansConteneur ? bouton(T('vo.supprimer'), () => { K.vsupp = v.nom; K.vsuppTxt = ''; o.reload(); }, { cls: 'danger', label: T('vo.supprimer.nom', { nom: v.nom }) }) : null)),
+      K.vsupp === v.nom ? gardeVolume(v, d, o) : null];
+    };
+    const champ = el('input', { type: 'text', autocomplete: 'off', spellcheck: 'false', placeholder: 'photos-donnees' });
+    return [el('section', { class: 'ark-sec' },
+      el('h2', {}, T('vo.titre'), el('span', { class: 'ark-cnt' }, String(l.length))), el('p', { class: 'ark-lead' }, T('vo.lead')),
+      el('p', { class: 'ark-note', role: 'note' }, d.phenix === false ? T('vo.phenixAbsent', { raison: d.phenixRaison ?? '' }) : T('vo.phenix', { plan: d.plan, derniere: dateCourte(d.derniere) })),
+      ...(l.length ? l.flatMap(ligne).filter(Boolean) : [el('p', { class: 'ark-note' }, T('vo.vide'))]),
+      el('h3', { class: 'ark-h3' }, T('vo.creer')),
+      el('form', { class: 'ark-form', onsubmit: (e) => { e.preventDefault(); const n = champ.value.trim(); if (n) geste('naglfar', 'creer_volume', { nom: n }, o.reload); } },
+        el('label', {}, T('vo.creer.champ'), champ), el('button', { class: 'btn', type: 'submit' }, T('vo.creer.ok'))))];
+  }
+  function vueReseaux(d, o) {
+    const carte = (r) => {
+      const [titre, sous, texte, ic] = r.genre === 'tous' ? [T('re.tous'), T('re.tous.sous', { sr: r.sousReseau }), T('re.tous.texte'), 'reseau']
+        : r.genre === 'a-part' ? [T('re.part', { nom: r.nom }), T('re.part.sous', { sr: r.sousReseau }), T('re.part.texte', { internet: r.internet ? T('re.oui') : T('re.non') }), 'reseau']
+          : r.genre === 'aucun' ? [T('re.aucun'), T('re.aucun.sous'), T('re.aucun.texte'), 'aucun'] : [T('re.machine'), T('re.machine.sous'), T('re.machine.texte'), 'reseau'];
+      return el('div', { class: 'ark-net' }, el('div', { class: 'hd' }, icone(ic), el('span', { style: 'min-width:0' }, el('b', {}, titre), el('small', {}, sous))),
+        el('p', {}, texte),
+        el('div', { class: 'ark-row' }, tag('', T('re.n', { n: r.conteneurs.length })),
+          r.genre === 'a-part' && !r.conteneurs.length ? bouton(T('re.retirer'), () => geste('naglfar', 'supprimer_reseau', { reseau: r.nom }, o.reload), { cls: 'danger', label: T('re.retirer.nom', { nom: r.nom }) }) : null),
+        r.conteneurs.length ? el('p', { class: 'qui' }, r.conteneurs.join(', ')) : null);
+    };
+    const champ = el('input', { type: 'text', autocomplete: 'off', spellcheck: 'false', placeholder: 'serveur-de-jeux' });
+    // Un groupe de deux choix : une seule étape au clavier (Tab), les flèches passent de l'un à l'autre.
+    const choisir = (v) => { K.rInternet = v; for (const [x, b] of [[true, oui], [false, non]]) { b.setAttribute('aria-checked', String(x === v)); b.setAttribute('tabindex', x === v ? '0' : '-1'); } (v ? oui : non).focus?.(); };
+    const choix = (v, texte) => el('button', { type: 'button', role: 'radio', 'aria-checked': String(K.rInternet === v), tabindex: K.rInternet === v ? '0' : '-1', onclick: () => choisir(v),
+      onkeydown: (e) => { if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); choisir(!v); } } }, texte);
+    const oui = choix(true, `${T('re.creer.internet')} : ${T('re.oui')}`), non = choix(false, `${T('re.creer.internet')} : ${T('re.non')}`);
+    return [el('section', { class: 'ark-sec' },
+      el('h2', {}, T('re.titre')), el('p', { class: 'ark-lead' }, T('re.lead')),
+      el('div', { class: 'ark-nets' }, ...(d.reseaux ?? []).map(carte)),
+      el('h3', { class: 'ark-h3' }, T('re.creer')),
+      el('form', { class: 'ark-form', onsubmit: (e) => { e.preventDefault(); const n = champ.value.trim(); if (n) geste('naglfar', 'creer_reseau', { nom: n, internet: K.rInternet ? 'oui' : 'non' }, o.reload); } },
+        el('label', {}, T('re.creer.champ'), champ),
+        el('div', { class: 'ark-seg', role: 'radiogroup', 'aria-label': T('re.creer.internet') }, oui, non),
+        el('button', { class: 'btn', type: 'submit' }, T('re.creer.ok'))),
+      el('p', { class: 'ark-note' }, T('re.note')))];
+  }
+
   window.OdinPages.naglfar = async ({ host, generic, reload, info }) => {
     arreterMinuteur();
     const nom = info?.name || MOTS.nom;
     const r = await post('naglfar', 'tableau');
     if (!r?.data) return false; // un Odin d'avant le lot K1 : la page générique, comme avant
     css();
+    if (!document.getElementById('arkCss2')) document.head.append(el('style', { id: 'arkCss2' }, CSS_K2));
     const t = r.data, root = el('div', { class: 'ark' }), o = { reload, nom };
     host.append(root);
     if (K.msg) root.append(el('p', { class: 'ark-msg', role: 'status' }, K.msg));
     if (!t.moteur) { root.append(carteSansMoteur(t)); return true; }
     if (t.erreur) root.append(el('p', { class: 'ark-msg', role: 'alert' }, T('erreurLecture', { raison: t.erreur })));
+    if (!K.fiche && K.vue !== 'tableau') {
+      root.append(ongletsVues(o));
+      const d = await post('naglfar', K.vue === 'volumes' ? 'volumes' : 'reseaux');
+      if (d?.data) root.append(...(K.vue === 'volumes' ? vueVolumes(d.data, o) : vueReseaux(d.data, o)));
+      else root.append(el('p', { class: 'ark-msg', role: 'alert' }, String(d?.text ?? d?.error ?? '')));
+      refocus();
+      return true;
+    }
+    if (!K.fiche) { root.append(ongletsVues(o)); refocus(); }
     if (K.fiche) {
       const f = await post('naglfar', 'fiche', { conteneur: K.fiche });
       if (f?.data) { root.append(...fiche(f.data, t, o).filter(Boolean)); return true; }

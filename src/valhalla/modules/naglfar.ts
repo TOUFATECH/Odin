@@ -15,9 +15,10 @@ import type { ModCtx, Module, Param } from '../types.ts';
 import { verifierVersions, type Version } from '../hringhorni/versions.ts';
 import { spawn } from 'node:child_process';
 import { lstatSync, realpathSync, rmSync, statfsSync } from 'node:fs';
+import type { ReseauVu, VolumeVu } from '../hringhorni/engine.ts';
 import { cpus, homedir, totalmem } from 'node:os';
 import { basename, dirname, isAbsolute, resolve, sep } from 'node:path';
-import { defaultDir } from '../hringhorni/store.ts';
+import { defaultDir, NOM_OBJET } from '../hringhorni/store.ts';
 import { actionJournal, avecJournal } from '../vidarr/qui-a-fait.ts';
 import { NAMES } from '../names.ts';
 import type { Action } from '../types.ts';
@@ -124,7 +125,7 @@ export const naglfar: Module & { similaires: string[] } = {
         if (img.id === old) return { note: `${sp.name} : déjà la dernière version` };
         report({ phase: 'démarrer', done: 1, total: 1 }, `Relance de ${sp.name} avec la nouvelle image`);
         await e.rm(sp.id, true);
-        const n = await e.run({ image: sp.image, name: sp.name, cmd: sp.cmd, env: sp.env, ports: sp.ports, mounts: sp.mounts, restart: sp.restart, memory: sp.memory, cpus: sp.cpus, user: sp.user, workdir: sp.workdir, hostname: sp.hostname, network: sp.network, labels: sp.labels });
+        const n = await e.run({ image: sp.image, name: sp.name, cmd: sp.cmd, env: sp.env, ports: sp.ports, mounts: sp.mounts, restart: sp.restart, memory: sp.memory, cpus: sp.cpus, user: sp.user, workdir: sp.workdir, hostname: sp.hostname, network: sp.network, reseau: sp.reseau, labels: sp.labels });
         set({ container: n.spec.name }); return { note: `${n.spec.name} relancé avec la nouvelle image (${img.id.slice(0, 12)})` };
       }, sp.name);
       return { text: `⬆ Mise à jour de ${sp.name} lancée : suis-la dans ${nomArche()}.` };
@@ -372,6 +373,8 @@ function pourquoiGarder(p: string, odinHome: string): string | undefined {
 export function donneesDe(c: Ctr, tous: Ctr[], odinHome: string): Donnee[] {
   return c.spec.mounts.filter((m) => !m.ro).map((m) => {
     const refus = (r: string): Donnee => ({ dossier: m.host, dedans: m.inner, effacable: false, raison: r });
+    // Un volume nommé (lot K2) ne part jamais avec le conteneur : il se supprime dans « Volumes », quand plus rien ne s'en sert.
+    if (m.volume) return { dossier: `volume ${m.volume}`, dedans: m.inner, effacable: false, raison: 'un volume : il reste, et se supprime dans « Volumes » quand plus rien ne s\'en sert' };
     if (!isAbsolute(m.host)) return refus('trop près de la racine du disque');
     const r1 = pourquoiGarder(m.host, odinHome); if (r1) return refus(r1);
     let reel: string | undefined;
@@ -429,9 +432,9 @@ export function ficheArche(ctx: ModCtx, nom: string): Record<string, unknown> {
     nom: sp.name, id: c.id.slice(0, 12), image: sp.image, cree: sp.created, etat: c.state.status, enMarche: c.state.status === 'en marche', enErreur: enErreur(c),
     depuis: c.state.startedAt, finiLe: c.state.finishedAt, code: c.state.exitCode, erreur: c.state.error ? masquer(nettoyer(c.state.error), secrets).slice(0, 300) : undefined, relances: c.state.restarts ?? 0, ip: c.state.ip,
     ports: sp.ports.map((p) => ({ hote: p.host, dedans: p.inner, proto: p.proto ?? 'tcp' })),
-    dossiers: sp.mounts.map((m) => ({ hote: m.host, dedans: m.inner, lecture: m.ro })),
+    dossiers: sp.mounts.map((m) => ({ hote: m.volume ? `volume ${m.volume}` : m.host, dedans: m.inner, lecture: m.ro, ...(m.volume ? { volume: m.volume } : {}) })),
     variables: Object.entries(sp.env).map(([k, v]) => (estSecrete(k) ? { cle: k, valeur: MASQUE, secrete: true } : { cle: k, valeur: masquer(nettoyer(String(v)), secrets).slice(0, 300) })),
-    redemarrage: REDEMARRAGE[sp.restart] ?? sp.restart, limiteMemoire: sp.memory, limiteCoeurs: sp.cpus, grandir: sp.labels['odin.grandir'] || undefined, reseau: sp.network === 'hote' ? 'celui de la machine' : 'le réseau des conteneurs',
+    redemarrage: REDEMARRAGE[sp.restart] ?? sp.restart, limiteMemoire: sp.memory, limiteCoeurs: sp.cpus, grandir: sp.labels['odin.grandir'] || undefined, reseau: sp.network === 'hote' ? 'celui de la machine' : sp.network === 'aucun' ? 'aucun (ni Internet ni la maison)' : sp.reseau ? `le réseau à part « ${sp.reseau} »` : 'le réseau des conteneurs',
     service: sp.labels['odin.service'] || undefined, base: b ? { id: b.id, nom: b.nom } : undefined,
     donnees: donneesDe(c, tous, ctx.home).map(({ reel: _r, ...x }) => x), majDispo: versionsDe(ctx).some((v) => v.nouvelle && v.conteneurs.includes(sp.name)),
     ...mesure(c),
@@ -556,3 +559,141 @@ const actionsK1: Action[] = [
 /** Les actions du lot K1, déjà passées par « qui a fait quoi » (et sa lecture, au propriétaire seul). */
 export const actionsArche: Action[] = [...avecJournal('naglfar_actes', actionsK1), actionJournal('naglfar_actes', nomArche())];
 naglfar.actions.push(...actionsArche);
+
+// ---------------------------------------------------------------------------------------------------------------
+// Lot K2 (même maquette) : les volumes et les réseaux.
+//   - volumes nommés : créer, lister (taille comptée sans suivre les liens et bornée, qui s'en sert), supprimer
+//     SEULEMENT un volume que plus aucun conteneur n'utilise (même arrêté), avec son nom tapé à l'identique ; jamais
+//     un volume qui passe par un lien, ni un dossier du système, personnel, d'Odin ou trop près de la racine ;
+//   - sauvegarde des volumes par Phénix : un plan « Volumes d'Arche » (chaque nuit, 02:15) qui contient les volumes
+//     cochés. Phénix ne sait pas encore retirer un plan : le dernier volume coché ne se décoche pas (dit franchement) ;
+//   - réseaux : celui de tous les conteneurs, des réseaux à part (chacun son pont, isolé des autres, avec ou sans
+//     Internet) et « aucun » ; un réseau à part ne se retire que si plus aucun conteneur ne l'utilise.
+// Gestes au propriétaire seul et notés ; lectures ouvertes. Sans moteur (Windows aujourd'hui) : la page le dit.
+// ---------------------------------------------------------------------------------------------------------------
+export const TEXTES_K2 = {
+  plan: 'Volumes d\'Arche',
+  nomFaux: 'Pour supprimer le volume, écris son nom exact (« {nom} ») : rien n\'a été supprimé.',
+  phenixAbsent: 'Phénix (la sauvegarde) n\'a pas répondu : {raison}',
+  phenixRetrait: 'Phénix ne sait pas encore retirer un plan : « {nom} » est le dernier volume du plan « {plan} », il reste sauvegardé chaque nuit. Pour l\'arrêter, coche d\'abord un autre volume, ou attends que Phénix sache retirer un plan.',
+};
+type MoteurK2 = Pick<Engine, 'ps' | 'volumes' | 'createVolume' | 'rmVolume' | 'utilisateursVolume' | 'reseaux' | 'createReseau' | 'rmReseau'>;
+const k2 = () => engine() as unknown as MoteurK2;
+const VOLUME: Param = { key: 'volume', label: 'Volume', kind: 'text', required: true };
+const RESEAU: Param = { key: 'reseau', label: 'Réseau', kind: 'text', required: true };
+const nomObjet = (v: unknown, quoi: string) => { const x = s(v).trim(); if (!NOM_OBJET.test(x)) throw new Error(`nom de ${quoi} invalide : ${x.slice(0, 64)} (minuscules, chiffres, - _ .)`); return x; };
+const sauves = (ctx: ModCtx): Record<string, string> => ({ ...((ctx.settings.volumesSauves as Record<string, string> | undefined) ?? {}) });
+const depotVolumes = (ctx: ModCtx) => s(ctx.settings.depotVolumes).trim() || join(ctx.home, 'Sauvegardes', 'volumes');
+
+/** Pourquoi le vrai dossier d'un volume ne peut pas être effacé (undefined : il peut). Le moteur a déjà vérifié qu'il est
+ *  exactement là où il range ses volumes, sans lien ; ici : jamais un dossier du système, personnel, d'Odin. */
+export function pourquoiGarderVolume(reel: string, odinHome: string): string | undefined {
+  // Le nom du volume (dernier morceau) est choisi par lui (« photos », « documents ») : seul l'endroit où il est rangé compte.
+  const parts = morceaux(reel), haut = parts.slice(0, -1), maison = systemeArche.maison();
+  if (parts.length < 3) return 'trop près de la racine du disque';
+  if (SYSTEME_RACINE.test(parts[0]) && !/^(var|opt)$/i.test(parts[0])) return 'un dossier du système';
+  if (haut.some((x) => SYSTEME_PARTOUT.test(x))) return 'un dossier du système';
+  if (dedansOuEgal(maison, reel) || pour(dirname(resolve(reel))) === pour(maison) || DOSSIERS_PERSO.test(basename(dirname(resolve(reel)))) || haut.some((x) => PERSO_PLUS_BAS.test(x))) return 'ton dossier personnel, ou un de tes dossiers à toi';
+  if (dedansOuEgal(odinHome, reel) || dedansOuEgal(reel, odinHome)) return 'les données d\'Odin';
+  return undefined;
+}
+/** Une raison montrée à tous (la lecture est ouverte) : sa première ligne, sans aucun chemin de la machine. */
+const raisonSure = (t: unknown) => String(t ?? '').split('\n')[0].replace(/(?:[A-Za-z]:)?[\\/][^\s«»"'()]*/g, '…').slice(0, 200);
+/** Les instantanés du plan des volumes dans Phénix (vide si Phénix n'en a pas, ou ne répond pas). */
+async function derniereSauvegarde(ctx: ModCtx): Promise<{ derniere?: string; phenix: boolean; raison?: string }> {
+  try {
+    // Phénix rend le PREMIER plan venu quand le nom demandé n'existe pas : d'abord vérifier que le plan des volumes existe,
+    // sinon la date d'un autre plan passerait pour celle des volumes (« Phénix en garde les sauvegardes », à tort).
+    const pl = await ctx.call('sindri', 'plans', {}, 'voir si les volumes ont un plan de sauvegarde');
+    if (pl.ok === false) return { phenix: false, raison: raisonSure(pl.text) };
+    if (!String(pl.text ?? '').split('\n').some((l) => l.startsWith(`- ${TEXTES_K2.plan} : `))) return { phenix: true };
+    const r = await ctx.call('sindri', 'instantanes', { plan: TEXTES_K2.plan }, 'voir quand les volumes ont été sauvegardés');
+    if (r.ok === false) return { phenix: false, raison: raisonSure(r.text) };
+    const l = Array.isArray(r.data) ? (r.data as Array<{ at?: string }>).map((x) => String(x.at ?? '')).filter(Boolean).sort() : [];
+    return { derniere: l.at(-1), phenix: true };
+  } catch (e) { return { phenix: false, raison: raisonSure((e as Error).message) }; }
+}
+export async function volumesArche(ctx: ModCtx): Promise<Record<string, unknown>> {
+  if (!moteurIci()) return { moteur: false, nom: nomArche(), plateforme: systemeArche.plateforme(), raison: TEXTES_ARCHE.pasDeMoteur, avenir: TEXTES_ARCHE.avenir, volumes: [] };
+  const l: VolumeVu[] = k2().volumes(), sv = sauves(ctx), ph = await derniereSauvegarde(ctx);
+  return {
+    moteur: true, nom: nomArche(), plan: TEXTES_K2.plan, phenix: ph.phenix, phenixRaison: ph.raison, derniere: ph.derniere,
+    volumes: l.map((v) => ({ nom: v.nom, cree: v.cree, octets: v.octets, fichiers: v.fichiers, compteCoupe: v.compteCoupe, utilisePar: v.utilisePar, sansConteneur: v.utilisePar.length === 0,
+      sauvegarde: Boolean(sv[v.nom]), jamaisSauvegarde: !sv[v.nom] || !ph.derniere || ph.derniere < sv[v.nom] })),
+  };
+}
+export function reseauxArche(): Record<string, unknown> {
+  if (!moteurIci()) return { moteur: false, nom: nomArche(), plateforme: systemeArche.plateforme(), raison: TEXTES_ARCHE.pasDeMoteur, avenir: TEXTES_ARCHE.avenir, reseaux: [] };
+  const e = k2(), l: ReseauVu[] = e.reseaux(), cts = e.ps(true);
+  return {
+    moteur: true, nom: nomArche(),
+    reseaux: [
+      ...l.map((r) => ({ nom: r.nom, genre: r.defaut ? 'tous' : 'a-part', sousReseau: `${r.sousReseau}.0/24`, pont: r.pont, internet: r.internet, isole: !r.defaut, cree: r.cree, conteneurs: r.conteneurs })),
+      { nom: 'aucun', genre: 'aucun', internet: false, isole: true, conteneurs: cts.filter((c) => c.spec.network === 'aucun').map((c) => c.spec.name) },
+      ...(cts.some((c) => c.spec.network === 'hote') ? [{ nom: 'machine', genre: 'machine', internet: true, isole: false, conteneurs: cts.filter((c) => c.spec.network === 'hote').map((c) => c.spec.name) }] : []),
+    ],
+  };
+}
+/** Le plan « Volumes d'Arche » de Phénix, refait avec ces volumes (Phénix remplace un plan du même nom). */
+async function planVolumes(ctx: ModCtx, noms: string[], why: string): Promise<string> {
+  const vols = k2().volumes(), dirs = noms.map((n) => vols.find((v) => v.nom === n)?.dossier).filter((d): d is string => !!d);
+  if (!dirs.length) throw new Error('aucun volume à sauvegarder');
+  let r; try { r = await ctx.call('sindri', 'creer', { nom: TEXTES_K2.plan, dossiers: dirs.join('\n'), destination: 'disque', depot: depotVolumes(ctx), heure: '02:15' }, why); }
+  catch (e) { throw new Error(remplir(TEXTES_K2.phenixAbsent, { raison: (e as Error).message.slice(0, 200) })); }
+  if (r.ok === false) throw new Error(remplir(TEXTES_K2.phenixAbsent, { raison: String(r.text ?? '').split('\n')[0].slice(0, 200) }));
+  return String(r.text ?? '');
+}
+// Les lectures ne sont pas marquées « read » (comme K1 : le banc figé de Soul photographie les lectures du catalogue).
+const actionsK2: Action[] = [
+  { id: 'volumes', label: 'Volumes', what: 'Les volumes des conteneurs : taille, qui s\'en sert, sauvegardé ou non par Phénix', quick: false, quiet: true, run: async (ctx) => {
+    const v = await volumesArche(ctx) as { moteur: boolean; raison?: string; avenir?: string; volumes: Array<{ nom: string; octets: number; utilisePar: string[]; sauvegarde: boolean }> };
+    return { text: v.moteur ? (v.volumes.map((x) => `- ${x.nom} · ${(x.octets / 1e6).toFixed(1)} Mo · ${x.utilisePar.length ? `utilisé par ${x.utilisePar.join(', ')}` : 'sans conteneur'}${x.sauvegarde ? ' · sauvegardé chaque nuit' : ''}`).join('\n') || 'Aucun volume.') : `${v.raison} ${v.avenir}`, data: v };
+  } },
+  { id: 'reseaux', label: 'Réseaux', what: 'Les réseaux des conteneurs : celui de tous, les réseaux à part (isolés), « aucun », et qui est dessus', quick: false, quiet: true, run: () => {
+    const r = reseauxArche() as { moteur: boolean; raison?: string; avenir?: string; reseaux: Array<{ nom: string; sousReseau?: string; conteneurs: string[] }> };
+    return { text: r.moteur ? r.reseaux.map((x) => `- ${x.nom}${x.sousReseau ? ` · ${x.sousReseau}` : ''} · ${x.conteneurs.length} conteneur(s)`).join('\n') : `${r.raison} ${r.avenir}`, data: r };
+  } },
+  { id: 'creer_volume', label: 'Créer un volume', what: 'Un volume nommé, rangé par le moteur, qui reste quand le conteneur part', quick: false, proprietaireSeul: true,
+    params: [{ key: 'nom', label: 'Nom (minuscules, chiffres, - _ .)', kind: 'text', required: true }],
+    run: (_ctx, i) => { exigerMoteur(); const v = k2().createVolume(nomObjet(i.nom, 'volume')); return { text: `📦 Volume « ${v.nom} » créé. Donne-le à un conteneur avec « ${v.nom}:/dossier/dedans ».` }; } },
+  { id: 'supprimer_volume', label: 'Supprimer un volume (garde-fou)', what: 'Supprime un volume que plus aucun conteneur n\'utilise, avec son nom tapé ; ses données ne reviennent pas', quick: false, proprietaireSeul: true,
+    params: [VOLUME, { key: 'nom_tape', label: 'Son nom, pour confirmer', kind: 'text', default: '' }],
+    grave: (i) => `supprimer le volume ${s(i.volume).trim().slice(0, 64)} et toutes ses données : elles ne pourront pas revenir (sauf sauvegarde de Phénix)`,
+    run: async (ctx, i) => {
+      exigerMoteur();
+      const nom = nomObjet(i.volume, 'volume');
+      // Le nom tapé est vérifié AVANT de toucher à quoi que ce soit.
+      if (s(i.nom_tape).trim() !== nom) throw new Error(remplir(TEXTES_K2.nomFaux, { nom }));
+      const v = k2().rmVolume(nom, (reel) => pourquoiGarderVolume(reel, ctx.home));
+      // Il était dans le plan de Phénix : le plan est refait sans lui (ses anciennes sauvegardes restent lisibles).
+      const sv = sauves(ctx), etait = Boolean(sv[nom]); let phenix = '';
+      if (etait) {
+        delete sv[nom]; ctx.saveSettings({ volumesSauves: sv });
+        if (Object.keys(sv).length) phenix = await planVolumes(ctx, Object.keys(sv), `retirer le volume supprimé ${nom} de la sauvegarde`).then(() => ' Phénix ne le sauvegarde plus (ses anciennes sauvegardes restent lisibles).', (e: Error) => ` Phénix n'a pas pu refaire son plan : ${e.message.slice(0, 160)}`);
+        else phenix = ` Phénix ne sait pas encore retirer un plan : le plan « ${TEXTES_K2.plan} » reste, vide (rien n'y est plus sauvegardé ; un volume recréé sous ce nom y repartirait).`;
+      }
+      return { text: `🗑 Volume « ${v.nom} » supprimé avec ses données.${phenix}`, data: { volume: v.nom } };
+    } },
+  { id: 'sauvegarde_volume', label: 'Sauvegarder un volume chaque nuit', what: 'Ajoute ou retire un volume du plan « Volumes d\'Arche » de Phénix (chaque nuit à 02:15)', quick: false, proprietaireSeul: true,
+    params: [VOLUME, { key: 'sauver', label: 'Sauvegardé chaque nuit', kind: 'select', options: ['oui', 'non'], default: 'oui' }],
+    run: async (ctx, i) => {
+      exigerMoteur();
+      const nom = nomObjet(i.volume, 'volume'), oui = s(i.sauver) !== 'non', sv = sauves(ctx);
+      if (!k2().volumes().some((v) => v.nom === nom)) throw new Error(`volume inconnu : ${nom}`);
+      if (oui === Boolean(sv[nom])) return { text: oui ? `« ${nom} » est déjà sauvegardé chaque nuit.` : `« ${nom} » n'est pas sauvegardé.` };
+      const reste = Object.keys(sv).filter((n) => n !== nom);
+      if (!oui && !reste.length) throw new Error(remplir(TEXTES_K2.phenixRetrait, { nom, plan: TEXTES_K2.plan }));
+      const noms = oui ? [...reste, nom] : reste;
+      await planVolumes(ctx, noms, oui ? `sauvegarder chaque nuit le volume ${nom}` : `ne plus sauvegarder le volume ${nom}`);
+      if (oui) sv[nom] = ctx.now().toISOString(); else delete sv[nom];
+      ctx.saveSettings({ volumesSauves: sv });
+      return { text: oui ? `💾 « ${nom} » est sauvegardé chaque nuit par Phénix (plan « ${TEXTES_K2.plan} », 02:15, dans ${depotVolumes(ctx)}).` : `« ${nom} » n'est plus sauvegardé (ses anciennes sauvegardes restent dans Phénix).`, data: { volume: nom, sauvegarde: oui, plan: TEXTES_K2.plan } };
+    } },
+  { id: 'creer_reseau', label: 'Créer un réseau à part', what: 'Un réseau à lui (son pont), isolé des autres réseaux des conteneurs, avec ou sans Internet', quick: false, proprietaireSeul: true,
+    params: [{ key: 'nom', label: 'Nom (minuscules, chiffres, - _ .)', kind: 'text', required: true }, { key: 'internet', label: 'Internet', kind: 'select', options: ['oui', 'non'], default: 'oui' }],
+    run: (_ctx, i) => { exigerMoteur(); const r = k2().createReseau(nomObjet(i.nom, 'réseau'), { internet: s(i.internet) !== 'non' }); return { text: `🔀 Réseau « ${r.nom} » créé : ${r.sousReseau}.0/24, ${r.internet ? 'Internet oui' : 'sans Internet'}, les autres conteneurs : non. Son pont est monté au premier conteneur qui s'y branche.`, data: r }; } },
+  { id: 'supprimer_reseau', label: 'Retirer un réseau à part', what: 'Retire un réseau à part que plus aucun conteneur n\'utilise (son pont et ses règles partent avec lui)', quick: false, proprietaireSeul: true,
+    params: [RESEAU], grave: (i) => `retirer le réseau ${s(i.reseau).trim().slice(0, 64)} (son pont et ses règles)`,
+    run: async (_ctx, i) => { exigerMoteur(); const r = await k2().rmReseau(nomObjet(i.reseau, 'réseau')); return { text: `🗑 Réseau « ${r.nom} » retiré.` }; } },
+];
+naglfar.actions.push(...avecJournal('naglfar_actes', actionsK2));

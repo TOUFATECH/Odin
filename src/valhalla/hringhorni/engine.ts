@@ -4,14 +4,14 @@
 // GHCR, Quay…) sont récupérées et dépaquetées par Odin lui-même.
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { constants, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, mkdirSync, openSync, readSync, closeSync } from 'node:fs';
+import { constants, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, mkdirSync, openSync, readSync, closeSync, lstatSync, realpathSync, renameSync, unlinkSync } from 'node:fs';
 import { access, mkdir, rename, rm } from 'node:fs/promises';
-import { join, delimiter } from 'node:path';
+import { basename, join, delimiter, dirname, resolve, sep } from 'node:path';
 import { autoName, parseMounts, parsePorts } from '../parc.ts';
-import { attach, defaultRunner, ensureBridge, lease, nsName, release, resolvConf, type Runner } from './net.ts';
+import { attach, attachNone, defaultRunner, ensureBridge, lease, nsName, PONT_DEFAUT, pontDe, release, removeBridge, resolvConf, sousReseauLibre, type Pont, type Runner } from './net.ts';
 import { parseRef, Registry } from './registry.ts';
 import { findTools, resolveIn, resolveUser, setupScript, finalExec, type Plan, type Tools } from './script.ts';
-import { defaultDir, isRoot, Store, type Image, type Mount, type Port, type Restart, type Spec, type State, type Status } from './store.ts';
+import { defaultDir, isRoot, NOM_OBJET, Store, type Image, type Mount, type Port, type Reseau, type Restart, type Spec, type State, type Status, type Volume } from './store.ts';
 import { extractLayer, layerStream } from './tar.ts';
 import { bytes, resizeLive } from './scale.ts';
 import { Bloque, quarantaineDabord } from '../ullr/garde.ts';
@@ -19,8 +19,48 @@ import { Bloque, quarantaineDabord } from '../ullr/garde.ts';
 export interface RunOpts {
   image: string; name?: string; cmd?: string[]; entrypoint?: string[]; env?: Record<string, string>;
   ports?: Port[] | string; mounts?: Mount[] | string; restart?: Restart; memory?: string; cpus?: string;
-  user?: string; workdir?: string; hostname?: string; network?: 'pont' | 'hote'; rm?: boolean; labels?: Record<string, string>;
+  user?: string; workdir?: string; hostname?: string; network?: 'pont' | 'hote' | 'aucun'; reseau?: string; rm?: boolean; labels?: Record<string, string>;
 }
+/** Un volume tel que l'appli le montre : sa taille (comptée sans suivre les liens, bornée) et qui s'en sert. */
+export interface VolumeVu extends Volume { dossier: string; octets: number; fichiers: number; compteCoupe: boolean; utilisePar: string[] }
+/** Un réseau tel que l'appli le montre (le réseau de tous d'abord, puis les réseaux à part), avec ses conteneurs. */
+export interface ReseauVu { nom: string; defaut: boolean; pont: string; sousReseau: string; internet: boolean; cree?: string; conteneurs: string[] }
+/** Le nom du réseau de tous les conteneurs, et les noms qu'un réseau à part ne peut pas prendre. */
+export const RESEAU_DE_TOUS = 'conteneurs';
+const NOMS_RESERVES = new Set([RESEAU_DE_TOUS, 'aucun', 'none', 'hote', 'host', 'pont', 'bridge', 'defaut', 'default', 'odin', 'machine']);
+/** La taille d'un dossier, sans suivre les liens et sans jamais tout lire d'un grand volume (au plus `max` entrées, et
+ *  jamais après `finA` : le comptage se fait sans rendre la main, il ne doit pas bloquer Odin). */
+export function tailleDossier(dir: string, max = 200_000, finA = Infinity): { octets: number; fichiers: number; coupe: boolean } {
+  let octets = 0, fichiers = 0, vus = 0; const pile = [dir];
+  while (pile.length) {
+    if (Date.now() > finA) return { octets, fichiers, coupe: true };
+    const d = pile.pop()!; let l: import('node:fs').Dirent[] = [];
+    try { l = readdirSync(d, { withFileTypes: true }); } catch { continue; }
+    for (const e of l) {
+      if (++vus > max || (vus % 512 === 0 && Date.now() > finA)) return { octets, fichiers, coupe: true };
+      const f = join(d, e.name);
+      if (e.isDirectory()) pile.push(f);
+      else if (e.isFile()) { try { octets += lstatSync(f).size; fichiers++; } catch { /* parti entre-temps */ } }
+    }
+  }
+  return { octets, fichiers, coupe: false };
+}
+const sansCasse = () => process.platform === 'win32' || process.platform === 'darwin';
+const normal = (p: string) => (sansCasse() ? resolve(p).toLowerCase() : resolve(p));
+const memeChemin = (a: string, b: string) => normal(a) === normal(b);
+/** `p` est `racine` ou dedans (sans casse là où le système l'ignore). */
+const dedansOuEgal = (p: string, racine: string) => { const a = normal(p), b = normal(racine); return a === b || a.startsWith(b.endsWith(sep) ? b : b + sep); };
+/** Le vrai chemin (liens suivis) du plus proche parent qui existe, suivi du reste tel quel. */
+function vraiChemin(p: string): string {
+  let x = resolve(p); const reste: string[] = [];
+  for (;;) {
+    try { return join(realpathSync.native(x), ...reste); } catch { /* pas encore là : on remonte */ }
+    const h = dirname(x); if (h === x) return resolve(p);
+    reste.unshift(basename(x)); x = h;
+  }
+}
+/** Le budget du comptage des volumes à chaque lecture (tous ensemble) : entrées lues et temps. */
+export const COMPTE_VOLUMES = { entrees: 200_000, ms: 1500 };
 export interface Ctr { id: string; spec: Spec; state: State }
 export type Step = (t: string, note?: string) => void;
 /** Où en est une installation : téléchargement (octets), montage (couches dépaquetées), démarrage. */
@@ -192,7 +232,11 @@ export class Engine {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$/.test(name)) throw new Error(`nom invalide : ${name}`);
     if (taken.includes(name)) throw new Error(`le nom ${name} est déjà pris`);
     const ports = typeof o.ports === 'string' ? parsePorts(o.ports) : (o.ports ?? []);
-    const mounts = typeof o.mounts === 'string' ? parseMounts(o.mounts) : parseMounts((o.mounts ?? []).map((m) => `${m.host}:${m.inner}${m.ro ? ':ro' : ''}`).join(','));
+    const mounts = this.montages(o.mounts);
+    const network0 = o.network ?? (this.rootless ? 'hote' : 'pont');
+    const reseau = network0 === 'pont' && o.reseau && o.reseau !== RESEAU_DE_TOUS ? o.reseau : undefined;
+    if (reseau && !this.store.reseaux().some((r) => r.nom === reseau)) throw new Error(`réseau inconnu : ${reseau.slice(0, 64)} (crée-le d'abord)`);
+    if (network0 === 'aucun' && ports.length) throw new Error('réseau « aucun » : aucun port ne peut être ouvert (ni Internet ni la maison)');
     const busy = new Map(this.ps().flatMap((c) => c.spec.ports.map((p) => [`${p.host}/${p.proto}`, c.spec.name] as const)));
     for (const p of ports) { const who = busy.get(`${p.host}/${p.proto}`); if (who) throw new Error(`le port ${p.host} est déjà pris par ${who}`); }
     const cfg = img.config.config ?? {}, env: Record<string, string> = {};
@@ -203,12 +247,118 @@ export class Engine {
     if (!entry.length && !cmd.length) throw new Error('l\'image ne dit pas quoi lancer : donne une commande');
     if (o.memory && !/^\d+(\.\d+)?[kmg]?$/i.test(o.memory)) throw new Error('mémoire : par exemple 512m ou 4g');
     if (o.cpus && !/^\d+(\.\d+)?$/.test(o.cpus)) throw new Error('cœurs : un nombre');
-    const id = randomBytes(32).toString('hex'), network = o.network ?? (this.rootless ? 'hote' : 'pont');
+    const id = randomBytes(32).toString('hex'), network = network0;
     if (network === 'pont' && this.rootless) throw new Error('le réseau privé des conteneurs demande Odin en administrateur : utilise --network hote');
-    const spec: Spec = { id, name, image: img.names[0] ?? o.image, imageId: img.id, cmd: [...entry, ...cmd], env, workdir: o.workdir ?? cfg.WorkingDir ?? '/', user: o.user ?? cfg.User ?? '', ports, mounts, restart: o.restart ?? 'non', memory: o.memory, cpus: o.cpus, hostname: o.hostname ?? name.slice(0, 63), network, autoRemove: !!o.rm, created: new Date().toISOString(), labels: { 'odin.moteur': 'hringhorni', ...(o.labels ?? {}) } };
-    for (const m of mounts) await mkdir(m.host, { recursive: true }).catch(() => {});
+    const spec: Spec = { id, name, image: img.names[0] ?? o.image, imageId: img.id, cmd: [...entry, ...cmd], env, workdir: o.workdir ?? cfg.WorkingDir ?? '/', user: o.user ?? cfg.User ?? '', ports, mounts, restart: o.restart ?? 'non', memory: o.memory, cpus: o.cpus, hostname: o.hostname ?? name.slice(0, 63), network, ...(reseau ? { reseau } : {}), autoRemove: !!o.rm, created: new Date().toISOString(), labels: { 'odin.moteur': 'hringhorni', ...(o.labels ?? {}) } };
+    for (const m of mounts) if (!m.volume) await mkdir(m.host, { recursive: true }).catch(() => {});
+    // Les volumes et la fiche d'un même trait (sans rendre la main) : un volume ne peut pas être supprimé entre les deux.
+    for (const m of mounts) if (m.volume) this.createVolume(m.volume, true);
     this.store.saveSpec(spec); this.store.saveState(id, { status: 'créé' });
     return spec;
+  }
+  /** Les dossiers partagés : « /chemin:/dedans[:ro] » (un dossier de la machine) ou « nom:/dedans[:ro] » (un volume
+   *  nommé, créé s'il n'existe pas, rangé par le moteur). */
+  montages(m: Mount[] | string | undefined): Mount[] {
+    const l = typeof m === 'string' ? m.split(/[,\n]+/).map((v) => v.trim()).filter(Boolean).map((v) => {
+      const [host, inner, mode, ...trop] = v.split(':');
+      // « c:/dossier:/dedans » (un disque Windows) ou un mode inconnu : refusé, jamais deviné
+      if (trop.length || (mode !== undefined && mode !== 'ro' && mode !== 'rw')) throw new Error(`dossier invalide : ${v.slice(0, 120)} (« /chemin:/dedans[:ro] » ou « nom:/dedans[:ro] »)`);
+      return { host: host ?? '', inner: inner ?? '', ro: mode === 'ro', ...(NOM_OBJET.test(host ?? '') ? { volume: host } : {}) } as Mount;
+    }) : (m ?? []);
+    return l.map((x) => {
+      if (!x.volume) {
+        const p = parseMounts(`${x.host}:${x.inner}${x.ro ? ':ro' : ''}`)[0], d = this.store.dir;
+        // Jamais le dossier du moteur par son chemin (ses volumes, ses conteneurs, ses images) : un volume se donne par son nom.
+        if (dedansOuEgal(p.host, d) || dedansOuEgal(vraiChemin(p.host), vraiChemin(d))) throw new Error(`dossier refusé : c'est le dossier du moteur de conteneurs (un volume se donne par son nom, « nom:${p.inner} »)`);
+        return p;
+      }
+      if (!NOM_OBJET.test(x.volume)) throw new Error(`nom de volume invalide : ${String(x.volume).slice(0, 64)}`);
+      if (!String(x.inner ?? '').startsWith('/') || /(^|\/)\.\.(\/|$)/.test(x.inner)) throw new Error(`dossier invalide dans le conteneur : ${String(x.inner).slice(0, 120)}`);
+      return { host: this.store.volumeData(x.volume), inner: x.inner, ro: !!x.ro, volume: x.volume };
+    });
+  }
+
+  // ------------------------------------------------------------------ volumes nommés (lot K2)
+  /** Crée un volume (rien si `siAbsent` et qu'il existe). */
+  createVolume(nom: string, siAbsent = false): Volume {
+    if (!NOM_OBJET.test(nom)) throw new Error(`nom de volume invalide : ${nom.slice(0, 64)} (minuscules, chiffres, - _ .)`);
+    const ici = this.store.volumes().find((v) => v.nom === nom);
+    if (ici) { if (siAbsent) return ici; throw new Error(`le volume ${nom} existe déjà`); }
+    const v: Volume = { nom, cree: new Date().toISOString() }; this.store.saveVolume(v); return v;
+  }
+  /** Les conteneurs (même arrêtés) qui se servent d'un volume. */
+  utilisateursVolume(nom: string): string[] {
+    // Dedans (un dossier du volume) ou AU-DESSUS (le dossier des volumes, ou celui du moteur, monté par son chemin) :
+    // les deux s'en servent. Vérifié sur le chemin écrit et sur le vrai chemin (un lien posé sur le chemin).
+    const dir = this.store.volumeDir(nom), vdir = vraiChemin(dir);
+    const touche = (h: string) => { const v = vraiChemin(h); return dedansOuEgal(h, dir) || dedansOuEgal(dir, h) || dedansOuEgal(v, vdir) || dedansOuEgal(vdir, v); };
+    return this.ps(true).filter((c) => c.spec.mounts.some((m) => m.volume === nom || touche(m.host))).map((c) => c.spec.name);
+  }
+  volumes(): VolumeVu[] {
+    // Un seul budget pour tous les volumes : la lecture rend toujours la main vite, même avec beaucoup de gros volumes.
+    let reste = COMPTE_VOLUMES.entrees; const finA = Date.now() + COMPTE_VOLUMES.ms;
+    return this.store.volumes().map((v) => {
+      const dossier = this.store.volumeData(v.nom), t = reste > 0 ? tailleDossier(dossier, reste, finA) : { octets: 0, fichiers: 0, coupe: true };
+      reste -= t.fichiers + 1;
+      return { ...v, dossier, octets: t.octets, fichiers: t.fichiers, compteCoupe: t.coupe, utilisePar: this.utilisateursVolume(v.nom) };
+    });
+  }
+  /** Le vrai dossier d'un volume, vérifié : exactement « <moteur>/volumes/<nom> », sans aucun lien sur le chemin
+   *  (ni le dossier des volumes, ni le volume, ni ses données). Sinon : refus, rien n'est touché. */
+  dossierVerifieVolume(nom: string): string {
+    const dir = this.store.volumeDir(nom), base = this.store.volumesDir();
+    for (const p of [base, dir, this.store.volumeData(nom)]) { try { if (lstatSync(p).isSymbolicLink()) throw new Error(`le volume ${nom} passe par un lien vers un autre dossier : rien n'est effacé`); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; } }
+    let reel: string; try { reel = realpathSync.native(dir); } catch { throw new Error(`volume introuvable sur le disque : ${nom}`); }
+    if (!memeChemin(reel, join(realpathSync.native(base), nom)) || !memeChemin(reel, resolve(dir))) throw new Error(`le volume ${nom} n'est pas rangé là où le moteur range ses volumes : rien n'est effacé`);
+    return reel;
+  }
+  /** Supprime un volume que PLUS RIEN n'utilise (aucun conteneur, même arrêté). Le nom tapé est vérifié par l'appli. */
+  rmVolume(nom: string, garde: (reel: string) => string | undefined = () => undefined): Volume {
+    const v = this.store.volumes().find((x) => x.nom === nom); if (!v) throw new Error(`volume inconnu : ${nom.slice(0, 64)}`);
+    const u = this.utilisateursVolume(nom); if (u.length) throw new Error(`le volume ${nom} sert encore à : ${u.join(', ')} (supprime ces conteneurs d'abord)`);
+    const reel = this.dossierVerifieVolume(nom), pourquoi = garde(reel);
+    if (pourquoi) throw new Error(`le volume ${nom} n'est pas effacé : ${pourquoi}`);
+    // D'abord mis de côté d'un seul geste (renommé dans le même dossier) : s'il a été remplacé par un lien depuis la
+    // vérification, c'est le lien qui est déplacé, puis seulement retiré ; sa cible n'est jamais touchée.
+    // Le chemin a été vérifié sans aucun lien : il doit l'être encore juste avant (dossier des volumes) et juste après.
+    const base = dirname(reel), cote = join(base, `.efface-${randomBytes(6).toString('hex')}`);
+    const horsDuMoteur = () => new Error(`le volume ${nom} n'est plus rangé chez le moteur (un lien posé entre-temps) : rien n'est effacé`);
+    if (!memeChemin(realpathSync.native(base), base)) throw horsDuMoteur();
+    renameSync(reel, cote);
+    if (lstatSync(cote).isSymbolicLink()) { unlinkSync(cote); throw new Error(`le volume ${nom} a été remplacé par un lien pendant la suppression : seul le lien est retiré`); }
+    if (!memeChemin(realpathSync.native(cote), cote)) { try { renameSync(cote, reel); } catch { /* laissé de côté, intact */ } throw horsDuMoteur(); }
+    rmSync(cote, { recursive: true, force: true });
+    return v;
+  }
+
+  // ------------------------------------------------------------------ réseaux (lot K2)
+  /** Le réseau de tous, puis les réseaux à part, chacun avec ses conteneurs. */
+  reseaux(): ReseauVu[] {
+    const cts = this.ps(true).filter((c) => c.spec.network === 'pont');
+    const de = (n?: string) => cts.filter((c) => (c.spec.reseau ?? '') === (n ?? '')).map((c) => c.spec.name);
+    return [{ nom: RESEAU_DE_TOUS, defaut: true, ...PONT_DEFAUT, conteneurs: de() }, ...this.store.reseaux().map((r) => ({ ...r, defaut: false, conteneurs: de(r.nom) }))];
+  }
+  createReseau(nom: string, o: { internet?: boolean } = {}): Reseau {
+    if (!NOM_OBJET.test(nom)) throw new Error(`nom de réseau invalide : ${nom.slice(0, 64)} (minuscules, chiffres, - _ .)`);
+    if (NOMS_RESERVES.has(nom)) throw new Error(`« ${nom} » est un nom gardé par Odin : choisis-en un autre`);
+    const l = this.store.reseaux(); if (l.some((r) => r.nom === nom)) throw new Error(`le réseau ${nom} existe déjà`);
+    const sousReseau = sousReseauLibre(l.map((r) => r.sousReseau));
+    const r: Reseau = { nom, pont: pontDe(sousReseau), sousReseau, internet: o.internet !== false, cree: new Date().toISOString() };
+    this.store.saveReseaux([...l, r]); return r;
+  }
+  /** Retire un réseau à part que plus aucun conteneur (même arrêté) n'utilise : son pont et ses règles partent avec lui. */
+  async rmReseau(nom: string): Promise<Reseau> {
+    if (nom === RESEAU_DE_TOUS) throw new Error('le réseau de tous les conteneurs ne se retire pas');
+    const l = this.store.reseaux(), r = l.find((x) => x.nom === nom); if (!r) throw new Error(`réseau inconnu : ${nom.slice(0, 64)}`);
+    const u = this.reseaux().find((x) => x.nom === nom)?.conteneurs ?? []; if (u.length) throw new Error(`le réseau ${nom} sert encore à : ${u.join(', ')}`);
+    if (!this.rootless) await removeBridge(this.runner(), r);
+    this.store.saveReseaux(l.filter((x) => x.nom !== nom)); return r;
+  }
+  /** Le pont d'un conteneur : celui de son réseau à part, ou le réseau de tous. */
+  pontDe(spec: Spec): Pont {
+    if (!spec.reseau) return PONT_DEFAUT;
+    const r = this.store.reseaux().find((x) => x.nom === spec.reseau); if (!r) throw new Error(`réseau inconnu : ${spec.reseau} (il a été retiré)`);
+    return r;
   }
   /** Tout ce qu'il faut pour lancer : cibles des montages (résolues sans sortir de la racine), utilisateur, commande. */
   async plan(spec: Spec, extra: { ip?: string; cgroup?: string } = {}): Promise<Plan> {
@@ -221,7 +371,9 @@ export class Engine {
     const env = { ...spec.env, HOSTNAME: spec.hostname };
     // fichiers réseau du conteneur
     // les autres conteneurs en marche, et ceux à adresse fixe (la base d'Odin) même arrêtés : on les retrouve par leur nom
-    const others = this.ps(true).filter((c) => c.id !== spec.id && (c.state.ip || c.spec.labels['odin.ip'])).map((c) => `${c.state.ip ?? c.spec.labels['odin.ip']} ${c.spec.name}`);
+    // (sur un réseau à part : seulement les conteneurs du même réseau ; réseau « aucun » : personne)
+    const meme = (c: Ctr) => spec.network !== 'pont' || (c.spec.network === 'pont' && (c.spec.reseau ?? '') === (spec.reseau ?? ''));
+    const others = spec.network === 'aucun' ? [] : this.ps(true).filter((c) => c.id !== spec.id && meme(c) && (c.state.ip || c.spec.labels['odin.ip'])).map((c) => `${c.state.ip ?? c.spec.labels['odin.ip']} ${c.spec.name}`);
     writeFileSync(join(ctrDir, 'hosts'), `127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost\n${extra.ip ? `${extra.ip}\t${spec.hostname} ${spec.name}\n` : `127.0.1.1\t${spec.hostname}\n`}${others.join('\n')}${others.length ? '\n' : ''}`);
     writeFileSync(join(ctrDir, 'resolv.conf'), resolvConf(spec.network === 'pont'));
     writeFileSync(join(ctrDir, 'hostname'), `${spec.hostname}\n`);
@@ -230,16 +382,19 @@ export class Engine {
   }
   /** La commande qui crée les espaces de noms et lance le script (utilisée par le gardien). */
   outer(spec: Spec, script: string, tools: Tools): string[] {
-    const ns = ['unshare', ...(this.rootless ? ['--user', '--map-root-user'] : []), '--pid', '--fork', '--mount', '--uts', '--ipc', '--kill-child=SIGKILL', '--', '/bin/sh', '-c', script];
+    // réseau « aucun » : l'espace réseau préparé par Odin (en administrateur), sinon un espace réseau vide de unshare
+    const vide = spec.network === 'aucun' && this.rootless;
+    const ns = ['unshare', ...(this.rootless ? ['--user', '--map-root-user'] : []), ...(vide ? ['--net'] : []), '--pid', '--fork', '--mount', '--uts', '--ipc', '--kill-child=SIGKILL', '--', '/bin/sh', '-c', script];
     ns[0] = tools.unshare;
-    return spec.network === 'pont' ? [tools.ip ?? 'ip', 'netns', 'exec', nsName(spec.id), ...ns] : ns;
+    return spec.network === 'pont' || (spec.network === 'aucun' && !this.rootless) ? [tools.ip ?? 'ip', 'netns', 'exec', nsName(spec.id), ...ns] : ns;
   }
   async startNetwork(spec: Spec): Promise<string | undefined> {
+    if (spec.network === 'aucun') { if (!this.rootless) await attachNone(this.runner(), spec.id); return undefined; }
     if (spec.network !== 'pont') return undefined;
-    const run = this.runner(); await ensureBridge(run);
-    const ip = await lease(run, spec.id, undefined, spec.labels['odin.ip']);
+    const run = this.runner(), p = this.pontDe(spec); await ensureBridge(run, p);
+    const ip = await lease(run, spec.id, undefined, spec.labels['odin.ip'], p.sousReseau);
     if (spec.labels['odin.ip'] && ip !== spec.labels['odin.ip']) { release(ip, spec.id); throw new Error(`l'adresse ${spec.labels['odin.ip']} est déjà prise`); }
-    try { await attach(run, spec.id, ip); } catch (e) { release(ip, spec.id); throw e; }
+    try { await attach(run, spec.id, ip, p); } catch (e) { release(ip, spec.id); throw e; }
     return ip;
   }
   /** Limites mémoire et processeur (cgroup v2, en administrateur). */

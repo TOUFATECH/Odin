@@ -79,7 +79,8 @@ async function main() {
     if (stopping || existsSync(join(cdir, 'arret'))) break;
   }
   for (const s of servers) { try { s.close(); } catch { /* déjà fermé */ } }
-  if (spec!.network === 'pont') { await detach(defaultRunner, id).catch(() => {}); release(ip, id); }
+  // (réseau « aucun » en administrateur : son espace réseau à lui part aussi)
+  if (spec!.network === 'pont' || (spec!.network === 'aucun' && !eng.rootless)) { await detach(defaultRunner, id).catch(() => {}); release(ip, id); }
   try { rmSync(join('/sys/fs/cgroup/odin', id.slice(0, 12)), { recursive: false, force: true }); } catch { /* encore occupé */ }
   const manual = existsSync(join(cdir, 'arret'));
   store.patchState(id, { status: manual ? 'arrêté' : 'sorti', exitCode: code, finishedAt: new Date().toISOString(), gardien: undefined, pid: undefined, ip: undefined });
