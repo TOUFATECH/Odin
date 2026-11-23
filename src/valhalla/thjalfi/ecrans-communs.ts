@@ -8,8 +8,75 @@
 // On n'ajoute jamais de bouche, de sourcils, de joues : seulement les yeux et la couleur. Tout est en ligne (pas de
 // script externe) : ça passe la règle de sécurité stricte de la page /ecran et ça marche hors ligne sur la clé.
 // Fonctions PURES : elles renvoient du HTML/CSS/SVG en texte, elles n'écrivent rien.
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { THEME_BARRES, barreTexte } from './ecran.ts';
 import type { TextTheme, Theme } from './ecran.ts';
+
+// ---------------------------------------------------------------------------------------------------------------
+// L'ÉCRAN DE DÉMARRAGE GRAPHIQUE (lots C6 et S10) : LE MÊME pour la clé ODIN et pour le démarrage par le réseau.
+// Sa seule source est src/web/pages/thjalfi-cle-menu.js (window.OdinGeneseCleMenu.ecran) : la page servie aux PC
+// (ecran-page.ts), la copie hors ligne de la clé (ecran-offline.ts) et l'aperçu de la page Clés USB sont faits
+// avec les MÊMES fonctions. On le lit ici une fois (comme les essais lisent face.js), sans rien exécuter d'autre.
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Ce que l'écran de démarrage expose (voir src/web/pages/thjalfi-cle-menu.js). */
+export interface EcranDemarrage {
+  page(): string;
+  css(): string;
+  corps(): string;
+  logique: {
+    mot(mots: Record<string, Record<string, string>>, langue: string, k: string, v?: Record<string, unknown>): string;
+    categorie(c: unknown): string;
+    modesPour(source: SourceEcran, modes: unknown): string[];
+    ordonner<T extends { id: unknown }>(systemes: T[], ordre?: unknown, caches?: unknown): T[];
+    apparencePour(source: SourceEcran, r?: unknown): Apparence;
+    cibleDefaut(systemes: Array<{ id: unknown; modes?: string[] }>, source: SourceEcran, defaut?: string): { id: string; mode: string } | null;
+    sousTitre(x: unknown): string;
+    descCle(x: unknown, source: SourceEcran): string;
+    clavier(k: string, s: { vue: string; sel: number; n: number; pas?: number; cle?: boolean; shift?: boolean }): Record<string, unknown> | null;
+  };
+  donnees(): { MOTS: Record<string, Record<string, string>>; THEMES: string[]; SEQ: EtapeArrivee[]; DUREE: number; TEINTES: Record<string, string[]> };
+  FORMES: Record<string, string[]>;
+  POSES: Record<string, { yeux: string; echelle: [number, number] }>;
+  SEQUENCE: EtapeArrivee[];
+  DUREE: number;
+  MOTS: Record<string, Record<string, string>>;
+  THEMES: string[];
+}
+/** D'où démarre le PC : la clé ODIN ou le réseau. */
+export type SourceEcran = 'cle' | 'reseau';
+/** Une étape de l'arrivée d'Odin : à `a` ms, telle émotion, telle marque (zzz, !, ♥), et s'il se met en marche. */
+export interface EtapeArrivee { a: number; pose: 'sommeil' | 'surprise' | 'neutre' | 'joie' | 'amour'; marque: '' | 'zzz' | '!' | '♥'; marche?: boolean }
+/** L'apparence commune (clé et réseau) : thème graphique, thème texte, mode au démarrage, Odin à l'ouverture, délai. */
+export interface Apparence { theme: string; texte: string; mode: 'graphique' | 'texte'; mascotte: boolean; delai: number }
+
+let partage: EcranDemarrage | undefined;
+/** L'écran de démarrage partagé (lu une fois dans src/web/pages/thjalfi-cle-menu.js). */
+export function ecranDemarrage(): EcranDemarrage {
+  if (!partage) {
+    const window: { OdinGeneseCleMenu?: { ecran: EcranDemarrage } } = {};
+    runInNewContext(readFileSync(new URL('../../web/pages/thjalfi-cle-menu.js', import.meta.url), 'utf8'), { window });
+    if (!window.OdinGeneseCleMenu?.ecran) throw new Error('écran de démarrage introuvable (thjalfi-cle-menu.js)');
+    partage = window.OdinGeneseCleMenu.ecran;
+  }
+  return partage;
+}
+/** Une copie « de ce monde » d'une donnée venue de l'écran partagé (les objets nés dans le bac à sable). */
+const copie = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
+/** L'arrivée d'Odin, pas à pas : il dort (zzz), sursaute (!), se déplace par petits sauts, est content (♥). */
+export const sequenceArrivee = (): EtapeArrivee[] => copie(ecranDemarrage().SEQUENCE);
+/** Ce que l'écran propose pour un système selon la source : « Installer pour moi » seulement par le réseau. Pur. */
+export const modesPour = (source: SourceEcran, modes: unknown): string[] => copie(ecranDemarrage().logique.modesPour(source, modes));
+/** Les systèmes dans l'ordre choisi, sans les cachés. Pur. */
+export const ordonnerSystemes = <T extends { id: unknown }>(systemes: T[], ordre?: unknown, caches?: unknown): T[] => {
+  const ids = ecranDemarrage().logique.ordonner(systemes.map((x, i) => ({ id: x.id, i })), ordre, caches) as unknown as Array<{ i: number }>;
+  return ids.map((x) => systemes[x.i]);
+};
+/** L'apparence de l'écran pour la clé ou le réseau (un seul réglage commun ; « Mêmes thèmes que mes clés ODIN »). Pur. */
+export const apparencePour = (source: SourceEcran, reglages?: unknown): Apparence => copie(ecranDemarrage().logique.apparencePour(source, reglages ?? {}));
+/** La ligne de la barre du menu : « démarrage depuis la clé » ou « démarrage par le réseau » (dans la langue voulue). */
+export const ligneBarre = (source: SourceEcran, langue = 'fr'): string => ecranDemarrage().logique.mot(ecranDemarrage().MOTS, langue, source === 'cle' ? 'barre.cle' : 'barre.reseau');
 
 /** Les quatre teintes du corps d'Odin (centre → bord), reprises de l'humeur « tranquille » (face.js). */
 export type Teintes = [string, string, string, string];

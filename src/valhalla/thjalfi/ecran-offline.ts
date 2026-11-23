@@ -8,10 +8,12 @@
 import { ecranPage } from './ecran-page.ts';
 import { KIOSK_PACKAGES, tarGz } from './ecran-pc.ts';
 import { DISPOSITION_CLE } from './cle-types.ts';
+import { brand, themeOf } from './ecran.ts';
+import { ecranDemarrage, modesPour } from './ecrans-communs.ts';
 
 /** L'état figé que lit la page hors ligne : exactement la forme que /ecran/etat renvoie sur le réseau. */
 export interface EtatFige {
-  systemes: unknown[];
+  systemes: Array<Record<string, unknown>> | unknown[];
   disposition: string;
   theme: string;
   dit: Record<string, string>;
@@ -39,32 +41,98 @@ export interface BundleOffline {
  *  - overlay : le calque Alpine qui, en kiosque, sert ce dossier en local (busybox httpd sur 127.0.0.1) et ouvre
  *    Chromium dessus — sans aucun serveur Odin, sans Internet.
  */
-export function buildEcranOffline(etat: EtatFige): BundleOffline {
-  const systemesJson = JSON.stringify(etat, null, 2) + '\n';
-  const page = ecranPage();
+/** Un identifiant de système sûr pour la clé : un nom de fichier simple (jamais un chemin), sinon rien. Pur. */
+const idSur = (x: unknown): string => {
+  const brut = String(x ?? '');
+  if (brut.split(/[\\/]/).includes('..')) return ''; // un chemin piégé : refusé, pas raccourci
+  const v = brut.split(/[\\/]/).pop() ?? '';
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(v) && !v.includes('..') ? v : '';
+};
+const texteCourt = (x: unknown, n = 80): string => String(x ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n);
 
-  // Le CGI du choix : écrit le fichier choisi comme prochain démarrage de Ventoy (grubenv), puis redémarre.
-  // Il lit le paramètre « iso » de la requête (la page envoie l'identifiant du système choisi).
+/**
+ * L'état FIGÉ tel qu'il est posé sur la clé : seulement ce que l'écran affiche, rien d'autre. Aucune adresse, aucun
+ * nom de machine, aucun chemin (un nom de fichier seulement), aucun secret ; « Installer pour moi » n'existe pas sur
+ * la clé (personne ne peut y donner son accord) ; « démarrer » (clé) devient « essayer » à l'écran. Pur.
+ */
+export function etatPourCle(etat: EtatFige): EtatFige {
+  const systemes = (Array.isArray(etat.systemes) ? etat.systemes : []).flatMap((s0) => {
+    if (!s0 || typeof s0 !== 'object') return [];
+    const s = s0 as Record<string, unknown>;
+    const id = idSur(s.id);
+    if (!id) return [];
+    const title = texteCourt(s.title ?? s.nom ?? s.name) || id;
+    const modes = modesPour('cle', s.modes);
+    const out: Record<string, unknown> = { id, title, version: texteCourt(s.version, 40), category: ecranDemarrage().logique.categorie(s.category ?? s.famille), modes, color: /^#[0-9a-fA-F]{6}$/.test(String(s.color)) && s.color !== '#5b8def' ? s.color : brand(title).color };
+    if (s.name != null) out.name = idSur(s.name) || id;
+    if (typeof s.size === 'number' && Number.isFinite(s.size) && s.size >= 0) out.size = s.size;
+    if (['iso', 'installe', 'persistance', 'vm', 'racine'].includes(String(s.genre))) out.genre = s.genre;
+    return [out];
+  });
+  const ids = systemes.map((x) => String(x.id));
+  const dit: Record<string, string> = {};
+  for (const [k, v] of Object.entries(etat.dit && typeof etat.dit === 'object' ? etat.dit : {})) if (k === '_' || ids.includes(k)) dit[k] = texteCourt(v, 300);
+  const sortie: EtatFige = { systemes, disposition: ['eventail', 'affiches', 'liste'].includes(String(etat.disposition)) ? String(etat.disposition) : 'affiches', theme: themeOf(etat.theme), dit, source: 'cle' };
+  if (etat.defaut != null && ids.includes(idSur(etat.defaut))) sortie.defaut = idSur(etat.defaut);
+  if (etat.delai != null && Number.isFinite(Number(etat.delai))) sortie.delai = Math.max(0, Math.min(600, Math.round(Number(etat.delai))));
+  if (etat.mascotte === false) sortie.mascotte = false;
+  if (typeof etat.langue === 'string' && /^[a-z]{2}(-[A-Za-z]{2})?$/.test(etat.langue)) sortie.langue = etat.langue;
+  return sortie;
+}
+
+/**
+ * Construit le dossier /ecran-odin. `etat` est l'état figé (systèmes, thème, disposition, phrases d'Odin), pris au
+ * moment de la préparation : la page le lira en local au lieu d'interroger Odin. Pur (le tar est déterministe).
+ *
+ *  - index.html : la page /ecran d'Odin, telle quelle (réutilisée d'ecran-page.ts) : le MÊME écran que le réseau.
+ *  - ecran/etat : le systemes.json figé (nettoyé, etatPourCle), servi là où la page va le chercher.
+ *  - systemes.json : la même donnée, lisible à part.
+ *  - cgi-bin/choisir : le petit script (CGI) qui reçoit le choix. Il n'accepte QUE les systèmes de cette clé (liste
+ *    écrite dedans) et les façons permises (essayer, installer, mode texte) ; il écrit le système retenu comme
+ *    prochain démarrage (grubenv : odin_next) ou le mode texte (odin_mode=texte), puis redémarre.
+ *  - odin.cfg : le bout de configuration du chargeur qui, au redémarrage, lit odin_next et démarre ce système.
+ *  - overlay : le calque Alpine qui, en kiosque, sert ce dossier en local (busybox httpd sur 127.0.0.1) et ouvre
+ *    Chromium dessus — sans aucun serveur Odin, sans Internet.
+ */
+export function buildEcranOffline(etat: EtatFige): BundleOffline {
+  const propre = etatPourCle(etat);
+  const systemesJson = JSON.stringify(propre, null, 2) + '\n';
+  const page = ecranPage();
+  const permis = propre.systemes.map((x) => `'${String((x as { id: string }).id)}'`).join('|');
+
+  // Le CGI du choix : n'accepte que les systèmes de la clé (identifiants sûrs, sans chemin) et les façons permises.
   const choisir = `#!/bin/sh
-# Odin · Genèse (clé USB) : on a choisi un système ; on le règle comme défaut de Ventoy puis on redémarre.
+# Odin · Genèse (clé USB) : on a choisi un système ; on le règle comme prochain démarrage puis on redémarre.
+# Rien d'autre n'est accepté : seulement les systèmes de cette clé, et essayer, installer ou le mode texte.
 echo "Content-Type: application/json"
 echo ""
-ISO=$(echo "$QUERY_STRING" | sed -n 's/.*[?&]iso=\\([^&]*\\).*/\\1/p' | sed 's/%2F/\\//g; s/%20/ /g')
-MODE=$(echo "$QUERY_STRING" | sed -n 's/.*[?&]mode=\\([^&]*\\).*/\\1/p')
+lire() { echo "$QUERY_STRING" | tr '&' '\\n' | sed -n "s/^$1=//p" | head -n 1; }
+ISO=$(lire iso)
+MODE=$(lire mode)
+case "$MODE" in essai|installer|texte) ;; *) echo '{"ok":false,"texte":"Cette façon de démarrer n’est pas proposée sur la clé."}'; exit 0 ;; esac
 PART=/mnt/odin
 mkdir -p "$PART" 2>/dev/null
-# La 1re partition de la clé (étiquette ODIN) : on y écrit le choix et le défaut de Ventoy.
+# La 1re partition de la clé (étiquette ODIN) : on y écrit le choix pour le prochain démarrage.
 mount -L ODIN "$PART" 2>/dev/null
-if [ -n "$ISO" ]; then
-  # grubenv : odin_next = chemin du système ; le bout odin.cfg (chargé par Ventoy) le lira au redémarrage.
+if [ "$MODE" = "texte" ]; then
+  grub-editenv "$PART/ventoy/grubenv" set "odin_mode=texte" 2>/dev/null || printf 'odin_mode=texte\\n' > "$PART/ecran-odin/choix.env"
+  echo '{"ok":true,"texte":"Passage en mode texte : la machine redémarre."}'
+  sync
+  ( sleep 2; reboot ) &
+  exit 0
+fi
+OK=
+case "$ISO" in ${permis || "''"}) [ -n "$ISO" ] && OK=1 ;; esac
+if [ -n "$OK" ]; then
+  # grubenv : odin_next = chemin du système ; le bout odin.cfg le lira au redémarrage.
   grub-editenv "$PART/ventoy/grubenv" set "odin_next=/ISO/$ISO" 2>/dev/null || \\
     printf 'odin_next=/ISO/%s\\n' "$ISO" > "$PART/ecran-odin/choix.env"
   printf '{"iso":"%s","mode":"%s"}\\n' "$ISO" "$MODE" > "$PART/ecran-odin/choix.json"
-  echo '{"ok":true,"texte":"C\\'est parti : la machine redémarre sur le système choisi."}'
+  echo '{"ok":true,"texte":"C’est parti : la machine redémarre sur le système choisi."}'
   sync
   ( sleep 2; reboot ) &
 else
-  echo '{"ok":false,"texte":"Aucun système choisi."}'
+  echo '{"ok":false,"texte":"Ce système n’est pas sur la clé."}'
 fi
 `;
 

@@ -27,13 +27,18 @@ test('drapeau clé : la page sait afficher « Installation clé USB » et lire S
   const p = ecranPage();
   assert.match(p, /CLE=qs\.has\('cle'\)/, 'le drapeau clé vient de l\'URL');
   assert.match(p, /Installation clé USB/, 'le libellé clé');
-  assert.match(p, /Serveur Odin '\+S\.serveur|Serveur Odin \+S\.serveur|Serveur Odin '\+ ?S\.serveur/, 'la ligne serveur lit S.serveur');
+  // Lot C6 : les textes de l'écran sont dans son dictionnaire (toutes les langues) ; « Serveur Odin » en est un mot.
+  assert.match(p, /"ligne\.serveur":"Serveur Odin"/, 'le mot « Serveur Odin »');
+  assert.match(p, /M\('ligne\.serveur'\)\+' '\+S\.serveur/, 'la ligne serveur lit S.serveur');
 });
 
-test('premier écran en mode clé : « Installation clé USB » dès le chargement (sans attendre /ecran/etat)', () => {
+test('premier écran en mode clé : la ligne de la clé dès le chargement (sans attendre /ecran/etat)', () => {
   const p = ecranPage();
-  // Au chargement du script, si CLE, on pose tout de suite la ligne et le sous-titre (c'est l'écran qu'on voit
-  // le plus longtemps au démarrage). Sinon, « Odin démarre… » / « démarrage par le réseau » restent le défaut réseau.
-  assert.match(p, /if\(CLE\)\{[^}]*premierSrv[^}]*ligneSrc\(\)/, 'premierSrv posé depuis ligneSrc() en mode clé');
-  assert.match(p, /if\(CLE\)\{[^}]*logoSub[^}]*Installation clé USB/, 'le sous-titre bascule sur « Installation clé USB »');
+  // Maquette validée (lot C6) : dès le chargement, l'arrivée dit « Clé USB ODIN · préparation du menu » (ou
+  // « Démarrage par le réseau · préparation du menu »), et la barre du menu « démarrage depuis la clé » (ou « par
+  // le réseau ») : la seule ligne qui change entre la clé et le réseau.
+  assert.match(p, /\$\('#premierSrv'\)\.textContent = M\(CLE \? 'arrivee\.cle' : 'arrivee\.reseau'\)/, 'la ligne d\'arrivée, clé ou réseau');
+  assert.match(p, /\$\('#logoSub'\)\.textContent = M\(CLE \? 'barre\.cle' : 'barre\.reseau'\)/, 'la barre dit « depuis la clé » ou « par le réseau »');
+  assert.match(p, /"arrivee\.cle":"Clé USB ODIN · préparation du menu"/);
+  assert.match(p, /"barre\.cle":"démarrage depuis la clé"/);
 });
