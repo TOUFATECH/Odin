@@ -12,7 +12,8 @@
 // Rien ici n'écrit sur un disque, et aucun script n'est exécuté : un script ajouté est lu comme du TEXTE, gardé dans la
 // page, envoyé seulement pour être vérifié et montré, et toujours affiché comme texte (jamais comme du code de page).
 // Tous les textes sont dans MOTS ; nombres selon la langue de la page (Intl).
-// Expose window.OdinGeneseCleLogiciels = { MOTS, logique, rendre(n, outils), aWindows(), pret5(), pourComposeur(systemes), etat }.
+// Expose window.OdinGeneseCleLogiciels = { MOTS, logique, rendre(n, outils), aWindows(), pret5(), pourComposeur(systemes),
+//   profilAuProchainAffichage(profil), etat }.
 (() => {
   'use strict';
   const W = typeof window !== 'undefined' ? window : globalThis;
@@ -537,8 +538,14 @@
   function rendre(n, outils) {
     if (typeof document !== 'undefined' && document.head && !document.getElementById?.('cklCss')) document.head.append(el('style', { id: 'cklCss' }, CSS));
     O = outils;
+    // Un profil donné par « Déployer » (le pont) : repris une seule fois, à la première étape 4 qui s'affiche.
+    const q = n === 5 ? null : profilAttendu;
+    if (q) { profilAttendu = null; void Promise.resolve().then(() => { const f = W.OdinGeneseCleLogiciels && W.OdinGeneseCleLogiciels.partirDuProfil; return (typeof f === 'function' ? f : partirDuProfil)(q); }); }
     return n === 5 ? etapeWindows() : etapeLogiciels();
   }
+  let profilAttendu = null;
+  /** « Déployer » (thjalfi-deployer.js) : ce profil sera repris (« Partir d'un profil ») à la prochaine étape 4 ; null l'oublie. */
+  function profilAuProchainAffichage(p) { profilAttendu = p && typeof p === 'object' && p.id ? p : null; }
   /** Les systèmes composés (contrat SystemeCle), avec les logiciels cochés pour chacun, et les autres choix des étapes
    *  4 et 5 : tes scripts acceptés (dans l'ordre) et les options Windows (sans aucune clé : seulement l'édition voulue). */
   function pourComposeur(composes) {
@@ -551,5 +558,5 @@
     return { systemes: systemesAvec, scripts: Z.scripts.filter((x) => x.etat === 'ok' && osChoisis().has(x.os)).map((x) => ({ nom: x.nom, os: x.os, contenu: x.contenu })), windows: aWindows() ? { ...Z.win } : null };
   }
 
-  W.OdinGeneseCleLogiciels = { MOTS, logique, rendre, aWindows, pret5, pourComposeur, ajouterScript, partirDuProfil, etat: Z };
+  W.OdinGeneseCleLogiciels = { MOTS, logique, rendre, aWindows, pret5, pourComposeur, ajouterScript, partirDuProfil, profilAuProchainAffichage, etat: Z };
 })();

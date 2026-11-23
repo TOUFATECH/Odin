@@ -220,7 +220,14 @@
       return [c.source ? el('button', { type: 'button', class: 'sy-btn pri', 'data-f': 'retel', onclick: () => telecharger(c, mot('retel.confirme', { nom: c.nom }), redessiner) }, ic('refresh', 15), mot('retel')) : null, detail];
     }
     const dep = el('button', { type: 'button', class: 'sy-btn pri', 'data-f': 'deployer', 'aria-label': mot('deployer.nom', { nom }), 'aria-expanded': String(Z.vers === c.id), disabled: !c.deployable, title: c.deployable ? null : mot(`raison.${c.raison || 'absent'}`),
-      onclick: () => { if (!c.deployable) return; Z.vers = Z.vers === c.id ? '' : c.id; redessiner(false, { carte: c.id, f: Z.vers ? 'vers-cle' : 'deployer' }); } }, ic('bolt', 15), mot('deployer'));
+      onclick: () => {
+        if (!c.deployable) return;
+        // L'onglet « Déployer » (thjalfi-deployer.js) est là : il s'ouvre à « Vers quoi », ce système déjà choisi, pour les
+        // trois cibles (clé, réseau, machine virtuelle). Sinon, « Vers quoi ? » ici, comme avant.
+        const D = W.OdinGeneseDeployer;
+        if (D && typeof D.choisirSysteme === 'function' && hote && typeof hote.aller === 'function' && D.choisirSysteme(c)) { Z.vers = ''; hote.aller('deployer'); return; }
+        Z.vers = Z.vers === c.id ? '' : c.id; redessiner(false, { carte: c.id, f: Z.vers ? 'vers-cle' : 'deployer' });
+      } }, ic('bolt', 15), mot('deployer'));
     const majB = c.maj ? el('button', { type: 'button', class: 'sy-btn', 'data-f': 'mettre-a-jour', 'aria-label': mot('maj.nom', { nom }), onclick: () => telecharger(c, mot('maj.confirme', { nom: c.nom, version: c.maj.version }), redessiner) }, ic('refresh', 15), mot('maj.bouton')) : null;
     return [dep, detail, majB];
   }

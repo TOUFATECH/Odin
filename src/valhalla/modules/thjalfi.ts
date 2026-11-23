@@ -653,7 +653,11 @@ export function thjalfi(): Module {
   actions.push(apercuScriptCle(profiles));
   // Systèmes (maquette « Genèse · Systèmes », lot S1) : la bibliothèque d'Hydre et les téléchargements d'Andromède
   // réunis, carte par carte ; lecture seule, propriétaire seul comme la clé.
-  actions.push(systemesAction(async (ctx) => (await isos(ctx)).map((i) => ({ id: i.id, chemin: i.path, demarre: Boolean(i.recipe) && !i.err, prete: prete(i) }))));
+  actions.push(systemesAction(async (ctx) => (await isos(ctx)).map((i) => ({ id: i.id, chemin: i.path, demarre: Boolean(i.recipe) && !i.err, prete: prete(i), ...(i.recipe?.auto && !i.err ? { auto: true } : {}) }))));
+  // Déployer, étapes 1 à 3 (maquette « Genèse · Systèmes », lot S5) : les PC vus au menu de démarrage réseau, d'après ce
+  // que le serveur de démarrage sait déjà (fiches vivantes, historique, PC autorisés, PC bloqués) ; lecture seule,
+  // propriétaire seul. Rien n'est lancé : le serveur n'est ni allumé ni réglé par cette lecture.
+  actions.push(postesVusAction((ctx) => ({ live: live(ctx), historique: history(ctx, 300), regles: rules(ctx), bloques: (ctx.settings.bloques as SourcePostes['bloques'] | undefined) ?? {}, allume: Boolean(http), mode: s(ctx.settings.mode) || 'proxy' })));
   // Logiciels et profils (maquette « Genèse · Systèmes », lot S4) : les profils de logiciels communs à la clé, au réseau et
   // aux machines virtuelles, gardés par Odin ; lecture et écriture réservées au propriétaire.
   actions.push(...profilsLogicielsActions(antivirusScript));
@@ -802,11 +806,13 @@ export interface CarteSysteme {
   source?: string;
   /** Déployer : l'identifiant de l'image pour la clé USB (étape 3), seulement si elle démarre et qu'elle est prête */
   iso?: string; deployable: boolean; raison?: 'verification' | 'inconnu' | 'bloque' | 'absent';
+  /** déployable et sa recette l'installe toute seule (sinon : elle démarre seulement) */
+  installe?: boolean;
   /** quand le fichier a été jeté (empreinte fausse) et pourquoi */
   le?: number; pourquoi?: string;
 }
 type FicheLue = { chemin: string; nom: string; taille?: number; systeme?: string; detail?: string; version?: string; edition?: string; sha256?: string; editeur?: boolean; ancienne?: boolean; antivirus?: { verdict?: string }; verifiee?: { ok?: boolean } };
-type ImageGenese = { id: string; chemin: string; demarre: boolean; prete: boolean };
+type ImageGenese = { id: string; chemin: string; demarre: boolean; prete: boolean; /** sa recette l'installe toute seule */ auto?: boolean };
 type Dispo = { chemin: string; etat?: string; derniere?: string; source?: string };
 type Surveille = { id: string; nom: string; derniere?: string; enCours?: { recu: number; total?: number; pct?: number } };
 const cheminNet = (p: string) => String(p ?? '').replace(/\\/g, '/').toLowerCase();
@@ -849,7 +855,7 @@ export function assemblerSystemes(e: { fiches: FicheLue[]; images: ImageGenese[]
       ...(f.verifiee?.ok === false ? { empreinte: 'changee' as const } : f.editeur === true ? { empreinte: 'editeur' as const } : f.sha256 ? { empreinte: 'calculee' as const } : {}),
       antivirus: v === 'sain' ? 'propre' : v === 'à vérifier' ? 'a_verifier' : v === 'bloqué' ? 'bloque' : 'en_cours',
       ...(d?.etat === 'nouvelle version' && d.derniere && d.source ? { maj: { version: d.derniere, source: d.source }, source: d.source } : d?.source ? { source: d.source } : {}),
-      ...(g ? { iso: g.id } : {}), deployable, ...(deployable ? {} : { raison: etat === 'bloque' ? 'bloque' as const : etat === 'verification' || (g?.demarre && !g.prete) ? 'verification' as const : g ? 'inconnu' as const : 'absent' as const }),
+      ...(g ? { iso: g.id } : {}), deployable, ...(deployable && g?.auto ? { installe: true } : {}), ...(deployable ? {} : { raison: etat === 'bloque' ? 'bloque' as const : etat === 'verification' || (g?.demarre && !g.prete) ? 'verification' as const : g ? 'inconnu' as const : 'absent' as const }),
     });
   }
   for (const x of enCours) {
@@ -892,6 +898,105 @@ export function systemesAction(images: (ctx: ModCtx) => Promise<ImageGenese[]>):
       if (dossier) { try { const f = statfsSync(dossier); place = { total: Number(f.blocks) * Number(f.bsize), libre: Number(f.bavail) * Number(f.bsize) }; } catch { /* dossier absent ou illisible */ } }
       const d = assemblerSystemes({ fiches: b?.data?.isos ?? [], images: g, disponibles: dsp?.data?.fichiers ?? [], surveilles: srv?.data?.surveilles ?? [], historique: hst?.text ?? '', place, now: ctx.now().getTime() });
       return { ok: true, text: `${d.chiffres.prets} système(s) prêt(s) à déployer · ${d.chiffres.enCours} en cours · ${d.chiffres.majs} mise(s) à jour disponible(s)`, data: { ...d, dossier, lu: { bibliotheque: Boolean(b), telechargements: Boolean(srv) } } };
+    },
+  };
+}
+
+// ---------------- Déployer, étape « Postes » (maquette « Genèse · Systèmes », lot S5) ----------------
+/** Six paires écrites d'une seule façon (« : », « - » ou rien), 17 caractères au plus. */
+const MAC_ECRITE = /^[0-9a-f]{2}([:-]?)[0-9a-f]{2}(?:\1[0-9a-f]{2}){4}$/i;
+/**
+ * L'adresse MAC d'UN PC, en minuscules avec « : », ou '' : mal écrite, nulle, de diffusion (ff:ff:…) ou de groupe (premier
+ * octet impair) — aucune de celles-là ne désigne un PC. Pur.
+ */
+export function macPoste(x: unknown): string {
+  const t = typeof x === 'string' ? x.replace(/^[ \t]+|[ \t]+$/g, '') : '';
+  if (!t || t.length > 17 || !MAC_ECRITE.test(t)) return '';
+  const m = normMac(t);
+  if (!m || m === '00:00:00:00:00:00' || (parseInt(m.slice(0, 2), 16) & 1) === 1) return '';
+  return m;
+}
+/** Un nom, une marque, un modèle : du texte sur une ligne, sans caractère invisible ni de contrôle, borné. Pur. */
+const texteSeul = (x: unknown, max: number) => (typeof x === 'string' ? x : '').replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\s]+/gu, ' ').trim().slice(0, max).trim();
+/** Ce que le serveur de démarrage sait déjà des PC. */
+export interface SourcePostes {
+  live: Record<string, Partial<Machine>>; historique: Array<Partial<Done>>; regles: Array<Partial<Rule>>;
+  bloques: Record<string, { at?: number; raison?: string }>;
+}
+/** Un PC vu au menu de démarrage réseau (ou autorisé, ou bloqué), tel que la page le montre. */
+export interface PosteVu {
+  mac: string; nom?: string; fw?: Firmware; marque?: string; modele?: string; serie?: string;
+  /** la dernière fois qu'il s'est montré (absent : jamais vu) */ vu?: number;
+  /** au menu en ce moment (moins de 5 min) */ auMenu: boolean; etape?: string;
+  bloque: boolean; autorise: boolean;
+  /** la dernière installation réussie par Odin (tout ce qu'Odin sait de son disque) */ installe?: { image: string; le: number };
+}
+/** Le menu attend au plus quelques minutes : au-delà, le PC a repris son disque. */
+const AU_MENU_MS = 5 * 60_000;
+const ETAPES_MENU = new Set(['démarrage réseau', 'chargeur', 'menu']);
+const FIRMWARES = new Set<string>(['bios', 'uefi', 'uefi32', 'arm64']);
+/**
+ * Les PC vus au démarrage réseau : un par adresse MAC (les fiches vivantes, puis l'historique du plus récent au plus
+ * ancien, puis les PC autorisés et bloqués), au menu d'abord, puis du plus récent au plus ancien ; 200 au plus. Une
+ * adresse qui n'est pas celle d'un PC est écartée ; rien n'est inventé (pas d'heure pour un PC jamais vu). Pur.
+ */
+export function postesVus(e: SourcePostes & { now: number }): PosteVu[] {
+  const o = (x: unknown): Record<string, unknown> | undefined => (x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, unknown> : undefined);
+  const par = new Map<string, PosteVu>();
+  const prendre = (mac: unknown) => {
+    const m = macPoste(mac); if (!m) return undefined;
+    let p = par.get(m);
+    if (!p) { if (par.size >= 2000) return undefined; p = { mac: m, auMenu: false, bloque: false, autorise: false }; par.set(m, p); }
+    return p;
+  };
+  const ident = (p: PosteVu, x: Record<string, unknown>) => {
+    for (const k of ['marque', 'modele', 'serie'] as const) if (!p[k]) { const v = texteSeul(x[k], k === 'serie' ? 40 : 60); if (v) p[k] = v; }
+    if (!p.fw && FIRMWARES.has(String(x.fw))) p.fw = x.fw as Firmware;
+    if (!p.nom) { const h = texteSeul(x.host, 63); if (h) p.nom = h; }
+  };
+  const vivants = Object.entries(o(e.live) ?? {}).map(([k, m]) => ({ k, m: o(m) })).filter((x): x is { k: string; m: Record<string, unknown> } => Boolean(x.m))
+    .sort((a, b) => (Number(b.m.updated) || 0) - (Number(a.m.updated) || 0));
+  for (const { k, m } of vivants) {
+    const p = prendre(m.mac ?? k); if (!p) continue;
+    const u = Number(m.updated) || 0;
+    if (u > (p.vu ?? 0)) { p.vu = u; const st = texteSeul(m.step, 40); if (st) p.etape = st; }
+    ident(p, m);
+    if (ETAPES_MENU.has(String(m.step)) && u <= e.now + 60_000 && e.now - u < AU_MENU_MS) p.auMenu = true;
+  }
+  for (const d0 of Array.isArray(e.historique) ? e.historique : []) {
+    const d = o(d0); if (!d) continue;
+    const p = prendre(d.mac); if (!p) continue;
+    const at = Number(d.at) || 0;
+    if (at > (p.vu ?? 0)) p.vu = at;
+    ident(p, d);
+    const image = texteSeul(d.isoName, 120);
+    if (!p.installe && d.result === 'fini' && image) p.installe = { image, le: at };
+  }
+  // Le nom donné par le propriétaire passe avant celui pris sur le réseau.
+  for (const r0 of Array.isArray(e.regles) ? e.regles : []) {
+    const r = o(r0); if (!r) continue;
+    const p = prendre(r.mac); if (!p) continue;
+    p.autorise = true; const n = texteSeul(r.nom, 63); if (n) p.nom = n;
+  }
+  for (const mac of Object.keys(o(e.bloques) ?? {})) { const p = prendre(mac); if (p) p.bloque = true; }
+  return [...par.values()].sort((a, b) => Number(b.auMenu) - Number(a.auMenu) || Number(a.bloque) - Number(b.bloque) || (b.vu ?? 0) - (a.vu ?? 0) || a.mac.localeCompare(b.mac)).slice(0, 200);
+}
+/**
+ * L'action en lecture `postes_vus` (étape « Postes » de Déployer) : les PC vus au menu de démarrage réseau, en direct (la
+ * page la relit), si Genèse répond aux PC (allumé) et comment (mode), et si Hydre sait créer une machine virtuelle.
+ * Rien n'est écrit, rien n'est lancé. Propriétaire seul : ni un membre, ni une tablette, ni une clé d'API.
+ */
+export function postesVusAction(source: (ctx: ModCtx) => (SourcePostes & { allume: boolean; mode: string }) | Promise<SourcePostes & { allume: boolean; mode: string }>): Action {
+  return {
+    id: 'postes_vus', label: 'PC vus au démarrage réseau', read: true, quick: false, proprietaireSeul: true,
+    what: 'Les PC vus au menu de démarrage réseau (adresse, démarrage, modèle, vu quand, bloqué ou autorisé), pour choisir où déployer',
+    run: async (ctx) => {
+      const src = await source(ctx);
+      const postes = postesVus({ ...src, now: ctx.now().getTime() });
+      let vm = false;
+      try { vm = ctx.modules().some((m) => m.id === 'ymir' && m.actions.some((a) => a.id === 'creer_machine')); } catch { vm = false; }
+      const n = postes.filter((p) => p.auMenu).length;
+      return { ok: true, text: `${postes.length} PC connu(s) du démarrage réseau · ${n} au menu en ce moment${src.allume ? '' : ' · Genèse est éteint'}`, data: { allume: Boolean(src.allume), mode: ['proxy', 'odin', 'aucun'].includes(src.mode) ? src.mode : 'proxy', postes, vm } };
     },
   };
 }
