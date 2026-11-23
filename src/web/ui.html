@@ -345,11 +345,26 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   .mcur{font-weight:600;color:var(--ink)}
   .bnav{display:flex;flex:none;border-top:1px solid var(--line);background:var(--panel2);padding:4px 4px calc(4px + env(safe-area-inset-bottom));order:9}
   .tab.bt{flex:1;flex-direction:column;gap:3px;min-height:56px;padding:6px 2px;border:0;border-radius:12px;font-size:11.5px;justify-content:center;position:relative;box-shadow:none;width:auto}
-  .tab.bt .lbl{flex:none}
+  .tab.bt .lbl{flex:none;line-height:1.15;text-align:center}
   .tab.bt .ic{width:22px;height:22px}
   .tab.bt[aria-current=page],.tab.bt.cur{color:var(--accent-texte,var(--accent));background:none}
   .tab.bt[aria-current=page] .ic,.tab.bt.cur .ic{color:var(--accent-texte,var(--accent))}
   .tab.bt .badge{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;font-size:11px;padding:0 5px}
+  /* Odin au centre de la barre du bas (maquette « Accueil », lot 21) : la mascotte de l'appli dans un rond de 52 px.
+     Le rond reste dans la barre (la maquette le fait dépasser vers le haut : ici il cacherait la barre de saisie de la Discussion). */
+  .bnav{align-items:center}
+  .bt-odin{flex:none;width:52px;height:52px;margin:0 4px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--sel);box-shadow:var(--shadow,none);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color .15s,transform .1s}
+  .bt-odin .nid{display:flex;align-items:center;justify-content:center;width:100%;height:100%;pointer-events:none}
+  .bt-odin .odin{width:40px;height:40px;pointer-events:none}
+  .bt-odin[aria-expanded=true]{border-color:var(--accent-texte,var(--accent))}
+  .bt-odin:focus-visible{outline:2px solid var(--accent-texte,var(--accent));outline-offset:2px}
+  .bt-odin:active{transform:scale(.95)}
+  /* Une seule mascotte à l'écran : quand Odin est déjà ailleurs (en liberté, dans la Discussion où il a la sienne, dans
+     l'écran de la maison qui a la sienne), le rond garde son nid, la rune d'Odin. Dans Vénus (sans mascotte, celle en
+     liberté y est cachée), Odin est dans le rond. Caché par tes 10 clics : la rune aussi. */
+  .bt-odin .nid-rune{display:none;font-size:24px;line-height:1;color:var(--accent-texte,var(--accent));pointer-events:none}
+  body:has(#buddyRoam:not([hidden])):not(:has(#v-venus.on)) .bt-odin .nid,body:has(#v-chat.on,#v-maison.on) .bt-odin .nid,:root.odin-hidden .bt-odin .nid{display:none}
+  body:has(#buddyRoam:not([hidden])):not(:has(#v-venus.on)) .bt-odin .nid-rune,body:has(#v-chat.on,#v-maison.on) .bt-odin .nid-rune,:root.odin-hidden .bt-odin .nid-rune{display:block}
   nav.side{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;flex-direction:column;flex-wrap:nowrap;max-height:78dvh;padding:10px 14px calc(14px + env(safe-area-inset-bottom));border:0;border-top:1px solid var(--line);border-radius:20px 20px 0 0;background:var(--panel);box-shadow:0 -12px 40px rgba(0,0,0,.35);transform:translateY(105%);transition:transform .25s cubic-bezier(.3,.9,.4,1);visibility:hidden}
   nav.side.open{transform:none;visibility:visible}
   nav.side::before{content:"";align-self:center;width:40px;height:4px;border-radius:2px;background:var(--field);margin-bottom:8px}
@@ -373,7 +388,9 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   .idea{font-size:14px;padding:9px 14px}
   .msg.assistant{padding:10px 14px}
 }
-@media (prefers-reduced-motion:reduce){nav.side,.sgrid>.card,.idea{transition:none;animation:none}}
+/* Au doigt, le survol reste collé à la dernière place touchée : seule la page ouverte se distingue dans la barre du bas. */
+@media (max-width:860px) and (hover:none){.tab.bt:hover:not([aria-current=page]):not(.cur){background:none;color:var(--muted)}}
+@media (prefers-reduced-motion:reduce){nav.side,.sgrid>.card,.idea,.bt-odin{transition:none;animation:none}.bt-odin:active{transform:none}}
 
 /* ===== Barre de saisie : un seul bloc, tout aligné ===== */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -1905,7 +1922,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       </div>
     </section>
   </main>
-  <nav class="bnav" aria-label="Sections principales"><button class="tab bt" data-view="home"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4.5l8 6.7"/><path d="M6 9.8V19h4.5v-5h3v5H18V9.8"/></svg><span class="lbl">Accueil</span><span class="badge" data-mirror="b-home" hidden></span></button><button class="tab bt" data-view="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></svg><span class="lbl">Discussion</span><span class="badge" data-mirror="b-approvals" hidden></span></button><button class="tab bt" data-view="brain"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4.5a3 3 0 0 0-5 2.5 3 3 0 0 0-1 5.2A3.2 3.2 0 0 0 7 17a2.8 2.8 0 0 0 5 1.5V6a2.5 2.5 0 0 0-2.5-1.5zM14.5 4.5a3 3 0 0 1 5 2.5 3 3 0 0 1 1 5.2A3.2 3.2 0 0 1 17 17a2.8 2.8 0 0 1-5 1.5"/><path d="M12 9h2.5M12 13h-2.5"/></svg><span class="lbl">Cerveau</span></button><button class="tab bt" data-view="net"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4v4.1M12 11.5l-5.3 5.7M12 11.5l5.3 5.7"/></svg><span class="lbl">Maison</span><span class="badge" data-mirror="b-net" hidden></span></button><button class="tab bt more" type="button" id="moreBtn" aria-controls="sideNav"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg><span class="lbl">Plus</span><span class="badge" data-mirror="b-drafts" hidden></span></button></nav>
+  <nav class="bnav" aria-label="Sections principales"><button class="tab bt" data-view="home" aria-current="page"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4.5l8 6.7"/><path d="M6 9.8V19h4.5v-5h3v5H18V9.8"/></svg><span class="lbl">Accueil</span><span class="badge" data-mirror="b-home" hidden></span></button><a class="tab bt" data-view="maison" id="bnavMaison" href="#maison" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4.5l8 6.7"/><path d="M6 9.8V19h12V9.8"/><circle cx="12" cy="14" r="2.2"/></svg><span class="lbl">Home Assistant</span></a><button class="tab bt" data-view="apps" id="bnavApps"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><span class="lbl">Applis</span><span class="badge" data-mirror="b-apps" hidden></span></button><button class="bt-odin" id="bnavOdin" type="button" aria-label="Parler à Odin" aria-haspopup="dialog" aria-expanded="false"><span class="nid" id="bnavNid"></span><span class="nid-rune" aria-hidden="true">ᛟ</span></button><button class="tab bt" data-view="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></svg><span class="lbl">Discussion</span><span class="badge" data-mirror="b-approvals" hidden></span></button><button class="tab bt more" type="button" id="moreBtn" aria-controls="sideNav"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg><span class="lbl">Plus</span><span class="badge" data-mirror="b-drafts" hidden></span></button></nav>
   <div class="scrim" id="scrim" hidden></div>
 </div>
 
@@ -1924,7 +1941,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // seul à ce qui se passe : il écoute quand tu écris ou parles, se concentre quand il travaille, ferme
   // les yeux quand tu tapes une clé, sourit quand un réglage est enregistré, s'endort si on l'oublie.
   const MOOD_LABEL = { neutre: 'tranquille', joie: 'content', rire: 'rieur', amour: 'attendri', fierte: 'fier', excite: 'enthousiaste', clin: 'complice', malice: 'malicieux', surprise: 'surpris', reflexion: 'pensif', concentration: 'concentré', confus: 'perplexe', inquiet: 'inquiet', triste: 'triste', colere: 'fâché', peur: 'effrayé', gene: 'gêné', fatigue: 'fatigué', ecoute: 'à l\'écoute', regarde: 'attentif', parle: 'parle', cache: 'ne regarde pas' };
-  const buddies = () => ['#buddy', '#buddyM', '#buddyChat', '#buddyRoam', '#login .odin'].map((q) => document.querySelector(q)).filter(Boolean);
+  const buddies = () => ['#buddy', '#buddyM', '#buddyChat', '#buddyRoam', '#buddyBas', '#login .odin'].map((q) => document.querySelector(q)).filter(Boolean);
   let baseMood = 'neutre', held = 0, lastAct = Date.now();
   const label = (m) => { const t = document.querySelector('#buddyTxt'); if (t) t.textContent = window.OdinFace?.MOODS?.[m]?.nom || MOOD_LABEL[m] || m; };
   function moodBase(m, withSound) { if (withSound && m !== baseMood) window.OdinFace?.sound(m); baseMood = m; if (!held) { buddies().forEach((b) => window.OdinFace?.base(b, m)); label(m); } }
@@ -2177,8 +2194,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     let brainPart; if (v === 'memory') { v = 'brain'; brainPart = 'souvenirs'; }
     if (SECONDARY.includes(v)) navMore(true);
     const nv = v === 'device' ? 'net' : v === 'app' || v === 'venus' ? 'apps' : v;
-    for (const b of document.querySelectorAll('.tab[data-view]')) { if (b.dataset.view === nv) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = (b.querySelector('.lbl') || b).textContent.trim(); } else b.removeAttribute('aria-current'); }
-    $('#moreBtn').classList.toggle('cur', !['home', 'chat', 'brain', 'net'].includes(v));
+    // « Plus » (barre du bas du téléphone) est marqué quand la page ouverte n'a pas sa place visible dans la barre.
+    let dansBarre = false;
+    for (const b of document.querySelectorAll('.tab[data-view]')) { if (b.dataset.view === nv) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = (b.querySelector('.lbl') || b).textContent.trim(); if (b.classList.contains('bt') && !b.hidden) dansBarre = true; } else b.removeAttribute('aria-current'); }
+    $('#moreBtn').classList.toggle('cur', !dansBarre);
     // Cerveau : chargé à l'ouverture ; en le quittant, ce qui est en cours d'écriture est enregistré.
     if (v === 'brain') window.OdinBrain?.open(brainPart); else window.OdinBrain?.leave?.();
     if (v === 'flows') window.OdinFlows?.open();
@@ -2193,8 +2212,51 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   window.OdinShow = show;
   // Pastilles de la barre du bas : copies de celles du menu.
-  const mirror = () => { for (const m of document.querySelectorAll('[data-mirror]')) { const src = document.getElementById(m.dataset.mirror); if (src) { m.hidden = src.hidden; m.textContent = src.textContent; } } };
+  // La 2e place de la barre du bas suit l'entrée « Home Assistant » du menu (pages/menu-ecrans.js : le propriétaire seul,
+  // Hestia installée). Sinon (un membre, ou pas de Hestia), c'est « Applis », l'entrée suivante du menu, qui prend la place.
+  const mirror = () => {
+    for (const m of document.querySelectorAll('[data-mirror]')) { const src = document.getElementById(m.dataset.mirror); if (src) { m.hidden = src.hidden; m.textContent = src.textContent; } }
+    const ha = $('#navMaison'), bh = $('#bnavMaison'), ba = $('#bnavApps');
+    if (ha && bh && ba && bh.hidden !== ha.hidden) {
+      bh.hidden = ha.hidden; ba.hidden = !ha.hidden;
+      $('#moreBtn').classList.toggle('cur', !document.querySelector('.bnav .tab[data-view][aria-current="page"]:not([hidden])'));
+    }
+  };
   new MutationObserver(mirror).observe(sideNav, { subtree: true, attributes: true, childList: true, characterData: true });
+  mirror();
+  // Odin au centre de la barre du bas : sa mascotte (une copie qui vit comme les autres), montrée seulement quand Odin
+  // n'est pas déjà ailleurs à l'écran (sinon sa rune, voir .nid-rune). Un appui ouvre la petite fenêtre pour lui parler,
+  // posée au-dessus du rond ; un second appui la ferme. Échap la ferme aussi, et le focus revient sur le rond.
+  {
+    const rond = $('#bnavOdin'), nid = $('#bnavNid');
+    if (rond && nid) {
+      nid.append(buddyClone('buddyBas'));
+      const fenetre = () => document.getElementById('odinTalk');
+      const ouverte = () => { const t = fenetre(); return Boolean(t && !t.hidden); };
+      let suivie = null, depuisRond = false, ouverteAuToucher = null;
+      const suivre = () => {
+        const t = fenetre(); if (!t || t === suivie) return; suivie = t;
+        new MutationObserver(() => {
+          rond.setAttribute('aria-expanded', String(ouverte()));
+          if (!ouverte() && depuisRond) { depuisRond = false; const f = document.activeElement; if ((!f || f === document.body || t.contains(f)) && rond.offsetParent) rond.focus(); }
+        }).observe(t, { attributes: true, attributeFilter: ['hidden'] });
+      };
+      // Un toucher en dehors de la fenêtre la ferme (notices.js, à la capture sur le document) avant le clic : on retient
+      // plus tôt (à la capture sur la fenêtre) si elle était ouverte.
+      addEventListener('pointerdown', (e) => { ouverteAuToucher = e.target instanceof Node && rond.contains(e.target) ? { ouverte: ouverte(), le: Date.now() } : null; }, true);
+      rond.addEventListener('click', () => {
+        // Le toucher retenu ne vaut que pour ce clic-ci (un toucher sans clic, puis Entrée plus tard : on relit la fenêtre).
+        const t = ouverteAuToucher, etait = t && Date.now() - t.le < 1500 ? t.ouverte : ouverte(); ouverteAuToucher = null;
+        toggleNav(false);
+        const N = window.OdinNotices;
+        if (!N || typeof N.talk !== 'function') { show('chat'); return; }
+        if (etait) { depuisRond = false; if (ouverte()) N.closeTalk(); rond.focus(); }
+        else { N.talk(rond); depuisRond = true; }
+        suivre();
+        rond.setAttribute('aria-expanded', String(ouverte()));
+      });
+    }
+  }
   // Thème : auto (suit l'appareil), clair, sombre.
   const THEMES = ['auto', 'clair', 'sombre'];
   let theme = 'auto'; try { theme = localStorage.getItem('odin.theme') || 'auto'; } catch {}
@@ -4124,7 +4186,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       { v: 'home', t: 'Ta sécurité : tes mots de passe ne passent jamais par l\'intelligence artificielle. Ce que je lis sur le web ou dans un mail ne peut pas me donner d\'ordres. Les commandes destructrices me sont interdites, et tout ce que je fais est noté, jour par jour.' },
     ] },
     { name: 'L\'accueil', steps: [
-      { v: 'home', q: ['#sideNav', '.bnav'], t: 'Le menu : Accueil, Home Assistant (quand ta maison est reliée), Applis, Discussion, Cerveau, Thèmes (le raccourci vers Réglages → Apparence), Maison (ton réseau), « Plus » pour le reste (automatisations, bases, activité, compétences, tâches planifiées, décisions, profil et tes épingles), puis Réglages. Sur grand écran, il se replie en colonne d\'icônes ; la punaise le garde ouvert. Sur téléphone, il est en bas de l\'écran.' },
+      { v: 'home', q: ['#sideNav', '.bnav'], t: 'Le menu : Accueil, Home Assistant (quand ta maison est reliée), Applis, Discussion, Cerveau, Thèmes (le raccourci vers Réglages → Apparence), Maison (ton réseau), « Plus » pour le reste (automatisations, bases, activité, compétences, tâches planifiées, décisions, profil et tes épingles), puis Réglages. Sur grand écran, il se replie en colonne d\'icônes ; la punaise le garde ouvert. Sur téléphone, la barre du bas garde Accueil, Home Assistant (sinon Applis), mon rond au centre (touche-le pour me parler ; je m\'y pose quand je ne suis pas déjà ailleurs sur l\'écran), Discussion, et « Plus », qui ouvre tout le reste.' },
       { v: 'home', q: '#homeBandeau', t: 'En haut de l\'accueil, je te salue et je te dis où on en est. La recherche (Ctrl K) trouve un écran, un réglage, ou me pose ta question. Puis le plein écran, la cloche qui compte ce qui t\'attend vraiment (validations et problèmes graves) et t\'emmène à « À faire », et « Vérifier », qui contrôle tout de suite tes appareils importants, tes disques et tes certificats.' },
       { v: 'home', q: '#homeGrid .kpis', t: 'L\'Accueil en un coup d\'œil : tes appareils en ligne, mes missions en cours, les risques repérés, ce que j\'ai dépensé et mon mode d\'autonomie. Touche un chiffre pour voir le détail.' },
       { v: 'home', q: ['#homeGrid .hcols .hpanel'], t: '« À faire maintenant » : ce qui t\'attend vraiment. Validations, alertes, et réglages que je te propose selon ce que je vois chez toi. Si c\'est vide, tout va bien.' },

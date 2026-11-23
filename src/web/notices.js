@@ -134,7 +134,10 @@
   }
 
   // ---------- Où est Odin ? La mascotte en liberté, sinon celle de la Discussion ----------
+  /** Ouverte depuis un élément précis (le rond d'Odin de la barre du bas) : la petite fenêtre se pose sur lui. */
+  let ancre = null;
   function anchor() {
+    if (ancre && talk && !talk.hidden && ancre.isConnected) { const r = ancre.getBoundingClientRect(); if (r.width >= 24 && r.bottom > 0 && r.top < innerHeight) return { el: ancre, r }; }
     const cands = [document.getElementById('buddyRoam'), ...document.querySelectorAll('.view.on .odin, .odin')];
     for (const c of cands) { if (!c || c.hidden) continue; const r = c.getBoundingClientRect(); if (r.width >= 24 && r.bottom > 0 && r.top < innerHeight && getComputedStyle(c).visibility !== 'hidden') return { el: c, r }; }
     return null;
@@ -143,7 +146,8 @@
   function placeBubble() {
     raf = 0; if (!bubble) return;
     const box = !talk.hidden ? talk : !bubble.hidden ? bubble : null, tl = ttail; if (!box) return;
-    const m = 12, room = innerHeight - 2 * m;
+    // Ouverte depuis le rond de la barre du bas : elle tient au-dessus de lui (sans couvrir la barre), et défile au besoin.
+    const m = 12, pres = box === talk && ancre ? anchor() : null, room = pres && pres.el === ancre ? Math.max(160, pres.r.top - 12 - m) : innerHeight - 2 * m;
     // La petite fenêtre « Que veux-tu ? » ne dépasse jamais de l'écran : plus haute que lui, elle défile à l'intérieur.
     if (box === talk) { const big = talk.scrollHeight > room + 1, mh = big ? `${room}px` : ''; if (talk.style.maxHeight !== mh) { talk.style.maxHeight = mh; talk.style.overflowY = big ? 'auto' : ''; } }
     const a = anchor(), w = box.offsetWidth, h = box.offsetHeight;
@@ -331,7 +335,7 @@
     const g = talk.cloneNode(true); g.classList.remove('ot-in'); g.classList.add('ot-ghost'); g.setAttribute('aria-hidden', 'true'); g.inert = true; g.removeAttribute('aria-label');
     document.body.append(g); setTimeout(() => g.remove(), 200);
   }
-  function closeTalk(quiet) { if (!talk || talk.hidden) return; ghostOut(); talk.hidden = true; talk.classList.remove('ot-in', 'ot-rep'); talk._list = false; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); later = null; badge(); }
+  function closeTalk(quiet) { ancre = null; if (!talk || talk.hidden) return; ghostOut(); talk.hidden = true; talk.classList.remove('ot-in', 'ot-rep'); talk._list = false; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); later = null; badge(); }
   // Échap ou un toucher en dehors : la bulle se ferme (pas pendant une image en grand ni une fenêtre de confirmation).
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && talk && !talk.hidden && !document.getElementById('mdZoom') && !document.querySelector('dialog[open]')) closeTalk(); });
   document.addEventListener('pointerdown', (e) => {
@@ -409,7 +413,7 @@
       saveLues(); badge(true); setAlarm(unread().some((x) => x.level === 'grave'));
     } catch { /* pas connecté : rien */ }
   }
-  window.OdinNotices = { boot, suivre: follow, push: (n) => show(n), open, hide, talk: () => talkTo(null), closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice(), unread: () => unread().length };
+  window.OdinNotices = { boot, suivre: follow, push: (n) => show(n), open, hide, talk: (pres) => { ancre = pres instanceof Element ? pres : null; talkTo(null); }, closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice(), unread: () => unread().length };
   addEventListener('resize', follow);
   const start = () => setTimeout(boot, 1200);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
