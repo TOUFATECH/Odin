@@ -315,7 +315,7 @@ test('Hestia : à plat, fond uni dans la zone de travail, et les décors dessin�
   assert.ok(styleDuTheme(c).includes(encodeURIComponent('viewBox=\'0 0 256 170\'')));
 });
 
-test('Apparence : les thèmes de Hestia se choisissent par identifiant ; un nom pris deux fois donne le thème d\'avant', async () => {
+test('Apparence : les thèmes de Hestia se choisissent par identifiant ; un nom pris deux fois ne choisit rien (Odin demande)', async () => {
   const home = mkdtempSync(join(tmpdir(), 'odin-themes-'));
   const v = new Valhalla(home, [apparence], { notify: async () => {} });
   try {
@@ -324,8 +324,9 @@ test('Apparence : les thèmes de Hestia se choisissent par identifiant ; un nom 
     assert.equal(((await v.act('apparence', 'etat', {})).data as { name: string }).name, 'Clair', 'gardé');
     assert.equal(await choisir('h-neige'), 'h-neige');
     assert.equal(await choisir('h-espace'), 'h-espace');
-    // En parlant, rien ne change à ce lot : le premier nom qui correspond est celui d'un thème d'avant.
-    for (const [nom, id] of [['Neige', 'neige'], ['Néon', 'neon'], ['Coucher de soleil', 'coucher'], ['Espace', 'espace'], ['Désert', 'desert'], ['Aurore boréale', 'aurore']]) assert.equal(await choisir(nom), id, nom);
+    // En parlant, un nom pris deux fois ne choisit plus le premier : Odin demande lequel (lot 11, test/themes-parole.test.ts).
+    for (const nom of ['Neige', 'Néon', 'Coucher de soleil', 'Espace', 'Désert', 'Aurore boréale']) assert.equal(await choisir(nom), undefined, nom);
+    assert.equal(((await v.act('apparence', 'etat', {})).data as { theme: string }).theme, 'h-espace', 'rien n\'a changé');
   } finally { v.stop(); rmSync(home, { recursive: true, force: true }); }
 });
 
