@@ -16,6 +16,7 @@ import { arrondirPosition, ecrireFichierPrive, lireFichierPrive } from '../../pr
 import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuCourant, temperature, vitesse, type Region, type Unites } from '../lieu.ts';
 import { fetchPropre } from '../../net/fetch-propre.ts';
 import { agissant } from '../sso/acces.ts';
+import { sorteDe, sortesPosables, type IdSortePosable } from '../widgets/index.ts';
 
 const s = (v: unknown) => String(v ?? '');
 export const THEMES: Record<string, { label: string; dark: boolean }> = {
@@ -280,15 +281,19 @@ const TILE: Param[] = [
 ];
 
 // ---------------- La fenêtre d'Odin : pages de modules d'applis, modifiables (maquettes validées) ----------------
-/** « heure » : la date, l'heure et le lieu d'Odin (son fuseau). « site » : une sonde de Pulsar (un site surveillé), nommée par `label`. */
-export type WidgetKind = 'chiffres' | 'section' | 'meteo' | 'bouton' | 'heure' | 'site';
+/**
+ * Les sortes de modules acceptées : celles que les fichiers de famille (src/valhalla/widgets/) disent posables, et non plus
+ * une liste écrite ici (lot 23, constat M14). Aujourd'hui : « heure » (la date, l'heure et le lieu d'Odin), « meteo »,
+ * « site » (une sonde de Pulsar, nommée par `label`), « chiffres », « section » (une partie de page), « bouton ».
+ */
+export type WidgetKind = IdSortePosable;
 /**
  * Un module de la fenêtre. Sa place, c'est son rang dans la liste de la page (la grille se remplit toute seule).
  * Sa taille (grille de la maquette validée) : `c` colonnes sur 12, `r` lignes ; au téléphone, à part, `pc` colonnes
  * sur 4 et `pr` lignes (absentes : l'écran choisit). `w` (1, 2 ou 3 colonnes) est l'ancienne largeur, toujours rendue
  * pour l'écran d'aujourd'hui : elle se déduit de `c` (1 à 4 → 1, 5 à 8 → 2, 9 à 12 → 3).
  */
-export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number; r: number; pc?: number; pr?: number; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string> }
+export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number; r: number; pc?: number; pr?: number; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string>; style?: string }
 export interface FPage { id: string; name: string; maison?: boolean; widgets: Widget[] }
 export interface Layout { pages: FPage[] }
 /** La grille de la maquette : 12 colonnes, 4 au téléphone, 7 lignes au plus. */
@@ -296,10 +301,7 @@ export const GRILLE = { colonnes: 12, colonnesTel: 4, lignesMax: 7 } as const;
 /** Modules par page, au plus (24 avant la grille ; l'écran « maison » de départ de la maquette en a 31). */
 export const MODULES_PAR_PAGE = 48;
 /** Par sorte de module : sa plus petite taille [colonnes, lignes] et sa hauteur de départ. */
-export const TAILLE_SORTE: Record<WidgetKind, { mini: [number, number]; r: number }> = {
-  chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
-  bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
-};
+export const TAILLE_SORTE = Object.fromEntries(sortesPosables().map((x) => [x.id, { mini: [x.taille.mini[0], x.taille.mini[1]], r: x.taille.r }])) as Record<WidgetKind, { mini: [number, number]; r: number }>;
 /** La seule table des tailles en mots (petit, moyen, grand, toute la largeur) : des colonnes sur 12. */
 export const TAILLES_MOTS = { petit: 3, moyen: 6, grand: 9, plein: 12 } as const;
 /** L'ancienne largeur (1, 2 ou 3 colonnes) d'une largeur sur 12 : même proportion. */
@@ -335,19 +337,18 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
   for (const p of (Array.isArray(r.pages) ? r.pages : []).slice(0, 8)) {
     const pp = (p ?? {}) as Record<string, unknown>, name = str(pp.name, 24) || `Page ${pages.length + 1}`, widgets: Widget[] = [];
     for (const x of (Array.isArray(pp.widgets) ? pp.widgets : []).slice(0, MODULES_PAR_PAGE)) {
-      const o = (x ?? {}) as Record<string, unknown>, kind = String(o.kind) as WidgetKind;
-      if (!['chiffres', 'section', 'meteo', 'bouton', 'heure', 'site'].includes(kind)) continue;
-      const module = str(o.module, 40);
-      const libre = kind === 'meteo' || kind === 'heure'; // sans appli derrière
+      const o = (x ?? {}) as Record<string, unknown>, sorte = sorteDe(o.kind);
+      // Une sorte inconnue, ou déclarée mais pas encore posable (l'écran ne sait pas la dessiner) : jetée.
+      if (!sorte?.posable) continue;
+      const kind = sorte.id as WidgetKind, module = str(o.module, 40);
+      // Une sorte qui lit l'appli choisie a besoin d'une appli présente ; les autres (heure, météo) n'en gardent aucune.
+      const libre = sorte.applis !== 'choisie';
       if (!libre && !ids.includes(module)) continue;
-      if (kind === 'site' && (module !== 'vordr' || !str(o.label, 60))) continue; // un site surveillé = une sonde de Pulsar, par son nom
       const out: Widget = { id: /^[0-9a-f]{8}$/.test(String(o.id)) ? String(o.id) : wid(), kind, ...tailleNette(o, kind), ...(libre ? {} : { module }) };
-      if (kind === 'section') { out.section = str(o.section, 80); if (!out.section) continue; }
-      if (kind === 'bouton') {
-        out.action = str(o.action, 40); out.label = str(o.label, 40) || out.action; if (!out.action) continue;
-        const inp = (o.input && typeof o.input === 'object' ? o.input : {}) as Record<string, unknown>;
-        out.input = Object.fromEntries(Object.entries(inp).slice(0, 12).filter(([k]) => /^[a-z_][a-z0-9_]{0,30}$/i.test(k)).map(([k, v]) => [k, str(v, 300)]));
-      } else if (o.label) out.label = str(o.label, kind === 'site' ? 60 : 40);
+      // Les réglages propres à la sorte (partie de page, action, libellé…), nettoyés par son fichier de famille.
+      if (sorte.nettoyer && !sorte.nettoyer(o, out, { str })) continue;
+      // Un style, seulement s'il est l'un de ceux de la sorte et pas celui de départ (rien d'écrit sinon).
+      const style = str(o.style, 24); if (style && style !== sorte.styles[0] && sorte.styles.includes(style)) out.style = style;
       widgets.push(out);
     }
     pages.push({ id: /^[0-9a-f]{8}$/.test(String(pp.id)) ? String(pp.id) : wid(), name, ...(pp.maison ? { maison: true } : {}), widgets });

@@ -1,0 +1,38 @@
+// La source des widgets branchée sur le vrai Odin : ce que « la donnée d'un widget » (index.ts) peut lire. Une source
+// par lecture de page : chaque appli n'est lue qu'une fois, même si plusieurs widgets la montrent.
+import type { Valhalla } from '../service.ts';
+import type { View } from '../types.ts';
+import { meteoAncienne, regionActuelle, weather } from '../modules/gladsheim.ts';
+import type { SourceWidget } from './sorte.ts';
+
+const s = (v: unknown) => String(v ?? '');
+
+export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): SourceWidget {
+  const vues = new Map<string, Promise<View | null>>();
+  // Une appli désactivée (Applis) n'est pas là pour un widget.
+  const appli = (id: string) => { const m = v.module(id); return m && m.id === id && v.estActive(m.id) ? m : undefined; };
+  return {
+    appli: (id) => { const m = appli(id); return m ? { id: m.id, name: m.name, family: m.family } : undefined; },
+    vue: (id) => {
+      const m = appli(id); if (!m) return Promise.resolve(null);
+      if (!vues.has(id)) vues.set(id, Promise.resolve().then(() => m.view(v.ctx(id), new URLSearchParams())).catch(() => null));
+      return vues.get(id)!;
+    },
+    action: (id, action, input) => {
+      if (!appli(id)) return undefined;
+      const f = v.action(id, action); if (!f || f.m.id !== id) return undefined;
+      const ctx = v.ctx(f.m.id), seul = typeof f.a.proprietaireSeul === 'function' ? f.a.proprietaireSeul(input, ctx) : f.a.proprietaireSeul === true;
+      return { label: f.a.label, grave: Boolean(f.a.grave?.(input, ctx)), proprietaireSeul: seul };
+    },
+    meteo: async () => {
+      const w = await weather(v.ctx('gladsheim')); if (!w) return undefined;
+      const a = meteoAncienne();
+      return { donnee: { ...w }, at: w.at, ancien: a.ancien, motif: a.motif };
+    },
+    lieu: () => {
+      const g = v.ctx('gladsheim');
+      return { choisi: Boolean(s(g.settings.ville)), nom: s(g.settings.villeNom) || s(g.settings.ville), fuseau: s(g.settings.fuseau), heure12: regionActuelle(g).heure === '12h' };
+    },
+    maintenant,
+  };
+}
