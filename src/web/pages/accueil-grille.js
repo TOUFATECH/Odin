@@ -1,0 +1,118 @@
+// La grille de l'accueil (maquette validée « Accueil et Home Assistant ») : 12 colonnes, 4 au téléphone (700 px et
+// moins). Lignes de 74 px et écart de 14 px ; au téléphone, lignes de 84 px et écart de 12 px. Le navigateur comble
+// les trous (grid-auto-flow: row dense) : un module n'a pas de position, seulement un rang dans la liste de sa page,
+// une largeur `c` sur 12 et une hauteur `r` en lignes ; au téléphone, à part, `pc` colonnes sur 4 et `pr` lignes.
+// Sans `pc`, un module de 1 ou 2 colonnes prend la moitié du téléphone, les autres toute la largeur ; sans `pr`, il
+// prend la hauteur de son contenu (150 px au moins).
+// Calculs seuls : ce fichier est chargé avant les autres scripts de l'interface et ne touche à rien à son chargement.
+// Celui qui s'en sert (fenetre.js) pose le style rendu par `css()` et la taille rendue par `style()` sur chaque carte.
+// Règle tenue avec Hestia (gladsheim.ts, cleanLayout) : quand la largeur `c` change, l'ancienne largeur `w` (1, 2, 3)
+// change avec elle (1 à 4 → 1, 5 à 8 → 2, 9 à 12 → 3), sinon Hestia remettrait `c` d'après `w`.
+// API : window.OdinGrille = { GRILLE, MINI, HAUTEUR, appareil, taille, largeurTel, hauteurTel, hauteurPx, colonne, cases,
+// apres, rang, largeurAncienne, changer, agrandir, nouvelId, style, css }.
+(() => {
+  'use strict';
+  if (window.OdinGrille) return;
+
+  /** Les mesures de la maquette. `telephone` : 700 px et moins ; `ordinateur` : 1100 px et plus (entre les deux : tablette). */
+  const GRILLE = Object.freeze({ colonnes: 12, colonnesTel: 4, lignesMax: 7, ligne: 74, ecart: 14, ligneTel: 84, ecartTel: 12, minTel: 150, telephone: 700, ordinateur: 1100 });
+  /** Par sorte de module : sa plus petite taille [colonnes, lignes] (la même table que TAILLE_SORTE chez Hestia). */
+  const MINI = Object.freeze({ chiffres: [2, 1], section: [3, 2], meteo: [3, 2], bouton: [2, 1], heure: [2, 1], site: [2, 1] });
+  /** Par sorte de module : sa hauteur de départ, en lignes (la même que chez Hestia). */
+  const HAUTEUR = Object.freeze({ chiffres: 2, section: 3, meteo: 3, bouton: 2, heure: 2, site: 2 });
+  /** Le cycle du bouton « Taille » : les anciennes largeurs 1, 2, 3 colonnes, soit 4, 8, 12 sur 12. */
+  const CYCLE = [4, 8, 12];
+
+  const entier = (v) => (typeof v === 'number' && Number.isInteger(v) ? v : undefined);
+  const borne = (v, a, b) => Math.min(b, Math.max(a, v));
+  const mini = (kind) => MINI[kind] ?? [2, 1];
+
+  /** L'appareil d'après la largeur de l'écran, en px : 'telephone', 'tablette' ou 'ordinateur'. */
+  function appareil(largeur) {
+    const l = Number(largeur);
+    if (!(l > 0)) return 'ordinateur';
+    return l <= GRILLE.telephone ? 'telephone' : l < GRILLE.ordinateur ? 'tablette' : 'ordinateur';
+  }
+  /** L'ancienne largeur (1, 2 ou 3 colonnes) d'une largeur sur 12 : même proportion (comme chez Hestia). */
+  const largeurAncienne = (c) => (c <= 4 ? 1 : c <= 8 ? 2 : 3);
+
+  /**
+   * La taille d'un module, bornée : `c` de la mini de sa sorte à 12 (sans `c`, l'ancienne largeur `w` × 4),
+   * `r` de la mini à 7 (sans `r`, la hauteur de départ de la sorte), `pc` de 2 à 4 et `pr` de la mini à 7, s'ils sont là.
+   */
+  function taille(w) {
+    const o = w ?? {}, m = mini(o.kind), ancien = [1, 2, 3].includes(Number(o.w)) ? Number(o.w) : undefined;
+    let c = entier(o.c); if (c !== undefined) c = borne(c, m[0], GRILLE.colonnes);
+    // Comme Hestia : une largeur sur 12 qui ne va pas avec l'ancienne largeur `w` est périmée, elle suit `w`
+    // (sinon l'écran montrerait une taille et « Terminé » en garderait une autre).
+    if (c === undefined || (ancien !== undefined && largeurAncienne(c) !== ancien)) c = (ancien ?? 1) * 4;
+    const r0 = entier(o.r), pc = entier(o.pc), pr = entier(o.pr);
+    return { c, r: r0 === undefined ? (HAUTEUR[o.kind] ?? 2) : borne(r0, m[1], GRILLE.lignesMax),
+      ...(pc === undefined ? {} : { pc: borne(pc, 2, GRILLE.colonnesTel) }), ...(pr === undefined ? {} : { pr: borne(pr, m[1], GRILLE.lignesMax) }) };
+  }
+  /** Colonnes prises au téléphone (sur 4) : `pc` s'il est réglé, sinon la moitié (2) pour 1 ou 2 colonnes, sinon 4. */
+  function largeurTel(w) { const t = taille(w); return t.pc ?? (t.c <= 2 ? 2 : GRILLE.colonnesTel); }
+  /** Lignes prises au téléphone : `pr` s'il est réglé, sinon `null` (la hauteur du contenu). */
+  function hauteurTel(w) { const t = taille(w); return t.pr ?? null; }
+  /** La hauteur en px de `r` lignes : r × ligne + (r − 1) × écart. */
+  function hauteurPx(r, tel = false) { const n = Math.max(1, entier(r) ?? 1); return n * (tel ? GRILLE.ligneTel : GRILLE.ligne) + (n - 1) * (tel ? GRILLE.ecartTel : GRILLE.ecart); }
+  /** La largeur d'une colonne, en px, pour une grille large de `largeur` px. */
+  function colonne(largeur, tel = false) { const n = tel ? GRILLE.colonnesTel : GRILLE.colonnes, e = tel ? GRILLE.ecartTel : GRILLE.ecart; return Math.max(0, (Number(largeur) - e * (n - 1)) / n); }
+  /** Le pas d'une case : de combien de cases un geste de `delta` px fait bouger, pour une case de `pas` px plus l'écart. */
+  function cases(delta, pas, ecart) { const p = Number(pas) + Number(ecart); if (!(p > 0) || !Number.isFinite(Number(delta))) return 0; return Math.round(Number(delta) / p) || 0; }
+  /** Le pointeur est-il « après » la carte visée : sur sa moitié droite, ou tout en bas (10 px) d'une carte. */
+  function apres(x, y, rect) { if (!rect || !(rect.width > 0)) return false; return (x - rect.left) / rect.width > 0.5 || (rect.height > 0 && y > rect.bottom - 10); }
+  /**
+   * Le rang d'insertion : le module au rang `a` est lâché sur celui au rang `b`, avant lui ou `apresB`.
+   * Rend le nouveau rang de `a` dans la liste (sans lui, puis remis) ; `a` si rien ne bouge.
+   */
+  function rang(a, b, apresB) {
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a === b) return a;
+    let to = b + (apresB ? 1 : 0); if (a < to) to--;
+    return to;
+  }
+  /**
+   * Change la taille d'un module (sur place) et rend ce qui a changé. `c` et `w` restent d'accord : la largeur
+   * ancienne suit la largeur sur 12. Les valeurs sont bornées comme chez Hestia.
+   */
+  function changer(w, nouv) {
+    // Une nouvelle largeur sur 12 l'emporte sur l'ancienne `w` (qui la suivra) ; sans elle, rien ne change de largeur.
+    const n = nouv ?? {}, t = taille({ ...w, ...n, ...(entier(n.c) === undefined ? {} : { w: undefined }) }), patch = { c: t.c, r: t.r, w: largeurAncienne(t.c) };
+    if ('pc' in n) patch.pc = t.pc; if ('pr' in n) patch.pr = t.pr;
+    for (const [k, v] of Object.entries(patch)) { if (v === undefined) delete w[k]; else w[k] = v; }
+    return patch;
+  }
+  /** Le bouton « Taille » : 4, 8, 12 colonnes sur 12, puis 4 (la largeur qui suit celle d'aujourd'hui). Rend la nouvelle `w`. */
+  function agrandir(w) {
+    const c = taille(w).c, suite = CYCLE.find((x) => x > c) ?? CYCLE[0];
+    return changer(w, { c: Math.max(suite, mini(w.kind)[0]) }).w;
+  }
+  /**
+   * Un identifiant neuf pour un module ajouté (8 chiffres hexadécimaux, la forme qu'Hestia garde), pris nulle part
+   * dans `pris`. Sans lui, deux modules ajoutés auraient le même identifiant vide : « Retirer » les ôterait tous,
+   * les flèches et le glisser les confondraient.
+   */
+  function nouvelId(pris) {
+    const deja = new Set(Array.isArray(pris) ? pris : []), c = window.crypto;
+    for (;;) {
+      const n = c && typeof c.getRandomValues === 'function' ? c.getRandomValues(new Uint32Array(1))[0] : Math.floor(Math.random() * 0x100000000);
+      const id = n.toString(16).padStart(8, '0');
+      if (!deja.has(id)) return id;
+    }
+  }
+  /** Le style d'une carte : ses tailles en variables (l'écran choisit ordinateur ou téléphone par la règle de `css`). */
+  function style(w) {
+    const t = taille(w), pr = hauteurTel(w);
+    return `--c:${t.c};--r:${t.r};--pc:${largeurTel(w)};--pr:${pr === null ? 'auto' : `span ${pr}`};--pmin:${pr === null ? GRILLE.minTel : 0}px`;
+  }
+  /** Le style de la grille `grille` et de ses cartes `carte` (sélecteurs CSS). */
+  function css(grille, carte) {
+    const g = GRILLE;
+    return `${grille}{display:grid;grid-template-columns:repeat(${g.colonnes},minmax(0,1fr));grid-auto-rows:minmax(${g.ligne}px,auto);grid-auto-flow:row dense;gap:${g.ecart}px}`
+      + `${carte}{grid-column:span var(--c,4);grid-row:span var(--r,2);min-height:0}`
+      + `@media (max-width:${g.telephone}px){${grille}{grid-template-columns:repeat(${g.colonnesTel},minmax(0,1fr));grid-auto-rows:minmax(${g.ligneTel}px,auto);gap:${g.ecartTel}px}`
+      + `${carte}{grid-column:span var(--pc,4);grid-row:var(--pr,auto);min-height:var(--pmin,${g.minTel}px)}}`;
+  }
+
+  window.OdinGrille = Object.freeze({ GRILLE, MINI, HAUTEUR, appareil, taille, largeurTel, hauteurTel, hauteurPx, colonne, cases, apres, rang, largeurAncienne, changer, agrandir, nouvelId, style, css });
+})();

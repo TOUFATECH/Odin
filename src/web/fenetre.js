@@ -12,6 +12,8 @@
     return n;
   };
   const api = async (path, body) => { const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : { headers: { 'x-odin': '1' } }); return r.json(); };
+  // La grille de la maquette (12 colonnes, 4 au téléphone) : ses calculs sont dans pages/accueil-grille.js, chargé avant.
+  const G = window.OdinGrille;
   const act = (module, action, input = {}, confirm) => api('/api/valhalla/act', { module, action, input, ...(confirm ? { confirm: true } : {}) });
   const css = `
 #fenetre{margin:0 0 18px}.fe-bar{display:flex;gap:8px;align-items:center;margin:0 0 12px}.fe-bar .sp{flex:1}
@@ -20,7 +22,7 @@
 .fe-edit .fe-tab[aria-pressed=true]{background:#fff;color:#10363a}.fe-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-radius:16px;background:#10363a;color:#fff;margin:0 0 12px}
 .fe-tools .fe-tab{background:rgba(255,255,255,.12);color:#fff;border-color:transparent}.fe-tools b{display:flex;gap:6px;align-items:center;margin:0 6px}.fe-tools .btn{min-height:36px}
 .fe-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.fe-edit .fe-wrap{grid-template-columns:minmax(0,1fr) 330px}@media (max-width:980px){.fe-edit .fe-wrap{grid-template-columns:minmax(0,1fr)}}
-.fe-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start;min-height:120px}@media (max-width:760px){.fe-grid{grid-template-columns:minmax(0,1fr)}.fe-w{grid-column:auto!important}}
+${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inline-size}@container (max-width:130px){.fe-h{flex-wrap:wrap}.fe-h .fe-ic{display:none}}
 .fe-w{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px 16px;min-width:0;box-shadow:0 10px 26px rgba(16,54,58,.08)}
 .fe-w .va-kpi{padding:8px 10px}.fe-w .va-kpi b{font-size:20px}
 .fe-w .va-sec{background:none;border:0;padding:0;margin:0}.fe-w .va-sec h2{display:none}.fe-w .va-kpis{margin:0;grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
@@ -39,9 +41,9 @@
 .fe-own{background:#10363a;color:#fff;border-radius:14px;padding:12px;margin:12px 0 0}.fe-own .btn{margin-top:8px}
 .fe-form label{display:block;font-size:13px;font-weight:600;margin:8px 0 4px}.fe-form select,.fe-form input{width:100%;min-height:38px;border-radius:10px;border:1px solid var(--field);padding:0 10px;background:var(--panel)}
 .fe-btnw{display:flex;flex-direction:column;gap:8px}.fe-btnw .btn{min-height:46px;font-size:15px}
-.fe-wx{display:flex;gap:14px;align-items:center}.fe-wx b{font-size:34px}.fe-hours{display:flex;justify-content:space-between;margin-top:10px;font-size:12.5px;color:var(--muted)}
+.fe-wx{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.fe-wx>div{min-width:0}.fe-wx b{font-size:34px}.fe-hours{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;margin-top:10px;font-size:12.5px;color:var(--muted)}.fe-hours span{white-space:nowrap}
 .fe-err{color:var(--muted);font-size:13.5px}
-.fe-clock{display:flex;flex-direction:column;gap:2px}.fe-clock-h{font-size:38px;line-height:1.1;font-variant-numeric:tabular-nums}.fe-clock-d{font-size:15px}.fe-clock-d::first-letter{text-transform:uppercase}.fe-clock small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.fe-clock{display:flex;flex-direction:column;gap:2px}.fe-clock-h{font-size:clamp(22px,24cqi,38px);line-height:1.1;font-variant-numeric:tabular-nums}.fe-clock-d{font-size:15px}.fe-clock-d::first-letter{text-transform:uppercase}.fe-clock small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
 .fe-site{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:4px solid var(--line)}.fe-site b{font-size:20px}.fe-site small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}.fe-site.bon{border-color:var(--good)}.fe-site.mauvais{border-color:var(--bad)}.fe-site.attention{border-color:var(--warn)}`;
   document.head.append(el('style', {}, css));
 
@@ -90,11 +92,11 @@
 
   // ------------------------------------------------------------------ dessin d'un module
   async function widget(w) {
-    const box = el('article', { class: 'fe-w', 'data-id': w.id, style: `grid-column:span ${w.w}` });
+    const box = el('article', { class: 'fe-w', 'data-id': w.id, style: G.style(w) });
     const grip = el('button', { class: 'fe-grip', type: 'button', title: 'Déplacer (ou flèches ← →)', 'aria-label': 'Déplacer ce module', onkeydown: (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { move(w.id, -1); e.preventDefault(); } if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { move(w.id, 1); e.preventDefault(); } } }, '⠿');
     grip.addEventListener('pointerdown', (e) => startDrag(e, box, w.id));
     const chrome = el('div', { class: 'fe-chrome' },
-      el('button', { type: 'button', title: 'Taille (1, 2 ou 3 colonnes)', 'aria-label': 'Changer la taille', onclick: () => { w.w = w.w === 3 ? 1 : w.w + 1; draw(); } }, '↔'),
+      el('button', { type: 'button', title: 'Taille (4, 8 ou 12 colonnes sur 12)', 'aria-label': 'Changer la taille', onclick: () => { w.w = G.agrandir(w); draw(); } }, '↔'),
       w.kind === 'section' || w.kind === 'chiffres' ? el('button', { type: 'button', title: 'Choisir ce qu\'il montre', 'aria-label': 'Réglages du module', onclick: () => configure(w) }, '⚙') : null,
       el('button', { type: 'button', title: 'Retirer', 'aria-label': 'Retirer ce module', onclick: () => { page().widgets = page().widgets.filter((x) => x.id !== w.id); draw(); } }, '✕'));
     box.append(grip, chrome);
@@ -142,6 +144,8 @@
   // ------------------------------------------------------------------ la page
   async function draw() {
     const h = host(); if (!h || !L) return;
+    // Le focus du clavier survit au nouveau dessin : le même bouton du même module (« Taille », « ⚙ »…), s'il est encore là.
+    const actif = document.activeElement, carteActive = actif?.closest?.('#feGrid .fe-w')?.dataset.id, nomActif = actif?.getAttribute?.('aria-label');
     h.classList.toggle('fe-edit', edit);
     const tabs = L.pages.map((p, i) => el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(i === cur), onclick: async () => { cur = i; try { localStorage.setItem('odin.fenetre.page', String(i)); } catch { /* */ } await fetchViews(); draw(); }, ondblclick: () => edit && rename(i) }, p.name, p.maison ? ' 🏠' : ''));
     const bar = edit
@@ -160,6 +164,7 @@
     if (!page().widgets.length) grid.append(el('div', { class: 'fe-drop', style: 'grid-column:1/-1' }, edit ? 'Glisse ici un module du catalogue (ou clique dessus).' : 'Page vide : « Modifier » pour ajouter des modules.'));
     if (edit) { grid.addEventListener('dragover', (e) => e.preventDefault()); grid.addEventListener('drop', (e) => { e.preventDefault(); const d = e.dataTransfer.getData('text/odin-module'); if (d) add(JSON.parse(d)); }); }
     h.replaceChildren(bar, el('div', { class: 'fe-wrap' }, grid, edit ? catalogue() : null));
+    if (carteActive && nomActif && !h.contains(document.activeElement)) [...grid.querySelectorAll('.fe-w')].find((n) => n.dataset.id === carteActive)?.querySelector(`[aria-label="${CSS.escape(nomActif)}"]`)?.focus();
   }
   async function rename(i) { const n = await window.OdinDialog.prompt('Nom de la page', L.pages[i].name); if (n) { L.pages[i].name = n.slice(0, 24); draw(); } }
   function themeBtn() {
@@ -182,12 +187,16 @@
     const mv = (ev) => {
       ghost.style.left = `${ev.clientX - dx}px`; ghost.style.top = `${ev.clientY - dy}px`;
       ghost.hidden = true; const t = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.fe-w'); ghost.hidden = false;
-      if (t && t !== box) { const tr = t.getBoundingClientRect(), after = ev.clientX > tr.left + tr.width / 2 || ev.clientY > tr.bottom - 10; t.parentNode.insertBefore(box, after ? t.nextSibling : t); }
+      if (t && t !== box) {
+        // Le rang d'insertion (moitié droite ou bas de la carte visée : après elle), puis la carte est remise à ce rang.
+        const cartes = [...t.parentNode.querySelectorAll('.fe-w')], a = cartes.indexOf(box), to = G.rang(a, cartes.indexOf(t), G.apres(ev.clientX, ev.clientY, t.getBoundingClientRect()));
+        if (to !== a) { const reste = cartes.filter((n) => n !== box); t.parentNode.insertBefore(box, reste[to] ?? null); }
+      }
     };
     const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); ghost.remove(); box.classList.remove('dragging'); const order = [...document.querySelectorAll('#feGrid .fe-w')].map((n) => n.dataset.id); page().widgets.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)); };
     addEventListener('pointermove', mv); addEventListener('pointerup', up);
   }
-  function add(w) { page().widgets.push({ id: '', w: 1, ...w }); views.delete(w.module); fetchViews().then(draw); }
+  function add(w) { page().widgets.push({ w: 1, ...w, id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) }); views.delete(w.module); fetchViews().then(draw); }
 
   // ------------------------------------------------------------------ catalogue, réglages d'un module, bouton sur mesure
   function catalogue() {
