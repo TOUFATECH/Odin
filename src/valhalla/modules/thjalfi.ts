@@ -34,6 +34,7 @@ import { identite, suivi, type FicheFin, type Passage, type Resultat } from '../
 import { pxeHook, type DhcpConfig, type Lease, type Packet } from '../vidarr/dhcp.ts';
 import { DhcpAPart, MODES_ADRESSES, RESEAU, conclure, lignesBox, modeAdresses, plageParDefaut, refusCarte, refusPartage, verifierPlage, type CarteReseau, type Garde, type PlageComplet } from '../thjalfi/reseau.ts';
 import { cleUsb } from '../thjalfi/cle-ecrire.ts';
+import { defautSur, idsPropres, installe, lireMenu, menuPxeCfg, ordonner, visibles, type MenuPxeCfg } from '../thjalfi/menu-pxe.ts';
 import { EDITIONS, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, masque, supprimerCle } from '../thjalfi/cles-windows.ts';
 import { apercu as apercuScripts, appliquerOptionsWindows, injecterSautExigences, nomCompteValide, optionsWindowsDe, osDuScript, scriptsRevus, type ScriptPerso } from '../thjalfi/scripts.ts';
 import { phraseNormale } from '../thjalfi/cle-ecrire.ts';
@@ -372,7 +373,11 @@ export function thjalfi(): Module {
     // place du menu, et aucune fiche n'est ouverte pour une demande refusée.
     const refus = S.garde(ctx, mac, fw, from); if (refus) return refus;
     track(ctx, mac || undefined, from, 'menu', { fw: fw || undefined });
-    let auto: { id: string; token: string; host: string } | undefined, def = s(ctx.settings.defaut) || 'local', timeout = delaiMenu(ctx);
+    // Le défaut de tous les PC (page « Menu PXE », lot S9) : jamais une entrée qui installe ou peut effacer (relu ici, même
+    // si un ancien réglage le disait) ; un PC autorisé garde son système à lui, plus bas.
+    // Un système caché du menu n'est pas non plus le défaut de tous (il redevient le disque).
+    const cfgMenu = menuPxe(ctx), defTous = defautSur(s(ctx.settings.defaut) || 'local', list.filter((i) => !cfgMenu.caches.includes(i.id))).def;
+    let auto: { id: string; token: string; host: string } | undefined, def = defTous === 'ecran' ? 'local' : defTous, timeout = delaiMenu(ctx);
     // Déployer (lot S6) : ce que le PC dit de lui (série, carte mère, taille du disque), revérifié AVANT tout effacement.
     const vu: IdentiteVue = { ...(q ? identite(q) : {}), ...(tailleDisqueVue(q) ? { disque: tailleDisqueVue(q) } : {}) };
     if (mac && vu.disque) { const all = live(ctx); if (all[mac]) { all[mac].disque = vu.disque; saveLive(ctx, all); } }
@@ -402,17 +407,32 @@ export function thjalfi(): Module {
       const d = join(bootDir(ctx), 'debian', codename || 'x');
       return codename && existsSync(join(d, 'linux')) && existsSync(join(d, 'initrd.gz')) ? { kernel: `boot/debian/${codename}/linux`, initrd: `boot/debian/${codename}/initrd.gz` } : undefined;
     };
+    // Le système à lui d'un PC autorisé (ou choisi sur l'écran) reste à SON menu, même caché pour les autres.
+    return menu({ ...menuCommun(ctx, list, def === defTous ? [auto?.id] : [def, auto?.id]), mac, def, timeout, auto, netboot: nb, ecran: ec.actif && Boolean(mac), kiosk: (() => { const k = kiosk(ctx); return k && mac ? kioskBoot({ base: base(ctx), mac, branch: k.branch }) : undefined; })() });
+  }
+  /** Les réglages du menu PXE (lot S9) : l'ordre choisi et les systèmes cachés. */
+  const menuPxe = (ctx: ModCtx): MenuPxeCfg => menuPxeCfg(ctx.settings.menuPxe);
+  /**
+   * Ce que tous les menus ont en commun (le vrai menu d'un PC et l'aperçu de la page) : les systèmes dans l'ordre choisi,
+   * sans les cachés (sauf `garder` : le système d'un PC autorisé reste au menu de CE PC), l'habillage et les familles.
+   */
+  function menuCommun(ctx: ModCtx, list: IsoInfo[], garder: Array<string | undefined>, cfg: MenuPxeCfg = menuPxe(ctx)) {
+    const ec = ecranCfg(ctx), fam = (i: IsoInfo) => category(i.recipe, i.name);
+    const entries = visibles(ordonner(list, cfg, fam), cfg, garder).map((i) => ({ id: i.id, name: i.name, recipe: i.recipe! }));
     const look = textLook(ec.texte, fondPerso(ctx, 'texte') || ec.texte !== 'classique' ? `${base(ctx)}/ecran/fond-texte.png` : undefined);
-    return menu({ base: base(ctx), mac, entries: list.map((i) => ({ id: i.id, name: i.name, recipe: i.recipe! })), def, timeout, auto, netboot: nb, ecran: ec.actif && Boolean(mac), look, texte: ec.texte, family: (e) => category(e.recipe, e.name), kiosk: (() => { const k = kiosk(ctx); return k && mac ? kioskBoot({ base: base(ctx), mac, branch: k.branch }) : undefined; })() });
+    return { base: base(ctx), entries, look, texte: ec.texte, family: (e: { recipe: Recipe; name: string }) => category(e.recipe, e.name), libre: cfg.ordre.length > 0 };
   }
 
   // ---------------- L'écran d'Odin (choisir sur un téléphone ou un PC du réseau) ----------------
   async function ecranEtat(ctx: ModCtx, mac: string): Promise<Record<string, unknown>> {
-    const list = (await isos(ctx)).filter(prete), sys = systems(list, stats(ctx)), m = mac ? live(ctx)[mac] : undefined, fw = m?.fw ?? '', ec = ecranCfg(ctx);
-    for (const i of list) isoNames.set(i.id, i.name);
+    const tout = (await isos(ctx)).filter(prete), cfg = menuPxe(ctx), m = mac ? live(ctx)[mac] : undefined, fw = m?.fw ?? '', ec = ecranCfg(ctx);
+    for (const i of tout) isoNames.set(i.id, i.name);
+    // Le même menu que le menu texte (lot S9) : l'ordre choisi, sans les systèmes cachés ; le défaut qui démarre seul au
+    // bout du délai n'est jamais une installation (l'écran ne fait d'ailleurs qu'« essayer » ou prendre le disque).
+    const list = visibles(ordonner(tout, cfg, (i) => category(i.recipe, i.name)), cfg), sys = systems(list, stats(ctx)), dft = defautSur(s(ctx.settings.defaut) || 'local', list).def;
     const now = ctx.now().getTime(), d = mac ? demandes(ctx).filter((x) => x.mac === mac && (x.statut === 'attente' || now - (x.decide ?? x.at) < 10 * 60_000)).at(-1) : undefined;
     const last = mac ? history(ctx, 300).find((h) => h.mac === mac && h.result === 'fini') : undefined;
-    return { mac, fw, serveur: `${serverIp(ctx)}:${http?.port ?? ports(ctx).http}`, systemes: sys, disposition: ec.disposition, theme: ec.theme, fond: fondPerso(ctx, 'graphique'), relance: Boolean(mac && (choiceOf(ctx, mac) || (rules(ctx).find((x) => x.mac === mac)?.auto && !rules(ctx).find((x) => x.mac === mac)?.fait))), machine: S.publique(ctx, mac), demande: d ? { id: d.id, statut: d.statut, iso: d.iso } : null, dejaLa: last && S.publique(ctx, mac) ? `${last.isoName}${last.host ? ` (${last.host})` : ''}` : '', dit: { _: odinSays(undefined, fw), ...Object.fromEntries(sys.map((x) => [x.id, odinSays(x, fw)])) } };
+    return { mac, fw, serveur: `${serverIp(ctx)}:${http?.port ?? ports(ctx).http}`, systemes: sys, ordre: sys.map((x) => x.id), caches: [], defaut: dft === 'local' || dft === 'ecran' ? 'disque' : dft, delai: delaiMenu(ctx), disposition: ec.disposition, theme: ec.theme, fond: fondPerso(ctx, 'graphique'), relance: Boolean(mac && (choiceOf(ctx, mac) || (rules(ctx).find((x) => x.mac === mac)?.auto && !rules(ctx).find((x) => x.mac === mac)?.fait))), machine: S.publique(ctx, mac), demande: d ? { id: d.id, statut: d.statut, iso: d.iso } : null, dejaLa: last && S.publique(ctx, mac) ? `${last.isoName}${last.host ? ` (${last.host})` : ''}` : '', dit: { _: odinSays(undefined, fw), ...Object.fromEntries(sys.map((x) => [x.id, odinSays(x, fw)])) } };
   }
   async function ecranChoisir(ctx: ModCtx, mac: string, iso: string, mode: string): Promise<{ ok: boolean; texte: string }> {
     if (!mac) return { ok: false, texte: 'Il manque l\'adresse de la machine : ouvre l\'écran depuis le lien affiché par la machine.' };
@@ -423,6 +443,7 @@ export function thjalfi(): Module {
     if (mode === 'texte') { all[mac] = { iso: '', mode: 'texte', at: now }; saveJson(ctx, 'ecran-choix.json', all); return { ok: true, texte: 'Le PC repasse sur le menu texte.' }; }
     const list = (await isos(ctx)).filter(prete), sys = systems(list, stats(ctx)).find((x) => x.id === iso);
     if (!sys) return { ok: false, texte: 'Ce système n\'est plus dans Odin.' };
+    if (menuPxe(ctx).caches.includes(iso)) return { ok: false, texte: 'Ce système n\'est pas proposé au menu.' };
     if (!['essai', 'installer', 'auto'].includes(mode) || !sys.modes.includes(mode as 'essai')) return { ok: false, texte: `${sys.title} ne se lance pas de cette façon.` };
     if (mode === 'auto') {
       if (list.find((i) => i.id === iso)?.recipe?.kind === 'windows' && !(ctx.settings.partage as { unc?: string } | undefined)?.unc) return { ok: false, texte: 'Windows automatique : le partage réseau n\'est pas encore réglé dans Odin.' };
@@ -814,8 +835,11 @@ export function thjalfi(): Module {
     { id: 'iso_par_defaut', proprietaireSeul: true, label: 'ISO par défaut', what: 'Ce que démarre une machine qui ne choisit rien dans le menu (« disque » = son propre disque)', params: [{ key: 'iso', label: 'ISO, ou « disque »', kind: 'text', required: true }, { key: 'delai', label: 'Délai du menu (secondes)', kind: 'number', default: 10 }], words: ['iso par défaut', 'iso à déployer'], run: async (ctx, i) => {
       const d = Math.max(0, Math.min(300, Number(i.delai ?? 10)));
       if (/^(disque|local|aucune?)$/i.test(s(i.iso).trim())) { ctx.saveSettings({ defaut: 'local', delai: d }); return { text: `Par défaut : les machines démarrent sur leur propre disque (menu ${d} s).` }; }
-      const x = await findIso(ctx, i.iso); ctx.saveSettings({ defaut: x.id, delai: d });
-      return { text: `★ Par défaut : ${x.name} (${x.recipe?.label ?? '?'}) après ${d} s de menu. Une machine non autorisée lance l'installation normale, avec les questions : rien ne s'efface tout seul.` };
+      const x = await findIso(ctx, i.iso);
+      // Lot S9 : une entrée qui installe ou peut effacer ne démarre jamais seule sur un PC non autorisé.
+      if (installe(x.recipe)) return { ok: false, text: `Refusé : ${x.name} installe un système (ou peut effacer le disque) ; il ne démarre jamais tout seul sur un PC qui n'est pas autorisé. Par défaut : le disque du PC, l'écran d'Odin ou un système à essayer. Pour installer sur un PC précis : « Déployer ».` };
+      ctx.saveSettings({ defaut: x.id, delai: d });
+      return { text: `★ Par défaut : ${x.name} (${x.recipe?.label ?? '?'}) après ${d} s de menu : il démarre pour essayer, rien n'est installé.` };
     } },
     { id: 'autoriser', label: 'Autoriser une machine', proprietaireSeul: true, what: 'Cette machine (par son adresse MAC) démarre l\'ISO choisie ; avec « installation automatique », elle s\'installe toute seule une fois (son disque est effacé)', params: [macParam, { ...isoParam, required: false }, { key: 'nom', label: 'Nom sur le réseau (vide = pc-xxxxxx)', kind: 'text', default: '' }, { key: 'profil', label: 'Profil (compte, paquets, logiciels)', kind: 'text', default: 'standard' }, { key: 'auto', label: 'Installation automatique (efface le disque)', kind: 'boolean', default: false }],
       grave: (i) => (i.auto === true || i.auto === 'true' ? `installer automatiquement ${s(i.iso)} sur la machine ${s(i.mac)} : son disque sera EFFACÉ au prochain démarrage par le réseau` : undefined),
@@ -982,6 +1006,79 @@ export function thjalfi(): Module {
           direct, lignes: lignesBox(ip, http?.port ?? ports(ctx).http),
         },
       };
+    },
+  });
+  // Le menu PXE (maquette « Genèse · Systèmes », lot S9) : ce que voit un PC qui démarre par le réseau. Lecture (avec un
+  // aperçu relu dans le VRAI script écrit pour un PC inconnu) et réglage (ordre, cacher, défaut, délai, disposition) ;
+  // propriétaire seul. Le défaut n'est jamais une entrée qui installe ou peut effacer.
+  /** Une liste d'identifiants envoyée par la page (« ["a","b"] ») ou tapée (« a, b »). */
+  const listeIds = (x: unknown): string[] => { const t = s(x).trim(); if (t.startsWith('[')) { try { return idsPropres(JSON.parse(t)); } catch { return []; } } return idsPropres(t); };
+  /**
+   * La vue de la page. `b` (facultatif) : un brouillon pas encore enregistré (ordre, cachés, défaut, délai) ; l'aperçu
+   * est alors celui de ce brouillon, écrit par le même code que le vrai menu. Rien n'est enregistré ici.
+   */
+  async function menuPxeVue(ctx: ModCtx, b: Record<string, unknown> = {}) {
+    const list = (await isos(ctx)).filter((i) => i.recipe && prete(i)), ec = ecranCfg(ctx), fam = (i: IsoInfo) => category(i.recipe, i.name), connus = new Set(list.map((i) => i.id));
+    const garde = menuPxe(ctx), cfg: MenuPxeCfg = { ordre: s(b.ordre).trim() ? listeIds(b.ordre).filter((id) => connus.has(id)) : garde.ordre, caches: s(b.caches).trim() ? listeIds(b.caches) : garde.caches };
+    for (const i of list) isoNames.set(i.id, i.name);
+    const ranges = ordonner(list, cfg, fam), sys = systems(ranges, stats(ctx)), voit = visibles(ranges, cfg);
+    const vb = s(b.defaut).trim().toLowerCase(), ecranDef = vb ? vb === 'ecran' && ec.actif : ec.parDefaut;
+    const voulu = vb && vb !== 'ecran' ? vb : s(ctx.settings.defaut) || 'local', sur = defautSur(vb === 'ecran' ? 'local' : voulu, voit);
+    const defaut = ec.actif && ecranDef && sur.def === 'local' ? 'ecran' : sur.def === 'local' || sur.def === 'ecran' ? 'disque' : sur.def;
+    const delai = b.delai === undefined || b.delai === '' ? delaiMenu(ctx) : Math.max(0, Math.min(300, Math.round(Number(b.delai)) || 0));
+    // L'aperçu : le menu écrit pour un PC inconnu, avec les mêmes règles que le vrai (menuFor), sans rien noter.
+    const def = defaut === 'disque' ? 'local' : defaut, k = kiosk(ctx);
+    const apercu = lireMenu(menu({ ...menuCommun(ctx, list, [], cfg), mac: '', def, timeout: delai, ecran: ec.actif, ...(k ? { kiosk: ['ecran'] } : {}) }));
+    apercu.titre = apercu.titre.replace(/\s*\(\)\s*$/, '');
+    const t = ec.texte === 'classique' ? { fg: '#c0c0c0', title: '#ffffff', gap: '#00aaaa', selBg: '#0000aa', selFg: '#ffffff' } : TEXT_THEMES[ec.texte];
+    return {
+      entrees: sys.map((x) => { const i = ranges.find((y) => y.id === x.id)!; return { id: x.id, nom: x.name, titre: x.title, version: x.version, famille: x.category, couleur: x.color, modes: x.modes, installe: installe(i.recipe), cache: cfg.caches.includes(x.id) }; }),
+      ordreChoisi: cfg.ordre.length > 0, defaut, ...(sur.refus && voulu !== 'local' ? { defautRefuse: sur.refus } : {}),
+      delai, disposition: ec.disposition, dispositions: [...DISPOSITIONS], ecran: ec.actif, apercu,
+      couleurs: { fond: '#05080c', texte: t.fg, titre: t.title, trait: t.gap, choix: t.selBg, choixTexte: t.selFg },
+    };
+  }
+  actions.push({
+    id: 'menu_pxe', label: 'Menu PXE', read: true, quick: false, proprietaireSeul: true,
+    what: 'Ce que voit un PC qui démarre par le réseau : les systèmes dans l\'ordre, ceux qui sont cachés, l\'entrée par défaut, le délai, la disposition, et l\'aperçu du menu',
+    run: async (ctx, i) => {
+      const d = await menuPxeVue(ctx, i ?? {}), nom = (id: string) => d.entrees.find((e) => e.id === id)?.nom ?? id;
+      return { text: `Menu PXE : ${d.entrees.filter((e) => !e.cache).length} système(s) proposé(s)${d.entrees.some((e) => e.cache) ? `, ${d.entrees.filter((e) => e.cache).length} caché(s)` : ''} · par défaut : ${d.defaut === 'disque' ? 'le disque du PC' : d.defaut === 'ecran' ? 'l\'écran d\'Odin' : nom(d.defaut)} · ${d.delai ? `après ${d.delai} s` : 'sans délai (le PC attend)'}`, data: d };
+    },
+  });
+  actions.push({
+    id: 'menu_pxe_regler', label: 'Régler le menu PXE', quick: false, proprietaireSeul: true,
+    what: 'L\'ordre des systèmes, ceux qui sont cachés, l\'entrée par défaut (le disque du PC conseillé ; jamais une entrée qui installe), le délai et la disposition du menu graphique',
+    params: [{ key: 'ordre', label: 'Ordre (identifiants, du premier au dernier)', kind: 'text' }, { key: 'caches', label: 'Systèmes cachés (identifiants)', kind: 'text' },
+      { key: 'defaut', label: 'Par défaut : « disque », « ecran » ou un système qui n\'installe rien', kind: 'text' }, { key: 'delai', label: 'Sans choix, démarrer le défaut après (secondes, 0 : attendre)', kind: 'number' },
+      { key: 'disposition', label: 'Disposition du menu graphique', kind: 'select', options: [...DISPOSITIONS] }],
+    words: ['menu pxe', 'ordre du menu de démarrage', 'cacher un système du menu'],
+    run: async (ctx, i) => {
+      const list = (await isos(ctx)).filter((x) => x.recipe && prete(x)), connus = new Set(list.map((x) => x.id)), cfg = menuPxe(ctx), ec = ecranCfg(ctx);
+      const n: MenuPxeCfg = { ordre: cfg.ordre, caches: cfg.caches };
+      if (s(i.ordre).trim()) n.ordre = listeIds(i.ordre).filter((id) => connus.has(id));
+      // Un système caché absent pour l'instant (ISO déplacée, en vérification) le reste quand il revient.
+      if (s(i.caches).trim()) n.caches = idsPropres([...listeIds(i.caches).filter((id) => connus.has(id)), ...cfg.caches.filter((id) => !connus.has(id))]);
+      let defaut = s(ctx.settings.defaut) || 'local', parDefaut = ec.parDefaut, note = '';
+      const voulu = s(i.defaut).trim().toLowerCase();
+      if (voulu) {
+        if (['disque', 'local'].includes(voulu)) { defaut = 'local'; parDefaut = false; }
+        else if (voulu === 'ecran') { if (!ec.actif) return { ok: false, text: 'Refusé : l\'écran d\'Odin n\'est pas proposé au menu (Écran de démarrage). Rien n\'a changé.' }; defaut = 'local'; parDefaut = true; }
+        else {
+          const x = list.find((y) => y.id === voulu);
+          if (!x) return { ok: false, text: 'Refusé : ce système n\'est pas dans la bibliothèque (prêt à démarrer). Rien n\'a changé.' };
+          if (n.caches.includes(x.id)) return { ok: false, text: `Refusé : ${x.name} est caché du menu ; montre-le d'abord. Rien n'a changé.` };
+          const sur = defautSur(x.id, list); if (sur.refus) return { ok: false, text: `Refusé : ${sur.refus}. Par défaut : le disque du PC (conseillé), l'écran d'Odin ou un système à essayer. Pour installer sur un PC précis : « Déployer ». Rien n'a changé.` };
+          defaut = x.id; parDefaut = false;
+        }
+      }
+      // Le défaut caché par ce réglage : le disque du PC reprend sa place.
+      if (defaut !== 'local' && n.caches.includes(defaut)) { note = ` ${isoName(defaut)} est caché : par défaut, le disque du PC.`; defaut = 'local'; }
+      const delai = i.delai === undefined || i.delai === '' ? delaiMenu(ctx) : Math.max(0, Math.min(300, Math.round(Number(i.delai)) || 0));
+      const disposition = (DISPOSITIONS as readonly string[]).includes(s(i.disposition)) ? s(i.disposition) as Disposition : ec.disposition;
+      ctx.saveSettings({ menuPxe: n, defaut, delai, ecran: { ...ec, parDefaut, disposition } });
+      const d = await menuPxeVue(ctx);
+      return { text: `✔ Menu PXE enregistré : ${d.entrees.filter((e) => !e.cache).length} système(s) proposé(s) · par défaut : ${d.defaut === 'disque' ? 'le disque du PC' : d.defaut === 'ecran' ? 'l\'écran d\'Odin' : isoName(d.defaut)} · ${delai ? `après ${delai} s` : 'le PC attend un choix'} · ${disposition}.${note}`, data: d };
     },
   });
   actions.push(postesVusAction((ctx) => ({ live: live(ctx), historique: history(ctx, 300), regles: rules(ctx), bloques: (ctx.settings.bloques as SourcePostes['bloques'] | undefined) ?? {}, allume: Boolean(http), mode: modeAdresses(s(ctx.settings.mode) || 'proxy') })));

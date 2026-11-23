@@ -21,7 +21,7 @@
 
   // ---------------------------------------------------------------- les mots
   const MOTS = {
-    onglet: 'Réseau',
+    onglet: 'Réseau', 'sous.serveur': 'Serveur de démarrage (DHCP)', 'sous.menu': 'Menu PXE',
     'srv.titre': 'Serveur de démarrage', 'srv.allume': 'allumé', 'srv.eteint': 'éteint',
     'srv.lead': 'Répond aux PC qui démarrent par le réseau (PXE, BIOS et UEFI). Un PC inconnu démarre sur son propre disque.',
     'srv.note': 'Allumer lance des services sur le réseau de la maison : Odin te montre lesquels et attend ton accord.',
@@ -157,12 +157,16 @@
 .rz-pre{margin:6px 0 0;max-height:260px;overflow:auto;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--ink) 6%,var(--panel));border:1px solid var(--line);font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre;color:var(--ink)}
 .rz-h5{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:16px 0 4px}
 .rz-msg{margin:0;font-size:13px;color:var(--muted);min-height:1em}.rz-msg.ko{color:var(--bad);font-weight:600}.rz-msg.ok{color:var(--good);font-weight:600}
+.rz-sous{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 14px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.rz-sous::-webkit-scrollbar{display:none}
+.rz-sous button{flex:none;min-height:44px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);font:inherit;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
+.rz-sous button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
 @media (max-width:640px){.rz-plage{grid-template-columns:repeat(2,minmax(0,1fr))}.rz-card{padding:14px}.rz-tl time{min-width:0}}
 @media (prefers-reduced-motion:reduce){.rz-sw span{transition:none}}
 `;
 
   // ---------------------------------------------------------------- l'état de l'onglet
-  const Z = { wrap: null, d: null, etat: 'rien', raison: '', choix: '', msg: '', msgGenre: '', occupe: false, minuteur: 0, plage: null };
+  const Z = { wrap: null, d: null, etat: 'rien', raison: '', choix: '', msg: '', msgGenre: '', occupe: false, minuteur: 0, plage: null, sous: 'serveur' };
   let H = null;
   const MAC = /^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i;
   const heure = (t) => { try { return new Date(t).toLocaleTimeString((typeof document !== 'undefined' && document.documentElement && document.documentElement.lang) || 'fr', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); } catch { return ''; } };
@@ -366,16 +370,47 @@
     Z.minuteur = setTimeout(tic, 5000);
   }
 
-  /** Monte l'onglet dans root. hote : { post, act, aller(onglet) } (la page de Genèse). */
-  async function dessiner(root, _onglet, hote) {
-    if (typeof document !== 'undefined' && document.head && !(document.getElementById && document.getElementById('rzCss'))) document.head.append(el('style', { id: 'rzCss' }, CSS));
-    H = { post: hote && hote.post, act: hote && hote.act, aller: hote && hote.aller };
+  /** Le serveur de démarrage dans `root` (lecture, puis en direct). */
+  async function serveurDans(root) {
     const wrap = el('div', { class: 'rz', 'data-f': 'reseau' });
     root.append(wrap);
     Z.wrap = wrap; Z.etat = 'rien'; Z.choix = ''; Z.plage = null; Z.msg = ''; Z.msgGenre = '';
     dessinerTout();
     await lire();
     if (Z.wrap === wrap) { dessinerTout(); suivre(); }
+  }
+  /**
+   * Les deux sous-onglets de Réseau (maquette) : « Serveur de démarrage (DHCP) » et « Menu PXE » (thjalfi-menu-pxe.js,
+   * lot S9). Flèches ← → (et Début, Fin) pour passer de l'un à l'autre, le focus suit. Quitter le serveur arrête sa relecture.
+   */
+  function sousOnglets(root, hote) {
+    const panneau = el('div', { id: 'rz-panneau', role: 'tabpanel', 'data-f': 'rz-panneau' });
+    const barre = el('div', { class: 'rz-sous', role: 'tablist', 'aria-label': MOTS.onglet });
+    const ouvrir = async (k, focus) => {
+      Z.sous = k; clearTimeout(Z.minuteur); Z.wrap = null;
+      for (const b of barre.children) { const on = b.getAttribute('data-sous') === k; b.setAttribute('aria-selected', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); if (on && focus && b.focus) b.focus(); }
+      panneau.setAttribute('aria-labelledby', `rz-sous-${k}`);
+      panneau.replaceChildren();
+      if (k === 'menu') await W.OdinGeneseMenuPxe.dessiner(panneau, hote);
+      else await serveurDans(panneau);
+    };
+    const l = [['serveur', mot('sous.serveur')], ['menu', mot('sous.menu')]];
+    for (const [k, t] of l) barre.append(el('button', { type: 'button', role: 'tab', id: `rz-sous-${k}`, 'aria-controls': 'rz-panneau', 'aria-selected': String(Z.sous === k), tabindex: Z.sous === k ? '0' : '-1', 'data-sous': k, onclick: () => { if (Z.sous !== k) void ouvrir(k, false); } }, t));
+    barre.addEventListener('keydown', (e) => {
+      const i = l.findIndex(([k]) => k === Z.sous), n = e.key === 'ArrowRight' ? (i + 1) % l.length : e.key === 'ArrowLeft' ? (i - 1 + l.length) % l.length : e.key === 'Home' ? 0 : e.key === 'End' ? l.length - 1 : -1;
+      if (n < 0 || n === i) return; if (e.preventDefault) e.preventDefault(); void ouvrir(l[n][0], true);
+    });
+    root.append(barre, panneau);
+    return ouvrir(Z.sous, false);
+  }
+
+  /** Monte l'onglet dans root. hote : { post, act, aller(onglet) } (la page de Genèse). */
+  async function dessiner(root, _onglet, hote) {
+    if (typeof document !== 'undefined' && document.head && !(document.getElementById && document.getElementById('rzCss'))) document.head.append(el('style', { id: 'rzCss' }, CSS));
+    H = { post: hote && hote.post, act: hote && hote.act, aller: hote && hote.aller };
+    // Le menu PXE (lot S9) chargé : deux sous-onglets ; sinon, le serveur seul (comme avant).
+    if (W.OdinGeneseMenuPxe) { await sousOnglets(root, hote); return; }
+    await serveurDans(root);
   }
 
   W.OdinGeneseReseau = { onglets: [['reseau', MOTS.onglet]], dessiner, MOTS, etat: Z };

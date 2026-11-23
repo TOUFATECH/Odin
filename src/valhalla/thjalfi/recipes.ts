@@ -3,6 +3,7 @@
 // Kickstart pour Fedora / Rocky / Alma, unattend.xml pour Windows). Tout est pur ici (sauf la lecture de l'ISO).
 import { createHash, randomBytes } from 'node:crypto';
 import type { Iso } from './iso.ts';
+import { famillesGroupees, FAMILLES, texteIpxe } from './menu-pxe.ts';
 
 export type Kind = 'ubuntu' | 'casper' | 'debian' | 'rhel' | 'fedora-live' | 'arch' | 'alpine' | 'debian-live' | 'windows' | 'iso';
 export interface Recipe {
@@ -64,12 +65,19 @@ export interface MenuIn {
   kiosk?: string[];
   /** la famille d'une entrée (Windows, Linux, Serveurs, Outils), pour ranger le menu */
   family?: (e: Entry) => string;
+  /** l'ordre choisi sur la page « Menu PXE » (lot S9) : les entrées gardent l'ordre donné ; les intertitres de famille
+   *  restent seulement si chaque famille est d'un seul tenant */
+  libre?: boolean;
 }
-/** Texte du menu : les écrans de démarrage n'affichent que l'ASCII (accents retirés). Pur. */
-const q = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ._()+'-]/g, ' ').replace(/\s+/g, ' ').trim();
+/** Texte du menu : les écrans de démarrage n'affichent que l'ASCII (accents retirés), et rien qui casse le script du
+ *  chargeur (ni guillemet, ni retour, ni « ${…} ») : voir texteIpxe (menu-pxe.ts, lot S9). Pur. */
+const q = (s: string) => texteIpxe(s);
 
 /** Le script iPXE d'une machine : menu, entrée par défaut, démarrage de chaque ISO. Pur. */
-export function menu(m: MenuIn): string {
+export function menu(entree: MenuIn): string {
+  // L'adresse du PC est écrite telle quelle dans le script : seulement une vraie adresse MAC (sinon rien).
+  // Le délai aussi : un nombre de secondes (0 : le PC attend), jamais négatif ni « NaN » (choose échouerait).
+  const m: MenuIn = { ...entree, mac: /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(entree.mac) ? entree.mac : '', timeout: Number.isFinite(entree.timeout) ? Math.max(0, Math.min(3600, entree.timeout)) : 0 };
   const L = ['#!ipxe', `# Odin · Genèse — ${m.mac}`, `set base ${m.base}`, 'isset ${menu-timeout} || set menu-timeout 0', ...(m.look ?? []), ''];
   // L'écran de démarrage (maquette A1) : ce PC, son adresse, Odin trouvé ; Échap = son disque.
   if (m.timeout > 0) {
@@ -80,19 +88,25 @@ export function menu(m: MenuIn): string {
   const matrix = m.texte === 'matrix';
   L.push(matrix ? `menu ODIN :: CHOISIS UN SYSTEME (${m.mac})` : `menu ODIN - Choisis un systeme pour ce PC (${m.mac})`);
   if (m.ecran) L.push(`item ecran Choisir sur l'ecran d'Odin ${m.kiosk?.length ? '(ici en graphique, ou sur un telephone)' : '(telephone ou PC du reseau)'}`);
-  L.push('item local Demarrer sur le disque de cette machine');
-  // Les systèmes rangés par famille (maquette « Démarrage réseau ») : Windows, Linux, Serveurs, Outils
+  // Les systèmes rangés par famille (maquette « Démarrage réseau ») : Windows, Linux, Serveurs, Outils ; ou dans l'ordre
+  // choisi sur la page « Menu PXE » (lot S9). Le disque du PC est toujours proposé, en dernier (maquette « Systèmes »).
+  // Un identifiant qui ne serait pas sûr pour le script (il sert d'étiquette « :e-… ») n'est jamais écrit.
   const fam = (e: Entry) => m.family?.(e) ?? 'ISO';
-  const order = ['Windows', 'Linux', 'Serveurs', 'Outils', 'ISO'], groups = [...new Set(m.entries.map(fam))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const sures = m.entries.filter((e) => /^[a-z0-9][a-z0-9-]{0,63}$/.test(e.id));
+  const groups = [...new Set(sures.map(fam))].sort((a, b) => FAMILLES.indexOf(a) - FAMILLES.indexOf(b));
+  const rangees = m.libre ? sures : [...sures].sort((a, b) => groups.indexOf(fam(a)) - groups.indexOf(fam(b)));
+  const titres = !m.libre || famillesGroupees(rangees, fam);
   let lastFam = '';
-  for (const e of [...m.entries].sort((a, b) => groups.indexOf(fam(a)) - groups.indexOf(fam(b)))) {
-    if (fam(e) !== lastFam) { lastFam = fam(e); L.push(matrix ? `item --gap -- // ${q(lastFam).toUpperCase()} ${'/'.repeat(Math.max(3, 41 - lastFam.length))}` : `item --gap -- --- ${q(lastFam).toUpperCase()} ${'-'.repeat(Math.max(3, 44 - lastFam.length))}`); } const label = `${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}`; L.push(`item e-${e.id} ${label.length > 62 ? `${label.slice(0, 61)}.` : label}`); }
-  L.push('item --gap --', 'item shell Ligne de commande iPXE');
-  L.push(`choose --default ${m.def === 'local' || (m.def === 'ecran' && m.ecran) ? m.def : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
+  for (const e of rangees) {
+    if (titres && fam(e) !== lastFam) { lastFam = fam(e); L.push(matrix ? `item --gap -- // ${q(lastFam).toUpperCase()} ${'/'.repeat(Math.max(3, 41 - lastFam.length))}` : `item --gap -- --- ${q(lastFam).toUpperCase()} ${'-'.repeat(Math.max(3, 44 - lastFam.length))}`); } const label = `${q(e.name) || e.id} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}`; L.push(`item e-${e.id} ${label.length > 62 ? `${label.slice(0, 61)}.` : label}`); }
+  L.push('item --gap --', 'item local Demarrer sur le disque de cette machine', 'item shell Ligne de commande iPXE');
+  // Une entrée par défaut qui n'est pas au menu (cachée, absente) : le disque du PC.
+  const defOk = m.def === 'local' || (m.def === 'ecran' && m.ecran) || rangees.some((e) => e.id === m.def);
+  L.push(`choose --default ${!defOk ? 'local' : m.def === 'local' || m.def === 'ecran' ? m.def : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
   L.push(':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1', '');
   L.push(':shell', 'shell', 'goto local', '');
   if (m.ecran) L.push(':ecran', ...(m.kiosk ?? []), ':ecran-tel', `chain ${m.base}/ecran/attente.ipxe?mac=${m.mac}&fw=\${platform} || goto local`, '');
-  for (const e of m.entries) L.push(...entry(m, e), '');
+  for (const e of rangees) L.push(...entry(m, e), '');
   L.push(':echec', 'echo Le demarrage a echoue. Retour au menu dans 10 s.', 'sleep 10', `chain ${m.base}/menu.ipxe?mac=${m.mac}&echec=1 || goto local`);
   return `${L.join('\n')}\n`;
 }
