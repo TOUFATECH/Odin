@@ -22,7 +22,7 @@ import { Iso } from '../thjalfi/iso.ts';
 import { ProxyDhcp, bootFor, type Firmware } from '../thjalfi/pxe.ts';
 import { debianPreseed, detect, kickstart, menu, motDePassePc, nomsDesPcs, scriptFinLinux, odinCmd, silentArgs, ubuntuMetaData, ubuntuUserData, unattend, windowsAfter, winpeshl, type Answer, type Recipe } from '../thjalfi/recipes.ts';
 import { familleLogiciel, installeAuto, modeInstall, versScripts } from '../thjalfi/logiciels-cle.ts';
-import { autorisationPour, autorisationValable, FENETRE_IDENTITES_MS, identiteDifferente, identitesEnConflit, normMac, PxeHttp, tailleDisqueVue, type AutorisationPc, type IdentiteNotee, type IdentiteVue } from '../thjalfi/server.ts';
+import { autorisationPour, autorisationValable, choixIdentiteExige, cleIdentite, identiteDifferente, identitesConnues, identitesEnConflit, MEMOIRE_IDENTITES_MS, normMac, PxeHttp, tailleDisqueVue, type AutorisationPc, type IdentiteConnue, type IdentiteNotee, type IdentiteVue } from '../thjalfi/server.ts';
 import { DISPOSITIONS, TEXT_THEMES, category, TEXT_THEME_IDS, THEMES, odinSays, systems, textLook, textThemeOf, themeOf, type Disposition, type TextTheme } from '../thjalfi/ecran.ts';
 import { imageKind, textBackground } from '../thjalfi/fond.ts';
 import { ALPINE_MIRROR, kioskBoot, kioskOverlay, parseLatest, untar } from '../thjalfi/ecran-pc.ts';
@@ -318,9 +318,9 @@ export function thjalfi(): Module {
       const windowsSansPartage = target.recipe?.kind === 'windows' && !(ctx.settings.partage as { unc?: string } | undefined)?.unc;
       if (non || !target.recipe?.auto || windowsSansPartage) {
         const raison = non ?? (windowsSansPartage ? 'partage Windows absent' : 'le système ne s\'installe plus tout seul');
-        a.annulee = { at: now, raison: `${raison} (PC ${mac} au démarrage)` }; saveAutorisations(ctx, l);
+        a.annulee = { at: now, raison: `${raison} (PC ${mac} au démarrage)`, ...(non ? { vu } : {}) }; saveAutorisations(ctx, l);
         track(ctx, mac, from, 'menu', { detail: `déploiement refusé : ${raison} — rien n'est effacé` });
-        ctx.alert({ level: non ? 'haute' : 'moyenne', title: `🛑 Déploiement refusé : ${non ? 'ce n\'est pas le PC autorisé' : raison}`, detail: `Un PC (${mac}, adresse ${from}) a démarré par le réseau pour l'autorisation « ${a.nom} » : ${raison}. Rien n'a été effacé ; il a eu le menu ordinaire (son disque par défaut). L'autorisation est annulée.${non ? ' Deux appareils différents ont cité cette adresse : Odin n\'effacera pas ce PC avant 24 h sans autre appareil vu avec elle ; vérifie-le (numéro de série sur son étiquette).' : ' Relance « Déployer » quand c\'est réglé.'}`, key: `thjalfi-deploiement-refus-${a.id}`, data: { mac, autorisation: a.id } });
+        ctx.alert({ level: non ? 'haute' : 'moyenne', title: `🛑 Déploiement refusé : ${non ? 'ce n\'est pas le PC autorisé' : raison}`, detail: `Un PC (${mac}, adresse ${from}) a démarré par le réseau pour l'autorisation « ${a.nom} » : ${raison}. Rien n'a été effacé ; il a eu le menu ordinaire (son disque par défaut). L'autorisation est annulée.${non ? ' Deux appareils différents ont cité cette adresse. Odin ne l\'effacera plus sur la seule identité du dernier appareil vu : « Déployer » te montrera les deux (numéro de série, carte mère, disque, dates) et te demandera lequel est le bon (si les deux ont démarré ces dernières 24 h, attends d\'abord 24 h) ; seul celui-là pourra être effacé, l\'autre restera refusé. Vérifie le numéro de série sur son étiquette.' : ' Relance « Déployer » quand c\'est réglé.'}`, key: `thjalfi-deploiement-refus-${a.id}`, data: { mac, autorisation: a.id } });
         return { refus: raison };
       }
       const x = sessionDeploiement(ctx, mac, a, fw, from);
@@ -336,20 +336,28 @@ export function thjalfi(): Module {
     return { menu: target.id };
   }
 
-  // Ce que chaque adresse MAC a dit d'elle au démarrage ces dernières 24 h (fichier protégé, borné) : deux identités
-  // différentes pour la même adresse = un appareil la recopie peut-être ; « deployer » refuse alors d'effacer.
+  // Ce que chaque adresse MAC a dit d'elle au démarrage (fichier protégé, borné, gardé 400 jours) : deux identités
+  // différentes pour la même adresse ces dernières 24 h = un appareil la recopie peut-être, « deployer » refuse d'effacer ;
+  // plus anciennes, « deployer » demande au propriétaire laquelle est la bonne.
   const FICHIER_IDENTITES = 'identites-vues.json';
   const identitesVues = (ctx: ModCtx): Record<string, IdentiteNotee[]> => { const x = jsonFile<unknown>(ctx, FICHIER_IDENTITES, {}); return x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, IdentiteNotee[]> : {}; };
   function noterIdentite(ctx: ModCtx, mac: string, vu: IdentiteVue): void {
     try {
       const now = ctx.now().getTime(), all = identitesVues(ctx), cle = (x: IdentiteVue) => `${x.serie ?? ''}|${x.uuid ?? ''}|${x.disque ?? ''}`;
-      const l = (Array.isArray(all[mac]) ? all[mac] : []).filter((x) => x && now - Number(x.at) < FENETRE_IDENTITES_MS && cle(x) !== cle(vu));
-      all[mac] = [...l, { ...(vu.serie ? { serie: vu.serie } : {}), ...(vu.uuid ? { uuid: vu.uuid } : {}), ...(vu.disque ? { disque: vu.disque } : {}), at: now }].slice(-6);
-      const garde = Object.entries(all).filter(([, v]) => Array.isArray(v) && v.some((x) => now - Number(x?.at) < FENETRE_IDENTITES_MS)).sort((a, b) => Math.max(...b[1].map((x) => Number(x.at) || 0)) - Math.max(...a[1].map((x) => Number(x.at) || 0))).slice(0, 1000);
+      const avant = (Array.isArray(all[mac]) ? all[mac] : []).filter((x) => x && now - Number(x.at) < MEMOIRE_IDENTITES_MS);
+      const meme = avant.find((x) => cle(x) === cle(vu)), l = avant.filter((x) => x !== meme);
+      all[mac] = [...l, { ...(vu.serie ? { serie: vu.serie } : {}), ...(vu.uuid ? { uuid: vu.uuid } : {}), ...(vu.disque ? { disque: vu.disque } : {}), at: now, premiere: Math.min(now, Number(meme?.premiere ?? meme?.at ?? now)) }].slice(-8);
+      ecrireIdentites(ctx, all, now);
+    } catch { /* disque plein : le menu part quand même ; « deployer » relira ce qui est là */ }
+  }
+  /** Réécrit le fichier des identités (protégé, 1000 adresses au plus, gardées 400 jours) ; lève si le disque refuse. */
+  function ecrireIdentites(ctx: ModCtx, all: Record<string, IdentiteNotee[]>, now: number): void {
+    {
+      const garde = Object.entries(all).filter(([, v]) => Array.isArray(v) && v.some((x) => now - Number(x?.at) < MEMOIRE_IDENTITES_MS)).sort((a, b) => Math.max(...b[1].map((x) => Number(x.at) || 0)) - Math.max(...a[1].map((x) => Number(x.at) || 0))).slice(0, 1000);
       mkdirSync(ctx.dir, { recursive: true });
       const f = join(ctx.dir, FICHIER_IDENTITES), tmp = `${f}.${randomBytes(4).toString('hex')}.tmp`;
       writeFileSync(tmp, JSON.stringify(Object.fromEntries(garde)), { mode: 0o600 }); renameSync(tmp, f);
-    } catch { /* disque plein : le menu part quand même ; « deployer » relira ce qui est là */ }
+    }
   }
 
   // ---------------- Le menu, les fichiers, les réponses ----------------
@@ -848,7 +856,7 @@ export function thjalfi(): Module {
   const actionDeployer = {
     id: 'deployer', label: 'Déployer sur des PC du réseau', quick: false, proprietaireSeul: true,
     what: 'Autorise en lot les PC choisis (ou le prochain PC qui démarre) : chacun une seule fois, pour ce système et ces réglages, pendant un temps limité ; « effacer et installer » demande la phrase « effacer N pc », et au démarrage Odin revérifie que c\'est bien ce PC (adresse, numéro de série, taille du disque)',
-    params: [{ key: 'pcs', label: 'Adresses MAC des PC', kind: 'textarea' }, { key: 'prochain', label: 'Aussi le prochain PC qui démarre (30 min)', kind: 'boolean', default: false }, { key: 'iso', label: 'Système (identifiant de l\'image)', kind: 'text' }, { key: 'facon', label: 'Façon (auto : effacer et installer ; menu : le proposer sans effacer)', kind: 'select', options: ['auto', 'menu'], default: 'auto' }, { key: 'profil', label: 'Profil de logiciels', kind: 'text', default: '' }, { key: 'windows', label: 'Options Windows', kind: 'textarea' }, { key: 'noms', label: 'Nom de chaque PC (auto : pc-01… ; vu : le nom vu au menu)', kind: 'select', options: ['auto', 'vu'], default: 'auto' }, { key: 'phrase', label: 'La phrase à taper', kind: 'text' }],
+    params: [{ key: 'pcs', label: 'Adresses MAC des PC', kind: 'textarea' }, { key: 'prochain', label: 'Aussi le prochain PC qui démarre (30 min)', kind: 'boolean', default: false }, { key: 'iso', label: 'Système (identifiant de l\'image)', kind: 'text' }, { key: 'facon', label: 'Façon (auto : effacer et installer ; menu : le proposer sans effacer)', kind: 'select', options: ['auto', 'menu'], default: 'auto' }, { key: 'profil', label: 'Profil de logiciels', kind: 'text', default: '' }, { key: 'windows', label: 'Options Windows', kind: 'textarea' }, { key: 'noms', label: 'Nom de chaque PC (auto : pc-01… ; vu : le nom vu au menu)', kind: 'select', options: ['auto', 'vu'], default: 'auto' }, { key: 'phrase', label: 'La phrase à taper', kind: 'text' }, { key: 'identite', label: 'La bonne identité de chaque PC, quand Odin la demande (adresse MAC → identité choisie)', kind: 'textarea' }],
     grave: (i) => {
       const d = demandeDeploiement(i);
       if ('refus' in d) return `déployer un système par le réseau (demande illisible : ${d.refus})`;
@@ -876,7 +884,7 @@ export function thjalfi(): Module {
         const vues = identitesVues(ctx), t0 = ctx.now().getTime();
         for (const mac of d.pcs) {
           const c = identitesEnConflit(vues[mac], t0);
-          if (c.length) return { ok: false, text: `Deux appareils différents ont démarré avec l'adresse ${mac} ces dernières 24 h (${c.join(' ; ')}) : l'un recopie peut-être l'adresse de l'autre. Vérifie ce PC (numéro de série sur son étiquette) ; tu pourras le déployer quand une seule identité aura été vue pendant 24 h. Rien n'est autorisé, rien n'est effacé.` };
+          if (c.length) return { ok: false, text: `Deux appareils différents ont démarré avec l'adresse ${mac} ces dernières 24 h (${c.join(' ; ')}) : l'un recopie peut-être l'adresse de l'autre. Vérifie ce PC (numéro de série sur son étiquette) ; après 24 h sans les deux, « Déployer » te demandera lequel est le bon. Rien n'est autorisé, rien n'est effacé.` };
         }
       }
       // Le profil de logiciels : relu ici (jamais celui que la page décrit).
@@ -887,13 +895,37 @@ export function thjalfi(): Module {
       // L'identité de chaque PC, telle qu'Odin l'a VUE (fiche vivante, sinon la dernière installation) : jamais la page.
       const vivants = live(ctx), hist = history(ctx, 300), now = ctx.now().getTime(), l = autorisations(ctx);
       const ident = (mac: string) => { const m = vivants[mac], h = hist.find((x) => x.mac === mac); const serie = m?.serie ?? h?.serie, uuid = m?.uuid ?? h?.uuid; return { ...(serie ? { serie } : {}), ...(uuid ? { uuid } : {}), ...(m?.disque ? { disque: m.disque } : {}) }; };
+      // Un PC refusé au dernier essai (ce n'était pas lui), ou dont une autre identité était connue AVANT celle vue
+      // maintenant (même il y a plus de 24 h) : jamais autorisé sur la seule identité du dernier appareil vu. Le
+      // propriétaire choisit laquelle est la bonne (la page ne donne que son nom, relu ici) ; seule elle est autorisée.
+      const choisies: Record<string, IdentiteConnue> = {};
+      if (d.facon === 'auto') {
+        const voulu = choixIdentites(i.identite);
+        if (!voulu) return { ok: false, text: 'Le choix des identités est illisible. Rien n\'est autorisé, rien n\'est effacé.' };
+        const vues = identitesVues(ctx), aChoisir: Array<{ mac: string; refusee: boolean; options: IdentiteConnue[] }> = [];
+        for (const mac of d.pcs) {
+          const derniere = l.filter((a) => a && a.mac && normMac(a.mac) === mac).sort((a, b) => b.cree - a.cree)[0];
+          // Refusé au dernier essai : seul l'appareil que tu avais autorisé, revu tel quel, se passe du choix.
+          const ici = ident(mac), refus = derniere?.annulee?.vu && identiteDifferente({ mac, serie: derniere.serie, uuid: derniere.uuid, disque: derniere.disque }, mac, ici) ? derniere : undefined;
+          const connues = identitesConnues([
+            ...(Array.isArray(vues[mac]) ? vues[mac] : []),
+            ...hist.filter((h) => h.mac === mac).map((h) => ({ serie: h.serie, uuid: h.uuid, at: h.at })),
+            ...(refus ? [{ serie: refus.serie, uuid: refus.uuid, disque: refus.disque, at: refus.cree }, { ...refus.annulee!.vu, at: refus.annulee!.at, refusee: true }] : []),
+            ...(ici.serie || ici.uuid ? [{ ...ici, at: Number(vivants[mac]?.updated ?? hist.find((h) => h.mac === mac)?.at ?? now), maintenant: true }] : []),
+          ]);
+          if (!choixIdentiteExige(connues, Boolean(refus))) continue;
+          const c = voulu[mac] ? connues.find((x) => x.cle === voulu[mac]) : undefined;
+          if (c) choisies[mac] = c; else aChoisir.push({ mac, refusee: Boolean(refus), options: connues });
+        }
+        if (aChoisir.length) return { ok: false, text: `Avant d\'effacer ${aChoisir.map((x) => x.mac).join(', ')} : ${aChoisir.some((x) => x.refusee) ? 'le dernier essai a été refusé (ce n\'était pas le PC autorisé)' : 'un autre appareil était connu avec cette adresse avant celui vu maintenant'}. Odin ne prend pas « le dernier venu » : dis lequel est le bon (numéro de série sur son étiquette) ; seul celui-là sera autorisé, l\'autre restera refusé. Rien n\'est autorisé, rien n\'est effacé.`, data: { identites: aChoisir } };
+      }
       const vusNoms = postesVus({ live: vivants, historique: hist, regles: rules(ctx), bloques: {}, now });
       const pris = l.filter((a) => autorisationValable(a, now) && !(a.mac ? d.pcs.includes(a.mac) : d.prochain)).map((a) => a.nom);
       const cibles = [...d.pcs.map((mac) => ({ mac, vu: nomGarde ?? vusNoms.find((p) => p.mac === mac)?.nom })), ...(d.prochain ? [{ mac: '', vu: '' }] : [])];
       const noms = nomsDesPcs(cibles, nomGarde || s(i.noms) === 'vu' ? 'vu' : 'auto', pris);
       const lot = randomBytes(6).toString('hex'), out: AutorisationPc[] = [];
       for (const [k, c] of cibles.entries()) {
-        const a: AutorisationPc = { id: randomBytes(9).toString('hex'), lot, mac: c.mac, iso: target.id, isoNom: target.name, facon: d.facon, nom: noms[k], ...(prof ? { profil: prof.id } : {}), ...(w ? { windows: w } : {}), ...(c.mac ? ident(c.mac) : {}), cree: now, expire: now + (c.mac ? DUREE_PC : DUREE_PROCHAIN) };
+        const a: AutorisationPc = { id: randomBytes(9).toString('hex'), lot, mac: c.mac, iso: target.id, isoNom: target.name, facon: d.facon, nom: noms[k], ...(prof ? { profil: prof.id } : {}), ...(w ? { windows: w } : {}), ...(c.mac ? (choisies[c.mac] ? identiteDe(choisies[c.mac]) : ident(c.mac)) : {}), cree: now, expire: now + (c.mac ? DUREE_PC : DUREE_PROCHAIN) };
         if (d.facon === 'auto') {
           // UN mot de passe par PC : chiffré ici (jamais en clair sur le disque), rangé dans le coffre ; jamais renvoyé.
           const pw = motDePassePc();
@@ -911,6 +943,17 @@ export function thjalfi(): Module {
       const frais = autorisations(ctx), alors = ctx.now().getTime();
       for (const a of frais) if (autorisationValable(a, alors) && (a.mac ? d.pcs.includes(a.mac) : d.prochain)) a.annulee = { at: alors, raison: 'remplacée par un nouveau déploiement' };
       saveAutorisations(ctx, [...frais, ...out]);
+      // L'identité choisie devient la seule connue pour ce PC : un autre appareil revu avec son adresse redemandera le choix.
+      if (Object.keys(choisies).length) {
+        try {
+          const all = identitesVues(ctx);
+          for (const [mac, c] of Object.entries(choisies)) {
+            const gardees = (Array.isArray(all[mac]) ? all[mac] : []).filter((x) => x && cleIdentite({ serie: x.serie, uuid: x.uuid }) === cleIdentite({ serie: c.serie, uuid: c.uuid }) && (!x.disque || !c.disque || x.disque === c.disque));
+            all[mac] = gardees.length ? gardees : [{ ...identiteDe(c), at: c.derniere, premiere: c.premiere }];
+          }
+          ecrireIdentites(ctx, all, alors);
+        } catch { /* disque plein : l'autorisation ne vaut que pour l'identité choisie ; le choix sera redemandé */ }
+      }
       // Une ancienne installation automatique (« autoriser ») encore prévue pour ces PC est close : jamais deux effacements.
       const regles = rules(ctx); let vieilles = false;
       for (const r0 of regles) if (d.pcs.includes(r0.mac) && r0.auto && !r0.fait) { r0.fait = true; vieilles = true; }
@@ -993,6 +1036,18 @@ export const PCS_MAX = 50;
 /** La phrase EXACTE à taper pour effacer le disque de N PC : « effacer 3 pc ». Pur. */
 export const phraseDeploiement = (n: number) => `effacer ${Math.max(0, Math.round(Number(n) || 0))} pc`;
 /** Les PC d'une demande de déploiement, revus : adresses MAC valables (sans doublon, 50 au plus), le prochain PC, la façon. Pur. */
+/** Le choix d'identité envoyé par la page : { adresse MAC : nom de l'identité } (objet ou JSON) ; illisible : null. Pur. */
+export function choixIdentites(v: unknown): Record<string, string> | null {
+  if (v == null || v === '') return {};
+  let o = v;
+  if (typeof o === 'string') { if (o.length > 8000) return null; try { o = JSON.parse(o); } catch { return null; } }
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+  const out: Record<string, string> = {};
+  for (const [k, x] of Object.entries(o as Record<string, unknown>).slice(0, PCS_MAX)) { const m = normMac(k); if (!m || typeof x !== 'string' || x.length > 300) return null; out[m] = x; }
+  return out;
+}
+/** Ce qu'une autorisation garde d'une identité choisie. Pur. */
+const identiteDe = (c: IdentiteVue): IdentiteVue => ({ ...(c.serie ? { serie: c.serie } : {}), ...(c.uuid ? { uuid: c.uuid } : {}), ...(c.disque ? { disque: c.disque } : {}) });
 export function demandeDeploiement(i: Record<string, unknown>): { pcs: string[]; prochain: boolean; facon: 'auto' | 'menu'; n: number } | { refus: string } {
   let brut: unknown = i.pcs;
   if (typeof brut === 'string') { const t = brut.trim(); if (t.length > 8000) return { refus: 'Trop de PC.' }; try { brut = t.startsWith('[') ? JSON.parse(t) : t.split(/[\s,;]+/).filter(Boolean); } catch { return { refus: 'Liste de PC illisible.' }; } }

@@ -156,6 +156,10 @@
     'menu.bouton': 'Proposer au menu de {n} PC', envoi: 'Odin autorise les PC…',
     'fait.titre': 'C\'est autorisé : chaque PC s\'installe une fois, s\'il est bien lui', 'fait.titre.menu': 'C\'est proposé au menu', suivi: 'Suivi',
     erreur: 'Refusé : {raison}',
+    'id.titre': 'Quel est le bon PC ?', 'id.lead': 'Odin a vu plusieurs appareils avec l\'adresse {mac}. Regarde le numéro de série sur l\'étiquette du PC : seul celui que tu choisis sera effacé, l\'autre restera refusé.',
+    'id.groupe': 'La bonne identité pour {mac}', 'id.serie': 'Numéro de série {v}', 'id.serie.non': 'Numéro de série inconnu', 'id.uuid': 'Carte mère {v}', 'id.disque': 'Disque de {v} Go', 'id.disque.non': 'Taille du disque inconnue',
+    'id.vu': 'Vu du {de} au {a}', 'id.vu.un': 'Vu le {de}', 'id.maintenant': 'Vu maintenant', 'id.refusee': 'Refusé au démarrage', 'id.ancienne': 'Connu avant',
+    'id.manque': 'Choisis d\'abord le bon PC.',
     'vm.bouton': 'Créer la machine', 'vm.envoi': 'Hydre crée la machine…',
     'vm.confirm': 'Créer la machine virtuelle « {nom} » ({cpu} processeur(s), {mem}, disque {disk}) avec {sys} ? Rien n\'est effacé.',
     annule: 'Annulé.',
@@ -244,6 +248,19 @@
     return mot('quand.j', { n: nombre(Math.round(d / 86400_000)) });
   }
   const nomPc = (p) => (p && p.nom) || mot('pc.sansnom', { fin: String((p && p.mac) || '').slice(-5) });
+  // ---- Correction S6 : le choix de la bonne identité, tel qu'Odin le demande (rien d'autre n'est gardé de sa réponse).
+  /** Les PC dont Odin demande la bonne identité, nettoyés (adresse, et pour chaque identité : nom, série, carte mère, disque, dates). Pur. */
+  function choixIdentite(v) {
+    const txt = (x, n) => (typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, '').slice(0, n) : '');
+    const num = (x) => (Number.isFinite(Number(x)) && Number(x) > 0 ? Number(x) : 0);
+    return (Array.isArray(v) ? v : []).slice(0, 50).filter((x) => x && typeof x.mac === 'string' && Array.isArray(x.options)).map((x) => ({
+      mac: txt(x.mac, 17),
+      options: x.options.slice(0, 6).filter((o) => o && typeof o.cle === 'string' && o.cle).map((o) => ({ cle: o.cle.slice(0, 300), serie: txt(o.serie, 40), uuid: txt(o.uuid, 40), disque: num(o.disque), premiere: num(o.premiere), derniere: num(o.derniere) || num(o.premiere), maintenant: o.maintenant === true, refusee: o.refusee === true })),
+    })).filter((x) => x.options.length);
+  }
+  /** Chaque PC demandé a une identité choisie parmi celles qu'Odin a montrées. Pur. */
+  const identitesChoisies = (l, choix) => !l || l.every((x) => x.options.some((o) => o.cle === (choix || {})[x.mac]));
+
   // ---- Lot S6 : la phrase, l'appui long, le compte Windows, le nom de chaque PC (les MÊMES règles que le serveur).
   const APPUI_MS = 3000;
   /** La phrase à taper pour effacer N PC : « effacer 3 pc ». Pur. */
@@ -273,7 +290,7 @@
   }
   /** La famille de profil de logiciels d'un système : windows, debian (Ubuntu, Debian…) ou fedora (Fedora, Rocky, Alma). Pur. */
   const osDe = (c) => (c && c.famille === 'windows' ? 'windows' : /fedora|rocky|alma|centos|rhel/i.test(`${(c && c.nom) || ''} ${(c && c.fichier) || ''}`) ? 'fedora' : 'debian');
-  const logique = { MOTS, mot, NB_ETAPES, CIBLES, FACONS_CLE, VERS_CLE, verifMac, nomVmValide, nomVmPour, choisissable, pcsChoisis, aEffacer, carteChoisie, etapeOuverte, suivant: suivantLocal, quand, APPUI_MS, phrasePour, phraseNormale, phraseOk, peutLancer, resteAppui, nomCompteOk, compteOk, nomsPcs, osDe };
+  const logique = { MOTS, mot, NB_ETAPES, CIBLES, FACONS_CLE, VERS_CLE, verifMac, nomVmValide, nomVmPour, choisissable, pcsChoisis, aEffacer, carteChoisie, etapeOuverte, suivant: suivantLocal, quand, APPUI_MS, phrasePour, phraseNormale, phraseOk, peutLancer, resteAppui, choixIdentite, identitesChoisies, nomCompteOk, compteOk, nomsPcs, osDe };
 
   // ---------------------------------------------------------------- l'état (gardé quand on change d'onglet)
   const Z = {
@@ -288,6 +305,8 @@
     noms: 'auto', win: { exigences: true, local: true, compte: 'Utilisateur', viePrivee: true, langue: true, activation: 'auto' },
     apercu: { etat: 'rien', data: null, raison: '', sig: '' },
     saisie: '', appui: { debut: 0, minuteur: 0 }, msg: '', envoi: { etat: 'rien', texte: '', data: null },
+    // Correction S6 : quand Odin demande QUELLE identité est la bonne (refus d'avant, ou une autre connue avant) ; le choix.
+    choixId: null, identites: {},
   };
 
   // ---------------------------------------------------------------- le dessin
@@ -416,6 +435,10 @@
 .dp-li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13px;min-width:0}.dp-li>span{min-width:0;overflow-wrap:anywhere}
 .dp-li b{font-weight:600;text-align:right;overflow-wrap:anywhere}.dp-li b.rouge{color:var(--bad);font-weight:800;white-space:nowrap}.dp-li small.mac{color:var(--muted);font-size:11.5px}
 .dp-danger{margin-top:16px;padding:16px;border-radius:16px;border:2px solid var(--bad);background:var(--bad-bg,color-mix(in srgb,var(--bad) 9%,var(--panel)))}
+.dp-id{display:grid;gap:12px;margin-bottom:14px}.dp-idpc{padding:14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);min-width:0}
+.dp-idpc .tt{display:flex;gap:8px;align-items:center;font-size:15px;color:var(--bad)}.dp-idpc .tt:focus{outline:none}.dp-idpc .tt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dp-idl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:10px;margin-top:10px}
+.dp-ido{padding:14px 44px 14px 14px;gap:4px}.dp-ido b{font-size:14.5px;overflow-wrap:anywhere}.dp-ido small{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}.dp-ido small:empty{display:none}.dp-ido .tg{display:flex;gap:6px;flex-wrap:wrap}
 .dp-danger .lb{font-size:14px;font-weight:700;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .dp-danger code{font:600 13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:3px 8px;border-radius:8px;background:var(--panel);border:1px solid var(--line);color:var(--ink)}
 .dp-appui{position:relative;overflow:hidden;min-height:48px;padding:0 18px;border-radius:12px;border:0;background:var(--bad);color:#fff;font:inherit;font-weight:700;font-size:14px;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;flex:none}
@@ -485,7 +508,7 @@
   function aller(n, focus) {
     if (!etapeOuverte(n, Z)) return;
     // Revenir changer quelque chose : la confirmation d'avant ne vaut plus (phrase à retaper, rien de lancé en double).
-    if (n !== Z.etape && Z.envoi.etat !== 'envoi') { Z.envoi = { etat: 'rien', texte: '', data: null }; Z.saisie = ''; Z.msg = ''; }
+    if (n !== Z.etape && Z.envoi.etat !== 'envoi') { Z.envoi = { etat: 'rien', texte: '', data: null }; Z.saisie = ''; Z.msg = ''; Z.choixId = null; Z.identites = {}; }
     Z.etape = n; dessinerTout(focus || `etape-${n}`);
   }
   function choisirCible(c) {
@@ -899,25 +922,30 @@
     Z.envoi = { etat: 'envoi', texte: '', data: null }; dessinerTout('annonce');
     let r, e;
     try {
-      r = await H.post('deployer', { pcs: cibles.filter((x) => !x.prochain).map((x) => x.mac), prochain: Z.prochain, iso: c ? c.iso : '', facon: Z.facon, profil: Z.profil || '', windows: c && c.famille === 'windows' ? Z.win : null, noms: Z.noms, ...(attendue ? { phrase: Z.saisie } : {}) }, true);
+      r = await H.post('deployer', { pcs: cibles.filter((x) => !x.prochain).map((x) => x.mac), prochain: Z.prochain, iso: c ? c.iso : '', facon: Z.facon, profil: Z.profil || '', windows: c && c.famille === 'windows' ? Z.win : null, noms: Z.noms, ...(attendue ? { phrase: Z.saisie } : {}), ...(attendue && Z.choixId ? { identite: Z.identites } : {}) }, true);
     } catch (x) { e = x; }
-    if (r && r.ok !== false) { Z.envoi = { etat: 'fait', texte: String(r.text || ''), data: r.data || null }; Z.saisie = ''; }
-    else Z.envoi = { etat: 'erreur', texte: mot('erreur', { raison: raisonDe(r, e) }), data: null };
-    dessinerTout(Z.envoi.etat === 'fait' ? 'suivi' : 'annonce');
+    if (r && r.ok !== false) { Z.envoi = { etat: 'fait', texte: String(r.text || ''), data: r.data || null }; Z.saisie = ''; Z.choixId = null; Z.identites = {}; }
+    else {
+      Z.envoi = { etat: 'erreur', texte: mot('erreur', { raison: raisonDe(r, e) }), data: null };
+      // Odin demande quelle identité est la bonne : les choix viennent de lui (relus à l'envoi), rien n'est choisi d'office.
+      const l = choixIdentite(r && r.data && r.data.identites);
+      if (l.length) { Z.choixId = l; Z.identites = Object.fromEntries(Object.entries(Z.identites).filter(([m, k]) => l.some((x) => x.mac === m && x.options.some((o) => o.cle === k)))); }
+    }
+    dessinerTout(Z.envoi.etat === 'fait' ? 'suivi' : Z.choixId ? 'id-titre' : 'annonce');
   }
   function confirmation(cibles) {
-    const n = cibles.length, attendue = phrasePour(n), juste = phraseOk(Z.saisie, attendue), occupe = Z.envoi.etat === 'envoi';
+    const n = cibles.length, attendue = phrasePour(n), juste = phraseOk(Z.saisie, attendue), occupe = Z.envoi.etat === 'envoi', manque = !identitesChoisies(Z.choixId, Z.identites);
     const etat = el('span', { class: `dp-msg${juste ? ' ok' : ''}`, id: 'dp-phrase-etat', role: 'status' }, Z.saisie ? mot(juste ? 'phrase.ok' : 'phrase.ko') : '');
     const annonce = el('p', { class: `dp-msg${Z.envoi.etat === 'erreur' ? ' ko' : ''}`, role: 'status', 'aria-live': 'assertive', 'data-f': 'annonce' }, Z.envoi.etat === 'erreur' ? Z.envoi.texte : occupe ? mot('envoi') : Z.msg);
     const remplir = el('span', { class: 'dp-remplir' });
-    const bouton = el('button', { type: 'button', class: 'dp-appui', 'data-f': 'effacer', disabled: !juste || occupe, 'aria-describedby': 'dp-appui-aide' }, remplir, el('span', { class: 'tx' }, ic('warn', 18), mot('appui', { n: nombre(n) })));
+    const bouton = el('button', { type: 'button', class: 'dp-appui', 'data-f': 'effacer', disabled: !juste || occupe || manque, 'aria-describedby': 'dp-appui-aide' }, remplir, el('span', { class: 'tx' }, ic('warn', 18), mot('appui', { n: nombre(n) })));
     const champ = el('input', { class: 'dp-in', id: 'dp-phrase', 'data-f': 'phrase', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-describedby': 'dp-phrase-etat', disabled: occupe });
     champ.value = Z.saisie;
-    const aide = el('small', { class: 'dp-msg', id: 'dp-appui-aide', 'data-f': 'appui-aide' }, mot(juste ? 'appui.aide' : 'appui.ferme'));
+    const aide = el('small', { class: 'dp-msg', id: 'dp-appui-aide', 'data-f': 'appui-aide' }, mot(manque ? 'id.manque' : juste ? 'appui.aide' : 'appui.ferme'));
     champ.addEventListener('input', () => {
       Z.saisie = String(champ.value || ''); const ok = phraseOk(Z.saisie, attendue);
       etat.className = `dp-msg${ok ? ' ok' : ''}`; etat.textContent = Z.saisie ? mot(ok ? 'phrase.ok' : 'phrase.ko') : '';
-      bouton.disabled = !ok || Z.envoi.etat === 'envoi'; aide.textContent = mot(ok ? 'appui.aide' : 'appui.ferme');
+      bouton.disabled = !ok || Z.envoi.etat === 'envoi' || manque; aide.textContent = mot(manque ? 'id.manque' : ok ? 'appui.aide' : 'appui.ferme');
     });
     // L'appui long : doigt, souris ou touche (Espace, Entrée). Relâcher avant 3 s arrête tout ; rien n'est envoyé.
     const commencer = (ev) => {
@@ -944,9 +972,31 @@
     bouton.addEventListener('contextmenu', (ev) => { if (ev.preventDefault) ev.preventDefault(); });
     const qui = cibles.map((x) => (x.prochain ? mot('garde.prochain') : x.nom)).join(', ');
     return el('div', { class: 'dp-danger', 'data-f': 'danger' },
+      Z.choixId ? choixIdentiteVue(Z.choixId) : null,
       el('label', { for: 'dp-phrase', class: 'lb' }, mot('phrase.titre'), ' ', el('code', { 'data-phrase': attendue, translate: 'no' }, attendue)),
       el('div', { class: 'dp-row' }, el('div', { class: 'dp-field' }, champ), bouton), etat, aide,
       el('p', { class: 'dp-msg' }, mot('phrase.qui', { pcs: qui })), annonce);
+  }
+  /** Le choix de la bonne identité, par PC : chaque identité connue (série, carte mère, disque, dates) ; une seule choisie. */
+  function choixIdentiteVue(l) {
+    const date = (t) => { try { return new Intl.DateTimeFormat(langue(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(t)); } catch { return new Date(t).toISOString().slice(0, 16).replace('T', ' '); } };
+    return el('div', { class: 'dp-id', 'data-f': 'identites' }, ...l.map((x, j) => {
+      const ids = x.options.map((o) => o.cle), actuel = Z.identites[x.mac];
+      const R = radios(ids, actuel, (k) => { Z.identites = { ...Z.identites, [x.mac]: k }; dessinerTout(`id-${j}-${ids.indexOf(k)}`); }, `idr-${j}`);
+      return el('section', { class: 'dp-idpc', 'aria-labelledby': `dp-id-${j}` },
+        el('b', { id: `dp-id-${j}`, class: 'tt', tabindex: j ? null : '-1', 'data-f': j ? null : 'id-titre' }, ic('warn', 18), mot('id.titre')),
+        el('p', { class: 'dp-msg' }, mot('id.lead', { mac: x.mac })),
+        el('div', { class: 'dp-idl', role: 'radiogroup', 'aria-label': mot('id.groupe', { mac: x.mac }) }, ...x.options.map((o, i) => {
+          const r = R(o.cle, i);
+          return el('button', { type: 'button', class: 'dp-c dp-ido', ...r, 'data-f': `id-${j}-${i}`, 'data-cle': o.cle },
+            el('span', { class: 'tg' }, o.maintenant ? el('span', { class: 'dp-tag warn' }, mot('id.maintenant')) : null, o.refusee ? el('span', { class: 'dp-tag bad' }, mot('id.refusee')) : null, !o.maintenant && !o.refusee ? el('span', { class: 'dp-tag' }, mot('id.ancienne')) : null),
+            el('b', { translate: 'no' }, o.serie ? mot('id.serie', { v: o.serie }) : mot('id.serie.non')),
+            el('small', { translate: 'no' }, o.uuid ? mot('id.uuid', { v: o.uuid }) : ''),
+            el('small', {}, o.disque ? mot('id.disque', { v: nombre(Math.round(o.disque / 1024 ** 3)) }) : mot('id.disque.non')),
+            el('small', {}, o.premiere === o.derniere ? mot('id.vu.un', { de: date(o.premiere) }) : mot('id.vu', { de: date(o.premiere), a: date(o.derniere) })),
+            el('span', { class: 'tick', 'aria-hidden': 'true' }, actuel === o.cle ? ic('check', 14, 3) : null));
+        })));
+    }));
   }
   function proposer(cibles) {
     const occupe = Z.envoi.etat === 'envoi';

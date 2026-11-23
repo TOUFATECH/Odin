@@ -246,8 +246,8 @@ export interface AutorisationPc {
   cree: number; expire: number;
   /** utilisée : elle ne sert plus jamais (aucun rejeu) */
   consommee?: { at: number; mac: string; token?: string };
-  /** annulée (identité différente au démarrage, remplacée, ou retirée) */
-  annulee?: { at: number; raison: string };
+  /** annulée (identité différente au démarrage, remplacée, ou retirée) ; vu : l'appareil refusé parce que ce n'était pas lui */
+  annulee?: { at: number; raison: string; vu?: IdentiteVue };
 }
 /** Encore valable : ni utilisée, ni annulée, ni expirée. Pur. */
 export const autorisationValable = (a: AutorisationPc, now: number) => !a.consommee && !a.annulee && now < a.expire;
@@ -269,7 +269,45 @@ export function autorisationPour(l: AutorisationPc[], mac: string, now: number):
   return deja ? undefined : ok.filter((a) => !a.mac).sort((a, b) => a.cree - b.cree)[0];
 }
 /** Une identité dite au démarrage pour une adresse MAC (gardée 24 h, pour voir si deux appareils citent la même adresse). */
-export interface IdentiteNotee { serie?: string; uuid?: string; disque?: number; at: number }
+export interface IdentiteNotee { serie?: string; uuid?: string; disque?: number; at: number; /** vue pour la première fois */ premiere?: number }
+/** Combien de temps Odin se souvient de ce qu'une adresse MAC a dit d'elle (pour voir qu'elle a changé, même après 24 h). */
+export const MEMOIRE_IDENTITES_MS = 400 * 24 * 3600_000;
+/** Une identité connue pour une adresse MAC, à faire choisir au propriétaire. cle : son nom stable (rien de secret). */
+export interface IdentiteConnue { cle: string; serie?: string; uuid?: string; disque?: number; premiere: number; derniere: number; maintenant?: boolean; refusee?: boolean }
+const bas = (x: unknown) => String(x ?? '').trim().toLowerCase();
+/** Le nom stable d'une identité : numéro de série, carte mère, taille du disque. Pur. */
+export const cleIdentite = (x: IdentiteVue) => `${bas(x.serie)}|${bas(x.uuid)}|${x.disque && x.disque > 0 ? x.disque : ''}`;
+/**
+ * Les identités connues pour une adresse MAC, regroupées (même série et même carte mère ; un disque inconnu ne fait pas
+ * une autre identité, deux tailles différentes si). Seules celles qui disent une série ou une carte mère comptent : une
+ * autorisation sans elles ne vérifierait que l'adresse. Pur.
+ */
+export function identitesConnues(l: Array<IdentiteVue & { at: number; premiere?: number; maintenant?: boolean; refusee?: boolean }>): IdentiteConnue[] {
+  const groupes = new Map<string, Array<(typeof l)[number]>>();
+  for (const x of l) if (x && (x.serie || x.uuid) && Number.isFinite(Number(x.at))) { const k = `${bas(x.serie)}|${bas(x.uuid)}`; groupes.set(k, [...(groupes.get(k) ?? []), x]); }
+  const out: IdentiteConnue[] = [];
+  for (const g of groupes.values()) {
+    const disques = [...new Set(g.map((x) => x.disque).filter((d): d is number => typeof d === 'number' && d > 0))];
+    const parts = disques.length > 1 ? disques.map((d) => g.filter((x) => x.disque === d || !x.disque)) : [g];
+    for (const [k, p] of parts.entries()) {
+      const d = disques.length > 1 ? disques[k] : disques[0], s0 = p.find((x) => x.serie)?.serie, u0 = p.find((x) => x.uuid)?.uuid;
+      const id: IdentiteVue = { ...(s0 ? { serie: s0 } : {}), ...(u0 ? { uuid: u0 } : {}), ...(d ? { disque: d } : {}) };
+      out.push({ cle: cleIdentite(id), ...id, premiere: Math.min(...p.map((x) => Number(x.premiere ?? x.at))), derniere: Math.max(...p.map((x) => Number(x.at))), ...(p.some((x) => x.maintenant) ? { maintenant: true } : {}), ...(p.some((x) => x.refusee) ? { refusee: true } : {}) });
+    }
+  }
+  return out.sort((a, b) => a.premiere - b.premiere).slice(0, 6);
+}
+/**
+ * Faut-il que le propriétaire dise QUELLE identité est la bonne avant d'effacer ? Oui si le dernier essai de ce PC a été
+ * refusé parce que ce n'était pas lui, ou si une autre identité était connue AVANT celle vue maintenant (même il y a plus
+ * de 24 h), ou si l'appareil vu maintenant ne dit rien de lui alors qu'une identité est connue. Pur.
+ */
+export function choixIdentiteExige(connues: IdentiteConnue[], refuseAvant: boolean): boolean {
+  if (refuseAvant) return connues.length > 0;
+  const m = connues.find((x) => x.maintenant);
+  if (!m) return connues.length > 0 && connues.some((x) => !x.maintenant);
+  return connues.some((x) => x !== m && x.premiere < m.premiere);
+}
 /** Une fenêtre de 24 h : deux identités différentes vues pour la même adresse dans ce temps = adresse peut-être recopiée. */
 export const FENETRE_IDENTITES_MS = 24 * 3600_000;
 /**
