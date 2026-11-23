@@ -14,8 +14,12 @@ import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module } from '../types
 import { nameForIp, recentDomains } from './vidarr.ts';
 import { localDay } from '../vidarr/history.ts';
 import { closePorts, discover, listMappings, openPorts } from '../upnp.ts';
+import { agissant } from '../sso/acces.ts';
+import { actionJournal, auProprietaireSeul, avecJournal } from '../vidarr/qui-a-fait.ts';
 
-export interface Peer { name: string; pub: string; priv?: string; psk: string; ip: string; created: string; enabled: boolean; full: boolean; mesh?: boolean; endpoint?: string; /** fin de l'accès (AAAA-MM-JJ) : passé ce jour, l'appareil est coupé tout seul */ expires?: string; /** passe par le DNS d'Odin (Sphinx) : pubs et sites dangereux bloqués aussi en dehors de la maison */ odinDns?: boolean }
+export interface Peer { name: string; pub: string; priv?: string; psk: string; ip: string; created: string; enabled: boolean; full: boolean; mesh?: boolean; endpoint?: string; /** fin de l'accès (AAAA-MM-JJ) : passé ce jour, l'appareil est coupé tout seul */ expires?: string; /** passe par le DNS d'Odin (Sphinx) : pubs et sites dangereux bloqués aussi en dehors de la maison */ odinDns?: boolean;
+  /** le compte Persona de la personne à qui est l'appareil (rattaché par la page de connexion, lot R0) : « qui est connecté » ne montre à un membre que les siens */
+  compte?: string }
 export function keypair(): { priv: string; pub: string } {
   const { privateKey, publicKey } = generateKeyPairSync('x25519');
   return { priv: privateKey.export({ format: 'der', type: 'pkcs8' }).subarray(-32).toString('base64'), pub: publicKey.export({ format: 'der', type: 'spki' }).subarray(-32).toString('base64') };
@@ -106,9 +110,10 @@ const human = (b: number) => { const u = ['o', 'Ko', 'Mo', 'Go', 'To']; let i = 
 // ---------------- Lien avec Sphinx (le DNS d'Odin) ----------------
 /** L'appareil passe par le DNS d'Odin : Sphinx le connaît sous son nom (journal, réglages propres). */
 async function linkDns(ctx: ModCtx, p: Peer, before?: string): Promise<string> {
-  if (before && before !== p.name) await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${before}` }, 'appareil VPN renommé').catch(() => undefined);
-  if (!p.odinDns) { await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${p.name}` }, 'appareil VPN sans le DNS d\'Odin').catch(() => undefined); return ''; }
-  const r = await ctx.call('vidarr', 'appareil', { nom: `VPN · ${p.name}`, adresses: p.ip, filtrage: 'global', parental: false, recherche_sure: false, services: '', amont: '' }, 'appareil VPN qui passe par le DNS d\'Odin').catch((e: Error) => ({ ok: false, text: e.message }));
+  // Étapes de l'action du propriétaire (« interne ») : Sphinx les accepte sous son action de départ, jamais seules.
+  if (before && before !== p.name) await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${before}` }, 'appareil VPN renommé', { interne: true }).catch(() => undefined);
+  if (!p.odinDns) { await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${p.name}` }, 'appareil VPN sans le DNS d\'Odin', { interne: true }).catch(() => undefined); return ''; }
+  const r = await ctx.call('vidarr', 'appareil', { nom: `VPN · ${p.name}`, adresses: p.ip, filtrage: 'global', parental: false, recherche_sure: false, services: '', amont: '' }, 'appareil VPN qui passe par le DNS d\'Odin', { interne: true }).catch((e: Error) => ({ ok: false, text: e.message }));
   return r.ok === false ? ` ⚠ Lien avec le DNS d'Odin : ${r.text}` : ' Il passe par le DNS d\'Odin (Sphinx) : pubs et sites dangereux bloqués aussi hors de la maison.';
 }
 
@@ -260,6 +265,13 @@ function live(): Map<string, { handshake: number; rx: number; tx: number; endpoi
   return new Map((dev?.stats() ?? []).map((x) => [x.publicKey, { handshake: x.lastHandshake ?? 0, rx: x.rx, tx: x.tx, endpoint: x.endpoint ?? '' }]));
 }
 
+/**
+ * Lot R1 (maquette Réseau validée) : tout ce qui change le VPN, et le QR code ou le fichier d'un appareil (sa clé privée),
+ * est au propriétaire seul, par tous les chemins ; chaque changement est noté « qui a fait quoi ». Les autres lectures
+ * restent ouvertes selon les droits d'aujourd'hui.
+ */
+const reseauProprio = (l: Module['actions']): Module['actions'] => [...avecJournal('gjoll_actes', auProprietaireSeul(l, ['qr', 'telecharger'])), actionJournal('gjoll_actes', 'Vortex')];
+
 export const gjoll: Module = {
   id: 'gjoll', name: 'Vortex', family: 'Accès',
   what: 'Le VPN de la maison : tes appareils se connectent chez toi de n\'importe où, chiffré, avec un QR code.',
@@ -267,7 +279,7 @@ export const gjoll: Module = {
   from: ['WireGuard', 'wg-easy', 'Headscale', 'NetBird'], upstream: ['WireGuard/wireguard-go', 'WireGuard/wireguard-tools', 'wg-easy/wg-easy', 'juanfont/headscale', 'netbirdio/netbird'],
   modes: ['Charon · clients', 'Orion · réseau maillé'],
   words: ['vpn', 'wireguard', 'tunnel', 'acces a distance', 'accès à distance', 'depuis l exterieur', 'qr code vpn', 'connexion maison', 'mesh', 'maillage'],
-  actions: [
+  actions: reseauProprio([
     { id: 'trafic', label: 'Trafic du VPN', what: 'Tout ce qui est passé dans le tunnel : par appareil, vers où, quel service, combien (en direct ou un jour passé)', read: true, params: [{ key: 'jour', label: 'Jour (AAAA-MM-JJ, vide : en direct)', kind: 'text', default: '' }, { key: 'appareil', label: 'Appareil (vide : tous)', kind: 'text', default: '' }], run: (ctx, i) => {
       const day = String(i.jour ?? '').trim(), who = String(i.appareil ?? '').trim().toLowerCase(), sv = server(ctx);
       if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error('jour au format AAAA-MM-JJ');
@@ -313,7 +325,11 @@ export const gjoll: Module = {
       await bringDown(ctx); ctx.saveSettings({ on: false });
       return { text: '⏹ Tunnel coupé.' };
     } },
-    { id: 'appareils', label: 'Appareils VPN', what: 'Liste et état', read: true, words: ['appareils', 'qui est connecte', 'connectés'], run: async (ctx) => { const d = live(); return { text: peers(ctx).map((p) => { const x = d.get(p.pub); return `- ${p.name} (${p.ip}) · ${p.enabled ? (x?.handshake && Date.now() - x.handshake < 180_000 ? 'connecté' : 'hors ligne') : 'désactivé'}`; }).join('\n') || 'Aucun appareil.' }; } },
+    { id: 'appareils', label: 'Appareils VPN', what: 'Liste et état', read: true, words: ['appareils', 'qui est connecte', 'connectés'], run: async (ctx) => {
+      // « Avec mes droits » : un membre de la famille ne voit que les appareils de son compte ; le propriétaire voit tout.
+      const d = live(), q = agissant(), l = q ? peers(ctx).filter((p) => p.compte === q.login) : peers(ctx);
+      return { text: l.map((p) => { const x = d.get(p.pub); return `- ${p.name} (${p.ip}) · ${p.enabled ? (x?.handshake && Date.now() - x.handshake < 180_000 ? 'connecté' : 'hors ligne') : 'désactivé'}`; }).join('\n') || (q ? 'Aucun appareil VPN à ton nom.' : 'Aucun appareil.') };
+    } },
     { id: 'ajouter', label: 'Ajouter un appareil', what: 'Nouvelle config + QR code', params: [{ key: 'nom', label: 'Nom de l\'appareil', kind: 'text', required: true }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'boolean', default: true }, { key: 'maillage', label: 'Réseau maillé (Orion)', kind: 'boolean', default: false }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, vide = sans fin)', kind: 'text', default: '' }, { key: 'dns_odin', label: 'Passer par le DNS d\'Odin (Sphinx)', kind: 'boolean', default: true }], grave: (i) => `ouvrir l'accès VPN à « ${s(i.nom)} »`, words: ['ajoute', 'nouvel appareil'], run: async (ctx, i) => {
       const ps = peers(ctx), sv = server(ctx), used = new Set(ps.map((p) => p.ip)), fin = s(i.fin).trim();
       if (!/^[\p{L}\p{N} _.'-]{1,40}$/u.test(s(i.nom).trim())) throw new Error('nom : lettres, chiffres, espaces, 40 au plus');
@@ -358,7 +374,7 @@ export const gjoll: Module = {
     { id: 'activer', label: 'Activer / désactiver', what: 'Coupe ou rouvre l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: false }],
       grave: (i) => (i.actif === true ? `rouvrir l'accès au VPN de la maison pour l'appareil « ${s(i.nom)} »` : undefined), // couper reste libre
       run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).map((p) => (p.name === s(i.nom) ? { ...p, enabled: i.actif === true } : p)) }); return { text: `${i.actif === true ? '✅ Réactivé' : '⏸ Désactivé'} : ${s(i.nom)}\n${await apply(ctx)}` }; } },
-    { id: 'revoquer', label: 'Révoquer', what: 'Supprime définitivement l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], grave: (i) => `révoquer l'accès VPN de « ${s(i.nom)} »`, run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).filter((p) => p.name !== s(i.nom)) }); await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${s(i.nom)}` }, 'accès VPN révoqué').catch(() => undefined); return { text: `🗝 Accès de ${s(i.nom)} révoqué.\n${await apply(ctx)}` }; } },
+    { id: 'revoquer', label: 'Révoquer', what: 'Supprime définitivement l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], grave: (i) => `révoquer l'accès VPN de « ${s(i.nom)} »`, run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).filter((p) => p.name !== s(i.nom)) }); await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${s(i.nom)}` }, 'accès VPN révoqué', { interne: true }).catch(() => undefined); return { text: `🗝 Accès de ${s(i.nom)} révoqué.\n${await apply(ctx)}` }; } },
     { id: 'adresse', label: 'Adresse publique', what: 'Adresse ou domaine par lequel on joint la maison', params: [{ key: 'adresse', label: 'Adresse ou domaine', kind: 'text', required: true }, { key: 'port', label: 'Port', kind: 'number', default: 51820 }],
       // Changer l'adresse publique du VPN (ou son port) : validation, avant → après. La même : rien à valider.
       grave: (i, ctx) => {
@@ -387,7 +403,7 @@ export const gjoll: Module = {
       ctx.saveSettings({ server: { ...sv, ...(s(i.reseaux).trim() ? { lan } : {}), ...(dns ? { dns } : {}) } });
       return { text: `🏠 Réseaux ouverts au VPN : ${(lan.length ? lan : sv.lan ?? []).join(', ') || 'aucun'} · DNS : ${dns || sv.dns || 'aucun donné (chaque appareil garde le sien)'}. Les appareils déjà ajoutés doivent rescanner leur QR code.` };
     } },
-  ],
+  ]),
   async view(ctx) {
     const sv = server(ctx), d = live(), now = Date.now();
     const graph = { kind: 'graph' as const, title: 'Graphe du VPN', ...vpnGraph(sv, peers(ctx), d, rates(d, now), now, (ip) => recentDomains(ip, now - 15 * 60_000), flows(), nameForIp), legend: [['#4F9DDE', 'Odin, maison, Internet'], ['#57C98A', 'connecté (tunnel)'], ['#7d8791', 'hors ligne'], ['#F0A040', 'bloqué par le DNS'], ['#EE6A55', 'accès terminé']] as Array<[string, string]>, empty: 'Aucun appareil : ajoute ton téléphone à droite.' };

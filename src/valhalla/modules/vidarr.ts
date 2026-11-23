@@ -23,6 +23,7 @@ import { histTout, noterBail, noterRequete, requetesDeMachine, resumerRequetes, 
 import { networkGraph, type DeviceInfo } from '../vidarr/graph.ts';
 import { vendorOf } from '../../hlidskjalf/vendors.ts';
 import * as ranDb from '../ran.ts';
+import { actionJournal, auProprietaireSeul, avecJournal } from '../vidarr/qui-a-fait.ts';
 
 export interface ListMeta { id: string; name: string; url: string; kind: Lists['kind']; enabled: boolean; count?: number; updated?: string; error?: string }
 export const DEFAULT_LISTS: ListMeta[] = [
@@ -309,7 +310,9 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
     from: ['AdGuard Home', 'Pi-hole', 'Technitium DNS Server'], upstream: ['AdguardTeam/AdGuardHome', 'pi-hole/pi-hole', 'TechnitiumSoftware/DnsServer'],
     words: ['dns', 'bloquer les pubs', 'bloque les pubs', 'publicite', 'publicités', 'pisteurs', 'traqueurs', 'bloquer un site', 'bloque le site', 'controle parental', 'contrôle parental', 'recherche securisee', 'nom de domaine', 'resolution', 'resolveur', 'filtrage', 'couper tiktok', 'couper youtube'],
     modes: ['Sphinx · DNS'],
-    actions: [
+    // Lot R1 (maquette Réseau validée) : tout ce qui change le DNS ou le DHCP est au propriétaire seul, par tous les
+    // chemins, et noté « qui a fait quoi » ; les lectures restent ouvertes selon les droits d'aujourd'hui.
+    actions: [...avecJournal('vidarr_actes', auProprietaireSeul([
       { id: 'demarrer', label: 'Démarrer le DNS', what: 'Sphinx répond aux appareils (port 53)', params: [{ key: 'port', label: 'Port', kind: 'number', default: 53 }], grave: (i) => `démarrer le serveur DNS de la maison : le port ${Number(i.port ?? 53) || 'libre'} (udp et tcp) s'ouvre dans le pare-feu de la machine (Cerbère)`, run: async (ctx, i) => {
         const port = Number(i.port ?? 53); if (!(port >= 0 && port <= 65535)) throw new Error('port entre 1 et 65535');
         ctx.saveSettings({ port, on: true });
@@ -557,7 +560,7 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         const rows = ring.filter((e) => (st === 'tous' || e.status === st) && (!f || e.name.includes(f) || e.client.includes(f) || (e.clientName ?? '').toLowerCase().includes(f))).slice(-40).reverse();
         return { text: rows.map((e) => `${new Date(e.t).toLocaleTimeString('fr-FR')} ${e.clientName ?? e.client} ${e.type} ${e.name} → ${e.status}${e.rule ? ` (${e.rule})` : ''} ${e.ms} ms`).join('\n') || 'Rien.' };
       } },
-    ],
+    ])), actionJournal('vidarr_actes', 'Sphinx')],
     async view(ctx, q) {
       const d = settingsOf(ctx), st = stats(ring, ctx.now().getTime()), ls = listsMeta(ctx), lan = lanAddress();
       // Le graphe du réseau, pour la période choisie (direct, jour, mois, année ; une date pour revoir le passé).

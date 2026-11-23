@@ -197,11 +197,12 @@ export class Valhalla {
   act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean; by?: By; why?: string; /** l'appli qui demande (appel entre applis) */ de?: string; /** qui parle à Odin (outil de l'agent) */ qui?: 'owner' | 'member' | 'guest'; /** conversation marquée (contenu extérieur lu) */ marque?: boolean } = {}): Promise<ActionResult> {
     if (!o.de) return this.agir(moduleId, actionId, input, o);
     // Même promesse rendue que sans échange (aucune attente en plus pour l'appli qui appelle) : la réponse part juste après.
-    const { de, ...reste } = o, fin = this.echange(de, moduleId, actionId), p = this.agir(moduleId, actionId, input, { ...reste, entreApplis: true });
+    // Seule exception à « propriétaire seul » : le réflexe de sécurité de Hydre (quarantaine) COUPE une machine d'Internet ; jamais la rouvrir.
+    const { de, ...reste } = o, fin = this.echange(de, moduleId, actionId), p = this.agir(moduleId, actionId, input, { ...reste, entreApplis: true, coupureSecurite: de === 'ymir' && `${moduleId}.${actionId}` === 'vidarr.couper_machine' && reste.by === 'réflexe' && !reste.auto && !reste.qui && !reste.marque });
     if (fin) p.then((r) => fin(r.ok !== false), () => fin(false));
     return p;
   }
-  private async agir(moduleId: string, actionId: string, input: Record<string, unknown>, o: { auto?: boolean; by?: By; why?: string; qui?: 'owner' | 'member' | 'guest'; marque?: boolean; /** demandé par une appli (ctx.call) */ entreApplis?: boolean }): Promise<ActionResult> {
+  private async agir(moduleId: string, actionId: string, input: Record<string, unknown>, o: { auto?: boolean; by?: By; why?: string; qui?: 'owner' | 'member' | 'guest'; marque?: boolean; /** demandé par une appli (ctx.call) */ entreApplis?: boolean; coupureSecurite?: boolean }): Promise<ActionResult> {
     const f = this.action(moduleId, actionId);
     if (!f) return { ok: false, text: `Action inconnue : ${moduleId} → ${actionId}` };
     // Appli désactivée : rien ne la lance (page, parole, automatisation, lien entre applis, tâche) ; Odin propose de l'activer.
@@ -215,7 +216,7 @@ export class Valhalla {
     const enDirect = enCours.getStore(), parent = o.entreApplis && enDirect && !enDirect.fini ? enDirect : undefined;
     const pasLui = Boolean(o.auto || (o.by !== undefined && o.by !== 'toi') || (o.qui !== undefined && o.qui !== 'owner') || o.marque || agissant() || (o.entreApplis && !parent) || parent?.pasLui);
     const seul = typeof f.a.proprietaireSeul === 'function' ? f.a.proprietaireSeul(input, this.ctx(f.m.id)) : f.a.proprietaireSeul === true;
-    if (seul && pasLui)
+    if (seul && pasLui && !(o.coupureSecurite && !parent))
       return { ok: false, text: `${f.m.name} · ${f.a.label} : seul le propriétaire le règle lui-même (pas une automatisation, pas quelqu'un d'autre, pas après un contenu extérieur).` };
     const why = f.a.grave?.(input, this.ctx(f.m.id));
     if (o.auto && why) return { ok: false, text: `${f.m.name} · ${f.a.label} : action grave (${why}), elle demande ton accord et ne part pas d'une automatisation.` };
@@ -267,7 +268,7 @@ export class Valhalla {
    * Une demande en français, comprise SANS IA (Logos) puis exécutée. `confirm` : tu as confirmé une
    * action grave (sinon elle n'est pas lancée : la réponse dit ce qu'il faut confirmer).
    */
-  async order(text: string, session = 'principal', o: { by?: By; confirm?: boolean } = {}): Promise<ActionResult & { understood?: Understood; confirm?: string }> {
+  async order(text: string, session = 'principal', o: { by?: By; confirm?: boolean; /** pas le propriétaire en personne (la clé d'API) : « propriétaire seul » refusé */ qui?: 'owner' | 'member' | 'guest' } = {}): Promise<ActionResult & { understood?: Understood; confirm?: string }> {
     const u = await understand(this, text, session);
     if (!u) return { ok: false, text: 'Je n\'ai pas compris quelle appli utiliser. Dis-le avec le nom de l\'appli ou de la chose (« arrête le conteneur web », « bannis 203.0.113.9 », « les alertes »).' };
     if (u.kind === 'say' || u.kind === 'ask') return { ok: true, text: u.text, understood: u };
@@ -276,13 +277,14 @@ export class Valhalla {
       if (agissant()) return { ok: false, text: 'Garder ou annuler ce qu\'Odin a fait de lui-même, c\'est le propriétaire qui le décide.', understood: u };
       // Annuler lance l'action inverse : si elle est grave (redonner un droit…), elle demande la validation, comme sur la page.
       if (!u.keep && !o.confirm) { const why = this.graveAnnulation(u.id); if (why) return { ok: false, text: `${why}. C'est une action grave : confirme-la.`, confirm: why, understood: u }; }
-      const r = await this.decide(u.id, u.keep); return { ok: r.ok, text: r.text, understood: u };
+      // L'action inverse part au nom de qui parle : la clé d'API, ou une phrase venue d'une appli (la voix), n'atteint pas le « propriétaire seul ».
+      const r = await this.decide(u.id, u.keep, 'toi', { qui: session.startsWith('appli:') ? 'guest' : o.qui }); return { ok: r.ok, text: r.text, understood: u };
     }
     const f = this.action(u.module, u.action)!;
     if (!this.estActive(f.m.id)) return { ok: false, text: texteDesactivee(f.m.name), understood: u };
     const why = f.a.grave?.(u.input, this.ctx(f.m.id));
     if (why && !o.confirm) return { ok: false, text: `${u.label} : ${why}. C'est une action grave : confirme-la.`, confirm: why, understood: u };
-    const r = await this.act(u.module, u.action, u.input, { by: o.by ?? 'toi', de: session.startsWith('appli:') ? session.slice(6) : undefined });
+    const r = await this.act(u.module, u.action, u.input, { by: o.by ?? 'toi', qui: o.qui, de: session.startsWith('appli:') ? session.slice(6) : undefined });
     return { ...r, text: `${u.label}\n${r.text}`, understood: u };
   }
 

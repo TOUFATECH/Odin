@@ -194,7 +194,7 @@ export const valgrind: Module = {
       if (tlsMode === 'letsencrypt') { try { out.push(await letsEncrypt(ctx, h)); } catch (e) { selfSigned(ctx, h); out.push(`⚠ Let's Encrypt pas encore possible : ${(e as Error).message}. Certificat auto-signé en attendant ; « Renouveler le certificat » quand c'est prêt.`); } }
       // Liens : à la maison, le nom mène au proxy (Sphinx) ; le service est surveillé (Pulsar).
       const ip = s(ctx.settings.lanIp) || lan();
-      if (i.dns_maison !== false && ip) for (const d of domains.filter((x) => !x.startsWith('*.'))) { const r = await ctx.call('vidarr', 'nom_local', { nom: d, valeur: ip }, `${d} servi par le proxy d'Odin`).catch(() => undefined); if (r?.ok !== false && r) out.push(`🏠 À la maison, ${d} mène directement à Odin (${ip}).`); }
+      if (i.dns_maison !== false && ip) for (const d of domains.filter((x) => !x.startsWith('*.'))) { const r = await ctx.call('vidarr', 'nom_local', { nom: d, valeur: ip }, `${d} servi par le proxy d'Odin`, { interne: true }).catch(() => undefined); if (r?.ok !== false && r) out.push(`🏠 À la maison, ${d} mène directement à Odin (${ip}).`); }
       if (i.surveiller !== false) { const r = await ctx.call('vordr', 'ajouter', { nom: `Service ${domains[0]}`, genre: 'http', cible: target, groupe: 'Proxy', essais: 2, secondes: 60, codes: '200-499' }, `surveiller le service derrière ${domains[0]}`).catch(() => undefined); if (r?.ok !== false && r) out.push(`👁 Service surveillé par Pulsar.`); }
       // Lien Valgrind → Bifröst : avec un tunnel Cloudflare, le nom est publié sur Internet (règle + DNS chez Cloudflare).
       if (i.internet !== false) for (const d of domains.filter((x) => !x.startsWith('*.') && !/\.(local|lan|home|maison|internal)$/.test(x))) { const r = await ctx.call('bru', 'publier', { domaine: d }, `publier ${d} sur Internet`).catch((e) => ({ ok: false, text: (e as Error).message })); if (r.ok !== false) out.push(r.text); else if (!/crée d'abord le tunnel|clé Cloudflare absente/.test(r.text)) out.push(`⚠ Internet : ${r.text}`); }
@@ -248,7 +248,7 @@ export const valgrind: Module = {
       if (hosts(ctx).some((h) => h.domains.includes(d))) throw new Error(`${d} est déjà un site du proxy`);
       const fake: Host = { id: 'portail', domains: [d], target: 'http://127.0.0.1', enabled: true, tls: 'letsencrypt' };
       let how = 'auto-signé'; try { await letsEncrypt(ctx, fake); how = 'Let\'s Encrypt'; } catch { selfSigned(ctx, fake); }
-      const ip = s(ctx.settings.lanIp) || lan(); if (ip) await ctx.call('vidarr', 'nom_local', { nom: d, valeur: ip }, `portail ${d} servi par Odin`).catch(() => undefined);
+      const ip = s(ctx.settings.lanIp) || lan(); if (ip) await ctx.call('vidarr', 'nom_local', { nom: d, valeur: ip }, `portail ${d} servi par Odin`, { interne: true }).catch(() => undefined);
       return { text: `🚪 Portail ${d} servi par le proxy (certificat ${how}).` };
     } },
     { id: 'retirer_redirection', label: 'Retirer une redirection', what: '', quick: false, params: [{ key: 'domaine', label: 'Nom', kind: 'text', required: true }], run: (ctx, i) => { const l = redirects(ctx); if (!l.some((r) => r.domain === s(i.domaine))) throw new Error('aucune redirection pour ce nom'); ctx.saveSettings({ redirects: l.filter((r) => r.domain !== s(i.domaine)) }); return { text: '🗑 Redirection retirée.' }; } },

@@ -5,6 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Action, ModCtx } from '../types.ts';
+import { parReflexe } from '../vidarr/qui-a-fait.ts';
 import { famille, Local, MODELES, nomAuto, newMac, slug, TOUCHES, type Genre, type Machine } from './local.ts';
 import { bibliotheque, pilotesVirtio, profilVm, trouverIso } from './isos.ts';
 import { bibliothequeActions, synchroEspace } from './bibliotheque.ts';
@@ -31,7 +32,7 @@ async function brancher(ctx: ModCtx, L: Local, m: Machine): Promise<string[]> {
   for (const a of m.apps) {
     const app = APPS.find((x) => x.id === a); if (!app) continue;
     if (!(m.genre === 'lxc' ? app.lxc : app.vm)) { out.push(`${app.nom} : pas pour une VM (Odin ne lit pas encore son disque)`); continue; }
-    const r = await (a === 'vidarr' ? ctx.call('vidarr', 'nom_local', { nom: `${m.nom}.maison`, valeur: m.ip }, why)
+    const r = await (a === 'vidarr' ? ctx.call('vidarr', 'nom_local', { nom: `${m.nom}.maison`, valeur: m.ip }, why, { interne: true })
       : a === 'vordr' ? ctx.call('vordr', 'ajouter', { nom: m.nom, genre: 'ping', cible: m.ip, groupe: 'Machines' }, why)
         : a === 'ullr' ? ctx.call('ullr', 'plan', { nom: `Machine ${m.nom}`, dossier: join(L.lxcDir, m.nom, 'rootfs'), quand: 'jour', heure: '03:30' }, why)
           : ctx.call('sindri', 'creer', { nom: `Machine ${m.nom}`, dossiers: join(L.lxcDir, m.nom), depot: s(ctx.settings.depotMachines) || join(ctx.home, 'Sauvegardes', 'machines'), heure: '02:30' }, why)).catch((e) => ({ ok: false, text: (e as Error).message }));
@@ -118,7 +119,7 @@ export function machinesActions(): Action[] {
     { id: 'ip_machine', label: 'Changer l\'adresse IP', what: 'Une autre adresse fixe pour la machine (vérifiée libre sur le réseau)', params: [machineParam, { key: 'ip', label: 'Nouvelle adresse IP', kind: 'text', required: true }],
       grave: (i) => `changer l'adresse de la machine ${s(i.machine)} pour ${s(i.ip)} (un LXC en marche redémarre)`, run: async (ctx, i) => {
         const L = new Local(ctx), m = L.find(i.machine), avant = m.ip, how = await L.changerIp(m, s(i.ip).trim());
-        if (avant !== m.ip && m.apps.includes('vidarr')) await ctx.call('vidarr', 'nom_local', { nom: `${m.nom}.maison`, valeur: m.ip }, `nouvelle adresse de ${m.nom}`).catch(() => undefined);
+        if (avant !== m.ip && m.apps.includes('vidarr')) await ctx.call('vidarr', 'nom_local', { nom: `${m.nom}.maison`, valeur: m.ip }, `nouvelle adresse de ${m.nom}`, { interne: true }).catch(() => undefined);
         if (avant !== m.ip && m.apps.includes('vordr')) await ctx.call('vordr', 'ajouter', { nom: m.nom, genre: 'ping', cible: m.ip, groupe: 'Machines' }, `nouvelle adresse de ${m.nom}`).catch(() => undefined);
         return { text: `🌐 ${m.nom} : ${avant} → ${m.ip} — ${how}.`, data: { ip: m.ip } };
       } },
@@ -202,7 +203,7 @@ export function machinesActions(): Action[] {
       if (!force && !(q.analyse?.propre && q.analyse.at > q.depuis)) throw new Error('lance d\'abord une analyse complète : la machine sort quand elle est propre');
       if (s(i.origine)) q.journal.push({ at: Date.now(), quoi: `Origine identifiée : ${s(i.origine)}` });
       await L.liberer(m);
-      for (const j of q.journal) if (j.annuler?.module === 'vidarr' && !j.fait) await ctx.call(j.annuler.module, j.annuler.action, j.annuler.input, `fin de quarantaine de ${m.nom}`).catch(() => undefined);
+      for (const j of q.journal) if (j.annuler?.module === 'vidarr' && !j.fait) await ctx.call(j.annuler.module, j.annuler.action, j.annuler.input, `fin de quarantaine de ${m.nom}`, { interne: true }).catch(() => undefined);
       ctx.emit('machine_liberee', { nom: m.nom, ip: m.ip });
       return { text: `🔓 ${m.nom} est de retour sur le réseau (${m.ip}).` };
     } },
@@ -226,7 +227,7 @@ export async function machinesWatch(ctx: ModCtx): Promise<void> {
       const re = new RegExp(`(^|[^\\d.])${m.ip.replace(/\./g, '\\.')}($|[^\\d])|\\b${m.nom}\\b`);
       const a = crit.find((x) => re.test(`${x.title} ${x.detail ?? ''} ${JSON.stringify(x.data ?? {})}`)); if (!a) continue;
       await L.isoler(m, a.title);
-      const cut = await ctx.call('vidarr', 'couper_machine', { ip: m.ip, nom: m.nom }, `quarantaine de ${m.nom}`).catch(() => undefined);
+      const cut = await parReflexe.run(`Odin seul (quarantaine de ${m.nom})`, () => ctx.call('vidarr', 'couper_machine', { ip: m.ip, nom: m.nom }, `quarantaine de ${m.nom}`)).catch(() => undefined);
       const mm = L.find(m.id); if (mm.quarantaine) {
         mm.quarantaine.journal.unshift({ at: Date.parse(a.at), quoi: `Alerte : ${a.title}`, detail: a.module });
         if (cut && cut.ok !== false) mm.quarantaine.journal.push({ at: Date.now(), quoi: 'Coupée d\'Internet dans le DNS d\'Odin', detail: 'Sphinx', annuler: { action: 'retablir_machine', input: { ip: m.ip }, label: 'Annuler', module: 'vidarr' } });

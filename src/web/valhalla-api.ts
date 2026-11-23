@@ -61,6 +61,9 @@ export async function valhallaPost(path: string, b: Record<string, unknown>, o: 
     case '/api/valhalla/act': {
       const f = v.action(s(b.module), s(b.action)); if (!f) return { ok: false, error: 'action inconnue' };
       const input = (b.input && typeof b.input === 'object' ? b.input : {}) as Record<string, unknown>;
+      // « Propriétaire seul » : depuis sa session seulement, comme activer une appli (ni la clé d'API, ni un programme).
+      const seul = typeof f.a.proprietaireSeul === 'function' ? f.a.proprietaireSeul(input, v.ctx(f.m.id)) : f.a.proprietaireSeul === true;
+      if (seul && !o.sessionProprio) return { ok: false, code: 'proprietaire', text: `${f.m.name} · ${f.a.label} : seul le propriétaire le règle lui-même, depuis sa session d'Odin (pas avec la clé d'API).` };
       const why = f.a.grave?.(input, v.ctx(f.m.id));
       if (why && b.confirm !== true) return { ok: false, confirm: `Confirmer : ${why} ?` };
       const r = await v.act(f.m.id, f.a.id, input);
@@ -72,7 +75,7 @@ export async function valhallaPost(path: string, b: Record<string, unknown>, o: 
     case '/api/valhalla/manip': {
       const id = s(b.id), keep = b.keep !== false;
       if (!keep && b.confirm !== true) { const x = v.manips({ limit: 500 }).find((m) => m.id === id), f = x?.undo ? v.action(x.undo.module ?? x.module, x.undo.action) : undefined; const why = f && x?.undo ? f.a.grave?.(x.undo.input, v.ctx(f.m.id)) : undefined; if (why) return { ok: false, confirm: `Confirmer : ${why} ?` }; }
-      const r = await v.decide(id, keep);
+      const r = await v.decide(id, keep, 'toi', o.sessionProprio ? {} : { qui: 'guest' }); // l'inverse « propriétaire seul » : depuis sa session seulement
       return { ok: r.ok, text: r.text };
     }
     // « Que dois-je faire ? » sur une bulle : Odin conseille (avec l'IA si elle est réglée, sinon la procédure de l'appli).
@@ -89,7 +92,8 @@ export async function valhallaPost(path: string, b: Record<string, unknown>, o: 
     // Une demande en français, comprise sans IA (Logos) : « arrête le conteneur web », « les alertes », « explique Cerbère ».
     case '/api/valhalla/order': {
       const text = s(b.text).slice(0, 2000).trim(); if (!text) return { ok: false, error: 'demande vide' };
-      const r = await v.order(text, `web:${s(b.session).replace(/[^\w-]/g, '').slice(0, 40) || 'principal'}`, { confirm: b.confirm === true });
+      // Sans la session du propriétaire (la clé d'API) : une phrase n'atteint pas non plus le « propriétaire seul ».
+      const r = await v.order(text, `web:${s(b.session).replace(/[^\w-]/g, '').slice(0, 40) || 'principal'}`, { confirm: b.confirm === true, ...(o.sessionProprio ? {} : { qui: 'guest' as const }) });
       return { ok: r.ok !== false, text: r.text, ...(r.confirm ? { confirm: `Confirmer : ${r.confirm} ?` } : {}), kind: r.understood?.kind ?? 'rien', module: r.understood && 'module' in r.understood ? r.understood.module : undefined };
     }
     // « Tester la connexion » d'un poste (écran « Ajouter un poste ») : il n'entre dans le coffre que si l'essai réussit.

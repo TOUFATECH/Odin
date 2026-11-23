@@ -68,7 +68,7 @@ test('VPN : Odin ouvre lui-même le port de la box, le liste, le referme ; adres
     assert.match((await v.act('gjoll', 'fermer_port')).text, /51820\/UDP refermé/);
     assert.equal(r.maps.size, 0);
     assert.match((await v.act('gjoll', 'fermer_port')).text, /Rien à refermer/);
-    assert.match((await v.act('gjoll', 'fermer_port', {}, { auto: true })).text, /action grave/, 'jamais refermé par une automatisation');
+    assert.match((await v.act('gjoll', 'fermer_port', {}, { auto: true })).text, /action grave|seul le propriétaire/, 'jamais refermé par une automatisation');
   } finally { v.stop(); r.end(); rmSync(home, { recursive: true, force: true }); }
 });
 

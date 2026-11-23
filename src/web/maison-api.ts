@@ -76,6 +76,9 @@ async function run(who: Who, module: string, action: string, input: Record<strin
   const f = v.action(module, action); if (!f) return { ok: false, text: 'action inconnue' };
   const grave = f.a.grave?.(input, v.ctx(f.m.id));
   if (grave && who.rights !== 'complet') return { ok: false, text: `« ${grave} » : action grave, à lancer depuis Odin (cette tablette n'a que les droits « maison »).` };
+  // « Propriétaire seul » (changer le réseau, montrer un secret…) : jamais depuis une tablette « maison », qui n'a jamais plus qu'un membre.
+  const seul = typeof f.a.proprietaireSeul === 'function' ? f.a.proprietaireSeul(input, v.ctx(f.m.id)) : f.a.proprietaireSeul === true;
+  if (seul && who.rights !== 'complet') return { ok: false, text: `${f.m.name} · ${f.a.label} : seul le propriétaire le règle lui-même, depuis Odin (cette tablette n'a que les droits « maison »).` };
   if (grave && !confirm) return { ok: false, confirm: `Confirmer : ${grave} ?` };
   const r = await v.act(f.m.id, f.a.id, input, { by: 'toi', why: `écran de la maison (${who.by})` });
   return { ok: r.ok !== false, text: r.text };

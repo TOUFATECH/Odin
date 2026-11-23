@@ -203,7 +203,7 @@ test('Chaque action de la liste : une automatisation est refusée, rien n\'est l
     for (const [m, a, entree] of LISTE) {
       const avant = w.ran.length, r = await w.v.act(m, a, entree, { auto: true });
       assert.equal(r.ok, false, `${m}.${a} par une automatisation : ${r.text}`);
-      assert.match(r.text, /action grave/);
+      assert.match(r.text, /action grave|seul le propriétaire/); // lot R1 : Vortex et Sphinx refusent d'abord comme « propriétaire seul »
       assert.equal(w.ran.length, avant, `${m}.${a} : aucune commande lancée`);
     }
   } finally { w.fin(); }

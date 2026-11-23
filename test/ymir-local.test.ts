@@ -104,11 +104,15 @@ test('créer un LXC, ranger, ressources, quarantaine (règle « rouge = isoler �
     assert.match(readFileSync(join(P, nom, 'config'), 'utf8'), /lxc\.net\.0\.type = empty/, 'sans réseau, même après un redémarrage');
     assert.ok(F.calls.some((c) => c.join(' ') === 'ip link set oc-' + q.machine.id.slice(0, 8) + ' nomaster'));
     assert.ok(v.alerts().some((a) => /isolée par Odin/.test(a.title) && a.fix?.action === 'analyser_machine'));
+    // Lot R1 : le réflexe de sécurité coupe aussi la machine dans Sphinx (réponse du 23/11), noté « Odin seul » dans « qui a fait quoi ».
+    const coupee = () => (((v.ctx('vidarr').settings.dns as { clients?: Array<{ ids: string[]; cut?: boolean }> } | undefined)?.clients) ?? []).some((c) => c.ids.includes('10.0.3.61') && c.cut === true);
+    assert.ok(coupee(), 'coupée d\'Internet dans Sphinx'); assert.match((await v.act('vidarr', 'qui_a_fait')).text, /Odin seul \(quarantaine de .*Couper une machine/);
     // Sortir sans analyse : refusé ; action grave.
     assert.equal((await v.act('ymir', 'liberer_machine', { machine: nom }, { auto: true })).ok, false);
     assert.match((await v.act('ymir', 'liberer_machine', { machine: nom })).text, /lance d'abord une analyse complète/);
     const an = await v.act('ymir', 'analyser_machine', { machine: nom }); assert.match(an.text, /✅/);
     assert.match((await v.act('ymir', 'liberer_machine', { machine: nom })).text, /de retour sur le réseau \(10\.0\.3\.61\)/);
+    assert.equal(coupee(), false, 'sortie de quarantaine : Sphinx la rouvre (étape de l\'action du propriétaire)');
     assert.match(readFileSync(join(P, nom, 'config'), 'utf8'), /lxc\.net\.0\.link = lxcbr0/);
     // .ody : machine éteinte d'abord.
     assert.match((await v.act('ymir', 'exporter_machine', { machine: nom, dossier: join(home, 'nas') })).text, /arrête d'abord/);

@@ -170,7 +170,7 @@ test('Vortex · Adresse publique : une automatisation est refusée, l\'adresse n
   const w = monde();
   try {
     const r = await w.v.act('gjoll', 'adresse', { adresse: 'vpn.exemple.fr', port: 51999 }, { auto: true });
-    assert.equal(r.ok, false); assert.match(r.text, /action grave/);
+    assert.equal(r.ok, false); assert.match(r.text, /action grave|seul le propriétaire/);
     assert.notEqual((w.v.ctx('gjoll').settings.server as { endpoint?: string } | undefined)?.endpoint, 'vpn.exemple.fr');
   } finally { w.fin(); }
 });
@@ -204,7 +204,7 @@ test('Vortex · DNS hors de la maison : une automatisation est refusée, le DNS 
   try {
     w.v.ctx('gjoll').saveSettings({ server: { priv: 'p', pub: 'q', net: '10.8.0', port: 51820, endpoint: 'maison.exemple.fr', dns: '192.168.1.1', iface: 'wg0', lan: ['192.168.1.0/24'], nat: 'aucun' } });
     const r = await w.v.act('gjoll', 'reseaux', { reseaux: '', dns: '203.0.113.53' }, { auto: true });
-    assert.equal(r.ok, false); assert.match(r.text, /action grave/);
+    assert.equal(r.ok, false); assert.match(r.text, /action grave|seul le propriétaire/);
     assert.equal((w.v.ctx('gjoll').settings.server as { dns: string }).dns, '192.168.1.1');
   } finally { w.fin(); }
 });
@@ -227,11 +227,11 @@ test('Vortex · sans la box, Odin ne choisit jamais seul un DNS hors de la maiso
   try {
     for (const [nom, depart] of [['DNS d\'Odin', '10.8.0.1'], ['DNS absent', '']] as const) {
       w.v.ctx('gjoll').saveSettings({ server: { ...SV, dns: depart } });
-      const r = await w.v.act('gjoll', 'reseaux', { reseaux: '', dns: '' }, { auto: true });
+      const r = await w.v.act('gjoll', 'reseaux', { reseaux: '', dns: '' }); // lot R1 : lancé par le propriétaire (une automatisation est refusée)
       assert.notEqual(r.ok, false, r.text);
       assert.equal(dehors(dns()), false, `${nom} · Réseaux : DNS posé = ${dns()}`);
       w.v.ctx('gjoll').saveSettings({ server: { ...SV, dns: depart } });
-      await w.v.act('gjoll', 'adresse', { adresse: 'maison.exemple.fr', port: 51820 }, { auto: true });
+      await w.v.act('gjoll', 'adresse', { adresse: 'maison.exemple.fr', port: 51820 });
       assert.equal(dehors(dns()), false, `${nom} · Adresse : DNS posé = ${dns()}`);
     }
   } finally { w.fin(); }
@@ -241,7 +241,7 @@ test('Vortex · la box trouvée, son DNS est toujours donné aux appareils (inch
   const w = monde('default via 192.168.1.1 dev eth0');
   try {
     w.v.ctx('gjoll').saveSettings({ server: { priv: 'p', pub: 'q', net: '10.8.0', port: 51820, endpoint: 'maison.exemple.fr', dns: '', iface: 'wg0', lan: ['192.168.1.0/24'], nat: 'aucun' } });
-    assert.notEqual((await w.v.act('gjoll', 'reseaux', { reseaux: '', dns: '' }, { auto: true })).ok, false);
+    assert.notEqual((await w.v.act('gjoll', 'reseaux', { reseaux: '', dns: '' })).ok, false); // lot R1 : par le propriétaire
     assert.equal((w.v.ctx('gjoll').settings.server as { dns: string }).dns, '192.168.1.1');
   } finally { w.fin(); }
 });
