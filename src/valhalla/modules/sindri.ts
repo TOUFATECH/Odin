@@ -11,11 +11,12 @@
 // Image disque complète (../sindri/image.ts) : le disque entier d'un poste (dd / partclone, VSS + copie brute,
 // hdiutil / asr), rangée comme le reste (dédupliquée, chiffrée, vérifiée, rotation), remise sur un disque.
 
-import { createCipheriv, createDecipheriv, createHmac, randomBytes, scryptSync } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, openSync, readSync, closeSync, utimesSync, chmodSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
-import type { ModCtx, Module, Section } from '../types.ts';
+import type { Action, ModCtx, Module, Section, View } from '../types.ts';
+import { agissant } from '../sso/acces.ts';
 import { walk } from './ullr.ts';
 import { decrire, essayer, lireDestination, transportDe, type Destination, type Transport } from '../sindri/transport.ts';
 import { actionsAgentSindri, lancerAgent } from '../sindri/agent.ts';
@@ -172,6 +173,24 @@ export function typeDuJour(p: Pick<Plan, 'schema' | 'completeTous'>, mine: Snaps
 
 // ---------------- Dépôt, destination, commandes ----------------
 const s = (v: unknown) => String(v ?? '');
+// Qui peut faire quoi. Un membre de la famille (personne de Persona) qui a le droit sur Phénix voit l'état des
+// sauvegardes (plans, versions, vérification) sans aucun chemin de la machine ; tout le reste est au propriétaire :
+// écrire un plan, poser une commande, lancer, restaurer, effacer, et lire le CONTENU des sauvegardes.
+// « Créer » et « Sauvegarder maintenant » sont refusés au membre seulement : Arche et Hydre créent leur plan en réflexe
+// depuis une action du propriétaire, et une sauvegarde qui a échoué est relancée par Odin (automatisme, Talos).
+/** Un membre de la famille agit (page, barre des applis, port direct) : il ne voit aucun chemin. */
+const parUnMembre = () => Boolean(agissant());
+/** La destination d'un plan, dite sans chemin à un membre. */
+const ouVa = (p: Plan) => (parUnMembre() ? (p.destination ? p.destination.genre : 'disque') : p.destination ? decrire(p.destination) : p.repo);
+/** Les dossiers d'un plan, dits sans chemin à un membre. */
+const quoiSauve = (p: Plan) => (parUnMembre() ? (p.image ? 'image disque' : `${p.paths.length} dossier(s)`) : p.paths.join(', '));
+/** Réservé au propriétaire (refusé au membre, à une tablette « maison », à une automatisation, à une conversation marquée). */
+const auProprietaire = (l: Action[]): Action[] => l.map((a) => (a.proprietaireSeul !== undefined ? a : { ...a, proprietaireSeul: true }));
+// Un lien de fichier rendu par « Parcourir » est signé : un lien fabriqué à la main (identifiant de version et chemin
+// devinés) ne vaut rien, puisque /api/valhalla/fichier ne sait pas qui le demande. La clé vit le temps d'Odin.
+const CLE_LIEN = randomBytes(32);
+const signer = (snap: string, chemin64: string) => createHmac('sha256', CLE_LIEN).update(`${snap}/${chemin64}`).digest('base64url').slice(0, 32);
+const signatureBonne = (snap: string, chemin64: string, sig: string) => { const a = Buffer.from(signer(snap, chemin64)), b = Buffer.from(sig); return a.length === b.length && timingSafeEqual(a, b); };
 export const plans = (ctx: ModCtx): Plan[] => (ctx.settings.plans as Plan[] | undefined) ?? [];
 export const distant = (p: Plan) => Boolean(p.destination && p.destination.genre !== 'disque');
 export const slug = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'plan';
@@ -292,6 +311,13 @@ const paramsDestination = [
   { key: 'partage', label: 'Nom du partage (partage réseau)', kind: 'text' as const, default: '' },
 ];
 
+/** La page vue par un membre : l'état seulement (ni formulaire, ni bouton réservé au propriétaire ; les chemins sont déjà tus). */
+function pourUnMembre(vu: View): View {
+  const ouverts = new Set(['plans', 'instantanes', 'verifier']);
+  const sections = vu.sections.filter((x) => x.kind !== 'form').map((x) => (x.kind === 'table' ? { ...x, rows: x.rows.map((r) => ({ ...r, actions: (r.actions ?? []).filter((a) => ouverts.has(a.action)) })) } : x));
+  return { ...vu, onglets: (vu.onglets ?? []).filter((o) => o !== 'Nouveau'), sections };
+}
+
 export const sindri: Module = {
   id: 'sindri', name: 'Phénix', family: 'Machines',
   what: 'Les sauvegardes : dossiers, PC du foyer (agent toutes les heures) et images disque complètes ; complètes, incrémentielles ou différentielles, compressées et chiffrées, vers un disque, un serveur SFTP ou un partage réseau, avec rotation, et la restauration par le navigateur.',
@@ -300,8 +326,8 @@ export const sindri: Module = {
   modes: ['Oïkos · PC du foyer', 'Osiris · machines virtuelles'],
   words: ['sauvegarde', 'sauvegardes', 'sauvegarder', 'backup', 'restaurer', 'restauration', 'récupérer un fichier', 'récupère un fichier', 'instantane', 'instantané', 'archive', 'incrémentielle', 'incrementielle', 'différentielle', 'differentielle', 'cobian', 'urbackup'],
   actions: [
-    { id: 'plans', label: 'Plans de sauvegarde', what: 'Ce qui est sauvegardé, où et quand', read: true, words: ['plans', 'quoi est sauvegarde'], run: (ctx) => { const l = (ctx.settings.last as Record<string, { at: string; ok: boolean; files: number }>) ?? {}; return { text: plans(ctx).map((p) => `- ${p.name} : ${p.paths.join(', ')} → ${p.destination ? decrire(p.destination) : p.repo} · ${resumePlan(p)} · dernière : ${l[p.name] ? `${l[p.name].ok ? '✓' : '✗'} ${l[p.name].at.slice(0, 16).replace('T', ' ')}` : 'jamais'}`).join('\n') || 'Aucun plan.' }; } },
-    { id: 'creer', label: 'Nouveau plan', what: 'Quoi, où, quand, quelle sorte de sauvegarde', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'dossiers', label: 'Dossiers (un par ligne)', kind: 'textarea', required: true }, ...paramsDestination, { key: 'heure', label: 'Heure', kind: 'text', default: '02:00' },
+    { id: 'plans', label: 'Plans de sauvegarde', what: 'Ce qui est sauvegardé, où et quand', read: true, words: ['plans', 'quoi est sauvegarde'], run: (ctx) => { const l = (ctx.settings.last as Record<string, { at: string; ok: boolean; files: number }>) ?? {}; return { text: plans(ctx).map((p) => `- ${p.name} : ${quoiSauve(p)} → ${ouVa(p)} · ${resumePlan(p)} · dernière : ${l[p.name] ? `${l[p.name].ok ? '✓' : '✗'} ${l[p.name].at.slice(0, 16).replace('T', ' ')}` : 'jamais'}`).join('\n') || 'Aucun plan.' }; } },
+    { id: 'creer', label: 'Nouveau plan', what: 'Quoi, où, quand, quelle sorte de sauvegarde', proprietaireSeul: parUnMembre, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'dossiers', label: 'Dossiers (un par ligne)', kind: 'textarea', required: true }, ...paramsDestination, { key: 'heure', label: 'Heure', kind: 'text', default: '02:00' },
       { key: 'sorte', label: 'Sorte de sauvegarde', kind: 'select', options: ['incrémentielle', 'différentielle', 'complète'], default: 'incrémentielle' }, { key: 'complete_tous', label: 'Une complète tous les (jours)', kind: 'number', default: 7 }, { key: 'compression', label: 'Compression', kind: 'select', options: ['normale', 'rapide', 'forte', 'aucune'], default: 'normale' },
       { key: 'garder_local', label: 'Garder aussi une copie sur la machine d\'Odin (SFTP, partage)', kind: 'boolean', default: true }, { key: 'exclure', label: 'Exclure (motifs, un par ligne, ex. \\.tmp$)', kind: 'textarea', default: '' },
       { key: 'derniers', label: 'Garder les N dernières', kind: 'number', default: 3 }, { key: 'jours', label: 'Puis une par jour (jours)', kind: 'number', default: 7 }, { key: 'semaines', label: 'Puis une par semaine (semaines)', kind: 'number', default: 4 }, { key: 'mois', label: 'Puis une par mois (mois)', kind: 'number', default: 12 }],
@@ -321,7 +347,7 @@ export const sindri: Module = {
       ctx.saveSettings({ plans: [...plans(ctx).filter((x) => x.name !== p.name), p] });
       return { text: `🗓 Plan « ${p.name} » : ${resumePlan(p)}, ${p.paths.length} dossier(s) → ${p.destination ? decrire(p.destination) : p.repo}.${essai}` };
     } },
-    { id: 'commandes', label: 'Commandes avant et après', what: 'Une commande lancée avant chaque sauvegarde du plan (arrêter un service, vider une base…) et une après ; son premier argument dit « avant », « réussie » ou « échouée »', quick: false,
+    { id: 'commandes', label: 'Commandes avant et après', what: 'Une commande lancée avant chaque sauvegarde du plan (arrêter un service, vider une base…) et une après ; son premier argument dit « avant », « réussie » ou « échouée »', quick: false, proprietaireSeul: true,
       params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }, { key: 'avant', label: 'Avant (vide : aucune)', kind: 'text', default: '' }, { key: 'apres', label: 'Après (vide : aucune)', kind: 'text', default: '' }],
       grave: (i) => (s(i.avant).trim() || s(i.apres).trim() ? `lancer à chaque sauvegarde de « ${s(i.plan)} » : ${[s(i.avant).trim() && `avant « ${s(i.avant).trim().slice(0, 100)} »`, s(i.apres).trim() && `après « ${s(i.apres).trim().slice(0, 100)} »`].filter(Boolean).join(', ')} (avec les droits d'Odin)` : undefined),
       run: (ctx, i) => {
@@ -330,20 +356,20 @@ export const sindri: Module = {
         ctx.saveSettings({ plans: plans(ctx).map((x) => { if (x.name !== p.name) return x; const y = { ...x }; if (avant) y.avant = avant; else delete y.avant; if (apres) y.apres = apres; else delete y.apres; return y; }) });
         return { text: `⚙ Plan « ${p.name} » : ${avant ? 'une commande avant' : 'rien avant'}, ${apres ? 'une commande après' : 'rien après'}.` };
       } },
-    { id: 'machines', label: 'Machines virtuelles du plan (Osiris)', what: 'Avant chaque sauvegarde de ce plan, Hydre prend un instantané de ces machines virtuelles', params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }, { key: 'vms', label: 'Numéros des machines (séparés par des virgules ; vide = aucune)', kind: 'text', default: '' }], run: (ctx, i) => {
+    { id: 'machines', label: 'Machines virtuelles du plan (Osiris)', what: 'Avant chaque sauvegarde de ce plan, Hydre prend un instantané de ces machines virtuelles', proprietaireSeul: true, params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }, { key: 'vms', label: 'Numéros des machines (séparés par des virgules ; vide = aucune)', kind: 'text', default: '' }], run: (ctx, i) => {
       const p = plans(ctx).find((x) => x.name === s(i.plan)); if (!p) throw new Error('plan inconnu');
       const vms = s(i.vms).split(/[\s,;]+/).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < 1e9);
       ctx.saveSettings({ plans: plans(ctx).map((x) => (x.name === p.name ? { ...x, vms } : x)) });
       return { text: vms.length ? `🧊 Plan « ${p.name} » : instantané des machines ${vms.join(', ')} avant chaque sauvegarde.` : `Plan « ${p.name} » : plus d'instantané de machine virtuelle.` };
     } },
-    { id: 'sauvegarder', label: 'Sauvegarder maintenant', what: 'Lance un plan tout de suite (la sorte du jour, ou celle demandée)', params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }, { key: 'sorte', label: 'Sorte (vide : celle du plan)', kind: 'select', options: ['', 'complète', 'incrémentielle', 'différentielle'], default: '' }], words: ['sauvegarde maintenant', 'lance la sauvegarde'], run: async (ctx, i) => {
+    { id: 'sauvegarder', label: 'Sauvegarder maintenant', what: 'Lance un plan tout de suite (la sorte du jour, ou celle demandée)', proprietaireSeul: parUnMembre, params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }, { key: 'sorte', label: 'Sorte (vide : celle du plan)', kind: 'select', options: ['', 'complète', 'incrémentielle', 'différentielle'], default: '' }], words: ['sauvegarde maintenant', 'lance la sauvegarde'], run: async (ctx, i) => {
       const p = plans(ctx).find((x) => x.name === s(i.plan)) ?? plans(ctx)[0]; if (!p) throw new Error('aucun plan');
       const sorte = ['complète', 'incrémentielle', 'différentielle'].includes(s(i.sorte)) ? s(i.sorte) as TypeSauvegarde : undefined;
       return { text: await runPlan(ctx, p, sorte) };
     } },
     { id: 'instantanes', label: 'Instantanés', what: 'Les versions disponibles d\'un plan', read: true, params: [{ key: 'plan', label: 'Plan', kind: 'text' }], run: (ctx, i) => { const p = plans(ctx).find((x) => x.name === s(i.plan)) ?? plans(ctx)[0]; if (!p) return { text: 'Aucun plan.' }; const l = depot(ctx, p).snapshots().filter((x) => x.plan === p.name); return { text: l.map((x) => `- ${x.id} · ${x.at.slice(0, 16).replace('T', ' ')} · ${x.type ?? 'complète'} · ${x.files.length} fichiers lus · ${human(x.bytes)}`).join('\n') || 'Aucun instantané.', data: l.map((x) => ({ id: x.id, at: x.at, type: x.type ?? 'complète', parent: x.parent, files: x.files.length })) }; } },
-    { id: 'chercher', label: 'Chercher un fichier', what: 'Dans quelles versions se trouve un fichier', read: true, params: [{ key: 'nom', label: 'Nom ou bout de chemin', kind: 'text', required: true }], words: ['retrouve', 'retrouver', 'version d hier', 'ancien'], run: (ctx, i) => { const out: string[] = []; for (const p of plans(ctx)) { if (!existsSync(join(racine(ctx, p), 'config'))) continue; const repo = depot(ctx, p); for (const sn of repo.snapshots()) for (const f of sn.files) if (f.path.includes(s(i.nom))) out.push(`- ${sn.at.slice(0, 16).replace('T', ' ')} · ${f.path} (${human(f.size)}) · instantané ${sn.id}`); } return { text: out.slice(0, 40).join('\n') || 'Introuvable dans les sauvegardes.' }; } },
-    { id: 'parcourir', label: 'Parcourir une sauvegarde', what: 'Les dossiers et fichiers d\'une version, comme dans l\'explorateur, avec un bouton pour télécharger chaque fichier', read: true, params: [{ key: 'instantane', label: 'Instantané (vide : le plus récent du premier plan)', kind: 'text', default: '' }, { key: 'dossier', label: 'Dossier (vide : la racine)', kind: 'text', default: '' }], run: (ctx, i) => {
+    { id: 'chercher', label: 'Chercher un fichier', what: 'Dans quelles versions se trouve un fichier', read: true, proprietaireSeul: true, params: [{ key: 'nom', label: 'Nom ou bout de chemin', kind: 'text', required: true }], words: ['retrouve', 'retrouver', 'version d hier', 'ancien'], run: (ctx, i) => { const out: string[] = []; for (const p of plans(ctx)) { if (!existsSync(join(racine(ctx, p), 'config'))) continue; const repo = depot(ctx, p); for (const sn of repo.snapshots()) for (const f of sn.files) if (f.path.includes(s(i.nom))) out.push(`- ${sn.at.slice(0, 16).replace('T', ' ')} · ${f.path} (${human(f.size)}) · instantané ${sn.id}`); } return { text: out.slice(0, 40).join('\n') || 'Introuvable dans les sauvegardes.' }; } },
+    { id: 'parcourir', label: 'Parcourir une sauvegarde', what: 'Les dossiers et fichiers d\'une version, comme dans l\'explorateur, avec un bouton pour télécharger chaque fichier', read: true, proprietaireSeul: true, params: [{ key: 'instantane', label: 'Instantané (vide : le plus récent du premier plan)', kind: 'text', default: '' }, { key: 'dossier', label: 'Dossier (vide : la racine)', kind: 'text', default: '' }], run: (ctx, i) => {
       let r: { p: Plan; repo: Repo; snap: Snapshot };
       if (s(i.instantane).trim()) r = trouverInstantane(ctx, s(i.instantane).trim());
       else { const p = plans(ctx).find((x) => existsSync(join(racine(ctx, x), 'config'))); if (!p) throw new Error('aucune sauvegarde'); const repo = depot(ctx, p), snap = repo.snapshots().find((x) => x.plan === p.name); if (!snap) throw new Error('aucune sauvegarde'); r = { p, repo, snap }; }
@@ -351,15 +377,15 @@ export const sindri: Module = {
       const lignes = [...d.dossiers.map((x) => `📁 ${x.nom}/ · ${x.fichiers} fichier(s), ${human(x.octets)}`), ...d.fichiers.map((x) => `📄 ${x.nom} · ${human(x.octets)} · ${new Date(x.mtime).toLocaleString('fr-FR')}`)];
       const local = (f: { chemin: string }) => (tout.find((x) => x.path === f.chemin)?.chunks ?? []).every((c) => existsSync(r.repo.chunkPath(c)));
       return { text: `${r.p.name} · ${r.snap.at.slice(0, 16).replace('T', ' ')} (${r.snap.type ?? 'complète'}) · ${s(i.dossier) || 'racine'}\n${lignes.join('\n') || '(vide)'}`, data: { instantane: r.snap.id, ...d },
-        fichiers: d.fichiers.filter(local).slice(0, 20).map((f) => ({ nom: f.nom, ref: `f/${r.snap.id}/${Buffer.from(f.chemin).toString('base64url')}` })) };
+        fichiers: d.fichiers.filter(local).slice(0, 20).map((f) => ({ nom: f.nom, ref: ((c: string) => `f/${r.snap.id}/${c}/${signer(r.snap.id, c)}`)(Buffer.from(f.chemin).toString('base64url')) })) };
     } },
-    { id: 'telecharger', label: 'Télécharger un fichier', what: 'Prépare un fichier d\'une sauvegarde pour le télécharger dans le navigateur (rapatrié de la destination si besoin)', read: true, params: [{ key: 'instantane', label: 'Instantané', kind: 'text', required: true }, { key: 'chemin', label: 'Chemin du fichier', kind: 'text', required: true }], run: async (ctx, i) => {
+    { id: 'telecharger', label: 'Télécharger un fichier', what: 'Prépare un fichier d\'une sauvegarde pour le télécharger dans le navigateur (rapatrié de la destination si besoin)', read: true, proprietaireSeul: true, params: [{ key: 'instantane', label: 'Instantané', kind: 'text', required: true }, { key: 'chemin', label: 'Chemin du fichier', kind: 'text', required: true }], run: async (ctx, i) => {
       const { p, repo, snap } = trouverInstantane(ctx, s(i.instantane).trim()), f = contenu(repo, snap).find((x) => x.path === s(i.chemin) || norm(x.path) === norm(s(i.chemin)));
       if (!f) throw new Error('ce fichier n\'est pas dans cette sauvegarde');
       await rapatrier(ctx, p, repo, f.chunks);
       const d = versTelechargement(ctx, repo, f); return { text: `📄 ${d.nom} prêt (${human(f.size)}).`, fichiers: [d] };
     } },
-    { id: 'restaurer', label: 'Restaurer', what: 'Remet des fichiers d\'un instantané dans un dossier, ou à leur place d\'origine (avec ton accord)', words: ['récupère un fichier', 'récupérer un fichier', 'restaure la sauvegarde'], params: [{ key: 'instantane', label: 'Instantané', kind: 'text', required: true }, { key: 'filtre', label: 'Seulement les chemins contenant', kind: 'text' }, { key: 'vers', label: 'Restaurer dans (vide : un dossier à part)', kind: 'text', default: '' }, { key: 'a_sa_place', label: 'À leur place d\'origine (par-dessus)', kind: 'boolean', default: false }],
+    { id: 'restaurer', label: 'Restaurer', what: 'Remet des fichiers d\'un instantané dans un dossier, ou à leur place d\'origine (avec ton accord)', proprietaireSeul: true, words: ['récupère un fichier', 'récupérer un fichier', 'restaure la sauvegarde'], params: [{ key: 'instantane', label: 'Instantané', kind: 'text', required: true }, { key: 'filtre', label: 'Seulement les chemins contenant', kind: 'text' }, { key: 'vers', label: 'Restaurer dans (vide : un dossier à part)', kind: 'text', default: '' }, { key: 'a_sa_place', label: 'À leur place d\'origine (par-dessus)', kind: 'boolean', default: false }],
       grave: (i) => (i.a_sa_place === true || i.a_sa_place === 'true' || s(i.vers) === '/' ? 'restaurer par-dessus les fichiers actuels (ils seront remplacés par ceux de la sauvegarde)' : undefined), run: async (ctx, i) => {
       const { p, repo, snap } = trouverInstantane(ctx, s(i.instantane));
       const place = i.a_sa_place === true || i.a_sa_place === 'true' || s(i.vers) === '/';
@@ -368,8 +394,8 @@ export const sindri: Module = {
       const to = place ? '' : s(i.vers) || join(ctx.dir, 'restaurés', snap.id); const n = restore(repo, snap, to, s(i.filtre));
       return { text: `↩ ${n} fichier(s) restauré(s) ${place ? 'à leur place d\'origine' : `dans ${to}`}${venus ? ` (${venus} morceau(x) rapatrié(s) de ${p.destination ? decrire(p.destination) : 'la destination'})` : ''}.` };
     } },
-    { id: 'verifier', label: 'Vérifier', what: 'Relit et déchiffre le dernier instantané de chaque plan', read: true, words: ['verifie les sauvegardes', 'verifie mes sauvegardes', 'teste les sauvegardes', 'teste mes sauvegardes'], run: (ctx) => { const out: string[] = []; for (const p of plans(ctx)) { if (!existsSync(join(racine(ctx, p), 'config'))) continue; const repo = depot(ctx, p); const sn = repo.snapshots().find((x) => x.plan === p.name); if (!sn) continue; if (distant(p) && p.garderLocal === false) { out.push(`· ${p.name} : copie seulement sur ${p.destination ? decrire(p.destination) : 'la destination'} (vérifiée à chaque envoi)`); continue; } const v = verify(repo, sn); out.push(`${v.bad.length ? '✗' : '✓'} ${p.name} : ${v.ok} morceaux lisibles${v.bad.length ? `, ${v.bad.length} ABÎMÉS` : ''}`); if (v.bad.length) ctx.alert({ level: 'critique', title: `Sauvegarde ${p.name} abîmée`, detail: `${v.bad.length} morceaux illisibles`, key: `verify:${p.name}` }); } return { text: out.join('\n') || 'Aucun plan.' }; } },
-    { id: 'purger', label: 'Libérer la place des vieilles versions', what: 'Efface pour de bon les versions retirées par la rotation et les morceaux que plus aucune version n\'utilise (ici et sur la destination)', quick: false, params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }],
+    { id: 'verifier', label: 'Vérifier', what: 'Relit et déchiffre le dernier instantané de chaque plan', read: true, words: ['verifie les sauvegardes', 'verifie mes sauvegardes', 'teste les sauvegardes', 'teste mes sauvegardes'], run: (ctx) => { const out: string[] = []; for (const p of plans(ctx)) { if (!existsSync(join(racine(ctx, p), 'config'))) continue; const repo = depot(ctx, p); const sn = repo.snapshots().find((x) => x.plan === p.name); if (!sn) continue; if (distant(p) && p.garderLocal === false) { out.push(`· ${p.name} : copie seulement sur ${p.destination && !parUnMembre() ? decrire(p.destination) : 'la destination'} (vérifiée à chaque envoi)`); continue; } const v = verify(repo, sn); out.push(`${v.bad.length ? '✗' : '✓'} ${p.name} : ${v.ok} morceaux lisibles${v.bad.length ? `, ${v.bad.length} ABÎMÉS` : ''}`); if (v.bad.length) ctx.alert({ level: 'critique', title: `Sauvegarde ${p.name} abîmée`, detail: `${v.bad.length} morceaux illisibles`, key: `verify:${p.name}` }); } return { text: out.join('\n') || 'Aucun plan.' }; } },
+    { id: 'purger', label: 'Libérer la place des vieilles versions', what: 'Efface pour de bon les versions retirées par la rotation et les morceaux que plus aucune version n\'utilise (ici et sur la destination)', quick: false, proprietaireSeul: true, params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }],
       grave: (i) => `effacer définitivement les vieilles versions du plan « ${s(i.plan)} » (celles déjà retirées par la rotation)`, run: async (ctx, i) => {
         const p = plans(ctx).find((x) => x.name === s(i.plan)); if (!p) throw new Error('plan inconnu');
         const repo = depot(ctx, p), garde = new Set(repo.snapshots().flatMap((sn) => contenu(repo, sn).flatMap((f) => f.chunks)));
@@ -379,8 +405,7 @@ export const sindri: Module = {
         if (p.destination && distant(p)) { const t = transportDe(ctx.home, p.destination), l = await t.liste(), x = [...l.keys()].filter((r) => (r.startsWith('data/') && !garde.has(r.split('/').pop()!)) || (r.startsWith('snapshots/') && !existsSync(join(repo.root, r)))); await t.effacer(x); loin = x.length; }
         return { text: `🧹 ${p.name} : ${oublies.length} vieille(s) version(s) et ${morts.length} morceau(x) effacés (${human(morts.reduce((n, [, o]) => n + o, 0))})${loin ? `, ${loin} fichier(s) sur la destination` : ''}.` };
       } },
-    ...actionsAgentSindri,
-    ...actionsImage,
+    ...auProprietaire([...actionsAgentSindri, ...actionsImage]),
   ],
   view(ctx) {
     const l = (ctx.settings.last as Record<string, { at: string; ok: boolean; files: number; bytes: number; added: number; type?: string; error?: string }>) ?? {};
@@ -390,13 +415,13 @@ export const sindri: Module = {
       let snaps: Snapshot[] = []; try { if (process.env.SINDRI_PASSWORD && existsSync(join(racine(ctx, p), 'config'))) snaps = depot(ctx, p).snapshots().filter((x) => x.plan === p.name); } catch { /* dépôt illisible : montré vide */ }
       versions.push({ kind: 'table', onglet: 'Restaurer', title: `Versions · ${p.name}`, columns: ['Quand', 'Sorte', 'Fichiers lus', 'Taille'], empty: 'Aucune version pour l\'instant.', rows: snaps.slice(0, 15).map((x) => ({ cells: [x.at.slice(0, 16).replace('T', ' '), x.type ?? 'complète', String(x.files.length), human(x.bytes)], actions: [{ action: 'parcourir', label: 'Parcourir', input: { instantane: x.id } }, { action: 'restaurer', label: 'Tout restaurer à part', input: { instantane: x.id } }] })) });
     }
-    return {
+    const vu: View = {
       subtitle: process.env.SINDRI_PASSWORD ? 'Tout est compressé et chiffré avant de partir.' : '⚠ Range d\'abord un mot de passe de sauvegarde dans le coffre (SINDRI_PASSWORD).',
       tabs: ['Phénix · dossiers', 'Oïkos · PC du foyer', 'Osiris · machines virtuelles'],
       onglets: ['Plans', 'Restaurer', 'Nouveau'],
       kpis: [{ label: 'Plans', value: String(ps.length) }, { label: 'En retard', value: String(late.length), tone: late.length ? 'attention' : 'bon' }, { label: 'Dernière réussie', value: Object.values(l).filter((x) => x.ok).sort((a, b) => b.at.localeCompare(a.at))[0]?.at.slice(0, 16).replace('T', ' ') ?? '—' }],
       sections: [
-        { kind: 'table', onglet: 'Plans', title: 'Plans', columns: ['Plan', 'Dossiers', 'Destination', 'Sorte', 'Dernière'], empty: 'Aucun plan : crée-en un (onglet Nouveau).', rows: ps.map((p) => ({ cells: [p.name, p.paths.join(', '), p.destination ? decrire(p.destination) : p.repo, resumePlan(p), l[p.name] ? `${l[p.name].ok ? '✓' : '✗'} ${l[p.name].at.slice(5, 16).replace('T', ' ')} · ${l[p.name].type ?? 'complète'} · ${human(l[p.name].bytes ?? 0)}` : 'jamais'], tone: !l[p.name] ? 'attention' : l[p.name].ok ? 'bon' : 'mauvais', actions: [{ action: 'sauvegarder', label: 'Maintenant', input: { plan: p.name } }, { action: 'sauvegarder', label: 'Complète', input: { plan: p.name, sorte: 'complète' } }, { action: 'instantanes', label: 'Versions', input: { plan: p.name } }] })) },
+        { kind: 'table', onglet: 'Plans', title: 'Plans', columns: ['Plan', 'Dossiers', 'Destination', 'Sorte', 'Dernière'], empty: 'Aucun plan : crée-en un (onglet Nouveau).', rows: ps.map((p) => ({ cells: [p.name, quoiSauve(p), ouVa(p), resumePlan(p), l[p.name] ? `${l[p.name].ok ? '✓' : '✗'} ${l[p.name].at.slice(5, 16).replace('T', ' ')} · ${l[p.name].type ?? 'complète'} · ${human(l[p.name].bytes ?? 0)}` : 'jamais'], tone: !l[p.name] ? 'attention' : l[p.name].ok ? 'bon' : 'mauvais', actions: [{ action: 'sauvegarder', label: 'Maintenant', input: { plan: p.name } }, { action: 'sauvegarder', label: 'Complète', input: { plan: p.name, sorte: 'complète' } }, { action: 'instantanes', label: 'Versions', input: { plan: p.name } }] })) },
         { kind: 'form', onglet: 'Restaurer', title: 'Restaurer sur le PC', action: 'restaurer_pc', submit: 'Restaurer sur le PC', params: actionsAgentSindri.find((a) => a.id === 'restaurer_pc')?.params ?? [], aide: 'Pour les plans « PC · … » : l\'agent du PC remet les fichiers (avec ton accord).' },
         { kind: 'form', onglet: 'Nouveau', title: 'Image disque d\'un poste', action: 'image_plan', submit: 'Créer', params: actionsImage.find((a) => a.id === 'image_plan')?.params ?? [], aide: 'L\'agent des PC s\'installe depuis Satellites (« Installer la sauvegarde »).' },
         ...versions,
@@ -408,11 +433,12 @@ export const sindri: Module = {
         { kind: 'form', onglet: 'Nouveau', title: 'Commandes avant et après', action: 'commandes', submit: 'Enregistrer', params: sindri.actions.find((a) => a.id === 'commandes')?.params ?? [], aide: 'Elles demandent ton accord, une fois, à l\'enregistrement.' },
       ],
     };
+    return parUnMembre() ? pourUnMembre(vu) : vu;
   },
   /** Un fichier d'une sauvegarde remis au navigateur : préparé par « Télécharger », ou restauré à la demande (morceaux présents ici). */
   retrait(ctx, ref) {
     if (ref.startsWith('dl/')) { const f = resolve(dlDir(ctx), ref.slice(3)); return f.startsWith(resolve(dlDir(ctx)) + sep) && existsSync(f) && statSync(f).isFile() ? f : undefined; }
-    const m = /^f\/([\w-]{10,80})\/([A-Za-z0-9_-]{1,800})$/.exec(ref); if (!m) return undefined;
+    const m = /^f\/([\w-]{10,80})\/([A-Za-z0-9_-]{1,800})\/([A-Za-z0-9_-]{32})$/.exec(ref); if (!m || !signatureBonne(m[1], m[2], m[3])) return undefined;
     try {
       const { repo, snap } = trouverInstantane(ctx, m[1]), chemin = Buffer.from(m[2], 'base64url').toString(), f = contenu(repo, snap).find((x) => x.path === chemin);
       if (!f || !f.chunks.every((c) => existsSync(repo.chunkPath(c)))) return undefined;
