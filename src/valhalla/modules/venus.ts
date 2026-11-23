@@ -18,6 +18,12 @@ import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 // L1 : envoyer des médias depuis le téléphone ou le PC (préparer, puis importer le fichier reçu en morceaux).
 import { importerEnvoi, preparerEnvoi, purgerEnvois } from '../venus/envoi.ts';
 import { ffprobeReel } from '../venus/routes.ts';
+// La chaîne d'acquisition native (Hnoss, Sirius, Pléiades, Delta, Comète) : dans Odin, sans serveur à part.
+import { actionsAcquisition, IDS_ACQUISITION } from '../venus/actions.ts';
+import { arreterTout as arreterComete, fileComete, relancer as relancerComete } from '../venus/comete/index.ts';
+import { demandesHnoss } from '../venus/hnoss/index.ts';
+import { agissant } from '../sso/acces.ts';
+const natif = (id: string) => actionsAcquisition.find((a) => a.id === id)!.run;
 import { basename, dirname, join } from 'node:path';
 
 interface Rec { id: number; channel: string; title: string; start: number; stop: number; status: string; error?: string }
@@ -262,7 +268,9 @@ export function venus(url: () => string): Module {
         return { text: nat.length ? `${nat.slice(0, 12).map(carteNat).join('\n')}\n${ext}` : ext, data: { natif: nat } };
       } },
       // ---------------- Médias automatiques (dans Venus) : Hnoss · Sirius · Pléiades · Odyssée · Comète
-      { id: 'medias', label: 'Médias automatiques', what: 'Hnoss (demandes), Sirius (films), Pléiades (séries), Odyssée (livres), Comète (téléchargements) : envies, téléchargements en cours, rangés, journal', read: true, words: ['medias automatiques', 'médias automatiques', 'telechargements', 'téléchargements', 'en cours de telechargement', 'hnoss', 'gersemi', 'hildisvini', 'hildisvíni', 'folkvangr', 'fólkvangr', 'sjofn', 'sjöfn'], run: async () => {
+      { id: 'medias', label: 'Médias automatiques', what: 'Hnoss (demandes), Sirius (films), Pléiades (séries), Odyssée (livres), Comète (téléchargements) : envies, téléchargements en cours, rangés, journal', read: true, words: ['medias automatiques', 'médias automatiques', 'telechargements', 'téléchargements', 'en cours de telechargement', 'hnoss', 'gersemi', 'hildisvini', 'hildisvíni', 'folkvangr', 'fólkvangr', 'sjofn', 'sjöfn'], run: async (ctx) => {
+        // Un membre : seulement ce qui vient de ses demandes.
+        if (!relie()) { const qui = agissant(), dm = demandesHnoss(mag(ctx), qui?.login), mes = new Set(dm.map((x) => x.id)), f = fileComete(mag(ctx)).filter((t) => !qui || (t.demande !== undefined && mes.has(t.demande))); const n = (e: string) => dm.filter((x) => x.etat === e).length; return { text: `Dans Odin : ${dm.length} demande(s) (${n('à valider')} à valider, ${n('en téléchargement')} en téléchargement, ${n('disponible')} disponible(s), ${n('échec')} en échec) · Comète : ${f.filter((x) => x.etat === 'en_cours').length} en cours, ${f.filter((x) => x.etat === 'attente').length} en attente.`, data: { demandes: dm, telechargements: f } }; }
         const d = await venusApi<MediaState>(conf(), 'GET', '/api/admin/acquire');
         return { text: mediasText(d), data: d };
       } },
@@ -307,12 +315,14 @@ export function venus(url: () => string): Module {
         if (!r.steps.length) return { text: 'Aucun autotest lancé.' };
         return { text: [`Autotest ${r.running ? 'en cours…' : r.result === 'réussi' ? '✅ réussi' : '❌ en échec'}`, ...r.steps.map((x) => `${x.ok ? '✓' : '✗'} ${x.text}`)].join('\n'), ok: r.running || r.result === 'réussi' };
       } },
-      { id: 'medias_source', label: 'Ajouter une source', what: 'Un indexeur Torznab ou Newznab (adresse et clé). Venus ne fournit aucune source : n\'ajoute que des sources autorisées', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['torznab', 'newznab'], default: 'torznab' }, { key: 'adresse', label: 'Adresse de l\'API', kind: 'text', required: true }, { key: 'cle', label: 'Clé', kind: 'password', default: '' }], run: async (_c, i) => {
+      { id: 'medias_source', label: 'Ajouter une source', what: 'Un indexeur Torznab ou Newznab (adresse et clé). Venus ne fournit aucune source : n\'ajoute que des sources autorisées', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['torznab', 'newznab'], default: 'torznab' }, { key: 'adresse', label: 'Adresse de l\'API', kind: 'text', required: true }, { key: 'cle', label: 'Clé', kind: 'password', default: '' }], proprietaireSeul: () => !relie(), run: async (ctx, i) => {
+        if (!relie()) return natif('delta_ajouter')(ctx, i);
         const r = await venusApi<{ id: number }>(conf(), 'POST', '/api/admin/acquire/sources', { name: s(i.nom), kind: s(i.type) || 'torznab', url: s(i.adresse), key: s(i.cle) });
         return { text: `Source « ${s(i.nom)} » ajoutée (n° ${r.id}). La clé reste dans Venus.` };
       } },
       // ---------------- Delta · Sources (comme Prowlarr, recodé dans Venus)
-      { id: 'bygul', label: 'Delta · Sources', what: 'Les sources du bloc Médias : santé (bonne, fragile, en pause), priorité, recherches, téléchargements obtenus, temps de réponse', read: true, words: ['bygul', 'sources', 'indexeurs', 'prowlarr', 'sante des sources'], run: async () => {
+      { id: 'bygul', label: 'Delta · Sources', what: 'Les sources du bloc Médias : santé (bonne, fragile, en pause), priorité, recherches, téléchargements obtenus, temps de réponse', read: true, words: ['bygul', 'sources', 'indexeurs', 'prowlarr', 'sante des sources'], proprietaireSeul: () => !relie(), run: async (ctx, i) => {
+        if (!relie()) return natif('delta_sources')(ctx, i);
         const d = await venusApi<MediaState>(conf(), 'GET', '/api/admin/acquire');
         return { text: bygulText(d.sources as unknown as BygulSource[]), data: d.sources };
       } },
@@ -334,7 +344,8 @@ export function venus(url: () => string): Module {
         await venusApi(conf(), 'PUT', `/api/admin/acquire/sources/${Number(i.id)}`, { enabled: i.actif !== false && i.actif !== 'false', priority: Number(i.priorite) || 25, kinds, rpm: Number(s(i.par_minute)) || null });
         return { text: `Source ${Number(i.id)} : ${i.actif === false || i.actif === 'false' ? 'coupée' : 'active'}, priorité ${Number(i.priorite) || 25}${kinds.length ? `, ${kinds.join(', ')}` : ''}.` };
       } },
-      { id: 'bygul_chercher', label: 'Chercher dans les sources', what: 'Recherche à la main dans toutes les sources : versions notées (VF, qualité), et pourquoi les autres sont écartées', read: true, params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['film', 'épisode', 'album', 'livre', 'livre audio'], default: 'film' }, { key: 'annee', label: 'Année / saison', kind: 'text', default: '' }, { key: 'episode', label: 'Épisode', kind: 'text', default: '' }], words: ['cherche dans les sources', 'recherche manuelle'], run: async (_c, i) => {
+      { id: 'bygul_chercher', label: 'Chercher dans les sources', what: 'Recherche à la main dans toutes les sources : versions notées (VF, qualité), et pourquoi les autres sont écartées', read: true, params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['film', 'épisode', 'album', 'livre', 'livre audio'], default: 'film' }, { key: 'annee', label: 'Année / saison', kind: 'text', default: '' }, { key: 'episode', label: 'Épisode', kind: 'text', default: '' }], words: ['cherche dans les sources', 'recherche manuelle'], proprietaireSeul: () => !relie(), run: async (ctx, i) => {
+        if (!relie()) { const ep = /épisode|episode/i.test(s(i.type)); return natif('delta_chercher')(ctx, { titre: i.titre, genre: ep ? 'série' : 'film', ...(ep ? { saison: s(i.annee) || '1', episode: s(i.episode) || '1' } : { annee: i.annee }) }); }
         const r = await bygulQuery(i);
         return { text: r.results.length ? r.results.slice(0, 12).map((x, k) => `${k + 1}. ${x.ok ? '✅' : '✗'} ${x.title} · ${(x.size / 1e9).toFixed(1).replace('.', ',')} Go · ${x.seeders ?? '?'} sources · ${x.indexer}${x.ok ? ` · note ${x.score}` : ` · ${x.why}`}`).join('\n') : `Rien trouvé${r.errors.length ? ` (${r.errors.join(' ; ')})` : ''}.`, data: r };
       } },
@@ -356,7 +367,8 @@ export function venus(url: () => string): Module {
         await venusApi(conf(), 'PUT', '/api/admin/acquire', { client: { type, url: s(i.adresse), user: s(i.utilisateur), ...(type === 'sabnzbd' ? { key: s(i.mot_de_passe) } : { password: s(i.mot_de_passe) }) } });
         return { text: type === 'venus' ? 'Téléchargements : Comète, le moteur de Venus.' : `Téléchargements : ${type} (${s(i.adresse)}).` };
       } },
-      { id: 'medias_chercher', label: 'Chercher maintenant', what: 'Relance tout de suite la recherche d\'une envie (titre)', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }], run: async (_c, i) => {
+      { id: 'medias_chercher', label: 'Chercher maintenant', what: 'Relance tout de suite la recherche d\'une envie (titre)', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }], proprietaireSeul: () => !relie(), run: async (ctx, i) => {
+        if (!relie()) return natif('hnoss_relancer')(ctx, { demande: i.titre });
         const d = await venusApi<MediaState>(conf(), 'GET', '/api/admin/acquire'), q = s(i.titre).toLowerCase();
         const w = d.wants.find((x) => x.title.toLowerCase() === q) ?? d.wants.find((x) => x.title.toLowerCase().includes(q));
         if (!w) throw new Error(`« ${s(i.titre)} » n'est pas dans les envies`);
@@ -369,7 +381,8 @@ export function venus(url: () => string): Module {
         const l = await venusApi<Array<{ title: string; year?: number; type: string }>>(conf(), 'GET', '/api/mylist');
         return { text: l.slice(0, 40).map((x) => `- ${x.title}${x.year ? ` (${x.year})` : ''}`).join('\n') || 'Liste vide.' };
       } },
-      { id: 'demander', label: 'Demander un titre', what: 'Titre absent de la bibliothèque (via la demande de Venus)', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['film', 'série'], default: 'film' }], run: async (_c, i) => { const r = await venusApi<{ state?: string }>(conf(), 'POST', '/api/discover/request', { type: i.type === 'série' ? 'tv' : 'movie', title: s(i.titre) }); return { text: `📥 Demande envoyée : « ${s(i.titre)} »${r.state ? ` (${r.state})` : ''}.` }; } },
+      { id: 'demander', label: 'Demander un titre', what: 'Titre absent de la bibliothèque (via la demande de Venus)', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['film', 'série'], default: 'film' }], run: async (ctx, i) => { if (!relie()) return natif('hnoss_demander')(ctx, { titre: i.titre, genre: i.type }); const r = await venusApi<{ state?: string }>(conf(), 'POST', '/api/discover/request', { type: i.type === 'série' ? 'tv' : 'movie', title: s(i.titre) }); return { text: `📥 Demande envoyée : « ${s(i.titre)} »${r.state ? ` (${r.state})` : ''}.` }; } },
+      ...actionsAcquisition,
       actionRestaurer('venus'),
       // ---- Odyssée : livres et livres audio
       { id: 'livres_envies', label: 'Envies de livres', what: 'Odyssée : les livres et livres audio demandés à Venus, et où ils en sont', read: true, words: ['envies de livres', 'livres demandes', 'livres demandés', 'mes envies de livres'], run: async () => {
@@ -440,7 +453,8 @@ export function venus(url: () => string): Module {
         return { text: `🔖 ${c.title} : chapitre ${p.chapitre + 1}, ${Math.round(p.position)} s.`, data: p };
       } },
     ],
-    start(ctx) { mag(ctx).brancher(); try { purgerEnvois(m.depot!(ctx).dossier); } catch { /* rien à effacer */ } },
+    stop() { arreterComete(); },
+    start(ctx) { mag(ctx).brancher(); try { relancerComete(ctx); } catch (e) { console.error(`[venus] Comète : ${(e as Error).message}`); } try { purgerEnvois(m.depot!(ctx).dossier); } catch { /* rien à effacer */ } },
     async view(ctx) {
       // Odyssée : la bibliothèque de lecture d'Odin marche aussi sans Venus (livres déposés).
       const prog = progressions(ctx.dir), lect = livres(ctx.dir);
@@ -483,4 +497,4 @@ export function venus(url: () => string): Module {
   return m;
 }
 /** Les actions de Vénus qui marchent dans Odin, sans le serveur à part (leur bouton rapide reste toujours). */
-export const ACTIONS_NATIVES = new Set(['etat', 'regarder', 'chercher', 'ma_liste', 'livre_ajouter', 'mes_livres', 'livre_lire', 'livre_position', 'livre_retirer']);
+export const ACTIONS_NATIVES = new Set(['etat', 'regarder', 'chercher', 'ma_liste', 'livre_ajouter', 'mes_livres', 'livre_lire', 'livre_position', 'livre_retirer', ...IDS_ACQUISITION]);

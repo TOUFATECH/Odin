@@ -26,11 +26,13 @@ export type Collection =
   | 'historique' | 'demandes' | 'ecrans' | 'telecommandes'
   | 'yt_abonnements' | 'yt_historique' | 'yt_reglages'
   // Acquisition (phase 2) : tables posées, remplies plus tard.
-  | 'sources' | 'envies' | 'filtres' | 'telechargements' | 'acq_journal' | 'lots' | 'acq_reglages' | 'autotest';
+  | 'sources' | 'envies' | 'filtres' | 'telechargements' | 'acq_journal' | 'lots' | 'acq_reglages' | 'autotest'
+  // L'interface de Vénus (lot V1) : la planète et le menu choisis, par profil.
+  | 'preferences';
 
 /** Les collections privées : contenu chiffré au repos, jamais dans une vue en clair. */
 export const PRIVEES: ReadonlySet<Collection> = new Set<Collection>(['historique', 'demandes', 'yt_historique']);
-export const COLLECTIONS: Collection[] = ['dossiers', 'oeuvres', 'episodes', 'pistes', 'fichiers', 'reprise', 'ma_liste', 'historique', 'demandes', 'ecrans', 'telecommandes', 'yt_abonnements', 'yt_historique', 'yt_reglages', 'sources', 'envies', 'filtres', 'telechargements', 'acq_journal', 'lots', 'acq_reglages', 'autotest'];
+export const COLLECTIONS: Collection[] = ['dossiers', 'oeuvres', 'episodes', 'pistes', 'fichiers', 'reprise', 'ma_liste', 'historique', 'demandes', 'ecrans', 'telecommandes', 'yt_abonnements', 'yt_historique', 'yt_reglages', 'sources', 'envies', 'filtres', 'telechargements', 'acq_journal', 'lots', 'acq_reglages', 'autotest', 'preferences'];
 
 /** Un enregistrement d'une collection : un identifiant et des données libres (JSON). */
 export interface Enr { id: string; data: Record<string, unknown>; maj: number }
@@ -74,6 +76,9 @@ CREATE VIEW v_compteurs AS
   UNION ALL SELECT 'yt_historique', count(*) FROM yt_historique
   UNION ALL SELECT 'telecommandes', count(*) FROM telecommandes;
 GRANT SELECT ON v_oeuvres, v_ecrans, v_compteurs TO odin_lecture`,
+  }, {
+    v: 2, nom: "préférences de l'interface de Vénus (planète, menu) par profil",
+    sql: 'CREATE TABLE preferences (id text PRIMARY KEY, data jsonb NOT NULL, maj bigint NOT NULL)',
   }],
   ecritures: {
     pose: 'INSERT INTO __t__ (id, data, maj) VALUES ($1, $2::jsonb, $3) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, maj = EXCLUDED.maj',
