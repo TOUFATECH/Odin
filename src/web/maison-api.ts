@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { understand } from '../valhalla/huginn.ts';
-import { cleanLayout, defaultLayout, type Layout } from '../valhalla/modules/gladsheim.ts';
+import { cleanLayout, defaultLayout, tailleDe, type Layout } from '../valhalla/modules/gladsheim.ts';
 import type { Module } from '../valhalla/types.ts';
 import { LIEU_PAR_DEFAUT, THEMES, appStates, familyNow, keyRights, meteoAncienne, memberOf, recordFix, regionActuelle, tilesOf, weather, weatherText, wword } from '../valhalla/modules/gladsheim.ts';
 import { cameraNames, preview } from '../valhalla/modules/himinbjorg.ts';
@@ -50,21 +50,21 @@ async function maisonPages(v: NonNullable<ReturnType<typeof valhallaOf>>, full: 
     const ws = [];
     for (const w of p.widgets) {
       const m = w.module ? v.module(w.module) : undefined;
-      if (w.kind === 'meteo') { ws.push({ id: w.id, kind: 'meteo', w: w.w, title: w.label || 'Météo' }); continue; }
-      if (w.kind === 'heure') { ws.push({ id: w.id, kind: 'heure', w: w.w, title: w.label || 'Heure et lieu' }); continue; }
+      if (w.kind === 'meteo') { ws.push({ id: w.id, kind: 'meteo', ...tailleDe(w), title: w.label || 'Météo' }); continue; }
+      if (w.kind === 'heure') { ws.push({ id: w.id, kind: 'heure', ...tailleDe(w), title: w.label || 'Heure et lieu' }); continue; }
       // Un site surveillé (sonde de Pulsar) : son état, visible de tous les écrans ; l'adresse seulement pour qui a tous les droits.
       if (w.kind === 'site') {
         const vw = v.module('vordr') ? await view('vordr') : null, t = vw?.sections.find((x) => x.kind === 'table' && x.title === 'Sondes') as { rows?: Array<{ cells: string[]; tone?: string }> } | undefined;
         const r = t?.rows?.find((x) => x.cells[0] === w.label);
-        ws.push({ id: w.id, kind: 'site', w: w.w, title: w.label ?? 'Site', sonde: r ? { etat: r.cells[3] ?? '', jour: r.cells[4] ?? '', mois: r.cells[5] ?? '', temps: r.cells[6] ?? '', ...(full ? { cible: r.cells[2] ?? '' } : {}), ...(r.tone ? { tone: r.tone } : {}) } : null });
+        ws.push({ id: w.id, kind: 'site', ...tailleDe(w), title: w.label ?? 'Site', sonde: r ? { etat: r.cells[3] ?? '', jour: r.cells[4] ?? '', mois: r.cells[5] ?? '', temps: r.cells[6] ?? '', ...(full ? { cible: r.cells[2] ?? '' } : {}), ...(r.tone ? { tone: r.tone } : {}) } : null });
         continue;
       }
       if (!m) continue;
       if (!full && m.family !== 'Maison' && w.kind !== 'bouton') continue;
-      if (w.kind === 'bouton') { const f = v.action(m.id, w.action ?? ''); if (!f) continue; const grave = Boolean(f.a.grave?.(w.input ?? {}, v.ctx(m.id))); if (grave && !full) continue; ws.push({ id: w.id, kind: 'bouton', w: w.w, title: w.label || f.a.label, app: m.name, grave }); continue; }
+      if (w.kind === 'bouton') { const f = v.action(m.id, w.action ?? ''); if (!f) continue; const grave = Boolean(f.a.grave?.(w.input ?? {}, v.ctx(m.id))); if (grave && !full) continue; ws.push({ id: w.id, kind: 'bouton', ...tailleDe(w), title: w.label || f.a.label, app: m.name, grave }); continue; }
       const vw = await view(m.id); if (!vw) continue;
-      if (w.kind === 'chiffres') ws.push({ id: w.id, kind: 'chiffres', w: w.w, title: w.label || m.name, app: m.name, kpis: (vw.kpis ?? []).slice(0, 6) });
-      else { const sec = [...vw.sections, ...(vw.side ?? [])].find((x) => x.title === w.section && x.kind !== 'form' && x.kind !== 'graph'); if (sec) ws.push({ id: w.id, kind: 'section', w: w.w, title: w.label || sec.title, app: m.name, section: sec }); }
+      if (w.kind === 'chiffres') ws.push({ id: w.id, kind: 'chiffres', ...tailleDe(w), title: w.label || m.name, app: m.name, kpis: (vw.kpis ?? []).slice(0, 6) });
+      else { const sec = [...vw.sections, ...(vw.side ?? [])].find((x) => x.title === w.section && x.kind !== 'form' && x.kind !== 'graph'); if (sec) ws.push({ id: w.id, kind: 'section', ...tailleDe(w), title: w.label || sec.title, app: m.name, section: sec }); }
     }
     out.push({ id: p.id, name: p.name, widgets: ws });
   }

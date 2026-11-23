@@ -282,13 +282,45 @@ const TILE: Param[] = [
 // ---------------- La fenêtre d'Odin : pages de modules d'applis, modifiables (maquettes validées) ----------------
 /** « heure » : la date, l'heure et le lieu d'Odin (son fuseau). « site » : une sonde de Pulsar (un site surveillé), nommée par `label`. */
 export type WidgetKind = 'chiffres' | 'section' | 'meteo' | 'bouton' | 'heure' | 'site';
-export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string> }
+/**
+ * Un module de la fenêtre. Sa place, c'est son rang dans la liste de la page (la grille se remplit toute seule).
+ * Sa taille (grille de la maquette validée) : `c` colonnes sur 12, `r` lignes ; au téléphone, à part, `pc` colonnes
+ * sur 4 et `pr` lignes (absentes : l'écran choisit). `w` (1, 2 ou 3 colonnes) est l'ancienne largeur, toujours rendue
+ * pour l'écran d'aujourd'hui : elle se déduit de `c` (1 à 4 → 1, 5 à 8 → 2, 9 à 12 → 3).
+ */
+export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number; r: number; pc?: number; pr?: number; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string> }
 export interface FPage { id: string; name: string; maison?: boolean; widgets: Widget[] }
 export interface Layout { pages: FPage[] }
+/** La grille de la maquette : 12 colonnes, 4 au téléphone, 7 lignes au plus. */
+export const GRILLE = { colonnes: 12, colonnesTel: 4, lignesMax: 7 } as const;
+/** Modules par page, au plus (24 avant la grille ; l'écran « maison » de départ de la maquette en a 31). */
+export const MODULES_PAR_PAGE = 48;
+/** Par sorte de module : sa plus petite taille [colonnes, lignes] et sa hauteur de départ. */
+export const TAILLE_SORTE: Record<WidgetKind, { mini: [number, number]; r: number }> = {
+  chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
+  bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
+};
+/** La seule table des tailles en mots (petit, moyen, grand, toute la largeur) : des colonnes sur 12. */
+export const TAILLES_MOTS = { petit: 3, moyen: 6, grand: 9, plein: 12 } as const;
+/** L'ancienne largeur (1, 2 ou 3 colonnes) d'une largeur sur 12 : même proportion. */
+export const largeurAncienne = (c: number): 1 | 2 | 3 => (c <= 4 ? 1 : c <= 8 ? 2 : 3);
+/** Ce que l'écran reçoit de la taille d'un module. */
+export const tailleDe = (w: Widget) => ({ w: w.w, c: w.c, r: w.r, ...(w.pc === undefined ? {} : { pc: w.pc }), ...(w.pr === undefined ? {} : { pr: w.pr }) });
+/** La taille d'un module envoyé par l'interface, nettoyée : des entiers dans la grille, rien d'inventé pour le téléphone. Pur. */
+function tailleNette(o: Record<string, unknown>, kind: WidgetKind): Pick<Widget, 'w' | 'c' | 'r' | 'pc' | 'pr'> {
+  const entier = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) ? v : undefined), borne = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+  const t = TAILLE_SORTE[kind], ancien = [1, 2, 3].includes(Number(o.w)) ? Number(o.w) : undefined;
+  let c = entier(o.c); if (c !== undefined) c = borne(c, t.mini[0], GRILLE.colonnes);
+  // Pas de largeur sur 12, ou une largeur périmée (l'écran d'aujourd'hui n'a changé que `w`) : elle suit `w`.
+  if (c === undefined || (ancien !== undefined && largeurAncienne(c) !== ancien)) c = (ancien ?? 1) * 4;
+  const r = entier(o.r), pc = entier(o.pc), pr = entier(o.pr);
+  return { w: largeurAncienne(c), c, r: r === undefined ? t.r : borne(r, t.mini[1], GRILLE.lignesMax),
+    ...(pc === undefined ? {} : { pc: borne(pc, 2, GRILLE.colonnesTel) }), ...(pr === undefined ? {} : { pr: borne(pr, t.mini[1], GRILLE.lignesMax) }) };
+}
 const wid = () => randomBytes(4).toString('hex');
 /** La fenêtre de départ : ce qui compte le plus, avec les applis présentes. */
 export function defaultLayout(ids: string[]): Layout {
-  const has = (m: string) => ids.includes(m), w = (kind: WidgetKind, module?: string, size: 1 | 2 | 3 = 1): Widget => ({ id: wid(), kind, w: size, ...(module ? { module } : {}) });
+  const has = (m: string) => ids.includes(m), w = (kind: WidgetKind, module?: string, size: 1 | 2 | 3 = 1): Widget => ({ id: wid(), kind, ...tailleNette({ w: size }, kind), ...(module ? { module } : {}) });
   const maison: Widget[] = [w('heure'), w('meteo'), ...['midgard', 'himinbjorg'].filter(has).map((m) => w('chiffres', m))];
   const reseau: Widget[] = ['vidarr', 'ran', 'vordr'].filter(has).map((m) => w('chiffres', m, m === 'ran' ? 2 : 1));
   const secu: Widget[] = ['ullr', 'garmr', 'eir'].filter(has).map((m) => w('chiffres', m));
@@ -302,14 +334,14 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
   const pages: FPage[] = [];
   for (const p of (Array.isArray(r.pages) ? r.pages : []).slice(0, 8)) {
     const pp = (p ?? {}) as Record<string, unknown>, name = str(pp.name, 24) || `Page ${pages.length + 1}`, widgets: Widget[] = [];
-    for (const x of (Array.isArray(pp.widgets) ? pp.widgets : []).slice(0, 24)) {
+    for (const x of (Array.isArray(pp.widgets) ? pp.widgets : []).slice(0, MODULES_PAR_PAGE)) {
       const o = (x ?? {}) as Record<string, unknown>, kind = String(o.kind) as WidgetKind;
       if (!['chiffres', 'section', 'meteo', 'bouton', 'heure', 'site'].includes(kind)) continue;
-      const w = ([1, 2, 3].includes(Number(o.w)) ? Number(o.w) : 1) as 1 | 2 | 3, module = str(o.module, 40);
+      const module = str(o.module, 40);
       const libre = kind === 'meteo' || kind === 'heure'; // sans appli derrière
       if (!libre && !ids.includes(module)) continue;
       if (kind === 'site' && (module !== 'vordr' || !str(o.label, 60))) continue; // un site surveillé = une sonde de Pulsar, par son nom
-      const out: Widget = { id: /^[0-9a-f]{8}$/.test(String(o.id)) ? String(o.id) : wid(), kind, w, ...(libre ? {} : { module }) };
+      const out: Widget = { id: /^[0-9a-f]{8}$/.test(String(o.id)) ? String(o.id) : wid(), kind, ...tailleNette(o, kind), ...(libre ? {} : { module }) };
       if (kind === 'section') { out.section = str(o.section, 80); if (!out.section) continue; }
       if (kind === 'bouton') {
         out.action = str(o.action, 40); out.label = str(o.label, 40) || out.action; if (!out.action) continue;
