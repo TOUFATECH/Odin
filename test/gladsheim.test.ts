@@ -45,7 +45,7 @@ test('réglages : thèmes, boutons, clés de tablette, météo, Home Assistant',
     // Clé de tablette : montrée une fois, gardée en empreinte seulement.
     const k = await w.act('cle_tablette', { nom: 'Tablette entrée', droits: 'maison' }), key = (k.data as { key: string }).key;
     assert.match(key, /^gk_[A-Za-z0-9_-]{32}$/); assert.ok(!JSON.stringify(w.v.ctx('gladsheim').settings).includes(key), 'la clé n\'est pas gardée en clair');
-    assert.equal(keyRights(w.v.ctx('gladsheim'), key)?.rights, 'maison'); assert.equal(keyRights(w.v.ctx('gladsheim'), `${key.slice(0, -1)}x`), undefined); assert.equal(keyRights(w.v.ctx('gladsheim'), 'nimporte'), undefined);
+    assert.equal(keyRights(w.v.ctx('gladsheim'), key)?.rights, 'maison'); assert.equal(keyRights(w.v.ctx('gladsheim'), `${key.slice(0, -1)}${key.endsWith('x') ? 'y' : 'x'}`), undefined); assert.equal(keyRights(w.v.ctx('gladsheim'), 'nimporte'), undefined);
     assert.equal((await w.act('cle_tablette', { nom: 'tablette entrée' })).ok, false, 'nom déjà pris');
     assert.match((await w.act('meteo', { ville: 'Mamoudzou' })).text, /À Mamoudzou : 29 °C, partiellement nuageux \(min 24°, max 31°\), humidité 74 %, vent 18 km\/h\. Demain : pluie, 24° à 30°\./);
     const ha = await w.act('home_assistant', { adresse: 'https://ha.maison.fr:8123', odin: 'http://192.168.1.10:8080' });

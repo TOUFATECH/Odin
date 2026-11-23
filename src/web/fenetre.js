@@ -27,6 +27,9 @@
   };
   // Les calculs du glisser (appui long, rang d'insertion, défilement, « Annuler ») : pages/accueil-gestes.js, chargé avant.
   const OG = window.OdinGestes;
+  // Les 12 animations de déplacement (lot 17) : pages/accueil-animations.js, chargé avant. Celle choisie joue quand un
+  // module est déplacé ou agrandi ; avec « moins d'animations », rien ne bouge.
+  const OA = window.OdinAnimations;
   const act = (module, action, input = {}, confirm) => api('/api/valhalla/act', { module, action, input, ...(confirm ? { confirm: true } : {}) });
   const css = `
 #fenetre{margin:0 0 18px}.fe-bar{display:flex;gap:8px;align-items:center;margin:0 0 12px}.fe-bar .sp{flex:1}
@@ -69,9 +72,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 .fe-err{color:var(--muted);font-size:13.5px}
 .fe-clock{display:flex;flex-direction:column;gap:2px}.fe-clock-h{font-size:clamp(22px,24cqi,38px);line-height:1.1;font-variant-numeric:tabular-nums}.fe-clock-d{font-size:15px}.fe-clock-d::first-letter{text-transform:uppercase}.fe-clock small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
 .fe-site{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:4px solid var(--line)}.fe-site b{font-size:20px}.fe-site small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}.fe-site.bon{border-color:var(--good)}.fe-site.mauvais{border-color:var(--bad)}.fe-site.attention{border-color:var(--warn)}`;
-  document.head.append(el('style', {}, css));
+  document.head.append(el('style', {}, css + OA.CSS));
 
-  let L = null, cur = 0, edit = false, saved = '', cat = null, views = new Map(), timer = 0;
+  let L = null, cur = 0, edit = false, saved = '', cat = null, views = new Map(), timer = 0, dessin = { cur: -1, edit: false };
   const host = () => $('#fenetre');
   const page = () => L.pages[Math.min(cur, L.pages.length - 1)];
   const modName = (id) => cat?.modules?.find((m) => m.id === id)?.name ?? id;
@@ -80,7 +83,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   async function load() {
     const [f, c] = await Promise.all([act('gladsheim', 'fenetre'), cat ? Promise.resolve(cat) : api('/api/valhalla/catalog')]);
     cat = c; if (!f.ok) throw new Error(f.text || f.error || 'fenêtre indisponible');
-    L = f.data; saved = JSON.stringify(L); try { cur = Math.min(Number(localStorage.getItem('odin.fenetre.page') || 0), L.pages.length - 1); } catch { cur = 0; }
+    L = f.data; saved = JSON.stringify(L); if ('animation' in L) OA.regler(L.animation, true); try { cur = Math.min(Number(localStorage.getItem('odin.fenetre.page') || 0), L.pages.length - 1); } catch { cur = 0; }
   }
   /** Les vues des applis de la page (une fois chacune). */
   async function fetchViews() {
@@ -177,6 +180,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const h = host(); if (!h || !L) return;
     // Le focus du clavier survit au nouveau dessin : le même bouton du même module (« Taille », « ⚙ »…), s'il est encore là.
     const actif = document.activeElement, carteActive = actif?.closest?.('#feGrid .fe-w')?.dataset.id, nomActif = actif?.getAttribute?.('aria-label');
+    // La même page, dans le même mode : les modules qui changent de place ou de taille glissent avec l'animation choisie.
+    const memeVue = Boolean(h.querySelector('#feGrid')) && dessin.cur === cur && dessin.edit === edit;
     h.classList.toggle('fe-edit', edit);
     const tabs = L.pages.map((p, i) => el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(i === cur), onclick: async () => { cur = i; try { localStorage.setItem('odin.fenetre.page', String(i)); } catch { /* */ } await fetchViews(); draw(); }, ondblclick: () => edit && rename(i) }, p.name, p.maison ? ' 🏠' : ''));
     const bar = edit
@@ -194,7 +199,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     for (const w of page().widgets) grid.append(await widget(w));
     if (!page().widgets.length) grid.append(el('div', { class: 'fe-drop', style: 'grid-column:1/-1' }, edit ? 'Glisse ici un module du catalogue (ou clique dessus).' : 'Page vide : « Modifier » pour ajouter des modules.'));
     if (edit) { grid.addEventListener('dragover', (e) => e.preventDefault()); grid.addEventListener('drop', (e) => { e.preventDefault(); const d = e.dataTransfer.getData('text/odin-module'); if (d) add(JSON.parse(d)); }); }
-    h.replaceChildren(bar, el('div', { class: 'fe-wrap' }, grid, edit ? catalogue() : null));
+    const poserTout = () => h.replaceChildren(bar, el('div', { class: 'fe-wrap' }, grid, edit ? catalogue() : null));
+    if (memeVue) OA.jouer(() => h.querySelectorAll('#feGrid > .fe-w'), poserTout); else poserTout();
+    dessin = { cur, edit };
     if (carteActive && nomActif && !h.contains(document.activeElement)) [...grid.querySelectorAll('.fe-w')].find((n) => n.dataset.id === carteActive)?.querySelector(`[aria-label="${CSS.escape(nomActif)}"]`)?.focus();
   }
   async function rename(i) { const n = await window.OdinDialog.prompt('Nom de la page', L.pages[i].name); if (n) { L.pages[i].name = n.slice(0, 24); draw(); } }
@@ -298,17 +305,17 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   function startDrag(e, box, id, o = {}) {
     if (glisse || coinEnCours || e.button > 0) { o.liberer?.(); return; }
     e.preventDefault();
-    const grid = box.parentNode, pid = e.pointerId, x0 = e.clientX, y0 = e.clientY, modifier = edit, M = OG.mouvement(reduit());
+    const grid = box.parentNode, pid = e.pointerId, x0 = e.clientX, y0 = e.clientY, modifier = edit, M = OG.mouvement(reduit()), P = OA.prise(OA.actuelle(), M);
     const ordre0 = idsDe(grid), sel0 = String(window.getSelection?.() ?? ''), scr = defileur(grid);
     let ghost = null, gx = 0, gy = 0, x = x0, y = y0, lx = x0, dernier = 0, raf = 0;
     glisse = { id };
-    const pose = () => { ghost.style.transform = `translate(${x - gx}px,${y - gy}px) rotate(${Math.max(-M.incline, Math.min(M.incline, (x - lx) * 0.5))}deg) scale(${M.leve})`; lx = x; };
+    const pose = () => { ghost.style.transform = `translate(${x - gx}px,${y - gy}px) rotate(${Math.max(-P.incline, Math.min(P.incline, (x - lx) * P.facteur))}deg) scale(${P.leve})`; lx = x; };
     const commencer = () => {
       const r = box.getBoundingClientRect();
       gx = o.rel ? Math.min(r.width, o.rel[0] * r.width) : x0 - r.left; gy = o.rel ? Math.min(r.height, o.rel[1] * r.height) : y0 - r.top;
       ghost = box.cloneNode(true); ghost.classList.add('fe-ghost'); ghost.classList.remove('resizing'); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
       for (const n of ghost.querySelectorAll('[id]')) n.removeAttribute('id');
-      ghost.style.width = `${r.width}px`; ghost.style.height = `${r.height}px`;
+      ghost.style.width = `${r.width}px`; ghost.style.height = `${r.height}px`; if (P.classe) ghost.classList.add(P.classe);
       document.body.append(ghost); box.classList.add('dragging'); document.body.classList.add('fe-glisse');
       try { window.getSelection?.()?.removeAllRanges(); } catch { /* */ }
       pose();
@@ -328,7 +335,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
         : G.rang(a, cartes.indexOf(t), G.apres(ev.clientX, ev.clientY, t.getBoundingClientRect()));
       if (to === a) return;
       dernier = now;
-      const reste = cartes.filter((n) => n !== box); grid.insertBefore(box, reste[to] ?? null);
+      // Les autres modules glissent à leur nouvelle place avec l'animation choisie (celui qu'on tient reste un cadre).
+      const reste = cartes.filter((n) => n !== box); OA.jouer(() => grid.querySelectorAll(':scope > .fe-w'), () => grid.insertBefore(box, reste[to] ?? null), { sauf: id });
     };
     const bords = () => { if (scr === document.scrollingElement || scr === document.documentElement) return [0, innerHeight]; const r = scr.getBoundingClientRect(); return [Math.max(0, r.top), Math.min(innerHeight, r.bottom)]; };
     const defiler = () => {
@@ -343,9 +351,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       if (!ghost) return; // un simple clic : rien n'a bougé
       finGlisse = Date.now();
       const order = idsDe(grid), quoi = OG.auLacher({ modifier, change: order.join('\n') !== ordre0.join('\n'), annule });
-      if (quoi === 'remettre') for (const i of ordre0) { const n = [...grid.children].find((c) => c.dataset?.id === i); if (n) grid.append(n); }
+      if (quoi === 'remettre') OA.jouer(() => grid.querySelectorAll(':scope > .fe-w'), () => { for (const i of ordre0) { const n = [...grid.children].find((c) => c.dataset?.id === i); if (n) grid.append(n); } }, { sauf: id });
       const r = box.getBoundingClientRect(), g = ghost, enlever = () => { g.remove(); box.classList.remove('dragging'); };
-      if (M.pose && g.animate) { const a = g.animate([{ transform: g.style.transform }, { transform: `translate(${r.left}px,${r.top}px)` }], { duration: M.pose, easing: 'ease-out' }); g.style.transform = `translate(${r.left}px,${r.top}px)`; a.onfinish = enlever; a.oncancel = enlever; }
+      if (M.pose && g.animate) { const a = g.animate([{ transform: g.style.transform }, { transform: `translate(${r.left}px,${r.top}px)` }], { duration: P.pose, easing: P.poseEase }); g.style.transform = `translate(${r.left}px,${r.top}px)`; a.onfinish = enlever; a.oncancel = enlever; }
       else enlever();
       if (quoi === 'remettre') { if (order.join('\n') !== ordre0.join('\n')) dire(TXT.revenu); return; }
       if (quoi === 'rien') return;
@@ -433,7 +441,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       if (quoi === 'suivre') {
         const t = G.tirer(w, dep, x.clientX - x0, x.clientY - y0, colonnePx, tel);
         if (t.c === n.c && t.r === n.r) return;
-        n = t; G.poser(w, n, tel); box.setAttribute('style', G.style(w)); szb.textContent = G.etiquette(n);
+        // Les autres modules s'écartent avec l'animation choisie ; celui qu'on tire suit le doigt, case par case.
+        n = t; OA.jouer(() => grid.querySelectorAll(':scope > .fe-w'), () => { G.poser(w, n, tel); box.setAttribute('style', G.style(w)); szb.textContent = G.etiquette(n); }, { sauf: w.id });
         return;
       }
       if (x.type === 'keydown') { x.preventDefault(); x.stopPropagation(); }
@@ -534,4 +543,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   // Après la connexion seulement (la page de connexion n'a pas de fenêtre).
   const tryMount = () => { const app = $('#app'); if (app && !app.hidden && $('#v-home .body')) mount(); else setTimeout(tryMount, 1500); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryMount); else tryMount();
+  // Le choix de l'animation (lot 17) dans Réglages → Apparence, à la place que themes.js réserve en posant ses cartes
+  // (themes.js est chargé après : on attend la fin de son installation).
+  const poserAnimations = () => { OA.poser({ act }); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(poserAnimations, 0)); else setTimeout(poserAnimations, 0);
 })();

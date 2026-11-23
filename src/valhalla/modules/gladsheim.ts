@@ -356,6 +356,17 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
   return { pages };
 }
 
+/**
+ * Les 12 animations de déplacement des modules de la fenêtre (maquette validée « Accueil », lot 17) : les mêmes
+ * identifiants que src/web/pages/accueil-animations.js. Le choix est gardé ici, le même sur tous les appareils du
+ * propriétaire ; un choix inconnu (un vieux réglage, un réglage abîmé) vaut « classique ».
+ */
+export const ANIMATIONS = ['classique', 'glace', 'miroir', 'ressort', 'aimant', 'flottant', 'fondu', 'domino', 'vague', 'zoom', 'elastique', 'cascade'] as const;
+export type Animation = typeof ANIMATIONS[number];
+export const animationDe = (v: unknown): Animation => (typeof v === 'string' && (ANIMATIONS as readonly string[]).includes(v) ? v as Animation : 'classique');
+/** La fenêtre rendue à la page : avec l'animation choisie, seulement si elle a été choisie (sinon rien ne change). */
+const avecAnimation = (ctx: ModCtx, l: Layout): Layout & { animation?: Animation } => (ctx.settings.animation === undefined ? l : { ...l, animation: animationDe(ctx.settings.animation) });
+
 export const gladsheim: Module = {
   id: 'gladsheim', name: 'Hestia', family: 'Maison',
   what: 'La maison en un écran, pour tablette murale, téléphone, ordinateur et Home Assistant : appareils, scènes, météo, état de toutes tes applis, tes boutons, onze thèmes, et la mascotte qui joue et obéit.',
@@ -367,13 +378,20 @@ export const gladsheim: Module = {
     { id: 'theme', label: 'Thème', what: 'Le thème de l\'écran de la maison', params: [{ key: 'theme', label: 'Thème', kind: 'select', options: Object.keys(THEMES), required: true }], words: ['change le thème de l\'écran', 'change le thème'], run: (ctx, i) => { const t = s(i.theme); if (!THEMES[t]) throw new Error(`thèmes : ${Object.keys(THEMES).join(', ')}`); ctx.saveSettings({ theme: t }); return { text: `🎨 Thème « ${THEMES[t].label} ».` }; } },
     { id: 'fenetre', label: 'Ma fenêtre', what: 'Les pages de modules de la fenêtre d\'Odin (ordinateur, téléphone, écran de la maison)', read: true, quiet: true, words: ['ma fenêtre', 'tableau de bord'], run: (ctx) => {
       const ids = ctx.modules().map((m) => m.id), l = ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : defaultLayout(ids);
-      return { text: l.pages.map((p) => `- ${p.name}${p.maison ? ' (écran de la maison)' : ''} : ${p.widgets.length} module(s)`).join('\n'), data: l };
+      return { text: l.pages.map((p) => `- ${p.name}${p.maison ? ' (écran de la maison)' : ''} : ${p.widgets.length} module(s)`).join('\n'), data: avecAnimation(ctx, l) };
     } },
     { id: 'regler_fenetre', label: 'Ranger ma fenêtre', what: 'Enregistre les pages et les modules (mode « Modifier »)', quick: false, proprietaireSeul: true, params: [{ key: 'fenetre', label: 'Fenêtre (JSON)', kind: 'textarea', required: true }], run: (ctx, i) => {
       let raw: unknown; try { raw = typeof i.fenetre === 'string' ? JSON.parse(i.fenetre) : i.fenetre; } catch { throw new Error('fenêtre illisible'); }
       const l = cleanLayout(raw, ctx.modules().map((m) => m.id)); ctx.saveSettings({ fenetre: l });
-      return { text: `✓ Fenêtre rangée : ${l.pages.map((p) => `${p.name} (${p.widgets.length})`).join(', ')}.`, data: l };
+      return { text: `✓ Fenêtre rangée : ${l.pages.map((p) => `${p.name} (${p.widgets.length})`).join(', ')}.`, data: avecAnimation(ctx, l) };
     } },
+    { id: 'regler_animation', label: 'Animation des modules', what: 'L\'animation qui joue quand tu déplaces ou agrandis un module de ta fenêtre (la même sur tous tes appareils)', quick: false, proprietaireSeul: true,
+      params: [{ key: 'animation', label: 'Animation', kind: 'select', options: [...ANIMATIONS], required: true }], run: (ctx, i) => {
+        const a = s(i.animation).trim();
+        if (!(ANIMATIONS as readonly string[]).includes(a)) throw new Error(`animations : ${ANIMATIONS.join(', ')}`);
+        ctx.saveSettings({ animation: a });
+        return { text: `✓ Animation des modules : ${a}.`, data: { animation: a } };
+      } },
     { id: 'meteo', label: 'Météo', what: 'Le temps qu\'il fait là où est Odin, ou dans une autre ville si tu la nommes (sans changer le lieu d\'Odin)', read: true, params: [{ key: 'ville', label: 'Autre ville (vide : là où est Odin)', kind: 'text', default: '' }], words: ['météo de la maison', 'la météo', 'quel temps fait-il', 'météo', 'meteo', 'température dehors', 'quelle température fait-il', 'temps qu\'il fait', 'quel temps', 'quel temps fera demain'], run: async (ctx, i) => {
       // Une autre ville : la météo de là-bas, sans changer le lieu d'Odin (pour le changer : l'action « lieu »).
       const v = s(i.ville).trim(), ici = sansAccent(v) === sansAccent(s(ctx.settings.villeNom) || s(ctx.settings.ville) || LIEU_PAR_DEFAUT);
