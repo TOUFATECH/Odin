@@ -4,8 +4,8 @@
 // (Ctrl+K), Search.js (recherche), Gates.js (« Qui regarde ? »), Settings.js (thème et menu). Seul ajout : « ‹ Odin ».
 //
 // Les données sont les VRAIES de Vénus dans Odin (bibliothèque déjà scannée, reprise, ma liste) : /venus/api/* et les
-// routes /venus/* d'avant. Ce qui n'existe pas encore (affiches, genres, notes, distribution, demandes, téléchargements)
-// reste vide, et l'écran le dit : rien n'est inventé. Les textes passent par t() (dictionnaire, toutes les langues) ;
+// routes /venus/* d'avant. Les affiches, fonds, résumés, genres, notes et la distribution (lot V3) viennent des fiches
+// gardées par Odin, ou des vignettes tirées des vidéos ; ce qui manque reste vide, et l'écran le dit : rien n'est inventé. Les textes passent par t() (dictionnaire, toutes les langues) ;
 // les dates et les nombres par Intl. Les icônes et les planètes viennent de planetes.js (chargé avant ce fichier).
 'use strict';
 (() => {
@@ -36,6 +36,13 @@
       'Lire maintenant': 'Play now', 'Épisode suivant · {e}': 'Next episode · {e}', 'Lire maintenant : {t}': 'Play now: {t}', 'S{s} É{e}': 'S{s} E{e}', 'Saison {s}, épisode {e}': 'Season {s}, episode {e}',
       'Audio': 'Audio', 'Sous-titres': 'Subtitles', 'Désactivés': 'Off', 'Forcés': 'Forced', 'Décalage': 'Offset', 'Piste {n}': 'Track {n}', 'bientôt': 'coming soon',
       'Il reste {t}': '{t} left', 'Se termine à {h}': 'Ends at {h}', 'Pendant la pause': 'While paused', 'La série': 'The show', 'La fiche': 'Details', 'Qualité': 'Quality', 'Originale': 'Original',
+      // affiches, fiches et distribution (lot V3)
+      'Genres': 'Genres', 'Note minimale': 'Minimum rating', 'Toutes': 'All', '{n} et plus': '{n} and up', 'Note moyenne': 'Average rating', 'Mieux notés': 'Best rated', 'Moins bien notés': 'Worst rated',
+      'Critiques': 'Critics', 'Public': 'Audience', 'Note des critiques : {n} sur 10': 'Critics rating: {n} out of 10', 'Note du public : {n} sur 10': 'Audience rating: {n} out of 10', 'Distribution et équipe': 'Cast and crew',
+      'Dans votre médiathèque': 'In your library', 'Rien d’autre de cette personne dans votre médiathèque.': 'Nothing else with this person in your library.', 'Plus de ce genre': 'More like this', 'Avec {n}': 'With {n}',
+      'Pas encore d’informations sur la distribution de ce titre.': 'No cast information for this title yet.', 'Note {n} et plus': 'Rating {n} and up',
+      'Pas de résumé : choisissez un catalogue dans Réglages → Demandes pour les affiches, résumés et distribution.': 'No summary: choose a catalogue in Settings → Requests for posters, summaries and cast.',
+      'Pas encore de filtre possible : genres et notes arrivent avec les fiches des titres (Réglages → Demandes).': 'No filters yet: genres and ratings come with title details (Settings → Requests).',
       'Réessayer': 'Try again', 'La lecture n’a pas pu démarrer': 'Playback could not start', '{quoi} : bientôt dans Odin.': '{quoi}: coming soon in Odin.', 'Chargement…': 'Loading…',
     },
   };
@@ -110,12 +117,19 @@
     deplacer(order, id, d) { const o = [...order], i = o.indexOf(id), j = i + d; if (i < 0 || j < 0 || j >= o.length) return o; [o[i], o[j]] = [o[j], o[i]]; return o; },
     /** Les titres d'une bibliothèque. */
     itemsOf(items, kind) { return kind === 'mylist' ? items.filter((x) => x.inList) : items.filter((x) => x.category === kind); },
-    /** Filtre et trie (Browse.js) : statut, années, qualité ; tris par ajout, titre, sortie, lecture, durée, hasard. */
+    /** La note d'un titre, sur 10 (celle du public, sinon celle des critiques), ou rien. Pur. */
+    note(i) { return i.vote || i.critics || 0; },
+    /**
+     * Filtre et trie (Browse.js) : statut, genres, années, note minimale, qualité ; tris par ajout, titre, sortie, note,
+     * lecture, durée, hasard. Un titre sans fiche n'a ni genre ni note : il ne passe pas ces filtres-là.
+     */
     shown(items, f, graine = 0) {
       const QUAL = { '4K': (i) => i.res === '4K', '1080p': (i) => i.res === '1080p', SD: (i) => i.res === 'SD' || i.res === '720p' };
-      const list = items.filter((i) => (f.status === 'all' || i.status === f.status) && (!f.decades.length || (i.year && f.decades.includes(Math.floor(i.year / 10) * 10))) && (!f.quality.length || f.quality.some((q) => QUAL[q] && QUAL[q](i))));
+      const genres = f.genres || [], min = Number(f.minScore) || 0;
+      const list = items.filter((i) => (f.status === 'all' || i.status === f.status) && (!genres.length || (i.genres || []).some((g) => genres.includes(g))) && (!f.decades.length || (i.year && f.decades.includes(Math.floor(i.year / 10) * 10)))
+        && (!min || L.note(i) * 10 >= min) && (!f.quality.length || f.quality.some((q) => QUAL[q] && QUAL[q](i))));
       const h = (s) => { let x = 2166136261; for (const c of String(s)) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619); } return x >>> 0; };
-      const cmp = { added: (a, b) => b.added - a.added, az: (a, b) => a.title.localeCompare(b.title, LANG), released: (a, b) => (b.year || 0) - (a.year || 0), played: (a, b) => (b.played || 0) - (a.played || 0), runtime: (a, b) => (a.runtime || 0) - (b.runtime || 0), random: (a, b) => h(`${a.id}${graine}`) - h(`${b.id}${graine}`), mine: null }[f.sort];
+      const cmp = { added: (a, b) => b.added - a.added, az: (a, b) => a.title.localeCompare(b.title, LANG), released: (a, b) => (b.year || 0) - (a.year || 0), score: (a, b) => L.note(b) - L.note(a), played: (a, b) => (b.played || 0) - (a.played || 0), runtime: (a, b) => (a.runtime || 0) - (b.runtime || 0), random: (a, b) => h(`${a.id}${graine}`) - h(`${b.id}${graine}`), mine: null }[f.sort];
       if (cmp) list.sort(cmp);
       if (f.desc && f.sort !== 'random') list.reverse();
       return list;
@@ -141,6 +155,8 @@
     /** Les numéros manquants d'une saison et ses épisodes, mêlés dans l'ordre (Details.js). */
     episodesSaison(s) { const l = [...s.episodes.map((e) => ({ ...e })), ...s.manquants.map((n) => ({ episode: n, missing: true }))]; return l.sort((a, b) => a.episode - b.episode); },
     /** Ce que le lecteur reçoit pour une cible, d'après le détail de son œuvre (/venus/oeuvre/…). Pur. */
+    /** Les genres présents dans une bibliothèque (pour le filtre), dans l'ordre alphabétique de la langue. Pur. */
+    genresDe(items) { return [...new Set(items.flatMap((i) => i.genres || []))].sort((a, b) => a.localeCompare(b, LANG)); },
     elementLecteur(detail, cibleId) {
       const o = detail && detail.oeuvre; if (!o) return null;
       if (o.id === cibleId) return { id: o.id, titre: o.titre || '', type: 'film', duree_s: o.duree, reprise_s: (detail.reprise && detail.reprise.position_s) || 0, sousTitres: o.sous_titres };
@@ -214,8 +230,11 @@
   // ---------------------------------------------------------------- briques (Icon.js, Card.js, Row.js)
   const Avatar = (p, cls = '') => `<div class="avatar ${cls}" style="--hue:${AVATAR_HUES[(p.avatar || 0) % AVATAR_HUES.length]}">${esc((p.name || '?').trim().charAt(0).toUpperCase())}</div>`;
   const Brand = (cls = '') => `<span class="brand ${cls}">${planetMarkup()}<span class="brand-name">${esc(brandName())}</span></span>`;
-  // Pas d'affiche encore (lot des affiches à venir) : le carré de couleur de Venus, avec le titre écrit dedans.
-  const Pic = (i, wide = false) => (i.poster ? `<img src="${esc(i.poster)}" alt="" class="fade ok" loading="lazy" decoding="async">` : `<div class="ph" style="--h:${hueOf(i.title)}">${esc(i.title)}</div>`);
+  // L'affiche (ou, en largeur, le fond) gardée par Odin ; sans image, le carré de couleur de Venus avec le titre dedans.
+  const Pic = (i, wide = false) => { const src = wide ? i.backdrop || i.poster : i.poster || i.backdrop; return src ? `<img src="${esc(src)}" alt="" class="fade ok" loading="lazy" decoding="async">` : `<div class="ph" style="--h:${hueOf(i.title)}">${esc(i.title)}</div>`; };
+  const note10 = (n) => new Intl.NumberFormat(LANG, { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(n);
+  /** Le visage d'une personne : sa photo gardée par Odin, sinon ses initiales (Details.js). */
+  const Face = (p) => `<div class="face${p.photo ? ' has-img' : ''}" style="--h:${hueOf(p.name)}">${esc(p.name.split(/\s+/).map((w) => w[0] || '').slice(0, 2).join(''))}${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy" decoding="async">` : ''}</div>`;
   const href = (path) => `#${path}`;
   const go = (path) => { location.hash = `#${path}`; };
   const titrePath = (i) => `/titre/${encodeURIComponent(i.id)}`;
@@ -228,7 +247,7 @@
     if (isShow && item.status === 'progress' && item.play) sub = t('À suivre : saison {s}, épisode {e}', { s: nombre(item.play.season), e: nombre(item.play.episode) });
     else if (resume) sub = reste(p);
     else if (isClip) sub = t('Clip');
-    else sub = [item.year, isShow ? kindLabel(item) : ''].filter(Boolean).join(', ');
+    else sub = [item.year, isShow ? kindLabel(item) : (item.genres || [])[0]].filter(Boolean).join(', ');
     const pct = p && p.duration ? Math.min(100, (p.position / p.duration) * 100) : 0;
     const seen = item.status === 'seen';
     const target = isClip || resume ? lirePath(item.play ? item.play.id : item.id) : titrePath(item);
@@ -288,12 +307,12 @@
     const heroes = (cont.length ? cont : recent).slice(0, 6), item = heroes[S.heroIdx % heroes.length];
     const resume = item.status === 'progress';
     const pct = item.progress && item.progress.duration && !item.progress.watched ? (item.progress.position / item.progress.duration) * 100 : 0;
-    const meta = `<div class="meta">${item.year ? `<span>${esc(String(item.year))}</span>` : ''}${item.type === 'movie' ? (item.runtime ? `<span>${esc(duree(item.runtime))}</span>` : '') : `<span>${esc(kindLabel(item))}</span>`}${item.res ? `<span>${esc(item.res)}</span>` : ''}</div>`;
+    const meta = `<div class="meta">${item.year ? `<span>${esc(String(item.year))}</span>` : ''}${L.note(item) ? `<span>${esc(note10(L.note(item)))}/10</span>` : ''}${item.type === 'movie' ? (item.runtime ? `<span>${esc(duree(item.runtime))}</span>` : '') : `<span>${esc(kindLabel(item))}</span>`}${(item.genres || []).length ? `<span>${esc(item.genres.slice(0, 2).join(', '))}</span>` : ''}${item.res ? `<span>${esc(item.res)}</span>` : ''}</div>`;
     const play = item.play ? item.play.id : item.id;
     const body = resume
       ? `<div class="hero-body resume swap"><div class="hero-kicker">${I('restart')}${esc(t('Reprendre là où vous en étiez'))}</div><h1 class="hero-title">${esc(item.title)}</h1>${pct ? `<div class="hero-progress"><div class="bar"><i style="width:${pct}%"></i></div><span>${esc(reste(item.progress))}</span></div>` : ''}<div class="actions"><a class="btn btn-play f" href="${href(lirePath(play))}">${I('play')}${esc(t('Reprendre'))}</a><a class="btn btn-ghost f" aria-label="${esc(t('Plus d’infos'))}" href="${href(titrePath(item))}">${I('info')}<span class="lbl">${esc(t('Plus d’infos'))}</span></a></div></div>`
       : `<div class="hero-body swap"><div class="hero-kicker">${I('spark')}${esc(t('Ajouté récemment'))}</div><h1 class="hero-title">${esc(item.title)}</h1>${meta}<div class="actions"><a class="btn btn-play f" href="${href(lirePath(play))}">${I('play')}${esc(t('Lecture'))}</a><a class="btn btn-ghost f" aria-label="${esc(t('Plus d’infos'))}" href="${href(titrePath(item))}">${I('info')}<span class="lbl">${esc(t('Plus d’infos'))}</span></a></div></div>`;
-    const hero = `<section class="hero posters"><div class="hero-bg">${item.poster ? `<img src="${esc(item.poster)}" alt="" class="on" decoding="async">` : `<div class="ph on" style="--h:${hueOf(item.title)}"></div>`}</div>${body}
+    const hero = `<section class="hero posters"><div class="hero-bg">${item.backdrop || item.poster ? `<img src="${esc(item.backdrop || item.poster)}" alt="" class="on" decoding="async">` : `<div class="ph on" style="--h:${hueOf(item.title)}"></div>`}</div>${body}
     ${heroes.length > 1 ? `<button type="button" class="hero-arrow prev" tabindex="-1" aria-label="${esc(t('Titre précédent'))}" data-act="hero" data-v="-1">${I('back')}</button><button type="button" class="hero-arrow next" tabindex="-1" aria-label="${esc(t('Titre suivant'))}" data-act="hero" data-v="1">${I('fwd')}</button>
     <div class="hero-dots" role="tablist" aria-label="${esc(t('À la une'))}">${heroes.map((it, i) => `<button type="button" role="tab" tabindex="-1" aria-label="${esc(it.title)}" aria-selected="${i === S.heroIdx % heroes.length}" class="${i === S.heroIdx % heroes.length ? 'on' : ''}" data-act="heroto" data-v="${i}"><i></i></button>`).join('')}</div>` : ''}</section>`;
     const secs = L.sections(S.profile, S.cats);
@@ -312,16 +331,18 @@
   // Films, Séries, Animés, Clips, Ma liste (Browse.js)
   const TITLES = { movie: 'Films', show: 'Séries', anime: 'Animés', clip: 'Clips', mylist: 'Ma liste' };
   const PATHS = { movie: '/films', show: '/series', anime: '/animes', clip: '/clips', mylist: '/liste' };
-  // Les tris et filtres dont la bibliothèque a la donnée (genres, notes, popularité et âge arrivent avec les fiches).
-  const SORTS = [['added', 'Date d’ajout', ['Plus récents', 'Plus anciens']], ['az', 'Titre', ['A → Z', 'Z → A']], ['released', 'Date de sortie', ['Plus récents', 'Plus anciens']], ['played', 'Date de lecture', ['Vus récemment', 'Vus il y a longtemps']], ['runtime', 'Durée', ['Plus courts', 'Plus longs']], ['random', 'Aléatoire', ['Nouveau tirage', 'Nouveau tirage']]];
+  // Les tris et filtres dont la bibliothèque a la donnée (genres et notes : ceux des fiches ; popularité et âge : à venir).
+  const SORTS = [['added', 'Date d’ajout', ['Plus récents', 'Plus anciens']], ['az', 'Titre', ['A → Z', 'Z → A']], ['released', 'Date de sortie', ['Plus récents', 'Plus anciens']], ['score', 'Note moyenne', ['Mieux notés', 'Moins bien notés']], ['played', 'Date de lecture', ['Vus récemment', 'Vus il y a longtemps']], ['runtime', 'Durée', ['Plus courts', 'Plus longs']], ['random', 'Aléatoire', ['Nouveau tirage', 'Nouveau tirage']]];
   const STATUS = [['all', 'Tous'], ['unseen', 'Non vus'], ['progress', 'En cours'], ['seen', 'Vus']];
   const QUALITY = [['4K', '4K', (i) => i.res === '4K'], ['1080p', 'Full HD', (i) => i.res === '1080p'], ['SD', 'Basse définition', (i) => i.res === 'SD' || i.res === '720p']];
   const VIEWS = [['poster', 'Affiches', 'grid4'], ['wide', 'Vignettes', 'film'], ['list', 'Liste', 'rows']];
-  const fOf = (kind) => (S.lib[kind] = S.lib[kind] || { sort: kind === 'mylist' ? 'mine' : 'added', desc: false, status: 'all', decades: [], quality: [], graine: 0 });
+  const SCORES = [['60', '6'], ['70', '7'], ['80', '8']];
+  const VIDE_F = () => ({ genres: [], decades: [], quality: [], minScore: '' });
+  const fOf = (kind) => (S.lib[kind] = S.lib[kind] || { sort: kind === 'mylist' ? 'mine' : 'added', desc: false, status: 'all', ...VIDE_F(), graine: 0 });
   const shownOf = (kind) => { const f = fOf(kind); return L.shown(L.itemsOf(S.items, kind), f, f.graine); };
   function ListRow(i) {
     const p = i.progress, pct = p && p.duration && !p.watched ? Math.min(100, (p.position / p.duration) * 100) : 0;
-    return `<div class="lib-row"><a class="lr-main f" href="${href(i.type === 'clip' ? lirePath(i.id) : titrePath(i))}"><div class="lr-pic">${Pic(i)}</div><div class="lr-text"><b>${esc(i.title)}</b><span class="lr-meta">${esc([i.year, i.type === 'show' ? tn(i.episodes || 0, '{n} épisode', '{n} épisodes') : duree(i.runtime)].filter(Boolean).join(' · '))}${i.res === '4K' ? '<span class="badge">4K</span>' : ''}</span>${pct ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</div><span></span>${i.status === 'seen' ? `<span class="lr-seen" title="${esc(t('Vu'))}">${I('check')}</span>` : '<span></span>'}</a><a class="btn btn-ghost btn-icon f lr-play" aria-label="${esc(t('Lire {t}', { t: i.title }))}" href="${href(lirePath(i.play ? i.play.id : i.id))}">${I('play')}</a></div>`;
+    return `<div class="lib-row"><a class="lr-main f" href="${href(i.type === 'clip' ? lirePath(i.id) : titrePath(i))}"><div class="lr-pic">${Pic(i)}</div><div class="lr-text"><b>${esc(i.title)}</b><span class="lr-meta">${esc([i.year, i.type === 'show' ? tn(i.episodes || 0, '{n} épisode', '{n} épisodes') : duree(i.runtime), (i.genres || []).slice(0, 3).join(', ')].filter(Boolean).join(' · '))}${i.res === '4K' ? '<span class="badge">4K</span>' : ''}</span>${pct ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</div>${L.note(i) ? `<span class="lr-score">★ ${esc(note10(L.note(i)))}</span>` : '<span></span>'}${i.status === 'seen' ? `<span class="lr-seen" title="${esc(t('Vu'))}">${I('check')}</span>` : '<span></span>'}</a><a class="btn btn-ghost btn-icon f lr-play" aria-label="${esc(t('Lire {t}', { t: i.title }))}" href="${href(lirePath(i.play ? i.play.id : i.id))}">${I('play')}</a></div>`;
   }
   V.browse = (kind, vue) => {
     const tab = (on, label, path) => `<a class="vt f${on ? ' on' : ''}" role="tab" aria-selected="${on}" href="${href(path)}">${esc(label)}</a>`;
@@ -333,8 +354,8 @@
     const isClip = kind === 'clip', f = fOf(kind), items = L.itemsOf(S.items, kind), shown = shownOf(kind);
     const view = S.libView[kind] || (isClip ? 'wide' : 'poster');
     const s = f.sort === 'mine' ? null : SORTS.find((x) => x[0] === f.sort);
-    const filtersOn = f.decades.length + f.quality.length;
-    const tags = [...f.decades.map((d) => ['decades', d, t('Années {d}', { d: String(d).slice(2) })]), ...f.quality.map((q) => ['quality', q, t(QUALITY.find((x) => x[0] === q)[1])])]
+    const filtersOn = f.genres.length + f.decades.length + f.quality.length + (f.minScore ? 1 : 0);
+    const tags = [...f.genres.map((g) => ['genres', g, g]), ...f.decades.map((d) => ['decades', d, t('Années {d}', { d: String(d).slice(2) })]), ...(f.minScore ? [['minScore', f.minScore, t('Note {n} et plus', { n: nombre(Number(f.minScore) / 10) })]] : []), ...f.quality.map((q) => ['quality', q, t(QUALITY.find((x) => x[0] === q)[1])])]
       .map(([k, v, l]) => `<button class="af f" aria-label="${esc(t('Retirer le filtre {f}', { f: l }))}" data-act="unfilter" data-k="${k}" data-v="${esc(v)}" data-kind="${kind}">${esc(l)}${I('close')}</button>`);
     if (tags.length > 1) tags.push(`<button class="linkish f" data-act="resetf" data-kind="${kind}">${esc(t('Tout effacer'))}</button>`);
     const word = isClip ? ['{n} clip', '{n} clips'] : ['{n} titre', '{n} titres'];
@@ -375,21 +396,27 @@
       const vus = cur.episodes.filter((e) => e.watched).length;
       const eps = L.episodesSaison(cur).filter((e) => S.epFilter === 'all' || (S.epFilter === 'seen' ? e.watched && !e.missing : !e.watched && !e.missing));
       const nu = d.status === 'progress' ? cur.episodes.find((e) => e.id === next.id) || f.saisons.flatMap((s) => s.episodes).find((e) => e.id === next.id) : null;
-      seasonsHtml = `${nu ? `<section class="d-section next-up"><h2 class="section-title">${esc(t('Reprendre'))}</h2><div class="nu-card"><a class="nu-shot f" aria-label="${esc(t('Lire S{s}:É{e}', { s: nombre(next.season), e: nombre(next.episode) }))}" href="${href(lirePath(next.id))}"><div class="ph" style="--h:${hueOf(d.title + next.id)}"></div><span class="ep-play">${I('play')}</span>${nu.duration ? `<div class="bar"><i style="width:${Math.min(100, (nu.position / nu.duration) * 100)}%"></i></div>` : ''}</a><div class="nu-text"><b class="nu-link">${esc(t('S{s}:É{e}', { s: nombre(next.season), e: nombre(next.episode) }))}</b><small>${esc([t('Saison {n}', { n: nombre(next.season) }), nu.runtime ? duree(nu.runtime) : '', nu.duration ? reste(nu) : ''].filter(Boolean).join(' · '))}</small></div></div></section>` : ''}
+      seasonsHtml = `${nu ? `<section class="d-section next-up"><h2 class="section-title">${esc(t('Reprendre'))}</h2><div class="nu-card"><a class="nu-shot f" aria-label="${esc(t('Lire S{s}:É{e}', { s: nombre(next.season), e: nombre(next.episode) }))}" href="${href(lirePath(next.id))}">${nu.still ? `<img src="${esc(nu.still)}" alt="" loading="lazy" decoding="async">` : `<div class="ph" style="--h:${hueOf(d.title + next.id)}"></div>`}<span class="ep-play">${I('play')}</span>${nu.duration ? `<div class="bar"><i style="width:${Math.min(100, (nu.position / nu.duration) * 100)}%"></i></div>` : ''}</a><div class="nu-text"><b class="nu-link">${esc(t('S{s}:É{e}', { s: nombre(next.season), e: nombre(next.episode) }))}</b><small>${esc([t('Saison {n}', { n: nombre(next.season) }), nu.runtime ? duree(nu.runtime) : '', nu.duration ? reste(nu) : ''].filter(Boolean).join(' · '))}</small></div></div></section>` : ''}
       <section class="d-section" id="episodes"><div class="ep-head"><h2 class="section-title">${esc(f.saisons.length > 1 ? tn(f.saisons.length, '{n} saison', '{n} saisons') : t('Épisodes'))}</h2>${f.saisons.length > 1 ? `<div class="season-arrows"><button class="season-arrow f" aria-label="${esc(t('Saison précédente'))}" data-act="season" data-v="${f.saisons[Math.max(0, f.saisons.indexOf(cur) - 1)].number}">${I('back')}</button><button class="season-arrow f" aria-label="${esc(t('Saison suivante'))}" data-act="season" data-v="${f.saisons[(f.saisons.indexOf(cur) + 1) % f.saisons.length].number}">${I('fwd')}</button></div>` : ''}<div class="chips" role="group" aria-label="${esc(t('Filtrer les épisodes'))}">${[['all', 'Tous'], ['unseen', 'Non vus'], ['seen', 'Déjà vus']].map(([k, l]) => `<button class="chip small f${k === S.epFilter ? ' on' : ''}" aria-pressed="${k === S.epFilter}" data-act="epf" data-v="${k}">${esc(t(l))}</button>`).join('')}</div></div>
       ${f.saisons.length > 1 ? `<div class="season-bar" role="tablist" aria-label="${esc(t('Saisons'))}">${f.saisons.map((s) => { const v = s.episodes.filter((e) => e.watched).length, n = s.episodes.length; return `<button class="season-card f${s === cur ? ' on' : ''}${v === n ? ' done' : ''}" role="tab" aria-selected="${s === cur}" data-act="season" data-v="${s.number}"><span class="season-pic"><div class="ph" style="--h:${hueOf(`${d.title}${s.number}`)}"></div><i class="season-prog"><i style="width:${n ? Math.round((v / n) * 100) : 0}%"></i></i></span><b>${esc(t('Saison {n}', { n: nombre(s.number) }))}</b><span>${esc(v === n ? t('Vue en entier') : t('{v} / {n} vus', { v: nombre(v), n: nombre(n) }))}</span></button>`; }).join('')}</div>` : ''}
       <div class="season-head"><div class="sh-info"><b>${esc(t('Saison {n}', { n: nombre(cur.number) }))}</b><span>${esc([tn(cur.episodes.length, '{n} épisode', '{n} épisodes'), cur.manquants.length ? tn(cur.manquants.length, '{n} manquant', '{n} manquants') : '', tn(cur.episodes.length - vus, '{n} à voir', '{n} à voir')].filter(Boolean).join(' · '))}</span></div></div>
       <div class="episodes">${eps.map((e) => (e.missing
         ? `<div class="episode missing" title="${esc(t('Épisode {n} : pas dans vos dossiers', { n: nombre(e.episode) }))}"><div class="thumb"><span class="miss-num">${nombre(e.episode)}</span><span class="miss-tag">${esc(t('Manquant'))}</span></div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b>${S.profile.isAdmin ? `<button class="btn btn-ghost btn-small f ep-get" data-act="epgrab" data-v="${esc(d.id)}" data-t="${esc(d.title)}" data-s="${cur.number}" data-e="${e.episode}" aria-label="${esc(t('Faire venir l’épisode {n}', { n: nombre(e.episode) }))}"${S.pris.has(`ep|${d.id}|${cur.number}|${e.episode}`) ? ' disabled' : ''}>${I(S.pris.has(`ep|${d.id}|${cur.number}|${e.episode}`) ? 'check' : 'download')}${esc(t('Faire venir'))}</button>` : ''}</div></div>`
-        : `<div class="ep-item"><a class="episode f${e.id === next.id && d.status === 'progress' ? ' is-current' : ''}${e.watched ? ' seen' : ''}" title="${esc(t('Épisode {n}', { n: nombre(e.episode) }))}" aria-label="${esc([t('Épisode {n}', { n: nombre(e.episode) }), e.runtime ? duree(e.runtime) : '', e.watched ? t('vu') : ''].filter(Boolean).join(', '))}" href="${href(lirePath(e.id))}"><div class="thumb"><div class="ph" style="--h:${hueOf(`${d.title}${cur.number}${e.episode}`)}"></div><span class="ep-play">${I('play')}</span>${e.position > 0 && !e.watched && e.duration ? `<div class="bar"><i style="width:${Math.min(100, (e.position / e.duration) * 100)}%"></i></div><span class="ep-badge now">${esc(t('En cours'))}</span>` : ''}</div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b>${e.runtime ? `<span>${esc(duree(e.runtime))}</span>` : ''}</div></a><button class="ep-toggle f${e.watched ? ' on' : ''}" aria-pressed="${e.watched}" aria-label="${esc(e.watched ? t('Marquer l’épisode {n} comme non vu', { n: nombre(e.episode) }) : t('Marquer l’épisode {n} comme vu', { n: nombre(e.episode) }))}" data-act="epseen" data-v="${esc(e.id)}" data-d="${e.duration || (e.runtime || 0) * 60}" data-on="${e.watched ? 1 : 0}">${I('check')}</button></div>`)).join('')}</div></section>`;
+        : `<div class="ep-item"><a class="episode f${e.id === next.id && d.status === 'progress' ? ' is-current' : ''}${e.watched ? ' seen' : ''}" title="${esc(t('Épisode {n}', { n: nombre(e.episode) }))}" aria-label="${esc([t('Épisode {n}', { n: nombre(e.episode) }), e.runtime ? duree(e.runtime) : '', e.watched ? t('vu') : ''].filter(Boolean).join(', '))}" href="${href(lirePath(e.id))}"><div class="thumb">${e.still ? `<img src="${esc(e.still)}" alt="" loading="lazy" decoding="async">` : `<div class="ph" style="--h:${hueOf(`${d.title}${cur.number}${e.episode}`)}"></div>`}<span class="ep-play">${I('play')}</span>${e.position > 0 && !e.watched && e.duration ? `<div class="bar"><i style="width:${Math.min(100, (e.position / e.duration) * 100)}%"></i></div><span class="ep-badge now">${esc(t('En cours'))}</span>` : ''}</div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b>${e.runtime ? `<span>${esc(duree(e.runtime))}</span>` : ''}</div></a><button class="ep-toggle f${e.watched ? ' on' : ''}" aria-pressed="${e.watched}" aria-label="${esc(e.watched ? t('Marquer l’épisode {n} comme non vu', { n: nombre(e.episode) }) : t('Marquer l’épisode {n} comme vu', { n: nombre(e.episode) }))}" data-act="epseen" data-v="${esc(e.id)}" data-d="${e.duration || (e.runtime || 0) * 60}" data-on="${e.watched ? 1 : 0}">${I('check')}</button></div>`)).join('')}</div></section>`;
     }
-    const te = f.tech || {};
+    const te = f.tech || {}, mt = f.meta || {}, genres = mt.genres || [];
+    const gens = [...(mt.cast || []), ...(mt.crew || [])];
+    const ratings = mt.critics || mt.vote ? `<div class="ratings">${mt.critics ? `<span class="rating r-imdb" title="${esc(t('Note des critiques : {n} sur 10', { n: note10(mt.critics) }))}"><span class="r-src">${esc(t('Critiques'))}</span><b>${esc(note10(mt.critics))}</b><small>/10</small></span>` : ''}${mt.vote ? `<span class="rating r-tmdb" title="${esc(t('Note du public : {n} sur 10', { n: note10(mt.vote) }))}"><span class="r-src">${esc(t('Public'))}</span><b>${esc(nombre(Math.round(mt.vote * 10)))} %</b></span>` : ''}</div>` : '';
+    const memeGenre = genres.length ? L.itemsOf(S.items, d.category).filter((x) => x.id !== d.id && (x.genres || []).some((g) => genres.includes(g))) : [];
+    const similaires = memeGenre.length ? memeGenre : L.itemsOf(S.items, d.category).filter((x) => x.id !== d.id);
     return `<main class="with-nav page-in"><div class="details amb" style="--amb:hsl(${hueOf(d.title)} 60% 55%)">
-    <div class="details-bg">${d.poster ? `<img src="${esc(d.poster)}" alt="" class="fade ok">` : ''}</div>
+    <div class="details-bg">${d.backdrop || d.poster ? `<img src="${esc(d.backdrop || d.poster)}" alt="" class="fade ok">` : ''}</div>
     <div class="details-body"><div class="details-top"><div class="details-poster${isClip ? ' wide' : ''}">${Pic(d)}</div>
       <div class="details-main"><h1 class="hero-title" tabindex="-1">${esc(d.title)}</h1>
-        <div class="meta">${d.year ? `<span>${esc(String(d.year))}</span>` : ''}${!isShow && d.runtime ? `<span>${esc(duree(d.runtime))}</span>` : ''}${isShow ? `<span>${esc(`${tn(nSeasons, '{n} saison', '{n} saisons')}, ${tn(nEps, '{n} épisode', '{n} épisodes')}`)}</span>` : ''}${d.res ? `<span class="badge">${esc(d.res)}</span>` : ''}${ends && !isShow ? `<span class="ends-at">${esc(t('Se termine à {h}', { h: ends }))}</span>` : ''}</div>
-        <p class="hero-overview clamp muted">${esc(t('Le résumé, les genres et les notes arrivent avec les fiches des titres.'))}</p>
+        <div class="meta">${d.year ? `<span>${esc(String(d.year))}</span>` : ''}${!isShow && d.runtime ? `<span>${esc(duree(d.runtime))}</span>` : ''}${isShow ? `<span>${esc(`${tn(nSeasons, '{n} saison', '{n} saisons')}, ${tn(nEps, '{n} épisode', '{n} épisodes')}`)}</span>` : ''}${L.note(d) ? `<span>${esc(note10(L.note(d)))}/10</span>` : ''}${d.res ? `<span class="badge">${esc(d.res)}</span>` : ''}${ends && !isShow ? `<span class="ends-at">${esc(t('Se termine à {h}', { h: ends }))}</span>` : ''}</div>
+        ${genres.length ? `<div class="genre-links">${genres.map((g) => `<a class="tag f" href="${href(`${lib}?genre=${encodeURIComponent(g)}`)}">${esc(g)}</a>`).join('')}</div>` : ''}
+        ${ratings}${mt.tagline ? `<p class="tagline">${esc(mt.tagline)}</p>` : ''}
+        ${mt.overview ? `<p class="hero-overview clamp">${esc(mt.overview)}</p>` : S.profile.isAdmin ? `<p class="hero-overview clamp muted">${esc(t('Pas de résumé : choisissez un catalogue dans Réglages → Demandes pour les affiches, résumés et distribution.'))}</p>` : ''}
         <div class="actions">
           <a class="btn btn-play f" href="${href(lirePath(next.id))}">${I('play')}${esc(label)}</a>
           ${endPos ? `<a class="btn btn-ghost btn-icon f" aria-label="${esc(t('Recommencer depuis le début'))}" title="${esc(t('Recommencer'))}" href="${href(`${lirePath(next.id)}?debut=1`)}">${I('restart')}</a>` : ''}
@@ -400,9 +427,9 @@
         ${endPos ? `<p class="resume-note">${I('clock')} ${esc(t('Vu jusqu’à {m}', { m: duree(Math.round(endPos / 60)) }))}</p>` : ''}
       </div></div>
       ${seasonsHtml}
-      <section class="d-section cast"><h2 class="section-title">${esc(t('Distribution et équipe'))}</h2>${Empty(t('Pas encore d’informations sur la distribution de ce titre.'))}</section>
+      <section class="d-section cast"><h2 class="section-title">${esc(t('Distribution et équipe'))}</h2>${gens.length ? ScrollRow(gens.map((p) => `<button class="person f" data-act="person" data-v="${esc(p.id)}" data-role="${esc(p.role)}">${Face(p)}<b>${esc(p.name)}</b>${p.role ? `<span>${esc(p.role)}</span>` : ''}</button>`).join(''), 'cast-row') : Empty(t('Pas encore d’informations sur la distribution de ce titre.'))}</section>
       <section class="d-section about"><div class="about-btns"><button class="btn btn-ghost f" data-act="about" data-v="${esc(d.id)}">${I('info')}${esc(t('À propos'))}</button>${te.fichier ? `<button class="btn btn-ghost f" data-act="tech" data-v="${esc(d.id)}">${I('film')}${esc(t('Fiche technique'))}</button>` : ''}</div></section>
-      <div class="d-similar">${Row({ title: isClip ? t('Autres clips') : t('Dans la même bibliothèque'), items: L.itemsOf(S.items, d.category).filter((x) => x.id !== d.id).slice(0, 12), more: lib })}</div>
+      <div class="d-similar">${Row({ title: isClip ? t('Autres clips') : memeGenre.length ? t('Plus de ce genre') : t('Dans la même bibliothèque'), items: similaires.slice(0, 12), more: lib })}</div>
     </div></div></main>`;
   };
 
@@ -732,8 +759,12 @@
 
   // ---------------------------------------------------------------- données
   async function charger() {
-    try { const c = await api('/venus/api/catalogue'); S.items = c.titres || []; S.cats = L.comptes(S.items); S.error = ''; }
-    catch { S.error = t('Bibliothèque indisponible pour le moment.'); }
+    try {
+      const c = await api('/venus/api/catalogue'); S.items = c.titres || []; S.cats = L.comptes(S.items); S.error = '';
+      // Des vignettes ou des fiches se préparent en fond : la bibliothèque est relue un peu plus tard (au plus 40 fois).
+      const a = c.attente || {}; clearTimeout(S.attenteT);
+      if ((a.vignettes || a.fiches) && (S.relectures = (S.relectures || 0) + 1) <= 40) S.attenteT = setTimeout(async () => { await charger(); const pth = L.route(location.hash).path; for (const k of Object.keys(S.fiche)) if (S.fiche[k]) S.fiche[k].vieux = true; if (!$('#drop') && !$('.sheet') && !/^\/(reglages|nouveau|qui-regarde)/.test(pth)) { if (pth.startsWith('/titre/')) { let id = pth.slice(7); try { id = decodeURIComponent(id); } catch { /* */ } await chargerFiche(id); } else render(true); } }, 6000);
+    } catch { S.error = t('Bibliothèque indisponible pour le moment.'); }
     S.loaded = true;
   }
   async function chargerFiche(id) {
@@ -759,10 +790,10 @@
     const { path, q } = L.route(location.hash); let m;
     if (!S.loaded) return [PageLoading(), true];
     if (path === '/') return [V.home(), true];
-    if (path === '/films') return [V.browse('movie', q.get('vue')), true];
-    if (path === '/series') return [V.browse('show', q.get('vue')), true];
-    if (path === '/animes') return [V.browse('anime', q.get('vue')), true];
-    if (path === '/clips') return [V.browse('clip', q.get('vue')), true];
+    if (path === '/films') { if (q.get('genre') && S.genreHash !== location.hash) { S.genreHash = location.hash; Object.assign(fOf('movie'), { ...VIDE_F(), genres: [q.get('genre')] }); } return [V.browse('movie', q.get('vue')), true]; }
+    if (path === '/series') { if (q.get('genre') && S.genreHash !== location.hash) { S.genreHash = location.hash; Object.assign(fOf('show'), { ...VIDE_F(), genres: [q.get('genre')] }); } return [V.browse('show', q.get('vue')), true]; }
+    if (path === '/animes') { if (q.get('genre') && S.genreHash !== location.hash) { S.genreHash = location.hash; Object.assign(fOf('anime'), { ...VIDE_F(), genres: [q.get('genre')] }); } return [V.browse('anime', q.get('vue')), true]; }
+    if (path === '/clips') { if (q.get('genre') && S.genreHash !== location.hash) { S.genreHash = location.hash; Object.assign(fOf('clip'), { ...VIDE_F(), genres: [q.get('genre')] }); } return [V.browse('clip', q.get('vue')), true]; }
     if (path === '/liste') return [V.browse('mylist', q.get('vue')), true];
     if ((m = path.match(/^\/titre\/(.+)$/))) { let id = m[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } return [V.details(id), true]; }
     if (path === '/recherche') { if (q.get('q') != null) S.searchQ = q.get('q'); return [V.search(), true]; }
@@ -812,9 +843,10 @@
       html = `<p class="dd-title">${esc(t('Trier par'))}</p><div class="dd-list">${opts.map(([id, l]) => `<button class="dd-opt f${id === f.sort ? ' on' : ''}" role="menuitemradio" aria-checked="${id === f.sort}" data-act="sortpick" data-kind="${kind}" data-v="${id}">${I(id === f.sort ? 'check' : 'dot')}${esc(t(l))}</button>`).join('')}</div>${cur[0] !== 'random' ? `<div class="dd-seg">${cur[2].map((l, k) => `<button class="seg-b f${(k === 1) === !!f.desc ? ' on' : ''}" data-act="sortdir" data-kind="${kind}" data-v="${k}">${esc(t(l))}</button>`).join('')}</div>` : ''}`;
     } else {
       const decades = [...new Set(items.filter((i) => i.year).map((i) => Math.floor(i.year / 10) * 10))].sort((a, b) => b - a);
-      const group = (title, values, field, lab) => (values.length < 1 && !f[field].length ? '' : `<div class="dd-group"><p class="dd-title">${esc(title)}</p><div class="dd-chips">${values.map((v) => { const id = Array.isArray(v) ? v[0] : v; const on = f[field].includes(id); return `<button class="mini f${on ? ' on' : ''}" aria-pressed="${on}" data-act="fchip" data-kind="${kind}" data-k="${field}" data-v="${id}">${esc(Array.isArray(v) ? t(v[1]) : lab(v))}</button>`; }).join('')}</div></div>`);
-      const body = `${group(t('Années'), decades, 'decades', (d) => t('Années {d}', { d: String(d).slice(2) }))}${group(t('Qualité'), QUALITY.filter(([, , q]) => items.some(q)), 'quality')}`;
-      html = `${body || `<p class="muted">${esc(t('Pas encore de filtre possible : genres, notes et âges arrivent avec les fiches des titres.'))}</p>`}<div class="dd-foot"><button class="btn btn-ghost btn-small f" data-act="freset" data-kind="${kind}">${esc(t('Réinitialiser'))}</button><button class="btn btn-small f" data-act="closedrop">${esc(t('Voir les résultats'))}</button></div>`;
+      const group = (title, values, field, lab) => (values.length < 1 && !f[field].length ? '' : `<div class="dd-group"><p class="dd-title">${esc(title)}</p><div class="dd-chips">${values.map((v) => { const id = Array.isArray(v) ? v[0] : v; const on = f[field].includes(id); return `<button class="mini f${on ? ' on' : ''}" aria-pressed="${on}" data-act="fchip" data-kind="${kind}" data-k="${field}" data-v="${esc(id)}">${esc(Array.isArray(v) ? t(v[1]) : lab(v))}</button>`; }).join('')}</div></div>`);
+      const notes = items.some((i) => L.note(i)) || f.minScore ? `<div class="dd-group"><p class="dd-title">${esc(t('Note minimale'))}</p><div class="dd-chips">${[['', t('Toutes')], ...SCORES.map(([id, n]) => [id, t('{n} et plus', { n: nombre(Number(n)) })])].map(([id, l]) => `<button class="mini f${f.minScore === id ? ' on' : ''}" aria-pressed="${f.minScore === id}" data-act="minscore" data-kind="${kind}" data-v="${id}">${esc(l)}</button>`).join('')}</div></div>` : '';
+      const body = `${group(t('Genres'), L.genresDe(items), 'genres', (g) => g)}${group(t('Années'), decades, 'decades', (d) => t('Années {d}', { d: String(d).slice(2) }))}${notes}${group(t('Qualité'), QUALITY.filter(([, , q]) => items.some(q)), 'quality')}`;
+      html = `${body || `<p class="muted">${esc(t('Pas encore de filtre possible : genres et notes arrivent avec les fiches des titres (Réglages → Demandes).'))}</p>`}<div class="dd-foot"><button class="btn btn-ghost btn-small f" data-act="freset" data-kind="${kind}">${esc(t('Réinitialiser'))}</button><button class="btn btn-small f" data-act="closedrop">${esc(t('Voir les résultats'))}</button></div>`;
     }
     const d = D.createElement('div');
     d.id = 'drop'; d.className = `dropdown${which === 'filter' ? ' wide' : ''}`; d.setAttribute('role', 'menu'); d.innerHTML = html; d._anchor = anchor;
@@ -851,11 +883,12 @@
       case 'sortpick': { const f = fOf(kind); f.desc = v !== f.sort ? false : f.desc; f.sort = v; if (v === 'random') f.graine = Date.now(); closeDrop(); rerender('[data-act="sortmenu"]'); break; }
       case 'sortdir': fOf(kind).desc = v === '1'; closeDrop(); rerender('[data-act="sortmenu"]'); break;
       case 'fchip': { const f = fOf(kind), k = el.dataset.k, x = k === 'decades' ? Number(v) : v; f[k] = f[k].includes(x) ? f[k].filter((y) => y !== x) : [...f[k], x]; el.classList.toggle('on'); el.setAttribute('aria-pressed', String(f[k].includes(x))); const dd = $('#drop'); render(true); if (dd) { D.body.append(dd); dd._anchor = $('[data-act="filtermenu"]'); } break; }
-      case 'freset': Object.assign(fOf(kind), { decades: [], quality: [] }); closeDrop(); rerender('[data-act="filtermenu"]'); break;
+      case 'freset': Object.assign(fOf(kind), VIDE_F()); closeDrop(); rerender('[data-act="filtermenu"]'); break;
+      case 'minscore': { fOf(kind).minScore = v; const dd = $('#drop'); render(true); if (dd) { dd.querySelectorAll('[data-act="minscore"]').forEach((b) => { b.classList.toggle('on', b.dataset.v === v); b.setAttribute('aria-pressed', String(b.dataset.v === v)); }); D.body.append(dd); dd._anchor = $('[data-act="filtermenu"]'); } break; }
       case 'closedrop': closeDrop(); break;
-      case 'unfilter': { const f = fOf(kind), k = el.dataset.k; f[k] = f[k].filter((x) => String(x) !== v); rerender('[data-act="filtermenu"]'); break; }
-      case 'resetf': Object.assign(fOf(kind), { decades: [], quality: [] }); rerender(); break;
-      case 'resetall': Object.assign(fOf(kind), { decades: [], quality: [], status: 'all' }); rerender(); break;
+      case 'unfilter': { const f = fOf(kind), k = el.dataset.k; if (k === 'minScore') f.minScore = ''; else f[k] = f[k].filter((x) => String(x) !== v); rerender('[data-act="filtermenu"]'); break; }
+      case 'resetf': Object.assign(fOf(kind), VIDE_F()); rerender(); break;
+      case 'resetall': Object.assign(fOf(kind), { ...VIDE_F(), status: 'all' }); rerender(); break;
       case 'mylist': { const i = S.items.find((x) => x.id === v), on = !!(i && i.inList); try { await api('/venus/ma-liste', { oeuvre_id: v, ...(on ? { faire: 'retirer' } : {}) }); majTitre(v, { inList: !on }); if (S.fiche[v] && S.fiche[v].titre) S.fiche[v].titre.inList = !on; toast(on ? t('Retiré de ma liste') : t('Ajouté à ma liste'), on ? 'info' : 'success'); } catch { toast(t('Impossible pour le moment.')); } rerender(sel('mylist', v)); break; }
       case 'seen': case 'epseen': {
         e.preventDefault(); const on = el.dataset.on === '1', dur = Number(el.dataset.d) || 0;
@@ -867,6 +900,13 @@
       case 'season': S.season = Number(v); rerender(sel('season', v)); break;
       case 'epf': S.epFilter = v; rerender(sel('epf', v)); break;
       case 'sendto': void envoyerEcran({ titre: (S.items.find((x) => v.startsWith(x.id)) || {}).title || '', ...(() => { const m = /:s(\d+)e(\d+)$/.exec(v); return m ? { saison: Number(m[1]), episode: Number(m[2]) } : {}; })() }); break;
+      case 'person': {
+        // La fiche d'une personne (Person.js) : sa photo, son rôle ici, et ses titres dans la médiathèque.
+        let p; try { p = await api(`/venus/api/personne/${encodeURIComponent(v)}`); } catch { toast(t('Impossible pour le moment.')); break; }
+        const role = el.dataset.role || '';
+        openSheet(p.name, `<div><div class="person-head">${p.photo ? `<img class="person-photo" src="${esc(p.photo)}" alt="">` : ''}<div>${role ? `<p class="muted">${esc(role)}</p>` : ''}</div></div><h3 class="person-sub">${esc(t('Dans votre médiathèque'))}</h3>${(p.titres || []).length ? `<div class="grid person-grid">${p.titres.map((i) => Card(i, { poster: true })).join('')}</div>` : `<p class="muted">${esc(t('Rien d’autre de cette personne dans votre médiathèque.'))}</p>`}</div>`, { wide: true });
+        break;
+      }
       case 'about': case 'tech': {
         const f = S.fiche[v]; if (!f) break; const d = f.titre, te = f.tech || {};
         const taille = te.taille ? (te.taille >= 1024 ** 3 ? t('{n} Go', { n: new Intl.NumberFormat(LANG, { maximumFractionDigits: 1 }).format(te.taille / 1024 ** 3) }) : t('{n} Mo', { n: nombre(Math.round(te.taille / 1024 ** 2)) })) : '';

@@ -28,11 +28,13 @@ export type Collection =
   // Acquisition (phase 2) : tables posées, remplies plus tard.
   | 'sources' | 'envies' | 'filtres' | 'telechargements' | 'acq_journal' | 'lots' | 'acq_reglages' | 'autotest'
   // L'interface de Vénus (lot V1) : la planète et le menu choisis, par profil.
-  | 'preferences';
+  | 'preferences'
+  // Lot V3 : les images gardées par Odin (affiches, fonds, photos, vignettes) et les personnes (distribution).
+  | 'images' | 'personnes';
 
 /** Les collections privées : contenu chiffré au repos, jamais dans une vue en clair. */
 export const PRIVEES: ReadonlySet<Collection> = new Set<Collection>(['historique', 'demandes', 'yt_historique']);
-export const COLLECTIONS: Collection[] = ['dossiers', 'oeuvres', 'episodes', 'pistes', 'fichiers', 'reprise', 'ma_liste', 'historique', 'demandes', 'ecrans', 'telecommandes', 'yt_abonnements', 'yt_historique', 'yt_reglages', 'sources', 'envies', 'filtres', 'telechargements', 'acq_journal', 'lots', 'acq_reglages', 'autotest', 'preferences'];
+export const COLLECTIONS: Collection[] = ['dossiers', 'oeuvres', 'episodes', 'pistes', 'fichiers', 'reprise', 'ma_liste', 'historique', 'demandes', 'ecrans', 'telecommandes', 'yt_abonnements', 'yt_historique', 'yt_reglages', 'sources', 'envies', 'filtres', 'telechargements', 'acq_journal', 'lots', 'acq_reglages', 'autotest', 'preferences', 'images', 'personnes'];
 
 /** Un enregistrement d'une collection : un identifiant et des données libres (JSON). */
 export interface Enr { id: string; data: Record<string, unknown>; maj: number }
@@ -79,6 +81,10 @@ GRANT SELECT ON v_oeuvres, v_ecrans, v_compteurs TO odin_lecture`,
   }, {
     v: 2, nom: "préférences de l'interface de Vénus (planète, menu) par profil",
     sql: 'CREATE TABLE preferences (id text PRIMARY KEY, data jsonb NOT NULL, maj bigint NOT NULL)',
+  }, {
+    v: 3, nom: 'images gardées par Odin (affiches, fonds, photos, vignettes) et personnes (distribution) de Vénus',
+    sql: `CREATE TABLE images (id text PRIMARY KEY, data jsonb NOT NULL, maj bigint NOT NULL);
+CREATE TABLE personnes (id text PRIMARY KEY, data jsonb NOT NULL, maj bigint NOT NULL)`,
   }],
   ecritures: {
     pose: 'INSERT INTO __t__ (id, data, maj) VALUES ($1, $2::jsonb, $3) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, maj = EXCLUDED.maj',

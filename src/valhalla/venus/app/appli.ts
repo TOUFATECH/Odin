@@ -7,6 +7,9 @@
 //   GET /venus/api/titre/<id>       la fiche d'un titre : saisons, épisodes, fichier et fiche technique
 //   GET /venus/api/profils          « Qui regarde ? » : les comptes d'Odin (le propriétaire, puis les personnes de Persona)
 //   GET|POST /venus/api/preferences la planète et le menu choisis, par profil (base VENUS_ODIN, repli fichiers)
+//   GET /venus/api/image/<id>       (lot V3) une image gardée par Odin (affiche, fond, photo, vignette), vérifiée
+//   GET /venus/api/vignette/<cible> (lot V3) la vignette tirée de la vidéo (faite en fond, une à la fois)
+//   GET /venus/api/personne/<id>    (lot V3) une personne de la distribution et ses titres dans la bibliothèque
 //   GET /venus/api/lecture/<cible>  (lot V2) ce que le lecteur de Venus reçoit : titre, épisode, durée, reprise DU profil,
 //                                   lecture directe ou convertie, sous-titres et pistes audio connus, épisodes voisins ;
 //                                   /venus/app/lecteur.js : le lecteur (public/js/views/player.js du dépôt, réécrit)
@@ -23,6 +26,9 @@ import { choisirSousTitres, planLecture } from '../lecture.ts';
 import { persona, personnes, prenomProprio } from '../../sso/etat.ts';
 import { ageDe } from '../../sso/infos.ts';
 import { Accounts } from '../../../web/account.ts';
+import { fichePage, fichierImage, lancerFiches, personne, verifierImage } from '../metadonnees.ts';
+import { demanderVignettes, vignetteFaite } from '../vignettes.ts';
+import { reseauCatalogue } from '../comete/index.ts';
 
 const DOSSIER = new URL('./', import.meta.url);
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
@@ -61,6 +67,8 @@ export interface TitreVenus {
   year?: number; runtime?: number; res?: string; added: number; poster?: string;
   progress?: { position: number; duration: number; watched: boolean }; status: 'seen' | 'progress' | 'unseen';
   inList: boolean; played: number; episodes?: number; seasons?: number; unseen?: number;
+  /** (lot V3) le fond (fiche, sinon la vignette tirée de la vidéo), les genres et les notes de la fiche, sur 10 */
+  backdrop?: string; genres?: string[]; vote?: number; critics?: number;
   /** la prochaine chose à lire (film, ou l'épisode à suivre d'une série) */ play?: { id: string; season?: number; episode?: number; position: number };
 }
 const FINI = 0.95;
@@ -80,6 +88,18 @@ const categorieDe = (o: Enr): TitreVenus['category'] => {
   return o.data.type === 'serie' ? 'show' : 'movie';
 };
 const afficheUrl = (o: Enr): string | undefined => { const a = s(o.data.affiche); return a && existsSync(a) ? `/venus/vignette/${encodeURIComponent(o.id)}` : undefined; };
+/** La cible dont la vignette sert d'image à une œuvre : le film, ou le premier épisode d'une série. */
+const cibleImage = (mag: MagasinVenus, o: Enr): string | undefined => (o.data.type === 'serie' ? episodes(mag, o.id)[0]?.id : o.id);
+/**
+ * (lot V3) Les images et la fiche d'une œuvre pour la page : l'affiche et le fond de la fiche s'ils existent, sinon la
+ * vignette tirée de la vidéo ; les genres et les notes de la fiche. Jamais une adresse extérieure.
+ */
+function imagesDe(mag: MagasinVenus, o: Enr): Pick<TitreVenus, 'poster' | 'backdrop' | 'genres' | 'vote' | 'critics'> {
+  const fp = fichePage(mag, o) as { poster?: string; backdrop?: string; genres?: string[]; vote?: number; critics?: number } | undefined;
+  const c = cibleImage(mag, o), v = c ? vignetteFaite(mag, c) : undefined;
+  const poster = fp?.poster ?? afficheUrl(o) ?? v, backdrop = fp?.backdrop ?? v ?? fp?.poster;
+  return { ...(poster ? { poster } : {}), ...(backdrop ? { backdrop } : {}), ...(fp?.genres?.length ? { genres: fp.genres } : {}), ...(fp?.vote ? { vote: fp.vote } : {}), ...(fp?.critics ? { critics: fp.critics } : {}) };
+}
 
 /** La reprise d'un profil, par cible. */
 function reprises(mag: MagasinVenus, profil: string): Map<string, { position: number; duration: number; maj: number }> {
@@ -92,7 +112,7 @@ const vu = (p: { position: number; duration: number } | undefined, duree = 0) =>
 /** Un titre de la bibliothèque, pour un profil. */
 function titreDe(mag: MagasinVenus, o: Enr, profil: string, rep: Map<string, { position: number; duration: number; maj: number }>, liste: Set<string>): TitreVenus {
   const category = categorieDe(o), type: TitreVenus['type'] = category === 'clip' ? 'clip' : o.data.type === 'serie' ? 'show' : 'movie';
-  const base = { id: o.id, type, category, title: s(o.data.titre) || o.id, ...(Number(o.data.annee) ? { year: Number(o.data.annee) } : {}), inList: liste.has(o.id), ...(afficheUrl(o) ? { poster: afficheUrl(o) } : {}) };
+  const base = { id: o.id, type, category, title: s(o.data.titre) || o.id, ...(Number(o.data.annee) ? { year: Number(o.data.annee) } : {}), inList: liste.has(o.id), ...imagesDe(mag, o) };
   if (type !== 'show') {
     const duree = Number(o.data.duree) || 0, p = rep.get(o.id), w = vu(p, duree);
     return { ...base, ...(duree ? { runtime: Math.round(duree / 60) } : {}), ...(resDe(hauteur(o.data.resolution)) ? { res: resDe(hauteur(o.data.resolution)) } : {}),
@@ -132,16 +152,18 @@ export function fiche(mag: MagasinVenus, profil: string, id: string): Record<str
     return { fichier: c, taille, largeur: probe.largeur, hauteur: probe.hauteur, video: probe.codecs ?? [], audio: probe.audio ?? [] };
   };
   const sousTitres = (l: unknown) => (Array.isArray(l) ? l as Array<{ langue?: string; titre?: string; fichier?: string }> : []).map((x) => ({ langue: s(x.langue), titre: s(x.titre), aPart: !!x.fichier }));
-  if (o.data.type !== 'serie') return { titre: t, tech: tech(o.data.fichier), sousTitres: sousTitres(o.data.sous_titres) };
+  const meta = fichePage(mag, o) ?? null;
+  if (o.data.type !== 'serie') return { titre: t, meta, tech: tech(o.data.fichier), sousTitres: sousTitres(o.data.sous_titres) };
   const eps = episodes(mag, id), parSaison = new Map<number, Enr[]>();
   for (const e of eps) { const n = Number(e.data.saison) || 0; parSaison.set(n, [...(parSaison.get(n) ?? []), e]); }
   const saisons = [...parSaison.entries()].sort((a, b) => a[0] - b[0]).map(([number, l]) => {
     const nums = new Set(l.map((e) => Number(e.data.episode))), max = Math.max(0, ...nums);
     const manquants: number[] = []; for (let k = 1; k < max; k++) if (!nums.has(k)) manquants.push(k);
     return { number, manquants, episodes: l.map((e) => { const p = rep.get(e.id), d = Number(e.data.duree) || 0;
-      return { id: e.id, episode: Number(e.data.episode), runtime: d ? Math.round(d / 60) : undefined, res: resDe(hauteur(e.data.resolution)) || undefined, position: p?.position ?? 0, duration: p?.duration || d, watched: vu(p, d) }; }) };
+      const still = vignetteFaite(mag, e.id);
+      return { id: e.id, episode: Number(e.data.episode), ...(still ? { still } : {}), runtime: d ? Math.round(d / 60) : undefined, res: resDe(hauteur(e.data.resolution)) || undefined, position: p?.position ?? 0, duration: p?.duration || d, watched: vu(p, d) }; }) };
   });
-  return { titre: t, saisons, tech: tech(eps[0]?.data.fichier), sousTitres: sousTitres(eps[0]?.data.sous_titres) };
+  return { titre: t, meta, saisons, tech: tech(eps[0]?.data.fichier), sousTitres: sousTitres(eps[0]?.data.sous_titres) };
 }
 
 // ---------------- Lecture (lot V2 : le lecteur de Venus) ----------------
@@ -188,6 +210,19 @@ const estEnfant = (home: string, profil: string) => !!profils(home).find((x) => 
 export function ficheEnfant(f: Record<string, unknown>): Record<string, unknown> {
   const tech = f.tech as { fichier?: string } | undefined;
   return tech && tech.fichier ? { ...f, tech: { ...tech, fichier: String(tech.fichier).split(/[\\/]/).pop() } } : f;
+}
+
+// ---------------- Images (lot V3) ----------------
+/**
+ * Une image gardée par Odin, relue et revérifiée avant d'être servie (une vraie image, jamais une page) : type exact,
+ * « nosniff », et une politique qui interdit tout script même si on l'ouvre seule.
+ */
+function servirImage(res: ServerResponse, mag: MagasinVenus, id: string): boolean {
+  const f = fichierImage(mag, id); if (!f) { json(res, 404, { error: 'image inconnue' }); return true; }
+  let b: Buffer; try { b = readFileSync(f.chemin); } catch { json(res, 404, { error: 'image absente' }); return true; }
+  const v = verifierImage(b); if ('refus' in v) { json(res, 404, { error: 'image refusée' }); return true; }
+  res.writeHead(200, { 'content-type': v.mime, 'content-length': String(b.length), 'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; sandbox", 'referrer-policy': 'no-referrer', 'cross-origin-resource-policy': 'same-origin' });
+  res.end(b); return true;
 }
 
 // ---------------- Préférences (planète, menu) ----------------
@@ -273,10 +308,29 @@ export async function routeAppli(req: IncomingMessage, res: ServerResponse, url:
   }
   if (!p.startsWith('/venus/api/')) return false;
   const reste = p.slice('/venus/api/'.length);
-  if (meth === 'GET' && reste === 'catalogue') { json(res, 200, { profil, titres: catalogue(mag, profil) }); return true; }
+  if (meth === 'GET' && reste === 'catalogue') {
+    const titres = catalogue(mag, profil);
+    // (lot V3) En fond : les vignettes qui manquent (une à la fois) et, si le catalogue est réglé, les fiches.
+    const vignettes = demanderVignettes(mag, mag.liste('oeuvres').filter((o) => o.data.type === 'film' || o.data.type === 'serie').map((o) => cibleImage(mag, o)).filter((x): x is string => !!x));
+    const fiches = lancerFiches(mag, reseauCatalogue);
+    json(res, 200, { profil, titres, attente: { vignettes, fiches } }); return true;
+  }
+  if (meth === 'GET' && reste.startsWith('image/')) return servirImage(res, mag, reste.slice(6));
+  if (meth === 'GET' && reste.startsWith('vignette/')) {
+    let id = reste.slice(9); try { id = decodeURIComponent(id); } catch { /* tel quel */ }
+    const v = vignetteFaite(mag, id);
+    if (v) return servirImage(res, mag, v.slice('/venus/api/image/'.length));
+    demanderVignettes(mag, [id]); json(res, 404, { error: 'vignette pas encore faite' }); return true;
+  }
+  if (meth === 'GET' && reste.startsWith('personne/')) {
+    const pe = personne(mag, reste.slice(9)); if (!pe) { json(res, 404, { error: 'personne inconnue' }); return true; }
+    const rep = reprises(mag, profil), liste = new Set(maListe(mag, profil).map((c) => c.id));
+    json(res, 200, { ...pe, titres: pe.titres.map((x) => { const o = mag.get('oeuvres', x.id)!; return { ...titreDe(mag, o, profil, rep, liste), role: x.role }; }) }); return true;
+  }
   if (meth === 'GET' && reste.startsWith('titre/')) {
     let id = reste.slice(6); try { id = decodeURIComponent(id); } catch { /* tel quel */ }
     const f = fiche(mag, profil, id); if (!f) { json(res, 404, { error: 'titre introuvable' }); return true; }
+    demanderVignettes(mag, episodes(mag, id).map((e) => e.id));
     json(res, 200, estEnfant(home, profil) ? ficheEnfant(f) : f); return true;
   }
   if (meth === 'GET' && reste.startsWith('lecture/')) {
