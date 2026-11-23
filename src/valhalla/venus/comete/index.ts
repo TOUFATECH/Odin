@@ -65,6 +65,9 @@ const outilsDe = async (): Promise<Outils> => outils ?? (await import('../routes
 export const resoudreComete = (h: string): Promise<string[]> => resoudre(h);
 /** Le réseau de Comète : connexion à l'adresse vérifiée seulement — jamais la machine d'Odin, jamais la maison. */
 export const reseauComete = (): Fetch => reseauEssai ?? fetchVerifie({ resoudre, refuser: (a) => (hoteInterdit(a) || isPrivateHost(a) ? "le lien mène à la machine d'Odin ou à ton réseau : refusé" : undefined) });
+/** Le réseau du catalogue des sorties : celui de Comète (jamais la machine d'Odin ni la maison, aucune redirection),
+ *  qui accepte en plus un POST d'un texte court (le programme des animés pose sa question en POST). */
+export const reseauCatalogue = (): Fetch => reseauEssai ?? fetchVerifie({ resoudre, post: true, refuser: (a) => (hoteInterdit(a) || isPrivateHost(a) ? "le catalogue mène à la machine d'Odin ou à ton réseau : refusé" : undefined) });
 /** Le réseau de Delta : la source peut être dans la maison (ton propre indexeur), jamais la machine d'Odin elle-même. */
 export const reseauDelta = (): Fetch => reseauEssai ?? fetchVerifie({ resoudre, refuser: (a) => (hoteInterdit(a) ? "l'adresse de la source mène à la machine d'Odin elle-même : refusé" : undefined) });
 /** La place libre (octets) du disque d'un dossier, ou rien si le système ne la donne pas. */

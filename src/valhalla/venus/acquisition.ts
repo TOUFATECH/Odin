@@ -16,6 +16,7 @@ import { chercher, meilleur, sources, type Choix, type Requete, type Resultat } 
 import { demande, majDemande, type Demande } from './hnoss/index.ts';
 import { manquants, poserSuivi, recompter, suivi, suivre, type Suivi } from './suivis/index.ts';
 import { ajouter, quandFini, reglagesComete, reseauDelta, type Telechargement } from './comete/index.ts';
+import { catalogueRegle, reglagesCatalogue } from './catalogue/index.ts';
 
 /** Les blocs d'acquisition, par leurs noms d'Odin. */
 export type Bloc = 'delta' | 'hnoss' | 'sirius' | 'pleiades' | 'odyssee' | 'comete';
@@ -50,8 +51,9 @@ export function modeleAcquisition(mag: MagasinVenus): Record<string, number> {
  * « À venir » ne lit rien sur Internet et le dit. (Question posée au propriétaire, deux réponses prêtes.)
  */
 export function catalogue(mag: MagasinVenus): { regle: boolean; nom?: string; texte: string } {
-  const d = mag.get('acq_reglages', 'catalogue')?.data;
-  return d?.nom ? { regle: true, nom: String(d.nom), texte: `catalogue : ${String(d.nom)}` } : { regle: false, texte: "Aucun catalogue des sorties n'est réglé : « À venir » ne lit rien sur Internet tant que tu n'en as pas choisi un." };
+  // Les mêmes réglages que le catalogue des sorties (par défaut : le catalogue public des films, sans clé).
+  const r = reglagesCatalogue(mag), l = [r.series ? 'séries' : '', r.animes ? 'animés' : '', r.films === 'public' ? 'films (catalogue public)' : r.films === 'cle' && r.aCle ? 'films et séries (grand catalogue)' : ''].filter(Boolean);
+  return catalogueRegle(r) ? { regle: true, nom: 'sorties', texte: `catalogue des sorties : ${l.join(', ')}` } : { regle: false, texte: "Aucun catalogue des sorties n'est réglé : « À venir » ne lit rien sur Internet tant que tu n'en as pas choisi un." };
 }
 
 // ---------------------------------------------------------------- Le réseau de Delta (adresses du propriétaire)

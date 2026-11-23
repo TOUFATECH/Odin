@@ -11,3 +11,13 @@ html[data-layout="stream"] .rail .odin-back, html[data-layout="tv"] .rail .odin-
 main h1[tabindex="-1"]:focus:not(:focus-visible), main h1[tabindex="-1"]:focus { outline: none; }
 html[data-tone="light"] .ph { color: #fff; } /* le titre écrit sur un fond sans affiche reste lisible en clair (comme Verre, html[data-glass] .ph) */
 .hero-title { overflow-wrap: anywhere; } /* un titre fait d'un seul très long mot passe à la ligne au lieu de faire déborder la fiche */
+/* Demandes et téléchargements (lots V4-V6) : les boutons de la file de Comète (pas d'équivalent dans Venus, qui ne pilote
+   pas son client de téléchargement), le bouton « Faire venir » d'un épisode manquant, le carré de couleur sans affiche. */
+.req-q .req-q-acts { display: flex; gap: 6px; flex: none; align-items: center; }
+.req-q .req-q-acts .btn-mini { min-width: 44px; min-height: 44px; }
+.req-q.a-part { border-color: var(--sulfur); }
+.req-q { flex-wrap: wrap; }
+.req-q .grow { min-width: 0; flex: 1 1 9rem; } /* trop étroit (deux boutons « Accepter » « Jeter ») : les boutons passent dessous, le texte garde sa largeur */
+@media (max-width: 560px) { .req-q { flex-wrap: wrap; } .req-q .req-q-acts { width: 100%; justify-content: flex-end; } }
+.episode.missing .ep-get { margin-top: 6px; min-height: 44px; }
+.up-ph[style*="--h"], .wish-pic > span { background: linear-gradient(135deg, hsl(var(--h, 220) 45% 32%), hsl(calc(var(--h, 220) + 40) 50% 18%)); color: #fff; }

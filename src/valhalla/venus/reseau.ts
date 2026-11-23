@@ -16,14 +16,17 @@ const SANS_CORPS = new Set([204, 205, 304]);
 
 /**
  * Un fetch qui ne se connecte qu'à une adresse vérifiée. `refuser(adresse)` rend la raison d'un refus (ou rien) ;
- * TOUTES les adresses du nom doivent passer. GET et HEAD seulement (Delta et Comète n'envoient rien d'autre).
+ * TOUTES les adresses du nom doivent passer. GET et HEAD seulement (Delta et Comète n'envoient rien d'autre) ;
+ * `post` : un POST d'un texte court est permis aussi (le catalogue des sorties).
  */
-export function fetchVerifie(o: { resoudre: Resoudre; refuser: (adresse: string) => string | undefined }): Fetch {
+export function fetchVerifie(o: { resoudre: Resoudre; refuser: (adresse: string) => string | undefined; /** POST d'un petit texte (le catalogue des animés) */ post?: boolean }): Fetch {
   return async (url, init = {}) => {
     const u = new URL(url);
     if (!/^https?:$/.test(u.protocol)) throw new Error('seules les adresses http et https sont acceptées');
     const methode = (init.method ?? 'GET').toUpperCase();
-    if (methode !== 'GET' && methode !== 'HEAD') throw new Error('requête refusée');
+    // POST : seulement si l'appelant l'accepte (le catalogue des animés pose sa question en POST), un texte court.
+    const corpsEnvoye = methode === 'POST' && o.post && typeof init.body === 'string' && Buffer.byteLength(init.body) <= 16_384 ? init.body : undefined;
+    if (methode !== 'GET' && methode !== 'HEAD' && corpsEnvoye === undefined) throw new Error('requête refusée');
     const hote = u.hostname.replace(/^\[|\]$/g, '');
     const adresses = isIP(hote) ? [hote] : await o.resoudre(hote).catch(() => [] as string[]);
     if (!adresses.length) throw new Error(`${hote.slice(0, 80)} : nom introuvable`);
@@ -32,6 +35,7 @@ export function fetchVerifie(o: { resoudre: Resoudre; refuser: (adresse: string)
     const entetes: Record<string, string> = {};
     new Headers(init.headers as ConstructorParameters<typeof Headers>[0]).forEach((v, k) => { if (k !== 'host' && k !== 'accept-encoding') entetes[k] = v; });
     entetes.host = u.host;
+    if (corpsEnvoye !== undefined) entetes['content-length'] = String(Buffer.byteLength(corpsEnvoye));
     return new Promise<Response>((ok, ko) => {
       const req = (u.protocol === 'https:' ? requeteHttps : requeteHttp)({
         host: cible, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: `${u.pathname}${u.search}`, method: methode, headers: entetes,
@@ -45,7 +49,7 @@ export function fetchVerifie(o: { resoudre: Resoudre; refuser: (adresse: string)
         ok(new Response(corps, { status: statut, headers: h }));
       });
       req.on('error', (e) => ko(new Error(`connexion impossible (${(e as NodeJS.ErrnoException).code ?? 'erreur'})`)));
-      req.end();
+      req.end(corpsEnvoye);
     });
   };
 }

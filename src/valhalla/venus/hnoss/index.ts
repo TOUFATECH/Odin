@@ -16,6 +16,7 @@ export interface Demande {
   /** le profil de Vénus (« moi » pour le propriétaire, l'identifiant du membre sinon) */
   profil: string; qui: { login: string; nom: string; proprietaire: boolean };
   etat: EtatDemande; note?: string; valideePar?: string; suivi?: string; quand: number; maj: number;
+  /** une envie (♡ dans « À venir » ou « Nouveautés ») et la clé de sa sortie dans le catalogue */ envie?: boolean; cle?: string;
 }
 /** Le profil du propriétaire dans Vénus (le même que les routes /venus/*). */
 export const PROFIL_PROPRIETAIRE = 'moi';
@@ -32,7 +33,7 @@ const versDemande = (e: Enr): Demande => {
     profil: s(d.profil) || PROFIL_PROPRIETAIRE, qui: (d.qui as Demande['qui']) ?? { login: s(d.profil) || PROFIL_PROPRIETAIRE, nom: '', proprietaire: (s(d.profil) || PROFIL_PROPRIETAIRE) === PROFIL_PROPRIETAIRE },
     etat: (ETATS_DEMANDE as string[]).includes(s(d.etat)) ? s(d.etat) as EtatDemande : 'en attente',
     ...(d.note ? { note: s(d.note) } : {}), ...(d.valideePar ? { valideePar: s(d.valideePar) } : {}), ...(d.suivi ? { suivi: s(d.suivi) } : {}),
-    quand: Number(d.quand) || e.maj, maj: e.maj,
+    quand: Number(d.quand) || e.maj, maj: e.maj, ...(d.envie === true ? { envie: true } : {}), ...(d.cle ? { cle: s(d.cle) } : {}),
   };
 };
 /** Les saisons d'une demande, lues dans « 1 », « 1,2 », « 1-3 » ou un tableau. Pur. */
@@ -47,7 +48,7 @@ export function lireSaisons(v: unknown): number[] {
 }
 
 /** Pose une demande (une seule ouverte par titre, année, genre et profil : la même revient). */
-export function demander(mag: MagasinVenus, o: { genre: GenreDemande; titre: string; annee?: number; anime?: boolean; saisons?: number[]; episodes?: Array<{ saison: number; episode: number }>; qui: Demande['qui'] }): Demande {
+export function demander(mag: MagasinVenus, o: { genre: GenreDemande; titre: string; annee?: number; anime?: boolean; saisons?: number[]; episodes?: Array<{ saison: number; episode: number }>; qui: Demande['qui']; envie?: boolean; cle?: string }): Demande {
   const titre = propre(o.titre, 200); if (!titre) throw new Error('donne un titre');
   if (o.genre !== 'film' && o.genre !== 'serie') throw new Error('genre : film ou série');
   const profil = o.qui.proprietaire ? PROFIL_PROPRIETAIRE : propre(o.qui.login, 60);
@@ -59,7 +60,7 @@ export function demander(mag: MagasinVenus, o: { genre: GenreDemande; titre: str
     genre: o.genre, type: o.genre === 'serie' ? 'série' : 'film', titre, ...(o.annee ? { annee: o.annee } : {}), ...(o.anime || deja?.anime ? { anime: true } : {}), ...(saisons.length ? { saisons } : {}), ...(episodes.length ? { episodes } : {}),
     profil, qui: { login: propre(o.qui.login, 60), nom: propre(o.qui.nom, 60), proprietaire: o.qui.proprietaire },
     etat: deja?.etat ?? (o.qui.proprietaire ? 'en attente' : 'à valider'), ...(deja?.valideePar ? { valideePar: deja.valideePar } : {}), ...(deja?.suivi ? { suivi: deja.suivi } : {}),
-    quand: deja?.quand ?? Date.now(),
+    quand: deja?.quand ?? Date.now(), ...(o.envie || deja?.envie ? { envie: true } : {}), ...(propre(s(o.cle), 120) || deja?.cle ? { cle: propre(s(o.cle), 120) || deja?.cle } : {}),
   });
   return demande(mag, id)!;
 }
@@ -81,3 +82,34 @@ export function trouverDemande(mag: MagasinVenus, q: string): Demande | undefine
 }
 /** Une ligne lisible. Pur. */
 export const ligneDemande = (d: Demande): string => `${d.genre === 'serie' ? '📺' : '🎬'} ${d.titre}${d.annee ? ` (${d.annee})` : ''}${d.saisons?.length ? ` · saison(s) ${d.saisons.join(', ')}` : ''} · ${d.etat}${d.qui.proprietaire ? '' : ` · demandé par ${d.qui.nom || d.qui.login}`}${d.note ? ` · ${d.note}` : ''}`;
+
+// ---------------------------------------------------------------- Mes envies (♡)
+/** Les envies d'un profil (les demandes marquées ♡), les plus récentes d'abord. */
+export const envies = (mag: MagasinVenus, profil: string): Demande[] => demandesHnoss(mag, profil).filter((d) => d.envie);
+/** Retire une envie (par sa clé de catalogue ou son identifiant) : une demande pas encore lancée est retirée, sinon
+ *  elle perd seulement son ♡ (ce qui est en téléchargement ou rangé n'est pas touché). Rend la demande touchée. */
+export function retirerEnvie(mag: MagasinVenus, profil: string, q: string): Demande | undefined {
+  const d = envies(mag, profil).find((x) => x.id === q || (x.cle && x.cle === q)); if (!d) return undefined;
+  if (d.etat === 'à valider' || (d.etat === 'en attente' && !d.suivi) || d.etat === 'échec') { retirerDemande(mag, d.id); return d; }
+  const e = mag.get('demandes', d.id)!; const { envie: _e, ...reste } = e.data; mag.poser('demandes', d.id, reste);
+  return demande(mag, d.id);
+}
+
+// ---------------------------------------------------------------- Demandes au nom de chacun (membres « libres »)
+// Le propriétaire DÉSIGNE les membres dont les demandes partent sans sa validation ; les autres restent à valider.
+// Un membre libre ne règle toujours ni les sources ni Comète, et n'accepte pas un fichier mis à part (« propriétaire seul »).
+const LOGIN = /^[A-Za-z0-9_.@-]{1,60}$/;
+/** Les identifiants des membres libres. */
+export function membresLibres(mag: MagasinVenus): string[] {
+  const l = mag.get('acq_reglages', 'hnoss')?.data.libres;
+  return Array.isArray(l) ? [...new Set(l.map(s).filter((x) => LOGIN.test(x)))] : [];
+}
+export const estLibre = (mag: MagasinVenus, login: string): boolean => membresLibres(mag).includes(s(login));
+/** Règle la liste des membres libres (identifiants inconnus ou mal formés : ignorés). */
+export function reglerMembresLibres(mag: MagasinVenus, logins: unknown, connus?: string[]): string[] {
+  const brut = Array.isArray(logins) ? logins : s(logins).split(/[,;\s]+/);
+  const l = [...new Set(brut.map(s).filter((x) => LOGIN.test(x) && x !== PROFIL_PROPRIETAIRE && (!connus || connus.includes(x))))].slice(0, 100);
+  const prec = mag.get('acq_reglages', 'hnoss')?.data ?? {};
+  mag.poser('acq_reglages', 'hnoss', { ...prec, libres: l });
+  return membresLibres(mag);
+}

@@ -182,7 +182,9 @@ test('Venus dans Odin : la vraie bibliothèque, la fiche, Ctrl+K, « Qui regarde
     await P.cliquer({ act: 'view', kind: 'movie', v: 'list' }); assert.match(P.app.innerHTML, /class="lib-row"/, 'vue en liste');
     await P.aller('#/series'); assert.match(P.app.innerHTML, /1 titre/); assert.match(P.app.innerHTML, /Brume Lente/);
     await P.aller('#/animes'); assert.match(P.app.innerHTML, /Aucun titre rangé ici/, 'un état vide propre, pas de titre inventé');
-    await P.aller('#/films?vue=avenir'); assert.match(P.app.innerHTML, /data-a-brancher="sorties"/, 'la place des sorties à venir (♡ ⬇) est gardée');
+    // (lot V4) « À venir » est branché sur le catalogue des sorties : aucun n'est réglé ici, l'écran le dit.
+    // (relecture) les films lisent par défaut le catalogue public : l'essai regarde les séries, qui ne lisent rien sans réglage (aucun appel à Internet ici).
+    await P.aller('#/series?vue=avenir'); await attendre(300); assert.match(P.app.innerHTML, /ne lit rien sur Internet/, '« À venir » sans catalogue réglé : l’écran le dit');
 
     // La fiche d'une série : saisons, épisodes, l'épisode qui manque, la reprise.
     await P.aller('#/titre/serie%3Abrume-lente'); await attendre(300);

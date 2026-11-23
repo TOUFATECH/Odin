@@ -20,6 +20,12 @@
       'Recherche': 'Search', 'Réglages': 'Settings', 'Plus': 'More', 'Tout': 'All', 'Revenir à Odin': 'Back to Odin',
       'Qui regarde ?': 'Who’s watching?', 'Lecture': 'Play', 'Reprendre': 'Resume', 'Plus d’infos': 'More info',
       'Tout Venus': 'All of Venus', 'Au hasard': 'Shuffle', 'Filtres': 'Filters', 'Bibliothèque': 'Library', 'À venir': 'Upcoming',
+      'Nouveau': 'Request', 'Nouveautés': 'New releases', 'Mes envies': 'My wishes', 'Dans Venus': 'In Venus', 'En téléchargement': 'Downloading',
+      'Télécharger': 'Download', 'Favori': 'Favourite', 'En favori': 'Favourited', 'Disponible': 'Available', 'Pas disponible': 'Not available',
+      'Disponibles': 'Available', 'Pas disponibles': 'Not available', 'Mes favoris': 'My favourites', 'Aujourd’hui': 'Today', 'Hier': 'Yesterday', 'Demain': 'Tomorrow',
+      'Ajouter': 'Add', 'Ajouté': 'Added', 'Demander': 'Request', 'Accepter': 'Accept', 'Jeter': 'Discard', 'Annuler': 'Cancel', 'Mettre en pause': 'Pause',
+      'Demandes': 'Requests', 'Demandes au nom de chacun': 'Requests on behalf of each person', 'À valider': 'To approve', 'Valider': 'Approve', 'Refuser': 'Decline',
+      'Enregistrer': 'Save', 'Tester': 'Test', 'Retirer': 'Remove',
     },
   };
   const LANG = String((D && D.documentElement.lang) || (W.navigator && W.navigator.language) || 'fr');
@@ -133,6 +139,45 @@
     },
   };
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+  // ---------------------------------------------------------------- demandes et téléchargements (logique pure, lots V4-V6)
+  // Chaque clic passe par une action de Vénus (/api/valhalla/act, module freyja). Un clic qui télécharge envoie
+  // `confirm: true` : le clic EST la confirmation (l'IA et la parole, elles, demandent toujours).
+  const GENRE = { movie: 'film', show: 'série', anime: 'animé' };
+  const ETAT_FILE = { attente: 'En attente', en_cours: 'En cours', pause: 'En pause', annule: 'Annulé', termine: 'Importé', echec: 'Échec', a_part: 'Mis à part (antivirus)' };
+  const pad2 = (n) => String(n).padStart(2, '0');
+  Object.assign(L, {
+    /** Ce que ⬇ (« Télécharger », « Demander », « Ajouter ») envoie pour un titre : toute la chaîne, confirmée par le clic. */
+    obtenir(e) {
+      const film = e.kind === 'movie' || e.type === 'movie';
+      const input = { titre: String(e.title || '').slice(0, 200), genre: film ? 'film' : GENRE[e.kind] || 'série' };
+      const an = e.year || (e.date ? Number(String(e.date).slice(0, 4)) : 0);
+      if (film) { if (an) input.annee = String(an); } else { input.saisons = String(e.season != null ? e.season : 1); if (e.episode != null) input.episode = String(e.episode); }
+      return { module: 'freyja', action: 'hnoss_obtenir', input, confirm: true };
+    },
+    /** Ce que ♡ envoie : ajouter à « Mes envies » (la chaîne part, confirmée par le clic) ou retirer. */
+    envie(e, on) {
+      if (on) return { module: 'freyja', action: 'hnoss_envie', input: { titre: String(e.title || '').slice(0, 200), cle: e.key, retirer: true } };
+      return { module: 'freyja', action: 'hnoss_envie', input: { ...L.obtenir(e).input, cle: e.key }, confirm: true };
+    },
+    /** « À venir » : le filtre (tout, disponibles, pas disponibles, mes favoris), puis les sorties groupées par jour. */
+    jours(entries, filtre, favs) {
+      const keep = (e) => (filtre === 'nas' ? !!e.nas : filtre === 'out' ? !e.nas : filtre === 'fav' ? favs.has(e.key) : true);
+      const g = new Map(); for (const e of (entries || []).filter(keep)) { if (!g.has(e.date)) g.set(e.date, []); g.get(e.date).push(e); }
+      return [...g.keys()].sort().map((day) => ({ day, items: g.get(day) }));
+    },
+    /** La file de Comète est relue toutes les 2 s tant qu'un téléchargement est en cours ou attend. */
+    fileVivante(l) { return (l || []).some((x) => x.etat === 'en_cours' || x.etat === 'attente'); },
+    /** Les membres « libres » après un choix dans « Demandes au nom de chacun ». */
+    libres(l, login, libre) { const s = new Set(l || []); if (libre) s.add(login); else s.delete(login); return [...s].sort(); },
+    /** Une ligne de la file : le titre, l'épisode, le pourcentage, l'état et le temps restant (mm:ss). */
+    ligneFile(x) {
+      const c = x.cible || {}, pct = x.total ? Math.min(100, Math.round((x.fait / x.total) * 100)) : x.etat === 'termine' ? 100 : 0;
+      const sec = x.etat === 'en_cours' && x.vitesse > 0 && x.total ? Math.max(0, Math.round((x.total - x.fait) / x.vitesse)) : 0;
+      const reste = sec ? (sec >= 3600 ? `${Math.floor(sec / 3600)}:${pad2(Math.floor((sec % 3600) / 60))}:${pad2(sec % 60)}` : `${pad2(Math.floor(sec / 60))}:${pad2(sec % 60)}`) : '';
+      return { titre: c.titre || x.titre || '', ep: c.genre === 'episode' && c.saison != null ? `S${c.saison}:É${c.episode}` : '', pct, etat: ETAT_FILE[x.etat] || String(x.etat || ''), reste };
+    },
+  });
   W.VenusApp = { L, t, TXT, NAV_ITEMS, DEFAULT_HIDDEN, RAIL_MAX };
   if (!D || !D.getElementById || !D.getElementById('app')) return; // chargé pour les essais : rien à dessiner
 
@@ -141,7 +186,10 @@
   for (const k of Object.keys(LAYOUTS)) LAYOUTS[k] = t(LAYOUT_TXT[k] || LAYOUTS[k]);
   T.auto = 'off'; // comme Venus d'origine : « Toujours Venus » tant que rien n'est choisi
   const M = { order: NAV_ITEMS.map((i) => i.id), hidden: [...DEFAULT_HIDDEN] };
-  const S = { profile: { id: 'moi', name: '', isAdmin: true, avatar: 0 }, profils: [], items: [], cats: L.comptes([]), loaded: false, error: '', heroIdx: 0, lib: {}, libView: {}, season: null, epFilter: 'all', setTab: 'affichage', searchQ: '', searchKind: 'all', fiche: {}, dossiers: null };
+  const S = { profile: { id: 'moi', name: '', isAdmin: true, avatar: 0 }, profils: [], items: [], cats: L.comptes([]), loaded: false, error: '', heroIdx: 0, lib: {}, libView: {}, season: null, epFilter: 'all', setTab: 'affichage', searchQ: '', searchKind: 'all', fiche: {}, dossiers: null,
+    // demandes et téléchargements : « À venir » par genre, favoris (♡), titres lancés, en cours d'envoi, file de Comète…
+    up: {}, upFilter: {}, upEarlier: {}, favs: new Set(), pris: new Set(), busy: new Set(), reg: [], envies: null, file: null, fileT: 0, demandes: null,
+    req: { q: '', kind: 'movie' }, newKind: 'movie', nouv: {}, newCur: {}, dem: null };
   const AVATAR_HUES = [12, 38, 145, 190, 215, 265, 300, 340];
   const api = async (chemin, corps) => {
     const r = await fetch(chemin, corps === undefined ? { headers: { 'x-odin': '1' } } : { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(corps) });
@@ -293,11 +341,8 @@
     <div class="active-filters"${tags.length ? '' : ' hidden'}>${tags.join('')}</div>
     <div class="grid view-${view}${view === 'wide' || (isClip && view !== 'list') ? ' grid-wide' : ''}">${grid}</div></div></main>`;
   };
-  // « À venir » et « Mes envies » (Upcoming.js) : la place est prête, les sorties et les envies viennent avec Hnoss,
-  // Sirius et Pléiades (les boutons ♡ et ⬇ de chaque sortie y seront branchés).
-  V.attente = (kind, tabs, envies) => `<div class="page"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t(TITLES[kind]))}</h1></div>${tabs}</div>
-    <div class="up-bar"><div class="up-bar-right"><span class="muted small">${I('heart')} ${esc(t('Favori = téléchargé automatiquement par {a}', { a: kind === 'movie' ? 'Sirius' : 'Pléiades' }))}</span></div></div>
-    <div class="upcoming" data-a-brancher="${envies ? 'envies' : 'sorties'}">${Empty(envies ? t('Mes envies arrivent avec Hnoss : chaque titre demandé y apparaîtra, puis passera dans « Dans Venus » à son arrivée.') : t('Les sorties à venir arrivent avec Hnoss, Sirius et Pléiades : chaque sortie aura ses boutons ♡ (favori) et ⬇ (télécharger).'))}</div></div>`;
+  // « À venir » et « Mes envies » (Upcoming.js) : voir plus bas, V.upcoming et V.wishes.
+  V.attente = (kind, tabs, envies) => (envies ? V.wishes(tabs) : V.upcoming(kind, tabs));
 
   // Fiche (pages/Details.js)
   V.details = (id) => {
@@ -324,7 +369,7 @@
       ${f.saisons.length > 1 ? `<div class="season-bar" role="tablist" aria-label="${esc(t('Saisons'))}">${f.saisons.map((s) => { const v = s.episodes.filter((e) => e.watched).length, n = s.episodes.length; return `<button class="season-card f${s === cur ? ' on' : ''}${v === n ? ' done' : ''}" role="tab" aria-selected="${s === cur}" data-act="season" data-v="${s.number}"><span class="season-pic"><div class="ph" style="--h:${hueOf(`${d.title}${s.number}`)}"></div><i class="season-prog"><i style="width:${n ? Math.round((v / n) * 100) : 0}%"></i></i></span><b>${esc(t('Saison {n}', { n: nombre(s.number) }))}</b><span>${esc(v === n ? t('Vue en entier') : t('{v} / {n} vus', { v: nombre(v), n: nombre(n) }))}</span></button>`; }).join('')}</div>` : ''}
       <div class="season-head"><div class="sh-info"><b>${esc(t('Saison {n}', { n: nombre(cur.number) }))}</b><span>${esc([tn(cur.episodes.length, '{n} épisode', '{n} épisodes'), cur.manquants.length ? tn(cur.manquants.length, '{n} manquant', '{n} manquants') : '', tn(cur.episodes.length - vus, '{n} à voir', '{n} à voir')].filter(Boolean).join(' · '))}</span></div></div>
       <div class="episodes">${eps.map((e) => (e.missing
-        ? `<div class="episode missing" title="${esc(t('Épisode {n} : pas dans vos dossiers', { n: nombre(e.episode) }))}"><div class="thumb"><span class="miss-num">${nombre(e.episode)}</span><span class="miss-tag">${esc(t('Manquant'))}</span></div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b></div></div>`
+        ? `<div class="episode missing" title="${esc(t('Épisode {n} : pas dans vos dossiers', { n: nombre(e.episode) }))}"><div class="thumb"><span class="miss-num">${nombre(e.episode)}</span><span class="miss-tag">${esc(t('Manquant'))}</span></div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b>${S.profile.isAdmin ? `<button class="btn btn-ghost btn-small f ep-get" data-act="epgrab" data-v="${esc(d.id)}" data-t="${esc(d.title)}" data-s="${cur.number}" data-e="${e.episode}" aria-label="${esc(t('Faire venir l’épisode {n}', { n: nombre(e.episode) }))}"${S.pris.has(`ep|${d.id}|${cur.number}|${e.episode}`) ? ' disabled' : ''}>${I(S.pris.has(`ep|${d.id}|${cur.number}|${e.episode}`) ? 'check' : 'download')}${esc(t('Faire venir'))}</button>` : ''}</div></div>`
         : `<div class="ep-item"><a class="episode f${e.id === next.id && d.status === 'progress' ? ' is-current' : ''}${e.watched ? ' seen' : ''}" title="${esc(t('Épisode {n}', { n: nombre(e.episode) }))}" aria-label="${esc([t('Épisode {n}', { n: nombre(e.episode) }), e.runtime ? duree(e.runtime) : '', e.watched ? t('vu') : ''].filter(Boolean).join(', '))}" href="${href(lirePath(e.id))}"><div class="thumb"><div class="ph" style="--h:${hueOf(`${d.title}${cur.number}${e.episode}`)}"></div><span class="ep-play">${I('play')}</span>${e.position > 0 && !e.watched && e.duration ? `<div class="bar"><i style="width:${Math.min(100, (e.position / e.duration) * 100)}%"></i></div><span class="ep-badge now">${esc(t('En cours'))}</span>` : ''}</div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b>${e.runtime ? `<span>${esc(duree(e.runtime))}</span>` : ''}</div></a><button class="ep-toggle f${e.watched ? ' on' : ''}" aria-pressed="${e.watched}" aria-label="${esc(e.watched ? t('Marquer l’épisode {n} comme non vu', { n: nombre(e.episode) }) : t('Marquer l’épisode {n} comme vu', { n: nombre(e.episode) }))}" data-act="epseen" data-v="${esc(e.id)}" data-d="${e.duration || (e.runtime || 0) * 60}" data-on="${e.watched ? 1 : 0}">${I('check')}</button></div>`)).join('')}</div></section>`;
     }
     const te = f.tech || {};
@@ -386,12 +431,230 @@
     },
   };
   V.settings = () => {
-    const NAVS = [['Vous', [['affichage', 'Thème et menu', 'image']]], ...(S.profile.isAdmin ? [['Médias', [['medias', 'Médiathèques', 'folder']]]] : [])];
+    const NAVS = [['Vous', [['affichage', 'Thème et menu', 'image']]], ...(S.profile.isAdmin ? [['Médias', [['medias', 'Médiathèques', 'folder'], ['demandes', 'Demandes', 'download']]]] : [])];
     const TABS = NAVS.flatMap(([, i]) => i), cur = TABS.find(([k]) => k === S.setTab) || TABS[0];
     return `<main class="with-nav page-in"><div class="page admin"><div class="page-head"><h1 tabindex="-1">${esc(t('Réglages'))}</h1></div>
     <div class="set-layout"><nav class="set-nav" aria-label="${esc(t('Rubriques des réglages'))}">${NAVS.map(([g, items]) => `<div class="set-group">${NAVS.length > 1 ? `<span class="set-group-t">${esc(t(g))}</span>` : ''}${items.map(([k, l, ic]) => `<button class="set-tab f${k === cur[0] ? ' on' : ''}"${k === cur[0] ? ' aria-current="page"' : ''} data-act="settab" data-v="${k}">${I(ic)}<span>${esc(t(l))}</span></button>`).join('')}</div>`).join('')}</nav>
     <div class="set-main"><div class="set-head"><h2>${esc(t(cur[1]))}</h2></div><div class="admin-grid">${BOX[cur[0]]()}</div></div></div></div></main>`;
   };
+  // ---------------------------------------------------------------- demandes et téléchargements (écrans, lots V4-V6)
+  // Upcoming.js (« À venir », « Mes envies »), Nouveautes.js, Request.js (« Nouveau » et sa file), SettingsAdmin.js
+  // (Réglages → Demandes), branchés sur les applicatifs natifs de Vénus : Hnoss (demandes, envies), Sirius (films),
+  // Pléiades (séries, animés), Delta (sources), Comète (file). Les titres venus d'un catalogue sont écrits comme du
+  // texte (esc), jamais comme du code ; aucune image extérieure n'est chargée (le carré de couleur de Venus à la place).
+  const agir = (action, input = {}, confirm = false) => api('/api/valhalla/act', { module: 'freyja', action, input, ...(confirm ? { confirm: true } : {}) });
+  const envoyer = (corps) => api('/api/valhalla/act', corps);
+  const premiere = (r, repli) => String((r && (r.text || r.error || r.confirm)) || repli || t('Impossible pour le moment.')).split('\n')[0];
+  // Le registre des titres cliquables : un même titre (clé, saison, épisode, type) garde TOUJOURS le même indice, même
+  // après un nouveau rendu (avant : remis à zéro à chaque rendu, une fenêtre restée ouverte pouvait viser un autre titre).
+  const regIdx = new Map();
+  const reg = (x) => { const id = `${x.key}|${x.season ?? ''}|${x.episode ?? ''}|${x.type || ''}`; let i = regIdx.get(id); if (i === undefined) { i = S.reg.length; regIdx.set(id, i); S.reg.push(x); } else S.reg[i] = x; return i; };
+  const cleSortie = (e) => `${e.key}|${e.season ?? ''}|${e.episode ?? ''}`;
+  const appDe = (kind) => (kind === 'movie' ? 'Sirius' : 'Pléiades');
+  const nomDe = (e) => e.title || '';
+  const epLabel = (e) => (e.kind === 'movie' ? [t(e.release || 'Sortie'), e.year].filter(Boolean).join(' · ') : `${e.season != null ? t('S{s}:É{e}', { s: nombre(e.season), e: nombre(e.episode ?? 0) }) : t('Épisode {n}', { n: nombre(e.episode ?? 0) })}${e.epTitle ? ` - ${e.epTitle}` : ''}`);
+  const jourLocal = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+  const fmtJour = (iso, an = true) => date(Date.parse(`${iso}T12:00:00`), { day: 'numeric', month: 'long', ...(an ? { year: 'numeric' } : {}) });
+  const libelleJour = (iso) => {
+    const dt = new Date(`${iso}T00:00:00`), t0 = new Date(`${jourLocal(Date.now())}T00:00:00`), diff = Math.round((dt - t0) / 864e5);
+    if (diff === 0) return t('Aujourd’hui'); if (diff === -1) return t('Hier'); if (diff === 1) return t('Demain');
+    const s = date(dt.getTime(), { weekday: 'long', day: 'numeric', month: 'short', ...(dt.getFullYear() !== t0.getFullYear() ? { year: 'numeric' } : {}) });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  };
+  const UpPh = (e) => `<div class="up-ph" style="--h:${hueOf(nomDe(e))}"><span>${esc(nomDe(e))}</span></div>`;
+
+  async function chargerAVenir(kind) {
+    S.up[kind] = { chargement: true };
+    try { const r = await agir('a_venir', { genre: GENRE[kind] }); if (r.ok === false) throw new Error(premiere(r)); S.up[kind] = { data: r.data }; for (const e of [...(r.data.entries || []), ...(r.data.suggestions || [])]) if (e.wanted) S.favs.add(e.key); }
+    catch (err) { S.up[kind] = { erreur: String(err.message || err) }; }
+    rerender();
+  }
+  const FavBtn = (e, wide = false) => { const on = S.favs.has(e.key), i = reg(e); return `<button type="button" class="up-act fav f${wide ? ' wide btn' : ''}${on ? ' on' : ''}" title="${esc(on ? t('Retirer des favoris') : t('Favori : téléchargé automatiquement'))}" aria-label="${esc(on ? t('Retirer « {t} » des favoris', { t: nomDe(e) }) : t('Mettre « {t} » en favori (téléchargement automatique)', { t: nomDe(e) }))}" aria-pressed="${on}" data-act="fav" data-i="${i}">${I('heart')}${wide ? esc(on ? t('En favori') : t('Favori')) : ''}</button>`; };
+  const DlBtn = (e, kind, wide = false) => {
+    const k = cleSortie(e), done = S.pris.has(k), busy = S.busy.has(k), app = appDe(kind), i = reg(e);
+    const title = done ? t('Déjà suivi par {a} : téléchargé dès sa sortie', { a: app }) : t('Télécharger avec {a}', { a: app });
+    return `<button type="button" class="up-act dl f${wide ? ' wide btn' : ''}${done ? ' done' : ''}${busy ? ' busy' : ''}"${done || busy ? ' disabled' : ''} title="${esc(title)}" aria-label="${esc(title)}" data-act="grab" data-i="${i}">${I(done ? 'check' : 'download')}${wide ? esc(done ? t('Suivi par {a}', { a: app }) : t('Télécharger')) : ''}</button>`;
+  };
+  V.upcoming = (kind, tabs) => {
+    const st = S.up[kind];
+    if (!st || st.chargement) { if (!st) void chargerAVenir(kind); return '<div class="page" aria-busy="true"><i class="sk" style="width:220px;height:48px"></i></div>'; }
+    if (st.erreur) return `<div class="page"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t(TITLES[kind]))}</h1></div>${tabs}</div><div class="empty"><h2>${esc(t('Impossible d’afficher les sorties'))}</h2><p>${esc(st.erreur)}</p></div></div>`;
+    const d = st.data, kids = !!S.profile.isKids, filtre = S.upFilter[kind] || 'all', app = appDe(kind);
+    const hier = jourLocal(Date.now() - 864e5), today = jourLocal(Date.now());
+    const groups = L.jours(d.entries, filtre, S.favs), before = groups.filter((g) => g.day < hier), shown = S.upEarlier[kind] ? groups : groups.filter((g) => g.day >= hier);
+    const sugs = (filtre === 'all' || filtre === 'out') && !kids ? d.suggestions || [] : [];
+    const count = (d.entries || []).length;
+    const FILTERS = [['all', 'Tout'], ['nas', 'Disponibles'], ['out', 'Pas disponibles'], ['fav', 'Mes favoris']].filter(([k]) => !(kids && (k === 'out' || k === 'fav')));
+    const card = (e) => {
+      // Comme Upcoming.js : la carte d'un titre déjà dans Vénus ouvre sa fiche et n'a pas de ♡ ⬇ ; « Disponible » veut dire
+      // que CE film ou CET épisode est là (une série dans Vénus dont l'épisode n'est pas encore sorti : « Pas disponible »).
+      const ok = !!e.nas, dispo = e.kind === 'movie' ? ok : !!e.epId;
+      return `<div class="up-card${ok ? '' : ' out'}"><button type="button" class="up-pic f" aria-label="${esc(`${nomDe(e)}, ${epLabel(e)}`)}" ${ok ? `data-act="upopen" data-v="${esc(e.nas)}"` : `data-act="upsheet" data-i="${reg(e)}" data-k="${kind}"`}>${UpPh(e)}<span class="up-badge ${dispo ? 'in' : 'out'}">${esc(dispo ? t('Disponible') : t('Pas disponible'))}</span>${e.at && e.kind !== 'movie' ? `<span class="up-time">${esc(date(e.at, { hour: '2-digit', minute: '2-digit' }))}</span>` : ''}</button>
+      ${!ok && !kids ? `<div class="up-acts">${FavBtn(e)}${DlBtn(e, kind)}</div>` : ''}<b>${esc(nomDe(e))}</b><span>${esc(epLabel(e))}</span></div>`;
+    };
+    const vide = !d.source
+      ? `<div class="grid-empty"><p>${esc(t(d.texte || 'Aucun catalogue des sorties n’est réglé.'))}</p>${S.profile.isAdmin ? `<button class="btn btn-small f" data-act="godemandes">${I('gear')}${esc(t('Régler le catalogue des sorties'))}</button>` : ''}</div>`
+      : `<div class="grid-empty"><p>${esc(filtre === 'fav' ? t('Aucun favori à venir.') : filtre === 'nas' ? t('Rien de disponible pour ces jours-ci.') : t('Rien d’annoncé pour l’instant.'))}</p>${(d.erreurs || []).length ? `<p class="muted">${esc(t('Le catalogue ne répond pas pour l’instant : {e}', { e: d.erreurs[0] }))}</p>` : ''}</div>`;
+    return `<div class="page"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t(TITLES[kind]))}</h1><p class="count">${esc(kind === 'movie' ? tn(count, '{n} sortie', '{n} sorties') : tn(count, '{n} épisode', '{n} épisodes'))}</p></div>${tabs}</div>
+    <div class="up-bar"><div class="seg up-filter" role="radiogroup" aria-label="${esc(t('Afficher'))}">${FILTERS.map(([k, l]) => `<button class="seg-b f${k === filtre ? ' on' : ''}" role="radio" aria-checked="${k === filtre}" data-act="upfilter" data-kind="${kind}" data-v="${k}">${esc(t(l))}</button>`).join('')}</div>
+    <div class="up-bar-right">${!kids ? `<span class="muted small">${I('heart')} ${esc(t('Favori = téléchargé automatiquement par {a}', { a: app }))}</span>` : ''}</div></div>
+    ${sugs.length ? `<section class="up-sugs"><h2 class="section-title">${esc(kind === 'movie' ? t('Films à découvrir') : kind === 'anime' ? t('Animés à découvrir') : t('Séries à découvrir'))}<small>${esc(t('pas encore disponibles'))}</small></h2><div class="up-sug-row">${sugs.map((e) => `<div class="up-sug"><button type="button" class="up-sug-pic f" aria-label="${esc(nomDe(e))}" data-act="upsheet" data-i="${reg(e)}" data-k="${kind}">${UpPh(e)}<span class="up-sug-date">${esc(libelleJour(e.date))}</span></button>${kids ? '' : `<div class="up-acts">${FavBtn(e)}${DlBtn(e, kind)}</div>`}<b>${esc(nomDe(e))}</b><small>${esc(e.kind === 'movie' ? [t(e.release || 'Sortie'), e.year].filter(Boolean).join(' · ') : [e.network, e.genres && e.genres[0]].filter(Boolean).join(' · ') || epLabel(e))}</small></div>`).join('')}</div></section>` : ''}
+    <div class="upcoming">${before.length && !S.upEarlier[kind] ? `<button class="btn btn-small btn-ghost up-earlier f" data-act="upearlier" data-kind="${kind}">${I('up')}${esc(t('Voir les {n} jours précédents', { n: nombre(before.length) }))}</button>` : ''}
+    ${shown.map((g) => `<section class="up-day${g.day < today ? ' past' : ''}${g.day === today ? ' today' : ''}"><h2 class="section-title">${esc(libelleJour(g.day))}<small>${esc(fmtJour(g.day))}</small></h2><div class="up-grid">${g.items.map(card).join('')}</div></section>`).join('')}
+    ${shown.length ? '' : vide}</div></div>`;
+  };
+  function upSheet(e, kind) {
+    const kids = !!S.profile.isKids, app = appDe(kind);
+    openSheet(null, `<div class="up-sheet"><div class="up-sheet-pic">${UpPh(e)}</div><div class="up-sheet-body"><h2>${esc(nomDe(e))}</h2><p class="muted">${esc([e.kind === 'movie' ? t(e.release || 'Sortie') : epLabel(e), e.date ? fmtJour(e.date) : '', e.network].filter(Boolean).join(' · '))}</p>
+      ${e.genres && e.genres.length ? `<p class="up-genres">${esc(e.genres.slice(0, 4).join(' · '))}</p>` : ''}${e.overview ? `<p class="up-over">${esc(e.overview)}</p>` : ''}
+      ${kids ? '' : `<div class="up-sheet-acts">${FavBtn(e, true)}${DlBtn(e, kind, true)}</div><p class="muted small">${esc(t('Favori : le titre rejoint « Mes envies » et {a} le télécharge dès qu’il est disponible.', { a: app }))}</p>`}</div></div>`, { wide: true });
+  }
+
+  // Mes envies (Upcoming.js → Wishes)
+  const ETAT_ENVIE = { 'à valider': ['pending', 'Demandé, en attente de validation'], 'en attente': ['processing', 'Demandé : téléchargé dès sa sortie'], cherchée: ['processing', 'Demandé, recherche en cours'], 'en téléchargement': ['processing', 'Téléchargement en cours'], disponible: ['available', 'Disponible, arrive dans Venus'], échec: ['error', 'Pas trouvé'] };
+  V.wishes = (tabs) => {
+    if (S.envies === null) { S.envies = undefined; agir('hnoss_envies').then((r) => { S.envies = (r.data && r.data.envies) || []; rerender(); }).catch(() => { S.envies = []; rerender(); }); }
+    if (!S.envies) return '<div class="page" aria-busy="true"><i class="sk" style="width:220px;height:48px"></i></div>';
+    const l = S.envies, n = l.length;
+    return `<div class="page"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t('Ma liste'))}</h1><p class="count">${esc(tn(n, '{n} envie', '{n} envies'))}</p></div>${tabs}</div>
+    <p class="list-hint">${esc(S.profile.isKids ? t('Vos envies sont visibles par les adultes de la maison, qui décident du téléchargement.') : t('Chaque envie est demandée à Hnoss tout de suite : le téléchargement démarre dès que le titre sort. Une fois arrivé, il passe dans « Dans Venus ».'))}</p>
+    <div class="wish-grid">${!n ? `<div class="grid-empty"><p>${esc(t('Aucune envie pour l’instant.'))}</p><p class="muted">${esc(t('Dans Films, Séries ou Animés, onglet « À venir », le ♡ ajoute un titre ici et le fait télécharger.'))}</p><a class="btn btn-small f" href="${href('/series?vue=avenir')}">${I('cal')}${esc(t('Voir ce qui arrive'))}</a></div>`
+      : l.map((w) => { const [st, lbl] = ETAT_ENVIE[w.etat] || ['none', 'Suivi']; return `<article class="wish"><div class="wish-pic"><span>${esc(w.titre)}</span></div><div class="wish-body"><b>${esc(w.titre)}</b><span class="wish-meta">${esc([w.genre === 'film' ? t('Film') : w.anime ? t('Animé') : t('Série'), w.annee].filter(Boolean).join(' · '))}</span><span class="wish-state st-${st}">${esc(t(lbl))}</span>${w.etat === 'échec' && w.note ? `<small class="error-text">${esc(w.note)}</small>` : ''}</div><button class="btn btn-ghost btn-icon btn-mini f" aria-label="${esc(t('Retirer {t} de mes envies', { t: w.titre }))}" title="${esc(t('Retirer'))}" data-act="wishrm" data-v="${esc(w.cle || w.id)}" data-t="${esc(w.titre)}">${I('close')}</button></article>`; }).join('')}</div></div>`;
+  };
+
+  // Nouveau (Request.js) : chercher un titre et l'ajouter ; en dessous, la file de Comète.
+  const RKINDS = [['movie', 'Films', 'film'], ['show', 'Séries', 'tv'], ['anime', 'Animés', 'spark']];
+  async function chargerFile() {
+    clearTimeout(S.fileT);
+    try { const r = await agir('comete_file'); S.file = (r.data && r.data.telechargements) || []; } catch { S.file = S.file || []; }
+    if (L.route(location.hash).path !== '/nouveau') return;
+    const q = $('#req-queue'); if (q) q.outerHTML = FileHtml(); else rerender();
+    if (L.fileVivante(S.file)) S.fileT = setTimeout(() => { void chargerFile(); }, 2000);
+  }
+  const QBtn = (act, ic, label, id) => `<button class="btn btn-ghost btn-icon btn-mini f" aria-label="${esc(label)}" title="${esc(label)}" data-act="${act}" data-v="${esc(id)}">${I(ic)}</button>`;
+  function FileHtml() {
+    const l = S.file || [];
+    if (!l.length) return '<section class="req-queue" id="req-queue" hidden></section>';
+    return `<section class="req-queue" id="req-queue"><h2>${esc(t('En téléchargement'))}</h2><div class="req-q-list">${l.map((x) => {
+      const f = L.ligneFile(x), ouvert = x.etat === 'en_cours' || x.etat === 'attente';
+      const btns = ouvert ? QBtn('qpause', 'pause', t('Mettre en pause'), x.id) + QBtn('qcancel', 'stop', t('Annuler'), x.id)
+        : x.etat === 'pause' ? QBtn('qresume', 'play', t('Reprendre'), x.id) + QBtn('qcancel', 'stop', t('Annuler'), x.id)
+          : x.etat === 'a_part' ? `<button class="btn btn-small f" data-act="qaccept" data-v="${esc(x.id)}">${I('check')}${esc(t('Accepter'))}</button><button class="btn btn-small btn-danger f" data-act="qdrop" data-v="${esc(x.id)}">${I('trash')}${esc(t('Jeter'))}</button>`
+            : QBtn('qremove', 'close', t('Retirer de la file'), x.id);
+      return `<div class="req-q${x.etat === 'a_part' ? ' a-part' : ''}"><span class="req-ph small">${esc((f.titre || '?').slice(0, 1))}</span><div class="grow"><b>${esc(f.titre)}${f.ep ? `<small>${esc(` · ${f.ep}`)}</small>` : ''}</b><div class="progress-line"><i style="width:${f.pct}%"></i></div><small>${esc([t(f.etat), `${nombre(f.pct)} %`, f.reste ? t('reste {r}', { r: f.reste }) : '', x.etat === 'a_part' || x.etat === 'echec' ? x.texte : ''].filter(Boolean).join(' · '))}</small></div><div class="req-q-acts">${btns}</div></div>`;
+    }).join('')}</div></section>`;
+  }
+  // La recherche du titre tapé (Request.js : 350 ms après la dernière lettre ; seule la dernière réponse compte).
+  let reqT = 0, reqSeq = 0;
+  function chercherReq(cle, q, kind) {
+    clearTimeout(reqT);
+    reqT = setTimeout(async () => {
+      const my = ++reqSeq;
+      let data = { source: false, items: [] };
+      try { const r = await agir('sorties_chercher', { q, genre: GENRE[kind] }); if (r && r.data) data = r.data; } catch { /* le titre tel quel */ }
+      if (my !== reqSeq || L.route(location.hash).path !== '/nouveau') return;
+      S.req.res = { cle, data };
+      const i = $('#reqq'), vise = !!i && D.activeElement === i, p = vise ? i.selectionStart : null; render(true);
+      const j = $('#reqq'); if (j && vise) { j.focus({ preventScroll: true }); if (p != null) j.setSelectionRange(p, p); }
+    }, 350);
+  }
+  V.request = () => {
+    if (S.file === null) { S.file = undefined; void chargerFile(); }
+    if (S.demandes === null) { S.demandes = undefined; agir('hnoss_demandes').then((r) => { S.demandes = (r.data && r.data.demandes) || []; rerender('#reqq'); }).catch(() => { S.demandes = []; }); }
+    const q = S.req.q.trim(), kind = S.req.kind;
+    const m = /^(.*?)\s*\((\d{4})\)$/.exec(q), titre = m ? m[1] : q, annee = m ? Number(m[2]) : 0;
+    const cat = kind === 'movie' ? 'movie' : kind === 'anime' ? 'anime' : 'show', n = norm(titre);
+    const dans = q.length >= 2 ? S.items.filter((i) => (cat === 'movie' ? i.category === 'movie' : i.category === 'show' || i.category === 'anime') && norm(i.title) === n) : [];
+    const deja = q.length >= 2 ? (S.demandes || []).filter((d) => norm(d.titre) === n && (cat === 'movie') === (d.genre === 'film')) : [];
+    const cleR = `${cat}|${q}`, rech = S.req.res && S.req.res.cle === cleR ? S.req.res.data : null;
+    if (q.length >= 2 && !rech) chercherReq(cleR, q, cat);
+    const etatDe = (title, year, inLibrary) => {
+      const nn = norm(title), k = `req|${cat}|${nn}|${year || ''}`;
+      const ici = inLibrary || (S.items.some((i) => (cat === 'movie' ? i.category === 'movie' : i.category === 'show' || i.category === 'anime') && norm(i.title) === nn) ? 'oui' : '');
+      const dem = (S.demandes || []).find((d) => norm(d.titre) === nn && (cat === 'movie') === (d.genre === 'film') && (!year || !d.annee || d.annee === year));
+      return { etat: ici ? 'venus' : dem ? 'requested' : S.pris.has(k) ? 'added' : S.busy.has(k) ? 'busy' : 'idle', note: dem ? dem.etat : '' };
+    };
+    // Avec la clé du grand catalogue : ses résultats (titre, année, résumé ; l'affiche est dessinée, aucune image
+    // extérieure). Sans clé : le titre tapé, tel quel.
+    const res = q.length < 2 ? [] : rech && rech.source ? (rech.items || []).map((x, i) => ({ id: String(i), title: x.title, year: x.year, overview: x.overview, kind: cat, ...etatDe(x.title, x.year, x.inLibrary) }))
+      : rech ? [{ id: 'q', title: titre, year: annee || undefined, kind: cat, ...etatDe(titre, annee) }] : [];
+    const note = !q ? t('Cherchez un titre pour l’ajouter.') : q.length < 2 ? t('Tapez au moins deux lettres.') : !rech ? t('Recherche…')
+      : rech.source ? (res.length ? tn(res.length, '{n} résultat', '{n} résultats') : t('Aucun résultat.'))
+        : dans.length ? t('Déjà dans Venus') : deja.length ? t('Déjà demandé') : t('Un clic sur « Ajouter » : il est cherché dans tes sources, téléchargé par Comète et rangé dans Venus.');
+    return `<main class="with-nav page-in"><div class="page req-page"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t('Nouveau'))}</h1><p class="muted">${esc(t('Ajoutez un titre : il se télécharge tout seul et arrive dans Venus.'))}</p></div></div>
+    <div class="req-bar"><div class="search-box">${I('search')}<input id="reqq" class="input" type="search" placeholder="${esc(t('Titre d’un film, d’une série ou d’un animé…'))}" autocomplete="off" aria-label="${esc(t('Rechercher un titre à ajouter'))}" enterkeyhint="search" value="${esc(S.req.q)}"></div>
+    <div class="seg" role="radiogroup" aria-label="${esc(t('Type'))}">${RKINDS.map(([k, l, ic]) => `<button class="seg-b f${k === kind ? ' on' : ''}" role="radio" aria-checked="${k === kind}" data-act="reqkind" data-v="${k}">${I(ic)}${esc(t(l))}</button>`).join('')}</div></div>
+    ${FileHtml()}
+    <p class="muted req-note" aria-live="polite">${esc(note)}</p>
+    <div class="req-grid">${res.map((r) => `<article class="req-card"><div class="req-pic"><span class="req-ph up-ph" style="--h:${hueOf(r.title)}">${esc(r.title.slice(0, 1))}</span></div><div class="req-body"><b class="req-title">${esc(r.title)}</b><small>${esc([r.year, kindLabel({ category: r.kind })].filter(Boolean).join(' · '))}</small>${r.overview ? `<p>${esc(r.overview)}</p>` : ''}
+      ${r.etat === 'venus' ? `<span class="req-state ok">${I('check')}${esc(t('Déjà dans Venus'))}</span>` : r.etat === 'requested' ? `<span class="req-state">${I('check')}${esc(t('Déjà demandé'))}${r.note ? ` · ${esc(r.note)}` : ''}</span>`
+        : `<button class="btn btn-small btn-play f${r.etat === 'added' ? ' done' : ''}"${r.etat !== 'idle' ? ' disabled' : ''} data-act="reqadd" data-v="${r.id}">${I(r.etat === 'busy' ? 'refresh' : r.etat === 'idle' ? 'download' : 'check')}${esc(r.etat === 'busy' ? t('Ajout…') : r.etat === 'added' ? t('Ajouté') : t('Ajouter'))}</button>`}</div></article>`).join('')}</div></div></main>`;
+  };
+
+  // Nouveautés (Nouveautes.js)
+  const NKINDS = [['movie', 'Films'], ['show', 'Séries'], ['anime', 'Animés']];
+  async function chargerNouveautes(kind) {
+    S.nouv[kind] = { chargement: true };
+    try { const r = await agir('sorties_nouveautes', { genre: GENRE[kind] }); if (r.ok === false) throw new Error(premiere(r)); S.nouv[kind] = { data: r.data }; for (const s of r.data.sections || []) for (const x of s.items) if (x.wanted) S.favs.add(x.key); }
+    catch (err) { S.nouv[kind] = { erreur: String(err.message || err) }; }
+    rerender();
+  }
+  V.nouveautes = () => {
+    const kind = S.newKind, st = S.nouv[kind];
+    const head = `<div class="new-head"><h1 tabindex="-1">${esc(t('Nouveautés'))}</h1><div class="chips new-tabs" role="tablist">${NKINDS.map(([k, l]) => `<button class="chip f${k === kind ? ' on' : ''}" role="tab" aria-selected="${k === kind}" data-act="newkind" data-v="${k}">${esc(t(l))}</button>`).join('')}</div>${st && st.data && st.data.source ? `<span class="auto-pill"><span class="dot"></span>${esc(t('Hnoss actif : demandez un titre, il se télécharge tout seul'))}</span>` : ''}</div>`;
+    if (!st || st.chargement) { if (!st) void chargerNouveautes(kind); return `<main class="with-nav new-page page-in">${head}<div class="page" aria-busy="true"><i class="sk" style="width:220px;height:48px"></i></div></main>`; }
+    if (st.erreur) return `<main class="with-nav new-page page-in">${head}<div class="empty"><h2>${esc(t('Rien pour le moment'))}</h2><p>${esc(st.erreur)}</p></div></main>`;
+    const d = st.data, sections = (d.sections || []).filter((s) => s.items.length);
+    if (!sections.length) return `<main class="with-nav new-page page-in">${head}<div class="rows new-rows"><div class="empty"><h2>${esc(d.source ? t('Rien pour le moment') : t('Nouveautés indisponibles'))}</h2><p>${esc(d.source ? t('Les sites de référence ne répondent pas pour l’instant. Réessayez dans un moment.') : t(d.texte))}</p>${!d.source && S.profile.isAdmin ? `<button class="btn btn-play f" data-act="godemandes">${esc(t('Ouvrir les réglages'))}</button>` : ''}</div></div></main>`;
+    const all = sections.flatMap((s) => s.items), x = all.find((y) => y.key === S.newCur[kind]) || all[0];
+    const when = x.date ? (Date.parse(x.date) > Date.now() ? t('Sortie le {d}', { d: fmtJour(x.date) }) : fmtJour(x.date)) : '';
+    const k = `nv|${x.key}`, pris = S.pris.has(k), busy = S.busy.has(k), on = S.favs.has(x.key), ix = reg(x);
+    const wish = `<button class="btn btn-ghost btn-icon f wish-btn${on ? ' is-on' : ''}" aria-pressed="${on}" aria-label="${esc(on ? t('Retirer de mes envies') : t('Ajouter à mes envies'))}" title="${esc(on ? t('Dans mes envies') : t('Ajouter à mes envies : demandé à Hnoss dès maintenant, téléchargé dès sa sortie'))}" data-act="fav" data-i="${ix}">${I('heart')}</button>`;
+    const actions = x.inLibrary ? `<div class="actions"><a class="btn btn-play f" href="${href(`/titre/${encodeURIComponent(x.inLibrary)}`)}">${I('play')}${esc(t('Dans Venus : voir la fiche'))}</a></div>`
+      : pris ? `<div class="actions"><span class="sp-state st-processing">${I('check')}${esc(t('Demandé, recherche en cours'))}</span>${wish}</div>`
+        : `<div class="actions"><button class="btn btn-play f"${busy ? ' disabled' : ''} data-act="newreq" data-i="${ix}">${I('add')}${esc(busy ? t('Demande envoyée…') : t('Demander'))}</button>${wish}</div>`;
+    const spot = `<section class="spotlight"><div class="sp-bg"><div class="sp-layer on"><div class="ph" style="--h:${hueOf(x.title)}"></div></div></div><div class="sp-body swap"><div class="sp-kicker">${x.inLibrary ? `<span class="sp-in">${I('check')}${esc(t('Dans Venus'))}</span>` : ''}${x.anime ? `<span>${esc(t('Animé'))}</span>` : ''}${when ? `<span>${esc(when)}</span>` : ''}${x.next ? `<span>${esc(t('Épisode {n} le {d}', { n: nombre(x.next.episode), d: date(x.next.at, { day: 'numeric', month: 'long' }) }))}</span>` : ''}</div>
+      <h1 class="hero-title sp-title">${esc(x.title)}</h1>${x.original && x.original !== x.title ? `<p class="sp-orig">${esc(x.original)}</p>` : ''}
+      ${x.score ? `<div class="ratings"><span class="rating r-tmdb"><span class="r-src">${esc(t('Note'))}</span><b>${esc(x.anime ? `${x.score} %` : new Intl.NumberFormat(LANG, { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(x.score / 10))}</b>${x.anime ? '' : '<small>/10</small>'}</span></div>` : ''}
+      ${x.overview ? `<p class="hero-overview">${esc(x.overview)}</p>` : ''}${actions}</div></section>`;
+    const rows = sections.map((s) => `<section class="row"><div class="row-head"><h2>${esc(t(s.title))}</h2></div>${ScrollRow(s.items.map((y) => `<button class="card poster dcard f" aria-label="${esc(`${y.title}${y.inLibrary ? `, ${t('dans Venus')}` : ''}`)}" data-act="newpick" data-v="${esc(y.key)}" data-k="${kind}"><div class="shot"><div class="ph" style="--h:${hueOf(y.title)}">${esc(y.title)}</div>${y.inLibrary ? `<span class="dc-in" title="${esc(t('Déjà dans Venus'))}">${I('check')}</span>` : ''}${y.score ? `<span class="dc-score">${esc(y.anime ? `${y.score} %` : `★ ${new Intl.NumberFormat(LANG, { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(y.score / 10)}`)}</span>` : ''}</div><div class="cap"><b>${esc(y.title)}</b><small>${esc(y.date ? (Date.parse(y.date) > Date.now() ? t('Le {d}', { d: fmtJour(y.date, false) }) : y.date.slice(0, 4)) : '')}</small></div></button>`).join(''))}</section>`).join('');
+    return `<main class="with-nav new-page page-in">${head}${spot}<div class="rows new-rows">${rows}</div></main>`;
+  };
+
+  // Réglages → Demandes (SettingsAdmin.js : boîtes « Sirius, Pléiades », « Comète », Hnoss ; sources et catalogue ajoutés)
+  const Field = (label, inner, hint = '') => { const id = (/id="([^"]+)"/.exec(inner) || [])[1]; return `<div class="field"><label${id ? ` for="${id}"` : ''}>${esc(label)}</label>${inner}${hint ? `<small>${esc(hint)}</small>` : ''}</div>`; };
+  const Select = (id, opts, v) => `<select class="input f" id="${id}">${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const Switch = (id, label, on, hint = '') => `<label class="switch"><span>${esc(label)}${hint ? `<small>${esc(hint)}</small>` : ''}</span><input type="checkbox" class="f" id="${id}"${on ? ' checked' : ''}></label>`;
+  /** La valeur d'un champ des réglages (case cochée ou texte), lue au moment du clic. */
+  const champ = (id) => { const e = $(`#${id}`); return e ? (e.type === 'checkbox' ? !!e.checked : String(e.value ?? '')) : undefined; };
+  async function chargerDemandes() {
+    const sur = (p) => p.then((r) => r.data || {}).catch(() => ({}));
+    const [acq, src, cat, hn, dem, dos] = await Promise.all([sur(agir('acquisition')), sur(agir('delta_sources')), sur(agir('catalogue_etat')), sur(agir('hnoss_reglages')), sur(agir('hnoss_demandes')), api('/venus/dossiers').catch(() => ({ dossiers: [] }))]);
+    S.dem = { sirius: acq.sirius || {}, pleiades: acq.pleiades || {}, comete: acq.comete || {}, sources: src.sources || [], catalogue: cat.reglages || {}, libres: hn.libres || [], membres: hn.membres || [], demandes: dem.demandes || [], dossiers: dos.dossiers || [] };
+    rerender();
+  }
+  BOX.demandes = () => {
+    if (S.dem === null) { S.dem = undefined; void chargerDemandes(); }
+    if (!S.dem) return `<section class="box"><p class="muted">${esc(t('Chargement…'))}</p></section>`;
+    const D_ = S.dem, QUAL = [['toutes', t('Toutes les qualités')], ['720p', '720p'], ['1080p', t('1080p, VF de préférence')], ['2160p', t('4K si possible')]];
+    const dos = (cat) => [['', t('Premier dossier déclaré')], ...D_.dossiers.filter((x) => x.categorie === cat).map((x) => [x.chemin, x.chemin])];
+    const one = (id, name, role, dirLabel, cat, anime) => { const r = D_[id] || {}; return `<div class="arr-one"><h3 class="box-sub">${esc(name)}<small class="muted"> — ${esc(t(role))}</small></h3><div class="arr-picks"><small class="ok-text">${esc(t('{a} intégré à Venus (dans Odin)', { a: name }))}</small><div class="two-cols wide">${Field(t('Profil de qualité'), Select(`q-${id}`, QUAL, r.qualite || '1080p'))}${Field(t(dirLabel), Select(`d-${id}`, dos(cat), r.dossier || ''))}</div>${anime ? Field(t('Dossier des animés'), Select(`da-${id}`, [['', t('Même dossier que les séries')], ...dos('series').slice(1)], r.dossierAnimes || '')) : ''}${Field(t('Langue'), Select(`l-${id}`, [['vf', t('VF de préférence')], ['toutes', t('Toutes les langues')]], r.langue || 'vf'))}${Actions(`<button class="btn btn-small btn-play f" data-act="suivisave" data-v="${id}">${esc(t('Enregistrer'))}</button>`)}</div></div>`; };
+    const arr = `<section class="box" id="arr"><h2>${esc(t('Sirius et Pléiades'))}</h2><p>${esc(t('Sirius (films) et Pléiades (séries et animés) sont dans Venus : dans « Nouveau » et « À venir », un clic envoie le titre au bon applicatif, qui le fait télécharger par Comète. Venus l’ajoute dès que le fichier arrive dans vos dossiers.'))}</p>${one('sirius', 'Sirius', 'films', 'Dossier des films', 'films')}${one('pleiades', 'Pléiades', 'séries et animés', 'Dossier des séries', 'series', true)}</section>`;
+    const c = D_.comete || {};
+    const comete = `<section class="box" id="comete"><h2>${esc(t('Comète : téléchargements'))}</h2><p>${esc(t('Le moteur de téléchargement de Venus : file d’attente, reprise après une coupure, vérification de chaque fichier (antivirus) avant de le ranger.'))}</p>${Field(t('Téléchargements en même temps'), Select('c-sim', [1, 2, 3, 4].map((n) => [n, String(n)]), c.simultanes || 2))}${Field(t('Taille maximale d’un fichier (Go)'), `<input class="input f" id="c-taille" type="number" min="1" max="500" value="${esc(c.tailleMaxGo || 60)}">`)}${Field(t('Débit maximum (Mo/s, 0 = libre)'), `<input class="input f" id="c-debit" type="number" min="0" max="10000" value="${esc(c.debitMo || 0)}">`)}${Actions(`<button class="btn btn-small btn-play f" data-act="cometesave">${esc(t('Enregistrer'))}</button><a class="btn btn-small f" href="${href('/nouveau')}">${I('download')}${esc(t('Voir la file'))}</a>`)}</section>`;
+    const sources = `<section class="box" id="sources"><h2>${esc(t('Sources de téléchargement (Delta)'))}</h2><p>${esc(t('Odin n’en fournit aucune : ajoutez seulement des sources que vous avez le droit d’utiliser (format de recherche standard des indexeurs). La clé est gardée chiffrée et n’est plus jamais montrée.'))}</p>
+      ${D_.sources.length ? D_.sources.map((x) => `<div class="list-row"><span class="dot${x.actif ? '' : ' off'}" title="${esc(x.actif ? t('Active') : t('Inactive'))}"></span><div class="grow"><b>${esc(x.nom)}</b><small class="muted">${esc([x.type, t('priorité {n}', { n: nombre(x.priorite) }), tn(x.recherches || 0, '{n} recherche', '{n} recherches'), x.aCle ? t('clé gardée') : '', x.derniereErreur || ''].filter(Boolean).join(' · '))}</small></div><button class="btn btn-small f" data-act="srctest" data-v="${esc(x.id)}">${esc(t('Tester'))}</button><button class="btn btn-small btn-danger f" data-act="srcdel" data-v="${esc(x.id)}" aria-label="${esc(t('Retirer {s}', { s: x.nom }))}">${esc(t('Retirer'))}</button></div>`).join('') : `<p class="muted">${esc(t('Aucune source pour l’instant.'))}</p>`}
+      <h3 class="box-sub">${esc(t('Ajouter une source'))}</h3><div class="two-cols wide">${Field(t('Nom'), '<input class="input f" id="s-nom" autocomplete="off" maxlength="60">')}${Field(t('Format'), Select('s-type', [['torznab', t('Recherche de torrents (format standard)')], ['newznab', t('Recherche Usenet (format standard)')]], 'torznab'))}</div>${Field(t('Adresse de l’API'), '<input class="input f" id="s-adr" type="url" placeholder="https://…/api" autocomplete="off">')}${Field(t('Clé (facultative)'), '<input class="input f" id="s-cle" type="password" autocomplete="new-password" value="">', t('Gardée chiffrée sur la machine d’Odin, jamais dans la base ni à l’écran.'))}${Actions(`<button class="btn btn-small btn-play f" data-act="srcadd">${I('plus')}${esc(t('Ajouter la source'))}</button>`)}</section>`;
+    const k = D_.catalogue || {};
+    const catalogue = `<section class="box" id="catalogue"><h2>${esc(t('Sorties à venir et nouveautés'))}</h2><p>${esc(t('D’où viennent les sorties de « À venir » et les Nouveautés, comme dans Venus. Par défaut, seul le catalogue public des films (sans clé) est lu ; « Aucun » pour ne rien lire. Avec la clé, « Nouveau » cherche aussi le titre tapé dans le grand catalogue.'))}</p>${Switch('cat-series', t('Programme télé des séries (public, sans clé)'), k.series)}${Switch('cat-animes', t('Programme de diffusion des animés (public, sans clé)'), k.animes)}${Field(t('Films'), Select('cat-films', [['aucun', t('Aucun')], ['public', t('Catalogue public des films (sans clé)')], ['cle', t('Grand catalogue des films et séries (avec votre clé gratuite)')]], k.films || 'public'))}${Field(t('Clé du grand catalogue'), '<input class="input f" id="cat-cle" type="password" autocomplete="new-password" value="">', k.aCle ? t('Une clé est gardée (chiffrée). Laissez vide pour la garder.') : t('Sert aussi aux Nouveautés des films et des séries. Gardée chiffrée, jamais montrée.'))}${Actions(`<button class="btn btn-small btn-play f" data-act="catsave">${esc(t('Enregistrer'))}</button>${k.aCle ? `<button class="btn btn-small btn-ghost f" data-act="catforget">${esc(t('Oublier la clé'))}</button>` : ''}`)}</section>`;
+    const avalider = D_.demandes.filter((x) => x.etat === 'à valider');
+    const hnoss = `<section class="box" id="hnoss"><h2>${esc(t('Hnoss : téléchargements automatiques'))}</h2><p>${esc(t('Hnoss est dans Venus. Les titres ajoutés à « Mes envies » (♡ dans À venir et Nouveautés) sont demandés tout de suite, même s’ils ne sortent que dans plusieurs mois.'))}</p><div class="auto-pill" style="margin-bottom:12px"><span class="dot"></span>${esc(t('Actif dans Venus'))}</div>
+      <h3 class="box-sub">${esc(t('Demandes au nom de chacun'))}</h3><p class="muted" style="font-size:.88rem;margin:0 0 10px">${esc(t('Chaque profil fait ses demandes à son nom. Choisissez les membres dont les demandes partent tout de suite ; les autres attendent votre validation. Aucun membre ne règle les sources ni n’accepte un fichier mis à part.'))}</p>
+      ${D_.membres.length ? D_.membres.map((p) => Field(p.nom, `<select class="input f" data-act="hlibre" data-v="${esc(p.login)}" aria-label="${esc(t('Demandes de {n}', { n: p.nom }))}"><option value="valider"${D_.libres.includes(p.login) ? '' : ' selected'}>${esc(t('Demandes validées par moi'))}</option><option value="libre"${D_.libres.includes(p.login) ? ' selected' : ''}>${esc(t('Demandes libres (sans validation)'))}</option></select>`)).join('') : `<p class="muted">${esc(t('Aucun membre de la famille pour l’instant.'))}</p>`}
+      <h3 class="box-sub">${esc(t('À valider'))}</h3>${avalider.length ? avalider.map((x) => `<div class="list-row"><div class="grow"><b>${esc(x.titre)}${x.annee ? ` (${esc(x.annee)})` : ''}</b><small class="muted">${esc([x.genre === 'film' ? t('Film') : t('Série'), x.saisons && x.saisons.length ? t('saison(s) {s}', { s: x.saisons.join(', ') }) : '', t('demandé par {n}', { n: (x.qui && (x.qui.nom || x.qui.login)) || '' })].filter(Boolean).join(' · '))}</small></div><button class="btn btn-small btn-play f" data-act="hvalider" data-v="${esc(x.id)}">${I('check')}${esc(t('Valider'))}</button><button class="btn btn-small btn-ghost f" data-act="hrefuser" data-v="${esc(x.id)}">${esc(t('Refuser'))}</button></div>`).join('') : `<p class="muted">${esc(t('Aucune demande à valider.'))}</p>`}</section>`;
+    return arr + comete + sources + catalogue + hnoss;
+  };
+
   // Une section de Venus pas encore construite dans Odin : la place est gardée, et l'écran le dit.
   V.bientot = (path) => { const it = NAV_ITEMS.find((x) => x.href === path); return `<main class="with-nav page-in"><div class="page"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(it ? val(it.label) : 'Venus')}</h1></div></div>${Empty(t('Cette partie de Venus arrive dans Odin avec un prochain lot.'), `<a class="btn btn-ghost btn-small f" href="${href('/')}">${esc(t('Accueil'))}</a>`)}</div></main>`; };
 
@@ -494,11 +757,13 @@
     if (path === '/recherche') { if (q.get('q') != null) S.searchQ = q.get('q'); return [V.search(), true]; }
     if (path === '/reglages') { if (q.get('tab')) S.setTab = q.get('tab'); return [V.settings(), true]; }
     if (path === '/qui-regarde') return [V.profiles(), false];
+    if (path === '/nouveau') { if (q.get('type') && RKINDS.some(([k]) => k === q.get('type'))) S.req.kind = q.get('type'); if (q.get('q') != null) S.req.q = q.get('q'); return [V.request(), true]; }
+    if (path === '/nouveautes') { if (q.get('type') && NKINDS.some(([k]) => k === q.get('type'))) S.newKind = q.get('type'); return [V.nouveautes(), true]; }
     if (NAV_ITEMS.some((x) => x.href === path)) return [V.bientot(path), true];
     return [V.home(), true];
   }
-  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?' };
-  let precedent = '#/';
+  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?', '/nouveau': 'Nouveau', '/nouveautes': 'Nouveautés' };
+  let precedent = '#/', dernierChemin = '';
   function render(keepScroll = false) {
     applyTheme();
     const { path, q } = L.route(location.hash);
@@ -507,6 +772,10 @@
     if (ml) { let id = ml[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } history.replaceState(null, '', precedent); void lire(id, q.get('debut') === '1'); return render(true); }
     precedent = location.hash || '#/';
     const y = scrollY;
+    if (path !== '/nouveau') clearTimeout(S.fileT);
+    // Revenir sur « Nouveau » relit la file (et relance sa relecture toutes les 2 s si un téléchargement avance).
+    if (path === '/nouveau' && dernierChemin !== '/nouveau') S.file = null;
+    dernierChemin = path;
     const [page, withNav] = route();
     $('#app').innerHTML = withNav ? Shell(path, page) : page;
     $('#app').removeAttribute('aria-busy');
@@ -609,11 +878,82 @@
       case 'glassmode': T.glass = v; void sauverPrefs(); rerender(sel('glassmode', v)); break;
       case 'lite': T.lite = v; void sauverPrefs(); rerender(sel('lite', v)); break;
       case 'mmove': M.order = L.deplacer(M.order, v, Number(el.dataset.d)); void sauverPrefs(); rerender(`[data-act="mmove"][data-v="${v}"][data-d="${el.dataset.d}"]`); break;
+      // ---- demandes et téléchargements
+      case 'godemandes': e.preventDefault(); S.setTab = 'demandes'; go('/reglages?tab=demandes'); break;
+      case 'upfilter': S.upFilter[kind] = v; rerender(sel('upfilter', v)); break;
+      case 'upearlier': S.upEarlier[kind] = true; rerender(); break;
+      case 'upopen': go(`/titre/${encodeURIComponent(v)}`); break;
+      case 'upsheet': { const x = S.reg[Number(el.dataset.i)]; if (x) upSheet(x, el.dataset.k || 'movie'); break; }
+      case 'newkind': S.newKind = v; history.replaceState(null, '', `#/nouveautes?type=${v}`); rerender(sel('newkind', v)); break;
+      case 'newpick': { const st = S.nouv[el.dataset.k], y = st && st.data ? (st.data.sections || []).flatMap((s) => s.items).find((z) => z.key === v) : null; if (!y) break; if (S.newCur[el.dataset.k] === v && y.inLibrary) { go(`/titre/${encodeURIComponent(y.inLibrary)}`); break; } S.newCur[el.dataset.k] = v; rerender(sel('newpick', v)); scrollTo(0, 0); break; }
+      case 'fav': {
+        const x = S.reg[Number(el.dataset.i)]; if (!x) break; const on = S.favs.has(x.key), kb = `fav|${x.key}`; if (S.busy.has(kb)) break; S.busy.add(kb);
+        try {
+          const r = await envoyer(L.envie(x, on));
+          if (r.ok === false) toast(premiere(r));
+          else if (on) { S.favs.delete(x.key); toast(t('« {t} » retiré de vos favoris', { t: nomDe(x) })); }
+          else { S.favs.add(x.key); const et = r.data && r.data.demande && r.data.demande.etat; if (et === 'en téléchargement') S.pris.add(cleSortie(x)); toast(et === 'à valider' ? premiere(r) : et === 'en téléchargement' ? t('« {t} » en favori : le téléchargement est lancé', { t: nomDe(x) }) : t('« {t} » ajouté à vos favoris · {d}', { t: nomDe(x), d: premiere(r) }), 'success'); }
+          S.envies = null;
+        } catch { toast(t('Impossible pour le moment.')); }
+        S.busy.delete(kb); closeSheet(false); rerender(); break;
+      }
+      case 'grab': case 'newreq': {
+        const x = S.reg[Number(el.dataset.i)]; if (!x) break; const k = act === 'newreq' ? `nv|${x.key}` : cleSortie(x); if (S.busy.has(k)) break;
+        S.busy.add(k); closeSheet(false); rerender();
+        try {
+          const r = await envoyer(L.obtenir(x)), et = r.data && r.data.demande && r.data.demande.etat;
+          if (r.ok === false) toast(premiere(r));
+          else { S.pris.add(k); S.file = null; S.envies = null; toast(et === 'en téléchargement' ? t('« {t} » ajouté à {a} : le téléchargement est lancé', { t: nomDe(x), a: appDe(x.kind === 'movie' || x.type === 'movie' ? 'movie' : 'show') }) : premiere(r), et === 'en téléchargement' ? 'success' : 'info'); }
+        } catch { toast(t('Impossible pour le moment.')); }
+        S.busy.delete(k); rerender(); break;
+      }
+      case 'wishrm': try { const r = await agir('hnoss_envie', { titre: el.dataset.t || '', cle: v, retirer: true }); toast(r.ok === false ? premiere(r) : t('Retiré de mes envies')); const w = (S.envies || []).find((y) => y.cle === v || y.id === v); if (w && w.cle) S.favs.delete(w.cle); S.envies = null; } catch { toast(t('Impossible pour le moment.')); } rerender(); break;
+      case 'reqkind': S.req.kind = v; rerender(sel('reqkind', v)); break;
+      case 'reqadd': {
+        const q = S.req.q.trim(), m = /^(.*?)\s*\((\d{4})\)$/.exec(q), kd = S.req.kind, cat = kd === 'movie' ? 'movie' : kd === 'anime' ? 'anime' : 'show';
+        const rr = S.req.res && S.req.res.cle === `${cat}|${q}` && S.req.res.data.source ? (S.req.res.data.items || [])[Number(v)] : null;
+        const titre = rr ? rr.title : m ? m[1] : q, an = rr ? rr.year : m ? Number(m[2]) : 0; if (String(titre).length < 2) break;
+        const k = `req|${cat}|${norm(titre)}|${an || ''}`; if (S.busy.has(k) || S.pris.has(k)) break;
+        S.busy.add(k); rerender();
+        try { const r = await envoyer(L.obtenir({ title: titre, kind: cat, ...(an ? { year: an } : {}) })); if (r.ok === false) toast(premiere(r)); else { S.pris.add(k); const et = r.data && r.data.demande && r.data.demande.etat; toast(et === 'en téléchargement' ? t('« {t} » ajouté : le téléchargement commence', { t: titre }) : premiere(r), et === 'en téléchargement' ? 'success' : 'info'); } } catch { toast(t('Impossible pour le moment.')); }
+        S.busy.delete(k); S.demandes = null; rerender(); void chargerFile(); break;
+      }
+      case 'qpause': case 'qresume': case 'qcancel': case 'qremove': case 'qaccept': case 'qdrop': {
+        const a = { qpause: 'comete_pause', qresume: 'comete_reprendre', qcancel: 'comete_annuler', qremove: 'comete_retirer', qaccept: 'comete_accepter', qdrop: 'comete_jeter' }[act];
+        // « Accepter » un fichier dont l'antivirus doute : action grave, le clic est la confirmation.
+        try { const r = await agir(a, { id: v }, act === 'qaccept'); toast(premiere(r), r.ok === false ? 'info' : 'success'); } catch { toast(t('Impossible pour le moment.')); }
+        await chargerFile(); break;
+      }
+      case 'suivisave': {
+        const r = await agir('suivi_regler', { applicatif: v, qualite: champ(`q-${v}`), dossier: champ(`d-${v}`), langue: champ(`l-${v}`), ...(v === 'pleiades' ? { dossier_animes: champ(`da-${v}`) } : {}) }).catch(() => null);
+        toast(premiere(r), r && r.ok !== false ? 'success' : 'info'); S.dem = null; rerender(); break;
+      }
+      case 'cometesave': { const r = await agir('comete_regler', { simultanes: champ('c-sim'), taille_max_go: champ('c-taille'), debit_mo: champ('c-debit') }).catch(() => null); toast(premiere(r), r && r.ok !== false ? 'success' : 'info'); S.dem = null; rerender(); break; }
+      case 'srcadd': {
+        const r = await agir('delta_ajouter', { nom: champ('s-nom') || '', type: champ('s-type') || 'torznab', adresse: champ('s-adr') || '', cle: champ('s-cle') || '' }).catch(() => null);
+        const ce = $('#s-cle'); if (ce) ce.value = ''; // la clé ne reste pas dans la page
+        toast(premiere(r), r && r.ok !== false ? 'success' : 'info'); if (r && r.ok !== false) S.dem = null; rerender(); break;
+      }
+      case 'srctest': { const r = await agir('delta_tester', { id: v }).catch(() => null); toast(premiere(r), r && r.ok !== false ? 'success' : 'info'); S.dem = null; rerender(); break; }
+      case 'srcdel': { const r = await agir('delta_retirer', { id: v }).catch(() => null); toast(premiere(r)); S.dem = null; rerender(); break; }
+      case 'catsave': case 'catforget': {
+        const r = await agir('catalogue_regler', act === 'catforget' ? { oublier_cle: true } : { series: champ('cat-series'), animes: champ('cat-animes'), films: champ('cat-films'), cle: champ('cat-cle') || '' }).catch(() => null);
+        const ce = $('#cat-cle'); if (ce) ce.value = '';
+        toast(premiere(r), r && r.ok !== false ? 'success' : 'info'); S.dem = null; S.up = {}; S.nouv = {}; rerender(); break;
+      }
+      case 'hvalider': case 'hrefuser': { const kb = `h|${v}`; if (S.busy.has(kb)) break; S.busy.add(kb); const r = await agir(act === 'hvalider' ? 'hnoss_valider' : 'hnoss_refuser', { demande: v }, act === 'hvalider').catch(() => null); S.busy.delete(kb); toast(premiere(r), r && r.ok !== false ? 'success' : 'info'); S.dem = null; S.file = null; rerender(); break; }
+      case 'epgrab': { const k = `ep|${v}|${el.dataset.s}|${el.dataset.e}`; if (S.busy.has(k) || S.pris.has(k)) break; S.busy.add(k); try { const r = await envoyer(L.obtenir({ title: el.dataset.t, kind: 'show', season: Number(el.dataset.s), episode: Number(el.dataset.e) })); toast(premiere(r)); if (r.ok !== false) S.pris.add(k); } catch { toast(t('Impossible pour le moment.')); } S.busy.delete(k); rerender(); break; }
       case 'mreset': M.order = NAV_ITEMS.map((i) => i.id); M.hidden = [...DEFAULT_HIDDEN]; void sauverPrefs(); toast(t('Menu d’origine rétabli')); rerender(); break;
       default: break;
     }
   });
-  D.addEventListener('change', (e) => {
+  D.addEventListener('change', async (e) => {
+    const hl = e.target.closest('[data-act="hlibre"]');
+    if (hl && S.dem) {
+      const l = L.libres(S.dem.libres, hl.dataset.v, hl.value === 'libre');
+      try { const r = await agir('hnoss_regler_libres', { libres: l.join(',') }); S.dem.libres = (r.data && r.data.libres) || l; toast(premiere(r), r.ok === false ? 'info' : 'success'); } catch { toast(t('Impossible pour le moment.')); }
+      return;
+    }
     const el = e.target.closest('[data-act="mtoggle"]'); if (!el) return;
     const id = el.dataset.v; M.hidden = el.checked ? M.hidden.filter((x) => x !== id) : [...M.hidden, id];
     void sauverPrefs(); rerender(`[data-act="mtoggle"][data-v="${id}"]`);
@@ -622,6 +962,7 @@
     const tg = e.target;
     if (tg.id === 'srch') { S.searchQ = tg.value; const p = tg.selectionStart; render(true); const i = $('#srch'); i.focus(); i.setSelectionRange(p, p); }
     if (tg.id === 'palq') { palSel = 0; paintPalette(tg.value); }
+    if (tg.id === 'reqq') { S.req.q = tg.value; const p = tg.selectionStart; render(true); const i = $('#reqq'); if (i) { i.focus(); i.setSelectionRange(p, p); } }
   });
   D.addEventListener('keydown', (e) => {
     if (D.querySelector('.vl')) return; // le lecteur a son propre clavier

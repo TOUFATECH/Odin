@@ -3,8 +3,9 @@
 // `data` (des objets stables pour la page). Liste et contrat : voir ACTIONS_ACQUISITION_DOC plus bas.
 //
 // Droits : Valhalla contrôle AVANT l'action qu'un membre a le droit d'ouvrir Vénus. Ici :
-// - une demande (hnoss_demander) : le propriétaire, ou un membre qui en a le droit ; celle d'un membre attend la
-//   validation du propriétaire, qui est prévenu ;
+// - une demande (hnoss_demander, hnoss_envie) : le propriétaire, ou un membre qui en a le droit ; celle d'un membre
+//   attend la validation du propriétaire, qui est prévenu — SAUF si le propriétaire l'a désigné « libre » (Réglages →
+//   Demandes, « Demandes au nom de chacun ») : sa demande part tout de suite (l'IA et la parole demandent confirmation) ;
 // - les consultations (demandes, suivis, file, journal) ne portent pas encore le drapeau « lecture seule » : le banc
 //   d'actions figé (test/soul-banc/jeux, scellé par empreinte) ne les connaît pas ; à poser quand il sera refait ;
 // - tout ce qui télécharge, règle une source ou un dossier, valide ou refuse : le propriétaire seul (`proprietaireSeul`).
@@ -12,10 +13,12 @@ import type { Action, ActionResult, ModCtx } from '../types.ts';
 import { agissant } from '../sso/acces.ts';
 import { magasinVenus } from './base.ts';
 import { catalogue, etatAcquisition, faireVenir, fetchSources } from './acquisition.ts';
-import { demander, demandesHnoss, ligneDemande, lireSaisons, majDemande, PROFIL_PROPRIETAIRE, trouverDemande, type Demande } from './hnoss/index.ts';
+import { demander, demandesHnoss, envies, estLibre, ligneDemande, lireSaisons, majDemande, membresLibres, PROFIL_PROPRIETAIRE, reglerMembresLibres, retirerEnvie, trouverDemande, type Demande } from './hnoss/index.ts';
+import { aVenir, chercherTitre, nouveautes, reglagesCatalogue, reglerCatalogue, type Genre } from './catalogue/index.ts';
+import { persona, personnes } from '../sso/etat.ts';
 import { ligneSuivi, reglagesSuivi, reglerSuivi, retirerSuivi, suivi, suivis, type Applicatif } from './suivis/index.ts';
 import { chercher, poserSource, retirerSource, sources, testerSource, type Requete } from './delta/index.ts';
-import { accepter, annuler, fileComete, jeter, journalComete, ligneTelechargement, moteursInscrits, pause, reglagesComete, reglerComete, reprendre, retirer, telechargement } from './comete/index.ts';
+import { accepter, annuler, fileComete, jeter, journalComete, ligneTelechargement, moteursInscrits, pause, reglagesComete, reglerComete, reprendre, reseauCatalogue as reseauDuCatalogue, retirer, telechargement } from './comete/index.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 const oui = (v: unknown) => v === true || v === 'true' || v === 'oui';
@@ -40,23 +43,60 @@ const P_T_ID = { key: 'id', label: 'Téléchargement (identifiant)', kind: 'text
 /** Pour un membre : les identifiants de SES demandes (il ne voit que ce qui en vient). Rien pour le propriétaire. */
 const siennes = (ctx: ModCtx): Set<string> | undefined => { const q = quiDe(); return q.proprietaire ? undefined : new Set(demandesHnoss(mag(ctx), q.login).map((d) => d.id)); };
 const demandeDe = (ctx: ModCtx, q: unknown): Demande => { const d = trouverDemande(mag(ctx), s(q)); if (!d) throw new Error(`aucune demande « ${s(q)} »`); return d; };
+/** Un membre que le propriétaire a désigné « libre » : sa demande part sans validation. */
+const libre = (ctx: ModCtx): boolean => { const q = quiDe(); return !q.proprietaire && estLibre(mag(ctx), q.login); };
+/** Le profil de Vénus de qui parle (« moi » pour le propriétaire). */
+const profilDe = (): string => { const q = quiDe(); return q.proprietaire ? PROFIL_PROPRIETAIRE : q.login; };
+/** Les membres de la famille (comptes d'Odin), pour « Demandes au nom de chacun ». */
+const membres = (): Array<{ login: string; nom: string }> => { const p = persona(); return p ? personnes(p).filter((x) => x.active && !x.proprio && x.login).map((x) => ({ login: x.login, nom: x.name || x.login })) : []; };
+const genreCatalogue = (v: unknown): Genre => (/anim/i.test(s(v)) ? 'anime' : /s[ée]rie|show|tv/i.test(s(v)) ? 'show' : 'movie');
+/** Le catalogue lit Internet par le réseau de Comète : jamais la machine d'Odin ni la maison, aucune redirection. */
+const reseauCatalogue = () => reseauDuCatalogue();
+const graveTelecharger = (i: Record<string, unknown>) => `télécharger « ${s(i.titre).slice(0, 60) || 'un titre'} » dans Vénus`;
+const favorisDe = (ctx: ModCtx) => new Set(envies(mag(ctx), profilDe()).map((d) => d.cle).filter((x): x is string => !!x));
+/**
+ * Une demande posée : le propriétaire ou un membre libre → validée et lancée (suivi, recherche, téléchargement) ;
+ * un autre membre → « à valider », le propriétaire est prévenu.
+ */
+async function poserEtLancer(ctx: ModCtx, i: Record<string, unknown>, o: { envie?: boolean } = {}): Promise<ActionResult> {
+  const qui = quiDe(), m = mag(ctx), d = demander(m, { ...parametresDemande(i), qui, ...(o.envie ? { envie: true, cle: s(i.cle) } : {}) });
+  if (!qui.proprietaire && !estLibre(m, qui.login)) {
+    await ctx.notify(`📥 Vénus · ${o.envie ? 'envie' : 'demande'} de ${qui.nom || qui.login} : ${d.titre}${d.annee ? ` (${d.annee})` : ''}${d.saisons?.length ? `, saison(s) ${d.saisons.join(', ')}` : ''}. À valider dans Vénus → Réglages → Demandes.`).catch(() => undefined);
+    return { text: `📥 ${o.envie ? 'Envie' : 'Demande'} notée : « ${d.titre} ». Elle attend la validation du propriétaire.`, data: { demande: d } };
+  }
+  majDemande(m, d.id, { etat: d.etat === 'à valider' ? 'en attente' : d.etat, valideePar: qui.proprietaire ? PROFIL_PROPRIETAIRE : `libre:${qui.login}` });
+  if (!qui.proprietaire) await ctx.notify(`📥 Vénus · ${qui.nom || qui.login} (demandes libres) a lancé : ${d.titre}.`).catch(() => undefined);
+  return bilanTexte(await faireVenir(ctx, d.id, { telecharger: true }));
+}
 const bilanTexte = (b: Awaited<ReturnType<typeof faireVenir>>): ActionResult => ({ text: `${ligneDemande(b.demande)}${b.lances.length ? `\n${b.lances.map((t) => `⬇ ${ligneTelechargement(t)}`).join('\n')}` : ''}`, data: { demande: b.demande, suivi: b.suivi, telechargements: b.lances, trouves: b.trouves } });
 
 export const actionsAcquisition: Action[] = [
   // ---------------- Hnoss
-  { id: 'hnoss_demander', label: 'Demander un titre', what: "Hnoss : une demande de film ou de série (et ses saisons). Celle d'un membre attend la validation du propriétaire ; le téléchargement se lance seulement après sa confirmation", params: P_DEMANDE, quick: false,
+  { id: 'hnoss_demander', label: 'Demander un titre', what: "Hnoss : une demande de film ou de série (et ses saisons). Celle d'un membre attend la validation du propriétaire (sauf un membre « libre ») ; le téléchargement se lance seulement après sa confirmation", params: P_DEMANDE, quick: false,
     words: ['telecharge le film', 'télécharge le film', 'telecharge la serie', 'télécharge la série', 'telecharge l anime', 'télécharge l\'animé', 'demande le film', 'demande la serie', 'demande la série', 'fais venir', 'je veux le film', 'je veux la serie', 'je veux la série', 'ajoute aux demandes'],
+    // Un membre « libre » : sa demande télécharge tout de suite ; l'IA ou la parole demandent donc sa confirmation.
+    grave: (i, ctx) => { try { return ctx && libre(ctx) ? graveTelecharger(i) : undefined; } catch { return undefined; } },
     run: async (ctx, i) => {
-      const qui = quiDe(), m = mag(ctx), d = demander(m, { ...parametresDemande(i), qui });
-      if (!qui.proprietaire) {
-        await ctx.notify(`📥 Vénus · demande de ${qui.nom || qui.login} : ${d.titre}${d.annee ? ` (${d.annee})` : ''}${d.saisons?.length ? `, saison(s) ${d.saisons.join(', ')}` : ''}. À valider dans Vénus → Demandes.`).catch(() => undefined);
-        return { text: `📥 Demande notée : « ${d.titre} ». Elle attend la validation du propriétaire.`, data: { demande: d } };
-      }
+      const qui = quiDe(), m = mag(ctx);
+      if (!qui.proprietaire) return poserEtLancer(ctx, i);
+      const d = demander(m, { ...parametresDemande(i), qui });
       // Le propriétaire : suivi et recherche tout de suite ; le téléchargement attend sa confirmation (« valide la demande »).
       const b = await faireVenir(ctx, d.id, { telecharger: false });
       const r = bilanTexte(b);
       return { ...r, text: `${r.text}${b.trouves ? `\nPour lancer le téléchargement : « valide la demande ${d.titre} ».` : ''}`, data: { ...(r.data as object), confirmer: b.trouves ? { action: 'hnoss_valider', input: { demande: d.id } } : undefined } };
     } },
+  { id: 'hnoss_envie', label: 'Mes envies (♡)', what: "Le ♡ d'une sortie « À venir » ou des Nouveautés : le titre rejoint « Mes envies » et part comme une demande (lancée pour le propriétaire et un membre libre, à valider pour les autres). `retirer` : enlève le ♡", params: [...P_DEMANDE, { key: 'cle', label: 'Sortie (clé du catalogue)', kind: 'text', default: '' }, { key: 'retirer', label: 'Retirer le ♡', kind: 'boolean', default: false }], quick: false,
+    grave: (i, ctx) => { try { return !oui(i.retirer) && ctx && (quiDe().proprietaire || libre(ctx)) ? graveTelecharger(i) : undefined; } catch { return undefined; } },
+    run: async (ctx, i) => {
+      if (oui(i.retirer)) { const d = retirerEnvie(mag(ctx), profilDe(), s(i.cle) || s(i.titre)); return d ? { text: `« ${d.titre} » retiré de mes envies.`, data: { demande: d, retire: true } } : { ok: false, text: 'Cette envie n\'existe pas (ou plus).' }; }
+      return poserEtLancer(ctx, i, { envie: true });
+    } },
+  { id: 'hnoss_envies', label: 'Mes envies', what: 'Les envies (♡) de qui parle, et où elles en sont', words: ['mes envies'],
+    run: (ctx) => { const l = envies(mag(ctx), profilDe()); return { text: l.length ? l.slice(0, 40).map(ligneDemande).join('\n') : 'Aucune envie.', data: { envies: l } }; } },
+  { id: 'hnoss_reglages', label: 'Demandes au nom de chacun', what: 'Les membres de la famille et ceux dont les demandes partent sans validation (« libres »)', quick: false, proprietaireSeul: true,
+    run: (ctx) => { const l = membresLibres(mag(ctx)), ms = membres(); return { text: ms.length ? ms.map((x) => `${x.nom} : ${l.includes(x.login) ? 'demandes libres' : 'demandes validées par toi'}`).join('\n') : 'Aucun membre de la famille.', data: { libres: l, membres: ms } }; } },
+  { id: 'hnoss_regler_libres', label: 'Régler les demandes libres', what: 'Désigne les membres dont les demandes partent sans ta validation (les autres restent à valider)', params: [{ key: 'libres', label: 'Membres libres (identifiants, séparés par des virgules)', kind: 'text', default: '' }], quick: false, proprietaireSeul: true,
+    run: (ctx, i) => { const ms = membres(), l = reglerMembresLibres(mag(ctx), i.libres, ms.length ? ms.map((x) => x.login) : undefined); return { text: l.length ? `Demandes libres : ${l.map((x) => ms.find((y) => y.login === x)?.nom ?? x).join(', ')}.` : 'Toutes les demandes des membres passent par ta validation.', data: { libres: l, membres: ms } }; } },
   { id: 'hnoss_obtenir', label: 'Obtenir (À venir, Demander)', what: "Le clic sur un titre « à venir » ou « Demander » : la demande, le suivi (Sirius ou Pléiades), la recherche dans Delta et le téléchargement dans Comète, tout seuls. Propriétaire seul", params: P_DEMANDE, quick: false, proprietaireSeul: true,
     // Un téléchargement : l'IA, la parole ou un programme demandent la confirmation du propriétaire. Le clic de la page
     // EST cette confirmation : la page envoie `confirm: true` avec le clic.
@@ -83,8 +123,25 @@ export const actionsAcquisition: Action[] = [
     } },
   { id: 'suivi_retirer', label: 'Ne plus suivre', what: 'Retire un titre de la liste suivie (les fichiers rangés restent)', params: [{ key: 'id', label: 'Titre suivi (identifiant)', kind: 'text', required: true }], quick: false, proprietaireSeul: true,
     run: (ctx, i) => { const x = suivi(mag(ctx), s(i.id)); if (!x) return { ok: false, text: 'Titre suivi inconnu.' }; retirerSuivi(mag(ctx), x.id); return { text: `${x.titre} n'est plus suivi.` }; } },
-  { id: 'a_venir', label: 'À venir', quick: false, what: 'Les titres suivis qui ne sont pas encore là, et le catalogue des sorties (aucun n\'est branché par défaut)',
-    run: (ctx) => { const m = mag(ctx), c = catalogue(m), mes = siennes(ctx), l = suivis(m).filter((x) => x.etat !== 'disponible' && (!mes || x.demandes.some((d) => mes.has(d)))); return { text: `${c.texte}${l.length ? `\n${l.slice(0, 30).map(ligneSuivi).join('\n')}` : ''}`, data: { catalogue: c, titres: [], suivis: l } }; } },
+  { id: 'a_venir', label: 'À venir', quick: false, external: true, what: "Les sorties autour d'aujourd'hui (le catalogue réglé par le propriétaire ; aucun par défaut) et les titres suivis qui ne sont pas encore là", params: [{ key: 'genre', label: 'Genre', kind: 'select', options: ['film', 'série', 'animé'], default: 'film' }],
+    run: async (ctx, i) => {
+      const m = mag(ctx), c = catalogue(m), mes = siennes(ctx), l = suivis(m).filter((x) => x.etat !== 'disponible' && (!mes || x.demandes.some((d) => mes.has(d))));
+      const a = await aVenir(m, reseauCatalogue(), genreCatalogue(i.genre ?? i.type), favorisDe(ctx));
+      const lignes = a.entries.slice(0, 20).map((e) => `${e.date} · ${e.title}${e.season !== undefined ? ` S${e.season}E${e.episode ?? 0}` : ''}${e.nas ? ' · dans Vénus' : ''}`);
+      return { text: [a.texte, ...lignes, ...l.slice(0, 30).map(ligneSuivi)].join('\n'), data: { catalogue: c, ...a, titres: a.entries, suivis: l } };
+    } },
+  { id: 'sorties_nouveautes', label: 'Nouveautés (sorties)', quick: false, external: true, what: 'Films au cinéma et à venir, séries de la semaine, animés de la saison (le catalogue réglé par le propriétaire)', params: [{ key: 'genre', label: 'Genre', kind: 'select', options: ['film', 'série', 'animé'], default: 'film' }],
+    run: async (ctx, i) => {
+      const n = await nouveautes(mag(ctx), reseauCatalogue(), genreCatalogue(i.genre ?? i.type), favorisDe(ctx));
+      return { text: n.source ? [n.texte, ...n.sections.map((x) => `${x.title} : ${x.items.slice(0, 5).map((y) => y.title).join(', ')}`)].join('\n') : n.texte, data: n };
+    } },
+  { id: 'sorties_chercher', label: 'Chercher un titre (Nouveau)', quick: false, external: true, what: "« Nouveau » : le titre tapé, cherché dans le grand catalogue quand sa clé est réglée (titre, année, résumé) ; sans clé, rien n'est lu et le titre est ajouté tel quel", params: [{ key: 'q', label: 'Titre', kind: 'text', required: true }, { key: 'genre', label: 'Genre', kind: 'select', options: ['film', 'série', 'animé'], default: 'film' }],
+    run: async (ctx, i) => { const r = await chercherTitre(mag(ctx), reseauCatalogue(), i.q, genreCatalogue(i.genre ?? i.type)); return { text: r.source ? [r.texte, ...r.items.slice(0, 10).map((x) => `${x.title}${x.year ? ` (${x.year})` : ''}${x.inLibrary ? ' · dans Vénus' : ''}`)].join('\n') : r.texte, data: r }; } },
+  { id: 'catalogue_etat', label: 'Catalogue des sorties', quick: false, proprietaireSeul: true, what: 'Les sources des sorties choisies (sans jamais montrer la clé)',
+    run: (ctx) => { const r = reglagesCatalogue(mag(ctx)); return { text: `Séries : ${r.series ? 'oui' : 'non'} · Animés : ${r.animes ? 'oui' : 'non'} · Films : ${r.films === 'cle' ? `grand catalogue${r.aCle ? ' (clé gardée)' : ' (clé manquante)'}` : r.films === 'public' ? 'catalogue public' : 'aucun'}`, data: { reglages: r } }; } },
+  { id: 'catalogue_regler', label: 'Régler le catalogue des sorties', quick: false, proprietaireSeul: true, what: "D'où viennent les sorties « À venir » et les Nouveautés : programme des séries, programme des animés (sans clé), catalogue des films (public, ou le grand catalogue avec ta clé gratuite, gardée chiffrée)",
+    params: [{ key: 'series', label: 'Programme des séries (sans clé)', kind: 'boolean', default: false }, { key: 'animes', label: 'Programme des animés (sans clé)', kind: 'boolean', default: false }, { key: 'films', label: 'Films', kind: 'select', options: ['aucun', 'public', 'cle'], default: 'aucun' }, { key: 'cle', label: 'Clé du grand catalogue (gardée chiffrée, hors base)', kind: 'password', default: '' }, { key: 'oublier_cle', label: 'Oublier la clé', kind: 'boolean', default: false }],
+    run: (ctx, i) => { const r = reglerCatalogue(mag(ctx), i); return { text: `Catalogue réglé · séries ${r.series ? 'oui' : 'non'} · animés ${r.animes ? 'oui' : 'non'} · films ${r.films}${r.aCle ? ' · clé gardée chiffrée' : ''}.`, data: { reglages: r } }; } },
   // ---------------- Delta
   { id: 'delta_sources', label: 'Delta · Sources', quick: false, what: 'Tes sources (sans leurs clés) : actives, priorité, recherches, résultats, dernière erreur', proprietaireSeul: true,
     run: (ctx) => { const l = sources(mag(ctx)); return { text: l.length ? l.map((x) => `${x.actif ? '🟢' : '⚪'} ${x.nom} (${x.type}) · priorité ${x.priorite} · ${x.recherches} recherche(s), ${x.trouves} résultat(s)${x.aCle ? ' · clé gardée' : ''}${x.derniereErreur ? ` · ${x.derniereErreur}` : ''}`).join('\n') : 'Aucune source : ajoute une source que tu as le droit d\'utiliser (Delta ne fournit rien).', data: { sources: l } }; } },
@@ -135,7 +192,11 @@ export const telechargementDe = (ctx: ModCtx, id: string) => telechargement(mag(
  *  hnoss_valider   { demande } (grave : confirmation) · hnoss_refuser { demande, raison? } · hnoss_relancer { demande }
  *  hnoss_demandes  → data { demandes[] }   états : à valider, en attente, cherchée, en téléchargement, disponible, échec
  *  suivis          { applicatif?: tous|sirius|pleiades } → data { suivis[] } · suivi_regler { applicatif, qualite?, dossier?, dossier_animes?, langue? } · suivi_retirer { id }
- *  a_venir         → data { catalogue: { regle, texte }, titres: [], suivis[] }
+ *  a_venir         { genre: film|série|animé } → data { regle, source, texte, entries[], suggestions[], erreurs[], titres (= entries), suivis[] }
+ *  sorties_nouveautes { genre } → data { regle, source, sections[{ title, items[] }], texte } · catalogue_etat → data { reglages } · catalogue_regler { series?, animes?, films?: aucun|public|cle, cle?, oublier_cle? }
+ *  sorties_chercher { q, genre } → data { source, items[{ key, kind, title, year?, overview?, inLibrary? }], texte } (« Nouveau » ; sans clé : source false, rien de lu)
+ *  hnoss_envie     { titre, genre, annee?, saisons?, episode?, cle, retirer? } (grave quand elle lance : la page envoie `confirm: true`) · hnoss_envies → data { envies[] }
+ *  hnoss_reglages  → data { libres[], membres[{ login, nom }] } · hnoss_regler_libres { libres: "a,b" }
  *  delta_sources → data { sources[] } (jamais de clé) · delta_ajouter { nom, type, adresse, cle?, priorite?, actif? } · delta_retirer { id } · delta_tester { id } · delta_chercher { titre, genre, annee?, saison?, episode? }
  *  comete_file     → data { telechargements[] : { id, titre, cible, etat, fait, total, vitesse (octets/s), texte, chemin, bibliotheque } } (à relire toutes les 2 s tant que l'un est en_cours)
  *  état « a_part » : l'antivirus doute, le fichier attend → comete_accepter { id } (grave) ou comete_jeter { id }

@@ -118,7 +118,8 @@ test('le parcours d\'un film : à venir → demande → Sirius → Delta → Com
   const sans = await act('hnoss_obtenir', { titre: 'Dune Part Two', genre: 'film', annee: '2024' });
   assert.match(sans.text, /aucun dossier/);
   ajouterDossier(mag(), films, 'films'); ajouterDossier(mag(), series, 'series');
-  assert.match((await act('a_venir')).text, /Aucun catalogue/, 'aucun catalogue public branché par défaut');
+  // Réponse du propriétaire (23/11) : le catalogue public des films (sans clé) est coché par défaut ; les séries non.
+  assert.match((await act('a_venir', { genre: 'série' })).text, /Aucun programme des séries/, 'les séries : rien de branché par défaut');
   const r = await act('hnoss_obtenir', { titre: 'Dune Part Two', genre: 'film', annee: '2024' });
   assert.equal(r.ok, true, r.text);
   const d = r.data as { demande: { id: string; etat: string }; telechargements: Array<{ id: string }> };
