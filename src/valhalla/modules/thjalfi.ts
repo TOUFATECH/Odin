@@ -21,7 +21,7 @@ import { journalDe } from '../base/journal.ts';
 import { Iso } from '../thjalfi/iso.ts';
 import { ProxyDhcp, bootFor, type Firmware } from '../thjalfi/pxe.ts';
 import { debianPreseed, detect, kickstart, menu, odinCmd, silentArgs, ubuntuMetaData, ubuntuUserData, unattend, windowsAfter, winpeshl, type Answer, type Recipe } from '../thjalfi/recipes.ts';
-import { installeAuto } from '../thjalfi/logiciels-cle.ts';
+import { installeAuto, versScripts } from '../thjalfi/logiciels-cle.ts';
 import { normMac, PxeHttp } from '../thjalfi/server.ts';
 import { DISPOSITIONS, TEXT_THEMES, category, TEXT_THEME_IDS, THEMES, odinSays, systems, textLook, textThemeOf, themeOf, type Disposition, type TextTheme } from '../thjalfi/ecran.ts';
 import { imageKind, textBackground } from '../thjalfi/fond.ts';
@@ -34,6 +34,8 @@ import { suivi, type FicheFin, type Passage, type Resultat } from '../thjalfi/su
 import { pxeHook } from '../vidarr/dhcp.ts';
 import { cleUsb } from '../thjalfi/cle-ecrire.ts';
 import { EDITIONS, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, masque, supprimerCle } from '../thjalfi/cles-windows.ts';
+import { analyserScript, apercu as apercuScripts, nomCompteValide, osDuScript, type ScriptPerso } from '../thjalfi/scripts.ts';
+import { BASE_RULES, RuleSet, compileGaldr, flat as plusieursConstats, scanBuffer } from '../ullr/engine.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
 type Step = 'démarrage réseau' | 'chargeur' | 'menu' | 'chargement' | 'installation' | 'logiciels' | 'fini' | 'sans nouvelles' | 'échec';
@@ -630,6 +632,8 @@ export function thjalfi(): Module {
   actions.push(...S.actions);
   // Clé USB bootable (nouveau mode de Genèse, façon Rufus / Ventoy) : disques, plan de double démarrage, préparation.
   actions.push(...cleUsb().actions);
+  // Clé USB, étape « Logiciels et scripts » : le script créé tout seul, montré en direct (lecture seule, rien n'est écrit).
+  actions.push(apercuScriptCle(profiles));
 
   return {
     id: 'thjalfi', name: 'Genèse', family: 'Machines',
@@ -685,5 +689,71 @@ export function thjalfi(): Module {
       S.veiller(ctx);
       void C;
     } },
+  };
+}
+
+// ---------------- Clé USB : l'aperçu des scripts (étapes « Logiciels et scripts » et « Options Windows ») ----------------
+/** Les règles de base de l'antivirus d'Odin (le moteur d'Asclépios), prêtes une seule fois. */
+let reglesScripts: RuleSet | undefined;
+/** L'antivirus d'Odin sur un script ajouté (lu en mémoire, jamais exécuté) : rend la raison s'il est dangereux. */
+function antivirusScript(nom: string, contenu: string): string | undefined {
+  reglesScripts ??= new RuleSet(BASE_RULES.map(compileGaldr));
+  const v = scanBuffer(nom, Buffer.from(contenu, 'utf8'), { rules: reglesScripts });
+  if (!v.level) return undefined;
+  const c = plusieursConstats(v)[0];
+  return `L'antivirus d'Odin l'a refusé : ${c ? `${c.threat} (${c.why})` : 'contenu dangereux'}.`;
+}
+/** Les 4 derniers caractères d'une clé, le reste masqué : la clé n'est jamais montrée en entier. Pur. */
+const cleMasquee = (indice: string) => `•••••-•••••-•••••-•••••-•${String(indice ?? '').slice(-4)}`;
+/** Les empreintes de mot de passe (sha512crypt) masquées dans l'aperçu. Pur. */
+const sansEmpreintes = (t: string) => t.replace(/\$6\$[^\s"'\n]+/g, '••••••••');
+
+/**
+ * L'aperçu en direct des scripts d'un système choisi pour la clé : le fichier de réponses Windows (avec les options
+ * de l'étape 5) et le script de fin (logiciels puis tes scripts, dans l'ordre), ou les réponses Linux. Les scripts
+ * ajoutés passent d'abord par l'antivirus d'Odin : seuls ceux acceptés entrent dans l'aperçu. LECTURE SEULE : rien
+ * n'est écrit, aucun script n'est exécuté ; la clé d'activation n'est jamais lue en clair (seuls ses 4 derniers
+ * caractères sont montrés), aucun mot de passe n'apparaît.
+ */
+export function apercuScriptCle(profiles: (ctx: ModCtx) => Profile[]): Action {
+  return {
+    // Propriétaire seul : elle lit le coffre des clés d'activation (éditions, 4 derniers caractères) et fait tourner
+    // l'antivirus sur 20 scripts de 64 Ko ; ni un membre, ni une tablette, ni une clé d'API, ni une automatisation.
+    id: 'cle_apercu_script', label: 'Clé USB : aperçu des scripts', read: true, quick: false, proprietaireSeul: true,
+    what: 'Le script créé tout seul pour un système de la clé (logiciels, tes scripts, options Windows), montré avant d\'écrire ; tes scripts passent par l\'antivirus d\'Odin',
+    params: [{ key: 'systeme', label: 'Système (famille, nom)', kind: 'textarea' }, { key: 'logiciels', label: 'Logiciels choisis', kind: 'textarea' }, { key: 'scripts', label: 'Tes scripts', kind: 'textarea' }, { key: 'windows', label: 'Options Windows', kind: 'textarea' }],
+    words: ['script de la clé', 'aperçu du script', 'script d\'installation de la clé'],
+    run: (ctx, i) => {
+      const o = (x: unknown): Record<string, unknown> => (x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, unknown> : {});
+      const sys = o(i.systeme), nom = s(sys.nom).slice(0, 200), fichier = s(sys.fichier).slice(0, 255);
+      const fam = s(sys.famille).toLowerCase();
+      const famille: 'windows' | 'ubuntu' | 'debian' | 'rhel' = fam === 'windows' ? 'windows' : /debian/i.test(`${nom} ${fichier}`) ? 'debian' : /fedora|rocky|alma|centos|rhel/i.test(`${nom} ${fichier}`) ? 'rhel' : 'ubuntu';
+      // Tes scripts : au plus 20, de 64 Ko chacun ; chacun vérifié (extension, commandes qui effacent un disque, antivirus).
+      const brut = (Array.isArray(i.scripts) ? i.scripts : []).slice(0, 20).map(o).map((x) => ({ nom: s(x.nom).split(/[\\/]/).pop()!.slice(0, 120), contenu: s(x.contenu).slice(0, 64 * 1024 + 1) }));
+      const verdicts = brut.map((x) => analyserScript(x.nom, x.contenu, antivirusScript));
+      const acceptes: ScriptPerso[] = brut.filter((_x, k) => verdicts[k].ok);
+      const pourOs = acceptes.filter((x) => osDuScript(x.nom) === (famille === 'windows' ? 'windows' : 'linux'));
+      // Les logiciels cochés : seuls ceux qui s'installent tout seuls entrent dans le script (logiciels-cle.ts).
+      const choisis = (Array.isArray(i.logiciels) ? i.logiciels : []).slice(0, 200).map(o).map((x) => ({ id: s(x.id).slice(0, 120), fichier: (s(x.fichier).split(/[\\/]/).pop() ?? '').slice(0, 255) })).filter((x) => x.fichier);
+      const pour = versScripts(choisis);
+      const p = profiles(ctx)[0], w = o(i.windows);
+      const nomCompte = s(w.compte).trim();
+      // La clé d'activation : choisie par édition parmi celles du coffre (seuls leurs indices sont lus), sinon aucune.
+      const cles = clesPubliques(ctx.dir).map((c) => ({ id: c.id, edition: c.edition, fin: c.indice.slice(-4) }));
+      const reconnue = editionDeImage(fichier || nom, nom);
+      const voulue = s(w.activation);
+      const act = voulue === 'aucune' ? undefined : cles.find((c) => c.id === (voulue || reconnue?.id));
+      // Le nom du compte de l'étape 5 vaut pour Windows ; un Linux garde celui du profil d'installation (minuscules exigées).
+      const userLinux = /^[a-z_][a-z0-9_-]{0,31}$/.test(p.utilisateur) ? p.utilisateur : 'odin';
+      const answer: Answer = { host: 'odin-pc', user: famille === 'windows' ? (nomCompteValide(nomCompte) ? nomCompte : 'odin') : userLinux, password: '', locale: p.langue, keymap: p.clavier, timezone: p.fuseau, packages: [], report: 'http://odin.local/etat/cle', ...(act ? { productKey: cleMasquee(act.fin) } : {}) };
+      const opt = { retirerExigences: w.exigences !== false, effacerApres: false, compteLocal: w.local !== false, nomCompte, sansViePrivee: w.viePrivee !== false, langueOdin: w.langue !== false,
+        // Le disque du PC est TOUJOURS choisi au moment d'installer : aucune entrée (même un appel direct avec
+        // « disque: 'vide' ») ne remet l'effacement automatique du premier disque.
+        disqueAuChoix: true };
+      const fichiers = Object.fromEntries(Object.entries(apercuScripts({ famille, answer, fw: 'uefi', opt, logiciels: pour.windows, debsCle: pour.debs, token: 'cle', scripts: pourOs })).map(([k, v]) => [k, sansEmpreintes(v)]));
+      const refuses = verdicts.filter((v) => !v.ok).length;
+      return { ok: true, text: `${Object.keys(fichiers).length} fichier(s) pour ${nom || famille}${refuses ? ` · ${refuses} script(s) refusé(s)` : ''}. Rien n'est écrit.`,
+        data: { famille, fichiers, scripts: verdicts, copies: famille === 'windows' ? pour.copieWindows : pour.copieLinux, cles, activation: act ?? null, edition: reconnue ? { id: reconnue.id, label: reconnue.label } : null, compteValide: nomCompteValide(nomCompte) } };
+    },
   };
 }

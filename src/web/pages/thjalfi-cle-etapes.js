@@ -10,7 +10,9 @@
 // n'est donc pas montré (COPIE_POSSIBLE plus bas) ; il viendra avec l'action qui le fait vraiment.
 // Les étapes 2 « Façon » et 3 « Systèmes » (lot C2) sont dans thjalfi-cle-systemes.js (window.OdinGeneseCleSystemes) :
 // les étapes 4 à 6 ne s'ouvrent que si l'étape 3 est juste (au moins un système, et tout tient sur la clé).
-// Les étapes 4 à 6 et les trois autres onglets arrivent avec leurs lots : en attendant, ils disent « bientôt » et
+// Les étapes 4 « Logiciels et scripts » et 5 « Options Windows » (lot C3) sont dans thjalfi-cle-logiciels.js
+// (window.OdinGeneseCleLogiciels) ; l'étape 5 ne s'ouvre que si un Windows est choisi (sinon on passe de 4 à 6).
+// L'étape 6 et les trois autres onglets arrivent avec leurs lots : en attendant, ils disent « bientôt » et
 // gardent joignable tout ce que l'appli sait déjà faire (le composeur, qui reçoit les systèmes déjà choisis,
 // l'aperçu du menu, les disques comme avant).
 //
@@ -251,8 +253,9 @@
     if (v.phase === 'erreur') return mot('verif.erreur');
     return '';
   }
-  /** Une étape s'ouvre : la 1 toujours ; la 2 et la 3 une fois la clé choisie ; les suivantes si l'étape 3 est juste. */
-  const etapeOuverte = (n, cle, systemesPrets = true) => n === 1 || (n >= 2 && n <= ETAPES && Boolean(cle) && (n <= 3 || systemesPrets !== false));
+  /** Une étape s'ouvre : la 1 toujours ; la 2 et la 3 une fois la clé choisie ; les suivantes si l'étape 3 est juste ;
+   *  la 5 (Options Windows) seulement si un Windows est choisi. */
+  const etapeOuverte = (n, cle, systemesPrets = true, avecWindows = true) => n === 1 || (n >= 2 && n <= ETAPES && Boolean(cle) && (n <= 3 || systemesPrets !== false) && (n !== 5 || avecWindows !== false));
   /** Le prochain élément (flèches, Début, Fin) dans une liste, en sautant ceux qui sont fermés. */
   function suivant(i, n, touche, ouvert = () => true) {
     const pas = touche === 'ArrowRight' || touche === 'ArrowDown' ? 1 : touche === 'ArrowLeft' || touche === 'ArrowUp' ? -1 : 0;
@@ -369,6 +372,12 @@
   let C = null; // { wrap, outils, minuteur, verifMinuteur }
   /** Les étapes 2 et 3 (lot C2), si elles sont chargées. */
   const SYS = () => (W.OdinGeneseCleSystemes && typeof W.OdinGeneseCleSystemes.rendre === 'function' ? W.OdinGeneseCleSystemes : null);
+  /** Les étapes 4 et 5 (lot C3), si elles sont chargées. */
+  const LOG = () => (W.OdinGeneseCleLogiciels && typeof W.OdinGeneseCleLogiciels.rendre === 'function' ? W.OdinGeneseCleLogiciels : null);
+  /** Un Windows est-il choisi ? (sans le lot C3 chargé : l'étape 5 reste ouverte, comme avant) */
+  const avecWindows = () => { const l = LOG(); return !l || typeof l.aWindows !== 'function' || l.aWindows(); };
+  /** L'étape n peut-elle s'ouvrir maintenant ? */
+  const ouverte = (n) => etapeOuverte(n, S.cle, prets(), avecWindows());
   /** L'étape 3 est-elle juste POUR LA CLÉ CHOISIE MAINTENANT ? (sans le lot C2 chargé : rien ne bloque, comme avant) */
   const prets = () => {
     const s = SYS();
@@ -427,14 +436,14 @@
   function etapes() {
     const ol = el('ol', { class: 'ck-steps', 'aria-label': mot('etapes.nom') });
     for (let n = 1; n <= ETAPES; n++) {
-      const ouverte = etapeOuverte(n, S.cle, prets()), courante = n === S.etape, faite = n < S.etape;
+      const ouv = ouverte(n), courante = n === S.etape, faite = n < S.etape && ouv;
       const sorte = (S.vue.cles.find((x) => x.id === S.cle) || {}).sorte;
       const fermee = !S.cle || !SYS() ? mot('etape.fermee') : SYS().MOTS[sorte === 'disque' ? 'etape.fermee.disque' : 'etape.fermee'] || SYS().MOTS['etape.fermee'];
       ol.append(el('li', {}, el('button', {
-        type: 'button', 'data-f': `etape-${n}`, 'data-etape': String(n), 'aria-current': courante ? 'step' : null, class: faite ? 'fait' : null, disabled: !ouverte,
-        title: ouverte ? null : fermee, 'aria-label': `${mot(`etape.${n}`)} · ${mot('etape.position', { n: nombre(n, langue()), total: nombre(ETAPES, langue()) })}`,
-        onclick: () => { if (!etapeOuverte(n, S.cle, prets())) return; S.etape = n; dessiner(`etape-${n}`); },
-        onkeydown: (e) => { const j = suivant(n - 1, ETAPES, e.key, (k) => etapeOuverte(k + 1, S.cle, prets())); if (j < 0) return; e.preventDefault(); focaliser(`etape-${j + 1}`); },
+        type: 'button', 'data-f': `etape-${n}`, 'data-etape': String(n), 'aria-current': courante ? 'step' : null, class: faite ? 'fait' : null, disabled: !ouv,
+        title: ouv ? null : fermee, 'aria-label': `${mot(`etape.${n}`)} · ${mot('etape.position', { n: nombre(n, langue()), total: nombre(ETAPES, langue()) })}`,
+        onclick: () => { if (!ouverte(n)) return; S.etape = n; dessiner(`etape-${n}`); },
+        onkeydown: (e) => { const j = suivant(n - 1, ETAPES, e.key, (k) => ouverte(k + 1)); if (j < 0) return; e.preventDefault(); focaliser(`etape-${j + 1}`); },
       }, el('i', {}, faite ? ic('check', 14, 3) : nombre(n, langue())), el('span', {}, el('b', {}, mot(`etape.${n}`)), el('small', {}, mot(`etape.${n}.sous`))))));
     }
     return ol;
@@ -499,7 +508,7 @@
   function pied(avant, apres, ferme, aide) {
     return el('div', { class: 'ck-foot' }, el('span', { class: 'grow' }, aide || ''),
       avant ? el('button', { type: 'button', class: 'ck-btn', 'data-f': 'retour', onclick: () => { S.etape = avant; dessiner(`etape-${avant}`); } }, ic('left'), mot('pied.retour')) : null,
-      apres ? el('button', { type: 'button', class: 'ck-btn pri', 'data-f': 'continuer', disabled: ferme, onclick: () => { if (!etapeOuverte(apres, S.cle, prets())) return; S.etape = apres; dessiner(`etape-${apres}`); } }, mot('pied.continuer'), ic('right')) : null);
+      apres ? el('button', { type: 'button', class: 'ck-btn pri', 'data-f': 'continuer', disabled: ferme, onclick: (e) => { const b = e && (e.currentTarget || e.target); if (b && b.getAttribute && b.getAttribute('disabled') != null) return; if (!ouverte(apres)) return; S.etape = apres; dessiner(`etape-${apres}`); } }, mot('pied.continuer'), ic('right')) : null);
   }
   function bientot(texte, ...plus) {
     return el('section', { class: 'ck-card ck-soon' }, mascotte(), el('div', {}, el('b', {}, mot('bientot.titre')), el('p', {}, texte), ...plus));
@@ -512,8 +521,11 @@
         await relire(true);
         const ici = S.vue.cles.find((x) => x.id === S.cle);
         if (!ici) { dessiner(); return; }
-        // Les systèmes déjà choisis aux étapes 2 et 3 sont repris dans le composeur.
-        await comp.ouvrir(ici.brut, { post: C.outils.post, act: C.outils.act, systemes: SYS() ? SYS().composes() : undefined }); void relire(true);
+        // Les systèmes déjà choisis aux étapes 2 et 3 sont repris dans le composeur, avec les logiciels cochés pour
+        // chacun à l'étape 4 ; tes scripts acceptés et les options Windows (étapes 4 et 5) l'accompagnent.
+        const composes = SYS() ? SYS().composes() : undefined;
+        const suite = composes && LOG() ? LOG().pourComposeur(composes) : null;
+        await comp.ouvrir(ici.brut, { post: C.outils.post, act: C.outils.act, systemes: suite ? suite.systemes : composes, ...(suite ? { scripts: suite.scripts, windows: suite.windows } : {}) }); void relire(true);
       } }, ic('open'), mot('bientot.ouvrir', { nom: c.nom })))
       : null;
     return [el('section', { class: 'ck-card' }, el('h4', {}, mot(`etape.${n}`)), el('p', { class: 'ck-lead', style: 'margin:0' }, mot(`etape.${n}.sous`))),
@@ -525,6 +537,11 @@
       const c = S.vue.cles.find((x) => x.id === S.cle);
       if ((S.etape === 2 || S.etape === 3) && SYS() && c) {
         return [etapes(), ...SYS().rendre(S.etape, { cle: c.brut, sorte: c.sorte, post: C.outils.post, redessiner: (f) => dessiner(f), pied, wrap: C.wrap })];
+      }
+      if ((S.etape === 4 || S.etape === 5) && LOG() && c) {
+        // Plus de Windows choisi (retiré à l'étape 3) : l'étape 5 n'a plus lieu d'être, on revient à l'étape 4.
+        if (S.etape === 5 && !avecWindows()) S.etape = 4;
+        return [etapes(), ...LOG().rendre(S.etape, { cle: c.brut, sorte: c.sorte, post: C.outils.post, redessiner: (f) => dessiner(f), pied, wrap: C.wrap })];
       }
       return [etapes(), ...(S.etape === 1 ? etapeCle() : etapeBientot(S.etape))];
     }
