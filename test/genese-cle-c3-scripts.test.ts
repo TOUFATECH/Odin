@@ -54,7 +54,8 @@ test('C3 · tes scripts : nom sûr, ordre gardé, lancés après les logiciels (
   assert.ok(!ps.includes('l.sh'), 'un script Linux ne va pas à Windows');
   assert.equal(w['scripts/01-b.ps1'], 'Write-Host b');
   const u = scripts.apercu({ famille: 'ubuntu', answer, scripts: mes } as never);
-  assert.match(u['user-data'], /cp \/cdrom\/odin\/scripts\/01-l\.sh \/target\/tmp\/01-l\.sh && curtin in-target -- sh \/tmp\/01-l\.sh/);
+  // Lot C4 (point 5) : tes scripts sont lus dans l'archive d'injection (/odin), pas dans /cdrom (l'ISO elle-même).
+  assert.match(u['user-data'], /cp \/odin\/scripts\/01-l\.sh \/target\/tmp\/01-l\.sh && curtin in-target -- sh \/tmp\/01-l\.sh/);
   assert.ok(u['user-data'].indexOf('01-l.sh') < u['user-data'].indexOf('shutdown: reboot'));
   const d = scripts.apercu({ famille: 'debian', answer, scripts: mes } as never);
   assert.match(d['preseed.cfg'], /in-target sh \/tmp\/01-l\.sh/);

@@ -34,7 +34,7 @@ import { suivi, type FicheFin, type Passage, type Resultat } from '../thjalfi/su
 import { pxeHook } from '../vidarr/dhcp.ts';
 import { cleUsb } from '../thjalfi/cle-ecrire.ts';
 import { EDITIONS, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, masque, supprimerCle } from '../thjalfi/cles-windows.ts';
-import { analyserScript, apercu as apercuScripts, nomCompteValide, osDuScript, type ScriptPerso } from '../thjalfi/scripts.ts';
+import { apercu as apercuScripts, nomCompteValide, optionsWindowsDe, osDuScript, scriptsRevus } from '../thjalfi/scripts.ts';
 import { BASE_RULES, RuleSet, compileGaldr, flat as plusieursConstats, scanBuffer } from '../ullr/engine.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
@@ -631,7 +631,14 @@ export function thjalfi(): Module {
   // Suivi, fiche d'un poste, bloquer / débloquer, annuler, suspendre / reprendre, mot de passe d'installation, rapport.
   actions.push(...S.actions);
   // Clé USB bootable (nouveau mode de Genèse, façon Rufus / Ventoy) : disques, plan de double démarrage, préparation.
-  actions.push(...cleUsb().actions);
+  // Lot C4 : l'écriture retrouve chaque ISO dans la bibliothèque (images PRÊTES seulement), revérifie tes scripts par
+  // l'antivirus, prend la clé d'activation du coffre (jamais rendue à la page) et le profil d'installation.
+  actions.push(...cleUsb({
+    bibliotheque: async (ctx) => (await isos(ctx)).filter(prete).map((i) => ({ id: i.id, nom: i.name, chemin: i.path, ...(i.recipe ? { recipe: i.recipe } : {}) })),
+    antivirus: antivirusScript,
+    cleActivation: (ctx, fichier, nom) => clePourImage(ctx.home, ctx.dir, fichier, nom),
+    profil: (ctx) => profiles(ctx)[0],
+  }).actions);
   // Clé USB, étape « Logiciels et scripts » : le script créé tout seul, montré en direct (lecture seule, rien n'est écrit).
   actions.push(apercuScriptCle(profiles));
 
@@ -729,9 +736,8 @@ export function apercuScriptCle(profiles: (ctx: ModCtx) => Profile[]): Action {
       const fam = s(sys.famille).toLowerCase();
       const famille: 'windows' | 'ubuntu' | 'debian' | 'rhel' = fam === 'windows' ? 'windows' : /debian/i.test(`${nom} ${fichier}`) ? 'debian' : /fedora|rocky|alma|centos|rhel/i.test(`${nom} ${fichier}`) ? 'rhel' : 'ubuntu';
       // Tes scripts : au plus 20, de 64 Ko chacun ; chacun vérifié (extension, commandes qui effacent un disque, antivirus).
-      const brut = (Array.isArray(i.scripts) ? i.scripts : []).slice(0, 20).map(o).map((x) => ({ nom: s(x.nom).split(/[\\/]/).pop()!.slice(0, 120), contenu: s(x.contenu).slice(0, 64 * 1024 + 1) }));
-      const verdicts = brut.map((x) => analyserScript(x.nom, x.contenu, antivirusScript));
-      const acceptes: ScriptPerso[] = brut.filter((_x, k) => verdicts[k].ok);
+      // Le MÊME tri qu'à l'écriture (scripts.ts, scriptsRevus).
+      const { verdicts, acceptes } = scriptsRevus(i.scripts, antivirusScript);
       const pourOs = acceptes.filter((x) => osDuScript(x.nom) === (famille === 'windows' ? 'windows' : 'linux'));
       // Les logiciels cochés : seuls ceux qui s'installent tout seuls entrent dans le script (logiciels-cle.ts).
       const choisis = (Array.isArray(i.logiciels) ? i.logiciels : []).slice(0, 200).map(o).map((x) => ({ id: s(x.id).slice(0, 120), fichier: (s(x.fichier).split(/[\\/]/).pop() ?? '').slice(0, 255) })).filter((x) => x.fichier);
@@ -746,10 +752,8 @@ export function apercuScriptCle(profiles: (ctx: ModCtx) => Profile[]): Action {
       // Le nom du compte de l'étape 5 vaut pour Windows ; un Linux garde celui du profil d'installation (minuscules exigées).
       const userLinux = /^[a-z_][a-z0-9_-]{0,31}$/.test(p.utilisateur) ? p.utilisateur : 'odin';
       const answer: Answer = { host: 'odin-pc', user: famille === 'windows' ? (nomCompteValide(nomCompte) ? nomCompte : 'odin') : userLinux, password: '', locale: p.langue, keymap: p.clavier, timezone: p.fuseau, packages: [], report: 'http://odin.local/etat/cle', ...(act ? { productKey: cleMasquee(act.fin) } : {}) };
-      const opt = { retirerExigences: w.exigences !== false, effacerApres: false, compteLocal: w.local !== false, nomCompte, sansViePrivee: w.viePrivee !== false, langueOdin: w.langue !== false,
-        // Le disque du PC est TOUJOURS choisi au moment d'installer : aucune entrée (même un appel direct avec
-        // « disque: 'vide' ») ne remet l'effacement automatique du premier disque.
-        disqueAuChoix: true };
+      // Le disque du PC est TOUJOURS choisi au moment d'installer (optionsWindowsDe, le même calcul qu'à l'écriture).
+      const opt = optionsWindowsDe(w);
       const fichiers = Object.fromEntries(Object.entries(apercuScripts({ famille, answer, fw: 'uefi', opt, logiciels: pour.windows, debsCle: pour.debs, token: 'cle', scripts: pourOs })).map(([k, v]) => [k, sansEmpreintes(v)]));
       const refuses = verdicts.filter((v) => !v.ok).length;
       return { ok: true, text: `${Object.keys(fichiers).length} fichier(s) pour ${nom || famille}${refuses ? ` · ${refuses} script(s) refusé(s)` : ''}. Rien n'est écrit.`,

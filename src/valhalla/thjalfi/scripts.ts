@@ -10,6 +10,7 @@
 //     les paquets .deb copiés sur la clé, ou des paquets du dépôt.
 // Tout est MONTRÉ avant d'être écrit (fonction apercu). Pur : aucune écriture ici.
 
+import { randomBytes } from 'node:crypto';
 import { ubuntuUserData, ubuntuMetaData, debianPreseed, kickstart, unattend, silentArgs, type Answer } from './recipes.ts';
 
 /** Un logiciel copié sur la clé (dans /logiciels/windows ou /logiciels/linux) et installé à la fin. */
@@ -100,6 +101,13 @@ export function lancementLocal(xml: string): string {
   return xml.replace(/<CommandLine>[^<]*DownloadString[^<]*<\/CommandLine>/g, () => `<CommandLine>${x}</CommandLine>`);
 }
 
+/** Le nom d'un logiciel SUR LA CLÉ : le même pour la copie (cle-ecrire.ts) et pour la ligne qui le lance (liste blanche :
+ *  lettres, chiffres, . _ + -). Sans ça, « Mon App.exe » serait copié tel quel et lancé sous « Mon_App.exe ». Pur. */
+export function nomLogicielSur(fichier: string): string {
+  const n = String(fichier ?? '').split(/[\\/]/).pop() ?? '';
+  return n.replace(/[^\w.+-]/g, '_').replace(/^[.-]+/, '_') || 'logiciel';
+}
+
 /**
  * Le script lancé à la première ouverture de session Windows, pour la clé : les logiciels sont installés
  * DEPUIS LA CLÉ (hors ligne), en silencieux (silentArgs), puis effacés si voulu ; à la fin, une page locale
@@ -118,7 +126,7 @@ export function apresWindowsCle(logiciels: LogicielCle[], opt: OptionsWindows, c
     // Le nom de fichier est assaini (liste blanche) AVANT d'entrer dans une chaîne PowerShell : sinon un nom comme
     // « app$(commande).exe » (sous-expression PowerShell dans une chaîne à guillemets doubles) s'exécuterait à
     // l'ouverture de session. Même garde que recipes.ts windowsAfter.
-    const nomSur = s.fichier.replace(/[^\w.+-]/g, '_');
+    const nomSur = nomLogicielSur(s.fichier);
     const f = chemin !== undefined ? `${chemin}\\${nomSur}` : `$src\\${nomSur}`;
     const { args, msi } = s.msi ? { args: '', msi: true } : silentArgs(s.id, s.fichier);
     L.push(msi
@@ -138,22 +146,57 @@ export function scriptsLinuxCle(a: Answer, famille: 'ubuntu' | 'debian' | 'rhel'
   // Un nom de paquet entre tel quel dans une commande sh et dans le YAML : seuls les noms sûrs (lettres, chiffres, . _ + -)
   // y entrent ; un nom comme « x"; reboot; ".deb » ou avec un retour à la ligne n'est pas lancé (il reste copié sur la clé).
   const debs = (debsCle ?? []).filter((d) => /^[\w.+-]{1,200}\.deb$/.test(String(d ?? '')) && !String(d).startsWith('-'));
+  // Mot de passe (lot C4) : PERSONNE ne l'écrit sur la clé, ni en clair ni en empreinte réutilisable. Le compte est créé
+  // avec un mot de passe tiré au hasard ici et jeté aussitôt (jamais gardé, jamais montré), puis, à la fin de
+  // l'installation, ce mot de passe est retiré et marqué « à changer » : à la première ouverture de session, le système
+  // demande d'en choisir un. Comme Windows. (La connexion à distance refuse un compte sans mot de passe.)
+  const user = /^[a-z_][a-z0-9_-]{0,31}$/.test(String(a.user ?? '')) ? a.user : 'odin';
+  const jetable: Answer = { ...a, user, password: randomBytes(24).toString('base64url') };
+  const premier = [`passwd -d ${user}`, `chage -d 0 ${user}`];
   if (famille === 'ubuntu') {
-    let ud = ubuntuUserData(a);
-    if (debs.length) {
-      // Installer les .deb copiés sur la clé après l'installation de base (montée en /cdrom par l'installateur).
-      const cmd = debs.map((d) => `    - curtin in-target -- sh -c "dpkg -i /cdrom/logiciels/linux/${d} || apt-get -y -f install"`).join('\n');
-      ud = ud.replace(/( {2}shutdown: reboot)/, (_m, fin: string) => `${cmd}\n${fin}`);
-    }
+    let ud = disqueAuChoixLinux(ubuntuUserData(jetable), 'ubuntu');
+    // Les paquets .deb sont dans l'archive d'injection (racine /odin du système d'installation), pas dans /cdrom (qui
+    // est l'ISO elle-même, pas la clé).
+    const cmd = [...debs.map((d) => `    - curtin in-target -- sh -c "dpkg -i ${RACINE_INJECTEE}/logiciels/${d} || apt-get -y -f install"`),
+      ...premier.map((c) => `    - curtin in-target -- ${c}`)].join('\n');
+    ud = ud.replace(/( {2}shutdown: reboot)/, (_m, fin: string) => `${cmd}\n${fin}`);
+    // Les .deb sont copiés depuis l'archive dans le système installé avant d'être lancés : curtin in-target voit /target.
+    if (debs.length) ud = ud.replace(/( {4}- curtin in-target -- sh -c "dpkg -i )/, (_m, debut: string) => `    - ${yamlSur(`mkdir -p /target${RACINE_INJECTEE}/logiciels && cp ${debs.map((d) => `${RACINE_INJECTEE}/logiciels/${d}`).join(' ')} /target${RACINE_INJECTEE}/logiciels/`)}\n${debut}`);
     return { 'user-data': ud, 'meta-data': ubuntuMetaData(token) };
   }
   if (famille === 'debian') {
-    let ps = debianPreseed(a);
-    if (debs.length) ps = ps.replace(/(d-i preseed\/late_command string )/, (_m, debut: string) => `${debut}${debs.map((d) => `cp /cdrom/logiciels/linux/${d} /target/tmp/ && in-target dpkg -i /tmp/${d} || true; `).join('')}`);
+    let ps = disqueAuChoixLinux(debianPreseed(jetable), 'debian');
+    if (debs.length) ps = ps.replace(/(d-i preseed\/late_command string )/, (_m, debut: string) => `${debut}${debs.map((d) => `cp ${RACINE_INJECTEE}/logiciels/${d} /target/tmp/ && in-target dpkg -i /tmp/${d} || true; `).join('')}`);
+    ps = ps.replace(/(d-i preseed\/late_command string .*)$/m, `$1; ${premier.map((c) => `in-target ${c}`).join('; ')}`);
     return { 'preseed.cfg': ps };
   }
-  return { 'ks.cfg': kickstart(a) };
+  return { 'ks.cfg': `${disqueAuChoixLinux(kickstart(jetable), 'rhel')}\n%post\n# Odin : le mot de passe est choisi à la première ouverture de session\n${premier.join('\n')}\n%end\n` };
 }
+
+/**
+ * Relecture C4, point (b) — COMME WINDOWS : sur la clé, une installation Linux n'efface JAMAIS un disque toute seule ; le
+ * disque du PC est choisi au moment d'installer. On retire des réponses (les recettes du réseau, elles, ne changent pas) :
+ *  - Ubuntu : le partitionnement automatique (`storage: {layout: …}`) → l'écran « stockage » est demandé
+ *    (`interactive-sections: [storage]`) ;
+ *  - Debian : toutes les réponses `partman` (méthode, recette, confirmations d'écriture) et le disque du chargeur
+ *    (`grub-installer/bootdev`) → l'installateur pose ces questions ;
+ *  - Fedora / RHEL : `zerombr`, `clearpart`, `autopart`, `ignoredisk` → l'installateur demande le disque (le reste du
+ *    fichier est suivi tout seul). Pur.
+ */
+export function disqueAuChoixLinux(texte: string, famille: 'ubuntu' | 'debian' | 'rhel'): string {
+  if (famille === 'ubuntu') {
+    return texte.replace(/^ {2}storage:.*\n/m, '  interactive-sections:\n    - storage\n');
+  }
+  if (famille === 'debian') {
+    return texte.split('\n').filter((l) => !/^d-i\s+(partman[\w-]*\/|grub-installer\/bootdev\b)/.test(l)).join('\n');
+  }
+  return texte.split('\n').filter((l) => !/^(zerombr|clearpart|autopart|ignoredisk|part|logvol|volgroup|raid|reqpart)\b/.test(l.trim())).join('\n');
+}
+/** Où l'archive d'injection d'Odin est posée dans le système d'installation (racine de son disque en mémoire) : c'est
+ *  LÀ que les commandes de fin trouvent tes scripts et les paquets .deb. (/cdrom est l'ISO officielle, pas la clé.) */
+export const RACINE_INJECTEE = '/odin';
+/** Une ligne YAML entre guillemets simples (une apostrophe doublée). Pur. */
+const yamlSur = (t: string) => `'${t.replace(/'/g, "''")}'`;
 
 // ---------------- Script perso ----------------
 /** Un modèle de script d'installation que la personne peut adapter (montré et vérifié avant d'être écrit). Pur. */
@@ -238,7 +281,7 @@ export function verifierScriptPerso(contenu: string): string | undefined {
 // ---------------- Tes scripts (ajoutés à la main, lancés à la fin, dans l'ordre) ----------------
 /** Un script ajouté par la personne : gardé et montré, JAMAIS exécuté par Odin ; lancé seulement sur le PC installé. */
 export interface ScriptPerso { nom: string; contenu: string }
-/** Le dossier des scripts sur la clé (sous /odin), vu depuis l'installateur Linux (/cdrom) et depuis Windows. */
+/** Le dossier des scripts sur la clé (sous /odin) ; l'installateur Linux les lit dans l'archive d'injection (RACINE_INJECTEE), Windows à côté d'apres.ps1. */
 export const DOSSIER_SCRIPTS = 'odin/scripts';
 /** Le chemin des scripts sur la clé vu depuis Windows (même convention que les logiciels, apresWindowsCle). */
 // « %ODIN_CLE% » ne veut rien dire en PowerShell : le dossier scripts est pris à côté du script de fin ($PSScriptRoot,
@@ -272,14 +315,14 @@ export function ajouterScriptsLinux(fichiers: Record<string, string>, scripts: A
   if (!scripts.length) return fichiers;
   const out = { ...fichiers };
   if (out['user-data'] !== undefined) {
-    const cmd = scripts.map((s) => `    - cp /cdrom/${DOSSIER_SCRIPTS}/${s.fichier} /target/tmp/${s.fichier} && curtin in-target -- sh /tmp/${s.fichier} || true`).join('\n');
+    const cmd = scripts.map((s) => `    - cp ${RACINE_INJECTEE}/scripts/${s.fichier} /target/tmp/${s.fichier} && curtin in-target -- sh /tmp/${s.fichier} || true`).join('\n');
     out['user-data'] = out['user-data'].replace(/( {2}shutdown: reboot)/, `    # Tes scripts, dans l'ordre\n${cmd}\n$1`);
   }
   if (out['preseed.cfg'] !== undefined) {
-    out['preseed.cfg'] = out['preseed.cfg'].replace(/(d-i preseed\/late_command string .*)$/m, `$1; ${scripts.map((s) => `cp /cdrom/${DOSSIER_SCRIPTS}/${s.fichier} /target/tmp/ && in-target sh /tmp/${s.fichier} || true`).join('; ')}`);
+    out['preseed.cfg'] = out['preseed.cfg'].replace(/(d-i preseed\/late_command string .*)$/m, `$1; ${scripts.map((s) => `cp ${RACINE_INJECTEE}/scripts/${s.fichier} /target/tmp/ && in-target sh /tmp/${s.fichier} || true`).join('; ')}`);
   }
   if (out['ks.cfg'] !== undefined) {
-    out['ks.cfg'] += `\n%post --nochroot\n# Tes scripts, dans l'ordre\n${scripts.map((s) => `cp /run/install/repo/${DOSSIER_SCRIPTS}/${s.fichier} /mnt/sysimage/tmp/ || true`).join('\n')}\n%end\n\n%post\n${scripts.map((s) => `sh /tmp/${s.fichier} || true`).join('\n')}\n%end\n`;
+    out['ks.cfg'] += `\n%post --nochroot\n# Tes scripts, dans l'ordre\n${scripts.map((s) => `cp ${RACINE_INJECTEE}/scripts/${s.fichier} /mnt/sysimage/tmp/ || true`).join('\n')}\n%end\n\n%post\n${scripts.map((s) => `sh /tmp/${s.fichier} || true`).join('\n')}\n%end\n`;
   }
   return out;
 }
@@ -301,6 +344,29 @@ export function analyserScript(nom: string, contenu: string, scan?: (nom: string
   const av = scan ? scan(n, contenu) : undefined;
   if (av) return { nom: n, ok: false, raison: av };
   return { nom: n, ok: true };
+}
+
+/**
+ * Les options de l'étape « Options Windows » lues telles que la page les envoie (brutes, peut-être trafiquées), pour
+ * l'aperçu ET pour l'écriture (un seul calcul). Le disque du PC est TOUJOURS choisi au moment d'installer : aucune
+ * entrée ne remet l'effacement automatique du premier disque. Pur.
+ */
+export function optionsWindowsDe(w: unknown): OptionsWindows {
+  const o = w && typeof w === 'object' && !Array.isArray(w) ? w as Record<string, unknown> : {};
+  const nomCompte = typeof o.compte === 'string' ? o.compte.trim().slice(0, 64) : '';
+  return { retirerExigences: o.exigences !== false, effacerApres: false, compteLocal: o.local !== false, nomCompte, sansViePrivee: o.viePrivee !== false, langueOdin: o.langue !== false, disqueAuChoix: true };
+}
+/**
+ * Tes scripts tels que la page les envoie : au plus 20, de 64 Ko chacun, le nom sans chemin, et CHACUN revérifié
+ * (extension, texte lisible, commandes dangereuses, antivirus `scan`). Sert à l'aperçu ET, de nouveau, à l'écriture :
+ * ce que la page dit « accepté » ne compte pas. Pur (hors `scan`).
+ */
+export function scriptsRevus(brut: unknown, scan?: (nom: string, contenu: string) => string | undefined): { verdicts: VerdictScript[]; acceptes: ScriptPerso[] } {
+  const o = (x: unknown): Record<string, unknown> => (x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, unknown> : {});
+  const s = (x: unknown) => (typeof x === 'string' ? x : '');
+  const liste = (Array.isArray(brut) ? brut : []).slice(0, 20).map(o).map((x) => ({ nom: (s(x.nom).split(/[\\/]/).pop() ?? '').slice(0, 120), contenu: s(x.contenu).slice(0, 64 * 1024 + 1) }));
+  const verdicts = liste.map((x) => (x.contenu.length > 64 * 1024 ? { nom: x.nom, ok: false, raison: 'Script trop long (64 Ko au plus).' } : analyserScript(x.nom, x.contenu, scan)));
+  return { verdicts, acceptes: liste.filter((_x, k) => verdicts[k].ok) };
 }
 
 /** Tous les scripts d'un système, prêts à montrer AVANT écriture (nom de fichier → contenu). Pur. */

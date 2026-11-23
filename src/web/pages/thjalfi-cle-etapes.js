@@ -12,7 +12,8 @@
 // les étapes 4 à 6 ne s'ouvrent que si l'étape 3 est juste (au moins un système, et tout tient sur la clé).
 // Les étapes 4 « Logiciels et scripts » et 5 « Options Windows » (lot C3) sont dans thjalfi-cle-logiciels.js
 // (window.OdinGeneseCleLogiciels) ; l'étape 5 ne s'ouvre que si un Windows est choisi (sinon on passe de 4 à 6).
-// L'étape 6 et les trois autres onglets arrivent avec leurs lots : en attendant, ils disent « bientôt » et
+// L'étape 6 « Vérifier », l'écriture et la fin (lot C4) sont dans thjalfi-cle-suivi.js (window.OdinGeneseCleSuivi) ;
+// pendant l'écriture, la barre des étapes reste sur l'étape 6. Les trois autres onglets arrivent avec leurs lots : en attendant, ils disent « bientôt » et
 // gardent joignable tout ce que l'appli sait déjà faire (le composeur, qui reçoit les systèmes déjà choisis,
 // l'aperçu du menu, les disques comme avant).
 //
@@ -376,8 +377,12 @@
   const LOG = () => (W.OdinGeneseCleLogiciels && typeof W.OdinGeneseCleLogiciels.rendre === 'function' ? W.OdinGeneseCleLogiciels : null);
   /** Un Windows est-il choisi ? (sans le lot C3 chargé : l'étape 5 reste ouverte, comme avant) */
   const avecWindows = () => { const l = LOG(); return !l || typeof l.aWindows !== 'function' || l.aWindows(); };
+  /** L'étape 6 « Vérifier », l'écriture et la fin (lot C4), si elles sont chargées. */
+  const SUIVI = () => (W.OdinGeneseCleSuivi && typeof W.OdinGeneseCleSuivi.rendre === 'function' ? W.OdinGeneseCleSuivi : null);
+  /** Pendant l'écriture, la barre des étapes est verrouillée sur l'étape 6. */
+  const verrou = () => Boolean(SUIVI() && typeof SUIVI().verrouille === 'function' && SUIVI().verrouille());
   /** L'étape n peut-elle s'ouvrir maintenant ? */
-  const ouverte = (n) => etapeOuverte(n, S.cle, prets(), avecWindows());
+  const ouverte = (n) => (verrou() ? n === 6 : etapeOuverte(n, S.cle, prets(), avecWindows()));
   /** L'étape 3 est-elle juste POUR LA CLÉ CHOISIE MAINTENANT ? (sans le lot C2 chargé : rien ne bloque, comme avant) */
   const prets = () => {
     const s = SYS();
@@ -543,6 +548,16 @@
         if (S.etape === 5 && !avecWindows()) S.etape = 4;
         return [etapes(), ...LOG().rendre(S.etape, { cle: c.brut, sorte: c.sorte, post: C.outils.post, redessiner: (f) => dessiner(f), pied, wrap: C.wrap })];
       }
+      if (S.etape === 6 && SUIVI() && c) {
+        // Lot C4 : Vérifier, puis l'écriture et la fin. Les choix des étapes 2 à 5 sont relus à chaque dessin.
+        return [etapes(), ...SUIVI().rendre(6, {
+          cle: c.brut, vue: c, sorte: c.sorte, post: C.outils.post, redessiner: (f) => dessiner(f), pied, wrap: C.wrap, mascotte,
+          aller: (n) => { if (!ouverte(n)) return; S.etape = n; dessiner(`etape-${n}`); },
+          composes: () => (SYS() ? SYS().composes() : []), suite: (comp) => (LOG() ? LOG().pourComposeur(comp) : null),
+          facon: SYS() && SYS().etat ? SYS().etat.facon : 'iso', avecWindows: Boolean(LOG() && typeof LOG().aWindows === 'function' && LOG().aWindows()),
+          fin: () => { S.cle = null; S.choix = null; S.msg = ''; S.etape = 1; dessiner('etape-1'); void relire(true); },
+        })];
+      }
       return [etapes(), ...(S.etape === 1 ? etapeCle() : etapeBientot(S.etape))];
     }
     if (S.onglet === 'mescles') {
@@ -640,5 +655,5 @@
   }
 
   // « choisir » : la même porte que le clic sur une carte (une demande directe pour un disque interne est refusée).
-  W.OdinGeneseCleEtapes = { MOTS, logique, monter, choisir: prendre, etat: S };
+  W.OdinGeneseCleEtapes = { MOTS, logique, monter, choisir: prendre, etat: S, mascotte };
 })();

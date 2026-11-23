@@ -201,7 +201,8 @@ export function planInstallLinux(s: SystemeCle): PlanInstallLinux {
   const auto = ['ubuntu', 'casper', 'debian', 'rhel', 'fedora-live'].includes(s.recipe.kind);
   // L'entrée GRUB (chainload) qui démarre le système installé depuis sa partition (étiquette ext).
   const grubEntree = [
-    `menuentry "${s.nom} (installé)" --class linux {`,
+    // (le nom est assaini ici aussi : un guillemet ou un retour à la ligne ajouterait des commandes au menu)
+    `menuentry "${String(s.nom ?? '').replace(/[^\p{L}\p{N} ._+()-]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Linux'} (installé)" --class linux {`,
     `  search --no-floppy --label --set=root ${label}`,
     '  configfile /boot/grub/grub.cfg',
     '}',

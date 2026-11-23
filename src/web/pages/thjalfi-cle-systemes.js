@@ -210,7 +210,7 @@
       const choix = choisis[e.id].choix;
       const s = e.famille === 'vm'
         ? { nom: e.nom, famille: e.vm.famille || 'inconnu', choix: 'vm', mode: 'demarrer', vmSource: { origine: e.vm.origine, vmid: e.vm.vmid, serveur: e.vm.serveur, nom: e.nom, famille: e.vm.famille || 'inconnu', disque: e.vm.disque, instantaneFait: Boolean(e.vm.instantaneFait), tailleGo: Number(e.vm.tailleGo) || 0 } }
-        : { nom: e.nom, fichier: e.fichier, famille: e.famille === 'windows' ? 'windows' : 'linux', choix, mode: choix === 'iso' ? 'demarrer' : 'installer' };
+        : { nom: e.nom, iso: e.id, fichier: e.fichier, famille: e.famille === 'windows' ? 'windows' : 'linux', choix, mode: choix === 'iso' ? 'demarrer' : 'installer' };
       return typeof ser === 'function' ? ser(s) : s;
     });
   }

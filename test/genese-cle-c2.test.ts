@@ -254,7 +254,8 @@ test('C2 : la barre de place suit cle_place (le vrai calcul), et « Continuer »
   assert.equal(p.placeEtat(), 'calcul'); assert.equal(p.continuer().disabled, true, 'pas avant la réponse de cle_place');
   const demande = p.appels.filter((a) => a.action === 'cle_place').at(-1)!;
   assert.equal((demande.input.cible as { id: string }).id, 'faux-cle-64');
-  assert.deepEqual(demande.input.systemes, [{ nom: 'Ubuntu Desktop 24.04', famille: 'linux', choix: 'iso', mode: 'demarrer', fichier: 'ubuntu-24.04-desktop-amd64.iso' }]);
+  // Lot C4 (point 2) : l'identifiant de l'ISO dans la bibliothèque part aussi ; le serveur retrouve l'image par lui.
+  assert.deepEqual(demande.input.systemes, [{ nom: 'Ubuntu Desktop 24.04', famille: 'linux', choix: 'iso', mode: 'demarrer', fichier: 'ubuntu-24.04-desktop-amd64.iso', iso: 'iso:ubuntu' }]);
   await p.lacher();
   assert.equal(p.placeEtat(), 'ok'); assert.equal(p.continuer().disabled, false); assert.equal(p.etape(4).disabled, false);
   const t = p.corps.querySelector('.cks-place')!.textContent;

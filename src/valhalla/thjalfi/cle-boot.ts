@@ -123,7 +123,9 @@ const cheminOdin = (f: string) => jsonEcran(`${DISPOSITION_CLE.odin}/${f}`);
  * d'abord être préparé par odin-boot (voir cle-grub.ts / le script généré). On ne fabrique donc aucune fausse clé
  * JSON « vhdboot »/« vtoy » : on range ces fichiers, on leur donne leur nom et leur icône, et Ventoy les démarre.
  */
-export function buildVentoyJson(prep: PreparationCle): string {
+export function buildVentoyJson(prepEntiere: PreparationCle): string {
+  // Une VM copiée n'a pas d'ISO (fichier vide) : elle vit dans /vdisk (entreesVdiskAuto), jamais une entrée « /ISO/ ».
+  const prep: PreparationCle = { ...prepEntiere, systemes: prepEntiere.systemes.filter((s) => s.fichier) };
   const control: Array<Record<string, string>> = [];
   if (prep.defaut) control.push({ VTOY_DEFAULT_IMAGE: prep.defaut.startsWith('/') ? jsonEcran(prep.defaut) : cheminIso(prep.defaut) });
   control.push({ VTOY_MENU_TIMEOUT: String(Math.max(0, Math.round(prep.delai))) });
@@ -165,7 +167,7 @@ export function buildVentoyJson(prep: PreparationCle): string {
 
   // Lot A : les systèmes installés / copiés (Windows To Go, VM) posés dans /vdisk reçoivent leur icône au menu, et
   // les systèmes « persistance » émettent le tableau `persistence` de Ventoy (fichier de persistance à côté de l'ISO).
-  const autoClasse = entreesVdiskAuto(prep.systemes);
+  const autoClasse = entreesVdiskAuto(prepEntiere.systemes);
   const persistence = entreesPersistance(prep.systemes);
 
   const doc: Record<string, unknown> = { control, theme, menu_alias, menu_class: autoClasse.length ? menu_class.concat(autoClasse) : menu_class };

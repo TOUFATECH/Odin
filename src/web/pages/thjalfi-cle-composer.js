@@ -159,6 +159,8 @@
     // Un simple nom de fichier, jamais un chemin (ni « .. », ni « / » ou « \ », ni lecteur « C: ») : un nom piégé
     // n'est pas envoyé. (Le serveur devra lui aussi retrouver l'ISO dans SA bibliothèque avant toute copie.)
     if (nomFichierSur(s.fichier)) o.fichier = s.fichier;
+    // L'identifiant de l'ISO dans la bibliothèque (lot C4) : le serveur retrouve l'image par lui, jamais par un chemin.
+    if (typeof s.iso === 'string' && /^iso:[\w.-]{1,80}$/.test(s.iso)) o.iso = s.iso;
     if (s.winToGo) o.winToGo = s.winToGo;
     if (s.persistance) o.persistance = s.persistance;
     if (s.installPartition) o.installPartition = s.installPartition;
@@ -348,6 +350,9 @@
       if (!etat.plan) { await voirPlan(); }
       const r = planResume(etat.plan);
       if (!r.peutEcrire) { await D.alert(r.blocage || 'Plan impossible : rien n\'est écrit.'); return; }
+      // Lot C4 : la clé s'écrit à l'étape « Vérifier » du parcours « Déployer » (la phrase donnée par le serveur ET un
+      // appui long de 3 s, le numéro de série revérifié). Ce composeur ne lance plus l'écriture lui-même.
+      if (window.OdinGeneseCleSuivi) { await D.alert('L\'écriture se fait maintenant à l\'étape « Vérifier » du parcours « Déployer » : Odin y montre tout, puis demande la phrase et un appui long de 3 secondes.'); return; }
       const efface = r.lignes.filter((l) => l.efface).map((l) => l.role).join(', ') || 'rien';
       const saisie = await D.prompt(`Écriture sur « ${etat.nomCible} ». Sera effacé : ${efface}. Pour confirmer, tape exactement : ${PHRASE}`, '', { ok: 'Écrire', danger: true, title: 'Confirmation forte' });
       if (saisie === null) return;

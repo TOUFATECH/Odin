@@ -11,8 +11,10 @@
 //
 // Tout est PUR ici : on lit l'état (déjà détecté par disques.ts), on calcule, on dit. Aucune commande, aucune écriture.
 
-import type { Disque } from './disques.ts';
+import { choisissable, type Disque } from './disques.ts';
 import type { Cible, GenreCible, PlanPlace, SystemeCle } from './cle-types.ts';
+import { DISPOSITION_CLE } from './cle-types.ts';
+import { planWinToGo, specPersistance } from './cle-install.ts';
 
 const GO = 1024 ** 3;
 
@@ -42,15 +44,48 @@ export function cibleDepuisDisque(d: Disque): Cible {
 }
 
 /**
- * La liste des cibles ÉCRIVABLES, à montrer dans « Externes » : toutes les clés et tous les disques externes,
- * plus les disques internes DÉJÀ préparés par Genèse (estOdin) — jamais le disque du système en cours, ni un
- * disque interne quelconque (le double démarrage interne passe par cle-plan.ts, pas par une préparation complète).
- * Pur.
+ * La liste des cibles ÉCRIVABLES : la MÊME règle que l'étape « Clé » (disques.ts, `choisissable`) — branchées de
+ * l'extérieur, retirables, ni le disque du système, ni un disque d'où tourne un système « live », ni celui qui porte
+ * Odin. Plus aucun disque interne, même déjà ODIN : le double démarrage sur un disque INTERNE garde sa propre action
+ * (cle_plan, cle-plan.ts), à part et inchangée. Pur.
  */
 export function ciblesEcrivables(disques: Disque[]): Cible[] {
-  return disques
-    .filter((d) => !d.systemeEnCours && (d.externe || d.estOdin))
-    .map(cibleDepuisDisque);
+  return disques.filter((d) => choisissable(d)).map(cibleDepuisDisque);
+}
+
+/** Un nom de fichier sûr sur la clé (liste blanche : lettres, chiffres, . _ + -). Pur. */
+const nomSur = (n: string) => String(n ?? '').replace(/\.[^.]+$/, '').replace(/[^\w.+-]/g, '_');
+
+/**
+ * OÙ va un système installé, et combien de place il prend : LE calcul unique que lisent le plan (planPlace) et
+ * l'écriture (cle-ecrire.ts). Un Windows installé est un disque virtuel (VHDX) posé dans /vdisk sur la partition ISO
+ * ODIN ; une persistance est un fichier dans /persistence ; un Linux installé a sa vraie partition. ISO et VM : rien
+ * (des fichiers ordinaires). Pur.
+ */
+export function placeInstalle(s: SystemeCle): { role: 'WinToGo' | 'Linux installé' | 'persistance'; tailleGo: number; lieu: 'partition' | 'fichier'; fichier?: string } | undefined {
+  const choix = s.choix ?? 'iso';
+  // La famille peut arriver capitalisée du serveur ('Windows') ou en minuscule de la page ('windows') : on compare
+  // sans tenir compte de la casse, sinon un Windows « installé » retombe à tort en « Linux installé ».
+  const estWindows = String(s.famille).toLowerCase() === 'windows';
+  if (choix === 'installe') {
+    if (s.winToGo || estWindows) {
+      const tailleGo = Math.max(1, Math.round(s.winToGo?.tailleGo ?? PLACE.winToGoGo));
+      const vhdx = planWinToGo(s.fichier, s.nom, { tailleGo }).vhdx.replace(/^.*\//, '');
+      return { role: 'WinToGo', tailleGo, lieu: 'fichier', fichier: `${DISPOSITION_CLE.vdisk.slice(1)}/${vhdx}` };
+    }
+    return { role: 'Linux installé', tailleGo: Math.max(1, Math.round(s.installPartition?.tailleGo ?? PLACE.linuxInstalleGo)), lieu: 'partition' };
+  }
+  if (choix === 'persistance') {
+    const spec = s.persistance ? { ...s.persistance } : specPersistance(s.fichier);
+    const mo = s.persistance?.tailleMo ?? 4096;
+    return { role: 'persistance', tailleGo: Math.max(1, Math.round(mo / 1024)), lieu: 'fichier', fichier: `${DISPOSITION_CLE.persistance.slice(1)}/${nomSur(s.fichier)}-${spec.label}.dat` };
+  }
+  return undefined; // 'iso' et 'vm' : des fichiers posés sur la partition ISO ODIN
+}
+
+/** La place à RÉSERVER hors de la partition ISO ODIN (les seules vraies partitions : les Linux installés), en Go. Pur. */
+export function reserveGo(plan: PlanPlace): number {
+  return plan.partitions.filter((p) => p.role !== 'ISO ODIN' && p.lieu === 'partition').reduce((n, p) => n + p.tailleGo, 0);
 }
 
 /** Les options du plan de place : la taille voulue pour la partition ISO ODIN et si l'on efface la cible. */
@@ -61,23 +96,6 @@ export interface OptionsPlace {
   /** vrai : préparer en effaçant la cible (clé non ODIN) ; faux : mise à jour d'une cible déjà ODIN (rien d'effacé en plus) ;
    *  absente : déduit de cible.estOdin */
   effacer?: boolean;
-}
-
-/** La place demandée par un système installé (WinToGo, Linux installé) et son rôle, ou rien (ISO/VM : fichiers). */
-function partitionDe(s: SystemeCle): { role: 'WinToGo' | 'Linux installé' | 'persistance'; tailleGo: number } | undefined {
-  const choix = s.choix ?? 'iso';
-  // La famille peut arriver capitalisée du serveur ('Windows') ou en minuscule de la page ('windows') : on compare
-  // sans tenir compte de la casse, sinon un Windows « installé » retombe à tort en « Linux installé ».
-  const estWindows = String(s.famille).toLowerCase() === 'windows';
-  if (choix === 'installe') {
-    if (s.winToGo || estWindows) return { role: 'WinToGo', tailleGo: Math.max(1, Math.round(s.winToGo?.tailleGo ?? PLACE.winToGoGo)) };
-    return { role: 'Linux installé', tailleGo: Math.max(1, Math.round(s.installPartition?.tailleGo ?? PLACE.linuxInstalleGo)) };
-  }
-  if (choix === 'persistance') {
-    const mo = s.persistance?.tailleMo ?? 4096;
-    return { role: 'persistance', tailleGo: Math.max(1, Math.round(mo / 1024)) };
-  }
-  return undefined; // 'iso' et 'vm' : des fichiers posés sur la partition ISO ODIN
 }
 
 /**
@@ -92,8 +110,9 @@ export function planPlace(cible: Cible, systemes: SystemeCle[], opt: OptionsPlac
   const totalGo = cible.tailleOctets / GO;
 
   // Les partitions des systèmes installés et les fichiers de persistance.
-  const installes: Array<{ role: 'WinToGo' | 'Linux installé' | 'persistance'; tailleGo: number }> = [];
-  for (const s of systemes) { const p = partitionDe(s); if (p) installes.push(p); }
+  // (placeInstalle : le MÊME calcul que l'écriture, qui pose le Windows installé en fichier dans /vdisk.)
+  const installes: Array<NonNullable<ReturnType<typeof placeInstalle>>> = [];
+  for (const s of systemes) { const p = placeInstalle(s); if (p) installes.push(p); }
   const sommeInstalles = installes.reduce((n, p) => n + p.tailleGo, 0);
 
   // La partition ISO ODIN : la taille voulue, sinon tout l'espace restant (au moins le minimum).
@@ -115,10 +134,12 @@ export function planPlace(cible: Cible, systemes: SystemeCle[], opt: OptionsPlac
   // La partition ISO ODIN prend la taille voulue, ou tout le reste.
   const isoGo = isoVoulu !== undefined ? Math.min(isoVoulu, resteApresInstalles) : resteApresInstalles;
   const partitions: PlanPlace['partitions'] = [
-    { role: 'ISO ODIN', tailleGo: Math.round(isoGo), efface },
+    { role: 'ISO ODIN', tailleGo: Math.round(isoGo), efface, lieu: 'partition' },
     ...installes.map((p) => ({
       role: p.role,
       tailleGo: p.tailleGo,
+      lieu: p.lieu,
+      ...(p.fichier ? { fichier: p.fichier } : {}),
       // Une partition installée (WinToGo, Linux installé) efface si l'on prépare à neuf ; un fichier de
       // persistance est posé sur la partition ISO ODIN (jamais un effacement à lui seul).
       efface: p.role === 'persistance' ? false : efface,

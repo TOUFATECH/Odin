@@ -179,7 +179,12 @@ export interface PlanPlace {
   /** vrai : le plan tient sur la cible ; faux : Odin s'arrête et dit pourquoi (blocage) */
   possible: boolean;
   blocage?: string;
-  partitions: Array<{ role: 'ISO ODIN' | 'WinToGo' | 'Linux installé' | 'persistance'; tailleGo: number; efface: boolean }>;
+  partitions: Array<{ role: 'ISO ODIN' | 'WinToGo' | 'Linux installé' | 'persistance'; tailleGo: number; efface: boolean;
+    /** OÙ il vit (lot C4, un seul calcul avec l'écriture) : une vraie partition (Linux installé) ou un FICHIER posé sur la
+     *  partition ISO ODIN (Windows installé = disque virtuel dans /vdisk ; persistance = fichier dans /persistence) */
+    lieu?: 'partition' | 'fichier';
+    /** pour un fichier : son chemin sur la partition ISO ODIN, exactement celui qu'écrit cle-ecrire.ts */
+    fichier?: string }>;
   /** la place qui resterait libre sur la cible après ce plan, en Go */
   resteGo: number;
   avertissements: string[];

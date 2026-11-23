@@ -36,7 +36,8 @@ test('scriptsLinuxCle : Ubuntu user-data + meta-data, .deb de la clé en late-co
   const f = scriptsLinuxCle(answer, 'ubuntu', 'jeton123', ['monlogiciel.deb']);
   assert.ok(f['user-data']);
   assert.match(f['user-data'], /autoinstall/);
-  assert.match(f['user-data'], /logiciels\/linux\/monlogiciel\.deb/);
+  // Lot C4 (point 5) : le .deb est pris dans l'archive d'injection (/odin), pas dans /cdrom (l'ISO elle-même).
+  assert.match(f['user-data'], /\/odin\/logiciels\/monlogiciel\.deb/);
   assert.match(f['meta-data'], /jeton123/);
   // Debian : preseed avec le .deb copié.
   const deb = scriptsLinuxCle(answer, 'debian', 'x', ['a.deb']);

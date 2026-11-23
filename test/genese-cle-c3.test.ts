@@ -230,7 +230,8 @@ test('C3 : le script créé tout seul suit les choix, en direct', async () => {
   await p.q('[data-ong="iso:ubuntu"]')!.emettre('click'); await calme();
   await p.q('[data-sw="gimp-faux.deb"]')!.emettre('click'); await calme();
   assert.equal(p.apercu()?.getAttribute('data-apercu'), 'user-data');
-  assert.match(p.apercu()!.textContent, /logiciels\/linux\/gimp-faux\.deb/);
+  // Lot C4 (point 5) : le paquet est lu dans l'archive d'injection (/odin), pas dans /cdrom (l'ISO elle-même).
+  assert.match(p.apercu()!.textContent, /\/odin\/logiciels\/gimp-faux\.deb/);
   assert.ok(!/\$6\$/.test(p.apercu()!.textContent), 'aucune empreinte de mot de passe dans l\'aperçu');
 });
 

@@ -85,7 +85,9 @@ test('ciblesEcrivables : les clés et disques externes, plus les disques ODIN ; 
   const ids = ciblesEcrivables(liste).map((c) => c.id);
   assert.ok(ids.includes('cle1'));
   assert.ok(ids.includes('ext1'));
-  assert.ok(ids.includes('odin-interne')); // interne déjà préparé ODIN : écrivable
+  // Lot C4 (point 1) : même déjà ODIN, un disque interne n'est plus une cible d'écriture (même règle que l'étape
+  // « Clé ») ; le double démarrage sur un disque interne garde sa propre action (cle_plan).
+  assert.ok(!ids.includes('odin-interne'));
   assert.ok(!ids.includes('sys')); // le disque du système en cours : jamais touché
   assert.ok(!ids.includes('interne-nu')); // un interne quelconque : pas une cible de préparation complète
 });

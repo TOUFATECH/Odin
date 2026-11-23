@@ -91,6 +91,27 @@ export function serieLisible(brut: unknown): string | undefined {
 export function choisissable(d: Pick<Disque, 'externe' | 'amovible' | 'systemeEnCours'> | undefined | null): boolean {
   return Boolean(d && d.externe === true && d.amovible === true && !d.systemeEnCours);
 }
+/** Pourquoi ce disque ne peut PAS devenir une clé ODIN (rien : il le peut). Pur. Les mots restent simples. */
+export function raisonNonChoisissable(d: Pick<Disque, 'externe' | 'amovible' | 'systemeEnCours'> | undefined | null): string | undefined {
+  if (!d) return 'Ce disque n\'est plus branché.';
+  if (d.systemeEnCours) return 'C\'est le disque d\'où tourne le système (ou celui qui porte Odin) : jamais écrit.';
+  if (d.externe !== true || d.amovible !== true) return 'C\'est un disque interne : Odin n\'y écrit jamais une clé.';
+  return undefined;
+}
+
+/**
+ * Le MÊME disque qu'au moment du choix ? Le numéro de série (s'il était lisible) et la taille doivent être identiques :
+ * un autre disque qui a repris le même identifiant (/dev/sdb, PhysicalDrive2 réutilisés) n'est jamais écrit. Un disque
+ * sans numéro lisible est reconnu par sa taille ET son modèle. Pur.
+ */
+export function memeDisque(attendu: { serie?: unknown; tailleOctets?: unknown; modele?: unknown } | undefined | null, d: Pick<Disque, 'serie' | 'tailleOctets' | 'modele'> | undefined | null): boolean {
+  if (!attendu || !d) return false;
+  const taille = Number(attendu.tailleOctets);
+  if (!Number.isFinite(taille) || taille <= 0 || taille !== d.tailleOctets) return false;
+  const s = serieLisible(attendu.serie);
+  if (d.serie || s) return Boolean(d.serie && s && d.serie.toUpperCase() === s.toUpperCase());
+  return typeof attendu.modele === 'string' && attendu.modele.trim() === (d.modele ?? '').trim();
+}
 /** Vrai seulement pour un « oui » franc : true, 1, « 1 », « true ». Un ancien lsblk rend « 0 » en texte : « 0 » est faux. Pur. */
 const vrai = (x: unknown): boolean => x === true || x === 1 || (typeof x === 'string' && /^(1|true)$/i.test(x.trim()));
 
