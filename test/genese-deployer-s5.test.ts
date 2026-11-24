@@ -170,7 +170,7 @@ test('S5 · une tablette « maison » ne lit pas les PC vus (bouton de sa page r
     const cle = ((await va.act('gladsheim', 'cle_tablette', { nom: 'Tablette entrée', droits: 'maison' })).data as { key: string }).key;
     const r = await od.json('/api/maison/fenetre', { id: 'b0000001' }, { cookie: '', 'x-odin-maison': cle });
     assert.notEqual(r.body.ok, true, JSON.stringify(r.body));
-    assert.match(String(r.body.text), /propriétaire/);
+    assert.match(String(r.body.text), /propriétaire|bouton introuvable/); // depuis le lot 24c, un bouton réservé n'est même plus servi à la tablette
     assert.equal(r.body.data, undefined);
     const p = await od.json('/api/valhalla/act', { module: 'thjalfi', action: 'postes_vus', input: {} });
     assert.equal(p.body.ok, true, JSON.stringify(p.body).slice(0, 300));

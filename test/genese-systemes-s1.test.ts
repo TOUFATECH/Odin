@@ -164,7 +164,7 @@ test('S1 · une tablette « maison » ne lit pas les systèmes (bouton de sa pag
     const cle = ((await va.act('gladsheim', 'cle_tablette', { nom: 'Tablette entrée', droits: 'maison' })).data as { key: string }).key;
     const r = await od.json('/api/maison/fenetre', { id: 'b0000001' }, { cookie: '', 'x-odin-maison': cle });
     assert.notEqual(r.body.ok, true, JSON.stringify(r.body));
-    assert.match(String(r.body.text), /propriétaire/);
+    assert.match(String(r.body.text), /propriétaire|bouton introuvable/); // depuis le lot 24c, un bouton réservé n'est même plus servi à la tablette
     assert.equal(r.body.data, undefined);
     // Le propriétaire, depuis sa session, la lit.
     const p = await od.json('/api/valhalla/act', { module: 'thjalfi', action: 'systemes', input: {} });
