@@ -26,6 +26,8 @@
     deplace: 'Module déplacé.', annuler: 'Annuler', annule: 'Déplacement annulé.', tropTard: 'Trop tard pour annuler ce déplacement : la fenêtre a changé depuis.',
     // Lot 22a : l'accueil en plein écran.
     sortiePlein: 'Quitter le plein écran (Échap)', enPlein: 'Plein écran : seulement les widgets. Échap, ou le ✕ en haut à droite, pour sortir.',
+    // Lot 25a : le titre d'un widget quand la fenêtre n'en porte pas (jamais lu chez l'appli pour qui n'y a pas droit).
+    titres: { heure: 'Heure et lieu', meteo: 'Météo', site: 'Site surveillé', sansTitre: 'Widget' }, sousSite: 'Pulsar · site surveillé',
   };
   // Les calculs du glisser (appui long, rang d'insertion, défilement, « Annuler ») : pages/accueil-gestes.js, chargé avant.
   const OG = window.OdinGestes;
@@ -35,6 +37,9 @@
   // Le tiroir « Ajouter un widget » (lot 18) : ses textes, son style et ses calculs (familles, recherche, focus gardé)
   // sont dans pages/accueil-tiroir.js, chargé avant. Il est rempli par le catalogue d'Odin, rien n'y est écrit en dur.
   const OT = window.OdinTiroir;
+  // Le dessin commun d'un widget et ses cinq états (lot 25a) : en-tête, lignes et boutons, tous leurs textes. Dans
+  // pages/widgets-rendu.js, chargé avant (le même sert à l'écran de la maison).
+  const R = window.OdinWidgetsRendu;
   const act = (module, action, input = {}, confirm) => api('/api/valhalla/act', { module, action, input, ...(confirm ? { confirm: true } : {}) });
   const css = `
 #fenetre{margin:0 0 18px}.fe-bar{display:flex;gap:8px;align-items:center;margin:0 0 12px}.fe-bar .sp{flex:1}
@@ -47,9 +52,11 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
 .fe-w{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px 16px;min-width:0;box-shadow:0 10px 26px rgba(16,54,58,.08)}
 .fe-w .va-kpi{padding:8px 10px}.fe-w .va-kpi b{font-size:20px}
 .fe-w .va-sec{background:none;border:0;padding:0;margin:0}.fe-w .va-sec h2{display:none}.fe-w .va-kpis{margin:0;grid-template-columns:repeat(auto-fill,minmax(min(120px,100%),1fr))}
-.fe-h{display:flex;gap:10px;align-items:center;margin:0 0 10px}.fe-h small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}.fe-h b{font-size:15.5px}
+.fe-h{display:flex;gap:10px;align-items:center;margin:0 0 10px}
 .fe-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--field);font-weight:700;flex:none}.fe-ic-app{background:none}
-.fe-open{margin-left:auto;font-size:12.5px;color:var(--muted);background:none;border:0;cursor:pointer;min-height:32px}
+.fe-open{flex:none;font-size:12.5px;color:var(--muted);background:none;border:0;cursor:pointer;min-height:44px;margin:-5px 0;padding:0 4px}
+/* Lot 25a : un état sans donnée, une ligne puis au plus un bouton. */
+.fe-w>.fe-err{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0}
 .fe-edit .fe-w{outline:2px dashed color-mix(in srgb,var(--accent,#0b7f7c) 55%,transparent);outline-offset:3px;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #fenetre .fe-h{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}@media (hover:hover){#fenetre:not(.fe-edit) .fe-h{cursor:grab}.fe-edit .fe-w{cursor:grab}}
 body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:none!important;user-select:none!important}
@@ -86,6 +93,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   document.head.append(el('style', {}, css + OA.CSS + OT.CSS));
 
   let L = null, cur = 0, edit = false, saved = '', cat = null, views = new Map(), timer = 0, dessin = { cur: -1, edit: false };
+  // Les états des widgets rendus par le serveur au propriétaire (lot 25a), et « est-ce le propriétaire ? » (le serveur
+  // le dit : /api/widgets/ n'est servi qu'à sa session ; un membre reçoit 401).
+  let etats = null, proprio = false, pasProprio = false;
   const host = () => $('#fenetre');
   const page = () => L.pages[Math.min(cur, L.pages.length - 1)];
   const modName = (id) => cat?.modules?.find((m) => m.id === id)?.name ?? id;
@@ -98,8 +108,72 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   }
   /** Les vues des applis de la page (une fois chacune). */
   async function fetchViews() {
-    const ids = [...new Set(page().widgets.filter((w) => w.module && w.kind !== 'bouton').map((w) => w.module))];
-    await Promise.all(ids.map(async (id) => { try { const r = await api(`/api/valhalla/view?id=${encodeURIComponent(id)}`); if (r.ok) views.set(id, r.view); } catch { /* hors ligne */ } }));
+    // D'abord « est-ce le propriétaire ? » (le serveur le dit), puis les vues. Rien n'est demandé pour un widget fermé à
+    // qui regarde (lot 25a) : une appli qui n'est pas à lui, ou, pour tout autre que le propriétaire, une appli de la
+    // vie privée (sa réponse b à la question 15) — la donnée n'arrive pas dans son navigateur.
+    await lireEtats();
+    const ids = [...new Set(page().widgets.filter((w) => w.module && w.kind !== 'bouton' && !ferme(w)).map((w) => w.module))];
+    await Promise.all([...ids.map(async (id) => { try { const r = await api(`/api/valhalla/view?id=${encodeURIComponent(id)}`); if (r.ok) views.set(id, r.view); } catch { /* hors ligne */ } })]);
+  }
+  /** Ce qu'un widget montre (sa sorte, son appli, sa partie…) : un état reçu pour un autre réglage ne compte plus. */
+  const sigDe = (w) => (w ? [w.kind, w.module, w.section, w.label, w.action].join('\u0001') : '');
+  /**
+   * Les cinq états des widgets de la page, rendus par le serveur (la seule fonction « la donnée d'un widget ») : au
+   * propriétaire seul. Refusé (401) : ce n'est pas lui, la page dessine ce qu'elle sait voir. Hors ligne : on garde.
+   */
+  async function lireEtats() {
+    const p = page();
+    if (pasProprio) return; // déjà refusé : la session ne change pas sans recharger la page
+    try {
+      const r = await fetch(`/api/widgets/donnees${p.id ? `?page=${encodeURIComponent(p.id)}` : ''}`, { headers: { 'x-odin': '1' }, credentials: 'same-origin' });
+      if (r.status === 401 || r.status === 403) { proprio = false; etats = null; pasProprio = true; return; }
+      const j = await r.json(); if (!r.ok || !j?.ok || !Array.isArray(j.widgets)) return;
+      const tous = L.pages.flatMap((x) => x.widgets);
+      proprio = true; etats = new Map(j.widgets.map((x) => [x.id, { e: x, sig: sigDe(tous.find((w) => w.id === x.id)) }]));
+    } catch { /* hors ligne : les derniers états restent */ }
+  }
+  /** L'appli que lit un widget (l'heure et la météo : Hestia). */
+  const appliDe = (w) => w.module || (w.kind === 'heure' || w.kind === 'meteo' ? 'gladsheim' : '');
+  /** Qui regarde a-t-il le droit sur cette appli ? Son catalogue est déjà réduit à ses droits ; sans catalogue : non. */
+  const aDroit = (id) => Array.isArray(cat?.modules) && cat.modules.some((m) => m.id === id);
+  /**
+   * L'état d'un widget : celui du serveur s'il décrit ce réglage-là (le propriétaire). Sinon, pour tout autre que lui
+   * (un membre) : fermé si l'appli n'est pas à lui, ou si elle est de la vie privée (rien ne l'ouvre encore, sa réponse
+   * b à la question 15). Pour le propriétaire (un widget pas encore rangé) : fermé seulement si l'appli n'est plus là.
+   * Tant que le serveur n'a pas dit « c'est le propriétaire », la page fait comme pour un membre (le plus sûr).
+   */
+  function etatDe(w) {
+    const s = etats?.get(w.id); if (proprio && s && s.sig === sigDe(w)) return s.e;
+    const a = appliDe(w);
+    if (!proprio) return R.etatSansProprio(a ? [a] : [], aDroit);
+    return a && Array.isArray(cat?.modules) && !aDroit(a) ? { etat: 'refuse', raison: 'appli_fermee' } : undefined;
+  }
+  /** Ce widget est-il fermé à qui regarde ? (rien n'est alors lu ni demandé pour lui) */
+  const ferme = (w) => etatDe(w)?.etat === 'refuse';
+  /** Le titre d'un widget, pris dans la fenêtre (jamais lu chez une appli fermée à qui regarde). */
+  function titreDe(w, clos) {
+    if (w.label) return w.label;
+    if (w.kind === 'section' && w.section) return w.section;
+    if (w.kind === 'bouton' && w.action) return w.action;
+    if (TXT.titres[w.kind]) return TXT.titres[w.kind];
+    return !clos && cat?.modules?.some((m) => m.id === w.module) ? modName(w.module) : TXT.titres.sansTitre;
+  }
+  /** Ce que le bouton d'un état sait faire ici ; sans cela, pas de bouton (jamais un bouton mort). */
+  const AGIR = {
+    appli_absente: (w) => { location.hash = `#app=${appliDe(w)}`; },
+    appli_muette: () => { views.clear(); fetchViews().then(draw); },
+    lecture_echouee: () => { views.clear(); fetchViews().then(draw); },
+    lieu_non_choisi: () => { location.hash = '#app=gladsheim'; },
+    partie_introuvable: (w) => regler(w), partie_non_choisie: (w) => regler(w),
+  };
+  const peutAgir = (w, r) => Object.hasOwn(AGIR, r) && (r.startsWith('partie_') ? w.kind === 'section' || w.kind === 'chiffres' : true);
+  /**
+   * « ⋯ » (le propriétaire) : en attendant « Régler » (lot 25b), le réglage d'aujourd'hui — ce qu'il montre pour un
+   * module d'appli, sa taille sinon — dans le mode Modifier (rien n'est gardé avant « Terminé »).
+   */
+  async function regler(w) {
+    if (!edit) { edit = true; await draw(); }
+    if (w.kind === 'section' || w.kind === 'chiffres') configure(w); else tailles(w);
   }
   let meteoVue = null; // la dernière météo reçue, remontrée (marquée ancienne) quand Internet est coupé
   async function weather() { try { const r = await act('gladsheim', 'meteo', {}); if (r.ok && r.data) { meteoVue = r.data; return r.data; } return null; } catch { return null; } }
@@ -110,7 +184,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       return window.OdinHorsLigne.message({ quoi: 'La météo n\'a pas pu être mise à jour', hote: 'api.open-meteo.com', depuis: net && net.depuis,
         ancien: v ? `${Math.round(v.temp ?? v.now?.temp ?? 0)}° ${v.text ?? v.now?.text ?? ''}${v.place || v.ville ? ` · ${v.place ?? v.ville}` : ''}`.trim() : undefined, onReessayer: () => draw() });
     }
-    return el('p', { class: 'fe-err' }, 'Météo indisponible (choisis ta ville dans Hestia).');
+    return el('p', { class: 'fe-err' }, ...R.contenu(R.decrire({ etat: 'vide', raison: 'meteo_pas_lue' }, {})));
   }
   /** Le lieu d'Odin (village, fuseau, heure sur 12 ou 24 h) : gardé une minute. */
   let lieuVu = null, lieuAt = 0;
@@ -145,23 +219,38 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const rz = el('span', { class: 'fe-rz', 'aria-hidden': 'true' }), szb = el('b', { class: 'fe-szb', 'aria-hidden': 'true' });
     rz.addEventListener('pointerdown', (e) => startResize(e, box, w, szb));
     box.append(grip, chrome, rz, szb);
-    // L'icône de l'appli (comme sur la page Applis) ; sinon un symbole ou la première lettre.
-    const icOf = (mod, icon, title) => { if (mod && window.OdinAppIcons) { const sp = el('span', { class: 'fe-ic fe-ic-app', 'aria-hidden': 'true' }); sp.innerHTML = window.OdinAppIcons.tile(mod, modName(mod), 34); return sp; } return el('span', { class: 'fe-ic', 'aria-hidden': 'true' }, icon ?? (title || '?').slice(0, 1)); };
-    const head = (title, small, icon, mod = w.module) => el('div', { class: 'fe-h' }, icOf(mod, icon, title), el('div', {}, el('small', {}, small), el('b', {}, title)),
-      w.module ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null);
+    // L'état du widget (lot 25a) : celui du serveur pour le propriétaire, sinon ce que la page sait voir. Refusé : le
+    // titre de la fenêtre et la tuile grisée, une ligne, jamais la donnée ni un bouton ; ancien : la pastille.
+    const d = R.decrire(etatDe(w) ?? { etat: 'ok' }, { proprio, appli: modName(appliDe(w)), titre: titreDe(w), maintenant: Date.now(), peutAgir: (r) => peutAgir(w, r),
+      vide: [...(views.get(w.module)?.sections ?? []), ...(views.get(w.module)?.side ?? [])].find((x) => x.title === w.section)?.empty });
+    // L'en-tête de la maquette : la tuile de l'appli (comme sur la page Applis), sinon un symbole ; le titre, le
+    // sous-titre ; « Ouvrir › » ; « ⋯ » pour le propriétaire.
+    const tuileDe = (mod) => { if (!mod || !window.OdinAppIcons) return null; const sp = el('span', {}); sp.innerHTML = window.OdinAppIcons.tile(mod, modName(mod), 34); return sp.firstElementChild ?? sp; };
+    const head = (title, small, icon, mod = w.module) => R.entete({ classe: 'fe-h', classeTuile: 'fe-ic', tuile: tuileDe(mod), lettre: icon, titre: title, sous: d.gris ? '' : small, pastille: d.pastille, gris: d.gris,
+      regler: proprio && d.reglage ? () => regler(w) : null,
+      extra: [d.gris ? null : w.module ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null] });
+    const agirIci = (r) => AGIR[r]?.(w);
+    // Un état sans donnée (vide, source absente, refusé) : l'en-tête, puis sa ligne et au plus un bouton.
+    if (!d.donnee) {
+      const sous = w.kind === 'site' ? TXT.sousSite : w.kind === 'heure' || w.kind === 'meteo' ? modName('gladsheim') : modName(w.module);
+      box.append(head(titreDe(w, d.gris), sous, w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : w.kind === 'bouton' ? '⚡' : undefined, appliDe(w)), el('p', { class: 'fe-err' }, ...R.contenu(d, agirIci)));
+      return box;
+    }
+    /** La ligne (et le bouton) d'un état vu ici, sans le serveur : son code, comme le serveur le dirait. */
+    const contenuDe = (etat, raison, vide) => R.contenu(R.decrire({ etat, raison }, { proprio, appli: modName(appliDe(w)), titre: titreDe(w), vide, peutAgir: (r) => peutAgir(w, r) }), agirIci);
     if (w.kind === 'meteo') {
       const d = await weather();
-      box.append(head(w.label || 'Météo', 'Hestia', '☀', 'gladsheim'), d ? el('div', {}, el('div', { class: 'fe-wx' }, el('b', {}, `${Math.round(d.temp ?? d.now?.temp ?? 0)}°`), el('div', {}, el('div', {}, d.text ?? d.now?.text ?? ''), el('small', { class: 'sub' }, d.place ?? d.ville ?? ''))),
+      box.append(head(w.label || TXT.titres.meteo, 'Hestia', '☀', 'gladsheim'), d ? el('div', {}, el('div', { class: 'fe-wx' }, el('b', {}, `${Math.round(d.temp ?? d.now?.temp ?? 0)}°`), el('div', {}, el('div', {}, d.text ?? d.now?.text ?? ''), el('small', { class: 'sub' }, d.place ?? d.ville ?? ''))),
         Array.isArray(d.hours) && d.hours.length ? el('div', { class: 'fe-hours' }, ...d.hours.slice(0, 5).map((h) => { const at = typeof h.t === 'string' ? h.t.replace(':00', ' h').replace(':', ' h ') : `${h.h ?? h.hour ?? ''} h`, t = Number(h.temp ?? h.t); return el('span', {}, Number.isFinite(t) ? `${at} · ${Math.round(t)}°` : at); })) : null) : meteoRepli());
       return box;
     }
-    if (w.kind === 'heure') { box.append(head(w.label || 'Heure et lieu', 'Hestia', '🕒', 'gladsheim'), horloge(await lieu())); return box; }
+    if (w.kind === 'heure') { box.append(head(w.label || TXT.titres.heure, 'Hestia', '🕒', 'gladsheim'), horloge(await lieu())); return box; }
     if (w.kind === 'site') {
       // Un site surveillé : la sonde de Pulsar qui porte ce nom (état, temps de réponse, disponibilité).
       const r = (views.get('vordr')?.sections ?? []).find((x) => x.kind === 'table' && x.title === 'Sondes')?.rows?.find((x) => x.cells[0] === w.label);
-      box.append(head(w.label, 'Pulsar · site surveillé', '🌐', 'vordr'), r
+      box.append(head(w.label, TXT.sousSite, '🌐', 'vordr'), r
         ? el('div', { class: `fe-site ${r.tone || ''}` }, el('b', {}, r.cells[3] || '—'), el('small', {}, [r.cells[2], r.cells[6]].filter(Boolean).join(' · ')), el('small', {}, `24 h : ${r.cells[4] || '—'} · 30 jours : ${r.cells[5] || '—'}`))
-        : el('p', { class: 'fe-err' }, 'Cette sonde n\'existe pas (ou plus) dans Pulsar.'));
+        : el('p', { class: 'fe-err' }, ...contenuDe('vide', 'site_introuvable')));
       return box;
     }
     if (w.kind === 'bouton') {
@@ -173,15 +262,18 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       return box;
     }
     const v = views.get(w.module);
-    box.append(head(w.label || (w.kind === 'section' ? w.section : modName(w.module)), `${modName(w.module)}${modFam(w.module) ? ` · ${modFam(w.module)}` : ''}`));
-    if (!v) { box.append(el('p', { class: 'fe-err' }, 'Appli indisponible pour l\'instant.')); return box; }
+    box.append(head(titreDe(w), `${modName(w.module)}${modFam(w.module) ? ` · ${modFam(w.module)}` : ''}`));
+    if (!v) { box.append(el('p', { class: 'fe-err' }, ...contenuDe('source_absente', 'appli_muette'))); return box; }
     if (w.kind === 'chiffres') {
-      box.append(v.kpis?.length ? el('div', { class: 'va-kpis' }, ...v.kpis.slice(0, w.w * 2 + 1).map((k) => el('div', { class: `va-kpi ${k.tone ?? ''}`, title: k.hint ?? '' }, el('small', {}, k.label), el('b', {}, k.value), typeof k.pct === 'number' ? el('div', { class: 'va-bar' }, el('i', { style: `width:${Math.max(0, Math.min(100, k.pct))}%` })) : null)))
-        : el('p', { class: 'fe-err' }, v.subtitle || 'Pas de chiffres pour cette appli : choisis une partie de sa page (⚙).'));
+      // Que des zéros, des tirets ou des mots : rien de mesuré (comme le serveur) ; jamais un chiffre inventé.
+      const kpis = v.kpis?.some((k) => R.porteUneMesure(k.value)) ? v.kpis : [];
+      const rien = () => el('p', { class: 'fe-err' }, ...contenuDe('vide', 'rien_mesure'));
+      box.append(v.kpis?.length ? (kpis.length ? el('div', { class: 'va-kpis' }, ...kpis.slice(0, w.w * 2 + 1).map((k) => el('div', { class: `va-kpi ${k.tone ?? ''}`, title: k.hint ?? '' }, el('small', {}, k.label), el('b', {}, k.value), typeof k.pct === 'number' ? el('div', { class: 'va-bar' }, el('i', { style: `width:${Math.max(0, Math.min(100, k.pct))}%` })) : null))) : rien())
+        : el('p', { class: 'fe-err' }, ...contenuDe('vide', 'rien_mesure')));
       return box;
     }
     const s = [...(v.sections ?? []), ...(v.side ?? [])].find((x) => x.title === w.section);
-    box.append(s && window.OdinApps?.section ? window.OdinApps.section(w.module, s) : el('p', { class: 'fe-err' }, `« ${w.section} » n'est plus sur la page de ${modName(w.module)}.`));
+    box.append(s && window.OdinApps?.section ? window.OdinApps.section(w.module, s) : el('p', { class: 'fe-err' }, ...contenuDe('vide', 'partie_introuvable')));
     return box;
   }
   function say(t) { const n = el('div', { class: 'va-out', role: 'status', style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:96;max-width:min(560px,calc(100% - 32px))' }, t); document.body.append(n); setTimeout(() => n.remove(), 5000); }
@@ -584,6 +676,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     d.addEventListener('close', () => d.remove()); document.body.append(d); d.showModal();
   }
   async function configure(w) {
+    if (ferme(w)) return; // fermé à qui regarde : rien n'est lu chez l'appli, même pour le régler
     const v = views.get(w.module) ?? (await api(`/api/valhalla/view?id=${encodeURIComponent(w.module)}`)).view;
     const secs = [...(v?.sections ?? []), ...(v?.side ?? [])].filter((s) => s.kind !== 'form').map((s) => s.title);
     const sel = el('select', { id: 'feSec' }, el('option', { value: '' }, 'Les chiffres clés'), ...secs.map((t) => el('option', { value: t, selected: t === w.section ? true : undefined }, t)));

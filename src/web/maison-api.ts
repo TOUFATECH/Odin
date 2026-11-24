@@ -5,7 +5,7 @@
 //     dans l'URL) : droits « maison » (appareils, scènes, boutons sans action grave) ou « complet ».
 // Une action grave (ouvrir la serrure, couper les sessions…) demande toujours une confirmation, et une tablette
 // « maison » ne peut pas la lancer. La page peut s'afficher dans Home Assistant (seulement l'adresse autorisée).
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { understand } from '../valhalla/huginn.ts';
 import { cleanLayout, defaultLayout, tailleDe, type Layout } from '../valhalla/modules/gladsheim.ts';
@@ -19,6 +19,8 @@ import { valhallaOf } from '../valhalla/odin.ts';
 import { noticesOf } from '../valhalla/notices.ts';
 
 const MAISON_JS = (() => { try { return readFileSync(new URL('./maison.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+// Le dessin commun des widgets (pages/widgets-*.js, servis par /pages/ comme dans Odin) : chargé avant maison.js.
+const WIDGETS_JS = (() => { try { return readdirSync(new URL('./pages/', import.meta.url)).filter((n) => /^widgets-[a-z0-9-]+\.js$/.test(n)).sort(); } catch { return []; } })();
 const s = (v: unknown) => String(v ?? '');
 export interface MaisonDeps { authed: boolean; name: string; mascot: string; fail: () => void; ask: (text: string) => Promise<string> }
 type Who = { rights: 'maison' | 'complet'; by: string };
@@ -96,7 +98,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
       'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; frame-ancestors ${frame}; base-uri 'none'; form-action 'none'`,
       'permissions-policy': 'microphone=(self), camera=(), geolocation=(self), payment=(), usb=()',
     });
-    res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0e14"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><title>Maison · Odin</title><link rel="icon" href="/favicon.svg"></head><body><noscript>L'écran de la maison a besoin de JavaScript.</noscript><template id="mascotte">${d.mascot}</template><script nonce="${nonce}" src="/face.js"></script><script nonce="${nonce}" src="/mascotte.js"></script><script nonce="${nonce}" src="/app-icons.js"></script><script nonce="${nonce}" src="/alchimie.js"></script><script nonce="${nonce}" src="/ciel.js"></script><script nonce="${nonce}" src="/maison.js"></script><script nonce="${nonce}" src="/plume.js"></script></body></html>`);
+    res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0e14"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><title>Maison · Odin</title><link rel="icon" href="/favicon.svg"></head><body><noscript>L'écran de la maison a besoin de JavaScript.</noscript><template id="mascotte">${d.mascot}</template><script nonce="${nonce}" src="/face.js"></script><script nonce="${nonce}" src="/mascotte.js"></script><script nonce="${nonce}" src="/app-icons.js"></script><script nonce="${nonce}" src="/alchimie.js"></script><script nonce="${nonce}" src="/ciel.js"></script>${WIDGETS_JS.map((n) => `<script nonce="${nonce}" src="/pages/${n}"></script>`).join('')}<script nonce="${nonce}" src="/maison.js"></script><script nonce="${nonce}" src="/plume.js"></script></body></html>`);
     return true;
   }
   // OwnTracks (mode HTTP) : chaque téléphone de la famille envoie sa position avec ses identifiants ; Odin répond

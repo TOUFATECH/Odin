@@ -382,23 +382,39 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
     const pages = (D.fenetre || []).filter((p) => p.widgets.length || edition);
     return [...barreEdition(), ...pages.flatMap((p) => [el('h2', { class: 'sec' }, p.name), el('div', { class: 'grid' }, ...p.widgets.map((w) => outils(fWidget(w), w, p)))])];
   }
+  // ---------- Le dessin commun d'un widget (lot 25a, pages/widgets-rendu.js, chargé avant) ----------
+  // L'en-tête de la maquette (tuile, titre, sous-titre) et la ligne d'un état sans donnée. Sur cet écran, le serveur ne
+  // sert que les widgets permis à qui regarde (un widget fermé n'arrive pas) ; ses outils de rangement restent les siens.
+  const WR = () => window.OdinWidgetsRendu;
+  function fTete(titre, sous, lettre) {
+    const R = WR(); if (!R) return el('h3', {}, sous ? `${sous} · ${titre}` : titre);
+    return R.entete({ titre, sous, lettre: lettre || String(sous || titre || '?').slice(0, 1) });
+  }
+  /** La ligne d'un état vu ici (son code, comme le serveur le dirait). Pas de bouton sur cet écran. */
+  function fEtat(etat, raison, o = {}) {
+    const R = WR(); if (!R) return null;
+    return R.corps(R.decrire({ etat, raison }, { proprio: D?.rights === 'complet', peutAgir: () => false, ...o }));
+  }
   function fWidget(w) {
     if (w.kind === 'meteo') return weatherCard(D.weather);
     if (w.kind === 'heure') {
       const l = D.lieu || {}, soleil = D.weather?.sunrise ? ` · ☀ ${D.weather.sunrise} – ${D.weather.sunset}` : '';
       setTimeout(tick, 0);
-      return el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw fh` }, el('h3', {}, w.title), el('div', { class: 'big fh-h' }), el('div', { class: 'fh-j' }), el('div', { class: 'muted' }, `${l.nom || 'Lieu non réglé'}${l.fuseau ? ` · ${l.fuseau}` : ''}${l.suppose ? ' · supposé' : ''}${soleil}`));
+      return el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw fh` }, fTete(w.title, 'Hestia', '🕒'), el('div', { class: 'big fh-h' }), el('div', { class: 'fh-j' }), el('div', { class: 'muted' }, `${l.nom || 'Lieu non réglé'}${l.fuseau ? ` · ${l.fuseau}` : ''}${l.suppose ? ' · supposé' : ''}${soleil}`));
     }
     if (w.kind === 'site') {
-      const so = w.sonde, c = el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw` }, el('h3', {}, `Site · ${w.title}`));
+      const so = w.sonde, c = el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw` }, fTete(w.title, 'Pulsar · site surveillé', '🌐'));
       c.append(so ? el('ul', { class: 'fl' }, el('li', { class: so.tone || '' }, el('b', {}, so.etat || '—'), el('span', { class: 'muted' }, [so.cible, so.temps].filter(Boolean).join(' · '))), el('li', {}, el('b', {}, 'Disponibilité'), el('span', { class: 'muted' }, `24 h : ${so.jour || '—'} · 30 jours : ${so.mois || '—'}`)))
-        : el('p', { class: 'muted' }, 'Cette sonde n\'existe pas (ou plus) dans Pulsar.'));
+        : fEtat('vide', 'site_introuvable'));
       return c;
     }
-    const card = el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw` }, el('h3', {}, w.app && w.app !== w.title ? `${w.app} · ${w.title}` : w.title));
+    const card = el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw` }, fTete(w.title, w.app && w.app !== w.title ? w.app : '', w.kind === 'bouton' ? '⚡' : ''));
     if (w.kind === 'bouton') { card.append(el('button', { class: 'scene', style: { marginTop: '10px' }, onclick: () => act('/api/maison/fenetre', { id: w.id }) }, `${w.grave ? '⚠ ' : '⚡ '}${w.title}`)); return card; }
-    if (w.kind === 'chiffres') { card.append(el('div', { class: 'fk' }, ...(w.kpis || []).map((k) => el('div', { class: `fki ${k.tone || ''}` }, el('small', {}, k.label), el('b', {}, k.value))))); if (!w.kpis?.length) card.append(el('p', { class: 'muted' }, 'Pas de chiffres pour cette appli.')); return card; }
+    // Des chiffres sans vraie mesure (que des zéros, des tirets) : « rien de mesuré », jamais un chiffre inventé.
+    if (w.kind === 'chiffres') { const R = WR(); if (R && !(w.kpis || []).some((k) => R.porteUneMesure(k.value))) { card.append(fEtat('vide', 'rien_mesure')); return card; } card.append(el('div', { class: 'fk' }, ...(w.kpis || []).map((k) => el('div', { class: `fki ${k.tone || ''}` }, el('small', {}, k.label), el('b', {}, k.value))))); return card; }
     const sc = w.section || {};
+    // Une liste vide (sa réponse 3 a) : le texte propre à ce qu'elle montre (celui de l'appli), sans bouton.
+    if (['table', 'list', 'cards', 'bars'].includes(sc.kind) && !(sc.rows || sc.items || []).length && WR()) { card.append(fEtat('vide', 'partie_vide', { vide: sc.empty, titre: w.title })); return card; }
     if (sc.kind === 'table') card.append(el('ul', { class: 'fl' }, ...(sc.rows || []).slice(0, 6).map((r) => el('li', { class: r.tone || '' }, el('b', {}, r.cells[0]), el('span', { class: 'muted' }, r.cells.slice(1, 3).join(' · '))))));
     else if (sc.kind === 'list') card.append(el('ul', { class: 'fl' }, ...(sc.items || []).slice(0, 6).map((i) => el('li', { class: i.tone || '' }, el('b', {}, i.title), i.detail ? el('span', { class: 'muted' }, i.detail) : null))));
     else if (sc.kind === 'cards') card.append(el('ul', { class: 'fl' }, ...(sc.items || []).slice(0, 6).map((i) => el('li', { class: i.tone || '' }, el('b', {}, i.title), el('span', { class: 'muted' }, [i.sub, i.badge].filter(Boolean).join(' · '))))));
