@@ -305,6 +305,7 @@ const AVENIR_WIN = (): string[] => [
   'Sur Windows Famille, qui n\'a pas cet hyperviseur : l\'outil de machines virtuelles libre (QEMU), installé sur ce PC comme outil local.',
 ];
 /** Hors Linux, rien n'est créé : la raison, et ce qui viendra. */
+export function horsLinuxVm(): string | undefined { return horsLinux(); }
 function horsLinux(): string | undefined {
   const p = systemeVm.plateforme(); if (p === 'linux') return undefined;
   return p === 'win32' ? `Refusé, rien n'est créé. ${VM_WINDOWS} ${AVENIR_WIN().join(' ')}` : 'Refusé, rien n\'est créé : les VM de ce PC ne tournent pour l\'instant que sous Linux.';
@@ -357,11 +358,7 @@ export function creationActions(): Action[] {
         { key: 'reseau', label: 'Réseau (machines, aucun)', kind: 'select', options: ['machines', 'aucun'], default: 'machines' }, { key: 'auto', label: 'L\'installer tout seul', kind: 'boolean', default: false }, { key: 'compte', label: 'Compte (installation toute seule)', kind: 'text', default: 'odin' },
         { key: 'langue', label: 'Langue (ex. fr_FR.UTF-8)', kind: 'text', default: '' }, { key: 'clavier', label: 'Clavier (ex. fr)', kind: 'text', default: '' }, { key: 'fuseau', label: 'Fuseau (ex. Europe/Paris)', kind: 'text', default: '' },
         { key: 'profil', label: 'Profil de logiciels (Genèse)', kind: 'text', default: '' }, { key: 'apps', label: 'Applis d\'Odin (vordr, vidarr)', kind: 'text', default: 'vordr, vidarr' }, { key: 'categorie', label: 'Catégorie', kind: 'text', default: '' }],
-      grave: (i, ctx) => {
-        // Sans Odin pour relire le budget (liste des liens, graphe) : comptée grave, par prudence.
-        if (!ctx) return `créer la VM ${s(i.nom).slice(0, 63)} : le budget de ce PC est relu au moment de créer (au-delà, ton accord)`;
-        try { const v = verdictBudget(budgetIci(ctx), { cpu: Number(i.coeurs) || 0, memoire: Number(i.memoire) || 0, disque: Number(i.disque) || 0 }); return v.refus.length ? undefined : v.accord ? `créer la VM ${s(i.nom).slice(0, 63)} : ${v.accord}` : undefined; } catch { return undefined; }
-      },
+      grave: (i, ctx) => graveVm(ctx, i.nom, { cpu: Number(i.coeurs) || 0, memoire: Number(i.memoire) || 0, disque: Number(i.disque) || 0 }),
       run: creerVm,
     }]),
     {
@@ -388,11 +385,43 @@ let creationEnCours: string | undefined;
 const EN_CREATION = new Set<string>();
 const nonCree = (t: string): ActionResult => ({ ok: false, text: /^Refusé/.test(t) ? t : `Refusé, rien n'est créé : ${t}` });
 
-async function creerVm(ctx: ModCtx, i: Record<string, unknown>): Promise<ActionResult> {
+/** Hors Linux, puis une seule création de VM à la fois (le même verrou pour « creer_vm » et « creer_machine » genre vm). */
+async function verrouVm(nom: unknown, faire: () => Promise<ActionResult>): Promise<ActionResult> {
   const hors = horsLinux(); if (hors) return { ok: false, text: hors };
   if (creationEnCours !== undefined) return nonCree(`une autre VM (« ${creationEnCours} ») est en train d'être créée : attends la fin, puis recommence (le budget de ce PC est relu à chaque création).`);
-  creationEnCours = s(i.nom).trim().slice(0, 63) || 'sans nom';
-  try { return await creerVmSeule(ctx, i); } finally { creationEnCours = undefined; }
+  creationEnCours = s(nom).trim().slice(0, 63) || 'sans nom';
+  try { return await faire(); } finally { creationEnCours = undefined; }
+}
+/** Le refus du budget de ce PC (avec les chiffres), ou rien. */
+function refusBudget(ctx: ModCtx, L: Local, d: { cpu: number; memoire: number; disque: number }): ActionResult | undefined {
+  const v = verdictBudget(budgetIci(ctx, L), d);
+  return v.refus.length ? { ok: false, text: `Refusé, rien n'est créé : ce PC ne peut pas le donner en gardant de quoi faire tourner Odin.\n${v.refus.map((x) => `· ${x}`).join('\n')}`, data: { refus: v.refus } } : undefined;
+}
+/** Ce que dit la validation d'une création de VM (au-delà de ton budget sans accord), ou rien. */
+export function graveVm(ctx: ModCtx | undefined, nom: unknown, d: { cpu: number; memoire: number; disque: number }): string | undefined {
+  // Sans Odin pour relire le budget (liste des liens, graphe) : comptée grave, par prudence.
+  if (!ctx) return `créer la VM ${s(nom).slice(0, 63)} : le budget de ce PC est relu au moment de créer (au-delà, ton accord)`;
+  try { const v = verdictBudget(budgetIci(ctx), d); return v.refus.length ? undefined : v.accord ? `créer la VM ${s(nom).slice(0, 63)} : ${v.accord}` : undefined; } catch { return undefined; }
+}
+
+/**
+ * Les garde-fous de « creer_vm », pour l'ancienne création d'une VM (« creer_machine » genre vm, appelée par Genèse et par
+ * la conversation) : hors Linux refusé, une seule création à la fois, le budget de ce PC, un nom libre, un dossier NEUF
+ * dans le dossier des VM (aucun raccourci). « faire » crée la machine dans ce dossier ; s'il échoue avant que la machine
+ * soit notée, le dossier neuf est retiré (rien d'autre n'est touché). Ton accord : la fonction « grave » (graveVm).
+ */
+export function avecGardeFousVm(ctx: ModCtx, nom: string, d: { cpu: number; memoire: number; disque: number }, faire: (L: Local) => Promise<ActionResult>): Promise<ActionResult> {
+  return verrouVm(nom, async () => {
+    const L = new Local(ctx);
+    const b = refusBudget(ctx, L, d); if (b) return b;
+    if (L.list().some((m) => m.nom === nom)) return nonCree(`le nom « ${nom} » est déjà pris.`);
+    let p: string; try { p = creerDossierVm(join(L.dir, 'vm'), nom); } catch (e) { return nonCree(`${(e as Error).message}.`); }
+    try { return await faire(L); } catch (e) { if (!L.list().some((m) => m.nom === nom)) defaire(p); throw e; }
+  });
+}
+
+async function creerVm(ctx: ModCtx, i: Record<string, unknown>): Promise<ActionResult> {
+  return verrouVm(i.nom, () => creerVmSeule(ctx, i));
 }
 
 async function creerVmSeule(ctx: ModCtx, i: Record<string, unknown>): Promise<ActionResult> {
@@ -410,7 +439,7 @@ async function creerVmSeule(ctx: ModCtx, i: Record<string, unknown>): Promise<Ac
   if (!NOM_SUR.test(nom)) return non('nom : des lettres minuscules sans accent, des chiffres et des tirets (63 au plus), en commençant par une lettre ou un chiffre.');
   if (L.list().some((m) => m.nom === nom)) return non(`le nom « ${nom} » est déjà pris.`);
   const d = { cpu: entier(i.coeurs), memoire: entier(i.memoire), disque: entier(i.disque) };
-  const v = verdictBudget(budgetIci(ctx, L), d); if (v.refus.length) return { ok: false, text: `Refusé, rien n'est créé : ce PC ne peut pas le donner en gardant de quoi faire tourner Odin.\n${v.refus.map((x) => `· ${x}`).join('\n')}`, data: { refus: v.refus } };
+  const refus = refusBudget(ctx, L, d); if (refus) return refus;
   // Réseau et options.
   const sansReseau = s(i.reseau) === 'aucun';
   if (s(i.reseau) && !['machines', 'aucun'].includes(s(i.reseau))) return non('réseau : « machines » ou « aucun » (la cage d\'essai viendra plus tard).');

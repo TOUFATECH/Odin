@@ -15,7 +15,8 @@ import { allModules } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { dossierMorceaux, idEnvoi } from '../src/valhalla/ymir/bibliotheque.ts';
 import { archDuNom, editionDuNom, profilVm, systemeDuNom } from '../src/valhalla/ymir/isos.ts';
-import { qemuArgs, type Machine } from '../src/valhalla/ymir/local.ts';
+import { qemuArgs, systemeVm, type Machine } from '../src/valhalla/ymir/local.ts';
+import { hoteVm } from '../src/valhalla/ymir/creation.ts';
 
 const sha = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
 type Alerte = { level: string; title: string; detail?: string };
@@ -134,6 +135,10 @@ test('importer une ISO : dossier, lien, envoi en morceaux ; l\'antivirus d\'abor
 
 test('créer une VM : la liste propose les ISO de la bibliothèque, étiquetées par système, et Hydre règle le matériel', async () => {
   const w = monde({ outils: /qemu-system-x86_64|qemu-img|ip$|swtpm/ });
+  // Une VM passe par les garde-fous de « creer_vm » (hors Linux refusé, budget de ce PC) : Linux simulé et un PC fictif
+  // (6 cœurs, 24 Go, 200 Go libres sur 500), jamais la vraie machine.
+  const avant = { sv: { ...systemeVm }, h: { ...hoteVm } };
+  systemeVm.plateforme = () => 'linux'; hoteVm.coeurs = () => 6; hoteVm.memoire = () => 24 * 1024 ** 3; hoteVm.disque = () => ({ total: 500 * 1024 ** 3, libre: 200 * 1024 ** 3 });
   try {
     await w.act('espace_iso', { dossier: w.espace }); mkdirSync(join(w.espace, 'Windows 11'), { recursive: true });
     // Des ISO d'Andromède (déjà dans l'espace ISO : utilisées sur place, sans copie) et des pilotes virtio.
@@ -166,7 +171,7 @@ test('créer une VM : la liste propose les ISO de la bibliothèque, étiquetées
     assert.equal(r5.ok, true, r5.text); assert.match(r5.text, /macOS : limites acceptées/);
     // Une ISO inconnue : message clair.
     assert.match((await w.act('creer_machine', { genre: 'vm', iso: 'pas-la.iso', apps: '' })).text, /ISO introuvable dans la bibliothèque/);
-  } finally { w.fin(); }
+  } finally { Object.assign(systemeVm, avant.sv); Object.assign(hoteVm, avant.h); w.fin(); }
 });
 
 test('une machine où un virus est trouvé part en quarantaine : isolée, démarrage en mode analyse seulement, sortie avec ton accord', async () => {

@@ -4,18 +4,20 @@
 import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Action, ModCtx } from '../types.ts';
+import type { Action, ActionResult, ModCtx } from '../types.ts';
 import { parReflexe } from '../vidarr/qui-a-fait.ts';
 import { allumee, famille, Local, MODELES, nomAuto, newMac, slug, systemeVm, TOUCHES, VM_WINDOWS, type Etat, type Genre, type Machine } from './local.ts';
 import { bibliotheque, pilotesVirtio, profilVm, trouverIso } from './isos.ts';
 import { bibliothequeActions, synchroEspace } from './bibliotheque.ts';
 import { dependancesActions, quiEnDepend } from './dependances.ts';
 import { reprendreRetraits, retraitActions } from './retrait.ts';
-import { creationActions, finInstallations } from './creation.ts';
+import { avecGardeFousVm, creationActions, finInstallations, graveVm, horsLinuxVm } from './creation.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const n = (v: unknown, d: number, lo: number, hi: number) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? Math.max(lo, Math.min(hi, Math.round(x))) : d; };
 const list = (v: unknown) => s(v).split(/[,\n]+/).map((x) => x.trim()).filter(Boolean);
+/** Les ressources demandées à « creer_machine » (bornées comme avant) : pour une VM, aussi ce que vérifie le budget de ce PC. */
+const ressourcesVm = (i: Record<string, unknown>) => ({ cpu: n(i.coeurs, 2, 1, 64), memoire: n(i.memoire, 2, 1, 512), disque: n(i.disque, 32, 4, 8192) });
 const machineParam = { key: 'machine', label: 'Machine (nom ou adresse)', kind: 'text' as const, required: true };
 /** Les applis d'Odin branchées sur une nouvelle machine (chacune fait vraiment quelque chose). */
 export const APPS: Array<{ id: string; nom: string; quoi: string; reco: boolean; lxc: boolean; vm: boolean }> = [
@@ -84,8 +86,14 @@ export function machinesActions(): Action[] {
         { key: 'coeurs', label: 'Cœurs', kind: 'number', default: 2 }, { key: 'memoire', label: 'Mémoire (Go)', kind: 'number', default: 2 }, { key: 'disque', label: 'Disque (Go)', kind: 'number', default: 32 },
         { key: 'ip', label: 'Adresse IP (vide : la première libre)', kind: 'text', default: '' }, { key: 'categorie', label: 'Catégorie', kind: 'text', default: '' },
         { key: 'apps', label: 'Applis d\'Odin (ullr, vordr, vidarr, sindri)', kind: 'text', default: 'ullr, vordr, vidarr, sindri' }, { key: 'paquets', label: 'Logiciels en plus (paquets, ex. nextcloud, postgresql)', kind: 'text', default: '' }, { key: 'uefi', label: 'VM en UEFI', kind: 'boolean', default: true }],
+      // Une VM passe par les garde-fous de « creer_vm » (lot M4) : réservée au propriétaire, ton accord au-delà de ton budget
+      // sans accord, puis (avecGardeFousVm) hors Linux refusé, une seule création à la fois, budget de ce PC, nom libre,
+      // dossier neuf. Un LXC : comme avant.
+      proprietaireSeul: (i) => s(i.genre) === 'vm',
+      grave: (i, ctx) => s(i.genre) === 'vm' ? graveVm(ctx, s(i.nom).trim() ? slug(s(i.nom)) : '(nom automatique)', ressourcesVm(i)) : undefined,
       words: ['crée une machine', 'cree une machine', 'nouvelle machine', 'crée un lxc', 'crée une vm', 'nouveau conteneur lxc'], run: async (ctx, i) => {
         const L = new Local(ctx), genre = (s(i.genre) === 'vm' ? 'vm' : 'lxc') as Genre, now = ctx.now();
+        const hors = genre === 'vm' ? horsLinuxVm() : undefined; if (hors) return { ok: false, text: hors };
         let systeme = '', version = '', modele: Machine['modele'], iso: string | undefined, prof: ReturnType<typeof profilVm> | undefined;
         if (genre === 'lxc') {
           const q = s(i.modele || 'debian trixie').toLowerCase(), md = MODELES.find((x) => `${x.dist} ${x.release}` === q) ?? MODELES.find((x) => q.includes(x.dist) && (q.includes(x.release) || q.includes(x.version) && x.version)) ?? MODELES.find((x) => q.includes(x.dist) || q.includes(x.titre.toLowerCase()));
@@ -101,16 +109,19 @@ export function machinesActions(): Action[] {
           iso = f.chemin; systeme = f.systeme === 'Linux' ? (f.distribution ?? 'Linux') : f.systeme === 'Windows' ? (f.detail || 'Windows') : f.systeme === 'macOS' ? 'macOS' : (f.detail || 'Système');
           version = /^Windows /.test(systeme) ? '' : f.version ?? /(\d+(?:\.\d+){0,2})/.exec(f.detail)?.[1] ?? '';
         }
-        const nom = s(i.nom).trim() ? slug(s(i.nom)) : nomAuto(systeme, version, now, s(i.fin));
-        let ip = s(i.ip).trim();
-        if (ip) { if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) throw new Error('adresse IP invalide'); if (!(await L.ipDispo(ip))) throw new Error(`l'adresse ${ip} est déjà prise`); }
-        else { ip = (await L.prochaineIp()) ?? ''; if (!ip) throw new Error('plus d\'adresse libre sur le réseau des machines'); }
-        const cat = s(i.categorie).trim(), apps = list(i.apps).map((x) => x.toLowerCase()).filter((x) => APPS.some((a) => a.id === x)), paquets = list(i.paquets).map((x) => x.toLowerCase());
-        const m: Machine = { id: randomBytes(6).toString('hex'), nom, genre, systeme, version, famille: famille(systeme), ...(cat ? { categorie: cat } : {}), cpu: n(i.coeurs, 2, 1, 64), ram: n(i.memoire, 2, 1, 512) * 1024, disque: n(i.disque, 32, 4, 8192), ip, mac: newMac(), cree: now.getTime(), modele, iso, uefi: genre === 'vm' && (prof ? prof.uefi : i.uefi !== false && i.uefi !== 'false'), ...(prof ? { profil: { disque: prof.disque, reseau: prof.reseau, tpm: prof.tpm, ...(prof.pilotes ? { pilotes: prof.pilotes } : {}) } } : {}), apps, paquets };
-        const notes = [...(prof ? prof.notes.map((x) => `· ${x}`) : []), ...(prof?.avertissement ? ['⚠ macOS : limites acceptées (licence Apple, chargeur OpenCore non fourni).'] : []), ...(await L.creer(m, { installer: iso }))];
-        const b = await brancher(ctx, L, m);
-        ctx.emit('machine_creee', { nom: m.nom, genre, ip });
-        return { text: `✅ ${m.nom} créée (${genre === 'lxc' ? 'LXC' : 'VM'} ${systeme} ${version}, ${m.cpu} cœur(s), ${m.ram / 1024} Go, ${m.disque} Go) · ${ip}${genre === 'vm' ? ' · l\'installation de l\'ISO commence : regarde son écran dans Machines' : ''}${notes.length ? `\n${notes.join('\n')}` : ''}${b.length ? `\n${b.join('\n')}` : ''}`, data: m };
+        const nom = s(i.nom).trim() ? slug(s(i.nom)) : nomAuto(systeme, version, now, s(i.fin)), res = ressourcesVm(i);
+        const faire = async (L: Local): Promise<ActionResult> => {
+          let ip = s(i.ip).trim();
+          if (ip) { if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) throw new Error('adresse IP invalide'); if (!(await L.ipDispo(ip))) throw new Error(`l'adresse ${ip} est déjà prise`); }
+          else { ip = (await L.prochaineIp()) ?? ''; if (!ip) throw new Error('plus d\'adresse libre sur le réseau des machines'); }
+          const cat = s(i.categorie).trim(), apps = list(i.apps).map((x) => x.toLowerCase()).filter((x) => APPS.some((a) => a.id === x)), paquets = list(i.paquets).map((x) => x.toLowerCase());
+          const m: Machine = { id: randomBytes(6).toString('hex'), nom, genre, systeme, version, famille: famille(systeme), ...(cat ? { categorie: cat } : {}), cpu: res.cpu, ram: res.memoire * 1024, disque: res.disque, ip, mac: newMac(), cree: now.getTime(), modele, iso, uefi: genre === 'vm' && (prof ? prof.uefi : i.uefi !== false && i.uefi !== 'false'), ...(prof ? { profil: { disque: prof.disque, reseau: prof.reseau, tpm: prof.tpm, ...(prof.pilotes ? { pilotes: prof.pilotes } : {}) } } : {}), apps, paquets };
+          const notes = [...(prof ? prof.notes.map((x) => `· ${x}`) : []), ...(prof?.avertissement ? ['⚠ macOS : limites acceptées (licence Apple, chargeur OpenCore non fourni).'] : []), ...(await L.creer(m, { installer: iso }))];
+          const b = await brancher(ctx, L, m);
+          ctx.emit('machine_creee', { nom: m.nom, genre, ip });
+          return { text: `✅ ${m.nom} créée (${genre === 'lxc' ? 'LXC' : 'VM'} ${systeme} ${version}, ${m.cpu} cœur(s), ${m.ram / 1024} Go, ${m.disque} Go) · ${ip}${genre === 'vm' ? ' · l\'installation de l\'ISO commence : regarde son écran dans Machines' : ''}${notes.length ? `\n${notes.join('\n')}` : ''}${b.length ? `\n${b.join('\n')}` : ''}`, data: m };
+        };
+        return genre === 'vm' ? avecGardeFousVm(ctx, nom, res, faire) : faire(L);
       } },
     { id: 'demarrer_machine', label: 'Démarrer', what: 'Démarre une machine de ce PC (en quarantaine : seulement en mode analyse, sans réseau)', params: [machineParam, { key: 'analyse', label: 'Mode analyse (sans réseau)', kind: 'boolean', default: false }], words: ['démarre la machine', 'allume la machine'], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine), an = i.analyse === true || i.analyse === 'true'; await L.demarrer(m, undefined, { analyse: an }); if (m.quarantaine) { m.quarantaine.journal.push({ at: Date.now(), quoi: 'Démarrée en mode analyse, sans réseau' }); L.update(m); } return { text: `▶ ${m.nom} démarrée${m.quarantaine ? ' en mode analyse (sans aucun réseau : en quarantaine)' : ''}.` }; }, undo: (i) => ({ action: 'arreter_machine', input: { machine: i.machine }, label: 'Arrêter' }) },
     { id: 'arreter_machine', label: 'Arrêter', what: 'Arrêt propre d\'une machine de ce PC', params: [machineParam, { key: 'forcer', label: 'Forcer (comme débrancher)', kind: 'boolean', default: false }], grave: (i, ctx) => `${i.forcer === true || i.forcer === 'true' ? 'couper net' : 'éteindre'} la machine ${s(i.machine)}${quiEnDepend(ctx, i.machine)}`, words: ['éteins la machine', 'arrête la machine'], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine); await L.arreter(m, i.forcer === true || i.forcer === 'true'); return { text: `⏹ ${m.nom} : arrêt demandé.` }; }, undo: (i) => ({ action: 'demarrer_machine', input: { machine: i.machine }, label: 'Redémarrer' }) },
