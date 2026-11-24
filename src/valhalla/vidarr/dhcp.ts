@@ -47,7 +47,27 @@ export function buildPacket(p: Partial<Omit<Packet, 'options'>> & { op: number; 
 export const pxeHook: { get?: (p: Packet) => { siaddr: string; file: string; options: Array<[number, Buffer]> } | undefined } = {};
 const u32 = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32BE(n >>> 0); return b; };
 
-export interface Lease { mac: string; ip: string; name?: string; expires: number; fixed?: boolean; /** première fois vu (ms) */ first?: number; /** ce que l'appareil dit de lui au DHCP (« android-dhcp-14 », « MSFT 5.0 »…) */ vendorClass?: string }
+export interface Lease { mac: string; ip: string; name?: string; expires: number; fixed?: boolean; /** première fois vu (ms) */ first?: number; /** ce que l'appareil dit de lui au DHCP (« android-dhcp-14 », « MSFT 5.0 »…) */ vendorClass?: string;
+  /** date d'arrivée : début de la présence en cours (nouveau bail, ou retour après un bail fini) (ms) */
+  since?: number;
+  /** « vu connecté » : la dernière fois qu'Odin lui a donné ou renouvelé son bail (ms). Les signes entre deux (une simple
+   *  demande) restent en mémoire (`DhcpServer.dernierSigne`) : rien n'est écrit sur le disque pour eux. */
+  seen?: number;
+  /** adresse retenue jusqu'à (ms) : après un refus net (appareil bloqué ou en pause), son adresse n'est redonnée à personne
+   *  avant la fin du bail d'origine (il peut ne pas avoir obéi au refus : jamais deux appareils sur la même adresse) */
+  hold?: number;
+  /** le nom a été donné par le propriétaire : le nom que l'appareil annonce ne l'écrase plus */
+  named?: boolean }
+/** Le nom qu'un appareil annonce (option 12), nettoyé : lettres, chiffres, espace, point, tiret, apostrophe ; jamais de balise ni de caractère de contrôle. Pur. */
+export const nomAnnonce = (b: Buffer | undefined): string | undefined => {
+  if (!b) return undefined;
+  // Toutes les écritures : les lettres, les chiffres et leurs marques (accents décomposés, voyelles du hindi ou du thaï) restent ;
+  // au plus deux marques de suite (pas d'empilement), et la coupe se fait par caractère entier (jamais un demi-caractère).
+  const t = b.subarray(0, 1024).toString('utf8').normalize('NFC').replace(/[^\p{L}\p{N}\p{M} ._'-]/gu, '').replace(/(\p{M}{2})\p{M}+/gu, '$1').replace(/^\p{M}+/u, '').replace(/ +/g, ' ').trim();
+  return [...t].slice(0, 63).join('').trim() || undefined;
+};
+/** Ce qu'un appareil dit de lui (option 60), nettoyé : caractères simples seulement, rien qui ouvre une balise. Pur. */
+export const classeAnnoncee = (b: Buffer | undefined): string | undefined => b?.toString('latin1').replace(/[^\x20-\x7e]/g, '').replace(/[<>&"'`\\]/g, '').replace(/ +/g, ' ').trim().slice(0, 60) || undefined;
 /** Le système d'après ce que l'appareil dit au DHCP (deviné : à confirmer). Pur. */
 export function osFromVendorClass(v: string | undefined): string | undefined {
   if (!v) return undefined;
@@ -55,6 +75,8 @@ export function osFromVendorClass(v: string | undefined): string | undefined {
   if (/^MSFT/i.test(v)) return 'Windows'; if (/dhcpcd/i.test(v)) return 'Linux ou Android'; if (/udhcp/i.test(v)) return 'Linux embarqué (box, caméra, objet)'; if (/^ubnt|ubiquiti/i.test(v)) return 'Ubiquiti';
   return v.slice(0, 40);
 }
+/** Une adresse MAC bien formée (six octets), telle que le serveur les écrit. */
+export const MAC_SIMPLE = /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/;
 /** Une MAC « privée » (bit local) : téléphone ou tablette récents en Wi-Fi, qui changent d'adresse par réseau. */
 export const randomMac = (mac: string) => /^.[26ae]/i.test(mac);
 
@@ -98,11 +120,16 @@ export interface DhcpDeps { config: () => DhcpConfig; leases: () => Lease[]; sav
   onError?: (raison: string) => void }
 
 /** Nom propre pour le DNS (« Téléphone d'Awa » → « telephone-d-awa »). */
-export const hostLabel = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
+export const hostLabel = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
 
 export class DhcpServer {
   sock?: dgram.Socket; port = 67; clientPort = 68;
   private declined = new Map<string, number>(); private offered = new Map<string, { ip: string; at: number }>();
+  /** Le dernier signe de chaque appareil (un paquet reçu), en mémoire seulement, borné : rien n'est écrit pour un simple signe. */
+  readonly signes = new Map<string, number>();
+  /** Le dernier refus ou silence noté pour un appareil (bloqué, en pause, en attente) : au plus une ligne d'historique par 10 minutes. */
+  private notes = new Map<string, number>();
+  dernierSigne(mac: string): number | undefined { return this.signes.get(mac.toLowerCase()); }
   private d: DhcpDeps; private now: () => number;
   constructor(d: DhcpDeps) { this.d = d; this.now = d.now ?? Date.now; }
 
@@ -123,12 +150,12 @@ export class DhcpServer {
     const fixed = c.fixed.find((f) => f.mac.toLowerCase() === mac); if (fixed) return fixed.ip;
     const mine = leases.find((l) => l.mac === mac); if (mine) return mine.ip;
     const lo = ipNum(c.start), hi = ipNum(c.end);
-    const taken = new Set([...leases.filter((l) => l.expires > now || l.fixed).map((l) => l.ip), ...c.fixed.map((f) => f.ip), c.server, c.router, ...[...this.offered.entries()].filter(([m, o]) => m !== mac && now - o.at < 60_000).map(([, o]) => o.ip)]);
+    const taken = new Set([...leases.filter((l) => l.mac !== mac && (l.expires > now || l.fixed || (l.hold ?? 0) > now)).map((l) => l.ip), ...c.fixed.map((f) => f.ip), c.server, c.router, ...[...this.offered.entries()].filter(([m, o]) => m !== mac && now - o.at < 60_000).map(([, o]) => o.ip)]);
     for (const [ip, until] of this.declined) if (until > now) taken.add(ip);
     if (wanted && ipNum(wanted) >= lo && ipNum(wanted) <= hi && !taken.has(wanted)) return wanted;
     for (let n = lo; n <= hi; n++) if (!taken.has(numIp(n))) return numIp(n);
     // Plus rien de libre : on reprend le bail expiré le plus ancien.
-    const old = leases.filter((l) => !l.fixed && l.expires <= now).sort((a, b) => a.expires - b.expires)[0];
+    const old = leases.filter((l) => !l.fixed && l.expires <= now && (l.hold ?? 0) <= now).sort((a, b) => a.expires - b.expires)[0];
     return old?.ip;
   }
   private reply(p: Packet, type: number, ip: string, extra: Array<[number, Buffer]> = []): void {
@@ -145,29 +172,69 @@ export class DhcpServer {
     this.sock?.send(out, p.giaddr !== '0.0.0.0' ? this.port : this.clientPort, to);
   }
   private keep(l: Lease): void {
-    const all = this.d.leases(), old = all.find((x) => x.mac === l.mac), isNew = !old;
-    l = { ...l, first: old?.first ?? this.now(), ...(l.vendorClass ?? old?.vendorClass ? { vendorClass: l.vendorClass ?? old?.vendorClass } : {}) };
+    const all = this.d.leases(), old = all.find((x) => x.mac === l.mac), isNew = !old, now = this.now();
+    // Date d'arrivée : gardée tant que le bail d'avant court encore ; un appareil qui revient après la fin de son bail arrive de nouveau.
+    const since = old && old.expires > now ? old.since ?? old.first ?? now : now;
+    l = { ...l, first: old?.first ?? now, since, seen: now, ...(l.vendorClass ?? old?.vendorClass ? { vendorClass: l.vendorClass ?? old?.vendorClass } : {}) };
     this.d.save([...all.filter((x) => x.mac !== l.mac && x.ip !== l.ip), l]);
     this.d.onLease?.(l, isNew);
   }
+  /**
+   * « Vu connecté » : un paquet vient d'arriver de cet appareil. Gardé en mémoire seulement (un appareil bloqué ou bavard
+   * redemande toutes les quelques secondes, pour toujours : rien ne doit s'écrire sur le disque à ce rythme). Borné.
+   */
+  private vu(mac: string, now: number): void {
+    this.signes.delete(mac); this.signes.set(mac, now);
+    if (this.signes.size > 4096) for (const k of this.signes.keys()) { this.signes.delete(k); if (this.signes.size <= 3072) break; }
+  }
+  /** Vrai au plus une fois par 10 minutes et par appareil : pour ne pas remplir l'historique à chaque paquet refusé. */
+  private aNoter(mac: string, quoi: string, now: number): boolean {
+    const k = `${quoi} ${mac}`, t = this.notes.get(k); if (t !== undefined && now >= t && now - t < 600_000) return false;
+    this.notes.delete(k); this.notes.set(k, now);
+    if (this.notes.size > 4096) for (const x of this.notes.keys()) { this.notes.delete(x); if (this.notes.size <= 3072) break; }
+    return true;
+  }
+  /**
+   * L'appareil vient de recevoir un refus net (NAK) : son bail est fini tout de suite. Mais il peut ne pas obéir (ou ne
+   * jamais avoir reçu le refus) : son adresse reste retenue jusqu'à la fin du bail d'origine, elle n'est redonnée à personne.
+   */
+  private lacher(mac: string, now: number): void {
+    const all = this.d.leases(); if (all.some((l) => l.mac === mac && l.expires > now)) this.d.save(all.map((l) => (l.mac === mac && l.expires > now ? { ...l, expires: now, hold: Math.max(l.hold ?? 0, l.expires) } : l)));
+  }
   onMessage(m: Buffer, _r?: dgram.RemoteInfo): void {
     const p = parsePacket(m); if (p.op !== 1) return;
+    // Une adresse matérielle qui n'est pas une adresse MAC de six octets : ignorée (elle donnerait un appareil que la page
+    // ne peut ni montrer ni bloquer).
+    if (m[1] !== 1 || m[2] !== 6 || !MAC_SIMPLE.test(p.mac)) return;
     const type = p.options.get(53)?.[0], c = this.d.config(), now = this.now();
-    const name = p.options.get(12)?.toString('utf8').replace(/[^\p{L}\p{N} ._'-]/gu, '').slice(0, 63) || undefined;
+    const name = nomAnnonce(p.options.get(12));
+    if (type !== MSG.RELEASE && type !== MSG.DECLINE) this.vu(p.mac, now);
     const requested = p.options.get(50)?.length === 4 ? ipStr(p.options.get(50)!, 0) : undefined;
     const serverId = p.options.get(54)?.length === 4 ? ipStr(p.options.get(54)!, 0) : undefined;
     // Contrôle d'accès par adresse MAC : bloquée → rien, en pause → NAK (ou pas d'OFFER), inconnue en liste → en attente.
     const isFixed = c.fixed.some((f) => f.mac.toLowerCase() === p.mac);
     const dec = macDecision(c.macPolicy, p.mac, isFixed);
-    if (dec === 'bloque') { this.d.log?.(`DHCP : ${p.mac} est bloqué, rien ne lui est renvoyé`); if (type === MSG.DISCOVER) this.d.onEvent?.(p.mac, requested ?? '', 'bloque'); return; }
+    if (dec === 'bloque') {
+      // Il tient encore une adresse donnée par Odin et demande à la garder : un seul refus net (NAK), pour qu'il la lâche
+      // tout de suite au lieu de la garder jusqu'à la fin du bail. Ensuite, comme pour tout appareil bloqué : plus rien.
+      const tenu = type === MSG.REQUEST && (!serverId || serverId === c.server) ? this.d.leases().find((l) => l.mac === p.mac && l.expires > now) : undefined;
+      if (tenu && (requested ?? p.ciaddr) === tenu.ip) { this.reply(p, MSG.NAK, '0.0.0.0'); this.lacher(p.mac, now); this.d.onEvent?.(p.mac, tenu.ip, 'refuse', name); this.d.log?.(`DHCP : ${p.mac} est bloqué, son adresse ${tenu.ip} lui est refusée (NAK) : il sort du réseau`); return; }
+      if (type === MSG.DISCOVER && this.aNoter(p.mac, 'bloque', now)) { this.d.log?.(`DHCP : ${p.mac} est bloqué, rien ne lui est renvoyé`); this.d.onEvent?.(p.mac, requested ?? '', 'bloque'); }
+      return;
+    }
     if ((dec === 'attente' || dec === 'pause') && (type === MSG.DISCOVER || type === MSG.REQUEST)) {
-      if (dec === 'attente') { const vc = p.options.get(60)?.toString('latin1').replace(/[^\x20-\x7e]/g, '').slice(0, 60) || undefined; this.d.onPending?.(p.mac, { name, vendorClass: vc, requested }); this.d.log?.(`DHCP : ${p.mac} en attente d'approbation, ignoré`); this.d.onEvent?.(p.mac, requested ?? '', 'attente', name); return; }
-      if (type === MSG.REQUEST) { this.reply(p, MSG.NAK, '0.0.0.0'); this.d.onEvent?.(p.mac, requested ?? p.ciaddr, 'refuse', name); }   // en pause : NAK pour qu'il perde vite le réseau
-      this.d.log?.(`DHCP : ${p.mac} en pause, ${type === MSG.REQUEST ? 'bail refusé (NAK)' : 'pas d\'OFFER'}`);
+      if (dec === 'attente') { const vc = classeAnnoncee(p.options.get(60)); this.d.onPending?.(p.mac, { name, vendorClass: vc, requested }); if (this.aNoter(p.mac, 'attente', now)) { this.d.log?.(`DHCP : ${p.mac} en attente d'approbation, ignoré`); this.d.onEvent?.(p.mac, requested ?? '', 'attente', name); } return; }
+      // En pause : NAK pour qu'il perde vite le réseau (noté une fois, pas à chaque nouvelle demande).
+      const note = this.aNoter(p.mac, `pause ${type}`, now);
+      if (type === MSG.REQUEST) { this.reply(p, MSG.NAK, '0.0.0.0'); this.lacher(p.mac, now); if (note) this.d.onEvent?.(p.mac, requested ?? p.ciaddr, 'refuse', name); }
+      if (note) this.d.log?.(`DHCP : ${p.mac} en pause, ${type === MSG.REQUEST ? 'bail refusé (NAK)' : 'pas d\'OFFER'}`);
       return;
     }
     if (type === MSG.DISCOVER) {
       const ip = this.pick(p.mac, requested); if (!ip) { this.d.log?.(`DHCP : plus d'adresse libre pour ${p.mac}`); return; }
+      // Les offres restées sans suite (des adresses MAC inventées qui demandent sans jamais prendre) ne s'entassent pas en mémoire.
+      if (this.offered.size > 1024) for (const [m2, o2] of this.offered) if (now - o2.at >= 60_000 || now < o2.at) this.offered.delete(m2);
+      if (this.offered.size > 4096) this.offered.clear();
       this.offered.set(p.mac, { ip, at: now }); this.reply(p, MSG.OFFER, ip); return;
     }
     if (type === MSG.REQUEST) {
@@ -175,11 +242,18 @@ export class DhcpServer {
       const want = requested ?? (p.ciaddr !== '0.0.0.0' ? p.ciaddr : undefined);
       const ip = this.pick(p.mac, want);
       if (!want || ip !== want) { this.reply(p, MSG.NAK, '0.0.0.0'); return; }
-      const fixed = c.fixed.find((f) => f.mac.toLowerCase() === p.mac);
-      this.keep({ mac: p.mac, ip, name: fixed?.name ?? name ?? this.d.leases().find((l) => l.mac === p.mac)?.name, expires: now + c.leaseSeconds * 1000, ...(fixed ? { fixed: true } : {}), ...(p.options.get(60)?.length ? { vendorClass: p.options.get(60)!.toString('latin1').replace(/[^\x20-\x7e]/g, '').slice(0, 60) } : {}) });
+      const fixed = c.fixed.find((f) => f.mac.toLowerCase() === p.mac), avant = this.d.leases().find((l) => l.mac === p.mac);
+      // Un nom donné par le propriétaire reste : le nom que l'appareil annonce ne l'écrase plus.
+      const garde = !fixed?.name && avant?.named && avant.name ? avant.name : undefined, classe = classeAnnoncee(p.options.get(60));
+      this.keep({ mac: p.mac, ip, name: fixed?.name ?? garde ?? name ?? avant?.name, expires: now + c.leaseSeconds * 1000, ...(fixed ? { fixed: true } : {}), ...(garde ? { named: true } : {}), ...(classe ? { vendorClass: classe } : {}) });
       this.offered.delete(p.mac); this.reply(p, MSG.ACK, ip); return;
     }
-    if (type === MSG.RELEASE) { this.d.save(this.d.leases().map((l) => (l.mac === p.mac && !l.fixed ? { ...l, expires: now } : l))); this.d.onEvent?.(p.mac, p.ciaddr, 'libere'); return; }
+    if (type === MSG.RELEASE) {
+      // Il rend SON adresse (celle de son bail en cours) : une autre adresse, ou un bail déjà fini, ne change rien.
+      const tous = this.d.leases(), tenu = tous.find((l) => l.mac === p.mac && !l.fixed && l.expires > now && (p.ciaddr === '0.0.0.0' || p.ciaddr === l.ip));
+      if (tenu) { this.d.save(tous.map((l) => (l === tenu ? { ...l, expires: now } : l))); this.d.onEvent?.(p.mac, tenu.ip, 'libere'); }
+      return;
+    }
     if (type === MSG.DECLINE) { if (requested) this.declined.set(requested, now + 3600_000); this.d.save(this.d.leases().filter((l) => !(l.mac === p.mac && l.ip === requested))); return; }
     if (type === MSG.INFORM) this.reply(p, MSG.ACK, p.ciaddr);
   }
