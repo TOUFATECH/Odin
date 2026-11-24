@@ -119,11 +119,14 @@ async function page(o: { branchees?: () => Disque[]; biblioLive?: boolean } = {}
     createElement: (t: string) => new Noeud(t), createElementNS: (_n: string, t: string) => new Noeud(t), createTextNode: (t: string) => new Texte(t),
     querySelector: (s: string) => racine.querySelector(s), getElementById: (i: string) => racine.querySelector(`#${i}`),
   };
-  const demandes: Array<{ action: string; input: Record<string, unknown> }> = [];
-  const post = async (action: string, input: Record<string, unknown> = {}) => {
-    demandes.push({ action, input });
+  const demandes: Array<{ action: string; input: Record<string, unknown>; confirm: boolean }> = [];
+  // Comme la porte d'Odin (POST /api/valhalla/act) : une action grave sans « confirm » n'est PAS lancée, sa question revient.
+  const post = async (action: string, input: Record<string, unknown> = {}, confirm = false) => {
+    demandes.push({ action, input, confirm: confirm === true });
     const a = actions.find((x) => x.id === action);
     if (!a) return { ok: false, text: 'inconnue' };
+    const pourquoi = a.grave?.(JSON.parse(JSON.stringify(input)), ctx);
+    if (pourquoi && confirm !== true) return { ok: false, confirm: `Confirmer : ${pourquoi} ?` };
     const r = await a.run(ctx, JSON.parse(JSON.stringify(input)));
     if (action === 'cle_appliquer' || action === 'cle_relire') await G.attendreTravail(String(input.cle));
     return JSON.parse(JSON.stringify(r));
@@ -141,7 +144,7 @@ async function page(o: { branchees?: () => Disque[]; biblioLive?: boolean } = {}
   const ligne = (fichier: string) => qa('[data-f="entree"]').find((x) => x.getAttribute('data-id') === fichier)!;
   const ordre = () => qa('[data-f="entree"]').map((x) => x.getAttribute('data-id'));
   const ecrites = () => demandes.filter((d) => ['cle_reconnaitre', 'cle_appliquer'].includes(d.action));
-  return { q, qa, clic, ligne, ordre, monter, demandes, ecrites, confirmes, cleD, actif: () => actif, appels, deploye: () => deploye, logique: window.OdinGeneseCleGerer.logique, horloge };
+  return { q, qa, clic, ligne, ordre, monter, demandes, ecrites, confirmes, cleD, actif: () => actif, appels, deploye: () => deploye, logique: window.OdinGeneseCleGerer.logique, horloge, post, MOTS: window.OdinGeneseCleGerer.MOTS };
 }
 const e = (s: string) => `[data-f="${s}"]`;
 const id = (fichier: string) => encodeURIComponent(fichier);
@@ -261,7 +264,7 @@ test('C5 · page : « Préparer une nouvelle clé » ramène à Déployer ; aucu
 });
 
 // ================================================================================================ relecture du lot C5
-test('relecture C5 · page : l\'accord « dès qu\'elle est branchée » tombe au moindre changement, ne vaut que 7 jours, et la page n\'applique alors rien toute seule', async () => {
+test('relecture C5 · page : l\'accord « dès qu\'elle est branchée » tombe au moindre changement, ne vaut que 24 heures, et la page n\'applique alors rien toute seule', async () => {
   let liste: Disque[] = [A];
   const P = await page({ branchees: () => liste });
   await P.clic(e('reconnaitre'));
@@ -269,7 +272,7 @@ test('relecture C5 · page : l\'accord « dès qu\'elle est branchée » tombe a
   await P.monter();
   await P.clic(e(`rm-${id(TAILS)}`));
   await P.clic(e('appliquer'));
-  assert.match(P.q(e('arme'))!.textContent, /dans les 7 jours/);
+  assert.match(P.q(e('arme'))!.textContent, /dans les 24 heures/);
   assert.equal(P.confirmes.length, 1, 'le retrait a été confirmé une fois, pour CE retrait');
   // Un autre retrait ajouté après l'accord : l'accord ne vaut pas pour lui.
   await P.clic(e(`rm-${id(GP)}`));
@@ -282,16 +285,16 @@ test('relecture C5 · page : l\'accord « dès qu\'elle est branchée » tombe a
   await P.monter();
   assert.equal(P.ecrites().filter((d) => d.action === 'cle_appliquer').length, 0, 'la clé revient : rien ne part tout seul');
   assert.ok(existsSync(join(P.cleD, 'ISO', TAILS))); assert.ok(existsSync(join(P.cleD, 'ISO', GP)));
-  // L'accord redonné pour les deux retraits, puis la clé oubliée 8 jours : rien ne part par surprise.
+  // L'accord redonné pour les deux retraits, puis la clé oubliée 25 heures : rien ne part par surprise.
   liste = [];
   await P.monter();
   await P.clic(e('appliquer'));
   assert.equal(P.confirmes.length, 2); assert.match(P.confirmes[1], /Tails/); assert.match(P.confirmes[1], /GParted/);
-  P.horloge.t = Date.now() + 8 * 24 * 3600 * 1000;
+  P.horloge.t = Date.now() + 25 * 3600 * 1000;
   liste = [A];
   await P.monter();
   assert.equal(P.ecrites().filter((d) => d.action === 'cle_appliquer').length, 0, 'accord trop ancien : pas appliqué tout seul');
-  assert.match(P.q(e('arme'))!.textContent, /plus de 7 jours/);
+  assert.match(P.q(e('arme'))!.textContent, /plus de 24 heures/);
   assert.ok(existsSync(join(P.cleD, 'ISO', TAILS)));
   // En personne : « Appliquer à la clé », avec sa confirmation.
   assert.equal(P.q(e('appliquer'))!.textContent, 'Appliquer à la clé');
@@ -301,4 +304,69 @@ test('relecture C5 · page : l\'accord « dès qu\'elle est branchée » tombe a
   // La confirmation dit quand la mémoire d'un système part avec lui.
   const partis = P.logique.retraits({ contenu: { systemes: [{ fichier: 'a.iso', nom: 'Ubuntu', choix: 'persistance' }, { fichier: 'b.iso', nom: 'GParted', choix: 'iso' }] }, attente: { retirer: ['a.iso', 'b.iso'], ajouter: [], remplacer: [] } });
   assert.match(partis[0], /Ubuntu \(avec sa mémoire/); assert.equal(partis[1], 'GParted');
+});
+
+// ================================================================================ décisions du propriétaire (26/11)
+test('décision du 26/11 · page : UNE question pour un retrait, passée à Odin avec la demande ; hors de la page, Odin pose sa question et ne retire rien', async () => {
+  const P = await page();
+  await P.clic(e('reconnaitre'));
+  const cle = String(P.demandes.find((d) => d.action === 'cle_changer' || d.action === 'cle_mises_a_jour')?.input.cle ?? '');
+  await P.clic(e(`rm-${id(GP)}`));
+  const idCle = String(P.demandes.filter((d) => d.action === 'cle_changer').at(-1)!.input.cle || cle);
+  // 1) Une demande venue d'ailleurs que la page (pas d'accord) : Odin pose SA question, qui nomme la clé et le système.
+  let r = await P.post('cle_appliquer', { cle: idCle });
+  assert.equal(r.ok, false); assert.match(r.confirm, /^Confirmer : retirer de la clé « [^»]+ » : GParted 1\.6/);
+  assert.ok(existsSync(join(P.cleD, 'ISO', GP)), 'rien n\'est retiré');
+  // … et un « oui » général, sans nommer ces retraits-là, ne suffit pas non plus.
+  r = await P.post('cle_appliquer', { cle: idCle }, true);
+  assert.equal(r.ok, false); assert.match(r.text, /demande ton accord pour ces retraits-là/);
+  assert.ok(existsSync(join(P.cleD, 'ISO', GP)));
+  // 2) Dans la page : une seule question (la sienne), et sa réponse part avec la demande.
+  const n = P.demandes.length;
+  await P.clic(e('appliquer'));
+  assert.equal(P.confirmes.length, 1, 'une seule question'); assert.match(P.confirmes[0], /GParted 1\.6/);
+  const envois = P.demandes.slice(n).filter((d) => d.action === 'cle_appliquer');
+  assert.equal(envois.length, 1, 'une seule demande');
+  assert.deepEqual([...(envois[0].input.retraits as string[])], [GP], 'les retraits acceptés sont nommés'); assert.equal(envois[0].confirm, true);
+  assert.ok(!existsSync(join(P.cleD, 'ISO', GP)), 'retiré, avec l\'accord');
+  assert.equal(readFileSync(join(P.cleD, 'ISO', TAILS), 'utf8'), 'ISO-TAILS');
+  // 3) Sans retrait : aucune question, aucun accord envoyé.
+  await P.clic(e('ajouter')); await P.clic(e('add-mint'));
+  const n2 = P.demandes.length;
+  await P.clic(e('appliquer'));
+  assert.equal(P.confirmes.length, 1, 'pas de question pour un ajout');
+  const ajout = P.demandes.slice(n2).find((d) => d.action === 'cle_appliquer')!;
+  assert.equal(ajout.confirm, false); assert.equal('retraits' in ajout.input, false);
+  assert.ok(existsSync(join(P.cleD, 'ISO', MINT)));
+  // 4) Les changements bougent derrière la page après la question (un autre onglet ajoute un retrait) : rien ne part.
+  await P.clic(e(`rm-${id(MINT)}`));
+  await P.post('cle_changer', { cle: idCle, attente: { retirer: [MINT, TAILS] } });
+  await P.clic(e('appliquer'));
+  assert.equal(P.confirmes.length, 2); assert.doesNotMatch(P.confirmes[1], /Tails/, 'la page n\'avait montré que Mint');
+  assert.ok(existsSync(join(P.cleD, 'ISO', MINT)) && existsSync(join(P.cleD, 'ISO', TAILS)), 'l\'accord ne valait pas pour Tails : rien n\'est retiré');
+  assert.match(P.q(e('attente'))!.textContent, /2 changement/, 'la page se relit : les deux retraits sont montrés');
+  // 5) Pas branchée : la même question, et l'accord part avec « dès qu'elle est branchée ».
+  assert.equal(P.logique.fichiersRetires({ contenu: { systemes: [{ fichier: 'a.iso', nom: 'A' }, { fichier: 'b.iso', nom: 'B' }, { fichier: 'c.iso', nom: 'C' }] }, attente: { retirer: ['b.iso'], ajouter: [], remplacer: [{ ancien: 'c.iso', iso: 'c2', fichier: 'c2.iso', nom: 'C2' }] } }).join(','), 'b.iso,c.iso');
+  assert.match(P.MOTS.arme, /24 heures/); assert.match(P.MOTS.armePerime, /24 heures/); assert.doesNotMatch(JSON.stringify(P.MOTS), /7 jours/);
+});
+
+test('décision du 26/11 · page : « dès qu\'elle est branchée » avec un retrait : l\'accord part avec la demande, Odin le note ; au branchement il s\'applique, sans deuxième question', async () => {
+  let liste: Disque[] = [A];
+  const P = await page({ branchees: () => liste });
+  await P.clic(e('reconnaitre'));
+  liste = [];
+  await P.monter();
+  await P.clic(e(`rm-${id(TAILS)}`));
+  await P.clic(e('appliquer'));
+  assert.equal(P.confirmes.length, 1); assert.match(P.confirmes[0], /Tails/);
+  const arme = P.demandes.filter((d) => d.action === 'cle_changer').at(-1)!;
+  assert.equal(arme.input.armer, true); assert.deepEqual([...(arme.input.retraits as string[])], [TAILS]); assert.equal(arme.confirm, true);
+  // Hors de la page : armer un retrait sans accord → la question d'Odin, rien de gardé en plus.
+  const r = await P.post('cle_changer', { cle: arme.input.cle, attente: { retirer: [TAILS, GP] }, armer: true });
+  assert.equal(r.ok, false); assert.match(r.confirm, /dès que la clé sera branchée, retirer de la clé/); assert.match(r.confirm, /GParted 1\.6/);
+  liste = [A];
+  await P.monter();
+  assert.equal(P.confirmes.length, 1, 'pas de deuxième question au branchement');
+  assert.ok(!existsSync(join(P.cleD, 'ISO', TAILS)), 'le retrait accepté est appliqué');
+  assert.ok(existsSync(join(P.cleD, 'ISO', GP)), 'GParted, jamais accepté, reste');
 });

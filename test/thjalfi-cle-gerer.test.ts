@@ -80,8 +80,10 @@ function monde(o: { disques: () => Disque[]; io?: (base: ReturnType<typeof G.ioG
 const cibleDe = (d: Disque) => ({ id: d.id, serie: d.serie, tailleOctets: d.tailleOctets, modele: d.modele });
 type Vue = { etat: string; id?: string; nom: string; branchee: boolean; changements?: number; contenu?: { systemes: Array<{ fichier: string; defautPermis: boolean }>; defaut?: string }; attente?: unknown; travail?: { fini: boolean; ok?: boolean; message: string } };
 const cles = async (m: ReturnType<typeof monde>) => ((await m.act('cle_mes_cles')).data as { cles: Vue[] }).cles;
-async function appliquer(m: ReturnType<typeof monde>, id: string) {
-  const r = await m.act('cle_appliquer', { cle: id });
+/** « Appliquer à la clé ». `retraits` : les fichiers des systèmes que le propriétaire vient d'accepter de voir retirés
+ *  (ce que la page passe après sa question) ; sans eux, Odin ne retire rien. */
+async function appliquer(m: ReturnType<typeof monde>, id: string, retraits: string[] = []) {
+  const r = await m.act('cle_appliquer', { cle: id, ...(retraits.length ? { retraits } : {}) });
   if (r.ok) await G.attendreTravail(id);
   return r;
 }
@@ -143,8 +145,8 @@ test('C5 · une clé ODIN branchée est reconnue (identifiant posé dans le doss
   assert.deepEqual(tout(dA), [...avant, 'odin/cle-odin.json'].sort(), 'préparer n\'écrit RIEN sur la clé');
   l = await cles(m);
   assert.equal(l[0].changements, 4, 'ajout, retrait, ordre, défaut');
-  // Appliquer.
-  const ap = await appliquer(m, id);
+  // Appliquer (le retrait de Windows accepté).
+  const ap = await appliquer(m, id, [W]);
   assert.equal(ap.ok, true, ap.text);
   l = await cles(m);
   assert.equal(l[0].travail?.ok, true, l[0].travail?.message);
@@ -185,20 +187,20 @@ test('C5 · changements en attente : une clé pas branchée les garde ; appliqu�
   const dB = m.dossierDe(B.id);
   for (const f of tout(dA)) { mkdirSync(join(dB, f, '..'), { recursive: true }); writeFileSync(join(dB, f), readFileSync(join(dA, f))); }
   const avantB = tout(dB).map((f) => [f, readFileSync(join(dB, f), 'utf8')]);
-  const ch = await m.act('cle_changer', { cle: id, attente: { retirer: [GP] }, armer: true });
+  const ch = await m.act('cle_changer', { cle: id, attente: { retirer: [GP] }, armer: true, retraits: [GP] });
   assert.equal(ch.ok, true, ch.text); assert.match(ch.text, /prochain branchement/);
   const l = await cles(m);
   const a = l.find((x) => x.id === id)!;
   assert.equal(a.branchee, false, 'A n\'est pas branchée'); assert.equal(a.changements, 1);
   assert.equal(l.find((x) => x.etat === 'copie')?.branchee, true, 'B est vue comme une copie');
-  const r = await appliquer(m, id);
+  const r = await appliquer(m, id, [GP]);
   assert.equal(r.ok, false); assert.match(r.text, /pas branchée/);
   assert.deepEqual(tout(dB).map((f) => [f, readFileSync(join(dB, f), 'utf8')]), avantB, 'B n\'est jamais touchée');
   const rec = await m.act('cle_reconnaitre', { cible: cibleDe(B) });
   assert.equal(rec.ok, false); assert.match(rec.text, /AUTRE clé/);
   // A revient : les changements s'appliquent à elle seule.
   branchees = [A, B];
-  assert.equal((await appliquer(m, id)).ok, true);
+  assert.equal((await appliquer(m, id, [GP])).ok, true);
   assert.ok(!existsSync(join(dA, 'ISO', GP)), 'GParted retiré de A');
   assert.ok(existsSync(join(dB, 'ISO', GP)), 'B garde tout');
   assert.deepEqual(tout(dB).map((f) => [f, readFileSync(join(dB, f), 'utf8')]), avantB);
@@ -324,7 +326,7 @@ test('C5 · mises à jour PROPOSÉES (jamais faites seules) : une ISO plus réce
   assert.deepEqual(tout(dA), avant, 'proposer n\'écrit rien');
   assert.equal((await cles(m))[0].attente, null, 'et ne prépare rien tout seul');
   await m.act('cle_changer', { cle: id, attente: { remplacer: [{ ancien: U, iso: 'ubuntu2' }] } });
-  await appliquer(m, id);
+  await appliquer(m, id, [U]);
   assert.ok(existsSync(join(dA, 'ISO', 'ubuntu-24.04.2-desktop-amd64.iso')) && !existsSync(join(dA, 'ISO', U)));
   assert.ok(!existsSync(join(dA, 'persistence', 'ubuntu-24.04-desktop-amd64.dat')), 'la mémoire de l\'ancienne version suit son image');
   assert.equal(((await m.act('cle_mises_a_jour', { cle: id })).data as { menu: string }).menu, 'a-jour');
@@ -372,7 +374,7 @@ test('C5 · une clé écrite par « Déployer » (lot C4, faux disque) se gère 
 // Chaque essai ci-dessous échouait avant la relecture (une écriture sur la mauvaise clé, un accord qui n'en était pas un,
 // une installation qui démarre seule, un réglage perdu…) et passe après.
 const MARGE_CLE = 512 * 1024 ** 2;
-const JOUR = 24 * 3600 * 1000;
+const JOUR = 24 * 3600 * 1000, HEURE = 3600 * 1000;
 /** Une clé écrite (lot C4), branchée, reconnue : rend son identifiant ODIN. */
 async function connue(m: ReturnType<typeof monde>, d: Disque): Promise<string> {
   cleEcrite(m.dossierDe(d.id));
@@ -407,11 +409,11 @@ test('relecture C5 · deux clés branchées qui se présentent comme la même (m
   branchees = [JUMELLE, A];
   assert.equal((await m.act('cle_changer', { cle: id, attente: { retirer: [GP] } })).ok, true);
   const avant = [photo(dA), photo(dJ)];
-  const r = await appliquer(m, id);
+  const r = await appliquer(m, id, [GP]);
   assert.equal(r.ok, false, 'Odin ne choisit pas au hasard'); assert.match(r.text, /Deux clés branchées/);
   assert.deepEqual([photo(dA), photo(dJ)], avant, 'ni l\'une ni l\'autre');
   branchees = [A];
-  assert.equal((await appliquer(m, id)).ok, true, 'seule, la bonne clé est changée');
+  assert.equal((await appliquer(m, id, [GP])).ok, true, 'seule, la bonne clé est changée');
   assert.ok(!existsSync(join(dA, 'ISO', GP))); assert.ok(existsSync(join(dJ, 'ISO', GP)));
 });
 
@@ -427,7 +429,7 @@ test('relecture C5 · un disque qui porte seulement le NOM « ODIN » (aucun men
   assert.deepEqual(photo(d), avant, 'pas même le fichier d\'identité');
 });
 
-test('relecture C5 · « au prochain branchement » : un accord donné par le propriétaire, pour CES changements, valable 7 jours ; jamais glissé par la page, jamais gardé après un changement', async () => {
+test('relecture C5 · « au prochain branchement » : un accord donné par le propriétaire, pour CES changements, valable 24 heures ; jamais glissé par la page, jamais gardé après un changement', async () => {
   const A = cle('cle-a', 'AA11BB227F2A');
   const m = monde({ disques: () => [A] });
   const id = await connue(m, A);
@@ -448,17 +450,21 @@ test('relecture C5 · « au prochain branchement » : un accord donné par le pr
   r = await auto();
   assert.equal(r.ok, false);
   assert.ok(existsSync(join(dA, 'ISO', W)), 'le retrait n\'est pas parti tout seul');
-  // 3) L'accord, puis 8 jours : Odin ne l'applique plus tout seul (un retrait oublié ne part pas par surprise).
-  const ch = await m.act('cle_changer', { cle: id, attente: { retirer: [GP] }, armer: true });
-  assert.match(ch.text, /prochain branchement/); assert.match(ch.text, /7 jours/);
-  m.horloge.t = Date.now() + 8 * JOUR;
-  assert.equal((await vue()).armeValide, false);
+  // 3) L'accord, puis 25 heures : Odin ne l'applique plus tout seul (un retrait oublié ne part pas par surprise).
+  assert.equal(G.VALIDITE_ARME, JOUR, 'l\'accord vaut 24 heures');
+  const ch = await m.act('cle_changer', { cle: id, attente: { retirer: [GP] }, armer: true, retraits: [GP] });
+  assert.match(ch.text, /prochain branchement/); assert.match(ch.text, /accord valable 24 heures/);
+  const t0 = Date.now();
+  m.horloge.t = t0 + 23 * HEURE;
+  assert.equal((await vue()).armeValide, true, '23 heures après : il vaut encore');
+  m.horloge.t = t0 + 25 * HEURE;
+  assert.equal((await vue()).armeValide, false, '25 heures après : il ne vaut plus');
   r = await auto();
-  assert.equal(r.ok, false); assert.match(r.text, /plus de 7 jours/); assert.match(r.text, /Rien n'a été écrit/);
+  assert.equal(r.ok, false); assert.match(r.text, /plus de 24 heures/); assert.match(r.text, /Rien n'a été écrit/);
   assert.ok(existsSync(join(dA, 'ISO', GP)));
-  // 4) Redonné : dans les 7 jours, la clé branchée, c'est appliqué.
-  await m.act('cle_changer', { cle: id, attente: { retirer: [GP] }, armer: true });
-  m.horloge.t += 2 * JOUR;
+  // 4) Redonné : dans les 24 heures, la clé branchée, c'est appliqué.
+  await m.act('cle_changer', { cle: id, attente: { retirer: [GP] }, armer: true, retraits: [GP] });
+  m.horloge.t += 2 * HEURE;
   r = await auto();
   assert.equal(r.ok, true, r.text);
   await G.attendreTravail(id);
@@ -529,7 +535,7 @@ test('relecture C5 · application coupée après la copie : les changements se r
   const id = await connue(m, A);
   const dA = m.dossierDe(A.id);
   assert.equal((await m.act('cle_changer', { cle: id, attente: { ajouter: [{ iso: 'mint' }], retirer: [W] } })).ok, true);
-  await appliquer(m, id);
+  await appliquer(m, id, [W]);
   let v = (await cles(m)).find((x) => x.id === id)!;
   assert.equal(v.travail?.ok, false); assert.match(v.travail!.message, /restent en attente/);
   assert.ok(existsSync(join(dA, 'ISO', MINT)), 'Mint était déjà copié'); assert.ok(existsSync(join(dA, 'ISO', W)), 'Windows pas encore retiré');
@@ -538,7 +544,7 @@ test('relecture C5 · application coupée après la copie : les changements se r
   // Ranger encore, puis appliquer : rien n'est refusé.
   const ch = await m.act('cle_changer', { cle: id, attente: { ajouter: [{ iso: 'mint' }], retirer: [W], ordre: [MINT, U, GP] } });
   assert.equal(ch.ok, true, ch.text);
-  const r = await appliquer(m, id);
+  const r = await appliquer(m, id, [W]);
   assert.equal(r.ok, true, r.text);
   v = (await cles(m)).find((x) => x.id === id)!;
   assert.equal(v.travail?.ok, true, v.travail?.message);
@@ -566,7 +572,7 @@ test('relecture C5 · retirer un système ne retire pas une mémoire partagée a
   const id = ((await m.act('cle_reconnaitre', { cible: cibleDe(A) })).data as { id: string }).id;
   await cles(m);
   await m.act('cle_changer', { cle: id, attente: { retirer: [U] } });
-  assert.equal((await appliquer(m, id)).ok, true);
+  assert.equal((await appliquer(m, id, [U])).ok, true);
   assert.equal((await cles(m))[0].travail?.ok, true);
   assert.ok(!existsSync(join(dA, 'ISO', U)), 'Ubuntu retiré');
   assert.equal(readFileSync(join(dA, 'persistence/ubuntu-24.04-desktop-amd64.dat'), 'utf8'), 'MEMOIRE', 'la mémoire que GParted utilise encore est gardée');
@@ -629,4 +635,112 @@ test('relecture C5 · écriture « Déployer » (lot C4) : deux Linux de la mêm
     const empreintes = new Set(r.manifeste.filter((l) => l.dest === 'odin/user-data').map((l) => l.sha256));
     assert.equal(empreintes.size, 1, 'un seul contenu pour odin/user-data');
   }
+});
+
+// ================================================================================ décisions du propriétaire (26/11)
+test('décision du 26/11 · retirer un système d\'une clé demande l\'accord d\'Odin côté serveur aussi : un appel direct ne retire rien, l\'accord vaut pour CES retraits-là', async () => {
+  const A = cle('cle-a', 'AA11BB227F2A');
+  const m = monde({ disques: () => [A] });
+  const id = await connue(m, A);
+  const dA = m.dossierDe(A.id);
+  const grave = (action: string, i: Record<string, unknown>, ctx: ModCtx | undefined = m.ctx) => m.actions.find((a) => a.id === action)!.grave?.(i, ctx);
+  const vue = async () => (await cles(m)).find((x) => x.id === id)! as Vue & { attente: { arme: boolean; accordRetraits?: string[] } | null; armeValide: boolean };
+  // 1) Un appel direct (hors de la page : sans l'accord) : RIEN n'est retiré, les changements attendent toujours.
+  await m.act('cle_changer', { cle: id, attente: { retirer: [GP] } });
+  const avant = photo(dA);
+  let r = await appliquer(m, id);
+  assert.equal(r.ok, false, 'un retrait ne part pas sans accord'); assert.match(r.text, /demande ton accord pour ces retraits-là/); assert.match(r.text, /GParted 1\.6/); assert.match(r.text, /Rien n'a été écrit/);
+  assert.deepEqual(photo(dA), avant, 'la clé n\'a pas bougé');
+  assert.equal((await vue()).changements, 1, 'le retrait attend toujours');
+  // 2) La question d'Odin (le mécanisme des gestes graves) : elle nomme la clé et chaque système retiré.
+  const q = grave('cle_appliquer', { cle: id })!;
+  assert.match(q, /^retirer de la clé « [^»]+ » : GParted 1\.6 \(seuls leurs fichiers sont effacés/);
+  assert.ok(q.includes((await vue()).nom), 'la clé est nommée');
+  assert.equal(typeof grave('cle_appliquer', { cle: id }, undefined), 'string', 'sans contexte : toujours une question, jamais un passe-droit');
+  // 3) Un « oui » qui ne nomme pas CES retraits-là (général, ou donné pour un autre système) ne vaut pas.
+  for (const faux of [true, 'oui', [], [W], ['*'], { [GP]: true }]) {
+    r = await m.act('cle_appliquer', { cle: id, retraits: faux });
+    assert.equal(r.ok, false, JSON.stringify(faux)); assert.match(r.text, /demande ton accord/);
+  }
+  assert.deepEqual(photo(dA), avant);
+  // 4) Les changements bougent après l'accord (un deuxième retrait arrive) : l'accord donné pour GParted ne vaut plus.
+  await m.act('cle_changer', { cle: id, attente: { retirer: [GP, U] } });
+  assert.match(grave('cle_appliquer', { cle: id })!, /Ubuntu 24\.04 \(avec sa mémoire : ce qui y est enregistré est effacé aussi\)/, 'la mémoire qui part est dite');
+  r = await appliquer(m, id, [GP]);
+  assert.equal(r.ok, false); assert.match(r.text, /Ubuntu 24\.04/);
+  assert.deepEqual(photo(dA), avant, 'ni l\'un ni l\'autre');
+  // 5) Sans retrait : aucune question (ajouter, ranger, mettre par défaut ne demandent rien de plus).
+  await m.act('cle_changer', { cle: id, attente: { ajouter: [{ iso: 'mint' }] } });
+  assert.equal(grave('cle_appliquer', { cle: id }), undefined);
+  assert.equal((await appliquer(m, id)).ok, true);
+  assert.ok(existsSync(join(dA, 'ISO', MINT)));
+  // 6) Remplacer par une version plus récente efface l'ancienne : c'est un retrait, même accord.
+  await m.act('cle_changer', { cle: id, attente: { remplacer: [{ ancien: U, iso: 'ubuntu2' }] } });
+  assert.match(grave('cle_appliquer', { cle: id })!, /Ubuntu 24\.04/);
+  r = await appliquer(m, id);
+  assert.equal(r.ok, false); assert.ok(existsSync(join(dA, 'ISO', U)), 'l\'ancienne version reste');
+  // 7) Avec l'accord pour ces retraits-là : appliqué.
+  await m.act('cle_changer', { cle: id, attente: { retirer: [GP] } });
+  r = await appliquer(m, id, [GP]);
+  assert.equal(r.ok, true, r.text);
+  assert.ok(!existsSync(join(dA, 'ISO', GP)), 'GParted retiré, avec l\'accord');
+  assert.ok(existsSync(join(dA, 'ISO', U)) && existsSync(join(dA, 'ISO', W)), 'rien d\'autre');
+  assert.equal(m.appels.run, 0);
+});
+
+test('décision du 26/11 · au branchement, un retrait ne part JAMAIS sans l\'accord donné pour lui ; cet accord vaut 24 heures et tombe au moindre changement', async () => {
+  const A = cle('cle-a', 'AA11BB227F2A');
+  const m = monde({ disques: () => [A] });
+  const id = await connue(m, A);
+  const dA = m.dossierDe(A.id);
+  const grave = (i: Record<string, unknown>) => m.actions.find((a) => a.id === 'cle_changer')!.grave?.(i, m.ctx);
+  const vue = async () => (await cles(m)).find((x) => x.id === id)! as Vue & { attente: { arme: boolean; accordRetraits?: string[] } | null; armeValide: boolean };
+  const auto = async () => { const r = await m.act('cle_appliquer', { cle: id, auto: true }); if (r.ok) await G.attendreTravail(id); return r; };
+  const avant = photo(dA);
+  // 1) « Dès qu'elle est branchée » avec un retrait, sans l'accord pour lui : rien n'est gardé, rien ne partira.
+  let ch = await m.act('cle_changer', { cle: id, attente: { retirer: [GP] }, armer: true });
+  assert.equal(ch.ok, false); assert.match(ch.text, /demande ton accord pour ces retraits-là/); assert.match(ch.text, /Rien n'a été gardé/);
+  assert.equal((await vue()).attente, null);
+  assert.match(grave({ cle: id, attente: { retirer: [GP] }, armer: true })!, /^dès que la clé sera branchée, retirer de la clé « [^»]+ » : GParted 1\.6/);
+  assert.equal(grave({ cle: id, attente: { retirer: [GP] } }), undefined, 'ranger sans rien promettre : pas de question');
+  assert.equal(grave({ cle: id, attente: { ordre: [U, W, GP] }, armer: true }), undefined, 'aucun retrait : pas de question');
+  // 2) L'accord glissé dans les changements (page trafiquée) ou donné pour un autre système : refusé pareil.
+  for (const i of [{ attente: { retirer: [GP], arme: true, armeLe: Date.now(), accordRetraits: [GP] }, armer: true }, { attente: { retirer: [GP] }, armer: true, retraits: [W] }, { attente: { retirer: [GP, W] }, armer: true, retraits: [GP] }]) {
+    ch = await m.act('cle_changer', { cle: id, ...i });
+    assert.equal(ch.ok, false, JSON.stringify(i));
+  }
+  await m.act('cle_changer', { cle: id, attente: { retirer: [GP], arme: true, armeLe: Date.now(), accordRetraits: [GP] } });
+  assert.equal((await vue()).attente!.accordRetraits, undefined, 'jamais repris de la page');
+  let r = await auto();
+  assert.equal(r.ok, false); assert.match(r.text, /pas ton accord/);
+  // 3) Une attente armée d'AVANT cette règle (ou trafiquée) : armée, mais sans accord pour son retrait → jamais toute seule.
+  const now = Date.now();
+  assert.equal(G.armeValide({ ...sansAttente, retirer: [GP], arme: true, armeLe: now }, now), false, 'armée sans accord pour le retrait');
+  assert.equal(G.armeValide({ ...sansAttente, retirer: [GP], arme: true, armeLe: now, accordRetraits: [W] }, now), false, 'accord pour un autre');
+  assert.equal(G.armeValide({ ...sansAttente, retirer: [GP], remplacer: [{ ancien: U, iso: 'ubuntu2', fichier: 'x.iso', nom: 'x', taille: 0 }], arme: true, armeLe: now, accordRetraits: [GP] }, now), false, 'l\'ancienne version remplacée compte');
+  assert.equal(G.armeValide({ ...sansAttente, retirer: [GP], arme: true, armeLe: now, accordRetraits: [GP] }, now), true);
+  assert.equal(G.armeValide({ ...sansAttente, retirer: [GP], arme: true, armeLe: now, accordRetraits: [GP] }, now + G.VALIDITE_ARME + 1), false, 'passé 24 heures');
+  assert.equal(G.VALIDITE_ARME, 24 * 3600 * 1000);
+  // 4) L'accord donné pour CE retrait : noté par Odin ; un changement après lui le fait tomber, rien ne part.
+  ch = await m.act('cle_changer', { cle: id, attente: { retirer: [GP] }, armer: true, retraits: [GP] });
+  assert.equal(ch.ok, true, ch.text); assert.match(ch.text, /accord valable 24 heures/);
+  assert.deepEqual((await vue()).attente!.accordRetraits, [GP]); assert.equal((await vue()).armeValide, true);
+  await m.act('cle_changer', { cle: id, attente: { retirer: [GP, W] } });
+  assert.equal((await vue()).armeValide, false); assert.equal((await vue()).attente!.accordRetraits, undefined);
+  r = await auto();
+  assert.equal(r.ok, false);
+  assert.deepEqual(photo(dA), avant, 'rien n\'est parti');
+  // 5) Redonné pour les deux, 25 heures passent : plus tout seul. Redonné, 1 heure passe, la clé branchée : appliqué.
+  await m.act('cle_changer', { cle: id, attente: { retirer: [GP, W] }, armer: true, retraits: [W, GP] });
+  const t0 = Date.now();
+  m.horloge.t = t0 + 25 * HEURE;
+  r = await auto();
+  assert.equal(r.ok, false); assert.match(r.text, /plus de 24 heures/);
+  assert.deepEqual(photo(dA), avant);
+  await m.act('cle_changer', { cle: id, attente: { retirer: [GP, W] }, armer: true, retraits: [W, GP] });
+  m.horloge.t += HEURE;
+  r = await auto();
+  assert.equal(r.ok, true, r.text);
+  assert.ok(!existsSync(join(dA, 'ISO', GP)) && !existsSync(join(dA, 'ISO', W)), 'les deux retraits acceptés sont partis');
+  assert.ok(existsSync(join(dA, 'ISO', U)));
 });

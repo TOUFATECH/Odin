@@ -37,8 +37,9 @@
     logiciels: 'Logiciels sur la clé', aucunLogiciel: 'Aucun logiciel copié sur cette clé.',
     attente: '{n} changement(s) en attente · la clé n\'est pas effacée',
     attenteRetrait: '{n} changement(s) en attente · seuls les fichiers des systèmes retirés seront effacés',
-    arme: 'Ils seront appliqués dès que cette clé sera branchée, cette page ouverte, dans les 7 jours. Si tu changes quoi que ce soit, Odin te redemandera.',
-    armePerime: 'Tu avais demandé de les appliquer au branchement il y a plus de 7 jours : Odin ne le fait plus tout seul. Relis-les, puis redemande-le.',
+    arme: 'Ils seront appliqués dès que cette clé sera branchée, cette page ouverte, dans les 24 heures. Si tu changes quoi que ce soit, Odin te redemandera.',
+    armePerime: 'Tu avais demandé de les appliquer au branchement il y a plus de 24 heures, ou sans ton accord pour ces retraits : Odin ne le fait plus tout seul. Relis-les, puis redemande-le.',
+    aRelire: 'Les changements de cette clé ont bougé depuis ta réponse : relis-les, puis appuie de nouveau. Rien n\'a été écrit.',
     annuler: 'Annuler', appliquer: 'Appliquer à la clé', appliquerPlusTard: 'Appliquer dès qu\'elle est branchée',
     confirmeRetrait: 'Odin va retirer de la clé « {cle} » : {liste}. Seuls leurs fichiers sont effacés ; le reste de la clé ne change pas. Continuer ?',
     avecMemoire: '{nom} (avec sa mémoire : ce que tu y as enregistré est effacé aussi)',
@@ -166,12 +167,15 @@
   /** Les noms des systèmes qui seront retirés (pour la confirmation). Pur. */
   const avecMemoire = (e) => (e.choix === 'persistance' ? mot(MOTS.avecMemoire, { nom: e.nom }) : e.nom);
   const retraits = (cle) => lignes(cle).filter((e) => e.etat === 'retire').map(avecMemoire).concat(lignes(cle).filter((e) => e.etat === 'version').map((e) => avecMemoire(e.ancien)));
+  /** Les FICHIERS de ces mêmes systèmes : ce que la question a montré, et donc l'accord que la page passe à Odin (il refuse
+   *  de retirer un système qui n'y est pas). Pur. */
+  const fichiersRetires = (cle) => lignes(cle).filter((e) => e.etat === 'retire').map((e) => e.fichier).concat(lignes(cle).filter((e) => e.etat === 'version').map((e) => e.ancien.fichier));
   /** L'identifiant d'une carte de la liste (une clé connue : son identifiant ODIN ; sinon : son disque). Pur. */
   const cleDe = (c) => c.id || `disque:${c.disque}`;
   /** Une clé connue, branchée, aux changements armés (accord du propriétaire pour CES changements, encore valable d'après
    *  Odin), sans travail en cours : à appliquer maintenant. Pur. */
   const aAppliquer = (c) => Boolean(c.etat === 'connue' && c.branchee && !c.incomplete && c.attente && c.attente.arme && c.armeValide === true && c.changements > 0 && !(c.travail && !c.travail.fini));
-  const logique = { lignes, ordreFinal, deplacer, etoile, basculer, ajouter, remplacer, pourServeur, retraits, aAppliquer, ilYa };
+  const logique = { lignes, ordreFinal, deplacer, etoile, basculer, ajouter, remplacer, pourServeur, retraits, fichiersRetires, aAppliquer, ilYa };
 
   const CSS = `
 .cg{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start;min-width:0}
@@ -249,11 +253,14 @@
   }
 
   /** Envoie une nouvelle attente à Odin (il la vérifie et la garde) ; la page se redessine avec ce qu'il a gardé. */
-  async function changer(c, attente, focus, armer) {
+  async function changer(c, attente, focus, armer, accord) {
     if (!attente) return;
     // Tout changement retire l'accord « au branchement » : il ne vaut que pour ce que le propriétaire avait sous les yeux.
-    const r = await C.outils.post('cle_changer', { cle: c.id, attente: pourServeur(attente), armer: armer === true });
-    if (!r || r.ok === false) { S.msg = (r && r.text) || '?'; S.msgKo = true; dessiner(focus); return; }
+    // « accord » : les fichiers des retraits qu'il vient de confirmer dans la page (seulement avec « armer ») ; Odin les
+    // revérifie contre ce qu'il garde, et ne promet aucun retrait qui n'y est pas.
+    const oui = armer === true && Array.isArray(accord) && accord.length > 0;
+    const r = await C.outils.post('cle_changer', { cle: c.id, attente: pourServeur(attente), armer: armer === true, ...(oui ? { retraits: accord } : {}) }, oui);
+    if (!r || r.ok === false) { S.msg = (r && (r.text || (r.confirm && MOTS.aRelire))) || '?'; S.msgKo = true; if (r && r.confirm) await charger(); dessiner(focus); return; }
     c.attente = r.data && r.data.attente ? { ...attente, ...r.data.attente, ajouter: (r.data.attente.ajouter || []).map((x) => ({ ...(attente.ajouter.find((y) => y.iso === x.iso) || {}), ...x })) } : null;
     c.changements = (r.data && r.data.changements) || 0;
     c.armeValide = Boolean(c.attente && c.attente.arme);
@@ -438,11 +445,15 @@
     dessiner(`k-${cleDe(c)}`);
   }
   async function appliquer(c) {
-    const partis = retraits(c);
+    // Un retrait : UNE question, ici, qui nomme la clé et chaque système (et sa mémoire). La réponse part avec la demande :
+    // les fichiers montrés (« retraits ») et l'accord (3e argument). Odin refuse tout retrait qui n'est pas dans cette liste,
+    // et toute demande de retrait sans accord : une demande venue d'ailleurs que cette page ne retire donc rien.
+    const partis = retraits(c), accord = fichiersRetires(c);
     if (partis.length && !(await W.OdinDialog.confirm(mot(MOTS.confirmeRetrait, { cle: c.nom, liste: partis.join(', ') }), { danger: true }))) return;
-    if (!c.branchee) { await changer(c, copie(c.attente), 'annuler', true); return; }
-    const r = await C.outils.post('cle_appliquer', { cle: c.id });
-    S.msg = r && r.ok ? '' : (r && r.text) || '?'; S.msgKo = !(r && r.ok);
+    if (!c.branchee) { await changer(c, copie(c.attente), 'annuler', true, accord); return; }
+    const r = await C.outils.post('cle_appliquer', { cle: c.id, ...(accord.length ? { retraits: accord } : {}) }, accord.length > 0);
+    // Odin redemande (les changements ne sont plus ceux montrés) : rien n'est parti, la page se relit.
+    S.msg = r && r.ok ? '' : (r && (r.text || (r.confirm && MOTS.aRelire))) || '?'; S.msgKo = !(r && r.ok);
     await charger(); dessiner('annuler');
     accelerer();
   }

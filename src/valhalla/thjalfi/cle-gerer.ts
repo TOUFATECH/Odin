@@ -394,6 +394,9 @@ export interface Attente {
   /** quand le propriétaire a donné cet accord (posé par le SERVEUR, jamais repris de la page) : il vaut pour CES
    *  changements-là (le moindre changement le retire) et pendant VALIDITE_ARME seulement */
   armeLe?: number;
+  /** les retraits (fichiers) pour lesquels le propriétaire a donné l'accord d'Odin en même temps que « au prochain
+   *  branchement » (posé par le SERVEUR, jamais repris de la page) : un retrait qui n'y est pas ne part jamais tout seul */
+  accordRetraits?: string[];
   /** les images déjà copiées par Odin pour CETTE attente (fichier → empreinte), quand une application a été coupée :
    *  à la reprise, elles ne sont pas « déjà sur la clé », elles sont vérifiées et reprises */
   copies?: Record<string, string>;
@@ -408,11 +411,46 @@ export function sansReprises<T extends { systemes: Array<{ fichier: string }> }>
   const reprise = new Set([...(a?.ajouter ?? []), ...(a?.remplacer ?? [])].map((x) => x.fichier).filter((f) => Object.hasOwn(faites, f)));
   return reprise.size ? { ...c, systemes: c.systemes.filter((x) => !reprise.has(x.fichier)) } : c;
 }
-/** Combien de temps vaut « appliquer dès qu'elle est branchée » : passé ce délai, Odin redemande (rien ne part par surprise). */
-export const VALIDITE_ARME = 7 * 24 * 3600 * 1000;
-/** L'accord « au prochain branchement » vaut-il encore ? Pur. */
+/** Combien de temps vaut « appliquer dès qu'elle est branchée » (24 heures, décision du propriétaire) : passé ce délai, Odin
+ *  redemande (rien ne part par surprise). */
+export const VALIDITE_ARME = 24 * 3600 * 1000;
+/** Cette durée, dite en clair (« 24 heures »). */
+export const DUREE_ARME = `${Math.round(VALIDITE_ARME / 3_600_000)} heures`;
+/** Les fichiers des systèmes qui QUITTENT la clé avec ces changements : ceux retirés, et l'ancienne version de ceux
+ *  remplacés (son fichier est effacé aussi). Pur. */
+export const retraitsDe = (a: Pick<Attente, 'retirer' | 'remplacer'> | undefined): string[] =>
+  (a ? [...new Set([...a.retirer, ...a.remplacer.map((r) => r.ancien)])] : []);
+/** La liste de fichiers d'un accord (un tableau, ou son texte JSON depuis un formulaire) ; tout le reste : vide. Pur. */
+export function listeAccord(x: unknown): string[] {
+  let l: unknown = x;
+  if (typeof x === 'string' && x.trim().startsWith('[')) { try { l = JSON.parse(x); } catch { l = []; } }
+  return Array.isArray(l) ? [...new Set(l.filter((f): f is string => typeof f === 'string' && f.length > 0 && f.length <= 300))].slice(0, 200) : [];
+}
+/** L'accord donné (une liste de fichiers) couvre-t-il CHAQUE retrait de ces changements ? Sans retrait : oui. Pur. */
+export function retraitsCouverts(a: Pick<Attente, 'retirer' | 'remplacer'> | undefined, accord: unknown): boolean {
+  const l = listeAccord(accord);
+  return retraitsDe(a).every((f) => l.includes(f));
+}
+/** Les noms des systèmes qui partent, avec « et sa mémoire » quand elle part avec lui. Pur. */
+export function nomsRetraits(a: Pick<Attente, 'retirer' | 'remplacer'> | undefined, systemes: Array<Pick<EntreeCle, 'fichier' | 'nom' | 'choix'>> = []): string[] {
+  return retraitsDe(a).map((f) => {
+    const e = systemes.find((x) => x.fichier === f);
+    const nom = nomAffiche(e?.nom) || nomAffiche(f) || 'un système';
+    return e?.choix === 'persistance' ? `${nom} (avec sa mémoire : ce qui y est enregistré est effacé aussi)` : nom;
+  });
+}
+/**
+ * Ce qu'Odin demande de confirmer avant un retrait (l'accord habituel des gestes graves) : la clé, chaque système retiré,
+ * la mémoire qui part avec lui. Rien à retirer : rien à demander. Pur.
+ */
+export function phraseRetraits(nomCle: string, a: Pick<Attente, 'retirer' | 'remplacer'> | undefined, systemes: Array<Pick<EntreeCle, 'fichier' | 'nom' | 'choix'>> = [], auBranchement = false): string | undefined {
+  const noms = nomsRetraits(a, systemes);
+  if (!noms.length) return undefined;
+  return `${auBranchement ? 'dès que la clé sera branchée, ' : ''}retirer de la clé « ${nomAffiche(nomCle) || 'ODIN'} » : ${noms.join(', ')} (seuls leurs fichiers sont effacés, le reste de la clé ne change pas)`;
+}
+/** L'accord « au prochain branchement » vaut-il encore ? Il ne vaut jamais pour un retrait qui n'a pas eu son accord. Pur. */
 export const armeValide = (a: Attente | undefined, maintenant: number): boolean =>
-  Boolean(a && a.arme && typeof a.armeLe === 'number' && a.armeLe > 0 && maintenant >= a.armeLe - 60_000 && maintenant - a.armeLe <= VALIDITE_ARME);
+  Boolean(a && a.arme && typeof a.armeLe === 'number' && a.armeLe > 0 && maintenant >= a.armeLe - 60_000 && maintenant - a.armeLe <= VALIDITE_ARME && retraitsCouverts(a, a.accordRetraits));
 /** Le nombre de changements d'une attente (ce que montre le bandeau). Pur. */
 export function nbChangements(a: Attente | undefined, actuel?: Pick<ContenuCle, 'systemes' | 'defaut'>): number {
   if (!a) return 0;
@@ -481,7 +519,8 @@ export function attenteDe(brut: unknown, c: Pick<ContenuCle, 'systemes' | 'defau
   const copies: Record<string, string> = {};
   for (const x of [...ajouter, ...remplacer]) { const h = o(b.copies)[x.fichier]; if (Object.hasOwn(o(b.copies), x.fichier) && typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)) copies[x.fichier] = h; }
   const armeLe = Number(b.armeLe);
-  const attente: Attente = { retirer, ajouter, remplacer, ...(ordre ? { ordre } : {}), ...(defaut !== undefined ? { defaut } : {}), ...(b.menu === true ? { menu: true } : {}), arme: b.arme === true, ...(b.arme === true && armeLe > 0 ? { armeLe } : {}), ...(Object.keys(copies).length ? { copies } : {}), depuis: Number(b.depuis) > 0 ? Number(b.depuis) : maintenant };
+  const accordes = b.arme === true ? listeAccord(b.accordRetraits).filter((f) => retirer.includes(f) || remplacer.some((r) => r.ancien === f)) : [];
+  const attente: Attente = { retirer, ajouter, remplacer, ...(ordre ? { ordre } : {}), ...(defaut !== undefined ? { defaut } : {}), ...(b.menu === true ? { menu: true } : {}), arme: b.arme === true, ...(b.arme === true && armeLe > 0 ? { armeLe } : {}), ...(accordes.length ? { accordRetraits: accordes } : {}), ...(Object.keys(copies).length ? { copies } : {}), depuis: Number(b.depuis) > 0 ? Number(b.depuis) : maintenant };
   return { attente };
 }
 /** L'entrée de menu d'une image ajoutée : TOUJOURS « démarrer » (rien ne s'installe tout seul ; pour une installation
@@ -1019,8 +1058,19 @@ export function cleGerer(deps: DepsGerer = {}): { actions: Action[] } {
     },
     {
       id: 'cle_changer', label: 'Mes clés : préparer des changements', quick: false, proprietaireSeul: true, external: true,
-      what: 'Range les changements voulus pour une clé connue (ordre du menu, entrée par défaut, ajouter ou retirer un système, réécrire le menu) ; RIEN n\'est écrit sur la clé ; « arme » : les appliquer au prochain branchement de cette clé',
-      params: [{ key: 'cle', label: 'Identifiant ODIN de la clé', kind: 'text', required: true }, { key: 'attente', label: 'Changements', kind: 'textarea' }, { key: 'vider', label: 'Tout annuler', kind: 'boolean', default: false }, { key: 'armer', label: 'Appliquer ces changements-là dès que la clé est branchée', kind: 'boolean', default: false }],
+      what: 'Range les changements voulus pour une clé connue (ordre du menu, entrée par défaut, ajouter ou retirer un système, réécrire le menu) ; RIEN n\'est écrit sur la clé ; « arme » : les appliquer au prochain branchement de cette clé (un retrait demande alors ton accord, pour ces retraits-là)',
+      params: [{ key: 'cle', label: 'Identifiant ODIN de la clé', kind: 'text', required: true }, { key: 'attente', label: 'Changements', kind: 'textarea' }, { key: 'vider', label: 'Tout annuler', kind: 'boolean', default: false }, { key: 'armer', label: 'Appliquer ces changements-là dès que la clé est branchée', kind: 'boolean', default: false }, { key: 'retraits', label: 'Les fichiers des systèmes que tu acceptes de voir retirés', kind: 'textarea' }],
+      // Seulement « au prochain branchement » avec un retrait : c'est là que l'accord est donné (ranger sans armer n'écrit
+      // et ne promet rien). La phrase part de ce qui est DEMANDÉ (jamais moins que ce que le geste gardera).
+      grave: (i, ctx) => {
+        if (i.armer !== true || i.vider === true) return undefined;
+        const b = o(i.attente);
+        const voulu = { retirer: (Array.isArray(b.retirer) ? b.retirer : []).map(st).filter(Boolean), remplacer: (Array.isArray(b.remplacer) ? b.remplacer : []).map((x) => ({ ancien: st(o(x).ancien) })).filter((x) => x.ancien) as Attente['remplacer'] };
+        if (!retraitsDe(voulu).length) return undefined;
+        let f: FicheCle | undefined;
+        try { f = ctx ? registre(ctx).lire().cles[st(i.cle)] : undefined; } catch { f = undefined; }
+        return phraseRetraits(f?.nom ?? '', voulu, f?.contenu?.systemes ?? [], true);
+      },
       run: async (ctx, i) => {
         const id = st(i.cle);
         const reg = registre(ctx), f = reg.lire().cles[id];
@@ -1037,19 +1087,35 @@ export function cleGerer(deps: DepsGerer = {}): { actions: Action[] } {
         const r = attenteDe(brut, c, await biblioDe(ctx), undefined, now);
         if (r.refus || !r.attente) return { ok: false, text: `${r.refus ?? 'Changement refusé.'} Rien n'a été gardé.` };
         const n = nbChangements(r.attente, c);
+        // « Au prochain branchement » avec un retrait : l'accord doit nommer CES retraits-là (les fichiers), sinon rien n'est
+        // gardé. Il est noté par Odin avec l'attente : au branchement, un retrait qui n'y est pas ne part pas.
+        if (armer && retraitsDe(r.attente).length) {
+          if (!retraitsCouverts(r.attente, i.retraits)) return { ok: false, text: `Retirer ${nomsRetraits(r.attente, c.systemes).join(', ')} de « ${f.nom} » demande ton accord pour ces retraits-là : Odin ne les promet pas au prochain branchement sans lui. Rien n'a été gardé.`, data: { accord: true, retraits: retraitsDe(r.attente) } };
+          r.attente.accordRetraits = retraitsDe(r.attente);
+        } else delete r.attente.accordRetraits;
         const g: FicheCle = { ...f };
         if (n) g.attente = r.attente; else delete g.attente;
         reg.poser(g);
         // Place : un avertissement tout de suite (la vraie vérification est refaite juste avant d'écrire).
         const besoin = [...r.attente.ajouter, ...r.attente.remplacer].reduce((s, x) => s + x.taille, 0);
         const avert = f.contenu.libre !== undefined && besoin + MARGE > f.contenu.libre ? ` Attention : il faut ${go(besoin + MARGE)}, la clé n'a que ${go(f.contenu.libre)} de libre.` : '';
-        return { ok: true, text: `${n} changement${n > 1 ? 's' : ''} en attente${r.attente.arme && n ? ', appliqué' + (n > 1 ? 's' : '') + ' au prochain branchement de cette clé (accord valable ' + Math.round(VALIDITE_ARME / 86_400_000) + ' jours)' : ''} ; rien n'est écrit pour l'instant.${avert}`, data: { attente: n ? r.attente : null, changements: n } };
+        return { ok: true, text: `${n} changement${n > 1 ? 's' : ''} en attente${r.attente.arme && n ? ', appliqué' + (n > 1 ? 's' : '') + ' au prochain branchement de cette clé (accord valable ' + DUREE_ARME + ')' : ''} ; rien n'est écrit pour l'instant.${avert}`, data: { attente: n ? r.attente : null, changements: n } };
       },
     },
     {
       id: 'cle_appliquer', label: 'Mes clés : appliquer les changements', quick: false, proprietaireSeul: true, external: true,
-      what: 'Applique les changements en attente sur la clé connue BRANCHÉE (même numéro de série et même identifiant ODIN), sans l\'effacer : seulement ses fichiers ajoutés ou retirés et le réglage du menu',
-      params: [{ key: 'cle', label: 'Identifiant ODIN de la clé', kind: 'text', required: true }, { key: 'auto', label: 'Au branchement (seulement si tu l\'as demandé pour ces changements, il y a moins de 7 jours)', kind: 'boolean', default: false }],
+      what: 'Applique les changements en attente sur la clé connue BRANCHÉE (même numéro de série et même identifiant ODIN), sans l\'effacer : seulement ses fichiers ajoutés ou retirés et le réglage du menu ; retirer un système demande ton accord, pour ces retraits-là',
+      params: [{ key: 'cle', label: 'Identifiant ODIN de la clé', kind: 'text', required: true }, { key: 'auto', label: 'Au branchement (seulement si tu l\'as demandé pour ces changements, il y a moins de 24 heures)', kind: 'boolean', default: false }, { key: 'retraits', label: 'Les fichiers des systèmes que tu acceptes de voir retirés', kind: 'textarea' }],
+      // Un retrait dans les changements : l'accord habituel d'Odin, avec la clé et chaque système nommés. « Au branchement »
+      // (auto) ne pose pas de question : il n'applique un retrait que si cet accord a DÉJÀ été donné pour lui (voir run).
+      grave: (i, ctx) => {
+        if (i.auto === true) return undefined;
+        if (!ctx) return 'appliquer les changements d\'une clé ODIN (des systèmes peuvent en être retirés)';
+        try {
+          const f = registre(ctx).lire().cles[st(i.cle)];
+          return f ? phraseRetraits(f.nom, f.attente, f.contenu?.systemes ?? []) : undefined;
+        } catch { return 'appliquer les changements d\'une clé ODIN (des systèmes peuvent en être retirés)'; }
+      },
       run: async (ctx, i) => {
         const id = st(i.cle);
         const f0 = registre(ctx).lire().cles[id];
@@ -1057,7 +1123,12 @@ export function cleGerer(deps: DepsGerer = {}): { actions: Action[] } {
         if (!f0.attente || !nbChangements(f0.attente, f0.contenu ? sansReprises(f0.contenu, f0.attente) : undefined)) return { ok: false, text: 'Aucun changement en attente pour cette clé.' };
         // « Au branchement » (la page ouverte qui voit la clé arriver) : seulement avec l'accord du propriétaire pour CES
         // changements, et encore valable. Sinon rien ne part : il appuie lui-même sur « Appliquer ».
-        if (i.auto === true && !armeValide(f0.attente, ctx.now().getTime())) return { ok: false, text: f0.attente.arme ? `Ces changements attendent depuis plus de ${Math.round(VALIDITE_ARME / 86_400_000)} jours : Odin ne les applique plus tout seul. Relis-les, puis appuie sur « Appliquer ». Rien n'a été écrit.` : 'Ces changements n\'ont pas ton accord pour partir au branchement : appuie sur « Appliquer ». Rien n\'a été écrit.', data: { perime: Boolean(f0.attente.arme) } };
+        // Un retrait ne part JAMAIS tout seul sans l'accord donné pour lui (noté par Odin avec ces changements-là).
+        if (i.auto === true && !armeValide(f0.attente, ctx.now().getTime())) {
+          if (!f0.attente.arme) return { ok: false, text: 'Ces changements n\'ont pas ton accord pour partir au branchement : appuie sur « Appliquer ». Rien n\'a été écrit.', data: { perime: false } };
+          if (armeValide({ ...f0.attente, retirer: [], remplacer: [] }, ctx.now().getTime())) return { ok: false, text: `Ces changements retirent ${nomsRetraits(f0.attente, f0.contenu?.systemes ?? []).join(', ')} : Odin n'a pas ton accord pour ces retraits-là, il ne les fait pas tout seul. Relis-les, puis appuie sur « Appliquer ». Rien n'a été écrit.`, data: { perime: true, accord: true } };
+          return { ok: false, text: `Ces changements attendent depuis plus de ${DUREE_ARME} : Odin ne les applique plus tout seul. Relis-les, puis appuie sur « Appliquer ». Rien n'a été écrit.`, data: { perime: true } };
+        }
         const biblio = await biblioDe(ctx);
         const x = await retrouver(ctx, id, biblio);
         if ('refus' in x) {
@@ -1073,6 +1144,10 @@ export function cleGerer(deps: DepsGerer = {}): { actions: Action[] } {
         const r = attenteDe(f0.attente, x.c, biblio, undefined, f0.attente.depuis);
         if (r.refus || !r.attente) return { ok: false, text: `${r.refus ?? 'Changement refusé.'} Rien n'a été écrit ; les changements restent en attente.` };
         const a = r.attente;
+        // RETIRER un système : seulement avec l'accord donné pour CES retraits-là — celui qui accompagne cette demande (la
+        // liste des fichiers que le propriétaire a eue sous les yeux), ou, au branchement, celui noté avec l'attente. Une
+        // demande venue d'ailleurs que la page (sans cette liste) ne retire donc rien, même après un « oui » général.
+        if (!retraitsCouverts(a, i.auto === true ? f0.attente.accordRetraits : i.retraits)) return { ok: false, text: `Retirer ${nomsRetraits(a, x.c.systemes).join(', ')} de « ${x.f.nom} » demande ton accord pour ces retraits-là. Rien n'a été écrit ; les changements restent en attente.`, data: { accord: true, retraits: retraitsDe(a) } };
         const t: Travail = { cle: id, disque: x.d.id, sorte: 'appliquer', debut: Date.now(), fait: 0, total: 1, etape: 'revérification', fini: false };
         TRAVAUX.set(id, t); CLES_OCCUPEES.add(x.d.id);
         // La place : celle que dit la liste des disques pour la partition ODIN quand elle la connaît, sinon celle de l'IO.
