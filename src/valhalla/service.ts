@@ -143,7 +143,9 @@ export class Valhalla {
       ask: this.deps.ask,
       call: (m, a, input = {}, why, o) => !this.estActive(id) ? Promise.resolve({ ok: false, text: texteDesactivee(this.mods.get(id)?.name ?? id) }) : this.act(m, a, input, o?.interne ? { by: 'toi', de: id } : { by: 'réflexe', why: why ?? `réflexe de ${this.mods.get(id)?.name ?? id}`, de: id }),
       now: () => this.deps.now?.() ?? new Date(),
-      alerts: (o) => this.alerts(o),
+      // Un membre de la famille qui lit par une autre appli que Sphinx (Forseti, Chroniques, Hydre…) : les alertes de
+      // Sphinx des autres appareils n'y sont pas. Le propriétaire, ses automatisations et Odin lui-même : tout, comme avant.
+      alerts: (o) => (agissant() && id !== 'vidarr' ? this.alertesPourMembre(o) : this.alerts(o)),
       ack: (ids) => this.ack(ids),
       modules: () => this.modules(),
       order: (text) => this.order(text, `appli:${id}`),
@@ -417,6 +419,34 @@ export class Valhalla {
     if (o.level) all = all.filter((a) => RANK[a.level] >= RANK[o.level!]);
     if (o.q) { const q = norm(o.q); all = all.filter((a) => norm(`${a.title} ${a.detail ?? ''} ${a.module}`).includes(q)); }
     return all.slice(0, o.limit ?? 200);
+  }
+  /**
+   * Les adresses MAC de l'appareil que tient le membre qui agit en ce moment : c'est Sphinx qui le reconnaît, par
+   * l'origine de sa demande (la même lecture que sa page « Appareils », faite en son nom). Personne n'agit, pas le droit
+   * sur Sphinx, Sphinx désactivé, aucun appareil reconnu, ou une réponse qui n'est pas celle faite à un membre : aucune.
+   */
+  macsDeSonAppareil(): Set<string> {
+    const rien = new Set<string>();
+    try {
+      if (!agissant() || refusAppli('vidarr')) return rien;
+      const f = this.estActive('vidarr') ? this.action('vidarr', 'baux_vus') : undefined; if (!f || f.m.id !== 'vidarr') return rien;
+      const r = f.a.run(this.ctx('vidarr'), {});
+      if (r instanceof Promise) { r.catch(() => undefined); return rien; } // la lecture de Sphinx répond tout de suite ; sinon : aucune
+      const d = r.data as { proprietaire?: unknown; appareils?: Array<{ mac?: unknown }> } | undefined;
+      if (d?.proprietaire !== false || !Array.isArray(d.appareils)) return rien;
+      return new Set(d.appareils.map((x) => (typeof x?.mac === 'string' ? x.mac.trim().toLowerCase() : '')).filter(Boolean));
+    } catch { return rien; }
+  }
+  /**
+   * Les alertes pour un membre qui lit par une autre appli que Sphinx : celles de Sphinx (et celles que Forseti porte
+   * pour Sphinx désactivé) sont retirées, sauf celles de l'appareil qu'il tient — la règle de la garde (sso/garde.ts).
+   * Le tri se fait avant la limite : les alertes des autres ne prennent pas la place des siennes.
+   */
+  private alertesPourMembre(o: { module?: string; level?: Level; q?: string; limit?: number } = {}): Alert[] {
+    const macs = this.macsDeSonAppareil();
+    const deSphinx = (a: Alert) => a.module === 'vidarr' || (a.module === 'forseti' && (a.key ?? '').startsWith('forseti:vidarr:'));
+    const sienne = (a: Alert) => { const mac = a.data?.mac; return typeof mac === 'string' && macs.has(mac.trim().toLowerCase()); };
+    return this.alerts({ ...o, limit: Number.MAX_SAFE_INTEGER }).filter((a) => !deSphinx(a) || sienne(a)).slice(0, o.limit ?? 200);
   }
   private acked(): Set<string> { try { return new Set(JSON.parse(readFileSync(join(this.dir, 'alertes-vues.json'), 'utf8'))); } catch { return new Set(); } }
   ack(ids: string[]): void { const s = this.acked(); for (const i of ids) s.add(i); writeFileSync(join(this.dir, 'alertes-vues.json'), JSON.stringify([...s].slice(-5000))); }

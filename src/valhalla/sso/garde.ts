@@ -75,10 +75,8 @@ export function vider(x: unknown): unknown {
  */
 async function alertesDeSonAppareil(v: NonNullable<ReturnType<typeof valhallaOf>>, qui: Agissant): Promise<Alert[]> {
   try {
-    const f = v.estActive('vidarr') ? v.action('vidarr', 'baux_vus') : undefined; if (!f || f.m.id !== 'vidarr') return [];
-    const d = (await auNomDe(qui, () => f.a.run(v.ctx('vidarr'), {}))).data as { proprietaire?: unknown; appareils?: Array<{ mac?: unknown }> } | undefined;
-    if (d?.proprietaire !== false || !Array.isArray(d.appareils)) return [];
-    const macs = new Set(d.appareils.map((x) => s(x?.mac).toLowerCase()).filter(Boolean));
+    // La reconnaissance de son appareil est dans Valhalla (service.ts) : le contexte des autres applis suit la même règle.
+    const macs = auNomDe(qui, () => v.macsDeSonAppareil());
     return macs.size ? v.alerts({ module: 'vidarr', limit: 500 }).filter((a) => macs.has(s(a.data?.mac).toLowerCase())) : [];
   } catch { return []; }
 }
