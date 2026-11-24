@@ -43,7 +43,7 @@ function layoutOf(v: NonNullable<ReturnType<typeof valhallaOf>>): Layout {
 }
 /** Les pages « écran de la maison », avec ce qu'il faut pour les dessiner. */
 async function maisonPages(v: NonNullable<ReturnType<typeof valhallaOf>>, full: boolean) {
-  const pages = layoutOf(v).pages.filter((p) => p.maison), cache = new Map<string, Awaited<ReturnType<Module['view']>> | null>();
+  const pages = await (await import('./widgets-api.ts')).pagesMaisonPermises(v, layoutOf(v).pages.filter((p) => p.maison), full), cache = new Map<string, Awaited<ReturnType<Module['view']>> | null>();
   const view = async (id: string) => { if (!cache.has(id)) { const m = v.module(id); cache.set(id, m ? await Promise.resolve(m.view(v.ctx(id), new URLSearchParams())).catch(() => null) : null); } return cache.get(id) ?? null; };
   const out = [];
   for (const p of pages) {
@@ -155,7 +155,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
     case '/api/maison/appareil': json(res, 200, await run(who, 'midgard', 'commander', { appareil: s(b.appareil).slice(0, 200), valeur: s(b.valeur).slice(0, 40) }, confirm)); return true;
     case '/api/maison/scene': json(res, 200, await run(who, 'midgard', 'scene', { scene: s(b.scene).slice(0, 80) }, confirm)); return true;
     case '/api/maison/fenetre': {
-      const l = layoutOf(v), w = l.pages.filter((x) => x.maison).flatMap((x) => x.widgets).find((x) => x.id === s(b.id) && x.kind === 'bouton');
+      const w = await (await import('./widgets-api.ts')).boutonMaison(v, layoutOf(v).pages, s(b.id), who.rights === 'complet');
       if (!w?.module || !w.action) { json(res, 404, { ok: false, text: 'bouton introuvable' }); return true; }
       json(res, 200, await run(who, w.module, w.action, w.input ?? {}, confirm)); return true;
     }

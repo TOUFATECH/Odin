@@ -58,6 +58,8 @@ export const APPLIS_VIE_PRIVEE: readonly string[] = [
   'askr', 'svalinn', 'hermod', 'heidrun',
   'sol', 'snotra', 'skidbladnir', 'champollion', 'hel', 'urdr',
   'brisingamen', 'var', 'agora', 'hlin',
+  // Journaux des connexions et appareils du VPN : fermés aussi (choix du propriétaire, 25/11).
+  'forseti', 'argos', 'mimisbrunnr', 'gjoll',
 ];
 
 /**

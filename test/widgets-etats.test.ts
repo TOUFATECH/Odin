@@ -25,9 +25,9 @@ const membre = (droits: string[], ouverts: string[] = []): Lecteur => ({ qui: 'm
 /** Une source d'essai : des applis, leurs pages, leurs actions, la météo ; elle compte ce qui est lu. */
 function fausse(o: { meteo?: 'ok' | 'ancien' | 'rien'; lieu?: boolean; vues?: Record<string, View> } = {}) {
   const lus: string[] = [];
-  const applis: Record<string, { name: string; family: string }> = { midgard: { name: 'Midgard', family: 'Maison' }, himinbjorg: { name: 'Cyclope', family: 'Maison' }, vidarr: { name: 'Sphinx', family: 'Accès' }, ullr: { name: 'Asclépios', family: 'Sécurité' }, vordr: { name: 'Pulsar', family: 'Machines' }, gjoll: { name: 'Vortex', family: 'Accès' }, gladsheim: { name: 'Hestia', family: 'Maison' } };
+  const applis: Record<string, { name: string; family: string }> = { midgard: { name: 'Midgard', family: 'Maison' }, himinbjorg: { name: 'Cyclope', family: 'Maison' }, vidarr: { name: 'Sphinx', family: 'Accès' }, ullr: { name: 'Asclépios', family: 'Sécurité' }, vordr: { name: 'Pulsar', family: 'Machines' }, baldr: { name: 'Lumière', family: 'Accès' }, gladsheim: { name: 'Hestia', family: 'Maison' } };
   const vues: Record<string, View> = { midgard: { kpis: [{ label: 'Allumés', value: '3' }], sections: [] }, himinbjorg: { kpis: [{ label: 'Caméras', value: '2' }], sections: [] }, ullr: { kpis: [{ label: 'Incidents', value: '1' }], sections: [{ kind: 'table', title: 'Détections', columns: ['a'], rows: [{ cells: ['x'] }] } as never] }, vordr: { kpis: [], sections: [{ kind: 'table', title: 'Sondes', columns: [], rows: [{ cells: ['Mon site', '', 'https://exemple.test', 'en ligne', '100 %', '99 %', '120 ms'], tone: 'bon' }] } as never] }, ...o.vues };
-  const actions: Record<string, { label: string; grave: boolean; proprietaireSeul: boolean }> = { 'gjoll.allumer': { label: 'Allumer', grave: false, proprietaireSeul: false }, 'midgard.serrure': { label: 'Ouvrir', grave: true, proprietaireSeul: false }, 'gjoll.regler': { label: 'Régler', grave: false, proprietaireSeul: true } };
+  const actions: Record<string, { label: string; grave: boolean; proprietaireSeul: boolean }> = { 'baldr.allumer': { label: 'Allumer', grave: false, proprietaireSeul: false }, 'midgard.serrure': { label: 'Ouvrir', grave: true, proprietaireSeul: false }, 'baldr.regler': { label: 'Régler', grave: false, proprietaireSeul: true } };
   const src: SourceWidget = {
     appli: (id) => (applis[id] ? { id, ...applis[id] } : undefined),
     vue: async (id) => { lus.push(id); return vues[id] ?? null; },
@@ -72,13 +72,13 @@ test('une tablette « maison » : familles infos et maison seulement, sans actio
   assert.equal((await etat(W('heure'))).etat, 'ok');
   assert.equal((await etat(W('meteo'))).etat, 'ok');
   assert.equal((await etat(W('chiffres', { module: 'midgard' }))).etat, 'ok', 'les chiffres d\'une appli de la famille Maison');
-  assert.equal((await etat(W('bouton', { module: 'gjoll', action: 'allumer' }))).etat, 'ok', 'un bouton sans action grave');
+  assert.equal((await etat(W('bouton', { module: 'baldr', action: 'allumer' }))).etat, 'ok', 'un bouton sans action grave');
   lus.length = 0;
   assert.deepEqual(await etat(W('chiffres', { module: 'ullr' })), { etat: 'refuse', raison: 'pas_pour_une_tablette' }, 'une appli hors de la famille Maison');
   assert.deepEqual(await etat(W('section', { module: 'ullr', section: 'Détections' })), { etat: 'refuse', raison: 'pas_pour_une_tablette' });
   assert.deepEqual(lus, [], 'rien n\'est lu pour qui n\'a pas le droit');
   assert.deepEqual(await etat(W('bouton', { module: 'midgard', action: 'serrure' })), { etat: 'refuse', raison: 'action_grave', appli: 'midgard' });
-  assert.deepEqual(await etat(W('bouton', { module: 'gjoll', action: 'regler' })), { etat: 'refuse', raison: 'proprietaire_seul', appli: 'gjoll' });
+  assert.deepEqual(await etat(W('bouton', { module: 'baldr', action: 'regler' })), { etat: 'refuse', raison: 'proprietaire_seul', appli: 'baldr' });
   // Cyclope (les caméras) est de la famille Maison, mais de la vie privée : fermé tant qu'il ne l'a pas ouvert à cette tablette.
   const cam = W('chiffres', { module: 'himinbjorg' });
   assert.deepEqual(await etat(cam), { etat: 'refuse', raison: 'vie_privee', appli: 'himinbjorg' });
@@ -99,8 +99,8 @@ test('un membre : seulement les applis auxquelles il a droit ; la vie privée fe
   assert.notEqual((await donneeWidget(sp, membre(['vidarr'], [cleOuverture(sp, 'vidarr')]), src)).etat, 'refuse');
   // Une action grave ou « propriétaire seul » n'est jamais servie à un membre, même avec le droit sur l'appli.
   assert.deepEqual(await donneeWidget(W('bouton', { module: 'midgard', action: 'serrure' }), membre(['midgard']), src), { etat: 'refuse', raison: 'action_grave', appli: 'midgard' });
-  assert.deepEqual(await donneeWidget(W('bouton', { module: 'gjoll', action: 'regler' }), membre(['gjoll']), src), { etat: 'refuse', raison: 'proprietaire_seul', appli: 'gjoll' });
-  assert.equal((await donneeWidget(W('bouton', { module: 'gjoll', action: 'allumer' }), membre(['gjoll']), src)).etat, 'ok');
+  assert.deepEqual(await donneeWidget(W('bouton', { module: 'baldr', action: 'regler' }), membre(['baldr']), src), { etat: 'refuse', raison: 'proprietaire_seul', appli: 'baldr' });
+  assert.equal((await donneeWidget(W('bouton', { module: 'baldr', action: 'allumer' }), membre(['baldr']), src)).etat, 'ok');
 });
 
 test('les quatre sortes de l\'accueil : rendues à lui seul, sur l\'accueil seul (jamais à /maison, même pour lui)', async () => {
@@ -130,7 +130,7 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
     // Une de chaque sorte, réglée au plus simple.
     const une: Record<string, Widget> = {
       heure: W('heure'), meteo: W('meteo'), site: W('site', { module: 'vordr', label: 'Mon site' }), chiffres: W('chiffres', { module: 'midgard' }),
-      section: W('section', { module: 'vordr', section: 'Sondes' }), bouton: W('bouton', { module: 'gjoll' }),
+      section: W('section', { module: 'vordr', section: 'Sondes' }), bouton: W('bouton', { module: 'baldr' }),
       a_faire: W('a_faire'), odin_a_fait: W('odin_a_fait'), tu_veux: W('tu_veux'), comportement: W('comportement'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
@@ -187,7 +187,7 @@ test('relecture : la liste de la vie privée, comparée au vrai catalogue des ap
     for (const a of APPLIS_VIE_PRIVEE) assert.ok(ids.has(a), `${a} : une vraie appli d'Odin (pas une faute de frappe)`);
     // Santé et position, finances et secrets, messages et voix, caméras, documents et fichiers, personnes, agenda, ce
     // que l'on regarde, écoute, cherche ou visite : rien de cela n'est ouvert sans lui.
-    for (const a of ['gna', 'himinbjorg', 'frigg', 'brisingamen', 'var', 'agora', 'hlin', 'snotra', 'skidbladnir', 'champollion', 'sol', 'pegase', 'volva', 'vidarr', 'freyja', 'aegir', 'bragi', 'rodd', 'heidrun', 'svalinn', 'askr']) {
+    for (const a of ['gna', 'himinbjorg', 'frigg', 'brisingamen', 'var', 'agora', 'hlin', 'snotra', 'skidbladnir', 'champollion', 'sol', 'pegase', 'volva', 'vidarr', 'freyja', 'aegir', 'bragi', 'rodd', 'heidrun', 'svalinn', 'askr', 'forseti', 'argos', 'mimisbrunnr', 'gjoll']) {
       assert.ok(APPLIS_VIE_PRIVEE.includes(a), `${a} est dans la vie privée`);
     }
     const { src } = fausse();
