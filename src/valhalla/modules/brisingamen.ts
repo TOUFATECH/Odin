@@ -4,7 +4,7 @@
 // renvoyés dans une conversation : seulement copiés depuis l'interface, sur ta machine.
 
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomInt } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { vaultState } from '../../vault.ts';
 import type { ModCtx, Module } from '../types.ts';
@@ -49,7 +49,22 @@ export function load(ctx: ModCtx): Item[] {
   const b = readFileSync(file(ctx)), d = createDecipheriv('aes-256-gcm', key(), b.subarray(0, 12)); d.setAuthTag(b.subarray(12, 28));
   return JSON.parse(Buffer.concat([d.update(b.subarray(28)), d.final()]).toString('utf8'));
 }
-export function store(ctx: ModCtx, items: Item[]): void { const iv = randomBytes(12), c = createCipheriv('aes-256-gcm', key(), iv); const body = Buffer.concat([c.update(JSON.stringify(items)), c.final()]); writeFileSync(file(ctx), Buffer.concat([iv, c.getAuthTag(), body]), { mode: 0o600 }); }
+/**
+ * Écrit le coffre d'un coup : la nouvelle version est d'abord écrite à côté (déjà chiffrée, mêmes droits : rien n'est
+ * jamais en clair sur le disque), puis mise à la place de l'ancienne d'un seul geste. Une coupure pendant l'écriture
+ * laisse l'ancien coffre entier et lisible ; le fichier d'à côté est effacé si l'écriture échoue.
+ *
+ * RÈGLE pour tout ce qui écrit ici : relire le coffre (`load`) et l'écrire (`store`) dans le même geste, sans rien
+ * attendre entre les deux (ni réseau, ni disque en attente, ni `await`). Odin ne fait qu'une chose à la fois tant qu'il
+ * n'attend pas : deux écritures faites ainsi passent l'une après l'autre et aucune n'efface l'autre. Une action qui doit
+ * attendre (la vérification des fuites) relit le coffre APRÈS son attente et n'y reporte que son résultat.
+ */
+export function store(ctx: ModCtx, items: Item[]): void {
+  const iv = randomBytes(12), c = createCipheriv('aes-256-gcm', key(), iv); const body = Buffer.concat([c.update(JSON.stringify(items)), c.final()]);
+  const but = file(ctx), aCote = `${but}.tmp`;
+  try { writeFileSync(aCote, Buffer.concat([iv, c.getAuthTag(), body]), { mode: 0o600, flush: true }); renameSync(aCote, but); }
+  catch (e) { try { rmSync(aCote, { force: true }); } catch { /* un reste chiffré, remplacé à la prochaine écriture */ } throw e; }
+}
 /** Bilan de sécurité (sans jamais montrer de mot de passe). */
 export function audit(items: Item[]): { reused: Item[]; weak: Item[]; breached: Item[]; totp: number } {
   const byHash = new Map<string, Item[]>();
@@ -151,18 +166,39 @@ export const brisingamen: Module = {
     } },
     { id: 'bilan', label: 'Bilan de sécurité', what: 'Fuites, réutilisés, faibles', read: true, words: ['bilan', 'fuite', 'fuites', 'faibles', 'reutilises', 'réutilisés'], run: (ctx) => { const a = audit(load(ctx).filter(duProprietaire)); return { text: `Fuites connues : ${a.breached.length}\nRéutilisés : ${a.reused.length} (${[...new Set(a.reused.map((x) => x.name))].join(', ') || '—'})\nTrop faibles : ${a.weak.length} (${a.weak.map((x) => x.name).join(', ') || '—'})\nComptes avec 2FA : ${a.totp}` }; } },
     { id: 'fuites', label: 'Vérifier les fuites', what: 'Compare à la base publique des mots de passe volés (seuls 5 caractères d\'empreinte partent)', run: async (ctx) => {
-      const items = load(ctx); let n = 0, echec = false;
-      for (const it of items) {
-        if (!it.password || !duProprietaire(it)) continue;
-        const h = createHash('sha1').update(it.password).digest('hex').toUpperCase();
+      // Le coffre lu ici ne sert qu'à savoir quoi demander : il n'est JAMAIS réécrit (l'attente du réseau peut durer, et
+      // tout ce qui est rangé au coffre pendant ce temps doit y rester). On ne garde de chaque élément que son numéro et
+      // l'empreinte de son mot de passe.
+      const empreinte = (p: string) => createHash('sha1').update(p).digest('hex').toUpperCase();
+      const vus = load(ctx).filter((it) => it.password && duProprietaire(it)).map((it) => ({ id: it.id, h: empreinte(it.password!) }));
+      const resultats = new Map<string, { h: string; fuite: boolean }>(); let echec = false;
+      for (const { id, h } of vus) {
         let r: Awaited<ReturnType<typeof ctx.fetch>>;
         try { r = await ctx.fetch(`https://api.pwnedpasswords.com/range/${h.slice(0, 5)}`, { headers: { 'Add-Padding': 'true' }, signal: AbortSignal.timeout(15_000) }); }
         catch { echec = true; break; } // service injoignable (pas d'Internet ?) : on s'arrête proprement
         if (!r.ok) continue;
-        it.breached = (await r.text()).split('\n').some((l) => l.startsWith(h.slice(5)) && !l.endsWith(':0')); if (it.breached) n++;
+        let corps: string;
+        try { corps = await r.text(); } catch { echec = true; break; } // réponse coupée en route : pareil
+        resultats.set(id, { h, fuite: corps.split('\n').some((l) => l.startsWith(h.slice(5)) && !l.endsWith(':0')) });
       }
-      store(ctx, items); if (n) ctx.alert({ level: 'haute', title: `${n} mot(s) de passe trouvé(s) dans des fuites`, detail: 'Change-les depuis Thésauros.', key: `breach:${n}` });
+      // Fini d'attendre : le coffre est relu maintenant, et seul le résultat « fuite » y est reporté, sur les éléments
+      // encore là dont le mot de passe est toujours celui qui a été vérifié. Relire et écrire se font d'un même geste.
+      // Réseau en échec : rien n'est écrit (la prochaine vérification notera tout).
+      let n = 0;
+      if (echec) n = [...resultats.values()].filter((x) => x.fuite).length;
+      else if (resultats.size) {
+        const items = load(ctx); let change = false;
+        for (const it of items) {
+          const x = resultats.get(it.id);
+          if (!x || !it.password || !duProprietaire(it) || empreinte(it.password) !== x.h) continue;
+          if (x.fuite) n++;
+          if (Boolean(it.breached) !== x.fuite) { it.breached = x.fuite; change = true; }
+        }
+        if (change) store(ctx, items);
+      }
+      if (n) ctx.alert({ level: 'haute', title: `${n} mot(s) de passe trouvé(s) dans des fuites`, detail: 'Change-les depuis Thésauros.', key: `breach:${n}` });
       if (echec && n === 0) return { text: '🌐 Impossible de vérifier les fuites pour l\'instant : le service (pwnedpasswords) est injoignable. Réessaie quand Internet sera revenu.' };
+      if (echec) return { text: `⚠ ${n} mot(s) de passe trouvé(s) dans des fuites publiques. La vérification a été interrompue (le service ne répond plus) : rien n'est encore noté dans le coffre. Relance-la quand Internet sera revenu.` };
       return { text: n ? `⚠ ${n} mot(s) de passe trouvé(s) dans des fuites publiques.` : '✓ Aucun de tes mots de passe n\'est dans les fuites connues.' };
     } },
   ],
