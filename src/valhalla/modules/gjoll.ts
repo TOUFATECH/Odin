@@ -13,7 +13,9 @@ import { svg } from '../qr.ts';
 import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module } from '../types.ts';
 import { nameForIp, recentDomains } from './vidarr.ts';
 import { localDay } from '../vidarr/history.ts';
-import { closePorts, discover, listMappings, openPorts } from '../upnp.ts';
+import { closePorts, discover, externalIp, hoteDeBox, listMappings, openPorts, type Gateway } from '../upnp.ts';
+import { depuisAdresse, texteSur } from '../vidarr/appareils.ts';
+import { adresseBoxSure, adressePublique, avisOrigine, estLaBox, gardeVpn, hoteDe, nomVpn, trouverPair, vueVpn, type AppareilVpn, type Dernier, type EnDirect, type TunnelVpn, type VueVpn } from '../gjoll/vue.ts';
 import { agissant } from '../sso/acces.ts';
 import { actionJournal, auProprietaireSeul, avecJournal } from '../vidarr/qui-a-fait.ts';
 
@@ -99,7 +101,7 @@ export async function setup(ctx: ModCtx): Promise<Array<{ title: string; detail?
   const known = !/^\[/.test(sv.endpoint), upnp = ctx.settings.upnp as { cgnat?: boolean } | undefined, opened = ctx.settings.portOpened === true || Boolean(upnp && !upnp.cgnat), ps = peers(ctx);
   return [
     { title: 'Moteur VPN d\'Odin', detail: why ? `Pas prêt : ${why}.` : 'Le moteur VPN de Vortex est intégré à Odin : rien à installer.', done: !why },
-    { title: 'Adresse de la maison sur Internet', detail: known ? `${sv.endpoint}` : 'Odin trouve ton adresse publique. Si elle change souvent, mets plutôt un nom de domaine (formulaire « Adresse de la maison »).', done: known, action: 'detecter', button: 'Trouver mon adresse' },
+    { title: 'Adresse de la maison sur Internet', detail: known ? `${sv.endpoint}` : 'Odin lit ton adresse publique sur la box (aucun site extérieur). Si la box ne répond pas, ou si l\'adresse change souvent, écris-la ou mets un nom de domaine (formulaire « Adresse de la maison »).', done: known, action: 'detecter', button: 'Lire l\'adresse sur la box' },
     { title: `Ouvrir le port ${sv.port} (UDP) sur ta box`, detail: upnp?.cgnat ? 'Ouvert par Odin, mais ta box n\'a pas d\'adresse Internet à elle (Starlink, 4G, double box) : demande une adresse publique à l\'opérateur ou mets la box en mode « bridge ».' : `Odin l'ouvre lui-même si la box accepte l'UPnP (bouton). Sinon, dans l'interface de ta box (souvent http://192.168.1.1) : « Redirection de ports » ou « NAT/PAT », UDP ${sv.port} vers cette machine, puis « C'est fait » dans le formulaire.`, done: opened, ...(ctx.settings.upnpFailed === true ? { action: 'port', input: { ouvert: true }, button: 'C\'est fait' } : { action: 'ouvrir_port', button: 'Ouvrir le port' }) },
     { title: 'Allumer le tunnel', detail: 'Le VPN démarre, et redémarre tout seul avec Odin.', done: up, action: 'allumer', button: 'Allumer' },
     { title: 'Ajouter ton premier appareil', detail: 'Formulaire « Ajouter un appareil » à droite, puis scanne le QR code avec l\'appli WireGuard (iPhone, Android, Windows, Mac).', done: ps.length > 0 },
@@ -157,7 +159,7 @@ async function bringDown(ctx: ModCtx): Promise<void> {
 }
 /** Après un changement : le tunnel allumé se met à jour ; éteint, la configuration est simplement gardée. */
 async function apply(ctx: ModCtx): Promise<string> {
-  if (ctx.settings.on !== true) return 'Configuration enregistrée (le tunnel est éteint : « Allumer le tunnel »).';
+  if (ctx.settings.on !== true && !dev) return 'Configuration enregistrée (le tunnel est éteint : « Allumer le tunnel »).';
   try { return await bringUp(ctx); } catch (e) { return `⚠ Le tunnel n'a pas pu se mettre à jour : ${(e as Error).message}`; }
 }
 /** Débit de chaque appareil : la différence de trafic entre deux regards (octets par seconde). */
@@ -236,7 +238,7 @@ export function whereTo(ip: string, sv: Pick<Server, 'net'>): 'Odin' | 'VPN' | '
   if (ip.startsWith(`${sv.net}.`)) return 'VPN';
   return isPrivateV4(ip) || /^(fd|fe80)/i.test(ip) ? 'maison' : 'Internet';
 }
-const flows = (): Flow[] => dev?.flows() ?? [];
+const flows = (): Flow[] => VU.flux();
 type DayFlow = { device: string; proto: string; remote: string; name?: string; port: number; up: number; down: number; pk: number; first: number; last: number };
 const dayFile = (ctx: ModCtx, day: string) => join(ctx.dir, 'trafic', `${day}.json`);
 export function readTraffic(ctx: ModCtx, day: string): DayFlow[] { try { return JSON.parse(readFileSync(dayFile(ctx, day), 'utf8')) as DayFlow[]; } catch { return []; } }
@@ -260,17 +262,113 @@ export function saveTraffic(ctx: ModCtx, now: number, fl: Flow[] = flows()): num
   return added;
 }
 
+/**
+ * Ce que le moteur du tunnel dit en ce moment (remplaçable pour les essais : le moteur ne tourne que sous Linux) :
+ * allumé ou non, et pour chaque appareil la dernière poignée de main, le trafic, l'adresse d'où il vient.
+ */
+export const VU = {
+  allume: (): boolean => Boolean(dev),
+  direct: (): Map<string, EnDirect> => new Map((dev?.stats() ?? []).map((x) => [x.publicKey, { handshake: x.lastHandshake ?? 0, rx: x.rx, tx: x.tx, endpoint: x.endpoint ?? '' }])),
+  flux: (): Flow[] => dev?.flows() ?? [],
+};
 /** État des appareils vu par le moteur : dernière poignée de main, trafic, adresse d'où ils viennent. */
-function live(): Map<string, { handshake: number; rx: number; tx: number; endpoint: string }> {
-  return new Map((dev?.stats() ?? []).map((x) => [x.publicKey, { handshake: x.lastHandshake ?? 0, rx: x.rx, tx: x.tx, endpoint: x.endpoint ?? '' }]));
+function live(): Map<string, EnDirect> { return VU.direct(); }
+
+// ---------------- La box (UPnP) : l'adresse de la maison, le port ----------------
+/**
+ * Ce que Vortex demande à la box (remplaçable pour les essais : aucun vrai paquet). L'adresse de la maison sur Internet
+ * est LUE SUR LA BOX (lot R7) : plus aucun site extérieur n'est interrogé pour la connaître.
+ */
+export const BOX = {
+  /** La passerelle de la machine (par où elle sort sur Internet) : c'est elle, la box. Vide : Odin ne la connaît pas. */
+  passerelle: async (ctx: ModCtx): Promise<string> => {
+    try { const gw = /default via (\d+\.\d+\.\d+\.\d+)/.exec((await ctx.run('ip', ['route', 'show', 'default'])).out)?.[1] ?? ''; return hoteDeBox(gw) ? gw : ''; } catch { return ''; }
+  },
+  /** L'adresse de la maison, et QUI l'a donnée (`hote`) : sur un réseau, n'importe quel appareil peut répondre à la place de la box. */
+  adresse: async (f?: typeof fetch, passerelle = ''): Promise<{ ip: string; nom: string; hote?: string }> => {
+    let gw: Gateway;
+    // La passerelle connue d'abord : un autre appareil qui répond plus vite ne prend pas sa place.
+    try { gw = await discover({ fetch: f, ...(passerelle ? { hote: passerelle } : {}) }); } catch (e) { if (!passerelle) throw e; gw = await discover({ fetch: f }); }
+    // Une box est sur le réseau de la maison : la réponse de quelqu'un d'autre n'est pas crue.
+    if (!hoteDeBox(gw.host, true)) throw new Error('ce qui a répondu n\'est pas sur le réseau de la maison');
+    return { ip: await externalIp(gw, f), nom: gw.name ?? '', hote: gw.host };
+  },
+  ouvrir: openPorts, fermer: closePorts,
+};
+/** Le port du VPN ouvert par Odin sur la box suit le port du tunnel : l'ancien est refermé (rien ne reste ouvert pour rien). */
+async function refermerAncienPort(ctx: ModCtx, ancien: number): Promise<string> {
+  const up = ctx.settings.upnp as { port?: number } | undefined; if (!up) return '';
+  const port = Number(up.port) || ancien; ctx.saveSettings({ upnp: undefined });
+  try { await BOX.fermer([{ port, proto: 'UDP' }], ctx.fetch); return ` L'ancien port ${port} est refermé sur la box.`; }
+  catch (e) { return ` \u26a0 L'ancien port ${port} est peut-être resté ouvert sur la box (${texteSur((e as Error).message, 120) || 'elle ne répond pas'}) : referme-le dans l'interface de la box.`; }
 }
+
+// ---------------- Ce que la page montre (lot R7) : appareils et tunnel, jamais une clé ----------------
+const derniers = (ctx: ModCtx): Record<string, Dernier> => ({ ...((ctx.settings.derniers as Record<string, Dernier> | undefined) ?? {}) });
+/** Garde la dernière connexion de chaque appareil (quand, depuis quelle adresse) : la carte le dit encore, tunnel éteint. */
+function noterDerniers(ctx: ModCtx): void {
+  const d = live(), avant = derniers(ctx), apres: Record<string, Dernier> = {}; let change = false;
+  for (const p of peers(ctx)) {
+    const x = d.get(p.pub), o = avant[p.pub], n = x?.handshake && x.handshake > (o?.t ?? 0) ? { t: x.handshake, de: hoteDe(x.endpoint) } : o;
+    if (n) apres[p.pub] = n;
+    if (n !== o) change = true;
+  }
+  if (change || Object.keys(avant).length !== Object.keys(apres).length) ctx.saveSettings({ derniers: apres });
+}
+/** Le trafic du jour par appareil : ce qui est déjà rangé dans la journée, plus ce qui est passé depuis. Rien n'est écrit. */
+function traficDuJour(ctx: ModCtx, now: number): Map<string, { up: number; down: number }> {
+  const out = new Map<string, { up: number; down: number }>(), plus = (k: string, up: number, down: number) => { const o = out.get(k) ?? { up: 0, down: 0 }; o.up += up; o.down += down; out.set(k, o); };
+  for (const x of readTraffic(ctx, localDay(now))) plus(x.device, x.up, x.down);
+  for (const fl of VU.flux()) { const o = seenTotals.get(`${fl.device}|${fl.proto}|${fl.remote}|${fl.port}`) ?? { up: 0, down: 0, pk: 0 }, reset = fl.up < o.up || fl.down < o.down; plus(fl.device, reset ? fl.up : fl.up - o.up, reset ? fl.down : fl.down - o.down); }
+  return out;
+}
+/** L'état du tunnel, lu sans rien créer ni rien lancer. */
+function tunnelVu(ctx: ModCtx, moteur = ''): TunnelVpn {
+  const sv = ctx.settings.server as Server | undefined, up = ctx.settings.upnp as { cgnat?: boolean } | undefined, b = ctx.settings.box as { quand?: number; ok?: boolean; texte?: string; ip?: string } | undefined;
+  const adresse = sv?.endpoint && !/^\[/.test(sv.endpoint) ? texteSur(sv.endpoint, 200) : '', src = ctx.settings.adresseSource;
+  return {
+    allume: VU.allume(), moteur, port: portVpn(ctx), adresse, trouvee: adresse && (src === 'box' || src === 'main') ? src : '',
+    box: b ? { quand: Number(b.quand) || 0, ok: b.ok === true, texte: texteSur(b.texte, 400), ip: adresseBoxSure(b.ip) } : null,
+    portBox: up?.cgnat ? 'partage' : up ? 'odin' : ctx.settings.portOpened === true ? 'main' : 'non',
+    reseau: `${texteSur(sv?.net ?? '10.8.0', 11)}.0/24`, maison: (sv?.lan ?? []).map((x) => texteSur(x, 43)).filter(Boolean), dns: texteSur(sv?.dns ?? '', 100),
+  };
+}
+/** Tout ce que la page montre, avec les droits de celui qui demande (un membre : ses appareils seulement, sans le tunnel). */
+function vpnVu(ctx: ModCtx, moteur = ''): VueVpn {
+  const now = ctx.now().getTime();
+  return vueVpn({ pairs: peers(ctx), direct: live(), derniers: derniers(ctx), trafic: traficDuJour(ctx, now), now, origine: depuisAdresse(), membre: agissant()?.login, tunnel: tunnelVu(ctx, moteur) });
+}
+/** Ce que le garde-fou sait d'un appareil : est-ce celui que tu tiens ? Odin sait-il d'où tu agis ? */
+function gardeDe(ctx: ModCtx, p: Peer | undefined): { d?: AppareilVpn; origineConnue: boolean } {
+  const v = vueVpn({ pairs: p ? [p] : [], direct: live(), derniers: derniers(ctx), trafic: new Map(), now: ctx.now().getTime(), origine: depuisAdresse(), tunnel: tunnelVu(ctx) });
+  return { d: v.appareils[0], origineConnue: v.origineConnue };
+}
+/** Avant d'éteindre le tunnel : passes-tu par le VPN en ce moment ? */
+function avisTunnel(ctx: ModCtx): string {
+  const o = depuisAdresse(), net = String((ctx.settings.server as Server | undefined)?.net ?? '10.8.0');
+  if (!o) return ' \u26a0 Odin ne sait pas depuis quel appareil tu agis : si tu passes par le VPN, tu perds Odin avec lui.';
+  const parVpn = o.startsWith(`${net}.`) || peers(ctx).some((p) => gardeDe(ctx, p).d?.ici);
+  return parVpn ? ' \u26a0 ATTENTION : tu passes par le VPN en ce moment, tu vas te couper d\'Odin et tu ne pourras pas le rallumer de dehors.' : '';
+}
+/** Changer le port du tunnel coupe tout le monde d'un coup (toi compris, si tu passes par le VPN) : la confirmation le dit. */
+const avisPort = (ctx: ModCtx | undefined): string => { let moi = ''; try { if (ctx) moi = avisTunnel(ctx).replace(' \u26a0', ''); } catch { /* sans avis */ } return ` \u26a0 Tous les appareils connectés sont coupés d'un coup : chacun doit reprendre son QR code ou son fichier.${moi}`; };
+/** Un numéro de port bien écrit (entier, de 1 à 65535). */
+const portValide = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= 65535;
+/** Le moteur peut-il tourner ici ? Demandé au plus une fois par minute (la page relit toutes les 5 secondes). */
+let moteurVu = { t: 0, why: '' };
+async function moteurPret(ctx: ModCtx): Promise<string> {
+  if (VU.allume()) return '';
+  const t = Date.now(); if (t - moteurVu.t > 60_000) moteurVu = { t, why: (await engineReady(ctx)) ?? '' };
+  return moteurVu.why;
+}
+const ETATS_VPN: Record<AppareilVpn['etat'], string> = { connecte: 'connecté', absent: 'pas connecté', jamais: 'jamais connecté', coupe: 'accès coupé', fini: 'accès terminé' };
 
 /**
  * Lot R1 (maquette Réseau validée) : tout ce qui change le VPN, et le QR code ou le fichier d'un appareil (sa clé privée),
  * est au propriétaire seul, par tous les chemins ; chaque changement est noté « qui a fait quoi ». Les autres lectures
  * restent ouvertes selon les droits d'aujourd'hui.
  */
-const reseauProprio = (l: Module['actions']): Module['actions'] => [...avecJournal('gjoll_actes', auProprietaireSeul(l, ['qr', 'telecharger'])), actionJournal('gjoll_actes', 'Vortex')];
+const reseauProprio = (l: Module['actions'], lectures: Module['actions'] = []): Module['actions'] => [...avecJournal('gjoll_actes', auProprietaireSeul(l, ['qr', 'telecharger'])), ...lectures, actionJournal('gjoll_actes', 'Vortex')];
 
 export const gjoll: Module = {
   id: 'gjoll', name: 'Vortex', family: 'Accès',
@@ -295,35 +393,63 @@ export const gjoll: Module = {
       run: async (ctx) => {
       const sv = server(ctx);
       // La box refuse ou n'a pas l'UPnP : l'étape repasse au réglage à la main (« C'est fait »).
-      const r = await openPorts([{ port: sv.port, proto: 'UDP' }], 'Odin · VPN Vortex', ctx.fetch).catch((e) => { ctx.saveSettings({ upnpFailed: true }); throw new Error(`${(e as Error).message}. Ouvre-le à la main : UDP ${sv.port} vers cette machine dans « Redirection de ports » de la box, puis « C'est fait ».`); });
+      const r = await BOX.ouvrir([{ port: sv.port, proto: 'UDP' }], 'Odin · VPN Vortex', ctx.fetch).catch((e) => { ctx.saveSettings({ upnpFailed: true }); throw new Error(`${(e as Error).message}. Ouvre-le à la main : UDP ${sv.port} vers cette machine dans « Redirection de ports » de la box, puis « C'est fait ».`); });
       ctx.saveSettings({ upnpFailed: false });
-      ctx.saveSettings({ upnp: { port: sv.port, lease: r.lease, at: Date.now(), ip: r.ip, cgnat: r.cgnat } });
-      if (r.ip && !r.cgnat && (!sv.endpoint || sv.endpoint.startsWith('['))) ctx.saveSettings({ server: { ...sv, endpoint: r.ip } });
-      return { text: `${r.text}\nUn seul port suffit : une fois connecté au VPN, ton téléphone joint l'interface d'Odin, le DNS d'Odin (pubs et sites dangereux bloqués), les appareils de la maison et, en « tout le trafic », Internet par la maison. Le DHCP, lui, ne sert que sur place (il donne les adresses du réseau local) : le VPN donne ses propres adresses.` };
+      ctx.saveSettings({ upnp: { port: sv.port, lease: r.lease, at: Date.now(), ip: adresseBoxSure(r.ip), cgnat: r.cgnat } });
+      // L'adresse que la box donne au passage n'est gardée que si c'est bien la box qui a répondu (la passerelle connue) :
+      // sinon un appareil de la maison ferait pointer les appareils du VPN vers l'adresse de son choix.
+      if (adressePublique(r.ip) && estLaBox(r.gw?.host, await BOX.passerelle(ctx)) && (!sv.endpoint || sv.endpoint.startsWith('['))) ctx.saveSettings({ server: { ...sv, endpoint: adresseBoxSure(r.ip) }, adresseSource: 'box' });
+      // Le nom que la box se donne est un texte venu du réseau : nettoyé.
+      return { text: `${texteSur(r.text, 900)}\nUn seul port suffit : une fois connecté au VPN, ton téléphone joint l'interface d'Odin, le DNS d'Odin (pubs et sites dangereux bloqués), les appareils de la maison et, en « tout le trafic », Internet par la maison. Le DHCP, lui, ne sert que sur place (il donne les adresses du réseau local) : le VPN donne ses propres adresses.` };
     } },
-    { id: 'fermer_port', label: 'Fermer le port du VPN sur la box', what: 'Le VPN ne sera plus joignable depuis Internet', quick: false, grave: () => 'refermer le port du VPN : plus d\'accès à la maison depuis l\'extérieur', run: async (ctx) => {
-      const sv = server(ctx), t = await closePorts([{ port: sv.port, proto: 'UDP' }], ctx.fetch); ctx.saveSettings({ upnp: undefined }); return { text: t };
+    { id: 'fermer_port', label: 'Fermer le port du VPN sur la box', what: 'Le VPN ne sera plus joignable depuis Internet', quick: false, grave: (_i, ctx) => { let avis = ''; try { if (ctx) avis = avisTunnel(ctx); } catch { /* sans avis */ } return `refermer le port du VPN : plus d'accès à la maison depuis l'extérieur${avis}`; }, run: async (ctx) => {
+      // Le port qu'Odin a ouvert (il peut dater d'avant un changement de port) et celui du tunnel d'aujourd'hui.
+      const sv = server(ctx), ouvert = Number((ctx.settings.upnp as { port?: number } | undefined)?.port) || sv.port;
+      const t = await BOX.fermer([...new Set([ouvert, sv.port])].map((port) => ({ port, proto: 'UDP' as const })), ctx.fetch); ctx.saveSettings({ upnp: undefined }); return { text: texteSur(t, 400) };
     } },
     { id: 'ports_box', label: 'Ports ouverts sur la box', what: 'La liste des ports ouverts sur la box (par Odin ou d\'autres appareils)', read: true, run: async (ctx) => {
       const gw = await discover({ fetch: ctx.fetch }), l = await listMappings(gw, ctx.fetch);
-      return { text: l.length ? [`Box${gw.name ? ` « ${gw.name} »` : ''} : ${l.length} port(s) ouvert(s).`, ...l.map((m) => `- ${m.external}/${m.proto} → ${m.client}:${m.internal} · ${m.desc || 'sans nom'}${m.client === gw.localIp ? ' (Odin)' : ''}${m.enabled ? '' : ' (désactivé)'}`)].join('\n') : 'Aucun port ouvert sur la box.', data: { mappings: l } };
+      // Le nom de la box, et le nom de chaque ouverture (n'importe quel appareil de la maison peut en écrire un) : des textes venus du réseau, nettoyés.
+      const nom = texteSur(gw.name, 40), sur = l.map((m) => ({ ...m, external: Number(m.external) || 0, internal: Number(m.internal) || 0, client: texteSur(m.client, 45), desc: texteSur(m.desc, 60) }));
+      return { text: sur.length ? [`Box${nom ? ` « ${nom} »` : ''} : ${sur.length} port(s) ouvert(s).`, ...sur.map((m) => `- ${m.external}/${m.proto} → ${m.client}:${m.internal} · ${m.desc || 'sans nom'}${m.client === gw.localIp ? ' (Odin)' : ''}${m.enabled ? '' : ' (désactivé)'}`)].join('\n') : 'Aucun port ouvert sur la box.', data: { mappings: sur } };
     } },
-    { id: 'detecter', label: 'Trouver mon adresse publique', what: 'Demande ton adresse Internet (service ipify) et la garde comme adresse de la maison', quick: false, run: async (ctx) => {
-      let ip = '';
-      try { const r = await ctx.fetch('https://api.ipify.org', { signal: AbortSignal.timeout(8000) }); ip = (await r.text()).trim(); }
-      catch { throw new Error('je n\'ai pas pu joindre le service d\'adresse publique (pas de connexion Internet ?) : réessaie plus tard'); }
-      if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) throw new Error('adresse publique introuvable');
-      const sv = await ready(ctx); ctx.saveSettings({ server: { ...sv, endpoint: ip } });
-      return { text: `🌍 Ton adresse publique : ${ip}. Les appareils joindront ${ip}:${sv.port}. Si ta box change d'adresse (redémarrage), mets plutôt un nom de domaine.` };
+    // Lot R7 : l'adresse de la maison est LUE SUR LA BOX (UPnP). Plus aucun site extérieur n'est interrogé. Si la box ne répond
+    // pas, c'est dit, et l'adresse reste à écrire à la main (« Adresse de la maison »). Un nom de domaine mis à la main est gardé.
+    { id: 'detecter', label: 'Lire mon adresse publique sur la box', what: 'Demande à la box (UPnP) l\'adresse de la maison sur Internet et la garde ; aucun site extérieur n\'est interrogé', quick: false, run: async (ctx) => {
+      const quand = ctx.now().getTime();
+      const rate = (texte: string, ip = ''): Error => { ctx.saveSettings({ box: { quand, ok: false, texte, ip } }); return new Error(`${texte} Odin ne demande cette adresse à aucun site extérieur : écris-la à la main (« Adresse de la maison » : l'adresse, ou un nom de domaine). Rien n'est changé.`); };
+      let b: { ip: string; nom: string; hote?: string };
+      const passerelle = await BOX.passerelle(ctx);
+      try { b = await BOX.adresse(ctx.fetch, passerelle); } catch (e) { throw rate(`La box ne répond pas (${texteSur((e as Error).message, 160) || 'aucune réponse'}).`); }
+      const ip = adresseBoxSure(b.ip), nom = texteSur(b.nom, 40), box = `la box${nom ? ` « ${nom} »` : ''}`;
+      if (!ip) throw rate('La box a répondu, mais sans adresse lisible.');
+      if (!adressePublique(ip)) throw rate(`La box dit ${ip} : ce n'est pas une adresse Internet à elle (adresse partagée par l'opérateur, adresse réservée, ou une autre box devant elle). De dehors, on ne joint pas la maison par cette adresse.`, ip);
+      const sv = await ready(ctx), avant = /^\[/.test(sv.endpoint) ? '' : sv.endpoint;
+      // Sur le réseau de la maison, n'importe quel appareil peut répondre à la place de la box et donner l'adresse de son
+      // choix (les appareils du VPN iraient frapper chez un autre). Odin ne garde tout seul que la réponse de la passerelle
+      // connue de la machine ; sinon rien n'est changé, et c'est au propriétaire de l'écrire (« Adresse de la maison » : il
+      // voit l'adresse d'avant et celle d'après, et il valide).
+      if (!estLaBox(b.hote, passerelle) && avant !== ip) {
+        const qui = adresseBoxSure(b.hote), texte = `${qui ? `L'appareil ${qui} du réseau` : 'Un appareil du réseau'}${nom ? ` (« ${nom} »)` : ''} dit que l'adresse de la maison est ${ip}, mais Odin ne peut pas vérifier que c'est bien ta box${passerelle ? ` (ta box est à ${passerelle})` : ''}.`;
+        ctx.saveSettings({ box: { quand, ok: false, texte, ip } });
+        return { ok: false, text: `${texte} Rien n'est changé. Si c'est la bonne adresse, écris-la toi-même (« Adresse de la maison ») : Odin te montrera ce qui change avant de l'enregistrer.`, data: { code: 'a_confirmer', ip } };
+      }
+      if (avant && !adresseBoxSure(avant)) {
+        ctx.saveSettings({ box: { quand, ok: true, texte: `Lue sur ${box} : ${ip}. Ton nom de domaine est gardé.`, ip } });
+        return { text: `🌍 Adresse de la maison lue sur ${box} : ${ip}. Tu as mis un nom de domaine (${texteSur(avant, 200)}) : il est gardé, rien n'est changé. Vérifie qu'il mène bien à ${ip}.`, data: { ip, change: false, garde: true } };
+      }
+      const change = Boolean(avant) && avant !== ip;
+      ctx.saveSettings({ server: { ...sv, endpoint: ip }, ...(estLaBox(b.hote, passerelle) ? { adresseSource: 'box' } : {}), box: { quand, ok: true, texte: `Lue sur ${box} : ${ip}.`, ip } });
+      return { text: `🌍 Adresse de la maison lue sur ${box} : ${ip} (aucun site extérieur interrogé). Les appareils joindront ${ip}:${sv.port}.${change ? ` Elle a changé (avant : ${avant}) : les appareils déjà ajoutés ne joignent plus la maison tant qu'ils n'ont pas repris leur QR code ou leur fichier.` : ''} Si ta box change d'adresse (redémarrage), mets plutôt un nom de domaine.`, data: { ip, change } };
     } },
     { id: 'port', label: 'Port ouvert sur la box', what: 'Note que la redirection du port est faite sur la box', quick: false, params: [{ key: 'ouvert', label: 'Port ouvert', kind: 'boolean', default: true }], run: (ctx, i) => { ctx.saveSettings({ portOpened: i.ouvert !== false }); return { text: i.ouvert !== false ? '👍 Noté. Prochaine étape : allumer le tunnel.' : 'Noté : port pas encore ouvert.' }; } },
     { id: 'allumer', label: 'Allumer le tunnel', what: 'Démarre le VPN (et au démarrage de la machine)', grave: (_i, ctx) => `allumer le VPN de la maison : le port ${portVpn(ctx)}/udp s'ouvre dans le pare-feu de la machine (Cerbère)`, run: async (ctx) => {
       const msg = await bringUp(ctx); ctx.saveSettings({ on: true });
       return { text: `${msg}${await openOnHost(ctx, [[server(ctx).port, 'udp', 'VPN Vortex']])}` };
     } },
-    { id: 'eteindre', label: 'Éteindre le tunnel', what: 'Coupe le VPN pour tous les appareils', quick: false, grave: () => 'couper le VPN pour tous les appareils', undo: () => ({ action: 'allumer', input: {}, label: 'Rallumer le tunnel' }), run: async (ctx) => {
-      await bringDown(ctx); ctx.saveSettings({ on: false });
-      return { text: '⏹ Tunnel coupé.' };
+    { id: 'eteindre', label: 'Éteindre le tunnel', what: 'Coupe le VPN pour tous les appareils', quick: false, grave: (_i, ctx) => { let avis = ''; try { if (ctx) avis = avisTunnel(ctx); } catch { /* sans avis */ } return `couper le VPN pour tous les appareils${avis}`; }, undo: () => ({ action: 'allumer', input: {}, label: 'Rallumer le tunnel' }), run: async (ctx) => {
+      noterDerniers(ctx); await bringDown(ctx); ctx.saveSettings({ on: false });
+      return { text: `⏹ Tunnel coupé.${ctx.settings.upnp ? ' Le port du VPN reste ouvert sur la box (plus rien n\'y répond) : « Fermer le port sur la box » le referme.' : ''}` };
     } },
     { id: 'appareils', label: 'Appareils VPN', what: 'Liste et état', read: true, words: ['appareils', 'qui est connecte', 'connectés'], run: async (ctx) => {
       // « Avec mes droits » : un membre de la famille ne voit que les appareils de son compte ; le propriétaire voit tout.
@@ -350,6 +476,8 @@ export const gjoll: Module = {
     { id: 'modifier', label: 'Modifier un appareil', what: 'Nom, tout le trafic ou maison seulement, maillage, date de fin d\'accès', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }, { key: 'nouveau_nom', label: 'Nouveau nom (vide = inchangé)', kind: 'text', default: '' }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }, { key: 'maillage', label: 'Réseau maillé', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, « aucune » pour retirer)', kind: 'text', default: '' }, { key: 'dns_odin', label: 'DNS d\'Odin (Sphinx)', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }], run: async (ctx, i) => {
       const ps = peers(ctx), p = ps.find((x) => x.name === s(i.nom)); if (!p) throw new Error('appareil introuvable');
       const nn = s(i.nouveau_nom).trim(), fin = s(i.fin).trim();
+      // Une date de fin déjà passée coupe l'appareil à la prochaine veille : jamais celui que tu tiens sans que tu le dises.
+      if (p.enabled && /^\d{4}-\d{2}-\d{2}$/.test(fin) && fin < ctx.now().toISOString().slice(0, 10)) { const g = gardeVpn(gardeDe(ctx, p).d, 'couper', { leMien: i.le_mien === true }); if (g.refus) return { ok: false, text: g.refus, data: { code: g.code } }; }
       if (nn && ps.some((x) => x.name === nn && x !== p)) throw new Error('un appareil porte déjà ce nom');
       if (nn && !/^[\p{L}\p{N} _.'-]{1,40}$/u.test(nn)) throw new Error('nom : lettres, chiffres, espaces, 40 au plus');
       if (fin && fin !== 'aucune' && !/^\d{4}-\d{2}-\d{2}$/.test(fin)) throw new Error('date attendue sous la forme 2026-12-31');
@@ -362,28 +490,62 @@ export const gjoll: Module = {
       const dnsNote = q.odinDns !== p.odinDns || q.name !== p.name ? await linkDns(ctx, q, p.name) : '';
       return { text: `✏️ « ${q.name} » modifié${q.expires ? ` · accès jusqu'au ${q.expires}` : ''}.${dnsNote}${routing ? ' Rescanne son QR code pour que le changement s\'applique sur l\'appareil.' : ''}\n${await apply(ctx)}` };
     } },
-    { id: 'serveur', label: 'Réglages du tunnel', what: 'Port, taille des paquets (MTU), maintien de la connexion', quick: false, params: [{ key: 'port', label: 'Port UDP', kind: 'number', default: 51820 }, { key: 'mtu', label: 'MTU (vide = automatique, 1280 si ça coupe en 4G)', kind: 'text', default: '' }, { key: 'keepalive', label: 'Maintien de la connexion (secondes)', kind: 'number', default: 25 }], grave: () => 'changer les réglages du tunnel VPN', run: async (ctx, i) => {
+    { id: 'serveur', label: 'Réglages du tunnel', what: 'Port, taille des paquets (MTU), maintien de la connexion', quick: false, params: [{ key: 'port', label: 'Port UDP', kind: 'number', default: 51820 }, { key: 'mtu', label: 'MTU (vide = automatique, 1280 si ça coupe en 4G)', kind: 'text', default: '' }, { key: 'keepalive', label: 'Maintien de la connexion (secondes)', kind: 'number', default: 25 }], grave: (i, ctx) => `changer les réglages du tunnel VPN${ctx && (Number(i.port) || portVpn(ctx)) !== portVpn(ctx) ? ` : il écoutera sur le port ${texteSur(i.port, 8)}/udp au lieu de ${portVpn(ctx)}/udp${avisPort(ctx)}` : ''}`, run: async (ctx, i) => {
       const sv = await ready(ctx), port = Number(i.port) || sv.port, mtu = s(i.mtu).trim() ? Number(i.mtu) : undefined, ka = Number(i.keepalive) || 25;
-      if (port < 1 || port > 65535) throw new Error('port entre 1 et 65535');
+      if (!portValide(port)) throw new Error('port entre 1 et 65535');
       if (mtu !== undefined && (!Number.isInteger(mtu) || mtu < 1280 || mtu > 1500)) throw new Error('MTU entre 1280 et 1500');
       if (ka < 0 || ka > 600) throw new Error('maintien entre 0 et 600 secondes');
       const nsv: Server = { ...sv, port, keepalive: ka }; if (mtu) nsv.mtu = mtu; else delete nsv.mtu;
       ctx.saveSettings({ server: nsv, ...(port !== sv.port ? { portOpened: false } : {}) });
-      return { text: `⚙️ Port ${port}${mtu ? ` · MTU ${mtu}` : ''} · maintien ${ka} s.${port !== sv.port ? ` Ouvre le port ${port} (UDP) sur la box, et rescanne les QR codes.` : ' Rescanne les QR codes pour appliquer sur les appareils.'}\n${await apply(ctx)}` };
+      const ancien = port !== sv.port ? await refermerAncienPort(ctx, sv.port) : '';
+      return { text: `⚙️ Port ${port}${mtu ? ` · MTU ${mtu}` : ''} · maintien ${ka} s.${port !== sv.port ? ` Ouvre le port ${port} (UDP) sur la box, et rescanne les QR codes.${ancien}` : ' Rescanne les QR codes pour appliquer sur les appareils.'}\n${await apply(ctx)}` };
     } },
+    // Lot R7 : jamais couper ni retirer l'appareil que tu tiens sans que tu l'aies dit en clair (« le_mien »), et un
+    // avertissement dans la confirmation quand Odin ne sait pas depuis quel appareil tu agis.
     { id: 'activer', label: 'Activer / désactiver', what: 'Coupe ou rouvre l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: false }],
-      grave: (i) => (i.actif === true ? `rouvrir l'accès au VPN de la maison pour l'appareil « ${s(i.nom)} »` : undefined), // couper reste libre
-      run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).map((p) => (p.name === s(i.nom) ? { ...p, enabled: i.actif === true } : p)) }); return { text: `${i.actif === true ? '✅ Réactivé' : '⏸ Désactivé'} : ${s(i.nom)}\n${await apply(ctx)}` }; } },
-    { id: 'revoquer', label: 'Révoquer', what: 'Supprime définitivement l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], grave: (i) => `révoquer l'accès VPN de « ${s(i.nom)} »`, run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).filter((p) => p.name !== s(i.nom)) }); await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${s(i.nom)}` }, 'accès VPN révoqué', { interne: true }).catch(() => undefined); return { text: `🗝 Accès de ${s(i.nom)} révoqué.\n${await apply(ctx)}` }; } },
+      grave: (i, ctx) => {
+        if (i.actif === true) return `rouvrir l'accès au VPN de la maison pour l'appareil « ${nomVpn(i.nom)} »`;
+        // Couper reste libre, sauf quand c'est l'appareil que tu tiens ou qu'Odin ne sait pas d'où tu agis.
+        let avis = ''; try { const p = ctx ? trouverPair(peers(ctx), i.nom) : undefined; if (ctx && p?.enabled) { const g = gardeDe(ctx, p); avis = avisOrigine(g.d, g.origineConnue); } } catch { /* sans avis */ }
+        return avis ? `couper l'accès au VPN de « ${nomVpn(i.nom)} » (tu pourras le rouvrir)${avis}` : undefined;
+      },
+      run: async (ctx, i) => {
+        const ps = peers(ctx), p = trouverPair(ps, i.nom), actif = i.actif === true; if (!p) throw new Error('appareil introuvable');
+        if (!actif && p.enabled) { const g = gardeVpn(gardeDe(ctx, p).d, 'couper', { leMien: i.le_mien === true }); if (g.refus) return { ok: false, text: g.refus, data: { code: g.code } }; }
+        if (actif && p.expires && p.expires < ctx.now().toISOString().slice(0, 10)) throw new Error(`l'accès de « ${nomVpn(p.name)} » est terminé depuis le ${p.expires} : donne-lui d'abord une nouvelle date de fin (« Modifier un appareil »). Rien n'est changé.`);
+        ctx.saveSettings({ peers: ps.map((x) => (x === p ? { ...x, enabled: actif } : x)) });
+        return { text: `${actif ? '✅ Réactivé' : '⏸ Désactivé'} : ${p.name}\n${await apply(ctx)}` };
+      } },
+    { id: 'revoquer', label: 'Révoquer', what: 'Supprime définitivement l\'accès d\'un appareil : sa clé ne vaut plus rien', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }],
+      grave: (i, ctx) => {
+        let avis = ''; try { const p = ctx ? trouverPair(peers(ctx), i.nom) : undefined; if (ctx && p) { const g = gardeDe(ctx, p); avis = avisOrigine(g.d, g.origineConnue); } } catch { /* sans avis */ }
+        return `révoquer l'accès VPN de « ${nomVpn(i.nom)} » : sa clé ne vaudra plus rien, il faudra l'ajouter de nouveau${avis}`;
+      },
+      run: async (ctx, i) => {
+        const ps = peers(ctx), p = trouverPair(ps, i.nom); if (!p) throw new Error('appareil introuvable');
+        const g = gardeVpn(gardeDe(ctx, p).d, 'retirer', { leMien: i.le_mien === true }); if (g.refus) return { ok: false, text: g.refus, data: { code: g.code } };
+        const d = derniers(ctx); delete d[p.pub];
+        ctx.saveSettings({ peers: ps.filter((x) => x !== p), derniers: d });
+        await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${p.name}` }, 'accès VPN révoqué', { interne: true }).catch(() => undefined);
+        return { text: `🗝 Accès de ${p.name} révoqué : sa clé ne vaut plus rien.\n${await apply(ctx)}` };
+      } },
     { id: 'adresse', label: 'Adresse publique', what: 'Adresse ou domaine par lequel on joint la maison', params: [{ key: 'adresse', label: 'Adresse ou domaine', kind: 'text', required: true }, { key: 'port', label: 'Port', kind: 'number', default: 51820 }],
       // Changer l'adresse publique du VPN (ou son port) : validation, avant → après. La même : rien à valider.
       grave: (i, ctx) => {
         const sv = ctx?.settings.server as Server | undefined, adr = s(i.adresse).trim(), port = Number(i.port) || 51820, p0 = portVpn(ctx);
         const avant = sv?.endpoint && !/^\[/.test(sv.endpoint) ? `${sv.endpoint}:${p0}` : 'pas encore connue', apres = `${adr}:${port}`;
         if (!/^[\w.-]{1,200}$/.test(adr) || avant === apres) return undefined;
-        return `changer l'adresse publique du VPN de la maison : ${avant} → ${apres} (les appareils joindront la maison par ${apres})${port !== p0 ? ` ; le VPN écoutera sur le port ${port}/udp au lieu de ${p0}/udp (le pare-feu de la machine n'est pas changé)` : ''}`;
+        return `changer l'adresse publique du VPN de la maison : ${avant} → ${apres} (les appareils joindront la maison par ${apres})${port !== p0 ? ` ; le VPN écoutera sur le port ${port}/udp au lieu de ${p0}/udp (le pare-feu de la machine n'est pas changé)${avisPort(ctx)}` : ''}`;
       },
-      run: async (ctx, i) => { const sv = await ready(ctx), adr = s(i.adresse).trim(); if (!/^[\w.-]{1,200}$/.test(adr)) throw new Error('adresse ou domaine invalide'); ctx.saveSettings({ server: { ...sv, endpoint: adr, port: Number(i.port) || 51820 } }); return { text: `🌍 Les appareils joindront ${adr}:${Number(i.port) || 51820}. Pense à ouvrir ce port (UDP) sur ta box vers cette machine.\n${await apply(ctx)}` }; } },
+      run: async (ctx, i) => {
+        const sv = await ready(ctx), adr = s(i.adresse).trim(), port = Number(i.port) || 51820;
+        if (!/^[\w.-]{1,200}$/.test(adr) || !/[A-Za-z0-9]/.test(adr)) throw new Error('adresse ou domaine invalide');
+        // Un port mal écrit éteindrait le tunnel pour tout le monde (il ne pourrait plus écouter) : refusé avant d'y toucher.
+        if (!portValide(port)) throw new Error('port entre 1 et 65535. Rien n\'est changé.');
+        ctx.saveSettings({ server: { ...sv, endpoint: adr, port }, adresseSource: 'main', ...(port !== sv.port ? { portOpened: false } : {}) });
+        const ancien = port !== sv.port ? await refermerAncienPort(ctx, sv.port) : '';
+        return { text: `🌍 Les appareils joindront ${adr}:${port}. Pense à ouvrir ce port (UDP) sur ta box vers cette machine.${ancien}\n${await apply(ctx)}` };
+      } },
     { id: 'reseaux', label: 'Réseaux de la maison', what: 'Réseaux ouverts aux appareils du VPN, et DNS donné aux appareils', params: [{ key: 'reseaux', label: 'Réseaux (ex. 192.168.1.0/24, séparés par des virgules)', kind: 'text', default: '' }, { key: 'dns', label: 'DNS (vide = celui de la box)', kind: 'text', default: '' }],
       // Ouvrir un réseau de plus aux appareils du VPN : validation, avant → après. Retirer un réseau : libre.
       // Un DNS hors de la maison (ni une adresse de la maison, ni Odin) : validation ; celui de la maison ou d'Odin : libre.
@@ -402,6 +564,18 @@ export const gjoll: Module = {
       if (dns && !/^\d{1,3}(\.\d{1,3}){3}(,\s*\d{1,3}(\.\d{1,3}){3})*$/.test(dns)) throw new Error('DNS : une ou plusieurs adresses IP');
       ctx.saveSettings({ server: { ...sv, ...(s(i.reseaux).trim() ? { lan } : {}), ...(dns ? { dns } : {}) } });
       return { text: `🏠 Réseaux ouverts au VPN : ${(lan.length ? lan : sv.lan ?? []).join(', ') || 'aucun'} · DNS : ${dns || sv.dns || 'aucun donné (chaque appareil garde le sien)'}. Les appareils déjà ajoutés doivent rescanner leur QR code.` };
+    } },
+  ], [
+    // Lot R7 : ce que la page de Vortex montre. Une lecture : aucune clé dedans (ni celle d'un appareil, ni celle d'Odin).
+    // Un membre de la famille n'y voit que les appareils rattachés à son compte, et rien du tunnel (ni l'adresse de la maison).
+    // Réservée au propriétaire en personne (ou à un membre, avec sa vue réduite) : ni une automatisation, ni un assistant ne
+    // lit d'où se connectent les appareils ni l'adresse de la maison. Hors du journal « qui a fait quoi » : la page la relit
+    // toutes les 5 secondes.
+    { id: 'appareils_vus', label: 'Appareils du VPN et tunnel (la page)', what: 'Chaque appareil du VPN : connecté ou non, dernière connexion, depuis quelle adresse, trafic du jour ; et l\'état du tunnel. Aucune clé n\'est donnée', read: true, external: true, quick: false, proprietaireSeul: () => !agissant(), run: async (ctx) => {
+      const v = vpnVu(ctx, agissant() ? '' : await moteurPret(ctx)), tn = v.tunnel;
+      const quand = (x: number) => new Date(x).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+      const tete = v.limite || `Tunnel ${v.allume ? 'allumé' : 'éteint'}${tn?.adresse ? ` · maison : ${tn.adresse}, port ${tn.port} (UDP)` : tn ? ' · adresse de la maison pas encore connue' : ''}.`;
+      return { text: [tete, ...v.appareils.map((d) => `- ${d.nom} (${d.ip}) · ${ETATS_VPN[d.etat]}${d.vu ? ` · dernière connexion ${quand(d.vu)}${d.depuis ? ` depuis ${d.depuis}` : ''}` : ''} · reçu ${human(d.recu)} · envoyé ${human(d.envoye)}`), ...(v.appareils.length || v.limite ? [] : ['Aucun appareil.'])].join('\n'), data: v };
     } },
   ]),
   async view(ctx) {
@@ -424,7 +598,7 @@ export const gjoll: Module = {
     if (dev) saveTraffic(ctx, Date.now());
     // Ouverture de la box d'une journée : renouvelée deux fois par jour.
     const up = ctx.settings.upnp as { port: number; lease: number; at: number } | undefined;
-    if (up?.lease && Date.now() - up.at > 12 * 3600_000) { try { const r = await openPorts([{ port: up.port, proto: 'UDP' }], 'Odin · VPN Vortex', ctx.fetch); ctx.saveSettings({ upnp: { ...up, lease: r.lease, at: Date.now() } }); } catch (e) { ctx.alert({ level: 'haute', title: 'Le port du VPN n\'a pas pu être rouvert sur la box', detail: (e as Error).message, key: 'vpn-upnp' }); } }
+    if (up?.lease && Date.now() - up.at > 12 * 3600_000) { try { const r = await BOX.ouvrir([{ port: up.port, proto: 'UDP' }], 'Odin · VPN Vortex', ctx.fetch); ctx.saveSettings({ upnp: { ...up, lease: r.lease, at: Date.now() } }); } catch (e) { ctx.alert({ level: 'haute', title: 'Le port du VPN n\'a pas pu être rouvert sur la box', detail: (e as Error).message, key: 'vpn-upnp' }); } }
     // Accès arrivés à leur fin : coupés tout seuls (et dit).
     const late = expired(peers(ctx), ctx.now());
     if (late.length) {
@@ -433,6 +607,7 @@ export const gjoll: Module = {
       for (const p of late) ctx.alert({ level: 'info', title: `Accès VPN de « ${p.name} » terminé`, detail: `Fin prévue le ${p.expires}. Pour le rouvrir : Modifier → nouvelle date de fin.`, key: `vpn-fin-${p.name}`, lien: 'gjoll-alerte-fin-acces' });
     }
     if (!dev) return;
+    noterDerniers(ctx);
     const d = live(), was = (ctx.settings.online as string[] | undefined) ?? [], now: string[] = [];
     for (const p of peers(ctx)) { const x = d.get(p.pub); if (x?.handshake && Date.now() - x.handshake < 180_000) { now.push(p.name); if (!was.includes(p.name)) ctx.emit('vpn_connecte', { appareil: p.name, depuis: x.endpoint }); } }
     const seen = new Set([...((ctx.settings.seen as string[] | undefined) ?? []), ...now]);

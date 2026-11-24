@@ -31,8 +31,19 @@ export function parseDescription(xml: string, location: string): { control: stri
 let testTarget: { host: string; port: number; timeoutMs: number } | undefined;
 /** Pour les essais : la « box » à interroger (un faux routeur). */
 export function setDiscoveryTarget(t: typeof testTarget): void { testTarget = t; }
-/** Cherche la box (SSDP) et son service d'ouverture de ports. */
-export async function discover(o: { fetch?: Fetch; timeoutMs?: number; target?: { host: string; port: number } } = {}): Promise<Gateway> {
+/**
+ * Une box est un appareil du réseau de la maison : son adresse est une adresse IPv4 privée, écrite en chiffres. Ce qui
+ * répond à la recherche est un texte venu du réseau : sans cette règle, n'importe quel appareil de la maison ferait
+ * demander à Odin n'importe quelle page (un site d'Internet, un service de la machine d'Odin). L'adresse de la machine
+ * elle-même (127.x) ne vaut que pour les essais (`boucle`). Pur.
+ */
+export function hoteDeBox(host: string, boucle = false): boolean {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host); if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])]; if (m.slice(1).some((x) => Number(x) > 255)) return false;
+  return a === 10 || (a === 172 && b >= 16 && b < 32) || (a === 192 && b === 168) || (a === 169 && b === 254) || (boucle && a === 127);
+}
+/** Cherche la box (SSDP) et son service d'ouverture de ports. `hote` : seulement la box à cette adresse (la passerelle connue). */
+export async function discover(o: { fetch?: Fetch; timeoutMs?: number; target?: { host: string; port: number }; hote?: string } = {}): Promise<Gateway> {
   o = { ...o, target: o.target ?? testTarget, timeoutMs: o.timeoutMs ?? testTarget?.timeoutMs };
   const f = o.fetch ?? fetch, sock = dgram.createSocket({ type: 'udp4', reuseAddr: true }), found: string[] = [];
   await new Promise<void>((ok, ko) => { sock.once('error', ko); sock.bind(0, () => ok()); });
@@ -46,7 +57,11 @@ export async function discover(o: { fetch?: Fetch; timeoutMs?: number; target?: 
   for (const loc of found) {
     try {
       const u = new URL(loc); if (!/^https?:$/.test(u.protocol)) continue;
-      const d = parseDescription(await (await f(loc, { signal: AbortSignal.timeout(5000) })).text(), loc); if (!d) continue;
+      // Jamais hors du réseau de la maison, jamais un nom à résoudre, et (si elle est demandée) seulement la passerelle connue.
+      if (!hoteDeBox(u.hostname, /^127\./.test(o.target?.host ?? '')) || u.username || u.password || (o.hote && u.hostname !== o.hote)) continue;
+      const d = parseDescription(await (await f(loc, { signal: AbortSignal.timeout(5000), redirect: 'error' })).text(), loc); if (!d) continue;
+      // L'adresse où envoyer les demandes est écrite par la box : elle reste sur la box, jamais ailleurs.
+      const c = new URL(d.control); if (c.hostname !== u.hostname || !/^https?:$/.test(c.protocol)) continue;
       return { location: loc, ...d, host: u.hostname, localIp: await localIpToward(u.hostname, Number(u.port) || 80) };
     } catch { /* box suivante */ }
   }
@@ -61,7 +76,7 @@ export async function localIpToward(host: string, port: number): Promise<string>
 /** Un appel SOAP à la box. Les erreurs de la box (code UPnP) sont rendues lisibles. */
 export async function soap(g: Pick<Gateway, 'control' | 'service'>, action: string, args: Record<string, string | number>, f: Fetch = fetch): Promise<string> {
   const body = `<?xml version="1.0"?>\r\n<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:${action} xmlns:u="${g.service}">${Object.entries(args).map(([k, v]) => `<${k}>${xmlEsc(String(v))}</${k}>`).join('')}</u:${action}></s:Body></s:Envelope>`;
-  const r = await f(g.control, { method: 'POST', headers: { 'content-type': 'text/xml; charset="utf-8"', soapaction: `"${g.service}#${action}"` }, body, signal: AbortSignal.timeout(8000) });
+  const r = await f(g.control, { method: 'POST', headers: { 'content-type': 'text/xml; charset="utf-8"', soapaction: `"${g.service}#${action}"` }, body, signal: AbortSignal.timeout(8000), redirect: 'error' });
   const x = await r.text();
   if (!r.ok) {
     const code = Number(tag(x, 'errorCode') ?? 0), why = tag(x, 'errorDescription') ?? '';

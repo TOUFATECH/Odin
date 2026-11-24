@@ -99,7 +99,7 @@
     'nominatim.openstreetmap.org': 'OpenStreetMap', 'tile.openstreetmap.org': 'OpenStreetMap',
     'api.github.com': 'GitHub', 'github.com': 'GitHub', 'raw.githubusercontent.com': 'GitHub',
     'formulae.brew.sh': 'Homebrew', 'flathub.org': 'Flathub', 'huggingface.co': 'Hugging Face',
-    'ipapi.co': 'ipapi', 'api.ipify.org': 'ipify',
+    'ipapi.co': 'ipapi',
   };
   function joliHote(h) {
     if (!h) return 'Le service';

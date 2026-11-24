@@ -7,12 +7,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { allModules } from '../src/valhalla/odin.ts';
-import { clientConf, confName, engine, expired, serverConf, setTunFactory, type Peer, type Server } from '../src/valhalla/modules/gjoll.ts';
+import { BOX, clientConf, confName, engine, expired, serverConf, setTunFactory, type Peer, type Server } from '../src/valhalla/modules/gjoll.ts';
 import type { TunPort } from '../src/valhalla/wireguard/engine.ts';
 
 // Carte réseau factice : le moteur WireGuard d'Odin tourne pour de vrai (port UDP), sans toucher au système.
 const fakeTun = (): TunPort => ({ write: () => {}, onPacket: () => {}, close: () => {} });
 setTunFactory(async () => fakeTun());
+// La box est simulée (lot R7 : l'adresse de la maison est lue sur la box, plus sur un site extérieur) : aucun vrai paquet.
+// Celle qui répond est la passerelle de la machine d'essai (« default via 192.168.1.1 ») : Odin la reconnaît comme la box.
+BOX.adresse = async () => ({ ip: '203.0.113.7', nom: 'Box essai', hote: '192.168.1.1' });
 import { DEFAULT_CONFIG } from '../src/config.ts';
 import { keypair as keys } from '../src/valhalla/modules/gjoll.ts';
 
@@ -26,7 +29,7 @@ function world(o: { python?: boolean; on?: boolean } = {}) {
       if (cmd === 'ip') return { code: 0, out: 'default via 192.168.1.1 dev eth0', err: '' };
       return { code: 0, out: '', err: '' };
     },
-    fetch: (async (url: string) => ({ text: async () => (String(url).includes('ipify') ? '203.0.113.7' : '') })) as unknown as typeof fetch,
+    fetch: (async () => { throw new Error('aucun site extérieur interrogé'); }) as unknown as typeof fetch,
     notify: async () => {}, autonomy: () => 'equilibre',
   });
   // Un port UDP libre au hasard : les essais tournent en parallèle.
