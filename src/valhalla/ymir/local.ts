@@ -146,7 +146,8 @@ export function qcodes(texte: string): string[][] {
 export const systemeVm = {
   plateforme: (): string => process.platform,
   qmp: (sock: string, execute: string, args?: Record<string, unknown>): Promise<unknown> => qmp(sock, execute, args),
-  enVie: (pid: number): boolean => existsSync(`/proc/${pid}`),
+  /** le processus vit, et c'est bien QEMU (un numéro repris par un autre programme ne compte pas ; illisible : compte comme vivant) */
+  enVie: (pid: number): boolean => { if (!existsSync(`/proc/${pid}`)) return false; try { const c = readFileSync(`/proc/${pid}/cmdline`, 'utf8'); return c === '' || c.includes('qemu'); } catch { return true; } },
   dossiersQmp: (): string[] => ['/run/odin-vm', join('/tmp', `odin-vm-${process.getuid?.() ?? 0}`)],
   /** l'utilisateur sous lequel Odin tourne (undefined sous Windows) */
   uid: (): number | undefined => process.getuid?.(),
@@ -472,7 +473,10 @@ export class Local {
     if (this.list().some((x) => x.nom === m.nom)) throw new Error(`le nom « ${m.nom} » est déjà pris`);
     if (m.genre === 'lxc') {
       await this.must('lxc-copy', ['-P', this.lxcDir, '-n', src.nom, '-N', m.nom], 'copie', 1_800_000);
-      const cf = join(this.lxcDir, m.nom, 'config'); writeFileSync(cf, rewriteConfig(readFileSync(cf, 'utf8'), lxcConfig(m, r, this.lxcDir)));
+      // Le disque de la copie est le sien : un chemin resté sur l'original (outil de copie qui ne le réécrit pas) passe sous
+      // son dossier, sinon supprimer la copie effacerait le disque de l'original.
+      const cf = join(this.lxcDir, m.nom, 'config'), txt = readFileSync(cf, 'utf8').split('\n').map((l) => l.replace(/^(\s*lxc\.rootfs\.path\s*=\s*(?:\w+:)?)(.*)$/, (_a, k: string, p: string) => `${k}${cheminCopie(p, src.nom, join(this.lxcDir, m.nom))}`)).join('\n');
+      writeFileSync(cf, rewriteConfig(txt, lxcConfig(m, r, this.lxcDir)));
     } else {
       mkdirSync(this.vmDir(m), { recursive: true });
       await this.must('qemu-img', ['convert', '-O', 'qcow2', join(this.vmDir(src), 'disque.qcow2'), join(this.vmDir(m), 'disque.qcow2')], 'copie du disque', 3_600_000);
@@ -480,12 +484,7 @@ export class Local {
     }
     this.save([...this.list(), m]); return m;
   }
-  async supprimer(m: Machine): Promise<void> {
-    if (allumee(await this.etat(m))) await this.arreter(m, true);
-    if (m.genre === 'lxc') await this.must('lxc-destroy', ['-P', this.lxcDir, '-n', m.nom], 'suppression');
-    else { await this.run('ip', ['link', 'del', ifname(m)], 10_000); rmSync(this.vmDir(m), { recursive: true, force: true }); }
-    this.save(this.list().filter((x) => x.id !== m.id));
-  }
+  // La suppression d'une machine (garde-fou, disque gardé ou effacé, aucun raccourci suivi) : retrait.ts (lot M3).
 
   // ----- quarantaine -----
   /** Débranche la machine de tout, tout de suite, et pour ses prochains démarrages. */

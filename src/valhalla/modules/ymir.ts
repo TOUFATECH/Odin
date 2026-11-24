@@ -15,6 +15,7 @@ import { dossierArrivees } from '../ymir/isos.ts';
 import { logicielsHermes, retards, surveillerIsos } from '../ymir/bibliotheque.ts';
 import { Local } from '../ymir/local.ts';
 import { enPauseDistante, nettoyerPauses, pauseActions } from '../ymir/pause.ts';
+import { reprendreRetraits } from '../ymir/retrait.ts';
 import { tacheVerification } from '../forge/bibliotheque.ts';
 import { join } from 'node:path';
 
@@ -125,7 +126,7 @@ const STATE_ICON: Record<Step['state'], string> = { ok: '✓', corrigé: '↻', 
 export const ymir: Module = {
   id: 'ymir', name: 'Hydre', family: 'Machines',
   what: 'Tes machines : les LXC et VM de ce PC (créés par Odin, quarantaine, .ody), et celles de tes serveurs de virtualisation.',
-  does: ['machines de ce PC : LXC (images officielles signées) et VM (QEMU, ISO d\'Andromède), nom automatique, adresse vérifiée', 'aperçu en direct (écran de la VM, console du LXC), processeur et mémoire de chacune', 'console dans Odin : une commande dans un LXC, le clavier d\'une VM (avec ton accord)', 'ressources modifiables : processeur, mémoire, disque agrandi, adresse IP fixe changée', 'modèles : une machine rangée comme modèle, puis des machines créées depuis elle (ou clonées)','quarantaine : la machine débranchée de tout, analyse complète, règle « rouge = isoler »', 'exporter et importer une machine entière en .ody (empreinte vérifiée, antivirus)', 'tous les serveurs réunis (mode Asgard) : nœuds, machines, conteneurs', 'processeur, mémoire, disque de chaque machine', 'démarrer, arrêt propre, arrêt forcé, redémarrer', 'pause et reprise d\'une VM (elle garde sa mémoire), réservées au propriétaire', 'instantanés et retour en arrière (avec ton accord)', 'sauvegarde d\'une machine (Phénix, mode Osiris)', 'alerte si une machine s\'arrête ou si un nœud sature'],
+  does: ['machines de ce PC : LXC (images officielles signées) et VM (QEMU, ISO d\'Andromède), nom automatique, adresse vérifiée', 'aperçu en direct (écran de la VM, console du LXC), processeur et mémoire de chacune', 'console dans Odin : une commande dans un LXC, le clavier d\'une VM (avec ton accord)', 'ressources modifiables : processeur, mémoire, disque agrandi, adresse IP fixe changée', 'modèles : une machine rangée comme modèle, puis des machines créées depuis elle (ou clonées)','quarantaine : la machine débranchée de tout, analyse complète, règle « rouge = isoler »', 'exporter et importer une machine entière en .ody (empreinte vérifiée, antivirus)', 'tous les serveurs réunis (mode Asgard) : nœuds, machines, conteneurs', 'processeur, mémoire, disque de chaque machine', 'démarrer, arrêt propre, arrêt forcé, redémarrer', 'pause et reprise d\'une VM (elle garde sa mémoire), réservées au propriétaire', 'ce qui dépend de chaque machine (une autre machine, un conteneur, des PC, Genèse, Phénix) : noté ou vu, dit avant de l\'arrêter', 'supprimer une machine éteinte : son nom écrit, son disque gardé à part ou effacé, refusé tant que ce qui en dépend tourne (propriétaire seul)','instantanés et retour en arrière (avec ton accord)', 'sauvegarde d\'une machine (Phénix, mode Osiris)', 'alerte si une machine s\'arrête ou si un nœud sature'],
   from: ['Proxmox VE', 'Proxmox Datacenter Manager'], upstream: ['proxmox/pve-manager'],
   modes: ['Asgard · tous les serveurs', 'Osiris · sauvegarde des machines'],
   words: ['créer une machine', 'crée une machine', 'crée une vm', 'quarantaine', 'isoler une machine', '.ody', 'machines de ce pc', 'machine virtuelle', 'machines virtuelles', 'vm', 'proxmox', 'toutes mes machines', 'parc de machines', 'conteneur lxc', 'lxc', 'hyperviseur', 'virtualisation', 'instantane', 'snapshot', 'noeud', 'nœud', 'vm en pause'],
@@ -173,6 +174,8 @@ export const ymir: Module = {
   // Talos : la vérification des ISO (chaque mois le 1er à 4 h par défaut), réglable et lançable depuis les automatismes.
   taches: () => [tacheVerification({ id: 'verification_iso', nom: 'Vérification des ISO', quoi: 'Empreinte recalculée, nouvelle analyse antivirus, nouvelles versions, compte rendu.', cleVerif: 'verifIso', action: 'verifier_isos' })],
   watch: { every: 60, async run(ctx) {
+    // Un retrait de machine coupé net (Odin arrêté) : son dossier mis de côté revient à sa place, jamais effacé (lot M3).
+    try { reprendreRetraits(new Local(ctx)); } catch { /* réessayé au passage suivant */ }
     await machinesWatch(ctx).catch(() => undefined);
     await surveillerIsos(ctx).catch(() => undefined);
     // Logiciels d'Hermès installés dans les machines : une nouvelle version → proposée (une fois par version).

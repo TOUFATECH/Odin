@@ -6,9 +6,11 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Action, ModCtx } from '../types.ts';
 import { parReflexe } from '../vidarr/qui-a-fait.ts';
-import { allumee, famille, Local, MODELES, nomAuto, newMac, slug, TOUCHES, type Genre, type Machine } from './local.ts';
+import { allumee, famille, Local, MODELES, nomAuto, newMac, slug, systemeVm, TOUCHES, VM_WINDOWS, type Etat, type Genre, type Machine } from './local.ts';
 import { bibliotheque, pilotesVirtio, profilVm, trouverIso } from './isos.ts';
 import { bibliothequeActions, synchroEspace } from './bibliotheque.ts';
+import { dependancesActions, quiEnDepend } from './dependances.ts';
+import { reprendreRetraits, retraitActions } from './retrait.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const n = (v: unknown, d: number, lo: number, hi: number) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? Math.max(lo, Math.min(hi, Math.round(x))) : d; };
@@ -41,6 +43,19 @@ async function brancher(ctx: ModCtx, L: Local, m: Machine): Promise<string[]> {
   return out;
 }
 
+/** Ce que la page dit sous Windows (maquette validée ; lot M2 à venir, réponse du 23/11 : l'hyperviseur livré avec Windows, QEMU sinon). */
+export const AVENIR_WINDOWS = [
+  'À venir : Hydre pilotera l\'hyperviseur livré avec Windows (éditions Pro, Entreprise, Éducation) : créer, démarrer, mettre en pause, instantanés, écran dans le navigateur. Il faudra l\'allumer une fois dans Windows (Odin te guidera, avec un redémarrage).',
+  'Sur Windows Famille, qui n\'a pas cet hyperviseur : l\'outil de machines virtuelles libre (QEMU), installé sur ce PC comme outil local ; Odin le pilotera.',
+  'Dès maintenant : les machines de tes serveurs de virtualisation reliés (onglet Serveurs), et pour les machines déjà là, leur liste, ce qui en dépend et leur suppression.',
+];
+/** Une machine en erreur : son état ne se lit pas, ou (éteinte) son disque a disparu. */
+function enErreur(L: Local, m: Machine, e: Etat & { erreur?: string }): string | undefined {
+  if (e.state === 'inconnue') return e.erreur ? `état illisible (${e.erreur.slice(0, 160)})` : 'état illisible';
+  if (m.genre === 'vm' && !m.estModele && e.state === 'éteinte' && !existsSync(join(L.vmDir(m), 'disque.qcow2'))) return 'son disque est introuvable';
+  return undefined;
+}
+
 export function machinesActions(): Action[] {
   return [
     { id: 'locales', label: 'Machines de ce PC', what: 'Les LXC et VM créés par Odin sur ce PC, avec leur état', read: true, words: ['machines de ce pc', 'mes lxc', 'mes conteneurs lxc', 'mes vm locales'], run: async (ctx) => {
@@ -48,9 +63,11 @@ export function machinesActions(): Action[] {
       return { text: l.length ? l.map((m, i) => `- ${m.quarantaine ? '🔒 ' : ''}${m.nom} (${m.genre === 'lxc' ? 'LXC' : 'VM'}, ${m.systeme} ${m.version}) · ${st[i].state} · ${m.ip} · ${m.cpu} cœur(s), ${m.ram} Mo`).join('\n') : 'Aucune machine sur ce PC : « crée une machine ».', data: l.map((m, i) => ({ ...m, etat: st[i] })) };
     } },
     { id: 'tableau_machines', label: 'Tableau des machines', what: 'Tout pour l\'écran Machines : machines et état, ce PC, catégories, modèles, ISO, applis', read: true, run: async (ctx) => {
-      const L = new Local(ctx), l = L.list(), st = await Promise.all(l.map((m) => L.etat(m).catch(() => ({ state: 'inconnue' as const }))));
+      const L = new Local(ctx); reprendreRetraits(L);
+      const l = L.list(), st: Array<Etat & { erreur?: string }> = await Promise.all(l.map((m) => L.etat(m).catch((e: Error) => ({ state: 'inconnue' as const, erreur: e.message }))));
+      const win = systemeVm.plateforme() === 'win32';
       return { text: `${l.length} machine(s)`, data: {
-        machines: l.map((m, i) => ({ ...m, etat: st[i] })), hote: await L.hote(), categories: categories(ctx), reseau: L.reseau(), modeles: MODELES, touches: Object.keys(TOUCHES), gabarits: l.filter((m) => m.estModele).map((m) => ({ id: m.id, nom: m.nom, genre: m.genre, systeme: m.systeme, version: m.version })), isos: await (async () => { await synchroEspace(ctx); const l = await bibliotheque(ctx), pil = pilotesVirtio(l), h = { ovmf: Boolean(L.ovmf()), swtpm: await ctx.has('swtpm'), kvm: L.kvm() }; return l.map((f) => ({ id: f.id, nom: f.nom, chemin: f.chemin, taille: f.taille, systeme: f.systeme, detail: f.detail, distribution: f.distribution, origine: f.origine, sha256: f.sha256, antivirus: f.antivirus, pilotes: f.pilotes, profil: f.pilotes ? undefined : profilVm(f, h, pil) })); })(), apps: APPS,
+        machines: l.map((m, i) => { const err = enErreur(L, m, st[i]); return { ...m, etat: st[i], ...(err ? { erreur: err } : {}) }; }), plateforme: systemeVm.plateforme(), ...(win ? { windows: { maintenant: VM_WINDOWS, avenir: AVENIR_WINDOWS } } : {}), hote: await L.hote(), categories: categories(ctx), reseau: L.reseau(), modeles: MODELES, touches: Object.keys(TOUCHES), gabarits: l.filter((m) => m.estModele).map((m) => ({ id: m.id, nom: m.nom, genre: m.genre, systeme: m.systeme, version: m.version })), isos: await (async () => { await synchroEspace(ctx); const l = await bibliotheque(ctx), pil = pilotesVirtio(l), h = { ovmf: Boolean(L.ovmf()), swtpm: await ctx.has('swtpm'), kvm: L.kvm() }; return l.map((f) => ({ id: f.id, nom: f.nom, chemin: f.chemin, taille: f.taille, systeme: f.systeme, detail: f.detail, distribution: f.distribution, origine: f.origine, sha256: f.sha256, antivirus: f.antivirus, pilotes: f.pilotes, profil: f.pilotes ? undefined : profilVm(f, h, pil) })); })(), apps: APPS,
         manque: { lxc: await L.manque('lxc'), vm: await L.manque('vm') }, kvm: L.kvm(), autoIsoler: ctx.settings.autoIsoler !== false,
       } };
     } },
@@ -95,7 +112,7 @@ export function machinesActions(): Action[] {
         return { text: `✅ ${m.nom} créée (${genre === 'lxc' ? 'LXC' : 'VM'} ${systeme} ${version}, ${m.cpu} cœur(s), ${m.ram / 1024} Go, ${m.disque} Go) · ${ip}${genre === 'vm' ? ' · l\'installation de l\'ISO commence : regarde son écran dans Machines' : ''}${notes.length ? `\n${notes.join('\n')}` : ''}${b.length ? `\n${b.join('\n')}` : ''}`, data: m };
       } },
     { id: 'demarrer_machine', label: 'Démarrer', what: 'Démarre une machine de ce PC (en quarantaine : seulement en mode analyse, sans réseau)', params: [machineParam, { key: 'analyse', label: 'Mode analyse (sans réseau)', kind: 'boolean', default: false }], words: ['démarre la machine', 'allume la machine'], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine), an = i.analyse === true || i.analyse === 'true'; await L.demarrer(m, undefined, { analyse: an }); if (m.quarantaine) { m.quarantaine.journal.push({ at: Date.now(), quoi: 'Démarrée en mode analyse, sans réseau' }); L.update(m); } return { text: `▶ ${m.nom} démarrée${m.quarantaine ? ' en mode analyse (sans aucun réseau : en quarantaine)' : ''}.` }; }, undo: (i) => ({ action: 'arreter_machine', input: { machine: i.machine }, label: 'Arrêter' }) },
-    { id: 'arreter_machine', label: 'Arrêter', what: 'Arrêt propre d\'une machine de ce PC', params: [machineParam, { key: 'forcer', label: 'Forcer (comme débrancher)', kind: 'boolean', default: false }], grave: (i) => `${i.forcer === true || i.forcer === 'true' ? 'couper net' : 'éteindre'} la machine ${s(i.machine)}`, words: ['éteins la machine', 'arrête la machine'], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine); await L.arreter(m, i.forcer === true || i.forcer === 'true'); return { text: `⏹ ${m.nom} : arrêt demandé.` }; }, undo: (i) => ({ action: 'demarrer_machine', input: { machine: i.machine }, label: 'Redémarrer' }) },
+    { id: 'arreter_machine', label: 'Arrêter', what: 'Arrêt propre d\'une machine de ce PC', params: [machineParam, { key: 'forcer', label: 'Forcer (comme débrancher)', kind: 'boolean', default: false }], grave: (i, ctx) => `${i.forcer === true || i.forcer === 'true' ? 'couper net' : 'éteindre'} la machine ${s(i.machine)}${quiEnDepend(ctx, i.machine)}`, words: ['éteins la machine', 'arrête la machine'], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine); await L.arreter(m, i.forcer === true || i.forcer === 'true'); return { text: `⏹ ${m.nom} : arrêt demandé.` }; }, undo: (i) => ({ action: 'demarrer_machine', input: { machine: i.machine }, label: 'Redémarrer' }) },
     { id: 'apercu_machine', label: 'Aperçu', what: 'L\'écran d\'une VM ou la console d\'un LXC, en direct', read: true, params: [machineParam], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine), a = await L.apercu(m).catch((e) => ({ erreur: (e as Error).message })); return { text: 'erreur' in a ? `Aperçu indisponible : ${a.erreur}` : a.lignes ? a.lignes.join('\n') || '(console vide)' : a.png ? 'capture de l\'écran' : 'machine éteinte', data: a }; } },
     { id: 'ressources_machine', label: 'Ressources', what: 'Processeur et mémoire d\'une machine (tout de suite pour un LXC)', words: ['plus de mémoire', 'plus de cœurs', 'augmente la mémoire', 'améliore la machine', 'améliore ma vm', 'ressources de la machine'], params: [machineParam, { key: 'coeurs', label: 'Cœurs', kind: 'number', required: true }, { key: 'memoire', label: 'Mémoire (Go)', kind: 'number', required: true }], run: async (ctx, i) => {
       const L = new Local(ctx), m = L.find(i.machine), h = await L.hote(), c = n(i.coeurs, m.cpu, 1, h.coeurs), r = n(i.memoire, m.ram / 1024, 1, Math.floor(h.ramTotal / 1024 ** 3));
@@ -160,7 +177,8 @@ export function machinesActions(): Action[] {
         ctx.emit('machine_creee', { nom: m.nom, genre: m.genre, ip: m.ip, modele: src.nom });
         return { text: `✅ ${m.nom} créée depuis ${src.nom} (${m.genre === 'lxc' ? 'LXC' : 'VM'} ${m.systeme} ${m.version}, ${m.cpu} cœur(s), ${m.ram / 1024} Go, ${m.disque} Go) · ${m.ip}${notes.length ? `\n${notes.join('\n')}` : ''}${b.length ? `\n${b.join('\n')}` : ''}`, data: m };
       } },
-    { id: 'supprimer_machine', label: 'Supprimer', what: 'Supprime une machine et son disque', params: [machineParam], grave: (i) => `supprimer la machine ${s(i.machine)} et tout son disque (exporte-la en .ody avant si tu veux la garder)`, run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine); await L.supprimer(m); return { text: `🗑 ${m.nom} supprimée.` }; } },
+    ...retraitActions(),
+    ...dependancesActions(),
     { id: 'exporter_machine', label: 'Exporter en .ody', what: 'Toute la machine dans un seul fichier vérifié (empreinte), par exemple vers ton NAS', params: [machineParam, { key: 'dossier', label: 'Dossier de destination', kind: 'text', default: '' }], run: async (ctx, i) => {
       const L = new Local(ctx), m = L.find(i.machine), d = s(i.dossier).trim() || s(ctx.settings.dossierOdy) || join(ctx.home, 'Machines');
       const r = await L.exporter(m, d); return { text: `📦 ${r.fichier} (${(r.taille / 1024 ** 3).toFixed(2).replace('.', ',')} Go) · empreinte ${r.sha256.slice(0, 16)}…`, data: r };

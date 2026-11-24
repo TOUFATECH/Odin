@@ -61,7 +61,7 @@ export const EVENEMENTS: Record<string, string[]> = {
   zeus: ['releve', 'bilan', 'source_en_panne'],
   volva: ['recherche'],
   vordr: ['panne', 'probleme', 'retour'],
-  ymir: ['vm_arretee', 'iso_reconnue', 'logiciel_installe', 'machine_creee', 'machine_isolee', 'machine_liberee'],
+  ymir: ['vm_arretee', 'iso_reconnue', 'logiciel_installe', 'machine_creee', 'machine_isolee', 'machine_liberee', 'machine_supprimee'],
 };
 /** Les événements d'une appli, plus ses alertes. */
 export const evenementsDe = (id: string): string[] => [...(EVENEMENTS[id] ?? []), 'alerte'];

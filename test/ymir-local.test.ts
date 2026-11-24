@@ -131,7 +131,7 @@ test('créer un LXC, ranger, ressources, quarantaine (règle « rouge = isoler �
     // Clone et suppression (grave).
     assert.match((await v.act('ymir', 'cloner_machine', { machine: nom, nom: 'Nextcloud test' })).text, /nextcloud-test : copie prête \(10\.0\.3\.63\)/);
     assert.equal((await v.act('ymir', 'supprimer_machine', { machine: 'nextcloud-test' }, { auto: true })).ok, false);
-    assert.match((await v.act('ymir', 'supprimer_machine', { machine: 'nextcloud-test' })).text, /supprimée/); assert.ok(!existsSync(join(P, 'nextcloud-test')));
+    assert.match((await v.act('ymir', 'supprimer_machine', { machine: 'nextcloud-test', nom: 'nextcloud-test' })).text, /supprimée/); assert.ok(!existsSync(join(P, 'nextcloud-test')));
     assert.match((await v.act('ymir', 'locales')).text, /copie-nextcloud/);
   } finally { v.stop(); rmSync(home, { recursive: true, force: true }); }
 });

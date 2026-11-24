@@ -6,6 +6,9 @@
 // - Quarantaine : les machines isolées, d'où vient le souci, ce qu'Odin a fait, l'analyse, la sortie.
 // - Serveurs : la vue générique (Proxmox, conteneurs du moteur d'Odin).
 // Tout ce qui est grave (arrêter, supprimer, sortir de quarantaine) passe par ton accord.
+// Lot M3 (maquette « Conteneurs et machines » validée) : les états (allumée, en pause, éteinte, en erreur) et leur filtre,
+// « En dépendent : … » sur chaque carte et le bloc « Ce qui dépend de … » (registre), la suppression dans la page (nom
+// écrit, disque gardé à part ou effacé, refusée tant que ce qui en dépend tourne), et sous Windows ce qui viendra.
 (() => {
   'use strict';
   window.OdinPages = window.OdinPages || {};
@@ -26,6 +29,7 @@
     save: 'M5 3h11l3 3v15H5zM8 3v6h8M8 21v-7h8v7', screen: 'M3 4h18v12H3zM8 20h8M12 16v4', term: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5', play: 'M7 5v14l12-7z', pause: 'M7 5h4v14H7zM13 5h4v14h-4z', stop: 'M6 6h12v12H6z', lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
     shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4', check: 'M5 12l5 5L20 7', grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', list: 'M4 6h16M4 12h16M4 18h16',
     alert: 'M12 3 2 20h20zM12 10v4M12 17h.01', mail: 'M3 5h18v14H3zM3 6l9 7 9-7', unlock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 7.5-2',
+    link: 'M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1', refresh: 'M20 11a8 8 0 1 0-2 6M20 4v7h-7', win: 'M3 5l8-1v7H3zM13 4l8-1v8h-8zM3 13h8v7l-8-1zM13 13h8v8l-8-1z',
   };
   const ic = (n, s = 16) => { const v = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); v.setAttribute('viewBox', '0 0 24 24'); v.setAttribute('width', s); v.setAttribute('height', s); v.setAttribute('aria-hidden', 'true'); v.innerHTML = `<path d="${P[n]}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`; return v; };
   const CSS = `
@@ -77,9 +81,29 @@
 @keyframes ymFile{from{left:-42%}to{left:100%}}@keyframes ymReflet{from{background-position:130% 0}to{background-position:-130% 0}}
 @media (prefers-reduced-motion:reduce){.ym-load .b i,.ym-load .b::after{animation:none}.ym-load .b::after{display:none}.ym-load .b:not(.p) i{left:0;width:100%;opacity:.4}.ym-load .b.p i{transition:none}}
 .ym-iso{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}.ym-iso .c{border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;gap:12px;min-width:0;background:color-mix(in srgb,var(--panel) 92%,transparent)}.ym-iso img{width:44px;height:44px;border-radius:11px;flex:none}.ym-iso .t{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}.ym-iso b{font-size:14px;overflow-wrap:anywhere}.ym-iso small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.ym-filt{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.ym-filt button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 85%,transparent);color:var(--ink);font:600 13.5px inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px}.ym-filt button[aria-pressed=true]{background:color-mix(in srgb,var(--ya) 16%,var(--panel));border-color:var(--ya)}.ym-filt button span{font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.ym-dep{display:flex;gap:6px;align-items:flex-start;font-size:12.5px;font-weight:600;color:color-mix(in srgb,var(--ywarn) 72%,var(--ink));overflow-wrap:anywhere}.ym-dep svg{flex:none;margin-top:1px}.ym-dep.vif{color:color-mix(in srgb,var(--ybad) 80%,var(--ink))}
+.ym-errl{font-size:12.5px;font-weight:600;color:color-mix(in srgb,var(--ybad) 82%,var(--ink));overflow-wrap:anywhere}
+.ym-guard{border:2px solid var(--ybad);background:color-mix(in srgb,var(--ybad) 7%,var(--panel));border-radius:18px;padding:14px 16px;display:flex;gap:12px;min-width:0}.ym-guard>div{min-width:0;flex:1}
+.ym-guard .gi{width:40px;height:40px;border-radius:12px;background:var(--ybad);color:#fff;display:grid;place-items:center;flex:none}.ym-guard .t{display:block;font-size:15.5px;overflow-wrap:anywhere}
+.ym-guard ul{margin:6px 0 10px;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:3px}.ym-guard li{overflow-wrap:anywhere}
+.ym-guard fieldset{border:0;padding:0;margin:0 0 10px;display:flex;flex-direction:column;gap:6px;min-width:0}.ym-guard legend{font-size:13.5px;font-weight:700;margin-bottom:6px;padding:0}
+.ym-guard .ch{display:flex;gap:10px;align-items:center;min-height:44px;border:1px solid var(--line);border-radius:12px;padding:6px 12px;cursor:pointer;font-size:13.5px;background:var(--panel);max-width:560px}.ym-guard .ch:has(input:checked){border-color:var(--ya);box-shadow:0 0 0 1px var(--ya)}.ym-guard .ch small{display:block;color:var(--muted);font-size:12px}.ym-guard .ch input{width:18px;height:18px;flex:none;accent-color:var(--ya)}
+.ym-guard .nm{display:flex;flex-direction:column;gap:6px;max-width:460px;margin-bottom:10px}.ym-guard .nm label{font-size:13.5px}.ym-guard .nm input{min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 12px;font:14px ui-monospace,monospace;min-width:0}
+.ym-guard .ym-btn{min-height:44px;padding:0 14px}.ym-guard kbd{font:12.5px ui-monospace,monospace;padding:1px 6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);overflow-wrap:anywhere}.ym-guard .err{color:color-mix(in srgb,var(--ybad) 82%,var(--ink));font-weight:600;font-size:13.5px;margin:6px 0}
+@media (max-width:600px){.ym-guard{flex-direction:column;padding:12px}}
+.ym-win{display:flex;gap:12px}.ym-win .gi{width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--yblue) 16%,transparent);color:var(--yblue);display:grid;place-items:center;flex:none}.ym-win p{margin:2px 0 6px;font-size:13.5px}.ym-win ul{margin:0;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:4px;color:var(--ink)}
+.ym-deps{display:flex;flex-direction:column;gap:0}.ym-deps .l{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}.ym-deps .l:first-child{border-top:0}.ym-deps .l span{flex:1;min-width:0;overflow-wrap:anywhere}.ym-deps .ym-btn{min-height:44px}
+.ym-addep{display:grid;grid-template-columns:minmax(0,180px) minmax(0,1fr) minmax(0,90px) auto;gap:8px;align-items:end;margin-top:10px}.ym-addep label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);min-width:0}.ym-addep select,.ym-addep input{min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 10px;font:inherit;min-width:0;width:100%}.ym-addep .ym-btn{min-height:44px}@media (max-width:700px){.ym-addep{grid-template-columns:minmax(0,1fr)}}
 .ym-nav{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}.ym-nav button{display:flex;gap:8px;align-items:center;min-height:36px;padding:0 10px;border:0;border-radius:9px;background:none;color:var(--ink);font:inherit;font-size:13.5px;text-align:left;cursor:pointer}.ym-nav button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}.ym-nav button span{margin-left:auto;color:var(--muted);font-size:12px}
 `;
-  const S = { tab: 'machines', filtre: 'Toutes', sel: null, timer: 0, previews: {}, create: { genre: 'lxc', apps: null } };
+  // etat : le filtre par état (lot M3) ; garde : la suppression ouverte (machine, nom écrit, choix du disque, refus).
+  const S = { tab: 'machines', filtre: 'Toutes', etat: 'tout', garde: null, sel: null, timer: 0, previews: {}, create: { genre: 'lxc', apps: null } };
+  /** L'état montré d'une machine : allumée, en pause, éteinte ou en erreur (son état ne se lit pas, son disque a disparu). */
+  const etatDe = (m) => (m.erreur ? 'erreur' : m.etat?.state === 'en marche' ? 'on' : m.etat?.state === 'en pause' ? 'pause' : 'off');
+  const ETATS = [['tout', 'Toutes'], ['on', 'Allumées'], ['pause', 'En pause'], ['off', 'Éteintes'], ['erreur', 'En erreur']];
+  /** Ce qui dépend d'une machine (lecture au propriétaire seul : rien si elle est refusée). */
+  const depsDe = (D, m) => D.deps?.machines?.[m.id];
   const FAM = { Linux: '#E95420', Windows: '#0A6CD6', Mac: '#94a3b8', Autre: '#64748b' };
   const LOGO = (m) => (/windows/i.test(m.systeme) ? '#0A6CD6' : /debian/i.test(m.systeme) ? '#C70036' : /ubuntu/i.test(m.systeme) ? '#E95420' : /alpine/i.test(m.systeme) ? '#0D597F' : /rocky/i.test(m.systeme) ? '#10B981' : /fedora/i.test(m.systeme) ? '#3C6EB4' : FAM[m.famille] ?? '#64748b');
   const go = (b) => (b / 1024 ** 3).toLocaleString('fr-FR', { maximumFractionDigits: 0 });
@@ -94,23 +118,28 @@
     S.previews[m.id] = box.innerHTML;
   }
   function card(m, D, redraw) {
-    const run = m.etat?.state === 'en marche', fige = m.etat?.state === 'en pause', q = Boolean(m.quarantaine), cat = (D.categories ?? []).find((c) => c.nom === m.categorie);
-    const pv = el('div', { class: 'ym-pv' }); pv.innerHTML = S.previews[m.id] ?? ''; if (!S.previews[m.id]) pv.append(el('span', { class: 'off' }, run ? 'aperçu…' : fige ? 'en pause' : 'éteinte'));
+    const run = m.etat?.state === 'en marche', fige = m.etat?.state === 'en pause', q = Boolean(m.quarantaine), cat = (D.categories ?? []).find((c) => c.nom === m.categorie), err = etatDe(m) === 'erreur';
+    const pv = el('div', { class: 'ym-pv' }); pv.innerHTML = S.previews[m.id] ?? ''; if (!S.previews[m.id]) pv.append(el('span', { class: 'off' }, run ? 'aperçu…' : fige ? 'en pause' : err ? 'en erreur' : 'éteinte'));
+    const dep = depsDe(D, m)?.dependants ?? [], vif = dep.some((x) => x.vivant);
+    // Supprimer ouvre le garde-fou (nom écrit, choix du disque) : seulement machine éteinte ou en erreur, comme la maquette.
+    const supprimer = !run && !fige ? el('button', { class: 'ym-btn bad', type: 'button', title: 'Supprimer', 'aria-label': `Supprimer ${m.nom}`, 'data-sup': m.id, onclick: (e) => { e.stopPropagation(); S.garde = { id: m.id, tape: '', disque: '', refus: '' }; S.sel = m.id; redraw(); } }, ic('trash', 15)) : null;
     const btn = (i, label, fn, cls = '') => el('button', { class: `ym-btn ${cls}`, type: 'button', title: label, 'aria-label': label, onclick: async (e) => { e.stopPropagation(); const b = e.currentTarget; b.disabled = true; const x = await fn(); b.disabled = false; note(x); if (x?.ok !== false) await redraw(); } }, ic(i, 15));
-    const c = el('div', { class: `ym-c${q ? ' q' : ''}`, role: 'button', tabindex: '0', 'aria-current': String(S.sel === m.id), onclick: () => { S.sel = m.id; redraw(); }, onkeydown: (e) => { if (e.key === 'Enter' && e.target === e.currentTarget) { S.sel = m.id; redraw(); } } },
+    const c = el('div', { class: `ym-c${q ? ' q' : ''}`, role: 'button', tabindex: '0', 'data-carte': m.id, 'aria-current': String(S.sel === m.id), onclick: () => { S.sel = m.id; redraw(); }, onkeydown: (e) => { if (e.key === 'Enter' && e.target === e.currentTarget) { S.sel = m.id; redraw(); } } },
       el('div', { class: 'hd' }, el('span', { class: 'lg', style: `background:${LOGO(m)}` }, m.systeme.charAt(0)), el('div', { style: 'min-width:0' }, el('b', {}, m.nom), el('span', {}, `${m.systeme} ${m.version} · ${date(m.cree)}`)), el('em', {}, m.genre === 'lxc' ? 'LXC' : 'VM')),
       pv,
-      el('div', { class: 'ym-st' }, el('i', { style: `background:${q ? 'var(--ybad)' : run ? 'var(--yok)' : fige ? '#f59e0b' : '#94a3b8'}` }), q ? 'quarantaine' : run ? 'en marche' : fige ? 'en pause' : 'éteinte', el('code', {}, m.ip)),
+      el('div', { class: 'ym-st' }, el('i', { style: `background:${q || err ? 'var(--ybad)' : run ? 'var(--yok)' : fige ? '#f59e0b' : '#94a3b8'}` }), q ? 'quarantaine' : err ? 'en erreur' : run ? 'allumée' : fige ? 'en pause' : 'éteinte', el('code', {}, m.ip)),
+      err ? el('div', { class: 'ym-errl' }, m.erreur) : null,
+      dep.length ? el('div', { class: `ym-dep${vif ? ' vif' : ''}` }, ic('link', 15), el('span', {}, `En dépendent : ${dep.map((x) => (x.genre === 'genese' ? `Genèse (${x.nom})` : x.genre === 'phenix' ? `Phénix (${x.nom})` : x.genre === 'arche' ? `conteneur ${x.nom}` : `${x.nombre ? `${x.nombre} ` : ''}${x.nom}`)).join(', ')}`)) : null,
       el('div', { class: 'ym-g' }, el('div', {}, ring(run ? m.etat.cpuPct ?? 0 : 0, 'Processeur'), el('span', {}, 'CPU', el('br'), `${m.cpu} cœur${m.cpu > 1 ? 's' : ''}`)), el('div', {}, ring(run && m.etat.ramMo ? Math.round((m.etat.ramMo / m.ram) * 100) : 0, 'Mémoire'), el('span', {}, 'RAM', el('br'), m.ram >= 1024 ? `${m.ram / 1024} Go` : `${m.ram} Mo`))),
       el('div', { class: 'ym-row' }, ...(m.apps ?? []).slice(0, 3).map((a) => el('span', { class: 'ym-chip' }, (D.apps ?? []).find((x) => x.id === a)?.nom ?? a)), q ? el('span', { class: 'ym-chip bad' }, 'en quarantaine') : null, cat ? el('span', { class: 'ym-chip', style: `margin-left:auto;background:${cat.couleur}22;color:${cat.couleur}` }, cat.nom) : null),
       q ? el('button', { class: 'ym-btn bad', type: 'button', onclick: (e) => { e.stopPropagation(); S.tab = 'quarantaine'; S.sel = m.id; redraw(); } }, ic('lock', 14), 'Voir la quarantaine')
-        : el('div', { class: 'ym-row ym-act' }, fige ? btn('play', 'Reprendre', () => act('reprendre_machine', { machine: m.id }), 'pri') : null, run && m.genre === 'vm' ? btn('pause', 'Mettre en pause', () => act('pause_machine', { machine: m.id })) : null, run || fige ? btn('stop', 'Arrêter', () => act('arreter_machine', { machine: m.id })) : btn('play', 'Démarrer', () => act('demarrer_machine', { machine: m.id }), 'pri'), btn('lock', 'Mettre en quarantaine', () => act('isoler_machine', { machine: m.id, raison: 'à ta demande' })), btn('trash', 'Supprimer', () => act('supprimer_machine', { machine: m.id }))));
+        : el('div', { class: 'ym-row ym-act' }, fige ? btn('play', 'Reprendre', () => act('reprendre_machine', { machine: m.id }), 'pri') : null, run && m.genre === 'vm' ? btn('pause', 'Mettre en pause', () => act('pause_machine', { machine: m.id })) : null, run || fige ? btn('stop', 'Arrêter', () => act('arreter_machine', { machine: m.id })) : btn('play', 'Démarrer', () => act('demarrer_machine', { machine: m.id }), 'pri'), btn('lock', 'Mettre en quarantaine', () => act('isoler_machine', { machine: m.id, raison: 'à ta demande' })), supprimer));
     if (run) void preview(m, pv);
     return c;
   }
   function machines(root, D, redraw) {
     const all = D.machines ?? [], fams = ['Linux', 'Windows', 'Mac', 'Autre'], cats = D.categories ?? [];
-    const shown = all.filter((m) => S.filtre === 'Toutes' || m.famille === S.filtre || m.categorie === S.filtre);
+    const rangees = all.filter((m) => S.filtre === 'Toutes' || m.famille === S.filtre || m.categorie === S.filtre), shown = rangees.filter((m) => S.etat === 'tout' || etatDe(m) === S.etat);
     const side = el('div', { class: 'ym-w ym-side', role: 'navigation', 'aria-label': 'Ranger les machines' }, el('div', { class: 'h' }, 'Systèmes'),
       ...['Toutes', ...fams].map((f) => el('button', { type: 'button', 'aria-pressed': String(S.filtre === f), onclick: () => { S.filtre = f; redraw(); } }, el('i', { style: `background:${f === 'Toutes' ? 'var(--ya)' : FAM[f]}` }), f, el('span', {}, String(f === 'Toutes' ? all.length : all.filter((m) => m.famille === f).length)))),
       el('div', { class: 'h' }, 'Mes catégories'), ...cats.map((c) => el('button', { type: 'button', 'aria-pressed': String(S.filtre === c.nom), onclick: () => { S.filtre = c.nom; redraw(); } }, el('i', { style: `background:${c.couleur}` }), c.nom, el('span', {}, String(all.filter((m) => m.categorie === c.nom).length)))),
@@ -118,17 +147,80 @@
       host(D.hote, D));
     const main = el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' });
     root.append(el('div', { class: 'ym-lay' }, side, main));
-    const on = all.filter((m) => m.etat?.state === 'en marche').length, fig = all.filter((m) => m.etat?.state === 'en pause').length, q = all.filter((m) => m.quarantaine);
+    const nb = (k) => all.filter((m) => etatDe(m) === k).length, on = all.filter((m) => m.etat?.state === 'en marche').length, fig = all.filter((m) => m.etat?.state === 'en pause').length, q = all.filter((m) => m.quarantaine);
     const cpu = on ? Math.round(all.filter((m) => m.etat?.state === 'en marche').reduce((a, m) => a + (m.etat.cpuPct ?? 0), 0) / on) : 0;
-    main.append(el('div', { class: 'ym-k' }, el('div', {}, el('small', {}, 'En marche'), el('b', {}, `${on} / ${all.length}`), el('span', {}, [`${all.length - on - fig} éteinte${all.length - on - fig > 1 ? 's' : ''}`, fig ? `${fig} en pause` : ''].filter(Boolean).join(' · '))), el('div', {}, el('small', {}, 'Processeur'), el('b', {}, `${cpu} %`), el('span', {}, 'moyenne des machines')),
+    main.append(el('div', { class: 'ym-k' }, el('div', {}, el('small', {}, 'Allumées'), el('b', {}, `${on} / ${all.length}`), el('span', {}, [`${nb('off')} éteinte${nb('off') > 1 ? 's' : ''}`, fig ? `${fig} en pause` : '', nb('erreur') ? `${nb('erreur')} en erreur` : ''].filter(Boolean).join(' · '))), el('div', {}, el('small', {}, 'Processeur'), el('b', {}, `${cpu} %`), el('span', {}, 'moyenne des machines')),
       el('div', {}, el('small', {}, 'Mémoire'), el('b', {}, `${go(all.filter((m) => m.etat?.state === 'en marche').reduce((a, m) => a + (m.etat.ramMo ?? 0), 0) * 1048576)} Go`), el('span', {}, `sur ${go(D.hote?.ramTotal ?? 0)} Go`)),
       el('div', {}, el('small', {}, 'Protégées'), el('b', {}, `${all.filter((m) => (m.apps ?? []).includes('ullr')).length} / ${all.length}`), el('span', {}, 'antivirus chaque nuit')), el('div', {}, el('small', {}, 'Quarantaine'), el('b', { style: q.length ? 'color:var(--ybad)' : '' }, String(q.length)), el('span', {}, q.map((m) => m.nom).join(', ') || '—'))));
-    if (!all.length) { main.append(el('div', { class: 'ym-w' }, el('h3', {}, ic('box', 16), 'Aucune machine sur ce PC'), el('p', { class: 'ym-empty' }, (D.manque?.lxc ?? []).length ? `Pour les LXC, installe d'abord sur ce PC : ${D.manque.lxc.join(', ')} (paquet « lxc »).` : 'Crée un LXC (léger, quelques secondes) ou une VM (depuis une ISO d\'Andromède).'), el('button', { class: 'ym-btn pri', type: 'button', onclick: () => { S.tab = 'creer'; redraw(); } }, ic('plus', 14), 'Créer une machine'))); return; }
+    // Sous Windows : ce qui ne marche pas encore, et ce qui viendra (maquette, écran « Ce PC ») ; en tête, visible tout de suite au téléphone.
+    if (D.windows) root.prepend(el('section', { class: 'ym-w ym-win', 'aria-labelledby': 'ymWinT' }, el('span', { class: 'gi', 'aria-hidden': 'true' }, ic('win', 20)),
+      el('div', {}, el('h3', { id: 'ymWinT', style: 'margin:0 0 4px' }, 'Ce PC : Windows'), el('p', {}, D.windows.maintenant), el('ul', {}, ...(D.windows.avenir ?? []).map((t) => el('li', {}, t))))));
+    if (!all.length) { main.append(el('div', { class: 'ym-w' }, el('h3', {}, ic('box', 16), 'Aucune machine sur ce PC'), el('p', { class: 'ym-empty' }, D.windows ? 'Les machines de ce PC viendront avec le moteur Windows d\'Hydre (ci-dessus).' : (D.manque?.lxc ?? []).length ? `Pour les LXC, installe d'abord sur ce PC : ${D.manque.lxc.join(', ')} (paquet « lxc »).` : 'Crée un LXC (léger, quelques secondes) ou une VM (depuis une ISO d\'Andromède).'), D.windows ? null : el('button', { class: 'ym-btn pri', type: 'button', onclick: () => { S.tab = 'creer'; redraw(); } }, ic('plus', 14), 'Créer une machine'))); return; }
+    // Le filtre par état (allumées, en pause, éteintes, en erreur), avec le nombre de chacune.
+    main.append(el('div', { class: 'ym-filt', role: 'group', 'aria-label': 'Filtrer par état' }, ...ETATS.filter(([k]) => k !== 'erreur' || rangees.some((m) => etatDe(m) === 'erreur') || S.etat === 'erreur').map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(S.etat === k), 'data-etat': k, onclick: () => { S.etat = k; S.focus = `[data-etat="${k}"]`; redraw(); } }, t, el('span', {}, String(k === 'tout' ? rangees.length : rangees.filter((m) => etatDe(m) === k).length))))));
+    if (S.message) { main.append(el('p', { class: 'ym-w', role: 'status', style: 'margin:0;font-size:13.5px;white-space:pre-wrap' }, S.message)); S.message = ''; }
+    const g0 = S.garde && all.find((m) => m.id === S.garde.id); if (S.garde && !g0) S.garde = null;
+    if (g0) main.append(garde(g0, D, redraw));
+    if (!shown.length) main.append(el('p', { class: 'ym-empty', role: 'status' }, 'Aucune machine dans cet état.'));
     for (const g of [['Linux', 'Linux'], ['Windows · Mac · Autre', null]]) {
       const l = shown.filter((m) => (g[1] ? m.famille === 'Linux' : m.famille !== 'Linux')); if (!l.length) continue;
       main.append(el('div', { class: 'ym-sec' }, el('i', { style: `background:${g[1] ? FAM.Linux : FAM.Windows}` }), g[0], el('small', {}, String(l.length))), el('div', { class: 'ym-cards' }, ...l.map((m) => card(m, D, redraw))));
     }
     const sel = all.find((m) => m.id === S.sel) ?? all[0]; if (sel) main.append(detail(sel, D, redraw));
+  }
+  /**
+   * Le garde-fou de la suppression (maquette, écran 11c ; lot M3) : ce qui en dépend relu à l'ouverture ; refusé tant
+   * qu'elle tourne ou qu'un dépendant vivant existe ; sinon ce qui part et ce qui reste, le choix dit du disque (VM),
+   * son nom écrit en entier. Échap ou « Garder » ferme sans rien faire.
+   */
+  function garde(m, D, redraw) {
+    const G = S.garde, box = el('div', {});
+    // Le clavier revient au bouton « Supprimer » de sa carte ; une machine en quarantaine n'en a pas : à sa carte.
+    const fermer = () => { S.garde = null; S.focus = document.querySelector(`[data-sup="${m.id}"]`) ? `[data-sup="${m.id}"]` : `[data-carte="${m.id}"]`; redraw(); };
+    const touche = (e) => { if (e.key === 'Escape') { e.preventDefault(); fermer(); } };
+    const garder = () => el('button', { class: 'ym-btn', type: 'button', 'data-g': 'garder', onclick: fermer }, 'Garder la machine');
+    const lire = async () => { G.bilan = undefined; G.err = ''; G.rendre(); const r = await post('dependants_machines', { machine: m.id }); if (S.garde !== G) return; if (r.ok === false) G.err = r.text || 'lecture impossible'; else G.bilan = r.data?.machines?.[m.id] ?? { dependants: [], bloquants: [] }; G.rendre(G.err ? 'relire' : G.bilan.bloquants.length ? 'garder' : 'nom'); };
+    const relire = () => el('button', { class: 'ym-btn', type: 'button', 'data-g': 'relire', onclick: () => void lire() }, ic('refresh', 15), 'Relire');
+    const cadre = (titre, ...kids) => el('div', { class: 'ym-guard', role: 'group', 'aria-labelledby': 'ymGT', onkeydown: touche }, el('span', { class: 'gi', 'aria-hidden': 'true' }, ic('trash', 22)), el('div', {}, el('b', { class: 't', id: 'ymGT' }, titre), ...kids));
+    const vm = m.genre === 'vm', tourne = m.etat?.state === 'en marche' || m.etat?.state === 'en pause';
+    function rendre(focus) {
+      let n;
+      if (tourne) n = cadre(`Supprimer « ${m.nom} » ?`, el('p', { class: 'err', role: 'alert' }, `${m.nom} est ${m.etat.state === 'en pause' ? 'en pause' : 'allumée'} : arrête-la d'abord.`), el('div', { class: 'ym-row' }, garder()));
+      else if (G.err) n = cadre(`Supprimer « ${m.nom} » ?`, el('p', { class: 'err', role: 'alert' }, `Odin ne peut pas dire ce qui en dépend : ${G.err}`), el('div', { class: 'ym-row' }, relire(), garder()));
+      else if (!G.bilan) n = cadre(`Supprimer « ${m.nom} » ?`, el('p', { role: 'status', style: 'margin:6px 0 10px;font-size:13.5px' }, 'Je regarde ce qui en dépend…'), el('div', { class: 'ym-row' }, garder()));
+      else if (G.bilan.bloquants.length) n = cadre(`« ${m.nom} » ne peut pas être supprimée maintenant`, el('ul', { role: 'alert' }, ...G.bilan.bloquants.map((b) => el('li', {}, b))), el('div', { class: 'ym-row' }, relire(), garder()));
+      else {
+        const restes = G.bilan.dependants.filter((x) => !x.vivant).map((x) => x.texte);
+        const pret = () => G.tape.trim().toLowerCase() === m.nom.toLowerCase() && (!vm || G.disque === 'garder' || G.disque === 'effacer');
+        const ok = el('button', { class: 'ym-btn bad', type: 'button', 'data-g': 'ok', disabled: G.occupe || !pret(), onclick: async () => {
+          if (G.occupe || !pret()) return;
+          G.occupe = true; G.refus = ''; ok.disabled = true; etat.textContent = 'Suppression…';
+          const r = await post('supprimer_machine', { machine: m.id, nom: G.tape, disque: vm ? G.disque : 'effacer' }, true);
+          G.occupe = false;
+          if (r.ok !== false && !r.confirm) { S.garde = null; note(r); S.message = r.text; redraw(); return; }
+          G.refus = r.text || r.confirm || 'refusé'; etat.textContent = ''; await lire();
+        } }, ic('trash', 15), 'Supprimer la machine');
+        const etat = el('span', { role: 'status', class: 'ym-empty', style: 'font-size:12.5px' });
+        const champ = el('input', { id: 'ymGNom', type: 'text', autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off', 'aria-describedby': 'ymGAide', value: G.tape,
+          oninput: (e) => { G.tape = e.target.value; ok.disabled = G.occupe || !pret(); }, onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); ok.click(); } } });
+        const choix = (v, t, sous) => el('label', { class: 'ch' }, el('input', { type: 'radio', name: 'ymGDisque', value: v, checked: G.disque === v, onchange: () => { G.disque = v; ok.disabled = G.occupe || !pret(); } }), el('span', {}, el('b', {}, t), el('small', {}, sous)));
+        n = cadre(`Supprimer la machine « ${m.nom} » ?`,
+          el('ul', {}, el('li', {}, vm ? `Ce qui part : la machine de la liste d'Hydre, son adresse ${m.ip}${m.quarantaine ? ' (elle était en quarantaine)' : ''}.` : `Ce qui part : le conteneur, son disque (${m.disque} Go) et son adresse ${m.ip}. Pour garder son disque, exporte-le d'abord en .ody.`),
+            el('li', {}, `Ce qui reste : ${['les copies exportées en .ody', ...restes.map((x) => x.replace(/\.$/, ''))].join(' ; ')}.`)),
+          vm ? el('fieldset', {}, el('legend', {}, `Son disque (${m.disque} Go) :`), choix('garder', 'Le garder à part', 'rangé dans le dossier « gardes » d\'Hydre, sur ce PC'), choix('effacer', 'L\'effacer', `${m.disque} Go libérés ; ça ne se rattrape pas sans sauvegarde`)) : null,
+          G.refus ? el('p', { class: 'err', role: 'alert' }, G.refus) : null,
+          el('div', { class: 'nm' }, el('label', { for: 'ymGNom' }, 'Écris ', el('kbd', {}, m.nom), ' pour confirmer :'), champ, el('small', { id: 'ymGAide', class: 'ym-empty', style: 'font-size:12px' }, vm ? 'Le bouton s\'allume quand le nom est juste et le disque choisi.' : 'Le bouton s\'allume quand le nom est juste.')),
+          el('div', { class: 'ym-row' }, ok, garder(), etat));
+      }
+      box.replaceChildren(n);
+      const f = focus === 'nom' ? box.querySelector('#ymGNom') : focus ? box.querySelector(`[data-g="${focus}"]`) : null;
+      if (f) setTimeout(() => { f.focus(); }, 0);
+    }
+    // La lecture de ce qui en dépend peut finir après un nouveau dessin de la page : elle dessine dans la boîte du moment.
+    G.rendre = rendre;
+    rendre(G.ouvert ? undefined : 'garder'); if (!G.ouvert) { G.ouvert = true; setTimeout(() => box.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }), 0); }
+    if (!tourne && G.bilan === undefined && !G.lu) { G.lu = true; void lire(); }
+    return box;
   }
   function host(h, D) {
     if (!h) return null;
@@ -175,7 +267,30 @@
         tile('save', 'Sauvegarder', (m.apps ?? []).includes('sindri') ? 'Chaque nuit avec Phénix.' : 'Exporte-la en .ody, ou ajoute Phénix à la création.', async () => ({ text: (m.apps ?? []).includes('sindri') ? 'Phénix la sauvegarde chaque nuit (plan « Machine ' + m.nom + ' »).' : 'Pas de sauvegarde automatique pour cette machine : exporte-la en .ody.' })),
         tile('grid', m.estModele ? 'Ce n\'est plus un modèle' : 'Faire un modèle', m.estModele ? 'Elle redevient une machine qui démarre.' : 'Machine éteinte : on crée ensuite des machines depuis elle.', () => post('modele_machine', { machine: m.id, modele: !m.estModele }))),
       el('div', { class: 'ym-w', style: 'grid-column:1/-1' }, el('h3', {}, ic('term', 16), m.genre === 'lxc' ? `Console de ${m.nom}` : `Clavier de ${m.nom}`, el('small', { class: 'r' }, run ? (m.genre === 'lxc' ? 'chaque commande demande ton accord' : 'tape sur son écran (aperçu au-dessus)') : m.etat?.state === 'en pause' ? 'en pause : reprends-la d\'abord' : 'machine éteinte')),
-        el('div', { class: 'ym-row' }, cIn, touche, el('button', { class: 'ym-btn pri ym-send', type: 'button', disabled: !run, onclick: envoyer }, m.genre === 'lxc' ? 'Lancer' : 'Envoyer')), cOut));
+        el('div', { class: 'ym-row' }, cIn, touche, el('button', { class: 'ym-btn pri ym-send', type: 'button', disabled: !run, onclick: envoyer }, m.genre === 'lxc' ? 'Lancer' : 'Envoyer')), cOut),
+      depsBloc(m, D, redraw));
+  }
+  /**
+   * Ce qui dépend de la machine (registre du cahier § 3.7) : ce qu'Odin voit (Genèse, Phénix) et ce que tu as noté
+   * (une autre machine, un conteneur d'Arche, des PC, autre chose), que tu peux retirer ; et noter une dépendance.
+   * Au propriétaire seul : sans la lecture, le bloc n'est pas montré.
+   */
+  function depsBloc(m, D, redraw) {
+    const b = depsDe(D, m); if (!b) return null;
+    const out = el('p', { class: 'ym-out', role: 'status' }), autres = (D.machines ?? []).filter((x) => x.id !== m.id);
+    const genre = el('select', { id: 'ymDg' }, ...[['machine', 'Une autre machine'], ['arche', 'Un conteneur d\'Arche'], ['pc', 'Des PC'], ['autre', 'Autre chose']].map(([v, t]) => el('option', { value: v }, t)));
+    const quiM = el('select', { id: 'ymDq' }, ...autres.map((x) => el('option', { value: x.id }, x.nom))), quiT = el('input', { id: 'ymDq', type: 'text', autocomplete: 'off', placeholder: 'ex. PC du domaine' }), nombre = el('input', { id: 'ymDn', type: 'number', min: '1', inputmode: 'numeric', placeholder: '12' });
+    const quiL = el('label', { for: 'ymDq' }, 'Qui', autres.length ? quiM : quiT), nbL = el('label', { for: 'ymDn' }, 'Combien', nombre);
+    const maj = () => { const g = genre.value, t = g === 'machine' && autres.length ? quiM : quiT; if (quiL.lastChild !== t) quiL.replaceChild(t, quiL.lastChild); quiT.placeholder = g === 'arche' ? 'nom du conteneur' : g === 'pc' ? 'ex. PC du domaine' : 'ex. le site de la maison'; nbL.hidden = g !== 'pc'; };
+    genre.onchange = maj; maj();
+    const ajouter = el('button', { class: 'ym-btn pri', type: 'button', onclick: async (e) => {
+      const bt = e.currentTarget, g = genre.value, qui = g === 'machine' && autres.length ? quiM.value : quiT.value.trim(); if (!qui) { out.textContent = 'Dis ce qui en dépend.'; quiT.focus(); return; }
+      bt.disabled = true; const x = await post('dependance_ajouter', { machine: m.id, genre: g, qui, nombre: g === 'pc' ? Number(nombre.value) || '' : '' }); bt.disabled = false; out.textContent = x.text; note(x); if (x.ok !== false) { S.focus = '#ymDg'; redraw(); }
+    } }, ic('plus', 15), 'Noter');
+    return el('section', { class: 'ym-w', style: 'grid-column:1/-1', 'aria-labelledby': 'ymDT' }, el('h3', { id: 'ymDT' }, ic('link', 16), `Ce qui dépend de ${m.nom}`, el('small', { class: 'r' }, 'elle ne se supprime pas tant que ça tourne')),
+      b.dependants.length ? el('div', { class: 'ym-deps' }, ...b.dependants.map((d) => el('div', { class: 'l' }, el('span', {}, d.texte), d.lien ? el('button', { class: 'ym-btn', type: 'button', 'aria-label': `Retirer ce lien : ${d.nom}`, onclick: async (e) => { const bt = e.currentTarget; bt.disabled = true; const x = await post('dependance_retirer', { lien: d.lien }); bt.disabled = false; note(x); out.textContent = x.text; if (x.ok !== false) { S.focus = '#ymDg'; redraw(); } } }, 'Retirer') : null)))
+        : el('p', { class: 'ym-empty', style: 'margin:0' }, 'Rien n\'en dépend pour l\'instant (ni noté, ni vu par Odin).'),
+      el('div', { class: 'ym-addep' }, el('label', { for: 'ymDg' }, 'Ce qui en dépend', genre), quiL, nbL, ajouter), out);
   }
   function creer(root, D, redraw) {
     const C = S.create; if (C.apps === null) C.apps = new Set((D.apps ?? []).filter((a) => a.reco).map((a) => a.id));
@@ -363,7 +478,7 @@
     main.append(el('div', { class: 'ym-bot' },
       el('div', { class: 'ym-w' }, el('h3', {}, 'Analyse complète'), el('p', { style: 'margin:0 0 10px;font-size:13.5px' }, A ? `${A.propre ? '✅ Propre' : '⚠ À regarder'} · ${new Date(A.at).toLocaleString('fr-FR')} · ${A.texte}` : m.genre === 'vm' ? 'Pour une VM, Odin ne lit pas encore son disque : analyse-la de l\'intérieur.' : 'Pas encore lancée.'),
         el('div', { class: 'ym-row' }, el('button', { class: 'ym-btn', type: 'button', disabled: !(A?.propre && A.at > Q.depuis), onclick: (e) => run(e.currentTarget, 'liberer_machine', { machine: m.id }) }, ic('unlock', 14), 'Sortir de la quarantaine'), el('span', { class: 'ym-empty', style: 'font-size:12px' }, 'possible quand l\'analyse est propre'),
-          el('button', { class: 'ym-btn bad', type: 'button', style: 'margin-left:auto', onclick: (e) => run(e.currentTarget, 'supprimer_machine', { machine: m.id }) }, ic('trash', 14), 'Supprimer')), out),
+          el('button', { class: 'ym-btn bad', type: 'button', style: 'margin-left:auto', onclick: () => { S.tab = 'machines'; S.etat = 'tout'; S.sel = m.id; S.garde = { id: m.id, tape: '', disque: '', refus: '' }; redraw(); } }, ic('trash', 14), 'Supprimer')), out),
       el('div', { class: 'ym-w' }, el('h3', {}, 'Ce qu\'Odin a fait tout seul', el('small', {}, 'journal')),
         ...(Q.journal ?? []).map((j) => el('div', { class: 'ym-j' }, el('span', { class: 'ok' }, ic('check', 15)), el('span', { class: 'tx' }, j.quoi, j.detail ? el('small', {}, ` · ${j.detail}`) : null), j.annuler ? el('button', { class: 'ym-btn', type: 'button', onclick: async (e) => { const b = e.currentTarget; b.disabled = true; const x = j.annuler.module ? await (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: j.annuler.module, action: j.annuler.action, input: j.annuler.input }) })).json() : await act(j.annuler.action, j.annuler.input); b.disabled = false; note(x); redraw(); } }, j.annuler.label) : null)))));
   }
@@ -378,14 +493,23 @@
       // Premier affichage d'un onglet : la barre de chargement au centre (pas pendant le rafraîchissement discret des machines).
       if (S.montre !== S.tab || !body.childNodes.length) body.replaceChildren(el('div', { class: 'ym-w' }, charge(S.tab === 'iso' ? 'Je lis tes images…' : S.tab === 'creer' ? 'Je prépare la liste des systèmes et des images…' : S.tab === 'quarantaine' ? 'Je regarde les machines en quarantaine…' : 'Je lis tes machines…')));
       S.montre = S.tab;
-      const r = await post('tableau_machines'), D = r.data ?? {}, n = el('div', { class: 'ym' }), all = D.machines ?? [];
+      // Ce qui dépend de chaque machine (lecture au propriétaire seul : refusée, la page s'en passe).
+      const tour = (S.tour = (S.tour ?? 0) + 1);
+      const [r, dp] = await Promise.all([post('tableau_machines'), S.tab === 'machines' ? post('dependants_machines') : Promise.resolve(undefined)]);
+      const D = r.data ?? {}, n = el('div', { class: 'ym' }), all = D.machines ?? [];
+      // Deux dessins se croisent (le rafraîchissement de 10 s, un clic) : seul le dernier commencé s'affiche, sinon un
+      // dessin plus ancien remettrait ce qui vient d'être fermé (le garde-fou de la suppression).
+      if (tour !== S.tour) return;
+      if (dp && dp.ok !== false && dp.data) D.deps = dp.data;
       sub.textContent = `${all.filter((m) => m.genre === 'lxc').length} LXC et ${all.filter((m) => m.genre === 'vm').length} VM sur ce PC · rangées par système`;
       if (S.tab === 'creer') creer(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
       body.replaceChildren(...n.childNodes);
+      // Le clavier garde sa place après un nouveau dessin (filtre choisi, garde-fou fermé).
+      if (S.focus) { const f = body.querySelector(S.focus); S.focus = null; if (f) f.focus(); }
     };
     await redraw();
-    // L'aperçu et les chiffres se relisent toutes les 10 s sur l'onglet Machines.
+    // L'aperçu et les chiffres se relisent toutes les 10 s sur l'onglet Machines (pas pendant une suppression : le nom écrit resterait).
     clearInterval(S.timer);
-    S.timer = setInterval(() => { if (!root.isConnected) { clearInterval(S.timer); return; } if (S.tab === 'machines' && !document.hidden) void redraw(); }, 10000);
+    S.timer = setInterval(() => { if (!root.isConnected) { clearInterval(S.timer); return; } if (S.tab === 'machines' && !S.garde && !document.hidden) void redraw(); }, 10000);
   };
 })();

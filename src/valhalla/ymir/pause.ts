@@ -9,6 +9,7 @@
 import type { Action, ModCtx } from '../types.ts';
 import { avecJournal, actionJournal } from '../vidarr/qui-a-fait.ts';
 import { Local, type Machine } from './local.ts';
+import { quiEnDepend } from './dependances.ts';
 
 /** Une VM d'un serveur relié, telle que la liste de ses ressources la donne. */
 export interface VmDistante { vmid: number; name?: string; type: string; status?: string; server: string; node: string }
@@ -53,7 +54,7 @@ export function pauseActions(d: Distant): Action[] {
     {
       id: 'pause_machine', label: 'Mettre en pause', what: 'Fige une machine virtuelle allumée : elle garde sa mémoire et repart où elle en était (VM de ce PC ou d\'un serveur relié)',
       params: [p], proprietaireSeul: true,
-      grave: (i, ctx) => `mettre en pause la machine ${nomLisible(ctx, i.machine)} (ses services ne répondent plus jusqu'à la reprise)`,
+      grave: (i, ctx) => `mettre en pause la machine ${nomLisible(ctx, i.machine)} (ses services ne répondent plus jusqu'à la reprise)${quiEnDepend(ctx, i.machine)}`,
       // Des mots qui nomment la VM : « mettre en pause » seul est aussi la lecture, un film, un abonnement (autres applis).
       words: ['mets en pause la vm', 'mets la vm en pause', 'mets en pause la machine virtuelle', 'mets la machine virtuelle en pause', 'pause la vm', 'suspends la vm', 'suspends la machine virtuelle', 'mettre en pause la vm'],
       undo: (i) => ({ action: 'reprendre_machine', input: { machine: i.machine }, label: 'Reprendre' }),
