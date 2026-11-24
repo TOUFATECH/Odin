@@ -32,7 +32,9 @@ const EMETTEURS: Record<string, Record<string, string[]>> = {
   'sso/sauvegardes.ts': { ctx: ['var'] },
   'thjalfi/suivi.ts': { ctx: ['thjalfi'] },
   'ymir/bibliotheque.ts': { ctx: ['ymir'] },
+  'ymir/creation.ts': { ctx: ['ymir'] },
   'ymir/machines.ts': { ctx: ['ymir'] },
+  'ymir/retrait.ts': { ctx: ['ymir'] },
 };
 /** modules/<fichier>.ts dont l'appli a un autre identifiant. La clé `venus` reste aussi dans la table : l'essai
  * test/automatismes-applis.test.ts la lit par le nom du fichier. */
