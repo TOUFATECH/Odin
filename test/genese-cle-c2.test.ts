@@ -385,7 +385,7 @@ test('C2 : rien n\'est écrit — seules des lectures partent ; l\'étape 1 et s
   await p.ajouter('iso:win11').emettre('click'); await attendre(); await attendre();
   await p.choix('iso:win11', 'installe')!.emettre('click'); await attendre(); await attendre();
   const actions = new Set(p.appels.map((a) => a.action));
-  assert.deepEqual([...actions].sort(), ['cle_disques', 'cle_place', 'cle_vms', 'isos']);
+  assert.deepEqual([...actions].sort(), ['cle_disques', 'cle_place', 'cle_vms', 'isos', 'preparation_dite']);
   assert.equal(p.E.choisir('faux-ssd').ok, false, 'un disque interne reste refusé');
   assert.equal(p.E.etat.cle, 'faux-cle-64');
   const texte = p.corps.textContent;

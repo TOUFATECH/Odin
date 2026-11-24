@@ -139,7 +139,9 @@
     'noms.titre': 'Nom de chaque PC sur le réseau', 'noms.auto': 'Automatique (pc-01, pc-02…)', 'noms.vu': 'Garder le nom vu au menu',
     'act.titre': 'Clé d\'activation', 'act.coffre': 'Celle du coffre : {edition} (••••{fin})', 'act.aucune': 'Aucune (sans activation)',
     'act.sans': 'Aucune clé pour cette édition dans le coffre : Windows s\'installe sans activation (c\'est permis).',
-    'ver.titre': 'Avant d\'effacer', 'ver.titre.menu': 'Avant de proposer', 'ver.titre.vm': 'Avant de créer', 'ver.lead': 'Rien n\'est encore lancé. Relis, puis confirme.',
+    'parole.note': 'Préparé par la parole ({quand}) : les PC et le système sont déjà choisis. Relis tout : rien n\'est lancé, la phrase à taper et l\'appui long restent à faire ici.',
+    'parole.note.menu': 'Préparé par la parole ({quand}) : les PC et le système sont déjà choisis. Relis tout : rien n\'est lancé, la confirmation reste à donner ici.',
+    'ver.titre': 'Avant d\'effacer', 'ver.titre.menu': 'Avant de proposer','ver.titre.vm': 'Avant de créer', 'ver.lead': 'Rien n\'est encore lancé. Relis, puis confirme.',
     'ver.pcs': 'Les PC · {n}', 'ver.changer': 'Changer', 'ver.efface': 'disque effacé', 'ver.menu': 'proposé au menu', 'ver.prochain': 'Le prochain PC qui démarre (30 min)',
     'ver.sys': 'Système', 'ver.empreinte': 'Empreinte', 'ver.empreinte.editeur': 'celle de l\'éditeur', 'ver.empreinte.ok': 'vérifiée',
     'ver.install': 'Installation', 'ver.install.auto': 'toute seule', 'ver.install.menu': 'au menu, avec ses questions',
@@ -290,7 +292,32 @@
   }
   /** La famille de profil de logiciels d'un système : windows, debian (Ubuntu, Debian…) ou fedora (Fedora, Rocky, Alma). Pur. */
   const osDe = (c) => (c && c.famille === 'windows' ? 'windows' : /fedora|rocky|alma|centos|rhel/i.test(`${(c && c.nom) || ''} ${(c && c.fichier) || ''}`) ? 'fedora' : 'debian');
-  const logique = { MOTS, mot, NB_ETAPES, CIBLES, FACONS_CLE, VERS_CLE, verifMac, nomVmValide, nomVmPour, choisissable, pcsChoisis, aEffacer, carteChoisie, etapeOuverte, suivant: suivantLocal, quand, APPUI_MS, phrasePour, phraseNormale, phraseOk, peutLancer, resteAppui, choixIdentite, identitesChoisies, nomCompteOk, compteOk, nomsPcs, osDe };
+  /**
+   * Par la parole (lot S11) : ce qu'une phrase dite a préparé (« installe Ubuntu sur les PC qui viennent de démarrer »),
+   * traduit en choix de la page — les PC, le système, la façon. Pur. Rien d'autre n'est repris : ni phrase, ni appui, ni
+   * choix d'identité, ni profil (ils se donnent ici, à la main). Un seul écart avec ce que la page voit maintenant (un PC
+   * absent ou bloqué, un système qui n'est plus déployable, une adresse mal écrite, plus de 30 minutes) : rien n'est
+   * repris du tout — jamais une préparation à moitié.
+   */
+  function depuisPreparation(p, Z, maintenant) {
+    if (!p || typeof p !== 'object' || p.sorte !== 'reseau' || !Array.isArray(p.systemes) || p.systemes.length !== 1 || !Array.isArray(p.pcs) || !p.pcs.length || p.pcs.length > 50) return null;
+    const at = Number(p.at), fin = Number(p.expire), t = Number(maintenant) || 0;
+    if (!(at <= t + 60_000) || !(fin > t) || fin - at > 30 * 60_000) return null;
+    const vus = Z.postes && Z.postes.data && Array.isArray(Z.postes.data.postes) ? Z.postes.data.postes : null;
+    const cartes = Z.systemes && Z.systemes.data && Array.isArray(Z.systemes.data.cartes) ? Z.systemes.data.cartes : null;
+    if (!vus || !cartes) return null;
+    const pcs = [];
+    for (const x of p.pcs) {
+      const v = verifMac(x && x.mac); if (!v.ok) return null;
+      const q = vus.find((y) => y.mac === v.mac); if (!q || q.bloque) return null;
+      if (!pcs.includes(v.mac)) pcs.push(v.mac);
+    }
+    const iso = String((p.systemes[0] && p.systemes[0].iso) || '');
+    const c = iso ? cartes.find((x) => x && x.iso === iso && choisissable(x, 'reseau')) : null;
+    if (!c) return null;
+    return { pcs, sys: c.id, carte: c, facon: p.facon === 'menu' ? 'menu' : 'auto', at };
+  }
+  const logique = { MOTS, mot, NB_ETAPES, CIBLES, FACONS_CLE, VERS_CLE, verifMac, nomVmValide, nomVmPour, choisissable, pcsChoisis, aEffacer, carteChoisie, etapeOuverte, depuisPreparation, suivant: suivantLocal, quand, APPUI_MS, phrasePour, phraseNormale, phraseOk, peutLancer, resteAppui, choixIdentite, identitesChoisies, nomCompteOk, compteOk, nomsPcs, osDe };
 
   // ---------------------------------------------------------------- l'état (gardé quand on change d'onglet)
   const Z = {
@@ -307,6 +334,8 @@
     saisie: '', appui: { debut: 0, minuteur: 0 }, msg: '', envoi: { etat: 'rien', texte: '', data: null },
     // Correction S6 : quand Odin demande QUELLE identité est la bonne (refus d'avant, ou une autre connue avant) ; le choix.
     choixId: null, identites: {},
+    // Lot S11 : ce parcours vient d'une phrase dite (l'heure de la préparation) ; effacé dès qu'on change un choix.
+    parole: null,
   };
 
   // ---------------------------------------------------------------- le dessin
@@ -508,8 +537,28 @@
   function aller(n, focus) {
     if (!etapeOuverte(n, Z)) return;
     // Revenir changer quelque chose : la confirmation d'avant ne vaut plus (phrase à retaper, rien de lancé en double).
-    if (n !== Z.etape && Z.envoi.etat !== 'envoi') { Z.envoi = { etat: 'rien', texte: '', data: null }; Z.saisie = ''; Z.msg = ''; Z.choixId = null; Z.identites = {}; }
+    if (n !== Z.etape && Z.envoi.etat !== 'envoi') { Z.envoi = { etat: 'rien', texte: '', data: null }; Z.saisie = ''; Z.msg = ''; Z.choixId = null; Z.identites = {}; Z.parole = null; }
     Z.etape = n; dessinerTout(focus || `etape-${n}`);
+  }
+  /**
+   * Par la parole (lot S11) : si une phrase dite a préparé un déploiement, la page s'ouvre sur « Vérifier » avec les PC
+   * et le système déjà choisis. Odin a relu la préparation (PC toujours vus, ni bloqués ni d'identité douteuse, système
+   * prêt) et la page la relit contre ce qu'elle montre. La phrase à taper et l'appui long ne sont JAMAIS repris : ils
+   * restent à faire ici. Reprise une seule fois (Odin l'oublie ensuite) ; jamais pendant un envoi.
+   */
+  async function reprendrePreparation() {
+    if (!H || Z.envoi.etat === 'envoi' || Z.appui.minuteur) return false;
+    let r;
+    try { r = await H.post('preparation_dite', {}); } catch { return false; }
+    const p = r && r.ok !== false && r.data ? r.data.preparation : null;
+    const x = depuisPreparation(p, Z, Date.now());
+    if (!x || Z.envoi.etat === 'envoi' || Z.appui.minuteur) return false;
+    Z.cible = 'reseau'; Z.pcs = x.pcs; Z.ajoutes = []; Z.prochain = false; Z.facon = x.facon; Z.sys = x.sys; Z.sysCarte = x.carte;
+    Z.saisie = ''; Z.msg = ''; Z.envoi = { etat: 'rien', texte: '', data: null }; Z.choixId = null; Z.identites = {};
+    Z.parole = { at: x.at };
+    Z.etape = etapeOuverte(6, Z) ? 6 : 3;
+    try { await H.post('preparation_oublier', {}); } catch { /* elle s'éteint seule au bout de 30 minutes */ }
+    return true;
   }
   function choisirCible(c) {
     if (!CIBLES.includes(c)) return;
@@ -887,6 +936,8 @@
     if (Z.cible === 'vm') return etapeVerifierVm(c);
     const titre = auto ? 'ver.titre' : 'ver.titre.menu';
     const sec = el('section', { class: 'dp-card', 'aria-labelledby': 'dp-t6' }, el('h4', { id: 'dp-t6' }, mot(titre)), el('p', { class: 'dp-lead' }, mot('ver.lead')));
+    // Venu d'une phrase dite : dit en clair, au-dessus de tout (les choix ne viennent pas de clics faits ici).
+    if (Z.parole) sec.append(el('p', { class: 'dp-msg ok', role: 'status', 'data-f': 'parole-note' }, mot(auto ? 'parole.note' : 'parole.note.menu', { quand: quand(Z.parole.at, Date.now()) })));
     const d = Z.apercu.data;
     if (Z.apercu.etat === 'rien' || Z.apercu.sig !== JSON.stringify([c && c.iso, Z.profil || '', Z.win])) void lireApercu().then(() => dessinerTout());
     const prof = Z.profil ? Z.profils.liste.find((p) => p.id === Z.profil) : null;
@@ -1091,6 +1142,8 @@
     dessinerTout();
     // Les lectures : les PC (et si Hydre peut créer une machine), la bibliothèque, les profils pour la clé.
     await Promise.all([lirePostes(), lireSystemes(), Z.cible === 'cle' && Z.profils.etat === 'rien' ? lireProfils() : null]);
+    // Par la parole (lot S11) : une préparation dite ouvre « Vérifier » pré-rempli (la confirmation reste à donner ici).
+    if (Z.wrap === wrap) await reprendrePreparation();
     if (Z.wrap === wrap) dessinerTout();
   }
 

@@ -114,7 +114,7 @@ const calme = async () => { for (let k = 0; k < 20; k++) await new Promise((ok) 
 const LECTURES = new Set(['thjalfi.deployer_apercu', 'thjalfi.tableau', 'thjalfi.systemes', 'thjalfi.postes_vus', 'thjalfi.profils_logiciels', 'thjalfi.isos', 'thjalfi.cle_disques', 'thjalfi.cle_vms', 'thjalfi.cle_place', 'thjalfi.cle_logiciels', 'thjalfi.cle_apercu_script', 'thjalfi.deployer_apercu']);
 
 /** La page de Genèse montée, ses demandes notées. */
-async function page(o: { vm?: boolean; postesKo?: boolean; oui?: boolean } = {}) {
+async function page(o: { vm?: boolean; postesKo?: boolean; oui?: boolean; /** lot S11 : ce que la parole a préparé (rendu par « preparation_dite ») */ preparation?: unknown; /** lot C8 : le plan de place rendu par « cle_place » */ place?: unknown } = {}) {
   SOURCE = sourceDepart();
   racine = new Noeud('html');
   const tete = new Noeud('head'), corps = new Noeud('body'); racine.append(tete, corps);
@@ -128,6 +128,8 @@ async function page(o: { vm?: boolean; postesKo?: boolean; oui?: boolean } = {})
   const repondre = (module: string, action: string): unknown => {
     if (module === 'ymir' && action === 'creer_machine') return { ok: true, text: 'Machine vm-ubuntu-1 créée.' };
     if (module !== 'thjalfi') return { ok: false, text: 'refusé par l\'essai' };
+    if (action === 'preparation_dite') return { ok: true, text: 'x', data: { preparation: o.preparation ?? null } };
+    if (action === 'preparation_oublier') return { ok: true, text: 'oubliée' };
     if (action === 'deployer_apercu') return APERCU(appels.at(-1)!.input);
     if (action === 'deployer') return REPONSE_DEPLOYER(appels.at(-1)!.input);
     if (action === 'systemes') return SYSTEMES();
@@ -137,7 +139,7 @@ async function page(o: { vm?: boolean; postesKo?: boolean; oui?: boolean } = {})
     if (action === 'cle_disques') return { ok: true, data: { externes: [ici(CLE64)], internes: [] } };
     if (action === 'isos') return { ok: true, data: ici(ISOS) };
     if (action === 'cle_vms') return { ok: true, data: [] };
-    if (action === 'cle_place') return { ok: true, data: { possible: true, autresGo: 0 } };
+    if (action === 'cle_place') return { ok: true, data: o.place ?? { possible: true, autresGo: 0 } };
     if (action === 'cle_logiciels') return { ok: true, data: { logiciels: [] } };
     return { ok: false, text: 'refusé par l\'essai' };
   };
@@ -322,4 +324,82 @@ test('S6 · page : logique pure — phrase, appui, compte, noms (les mêmes règ
   const { nomsDesPcs } = await import('../src/valhalla/thjalfi/recipes.ts');
   const cas = [{ mac: '52:54:00:3a:91:0c', vu: 'Bureau Été' }, { mac: '52:54:00:7e:12:a4', vu: 'bureau-ete' }, { mac: '52:54:00:c1:5b:77' }, { mac: '', vu: '' }];
   for (const f of ['auto', 'vu'] as const) assert.deepEqual(JSON.parse(JSON.stringify(L.nomsPcs(cas, f))), nomsDesPcs(cas, f), `mêmes noms que le serveur (${f})`);
+});
+
+// ------------------------------------------------------------------ lots S11 et C8 : ce que la parole a préparé
+test('S11 · page : une préparation dite ouvre « Vérifier » pré-rempli ; la phrase et l\'appui long restent à faire ici', async () => {
+  const prep = { sorte: 'reseau', at: Date.now() - 60_000, expire: Date.now() + 20 * 60_000, systemes: [{ iso: 'ubuntu', nom: 'Ubuntu' }], pcs: [{ mac: '52:54:00:3a:91:0c' }, { mac: '52:54:00:7e:12:a4' }], facon: 'auto', phrase: 'effacer 2 pc', appui: true };
+  const P = await page({ preparation: prep }); await P.ouvrir();
+  assert.equal(P.etape(6).getAttribute('aria-current'), 'step', 'la page s\'ouvre sur « Vérifier »');
+  assert.match(P.q('[data-f="parole-note"]')!.textContent, /Préparé par la parole .* la phrase à taper et l'appui long restent à faire ici/);
+  assert.deepEqual(P.q('[data-f="rc-pcs"]')!.querySelectorAll('[data-efface]').map((x) => x.getAttribute('data-efface')), ['52:54:00:3a:91:0c', '52:54:00:7e:12:a4']);
+  assert.equal(P.q('[data-phrase]')!.getAttribute('data-phrase'), 'effacer 2 pc');
+  // la préparation est reprise une seule fois (Odin l'oublie), et RIEN n'est parti
+  assert.equal(P.appels.filter((a) => a.action === 'preparation_oublier').length, 1);
+  const deploie = () => P.appels.filter((a) => a.action === 'deployer');
+  assert.equal(deploie().length, 0);
+  // la phrase n'est PAS pré-remplie, le bouton est éteint ; l'appui seul ne lance rien
+  const champ = P.q('[data-f="phrase"]')!, bouton = () => P.q('[data-f="effacer"]')!;
+  assert.equal(champ.value, '', 'la phrase n\'est jamais reprise'); assert.equal(bouton().disabled, true);
+  await bouton().emettre('pointerdown'); await P.tenir(4000); await bouton().emettre('pointerup');
+  assert.equal(deploie().length, 0, 'appui sans phrase : rien');
+  // la phrase tapée seule : rien non plus
+  champ.value = 'effacer 2 pc'; await champ.emettre('input'); await calme();
+  await bouton().emettre('click'); await P.tenir(500);
+  assert.equal(deploie().length, 0, 'phrase sans appui long : rien');
+  // la phrase ET l'appui de 3 s, faits ici : une demande, avec ce qui était préparé
+  await bouton().emettre('pointerdown'); await P.tenir(3100);
+  assert.equal(deploie().length, 1);
+  const d = deploie()[0];
+  assert.equal(d.confirm, true); assert.equal(d.input.phrase, 'effacer 2 pc'); assert.deepEqual(d.input.pcs, ['52:54:00:3a:91:0c', '52:54:00:7e:12:a4']); assert.equal(d.input.iso, 'ubuntu'); assert.equal(d.input.facon, 'auto'); assert.equal(d.input.prochain, false);
+});
+
+test('S11 · page : une préparation qui ne colle pas à ce que la page voit n\'est pas reprise (ni à moitié)', async () => {
+  const base = { sorte: 'reseau', at: Date.now() - 60_000, expire: Date.now() + 20 * 60_000, systemes: [{ iso: 'ubuntu', nom: 'Ubuntu' }], pcs: [{ mac: '52:54:00:3a:91:0c' }], facon: 'auto' };
+  const refusees: Array<[string, unknown]> = [
+    ['un PC bloqué', { ...base, pcs: [{ mac: '52:54:00:3a:91:0c' }, { mac: '52:54:00:08:e2:3d' }] }],
+    ['un PC jamais vu', { ...base, pcs: [{ mac: '52:54:00:99:99:99' }] }],
+    ['une adresse mal écrite', { ...base, pcs: [{ mac: 'ff:ff:ff:ff:ff:ff' }] }],
+    ['un système qui n\'est pas déployable', { ...base, systemes: [{ iso: 'fedora', nom: 'Fedora' }] }],
+    ['deux systèmes', { ...base, systemes: [{ iso: 'ubuntu', nom: 'a' }, { iso: 'win11', nom: 'b' }] }],
+    ['périmée', { ...base, expire: Date.now() - 1 }],
+    ['trop longue', { ...base, expire: Date.now() + 24 * 3600_000 }],
+    ['datée du futur', { ...base, at: Date.now() + 3600_000, expire: Date.now() + 3700_000 }],
+    ['pour une clé', { ...base, sorte: 'cle', cle: { id: 'x', tailleOctets: 1, modele: 'x' } }],
+  ];
+  for (const [quoi, prep] of refusees) {
+    const P = await page({ preparation: prep }); await P.ouvrir();
+    assert.equal(P.etape(1).getAttribute('aria-current'), 'step', quoi); assert.equal(P.q('[data-f="parole-note"]'), null, quoi);
+    assert.equal(P.appels.filter((a) => a.action === 'preparation_oublier' || a.action === 'deployer').length, 0, quoi);
+    assert.equal(P.window.OdinGeneseDeployer.etat.pcs.length, 0, quoi); assert.equal(P.window.OdinGeneseDeployer.etat.sys, '', quoi);
+  }
+  // « le proposer au menu » : repris tel quel (aucun disque effacé), la confirmation reste à donner
+  const M = await page({ preparation: { ...base, facon: 'menu' } }); await M.ouvrir();
+  assert.equal(M.etape(6).getAttribute('aria-current'), 'step'); assert.equal(M.window.OdinGeneseDeployer.etat.facon, 'menu');
+  assert.equal(M.appels.filter((a) => a.action === 'deployer').length, 0);
+  // revenir changer un choix : la mention « par la parole » s'efface (les choix sont maintenant les tiens)
+  await M.clic('[data-dp-etape="2"]'); await M.clic('[data-dp-etape="6"]');
+  assert.equal(M.q('[data-f="parole-note"]'), null);
+});
+
+const PLACE_OK = { possible: true, partitions: [{ role: 'ISO ODIN', tailleGo: 60 }, { role: 'EFI', tailleGo: 0.03 }] };
+test('C8 · page : une préparation dite pour une clé reprend la clé et le système, puis ouvre « Vérifier » ; la phrase reste à taper', async () => {
+  const prep = { sorte: 'cle', at: Date.now() - 60_000, expire: Date.now() + 20 * 60_000, systemes: [{ iso: 'ubuntu', nom: 'Ubuntu' }], cle: { id: CLE64.id, tailleOctets: CLE64.tailleOctets, modele: CLE64.modele }, phrase: 'x' };
+  const P = await page({ preparation: prep, place: PLACE_OK });
+  const cles = P.onglet('Clé USB'); assert.ok(cles, 'l\'onglet « Clés USB »'); await cles.emettre('click'); await calme(); await P.tic(); await calme();
+  const ET = P.window.OdinGeneseCleEtapes.etat, SY = P.window.OdinGeneseCleSystemes.etat;
+  assert.equal(ET.cle, CLE64.id, 'la clé préparée est choisie'); assert.equal(Object.keys(SY.choisis).join(','), 'iso:ubuntu', 'un seul système : celui préparé');
+  assert.equal(ET.etape, 6, 'la page est passée à « Vérifier » une fois la place calculée');
+  assert.match(P.q('[data-f="parole-note"]')!.textContent, /Préparé par la parole .* la phrase à taper reste à donner ici/);
+  assert.equal(P.appels.filter((a) => a.action === 'preparation_oublier').length, 1);
+  const champ = P.q('[data-f="phrase"]'), bouton = P.q('[data-f="ecrire"]');
+  assert.ok(champ && bouton, 'l\'étape « Vérifier » de la clé est affichée'); assert.equal(champ!.value, '', 'la phrase n\'est jamais reprise'); assert.equal(bouton!.disabled, true, 'sans la phrase tapée ici : le bouton est éteint');
+  assert.equal(P.appels.filter((a) => a.action === 'cle_preparer' || a.action === 'cle_appliquer' || a.action === 'cle_changer').length, 0, 'rien n\'est écrit');
+  // une autre clé à sa place (autre taille), ou une préparation pour des PC : pas reprise
+  for (const autre of [{ ...prep, cle: { ...prep.cle, tailleOctets: 32 * G } }, { ...prep, cle: { ...prep.cle, id: 'faux-interne' } }, { ...prep, sorte: 'reseau', pcs: [{ mac: '52:54:00:3a:91:0c' }] }, { ...prep, expire: Date.now() - 1 }]) {
+    const Q = await page({ preparation: autre, place: PLACE_OK });
+    await Q.onglet('Clé USB').emettre('click'); await calme(); await Q.tic(); await calme();
+    assert.equal(Q.window.OdinGeneseCleEtapes.etat.cle, null); assert.equal(Q.window.OdinGeneseCleEtapes.etat.etape, 1);
+    assert.equal(Q.appels.filter((a) => a.action === 'preparation_oublier').length, 0);
+  }
 });

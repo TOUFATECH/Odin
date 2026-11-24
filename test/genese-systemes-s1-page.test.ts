@@ -245,7 +245,7 @@ test('S1 · page : rien n\'est écrit — seules des lectures partent (afficher,
   assert.match(P.dialogues[0], /reprendra/); assert.match(P.dialogues[1], /24\.04\.2/);
   await P.carte(/^Ubuntu 24\.04\.1$/).querySelector('[data-f="deployer"]')!.emettre('click'); await calme();
   await P.q('[data-f="vers-cle"]')!.emettre('click'); await calme();
-  const LECTURES = new Set(['thjalfi.tableau', 'thjalfi.systemes', 'thjalfi.cle_disques', 'thjalfi.isos', 'thjalfi.cle_vms', 'thjalfi.cle_place']);
+  const LECTURES = new Set(['thjalfi.tableau', 'thjalfi.systemes', 'thjalfi.cle_disques', 'thjalfi.isos', 'thjalfi.cle_vms', 'thjalfi.cle_place', 'thjalfi.preparation_dite']);
   for (const a of P.appels) assert.ok(LECTURES.has(`${a.module}.${a.action}`), `lecture seulement : ${a.module}.${a.action}`);
   assert.ok(P.appels.some((a) => a.action === 'systemes'));
   // « Détail » lit la fiche d'Hydre (lecture), « Ajouter un système » ouvre Andromède.

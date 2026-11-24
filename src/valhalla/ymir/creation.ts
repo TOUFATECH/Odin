@@ -35,7 +35,8 @@ import { avecJournal } from '../vidarr/qui-a-fait.ts';
 import { Iso } from '../thjalfi/iso.ts';
 import { debianPreseed, detect, motDePassePc, ubuntuMetaData, ubuntuUserData, type Answer, type Recipe } from '../thjalfi/recipes.ts';
 import { allumee, famille, Local, newMac, systemeVm, VM_WINDOWS, type Machine } from './local.ts';
-import { bibliotheque, pilotesVirtio, profilVm, trouverIso, type FicheIso } from './isos.ts';
+import { bibliotheque, bibliothequeIso, pilotesVirtio, profilVm, trouverIso, type FicheIso } from './isos.ts';
+import { formeDite, relireDit, sansAmorce, texteNonRelu, type Nommable } from '../thjalfi/parole-noms.ts';
 import { synchroEspace } from './bibliotheque.ts';
 import { trouverExact } from './dependances.ts';
 import { effacerArbre, enRetrait, memeChemin, NOM_SUR, raccourciAuDessus } from './retrait.ts';
@@ -361,6 +362,7 @@ export function creationActions(): Action[] {
       grave: (i, ctx) => graveVm(ctx, i.nom, { cpu: Number(i.coeurs) || 0, memoire: Number(i.memoire) || 0, disque: Number(i.disque) || 0 }),
       run: creerVm,
     }]),
+    ...avecJournal('ymir_actes', [creerVmDit()]),
     {
       id: 'compte_rendu_machine', label: 'Compte rendu', read: true, quick: false, proprietaireSeul: true,
       what: 'Le compte rendu d\'une machine de ce PC : où, comment entrer (le mot de passe reste au coffre), ce qui a été fait, ce qui a été essayé (essais refaits maintenant), ce qui reste',
@@ -402,6 +404,123 @@ export function graveVm(ctx: ModCtx | undefined, nom: unknown, d: { cpu: number;
   // Sans Odin pour relire le budget (liste des liens, graphe) : comptée grave, par prudence.
   if (!ctx) return `créer la VM ${s(nom).slice(0, 63)} : le budget de ce PC est relu au moment de créer (au-delà, ton accord)`;
   try { const v = verdictBudget(budgetIci(ctx), d); return v.refus.length ? undefined : v.accord ? `créer la VM ${s(nom).slice(0, 63)} : ${v.accord}` : undefined; } catch { return undefined; }
+}
+
+// ---------------- Par la parole (maquette « Systèmes », lot S11) : « crée-moi une VM Ubuntu » ----------------
+/** Les mots de « crée-moi une VM… » dans les langues que Logos comprend (le japonais : la phrase entière n'est pas lue pour un geste). */
+export const MOTS_VM_DITE = ['crée une vm', 'créer une vm', 'crée une machine virtuelle', 'créer une machine virtuelle', 'fais une vm', 'nouvelle vm', 'une vm', 'une machine virtuelle',
+  'create a vm', 'create a virtual machine', 'make a vm', 'make a virtual machine', 'a vm', 'a virtual machine',
+  'crea una vm', 'crea una máquina virtual', 'una vm', 'una máquina virtual',
+  'erstelle eine vm', 'erstelle eine virtuelle maschine', 'eine vm', 'eine virtuelle maschine'];
+/** Les systèmes de la bibliothèque tels qu'on les nomme, prêts ou non (lecture immédiate des fiches : sert aussi à la confirmation). */
+function systemesDits(ctx: ModCtx, prets = true): Array<Nommable & { f: FicheIso }> {
+  const out: Array<Nommable & { f: FicheIso }> = [];
+  for (const x of bibliothequeIso(ctx).fiches().values()) {
+    const f = x as FicheIso, e = etatSysteme(f);
+    if (e === 'ancienne' || e === 'pilotes' || (e === 'pret') !== prets || /[\\/]old[\\/][^\\/]+$/.test(f.chemin)) continue;
+    out.push({ f, nom: (f.detail || f.nom).slice(0, 80), autres: [f.nom, f.distribution ?? '', f.distribution && f.version ? `${f.distribution} ${f.version}` : ''].filter(Boolean), ...(f.version ? { version: f.version } : {}) });
+  }
+  return out;
+}
+/** Ce qui est dit après « avec » : « 4 Go de mémoire », « 40 Go de disque », « 2 cœurs ». Rien d'autre n'est deviné. Pur. */
+export function taillesDites(t: string): { memoire?: number; disque?: number; cpu?: number; reste: string } {
+  const out: { memoire?: number; disque?: number; cpu?: number; reste: string } = { reste: '' };
+  let r = ` ${formeDite(t)} `;
+  const GO = '(?:go|gb|g|gigas?|gigaoctets?)', MEM = '(?:memoire|ram|memory|memoria|arbeitsspeicher|speicher)', DISQ = '(?:disque|disk|disco|festplatte|platte|stockage|storage)', CPU = '(?:coeurs?|cœurs?|cores?|processeurs?|cpus?|nucleos?|kerne?|vcpus?)';
+  const lire = (re: RegExp, k: 'memoire' | 'disque' | 'cpu') => { const m = re.exec(r); if (!m) return; const n = Number(m[1] ?? m[2]); if (Number.isInteger(n) && n > 0 && n < 100_000) { out[k] = n; r = r.replace(m[0], ' '); } };
+  lire(new RegExp(` (\\d+) ?${GO} (?:de |of |d')?${MEM} | ${MEM} (?:de |of )?(\\d+) ?${GO} `), 'memoire');
+  lire(new RegExp(` (\\d+) ?${GO} (?:de |of |d')?${DISQ} | ${DISQ} (?:de |of )?(\\d+) ?${GO} `), 'disque');
+  lire(new RegExp(` (\\d+) ${CPU} `), 'cpu');
+  out.reste = r.split(' ').filter((w) => w && !['et', 'and', 'y', 'und', 'de', 'of', 'd\''].includes(w)).join(' ');
+  return out;
+}
+/** Les verbes qui créent (« crée », « fais », « installe », « create », « make », « crea », « erstelle »…), en tête de la demande. */
+const RE_CREER_VM = /^\s*(?:cr[ée]e[rz]?|fais|fabrique|installe[rz]?|ajoute|mets|create|make|build|install|add|crea|haz|instala|a[ñn]ade|agrega|erstelle|mache?|installiere)(?:-(?:moi|nous))?(?=\s)/i;
+/** La demande dite, en deux : le système, puis ce qui suit « avec » (les tailles). Pur. */
+export function demandeVm(demande: unknown): { systeme: string; tailles: ReturnType<typeof taillesDites>; avec: boolean } {
+  // « crée-moi une VM Ubuntu », « create a VM with Ubuntu » : le verbe, « une VM » et le « avec » qui annonce le système tombent.
+  // Seulement un verbe qui CRÉE : « copie une VM Debian », « télécharge une VM… », « supprime… », « stop a VM… » gardent leur
+  // verbe, ne désignent donc aucun système, et rien n'est proposé (jamais une création pour une autre demande).
+  const brut = (typeof demande === 'string' ? demande : '').slice(0, 300).replace(/[.!?]+\s*$/, '').replace(/\s+/g, ' ').trim();
+  const t = (RE_CREER_VM.test(brut) ? sansAmorce(brut) : brut)
+    .replace(/^(?:(?:une?|an?|una|eine?|la|the|nouvelle|new|nueva|neue)\s+)*(?:vm|machine virtuelle|virtual machine|m[áa]quina virtual|virtuelle maschine)(?=\s|$)\s*/i, '').replace(/^(?:avec|with|con|mit|sous|de|d'|under|unter)\s+(?=\S)/i, '').trim();
+  const m = /^(.*?),?\s+(?:avec|with|con|mit)\s+(.+)$/i.exec(t);
+  return m ? { systeme: m[1].trim(), tailles: taillesDites(m[2]), avec: true } : { systeme: t, tailles: { reste: '' }, avec: false };
+}
+/** Ce qu'Odin créerait pour cette demande : le système relu (un seul), le nom libre, les tailles (dites, sinon proposées). */
+function vmDite(ctx: ModCtx, demande: unknown): { ok: true; f: FicheIso; nom: string; d: { cpu: number; memoire: number; disque: number } } | { ok: false; text: string } {
+  // Relu contre TOUS les systèmes de la bibliothèque, prêts ou non : « Ubuntu » dit alors qu'un autre Ubuntu vient d'arriver
+  // (pas encore vérifié) ne désigne pas « celui qui est prêt » en silence — Odin demande lequel, et dit lequel n'est pas prêt.
+  const q = demandeVm(demande), prets = systemesDits(ctx), tous = [...prets, ...systemesDits(ctx, false)], r = relireDit(q.systeme, tous);
+  const pasPret = (x: (typeof tous)[number]) => { const e = etatSysteme(x.f); return `${x.nom} : ${e === 'pret' ? 'pas encore prêt' : RAISONS[e]}`; };
+  if (r.ok && etatSysteme(r.x.f) !== 'pret') return { ok: false, text: `${pasPret(r.x)}. Rien n'est créé.` };
+  if (!r.ok) {
+    const connus = prets.slice(0, 8).map((x) => x.nom), attente = r.raison === 'plusieurs' ? r.choix.filter((x) => etatSysteme(x.f) !== 'pret') : [];
+    return { ok: false, text: `${texteNonRelu(r, 'système', 'dans la bibliothèque').replace(/Rien n'est fait/, 'Rien n\'est créé')}${attente.length ? ` (${attente.map(pasPret).join(' ; ')}.)` : ''}${r.raison === 'vide' || r.raison === 'inconnu' ? (connus.length ? ` Systèmes prêts : ${connus.join(', ')}.` : ' Aucun système n\'est prêt : télécharge-en un depuis Genèse → Systèmes.') : ''}` };
+  }
+  if (q.avec && q.tailles.reste) return { ok: false, text: `Je n'ai pas compris « ${q.tailles.reste.slice(0, 60)} » : dis par exemple « avec 4 Go de mémoire et 40 Go de disque ». Rien n'est créé.` };
+  const p = proposition(r.x.f), d = { cpu: q.tailles.cpu ?? p.cpu, memoire: q.tailles.memoire ?? p.memoire, disque: q.tailles.disque ?? p.disque };
+  return { ok: true, f: r.x.f, nom: nomPropose(r.x.f, new Local(ctx).list().map((m) => m.nom)), d };
+}
+// La confirmation porte EXACTEMENT ce qui sera créé. Entre l'annonce (« créer la VM vm-ubuntu-server-1 avec Ubuntu Server… »)
+// et ton « oui », la bibliothèque, les machines ou le budget peuvent changer (un autre Ubuntu arrive, celui annoncé est
+// bloqué, le nom est pris) : la demande relue ne désignerait plus la même chose. Odin garde donc ce qu'il a annoncé —
+// l'identifiant du système, son fichier, sa taille, son empreinte, le nom de la VM, les tailles, l'accord du budget — et,
+// au moment de créer, refuse si ce n'est plus exactement cela (rien n'est créé : il faut le redire, la nouvelle
+// proposition est alors montrée). Sans annonce pour cette demande, rien n'est créé non plus.
+// La garde d'Odin relit la proposition juste avant de lancer l'action : si elle n'est plus celle annoncée, DEUX annonces
+// différentes existent pour la même demande, et Odin ne peut pas savoir laquelle tu as vue — il refuse (« contredite »).
+interface AnnonceVm { cle: string; at: number; /** une autre proposition a été annoncée pour la même demande, encore valable */ contredite?: true }
+const ANNONCES_VM = new Map<string, AnnonceVm>();
+/** Une annonce vaut 30 minutes. */
+export const VALIDITE_ANNONCE_VM = 30 * 60_000;
+const cleDemandeVm = (ctx: ModCtx, demande: unknown) => `${ctx.home}\n${formeDite(demande)}`;
+type VmDite = { f: FicheIso; nom: string; d: { cpu: number; memoire: number; disque: number } };
+const empreinteVmDite = (x: VmDite, accord: string | undefined) => JSON.stringify([x.f.id, x.f.chemin, Number(x.f.taille) || 0, x.f.sha256 ?? '', x.nom, x.d.cpu, x.d.memoire, x.d.disque, accord ?? '']);
+/** Note ce qui est annoncé pour cette demande (la même annonce redite ne change rien). */
+function annoncerVm(ctx: ModCtx, demande: unknown, cle: string): void {
+  const k = cleDemandeVm(ctx, demande), now = ctx.now().getTime(), a = ANNONCES_VM.get(k), valable = Boolean(a && now - a.at < VALIDITE_ANNONCE_VM && now >= a.at);
+  if (a && valable && a.cle === cle) return;
+  if (ANNONCES_VM.size >= 200) for (const [k0, v] of ANNONCES_VM) if (now - v.at >= VALIDITE_ANNONCE_VM || ANNONCES_VM.size >= 200) ANNONCES_VM.delete(k0);
+  ANNONCES_VM.set(k, { cle, at: now, ...(valable ? { contredite: true as const } : {}) });
+}
+/**
+ * « crée-moi une VM Ubuntu » : le système dit est relu contre la bibliothèque (un seul prêt convient, sinon Odin demande
+ * lequel et rien n'est créé) ; Odin PROPOSE le nom et les tailles, et demande toujours ton accord avant de créer ; la
+ * création elle-même est « creer_vm », avec le budget de ce PC (refus avec les chiffres, accord au-delà du seuil).
+ */
+function creerVmDit(): Action {
+  return {
+    id: 'creer_vm_dit', label: 'Créer une VM (dit)', proprietaireSeul: true, quick: false, external: true,
+    what: 'Crée une VM depuis le système dont tu dis le nom (relu contre la bibliothèque ; deux qui conviennent : Odin demande lequel) ; il propose le nom et les tailles, demande ton accord, puis crée par « Créer une VM » dans le budget de ce PC',
+    params: [{ key: 'demande', label: 'Système (son nom)', kind: 'text', required: true }],
+    words: MOTS_VM_DITE,
+    grave: (i, ctx) => {
+      if (!ctx) return 'créer une VM depuis le système dit (relu contre la bibliothèque ; le budget de ce PC est relu au moment de créer)';
+      try {
+        if (horsLinux()) return undefined;
+        const x = vmDite(ctx, i.demande); if (!x.ok) return undefined;
+        const v = verdictBudget(budgetIci(ctx), x.d); if (v.refus.length) return undefined;
+        annoncerVm(ctx, i.demande, empreinteVmDite(x, v.accord));
+        return `créer la VM ${x.nom} avec ${x.f.detail || x.f.nom} : ${x.d.cpu} processeur(s), ${x.d.memoire} Go de mémoire, ${x.d.disque} Go de disque, sur le réseau des machines, installation à la main${v.accord ? ` — ${v.accord}` : ''}`;
+      } catch { return undefined; }
+    },
+    run: async (ctx, i) => {
+      // L'annonce ne sert qu'une fois : créée, refusée ou périmée, il faudra le redire.
+      const k = cleDemandeVm(ctx, i.demande), a = ANNONCES_VM.get(k);
+      ANNONCES_VM.delete(k);
+      const hors = horsLinux(); if (hors) return { ok: false, text: hors };
+      await synchroEspace(ctx);
+      const x = vmDite(ctx, i.demande); if (!x.ok) return { ok: false, text: x.text };
+      const v = verdictBudget(budgetIci(ctx), x.d), now = ctx.now().getTime();
+      // Le budget refuse : « Créer une VM » le dit avec les chiffres (rien n'est créé, aucune annonce n'est en jeu).
+      if (!v.refus.length) {
+        if (!a || now - a.at >= VALIDITE_ANNONCE_VM || now < a.at) return { ok: false, text: `Odin ne t'a pas encore montré ce qu'il créerait pour cette demande (ou c'était il y a plus de ${Math.round(VALIDITE_ANNONCE_VM / 60_000)} minutes). Redis-le : il te le montre, puis tu confirmes. Rien n'est créé.` };
+        if (a.contredite || a.cle !== empreinteVmDite(x, v.accord)) return { ok: false, text: `Ce qu'Odin t'a annoncé n'est plus ce qu'il créerait : la bibliothèque, les machines ou le budget ont changé depuis (ce serait maintenant ${x.nom} avec ${x.f.detail || x.f.nom}, ${x.d.cpu} processeur(s), ${x.d.memoire} Go de mémoire, ${x.d.disque} Go de disque). Redis-le : la nouvelle proposition te sera montrée. Rien n'est créé.` };
+      }
+      return creerVm(ctx, { iso: x.f.id, nom: x.nom, coeurs: x.d.cpu, memoire: x.d.memoire, disque: x.d.disque, reseau: 'machines', auto: false, apps: 'vordr, vidarr' });
+    },
+  };
 }
 
 /**

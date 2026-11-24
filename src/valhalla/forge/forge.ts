@@ -259,7 +259,23 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
   const vues = (ctx: ModCtx): Record<string, Vue> => (ctx.settings.vues as Record<string, Vue> | undefined) ?? {};
   const noterVue = (ctx: ModCtx, id: string, v: Vue) => { const l = { ...vues(ctx), [id]: v }; ctx.saveSettings({ vues: l }); };
   const followed = (ctx: ModCtx) => new Set((ctx.settings.suivis as string[] | undefined) ?? []);
-  const byName = (ctx: ModCtx, q: unknown) => { const t = s(q).trim().toLowerCase(); const x = all(ctx).find((y) => y.id === t || y.name.toLowerCase() === t) ?? all(ctx).find((y) => y.name.toLowerCase().includes(t) && t.length >= 3); if (!x) throw new Error(`${o.noun} inconnu : « ${s(q)} » (voir le catalogue)`); return x; };
+  // Le nom exact (ou l'identifiant) d'abord. Un MORCEAU de nom (« serv », « linux », « windows ») ne vaut que s'il ne
+  // désigne qu'un seul ; plusieurs : Odin demande lequel et rien ne part (jamais « le premier venu » : une phrase dite
+  // ne lance pas le téléchargement d'un autre système que celui voulu).
+  const byName = (ctx: ModCtx, q: unknown) => {
+    const t = s(q).trim().toLowerCase(), l = all(ctx);
+    const x = l.find((y) => y.id === t || y.name.toLowerCase() === t); if (x) return x;
+    const m = t.length >= 3 ? l.filter((y) => y.name.toLowerCase().includes(t)) : [];
+    if (m.length === 1) return m[0];
+    if (m.length > 1) throw new Error(`plusieurs ${o.nouns} conviennent pour « ${s(q).slice(0, 60)} » : ${m.slice(0, 6).map((y) => `« ${y.name} »`).join(', ')}${m.length > 6 ? '…' : ''}. Lequel ? Redis-le avec son nom entier. Rien n'est fait.`);
+    throw new Error(`${o.noun} inconnu : « ${s(q)} » (voir le catalogue)`);
+  };
+  /** Les autres du même nom de famille (« debian » : aussi « Debian (DVD complet) ») : dits après coup, pour ne pas se tromper de variante. */
+  const memeFamille = (ctx: ModCtx, q: unknown, x: Source): string => {
+    if (s(q).trim().toLowerCase() !== x.id) return '';
+    const f = all(ctx).filter((y) => y.id !== x.id && y.kind === x.kind && y.id.startsWith(`${x.id}-`));
+    return f.length ? `\nℹ C'est « ${x.name} » qui est pris. Il existe aussi : ${f.slice(0, 4).map((y) => `« ${y.name} »`).join(', ')} — dis son nom entier pour celui-là (et « arrête le téléchargement » si ce n'était pas le bon).` : '';
+  };
   // L'historique : dans la base d'Odin dès qu'elle est prête (journal « forge_<appli> »), sinon historique.jsonl.
   const hj = (ctx: ModCtx) => journalDe<Event>(ctx, `forge_${basename(ctx.dir)}`, 'historique.jsonl', { garder: 2000 });
   const log = (ctx: ModCtx, e: Omit<Event, 'at'>) => { try { hj(ctx).ajouter({ at: Date.now(), ...e } as Event); } catch { /* disque plein */ } };
@@ -510,6 +526,14 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
     }) };
   }
 
+  // Par la parole (maquette « Systèmes », lot S11) : « télécharge la dernière Debian », dans les langues que Logos comprend.
+  // « Télécharger » prend déjà la dernière version publiée : « la dernière » n'ajoute aucun réglage, seulement des mots
+  // compris. Pour les ISO seulement (Andromède) ; des expressions entières, jamais un verbe seul (il compterait pour
+  // toutes les phrases qui commencent par lui, et ôterait à une autre appli le verbe qu'elle est seule à porter).
+  const MOTS_TELECHARGER_DITS = o.kind !== 'iso' ? [] : ['télécharge la dernière', 'télécharge le dernier', 'télécharge la dernière version', 'récupère la dernière', 'récupère le dernier',
+    'download the latest', 'download the latest version', 'get the latest',
+    'descarga la última', 'descarga el último', 'descarga la última versión', 'bájate la última', 'bájate el último',
+    'lade das neueste', 'lade die neueste', 'lade den neuesten', 'lade die neueste version', 'lade das neueste herunter'];
   const PLAN: Param[] = [
     { key: 'jours', label: 'Jours (lun, mar… ou « tous »)', kind: 'text', default: 'ven' },
     { key: 'heure', label: 'Heure (HH:MM)', kind: 'text', default: '03:00' },
@@ -542,11 +566,13 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
       return { text: lines.join('\n') };
     } },
     { id: 'mettre_a_jour', label: 'Tout mettre à jour', what: 'Vérifie et télécharge maintenant tout ce qui est nouveau', words: [`mets à jour les ${o.nouns}`, `mettre à jour les ${o.nouns}`], run: async (ctx) => ({ text: await cycle(ctx, 'demande') }) },
-    { id: 'telecharger', label: 'Télécharger', what: `La dernière version d'un ${o.noun}, maintenant (il devient suivi) ; si un téléchargement est déjà en cours, il attend son tour dans la file`, proprietaireSeul: true, params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }], words: [`télécharge un ${o.noun}`, 'télécharge', 'telecharge'], run: async (ctx, i) => {
+    { id: 'telecharger', label: 'Télécharger', what: `La dernière version d'un ${o.noun}, maintenant (il devient suivi) ; si un téléchargement est déjà en cours, il attend son tour dans la file`, proprietaireSeul: true, params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }], words: [`télécharge un ${o.noun}`, 'télécharge', 'telecharge', ...MOTS_TELECHARGER_DITS], run: async (ctx, i) => {
       const x = byName(ctx, i.nom); if (x.manual) return { ok: false, text: `${x.name} : ${x.manual}\nPage officielle : ${x.page}\nDépose le fichier dans : ${root(ctx)}` };
       // Un seul téléchargement à la fois : s'il y en a un, celui-ci attend son tour (la dernière version publiée).
-      if (running || jobs.size) { let rel: Release; try { rel = await getLatest(ctx, x); } catch (e) { return { ok: false, text: `❌ ${x.name} : ${(e as Error).message}` }; } return ajouterALaFile(ctx, x, rel.version, rel.size ?? (vues(ctx)[x.id]?.version === rel.version ? vues(ctx)[x.id]?.taille : undefined)); }
-      surveiller(ctx, x.id); return { text: await cycle(ctx, 'demande', x) };
+      // « debian » dit seul prend « Debian (netinst) » : la réponse le dit, et nomme les autres du même nom (DVD complet…).
+      const aussi = memeFamille(ctx, i.nom, x);
+      if (running || jobs.size) { let rel: Release; try { rel = await getLatest(ctx, x); } catch (e) { return { ok: false, text: `❌ ${x.name} : ${(e as Error).message}` }; } const r = ajouterALaFile(ctx, x, rel.version, rel.size ?? (vues(ctx)[x.id]?.version === rel.version ? vues(ctx)[x.id]?.taille : undefined)); return { ...r, text: `${r.text}${aussi}` }; }
+      surveiller(ctx, x.id); return { text: `${await cycle(ctx, 'demande', x)}${aussi}` };
     } },
     { id: 'annuler', label: 'Arrêter le téléchargement', what: 'Le fichier entamé reprendra la prochaine fois ; la file continue avec le suivant', quick: false, proprietaireSeul: true, params: [{ key: 'nom', label: `${o.noun} (vide : tous)`, kind: 'text', default: '' }], run: (ctx, i) => {
       const tous = !s(i.nom).trim(), id = tous ? '' : byName(ctx, i.nom).id, l = [...jobs.values()].filter((j) => tous || j.source === id); l.forEach((j) => j.ctrl.abort());

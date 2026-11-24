@@ -38,6 +38,7 @@
     'etape.6': 'Vérifier', 'etape.6.sous': 'Avant d\'écrire',
     'etape.position': 'Étape {n} sur {total}',
     'etape.fermee': 'Choisis d\'abord une clé.',
+    'parole.note': 'Préparé par la parole : la clé et le système sont déjà choisis. Relis tout : rien n\'est écrit, la phrase à taper reste à donner ici, à l\'étape « Vérifier ».',
     'cle.titre': 'Quelle clé ou quel disque ?',
     'cle.lead': 'Branche la clé ou le disque (disque USB, SSD externe, carte mémoire). Odin le voit arriver tout seul ; il s\'appellera {nom}.',
     'cle.nom': 'ODIN',
@@ -269,7 +270,24 @@
     return essais.find((j) => ouvert(j)) ?? -1;
   }
 
-  const logique = { MOTS, mot, taille, queue, choisissable, vueDisques, choisir, garde, debutVerif, suivreVerif, texteVerif, etapeOuverte, suivant, ONGLETS, ETAPES, COPIE_POSSIBLE, VERIF_MAX_MS };
+  /**
+   * Par la parole (lot C8) : ce qu'une phrase dite a préparé (« mets Windows 11 sur la clé »), traduit en choix de la
+   * page — la clé (parmi celles que la page voit, choisissables, de la même taille) et UN système. Pur. Rien d'autre n'est
+   * repris : ni phrase, ni accord. Un seul écart (clé absente ou d'une autre taille, plus de 30 minutes) : rien du tout.
+   * (Odin a déjà revérifié, de son côté, que c'est la même clé par l'empreinte de son numéro de série.)
+   */
+  function clePreparee(p, vue, maintenant) {
+    if (!p || typeof p !== 'object' || p.sorte !== 'cle' || !p.cle || typeof p.cle !== 'object' || !Array.isArray(p.systemes) || p.systemes.length !== 1) return null;
+    const at = Number(p.at), fin = Number(p.expire), t = Number(maintenant) || 0;
+    if (!(at <= t + 60_000) || !(fin > t) || fin - at > 30 * 60_000) return null;
+    const k = choisir(vue, p.cle.id); if (!k.ok) return null;
+    const c = vue.cles.find((x) => x.id === k.cle);
+    if (!c || !c.brut || !(Number(c.brut.tailleOctets) > 0) || Number(c.brut.tailleOctets) !== Number(p.cle.tailleOctets)) return null;
+    const iso = String((p.systemes[0] && p.systemes[0].iso) || '');
+    if (!iso || iso.length > 200) return null;
+    return { cle: c.id, iso, at };
+  }
+  const logique = { MOTS, mot, taille, queue, choisissable, vueDisques, choisir, garde, clePreparee, debutVerif, suivreVerif, texteVerif, etapeOuverte, suivant, ONGLETS, ETAPES, COPIE_POSSIBLE, VERIF_MAX_MS };
 
   // ---------------------------------------------------------------- la page
   const el = (t, a = {}, ...kids) => {
@@ -572,11 +590,25 @@
     }
     return [carte];
   }
+  /** Venu d'une phrase dite : dit en clair au-dessus de l'étape (les choix ne viennent pas de clics faits ici). */
+  const noteParole = () => (S.parole && (S.etape === 3 || S.etape === 6) ? [el('p', { class: 'ck-msg', role: 'status', 'data-f': 'parole-note' }, mot('parole.note'))] : []);
+  /** Les choix sont-ils encore ceux que la parole a posés (un seul système, pas retouché à la main) ? */
+  const paroleIntacte = () => {
+    const E = SYS() && SYS().etat, k = E && E.choisis ? Object.keys(E.choisis) : [];
+    return Boolean(S.parole && S.cle === S.parole.cle && k.length === 1 && k[0] === S.parole.sys && E.choisis[k[0]] && !E.choisis[k[0]].main);
+  };
   function panneau() {
     if (S.onglet === 'deployer') {
+      // Par la parole (lot C8) : dès que l'étape 3 est juste pour la clé préparée (le système tient, place calculée), la
+      // page passe à « Vérifier » — comme un clic sur l'étape 6, rien de plus. Un choix retouché entre-temps : plus de saut.
+      if (S.parole && S.parole.viser) {
+        if (!paroleIntacte() || S.etape !== 3 || Date.now() - S.parole.pose > 20_000) S.parole.viser = false;
+        else if (ouverte(6)) { S.parole.viser = false; S.etape = 6; }
+      }
+      if (S.parole && !paroleIntacte()) S.parole = null;
       const c = S.vue.cles.find((x) => x.id === S.cle);
       if ((S.etape === 2 || S.etape === 3) && SYS() && c) {
-        return [etapes(), ...SYS().rendre(S.etape, { cle: c.brut, sorte: c.sorte, post: C.outils.post, redessiner: (f) => dessiner(f), pied, wrap: C.wrap })];
+        return [etapes(), ...noteParole(), ...SYS().rendre(S.etape, { cle: c.brut, sorte: c.sorte, post: C.outils.post, redessiner: (f) => dessiner(f), pied, wrap: C.wrap })];
       }
       if ((S.etape === 4 || S.etape === 5) && LOG() && c) {
         // Plus de Windows choisi (retiré à l'étape 3) : l'étape 5 n'a plus lieu d'être, on revient à l'étape 4.
@@ -585,7 +617,7 @@
       }
       if (S.etape === 6 && SUIVI() && c) {
         // Lot C4 : Vérifier, puis l'écriture et la fin. Les choix des étapes 2 à 5 sont relus à chaque dessin.
-        return [etapes(), ...SUIVI().rendre(6, {
+        return [etapes(), ...noteParole(), ...SUIVI().rendre(6, {
           cle: c.brut, vue: c, sorte: c.sorte, post: C.outils.post, redessiner: (f) => dessiner(f), pied, wrap: C.wrap, mascotte,
           aller: (n) => { if (!ouverte(n)) return; S.etape = n; dessiner(`etape-${n}`); },
           composes: () => (SYS() ? SYS().composes() : []), suite: (comp) => (LOG() ? LOG().pourComposeur(comp) : null),
@@ -668,6 +700,36 @@
     C.verifMinuteur = setInterval(() => { void tourVerif(); }, 1000);
   }
 
+  /**
+   * Par la parole (lot C8) : si une phrase dite a préparé une clé, la page reprend la clé et le système, va à l'étape 3
+   * (où la place est calculée) puis, dès que tout tient, à « Vérifier ». Odin a relu la préparation (la même clé, par
+   * l'empreinte de son numéro de série ; le système toujours prêt) et la page la relit contre ce qu'elle voit. La phrase à
+   * taper n'est JAMAIS reprise : elle se donne à l'étape « Vérifier ». Reprise une seule fois ; jamais pendant une
+   * écriture ni pendant « Vérifier en la débranchant ».
+   */
+  async function reprendrePreparation(moi) {
+    if (C !== moi || verrou() || verifEnCours()) return false;
+    const SY = SYS();
+    if (!SY || !SY.etat || !SY.logique || typeof SY.logique.entrees !== 'function' || typeof SY.logique.defautPour !== 'function') return false;
+    let r;
+    try { r = await C.outils.post('preparation_dite'); } catch { return false; }
+    if (C !== moi || verrou() || verifEnCours()) return false;
+    const x = clePreparee(r && r.ok !== false && r.data ? r.data.preparation : null, S.vue, Date.now());
+    if (!x) return false;
+    // Le système : celui de la bibliothèque, coché comme à l'étape 3 (le choix de départ pour la façon en cours), seul.
+    let e;
+    try { const b = await C.outils.post('isos'); e = SY.logique.entrees(b && b.ok !== false && Array.isArray(b.data) ? b.data : [], [], false).find((y) => y.id === `iso:${x.iso}`); } catch { e = undefined; }
+    if (C !== moi || !e || verrou() || verifEnCours()) return false;
+    const c = S.vue.cles.find((y) => y.id === x.cle);
+    if (!c) return false;
+    S.onglet = 'deployer'; S.cle = c.id; S.choix = empreinte(c); S.msg = '';
+    SY.etat.choisis = { [e.id]: { choix: SY.logique.defautPour(SY.etat.facon, e), main: false } };
+    S.parole = { cle: c.id, sys: e.id, at: x.at, viser: true, pose: Date.now() };
+    S.etape = 3;
+    try { await C.outils.post('preparation_oublier'); } catch { /* elle s'éteint seule au bout de 30 minutes */ }
+    return true;
+  }
+
   /** Monte le parcours dans « wrap ». outils : { post, act, ancienne(noeud) } (ancienne : les disques comme avant). */
   async function monter(wrap, outils) {
     if (typeof document !== 'undefined' && document.head && !document.getElementById?.('ckCss')) document.head.append(el('style', { id: 'ckCss' }, CSS));
@@ -681,6 +743,9 @@
     dessiner();
     await relire(true);
     // Genèse a redessiné l'onglet pendant la lecture : c'est le nouveau montage qui relit, pas celui-ci.
+    if (C !== moi) return;
+    // Par la parole (lot C8) : une préparation dite ouvre le parcours pré-rempli (la phrase reste à taper ici).
+    if (await reprendrePreparation(moi)) { if (C !== moi) return; dessiner('etape-3'); }
     if (C !== moi) return;
     // Odin voit la clé arriver toute seule : on relit la liste (lecture seule) toutes les 3 s, tant que la page est là,
     // aux étapes 1 à 3 (une clé débranchée pendant le choix des systèmes est vue : retour à l'étape 1). La page n'est

@@ -113,7 +113,7 @@ class Noeud {
 class Texte extends Noeud { constructor(t: string) { super('#text', 3); this.texte = t; } }
 const calme = async () => { for (let k = 0; k < 20; k++) await new Promise((ok) => setTimeout(ok, 4)); };
 
-const LECTURES = new Set(['thjalfi.tableau', 'thjalfi.systemes', 'thjalfi.postes_vus', 'thjalfi.profils_logiciels', 'thjalfi.isos', 'thjalfi.cle_disques', 'thjalfi.cle_vms', 'thjalfi.cle_place', 'thjalfi.cle_logiciels', 'thjalfi.cle_apercu_script', 'thjalfi.deployer_apercu']);
+const LECTURES = new Set(['thjalfi.tableau', 'thjalfi.systemes', 'thjalfi.postes_vus', 'thjalfi.profils_logiciels', 'thjalfi.isos', 'thjalfi.cle_disques', 'thjalfi.cle_vms', 'thjalfi.cle_place', 'thjalfi.cle_logiciels', 'thjalfi.cle_apercu_script', 'thjalfi.deployer_apercu', 'thjalfi.preparation_dite']);
 
 /** La page de Genèse montée, ses demandes notées. */
 async function page(o: { vm?: boolean; postesKo?: boolean } = {}) {

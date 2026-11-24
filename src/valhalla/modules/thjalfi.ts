@@ -35,6 +35,7 @@ import { pxeHook, type DhcpConfig, type Lease, type Packet } from '../vidarr/dhc
 import { DhcpAPart, MODES_ADRESSES, RESEAU, conclure, lignesBox, modeAdresses, plageParDefaut, refusCarte, refusPartage, verifierPlage, type CarteReseau, type Garde, type PlageComplet } from '../thjalfi/reseau.ts';
 import { cleUsb } from '../thjalfi/cle-ecrire.ts';
 import { cleGerer } from '../thjalfi/cle-gerer.ts';
+import { MOTS_GENESE_PAROLE, paroleGenese } from '../thjalfi/parole.ts';
 import { defautSur, idsPropres, installe, lireMenu, menuPxeCfg, ordonner, visibles, type MenuPxeCfg } from '../thjalfi/menu-pxe.ts';
 import { EDITIONS, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, masque, supprimerCle } from '../thjalfi/cles-windows.ts';
 import { apercu as apercuScripts, appliquerOptionsWindows, injecterSautExigences, nomCompteValide, optionsWindowsDe, osDuScript, scriptsRevus, type ScriptPerso } from '../thjalfi/scripts.ts';
@@ -1206,13 +1207,22 @@ export function thjalfi(): Module {
     },
   } satisfies Action;
   actions.push(actionDeployer);
+  // Par la parole (lots S11 et C8) : une phrase dite va à la bonne action, avec le système relu contre la bibliothèque, la
+  // clé contre les clés vues et les PC contre ceux vus au démarrage réseau. Ces actions PRÉPARENT et proposent : elles
+  // n'appellent ni « deployer » ni « cle_preparer » (la phrase tapée et l'appui long restent dans la page).
+  actions.push(...paroleGenese({
+    isos: async (ctx) => (await isos(ctx)).map((i) => ({ id: i.id, nom: i.name, chemin: i.path, prete: prete(i) && Boolean(i.recipe) && !i.err, demarrable: Boolean(i.recipe) && !i.err, auto: Boolean(i.recipe?.auto) && !i.err, windows: i.recipe?.kind === 'windows' })),
+    action: (id) => actions.find((a) => a.id === id),
+    // La règle de l'identité de « Déployer » : deux appareils différents vus avec la même adresse ces dernières 24 h.
+    douteux: (ctx, macs) => { const vues = identitesVues(ctx), t0 = ctx.now().getTime(); return macs.filter((m) => identitesEnConflit(vues[m], t0).length > 0); },
+  }).actions);
 
   const mod: Module = {
     id: 'thjalfi', name: 'Genèse', family: 'Machines',
     what: 'Le déploiement par le réseau : les ISO d\'Andromède démarrent sur n\'importe quelle machine sans clé USB, s\'installent toutes seules sur les machines que tu autorises, avec les logiciels de Hermès ; tu suis chaque poste jusqu\'à la fin, tu peux le bloquer, annuler son installation ou exiger un mot de passe, et tout reste dans l\'historique.',
     does: ['démarrage par le réseau (PXE) en BIOS et UEFI, sans rien régler sur la box (proxy DHCP) ou avec le DHCP d\'Odin', 'les ISO d\'Andromède lues directement (ISO 9660, Joliet, Rock Ridge, UDF) sans extraction', 'installation automatique : Ubuntu (autoinstall), Debian (preseed), Fedora / Rocky / Alma (Kickstart), Windows (unattend, partage réseau)', 'profils : compte, langue, clavier, fuseau, paquets Linux, logiciels Windows de Hermès en silencieux', 'outils et systèmes live (Clonezilla, GParted, Arch, Alpine…) démarrés depuis le menu', 'suivi en direct : chaque poste reconnu (adresse MAC, nom, numéro de série, marque et modèle), ses étapes avec l\'heure, son avancement, jusqu\'à « terminée », « échouée » (avec la raison) ou « abandonnée » (plus de signe de vie)', 'bloquer un poste (son écran le dit, puis il démarre sur son disque), suspendre toutes les nouvelles installations, annuler une installation en cours (avec ton accord)', 'mot de passe d\'installation : le poste le tape avant d\'avoir le menu et les fichiers ; seule son empreinte est gardée ; 5 erreurs bloquent le poste 15 minutes', 'historique de toutes les installations dans la base de l\'appli, filtrable, avec un rapport (réussies, échecs, abandons, durée moyenne, par image) et un export pour tableur ; nombre de déploiements par ISO', 'Odin prévient : début d\'une installation, échec, abandon, réussite, poste inconnu, poste bloqué qui retente, mots de passe refusés', 'sécurité : machine inconnue = son propre disque ; installation automatique seulement si tu l\'autorises, une seule fois'],
     from: ['iVentoy', 'netboot.xyz', 'FOG Project'], upstream: ['ventoy/PXE', 'netbootxyz/netboot.xyz', 'FOGProject/fogproject', 'ipxe/ipxe', 'ipxe/wimboot'],
-    words: ['déploiement réseau', 'deploiement reseau', 'pxe', 'ipxe', 'iventoy', 'démarrage réseau', 'demarrage par le reseau', 'installer par le réseau', 'installation réseau', 'netboot', 'thjalfi', 'þjálfi', 'déployer une iso', 'clé usb', 'clé bootable', 'rufus', 'ventoy', 'dual boot'],
+    words: ['déploiement réseau', 'deploiement reseau', 'pxe', 'ipxe', 'iventoy', 'démarrage réseau', 'demarrage par le reseau', 'installer par le réseau', 'installation réseau', 'netboot', 'thjalfi', 'þjálfi', 'déployer une iso', 'clé usb', 'clé bootable', 'rufus', 'ventoy', 'dual boot', ...MOTS_GENESE_PAROLE],
     actions,
     async view(ctx) {
       C = ctx; const l = await isos(ctx), st = stats(ctx), def = s(ctx.settings.defaut) || 'local', now = ctx.now().getTime();
