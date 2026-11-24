@@ -126,7 +126,7 @@ const actions: Action[] = [
       const d = dernierMaj(ctx); lignes.push(`Dernière vérification des mises à jour : ${d ? `${new Date(d.at).toLocaleString('fr-FR')} (${d.ok ? 'à jour' : 'incomplète'})` : 'jamais'}`);
       return { text: lignes.join('\n') };
     } },
-  { id: 'maj_sources', label: 'Vérifier et mettre à jour', what: 'Vérifie que l\'antivirus, l\'anti-malware et leurs sources sont à jour, et lance les retards.', words: ['mets a jour la securite', 'mets à jour la sécurité', 'verifie les mises a jour'], run: (ctx) => majSources(ctx, { forcer: true }) },
+  { id: 'maj_sources', label: 'Vérifier et mettre à jour', what: 'Vérifie que l\'antivirus, l\'anti-malware et leurs sources sont à jour, et lance les retards.', words: ['argos mets à jour la sécurité', 'mets a jour la securite', 'mets à jour la sécurité', 'verifie les mises a jour'], run: (ctx) => majSources(ctx, { forcer: true }) },
   { id: 'incidents', label: 'Incidents', what: 'Les incidents du parc et d\'Asclépios', read: true, words: ['incidents', 'incident'],
     run: (ctx) => { const parc = chargerIncidentsParc(ctx.home).filter((i) => i.state === 'ouvert'); return { text: parc.length ? parc.map((i) => `• [${i.level}] ${i.title} (${i.apps.join(', ')})`).join('\n') : 'Aucun incident ouvert sur les postes du parc.', data: parc }; } },
   { id: 'incident', label: 'Voir un incident', what: 'La chronologie et l\'arbre des processus d\'un incident', read: true, external: true, params: [{ key: 'id', label: 'Incident', kind: 'text', required: true }],

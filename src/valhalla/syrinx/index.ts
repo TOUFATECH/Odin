@@ -159,7 +159,7 @@ export function syrinx(o: () => OptionsSyrinx): Module {
   const retrouverA: Action = {
     id: 'retrouver', label: 'Retrouver un son', read: true,
     what: 'Retrouve un son ou une musique déjà entendus, par une phrase (« l\'aboiement de la semaine dernière ») ou par un autre son',
-    words: ['retrouve le son', 'syrinx retrouve'],
+    words: ['syrinx retrouve le son', 'retrouve le son', 'syrinx retrouve'],
     params: [{ key: 'phrase', label: 'Phrase', kind: 'text' }, { key: 'fichier', label: 'Ou un son (atelier:nom)', kind: 'text', depot: {} }],
     async run(ctx, i) {
       const phrase = s(i.phrase), ref = s(i.fichier);

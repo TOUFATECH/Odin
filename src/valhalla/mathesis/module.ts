@@ -192,7 +192,7 @@ export function mathesis(o: () => OptionsModuleMathesis = () => ({})): Module {
   const couperA: Action = {
     id: 'couper', label: 'Couper tout',
     what: 'L\'interrupteur unique : plus aucune recherche, plus aucun robot de lecture, plus aucun dossier lu (le travail en cours s\'arrête aussitôt)',
-    words: ['arrete d apprendre tout seul', 'coupe mathesis'],
+    words: ['coupe mathesis', 'arrete d apprendre tout seul'],
     run(ctx) { moteur(ctx).eteindre(); return { ok: true, text: 'Coupé : Odin n\'apprend plus tout seul (aucune recherche, aucun robot, aucun dossier lu).' }; },
   };
   const allumerA: Action = {
