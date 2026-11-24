@@ -318,7 +318,7 @@ export const comptesActions: Action[] = [
     const lien = `${baseLiens(ctx)}/sso/invitation?j=${j}`;
     let parti = '';
     if (email) { try { await courrier()(email, `${prenomProprio(ctx)} t'invite sur Odin`, `Bonjour ${nom},\n\n${prenomProprio(ctx)} t'invite à utiliser Odin (groupes : ${gs.join(', ')}).\nOuvre ce lien pour choisir ton identifiant et ton mot de passe (valable ${jours} jour(s)) :\n\n${lien}\n\nSi tu n'attendais pas ce message, ignore-le.\n\n— Odin`); parti = ` Envoyée à ${email}.`; } catch (e) { parti = ` ⚠ L'e-mail n'a pas pu partir (${(e as Error).message}) : donne le lien toi-même.`; } }
-    return { text: `✉ Invitation pour ${nom} (groupes ${gs.join(', ')}, valable ${jours} jour(s)).${parti}\nLien (à usage unique) : ${lien}`, data: { svg: qrSvg(lien, { scale: 4, margin: 2 }), alt: 'QR code de l\'invitation', lien, id: inv.id } };
+    return { text: `✉ Invitation pour ${nom} (groupes ${gs.join(', ')}, valable ${jours} jour(s)).${parti}\nLien (à usage unique) : ${lien}`, data: { svg: qrSvg(lien, { scale: 4, margin: 2 }), alt: 'QR code de l\'invitation', lien, id: inv.id, secret: true } };
   } },
   { id: 'annuler_invitation', label: 'Annuler une invitation', what: 'Le lien ne marche plus', quick: false, params: [{ key: 'id', label: 'Invitation', kind: 'text', required: true }], run: (ctx, i) => {
     const x = invitations(ctx).find((y) => y.id === s(i.id)); if (!x) throw new Error('invitation inconnue');

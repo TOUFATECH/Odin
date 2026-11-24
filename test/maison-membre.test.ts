@@ -204,9 +204,9 @@ test('contrôle : une tablette « complet » garde ses droits « complet »', as
   assert.ok((r.body.apps as Array<{ id: string }>).some((a) => a.id === 'var'), 'elle voit les applis');
   assert.ok((r.body.network as Array<{ ip: string }>).some((n) => n.ip === '198.51.100.7'), 'elle voit le réseau');
 });
-test('contrôle : la clé d\'API (Bearer) garde « complet »', async () => {
+test('la clé d\'API (Bearer) n\'entre plus sur l\'écran de la maison (décision du propriétaire, 26/11 ; détail dans maison-cle-acces.test.ts)', async () => {
   const r = await v.json('/api/maison/etat', undefined, { authorization: `Bearer ${v.token}` });
-  assert.equal(r.status, 200); assert.equal(r.body.rights, 'complet');
+  assert.equal(r.status, 401); assert.equal(r.body.rights, undefined);
 });
 
 test('contrôle : le propriétaire reçoit toujours « complet »', async () => {

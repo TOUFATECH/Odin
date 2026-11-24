@@ -273,7 +273,7 @@ export const varModule: Module = {
       const p = byLogin(ctx, i.login), a = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let sec = ''; for (const b of randomBytes(20)) sec += a[b % 32];
       savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? { ...x, totpPending: sec } : x)));
       const uri = `otpauth://totp/${encodeURIComponent(`Odin:${p.login}`)}?secret=${sec}&issuer=Odin&digits=6&period=30`;
-      return { text: `📱 Scanne le QR code avec l'appli d'authentification de ${p.name}, puis « Confirmer la double authentification » avec le code affiché.`, data: { svg: qrSvg(uri, { scale: 5, margin: 3 }), alt: 'QR code de double authentification', conf: sec.replace(/(.{4})/g, '$1 ').trim(), label: 'Clé à taper à la main (secrète)', filename: `double-auth-${p.login}.txt` } };
+      return { text: `📱 Scanne le QR code avec l'appli d'authentification de ${p.name}, puis « Confirmer la double authentification » avec le code affiché.`, data: { svg: qrSvg(uri, { scale: 5, margin: 3 }), alt: 'QR code de double authentification', conf: sec.replace(/(.{4})/g, '$1 ').trim(), label: 'Clé à taper à la main (secrète)', filename: `double-auth-${p.login}.txt`, secret: true } };
     } },
     { id: 'confirmer_double_auth', label: 'Confirmer la double authentification', what: 'Le code à 6 chiffres de l\'appli', params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }, { key: 'code', label: 'Code', kind: 'text', required: true }], run: (ctx, i) => {
       const p = byLogin(ctx, i.login); if (!p.totpPending) throw new Error('commence par « Double authentification » (QR code)');
