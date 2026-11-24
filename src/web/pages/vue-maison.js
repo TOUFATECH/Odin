@@ -73,6 +73,10 @@
   window.addEventListener('load', () => {
     const e = document.getElementById('navMaison');
     if (e && typeof MutationObserver === 'function') new MutationObserver(peindre).observe(e, { attributes: true, attributeFilter: ['hidden'] });
+    // Page rechargée sur /#maison : Odin a pu ouvrir la vue AVANT que ce fichier soit chargé (dès que l'état arrive) ;
+    // l'évènement « odin:vue » est alors déjà passé. La page dit elle-même si la vue est ouverte.
+    const s = section();
+    if (!ouverte && s && s.classList.contains('on')) ouverte = true;
     peindre(); // l'entrée a pu se montrer avant ce moment (page rechargée sur /#maison)
   });
 

@@ -567,6 +567,10 @@
     const surEtat = (etat) => { vu = true; VV.proprio = Boolean(etat && typeof etat === 'object' && !etat.membre); peindreVue(); };
     window.addEventListener('odin:etat', (e) => surEtat(e && e.detail));
     window.addEventListener('load', () => {
+      // Page rechargée sur /#venus : Odin a pu ouvrir la vue AVANT que ce fichier soit chargé (dès que l'état arrive) ;
+      // l'évènement « odin:vue » est alors déjà passé. La page dit elle-même si la vue est ouverte.
+      const s = document.getElementById('v-venus');
+      if (!VV.ouverte && s && s.classList.contains('on')) { VV.ouverte = true; const m = document.getElementById('mcur'); if (m) m.textContent = MOTS_VUE.titre; peindreVue(); }
       if (vu) return;
       fetch('/api/account/me', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null))
         .then((j) => { if (!vu && j && j.ok) surEtat({ membre: j.membre }); }).catch(() => { /* hors ligne : rien */ });
