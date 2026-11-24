@@ -10,6 +10,7 @@ import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSyn
 import { open } from 'node:fs/promises';
 import { once } from 'node:events';
 import { basename, join } from 'node:path';
+import { isIP } from 'node:net';
 import { download, sha256File } from '../forge/forge.ts';
 import { parseSums } from '../forge/sources.ts';
 import { lienPropre } from '../lien.ts';
@@ -19,13 +20,21 @@ export const MO = 1024 * 1024, MIN_MORCEAU = MO, MAX_MORCEAUX = 8;
 
 export interface Sonde { url: string; taille?: number; reprise: boolean; etag?: string; modifie?: string; type?: string; disposition?: string }
 
-/** Suit les redirections une par une (chaque lien revérifié par lienPropre ; `garde` peut refuser un saut). */
+/** Suit les redirections une par une (chaque lien revérifié par lienPropre, jamais de https vers http ni vers un nom
+ *  à une étiquette ; `garde` peut refuser un saut). */
 export async function sonder(f: Fetch, lien: string, o: { signal?: AbortSignal; garde?: (u: URL) => Promise<void> | void } = {}): Promise<Sonde> {
   let u = lienPropre(lien);
   for (let saut = 0; saut < 6; saut++) {
     if (saut) { u = lienPropre(u.toString()); await o.garde?.(u); }
     const r = await f(u.toString(), { headers: { range: 'bytes=0-0', 'user-agent': 'Odin-Atalante/1', accept: '*/*' }, redirect: 'manual', signal: o.signal ?? AbortSignal.timeout(30_000) });
-    if (r.status >= 300 && r.status < 400 && r.headers.get('location')) { await r.body?.cancel().catch(() => undefined); u = new URL(r.headers.get('location')!, u); continue; }
+    if (r.status >= 300 && r.status < 400 && r.headers.get('location')) {
+      await r.body?.cancel().catch(() => undefined);
+      const suite = new URL(r.headers.get('location')!, u), h = suite.hostname.replace(/^\[|\]$/g, '');
+      // Jamais de https vers http (le fichier pourrait être changé en route), ni vers un nom local à une étiquette.
+      if (u.protocol === 'https:' && suite.protocol === 'http:') throw new Error('le lien renvoie de https vers http : refusé');
+      if (h && !isIP(h) && !h.includes('.')) throw new Error(`le lien renvoie vers un nom local (${h}) : refusé`);
+      u = suite; continue;
+    }
     await r.body?.cancel().catch(() => undefined);
     if (!r.ok) throw new Error(`le site répond ${r.status}`);
     const plage = /\/(\d+)\s*$/.exec(r.headers.get('content-range') ?? '')?.[1];

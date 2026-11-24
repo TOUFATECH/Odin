@@ -7,6 +7,7 @@ import { basename, join } from 'node:path';
 import { cheminSmb, commandesSmb, dossierSmb, partagesSmb } from '../../machines/smb.ts';
 import { listMachines, type Machine as Poste } from '../../machines/access.ts';
 import { exigerSain } from '../ullr/garde.ts';
+import { lienDeMaison } from '../lien.ts';
 import { tacheEnPause } from '../automatismes.ts';
 import type { Action, ModCtx } from '../types.ts';
 import { bibliotheque, bibliothequeIso, comptesRendus, dossierArrivees, espaceIso, importerIso, importerLien, isoDeplacee, planVerif, prochaineVerif, retirerIso, sansFiche, trouverIso, verifDue, verifierIsos, type FicheIso, type PlanVerif } from './isos.ts';
@@ -54,7 +55,10 @@ export function bibliothequeActions(): Action[] {
     } },
     { id: 'importer_iso', label: 'Importer une ISO', what: 'Depuis un envoi du navigateur, un lien http(s), un dossier ou un partage monté : analysée par l\'antivirus, puis rangée dans la bibliothèque', external: true,
       params: [{ key: 'envoi', label: 'Envoi terminé (identifiant)', kind: 'text', default: '' }, { key: 'nom', label: 'Nom du fichier', kind: 'text', default: '' }, { key: 'lien', label: 'Lien http(s)', kind: 'text', default: '' }, { key: 'chemin', label: 'Fichier sur ce PC ou un partage monté', kind: 'text', default: '' }, { key: 'poste', label: 'Poste du réseau (partage Windows)', kind: 'text', default: '' }, { key: 'partage', label: 'Partage', kind: 'text', default: '' }],
-      words: ['importe une iso', 'importer une iso', 'ajoute une iso'], run: async (ctx, i) => {
+      words: ['importe une iso', 'importer une iso', 'ajoute une iso'],
+      // Une adresse de la maison : seulement avec ton accord (jamais atteinte par une redirection, voir importerLien).
+      grave: (i) => (lienDeMaison(i.lien) ? `télécharger une ISO depuis une adresse de ton réseau (${(() => { try { return new URL(s(i.lien)).host; } catch { return 'adresse locale'; } })()})` : undefined),
+      run: async (ctx, i) => {
         await synchroEspace(ctx);
         let r;
         if (s(i.envoi)) {

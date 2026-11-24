@@ -138,17 +138,19 @@ export function adresseOfficielle(raw: string): URL {
 }
 /** La résolution DNS du système : un nom public qui mène à une adresse de la maison est refusé aussi. */
 export const RESOLUTION_SYSTEME = async (h: string): Promise<string[]> => (await lookup(h, { all: true })).map((a) => a.address);
-async function hotePublic(u: URL, resoudre?: (h: string) => Promise<string[]>): Promise<void> {
+export async function hotePublic(u: URL, resoudre?: (h: string) => Promise<string[]>): Promise<void> {
   const h = u.hostname.replace(/^\[|\]$/g, '').toLowerCase(); if (!resoudre || isIP(h)) return;
   let l: string[]; try { l = await resoudre(h); } catch { throw new Error(`adresse de téléchargement refusée : ${h} ne se résout pas`); }
   if (!l.length || l.some((a) => hoteInterdit(a) || isPrivateHost(a))) throw new Error(`adresse de téléchargement refusée : ${h} mène à une adresse de la maison ou de la machine`);
 }
 
 /** Télécharge en reprenant un fichier entamé, en calculant l'empreinte au fil de l'eau, avec un débit maximum.
- *  `surete` (sources officielles) : https et site public seulement, chaque redirection revérifiée avant d'être suivie. */
-export async function download(fetchFn: (u: string, i?: RequestInit) => Promise<Response>, r: Release, dir: string, o: { signal?: AbortSignal; rate?: number; progress?: (done: number, total?: number) => void; /** avant d'écrire le moindre octet : peut refuser (ex. pas assez de place) */ avant?: (reste: number | undefined) => void; surete?: { resoudre?: (h: string) => Promise<string[]> } } = {}): Promise<{ path: string; size: number; sha256: string; checked: boolean }> {
+ *  `surete` (sources officielles) : https et site public seulement, chaque redirection revérifiée avant d'être suivie.
+ *  `surete.lienTape` : le premier lien a été tapé par le propriétaire et vérifié par l'appelant (il peut être en http,
+ *  ou de la maison avec son accord) ; les redirections, elles, restent revérifiées comme celles d'un site officiel. */
+export async function download(fetchFn: (u: string, i?: RequestInit) => Promise<Response>, r: Release, dir: string, o: { signal?: AbortSignal; rate?: number; progress?: (done: number, total?: number) => void; /** avant d'écrire le moindre octet : peut refuser (ex. pas assez de place) */ avant?: (reste: number | undefined) => void; surete?: { resoudre?: (h: string) => Promise<string[]>; lienTape?: boolean } } = {}): Promise<{ path: string; size: number; sha256: string; checked: boolean }> {
   const name = basename(r.file); if (!name || name !== r.file.split('/').pop() || /[\\/]|^\.\.?$/.test(name) || nomDetourne(name)) throw new Error('nom de fichier invalide');
-  if (o.surete) await hotePublic(adresseOfficielle(r.url), o.surete.resoudre);
+  if (o.surete && !o.surete.lienTape) await hotePublic(adresseOfficielle(r.url), o.surete.resoudre);
   mkdirSync(dir, { recursive: true });
   const part = join(dir, `.${name}.part`), final = join(dir, name), h = createHash('sha256');
   let have = existsSync(part) ? statSync(part).size : 0;

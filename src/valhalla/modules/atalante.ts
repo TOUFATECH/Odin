@@ -71,10 +71,14 @@ async function lancer(ctx: ModCtx, e: Element): Promise<void> {
   try {
     const u = await avant(ctx, e.lien, { maison: e.maison, resoudre });
     // Chaque redirection est revérifiée comme le premier lien : où le nom mène vraiment, puis l'avis d'Asclépios.
+    // Une adresse de la maison n'est permise qu'avec ton accord, et jamais après un passage par un site public.
+    let publicVu = !e.maison;
     const sonde = await sonder(ctx.fetch, u.toString(), { signal: ac.signal, garde: async (x) => {
       const adresses = await resoudre(x.hostname.replace(/^\[|\]$/g, '')).catch(() => [] as string[]);
       if (adresses.some(hoteInterdit)) throw new Error(`le lien renvoie vers la machine d'Odin elle-même ou une adresse réservée (${x.hostname}) : refusé`);
-      if (!e.maison && (lienDeMaison(x.toString()) || adresses.some((a) => isPrivateHost(a)))) throw new Error('le lien renvoie vers une adresse de ton réseau : refusé');
+      const maison = lienDeMaison(x.toString()) || adresses.some((a) => isPrivateHost(a));
+      if (maison && publicVu) throw new Error(e.maison ? 'le lien passe par un site public puis revient vers ton réseau : refusé' : 'le lien renvoie vers une adresse de ton réseau : refusé');
+      if (!maison) publicVu = true;
       await avisSite(ctx, x.toString());
     } });
     const r = await telechargerMorceaux(ctx.fetch, { url: sonde.url, sonde, nom: e.nom, dossier: enCours(ctx), morceaux: nbMorceaux(ctx), ...(debitMo(ctx) ? { debitMo: debitMo(ctx) } : {}), ...(e.empreinte ? { empreinte: e.empreinte } : {}), signal: ac.signal, progression: (fait, total) => { e.fait = fait; if (total) e.total = total; } });

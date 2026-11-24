@@ -10,10 +10,11 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, createReadStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { journalDe } from '../base/journal.ts';
-import { lienPropre } from '../lien.ts';
+import { isIP } from 'node:net';
+import { lienDeMaison, lienPropre } from '../lien.ts';
 import { quarantaineDabord, type Passage } from '../ullr/garde.ts';
 import type { Action, ModCtx, Section, TacheAppli } from '../types.ts';
-import { download } from './forge.ts';
+import { download, hotePublic, RESOLUTION_SYSTEME } from './forge.ts';
 import { tacheEnPause } from '../automatismes.ts';
 import { depuisPlanVerif, fuseauOdin, instant, lireHeure, murale, prochaine, versPlanVerif, type Rythme } from '../../draupnir/rythme.ts';
 
@@ -193,10 +194,20 @@ export class Bibliotheque {
     const f = this.noter({ ...(avant ?? {}), id: idDe(final), nom: basename(final), chemin: final, taille: st.size, sha256: p.sha256, ajoute: avant?.ajoute ?? Date.now(), origine: avant && o.origine === 'déposée' ? avant.origine : o.origine, ...(o.source ?? avant?.source ? { source: o.source ?? avant?.source } : {}), ...(o.page ?? avant?.page ? { page: o.page ?? avant?.page } : {}), ...(o.editeur !== undefined ? { editeur: o.editeur } : avant?.editeur !== undefined ? { editeur: avant.editeur } : {}), ...r, ancienne: /[\\/]old[\\/][^\\/]+$/.test(final), antivirus: { at: Date.now(), verdict: p.niveau ? 'à vérifier' : 'sain', texte: p.texte } });
     return { fiche: f, passage: p, texte: `${g.id === 'iso' ? '📀' : '📦'} ${f.nom} : ${f.detail ?? f.produit ?? ''}${f.systeme ? ` (${f.systeme})` : f.vise ? ` (${f.vise})` : ''} · ${tailleTexte(f.taille)} · empreinte ${p.sha256.slice(0, 16)}… · antivirus : ${p.niveau ? 'à vérifier' : 'rien trouvé'}.` };
   }
-  /** Depuis un lien http(s) : téléchargement reprenable dans les arrivées, puis l'antivirus. */
+  /**
+   * Depuis un lien http(s) : téléchargement reprenable dans les arrivées, puis l'antivirus. Le lien tapé : une adresse
+   * de la maison seulement avec ton accord (l'action est alors grave, voir `lienDeMaison`), sinon un site public, même
+   * une fois son nom résolu. Une redirection n'est suivie que vers un site public en https, chacune revérifiée : un lien
+   * ne mène jamais, par une redirection, à la machine d'Odin, à la maison ni à un nom local.
+   */
   async importerLien(lien: string, nom?: string): Promise<Import> {
     const u = lienPropre(lien), fichier = (nom || decodeURIComponent(u.pathname.split('/').pop() || 'fichier')).replace(/[\\/:*?"<>|]/g, '_') || 'fichier';
-    const r = await download(this.ctx.fetch, { version: '', url: u.toString(), file: fichier }, this.arrivees);
+    const resoudre = this.ctx.fetch === globalThis.fetch ? RESOLUTION_SYSTEME : undefined, h = u.hostname.replace(/^\[|\]$/g, '');
+    if (!lienDeMaison(u.toString())) {
+      if (!isIP(h) && !h.includes('.')) throw new Error(`${h} est un nom local : donne plutôt son adresse IP (Odin te demandera ton accord)`);
+      await hotePublic(u, resoudre);
+    }
+    const r = await download(this.ctx.fetch, { version: '', url: u.toString(), file: fichier }, this.arrivees, { surete: { lienTape: true, ...(resoudre ? { resoudre } : {}) } });
     return this.importer(r.path, { nom: fichier, origine: 'lien', source: u.toString(), deplacer: true });
   }
   /** Retire un fichier de la bibliothèque (le fichier est supprimé). */
@@ -307,6 +318,7 @@ export function cartes(l: Fiche[], g: Pick<Genre, 'id'>, o: { module?: string; f
     badge: f.ancienne ? 'ancienne (old)' : f.antivirus?.verdict ?? 'non analysé', tone: f.antivirus?.verdict === 'sain' ? 'bon' as const : f.antivirus?.verdict === 'à vérifier' ? 'attention' as const : 'neutre' as const,
     actions: [{ action: o.fiche, label: 'Fiche', input: { nom: f.id, iso: f.id }, ...(o.module ? { module: o.module } : {}) }] })) } as Section;
 }
+const hoteDe = (lien: unknown) => { try { return new URL(s(lien)).host; } catch { return 'adresse locale'; } };
 /** Les actions de la bibliothèque d'une appli de la forge (Hermès) : liste, fiche, import, vérification planifiée. */
 export function actionsBibliotheque(o: { genre: Genre; racine: (ctx: ModCtx) => string; nouvelles?: (ctx: ModCtx) => Promise<string>; utilisePar?: (ctx: ModCtx) => Promise<Map<string, string[]>> }): Action[] {
   const B = (ctx: ModCtx) => new Bibliotheque(ctx, o.genre, o.racine(ctx)), g = o.genre;
@@ -314,7 +326,9 @@ export function actionsBibliotheque(o: { genre: Genre; racine: (ctx: ModCtx) => 
   return [
     { id: 'bibliotheque', label: 'Bibliothèque', what: `Tous les ${g.libelles} du dossier (téléchargés, importés, déposés à la main, anciens dans « old ») avec leur fiche`, read: true, words: [`bibliotheque des ${g.libelles}`], run: async (ctx) => { const l = await liste(ctx); return { text: l.map((f) => `- ${f.nom} · ${f.produit ?? f.detail ?? ''}${f.version ? ` ${f.version}` : ''} · ${tailleTexte(f.taille)} · antivirus : ${f.antivirus?.verdict ?? 'non analysé'}${f.ancienne ? ' · ancienne' : ''}`).join('\n') || `Rien dans ${o.racine(ctx)}.`, data: { dossier: o.racine(ctx), fichiers: l, enCours: B(ctx).enCours() } }; } },
     { id: 'fiche', label: 'Fiche', what: `Tout sur un ${g.libelle} : icône, nom, éditeur, version, système visé, taille, dates, liens, empreinte, antivirus, vérification, où il sert`, read: true, params: [{ key: 'nom', label: g.libelle, kind: 'text', required: true }], run: async (ctx, i) => { const f0 = await B(ctx).trouver(i.nom), f = (await liste(ctx)).find((x) => x.chemin === f0.chemin) ?? f0; return { text: ficheTexte(f, g), data: f }; } },
-    { id: 'importer', label: `Importer un ${g.libelle}`, what: 'Depuis un lien http(s) ou un fichier de ce PC (ou d\'un partage monté) : antivirus d\'abord, puis rangé dans le dossier', external: true, params: [{ key: 'lien', label: 'Lien http(s)', kind: 'text', default: '' }, { key: 'chemin', label: 'Ou un fichier', kind: 'text', default: '' }, { key: 'nom', label: 'Nom (facultatif)', kind: 'text', default: '' }], run: async (ctx, i) => {
+    { id: 'importer', label: `Importer un ${g.libelle}`, what: 'Depuis un lien http(s) ou un fichier de ce PC (ou d\'un partage monté) : antivirus d\'abord, puis rangé dans le dossier', external: true, params: [{ key: 'lien', label: 'Lien http(s)', kind: 'text', default: '' }, { key: 'chemin', label: 'Ou un fichier', kind: 'text', default: '' }, { key: 'nom', label: 'Nom (facultatif)', kind: 'text', default: '' }],
+      // Une adresse de la maison : seulement avec ton accord (jamais atteinte par une redirection, voir importerLien).
+      grave: (i) => (lienDeMaison(i.lien) ? `télécharger depuis une adresse de ton réseau (${hoteDe(i.lien)})` : undefined), run: async (ctx, i) => {
       const r = s(i.lien) ? await B(ctx).importerLien(s(i.lien), s(i.nom) || undefined) : s(i.chemin) ? await B(ctx).importer(s(i.chemin), { nom: s(i.nom) || undefined, origine: 'dossier', source: s(i.chemin) }) : undefined;
       if (!r) throw new Error('donne un lien ou un fichier'); return { ok: !r.passage.bloque, text: r.texte, data: r.fiche };
     } },
