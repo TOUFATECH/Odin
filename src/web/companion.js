@@ -18,11 +18,6 @@
 // mêmes règles qu'avant. On lui note ce qui se passe (changement de page, message apparu, survol, caresse, secousse,
 // toucher). Sans le moteur de vie, il reste posé et garde un battement minimal (un geste quand Odin travaille,
 // aller voir ce qui demande l'attention), sans promenade.
-// Son nid (maquette « Accueil », lot 22b) : quand il ne trouve aucune place libre, il rentre dans son nid au lieu de se
-// serrer dans un coin, et il en ressort dès qu'une place se libère. Au téléphone, le nid est le rond au centre de la
-// barre du bas (Odin y est montré, ui.html) ; à l'ordinateur et en plein écran, un rond flottant en bas à droite, montré
-// seulement quand il y est. Jamais deux Odin à l'écran. Il réagit quand le propriétaire prend, pose ou agrandit un widget
-// (fenetre.js) : une émotion demandée au visage (qui seul dessine), un geste et un regard (rien de cela en mouvement réduit).
 (() => {
   'use strict';
   if (window.OdinCompanion) return;
@@ -30,7 +25,7 @@
   const coarse = matchMedia('(pointer:coarse)');
   const S = () => window.OdinState || {};
   // Odin et ce qui lui appartient (sa pastille, sa petite fenêtre, son aide, son infobulle) : jamais un obstacle pour lui.
-  const OWN = '#buddyRoam,#odinNid,#odinBubble,#odinTalk,#guideBox,#odinTip,#odinTaps,#odinEgg';
+  const OWN = '#buddyRoam,#odinBubble,#odinTalk,#guideBox,#odinTip,#odinTaps,#odinEgg';
   let bud = null, pos = null, size = 64, pinnedUntil = 0, userPinnedUntil = 0, lastWander = Date.now(), idleSince = Date.now(), view = '';
   // `retryAt` : sans meilleure place, il ne recherche pas avant ce moment ; `bubbleSeen` : la pastille déjà prise en compte ;
   // `walking` : le trajet en cours ; `lastPtr` : où était ta souris ou ton doigt, et quand.
@@ -40,9 +35,6 @@
   let lastKey = 0, plan = null, pose = '', lastTap = 0, caresseT = 0, seulGeste = 0, seulVoir = 0;
   // `mutAt` : la dernière fois que la page a changé ; `pageT` : il attend que la page soit posée avant de s'y placer ; `chercheLe` : sa dernière recherche de place.
   let mutAt = 0, pageT = 0, chercheLe = 0, zoneN = 0;
-  // `nid` : où il est rangé (null : dehors ; 'barre' : le rond de la barre du bas ; 'rond' : le rond flottant) ;
-  // `montre` : il a sa place sur cette page (pas dans la Discussion, pas caché par tes 10 clics).
-  let nid = null, montre = false;
   const places = [], zonesLive = new WeakMap();
   /** Rien à faire : il est déjà là où l'étape « aller » voulait l'emmener. */
   const ICI = { ici: true };
@@ -86,12 +78,6 @@
   }
   /* Téléphone : la fin de chaque page laisse la place d'Odin au-dessus de la barre du bas, pour que la dernière ligne puisse passer au-dessus de lui. */
   @media (max-width:599px){.view.on>.body::after{content:"";display:block;height:84px;pointer-events:none}}`;
-  // Le rond flottant de son nid (ordinateur, plein écran) : 54 px en bas à droite, juste sous lui ; il ne prend ni la
-  // souris ni le doigt (c'est Odin, posé dessus, qui les reçoit). Montré seulement quand Odin y est.
-  const CSS_NID = `
-  #odinNid{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:49;width:54px;height:54px;box-sizing:border-box;border-radius:50%;background:var(--panel,#171A20);border:1px solid var(--line,#333);box-shadow:0 6px 18px rgba(0,0,0,.22);pointer-events:none}
-  #odinNid[hidden]{display:none}
-  @media print{#odinNid{display:none!important}}`;
 
   // ---------- Fabrication : une copie de la mascotte de la discussion, avec ses propres dégradés ----------
   function make() {
@@ -396,8 +382,6 @@
    */
   function moveTo(p, wander, then) {
     if (!bud || !p) return false;
-    // Dans son nid : il en sort en fondu, pour réapparaître à sa place (jamais à pied depuis le nid).
-    if (nid) { if (wander && reduce.matches) return false; sortirNid(p, then); return true; }
     if (!pos || bud.hidden) { slip(p, then); return true; }
     if (Math.hypot(p.x - pos.x, p.y - pos.y) < 4) { if (p.s !== size) setSize(p.s); then?.(); return true; }
     if (wander && reduce.matches) return false;
@@ -414,109 +398,13 @@
     walkAlong(r.pts, p.s, then);
     return true;
   }
-  function go(want) { if (Date.now() < pinnedUntil && !want?.force) return; const p = choose(want); if (p) { if (p.corner) nicher(); else moveTo(p); } return p; }
+  function go(want) { if (Date.now() < pinnedUntil && !want?.force) return; const p = choose(want); if (p) moveTo(p); return p; }
   function act(name, ms = 1400) { if (!bud || reduce.matches) return; bud.classList.remove(name); void bud.offsetWidth; bud.classList.add(name); setTimeout(() => bud.classList.remove(name), ms); }
   function lookAt(x, y) {
     if (!bud) return;
     const r = bud.getBoundingClientRect(), dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1;
     bud.classList.add('follow'); bud.style.setProperty('--ex', `${(dx / d * 5).toFixed(1)}px`); bud.style.setProperty('--ey', `${(dy / d * 4).toFixed(1)}px`);
     clearTimeout(lookAt._t); lookAt._t = setTimeout(() => bud.classList.remove('follow'), 2500);
-  }
-
-  // ---------- Son nid : le rond de la barre du bas (téléphone), sinon un rond flottant ----------
-  /** Le rond flottant (créé une fois, caché tant qu'il n'y est pas). */
-  let disque = null;
-  function rondFlottant() {
-    if (disque) return disque;
-    disque = document.createElement('div'); disque.id = 'odinNid'; disque.hidden = true; disque.setAttribute('aria-hidden', 'true');
-    document.body.append(disque);
-    return disque;
-  }
-  // Le coin du rond flottant : en bas à droite (maquette), sauf s'il y couvrirait une commande ou ta zone de travail
-  // (Odin, posé dessus, prendrait le clic). Alors le coin qui en couvre le moins : en bas à gauche, en haut à droite, en
-  // haut à gauche. Un coin qui ne gêne pas est gardé (le rond ne saute pas d'un coin à l'autre pour un peu de texte).
-  let coinNid = 'bd';
-  function placeCoin(k, A) {
-    const t = 54, m = 18, x = k[1] === 'd' ? innerWidth - m - t : A.left + 12, y = k[0] === 'b' ? innerHeight - m - t : A.top + 12;
-    return { x, y };
-  }
-  function choisirCoin() {
-    const A = area(); if (!A) return;
-    const gene = (k) => { const p = placeCoin(k, A), c = under(p.x, p.y, 54); return { k, g: c.c * 6 + c.z * 60 }; };
-    const ici = gene(coinNid); if (!ici.g) return;
-    let best = ici;
-    for (const k of ['bd', 'bg', 'hd', 'hg']) { if (k === coinNid) continue; const o = gene(k); if (o.g < best.g) best = o; }
-    if (best.k === coinNid) return;
-    coinNid = best.k;
-    const d = rondFlottant();
-    if (coinNid === 'bd') { d.removeAttribute('style'); return; }
-    const p = placeCoin(coinNid, A);
-    d.style.cssText = `left:${Math.round(p.x)}px;top:${Math.round(p.y)}px;right:auto;bottom:auto`;
-  }
-  /**
-   * Quel nid sur cet écran : le rond de la barre du bas s'il est affiché (téléphone ; aussi quand le clavier de l'écran
-   * la cache un instant), sinon le rond flottant (ordinateur, et en plein écran où les barres sont recouvertes).
-   */
-  function sorteNid() {
-    if (document.querySelector('.pe-plein')) return 'rond';
-    const r = document.getElementById('bnavOdin');
-    if (r && r.getClientRects().length) return 'barre';
-    if (r && document.body.classList.contains('kb') && innerWidth <= 860) return 'barre';
-    return 'rond';
-  }
-  /** Le met à sa place dans son nid : caché au profit du rond de la barre (qui le montre), ou posé sur le rond flottant. */
-  function peindreNid() {
-    const d = rondFlottant();
-    if (nid === 'barre') {
-      d.hidden = true; bud.hidden = true;
-      // Sa place retenue est celle du rond (sa prochaine sortie part de là).
-      const r = document.getElementById('bnavOdin')?.getBoundingClientRect(), s = Math.min(size, 46);
-      if (r && r.width && (!pos || Math.abs(pos.x - (r.left + (r.width - s) / 2)) > 1 || Math.abs(pos.y - (r.top + (r.height - s) / 2)) > 1)) { if (size !== s) setSize(s); put(r.left + (r.width - s) / 2, r.top + (r.height - s) / 2); }
-      else if (!pos) put(innerWidth / 2 - s / 2, innerHeight - s);
-      return;
-    }
-    if (!nid || !montre) { d.hidden = true; return; }
-    bud.hidden = false;
-    // Sur une page qui a sa propre mascotte et cache celle-ci (la maison, Vénus), le rond vide ne se montre pas non plus.
-    d.hidden = getComputedStyle(bud).visibility === 'hidden';
-    const s = 40, t = 54, m = 18, r = d.hidden ? null : d.getBoundingClientRect();
-    const x = r && r.width ? r.left + (r.width - s) / 2 : innerWidth - m - t + (t - s) / 2, y = r && r.height ? r.top + (r.height - s) / 2 : innerHeight - m - t + (t - s) / 2;
-    if (size !== s) setSize(s);
-    if (!pos || Math.abs(pos.x - x) > 1 || Math.abs(pos.y - y) > 1) put(x, y);
-  }
-  /** Le range tout de suite dans son nid (il est déjà effacé, ou il apparaît là). */
-  function nicherIci() {
-    nid = sorteNid(); poser(null); untip(); hovered = false;
-    if (nid === 'barre') { stopWalk(); bud.classList.remove('slip'); }
-    else { coinNid = 'bd'; rondFlottant().removeAttribute('style'); choisirCoin(); }
-    peindreNid();
-  }
-  /** Il rentre dans son nid : il s'efface là où il est, et réapparaît dans le nid (le rond de la barre le montre). */
-  function nicher() {
-    if (!bud || nid) return;
-    stopWalk(); arreter();
-    if (!pos || bud.hidden) { nicherIci(); return; }
-    bud.classList.add('slip');
-    const w = walking = { raf: 0, t: 0 };
-    w.t = setTimeout(() => { if (walking !== w) return; walking = null; nicherIci(); void bud.offsetWidth; bud.classList.remove('slip'); }, 280);
-  }
-  /** Il sort de son nid vers la place p : en fondu (du rond flottant), ou il apparaît (le rond de la barre reprend sa rune). */
-  function sortirNid(p, then) {
-    const k = nid; nid = null; rondFlottant().hidden = true;
-    if (k !== 'barre') { slip(p, then); return; }
-    stopWalk(); bud.classList.add('slip'); bud.hidden = !montre;
-    setSize(p.s); put(p.x, p.y); arrive();
-    void bud.offsetWidth; bud.classList.remove('slip');
-    then?.();
-  }
-  /** Dans son nid, à chaque battement : le bon nid pour cet écran, et il sort dès qu'une place libre se montre (toutes les 6 s au plus). */
-  function garderNid(now) {
-    if (sorteNid() !== nid) { nid = null; nicherIci(); return; }
-    peindreNid();
-    if (now < retryAt || now < pinnedUntil) return;
-    chercheLe = now; retryAt = now + 6000;
-    const p = choose(null); if (p && !p.corner) { sortirNid(p); return; }
-    if (nid === 'rond') { choisirCoin(); peindreNid(); }
   }
 
   // ---------- Visible ou non : partout, sauf dans la Discussion (sa copie là-bas vit déjà) ----------
@@ -533,10 +421,7 @@
   function sync() {
     if (!bud) bud = make(); if (!bud) return;
     const v = currentView(), show = shouldShow();
-    montre = show;
-    // Rangé dans le rond de la barre du bas : c'est le rond qui le montre (une seule mascotte à l'écran).
-    bud.hidden = !show || nid === 'barre';
-    if (!show || nid !== 'rond') rondFlottant().hidden = true;
+    bud.hidden = !show;
     if (!show) { if (v && v !== view) window.OdinVie?.noter?.({ k: 'page', id: v }); view = v; clearTimeout(pageT); pageT = 0; stopWalk(); bud.classList.remove('slip', 'v-vite'); arreter(); untip(); return; }
     if (drag || walking) return;
     // Changement de page : le moteur de vie le sait (c'est lui qui décide s'il regarde autour de lui), et il se replace
@@ -549,7 +434,6 @@
     }
     if (pageT) return;
     if (!pos) { attendrePage(); return; }
-    if (nid) { garderNid(Date.now()); return; }
     const A = area(); if (!A) return;
     const now = Date.now(), out = pos.x < A.left - 2 || pos.y < A.top - 2 || pos.x + size > A.right + 2 || pos.y + size > A.bottom + 2;
     const free = now >= pinnedUntil, mine = now < userPinnedUntil;
@@ -566,8 +450,6 @@
       chercheLe = now;
       const before = `${Math.round(pos.x)},${Math.round(pos.y)}`;
       const p = choose(urgent && !free ? { x: pos.x + size / 2, y: pos.y + size / 2 } : null);
-      // Aucune place libre (seulement un coin, sur du contenu) : il rentre dans son nid au lieu de s'y serrer.
-      if (p && p.corner && !mine) { nicher(); retryAt = now + 6000; return; }
       if (p && `${Math.round(p.x)},${Math.round(p.y)}` !== before) { poser(null); moveTo(p); }
       retryAt = now + (p && !p.corner ? 1500 : 6000);
     }
@@ -584,13 +466,11 @@
     bud.classList.add('v-vite', 'slip');
     const essai = () => {
       pageT = 0;
-      if (!bud || !montre) { bud?.classList.remove('slip', 'v-vite'); return; }
+      if (!bud || bud.hidden) { bud?.classList.remove('slip', 'v-vite'); return; }
       const now = Date.now();
       if (now - Math.max(mutAt, debut) < 300 && now - debut < 1500) { pageT = setTimeout(essai, 100); return; }
       const p = choose(null);
-      // Pas de place libre sur la page posée : il réapparaît dans son nid ; sinon, il en sort pour cette place.
-      if (!p || p.corner) nicherIci();
-      else { if (nid) { nid = null; rondFlottant().hidden = true; bud.hidden = false; } setSize(p.s); put(p.x, p.y); arrive(); }
+      if (p) { setSize(p.s); put(p.x, p.y); arrive(); }
       bud.classList.remove('v-vite'); void bud.offsetWidth; // le fondu de retour repart d'ici
       bud.classList.remove('slip'); chercheLe = retryAt = Date.now(); retryAt += 1500;
     };
@@ -730,7 +610,7 @@
     const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
     if (!drag.moved && Math.hypot(dx, dy) < 6) return;
     // Tu le soulèves : le plan en cours s'arrête, il s'étonne.
-    if (!drag.moved) { drag.moved = true; stopWalk(); arreter(); bud.classList.add('dragging'); ressent('etonnement', 1500, 'glisse', 'surprise'); if (nid) { nid = null; rondFlottant().hidden = true; } }
+    if (!drag.moved) { drag.moved = true; stopWalk(); arreter(); bud.classList.add('dragging'); ressent('etonnement', 1500, 'glisse', 'surprise'); }
     put(Math.max(0, Math.min(innerWidth - size, drag.px + dx)), Math.max(0, Math.min(innerHeight - size, drag.py + dy)));
     // Secoué : plus de 1500 px parcourus en moins de 2 secondes. Le moteur de vie le sait (une fois par glissé).
     const now = Date.now(), T = drag.trace, last = T[T.length - 1], pas = last ? Math.hypot(e.clientX - last.x, e.clientY - last.y) : 0;
@@ -850,58 +730,19 @@
       visible: vu, x: pos ? Math.round(pos.x) : 0, y: pos ? Math.round(pos.y) : 0, taille: size, marche: Boolean(walking), survol: hovered, tenu: Boolean(drag && drag.moved), epingle: now < pinnedUntil, vue: view,
       ecrit: f instanceof Element && f.matches(FIELD_SEL) && now - lastKey < 5000, inactifMs: now - idleSince, pointeur: lastPtr ? { x: lastPtr.x, y: lastPtr.y, at: lastPtr.at } : null,
       plan: plan ? { etape: plan.i, sur: plan.steps.length } : null, pose: pose || null, depuisMarche: now - lastWander, attention: a ? { x: a.x, y: a.y, texte: a.texte } : null,
-      nid,
     };
   }
 
-  // ---------- Ses réactions quand tu ranges tes widgets (maquette « Accueil », lot 22b) ----------
-  // fenetre.js prévient (« odin:widget-geste ») quand un widget est pris, posé à une autre place, son coin tiré, ou sa
-  // taille changée. Comme la maquette : il s'enthousiasme quand tu le prends, se concentre quand tu tires le coin, est
-  // content quand c'est posé. L'émotion est demandée au visage (c'est lui qui la dessine, avec ses marques autour des
-  // yeux) ; le mouvement : un geste et un regard vers le widget, ou un petit saut du rond de la barre quand il y est rangé.
-  // Rien pour un membre de la famille (il ne range pas la fenêtre), rien tant qu'on ne sait pas qui regarde, et rien qui
-  // bouge quand l'appareil demande moins d'animations.
-  const REACTIONS = {
-    prise: { emotion: 'excite', ms: 2600, repli: 'excite', geste: 'act-tilt', gms: 900 },
-    coin: { emotion: 'concentration', ms: 2600, repli: 'concentration', geste: '', gms: 0 },
-    pose: { emotion: 'joie', ms: 1800, repli: 'joie', geste: 'act-joy', gms: 1100 },
-    taille: { emotion: 'joie', ms: 1600, repli: 'joie', geste: 'act-joy', gms: 1100 },
-  };
-  // `proprio` : la session est celle du propriétaire (l'état d'Odin ne porte pas « membre »).
-  let proprio = false, etatVu = false, derniere = { quoi: '', le: 0 };
-  function surEtat(etat) { etatVu = true; proprio = Boolean(etat && typeof etat === 'object' && !etat.membre); }
-  addEventListener('odin:etat', (e) => surEtat(e && e.detail));
-  // Le premier état a pu partir avant ce fichier : on demande alors qui regarde (comme pages/menu-ecrans.js).
-  const quiRegarde = () => { if (etatVu) return; fetch('/api/account/me', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).then((j) => { if (!etatVu && j && j.ok) surEtat({ membre: j.membre }); }).catch(() => { /* hors ligne : pas de réaction */ }); };
-  if (document.readyState === 'complete') setTimeout(quiRegarde, 0); else addEventListener('load', quiRegarde);
-  /** Le rond de la barre du bas fait un petit saut (Odin y est rangé) : le rond entier bouge, pas son dessin. */
-  function sautille(el) { try { el.animate([{ transform: 'none' }, { transform: 'translateY(-12%) scale(1.06)', offset: 0.4 }, { transform: 'none' }], { duration: 520, easing: 'cubic-bezier(.3,1.4,.5,1)' }); } catch { /* vieux navigateur */ } }
-  function reagir(e) {
-    const d = e && e.detail, R = d && Object.hasOwn(REACTIONS, d.quoi) ? REACTIONS[d.quoi] : null;
-    if (!R || !proprio || !bud || !montre) return;
-    const now = Date.now(); if (d.quoi === derniere.quoi && now - derniere.le < 600) return; derniere = { quoi: d.quoi, le: now };
-    // Celui qu'on voit : lui, ou sa copie du rond de la barre du bas quand il y est rangé.
-    const vu = nid === 'barre' ? document.getElementById('buddyBas') : bud.hidden ? null : bud;
-    if (!vu || !vu.getClientRects().length) return;
-    const F = window.OdinFace;
-    if (typeof F?.ressent === 'function') F.ressent(vu, R.emotion, { ms: R.ms, source: 'widget' }); else F?.flash?.(vu, R.repli, R.ms);
-    if (reduce.matches) return;
-    if (vu === bud) { if (R.geste) act(R.geste, R.gms); if (Number.isFinite(d.x) && Number.isFinite(d.y)) lookAt(d.x, d.y); }
-    else if (R.geste) sautille(document.getElementById('bnavNid') || vu);
-  }
-  document.addEventListener('odin:widget-geste', reagir);
-
   function start() {
     bud = make(); if (!bud) return;
-    { const st = document.createElement('style'); st.textContent = CSS + CSS_NID; document.head.append(st); }
+    { const st = document.createElement('style'); st.textContent = CSS; document.head.append(st); }
     bud.classList.add('path');
     view = '';
     sync();
     const views = new MutationObserver(() => { stopWalk(); sync(); });
     for (const v of document.querySelectorAll('.view')) views.observe(v, { attributes: true, attributeFilter: ['class'] });
     live.observe(document.body, { subtree: true, childList: true, characterData: true });
-    // Nouvelle taille d'écran : une place libre, sinon son nid (celui de ce nouvel écran).
-    let rs = 0; addEventListener('resize', () => { clearTimeout(rs); rs = setTimeout(() => { pinnedUntil = 0; stopWalk(); arreter(); if (!montre) return; const p = choose(null); if (!p || p.corner) { nid = null; nicherIci(); } else if (nid) sortirNid(p); else slip(p); }, 200); });
+    let rs = 0; addEventListener('resize', () => { clearTimeout(rs); rs = setTimeout(() => { pinnedUntil = 0; stopWalk(); arreter(); const p = choose(null); if (p) slip(p); }, 200); });
     let sc = 0; document.addEventListener('scroll', () => { clearTimeout(sc); sc = setTimeout(() => sync(), 350); }, { passive: true, capture: true });
     addEventListener('pointermove', onMove, { passive: true });
     addEventListener('pointermove', onDrag, { passive: true });
