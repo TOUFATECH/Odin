@@ -8,8 +8,11 @@
 // Le flux vient d'Odin seul : /venus/flux/<cible> (lu tel quel, ou converti à la volée à partir de ?depuis=), les
 // sous-titres de /venus/sous-titres/<cible> (texte WebVTT, affiché comme du TEXTE, jamais comme du code de page), la
 // reprise part vers /venus/reprise (le profil choisi est dans le témoin venus_profil). Rien n'est chargé d'Internet.
-// Ce qu'Odin ne sait pas encore servir (autre piste audio, autre qualité, extrait, séance à plusieurs, ambiance,
-// bande-annonce) garde sa place et dit « bientôt ».
+// Suite du lot V2 : les PISTES AUDIO du fichier (on en change pendant la lecture, elle reprend au même instant, le choix
+// est gardé par profil), les QUALITÉS (« Originale », et une qualité réduite seulement si la machine d'Odin la produit
+// vraiment : sinon la ligne est grisée et dit pourquoi), TOUS les sous-titres (dans la vidéo et posés à côté) et
+// « Chercher des sous-titres » (dans la vidéo et à côté ; en ligne : aucun service réglé, c'est dit).
+// Ce qu'Odin ne sait pas encore servir (extrait, séance à plusieurs, ambiance) garde sa place et dit « bientôt ».
 //
 // Chargé par la page /venus/app/ après planetes.js (icônes P, esc, hueOf) ; app.js l'ouvre (VenusLecteur.ouvrir).
 // La logique pure (VenusLecteur.logique) est essayée sans navigateur.
@@ -52,9 +55,26 @@
       return cues.sort((x, y) => x.start - y.start);
     },
     infoUrl: (id) => `/venus/api/lecture/${encodeURIComponent(String(id))}`,
-    /** Le flux d'Odin ; un flux converti repart de `depuis` (le navigateur ne cherche pas dans un tuyau). */
-    fluxUrl(id, depuis = 0) { const d = Math.floor(Number(depuis) || 0); return `/venus/flux/${encodeURIComponent(String(id))}${d > 0 ? `?depuis=${d}` : ''}`; },
-    sousTitresUrl: (id, lang) => `/venus/sous-titres/${encodeURIComponent(String(id))}${lang ? `?lang=${encodeURIComponent(lang)}` : ''}`,
+    /**
+     * Le flux d'Odin ; un flux converti repart de `depuis` (le navigateur ne cherche pas dans un tuyau). `o.audio` : le
+     * rang d'une autre piste audio ; `o.q` : la hauteur d'une qualité réduite. Sans choix, l'adresse est celle d'avant.
+     */
+    fluxUrl(id, depuis = 0, o = {}) {
+      const d = Math.floor(Number(depuis) || 0), a = Math.floor(Number(o && o.audio) || 0), q = Math.floor(Number(o && o.q) || 0), p = [];
+      if (d > 0) p.push(`depuis=${d}`); if (a > 0) p.push(`audio=${a}`); if (q > 0) p.push(`q=${q}`);
+      return `/venus/flux/${encodeURIComponent(String(id))}${p.length ? `?${p.join('&')}` : ''}`;
+    },
+    /** Les sous-titres en texte : par l'identifiant court d'une piste (`piste`), sinon par langue comme avant. */
+    sousTitresUrl: (id, lang, piste) => `/venus/sous-titres/${encodeURIComponent(String(id))}${piste != null && piste !== '' ? `?piste=${encodeURIComponent(String(piste))}` : lang ? `?lang=${encodeURIComponent(lang)}` : ''}`,
+    pistesUrl: (id) => `/venus/api/pistes/${encodeURIComponent(String(id))}`,
+    qualitesUrl: (id) => `/venus/api/qualites/${encodeURIComponent(String(id))}`,
+    conversionUrl(id, audio, q) { const a = Math.floor(Number(audio) || 0), h = Math.floor(Number(q) || 0); return `/venus/api/conversion/${encodeURIComponent(String(id))}?audio=${a}${h > 0 ? `&q=${h}` : ''}`; },
+    /** « 5.1 », « 7.1 », « Stéréo », « Mono » ; vide si le nombre de canaux n'est pas connu. */
+    canaux(n) { n = Number(n) || 0; return n >= 8 ? '7.1' : n >= 6 ? '5.1' : n === 2 ? tr('Stéréo') : n === 1 ? tr('Mono') : ''; },
+    /** Le nom d'une piste audio : sa langue (dans la langue de l'interface) et ses canaux, « Français · 5.1 » ; sinon « Piste 2 ». */
+    nomAudio(a) { return [L.langName(a && a.lang) || tr('Piste {n}', { n: (Number(a && a.order) || 0) + 1 }), L.canaux(a && a.channels)].filter(Boolean).join(' · '); },
+    /** Lu tel quel : le fichier se lit dans le navigateur ET rien n'est demandé (ni autre piste audio, ni qualité réduite). */
+    direct: (info, audio, q) => !!info && info.mode === 'direct' && !audio && !q,
     planUrl: (id) => `/venus/plan/${encodeURIComponent(String(id))}`,
     vignetteUrl: (id) => `/venus/vignette/${encodeURIComponent(String(id))}`,
     /** Où démarrer : la reprise DU profil (déjà vu, presque rien ou depuis le début demandé : 0). */
@@ -94,6 +114,7 @@
       if ((k === ']' || k === '[') && has('chapters')) return { a: 'chapter', dir: k === ']' ? 1 : -1 };
       if ((k === 'g' || k === 'h') && has('cues')) return { a: 'subdelay', d: k === 'h' ? 0.1 : -0.1 };
       if (k === 'm') return { a: 'mute' };
+      if (k === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) return { a: 'tracks' }; // « Audio et sous-titres », comme dans l'appli d'origine
       if (!has('uiOn') && !has('tv') && (k === 'ArrowUp' || k === 'ArrowDown')) return { a: 'volume', d: k === 'ArrowUp' ? 0.1 : -0.1 };
       if (k === 'a' && !e.ctrlKey && !e.metaKey) return { a: 'ambiance' };
       if (k === 'Escape' || k === 'Backspace' || k === 'BrowserBack' || k === 'GoBack' || code === 461 || code === 10009) return { a: 'back' };
@@ -165,6 +186,11 @@
     const toast = toastDe(opts);
     let info = null, offset = 0, destroyed = false, uiTimer = null, saveTimer = null, subsTimer = null, sleepTimer = null;
     let cues = [], subId = null, subDelay = 0, speed = 1, fit = 'contain', sleep = null, fadeFrom = null;
+    // La piste audio choisie (son rang dans le fichier ; 0 : celle d'origine) et la qualité (hauteur ; null : « Originale »).
+    // « Auto » (comme dans l'appli d'origine) : Odin sert la meilleure qualité possible, ici l'originale.
+    let audioSel = 0, quality = null, qAuto = true;
+    const direct = () => L.direct(info, audioSel, quality);
+    const entetes = () => ({ 'x-odin': '1', ...(opts.profil ? { 'x-venus-profil': String(opts.profil) } : {}) });
     let pendingSeek = null, seekTimer = null, nextShown = false, nextDismissed = false, nextTimer = null, dragging = false, startAt = 0, endedDone = false;
     const id = String(cibleId);
 
@@ -239,7 +265,7 @@
       return t;
     }
     function seekableEnd() {
-      if (info && info.mode === 'direct') return video.duration || 0;
+      if (direct()) return video.duration || 0;
       const s = video.seekable; return s && s.length ? s.end(s.length - 1) : 0;
     }
     function paintTimeline(t = position()) {
@@ -257,15 +283,15 @@
       overlay.hidden = true; spinner.hidden = false;
       const t = Math.max(0, Math.floor(Number(at) || 0));
       startAt = t; endedDone = false;
-      if (info.mode === 'direct') { offset = 0; video.src = L.fluxUrl(id); }
-      else { offset = t; video.src = L.fluxUrl(id, t); }
+      if (direct()) { offset = 0; video.src = L.fluxUrl(id); }
+      else { offset = t; video.src = L.fluxUrl(id, t, { audio: audioSel, q: quality }); }
       try { video.load(); } catch { /* rien */ }
       video.playbackRate = speed;
       if (reason) toast(reason);
       paintTimeline(t);
       try { const p = video.play(); if (p && p.catch) p.catch(() => { spinner.hidden = true; showUi(true); }); } catch { spinner.hidden = true; }
     }
-    on('loadedmetadata', () => { if (info && info.mode === 'direct' && startAt > 0) { try { video.currentTime = startAt; } catch { /* rien */ } } paintTimeline(); });
+    on('loadedmetadata', () => { if (direct() && startAt > 0) { try { video.currentTime = startAt; } catch { /* rien */ } } paintTimeline(); });
     async function erreur(msg) {
       spinner.hidden = true; overlay.hidden = false;
       const p = h('p', {}, msg || tr('Lecture impossible pour le moment (flux indisponible).'));
@@ -276,17 +302,24 @@
       showUi(true);
       if (!msg) { try { const r = await W.fetch(L.planUrl(id), { headers: { 'x-odin': '1' } }); const d = await r.json(); if (d && d.error && !destroyed) p.textContent = String(d.error); } catch { /* Odin injoignable */ } }
     }
-    on('error', () => erreur());
+    on('error', () => {
+      // Une conversion demandée (autre piste, qualité réduite) qui s'arrête : retour à l'original, au même instant, et c'est dit.
+      if (audioSel || quality) { const ici = pendingSeek != null ? pendingSeek : position(); audioSel = 0; quality = null; paintMode(); toast(tr('La conversion s’est arrêtée : retour à la piste et à la qualité d’origine.'), 'error'); load(ici); return; }
+      erreur();
+    });
 
     // ---------------------------------------------------------------- sous-titres (texte seulement)
     async function loadSubtitles() {
       cues = []; subsLayer.replaceChildren(); lastCue = null;
       const s = info && info.subs.find((x) => x.id === subId); if (!s) return;
       try {
-        const r = await W.fetch(L.sousTitresUrl(id, s.lang), { headers: { 'x-odin': '1' } });
+        const r = await W.fetch(L.sousTitresUrl(id, s.lang, s.id), { headers: { 'x-odin': '1' } });
         if (!r.ok) throw new Error(String(r.status));
-        cues = L.parseVtt(await r.text());
+        const recus = L.parseVtt(await r.text());
+        if (destroyed || subId !== s.id) return;
+        cues = recus;
         if (!cues.length) toast(tr('Ces sous-titres sont vides ou illisibles.'));
+        else if (r.headers && r.headers.get && r.headers.get('x-venus-partiel')) toast(tr('Sous-titres incomplets : cette vidéo est longue à lire, seul le début est là.'));
       } catch { toast(tr('Sous-titres indisponibles'), 'error'); }
     }
     let lastCue = null;
@@ -322,7 +355,7 @@
       if (!info) return;
       markUser();
       const d = duration(); t = Math.max(0, Math.min(d ? d - 1 : t, t));
-      if (info.mode === 'direct') { try { video.currentTime = t; } catch { /* rien */ } paintTimeline(t); return; }
+      if (direct()) { try { video.currentTime = t; } catch { /* rien */ } paintTimeline(t); return; }
       const rel = t - offset;
       if (rel >= 0 && rel <= seekableEnd() - 0.5) { video.currentTime = rel; paintTimeline(t); return; }
       // Hors de la partie déjà convertie : Odin reconvertit à partir du nouveau point.
@@ -435,33 +468,77 @@
       const s = sheet(tr('Chapitres'), h('div', { class: 'chap-list' }, chapters().map((c, i) => h('button', { class: `chap f${c === now ? ' on' : ''}`, onclick: () => { s.close(); seekTo(c.start + 0.05, { immediate: true }); } },
         h('span', { class: 'chap-img' }, h('b', {}, String(i + 1))), h('span', { class: 'chap-txt' }, h('b', {}, String(c.title || '')), h('small', {}, L.fmtTime(c.start)))))), { wide: true });
     }
-    // Qualité : Odin sert l'original (tel quel ou converti) ; les autres qualités viendront.
+    // Qualité : « Originale » (lue telle quelle, ou convertie si le navigateur ne lit pas ce format), et les qualités
+    // réduites que la machine d'Odin produit vraiment. Les autres sont grisées et disent pourquoi.
     function paintMode() {
-      const direct = info.mode === 'direct';
-      modeDot.className = `p-mode f ${direct ? 'ok' : 'conv'}`;
-      modeDot.title = direct ? tr('Lecture directe : le fichier est lu tel quel') : tr('Conversion par Odin : ce format est converti pendant la lecture');
+      const d = direct();
+      modeDot.className = `p-mode f ${d ? 'ok' : 'conv'}`;
+      modeDot.title = d ? tr('Lecture directe : le fichier est lu tel quel')
+        : quality ? tr('Conversion par Odin : qualité réduite à {q}', { q: `${quality}p` })
+          : audioSel ? tr('Conversion par Odin : une autre piste audio est lue')
+            : tr('Conversion par Odin : ce format est converti pendant la lecture');
       modeDot.setAttribute('aria-label', modeDot.title);
-      modeDot.querySelector('.p-mode-q').textContent = info.res || '';
+      modeDot.querySelector('.p-mode-q').textContent = quality ? `${quality}p` : (info.res || '');
+    }
+    /** La demande est-elle possible (piste, qualité, machine libre) ? Rend la raison du refus, ou rien. Rien n'est lancé. */
+    async function refusDe(audio, q) {
+      try {
+        const r = await W.fetch(L.conversionUrl(id, audio, q), { headers: entetes() }), j = await r.json().catch(() => ({}));
+        return r.ok && j && j.ok ? null : tr(String((j && j.error) || 'Conversion impossible pour le moment.'));
+      } catch { return tr('Odin est injoignable : la lecture reste comme elle est.'); }
+    }
+    const ici = () => (pendingSeek != null ? pendingSeek : position());
+    async function setQuality(hq, auto = false) {
+      const q = hq || null; if (q === quality) { qAuto = !q && auto; return; }
+      if (q) { const refus = await refusDe(audioSel, q); if (destroyed) return; if (refus) { toast(refus, 'error'); return; } }
+      const at = ici(); quality = q; qAuto = !q && auto; paintMode();
+      load(at, { reason: q ? tr('Qualité {q}', { q: `${q}p` }) : tr('Qualité originale') });
     }
     function openQuality() {
+      const liste = h('div', {}, h('p', { class: 'muted', role: 'status' }, tr('Odin regarde ce que cette machine peut produire…')));
+      const ligne = (q) => (q.possible
+        ? h('button', { class: `opt f${quality === q.hauteur ? ' on' : ''}`, onclick: () => { s.close(); setQuality(q.hauteur); } }, icon(quality === q.hauteur ? 'check' : 'dot'), String(q.q))
+        : h('button', { class: 'opt f', 'aria-disabled': 'true', onclick: () => toast(tr('Qualité {q} : {r}', { q: String(q.q), r: tr(String(q.detail || q.raison || '')) })) }, icon('dot'), String(q.q), h('small', {}, tr(String(q.raison || '')))));
       const s = sheet(tr('Qualité'), h('div', {},
         h('p', { style: { color: 'var(--mist)', margin: '0 0 12px' } }, tr('Auto choisit la meilleure qualité possible. Baissez-la si la vidéo saccade ou pour économiser vos données. La pastille en haut à droite ouvre cette fenêtre.')),
-        h('p', { class: 'p-mode-line' }, h('span', { class: `p-mode ${info.mode === 'direct' ? 'ok' : 'conv'}` }, h('i')), h('span', {}, modeDot.title)),
-        h('button', { class: 'opt f on', onclick: () => s.close() }, icon('check'), tr('Originale'), info.res ? h('small', {}, info.res) : null),
-        ['1080p', '720p', '480p', '360p'].map((q) => h('button', { class: 'opt f', 'aria-disabled': 'true', onclick: () => toast(tr('Qualité {q} : bientôt dans Odin.', { q })) }, icon('dot'), q, h('small', {}, tr('bientôt'))))));
+        h('p', { class: 'p-mode-line' }, h('span', { class: `p-mode ${direct() ? 'ok' : 'conv'}` }, h('i')), h('span', {}, modeDot.title)),
+        h('button', { class: `opt f${!quality && qAuto ? ' on' : ''}`, onclick: () => { s.close(); setQuality(null, true); } }, icon(!quality && qAuto ? 'check' : 'dot'), tr('Auto'), h('small', {}, tr('la meilleure possible ici : l’originale'))),
+        h('button', { class: `opt f${!quality && !qAuto ? ' on' : ''}`, onclick: () => { s.close(); setQuality(null, false); } }, icon(!quality && !qAuto ? 'check' : 'dot'), tr('Originale'), info.res ? h('small', {}, info.res) : null),
+        liste));
+      (async () => {
+        let d = null; try { const r = await W.fetch(L.qualitesUrl(id), { headers: entetes() }); d = await r.json(); if (!r.ok) d = null; } catch { d = null; }
+        if (destroyed || sheetOpen !== s) return;
+        const qs = d && Array.isArray(d.qualites) ? d.qualites : null;
+        liste.replaceChildren(...(qs ? qs.map(ligne) : [h('p', { class: 'muted' }, tr('Odin est injoignable : la lecture reste en « Originale ».'))]));
+      })();
     }
     // Audio et sous-titres
+    function garderAudio(lang) {
+      if (!lang) return;
+      try { W.fetch('/venus/api/preferences', { method: 'POST', headers: { 'content-type': 'application/json', ...entetes() }, body: JSON.stringify({ audio: String(lang) }) }).catch(() => {}); } catch { /* hors ligne */ }
+    }
+    /** Change de piste audio pendant la lecture : elle reprend au même instant ; le choix (sa langue) est gardé pour ce profil. */
+    async function setAudio(n) {
+      const a = info.audio.find((x) => x.order === n); if (!a || n === audioSel) return;
+      if (n !== 0 || quality) { const refus = await refusDe(n, quality); if (destroyed) return; if (refus) { toast(refus, 'error'); return; } }
+      const at = ici(); audioSel = n; garderAudio(a.lang); paintMode();
+      load(at, { reason: tr('Audio : {l}', { l: L.nomAudio(a) }) });
+    }
+    function choisirSub(x) { subId = x.id; ecrire(prefKey(opts, 'sublang'), x.id == null ? '' : x.lang); loadSubtitles(); }
+    const nomSub = (x) => L.langName(x.lang) || tr('Sous-titres');
     function openTracks() {
       const audio = info.audio.length ? info.audio : [{ order: 0, codec: '' }];
       const audioCol = h('div', {}, h('h3', {}, tr('Audio')), audio.map((a) => h('button', {
-        class: `opt f${a.order === 0 ? ' on' : ''}`,
-        onclick: () => { s.close(); if (a.order !== 0) toast(tr('Changer de piste audio : bientôt dans Odin.')); },
-      }, icon(a.order === 0 ? 'check' : 'dot'), tr('Piste {n}', { n: a.order + 1 }), a.codec ? h('small', {}, String(a.codec).toUpperCase()) : null, a.order ? h('small', {}, ` · ${tr('bientôt')}`) : null)));
-      const subOpts = [{ id: null, label: tr('Désactivés') }, ...info.subs.map((x) => ({ ...x, label: L.langName(x.lang) || tr('Sous-titres') }))];
-      const subCol = h('div', {}, h('h3', {}, tr('Sous-titres')), subOpts.map((x) => h('button', {
-        class: `opt f${(x.id ?? null) === (subId ?? null) ? ' on' : ''}`,
-        onclick: () => { s.close(); subId = x.id; ecrire(prefKey(opts, 'sublang'), x.id == null ? '' : x.lang); loadSubtitles(); },
-      }, icon((x.id ?? null) === (subId ?? null) ? 'check' : 'dot'), x.label, h('small', {}, [x.forced ? tr('Forcés') : '', x.title || ''].filter(Boolean).join(', ')))));
+        class: `opt f${a.order === audioSel ? ' on' : ''}`,
+        onclick: () => { s.close(); setAudio(a.order); },
+      }, icon(a.order === audioSel ? 'check' : 'dot'), L.nomAudio(a), h('small', {}, [a.title, a.codec ? String(a.codec).toUpperCase() : ''].filter(Boolean).join(' · ')))));
+      const subOpts = [{ id: null, label: tr('Désactivés') }, ...info.subs.map((x) => ({ ...x, label: nomSub(x) }))];
+      const subCol = h('div', {}, h('h3', {}, tr('Sous-titres')), subOpts.map((x) => (x.lisible === false
+        ? h('button', { class: 'opt f', 'aria-disabled': 'true', onclick: () => toast(tr('Ces sous-titres sont des images, pas du texte : Odin ne sait pas les afficher.')) }, icon('dot'), x.label, h('small', {}, tr('en images')))
+        : h('button', {
+          class: `opt f${(x.id ?? null) === (subId ?? null) ? ' on' : ''}`,
+          onclick: () => { s.close(); choisirSub(x); },
+        }, icon((x.id ?? null) === (subId ?? null) ? 'check' : 'dot'), x.label, h('small', {}, [x.forced ? tr('Forcés') : '', x.title || ''].filter(Boolean).join(', '))))));
       const delayVal = h('b', {}, `${subDelay > 0 ? '+' : ''}${String(subDelay).replace('.', ',')} s`);
       const step = (d) => { setSubDelay(subDelay + d); delayVal.textContent = `${subDelay > 0 ? '+' : ''}${String(subDelay).replace('.', ',')} s`; };
       if (cues.length || subId != null) subCol.append(h('div', { class: 'sub-delay' }, h('span', {}, tr('Décalage')),
@@ -469,8 +546,28 @@
         h('button', { class: 'p-icon small f', 'aria-label': tr('Sous-titres plus tard'), onclick: () => step(0.5) }, '+'),
         h('small', {}, tr('Touches G et H : 0,1 s'))));
       subCol.append(h('button', { class: 'opt ic f', onclick: () => { s.close(); openSubLook(); } }, icon('subs'), tr('Apparence des sous-titres')));
-      subCol.append(h('button', { class: 'opt ic f', onclick: () => { s.close(); toast(tr('Chercher des sous-titres : bientôt dans Odin.')); } }, icon('search'), tr('Chercher des sous-titres'), h('small', {}, tr('bientôt'))));
+      subCol.append(h('button', { class: 'opt ic f', onclick: () => { s.close(); openSubSearch(); } }, icon('search'), tr('Chercher des sous-titres')));
       const s = sheet(tr('Audio et sous-titres'), h('div', { class: 'sheet-cols' }, audioCol, subCol));
+    }
+    // Chercher des sous-titres : Odin relit la vidéo et son dossier (un fichier posé depuis le dernier scan est trouvé).
+    // En ligne : seulement avec un service réglé par le propriétaire ; sans lui, la fenêtre le dit.
+    async function openSubSearch() {
+      const corps = h('div', {}, h('p', { class: 'muted', role: 'status' }, tr('Odin regarde dans la vidéo et à côté…')));
+      const s = sheet(tr('Chercher des sous-titres'), corps);
+      let d = null; try { const r = await W.fetch(L.pistesUrl(id), { headers: entetes() }); d = await r.json(); if (!r.ok) d = null; } catch { d = null; }
+      if (destroyed || sheetOpen !== s) return;
+      if (!d || !Array.isArray(d.subs)) { corps.replaceChildren(h('p', { class: 'muted' }, tr('Recherche impossible pour le moment.'))); return; }
+      const avant = new Set(info.subs.map((x) => x.id)); info.subs = d.subs;
+      const lisibles = info.subs.filter((x) => x.lisible !== false);
+      corps.replaceChildren(
+        h('h3', {}, tr('Dans la vidéo et à côté')),
+        lisibles.length
+          ? h('div', {}, lisibles.map((x) => h('button', { class: `opt f${x.id === subId ? ' on' : ''}`, onclick: () => { s.close(); choisirSub(x); } },
+            icon(x.id === subId ? 'check' : 'dot'), nomSub(x), h('small', {}, [avant.has(x.id) ? '' : tr('Trouvé à l’instant'), x.forced ? tr('Forcés') : '', x.title || ''].filter(Boolean).join(', ')))))
+          : h('p', { class: 'muted' }, tr('Aucun sous-titre dans cette vidéo ni à côté.')),
+        h('h3', {}, tr('En ligne')),
+        h('p', { class: 'muted p-online' }, tr(String((d.enLigne && d.enLigne.texte) || 'Aucun service de sous-titres n’est réglé dans Odin : rien n’est cherché sur Internet.'))));
+      try { (corps.querySelector('.opt.on') || corps.querySelector('.opt')).focus(); } catch { /* rien à viser */ }
     }
     function openSubLook() {
       const look = lire('vn_sublook', {}) || {};
@@ -694,6 +791,7 @@
         case 'chapter': jumpChapter(act.dir); showUi(); break;
         case 'subdelay': setSubDelay(subDelay + act.d); break;
         case 'mute': setMuted(!video.muted); break;
+        case 'tracks': if (info) openTracks(); break;
         case 'volume': setVolume(video.volume + act.d, true); break;
         case 'ambiance': bientot(tr('Mode Ambiance'))(); break;
         case 'back': if (uiOn && root.contains(active) && active !== playBtn && active !== track && active !== D.body) { try { playBtn.focus(); } catch { /* rien */ } showUi(); } else exit(); break;
@@ -713,7 +811,8 @@
     on('timeupdate', () => { if (!dragging && pendingSeek == null) paintTimeline(); maybeShowNext(); checkSegments(position()); });
     on('ended', () => {
       // Un flux converti qui s'arrête avant la fin n'est pas la fin du film.
-      if (info && info.mode !== 'direct' && position() < duration() - 5) return;
+      // Coupé par Odin faute de lecteur (longue pause) : repris au même instant, si la lecture avait avancé depuis.
+      if (info && !direct() && position() < duration() - 5) { if (position() > startAt + 2) load(position()); return; }
       if (endedDone) return; endedDone = true;
       saveProgress(true);
       if (sleep && sleep.mode === 'end') { goodnight(); return; }
@@ -762,12 +861,17 @@
     if (info.type === 'episode') { subEl.textContent = L.sxe(info.season, info.episode); subEl.hidden = false; }
     root.setAttribute('aria-label', tr('Lecteur vidéo : {t}', { t: info.title }));
     nextBtn.hidden = !info.next; prevBtn.hidden = !info.prev; epsBtn.hidden = !info.showId;
+    // La piste audio que ce profil a choisie la dernière fois (par sa langue), si la machine peut la servir maintenant.
+    if (Number.isInteger(info.audioSel) && info.audioSel > 0 && info.audio.some((a) => a.order === info.audioSel) && info.present !== false) {
+      const refus = await refusDe(info.audioSel, null); if (destroyed) return moi;
+      if (refus) toast(refus); else audioSel = info.audioSel;
+    }
     paintMode(); paintChapters(); paintBelow(); paintSleep();
     subDelay = Number(lire(`vn_subdelay_${id}`, 0)) || 0;
     applyFit(lire(fitKey(), 'contain'), { silent: true });
     // Sous-titres : la langue choisie la dernière fois par ce profil, sinon des sous-titres forcés s'il y en a.
     const voulu = lire(prefKey(opts, 'sublang'), null);
-    const pick = voulu ? info.subs.find((x) => x.lang === voulu) : info.subs.find((x) => x.forced);
+    const pick = voulu ? info.subs.find((x) => x.lang === voulu && x.lisible !== false) : info.subs.find((x) => x.forced && x.lisible !== false);
     subId = pick ? pick.id : null;
     if (subId != null) loadSubtitles();
     if (info.present === false) { erreur(tr('Le fichier de ce titre n’est plus à sa place (disque débranché, fichier déplacé) : rebranchez-le ou relancez un scan.')); return moi; }

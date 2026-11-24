@@ -13,6 +13,10 @@
 //   GET /venus/api/lecture/<cible>  (lot V2) ce que le lecteur de Venus reçoit : titre, épisode, durée, reprise DU profil,
 //                                   lecture directe ou convertie, sous-titres et pistes audio connus, épisodes voisins ;
 //                                   /venus/app/lecteur.js : le lecteur (public/js/views/player.js du dépôt, réécrit)
+//   GET /venus/api/pistes/<cible>   (suite du lot V2) les pistes audio et les sous-titres relus à l'instant (dans la
+//                                   vidéo et à côté), et ce qu'Odin dit de la recherche en ligne (aucun service réglé)
+//   GET /venus/api/qualites/<cible> les qualités réduites que CETTE machine sait produire (mesuré, jamais deviné)
+//   GET /venus/api/conversion/<cible>?audio=&q=  la demande est-elle possible (piste, qualité, machine libre) ? rien n'est lancé
 //
 // Tout est derrière la garde de routes.ts : le propriétaire seul (un membre n'ouvre ni la page ni ses données).
 // Rien n'est inventé : un renseignement absent (affiche, genres, notes, distribution) reste absent, et la page le dit.
@@ -29,6 +33,9 @@ import { Accounts } from '../../../web/account.ts';
 import { fichePage, fichierImage, lancerFiches, personne, verifierImage } from '../metadonnees.ts';
 import { demanderVignettes, vignetteFaite } from '../vignettes.ts';
 import { reseauCatalogue } from '../comete/index.ts';
+import { choixDeFlux, codeLangue, langueCourte, pistesDe, qualitesDe, verifierConversion } from '../pistes.ts';
+import { chercherSousTitres, listeSousTitres } from '../sous-titres.ts';
+import { etatBandeAnnonce } from '../bande-annonce.ts';
 
 const DOSSIER = new URL('./', import.meta.url);
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
@@ -153,7 +160,9 @@ export function fiche(mag: MagasinVenus, profil: string, id: string): Record<str
   };
   const sousTitres = (l: unknown) => (Array.isArray(l) ? l as Array<{ langue?: string; titre?: string; fichier?: string }> : []).map((x) => ({ langue: s(x.langue), titre: s(x.titre), aPart: !!x.fichier }));
   const meta = fichePage(mag, o) ?? null;
-  if (o.data.type !== 'serie') return { titre: t, meta, tech: tech(o.data.fichier), sousTitres: sousTitres(o.data.sous_titres) };
+  // La bande-annonce : un fichier posé à côté du film, ou la raison pour laquelle le bouton est grisé (jamais un chemin).
+  const bandeAnnonce = etatBandeAnnonce(mag, id);
+  if (o.data.type !== 'serie') return { titre: t, meta, tech: tech(o.data.fichier), sousTitres: sousTitres(o.data.sous_titres), bandeAnnonce };
   const eps = episodes(mag, id), parSaison = new Map<number, Enr[]>();
   for (const e of eps) { const n = Number(e.data.saison) || 0; parSaison.set(n, [...(parSaison.get(n) ?? []), e]); }
   const saisons = [...parSaison.entries()].sort((a, b) => a[0] - b[0]).map(([number, l]) => {
@@ -163,7 +172,7 @@ export function fiche(mag: MagasinVenus, profil: string, id: string): Record<str
       const still = vignetteFaite(mag, e.id);
       return { id: e.id, episode: Number(e.data.episode), ...(still ? { still } : {}), runtime: d ? Math.round(d / 60) : undefined, res: resDe(hauteur(e.data.resolution)) || undefined, position: p?.position ?? 0, duration: p?.duration || d, watched: vu(p, d) }; }) };
   });
-  return { titre: t, meta, saisons, tech: tech(eps[0]?.data.fichier), sousTitres: sousTitres(eps[0]?.data.sous_titres) };
+  return { titre: t, meta, saisons, tech: tech(eps[0]?.data.fichier), sousTitres: sousTitres(eps[0]?.data.sous_titres), bandeAnnonce };
 }
 
 // ---------------- Lecture (lot V2 : le lecteur de Venus) ----------------
@@ -178,7 +187,7 @@ const epLecteur = (e: Enr, rep: Reprises) => {
  * Ce que le lecteur reçoit pour une cible (film, clip, épisode), pour UN profil : sa reprise à lui seul, jamais celle
  * d'un autre. Aucun chemin de fichier de la machine : le flux et les sous-titres passent par les routes d'Odin.
  * Sous-titres : ceux que /venus/sous-titres sait servir (un par langue joignable). Audio : les pistes connues du fichier
- * (choisir une autre piste n'est pas encore servi : l'écran le dit). Chapitres et génériques : pas encore repérés,
+ * (la liste complète, avec langue et canaux, et tous les sous-titres : lectureComplete, plus bas). Chapitres et génériques : pas encore repérés,
  * listes vides (l'écran n'en invente pas).
  */
 export function lecture(mag: MagasinVenus, profil: string, cibleId: string): Record<string, unknown> | undefined {
@@ -205,6 +214,19 @@ export function lecture(mag: MagasinVenus, profil: string, cibleId: string): Rec
   return { ...base, type: 'episode', category: categorieDe(oe), showId: oe.id, itemId: cibleId, season: moi.season, episode: moi.episode,
     next: voisin(eps[i + 1]), prev: voisin(eps[i - 1]), seasonEpisodes: eps.filter((e) => Number(e.data.saison) === moi.season).map((e) => epLecteur(e, rep)) };
 }
+/**
+ * (suite du lot V2) Ce que le lecteur reçoit, avec les pistes du fichier relues par ffprobe (langue, titre, canaux),
+ * TOUS les sous-titres (dans la vidéo et posés à côté, chacun avec un identifiant court), et la piste audio que ce
+ * profil a choisie la dernière fois (par sa langue) : « audioSel ». Toujours aucun chemin de la machine.
+ */
+export async function lectureComplete(mag: MagasinVenus, profil: string, cibleId: string): Promise<Record<string, unknown> | undefined> {
+  const l = lecture(mag, profil, cibleId); if (!l) return undefined;
+  const sonde = await pistesDe(mag, cibleId);
+  const audio = sonde.audio.map((a) => ({ order: a.ordre, codec: a.codec.slice(0, 20), lang: a.langue, title: a.titre, channels: a.canaux, def: a.defaut }));
+  const voulue = langueCourte(preferences(mag, profil).audio ?? '');
+  const choisie = voulue ? audio.find((a) => a.lang && langueCourte(a.lang) === voulue) : undefined;
+  return { ...l, audio: audio.length ? audio : l.audio, audioSel: choisie?.order ?? 0, subs: listeSousTitres(mag, cibleId, sonde) };
+}
 const estEnfant = (home: string, profil: string) => !!profils(home).find((x) => x.id === profil)?.isKids;
 /** Un profil enfant ne voit jamais un chemin de la machine : seul le nom du fichier reste dans la fiche. Pur. */
 export function ficheEnfant(f: Record<string, unknown>): Record<string, unknown> {
@@ -228,7 +250,7 @@ function servirImage(res: ServerResponse, mag: MagasinVenus, id: string): boolea
 // ---------------- Préférences (planète, menu) ----------------
 const PLANETES = new Set(['mercure', 'venus', 'terre', 'mars', 'jupiter', 'saturne', 'uranus', 'neptune', 'pluton', 'noir', 'blanc', 'tv', 'cinema', 'verre', 'lagon', 'ocean', 'sable']);
 const MENU_IDS = new Set(['home', 'movies', 'shows', 'anime', 'clips', 'request', 'today', 'new', 'tv', 'music', 'photos', 'books', 'mylist', 'collections', 'search', 'seance', 'remote', 'stats', 'downloads', 'dashboard']);
-export interface PreferencesVenus { planete?: string; auto?: 'off' | 'sun' | 'system'; verre?: 'auto' | 'day' | 'night'; leger?: 'auto' | 'on' | 'off'; ordre?: string[]; caches?: string[] }
+export interface PreferencesVenus { planete?: string; auto?: 'off' | 'sun' | 'system'; verre?: 'auto' | 'day' | 'night'; leger?: 'auto' | 'on' | 'off'; ordre?: string[]; caches?: string[]; /** la langue de la piste audio choisie dans le lecteur (code du fichier : « fre », « en »…) ; vide : celle du fichier */ audio?: string }
 /** Ne garde que des valeurs connues (planète des 17, sections du menu de Vénus). Pur. */
 export function nettoyerPreferences(b: Record<string, unknown>): PreferencesVenus {
   const out: PreferencesVenus = {};
@@ -238,6 +260,7 @@ export function nettoyerPreferences(b: Record<string, unknown>): PreferencesVenu
   if (['auto', 'on', 'off'].includes(s(b.leger))) out.leger = s(b.leger) as PreferencesVenus['leger'];
   const ids = (l: unknown) => (Array.isArray(l) ? [...new Set(l.map(s).filter((x) => MENU_IDS.has(x)))] : undefined);
   const o = ids(b.ordre), c = ids(b.caches); if (o) out.ordre = o; if (c) out.caches = c;
+  if (typeof b.audio === 'string' && (b.audio === '' || codeLangue(b.audio))) out.audio = codeLangue(b.audio);
   return out;
 }
 // Rangées pour l'instant dans un petit fichier du dossier de Vénus (interface.json, mode 0o600), par profil : la base
@@ -338,8 +361,23 @@ export async function routeAppli(req: IncomingMessage, res: ServerResponse, url:
   }
   if (meth === 'GET' && reste.startsWith('lecture/')) {
     let id = reste.slice(8); try { id = decodeURIComponent(id); } catch { /* tel quel */ }
-    const l = lecture(mag, profil, id); if (!l) { json(res, 404, { error: 'Ce titre n’est pas (ou plus) dans la bibliothèque : relancez un scan.' }); return true; }
+    const l = await lectureComplete(mag, profil, id); if (!l) { json(res, 404, { error: 'Ce titre n’est pas (ou plus) dans la bibliothèque : relancez un scan.' }); return true; }
     json(res, 200, { ...l, kids: estEnfant(home, profil) }); return true;
+  }
+  // (suite du lot V2) Pistes, qualités, et la vérification d'une demande de conversion : seulement pour une cible que
+  // le lecteur sait ouvrir (un film, un clip, un épisode de la bibliothèque).
+  const mPistes = meth === 'GET' ? /^(pistes|qualites|conversion)\/(.+)$/.exec(reste) : null;
+  if (mPistes) {
+    let id = mPistes[2]; try { id = decodeURIComponent(id); } catch { /* tel quel */ }
+    if (!lecture(mag, profil, id)) { json(res, 404, { error: 'Ce titre n’est pas (ou plus) dans la bibliothèque : relancez un scan.' }); return true; }
+    if (mPistes[1] === 'pistes') { const l = (await lectureComplete(mag, profil, id))!, r = await chercherSousTitres(mag, id); json(res, 200, { audio: l.audio, audioSel: l.audioSel, subs: r.subs, enLigne: r.enLigne }); return true; }
+    if (mPistes[1] === 'qualites') { json(res, 200, await qualitesDe(mag, id)); return true; }
+    const choix = choixDeFlux(url.searchParams.get('audio'), url.searchParams.get('q'));
+    if (!choix) { json(res, 400, { ok: false, error: 'Piste audio ou qualité inconnue.' }); return true; }
+    // Une conversion à la fois : la session est celle du profil (son propre saut la remplace, un autre profil attend).
+    const v = await verifierConversion(mag, id, { cle: profil, ...choix });
+    if ('ok' in v) json(res, 200, { ok: true }); else json(res, v.code, { ok: false, error: v.error });
+    return true;
   }
   // « choisi » : un profil a déjà été choisi sur cet appareil (témoin valide) ; sinon la page montre « Qui regarde ? ».
   if (meth === 'GET' && reste === 'profils') { const l = profils(home), c = profilDuTemoin(req); json(res, 200, { profils: l, actuel: profil, choisi: l.some((p) => p.id === c) }); return true; }

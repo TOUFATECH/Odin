@@ -12,7 +12,10 @@ import { fetchPropre } from '../../net/fetch-propre.ts';
 import { haApi, type HaState } from '../../tools/homeassistant.ts';
 import { dirVenus, magasinVenus, type MagasinVenus } from './base.ts';
 import { ajouterDossier, nettoyerChemin, raisonDossierRefuse, ajouterHistorique, ajouterMaListe, bibliotheque, demander, demandes, dossiers, episodes, fichierDeCible, maListe, noterReprise, pistes, reprise, retirerDossier, retirerMaListe, scanner, type Categorie, type Outils, type Probe, type TypeOeuvre } from './bibliotheque.ts';
-import { argsSousTitres, argsTranscodage, choisirSousTitres, lireRange, planLecture, srtVersVtt, estVtt } from './lecture.ts';
+import { argsTranscodage, choisirSousTitres, lireRange, planLecture } from './lecture.ts';
+import { choixDeFlux, pistesDe, servirConversion } from './pistes.ts';
+import { ecrireVtt, idPourLangue, listeSousTitres, vttDe, vttDuFichierNote } from './sous-titres.ts';
+import { servirBandeAnnonce } from './bande-annonce.ts';
 import { ACTIONS_ECRAN, decouvrirEcrans, piloterEcran, planEnvoi, type ActionEcran, type HaCaller } from './ecrans.ts';
 import { creerTelecommande, empreinteTelephone, jetonDe, nombreTelephones, qrTelecommande, regenerer, revoquer, telecommandes, validerJeton } from './telecommande.ts';
 import { abonnements, abonner, accueil, ajouterHistoriqueYt, chaine, desabonner, effacerHistoriqueYt, historiqueYt, recherche, reglagesYt, reglerYt, segmentsASauter, video, type Http } from './youtube.ts';
@@ -133,6 +136,15 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
     // diffusion à portée restreinte (cette cible, limité dans le temps) est accepté, vérifié AVANT la garde propriétaire.
     if (meth === 'GET' && p.startsWith('/venus/flux/')) {
       const cibleId = decode(p.slice('/venus/flux/'.length));
+      // (suite du lot V2) Une autre piste audio ou une qualité réduite : la conversion bornée d'Odin (une à la fois),
+      // pour le propriétaire et ses profils seulement — jamais avec un jeton de diffusion.
+      const choix = proprietaire() && (url.searchParams.has('audio') || url.searchParams.has('q')) ? choixDeFlux(url.searchParams.get('audio'), url.searchParams.get('q')) : { audio: 0 };
+      if (!choix) { json(res, 400, { error: 'Piste audio ou qualité inconnue.' }); return true; }
+      if (choix.audio > 0 || choix.hauteur) {
+        if (!lecteurSaitOuvrir(mag, cibleId)) { json(res, 404, { error: 'cible introuvable' }); return true; }
+        if (estOuverture(req.headers.range) && !(Number(url.searchParams.get('depuis')) > 0)) noterVu(mag, profil, cibleId);
+        return await servirConversion(res, mag, cibleId, { cle: profil, depuis: Number(url.searchParams.get('depuis')) || 0, ...choix });
+      }
       if (proprietaire() || fluxAutorise(ctx.home, cibleId, s(url.searchParams.get('cle')))) {
         return await servirFlux(res, mag, cibleId, { range: req.headers.range, depuis: Number(url.searchParams.get('depuis')) || 0, profil });
       }
@@ -160,7 +172,9 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
     }
     // Avant de lire : comment ce titre sera servi, et pourquoi il ne peut pas l'être (le lecteur l'affiche s'il échoue).
     if (meth === 'GET' && p.startsWith('/venus/plan/')) return await servirPlan(res, mag, decode(p.slice('/venus/plan/'.length)));
-    if (meth === 'GET' && p.startsWith('/venus/sous-titres/')) return await servirSousTitres(res, mag, decode(p.slice('/venus/sous-titres/'.length)), s(url.searchParams.get('lang')));
+    if (meth === 'GET' && p.startsWith('/venus/sous-titres/')) return await servirSousTitres(res, mag, decode(p.slice('/venus/sous-titres/'.length)), s(url.searchParams.get('lang')), s(url.searchParams.get('piste')));
+    // (suite du lot V2) La bande-annonce : un fichier posé à côté du film, rien d'autre.
+    if (meth === 'GET' && p.startsWith('/venus/bande-annonce/')) return await servirBandeAnnonce(res, mag, decode(p.slice('/venus/bande-annonce/'.length)), { range: req.headers.range, cle: profil });
     if (meth === 'GET' && p.startsWith('/venus/vignette/')) return servirVignette(res, mag, decode(p.slice('/venus/vignette/'.length)));
 
     if (meth === 'POST' && p === '/venus/reprise') { const b = await corps(req); noterReprise(mag, profil, s(b.cible), Number(b.position_s) || 0, Number(b.duree_s) || 0, s(b.type) || 'video'); json(res, 200, { ok: true }); return true; }
@@ -259,18 +273,26 @@ async function routeDossiers(req: IncomingMessage, res: ServerResponse, meth: st
   const refus = raisonDossierRefuse(chemin); if (refus) { json(res, 400, { error: refus }); return true; }
   ajouterDossier(mag, chemin, cat); json(res, 200, { dossiers: dossiers(mag) }); return true;
 }
-async function servirSousTitres(res: ServerResponse, mag: MagasinVenus, cibleId: string, lang: string): Promise<boolean> {
+/** Une cible que le lecteur de Vénus ouvre : un film (ou un clip) ou un épisode de la bibliothèque, une vidéo. */
+function lecteurSaitOuvrir(mag: MagasinVenus, cibleId: string): boolean {
+  const ep = mag.get('episodes', cibleId), oe = ep ? mag.get('oeuvres', String(ep.data.oeuvre_id ?? '')) : mag.get('oeuvres', cibleId);
+  return !!oe && (ep ? oe.data.type === 'serie' : oe.data.type === 'film') && fichierDeCible(mag, cibleId)?.type === 'video';
+}
+/**
+ * Les sous-titres d'une cible, toujours en WebVTT RÉÉCRIT par Odin (du texte, jamais le fichier recopié) : « ?piste= »
+ * l'identifiant court d'un sous-titre (dans la vidéo ou posé à côté), sinon « ?lang= » comme avant. Une piste de la
+ * vidéo est extraite par la commande bornée de sous-titres.ts (une à la fois, coupée au bout du délai).
+ */
+async function servirSousTitres(res: ServerResponse, mag: MagasinVenus, cibleId: string, lang: string, piste = ''): Promise<boolean> {
   const c = fichierDeCible(mag, cibleId); if (!c) { json(res, 404, { error: 'cible introuvable' }); return true; }
-  const st = choisirSousTitres(c.sousTitres, lang);
-  if (st?.fichier && existsSync(st.fichier)) {
-    const texte = readFileSync(st.fichier, 'utf8'); const vtt = estVtt(texte) ? texte : srtVersVtt(texte);
-    res.writeHead(200, { 'content-type': 'text/vtt; charset=utf-8', 'cache-control': 'no-store' }); res.end(vtt); return true;
-  }
-  if (st && st.index !== undefined && existsSync(c.fichier)) {
-    try { const ff = spawn('ffmpeg', argsSousTitres(c.fichier, { index: st.index }), { stdio: ['ignore', 'pipe', 'ignore'] }); res.writeHead(200, { 'content-type': 'text/vtt; charset=utf-8', 'cache-control': 'no-store' }); ff.stdout.pipe(res); res.on('close', () => { try { ff.kill('SIGKILL'); } catch { /* ignore */ } }); return true; }
-    catch { /* rien */ }
-  }
-  res.writeHead(200, { 'content-type': 'text/vtt; charset=utf-8' }); res.end('WEBVTT\n\n'); return true;
+  const vtt = (texte: string, partiel = false) => { res.writeHead(200, { 'content-type': 'text/vtt; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...(partiel ? { 'x-venus-partiel': '1' } : {}) }); res.end(texte); return true; };
+  if (piste) { const r = await vttDe(mag, cibleId, piste); if (!r) { json(res, 404, { error: 'sous-titre introuvable' }); return true; } return vtt(r.vtt, r.partiel); }
+  // L'ancienne adresse : un fichier noté par le scan pour cette langue, sinon ce que la vidéo et son dossier offrent.
+  const note = choisirSousTitres(c.sousTitres, lang);
+  if (note?.fichier) { const t = vttDuFichierNote(mag, cibleId, note.fichier); if (t !== undefined) return vtt(t); }
+  const id = c.type === 'video' ? idPourLangue(listeSousTitres(mag, cibleId, await pistesDe(mag, cibleId)), lang) : undefined;
+  const r = id ? await vttDe(mag, cibleId, id) : undefined;
+  return vtt(r?.vtt ?? ecrireVtt([]), r?.partiel);
 }
 function servirVignette(res: ServerResponse, mag: MagasinVenus, cibleId: string): boolean {
   const ep = mag.get('episodes', cibleId), oe = mag.get('oeuvres', cibleId);

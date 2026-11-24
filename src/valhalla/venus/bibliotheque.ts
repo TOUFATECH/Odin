@@ -159,14 +159,41 @@ export function sousTitresVoisins(chemin: string, tous: FichierVu[]): Array<{ la
 }
 
 /** Pourquoi un fichier (ou un dossier) n'est pas entré dans la bibliothèque : dit à l'écran, jamais tu. */
-export type RaisonIgnore = 'dossier_introuvable' | 'pas_un_media' | 'illisible' | 'hors_categorie' | 'episode_sans_numero';
+export type RaisonIgnore = 'dossier_introuvable' | 'pas_un_media' | 'illisible' | 'hors_categorie' | 'episode_sans_numero' | 'bande_annonce';
 export const RAISONS_IGNORE: Record<RaisonIgnore, string> = {
   dossier_introuvable: "dossier introuvable sur la machine d'Odin",
   pas_un_media: 'pas une vidéo ni un son',
   illisible: 'illisible par ffprobe (fichier abîmé, ou FFmpeg absent)',
   hors_categorie: 'pas du bon genre pour la catégorie du dossier (un son dans « Films », une vidéo dans « Musique »…)',
   episode_sans_numero: 'épisode sans numéro dans son nom (il faut S01E02 ou 1x02)',
+  bande_annonce: 'bande-annonce : elle accompagne son film, elle n\'est pas rangée comme un film',
 };
+/**
+ * Une bande-annonce posée à côté d'un film : « Titre-trailer.mp4 », « Titre.bande-annonce.mkv », « trailer.mp4 », ou une
+ * vidéo d'un dossier « Trailers ». Elle n'est PAS un film : rangée comme tel, elle prendrait la place du film de même
+ * titre (même identifiant). La fiche du film la propose (bande-annonce.ts). Le scan ne l'écarte que si son film est
+ * bien à côté (accompagneUnFilm). Pur.
+ */
+export function estBandeAnnonce(chemin: string): boolean {
+  if (!EXT_VIDEO.has(extname(chemin).toLowerCase())) return false;
+  const nom = basename(chemin, extname(chemin));
+  return /^(?:trailer|bande[-_.]?annonce)$/i.test(nom) || /[-_.](?:trailer|bande[-_.]?annonce)$/i.test(nom) || /^(?:trailers?|bandes?-annonces?)$/i.test(basename(dirname(chemin)));
+}
+/**
+ * Cette bande-annonce (par son nom) ACCOMPAGNE-t-elle vraiment un film de la liste ? Seulement alors le scan la laisse
+ * de côté : « Titre-trailer.mkv » avec « Titre.mkv » à côté ; « trailer.mp4 » avec un film dans le même dossier ; une
+ * vidéo d'un dossier « Trailers » avec un film dans le dossier au-dessus. Sans film à côté, c'est un film comme un
+ * autre (un vrai film peut s'appeler « Trailer », ou finir par ce mot) : il n'est pas écarté sans rien dire. Pur.
+ */
+export function accompagneUnFilm(chemin: string, tous: FichierVu[]): boolean {
+  if (!estBandeAnnonce(chemin)) return false;
+  const sansExt = (c: string) => basename(c, extname(c)).normalize('NFC').toLowerCase();
+  const filmsDe = (d: string) => tous.filter((f) => f.chemin !== chemin && dirname(f.chemin) === d && EXT_VIDEO.has(extname(f.chemin).toLowerCase()));
+  const dir = dirname(chemin), nom = sansExt(chemin), SUFFIXE = /[-_.](?:trailer|bande[-_.]?annonce)$/i;
+  if (/^(?:trailers?|bandes?-annonces?)$/i.test(basename(dir))) return filmsDe(dirname(dir)).some((f) => !estBandeAnnonce(f.chemin));
+  if (SUFFIXE.test(nom)) return filmsDe(dir).some((f) => sansExt(f.chemin) === nom.replace(SUFFIXE, ''));
+  return filmsDe(dir).some((f) => !estBandeAnnonce(f.chemin));
+}
 /** Bilan d'un scan : les comptes, et pour ce qui est laissé de côté, la raison (avec quelques noms de fichiers). */
 export interface Bilan { oeuvres: number; episodes: number; pistes: number; fichiers: number; ignores: number;
   raisons: Partial<Record<RaisonIgnore, number>>; exemples: Array<{ fichier: string; raison: RaisonIgnore }>; dossiersIntrouvables: string[] }
@@ -191,6 +218,7 @@ export async function scanner(mag: MagasinVenus, outils: Outils): Promise<Bilan>
     const tous = parcourir(chemin);
     for (const f of tous) {
       if (EXT_SOUS.has(extname(f.chemin).toLowerCase())) continue; // un sous-titre accompagne un média, il n'est pas rangé seul
+      if ((categorie === 'films' || categorie === 'series') && accompagneUnFilm(f.chemin, tous)) continue; // une bande-annonce accompagne son film, de même
       const r = await rangerFichier(mag, f, categorie, outils, tous, oeuvresVues, chemin);
       if ('raison' in r) { if (r.lu) b.fichiers++; ignorer(f.chemin, r.raison); continue; }
       b.fichiers++;
@@ -212,6 +240,9 @@ export async function rangerFichier(mag: MagasinVenus, f: FichierVu, categorie: 
   if (!EXT_VIDEO.has(ext) && !EXT_AUDIO.has(ext)) return { raison: 'pas_un_media' };
   // Un fichier qui n'a rien à faire dans la catégorie du dossier est écarté AVANT d'appeler ffprobe.
   if (!bonGenrePour(f.chemin, categorie)) return { raison: 'hors_categorie' };
+  // Une bande-annonce (« Titre-trailer.mp4 ») porte le titre de son film : rangée, elle le remplacerait.
+  // (Sans la liste des fichiers voisins, le nom seul décide : dans le doute, le film n'est pas remplacé.)
+  if ((categorie === 'films' || categorie === 'series') && (voisins.length ? accompagneUnFilm(f.chemin, voisins) : estBandeAnnonce(f.chemin))) return { raison: 'bande_annonce' };
   // Un épisode sans SxxExx dans son nom, mais rangé dans « Saison N » avec son numéro (E05, 05…), est lu par son dossier.
   const parDossier = categorie === 'series' && analyserNom(basename(f.chemin)).saison === undefined ? episodeDeDossier(f.chemin, racine) : undefined;
   if (categorie === 'series' && analyserNom(basename(f.chemin)).saison === undefined && !parDossier) return { raison: 'episode_sans_numero' };

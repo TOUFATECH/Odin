@@ -28,3 +28,11 @@ html[data-tone="light"] .ph { color: #fff; } /* le titre écrit sur un fond sans
 .p-controls::-webkit-scrollbar { display: none; }
 .p-controls > * { flex-shrink: 0; }
 .p-controls > .spacer { flex-shrink: 1; min-width: 0; }
+/* Pistes, qualités, bande-annonce (suite du lot V2) : une ligne ou un bouton qu'Odin ne peut pas servir reste à sa place, grisé
+   (il dit pourquoi quand on l'actionne) ; la bande-annonce est une vidéo servie par Odin, au format 16:9 dans sa fenêtre. */
+.opt[aria-disabled="true"], .btn[aria-disabled="true"] { opacity: .55; cursor: default; }
+.opt[aria-disabled="true"]:hover { background: none; }
+.sheet .opt small { text-align: right; }
+.sheet .p-online { margin: 0; }
+.trailer-box { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; }
+.trailer-video { display: block; width: 100%; height: 100%; }

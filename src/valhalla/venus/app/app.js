@@ -47,6 +47,31 @@
       'Pas encore d’informations sur la distribution de ce titre.': 'No cast information for this title yet.', 'Note {n} et plus': 'Rating {n} and up',
       'Pas de résumé : choisissez un catalogue dans Réglages → Demandes pour les affiches, résumés et distribution.': 'No summary: choose a catalogue in Settings → Requests for posters, summaries and cast.',
       'Pas encore de filtre possible : genres et notes arrivent avec les fiches des titres (Réglages → Demandes).': 'No filters yet: genres and ratings come with title details (Settings → Requests).',
+      // pistes audio, qualités, sous-titres, bande-annonce (suite du lot V2)
+      'Stéréo': 'Stereo', 'Mono': 'Mono', 'Audio : {l}': 'Audio: {l}', 'Qualité {q}': 'Quality {q}', 'Qualité originale': 'Original quality', 'Qualité {q} : {r}': 'Quality {q}: {r}', 'Auto': 'Auto',
+      'la meilleure possible ici : l’originale': 'the best possible here: original',
+      'Conversion par Odin : qualité réduite à {q}': 'Converted by Odin: quality reduced to {q}', 'Conversion par Odin : une autre piste audio est lue': 'Converted by Odin: another audio track is playing',
+      'Auto choisit la meilleure qualité possible. Baissez-la si la vidéo saccade ou pour économiser vos données. La pastille en haut à droite ouvre cette fenêtre.': 'Auto picks the best possible quality. Lower it if the video stutters or to save data. The badge at the top right opens this window.',
+      'Odin regarde ce que cette machine peut produire…': 'Odin is checking what this machine can produce…', 'Odin est injoignable : la lecture reste en « Originale ».': 'Odin cannot be reached: playback stays on “Original”.',
+      'Odin est injoignable : la lecture reste comme elle est.': 'Odin cannot be reached: playback stays as it is.', 'Conversion impossible pour le moment.': 'Conversion is not possible right now.',
+      'La conversion s’est arrêtée : retour à la piste et à la qualité d’origine.': 'The conversion stopped: back to the original track and quality.',
+      'taille inconnue': 'unknown size', 'l’original n’est pas plus grand': 'the original is not larger', 'FFmpeg introuvable': 'FFmpeg not found', 'cette machine ne suit pas': 'this machine cannot keep up', 'mesure plus tard': 'measured later', 'fichier absent': 'file missing',
+      'La taille de l’image de ce fichier n’est pas connue : relancez un scan.': 'The picture size of this file is unknown: run a scan again.',
+      'L’original n’est pas plus grand que cette qualité : il n’y a rien à réduire.': 'The original is not larger than this quality: there is nothing to reduce.',
+      'FFmpeg est introuvable pour Odin : il sert à convertir. Installez-le sur la machine d’Odin, puis redémarrez Odin.': 'Odin cannot find FFmpeg, which does the converting. Install it on Odin’s machine, then restart Odin.',
+      'Cette machine ne convertit pas assez vite pour cette qualité : l’image attendrait.': 'This machine does not convert fast enough for this quality: the picture would stall.',
+      'Odin convertit déjà une vidéo : il mesurera ce que la machine peut produire quand elle sera finie.': 'Odin is already converting a video: it will measure what the machine can produce when that one is done.',
+      'Le fichier de ce titre n’est plus à sa place : rebranchez le disque ou relancez un scan.': 'The file for this title is no longer in place: plug the disk back in or run a scan again.',
+      'Ces sous-titres sont des images, pas du texte : Odin ne sait pas les afficher.': 'These subtitles are pictures, not text: Odin cannot display them.', 'en images': 'pictures',
+      'Sous-titres incomplets : cette vidéo est longue à lire, seul le début est là.': 'Incomplete subtitles: this video takes long to read, only the beginning is there.',
+      'Chercher des sous-titres': 'Search for subtitles', 'Apparence des sous-titres': 'Subtitle appearance', 'Odin regarde dans la vidéo et à côté…': 'Odin is looking inside the video and next to it…',
+      'Recherche impossible pour le moment.': 'Search is not possible right now.', 'Dans la vidéo et à côté': 'In the video and next to it', 'Trouvé à l’instant': 'Just found', 'En ligne': 'Online',
+      'Aucun sous-titre dans cette vidéo ni à côté.': 'No subtitles in this video or next to it.',
+      'Aucun service de sous-titres n’est réglé dans Odin : rien n’est cherché sur Internet.': 'No subtitle service is set up in Odin: nothing is searched on the Internet.',
+      'Aucun service de sous-titres n’est réglé dans Odin : rien n’est cherché sur Internet. Posez un fichier .srt, .vtt ou .ass à côté de la vidéo, avec le même nom (par exemple « Titre.fr.srt ») : Odin le trouve ici, sans nouveau scan.': 'No subtitle service is set up in Odin: nothing is searched on the Internet. Put a .srt, .vtt or .ass file next to the video, with the same name (for example “Title.en.srt”): Odin finds it here, without a new scan.',
+      'Bande-annonce': 'Trailer', 'Pas de bande-annonce.': 'No trailer.', 'Cette bande-annonce ne peut pas être lue pour le moment.': 'This trailer cannot be played right now.',
+      'Pas de bande-annonce : posez-en une à côté du film (même nom, puis « -trailer », par exemple « Titre-trailer.mp4 »). Odin n’en lit aucune sur Internet : aucun réglage ne le permet.': 'No trailer: put one next to the film (same name, then “-trailer”, for example “Title-trailer.mp4”). Odin plays none from the Internet: no setting allows it.',
+      'Pas de bande-annonce pour une série pour l’instant. Odin n’en lit aucune sur Internet : aucun réglage ne le permet.': 'No trailer for a show for now. Odin plays none from the Internet: no setting allows it.',
       'Réessayer': 'Try again', 'La lecture n’a pas pu démarrer': 'Playback could not start', '{quoi} : bientôt dans Odin.': '{quoi}: coming soon in Odin.', 'Chargement…': 'Loading…',
     },
   };
@@ -408,7 +433,7 @@
         ? `<div class="episode missing" title="${esc(t('Épisode {n} : pas dans vos dossiers', { n: nombre(e.episode) }))}"><div class="thumb"><span class="miss-num">${nombre(e.episode)}</span><span class="miss-tag">${esc(t('Manquant'))}</span></div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b>${S.profile.isAdmin ? `<button class="btn btn-ghost btn-small f ep-get" data-act="epgrab" data-v="${esc(d.id)}" data-t="${esc(d.title)}" data-s="${cur.number}" data-e="${e.episode}" aria-label="${esc(t('Faire venir l’épisode {n}', { n: nombre(e.episode) }))}"${S.pris.has(`ep|${d.id}|${cur.number}|${e.episode}`) ? ' disabled' : ''}>${I(S.pris.has(`ep|${d.id}|${cur.number}|${e.episode}`) ? 'check' : 'download')}${esc(t('Faire venir'))}</button>` : ''}</div></div>`
         : `<div class="ep-item"><a class="episode f${e.id === next.id && d.status === 'progress' ? ' is-current' : ''}${e.watched ? ' seen' : ''}" title="${esc(t('Épisode {n}', { n: nombre(e.episode) }))}" aria-label="${esc([t('Épisode {n}', { n: nombre(e.episode) }), e.runtime ? duree(e.runtime) : '', e.watched ? t('vu') : ''].filter(Boolean).join(', '))}" href="${href(lirePath(e.id))}"><div class="thumb">${e.still ? `<img src="${esc(e.still)}" alt="" loading="lazy" decoding="async">` : `<div class="ph" style="--h:${hueOf(`${d.title}${cur.number}${e.episode}`)}"></div>`}<span class="ep-play">${I('play')}</span>${e.position > 0 && !e.watched && e.duration ? `<div class="bar"><i style="width:${Math.min(100, (e.position / e.duration) * 100)}%"></i></div><span class="ep-badge now">${esc(t('En cours'))}</span>` : ''}</div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b>${e.runtime ? `<span>${esc(duree(e.runtime))}</span>` : ''}</div></a><button class="ep-toggle f${e.watched ? ' on' : ''}" aria-pressed="${e.watched}" aria-label="${esc(e.watched ? t('Marquer l’épisode {n} comme non vu', { n: nombre(e.episode) }) : t('Marquer l’épisode {n} comme vu', { n: nombre(e.episode) }))}" data-act="epseen" data-v="${esc(e.id)}" data-d="${e.duration || (e.runtime || 0) * 60}" data-on="${e.watched ? 1 : 0}">${I('check')}</button></div>`)).join('')}</div></section>`;
     }
-    const te = f.tech || {}, mt = f.meta || {}, genres = mt.genres || [];
+    const te = f.tech || {}, mt = f.meta || {}, genres = mt.genres || [], ba = f.bandeAnnonce || { local: false, raison: '' };
     const gens = [...(mt.cast || []), ...(mt.crew || [])];
     const ratings = mt.critics || mt.vote ? `<div class="ratings">${mt.critics ? `<span class="rating r-imdb" title="${esc(t('Note des critiques : {n} sur 10', { n: note10(mt.critics) }))}"><span class="r-src">${esc(t('Critiques'))}</span><b>${esc(note10(mt.critics))}</b><small>/10</small></span>` : ''}${mt.vote ? `<span class="rating r-tmdb" title="${esc(t('Note du public : {n} sur 10', { n: note10(mt.vote) }))}"><span class="r-src">${esc(t('Public'))}</span><b>${esc(nombre(Math.round(mt.vote * 10)))} %</b></span>` : ''}</div>` : '';
     const memeGenre = genres.length ? L.itemsOf(S.items, d.category).filter((x) => x.id !== d.id && (x.genres || []).some((g) => genres.includes(g))) : [];
@@ -427,6 +452,7 @@
           <button class="btn btn-ghost btn-icon f" aria-label="${esc(t('Envoyer vers un autre écran'))}" title="${esc(t('Envoyer vers la télé'))}" data-act="sendto" data-v="${esc(next.id)}">${I('cast')}</button>
           <button class="btn btn-ghost btn-icon f" aria-label="${esc(d.inList ? t('Retirer de ma liste') : t('Ajouter à ma liste'))}" title="${esc(t('Ma liste'))}" aria-pressed="${d.inList}" data-act="mylist" data-v="${esc(d.id)}">${I(d.inList ? 'check' : 'plus')}</button>
           ${!isShow ? `<button class="btn btn-ghost btn-icon f${seen ? ' is-on' : ''}" aria-label="${esc(seen ? t('Marquer comme non vu') : t('Marquer comme vu'))}" title="${esc(seen ? t('Vu : marquer comme non vu') : t('Marquer comme vu'))}" aria-pressed="${seen}" data-act="seen" data-v="${esc(d.id)}" data-d="${total}" data-on="${seen ? 1 : 0}">${I('eye')}</button>` : ''}
+          ${ba.local ? `<button class="btn btn-ghost f" data-act="trailer" data-v="${esc(d.id)}">${I('film')}${esc(t('Bande-annonce'))}</button>` : `<button class="btn btn-ghost f" aria-disabled="true" title="${esc(t(ba.raison || ''))}" data-act="notrailer" data-v="${esc(t(ba.raison || ''))}">${I('film')}${esc(t('Bande-annonce'))}</button>`}
         </div>
         ${endPos ? `<p class="resume-note">${I('clock')} ${esc(t('Vu jusqu’à {m}', { m: duree(Math.round(endPos / 60)) }))}</p>` : ''}
       </div></div>
@@ -664,7 +690,7 @@
   };
 
   // Réglages → Demandes (SettingsAdmin.js : boîtes « Sirius, Pléiades », « Comète », Hnoss ; sources et catalogue ajoutés)
-  const Field = (label, inner, hint = '') => { const id = (/id="([^"]+)"/.exec(inner) || [])[1]; return `<div class="field"><label${id ? ` for="${id}"` : ''}>${esc(label)}</label>${inner}${hint ? `<small>${esc(hint)}</small>` : ''}</div>`; };
+  const Field = (label, inner, hint = '') => { const id = (/\bid="([^"]+)"/.exec(inner) || [])[1]; return `<div class="field"><label${id ? ` for="${id}"` : ''}>${esc(label)}</label>${inner}${hint ? `<small>${esc(hint)}</small>` : ''}</div>`; };
   const Select = (id, opts, v) => `<select class="input f" id="${id}">${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
   const Switch = (id, label, on, hint = '') => `<label class="switch"><span>${esc(label)}${hint ? `<small>${esc(hint)}</small>` : ''}</span><input type="checkbox" class="f" id="${id}"${on ? ' checked' : ''}></label>`;
   /** La valeur d'un champ des réglages (case cochée ou texte), lue au moment du clic. */
@@ -712,7 +738,11 @@
     D.body.append(wrap);
     requestAnimationFrame(() => (wrap.querySelector('.opt.on, .f, input, button') || wrap.querySelector('.sheet')).focus());
   }
-  function closeSheet(refocus = true) { D.querySelectorAll('.sheet-wrap, .palette-wrap').forEach((w) => w.remove()); if (refocus && lastFocus && D.contains(lastFocus)) lastFocus.focus(); }
+  function closeSheet(refocus = true) {
+    // Une vidéo dans la fenêtre (la bande-annonce) : arrêtée et lâchée, pour qu'Odin cesse de la servir tout de suite.
+    D.querySelectorAll('.sheet-wrap video').forEach((x) => { try { x.pause(); x.removeAttribute('src'); x.load(); } catch { /* rien */ } });
+    D.querySelectorAll('.sheet-wrap, .palette-wrap').forEach((w) => w.remove()); if (refocus && lastFocus && D.contains(lastFocus)) lastFocus.focus();
+  }
   let toastT;
   function toast(msg, type = 'info') {
     let el = $('.toast'); if (!el) { el = D.createElement('div'); D.body.append(el); }
@@ -911,6 +941,13 @@
         openSheet(p.name, `<div><div class="person-head">${p.photo ? `<img class="person-photo" src="${esc(p.photo)}" alt="">` : ''}<div>${role ? `<p class="muted">${esc(role)}</p>` : ''}</div></div><h3 class="person-sub">${esc(t('Dans votre médiathèque'))}</h3>${(p.titres || []).length ? `<div class="grid person-grid">${p.titres.map((i) => Card(i, { poster: true })).join('')}</div>` : `<p class="muted">${esc(t('Rien d’autre de cette personne dans votre médiathèque.'))}</p>`}</div>`, { wide: true });
         break;
       }
+      // La bande-annonce (suite du lot V2) : un fichier posé à côté du film, servi par Odin ; sinon le bouton est grisé et dit pourquoi.
+      case 'trailer': {
+        openSheet(t('Bande-annonce'), `<div class="trailer-box"><video class="trailer-video" controls autoplay playsinline src="/venus/bande-annonce/${encodeURIComponent(v)}"></video></div>`, { wide: true });
+        const vd = $('.trailer-video'); if (vd) vd.addEventListener('error', () => toast(t('Cette bande-annonce ne peut pas être lue pour le moment.')));
+        break;
+      }
+      case 'notrailer': toast(v || t('Pas de bande-annonce.')); break;
       case 'about': case 'tech': {
         const f = S.fiche[v]; if (!f) break; const d = f.titre, te = f.tech || {};
         const taille = te.taille ? (te.taille >= 1024 ** 3 ? t('{n} Go', { n: new Intl.NumberFormat(LANG, { maximumFractionDigits: 1 }).format(te.taille / 1024 ** 3) }) : t('{n} Mo', { n: nombre(Math.round(te.taille / 1024 ** 2)) })) : '';
