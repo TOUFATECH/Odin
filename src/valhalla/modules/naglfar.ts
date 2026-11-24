@@ -22,8 +22,10 @@ import { defaultDir, NOM_OBJET } from '../hringhorni/store.ts';
 import { actionJournal, avecJournal } from '../vidarr/qui-a-fait.ts';
 import { NAMES } from '../names.ts';
 import type { Action } from '../types.ts';
-import { analyserComposition, arreterPile, demarrerPile, deployerPile, NOM_PILE, pile, piles, supprimerPile, vraiCheminLinux, type Analyse, type Garde, type MoteurPile } from '../hringhorni/composition.ts';
+import { analyserComposition, arreterPile, demarrerPile, deployerPile, NOM_PILE, pile, piles, supprimerPile, vraiCheminLinux, type Analyse, type Garde, type MoteurPile, type Pile } from '../hringhorni/composition.ts';
 import { CATALOGUE, decouperImage, entreeCatalogue, octetsMemoire, preparer, TEXTES_ACCES, type EntreeCatalogue, type Preparation } from '../hringhorni/catalogue.ts';
+import { ajouterMesure, confirmationMaj, copiesMaj, grandit, mettreAJour, nomAncien, noterPile, octetsTexte, planifier, propositionsCatalogue, reprendreInterrompues, retirerCopie, SANTE, type Cible, type Mesure, type MoteurMaj, type PlanMaj } from '../hringhorni/majs.ts';
+import { randomBytes } from 'node:crypto';
 
 /** Le nom affiché de l'appli (un seul endroit : src/valhalla/names.ts). */
 export const nomArche = (): string => NAMES.naglfar ?? 'Arche';
@@ -83,9 +85,9 @@ export const naglfar: Module & { similaires: string[] } = {
   actions: [
     { id: 'lister', label: 'Lister les conteneurs', what: 'Tous les conteneurs et leur état', read: true, words: ['liste', 'lister', 'quels conteneurs'], run: async () => { const c = engine().ps(true); return { text: c.map(line).join('\n') || 'Aucun conteneur.', data: c.map((x) => ({ Names: x.spec.name, Image: x.spec.image, State: x.state.status === 'en marche' ? 'running' : 'exited', Status: x.state.status, Ports: x.spec.ports.map((p) => `${p.host}->${p.inner}`).join(', '), Labels: '' })) }; } },
     { id: 'journaux', label: 'Journaux', what: 'Les 80 dernières lignes', read: true, params: [CT], words: ['journaux', 'logs'], run: async (_ctx, i) => ({ text: engine().logs(safe(i.conteneur), 80).map((l) => l.text).join('\n') || '(journal vide)' }) },
-    { id: 'demarrer', undo: (i) => ({ action: 'arreter', input: { conteneur: i.conteneur }, label: 'conteneur arrêté' }), label: 'Démarrer', what: 'Démarre un conteneur', params: [CT], words: ['demarre', 'démarre', 'lance le conteneur'], run: async (ctx, i) => { const c = await engine().start(safe(i.conteneur)); ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), c.spec.name])] }); return { text: `▶ ${c.spec.name} démarré.` }; } },
-    { id: 'arreter', undo: (i) => ({ action: 'demarrer', input: { conteneur: i.conteneur }, label: 'conteneur relancé' }), label: 'Arrêter', what: 'Arrête un conteneur', params: [CT], words: ['arrete', 'arrête', 'stoppe'], run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); const c = await engine().stop(safe(i.conteneur)); return { text: `⏹ ${c.spec.name} arrêté.` }; } },
-    { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre un conteneur', params: [CT], words: ['redemarre', 'redémarre', 'relance'], run: async (_ctx, i) => { const c = await engine().restart(safe(i.conteneur)); return { text: `🔄 ${c.spec.name} redémarré.` }; } },
+    { id: 'demarrer', undo: (i) => ({ action: 'arreter', input: { conteneur: i.conteneur }, label: 'conteneur arrêté' }), label: 'Démarrer', what: 'Démarre un conteneur', params: [CT], words: ['demarre', 'démarre', 'lance le conteneur'], run: async (ctx, i) => { occupeParMaj(safe(i.conteneur)); const c = await engine().start(safe(i.conteneur)); ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), c.spec.name])] }); return { text: `▶ ${c.spec.name} démarré.` }; } },
+    { id: 'arreter', undo: (i) => ({ action: 'demarrer', input: { conteneur: i.conteneur }, label: 'conteneur relancé' }), label: 'Arrêter', what: 'Arrête un conteneur', params: [CT], words: ['arrete', 'arrête', 'stoppe'], run: async (ctx, i) => { occupeParMaj(safe(i.conteneur)); forget(ctx, safe(i.conteneur)); const c = await engine().stop(safe(i.conteneur)); return { text: `⏹ ${c.spec.name} arrêté.` }; } },
+    { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre un conteneur', params: [CT], words: ['redemarre', 'redémarre', 'relance'], run: async (_ctx, i) => { occupeParMaj(safe(i.conteneur)); const c = await engine().restart(safe(i.conteneur)); return { text: `🔄 ${c.spec.name} redémarré.` }; } },
     { id: 'lancer', label: 'Lancer une appli', what: 'Récupère l\'image si besoin, crée le conteneur et le démarre ; une appli qui a besoin d\'une base la reçoit dans la base d\'Odin', params: LANCER, grave: (i) => `lancer un conteneur à partir de ${s(i.image)}${(s(i.base) && !/selon/.test(s(i.base)) ? !/aucune/i.test(s(i.base)) : needsDb(s(i.image))) ? ' (avec sa base dans la base de données d\'Odin)' : ''}${s(i.dossiers).trim() ? `, avec accès à ces dossiers de ta machine : ${s(i.dossiers).trim()}` : ''}${s(i.ports).trim() ? `, ports ouverts : ${s(i.ports).trim()}` : ''}`, words: ['lance l\'image', 'installe le conteneur'], run: async (ctx, i) => {
       const image = safe(i.image), name = s(i.nom).trim() || undefined;
       const known = appPort(image), e = engine();
@@ -132,7 +134,7 @@ export const naglfar: Module & { similaires: string[] } = {
       }, sp.name);
       return { text: `⬆ Mise à jour de ${sp.name} lancée : suis-la dans ${nomArche()}.` };
     } },
-    { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur (ses dossiers partagés sont gardés)', params: [CT], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); const sp = await engine().rm(safe(i.conteneur), true); return { text: `🗑 ${sp.name} supprimé (dossiers partagés conservés).` }; } },
+    { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur (ses dossiers partagés sont gardés)', params: [CT], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { occupeParMaj(safe(i.conteneur)); forget(ctx, safe(i.conteneur)); const sp = await engine().rm(safe(i.conteneur), true); return { text: `🗑 ${sp.name} supprimé (dossiers partagés conservés).` }; } },
     { id: 'images', label: 'Images', what: 'Les images présentes', read: true, words: ['quelles images'], run: () => { const l = engine().images(); return { text: l.map((x) => `- ${x.names.join(', ')} · ${(x.size / 1e6).toFixed(0)} Mo`).join('\n') || 'Aucune image.', data: l.map((x) => ({ names: x.names, id: x.id.slice(0, 12), size: x.size })) }; } },
     { id: 'tirer', label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image', 'derniere version de l\'image'], run: async (_ctx, i) => { engine().pullJob(safe(i.image)); return { text: `⬇ Récupération de ${safe(i.image)} lancée : suis-la dans ${nomArche()}.` }; } },
     { id: 'supprimer_image', label: 'Supprimer une image', what: 'Supprime une image qui ne sert plus', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], grave: (i) => `supprimer l'image ${s(i.image)}`, run: async (_ctx, i) => { const img = await engine().rmi(safe(i.image)); return { text: `🗑 Image ${img.names.join(', ')} supprimée.` }; } },
@@ -164,10 +166,12 @@ export const naglfar: Module & { similaires: string[] } = {
     { id: 'arreter_service', label: 'Arrêter un service', what: 'Laisse finir les visiteurs en cours puis arrête toutes les copies', params: [{ key: 'service', label: 'Service', kind: 'text', required: true }], grave: (i) => `arrêter le service ${s(i.service)} (le site ne répondra plus)`, run: async (ctx, i) => { ctx.saveSettings({ services: ((ctx.settings.services as string[]) ?? []).filter((x) => x !== safe(i.service)) }); await stopService(engine() as Engine, safe(i.service)); return { text: `⏹ ${safe(i.service)} arrêté.` }; } },
     { id: 'supprimer_service', label: 'Supprimer un service', what: 'Arrête et supprime un service (l\'image et les dossiers partagés restent)', params: [{ key: 'service', label: 'Service', kind: 'text', required: true }], grave: (i) => `supprimer le service ${s(i.service)}`, run: async (ctx, i) => { ctx.saveSettings({ services: ((ctx.settings.services as string[]) ?? []).filter((x) => x !== safe(i.service)) }); await removeService(engine() as Engine, safe(i.service)); return { text: `🗑 Service ${safe(i.service)} supprimé.` }; } },
     { id: 'grandir', label: 'Grandir tout seul', what: 'Un conteneur seul (une base de données) reçoit plus de mémoire et de processeur quand il en a besoin, sans arrêt, entre deux bornes', quick: false, params: [CT, { key: 'memoire', label: 'Mémoire min-max (1g-8g)', kind: 'text', default: '1g-8g' }, { key: 'coeurs', label: 'Cœurs min-max (1-4)', kind: 'text', default: '1-4' }],
-      run: async (_ctx, i) => { const c = await engine().resize(safe(i.conteneur), { grow: `${s(i.memoire) || '1g-8g'}/${s(i.coeurs) || '1-4'}` }); return { text: `🌱 ${c.spec.name} grandit tout seul : mémoire ${s(i.memoire) || '1g-8g'}, cœurs ${s(i.coeurs) || '1-4'} (aujourd'hui ${c.spec.memory} · ${c.spec.cpus} cœurs).` }; } },
+      run: async (_ctx, i) => { occupeParMaj(safe(i.conteneur)); const c = await engine().resize(safe(i.conteneur), { grow: `${s(i.memoire) || '1g-8g'}/${s(i.coeurs) || '1-4'}` }); return { text: `🌱 ${c.spec.name} grandit tout seul : mémoire ${s(i.memoire) || '1g-8g'}, cœurs ${s(i.coeurs) || '1-4'} (aujourd'hui ${c.spec.memory} · ${c.spec.cpus} cœurs).` }; } },
     { id: 'commande', label: 'Commande', what: 'Une commande comme dans un terminal : run, ps, stop, start, restart, rm, logs, exec, pull, images, rmi, inspect', quick: false, params: [{ key: 'ligne', label: 'Commande (ex. run -d -p 8080:80 nginx)', kind: 'text', required: true }], grave: (i) => graveOf(s(i.ligne)), external: true, run: async (ctx, i) => {
       const argv = splitLine(s(i.ligne)); if (!VERBS.includes((argv[0] ?? '').toLowerCase())) throw new Error(`commande inconnue : ${argv[0] ?? ''} (${VERBS.join(', ')})`);
       argv[0] = argv[0].toLowerCase();
+      // (un conteneur en pleine mise à jour, ou l'ancien mis de côté : aucune commande sur lui tant qu'elle n'est pas finie)
+      if (!['ps', 'images', 'image', 'logs', 'log', 'inspect'].includes(argv[0])) for (const x of argv.slice(1)) occupeParMaj(x);
       const out: string[] = []; const code = await cli(argv, { out: (t) => out.push(t), err: (t) => out.push(t), interactive: false }, engine() as Engine);
       if (argv[0] === 'stop' || argv[0] === 'rm') for (const n of argv.slice(1).filter((x) => !x.startsWith('-'))) forget(ctx, n);
       return { text: out.join('\n').slice(-8000) || '✓', ok: code === 0 };
@@ -430,7 +434,23 @@ export function tableauArche(ctx: ModCtx): Record<string, unknown> {
     installations: erreur ? 0 : e.jobs().filter((j) => !j.ended).length,
     // lot K3 : combien de piles (l'onglet « Piles » de la page se montre dès qu'il y en a une)
     piles: erreur ? 0 : (() => { try { return piles(e as unknown as MoteurPile).length; } catch { return 0; } })(),
+    // lot K5 : de quoi montrer l'onglet « Mises à jour » (propositions du catalogue d'Odin, copies gardées)
+    majsK5: erreur ? undefined : majsK5Compte(ctx),
   };
+}
+/** Un conteneur en pleine mise à jour (lot K5) : aucun autre geste sur lui tant qu'elle n'est pas finie. */
+function occupeParMaj(nom: string): void {
+  if (!enMaj.size) return;
+  // (par son nom, ou par son identifiant)
+  let n = nom; if (!enMaj.has(n)) { try { n = engine().find(nom).spec.name; } catch { return; } }
+  if (enMaj.has(n)) throw new Error(remplir(TEXTES_K5_ARCHE.occupe, { nom: n }));
+}
+/** Combien de propositions et de copies gardées (lot K5), pour le tableau de bord. */
+function majsK5Compte(ctx: ModCtx): { propositions: number; propositionsCatalogue: number; copies: number } {
+  try {
+    const e = engine() as unknown as MoteurPile & MoteurMaj, cat = propositionsCatalogue(piles(e), CATALOGUE).length;
+    return { propositions: cat + versionsDe(ctx).filter((v) => v.nouvelle && !v.erreur).length, propositionsCatalogue: cat, copies: copiesMaj(e).length };
+  } catch { return { propositions: 0, propositionsCatalogue: 0, copies: 0 }; }
 }
 export function ficheArche(ctx: ModCtx, nom: string): Record<string, unknown> {
   exigerMoteur();
@@ -511,6 +531,7 @@ const actionsK1: Action[] = [
     grave: (i) => (s(i.geste) === 'arreter' ? `arrêter le conteneur ${nomOuTel(i)} (ce qu'il sert ne répond plus jusqu'à ce que tu le relances)` : undefined),
     run: async (ctx, i) => {
       exigerMoteur(); const n = safe(i.conteneur), g = s(i.geste), e = engine();
+      occupeParMaj(n);
       if (g === 'arreter') { forget(ctx, n); const c = await e.stop(n); return { text: `⏹ ${c.spec.name} arrêté.` }; }
       if (g === 'demarrer') { const c = await e.start(n); ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), c.spec.name])] }); return { text: `▶ ${c.spec.name} démarré.` }; }
       if (g === 'redemarrer') { const c = await e.restart(n); return { text: `🔄 ${c.spec.name} redémarré.` }; }
@@ -551,6 +572,7 @@ const actionsK1: Action[] = [
     run: async (ctx, i) => {
       exigerMoteur();
       const e = engine(), c = e.find(safe(i.conteneur)), effacer = s(i.donnees) === 'effacer';
+      occupeParMaj(c.spec.name);
       // Le nom tapé est vérifié AVANT de toucher à quoi que ce soit.
       if (effacer && s(i.nom_tape).trim() !== c.spec.name) throw new Error(remplir(TEXTES_ARCHE.nomFaux, { nom: c.spec.name }));
       const d = donneesDe(c, e.ps(true), ctx.home);
@@ -1012,3 +1034,232 @@ const actionsK4: Action[] = [
     } },
 ];
 naglfar.actions.push(...avecJournal('naglfar_actes', actionsK4));
+
+// ---------------------------------------------------------------------------------------------------------------
+// Lot K5 (même maquette) : les mises à jour et les limites. Ses choix : « mises à jour jamais seules » (Odin propose,
+// le propriétaire décide ; aucun minuteur ne met à jour) et « Ses dossiers seulement ».
+//   - `mises_a_jour` (lecture) : ce qu'Odin peut proposer — une autre version dans le catalogue d'Odin (son code, aucun
+//     site consulté), une image plus récente sous la même étiquette (déjà dite par la vérification des registres) —,
+//     ce qu'il sait de chaque conteneur (pour une image tirée à la main : seulement ce qui est connu), les mises à jour
+//     en cours, les copies gardées ;
+//   - `mettre_a_jour_version` (un conteneur, une version précise), `mettre_a_jour_pile` (ses services, les versions du
+//     catalogue ou celles données), et l'ancien `mettre_a_jour` (même étiquette) passent TOUS par hringhorni/majs.ts :
+//     place vérifiée, copie des volumes, vérification qu'il tient debout, retour tout seul sinon, et c'est dit ;
+//   - `retirer_copie` : la copie gardée ne part que par ce geste (aucune rotation) ;
+//   - `limites` (lecture) : le total de tous les conteneurs (processeur, mémoire, disque), chacun, et les volumes qui
+//     « grandissent » vite (mesurés par Arche toutes les 15 minutes au plus : une lecture, jamais un changement).
+// Gestes au propriétaire seul et notés ; lectures ouvertes. Sans moteur (Windows aujourd'hui) : la page le dit.
+// ---------------------------------------------------------------------------------------------------------------
+export const TEXTES_K5_ARCHE = {
+  occupe: '{nom} est déjà en train de changer : attends que ce soit fini.',
+  aucunCatalogue: 'Le catalogue d\'Odin n\'a pas d\'autre version pour la pile « {pile} » : donne les versions voulues (une ligne par service : « service=image:version »).',
+  versionsIllisibles: 'versions illisibles : une ligne par service, « service=image:version »',
+  serviceInconnu: 'la pile « {pile} » n\'a pas de service « {service} »',
+  connuCatalogue: 'le catalogue d\'Odin propose {image}',
+  connuRegistre: 'son registre a une image plus récente sous la même étiquette ({image})',
+  connuRien: 'Odin ne connaît pas d\'autre version de cette image (il ne cherche pas les versions sur Internet) : écris celle que tu veux',
+  regle: 'Jamais toute seule : Odin propose, tu décides (ton choix). Aucune mise à jour ne part sans ton geste.',
+  copies: 'Chaque copie est gardée jusqu\'à ce que tu la retires : rien n\'est effacé sans toi.',
+  mesures: 'Mesuré par Arche toutes les 15 minutes au plus (la taille des volumes, sans rien changer).',
+};
+type MoteurK5 = MoteurMaj & MoteurPile & { startJob?: Engine['startJob']; jobs?: Engine['jobs'] };
+const k5 = () => engine() as unknown as MoteurK5;
+/** Les noms (conteneurs et piles) en train de changer, et les copies dont la mise à jour tourne dans cet Odin. */
+const enMaj = new Set<string>(), copiesIci = new Set<string>();
+/** La place libre du dossier du moteur, moins celle réservée par les mises à jour en cours (sauf `sauf`). */
+const reserve = new Map<string, number>();
+const libreSauf = (sauf?: string) => (dir: string): number | undefined => { const l = systemeArche.disque(dir)?.libre; if (l === undefined) return undefined; let r = 0; for (const [k, v] of reserve) if (k !== sauf) r += v; return l - r; };
+const libreMoteur = libreSauf();
+const estGare = (c: Ctr) => Boolean(c.spec.labels['odin.maj.ancien']);
+/** « service=image:version » (une ligne ou une virgule par service). */
+function versionsDonnees(v: unknown): Record<string, string> {
+  const o: Record<string, string> = {};
+  for (const x of s(v).split(/[\n,]+/).map((y) => y.trim()).filter(Boolean)) {
+    const m = /^([a-z0-9][a-z0-9_-]{0,29})\s*=\s*(\S{1,250})$/.exec(x); if (!m) throw new Error(TEXTES_K5_ARCHE.versionsIllisibles);
+    o[m[1]] = m[2];
+  }
+  return o;
+}
+/** Les versions d'une pile : celles données, sinon celles du catalogue d'Odin. */
+function ciblesPile(nom: string, versions: unknown): { p: Pile; cibles: Cible[] } {
+  const e = k5(), p = pile(e, nom); if (!p) throw new Error(`pile inconnue : ${nom}`);
+  if (pilesEnCours.has(nom) || p.services.some((x) => enMaj.has(x.conteneur))) throw new Error(remplir(TEXTES_K5_ARCHE.occupe, { nom }));
+  const donnees = versionsDonnees(versions);
+  let l: Array<{ service: string; image: string }>;
+  if (Object.keys(donnees).length) l = Object.entries(donnees).map(([service, image]) => ({ service, image }));
+  else {
+    const prop = propositionsCatalogue([p], CATALOGUE)[0];
+    if (!prop) throw new Error(remplir(TEXTES_K5_ARCHE.aucunCatalogue, { pile: nom }));
+    l = prop.changes.map((c) => ({ service: c.service, image: c.apres }));
+  }
+  const cibles = l.map((x) => { const sv = p.services.find((y) => y.service === x.service); if (!sv) throw new Error(remplir(TEXTES_K5_ARCHE.serviceInconnu, { pile: nom, service: x.service })); return { conteneur: sv.conteneur, image: x.image }; });
+  // (dans l'ordre de démarrage de la pile : arrêtés à l'envers, relancés à l'endroit)
+  const rang = (c: Cible) => p.ordre.indexOf(p.services.find((x) => x.conteneur === c.conteneur)!.service);
+  cibles.sort((a, b) => rang(a) - rang(b));
+  return { p, cibles };
+}
+/** Le plan d'un conteneur seul : la version donnée (ou la même étiquette, pour l'ancien « Mettre à jour »). */
+function planConteneur(nom: string, image: string | undefined): PlanMaj {
+  const e = k5(), c = e.find(nom);
+  occupeParMaj(c.spec.name);
+  if (estGare(c)) throw new Error(`${c.spec.name} est l'ancienne version gardée d'une mise à jour : rien à faire`);
+  return planifier(e, [{ conteneur: c.spec.name, image: image ?? c.spec.image }], { libre: libreMoteur, memeEtiquette: image === undefined });
+}
+/** Lance la mise à jour d'un plan, suivie dans « Installations » ; à la fin, une alerte dit ce qui s'est passé. */
+function lancerMaj(ctx: ModCtx, plan: PlanMaj): { job: string; copie: string } {
+  const e = k5(), pileDe = !plan.pile ? e.find(plan.conteneurs[0].nom).spec.labels['odin.pile'] || undefined : undefined;
+  // (la pile d'un conteneur mis à jour seul est tenue aussi : ni supprimée, ni arrêtée, ni mise à jour pendant ce temps)
+  const pileTenue = plan.pile ?? pileDe, noms = [...plan.conteneurs.map((c) => c.nom), ...(pileTenue ? [pileTenue] : [])];
+  for (const n of noms) if (enMaj.has(n) || pilesEnCours.has(n)) throw new Error(remplir(TEXTES_K5_ARCHE.occupe, { nom: n }));
+  if (!e.startJob) throw new Error('moteur sans suivi des installations');
+  const copie = randomBytes(6).toString('hex'), pileAvant = plan.pile ? pile(e, plan.pile) : undefined;
+  // les secrets de ses variables : jamais dans ce qui sort de la mise à jour (alerte, suivi), même si son journal en montre
+  const secrets = secretsDe(Object.assign({}, ...plan.conteneurs.map((c) => e.find(c.nom).spec.env)));
+  for (const n of noms) enMaj.add(n);
+  // (l'ancien mis de côté pendant la mise à jour est tenu aussi : ni supprimé, ni relancé, ni changé)
+  for (const c of plan.conteneurs) enMaj.add(nomAncien(c.nom, copie));
+  if (pileTenue) pilesEnCours.add(pileTenue);
+  copiesIci.add(copie);
+  // la place qu'elle prendra est réservée : une autre mise à jour en même temps ne la compte pas comme libre
+  reserve.set(copie, plan.volumes.length ? plan.besoin : 0);
+  const quoi = plan.pile ? `la pile « ${plan.pile} »` : plan.conteneurs[0].nom;
+  const j = e.startJob('mettre à jour', plan.pile ? `maj ${plan.pile}` : plan.conteneurs[0].apres, async (report) => {
+    try {
+      const fin = await mettreAJour(e, plan, {
+        idCopie: copie, libre: libreSauf(copie),
+        etape: (t, fait, total) => report({ phase: fait >= total ? 'fini' : 'monter', done: fait, total }, t),
+        apresReussite: (p) => { const q = pileAvant ?? (pileDe ? pile(e, pileDe) : undefined); if (q) noterPile(e, q, p.conteneurs); },
+      });
+      const texte = masquer(nettoyer(fin.texte), secrets);
+      try { ctx.alert({ level: fin.resultat === 'réussie' ? 'info' : 'moyenne', title: fin.resultat === 'réussie' ? `${quoi} est à jour` : fin.resultat === 'pas faite' ? `Mise à jour de ${quoi} pas faite` : `Mise à jour de ${quoi} : retour à l'ancienne version`, detail: texte, key: `maj:${copie}` }); } catch { /* le fil d'alertes n'est pas joignable */ }
+      if (fin.resultat !== 'réussie') throw new Error(texte);
+      return { note: texte, name: plan.pile ?? plan.conteneurs[0].nom };
+    } catch (er) { throw new Error(masquer(nettoyer((er as Error).message), secrets)); }
+    finally { for (const n of noms) enMaj.delete(n); for (const c of plan.conteneurs) enMaj.delete(nomAncien(c.nom, copie)); if (pileTenue) pilesEnCours.delete(pileTenue); copiesIci.delete(copie); reserve.delete(copie); }
+  }, plan.pile ?? plan.conteneurs[0].nom);
+  return { job: j.id, copie };
+}
+/** Une confirmation, même quand le plan ne se fait pas (la raison viendra au lancement, rien n'aura changé). */
+const confirmer = (f: () => PlanMaj, sinon: string) => { if (!moteurIci()) return sinon; try { return confirmationMaj(f()); } catch { return sinon; } };
+const texteLance = (plan: PlanMaj) => `⬆ Mise à jour de ${plan.pile ? `la pile « ${plan.pile} »` : plan.conteneurs[0].nom} lancée (${plan.conteneurs.map((c) => `${c.avant} → ${c.apres}`).join(' ; ')}) : ${plan.volumes.length ? `copie des volumes d'abord (${octetsTexte(plan.octets)}), puis ` : ''}vérification pendant ${SANTE.secondes.toLocaleString('fr-FR')} s, retour tout seul si elle ne tient pas. Suis-la dans ${nomArche()}.`;
+
+export async function misesAJourArche(ctx: ModCtx): Promise<Record<string, unknown>> {
+  const base = { regle: TEXTES_K5_ARCHE.regle, copiesRegle: TEXTES_K5_ARCHE.copies, sante: SANTE.secondes };
+  if (!moteurIci()) return { moteur: false, nom: nomArche(), plateforme: systemeArche.plateforme(), raison: TEXTES_ARCHE.pasDeMoteur, avenir: TEXTES_ARCHE.avenir, ...base, propositions: [], conteneurs: [], copies: [], enCours: [] };
+  const e = k5(), cts = e.ps(true).filter((c) => !estGare(c)), lp = (() => { try { return piles(e); } catch { return []; } })();
+  const cat = propositionsCatalogue(lp, CATALOGUE), reg = versionsDe(ctx).filter((v) => v.nouvelle && !v.erreur);
+  const propositions = [
+    ...cat.map((p) => ({ genre: 'catalogue', pile: p.pile, app: p.app, appNom: p.appNom, changes: p.changes })),
+    ...reg.flatMap((v) => v.conteneurs.filter((n) => cts.some((c) => c.spec.name === n)).map((n) => ({ genre: 'registre', conteneur: n, image: v.image }))),
+  ];
+  const parConteneur = new Map<string, string>();
+  for (const p of cat) for (const c of p.changes) parConteneur.set(c.conteneur, remplir(TEXTES_K5_ARCHE.connuCatalogue, { image: c.apres }));
+  for (const v of reg) for (const n of v.conteneurs) if (!parConteneur.has(n)) parConteneur.set(n, remplir(TEXTES_K5_ARCHE.connuRegistre, { image: v.image }));
+  const jobs = (() => { try { return e.jobs?.() ?? []; } catch { return []; } })().filter((j) => j.kind === 'mettre à jour' && (!j.ended || Date.parse(j.ended) > Date.now() - 10 * 60_000));
+  const secrets = secretsDe(Object.assign({}, ...e.ps(true).map((c) => c.spec.env)));
+  const copies = copiesMaj(e).map(({ pid: _pid, etape: _etape, ...c }) => ({ ...c, resultat: c.resultat === 'en cours' && !copiesIci.has(c.id) ? 'interrompue' : c.resultat, ...(c.raison ? { raison: masquer(nettoyer(c.raison), secrets).slice(0, 400) } : {}) }));
+  return {
+    moteur: true, nom: nomArche(), ...base,
+    propositions,
+    conteneurs: cts.map((c) => { const d = decouperImage(c.spec.image); return { nom: c.spec.name, image: c.spec.image, appli: d.nom, etiquette: d.etiquette, pile: c.spec.labels['odin.pile'] || undefined, service: c.spec.labels['odin.pile.service'] || undefined, enMarche: c.state.status === 'en marche', connu: parConteneur.get(c.spec.name) ?? TEXTES_K5_ARCHE.connuRien, occupe: enMaj.has(c.spec.name) }; }),
+    piles: lp.map((p) => p.nom),
+    enCours: jobs.map((j) => ({ id: j.id, nom: j.name ?? j.image, pct: j.pct, note: j.note, fini: Boolean(j.ended), erreur: j.phase === 'échec' ? masquer(String(j.error ?? '')).slice(0, 400) : undefined })),
+    copies, totalCopies: copies.reduce((a, c) => a + (c.copiee ? c.octets : 0), 0),
+  };
+}
+
+/** Une mise à jour coupée par un arrêt d'Odin : la surveillance fait le retour promis (jamais une mise à jour), et le dit. */
+export async function reprendreMajs(ctx: ModCtx): Promise<void> {
+  if (!moteurIci()) return;
+  const e = k5(), l = await reprendreInterrompues(e, (id) => copiesIci.has(id));
+  if (!l.length) return;
+  const secrets = secretsDe(Object.assign({}, ...e.ps(true).map((c) => c.spec.env)));
+  for (const c of l) {
+    const quoi = c.pile ? `la pile « ${c.pile} »` : c.conteneurs.map((x) => x.nom).join(', ');
+    try { ctx.alert({ level: c.resultat === 'retour incomplet' ? 'haute' : 'moyenne', title: `Mise à jour de ${quoi} interrompue`, detail: masquer(nettoyer(String(c.raison ?? '')), secrets).slice(0, 600), key: `maj:${c.id}` }); } catch { /* le fil d'alertes n'est pas joignable */ }
+  }
+}
+/** Les mesures des volumes (« grandit ») : relevées au plus toutes les 15 minutes, par la surveillance d'Arche. */
+export const MESURES = { toutesLesMs: 15 * 60_000 };
+export async function mesurerVolumes(ctx: ModCtx, force = false): Promise<void> {
+  if (!moteurIci()) return;
+  const now = ctx.now().getTime(); if (!force && now - Number(ctx.settings.taillesQuand ?? 0) < MESURES.toutesLesMs) return;
+  const vols = k2().volumes(), avant = (ctx.settings.tailles as Record<string, Mesure[]> | undefined) ?? {}, t: Record<string, Mesure[]> = {};
+  for (const v of vols) t[v.nom] = v.compteCoupe ? (avant[v.nom] ?? []) : ajouterMesure(avant[v.nom], now, v.octets);
+  ctx.saveSettings({ tailles: t, taillesQuand: now });
+}
+export async function limitesArche(ctx: ModCtx): Promise<Record<string, unknown>> {
+  if (!moteurIci()) return { moteur: false, nom: nomArche(), plateforme: systemeArche.plateforme(), raison: TEXTES_ARCHE.pasDeMoteur, avenir: TEXTES_ARCHE.avenir, conteneurs: [], volumes: [] };
+  const e = engine(), cts = e.ps(true).filter((c) => !estGare(c)), vols = k2().volumes(), mesures = (ctx.settings.tailles as Record<string, Mesure[]> | undefined) ?? {};
+  const d = systemeArche.disque(systemeArche.dossierMoteur()), machine = systemeArche.memoireMachine(), now = ctx.now().getTime();
+  const l = cts.map((c) => { const m = mesure(c), on = c.state.status === 'en marche'; return { nom: c.spec.name, enMarche: on, pile: c.spec.labels['odin.pile'] || undefined, cpu: m.cpu, memoire: m.memoire ?? 0, limiteMemoire: c.spec.memory ? bytes(c.spec.memory) : undefined, coeurs: c.spec.cpus ? Number(c.spec.cpus) : undefined }; });
+  const on = l.filter((x) => x.enMarche), images = e.images().reduce((a, i) => a + i.size, 0), volumes = vols.reduce((a, v) => a + v.octets, 0);
+  const copies = copiesMaj(k5()).reduce((a, c) => a + (c.copiee ? c.octets : 0), 0);
+  return {
+    moteur: true, nom: nomArche(), mesuresRegle: TEXTES_K5_ARCHE.mesures,
+    total: {
+      cpu: on.some((x) => x.cpu !== undefined) ? Math.round(on.reduce((a, x) => a + (x.cpu ?? 0), 0) * 10) / 10 : undefined, coeurs: systemeArche.coeurs(),
+      memoire: on.reduce((a, x) => a + x.memoire, 0), limites: on.reduce((a, x) => a + (x.limiteMemoire ?? 0), 0), sansLimite: on.filter((x) => !x.limiteMemoire).map((x) => x.nom), memoireMachine: machine,
+      disque: { images, volumes, copies, conteneurs: images + volumes + copies, ...(d ?? {}) },
+    },
+    conteneurs: l,
+    volumes: vols.map((v) => ({ nom: v.nom, octets: v.octets, compteCoupe: v.compteCoupe, utilisePar: v.utilisePar, ...grandit(mesures[v.nom] ?? [], now, d?.libre) })),
+  };
+}
+const VERS: Param = { key: 'image', label: 'Version voulue (image:version, jamais « latest »)', kind: 'text', required: true };
+const actionsK5: Action[] = [
+  // (lectures ouvertes, pas marquées « read » : le banc figé de Soul photographie les lectures du catalogue)
+  { id: 'mises_a_jour', label: 'Mises à jour', what: 'Ce qu\'Odin peut proposer (catalogue d\'Odin, image plus récente sous la même étiquette), les mises à jour en cours et les copies gardées ; rien ne se met à jour tout seul', quick: false, quiet: true,
+    run: async (ctx) => {
+      const d = await misesAJourArche(ctx) as { moteur: boolean; raison?: string; avenir?: string; propositions: Array<{ genre: string; pile?: string; conteneur?: string; changes?: Array<{ avant: string; apres: string }>; image?: string }> };
+      const t = d.propositions.map((p) => (p.genre === 'catalogue' ? `- pile ${p.pile} : ${p.changes!.map((c) => `${c.avant} → ${c.apres}`).join(', ')} (catalogue d'Odin)` : `- ${p.conteneur} : image plus récente sous ${p.image}`)).join('\n');
+      return { text: d.moteur ? `${t || 'Aucune mise à jour proposée.'}\n${TEXTES_K5_ARCHE.regle}` : `${d.raison} ${d.avenir}`, data: d };
+    } },
+  { id: 'limites', label: 'Limites et total', what: 'Le total de tous les conteneurs (processeur, mémoire, disque), chacun, et les volumes qui grandissent vite', quick: false, quiet: true,
+    run: async (ctx) => {
+      const d = await limitesArche(ctx) as { moteur: boolean; raison?: string; avenir?: string; total?: { memoire: number; limites: number; memoireMachine: number }; volumes: Array<{ nom: string; grandit: boolean }> };
+      return { text: d.moteur ? `Mémoire : ${memoireTexte(d.total!.memoire)} utilisés · limites additionnées ${memoireTexte(d.total!.limites)} sur ${memoireTexte(d.total!.memoireMachine)}${d.volumes.some((v) => v.grandit) ? ` · grandit vite : ${d.volumes.filter((v) => v.grandit).map((v) => v.nom).join(', ')}` : ''}` : `${d.raison} ${d.avenir}`, data: d };
+    } },
+  { id: 'mettre_a_jour_version', label: 'Mettre à jour vers une version', what: 'Met un conteneur sur la version choisie : copie de ses volumes avant, vérification qu\'il tient debout, retour tout seul sinon', quick: false, proprietaireSeul: true,
+    params: [CT_ARCHE, VERS],
+    grave: (i) => confirmer(() => planConteneur(safe(i.conteneur), s(i.image).trim()), `mettre à jour ${nomOuTel(i)} vers ${s(i.image).trim().slice(0, 120)} (avec copie de ses volumes avant, et retour tout seul si elle ne tient pas)`),
+    run: async (ctx, i) => {
+      exigerMoteur(); const plan = planConteneur(safe(i.conteneur), s(i.image).trim());
+      const r = lancerMaj(ctx, plan); return { text: texteLance(plan), data: { ...r, conteneur: plan.conteneurs[0].nom, image: plan.conteneurs[0].apres } };
+    } },
+  { id: 'mettre_a_jour_pile', label: 'Mettre à jour une pile', what: 'Met les services d\'une pile sur les versions du catalogue d\'Odin (ou celles données) : copie de ses volumes avant, retour tout seul si elle ne tient pas', quick: false, proprietaireSeul: true,
+    params: [PILE, { key: 'versions', label: 'Versions (vide : celles du catalogue d\'Odin ; sinon « service=image:version », une par ligne)', kind: 'textarea', default: '' }],
+    grave: (i) => confirmer(() => { const { cibles } = ciblesPile(nomPile(i.pile), i.versions); return planifier(k5(), cibles, { pile: nomPile(i.pile), libre: libreMoteur }); }, `mettre à jour la pile ${s(i.pile).trim().slice(0, 40)} (avec copie de ses volumes avant, et retour tout seul si elle ne tient pas)`),
+    run: async (ctx, i) => {
+      exigerMoteur(); const n = nomPile(i.pile), { cibles } = ciblesPile(n, i.versions);
+      const plan = planifier(k5(), cibles, { pile: n, libre: libreMoteur });
+      const r = lancerMaj(ctx, plan); return { text: texteLance(plan), data: { ...r, pile: n } };
+    } },
+  { id: 'retirer_copie', label: 'Retirer une copie gardée', what: 'Efface la copie des volumes gardée par une mise à jour (après, plus de retour possible vers elle)', quick: false, proprietaireSeul: true,
+    params: [{ key: 'copie', label: 'Copie', kind: 'text', required: true }],
+    grave: (i) => {
+      const id = s(i.copie).trim().slice(0, 12);
+      const c = (() => { try { return moteurIci() ? copiesMaj(k5()).find((x) => x.id === id) : undefined; } catch { return undefined; } })();
+      const seule = c && c.copiee && (c.resultat === 'retour incomplet' || (c.resultat === 'en cours' && !copiesIci.has(c.id))) ? ' ; attention : cette mise à jour n\'a pas fini proprement, cette copie est peut-être la seule version d\'avant de tes données' : '';
+      return c ? `retirer la copie du ${new Date(c.quand).toLocaleString('fr-FR')} (${c.pile ? `pile ${c.pile}` : c.conteneurs.map((x) => x.nom).join(', ')} · ${octetsTexte(c.octets)}) : ses volumes copiés seront effacés, plus de retour possible vers elle${seule}` : `retirer la copie ${id} : ses volumes copiés seront effacés`;
+    },
+    run: (_ctx, i) => {
+      exigerMoteur(); const c = retirerCopie(k5(), s(i.copie).trim(), (id) => copiesIci.has(id));
+      return { text: `🗑 Copie retirée (${c.pile ? `pile ${c.pile}` : c.conteneurs.map((x) => x.nom).join(', ')} · ${octetsTexte(c.octets)}).`, data: { copie: c.id } };
+    } },
+];
+naglfar.actions.push(...avecJournal('naglfar_actes', actionsK5));
+// L'ancien « Mettre à jour » (même étiquette, depuis une alerte « nouvelle version ») passe lui aussi par la mise à jour
+// sûre : copie des volumes, vérification, retour tout seul ; au propriétaire seul, noté.
+{
+  const k = naglfar.actions.findIndex((a) => a.id === 'mettre_a_jour');
+  const sur: Action = { ...naglfar.actions[k], what: 'Récupère la nouvelle image de la même étiquette et recrée le conteneur avec les mêmes réglages : copie de ses volumes avant, retour tout seul s\'il ne tient pas', proprietaireSeul: true,
+    grave: (i) => confirmer(() => planConteneur(safe(i.conteneur), undefined), `recréer ${s(i.conteneur)} avec la nouvelle image (avec copie de ses volumes avant, et retour tout seul s'il ne tient pas)`),
+    run: async (ctx, i) => { exigerMoteur(); const plan = planConteneur(safe(i.conteneur), undefined); const r = lancerMaj(ctx, plan); return { text: texteLance(plan), data: r }; } };
+  naglfar.actions.splice(k, 1, ...avecJournal('naglfar_actes', [sur]));
+}
+// La surveillance d'Arche relève aussi la taille des volumes (« grandit ») : une lecture, jamais une mise à jour.
+{
+  const avant = naglfar.watch!.run;
+  naglfar.watch!.run = async (ctx) => { await avant(ctx); await reprendreMajs(ctx).catch(() => undefined); await mesurerVolumes(ctx).catch(() => undefined); };
+}

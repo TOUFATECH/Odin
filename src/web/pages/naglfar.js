@@ -253,7 +253,7 @@
     const sys = t.plateforme === 'win32' ? T('pc.windows') : T('pc.autre', { plateforme: t.plateforme });
     return el('section', { class: 'ark-sec ark-host', role: 'status' }, odinFace(),
       el('div', {}, el('b', { class: 't' }, T('pc.titre', { systeme: sys })),
-        el('ul', {}, el('li', {}, t.raison), el('li', {}, t.avenir), el('li', {}, T('pc.rien')), el('li', {}, T('pc.deja')), el('li', {}, T('pc.k2')), el('li', {}, T('pc.k3')), el('li', {}, T('pc.k4')))));
+        el('ul', {}, el('li', {}, t.raison), el('li', {}, t.avenir), el('li', {}, T('pc.rien')), el('li', {}, T('pc.deja')), el('li', {}, T('pc.k2')), el('li', {}, T('pc.k3')), el('li', {}, T('pc.k4')), el('li', {}, T('pc.k5')))));
   }
 
   // ---------------------------------------------------------------- le tableau de bord
@@ -293,11 +293,17 @@
       // lot K3 : déployer plusieurs conteneurs décrits ensemble (l'onglet « Piles »)
       // lot K4 : le catalogue (des applis prêtes, en un geste)
       el('div', { class: 'ark-row', style: 'margin-top:12px' }, bouton(T('l.catalogue'), () => { K.vue = 'catalogue'; K.msg = ''; K.focus = 'ark-v-catalogue'; arreterMinuteur(); o.reload(); }, { cls: 'primary' }),
-        bouton(T('l.nouvellePile'), () => { K.vue = 'piles'; K.msg = ''; K.focus = 'arkCompo'; arreterMinuteur(); o.reload(); }))));
+        bouton(T('l.nouvellePile'), () => { K.vue = 'piles'; K.msg = ''; K.focus = 'arkCompo'; arreterMinuteur(); o.reload(); }),
+        // lot K5 : le total de tous les conteneurs et leurs limites
+        bouton(T('l.limites'), () => { K.vue = 'limites'; K.msg = ''; K.focus = 'ark-v-limites'; arreterMinuteur(); o.reload(); }))));
     if (off.length) frag.push(el('section', { class: 'ark-sec' }, el('h2', {}, T('l.arretes'), el('span', { class: 'ark-cnt' }, String(off.length))), el('p', { class: 'ark-lead' }, T('l.arretes.lead')), ...off.map((c) => ligneConteneur(c, o))));
-    frag.push(el('section', { class: 'ark-sec' }, el('h2', {}, T('maj.titre'), el('span', { class: 'ark-cnt' }, String(t.majs.length))), el('p', { class: 'ark-lead' }, t.majs.length ? T('maj.lead') : T('maj.rien')),
+    // (lot K5 : « Mettre à jour » ouvre l'onglet Mises à jour, qui dit les étapes avant le geste ; rien ne part d'ici)
+    const voirMajs = () => { K.vue = 'majs'; K.msg = ''; K.focus = 'ark-v-majs'; arreterMinuteur(); o.reload(); };
+    const nCat = Number(t.majsK5?.propositionsCatalogue ?? 0);
+    frag.push(el('section', { class: 'ark-sec' }, el('h2', {}, T('maj.titre'), el('span', { class: 'ark-cnt' }, String(t.majs.length + nCat))), el('p', { class: 'ark-lead' }, t.majs.length + nCat ? T('maj.lead') : T('maj.rien')),
       ...t.majs.map((m) => el('div', { class: 'ark-rule' }, el('span', {}, el('b', {}, m.image), el('small', {}, m.conteneurs.join(', '))),
-        bouton(T('maj.bouton', { nom: m.conteneurs[0] }), () => geste('naglfar', 'mettre_a_jour', { conteneur: m.conteneurs[0] }, o.reload))))));
+        bouton(T('maj.bouton', { nom: m.conteneurs[0] }), voirMajs))),
+      el('div', { class: 'ark-row', style: 'margin-top:10px' }, bouton(T('l.majs'), voirMajs))));
     return frag;
   }
 
@@ -416,7 +422,7 @@
         el('div', { class: 'ark-row' },
           ...(f.enMarche ? [bouton(T('redemarrer'), () => geste('naglfar', 'geste_fiche', { conteneur: f.nom, geste: 'redemarrer' }, o.reload)), bouton(T('arreter'), () => geste('naglfar', 'geste_fiche', { conteneur: f.nom, geste: 'arreter' }, o.reload))]
             : [bouton(T('demarrer'), () => geste('naglfar', 'geste_fiche', { conteneur: f.nom, geste: 'demarrer' }, o.reload), { cls: 'primary' })]),
-          f.majDispo ? bouton(T('f.maj'), () => geste('naglfar', 'mettre_a_jour', { conteneur: f.nom }, o.reload)) : bouton(T('f.ajour'), null, { disabled: true }),
+          f.majDispo ? bouton(T('f.maj'), () => { K.fiche = ''; K.vue = 'majs'; K.majCt = f.nom; K.majImg = ''; K.focus = 'ark-v-majs'; arreterMinuteur(); o.reload(); }) : bouton(T('f.ajour'), null, { disabled: true }),
           bouton(T('f.supprimer'), () => { K.supp = f.nom; K.suppData = false; K.suppTxt = ''; arreterMinuteur(); o.reload(); }, { cls: 'danger' })),
         onglets, el('div', { role: 'tabpanel', 'aria-labelledby': `ark-t-${K.ftab}` }, ...corps)),
     ];
@@ -600,7 +606,9 @@
   });
   Object.assign(K, { pouv: '', psupp: '', psuppVol: false, psuppTxt: '', compo: '', compoNom: '', analyse: null, analyseDe: '' });
   // (lot K4 : l'onglet « Catalogue » se montre quand on l'ouvre, depuis « Ajouter depuis le catalogue » sur le tableau)
-  const vuesDe = (t) => [VUES[0], ...(K.vue === 'catalogue' ? [['catalogue', 'v.catalogue']] : []), ...(Number(t?.piles) > 0 || K.vue === 'piles' ? [['piles', 'v.piles']] : []), ...VUES.slice(1)];
+  // (lot K5 : « Mises à jour » dès qu'il y a une proposition ou une copie gardée, ou quand on l'ouvre ; « Limites » quand on l'ouvre)
+  const vuesDe = (t) => [VUES[0], ...(K.vue === 'catalogue' ? [['catalogue', 'v.catalogue']] : []), ...(Number(t?.piles) > 0 || K.vue === 'piles' ? [['piles', 'v.piles']] : []), ...VUES.slice(1),
+    ...(Number(t?.majsK5?.propositions) > 0 || Number(t?.majsK5?.copies) > 0 || K.vue === 'majs' ? [['majs', 'v.majs']] : []), ...(K.vue === 'limites' ? [['limites', 'v.limites']] : [])];
   /** Le déploiement n'est possible qu'après une vérification sans refus, du texte tel qu'il est maintenant. */
   const peutDeployer = (analyse, verifie, texte, nom) => Boolean(analyse && analyse.ok && verifie === `${nom}\n${texte}`);
   Object.assign(logique, { peutDeployer, vuesDe });
@@ -811,6 +819,147 @@
       chips, grille, el('p', { class: 'ark-note', style: 'margin-top:12px' }, T('ca.note')))];
   }
 
+  // =================================================================================================================
+  // Lot K5 : les mises à jour et les limites. « Mises à jour » : ce qu'Odin propose (jamais tout seul : tu décides),
+  // les étapes dites avant le geste (copie des volumes, nouvelle image, mêmes réglages, vérification, retour tout seul),
+  // une version choisie à la main (jamais « latest »), les copies gardées. « Limites » : le total de tous les
+  // conteneurs, chacun, et les volumes qui grandissent vite. Les deux onglets se montrent quand on les ouvre (depuis le
+  // tableau de bord), « Mises à jour » aussi dès qu'il y a quelque chose à proposer ou une copie gardée.
+  // =================================================================================================================
+  Object.assign(MOTS, {
+    'pc.k5': 'Les mises à jour sûres (copie des volumes, retour tout seul) et les limites sont prêtes aussi : elles viendront avec le moteur.',
+    'v.majs': 'Mises à jour', 'v.limites': 'Limites', 'l.majs': 'Voir les mises à jour', 'l.limites': 'Total et limites',
+    'mj.titre': 'Mises à jour', 'mj.lead': 'Avant chaque mise à jour, Odin copie ses volumes ; si la nouvelle version ne tient pas debout {n} secondes, il revient tout seul à l\'ancienne et te le dit.',
+    'mj.rien': 'Rien à proposer pour l\'instant. Odin connaît les versions de son catalogue et ce que les registres disent des images déjà là ; pour une autre version, choisis-la plus bas.',
+    'mj.catalogue': 'version du catalogue d\'Odin', 'mj.registre': 'image plus récente sous la même étiquette (dit par son registre)',
+    'mj.pile': 'pile {pile}', 'mj.fleche': '{avant} → {apres}',
+    'mj.maj': 'Mettre à jour', 'mj.maj.nom': 'Mettre à jour {nom}', 'mj.maintenant': 'Mettre à jour maintenant', 'mj.pasMaintenant': 'Pas maintenant',
+    'mj.e1': 'Copie de ses volumes, dans le dossier du moteur (place vérifiée avant)', 'mj.e2': 'Nouvelle image récupérée et vérifiée (antivirus)',
+    'mj.e3': 'Conteneur recréé avec les mêmes réglages', 'mj.e4': 'Il doit tenir debout {n} secondes ; sinon, retour tout seul à l\'ancienne version et aux volumes copiés',
+    'mj.encours': 'En cours', 'mj.fini': 'Fini', 'mj.occupe': 'en train de changer',
+    'mj.choisir': 'Choisir une version', 'mj.choisir.lead': 'Odin ne cherche pas les versions sur Internet : écris l\'étiquette exacte voulue (jamais « latest »). Les mêmes étapes et le même retour tout seul s\'appliquent.',
+    'mj.conteneur': 'Conteneur', 'mj.version': 'Version voulue (image:version)', 'mj.versionOk': 'Mettre à jour vers cette version', 'mj.aucun': 'Aucun conteneur à mettre à jour.',
+    'mj.copies': 'Copies gardées', 'mj.copies.vide': 'Aucune copie gardée.', 'mj.copies.total': '{n} copie(s) · {taille} en tout',
+    'mj.copie.quoi': '{date} · {quoi}', 'mj.retirer': 'Retirer', 'mj.retirer.nom': 'Retirer la copie du {date} ({quoi})',
+    'mj.r.réussie': 'réussie', 'mj.r.revenue': 'revenue toute seule', 'mj.r.pas faite': 'pas faite', 'mj.r.retour incomplet': 'retour incomplet', 'mj.r.interrompue': 'interrompue', 'mj.r.en cours': 'en cours',
+    'mj.nonCopies': 'Pas copiés (dossiers de ta machine) : {liste}',
+    'mj.toutSeul': 'Mettre à jour tout seul', 'mj.jamais': 'Jamais : je décide (ton choix)', 'mj.jamais.texte': 'Aucune mise à jour ne part sans ton geste.',
+    // Limites
+    'li.titre': 'Tous les conteneurs ensemble', 'li.lead': 'Ce que tous les conteneurs prennent, et ce que chacun peut prendre au plus. Au-delà, il ralentit (processeur) ou s\'arrête (mémoire) : il ne gêne jamais Odin ni le PC.',
+    'li.cpu': 'Processeur', 'li.cpu.sous': 'de {coeurs} cœurs', 'li.mem': 'Mémoire', 'li.mem.sous': 'utilisés sur {machine} de la machine',
+    'li.limites': 'Limites additionnées : {limites} sur {machine} de la machine.', 'li.limites.trop': 'Limites additionnées : {limites}, plus que les {machine} de la machine : si tout se remplit, le système arrêtera des applis.',
+    'li.sans': 'Sans limite de mémoire : {liste}.',
+    'li.disque': 'Disque', 'li.disque.sous': 'images {images} · volumes {volumes} · copies {copies}', 'li.libre': 'Le disque du moteur : {libre} libres sur {total}.',
+    'li.chacun': 'Chacun', 'li.chacun.lead': 'Changer les limites d\'un conteneur se fait sans l\'arrêter, dans sa fiche (Ressources).',
+    'li.ligne': 'utilise {mem} · au plus {lim} · {coeurs}', 'li.ligneSans': 'utilise {mem} · sans limite de mémoire · {coeurs}', 'li.coeurs': '{n} cœur(s)', 'li.tousCoeurs': 'tous les cœurs', 'li.arrete': 'arrêté',
+    'li.changer': 'Changer', 'li.changer.nom': 'Changer les limites de {nom}',
+    'li.volumes': 'Volumes', 'li.grandit': 'grandit', 'li.grandit.texte': '+{parJour} par jour{plein}', 'li.plein': ' · à ce rythme, le disque est plein dans {jours} jours',
+    'li.mesures': 'mesures en cours (au moins une heure de recul)', 'li.vol.ligne': '{taille} · {qui}', 'li.personne': 'sans conteneur',
+  });
+  Object.assign(K, { majOuv: '', majCt: '', majImg: '' });
+  /** La clé d'une proposition (pour l'ouvrir) et le geste qu'elle envoie. Pur. */
+  const clePropo = (p) => (p.genre === 'catalogue' ? `pile:${p.pile}` : `ct:${p.conteneur}`);
+  const gestePropo = (p) => (p.genre === 'catalogue' ? ['mettre_a_jour_pile', { pile: p.pile }] : ['mettre_a_jour', { conteneur: p.conteneur }]);
+  /** L'image proposée dans le champ « version voulue » : le nom de l'appli et sa version d'aujourd'hui. Pur. */
+  const versionDe = (c) => (c ? `${c.appli}:${c.etiquette || ''}` : '');
+  /** Une version écrite à la main : précise, jamais « latest » (la vérification complète est faite par Odin). Pur. */
+  const versionPrecise = (v) => { const x = String(v ?? '').trim(); if (/@sha256:[a-f0-9]{64}$/.test(x)) return true; const i = x.lastIndexOf(':'), j = x.lastIndexOf('/'); return i > j && i < x.length - 1 && x.slice(i + 1).toLowerCase() !== 'latest' && /^[a-z0-9][a-z0-9._/:@-]*$/i.test(x); };
+  Object.assign(logique, { clePropo, gestePropo, versionDe, versionPrecise });
+  const CSS_K5 = `
+.ark-maj{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:10px;min-width:0}
+.ark-maj .hd{display:flex;gap:12px;align-items:center;min-width:0}.ark-maj .hd b{font-size:15px;overflow-wrap:anywhere}.ark-maj .hd small{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.ark-maj ol{margin:10px 0 0;padding-left:20px;font-size:13.5px;line-height:1.6}
+.ark-maj .ark-row{margin-top:10px}
+.ark-sel{min-height:44px;max-width:100%;min-width:0}
+.ark-lim{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(120px,220px) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:8px;min-width:0}
+@media (max-width:640px){.ark-lim{grid-template-columns:44px minmax(0,1fr)}.ark-lim .ark-mt,.ark-lim .ark-acts{grid-column:1/-1}}
+.ark-stat .ark-note{margin:4px 0 0}
+@media (max-width:520px){.ark-tabs{flex-wrap:wrap;overflow-x:visible}}
+`;
+  const nomCopie = (c) => (c.pile ? T('mj.pile', { pile: c.pile }) : c.conteneurs.map((x) => x.nom).join(', '));
+  function vueMajs(d, o) {
+    const ouvrir = (k) => { K.majOuv = K.majOuv === k ? '' : k; K.focus = `ark-mo-${k}`; o.reload(); };
+    const carte = (p) => {
+      const k = clePropo(p), ouv = K.majOuv === k, [action, input] = gestePropo(p);
+      const titre = p.genre === 'catalogue' ? (p.appNom ? `${p.appNom} · ${T('mj.pile', { pile: p.pile })}` : T('mj.pile', { pile: p.pile })) : p.conteneur;
+      const lignes = p.genre === 'catalogue' ? p.changes.map((c) => T('mj.fleche', { avant: c.avant, apres: c.apres })) : [p.image];
+      const nomGeste = p.genre === 'catalogue' ? p.pile : p.conteneur;
+      return el('div', { class: 'ark-maj' },
+        el('div', { class: 'hd' }, mono(nomGeste), el('span', { style: 'min-width:0' }, el('b', {}, titre), ...lignes.map((l) => el('small', {}, l)), el('small', {}, p.genre === 'catalogue' ? T('mj.catalogue') : T('mj.registre')))),
+        ouv ? [el('ol', {}, el('li', {}, T('mj.e1')), el('li', {}, T('mj.e2')), el('li', {}, T('mj.e3')), el('li', {}, T('mj.e4', { n: Number(d.sante).toLocaleString('fr-FR') }))),
+          el('div', { class: 'ark-row' }, bouton(T('mj.maintenant'), () => geste('naglfar', action, input, (r) => { if (r.ok !== false) K.majOuv = ''; K.focus = 'ark-v-majs'; o.reload(); }), { cls: 'primary' }),
+            el('button', { class: 'btn', type: 'button', id: `ark-mo-${k}`, onclick: () => ouvrir(k) }, T('mj.pasMaintenant')))]
+          : el('div', { class: 'ark-row' }, el('button', { class: 'btn', type: 'button', id: `ark-mo-${k}`, 'aria-expanded': 'false', 'aria-label': T('mj.maj.nom', { nom: nomGeste }), onclick: () => ouvrir(k) }, T('mj.maj'))));
+    };
+    // (une mise à jour finie se lit dans « Copies gardées » : ici, seulement celles qui tournent)
+    const enc = (d.enCours ?? []).filter((j) => !j.fini).map((j) => el('div', { class: 'ark-maj', role: 'status' }, el('div', { class: 'hd' }, mono(j.nom), el('span', { style: 'min-width:0' }, el('b', {}, j.nom), el('small', {}, j.erreur ? j.erreur : `${j.fini ? T('mj.fini') : T('mj.encours')} · ${j.note ?? ''}`))),
+      j.erreur ? null : el('div', { class: 'ark-prog', role: 'progressbar', 'aria-label': j.nom, 'aria-valuenow': String(j.pct ?? 0), 'aria-valuemin': '0', 'aria-valuemax': '100', style: 'margin-top:10px' }, el('i', { style: `width:${Math.max(3, Math.min(100, Number(j.pct) || 0))}%` }))));
+    // Choisir une version (pour une image tirée à la main : Odin dit seulement ce qu'il sait)
+    const cts = d.conteneurs ?? [];
+    if (!cts.some((c) => c.nom === K.majCt)) { K.majCt = cts[0]?.nom ?? ''; K.majImg = versionDe(cts[0]); }
+    const choisi = cts.find((c) => c.nom === K.majCt);
+    if (choisi && !K.majImg) K.majImg = versionDe(choisi);
+    const champ = el('input', { id: 'arkMajImg', type: 'text', autocomplete: 'off', spellcheck: 'false', 'aria-describedby': 'arkMajConnu' }); champ.value = K.majImg;
+    const sel = el('select', { id: 'arkMajCt', class: 'ark-sel', onchange: (e) => { K.majCt = e.target.value; K.majImg = versionDe(cts.find((c) => c.nom === K.majCt)); K.focus = 'arkMajCt'; o.reload(); } },
+      ...cts.map((c) => { const x = el('option', { value: c.nom }, c.pile ? `${c.nom} (${T('mj.pile', { pile: c.pile })})` : c.nom); if (c.nom === K.majCt) x.setAttribute('selected', ''); return x; }));
+    const ok = el('button', { class: 'btn primary', type: 'submit', disabled: !choisi || !versionPrecise(K.majImg) || K.majImg.trim() === choisi?.image || choisi?.occupe }, T('mj.versionOk'));
+    champ.addEventListener('input', () => { K.majImg = champ.value; ok.disabled = !choisi || !versionPrecise(K.majImg) || K.majImg.trim() === choisi.image || choisi.occupe; });
+    const form = cts.length ? el('form', { class: 'ark-form', onsubmit: (e) => { e.preventDefault(); if (ok.disabled) return; geste('naglfar', 'mettre_a_jour_version', { conteneur: K.majCt, image: K.majImg.trim() }, () => { K.focus = 'arkMajImg'; o.reload(); }); } },
+      el('label', {}, T('mj.conteneur'), sel), el('label', {}, T('mj.version'), champ), ok) : el('p', { class: 'ark-note' }, T('mj.aucun'));
+    // Les copies gardées
+    const cp = d.copies ?? [], tot = cp.reduce((a, c) => a + (c.copiee ? c.octets : 0), 0);
+    const tonR = { 'réussie': 'ok', revenue: 'warn', 'pas faite': '', 'retour incomplet': 'bad', interrompue: 'bad', 'en cours': 'warn' };
+    const ligneCopie = (c) => {
+      const date = dateCourte(c.quand);
+      return el('div', { class: 'ark-vol' }, icone('volume'),
+        el('span', { class: 'ark-nm' }, el('b', {}, T('mj.copie.quoi', { date, quoi: nomCopie(c) })), tag(tonR[c.resultat] ?? '', T(`mj.r.${c.resultat}`)),
+          el('small', {}, `${c.conteneurs.map((x) => T('mj.fleche', { avant: x.avant, apres: x.apres })).join(' ; ')} · ${octets(c.copiee ? c.octets : 0)}`),
+          c.raison ? el('small', {}, c.raison) : null, c.dossiersNonCopies?.length ? el('small', {}, T('mj.nonCopies', { liste: c.dossiersNonCopies.join(', ') })) : null),
+        el('span', {}),
+        el('span', { class: 'ark-acts' }, c.resultat === 'en cours' ? null : el('button', { class: 'btn danger', type: 'button', id: `ark-cr-${c.id}`, 'aria-label': T('mj.retirer.nom', { date, quoi: nomCopie(c) }), onclick: () => geste('naglfar', 'retirer_copie', { copie: c.id }, () => { K.focus = 'ark-v-majs'; o.reload(); }) }, T('mj.retirer'))));
+    };
+    if ((d.enCours ?? []).some((j) => !j.fini)) K.minuteur = setTimeout(() => { const x = document.activeElement; if (K.vue !== 'majs' || document.visibilityState === 'hidden' || (x && /^(INPUT|TEXTAREA|SELECT)$/.test(x.tagName))) return; if (x?.id && /^ark/.test(x.id)) K.focus = x.id; o.reload(); }, 2000);
+    const props = d.propositions ?? [];
+    return [el('section', { class: 'ark-sec' }, el('h2', {}, T('mj.titre'), el('span', { class: 'ark-cnt' }, String(props.length))), el('p', { class: 'ark-lead' }, T('mj.lead', { n: Number(d.sante).toLocaleString('fr-FR') })),
+      ...enc, ...(props.length ? props.map(carte) : [el('p', { class: 'ark-note' }, T('mj.rien'))]),
+      el('div', { class: 'ark-h3' }, T('mj.toutSeul')), el('p', { style: 'margin:0;font-size:13.5px' }, `${T('mj.jamais')}. ${T('mj.jamais.texte')}`)),
+    el('section', { class: 'ark-sec' }, el('h2', {}, T('mj.choisir')), el('p', { class: 'ark-lead' }, T('mj.choisir.lead')), form,
+      choisi ? el('p', { class: 'ark-note', id: 'arkMajConnu' }, choisi.connu) : null),
+    el('section', { class: 'ark-sec' }, el('h2', {}, T('mj.copies'), el('span', { class: 'ark-cnt' }, String(cp.length))), el('p', { class: 'ark-lead' }, `${d.copiesRegle ?? ''}${cp.length ? ` ${T('mj.copies.total', { n: cp.length, taille: octets(tot) })}` : ''}`),
+      ...(cp.length ? cp.map(ligneCopie) : [el('p', { class: 'ark-note' }, T('mj.copies.vide'))]))];
+  }
+  function vueLimites(d, o) {
+    const t = d.total ?? {}, dq = t.disque ?? {};
+    const k = (cls, label, valeur, sous, bar, extra) => el('div', { class: `ark-stat ${cls}`.trim() }, el('small', {}, label), el('b', {}, valeur), bar ?? null, el('small', {}, sous), ...(extra ?? []));
+    const trop = t.limites > t.memoireMachine;
+    const stats = el('div', { class: 'ark-stats', style: 'grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))' },
+      k('', T('li.cpu'), t.cpu !== undefined ? pct(t.cpu) : T('m.sans'), T('li.cpu.sous', { coeurs: t.coeurs }), barre(t.cpu ?? 0, 100)),
+      k(trop ? 'warn' : '', T('li.mem'), octets(t.memoire), T('li.mem.sous', { machine: octets(t.memoireMachine) }), barre(t.memoire, t.memoireMachine, trop ? 'warn' : 'ok'),
+        [el('p', { class: 'ark-note' }, trop ? T('li.limites.trop', { limites: octets(t.limites), machine: octets(t.memoireMachine) }) : T('li.limites', { limites: octets(t.limites), machine: octets(t.memoireMachine) })),
+          t.sansLimite?.length ? el('p', { class: 'ark-note' }, T('li.sans', { liste: t.sansLimite.join(', ') })) : null]),
+      k('', T('li.disque'), octets(dq.conteneurs), T('li.disque.sous', { images: octets(dq.images), volumes: octets(dq.volumes), copies: octets(dq.copies) }), dq.total ? barre(dq.total - (dq.libre ?? 0), dq.total) : null,
+        [dq.libre !== undefined ? el('p', { class: 'ark-note' }, T('li.libre', { libre: octets(dq.libre), total: octets(dq.total) })) : null]));
+    const ligne = (c) => {
+      const lim = c.limiteMemoire, tons = lim && c.memoire / lim >= 0.95 ? 'bad' : lim && c.memoire / lim > 0.75 ? 'warn' : 'ok';
+      return el('div', { class: 'ark-lim' }, mono(c.nom),
+        el('span', { class: 'ark-nm' }, el('b', {}, c.nom), c.pile ? tag('', T('tag.pile', { pile: c.pile })) : null,
+          el('small', {}, c.enMarche ? T(lim ? 'li.ligne' : 'li.ligneSans', { mem: octets(c.memoire), lim: lim ? octets(lim) : '', coeurs: c.coeurs ? T('li.coeurs', { n: String(c.coeurs).replace('.', ',') }) : T('li.tousCoeurs') }) : T('li.arrete'))),
+        el('span', { class: 'ark-mt' }, barre(c.enMarche ? c.memoire : 0, lim || t.memoireMachine || 1, tons)),
+        el('span', { class: 'ark-acts' }, bouton(T('li.changer'), () => { K.vue = 'tableau'; K.fiche = c.nom; K.ftab = 'ressources'; K.msg = ''; arreterMinuteur(); o.reload(); }, { label: T('li.changer.nom', { nom: c.nom }) })));
+    };
+    const vol = (v) => el('div', { class: 'ark-vol' }, icone('volume'),
+      el('span', { class: 'ark-nm' }, el('b', {}, v.nom), v.grandit ? tag('warn', T('li.grandit')) : null,
+        el('small', {}, T('li.vol.ligne', { taille: octets(v.octets), qui: v.utilisePar?.length ? v.utilisePar.join(', ') : T('li.personne') })),
+        v.grandit ? el('small', {}, T('li.grandit.texte', { parJour: octets(v.parJour), plein: v.joursAvantPlein !== undefined ? T('li.plein', { jours: String(v.joursAvantPlein).replace('.', ',') }) : '' }))
+          : v.recul < 1 ? el('small', {}, T('li.mesures')) : null),
+      el('span', {}), el('span', {}));
+    return [el('section', { class: 'ark-sec' }, el('h2', {}, T('li.titre')), el('p', { class: 'ark-lead' }, T('li.lead')), stats),
+      el('section', { class: 'ark-sec' }, el('h2', {}, T('li.chacun'), el('span', { class: 'ark-cnt' }, String((d.conteneurs ?? []).length))), el('p', { class: 'ark-lead' }, T('li.chacun.lead')),
+        ...((d.conteneurs ?? []).length ? d.conteneurs.map(ligne) : [el('p', { class: 'ark-note' }, T('l.vide'))])),
+      el('section', { class: 'ark-sec' }, el('h2', {}, T('li.volumes'), el('span', { class: 'ark-cnt' }, String((d.volumes ?? []).length))), el('p', { class: 'ark-lead' }, d.mesuresRegle ?? ''),
+        ...((d.volumes ?? []).length ? d.volumes.map(vol) : [el('p', { class: 'ark-note' }, T('vo.vide'))]))];
+  }
+
   window.OdinPages.naglfar = async ({ host, generic, reload, info }) => {
     arreterMinuteur();
     // (lot K4 : la page se redessine aussi d'elle-même pendant une installation ; le clavier reste où il était)
@@ -823,6 +972,7 @@
     if (!document.getElementById('arkCss2')) document.head.append(el('style', { id: 'arkCss2' }, CSS_K2));
     if (!document.getElementById('arkCss3')) document.head.append(el('style', { id: 'arkCss3' }, CSS_K3));
     if (!document.getElementById('arkCss4')) document.head.append(el('style', { id: 'arkCss4' }, CSS_K4));
+    if (!document.getElementById('arkCss5')) document.head.append(el('style', { id: 'arkCss5' }, CSS_K5));
     const t = r.data, root = el('div', { class: 'ark' }), o = { reload, nom, vues: vuesDe(t) };
     host.append(root);
     if (K.msg) root.append(el('p', { class: 'ark-msg', role: 'status' }, K.msg));
@@ -830,13 +980,13 @@
     if (t.erreur) root.append(el('p', { class: 'ark-msg', role: 'alert' }, T('erreurLecture', { raison: t.erreur })));
     if (!K.fiche && K.vue !== 'tableau') {
       root.append(ongletsVues(o));
-      const d = await post('naglfar', K.vue === 'volumes' ? 'volumes' : K.vue === 'piles' ? 'piles' : K.vue === 'catalogue' ? 'catalogue' : 'reseaux');
+      const d = await post('naglfar', K.vue === 'volumes' ? 'volumes' : K.vue === 'piles' ? 'piles' : K.vue === 'catalogue' ? 'catalogue' : K.vue === 'majs' ? 'mises_a_jour' : K.vue === 'limites' ? 'limites' : 'reseaux');
       // le fichier d'une pile ouverte : lu à part, au propriétaire seul (refusé à un membre : la page le dit)
       if (d?.data && K.vue === 'piles' && K.pouv) {
         const p = (d.data.piles ?? []).find((x) => x.nom === K.pouv);
         if (p) { const f = await post('naglfar', 'fichier_pile', { pile: p.nom }); p.fichier = f?.ok !== false && typeof f?.data?.fichier === 'string' ? f.data.fichier : null; }
       }
-      if (d?.data) root.append(...(K.vue === 'volumes' ? vueVolumes(d.data, o) : K.vue === 'piles' ? vuePiles(d.data, t, o) : K.vue === 'catalogue' ? vueCatalogue(d.data, o) : vueReseaux(d.data, o)));
+      if (d?.data) root.append(...(K.vue === 'volumes' ? vueVolumes(d.data, o) : K.vue === 'piles' ? vuePiles(d.data, t, o) : K.vue === 'catalogue' ? vueCatalogue(d.data, o) : K.vue === 'majs' ? vueMajs(d.data, o) : K.vue === 'limites' ? vueLimites(d.data, o) : vueReseaux(d.data, o)));
       else root.append(el('p', { class: 'ark-msg', role: 'alert' }, String(d?.text ?? d?.error ?? '')));
       refocus();
       return true;
