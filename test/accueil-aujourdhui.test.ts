@@ -5,7 +5,8 @@
 //   le lot 27 ; leur donnée n'est pas relue par le serveur (elle est dans l'état de la page du propriétaire) ;
 // - la fenêtre de départ commence par la page « Aujourd'hui » ; une fenêtre rangée avant ce lot la reçoit une seule
 //   fois, en premier, sans rien déplacer du reste ; « À faire » rangé ne se retire plus ;
-// - une page sous un code : nom vide dans la donnée, jamais « Écran de la maison », ne compte pas dans les huit pages ;
+// - une page sous un code : nom vide dans la donnée, ne compte pas dans les huit pages ; elle peut être marquée
+//   « Écran de la maison » (validé le 24/11), ses trois widgets n'y vont jamais ;
 // - un membre ne reçoit ni ces widgets ni cette page ; l'écran de la maison ne les sert à personne ;
 // - dans un vrai navigateur (s'il y en a un) : chaque bloc est dans son widget, plus dans l'ancienne colonne ; la cloche
 //   mène à « À faire » depuis une autre page ; une demande d'accès en attente ouvre la page qui porte « À faire » ; un
@@ -96,10 +97,10 @@ test('une fenêtre rangée avant ce lot reçoit la page une seule fois, en premi
   assert.deepEqual(abimee.pages.map((p) => p.code ?? ''), ['aujourdhui', '', '']); assert.deepEqual(sortes(abimee)[0], [...TROIS]);
 });
 
-test('une page sous un code : gardée par cleanLayout, jamais « Écran de la maison », hors des huit pages ; un seul widget de chaque sorte réservée', () => {
+test('une page sous un code : gardée par cleanLayout, « Écran de la maison » si le propriétaire l\'a marquée, hors des huit pages ; un seul widget de chaque sorte réservée', () => {
   const page = (o: Record<string, unknown>) => ({ name: 'P', widgets: [{ kind: 'heure' }], ...o });
   const l = cleanLayout({ pages: [page({ code: 'aujourdhui', name: '', maison: true, widgets: [{ kind: 'a_faire', label: 'x'.repeat(90) }] }), page({ code: 'inventee' }), page({ code: 'aujourdhui' }), page({ code: 'constructor' })] }, IDS);
-  assert.deepEqual(l.pages.map((p) => [p.code, p.name, p.maison]), [['aujourdhui', '', undefined], [undefined, 'P', undefined], [undefined, 'P', undefined], [undefined, 'P', undefined]], 'un code inconnu, ou le même code deux fois : une page ordinaire');
+  assert.deepEqual(l.pages.map((p) => [p.code, p.name, p.maison]), [['aujourdhui', '', true], [undefined, 'P', undefined], [undefined, 'P', undefined], [undefined, 'P', undefined]], 'un code inconnu, ou le même code deux fois : une page ordinaire');
   assert.equal(l.pages[0].widgets[0].label?.length, 40, 'un titre coupé à 40 signes');
   assert.equal(cleanLayout({ pages: [page({ code: 'aujourdhui', name: 'Ma journée' })] }, IDS).pages[0].name, 'Ma journée', 'renommée par le propriétaire : son nom est gardé');
   assert.equal(cleanLayout({ pages: [page({ name: '' })] }, IDS).pages[0].name, 'Page 1', 'une page ordinaire a toujours un nom');
@@ -132,7 +133,8 @@ test('la page : les titres et le nom de la page dans le dictionnaire ; chaque bl
   assert.match(FE, /pages: \{ aujourdhui: 'Aujourd\\'hui' \}/, 'le nom de la page vient de l\'interface');
   assert.match(FE, /const nomDe = \(p\) => p\?\.name \|\| TXT\.pages\[p\?\.code\] \|\| '';/);
   assert.match(FE, /document\.dispatchEvent\(new CustomEvent\('odin:fenetre'\)\)/, 'la fenêtre prévient après chaque dessin');
-  assert.match(FE, /page\(\)\.code \? null : el\('button', \{ class: 'fe-tab', type: 'button', 'aria-pressed': String\(Boolean\(page\(\)\.maison\)\)/, 'pas de « Écran de la maison » pour la page sous un code');
+  assert.doesNotMatch(FE, /page\(\)\.code \? null : el\('button'/, '« Écran de la maison » est offert aussi pour la page sous un code (validé le 24/11)');
+  assert.match(FE, /title: page\(\)\.code \? TXT\.maisonJour : /, 'et son bouton dit que les trois widgets du jour n\'y vont jamais');
   // ui.html : les trois blocs vont dans leur widget quand la fenêtre les tient ; sinon ils restent dans #todayBox.
   const i = UI.indexOf('  function renderToday('), t = UI.slice(i, UI.indexOf('\n  }\n', i));
   assert.match(t, /const fen = window\.OdinFenetre\?\.aujourdhui\?\.\(\) \?\? null;/);
@@ -367,7 +369,7 @@ test('navigateur : « À faire » ne se retire pas ; « Ce qu\'Odin a fait » se
     await page.waitForSelector('#fenetre.fe-edit');
     const croix = await page.evaluate(() => Object.fromEntries(['tu_veux', 'a_faire', 'odin_a_fait'].map((k) => [k, Boolean(document.querySelector(`#feGrid > .fe-w[data-auj="${k}"] [aria-label="Retirer ce module"]`))])));
     assert.deepEqual(croix, { tu_veux: true, a_faire: false, odin_a_fait: true });
-    assert.equal(await page.evaluate(() => [...document.querySelectorAll('#fenetre .fe-tools .fe-tab')].some((b: any) => /Écran de la maison/.test(b.textContent ?? ''))), false, 'la page « Aujourd\'hui » ne se marque pas « Écran de la maison »');
+    assert.equal(await page.evaluate(() => [...document.querySelectorAll('#fenetre .fe-tools .fe-tab')].some((b: any) => /Écran de la maison/.test(b.textContent ?? '') && /n'y vont jamais/.test(b.title ?? ''))), true, 'la page « Aujourd\'hui » se marque « Écran de la maison » (validé le 24/11), et son bouton dit ce qui n\'y va jamais');
     // Le tiroir ne propose pas un bloc que la fenêtre porte déjà.
     const offerts = () => page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-it b')].map((b: any) => b.textContent));
     assert.ok(!(await offerts()).some((t: any) => ['À faire', 'Ce qu\'Odin a fait', 'Tu veux sans doute'].includes(t ?? '')));

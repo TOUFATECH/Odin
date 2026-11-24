@@ -299,8 +299,9 @@ export type WidgetKind = IdSortePosable;
 export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number; r: number; pc?: number; pr?: number; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string>; style?: string; /** « Quand je touche le widget » (lot 25b) ; absent : ouvrir son appli. */ toucher?: Toucher }
 /**
  * Une page de la fenêtre. `code` : une page rangée sous un code (« aujourdhui », lot 26) ; son nom n'est alors pas dans
- * la donnée (vide), l'interface l'écrit dans sa langue — sauf si le propriétaire l'a renommée. Une page sous un code
- * n'est jamais une page « Écran de la maison ».
+ * la donnée (vide), l'interface l'écrit dans sa langue — sauf si le propriétaire l'a renommée. Elle peut être marquée
+ * « Écran de la maison », comme une autre page (validé le 24/11) : seuls ses widgets ordinaires y vont, jamais ceux de
+ * l'accueil du propriétaire, et l'écran de la maison ne reçoit ni son code ni son nom (pagesMaisonPermises).
  */
 export interface FPage { id: string; name: string; code?: CodePage; maison?: boolean; widgets: Widget[] }
 export interface Layout { pages: FPage[] }
@@ -404,7 +405,7 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
       const toucher = toucherNet(o.toucher, sorte, out, { str }); if (toucher) out.toucher = toucher;
       widgets.push(out);
     }
-    pages.push({ id: /^[0-9a-f]{8}$/.test(String(pp.id)) ? String(pp.id) : wid(), name, ...(code ? { code } : pp.maison ? { maison: true } : {}), widgets });
+    pages.push({ id: /^[0-9a-f]{8}$/.test(String(pp.id)) ? String(pp.id) : wid(), name, ...(code ? { code } : {}), ...(pp.maison ? { maison: true } : {}), widgets });
   }
   if (!pages.length) throw new Error('la fenêtre doit garder au moins une page');
   return { pages };

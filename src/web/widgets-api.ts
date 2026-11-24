@@ -60,8 +60,20 @@ export async function pagesPermises<P extends FPage>(v: Valhalla, pages: P[], l:
   return out;
 }
 
-/** Les pages « écran de la maison » de la fenêtre, filtrées pour ta session (ou une clé « complet ») ou une tablette « maison ». */
-export const pagesMaisonPermises = <P extends FPage>(v: Valhalla, pages: P[], full: boolean) => pagesPermises(v, pages, lecteurMaison(full));
+/**
+ * Les pages « écran de la maison » de la fenêtre, filtrées pour ta session (ou une clé « complet ») ou une tablette « maison ».
+ * La page « Aujourd'hui » peut en être (validé le 24/11) : ses widgets ordinaires y vont comme ceux d'une autre page, les
+ * widgets de l'accueil du propriétaire jamais (droitDeVoir). L'écran de la maison la reçoit comme une page ordinaire :
+ * sans son code, avec le nom que le propriétaire lui a donné, sinon « Page N » (jamais le nom de son code) ; une
+ * tablette « maison » ne reçoit pas non plus son identifiant (ta session le garde : il sert à y déplacer un module).
+ */
+export async function pagesMaisonPermises<P extends FPage>(v: Valhalla, pages: P[], full: boolean): Promise<P[]> {
+  return (await pagesPermises(v, pages, lecteurMaison(full))).map((p, i) => {
+    if (!p.code) return p;
+    const { code: _code, ...ordinaire } = p;
+    return { ...ordinaire, name: p.name || `Page ${i + 1}`, ...(full ? {} : { id: i.toString(16).padStart(8, '0') }) } as P;
+  });
+}
 
 /**
  * Le bouton de l'écran de la maison qu'une requête veut lancer (/api/maison/fenetre) : seulement s'il est l'un de ceux

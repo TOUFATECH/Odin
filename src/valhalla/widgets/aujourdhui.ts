@@ -1,7 +1,8 @@
 // La famille « Aujourd'hui » des widgets : les blocs de l'accueil devenus des widgets (lots 26 et 27). Ces quatre-là
 // portent des validations ou parlent de la conduite d'Odin : ils ne quittent JAMAIS l'accueil du propriétaire (constat
 // G4) — jamais servis à /maison, même sur une page marquée « Écran de la maison », jamais « copiables » vers l'autre
-// écran, jamais à un membre ni à une tablette.
+// écran, jamais à un membre ni à une tablette. Leur page (« Aujourd'hui ») peut, elle, être montrée sur l'écran de la
+// maison (validé le 24/11) : seuls les widgets ordinaires qu'on y a posés y vont.
 // Lot 26 : « Tu veux sans doute », « À faire » et « Ce qu'Odin a fait » sont posables. Leur donnée n'est pas relue
 // ici : le propriétaire la reçoit déjà, en direct, dans l'état de sa page (les validations, les propositions, le fil du
 // jour) — une seule lecture par page. Le serveur ne rend donc que le droit de les voir et d'où vient la donnée

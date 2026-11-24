@@ -30,6 +30,8 @@
     titres: { heure: 'Heure et lieu', meteo: 'Météo', site: 'Site surveillé', a_faire: 'À faire', odin_a_fait: 'Ce qu\'Odin a fait', tu_veux: 'Tu veux sans doute', sansTitre: 'Widget' }, sousSite: 'Pulsar · site surveillé',
     // Lot 26 : la page rangée sous un code porte son nom ici (pas dans la donnée) ; les trois blocs du jour devenus widgets.
     pages: { aujourdhui: 'Aujourd\'hui' },
+    // La page « Aujourd'hui » sur l'écran de la maison (validé le 24/11) : ses widgets ordinaires seulement.
+    maisonJour: 'Montrer cette page sur l\'écran de la maison : seulement les widgets que tu y as posés. « Tu veux sans doute », « À faire » et « Ce qu\'Odin a fait » n\'y vont jamais.',
     jour: { sous: 'Odin', lettres: { a_faire: '✓', odin_a_fait: '⚡', tu_veux: '💡' }, attente: 'Un instant…', deja: (t) => `« ${t} » est déjà dans ta fenêtre.`,
       quoi: { odin_a_fait: 'Le fil du jour : ce qu\'Odin a fait, seul ou avec ton accord, et « Annuler ».', tu_veux: 'Ce qu\'Odin te propose de faire maintenant.', a_faire: 'Ce qui t\'attend : validations, demandes d\'accès, alertes.' } },
     // « Ouvrir à… » : un widget de la vie privée, ouvert à une personne précise (sa question 15, réponse b).
@@ -383,7 +385,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
         el('button', { class: 'fe-tab', type: 'button', onclick: () => rename(cur) }, 'Renommer'),
         // « À faire » ne se retire pas (constat M11) : la page qui le porte ne se supprime pas (c'est dit tout de suite).
         L.pages.length > 1 ? el('button', { class: 'fe-tab', type: 'button', onclick: async () => { if (page().widgets.some((w) => !R.retirable(w.kind))) { say(R.TEXTES.reglage.fixe); return; } if (await window.OdinDialog.confirm(`Supprimer la page « ${nomDe(page())} » ?`, { danger: true })) { L.pages.splice(cur, 1); cur = 0; draw(); } } }, 'Supprimer la page') : null,
-        page().code ? null : el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(Boolean(page().maison)), title: 'Montrer cette page sur l\'écran de la maison', onclick: () => { page().maison = !page().maison; draw(); } }, '🏠 Écran de la maison'),
+        el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(Boolean(page().maison)), title: page().code ? TXT.maisonJour : 'Montrer cette page sur l\'écran de la maison', onclick: () => { page().maison = !page().maison; draw(); } }, '🏠 Écran de la maison'),
         el('button', { class: 'fe-tab', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirTiroir }, OT.TEXTES.bouton),
         el('span', { class: 'sp' }), themeBtn(),
         el('button', { class: 'btn small', type: 'button', onclick: async () => { L = JSON.parse(saved); edit = false; await fetchViews(); draw(); } }, 'Annuler'),
