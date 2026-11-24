@@ -10,7 +10,8 @@
 // Tout ce qui est vrai vient du serveur (lecture « baux_vus ») ; les gestes passent par l'action « dhcp_mac_etat »
 // (propriétaire seul, garde-fou côté serveur). Un nom d'appareil vient du réseau : il est TOUJOURS posé comme du
 // texte, jamais comme du HTML. Tous les textes de la page sont dans MOTS.
-// Les autres écrans de Sphinx (lots suivants) s'ajoutent par window.OdinSphinx.ajouter({ id, titre, dessiner }).
+// Les autres écrans de Sphinx (lots suivants) s'ajoutent par window.OdinSphinx.ajouter({ id, titre, dessiner }) ; ils
+// reprennent les outils de cette page (window.OdinSphinx.outils) et s'ouvrent par window.OdinSphinx.aller(id, quoi).
 (() => {
   'use strict';
   const W = typeof window !== 'undefined' ? window : globalThis;
@@ -42,11 +43,12 @@
     'fi.neu': 'Nouveau : arrivé {quand}. Donne-lui un nom si tu le connais.', 'fi.ici': 'C\'est l\'appareil que tu tiens en ce moment.',
     'fi.ip': 'Adresse IP', 'fi.mac': 'Adresse MAC', 'fi.fab': 'Fabricant (d\'après la MAC)', 'fi.fab.prive': '— (adresse MAC privée)', 'fi.fab.inconnu': 'pas dans la table d\'Odin',
     'fi.type': 'Type (deviné)', 'fi.sys': 'Système (deviné)', 'fi.reseau': 'Nom sur le réseau', 'fi.depuis': 'Adresse reçue', 'fi.jusqua': 'Jusqu\'à (bail)', 'fi.vu': 'Dernier signe', 'fi.premier': 'Vu la première fois',
-    'fi.fixe': ' (fixe)', 'fi.rien': '—',
+    'fi.fixe': ' (fixe)', 'fi.reservee': 'Adresse fixe (à son prochain renouvellement)', 'fi.rien': '—',
     'g.box.titre': 'C\'est la box : la passerelle de toute la maison', 'g.odin.titre': 'C\'est Odin lui-même', 'g.dns.titre': 'C\'est le serveur DNS de la maison : celui qu\'Odin donne à tous les appareils',
     'g.verrou': 'Il ne peut être ni bloqué ni mis en pause : le couper priverait tout le réseau.',
     'a.bloquer': 'Bloquer : retirer du réseau', 'a.pause': 'Mettre en pause', 'a.debloquer': 'Débloquer : il retrouve une adresse', 'a.finpause': 'Fin de la pause',
     'a.proprio': 'Bloquer, mettre en pause et débloquer : le propriétaire seul.',
+    'a.reserver': 'Réserver cette adresse', 'a.reserver.sans': 'Réserver une adresse fixe', 'a.fixe': 'Adresse fixe {ip}',
     'k.bloque': 'Bloquer « {nom} » ?', 'k.pause': 'Mettre en pause « {nom} » ?',
     'k.fait': 'Ce qui sera fait', 'k.limites': 'Ce qu\'Odin ne peut pas faire',
     'k.ici': 'C\'est l\'appareil que tu tiens en ce moment : tu vas te couper d\'Odin, et tu ne pourras plus revenir en arrière depuis cet appareil.',
@@ -74,6 +76,7 @@
     jeu: 'M7 8h10a4 4 0 0 1 4 4v2a3 3 0 0 1-5 2l-1-1H9l-1 1a3 3 0 0 1-5-2v-2a4 4 0 0 1 4-4zM8 11v2M7 12h2M16 12h.01', obj: 'M12 4a5 5 0 0 1 3 9v2H9v-2a5 5 0 0 1 3-9zM10 19h4',
     inc: 'M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 16.5h.01',
     ban: 'M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM6 6l12 12', pause: 'M9 5v14M15 5v14', check: 'M5 12l5 5 9-10', left: 'M14 6l-6 6 6 6',
+    pin: 'M12 21s-6-5.6-6-10.5a6 6 0 0 1 12 0C18 15.4 12 21 12 21zM12 8.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
     shield: 'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z', warn: 'M12 4l9 16H3zM12 10v4M12 17h.01',
   };
   function ic(nom, taille = 20) {
@@ -349,13 +352,15 @@
         d.nouveau ? el('p', { class: 'sa-avis warn' }, ic('warn', 18), d.etat === 'attente' ? mot('ban.attend') : mot('fi.neu', { quand: quand(d.premier) })) : null,
         d.ici ? el('p', { class: 'sa-avis warn' }, ic('shield', 18), mot('fi.ici')) : null,
         el('dl', { class: 'sa-faits' },
-          fait('fi.ip', (d.ip || mot('fi.rien')) + (d.ip && d.fixe ? mot('fi.fixe') : ''), true),
+          fait('fi.ip', (d.ip || mot('fi.rien')) + (d.ip && d.fixe && (!d.reservee || d.reservee === d.ip) ? mot('fi.fixe') : ''), true),
+          d.reservee && d.reservee !== d.ip ? fait('fi.reservee', d.reservee, true) : null,
           el('div', {}, el('dt', {}, mot('fi.mac')), el('dd', {}, el('span', { class: 'sa-mono' }, d.mac), d.prive ? [' ', el('span', { class: 'sa-tag warn' }, mot('t.privee'))] : null)),
           fait('fi.fab', d.prive ? mot('fi.fab.prive') : d.fabricant || mot('fi.fab.inconnu')),
           fait('fi.type', d.typeNom), d.systeme ? fait('fi.sys', d.systeme) : null,
           fait('fi.reseau', d.nomReseau || mot('fi.rien'), true),
           fait('fi.depuis', quand(d.depuis)), fait('fi.jusqua', quand(d.jusqua)), fait('fi.vu', quand(d.vu)), fait('fi.premier', quand(d.premier))),
         actions,
+        P && !d.garde && !S.garde && W.OdinSphinx.ecrans.some((e) => e.id === 'fixes') ? el('div', { class: 'sa-acts' }, el('button', { type: 'button', class: 'sa-btn', 'data-f': 'a-fixe', onclick: () => W.OdinSphinx.aller('fixes', { mac: d.mac }) }, ic('pin', 18), d.reservee ? mot('a.fixe', { ip: d.reservee }) : d.ip ? mot('a.reserver') : mot('a.reserver.sans'))) : null,
         S.res && S.res.text ? el('p', { class: `sa-res${S.res.ok ? '' : ' non'}`, role: 'status' }, S.res.text) : null));
     }
     function tout() { const cle = document.activeElement?.getAttribute?.('data-f'); notes(); stats(); banniere(); puces(); liste(); fiche(); vues(); if (cle) viser(cle); }
@@ -384,6 +389,10 @@
     /** Un autre écran de Sphinx (Adresses fixes, Réglages DHCP, Noms…) : { id, titre, dessiner(noeud) }. */
     ajouter(e) { if (e && e.id && !ECRANS.some((x) => x.id === e.id)) ECRANS.push({ ...e, titre: typeof e.titre === 'function' ? e.titre : () => String(e.titre ?? e.id) }); },
     MOTS, quand, etatDe, filtrer,
+    /** Ce que les autres écrans reprennent : fabriquer un élément (toujours du texte, jamais du HTML), une icône, demander à Sphinx. */
+    outils: { el, ic, demander, traits: TRAITS },
+    /** Ouvrir un écran de Sphinx (posé quand la page est montée) : aller(id, quoi). */
+    aller: () => undefined,
   };
   let minuteur = 0;
   W.OdinPages.vidarr = async ({ host, generic }) => {
@@ -392,7 +401,7 @@
     const tabs = el('div', { class: 'sa-tabs', role: 'tablist', 'aria-label': mot('onglets') });
     let choisi = 'appareils', vivant = null;
     const ids = () => [...ECRANS.map((e) => e.id), 'tout'];
-    const aller = async (id, viser) => {
+    const aller = async (id, viser, quoi) => {
       choisi = id; vivant = null;
       tabs.replaceChildren(...ids().map((k) => { const e = ECRANS.find((x) => x.id === k); return el('button', { type: 'button', role: 'tab', class: 'sa-tab', id: `sa-tab-${k}`, 'aria-selected': String(k === choisi), tabindex: k === choisi ? '0' : '-1', onclick: () => aller(k, true),
         onkeydown: (ev) => { const l = ids(), i = l.indexOf(k), j = ev.key === 'ArrowRight' ? (i + 1) % l.length : ev.key === 'ArrowLeft' ? (i + l.length - 1) % l.length : ev.key === 'Home' ? 0 : ev.key === 'End' ? l.length - 1 : -1; if (j >= 0) { ev.preventDefault?.(); aller(l[j], true); } } }, e ? e.titre() : mot('tout')); }));
@@ -401,10 +410,11 @@
       if (viser) for (const b of tabs.children) if (b.getAttribute('aria-selected') === 'true') b.focus();
       if (id === 'tout') return;
       const n = el('div', { class: 'sa' }); corps.replaceChildren(n);
-      const v = ECRANS.find((x) => x.id === id).dessiner(n); vivant = v ?? null;
+      const v = ECRANS.find((x) => x.id === id).dessiner(n, quoi); vivant = v ?? null;
       try { await v?.pret; } catch { /* l'écran dit lui-même ce qui ne va pas */ }
     };
     racine.append(tabs, corps, gen); host.append(racine);
+    W.OdinSphinx.aller = (id, quoi) => (ECRANS.some((x) => x.id === id) ? aller(id, true, quoi) : undefined);
     await aller(choisi);
     // En direct : relu toutes les 5 secondes tant que la page est ouverte et visible.
     clearInterval(minuteur);

@@ -61,9 +61,11 @@ export function nomsReseau(o: { config: DhcpConfig; leases: Lease[]; policy: Mac
   return new Map([...pris].map(([h, x]) => [x.mac, h]));
 }
 
-/** Les adresses MAC des cartes de cette machine (Odin lui-même). Remplaçable dans les essais. */
+/** Les adresses MAC et les adresses IPv4 des cartes de cette machine (Odin lui-même). Remplaçable dans les essais. */
 export const LOCAL = {
   macs: (): string[] => Object.values(networkInterfaces()).flatMap((l) => l ?? []).map((i) => i.mac.toLowerCase()).filter((m) => m && m !== '00:00:00:00:00:00'),
+  /** Toutes les adresses d'Odin (une par carte) : aucune n'est donnée ni réservée à un appareil, même quand Odin a plusieurs cartes. */
+  ips: (): string[] => Object.values(networkInterfaces()).flatMap((l) => l ?? []).filter((i) => i.family === 'IPv4' && !i.internal).map((i) => i.address),
 };
 
 /**
@@ -116,6 +118,8 @@ export interface Appareil {
   nomReseau: string;
   /** l'adresse qu'il tient (bail en cours) ou qui lui est réservée ; vide : aucune */
   ip: string; fixe: boolean;
+  /** l'adresse fixe qui lui est réservée (lot R3) ; vide : aucune. Elle peut différer de `ip` tant qu'il tient encore une autre adresse */
+  reservee: string;
   /** adresse MAC « privée » (aléatoire) : pas de fabricant, et elle peut changer */
   prive: boolean; fabricant: string; type: TypeAppareil; typeNom: string; systeme: string;
   etat: EtatAppareil;
@@ -229,7 +233,7 @@ export function vueAppareils(o: EntreeVue): VueAppareils {
     const premier = lease?.first ?? 0;
     const nouveau = !garde && !fixe && (etat === 'attente' || (etat === 'actif' && pol.etats[mac] === undefined && premier > 0 && now - premier < NOUVEAU_MS));
     appareils.push({
-      mac, nom, nomDonne: Boolean(lease?.named) || Boolean(fixe?.name), nomReseau, ip, fixe: Boolean(fixe) || Boolean(lease?.fixed), prive, fabricant, type, typeNom: TYPES[type],
+      mac, nom, nomDonne: Boolean(lease?.named) || Boolean(fixe?.name), nomReseau, ip, fixe: Boolean(fixe) || Boolean(lease?.fixed), reservee: texteSur(reservee, 15), prive, fabricant, type, typeNom: TYPES[type],
       systeme: texteSur(osFromVendorClass(lease?.vendorClass) ?? '', 40), etat,
       presence: connecte ? 'vu' : vivant ? 'bail' : 'absent', connecte, vu, depuis: vivant ? lease!.since ?? lease!.first ?? 0 : 0, jusqua: vivant ? lease!.expires : 0, premier,
       nouveau, garde, ici: Boolean(ici) && (ici === tenue || (!tenue && ici === reservee)), retire, coupeDns: etat === 'bloque' && vivant && o.dnsAllume,

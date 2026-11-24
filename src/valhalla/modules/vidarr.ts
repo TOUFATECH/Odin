@@ -17,7 +17,7 @@ import { SERVICES, SOCIAL_ADS, cleanDomain, compile, isDomain, emptyList, type C
 import type { Schedule } from '../vidarr/server.ts';
 import { parseUpstream, upstreamTimes } from '../vidarr/resolve.ts';
 import { parse, query, TYPE, dataText } from '../vidarr/wire.ts';
-import { DhcpServer, detectDhcp, hostLabel, ipNum, osFromVendorClass, randomMac, type DhcpConfig, type Lease, type MacPolicy, type MacState } from '../vidarr/dhcp.ts';
+import { DhcpServer, detectDhcp, hostLabel, ipNum, ipPropre, osFromVendorClass, planAdresses, randomMac, verifierAdresse, type DhcpConfig, type EntreeAdresses, type Lease, type MacPolicy, type MacState, type SorteAdresse } from '../vidarr/dhcp.ts';
 import { catchUp, localDay, period, readDay, journalDay, type Period, type Summary } from '../vidarr/history.ts';
 import { histTout, noterBail, noterRequete, requetesDeMachine, resumerRequetes, type PeriodeHist } from '../vidarr/historique-base.ts';
 import { networkGraph, type DeviceInfo } from '../vidarr/graph.ts';
@@ -262,10 +262,29 @@ function macsVisibles(ctx: ModCtx): Set<string> | undefined {
   return agissant() ? new Set(appareilsVus(ctx).appareils.filter((d) => d.ici).map((d) => d.mac)) : undefined;
 }
 const LIMITE_MEMBRE = 'Tu ne vois que l\'appareil que tu tiens en ce moment. La liste de tous les appareils de la maison, et les gestes (bloquer, mettre en pause, débloquer), sont au propriétaire seul.';
+/**
+ * Lot R3 (adresses fixes et plan) : ce que la vérification d'une adresse et le plan regardent. Les réglages, les baux, les
+ * adresses qu'un appareil a signalées « déjà utilisées », les appareils verrouillés (la box, Odin, le serveur DNS de la
+ * maison) et le nom de chacun, déjà nettoyé (un nom vient du réseau).
+ */
+function adressesVues(ctx: ModCtx, v: VueAppareils = appareilsVus(ctx)): EntreeAdresses {
+  const now = ctx.now().getTime(), parMac = new Map(v.appareils.map((d) => [d.mac, d])), verrous: Record<string, 'box' | 'odin' | 'dns'> = {};
+  for (const d of v.appareils) if (d.garde) verrous[d.mac] = d.garde;
+  for (const m of macsBox(ctx)) verrous[m] = 'box';
+  for (const m of LOCAL.macs()) verrous[m] = 'odin';
+  // Les adresses qui ont parlé au DNS d'Odin depuis moins de 10 minutes (un appareil réglé à la main ne se voit que là).
+  const vues = new Set<string>(); for (let k = ring.length - 1; k >= 0 && ring[k].t >= now - SIGNE_MS; k--) vues.add(ring[k].client.replace(/^::ffff:/, ''));
+  return { config: dhcpConfig(ctx), leases: leasesOf(ctx), now, signalees: dhcp?.signalees(now) ?? [], odin: [lanAddress() ?? '', ...LOCAL.ips()], vues: [...vues], verrous, nom: (mac) => parMac.get(mac)?.nom ?? mac, heure: (t) => quand(t), allume: Boolean(dhcp) };
+}
+/** Les mots du plan des adresses, pour la réponse en texte. */
+const SORTES: Record<SorteAdresse, string> = { box: 'la box', odin: 'Odin', dns: 'le serveur DNS', fixe: 'adresses fixes', bail: 'distribuées en ce moment', retenue: 'retenues', plage: 'libres dans la plage distribuée', libre: 'libres hors de la plage' };
+const LIMITE_PLAN = 'Le plan des adresses de la maison et les adresses fixes sont au propriétaire seul. Tu ne vois que l\'appareil que tu tiens en ce moment.';
 async function startDhcp(ctx: ModCtx): Promise<string> {
   dhcp?.stop();
   const d = new DhcpServer({
     config: () => dhcpConfig(ctx), leases: () => leasesOf(ctx), save: (l) => ctx.saveSettings({ leases: l }), now: () => ctx.now().getTime(),
+    // Toutes les adresses d'Odin (plusieurs cartes) : jamais données à un appareil.
+    propres: () => [lanAddress() ?? '', ...LOCAL.ips()],
     log: (l) => ctx.emit('dhcp_journal', { ligne: l }),
     // Lien DHCP → Forseti et registre : un appareil jamais vu rejoint le réseau.
     onLease: (l, isNew) => { ctx.emit('dhcp_bail', { mac: l.mac, ip: l.ip, nom: l.name ?? '' }); noterBail(ctx, { t: ctx.now().getTime(), mac: l.mac, ip: l.ip, nom: l.name, utilisateur: inventoryName?.(l.ip), action: isNew ? 'donne' : 'renouvele' }); if (isNew) ctx.emit('dhcp_nouveau', { ip: l.ip, mac: l.mac, nom: l.name ?? '' }); if (isNew) ctx.alert({ level: 'info', title: `Nouvel appareil sur le réseau : ${l.name ?? l.mac}`, detail: `Adresse ${l.ip} (MAC ${l.mac}). Si tu ne le connais pas, bloque-le (Réseau) ou donne-lui une adresse fixe et un nom (Sphinx → DHCP).`, key: `dhcp-nouveau-${l.mac}`, lien: 'vidarr-alerte-appareil-inconnu', data: { ip: l.ip, mac: l.mac } }); },
@@ -564,15 +583,48 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         const msg = await startDhcp(ctx); ctx.saveSettings({ dhcpOn: true }); return { text: msg };
       } },
       { id: 'dhcp_arreter', label: 'Arrêter le DHCP', what: 'Odin ne donne plus d\'adresses (rallume celui de la box)', quick: false, grave: () => 'arrêter de donner les adresses (rallume le DHCP de la box)', run: (ctx) => { dhcp?.stop(); dhcp = undefined; ctx.saveSettings({ dhcpOn: false }); return { text: '⏹ DHCP d\'Odin arrêté. Rallume celui de la box.' }; } },
+      // Lot R3 (maquette Réseau) : « Réserver ». L'adresse est vérifiée par la règle pure de vidarr/dhcp.ts (`verifierAdresse`) :
+      // jamais deux appareils sur la même adresse, jamais celle d'Odin, de la box ou du serveur DNS, rien hors du réseau.
+      // Une réservation ne change JAMAIS l'état d'un appareil : bloqué ou en pause, il le reste.
       { id: 'dhcp_fixe', label: 'Adresse fixe', what: 'Toujours la même adresse (et un nom) pour un appareil', params: [{ key: 'mac', label: 'Adresse MAC (aa:bb:cc:dd:ee:ff)', kind: 'text', required: true }, { key: 'ip', label: 'Adresse IP', kind: 'text', required: true }, { key: 'nom', label: 'Nom', kind: 'text', default: '' }], run: (ctx, i) => {
-        const mac = s(i.mac).trim().toLowerCase().replace(/-/g, ':'), ip = s(i.ip).trim();
-        if (!MAC.test(mac)) throw new Error('adresse MAC invalide'); if (!IPV4.test(ip)) throw new Error('adresse IP invalide');
-        const c = dhcpConfig(ctx); if (c.fixed.some((f) => f.ip === ip && f.mac !== mac)) throw new Error('adresse déjà donnée à un autre appareil');
-        const fixed = [...c.fixed.filter((f) => f.mac !== mac), { mac, ip, ...(s(i.nom).trim() ? { name: s(i.nom).trim().slice(0, 60) } : {}) }];
+        const mac = macPropre(i.mac); if (!mac) throw new Error('adresse MAC invalide');
+        const vue = appareilsVus(ctx), v = verifierAdresse({ ...adressesVues(ctx, vue), mac, ip: i.ip });
+        if (!v.ok) throw new Error(v.message.replace(/^Refusé : /, 'refusé : ').replace(/^Adresse /, 'adresse '));
+        const c = dhcpConfig(ctx), ip = v.ip, avant = c.fixed.find((f) => macPropre(f.mac) === mac), d = vue.appareils.find((x) => x.mac === mac);
+        // Le nom : celui donné ici (nettoyé), sinon celui de la réservation d'avant.
+        const donne = texteSur(s(i.nom), 60), nomFixe = donne || texteSur(avant?.name ?? '', 60);
+        const fixed = [...c.fixed.filter((f) => macPropre(f.mac) !== mac), { mac, ip, ...(nomFixe ? { name: nomFixe } : {}) }];
         ctx.saveSettings({ dhcp: { ...(ctx.settings.dhcp as object ?? {}), fixed } });
-        return { text: `📌 ${s(i.nom) || mac} aura toujours ${ip}${s(i.nom).trim() ? ` (et le nom ${hostLabel(s(i.nom))}.${c.domain ?? 'maison'})` : ''}.` };
+        // Son bail : « fixe » seulement s'il tient déjà cette adresse-là ; le nom donné est gardé (comme « Enregistrer le nom »).
+        if (leasesOf(ctx).some((l) => l.mac === mac)) ctx.saveSettings({ leases: leasesOf(ctx).map((l) => { if (l.mac !== mac) return l; const { fixed: _f, ...reste } = l; return { ...reste, ...(l.ip === ip ? { fixed: true } : {}), ...(donne ? { name: donne, named: true } : {}) }; }) });
+        // En mode « seulement les appareils approuvés » : une adresse fixe passe (règle du serveur d'adresses), il n'attend donc plus.
+        const pol = macPolicy(ctx); if (pol.attente.includes(mac)) saveMacPolicy(ctx, { ...pol, attente: pol.attente.filter((x) => x !== mac) });
+        srv?.cache.clear();
+        const etat = pol.etats[mac], etiquette = nomFixe ? hostLabel(nomFixe) : '', domaine = c.domain ?? 'maison';
+        const avis = [...(v.dansPlage && v.code !== 'meme' ? [v.message] : []), ...v.avis];
+        if (etiquette && etat !== 'bloque' && [...nomsReseau({ config: dhcpConfig(ctx), leases: leasesOf(ctx), policy: macPolicy(ctx), now: ctx.now().getTime() })].some(([m, h]) => m !== mac && h === etiquette)) avis.push(`Le nom ${etiquette}.${domaine} est déjà porté par un autre appareil : celui-ci ne l'aura pas tant que l'autre le porte.`);
+        const qui = donne || d?.nom || nomFixe || mac;
+        return { text: [`📌 ${qui} aura toujours ${ip}${etiquette && etat !== 'bloque' ? ` (et le nom ${etiquette}.${domaine})` : ''}.`, ...avis.map((l) => `- ${l}`)].join('\n'), data: { mac, ip, nom: nomFixe, code: v.code, dansPlage: v.dansPlage, avis, etat: etat ?? 'actif' } };
       } },
-      { id: 'dhcp_retirer_fixe', label: 'Retirer une adresse fixe', what: 'L\'appareil reprend une adresse de la plage', quick: false, params: [{ key: 'mac', label: 'Adresse MAC', kind: 'text', required: true }], run: (ctx, i) => { const c = dhcpConfig(ctx), mac = s(i.mac).toLowerCase(); if (!c.fixed.some((f) => f.mac === mac)) throw new Error('aucune adresse fixe pour cet appareil'); ctx.saveSettings({ dhcp: { ...(ctx.settings.dhcp as object ?? {}), fixed: c.fixed.filter((f) => f.mac !== mac) } }); return { text: '🗑 Adresse fixe retirée.' }; } },
+      { id: 'dhcp_retirer_fixe', label: 'Retirer une adresse fixe', what: 'L\'appareil reprend une adresse de la plage', quick: false, params: [{ key: 'mac', label: 'Adresse MAC', kind: 'text', required: true }], run: (ctx, i) => {
+        const mac = macPropre(i.mac); if (!mac) throw new Error('adresse MAC invalide');
+        const c = dhcpConfig(ctx), f = c.fixed.find((x) => macPropre(x.mac) === mac); if (!f) throw new Error('aucune adresse fixe pour cet appareil');
+        const vue = appareilsVus(ctx), d = vue.appareils.find((x) => x.mac === mac);
+        // Le serveur DNS de la maison garde son adresse : sans elle, il pourrait en recevoir une autre et couper les noms à tous.
+        if (d?.garde === 'dns') throw new Error(`refusé : « ${d.nom} » est le serveur DNS de la maison (celui qu'Odin donne à tous les appareils). Sans son adresse fixe, il pourrait en recevoir une autre et couper les noms, donc Internet, à tout le monde. Change d'abord le DNS donné aux appareils (réglages du DHCP).`);
+        ctx.saveSettings({ dhcp: { ...(ctx.settings.dhcp as object ?? {}), fixed: c.fixed.filter((x) => macPropre(x.mac) !== mac) } });
+        const now = ctx.now().getTime(), bail = leasesOf(ctx).find((l) => l.mac === mac), tenu = bail && bail.expires > now ? bail : undefined;
+        if (bail?.fixed) ctx.saveSettings({ leases: leasesOf(ctx).map((l) => { if (l.mac !== mac) return l; const { fixed: _f, ...reste } = l; return reste; }) });
+        srv?.cache.clear();
+        const dans = ipPropre(f.ip) && ipNum(f.ip) >= ipNum(c.start) && ipNum(f.ip) <= ipNum(c.end), etat = macPolicy(ctx).etats[mac];
+        const lignes = [`🗑 Adresse fixe retirée : ${d?.nom || texteSur(f.name ?? '') || mac} n'a plus ${texteSur(f.ip, 15)} en réserve.`,
+          tenu && tenu.ip === f.ip ? `- Il la tient encore : ${dans ? 'il la garde tant qu\'il renouvelle son bail, comme n\'importe quel appareil de la plage' : `il la garde jusqu'à la fin de son bail (${quand(tenu.expires)}), puis Odin lui donne une adresse de la plage`}.` : '',
+          `- ${texteSur(f.ip, 15)} ${dans ? 'revient dans la plage distribuée' : 'redevient libre'}${tenu && tenu.ip === f.ip ? ' dès qu\'il l\'aura lâchée' : ''}.`,
+          etat === 'bloque' ? '- Il reste bloqué.' : etat === 'pause' ? '- Il reste en pause.'
+            // L'accord tenait à la réservation (liste d'autorisation) : sans elle, il attend de nouveau. Rien n'est approuvé ni bloqué ici.
+            : macPolicy(ctx).mode === 'liste' && etat !== 'actif' ? '- Seuls les appareils approuvés reçoivent une adresse : sans adresse fixe, il attendra de nouveau ton accord (Appareils, « Je le connais »).' : ''].filter(Boolean);
+        return { text: lignes.join('\n'), data: { mac, ip: texteSur(f.ip, 15) } };
+      } },
       { id: 'dhcp_mode', label: 'Mode du DHCP (ouvert / liste d\'autorisation)', what: 'Ouvert à tous, ou liste d\'autorisation (seuls les appareils approuvés reçoivent une adresse)', quick: false, params: [{ key: 'mode', label: 'Mode', kind: 'select', options: ['ouvert', 'liste'], default: 'ouvert' }], grave: (i) => s(i.mode) === 'liste' ? 'ne donner d\'adresse qu\'aux appareils approuvés (les autres perdront le réseau tant qu\'ils ne sont pas approuvés)' : undefined, run: (ctx, i) => {
         const mode = s(i.mode) === 'liste' ? 'liste' : 'ouvert'; saveMacPolicy(ctx, { ...macPolicy(ctx), mode }); ctx.emit('dhcp_mode', { mode });
         return { text: mode === 'liste' ? '🔒 Liste d\'autorisation : seuls les appareils approuvés (et les adresses fixes) reçoivent une adresse. Les inconnus apparaissent « en attente d\'approbation » et n\'ont pas de réseau tant que tu ne les approuves pas.' : '🔓 Ouvert : tout le monde reçoit une adresse, sauf les appareils que tu mets en pause ou que tu bloques.' };
@@ -686,7 +738,45 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         const rows = anneauVisible(ctx).filter((e) => (st === 'tous' || e.status === st) && (!f || e.name.includes(f) || e.client.includes(f) || (e.clientName ?? '').toLowerCase().includes(f))).slice(-40).reverse();
         return { text: rows.map((e) => `${new Date(e.t).toLocaleTimeString('fr-FR')} ${e.clientName ?? e.client} ${e.type} ${e.name} → ${e.status}${e.rule ? ` (${e.rule})` : ''} ${e.ms} ms`).join('\n') || 'Rien.' };
       } },
-    ])), actionJournal('vidarr_actes', 'Sphinx')],
+    ])),
+      // Lot R3 (maquette Réseau) : le plan de tout le réseau et les adresses fixes ; avec `mac` et `ip`, la vérification d'une
+      // adresse AVANT de réserver (rien n'est écrit). Les noms viennent du réseau : nettoyés, et la réponse est une donnée,
+      // jamais un ordre (« external »). Un membre n'a ni le plan ni la vérification : seulement l'appareil qu'il tient.
+      // Le plan dit qui a quelle adresse dans toute la maison, et la vérification permet de sonder quelle adresse est prise :
+      // ils ne répondent qu'au propriétaire en personne. Ni l'outil de l'agent pour un membre ou un invité (personne n'y est
+      // posé « au nom de »), ni une automatisation, ni une autre appli, ni une clé d'API, ni une tablette, ni une conversation
+      // qui a lu un contenu extérieur. Seule exception : un membre connecté à l'interface, qui ne reçoit que son appareil.
+      // Hors du journal « qui a fait quoi » : c'est une lecture, relue par la page toutes les cinq secondes.
+      { id: 'plan_adresses', label: 'Plan des adresses (adresses fixes, plage distribuée, libres)', what: 'Tout le réseau de la maison : la box, Odin, les adresses fixes, la plage distribuée, les adresses retenues et libres ; et la vérification d\'une adresse avant de la réserver', read: true, external: true, quick: false, proprietaireSeul: () => !agissant(), params: [{ key: 'mac', label: 'Adresse MAC (pour vérifier une adresse)', kind: 'text', default: '' }, { key: 'ip', label: 'Adresse à vérifier', kind: 'text', default: '' }], run: (ctx, i) => {
+        const vue = appareilsVus(ctx), c = dhcpConfig(ctx), parMac = new Map(vue.appareils.map((d) => [d.mac, d])), now = ctx.now().getTime(), pol = macPolicy(ctx);
+        const fixeDe = (f: { mac: string; ip: string; name?: string }) => {
+          const mac = macPropre(f.mac), d = parMac.get(mac), bail = leasesOf(ctx).find((l) => l.mac === mac && l.expires > now);
+          return { mac, ip: ipPropre(f.ip) || texteSur(f.ip, 15), nom: d?.nom ?? (texteSur(f.name ?? '') || 'Appareil sans nom'), type: d?.type ?? 'inc', typeNom: d?.typeNom ?? 'Inconnu', nomReseau: d?.nomReseau ?? '', garde: d?.garde ?? '', etat: d?.etat ?? 'actif', connecte: Boolean(d?.connecte), prive: randomMac(mac), ici: Boolean(d?.ici),
+            /** faux : en liste d'autorisation, cet appareil n'est pas approuvé, son accord tient à cette réservation */
+            accord: pol.mode !== 'liste' || pol.etats[mac] === 'actif',
+            /** l'adresse qu'il tient en ce moment, si ce n'est pas (encore) son adresse fixe */
+            tient: bail && bail.ip !== f.ip ? bail.ip : '' };
+        };
+        const toutes = c.fixed.filter((f) => macPropre(f.mac)).map(fixeDe).sort((a, b) => (ipPropre(a.ip) ? ipNum(a.ip) : 0) - (ipPropre(b.ip) ? ipNum(b.ip) : 0) || a.mac.localeCompare(b.mac));
+        if (agissant()) {
+          const miennes = toutes.filter((f) => f.ici);
+          return { text: [LIMITE_PLAN, ...miennes.map((f) => `- ${f.nom} · adresse fixe ${f.ip}`)].join('\n'), data: { proprietaire: false, limite: LIMITE_PLAN, dhcp: { allume: vue.dhcp.allume }, plan: null, fixes: miennes, appareils: [], verdict: null } };
+        }
+        const e = adressesVues(ctx, vue), plan = planAdresses(e), reservees = new Set(toutes.map((f) => f.mac));
+        // Les appareils à qui l'on peut réserver une adresse : ni la box, ni Odin, ni le serveur DNS, ni ceux qui en ont déjà une.
+        const appareils = vue.appareils.filter((d) => !d.garde && !reservees.has(d.mac)).map((d) => ({ mac: d.mac, nom: d.nom, ip: d.ip, type: d.type, typeNom: d.typeNom, etat: d.etat, prive: d.prive, nomReseau: d.nomReseau }));
+        const mac = macPropre(i.mac), verdict = s(i.mac).trim() || s(i.ip).trim() ? verifierAdresse({ ...e, mac, ip: i.ip }) : null;
+        const p = plan.plage, texte = !plan.ok ? [plan.erreur] : [
+          `Le réseau de la maison : ${plan.premiere} à ${plan.derniere} (${plan.total} adresses)${plan.box ? `, la box ${plan.box}` : ''}${plan.odin ? `, Odin ${plan.odin}` : ''}.`,
+          p.taille ? `Plage distribuée ${vue.dhcp.allume ? 'par Odin' : '(aujourd\'hui la box distribue les adresses)'} : ${p.debut} à ${p.fin}, ${p.prises} prise(s), ${p.libres} libre(s)${p.fixes ? `, ${p.fixes} adresse(s) fixe(s) sortie(s) de la plage` : ''}${p.retenues ? `, ${p.retenues} retenue(s)` : ''}.` : 'Aucune plage distribuée dans ce réseau : vérifie les réglages du DHCP.',
+          `Hors de la plage : ${plan.comptes.libre} ${SORTES.libre}.${plan.proposee ? ` Première adresse libre : ${plan.proposee}.` : ''}`,
+          toutes.length ? `Adresses fixes (${toutes.length}) :` : 'Aucune adresse fixe.',
+          ...toutes.map((f) => `- ${f.nom} · ${f.ip} · ${f.mac}${f.garde ? ' · verrouillée' : ''}${f.etat === 'bloque' ? ' · bloqué' : f.etat === 'pause' ? ' · en pause' : ''}${f.tient ? ` · tient encore ${f.tient}` : ''}`),
+          ...(verdict ? [`Vérification : ${verdict.message}`, ...verdict.avis.map((l) => `- ${l}`)] : []),
+        ];
+        return { text: texte.join('\n'), data: { proprietaire: true, limite: '', dhcp: vue.dhcp, plan, fixes: toutes, appareils, verdict } };
+      } },
+      actionJournal('vidarr_actes', 'Sphinx')],
     async view(ctx, q) {
       // Un membre de la famille ne voit que l'appareil qu'il tient (lot R2) ; le propriétaire voit tout. Cela vaut pour les
       // baux, mais aussi pour tout ce qui nomme un appareil : journal, graphe, appareils les plus actifs, réglages par appareil.
