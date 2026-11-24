@@ -17,6 +17,8 @@ export const PRIVES_CONFIG: Chemin[] = [
 export const PRIVES_APPLIS: Record<string, Chemin[]> = {
   gladsheim: [['lat'], ['lon']],
   var: [['people', '*', 'naissance'], ['people', '*', 'langue']],
+  // Vortex : la clé privée du tunnel, la clé partagée de chaque appareil, et la clé privée d'un appareil tant qu'elle attend le coffre.
+  gjoll: [['server', 'priv'], ['peers', '*', 'priv'], ['peers', '*', 'psk']],
 };
 /** Réglages gardés dans la mémoire d'Odin (memoire/kv.jsonl) : les numéros du réveil. */
 export const PRIVES_KV: Record<string, Chemin[]> = {

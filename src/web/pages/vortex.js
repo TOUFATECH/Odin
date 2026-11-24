@@ -13,8 +13,10 @@
 // actions de Vortex qui existent (« activer », « revoquer », « allumer », « eteindre », « detecter », « adresse »,
 // « ouvrir_port », « fermer_port » : propriétaire seul, mêmes règles côté serveur, la page ne décide de rien). Un nom
 // d'appareil ou une réponse de la box est TOUJOURS posé comme du texte, jamais comme du HTML. Tous les textes de la page
-// sont dans MOTS. Les écrans des lots suivants (Ajouter et QR code, Personnes) s'ajoutent par
-// window.OdinVortex.ajouter({ id, titre, dessiner, rang }) et reprennent window.OdinVortex.outils.
+// sont dans MOTS. Les écrans des lots suivants (Ajouter et QR code : vortex-ajouter.js, lot R8 ; Personnes) s'ajoutent par
+// window.OdinVortex.ajouter({ id, titre, dessiner, rang }) et reprennent window.OdinVortex.outils. Un écran chargé AVANT
+// cette page (les fichiers sont chargés par ordre de nom) se range dans window.OdinVortexPlus : il est repris ici.
+// Un écran peut rendre « quitter » : appelé quand on le quitte (il efface ce qu'il ne doit pas garder, un QR code par exemple).
 (() => {
   'use strict';
   const W = typeof window !== 'undefined' ? window : globalThis;
@@ -35,8 +37,8 @@
     'g.ici': 'ton appareil',
     'f.ip': 'Adresse dans le VPN', 'f.vu': 'Dernière connexion', 'f.depuis': 'Depuis', 'f.trafic': 'Trafic aujourd\'hui', 'f.acces': 'Accès', 'f.fin': 'Fin de l\'accès',
     'v.maintenant': 'maintenant', 'v.jamais': 'jamais', 'v.rien': '—', 'v.dehors': '{ip} (hors de la maison)', 'v.maison': '{ip} (réseau de la maison)',
-    'v.trafic': 'reçu {recu} · envoyé {envoye}', 'v.tout': 'tout passe par la maison', 'v.seule': 'la maison seulement', 'v.sansfin': 'jamais', 'v.le': 'le {j}',
-    'b.couper': 'Couper', 'b.rouvrir': 'Rouvrir l\'accès', 'b.retirer': 'Retirer', 'b.fini': 'Son accès est terminé : donne-lui une nouvelle date de fin (onglet « Tout », « Modifier un appareil »).',
+    'v.trafic': 'reçu {recu} · envoyé {envoye}', 'v.tout': 'tout passe par la maison', 'v.seule': 'la maison seulement', 'v.adresses': 'seulement certaines adresses', 'v.sansfin': 'jamais', 'v.le': 'le {j}',
+    'b.couper': 'Couper', 'b.rouvrir': 'Rouvrir l\'accès', 'b.retirer': 'Retirer', 'b.qr': 'QR code ou fichier', 'b.fini': 'Son accès est terminé : donne-lui une nouvelle date de fin (onglet « Tout », « Modifier un appareil »).',
     'k.couper': 'Couper « {nom} » ?', 'k.retirer': 'Retirer « {nom} » du VPN ?',
     'k.couper.texte': 'Il ne pourra plus se connecter à la maison. Tu pourras rouvrir son accès à tout moment : sa clé est gardée.',
     'k.retirer.texte': 'Sa clé ne vaudra plus rien : il ne pourra plus jamais se connecter avec son QR code ni son fichier. Pour revenir, il faudra l\'ajouter de nouveau.',
@@ -67,6 +69,7 @@
     's.2': 'Sans la bonne clé, Odin ne répond même pas : de dehors, le port a l\'air fermé.',
     's.3': 'Rien à installer sur Odin : le tunnel est écrit dans Odin. Sur le téléphone, l\'appli VPN habituelle suffit.',
     's.4': 'La clé d\'un appareil ne se voit qu\'une fois, quand tu l\'ajoutes. Cette page ne la montre jamais.',
+    's.4b': 'La clé d\'un appareil est gardée chiffrée dans le coffre. Son QR code ne se montre que sur ton geste (« QR code ou fichier » sur sa carte), et se masque quand tu quittes l\'écran.',
     'w.titre': 'L\'interface web du VPN', 'w.texte': 'C\'est cette page. Vortex n\'ouvre sur la box que le port du tunnel : cette page se regarde depuis la maison, ou à travers le VPN.',
     'r.silence': 'Odin ne répond pas.', 'r.lecture': 'Odin n\'a pas pu lire les appareils du VPN.', 'r.proprio': 'Le tunnel et ses réglages : le propriétaire seul.',
     'h.aujourdhui': 'à {h}', 'h.hier': 'hier à {h}', 'h.jours': 'il y a {n} jours', 'h.le': 'le {j} à {h}',
@@ -200,7 +203,7 @@
 .vx-verdict.bad{color:var(--bad);font-weight:600}
 .vx-ol{margin:8px 0 0;padding-left:20px;font-size:13.5px;line-height:1.55}
 .vx-ol li{padding:2px 0}
-@media (max-width:720px){.vx-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-faits dt{max-width:48%}}
+@media (max-width:720px){.vx-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-faits dt{max-width:48%}.vx-tabs{gap:6px}.vx-tab{padding:0 12px}}
 @media (prefers-reduced-motion:no-preference){.vx-btn,.vx-tab{transition:background .12s ease}.vx-sw::after{transition:left .12s ease}}
 `;
   function style() { if (!document.getElementById('vx-css')) document.head.append(el('style', { id: 'vx-css' }, CSS)); }
@@ -342,6 +345,8 @@
             d.etat === 'coupe' ? el('button', { type: 'button', class: 'vx-btn pri', 'data-f': `rouvrir:${d.ip}`, 'aria-label': `${mot('b.rouvrir')} : ${d.nom}`, onclick: () => rouvrir(d) }, ic('play', 18), mot('b.rouvrir'))
               : d.etat === 'fini' ? null
                 : el('button', { type: 'button', class: 'vx-btn', 'data-f': `couper:${d.ip}`, 'aria-label': `${mot('b.couper')} : ${d.nom}`, onclick: () => demanderGarde(d, 'couper') }, ic('pause', 18), mot('b.couper')),
+            // Remontrer son QR code ou son fichier : l'écran « Ajouter » (lot R8) le fait confirmer, puis le montre. Rien n'est demandé ici.
+            W.OdinVortex.ecrans.some((e) => e.id === 'ajouter') ? el('button', { type: 'button', class: 'vx-btn', 'data-f': `qr:${d.ip}`, 'aria-label': `${mot('b.qr')} : ${d.nom}`, onclick: () => W.OdinVortex.aller('ajouter', { remontrer: d.nom }) }, ic('lock', 18), mot('b.qr')) : null,
             el('button', { type: 'button', class: 'vx-btn dng', 'data-f': `retirer:${d.ip}`, 'aria-label': `${mot('b.retirer')} : ${d.nom}`, onclick: () => demanderGarde(d, 'retirer') }, ic('trash', 18), mot('b.retirer')));
       return el('li', {}, el('article', { class: `vx-card vx-app${coupe ? ' coupe' : ''}`, 'aria-label': mot('l.carte', { nom: d.nom }) },
         el('div', { class: 'vx-top' }, el('span', { class: 'vx-lg' }, ic('app', 26)),
@@ -351,7 +356,7 @@
           fait('f.vu', d.connecte ? mot('v.maintenant') : quand(d.vu)),
           fait('f.depuis', d.depuis ? mot(d.ou === 'dehors' ? 'v.dehors' : 'v.maison', { ip: d.depuis }) : mot('v.rien'), { mono: Boolean(d.depuis) }),
           fait('f.trafic', mot('v.trafic', { recu: taille(d.recu), envoye: taille(d.envoye) })),
-          fait('f.acces', mot(d.acces === 'tout' ? 'v.tout' : 'v.seule')),
+          fait('f.acces', mot(d.acces === 'tout' ? 'v.tout' : d.acces === 'adresses' ? 'v.adresses' : 'v.seule')),
           fait('f.fin', fin, { bad: d.etat === 'fini' })),
         P && d.etat === 'fini' && !(S.garde && S.garde.ip === d.ip) ? el('p', { class: 'vx-lead', style: 'margin:0' }, mot('b.fini')) : null,
         actions,
@@ -446,7 +451,7 @@
               ? el('button', { type: 'button', class: 'vx-btn', disabled: S.occupe, 'data-f': 'port', onclick: () => B.poser('fermer_port', {}, { titre: 'q.fermer', ok: 'q.fermer.ok', ton: 'bad', retour: 'port', zone: 'port' }) }, ic('x', 18), mot('x.fermer'))
               : el('button', { type: 'button', class: 'vx-btn', disabled: S.occupe, 'data-f': 'port', onclick: () => B.poser('ouvrir_port', {}, { titre: 'q.ouvrir', ok: 'q.ouvrir.ok', ton: 'calme', retour: 'port', zone: 'port' }) }, ic('tunnel', 18), mot('x.ouvrir'))),
           B.resultat('port')),
-        el('section', { class: 'vx-card' }, el('h2', {}, mot('s.titre')), el('ul', { class: 'vx-ol' }, ['s.1', 's.2', 's.3', 's.4'].map((k) => el('li', {}, mot(k))))),
+        el('section', { class: 'vx-card' }, el('h2', {}, mot('s.titre')), el('ul', { class: 'vx-ol' }, ['s.1', 's.2', 's.3', W.OdinVortex.ecrans.some((e) => e.id === 'ajouter') ? 's.4b' : 's.4'].map((k) => el('li', {}, mot(k))))),
         el('section', { class: 'vx-card' }, el('h2', {}, mot('w.titre')), el('p', { class: 'vx-lead' }, mot('w.texte'))));
     }
     return { relire: B.relire, etat: S };
@@ -467,14 +472,20 @@
     /** Ouvrir un écran de Vortex (posé quand la page est montée) : aller(id, quoi). « tout » : la page complète. */
     aller: () => undefined,
   };
-  let minuteur = 0;
+  // Les écrans chargés avant cette page (vortex-ajouter.js) attendaient ici.
+  if (Array.isArray(W.OdinVortexPlus)) { for (const e of W.OdinVortexPlus.splice(0)) W.OdinVortex.ajouter(e); }
+  let minuteur = 0, sortir = null;
   W.OdinPages.gjoll = async ({ host, generic }) => {
+    // La page est montée de nouveau : l'écran d'avant efface ce qu'il ne doit pas garder.
+    try { sortir?.(); } catch { /* rien */ }
     style();
     const racine = el('div', { class: 'vx' }), corps = el('div', { class: 'vx', role: 'tabpanel' }), gen = el('div', {}, ...(generic ?? []));
     const tabs = el('div', { class: 'vx-tabs', role: 'tablist', 'aria-label': mot('onglets') });
     let choisi = 'appareils', vivant = null;
     const ids = () => [...ECRANS.map((e) => e.id), 'tout'];
     const aller = async (id, viser, quoi) => {
+      // L'écran qu'on quitte efface ce qu'il ne doit pas garder (un QR code montré).
+      try { vivant?.quitter?.(); } catch { /* l'écran suivant s'ouvre quand même */ }
       choisi = id; vivant = null;
       tabs.replaceChildren(...ids().map((k) => { const e = ECRANS.find((x) => x.id === k); return el('button', { type: 'button', role: 'tab', class: 'vx-tab', id: `vx-tab-${k}`, 'aria-selected': String(k === choisi), tabindex: k === choisi ? '0' : '-1', onclick: () => aller(k, true),
         onkeydown: (ev) => { const l = ids(), i = l.indexOf(k), j = ev.key === 'ArrowRight' ? (i + 1) % l.length : ev.key === 'ArrowLeft' ? (i + l.length - 1) % l.length : ev.key === 'Home' ? 0 : ev.key === 'End' ? l.length - 1 : -1; if (j >= 0) { ev.preventDefault?.(); aller(l[j], true); } } }, e ? e.titre() : mot('o.tout')); }));
@@ -487,11 +498,12 @@
       try { await v?.pret; } catch { /* l'écran dit lui-même ce qui ne va pas */ }
     };
     racine.append(tabs, corps, gen); host.append(racine);
+    sortir = () => { try { vivant?.quitter?.(); } catch { /* rien */ } vivant = null; };
     W.OdinVortex.aller = (id, quoi) => (id === 'tout' || ECRANS.some((x) => x.id === id) ? aller(id, true, quoi) : undefined);
     await aller(choisi);
     // En direct : relu toutes les 5 secondes tant que la page est ouverte et visible.
     clearInterval(minuteur);
-    minuteur = setInterval(() => { if (!racine.isConnected) { clearInterval(minuteur); return; } if (!document.hidden && vivant?.relire) void vivant.relire({ discret: true }); }, 5000);
+    minuteur = setInterval(() => { if (!racine.isConnected) { sortir?.(); clearInterval(minuteur); return; } if (!document.hidden && vivant?.relire) void vivant.relire({ discret: true }); }, 5000);
     return true;
   };
 })();

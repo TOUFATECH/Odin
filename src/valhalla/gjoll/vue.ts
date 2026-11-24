@@ -13,7 +13,7 @@ import { texteSur } from '../vidarr/appareils.ts';
 export const CONNECTE_MS = 180_000;
 
 /** Ce que la vue lit d'un appareil enregistré. Les clés n'y sont pas : la vue ne peut pas les recopier. */
-export interface PairVu { name: string; pub: string; ip: string; created?: string; enabled: boolean; full: boolean; mesh?: boolean; expires?: string; odinDns?: boolean; compte?: string }
+export interface PairVu { name: string; pub: string; ip: string; created?: string; enabled: boolean; full: boolean; mesh?: boolean; expires?: string; odinDns?: boolean; compte?: string; /** « seulement certaines adresses » (lot R8) */ seules?: string[] }
 /** Ce que le moteur du tunnel sait d'un appareil en ce moment. */
 export interface EnDirect { handshake: number; rx: number; tx: number; endpoint: string }
 /** Ce qu'Odin a gardé de la dernière connexion d'un appareil (le tunnel éteint ou Odin redémarré, la carte le dit encore). */
@@ -34,7 +34,8 @@ export interface AppareilVpn {
   ou: 'maison' | 'dehors' | '';
   /** trafic du jour, vu de l'appareil (octets) */
   recu: number; envoye: number;
-  acces: 'tout' | 'maison';
+  /** « tout » : Internet par la maison ; « maison » : toute la maison ; « adresses » : seulement certaines adresses de la maison */
+  acces: 'tout' | 'maison' | 'adresses';
   /** fin de l'accès (AAAA-MM-JJ), vide : sans fin */
   fin: string;
   dnsOdin: boolean;
@@ -124,7 +125,7 @@ export function vueVpn(o: EntreeVpn): VueVpn {
     return {
       nom: nomVpn(p.name), ip: texteSur(p.ip, 45), connecte, vu, depuis, ou: ouEst(depuis), recu: t.down, envoye: t.up,
       etat: fini ? 'fini' : !p.enabled ? 'coupe' : connecte ? 'connecte' : vu ? 'absent' : 'jamais',
-      acces: p.full ? 'tout' : 'maison', fin: /^\d{4}-\d{2}-\d{2}$/.test(p.expires ?? '') ? String(p.expires) : '', dnsOdin: Boolean(p.odinDns),
+      acces: p.full ? 'tout' : Array.isArray(p.seules) && p.seules.length ? 'adresses' : 'maison', fin: /^\d{4}-\d{2}-\d{2}$/.test(p.expires ?? '') ? String(p.expires) : '', dnsOdin: Boolean(p.odinDns),
       // « L'appareil que tu tiens » : la demande vient de son adresse dans le VPN, ou de l'adresse d'où il est connecté en ce moment.
       ici: Boolean(origine) && (origine === p.ip || (connecte && Boolean(depuis) && origine === depuis)),
       compte: p.compte,

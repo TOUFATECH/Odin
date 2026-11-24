@@ -7,6 +7,7 @@ import { openOnHost } from '../hostports.ts';
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { champChiffre } from '../../vault.ts';
 import { WgDevice, systemTun, type Flow, type PeerConfig, type TunPort } from '../wireguard/engine.ts';
 import { isPrivateV4, localSubnets } from '../../hlidskjalf/discover.ts';
 import { svg } from '../qr.ts';
@@ -18,8 +19,16 @@ import { depuisAdresse, texteSur } from '../vidarr/appareils.ts';
 import { adresseBoxSure, adressePublique, avisOrigine, estLaBox, gardeVpn, hoteDe, nomVpn, trouverPair, vueVpn, type AppareilVpn, type Dernier, type EnDirect, type TunnelVpn, type VueVpn } from '../gjoll/vue.ts';
 import { agissant } from '../sso/acces.ts';
 import { actionJournal, auProprietaireSeul, avecJournal } from '../vidarr/qui-a-fait.ts';
+import { accesDemande, dessinSur, finDemandee, nomAppareil } from '../gjoll/ajout.ts';
+import { cleGardee, coffreOuvert, empreinteDe, marquerConfig, renommerConfig, retirerConfig, SITE_AVANT } from '../gjoll/coffre.ts';
 
+/**
+ * `priv` : la clé privée de l'appareil. Depuis le lot R8 elle est dans le coffre (Thésauros), et seulement là ; elle ne
+ * reste ici (chiffrée au repos, src/prive.ts) que le temps d'y entrer : coffre fermé, Thésauros désactivé, appareil d'avant ce lot.
+ */
 export interface Peer { name: string; pub: string; priv?: string; psk: string; ip: string; created: string; enabled: boolean; full: boolean; mesh?: boolean; endpoint?: string; /** fin de l'accès (AAAA-MM-JJ) : passé ce jour, l'appareil est coupé tout seul */ expires?: string; /** passe par le DNS d'Odin (Sphinx) : pubs et sites dangereux bloqués aussi en dehors de la maison */ odinDns?: boolean;
+  /** « seulement certaines adresses » : les seules adresses de la maison que l'appareil fait passer par le VPN (vide : tous les réseaux de la maison) */
+  seules?: string[];
   /** le compte Persona de la personne à qui est l'appareil (rattaché par la page de connexion, lot R0) : « qui est connecté » ne montre à un membre que les siens */
   compte?: string }
 export function keypair(): { priv: string; pub: string } {
@@ -47,7 +56,24 @@ function server(ctx: ModCtx): Server {
   if (!sv) { const k = keypair(); sv = { ...k, net: '10.8.0', port: 51820, endpoint: s(ctx.settings.endpoint) || '[ADRESSE PUBLIQUE OU DOMAINE]', dns: '', iface: 'wg0' }; ctx.saveSettings({ server: sv }); }
   // Le nom de l'interface part dans des commandes lancées en administrateur : lettres, chiffres, tiret, rien d'autre.
   if (!/^[A-Za-z][A-Za-z0-9_-]{0,14}$/.test(String(sv.iface))) sv = { ...sv, iface: 'wg0' };
+  verifierCles(ctx);
+  // Un tunnel noté sans sa paire de clés (jamais créée) : elle est créée ici, une fois.
+  if (!sv.priv || !sv.pub) { sv = { ...sv, ...keypair() }; ctx.saveSettings({ server: sv }); }
   return sv;
+}
+/**
+ * Les clés du VPN sont chiffrées au repos avec la clé de la machine (src/prive.ts). Si cette clé a changé ou manque, elles
+ * sont illisibles : Odin le dit et ne touche à rien. Il n'en fabrique jamais d'autres en silence (tous les appareils
+ * seraient coupés sans explication), et n'écrit plus dans ses réglages (les valeurs chiffrées seraient perdues).
+ */
+const CLES_ILLISIBLES = 'les clés du VPN sont illisibles (la clé de cette machine a changé ou manque). Rien n\'est changé. Remets la clé de la machine à sa place (sauvegarde d\'Odin) puis redémarre Odin';
+function verifierCles(ctx: ModCtx): void {
+  // Illisible = écrite chiffrée dans le fichier des réglages, mais absente une fois relue (une valeur illisible est retirée à la lecture).
+  let ecrit: { server?: { priv?: unknown }; peers?: Array<{ psk?: unknown; priv?: unknown } | null> } = {};
+  try { ecrit = JSON.parse(readFileSync(join(ctx.dir, 'réglages.json'), 'utf8')) as typeof ecrit; } catch { return; }
+  const perdue = (lue: unknown, e: unknown): boolean => champChiffre(e) && (typeof lue !== 'string' || !lue);
+  const sv = ctx.settings.server as Server | undefined, ps = peers(ctx), ep = Array.isArray(ecrit.peers) ? ecrit.peers : [];
+  if (perdue(sv?.priv, ecrit.server?.priv) || ep.some((e, k) => perdue(ps[k]?.psk, e?.psk) || perdue(ps[k]?.priv, e?.priv))) throw new Error(CLES_ILLISIBLES);
 }
 /** Le port du VPN, lu sans rien créer (pour ce que montre une validation). */
 const portVpn = (ctx?: ModCtx): number => Number((ctx?.settings.server as Server | undefined)?.port) || 51820;
@@ -86,7 +112,8 @@ export function serverConf(sv: Server, ps: Peer[]): string {
 }
 export function clientConf(sv: Server, p: Peer, all: Peer[] = []): string {
   // « Maison seulement » : le réseau du VPN et les réseaux de la maison ; « tout » : tout le trafic.
-  const allowed = p.full ? '0.0.0.0/0, ::/0' : [`${sv.net}.0/24`, ...(sv.lan ?? [])].join(', ');
+  // « Seulement certaines adresses » : Odin dans le VPN (son DNS, sa page) et ces adresses-là, rien d'autre.
+  const allowed = p.full ? '0.0.0.0/0, ::/0' : p.seules?.length ? [`${sv.net}.1/32`, ...p.seules].join(', ') : [`${sv.net}.0/24`, ...(sv.lan ?? [])].join(', ');
   const mesh = p.mesh ? all.filter((x) => x.mesh && x.enabled && x.name !== p.name && x.endpoint).map((x) => `\n[Peer]\n# ${x.name} (maillage)\nPublicKey = ${x.pub}\nEndpoint = ${x.endpoint}\nAllowedIPs = ${x.ip}/32\nPersistentKeepalive = 25\n`).join('') : '';
   const dns = p.odinDns ? `${sv.net}.1` : sv.dns;
   return `[Interface]\nPrivateKey = ${p.priv}\nAddress = ${p.ip}/32\n${dns ? `DNS = ${dns}\n` : ''}${sv.mtu ? `MTU = ${sv.mtu}\n` : ''}\n[Peer]\n# Maison (Odin)\nPublicKey = ${sv.pub}\nPresharedKey = ${p.psk}\nEndpoint = ${sv.endpoint}:${sv.port}\nAllowedIPs = ${allowed}\nPersistentKeepalive = ${sv.keepalive ?? 25}\n${mesh}`;
@@ -203,7 +230,8 @@ export function vpnGraph(sv: Server, ps: Peer[], d: Map<string, { handshake: num
         { k: 'Accès', v: p.expires ? `jusqu'au ${p.expires}` : 'sans date de fin', src: '' },
       ],
       ...(doms.length ? { list: { title: 'Domaines demandés (15 dernières minutes)', items: doms.map((dm) => ({ text: dm.name, meta: `${dm.n}${dm.blocked ? ' · bloqué' : ''}`, tone: dm.blocked ? 'attention' as const : undefined })) } } : {}),
-      actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'lire', label: 'Voir ses paquets (Ariane)', input: { ip }, module: 'ran' }, { action: 'activer', label: p.enabled ? 'Couper l\'accès' : 'Rouvrir l\'accès', input: { nom: p.name, actif: !p.enabled }, primary: !p.enabled }],
+      // Pas de bouton « QR code » ici (lot R8) : la page générique le montrerait d'un clic, sans confirmation ni masquage. Il se demande sur la carte de l'appareil (« QR code ou fichier »).
+      actions: [{ action: 'lire', label: 'Voir ses paquets (Ariane)', input: { ip }, module: 'ran' }, { action: 'activer', label: p.enabled ? 'Couper l\'accès' : 'Rouvrir l\'accès', input: { nom: p.name, actif: !p.enabled }, primary: !p.enabled }],
     };
   }
   // Tout le trafic : les destinations de chaque appareil (les plus grosses des 15 dernières minutes).
@@ -363,12 +391,76 @@ async function moteurPret(ctx: ModCtx): Promise<string> {
 }
 const ETATS_VPN: Record<AppareilVpn['etat'], string> = { connecte: 'connecté', absent: 'pas connecté', jamais: 'jamais connecté', coupe: 'accès coupé', fini: 'accès terminé' };
 
+// ---------------- Lot R8 : la configuration d'un appareil, gardée au coffre, remontrée sur un geste ----------------
+/** L'adresse de la maison telle qu'elle a été validée (lot R7) : lue sur la box, ou écrite et confirmée par le propriétaire. Vide : pas encore connue. */
+const adresseValidee = (sv: Server): string => (/^[A-Za-z0-9_.-]{1,200}$/.test(String(sv.endpoint ?? '')) && /[A-Za-z0-9]/.test(String(sv.endpoint)) ? String(sv.endpoint) : '');
+/** Les entrées du coffre d'appareils retirés pendant que le coffre était fermé : à effacer dès qu'il est ouvert. Aucune clé ici : l'empreinte de la clé publique, et le nom. */
+const aEffacer = (ctx: ModCtx): Array<{ empreinte: string; nom: string }> => ((ctx.settings.aEffacer as Array<{ empreinte: string; nom: string }> | undefined) ?? []).filter((x) => x && typeof x.empreinte === 'string' && typeof x.nom === 'string');
+/**
+ * Range au coffre la configuration d'un appareil, par le lien Vortex → Thésauros qui existait (il reste visible dans
+ * les liens entre applis). `false` : coffre fermé, ou Thésauros désactivé ; rien n'y est écrit.
+ */
+async function garderAuCoffre(ctx: ModCtx, p: Peer, conf: string): Promise<boolean> {
+  if (!coffreOuvert(ctx)) return false;
+  const ok = await ctx.call('brisingamen', 'ajouter', { nom: `VPN ${p.name}`, identifiant: p.name, mot_de_passe: conf, site: SITE_AVANT }, 'nouvel accès VPN').then((r) => r.ok !== false, () => false);
+  return ok && marquerConfig(ctx, { pub: p.pub, nom: p.name });
+}
+/**
+ * Ce qui attend le coffre : une clé d'appareil encore dans les réglages (appareil d'avant ce lot, ou ajouté coffre fermé)
+ * y est rangée puis oubliée ici ; l'entrée d'un appareil retiré coffre fermé y est effacée. Coffre fermé : rien ne bouge.
+ */
+async function rangerAuCoffre(ctx: ModCtx): Promise<void> {
+  if (!coffreOuvert(ctx)) return;
+  const sv = ctx.settings.server as Server | undefined; if (!sv?.priv) return;
+  const ranges = new Set<string>();
+  for (const p of peers(ctx)) {
+    // La liste a pu changer pendant une attente : un appareil retiré entre-temps n'est pas rangé, et s'il vient de l'être, son entrée repart.
+    const la = (): boolean => peers(ctx).some((x) => x.pub === p.pub);
+    if (!p.priv || !la() || !(await garderAuCoffre(ctx, p, clientConf(sv, p, peers(ctx))))) continue;
+    if (la()) ranges.add(p.pub); else retirerConfig(ctx, { pub: p.pub, nom: p.name });
+  }
+  const attente = aEffacer(ctx), reste = attente.filter((x) => retirerConfig(ctx, x).ferme);
+  if (!ranges.size && reste.length === attente.length) return;
+  // Relu ici (pas avant l'attente) : rien de ce qui a changé entre-temps n'est écrasé.
+  ctx.saveSettings({ peers: peers(ctx).map((p) => { if (!ranges.has(p.pub)) return p; const { priv: _cle, ...sans } = p; return sans; }), aEffacer: reste.length ? reste : undefined });
+}
+/**
+ * La configuration d'un appareil, refaite au moment où le propriétaire la demande : sa clé privée relue dans le coffre,
+ * l'adresse de la maison validée (jamais une adresse inconnue), ses réglages d'aujourd'hui. Un refus est une phrase claire.
+ */
+async function confDe(ctx: ModCtx, nom: unknown): Promise<{ p: Peer; conf?: string; refus?: string; code?: string }> {
+  const vu = trouverPair(peers(ctx), nom); if (!vu) throw new Error('appareil introuvable');
+  const sv = await ready(ctx);
+  try { await rangerAuCoffre(ctx); } catch { /* le rangement ne bloque jamais la demande */ }
+  const p = peers(ctx).find((x) => x.pub === vu.pub) ?? vu, n = nomVpn(p.name);
+  if (!adresseValidee(sv)) return { p, code: 'adresse', refus: `L'adresse de la maison n'est pas encore connue : sans elle, la configuration de « ${n} » ne mènerait nulle part. Fais d'abord l'étape « Adresse de la maison » (onglet « Tunnel »). Rien n'est montré.` };
+  const g = cleGardee(ctx, { pub: p.pub, nom: p.name }), cle = g.cle ?? p.priv;
+  // Une entrée d'avant ce lot : marquée de la clé publique de l'appareil (les restes du même nom sont effacés).
+  if (g.ancienne) marquerConfig(ctx, { pub: p.pub, nom: p.name });
+  if (!cle) return g.ferme
+    ? { p, code: 'coffre', refus: `Le coffre est fermé : la configuration de « ${n} » y est gardée chiffrée, Odin ne peut pas la relire. Ouvre le coffre (Accueil), puis redemande. Rien n'est montré.` }
+    : { p, code: 'absente', refus: `La configuration de « ${n} » n'est plus dans le coffre (Thésauros) : Odin ne peut pas la remontrer. Retire cet appareil, puis ajoute-le de nouveau (il aura une nouvelle clé).` };
+  return { p, conf: clientConf(sv, { ...p, priv: cle }, peers(ctx)) };
+}
+/** Ce qu'il faut savoir avant de scanner : un appareil coupé ou arrivé à sa fin ne se connectera pas. */
+const etatPourQr = (ctx: ModCtx, p: Peer): string => (p.expires && p.expires < ctx.now().toISOString().slice(0, 10) ? ` ⚠ Son accès est terminé depuis le ${p.expires} : il ne se connectera pas tant qu'il n'a pas une nouvelle date de fin.` : !p.enabled ? ' ⚠ Son accès est coupé : il ne se connectera pas tant que tu ne l\'as pas rouvert.' : '');
+/** L'image et le dessin du QR code d'une configuration ; rien si elle est trop longue pour un QR code. */
+function qrDe(conf: string): { svg: string; dessin: NonNullable<ReturnType<typeof dessinSur>> } | undefined {
+  const d = dessinSur(conf); if (!d) return undefined;
+  try { return { svg: svg(conf, { ecc: 'L', scale: 5 }), dessin: d }; } catch { return undefined; }
+}
+const TROP_LONGUE = 'Cette configuration est trop longue pour un QR code : prends le fichier (« Fichier de configuration ») et ouvre-le dans l\'appli VPN de l\'appareil.';
+/** L'accès d'un appareil, en mots (pour une confirmation). */
+const accesEnMots = (i: Record<string, unknown>): string => { const a = s(i.acces).trim(); return a === 'adresses' ? `seulement ces adresses de la maison : ${texteSur(i.adresses, 200) || 'aucune'}` : a === 'maison' || (!a && i.tout === false) ? 'le réseau de la maison seulement' : 'tout son trafic passe par la maison'; };
+
 /**
  * Lot R1 (maquette Réseau validée) : tout ce qui change le VPN, et le QR code ou le fichier d'un appareil (sa clé privée),
  * est au propriétaire seul, par tous les chemins ; chaque changement est noté « qui a fait quoi ». Les autres lectures
  * restent ouvertes selon les droits d'aujourd'hui.
  */
-const reseauProprio = (l: Module['actions'], lectures: Module['actions'] = []): Module['actions'] => [...avecJournal('gjoll_actes', auProprietaireSeul(l, ['qr', 'telecharger'])), ...lectures, actionJournal('gjoll_actes', 'Vortex')];
+const reseauProprio = (l: Module['actions'], lectures: Module['actions'] = []): Module['actions'] => [...avecJournal('gjoll_actes', auProprietaireSeul(clesLisibles(l), ['qr', 'telecharger'])), ...lectures, actionJournal('gjoll_actes', 'Vortex')];
+/** Aucune action qui écrit (ni le QR code, ni le fichier) ne part quand les clés du VPN sont illisibles : rien n'est réécrit par-dessus. */
+const clesLisibles = (l: Module['actions']): Module['actions'] => l.map((a) => (a.read && a.id !== 'qr' && a.id !== 'telecharger' ? a : { ...a, run: async (ctx: ModCtx, i: Record<string, unknown>) => { verifierCles(ctx); return a.run(ctx, i); } }));
 
 export const gjoll: Module = {
   id: 'gjoll', name: 'Vortex', family: 'Accès',
@@ -456,36 +548,64 @@ export const gjoll: Module = {
       const d = live(), q = agissant(), l = q ? peers(ctx).filter((p) => p.compte === q.login) : peers(ctx);
       return { text: l.map((p) => { const x = d.get(p.pub); return `- ${p.name} (${p.ip}) · ${p.enabled ? (x?.handshake && Date.now() - x.handshake < 180_000 ? 'connecté' : 'hors ligne') : 'désactivé'}`; }).join('\n') || (q ? 'Aucun appareil VPN à ton nom.' : 'Aucun appareil.') };
     } },
-    { id: 'ajouter', label: 'Ajouter un appareil', what: 'Nouvelle config + QR code', params: [{ key: 'nom', label: 'Nom de l\'appareil', kind: 'text', required: true }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'boolean', default: true }, { key: 'maillage', label: 'Réseau maillé (Orion)', kind: 'boolean', default: false }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, vide = sans fin)', kind: 'text', default: '' }, { key: 'dns_odin', label: 'Passer par le DNS d\'Odin (Sphinx)', kind: 'boolean', default: true }], grave: (i) => `ouvrir l'accès VPN à « ${s(i.nom)} »`, words: ['ajoute', 'nouvel appareil'], run: async (ctx, i) => {
-      const ps = peers(ctx), sv = server(ctx), used = new Set(ps.map((p) => p.ip)), fin = s(i.fin).trim();
-      if (!/^[\p{L}\p{N} _.'-]{1,40}$/u.test(s(i.nom).trim())) throw new Error('nom : lettres, chiffres, espaces, 40 au plus');
-      if (ps.some((p) => p.name === s(i.nom).trim())) throw new Error('un appareil porte déjà ce nom');
-      if (fin && !/^\d{4}-\d{2}-\d{2}$/.test(fin)) throw new Error('date attendue sous la forme 2026-12-31');
+    // Lot R8 : « Ajouter un appareil » en 3 étapes (la page). Le nom est nettoyé et borné ; l'accès est « toute la maison »,
+    // « Internet par la maison » ou « seulement certaines adresses » (de la maison, jamais d'Internet) ; la configuration
+    // (avec la clé privée de l'appareil) part dans le coffre, et seulement là quand il est ouvert. `montrer: false` (la
+    // page) : la réponse ne porte aucune clé ; le QR code se demande ensuite, sur un geste (« qr »).
+    { id: 'ajouter', label: 'Ajouter un appareil', what: 'Nouvelle config + QR code', params: [{ key: 'nom', label: 'Nom de l\'appareil', kind: 'text', required: true }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'boolean', default: true }, { key: 'maillage', label: 'Réseau maillé (Orion)', kind: 'boolean', default: false }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, vide = sans fin)', kind: 'text', default: '' }, { key: 'dns_odin', label: 'Passer par le DNS d\'Odin (Sphinx)', kind: 'boolean', default: true }, { key: 'acces', label: 'Accès : « maison », « internet » ou « adresses » (vide : d\'après « Tout le trafic »)', kind: 'text', default: '' }, { key: 'adresses', label: 'Pour « adresses » : les seules adresses de la maison (ex. 10.0.0.10, séparées par des virgules)', kind: 'text', default: '' }, { key: 'montrer', label: 'Montrer tout de suite le QR code (il porte la clé secrète de l\'appareil)', kind: 'boolean', default: false }],
+      grave: (i) => `ouvrir l'accès VPN à « ${nomVpn(i.nom)} » (${accesEnMots(i)}${/^\d{4}-\d{2}-\d{2}$/.test(s(i.fin).trim()) ? `, jusqu'au ${s(i.fin).trim()}` : ''})`, words: ['ajoute', 'nouvel appareil'], run: async (ctx, i) => {
+      // Aucune attente entre la vérification du nom et l'écriture : deux ajouts en même temps ne prennent ni le même nom ni la même adresse.
+      const sv = await ready(ctx), ps = peers(ctx), used = new Set(ps.map((p) => p.ip)), nom = nomAppareil(i.nom);
+      if (ps.some((p) => p.name === nom || nomVpn(p.name) === nomVpn(nom))) throw new Error('un appareil porte déjà ce nom');
+      const fin = finDemandee(i.fin), acces = accesDemande(i, sv.lan ?? []);
+      // Une fin d'accès déjà passée : l'appareil serait ouvert jusqu'à la veille suivante, puis coupé. Refusé avant de créer quoi que ce soit.
+      if (fin && fin < ctx.now().toISOString().slice(0, 10)) throw new Error(`la fin de l'accès (${fin}) est déjà passée : choisis une date à partir d'aujourd'hui, ou aucune. Rien n'est créé.`);
       let n = 2; while (used.has(`${sv.net}.${n}`)) n++; if (n > 254) throw new Error('plus d\'adresse libre');
-      const k = keypair(), p: Peer = { name: s(i.nom).trim(), ...(fin ? { expires: fin } : {}), ...k, psk: randomBytes(32).toString('base64'), ip: `${sv.net}.${n}`, created: ctx.now().toISOString(), enabled: true, full: i.tout !== false, mesh: i.maillage === true, odinDns: i.dns_odin !== false };
-      ctx.saveSettings({ peers: [...ps, p] });
-      const msg = await apply(ctx);
-      // Lien Vortex → Thésauros : la configuration de l'appareil (sa clé privée) est rangée dans le coffre chiffré.
-      const kept = await ctx.call('brisingamen', 'ajouter', { nom: `VPN ${p.name}`, identifiant: p.name, mot_de_passe: clientConf(await ready(ctx), p, [...ps, p]), site: 'Vortex (VPN de la maison)' }, 'nouvel accès VPN').then((r) => r.ok !== false, () => false);
-      const conf = clientConf(await ready(ctx), p, [...ps, p]), dnsNote = await linkDns(ctx, p);
-      const noAddr = /^\[/.test(server(ctx).endpoint) ? ' ⚠ L\'adresse de la maison n\'est pas encore connue : ce QR code ne marchera pas. Fais l\'étape « Adresse de la maison », puis rouvre son QR code.' : '';
-      return { text: `📱 « ${p.name} » ajouté (${p.ip}). Scanne ce QR code avec l'appli WireGuard.${noAddr}${dnsNote}${kept ? ' Sa configuration est rangée dans le coffre (Thésauros).' : ''}\n${msg}`, data: { name: p.name, svg: svg(conf, { ecc: 'L', scale: 5 }), conf, filename: confName(p) } };
+      const k = keypair(), p: Peer = { name: nom, ...(fin ? { expires: fin } : {}), pub: k.pub, psk: randomBytes(32).toString('base64'), ip: `${sv.net}.${n}`, created: ctx.now().toISOString(), enabled: true, full: acces.full, ...(acces.seules ? { seules: acces.seules } : {}), mesh: i.maillage === true, odinDns: i.dns_odin !== false };
+      const conf = clientConf(sv, { ...p, priv: k.priv }, [...ps, p]);
+      ctx.saveSettings({ peers: [...ps, { ...p, priv: k.priv }] });
+      // Lien Vortex → Thésauros : la configuration de l'appareil (sa clé privée) est rangée dans le coffre chiffré, et
+      // seulement là : dès qu'elle y est, elle quitte les réglages de Vortex. Coffre fermé : elle y attend (chiffrée au
+      // repos), et entrera au coffre dès qu'il sera ouvert.
+      const kept = await garderAuCoffre(ctx, p, conf);
+      // Retiré pendant l'attente du coffre (deux gestes en même temps) : son entrée du coffre repart avec lui.
+      if (kept && !peers(ctx).some((x) => x.pub === p.pub)) retirerConfig(ctx, { pub: p.pub, nom: p.name });
+      if (kept) ctx.saveSettings({ peers: peers(ctx).map((x) => (x.pub === p.pub ? p : x)) });
+      const msg = await apply(ctx), dnsNote = await linkDns(ctx, p);
+      const connue = Boolean(adresseValidee(sv)), q = connue && i.montrer !== false ? qrDe(conf) : undefined;
+      const noAddr = connue ? '' : ' ⚠ L\'adresse de la maison n\'est pas encore connue : pas de QR code pour l\'instant. Fais l\'étape « Adresse de la maison », puis montre son QR code.';
+      const garde = kept ? ' Sa configuration est rangée dans le coffre (Thésauros), chiffrée : tu pourras remontrer son QR code.' : ' ⚠ Le coffre est fermé : sa configuration attend, chiffrée, dans les réglages de Vortex ; elle ira dans le coffre dès qu\'il sera ouvert.';
+      return { text: `📱 « ${p.name} » ajouté (${p.ip}).${q ? ' Scanne ce QR code avec l\'appli WireGuard.' : connue && i.montrer !== false ? ` ${TROP_LONGUE}` : ''}${noAddr}${dnsNote}${garde}\n${msg}`, data: { name: p.name, ip: p.ip, garde: kept, adresse: connue, filename: confName(p), ...(q ? { svg: q.svg, dessin: q.dessin } : {}), ...(connue && i.montrer !== false ? { conf } : {}) } };
     } },
-    { id: 'qr', label: 'QR code', what: 'QR code de configuration (à scanner)', read: true, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], run: async (ctx, i) => { const p = peers(ctx).find((x) => x.name === s(i.nom)); if (!p) throw new Error('appareil introuvable'); const sv = await ready(ctx), conf = clientConf(sv, p, peers(ctx)); return { text: /^\[/.test(sv.endpoint) ? `⚠ L'adresse de la maison n'est pas encore connue : ce QR code ne marchera pas tant que l'étape « Adresse de la maison » n'est pas faite.` : `QR code de « ${p.name} » : ouvre l'appli WireGuard → « + » → « Scanner un QR code ».`, data: { svg: svg(conf, { ecc: 'L', scale: 5 }), conf, filename: confName(p) } }; } },
-    { id: 'telecharger', label: 'Fichier de configuration', what: 'Le fichier .conf d\'un appareil (pour un ordinateur)', read: true, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], run: async (ctx, i) => { const p = peers(ctx).find((x) => x.name === s(i.nom)); if (!p) throw new Error('appareil introuvable'); return { text: `Configuration de « ${p.name} » : dans l'appli WireGuard de l'ordinateur, « Importer un tunnel depuis un fichier ».`, data: { conf: clientConf(await ready(ctx), p, peers(ctx)), filename: confName(p) } }; } },
+    // Remontrer le QR code, ou remettre le fichier : un geste du propriétaire (« propriétaire seul », lot R1), noté « qui a
+    // fait quoi ». La page le fait confirmer dans la carte de l'appareil avant de le demander ; ces deux lectures restent
+    // sans validation côté serveur, comme le lot R1 les a fixées (sa session les reçoit en une demande). La clé est relue
+    // dans le coffre au moment du geste ; rien n'est gardé ailleurs.
+    { id: 'qr', label: 'QR code', what: 'QR code de configuration (à scanner)', read: true, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }],
+      run: async (ctx, i) => {
+        const c = await confDe(ctx, i.nom); if (!c.conf) return { ok: false, text: String(c.refus), data: { code: c.code } };
+        const q = qrDe(c.conf); if (!q) return { ok: false, text: TROP_LONGUE, data: { code: 'long' } };
+        return { text: `QR code de « ${nomVpn(c.p.name)} » : ouvre l'appli WireGuard → « + » → « Scanner un QR code ».${etatPourQr(ctx, c.p)}`, data: { svg: q.svg, dessin: q.dessin, conf: c.conf, filename: confName(c.p) } };
+      } },
+    { id: 'telecharger', label: 'Fichier de configuration', what: 'Le fichier .conf d\'un appareil (pour un ordinateur)', read: true, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }],
+      run: async (ctx, i) => {
+        const c = await confDe(ctx, i.nom); if (!c.conf) return { ok: false, text: String(c.refus), data: { code: c.code } };
+        return { text: `Configuration de « ${nomVpn(c.p.name)} » : dans l'appli WireGuard de l'ordinateur, « Importer un tunnel depuis un fichier ».${etatPourQr(ctx, c.p)}`, data: { conf: c.conf, filename: confName(c.p) } };
+      } },
     { id: 'modifier', label: 'Modifier un appareil', what: 'Nom, tout le trafic ou maison seulement, maillage, date de fin d\'accès', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }, { key: 'nouveau_nom', label: 'Nouveau nom (vide = inchangé)', kind: 'text', default: '' }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }, { key: 'maillage', label: 'Réseau maillé', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, « aucune » pour retirer)', kind: 'text', default: '' }, { key: 'dns_odin', label: 'DNS d\'Odin (Sphinx)', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }], run: async (ctx, i) => {
       const ps = peers(ctx), p = ps.find((x) => x.name === s(i.nom)); if (!p) throw new Error('appareil introuvable');
-      const nn = s(i.nouveau_nom).trim(), fin = s(i.fin).trim();
+      const nn = s(i.nouveau_nom).trim() ? nomAppareil(i.nouveau_nom) : '', fin = s(i.fin).trim();
       // Une date de fin déjà passée coupe l'appareil à la prochaine veille : jamais celui que tu tiens sans que tu le dises.
       if (p.enabled && /^\d{4}-\d{2}-\d{2}$/.test(fin) && fin < ctx.now().toISOString().slice(0, 10)) { const g = gardeVpn(gardeDe(ctx, p).d, 'couper', { leMien: i.le_mien === true }); if (g.refus) return { ok: false, text: g.refus, data: { code: g.code } }; }
       if (nn && ps.some((x) => x.name === nn && x !== p)) throw new Error('un appareil porte déjà ce nom');
-      if (nn && !/^[\p{L}\p{N} _.'-]{1,40}$/u.test(nn)) throw new Error('nom : lettres, chiffres, espaces, 40 au plus');
-      if (fin && fin !== 'aucune' && !/^\d{4}-\d{2}-\d{2}$/.test(fin)) throw new Error('date attendue sous la forme 2026-12-31');
+      if (fin && fin !== 'aucune') finDemandee(fin);
       const q: Peer = { ...p, ...(nn ? { name: nn } : {}), ...(s(i.tout) === 'oui' ? { full: true } : s(i.tout) === 'non' ? { full: false } : {}), ...(s(i.maillage) === 'oui' ? { mesh: true } : s(i.maillage) === 'non' ? { mesh: false } : {}), ...(s(i.dns_odin) === 'oui' ? { odinDns: true } : s(i.dns_odin) === 'non' ? { odinDns: false } : {}) };
       const today = ctx.now().toISOString().slice(0, 10), wasLate = Boolean(p.expires && p.expires < today);
       // Un accès coupé parce qu'il était arrivé à sa fin se rouvre avec une nouvelle date (ou sans date) ; un appareil désactivé à la main le reste.
       if (fin === 'aucune') { delete q.expires; if (wasLate) q.enabled = true; } else if (fin) { q.expires = fin; if (wasLate && fin >= today) q.enabled = true; }
       ctx.saveSettings({ peers: ps.map((x) => (x === p ? q : x)) });
+      // Sa configuration gardée au coffre porte son nom : elle le suit (coffre fermé : elle reste reconnue par sa clé publique).
+      if (q.name !== p.name) renommerConfig(ctx, { pub: p.pub, avant: p.name, apres: q.name });
       const routing = q.full !== p.full || q.mesh !== p.mesh || Boolean(q.odinDns) !== Boolean(p.odinDns);
       const dnsNote = q.odinDns !== p.odinDns || q.name !== p.name ? await linkDns(ctx, q, p.name) : '';
       return { text: `✏️ « ${q.name} » modifié${q.expires ? ` · accès jusqu'au ${q.expires}` : ''}.${dnsNote}${routing ? ' Rescanne son QR code pour que le changement s\'applique sur l\'appareil.' : ''}\n${await apply(ctx)}` };
@@ -525,9 +645,12 @@ export const gjoll: Module = {
         const ps = peers(ctx), p = trouverPair(ps, i.nom); if (!p) throw new Error('appareil introuvable');
         const g = gardeVpn(gardeDe(ctx, p).d, 'retirer', { leMien: i.le_mien === true }); if (g.refus) return { ok: false, text: g.refus, data: { code: g.code } };
         const d = derniers(ctx); delete d[p.pub];
-        ctx.saveSettings({ peers: ps.filter((x) => x !== p), derniers: d });
+        // Sa configuration gardée au coffre est effacée avec lui (lot R8). Coffre fermé : notée, effacée dès qu'il sera ouvert.
+        const c = retirerConfig(ctx, { pub: p.pub, nom: p.name });
+        ctx.saveSettings({ peers: ps.filter((x) => x !== p), derniers: d, ...(c.ferme ? { aEffacer: [...aEffacer(ctx), { empreinte: empreinteDe(p.pub), nom: p.name }].slice(-250) } : {}) });
         await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${p.name}` }, 'accès VPN révoqué', { interne: true }).catch(() => undefined);
-        return { text: `🗝 Accès de ${p.name} révoqué : sa clé ne vaut plus rien.\n${await apply(ctx)}` };
+        const coffre = c.retires ? ' Sa configuration gardée au coffre est effacée.' : c.ferme && !p.priv ? ' Le coffre est fermé : sa configuration gardée y sera effacée dès qu\'il sera ouvert (elle ne sert plus à rien).' : '';
+        return { text: `🗝 Accès de ${p.name} révoqué : sa clé ne vaut plus rien.${coffre}\n${await apply(ctx)}` };
       } },
     { id: 'adresse', label: 'Adresse publique', what: 'Adresse ou domaine par lequel on joint la maison', params: [{ key: 'adresse', label: 'Adresse ou domaine', kind: 'text', required: true }, { key: 'port', label: 'Port', kind: 'number', default: 51820 }],
       // Changer l'adresse publique du VPN (ou son port) : validation, avant → après. La même : rien à valider.
@@ -586,7 +709,7 @@ export const gjoll: Module = {
       subtitle: `Joignable sur ${sv.endpoint}:${sv.port} (UDP) · réseau ${sv.net}.0/24${sv.lan?.length ? ` · maison : ${sv.lan.join(', ')}` : ''}${dev ? ' · tunnel allumé' : ' · tunnel éteint'}`,
       tabs: ['Charon · clients', 'Vortex · tunnel', 'Orion · maillage'],
       kpis: [{ label: 'Appareils', value: String(ps.length) }, { label: 'Connectés', value: String(online.length), tone: online.length ? 'bon' : 'neutre' }, { label: 'Maillage', value: String(ps.filter((p) => p.mesh).length) }],
-      sections: [...(steps.every((x) => x.done) ? [] : [{ kind: 'steps' as const, title: 'Mettre en route le VPN', items: steps }]), graph, { kind: 'table', title: 'Appareils', columns: ['Appareil', 'Adresse', 'État', 'Reçu', 'Envoyé', 'Trafic', 'Fin d\'accès'], empty: 'Aucun appareil : ajoute ton téléphone à droite.', rows: ps.map((p) => { const x = d.get(p.pub), on = x?.handshake && Date.now() - x.handshake < 180_000; return { cells: [p.name, p.ip, !p.enabled ? 'désactivé' : on ? 'connecté' : x?.handshake ? `vu ${new Date(x.handshake).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'jamais', human(x?.rx ?? 0), human(x?.tx ?? 0), `${p.full ? 'tout' : 'maison seulement'}${p.odinDns ? ' · DNS d\'Odin' : ''}`, p.expires ?? '—'], tone: !p.enabled ? 'neutre' : on ? 'bon' : undefined, actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'telecharger', label: 'Fichier .conf', input: { nom: p.name } }, { action: 'activer', label: p.enabled ? 'Désactiver' : 'Réactiver', input: { nom: p.name, actif: !p.enabled } }, { action: 'revoquer', label: 'Révoquer', input: { nom: p.name } }] }; }) }, { kind: 'table', title: 'Trafic du VPN (tout ce qui passe dans le tunnel)', columns: ['Appareil', 'Vers', 'Où', 'Service', '↑ Envoyé', '↓ Reçu', 'Paquets', 'Dernière activité'], empty: dev ? 'Rien n\'est encore passé dans le tunnel.' : 'Tunnel éteint.', rows: flows().sort((a, b) => b.last - a.last).slice(0, 80).map((f) => { const w = whereTo(f.remote, sv), nm = nameForIp(f.remote); return { cells: [f.device, nm ? `${nm} (${f.remote})` : f.remote, w, serviceOf(f.proto, f.port), human(f.up), human(f.down), String(f.pkUp + f.pkDown), new Date(f.last).toLocaleTimeString('fr-FR')], tone: now - f.last < 60_000 ? 'bon' as const : undefined, actions: [{ action: 'lire', label: 'Paquets (Ariane)', input: { ip: f.remote }, module: 'ran' }] }; }) }],
+      sections: [...(steps.every((x) => x.done) ? [] : [{ kind: 'steps' as const, title: 'Mettre en route le VPN', items: steps }]), graph, { kind: 'table', title: 'Appareils', columns: ['Appareil', 'Adresse', 'État', 'Reçu', 'Envoyé', 'Trafic', 'Fin d\'accès'], empty: 'Aucun appareil : ajoute ton téléphone à droite.', rows: ps.map((p) => { const x = d.get(p.pub), on = x?.handshake && Date.now() - x.handshake < 180_000; return { cells: [p.name, p.ip, !p.enabled ? 'désactivé' : on ? 'connecté' : x?.handshake ? `vu ${new Date(x.handshake).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'jamais', human(x?.rx ?? 0), human(x?.tx ?? 0), `${p.full ? 'tout' : 'maison seulement'}${p.odinDns ? ' · DNS d\'Odin' : ''}`, p.expires ?? '—'], tone: !p.enabled ? 'neutre' : on ? 'bon' : undefined, actions: [{ action: 'activer', label: p.enabled ? 'Désactiver' : 'Réactiver', input: { nom: p.name, actif: !p.enabled } }, { action: 'revoquer', label: 'Révoquer', input: { nom: p.name } }] }; }) }, { kind: 'table', title: 'Trafic du VPN (tout ce qui passe dans le tunnel)', columns: ['Appareil', 'Vers', 'Où', 'Service', '↑ Envoyé', '↓ Reçu', 'Paquets', 'Dernière activité'], empty: dev ? 'Rien n\'est encore passé dans le tunnel.' : 'Tunnel éteint.', rows: flows().sort((a, b) => b.last - a.last).slice(0, 80).map((f) => { const w = whereTo(f.remote, sv), nm = nameForIp(f.remote); return { cells: [f.device, nm ? `${nm} (${f.remote})` : f.remote, w, serviceOf(f.proto, f.port), human(f.up), human(f.down), String(f.pkUp + f.pkDown), new Date(f.last).toLocaleTimeString('fr-FR')], tone: now - f.last < 60_000 ? 'bon' as const : undefined, actions: [{ action: 'lire', label: 'Paquets (Ariane)', input: { ip: f.remote }, module: 'ran' }] }; }) }],
       side: [{ kind: 'form', title: 'Ajouter un appareil', action: 'ajouter', submit: 'Ajouter', params: gjoll.actions.find((a) => a.id === 'ajouter')?.params ?? [] }, { kind: 'form', title: 'Adresse de la maison', action: 'adresse', submit: 'Enregistrer', params: gjoll.actions.find((a) => a.id === 'adresse')?.params ?? [] }, { kind: 'form', title: 'Modifier un appareil', action: 'modifier', submit: 'Modifier', params: gjoll.actions.find((a) => a.id === 'modifier')?.params ?? [] }],
     };
   },
@@ -594,6 +717,10 @@ export const gjoll: Module = {
   async start(ctx) { if (ctx.settings.on === true) { try { await bringUp(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le VPN n\'a pas pu redémarrer', detail: (e as Error).message, key: 'vpn-demarrage' }); } } },
   stop() { dev?.stop(); dev = undefined; devPort = 0; },
   watch: { every: 120, async run(ctx) {
+    // Clés illisibles (la clé de la machine a changé) : la veille ne touche à rien, et le dit une fois.
+    try { verifierCles(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Les clés du VPN sont illisibles', detail: `${(e as Error).message}.`, key: 'vpn-cles' }); return; }
+    // Ce qui attend le coffre (une clé d'appareil encore dans les réglages, une entrée à effacer) y est rangé dès qu'il est ouvert.
+    try { await rangerAuCoffre(ctx); } catch { /* au prochain passage */ }
     // Le trafic du tunnel rejoint l'historique de la journée (un fichier par jour).
     if (dev) saveTraffic(ctx, Date.now());
     // Ouverture de la box d'une journée : renouvelée deux fois par jour.

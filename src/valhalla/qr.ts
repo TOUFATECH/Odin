@@ -86,9 +86,23 @@ export function encode(text: string | Buffer, ecc: Ecc = 'M', forceMask?: number
   return best;
 }
 
-export function svg(text: string, o: { ecc?: Ecc; scale?: number; margin?: number } = {}): string {
-  const g = encode(text, o.ecc ?? 'M'), s = o.scale ?? 6, mg = o.margin ?? 4, n = g.length + mg * 2;
+/** Le dessin d'un QR code : le côté (marge blanche comprise) et le tracé des cases sombres. Le tracé ne contient que des chiffres, des espaces et les lettres M, h, v, z. */
+export interface DessinQr { n: number; marge: number; d: string }
+/** Un tracé de QR code est-il sûr à poser dans une page (rien d'autre que des cases) ? */
+export const traceSur = (d: unknown): d is string => typeof d === 'string' && d.length <= 400_000 && /^(M\d{1,3} \d{1,3}h1v1h-1z)*$/.test(d);
+/**
+ * Le dessin du QR code, sans aucune balise : la page le pose elle-même, case par case (jamais du HTML reçu).
+ * La marge blanche (4 cases par défaut, comme le veut la norme) fait partie du dessin : il se lit aussi sur un fond sombre.
+ */
+export function dessin(text: string | Buffer, o: { ecc?: Ecc; margin?: number } = {}): DessinQr {
+  const g = encode(text, o.ecc ?? 'M'), mg = Math.max(0, Math.min(16, Math.floor(o.margin ?? 4))), n = g.length + mg * 2;
   let d = '';
   g.forEach((row, r) => row.forEach((on, c) => { if (on) d += `M${c + mg} ${r + mg}h1v1h-1z`; }));
+  return { n, marge: mg, d };
+}
+
+/** L'image SVG d'un QR code : noir sur blanc, marge blanche comprise. Rien du texte n'y est recopié : seulement des cases. */
+export function svg(text: string, o: { ecc?: Ecc; scale?: number; margin?: number } = {}): string {
+  const { n, d } = dessin(text, { ecc: o.ecc, margin: o.margin }), s = o.scale ?? 6;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" width="${n * s}" height="${n * s}" shape-rendering="crispEdges" role="img" aria-label="QR code"><rect width="${n}" height="${n}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
 }
