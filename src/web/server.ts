@@ -129,6 +129,7 @@ import { resumeVoiceInstall, voiceBlocked } from '../voice/local.ts';
 import { pasEntraine } from '../langue/pas-entraine.ts';
 import { forget as forgetAcquis, loadAcquis } from '../learn/acquis.ts';
 import { savingsOf } from '../providers/savings.ts';
+import { origineDemande } from '../valhalla/vidarr/appareils.ts';
 
 export function ensureWebToken(paths: OdinPaths, rotate = false): string {
   const f = join(paths.home, 'web-token');
@@ -663,6 +664,7 @@ export class WebChannel implements Channel {
     // l'adresse réelle du visiteur vient alors de X-Forwarded-For (pour la limite d'essais).
     const proxied = this.access === 'wan' && this.odin.cfg.web.behindProxy;
     if (!remoteAllowed(proxied ? 'lan' : this.access, remoteOf(req), this.networks())) { req.socket.destroy(); return; } // hors du périmètre choisi : on ne répond pas
+    origineDemande.enterWith(proxied ? '' : remoteOf(req)); // d'où vient la demande (pour « c'est l'appareil que tu tiens ») ; derrière un proxy : inconnue, jamais l'adresse du proxy
     const ip = this.clientIp(req);
     if (this.throttle.blocked(ip)) return json(res, 429, { error: 'trop d\'essais de jeton : réessaie dans 15 minutes' });
     if (!this.hostOk(req)) return json(res, 403, { error: 'hôte refusé' });
