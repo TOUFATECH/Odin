@@ -17,7 +17,7 @@ import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuC
 import { fetchPropre } from '../../net/fetch-propre.ts';
 import { agissant } from '../sso/acces.ts';
 import { accueilSeulement, droitDeVoir, sorteDe, sortesPosables, type IdSortePosable } from '../widgets/index.ts';
-import { CODES_PAGES, PAGE_AUJOURDHUI, type CodePage } from '../widgets/aujourdhui.ts';
+import { ACCUEIL_RECU, CODES_PAGES, PAGE_AUJOURDHUI, type CodePage } from '../widgets/aujourdhui.ts';
 import { actionsOuvertures, lecteurDe, ouverturesGardees } from '../widgets/ouvertures.ts';
 import { ADRESSE_MAX, adressesRefusees, retraitRefuse, toucherNet, toucherServi, type Toucher } from '../widgets/regler.ts';
 
@@ -304,7 +304,11 @@ export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number;
  * l'accueil du propriétaire, et l'écran de la maison ne reçoit ni son code ni son nom (pagesMaisonPermises).
  */
 export interface FPage { id: string; name: string; code?: CodePage; maison?: boolean; widgets: Widget[] }
-export interface Layout { pages: FPage[] }
+/**
+ * La fenêtre. `accueil` : la dernière livraison de l'accueil du propriétaire qu'elle a reçue (lot 27 : 2 ; absent : au
+ * plus celle du lot 26). La page le renvoie tel quel quand elle range ; rien d'autre n'en dépend.
+ */
+export interface Layout { pages: FPage[]; accueil?: number }
 /** La grille de la maquette : 12 colonnes, 4 au téléphone, 7 lignes au plus. */
 export const GRILLE = { colonnes: 12, colonnesTel: 4, lignesMax: 7 } as const;
 /** Pages au plus, sans compter une page rangée sous un code (« Aujourd'hui » s'ajoute aux pages du propriétaire). */
@@ -335,7 +339,7 @@ function tailleNette(o: Record<string, unknown>, kind: WidgetKind): Pick<Widget,
     ...(pc === undefined ? {} : { pc: borne(pc, 2, GRILLE.colonnesTel) }), ...(pr === undefined ? {} : { pr: borne(pr, t.mini[1], GRILLE.lignesMax) }) };
 }
 const wid = () => randomBytes(4).toString('hex');
-/** La page « Aujourd'hui » de départ (lot 26) : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait ». */
+/** La page « Aujourd'hui » de départ : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » (lot 26), « Comment Odin se comporte » (lot 27). */
 const pageAujourdhui = (): FPage => ({ id: PAGE_AUJOURDHUI.id, name: '', code: PAGE_AUJOURDHUI.code,
   widgets: PAGE_AUJOURDHUI.widgets.map((x) => ({ id: x.id, kind: x.kind, ...tailleNette({ c: x.c }, x.kind) })) });
 /** La fenêtre porte-t-elle « À faire » (sur n'importe quelle page) ? */
@@ -354,14 +358,34 @@ function idLibre(id: string, pris: Set<string>): string {
  * rien et ne reçoit rien en double : seuls les blocs qui manquent arrivent ; s'il y a déjà une page sous le code, ils
  * y sont posés en tête, et la page garde sa place, son nom et ses widgets ; un identifiant déjà pris n'est pas repris.
  * Pur.
+ *
+ * Lot 27 : « Comment Odin se comporte » arrive de la même manière, une seule fois. Lui se retire : la marque « déjà
+ * reçu » est donc écrite dans la fenêtre (`accueil`), que la page renvoie quand elle range. Une fenêtre qui porte déjà
+ * « À faire » le reçoit À LA FIN de la page « Aujourd'hui » (sinon de la page qui porte « À faire », sinon de la
+ * première page ordinaire qui a de la place, sinon d'une page « Écran de la maison », où il n'est servi à personne
+ * d'autre) : rien n'est déplacé, et il était déjà sous la fenêtre. La fenêtre rendue porte la marque dès qu'il est
+ * arrivé ; s'il n'y a de place nulle part, elle est rendue telle quelle, SANS la marque (il arrivera quand une place
+ * se libère : la marque dit « reçu », pas « essayé ») ; une fenêtre qui l'a déjà est rendue telle quelle.
  */
 export function avecAujourdhui(l: Layout): Layout {
-  if (porteAFaire(l)) return l;
+  const recu = l.accueil ?? 1, sansAFaire = !porteAFaire(l);
+  if (!sansAFaire && recu >= ACCUEIL_RECU) return l;
   const portees = new Set<string>(l.pages.flatMap((p) => p.widgets.map((w) => w.kind))), pris = new Set(l.pages.flatMap((p) => p.widgets.map((w) => w.id)));
-  const manquants = pageAujourdhui().widgets.filter((w) => !portees.has(w.kind)).map((w) => ({ ...w, id: idLibre(w.id, pris) }));
-  const i = l.pages.findIndex((p) => p.code === PAGE_AUJOURDHUI.code);
-  if (i >= 0) return { ...l, pages: l.pages.map((p, j) => (j === i ? { ...p, widgets: [...manquants, ...p.widgets] } : p)) };
-  return { ...l, pages: [{ ...pageAujourdhui(), id: idLibre(PAGE_AUJOURDHUI.id, new Set(l.pages.map((p) => p.id))), widgets: manquants }, ...l.pages] };
+  // Ce que la fenêtre n'a pas encore reçu, et qu'elle ne porte pas déjà : ceux du lot 26 (en tête), les suivants (à la fin).
+  const depuis = new Map<string, number>(PAGE_AUJOURDHUI.widgets.map((x) => [x.kind, x.depuis]));
+  const dus = pageAujourdhui().widgets.filter((w) => (depuis.get(w.kind)! <= 1 ? sansAFaire : recu < depuis.get(w.kind)!) && !portees.has(w.kind));
+  const manquants = dus.map((w) => ({ ...w, id: idLibre(w.id, pris) })), tete = manquants.filter((w) => depuis.get(w.kind)! <= 1), fin = manquants.filter((w) => depuis.get(w.kind)! > 1);
+  const i = l.pages.findIndex((p) => p.code === PAGE_AUJOURDHUI.code), rendue = { ...l, accueil: ACCUEIL_RECU };
+  const poses = (j: number, avant: Widget[], apres: Widget[]) => l.pages.map((p, k) => (k === j ? { ...p, widgets: [...avant, ...p.widgets, ...apres] } : p));
+  if (sansAFaire) {
+    if (i >= 0) return { ...rendue, pages: poses(i, tete, fin) };
+    return { ...rendue, pages: [{ ...pageAujourdhui(), id: idLibre(PAGE_AUJOURDHUI.id, new Set(l.pages.map((p) => p.id))), widgets: manquants }, ...l.pages] };
+  }
+  if (!fin.length) return rendue;
+  const aFaire = l.pages.findIndex((p) => p.widgets.some((w) => w.kind === 'a_faire'));
+  const rangs = l.pages.map((_, k) => k), ordinaires = rangs.filter((k) => !l.pages[k].maison), maison = rangs.filter((k) => l.pages[k].maison);
+  const j = [i, aFaire, ...ordinaires, ...maison].find((k) => k >= 0 && l.pages[k].widgets.length + fin.length <= MODULES_PAR_PAGE);
+  return j === undefined ? l : { ...rendue, pages: poses(j, [], fin) };
 }
 /** La fenêtre de départ : ce qui compte le plus, avec les applis présentes. */
 export function defaultLayout(ids: string[]): Layout {
@@ -370,11 +394,11 @@ export function defaultLayout(ids: string[]): Layout {
   const reseau: Widget[] = ['vidarr', 'ran', 'vordr'].filter(has).map((m) => w('chiffres', m, m === 'ran' ? 2 : 1));
   const secu: Widget[] = ['ullr', 'garmr', 'eir'].filter(has).map((m) => w('chiffres', m));
   const mach: Widget[] = ['ymir', 'naglfar'].filter(has).map((m) => w('chiffres', m));
-  return { pages: [pageAujourdhui(), ...[{ id: wid(), name: 'Maison', maison: true, widgets: maison }, { id: wid(), name: 'Réseau', widgets: reseau }, { id: wid(), name: 'Sécurité', widgets: secu }, { id: wid(), name: 'Machines', widgets: mach }].filter((p) => p.widgets.length)] };
+  return { pages: [pageAujourdhui(), ...[{ id: wid(), name: 'Maison', maison: true, widgets: maison }, { id: wid(), name: 'Réseau', widgets: reseau }, { id: wid(), name: 'Sécurité', widgets: secu }, { id: wid(), name: 'Machines', widgets: mach }].filter((p) => p.widgets.length)], accueil: ACCUEIL_RECU };
 }
 /** Une fenêtre envoyée par l'interface, nettoyée : rien d'inconnu, rien de trop long, pas d'appli inventée. Pur. */
 export function cleanLayout(raw: unknown, ids: string[]): Layout {
-  const r = (raw && typeof raw === 'object' ? raw : {}) as { pages?: unknown };
+  const r = (raw && typeof raw === 'object' ? raw : {}) as { pages?: unknown; accueil?: unknown };
   const str = (v: unknown, n: number) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n);
   const pages: FPage[] = [], codes = new Set<string>(), seules = new Set<string>();
   let ordinaires = 0;
@@ -408,7 +432,9 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
     pages.push({ id: /^[0-9a-f]{8}$/.test(String(pp.id)) ? String(pp.id) : wid(), name, ...(code ? { code } : {}), ...(pp.maison ? { maison: true } : {}), widgets });
   }
   if (!pages.length) throw new Error('la fenêtre doit garder au moins une page');
-  return { pages };
+  // La marque « livraison de l'accueil déjà reçue » (lot 27) : un entier connu, sinon rien (la fenêtre la recevra).
+  const accueil = typeof r.accueil === 'number' && Number.isInteger(r.accueil) && r.accueil >= 2 ? Math.min(r.accueil, ACCUEIL_RECU) : undefined;
+  return { pages, ...(accueil === undefined ? {} : { accueil }) };
 }
 
 /**
@@ -455,7 +481,9 @@ export function fenetreRangee(ctx: Pick<ModCtx, 'settings' | 'modules'>): Layout
 export function sansAccueilDuProprietaire<L extends Layout>(l: L): L {
   const pages = l.pages.map((p) => ({ ...p, widgets: p.widgets.filter((w) => !accueilSeulement(w.kind)) })), gardees = pages.filter((p) => !p.code || p.widgets.length);
   // Il ne reste que la page sous le code, vide : une page ordinaire à sa place (ni son code, ni son identifiant, ni son nom).
-  return { ...l, pages: gardees.length ? gardees : [{ id: '00000000', name: 'Page 1', widgets: [] }] };
+  // La marque de ce que l'accueil du propriétaire a reçu ne lui est pas dite non plus.
+  const { accueil: _accueil, ...reste } = l;
+  return { ...reste, pages: gardees.length ? gardees : [{ id: '00000000', name: 'Page 1', widgets: [] }] } as L;
 }
 const avecAnimation = (ctx: ModCtx, l: Layout): Layout & { animation?: Animation } => (ctx.settings.animation === undefined ? l : { ...l, animation: animationDe(ctx.settings.animation) });
 

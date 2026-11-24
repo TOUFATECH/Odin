@@ -132,7 +132,10 @@ test('une fenêtre enregistrée avant ce lot se relit identique, et se réenregi
     const lue = lu.data as { pages: Array<{ code?: string }> };
     assert.equal(lue.pages[0].code, 'aujourdhui'); assert.equal(readFileSync(o.fichier, 'utf8'), FICHIER_AVANT, 'lire ne réécrit rien');
     // Mêmes pages, mêmes modules, mêmes champs, dans le même ordre (aucune animation choisie : rien d'ajouté).
-    const pagesDAvant = { ...lue, pages: lue.pages.slice(1) };
+    // Lot 27 : la fenêtre lue porte la marque de ce qu'elle a reçu ; une page ouverte avant la mise à jour ne la renvoie pas.
+    const { accueil, ...sansMarque } = lue as { pages: Array<{ code?: string }>; accueil?: number };
+    assert.equal(accueil, 2);
+    const pagesDAvant = { ...sansMarque, pages: lue.pages.slice(1) };
     assert.equal(JSON.stringify(pagesDAvant), JSON.stringify(avant), 'la fenêtre relue est celle du fichier, champ pour champ');
     // Rangée telle qu'avant (une page ouverte avant la mise à jour) : le fichier réécrit est le même, octet pour octet.
     const r = await o.v.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(pagesDAvant) });
@@ -145,12 +148,12 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
   const src = readFileSync(new URL('../src/valhalla/modules/gladsheim.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /\['chiffres', 'section'/, 'la liste des sortes acceptées n\'est plus dans gladsheim.ts');
   assert.doesNotMatch(src, /chiffres: \{ mini:/, 'les tailles des sortes ne sont plus dans gladsheim.ts');
-  // Les six sortes posables d'avant et leurs tailles, plus les trois blocs du jour (lot 26).
-  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'bouton', 'chiffres', 'heure', 'meteo', 'odin_a_fait', 'section', 'site', 'tu_veux']);
+  // Les six sortes posables d'avant et leurs tailles, plus les trois blocs du jour (lot 26) et « Comment Odin se comporte » (lot 27).
+  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'bouton', 'chiffres', 'comportement', 'heure', 'meteo', 'odin_a_fait', 'section', 'site', 'tu_veux']);
   assert.deepEqual(TAILLE_SORTE, {
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
-    a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 },
+    a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },
   });
 });
 
@@ -167,8 +170,9 @@ test('une famille par fichier, des identifiants uniques', () => {
 });
 
 test('une sorte inconnue, ou déclarée mais pas encore posable, est jetée', () => {
-  // Lot 26 : « À faire », « Ce qu'Odin a fait » et « Tu veux sans doute » sont posables ; « comportement » pas encore (lot 27).
-  for (const kind of ['inventee', 'script', '', undefined, 'constructor', '__proto__', 'toString', 'comportement']) {
+  // Lots 26 et 27 : « À faire », « Ce qu'Odin a fait », « Tu veux sans doute » et « Comment Odin se comporte » sont
+  // posables ; il ne reste aucune sorte déclarée sans être posable.
+  for (const kind of ['inventee', 'script', '', undefined, 'constructor', '__proto__', 'toString', 'Comportement', 'comportement ']) {
     assert.equal(un({ kind, module: 'midgard', section: 'x', action: 'y', label: 'z' }), undefined, `sorte « ${String(kind)} » jetée`);
   }
   // Une appli inventée, ou un site hors de Pulsar : jetés comme avant.

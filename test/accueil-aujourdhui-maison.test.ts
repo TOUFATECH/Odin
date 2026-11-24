@@ -21,10 +21,10 @@ import { vraiOdin, type VraiOdin } from './banc/odin-vrai.ts';
 
 const TROIS = ['tu_veux', 'a_faire', 'odin_a_fait'] as const;
 const IDS = ['gladsheim', 'midgard', 'vordr', 'var'];
-/** Rien des trois widgets du jour, ni le code de la page, ni son nom. */
-const DU_JOUR = /a_faire|odin_a_fait|tu_veux|0a0f000[1-3]|aujourdhui|Aujourd'hui/;
+/** Rien des widgets du jour (ni de « Comment Odin se comporte », lot 27), ni le code de la page, ni son nom. */
+const DU_JOUR = /a_faire|odin_a_fait|tu_veux|comportement|0a0f000[1-4]|aujourdhui|Aujourd'hui/;
 const HEURE = 'c4000001', METEO = 'c4000002', COPIE = 'c4000003';
-/** La page « Aujourd'hui » : ses trois widgets, plus une heure et une météo posées par le propriétaire. */
+/** La page « Aujourd'hui » : ses widgets de départ (quatre depuis le lot 27), plus une heure et une météo posées par le propriétaire. */
 const jour = (o: Record<string, unknown> = {}) => ({ id: PAGE_AUJOURDHUI.id, name: '', code: 'aujourdhui',
   widgets: [...PAGE_AUJOURDHUI.widgets.map((w) => ({ ...w })), { id: HEURE, kind: 'heure', w: 1 }, { id: METEO, kind: 'meteo', w: 2 }], ...o });
 const reseau = { id: 'b4000002', name: 'Réseau', widgets: [{ id: 'c4000009', kind: 'heure', w: 1 }] };
@@ -46,7 +46,7 @@ test('modèle : la page « Aujourd\'hui » garde « Écran de la maison » quand
 test('la page : « Écran de la maison » est offert pour la page « Aujourd\'hui », et « Copier » compte ses pages comme avant', () => {
   const FE = readFileSync(new URL('../src/web/fenetre.js', import.meta.url), 'utf8');
   assert.doesNotMatch(FE, /page\(\)\.code \? null/, 'plus de refus du bouton pour la page sous un code');
-  assert.match(FE, /maisonJour: '[^\n]*« Tu veux sans doute », « À faire » et « Ce qu\\'Odin a fait » n\\'y vont jamais\.'/, 'le bouton dit ce qui n\'y va jamais');
+  assert.match(FE, /maisonJour: '[^\n]*« Tu veux sans doute », « À faire », « Ce qu\\'Odin a fait » et « Comment Odin se comporte » n\\'y vont jamais\.'/, 'le bouton dit ce qui n\'y va jamais');
   assert.match(FE, /const refus = R\.copieRefusee\(\{ kind: w\.kind,/, '« Copier » passe toujours par le refus des sortes réservées');
 });
 
@@ -91,7 +91,7 @@ test('la page « Aujourd\'hui » marquée « Écran de la maison » : son widget
   const r = await ranger({ pages: [jour({ maison: true }), reseau] }); assert.equal(r.body.ok, true, JSON.stringify(r.body));
   const gardee = (g().settings.fenetre as Layout).pages[0];
   assert.equal(gardee.code, 'aujourdhui'); assert.equal(gardee.maison, true, 'la marque est gardée');
-  assert.deepEqual(gardee.widgets.map((w) => w.kind), [...TROIS, 'heure', 'meteo'], 'la fenêtre garde tout, dans l\'ordre');
+  assert.deepEqual(gardee.widgets.map((w) => w.kind), [...TROIS, 'comportement', 'heure', 'meteo'], 'la fenêtre garde tout, dans l\'ordre');
   for (const qui of QUI) {
     const b = await etat(qui), pages = servis(b);
     assert.equal(pages.length, 1, `${qui} : une seule page (la page « Réseau » n'est pas marquée)`);
@@ -121,7 +121,7 @@ test('la clé d\'accès n\'ouvre pas l\'écran de la maison ; un membre ne reço
   for (const w of PAGE_AUJOURDHUI.widgets) assert.notEqual((await v.json('/api/maison/fenetre', { id: w.id }, { ...cle, 'x-odin': '1' })).status, 200);
   assert.equal((await v.json('/api/widgets/donnees', undefined, cle)).status, 401, 'ni la route des widgets');
   // Un membre : la fenêtre sans les trois, la route des widgets sans les trois, l'écran de la maison fermé à sa session.
-  const trois = /a_faire|odin_a_fait|tu_veux|0a0f000[1-3]/;
+  const trois = /a_faire|odin_a_fait|tu_veux|comportement|0a0f000[1-4]/;
   const lui = await v.json('/api/valhalla/act', { module: 'gladsheim', action: 'fenetre', input: {} }, { cookie: membre });
   assert.equal(lui.body.ok, true); assert.doesNotMatch(JSON.stringify(lui.body), trois);
   const w = await v.json('/api/widgets/donnees', undefined, { cookie: membre });
@@ -237,7 +237,7 @@ for (const largeur of [1280, 390]) {
       await page.waitForFunction(() => !document.querySelector('#fenetre.fe-edit'), undefined, { timeout: 15000 });
       await page.waitForTimeout(600);
       const f = g().settings.fenetre as Layout;
-      assert.deepEqual(f.pages.map((p) => [p.code ?? '', Boolean(p.maison), p.widgets.map((w) => w.kind)]), [['aujourdhui', true, [...TROIS, 'heure', 'meteo']], ['', false, ['heure']], ['', true, ['heure']]], 'rangée : la page « Aujourd\'hui » marquée, la copie sur sa page');
+      assert.deepEqual(f.pages.map((p) => [p.code ?? '', Boolean(p.maison), p.widgets.map((w) => w.kind)]), [['aujourdhui', true, [...TROIS, 'comportement', 'heure', 'meteo']], ['', false, ['heure']], ['', true, ['heure']]], 'rangée : la page « Aujourd\'hui » marquée, la copie sur sa page');
       await capture(page, `accueil-${largeur}-range`);
       assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
     } finally { await ctx.close(); }

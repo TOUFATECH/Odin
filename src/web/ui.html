@@ -3459,6 +3459,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // ---------- Lot 26 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » sont des widgets de la fenêtre ----------
   // Quand la fenêtre les tient (le propriétaire), chaque bloc est posé dans son widget, sans son titre (l'en-tête du
   // widget le porte) ; sinon (un membre, la fenêtre pas encore lue ou en panne) ils restent ici, comme avant.
+  // Lot 27 : « Comment Odin se comporte » suit la même règle.
   let dernierJour = null; // ce que renderHome a passé à renderToday la dernière fois
   /** Le contenu d'un bloc sans son titre ; ce que son titre portait d'autre (les filtres) passe au-dessus. */
   function sansTitre(bloc) {
@@ -3518,7 +3519,19 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         x.undoId && !x.undone ? el('button', { type: 'button', class: 'btn small', onclick: async (e) => { const r = await api('/api/action', { kind: 'undo', id: x.undoId }); e.target.replaceWith(el('span', { class: 'pill ' + (r.ok ? 'good' : 'bad') }, r.ok ? 'annulé' : 'impossible')); } }, 'Annuler') : x.undone ? el('span', { class: 'pill' }, 'annulé') : el('span')))) : el('div', { class: 'hok' }, feedFilter === 'tout' ? 'Rien pour l\'instant aujourd\'hui.' : 'Rien dans ce filtre.'));
     const fen = window.OdinFenetre?.aujourdhui?.() ?? null;
     if (fen) for (const [k, bloc] of [['tu_veux', guesses], ['a_faire', todo], ['odin_a_fait', feed]]) fen.hote(k)?.replaceChildren(...(bloc ? sansTitre(bloc) : rienDuJour('rien_propose')));
-    box.replaceChildren(...(fen ? [ctrls] : [guesses || '', ctrls, el('div', { class: 'today-cols' }, todo, feed)]));
+    // Lot 27 : « Comment Odin se comporte » est un widget lui aussi (les mêmes boutons, les mêmes gestes) ; retiré de la
+    // fenêtre, il ne revient pas dessous (il se repose par « Ajouter un widget »).
+    if (fen) { const h = fen.hote('comportement'); if (h) poserReglages(h, sansTitre(ctrls)); }
+    box.replaceChildren(...(fen ? [] : [guesses || '', ctrls, el('div', { class: 'today-cols' }, todo, feed)]));
+  }
+  /**
+   * Pose les trois réglages dans leur widget. Ils sont redessinés à chaque nouvel état d'Odin (donc juste après un
+   * choix) : le bouton qui avait le focus le retrouve, pour que le clavier ne perde pas sa place.
+   */
+  function poserReglages(h, enfants) {
+    const a = h.contains(document.activeElement) ? document.activeElement : null, groupe = a?.closest('[role=group]')?.getAttribute('aria-label'), rang = a ? [...(a.parentElement?.children ?? [])].indexOf(a) : -1;
+    h.replaceChildren(...enfants);
+    if (groupe && rang >= 0) [...h.querySelectorAll('[role=group]')].find((g) => g.getAttribute('aria-label') === groupe)?.children[rang]?.focus({ preventScroll: true });
   }
   // Mascotte sur l'écran Aujourd'hui : une copie qui vit comme les autres.
   function buddyClone(id) {

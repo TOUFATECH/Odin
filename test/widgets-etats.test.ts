@@ -106,10 +106,9 @@ test('un membre : seulement les applis auxquelles il a droit ; la vie privée fe
 test('les quatre sortes de l\'accueil : rendues à lui seul, sur l\'accueil seul (jamais à /maison, même pour lui)', async () => {
   const { src, lus } = fausse();
   for (const k of ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement']) {
-    // Lot 26 : trois d'entre elles sont posables ; leur donnée est dans l'état de la page du propriétaire, pas relue ici.
+    // Lots 26 et 27 : les quatre sont posables ; leur donnée est dans l'état de la page du propriétaire, pas relue ici.
     const r = await donneeWidget(W(k), LUI, src);
-    if (k === 'comportement') assert.deepEqual(r, { etat: 'source_absente', raison: 'pas_encore_lu' }, `${k} : pas encore lu (lot 27)`);
-    else { assert.equal(r.etat, 'ok', k); assert.deepEqual((r as { donnee: unknown }).donnee, { source: 'etat' }, `${k} : la donnée est dans l'état de la page`); }
+    assert.equal(r.etat, 'ok', k); assert.deepEqual((r as { donnee: unknown }).donnee, { source: 'etat' }, `${k} : la donnée est dans l'état de la page`);
     for (const l of [TABLETTE, membre(['gladsheim', 'midgard'], [W(k).id]), { qui: 'proprietaire', ecran: 'maison' } as Lecteur, { qui: 'maison', ecran: 'accueil' } as Lecteur]) {
       assert.deepEqual(await donneeWidget(W(k), l, src), { etat: 'refuse', raison: 'accueil_du_proprietaire' }, `${k} refusé à ${l.qui} sur ${l.ecran}`);
     }
@@ -118,7 +117,7 @@ test('les quatre sortes de l\'accueil : rendues à lui seul, sur l\'accueil seul
   assert.deepEqual(await donneeWidget(W('inventee'), LUI, src), { etat: 'refuse', raison: 'sorte_inconnue' });
 });
 
-const DU_JOUR: string[] = ['a_faire', 'odin_a_fait', 'tu_veux'];
+const DU_JOUR: string[] = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement'];
 test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », jamais un chiffre', async () => {
   const home = mkdtempSync(join(tmpdir(), 'widgets-etats-'));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), { run: async () => ({ code: 1, out: '', err: '' }), fetch: (async () => { throw new Error('réseau coupé par le test'); }) as typeof fetch, notify: async () => {}, autonomy: () => 'equilibre' });

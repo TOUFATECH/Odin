@@ -239,7 +239,7 @@ test('ranger la fenêtre : une adresse autre que http ou https est refusée, et 
   // Une adresse http ou https est gardée, nettoyée ; relue, la fenêtre est la même.
   const l = await rangee();
   assert.deepEqual(widgetDe(l, ID.heure).toucher, { quoi: 'adresse', adresse: `https://example.org/${MARQUE}` });
-  assert.deepEqual(cleanLayout(JSON.parse(JSON.stringify(l)), IDS), JSON.parse(JSON.stringify({ pages: l.pages })), 'se relit identique');
+  assert.deepEqual(cleanLayout(JSON.parse(JSON.stringify(l)), IDS), JSON.parse(JSON.stringify({ pages: l.pages, accueil: l.accueil })), 'se relit identique (avec la marque de ce que la fenêtre a reçu, lot 27)');
   assert.deepEqual(JSON.parse(JSON.stringify(await rangee())), JSON.parse(JSON.stringify(l)));
 });
 

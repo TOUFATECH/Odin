@@ -27,13 +27,14 @@
     // Lot 22a : l'accueil en plein écran.
     sortiePlein: 'Quitter le plein écran (Échap)', enPlein: 'Plein écran : seulement les widgets. Échap, ou le ✕ en haut à droite, pour sortir.',
     // Lot 25a : le titre d'un widget quand la fenêtre n'en porte pas (jamais lu chez l'appli pour qui n'y a pas droit).
-    titres: { heure: 'Heure et lieu', meteo: 'Météo', site: 'Site surveillé', a_faire: 'À faire', odin_a_fait: 'Ce qu\'Odin a fait', tu_veux: 'Tu veux sans doute', sansTitre: 'Widget' }, sousSite: 'Pulsar · site surveillé',
+    titres: { heure: 'Heure et lieu', meteo: 'Météo', site: 'Site surveillé', a_faire: 'À faire', odin_a_fait: 'Ce qu\'Odin a fait', tu_veux: 'Tu veux sans doute', comportement: 'Comment Odin se comporte', sansTitre: 'Widget' }, sousSite: 'Pulsar · site surveillé',
     // Lot 26 : la page rangée sous un code porte son nom ici (pas dans la donnée) ; les trois blocs du jour devenus widgets.
+    // Lot 27 : « Comment Odin se comporte » (autonomie, disponibilité, discrétion) les rejoint.
     pages: { aujourdhui: 'Aujourd\'hui' },
     // La page « Aujourd'hui » sur l'écran de la maison (validé le 24/11) : ses widgets ordinaires seulement.
-    maisonJour: 'Montrer cette page sur l\'écran de la maison : seulement les widgets que tu y as posés. « Tu veux sans doute », « À faire » et « Ce qu\'Odin a fait » n\'y vont jamais.',
-    jour: { sous: 'Odin', lettres: { a_faire: '✓', odin_a_fait: '⚡', tu_veux: '💡' }, attente: 'Un instant…', deja: (t) => `« ${t} » est déjà dans ta fenêtre.`,
-      quoi: { odin_a_fait: 'Le fil du jour : ce qu\'Odin a fait, seul ou avec ton accord, et « Annuler ».', tu_veux: 'Ce qu\'Odin te propose de faire maintenant.', a_faire: 'Ce qui t\'attend : validations, demandes d\'accès, alertes.' } },
+    maisonJour: 'Montrer cette page sur l\'écran de la maison : seulement les widgets que tu y as posés. « Tu veux sans doute », « À faire », « Ce qu\'Odin a fait » et « Comment Odin se comporte » n\'y vont jamais.',
+    jour: { sous: 'Odin', lettres: { a_faire: '✓', odin_a_fait: '⚡', tu_veux: '💡', comportement: '⚙' }, attente: 'Un instant…', deja: (t) => `« ${t} » est déjà dans ta fenêtre.`,
+      quoi: { odin_a_fait: 'Le fil du jour : ce qu\'Odin a fait, seul ou avec ton accord, et « Annuler ».', tu_veux: 'Ce qu\'Odin te propose de faire maintenant.', a_faire: 'Ce qui t\'attend : validations, demandes d\'accès, alertes.', comportement: 'Ses trois réglages du moment : autonomie, disponibilité, discrétion.' } },
     // « Ouvrir à… » : un widget de la vie privée, ouvert à une personne précise (sa question 15, réponse b).
     ouvrir: {
       bouton: 'Ouvrir à…', nom: (t) => `Ouvrir « ${t} » à une personne`, titre: (t) => `Ouvrir « ${t} » à…`, groupe: 'Les personnes',
@@ -111,6 +112,14 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 .fe-auj .auj-outils{display:flex;justify-content:flex-end}.fe-auj .ffilter button{min-height:44px;padding:0 14px}
 .fe-auj .btn.small{min-height:44px}.fe-auj .gwrap .gx{width:44px;height:44px;top:0;right:0}.fe-auj .guess{padding-right:48px}
 .fe-auj .titem a{display:inline-flex;align-items:center;min-height:44px}
+/* Lot 27 : « Comment Odin se comporte ». Ses trois réglages côte à côte, l'un sous l'autre quand la carte est étroite ;
+   plus de cadre autour de chacun (la carte du widget le porte) ; des boutons de 44 px. */
+.fe-auj .ctrls{gap:12px 18px}.fe-auj .ctrl{border:0;border-radius:0;background:none;padding:0;box-shadow:none}
+#fenetre .fe-auj .ctrl .seg button{min-height:44px;font-size:13.5px}#fenetre .fe-auj .ctrl .seg button:focus-visible{outline:2px solid var(--accent,#0b7f7c);outline-offset:-2px}
+@container (max-width:640px){.fe-auj .ctrls{grid-template-columns:minmax(0,1fr)}}
+/* En mode Modifier, ses boutons ne répondent pas (ils couvrent presque toute la carte : en voulant la prendre, on
+   changeait l'autonomie d'Odin). La carte se prend alors par n'importe où ; « Terminé » leur rend la main. */
+.fe-edit .fe-w[data-auj="comportement"] .fe-auj{pointer-events:none;opacity:.6}
 .fe-w[data-auj]:focus{outline:0}.fe-w[data-auj]:focus-visible{outline:2px solid var(--accent,#0b7f7c);outline-offset:3px}
 .fe-clock{display:flex;flex-direction:column;gap:2px}.fe-clock-h{font-size:clamp(22px,24cqi,38px);line-height:1.1;font-variant-numeric:tabular-nums}.fe-clock-d{font-size:15px}.fe-clock-d::first-letter{text-transform:uppercase}.fe-clock small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
 .fe-site{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:4px solid var(--line)}.fe-site b{font-size:20px}.fe-site small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}.fe-site.bon{border-color:var(--good)}.fe-site.mauvais{border-color:var(--bad)}.fe-site.attention{border-color:var(--warn)}
@@ -118,6 +127,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
    jour disparaissent (le menu et la barre du bas sont déjà sous l'accueil posé par-dessus) ; le mode Modifier garde sa barre.
    On sort par Échap ou par le rond discret en haut à droite (44 px). La mascotte n'est pas touchée. */
 #v-home.pe-plein>#homeBandeau,#v-home.pe-plein #vaultBanner,#v-home.pe-plein #todayBox,#v-home.pe-plein #homeGrid,#v-home.pe-plein #fenetre>.fe-bar{display:none!important}
+/* Lot 27 : « Comment Odin se comporte » était caché en plein écran (il était sous la fenêtre) ; widget, il le reste : un
+   écran au mur ne laisse pas changer la conduite d'Odin. En mode Modifier, il se voit (pour le déplacer ou le retirer). */
+#v-home.pe-plein #fenetre:not(.fe-edit) .fe-w[data-auj="comportement"]{display:none!important}
 #v-home.pe-plein>.body{padding:66px 16px calc(24px + env(safe-area-inset-bottom))}#v-home.pe-plein #fenetre{margin:0}
 @media (min-width:900px){#v-home.pe-plein>.body{padding:66px 28px 28px}}
 .fe-sortie{display:none}
@@ -204,8 +216,10 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     if (w.kind === 'site') return { sections: [{ kind: 'table', title: 'Sondes', rows: [{ cells: [w.label, '', '', d.etat ?? '', d.jour ?? '', d.mois ?? '', d.temps ?? ''], tone: d.tone }] }] };
     return undefined;
   }
-  /** Les blocs du jour devenus widgets (lot 26) : leur contenu est posé par la page d'accueil, pas lu ici. */
-  const JOUR = ['tu_veux', 'a_faire', 'odin_a_fait'];
+  /** Les blocs du jour devenus widgets (lots 26 et 27) : leur contenu est posé par la page d'accueil, pas lu ici. */
+  const JOUR = ['tu_veux', 'a_faire', 'odin_a_fait', 'comportement'];
+  /** Leur largeur quand on les repose depuis le tiroir : la moitié (comme au lot 26) ; les trois réglages, toute la largeur. */
+  const LARGEUR_JOUR = { tu_veux: 6, a_faire: 6, odin_a_fait: 6, comportement: 12 };
   /** La carte d'un bloc du jour sur la page ouverte, et la place de son contenu. */
   const carteJour = (k) => host()?.querySelector(`#feGrid > .fe-w[data-auj="${k}"]`) ?? null;
   /**
@@ -320,12 +334,16 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       box.append(head(titreDe(w, d.gris), sous, w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : w.kind === 'bouton' ? '⚡' : undefined, appliDe(w)), el('p', { class: 'fe-err' }, ...R.contenu(d, agirIci)));
       return box;
     }
-    // Lot 26 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait ». Leur donnée est dans l'état de la page du
-    // propriétaire (les validations, les propositions, le fil du jour) : la page d'accueil la pose dans .fe-auj après
+    // Lots 26 et 27 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait », « Comment Odin se comporte ». Leur donnée
+    // est dans l'état de la page du propriétaire (les validations, les propositions, le fil du jour, ses réglages du
+    // moment) : la page d'accueil la pose dans .fe-auj après
     // chaque dessin (événement « odin:fenetre »). La carte peut recevoir le focus (la cloche y mène).
     if (JOUR.includes(w.kind)) {
       box.dataset.auj = w.kind; box.tabIndex = -1; box.setAttribute('aria-label', titreDe(w));
-      box.append(head(titreDe(w), TXT.jour.sous, TXT.jour.lettres[w.kind], ''), el('div', { class: 'fe-auj', 'data-auj': w.kind, 'data-attente': TXT.jour.attente }));
+      const corps = el('div', { class: 'fe-auj', 'data-auj': w.kind, 'data-attente': TXT.jour.attente });
+      // « Comment Odin se comporte » en mode Modifier : ni clic, ni doigt, ni clavier sur ses réglages (voir le style).
+      if (edit && w.kind === 'comportement') corps.inert = true;
+      box.append(head(titreDe(w), TXT.jour.sous, TXT.jour.lettres[w.kind], ''), corps);
       return box;
     }
     /** La ligne (et le bouton) d'un état vu ici, sans le serveur : son code, comme le serveur le dirait. */
@@ -740,7 +758,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const item = (w, nom, quoi, icon) => ({ w, nom, quoi, icon, famille: OT.INFOS, onclick: () => add(w) });
     const vordr = (cat?.modules ?? []).find((m) => m.id === 'vordr');
     // Lot 26 : les blocs du jour que la fenêtre ne porte plus (retirés), pour le propriétaire seul.
-    const jour = proprio && aujourdhui() ? JOUR.filter((k) => !L.pages.some((p) => p.widgets.some((w) => w.kind === k))).map((k) => item({ kind: k, w: 2, c: 6 }, TXT.titres[k], TXT.jour.quoi[k], TXT.jour.lettres[k])) : [];
+    const jour = proprio && aujourdhui() ? JOUR.filter((k) => !L.pages.some((p) => p.widgets.some((w) => w.kind === k))).map((k) => item({ kind: k, w: LARGEUR_JOUR[k] > 8 ? 3 : 2, c: LARGEUR_JOUR[k] }, TXT.titres[k], TXT.jour.quoi[k], TXT.jour.lettres[k])) : [];
     const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo' }, T.meteo, T.meteoQuoi, '☀'),
       vordr ? { nom: T.site, quoi: T.siteQuoi, icon: '🌐', famille: OT.INFOS, active: OT.active(vordr), onclick: siteSurveille } : null,
       { nom: T.perso, quoi: T.persoQuoi, icon: '⚡', famille: OT.INFOS, creer: true, onclick: ownButton },
