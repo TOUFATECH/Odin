@@ -11,6 +11,7 @@ import { bibliotheque, pilotesVirtio, profilVm, trouverIso } from './isos.ts';
 import { bibliothequeActions, synchroEspace } from './bibliotheque.ts';
 import { dependancesActions, quiEnDepend } from './dependances.ts';
 import { reprendreRetraits, retraitActions } from './retrait.ts';
+import { creationActions, finInstallations } from './creation.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const n = (v: unknown, d: number, lo: number, hi: number) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? Math.max(lo, Math.min(hi, Math.round(x))) : d; };
@@ -29,7 +30,7 @@ async function eitriDir(ctx: ModCtx): Promise<string> {
   try { const r = await ctx.call('eitri', 'etat', {}, 'ISO pour une machine virtuelle'); const d = (r.data as { dossier?: string } | undefined)?.dossier; if (d) return d; } catch { /* Andromède absent */ }
   return join(ctx.home, 'ISO');
 }
-async function brancher(ctx: ModCtx, L: Local, m: Machine): Promise<string[]> {
+export async function brancher(ctx: ModCtx, L: Local, m: Machine): Promise<string[]> {
   const out: string[] = [], why = `nouvelle machine ${m.nom}`;
   for (const a of m.apps) {
     const app = APPS.find((x) => x.id === a); if (!app) continue;
@@ -178,6 +179,7 @@ export function machinesActions(): Action[] {
         return { text: `✅ ${m.nom} créée depuis ${src.nom} (${m.genre === 'lxc' ? 'LXC' : 'VM'} ${m.systeme} ${m.version}, ${m.cpu} cœur(s), ${m.ram / 1024} Go, ${m.disque} Go) · ${m.ip}${notes.length ? `\n${notes.join('\n')}` : ''}${b.length ? `\n${b.join('\n')}` : ''}`, data: m };
       } },
     ...retraitActions(),
+    ...creationActions(),
     ...dependancesActions(),
     { id: 'exporter_machine', label: 'Exporter en .ody', what: 'Toute la machine dans un seul fichier vérifié (empreinte), par exemple vers ton NAS', params: [machineParam, { key: 'dossier', label: 'Dossier de destination', kind: 'text', default: '' }], run: async (ctx, i) => {
       const L = new Local(ctx), m = L.find(i.machine), d = s(i.dossier).trim() || s(ctx.settings.dossierOdy) || join(ctx.home, 'Machines');
@@ -237,6 +239,8 @@ export function machinesActions(): Action[] {
 
 /** Surveillance : « rouge = isoler », et une machine qui s'arrête sans qu'on l'ait demandé. */
 export async function machinesWatch(ctx: ModCtx): Promise<void> {
+  // Une VM qui s'installait toute seule et vient de s'arrêter (installation finie) : réponses effacées, relancée sur son disque (lot M4).
+  await finInstallations(ctx).catch(() => undefined);
   const L = new Local(ctx), l = L.list(); if (!l.length) return;
   const now = ctx.now().getTime();
   if (ctx.settings.autoIsoler !== false) {

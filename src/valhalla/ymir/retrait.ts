@@ -20,13 +20,15 @@ import { allumee, ifname, Local, systemeVm, type Machine } from './local.ts';
 import { bilans, oublierMachine, trouverExact } from './dependances.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v));
-const memeChemin = (a: string, b: string) => { const x = resolve(a), y = resolve(b); return process.platform === 'win32' ? x.toLowerCase() === y.toLowerCase() : x === y; };
+export const memeChemin = (a: string, b: string) => { const x = resolve(a), y = resolve(b); return process.platform === 'win32' ? x.toLowerCase() === y.toLowerCase() : x === y; };
 /** Un nom de machine d'Hydre : celui qui fait le nom de son dossier (jamais « .. », ni un séparateur). */
-const NOM_SUR = /^[a-z0-9][a-z0-9-]{0,62}$/;
+export const NOM_SUR = /^[a-z0-9][a-z0-9-]{0,62}$/;
 /** Un dossier de VM mis de côté par un retrait : « .retrait-<12 hex>-<nom> ». */
 const MIS_DE_COTE = /^\.retrait-([0-9a-f]{12})-([a-z0-9][a-z0-9-]{0,62})$/;
 /** Les suppressions en cours dans ce processus (une seule à la fois par machine). */
 const EN_COURS = new Set<string>();
+/** Cette machine est-elle en train d'être supprimée dans ce processus ? (la veille ne la relance pas) */
+export const enRetrait = (id: string) => EN_COURS.has(id);
 
 /** Le nom écrit est-il celui de la machine ? (sans espaces autour, majuscules ou non). Pur. */
 export const nomEcritJuste = (ecrit: unknown, nom: string) => nom !== '' && s(ecrit).trim().toLowerCase() === nom.toLowerCase();
@@ -54,7 +56,7 @@ export function effacerArbre(d: string): number {
 }
 
 /** Le dossier `base` ou son parent (le dossier des machines d'Hydre) est-il un raccourci ? (absent : non) */
-function raccourciAuDessus(base: string): boolean {
+export function raccourciAuDessus(base: string): boolean {
   for (const p of [base, dirname(base)]) { try { if (lstatSync(p).isSymbolicLink()) return true; } catch { /* absent */ } }
   return false;
 }

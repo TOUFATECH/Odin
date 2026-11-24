@@ -33,6 +33,20 @@ export interface Machine {
   pause?: { depuis: number };
   /** un modèle : il ne démarre pas, on crée des machines depuis lui (copie, puis ressources et adresse à elles) */
   estModele?: boolean;
+  /** VM créée sans aucun réseau (lot M4) : pas de carte réseau, son adresse reste réservée */
+  sansReseau?: boolean;
+  /** VM créée par « Créer une VM » (lot M4) : de quoi faire le compte rendu commun (jamais le mot de passe : il est au coffre) */
+  creation?: {
+    at: number; iso: { nom: string; sha256: string; editeur: boolean; taille: number };
+    /** installée toute seule (et comment), ou à la main par son écran */
+    auto: 'ubuntu' | 'debian' | false;
+    installation: 'en cours' | 'finie' | 'interrompue' | 'à la main'; fin?: number;
+    compte?: string; langue?: string; clavier?: string; fuseau?: string;
+    /** le nom de l'entrée du coffre qui garde le mot de passe de la session */
+    coffre?: string;
+    /** le profil de logiciels de Genèse choisi */
+    profil?: { id: string; nom: string };
+  };
 }
 export interface Etat { state: 'en marche' | 'en pause' | 'éteinte' | 'inconnue'; pid?: number; cpuPct?: number; ramMo?: number; ip?: string }
 /** Allumée : en marche ou en pause (le processus tourne, le disque est ouvert). */
@@ -93,7 +107,7 @@ export function parseLxcInfo(out: string): { state?: string; pid?: number; ip?: 
 
 // ---------------- VM : commandes ----------------
 /** La ligne de commande QEMU (pure) : KVM si présent, sinon émulation ; écran capturable par QMP ; réseau par une carte TAP. */
-export function qemuArgs(m: Machine, dir: string, o: { kvm: boolean; ovmf?: string; installer?: string; qmp?: string; tpm?: string }): string[] {
+export function qemuArgs(m: Machine, dir: string, o: { kvm: boolean; ovmf?: string; installer?: string; qmp?: string; tpm?: string; extra?: string[] }): string[] {
   const a = ['-name', `odin-${m.nom}`, '-machine', `q35,accel=${o.kvm ? 'kvm' : 'tcg'}`, '-cpu', o.kvm ? 'host' : 'max', '-smp', String(m.cpu), '-m', `${m.ram}M`,
     ...(m.profil?.disque === 'sata' ? ['-device', 'ahci,id=ahci0', '-drive', `file=${join(dir, 'disque.qcow2')},if=none,id=d0,format=qcow2`, '-device', 'ide-hd,drive=d0,bus=ahci0.0'] : ['-drive', `file=${join(dir, 'disque.qcow2')},if=virtio,format=qcow2`]), '-display', 'none', '-vga', 'std',
     '-qmp', `unix:${o.qmp ?? join(dir, 'qmp.sock')},server=on,wait=off`, '-pidfile', join(dir, 'pid'), '-daemonize', '-usb', '-device', 'usb-tablet'];
@@ -103,8 +117,10 @@ export function qemuArgs(m: Machine, dir: string, o: { kvm: boolean; ovmf?: stri
   if (o.installer && m.profil?.pilotes) a.push('-drive', `file=${m.profil.pilotes},media=cdrom,readonly=on,index=3`);
   // Puce TPM 2.0 virtuelle (swtpm lancé à côté, par Hydre).
   if (m.profil?.tpm && o.tpm) a.push('-chardev', `socket,id=tpm0,path=${o.tpm}`, '-tpmdev', 'emulator,id=tpm0,chardev=tpm0', '-device', 'tpm-tis,tpmdev=tpm0');
-  if (m.quarantaine) a.push('-nic', 'none');
+  if (m.quarantaine || m.sansReseau) a.push('-nic', 'none');
   else a.push('-netdev', `tap,id=n0,ifname=${ifname(m)},script=no,downscript=no`, '-device', `${m.profil?.reseau === 'e1000' ? 'e1000' : 'virtio-net-pci'},netdev=n0,mac=${m.mac}`);
+  // Le démarrage d'installation toute seule (lot M4) : noyau de l'ISO, réponses en lecture seule, arrêt au redémarrage.
+  if (o.extra?.length) a.push(...o.extra);
   return a;
 }
 /** Le fichier du disque d'un LXC monté en boucle (« lxc.rootfs.path = loop:/…/rootdev »), ou rien pour un disque en dossier. Pur. */
@@ -309,7 +325,7 @@ export class Local {
   }
 
   // ----- marche / arrêt -----
-  async demarrer(m: Machine, installer?: string, o: { analyse?: boolean } = {}): Promise<void> {
+  async demarrer(m: Machine, installer?: string, o: { analyse?: boolean; extra?: string[] } = {}): Promise<void> {
     if (m.estModele) throw new Error(`${m.nom} est un modèle : il ne démarre pas, crée une machine depuis lui`);
     // En pause, elle tourne encore : la relancer en ferait une deuxième sur le même disque.
     if (m.pause && (await this.etat(m)).state === 'en pause') throw new Error(`${m.nom} est en pause : reprends-la (« reprends la vm ${m.nom} »)`);
@@ -318,7 +334,7 @@ export class Local {
     if (m.genre === 'lxc') { await this.must('lxc-start', ['-P', this.lxcDir, '-n', m.nom, '-d'], 'démarrage'); }
     else {
       const d = this.vmDir(m), tap = ifname(m), r = this.reseau();
-      if (!m.quarantaine) {
+      if (!m.quarantaine && !m.sansReseau) {
         await this.run('ip', ['tuntap', 'add', 'dev', tap, 'mode', 'tap'], 10_000); // déjà là : sans gravité
         await this.must('ip', ['link', 'set', tap, 'master', r.pont, 'up'], `branchement de ${tap} sur ${r.pont}`);
       }
@@ -326,7 +342,7 @@ export class Local {
       // Windows 11 : puce TPM virtuelle (swtpm), son état gardé avec la VM.
       let tpm: string | undefined;
       if (m.profil?.tpm && await this.ctx.has('swtpm')) { tpm = join(d, 'tpm.sock'); mkdirSync(join(d, 'tpm'), { recursive: true }); rmSync(tpm, { force: true }); await this.run('swtpm', ['socket', '--tpmstate', `dir=${join(d, 'tpm')}`, '--ctrl', `type=unixio,path=${tpm}`, '--tpm2', '--daemon'], 15_000); }
-      await this.must('qemu-system-x86_64', qemuArgs(m, d, { kvm: this.kvm(), ovmf: this.ovmf(), installer, qmp: this.qmpSock(m), tpm }), 'démarrage de la VM', 60_000);
+      await this.must('qemu-system-x86_64', qemuArgs(m, d, { kvm: this.kvm(), ovmf: this.ovmf(), installer, qmp: this.qmpSock(m), tpm, extra: o.extra }), 'démarrage de la VM', 60_000);
     }
     m.arretVoulu = false; delete m.pause; this.update(m);
   }

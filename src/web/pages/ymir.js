@@ -9,6 +9,9 @@
 // Lot M3 (maquette « Conteneurs et machines » validée) : les états (allumée, en pause, éteinte, en erreur) et leur filtre,
 // « En dépendent : … » sur chaque carte et le bloc « Ce qui dépend de … » (registre), la suppression dans la page (nom
 // écrit, disque gardé à part ou effacé, refusée tant que ce qui en dépend tourne), et sous Windows ce qui viendra.
+// Lot M4 (même maquette, écrans 12 à 12e) : « Créer une VM » en quatre étapes (système prêt de la bibliothèque, machine
+// et budget de ce PC, réseau et options, vérifier et créer), puis le compte rendu commun (où, comment entrer, fait et
+// essayé, reste) ; le compte rendu aussi dans la fiche de chaque machine. Odin revérifie tout (la page ne décide rien).
 (() => {
   'use strict';
   window.OdinPages = window.OdinPages || {};
@@ -29,6 +32,7 @@
     save: 'M5 3h11l3 3v15H5zM8 3v6h8M8 21v-7h8v7', screen: 'M3 4h18v12H3zM8 20h8M12 16v4', term: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5', play: 'M7 5v14l12-7z', pause: 'M7 5h4v14H7zM13 5h4v14h-4z', stop: 'M6 6h12v12H6z', lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
     shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4', check: 'M5 12l5 5L20 7', grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', list: 'M4 6h16M4 12h16M4 18h16',
     alert: 'M12 3 2 20h20zM12 10v4M12 17h.01', mail: 'M3 5h18v14H3zM3 6l9 7 9-7', unlock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 7.5-2',
+    left: 'M15 6l-6 6 6 6', right: 'M9 6l6 6-6 6', note: 'M6 3h9l4 4v14H6zM9 11h7M9 15h7M9 7h4',
     link: 'M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1', refresh: 'M20 11a8 8 0 1 0-2 6M20 4v7h-7', win: 'M3 5l8-1v7H3zM13 4l8-1v8h-8zM3 13h8v7l-8-1zM13 13h8v8l-8-1z',
   };
   const ic = (n, s = 16) => { const v = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); v.setAttribute('viewBox', '0 0 24 24'); v.setAttribute('width', s); v.setAttribute('height', s); v.setAttribute('aria-hidden', 'true'); v.innerHTML = `<path d="${P[n]}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`; return v; };
@@ -95,10 +99,44 @@
 .ym-win{display:flex;gap:12px}.ym-win .gi{width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--yblue) 16%,transparent);color:var(--yblue);display:grid;place-items:center;flex:none}.ym-win p{margin:2px 0 6px;font-size:13.5px}.ym-win ul{margin:0;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:4px;color:var(--ink)}
 .ym-deps{display:flex;flex-direction:column;gap:0}.ym-deps .l{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}.ym-deps .l:first-child{border-top:0}.ym-deps .l span{flex:1;min-width:0;overflow-wrap:anywhere}.ym-deps .ym-btn{min-height:44px}
 .ym-addep{display:grid;grid-template-columns:minmax(0,180px) minmax(0,1fr) minmax(0,90px) auto;gap:8px;align-items:end;margin-top:10px}.ym-addep label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);min-width:0}.ym-addep select,.ym-addep input{min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 10px;font:inherit;min-width:0;width:100%}.ym-addep .ym-btn{min-height:44px}@media (max-width:700px){.ym-addep{grid-template-columns:minmax(0,1fr)}}
+.ym-nouv{margin-left:auto;background:var(--ya)!important;color:#fff!important;border-color:transparent!important}
+.ym-cseg{display:grid;grid-template-columns:repeat(2,minmax(0,220px));gap:8px}.ym-cseg button{min-height:52px;border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 88%,transparent);color:var(--ink);font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:6px 14px;text-align:left;min-width:0}.ym-cseg button b{font-size:14.5px}.ym-cseg button small{font-size:12px;color:var(--muted)}.ym-cseg button[aria-pressed=true]{border-color:var(--ya);box-shadow:0 0 0 1px var(--ya);background:color-mix(in srgb,var(--ya) 10%,var(--panel))}
+.ym-cv{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ym-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.ym-steps button{width:100%;min-height:52px;display:flex;gap:10px;align-items:center;border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 88%,transparent);color:var(--ink);font:inherit;cursor:pointer;padding:6px 10px;text-align:left;min-width:0}
+.ym-steps i{font-style:normal;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:800;font-size:13px;background:color-mix(in srgb,var(--ink) 9%,transparent)}.ym-steps span{min-width:0;display:flex;flex-direction:column}.ym-steps b{font-size:13.5px}.ym-steps small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ym-steps button[aria-current=step]{border-color:var(--ya);box-shadow:0 0 0 1px var(--ya)}.ym-steps button[aria-current=step] i{background:var(--ya);color:#fff}.ym-steps button.fait i{background:color-mix(in srgb,var(--yok) 22%,transparent);color:color-mix(in srgb,var(--yok) 75%,var(--ink))}
+@media (max-width:600px){.ym-steps{gap:6px}.ym-steps button{flex-direction:column;justify-content:center;gap:3px;padding:6px 4px;text-align:center}.ym-steps small{display:none}.ym-steps b{font-size:11.5px}}
+.ym-et{display:flex;flex-direction:column;gap:8px}.ym-et h3:focus{outline:none}.ym-et h3:focus-visible{outline:2px solid var(--ya);outline-offset:3px;border-radius:6px}.ym-lead{margin:-4px 0 6px;color:var(--muted);font-size:13.5px}
+.ym-lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr));gap:10px}.ym-sys{display:flex;gap:10px;align-items:center;min-height:64px;border:1px solid var(--line);border-radius:16px;padding:10px 12px;background:color-mix(in srgb,var(--panel) 92%,transparent);color:var(--ink);font:inherit;text-align:left;cursor:pointer;min-width:0}
+.ym-sys .lg{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:800;flex:none}.ym-sys .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.ym-sys b{font-size:14px;overflow-wrap:anywhere}.ym-sys small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.ym-sys .tick{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex:none;border:2px solid var(--line)}.ym-sys.on{border-color:var(--ya);box-shadow:0 0 0 1px var(--ya);background:color-mix(in srgb,var(--ya) 8%,var(--panel))}.ym-sys.on .tick{background:var(--ya);border-color:var(--ya);color:#fff}
+.ym-sys:disabled{cursor:default;opacity:1;background:color-mix(in srgb,var(--ink) 4%,var(--panel))}.ym-sys:disabled .lg{filter:grayscale(1);opacity:.55}.ym-sys:disabled small{color:color-mix(in srgb,var(--ywarn) 70%,var(--ink))}
+.ym-opt{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:8px}.ym-opt .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.ym-opt small{color:var(--muted);font-size:12.5px}
+.ym-sw{width:52px;height:44px;border:0;background:none;cursor:pointer;position:relative;flex:none;padding:0}.ym-sw::before{content:'';position:absolute;left:2px;right:2px;top:9px;height:26px;border-radius:999px;background:color-mix(in srgb,var(--ink) 18%,transparent);transition:background .15s}.ym-sw::after{content:'';position:absolute;left:6px;top:13px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+.ym-sw[aria-checked=true]::before{background:var(--ya)}.ym-sw[aria-checked=true]::after{left:28px}.ym-sw:disabled{opacity:.45;cursor:default}@media (prefers-reduced-motion:reduce){.ym-sw::before,.ym-sw::after{transition:none}}
+.ym-auto{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:8px;margin-top:4px}.ym-auto .ym-note{grid-column:1/-1}
+.ym-ch{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:12.5px;color:var(--muted)}.ym-ch span{color:var(--ink);font-size:13px;font-weight:600}.ym-ch small{font-size:12px}
+.ym-ch input,.ym-ch select,.ym-cv #ymCvNom{min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 10px;font:inherit;min-width:0;width:100%;box-sizing:border-box}.ym-cv #ymCvNom{font-family:ui-monospace,monospace;max-width:420px}
+.ym-note{display:flex;gap:6px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin:4px 0 0}.ym-note svg{flex:none;margin-top:2px}.ym-h{font-weight:700;font-size:13.5px;margin-top:8px}
+.ym-segc{display:flex;flex-wrap:wrap;gap:8px}.ym-segc button{min-height:44px;min-width:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:none;color:var(--ink);font:600 13.5px inherit;cursor:pointer}.ym-segc button[aria-checked=true]{background:var(--ya);color:#fff;border-color:transparent}.ym-segc button:disabled{opacity:.45;cursor:default;text-decoration:line-through}
+.ym-rng{display:grid;grid-template-columns:90px minmax(0,1fr) 64px;gap:10px;align-items:center;font-size:13.5px;font-weight:600;min-height:44px}.ym-rng input{width:100%;min-height:44px;accent-color:var(--ya);margin:0}.ym-rng output{text-align:right;color:var(--ya);font-weight:800}
+.ym-budget{border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:13px;margin-top:4px}.ym-budget .bar{display:flex;height:12px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--ink) 10%,transparent)}.ym-budget .bar i{display:block;height:100%}
+.ym-budget i.od{background:#64748b}.ym-budget i.mx{background:var(--yblue)}.ym-budget i.nv{background:var(--ya)}.ym-budget i.ko{background:var(--ybad)}.ym-budget .lg{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--muted)}.ym-budget .lg span{display:inline-flex;gap:6px;align-items:center}.ym-budget .lg i{width:10px;height:10px;border-radius:3px;display:inline-block}.ym-budget small{color:var(--muted);font-size:12.5px}.ym-budget p{margin:0}
+.ym-pend{margin:6px 0 0;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--ywarn) 60%,transparent);background:color-mix(in srgb,var(--ywarn) 10%,var(--panel));font-size:13px;font-weight:600;color:var(--ink)}
+.ym-choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:10px}.ym-choice{position:relative;display:flex;flex-direction:column;gap:4px;min-height:44px;border:1px solid var(--line);border-radius:14px;padding:12px;background:color-mix(in srgb,var(--panel) 92%,transparent);color:var(--ink);font:inherit;text-align:left;cursor:pointer;min-width:0}.ym-choice b{font-size:14px;padding-right:70px}.ym-choice span{font-size:12.5px;color:var(--muted)}
+.ym-choice[aria-checked=true]{border-color:var(--ya);box-shadow:0 0 0 1px var(--ya);background:color-mix(in srgb,var(--ya) 8%,var(--panel))}.ym-choice:disabled{opacity:.55;cursor:default}.ym-choice .cs{position:absolute;right:10px;top:10px;font-size:11px;font-weight:800;color:var(--ya);background:color-mix(in srgb,var(--ya) 12%,transparent);padding:2px 8px;border-radius:999px}
+.ym-recap{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:10px}.ym-rc{padding:12px 14px}.ym-rc h4{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:8px}.ym-rc h4 .ym-btn{margin-left:auto;min-height:44px}
+.ym-rc ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}.ym-rc li{display:flex;gap:10px;justify-content:space-between;min-width:0}.ym-rc li>span:first-child{color:var(--muted);flex:none;max-width:45%}.ym-rc li>span:last-child{text-align:right;min-width:0;overflow-wrap:anywhere}.ym-rc .mono{font-family:ui-monospace,monospace;font-size:12.5px}
+.ym-rc li.es{justify-content:flex-start}.ym-rc li.es>span:first-child{width:16px;font-weight:800;font-size:13px}.ym-rc li.es>span.ym-ok{color:var(--yok)}.ym-rc li.es>span.ym-ko{color:var(--ybad)}.ym-rc li.es>span:last-child{text-align:left;display:flex;flex-direction:column}.ym-rc li.es small{color:var(--muted);font-size:12px}
+.ym-calm{display:flex;gap:12px;border:2px solid var(--yok);background:color-mix(in srgb,var(--yok) 7%,var(--panel));border-radius:16px;padding:12px 14px;margin-top:6px}.ym-calm .gi{width:36px;height:36px;border-radius:11px;background:var(--yok);color:#fff;display:grid;place-items:center;flex:none}.ym-calm p{margin:2px 0 0;font-size:13px}
+.ym-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:16px;padding:8px 10px;background:color-mix(in srgb,var(--panel) 92%,transparent)}.ym-foot .grow{flex:1;min-width:160px;font-size:13px;color:var(--muted);overflow-wrap:anywhere}.ym-foot .ym-btn,.ym-cv .ym-btn,.ym-cv .ym-apps label{min-height:44px}.ym-btn.big{min-height:48px;padding:0 20px;font-size:14px}
+.ym-hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;margin-bottom:12px}.ym-hero .gi{width:52px;height:52px;border-radius:50%;background:var(--yok);color:#fff;display:grid;place-items:center}.ym-hero h3{margin:0;font-size:19px;justify-content:center;overflow-wrap:anywhere}.ym-hero h3:focus{outline:none}.ym-hero p{margin:0;color:var(--muted);font-size:13.5px;max-width:560px}
+.ym-w h3 .ym-btn.r{margin-left:auto;min-height:44px}
 .ym-nav{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}.ym-nav button{display:flex;gap:8px;align-items:center;min-height:36px;padding:0 10px;border:0;border-radius:9px;background:none;color:var(--ink);font:inherit;font-size:13.5px;text-align:left;cursor:pointer}.ym-nav button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}.ym-nav button span{margin-left:auto;color:var(--muted);font-size:12px}
 `;
   // etat : le filtre par état (lot M3) ; garde : la suppression ouverte (machine, nom écrit, choix du disque, refus).
-  const S = { tab: 'machines', filtre: 'Toutes', etat: 'tout', garde: null, sel: null, timer: 0, previews: {}, create: { genre: 'lxc', apps: null } };
+  // cg : quoi créer (une VM en 4 étapes, ou un LXC) ; cv : l'assistant « Créer une VM » (lot M4) ; cr : le compte rendu ouvert.
+  const S = { tab: 'machines', filtre: 'Toutes', etat: 'tout', garde: null, sel: null, timer: 0, previews: {}, create: { genre: 'lxc', apps: null }, cg: 'vm', cv: null, cr: null };
   /** L'état montré d'une machine : allumée, en pause, éteinte ou en erreur (son état ne se lit pas, son disque a disparu). */
   const etatDe = (m) => (m.erreur ? 'erreur' : m.etat?.state === 'en marche' ? 'on' : m.etat?.state === 'en pause' ? 'pause' : 'off');
   const ETATS = [['tout', 'Toutes'], ['on', 'Allumées'], ['pause', 'En pause'], ['off', 'Éteintes'], ['erreur', 'En erreur']];
@@ -157,7 +195,8 @@
       el('div', {}, el('h3', { id: 'ymWinT', style: 'margin:0 0 4px' }, 'Ce PC : Windows'), el('p', {}, D.windows.maintenant), el('ul', {}, ...(D.windows.avenir ?? []).map((t) => el('li', {}, t))))));
     if (!all.length) { main.append(el('div', { class: 'ym-w' }, el('h3', {}, ic('box', 16), 'Aucune machine sur ce PC'), el('p', { class: 'ym-empty' }, D.windows ? 'Les machines de ce PC viendront avec le moteur Windows d\'Hydre (ci-dessus).' : (D.manque?.lxc ?? []).length ? `Pour les LXC, installe d'abord sur ce PC : ${D.manque.lxc.join(', ')} (paquet « lxc »).` : 'Crée un LXC (léger, quelques secondes) ou une VM (depuis une ISO d\'Andromède).'), D.windows ? null : el('button', { class: 'ym-btn pri', type: 'button', onclick: () => { S.tab = 'creer'; redraw(); } }, ic('plus', 14), 'Créer une machine'))); return; }
     // Le filtre par état (allumées, en pause, éteintes, en erreur), avec le nombre de chacune.
-    main.append(el('div', { class: 'ym-filt', role: 'group', 'aria-label': 'Filtrer par état' }, ...ETATS.filter(([k]) => k !== 'erreur' || rangees.some((m) => etatDe(m) === 'erreur') || S.etat === 'erreur').map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(S.etat === k), 'data-etat': k, onclick: () => { S.etat = k; S.focus = `[data-etat="${k}"]`; redraw(); } }, t, el('span', {}, String(k === 'tout' ? rangees.length : rangees.filter((m) => etatDe(m) === k).length))))));
+    main.append(el('div', { class: 'ym-filt', role: 'group', 'aria-label': 'Filtrer par état' }, ...ETATS.filter(([k]) => k !== 'erreur' || rangees.some((m) => etatDe(m) === 'erreur') || S.etat === 'erreur').map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(S.etat === k), 'data-etat': k, onclick: () => { S.etat = k; S.focus = `[data-etat="${k}"]`; redraw(); } }, t, el('span', {}, String(k === 'tout' ? rangees.length : rangees.filter((m) => etatDe(m) === k).length)))),
+      el('button', { type: 'button', class: 'ym-nouv', 'data-f': 'nouvelle-vm', onclick: () => { S.tab = 'creer'; S.cg = 'vm'; redraw(); } }, ic('plus', 15), 'Créer une VM')));
     if (S.message) { main.append(el('p', { class: 'ym-w', role: 'status', style: 'margin:0;font-size:13.5px;white-space:pre-wrap' }, S.message)); S.message = ''; }
     const g0 = S.garde && all.find((m) => m.id === S.garde.id); if (S.garde && !g0) S.garde = null;
     if (g0) main.append(garde(g0, D, redraw));
@@ -265,9 +304,11 @@
         tile('down', 'Importer un .ody', 'Odin vérifie le fichier et l\'antivirus avant de la créer.', async () => { const f = await window.OdinDialog.prompt('Chemin du fichier .ody ?'); return f ? post('importer_machine', { fichier: f }) : null; }),
         tile('copy', 'Cloner', 'La même, avec un autre nom et une autre adresse.', async () => { const n = await window.OdinDialog.prompt('Nom de la copie ?', `${m.nom}-copie`); return n ? post('cloner_machine', { machine: m.id, nom: n }) : null; }),
         tile('save', 'Sauvegarder', (m.apps ?? []).includes('sindri') ? 'Chaque nuit avec Phénix.' : 'Exporte-la en .ody, ou ajoute Phénix à la création.', async () => ({ text: (m.apps ?? []).includes('sindri') ? 'Phénix la sauvegarde chaque nuit (plan « Machine ' + m.nom + ' »).' : 'Pas de sauvegarde automatique pour cette machine : exporte-la en .ody.' })),
+        el('button', { class: 'ym-tile', type: 'button', 'data-f': 'cr', onclick: async () => { out.textContent = '…'; const x = await post('compte_rendu_machine', { machine: m.id }); out.textContent = x.ok === false ? x.text : ''; if (x.ok !== false && x.data?.compteRendu) { S.cr = { id: m.id, data: x.data.compteRendu }; S.focus = '#ymCrT'; redraw(); } } }, el('span', { class: 'ib' }, ic('note', 16)), el('span', {}, el('b', {}, 'Compte rendu'), el('span', {}, 'Où, comment entrer, ce qui a été fait et essayé (essais refaits).'))),
         tile('grid', m.estModele ? 'Ce n\'est plus un modèle' : 'Faire un modèle', m.estModele ? 'Elle redevient une machine qui démarre.' : 'Machine éteinte : on crée ensuite des machines depuis elle.', () => post('modele_machine', { machine: m.id, modele: !m.estModele }))),
       el('div', { class: 'ym-w', style: 'grid-column:1/-1' }, el('h3', {}, ic('term', 16), m.genre === 'lxc' ? `Console de ${m.nom}` : `Clavier de ${m.nom}`, el('small', { class: 'r' }, run ? (m.genre === 'lxc' ? 'chaque commande demande ton accord' : 'tape sur son écran (aperçu au-dessus)') : m.etat?.state === 'en pause' ? 'en pause : reprends-la d\'abord' : 'machine éteinte')),
         el('div', { class: 'ym-row' }, cIn, touche, el('button', { class: 'ym-btn pri ym-send', type: 'button', disabled: !run, onclick: envoyer }, m.genre === 'lxc' ? 'Lancer' : 'Envoyer')), cOut),
+      S.cr?.id === m.id ? el('section', { class: 'ym-w', style: 'grid-column:1/-1', 'aria-labelledby': 'ymCrT' }, el('h3', { id: 'ymCrT', tabindex: '-1' }, ic('note', 16), `Compte rendu de ${m.nom}`, el('button', { class: 'ym-btn r', type: 'button', onclick: () => { S.cr = null; S.focus = '[data-f="cr"]'; redraw(); } }, 'Fermer')), compteRenduBloc(S.cr.data)) : null,
       depsBloc(m, D, redraw));
   }
   /**
@@ -293,7 +334,8 @@
       el('div', { class: 'ym-addep' }, el('label', { for: 'ymDg' }, 'Ce qui en dépend', genre), quiL, nbL, ajouter), out);
   }
   function creer(root, D, redraw) {
-    const C = S.create; if (C.apps === null) C.apps = new Set((D.apps ?? []).filter((a) => a.reco).map((a) => a.id));
+    // Le formulaire d'un LXC (une VM se crée en quatre étapes : vmCreer).
+    const C = S.create; C.genre = 'lxc'; if (C.apps === null) C.apps = new Set((D.apps ?? []).filter((a) => a.reco).map((a) => a.id));
     const out = el('p', { class: 'ym-out', role: 'status' }), today = new Date(), d8 = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
     // VM : les ISO de la bibliothèque (Andromède et importées), rangées par système ; les pilotes et les anciennes versions à part.
     const isos = (D.isos ?? []).filter((x) => !x.pilotes), parSys = ['Windows', 'macOS', 'Linux', 'Autre'].map((g) => [g, isos.filter((x) => (['Windows', 'macOS', 'Linux'].includes(x.systeme) ? x.systeme : 'Autre') === g)]).filter(([, l]) => l.length);
@@ -328,8 +370,7 @@
     }
     root.append(el('div', { class: 'ym-bot ym-bot-cr' },
       el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
-        el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Système'), el('div', { class: 'ym-seg', role: 'group', 'aria-label': 'Genre' }, ...[['lxc', 'LXC (léger)'], ['vm', 'VM']].map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(C.genre === k), onclick: () => { C.genre = k; redraw(); } }, t))),
-          el('label', { for: 'ymSys' }, C.genre === 'lxc' ? 'Modèle (image officielle signée)' : 'ISO de la bibliothèque (Andromède et importées)'), sys, C.genre === 'vm' && !isos.length ? el('span', { class: 'ym-ko' }, 'Aucune ISO dans la bibliothèque : onglet « ISO » pour en importer.') : null, C.genre === 'vm' ? prof : null,
+        el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Système'),           el('label', { for: 'ymSys' }, C.genre === 'lxc' ? 'Modèle (image officielle signée)' : 'ISO de la bibliothèque (Andromède et importées)'), sys, C.genre === 'vm' && !isos.length ? el('span', { class: 'ym-ko' }, 'Aucune ISO dans la bibliothèque : onglet « ISO » pour en importer.') : null, C.genre === 'vm' ? prof : null,
           el('label', { for: 'ymFin' }, 'Nom (fait par Odin, tu ajoutes la fin)'), fin, full),
         el('div', { class: 'ym-w' }, el('h3', {}, 'Ressources'), cpuR, ramR, dkR, el('p', { class: 'ym-empty', style: 'font-size:12px;margin:4px 0 0' }, `Ce PC : ${h.coeurs} cœurs, ${go(h.ramTotal - h.ramUtilisee)} Go de mémoire libre${h.disqueTotal ? `, ${go(h.disqueTotal - h.disqueUtilise)} Go de disque libre` : ''}.`)),
         el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Réseau'), el('label', { for: 'ymIp' }, 'Adresse IP'), el('div', { style: 'display:flex;gap:8px;align-items:center' }, ip, ipOk), el('p', { class: 'ym-empty', style: 'font-size:12px;margin:0' }, `Passerelle ${D.reseau?.passerelle} · DNS ${D.reseau?.dns} · pont ${D.reseau?.pont}. Odin vérifie que personne ne répond sur l'adresse.`))),
@@ -342,6 +383,160 @@
           const x = await act('creer_machine', { genre: C.genre, ...(C.genre === 'lxc' ? { modele: sys.value } : { iso: sys.value, macos_compris: macOk.checked }), fin: fin.value, coeurs: Number(cpu.value), memoire: Number(ram.value), disque: Number(dk.value), ip: ip.value.trim(), apps: [...C.apps].join(','), paquets: paq.value });
           b.disabled = false; out.textContent = x.text; note(x); if (x.ok !== false) { S.tab = 'machines'; S.sel = x.data?.id ?? null; C.apps = null; setTimeout(redraw, 1500); }
         } }, ic('plus', 15), 'Créer et installer')), out)));
+  }
+  // ---------------- Onglet « Créer » : une VM en quatre étapes (lot M4), ou un LXC (le formulaire d'avant)
+  function creerTab(root, D, redraw) {
+    const seg = el('div', { class: 'ym-cseg', role: 'group', 'aria-label': 'Quoi créer' }, ...[['vm', 'Une VM', 'en 4 étapes'], ['lxc', 'Un LXC', 'léger, une image signée']].map(([k, t, sous]) => el('button', { type: 'button', 'aria-pressed': String(S.cg === k), 'data-cg': k, onclick: () => { S.cg = k; S.focus = `[data-cg="${k}"]`; redraw(); } }, el('b', {}, t), el('small', {}, sous))));
+    root.append(seg);
+    if (S.cg === 'lxc') { S.create.genre = 'lxc'; creer(root, D, redraw); return; }
+    vmCreer(root, D, redraw);
+  }
+  const GOF = (n) => `${Math.round(n * 10) / 10}`.replace('.', ',');
+  /** Le verdict du budget, comme côté Odin (qui revérifie tout) : les refus avec les chiffres, et l'accord. */
+  function verdict(b, d) {
+    const refus = [];
+    if (d.cpu > b.coeursMax) refus.push(`Processeurs : ${d.cpu} demandés, ${b.coeursMax} au plus (ce PC en a ${b.coeurs} ; un reste à Odin).`);
+    if (d.mem > b.memoireMaxGo) refus.push(`Mémoire : ${d.mem} Go demandés, ${b.memoireMaxGo} Go au plus (ce PC a ${b.memoireGo} Go ; ${b.reserveGo} Go gardés pour Odin ; ${b.machinesGo} Go déjà donnés à tes machines).`);
+    if (b.disqueMaxGo == null) refus.push('Disque : Odin ne sait pas lire la place libre du disque des machines.');
+    else if (d.disk > b.disqueMaxGo) refus.push(`Disque : ${d.disk} Go demandés, ${b.disqueMaxGo} Go au plus (${b.disqueLibreGo} Go libres ; ${b.reserveDisqueGo} Go gardés pour Odin et tes fichiers).`);
+    if (d.mem < 1 || d.disk < 8 || d.cpu < 1) refus.push('Au moins 1 cœur, 1 Go de mémoire et 8 Go de disque.');
+    const mem = b.accord.odinMemoireGo + d.mem, dk = b.accord.odinDisqueGo + d.disk, au = [mem > b.accord.memoireGo ? `${mem} Go de mémoire` : '', dk > b.accord.disqueGo ? `${dk} Go de disque` : ''].filter(Boolean);
+    return { refus, accord: au.length ? `Avec elle, les machines créées par Odin prendraient ${au.join(' et ')} : au-delà de ton budget sans accord (${b.accord.memoireGo} Go de mémoire et ${b.accord.disqueGo} Go de disque). Le bouton « Créer la machine » vaut accord.` : '' };
+  }
+  const NOM_OK = /^[a-z0-9][a-z0-9-]{0,62}$/;
+  /** Les quatre étapes de « Créer une VM » (maquette, écrans 12 à 12e), puis le compte rendu commun. */
+  function vmCreer(root, D, redraw) {
+    const V = D.cv ?? {}, b = V.budget, sys = V.systemes ?? [], prets = sys.filter((x) => x.etat === 'pret');
+    if (!b) { root.append(el('div', { class: 'ym-w' }, el('p', { class: 'ym-ko', role: 'alert' }, D.cvTexte || 'Odin ne peut pas lire ce qu\'il faut pour créer une VM pour l\'instant.'))); return; }
+    // L'état de l'assistant : gardé entre deux dessins (le choix du système propose les ressources et le nom).
+    if (!S.cv) S.cv = { et: 1, iso: '', auto: false, profil: '', nom: '', nomTouche: false, cpu: 2, mem: 2, disk: 20, reseau: 'machines', apps: new Set(['vordr', 'vidarr']), categorie: '', ...(V.reglages ?? {}) };
+    const C = S.cv;
+    const choisir = (s) => { C.iso = s.id; C.auto = s.auto ? C.auto : false; const p = s.proposition ?? { cpu: 2, memoire: 2, disque: 20 }; C.cpu = Math.min(p.cpu, b.coeursMax); C.mem = Math.max(1, Math.min(p.memoire, b.memoireMaxGo || 1)); C.disk = Math.max(8, Math.min(p.disque, b.disqueMaxGo ?? p.disque)); if (!C.nomTouche) C.nom = s.nomPropose || ''; };
+    if (!sys.some((x) => x.id === C.iso && x.etat === 'pret') && prets[0]) choisir(prets[0]);
+    const box = el('div', { class: 'ym-cv' }); root.append(box);
+    if (V.windows) root.prepend(el('section', { class: 'ym-w ym-win', 'aria-labelledby': 'ymCWinT' }, el('span', { class: 'gi', 'aria-hidden': 'true' }, ic('win', 20)), el('div', {}, el('h3', { id: 'ymCWinT', style: 'margin:0 0 4px' }, 'Ce PC : Windows'), el('p', {}, V.windows.maintenant), el('ul', {}, ...(V.windows.avenir ?? []).map((t) => el('li', {}, t))))));
+    const choisi = () => sys.find((x) => x.id === C.iso);
+    const ETAPES = [['Système', () => { const s = choisi(); return s ? s.detail : 'à choisir'; }], ['Machine', () => `${C.cpu} cœur${C.cpu > 1 ? 's' : ''} · ${C.mem} Go · ${C.disk} Go`], ['Réseau', () => (C.reseau === 'aucun' ? 'aucun' : V.reseau?.maison ? 'la maison' : 'derrière Odin')], ['Vérifier', () => 'et créer']];
+    const aller = (k) => { C.et = k; C.refus = ''; rendre(`#ymCvT${k}`); };
+    function barre() {
+      return el('ol', { class: 'ym-steps', 'aria-label': 'Étapes' }, ...ETAPES.map(([t, sous], i) => el('li', {}, el('button', { type: 'button', class: C.et > i + 1 ? 'fait' : '', 'aria-current': C.et === i + 1 ? 'step' : null, 'data-et': String(i + 1), onclick: () => aller(i + 1) }, el('i', { 'aria-hidden': 'true' }, C.et > i + 1 ? ic('check', 14) : String(i + 1)), el('span', {}, el('b', {}, t), el('small', { 'data-sous': String(i + 1) }, sous()))))));
+    }
+    const titre = (k, t, lead) => [el('h3', { id: `ymCvT${k}`, tabindex: '-1' }, t), lead ? el('p', { class: 'ym-lead' }, lead) : null];
+    function etape1() {
+      const s = choisi(), cartes = el('div', { class: 'ym-lib', role: 'radiogroup', 'aria-label': 'Système' }, ...sys.map((x) => {
+        const ok = x.etat === 'pret', on = C.iso === x.id;
+        return el('button', { type: 'button', class: `ym-sys${on ? ' on' : ''}`, role: 'radio', 'aria-checked': String(on), disabled: !ok, 'data-sys': x.id, 'aria-describedby': `ymSysD-${x.id}`, onclick: () => { choisir(x); rendre(`[data-sys="${x.id}"]`); } },
+          el('span', { class: 'lg', style: `background:${LOGO({ systeme: `${x.systeme} ${x.detail}`, famille: x.famille })}`, 'aria-hidden': 'true' }, String(x.detail || x.nom).charAt(0)),
+          el('span', { class: 't' }, el('b', {}, x.detail), el('small', { id: `ymSysD-${x.id}` }, ok ? `${x.editeur ? 'empreinte de l\'éditeur ✓' : 'empreinte revérifiée ✓'} · antivirus ✓ · ${x.auto ? 's\'installe tout seul' : 'à installer par son écran'}` : x.raison)),
+          el('span', { class: 'tick', 'aria-hidden': 'true' }, on ? ic('check', 14) : null));
+      }));
+      const sw = el('button', { type: 'button', class: 'ym-sw', role: 'switch', 'aria-checked': String(Boolean(C.auto)), 'aria-label': 'L\'installer tout seul', disabled: !s?.auto, 'data-f': 'auto', onclick: () => { C.auto = !C.auto; rendre('[data-f="auto"]'); } });
+      const champ = (k, label, aide) => el('label', { class: 'ym-ch' }, el('span', {}, label), el('input', { type: 'text', value: C[k] ?? '', autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off', 'data-f': k, oninput: (e) => { C[k] = e.target.value; } }), aide ? el('small', {}, aide) : null);
+      return [...titre(1, 'Quel système ?', 'La bibliothèque des systèmes de Genèse : seulement ceux qui sont prêts (empreinte vérifiée, antivirus passé). Les autres disent pourquoi.'),
+        sys.length ? cartes : el('p', { class: 'ym-empty' }, 'Aucun système dans la bibliothèque pour l\'instant.'),
+        !prets.length && sys.length ? el('p', { class: 'ym-ko', role: 'status' }, 'Aucun système prêt : attends la fin de la vérification, ou importe une ISO.') : null,
+        el('div', { class: 'ym-row', style: 'margin-top:10px' }, el('button', { class: 'ym-btn', type: 'button', onclick: () => { S.tab = 'iso'; redraw(); } }, ic('down', 15), 'Toute la bibliothèque, ou une ISO à moi')),
+        el('div', { class: 'ym-opt' }, el('span', { class: 'tx' }, el('b', {}, 'L\'installer tout seul'), el('small', {}, s ? s.autoTexte : 'Choisis d\'abord un système.')), sw),
+        C.auto && s?.auto ? el('div', { class: 'ym-auto' }, champ('compte', 'Ton compte dans la machine', 'minuscules, chiffres, « - »'), champ('langue', 'Langue', 'ex. fr_FR.UTF-8'), champ('clavier', 'Clavier', 'ex. fr, us'), champ('fuseau', 'Fuseau', 'ex. Indian/Mayotte'),
+          el('p', { class: 'ym-note' }, ic('lock', 14), 'Le mot de passe est créé par Odin et rangé au coffre ; il n\'est jamais montré ici.')) : null,
+        el('label', { class: 'ym-ch', style: 'margin-top:10px' }, el('span', {}, 'Profil de logiciels (Genèse)'), el('select', { 'data-f': 'profil', onchange: (e) => { C.profil = e.target.value; } }, el('option', { value: '' }, 'Aucun'), ...(V.profils ?? []).map((p) => el('option', { value: p.id, selected: C.profil === p.id }, p.nom))),
+          el('small', {}, V.profilsLus === false ? 'Genèse ne répond pas : aucun profil pour l\'instant.' : 'Noté sur la machine ; ses logiciels ne sont pas encore posés tout seuls dans une VM (dit dans le compte rendu).'))];
+    }
+    function etape2() {
+      const s = choisi(), budget = el('div', { class: 'ym-budget', role: 'status' });
+      const majBudget = () => {
+        // Le résumé de l'étape et le pied suivent le curseur.
+        const r2 = box.querySelector('[data-sous="2"]'); if (r2) r2.textContent = ETAPES[1][1]();
+        const pg = box.querySelector('.ym-foot .grow'); if (pg) pg.textContent = `${s ? s.detail : 'Aucun système'} · ${ETAPES[1][1]()}`;
+        const v = verdict(b, { cpu: C.cpu, mem: C.mem, disk: C.disk }), t = b.memoireGo || 1, pc = (n) => `${Math.max(0, Math.min(100, (n / t) * 100))}%`;
+        budget.replaceChildren(el('b', {}, `Ce PC : ${b.coeurs} cœurs, ${b.memoireGo} Go de mémoire${b.disqueLibreGo != null ? `, ${b.disqueLibreGo} Go de disque libres` : ''}`),
+          el('div', { class: 'bar', role: 'img', 'aria-label': `Mémoire : ${b.reserveGo} Go pour Odin, ${b.machinesGo} Go pour tes machines, ${C.mem} Go pour celle-ci, sur ${b.memoireGo} Go` }, el('i', { class: 'od', style: `width:${pc(b.reserveGo)}` }), el('i', { class: 'mx', style: `width:${pc(b.machinesGo)}` }), el('i', { class: v.refus.some((x) => /^Mémoire/.test(x)) ? 'ko' : 'nv', style: `width:${pc(C.mem)}` })),
+          el('small', { class: 'lg' }, el('span', {}, el('i', { class: 'od' }), `Odin : ${b.reserveGo} Go`), el('span', {}, el('i', { class: 'mx' }), `tes machines : ${b.machinesGo} Go`), el('span', {}, el('i', { class: 'nv' }), `celle-ci : ${C.mem} Go`)),
+          el('small', {}, `Au plus pour une nouvelle VM : ${b.coeursMax} cœur${b.coeursMax > 1 ? 's' : ''}, ${b.memoireMaxGo} Go de mémoire${b.disqueMaxGo != null ? `, ${b.disqueMaxGo} Go de disque` : ''}.`),
+          ...v.refus.map((x) => el('p', { class: 'ym-ko' }, x)), v.accord ? el('p', { class: 'ym-pend' }, v.accord) : !v.refus.length ? el('p', { class: 'ym-ok' }, 'Dans ton budget sans accord : créée sans autre question.') : null);
+      };
+      const nomIn = el('input', { id: 'ymCvNom', type: 'text', value: C.nom, autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off', 'aria-describedby': 'ymCvNomA', 'data-f': 'nom', oninput: (e) => { C.nom = e.target.value.trim().toLowerCase(); C.nomTouche = true; nomA.textContent = NOM_OK.test(C.nom) ? `Sur le réseau : ${C.nom}${V.reseau?.maison ? '.maison' : ''}` : 'Des lettres minuscules sans accent, des chiffres et des tirets.'; nomA.className = NOM_OK.test(C.nom) ? 'ym-empty' : 'ym-ko'; } });
+      const nomA = el('small', { id: 'ymCvNomA', class: NOM_OK.test(C.nom) ? 'ym-empty' : 'ym-ko' }, NOM_OK.test(C.nom) ? `Sur le réseau : ${C.nom}${V.reseau?.maison ? '.maison' : ''}` : 'Des lettres minuscules sans accent, des chiffres et des tirets.');
+      const coeurs = [...new Set([1, 2, 3, 4, 6, 8, b.coeursMax, C.cpu])].filter((k) => k <= Math.max(b.coeurs, C.cpu)).sort((x, y) => x - y);
+      const segc = el('div', { class: 'ym-segc', role: 'radiogroup', 'aria-label': 'Processeurs' }, ...coeurs.map((k) => el('button', { type: 'button', role: 'radio', 'aria-checked': String(C.cpu === k), disabled: k > b.coeursMax, title: k > b.coeursMax ? 'un cœur reste à Odin' : null, 'data-cpu': String(k), onclick: () => { C.cpu = k; rendre(`[data-cpu="${k}"]`); } }, `${k} cœur${k > 1 ? 's' : ''}`)));
+      const rng = (k, min, max, unite, label) => { const o = el('output', {}, `${C[k]} ${unite}`); const i = el('input', { type: 'range', min: String(min), max: String(Math.max(min, max)), value: String(C[k]), 'aria-label': label, 'data-f': k, oninput: (e) => { C[k] = Number(e.target.value); o.textContent = `${C[k]} ${unite}`; majBudget(); } }); return el('div', { class: 'ym-rng' }, el('span', {}, label), i, o); };
+      majBudget();
+      return [...titre(2, 'La machine', s ? `Odin propose ce que ${s.detail} demande au minimum, un peu plus. Tout se change plus tard.` : ''),
+        el('label', { class: 'ym-ch', for: 'ymCvNom' }, el('span', {}, 'Nom')), nomIn, nomA,
+        el('div', { class: 'ym-h' }, 'Processeurs'), segc,
+        rng('mem', 1, Math.max(1, b.memoireMaxGo), 'Go', 'Mémoire'), rng('disk', 8, b.disqueMaxGo ?? 64, 'Go', 'Disque'),
+        el('p', { class: 'ym-note' }, 'Le disque ne prend sur ce PC que ce qui est écrit dedans ; Odin compte quand même sa taille entière dans le budget.'), budget];
+    }
+    function etape3() {
+      const choix = (k, t, p, ok = true, conseil = false) => el('button', { type: 'button', class: 'ym-choice', role: 'radio', 'aria-checked': String(C.reseau === k), disabled: !ok, 'data-net': k, onclick: () => { C.reseau = k; rendre(`[data-net="${k}"]`); } }, conseil ? el('span', { class: 'cs' }, 'Conseillé') : null, el('b', {}, t), el('span', {}, p));
+      const r = V.reseau ?? {};
+      return [...titre(3, 'Réseau et options', 'Où la machine se branche, et ce qu\'Odin fait pour elle.'),
+        el('div', { class: 'ym-choices', role: 'radiogroup', 'aria-label': 'Réseau' },
+          choix('machines', r.maison ? 'Le réseau de la maison' : 'Le réseau des machines, derrière Odin', r.maison ? `Une adresse de la maison (pont ${r.pont}) ; les autres PC la voient.` : `Une adresse à part (${r.prefixe}.0/24) ; elle sort sur Internet par ce PC, la maison ne la voit pas.`, true, true),
+          choix('aucun', 'Aucun réseau', 'Ni Internet ni la maison. Son adresse reste réservée.'),
+          choix('cage', 'Une cage d\'essai', 'Internet en sortie seulement, pour essayer un code venu d\'un lien : à venir.', false)),
+        el('div', { class: 'ym-h' }, 'Applis d\'Odin branchées dessus'),
+        el('div', { class: 'ym-apps' }, ...(V.apps ?? []).map((a) => el('label', { style: C.reseau === 'aucun' ? 'opacity:.55' : '' }, el('input', { type: 'checkbox', checked: C.apps.has(a.id) && C.reseau !== 'aucun', disabled: C.reseau === 'aucun', 'data-app': a.id, onchange: (e) => { if (e.target.checked) C.apps.add(a.id); else C.apps.delete(a.id); } }), el('span', {}, el('b', {}, a.nom), el('small', {}, C.reseau === 'aucun' ? 'sans réseau : rien à brancher' : a.quoi))))),
+        (D.categories ?? []).length ? el('label', { class: 'ym-ch', style: 'margin-top:10px' }, el('span', {}, 'Catégorie'), el('select', { onchange: (e) => { C.categorie = e.target.value; } }, el('option', { value: '' }, 'Aucune'), ...(D.categories ?? []).map((c) => el('option', { value: c.nom, selected: C.categorie === c.nom }, c.nom)))) : null];
+    }
+    function etape4() {
+      const s = choisi(), v = verdict(b, { cpu: C.cpu, mem: C.mem, disk: C.disk }), p = (V.profils ?? []).find((x) => x.id === C.profil);
+      const carte = (k, t, l) => el('div', { class: 'ym-w ym-rc' }, el('h4', {}, t, el('button', { type: 'button', class: 'ym-btn', 'aria-label': `Changer : ${t}`, onclick: () => aller(k) }, 'Changer')), el('ul', {}, ...l.map(([a, x]) => el('li', {}, el('span', {}, a), el('span', {}, x)))));
+      const manque = [!s ? 'Choisis un système prêt (étape 1).' : '', !NOM_OK.test(C.nom) ? 'Donne un nom valable (étape 2).' : '', ...(V.manque ?? []).length ? [`Il manque sur ce PC : ${V.manque.join(', ')}.`] : []].filter(Boolean);
+      const bloque = Boolean(V.refus) || v.refus.length > 0 || manque.length > 0 || C.occupe;
+      const creerB = el('button', { type: 'button', class: 'ym-btn pri big', 'data-f': 'creer', disabled: bloque, onclick: () => void lancer(v) }, ic('play', 15), 'Créer la machine');
+      return [...titre(4, 'Vérifier et créer'),
+        el('div', { class: 'ym-recap' },
+          carte(1, 'Système', [[s?.detail ?? '—', s ? 'vérifié ✓' : ''], ['Installation', C.auto && s?.auto ? `toute seule · compte ${C.compte}` : 'à la main, par son écran'], ['Profil de logiciels', p ? p.nom : 'aucun']]),
+          carte(2, 'Machine', [['Nom', C.nom || '—'], ['Processeurs', `${C.cpu} cœur${C.cpu > 1 ? 's' : ''}`], ['Mémoire', `${C.mem} Go`], ['Disque', `${C.disk} Go`]]),
+          carte(3, 'Réseau', [['Branchée', C.reseau === 'aucun' ? 'aucun réseau' : V.reseau?.maison ? 'la maison' : 'derrière Odin'], ['Applis d\'Odin', C.reseau === 'aucun' ? 'aucune' : [...C.apps].map((a) => (V.apps ?? []).find((x) => x.id === a)?.nom ?? a).join(', ') || 'aucune'], ['Où', 'ce PC']])),
+        el('div', { class: 'ym-calm' }, el('span', { class: 'gi', 'aria-hidden': 'true' }, ic('check', 20)), el('div', {}, el('b', {}, 'Rien n\'est effacé'), el('p', {}, 'Un nouveau dossier, un nouveau disque, seulement dans le dossier des machines virtuelles. Odin te rend compte à la fin : où, comment entrer, ce qui a été fait et essayé.'))),
+        V.refus ? el('p', { class: 'ym-ko', role: 'alert' }, V.refus) : null,
+        ...manque.map((x) => el('p', { class: 'ym-ko' }, x)), ...v.refus.map((x) => el('p', { class: 'ym-ko' }, x)),
+        v.accord && !v.refus.length ? el('p', { class: 'ym-pend' }, v.accord) : null,
+        C.refus ? el('p', { class: 'ym-ko', role: 'alert', style: 'white-space:pre-wrap' }, C.refus) : null,
+        el('div', { class: 'ym-row', style: 'margin-top:12px' }, creerB)];
+    }
+    async function lancer(v) {
+      if (C.occupe) return;
+      C.occupe = true; C.refus = '';
+      const input = { iso: C.iso, nom: C.nom, coeurs: C.cpu, memoire: C.mem, disque: C.disk, reseau: C.reseau === 'aucun' ? 'aucun' : 'machines', auto: Boolean(C.auto && choisi()?.auto), compte: C.compte, langue: C.langue, clavier: C.clavier, fuseau: C.fuseau, profil: C.profil, apps: C.reseau === 'aucun' ? '' : [...C.apps].join(','), categorie: C.categorie };
+      box.replaceChildren(el('div', { class: 'ym-w' }, charge(input.auto ? 'Je prépare l\'installation et je crée la machine…' : 'Je crée le disque et je démarre la machine…')));
+      // Le bouton vaut accord quand la page l'a dit (au-delà du budget sans accord) ; sinon, Odin demande.
+      let r = await post('creer_vm', input, Boolean(v.accord));
+      if (r.confirm) { if (await window.OdinDialog.confirm(r.confirm, { danger: false })) r = await post('creer_vm', input, true); else r = { ok: false, text: 'Annulé : rien n\'est créé.' }; }
+      C.occupe = false; note(r);
+      if (r.ok !== false && r.data?.compteRendu) { C.fini = { cr: r.data.compteRendu, id: r.data.machine?.id, auto: input.auto }; rendre('#ymCvFin'); return; }
+      C.refus = r.text || 'Refusé.'; rendre('#ymCvT4');
+    }
+    function fin() {
+      const F = C.fini;
+      return [el('div', { class: 'ym-hero' }, el('span', { class: 'gi', 'aria-hidden': 'true' }, ic('check', 26)), el('h3', { id: 'ymCvFin', tabindex: '-1' }, F.auto ? `${F.cr.nom} est créée : elle s'installe toute seule` : `${F.cr.nom} est créée`), el('p', {}, F.auto ? 'Odin te prévient quand l\'installation est finie (elle redémarre seule sur son disque). Voici le compte rendu.' : 'Installe son système par son écran (Machines → sa carte). Voici le compte rendu.')),
+        compteRenduBloc(F.cr),
+        el('div', { class: 'ym-row', style: 'margin-top:12px' }, el('button', { class: 'ym-btn pri', type: 'button', onclick: () => { S.tab = 'machines'; S.etat = 'tout'; S.sel = F.id ?? null; S.cv = null; redraw(); } }, ic('screen', 15), 'Voir sa carte'), el('button', { class: 'ym-btn', type: 'button', onclick: () => { S.cv = null; redraw(); } }, ic('plus', 15), 'Une autre'))];
+    }
+    function rendre(focus) {
+      if (C.fini) box.replaceChildren(el('section', { class: 'ym-w' }, ...fin()));
+      else {
+        const corps = C.et === 1 ? etape1() : C.et === 2 ? etape2() : C.et === 3 ? etape3() : etape4();
+        const s = choisi(), pied = el('div', { class: 'ym-foot' }, el('span', { class: 'grow' }, `${s ? s.detail : 'Aucun système'} · ${C.cpu} cœur${C.cpu > 1 ? 's' : ''} · ${C.mem} Go · ${C.disk} Go`),
+          C.et > 1 ? el('button', { class: 'ym-btn', type: 'button', 'data-f': 'retour', onclick: () => aller(C.et - 1) }, ic('left', 15), 'Retour') : null,
+          C.et < 4 ? el('button', { class: 'ym-btn pri', type: 'button', 'data-f': 'suivant', disabled: C.et === 1 && !s, onclick: () => aller(C.et + 1) }, 'Suivant', ic('right', 15)) : null);
+        box.replaceChildren(barre(), el('section', { class: 'ym-w ym-et' }, ...corps), pied);
+      }
+      const f = focus ? box.querySelector(focus) : null; if (f) setTimeout(() => f.focus(), 0);
+    }
+    rendre();
+  }
+  /** Le compte rendu commun (cahier § 3.6) : où, comment entrer, fait, essayé (avec la preuve), reste. */
+  function compteRenduBloc(cr) {
+    const liste = (l) => el('ul', {}, ...l.map(([k, v]) => el('li', {}, el('span', {}, k), el('span', { class: /ssh |\d+\.\d+\.\d+\.\d+/.test(v) ? 'mono' : '' }, v))));
+    return el('div', { class: 'ym-recap ym-cr' },
+      el('div', { class: 'ym-w ym-rc' }, el('h4', {}, 'Où'), liste(cr.ou)),
+      el('div', { class: 'ym-w ym-rc' }, el('h4', {}, 'Comment entrer'), liste(cr.entrer)),
+      el('div', { class: 'ym-w ym-rc' }, el('h4', {}, 'Ce qui a été fait'), liste(cr.fait)),
+      el('div', { class: 'ym-w ym-rc' }, el('h4', {}, 'Ce qui a été essayé'), el('ul', {}, ...(cr.essaye ?? []).map((x) => el('li', { class: 'es' }, el('span', { class: x.ok === true ? 'ym-ok' : x.ok === false ? 'ym-ko' : 'ym-empty', 'aria-label': x.ok === true ? 'réussi' : x.ok === false ? 'raté' : 'pas encore' }, x.ok === true ? '✓' : x.ok === false ? '✗' : '…'), el('span', {}, el('b', {}, x.quoi), el('small', {}, x.preuve)))))),
+      el('div', { class: 'ym-w ym-rc' }, el('h4', {}, 'Ce qui reste'), el('ul', {}, ...(cr.reste ?? []).map((x) => el('li', { class: 'es' }, el('span', { 'aria-hidden': 'true' }, '·'), el('span', {}, x))))));
   }
   // ---------------- Onglet « ISO » : l'espace ISO (commun avec Andromède), l'import, la bibliothèque, la vérification
   const octets = (n) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2).replace('.', ',')} Go` : n >= 1024 ** 2 ? `${Math.round(n / 1024 ** 2)} Mo` : `${Math.max(1, Math.round(n / 1024))} Ko`);
@@ -495,14 +690,15 @@
       S.montre = S.tab;
       // Ce qui dépend de chaque machine (lecture au propriétaire seul : refusée, la page s'en passe).
       const tour = (S.tour = (S.tour ?? 0) + 1);
-      const [r, dp] = await Promise.all([post('tableau_machines'), S.tab === 'machines' ? post('dependants_machines') : Promise.resolve(undefined)]);
+      const [r, dp, cv] = await Promise.all([post('tableau_machines'), S.tab === 'machines' ? post('dependants_machines') : Promise.resolve(undefined), S.tab === 'creer' && S.cg === 'vm' ? post('creation_vm') : Promise.resolve(undefined)]);
       const D = r.data ?? {}, n = el('div', { class: 'ym' }), all = D.machines ?? [];
       // Deux dessins se croisent (le rafraîchissement de 10 s, un clic) : seul le dernier commencé s'affiche, sinon un
       // dessin plus ancien remettrait ce qui vient d'être fermé (le garde-fou de la suppression).
       if (tour !== S.tour) return;
       if (dp && dp.ok !== false && dp.data) D.deps = dp.data;
+      if (cv) { if (cv.ok !== false && cv.data) D.cv = cv.data; else D.cvTexte = cv.text; }
       sub.textContent = `${all.filter((m) => m.genre === 'lxc').length} LXC et ${all.filter((m) => m.genre === 'vm').length} VM sur ce PC · rangées par système`;
-      if (S.tab === 'creer') creer(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
+      if (S.tab === 'creer') creerTab(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
       body.replaceChildren(...n.childNodes);
       // Le clavier garde sa place après un nouveau dessin (filtre choisi, garde-fou fermé).
       if (S.focus) { const f = body.querySelector(S.focus); S.focus = null; if (f) f.focus(); }
