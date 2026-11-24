@@ -220,11 +220,15 @@
     if (r.ok && r.data && (r.data.svg || r.data.conf)) show(r.text, r.data);
     setTimeout(() => cur === mod && openApp(mod, true), 600);
     const files = r.ok && Array.isArray(r.fichiers) ? r.fichiers.map((f) => ({ nom: String(f.nom), href: `/api/valhalla/fichier?${new URLSearchParams({ module: String(r.module || mod), ref: String(f.ref) })}` })) : [];
-    return { text: r.ok ? r.text : rateOuDemande(r), files, demande: !r.ok && r.demande === true };
+    // Le lien d'une réponse secrète (une invitation…) ne s'écrit pas sous le bouton : il se lit dans la fenêtre, une fois le voile levé.
+    const lien = r.ok && r.data && r.data.secret === true && r.data.svg && typeof r.data.lien === 'string' ? r.data.lien : '';
+    return { text: r.ok ? (lien ? String(r.text ?? '').split(lien).join('caché (touche « Montrer le QR code »)') : r.text) : rateOuDemande(r), files, demande: !r.ok && r.demande === true };
   }
   async function run(mod, action, input) { return (await runFull(mod, action, input)).text; }
   /** Ce qu'une action rend à voir ou à garder : un QR code (image), un fichier texte à copier ou télécharger. */
   function show(text, d) {
+    // Ni le titre ni le nom de la fenêtre ne portent le lien d'une réponse secrète (une invitation…) : il vient avec le QR code, voile levé.
+    if (d.secret === true && d.svg && typeof d.lien === 'string' && d.lien) text = String(text ?? '').split(d.lien).join('caché (touche « Montrer le QR code »)');
     const dlg = el('dialog', { class: 'va-dlg', 'aria-label': text });
     // Une réponse secrète (marquée `secret`, ou une configuration qui porte une clé privée : le QR code et le fichier
     // d'un appareil du VPN) : le QR code est caché derrière « Montrer », la fenêtre se ferme seule au bout de 2 minutes
@@ -240,8 +244,8 @@
     const armer = () => { clearTimeout(fin); fin = setTimeout(close, 120000); };
     const name = String(d.filename || 'configuration.conf').replace(/[^\w.-]/g, '_');
     const image = () => el('img', { src: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(d.svg)))}`, alt: d.alt || 'QR code à scanner avec l\'appli WireGuard' });
-    const voile = el('div', { class: 'va-voile' }, el('p', { class: 'sub', style: 'margin:0 0 8px' }, 'Le QR code est caché : il porte la clé secrète de l\'appareil. Cette fenêtre se ferme seule au bout de 2 minutes.'),
-      el('button', { class: 'btn', type: 'button', onclick: () => { if (ferme) return; voile.replaceChildren(image()); armer(); } }, 'Montrer le QR code'));
+    const voile = el('div', { class: 'va-voile' }, el('p', { class: 'sub', style: 'margin:0 0 8px' }, 'Ce QR code est caché parce qu\'il est secret : ne le montre qu\'à la bonne personne. Cette fenêtre se ferme seule au bout de 2 minutes.'),
+      el('button', { class: 'btn', type: 'button', onclick: () => { if (ferme) return; voile.replaceChildren(...[image(), d.secret === true && typeof d.lien === 'string' && d.lien ? el('p', { class: 'sub', style: 'margin:8px 0 0;overflow-wrap:anywhere;user-select:all' }, d.lien) : null].filter(Boolean)); armer(); } }, 'Montrer le QR code'));
     // Les parties absentes sont retirées (posées telles quelles, elles s'écriraient « null » dans la fenêtre).
     dlg.append(...[el('h2', { style: 'margin:0 0 12px;font-size:17px' }, text),
       d.svg ? (garde ? voile : image()) : null,

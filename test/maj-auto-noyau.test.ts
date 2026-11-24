@@ -314,8 +314,9 @@ test('(n) « Mettre à jour » : seul le clic du propriétaire dans son navigate
     const p = await v.json('/api/action', { kind: 'update_apply' });
     assert.equal(p.status, 200, JSON.stringify(p.body));
     const k = await v.json('/api/action', { kind: 'update_apply' }, { authorization: `Bearer ${v.token}` });
-    assert.equal(k.status, 200, JSON.stringify(k.body));
-    assert.deepEqual(appels, [true, false], 'la clé d\'API ne vaut pas son clic');
+    // Depuis le 24/11, la clé d'accès lit et parle seulement : ce geste lui est refusé (avant, il partait sans valoir « son clic »).
+    assert.equal(k.status, 403, JSON.stringify(k.body));
+    assert.deepEqual(appels, [true], 'la clé d\'API ne lance plus la mise à jour : seul le clic du propriétaire est parti');
   } finally { hooks.updateNow = avant; }
 });
 

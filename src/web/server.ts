@@ -108,6 +108,7 @@ import { Pairing, deviceName, type PairRequest } from './pairing.ts';
 import { activationPage } from './activate.ts';
 import { setMascot as setVarMascot } from '../valhalla/modules/var.ts';
 import { estMembre, gardeSSO, membreDe, ouvrirSessionMembre, sessionMembre } from '../valhalla/sso/garde.ts';
+import { refusDeLaCle, type DemandeCle } from './cle-acces.ts';
 import { aDroit, messageRefus, nomAppli, persona, personnes, trouver } from '../valhalla/sso/etat.ts';
 import { verifierPersonne } from '../valhalla/sso/oidc.ts';
 import { ConnexionQr, DUREE_QR, type Qui } from './connexion-qr.ts';
@@ -421,6 +422,19 @@ export class WebChannel implements Channel {
     return undefined;
   }
   private authed(req: IncomingMessage): boolean { const w = this.who(req); return w === 'session' || w === 'cle'; }
+  /**
+   * La clé d'accès lit et parle ; tout geste qui écrit demande la session du propriétaire (la règle est dans
+   * cle-acces.ts). Rend true quand la demande est refusée : la réponse (403) est déjà partie, et le refus est noté.
+   * Sans compte, il n'y a pas encore de session : la clé sert à installer Odin, rien n'est fermé.
+   */
+  private cleRefusee(req: IncomingMessage, res: ServerResponse, url: URL, d: DemandeCle = {}): boolean {
+    if (!this.accounts.exists() || !this.tokenOk((req.headers.authorization ?? '').replace(/^Bearer\s+/i, ''))) return false;
+    const refus = refusDeLaCle(req.method ?? 'GET', url.pathname, d);
+    if (!refus) return false;
+    console.log(`[web] clé d'accès : refus de ${refus.quoi} depuis ${this.clientIp(req)} (ce geste demande la session du propriétaire)`);
+    json(res, 403, { ok: false, code: 'session', error: refus.phrase });
+    return true;
+  }
   /** Identifiant de session du navigateur (pour « cette session », la déconnexion, le changement de mot de passe). */
   private sessionOf(req: IncomingMessage): string | undefined { return SESSION_RE.exec(req.headers.cookie ?? '')?.[1]; }
   private get secure(): boolean { return Boolean(this.tls); }
@@ -672,6 +686,8 @@ export class WebChannel implements Channel {
     // (ni clé d'API, ni liens publics, ni création de compte : tout cela reste sur le port de l'interface).
     const direct = this.directs?.appOf(req.socket);
     if (direct && this.who(req) !== 'session' && !(this.accounts.exists() && directOpen(req.method ?? '', url.pathname))) return json(res, this.accounts.exists() ? 401 : 403, { error: this.accounts.exists() ? 'connexion requise' : `Odin n'a pas encore de compte : crée-le d'abord sur son interface (port ${this.port}).`, account: this.accounts.exists(), direct: true });
+    // La clé d'accès : lire et parler seulement. Tout geste qui écrit est refusé ici, avant toute route.
+    if (this.cleRefusee(req, res, url)) return;
     // Connexion par QR code : l'écran qui attend, et le téléphone déjà connecté qui autorise (avant la garde des membres).
     if (url.pathname === '/connexion-qr' || url.pathname.startsWith('/api/connexion-qr/')) return void await this.routeQr(req, res, url, ip, direct);
     // Plume partout (le correcteur pendant qu'on écrit) : chaque personne, son réglage (avant la garde des membres).
@@ -1185,6 +1201,7 @@ export class WebChannel implements Channel {
       const raw = Buffer.concat(parts).toString('utf8').trim();
       let text = raw; try { const j = JSON.parse(raw) as { text?: unknown }; if (j && typeof j === 'object') text = String(j.text ?? ''); } catch { /* texte brut */ }
       if (!text.trim()) return json(res, 400, { error: 'message vide' });
+      if (this.cleRefusee(req, res, url, { corps: { text } })) return; // une validation ne vient que de la session
       const peer = 'raccourci';
       if (this.waiters.has(peer)) return json(res, 429, { error: 'Odin répond déjà à une demande du raccourci' });
       const reply = await new Promise<string>((resolve) => {
@@ -1328,6 +1345,7 @@ export class WebChannel implements Channel {
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     const body = await readJson(req);
+    if (this.cleRefusee(req, res, url, { corps: body, applis: valhallaOf() })) return;
     if (url.pathname === '/api/ports') return json(res, 200, await portsPost(valhallaOf(), body, { adresses: { freyja: this.odin.cfg.venus?.url ?? '' } }));
     if (url.pathname.startsWith('/api/draupnir/')) {
       // Couper un lien entre applis : seulement la session du navigateur du propriétaire, jamais une requête qui porte la clé.
@@ -1337,6 +1355,7 @@ export class WebChannel implements Channel {
     if (url.pathname.startsWith('/api/valhalla/')) {
       // Activer ou désactiver une appli : seulement la session du navigateur du propriétaire (comme couper un lien de Talos).
       const r = await valhallaPost(url.pathname, body as Record<string, unknown>, { sessionProprio: this.who(req) === 'session' && this.accounts.valid(this.sessionOf(req)) && !req.headers.authorization && !req.headers['x-api-key'] && url.search === '' });
+      if (this.cleRefusee(req, res, url, { reponse: r ?? null })) return;
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
     if (url.pathname.startsWith('/api/runes/')) {

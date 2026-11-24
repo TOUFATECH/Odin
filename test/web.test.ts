@@ -47,7 +47,9 @@ test('interface web : jeton, hôte, en-tête anti-CSRF, discussion et validation
   const post = (text: string) => fetch(`${B}/api/message`, { method: 'POST', headers: { ...auth, 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify({ peer: 'principal', text }) });
   assert.equal((await post('lance true')).status, 202);
   const id = (await waitFor(/\/yes ([a-z0-9]+)/))![1];
-  await post(`/yes ${id}`);
+  // Depuis le 24/11, la clé d'accès parle mais ne valide pas : son « /yes » est refusé, celui de la session fait partir l'action.
+  assert.equal((await post(`/yes ${id}`)).status, 403, 'la clé ne répond pas à une validation');
+  assert.equal((await fetch(`${B}/api/message`, { method: 'POST', headers: { cookie: session, 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify({ text: `/yes ${id}` }) })).status, 202);
   await waitFor(/C'est fait\./);
   assert.match(buf, /"tool_start","name":"shell"/);
 

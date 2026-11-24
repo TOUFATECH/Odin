@@ -226,7 +226,8 @@ test('la garde ne laisse passer que cette route, en lecture ; un membre sans le 
   assert.equal((await v.json('/api/widgets/donnees', undefined, cle)).status, 401);
   for (const [action, input] of [['ouvrir_widget', { widget: W.cyclope, personne: 'membre-a', ouvert: 'oui' }], ['ouvertures_widget', { widget: W.cyclope }]] as const) {
     const k = await v.json('/api/valhalla/act', { module: 'gladsheim', action, input }, cle);
-    assert.equal(k.body.ok, false, JSON.stringify(k.body)); assert.equal(k.body.code, 'proprietaire');
+    // Depuis le 24/11, la clé d'accès lit et parle seulement : le refus vient plus tôt (403, « ce geste demande ta session »).
+    assert.equal(k.status, 403); assert.equal(k.body.ok, false, JSON.stringify(k.body)); assert.equal(k.body.code, 'session');
   }
   assert.equal((await widgets(a)).de(W.cyclope).raison, 'vie_privee', 'rien ouvert par la clé');
 });

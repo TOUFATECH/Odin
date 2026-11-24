@@ -110,7 +110,7 @@ Le certificat HTTPS est créé par Odin lui-même (aucun outil à installer) pou
 
 **Tu viens de la 1.5 ?** À la première ouverture après la mise à jour, Odin te demande seulement de créer ce compte. Tes notes, tes discussions et tes réglages sont gardés.
 
-Dans tous les modes, chaque appel exige ta session (navigateur) ou la clé d'API (programmes : raccourcis du téléphone, serveur MCP), et une adresse qui se trompe 10 fois en 10 minutes est bloquée 15 minutes. Le mot de passe n'est jamais gardé en clair, et après 5 erreurs chaque nouvel essai doit attendre. **Nouvelle clé d'API** (Réglages, ou `odin web rotate`) : les programmes qui utilisaient l'ancienne doivent être mis à jour.
+Dans tous les modes, chaque appel exige ta session (navigateur) ou la clé d'API (programmes : raccourcis du téléphone, serveur MCP), et une adresse qui se trompe 10 fois en 10 minutes est bloquée 15 minutes. La clé d'API **lit et parle seulement** : elle lit l'état d'Odin et lui envoie une phrase (`/api/ask`, `/api/message`) ; tout geste qui écrit (réglages, coffre, comptes, sauvegarde, restauration, exports, actions des applis) et toute réponse à une validation demandent ta session, et la clé reçoit « Ce geste demande ta session : ouvre Odin et connecte-toi. » (le serveur MCP garde son fonctionnement). Le mot de passe n'est jamais gardé en clair, et après 5 erreurs chaque nouvel essai doit attendre. **Nouvelle clé d'API** (Réglages, ou `odin web rotate`) : les programmes qui utilisaient l'ancienne doivent être mis à jour.
 
 ## Terminal
 
