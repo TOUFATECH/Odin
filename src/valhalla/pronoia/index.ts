@@ -86,7 +86,7 @@ export function pronoia(o: () => OptionsPronoia = () => ({})): Module {
   const prevoirA: Action = {
     id: 'prevoir', label: 'Prévoir maintenant',
     what: 'Estime ce qui va probablement arriver (rythmes de la maison, tendances, météo relayée) ; propose seulement',
-    words: ['pronoia prevois', 'qu est ce qui va arriver'],
+    words: ['pronoia prévois', 'pronoia prevois', 'qu est ce qui va arriver'],
     run(ctx) {
       const m = moteur(ctx);
       if (!m.actif) return { text: 'L\'anticipation est coupée : rien n\'est prévu.', data: { nombre: 0 } };

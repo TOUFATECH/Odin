@@ -232,6 +232,8 @@ test('appli Sphinx : démarrer, tester, bloquer, autoriser, listes, services, ap
     const view = await v.module('vidarr')!.view(v.ctx('vidarr'), new URLSearchParams());
     assert.ok(view.kpis!.some((k) => k.label === 'Requêtes (24 h)')); assert.ok(view.sections.some((s) => s.title === 'Journal (dernières requêtes)'));
     // Lien Vortex → Sphinx : un appareil du VPN qui passe par le DNS d'Odin.
+    // Depuis les lots R7 et R8, la configuration d'un appareil n'est rendue que si l'adresse de la maison est connue.
+    v.ctx('gjoll').saveSettings({ endpoint: '203.0.113.7' });
     const g = await v.act('gjoll', 'ajouter', { nom: 'Téléphone', tout: true, dns_odin: true });
     assert.match(g.text, /Il passe par le DNS d'Odin \(Sphinx\)/);
     assert.match((g.data as { conf: string }).conf, /DNS = 10\.8\.0\.1\n/, 'le téléphone résout par Odin, à travers le tunnel');

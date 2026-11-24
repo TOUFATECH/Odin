@@ -134,7 +134,7 @@ export function actionsOuvertures(fenetre: (ctx: ModCtx) => Layout, nomAppli: (c
       return { text: gens.length ? [`« ${titreDe(w)} » (${noms.join(', ')}) :`, ...gens.map((g) => `- ${g.name} : ${g.ouvert ? 'ouvert' : 'fermé'}${g.droit ? '' : ` (n'a pas le droit sur ${noms.join(', ')})`}`)].join('\n') : 'Personne d\'autre que toi n\'a de compte.', data: { widget: w.id, titre: titreDe(w), applis: applis.map((a, k) => ({ id: a, name: noms[k] })), personnes: gens } };
     },
   };
-  // « Qui a fait quoi » de Hestia : lisible par sa page (« Autres actions »), sans mots à elle (ceux de Sphinx et de
-  // Vortex gardent les leurs).
-  return [...avecJournal('gladsheim_actes', [ouvrir]), liste, { ...actionJournal('gladsheim_actes', 'Hestia'), words: [] }];
+  // « Qui a fait quoi » de Hestia : lisible par sa page (« Autres actions »). Ses mots nomment l'appli (« hestia qui a
+  // fait quoi ») : dits seuls, « qui a fait quoi » et « journal des changements » restent à Sphinx et à Vortex.
+  return [...avecJournal('gladsheim_actes', [ouvrir]), liste, { ...actionJournal('gladsheim_actes', 'Hestia'), words: ['hestia qui a fait quoi'] }];
 }
