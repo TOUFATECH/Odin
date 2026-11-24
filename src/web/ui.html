@@ -3563,7 +3563,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   let palAvant = null;
   function palOpen(o) {
     if (o && palette.hidden) palAvant = document.activeElement;
-    palette.hidden = !o; if (o) { palIn.value = ''; palSel = 0; palRender(); setTimeout(() => palIn.focus(), 0); return; }
+    palette.hidden = !o; if (o) { palIn.value = ''; palSel = 0; palRender(); palIn.focus(); setTimeout(() => palIn.focus(), 0); return; } // le focus tout de suite : un Échap tapé aussitôt ferme la barre (et pas le plein écran)
     const a = palAvant, ici = document.activeElement; palAvant = null;
     if (a && a !== document.body && a.isConnected && a.getClientRects().length && (!ici || ici === document.body || palette.contains(ici))) a.focus({ preventScroll: true });
   }
