@@ -64,6 +64,29 @@ export function graveOf(lineText: string): string | undefined {
   if (verb === 'service' && ['rm', 'stop'].includes(rest[0] ?? '')) return `${rest[0] === 'rm' ? 'supprimer' : 'arrêter'} le service ${rest[1] ?? ''} (le site ne répond plus)`;
   return undefined;
 }
+/**
+ * Les commandes de la discussion qui ne changent rien et ne montrent aucun secret (« ps », « images », « service ls ») :
+ * ouvertes comme la liste de la page. Tout le reste (stop, start, restart, rm, run, exec, pull, resize, scale, service…,
+ * mais aussi logs et inspect, qui montrent les variables) : au propriétaire seul, comme les gestes et la fiche de la page.
+ */
+export function lectureCommande(lineText: string): boolean {
+  let argv: string[]; try { argv = splitLine(lineText); } catch { return false; }
+  const [v, sub] = argv.map((x) => x.toLowerCase());
+  return ['ps', 'images', 'image'].includes(v ?? '') || (v === 'service' && (!sub || ['ls', 'ps'].includes(sub)));
+}
+/** La confirmation d'une commande : celle de graveOf, et « stop » demande la même que l'arrêt de la page. */
+export function graveCommande(lineText: string): string | undefined {
+  const g = graveOf(lineText); if (g) return g;
+  let argv: string[]; try { argv = splitLine(lineText); } catch { return undefined; }
+  if ((argv[0] ?? '').toLowerCase() !== 'stop') return undefined;
+  const noms = argv.slice(1).filter((x) => !x.startsWith('-') && !/^\d+$/.test(x)).join(', ');
+  return `arrêter le conteneur ${noms || '?'} (ce qu'il sert ne répond plus jusqu'à ce que tu le relances)`;
+}
+/**
+ * « Démarrer » sans le propriétaire : seulement un conteneur sorti tout seul (le soin), ou déjà en marche (rien ne change).
+ * Arrêté exprès, jamais démarré (« créé ») ou illisible : au propriétaire seul.
+ */
+function sortiToutSeul(n: unknown): boolean { try { return ['sorti', 'en marche', 'redémarre'].includes(engine().find(s(n).trim()).state.status); } catch { return false; } }
 const env = (t: string) => Object.fromEntries(t.split('\n').map((l) => l.trim()).filter((l) => /^[A-Za-z_]\w*=/.test(l)).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
 
 // Nouvelles versions des images (comme What's Up Docker) : le registre est interrogé toutes les 6 heures au plus.
@@ -84,10 +107,12 @@ export const naglfar: Module & { similaires: string[] } = {
   words: ['conteneur', 'conteneurs', 'docker', 'podman', 'image', 'images docker', 'hringhorni', 'moteur de conteneurs'],
   actions: [
     { id: 'lister', label: 'Lister les conteneurs', what: 'Tous les conteneurs et leur état', read: true, words: ['liste', 'lister', 'quels conteneurs'], run: async () => { const c = engine().ps(true); return { text: c.map(line).join('\n') || 'Aucun conteneur.', data: c.map((x) => ({ Names: x.spec.name, Image: x.spec.image, State: x.state.status === 'en marche' ? 'running' : 'exited', Status: x.state.status, Ports: x.spec.ports.map((p) => `${p.host}->${p.inner}`).join(', '), Labels: '' })) }; } },
-    { id: 'journaux', label: 'Journaux', what: 'Les 80 dernières lignes', read: true, params: [CT], words: ['journaux', 'logs'], run: async (_ctx, i) => ({ text: engine().logs(safe(i.conteneur), 80).map((l) => l.text).join('\n') || '(journal vide)' }) },
-    { id: 'demarrer', undo: (i) => ({ action: 'arreter', input: { conteneur: i.conteneur }, label: 'conteneur arrêté' }), label: 'Démarrer', what: 'Démarre un conteneur', params: [CT], words: ['demarre', 'démarre', 'lance le conteneur'], run: async (ctx, i) => { occupeParMaj(safe(i.conteneur)); const c = await engine().start(safe(i.conteneur)); ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), c.spec.name])] }); return { text: `▶ ${c.spec.name} démarré.` }; } },
+    { id: 'journaux', label: 'Journaux', what: 'Les 80 dernières lignes', read: true, params: [CT], words: ['journaux', 'logs'], run: async (_ctx, i) => { const c = engine().find(safe(i.conteneur)); return { text: masquer(engine().logs(c.spec.name, 80).map((l) => l.text).join('\n'), secretsDe(c.spec.env)) || '(journal vide)' }; } },
+    // Démarrer : ouvert seulement pour un conteneur sorti tout seul (le soin « relance un conteneur arrêté tout seul ») ;
+    // arrêté exprès, ou illisible : au propriétaire seul, comme le geste de la fiche.
+    { id: 'demarrer', proprietaireSeul: (i) => !sortiToutSeul(i.conteneur), undo: (i) => ({ action: 'arreter', input: { conteneur: i.conteneur }, label: 'conteneur arrêté' }), label: 'Démarrer', what: 'Démarre un conteneur', params: [CT], words: ['demarre', 'démarre', 'lance le conteneur'], run: async (ctx, i) => { occupeParMaj(safe(i.conteneur)); const c = await engine().start(safe(i.conteneur)); ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), c.spec.name])] }); return { text: `▶ ${c.spec.name} démarré.` }; } },
     { id: 'arreter', undo: (i) => ({ action: 'demarrer', input: { conteneur: i.conteneur }, label: 'conteneur relancé' }), label: 'Arrêter', what: 'Arrête un conteneur', params: [CT], words: ['arrete', 'arrête', 'stoppe'], run: async (ctx, i) => { occupeParMaj(safe(i.conteneur)); forget(ctx, safe(i.conteneur)); const c = await engine().stop(safe(i.conteneur)); return { text: `⏹ ${c.spec.name} arrêté.` }; } },
-    { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre un conteneur', params: [CT], words: ['redemarre', 'redémarre', 'relance'], run: async (_ctx, i) => { occupeParMaj(safe(i.conteneur)); const c = await engine().restart(safe(i.conteneur)); return { text: `🔄 ${c.spec.name} redémarré.` }; } },
+    { id: 'redemarrer', proprietaireSeul: true, label: 'Redémarrer', what: 'Redémarre un conteneur', params: [CT], words: ['redemarre', 'redémarre', 'relance'], run: async (_ctx, i) => { occupeParMaj(safe(i.conteneur)); const c = await engine().restart(safe(i.conteneur)); return { text: `🔄 ${c.spec.name} redémarré.` }; } },
     { id: 'lancer', label: 'Lancer une appli', what: 'Récupère l\'image si besoin, crée le conteneur et le démarre ; une appli qui a besoin d\'une base la reçoit dans la base d\'Odin', params: LANCER, grave: (i) => `lancer un conteneur à partir de ${s(i.image)}${(s(i.base) && !/selon/.test(s(i.base)) ? !/aucune/i.test(s(i.base)) : needsDb(s(i.image))) ? ' (avec sa base dans la base de données d\'Odin)' : ''}${s(i.dossiers).trim() ? `, avec accès à ces dossiers de ta machine : ${s(i.dossiers).trim()}` : ''}${s(i.ports).trim() ? `, ports ouverts : ${s(i.ports).trim()}` : ''}`, words: ['lance l\'image', 'installe le conteneur'], run: async (ctx, i) => {
       const image = safe(i.image), name = s(i.nom).trim() || undefined;
       const known = appPort(image), e = engine();
@@ -136,7 +161,7 @@ export const naglfar: Module & { similaires: string[] } = {
     } },
     { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur (ses dossiers partagés sont gardés)', params: [CT], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { occupeParMaj(safe(i.conteneur)); forget(ctx, safe(i.conteneur)); const sp = await engine().rm(safe(i.conteneur), true); return { text: `🗑 ${sp.name} supprimé (dossiers partagés conservés).` }; } },
     { id: 'images', label: 'Images', what: 'Les images présentes', read: true, words: ['quelles images'], run: () => { const l = engine().images(); return { text: l.map((x) => `- ${x.names.join(', ')} · ${(x.size / 1e6).toFixed(0)} Mo`).join('\n') || 'Aucune image.', data: l.map((x) => ({ names: x.names, id: x.id.slice(0, 12), size: x.size })) }; } },
-    { id: 'tirer', label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image', 'derniere version de l\'image'], run: async (_ctx, i) => { engine().pullJob(safe(i.image)); return { text: `⬇ Récupération de ${safe(i.image)} lancée : suis-la dans ${nomArche()}.` }; } },
+    { id: 'tirer', proprietaireSeul: true, label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image', 'derniere version de l\'image'], run: async (_ctx, i) => { engine().pullJob(safe(i.image)); return { text: `⬇ Récupération de ${safe(i.image)} lancée : suis-la dans ${nomArche()}.` }; } },
     { id: 'supprimer_image', label: 'Supprimer une image', what: 'Supprime une image qui ne sert plus', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], grave: (i) => `supprimer l'image ${s(i.image)}`, run: async (_ctx, i) => { const img = await engine().rmi(safe(i.image)); return { text: `🗑 Image ${img.names.join(', ')} supprimée.` }; } },
     { id: 'nettoyer', label: 'Nettoyer', what: 'Supprime les images qu\'aucun conteneur n\'utilise', grave: () => 'supprimer les images inutilisées', words: ['nettoie', 'place'], run: async () => {
       const e = engine(), used = new Set(e.ps(true).map((c) => c.spec.imageId)), out: string[] = [];
@@ -165,16 +190,17 @@ export const naglfar: Module & { similaires: string[] } = {
     { id: 'demarrer_service', label: 'Démarrer un service', what: 'Relance un service et ses copies', params: [{ key: 'service', label: 'Service', kind: 'text', required: true }], run: async (ctx, i) => { const st = await startService(engine() as Engine, safe(i.service)); ctx.saveSettings({ services: [...new Set([...((ctx.settings.services as string[]) ?? []), safe(i.service)])] }); return { text: `▶ ${safe(i.service)} : ${st.replicas.filter((r) => r.healthy).length} copie(s) prête(s).` }; } },
     { id: 'arreter_service', label: 'Arrêter un service', what: 'Laisse finir les visiteurs en cours puis arrête toutes les copies', params: [{ key: 'service', label: 'Service', kind: 'text', required: true }], grave: (i) => `arrêter le service ${s(i.service)} (le site ne répondra plus)`, run: async (ctx, i) => { ctx.saveSettings({ services: ((ctx.settings.services as string[]) ?? []).filter((x) => x !== safe(i.service)) }); await stopService(engine() as Engine, safe(i.service)); return { text: `⏹ ${safe(i.service)} arrêté.` }; } },
     { id: 'supprimer_service', label: 'Supprimer un service', what: 'Arrête et supprime un service (l\'image et les dossiers partagés restent)', params: [{ key: 'service', label: 'Service', kind: 'text', required: true }], grave: (i) => `supprimer le service ${s(i.service)}`, run: async (ctx, i) => { ctx.saveSettings({ services: ((ctx.settings.services as string[]) ?? []).filter((x) => x !== safe(i.service)) }); await removeService(engine() as Engine, safe(i.service)); return { text: `🗑 Service ${safe(i.service)} supprimé.` }; } },
-    { id: 'grandir', label: 'Grandir tout seul', what: 'Un conteneur seul (une base de données) reçoit plus de mémoire et de processeur quand il en a besoin, sans arrêt, entre deux bornes', quick: false, params: [CT, { key: 'memoire', label: 'Mémoire min-max (1g-8g)', kind: 'text', default: '1g-8g' }, { key: 'coeurs', label: 'Cœurs min-max (1-4)', kind: 'text', default: '1-4' }],
+    { id: 'grandir', proprietaireSeul: true, label: 'Grandir tout seul', what: 'Un conteneur seul (une base de données) reçoit plus de mémoire et de processeur quand il en a besoin, sans arrêt, entre deux bornes', quick: false, params: [CT, { key: 'memoire', label: 'Mémoire min-max (1g-8g)', kind: 'text', default: '1g-8g' }, { key: 'coeurs', label: 'Cœurs min-max (1-4)', kind: 'text', default: '1-4' }],
       run: async (_ctx, i) => { occupeParMaj(safe(i.conteneur)); const c = await engine().resize(safe(i.conteneur), { grow: `${s(i.memoire) || '1g-8g'}/${s(i.coeurs) || '1-4'}` }); return { text: `🌱 ${c.spec.name} grandit tout seul : mémoire ${s(i.memoire) || '1g-8g'}, cœurs ${s(i.coeurs) || '1-4'} (aujourd'hui ${c.spec.memory} · ${c.spec.cpus} cœurs).` }; } },
-    { id: 'commande', label: 'Commande', what: 'Une commande comme dans un terminal : run, ps, stop, start, restart, rm, logs, exec, pull, images, rmi, inspect', quick: false, params: [{ key: 'ligne', label: 'Commande (ex. run -d -p 8080:80 nginx)', kind: 'text', required: true }], grave: (i) => graveOf(s(i.ligne)), external: true, run: async (ctx, i) => {
+    { id: 'commande', label: 'Commande', what: 'Une commande comme dans un terminal : run, ps, stop, start, restart, rm, logs, exec, pull, images, rmi, inspect', quick: false, params: [{ key: 'ligne', label: 'Commande (ex. run -d -p 8080:80 nginx)', kind: 'text', required: true }], proprietaireSeul: (i) => !lectureCommande(s(i.ligne)), grave: (i) => graveCommande(s(i.ligne)), external: true, run: async (ctx, i) => {
       const argv = splitLine(s(i.ligne)); if (!VERBS.includes((argv[0] ?? '').toLowerCase())) throw new Error(`commande inconnue : ${argv[0] ?? ''} (${VERBS.join(', ')})`);
       argv[0] = argv[0].toLowerCase();
       // (un conteneur en pleine mise à jour, ou l'ancien mis de côté : aucune commande sur lui tant qu'elle n'est pas finie)
       if (!['ps', 'images', 'image', 'logs', 'log', 'inspect'].includes(argv[0])) for (const x of argv.slice(1)) occupeParMaj(x);
       const out: string[] = []; const code = await cli(argv, { out: (t) => out.push(t), err: (t) => out.push(t), interactive: false }, engine() as Engine);
       if (argv[0] === 'stop' || argv[0] === 'rm') for (const n of argv.slice(1).filter((x) => !x.startsWith('-'))) forget(ctx, n);
-      return { text: out.join('\n').slice(-8000) || '✓', ok: code === 0 };
+      let secrets: string[] = []; try { secrets = engine().ps(true).flatMap((c) => secretsDe(c.spec.env)); } catch { /* moteur illisible : le masque général reste */ }
+      return { text: masquer(out.join('\n'), secrets).slice(-8000) || '✓', ok: code === 0 };
     } },
   ],
   async view(ctx) {
@@ -204,14 +230,14 @@ export const naglfar: Module & { similaires: string[] } = {
           actions: [st.status === 'arrêté' ? { action: 'demarrer_service', label: 'Démarrer', input: { service: sp.name } } : { action: 'arreter_service', label: 'Arrêter', input: { service: sp.name } }, { action: 'regler_service', label: 'Régler', input: { service: sp.name } }, { action: 'supprimer_service', label: 'Supprimer', input: { service: sp.name } }] }; }) },
           ...svcs.filter(({ state: st }) => st.history.length > 2).slice(0, 2).map(({ spec: sp, state: st }) => { const h = st.history.slice(-60); return { kind: 'courbe' as const, title: `${sp.name} · copies et visiteurs`, labels: h.map((x) => x.at.slice(11, 16)), series: [{ name: 'visiteurs en cours', tone: 'neutre' as const, points: h.map((x) => x.active) }, { name: 'copies × 10', tone: 'bon' as const, points: h.map((x) => x.copies * 10) }] }; })] : []),
         // Une appli qui a sa base dans la base d'Odin : un bouton l'ouvre dans Alexandrie Studio.
-        { kind: 'cards', title: 'Conteneurs', empty: err || 'Aucun conteneur : « Lancer une appli », ou dans la discussion « run -d -p 8080:80 » suivi du nom de l\'image.', items: cts.map((c) => ({
+        { kind: 'cards', title: 'Conteneurs', empty: err || 'Aucun conteneur : « Lancer une appli », ou dans la discussion « run -d -p 8080:80 » suivi du nom de l\'image.', items: [...cts.map((c) => ({
           title: c.spec.name, sub: `${c.spec.labels['odin.service'] ? `copie de ${c.spec.labels['odin.service']} · ` : ''}${c.spec.labels['odin.grandir'] ? `grandit tout seul (${c.spec.memory} · ${c.spec.cpus} cœurs) · ` : ''}${c.spec.image}${c.state.ip ? ` · ${c.state.ip}` : ''}${c.spec.ports.length ? ` · ${c.spec.ports.map((p) => `${p.host}→${p.inner}`).join(', ')}` : ''}`,
           badge: c.state.status, tone: c.state.status === 'en marche' ? 'bon' as const : c.state.status === 'redémarre' ? 'attention' as const : 'neutre' as const,
           actions: [c.state.status === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: { conteneur: c.spec.name } } : { action: 'demarrer', label: 'Démarrer', input: { conteneur: c.spec.name } }, { action: 'journaux', label: 'Journal', input: { conteneur: c.spec.name } }, { action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: c.spec.name } }, { action: 'supprimer', label: 'Supprimer', input: { conteneur: c.spec.name } }, ...(() => { const b = pgBases.find((x) => x.nom === c.spec.name || x.utilisateur === roleOf(c.spec.name)); return b ? [{ action: 'ouvrir', label: 'Sa base (Alexandrie)', input: { base: b.id }, module: 'urdr' }] : []; })()],
-        })) },
+        })), ...(err ? [] : cartesPiles())] },
         { kind: 'table', title: 'Nouvelles versions', columns: ['Image', 'Conteneurs', 'État'], empty: 'Pas encore vérifié : « Nouvelles versions des images » (fait aussi toutes les 6 heures).', rows: versionsDe(ctx).map((v) => ({ cells: [v.image, v.conteneurs.join(', '), v.erreur ? `pas vérifiée : ${v.erreur}` : v.nouvelle ? 'nouvelle version' : 'à jour'], ...(v.nouvelle ? { tone: 'attention' as const, actions: [{ action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: v.conteneurs[0] } }] } : {}) })) },
         { kind: 'table', title: 'Images', columns: ['Image', 'Identifiant', 'Taille'], empty: 'Aucune image.', rows: imgs.flatMap((i) => i.names.map((n) => ({ cells: [n, i.id.slice(0, 12), `${(i.size / 1e6).toFixed(0)} Mo`] }))) },
-        { kind: 'text', title: 'Dans la discussion aussi', text: 'Écris directement : run -d --name web -p 8080:80 <image> · ps · logs web · stop web · start web · exec web ls / · pull <image> · images · rm web. Lancer, supprimer et exec demandent ton accord.' },
+        { kind: 'text', title: 'Dans la discussion aussi', text: 'Écris directement : run -d --name web -p 8080:80 <image> · ps · logs web · stop web · start web · exec web ls / · pull <image> · images · rm web. Lancer, arrêter, supprimer et exec demandent ton accord ; tout ce qui change quelque chose (et logs, inspect) est réservé au propriétaire.' },
       ],
       side: [{ kind: 'form', title: 'Lancer une appli', action: 'lancer', submit: 'Lancer', params: LANCER.slice(0, 4) }],
     };
@@ -1262,4 +1288,234 @@ naglfar.actions.push(...avecJournal('naglfar_actes', actionsK5));
 {
   const avant = naglfar.watch!.run;
   naglfar.watch!.run = async (ctx) => { await avant(ctx); await reprendreMajs(ctx).catch(() => undefined); await mesurerVolumes(ctx).catch(() => undefined); };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Lot K7 (même maquette) : par la parole. Une phrase va à la bonne action d'Arche, avec le bon conteneur, la bonne
+// pile ou la bonne appli du catalogue, en français et dans les langues que Logos comprend déjà (anglais, espagnol,
+// allemand, japonais) :
+//   - « lance le serveur de jeux », « démarre wiki » → `demarrer_dit` (le geste de la page : un conteneur, ou une pile
+//     dans l'ordre de ses dépendances) ;
+//   - « arrête wiki » → `arreter` (même identifiant qu'avant : les essais et le banc l'attendent), désormais au
+//     propriétaire seul, avec la confirmation de la page (« ce qu'il sert ne répond plus… ») ; une pile aussi ;
+//   - « déploie une galerie de photos » → `deployer_<appli>` : une action par appli du catalogue (un réglage en liste
+//     serait deviné par Logos sur un seul mot : « déploie le serveur » ne doit jamais donner « Serveur de médias ») ;
+//   - « où en est wiki » → `etat_dit` ; « combien prennent mes conteneurs » → `etat_ressources` (lectures : une
+//     question ne prend qu'une lecture) ;
+//   - « mets à jour wiki » → `mettre_a_jour_dit` : Odin PROPOSE (catalogue d'Odin, ou image plus récente sous la même
+//     étiquette) et la confirmation habituelle de K5 part avec ; sans proposition, rien ne change et c'est dit.
+// Un nom dit est RELU contre la liste réelle (`relireNom`) : le nom exact (tirets et espaces mêlés), un identifiant
+// complet, ou le nom dit en entier dans la phrase (« le serveur de jeux » → la pile « jeux ») ; deux qui conviennent, ou
+// seulement un morceau de nom (« wiki » pour « wiki-app ») : Odin demande lequel, et rien ne part. Gestes au
+// propriétaire seul et notés (« qui a fait quoi ») ; lectures ouvertes.
+// Pour que Logos reconnaisse une pile dans la phrase, ses noms sont rangés dans la section « Conteneurs » de la vue (la
+// page de K1 ne la montre pas) : « pile <nom> » toujours, le nom à tirets, et le nom dit avec des espaces seulement s'il
+// a plusieurs mots et n'est pas une appli du catalogue — un nom d'un seul mot (« jeux », « photos ») ferait prendre à
+// Arche des phrases qui ne sont pas pour elle (« mes jeux », « montre mes photos »).
+// ---------------------------------------------------------------------------------------------------------------
+export const TEXTES_K7_ARCHE = {
+  sansNom: 'Dis le nom du conteneur ou de la pile.',
+  inconnu: 'Je ne connais pas « {dit} » dans {appli}{liste}. Rien n\'est fait : redis-le avec son nom.',
+  proche: 'Je ne connais pas « {dit} » tel quel. Tu parles de {choix} ? Rien n\'est fait : redis-le avec son nom exact.',
+  plusieurs: 'Plusieurs noms conviennent pour « {dit} » : {choix}. Lequel ? Rien n\'est fait.',
+  rienAProposer: 'Rien à proposer pour {nom} : {raison} Rien n\'est changé.',
+  rienPile: 'le catalogue d\'Odin n\'a pas d\'autre version pour cette pile.',
+  rienConteneur: 'Odin ne connaît pas d\'autre version de son image (il ne cherche pas les versions sur Internet). Dans {appli} → Mises à jour, tu peux écrire la version voulue.',
+};
+type Sorte = 'conteneur' | 'pile';
+interface Nomme { sorte: Sorte; nom: string }
+type Relu = { ok: true; x: Nomme } | { ok: false; texte: string; lu: boolean };
+/** Un nom tel qu'on le dit : minuscules, sans accents, tirets et points comme des espaces. */
+export const formeDite = (x: string): string => x.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`]/g, '\'')
+  .replace(/[-_.]+/g, ' ').replace(/[«»"“”?!,;:()]+/g, ' ').replace(/\s+/g, ' ').trim();
+/** Les petits mots devant un nom, dans les langues que Logos comprend (« le », « the », « el », « der »…). */
+const PETITS_K7 = new Set(['le', 'la', 'les', 'l\'', 'un', 'une', 'du', 'de', 'des', 'd\'', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'notre', 'the', 'my', 'a', 'an', 'our', 'el', 'los', 'las', 'mi', 'mis', 'una', 'der', 'die', 'das', 'den', 'dem', 'mein', 'meine', 'meinen', 'meinem']);
+const GENRE_PILE = new Set(['pile', 'piles', 'stack', 'pila']);
+const GENRE_CT = new Set(['conteneur', 'conteneurs', 'container', 'containers', 'contenedor', 'contenedores', 'コンテナ']);
+const ouListe = (l: string[]) => (l.length <= 1 ? l.join('') : `${l.slice(0, -1).join(', ')} ou ${l.at(-1)}`);
+const ditNom = (x: Nomme) => (x.sorte === 'pile' ? `la pile ${x.nom}` : x.nom);
+/**
+ * Relit un nom dit contre la liste RÉELLE des conteneurs (sauf les anciennes versions gardées par une mise à jour) et des
+ * piles. Jamais deviné à moitié : un seul qui convient, ou une question (et rien ne part). Pur, sauf la lecture du moteur.
+ */
+export function relireNom(dit: unknown, sortes: Sorte[] = ['conteneur', 'pile']): Relu {
+  let d = formeDite(s(dit).slice(0, 200)), voulue: Sorte | undefined;
+  // les petits mots et le genre dit devant (« la pile jeux », « le conteneur web », « the container web »)
+  for (let k = 0; k < 6; k++) {
+    const m = /^(\S+)\s+(.+)$/.exec(d); if (!m) break;
+    if (PETITS_K7.has(m[1])) { d = m[2]; continue; }
+    if (GENRE_PILE.has(m[1])) { voulue = 'pile'; d = m[2]; continue; }
+    if (GENRE_CT.has(m[1])) { voulue = 'conteneur'; d = m[2]; continue; }
+    break;
+  }
+  d = d.replace(/^(?:l|d)'/, '').trim();
+  if (!d || GENRE_PILE.has(d) || GENRE_CT.has(d)) return { ok: false, texte: TEXTES_K7_ARCHE.sansNom, lu: true };
+  let lu = true; const tous: Array<Nomme & { f: string }> = [];
+  try { for (const c of engine().ps(true)) if (!estGare(c)) tous.push({ sorte: 'conteneur', nom: c.spec.name, f: formeDite(c.spec.name) }); } catch { lu = false; }
+  try { for (const p of piles(k3())) tous.push({ sorte: 'pile', nom: p.nom, f: formeDite(p.nom) }); } catch { /* un moteur sans piles */ }
+  const l = tous.filter((c) => c.f && sortes.includes(c.sorte) && (!voulue || c.sorte === voulue)).sort((a, b) => a.nom.localeCompare(b.nom));
+  const un = (x: Nomme): Relu => ({ ok: true, x: { sorte: x.sorte, nom: x.nom } });
+  const plusieurs = (xs: Nomme[]): Relu => ({ ok: false, lu, texte: remplir(TEXTES_K7_ARCHE.plusieurs, { dit: d.slice(0, 60), choix: ouListe(xs.slice(0, 6).map(ditNom)) }) });
+  // 1. le nom exact (au tiret et à la majuscule près)
+  const exacts = l.filter((c) => c.f === d);
+  if (exacts.length === 1) return un(exacts[0]);
+  if (exacts.length > 1) return plusieurs(exacts);
+  // 2. un identifiant de conteneur complet (12 signes au moins)
+  if (/^[0-9a-f]{12,64}$/.test(d) && sortes.includes('conteneur') && voulue !== 'pile') {
+    try { const ids = engine().ps(true).filter((c) => !estGare(c) && c.id.startsWith(d)); if (ids.length === 1) return un({ sorte: 'conteneur', nom: ids[0].spec.name }); } catch { /* moteur illisible */ }
+  }
+  // 3. le nom dit en entier dans une phrase plus longue (« serveur de jeux » → la pile « jeux ») ; deux : lequel
+  const dans = l.filter((c) => ` ${d} `.includes(` ${c.f} `));
+  const plusLongs = dans.filter((c) => !dans.some((o) => o !== c && o.f.length > c.f.length && ` ${o.f} `.includes(` ${c.f} `)));
+  if (plusLongs.length === 1) return un(plusLongs[0]);
+  if (plusLongs.length > 1) return plusieurs(plusLongs);
+  // 4. seulement un morceau d'un nom (« wiki » pour « wiki-app ») : jamais deviné, Odin demande
+  const proches = l.filter((c) => ` ${c.f} `.includes(` ${d} `) || (d.length >= 3 && c.f.startsWith(d)));
+  if (proches.length) return { ok: false, lu, texte: remplir(TEXTES_K7_ARCHE.proche, { dit: d.slice(0, 60), choix: ouListe(proches.slice(0, 6).map(ditNom)) }) };
+  const connus = l.slice(0, 8).map(ditNom);
+  return { ok: false, lu, texte: remplir(TEXTES_K7_ARCHE.inconnu, { dit: d.slice(0, 60), appli: nomArche(), liste: connus.length ? ` (${connus.join(', ')})` : '' }) };
+}
+/** Les noms d'une pile que Logos peut reconnaître dans une phrase (voir plus haut : jamais un mot courant seul). */
+export function nomsDitsPile(nom: string): { titre: string; noms: string[] } {
+  const dite = formeDite(nom), catalogue = CATALOGUE.some((e) => formeDite(e.id) === dite);
+  return { titre: `pile ${dite}`, noms: [...(nom.includes('-') ? [nom] : []), ...(dite.includes(' ') && !catalogue ? [dite] : [])] };
+}
+/** Les piles, dans la section « Conteneurs » de la vue (cachée sur la page de K1) : de quoi les nommer dans une phrase. */
+function cartesPiles(): Array<{ title: string; sub: string; badge: string; tone: 'bon' | 'neutre' | 'attention'; actions: Array<{ action: string; label: string; input: Record<string, unknown> }> }> {
+  if (!moteurIci()) return [];
+  try {
+    const e = k3(), tous = e.ps(true);
+    return piles(e).map((p) => {
+      const on = p.services.filter((x) => tous.some((c) => c.spec.name === x.conteneur && c.state.status === 'en marche')).length, n = nomsDitsPile(p.nom), tout = on > 0 && on === p.services.length;
+      return {
+        title: n.titre, sub: `Pile · ${p.ordre.join(', puis ')}`, badge: tout ? 'en marche' : on ? 'en partie' : 'arrêtée', tone: tout ? 'bon' as const : on ? 'attention' as const : 'neutre' as const,
+        actions: [on ? { action: 'arreter', label: 'Arrêter', input: { conteneur: n.titre } } : { action: 'demarrer_dit', label: 'Démarrer', input: { conteneur: n.titre } }, ...n.noms.map((x) => ({ action: 'etat_dit', label: 'Où en est', input: { conteneur: x } }))],
+      };
+    });
+  } catch { return []; }
+}
+/** Les actions des lots d'avant, telles quelles (sans leur ligne de « qui a fait quoi » : celle de K7 suffit). */
+const brute = (l: Action[], id: string): Action => { const a = l.find((x) => x.id === id); if (!a) throw new Error(`action ${id} absente`); return a; };
+/** Les mots de la parole, dans les langues que Logos comprend (le français d'abord). */
+const MOTS_K7 = {
+  demarrer: ['lance', 'lancer', 'démarre', 'démarrer', 'start', 'launch', 'arranca', 'inicia', 'lanza', 'starte', 'starten', '起動して', 'を起動'],
+  arreter: ['stop', 'detén', 'deten', 'detener', 'para el contenedor', 'para la pila', 'stoppe', 'stoppen', 'halte', '停止して', 'を停止', '止めて'],
+  etat: ['où en est', 'status', 'status of', 'estado', 'estado de', 'status von', '状態', 'の状態'],
+  majs: ['mets', 'mettre à jour', 'mets à jour le conteneur', 'update', 'upgrade', 'actualiza', 'aktualisiere', 'を更新', '更新して'],
+  ressources: ['combien prennent', 'combien prennent mes conteneurs', 'combien consomment mes conteneurs', 'ce que prennent mes conteneurs', 'how much do my containers use', 'how much are my containers using', 'cuánto ocupan mis contenedores', 'cuánto consumen mis contenedores', 'wie viel brauchen meine container', 'wie viel verbrauchen meine container', 'コンテナの使用量'],
+};
+/** Les verbes de « déployer », par langue, et le nom de chaque appli du catalogue tel qu'on le dit. */
+const DEPLOYER_K7: Record<string, string[]> = { fr: ['déploie', 'installe'], en: ['deploy', 'install'], es: ['despliega', 'instala'], de: ['installiere'], ja: ['デプロイ', 'インストール'] };
+const NOMS_CATALOGUE_K7: Record<string, Record<string, string[]>> = {
+  photos: { fr: ['galerie de photos', 'galerie photos'], en: ['photo gallery'], es: ['galería de fotos'], de: ['fotogalerie'], ja: ['フォトギャラリー'] },
+  medias: { fr: ['serveur de médias', 'serveur multimédia'], en: ['media server'], es: ['servidor multimedia'], de: ['medienserver'], ja: ['メディアサーバー'] },
+  musique: { fr: ['bibliothèque musicale', 'serveur de musique'], en: ['music library', 'music server'], es: ['biblioteca musical'], de: ['musikbibliothek'], ja: ['音楽ライブラリ'] },
+  'livres-audio': { fr: ['livres audio et podcasts', 'serveur de livres audio'], en: ['audiobooks and podcasts', 'audiobook server'], es: ['audiolibros y podcasts'], de: ['hörbücher und podcasts'], ja: ['オーディオブック'] },
+  notes: { fr: ['bloc-notes'], en: ['notepad', 'notes app'], es: ['bloc de notas'], de: ['notizblock'], ja: ['メモ帳'] },
+  flux: { fr: ['lecteur de flux', 'lecteur rss'], en: ['feed reader', 'rss reader'], es: ['lector de feeds', 'lector rss'], de: ['feedreader', 'rss-reader'], ja: ['フィードリーダー'] },
+  accueil: { fr: ['page d\'accueil de la maison'], en: ['home start page'], es: ['página de inicio de la casa'], de: ['startseite fürs haus'], ja: ['スタートページ'] },
+  surveillance: { fr: ['surveillance des sites'], en: ['uptime monitor', 'site monitoring'], es: ['monitor de sitios'], de: ['seitenüberwachung'], ja: ['死活監視'] },
+  pdf: { fr: ['outils pdf'], en: ['pdf tools'], es: ['herramientas pdf'], de: ['pdf-werkzeuge'], ja: ['PDFツール'] },
+  site: { fr: ['site web simple'], en: ['simple website'], es: ['sitio web sencillo'], de: ['einfache webseite'], ja: ['シンプルなウェブサイト'] },
+};
+/** Les mots d'une appli du catalogue : son nom dit, et « verbe + nom » (pour que la phrase entière soit expliquée). */
+export function motsDeploiement(id: string): string[] {
+  const out: string[] = [];
+  for (const [langue, l] of Object.entries(NOMS_CATALOGUE_K7[id] ?? {})) for (const n of l) { out.push(n); for (const v of DEPLOYER_K7[langue] ?? []) out.push(langue === 'ja' ? `${n}を${v}` : `${v} ${n}`); }
+  return [...new Set(out)];
+}
+const CT_DIT: Param = { key: 'conteneur', label: 'Conteneur ou pile (son nom)', kind: 'text', required: true };
+/** Ce qu'Odin peut proposer pour un conteneur ou une pile (jamais une version inventée) ; rien : pourquoi. */
+function propositionDite(ctx: ModCtx | undefined, x: Nomme): { pile: string } | { conteneur: string } | { rien: string } {
+  const e = k5(), pileDe = x.sorte === 'pile' ? x.nom : e.find(x.nom).spec.labels['odin.pile'] || undefined;
+  if (pileDe) { const p = pile(e, pileDe); if (p && propositionsCatalogue([p], CATALOGUE).length) return { pile: pileDe }; }
+  if (x.sorte === 'pile') return { rien: TEXTES_K7_ARCHE.rienPile };
+  if (ctx && versionsDe(ctx).some((y) => y.nouvelle && !y.erreur && y.conteneurs.includes(x.nom))) return { conteneur: x.nom };
+  return { rien: remplir(TEXTES_K7_ARCHE.rienConteneur, { appli: nomArche() }) };
+}
+const actionsK7: Action[] = [
+  { id: 'demarrer_dit', label: 'Lancer un conteneur ou une pile', what: 'Démarre le conteneur ou la pile dont tu dis le nom (relu contre la liste ; deux noms proches : Odin demande lequel)', quick: false, proprietaireSeul: true, params: [CT_DIT], words: MOTS_K7.demarrer,
+    run: async (ctx, i) => {
+      exigerMoteur(); const r = relireNom(i.conteneur); if (!r.ok) return { ok: false, text: r.texte };
+      return r.x.sorte === 'pile' ? brute(actionsK3, 'demarrer_pile').run(ctx, { pile: r.x.nom }) : brute(actionsK1, 'geste_fiche').run(ctx, { conteneur: r.x.nom, geste: 'demarrer' });
+    } },
+  { id: 'etat_dit', label: 'Où en est un conteneur ou une pile', what: 'L\'état d\'un conteneur ou d\'une pile dont tu dis le nom : en marche ou non, depuis quand, mémoire, ports, dernière erreur', read: true, quiet: true, quick: false, params: [CT_DIT], words: MOTS_K7.etat,
+    run: (ctx, i) => {
+      exigerMoteur(); const r = relireNom(i.conteneur); if (!r.ok) return { ok: false, text: r.texte };
+      if (r.x.sorte === 'pile') {
+        const p = ((pilesArche() as { piles?: Array<{ nom: string; etat: string; enMarche: number; total: number; services: Array<{ conteneur: string; etat: string }> }> }).piles ?? []).find((y) => y.nom === r.x.nom);
+        if (!p) return { ok: false, text: `pile inconnue : ${r.x.nom}` };
+        return { text: `Pile ${p.nom} · ${p.etat} (${p.enMarche}/${p.total} en marche) : ${p.services.map((y) => `${y.conteneur} ${y.etat}`).join(', ')}`, data: { sorte: 'pile', ...p } };
+      }
+      const f = ficheArche(ctx, r.x.nom) as { nom: string; image: string; etat: string; enMarche: boolean; depuis?: string; finiLe?: string; erreur?: string; relances: number; ports: Array<{ hote: number; dedans: number }>; memoire?: number; limiteMemoire?: string; majDispo: boolean };
+      const quand = f.enMarche ? f.depuis : f.finiLe, heure = quand ? new Date(quand).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+      const t = [`${f.nom} · ${f.etat}${heure ? ` depuis le ${heure}` : ''}`, f.image,
+        f.memoire !== undefined ? `mémoire ${memoireTexte(f.memoire)}${f.limiteMemoire ? ` (limite ${f.limiteMemoire})` : ''}` : '',
+        f.ports.length ? `ports ${f.ports.map((p) => `${p.hote}→${p.dedans}`).join(', ')}` : '', f.relances ? `${f.relances} relance(s)` : '',
+        f.erreur ? `dernière erreur : ${f.erreur}` : '', f.majDispo ? 'une nouvelle version est connue (« mets à jour » pour la proposer)' : ''].filter(Boolean).join(' · ');
+      return { text: t, data: { sorte: 'conteneur', ...f } };
+    } },
+  { id: 'etat_ressources', label: 'Ce que prennent les conteneurs', what: 'Le total de tous les conteneurs (processeur, mémoire, disque) et ceux qui prennent le plus', read: true, quiet: true, quick: false, words: MOTS_K7.ressources,
+    run: async (ctx) => {
+      const d = await limitesArche(ctx) as { moteur: boolean; raison?: string; avenir?: string; total?: { cpu?: number; coeurs: number; memoire: number; limites: number; memoireMachine: number; disque: { conteneurs: number; images: number; volumes: number; copies: number } }; conteneurs: Array<{ nom: string; enMarche: boolean; memoire: number }> };
+      if (!d.moteur || !d.total) return { text: `${d.raison} ${d.avenir}`, data: d };
+      const on = d.conteneurs.filter((c) => c.enMarche), gros = [...on].sort((a, b) => b.memoire - a.memoire).slice(0, 3).filter((c) => c.memoire > 0), t = d.total;
+      return { text: [`${on.length} en marche sur ${d.conteneurs.length}`, t.cpu !== undefined ? `processeur ${t.cpu.toLocaleString('fr-FR')} % (${t.coeurs} cœurs)` : '', `mémoire ${memoireTexte(t.memoire)} utilisés (limites additionnées ${memoireTexte(t.limites)} sur ${memoireTexte(t.memoireMachine)})`,
+        `disque ${octetsTexte(t.disque.conteneurs)} (images ${octetsTexte(t.disque.images)}, volumes ${octetsTexte(t.disque.volumes)}, copies ${octetsTexte(t.disque.copies)})`,
+        gros.length ? `le plus gros : ${gros.map((c) => `${c.nom} ${memoireTexte(c.memoire)}`).join(', ')}` : ''].filter(Boolean).join(' · '), data: d };
+    } },
+  { id: 'mettre_a_jour_dit', label: 'Proposer une mise à jour', what: 'Odin propose la mise à jour qu\'il connaît pour un conteneur ou une pile (catalogue d\'Odin, ou image plus récente sous la même étiquette), avec la confirmation habituelle ; jamais sans', quick: false, proprietaireSeul: true, params: [CT_DIT], words: MOTS_K7.majs,
+    grave: (i, ctx) => {
+      if (!moteurIci()) return undefined;
+      try {
+        const r = relireNom(i.conteneur); if (!r.ok) return undefined;
+        // (sans ses réglages, la proposition du registre ne se lit pas : la confirmation quand même, jamais un geste sans elle)
+        if (!ctx) return `mettre à jour ${ditNom(r.x)} si Odin connaît une autre version (avec copie de ses volumes avant, et retour tout seul si elle ne tient pas)`;
+        const p = propositionDite(ctx, r.x);
+        if ('pile' in p) return brute(actionsK5, 'mettre_a_jour_pile').grave!({ pile: p.pile, versions: '' }, ctx);
+        if ('conteneur' in p) return confirmer(() => planConteneur(p.conteneur, undefined), `recréer ${p.conteneur} avec la nouvelle image (avec copie de ses volumes avant, et retour tout seul s'il ne tient pas)`);
+      } catch { /* rien à proposer : la réponse le dira */ }
+      return undefined;
+    },
+    run: async (ctx, i) => {
+      exigerMoteur(); const r = relireNom(i.conteneur); if (!r.ok) return { ok: false, text: r.texte };
+      const p = propositionDite(ctx, r.x);
+      if ('pile' in p) return brute(actionsK5, 'mettre_a_jour_pile').run(ctx, { pile: p.pile, versions: '' });
+      if ('conteneur' in p) { const plan = planConteneur(p.conteneur, undefined); const x = lancerMaj(ctx, plan); return { text: texteLance(plan), data: { ...x, conteneur: p.conteneur } }; }
+      return { ok: false, text: remplir(TEXTES_K7_ARCHE.rienAProposer, { nom: ditNom(r.x), raison: p.rien }) };
+    } },
+  // Une action par appli du catalogue : « déploie une galerie de photos » se dit sans réglage à deviner.
+  ...CATALOGUE.map((c): Action => ({
+    id: `deployer_${c.id.replace(/-/g, '_')}`, label: `Déployer : ${c.nom}`, what: `Déploie « ${c.nom} » du catalogue d'Odin en un geste, avec la confirmation du catalogue`, quick: false, proprietaireSeul: true, words: motsDeploiement(c.id),
+    grave: (_i, ctx) => brute(actionsK4, 'deployer_catalogue').grave!({ app: c.id }, ctx),
+    run: (ctx) => brute(actionsK4, 'deployer_catalogue').run(ctx, { app: c.id }),
+  })),
+];
+{
+  const l = avecJournal('naglfar_actes', actionsK7), maj = l.find((a) => a.id === 'mettre_a_jour_dit')!;
+  naglfar.actions.push(...l.filter((a) => a !== maj));
+  // « mets à jour wiki » : juste avant l'ancien « Mettre à jour » (même étiquette), car à égalité Logos garde la première
+  // action, celle qui PROPOSE. (« mets à jour » tout seul n'est pas un mot d'Arche : il peut viser des logiciels, des
+  // signatures, un site… — une demande du banc de Soul le garde ambigu.)
+  naglfar.actions.splice(naglfar.actions.findIndex((a) => a.id === 'mettre_a_jour'), 0, maj);
+}
+// « Arrêter » (même identifiant : la discussion, les essais et le banc l'attendent) devient le geste de la page : au
+// propriétaire seul, avec la même confirmation, noté ; le nom est relu (un conteneur exact, sinon une pile).
+// (« Démarrer » reste ouvert : le lien « relance un conteneur arrêté tout seul » l'appelle sans le propriétaire.)
+{
+  const k = naglfar.actions.findIndex((a) => a.id === 'arreter'), avant = naglfar.actions[k];
+  const arreter: Action = { ...avant, what: 'Arrête un conteneur ou une pile (ce qu\'il sert ne répond plus jusqu\'à ce que tu le relances)', proprietaireSeul: true,
+    words: [...new Set([...(avant.words ?? []), ...MOTS_K7.arreter])],
+    grave: (i) => {
+      const r = relireNom(i.conteneur);
+      if (r.ok) return r.x.sorte === 'pile' ? brute(actionsK3, 'arreter_pile').grave!({ pile: r.x.nom }) : brute(actionsK1, 'geste_fiche').grave!({ conteneur: r.x.nom, geste: 'arreter' });
+      // (la liste illisible : la confirmation quand même ; un nom qui ne convient pas : rien ne partira, la réponse le dit)
+      return r.lu ? undefined : `arrêter ${s(i.conteneur).trim().slice(0, 80)}`;
+    },
+    run: async (ctx, i) => {
+      const r = relireNom(i.conteneur); if (!r.ok) return { ok: false, text: r.texte };
+      if (r.x.sorte === 'pile') return brute(actionsK3, 'arreter_pile').run(ctx, { pile: r.x.nom });
+      const n = r.x.nom; occupeParMaj(n); forget(ctx, n); const c = await engine().stop(n); return { text: `⏹ ${c.spec.name} arrêté.` };
+    } };
+  naglfar.actions.splice(k, 1, ...avecJournal('naglfar_actes', [arreter]));
 }
