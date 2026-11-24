@@ -34,6 +34,7 @@ import { identite, suivi, type FicheFin, type Passage, type Resultat } from '../
 import { pxeHook, type DhcpConfig, type Lease, type Packet } from '../vidarr/dhcp.ts';
 import { DhcpAPart, MODES_ADRESSES, RESEAU, conclure, lignesBox, modeAdresses, plageParDefaut, refusCarte, refusPartage, verifierPlage, type CarteReseau, type Garde, type PlageComplet } from '../thjalfi/reseau.ts';
 import { cleUsb } from '../thjalfi/cle-ecrire.ts';
+import { cleGerer } from '../thjalfi/cle-gerer.ts';
 import { defautSur, idsPropres, installe, lireMenu, menuPxeCfg, ordonner, visibles, type MenuPxeCfg } from '../thjalfi/menu-pxe.ts';
 import { EDITIONS, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, masque, supprimerCle } from '../thjalfi/cles-windows.ts';
 import { apercu as apercuScripts, appliquerOptionsWindows, injecterSautExigences, nomCompteValide, optionsWindowsDe, osDuScript, scriptsRevus, type ScriptPerso } from '../thjalfi/scripts.ts';
@@ -975,6 +976,8 @@ export function thjalfi(): Module {
     cleActivation: (ctx, fichier, nom) => clePourImage(ctx.home, ctx.dir, fichier, nom),
     profil: (ctx) => profiles(ctx)[0],
   }).actions);
+  // Clés USB, « Mes clés » (lot C5) : les clés ODIN connues, leur menu et leurs changements, sans jamais les effacer.
+  actions.push(...cleGerer({ bibliotheque: async (ctx) => (await isos(ctx)).filter(prete).map((i) => ({ id: i.id, nom: i.name, chemin: i.path, ...(i.recipe ? { recipe: i.recipe } : {}) })) }).actions);
   // Clé USB, étape « Logiciels et scripts » : le script créé tout seul, montré en direct (lecture seule, rien n'est écrit).
   actions.push(apercuScriptCle(profiles));
   // Systèmes (maquette « Genèse · Systèmes », lot S1) : la bibliothèque d'Hydre et les téléchargements d'Andromède

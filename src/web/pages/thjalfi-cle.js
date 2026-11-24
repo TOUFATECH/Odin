@@ -206,7 +206,11 @@
     root.append(wrap);
     const parcours = window.OdinGeneseCleEtapes;
     const outils = { post: hote?.post || postPage, act: hote?.act || actPage };
-    if (parcours && typeof parcours.monter === 'function') { await parcours.monter(wrap, { ...outils, ancienne: (n) => ancienne(n, outils) }); return; }
+    // Lot C5 : l'onglet « Mes clés » (thjalfi-cle-gerer.js) quand il est chargé ; la liste des disques comme avant reste
+    // joignable en dessous (double démarrage d'un disque interne, retirer Odin d'un disque).
+    const gerer = window.OdinGeneseCleGerer;
+    const mesCles = gerer && typeof gerer.monter === 'function' ? (n, plus) => gerer.monter(n, { ...outils, ...plus }) : undefined;
+    if (parcours && typeof parcours.monter === 'function') { await parcours.monter(wrap, { ...outils, ancienne: (n) => ancienne(n, outils), ...(mesCles ? { mesCles } : {}) }); return; }
     await ancienne(wrap, outils);
   }
 

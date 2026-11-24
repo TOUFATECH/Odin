@@ -444,10 +444,16 @@ export async function ecrireCle(
     //    (FICHIERS_ODIN) ; et l'archive d'injection que Ventoy pose dans le système d'installation : tes scripts et les
     //    paquets .deb y sont, à l'endroit exact que lisent les commandes de fin (scripts.ts, RACINE_INJECTEE).
     await garde();
+    // Deux Linux de la même famille partagent le même fichier de réponses (odin/user-data, odin/preseed.cfg…) : il est
+    // fabriqué UNE seule fois. (Son sel est tiré au hasard : fabriqué deux fois, le fichier changeait sous la première
+    // empreinte notée, et la relecture finale refusait toute clé portant deux Linux de la même famille.)
+    const parFamille = new Map<string, Record<string, string>>();
     for (const s of prep.systemes) {
       if (annulee()) return refus(ANNULEE);
       if (!s.fichier) { avance('scripts', `Scripts : ${s.nom}`); continue; }
-      const scripts = scriptsDe(s, prep, token, o, revus.acceptes);
+      const fam = s.recipe.os === 'windows' ? '' : s.recipe.kind === 'debian' ? 'debian' : s.recipe.kind === 'rhel' ? 'rhel' : 'ubuntu';
+      const scripts = (fam && parFamille.get(fam)) || scriptsDe(s, prep, token, o, revus.acceptes);
+      if (fam) parFamille.set(fam, scripts);
       for (const [nom, contenu] of Object.entries(scripts)) await noter(`${DOSSIER.odin}/${nom}`, await io.ecrire(`${DOSSIER.odin}/${nom}`, contenu));
       if (s.mode === 'installer') {
         const base = s.fichier.replace(/\.[^.]+$/, '');
@@ -545,7 +551,10 @@ const ECRITURES = new Map<string, EtatEcriture>();
 const PROMESSES = new Map<string, Promise<ResultatEcriture>>();
 /** Pour les essais : attend la fin d'une écriture lancée en arrière-plan (rien si aucune). */
 export function attendreEcriture(id: string): Promise<ResultatEcriture | undefined> { return PROMESSES.get(id) ?? Promise.resolve(undefined); }
-const enCours = (id: string) => { const e = ECRITURES.get(id); return Boolean(e && !e.fini); };
+/** Les clés (identifiant du disque) qu'un autre travail d'Odin est en train de changer ou de relire : « Mes clés » (lot C5,
+ *  cle-gerer.ts) s'y inscrit, pour que « Déployer » n'écrive pas sur la même clé en même temps. */
+export const CLES_OCCUPEES = new Set<string>();
+const enCours = (id: string) => { const e = ECRITURES.get(id); return Boolean(e && !e.fini) || CLES_OCCUPEES.has(id); };
 /** Les clés éjectées en mode essai (faux disques) : aucune commande n'est lancée. */
 const EJECTEES_ESSAI = new Set<string>();
 

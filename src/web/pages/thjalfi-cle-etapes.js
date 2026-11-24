@@ -96,6 +96,7 @@
     'bientot.composeur': 'En attendant, tout se règle dans le composeur actuel : systèmes, logiciels, thème, plan de la place, puis ton accord avant d\'écrire.',
     'bientot.ouvrir': 'Ouvrir le composeur pour « {nom} »',
     'bientot.mescles': 'Bientôt : tes clés ODIN, leur contenu et l\'ordre du menu, changés sans rien effacer.',
+    'mescles.disques': 'Tous les disques : double démarrage, retirer Odin d\'un disque',
     'bientot.mescles.avant': 'En attendant, tes disques comme avant : préparer une clé, le plan de double démarrage d\'un disque interne, retirer Odin d\'un disque.',
     'dem.titre': 'Démarrage de tes clés',
     'dem.lead': 'Ce que montre une clé ODIN quand le PC démarre dessus : l\'arrivée d\'Odin, puis le menu. Ces réglages partent avec la prochaine clé préparée ici.',
@@ -597,6 +598,12 @@
     if (S.onglet === 'mescles') {
       const avant = el('div', { class: 'ck-avant' });
       if (C.outils.ancienne) void C.outils.ancienne(avant);
+      // Lot C5 : « Mes clés » (thjalfi-cle-gerer.js, branché par thjalfi-cle.js) ; les disques comme avant, repliés dessous.
+      if (C.outils.mesCles) {
+        const zone = el('div', { 'data-f': 'mescles' });
+        void C.outils.mesCles(zone, { mascotte, deployer: () => { S.onglet = 'deployer'; dessiner('tab-deployer'); } });
+        return [zone, el('details', { class: 'ck-avant' }, el('summary', { class: 'ck-btn', style: 'width:max-content;max-width:100%' }, mot('mescles.disques')), avant)];
+      }
       return [bientot(mot('bientot.mescles'), el('p', { class: 'm' }, mot('bientot.mescles.avant'))), avant];
     }
     if (S.onglet === 'demarrage') return etapeDemarrage();
