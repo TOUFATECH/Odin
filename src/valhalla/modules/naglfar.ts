@@ -23,6 +23,7 @@ import { actionJournal, avecJournal } from '../vidarr/qui-a-fait.ts';
 import { NAMES } from '../names.ts';
 import type { Action } from '../types.ts';
 import { analyserComposition, arreterPile, demarrerPile, deployerPile, NOM_PILE, pile, piles, supprimerPile, vraiCheminLinux, type Analyse, type Garde, type MoteurPile } from '../hringhorni/composition.ts';
+import { CATALOGUE, decouperImage, entreeCatalogue, octetsMemoire, preparer, TEXTES_ACCES, type EntreeCatalogue, type Preparation } from '../hringhorni/catalogue.ts';
 
 /** Le nom affiché de l'appli (un seul endroit : src/valhalla/names.ts). */
 export const nomArche = (): string => NAMES.naglfar ?? 'Arche';
@@ -301,6 +302,8 @@ export const systemeArche = {
   stat: (c: Ctr): CgStat | undefined => cgStat(join('/sys/fs/cgroup/odin', c.id.slice(0, 12))),
   disque: (dir: string): { libre: number; total: number } | undefined => { try { const x = statfsSync(dir); return { libre: x.bavail * x.bsize, total: x.blocks * x.bsize }; } catch { return undefined; } },
   coeurs: (): number => cpus().length || 1,
+  /** la mémoire de la machine (lot K4 : dire quand les limites des conteneurs la dépassent) */
+  memoireMachine: (): number => totalmem(),
   dossierMoteur: (): string => (engine() as Partial<Engine>).store?.dir ?? defaultDir(),
   maison: (): string => homedir(),
 };
@@ -726,7 +729,18 @@ const PILE: Param = { key: 'pile', label: 'Pile', kind: 'text', required: true }
 const COMPOSE: Param = { key: 'compose', label: 'Fichier de composition', kind: 'textarea', required: true };
 const NOM_NOUVELLE: Param = { key: 'nom', label: 'Nom de la pile (minuscules, chiffres, -)', kind: 'text', default: '' };
 const pilesEnCours = new Set<string>();
+/** Les ports d'une pile en train d'arriver (relecture K4) : ses conteneurs ne les tiennent pas encore, un deuxième
+ *  déploiement lancé pendant ce temps les aurait vus libres et pris les mêmes. */
+const portsEnVol = new Map<number, string>();
 const nomPile = (v: unknown) => { const x = s(v).trim(); if (!NOM_PILE.test(x)) throw new Error(`nom de pile invalide : ${x.slice(0, 40)} (minuscules, chiffres, -)`); return x; };
+/** Retient les ports d'une pile qui part (jusqu'à ce que ses conteneurs les tiennent) ; rend de quoi les relâcher. */
+function retenirPorts(a: Analyse): () => void {
+  const l = a.services.flatMap((x) => x.ports.map((p) => p.host));
+  // (relu ICI, sans attente : deux déploiements lancés ensemble ont lu la garde avant que l'un retienne ses ports)
+  for (const p of l) { const n = portsEnVol.get(p); if (n) throw new Error(`port ${p} : déjà demandé par la pile « ${n} », en train d'arriver ; rien n'a été déployé`); }
+  for (const p of l) portsEnVol.set(p, a.nom);
+  return () => { for (const p of l) if (portsEnVol.get(p) === a.nom) portsEnVol.delete(p); };
+}
 /** Ce que l'analyse doit protéger, et ce qui existe déjà chez le moteur (noms, ports pris). */
 async function gardeK3(ctx: ModCtx): Promise<Garde> {
   const g: Garde = { maison: systemeArche.maison(), odin: ctx.home, autres: [process.env.ODIN_CLE_DIR ?? ''].filter(Boolean), vraiChemin: vraiCheminLinux };
@@ -742,6 +756,7 @@ async function gardeK3(ctx: ModCtx): Promise<Garde> {
     for (const c of cts) for (const p of c.spec.ports) pris.set(p.host, c.spec.name);
     for (const r of reserved()) if (!pris.has(r)) pris.set(r, 'gardé par Odin');
     for (const p of ecoute) if (!pris.has(p)) pris.set(p, 'un programme de ce PC l\'écoute déjà');
+    for (const [p, n] of portsEnVol) if (!pris.has(p)) pris.set(p, `la pile ${n}, en train d'arriver`);
     g.portsPris = pris;
   } catch { /* moteur illisible : l'analyse le dira au déploiement */ }
   return g;
@@ -809,12 +824,12 @@ const actionsK3: Action[] = [
       if (!a.ok) return { ok: false, text: `${remplir(TEXTES_K3_ARCHE.refusee, { n: String(a.refus.length) })}\n${a.refus.map((r) => `✗ ${r}`).join('\n')}`, data: analyseVue(a) };
       if (pilesEnCours.has(a.nom)) throw new Error(remplir(TEXTES_K3_ARCHE.occupee, { nom: a.nom }));
       if (!e.startJob) throw new Error('moteur sans suivi des installations');
-      pilesEnCours.add(a.nom);
+      const enVol = retenirPorts(a); pilesEnCours.add(a.nom);
       const j = e.startJob('installer', `pile ${a.nom}`, async (report) => {
         try {
           await deployerPile(e, a, fichier, (t, fait, total) => report({ phase: fait >= total ? 'fini' : 'monter', done: fait, total }, t));
           return { name: a.nom, note: `pile ${a.nom} en marche (${a.ordre.join(', puis ')})` };
-        } finally { pilesEnCours.delete(a.nom); }
+        } finally { pilesEnCours.delete(a.nom); enVol(); }
       }, a.nom);
       return { text: `🚢 Déploiement de la pile « ${a.nom} » lancé : ${a.ordre.join(', puis ')}. Suis-le dans ${nomArche()}.`, data: { job: j.id, pile: a.nom, ordre: a.ordre } };
     } },
@@ -856,3 +871,144 @@ const actionsK3: Action[] = [
 ];
 // (la lecture du fichier n'est pas un changement : hors du journal « qui a fait quoi »)
 naglfar.actions.push(...avecJournal('naglfar_actes', actionsK3.filter((a) => a.id !== 'fichier_pile')), ...actionsK3.filter((a) => a.id === 'fichier_pile'));
+
+// ---------------------------------------------------------------------------------------------------------------
+// Lot K4 (même maquette) : le catalogue. Des applis courantes, écrites dans le code d'Odin (hringhorni/catalogue.ts :
+// aucun service tiers consulté pour la liste), chacune décrite comme une pile du lot K3 et passée par TOUS ses refus.
+//   - `catalogue` (lecture) : chaque appli, ce qu'elle fait, ses images épinglées, ses ports (vérifiés libres sur ce
+//     PC, le suivant libre sinon), ses volumes, sa mémoire au plus, ses copies déjà là et un déploiement en cours ;
+//   - `deployer_catalogue` (propriétaire seul, noté) : « en un geste » = UNE confirmation qui dit les images, les
+//     ports et les volumes, puis la même chose qu'une pile (réseau à part, volumes, images du registre officiel,
+//     conteneurs démarrés dans l'ordre), suivie dans « Installations ». Les ports et le nom confirmés sont ceux
+//     déployés : s'ils ont été pris entre-temps, rien ne part et c'est dit.
+// Rien ne se met à jour tout seul (« Mises à jour » : le propriétaire décide). Supprimer une appli du catalogue, c'est
+// supprimer sa pile : ses volumes gardés par défaut, et l'effacement ne touche que ses dossiers à elle.
+// ---------------------------------------------------------------------------------------------------------------
+export const TEXTES_K4_ARCHE = {
+  inconnue: 'Cette appli n\'est pas dans le catalogue d\'Odin.',
+  refusee: 'Rien n\'est déployé : {n} point(s) à régler d\'abord.',
+  portsChanges: 'Les ports ont changé depuis l\'affichage du catalogue : rouvre-le pour voir les ports libres, rien n\'a été déployé.',
+  volumesAnciens: 'Rien n\'est déployé : des volumes d\'une ancienne copie portent déjà ces noms ({volumes}). Ils ne sont jamais repris en silence (leur base garde l\'ancien mot de passe) : prends le nom proposé par le catalogue, ou efface-les d\'abord dans Volumes.',
+  memoire: 'attention à la mémoire : avec les limites des conteneurs déjà en marche ({deja}), cela fait {total} au plus, plus que les {machine} de cette machine : si tout se remplit, le système arrêtera des applis',
+  lance: '🚢 {nom} : déploiement lancé (pile « {pile} », {services}). Adresse prévue : {adresse}. {premiere}',
+};
+const APPLI: Param = { key: 'app', label: 'Appli du catalogue', kind: 'text', required: true };
+const PORTS_CAT: Param = { key: 'ports', label: 'Ports confirmés (web:20070)', kind: 'text', default: '' };
+const NOM_CAT: Param = { key: 'nom', label: 'Nom de la pile (vide : le premier libre)', kind: 'text', default: '' };
+const entreeDe = (v: unknown): EntreeCatalogue => { const e = entreeCatalogue(s(v).trim()); if (!e) throw new Error(TEXTES_K4_ARCHE.inconnue); return e; };
+/** « web:20070, admin:20071 » → { web: 20070, admin: 20071 } (vide : undefined, les ports proposés). */
+function portsConfirmes(v: unknown): Record<string, number> | undefined {
+  const t = s(v).trim(); if (!t) return undefined;
+  const o: Record<string, number> = {};
+  for (const x of t.split(/[,\s]+/).filter(Boolean)) {
+    const m = /^([a-z][a-z0-9-]{0,20}):(\d{1,5})$/.exec(x); if (!m || Number(m[2]) < 1 || Number(m[2]) > 65535) throw new Error(`port invalide : ${x.slice(0, 40)}`);
+    o[m[1]] = Number(m[2]);
+  }
+  return o;
+}
+/** Le nom et les ports d'un déploiement, tels que la confirmation les montre ET tels qu'ils partent (relecture K4) :
+ *  sans nom, celui de l'appli ; sans ports, ceux proposés ; jamais « le suivant libre » choisi après l'accord. Les
+ *  ports libres viennent de la lecture `catalogue`, que la page renvoie tels quels. */
+function choixCatalogue(e: EntreeCatalogue, i: Record<string, unknown>, strict: boolean): { nom: string; ports: Record<string, number> } {
+  let donnes: Record<string, number> | undefined;
+  try { donnes = portsConfirmes(i.ports); } catch (x) { if (strict) throw x; }
+  const ports: Record<string, number> = {};
+  for (const p of e.ports) ports[p.cle] = donnes?.[p.cle] ?? p.propose;
+  return { nom: s(i.nom).trim() || e.id, ports };
+}
+/** La mémoire au plus de ce qui tourne déjà (les limites des conteneurs en marche). */
+function memoireDeja(): number {
+  try { return k3().ps(true).filter((c) => c.state.status === 'en marche' || c.state.status === 'redémarre').reduce((a, c) => a + octetsMemoire(String(c.spec.memory ?? '')), 0); } catch { return 0; }
+}
+/** L'avertissement si cette appli, avec ce qui tourne déjà, dépasse la mémoire de la machine (sinon rien). */
+function avertMemoire(memoire: number, deja: number): string | undefined {
+  const machine = systemeArche.memoireMachine();
+  return machine > 0 && deja + memoire > machine ? remplir(TEXTES_K4_ARCHE.memoire, { deja: memoireTexte(deja), total: memoireTexte(deja + memoire), machine: memoireTexte(machine) }) : undefined;
+}
+const memoireTexte = (o: number) => (o >= 1024 ** 3 ? `${(o / 1024 ** 3).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Go` : `${Math.round(o / 1024 ** 2)} Mo`);
+/** La garde d'une appli : celle de ce PC, où le port qu'Odin garde POUR cette appli (une image connue) lui est permis,
+ *  comme « Lancer une appli ». Un port pris par un conteneur ou un programme reste pris. */
+function gardePour(g: Garde, e: EntreeCatalogue): Garde {
+  if (!g.portsPris) return g;
+  const pris = new Map(g.portsPris), images = preparer(e).images;
+  for (const p of e.ports) if (pris.get(p.propose) === 'gardé par Odin' && images.some((i) => appPort(i)?.host === p.propose)) pris.delete(p.propose);
+  return { ...g, portsPris: pris };
+}
+/** Une appli telle que la page la montre : jamais un mot de passe (seulement les noms des variables, dans l'analyse). */
+function ficheCatalogue(e: EntreeCatalogue, p: Preparation, d: { installees?: string[]; enCours?: Record<string, unknown>; avertissements?: string[] } = {}): Record<string, unknown> {
+  return {
+    id: e.id, nom: e.nom, categorie: e.categorie, quoi: e.quoi, alternativeA: e.alternativeA, premiere: e.premiere, note: e.note,
+    acces: TEXTES_ACCES[e.acces], avertissements: d.avertissements ?? [],
+    images: p.images.map((i) => decouperImage(i)), volumes: p.volumes, memoire: p.memoire, services: p.analyse.services.length,
+    pile: p.nom, pret: p.analyse.ok, refus: p.analyse.refus,
+    ports: p.ports.map((x) => ({ cle: x.cle, quoi: x.quoi, voulu: x.voulu, hote: x.hote, dedans: x.dedans, web: x.web, deplace: x.hote !== x.voulu })),
+    deplaces: p.deplaces.map((x) => `${x.voulu} déjà pris (${x.raison}) → ${x.donne}`),
+    installees: d.installees ?? [], enCours: d.enCours,
+  };
+}
+/** Le texte de la confirmation : les images, les ports, les volumes, la mémoire. Pur (aucune lecture du PC). */
+export function confirmationCatalogue(e: EntreeCatalogue, p: Pick<Preparation, 'nom' | 'images' | 'ports' | 'volumes' | 'memoire'>, avertissements: string[] = []): string {
+  return `déployer « ${e.nom} » (pile « ${p.nom} ») : images ${p.images.join(', ')} (tirées de leur registre officiel) ; `
+    + `ports ouverts sur ce PC : ${p.ports.map((x) => `${x.hote} (${x.quoi})`).join(', ')} ; `
+    + `volumes créés : ${p.volumes.join(', ')} (gardés si tu la supprimes) ; mémoire au plus ${memoireTexte(p.memoire)} ; `
+    + `${TEXTES_ACCES[e.acces]}${avertissements.map((a) => ` ; ${a}`).join('')}`;
+}
+export async function catalogueArche(ctx: ModCtx): Promise<Record<string, unknown>> {
+  if (!moteurIci()) return { moteur: false, nom: nomArche(), plateforme: systemeArche.plateforme(), raison: TEXTES_ARCHE.pasDeMoteur, avenir: TEXTES_ARCHE.avenir, applis: CATALOGUE.map((e) => ficheCatalogue(e, preparer(e))) };
+  const g = await gardeK3(ctx), e = k3(), toutes = (() => { try { return piles(e); } catch { return []; } })();
+  const jobs = (() => { try { return engine().jobs(); } catch { return []; } })();
+  const recent = Date.now() - 10 * 60_000, cts = (() => { try { return e.ps(true); } catch { return []; } })(), deja = memoireDeja();
+  return {
+    moteur: true, nom: nomArche(),
+    applis: CATALOGUE.map((x) => {
+      const p = preparer(x, { garde: gardePour(g, x) });
+      const forme = new RegExp(`^${x.id}(-\\d{1,2})?$`), images = new Set(p.images);
+      const installees = toutes.filter((q) => forme.test(q.nom) && q.services.every((sv) => images.has(sv.image))).map((q) => q.nom);
+      const j = jobs.filter((y) => installees.some((n) => y.image === `pile ${n}`) && (!y.ended || Date.parse(y.ended) > recent)).sort((a, b) => a.started.localeCompare(b.started)).at(-1);
+      // (l'adresse de CETTE copie : le port de son conteneur, pas celui proposé pour la suivante)
+      const dedans = (p.ports.find((q) => q.web) ?? p.ports[0])?.dedans;
+      const port = j ? cts.filter((c) => c.spec.labels['odin.pile'] === j.name).flatMap((c) => c.spec.ports).find((q) => q.inner === dedans)?.host : undefined;
+      return ficheCatalogue(x, p, { installees, avertissements: [avertMemoire(p.memoire, deja)].filter((a): a is string => !!a), enCours: j ? { pile: j.name, pct: j.pct, note: j.note, fini: Boolean(j.ended), port, erreur: j.phase === 'échec' ? masquer(String(j.error ?? '')).slice(0, 300) : undefined } : undefined });
+    }),
+  };
+}
+const actionsK4: Action[] = [
+  // (une lecture ouverte, comme « piles » ; pas marquée « read » : le banc figé de Soul photographie les lectures)
+  { id: 'catalogue', label: 'Catalogue', what: 'Les applis à déployer en un geste : ce qu\'elles font, leurs images épinglées, leurs ports libres, leurs volumes, leur mémoire', quick: false, quiet: true,
+    run: async (ctx) => {
+      const d = await catalogueArche(ctx) as { moteur: boolean; raison?: string; avenir?: string; applis: Array<{ nom: string; images: Array<{ nom: string; etiquette: string }>; ports: Array<{ hote: number }> }> };
+      const l = d.applis.map((a) => `- ${a.nom} · ${a.images.map((i) => `${i.nom}:${i.etiquette}`).join(', ')} · port ${a.ports.map((p) => p.hote).join(', ')}`).join('\n');
+      return { text: d.moteur ? l : `${d.raison} ${d.avenir}\n${l}`, data: d };
+    } },
+  { id: 'deployer_catalogue', label: 'Déployer une appli du catalogue', what: 'Déploie en un geste une appli du catalogue d\'Odin (sa pile : images épinglées, ports libres, volumes à elle)', quick: false, proprietaireSeul: true, params: [APPLI, NOM_CAT, PORTS_CAT],
+    grave: (i) => {
+      const e = entreeCatalogue(s(i.app).trim()); if (!e) return `déployer une appli inconnue (${s(i.app).slice(0, 40)})`;
+      const p = preparer(e, choixCatalogue(e, i, false));
+      return confirmationCatalogue(e, p, moteurIci() ? [avertMemoire(p.memoire, memoireDeja())].filter((a): a is string => !!a) : []);
+    },
+    run: async (ctx, i) => {
+      exigerMoteur(); const e = k3(), x = entreeDe(i.app);
+      if (e.rootless) throw new Error(TEXTES_K3_ARCHE.sansAdmin);
+      const g = gardePour(await gardeK3(ctx), x), p = preparer(x, { garde: g, ...choixCatalogue(x, i, true) });
+      if (!p.analyse.ok) {
+        const ports = p.analyse.refus.some((r) => /déjà pris sur ce PC|déjà demandé/.test(r));
+        return { ok: false, text: `${ports ? TEXTES_K4_ARCHE.portsChanges : remplir(TEXTES_K4_ARCHE.refusee, { n: String(p.analyse.refus.length) })}\n${p.analyse.refus.map((r) => `✗ ${r}`).join('\n')}`, data: { pile: p.nom, refus: p.analyse.refus } };
+      }
+      // (des volumes d'une ancienne copie : la confirmation dit « créés », et la base garderait l'ancien mot de passe)
+      const anciens = p.analyse.volumes.filter((v) => g.volumes?.includes(v.nom)).map((v) => v.nom);
+      if (anciens.length) return { ok: false, text: remplir(TEXTES_K4_ARCHE.volumesAnciens, { volumes: anciens.join(', ') }), data: { pile: p.nom, volumes: anciens } };
+      const a = p.analyse;
+      if (pilesEnCours.has(a.nom)) throw new Error(remplir(TEXTES_K3_ARCHE.occupee, { nom: a.nom }));
+      if (!e.startJob) throw new Error('moteur sans suivi des installations');
+      const enVol = retenirPorts(a); pilesEnCours.add(a.nom);
+      const j = e.startJob('installer', `pile ${a.nom}`, async (report) => {
+        try {
+          await deployerPile(e, a, p.texte, (t, fait, total) => report({ phase: fait >= total ? 'fini' : 'monter', done: fait, total }, t));
+          return { name: a.nom, note: `${x.nom} en marche (pile ${a.nom})` };
+        } finally { pilesEnCours.delete(a.nom); enVol(); }
+      }, a.nom);
+      const web = p.ports.find((q) => q.web) ?? p.ports[0];
+      return { text: remplir(TEXTES_K4_ARCHE.lance, { nom: x.nom, pile: a.nom, services: a.ordre.join(', puis '), adresse: web ? `port ${web.hote}` : '—', premiere: x.premiere }), data: { job: j.id, pile: a.nom, app: x.id, ports: p.ports.map((q) => ({ cle: q.cle, hote: q.hote })) } };
+    } },
+];
+naglfar.actions.push(...avecJournal('naglfar_actes', actionsK4));

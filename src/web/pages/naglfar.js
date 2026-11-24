@@ -253,7 +253,7 @@
     const sys = t.plateforme === 'win32' ? T('pc.windows') : T('pc.autre', { plateforme: t.plateforme });
     return el('section', { class: 'ark-sec ark-host', role: 'status' }, odinFace(),
       el('div', {}, el('b', { class: 't' }, T('pc.titre', { systeme: sys })),
-        el('ul', {}, el('li', {}, t.raison), el('li', {}, t.avenir), el('li', {}, T('pc.rien')), el('li', {}, T('pc.deja')), el('li', {}, T('pc.k2')), el('li', {}, T('pc.k3')))));
+        el('ul', {}, el('li', {}, t.raison), el('li', {}, t.avenir), el('li', {}, T('pc.rien')), el('li', {}, T('pc.deja')), el('li', {}, T('pc.k2')), el('li', {}, T('pc.k3')), el('li', {}, T('pc.k4')))));
   }
 
   // ---------------------------------------------------------------- le tableau de bord
@@ -291,7 +291,9 @@
     frag.push(el('section', { class: 'ark-sec' }, el('h2', {}, T('l.tourne'), el('span', { class: 'ark-cnt' }, String(on.length))), el('p', { class: 'ark-lead' }, T('l.tourne.lead')),
       ...(l.length ? (on.length ? on.map((c) => ligneConteneur(c, o)) : [el('p', { class: 'ark-note' }, T('l.rienTourne'))]) : [el('p', { class: 'ark-note' }, T('l.vide'))]),
       // lot K3 : déployer plusieurs conteneurs décrits ensemble (l'onglet « Piles »)
-      el('div', { class: 'ark-row', style: 'margin-top:12px' }, bouton(T('l.nouvellePile'), () => { K.vue = 'piles'; K.msg = ''; K.focus = 'arkCompo'; arreterMinuteur(); o.reload(); }))));
+      // lot K4 : le catalogue (des applis prêtes, en un geste)
+      el('div', { class: 'ark-row', style: 'margin-top:12px' }, bouton(T('l.catalogue'), () => { K.vue = 'catalogue'; K.msg = ''; K.focus = 'ark-v-catalogue'; arreterMinuteur(); o.reload(); }, { cls: 'primary' }),
+        bouton(T('l.nouvellePile'), () => { K.vue = 'piles'; K.msg = ''; K.focus = 'arkCompo'; arreterMinuteur(); o.reload(); }))));
     if (off.length) frag.push(el('section', { class: 'ark-sec' }, el('h2', {}, T('l.arretes'), el('span', { class: 'ark-cnt' }, String(off.length))), el('p', { class: 'ark-lead' }, T('l.arretes.lead')), ...off.map((c) => ligneConteneur(c, o))));
     frag.push(el('section', { class: 'ark-sec' }, el('h2', {}, T('maj.titre'), el('span', { class: 'ark-cnt' }, String(t.majs.length))), el('p', { class: 'ark-lead' }, t.majs.length ? T('maj.lead') : T('maj.rien')),
       ...t.majs.map((m) => el('div', { class: 'ark-rule' }, el('span', {}, el('b', {}, m.image), el('small', {}, m.conteneurs.join(', '))),
@@ -451,7 +453,20 @@
   });
   Object.assign(K, { vue: 'tableau', vsupp: '', vsuppTxt: '', rInternet: true, focus: '' });
   /** Remet le clavier sur l'élément voulu une fois la page redessinée (le dessin est asynchrone). */
-  const refocus = () => { const id = K.focus; if (!id) return; K.focus = ''; setTimeout(() => document.getElementById(id)?.focus?.(), 0); };
+  // Lot K4 : pendant une installation, la page se redessine aussi d'elle-même ; un dessin qui arrive juste après
+  // remettait le clavier au début de la page. Le clavier est donc reposé pendant un peu plus d'une seconde, tant
+  // qu'il est tombé sur la page (jamais s'il est allé ailleurs : la personne a bougé) ; K.focus n'est vidé qu'après.
+  const refocus = () => {
+    const id = K.focus; if (!id) return;
+    let n = 0;
+    const poser = () => {
+      const a = document.activeElement, x = document.getElementById(id);
+      if (n > 0 && a && a !== document.body && a.id !== id) { if (K.focus === id) K.focus = ''; return; }
+      if (x && a !== x) x.focus?.();
+      if (++n < 8) setTimeout(poser, 150); else if (K.focus === id) K.focus = '';
+    };
+    setTimeout(poser, 0);
+  };
   const VUES = [['tableau', 'v.tableau'], ['volumes', 'v.volumes'], ['reseaux', 'v.reseaux']];
   const CSS_K2 = `
 .ark-vol{display:grid;grid-template-columns:44px minmax(0,1fr) auto minmax(112px,auto);gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:8px;min-width:0}
@@ -584,7 +599,8 @@
     'ps.ok': 'Supprimer', 'ps.okVol': 'Supprimer avec ses volumes', 'ps.non': 'Garder',
   });
   Object.assign(K, { pouv: '', psupp: '', psuppVol: false, psuppTxt: '', compo: '', compoNom: '', analyse: null, analyseDe: '' });
-  const vuesDe = (t) => (Number(t?.piles) > 0 || K.vue === 'piles' ? [VUES[0], ['piles', 'v.piles'], ...VUES.slice(1)] : VUES);
+  // (lot K4 : l'onglet « Catalogue » se montre quand on l'ouvre, depuis « Ajouter depuis le catalogue » sur le tableau)
+  const vuesDe = (t) => [VUES[0], ...(K.vue === 'catalogue' ? [['catalogue', 'v.catalogue']] : []), ...(Number(t?.piles) > 0 || K.vue === 'piles' ? [['piles', 'v.piles']] : []), ...VUES.slice(1)];
   /** Le déploiement n'est possible qu'après une vérification sans refus, du texte tel qu'il est maintenant. */
   const peutDeployer = (analyse, verifie, texte, nom) => Boolean(analyse && analyse.ok && verifie === `${nom}\n${texte}`);
   Object.assign(logique, { peutDeployer, vuesDe });
@@ -692,14 +708,121 @@
     nouvellePile(o, d.moteur !== false)];
   }
 
+  // =================================================================================================================
+  // Lot K4 : le catalogue. Des applis prêtes, écrites dans Odin : chacune dit ce qu'elle fait, ses images (version
+  // épinglée), ses ports (libres sur ce PC), ses volumes et sa mémoire ; « Déployer » = une confirmation d'Odin qui
+  // redit images, ports et volumes, puis la progression sur la carte. Les noms d'autres produits ne viennent que des
+  // données (« Alternative à »), jamais de MOTS.
+  // =================================================================================================================
+  Object.assign(MOTS, {
+    'pc.k4': 'Le catalogue (des applis à déployer en un geste) est prêt aussi : il viendra avec le moteur.',
+    'v.catalogue': 'Catalogue', 'l.catalogue': 'Ajouter depuis le catalogue',
+    'ca.titre': 'Catalogue',
+    'ca.lead': 'Des applis prêtes, à déployer en un geste : Odin tire leur image (version épinglée) du registre officiel, choisit des ports libres, crée leurs volumes à elles et les démarre dans le bon ordre. Rien ne se met à jour tout seul : tu décides.',
+    'ca.categories': 'Catégories', 'ca.tout': 'Tout', 'ca.chercher': 'Chercher une appli', 'ca.aucune': 'Aucune appli ne correspond.',
+    'ca.sous': '{categorie} · {memoire} de mémoire au plus', 'ca.conteneurs': '{n} conteneurs',
+    'ca.epinglee': 'version épinglée', 'ca.installee': 'déjà installée', 'ca.installees': 'déjà installée ({n})',
+    'ca.deployer': 'Déployer', 'ca.copie': 'Une autre copie', 'ca.deployer.nom': 'Déployer {nom}', 'ca.copie.nom': 'Déployer une autre copie de {nom}',
+    'ca.details': 'Détails', 'ca.replier': 'Replier', 'ca.details.nom': 'Ce qu\'installe {nom}',
+    'ca.images': 'Images', 'ca.ports': 'Ports sur ce PC', 'ca.port': '{hote} → {dedans} · {quoi}', 'ca.deplace': '{voulu} est déjà pris : {hote} à la place',
+    'ca.volumes': 'Volumes (gardés si tu la supprimes)', 'ca.memoire': 'Mémoire au plus', 'ca.pile': 'Sa pile : « {pile} »', 'ca.alternative': 'Alternative à',
+    'ca.encours': 'Déploiement en cours…', 'ca.fini': 'En marche', 'ca.echec': 'Le déploiement s\'est arrêté : {erreur}',
+    'ca.ouvrir': 'Ouvrir', 'ca.ouvrir.nom': 'Ouvrir {nom} (port {port})', 'ca.voirPiles': 'Voir ses piles',
+    'ca.bloque': 'Pas déployable ici pour l\'instant : {raison}',
+    'ca.acces': 'Qui peut l\'ouvrir',
+    'ca.note': 'Les fiches viennent de la liste écrite dans Odin (mise à jour avec Odin) : aucun site n\'est consulté pour la montrer. Une appli qui demanderait des droits sur tout le PC, son disque ou ses dossiers à toi n\'y entre pas. La supprimer se fait dans « Piles » : ses volumes sont gardés, sauf si tu écris son nom.',
+  });
+  Object.assign(K, { catF: 'tout', catQ: '', catOuv: '' });
+  /** Les applis d'une catégorie et d'une recherche (nom, ce qu'elle fait, catégorie, ce qu'elle remplace). Pur. */
+  const filtrerApplis = (l, cat, q) => {
+    const w = String(q ?? '').trim().toLowerCase();
+    return (l ?? []).filter((a) => (cat === 'tout' || a.categorie === cat) && (!w || [a.nom, a.quoi, a.categorie, ...(a.alternativeA ?? [])].join(' ').toLowerCase().includes(w)));
+  };
+  /** Les ports confirmés, tels qu'ils partent avec « Déployer » : « web:20070 ». Pur. */
+  const portsDe = (a) => (a.ports ?? []).map((p) => `${p.cle}:${p.hote}`).join(',');
+  Object.assign(logique, { filtrerApplis, portsDe });
+  const CSS_K4 = `
+.ark-cfil{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.ark-chip{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 13.5px inherit;cursor:pointer}
+.ark-chip[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,var(--panel));border-color:var(--accent)}
+.ark-cfil input{flex:1 1 200px;min-width:0;min-height:44px}
+.ark-cat{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:12px}
+.ark-app{border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0;background:var(--panel)}
+.ark-app.on{border-color:var(--accent)}
+.ark-app .top{display:flex;gap:12px;align-items:center;min-width:0}.ark-app .top b{font-size:15px;overflow-wrap:anywhere}.ark-app .top small{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.ark-app p{margin:0;font-size:13.5px;line-height:1.45;overflow-wrap:anywhere}
+.ark-app .facts{display:flex;flex-wrap:wrap;gap:4px}.ark-app .facts .ark-tag{margin:0}
+.ark-app .acts{display:flex;gap:8px;margin-top:auto}.ark-app .acts .btn{flex:1 1 0;min-width:0}
+.ark-app dl{margin:0;display:grid;gap:6px;font-size:13px}.ark-app dt{font-weight:700;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-top:4px}.ark-app dd{margin:0;overflow-wrap:anywhere}
+.ark-app code{font:12.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere}
+.ark-app .avert{margin:0;font-size:13px;line-height:1.45;padding:8px 10px;border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent);border-radius:6px;color:var(--ink);overflow-wrap:anywhere}
+.ark-prog{height:8px;border-radius:4px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden}.ark-prog i{display:block;height:100%;background:var(--accent)}
+`;
+  function carteAppli(a, o) {
+    const ouv = K.catOuv === a.id, enc = a.enCours, tourne = Boolean(enc && !enc.fini);
+    // (la copie en train d'arriver n'est pas encore « déjà installée »)
+    const n = (a.installees ?? []).filter((x) => !(tourne && x === enc.pile)).length;
+    const ici = location.hostname || 'localhost';
+    const facts = el('div', { class: 'facts' }, tag('ok', T('ca.epinglee')), a.services > 1 ? tag('', T('ca.conteneurs', { n: a.services })) : null, n ? tag('', n > 1 ? T('ca.installees', { n }) : T('ca.installee')) : null);
+    const deployer = el('button', { class: 'btn primary', type: 'button', id: `ark-cd-${a.id}`, disabled: !a.pret || tourne, 'aria-label': T(n ? 'ca.copie.nom' : 'ca.deployer.nom', { nom: a.nom }),
+      onclick: async () => {
+        const r = await geste('naglfar', 'deployer_catalogue', { app: a.id, nom: a.pile, ports: portsDe(a) });
+        K.focus = `ark-cd-${a.id}`; if (r.ok !== false) K.catOuv = ''; o.reload();
+      } }, n ? T('ca.copie') : T('ca.deployer'));
+    const details = el('button', { class: 'btn', type: 'button', id: `ark-cx-${a.id}`, 'aria-expanded': String(ouv), 'aria-label': T('ca.details.nom', { nom: a.nom }), onclick: () => { K.catOuv = ouv ? '' : a.id; K.focus = `ark-cx-${a.id}`; o.reload(); } }, ouv ? T('ca.replier') : T('ca.details'));
+    const progres = enc ? el('div', { role: 'status' },
+      enc.erreur ? el('p', { class: 'ark-note', style: 'color:var(--bad)' }, T('ca.echec', { erreur: enc.erreur }))
+        : [el('div', { class: 'ark-prog', role: 'progressbar', 'aria-label': `${a.nom} · ${enc.pile ?? ''}`, 'aria-valuenow': String(enc.pct ?? 0), 'aria-valuemin': '0', 'aria-valuemax': '100' }, el('i', { style: `width:${Math.max(3, Math.min(100, Number(enc.pct) || 0))}%` })),
+          el('small', { class: 'ark-note' }, enc.fini ? T('ca.fini') : `${T('ca.encours')} ${enc.note ?? ''}`)]) : null;
+    const corps = ouv ? el('dl', {},
+      el('dt', {}, T('ca.images')), ...(a.images ?? []).map((i) => el('dd', {}, el('code', {}, `${i.nom}:${i.etiquette}`))),
+      el('dt', {}, T('ca.ports')), ...(a.ports ?? []).map((p) => el('dd', {}, T('ca.port', { hote: p.hote, dedans: p.dedans, quoi: p.quoi }), p.deplace ? el('small', { class: 'ark-note', style: 'display:block' }, T('ca.deplace', { voulu: p.voulu, hote: p.hote })) : null)),
+      el('dt', {}, T('ca.volumes')), el('dd', {}, (a.volumes ?? []).join(', ')),
+      el('dt', {}, T('ca.memoire')), el('dd', {}, octets(a.memoire)),
+      a.acces ? el('dt', {}, T('ca.acces')) : null, a.acces ? el('dd', {}, a.acces) : null,
+      el('dt', {}, T('ca.alternative')), el('dd', {}, (a.alternativeA ?? []).join(', ')),
+      el('dd', { class: 'ark-note' }, T('ca.pile', { pile: a.pile })), a.premiere ? el('dd', {}, a.premiere) : null, a.note ? el('dd', { class: 'ark-note' }, a.note) : null) : null;
+    return el('div', { class: `ark-app ${enc && !enc.fini ? 'on' : ''}`.trim() },
+      el('div', { class: 'top' }, mono(a.nom), el('span', { style: 'min-width:0' }, el('b', {}, a.nom), el('small', {}, T('ca.sous', { categorie: a.categorie, memoire: octets(a.memoire) })))),
+      el('p', {}, a.quoi), facts, ...(a.avertissements ?? []).map((x) => el('p', { class: 'avert' }, x)), progres, corps,
+      a.pret ? null : el('p', { class: 'ark-note' }, T('ca.bloque', { raison: (a.refus ?? [])[0] ?? '' })),
+      el('div', { class: 'acts' }, deployer, details),
+      enc?.fini && !enc.erreur ? el('div', { class: 'acts' }, enc.port ? el('a', { class: 'btn', href: `http://${ici}:${enc.port}`, target: '_blank', rel: 'noopener noreferrer', 'aria-label': T('ca.ouvrir.nom', { nom: a.nom, port: enc.port }), style: 'min-height:44px' }, T('ca.ouvrir')) : null,
+        bouton(T('ca.voirPiles'), () => { K.vue = 'piles'; K.pouv = enc.pile ?? ''; K.focus = 'ark-v-piles'; o.reload(); })) : null);
+  }
+  function vueCatalogue(d, o) {
+    const l = d.applis ?? [], cats = ['tout', ...new Set(l.map((a) => a.categorie))];
+    const grille = el('div', { class: 'ark-cat' });
+    const dessinerGrille = () => { const f = filtrerApplis(l, K.catF, K.catQ); grille.replaceChildren(...(f.length ? f.map((a) => carteAppli(a, o)) : [el('p', { class: 'ark-note' }, T('ca.aucune'))])); };
+    const q = el('input', { type: 'search', id: 'arkCatQ', placeholder: T('ca.chercher'), 'aria-label': T('ca.chercher'), autocomplete: 'off', oninput: (e) => { K.catQ = e.target.value; dessinerGrille(); } }); q.value = K.catQ;
+    const chips = el('div', { class: 'ark-cfil', role: 'group', 'aria-label': T('ca.categories') },
+      ...cats.map((k) => el('button', { type: 'button', class: 'ark-chip', id: `ark-cf-${k}`, 'aria-pressed': String(K.catF === k), onclick: () => { K.catF = k; K.focus = `ark-cf-${k}`; o.reload(); } }, k === 'tout' ? T('ca.tout') : k)), q);
+    dessinerGrille();
+    // Un déploiement en cours : la carte se relit toutes les 2 secondes (pas pendant qu'on écrit dans la recherche) ;
+    // le clavier reste sur le bouton où il était.
+    if (l.some((a) => a.enCours && !a.enCours.fini)) {
+      K.minuteur = setTimeout(() => {
+        const x = document.activeElement; if (!grille.isConnected || K.vue !== 'catalogue' || document.visibilityState === 'hidden' || (x && /^(INPUT|TEXTAREA|SELECT)$/.test(x.tagName))) return;
+        if (x?.id && /^ark-/.test(x.id)) K.focus = x.id;
+        o.reload();
+      }, 2000);
+    }
+    return [el('section', { class: 'ark-sec' }, el('h2', {}, T('ca.titre'), el('span', { class: 'ark-cnt' }, String(l.length))), el('p', { class: 'ark-lead' }, T('ca.lead')),
+      chips, grille, el('p', { class: 'ark-note', style: 'margin-top:12px' }, T('ca.note')))];
+  }
+
   window.OdinPages.naglfar = async ({ host, generic, reload, info }) => {
     arreterMinuteur();
+    // (lot K4 : la page se redessine aussi d'elle-même pendant une installation ; le clavier reste où il était)
+    const avant = document.activeElement;
+    if (!K.focus && avant?.id && /^ark/.test(avant.id) && avant.isConnected) K.focus = avant.id;
     const nom = info?.name || MOTS.nom;
     const r = await post('naglfar', 'tableau');
     if (!r?.data) return false; // un Odin d'avant le lot K1 : la page générique, comme avant
     css();
     if (!document.getElementById('arkCss2')) document.head.append(el('style', { id: 'arkCss2' }, CSS_K2));
     if (!document.getElementById('arkCss3')) document.head.append(el('style', { id: 'arkCss3' }, CSS_K3));
+    if (!document.getElementById('arkCss4')) document.head.append(el('style', { id: 'arkCss4' }, CSS_K4));
     const t = r.data, root = el('div', { class: 'ark' }), o = { reload, nom, vues: vuesDe(t) };
     host.append(root);
     if (K.msg) root.append(el('p', { class: 'ark-msg', role: 'status' }, K.msg));
@@ -707,13 +830,13 @@
     if (t.erreur) root.append(el('p', { class: 'ark-msg', role: 'alert' }, T('erreurLecture', { raison: t.erreur })));
     if (!K.fiche && K.vue !== 'tableau') {
       root.append(ongletsVues(o));
-      const d = await post('naglfar', K.vue === 'volumes' ? 'volumes' : K.vue === 'piles' ? 'piles' : 'reseaux');
+      const d = await post('naglfar', K.vue === 'volumes' ? 'volumes' : K.vue === 'piles' ? 'piles' : K.vue === 'catalogue' ? 'catalogue' : 'reseaux');
       // le fichier d'une pile ouverte : lu à part, au propriétaire seul (refusé à un membre : la page le dit)
       if (d?.data && K.vue === 'piles' && K.pouv) {
         const p = (d.data.piles ?? []).find((x) => x.nom === K.pouv);
         if (p) { const f = await post('naglfar', 'fichier_pile', { pile: p.nom }); p.fichier = f?.ok !== false && typeof f?.data?.fichier === 'string' ? f.data.fichier : null; }
       }
-      if (d?.data) root.append(...(K.vue === 'volumes' ? vueVolumes(d.data, o) : K.vue === 'piles' ? vuePiles(d.data, t, o) : vueReseaux(d.data, o)));
+      if (d?.data) root.append(...(K.vue === 'volumes' ? vueVolumes(d.data, o) : K.vue === 'piles' ? vuePiles(d.data, t, o) : K.vue === 'catalogue' ? vueCatalogue(d.data, o) : vueReseaux(d.data, o)));
       else root.append(el('p', { class: 'ark-msg', role: 'alert' }, String(d?.text ?? d?.error ?? '')));
       refocus();
       return true;
