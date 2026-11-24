@@ -492,7 +492,9 @@ test('fenêtre gardée : la fenêtre est posée au-dessus des blocs fixes de la 
   assert.ok(v.includes('class="body"'), 'la vue de départ a son corps');
   assert.match(corps, /id="todayBox"/, 'les blocs fixes sont dans ce corps');
   const m = fe('mount');
-  assert.match(m, /const body = \$\('#v-home \.body'\)/, 'la fenêtre se monte dans ce corps');
+  // Lot 26 : le corps est l'enfant direct de la vue (la mascotte du salut, dans le bandeau, a aussi un « .body » dans son dessin).
+  assert.match(m, /const body = \$\('#v-home > \.body'\)/, 'la fenêtre se monte dans ce corps');
+  assert.match(v, /<\/div>\s*<div class="body">/, 'et ce corps est un enfant direct de la vue, après le bandeau');
   assert.match(m, /body\.prepend\(el\('div', \{ id: 'fenetre'/, 'en premier, donc au-dessus des blocs fixes');
   assert.match(m, /\$\('#fenetre'\)\) return/, 'une seule fois');
   assert.match(FE, /const tryMount = \(\) => \{[^\n]*\bmount\(\)/, 'tryMount monte la fenêtre une fois l\'appli ouverte');

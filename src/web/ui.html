@@ -2511,6 +2511,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       approvalCard({ ...x, quand: `Demandée à ${heure(ici - (la - x.depuis))} · sans réponse avant ${heure(ici + x.resteSec * 1000)}, rien ne part.` });
     }
     badges(); renderHome();
+    attenteLue = true; ouvrirSurAFaire();
     // À l'échéance de la plus proche : relue, pour qu'une demande expirée quitte le badge et « À faire ».
     clearTimeout(minuteurAttente);
     if (r.list.length) minuteurAttente = setTimeout(validationsEnAttente, (Math.min(...r.list.map((x) => x.resteSec)) + 1) * 1000);
@@ -3405,6 +3406,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           } }, 'Créer')),
         (state.jobs || []).length ? el('div', { class: 'sub' }, `${state.jobs.length} tâche(s) planifiée(s)`) : null),
       el('article', { class: 'hcard', id: 'appCard' }));
+    dernierJour = [items, live];
     renderToday(items, live);
     grid.replaceChildren(el('details', { class: 'mx hmore' }, el('summary', {}, 'État détaillé : missions, surveillance, sauvegarde, coûts'), kpis, el('div', { class: 'hcols' }, doneBox), tiles));
     renderAppCard();
@@ -3436,9 +3438,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   $('#homeSearch').addEventListener('click', () => palOpen(true));
   // La cloche mène à « À faire » : l'écran y descend et le focus s'y pose.
-  $('#homeBell').addEventListener('click', () => {
+  $('#homeBell').addEventListener('click', async () => {
     if (!$('#v-home').classList.contains('on')) show('home');
-    const t = $('#homeAFaire'); if (!t) return;
+    // Lot 26 : « À faire » est un widget de la fenêtre ; la page qui le porte s'ouvre, puis l'écran va à sa carte.
+    const t = (await window.OdinFenetre?.aujourdhui?.()?.montrer('a_faire')) ?? $('#homeAFaire'); if (!t) return;
     t.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     t.focus({ preventScroll: true });
   });
@@ -3453,6 +3456,28 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   try { feedFilter = localStorage.getItem('odin.feed') || 'tout'; } catch {}
   function ask(text) { show('chat'); const i = $('#input'); i.value = text; grow(); send(); }
   function runGuess(g) { if (g.prompt) ask(g.prompt); else if (g.view) show(g.view); }
+  // ---------- Lot 26 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » sont des widgets de la fenêtre ----------
+  // Quand la fenêtre les tient (le propriétaire), chaque bloc est posé dans son widget, sans son titre (l'en-tête du
+  // widget le porte) ; sinon (un membre, la fenêtre pas encore lue ou en panne) ils restent ici, comme avant.
+  let dernierJour = null; // ce que renderHome a passé à renderToday la dernière fois
+  /** Le contenu d'un bloc sans son titre ; ce que son titre portait d'autre (les filtres) passe au-dessus. */
+  function sansTitre(bloc) {
+    const h = bloc.querySelector(':scope > h2'), outils = h ? [...h.children] : []; h?.remove();
+    return [...(outils.length ? [el('div', { class: 'auj-outils' }, ...outils)] : []), ...bloc.childNodes];
+  }
+  /** Un bloc qui n'a rien à montrer : sa ligne, écrite avec celles des autres widgets (pages/widgets-rendu.js). */
+  function rienDuJour(raison) { const R = window.OdinWidgetsRendu; return R ? [R.corps(R.decrire({ etat: 'vide', raison }, {}))] : []; }
+  // La fenêtre vient d'être dessinée : ses widgets du jour sont vides, on y repose leur contenu.
+  document.addEventListener('odin:fenetre', () => { if (dernierJour) renderToday(...dernierJour); ouvrirSurAFaire(); });
+  // À l'ouverture d'Odin, une fois : s'il y a une validation ou une demande d'accès en attente, la page de la fenêtre
+  // qui porte « À faire » s'affiche (constat M11). Ensuite, la cloche compte ce qui arrive, quelle que soit la page.
+  let attenteLue = false, ouvertureVue = false;
+  function ouvrirSurAFaire() {
+    if (ouvertureVue || !attenteLue || !state) return;
+    const f = window.OdinFenetre?.aujourdhui?.(); if (!f) return;
+    ouvertureVue = true;
+    if (pending.size || (state.pairRequests || []).length) void f.montrer('a_faire');
+  }
   function renderToday(todoItems = [], live = []) {
     const box = $('#todayBox'); if (!box || !state) return;
     const T = state.today || { guesses: [], controls: {}, feed: [] }, C = T.controls || {};
@@ -3491,7 +3516,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         el('time', { datetime: new Date(x.at).toISOString(), title: new Date(x.at).toLocaleString('fr-FR') }, new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })),
         el('div', { class: 'ft' }, x.text, el('span', { class: 'fw', title: x.why || '' }, x.who === 'seul' ? 'fait seul' : x.who === 'toi' ? 'validé par toi' : `refusé pour te protéger${x.why ? ` · ${x.why}` : ''}`)),
         x.undoId && !x.undone ? el('button', { type: 'button', class: 'btn small', onclick: async (e) => { const r = await api('/api/action', { kind: 'undo', id: x.undoId }); e.target.replaceWith(el('span', { class: 'pill ' + (r.ok ? 'good' : 'bad') }, r.ok ? 'annulé' : 'impossible')); } }, 'Annuler') : x.undone ? el('span', { class: 'pill' }, 'annulé') : el('span')))) : el('div', { class: 'hok' }, feedFilter === 'tout' ? 'Rien pour l\'instant aujourd\'hui.' : 'Rien dans ce filtre.'));
-    box.replaceChildren(guesses || '', ctrls, el('div', { class: 'today-cols' }, todo, feed));
+    const fen = window.OdinFenetre?.aujourdhui?.() ?? null;
+    if (fen) for (const [k, bloc] of [['tu_veux', guesses], ['a_faire', todo], ['odin_a_fait', feed]]) fen.hote(k)?.replaceChildren(...(bloc ? sansTitre(bloc) : rienDuJour('rien_propose')));
+    box.replaceChildren(...(fen ? [ctrls] : [guesses || '', ctrls, el('div', { class: 'today-cols' }, todo, feed)]));
   }
   // Mascotte sur l'écran Aujourd'hui : une copie qui vit comme les autres.
   function buddyClone(id) {

@@ -91,7 +91,8 @@ test('la fenêtre de départ porte déjà largeur sur 12 et hauteur', () => {
   const d = defaultLayout(['vidarr', 'ran', 'vordr', 'ullr', 'ymir', 'midgard']);
   const ws = d.pages.flatMap((p) => p.widgets);
   assert.ok(ws.length > 0);
-  for (const w of ws) { assert.equal(w.c, w.w * 4, `${w.kind} ${w.module ?? ''}`); assert.equal(w.r, TAILLE_SORTE[w.kind].r); }
+  // Lot 26 : « À faire » et « Ce qu'Odin a fait » partent sur deux colonnes égales (6 sur 12), comme les deux blocs d'avant.
+  for (const w of ws) { assert.equal(w.c, w.kind === 'a_faire' || w.kind === 'odin_a_fait' ? 6 : w.w * 4, `${w.kind} ${w.module ?? ''}`); assert.equal(w.r, TAILLE_SORTE[w.kind].r); }
   assert.deepEqual(cleanLayout(JSON.parse(JSON.stringify(d)), ['vidarr', 'ran', 'vordr', 'ullr', 'ymir', 'midgard']), d, 'relue, elle ne change pas');
 });
 test(`la limite de modules par page est relevée à ${MODULES_PAR_PAGE} (24 avant)`, () => {
@@ -159,7 +160,8 @@ after(async () => { await tt.end(); Object.assign(console, orig); });
 test('le propriétaire range et relit largeur, hauteur et taille du téléphone', async () => {
   assert.deepEqual(rangee(), [['d0000001', 3, 2, 2, 2], ['d0000002', 8, TAILLE_SORTE.meteo.r, undefined, undefined], ['d0000003', 6, 3, undefined, undefined], ['d0000004', 5, 2, undefined, undefined], ['d0000005', 12, 4, undefined, undefined]]);
   const f = await v.json('/api/valhalla/act', { module: 'gladsheim', action: 'fenetre', input: {} });
-  const ws = (f.body.data as { pages: Array<{ widgets: Widget[] }> }).pages.flatMap((p) => p.widgets);
+  // Lot 26 : la page « Aujourd'hui » est lue en premier ; les pages rangées suivent, inchangées.
+  const ws = (f.body.data as { pages: Array<{ code?: string; widgets: Widget[] }> }).pages.filter((p) => !p.code).flatMap((p) => p.widgets);
   assert.deepEqual(ws.map((w) => [w.w, w.c, w.r]), [[1, 3, 2], [2, 8, TAILLE_SORTE.meteo.r], [2, 6, 3], [2, 5, 2], [3, 12, 4]]);
 });
 test('une tablette « maison » reçoit les mêmes modules qu\'avant, avec leur taille et rien d\'autre', async () => {

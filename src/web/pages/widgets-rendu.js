@@ -42,6 +42,8 @@
         partie_vide: [(o) => (o.titre ? `Rien dans « ${o.titre} » pour l'instant.` : 'Rien pour l\'instant.'), ''],
         rien_mesure: ['Rien de mesuré pour l\'instant.', ''],
         meteo_pas_lue: ['Pas encore lue, Odin réessaie.', ''],
+        // Lot 26 : « Tu veux sans doute » quand Odin n'a rien à proposer.
+        rien_propose: ['Rien à proposer pour l\'instant.', ''],
         '*': ['Rien à montrer : choisis quoi afficher.', ''],
       },
       source_absente: {

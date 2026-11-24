@@ -71,8 +71,10 @@ test('la fenêtre d\'Odin : pages rangées, nettoyées, jamais d\'appli inventé
   const { cleanLayout, defaultLayout } = await import('../src/valhalla/modules/gladsheim.ts');
   const ids = ['vidarr', 'ran', 'vordr', 'ullr', 'ymir', 'naglfar', 'midgard'];
   const d = defaultLayout(ids);
-  assert.deepEqual(d.pages.map((p) => p.name), ['Maison', 'Réseau', 'Sécurité', 'Machines']);
-  assert.ok(d.pages[0].maison && d.pages[0].widgets[0].kind === 'heure' && d.pages[0].widgets[1].kind === 'meteo', 'la page Maison commence par l\'heure et le lieu, puis la météo');
+  // Lot 26 : la page « Aujourd'hui » vient en premier, rangée sous un code (son nom n'est pas dans la donnée).
+  assert.deepEqual(d.pages.map((p) => p.code ?? p.name), ['aujourdhui', 'Maison', 'Réseau', 'Sécurité', 'Machines']);
+  assert.equal(d.pages[0].name, ''); assert.deepEqual(d.pages[0].widgets.map((w) => w.kind), ['tu_veux', 'a_faire', 'odin_a_fait']);
+  assert.ok(d.pages[1].maison && d.pages[1].widgets[0].kind === 'heure' && d.pages[1].widgets[1].kind === 'meteo', 'la page Maison commence par l\'heure et le lieu, puis la météo');
   // Les deux modules du 15/11/2026 : « heure » (sans appli derrière) et « site » (une sonde de Pulsar, par son nom).
   const n = cleanLayout({ pages: [{ name: 'Maison', maison: true, widgets: [{ kind: 'heure', w: 2 }, { kind: 'site', module: 'vordr', label: 'Mon site' }, { kind: 'site', module: 'vordr' }, { kind: 'site', module: 'vidarr', label: 'Faux' }, { kind: 'site', module: 'inventee', label: 'x' }] }] }, ids).pages[0];
   assert.deepEqual(n.widgets.map((w) => `${w.kind}:${w.module ?? ''}:${w.label ?? ''}:${w.w}`), ['heure:::2', 'site:vordr:Mon site:1'], 'un site sans nom, ou hors de Pulsar, est écarté');

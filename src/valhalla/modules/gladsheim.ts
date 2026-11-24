@@ -16,7 +16,8 @@ import { arrondirPosition, ecrireFichierPrive, lireFichierPrive } from '../../pr
 import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuCourant, temperature, vitesse, type Region, type Unites } from '../lieu.ts';
 import { fetchPropre } from '../../net/fetch-propre.ts';
 import { agissant } from '../sso/acces.ts';
-import { droitDeVoir, sorteDe, sortesPosables, type IdSortePosable } from '../widgets/index.ts';
+import { accueilSeulement, droitDeVoir, sorteDe, sortesPosables, type IdSortePosable } from '../widgets/index.ts';
+import { CODES_PAGES, PAGE_AUJOURDHUI, type CodePage } from '../widgets/aujourdhui.ts';
 import { actionsOuvertures, lecteurDe, ouverturesGardees } from '../widgets/ouvertures.ts';
 import { ADRESSE_MAX, adressesRefusees, retraitRefuse, toucherNet, toucherServi, type Toucher } from '../widgets/regler.ts';
 
@@ -296,10 +297,21 @@ export type WidgetKind = IdSortePosable;
  * pour l'écran d'aujourd'hui : elle se déduit de `c` (1 à 4 → 1, 5 à 8 → 2, 9 à 12 → 3).
  */
 export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number; r: number; pc?: number; pr?: number; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string>; style?: string; /** « Quand je touche le widget » (lot 25b) ; absent : ouvrir son appli. */ toucher?: Toucher }
-export interface FPage { id: string; name: string; maison?: boolean; widgets: Widget[] }
+/**
+ * Une page de la fenêtre. `code` : une page rangée sous un code (« aujourdhui », lot 26) ; son nom n'est alors pas dans
+ * la donnée (vide), l'interface l'écrit dans sa langue — sauf si le propriétaire l'a renommée. Une page sous un code
+ * n'est jamais une page « Écran de la maison ».
+ */
+export interface FPage { id: string; name: string; code?: CodePage; maison?: boolean; widgets: Widget[] }
 export interface Layout { pages: FPage[] }
 /** La grille de la maquette : 12 colonnes, 4 au téléphone, 7 lignes au plus. */
 export const GRILLE = { colonnes: 12, colonnesTel: 4, lignesMax: 7 } as const;
+/** Pages au plus, sans compter une page rangée sous un code (« Aujourd'hui » s'ajoute aux pages du propriétaire). */
+export const PAGES_MAX = 8;
+/** Le nom d'une page rangée sous un code, pour les phrases d'Odin (l'écran a son propre dictionnaire). */
+const NOMS_PAGES: Record<CodePage, string> = { aujourdhui: 'Aujourd\'hui' };
+/** Le nom à dire d'une page : celui que le propriétaire lui a donné, sinon celui de son code. */
+export const nomPage = (p: Pick<FPage, 'name' | 'code'>): string => p.name || (p.code ? NOMS_PAGES[p.code] : '');
 /** Modules par page, au plus (24 avant la grille ; l'écran « maison » de départ de la maquette en a 31). */
 export const MODULES_PAR_PAGE = 48;
 /** Par sorte de module : sa plus petite taille [colonnes, lignes] et sa hauteur de départ. */
@@ -322,6 +334,34 @@ function tailleNette(o: Record<string, unknown>, kind: WidgetKind): Pick<Widget,
     ...(pc === undefined ? {} : { pc: borne(pc, 2, GRILLE.colonnesTel) }), ...(pr === undefined ? {} : { pr: borne(pr, t.mini[1], GRILLE.lignesMax) }) };
 }
 const wid = () => randomBytes(4).toString('hex');
+/** La page « Aujourd'hui » de départ (lot 26) : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait ». */
+const pageAujourdhui = (): FPage => ({ id: PAGE_AUJOURDHUI.id, name: '', code: PAGE_AUJOURDHUI.code,
+  widgets: PAGE_AUJOURDHUI.widgets.map((x) => ({ id: x.id, kind: x.kind, ...tailleNette({ c: x.c }, x.kind) })) });
+/** La fenêtre porte-t-elle « À faire » (sur n'importe quelle page) ? */
+const porteAFaire = (l: Layout) => l.pages.some((p) => p.widgets.some((w) => w.kind === 'a_faire'));
+/** Un identifiant libre : celui demandé, sinon le suivant qui n'est pas pris (toujours le même pour la même fenêtre). */
+function idLibre(id: string, pris: Set<string>): string {
+  let n = parseInt(id, 16), x = id;
+  while (pris.has(x)) { n = (n + 0x10) >>> 0; x = n.toString(16).padStart(8, '0'); }
+  pris.add(x); return x;
+}
+/**
+ * Une fenêtre rangée avant le lot 26 reçoit la page « Aujourd'hui », en premier, sans rien déplacer du reste — une
+ * seule fois : « À faire » ne se retire pas, une fenêtre qui le porte l'a donc déjà reçue (même si les deux autres
+ * widgets en ont été retirés depuis, ou « À faire » déplacé sur une autre page).
+ * Une fenêtre sans « À faire » qui porte déjà quelque chose du jour (une donnée abîmée, ou rangée à la main) ne perd
+ * rien et ne reçoit rien en double : seuls les blocs qui manquent arrivent ; s'il y a déjà une page sous le code, ils
+ * y sont posés en tête, et la page garde sa place, son nom et ses widgets ; un identifiant déjà pris n'est pas repris.
+ * Pur.
+ */
+export function avecAujourdhui(l: Layout): Layout {
+  if (porteAFaire(l)) return l;
+  const portees = new Set<string>(l.pages.flatMap((p) => p.widgets.map((w) => w.kind))), pris = new Set(l.pages.flatMap((p) => p.widgets.map((w) => w.id)));
+  const manquants = pageAujourdhui().widgets.filter((w) => !portees.has(w.kind)).map((w) => ({ ...w, id: idLibre(w.id, pris) }));
+  const i = l.pages.findIndex((p) => p.code === PAGE_AUJOURDHUI.code);
+  if (i >= 0) return { ...l, pages: l.pages.map((p, j) => (j === i ? { ...p, widgets: [...manquants, ...p.widgets] } : p)) };
+  return { ...l, pages: [{ ...pageAujourdhui(), id: idLibre(PAGE_AUJOURDHUI.id, new Set(l.pages.map((p) => p.id))), widgets: manquants }, ...l.pages] };
+}
 /** La fenêtre de départ : ce qui compte le plus, avec les applis présentes. */
 export function defaultLayout(ids: string[]): Layout {
   const has = (m: string) => ids.includes(m), w = (kind: WidgetKind, module?: string, size: 1 | 2 | 3 = 1): Widget => ({ id: wid(), kind, ...tailleNette({ w: size }, kind), ...(module ? { module } : {}) });
@@ -329,15 +369,21 @@ export function defaultLayout(ids: string[]): Layout {
   const reseau: Widget[] = ['vidarr', 'ran', 'vordr'].filter(has).map((m) => w('chiffres', m, m === 'ran' ? 2 : 1));
   const secu: Widget[] = ['ullr', 'garmr', 'eir'].filter(has).map((m) => w('chiffres', m));
   const mach: Widget[] = ['ymir', 'naglfar'].filter(has).map((m) => w('chiffres', m));
-  return { pages: [{ id: wid(), name: 'Maison', maison: true, widgets: maison }, { id: wid(), name: 'Réseau', widgets: reseau }, { id: wid(), name: 'Sécurité', widgets: secu }, { id: wid(), name: 'Machines', widgets: mach }].filter((p) => p.widgets.length) };
+  return { pages: [pageAujourdhui(), ...[{ id: wid(), name: 'Maison', maison: true, widgets: maison }, { id: wid(), name: 'Réseau', widgets: reseau }, { id: wid(), name: 'Sécurité', widgets: secu }, { id: wid(), name: 'Machines', widgets: mach }].filter((p) => p.widgets.length)] };
 }
 /** Une fenêtre envoyée par l'interface, nettoyée : rien d'inconnu, rien de trop long, pas d'appli inventée. Pur. */
 export function cleanLayout(raw: unknown, ids: string[]): Layout {
   const r = (raw && typeof raw === 'object' ? raw : {}) as { pages?: unknown };
   const str = (v: unknown, n: number) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n);
-  const pages: FPage[] = [];
-  for (const p of (Array.isArray(r.pages) ? r.pages : []).slice(0, 8)) {
-    const pp = (p ?? {}) as Record<string, unknown>, name = str(pp.name, 24) || `Page ${pages.length + 1}`, widgets: Widget[] = [];
+  const pages: FPage[] = [], codes = new Set<string>(), seules = new Set<string>();
+  let ordinaires = 0;
+  for (const p of (Array.isArray(r.pages) ? r.pages : []).slice(0, PAGES_MAX * 4)) {
+    const pp = (p ?? {}) as Record<string, unknown>, widgets: Widget[] = [];
+    // Une page rangée sous un code connu (une seule par code) : elle ne compte pas dans les pages du propriétaire, et
+    // ne porte un nom que s'il lui en a donné un. Les autres : PAGES_MAX au plus, toujours nommées.
+    const code = CODES_PAGES.find((c) => c === pp.code && !codes.has(c));
+    if (code) codes.add(code); else if (ordinaires >= PAGES_MAX) continue; else ordinaires++;
+    const name = str(pp.name, 24) || (code ? '' : `Page ${pages.length + 1}`);
     for (const x of (Array.isArray(pp.widgets) ? pp.widgets : []).slice(0, MODULES_PAR_PAGE)) {
       const o = (x ?? {}) as Record<string, unknown>, sorte = sorteDe(o.kind);
       // Une sorte inconnue, ou déclarée mais pas encore posable (l'écran ne sait pas la dessiner) : jetée.
@@ -346,6 +392,8 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
       // Une sorte qui lit l'appli choisie a besoin d'une appli présente ; les autres (heure, météo) n'en gardent aucune.
       const libre = sorte.applis !== 'choisie';
       if (!libre && !ids.includes(module)) continue;
+      // Les sortes de l'accueil du propriétaire (« À faire »…) : une seule de chaque dans toute la fenêtre.
+      if (sorte.accueilSeul) { if (seules.has(kind)) continue; seules.add(kind); }
       const out: Widget = { id: /^[0-9a-f]{8}$/.test(String(o.id)) ? String(o.id) : wid(), kind, ...tailleNette(o, kind), ...(libre ? {} : { module }) };
       // Les réglages propres à la sorte (partie de page, action, libellé…), nettoyés par son fichier de famille.
       if (sorte.nettoyer && !sorte.nettoyer(o, out, { str })) continue;
@@ -356,7 +404,7 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
       const toucher = toucherNet(o.toucher, sorte, out, { str }); if (toucher) out.toucher = toucher;
       widgets.push(out);
     }
-    pages.push({ id: /^[0-9a-f]{8}$/.test(String(pp.id)) ? String(pp.id) : wid(), name, ...(pp.maison ? { maison: true } : {}), widgets });
+    pages.push({ id: /^[0-9a-f]{8}$/.test(String(pp.id)) ? String(pp.id) : wid(), name, ...(code ? { code } : pp.maison ? { maison: true } : {}), widgets });
   }
   if (!pages.length) throw new Error('la fenêtre doit garder au moins une page');
   return { pages };
@@ -390,6 +438,24 @@ function toucherPermisA(ctx: ModCtx, login: string): (w: Widget) => boolean {
   };
 }
 /** La fenêtre rendue à la page : avec l'animation choisie, seulement si elle a été choisie (sinon rien ne change). */
+/**
+ * LA fenêtre du propriétaire, pour tous ceux qui la lisent : celle qu'il a rangée (avec la page « Aujourd'hui » si elle
+ * date d'avant le lot 26), sinon celle de départ.
+ */
+export function fenetreRangee(ctx: Pick<ModCtx, 'settings' | 'modules'>): Layout {
+  const ids = ctx.modules().map((m) => m.id);
+  return ctx.settings.fenetre ? avecAujourdhui(cleanLayout(ctx.settings.fenetre, ids)) : defaultLayout(ids);
+}
+/**
+ * La fenêtre servie à un autre que le propriétaire : sans les sortes de son accueil (« À faire », « Ce qu'Odin a
+ * fait », « Tu veux sans doute »… : ses validations, constat G4), et sans une page sous un code qu'elles laissent
+ * vide. Il reste toujours une page : s'il n'y avait que celle-là, une page ordinaire, vide, qui ne dit rien d'elle. Pur.
+ */
+export function sansAccueilDuProprietaire<L extends Layout>(l: L): L {
+  const pages = l.pages.map((p) => ({ ...p, widgets: p.widgets.filter((w) => !accueilSeulement(w.kind)) })), gardees = pages.filter((p) => !p.code || p.widgets.length);
+  // Il ne reste que la page sous le code, vide : une page ordinaire à sa place (ni son code, ni son identifiant, ni son nom).
+  return { ...l, pages: gardees.length ? gardees : [{ id: '00000000', name: 'Page 1', widgets: [] }] };
+}
 const avecAnimation = (ctx: ModCtx, l: Layout): Layout & { animation?: Animation } => (ctx.settings.animation === undefined ? l : { ...l, animation: animationDe(ctx.settings.animation) });
 
 export const gladsheim: Module = {
@@ -402,10 +468,10 @@ export const gladsheim: Module = {
     { id: 'ouvrir', label: 'Ouvrir l\'écran de la maison', what: 'L\'adresse de l\'écran plein format', read: true, words: ['écran de la maison', 'ouvre l\'écran de la maison'], run: () => ({ text: '🏠 L\'écran de la maison : /maison sur l\'adresse d\'Odin (garde-le en favori, ou « Ajouter à l\'écran d\'accueil » sur la tablette).', data: { url: '/maison' } }) },
     { id: 'theme', label: 'Thème', what: 'Le thème de l\'écran de la maison', params: [{ key: 'theme', label: 'Thème', kind: 'select', options: Object.keys(THEMES), required: true }], words: ['change le thème de l\'écran', 'change le thème'], run: (ctx, i) => { const t = s(i.theme); if (!THEMES[t]) throw new Error(`thèmes : ${Object.keys(THEMES).join(', ')}`); ctx.saveSettings({ theme: t }); return { text: `🎨 Thème « ${THEMES[t].label} ».` }; } },
     { id: 'fenetre', label: 'Ma fenêtre', what: 'Les pages de modules de la fenêtre d\'Odin (ordinateur, téléphone, écran de la maison)', read: true, quiet: true, words: ['ma fenêtre', 'tableau de bord'], run: (ctx) => {
-      const ids = ctx.modules().map((m) => m.id), l = ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : defaultLayout(ids);
-      // À un autre que le propriétaire : « Quand je touche » seulement sur les widgets qu'il peut voir (lot 25b).
-      const qui = agissant();
-      return { text: l.pages.map((p) => `- ${p.name}${p.maison ? ' (écran de la maison)' : ''} : ${p.widgets.length} module(s)`).join('\n'), data: avecAnimation(ctx, qui ? toucherServi(l, toucherPermisA(ctx, qui.login)) : l) };
+      // À un autre que le propriétaire : jamais les widgets de son accueil (lot 26), et « Quand je touche » seulement
+      // sur les widgets qu'il peut voir (lot 25b).
+      const qui = agissant(), l = qui ? toucherServi(sansAccueilDuProprietaire(fenetreRangee(ctx)), toucherPermisA(ctx, qui.login)) : fenetreRangee(ctx);
+      return { text: l.pages.map((p) => `- ${nomPage(p)}${p.maison ? ' (écran de la maison)' : ''} : ${p.widgets.length} module(s)`).join('\n'), data: avecAnimation(ctx, l) };
     } },
     { id: 'regler_fenetre', label: 'Ranger ma fenêtre', what: 'Enregistre les pages et les modules (mode « Modifier »)', quick: false, proprietaireSeul: true, params: [{ key: 'fenetre', label: 'Fenêtre (JSON)', kind: 'textarea', required: true }], run: (ctx, i) => {
       let raw: unknown; try { raw = typeof i.fenetre === 'string' ? JSON.parse(i.fenetre) : i.fenetre; } catch { throw new Error('fenêtre illisible'); }
@@ -415,10 +481,13 @@ export const gladsheim: Module = {
       const refusees = adressesRefusees(raw);
       if (refusees.length) throw new Error(`adresse refusée : « ${refusees[0]} ». Une adresse à ouvrir commence par http:// ou https://, sans identifiant ni mot de passe dedans, ${ADRESSE_MAX} signes au plus.`);
       const ids = ctx.modules().map((m) => m.id), l = cleanLayout(raw, ids), avant = ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : undefined;
-      // « À faire » se déplace mais ne se retire pas (constat M11) ; jamais rangée encore, c'est la fenêtre de départ qui compte.
-      if (retraitRefuse(avant ?? defaultLayout(ids), l)) throw new Error('« À faire » se déplace mais ne se retire pas : garde-le sur une de tes pages.');
+      // « À faire » se déplace mais ne se retire pas (constat M11) : une fenêtre rangée qui le portait le garde. Une
+      // fenêtre qui ne l'a encore jamais porté (rangée avant le lot 26, ou envoyée par une page ouverte avant) n'est
+      // pas refusée : elle reçoit la page « Aujourd'hui » à la lecture (fenetreRangee), et la rend ici.
+      if (retraitRefuse(avant, l)) throw new Error('« À faire » se déplace mais ne se retire pas : garde-le sur une de tes pages.');
       ctx.saveSettings({ fenetre: l, ...(ctx.settings.ouvertures === undefined ? {} : { ouvertures: ouverturesGardees(ctx, l, avant) }) });
-      return { text: `✓ Fenêtre rangée : ${l.pages.map((p) => `${p.name} (${p.widgets.length})`).join(', ')}.`, data: avecAnimation(ctx, l) };
+      const rendue = avecAujourdhui(l);
+      return { text: `✓ Fenêtre rangée : ${rendue.pages.map((p) => `${nomPage(p)} (${p.widgets.length})`).join(', ')}.`, data: avecAnimation(ctx, rendue) };
     } },
     { id: 'regler_animation', label: 'Animation des modules', what: 'L\'animation qui joue quand tu déplaces ou agrandis un module de ta fenêtre (la même sur tous tes appareils)', quick: false, proprietaireSeul: true,
       params: [{ key: 'animation', label: 'Animation', kind: 'select', options: [...ANIMATIONS], required: true }], run: (ctx, i) => {
@@ -429,7 +498,7 @@ export const gladsheim: Module = {
       } },
     // La vie privée, widget par widget et personne par personne (sa question 15, réponse b) : ouvrir ou refermer un
     // widget à une personne, la liste, et « qui a fait quoi ». Tout est dans src/valhalla/widgets/ouvertures.ts.
-    ...actionsOuvertures((ctx) => { const ids = ctx.modules().map((m) => m.id); return ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : defaultLayout(ids); }, (ctx, id) => ctx.modules().find((m) => m.id === id)?.name ?? id),
+    ...actionsOuvertures((ctx) => fenetreRangee(ctx), (ctx, id) => ctx.modules().find((m) => m.id === id)?.name ?? id),
     { id: 'meteo', label: 'Météo', what: 'Le temps qu\'il fait là où est Odin, ou dans une autre ville si tu la nommes (sans changer le lieu d\'Odin)', read: true, params: [{ key: 'ville', label: 'Autre ville (vide : là où est Odin)', kind: 'text', default: '' }], words: ['météo de la maison', 'la météo', 'quel temps fait-il', 'météo', 'meteo', 'température dehors', 'quelle température fait-il', 'temps qu\'il fait', 'quel temps', 'quel temps fera demain'], run: async (ctx, i) => {
       // Une autre ville : la météo de là-bas, sans changer le lieu d'Odin (pour le changer : l'action « lieu »).
       const v = s(i.ville).trim(), ici = sansAccent(v) === sansAccent(s(ctx.settings.villeNom) || s(ctx.settings.ville) || LIEU_PAR_DEFAUT);

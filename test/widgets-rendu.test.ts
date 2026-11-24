@@ -268,14 +268,16 @@ test('un membre sur l\'accueil : un widget « vie privée » reste fermé, et ri
     assert.ok(membre, 'le membre a sa session');
     // Le serveur lui ouvre bien la vue de Chronos (il a le droit sur l'appli) : c'est donc la page qui doit ne rien demander.
     assert.equal((await fetch(`${od.url}/api/valhalla/view?id=frigg`, { headers: { cookie: membre, 'x-odin': '1' } })).status, 200, 'contrôle : la garde lui sert la vue de Chronos');
-    async function voir(cookie: string) {
+    // Lot 26 : pour le propriétaire seul, la page « Aujourd'hui » est la première ; sa page d'essai est la deuxième.
+    async function voir(cookie: string, proprio = false) {
       const ctx = await nav.newContext({ viewport: { width: 1280, height: 900 }, locale: 'fr-FR' });
       const [n, ...v] = cookie.split('='); await ctx.addCookies([{ name: n, value: v.join('='), url: od.url, httpOnly: true, sameSite: 'Strict' }]);
       await ctx.addInitScript(() => { try { localStorage.setItem('odin.tour', 'done'); } catch { /* rien */ } });
+      if (proprio) await ctx.addInitScript(() => { try { localStorage.setItem('odin.fenetre.page', '1'); } catch { /* rien */ } });
       const page = await ctx.newPage(), vues: string[] = [];
       page.on('response', (x) => { const u = new URL(x.url()); if (u.pathname === '/api/valhalla/view') vues.push(u.searchParams.get('id') ?? ''); });
       await page.goto(od.url + '/');
-      await page.waitForSelector('#feGrid .fe-w', { timeout: 30000 });
+      await page.waitForSelector('#feGrid .fe-w[data-id="e0000002"]', { timeout: 30000 });
       await page.waitForTimeout(1500);
       const cartes = await page.evaluate<Array<{ id: string; ligne: string; gris: boolean; boutons: number; chiffres: number }>>(`[...document.querySelectorAll('#feGrid > .fe-w')].map((c) => ({ id: c.dataset.id, ligne: c.querySelector('.wr-ligne')?.textContent ?? '', gris: Boolean(c.querySelector('.wr-gris')), boutons: c.querySelectorAll('.wr-btn, .wr-plus, .fe-open').length, chiffres: c.querySelectorAll('.va-kpi').length }))`);
       await ctx.close();
@@ -297,7 +299,7 @@ test('un membre sur l\'accueil : un widget « vie privée » reste fermé, et ri
     assert.equal(o.carte('e0000001').boutons, 1, 'sans « ⋯ » : seulement « Ouvrir › »');
     assert.equal(o.carte('e0000003').gris, true, 'l\'appli qui n\'est pas à lui reste fermée');
     // Le propriétaire : rien ne change pour lui.
-    const p = await voir(od.session);
+    const p = await voir(od.session, true);
     assert.ok(p.vues.includes('frigg'), 'le propriétaire lit Chronos');
     assert.equal(p.carte('e0000001').gris, false); assert.equal(p.carte('e0000001').boutons, 2, '« Ouvrir › » et « ⋯ »');
   } finally { await nav.close(); await tt.end(); Object.assign(console, orig); }

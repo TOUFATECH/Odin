@@ -10,7 +10,7 @@
 // (widgets/ouvertures.ts). La lecture est faite en son nom : une appli qui montre moins à un membre (Sphinx : son seul
 // appareil) lui montre moins ici aussi. Sa page ne demande plus la vue d'une appli pour dessiner un widget.
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { cleanLayout, defaultLayout, type FPage, type Layout, type Widget } from '../valhalla/modules/gladsheim.ts';
+import { defaultLayout, fenetreRangee, sansAccueilDuProprietaire, type FPage, type Layout, type Widget } from '../valhalla/modules/gladsheim.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import { auNomDe } from '../valhalla/sso/acces.ts';
 import { aDroit } from '../valhalla/sso/etat.ts';
@@ -73,10 +73,9 @@ export async function boutonMaison<P extends FPage>(v: Valhalla, pages: P[], id:
   return w && await widgetPermis(w, lecteurMaison(full), sourceOdin(v)) ? w : undefined;
 }
 
-/** La fenêtre rangée (ou celle de départ). */
+/** La fenêtre rangée (ou celle de départ), comme Hestia la rend : avec la page « Aujourd'hui » (lot 26). */
 function fenetreDe(v: Valhalla): Layout {
-  const g = v.ctx('gladsheim'), ids = v.modules().map((m) => m.id);
-  try { return g.settings.fenetre ? cleanLayout(g.settings.fenetre, ids) : defaultLayout(ids); } catch { return defaultLayout(ids); }
+  try { return fenetreRangee(v.ctx('gladsheim')); } catch { return defaultLayout(v.modules().map((m) => m.id)); }
 }
 
 /**
@@ -106,7 +105,9 @@ export async function widgetsRoute(req: IncomingMessage, res: ServerResponse, ur
   const l: Lecteur | undefined = m ? lecteurMembre(v, m) : { qui: 'proprietaire', ecran: 'accueil' };
   if (!l) { json(res, 403, { ok: false, error: 'réservé' }); return true; }
   const page = (url.searchParams.get('page') ?? '').slice(0, 40), src = sourceOdin(v);
-  const pages = fenetreDe(v).pages.filter((p) => !page || p.id === page);
+  // Un membre ne reçoit pas les widgets de l'accueil du propriétaire (lot 26) : ils ne sont pas dans sa fenêtre, rien
+  // n'en est dit ici non plus (ni leur identifiant, ni leur page).
+  const pages = (m ? sansAccueilDuProprietaire(fenetreDe(v)) : fenetreDe(v)).pages.filter((p) => !page || p.id === page);
   const lireTout = async () => {
     const widgets: Array<{ id: string; kind: string; page: string } & EtatWidget> = [];
     for (const p of pages) for (const w of p.widgets) widgets.push({ id: w.id, kind: w.kind, page: p.id, ...await donneeWidget(w, l, src) });

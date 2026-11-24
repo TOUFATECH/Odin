@@ -58,7 +58,7 @@ before(async () => {
   assert.equal((await va.act('var', 'ajouter', { login: 'cible-c', nom: 'Cible C', groupes: 'invite', mot_de_passe: MDP })).ok, true);
   lierProprietaire(persona()!);
   membre = await entrer(v, 'membre-a', MDP); assert.ok(membre, 'le membre a une session');
-  // Une page « écran de la maison » avec une sorte de chaque public, plus « À faire » (que cleanLayout jette déjà).
+  // Une page « écran de la maison » avec une sorte de chaque public, plus « À faire » (gardé par cleanLayout depuis le lot 26 : c'est le filet qui le retire de l'écran de la maison).
   const f = await va.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify({ pages: [{ id: PAGE, name: 'Maison', maison: true, widgets: [
     { id: W.heure, kind: 'heure', w: 1 },
     { id: W.meteo, kind: 'meteo', w: 1 },
@@ -114,7 +114,8 @@ test('la donnée des widgets : au propriétaire seul (sans session, ou avec une 
   const ws = r.body.widgets as Array<{ id: string; etat: string }>;
   assert.ok(ws.length >= 7, 'chaque widget de la fenêtre a sa donnée');
   for (const x of ws) assert.ok(['ok', 'vide', 'source_absente', 'refuse', 'ancien'].includes(x.etat), `${x.id} : un des cinq états`);
-  assert.ok(!ws.some((x) => x.id === 'a0000008'), '« À faire » n\'est pas dans la fenêtre rangée');
+  // Lot 26 : « À faire » est dans la fenêtre rangée ; sur son accueil, le propriétaire en reçoit l'état (jamais ailleurs : essai suivant).
+  assert.equal(ws.find((x) => x.id === 'a0000008')?.etat, 'ok', '« À faire », au propriétaire sur son accueil');
   assert.equal((await v.json('/api/widgets/donnees', { x: 1 })).status, 405);
 });
 

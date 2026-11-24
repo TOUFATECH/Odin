@@ -128,10 +128,14 @@ test('une fenêtre enregistrée avant ce lot se relit identique, et se réenregi
     const avant = (JSON.parse(FICHIER_AVANT) as { fenetre: unknown }).fenetre;
     const lu = await o.v.act('gladsheim', 'fenetre', {});
     assert.equal(lu.ok, true);
+    // Lot 26 : la page « Aujourd'hui » arrive en premier à la lecture ; le fichier, lui, n'est pas touché.
+    const lue = lu.data as { pages: Array<{ code?: string }> };
+    assert.equal(lue.pages[0].code, 'aujourdhui'); assert.equal(readFileSync(o.fichier, 'utf8'), FICHIER_AVANT, 'lire ne réécrit rien');
     // Mêmes pages, mêmes modules, mêmes champs, dans le même ordre (aucune animation choisie : rien d'ajouté).
-    assert.equal(JSON.stringify(lu.data), JSON.stringify(avant), 'la fenêtre relue est celle du fichier, champ pour champ');
-    // « Terminé » renvoie la fenêtre telle quelle : le fichier réécrit est le même, octet pour octet.
-    const r = await o.v.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(lu.data) });
+    const pagesDAvant = { ...lue, pages: lue.pages.slice(1) };
+    assert.equal(JSON.stringify(pagesDAvant), JSON.stringify(avant), 'la fenêtre relue est celle du fichier, champ pour champ');
+    // Rangée telle qu'avant (une page ouverte avant la mise à jour) : le fichier réécrit est le même, octet pour octet.
+    const r = await o.v.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(pagesDAvant) });
     assert.equal(r.ok, true, r.text);
     assert.equal(readFileSync(o.fichier, 'utf8'), FICHIER_AVANT, 'réglages.json inchangé');
   } finally { o.end(); }
@@ -141,11 +145,12 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
   const src = readFileSync(new URL('../src/valhalla/modules/gladsheim.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /\['chiffres', 'section'/, 'la liste des sortes acceptées n\'est plus dans gladsheim.ts');
   assert.doesNotMatch(src, /chiffres: \{ mini:/, 'les tailles des sortes ne sont plus dans gladsheim.ts');
-  // Les six sortes posables d'aujourd'hui, ni plus ni moins, et leurs tailles d'avant.
-  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['bouton', 'chiffres', 'heure', 'meteo', 'section', 'site']);
+  // Les six sortes posables d'avant et leurs tailles, plus les trois blocs du jour (lot 26).
+  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'bouton', 'chiffres', 'heure', 'meteo', 'odin_a_fait', 'section', 'site', 'tu_veux']);
   assert.deepEqual(TAILLE_SORTE, {
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
+    a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 },
   });
 });
 
@@ -162,7 +167,8 @@ test('une famille par fichier, des identifiants uniques', () => {
 });
 
 test('une sorte inconnue, ou déclarée mais pas encore posable, est jetée', () => {
-  for (const kind of ['inventee', 'script', '', undefined, 'constructor', '__proto__', 'toString', 'a_faire', 'odin_a_fait', 'tu_veux', 'comportement']) {
+  // Lot 26 : « À faire », « Ce qu'Odin a fait » et « Tu veux sans doute » sont posables ; « comportement » pas encore (lot 27).
+  for (const kind of ['inventee', 'script', '', undefined, 'constructor', '__proto__', 'toString', 'comportement']) {
     assert.equal(un({ kind, module: 'midgard', section: 'x', action: 'y', label: 'z' }), undefined, `sorte « ${String(kind)} » jetée`);
   }
   // Une appli inventée, ou un site hors de Pulsar : jetés comme avant.
@@ -215,7 +221,8 @@ test('les quatre sortes de l\'accueil du propriétaire : jamais à l\'écran de 
     assert.equal(servieALaMaison(k), false, `${k} jamais servie à /maison`); assert.equal(copiable(k), false, `${k} jamais copiable`);
   }
   assert.deepEqual((SORTES as readonly SorteWidget[]).filter((x) => x.accueilSeul).map((x) => x.id).sort(), [...quatre].sort(), 'ces quatre-là, et elles seules');
-  for (const x of sortesPosables()) { assert.equal(copiable(x.id), true, x.id); assert.equal(servieALaMaison(x.id), true, x.id); }
+  // Toute autre sorte posable se copie et peut aller sur l'écran de la maison ; les posables de l'accueil (lot 26), jamais.
+  for (const x of sortesPosables()) { const reservee = quatre.includes(x.id); assert.equal(copiable(x.id), !reservee, x.id); assert.equal(servieALaMaison(x.id), !reservee, x.id); }
   // Une sorte inconnue : traitée comme réservée, par prudence.
   assert.equal(accueilSeulement('inventee'), true); assert.equal(copiable(undefined), false);
 });

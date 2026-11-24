@@ -27,7 +27,11 @@
     // Lot 22a : l'accueil en plein écran.
     sortiePlein: 'Quitter le plein écran (Échap)', enPlein: 'Plein écran : seulement les widgets. Échap, ou le ✕ en haut à droite, pour sortir.',
     // Lot 25a : le titre d'un widget quand la fenêtre n'en porte pas (jamais lu chez l'appli pour qui n'y a pas droit).
-    titres: { heure: 'Heure et lieu', meteo: 'Météo', site: 'Site surveillé', sansTitre: 'Widget' }, sousSite: 'Pulsar · site surveillé',
+    titres: { heure: 'Heure et lieu', meteo: 'Météo', site: 'Site surveillé', a_faire: 'À faire', odin_a_fait: 'Ce qu\'Odin a fait', tu_veux: 'Tu veux sans doute', sansTitre: 'Widget' }, sousSite: 'Pulsar · site surveillé',
+    // Lot 26 : la page rangée sous un code porte son nom ici (pas dans la donnée) ; les trois blocs du jour devenus widgets.
+    pages: { aujourdhui: 'Aujourd\'hui' },
+    jour: { sous: 'Odin', lettres: { a_faire: '✓', odin_a_fait: '⚡', tu_veux: '💡' }, attente: 'Un instant…', deja: (t) => `« ${t} » est déjà dans ta fenêtre.`,
+      quoi: { odin_a_fait: 'Le fil du jour : ce qu\'Odin a fait, seul ou avec ton accord, et « Annuler ».', tu_veux: 'Ce qu\'Odin te propose de faire maintenant.', a_faire: 'Ce qui t\'attend : validations, demandes d\'accès, alertes.' } },
     // « Ouvrir à… » : un widget de la vie privée, ouvert à une personne précise (sa question 15, réponse b).
     ouvrir: {
       bouton: 'Ouvrir à…', nom: (t) => `Ouvrir « ${t} » à une personne`, titre: (t) => `Ouvrir « ${t} » à…`, groupe: 'Les personnes',
@@ -99,6 +103,13 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 .fe-btnw{display:flex;flex-direction:column;gap:8px}.fe-btnw .btn{min-height:46px;font-size:15px}
 .fe-wx{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.fe-wx>div{min-width:0}.fe-wx b{font-size:34px}.fe-hours{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;margin-top:10px;font-size:12.5px;color:var(--muted)}.fe-hours span{white-space:nowrap}
 .fe-err{color:var(--muted);font-size:13.5px}
+/* Lot 26 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » en widgets. Leur contenu est posé par la page
+   d'accueil (ui.html) dans .fe-auj ; ici, seulement sa place, et des cibles de 44 px au doigt comme au clavier. */
+.fe-auj{min-width:0;display:flex;flex-direction:column;gap:8px}.fe-auj:empty::before{content:attr(data-attente);color:var(--muted);font-size:13.5px}
+.fe-auj .auj-outils{display:flex;justify-content:flex-end}.fe-auj .ffilter button{min-height:44px;padding:0 14px}
+.fe-auj .btn.small{min-height:44px}.fe-auj .gwrap .gx{width:44px;height:44px;top:0;right:0}.fe-auj .guess{padding-right:48px}
+.fe-auj .titem a{display:inline-flex;align-items:center;min-height:44px}
+.fe-w[data-auj]:focus{outline:0}.fe-w[data-auj]:focus-visible{outline:2px solid var(--accent,#0b7f7c);outline-offset:3px}
 .fe-clock{display:flex;flex-direction:column;gap:2px}.fe-clock-h{font-size:clamp(22px,24cqi,38px);line-height:1.1;font-variant-numeric:tabular-nums}.fe-clock-d{font-size:15px}.fe-clock-d::first-letter{text-transform:uppercase}.fe-clock small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
 .fe-site{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:4px solid var(--line)}.fe-site b{font-size:20px}.fe-site small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}.fe-site.bon{border-color:var(--good)}.fe-site.mauvais{border-color:var(--bad)}.fe-site.attention{border-color:var(--warn)}
 /* L'accueil en plein écran (lot 22a) : seulement les widgets, pour un écran au mur. Le bandeau, les onglets, les blocs du
@@ -121,6 +132,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   let etats = null, proprio = false, pasProprio = false;
   const host = () => $('#fenetre');
   const page = () => L.pages[Math.min(cur, L.pages.length - 1)];
+  /** Le nom d'une page : celui que le propriétaire lui a donné ; une page rangée sous un code prend sinon le nom de son code. */
+  const nomDe = (p) => p?.name || TXT.pages[p?.code] || '';
   const modName = (id) => cat?.modules?.find((m) => m.id === id)?.name ?? id;
   const modFam = (id) => cat?.modules?.find((m) => m.id === id)?.family ?? '';
 
@@ -188,6 +201,27 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     if (w.kind === 'section') return { sections: d.section ? [d.section] : [] };
     if (w.kind === 'site') return { sections: [{ kind: 'table', title: 'Sondes', rows: [{ cells: [w.label, '', '', d.etat ?? '', d.jour ?? '', d.mois ?? '', d.temps ?? ''], tone: d.tone }] }] };
     return undefined;
+  }
+  /** Les blocs du jour devenus widgets (lot 26) : leur contenu est posé par la page d'accueil, pas lu ici. */
+  const JOUR = ['tu_veux', 'a_faire', 'odin_a_fait'];
+  /** La carte d'un bloc du jour sur la page ouverte, et la place de son contenu. */
+  const carteJour = (k) => host()?.querySelector(`#feGrid > .fe-w[data-auj="${k}"]`) ?? null;
+  /**
+   * Ce que la fenêtre tient des blocs du jour, pour la page d'accueil (ui.html) : rien (`null`) tant qu'elle ne porte
+   * pas « À faire » (pas encore lue, ou servie à un membre : les blocs restent alors à leur ancienne place). Sinon :
+   * `hote(k)` : la place du contenu de ce bloc sur la page ouverte (ou rien s'il est sur une autre page, ou retiré) ;
+   * `montrer(k)` : ouvre la page qui porte ce bloc et rend sa carte (pas en plein glisser ; rien si le bloc est retiré).
+   */
+  function aujourdhui() {
+    if (!L || !L.pages.some((p) => p.widgets.some((w) => w.kind === 'a_faire'))) return null;
+    return {
+      hote: (k) => carteJour(k)?.querySelector('.fe-auj') ?? null,
+      montrer: async (k) => {
+        const i = L.pages.findIndex((p) => p.widgets.some((w) => w.kind === k)); if (i < 0) return null;
+        if (i !== Math.min(cur, L.pages.length - 1) && !glisse && !appuiEnCours) { cur = i; try { localStorage.setItem('odin.fenetre.page', String(i)); } catch { /* */ } await fetchViews(); await draw(); }
+        return carteJour(k);
+      },
+    };
   }
   /** Ce widget est-il fermé à qui regarde ? (rien n'est alors lu ni demandé pour lui) */
   const ferme = (w) => etatDe(w)?.etat === 'refuse';
@@ -284,6 +318,14 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       box.append(head(titreDe(w, d.gris), sous, w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : w.kind === 'bouton' ? '⚡' : undefined, appliDe(w)), el('p', { class: 'fe-err' }, ...R.contenu(d, agirIci)));
       return box;
     }
+    // Lot 26 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait ». Leur donnée est dans l'état de la page du
+    // propriétaire (les validations, les propositions, le fil du jour) : la page d'accueil la pose dans .fe-auj après
+    // chaque dessin (événement « odin:fenetre »). La carte peut recevoir le focus (la cloche y mène).
+    if (JOUR.includes(w.kind)) {
+      box.dataset.auj = w.kind; box.tabIndex = -1; box.setAttribute('aria-label', titreDe(w));
+      box.append(head(titreDe(w), TXT.jour.sous, TXT.jour.lettres[w.kind], ''), el('div', { class: 'fe-auj', 'data-auj': w.kind, 'data-attente': TXT.jour.attente }));
+      return box;
+    }
     /** La ligne (et le bouton) d'un état vu ici, sans le serveur : son code, comme le serveur le dirait. */
     const contenuDe = (etat, raison, vide) => R.contenu(R.decrire({ etat, raison }, { proprio, appli: modName(appliDe(w)), titre: titreDe(w), vide, peutAgir: (r) => peutAgir(w, r) }), agirIci);
     if (w.kind === 'meteo') {
@@ -334,14 +376,14 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // La même page, dans le même mode : les modules qui changent de place ou de taille glissent avec l'animation choisie.
     const memeVue = Boolean(h.querySelector('#feGrid')) && dessin.cur === cur && dessin.edit === edit;
     h.classList.toggle('fe-edit', edit);
-    const tabs = L.pages.map((p, i) => el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(i === cur), onclick: async () => { cur = i; try { localStorage.setItem('odin.fenetre.page', String(i)); } catch { /* */ } await fetchViews(); draw(); }, ondblclick: () => edit && rename(i) }, p.name, p.maison ? ' 🏠' : ''));
+    const tabs = L.pages.map((p, i) => el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(i === cur), onclick: async () => { cur = i; try { localStorage.setItem('odin.fenetre.page', String(i)); } catch { /* */ } await fetchViews(); draw(); }, ondblclick: () => edit && rename(i) }, p.name || nomDe(p), p.maison ? ' 🏠' : ''));
     const bar = edit
       ? el('div', { class: 'fe-tools', role: 'toolbar', 'aria-label': 'Modifier la fenêtre' }, el('b', {}, '✎ Modifier'), ...tabs,
         el('button', { class: 'fe-tab', type: 'button', title: 'Ajouter une page', 'aria-label': 'Ajouter une page', onclick: async () => { const n = await window.OdinDialog.prompt('Nom de la nouvelle page', 'Ma page'); if (n) { L.pages.push({ id: '', name: n.slice(0, 24), widgets: [] }); cur = L.pages.length - 1; draw(); } } }, '+'),
         el('button', { class: 'fe-tab', type: 'button', onclick: () => rename(cur) }, 'Renommer'),
         // « À faire » ne se retire pas (constat M11) : la page qui le porte ne se supprime pas (c'est dit tout de suite).
-        L.pages.length > 1 ? el('button', { class: 'fe-tab', type: 'button', onclick: async () => { if (page().widgets.some((w) => !R.retirable(w.kind))) { say(R.TEXTES.reglage.fixe); return; } if (await window.OdinDialog.confirm(`Supprimer la page « ${page().name} » ?`, { danger: true })) { L.pages.splice(cur, 1); cur = 0; draw(); } } }, 'Supprimer la page') : null,
-        el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(Boolean(page().maison)), title: 'Montrer cette page sur l\'écran de la maison', onclick: () => { page().maison = !page().maison; draw(); } }, '🏠 Écran de la maison'),
+        L.pages.length > 1 ? el('button', { class: 'fe-tab', type: 'button', onclick: async () => { if (page().widgets.some((w) => !R.retirable(w.kind))) { say(R.TEXTES.reglage.fixe); return; } if (await window.OdinDialog.confirm(`Supprimer la page « ${nomDe(page())} » ?`, { danger: true })) { L.pages.splice(cur, 1); cur = 0; draw(); } } }, 'Supprimer la page') : null,
+        page().code ? null : el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(Boolean(page().maison)), title: 'Montrer cette page sur l\'écran de la maison', onclick: () => { page().maison = !page().maison; draw(); } }, '🏠 Écran de la maison'),
         el('button', { class: 'fe-tab', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirTiroir }, OT.TEXTES.bouton),
         el('span', { class: 'sp' }), themeBtn(),
         el('button', { class: 'btn small', type: 'button', onclick: async () => { L = JSON.parse(saved); edit = false; await fetchViews(); draw(); } }, 'Annuler'),
@@ -355,12 +397,12 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // En mode Modifier : la tuile « Ajouter un widget » en fin de grille, et le tiroir qu'elle ouvre (fermé).
     const tuile = edit ? el('button', { class: 'fe-ajout', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirTiroir }, el('span', { 'aria-hidden': 'true' }, '＋'), OT.TEXTES.tuile) : null;
     ouvreur = null; if (!edit) $('#feTiroir')?.remove();
-    const poserTout = () => h.replaceChildren(bar, el('div', { class: 'fe-wrap' }, grid, tuile, edit ? catalogue() : null));
+    const poserTout = () => { h.replaceChildren(bar, el('div', { class: 'fe-wrap' }, grid, tuile, edit ? catalogue() : null)); document.dispatchEvent(new CustomEvent('odin:fenetre')); };
     if (memeVue) OA.jouer(() => h.querySelectorAll('#feGrid > .fe-w'), poserTout); else poserTout();
     dessin = { cur, edit };
     if (carteActive && nomActif && !h.contains(document.activeElement)) [...grid.querySelectorAll('.fe-w')].find((n) => n.dataset.id === carteActive)?.querySelector(`[aria-label="${CSS.escape(nomActif)}"]`)?.focus();
   }
-  async function rename(i) { const n = await window.OdinDialog.prompt('Nom de la page', L.pages[i].name); if (n) { L.pages[i].name = n.slice(0, 24); draw(); } }
+  async function rename(i) { const n = await window.OdinDialog.prompt('Nom de la page', nomDe(L.pages[i])); if (n) { L.pages[i].name = n.slice(0, 24); draw(); } }
   function themeBtn() {
     const themes = window.OdinThemes?.ORDER ?? [];
     const sel = el('select', { 'aria-label': 'Thème', style: 'min-height:36px;border-radius:999px;padding:0 10px;background:#fff;color:#10363a;border:0', onchange: async (e) => { const r = await act('apparence', 'theme', { theme: e.target.value }); say(r.ok ? r.text : `✗ ${r.text ?? r.error}`); } },
@@ -639,6 +681,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   function add(w) { page().widgets.push({ w: 1, ...w, id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) });
     const n = page().widgets[page().widgets.length - 1], ok = OT.poser(cat?.modules, n.module);
     if (ok !== 'ok') { page().widgets.pop(); say(ok === 'desactivee' ? OT.TEXTES.refusee(modName(n.module)) : OT.TEXTES.inconnue); return false; }
+    // Un bloc du jour (lot 26) : un seul de chaque dans toute la fenêtre (comme le serveur), et pour le propriétaire seul.
+    if (JOUR.includes(n.kind) && (!proprio || L.pages.some((p) => p.widgets.some((x) => x !== n && x.kind === n.kind)))) { page().widgets.pop(); say(TXT.jour.deja(TXT.titres[n.kind])); return false; }
     fermerTiroir(false); views.delete(w.module); fetchViews().then(draw).then(() => montrerAjout(n.id)); return true; }
   /** Le widget qui vient d'être posé : l'écran défile jusqu'à lui, il apparaît, le focus va sur sa poignée, c'est dit. */
   function montrerAjout(id) {
@@ -647,7 +691,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     b.classList.add('fe-pop'); b.addEventListener('animationend', () => b.classList.remove('fe-pop'), { once: true });
     (b.querySelector('.fe-grip') ?? b).focus({ preventScroll: true });
     const w = page().widgets.find((x) => x.id === id), T = OT.TEXTES;
-    dire(T.pose(w?.label || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : modName(w?.module ?? ''))));
+    dire(T.pose(w?.label || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : JOUR.includes(w?.kind) ? TXT.titres[w.kind] : modName(w?.module ?? ''))));
   }
 
   // ------------------------------------------------------------------ le tiroir « Ajouter un widget » (lot 18)
@@ -693,7 +737,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // Une ligne qui pose un widget tout prêt : un clic sur « Ajouter », ou glissée sur la page.
     const item = (w, nom, quoi, icon) => ({ w, nom, quoi, icon, famille: OT.INFOS, onclick: () => add(w) });
     const vordr = (cat?.modules ?? []).find((m) => m.id === 'vordr');
-    const lignes = [item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo' }, T.meteo, T.meteoQuoi, '☀'),
+    // Lot 26 : les blocs du jour que la fenêtre ne porte plus (retirés), pour le propriétaire seul.
+    const jour = proprio && aujourdhui() ? JOUR.filter((k) => !L.pages.some((p) => p.widgets.some((w) => w.kind === k))).map((k) => item({ kind: k, w: 2, c: 6 }, TXT.titres[k], TXT.jour.quoi[k], TXT.jour.lettres[k])) : [];
+    const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo' }, T.meteo, T.meteoQuoi, '☀'),
       vordr ? { nom: T.site, quoi: T.siteQuoi, icon: '🌐', famille: OT.INFOS, active: OT.active(vordr), onclick: siteSurveille } : null,
       { nom: T.perso, quoi: T.persoQuoi, icon: '⚡', famille: OT.INFOS, creer: true, onclick: ownButton },
       ...(cat?.modules ?? []).map((m) => ({ ...item({ kind: 'chiffres', module: m.id }, m.name, String(m.what ?? '').slice(0, 90)), famille: m.family, module: m.id, active: OT.active(m) }))].filter(Boolean);
@@ -926,17 +972,18 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       const refus = R.copieRefusee({ kind: w.kind, privee: ouv.privee, ouvert: ouv.connu && ouv.noms.length > 0 });
       if (refus) { statut.textContent = refus === 'reservee' ? T.copieReservee : T.copiePrivee; return; }
       let cible = L.pages.find((p) => Boolean(p.maison) === versMaison);
-      if ((!cible && L.pages.length >= 8) || (cible && cible.widgets.length >= 48)) { statut.textContent = T.copiePleine; return; }
+      // Huit pages au plus, sans compter une page rangée sous un code (« Aujourd'hui »), comme chez Hestia (PAGES_MAX).
+      if ((!cible && L.pages.filter((p) => !p.code).length >= 8) || (cible && cible.widgets.length >= 48)) { statut.textContent = T.copiePleine; return; }
       if (!cible) { cible = { id: '', name: versMaison ? T.pages.maison : T.pages.accueil, ...(versMaison ? { maison: true } : {}), widgets: [] }; L.pages.push(cible); }
       cible.widgets.push({ ...JSON.parse(JSON.stringify(w)), id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) });
-      statut.textContent = `${T.copie(cible.name)}${ouv.privee ? T.copieFermee : ''} ${T.pied}`; draw();
+      statut.textContent = `${T.copie(nomDe(cible))}${ouv.privee ? T.copieFermee : ''} ${T.pied}`; draw();
     });
     // « Retirer » : pas sur « À faire » (il se déplace, il ne se retire pas).
     const retirer = R.retirable(w.kind) ? R.bouton(T.retirer, () => {
       page().widgets = page().widgets.filter((x) => x.id !== w.id); f.fermer();
       draw().then(() => { dire(T.retire(titre)); say(`${T.retire(titre)} ${T.pied}`); rendre()?.focus(); });
     }, 'danger') : null;
-    f = R.fenetreRegler({ titre, tuile, lettre: w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : undefined, corps, rendre,
+    f = R.fenetreRegler({ titre, tuile, lettre: w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : TXT.jour.lettres[w.kind], corps, rendre,
       pied: [copier, retirer, el('div', { class: 'wr-fin' }, R.bouton(T.annuler, () => f.fermer()), R.bouton(T.valider, valider, 'p')), el('p', { class: 'wr-aide' }, T.pied)] });
     f.d.addEventListener('input', surveiller); f.d.addEventListener('change', surveiller);
     // Entrée dans un champ de texte : valider (comme le bouton).
@@ -971,7 +1018,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 
   // ------------------------------------------------------------------ montage
   async function mount() {
-    const body = $('#v-home .body'); if (!body || $('#fenetre')) return;
+    // Le corps de l'accueil, enfant direct de la vue : la mascotte du salut (dans le bandeau, plus haut) a elle aussi un
+    // « .body » dans son dessin ; si la page charge lentement, elle est déjà là, et la fenêtre s'y poserait, invisible.
+    const body = $('#v-home > .body'); if (!body || $('#fenetre')) return;
     body.prepend(el('div', { id: 'fenetre', 'aria-label': 'Ma fenêtre' }, el('p', { class: 'fe-err' }, 'Chargement de ta fenêtre…')));
     try { await load(); await fetchViews(); await draw(); } catch (e) { host().replaceChildren(el('p', { class: 'fe-err' }, `Fenêtre indisponible : ${e.message}`)); return; }
     clearInterval(timer); timer = setInterval(async () => { if (edit || glisse || appuiEnCours || document.hidden || !$('#v-home.on')) return; await fetchViews(); draw(); }, 60_000);
@@ -1001,9 +1050,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       say(TXT.enPlein);
     } else if (!a || a === document.body || a === b) $('#homeFull')?.focus({ preventScroll: true });
   });
-  window.OdinFenetre = { mount, state: () => ({ L, cur, edit }), edit: (on = true) => { edit = on; return draw(); } };
+  window.OdinFenetre = { mount, state: () => ({ L, cur, edit }), edit: (on = true) => { edit = on; return draw(); }, aujourdhui };
   // Après la connexion seulement (la page de connexion n'a pas de fenêtre).
-  const tryMount = () => { const app = $('#app'); if (app && !app.hidden && $('#v-home .body')) mount(); else setTimeout(tryMount, 1500); };
+  const tryMount = () => { const app = $('#app'); if (app && !app.hidden && $('#v-home > .body')) mount(); else setTimeout(tryMount, 1500); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryMount); else tryMount();
   // Le choix de l'animation (lot 17) dans Réglages → Apparence, à la place que themes.js réserve en posant ses cartes
   // (themes.js est chargé après : on attend la fin de son installation).

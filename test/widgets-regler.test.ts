@@ -146,7 +146,8 @@ test('« À faire » se déplace mais ne se retire pas : ni « Retirer », ni «
   assert.equal(retraitRefuse(avant, avant), undefined);
   assert.equal(retraitRefuse(undefined, { pages: [p('b0000001', ['heure'])] }), undefined, 'aucune fenêtre avant : rien à garder');
   assert.equal(retraitRefuse({ pages: [p('b0000001', ['heure', 'odin_a_fait'])] }, { pages: [p('b0000001', ['heure'])] }), undefined, 'les autres sortes se retirent');
-  assert.match(lire('src/valhalla/modules/gladsheim.ts'), /if \(retraitRefuse\(avant \?\? defaultLayout\(ids\), l\)\) throw new Error\(/, 'ranger la fenêtre applique la règle (jamais rangée : d\'après la fenêtre de départ)');
+  // Lot 26 : la règle vaut pour une fenêtre RANGÉE qui portait « À faire » ; une fenêtre qui ne l'a jamais porté le reçoit à la lecture (test/accueil-aujourdhui.test.ts).
+  assert.match(lire('src/valhalla/modules/gladsheim.ts'), /if \(retraitRefuse\(avant, l\)\) throw new Error\(/, 'ranger la fenêtre applique la règle');
 });
 
 test('la page : les styles d\'une sorte comme le serveur ; « Régler » remplace l\'ancien réglage de « ⋯ »', () => {
@@ -197,7 +198,12 @@ const FENETRE = () => ({ pages: [
     { id: ID.accueil, kind: 'chiffres', w: 1, module: 'midgard' },
   ] },
 ] });
-const ranger = (f: unknown) => valhallaOf()!.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(f) });
+/**
+ * Lot 26 : une fenêtre rangée porte « À faire » (il ne se retire plus). Ici, la page « Aujourd'hui » est rangée EN DERNIER,
+ * avec « À faire » seul : les pages de l'essai gardent leur place (la première, la deuxième).
+ */
+const AUJOURDHUI = () => ({ id: '0a0f0000', name: '', code: 'aujourdhui', widgets: [{ id: '0a0f0002', kind: 'a_faire', w: 2, c: 6, r: 4 }] });
+const ranger = (f: { pages: unknown[] }) => valhallaOf()!.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify({ ...f, pages: [...f.pages.filter((p) => (p as { code?: string }).code !== 'aujourdhui'), AUJOURDHUI()] }) });
 const rangee = async () => (await valhallaOf()!.act('gladsheim', 'fenetre', {})).data as Layout;
 const widgetDe = (l: Layout, id: string) => l.pages.flatMap((p) => p.widgets).find((w) => w.id === id)!;
 
@@ -560,8 +566,8 @@ test('navigateur, 390 px, au doigt : « Régler » tient dans l\'écran ; « À 
     assert.equal(await page.evaluate(() => document.querySelector('dialog.wr-regler .wr-att').textContent), '', 'le titre seul : il reste ouvert, rien à dire');
     await page.keyboard.press('Escape'); await page.waitForFunction(() => !document.querySelector('dialog.wr-regler'));
     await ouvrirAuMembre('non');
-    // « À faire » (pas encore posable : posé ici à la main dans la page) : il se déplace, il ne se retire pas, il ne se copie pas.
-    await page.evaluate(() => { window.OdinFenetre.state().L.pages[1].widgets.push({ id: 'f0000001', kind: 'a_faire', w: 1, c: 4, r: 3, label: 'À faire' }); return window.OdinFenetre.edit(true); });
+    // « À faire » (déplacé ici à la main, de la page « Aujourd'hui », la dernière, à la page ouverte) : il se déplace, il ne se retire pas, il ne se copie pas.
+    await page.evaluate(() => { const L = window.OdinFenetre.state().L; L.pages[2].widgets = []; L.pages[1].widgets.push({ id: 'f0000001', kind: 'a_faire', w: 1, c: 4, r: 3, label: 'À faire' }); return window.OdinFenetre.edit(true); });
     await page.waitForSelector(`${carte('f0000001')} .wr-plus`);
     const af = await page.evaluate(`(() => { const c = document.querySelector('${carte('f0000001')}'), autre = document.querySelector('${carte(ID.accueil)}'); return { croix: Boolean(c.querySelector('[aria-label="Retirer ce module"]')), croixAutre: Boolean(autre.querySelector('[aria-label="Retirer ce module"]')), poignee: Boolean(c.querySelector('.fe-grip')) }; })()`);
     assert.deepEqual(af, { croix: false, croixAutre: true, poignee: true }, 'pas de « ✕ » sur « À faire » ; sa poignée reste (il se déplace)');
@@ -605,12 +611,12 @@ test('relecture, navigateur : deux appuis sur « ⋯ » n\'ouvrent qu\'une fenê
     await page.keyboard.press('Escape'); await page.waitForFunction(() => !document.querySelector('dialog.wr-regler'));
     await page.evaluate(`document.querySelector('${carte(ID.accueil)} .wr-plus').click()`); await page.waitForSelector('dialog.wr-regler[open]');
     await page.keyboard.press('Escape'); await page.waitForFunction(() => !document.querySelector('dialog.wr-regler'));
-    // La page qui porte « À faire » (posé ici à la main : pas encore posable) ne se supprime pas : il ne se retire pas par ce détour.
-    await page.evaluate(() => { window.OdinFenetre.state().L.pages[1].widgets.push({ id: 'f0000001', kind: 'a_faire', w: 1, c: 4, r: 3, label: 'À faire' }); return window.OdinFenetre.edit(true); });
+    // La page qui porte « À faire » (déplacé ici à la main) ne se supprime pas : il ne se retire pas par ce détour.
+    await page.evaluate(() => { const L = window.OdinFenetre.state().L; L.pages[2].widgets = []; L.pages[1].widgets.push({ id: 'f0000001', kind: 'a_faire', w: 1, c: 4, r: 3, label: 'À faire' }); return window.OdinFenetre.edit(true); });
     await page.waitForSelector(carte('f0000001'));
     await page.evaluate(() => [...document.querySelectorAll('#fenetre .fe-tools .fe-tab')].find((b: any) => b.textContent === 'Supprimer la page').click());
     await page.waitForTimeout(400);
-    assert.deepEqual(await page.evaluate(() => ({ demande: Boolean(document.querySelector('.odlg')), pages: window.OdinFenetre.state().L.pages.length, dit: [...document.querySelectorAll('.va-out[role=status]')].some((n: any) => /ne se retire pas/.test(n.textContent)) })), { demande: false, pages: 2, dit: true });
+    assert.deepEqual(await page.evaluate(() => ({ demande: Boolean(document.querySelector('.odlg')), pages: window.OdinFenetre.state().L.pages.length, dit: [...document.querySelectorAll('.va-out[role=status]')].some((n: any) => /ne se retire pas/.test(n.textContent)) })), { demande: false, pages: 3, dit: true });
     assert.equal(cibleLa(), true); assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
   } finally { await ctx.close(); assert.equal((await ranger(FENETRE())).ok, true); }
 });

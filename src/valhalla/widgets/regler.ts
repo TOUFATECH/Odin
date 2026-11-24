@@ -79,7 +79,8 @@ export function toucherNet(brut: unknown, sorte: SorteWidget, out: Pick<Widget, 
  */
 export function adressesRefusees(raw: unknown): string[] {
   const pages = (raw && typeof raw === 'object' ? (raw as { pages?: unknown }).pages : undefined), out: string[] = [];
-  for (const p of (Array.isArray(pages) ? pages : []).slice(0, 8)) {
+  // Autant de pages que cleanLayout en lit (huit pages, plus une page sous un code, où qu'elle soit dans la liste).
+  for (const p of (Array.isArray(pages) ? pages : []).slice(0, 32)) {
     const ws = (p && typeof p === 'object' ? (p as { widgets?: unknown }).widgets : undefined);
     for (const w of (Array.isArray(ws) ? ws : []).slice(0, 64)) {
       const t = (w && typeof w === 'object' ? (w as { toucher?: unknown }).toucher : undefined) as { quoi?: unknown; adresse?: unknown } | undefined;
