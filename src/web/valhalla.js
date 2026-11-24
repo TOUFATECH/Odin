@@ -226,18 +226,34 @@
   /** Ce qu'une action rend à voir ou à garder : un QR code (image), un fichier texte à copier ou télécharger. */
   function show(text, d) {
     const dlg = el('dialog', { class: 'va-dlg', 'aria-label': text });
-    const close = () => { dlg.close(); dlg.remove(); };
+    // Une réponse secrète (marquée `secret`, ou une configuration qui porte une clé privée : le QR code et le fichier
+    // d'un appareil du VPN) : le QR code est caché derrière « Montrer », la fenêtre se ferme seule au bout de 2 minutes
+    // et dès que la page passe à l'arrière-plan. Fermée (bouton, Échap, minuterie), elle ne garde rien : ni image, ni
+    // texte, ni minuterie, ni écoute.
+    const garde = d.secret === true || /^\s*(PrivateKey|PresharedKey)\s*=/m.test(String(d.conf ?? '')); let fin = 0, ferme = false;
+    const close = () => {
+      if (ferme) return; ferme = true; clearTimeout(fin); document.removeEventListener('visibilitychange', cacher);
+      try { if (dlg.open) dlg.close(); } catch { /* déjà fermée */ }
+      dlg.replaceChildren(); dlg.remove(); d = null;
+    };
+    const cacher = () => { if (document.hidden) close(); };
+    const armer = () => { clearTimeout(fin); fin = setTimeout(close, 120000); };
     const name = String(d.filename || 'configuration.conf').replace(/[^\w.-]/g, '_');
-    dlg.append(el('h2', { style: 'margin:0 0 12px;font-size:17px' }, text),
-      d.svg ? el('img', { src: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(d.svg)))}`, alt: d.alt || 'QR code à scanner avec l\'appli WireGuard' }) : null,
+    const image = () => el('img', { src: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(d.svg)))}`, alt: d.alt || 'QR code à scanner avec l\'appli WireGuard' });
+    const voile = el('div', { class: 'va-voile' }, el('p', { class: 'sub', style: 'margin:0 0 8px' }, 'Le QR code est caché : il porte la clé secrète de l\'appareil. Cette fenêtre se ferme seule au bout de 2 minutes.'),
+      el('button', { class: 'btn', type: 'button', onclick: () => { if (ferme) return; voile.replaceChildren(image()); armer(); } }, 'Montrer le QR code'));
+    // Les parties absentes sont retirées (posées telles quelles, elles s'écriraient « null » dans la fenêtre).
+    dlg.append(...[el('h2', { style: 'margin:0 0 12px;font-size:17px' }, text),
+      d.svg ? (garde ? voile : image()) : null,
       // La configuration contient la clé privée de l'appareil : cachée tant que tu ne demandes pas à la voir.
       d.conf ? el('details', { open: d.show ? true : undefined }, el('summary', { style: 'cursor:pointer;min-height:36px' }, d.label || 'Voir la configuration (contient la clé secrète de l\'appareil)'), el('pre', {}, d.conf)) : null,
       el('div', { class: 'va-acts-bar', style: 'margin:12px 0 0' },
         d.conf ? el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(d.conf); e.target.textContent = 'Copié'; } catch { e.target.textContent = 'Copie impossible'; } } }, 'Copier') : null,
-        d.conf ? el('button', { class: 'btn small', type: 'button', onclick: () => { const a = el('a', { href: URL.createObjectURL(new Blob([d.conf], { type: 'text/plain' })), download: name }); document.body.append(a); a.click(); a.remove(); } }, `Télécharger ${name}`) : null,
-        el('button', { class: 'btn small primary', type: 'button', onclick: close }, 'Fermer')));
-    dlg.addEventListener('close', () => dlg.remove());
+        d.conf ? el('button', { class: 'btn small', type: 'button', onclick: () => { const u = URL.createObjectURL(new Blob([d.conf], { type: 'text/plain' })), a = el('a', { href: u, download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 30000); } }, `Télécharger ${name}`) : null,
+        el('button', { class: 'btn small primary', type: 'button', onclick: close }, 'Fermer'))].filter(Boolean));
+    dlg.addEventListener('close', close);
     document.body.append(dlg); dlg.showModal();
+    if (garde) { document.addEventListener('visibilitychange', cacher); armer(); }
   }
   /** Une valeur courte ne se coupe jamais ; un long mot (chemin, empreinte, adresse) se coupe où il faut. */
   const cellClass = (c) => { const x = String(c ?? ''); return x.length <= 16 && !/\s.*\s.*\s/.test(x) ? 'va-short' : /\S{26,}/.test(x) ? 'va-long' : ''; };

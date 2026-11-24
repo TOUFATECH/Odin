@@ -137,7 +137,10 @@ test('l\'outil de l\'IA (un membre sur Telegram, une conversation marquée), Tal
 test('le propriétaire, depuis sa session : il change le réseau, reçoit son QR code, et lit le journal « qui a fait quoi »', async () => {
   const b = await v.json('/api/valhalla/act', { module: 'vidarr', action: 'bloquer', input: { domaine: 'proprio.example.com' } });
   assert.equal(b.body.ok, true, JSON.stringify(b.body));
-  const q = await v.json('/api/valhalla/act', { module: 'gjoll', action: 'qr', input: { nom: 'Téléphone 1' } });
+  // Décision du 26/11 : remontrer un QR code demande la validation d'Odin côté serveur (elle nomme l'appareil).
+  const q0 = await v.json('/api/valhalla/act', { module: 'gjoll', action: 'qr', input: { nom: 'Téléphone 1' } });
+  assert.notEqual(q0.body.ok, true); assert.match(String(q0.body.confirm), /QR code de « Téléphone 1 »/); assert.doesNotMatch(JSON.stringify(q0.body), SECRET, 'rien avant son accord');
+  const q = await v.json('/api/valhalla/act', { module: 'gjoll', action: 'qr', input: { nom: 'Téléphone 1' }, confirm: true });
   assert.equal(q.body.ok, true); assert.match(JSON.stringify(q.body), /PrivateKey/, 'le propriétaire reçoit sa configuration');
   const j = await v.json('/api/valhalla/act', { module: 'vidarr', action: 'qui_a_fait', input: {} });
   assert.match(String(j.body.text), /Bloquer un domaine/); assert.match(String(j.body.text), /propriétaire/);
@@ -150,12 +153,15 @@ test('le propriétaire, depuis sa session : il change le réseau, reçoit son QR
 // Relecture du lot R1 (réponses du 23/11).
 const coupee = (ip: string) => (((valhallaOf()!.ctx('vidarr').settings.dns as { clients?: unknown } | undefined)?.clients as Array<{ ids: string[]; cut?: boolean }> | undefined) ?? []).some((c) => c.ids.includes(ip) && c.cut === true);
 
-test('une tablette « complet » garde le droit de changer le réseau et de montrer un QR code VPN (comme aujourd\'hui)', async () => {
+test('une tablette « complet » garde le droit de changer le réseau, mais ne demande plus un QR code VPN (décision du 26/11)', async () => {
   const va = valhallaOf()!, cleComplet = ((await va.act('gladsheim', 'cle_tablette', { nom: 'Tablette salon', droits: 'complet' })).data as { key: string }).key;
-  for (const id of ['b0000002', 'b0000001']) {
-    const r = await v.json('/api/maison/fenetre', { id, confirm: true }, { cookie: '', 'x-odin-maison': cleComplet });
-    assert.equal(r.body.ok, true, `${id} : ${JSON.stringify(r.body)}`);
+  for (const confirm of [false, true]) {
+    const r = await v.json('/api/maison/fenetre', { id: 'b0000002', confirm }, { cookie: '', 'x-odin-maison': cleComplet });
+    assert.notEqual(r.body.ok, true, `QR code (confirm ${confirm}) : ${JSON.stringify(r.body)}`);
+    assert.match(String(r.body.text), REFUS); assert.doesNotMatch(JSON.stringify(r.body), SECRET);
   }
+  const r = await v.json('/api/maison/fenetre', { id: 'b0000001', confirm: true }, { cookie: '', 'x-odin-maison': cleComplet });
+  assert.equal(r.body.ok, true, `bloquer un nom : ${JSON.stringify(r.body)}`);
   assert.match(etatReseau(), /tablette\.example\.com/);
   assert.equal((await va.act('vidarr', 'autoriser', { domaine: 'tablette.example.com' })).ok, true);
 });

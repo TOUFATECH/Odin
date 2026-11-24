@@ -116,6 +116,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
   const who = whoOf(req, d);
   if (!who) { json(res, 401, { ok: false, error: 'connexion requise : ouvre Odin et connecte-toi, ou utilise un lien de tablette' }); return true; }
   const v = valhallaOf(); if (!v) { json(res, 503, { ok: false, error: 'Les applis d\'Odin ne sont pas démarrées.' }); return true; }
+  if (who.by !== 'toi') (await import('../valhalla/gjoll/session.ts')).parTablette.enterWith(who.by); // une tablette n'est pas ta session : Vortex ne lui remet ni QR code ni fichier de configuration
   const g = v.ctx('gladsheim'), mid = v.ctx('midgard');
   if (req.method === 'GET' && p === '/api/maison/etat') {
     const full = who.rights === 'complet';

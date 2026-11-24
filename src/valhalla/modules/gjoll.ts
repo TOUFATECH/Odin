@@ -20,6 +20,7 @@ import { adresseBoxSure, adressePublique, avisOrigine, estLaBox, gardeVpn, hoteD
 import { agissant } from '../sso/acces.ts';
 import { actionJournal, auProprietaireSeul, avecJournal } from '../vidarr/qui-a-fait.ts';
 import { accesDemande, dessinSur, finDemandee, nomAppareil } from '../gjoll/ajout.ts';
+import { tabletteQuiDemande } from '../gjoll/session.ts';
 import { cleGardee, coffreOuvert, empreinteDe, marquerConfig, renommerConfig, retirerConfig, SITE_AVANT } from '../gjoll/coffre.ts';
 
 /**
@@ -458,9 +459,30 @@ const accesEnMots = (i: Record<string, unknown>): string => { const a = s(i.acce
  * est au propriétaire seul, par tous les chemins ; chaque changement est noté « qui a fait quoi ». Les autres lectures
  * restent ouvertes selon les droits d'aujourd'hui.
  */
-const reseauProprio = (l: Module['actions'], lectures: Module['actions'] = []): Module['actions'] => [...avecJournal('gjoll_actes', auProprietaireSeul(clesLisibles(l), ['qr', 'telecharger'])), ...lectures, actionJournal('gjoll_actes', 'Vortex')];
+const reseauProprio = (l: Module['actions'], lectures: Module['actions'] = []): Module['actions'] => [...avecJournal('gjoll_actes', auProprietaireSeul(sessionSeule(clesLisibles(l)), ['qr', 'telecharger'])), ...lectures, actionJournal('gjoll_actes', 'Vortex')];
 /** Aucune action qui écrit (ni le QR code, ni le fichier) ne part quand les clés du VPN sont illisibles : rien n'est réécrit par-dessus. */
 const clesLisibles = (l: Module['actions']): Module['actions'] => l.map((a) => (a.read && a.id !== 'qr' && a.id !== 'telecharger' ? a : { ...a, run: async (ctx: ModCtx, i: Record<string, unknown>) => { verifierCles(ctx); return a.run(ctx, i); } }));
+
+/**
+ * Décision du propriétaire (26/11) : le QR code et le fichier de configuration d'un appareil (sa clé secrète) ne se
+ * demandent que depuis SA session. Une tablette de l'écran de la maison, même « complet », est refusée : « qr »,
+ * « telecharger », et « ajouter » quand il montrerait le QR code. Refusé avant toute lecture du coffre ; rien n'est créé.
+ * La validation n'est pas demandée à la tablette (elle ne mènerait qu'à ce refus). Le refus est noté « qui a fait quoi ».
+ * Un bouton de l'écran de la maison n'envoie que du texte : « montrer = false » (ou « non ») y vaut un vrai non, et
+ * l'ajout part alors sans rien montrer.
+ */
+const sansMontrer = (i: Record<string, unknown>): boolean => i.montrer === false || /^(false|non|0)$/i.test(s(i.montrer).trim());
+const refusTablette = (id: string, i: Record<string, unknown>): string | undefined => {
+  const t = tabletteQuiDemande(); if (!t || !(id === 'qr' || id === 'telecharger' || (id === 'ajouter' && !sansMontrer(i)))) return undefined;
+  return id === 'ajouter'
+    ? `Refusé depuis ${texteSur(t, 80)} : seul le propriétaire fait montrer le QR code d'un appareil du VPN, depuis sa session d'Odin (il porte la clé secrète de l'appareil). Rien n'est créé. Pour ajouter l'appareil d'ici, demande-le sans montrer son QR code.`
+    : `Refusé depuis ${texteSur(t, 80)} : seul le propriétaire demande le QR code ou le fichier de configuration d'un appareil du VPN, depuis sa session d'Odin (ils portent la clé secrète de l'appareil). Rien n'est montré.`;
+};
+const sessionSeule = (l: Module['actions']): Module['actions'] => l.map((a) => (a.id !== 'qr' && a.id !== 'telecharger' && a.id !== 'ajouter' ? a : {
+  ...a,
+  ...(a.grave ? { grave: (i: Record<string, unknown>, ctx?: ModCtx) => (refusTablette(a.id, i) ? undefined : a.grave!(i, ctx)) } : {}),
+  run: async (ctx: ModCtx, i: Record<string, unknown>) => { const refus = refusTablette(a.id, i); return refus ? { ok: false, text: refus, data: { code: 'session' } } : a.run(ctx, a.id === 'ajouter' && tabletteQuiDemande() ? { ...i, montrer: false } : i); },
+}));
 
 export const gjoll: Module = {
   id: 'gjoll', name: 'Vortex', family: 'Accès',
@@ -575,19 +597,23 @@ export const gjoll: Module = {
       const connue = Boolean(adresseValidee(sv)), q = connue && i.montrer !== false ? qrDe(conf) : undefined;
       const noAddr = connue ? '' : ' ⚠ L\'adresse de la maison n\'est pas encore connue : pas de QR code pour l\'instant. Fais l\'étape « Adresse de la maison », puis montre son QR code.';
       const garde = kept ? ' Sa configuration est rangée dans le coffre (Thésauros), chiffrée : tu pourras remontrer son QR code.' : ' ⚠ Le coffre est fermé : sa configuration attend, chiffrée, dans les réglages de Vortex ; elle ira dans le coffre dès qu\'il sera ouvert.';
-      return { text: `📱 « ${p.name} » ajouté (${p.ip}).${q ? ' Scanne ce QR code avec l\'appli WireGuard.' : connue && i.montrer !== false ? ` ${TROP_LONGUE}` : ''}${noAddr}${dnsNote}${garde}\n${msg}`, data: { name: p.name, ip: p.ip, garde: kept, adresse: connue, filename: confName(p), ...(q ? { svg: q.svg, dessin: q.dessin } : {}), ...(connue && i.montrer !== false ? { conf } : {}) } };
+      return { text: `📱 « ${p.name} » ajouté (${p.ip}).${q ? ' Scanne ce QR code avec l\'appli WireGuard.' : connue && i.montrer !== false ? ` ${TROP_LONGUE}` : ''}${noAddr}${dnsNote}${garde}\n${msg}`, data: { name: p.name, ip: p.ip, garde: kept, adresse: connue, filename: confName(p), ...(q ? { svg: q.svg, dessin: q.dessin } : {}), ...(connue && i.montrer !== false ? { conf, secret: true } : {}) } };
     } },
     // Remontrer le QR code, ou remettre le fichier : un geste du propriétaire (« propriétaire seul », lot R1), noté « qui a
-    // fait quoi ». La page le fait confirmer dans la carte de l'appareil avant de le demander ; ces deux lectures restent
-    // sans validation côté serveur, comme le lot R1 les a fixées (sa session les reçoit en une demande). La clé est relue
-    // dans le coffre au moment du geste ; rien n'est gardé ailleurs.
+    // fait quoi ». Décision du 26/11 : Odin demande SA validation côté serveur, comme pour les autres gestes (elle nomme
+    // l'appareil) ; une demande faite hors de la page ne la contourne pas. La page pose la question dans la carte de
+    // l'appareil et passe l'accord : une seule question pour le propriétaire. Jamais depuis une tablette (`sessionSeule`).
+    // La réponse du QR code est marquée `secret` : la page générique la voile (celle du fichier est reconnue à sa clé
+    // privée ; ses champs sont fixés par un essai). La clé est relue dans le coffre au moment du geste ; rien n'est gardé ailleurs.
     { id: 'qr', label: 'QR code', what: 'QR code de configuration (à scanner)', read: true, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }],
+      grave: (i) => `remontrer le QR code de « ${nomVpn(i.nom)} » (il porte la clé secrète de cet appareil : qui le scanne entre dans ton VPN)`,
       run: async (ctx, i) => {
         const c = await confDe(ctx, i.nom); if (!c.conf) return { ok: false, text: String(c.refus), data: { code: c.code } };
         const q = qrDe(c.conf); if (!q) return { ok: false, text: TROP_LONGUE, data: { code: 'long' } };
-        return { text: `QR code de « ${nomVpn(c.p.name)} » : ouvre l'appli WireGuard → « + » → « Scanner un QR code ».${etatPourQr(ctx, c.p)}`, data: { svg: q.svg, dessin: q.dessin, conf: c.conf, filename: confName(c.p) } };
+        return { text: `QR code de « ${nomVpn(c.p.name)} » : ouvre l'appli WireGuard → « + » → « Scanner un QR code ».${etatPourQr(ctx, c.p)}`, data: { svg: q.svg, dessin: q.dessin, conf: c.conf, filename: confName(c.p), secret: true } };
       } },
     { id: 'telecharger', label: 'Fichier de configuration', what: 'Le fichier .conf d\'un appareil (pour un ordinateur)', read: true, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }],
+      grave: (i) => `remettre le fichier de configuration de « ${nomVpn(i.nom)} » (il porte la clé secrète de cet appareil : qui l'a entre dans ton VPN)`,
       run: async (ctx, i) => {
         const c = await confDe(ctx, i.nom); if (!c.conf) return { ok: false, text: String(c.refus), data: { code: c.code } };
         return { text: `Configuration de « ${nomVpn(c.p.name)} » : dans l'appli WireGuard de l'ordinateur, « Importer un tunnel depuis un fichier ».${etatPourQr(ctx, c.p)}`, data: { conf: c.conf, filename: confName(c.p) } };
