@@ -156,11 +156,11 @@ test('graphe : dessin (blanc, pointillé si pas de lien, sans mouvement si deman
   assert.ok(appels.some(([k]) => k === 'createLinearGradient'), 'la comète');
   assert.equal(G.survolEchange(segs, { x: 100, y: 3 }), 'Phénix demande à Arche : vérifier le 2e site');
   assert.equal(G.survolEchange(segs, { x: 100, y: 40 }), '');
-  // Mouvement réduit : le lien blanc et la flèche, sans comète ni onde.
+  // Mouvement réduit : seulement la ligne blanche qui brille, sans flèche, sans comète ni onde (plus de flèche depuis le 25/11).
   appels.length = 0;
   m.dessiner(ctx, { k: 1, reduit: true, noeud: (id: string) => pos[id], relies: () => true });
   assert.ok(!appels.some(([k]) => k === 'createLinearGradient' || k === 'arc'));
-  assert.ok(appels.some(([k]) => k === 'fill'), 'la flèche fixe');
+  assert.ok(!appels.some(([k]) => k === 'fill'), 'aucune flèche');
   assert.ok(!appels.some(([k, a]) => k === 'setLineDash' && (a[0] as number[]).length === 2), 'lien existant : trait plein');
   // Appli absente du graphe : rien n'est dessiné.
   assert.equal(m.dessiner(ctx, { k: 1, noeud: () => undefined }).length, 0);

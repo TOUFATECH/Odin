@@ -250,7 +250,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     L = r.data; edit = false; if (dit) say(dit); await fetchViews(); draw();
     return true;
   }
-  function move(id, d) { if (glisse) return; const l = page().widgets, i = l.findIndex((x) => x.id === id), j = i + d; if (i < 0 || j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; draw().then(() => $(`.fe-w[data-id="${id}"] .fe-grip`)?.focus()); }
+  function move(id, d) { if (glisse) return; const l = page().widgets, i = l.findIndex((x) => x.id === id), j = i + d; if (i < 0 || j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; draw().then(() => { $(`.fe-w[data-id="${id}"] .fe-grip`)?.focus(); signaler('pose', document.activeElement); }); }
+  /** Prévient le reste de la page (la mascotte y réagit, lot 22b) : un module pris, posé ailleurs, son coin tiré, sa taille changée. */
+  function signaler(quoi, n) { try { const r = n?.getBoundingClientRect?.(); document.dispatchEvent(new CustomEvent('odin:widget-geste', { detail: { quoi, x: r ? r.left + r.width / 2 : undefined, y: r ? r.top + r.height / 2 : undefined } })); } catch { /* rien */ } }
   // ------------------------------------------------------------------ glisser un module (lot 16)
   /** Le glisser en cours (un seul geste à la fois, un seul pointeur), l'appui long qui attend, l'heure du dernier lâcher. */
   let glisse = null, appuiEnCours = null, finGlisse = 0;
@@ -333,7 +335,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       ghost.style.width = `${r.width}px`; ghost.style.height = `${r.height}px`; if (P.classe) ghost.classList.add(P.classe);
       document.body.append(ghost); box.classList.add('dragging'); document.body.classList.add('fe-glisse');
       try { window.getSelection?.()?.removeAllRanges(); } catch { /* */ }
-      pose();
+      pose(); signaler('prise', box);
       if (M.prise && ghost.animate) ghost.animate([{ transform: `translate(${r.left}px,${r.top}px)` }, { transform: ghost.style.transform }], { duration: M.prise, easing: 'ease-out' });
     };
     /**
@@ -373,7 +375,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       if (quoi === 'remettre') { if (order.join('\n') !== ordre0.join('\n')) dire(TXT.revenu); return; }
       if (quoi === 'rien') return;
       page().widgets.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-      dire(TXT.place(order.indexOf(id) + 1, order.length));
+      dire(TXT.place(order.indexOf(id) + 1, order.length)); signaler('pose', box);
       if (quoi === 'ranger') rangerDeplacement();
     };
     function geste(v) {
@@ -441,14 +443,14 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const id = e.pointerId, rz = e.currentTarget, avant = G.memo(w);
     let n = dep;
     try { rz.setPointerCapture(id); } catch { /* ancien navigateur */ }
-    coinEnCours = true; box.classList.add('resizing'); szb.textContent = G.etiquette(dep);
+    coinEnCours = true; box.classList.add('resizing'); szb.textContent = G.etiquette(dep); signaler('coin', box);
     const POINTEUR = ['pointermove', 'pointerup', 'pointercancel'];
     const fin = (annule) => {
       for (const t of POINTEUR) removeEventListener(t, ev); removeEventListener('keydown', ev, true); removeEventListener('blur', ev); rz.removeEventListener('lostpointercapture', ev);
       coinEnCours = false; box.classList.remove('resizing');
       const bouge = n.c !== dep.c || n.r !== dep.r;
       if (annule) { G.remettre(w, avant); box.setAttribute('style', G.style(w)); if (bouge) dire(TXT.remise(G.etiquette(dep))); return; }
-      if (bouge) { dire(TXT.taille(G.etiquette(n))); draw(); }
+      if (bouge) { dire(TXT.taille(G.etiquette(n))); signaler('taille', box); draw(); }
     };
     function ev(x) {
       const quoi = G.geste(id, x);
@@ -471,7 +473,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     if (!touche.startsWith('Arrow')) return false;
     const tel = auTel(), h = box.getBoundingClientRect().height, n = G.pas(w, touche, tel, h);
     if (!n) { dire(TXT.refusee(G.etiquette(G.depart(w, tel, h)))); return true; }
-    G.poser(w, n, tel); dire(TXT.taille(G.etiquette(n)));
+    G.poser(w, n, tel); dire(TXT.taille(G.etiquette(n))); signaler('taille', box);
     draw().then(() => { const b = $(`.fe-w[data-id="${CSS.escape(w.id)}"]`); if (!b) return; b.querySelector('.fe-grip')?.focus(); const s = b.querySelector('.fe-szb'); if (s) { s.textContent = G.etiquette(n); b.classList.add('resizing'); setTimeout(() => b.classList.remove('resizing'), 1500); } });
     return true;
   }

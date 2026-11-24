@@ -85,7 +85,7 @@
         if (t >= l.jusqua) { liens.delete(k); continue; }
         const duree = (p) => (p.sens === 'aller' ? ECH.aller : ECH.retour);
         l.imp = l.imp.filter((p) => t - p.t0 < duree(p));
-        out.push({ cle: l.cle, de: l.de, vers: l.vers, deNom: l.deNom, versNom: l.versNom, libelle: l.libelle, action: l.action, n: l.n, ok: l.ok, a: l.a ?? 1, depart: t - l.debut, force: Math.max(0, Math.min(1, (l.jusqua - t) / 700)), impulsions: l.imp.filter((p) => t >= p.t0).map((p) => ({ sens: p.sens, ok: p.ok, x: p.x, p: (t - p.t0) / duree(p) })) });
+        out.push({ cle: l.cle, de: l.de, vers: l.vers, deNom: l.deNom, versNom: l.versNom, libelle: l.libelle, action: l.action, n: l.n, ok: l.ok, a: l.a ?? 1, depart: t - l.debut, force: Math.max(0, Math.min(1, (l.jusqua - t) / 1500)), impulsions: l.imp.filter((p) => t >= p.t0).map((p) => ({ sens: p.sens, ok: p.ok, x: p.x, p: (t - p.t0) / duree(p) })) });
       }
       return out;
     }
@@ -110,9 +110,8 @@
         ctx.save(); ctx.globalAlpha = l.force; ctx.lineCap = 'round';
         if (o.relies && !o.relies(A.id, B.id)) ctx.setLineDash([6 / k, 5 / k]);
         trait('rgba(0,0,0,.35)', 4.4 / k); // contour sombre : le blanc reste lisible sur un fond clair
-        ctx.shadowColor = 'rgba(255,255,255,.9)'; ctx.shadowBlur = reduit ? 4 : 12; trait('#FFFFFF', 2.2 * m / k); ctx.shadowBlur = 0; ctx.setLineDash([]);
-        // Flèche fixe au bout : c'est à cette appli qu'on demande.
-        const L = 10 / k, W = L * 0.55; ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - ux * L - uy * W, by - uy * L + ux * W); ctx.lineTo(bx - ux * L + uy * W, by - uy * L - ux * W); ctx.closePath(); ctx.fill();
+        // La ligne elle-même brille, très claire en blanc, puis s'éteint doucement (sans flèche : choix du propriétaire, 25/11).
+        ctx.shadowColor = 'rgba(255,255,255,1)'; ctx.shadowBlur = reduit ? 6 : 18; trait('#FFFFFF', 2.2 * m / k); ctx.shadowBlur = 0; ctx.setLineDash([]);
         if (!reduit) {
           // Une onde part de l'appli qui demande.
           if (l.depart >= 0 && l.depart < 700) { const q = l.depart / 700; ctx.globalAlpha = l.force * (1 - q); ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2 / k; ctx.beginPath(); ctx.arc(A.x, A.y, (A.r || 0) + (3 + 16 * q) / k, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = l.force; }
