@@ -253,7 +253,7 @@
     const sys = t.plateforme === 'win32' ? T('pc.windows') : T('pc.autre', { plateforme: t.plateforme });
     return el('section', { class: 'ark-sec ark-host', role: 'status' }, odinFace(),
       el('div', {}, el('b', { class: 't' }, T('pc.titre', { systeme: sys })),
-        el('ul', {}, el('li', {}, t.raison), el('li', {}, t.avenir), el('li', {}, T('pc.rien')), el('li', {}, T('pc.deja')), el('li', {}, T('pc.k2')))));
+        el('ul', {}, el('li', {}, t.raison), el('li', {}, t.avenir), el('li', {}, T('pc.rien')), el('li', {}, T('pc.deja')), el('li', {}, T('pc.k2')), el('li', {}, T('pc.k3')))));
   }
 
   // ---------------------------------------------------------------- le tableau de bord
@@ -262,7 +262,7 @@
     const tons = lim && m / lim >= 0.95 ? 'bad' : lim && m / lim > 0.75 ? 'warn' : 'ok';
     const ports = (c.ports ?? []).map((p) => p.hote).join(', ');
     return el('div', { class: `ark-ct ${c.enErreur ? 'err' : ''}`.trim() }, mono(c.nom),
-      el('span', { class: 'ark-nm' }, el('b', {}, c.nom), tag(ton, etat), c.service ? tag('', T('tag.service', { service: c.service })) : null, c.majDispo ? tag('warn', T('tag.maj')) : null,
+      el('span', { class: 'ark-nm' }, el('b', {}, c.nom), tag(ton, etat), c.service ? tag('', T('tag.service', { service: c.service })) : null, c.pile ? tag('', T('tag.pile', { pile: c.pile })) : null, c.majDispo ? tag('warn', T('tag.maj')) : null,
         el('small', {}, `${c.image} · ${ports ? T('sous.ports', { ports }) : T('sous.aucunPort')}`)),
       el('span', { class: 'ark-mt' }, `${T('m.cpu')} `, el('b', {}, c.enMarche && c.cpu !== undefined ? pct(c.cpu) : T('m.sans')), barre(c.enMarche ? c.cpu ?? 0 : 0, 100)),
       el('span', { class: 'ark-mt' }, `${T('m.mem')} `, el('b', {}, c.enMarche && c.memoire ? octets(m) : T('m.sans')), lim ? T('m.limite', { limite: octets(lim) }) : '', barre(c.enMarche ? m : 0, lim || 1, tons)),
@@ -289,7 +289,9 @@
       k('', T('k.disque'), octets(t.disque.images), T('k.disque.sous', { n: t.disque.nbImages, libre: t.disque.libre !== undefined ? octets(t.disque.libre) : T('m.sans') }), t.disque.total ? barre(t.disque.total - (t.disque.libre ?? 0), t.disque.total) : null)));
     const on = l.filter((c) => c.enMarche || c.etat === 'redémarre'), off = l.filter((c) => !on.includes(c));
     frag.push(el('section', { class: 'ark-sec' }, el('h2', {}, T('l.tourne'), el('span', { class: 'ark-cnt' }, String(on.length))), el('p', { class: 'ark-lead' }, T('l.tourne.lead')),
-      ...(l.length ? (on.length ? on.map((c) => ligneConteneur(c, o)) : [el('p', { class: 'ark-note' }, T('l.rienTourne'))]) : [el('p', { class: 'ark-note' }, T('l.vide'))])));
+      ...(l.length ? (on.length ? on.map((c) => ligneConteneur(c, o)) : [el('p', { class: 'ark-note' }, T('l.rienTourne'))]) : [el('p', { class: 'ark-note' }, T('l.vide'))]),
+      // lot K3 : déployer plusieurs conteneurs décrits ensemble (l'onglet « Piles »)
+      el('div', { class: 'ark-row', style: 'margin-top:12px' }, bouton(T('l.nouvellePile'), () => { K.vue = 'piles'; K.msg = ''; K.focus = 'arkCompo'; arreterMinuteur(); o.reload(); }))));
     if (off.length) frag.push(el('section', { class: 'ark-sec' }, el('h2', {}, T('l.arretes'), el('span', { class: 'ark-cnt' }, String(off.length))), el('p', { class: 'ark-lead' }, T('l.arretes.lead')), ...off.map((c) => ligneConteneur(c, o))));
     frag.push(el('section', { class: 'ark-sec' }, el('h2', {}, T('maj.titre'), el('span', { class: 'ark-cnt' }, String(t.majs.length))), el('p', { class: 'ark-lead' }, t.majs.length ? T('maj.lead') : T('maj.rien')),
       ...t.majs.map((m) => el('div', { class: 'ark-rule' }, el('span', {}, el('b', {}, m.image), el('small', {}, m.conteneurs.join(', '))),
@@ -476,10 +478,11 @@
   Object.assign(logique, { dateCourte });
 
   function ongletsVues(o) {
-    const aller = (k) => { if (K.vue === k) return; K.vue = k; K.msg = ''; K.vsupp = ''; K.vsuppTxt = ''; K.focus = `ark-v-${k}`; arreterMinuteur(); o.reload(); };
-    return el('div', { class: 'ark-tabs', role: 'tablist', 'aria-label': T('v.parties', { nom: o.nom }) }, ...VUES.map(([k, m], i) => el('button', {
+    const L = o.vues ?? VUES;
+    const aller = (k) => { if (K.vue === k) return; K.vue = k; K.msg = ''; K.vsupp = ''; K.vsuppTxt = ''; K.psupp = ''; K.focus = `ark-v-${k}`; arreterMinuteur(); o.reload(); };
+    return el('div', { class: 'ark-tabs', role: 'tablist', 'aria-label': T('v.parties', { nom: o.nom }) }, ...L.map(([k, m], i) => el('button', {
       type: 'button', role: 'tab', id: `ark-v-${k}`, 'aria-selected': String(K.vue === k), tabindex: K.vue === k ? '0' : '-1', onclick: () => aller(k),
-      onkeydown: (e) => { const j = e.key === 'ArrowRight' ? (i + 1) % VUES.length : e.key === 'ArrowLeft' ? (i + VUES.length - 1) % VUES.length : e.key === 'Home' ? 0 : e.key === 'End' ? VUES.length - 1 : -1; if (j >= 0) { e.preventDefault(); aller(VUES[j][0]); } },
+      onkeydown: (e) => { const j = e.key === 'ArrowRight' ? (i + 1) % L.length : e.key === 'ArrowLeft' ? (i + L.length - 1) % L.length : e.key === 'Home' ? 0 : e.key === 'End' ? L.length - 1 : -1; if (j >= 0) { e.preventDefault(); aller(L[j][0]); } },
     }, T(m))));
   }
   function gardeVolume(v, d, o) {
@@ -549,6 +552,146 @@
       el('p', { class: 'ark-note' }, T('re.note')))];
   }
 
+  // =================================================================================================================
+  // Lot K3 : les piles (plusieurs conteneurs décrits dans un fichier de composition). L'onglet « Piles » se montre dès
+  // qu'une pile existe, ou depuis « Nouvelle pile depuis un fichier » sur le tableau de bord.
+  // =================================================================================================================
+  Object.assign(MOTS, {
+    'pc.k3': 'Les piles (plusieurs conteneurs décrits dans un fichier de composition) sont prêtes aussi : elles viendront avec le moteur.',
+    'v.piles': 'Piles', 'tag.pile': 'pile {pile}', 'l.nouvellePile': 'Nouvelle pile depuis un fichier',
+    'pi.titre': 'Piles', 'pi.lead': 'Plusieurs conteneurs qui vont ensemble : ils démarrent dans le bon ordre et s\'arrêtent ensemble.',
+    'pi.vide': 'Aucune pile pour l\'instant.',
+    'pi.marche': 'en marche', 'pi.partie': 'en partie', 'pi.arretee': 'arrêtée',
+    'pi.sous': '{n} conteneur(s) · fichier de composition déposé le {date}', 'pi.manque': '{n} conteneur(s) absent(s) : {noms}',
+    'pi.demarrer': 'Tout démarrer', 'pi.arreter': 'Tout arrêter', 'pi.details': 'Détails', 'pi.replier': 'Replier', 'pi.supprimer': 'Supprimer',
+    'pi.demarrer.nom': 'Démarrer toute la pile {nom}', 'pi.arreter.nom': 'Arrêter toute la pile {nom}', 'pi.details.nom': 'Détails de la pile {nom}', 'pi.supprimer.nom': 'Supprimer la pile {nom}',
+    'pi.ordre': 'Ordre de démarrage', 'pi.ordre.texte': '{ordre} ; à l\'arrêt, l\'inverse.', 'pi.fichier': 'Son fichier', 'pi.fichier.note': 'Les valeurs qui ressemblent à des secrets sont masquées.', 'pi.fichier.reserve': 'Son fichier n\'est montré qu\'au propriétaire (il peut contenir des mots de passe).',
+    'pi.absent': '{nom} : absent (supprimé à part)', 'pi.volumes': 'Ses volumes : {liste}', 'pi.aucunVolume': 'Aucun volume.',
+    // Nouvelle pile
+    'pn.titre': 'Nouvelle pile depuis un fichier', 'pn.lead': 'Rien ne démarre avant « Déployer la pile ». Odin lit le fichier et dit ce qu\'il accepte, ce qu\'il change et ce qu\'il refuse.',
+    'pn.fichier': 'Fichier de composition', 'pn.nom': 'Nom de la pile (vide : celui du fichier)', 'pn.choisir': 'Choisir un fichier (.yaml)', 'pn.tropGros': 'Fichier trop gros (64 Ko au plus) : rien n\'a été lu.',
+    'pn.verifier': 'Vérifier seulement', 'pn.deployer': 'Déployer la pile', 'pn.compris': 'Ce qu\'Odin a compris',
+    'pn.attente': 'Colle un fichier puis « Vérifier seulement » : rien ne se lance pendant la vérification.',
+    'pn.bloque': 'Rien n\'est déployé tant qu\'une ligne est refusée : retire-la ou corrige-la dans le fichier, puis vérifie à nouveau.',
+    'pn.pret': 'Pile « {nom} » · {n} conteneur(s) · réseau à part pour la pile', 'pn.aVerifier': 'Vérifie le fichier avant de déployer.', 'pn.change': 'Le fichier a changé depuis la vérification : vérifie-le à nouveau.',
+    'pn.ok': 'accepté', 'pn.refus': 'refusé', 'pn.changeTon': 'à savoir',
+    // Supprimer une pile
+    'ps.titre': 'Supprimer la pile « {nom} » ?', 'ps.texte': 'Ses conteneurs s\'arrêtent et partent : {conteneurs}. Les images restent.',
+    'ps.garder': 'Garder ses volumes (conseillé)', 'ps.effacer': 'Effacer ses volumes', 'ps.groupe': 'Ses volumes',
+    'ps.propres': 'Seuls ses dossiers à elle peuvent partir (les volumes qu\'elle a créés, si plus rien d\'autre ne s\'en sert) : {liste}.',
+    'ps.aucunPropre': 'Elle n\'a créé aucun volume : rien d\'autre à effacer.', 'ps.jamais': 'Toujours gardés : les volumes qui étaient là avant elle et les dossiers de ce PC.',
+    'ps.confirmer': 'Ses volumes ne pourront pas revenir (sauf sauvegarde). Écris « {nom} » pour confirmer :',
+    'ps.ok': 'Supprimer', 'ps.okVol': 'Supprimer avec ses volumes', 'ps.non': 'Garder',
+  });
+  Object.assign(K, { pouv: '', psupp: '', psuppVol: false, psuppTxt: '', compo: '', compoNom: '', analyse: null, analyseDe: '' });
+  const vuesDe = (t) => (Number(t?.piles) > 0 || K.vue === 'piles' ? [VUES[0], ['piles', 'v.piles'], ...VUES.slice(1)] : VUES);
+  /** Le déploiement n'est possible qu'après une vérification sans refus, du texte tel qu'il est maintenant. */
+  const peutDeployer = (analyse, verifie, texte, nom) => Boolean(analyse && analyse.ok && verifie === `${nom}\n${texte}`);
+  Object.assign(logique, { peutDeployer, vuesDe });
+  const CSS_K3 = `
+.ark-yaml{display:block;width:100%;min-height:300px;box-sizing:border-box;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:color-mix(in srgb,var(--ink) 4%,var(--panel));color:var(--ink);font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical;tab-size:2}
+.ark-lab{display:block;font-size:13px;font-weight:600;margin:0 0 6px}
+.ark-chk{list-style:none;margin:0;padding:0}.ark-chk li{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;line-height:1.45;min-width:0}
+.ark-chk li span{min-width:0;overflow-wrap:anywhere}.ark-chk i{flex:none;width:20px;text-align:center;font-style:normal;font-weight:800}
+.ark-chk .ok i{color:var(--good)}.ark-chk .refus i{color:var(--bad)}.ark-chk .change i{color:var(--warn)}
+.ark-pile{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px;min-width:0}
+.ark-pile .hd{display:flex;gap:12px;align-items:center;min-width:0}.ark-pile .hd b{font-size:15px;overflow-wrap:anywhere}.ark-pile .hd small{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.ark-code{background:color-mix(in srgb,var(--ink) 5%,var(--panel));border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;margin:0}
+.ark-foot{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.ark-foot .grow{flex:1 1 220px;min-width:0;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+@media (max-width:520px){.ark-tabs button{padding:0 8px;font-size:13.5px}}
+.ark .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.ark-bloque{display:flex;gap:10px;align-items:flex-start;border:2px solid var(--bad);background:color-mix(in srgb,var(--bad) 7%,var(--panel));border-radius:14px;padding:12px;margin-top:12px;font-size:13.5px;line-height:1.5}
+`;
+  ICONES.pile = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="5" rx="1.5"/><rect x="3" y="10" width="18" height="5" rx="1.5"/><rect x="3" y="17" width="18" height="4" rx="1.5"/></svg>';
+
+  function gardePile(p, o) {
+    const champ = el('input', { id: 'arkPileNom', type: 'text', autocomplete: 'off', spellcheck: 'false' }); champ.value = K.psuppTxt;
+    const non = bouton(T('ps.non'), () => { K.psupp = ''; K.psuppVol = false; K.psuppTxt = ''; K.focus = `ark-ps-${p.nom}`; o.reload(); });
+    const ok = bouton(K.psuppVol ? T('ps.okVol') : T('ps.ok'), async () => {
+      if (K.psuppVol && !peutEffacer(K.psuppTxt, p.nom)) return;
+      const r = await geste('naglfar', 'supprimer_pile', { pile: p.nom, volumes: K.psuppVol ? 'effacer' : 'garder', nom_tape: K.psuppVol ? K.psuppTxt : '' });
+      if (r.ok !== false) { K.psupp = ''; K.psuppVol = false; K.psuppTxt = ''; K.pouv = ''; }
+      o.reload();
+    }, { cls: 'danger-fill', disabled: K.psuppVol && !peutEffacer(K.psuppTxt, p.nom) });
+    champ.addEventListener('input', () => { K.psuppTxt = champ.value; ok.disabled = !peutEffacer(K.psuppTxt, p.nom); });
+    champ.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !ok.disabled) { e.preventDefault(); ok.click(); } });
+    // Deux choix, une seule étape au clavier (Tab) ; les flèches passent de l'un à l'autre.
+    const choisir = (v) => { K.psuppVol = v; K.focus = v ? 'arkPileNom' : 'ark-ps-garder'; o.reload(); };
+    const choix = (v, texte) => el('button', { type: 'button', role: 'radio', id: v ? 'ark-ps-effacer' : 'ark-ps-garder', 'aria-checked': String(K.psuppVol === v), tabindex: K.psuppVol === v ? '0' : '-1', onclick: () => choisir(v),
+      onkeydown: (e) => { if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); choisir(!v); } } }, texte);
+    const propres = p.volumesPropres ?? [];
+    if (!K.focus) setTimeout(() => (K.psuppVol ? champ : non).focus?.(), 0);
+    return el('section', { class: 'ark-guard', role: 'alertdialog', 'aria-labelledby': 'arkPileT', onkeydown: (e) => { if (e.key === 'Escape') { e.preventDefault(); non.click(); } } },
+      el('b', { id: 'arkPileT' }, T('ps.titre', { nom: p.nom })),
+      el('p', {}, T('ps.texte', { conteneurs: p.services.map((x) => x.conteneur).join(', ') })),
+      propres.length ? [el('div', { class: 'ark-h3' }, T('ps.groupe')), el('p', {}, T('ps.propres', { liste: propres.join(', ') })),
+        el('div', { class: 'ark-seg', role: 'radiogroup', 'aria-label': T('ps.groupe') }, choix(false, T('ps.garder')), choix(true, T('ps.effacer')))] : el('p', {}, T('ps.aucunPropre')),
+      el('p', { class: 'ark-note' }, T('ps.jamais')),
+      K.psuppVol ? el('div', { class: 'ark-confirm' }, el('label', { for: 'arkPileNom' }, T('ps.confirmer', { nom: p.nom })), champ) : null,
+      el('div', { class: 'ark-row' }, ok, non));
+  }
+  function cartePile(p, t, o) {
+    const ton = p.etat === 'en marche' ? ['ok', T('pi.marche')] : p.etat === 'en partie' ? ['warn', T('pi.partie')] : ['', T('pi.arretee')];
+    const ouv = K.pouv === p.nom, date = new Date(p.cree);
+    const cts = p.services.map((x) => t.conteneurs.find((c) => c.nom === x.conteneur));
+    return [el('div', { class: 'ark-pile' },
+      el('div', { class: 'hd' }, icone('pile'), el('span', { style: 'min-width:0' }, el('b', {}, p.nom, ' ', tag(ton[0], ton[1])),
+        el('small', {}, T('pi.sous', { n: p.total, date: Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('fr-FR') })),
+        p.manquants?.length ? el('small', {}, T('pi.manque', { n: p.manquants.length, noms: p.manquants.join(', ') })) : null)),
+      el('div', { class: 'ark-row', style: 'margin-top:10px' },
+        p.enMarche < p.total - (p.manquants?.length ?? 0) ? bouton(T('pi.demarrer'), () => geste('naglfar', 'demarrer_pile', { pile: p.nom }, o.reload), { cls: p.enMarche ? '' : 'primary', label: T('pi.demarrer.nom', { nom: p.nom }) }) : null,
+        p.enMarche ? bouton(T('pi.arreter'), () => geste('naglfar', 'arreter_pile', { pile: p.nom }, o.reload), { label: T('pi.arreter.nom', { nom: p.nom }) }) : null,
+        el('button', { class: 'btn', type: 'button', id: `ark-pd-${p.nom}`, 'aria-expanded': String(ouv), 'aria-label': T('pi.details.nom', { nom: p.nom }), onclick: () => { K.pouv = ouv ? '' : p.nom; K.focus = `ark-pd-${p.nom}`; o.reload(); } }, ouv ? T('pi.replier') : T('pi.details')),
+        el('button', { class: 'btn danger', type: 'button', id: `ark-ps-${p.nom}`, 'aria-label': T('pi.supprimer.nom', { nom: p.nom }), onclick: () => { K.psupp = p.nom; K.psuppVol = false; K.psuppTxt = ''; K.focus = ''; o.reload(); } }, T('pi.supprimer'))),
+      ouv ? [el('div', { class: 'ark-h3' }, T('pi.ordre')), el('p', { style: 'margin:0;font-size:13.5px' }, T('pi.ordre.texte', { ordre: p.ordre.join(', puis ') })),
+        ...p.services.map((x, i) => (cts[i] ? ligneConteneur(cts[i], o) : el('p', { class: 'ark-note' }, T('pi.absent', { nom: x.conteneur })))),
+        el('p', { class: 'ark-note' }, p.volumes?.length ? T('pi.volumes', { liste: p.volumes.join(', ') }) : T('pi.aucunVolume')),
+        el('div', { class: 'ark-h3' }, T('pi.fichier')), typeof p.fichier === 'string' ? [el('pre', { class: 'ark-code', tabindex: '0', 'aria-label': `${T('pi.fichier')} · ${p.nom}` }, p.fichier), el('p', { class: 'ark-note' }, T('pi.fichier.note'))] : el('p', { class: 'ark-note' }, T('pi.fichier.reserve'))] : null),
+    K.psupp === p.nom ? gardePile(p, o) : null];
+  }
+  function nouvellePile(o, moteur) {
+    const ta = el('textarea', { id: 'arkCompo', class: 'ark-yaml', spellcheck: 'false', autocomplete: 'off', 'aria-describedby': 'arkCompoAide' }); ta.value = K.compo;
+    const nomI = el('input', { id: 'arkCompoNom', type: 'text', autocomplete: 'off', spellcheck: 'false', placeholder: 'serveur-de-jeux' }); nomI.value = K.compoNom;
+    const a = K.analyse, pret = peutDeployer(a, K.analyseDe, K.compo, K.compoNom);
+    const dep = bouton(T('pn.deployer'), async () => {
+      if (!peutDeployer(K.analyse, K.analyseDe, K.compo, K.compoNom)) return;
+      const r = await geste('naglfar', 'deployer_pile', { compose: K.compo, nom: K.compoNom });
+      if (r.ok !== false && r.data?.pile) { K.compo = ''; K.compoNom = ''; K.analyse = null; K.analyseDe = ''; K.pouv = r.data.pile; }
+      o.reload();
+    }, { cls: 'primary', disabled: !pret || !moteur });
+    const pied = el('span', { class: 'grow', role: 'status' }, a ? (K.analyseDe !== `${K.compoNom}\n${K.compo}` ? T('pn.change') : a.ok ? T('pn.pret', { nom: a.nom, n: a.services.length }) : T('pn.bloque')) : T('pn.aVerifier'));
+    const maj = () => { K.compo = ta.value; K.compoNom = nomI.value; const p = peutDeployer(K.analyse, K.analyseDe, K.compo, K.compoNom); dep.disabled = !p || !moteur; if (K.analyse && !p) pied.textContent = T('pn.change'); };
+    ta.addEventListener('input', maj); nomI.addEventListener('input', maj);
+    const verifier = async () => {
+      maj(); if (!K.compo.trim()) return;
+      const r = await post('naglfar', 'verifier_pile', { compose: K.compo, nom: K.compoNom });
+      if (r?.data) { K.analyse = r.data; K.analyseDe = `${K.compoNom}\n${K.compo}`; K.msg = ''; } else K.msg = String(r?.text ?? r?.error ?? '');
+      K.focus = 'arkCompris'; o.reload();
+    };
+    // Un fichier déposé ou choisi : lu comme du texte (64 Ko au plus), jamais ouvert ni lancé.
+    const lire = async (f) => { if (!f) return; if (f.size > 64 * 1024) { K.msg = T('pn.tropGros'); o.reload(); return; } K.compo = String(await f.text()); K.analyse = null; K.analyseDe = ''; K.focus = 'arkCompo'; o.reload(); };
+    const fichier = el('input', { type: 'file', accept: '.yml,.yaml,text/yaml,text/plain', style: 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none', tabindex: '-1', 'aria-hidden': 'true', onchange: (e) => lire(e.target.files?.[0]) });
+    const zone = el('div', {}, el('label', { class: 'ark-lab', for: 'arkCompo' }, T('pn.fichier')), ta,
+      el('div', { class: 'ark-form', style: 'margin-top:10px' }, el('label', {}, T('pn.nom'), nomI)),
+      el('div', { class: 'ark-row', style: 'margin-top:10px' }, bouton(T('pn.choisir'), () => fichier.click()), fichier));
+    zone.addEventListener('dragover', (e) => { if (e.dataTransfer?.types?.includes?.('Files')) e.preventDefault(); });
+    zone.addEventListener('drop', (e) => { const f = e.dataTransfer?.files?.[0]; if (f) { e.preventDefault(); lire(f); } });
+    const icon = { ok: '✓', refus: '✗', change: '!' }, dit = { ok: T('pn.ok'), refus: T('pn.refus'), change: T('pn.changeTon') };
+    const compris = el('div', {}, el('div', { class: 'ark-h3', id: 'arkCompris', tabindex: '-1' }, T('pn.compris')),
+      a ? el('ul', { class: 'ark-chk' }, ...a.constats.map((c) => el('li', { class: c.ton }, el('i', { 'aria-hidden': 'true' }, icon[c.ton]), el('span', {}, el('span', { class: 'sr' }, `${dit[c.ton]} : `), el('b', {}, c.quoi), ` : ${c.texte}`))))
+        : el('p', { class: 'ark-note', id: 'arkCompoAide' }, T('pn.attente')),
+      a && !a.ok ? el('div', { class: 'ark-bloque', role: 'note' }, T('pn.bloque')) : null);
+    return el('section', { class: 'ark-sec' }, el('h2', {}, T('pn.titre')), el('p', { class: 'ark-lead' }, T('pn.lead')),
+      el('div', { class: 'ark-two' }, zone, compris),
+      el('div', { class: 'ark-foot' }, pied, bouton(T('pn.verifier'), verifier), dep));
+  }
+  function vuePiles(d, t, o) {
+    const l = d.piles ?? [];
+    return [el('section', { class: 'ark-sec' }, el('h2', {}, T('pi.titre'), el('span', { class: 'ark-cnt' }, String(l.length))), el('p', { class: 'ark-lead' }, T('pi.lead')),
+      ...(l.length ? l.flatMap((p) => cartePile(p, t, o)).flat(9).filter(Boolean) : [el('p', { class: 'ark-note' }, T('pi.vide'))])),
+    nouvellePile(o, d.moteur !== false)];
+  }
+
   window.OdinPages.naglfar = async ({ host, generic, reload, info }) => {
     arreterMinuteur();
     const nom = info?.name || MOTS.nom;
@@ -556,15 +699,21 @@
     if (!r?.data) return false; // un Odin d'avant le lot K1 : la page générique, comme avant
     css();
     if (!document.getElementById('arkCss2')) document.head.append(el('style', { id: 'arkCss2' }, CSS_K2));
-    const t = r.data, root = el('div', { class: 'ark' }), o = { reload, nom };
+    if (!document.getElementById('arkCss3')) document.head.append(el('style', { id: 'arkCss3' }, CSS_K3));
+    const t = r.data, root = el('div', { class: 'ark' }), o = { reload, nom, vues: vuesDe(t) };
     host.append(root);
     if (K.msg) root.append(el('p', { class: 'ark-msg', role: 'status' }, K.msg));
     if (!t.moteur) { root.append(carteSansMoteur(t)); return true; }
     if (t.erreur) root.append(el('p', { class: 'ark-msg', role: 'alert' }, T('erreurLecture', { raison: t.erreur })));
     if (!K.fiche && K.vue !== 'tableau') {
       root.append(ongletsVues(o));
-      const d = await post('naglfar', K.vue === 'volumes' ? 'volumes' : 'reseaux');
-      if (d?.data) root.append(...(K.vue === 'volumes' ? vueVolumes(d.data, o) : vueReseaux(d.data, o)));
+      const d = await post('naglfar', K.vue === 'volumes' ? 'volumes' : K.vue === 'piles' ? 'piles' : 'reseaux');
+      // le fichier d'une pile ouverte : lu à part, au propriétaire seul (refusé à un membre : la page le dit)
+      if (d?.data && K.vue === 'piles' && K.pouv) {
+        const p = (d.data.piles ?? []).find((x) => x.nom === K.pouv);
+        if (p) { const f = await post('naglfar', 'fichier_pile', { pile: p.nom }); p.fichier = f?.ok !== false && typeof f?.data?.fichier === 'string' ? f.data.fichier : null; }
+      }
+      if (d?.data) root.append(...(K.vue === 'volumes' ? vueVolumes(d.data, o) : K.vue === 'piles' ? vuePiles(d.data, t, o) : vueReseaux(d.data, o)));
       else root.append(el('p', { class: 'ark-msg', role: 'alert' }, String(d?.text ?? d?.error ?? '')));
       refocus();
       return true;

@@ -373,7 +373,9 @@ export class Engine {
     // les autres conteneurs en marche, et ceux à adresse fixe (la base d'Odin) même arrêtés : on les retrouve par leur nom
     // (sur un réseau à part : seulement les conteneurs du même réseau ; réseau « aucun » : personne)
     const meme = (c: Ctr) => spec.network !== 'pont' || (c.spec.network === 'pont' && (c.spec.reseau ?? '') === (spec.reseau ?? ''));
-    const others = spec.network === 'aucun' ? [] : this.ps(true).filter((c) => c.id !== spec.id && meme(c) && (c.state.ip || c.spec.labels['odin.ip'])).map((c) => `${c.state.ip ?? c.spec.labels['odin.ip']} ${c.spec.name}`);
+    // (dans une pile, lot K3 : un service retrouve aussi les autres par leur nom de service, « db », comme dans le fichier)
+    const pile = spec.labels['odin.pile'], alias = (c: Ctr) => { const s = c.spec.labels['odin.pile.service']; return pile && c.spec.labels['odin.pile'] === pile && s && /^[a-z0-9][a-z0-9_-]{0,29}$/.test(s) ? ` ${s}` : ''; };
+    const others = spec.network === 'aucun' ? [] : this.ps(true).filter((c) => c.id !== spec.id && meme(c) && (c.state.ip || c.spec.labels['odin.ip'])).map((c) => `${c.state.ip ?? c.spec.labels['odin.ip']} ${c.spec.name}${alias(c)}`);
     writeFileSync(join(ctrDir, 'hosts'), `127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost\n${extra.ip ? `${extra.ip}\t${spec.hostname} ${spec.name}\n` : `127.0.1.1\t${spec.hostname}\n`}${others.join('\n')}${others.length ? '\n' : ''}`);
     writeFileSync(join(ctrDir, 'resolv.conf'), resolvConf(spec.network === 'pont'));
     writeFileSync(join(ctrDir, 'hostname'), `${spec.hostname}\n`);

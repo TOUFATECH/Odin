@@ -22,6 +22,7 @@ import { defaultDir, NOM_OBJET } from '../hringhorni/store.ts';
 import { actionJournal, avecJournal } from '../vidarr/qui-a-fait.ts';
 import { NAMES } from '../names.ts';
 import type { Action } from '../types.ts';
+import { analyserComposition, arreterPile, demarrerPile, deployerPile, NOM_PILE, pile, piles, supprimerPile, vraiCheminLinux, type Analyse, type Garde, type MoteurPile } from '../hringhorni/composition.ts';
 
 /** Le nom affiché de l'appli (un seul endroit : src/valhalla/names.ts). */
 export const nomArche = (): string => NAMES.naglfar ?? 'Arche';
@@ -322,7 +323,9 @@ export function masquer(t: string, secrets: string[] = []): string {
   let x = String(t ?? '');
   for (const v of secrets) if (v) x = x.split(v).join(MASQUE);
   // (« "password": "…" » : la clé peut être entre guillemets, comme dans une ligne JSON)
-  x = x.replace(/\b([\w.-]*?(?:pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|auth)[\w.-]*)(["']?\s*[=:]\s*)((?:Bearer|Basic|Token)\s+)?("[^"]*"|'[^']*'|[^\s,;&]+)/gi, (_m, k: string, sp: string, schema?: string) => `${k}${sp}${schema ?? ''}${MASQUE}`);
+  // (le nom est borné, 64 caractères de part et d'autre : sans borne, une longue ligne « pass.pass.pass… » prenait un
+  // temps cubique et bloquait Odin entier)
+  x = x.replace(/\b([\w.-]{0,64}?(?:pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|auth)[\w.-]{0,64})(["']?\s*[=:]\s*)((?:Bearer|Basic|Token)\s+)?("[^"]*"|'[^']*'|[^\s,;&]+)/gi, (_m, k: string, sp: string, schema?: string) => `${k}${sp}${schema ?? ''}${MASQUE}`);
   x = x.replace(/\b(Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{8,}/g, `$1 ${MASQUE}`);
   x = x.replace(/(\/\/[^\s:/@]+:)[^\s@/]+@/g, `$1${MASQUE}@`);
   return x;
@@ -410,7 +413,7 @@ export function tableauArche(ctx: ModCtx): Record<string, unknown> {
     nom: c.spec.name, id: c.id.slice(0, 12), image: c.spec.image, etat: c.state.status, enMarche: c.state.status === 'en marche', enErreur: enErreur(c),
     depuis: c.state.status === 'en marche' ? c.state.startedAt : c.state.finishedAt, ip: c.state.ip, ports: c.spec.ports.map((p) => ({ hote: p.host, dedans: p.inner, proto: p.proto ?? 'tcp' })),
     erreur: c.state.error ? masquer(nettoyer(c.state.error), secretsDe(c.spec.env)).slice(0, 300) : undefined, code: c.state.exitCode, relances: c.state.restarts ?? 0,
-    service: c.spec.labels['odin.service'] || undefined, limiteMemoire: c.spec.memory ? bytes(c.spec.memory) : undefined, coeurs: c.spec.cpus ? Number(c.spec.cpus) : undefined,
+    service: c.spec.labels['odin.service'] || undefined, pile: c.spec.labels['odin.pile'] || undefined, limiteMemoire: c.spec.memory ? bytes(c.spec.memory) : undefined, coeurs: c.spec.cpus ? Number(c.spec.cpus) : undefined,
     majDispo: vers.some((v) => v.conteneurs.includes(c.spec.name)), ...m,
   }; });
   const imgs = erreur ? [] : e.images(), d = systemeArche.disque(systemeArche.dossierMoteur());
@@ -422,6 +425,8 @@ export function tableauArche(ctx: ModCtx): Record<string, unknown> {
     disque: { images: imgs.reduce((a, i) => a + i.size, 0), nbImages: imgs.length, ...(d ?? {}) },
     majs: vers.map((v) => ({ image: v.image, conteneurs: v.conteneurs })),
     installations: erreur ? 0 : e.jobs().filter((j) => !j.ended).length,
+    // lot K3 : combien de piles (l'onglet « Piles » de la page se montre dès qu'il y en a une)
+    piles: erreur ? 0 : (() => { try { return piles(e as unknown as MoteurPile).length; } catch { return 0; } })(),
   };
 }
 export function ficheArche(ctx: ModCtx, nom: string): Record<string, unknown> {
@@ -697,3 +702,157 @@ const actionsK2: Action[] = [
     run: async (_ctx, i) => { exigerMoteur(); const r = await k2().rmReseau(nomObjet(i.reseau, 'réseau')); return { text: `🗑 Réseau « ${r.nom} » retiré.` }; } },
 ];
 naglfar.actions.push(...avecJournal('naglfar_actes', actionsK2));
+
+// ---------------------------------------------------------------------------------------------------------------
+// Lot K3 (même maquette) : la composition et les piles.
+//   - `verifier_pile` lit un fichier de composition (lecture stricte et bornée, hringhorni/composition.ts) et dit ce
+//     qui est accepté, changé, refusé ; rien n'est lancé ni écrit ;
+//   - `deployer_pile` ne part QUE si aucune ligne n'est refusée : son réseau à part, ses volumes, ses images, ses
+//     conteneurs, démarrés dans l'ordre des dépendances (suivi dans « Installations ») ;
+//   - `piles` (lecture) : chaque pile, son état, son ordre, ses conteneurs, son fichier (secrets masqués) ;
+//   - `demarrer_pile`, `arreter_pile` (dans l'ordre inverse), `supprimer_pile` : ses volumes GARDÉS par défaut ; les
+//     effacer (son nom tapé) ne touche que ses dossiers à elle (« Ses dossiers seulement », choix du propriétaire).
+// Gestes au propriétaire seul et notés ; lecture ouverte. Sans moteur (Windows aujourd'hui) : la page le dit.
+// ---------------------------------------------------------------------------------------------------------------
+export const TEXTES_K3_ARCHE = {
+  nomFaux: 'Pour effacer ses volumes, écris le nom exact de la pile (« {nom} ») : rien n\'a été supprimé.',
+  refusee: 'Rien n\'est déployé tant qu\'une ligne est refusée : {n} ligne(s) à retirer ou corriger dans le fichier.',
+  sansAdmin: 'Une pile a besoin d\'un réseau à part : il faut Odin en administrateur sur cette machine.',
+  occupee: 'La pile « {nom} » est déjà en train de changer : attends que ce soit fini.',
+};
+type MoteurK3 = MoteurPile & { rootless?: boolean; startJob?: Engine['startJob'] };
+const k3 = () => engine() as unknown as MoteurK3;
+const PILE: Param = { key: 'pile', label: 'Pile', kind: 'text', required: true };
+const COMPOSE: Param = { key: 'compose', label: 'Fichier de composition', kind: 'textarea', required: true };
+const NOM_NOUVELLE: Param = { key: 'nom', label: 'Nom de la pile (minuscules, chiffres, -)', kind: 'text', default: '' };
+const pilesEnCours = new Set<string>();
+const nomPile = (v: unknown) => { const x = s(v).trim(); if (!NOM_PILE.test(x)) throw new Error(`nom de pile invalide : ${x.slice(0, 40)} (minuscules, chiffres, -)`); return x; };
+/** Ce que l'analyse doit protéger, et ce qui existe déjà chez le moteur (noms, ports pris). */
+async function gardeK3(ctx: ModCtx): Promise<Garde> {
+  const g: Garde = { maison: systemeArche.maison(), odin: ctx.home, autres: [process.env.ODIN_CLE_DIR ?? ''].filter(Boolean), vraiChemin: vraiCheminLinux };
+  try { g.moteur = systemeArche.dossierMoteur(); } catch { /* pas de moteur */ }
+  if (!moteurIci()) return g;
+  // Les ports qu'un programme de ce PC écoute déjà (ssh, un serveur…) : comme « Lancer une appli ». Sans cette liste,
+  // « 22:22 » était dit « libre sur ce PC » et le conteneur aurait pris les connexions de ce port.
+  const ecoute = usedPorts([], (await ctx.run('ss', ['-ltnH'], { timeoutMs: 5000 }).catch(() => ({ out: '' }))).out);
+  try {
+    const e = k3(), cts = e.ps(true);
+    g.conteneurs = cts.map((c) => c.spec.name); g.volumes = e.store.volumes().map((v) => v.nom); g.reseaux = e.store.reseaux().map((r) => r.nom); g.piles = piles(e).map((p) => p.nom);
+    const pris = new Map<number, string>();
+    for (const c of cts) for (const p of c.spec.ports) pris.set(p.host, c.spec.name);
+    for (const r of reserved()) if (!pris.has(r)) pris.set(r, 'gardé par Odin');
+    for (const p of ecoute) if (!pris.has(p)) pris.set(p, 'un programme de ce PC l\'écoute déjà');
+    g.portsPris = pris;
+  } catch { /* moteur illisible : l'analyse le dira au déploiement */ }
+  return g;
+}
+/** L'analyse telle que la page la montre : jamais la valeur d'une variable (seulement son nom). */
+function analyseVue(a: Analyse): Record<string, unknown> {
+  return { nom: a.nom, ok: a.ok, ordre: a.ordre, constats: a.constats, refus: a.refus,
+    services: a.services.map((x) => ({ service: x.service, conteneur: x.conteneur, image: x.image, ports: x.ports.map((p) => ({ hote: p.host, dedans: p.inner, proto: p.proto })), volumes: x.montages.map((m) => ({ volume: m.volume, dossier: m.host, dedans: m.inner, lecture: m.ro })), variables: Object.keys(x.env), memoire: x.memory, depend: x.depend, reseau: x.reseau === '' ? 'aucun' : x.reseau })),
+    volumes: a.volumes, reseaux: a.reseaux };
+}
+const resumeAnalyse = (a: Analyse) => a.constats.map((c) => `${c.ton === 'ok' ? '✓' : c.ton === 'refus' ? '✗' : '!'} ${c.quoi} : ${c.texte}`).join('\n');
+/** Le fichier d'une pile tel qu'on le montre : les valeurs des variables secrètes (et ce qui ressemble à un secret) masquées. */
+export function masquerFichier(t: string): string {
+  const env: Record<string, string> = {}, autres: string[] = [];
+  // (une ligne à la fois : « environment: » ne prend jamais la ligne d'après comme sa valeur, ce qui laissait la
+  // première variable en clair)
+  for (const m of String(t).matchAll(/^[ \t]*-?[ \t]*["']?([A-Za-z_][A-Za-z0-9_]*)["']?[ \t]*[:=][ \t]*(.+?)[ \t]*$/gm)) {
+    const v = m[2].replace(/^["']|["']$/g, ''); env[m[1]] = v;
+    // « ADMIN_PW », « …_PASSPHRASE » : aussi des mots de passe
+    if (/(?:^|_)pw(?:_|$)|passphrase|passwd/i.test(m[1]) && v.length >= 4) autres.push(v);
+  }
+  // Un mot de passe donné à une commande (« --requirepass motdepasse », « --password=… ») : masqué aussi.
+  const x = String(t).replace(/(--?[\w-]{0,40}(?:pass|pwd|secret|token|apikey|api-key)[\w-]{0,40}(?:=|\s+))("[^"\n]*"|'[^'\n]*'|[^\s"',\]]+)/gi, (_m, k: string) => `${k}••••••`);
+  return masquer(x, [...secretsDe(env), ...autres].sort((a, b) => b.length - a.length));
+}
+export function pilesArche(): Record<string, unknown> {
+  if (!moteurIci()) return { moteur: false, nom: nomArche(), plateforme: systemeArche.plateforme(), raison: TEXTES_ARCHE.pasDeMoteur, avenir: TEXTES_ARCHE.avenir, piles: [] };
+  const e = k3(), tous = e.ps(true);
+  return {
+    moteur: true, nom: nomArche(),
+    piles: piles(e).map((p) => {
+      const cs = p.services.map((x) => ({ ...x, c: tous.find((c) => c.spec.name === x.conteneur && c.spec.labels['odin.pile'] === p.nom) }));
+      const on = cs.filter((x) => x.c?.state.status === 'en marche').length, presents = cs.filter((x) => x.c).length;
+      return {
+        nom: p.nom, cree: p.cree, ordre: p.ordre, etat: presents && on === presents ? 'en marche' : on ? 'en partie' : 'arrêtée', enMarche: on, total: cs.length, manquants: cs.filter((x) => !x.c).map((x) => x.conteneur),
+        services: p.ordre.map((n) => cs.find((x) => x.service === n)).filter((x): x is (typeof cs)[number] => !!x).map((x) => ({ service: x.service, conteneur: x.conteneur, image: x.image, etat: x.c?.state.status ?? 'absent', ports: (x.c?.spec.ports ?? []).map((q) => ({ hote: q.host, dedans: q.inner, proto: q.proto })) })),
+        // (son fichier n'est pas dans la liste, ouverte : il se lit par « fichier_pile », au propriétaire seul)
+        volumes: p.volumes, volumesPropres: p.volumesPropres, reseaux: p.reseaux,
+      };
+    }),
+  };
+}
+// La lecture n'est pas marquée « read » (comme K1 et K2 : le banc figé de Soul photographie les lectures du catalogue).
+const actionsK3: Action[] = [
+  { id: 'piles', label: 'Piles', what: 'Les piles (plusieurs conteneurs décrits ensemble) : état, ordre de démarrage, conteneurs, fichier', quick: false, quiet: true, run: () => {
+    const d = pilesArche() as { moteur: boolean; raison?: string; avenir?: string; piles: Array<{ nom: string; etat: string; enMarche: number; total: number }> };
+    return { text: d.moteur ? d.piles.map((p) => `- ${p.nom} · ${p.etat} · ${p.enMarche}/${p.total} en marche`).join('\n') || 'Aucune pile.' : `${d.raison} ${d.avenir}`, data: d };
+  } },
+  // Le fichier d'une pile peut porter des secrets que le masque ne reconnaît pas (une adresse secrète, un mot de passe
+  // donné à une commande) : il n'est montré qu'au propriétaire en personne (ni un membre, ni une tablette, ni une
+  // automatisation), et masqué quand même. Une lecture : pas notée dans « qui a fait quoi ».
+  { id: 'fichier_pile', label: 'Fichier d\'une pile', what: 'Le fichier de composition d\'une pile (secrets masqués), au propriétaire seul', quick: false, quiet: true, proprietaireSeul: true, params: [PILE],
+    run: (_ctx, i) => {
+      exigerMoteur(); const n = nomPile(i.pile), p = pile(k3(), n); if (!p) throw new Error(`pile inconnue : ${n}`);
+      const f = masquerFichier(p.fichier); return { text: f, data: { pile: n, fichier: f } };
+    } },
+  { id: 'verifier_pile', label: 'Vérifier un fichier de composition', what: 'Lit le fichier et dit ce qui est accepté, changé ou refusé (rien n\'est lancé)', quick: false, proprietaireSeul: true, params: [COMPOSE, NOM_NOUVELLE],
+    run: async (ctx, i) => { const a = analyserComposition(s(i.compose), { nom: s(i.nom).trim() || undefined, garde: await gardeK3(ctx) }); return { ok: true, text: resumeAnalyse(a), data: { moteur: moteurIci(), ...analyseVue(a) } }; } },
+  { id: 'deployer_pile', label: 'Déployer une pile', what: 'Crée et démarre les conteneurs d\'un fichier de composition, dans l\'ordre (refusé tant qu\'une ligne est refusée)', quick: false, proprietaireSeul: true, params: [COMPOSE, NOM_NOUVELLE],
+    grave: (i) => { const a = analyserComposition(s(i.compose), { nom: s(i.nom).trim() || undefined }); const dossiers = a.services.flatMap((x) => x.montages.filter((m) => m.host).map((m) => m.host)); return `déployer la pile « ${a.nom.slice(0, 40)} » : ${a.services.length} conteneur(s) (${a.services.map((x) => x.image).join(', ').slice(0, 300)})${a.services.some((x) => x.ports.length) ? `, ports ouverts : ${a.services.flatMap((x) => x.ports.map((p) => p.host)).join(', ')}` : ''}${dossiers.length ? `, avec accès à ces dossiers de ta machine : ${dossiers.join(', ')}` : ''}`; },
+    run: async (ctx, i) => {
+      exigerMoteur(); const e = k3();
+      if (e.rootless) throw new Error(TEXTES_K3_ARCHE.sansAdmin);
+      const fichier = s(i.compose), a = analyserComposition(fichier, { nom: s(i.nom).trim() || undefined, garde: await gardeK3(ctx) });
+      if (!a.ok) return { ok: false, text: `${remplir(TEXTES_K3_ARCHE.refusee, { n: String(a.refus.length) })}\n${a.refus.map((r) => `✗ ${r}`).join('\n')}`, data: analyseVue(a) };
+      if (pilesEnCours.has(a.nom)) throw new Error(remplir(TEXTES_K3_ARCHE.occupee, { nom: a.nom }));
+      if (!e.startJob) throw new Error('moteur sans suivi des installations');
+      pilesEnCours.add(a.nom);
+      const j = e.startJob('installer', `pile ${a.nom}`, async (report) => {
+        try {
+          await deployerPile(e, a, fichier, (t, fait, total) => report({ phase: fait >= total ? 'fini' : 'monter', done: fait, total }, t));
+          return { name: a.nom, note: `pile ${a.nom} en marche (${a.ordre.join(', puis ')})` };
+        } finally { pilesEnCours.delete(a.nom); }
+      }, a.nom);
+      return { text: `🚢 Déploiement de la pile « ${a.nom} » lancé : ${a.ordre.join(', puis ')}. Suis-le dans ${nomArche()}.`, data: { job: j.id, pile: a.nom, ordre: a.ordre } };
+    } },
+  { id: 'demarrer_pile', label: 'Démarrer une pile', what: 'Démarre ses conteneurs, chacun après ceux dont il dépend', quick: false, proprietaireSeul: true, params: [PILE],
+    run: async (ctx, i) => {
+      exigerMoteur(); const n = nomPile(i.pile); if (pilesEnCours.has(n)) throw new Error(remplir(TEXTES_K3_ARCHE.occupee, { nom: n }));
+      pilesEnCours.add(n);
+      try { const l = await demarrerPile(k3(), n); ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), ...l])] }); return { text: l.length ? `▶ Pile « ${n} » : ${l.join(', puis ')} démarré(s).` : `La pile « ${n} » tourne déjà.`, data: { pile: n, demarres: l } }; }
+      finally { pilesEnCours.delete(n); }
+    } },
+  { id: 'arreter_pile', label: 'Arrêter une pile', what: 'Arrête ses conteneurs, dans l\'ordre inverse', quick: false, proprietaireSeul: true, params: [PILE],
+    grave: (i) => `arrêter la pile ${s(i.pile).trim().slice(0, 40)} (ce qu'elle sert ne répond plus jusqu'à ce que tu la relances)`,
+    run: async (ctx, i) => {
+      exigerMoteur(); const n = nomPile(i.pile); if (pilesEnCours.has(n)) throw new Error(remplir(TEXTES_K3_ARCHE.occupee, { nom: n }));
+      pilesEnCours.add(n);
+      try { const l = await arreterPile(k3(), n); for (const x of l) forget(ctx, x); return { text: l.length ? `⏹ Pile « ${n} » : ${l.join(', puis ')} arrêté(s).` : `La pile « ${n} » est déjà arrêtée.`, data: { pile: n, arretes: l } }; }
+      finally { pilesEnCours.delete(n); }
+    } },
+  { id: 'supprimer_pile', label: 'Supprimer une pile (garde-fou)', what: 'Supprime ses conteneurs ; ses volumes sont gardés, sauf si tu écris son nom pour effacer ses dossiers à elle', quick: false, proprietaireSeul: true,
+    params: [PILE, { key: 'volumes', label: 'Ses volumes', kind: 'select', options: ['garder', 'effacer'], default: 'garder' }, { key: 'nom_tape', label: 'Son nom, pour effacer ses volumes', kind: 'text', default: '' }],
+    grave: (i) => (s(i.volumes) === 'effacer' ? `supprimer la pile ${s(i.pile).trim().slice(0, 40)} ET effacer les volumes qu'elle a créés : ils ne pourront pas revenir (sauf sauvegarde de Phénix)` : `supprimer la pile ${s(i.pile).trim().slice(0, 40)} (ses conteneurs ; ses volumes sont gardés)`),
+    run: async (ctx, i) => {
+      exigerMoteur(); const n = nomPile(i.pile), effacer = s(i.volumes) === 'effacer', e = k3();
+      // Le nom tapé est vérifié AVANT de toucher à quoi que ce soit.
+      if (effacer && s(i.nom_tape).trim() !== n) throw new Error(remplir(TEXTES_K3_ARCHE.nomFaux, { nom: n }));
+      const p = pile(e, n); if (!p) throw new Error(`pile inconnue : ${n}`);
+      if (pilesEnCours.has(n)) throw new Error(remplir(TEXTES_K3_ARCHE.occupee, { nom: n }));
+      pilesEnCours.add(n);
+      try {
+        for (const x of p.services) forget(ctx, x.conteneur);
+        const r = await supprimerPile(e, n, { effacerVolumes: effacer, garde: (reel) => pourquoiGarderVolume(reel, ctx.home) });
+        const t = [`🗑 Pile « ${n} » supprimée : ${r.conteneurs.join(', ') || 'aucun conteneur'} (les images restent).`,
+          r.reseauxRetires.length ? `Réseau retiré : ${r.reseauxRetires.join(', ')}.` : '',
+          r.volumesEffaces.length ? `Volumes effacés : ${r.volumesEffaces.join(', ')}.` : '',
+          r.volumesGardes.length ? `Volumes gardés : ${r.volumesGardes.map((v) => `${v.nom}${effacer ? ` (${v.raison})` : ''}`).join(', ')}.` : ''].filter(Boolean).join('\n');
+        return { text: t, data: { pile: n, ...r } };
+      } finally { pilesEnCours.delete(n); }
+    } },
+];
+// (la lecture du fichier n'est pas un changement : hors du journal « qui a fait quoi »)
+naglfar.actions.push(...avecJournal('naglfar_actes', actionsK3.filter((a) => a.id !== 'fichier_pile')), ...actionsK3.filter((a) => a.id === 'fichier_pile'));
