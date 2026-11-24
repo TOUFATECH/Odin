@@ -147,7 +147,7 @@ function page(list: Array<Partial<Attente>>) {
   const el = (_t: string, _a: unknown, texte?: string) => noeud(texte);
   const src = fonction(UI, 'validationsEnAttente');
   const f = new Function('api', 'cards', 'pending', 'answered', 'msgs', 'approvalCard', 'el', 'badges', 'renderHome', 'setTimeout', 'clearTimeout',
-    `let minuteurAttente; ${src}; return validationsEnAttente;`)(
+    `let minuteurAttente, attenteLue = false; const ouvrirSurAFaire = () => {}; ${src}; return validationsEnAttente;`)(
     async (u: string) => (u === '/api/validations/attente' ? { ok: true, list } : {}), cards, pending, answered, msgs, approvalCard, el,
     () => { compte.badges++; }, () => { compte.home++; }, () => 0, () => {}) as () => Promise<void>;
   return { f, cards, pending, answered, msgs, crees, compte, noeud };
