@@ -17,7 +17,7 @@ import { SERVICES, SOCIAL_ADS, cleanDomain, compile, isDomain, emptyList, type C
 import type { Schedule } from '../vidarr/server.ts';
 import { parseUpstream, upstreamTimes } from '../vidarr/resolve.ts';
 import { parse, query, TYPE, dataText } from '../vidarr/wire.ts';
-import { DhcpServer, detectDhcp, hostLabel, ipNum, ipPropre, osFromVendorClass, planAdresses, randomMac, verifierAdresse, type DhcpConfig, type EntreeAdresses, type Lease, type MacPolicy, type MacState, type SorteAdresse } from '../vidarr/dhcp.ts';
+import { DhcpServer, hostLabel, ipNum, ipPropre, numIp, osFromVendorClass, planAdresses, pxeHook, randomMac, reseauDe, verifierAdresse, type DhcpConfig, type EntreeAdresses, type Lease, type MacPolicy, type MacState, type SorteAdresse } from '../vidarr/dhcp.ts';
 import { catchUp, localDay, period, readDay, journalDay, type Period, type Summary } from '../vidarr/history.ts';
 import { histTout, noterBail, noterRequete, requetesDeMachine, resumerRequetes, type PeriodeHist } from '../vidarr/historique-base.ts';
 import { networkGraph, type DeviceInfo } from '../vidarr/graph.ts';
@@ -26,6 +26,8 @@ import * as ranDb from '../ran.ts';
 import { actionJournal, auProprietaireSeul, avecJournal } from '../vidarr/qui-a-fait.ts';
 import { LOCAL, SIGNE_MS, chiffresDe, depuisAdresse, effetsDe, gardeEtat, macPropre, nomsReseau, surOdin, texteSur, vueAppareils, type Appareil, type VueAppareils } from '../vidarr/appareils.ts';
 import { agissant } from '../sso/acces.ts';
+import { RESEAU, VPN, conclure, dansSousReseau, privee, type CarteReseau, type Garde } from '../thjalfi/reseau.ts';
+import { BAUX_PROPOSES, dureeEnMots, filetOdin, preApprobation, raisonAutre, verifierReglages } from '../vidarr/reglages.ts';
 
 export interface ListMeta { id: string; name: string; url: string; kind: Lists['kind']; enabled: boolean; count?: number; updated?: string; error?: string }
 export const DEFAULT_LISTS: ListMeta[] = [
@@ -202,8 +204,10 @@ async function startServer(ctx: ModCtx): Promise<string> {
   return `✅ Sphinx répond sur le port ${d.port} (${where.join(', ')}). ${compiled.size} liste(s) chargée(s).`;
 }
 
+/** La vraie écoute : les ports du DHCP, sur la seule adresse `hote` quand elle est donnée (la carte d'Odin), sinon sur toutes. */
+const ECOUTE_REELLE = (d: DhcpServer, ports: [number, number], hote?: string): Promise<void> => d.start(ports[0], ports[1], hote ?? '0.0.0.0');
 /** L'écoute du serveur d'adresses (ports 67 et 68). Remplaçable dans les essais : aucune vraie prise réseau n'y est ouverte. */
-export const PRISE_DHCP = { ecouter: (d: DhcpServer, ports: [number, number]): Promise<void> => d.start(ports[0], ports[1]) };
+export const PRISE_DHCP: { ecouter: (d: DhcpServer, ports: [number, number], hote?: string) => Promise<void> } = { ecouter: ECOUTE_REELLE };
 /**
  * Lot R2 : un appareil bloqué qui tient encore une adresse donnée par Odin (son bail n'est pas fini, il ne l'a pas
  * encore lâchée) n'a plus Internet par le DNS d'Odin. Rien n'est écrit dans les réglages : la coupure suit le bail.
@@ -254,6 +258,10 @@ function etatDemande(v: unknown): MacState | undefined {
   return undefined;
 }
 const ATTENTE_MAX = 100; let attentePleine = 0;
+/** La veille passe chaque minute pour le garde-fou du DHCP (lot R4) ; le reste (historique, listes, DNS) ne tourne que toutes les 5 minutes, comme avant. */
+const veilleLente = new Map<string, number>(), VEILLE_LENTE_MS = 290_000;
+/** La panne des serveurs amont est annoncée au plus une fois par 4 minutes (la veille passe chaque minute depuis le lot R4). */
+const amontDit = new Map<string, number>();
 /**
  * Un membre de la famille ne voit pas les appareils des autres : seulement celui qu'il tient en ce moment (quand Odin
  * sait d'où vient sa demande). Le propriétaire voit tout. Rend les adresses MAC visibles, ou rien (tout est visible).
@@ -278,11 +286,245 @@ function adressesVues(ctx: ModCtx, v: VueAppareils = appareilsVus(ctx)): EntreeA
 }
 /** Les mots du plan des adresses, pour la réponse en texte. */
 const SORTES: Record<SorteAdresse, string> = { box: 'la box', odin: 'Odin', dns: 'le serveur DNS', fixe: 'adresses fixes', bail: 'distribuées en ce moment', retenue: 'retenues', plage: 'libres dans la plage distribuée', libre: 'libres hors de la plage' };
+const LIMITE_REGLAGES = 'Les réglages du DHCP (qui distribue les adresses, la plage, le bail) sont au propriétaire seul.';
 const LIMITE_PLAN = 'Le plan des adresses de la maison et les adresses fixes sont au propriétaire seul. Tu ne vois que l\'appareil que tu tiens en ce moment.';
-async function startDhcp(ctx: ModCtx): Promise<string> {
-  dhcp?.stop();
-  const d = new DhcpServer({
+// ------------------------------------------------------------------ Réglages DHCP : le garde-fou (maquette « Réseau », lot R4)
+// Un seul serveur d'adresses à la fois sur un réseau. Avant d'allumer le sien, Odin demande sur SA carte si un autre
+// répond ; il redemande chaque minute ; il s'arrête aussitôt s'il en apparaît un ; et il ne recommence jamais tout seul
+// après s'être arrêté. Pendant qu'il vérifie, et tant qu'il n'a pas pu vérifier, il se TAIT (aucune réponse à aucun
+// appareil) : jamais deux serveurs qui répondent en même temps. Une vérification de plus de deux minutes et demie ne vaut
+// plus : il se tait et revérifie avant de répondre, même si la veille de Sphinx est en pause. Trois vérifications
+// impossibles de suite : il s'arrête. La recherche, sa conclusion et les cartes sont celles de Genèse
+// (src/valhalla/thjalfi/reseau.ts, lot S8) : le même code, pas une copie.
+/** La carte où Odin distribue, le banc d'essai, le tour de démarrage, la reprise au démarrage d'Odin, le dernier soupçon. */
+let dhcpCarte: CarteReseau | undefined, dhcpBanc = false, dhcpTour = 0, departDhcp = 0, dernierSoupcon = 0;
+/** Une seule vérification à la fois ; les vérifications impossibles de suite ; l'heure de la dernière vérification lancée. */
+let verifEnCours: Promise<void> | undefined, echecsVerif = 0, derniereVerif = 0;
+/** Au démarrage d'Odin, la carte n'est pas toujours prête : il réessaie de vérifier chaque minute, dix minutes au plus. */
+const REPRISE_MS = 10 * 60_000;
+/** Une vérification vaut deux minutes et demie ; trois vérifications impossibles de suite arrêtent la distribution. */
+const PERIME_MS = 150_000, ECHECS_MAX = 3;
+/** Un port : un nombre entier de 0 à 65535. Autre chose (« 67 » en texte, 67,5…) vaut le port du DHCP : jamais un moyen de passer pour un banc d'essai. */
+const unPort = (v: unknown, defaut: number): number => (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 65535 ? v : defaut);
+const portsDhcp = (ctx: ModCtx): [number, number] => { const p = ctx.settings.dhcpPorts as unknown; return Array.isArray(p) ? [unPort(p[0], 67), unPort(p[1], 68)] : [67, 68]; };
+/**
+ * Le banc d'essai : la prise est simulée, ou le port est pris au hasard (0) ou hors des ports réservés (1024 et plus).
+ * Aucun vrai appareil ne parle DHCP à un tel port ; c'est le seul cas où « forcer » allume sans chercher un autre serveur.
+ * Dans la maison (la vraie prise, le port 67 ou tout port réservé), rien ne passe par-dessus le garde-fou.
+ */
+const surLeBanc = (ctx: ModCtx): boolean => { if (PRISE_DHCP.ecouter !== ECOUTE_REELLE) return true; const port = portsDhcp(ctx)[0]; return port === 0 || port >= 1024; };
+/** Ce que le garde-fou a conclu la dernière fois (rangé dans les réglages : il survit à un redémarrage d'Odin). */
+export function gardeDhcp(ctx: ModCtx): Garde {
+  const g = ctx.settings.dhcpGarde as Garde | undefined;
+  if (!g || typeof g !== 'object' || !['non_verifie', 'libre', 'occupe', 'coupe'].includes(g.etat)) return { etat: 'non_verifie', autres: [] };
+  return { etat: g.etat, autres: (Array.isArray(g.autres) ? g.autres : []).map((x) => ipPropre(x)).filter(Boolean).slice(0, 8), ...(typeof g.carte === 'string' ? { carte: texteSur(g.carte, 60) } : {}), ...(typeof g.verifie === 'number' ? { verifie: g.verifie } : {}), ...(typeof g.raison === 'string' ? { raison: texteSur(g.raison, 600) } : {}) };
+}
+/**
+ * Range ce que le garde-fou vient de conclure. La même conclusion qu'avant (« libre », chaque minute) ne réécrit pas le
+ * fichier des réglages : seule l'heure change, gardée en mémoire (elle part au disque avec la prochaine écriture).
+ */
+function noterGarde(ctx: ModCtx, g: Garde): void {
+  const a = gardeDhcp(ctx);
+  if (ctx.settings.dhcpGarde !== undefined && a.etat === g.etat && (a.carte ?? '') === (g.carte ?? '') && a.autres.join() === g.autres.join() && (a.raison ?? '') === (g.raison ?? '')) ctx.settings.dhcpGarde = g;
+  else ctx.saveSettings({ dhcpGarde: g });
+}
+/** Pour Genèse (un seul serveur d'adresses d'Odin par carte) : la carte où Sphinx distribue les adresses de la maison en ce moment, ou rien. */
+export const distributionMaison = (): { carte: string; ip: string } | undefined => (dhcp && dhcpCarte ? { carte: dhcpCarte.nom, ip: dhcpCarte.ip } : undefined);
+/** La carte réseau d'Odin dans la maison : celle qui porte l'adresse que le serveur d'adresses annonce. Le refus en mots, sinon. */
+function carteMaison(ctx: ModCtx): { c?: CarteReseau; refus: string } {
+  let toutes: CarteReseau[] = []; try { toutes = RESEAU.cartes(); } catch { /* aucune carte lisible */ }
+  const ip = dhcpConfig(ctx).server, c = toutes.find((x) => x.ip === ip);
+  if (!c) return { refus: `Odin ne trouve pas sa carte réseau : aucune carte de cette machine ne porte l'adresse ${texteSur(ip, 15)}. Vérifie que le câble est branché, et que l'adresse d'Odin est réglée à la main sur sa machine.` };
+  if (VPN.test(c.nom)) return { refus: `${texteSur(c.nom, 60)} est un tunnel (VPN) : Odin n'y distribue pas les adresses de la maison.` };
+  if (!privee(c.ip)) return { refus: `${texteSur(c.nom, 60)} (${c.ip}) n'est pas sur un réseau privé : Odin n'y distribue rien.` };
+  return { c, refus: '' };
+}
+/**
+ * Le serveur d'adresses du réseau à part de Genèse (lot S8), s'il distribue en ce moment, et l'adresse qu'il écoute (vide :
+ * inconnue). Lu sur l'appli elle-même, sans rien lui demander : la veille de chaque minute s'en sert aussi.
+ */
+function geneseDistribue(ctx: ModCtx): { ip: string } | undefined {
+  try {
+    const m = ctx.modules().find((x) => x.id === 'thjalfi') as unknown as { reseauAPart?: () => { arrete?: boolean; sock?: { address?: () => { address?: string } } } | undefined } | undefined;
+    const a = m?.reseauAPart?.(); if (!a || a.arrete) return undefined;
+    let ip = ''; try { ip = ipPropre(a.sock?.address?.().address); } catch { /* prise fermée : adresse inconnue */ }
+    return { ip };
+  } catch { return undefined; }
+}
+/** Genèse distribue-t-il sur la même carte ? Une adresse inconnue compte pour « la même » (prudence). */
+const memeCarte = (c: CarteReseau, g: { ip: string }): boolean => !g.ip || g.ip === '0.0.0.0' || g.ip === c.ip || dansSousReseau(c, g.ip);
+const refusGenese = (c: CarteReseau) => `Refusé : Genèse distribue déjà des adresses sur la carte ${texteSur(c.nom, 60)} (son réseau à part, pour le démarrage par le réseau). Un seul serveur d'adresses d'Odin par carte. Dans Genèse → Réseau, choisis « À côté de la box » ou « Sphinx donne les adresses », puis reviens ici.`;
+/**
+ * Le garde-fou : un autre serveur d'adresses répond-il sur cette carte ? La question et sa conclusion sont celles de
+ * Genèse (`RESEAU.chercher`, `conclure`) : une recherche qui n'a pas pu se faire ne vaut jamais « personne ».
+ * `noter` faux : rien n'est rangé (après une coupure, une simple recherche n'efface pas la coupure).
+ */
+async function verifierMaison(ctx: ModCtx, c: CarteReseau, enMarche: boolean, noter = true): Promise<Garde> {
+  const p = portsDhcp(ctx);
+  const r = await RESEAU.chercher(c, { serveur: p[0], client: p[1] }).catch((e: Error) => ({ serveurs: [] as string[], erreur: e.message }));
+  const g0 = conclure(r, c.nom, ctx.now().getTime(), enMarche);
+  const g: Garde = g0.autres.length ? { ...g0, raison: raisonAutre(g0.autres, dhcpConfig(ctx).router) } : g0;
+  if (noter) noterGarde(ctx, g);
+  return g;
+}
+/** Les mots du doute : la vérification n'a pas pu se faire, Odin se tait en attendant. */
+const DOUTE = (): string => `Odin n'a pas pu vérifier qu'aucun autre serveur d'adresses ne répond (${echecsVerif} fois sur ${ECHECS_MAX}). En attendant, il ne répond à aucune demande d'adresse : les appareils gardent la leur. Il réessaie chaque minute ; à la troisième fois de suite, il s'arrête.`;
+/** Jusqu'à quand les appareils gardent leur adresse si plus personne ne distribue (dit dans l'alerte et à l'arrêt). */
+function resteDesBaux(ctx: ModCtx): string {
+  const now = ctx.now().getTime(), v = leasesOf(ctx).filter((l) => l.expires > now).sort((a, b) => a.expires - b.expires);
+  if (!v.length) return 'Aucun appareil ne tient d\'adresse donnée par Odin en ce moment.';
+  return v.length === 1 ? `L'appareil connecté garde son adresse jusqu'à la fin de son bail (${quand(v[0].expires)}).` : `Les ${v.length} appareils connectés gardent leur adresse jusqu'à la fin de leur bail : le premier jusqu'à ${quand(v[0].expires)}, le dernier jusqu'à ${quand(v[v.length - 1].expires)}.`;
+}
+/** Coupe tout de suite la distribution des adresses, le range (« coupé » : pas de reprise toute seule) et prévient. */
+function couperDhcp(ctx: ModCtx, raison: string, autres: string[] = []): void {
+  const avait = Boolean(dhcp), carte = dhcpCarte?.nom ?? gardeDhcp(ctx).carte;
+  dhcpTour++; dhcp?.stop(); dhcp = undefined; dhcpCarte = undefined; dhcpBanc = false; departDhcp = 0; echecsVerif = 0;
+  const g: Garde = { etat: 'coupe', ...(carte ? { carte } : {}), autres: autres.slice(0, 8), verifie: ctx.now().getTime(), raison: `Odin a arrêté de distribuer les adresses : ${raison.replace(/\.$/, '')}. Il ne recommence pas tout seul.` };
+  ctx.saveSettings({ dhcpGarde: g }); ctx.emit('dhcp_journal', { ligne: `DHCP : ${g.raison}` });
+  if (avait) ctx.alert({ level: 'critique', title: 'Sphinx a arrêté de distribuer les adresses de la maison', detail: `${g.raison} Deux serveurs d'adresses à la fois couperaient Internet à une partie de la maison. ${resteDesBaux(ctx)} Si c'est la box qui distribue de nouveau, choisis « La box » dans Sphinx → Réglages DHCP, et il n'y a rien d'autre à faire. Sinon coupe l'autre serveur, puis rechoisis « Odin distribue les adresses » : Odin revérifie avant de rallumer.`, key: 'dhcp-coupe', data: { autres: autres.slice(0, 8) } });
+}
+/**
+ * Qui serait approuvé d'avance en passant à « seulement les appareils approuvés » : ceux qui ont une adresse en ce moment,
+ * SAUF les nouveaux (arrivés depuis moins d'un jour, jamais approuvés), qui attendent l'accord du propriétaire ; l'appareil
+ * qu'il tient en ce moment est approuvé même s'il est nouveau (il ne doit pas se couper lui-même).
+ */
+function preApprobationVue(ctx: ModCtx, vue: VueAppareils = appareilsVus(ctx)) {
+  const parMac = new Map(vue.appareils.map((d) => [d.mac, d]));
+  return preApprobation({ config: dhcpConfig(ctx), leases: leasesOf(ctx), policy: macPolicy(ctx), now: ctx.now().getTime(), nom: (mac) => parMac.get(mac)?.nom ?? mac, nouveau: (mac) => parMac.get(mac)?.nouveau === true, tenu: (mac) => parMac.get(mac)?.ici === true });
+}
+/** Les réglages d'aujourd'hui, écrits comme une demande (pour les relire avec la même règle que la page). */
+const entreeDe = (c: DhcpConfig): Record<string, unknown> => ({ debut: c.start, fin: c.end, passerelle: c.router, masque: c.mask, dns: c.dns.join(', '), heures: c.leaseSeconds / 3600, domaine: c.domain ?? 'maison' });
+/**
+ * Hors de Windows, la prise du serveur écoute toutes les cartes : une carte sur un AUTRE réseau (un second câble, un pont
+ * de machines virtuelles) recevrait aussi les réponses d'Odin, à côté du serveur d'adresses de ce réseau-là, qu'Odin
+ * n'interroge pas. Refusé plutôt que deviné. Le refus, ou rien.
+ */
+function refusAutreCarte(c: CarteReseau): string {
+  if (RESEAU.plateforme() === 'win32') return '';
+  let toutes: CarteReseau[] = []; try { toutes = RESEAU.cartes(); } catch { return ''; }
+  const x = toutes.find((y) => y.nom !== c.nom && y.ip !== c.ip && !dansSousReseau(c, y.ip));
+  return x ? `Sur ce système, Odin ne sait pas écouter une seule carte : il répondrait aussi sur ${texteSur(x.nom, 60)} (${ipPropre(x.ip)}), qui est sur un autre réseau. Il ne distribue pas les adresses de la maison tant que cette carte est là.` : '';
+}
+/** Tout ce qu'il faut AVANT de distribuer les adresses de la maison : la carte, des réglages valables, pas Genèse sur la même carte, et personne d'autre qui distribue. */
+async function preparerMaison(ctx: ModCtx): Promise<{ refus: string; garde?: Garde } | { c: CarteReseau }> {
+  const { c, refus } = carteMaison(ctx); if (!c) return { refus };
+  const ailleurs = refusAutreCarte(c); if (ailleurs) return { refus: ailleurs };
+  const cur = dhcpConfig(ctx), r = reseauDe(cur);
+  if (!r) return { refus: 'Les réglages du DHCP (passerelle, masque) ne décrivent pas un réseau valable : corrige-les d\'abord.' };
+  if (ipNum(c.ip) < r.premiere || ipNum(c.ip) > r.derniere) return { refus: `L'adresse d'Odin (${c.ip}) n'est pas dans le réseau réglé (${numIp(r.premiere)} à ${numIp(r.derniere)}) : il ne pourrait pas répondre aux appareils. Corrige d'abord la passerelle et le masque.` };
+  const v = verifierReglages({ entree: entreeDe(cur), courant: cur, odin: c.ip, leases: leasesOf(ctx), now: ctx.now().getTime(), allume: false });
+  if (!v.ok) return { refus: `Les réglages du DHCP ne conviennent pas : ${v.message.replace(/^Refusé : /, '')} Corrige-les d'abord.` };
+  const gen = geneseDistribue(ctx); if (gen && memeCarte(c, gen)) return { refus: refusGenese(c) };
+  const g = await verifierMaison(ctx, c, false); if (g.etat !== 'libre') return { refus: g.raison ?? 'Refusé.', garde: g };
+  return { c };
+}
+/** Vérifie, puis allume le serveur d'adresses de la maison sur la carte d'Odin. Une erreur d'écoute (port pris) remonte telle quelle. */
+async function allumerMaison(ctx: ModCtx): Promise<{ ok: boolean; text: string; garde?: Garde }> {
+  const tour = ++dhcpTour, x = await preparerMaison(ctx);
+  if ('refus' in x) return { ok: false, text: x.refus, garde: x.garde };
+  if (tour !== dhcpTour) return { ok: false, text: 'Un autre démarrage du serveur d\'adresses a pris la main.' };
+  // Sous Windows, la prise est attachée à l'adresse de la carte vérifiée : les réponses partent par elle. Ailleurs, Odin
+  // écoute toutes les cartes, comme avant (la question, elle, est toujours posée sur la carte).
+  const text = await startDhcp(ctx, RESEAU.plateforme() === 'win32' ? x.c.ip : undefined);
+  if (tour !== dhcpTour) { dhcp?.stop(); dhcp = undefined; return { ok: false, text: 'Un autre démarrage du serveur d\'adresses a pris la main.' }; }
+  dhcpCarte = x.c; dhcpBanc = false; departDhcp = 0;
+  return { ok: true, text };
+}
+/**
+ * La vérification de chaque minute, tant qu'Odin distribue : la carte est-elle toujours là, Genèse distribue-t-il dessus,
+ * un autre serveur d'adresses répond-il ? Un autre serveur, la carte partie ou Genèse sur la même carte : coupure. Une
+ * vérification qui n'a pas pu se faire : Odin se tait (il ne répond plus à aucun appareil) et réessaie ; à la troisième de
+ * suite, coupure. Une seule vérification à la fois : deux demandes en même temps attendent la même.
+ * Quand Odin ne distribue pas : seulement la suite de son démarrage (jamais une reprise après une coupure).
+ */
+export function veillerDhcp(ctx: ModCtx): Promise<void> {
+  if (verifEnCours) return verifEnCours;
+  const p: Promise<void> = veillerUneFois(ctx).finally(() => { if (verifEnCours === p) verifEnCours = undefined; });
+  verifEnCours = p;
+  return p;
+}
+async function veillerUneFois(ctx: ModCtx): Promise<void> {
+  const d = dhcp;
+  if (!d) { await reprendreAuDepart(ctx, false); return; }
+  if (dhcpBanc) return;
+  const avant = dhcpCarte, { c } = carteMaison(ctx);
+  if (!c || (avant && (c.nom !== avant.nom || c.ip !== avant.ip || c.prefixe !== avant.prefixe))) { couperDhcp(ctx, `sa carte réseau${avant ? ` (${texteSur(avant.nom, 60)}, ${avant.ip})` : ''} n'est plus là, ou a changé d'adresse`); return; }
+  const gen = geneseDistribue(ctx);
+  if (gen && memeCarte(c, gen)) { couperDhcp(ctx, `Genèse distribue des adresses sur la même carte (${texteSur(c.nom, 60)}), et il ne faut qu'un seul serveur d'adresses d'Odin par carte`); return; }
+  // Une carte d'un autre réseau est apparue (hors de Windows) : dit tout de suite, sans couper la maison pour cela.
+  const ailleurs = refusAutreCarte(c); if (ailleurs) ctx.alert({ level: 'haute', title: 'Sphinx : une carte d\'un autre réseau est apparue', detail: `${ailleurs} Odin distribue encore les adresses de la maison : retire cette carte, ou choisis « La box » dans Sphinx → Réglages DHCP.`, key: 'dhcp-autre-carte' });
+  derniereVerif = ctx.now().getTime();
+  const g = await verifierMaison(ctx, c, true, false);
+  if (dhcp !== d) return;
+  if (g.autres.length) { couperDhcp(ctx, `un autre serveur d'adresses répond sur ${texteSur(c.nom, 60)} (${g.autres.join(', ')})`, g.autres); return; }
+  if (g.etat !== 'libre') {
+    echecsVerif++;
+    if (echecsVerif >= ECHECS_MAX) { couperDhcp(ctx, `il n'a pas pu vérifier, ${ECHECS_MAX} fois de suite, qu'aucun autre serveur d'adresses ne répond sur ${texteSur(c.nom, 60)}`); return; }
+    ctx.emit('dhcp_journal', { ligne: `DHCP : vérification impossible (${echecsVerif} sur ${ECHECS_MAX}) : Odin ne répond plus aux demandes d'adresse tant qu'il n'a pas pu vérifier` });
+    if (echecsVerif === 1) ctx.alert({ level: 'haute', title: 'Sphinx ne répond plus aux demandes d\'adresse, le temps de vérifier', detail: `${texteSur(String(g.raison ?? 'Odin n\'a pas pu vérifier qu\'aucun autre serveur d\'adresses ne répond.').replace(/ Par prudence, il ne distribue rien\.$/, ''), 400)} Tant qu'il n'a pas pu vérifier, Odin ne donne et ne renouvelle aucune adresse : les appareils gardent la leur. Il réessaie chaque minute ; à la troisième vérification impossible de suite, il s'arrête et te le dit.`, key: 'dhcp-doute' });
+    return;
+  }
+  echecsVerif = 0; noterGarde(ctx, g);
+}
+/**
+ * Le serveur d'adresses doit-il se taire ? Oui pendant une vérification, tant qu'une vérification n'a pas pu se faire, et
+ * quand la dernière date de plus de deux minutes et demie (la veille de Sphinx est en pause, ou Odin sort de veille) :
+ * dans ces deux derniers cas, la demande d'un appareil relance elle-même la vérification. Jamais sur le banc d'essai.
+ */
+function muetDhcp(ctx: ModCtx, d: DhcpServer): boolean {
+  if (dhcp !== d) return true;
+  if (dhcpBanc) return false;
+  const now = ctx.now().getTime(), v = gardeDhcp(ctx).verifie ?? 0, perime = now < v || now - v > PERIME_MS;
+  if (!verifEnCours && (echecsVerif > 0 || perime) && (now < derniereVerif || now - derniereVerif >= (echecsVerif > 0 ? 55_000 : 15_000))) {
+    void veillerDhcp(ctx).catch((e: Error) => { if (dhcp && !dhcpBanc) couperDhcp(ctx, `la vérification a échoué (${texteSur(e.message, 120)})`); });
+  }
+  return Boolean(verifEnCours) || echecsVerif > 0 || perime;
+}
+/** Un appareil vient de choisir un AUTRE serveur d'adresses : Odin vérifie tout de suite (au plus une fois par 15 s), en se taisant pendant ce temps ; seule la vérification coupe, jamais ce paquet à lui seul. */
+async function soupcon(ctx: ModCtx, serveur: string, mac: string): Promise<void> {
+  const now = ctx.now().getTime(); if (dhcpBanc || (now >= dernierSoupcon && now - dernierSoupcon < 15_000)) return;
+  dernierSoupcon = now;
+  ctx.emit('dhcp_journal', { ligne: `DHCP : ${mac} a choisi un autre serveur d'adresses (${serveur}) : Odin vérifie tout de suite` });
+  try { await veillerDhcp(ctx); } catch (e) { if (dhcp && !dhcpBanc) couperDhcp(ctx, `la vérification a échoué (${texteSur((e as Error).message, 120)})`); }
+}
+/**
+ * Au démarrage d'Odin, s'il distribuait les adresses : il revérifie d'abord, puis rallume. Jamais après une coupure du
+ * garde-fou (là, seul le propriétaire rallume). Un autre serveur répond : coupure. La carte n'est pas prête : il réessaie
+ * chaque minute, dix minutes au plus, puis s'arrête et le dit.
+ */
+async function reprendreAuDepart(ctx: ModCtx, premier: boolean): Promise<void> {
+  if (ctx.settings.dhcpOn !== true || (!premier && !departDhcp)) return;
+  const now = ctx.now().getTime(), g0 = gardeDhcp(ctx);
+  if (g0.etat === 'coupe') {
+    departDhcp = 0;
+    if (premier) ctx.alert({ level: 'haute', title: 'Odin ne distribue pas les adresses de la maison', detail: `${g0.raison ?? 'Odin s\'était arrêté de distribuer les adresses.'} Odin vient de redémarrer : il ne recommence pas tout seul après s'être arrêté. Sphinx → Réglages DHCP : « Odin distribue les adresses » (il revérifie d'abord), ou « La box ».`, key: 'dhcp-coupe-depart' });
+    return;
+  }
+  const abandon = (raison: string, autres: string[] = []) => {
+    departDhcp = 0;
+    const g: Garde = { etat: 'coupe', ...(g0.carte ? { carte: g0.carte } : {}), autres: autres.slice(0, 8), verifie: now, raison: `Odin a arrêté de distribuer les adresses : ${raison}. Il ne recommence pas tout seul.` };
+    ctx.saveSettings({ dhcpGarde: g }); ctx.emit('dhcp_journal', { ligne: `DHCP : ${g.raison}` });
+    ctx.alert({ level: 'critique', title: 'Sphinx ne distribue plus les adresses de la maison', detail: `${g.raison} ${resteDesBaux(ctx)} Sphinx → Réglages DHCP : « La box » si elle distribue de nouveau, sinon « Odin distribue les adresses » (il revérifie d'abord).`, key: 'dhcp-coupe', data: { autres: autres.slice(0, 8) } });
+  };
+  if (!premier && (now < departDhcp || now - departDhcp > REPRISE_MS)) return void abandon('depuis son démarrage, il n\'a pas pu vérifier en dix minutes qu\'aucun autre serveur d\'adresses ne répond');
+  let r: { ok: boolean; text: string; garde?: Garde };
+  try { r = await allumerMaison(ctx); }
+  catch (e) { departDhcp = 0; ctx.alert({ level: 'critique', title: 'Le DHCP d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Les appareils ne reçoivent plus d'adresse : rallume le DHCP de la box.`, key: 'dhcp-demarrage' }); return; }
+  if (r.ok) { departDhcp = 0; return; }
+  // Un autre serveur d'adresses a pris la place pendant qu'Odin était éteint : c'est une coupure, pas une attente.
+  if (r.garde?.autres.length) return void abandon(`à son démarrage, un autre serveur d'adresses répondait (${r.garde.autres.join(', ')})`, r.garde.autres);
+  if (premier) { departDhcp = now; ctx.alert({ level: 'haute', title: 'Odin ne distribue pas encore les adresses de la maison', detail: `${r.text} Odin réessaie chaque minute pendant dix minutes, puis s'arrête.`, key: 'dhcp-demarrage' }); }
+}
+async function startDhcp(ctx: ModCtx, hote?: string): Promise<string> {
+  dhcp?.stop(); dernierSoupcon = 0; echecsVerif = 0; derniereVerif = 0;
+  const d: DhcpServer = new DhcpServer({
     config: () => dhcpConfig(ctx), leases: () => leasesOf(ctx), save: (l) => ctx.saveSettings({ leases: l }), now: () => ctx.now().getTime(),
+    // La prise est tombée (carte débranchée) : le serveur ne sert plus. C'est une coupure : dite, et sans reprise toute seule.
+    onError: (raison) => { if (dhcp === d && !dhcpBanc) couperDhcp(ctx, `la prise réseau du serveur d'adresses ne répond plus (${texteSur(raison, 120)})`); },
+    // Un appareil a choisi un autre serveur d'adresses : vérification tout de suite, sans attendre la minute.
+    onAutre: (serveur, mac) => { if (dhcp === d && !dhcpBanc) void soupcon(ctx, serveur, mac); },
+    // Pendant une vérification, ou sans vérification récente : aucune réponse (jamais deux serveurs qui répondent à la fois).
+    muet: () => muetDhcp(ctx, d),
     // Toutes les adresses d'Odin (plusieurs cartes) : jamais données à un appareil.
     propres: () => [lanAddress() ?? '', ...LOCAL.ips()],
     log: (l) => ctx.emit('dhcp_journal', { ligne: l }),
@@ -300,8 +542,8 @@ async function startDhcp(ctx: ModCtx): Promise<string> {
     // Historique durable des baux (donné, renouvelé, libéré, refusé, bloqué) : base VIDARR_ODIN, repli fichier.
     onEvent: (mac, ip, action, name) => { if (action !== 'donne' && action !== 'renouvele') noterBail(ctx, { t: ctx.now().getTime(), mac, ip, nom: name ?? leasesOf(ctx).find((l) => l.mac === mac)?.name, utilisateur: inventoryName?.(ip), action }); },
   });
-  const ports = (ctx.settings.dhcpPorts as [number, number] | undefined) ?? [67, 68];
-  await PRISE_DHCP.ecouter(d, ports); dhcp = d;
+  const ports = portsDhcp(ctx);
+  await PRISE_DHCP.ecouter(d, ports, hote); dhcp = d;
   const c = dhcpConfig(ctx);
   return `✅ DHCP d'Odin en marche : adresses ${c.start} → ${c.end}, passerelle ${c.router}, DNS ${c.dns.join(', ')}, baux de ${Math.round(c.leaseSeconds / 3600)} h.`;
 }
@@ -552,37 +794,65 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         srv?.cache.clear();
         return { text: sc ? `🕘 Services coupés pour ${whoText} : ${sc.days.length === 7 ? 'tous les jours' : sc.days.map((x) => J[x]).join(', ')}, de ${sc.from} à ${sc.to}. Le reste du temps, ils passent.` : `🕘 Services coupés pour ${whoText} : tout le temps.` };
       } },
-      { id: 'dhcp_chercher', label: 'Chercher un autre DHCP', what: 'Y a-t-il déjà un serveur qui donne les adresses (la box) ?', read: true, quick: false, run: async (ctx) => {
-        const ports = (ctx.settings.dhcpPorts as [number, number] | undefined) ?? [67, 68];
-        const found = await detectDhcp({ serverPort: ports[0], clientPort: ports[1], waitMs: 3000 });
-        const others = found.filter((x) => x !== dhcpConfig(ctx).server);
-        return { text: others.length ? `⚠ Un autre serveur DHCP répond : ${others.join(', ')} (souvent la box). Coupe le DHCP de la box avant d'allumer celui d'Odin.` : '✅ Aucun autre serveur DHCP ne répond : celui d\'Odin peut s\'allumer.', data: { found: others } };
+      // Lot R4 (maquette Réseau) : « revérifier ». La question est posée sur la carte d'Odin, par la recherche de Genèse (lot S8).
+      { id: 'dhcp_chercher', label: 'Chercher un autre DHCP', what: 'Y a-t-il déjà un serveur qui donne les adresses (la box) ? Odin pose la question sur sa carte réseau', read: true, quick: false, run: async (ctx) => {
+        const cm = carteMaison(ctx); if (!cm.c) return { ok: false, text: cm.refus, data: { found: [], garde: gardeDhcp(ctx) } };
+        // Odin distribue : c'est la vérification de chaque minute, faite tout de suite (elle coupe s'il y en a un autre).
+        if (dhcp && !dhcpBanc) { await veillerDhcp(ctx); const g = gardeDhcp(ctx); return { ...(dhcp && !echecsVerif ? {} : { ok: false }), text: dhcp && echecsVerif ? `⚠ ${DOUTE()}` : dhcp ? `✅ Aucun autre serveur d'adresses ne répond sur ${cm.c.nom} : Odin continue de distribuer.` : `⚠ ${g.raison ?? 'Odin a arrêté de distribuer les adresses.'}`, data: { found: g.autres, garde: g, doute: echecsVerif } }; }
+        // Après une coupure, chercher ne rallume rien et n'efface pas la coupure : seul « Odin distribue les adresses » rallume, avec ton accord.
+        const g = await verifierMaison(ctx, cm.c, false, ctx.settings.dhcpOn !== true);
+        return { text: g.etat === 'libre' ? `✅ Aucun autre serveur d'adresses ne répond sur ${cm.c.nom} : celui d'Odin peut s'allumer.` : g.autres.length ? `⚠ ${g.raison} Coupe d'abord le serveur d'adresses (DHCP) de la box, puis revérifie.` : `⚠ ${g.raison ?? 'Odin n\'a pas pu vérifier.'}`, data: { found: g.autres, garde: g } };
       } },
+      // Lot R4 : la plage, la passerelle, le masque, le DNS donné, le bail, le nom de la maison. Relus par la règle pure
+      // (vidarr/reglages.ts) ; changer la plage ne coupe personne, et la réponse dit ce qui change pour les appareils déjà là.
       { id: 'dhcp_reglages', label: 'Réglages DHCP', what: 'Plage d\'adresses, passerelle, DNS, durée des baux, domaine', quick: false, params: [
         { key: 'debut', label: 'Première adresse', kind: 'text', required: true }, { key: 'fin', label: 'Dernière adresse', kind: 'text', required: true },
         { key: 'passerelle', label: 'Passerelle (la box)', kind: 'text', required: true }, { key: 'masque', label: 'Masque', kind: 'text', default: '255.255.255.0' },
-        { key: 'dns', label: 'DNS donné aux appareils (vide = Odin)', kind: 'text', default: '' }, { key: 'heures', label: 'Durée des baux (heures)', kind: 'number', default: 24 },
+        { key: 'dns', label: 'DNS donné aux appareils (vide = Odin)', kind: 'text', default: '' }, { key: 'secours', label: 'DNS de secours : la box', kind: 'boolean', default: false },
+        { key: 'heures', label: 'Durée des baux (heures)', kind: 'number', default: 24 },
         { key: 'domaine', label: 'Domaine de la maison', kind: 'text', default: 'maison' },
-      ], run: (ctx, i) => {
-        i = { ...i, masque: s(i.masque).trim() || '255.255.255.0', domaine: s(i.domaine).trim() || 'maison' };
-        for (const k of ['debut', 'fin', 'passerelle', 'masque']) if (!IPV4.test(s(i[k]))) throw new Error(`${k} : adresse IPv4 attendue`);
-        if (ipNum(s(i.debut)) > ipNum(s(i.fin))) throw new Error('la première adresse doit précéder la dernière');
-        const dns = parseIds(i.dns); for (const x of dns) if (!IPV4.test(x)) throw new Error(`DNS invalide : ${x}`);
-        const h = Number(i.heures) || 24; if (h < 0.1 || h > 24 * 30) throw new Error('baux entre 6 minutes et 30 jours');
-        const dom = cleanDomain(s(i.domaine) || 'maison'); if (!isDomain(dom)) throw new Error('domaine invalide');
+      ], grave: (i, ctx) => { if (!ctx) return undefined; try { const cur = dhcpConfig(ctx); return verifierReglages({ entree: i, courant: cur, odin: dhcpCarte?.ip ?? cur.server, leases: leasesOf(ctx), now: ctx.now().getTime(), allume: Boolean(dhcp) }).grave || undefined; } catch { return undefined; } }, run: (ctx, i) => {
         const cur = dhcpConfig(ctx);
-        ctx.saveSettings({ dhcp: { ...(ctx.settings.dhcp as object ?? {}), start: s(i.debut), end: s(i.fin), router: s(i.passerelle), mask: s(i.masque), dns: dns.length ? dns : [cur.server], leaseSeconds: Math.round(h * 3600), domain: dom } });
-        return { text: `⚙️ DHCP : ${s(i.debut)} → ${s(i.fin)}, passerelle ${s(i.passerelle)}, DNS ${(dns.length ? dns : [cur.server]).join(', ')}, baux ${h} h, domaine .${dom}.` };
+        const v = verifierReglages({ entree: i, courant: cur, odin: dhcpCarte?.ip ?? cur.server, leases: leasesOf(ctx), now: ctx.now().getTime(), allume: Boolean(dhcp), heure: (x) => quand(x) });
+        if (!v.ok || !v.config) throw new Error(v.message.replace(/^Refusé : /, 'refusé : '));
+        const k = v.config;
+        ctx.saveSettings({ dhcp: { ...(ctx.settings.dhcp as object ?? {}), ...k } });
+        srv?.cache.clear();
+        return { text: [`⚙️ DHCP : ${k.start} → ${k.end}, passerelle ${k.router}, DNS ${k.dns.join(', ')}, baux ${Math.round(k.leaseSeconds / 360) / 10} h, domaine .${k.domain}.`, ...v.avis.map((l) => `- ${l}`)].join('\n'), data: { avis: v.avis, pareil: v.pareil } };
       } },
-      { id: 'dhcp_demarrer', label: 'Allumer le DHCP', what: 'Odin donne les adresses aux appareils (coupe d\'abord celui de la box)', quick: false, params: [{ key: 'forcer', label: 'Même si un autre DHCP répond', kind: 'boolean', default: false }], grave: () => 'donner les adresses du réseau à la place de la box (deux serveurs DHCP en même temps couperaient Internet à certains appareils)', run: async (ctx, i) => {
-        if (i.forcer !== true) {
-          const ports = (ctx.settings.dhcpPorts as [number, number] | undefined) ?? [67, 68];
-          const others = (await detectDhcp({ serverPort: ports[0], clientPort: ports[1], waitMs: 2500 })).filter((x) => x !== dhcpConfig(ctx).server);
-          if (others.length) return { ok: false, text: `⚠ Un autre serveur DHCP répond (${others.join(', ')}). Coupe le DHCP de la box d'abord, ou coche « Même si un autre DHCP répond ».` };
+      // Lot R4 : « Odin distribue les adresses ». Refusé tant qu'un autre serveur d'adresses répond sur la carte d'Odin ; aucun
+      // réglage ne passe par-dessus. (« forcer » ne vaut que sur le banc d'essai : prise simulée, ou port autre que 67.)
+      { id: 'dhcp_demarrer', label: 'Allumer le DHCP', what: 'Odin donne les adresses aux appareils : il vérifie d\'abord qu\'aucun autre serveur d\'adresses ne répond (coupe d\'abord celui de la box)', quick: false, grave: () => 'distribuer les adresses de la maison à la place de la box : Odin vérifie d\'abord qu\'aucun autre serveur d\'adresses ne répond sur sa carte et refuse s\'il en voit un ; il revérifie chaque minute et s\'arrête dès qu\'il en apparaît un (deux serveurs à la fois couperaient Internet à une partie de la maison)', run: async (ctx, i) => {
+        if (i.forcer === true) {
+          if (!surLeBanc(ctx)) return { ok: false, text: 'Refusé : Odin n\'allume jamais son serveur d\'adresses sans vérifier qu\'aucun autre ne répond. « Même si un autre DHCP répond » n\'existe plus.', data: { garde: gardeDhcp(ctx), refus: true } };
+          dhcpTour++; const avantBanc = dhcpBanc; dhcpBanc = true; let msg: string;
+          try { msg = await startDhcp(ctx); } catch (e) { dhcpBanc = avantBanc; throw e; }
+          dhcpCarte = undefined; departDhcp = 0; ctx.saveSettings({ dhcpOn: true }); return { text: msg };
         }
-        const msg = await startDhcp(ctx); ctx.saveSettings({ dhcpOn: true }); return { text: msg };
+        // Déjà en marche : une vérification tout de suite, rien n'est relancé.
+        if (dhcp && !dhcpBanc) {
+          await veillerDhcp(ctx); const g = gardeDhcp(ctx);
+          if (dhcp && echecsVerif) return { ok: false, text: DOUTE(), data: { garde: g, doute: echecsVerif } };
+          return dhcp ? { text: '✅ Odin distribue déjà les adresses. Il vient de revérifier : aucun autre serveur d\'adresses ne répond.', data: { garde: g } } : { ok: false, text: g.raison ?? 'Odin a arrêté de distribuer les adresses.', data: { garde: g, refus: true } };
+        }
+        const r = await allumerMaison(ctx);
+        if (!r.ok) {
+          // Refusé alors qu'Odin distribuait avant (coupure) : la coupure reste, pour qu'Odin ne reprenne pas tout seul plus tard.
+          if (ctx.settings.dhcpOn === true) ctx.saveSettings({ dhcpGarde: { ...gardeDhcp(ctx), etat: 'coupe' } });
+          const g = gardeDhcp(ctx);
+          // La raison et les deux gestes, à part pour la page (elle les pose en liste) ; le texte les dit à la suite (parole, outil).
+          const gestes = g.autres.length ? ['Ouvre la page de la box → réseau local → serveur DHCP : désactivé.', 'Reviens ici : Odin revérifie, et s\'allume seulement si plus personne d\'autre ne distribue.'] : [];
+          return { ok: false, text: g.autres.length ? `${r.text} Coupe d'abord le serveur d'adresses (DHCP) de la box : page de la box → réseau local → serveur DHCP : désactivé. Puis reviens : Odin revérifie, et s'allume seulement si plus personne d'autre ne distribue.` : r.text, data: { garde: g, refus: true, raison: r.text, gestes } };
+        }
+        ctx.saveSettings({ dhcpOn: true });
+        return { text: [r.text, `🛡 Aucun autre serveur d'adresses ne répond sur ${dhcpCarte?.nom ?? 'la carte d\'Odin'}. Odin le revérifie chaque minute et s'arrête dès qu'il en apparaît un ; il ne recommence jamais tout seul.`].join('\n'), data: { garde: gardeDhcp(ctx) } };
       } },
-      { id: 'dhcp_arreter', label: 'Arrêter le DHCP', what: 'Odin ne donne plus d\'adresses (rallume celui de la box)', quick: false, grave: () => 'arrêter de donner les adresses (rallume le DHCP de la box)', run: (ctx) => { dhcp?.stop(); dhcp = undefined; ctx.saveSettings({ dhcpOn: false }); return { text: '⏹ DHCP d\'Odin arrêté. Rallume celui de la box.' }; } },
+      { id: 'dhcp_arreter', label: 'Arrêter le DHCP', what: 'Odin ne donne plus d\'adresses (rallume celui de la box)', quick: false, grave: () => 'arrêter de donner les adresses (rallume le DHCP de la box)', run: (ctx) => {
+        const etait = Boolean(dhcp), reste = resteDesBaux(ctx), c = dhcpConfig(ctx);
+        dhcpTour++; dhcp?.stop(); dhcp = undefined; dhcpCarte = undefined; dhcpBanc = false; departDhcp = 0;
+        ctx.saveSettings({ dhcpOn: false, dhcpGarde: { etat: 'non_verifie', autres: [] } });
+        return { text: ['⏹ DHCP d\'Odin arrêté. Rallume celui de la box.', ...(etait ? [`- ${reste}`, '- Un appareil qui arrive maintenant ne reçoit pas d\'adresse tant que la box ne distribue pas.'] : []), `- Dans la box : serveur DHCP activé, avec la même plage (${c.start} à ${c.end}) pour que personne ne change d'adresse.`].join('\n') };
+      } },
       // Lot R3 (maquette Réseau) : « Réserver ». L'adresse est vérifiée par la règle pure de vidarr/dhcp.ts (`verifierAdresse`) :
       // jamais deux appareils sur la même adresse, jamais celle d'Odin, de la box ou du serveur DNS, rien hors du réseau.
       // Une réservation ne change JAMAIS l'état d'un appareil : bloqué ou en pause, il le reste.
@@ -625,9 +895,28 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
             : macPolicy(ctx).mode === 'liste' && etat !== 'actif' ? '- Seuls les appareils approuvés reçoivent une adresse : sans adresse fixe, il attendra de nouveau ton accord (Appareils, « Je le connais »).' : ''].filter(Boolean);
         return { text: lignes.join('\n'), data: { mac, ip: texteSur(f.ip, 15) } };
       } },
-      { id: 'dhcp_mode', label: 'Mode du DHCP (ouvert / liste d\'autorisation)', what: 'Ouvert à tous, ou liste d\'autorisation (seuls les appareils approuvés reçoivent une adresse)', quick: false, params: [{ key: 'mode', label: 'Mode', kind: 'select', options: ['ouvert', 'liste'], default: 'ouvert' }], grave: (i) => s(i.mode) === 'liste' ? 'ne donner d\'adresse qu\'aux appareils approuvés (les autres perdront le réseau tant qu\'ils ne sont pas approuvés)' : undefined, run: (ctx, i) => {
-        const mode = s(i.mode) === 'liste' ? 'liste' : 'ouvert'; saveMacPolicy(ctx, { ...macPolicy(ctx), mode }); ctx.emit('dhcp_mode', { mode });
-        return { text: mode === 'liste' ? '🔒 Liste d\'autorisation : seuls les appareils approuvés (et les adresses fixes) reçoivent une adresse. Les inconnus apparaissent « en attente d\'approbation » et n\'ont pas de réseau tant que tu ne les approuves pas.' : '🔓 Ouvert : tout le monde reçoit une adresse, sauf les appareils que tu mets en pause ou que tu bloques.' };
+      // Lot R4 : passer en « seulement les appareils approuvés » approuve d'abord ceux qui ont une adresse en ce moment (sinon,
+      // à la fin de leur bail, ils perdraient le réseau : l'appareil du propriétaire compris). C'est dit, nom par nom.
+      { id: 'dhcp_mode', label: 'Mode du DHCP (ouvert / liste d\'autorisation)', what: 'Ouvert à tous, ou liste d\'autorisation (seuls les appareils approuvés reçoivent une adresse)', quick: false, params: [{ key: 'mode', label: 'Mode', kind: 'select', options: ['ouvert', 'liste'], default: 'ouvert' }], grave: (i, ctx) => {
+        if (s(i.mode) !== 'liste') return undefined;
+        let n = 0, neufs = 0; try { if (ctx) { const p = preApprobationVue(ctx); n = p.aApprouver.length; neufs = p.aVoir.length; } } catch { /* sans compte */ }
+        return `ne donner d'adresse qu'aux appareils approuvés (les autres perdront le réseau tant qu'ils ne sont pas approuvés)${n ? ` ; ${n > 1 ? `les ${n} appareils qui ont une adresse en ce moment sont approuvés` : 'l\'appareil qui a une adresse en ce moment est approuvé'} d'abord` : ''}${neufs ? ` ; ${neufs > 1 ? `${neufs} appareils arrivés depuis moins d'un jour ne sont PAS approuvés : ils perdront` : 'un appareil arrivé depuis moins d\'un jour n\'est PAS approuvé : il perdra'} le réseau à la fin de ${neufs > 1 ? 'leur' : 'son'} bail si tu ne ${neufs > 1 ? 'les' : 'l\''}approuves pas` : ''}`;
+      }, run: (ctx, i) => {
+        const mode = s(i.mode) === 'liste' ? 'liste' : 'ouvert', pol = macPolicy(ctx);
+        if (mode === 'ouvert') { saveMacPolicy(ctx, { ...pol, mode }); ctx.emit('dhcp_mode', { mode }); return { text: '🔓 Ouvert : tout le monde reçoit une adresse, sauf les appareils que tu mets en pause ou que tu bloques.', data: { mode, approuves: [] } }; }
+        const vue = appareilsVus(ctx), p = preApprobationVue(ctx, vue);
+        const etats = { ...pol.etats }; for (const a of p.aApprouver) etats[a.mac] = 'actif';
+        // Les nouveaux ne sont PAS approuvés : posés « en attente », ils se voient tout de suite dans Appareils (« Je le connais », ou bloquer).
+        const attente = pol.attente.filter((m) => etats[m] === undefined); for (const a of p.aVoir) if (!attente.includes(a.mac) && attente.length < ATTENTE_MAX) attente.push(a.mac);
+        saveMacPolicy(ctx, { mode, etats, attente }); ctx.emit('dhcp_mode', { mode });
+        const noms = (l: Array<{ nom: string }>) => `${l.slice(0, 12).map((x) => x.nom).join(', ')}${l.length > 12 ? `, et ${l.length - 12} autre(s)` : ''}`;
+        const n = p.aVoir.length > 1, fin = p.aVoir.length ? quand(Math.max(...p.aVoir.map((a) => a.jusqua))) : '';
+        return { text: ['🔒 Liste d\'autorisation : seuls les appareils approuvés (et les adresses fixes) reçoivent une adresse. Les inconnus apparaissent « en attente d\'approbation » et n\'ont pas de réseau tant que tu ne les approuves pas.',
+          p.aApprouver.length ? `- Approuvés d'abord, parce qu'ils ont une adresse en ce moment (${p.aApprouver.length}) : ${noms(p.aApprouver)}. Sans cela, ils auraient perdu le réseau à la fin de leur bail.` : '- Aucun appareil approuvé d\'avance : ceux qui ont une adresse en ce moment sont déjà approuvés, ont une adresse fixe, ou sont trop nouveaux.',
+          p.aVoir.length ? `- PAS approuvé${n ? 's' : ''}, parce qu'Odin ne ${n ? 'les' : 'le'} connaît que depuis moins d'un jour (${p.aVoir.length}) : ${noms(p.aVoir)}. ${n ? 'Ils gardent leur adresse jusqu\'à la fin de leur bail' : 'Il garde son adresse jusqu\'à la fin de son bail'} (au plus tard ${fin}), puis ${n ? 'attendent' : 'attend'} ton accord. Dans « Appareils » : « Je le connais » si tu ${n ? 'les' : 'le'} reconnais, sinon bloque-${n ? 'les' : 'le'}.` : '',
+          p.aVoir.length && !vue.origineConnue ? '- Odin ne sait pas quel appareil tu tiens en ce moment : s\'il est dans cette liste, approuve-le maintenant.' : '',
+          p.restent.length ? `- Rien ne change pour ${noms(p.restent)} : ${p.restent.length > 1 ? 'ils restent bloqués ou en pause' : p.restent[0].etat === 'bloque' ? 'il reste bloqué' : 'il reste en pause'}.` : '',
+          dhcp ? '' : '- Aujourd\'hui la box distribue les adresses : ce choix sera appliqué dès qu\'Odin les distribuera.'].filter(Boolean).join('\n'), data: { mode, approuves: p.aApprouver.map((a) => a.mac), aVoir: p.aVoir.map((a) => a.mac) } };
       } },
       { id: 'dhcp_mac_etat', label: 'État DHCP d\'un appareil', what: 'Mettre en pause (perd le réseau à l\'expiration), bloquer (plus d\'adresse, retiré du réseau), ou débloquer un appareil', quick: false, params: [{ key: 'mac', label: 'Adresse MAC', kind: 'text', required: true }, { key: 'etat', label: 'État', kind: 'select', options: ['actif', 'pause', 'bloque'], default: 'actif' }, { key: 'nom', label: 'Nom (facultatif)', kind: 'text', default: '' }], words: ['mettre en pause', 'bloquer la mac', 'bloquer l\'appareil', 'couper le dhcp'],
         // La confirmation nomme l'appareil (lot R2) : on sait qui on bloque avant de dire oui.
@@ -776,6 +1065,52 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         ];
         return { text: texte.join('\n'), data: { proprietaire: true, limite: '', dhcp: vue.dhcp, plan, fixes: toutes, appareils, verdict } };
       } },
+      // Lot R4 (maquette Réseau) : la lecture de l'écran « Réglages DHCP ». Qui distribue, le garde-fou et sa dernière
+      // vérification, la carte d'Odin, les réglages, le filet si Odin s'éteint, le lien avec Genèse ; avec des réglages en
+      // entrée, leur vérification AVANT d'enregistrer (rien n'est écrit, aucun paquet ne part). Au propriétaire en personne,
+      // comme le plan des adresses (noms d'appareils, adresses du réseau) ; un membre connecté apprend seulement qui distribue.
+      { id: 'dhcp_etat', label: 'Réglages du DHCP (qui distribue, garde-fou, plage, bail)', what: 'Qui distribue les adresses de la maison (la box ou Odin), le garde-fou et sa dernière vérification, la plage, la passerelle, le DNS donné, la durée du bail, ce qui se passe si Odin s\'éteint ; et la vérification de réglages avant de les enregistrer', read: true, external: true, quick: false, proprietaireSeul: () => !agissant(), params: [
+        { key: 'debut', label: 'Première adresse (à vérifier)', kind: 'text', default: '' }, { key: 'fin', label: 'Dernière adresse', kind: 'text', default: '' }, { key: 'passerelle', label: 'Passerelle', kind: 'text', default: '' }, { key: 'masque', label: 'Masque', kind: 'text', default: '' },
+        { key: 'dns', label: 'DNS donné', kind: 'text', default: '' }, { key: 'secours', label: 'DNS de secours : la box', kind: 'boolean', default: false }, { key: 'heures', label: 'Durée des baux (heures)', kind: 'number', default: 0 }, { key: 'domaine', label: 'Domaine de la maison', kind: 'text', default: '' }], run: (ctx, i) => {
+        const distribue = Boolean(dhcp), voulu = ctx.settings.dhcpOn === true, mode = voulu ? 'odin' : 'box';
+        if (agissant()) return { text: `${LIMITE_REGLAGES} ${distribue ? 'Odin distribue les adresses de la maison.' : 'La box distribue les adresses de la maison.'}`, data: { proprietaire: false, limite: LIMITE_REGLAGES, mode, distribue } };
+        const now = ctx.now().getTime(), c = dhcpConfig(ctx), pol = macPolicy(ctx), vue = appareilsVus(ctx), parMac = new Map(vue.appareils.map((d) => [d.mac, d])), nom = (mac: string) => parMac.get(mac)?.nom ?? mac;
+        const cm = carteMaison(ctx), odin = dhcpCarte?.ip ?? cm.c?.ip ?? c.server, g = gardeDhcp(ctx), leases = leasesOf(ctx);
+        // Le DNS donné, comme la page l'écrit : vide = Odin seul ; l'interrupteur « secours » = la box derrière.
+        const secours = c.dns.length > 1 && c.dns[c.dns.length - 1] === c.router && c.dns[0] !== c.router, sansSecours = secours ? c.dns.slice(0, -1) : c.dns;
+        const reglages = { debut: c.start, fin: c.end, passerelle: c.router, masque: c.mask, dns: sansSecours.length === 1 && sansSecours[0] === odin ? '' : sansSecours.join(', '), secours, heures: Math.round(c.leaseSeconds / 36) / 100, domaine: c.domain ?? 'maison', odin };
+        const heuresProposees = [...new Set([...BAUX_PROPOSES, reglages.heures])].sort((x, y) => x - y).map((h) => ({ heures: h, mots: dureeEnMots(h * 3600) }));
+        const demande = ['debut', 'fin', 'passerelle', 'masque', 'dns', 'domaine'].some((k) => s(i[k]).trim()) || Number(i.heures) > 0;
+        const verdict = demande ? (({ config: _c, ...v }) => v)(verifierReglages({ entree: i, courant: c, odin, leases, now, allume: distribue, heure: (x) => quand(x) })) : null;
+        const filet = filetOdin({ config: c, leases, now, allume: true, odin, heure: (x) => quand(x), nom });
+        const pre = preApprobationVue(ctx, vue);
+        const gen = geneseDistribue(ctx), meme = Boolean(gen && cm.c && memeCarte(cm.c, gen)), crochet = Boolean(pxeHook.get);
+        const genese = { distribue: Boolean(gen), memeCarte: meme, crochet,
+          texte: meme ? 'Genèse distribue en ce moment des adresses sur cette carte (son réseau à part) : tant que c\'est le cas, Odin refuse d\'y distribuer celles de la maison. Un seul serveur d\'adresses d\'Odin par carte.'
+            : gen ? 'Genèse distribue des adresses sur une autre carte (son réseau à part, seulement pour les PC qui démarrent par le réseau) : les deux ne se gênent pas.'
+              : crochet && distribue ? 'Genèse est allumé : le démarrage par le réseau passe par ce même serveur. Odin ajoute « où démarrer » à ses réponses, seulement pour les PC que tu as autorisés.'
+                : crochet ? 'Genèse est allumé, à côté de la box : il répond seulement aux PC qui démarrent par le réseau, sans jamais donner d\'adresse. Si Odin distribue les adresses ici, le démarrage par le réseau passera par ce même serveur.'
+                  : 'Genèse (démarrage par le réseau) n\'ajoute rien ici en ce moment.' };
+        const duree = dureeEnMots(c.leaseSeconds);
+        const allumer = [
+          `Odin demande d'abord sur sa carte${cm.c ? ` (${cm.c.nom}, ${cm.c.ip})` : ''} si un autre serveur d'adresses répond. S'il y en a un (la box), c'est refusé : rien ne s'allume.`,
+          'Le serveur d\'adresses (DHCP) de la box doit donc être coupé d\'abord : page de la box → réseau local → serveur DHCP : désactivé.',
+          `L'adresse d'Odin (${odin}) doit être réglée à la main sur sa machine (adresse fixe) : sans le serveur d'adresses de la box, une adresse automatique finirait par se perdre, et le réseau de la maison avec elle.`,
+          `Odin distribuera ${c.start} à ${c.end}, avec un bail de ${duree}, la passerelle ${c.router} et le DNS ${c.dns.join(', ')}.`,
+          'Ensuite il repose la question chaque minute, et s\'arrête aussitôt s\'il voit un autre serveur d\'adresses. Il ne recommence jamais tout seul après s\'être arrêté.',
+        ];
+        const D = {
+          proprietaire: true, limite: '', mode, distribue, essai: dhcpBanc,
+          garde: g, ancienne: distribue && !dhcpBanc && now - (g.verifie ?? 0) > PERIME_MS, doute: distribue && !dhcpBanc ? echecsVerif : 0, doutes: ECHECS_MAX, maintenant: now,
+          carte: cm.c ? { nom: texteSur(cm.c.nom, 60), ip: cm.c.ip, prefixe: cm.c.prefixe, genre: cm.c.genre } : null, carteRefus: cm.refus,
+          reglages, heuresProposees, verdict, filet, allumer, genese,
+          liste: { mode: pol.mode, attente: pol.attente.length, approuves: Object.values(pol.etats).filter((x) => x === 'actif').length, aApprouver: pre.aApprouver.map((a) => ({ ...a, nouveau: Boolean(parMac.get(a.mac)?.nouveau) })), aVoir: pre.aVoir.map((a) => ({ mac: a.mac, ip: a.ip, nom: a.nom, fin: quand(a.jusqua) })), origineConnue: vue.origineConnue, restent: pre.restent, deja: pre.deja },
+        };
+        const etatGarde = distribue && !dhcpBanc && echecsVerif ? DOUTE() : distribue ? (dhcpBanc ? 'Odin distribue les adresses (serveur d\'essai, sans vérification).' : `Odin distribue les adresses${g.verifie ? ` ; dernière vérification ${quand(g.verifie)} : aucun autre serveur d'adresses` : ''}.`) : voulu ? (g.raison ?? 'Odin ne distribue pas les adresses en ce moment.') : 'La box distribue les adresses : le réseau de la maison n\'est pas touché.';
+        return { text: [etatGarde, `Plage ${c.start} à ${c.end} · passerelle ${c.router} · masque ${c.mask} · DNS ${c.dns.join(', ')} · bail ${duree} · .${reglages.domaine}`,
+          pol.mode === 'liste' ? 'Seuls les appareils approuvés reçoivent une adresse.' : 'Toutes les machines reçoivent une adresse ; une inconnue est signalée.',
+          'Si Odin s\'éteint :', ...filet.lignes.map((l) => `- ${l}`), ...(verdict ? [`Vérification : ${verdict.message}`, ...verdict.avis.map((l) => `- ${l}`)] : [])].join('\n'), data: D };
+      } },
       actionJournal('vidarr_actes', 'Sphinx')],
     async view(ctx, q) {
       // Un membre de la famille ne voit que l'appareil qu'il tient (lot R2) ; le propriétaire voit tout. Cela vaut pour les
@@ -865,12 +1200,18 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       loadLists(ctx);
       // Rien perdu au redémarrage : on relit les requêtes du jour (gardées sur disque, aussi dans la base) dans l'anneau « direct ».
       try { if (!ring.length) for (const e of journalDay(ctx.dir, localDay(ctx.now())).slice(-RING)) ring.push(e); } catch { /* repli : rien à relire */ }
-      if (ctx.settings.dhcpOn === true) { try { await startDhcp(ctx); } catch (e) { ctx.alert({ level: 'critique', title: 'Le DHCP d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Les appareils ne reçoivent plus d'adresse : rallume le DHCP de la box.`, key: 'dhcp-demarrage' }); } }
+      veilleLente.delete(ctx.dir);
+      // Lot R4 : Odin distribuait les adresses avant de s'arrêter. Il revérifie d'abord sa carte ; jamais de reprise après une coupure.
+      if (ctx.settings.dhcpOn === true) { try { await reprendreAuDepart(ctx, true); } catch (e) { ctx.alert({ level: 'critique', title: 'Le DHCP d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Les appareils ne reçoivent plus d'adresse : rallume le DHCP de la box.`, key: 'dhcp-demarrage' }); } }
       if (ctx.settings.on === true) { try { await startServer(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le DNS d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Les appareils qui passent par Odin n'ont plus de résolution de noms.`, key: 'dns-demarrage' }); } }
     },
-    stop() { srv?.stop(); srv = undefined; dhcp?.stop(); dhcp = undefined; },
-    // Chaque jour : listes à jour, vieux journaux effacés. Chaque 5 min : le serveur répond-il encore ?
-    watch: { every: 300, async run(ctx) {
+    stop() { srv?.stop(); srv = undefined; dhcpTour++; dhcp?.stop(); dhcp = undefined; dhcpCarte = undefined; dhcpBanc = false; departDhcp = 0; echecsVerif = 0; },
+    // Chaque minute : le garde-fou du serveur d'adresses (lot R4), et rien d'autre. Toutes les 5 minutes, comme avant ce lot : le DNS répond-il encore ? Chaque jour : listes à jour, vieux journaux effacés.
+    watch: { every: 60, async run(ctx) {
+      // Une vérification qui échoue ne laisse jamais Odin distribuer sans garde-fou : coupure, et c'est dit.
+      try { await veillerDhcp(ctx); } catch (e) { if (dhcp && !dhcpBanc) couperDhcp(ctx, `la vérification de chaque minute a échoué (${texteSur((e as Error).message, 120)})`); }
+      // Le reste de la veille garde son rythme d'avant (5 minutes) : rien de plus n'est lu ni écrit chaque minute.
+      { const t = ctx.now().getTime(), vu = veilleLente.get(ctx.dir); if (vu !== undefined && t >= vu && t - vu < VEILLE_LENTE_MS) return; veilleLente.set(ctx.dir, t); }
       // Historique : chaque jour passé est résumé (gardé pour toujours, par année et par mois) et noté dans Thot.
       try {
         const today = localDay(ctx.now()), before = new Set(Object.keys(ctx.settings.histDays as Record<string, boolean> ?? {}));
@@ -896,9 +1237,11 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       // Surveillance de la résolution : beaucoup d'échecs ces 5 dernières minutes = Internet ou les serveurs amont en panne.
       const now = ctx.now().getTime(), recent = ring.filter((e) => now - e.t < 300_000 && (e.status === 'ok' || e.status === 'erreur')), bad = recent.filter((e) => e.status === 'erreur').length;
       upstreamErrors.splice(0, upstreamErrors.length, ...upstreamErrors.filter((t) => now - t < 300_000));
-      if (recent.length >= 10 && bad / recent.length > 0.5) { ctx.alert({ level: 'haute', title: 'Le DNS n\'arrive plus à joindre Internet', detail: `${bad} échecs sur ${recent.length} questions en 5 minutes (serveurs : ${settingsOf(ctx).upstreams.join(', ')}). Vérifie la connexion de la box ; Odin bascule tout seul sur les serveurs de secours.`, key: 'dns-amont', lien: 'vidarr-alerte-dns-amont' }); ctx.emit('dns_amont_panne', { echecs: bad, total: recent.length }); }
+      if (recent.length >= 10 && bad / recent.length > 0.5) { ctx.alert({ level: 'haute', title: 'Le DNS n\'arrive plus à joindre Internet', detail: `${bad} échecs sur ${recent.length} questions en 5 minutes (serveurs : ${settingsOf(ctx).upstreams.join(', ')}). Vérifie la connexion de la box ; Odin bascule tout seul sur les serveurs de secours.`, key: 'dns-amont', lien: 'vidarr-alerte-dns-amont' }); { const vu = amontDit.get(ctx.dir) ?? 0; if (now < vu || now - vu >= 240_000) { amontDit.set(ctx.dir, now); ctx.emit('dns_amont_panne', { echecs: bad, total: recent.length }); } } }
     } },
   };
+  // Pour Genèse (lot R4) : un seul serveur d'adresses d'Odin par carte. Genèse lit ici, sans rien demander, la carte où Sphinx distribue.
+  Object.defineProperty(m, 'distributionMaison', { value: distributionMaison, enumerable: false });
   return m;
 }
 export const appContext = () => appCtx;

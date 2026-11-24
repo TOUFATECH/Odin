@@ -121,7 +121,11 @@ export interface DhcpDeps { config: () => DhcpConfig; leases: () => Lease[]; sav
   /** les autres adresses d'Odin lui-même (toutes ses cartes) : jamais données à un appareil, même par une réservation abîmée */
   propres?: () => string[];
   /** la prise réseau est tombée après le démarrage (carte débranchée, envoi impossible) : le serveur a cessé de servir */
-  onError?: (raison: string) => void }
+  onError?: (raison: string) => void;
+  /** un appareil vient de demander son adresse à un AUTRE serveur d'adresses (sa demande le nomme) : un autre distribue peut-être sur ce réseau */
+  onAutre?: (serveur: string, mac: string) => void;
+  /** vrai : le serveur se tait (ni offre, ni accord, ni refus) : Odin est en train de vérifier qu'aucun autre serveur d'adresses ne répond, ou n'a pas pu le vérifier */
+  muet?: () => boolean }
 
 /** Nom propre pour le DNS (« Téléphone d'Awa » → « telephone-d-awa »). */
 export const hostLabel = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
@@ -177,6 +181,12 @@ export class DhcpServer {
     // Plus rien de libre : on reprend le bail expiré le plus ancien (jamais une adresse réservée ou gardée).
     const old = leases.filter((l) => !l.fixed && l.mac !== mac && l.expires <= now && (l.hold ?? 0) <= now && dansPlage(l.ip) && !taken.has(l.ip)).sort((a, b) => a.expires - b.expires)[0];
     return old?.ip;
+  }
+  /** Les adresses d'Odin lui-même : celle des réglages et celles de ses cartes. */
+  private gardeesOdin(c: DhcpConfig): Set<string> {
+    const g = new Set<string>([c.server]);
+    try { for (const ip of this.d.propres?.() ?? []) if (ipPropre(ip)) g.add(ip); } catch { /* sans la liste des cartes : l'adresse des réglages suffit */ }
+    return g;
   }
   /** Les adresses qu'Odin ne donne à aucun appareil : la sienne (toutes ses cartes), celle de la box, celle du réseau lui-même et sa diffusion. */
   private gardees(c: DhcpConfig): Set<string> {
@@ -252,10 +262,20 @@ export class DhcpServer {
     // ne peut ni montrer ni bloquer).
     if (m[1] !== 1 || m[2] !== 6 || !MAC_SIMPLE.test(p.mac)) return;
     const type = p.options.get(53)?.[0], c = this.d.config(), now = this.now();
+    // La question qu'Odin pose lui-même chaque minute (« un autre serveur d'adresses répond-il ? ») part de sa propre adresse :
+    // il ne se répond pas, et ne se note ni « vu » ni « en attente ». Un vrai appareil sans adresse demande depuis 0.0.0.0.
+    if (type === MSG.DISCOVER && _r && p.ciaddr === '0.0.0.0' && !/^127\./.test(_r.address) && this.gardeesOdin(c).has(_r.address)) return;
     const name = nomAnnonce(p.options.get(12));
     if (type !== MSG.RELEASE && type !== MSG.DECLINE) this.vu(p.mac, now);
     const requested = p.options.get(50)?.length === 4 ? ipStr(p.options.get(50)!, 0) : undefined;
     const serverId = p.options.get(54)?.length === 4 ? ipStr(p.options.get(54)!, 0) : undefined;
+    // Lot R4 : pendant qu'Odin vérifie qu'aucun autre serveur d'adresses ne répond (ou tant qu'il n'a pas pu le vérifier), il
+    // se tait : jamais deux serveurs qui répondent en même temps. L'appareil redemande quelques secondes plus tard. Un appareil
+    // qui nomme un autre serveur reste signalé. Rendre ou signaler une adresse (RELEASE, DECLINE) n'attend aucune réponse.
+    if (type === MSG.DISCOVER || type === MSG.REQUEST || type === MSG.INFORM) {
+      let muet = false; try { muet = this.d.muet?.() === true; } catch { muet = true; }
+      if (muet) { if (type === MSG.REQUEST && serverId && serverId !== c.server && ipPropre(serverId) && serverId !== '0.0.0.0') { try { this.d.onAutre?.(serverId, p.mac); } catch { /* prévenir ne doit rien casser */ } } return; }
+    }
     // Contrôle d'accès par adresse MAC : bloquée → rien, en pause → NAK (ou pas d'OFFER), inconnue en liste → en attente.
     const isFixed = c.fixed.some((f) => macUnie(f.mac) === p.mac);
     const dec = macDecision(c.macPolicy, p.mac, isFixed);
@@ -283,7 +303,8 @@ export class DhcpServer {
       this.offered.set(p.mac, { ip, at: now }); this.reply(p, MSG.OFFER, ip); return;
     }
     if (type === MSG.REQUEST) {
-      if (serverId && serverId !== c.server) { this.offered.delete(p.mac); return; }   // il a choisi un autre serveur
+      // Il a choisi un autre serveur : rien pour lui ici. Et c'est un signe qu'un autre serveur d'adresses répond (lot R4).
+      if (serverId && serverId !== c.server) { this.offered.delete(p.mac); if (ipPropre(serverId) && serverId !== '0.0.0.0') { try { this.d.onAutre?.(serverId, p.mac); } catch { /* prévenir ne doit rien casser */ } } return; }
       const want = requested ?? (p.ciaddr !== '0.0.0.0' ? p.ciaddr : undefined);
       const ip = this.pick(p.mac, want);
       if (want && ip !== want && this.finitSonBail(p.mac, want, c, now)) {

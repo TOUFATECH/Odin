@@ -32,7 +32,7 @@ import { fenetreFin } from '../thjalfi/ecrans-communs.ts';
 import { TftpServer } from '../thjalfi/tftp.ts';
 import { identite, suivi, type FicheFin, type Passage, type Resultat } from '../thjalfi/suivi.ts';
 import { pxeHook, type DhcpConfig, type Lease, type Packet } from '../vidarr/dhcp.ts';
-import { DhcpAPart, MODES_ADRESSES, RESEAU, conclure, lignesBox, modeAdresses, plageParDefaut, refusCarte, refusPartage, verifierPlage, type CarteReseau, type Garde, type PlageComplet } from '../thjalfi/reseau.ts';
+import { DhcpAPart, MODES_ADRESSES, RESEAU, conclure, dansSousReseau, lignesBox, modeAdresses, plageParDefaut, refusCarte, refusPartage, verifierPlage, type CarteReseau, type Garde, type PlageComplet } from '../thjalfi/reseau.ts';
 import { cleUsb } from '../thjalfi/cle-ecrire.ts';
 import { cleGerer } from '../thjalfi/cle-gerer.ts';
 import { MOTS_GENESE_PAROLE, paroleGenese } from '../thjalfi/parole.ts';
@@ -739,9 +739,20 @@ export function thjalfi(): Module {
     ctx.saveSettings({ garde: g }); ctx.emit('journal', { texte: `Réseau à part : ${g.raison}` });
     if (avait) ctx.alert({ level: 'haute', title: 'Genèse a arrêté de distribuer les adresses', detail: `${g.raison} Deux serveurs d'adresses à la fois couperaient Internet aux appareils de la maison. Les PC du réseau à part ne reçoivent plus d'adresse ; rien d'autre ne change. Vérifie la carte, puis rechoisis « Odin distribue les adresses » sur la page Réseau, ou reste « À côté de la box ».`, key: 'thjalfi-reseau-a-part-coupe', data: { carte: g.carte, autres } });
   }
+  /**
+   * Sphinx distribue-t-il les adresses de la maison sur cette carte (lot R4 de Sphinx) ? Un seul serveur d'adresses d'Odin
+   * par carte : la recherche d'un autre serveur ne voit pas celui d'Odin lui-même, d'où cette lecture, sans rien demander.
+   */
+  function sphinxSurLaCarte(ctx: ModCtx, c: CarteReseau): boolean {
+    try {
+      const d = (ctx.modules().find((x) => x.id === 'vidarr') as unknown as { distributionMaison?: () => { carte: string; ip: string } | undefined } | undefined)?.distributionMaison?.();
+      return Boolean(d) && (d!.carte === c.nom || d!.ip === c.ip || dansSousReseau(c, d!.ip));
+    } catch { return false; }
+  }
   /** Tout ce qu'il faut AVANT de distribuer des adresses : la carte, la plage, et personne d'autre qui en distribue. */
   async function preparerAPart(ctx: ModCtx, entree: Record<string, unknown> | undefined, dejaVerifie: boolean, nomCarte?: string): Promise<{ refus: string; garde?: Garde } | { c: CarteReseau; p: PlageComplet }> {
     const c = carteChoisie(ctx, nomCarte), non = refusCarte(c, RESEAU.plateforme()); if (non || !c) return { refus: non ?? 'Choisis d\'abord la carte réseau du réseau à part.' };
+    if (sphinxSurLaCarte(ctx, c)) return { refus: `Refusé : Sphinx distribue déjà les adresses de la maison sur la carte ${c.nom}. Un seul serveur d'adresses d'Odin par carte : garde « À côté de la box » ou « Sphinx donne les adresses », ou choisis une autre carte pour le réseau à part.` };
     const p = verifierPlage(c, (entree ?? plageDe(ctx) ?? {}) as Record<string, unknown>); if ('refus' in p) return { refus: p.refus };
     const g0 = gardeDe(ctx);
     if (dejaVerifie && g0.etat === 'libre' && g0.carte === c.nom && ctx.now().getTime() - (g0.verifie ?? 0) < 15_000) { const partage = refusPartage(c, cartesDuPc()); return partage ? { refus: partage } : { c, p }; }
@@ -1289,6 +1300,7 @@ export function thjalfi(): Module {
     // La prise écoute l'adresse d'avant : une carte qui a changé d'adresse (ou de réseau) n'est plus celle qui a été vérifiée.
     if (avant && (c.ip !== avant.ip || c.prefixe !== avant.prefixe)) { couperAPart(ctx, `la carte ${c.nom} a changé d'adresse (${avant.ip}/${avant.prefixe} → ${c.ip}/${c.prefixe})`); return; }
     if (non) { couperAPart(ctx, non); return; }
+    if (sphinxSurLaCarte(ctx, c)) { couperAPart(ctx, `Sphinx distribue les adresses de la maison sur la même carte (${c.nom}), et il ne faut qu'un seul serveur d'adresses d'Odin par carte`); return; }
     const g = await verifierCarte(ctx, c, true);
     if (g.etat !== 'libre' && aPart === srv) couperAPart(ctx, g.autres.length ? `un autre serveur d'adresses répond sur ${c.nom} (${g.autres.join(', ')})` : g.raison ?? 'vérification impossible', g.autres);
   }

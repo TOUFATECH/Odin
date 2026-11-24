@@ -22,7 +22,8 @@ export const modeAdresses = (x: unknown): ModeAdresses => (MODES_ADRESSES.includ
 export type GenreCarte = 'cable' | 'wifi' | 'virtuelle';
 export interface CarteReseau { nom: string; ip: string; masque: string; prefixe: number; mac?: string; genre: GenreCarte }
 
-const VPN = /^(tun|tap|utun|wg|ppp|zt)\d*$|vpn|wireguard|tailscale|zerotier|tap-windows|wintun|anyconnect|fortinet|globalprotect|nordlynx/i;
+/** Un tunnel (VPN) d'après le nom de la carte. Exporté pour le serveur d'adresses de la maison (Sphinx, lot R4). */
+export const VPN = /^(tun|tap|utun|wg|ppp|zt)\d*$|vpn|wireguard|tailscale|zerotier|tap-windows|wintun|anyconnect|fortinet|globalprotect|nordlynx/i;
 const WIFI = /wi-?fi|wlan|wlp|wlx|wireless|sans fil|802\.11|airport/i;
 const VIRTUELLE = /^(odin0|od[0-9a-f]{10}[hc]|docker\d*|br-[0-9a-f]+|veth|virbr|vnet|tap|tun|vboxnet|vmnet|vEthernet|VirtualBox|VMware|Hyper-V|lxcbr|lxdbr|podman|cni|flannel|zt|tailscale|wg)/i;
 /** Le genre d'une carte d'après son nom (le système ne dit rien d'autre). Pur. */
