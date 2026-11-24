@@ -284,10 +284,18 @@ test('un membre sur l\'accueil : un widget « vie privée » reste fermé, et ri
     const m = await voir(membre);
     assert.ok(!m.vues.includes('frigg'), `la page du membre ne demande pas la vue de Chronos (demandées : ${m.vues.join(', ')})`);
     assert.ok(!m.vues.includes('askr'), 'ni celle d\'une appli qui n\'est pas à lui');
-    assert.ok(m.vues.includes('midgard'), 'elle demande celle de Midgard (à lui, hors vie privée)');
+    // Depuis le 26/11 : sa page lit ses widgets par la route des widgets, et ne demande plus la vue d'AUCUNE appli pour eux.
+    assert.deepEqual(m.vues, [], 'la page du membre ne demande plus de vue d\'appli pour un widget (pas même Midgard)');
     assert.deepEqual(m.carte('e0000001'), { id: 'e0000001', ligne: 'Vie privée : à ouvrir par le propriétaire.', gris: true, boutons: 0, chiffres: 0 });
     assert.deepEqual(m.carte('e0000003'), { id: 'e0000003', ligne: 'Fermé · réservé au propriétaire.', gris: true, boutons: 0, chiffres: 0 });
     assert.equal(m.carte('e0000002').gris, false, 'Midgard reste ouvert pour lui'); assert.equal(m.carte('e0000002').boutons, 1, 'sans « ⋯ » : seulement « Ouvrir › »');
+    // Le propriétaire lui ouvre le widget de Chronos : il n'est plus fermé pour lui ; toujours aucune vue d'appli demandée.
+    assert.equal((await va.act('gladsheim', 'ouvrir_widget', { widget: 'e0000001', personne: 'membre-a', ouvert: 'oui' })).ok, true);
+    const o = await voir(membre);
+    assert.deepEqual(o.vues, []);
+    assert.equal(o.carte('e0000001').gris, false, 'ouvert pour lui'); assert.notEqual(o.carte('e0000001').ligne, 'Vie privée : à ouvrir par le propriétaire.');
+    assert.equal(o.carte('e0000001').boutons, 1, 'sans « ⋯ » : seulement « Ouvrir › »');
+    assert.equal(o.carte('e0000003').gris, true, 'l\'appli qui n\'est pas à lui reste fermée');
     // Le propriétaire : rien ne change pour lui.
     const p = await voir(od.session);
     assert.ok(p.vues.includes('frigg'), 'le propriétaire lit Chronos');

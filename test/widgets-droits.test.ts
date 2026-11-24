@@ -81,11 +81,17 @@ before(async () => {
 });
 after(async () => { await tt.end(); Object.assign(console, orig); });
 
-test('un membre n\'a jamais la donnée d\'un widget : la route est fermée, et donneeWidget lui rend « refuse »', async () => {
+test('un membre n\'a jamais la donnée d\'un widget fermé : la route et donneeWidget lui rendent « refuse »', async () => {
+  // Depuis le 26/11 (sa question 15, réponse b) la route répond aussi à un membre, avec SES droits : un widget de la vie
+  // privée (Cyclope) lui reste fermé tant que le propriétaire ne le lui a pas ouvert (test/widgets-ouvertures.test.ts) ;
+  // un widget d'une appli qui n'est pas à lui (Midgard) aussi. Les autres routes de /api/widgets/ lui restent fermées.
   const r = await v.json('/api/widgets/donnees', undefined, { cookie: membre });
-  assert.equal(r.status, 403, 'la garde ferme la route aux membres');
-  assert.equal(r.body.code, 'reserve');
-  assert.equal(r.body.widgets, undefined, 'aucune donnée de widget');
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.qui, 'membre');
+  const servis = r.body.widgets as Array<{ id: string; etat: string; raison?: string; donnee?: unknown }>;
+  assert.deepEqual(servis.filter((x) => x.id === W.cyclope || x.id === W.midgard).map((x) => `${x.etat} ${x.raison} ${x.donnee === undefined}`), ['refuse vie_privee true', 'refuse appli_fermee true']);
+  assert.ok(!JSON.stringify(r.body).includes('192.0.2.9'), 'rien de Cyclope');
+  const autre = await v.json('/api/widgets/autre', undefined, { cookie: membre });
+  assert.equal(autre.status, 403, 'la garde ferme le reste de /api/widgets/ aux membres'); assert.equal(autre.body.code, 'reserve');
   // Sans droit sur l'appli lue : refusé, avant toute lecture.
   const va = valhallaOf()!, src = sourceOdin(va);
   const w = { id: 'c0000001', kind: 'chiffres', module: 'midgard' } as Widget;

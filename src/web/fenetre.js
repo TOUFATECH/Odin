@@ -28,6 +28,15 @@
     sortiePlein: 'Quitter le plein écran (Échap)', enPlein: 'Plein écran : seulement les widgets. Échap, ou le ✕ en haut à droite, pour sortir.',
     // Lot 25a : le titre d'un widget quand la fenêtre n'en porte pas (jamais lu chez l'appli pour qui n'y a pas droit).
     titres: { heure: 'Heure et lieu', meteo: 'Météo', site: 'Site surveillé', sansTitre: 'Widget' }, sousSite: 'Pulsar · site surveillé',
+    // « Ouvrir à… » : un widget de la vie privée, ouvert à une personne précise (sa question 15, réponse b).
+    ouvrir: {
+      bouton: 'Ouvrir à…', nom: (t) => `Ouvrir « ${t} » à une personne`, titre: (t) => `Ouvrir « ${t} » à…`, groupe: 'Les personnes',
+      aide: (a) => `${a} est une appli de la vie privée : ce widget reste fermé aux autres. Choisis à qui tu l'ouvres. Cela n'ouvre que ce widget, pas l'appli.`,
+      sansDroit: (a) => `N'a pas le droit sur ${a} : le widget lui reste fermé.`,
+      personne: 'Personne d\'autre que toi n\'a de compte. Ajoute une personne dans Persona.',
+      dAbord: 'Appuie d\'abord sur « Terminé » pour ranger ce widget, puis ouvre-le à quelqu\'un.',
+      fait: (n) => `✓ ${n} changements gardés.`, echec: 'la liste des personnes n\'a pas pu être lue',
+    },
   };
   // Les calculs du glisser (appui long, rang d'insertion, défilement, « Annuler ») : pages/accueil-gestes.js, chargé avant.
   const OG = window.OdinGestes;
@@ -74,6 +83,17 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 .fe-annuler{display:flex;gap:12px;align-items:center}.fe-annuler .btn{min-height:44px}
 .fe-drop{border:2px dashed var(--line);border-radius:18px;min-height:90px;display:grid;place-items:center;color:var(--muted)}
 .fe-form label{display:block;font-size:13px;font-weight:600;margin:8px 0 4px}.fe-form select,.fe-form input{width:100%;min-height:38px;border-radius:10px;border:1px solid var(--field);padding:0 10px;background:var(--panel)}
+/* « Ouvrir à… » : une ligne de 44 px par personne, tout entière cliquable, avec son interrupteur. */
+.fe-chrome .fe-ouvb{color:var(--ink)}.fe-chrome .fe-ouvb svg{width:16px;height:16px}
+.fe-ouv-aide{margin:0 0 8px;font-size:13.5px;line-height:1.4;color:var(--muted)}
+.fe-form label.fe-ouv{display:flex;align-items:center;gap:12px;min-height:44px;margin:0;padding:4px 0;font-size:14.5px;font-weight:600;cursor:pointer;border-top:1px solid var(--line)}
+.fe-ouv-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow-wrap:anywhere}.fe-ouv-t small{color:var(--muted);font-weight:400;font-size:12.5px}
+.fe-form .fe-ouv input{-webkit-appearance:none;appearance:none;flex:none;position:relative;width:52px;height:30px;min-height:0;margin:0;padding:0;border-radius:999px;border:1px solid var(--muted);background:var(--field);cursor:pointer;transition:background .15s}
+.fe-form .fe-ouv input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ink);transition:transform .15s}
+.fe-form .fe-ouv input:checked{background:var(--accent,#0b7f7c);border-color:var(--accent,#0b7f7c)}.fe-form .fe-ouv input:checked::after{transform:translateX(22px);background:var(--on-accent,#fff)}
+.fe-form:has(.fe-ouv) .va-acts-bar .btn{min-height:44px}
+.fe-form .fe-ouv input:focus-visible{outline:2px solid var(--accent,#0b7f7c);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.fe-form .fe-ouv input,.fe-form .fe-ouv input::after{transition:none}}
 .fe-btnw{display:flex;flex-direction:column;gap:8px}.fe-btnw .btn{min-height:46px;font-size:15px}
 .fe-wx{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.fe-wx>div{min-width:0}.fe-wx b{font-size:34px}.fe-hours{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;margin-top:10px;font-size:12.5px;color:var(--muted)}.fe-hours span{white-space:nowrap}
 .fe-err{color:var(--muted);font-size:13.5px}
@@ -93,8 +113,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   document.head.append(el('style', {}, css + OA.CSS + OT.CSS));
 
   let L = null, cur = 0, edit = false, saved = '', cat = null, views = new Map(), timer = 0, dessin = { cur: -1, edit: false };
-  // Les états des widgets rendus par le serveur au propriétaire (lot 25a), et « est-ce le propriétaire ? » (le serveur
-  // le dit : /api/widgets/ n'est servi qu'à sa session ; un membre reçoit 401).
+  // Les états des widgets rendus par le serveur (lot 25a) à qui regarde, et « est-ce le propriétaire ? » : le serveur
+  // le dit (`qui`). Un membre reçoit les siens par la même route (ses droits d'appli, et ce que le propriétaire lui a
+  // ouvert de la vie privée) ; sans session : 401.
   let etats = null, proprio = false, pasProprio = false;
   const host = () => $('#fenetre');
   const page = () => L.pages[Math.min(cur, L.pages.length - 1)];
@@ -112,6 +133,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // qui regarde (lot 25a) : une appli qui n'est pas à lui, ou, pour tout autre que le propriétaire, une appli de la
     // vie privée (sa réponse b à la question 15) — la donnée n'arrive pas dans son navigateur.
     await lireEtats();
+    // Un membre : tout ce que ses widgets montrent vient de la route des widgets (vueDe) ; jamais la vue d'une appli.
+    if (!proprio) return;
     const ids = [...new Set(page().widgets.filter((w) => w.module && w.kind !== 'bouton' && !ferme(w)).map((w) => w.module))];
     await Promise.all([...ids.map(async (id) => { try { const r = await api(`/api/valhalla/view?id=${encodeURIComponent(id)}`); if (r.ok) views.set(id, r.view); } catch { /* hors ligne */ } })]);
   }
@@ -119,7 +142,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   const sigDe = (w) => (w ? [w.kind, w.module, w.section, w.label, w.action].join('\u0001') : '');
   /**
    * Les cinq états des widgets de la page, rendus par le serveur (la seule fonction « la donnée d'un widget ») : au
-   * propriétaire seul. Refusé (401) : ce n'est pas lui, la page dessine ce qu'elle sait voir. Hors ligne : on garde.
+   * propriétaire, et à un membre (les siens : un widget « vie privée » lui reste fermé tant que le propriétaire ne le
+   * lui a pas ouvert). Refusé (401) : la page dessine ce qu'elle sait voir, tout fermé par prudence. Hors ligne : on garde.
    */
   async function lireEtats() {
     const p = page();
@@ -129,7 +153,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       if (r.status === 401 || r.status === 403) { proprio = false; etats = null; pasProprio = true; return; }
       const j = await r.json(); if (!r.ok || !j?.ok || !Array.isArray(j.widgets)) return;
       const tous = L.pages.flatMap((x) => x.widgets);
-      proprio = true; etats = new Map(j.widgets.map((x) => [x.id, { e: x, sig: sigDe(tous.find((w) => w.id === x.id)) }]));
+      proprio = j.qui === 'proprietaire'; etats = new Map(j.widgets.map((x) => [x.id, { e: x, sig: sigDe(tous.find((w) => w.id === x.id)) }]));
     } catch { /* hors ligne : les derniers états restent */ }
   }
   /** L'appli que lit un widget (l'heure et la météo : Hestia). */
@@ -137,16 +161,31 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   /** Qui regarde a-t-il le droit sur cette appli ? Son catalogue est déjà réduit à ses droits ; sans catalogue : non. */
   const aDroit = (id) => Array.isArray(cat?.modules) && cat.modules.some((m) => m.id === id);
   /**
-   * L'état d'un widget : celui du serveur s'il décrit ce réglage-là (le propriétaire). Sinon, pour tout autre que lui
-   * (un membre) : fermé si l'appli n'est pas à lui, ou si elle est de la vie privée (rien ne l'ouvre encore, sa réponse
-   * b à la question 15). Pour le propriétaire (un widget pas encore rangé) : fermé seulement si l'appli n'est plus là.
+   * L'état d'un widget : celui du serveur s'il décrit ce réglage-là (pour le propriétaire comme pour un membre : c'est
+   * le serveur qui sait ce qui lui est ouvert). Sans état du serveur, pour tout autre que le propriétaire : fermé si
+   * l'appli n'est pas à lui, ou si elle est de la vie privée (sa réponse b à la question 15). Pour le propriétaire (un
+   * widget pas encore rangé) : fermé seulement si l'appli n'est plus là.
    * Tant que le serveur n'a pas dit « c'est le propriétaire », la page fait comme pour un membre (le plus sûr).
    */
   function etatDe(w) {
-    const s = etats?.get(w.id); if (proprio && s && s.sig === sigDe(w)) return s.e;
+    const s = etats?.get(w.id); if (s && s.sig === sigDe(w)) return s.e;
     const a = appliDe(w);
     if (!proprio) return R.etatSansProprio(a ? [a] : [], aDroit);
     return a && Array.isArray(cat?.modules) && !aDroit(a) ? { etat: 'refuse', raison: 'appli_fermee' } : undefined;
+  }
+  /**
+   * La vue d'appli dont un widget tire ce qu'il montre. Le propriétaire : la vue de l'appli. Un membre : seulement ce
+   * que le serveur a rendu pour CE widget (ses chiffres, sa partie de page, sa sonde), remis sous la forme d'une vue ;
+   * rien d'autre de l'appli n'arrive dans son navigateur.
+   */
+  function vueDe(w) {
+    if (proprio) return views.get(w.module);
+    const s = etats?.get(w.id), d = s?.e?.donnee;
+    if (!s || s.sig !== sigDe(w) || !d || (s.e.etat !== 'ok' && s.e.etat !== 'ancien')) return undefined;
+    if (w.kind === 'chiffres') return { kpis: Array.isArray(d.kpis) ? d.kpis : [], sections: [] };
+    if (w.kind === 'section') return { sections: d.section ? [d.section] : [] };
+    if (w.kind === 'site') return { sections: [{ kind: 'table', title: 'Sondes', rows: [{ cells: [w.label, '', '', d.etat ?? '', d.jour ?? '', d.mois ?? '', d.temps ?? ''], tone: d.tone }] }] };
+    return undefined;
   }
   /** Ce widget est-il fermé à qui regarde ? (rien n'est alors lu ni demandé pour lui) */
   const ferme = (w) => etatDe(w)?.etat === 'refuse';
@@ -213,6 +252,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       el('button', { type: 'button', title: 'Taille (4, 8 ou 12 colonnes sur 12)', 'aria-label': 'Changer la taille', onclick: () => { w.w = G.agrandir(w); draw(); } }, '↔'),
       el('button', { type: 'button', title: TXT.boutonTailles, 'aria-label': TXT.boutonTailles, onclick: () => tailles(w) }, '⤡'),
       w.kind === 'section' || w.kind === 'chiffres' ? el('button', { type: 'button', title: 'Choisir ce qu\'il montre', 'aria-label': 'Réglages du module', onclick: () => configure(w) }, '⚙') : null,
+      boutonOuvrirA(w),
       el('button', { type: 'button', title: 'Retirer', 'aria-label': 'Retirer ce module', onclick: () => { page().widgets = page().widgets.filter((x) => x.id !== w.id); draw(); } }, '✕'));
     // Le coin (44 px) : tiré à la souris ou au doigt, la taille saute de case en case ; caché aux lecteurs d'écran
     // (au clavier : Maj + flèches sur la poignée). L'étiquette « c × r » se montre pendant le geste.
@@ -222,7 +262,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // L'état du widget (lot 25a) : celui du serveur pour le propriétaire, sinon ce que la page sait voir. Refusé : le
     // titre de la fenêtre et la tuile grisée, une ligne, jamais la donnée ni un bouton ; ancien : la pastille.
     const d = R.decrire(etatDe(w) ?? { etat: 'ok' }, { proprio, appli: modName(appliDe(w)), titre: titreDe(w), maintenant: Date.now(), peutAgir: (r) => peutAgir(w, r),
-      vide: [...(views.get(w.module)?.sections ?? []), ...(views.get(w.module)?.side ?? [])].find((x) => x.title === w.section)?.empty });
+      vide: [...(vueDe(w)?.sections ?? []), ...(vueDe(w)?.side ?? [])].find((x) => x.title === w.section)?.empty });
     // L'en-tête de la maquette : la tuile de l'appli (comme sur la page Applis), sinon un symbole ; le titre, le
     // sous-titre ; « Ouvrir › » ; « ⋯ » pour le propriétaire.
     const tuileDe = (mod) => { if (!mod || !window.OdinAppIcons) return null; const sp = el('span', {}); sp.innerHTML = window.OdinAppIcons.tile(mod, modName(mod), 34); return sp.firstElementChild ?? sp; };
@@ -247,7 +287,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     if (w.kind === 'heure') { box.append(head(w.label || TXT.titres.heure, 'Hestia', '🕒', 'gladsheim'), horloge(await lieu())); return box; }
     if (w.kind === 'site') {
       // Un site surveillé : la sonde de Pulsar qui porte ce nom (état, temps de réponse, disponibilité).
-      const r = (views.get('vordr')?.sections ?? []).find((x) => x.kind === 'table' && x.title === 'Sondes')?.rows?.find((x) => x.cells[0] === w.label);
+      const r = ((proprio ? views.get('vordr') : vueDe(w))?.sections ?? []).find((x) => x.kind === 'table' && x.title === 'Sondes')?.rows?.find((x) => x.cells[0] === w.label);
       box.append(head(w.label, TXT.sousSite, '🌐', 'vordr'), r
         ? el('div', { class: `fe-site ${r.tone || ''}` }, el('b', {}, r.cells[3] || '—'), el('small', {}, [r.cells[2], r.cells[6]].filter(Boolean).join(' · ')), el('small', {}, `24 h : ${r.cells[4] || '—'} · 30 jours : ${r.cells[5] || '—'}`))
         : el('p', { class: 'fe-err' }, ...contenuDe('vide', 'site_introuvable')));
@@ -261,7 +301,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       } }, w.label || w.action)));
       return box;
     }
-    const v = views.get(w.module);
+    const v = vueDe(w);
     box.append(head(titreDe(w), `${modName(w.module)}${modFam(w.module) ? ` · ${modFam(w.module)}` : ''}`));
     if (!v) { box.append(el('p', { class: 'fe-err' }, ...contenuDe('source_absente', 'appli_muette'))); return box; }
     if (w.kind === 'chiffres') {
@@ -684,6 +724,37 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     dialog(`Module ${modName(w.module)}`, el('div', {}, el('label', { for: 'feSec' }, 'Ce qu\'il montre'), sel, el('label', { for: 'feLab' }, 'Titre'), lab), () => {
       if (sel.value) { w.kind = 'section'; w.section = sel.value; } else { w.kind = 'chiffres'; delete w.section; }
       w.label = lab.value.trim() || undefined; draw();
+    });
+  }
+  /**
+   * « Ouvrir à… » (le propriétaire, en mode Modifier) : le bouton n'existe que sur un widget qui lit une appli de la vie
+   * privée. Ces widgets restent fermés aux autres ; ici, un interrupteur par personne. Rien d'autre n'est ouvert.
+   */
+  function boutonOuvrirA(w) {
+    if (!proprio || !R.VIE_PRIVEE.includes(appliDe(w))) return null;
+    const b = el('button', { class: 'fe-ouvb', type: 'button', title: TXT.ouvrir.bouton, 'aria-label': TXT.ouvrir.nom(titreDe(w)), 'aria-haspopup': 'dialog', onclick: () => ouvrirA(w) });
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/></svg>';
+    return b;
+  }
+  async function ouvrirA(w) {
+    const T = TXT.ouvrir, range = JSON.parse(saved).pages.flatMap((p) => p.widgets).find((x) => x.id === w.id);
+    // Un widget pas encore rangé, ou pointé depuis sur autre chose : on range d'abord (le serveur ne connaît que la fenêtre rangée).
+    if (!range || sigDe(range) !== sigDe(w)) { say(T.dAbord); return; }
+    let r; try { r = await act('gladsheim', 'ouvertures_widget', { widget: w.id }); } catch { r = { ok: false }; }
+    if (!r.ok || !r.data) { say(`✗ ${r.text ?? r.error ?? T.echec}`); return; }
+    const gens = Array.isArray(r.data.personnes) ? r.data.personnes : [], appli = (r.data.applis ?? []).map((a) => a.name).join(', ') || modName(appliDe(w));
+    const lignes = gens.map((g, k) => el('label', { class: 'fe-ouv', for: `feOuv${k}` },
+      el('span', { class: 'fe-ouv-t' }, el('span', {}, g.name), g.droit ? null : el('small', {}, T.sansDroit(appli))),
+      el('input', { id: `feOuv${k}`, type: 'checkbox', role: 'switch', 'data-k': String(k), checked: g.ouvert ? true : undefined })));
+    const corps = el('div', {}, el('p', { class: 'fe-ouv-aide' }, T.aide(appli)), gens.length ? el('div', { role: 'group', 'aria-label': T.groupe }, ...lignes) : el('p', { class: 'fe-err' }, T.personne));
+    dialog(T.titre(titreDe(w)), corps, () => {
+      const change = [...corps.querySelectorAll('input[data-k]')].map((n) => ({ g: gens[Number(n.dataset.k)], ouvert: n.checked })).filter((x) => x.g && x.ouvert !== Boolean(x.g.ouvert));
+      // Une personne après l'autre ; au premier refus, on s'arrête et on le dit.
+      (async () => {
+        let dernier = null;
+        for (const x of change) { dernier = await act('gladsheim', 'ouvrir_widget', { widget: w.id, personne: x.g.login, ouvert: x.ouvert ? 'oui' : 'non' }); if (!dernier.ok) break; }
+        if (dernier) say(dernier.ok ? (change.length > 1 ? T.fait(change.length) : dernier.text) : `✗ ${dernier.text ?? dernier.error}`);
+      })().catch(() => say(`✗ ${T.echec}`));
     });
   }
   /** « Site surveillé » : une sonde de Pulsar déjà là, ou un nouveau site à surveiller (Pulsar le vérifie ensuite tout seul). */

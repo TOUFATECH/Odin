@@ -8,7 +8,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomBytes } from 'node:crypto';
-import type { ModCtx } from '../types.ts';
+import type { Alert, ModCtx } from '../types.ts';
 import { valhallaOf } from '../odin.ts';
 import { sessionCookie, clearSessionCookie, SESSION_RE } from '../../web/account.ts';
 import { valhallaGet, valhallaPost } from '../../web/valhalla-api.ts';
@@ -67,6 +67,20 @@ export function vider(x: unknown): unknown {
   if (Array.isArray(x)) return [];
   if (x && typeof x === 'object') return Object.fromEntries(Object.entries(x as Record<string, unknown>).map(([k, v]) => [k, vider(v)]));
   return typeof x === 'string' ? '' : typeof x === 'number' ? 0 : x;
+}
+/**
+ * Les alertes de Sphinx qu'un membre peut lire : celles qui portent l'adresse MAC de l'appareil qu'il tient. C'est
+ * Sphinx qui le reconnaît, par l'origine de sa demande (la même lecture que sa page « Appareils », faite en son nom).
+ * Aucun appareil reconnu, Sphinx désactivé, ou une réponse qui n'est pas celle faite à un membre : aucune alerte.
+ */
+async function alertesDeSonAppareil(v: NonNullable<ReturnType<typeof valhallaOf>>, qui: Agissant): Promise<Alert[]> {
+  try {
+    const f = v.estActive('vidarr') ? v.action('vidarr', 'baux_vus') : undefined; if (!f || f.m.id !== 'vidarr') return [];
+    const d = (await auNomDe(qui, () => f.a.run(v.ctx('vidarr'), {}))).data as { proprietaire?: unknown; appareils?: Array<{ mac?: unknown }> } | undefined;
+    if (d?.proprietaire !== false || !Array.isArray(d.appareils)) return [];
+    const macs = new Set(d.appareils.map((x) => s(x?.mac).toLowerCase()).filter(Boolean));
+    return macs.size ? v.alerts({ module: 'vidarr', limit: 500 }).filter((a) => macs.has(s(a.data?.mac).toLowerCase())) : [];
+  } catch { return []; }
 }
 /** Les pages servies à part et l'appli qui les fournit. */
 const PAGES: Array<[RegExp, string]> = [[/^\/(maison|maison\.js)$|^\/api\/maison\/|^\/api\/owntracks$/, 'gladsheim'], [/^\/(recherche|recherche\.js)$|^\/api\/recherche\//, 'volva']];
@@ -227,6 +241,9 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
     echangeBus.on('echange', surEchange);
     const ping = setInterval(() => res.write(': ping\n\n'), 25_000); req.on('close', () => { clearInterval(ping); echangeBus.off('echange', surEchange); }); return true;
   }
+  // La donnée des widgets de l'accueil : cette route seule passe, et c'est elle qui décide, widget par widget, pour CE
+  // membre (son droit sur chaque appli lue ; la vie privée fermée, sauf le widget que le propriétaire lui a ouvert).
+  if (!d.direct && meth === 'GET' && path === '/api/widgets/donnees') return false;
   if (!v) { erreur(res, 503, 'indisponible', 'Les applis d\'Odin ne sont pas démarrées.'); return true; }
   const qui = agissantDe(p), ok = (id: string) => aDroit(ctx, p, id);
   if (meth === 'GET' && path === '/api/valhalla/fichier') { const mod = s(url.searchParams.get('module')); if (!ok(mod)) { erreur(res, 403, 'refuse', messageRefus(ctx, mod)); return true; } return false; }
@@ -235,10 +252,13 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
     if (path === '/api/valhalla/manips') { json(res, 200, { ok: true, autonomy: v.autonomy(), pending: 0, manips: [] }); return true; }
     const r = await auNomDe(qui, () => valhallaGet(path, url.searchParams)) as Record<string, unknown> | undefined;
     if (!r) { json(res, 404, { error: 'inconnu' }); return true; }
-    if (Array.isArray(r.modules)) r.modules = (r.modules as Array<{ id: string }>).filter((x) => ok(x.id));
+    // Sphinx : un membre ne lit que les alertes (et leurs bulles) de l'appareil qu'il tient ; aucun reconnu : aucune.
+    const siennes = ok('vidarr') && [r.modules, r.alerts, r.notices].some(Array.isArray) ? await alertesDeSonAppareil(v, qui) : [];
+    const sienne = (id: unknown) => siennes.some((a) => a.id === id);
+    if (Array.isArray(r.modules)) r.modules = (r.modules as Array<{ id: string }>).filter((x) => ok(x.id)).map((x) => (x.id === 'vidarr' ? { ...x, alerts: siennes.filter((a) => !a.ack).length, grave: siennes.some((a) => !a.ack && (a.level === 'critique' || a.level === 'haute')) } : x));
     if ('peutActiver' in r) r.peutActiver = false; // activer ou désactiver une appli : le propriétaire seul
-    if (Array.isArray(r.alerts)) r.alerts = (r.alerts as Array<{ module: string }>).filter((x) => ok(x.module));
-    if (Array.isArray(r.notices)) r.notices = (r.notices as Array<{ module: string }>).filter((x) => ok(x.module));
+    if (Array.isArray(r.alerts)) r.alerts = (r.alerts as Array<{ module: string; id?: string }>).filter((x) => ok(x.module) && (x.module !== 'vidarr' || sienne(x.id)));
+    if (Array.isArray(r.notices)) r.notices = (r.notices as Array<{ module: string; source?: string; ref?: string }>).filter((x) => ok(x.module) && (x.module !== 'vidarr' || (x.source === 'alerte' && sienne(x.ref))));
     if (Array.isArray(r.found)) r.found = (r.found as Array<{ id: string }>).filter((x) => ok(x.id));
     json(res, 200, r); return true;
   }

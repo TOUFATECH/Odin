@@ -316,19 +316,61 @@ test('Sphinx sait d\'où vient la demande : le propriétaire, le garde-fou « ic
       assert.equal(appareils(r).find((d) => d.mac === M.cam)?.nom, 'Camera-Jardin');
     });
 
-    // ---------------------------------------------------------------- ce qui reste à fermer (hors de la ligne du serveur)
-    // Les alertes de Sphinx (« Nouvel appareil sur le réseau : … », avec son nom, son adresse et son adresse MAC) sont
-    // encore remises à un membre qui a le droit d'ouvrir Sphinx : elles nomment les appareils des autres. Ce n'est pas
-    // l'origine de la demande (c'était déjà vrai avant) ; l'essai le garde en vue jusqu'à ce que ce soit fermé.
-    await t.test('à fermer : les alertes de Sphinx ne nomment pas les appareils des autres à un membre', { todo: 'les alertes de Sphinx sont encore remises telles quelles à un membre' }, async () => {
+    // ---------------------------------------------------------------- f) les alertes de Sphinx, pour un membre
+    // Les alertes de Sphinx (« Nouvel appareil sur le réseau : … », avec son nom, son adresse et son adresse MAC) et
+    // leurs bulles : un membre qui a le droit d'ouvrir Sphinx ne lit que celles de l'appareil qu'il tient (réponse du
+    // propriétaire, 26/11 : « Celles de son appareil »). Aucun appareil reconnu : aucune.
+    await t.test('f) un membre ne lit que les alertes de Sphinx de l\'appareil qu\'il tient', async () => {
       const nour = await entrer(v, 'nour', MDP);
+      // Le téléphone demande son adresse : Sphinx alerte « Nouvel appareil » pour lui aussi.
+      prend(M.tel, 'Telephone-Nour');
+      const chemins = ['/api/valhalla/view?id=vidarr', '/api/valhalla/alerts', '/api/valhalla/alerts?module=vidarr', '/api/valhalla/catalog', '/api/valhalla/notices'];
       const secrets = [M.cam, M.tv, M.imp, 'Camera-Jardin', 'Tele-Salon', 'Imprimante-Bureau', ipCam, ipTv];
-      const fuites: string[] = [];
-      for (const chemin of ['/api/valhalla/view?id=vidarr', '/api/valhalla/alerts', '/api/valhalla/alerts?module=vidarr', '/api/valhalla/modules', '/api/valhalla/notices']) {
-        const x = await demande(v.port, chemin, { cookie: nour, depuis: TEL }), texte = JSON.stringify(x.body);
-        for (const sec of secrets) if (texte.includes(sec)) fuites.push(`${chemin} : « ${sec} »`);
+      const lire = async (o: { depuis: string; port?: number; entetes?: Record<string, string>; cookie?: string }) => {
+        const fuites: string[] = [], alertes: Array<{ module: string; title: string; data?: { mac?: string } }> = [], bulles: Array<{ module: string; title: string }> = []; let pastille = -1;
+        for (const chemin of chemins) {
+          const x = await demande(o.port ?? v.port, chemin, { cookie: o.cookie ?? nour, depuis: o.depuis, entetes: o.entetes }), texte = JSON.stringify(x.body);
+          assert.equal(x.status, 200, `${chemin} : ${texte.slice(0, 200)}`);
+          for (const sec of secrets) if (texte.includes(sec)) fuites.push(`${chemin} : « ${sec} »`);
+          if (chemin.startsWith('/api/valhalla/alerts')) alertes.push(...(x.body.alerts ?? []));
+          if (chemin.startsWith('/api/valhalla/view')) alertes.push(...(x.body.alerts ?? []));
+          if (chemin === '/api/valhalla/notices') bulles.push(...(x.body.notices ?? []));
+          if (chemin === '/api/valhalla/catalog') pastille = (x.body.modules as Array<{ id: string; alerts: number }>).find((m) => m.id === 'vidarr')?.alerts ?? -1;
+        }
+        return { fuites, alertes: alertes.filter((a) => a.module === 'vidarr'), bulles: bulles.filter((b) => b.module === 'vidarr'), pastille };
+      };
+      // Contrôle : le propriétaire lit toujours tout (les alertes des autres appareils existent bien).
+      const tout = await lire({ depuis: ICI, cookie: v.session });
+      assert.ok(tout.fuites.length >= secrets.length, 'le propriétaire lit les alertes de tous les appareils');
+      assert.ok(tout.alertes.some((a) => a.data?.mac === M.cam) && tout.alertes.some((a) => a.data?.mac === M.tel));
+      assert.ok(tout.pastille >= 4, `la pastille du propriétaire compte tout (${tout.pastille})`);
+      // Depuis le téléphone : seulement l'alerte du téléphone (dans la page, la liste, les bulles, la pastille).
+      const tel = await lire({ depuis: TEL });
+      assert.deepEqual(tel.fuites, [], 'depuis le téléphone : rien des autres appareils');
+      assert.ok(tel.alertes.length >= 3, 'la sienne lui est remise (page de Sphinx, liste, liste de Sphinx)');
+      assert.deepEqual([...new Set(tel.alertes.map((a) => a.data?.mac))], [M.tel]);
+      assert.match(tel.alertes[0].title, /Nouvel appareil sur le réseau : Telephone de Nour/);
+      assert.equal(tel.bulles.length, 1, 'une seule bulle de Sphinx : la sienne'); assert.match(tel.bulles[0].title, /Telephone de Nour/);
+      assert.equal(tel.pastille, 1, 'la pastille ne compte que la sienne');
+      // Depuis le PC (aucune alerte ne le concerne), depuis Odin lui-même, derrière le proxy : aucune alerte de Sphinx.
+      for (const [nom, o] of [['le PC', { depuis: PC }], ['Odin lui-même', { depuis: ICI }], ['le proxy', { depuis: TEL, port: portProxy, entetes: { 'x-forwarded-for': TEL } }]] as const) {
+        const x = await lire(o);
+        assert.deepEqual(x.fuites, [], `depuis ${nom} : rien des autres appareils`);
+        assert.deepEqual(x.alertes, [], `depuis ${nom} : aucune alerte de Sphinx`);
+        assert.deepEqual(x.bulles, [], `depuis ${nom} : aucune bulle de Sphinx`);
+        assert.equal(x.pastille, 0, `depuis ${nom} : la pastille de Sphinx est à zéro`);
+        assert.ok(!JSON.stringify(x).includes(M.tel), `depuis ${nom} : pas même l'alerte du téléphone`);
       }
-      assert.deepEqual(fuites, []);
+      // Le fil en direct d'un membre ne porte ni alerte ni bulle (il est muet, sauf les échanges entre ses applis).
+      const fil = await new Promise<string>((ok, ko) => {
+        const q = http.request({ host: '127.0.0.1', port: v.port, path: '/api/stream', localAddress: TEL, agent: false, headers: { cookie: nour } }, (res) => {
+          let recu = ''; res.on('data', (c) => { recu += c; });
+          setTimeout(() => { prend('00:00:5e:00:53:66', 'Console-Salon'); }, 50);
+          setTimeout(() => { q.destroy(); ok(recu); }, 400);
+        });
+        q.on('error', (e) => { if (!q.destroyed) ko(e); }); q.end();
+      });
+      assert.doesNotMatch(fil, /Console-Salon|00:00:5e:00:53:66|notice|Nouvel appareil/, 'le fil en direct d\'un membre ne porte pas les alertes');
     });
   } finally {
     await tt.end();

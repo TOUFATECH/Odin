@@ -2,15 +2,21 @@
 // Rien ne change à l'écran. Deux usages :
 //   - l'écran de la maison (/api/maison/etat, maison-api.ts) ne garde, de ses pages, que les widgets que le public de
 //     leur sorte permet à qui regarde (lot 23 : droitDeVoir) ;
-//   - la route /api/widgets/donnees rend la donnée des widgets de la fenêtre au propriétaire, par « la donnée d'un
-//     widget » (donneeWidget), dans l'un des cinq états.
-// Une session de membre n'atteint jamais /api/widgets/ : la garde des membres (sso/garde.ts) ferme toute route
-// /api/… qu'elle ne connaît pas. C'est le défaut sûr. Le jour où un widget doit être servi à un membre, la garde devra
-// laisser passer cette route : à montrer avant.
+//   - la route /api/widgets/donnees rend la donnée des widgets de la fenêtre, par « la donnée d'un widget »
+//     (donneeWidget), dans l'un des cinq états : au propriétaire (sa session), et à un membre connecté.
+// Un membre (validé le 26/11, sa question 15, réponse b) : la garde des membres (sso/garde.ts) laisse passer cette
+// seule route de /api/widgets/. Il reçoit la donnée d'un widget s'il a le droit sur chaque appli lue ; un widget qui lit
+// une appli de la vie privée lui reste fermé, sauf si le propriétaire le lui a ouvert, à lui, pour cette appli
+// (widgets/ouvertures.ts). La lecture est faite en son nom : une appli qui montre moins à un membre (Sphinx : son seul
+// appareil) lui montre moins ici aussi. Sa page ne demande plus la vue d'une appli pour dessiner un widget.
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { cleanLayout, defaultLayout, type FPage, type Layout, type Widget } from '../valhalla/modules/gladsheim.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
+import { auNomDe } from '../valhalla/sso/acces.ts';
+import { aDroit } from '../valhalla/sso/etat.ts';
+import { membreDe } from '../valhalla/sso/garde.ts';
 import { applisLues, donneeWidget, droitDeVoir, sorteDe, type EtatWidget, type Lecteur, type SourceWidget } from '../valhalla/widgets/index.ts';
+import { ouverturesDe } from '../valhalla/widgets/ouvertures.ts';
 import { sourceOdin } from '../valhalla/widgets/source.ts';
 
 type Valhalla = NonNullable<ReturnType<typeof valhallaOf>>;
@@ -74,19 +80,40 @@ function fenetreDe(v: Valhalla): Layout {
 }
 
 /**
- * Rend true si la requête était pour /api/widgets/. Le propriétaire seul, par sa session (ni la clé d'API, ni une clé
- * de tablette, ni un membre : server.ts le décide), sur l'accueil. Rien ici n'est essayable : pas de clé à deviner.
+ * Qui regarde l'accueil avec cette session de membre : ses droits d'appli (relus à chaque demande), et ce que le
+ * propriétaire lui a ouvert, à lui (par l'identifiant de sa fiche Persona). Sans le droit d'entrer dans Odin, ou sans
+ * le droit sur Hestia (la fenêtre est la sienne) : rien.
+ */
+export function lecteurMembre(v: Valhalla, m: NonNullable<ReturnType<typeof membreDe>>): Lecteur | undefined {
+  // La fenêtre est celle de Hestia : sans le droit sur Hestia, sa page n'a pas de fenêtre, et rien d'elle ne lui est dit.
+  if (!aDroit(m.ctx, m.p, 'odin') || !aDroit(m.ctx, m.p, 'gladsheim')) return undefined;
+  return { qui: 'membre', ecran: 'accueil', peutLire: (appli) => aDroit(m.ctx, m.p, appli), ouverts: new Set(ouverturesDe(v.ctx('gladsheim'), m.p.id)) };
+}
+
+/**
+ * Rend true si la requête était pour /api/widgets/. Sur l'accueil, par une session (ni la clé d'API, ni une clé de
+ * tablette : server.ts le décide) : celle du propriétaire, ou celle d'un membre (retrouvée ici dans Persona, par son
+ * cookie). Rien ici n'est essayable : pas de clé à deviner. La réponse dit qui regarde (`qui`) : la page ne montre les
+ * réglages (« ⋯ ») qu'au propriétaire.
  */
 export async function widgetsRoute(req: IncomingMessage, res: ServerResponse, url: URL, d: { proprietaire: () => boolean }): Promise<boolean> {
   if (!url.pathname.startsWith('/api/widgets/')) return false;
-  if (!d.proprietaire()) { json(res, 401, { ok: false, error: 'connexion requise' }); return true; }
+  const proprio = d.proprietaire(), m = proprio ? undefined : membreDe(String(req.headers.cookie ?? ''));
+  if (!proprio && !m) { json(res, 401, { ok: false, error: 'connexion requise' }); return true; }
   if (url.pathname !== '/api/widgets/donnees') { json(res, 404, { ok: false, error: 'introuvable' }); return true; }
   if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'méthode refusée' }); return true; }
   const v = valhallaOf(); if (!v) { json(res, 503, { ok: false, error: 'Les applis d\'Odin ne sont pas démarrées.' }); return true; }
-  const page = (url.searchParams.get('page') ?? '').slice(0, 40), l: Lecteur = { qui: 'proprietaire', ecran: 'accueil' }, src = sourceOdin(v);
+  const l: Lecteur | undefined = m ? lecteurMembre(v, m) : { qui: 'proprietaire', ecran: 'accueil' };
+  if (!l) { json(res, 403, { ok: false, error: 'réservé' }); return true; }
+  const page = (url.searchParams.get('page') ?? '').slice(0, 40), src = sourceOdin(v);
   const pages = fenetreDe(v).pages.filter((p) => !page || p.id === page);
-  const widgets: Array<{ id: string; kind: string; page: string } & EtatWidget> = [];
-  for (const p of pages) for (const w of p.widgets) widgets.push({ id: w.id, kind: w.kind, page: p.id, ...await donneeWidget(w, l, src) });
-  json(res, 200, { ok: true, ecran: 'accueil', widgets, at: Date.now() });
+  const lireTout = async () => {
+    const widgets: Array<{ id: string; kind: string; page: string } & EtatWidget> = [];
+    for (const p of pages) for (const w of p.widgets) widgets.push({ id: w.id, kind: w.kind, page: p.id, ...await donneeWidget(w, l, src) });
+    return widgets;
+  };
+  // Pour un membre, tout est lu EN SON NOM : une appli qui montre moins à un membre lui montre moins ici aussi.
+  const widgets = m ? await auNomDe({ login: m.p.login, name: m.p.name, groups: m.p.groups }, lireTout) : await lireTout();
+  json(res, 200, { ok: true, ecran: 'accueil', qui: l.qui, widgets, at: Date.now() });
   return true;
 }

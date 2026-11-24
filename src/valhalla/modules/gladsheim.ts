@@ -17,6 +17,7 @@ import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuC
 import { fetchPropre } from '../../net/fetch-propre.ts';
 import { agissant } from '../sso/acces.ts';
 import { sorteDe, sortesPosables, type IdSortePosable } from '../widgets/index.ts';
+import { actionsOuvertures, ouverturesGardees } from '../widgets/ouvertures.ts';
 
 const s = (v: unknown) => String(v ?? '');
 export const THEMES: Record<string, { label: string; dark: boolean }> = {
@@ -383,7 +384,10 @@ export const gladsheim: Module = {
     } },
     { id: 'regler_fenetre', label: 'Ranger ma fenêtre', what: 'Enregistre les pages et les modules (mode « Modifier »)', quick: false, proprietaireSeul: true, params: [{ key: 'fenetre', label: 'Fenêtre (JSON)', kind: 'textarea', required: true }], run: (ctx, i) => {
       let raw: unknown; try { raw = typeof i.fenetre === 'string' ? JSON.parse(i.fenetre) : i.fenetre; } catch { throw new Error('fenêtre illisible'); }
-      const l = cleanLayout(raw, ctx.modules().map((m) => m.id)); ctx.saveSettings({ fenetre: l });
+      // Avec la fenêtre : les ouvertures de la vie privée des widgets qui existent encore, lisent encore cette appli et
+      // montrent encore la même chose qu'avant ce rangement.
+      const ids = ctx.modules().map((m) => m.id), l = cleanLayout(raw, ids), avant = ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : undefined;
+      ctx.saveSettings({ fenetre: l, ...(ctx.settings.ouvertures === undefined ? {} : { ouvertures: ouverturesGardees(ctx, l, avant) }) });
       return { text: `✓ Fenêtre rangée : ${l.pages.map((p) => `${p.name} (${p.widgets.length})`).join(', ')}.`, data: avecAnimation(ctx, l) };
     } },
     { id: 'regler_animation', label: 'Animation des modules', what: 'L\'animation qui joue quand tu déplaces ou agrandis un module de ta fenêtre (la même sur tous tes appareils)', quick: false, proprietaireSeul: true,
@@ -393,6 +397,9 @@ export const gladsheim: Module = {
         ctx.saveSettings({ animation: a });
         return { text: `✓ Animation des modules : ${a}.`, data: { animation: a } };
       } },
+    // La vie privée, widget par widget et personne par personne (sa question 15, réponse b) : ouvrir ou refermer un
+    // widget à une personne, la liste, et « qui a fait quoi ». Tout est dans src/valhalla/widgets/ouvertures.ts.
+    ...actionsOuvertures((ctx) => { const ids = ctx.modules().map((m) => m.id); return ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : defaultLayout(ids); }, (ctx, id) => ctx.modules().find((m) => m.id === id)?.name ?? id),
     { id: 'meteo', label: 'Météo', what: 'Le temps qu\'il fait là où est Odin, ou dans une autre ville si tu la nommes (sans changer le lieu d\'Odin)', read: true, params: [{ key: 'ville', label: 'Autre ville (vide : là où est Odin)', kind: 'text', default: '' }], words: ['météo de la maison', 'la météo', 'quel temps fait-il', 'météo', 'meteo', 'température dehors', 'quelle température fait-il', 'temps qu\'il fait', 'quel temps', 'quel temps fera demain'], run: async (ctx, i) => {
       // Une autre ville : la météo de là-bas, sans changer le lieu d'Odin (pour le changer : l'action « lieu »).
       const v = s(i.ville).trim(), ici = sansAccent(v) === sansAccent(s(ctx.settings.villeNom) || s(ctx.settings.ville) || LIEU_PAR_DEFAUT);
