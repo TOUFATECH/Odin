@@ -16,8 +16,9 @@ import { arrondirPosition, ecrireFichierPrive, lireFichierPrive } from '../../pr
 import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuCourant, temperature, vitesse, type Region, type Unites } from '../lieu.ts';
 import { fetchPropre } from '../../net/fetch-propre.ts';
 import { agissant } from '../sso/acces.ts';
-import { sorteDe, sortesPosables, type IdSortePosable } from '../widgets/index.ts';
-import { actionsOuvertures, ouverturesGardees } from '../widgets/ouvertures.ts';
+import { droitDeVoir, sorteDe, sortesPosables, type IdSortePosable } from '../widgets/index.ts';
+import { actionsOuvertures, lecteurDe, ouverturesGardees } from '../widgets/ouvertures.ts';
+import { ADRESSE_MAX, adressesRefusees, retraitRefuse, toucherNet, toucherServi, type Toucher } from '../widgets/regler.ts';
 
 const s = (v: unknown) => String(v ?? '');
 export const THEMES: Record<string, { label: string; dark: boolean }> = {
@@ -294,7 +295,7 @@ export type WidgetKind = IdSortePosable;
  * sur 4 et `pr` lignes (absentes : l'écran choisit). `w` (1, 2 ou 3 colonnes) est l'ancienne largeur, toujours rendue
  * pour l'écran d'aujourd'hui : elle se déduit de `c` (1 à 4 → 1, 5 à 8 → 2, 9 à 12 → 3).
  */
-export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number; r: number; pc?: number; pr?: number; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string>; style?: string }
+export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number; r: number; pc?: number; pr?: number; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string>; style?: string; /** « Quand je touche le widget » (lot 25b) ; absent : ouvrir son appli. */ toucher?: Toucher }
 export interface FPage { id: string; name: string; maison?: boolean; widgets: Widget[] }
 export interface Layout { pages: FPage[] }
 /** La grille de la maquette : 12 colonnes, 4 au téléphone, 7 lignes au plus. */
@@ -350,6 +351,9 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
       if (sorte.nettoyer && !sorte.nettoyer(o, out, { str })) continue;
       // Un style, seulement s'il est l'un de ceux de la sorte et pas celui de départ (rien d'écrit sinon).
       const style = str(o.style, 24); if (style && style !== sorte.styles[0] && sorte.styles.includes(style)) out.style = style;
+      // « Quand je touche le widget » (lot 25b) : une action de SON appli, un écran connu, une adresse http(s) nettoyée,
+      // ou rien. Tout le reste est jeté (le widget ouvre alors son appli, comme avant).
+      const toucher = toucherNet(o.toucher, sorte, out, { str }); if (toucher) out.toucher = toucher;
       widgets.push(out);
     }
     pages.push({ id: /^[0-9a-f]{8}$/.test(String(pp.id)) ? String(pp.id) : wid(), name, ...(pp.maison ? { maison: true } : {}), widgets });
@@ -366,6 +370,25 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
 export const ANIMATIONS = ['classique', 'glace', 'miroir', 'ressort', 'aimant', 'flottant', 'fondu', 'domino', 'vague', 'zoom', 'elastique', 'cascade'] as const;
 export type Animation = typeof ANIMATIONS[number];
 export const animationDe = (v: unknown): Animation => (typeof v === 'string' && (ANIMATIONS as readonly string[]).includes(v) ? v as Animation : 'classique');
+/**
+ * « Quand je touche le widget » (lot 25b), pour une personne connectée qui n'est pas le propriétaire : ce réglage ne lui
+ * est servi que sur un widget qu'elle peut voir (son droit sur chaque appli lue ; la vie privée seulement si le
+ * propriétaire le lui a ouvert) — sinon l'adresse à ouvrir, l'action et ses réglages lui arriveraient quand même. Et,
+ * comme pour le bouton sur mesure : jamais une action grave, « propriétaire seul » ou introuvable. Ce qu'on n'a pas
+ * pu vérifier : non.
+ */
+function toucherPermisA(ctx: ModCtx, login: string): (w: Widget) => boolean {
+  const l = lecteurDe(ctx, login), v = valhallaOf();
+  if (!l || !v) return () => false;
+  const src = { appli: (id: string) => { const m = v.module(id); return m && m.id === id && v.estActive(m.id) ? { id: m.id, name: m.name, family: m.family } : undefined; } };
+  return (w) => {
+    if (droitDeVoir(w, l, src)) return false;
+    const t = w.toucher; if (t?.quoi !== 'action') return true;
+    const f = w.module ? v.action(w.module, t.action) : undefined; if (!f || f.m.id !== w.module) return false;
+    const c = v.ctx(f.m.id), input = t.input ?? {};
+    return !f.a.grave?.(input, c) && !(typeof f.a.proprietaireSeul === 'function' ? f.a.proprietaireSeul(input, c) : f.a.proprietaireSeul === true);
+  };
+}
 /** La fenêtre rendue à la page : avec l'animation choisie, seulement si elle a été choisie (sinon rien ne change). */
 const avecAnimation = (ctx: ModCtx, l: Layout): Layout & { animation?: Animation } => (ctx.settings.animation === undefined ? l : { ...l, animation: animationDe(ctx.settings.animation) });
 
@@ -380,13 +403,20 @@ export const gladsheim: Module = {
     { id: 'theme', label: 'Thème', what: 'Le thème de l\'écran de la maison', params: [{ key: 'theme', label: 'Thème', kind: 'select', options: Object.keys(THEMES), required: true }], words: ['change le thème de l\'écran', 'change le thème'], run: (ctx, i) => { const t = s(i.theme); if (!THEMES[t]) throw new Error(`thèmes : ${Object.keys(THEMES).join(', ')}`); ctx.saveSettings({ theme: t }); return { text: `🎨 Thème « ${THEMES[t].label} ».` }; } },
     { id: 'fenetre', label: 'Ma fenêtre', what: 'Les pages de modules de la fenêtre d\'Odin (ordinateur, téléphone, écran de la maison)', read: true, quiet: true, words: ['ma fenêtre', 'tableau de bord'], run: (ctx) => {
       const ids = ctx.modules().map((m) => m.id), l = ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : defaultLayout(ids);
-      return { text: l.pages.map((p) => `- ${p.name}${p.maison ? ' (écran de la maison)' : ''} : ${p.widgets.length} module(s)`).join('\n'), data: avecAnimation(ctx, l) };
+      // À un autre que le propriétaire : « Quand je touche » seulement sur les widgets qu'il peut voir (lot 25b).
+      const qui = agissant();
+      return { text: l.pages.map((p) => `- ${p.name}${p.maison ? ' (écran de la maison)' : ''} : ${p.widgets.length} module(s)`).join('\n'), data: avecAnimation(ctx, qui ? toucherServi(l, toucherPermisA(ctx, qui.login)) : l) };
     } },
     { id: 'regler_fenetre', label: 'Ranger ma fenêtre', what: 'Enregistre les pages et les modules (mode « Modifier »)', quick: false, proprietaireSeul: true, params: [{ key: 'fenetre', label: 'Fenêtre (JSON)', kind: 'textarea', required: true }], run: (ctx, i) => {
       let raw: unknown; try { raw = typeof i.fenetre === 'string' ? JSON.parse(i.fenetre) : i.fenetre; } catch { throw new Error('fenêtre illisible'); }
       // Avec la fenêtre : les ouvertures de la vie privée des widgets qui existent encore, lisent encore cette appli et
       // montrent encore la même chose qu'avant ce rangement.
+      // « Régler » (lot 25b) : une adresse à ouvrir au toucher qui n'est pas une adresse web sûre est refusée, et dite.
+      const refusees = adressesRefusees(raw);
+      if (refusees.length) throw new Error(`adresse refusée : « ${refusees[0]} ». Une adresse à ouvrir commence par http:// ou https://, sans identifiant ni mot de passe dedans, ${ADRESSE_MAX} signes au plus.`);
       const ids = ctx.modules().map((m) => m.id), l = cleanLayout(raw, ids), avant = ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : undefined;
+      // « À faire » se déplace mais ne se retire pas (constat M11) ; jamais rangée encore, c'est la fenêtre de départ qui compte.
+      if (retraitRefuse(avant ?? defaultLayout(ids), l)) throw new Error('« À faire » se déplace mais ne se retire pas : garde-le sur une de tes pages.');
       ctx.saveSettings({ fenetre: l, ...(ctx.settings.ouvertures === undefined ? {} : { ouvertures: ouverturesGardees(ctx, l, avant) }) });
       return { text: `✓ Fenêtre rangée : ${l.pages.map((p) => `${p.name} (${p.widgets.length})`).join(', ')}.`, data: avecAnimation(ctx, l) };
     } },

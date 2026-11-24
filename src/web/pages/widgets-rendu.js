@@ -11,6 +11,12 @@
 //   - ancien : la donnée NORMALE, avec une pastille ambre « il y a 12 min » dans l'en-tête (sa réponse 1 b).
 // Une ligne au plus, un bouton au plus, et le bouton pour le propriétaire seul. Jamais un chiffre inventé.
 //
+// « Régler » (lot 25b) : le bouton « ⋯ » ouvre la fenêtre « Régler » de la maquette. Ici : ses mots, sa fenêtre de
+// dialogue (fenetreRegler : le clavier y reste, Échap ferme et rend le focus), et ses règles sans document — une
+// adresse nettoyée comme le fait le serveur (adresseNette), ce que fait un widget quand on le touche (toucherDe), les
+// sortes qui ne se copient pas vers l'autre écran (copieRefusee) et celle qui ne se retire pas (retirable). L'hôte
+// (fenetre.js) remplit la fenêtre. L'écran de la maison ne règle rien et ne reçoit jamais « Quand je touche ».
+//
 // TOUS les textes des cinq états sont ici, à un seul endroit (TEXTES). Un code serveur inconnu prend le texte commun
 // de son état, sans bouton.
 // Ce fichier ne touche à rien à son chargement : il pose seulement window.OdinWidgetsRendu. Son style n'est posé que
@@ -60,6 +66,36 @@
     // Dit avant la pastille à qui ne la voit pas (lecteur d'écran) : « Donnée ancienne, lue il y a 12 min ».
     depuisAvant: 'Donnée ancienne, lue ',
     regler: (t) => `Régler « ${t} »`,
+    // La fenêtre « Régler » (lot 25b) : tous ses mots, ici.
+    reglage: {
+      titre: (t) => `Régler « ${t} »`,
+      champTitre: 'Titre affiché', titreSite: 'Un site surveillé porte le nom de sa sonde : il se change dans Pulsar.',
+      taille: 'Taille', aideTaille: 'Ou tire le coin du widget, à la case près.',
+      style: 'Style', montre: "Ce qu'il montre", chiffres: 'Les chiffres clés',
+      toucher: 'Quand je touche le widget',
+      choix: { appli: (a) => `Ouvrir ${a}`, action: "Lancer une action de l'appli", ecran: 'Aller à un écran', adresse: 'Ouvrir une adresse web', rien: 'Rien' },
+      action: 'Action', aideGrave: 'Cette action peut être grave : Odin te demande alors ton accord à chaque fois, avant de la lancer.', aucuneAction: 'Choisis une action.',
+      ecran: 'Écran', ecrans: { accueil: "Accueil d'Odin", maison: 'Écran de la maison' },
+      adresse: 'Adresse', adresseAide: "Elle s'ouvre dans un nouvel onglet.",
+      adresseRefusee: 'Adresse refusée : elle commence par http ou https, sans identifiant ni mot de passe dedans.',
+      tailleRefusee: 'Cette taille est refusée pour ce widget.',
+      copier: { maison: "Copier vers l'écran de la maison", accueil: "Copier vers l'accueil" },
+      pages: { maison: 'Écran de la maison', accueil: 'Accueil' },
+      copie: (p) => `Copié sur la page « ${p} ».`, copieFermee: ' La copie reste fermée aux autres.',
+      copieReservee: "Ce widget reste sur ton accueil : il ne se copie pas vers l'autre écran.",
+      copiePrivee: "Vie privée : ce widget n'est ouvert à personne, il ne se copie pas vers l'autre écran.",
+      copiePleine: "Plus de place sur l'autre écran : retire d'abord un widget ou une page.",
+      retirer: 'Retirer', retire: (t) => `« ${t} » est retiré de la page.`, fixe: '« À faire » se déplace mais ne se retire pas.',
+      ouvrirA: 'Ouvrir à…', ouvertA: (n) => `Vie privée : ouvert à ${n}.`, ouvertAPersonne: "Vie privée : ouvert à personne d'autre que toi.",
+      referme: (n) => `Ce changement referme le widget pour ${n}. Tu pourras le rouvrir avec « Ouvrir à… ».`,
+      refermeInconnu: "S'il est ouvert à quelqu'un, ce changement le referme pour cette personne.",
+      annuler: 'Annuler', valider: 'Valider', pied: "Rien n'est gardé avant « Terminé ».",
+    },
+    // Ce que dit le bouton de l'en-tête selon « Quand je touche le widget », et ce qui est annoncé.
+    toucher: {
+      lancer: 'Lancer ›', lancerNom: (a, t) => `Lancer « ${a} » (${t})`, aller: 'Aller ›', allerNom: (e) => `Aller à : ${e}`,
+      site: 'Site ↗', siteNom: (h) => `Ouvrir ${h} dans un nouvel onglet`, annule: 'Annulé.',
+    },
   };
   // Les boutons doux (contour) : réessayer ne change rien, il relit.
   const DOUX = new Set(['appli_muette', 'lecture_echouee']);
@@ -127,6 +163,57 @@
     return { ...base, texte, bouton };
   }
 
+  // ---------------- « Régler » (lot 25b) : les règles, sans document
+  /** Les quatre sortes réservées à l'accueil du propriétaire (comme le serveur, widgets/aujourdhui.ts) : jamais copiées. */
+  const RESERVEES = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement'];
+  /** Les sortes qui se déplacent mais ne se retirent pas (comme le serveur : « fixe »). */
+  const FIXES = ['a_faire'];
+  /** Par sorte : ses styles, quand elle en a plus d'un (comme le serveur). Aucune aujourd'hui : pas de choix de style. */
+  const STYLES = {};
+  /** Les écrans où un widget peut mener (comme le serveur, ECRANS_TOUCHER). */
+  const ECRANS_TOUCHER = ['accueil', 'maison'];
+  const ADRESSE_MAX = 500;
+  const INTERDITS = /[\u0000-\u0020\u007f-\u009f\\\u2028\u2029]/;
+  /**
+   * Une adresse web nettoyée, ou rien si elle est refusée : la même règle que le serveur (adresseNette,
+   * src/valhalla/widgets/regler.ts ; un essai compare les deux). http ou https seulement, écrite en entier, sans
+   * identifiants, sans espace, 500 signes au plus. Sans moyen de la lire (pas de URL) : refusée.
+   */
+  function adresseNette(v) {
+    if (typeof v !== 'string' || typeof URL !== 'function') return undefined;
+    const t = v.trim();
+    if (!t || t.length > ADRESSE_MAX || INTERDITS.test(t) || !/^https?:\/\/[^/?#]/i.test(t)) return undefined;
+    let u; try { u = new URL(t); } catch { return undefined; }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return undefined;
+    if (u.username || u.password || !u.hostname) return undefined;
+    return u.href.length <= ADRESSE_MAX ? u.href : undefined;
+  }
+  /** Ce widget se retire-t-il de la fenêtre ? « À faire » : non. */
+  const retirable = (kind) => !FIXES.includes(kind);
+  /**
+   * Pourquoi « Copier vers l'autre écran » est refusé, ou '' s'il est permis. `o` : { kind, privee (lit-il une appli
+   * de la vie privée ?), ouvert (ouvert à au moins une personne, vérifié) }. Les quatre sortes réservées : jamais. Un
+   * widget de la vie privée qui n'est ouvert à personne : non plus. Ce qu'on n'a pas pu vérifier : refusé.
+   */
+  function copieRefusee(o = {}) {
+    if (typeof o.kind !== 'string' || !o.kind || RESERVEES.includes(o.kind)) return 'reservee';
+    if (o.privee === false) return '';
+    return o.privee === true && o.ouvert === true ? '' : 'vie_privee';
+  }
+  /**
+   * Ce que fait un widget quand on le touche, relu sans confiance : { quoi: 'appli' | 'action' | 'ecran' | 'adresse' |
+   * 'rien', … }. Rien d'écrit (ou rien de reconnu) : ouvrir son appli s'il en a une, sinon rien. Une action est
+   * toujours celle de l'appli du widget ; une adresse est renettoyée ici avant d'être ouverte.
+   */
+  function toucherDe(w) {
+    const t = w && typeof w.toucher === 'object' && w.toucher ? w.toucher : {}, mod = w && typeof w.module === 'string' ? w.module : '';
+    if (t.quoi === 'rien') return { quoi: 'rien' };
+    if (t.quoi === 'ecran' && ECRANS_TOUCHER.includes(t.ecran)) return { quoi: 'ecran', ecran: t.ecran };
+    if (t.quoi === 'adresse') { const a = adresseNette(t.adresse); if (a) return { quoi: 'adresse', adresse: a }; }
+    if (t.quoi === 'action' && mod && w.kind !== 'bouton' && typeof t.action === 'string' && /^[a-z_][a-z0-9_]{0,39}$/i.test(t.action)) return { quoi: 'action', appli: mod, action: t.action, input: t.input && typeof t.input === 'object' ? t.input : {} };
+    return mod ? { quoi: 'appli', appli: mod } : { quoi: 'rien' };
+  }
+
   // ---------------- Dessin (seulement quand un hôte l'appelle)
   const SVG = {
     cadenas: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
@@ -154,7 +241,38 @@
 .wr-btn.wr-doux{background:transparent;color:var(--ink,var(--text,inherit));border-color:var(--line,#D9DCE2)}
 .wr-btn:focus-visible,.wr-plus:focus-visible{outline:2px solid var(--accent,#2F5BD3);outline-offset:2px}
 .wr-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
-.wr-corps{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:10px 0 0}`;
+.wr-corps{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:10px 0 0}
+/* « Régler » (lot 25b) : une fenêtre de 520 px au plus, qui tient à 390 px ; chaque commande fait 44 px. */
+dialog.wr-regler{box-sizing:border-box;width:min(520px,calc(100% - 24px));max-width:none;max-height:calc(100% - 24px);padding:0;border-radius:18px;border:1px solid var(--line,#D9DCE2);background:var(--panel,var(--card2,#FFF));color:var(--ink,var(--text,#14171C));font-family:inherit;overflow:hidden}
+dialog.wr-regler::backdrop{background:rgba(8,12,18,.55)}
+.wr-rg{display:flex;flex-direction:column;max-height:calc(100vh - 26px);max-height:calc(100dvh - 26px)}
+.wr-rg-h{display:flex;align-items:center;gap:10px;margin:0;padding:16px 18px 10px;font-size:17px;font-weight:650;line-height:1.3}
+.wr-rg-h .wr-ic{width:40px;height:40px}.wr-rg-h>span:last-child{min-width:0;overflow-wrap:anywhere}
+.wr-rg-c{display:flex;flex-direction:column;gap:14px;padding:2px 18px 12px;overflow-y:auto;overscroll-behavior:contain}
+.wr-fld{display:flex;flex-direction:column;gap:6px;min-width:0;margin:0;padding:0;border:0}
+.wr-fld>label,.wr-fld>legend{display:block;margin:0;padding:0;font-size:13px;font-weight:650;color:inherit}
+.wr-fld input[type=text],.wr-fld input[type=url],.wr-fld select{box-sizing:border-box;width:100%;min-height:44px;margin:0;padding:0 12px;border-radius:10px;border:1px solid var(--muted,#555B66);background:var(--panel,var(--card2,#FFF));color:inherit;font-family:inherit;font-size:15px}
+.wr-fld select option{color:#111;background:#fff}
+.wr-fld :disabled{opacity:.6}
+.wr-aide{margin:0;font-size:12.5px;line-height:1.4;color:var(--muted,#555B66)}.wr-aide:empty{display:none}
+.wr-sous{display:flex;flex-direction:column;gap:6px;min-width:0}.wr-sous:empty{display:none}
+.wr-sizes{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px}
+.wr-sizes label{display:flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:0 10px;border:1px solid var(--line,#D9DCE2);border-radius:12px;font-size:14px;font-weight:600;cursor:pointer}
+.wr-sizes input{flex:none;width:18px;height:18px;margin:0;accent-color:var(--accent,#2F5BD3)}
+.wr-sizes label:has(input:checked){border-color:var(--accent,#2F5BD3)}
+.wr-sizes small{margin-left:auto;font-weight:500;color:var(--muted,#555B66);font-variant-numeric:tabular-nums}
+.wr-note{margin:0;padding:9px 12px;border-radius:10px;font-size:13px;line-height:1.4;border:1px solid var(--line,#D9DCE2);overflow-wrap:anywhere}
+.wr-note:empty{display:none}
+.wr-note.wr-att{background:var(--warn-bg,color-mix(in srgb,var(--warn,#A15C07) 14%,transparent));border-color:var(--warn-l,color-mix(in srgb,var(--warn,#A15C07) 45%,transparent))}
+.wr-note.wr-non{border-color:var(--bad,#B3261E)}
+.wr-rang{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.wr-rang .wr-aide{flex:1 1 160px}
+.wr-rg-p{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line,#D9DCE2)}
+.wr-fin{display:flex;gap:8px;margin-left:auto}.wr-rg-p .wr-aide{flex:1 1 100%}
+.wr-rb{box-sizing:border-box;min-height:44px;margin:0;padding:0 14px;border-radius:10px;border:1px solid var(--muted,#555B66);background:none;color:inherit;font-family:inherit;font-size:14.5px;font-weight:600;line-height:1.2;cursor:pointer}
+.wr-rb.wr-p{background:var(--accent,#2F5BD3);border-color:var(--accent,#2F5BD3);color:var(--on-accent,#FFF)}
+.wr-rb.wr-danger{color:var(--bad,#B3261E);border-color:var(--bad,#B3261E)}
+.wr-rb:focus-visible,.wr-fld input:focus-visible,.wr-fld select:focus-visible{outline:2px solid var(--accent,#2F5BD3);outline-offset:2px}
+@media (max-width:480px){.wr-rg-p .wr-rb{flex:1 1 calc(50% - 4px)}.wr-fin{flex:1 1 100%}}`;
   /** Pose le style une fois, dans le document de l'hôte (au premier dessin). */
   function poserStyle(doc = document) {
     if (doc.getElementById('odinWidgetsRendu')) return;
@@ -203,5 +321,48 @@
   /** Le corps tout fait d'un état sans donnée (un bloc qui empile la ligne et le bouton). */
   function corps(d, agir) { const c = el('div', 'wr-corps'); c.append(...contenu(d, agir)); return c; }
 
-  window.OdinWidgetsRendu = { TEXTES, ETATS, VIE_PRIVEE, etatSansProprio, decrire, depuis, porteUneMesure, entete, contenu, corps, poserStyle, CSS };
+  /** Un champ de « Régler » : son nom, lié au contrôle par `pour` ; sans `pour`, un ensemble nommé (des boutons radio). */
+  function champ(nom, pour, ...noeuds) {
+    const f = el(pour ? 'div' : 'fieldset', 'wr-fld'), n = el(pour ? 'label' : 'legend', '', nom);
+    if (pour) n.htmlFor = pour;
+    f.append(n, ...noeuds.filter(Boolean));
+    return f;
+  }
+  /** Un bouton de « Régler ». `genre` : 'p' (le principal), 'danger', ou rien. */
+  function bouton(texte, faire, genre) {
+    const b = el('button', `wr-rb${genre ? ` wr-${genre}` : ''}`, texte); b.type = 'button';
+    if (typeof faire === 'function') b.addEventListener('click', faire);
+    return b;
+  }
+  /**
+   * La fenêtre « Régler » de la maquette : un titre (la tuile de l'appli, « Régler « … » »), un corps qui défile, un
+   * pied de boutons. Une vraie fenêtre de dialogue : le clavier y reste, Échap la ferme, et le focus revient à ce qui
+   * l'a ouverte (`rendre` : un nœud, ou une fonction qui le retrouve après un nouveau dessin de la page).
+   * `o` : { titre, tuile, lettre, corps: [nœuds], pied: [nœuds], rendre, fermee() }. Rend { d, fermer() }.
+   */
+  function fenetreRegler(o = {}) {
+    poserStyle();
+    const d = el('dialog', 'wr-regler'), id = `wrTitre${Date.now().toString(36)}`; d.setAttribute('aria-labelledby', id);
+    const ic = el('span', `wr-ic${o.tuile ? ' wr-app' : ''}`); ic.setAttribute('aria-hidden', 'true');
+    if (o.tuile) ic.append(o.tuile); else ic.textContent = String(o.lettre || String(o.titre || '?').slice(0, 1));
+    const nom = el('span', '', TEXTES.reglage.titre(String(o.titre ?? ''))); nom.id = id;
+    const h = el('h2', 'wr-rg-h'); h.append(ic, nom);
+    const c = el('div', 'wr-rg-c'); c.append(...(o.corps ?? []).filter(Boolean));
+    const p = el('div', 'wr-rg-p'); p.append(...(o.pied ?? []).filter(Boolean));
+    const boite = el('div', 'wr-rg'); boite.append(h, c, p); d.append(boite);
+    const ouvreur = document.activeElement;
+    d.addEventListener('close', () => {
+      d.remove();
+      if (typeof o.fermee === 'function') o.fermee();
+      const n = typeof o.rendre === 'function' ? o.rendre() : o.rendre ?? ouvreur;
+      if (n && n.isConnected && typeof n.focus === 'function') n.focus();
+    });
+    // Un appui sur le fond sombre (hors de la fenêtre) la ferme, comme « Annuler ».
+    d.addEventListener('mousedown', (ev) => { if (ev.target !== d) return; const r = boite.getBoundingClientRect(); if (ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom) d.close(); });
+    document.body.append(d); d.showModal();
+    return { d, fermer: () => { if (d.open) d.close(); } };
+  }
+
+  window.OdinWidgetsRendu = { TEXTES, ETATS, VIE_PRIVEE, etatSansProprio, decrire, depuis, porteUneMesure, entete, contenu, corps, poserStyle, CSS,
+    RESERVEES, FIXES, STYLES, ECRANS_TOUCHER, ADRESSE_MAX, adresseNette, retirable, copieRefusee, toucherDe, champ, bouton, fenetreRegler };
 })();

@@ -64,6 +64,8 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
 .fe-h{display:flex;gap:10px;align-items:center;margin:0 0 10px}
 .fe-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--field);font-weight:700;flex:none}.fe-ic-app{background:none}
 .fe-open{flex:none;font-size:12.5px;color:var(--muted);background:none;border:0;cursor:pointer;min-height:44px;margin:-5px 0;padding:0 4px}
+/* Lot 25b : hors du mode Modifier, un widget réagit au toucher (ce que « Régler » a choisi) ; une adresse est un vrai lien. */
+#fenetre:not(.fe-edit) .fe-w.fe-touche{cursor:pointer}a.fe-open{display:inline-flex;align-items:center;text-decoration:none}a.fe-open:focus-visible,button.fe-open:focus-visible{outline:2px solid var(--accent,#0b7f7c);outline-offset:-2px;border-radius:8px}
 /* Lot 25a : un état sans donnée, une ligne puis au plus un bouton. */
 .fe-w>.fe-err{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0}
 .fe-edit .fe-w{outline:2px dashed color-mix(in srgb,var(--accent,#0b7f7c) 55%,transparent);outline-offset:3px;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -207,12 +209,15 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   };
   const peutAgir = (w, r) => Object.hasOwn(AGIR, r) && (r.startsWith('partie_') ? w.kind === 'section' || w.kind === 'chiffres' : true);
   /**
-   * « ⋯ » (le propriétaire) : en attendant « Régler » (lot 25b), le réglage d'aujourd'hui — ce qu'il montre pour un
-   * module d'appli, sa taille sinon — dans le mode Modifier (rien n'est gardé avant « Terminé »).
+   * « ⋯ » (le propriétaire) : la fenêtre « Régler » de la maquette (lot 25b) — titre, taille, style, « Quand je touche
+   * le widget », « Copier vers l'autre écran », « Retirer » — dans le mode Modifier : rien n'est gardé avant « Terminé ».
    */
+  let reglage = false; // une seule fenêtre « Régler » à la fois (deux appuis coup sur coup sur « ⋯ » n'en ouvrent pas deux)
   async function regler(w) {
-    if (!edit) { edit = true; await draw(); }
-    if (w.kind === 'section' || w.kind === 'chiffres') configure(w); else tailles(w);
+    if (!proprio || ferme(w)) return; // fermé à qui regarde : rien n'est lu chez l'appli, même pour le régler
+    if (reglage || $('dialog.wr-regler')) return;
+    reglage = true;
+    try { if (!edit) { edit = true; await draw(); } await reglerWidget(w); } finally { reglage = false; }
   }
   let meteoVue = null; // la dernière météo reçue, remontrée (marquée ancienne) quand Internet est coupé
   async function weather() { try { const r = await act('gladsheim', 'meteo', {}); if (r.ok && r.data) { meteoVue = r.data; return r.data; } return null; } catch { return null; } }
@@ -253,7 +258,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       el('button', { type: 'button', title: TXT.boutonTailles, 'aria-label': TXT.boutonTailles, onclick: () => tailles(w) }, '⤡'),
       w.kind === 'section' || w.kind === 'chiffres' ? el('button', { type: 'button', title: 'Choisir ce qu\'il montre', 'aria-label': 'Réglages du module', onclick: () => configure(w) }, '⚙') : null,
       boutonOuvrirA(w),
-      el('button', { type: 'button', title: 'Retirer', 'aria-label': 'Retirer ce module', onclick: () => { page().widgets = page().widgets.filter((x) => x.id !== w.id); draw(); } }, '✕'));
+      // « À faire » se déplace mais ne se retire pas (constat M11) : pas de « ✕ » sur lui.
+      R.retirable(w.kind) ? el('button', { type: 'button', title: 'Retirer', 'aria-label': 'Retirer ce module', onclick: () => { page().widgets = page().widgets.filter((x) => x.id !== w.id); draw(); } }, '✕') : null);
     // Le coin (44 px) : tiré à la souris ou au doigt, la taille saute de case en case ; caché aux lecteurs d'écran
     // (au clavier : Maj + flèches sur la poignée). L'étiquette « c × r » se montre pendant le geste.
     const rz = el('span', { class: 'fe-rz', 'aria-hidden': 'true' }), szb = el('b', { class: 'fe-szb', 'aria-hidden': 'true' });
@@ -268,7 +274,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const tuileDe = (mod) => { if (!mod || !window.OdinAppIcons) return null; const sp = el('span', {}); sp.innerHTML = window.OdinAppIcons.tile(mod, modName(mod), 34); return sp.firstElementChild ?? sp; };
     const head = (title, small, icon, mod = w.module) => R.entete({ classe: 'fe-h', classeTuile: 'fe-ic', tuile: tuileDe(mod), lettre: icon, titre: title, sous: d.gris ? '' : small, pastille: d.pastille, gris: d.gris,
       regler: proprio && d.reglage ? () => regler(w) : null,
-      extra: [d.gris ? null : w.module ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null] });
+      extra: [d.gris ? null : boutonToucher(w, w.module ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null)] });
+    // Lot 25b : toucher la carte (pas l'un de ses boutons) fait ce que « Régler » a choisi. Fermée à qui regarde : rien.
+    if (!d.gris && R.toucherDe(w).quoi !== 'rien') { box.classList.add('fe-touche'); box.addEventListener('click', (e) => auToucher(e, box, w)); }
     const agirIci = (r) => AGIR[r]?.(w);
     // Un état sans donnée (vide, source absente, refusé) : l'en-tête, puis sa ligne et au plus un bouton.
     if (!d.donnee) {
@@ -331,7 +339,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       ? el('div', { class: 'fe-tools', role: 'toolbar', 'aria-label': 'Modifier la fenêtre' }, el('b', {}, '✎ Modifier'), ...tabs,
         el('button', { class: 'fe-tab', type: 'button', title: 'Ajouter une page', 'aria-label': 'Ajouter une page', onclick: async () => { const n = await window.OdinDialog.prompt('Nom de la nouvelle page', 'Ma page'); if (n) { L.pages.push({ id: '', name: n.slice(0, 24), widgets: [] }); cur = L.pages.length - 1; draw(); } } }, '+'),
         el('button', { class: 'fe-tab', type: 'button', onclick: () => rename(cur) }, 'Renommer'),
-        L.pages.length > 1 ? el('button', { class: 'fe-tab', type: 'button', onclick: async () => { if (await window.OdinDialog.confirm(`Supprimer la page « ${page().name} » ?`, { danger: true })) { L.pages.splice(cur, 1); cur = 0; draw(); } } }, 'Supprimer la page') : null,
+        // « À faire » ne se retire pas (constat M11) : la page qui le porte ne se supprime pas (c'est dit tout de suite).
+        L.pages.length > 1 ? el('button', { class: 'fe-tab', type: 'button', onclick: async () => { if (page().widgets.some((w) => !R.retirable(w.kind))) { say(R.TEXTES.reglage.fixe); return; } if (await window.OdinDialog.confirm(`Supprimer la page « ${page().name} » ?`, { danger: true })) { L.pages.splice(cur, 1); cur = 0; draw(); } } }, 'Supprimer la page') : null,
         el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(Boolean(page().maison)), title: 'Montrer cette page sur l\'écran de la maison', onclick: () => { page().maison = !page().maison; draw(); } }, '🏠 Écran de la maison'),
         el('button', { class: 'fe-tab', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirTiroir }, OT.TEXTES.bouton),
         el('span', { class: 'sp' }), themeBtn(),
@@ -739,7 +748,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   async function ouvrirA(w) {
     const T = TXT.ouvrir, range = JSON.parse(saved).pages.flatMap((p) => p.widgets).find((x) => x.id === w.id);
     // Un widget pas encore rangé, ou pointé depuis sur autre chose : on range d'abord (le serveur ne connaît que la fenêtre rangée).
-    if (!range || sigDe(range) !== sigDe(w)) { say(T.dAbord); return; }
+    if (!range || sigDe(range) !== sigDe(w) || JSON.stringify(range.toucher ?? null) !== JSON.stringify(w.toucher ?? null)) { say(T.dAbord); return; }
     let r; try { r = await act('gladsheim', 'ouvertures_widget', { widget: w.id }); } catch { r = { ok: false }; }
     if (!r.ok || !r.data) { say(`✗ ${r.text ?? r.error ?? T.echec}`); return; }
     const gens = Array.isArray(r.data.personnes) ? r.data.personnes : [], appli = (r.data.applis ?? []).map((a) => a.name).join(', ') || modName(appliDe(w));
@@ -756,6 +765,182 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
         if (dernier) say(dernier.ok ? (change.length > 1 ? T.fait(change.length) : dernier.text) : `✗ ${dernier.text ?? dernier.error}`);
       })().catch(() => say(`✗ ${T.echec}`));
     });
+  }
+  // ------------------------------------------------------------------ « Quand je touche le widget » (lot 25b)
+  /**
+   * Le bouton de l'en-tête dit ce que fait le widget quand on le touche (le même geste au clavier) : « Ouvrir › » pour
+   * son appli (`ouvrir`, le bouton d'aujourd'hui), « Lancer › » pour une action, « Aller › » pour un écran, un vrai lien
+   * « Site ↗ » pour une adresse (nouvel onglet, sans donner la main à la page ouverte). « Rien » : pas de bouton.
+   */
+  function boutonToucher(w, ouvrir) {
+    const t = R.toucherDe(w), T = R.TEXTES.toucher;
+    if (t.quoi === 'appli') return ouvrir;
+    if (t.quoi === 'action') { const n = T.lancerNom(cat?.modules?.find((m) => m.id === t.appli)?.actions?.find((a) => a.id === t.action)?.label ?? t.action, modName(t.appli)); return el('button', { class: 'fe-open', type: 'button', 'aria-label': n, title: n, onclick: (e) => { if (!(e.detail > 1)) toucher(w); } }, T.lancer); }
+    if (t.quoi === 'ecran') { const n = T.allerNom(R.TEXTES.reglage.ecrans[t.ecran]); return el('button', { class: 'fe-open', type: 'button', 'aria-label': n, title: n, onclick: () => toucher(w) }, T.aller); }
+    if (t.quoi === 'adresse') { let h = ''; try { h = new URL(t.adresse).host; } catch { /* déjà nettoyée */ } return el('a', { class: 'fe-open', href: t.adresse, target: '_blank', rel: 'noopener noreferrer', 'aria-label': T.siteNom(h), title: t.adresse }, T.site); }
+    return null;
+  }
+  /**
+   * Un clic sur la carte : seulement hors du mode Modifier, pas sur l'un de ses boutons ou liens, pas en sélectionnant
+   * un texte. Le second clic d'un double clic ne compte pas (une action ne part pas deux fois, un site ne s'ouvre pas
+   * dans deux onglets).
+   */
+  function auToucher(e, box, w) {
+    if (edit || glisse || e.defaultPrevented || e.detail > 1) return;
+    const c = e.target?.closest?.(OG.CONTROLES); if (c && c !== box && box.contains(c)) return;
+    if (String(window.getSelection?.() ?? '')) return;
+    toucher(w);
+  }
+  /**
+   * Fait ce que « Régler » a choisi. Une action part par le chemin de toutes les actions d'Odin, comme le bouton sur
+   * mesure : si elle est grave, Odin demande l'accord à CHAQUE fois ; un membre ne lance que ce que son droit sur
+   * l'appli permet (le serveur décide). Une adresse, renettoyée, s'ouvre dans un nouvel onglet qui n'a pas la main
+   * sur cette page. Une action à la fois par widget ; aucune en mode Modifier (elle n'est peut-être pas encore rangée).
+   */
+  const lancements = new Set();
+  async function toucher(w) {
+    const t = R.toucherDe(w);
+    if (t.quoi === 'appli') { location.hash = `#app=${t.appli}`; return; }
+    if (t.quoi === 'ecran') { location.hash = t.ecran === 'maison' ? '#maison' : '#home'; return; }
+    if (t.quoi === 'adresse') { window.open(t.adresse, '_blank', 'noopener,noreferrer'); return; }
+    if (t.quoi !== 'action' || edit || lancements.has(w.id)) return;
+    lancements.add(w.id);
+    try {
+      let r = await act(t.appli, t.action, t.input);
+      if (r.confirm) r = (await window.OdinDialog.confirm(r.confirm, { danger: true })) ? await act(t.appli, t.action, t.input, true) : { ok: true, text: R.TEXTES.toucher.annule };
+      say(r.ok ? r.text : `✗ ${r.text ?? r.error}`);
+    } catch { say('✗ Odin ne répond pas.'); } finally { lancements.delete(w.id); }
+  }
+
+  // ------------------------------------------------------------------ « Régler » un widget (lot 25b)
+  /**
+   * À qui ce widget est ouvert, s'il lit une appli de la vie privée : { privee, connu, noms }. Pas encore rangé : à
+   * personne. Ce qu'on n'a pas pu lire : `connu` faux (le plus sûr est alors retenu partout).
+   */
+  async function ouvertA(w) {
+    if (!R.VIE_PRIVEE.includes(appliDe(w))) return { privee: false, connu: true, noms: [] };
+    if (!JSON.parse(saved).pages.flatMap((p) => p.widgets).some((x) => x.id === w.id)) return { privee: true, connu: true, noms: [] };
+    try { const r = await act('gladsheim', 'ouvertures_widget', { widget: w.id }); if (r.ok && Array.isArray(r.data?.personnes)) return { privee: true, connu: true, noms: r.data.personnes.filter((g) => g.ouvert).map((g) => String(g.name)) }; } catch { /* pas lu */ }
+    return { privee: true, connu: false, noms: [] };
+  }
+  /**
+   * La fenêtre « Régler » de la maquette (ses mots sont dans pages/widgets-rendu.js). Tout se fait sur la fenêtre en
+   * cours de modification : rien n'est gardé avant « Terminé », et « Annuler » (la barre du mode Modifier) remet tout.
+   * - une adresse est vérifiée ici, puis nettoyée par le serveur au rangement (http ou https seulement) ;
+   * - changer « Quand je touche » (ou ce qu'il montre) d'un widget ouvert à quelqu'un le referme pour cette personne
+   *   au rangement : c'est dit ici, avant de valider ;
+   * - « Copier vers l'autre écran » : refusé pour les quatre sortes de l'accueil et pour un widget de la vie privée qui
+   *   n'est ouvert à personne ; « Retirer » : absent sur « À faire ».
+   */
+  async function reglerWidget(w) {
+    const T = R.TEXTES.reglage, titre = titreDe(w), mod = cat?.modules?.find((m) => m.id === w.module), ouv = await ouvertA(w);
+    const tuile = (() => { const a = appliDe(w); if (!a || !window.OdinAppIcons) return null; const sp = el('span', {}); sp.innerHTML = window.OdinAppIcons.tile(a, modName(a), 40); return sp.firstElementChild ?? sp; })();
+    // Pendant les lectures, le widget a pu quitter la fenêtre en cours (« Annuler » du mode Modifier) : plus rien à régler.
+    const encoreLa = () => edit && L.pages.some((p) => p.widgets.includes(w));
+    if (!encoreLa()) return;
+    const corps = [];
+    // Le titre. Un site surveillé porte le nom de sa sonde : il ne se change pas ici.
+    const fTitre = el('input', { id: 'wrRT', type: 'text', maxlength: '40', value: w.label ?? '', placeholder: titreDe({ ...w, label: undefined }), autocomplete: 'off', disabled: w.kind === 'site' });
+    corps.push(R.champ(T.champTitre, fTitre.id, fTitre, w.kind === 'site' ? el('p', { class: 'wr-aide' }, T.titreSite) : null));
+    // Ce qu'il montre (un module d'appli) : ses chiffres clés, ou une partie de sa page.
+    let fMontre = null; const montre0 = w.kind === 'section' ? w.section ?? '' : '';
+    if (w.kind === 'section' || w.kind === 'chiffres') {
+      let v = views.get(w.module); if (!v) { try { v = (await api(`/api/valhalla/view?id=${encodeURIComponent(w.module)}`)).view; } catch { v = null; } }
+      const secs = [...(v?.sections ?? []), ...(v?.side ?? [])].filter((x) => x.kind !== 'form' && x.title).map((x) => x.title);
+      if (!encoreLa()) return;
+      if (montre0 && !secs.includes(montre0)) secs.unshift(montre0);
+      fMontre = el('select', { id: 'wrRM' }, el('option', { value: '' }, T.chiffres), ...secs.map((x) => el('option', { value: x, selected: x === montre0 ? true : undefined }, x)));
+      corps.push(R.champ(T.montre, fMontre.id, fMontre));
+    }
+    // La taille : les sept tailles toutes faites (celles plus petites que la mini du widget n'y sont pas).
+    const now = G.tailleChoisie(w);
+    const radios = el('div', { class: 'wr-sizes' }, ...G.taillesPossibles(w.kind).map((x) => el('label', {}, el('input', { type: 'radio', name: 'wrTaille', value: x.nom, checked: x.nom === now ? true : undefined }), TXT.tailles[x.nom] ?? x.nom, el('small', {}, G.etiquette(x)))));
+    corps.push(R.champ(T.taille, '', radios, el('p', { class: 'wr-aide' }, T.aideTaille)));
+    // Le style : seulement pour une sorte qui en a plus d'un.
+    const styles = Array.isArray(R.STYLES[w.kind]) ? R.STYLES[w.kind] : [], style0 = w.style ?? styles[0]?.[0];
+    const fStyle = styles.length > 1 ? el('div', { class: 'wr-sizes' }, ...styles.map(([v, n]) => el('label', {}, el('input', { type: 'radio', name: 'wrStyle', value: v, checked: v === style0 ? true : undefined }), n))) : null;
+    if (fStyle) corps.push(R.champ(T.style, '', fStyle));
+    // « Quand je touche le widget » : les cinq choix de la maquette. Une action : celles de l'appli du widget seulement.
+    const t0 = R.toucherDe(w), actions = w.kind !== 'bouton' && mod && OT.active(mod) ? [...(mod.actions ?? [])] : [];
+    // L'action déjà choisie reste dans la liste, même si l'appli ne la propose plus (désactivée, action retirée) :
+    // ouvrir « Régler » pour changer le titre ne la fait pas disparaître sans le dire.
+    if (t0.quoi === 'action' && !actions.some((a) => a.id === t0.action)) actions.unshift({ id: t0.action, label: t0.action, params: Object.keys(t0.input).map((k) => ({ key: k, label: k, kind: 'text' })) });
+    const choix = [w.module ? ['appli', T.choix.appli(modName(w.module))] : null, actions.length ? ['action', T.choix.action] : null, ['ecran', T.choix.ecran], ['adresse', T.choix.adresse], ['rien', T.choix.rien]].filter(Boolean);
+    const fQuoi = el('select', { id: 'wrRQ' }, ...choix.map(([v, n]) => el('option', { value: v, selected: v === t0.quoi ? true : undefined }, n)));
+    const sous = el('div', { class: 'wr-sous' });
+    const remplir = () => {
+      const q = fQuoi.value;
+      if (q === 'action') {
+        const fA = el('select', { id: 'wrRA' }, ...actions.map((a) => el('option', { value: a.id, selected: t0.quoi === 'action' && a.id === t0.action ? true : undefined }, `${a.label}${a.grave ? ' ⚠' : ''}`)));
+        const params = el('div', { class: 'wr-sous' }), aide = el('p', { class: 'wr-aide' });
+        const remplirParams = () => {
+          const a = actions.find((x) => x.id === fA.value), garde = t0.quoi === 'action' && t0.action === fA.value ? t0.input : {};
+          params.replaceChildren(...(a?.params ?? []).filter((x) => x.kind !== 'password').map((x) => { const i = `wrRP-${x.key}`, val = String(garde[x.key] ?? x.default ?? '');
+            return R.champ(`${x.label}${x.required ? ' *' : ''}`, i, x.kind === 'select' ? el('select', { id: i, 'data-k': x.key }, ...(x.options ?? []).map((o) => el('option', { value: o, selected: String(o) === val ? true : undefined }, o))) : el('input', { id: i, type: 'text', 'data-k': x.key, value: val, maxlength: '300', autocomplete: 'off' })); }));
+          aide.textContent = a?.grave ? T.aideGrave : '';
+        };
+        fA.addEventListener('change', remplirParams); remplirParams();
+        sous.replaceChildren(R.champ(T.action, fA.id, fA, aide), params);
+      } else if (q === 'ecran') {
+        const fE = el('select', { id: 'wrRE' }, ...R.ECRANS_TOUCHER.map((x) => el('option', { value: x, selected: t0.quoi === 'ecran' && t0.ecran === x ? true : undefined }, T.ecrans[x])));
+        sous.replaceChildren(R.champ(T.ecran, fE.id, fE));
+      } else if (q === 'adresse') {
+        const fU = el('input', { id: 'wrRU', type: 'url', inputmode: 'url', placeholder: 'https://', maxlength: String(R.ADRESSE_MAX), value: t0.quoi === 'adresse' ? t0.adresse : '', autocomplete: 'off', spellcheck: 'false' });
+        sous.replaceChildren(R.champ(T.adresse, fU.id, fU, el('p', { class: 'wr-aide' }, T.adresseAide)));
+      } else sous.replaceChildren();
+    };
+    fQuoi.addEventListener('change', remplir); remplir();
+    corps.push(R.champ(T.toucher, fQuoi.id, fQuoi), sous);
+    /** Ce que la fenêtre dit vouloir : « Quand je touche » (rien d'écrit : ouvrir l'appli) et ce qu'il montre. */
+    const lire = () => {
+      const q = fQuoi.value; let t;
+      if (q === 'action') { const input = Object.fromEntries([...sous.querySelectorAll('[data-k]')].map((n) => [n.dataset.k, n.value]).filter(([, v]) => v !== '')); t = { quoi: 'action', action: $('#wrRA', sous)?.value ?? '', ...(Object.keys(input).length ? { input } : {}) }; }
+      else if (q === 'ecran') t = { quoi: 'ecran', ecran: $('#wrRE', sous)?.value };
+      else if (q === 'adresse') t = { quoi: 'adresse', adresse: ($('#wrRU', sous)?.value ?? '').trim() };
+      else if (q === 'rien' && w.module) t = { quoi: 'rien' };
+      return { toucher: t, section: fMontre ? fMontre.value : montre0 };
+    };
+    const sig = (x) => JSON.stringify([x.toucher ?? null, x.section]), depart = sig(lire());
+    // La vie privée : à qui il est ouvert, « Ouvrir à… », et ce qu'un changement refermerait (dit avant de valider).
+    const alerte = el('p', { class: 'wr-note wr-att', role: 'status', 'aria-live': 'polite' }), statut = el('p', { class: 'wr-note', role: 'status', 'aria-live': 'polite' }), erreur = el('p', { class: 'wr-note wr-non', role: 'alert' });
+    let f = null;
+    if (ouv.privee) corps.push(el('div', { class: 'wr-rang' }, el('p', { class: 'wr-aide' }, !ouv.connu ? '' : ouv.noms.length ? T.ouvertA(ouv.noms.join(', ')) : T.ouvertAPersonne), R.bouton(T.ouvrirA, () => { f.fermer(); ouvrirA(w); })));
+    const surveiller = () => { erreur.textContent = ''; alerte.textContent = !ouv.privee || sig(lire()) === depart ? '' : !ouv.connu ? T.refermeInconnu : ouv.noms.length ? T.referme(ouv.noms.join(', ')) : ''; };
+    corps.push(alerte, statut, erreur);
+    const rendre = () => { const c = $(`#feGrid .fe-w[data-id="${CSS.escape(w.id)}"]`); return c?.querySelector('.wr-plus') ?? c?.querySelector('.fe-grip') ?? $('#fenetre .fe-ajout') ?? $('#fenetre .fe-tab'); };
+    const valider = () => {
+      const x = lire(); erreur.textContent = '';
+      if (x.toucher?.quoi === 'adresse') { const a = R.adresseNette(x.toucher.adresse); if (!a) { erreur.textContent = T.adresseRefusee; $('#wrRU', sous)?.focus(); return; } x.toucher.adresse = a; }
+      if (x.toucher?.quoi === 'action' && !x.toucher.action) { erreur.textContent = T.aucuneAction; return; }
+      const taille = radios.querySelector('input:checked')?.value;
+      if (taille && taille !== now && !G.choisir(w, taille)) { erreur.textContent = T.tailleRefusee; return; }
+      if (w.kind !== 'site') { const v = fTitre.value.trim().slice(0, 40); if (v) w.label = v; else delete w.label; }
+      if (fMontre && x.section !== montre0) { if (x.section) { w.kind = 'section'; w.section = x.section; } else { w.kind = 'chiffres'; delete w.section; } }
+      const st = fStyle?.querySelector('input:checked')?.value; if (st) { if (st === styles[0][0]) delete w.style; else w.style = st; }
+      if (x.toucher) w.toucher = x.toucher; else delete w.toucher;
+      f.fermer(); draw().then(() => rendre()?.focus());
+    };
+    // « Copier vers l'autre écran » : vers la première page de l'autre écran (créée s'il n'y en a pas), avec un nouvel identifiant.
+    const versMaison = !page().maison;
+    const copier = R.bouton(versMaison ? T.copier.maison : T.copier.accueil, () => {
+      const refus = R.copieRefusee({ kind: w.kind, privee: ouv.privee, ouvert: ouv.connu && ouv.noms.length > 0 });
+      if (refus) { statut.textContent = refus === 'reservee' ? T.copieReservee : T.copiePrivee; return; }
+      let cible = L.pages.find((p) => Boolean(p.maison) === versMaison);
+      if ((!cible && L.pages.length >= 8) || (cible && cible.widgets.length >= 48)) { statut.textContent = T.copiePleine; return; }
+      if (!cible) { cible = { id: '', name: versMaison ? T.pages.maison : T.pages.accueil, ...(versMaison ? { maison: true } : {}), widgets: [] }; L.pages.push(cible); }
+      cible.widgets.push({ ...JSON.parse(JSON.stringify(w)), id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) });
+      statut.textContent = `${T.copie(cible.name)}${ouv.privee ? T.copieFermee : ''} ${T.pied}`; draw();
+    });
+    // « Retirer » : pas sur « À faire » (il se déplace, il ne se retire pas).
+    const retirer = R.retirable(w.kind) ? R.bouton(T.retirer, () => {
+      page().widgets = page().widgets.filter((x) => x.id !== w.id); f.fermer();
+      draw().then(() => { dire(T.retire(titre)); say(`${T.retire(titre)} ${T.pied}`); rendre()?.focus(); });
+    }, 'danger') : null;
+    f = R.fenetreRegler({ titre, tuile, lettre: w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : undefined, corps, rendre,
+      pied: [copier, retirer, el('div', { class: 'wr-fin' }, R.bouton(T.annuler, () => f.fermer()), R.bouton(T.valider, valider, 'p')), el('p', { class: 'wr-aide' }, T.pied)] });
+    f.d.addEventListener('input', surveiller); f.d.addEventListener('change', surveiller);
+    // Entrée dans un champ de texte : valider (comme le bouton).
+    f.d.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.target?.tagName === 'INPUT' && e.target.type !== 'radio') { e.preventDefault(); valider(); } });
   }
   /** « Site surveillé » : une sonde de Pulsar déjà là, ou un nouveau site à surveiller (Pulsar le vérifie ensuite tout seul). */
   async function siteSurveille() {
@@ -816,7 +1001,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       say(TXT.enPlein);
     } else if (!a || a === document.body || a === b) $('#homeFull')?.focus({ preventScroll: true });
   });
-  window.OdinFenetre = { mount, state: () => ({ L, cur, edit }), edit: (on = true) => { edit = on; draw(); } };
+  window.OdinFenetre = { mount, state: () => ({ L, cur, edit }), edit: (on = true) => { edit = on; return draw(); } };
   // Après la connexion seulement (la page de connexion n'a pas de fenêtre).
   const tryMount = () => { const app = $('#app'); if (app && !app.hidden && $('#v-home .body')) mount(); else setTimeout(tryMount, 1500); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryMount); else tryMount();

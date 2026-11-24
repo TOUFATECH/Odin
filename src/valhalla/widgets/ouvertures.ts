@@ -7,7 +7,8 @@
 //   connexion : une personne retirée puis une autre créée avec le même nom n'hérite de rien ;
 // - par widget ET par appli lue (cleOuverture) : un widget pointé ensuite sur une autre appli est de nouveau fermé ;
 // - pour ce que le widget montrait ce jour-là : s'il montre ensuite autre chose de la même appli (une autre partie de
-//   sa page, ses chiffres, une autre action), ranger la fenêtre le referme ; changer son titre ne change rien ;
+//   sa page, ses chiffres, une autre action) ou fait autre chose quand on le touche (« Régler », lot 25b), ranger la
+//   fenêtre le referme ; changer son titre ne change rien ;
 // - écrit par une seule action, « propriétaire seul » (ni un membre, ni une automatisation, ni une conversation
 //   marquée), notée dans « qui a fait quoi » de Hestia ; aucune autre action ne touche à ce réglage ;
 // - ranger la fenêtre retire les ouvertures des widgets qui n'existent plus (ou qui ne lisent plus cette appli).
@@ -17,6 +18,7 @@ import type { Layout, Widget } from '../modules/gladsheim.ts';
 import { aDroit, persona, personnes, type Personne } from '../sso/etat.ts';
 import { actionJournal, avecJournal } from '../vidarr/qui-a-fait.ts';
 import { APPLIS_VIE_PRIVEE, applisLues, cleOuverture, sorteDe } from './index.ts';
+import type { Lecteur } from './sorte.ts';
 
 /** Au plus tant d'ouvertures gardées par personne (une fenêtre : 8 pages de 48 widgets au plus). */
 const MAX_PAR_PERSONNE = 400;
@@ -42,14 +44,29 @@ export function ouverturesDe(ctx: Pick<ModCtx, 'settings'>, personne: string): s
   return lire(ctx).get(personne) ?? [];
 }
 
+/**
+ * Qui regarde l'accueil, pour une personne connectée (son nom de connexion) : ses droits d'appli, relus à chaque
+ * demande, et ce que le propriétaire lui a ouvert, à elle. La même règle que la donnée des widgets d'un membre
+ * (widgets-api.ts, lecteurMembre). Une fiche introuvable ou inactive, Persona arrêté : rien (tout lui est fermé).
+ */
+export function lecteurDe(ctx: Pick<ModCtx, 'settings'>, login: string): Lecteur | undefined {
+  const pc = persona(), p = pc ? personnes(pc).find((x) => x.login === login && x.active) : undefined;
+  if (!pc || !p || !FICHE.test(p.id)) return undefined;
+  return { qui: 'membre', ecran: 'accueil', peutLire: (appli) => aDroit(pc, p, appli), ouverts: new Set(ouverturesDe(ctx, p.id)) };
+}
+
 /** Les applis de la vie privée que lit ce widget (aucune : il n'y a rien à ouvrir). */
 export function applisPrivees(w: Pick<Widget, 'kind' | 'module'>): string[] {
   const sorte = sorteDe(w.kind);
   return sorte ? applisLues(w, sorte).filter((a) => APPLIS_VIE_PRIVEE.includes(a)) : [];
 }
 
-/** Ce qu'un widget montre (pas son titre, ni sa taille) : sa sorte, son appli, sa partie de page, son action. */
-const montre = (w: Widget) => JSON.stringify([w.kind, w.module ?? '', w.section ?? '', w.action ?? '', w.input ?? {}]);
+/**
+ * Ce qu'un widget montre et fait (pas son titre, ni sa taille) : sa sorte, son appli, sa partie de page, son action, et
+ * ce qu'il fait quand on le touche (lot 25b : une action ou une adresse changée, et la personne ne recevrait plus ce
+ * que le propriétaire lui avait ouvert).
+ */
+const montre = (w: Widget) => JSON.stringify([w.kind, w.module ?? '', w.section ?? '', w.action ?? '', w.input ?? {}, w.toucher ?? null]);
 
 /**
  * Les ouvertures qui valent encore pour cette fenêtre : celles d'un widget qui existe toujours ET qui lit toujours

@@ -8,8 +8,8 @@ import type { SorteWidget } from './sorte.ts';
 const reservee = { famille: 'aujourdhui', applis: [], taille: { mini: [3, 2], r: 3 }, styles: ['simple'], public: 'proprietaire', accueilSeul: true, posable: false } as const;
 
 export const SORTES_AUJOURDHUI = [
-  // « À faire » : les validations en attente, avec « Autoriser » et « Refuser ».
-  { id: 'a_faire', ...reservee },
+  // « À faire » : les validations en attente, avec « Autoriser » et « Refuser ». Il se déplace, il ne se retire pas.
+  { id: 'a_faire', ...reservee, fixe: true },
   // « Ce qu'Odin a fait », ses filtres et son « Annuler ».
   { id: 'odin_a_fait', ...reservee },
   // « Tu veux sans doute » : ce qu'Odin propose.

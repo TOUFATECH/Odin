@@ -87,6 +87,8 @@ export interface SorteWidget {
   public?: Public;
   /** Jamais hors de l'accueil du propriétaire : jamais servie à /maison, jamais « copiable » vers l'autre écran (constat G4). */
   accueilSeul?: boolean;
+  /** Vrai : se déplace mais ne se retire pas de la fenêtre (« À faire », constat M11). Absent : se retire. */
+  fixe?: boolean;
   /** Vrai : cleanLayout l'accepte déjà (l'écran sait la dessiner). Faux : déclarée, pas encore posable. */
   posable: boolean;
   /** Les réglages propres à la sorte, nettoyés sur `out` (déjà muni de id, kind, taille, module). Faux : le widget est jeté. */
