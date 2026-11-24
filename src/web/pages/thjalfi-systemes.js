@@ -10,6 +10,11 @@
 // Ce que l'appli sait déjà faire reste joignable : « Détail » (la fiche d'Hydre), « Arrêter » un téléchargement,
 // « Mettre à jour » et « Retélécharger » (Andromède), « Ajouter un système » (Andromède).
 // Pas de fin de support : la bibliothèque ne la connaît pas encore (rien n'est inventé).
+// Lot S3 : « Détail » ouvre la fiche du système dans l'onglet (la bibliothèque reste derrière, cachée, et revient telle
+// quelle) : fichier, architecture, démarrage UEFI, installation toute seule, empreinte, antivirus, arrivée, vérification,
+// surveillance ; « Où il sert » (iso_usages d'Hydre : clés ODIN, menu PXE, PC autorisés, déploiements, machines
+// virtuelles) ; « Versions gardées » ; « Retirer » : un garde-fou dans la page qui nomme chaque usage, refuse tant qu'un
+// déploiement ou une VM allumée s'en sert, et demande son nom tapé (revérifié par le serveur, réservé au propriétaire).
 // Tous les textes sont dans MOTS ; tailles et nombres selon la langue de la page (Intl). TOUT passe par OdinDialog.
 // Expose window.OdinGeneseSystemes = { onglets, dessiner(root, onglet, hote), MOTS, logique, etat }.
 (() => {
@@ -90,6 +95,41 @@
     'c.vide': 'Rien ne correspond.', 'c.charge': 'Lecture du catalogue…', 'c.erreur': 'Le catalogue ne peut pas être lu : {raison}',
     'c.reponse': '{texte}',
     'u.to': '{n} To', 'u.go': '{n} Go', 'u.mo': '{n} Mo', 'u.min': '{n} min', 'u.h': '{h} h {m}',
+    // ——— la fiche, « où il sert », les versions gardées, retirer (lot S3)
+    'd.charge': 'Lecture de la fiche…', 'd.erreur': 'La fiche ne peut pas être lue : {raison}',
+    'd.f.fichier': 'Fichier', 'd.f.arch': 'Architecture', 'd.f.uefi': 'Démarrage UEFI', 'd.f.auto': 'S\'installe tout seul', 'd.f.empreinte': 'Empreinte', 'd.f.antivirus': 'Antivirus',
+    'd.f.arrive': 'Arrivé', 'd.f.verifie': 'Dernière vérification', 'd.f.surveille': 'Gardé à jour', 'd.f.taille': 'Taille',
+    'arch.x86_64': 'PC 64 bits (x86_64)', 'arch.arm64': 'ARM 64', 'arch.x86 (32 bits)': 'PC 32 bits',
+    'uefi.oui': 'Oui', 'uefi.non': 'Pas trouvé (BIOS seulement)',
+    'auto.oui': 'Oui : compte, langue, clavier, logiciels', 'auto.non': 'Non : il démarre seulement',
+    'emp.editeur': '{court} · identique à l\'éditeur', 'emp.calculee': '{court} · notée par Odin (l\'éditeur n\'en publie pas)', 'emp.changee': '{court} · ne correspond plus : retélécharge-le', 'emp.aucune': 'Pas encore calculée',
+    'av.sain': 'Propre · le {le}', 'av.a_verifier': 'À vérifier · le {le}', 'av.bloque': 'Bloqué', 'av.non': 'Pas encore analysé',
+    'arr.andromede': 'Le {le} · site officiel de l\'éditeur{hote}', 'arr.autre': 'Le {le} · {origine}',
+    'o.envoi': 'envoyé depuis le navigateur', 'o.lien': 'depuis un lien', 'o.dossier': 'copié depuis un dossier', 'o.partage': 'depuis un partage du réseau', 'o.déposée': 'déposé dans le dossier', 'o.hermes': 'Hermès', 'o.andromede': 'Andromède',
+    'verif.ok': 'Le {le} · intact', 'verif.ko': 'Le {le} · abîmé', 'verif.jamais': 'Pas encore',
+    'surv.oui': 'Oui : Andromède le surveille', 'surv.non': 'Non',
+    'u.titre': 'Où il sert', 'u.lead': 'Retirer ce système, c\'est aussi pour eux.',
+    'u.cle': 'Clé ODIN {nom}', 'u.cle.d': 'Copié dessus le {le}', 'u.cle.d.sans': 'Copié dessus',
+    'u.menu': 'Menu du démarrage par le réseau', 'u.menu.d': 'Entrée {n}', 'u.menu.cache': 'Entrée cachée', 'u.menu.defaut': '{d}, système par défaut',
+    'u.pc': 'PC {nom}', 'u.pc.d': 'Autorisé à démarrer ce système · {mac}', 'u.pc.auto': 'Installation automatique prévue · {mac}',
+    'u.dep': 'Déploiement en cours', 'u.dep.d': 'Sur {n} PC : {pcs}',
+    'u.vm': 'Machine virtuelle {nom}', 'u.vm.d': 'Installée depuis cette ISO (Hydre)', 'u.vm.allumee': 'Allumée avec cette ISO', 'u.vm.modele': 'Modèle fait depuis cette ISO (Hydre)',
+    'u.bloque': 'empêche de retirer', 'u.voir': 'Voir', 'u.voir.nom': 'Voir : {nom}',
+    'u.rien': 'Rien ne s\'en sert : ni clé ODIN, ni menu du démarrage par le réseau, ni PC autorisé, ni machine virtuelle.',
+    'u.cles.pas.lu': 'Une clé ODIN où il a été copié garde sa copie (le journal des clés n\'est pas lisible d\'ici).',
+    'u.pas.lu': 'Où il sert ne peut pas être lu : {raison}',
+    'v.titre': 'Versions gardées', 'v.lead': 'L\'ancienne reste dans « old » : une seule.',
+    'v.service': 'En service · {taille}', 'v.old': 'Dans « old » · {taille}', 'v.tag': 'en service', 'v.nouvelle': 'Disponible chez l\'éditeur',
+    'v.tel': 'Télécharger', 'v.tel.nom': 'Télécharger {nom} {version}',
+    'r.bouton': 'Retirer', 'r.bouton.nom': 'Retirer {nom} de la bibliothèque',
+    'r.titre': 'Retirer {nom} de la bibliothèque ?', 'r.bloque.titre': 'Impossible de retirer {nom} pour l\'instant',
+    'r.fichier': 'Le fichier ({taille}) est effacé du dossier des ISO, et rien d\'autre.',
+    'r.apres.cle': 'La clé ODIN {nom} garde sa copie.', 'r.apres.cles': 'Une clé ODIN où il a été copié garde sa copie.',
+    'r.apres.menu': 'Le menu du démarrage par le réseau perd cette entrée.', 'r.apres.menu.defaut': 'Le menu du démarrage par le réseau perd cette entrée ; par défaut, ce sera le disque du PC.',
+    'r.apres.pc': '{nom} retombe sur le menu normal : rien ne s\'installe tout seul.', 'r.apres.vm': 'La machine virtuelle {nom} garde son disque.',
+    'r.retel': 'Tu pourras le retélécharger depuis le catalogue.',
+    'r.taper': 'Pour confirmer, tape son nom :', 'r.taper.nom': 'Tape « {nom} » pour confirmer',
+    'r.ok': 'Retirer le fichier', 'r.garder': 'Garder', 'r.cours': 'Odin retire le fichier…', 'r.relire': 'Revérifier',
   };
   const mot = (k, v) => String(MOTS[k] ?? k).replace(/\{(\w+)\}/g, (_m, x) => (v && v[x] != null ? String(v[x]) : ''));
   const langue = () => (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang) || 'fr';
@@ -157,7 +197,24 @@
     if (k > 0) return `${l[k - 1].nom} ${l[k - 1].version}`;
     return f && f.enCours ? `${f.enCours.nom} ${f.enCours.version}` : '';
   }
-  const logique = { MOTS, mot, FILTRES, filtrer, vitesse, taille, nomComplet, couleur, groupesCatalogue, versionsMontrees, versionChoisie, etatCarte, avantDansFile, presente };
+  // ——— la fiche (lot S3)
+  /** « 3f9a 51c0 … 8d2e c21e » : le début et la fin d'une empreinte SHA-256. Pur. */
+  const empreinteCourte = (h) => { const t = String(h || '').toLowerCase(); return /^[0-9a-f]{16,}$/.test(t) ? `${t.slice(0, 4)} ${t.slice(4, 8)} … ${t.slice(-8, -4)} ${t.slice(-4)}` : ''; };
+  /** Le nom tapé est-il le bon ? Même règle que le serveur (sans accents, majuscules ni espaces en trop). Pur. */
+  const nomJuste = (tape, attendu) => { const n = (x) => sansAccents(x).replace(/\s+/g, ' ').trim(); return n(attendu) !== '' && n(tape) === n(attendu); };
+  /** Ce que devient chaque usage si on retire le système : les lignes du garde-fou. Pur. */
+  function phrasesRetrait(u) {
+    const l = [];
+    for (const x of (u && Array.isArray(u.usages) ? u.usages : [])) {
+      if (x.genre === 'cle') l.push(mot('r.apres.cle', { nom: x.nom }));
+      else if (x.genre === 'menu') l.push(mot(x.defaut ? 'r.apres.menu.defaut' : 'r.apres.menu'));
+      else if (x.genre === 'pc') l.push(mot('r.apres.pc', { nom: x.nom }));
+      else if (x.genre === 'vm' && !x.bloque) l.push(mot('r.apres.vm', { nom: x.nom }));
+    }
+    if (u && u.lu && u.lu.cles === false) l.push(mot('r.apres.cles'));
+    return l;
+  }
+  const logique = { MOTS, mot, FILTRES, filtrer, vitesse, taille, nomComplet, couleur, groupesCatalogue, versionsMontrees, versionChoisie, etatCarte, avantDansFile, presente, empreinteCourte, nomJuste, phrasesRetrait };
 
   // ---------------------------------------------------------------- l'état (gardé quand on change d'onglet)
   const Z = { filtre: 'tout', q: '', data: null, erreur: '', vers: '', debits: {}, msg: '', vue: 'biblio',
@@ -174,6 +231,7 @@
     refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', plus: 'M12 5v14M5 12h14', search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
     usb: 'M9 2h6v6H9zM7 8h10v9a5 5 0 0 1-10 0z', left: 'M15 18l-6-6 6-6', download: 'M12 4v11M7 10l5 5 5-5M5 20h14', clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2',
     ext: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5', file: 'M6 2h8l5 5v15H6zM14 2v5h5', net: 'M12 3v6M5 21v-4h14v4M12 9v8M4 9h16', vm: 'M3 4h18v12H3zM8 20h8M12 16v4',
+    trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', pc: 'M4 5h16v11H4zM2 20h20', menu: 'M4 6h16M4 12h16M4 18h10',
   };
   const ic = (n, s = 16, w = 2) => { const v = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); v.setAttribute('viewBox', '0 0 24 24'); v.setAttribute('width', s); v.setAttribute('height', s); v.setAttribute('aria-hidden', 'true'); v.innerHTML = `<path d="${P[n]}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`; return v; };
 
@@ -229,6 +287,33 @@ a.sy-btn{text-decoration:none}
 .sy-catacts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:auto}.sy-catacts .sy-btn{flex:1 1 140px}
 .sy-pend{display:flex;margin-bottom:6px;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 12px 10px 16px;border-radius:16px;border:1px solid var(--accent,#0b7f7c);background:color-mix(in srgb,var(--accent,#0b7f7c) 10%,var(--panel));box-shadow:var(--shadow,0 6px 20px rgba(0,0,0,.12))}
 .sy-pend b{font-size:13.5px;overflow-wrap:anywhere}
+.sy-hero{display:flex;gap:14px;align-items:center;min-width:0}.sy-hero>div{min-width:0}
+.sy-hero h4{margin:0;font-size:22px;letter-spacing:-.3px;overflow-wrap:anywhere}.sy-hero small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.sy-hero .sy-mono{width:56px;height:56px;font-size:22px;border-radius:16px}
+.sy-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.sy-btn.rouge{color:color-mix(in srgb,var(--bad,#e5484d) 80%,var(--ink))}
+.sy-btn.dng{background:color-mix(in srgb,var(--bad,#d93636) 60%,#000);color:#fff;border-color:transparent}
+.sy-facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:0 18px;margin:16px 0 0}
+.sy-facts>div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line);min-width:0}
+.sy-facts dt{color:var(--muted);font-size:13px;flex:none;max-width:42%}.sy-facts dd{margin:0;font-weight:600;font-size:13px;text-align:right;overflow-wrap:anywhere;min-width:0}
+.sy-code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.sy-rgrid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;align-items:start}@media (max-width:900px){.sy-rgrid{grid-template-columns:minmax(0,1fr)}}
+.sy-used{display:flex;flex-direction:column;gap:8px}
+.sy-entry{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-width:0;background:var(--panel)}
+.sy-entry .ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--accent,#0b7f7c)}
+.sy-entry .sy-mono{width:40px;height:40px;font-size:15px}
+.sy-entry .nm{flex:1;min-width:0}.sy-entry .nm b{display:block;font-size:14px;overflow-wrap:anywhere}.sy-entry .nm small{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.sy-entry.bloque{border-color:color-mix(in srgb,var(--bad,#e5484d) 60%,var(--line))}
+.sy-entry.def{border-color:var(--accent,#0b7f7c)}.sy-entry.neu{border-style:dashed;border-color:color-mix(in srgb,var(--good,#1f9d55) 60%,var(--line))}
+.sy-entry .sy-btn{flex:none}
+.sy-guard{margin-top:14px;border:1.5px solid var(--bad,#e5484d);background:color-mix(in srgb,var(--bad,#e5484d) 9%,var(--panel));border-radius:16px;padding:14px 16px;display:flex;gap:14px;min-width:0}
+.sy-guard .gi{width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--bad,#d93636) 60%,#000);color:#fff;display:grid;place-items:center;flex:none}
+.sy-guard>div{min-width:0;flex:1}.sy-guard .t{display:block;font-size:15px;margin:0 0 6px;overflow-wrap:anywhere}
+.sy-guard ul{margin:0 0 12px;padding-left:18px;font-size:13.5px;line-height:1.55}.sy-guard li{overflow-wrap:anywhere}
+.sy-guard label{display:block;font-size:13px;margin-bottom:6px}.sy-guard label b{overflow-wrap:anywhere}
+.sy-guard .sy-q{width:100%;box-sizing:border-box;margin-bottom:10px}
+.sy-guard .err{margin:0 0 10px;font-size:13px;font-weight:600;color:color-mix(in srgb,var(--bad,#e5484d) 80%,var(--ink))}
+@media (max-width:600px){.sy-guard{flex-direction:column}.sy-hero h4{font-size:19px}.sy-hero .sy-mono{width:48px;height:48px}.sy-entry{flex-wrap:wrap}.sy-entry .sy-btn{margin-left:52px}}
 @media (prefers-reduced-motion:reduce){.sy-sw i,.sy-sw i::after{transition:none}}
 @media (prefers-reduced-motion:no-preference){.sy-bar.raye i{animation:syRaye 1s linear infinite;background-size:22.6px 22.6px}}
 @keyframes syRaye{to{background-position:22.6px 0}}
@@ -340,12 +425,164 @@ a.sy-btn{text-decoration:none}
   }
 
   async function ouvrirDetail(c) {
+    // Lot S3 : la fiche s'ouvre dans l'onglet (la bibliothèque est derrière). Un fichier jeté n'a pas de fiche.
+    if (c.etat !== 'empreinte_fausse' && typeof Z.montrerDetail === 'function') { Z.montrerDetail(c); return; }
     if (c.etat === 'empreinte_fausse') {
       const le = c.le ? new Date(c.le).toLocaleString(langue(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
       await dire(mot('faux.detail', { nom: nomComplet(c), le, pourquoi: c.pourquoi ? `\n${c.pourquoi}` : '' })); return;
     }
     const r = await postModule('ymir', 'fiche_iso', { iso: c.fichier || c.nom }).catch((e) => ({ ok: false, text: String(e && e.message || e) }));
     if (W.OdinDialog) await W.OdinDialog.alert(r.text || '', { title: nomComplet(c) });
+  }
+
+  // ---------------------------------------------------------------- la fiche d'un système (lot S3)
+  const lePlein = (t) => { try { return new Date(t).toLocaleDateString(langue(), { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return ''; } };
+  /** « Déployer » depuis la fiche : l'onglet Déployer s'il est là (ce système choisi), sinon la clé USB. */
+  function deployerDepuisFiche(c, hote) {
+    const D = W.OdinGeneseDeployer;
+    if (D && typeof D.choisirSysteme === 'function' && hote && typeof hote.aller === 'function' && D.choisirSysteme(c)) { hote.aller('deployer'); return; }
+    deployerSurCle(c, hote);
+  }
+  /**
+   * La fiche d'un système, dans `zone`. Deux lectures (Hydre) : « où il sert » (iso_usages, propriétaire seul) et la fiche
+   * (fiche_iso, avec les versions gardées). `o.retour(idCarte, relire)` rend la bibliothèque. Seul « Retirer le fichier »
+   * écrit : le nom tapé, revérifié par le serveur, qui refuse encore si un déploiement ou une VM allumée s'en sert.
+   */
+  async function dessinerDetail(zone, c, o) {
+    const hote = o.hote, nom = nomComplet(c), chemin = String(c.id || '').startsWith('iso:') ? String(c.id).slice(4) : '';
+    const D = { f: null, u: null, errF: '', errU: '', ouvert: false, tape: '', occupe: false, refus: '', msg: '' };
+    const retour = el('button', { type: 'button', class: 'sy-btn sy-back', 'data-f': 'd-retour', onclick: () => o.retour(c.id, false) }, ic('left', 15), mot('retour'));
+    const fiche = el('section', { class: 'sy-card', 'data-f': 'fiche', 'aria-labelledby': 'sy-d-titre' });
+    const note = el('p', { class: 'sy-msg', role: 'status', 'data-f': 'd-note' });
+    const bas = el('div', { class: 'sy-rgrid' });
+    zone.replaceChildren(retour, fiche, note, bas);
+    let boutonRetirer = null;
+    const lireUsages = async () => {
+      if (!chemin) { D.u = null; D.errU = '?'; return; }
+      const r = await postModule('ymir', 'iso_usages', { iso: chemin }).catch((e) => ({ ok: false, text: String((e && e.message) || e) }));
+      if (r && r.ok !== false && r.data) { D.u = r.data; D.errU = ''; } else { D.u = null; D.errU = (r && r.text) || '?'; }
+    };
+    const vers = (id, sous) => { if (sous && W.OdinGeneseReseau && W.OdinGeneseReseau.etat) W.OdinGeneseReseau.etat.sous = sous; if (hote && typeof hote.aller === 'function') hote.aller(id); };
+
+    function faits(f) {
+      const u = D.u, l = [];
+      const p = (k, v, o2 = {}) => { if (v != null && v !== '') l.push(el('div', {}, el('dt', {}, mot(k)), el('dd', { class: o2.code ? 'sy-code' : null, title: o2.titre || null }, v))); };
+      p('d.f.fichier', f.nom, { code: true });
+      p('d.f.taille', f.taille ? taille(f.taille) : '');
+      p('d.f.arch', f.arch ? (MOTS[`arch.${f.arch}`] ? mot(`arch.${f.arch}`) : f.arch) : '');
+      p('d.f.uefi', f.efi === true ? mot('uefi.oui') : f.efi === false ? mot('uefi.non') : '');
+      p('d.f.auto', u && u.genese ? mot(u.genese.auto ? 'auto.oui' : 'auto.non') : '');
+      const court = empreinteCourte(f.sha256);
+      p('d.f.empreinte', !court ? mot('emp.aucune') : mot(f.verifiee && f.verifiee.ok === false ? 'emp.changee' : f.editeur === true ? 'emp.editeur' : 'emp.calculee', { court }), { code: Boolean(court), titre: f.sha256 || '' });
+      const av = f.antivirus || {}, le = av.at ? lePlein(av.at) : '';
+      p('d.f.antivirus', av.verdict === 'sain' ? mot('av.sain', { le }) : av.verdict === 'à vérifier' ? mot('av.a_verifier', { le }) : av.verdict === 'bloqué' ? mot('av.bloque') : mot('av.non'));
+      const hoteSrc = (/^https?:\/\/(?:[^/@?#]*@)?([a-z0-9.-]+)/i.exec(String(f.source || '')) || [])[1] || '';
+      p('d.f.arrive', f.ajoute ? (f.origine === 'andromede' ? mot('arr.andromede', { le: lePlein(f.ajoute), hote: hoteSrc ? ` (${hoteSrc})` : '' }) : mot('arr.autre', { le: lePlein(f.ajoute), origine: MOTS[`o.${f.origine}`] ? mot(`o.${f.origine}`) : String(f.origine || '') })) : '');
+      p('d.f.verifie', f.verifiee ? mot(f.verifiee.ok === false ? 'verif.ko' : 'verif.ok', { le: lePlein(f.verifiee.at) }) : mot('verif.jamais'));
+      if (f.surveille !== undefined) p('d.f.surveille', mot(f.surveille ? 'surv.oui' : 'surv.non'));
+      return el('dl', { class: 'sy-facts', 'data-f': 'd-faits' }, ...l);
+    }
+
+    function garde() {
+      const u = D.u, fermer = (e) => { if (e && e.key === 'Escape') { if (e.preventDefault) e.preventDefault(); D.ouvert = false; D.refus = ''; rendre('d-retirer'); } };
+      const boutons = [];
+      const garder = el('button', { type: 'button', class: 'sy-btn', 'data-f': 'd-garder', onclick: () => { D.ouvert = false; D.refus = ''; rendre('d-retirer'); } }, mot('r.garder'));
+      if (!u) {
+        const relire = el('button', { type: 'button', class: 'sy-btn', 'data-f': 'd-relire', onclick: async () => { await lireUsages(); rendre('d-garder'); } }, ic('refresh', 15), mot('r.relire'));
+        return el('div', { class: 'sy-guard', role: 'alert', 'data-f': 'd-garde', onkeydown: fermer }, el('span', { class: 'gi', 'aria-hidden': 'true' }, ic('warn', 22)),
+          el('div', {}, el('b', { class: 't' }, mot('r.bloque.titre', { nom })), el('p', { class: 'err' }, mot('u.pas.lu', { raison: D.errU || '?' })), el('div', { class: 'sy-row' }, relire, garder)));
+      }
+      if (Array.isArray(u.bloquants) && u.bloquants.length) {
+        const relire = el('button', { type: 'button', class: 'sy-btn', 'data-f': 'd-relire', onclick: async () => { await lireUsages(); rendre('d-garder'); } }, ic('refresh', 15), mot('r.relire'));
+        return el('div', { class: 'sy-guard', role: 'alert', 'data-f': 'd-garde', 'data-bloque': '1', onkeydown: fermer }, el('span', { class: 'gi', 'aria-hidden': 'true' }, ic('warn', 22)),
+          el('div', {}, el('b', { class: 't', id: 'sy-g-titre' }, mot('r.bloque.titre', { nom })), el('ul', {}, ...u.bloquants.map((b) => el('li', {}, b))), el('div', { class: 'sy-row' }, relire, garder)));
+      }
+      const attendu = String(u.aTaper || '');
+      const confirmer = async () => {
+        if (D.occupe || !nomJuste(D.tape, attendu)) return;
+        D.occupe = true; D.refus = ''; ok.disabled = true; note.textContent = mot('r.cours');
+        const r = await postModule('ymir', 'retirer_systeme', { iso: chemin, nom: D.tape }, true).catch((e) => ({ ok: false, text: String((e && e.message) || e) }));
+        D.occupe = false;
+        if (r && r.ok !== false && !r.confirm) { Z.msg = r.text || ''; o.retour(null, true); return; }
+        // Refusé (un déploiement vient de commencer, le nom, un lien…) : dit tel quel, et « où il sert » est relu.
+        D.refus = (r && (r.text || r.confirm)) || '?'; note.textContent = '';
+        await lireUsages(); rendre('d-nom');
+      };
+      const ok = el('button', { type: 'button', class: 'sy-btn dng', 'data-f': 'd-confirmer', disabled: D.occupe || !nomJuste(D.tape, attendu), onclick: confirmer }, ic('trash', 15), mot('r.ok'));
+      const champ = el('input', { class: 'sy-q', type: 'text', id: 'sy-d-nom', 'data-f': 'd-nom', autocomplete: 'off', spellcheck: 'false', 'aria-label': mot('r.taper.nom', { nom: attendu }), placeholder: attendu,
+        oninput: (e) => { D.tape = e.target.value; ok.disabled = D.occupe || !nomJuste(D.tape, attendu); },
+        onkeydown: (e) => { if (e.key === 'Enter') { if (e.preventDefault) e.preventDefault(); void confirmer(); } } });
+      champ.value = D.tape;
+      boutons.push(ok, garder);
+      const lignes = [mot('r.fichier', { taille: taille(c.taille || (D.f && D.f.taille) || 0) }), ...phrasesRetrait(u), ...(c.source || (D.f && D.f.source) ? [mot('r.retel')] : [])];
+      return el('div', { class: 'sy-guard', role: 'group', 'aria-labelledby': 'sy-g-titre', 'data-f': 'd-garde', onkeydown: fermer }, el('span', { class: 'gi', 'aria-hidden': 'true' }, ic('trash', 22)),
+        el('div', {}, el('b', { class: 't', id: 'sy-g-titre' }, mot('r.titre', { nom })), el('ul', {}, ...lignes.map((t) => el('li', {}, t))),
+          D.refus ? el('p', { class: 'err', role: 'alert', 'data-f': 'd-refus' }, D.refus) : null,
+          el('label', { for: 'sy-d-nom' }, mot('r.taper'), ' ', el('b', {}, attendu)), champ, el('div', { class: 'sy-row' }, ...boutons)));
+    }
+
+    function usages() {
+      const u = D.u, l = [];
+      if (!u) return el('section', { class: 'sy-card', 'data-f': 'd-usages', 'aria-labelledby': 'sy-u-titre' }, el('h4', { id: 'sy-u-titre' }, mot('u.titre')), el('p', { class: 'sy-msg' }, D.errU ? mot('u.pas.lu', { raison: D.errU }) : mot('d.charge')));
+      for (const x of Array.isArray(u.usages) ? u.usages : []) {
+        let icone = 'usb', titre = '', sous = '', voir = null;
+        if (x.genre === 'cle') { titre = mot('u.cle', { nom: x.nom }); sous = x.at ? mot('u.cle.d', { le: lePlein(x.at) }) : mot('u.cle.d.sans'); voir = () => vers('cle'); }
+        else if (x.genre === 'menu') { icone = 'menu'; titre = mot('u.menu'); const d = x.cache ? mot('u.menu.cache') : mot('u.menu.d', { n: nombre(x.position || 1) }); sous = x.defaut ? mot('u.menu.defaut', { d }) : d; voir = () => vers('reseau', 'menu'); }
+        else if (x.genre === 'pc') { icone = 'pc'; titre = mot('u.pc', { nom: x.nom }); sous = mot(x.auto ? 'u.pc.auto' : 'u.pc.d', { mac: x.mac || '' }); voir = () => vers('reseau', 'serveur'); }
+        else if (x.genre === 'deploiement') { icone = 'net'; titre = mot('u.dep'); sous = mot('u.dep.d', { n: nombre((x.pcs || []).length), pcs: (x.pcs || []).join(', ') }); voir = () => vers('installations'); }
+        else if (x.genre === 'vm') { icone = 'vm'; titre = mot('u.vm', { nom: x.nom }); sous = mot(x.allumee ? 'u.vm.allumee' : x.modele ? 'u.vm.modele' : 'u.vm.d'); voir = () => { location.hash = '#app=ymir'; }; }
+        l.push(el('div', { class: `sy-entry${x.bloque ? ' bloque' : ''}`, 'data-usage': x.genre },
+          el('span', { class: 'ic', 'aria-hidden': 'true' }, ic(icone, 20)),
+          el('span', { class: 'nm' }, el('b', {}, titre), el('small', {}, sous), x.bloque ? el('span', { class: 'sy-tag bad', style: 'margin-top:4px' }, ic('warn', 12), mot('u.bloque')) : null),
+          voir ? el('button', { type: 'button', class: 'sy-btn', 'data-f': 'd-voir', 'aria-label': mot('u.voir.nom', { nom: titre }), onclick: voir }, mot('u.voir')) : null));
+      }
+      return el('section', { class: 'sy-card', 'data-f': 'd-usages', 'aria-labelledby': 'sy-u-titre' }, el('h4', { id: 'sy-u-titre' }, mot('u.titre')), el('p', { class: 'sy-lead' }, mot('u.lead')),
+        l.length ? el('div', { class: 'sy-used' }, ...l) : el('p', { class: 'sy-msg' }, mot('u.rien')),
+        u.lu && u.lu.cles === false ? el('p', { class: 'sy-msg', style: 'margin-top:10px' }, mot('u.cles.pas.lu')) : null);
+    }
+
+    function versions() {
+      const f = D.f, l = [];
+      const lettre = (String(c.nom).trim().charAt(0) || '?').toUpperCase(), coul = couleur(c);
+      const vs = f && Array.isArray(f.versions) && f.versions.length ? f.versions : [{ nom: c.fichier || c.nom, version: c.version, taille: c.taille, enService: true, ancienne: false }];
+      for (const v of vs) l.push(el('div', { class: `sy-entry${v.enService ? ' def' : ''}`, 'data-version': v.version || v.nom },
+        el('span', { class: 'sy-mono', style: `background:${coul};${v.enService ? '' : 'opacity:.55'}`, 'aria-hidden': 'true' }, lettre),
+        el('span', { class: 'nm' }, el('b', {}, v.version || v.nom), el('small', {}, mot(v.ancienne ? 'v.old' : 'v.service', { taille: taille(v.taille) }))),
+        v.enService && !v.ancienne ? el('span', { class: 'sy-tag ok' }, mot('v.tag')) : null));
+      const n = f && f.nouvelle;
+      if (n) l.push(el('div', { class: 'sy-entry neu', 'data-version': n.version },
+        el('span', { class: 'sy-mono', style: `background:${coul}`, 'aria-hidden': 'true' }, lettre),
+        el('span', { class: 'nm' }, el('b', {}, n.version), el('small', {}, mot('v.nouvelle'))),
+        el('button', { type: 'button', class: 'sy-btn pri', 'data-f': 'd-telecharger', 'aria-label': mot('v.tel.nom', { nom: c.nom, version: n.version }), onclick: () => telecharger({ ...c, source: n.source }, mot('maj.confirme', { nom: c.nom, version: n.version }), async () => { note.textContent = Z.msg; Z.msg = ''; }) }, ic('download', 15), mot('v.tel'))));
+      return el('section', { class: 'sy-card', 'data-f': 'd-versions', 'aria-labelledby': 'sy-v-titre' }, el('h4', { id: 'sy-v-titre' }, mot('v.titre')), el('p', { class: 'sy-lead' }, mot('v.lead')), el('div', { class: 'sy-used' }, ...l));
+    }
+
+    function rendre(focus) {
+      const lettre = (String(c.nom).trim().charAt(0) || '?').toUpperCase();
+      const sous = [mot(`fam.${c.famille}`), c.genre ? c.genre.charAt(0).toUpperCase() + c.genre.slice(1) : null, c.taille ? taille(c.taille) : null].filter(Boolean).join(' · ');
+      const dep = el('button', { type: 'button', class: 'sy-btn pri', 'data-f': 'd-deployer', disabled: !c.deployable, title: c.deployable ? null : mot(`raison.${c.raison || 'absent'}`), onclick: () => { if (c.deployable) deployerDepuisFiche(c, hote); } }, ic('bolt', 15), mot('deployer'));
+      const maj = c.maj && c.source ? el('button', { type: 'button', class: 'sy-btn', 'data-f': 'd-maj', onclick: () => telecharger(c, mot('maj.confirme', { nom: c.nom, version: c.maj.version }), async () => { note.textContent = Z.msg; Z.msg = ''; }) }, ic('refresh', 15), mot('maj.bouton')) : null;
+      boutonRetirer = el('button', { type: 'button', class: 'sy-btn rouge', 'data-f': 'd-retirer', 'aria-expanded': String(D.ouvert), 'aria-label': mot('r.bouton.nom', { nom }), disabled: !chemin, onclick: async () => {
+        D.ouvert = !D.ouvert; D.refus = ''; D.tape = '';
+        if (D.ouvert) { await lireUsages(); rendre(D.u && !(D.u.bloquants || []).length ? 'd-nom' : 'd-garder'); } else rendre('d-retirer');
+      } }, ic('trash', 15), mot('r.bouton'));
+      fiche.replaceChildren(...[
+        el('div', { class: 'sy-hero' }, el('span', { class: 'sy-mono', style: `background:${couleur(c)}`, 'aria-hidden': 'true' }, lettre), el('div', {}, el('h4', { id: 'sy-d-titre' }, nom), el('small', {}, sous))),
+        el('div', { style: 'margin-top:12px' }, ...etatLigne(c)),
+        el('div', { class: 'sy-row' }, dep, maj, boutonRetirer),
+        D.ouvert ? garde() : null,
+        D.f ? faits(D.f) : el('p', { class: 'sy-msg', style: 'margin-top:12px' }, D.errF ? mot('d.erreur', { raison: D.errF }) : mot('d.charge'))].filter(Boolean));
+      bas.replaceChildren(usages(), versions());
+      if (focus) { const n = zone.querySelector(`[data-f="${focus}"]`); if (n && n.focus) n.focus(); }
+    }
+    rendre();
+    if (retour.focus) retour.focus();
+    // Les deux lectures partent ensemble : « où il sert » puis la fiche.
+    const [, rf] = await Promise.all([lireUsages(), postModule('ymir', 'fiche_iso', { iso: c.fichier || c.nom }).catch((e) => ({ ok: false, text: String((e && e.message) || e) }))]);
+    if (rf && rf.ok !== false && rf.data) D.f = rf.data; else D.errF = (rf && rf.text) || '?';
+    if (!zone.isConnected) return;
+    const a = typeof document !== 'undefined' ? document.activeElement : null, garde0 = a && zone.contains(a) ? a.getAttribute && a.getAttribute('data-f') : null;
+    rendre(garde0 && garde0 !== 'd-retour' ? garde0 : undefined);
   }
 
   function carte(c, hote, redessiner) {
@@ -386,8 +623,20 @@ a.sy-btn{text-decoration:none}
     // Les filtres restent les mêmes boutons (seul « aria-pressed » change) : le focus du clavier ne se perd pas.
     const boutonsFiltre = FILTRES.map((f) => el('button', { type: 'button', class: 'sy-chip', 'data-filtre': f, 'aria-pressed': String(Z.filtre === f), onclick: () => { Z.filtre = f; for (const b of boutonsFiltre) b.setAttribute('aria-pressed', String(b.getAttribute('data-filtre') === Z.filtre)); rendreGrille(); } }, mot(`f.${f}`)));
     chips.append(...boutonsFiltre);
-    wrap.append(haut, el('section', { class: 'sy-card', 'aria-labelledby': 'sy-titre' }, el('h4', { id: 'sy-titre' }, mot('titre')), el('p', { class: 'sy-lead' }, mot('lead')),
+    // Deux vues dans la même zone : la bibliothèque, et la fiche d'un système (lot S3) ; la bibliothèque reste derrière,
+    // cachée, et revient telle quelle (filtre, recherche) avec le focus sur le « Détail » de sa carte.
+    const vueB = el('div', { class: 'sy', 'data-f': 'vue-biblio' }), vueD = el('div', { class: 'sy', 'data-f': 'vue-detail', hidden: true });
+    vueB.append(haut, el('section', { class: 'sy-card', 'aria-labelledby': 'sy-titre' }, el('h4', { id: 'sy-titre' }, mot('titre')), el('p', { class: 'sy-lead' }, mot('lead')),
       el('div', { class: 'sy-tools' }, chips, q, ...ajouter), note, grille));
+    wrap.append(vueB, vueD);
+    Z.montrerDetail = (c) => {
+      clearTimeout(minuteur); minuteur = 0; Z.vers = '';
+      vueB.hidden = true; vueD.hidden = false;
+      void dessinerDetail(vueD, c, { hote, retour: (id, relire) => {
+        vueD.replaceChildren(); vueD.hidden = true; vueB.hidden = false;
+        void redessiner(Boolean(relire), id ? { carte: id, f: 'detail' } : undefined);
+      } });
+    };
 
     /** Où est le focus dans la grille : { carte, f } (la carte et le bouton), pour le rendre après un nouveau dessin. */
     function focusDansGrille() {

@@ -656,6 +656,17 @@ export function cleUsb(deps: DepsCle = {}): { actions: Action[] } {
   // clé d'API, ni une automatisation.
   const actions: Action[] = [
     {
+      // Lot S3 (« où sert un système ») : ce qui a été copié sur quelle clé, lu là où le journal est rangé (fichier ou base
+      // d'Odin). Lecture seule, rien n'est lancé ; seulement les 2 000 dernières lignes, sans le détail des demandes.
+      id: 'cle_journal', label: 'Clé USB : journal des clés écrites', read: true, quick: false, proprietaireSeul: true,
+      what: 'Les fichiers copiés sur chaque clé ODIN écrite (quand, où sur la clé, empreinte, quelle clé)',
+      run: (ctx) => {
+        const lignes = journal(ctx).tout().filter((x) => x && typeof x.dest === 'string' && !x.dest.startsWith('(') && typeof x.cible === 'string').slice(-2000)
+          .map((x) => ({ at: Number(x.at) || 0, dest: x.dest, sha256: typeof x.sha256 === 'string' ? x.sha256 : '', cible: x.cible }));
+        return { ok: true, text: `${lignes.length} fichier(s) copié(s) sur des clés ODIN.`, data: { lignes } };
+      },
+    },
+    {
       id: 'cle_disques', label: 'Clé USB : disques', read: true, proprietaireSeul: true,
       what: 'Les disques branchés, séparés en externes (clés, disques externes, cartes) et internes (disques du PC)',
       words: ['clé usb', 'clé bootable', 'lister les disques', 'rufus', 'ventoy'],

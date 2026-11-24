@@ -6,9 +6,9 @@
 // « old » par la forge y restent visibles (marquées « ancienne »).
 // Les fiches vont dans la base de l'appli qui tient la bibliothèque (journal : Hydre pour les ISO, Hermès pour les logiciels).
 
-import { createHash } from 'node:crypto';
-import { copyFileSync, createReadStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
-import { basename, join, relative, resolve } from 'node:path';
+import { createHash, randomBytes } from 'node:crypto';
+import { copyFileSync, createReadStream, existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { journalDe } from '../base/journal.ts';
 import { isIP } from 'node:net';
 import { lienDeMaison, lienPropre } from '../lien.ts';
@@ -105,6 +105,90 @@ export function tacheVerification(o: { id: string; nom: string; quoi: string; cl
 /** La tâche Talos qui suspend la vérification planifiée d'un genre : [appli, tâche]. */
 export const tacheDuGenre = (g: Genre): [string, string] => (g.id === 'iso' ? ['ymir', 'verification_iso'] : ['fjalar', 'verification_logiciels']);
 export const planTexte = (p: PlanVerif) => `chaque ${p.frequence}${p.frequence === 'mois' ? ` (le ${p.jour})` : p.frequence === 'semaine' ? ` (${['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][p.jour]})` : ''} à ${p.heure}`;
+
+// ---------------------------------------------------------------- Effacer un fichier, et seulement lui
+const memeChemin = (a: string, b: string) => { const x = resolve(a), y = resolve(b); return process.platform === 'win32' ? x.toLowerCase() === y.toLowerCase() : x === y; };
+/** Un nom d'étage accepté : ni vide, ni « . » / « .. », ni caché ; sous Windows ni flux (« : »), ni caractère interdit, ni point ou espace final. */
+const etageSur = (p: string) => Boolean(p) && p !== '.' && p !== '..' && !p.startsWith('.') && !/[\u0000-\u001f]/.test(p) && (process.platform !== 'win32' || (!/[:*?"<>|]/.test(p) && !/[. ]$/.test(p)));
+/** Un fichier mis de côté : « .retrait-<12 hex>-<son nom> » (le nom sert à le remettre si Odin s'arrête en plein retrait). */
+const MIS_DE_COTE = /^\.retrait-([0-9a-f]{12})(?:-(.+))?$/;
+/** Les fichiers mis de côté par un retrait EN COURS dans ce processus, par leur nom (unique : 12 hex au hasard) : jamais repris pendant ce temps. */
+const EN_RETRAIT = new Set<string>();
+const texteFs = (e: unknown) => { const c = (e as NodeJS.ErrnoException)?.code; return c === 'EBUSY' || c === 'EPERM' || c === 'EACCES' ? 'le fichier est ouvert ou protégé (une machine virtuelle, un partage, un autre programme ?) : ferme-le, puis recommence' : c === 'ENOENT' ? 'le fichier a disparu pendant le retrait' : 'le système refuse de le déplacer'; };
+/**
+ * Efface UN fichier rangé dans `racine`, jamais autre chose :
+ * - le chemin est relu sur le disque juste avant : sous le dossier (ni « .. », ni dossier caché, ni flux NTFS), chaque
+ *   étage est un vrai dossier et le fichier un vrai fichier — aucun lien suivi, jamais (un lien est refusé, même vers la
+ *   bibliothèque) ;
+ * - le fichier est d'abord mis de côté d'un seul geste (renommé, caché, dans son propre dossier, son nom gardé) : si un
+ *   étage a été remplacé par un lien entre la vérification et ce geste, le dossier réel ne correspond plus et le fichier
+ *   revient à sa place, intact ; si c'est le fichier qui est devenu un lien, seul le lien est retiré ;
+ * - `garde` (facultative) est relue le fichier mis de côté : une raison, et le fichier revient à sa place ;
+ * - le dossier est relu une dernière fois, puis seulement alors le fichier est effacé ; un effacement refusé le remet en
+ *   place. Si Odin s'arrête en plein retrait, `reprendreMisDeCote` le remet à sa place au passage suivant.
+ */
+export async function effacerDansLeDossier(racine: string, chemin: string, garde?: () => Promise<string | undefined>): Promise<void> {
+  const hors = () => new Error('ce fichier n\'est pas rangé dans le dossier de la bibliothèque : rien n\'est effacé');
+  const rel = relative(resolve(racine), resolve(chemin)), parts = rel.split(/[\\/]+/);
+  if (!rel || isAbsolute(rel) || !parts.every(etageSur)) throw hors();
+  let base: string; try { base = realpathSync.native(racine); } catch { throw new Error('le dossier de la bibliothèque est introuvable : rien n\'est effacé'); }
+  let p = base;
+  for (let k = 0; k < parts.length; k++) {
+    p = join(p, parts[k]);
+    let st; try { st = lstatSync(p); } catch { throw new Error('fichier introuvable dans la bibliothèque : rien n\'est effacé'); }
+    if (st.isSymbolicLink()) throw new Error(`${k < parts.length - 1 ? 'ce fichier est rangé derrière un lien vers un autre dossier' : 'c\'est un lien vers un autre fichier'} : Odin ne suit aucun lien, rien n'est effacé`);
+    if (k < parts.length - 1 ? !st.isDirectory() : !st.isFile()) throw hors();
+  }
+  let reel: string; try { reel = realpathSync.native(p); } catch { throw hors(); }
+  // `p` est bâti depuis le dossier réel, étage par étage : son chemin réel doit être lui-même.
+  if (!memeChemin(reel, p)) throw hors();
+  // Mis de côté d'un seul geste, dans son propre dossier (renommer ne copie rien, même pour une grosse ISO). Son nom est
+  // gardé dans celui mis de côté (s'il tient) : un retrait coupé net est repris, jamais perdu en fichier caché.
+  const dossier = dirname(reel), hex = randomBytes(6).toString('hex'), nom = basename(reel);
+  const cote = join(dossier, `.retrait-${hex}${nom.length <= 200 ? `-${nom}` : ''}`);
+  try { renameSync(reel, cote); } catch (e) { throw new Error(`${texteFs(e)} : rien n'est effacé`); }
+  EN_RETRAIT.add(basename(cote));
+  try {
+    // Remis à sa place, sans jamais écraser un fichier arrivé entre-temps sous le même nom (il reste alors de côté, et
+    // `reprendreMisDeCote` le rend visible sous un autre nom).
+    const remettre = () => { try { if (!existsSync(reel)) renameSync(cote, reel); } catch { /* laissé de côté, intact */ } };
+    const ici = () => { try { return memeChemin(realpathSync.native(dossier), dossier) && memeChemin(realpathSync.native(cote), cote); } catch { return false; } };
+    let lien = false; try { lien = lstatSync(cote).isSymbolicLink(); } catch { /* parti entre-temps */ }
+    if (lien) { unlinkSync(cote); throw new Error('le fichier a été remplacé par un lien pendant le retrait : seul le lien est retiré, rien d\'autre n\'est effacé'); }
+    if (!ici()) { remettre(); throw hors(); }
+    if (garde) {
+      let r: string | undefined; try { r = await garde(); } catch (e) { r = (e as Error).message || 'vérification impossible'; }
+      if (r) { remettre(); throw new Error(r); }
+      // La garde a pris du temps : le dossier est relu juste avant d'effacer.
+      let st; try { st = lstatSync(cote); } catch { /* disparu */ }
+      if (!st || st.isSymbolicLink() || !st.isFile() || !ici()) { remettre(); throw hors(); }
+    }
+    try { unlinkSync(cote); } catch (e) { remettre(); throw new Error(`${texteFs(e)} : il est remis à sa place, rien n'est effacé`); }
+  } finally { EN_RETRAIT.delete(basename(cote)); }
+}
+/**
+ * Les fichiers mis de côté par un retrait coupé net (Odin arrêté en pleine vérification) : remis à leur place, ou, si un
+ * fichier du même nom est arrivé depuis, rendus visibles sous « nom (retrouvé xxxxxx).iso ». Jamais effacés ici. Un fichier
+ * mis de côté sans son nom (nom trop long) reste tel quel. Rend le nombre de fichiers remis.
+ */
+export function reprendreMisDeCote(racine: string, motif: RegExp): number {
+  let n = 0;
+  const walk = (d: string, depth: number) => {
+    let l: string[] = []; try { l = readdirSync(d); } catch { return; }
+    for (const x of l) {
+      const p = join(d, x);
+      let st; try { st = lstatSync(p); } catch { continue; }
+      if (st.isSymbolicLink()) continue;
+      if (st.isDirectory()) { if (!x.startsWith('.') && depth < 3) walk(p, depth + 1); continue; }
+      const m = MIS_DE_COTE.exec(x); if (!m || !m[2] || !st.isFile() || EN_RETRAIT.has(x) || !etageSur(m[2]) || !motif.test(m[2])) continue;
+      const point = m[2].lastIndexOf('.'), vers = existsSync(join(d, m[2])) ? `${m[2].slice(0, point)} (retrouvé ${m[1].slice(0, 6)})${m[2].slice(point)}` : m[2];
+      if (existsSync(join(d, vers))) continue;
+      try { renameSync(p, join(d, vers)); n++; } catch { /* réessayé au passage suivant */ }
+    }
+  };
+  walk(racine, 0);
+  return n;
+}
 
 // ---------------------------------------------------------------- La bibliothèque d'un genre, dans un dossier
 export interface Import { fiche?: Fiche; passage: Passage; texte: string }
@@ -210,8 +294,16 @@ export class Bibliotheque {
     const r = await download(this.ctx.fetch, { version: '', url: u.toString(), file: fichier }, this.arrivees, { surete: { lienTape: true, ...(resoudre ? { resoudre } : {}) } });
     return this.importer(r.path, { nom: fichier, origine: 'lien', source: u.toString(), deplacer: true });
   }
-  /** Retire un fichier de la bibliothèque (le fichier est supprimé). */
-  async retirer(q: unknown): Promise<Fiche> { const f = await this.trouver(q); rmSync(f.chemin, { force: true }); this.oublier(f.chemin); Bibliotheque.cache.delete(f.chemin); return f; }
+  /**
+   * Retire un fichier de la bibliothèque : le fichier est effacé, et rien d'autre (voir `effacerDansLeDossier` : jamais un
+   * fichier hors du dossier, aucun lien suivi). `garde`, appelée une fois le fichier mis de côté, peut encore tout arrêter
+   * (le fichier revient alors à sa place).
+   */
+  async retirer(q: unknown, o: { garde?: (f: Fiche) => Promise<string | undefined> } = {}): Promise<Fiche> {
+    const f = await this.trouver(q);
+    await effacerDansLeDossier(this.racine, f.chemin, o.garde ? () => o.garde!(f) : undefined);
+    this.oublier(f.chemin); Bibliotheque.cache.delete(f.chemin); return f;
+  }
   /** La forge a rangé une ancienne version dans « old » (ou l'a supprimée) : la fiche suit. */
   deplacee(de: string, vers: string): void {
     const c = this.fiches().get(cle(de)); this.oublier(de);
@@ -219,6 +311,8 @@ export class Bibliotheque {
   }
   /** Fait entrer UN fichier trouvé sans fiche (un par passage : l'empreinte d'un gros fichier prend du temps). */
   async scanner(): Promise<Fiche | undefined> {
+    // Un retrait coupé net (Odin arrêté pendant la vérification) : le fichier mis de côté revient à sa place.
+    reprendreMisDeCote(this.racine, this.genre.motif);
     const x = this.sansFiche()[0]; if (!x) return undefined;
     return (await this.importer(x.chemin, { origine: 'déposée', source: 'déposé dans le dossier' }).catch(() => undefined))?.fiche;
   }
