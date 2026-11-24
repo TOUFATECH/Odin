@@ -112,7 +112,7 @@
         trait('rgba(0,0,0,.35)', 4.4 / k); // contour sombre : le blanc reste lisible sur un fond clair
         // La ligne elle-même brille, très claire en blanc, puis s'éteint doucement (sans flèche : choix du propriétaire, 25/11).
         ctx.shadowColor = 'rgba(255,255,255,1)'; ctx.shadowBlur = reduit ? 6 : 18; trait('#FFFFFF', 2.2 * m / k); ctx.shadowBlur = 0; ctx.setLineDash([]);
-        if (!reduit) {
+        if (!reduit && !o.ligneSeule) { // la carte des applis : la ligne seule, sans comète ni points (choix du propriétaire, 25/11) ; le Cerveau les garde
           // Une onde part de l'appli qui demande.
           if (l.depart >= 0 && l.depart < 700) { const q = l.depart / 700; ctx.globalAlpha = l.force * (1 - q); ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2 / k; ctx.beginPath(); ctx.arc(A.x, A.y, (A.r || 0) + (3 + 16 * q) / k, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = l.force; }
           for (const p of l.impulsions) {
@@ -262,7 +262,7 @@
         if (e.arrow) { arrowHead(a, b, ctx.strokeStyle, e.w); if (e.arrow === 'both') arrowHead(b, a, ctx.strokeStyle, e.w); }
       }
       ctx.globalAlpha = 1;
-      if (opts.echanges) echSegs = echanges.dessiner(ctx, { k: view.k, reduit, noeud: (id) => { const n = byId.get(id); return n && { id: n.id, x: n.x, y: n.y, r: radius(n) }; }, relies: (x, y) => edges.some(([a, b]) => (a.id === x && b.id === y) || (a.id === y && b.id === x)) });
+      if (opts.echanges) echSegs = echanges.dessiner(ctx, { k: view.k, reduit, ligneSeule: true, noeud: (id) => { const n = byId.get(id); return n && { id: n.id, x: n.x, y: n.y, r: radius(n) }; }, relies: (x, y) => edges.some(([a, b]) => (a.id === x && b.id === y) || (a.id === y && b.id === x)) });
       ctx.lineWidth = 1 / view.k;
       ctx.globalAlpha = 1;
       for (const n of nodes) {

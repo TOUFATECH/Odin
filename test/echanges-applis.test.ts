@@ -165,3 +165,15 @@ test('graphe : dessin (blanc, pointillé si pas de lien, sans mouvement si deman
   // Appli absente du graphe : rien n'est dessiné.
   assert.equal(m.dessiner(ctx, { k: 1, noeud: () => undefined }).length, 0);
 });
+
+test('graphe : la carte des applis ne montre que la ligne qui brille (ni flèche, ni comète, ni onde, ni points de réponse)', () => {
+  let t = 0; const G = graphe(), m = G.moteurEchanges(() => t);
+  const appels: Array<[string, unknown[]]> = [];
+  const ctx = new Proxy({} as Record<string, unknown>, { get: (o, k: string) => (k in o ? o[k] : (...args: unknown[]) => { appels.push([k, args]); return { addColorStop: () => {} }; }), set: (o, k: string, v) => { o[k] = v; appels.push([`=${k}`, [v]]); return true; } });
+  const pos: Record<string, { id: string; x: number; y: number; r: number }> = { sindri: { id: 'sindri', x: 0, y: 0, r: 10 }, arche: { id: 'arche', x: 200, y: 0, r: 10 } };
+  m.recevoir(ev('demande')); t = 150; m.recevoir(ev('reponse')); t = 1300;
+  const segs = m.dessiner(ctx, { k: 1, ligneSeule: true, noeud: (id: string) => pos[id], relies: () => true });
+  assert.equal(segs.length, 1);
+  assert.ok(appels.some(([k, a]) => k === '=strokeStyle' && a[0] === '#FFFFFF'), 'la ligne blanche');
+  assert.ok(!appels.some(([k]) => k === 'createLinearGradient' || k === 'arc' || k === 'fill'), 'rien d\'autre que la ligne');
+});
