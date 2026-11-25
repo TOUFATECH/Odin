@@ -5,8 +5,8 @@
 import type { Widget } from '../modules/gladsheim.ts';
 import type { View } from '../types.ts';
 
-/** Les quatre familles de la maquette (une par fichier). */
-export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui';
+/** Les quatre familles de la maquette (une par fichier), et la veille (les alertes, les sites d'Arachné : veille.ts). */
+export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille';
 /**
  * Qui peut recevoir un widget de cette sorte, au plus (constat M12, trois niveaux) :
  * - `proprietaire` : lui seul (le défaut, quand rien n'est écrit) ;
@@ -71,6 +71,32 @@ export interface SourceWidget {
    * Absente : cette source ne sait pas les lire.
    */
   alertesNonVues?(): ReadonlyArray<{ appli: string }>;
+  /**
+   * Les mêmes alertes pas encore vues, lues de la même façon, pour la liste : leur identifiant, leur appli (et son nom),
+   * leur titre, leur gravité, leur heure (ms). Ni leur détail, ni leurs données. Absente : cette source ne sait pas les lire.
+   */
+  alertesAVoir?(): ReadonlyArray<{ id: string; appli: string; nomAppli: string; titre: string; niveau: string; at: number }>;
+  /** Les sites surveillés par Arachné (sans phrase, sans adresse). Rien (undefined) : Arachné n'est pas là. Absente : pas lue. */
+  sitesVeille?(): readonly SiteVeille[] | undefined;
+}
+
+/** Un site surveillé par Arachné, tel qu'un widget le lit (src/valhalla/modules/idunn.ts, sitesVeille). */
+export interface SiteVeille {
+  nom: string;
+  /** Répond-il ? Absent : pas encore vérifié. */
+  enLigne?: boolean;
+  /** Il répond, mais plus lentement que le seuil d'Arachné. */
+  lent: boolean;
+  /** Son temps de réponse à la dernière vérification (ms), si Arachné le garde. */
+  ms?: number;
+  /** L'heure de sa dernière vérification (ms). */
+  verifieA?: number;
+  /** En panne : depuis quand (ms), si Arachné l'a noté. */
+  enPanneDepuis?: number;
+  /** « Relancer » existe pour lui (il est relié à Vercel). */
+  relancer: boolean;
+  /** Tous les combien il est vérifié (minutes). */
+  toutesLes: number;
 }
 
 /** Les outils de nettoyage donnés à une sorte par cleanLayout. */

@@ -397,6 +397,25 @@ const b64 = (t: string) => Buffer.from(t, 'utf8').toString('base64'), enc = (p: 
 const slug = (t: string) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '') || 'changement';
 
 const kindNames = KINDS.map(([n]) => n).join(', ');
+/**
+ * Ce que la veille sait de chaque site, sans phrase, pour les widgets de l'accueil (src/valhalla/widgets/veille.ts) :
+ * son nom, s'il répond (absent : pas encore vérifié), s'il est lent (le seuil de la veille), son temps de réponse,
+ * l'heure de sa dernière vérification, depuis quand il ne répond plus (son dernier « hors ligne »), si « Relancer »
+ * existe pour lui (relié à Vercel), tous les combien il est vérifié. Ni son adresse, ni ses jetons. Une lecture : la
+ * page d'Arachné ne change pas.
+ */
+export function sitesVeille(ctx: ModCtx): Array<{ nom: string; enLigne?: boolean; lent: boolean; ms?: number; verifieA?: number; enPanneDepuis?: number; relancer: boolean; toutesLes: number }> {
+  const l = sites(ctx), st = states(ctx), lent = Number(ctx.settings.slowMs ?? 4000), fini = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
+  // Le journal n'est relu que si un site est en panne.
+  const pannes = new Map<string, number>();
+  if (l.some((x) => st[x.name]?.up === false)) for (const e of events(ctx)) if (e.type === 'hors_ligne') pannes.set(e.site, Date.parse(e.at));
+  return l.map((x) => {
+    const e = st[x.name] ?? {}, vu = Date.parse(e.checkedAt ?? ''), depuis = pannes.get(x.name);
+    return { nom: x.name, ...(typeof e.up === 'boolean' ? { enLigne: e.up } : {}), lent: e.up === true && fini(e.ms) && e.ms > lent, ...(fini(e.ms) ? { ms: e.ms } : {}),
+      ...(fini(vu) ? { verifieA: vu } : {}), ...(e.up === false && fini(depuis) ? { enPanneDepuis: depuis } : {}), relancer: Boolean(x.vercel), toutesLes: fini(x.every) && x.every > 0 ? x.every : 5 };
+  });
+}
+
 export const idunn: Module = {
   id: 'idunn', name: 'Arachné', family: 'Machines',
   what: 'Tes sites web : Odin les surveille, les essaie, les relance et les met à jour, sans IA.',

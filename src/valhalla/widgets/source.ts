@@ -3,13 +3,14 @@
 import type { Valhalla } from '../service.ts';
 import type { View } from '../types.ts';
 import { meteoAncienne, regionActuelle, weather } from '../modules/gladsheim.ts';
+import { sitesVeille } from '../modules/idunn.ts';
 import type { SourceWidget } from './sorte.ts';
 
 const s = (v: unknown) => String(v ?? '');
 
 export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): SourceWidget {
   const vues = new Map<string, Promise<View | null>>();
-  let alertes: Array<{ appli: string }> | undefined;
+  let alertes: Array<{ appli: string }> | undefined, aVoir: ReturnType<NonNullable<SourceWidget['alertesAVoir']>> | undefined;
   // Une appli désactivée (Applis) n'est pas là pour un widget.
   const appli = (id: string) => { const m = v.module(id); return m && m.id === id && v.estActive(m.id) ? m : undefined; };
   return {
@@ -38,5 +39,10 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
     // Les alertes pas encore vues, lues comme une appli les lit (le contexte de Hestia, pas le journal entier) : au nom
     // d'un membre, Valhalla retire déjà celles de Sphinx qui ne sont pas de son appareil. Rien que l'appli de chacune.
     alertesNonVues: () => (alertes ??= v.ctx('gladsheim').alerts({ limit: Number.MAX_SAFE_INTEGER }).filter((a) => !a.ack).map((a) => ({ appli: a.module }))),
+    // La liste des mêmes alertes : rien que ce qu'elle montre (ni le détail, ni les données d'une alerte).
+    alertesAVoir: () => (aVoir ??= v.ctx('gladsheim').alerts({ limit: Number.MAX_SAFE_INTEGER }).filter((a) => !a.ack)
+      .map((a) => ({ id: a.id, appli: a.module, nomAppli: v.module(a.module)?.name ?? a.module, titre: s(a.title), niveau: s(a.level), at: Date.parse(a.at) || 0 }))),
+    // Les sites d'Arachné, si elle est là et activée.
+    sitesVeille: () => (appli('idunn') ? sitesVeille(v.ctx('idunn')) : undefined),
   };
 }

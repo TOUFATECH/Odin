@@ -273,8 +273,9 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-chips button')].map((b: any) => b.textContent)), ['Tout', 'Infos', ...fams]);
     // Toutes les applis du catalogue, une ligne chacune, les quatre lignes d'infos d'avant, et les quatre widgets « Infos »
     // de la maquette, déclarés par le fichier de leur famille (l'heure, l'horloge, la météo en petit, les alertes). Les
-    // styles de la grande météo n'y ont pas de ligne : ils se choisissent dans « Régler ».
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4);
+    // styles de la grande météo n'y ont pas de ligne : ils se choisissent dans « Régler ». Puis les trois widgets de la
+    // famille « veille » (les alertes en liste, les sites surveillés, le petit chiffre des sites).
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3);
     // L'appli désactivée : grisée, « désactivée », aucun bouton.
     const nomEteinte = cat.modules.find((m) => m.id === eteinte)!.name;
     const off = await page.evaluate(`(() => { const l = [...document.querySelectorAll('#feTiroir .fe-it')].find((x) => x.querySelector('b')?.textContent === ${JSON.stringify(nomEteinte)}); return l ? { off: l.classList.contains('off'), bouton: Boolean(l.querySelector('button')), texte: l.textContent } : null; })()`) as { off: boolean; bouton: boolean; texte: string } | null;
