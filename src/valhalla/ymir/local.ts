@@ -161,7 +161,8 @@ export function qcodes(texte: string): string[][] {
  */
 export const systemeVm = {
   plateforme: (): string => process.platform,
-  qmp: (sock: string, execute: string, args?: Record<string, unknown>): Promise<unknown> => qmp(sock, execute, args),
+  /** `timeoutMs` : une commande longue (instantané avec la mémoire) attend plus que les 8 s habituelles */
+  qmp: (sock: string, execute: string, args?: Record<string, unknown>, timeoutMs?: number): Promise<unknown> => qmp(sock, execute, args, timeoutMs),
   /** le processus vit, et c'est bien QEMU (un numéro repris par un autre programme ne compte pas ; illisible : compte comme vivant) */
   enVie: (pid: number): boolean => { if (!existsSync(`/proc/${pid}`)) return false; try { const c = readFileSync(`/proc/${pid}/cmdline`, 'utf8'); return c === '' || c.includes('qemu'); } catch { return true; } },
   dossiersQmp: (): string[] => ['/run/odin-vm', join('/tmp', `odin-vm-${process.getuid?.() ?? 0}`)],

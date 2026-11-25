@@ -17,6 +17,11 @@
 // de la VM ; Ctrl+Alt rend le clavier à la page), « Ctrl+Alt+Suppr », la souris (position et clic), le plein écran, et au
 // téléphone une barre de touches (Échap, Tab, Ctrl, Alt, flèches, Entrée, F1 à F12) et son clavier. Quitter l'onglet
 // ferme la vue : Odin ne garde rien de l'écran. Éteinte, sous Windows : un état qui le dit, jamais une image.
+// Lot M6 (même maquette, écran 14) : l'onglet « Instantanés » d'une VM de ce PC : la liste (nom, date, taille, tout seul ou
+// à la main), « Prendre un instantané », « Revenir ici » (garde-fou qui dit ce qui est perdu ; Odin prend d'abord un
+// instantané de maintenant), « Retirer » (garde-fou), la place prise et ce que le budget d'Hydre laisse, et
+// l'interrupteur de la maquette (« Avant chaque mise à jour du système » : un instantané tout seul, gardé 7 jours).
+// Sous Windows : un état qui le dit.
 (() => {
   'use strict';
   window.OdinPages = window.OdinPages || {};
@@ -38,7 +43,7 @@
     shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4', check: 'M5 12l5 5L20 7', grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', list: 'M4 6h16M4 12h16M4 18h16',
     alert: 'M12 3 2 20h20zM12 10v4M12 17h.01', mail: 'M3 5h18v14H3zM3 6l9 7 9-7', unlock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 7.5-2',
     left: 'M15 6l-6 6 6 6', right: 'M9 6l6 6-6 6', note: 'M6 3h9l4 4v14H6zM9 11h7M9 15h7M9 7h4',
-    link: 'M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1', refresh: 'M20 11a8 8 0 1 0-2 6M20 4v7h-7', full: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5', keyb: 'M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10', power: 'M12 3v9M6.4 6.6a8 8 0 1 0 11.2 0', win: 'M3 5l8-1v7H3zM13 4l8-1v8h-8zM3 13h8v7l-8-1zM13 13h8v8l-8-1z',
+    link: 'M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1', refresh: 'M20 11a8 8 0 1 0-2 6M20 4v7h-7', full: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5', keyb: 'M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10', camera: 'M4 8h3l2-3h6l2 3h3v11H4zM12 10.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', undo: 'M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3', clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2', power: 'M12 3v9M6.4 6.6a8 8 0 1 0 11.2 0', win: 'M3 5l8-1v7H3zM13 4l8-1v8h-8zM3 13h8v7l-8-1zM13 13h8v8l-8-1z',
   };
   const ic = (n, s = 16) => { const v = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); v.setAttribute('viewBox', '0 0 24 24'); v.setAttribute('width', s); v.setAttribute('height', s); v.setAttribute('aria-hidden', 'true'); v.innerHTML = `<path d="${P[n]}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`; return v; };
   const CSS = `
@@ -153,6 +158,17 @@
 @media (max-width:700px),(pointer:coarse){.ym-vkeys{display:flex}}
 .ym-vin{position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;font-size:16px;pointer-events:none}
 .ym-nav{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}.ym-nav button{display:flex;gap:8px;align-items:center;min-height:36px;padding:0 10px;border:0;border-radius:9px;background:none;color:var(--ink);font:inherit;font-size:13.5px;text-align:left;cursor:pointer}.ym-nav button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}.ym-nav button span{margin-left:auto;color:var(--muted);font-size:12px}
+.ym-inst{display:flex;flex-direction:column;gap:10px;min-width:0}.ym-inst h3{margin-bottom:0}
+.ym-snaps{list-style:none;margin:0;padding:0;position:relative}
+.ym-snaps li::before{content:'';position:absolute;left:21px;top:0;bottom:0;width:2px;background:var(--line)}.ym-snaps li:first-child::before{top:30px}.ym-snaps li:last-child::before{bottom:auto;height:30px}.ym-snaps li:only-child::before{display:none}
+.ym-snaps li{display:flex;gap:12px;align-items:center;padding:8px 0;position:relative;flex-wrap:wrap;min-width:0}
+.ym-snaps .pt{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--panel);border:2px solid var(--line);flex:none;z-index:1;color:var(--ink);align-self:flex-start}
+.ym-snaps li.auto .pt{border-style:dashed}.ym-snaps li.now .pt{border-color:var(--ya);color:var(--ya)}
+.ym-snaps .nm{flex:1;min-width:160px;display:flex;flex-direction:column;gap:2px}.ym-snaps .nm b{font-size:14px;overflow-wrap:anywhere}.ym-snaps .nm small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.ym-snaps .ym-btn{min-height:44px;min-width:44px;padding:0 12px}
+@media (max-width:600px){.ym-snaps .nm{flex-basis:calc(100% - 56px)}.ym-snaps li>.ym-btn:not(.ic){flex:1;white-space:nowrap}.ym-snaps li>.ym-btn:first-of-type{margin-left:56px}}
+.ym-place{font-size:13px;color:var(--muted);overflow-wrap:anywhere}.ym-place b{color:var(--ink)}
+.ym-inst .ym-guard p{font-size:13.5px;margin:4px 0 10px}.ym-inst .ym-guard .ym-btn.bad{background:#c62828}.ym-inst .ym-opt .tx b{font-size:14px;font-weight:600}
 `;
   // etat : le filtre par état (lot M3) ; garde : la suppression ouverte (machine, nom écrit, choix du disque, refus).
   // cg : quoi créer (une VM en 4 étapes, ou un LXC) ; cv : l'assistant « Créer une VM » (lot M4) ; cr : le compte rendu ouvert.
@@ -856,17 +872,86 @@
     lancerEcran(m, { scr, img, etat, voile, grab, vin, plein, statut, redraw, barre, dessine: st === 'on' ? 'en marche' : st === 'pause' ? 'en pause' : 'éteinte' });
   }
 
+  // ---------------- Instantanés d'une VM de ce PC (lot M6) ----------------
+  const tailleGo = (o) => `${(o / 1024 ** 3).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Go`;
+  const quandI = (t) => { const d = new Date(t); return `le ${d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`; };
+  /** Le titre d'un instantané (Odin compose le même). */
+  const titreI = (x) => x.nom || (x.auto === 'maj' ? 'Avant la mise à jour' : x.auto === 'sauvegarde' ? `Avant la sauvegarde${x.detail ? ` « ${x.detail} »` : ''}` : x.auto === 'retour' ? `Avant de revenir à « ${x.detail ?? ''} »` : `Instantané du ${new Date(x.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`);
+  async function instantanesTab(root, D, redraw) {
+    const vms = (D.machines ?? []).filter((m) => m.genre === 'vm' && !m.estModele);
+    const sec = el('section', { class: 'ym-w ym-inst', 'aria-labelledby': 'ymInstT' }, el('h3', { id: 'ymInstT' }, ic('camera', 16), 'Instantanés'),
+      el('p', { class: 'ym-lead', style: 'margin:0' }, 'Une photo de la machine à un moment : on peut y revenir. Odin en prend un tout seul avant chaque mise à jour et avant la sauvegarde de la nuit.'));
+    root.append(sec);
+    if (D.windows) { sec.append(el('div', { class: 'ym-win' }, el('span', { class: 'gi' }, ic('win', 20)), el('p', { role: 'status' }, 'Sous Windows, les VM de ce PC ne tournent pas encore dans Hydre : leurs instantanés non plus. Ils viendront avec le moteur Windows d\'Hydre ; sous Linux, Hydre les prend dans le disque de la VM.'))); return; }
+    if (!vms.length) { sec.append(el('p', { class: 'ym-empty' }, 'Aucune machine virtuelle sur ce PC : crée-en une (onglet Créer).')); return; }
+    const m = vms.find((x) => x.id === S.inst) ?? vms.find((x) => etatDe(x) === 'on') ?? vms[0];
+    if (S.inst !== m.id) { S.inst = m.id; S.instG = null; }
+    const mot = (x) => ({ on: 'allumée', pause: 'en pause', erreur: 'en erreur' })[etatDe(x)] ?? 'éteinte';
+    sec.append(el('div', { class: 'ym-pick', role: 'group', 'aria-label': 'Machine' }, ...vms.map((x) => el('button', { type: 'button', 'aria-pressed': String(x.id === m.id), 'data-inst': x.id, onclick: () => { if (S.inst !== x.id) { S.inst = x.id; S.instG = null; S.instMsg = ''; S.focus = `[data-inst="${x.id}"]`; redraw(); } } }, el('span', { class: 'nom' }, x.nom), el('span', { class: 'st' }, ` · ${mot(x)}`)))));
+    const r = await post('instantanes_machine', { machine: m.id }), d = r.data ?? {};
+    const statut = el('p', { class: 'ym-out', role: 'status', style: 'margin:0' }, S.instMsg ?? ''); S.instMsg = '';
+    if (r.ok === false || d.etat !== 'ok') { sec.append(el('p', { class: 'ym-errl', role: 'status' }, r.text)); return; }
+    const l = d.instantanes ?? [], etat = d.machine.etat, b = d.budget ?? {}, reste = b.disqueMaxGo, manque = reste !== undefined && d.besoinGo > reste;
+    /** Un geste, puis la liste relue ; le message reste affiché sous la liste, le clavier revient à « Prendre un instantané ». */
+    const geste = async (bouton, action, input, confirme = false) => {
+      bouton.disabled = true; statut.textContent = action === 'prendre_instantane' ? 'Je prends l\'instantané…' : action === 'revenir_instantane' ? 'Je reviens à l\'instantané…' : 'Je retire l\'instantané…';
+      const x = confirme ? await post(action, input, true) : await act(action, input);
+      bouton.disabled = false; note(x); S.instG = null; S.instMsg = x.text; S.focus = '[data-f="prendre"]'; await redraw();
+    };
+    // Le garde-fou : revenir (ce qui est perdu) ou retirer (on ne pourra plus y revenir). « Non », « Garder » ou Échap le
+    // ferme, et le clavier revient au bouton qui l'a ouvert (le nom d'un instantané venu d'ailleurs peut tout contenir).
+    const G = S.instG && l.find((x) => x.tag === S.instG.tag);
+    const fermer = (quoi) => { S.instG = null; S.focus = `[data-${quoi}="${window.CSS.escape(G.tag)}"]`; redraw(); };
+    const echap = (quoi) => (e) => { if (e.key === 'Escape') { e.preventDefault(); fermer(quoi); } };
+    if (G && S.instG.quoi === 'revenir') {
+      const sansMem = etat !== 'éteinte' && !G.memoire;
+      sec.append(el('div', { class: 'ym-guard', role: 'alert', onkeydown: echap('revenir') }, el('span', { class: 'gi' }, ic('undo', 22)), el('div', {}, el('b', { class: 't' }, `Revenir à « ${titreI(G)} » ?`),
+        sansMem ? el('p', {}, `Il a été pris machine éteinte : il ne garde pas sa mémoire. Éteins d'abord ${m.nom}, puis reviens-y.`)
+          : el('p', {}, `Tout ce qui a changé dans ${m.nom} depuis (fichiers, réglages) est perdu. Odin prend d'abord un instantané de maintenant, pour pouvoir revenir à nouveau.${etat === 'en marche' ? ` ${m.nom} est mise en pause le temps du retour, puis repart.` : ''}${etat === 'éteinte' && G.memoire ? ' Elle était allumée à ce moment-là : seul son disque revient, elle redémarrera comme après une coupure de courant.' : ''}`),
+        el('div', { class: 'ym-row' }, sansMem ? '' : el('button', { class: 'ym-btn bad', type: 'button', 'data-f': 'revenir-ok', onclick: (e) => geste(e.currentTarget, 'revenir_instantane', { machine: m.id, instantane: G.tag }, true) }, ic('undo', 15), 'Revenir à cet instantané'),
+          el('button', { class: 'ym-btn', type: 'button', 'data-f': 'revenir-non', onclick: () => fermer('revenir') }, sansMem ? 'Fermer' : 'Non')))));
+    } else if (G && S.instG.quoi === 'retirer') {
+      sec.append(el('div', { class: 'ym-guard', role: 'alert', onkeydown: echap('retirer') }, el('span', { class: 'gi' }, ic('trash', 22)), el('div', {}, el('b', { class: 't' }, `Retirer « ${titreI(G)} » ?`),
+        el('p', {}, `On ne pourra plus revenir à cet instantané de ${m.nom}.${G.memoire ? ` Il libère environ ${tailleGo(G.memoire)}.` : ''}`),
+        el('div', { class: 'ym-row' }, el('button', { class: 'ym-btn bad', type: 'button', 'data-f': 'retirer-ok', onclick: (e) => geste(e.currentTarget, 'retirer_instantane', { machine: m.id, instantane: G.tag }, true) }, ic('trash', 15), 'Retirer l\'instantané'),
+          el('button', { class: 'ym-btn', type: 'button', 'data-f': 'retirer-non', onclick: () => fermer('retirer') }, 'Garder')))));
+    }
+    const ouvrir = (x, quoi) => { S.instG = { tag: x.tag, quoi }; S.focus = `[data-f="${quoi}-non"]`; redraw(); };
+    const prendre = el('button', { class: 'ym-btn pri', type: 'button', 'data-f': 'prendre', disabled: manque, onclick: (e) => geste(e.currentTarget, 'prendre_instantane', { machine: m.id }) }, ic('camera', 15), 'Prendre un instantané');
+    sec.append(el('ul', { class: 'ym-snaps', 'aria-label': `Instantanés de ${m.nom}` },
+      ...l.map((x) => el('li', { class: x.auto ? 'auto' : '' }, el('span', { class: 'pt', 'aria-hidden': 'true' }, ic(x.auto ? 'clock' : 'camera', 18)),
+        el('span', { class: 'nm' }, el('b', {}, titreI(x)), el('small', {}, `${quandI(x.at)} · ${x.auto ? 'tout seul' : 'à la main'} · ${x.memoire ? `${tailleGo(x.memoire)} (mémoire comprise)` : 'disque seul'}`)),
+        el('button', { class: 'ym-btn', type: 'button', 'data-revenir': x.tag, onclick: () => ouvrir(x, 'revenir') }, ic('undo', 15), 'Revenir ici'),
+        el('button', { class: 'ym-btn ic', type: 'button', 'data-retirer': x.tag, 'aria-label': `Retirer l'instantané ${titreI(x)}`, onclick: () => ouvrir(x, 'retirer') }, ic('trash', 15)))),
+      el('li', { class: 'now' }, el('span', { class: 'pt', 'aria-hidden': 'true' }, ic('play', 18)), el('span', { class: 'nm' }, el('b', {}, 'Maintenant'), el('small', {}, etat === 'en marche' ? 'la machine en marche' : etat === 'en pause' ? 'la machine en pause' : 'la machine éteinte')), prendre)));
+    if (!l.length) sec.append(el('p', { class: 'ym-empty', style: 'margin:0' }, `${m.nom} n'a pas encore d'instantané.`));
+    sec.append(statut);
+    // La place : le fichier du disque (disque et instantanés) et ce que le budget d'Hydre laisse encore.
+    sec.append(el('p', { class: 'ym-place' }, 'Disque et instantanés : ', el('b', {}, tailleGo(d.place)), ' sur ce PC. ',
+      reste === undefined ? 'Odin ne sait pas lire la place libre : aucun instantané ne sera pris.' : `Le budget d'Hydre laisse encore ${reste} Go (${b.disqueLibreGo} Go libres, ${b.reserveDisqueGo} Go gardés pour Odin et tes fichiers) ; un instantané ${etat === 'éteinte' ? 'pris machine éteinte' : 'avec sa mémoire'} demande environ ${d.besoinGo} Go.`),
+      manque ? el('p', { class: 'ym-errl', style: 'margin:0' }, 'Pas assez de place pour un nouvel instantané : retire un ancien instantané, ou fais de la place.') : '');
+    // Les automatiques : l'interrupteur de la maquette, avec ses mots (les instantanés pris tout seuls sont gardés 7 jours ;
+    // il n'y a pas de choix « combien en garder »). Son message s'affiche juste sous lui, et le clavier y reste.
+    const R = d.reglages, titreMaj = 'Avant chaque mise à jour du système';
+    const statutR = el('p', { class: 'ym-out', role: 'status', style: 'margin:0' }, S.instMsgR ?? ''); S.instMsgR = '';
+    const regler = async (input, el0, cible) => { el0.disabled = true; const x = await act('reglages_instantanes', input); el0.disabled = false; note(x); S.instMsgR = x.text; S.focus = cible; await redraw(); };
+    sec.append(el('div', { class: 'ym-opt' }, el('span', { class: 'tx' }, el('b', {}, titreMaj), el('small', {}, 'un instantané tout seul, gardé 7 jours')),
+        el('button', { class: 'ym-sw', type: 'button', role: 'switch', 'aria-checked': String(R.avantMaj), 'aria-label': titreMaj, 'data-f': 'avant-maj', onclick: (e) => regler({ avant_maj: !R.avantMaj }, e.currentTarget, '[data-f="avant-maj"]') })),
+      statutR,
+      el('p', { class: 'ym-note' }, ic('note', 14), el('span', {}, 'Prendre, revenir, retirer et ce réglage sont notés dans « qui a fait quoi » ; les instantanés pris ou retirés tout seuls y sont notés « Odin seul ».')));
+  }
+
   window.OdinPages.ymir = async ({ host, generic }) => {
     if (!document.getElementById('ymCss')) document.head.append(el('style', { id: 'ymCss' }, CSS));
     const root = el('div', { class: 'ym' }), body = el('div', { class: 'ym' }), gen = el('div', {}, ...(generic ?? [])), tabs = el('div', { class: 'ym-tabs', role: 'tablist' }), sub = el('p', {});
     root.append(el('div', { class: 'ym-top' }, el('div', {}, el('h2', {}, 'Toutes les machines'), sub), tabs), body, gen); host.append(root);
     const redraw = async () => {
-      tabs.replaceChildren(...[['machines', 'grid', 'Machines'], ['creer', 'plus', 'Créer'], ['ecran', 'screen', 'Écran'], ['iso', 'down', 'ISO'], ['quarantaine', 'lock', 'Quarantaine'], ['serveurs', 'list', 'Serveurs']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, ic(i, 15), t)));
+      tabs.replaceChildren(...[['machines', 'grid', 'Machines'], ['creer', 'plus', 'Créer'], ['ecran', 'screen', 'Écran'], ['instantanes', 'camera', 'Instantanés'], ['iso', 'down', 'ISO'], ['quarantaine', 'lock', 'Quarantaine'], ['serveurs', 'list', 'Serveurs']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, ic(i, 15), t)));
       // Quitter l'onglet « Écran » ferme la vue (Odin ne garde rien de l'écran).
       if (S.tab !== 'ecran') arreterEcran();
       gen.hidden = S.tab !== 'serveurs'; body.hidden = S.tab === 'serveurs'; if (S.tab === 'serveurs') return;
       // Premier affichage d'un onglet : la barre de chargement au centre (pas pendant le rafraîchissement discret des machines).
-      if (S.montre !== S.tab || !body.childNodes.length) body.replaceChildren(el('div', { class: 'ym-w' }, charge(S.tab === 'iso' ? 'Je lis tes images…' : S.tab === 'ecran' ? 'Je prépare l\'écran…' : S.tab === 'creer' ? 'Je prépare la liste des systèmes et des images…' : S.tab === 'quarantaine' ? 'Je regarde les machines en quarantaine…' : 'Je lis tes machines…')));
+      if (S.montre !== S.tab || !body.childNodes.length) body.replaceChildren(el('div', { class: 'ym-w' }, charge(S.tab === 'iso' ? 'Je lis tes images…' : S.tab === 'ecran' ? 'Je prépare l\'écran…' : S.tab === 'instantanes' ? 'Je lis les instantanés…' : S.tab === 'creer' ? 'Je prépare la liste des systèmes et des images…' : S.tab === 'quarantaine' ? 'Je regarde les machines en quarantaine…' : 'Je lis tes machines…')));
       S.montre = S.tab;
       // Ce qui dépend de chaque machine (lecture au propriétaire seul : refusée, la page s'en passe).
       const tour = (S.tour = (S.tour ?? 0) + 1);
@@ -878,7 +963,7 @@
       if (dp && dp.ok !== false && dp.data) D.deps = dp.data;
       if (cv) { if (cv.ok !== false && cv.data) D.cv = cv.data; else D.cvTexte = cv.text; }
       sub.textContent = `${all.filter((m) => m.genre === 'lxc').length} LXC et ${all.filter((m) => m.genre === 'vm').length} VM sur ce PC · rangées par système`;
-      if (S.tab === 'creer') creerTab(n, D, redraw); else if (S.tab === 'ecran') ecranTab(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
+      if (S.tab === 'creer') creerTab(n, D, redraw); else if (S.tab === 'ecran') ecranTab(n, D, redraw); else if (S.tab === 'instantanes') await instantanesTab(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
       body.replaceChildren(...n.childNodes);
       // Le clavier garde sa place après un nouveau dessin (filtre choisi, garde-fou fermé).
       if (S.focus) { const f = body.querySelector(S.focus); S.focus = null; if (f) f.focus(); }

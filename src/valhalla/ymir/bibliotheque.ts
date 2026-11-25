@@ -18,6 +18,7 @@ import type { Action, ModCtx } from '../types.ts';
 import { tailleTexte } from '../forge/bibliotheque.ts';
 import { bibliotheque, bibliothequeIso, comptesRendus, dossierArrivees, espaceIso, importerIso, importerLien, isoDeplacee, planVerif, prochaineVerif, sansFiche, trouverIso, verifDue, verifierIsos, type FicheIso, type PlanVerif } from './isos.ts';
 import { allumee, Local, type Machine } from './local.ts';
+import { avantMiseAJour } from './instantanes.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const go = (n: number) => `${(n / 1024 ** 3).toFixed(2).replace('.', ',')} Go`;
@@ -157,8 +158,14 @@ export function bibliothequeActions(): Action[] {
         return { text: t };
       } },
     { id: 'mettre_a_jour_logiciels', label: 'Mettre à jour les logiciels', what: 'Installe dans une machine les nouvelles versions apportées par Hermès', params: [{ key: 'machine', label: 'Machine', kind: 'text', required: true }], grave: (i) => `mettre à jour les logiciels de la machine ${s(i.machine)}`, run: async (ctx, i) => {
-      const L = new Local(ctx), m = L.find(i.machine), l = await logicielsHermes(ctx), out: string[] = [];
-      for (const a of retards(m, l)) out.push(await installer(ctx, L, m, a.nouveau).catch((e) => `⚠ ${a.nouveau.nom} : ${(e as Error).message}`));
+      const L = new Local(ctx), m = L.find(i.machine), l = await logicielsHermes(ctx), out: string[] = [], r = retards(m, l);
+      // Un instantané de la VM d'abord (lot M6, réglable dans Hydre) : sans lui, pas de mise à jour.
+      if (r.length && m.genre === 'vm') {
+        const a = await avantMiseAJour(ctx, m);
+        if (!a.ok) return { ok: false, text: `${m.nom} : pas de mise à jour sans l'instantané d'avant (${a.raison ?? a.texte}). Fais de la place, ou coupe « Avant chaque mise à jour du système » dans Hydre → Instantanés.` };
+        if (!a.saute) out.push(a.texte);
+      }
+      for (const a of r) out.push(await installer(ctx, L, m, a.nouveau).catch((e) => `⚠ ${a.nouveau.nom} : ${(e as Error).message}`));
       return { text: out.join('\n') || `${m.nom} : tous ses logiciels sont à jour.` };
     } },
   ];

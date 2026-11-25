@@ -22,6 +22,7 @@ import { decrire, essayer, lireDestination, transportDe, type Destination, type 
 import { actionsAgentSindri, lancerAgent } from '../sindri/agent.ts';
 import { actionsImage, faireImage, type InfoImage } from '../sindri/image.ts';
 import { tacheEnPause } from '../automatismes.ts';
+import { instantanesAvantSauvegarde } from '../ymir/instantanes.ts';
 import { dateMurale, fuseauOdin, murale } from '../../draupnir/rythme.ts';
 
 /** L'identifiant Talos de la tâche d'un plan (sans « : », stable tant que le plan garde son nom). */
@@ -256,6 +257,9 @@ async function runPlanSeul(ctx: ModCtx, p: Plan, forcer?: TypeSauvegarde): Promi
   // Mode Osiris (lien Phénix → Hydre) : un instantané de chaque machine virtuelle du plan, juste avant la sauvegarde.
   const vmNotes: string[] = [];
   for (const vmid of p.vms ?? []) { const r = await ctx.call('ymir', 'instantane', { vmid, nom: `sindri-${ctx.now().toISOString().slice(0, 10).replace(/-/g, '')}` }, `avant la sauvegarde « ${p.name} »`).catch((e) => ({ ok: false, text: (e as Error).message })); vmNotes.push(`${r.ok === false ? '✗' : '✓'} machine ${vmid}`); }
+  // Hydre (lot M6) : un instantané de chaque VM de ce PC dont le plan lit le dossier (réglage d'Hydre « Réglages des instantanés », mis par défaut). Pas une action
+  // d'Hydre : seule une vraie sauvegarde y mène. Un raté ne retient pas la sauvegarde : il est dit dans son compte rendu.
+  if (p.paths.length && ctx.modules().some((m) => m.id === 'ymir')) for (const x of await instantanesAvantSauvegarde(ctx, p.paths, p.name).catch(() => [])) if (!x.saute) vmNotes.push(`${x.ok ? '✓' : '✗'} ${x.nom}`);
   if (p.avant) { const r = await commande(ctx, p.avant, 'avant'); if (!r.ok) throw new Error(`la commande d'avant a échoué (${r.texte}) : sauvegarde annulée`); }
   let ok = false, texte = '';
   try {
