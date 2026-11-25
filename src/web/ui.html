@@ -2384,8 +2384,15 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // tableaux, images, son, vidéo, logos des applis, résultats de Pythie). Pas encore chargé : le texte brut, sans HTML.
   function md(text) { return window.OdinRendu ? window.OdinRendu.md(text) : el('div', { class: 'md' }, el('p', {}, String(text))); }
   // Fin de réponse « décidé sans te déranger » / « Odin Breaker » : encart repliable, pas un pavé dans la réponse.
+  // Le pied n'est cherché qu'APRÈS la dernière enveloppe fermée (le texte d'une appli ne fabrique pas de pied) ; dans une
+  // enveloppe jamais fermée, il n'y a pas de pied. La fin du dernier en-tête compte, pas son début : une source peut
+  // contenir « </untrusted> ».
   function splitFooter(text) {
-    const i = text.search(/\n\n(🛡 Décidé sans te déranger|⚡ Odin Breaker :)/);
+    let e = -1;
+    for (const m of text.matchAll(/<untrusted source="[^"]*">/g)) e = m.index + m[0].length;
+    const f = text.lastIndexOf('</untrusted>'), de = f < 0 ? 0 : f;
+    if (e >= 0 && f < e) return [text, ''];
+    const k = text.slice(de).search(/\n\n(🛡 Décidé sans te déranger|⚡ Odin Breaker :)/), i = k < 0 ? -1 : de + k;
     return i < 0 ? [text, ''] : [text.slice(0, i), text.slice(i).trim()];
   }
   function footerBox(foot) {

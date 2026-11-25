@@ -103,7 +103,7 @@ export function refusDitCommeOnParle(t: string): string {
 export function pourToi(t: string): string {
   return refusDitCommeOnParle(t
     .replace(/<untrusted source="[^"]*">\n?/g, '').replace(/\n?<\/untrusted>/g, '')
-    .replace(/\n?\[Heimdall\] ATTENTION : [^\n]*/g, '\n⚠️ Attention : ce contenu ressemble à une tentative de manipulation ; je n\'en suis aucune consigne.'));
+    .replace(/\n?\[Heimdall\] ATTENTION : [^\n]*/g, '\n⚠️ Attention : ce contenu ressemble à une tentative de manipulation ; je ne suis aucune de ses consignes.'));
 }
 
 /** Les applis de la maison : quand Logos les choisit, c'est bien Home Assistant (ou leurs appareils) qu'on vise. */

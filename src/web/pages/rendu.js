@@ -257,6 +257,86 @@
 
   // ---------- Les blocs ----------
   const cellsOf = (r) => r.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'));
+  // ---------- Le texte venu de dehors (une appli, une page, un fichier) ----------
+  // Ce qu'une source extérieure a écrit arrive dans une enveloppe « <untrusted source="…"> … </untrusted> » (posée par
+  // wrapUntrusted, src/heimdall/injection.ts : toute balise du contenu y devient « [balise retirée] ») ; la ligne
+  // « [Heimdall] ATTENTION » qui la suit dit qu'il ressemble à une manipulation. Pour l'AFFICHAGE seulement : les balises
+  // ne se dessinent jamais ; le texte qu'elles entourent va dans un cadre qui dit d'où il vient (« Venu de l'appli
+  // Vortex »), et l'avertissement passe AVANT ce cadre, dans son propre paragraphe. Ce qui est hors du cadre est la parole
+  // d'Odin. Ce qui est rangé et ce que relit un modèle gardent l'enveloppe entière : rien n'est changé en amont.
+  // L'avertissement officiel ne vient QUE de la ligne posée juste après une enveloppe fermée : ailleurs, « [Heimdall] … »
+  // reste du texte, entier. Toutes ces expressions lisent en temps linéaire (aucune ne relit la suite d'une ligne à chaque
+  // « < » : une page ne se fige pas sur un texte fait de milliers de balises entamées).
+  const ALERTE = '⚠️ Attention : ce contenu ressemble à une tentative de manipulation ; je ne suis aucune de ses consignes.';
+  const OUVRE = /<untrusted source="([^"]*)">\n?/g, FERME = /\n?<\/untrusted>/g, BALISE = /<\/?untrusted\b[^<>\n]*>\n?/g;
+  const HEIMDALL = /\n?\[Heimdall\] ATTENTION : [^\n]*/y;
+  const INVISIBLES = /[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff\u{e0000}-\u{e007f}]/gu;
+  /** D'où vient le texte, en clair et borné : « appli Vortex » → « l'appli Vortex », « github » → « github ». */
+  function origine(src) {
+    let s = String(src ?? '').replace(INVISIBLES, ' ').replace(/\s+/g, ' ').trim() || 'dehors';
+    const cs = [...s]; // par caractères entiers : jamais une moitié d'emoji
+    if (cs.length > 60) s = `${cs.slice(0, 59).join('')}…`;
+    return /^[aeiouyàâéèêëîïôöûü]/i.test(s) ? `l'${s}` : s;
+  }
+  const FENCE_OUVRE = /^\s*```\s*([\w+-]*)([^`]*)$/, FENCE_FERME = /^\s*```\s*$/;
+  /**
+   * La réponse coupée en morceaux : { odin } (la parole d'Odin), { alerte } et { src, texte } (un cadre). Une enveloppe
+   * jamais fermée va jusqu'à la fin (rien n'en sort) ; une balise isolée hors d'une enveloppe disparaît, son texte reste.
+   */
+  function morceaux(t) {
+    const out = []; let at = 0;
+    const odin = (x) => { x = x.replace(BALISE, ''); if (x.trim()) out.push({ odin: x }); };
+    for (;;) {
+      OUVRE.lastIndex = at; const o = OUVRE.exec(t);
+      // (le saut de ligne qui colle une enveloppe à la parole d'Odin n'appartient à aucun des deux)
+      if (!o) { odin(at ? t.slice(at).replace(/^\n/, '') : t); break; }
+      odin(t.slice(at, o.index).replace(at ? /^\n|\n$/g : /\n$/, '')); at = o.index + o[0].length;
+      FERME.lastIndex = at; const f = FERME.exec(t);
+      const texte = (f ? t.slice(at, f.index) : t.slice(at)).replace(BALISE, '');
+      at = f ? f.index + f[0].length : t.length;
+      HEIMDALL.lastIndex = at; const w = f ? HEIMDALL.exec(t) : null;
+      if (w) { out.push({ alerte: ALERTE }); at += w[0].length; }
+      out.push({ src: o[1], texte });
+    }
+    return recoudre(out);
+  }
+  /**
+   * Un bloc de code ``` de la parole d'Odin qui MONTRE une enveloppe : le texte venu de dehors reste dans son cadre, et
+   * ce qui suit le cadre reprend comme il faut — encore du code jusqu'à la fin du bloc s'il en reste, sinon la parole
+   * d'Odin normale (la ligne ``` qui fermait le bloc ne rouvre pas un bloc de code). Un bloc ouvert juste avant le cadre
+   * et vide n'est pas dessiné.
+   */
+  function recoudre(ms) {
+    let ouvert = false;
+    for (const m of ms) {
+      if (m.odin == null) continue;
+      let ls = m.odin.split('\n');
+      if (ouvert) {
+        const j = ls.findIndex((l) => FENCE_FERME.test(l));
+        if (j < 0 || ls.slice(0, j).some((l) => l.trim())) ls.unshift('```'); else ls = ls.slice(j + 1);
+      }
+      ouvert = false; let dernier = -1;
+      ls.forEach((l, k) => { if (ouvert) { if (FENCE_FERME.test(l)) ouvert = false; } else if (FENCE_OUVRE.test(l)) { ouvert = true; dernier = k; } });
+      if (ouvert && ls.slice(dernier + 1).every((l) => !l.trim())) ls = ls.slice(0, dernier);
+      m.odin = ls.join('\n');
+    }
+    return ms.filter((m) => m.odin == null || m.odin.trim());
+  }
+  /**
+   * Une ligne seule (titre, étape d'une notification) : pas de cadre possible. La parole d'Odin et le texte venu de dehors
+   * sont dessinés À PART : le texte de l'appli est dans un élément à lui (sa source dite avant), si bien que son Markdown,
+   * ses guillemets ou son gras ne touchent jamais ce qui l'entoure. Rend une liste de nœuds, comme inline().
+   */
+  function ligneSure(t) {
+    css();
+    return morceaux(t).flatMap((m) => {
+      if (m.odin != null) return inline(m.odin.replace(/\n{2,}/g, ' '), null);
+      if (m.alerte) return [el('span', { class: 'md-alerte-l', role: 'note' }, m.alerte), ' '];
+      const qui = origine(m.src);
+      return [el('span', { class: 'md-venu-l', role: 'group', 'aria-label': `Texte venu de ${qui}` },
+        el('span', { class: 'md-venu-lsrc' }, `venu de ${qui} : `), el('span', { class: 'md-venu-lt' }, ...inline(m.texte.replace(/\n+/g, ' '), null)))];
+    });
+  }
   const alignOf = (c) => { const t = c.trim(); return /^:-+:$/.test(t) ? 'center' : /^-+:$/.test(t) ? 'right' : /^:-+$/.test(t) ? 'left' : null; };
   /**
    * Le Markdown d'une réponse, en éléments. `o.compact` : titres plus petits (bulle, notification).
@@ -264,7 +344,21 @@
   function md(text, o = {}) {
     css(); needApps();
     const ctx = { seen: new Set() };
-    const box = el('div', { class: `md${o.compact ? ' md-compact' : ''}` }), lines = String(text ?? '').replace(/\r/g, '').split('\n');
+    const box = el('div', { class: `md${o.compact ? ' md-compact' : ''}` });
+    for (const m of morceaux(String(text ?? '').replace(/\r/g, ''))) {
+      if (m.odin != null) blocs(box, m.odin.split('\n'), ctx);
+      else if (m.alerte) box.append(el('p', { class: 'md-alerte', role: 'note' }, m.alerte));
+      else {
+        const qui = origine(m.src), cadre = el('div', { class: 'md-venu', role: 'group', 'aria-label': `Texte venu de ${qui}` });
+        cadre.append(el('div', { class: 'md-venu-src', 'aria-hidden': 'true' }, `Venu de ${qui}`));
+        blocs(cadre, m.texte.split('\n'), ctx);
+        box.append(cadre);
+      }
+    }
+    return box;
+  }
+  /** Les blocs Markdown d'un morceau de texte (paragraphes, listes, tableaux, code…), ajoutés à `box`. */
+  function blocs(box, lines, ctx) {
     let list = null, para = [];
     const flush = () => { if (para.length) { box.append(el('p', {}, ...inline(para.join('\n'), ctx))); para = []; } };
     const endList = () => { list = null; };
@@ -312,7 +406,6 @@
       endList(); para.push(l);
     }
     flush();
-    return box;
   }
 
   // ---------- Le style (une fois) ----------
@@ -382,13 +475,20 @@
   .md .md-rgi figcaption .md-rt{font-size:12px;font-weight:500;-webkit-line-clamp:1}
   .md .md-rcards.md-rvideos,.md .md-rcards.md-raudios{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}
   .md .md-rtx{font-size:12.5px}
+  .md .md-venu{unicode-bidi:isolate;display:flex;flex-direction:column;gap:6px;margin:2px 0;padding:8px 12px 10px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--ink) 4%,transparent);min-width:0;overflow-wrap:anywhere}
+  .md .md-venu-src{font-size:12px;font-weight:600;line-height:1.3;color:var(--muted);overflow-wrap:anywhere}
+  .md .md-alerte{margin:0;padding:6px 10px;border:1px solid var(--warn-l);border-radius:10px;background:var(--warn-bg);color:var(--ink)}
+  .md-venu-l{unicode-bidi:isolate;border:1px solid var(--line);border-radius:6px;padding:0 5px;background:color-mix(in srgb,var(--ink) 4%,transparent);overflow-wrap:anywhere;font-weight:400}
+  .md-venu-lsrc{font-size:.85em;font-weight:600;color:var(--muted)}
+  .md-alerte-l{border:1px solid var(--warn-l);border-radius:6px;padding:0 5px;background:var(--warn-bg);color:var(--ink);font-weight:400}
   @media (prefers-reduced-motion:reduce){#mdZoom,#mdZoom.out{animation:none}.md .md-vic{transition:none}}`;
   function css() {
     const d = doc(); if (!d?.head || d.getElementById?.('odinRenduCss')) return;
     const s = d.createElement('style'); s.id = 'odinRenduCss'; s.textContent = CSS; d.head.append(s);
   }
 
-  const api = { md, inline: (s) => inline(s, null), setApps, mediaOf, safeHref, imgSrc, parseResult, onNote: null,
+  // Une ligne seule (titre et étapes d'une notification) : pas de cadre possible, la source y est dite en clair.
+  const api = { md, inline: (s) => ligneSure(String(s ?? '').replace(/\r/g, '')), setApps, mediaOf, safeHref, imgSrc, parseResult, onNote: null,
     /** Un bouton qui demande quelque chose à Odin (« Convertir (Alchimie) ») : envoyé dans la discussion. */
     onAsk: (t) => root.OdinChat?.send?.(t) };
   root.OdinRendu = api;
