@@ -82,6 +82,8 @@ export function ipMatches(spec: string, ip: string): boolean {
   const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
   return ((n & mask) >>> 0) === ((x & mask) >>> 0);
 }
+/** Le nom rangé dans une table de noms, seulement s'il y est vraiment (jamais « constructor » ou « __proto__ » venus de l'objet lui-même). */
+const propre = (t: Record<string, string[]> | undefined, n: string): string[] | undefined => (t && Object.hasOwn(t, n) && Array.isArray(t[n]) ? t[n] : undefined);
 const PRIVATE_PTR = /\.(10|127|(1(6|7|8|9)|2\d|3[01])\.172|168\.192|254\.169)\.in-addr\.arpa$|^(?:\d+\.){0,3}(10|127)\.in-addr\.arpa$/;
 
 export interface ServerDeps {
@@ -172,7 +174,7 @@ export class DnsServer {
     const s = this.d.settings(), { rule } = this.clientOf(ip), n = cleanDomain(name);
     const filtering = rule?.filtering === 'oui' ? true : rule?.filtering === 'non' ? false : s.filtering && !(s.pausedUntil && this.now() < s.pausedUntil);
     // Les noms de la maison passent toujours, même filtrage coupé.
-    const local = s.rewrites[n] ?? this.d.local?.()[n] ?? Object.entries(s.rewrites).find(([k]) => k.startsWith('*.') && n.endsWith(k.slice(1)))?.[1];
+    const local = propre(s.rewrites, n) ?? propre(this.d.local?.(), n) ?? Object.entries(s.rewrites).find(([k]) => k.startsWith('*.') && n.endsWith(k.slice(1)))?.[1];
     if (local) return { action: 'rewrite', rule: `${n} → ${local.join(', ')}`, list: 'Noms de la maison', to: local };
     const at = new Date(this.now());
     if (isCut(rule, at)) return { action: 'block', rule: rule!.cutSchedule ? `machine coupée (${rule!.cutSchedule.from} → ${rule!.cutSchedule.to})` : 'machine coupée', list: rule!.name };
@@ -224,8 +226,9 @@ export class DnsServer {
     }
     if (q.opcode !== 0) return done(respond(q, { rcode: RCODE.NOTIMP }), { status: 'refusé', rule: 'opération non prise en charge' });
     if (s.refuseAny && qq.type === TYPE.ANY) return done(respond(q, { rcode: RCODE.NOTIMP }), { status: 'refusé', rule: 'requête ANY refusée' });
-    // Noms internes qui ne doivent pas partir sur Internet (adresses privées inverses, noms sans point).
-    if (s.privateReverse && (PRIVATE_PTR.test(qq.name) || (!qq.name.includes('.') && qq.name !== '' && !s.rewrites[qq.name] && !this.d.local?.()[qq.name]))) {
+    // Noms internes qui ne doivent pas partir sur Internet (adresses privées inverses, noms sans point). Un nom que la maison
+    // connaît (réglages, noms appris, et l'inverse d'une adresse de la maison : « adresse → nom ») est répondu ici même.
+    if (s.privateReverse && (PRIVATE_PTR.test(qq.name) || (!qq.name.includes('.') && qq.name !== '')) && !propre(s.rewrites, qq.name) && !propre(this.d.local?.(), qq.name)) {
       return done(respond(q, { rcode: RCODE.NXDOMAIN }), { status: 'refusé', rule: 'nom privé : ne part pas sur Internet' });
     }
     const v = this.verdict(qq.name, ip);

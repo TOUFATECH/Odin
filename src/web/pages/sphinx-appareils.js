@@ -383,11 +383,19 @@
   }
 
   // ---------------------------------------------------------------- la page de Sphinx : ses écrans, en onglets
-  const ECRANS = [{ id: 'appareils', titre: () => mot('onglet'), dessiner: (n) => { const e = ecran(n); return { relire: e.relire, pret: e.relire() }; } }];
+  const ECRANS = [{ id: 'appareils', rang: 0, titre: () => mot('onglet'), dessiner: (n) => { const e = ecran(n); return { relire: e.relire, pret: e.relire() }; } }];
   W.OdinSphinx = W.OdinSphinx || {
     ecrans: ECRANS,
-    /** Un autre écran de Sphinx (Adresses fixes, Réglages DHCP, Noms…) : { id, titre, dessiner(noeud) }. */
-    ajouter(e) { if (e && e.id && !ECRANS.some((x) => x.id === e.id)) ECRANS.push({ ...e, titre: typeof e.titre === 'function' ? e.titre : () => String(e.titre ?? e.id) }); },
+    /**
+     * Un autre écran de Sphinx (Adresses fixes, Réglages DHCP, Noms…) : { id, titre, dessiner(noeud), rang? }. Les fichiers
+     * se chargent dans l'ordre de leur nom ; `rang` range l'onglet à sa place (les écrans du DHCP, sans rang, valent 30 ;
+     * ceux du DNS viennent après). À rang égal : l'ordre d'arrivée.
+     */
+    ajouter(e) {
+      if (!e || !e.id || ECRANS.some((x) => x.id === e.id)) return;
+      const rang = Number.isFinite(e.rang) ? e.rang : 30, i = ECRANS.findIndex((x) => x.rang > rang);
+      ECRANS.splice(i < 0 ? ECRANS.length : i, 0, { ...e, rang, titre: typeof e.titre === 'function' ? e.titre : () => String(e.titre ?? e.id) });
+    },
     MOTS, quand, etatDe, filtrer,
     /** Ce que les autres écrans reprennent : fabriquer un élément (toujours du texte, jamais du HTML), une icône, demander à Sphinx. */
     outils: { el, ic, demander, traits: TRAITS },

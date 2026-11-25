@@ -28,6 +28,7 @@ import { LOCAL, SIGNE_MS, chiffresDe, depuisAdresse, effetsDe, gardeEtat, macPro
 import { agissant } from '../sso/acces.ts';
 import { RESEAU, VPN, conclure, dansSousReseau, privee, type CarteReseau, type Garde } from '../thjalfi/reseau.ts';
 import { BAUX_PROPOSES, dureeEnMots, filetOdin, preApprobation, raisonAutre, verifierReglages } from '../vidarr/reglages.ts';
+import { adressePropre, listeNoms, nomInverse, nomPropre, verifierNom, type EntreeNoms, type NomAuto } from '../vidarr/noms.ts';
 
 export interface ListMeta { id: string; name: string; url: string; kind: Lists['kind']; enabled: boolean; count?: number; updated?: string; error?: string }
 export const DEFAULT_LISTS: ListMeta[] = [
@@ -87,6 +88,46 @@ export function nomsDhcp(ctx: ModCtx): Record<string, string[]> {
   }
   return out;
 }
+/**
+ * Écran « Noms (DNS) » : les noms que le DNS d'Odin donne tout seuls. Ceux du DHCP (un appareil avec une adresse fixe est
+ * dit « adresse fixe »), et celui d'Odin lui-même (« odin.maison » → son adresse sur le réseau de la maison ; jamais une
+ * adresse de boucle locale ou nulle). Aucun ne se change à la main : ils suivent les appareils.
+ */
+function nomsAutomatiques(ctx: ModCtx): NomAuto[] {
+  const c = dhcpConfig(ctx), domaine = c.domain ?? 'maison', leases = leasesOf(ctx), out: NomAuto[] = [];
+  // L'adresse d'Odin : celle que le propriétaire a réglée, ou une adresse que porte vraiment une de ses cartes ; jamais
+  // l'adresse inventée quand rien n'est réglé et qu'aucune carte n'a d'adresse de maison (« odin.maison » viserait une autre machine).
+  const reglee = Boolean((ctx.settings.dhcp as Partial<DhcpConfig> | undefined)?.server);
+  const odin = ipPropre(c.server); if (odin && adressePropre(odin).ok && (reglee || LOCAL.ips().includes(odin))) out.push({ nom: `odin.${domaine}`, ip: odin, origine: 'odin', qui: 'Odin' });
+  for (const [mac, h] of nomsReseau({ config: c, leases, policy: macPolicy(ctx), now: ctx.now().getTime() })) {
+    const l = leases.find((x) => x.mac.toLowerCase() === mac); if (!l) continue;
+    const fixe = Boolean(l.fixed) || c.fixed.some((f) => f.mac.toLowerCase() === mac);
+    out.push({ nom: `${h}.${domaine}`, ip: l.ip, origine: fixe ? 'fixe' : 'dhcp', qui: texteSur(l.name) || h, mac });
+  }
+  return out;
+}
+/** Ce que la vérification et la liste des noms regardent : le nom de la maison, les noms à la main, les automatiques. */
+function entreeNoms(ctx: ModCtx): EntreeNoms {
+  const c = dhcpConfig(ctx), r = reseauDe(c);
+  return { domaine: (c.domain ?? 'maison').toLowerCase(), main: settingsOf(ctx).rewrites, automatiques: nomsAutomatiques(ctx), reseau: (ip) => Boolean(r && ipNum(ip) > r.net && ipNum(ip) < r.diffusion) };
+}
+/**
+ * Les noms que le serveur DNS sert en plus des réglages : ceux du DHCP (comme avant), celui d'Odin, et l'inverse (adresse →
+ * nom) des adresses de la maison. Un nom à la main du même nom passe toujours avant (le serveur lit d'abord les réglages).
+ */
+export function nomsServis(ctx: ModCtx): Record<string, string[]> {
+  // Le serveur les demande à chaque question : le calcul est gardé tant que rien n'a changé (les réglages du DHCP, les baux,
+  // les noms à la main, l'accès par MAC : chaque écriture les remplace) et au plus 2 secondes (un bail qui expire, une carte
+  // réseau qui change). Le résultat partagé est figé : personne ne le modifie en passant.
+  const st = ctx.settings, cles = [st.dhcp, st.leases, st.dns, st.macPolicy], t = ctx.now().getTime(), c = servisGardes.get(ctx);
+  if (c && t >= c.t && t - c.t < 2000 && c.cles.every((x, k) => x === cles[k])) return c.out;
+  const out = nomsDhcp(ctx), e = entreeNoms(ctx);
+  for (const a of e.automatiques) if (a.origine === 'odin') { out[a.nom] = [a.ip]; out.odin = [a.ip]; }
+  for (const x of listeNoms(e).inverses) out[nomInverse(x.adresse)] = [`PTR ${x.nom}`];
+  Object.freeze(out); servisGardes.set(ctx, { cles, t, out });
+  return out;
+}
+const servisGardes = new WeakMap<ModCtx, { cles: unknown[]; t: number; out: Record<string, string[]> }>();
 /** La politique d'accès par adresse MAC (gardée dans les réglages de Sphinx). Par défaut : ouvert à tous. */
 function macPolicy(ctx: ModCtx): MacPolicy {
   const d = ctx.settings.macPolicy as Partial<MacPolicy> | undefined;
@@ -191,7 +232,7 @@ async function startServer(ctx: ModCtx): Promise<string> {
   const d = new DnsServer({
     settings: () => reglagesServis(ctx), lists: () => activeLists(ctx), fetch: ctx.fetch,
     nameOf: (ip) => leasesOf(ctx).find((l) => l.ip === ip && l.name)?.name ?? inventoryName?.(ip),
-    local: () => nomsDhcp(ctx),
+    local: () => nomsServis(ctx),
     log: (e) => record(ctx, e),
     // Lien Sphinx → Forseti : un appareil demande un site dangereux (il est bloqué, et tu es prévenu).
     onThreat: (e) => { ctx.alert({ level: 'haute', title: `${e.clientName ?? e.client} a voulu joindre un site dangereux`, detail: `${e.name} (${e.list}) : bloqué par Sphinx. Un logiciel de cet appareil est peut-être infecté : lance une analyse (Asclépios).`, key: `dns-menace-${e.client}-${e.name}`, lien: 'vidarr-alerte-site-dangereux', data: { ip: e.client, domaine: e.name } }); ctx.emit('dns_menace', { ip: e.client, domaine: e.name, liste: e.list ?? '' }); },
@@ -288,6 +329,7 @@ function adressesVues(ctx: ModCtx, v: VueAppareils = appareilsVus(ctx)): EntreeA
 const SORTES: Record<SorteAdresse, string> = { box: 'la box', odin: 'Odin', dns: 'le serveur DNS', fixe: 'adresses fixes', bail: 'distribuées en ce moment', retenue: 'retenues', plage: 'libres dans la plage distribuée', libre: 'libres hors de la plage' };
 const LIMITE_REGLAGES = 'Les réglages du DHCP (qui distribue les adresses, la plage, le bail) sont au propriétaire seul.';
 const LIMITE_PLAN = 'Le plan des adresses de la maison et les adresses fixes sont au propriétaire seul. Tu ne vois que l\'appareil que tu tiens en ce moment.';
+const LIMITE_NOMS = 'Les noms de la maison sont au propriétaire seul : ajouter, changer, retirer. Tu ne vois que les noms de l\'appareil que tu tiens en ce moment.';
 // ------------------------------------------------------------------ Réglages DHCP : le garde-fou (maquette « Réseau », lot R4)
 // Un seul serveur d'adresses à la fois sur un réseau. Avant d'allumer le sien, Odin demande sur SA carte si un autre
 // répond ; il redemande chaque minute ; il s'arrête aussitôt s'il en apparaît un ; et il ne recommence jamais tout seul
@@ -765,20 +807,46 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         return { text: `${p === 'jour' ? localDay(at) : p === 'mois' ? localDay(at).slice(0, 7) : localDay(at).slice(0, 4)} : ${sum.total} requêtes, ${sum.blocked} bloquées, ${sum.threats} dangereuses, ${Object.keys(sum.clients).length} appareils.\n${top.map(([ip, c]) => `- ${c.name ?? ip} (${ip}) : ${c.n} requêtes, ${c.b} bloquées${c.threats ? `, ${c.threats} dangereuses` : ''}`).join('\n')}`, data: sum };
       } },
       { id: 'retirer_appareil', label: 'Retirer un appareil', what: 'Ses réglages propres sont oubliés', quick: false, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], run: (ctx, i) => { const d = settingsOf(ctx); if (!d.clients.some((c) => c.name === s(i.nom))) throw new Error('appareil introuvable'); saveDns(ctx, { clients: d.clients.filter((c) => c.name !== s(i.nom)) }); return { text: `🗑 Réglages de ${s(i.nom)} retirés (il suit les réglages de tout le monde).` }; } },
-      { id: 'nom_local', label: 'Nom de la maison', what: 'Un nom pour une machine (nas.maison → 192.168.1.10), ou un alias', params: [{ key: 'nom', label: 'Nom (ex. nas.maison, *.labo.maison)', kind: 'text', required: true }, { key: 'valeur', label: 'Adresse(s) IP, nom cible, ou enregistrement (MX 10 mail.maison ; TXT …)', kind: 'text', required: true }], run: (ctx, i) => {
-        const n = cleanDomain(s(i.nom)), base = n.replace(/^\*\./, ''); if (!isDomain(base)) throw new Error('nom invalide');
-        // Une adresse, un nom, ou un enregistrement typé (« MX 10 mail.maison », « TXT … », « SRV 0 5 5060 sip.maison ») ; plusieurs : séparés par « ; ».
-        const raw = s(i.valeur).trim(), to = /^(A|AAAA|CNAME|MX|TXT|SRV|NS|PTR)\s/i.test(raw) ? raw.split(';').map((x) => x.trim()).filter(Boolean) : parseIds(raw);
-        if (!to.length) throw new Error('valeur vide');
-        for (const x of to) {
-          const m = /^(A|AAAA|CNAME|MX|TXT|SRV|NS|PTR)\s+(.+)$/i.exec(x);
-          if (m) { const k = m[1].toUpperCase(), v = m[2].trim(); const ok = k === 'A' ? /^\d{1,3}(\.\d{1,3}){3}$/.test(v) : k === 'AAAA' ? v.includes(':') : k === 'TXT' ? v.length <= 1000 : k === 'MX' ? /^\d+\s+\S+$/.test(v) : k === 'SRV' ? /^\d+\s+\d+\s+\d+\s+\S+$/.test(v) : isDomain(v); if (!ok) throw new Error(`enregistrement invalide : ${x}`); continue; }
-          if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(x) && !x.includes(':') && !isDomain(x)) throw new Error(`valeur invalide : ${x}`);
-        }
-        const d = settingsOf(ctx); saveDns(ctx, { rewrites: { ...d.rewrites, [n]: to } }); srv?.cache.clear();
-        return { text: `🏷 ${n} → ${to.join(', ')}` };
-      } },
-      { id: 'retirer_nom', label: 'Retirer un nom', what: 'Retire un nom de la maison', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }], run: (ctx, i) => { const d = settingsOf(ctx), n = cleanDomain(s(i.nom)); if (!d.rewrites[n]) throw new Error('nom introuvable'); const r = { ...d.rewrites }; delete r[n]; saveDns(ctx, { rewrites: r }); srv?.cache.clear(); return { text: `🗑 ${n} retiré.` }; } },
+      // Écran « Noms (DNS) » (maquette Réseau validée) : « Ajouter un nom » vérifié par la règle pure de vidarr/noms.ts : un
+      // nom dans toutes les langues que le DNS accepte, une adresse valable, pas de doublon (changer = « remplacer », avec
+      // une question), pas de conflit avec un nom automatique (DHCP) ni avec celui d'Odin, un joker seulement sous le nom de
+      // la maison. Un nom d'Internet n'est remplacé que pour la maison, et la question le dit avant.
+      { id: 'nom_local', label: 'Nom de la maison', what: 'Un nom pour une machine (serveur.maison → son adresse), un alias, un joker (*.atelier.maison) ou un texte', params: [{ key: 'nom', label: 'Nom (ex. serveur.maison, *.atelier.maison)', kind: 'text', required: true }, { key: 'valeur', label: 'Adresse(s) IP, nom cible, texte, ou enregistrement (MX 10 courrier.maison ; TXT …)', kind: 'text', required: true }, { key: 'sorte', label: 'Sorte', kind: 'select', options: ['auto', 'a', 'alias', 'joker', 'texte'], default: 'auto', help: 'auto : la valeur dit la sorte ; a : nom → adresse ; alias : autre nom ; joker : tous les noms d\'un groupe ; texte' }, { key: 'remplacer', label: 'Remplacer un nom qui existe', kind: 'boolean', default: false }],
+        grave: (i, ctx) => {
+          // Sans contexte (un lien entre applis qui se prépare) : grave d'office, comme tout ce qui reste au propriétaire.
+          if (!ctx) return 'changer les noms de la maison';
+          let v; try { v = verifierNom({ ...entreeNoms(ctx), nom: i.nom, sorte: i.sorte, valeur: i.valeur, remplacer: i.remplacer === true }); } catch { return undefined; }
+          if (!v.ok) return undefined; // le refus vient ensuite, en clair
+          const avant = v.existe ? listeNoms({ ...entreeNoms(ctx), automatiques: [] }).lignes.find((l) => l.ascii === v.nom)?.valeur ?? '' : '';
+          const parts = [v.existe ? `remplacer le nom « ${v.unicode} » (${avant} → ${v.message.replace(/^« [^»]* » → /, '')})` : '', v.horsMaison ? `répondre pour « ${v.unicode} » à la place d'Internet, pour tous les appareils de la maison (le vrai site ne sera plus joignable par ce nom depuis la maison)` : ''].filter(Boolean);
+          return parts.length ? parts.join(' ; ') : undefined;
+        },
+        run: (ctx, i) => {
+          const v = verifierNom({ ...entreeNoms(ctx), nom: i.nom, sorte: i.sorte, valeur: i.valeur, remplacer: i.remplacer === true });
+          if (!v.ok) throw new Error(v.message.replace(/^Refusé : /, 'refusé : '));
+          const d = settingsOf(ctx); saveDns(ctx, { rewrites: { ...d.rewrites, [v.nom]: v.to } }); srv?.cache.clear();
+          return { text: [`🏷 ${v.message.replace(/^« ([^»]*) » → /, '$1 → ')}${v.existe ? ' (changé)' : ''}`, ...v.avis.map((l) => `- ${l}`)].join('\n'), data: { nom: v.nom, unicode: v.unicode, sorte: v.sorte, to: v.to, horsMaison: v.horsMaison, remplace: v.existe } };
+        } },
+      { id: 'retirer_nom', label: 'Retirer un nom', what: 'Retire un nom ajouté à la main', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }],
+        grave: (i, ctx) => {
+          if (!ctx) return 'retirer un nom de la maison';
+          const n = nomPropre(i.nom), d = settingsOf(ctx); if (!n.ok || !Object.hasOwn(d.rewrites, n.ascii)) return undefined;
+          const l = listeNoms({ ...entreeNoms(ctx), automatiques: [] }).lignes.find((x) => x.ascii === n.ascii);
+          return `retirer le nom « ${n.unicode} »${l?.valeur ? ` (→ ${l.valeur})` : ''} : les appareils de la maison ne le trouveront plus`;
+        },
+        run: (ctx, i) => {
+          const d = settingsOf(ctx), n = nomPropre(i.nom), brut = cleanDomain(s(i.nom));
+          // Un nom rangé avant ce lot sous une forme que la règle refuse aujourd'hui se retire encore tel qu'il est écrit.
+          const cle = n.ok && Object.hasOwn(d.rewrites, n.ascii) ? n.ascii : Object.hasOwn(d.rewrites, brut) ? brut : '';
+          if (!cle) {
+            const auto = n.ok ? entreeNoms(ctx).automatiques.find((a) => a.nom === n.ascii || a.nom.split('.')[0] === n.ascii) : undefined;
+            if (auto?.origine === 'odin') throw new Error(`« ${n.unicode} » est le nom d'Odin lui-même : il est verrouillé`);
+            if (auto) throw new Error(`« ${n.unicode} » est un nom automatique (donné par le DHCP${auto.qui ? ` à « ${auto.qui} »` : ''}) : il suit l'appareil ; renomme-le ou bloque-le dans « Appareils »`);
+            throw new Error('nom introuvable');
+          }
+          const r = { ...d.rewrites }; delete r[cle]; saveDns(ctx, { rewrites: r }); srv?.cache.clear();
+          return { text: `🗑 ${n.ok && n.ascii === cle ? n.unicode : cle} retiré.` };
+        } },
       { id: 'pubs_reseaux', label: 'Pubs des réseaux et plateformes', what: 'Bloque la pub et le pistage de YouTube, TikTok, Instagram… sans toucher aux vidéos', params: [{ key: 'actif', label: 'Bloquer ces pubs', kind: 'boolean', default: true }, { key: 'sauf', label: 'Plateformes à laisser (séparées par des virgules)', kind: 'text', default: '', help: `parmi : ${Object.keys(SOCIAL_ADS).join(', ')}` }], words: ['bloque les pubs youtube', 'pubs tiktok', 'pubs instagram'], run: (ctx, i) => {
         const off = parseIds(i.sauf); for (const x of off) if (!SOCIAL_ADS[x]) throw new Error(`plateforme inconnue : ${x}`);
         saveDns(ctx, { socialAds: i.actif !== false, socialAdsOff: off }); srv?.cache.clear();
@@ -1064,6 +1132,30 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
           ...(verdict ? [`Vérification : ${verdict.message}`, ...verdict.avis.map((l) => `- ${l}`)] : []),
         ];
         return { text: texte.join('\n'), data: { proprietaire: true, limite: '', dhcp: vue.dhcp, plan, fixes: toutes, appareils, verdict } };
+      } },
+      // Écran « Noms (DNS) » (maquette Réseau validée) : tous les noms que le DNS d'Odin sert pour la maison (automatiques
+      // depuis les baux du DHCP, adresses fixes, à la main, celui d'Odin), leur sorte en mots, l'inverse donné tout seul, et
+      // la dernière fois qu'un appareil a demandé chaque nom ; avec `nom` (et `sorte`, `valeur`), la vérification d'un nom
+      // AVANT de l'ajouter (rien n'est écrit). Comme le plan des adresses : au propriétaire en personne ; un membre connecté
+      // à l'interface ne reçoit que les noms de l'appareil qu'il tient, sans vérification (il ne sonde pas les noms pris).
+      { id: 'noms_vus', label: 'Noms de la maison (noms ↔ adresses, enregistrements)', what: 'Chaque nom que le DNS d\'Odin donne pour la maison : automatique (DHCP), à la main ou celui d\'Odin, sa sorte en mots, son adresse ; et la vérification d\'un nom avant de l\'ajouter', read: true, external: true, quick: false, proprietaireSeul: () => !agissant(), params: [{ key: 'nom', label: 'Nom à vérifier', kind: 'text', default: '' }, { key: 'sorte', label: 'Sorte', kind: 'select', options: ['auto', 'a', 'alias', 'joker', 'texte'], default: 'auto' }, { key: 'valeur', label: 'Valeur à vérifier', kind: 'text', default: '' }, { key: 'remplacer', label: 'Changer un nom qui existe', kind: 'boolean', default: false }], run: (ctx, i) => {
+        const e = entreeNoms(ctx), now = ctx.now().getTime(), vu = new Map<string, number>();
+        for (let k = ring.length - 1; k >= 0 && ring[k].t >= now - 30 * 86400_000; k--) { const n = cleanDomain(ring[k].name); if (!vu.has(n)) vu.set(n, ring[k].t); }
+        const tout = listeNoms({ ...e, derniere: (n) => vu.get(n) });
+        const sorties = (l: ReturnType<typeof listeNoms>['lignes']) => l.map((x) => ({ nom: x.nom, ascii: x.ascii, sorte: x.sorte, valeur: x.valeur, origine: x.origine, verrouille: x.verrouille, remplace: x.remplace, ...(x.qui ? { qui: texteSur(x.qui) } : {}), ...(x.derniere ? { derniere: x.derniere, derniereMots: quand(x.derniere) } : {}) }));
+        if (agissant()) {
+          const ips = new Set(appareilsVus(ctx).appareils.filter((d) => d.ici && d.ip).map((d) => d.ip));
+          const miennes = tout.lignes.filter((x) => !x.remplace && x.origine !== 'odin' && x.valeurs.some((v) => ips.has(v)));
+          const comptes = Object.fromEntries(Object.keys(tout.comptes).map((k) => [k, miennes.filter((x) => x.sorte === k).length]));
+          return { text: [LIMITE_NOMS, ...miennes.map((x) => `- ${x.nom} → ${x.valeur}`)].join('\n'), data: { proprietaire: false, limite: LIMITE_NOMS, domaine: e.domaine, dns: { allume: Boolean(srv) }, noms: sorties(miennes), inverses: tout.inverses.filter((x) => ips.has(x.adresse)), comptes, verdict: null } };
+        }
+        const verdict = s(i.nom).trim() || s(i.valeur).trim() ? verifierNom({ ...e, nom: i.nom, sorte: i.sorte, valeur: i.valeur, remplacer: i.remplacer === true }) : null;
+        const origine = { main: 'à la main', dhcp: 'DHCP', fixe: 'DHCP · adresse fixe', odin: 'Odin' } as const;
+        const texte = [srv ? `Le DNS d'Odin sert ${tout.lignes.filter((x) => !x.remplace).length} nom(s) pour la maison (.${e.domaine}).` : `Le DNS d'Odin est éteint : ces noms seront servis dès qu'il répondra (.${e.domaine}).`,
+          ...tout.lignes.map((x) => `- ${x.nom} → ${x.valeur} · ${origine[x.origine]}${x.remplace ? ' · remplacé par un nom à la main' : ''}`),
+          tout.inverses.length ? `Inverse (adresse → nom), donné tout seul : ${tout.inverses.length}.` : '',
+          ...(verdict ? [`Vérification : ${verdict.message}`, ...verdict.avis.map((l) => `- ${l}`)] : [])].filter(Boolean);
+        return { text: texte.join('\n'), data: { proprietaire: true, limite: '', domaine: e.domaine, dns: { allume: Boolean(srv) }, noms: sorties(tout.lignes), inverses: tout.inverses, comptes: tout.comptes, verdict } };
       } },
       // Lot R4 (maquette Réseau) : la lecture de l'écran « Réglages DHCP ». Qui distribue, le garde-fou et sa dernière
       // vérification, la carte d'Odin, les réglages, le filet si Odin s'éteint, le lien avec Genèse ; avec des réglages en
