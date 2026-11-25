@@ -105,6 +105,141 @@
   }
   window.OdinThemes.palette = palette; window.OdinThemes.contrast = contrast;
   const decorUri = (t) => (t.decor ? `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='${t.vue || '0 0 256 170'}' preserveAspectRatio='xMidYMax slice'>${t.decor}</svg>`)}")` : 'none');
+  // Le verre des cartes de l'accueil (maquette validée ; choix du propriétaire du 23/11 : le verre sur l'accueil et
+  // l'écran de la maison seulement, fond uni ailleurs ; sa décision du 25/11 : « Décor derrière, verre plus opaque », le
+  // décor du thème derrière l'accueil et des cartes assez opaques pour que chaque texte reste lisible). Un thème du
+  // catalogue garde ses champs de verre ; un thème d'Odin suit la règle de la maquette : sombre, verre 22 sur son
+  // panneau ; clair, 40 sur du blanc. La carte elle-même vient de la règle de la maquette (surfaceOf, dans le
+  // catalogue) ; sans elle, rien. Des variables à nom neuf (--v-…), pour ne heurter aucune couleur de l'interface.
+  const rgbaDe = (h, a) => `rgba(${hex(h).join(',')},${a})`;
+  function varsVerre(id, t, pal) {
+    if (typeof catalogue?.surfaceOf !== 'function') return null;
+    const c = catalogue.THEMES?.[id];
+    const v = c && c.sc ? c : {
+      dark: t.dark === true, sc: t.dark ? t.panel : '#ffffff', gt: t.dark ? 22 : 40, blur0: 20, sheen: t.dark ? 0.1 : 0.45, sat: 1.4,
+      solid: t.dark ? t.panel : mix('#ffffff', t.sky[0], 0.12), border: t.dark ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.85)',
+      shadow: t.dark ? '0 14px 34px rgba(0,0,0,.3)' : `0 10px 28px ${rgbaDe(t.ink, 0.1)},inset 0 1px 0 rgba(255,255,255,.9)`,
+    };
+    // Un fond ou un décor trop clair (ou trop sombre) sous un verre trop transparent : la carte devient plus opaque, juste
+    // assez pour que chaque texte du thème s'y lise (4,5:1) au pire point du décor (deux formes translucides l'une sur
+    // l'autre comprises) : une couche de sa couleur pleine passe sous le verre, de 5 % en 5 %, jusqu'à la carte pleine
+    // s'il le faut (un verre blanc sous un texte clair va ainsi vers sa couleur pleine, sombre, et non vers le blanc). Le
+    // flou et le reflet restent ceux de son départ ; les thèmes déjà lisibles gardent leur départ. Le texte du thème est
+    // tel quel ; les autres tons comptent tels que tonsVerre les éloigne déjà sans le décor (verre de départ sur le
+    // dégradé, carte pleine, couleur pleine) : c'est le décor que l'opacité compense, pas un ton de plus.
+    // Le reflet compte tel que la page le pose (arrondi), pour que l'opacité et les tons (tonsVerre) lisent le même.
+    const sat = v.sat ?? 1.4, dessous = derriere(t, sat), plein = hex6(v.solid) || t.panel;
+    const depart = catalogue.surfaceOf(v, Math.max(0, Math.min(100, Number(v.gt) || 0))), reflet = +(depart.sheen ?? 0.3).toFixed(3);
+    const sansDecor = trier(fondsVerre(derriere({ ...t, decor: '' }, sat), depart.surface, reflet), fondsVerre(dessous, surCouche(depart.surface, plein, 1), reflet), [lumVue(plein)]);
+    const textes = [t.ink, ...TEXTES_VERRE.map((n) => pal[n]).filter((c) => /^#[0-9a-f]{6}$/i.test(c || '')).map((c) => eloigner(c, sansDecor, versTon(t)))];
+    const lisible = (surface) => { const f = trier(fondsVerre(dessous, surface, reflet)); return textes.every((c) => pireContraste(c, f) >= 4.6); };
+    let surface = depart.surface;
+    for (let p = 5; p <= 100 && !lisible(surface); p += 5) surface = surCouche(depart.surface, plein, p / 100);
+    const s = { ...depart, surface };
+    return {
+      '--v-carte': s.surface, '--v-plein': s.solid, '--v-bord': s.border, '--v-flou': `${s.blur}px`, '--v-sat': sat,
+      '--v-reflet': reflet, '--v-ombre': v.shadow && v.shadow !== 'none' ? v.shadow : '0 0 0 transparent',
+    };
+  }
+  // Le verre posé sur une couche de la couleur pleine d'opacité p (0 à 1) : chaque bout du dégradé devient ce que l'on
+  // voit à travers les deux, en une seule couleur plus opaque. À 1, c'est le verre sur la couleur pleine.
+  const surCouche = (surface, plein, p) => String(surface).replace(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/g, (m, r, v, b, a) => {
+    const x = +a, tot = x + (1 - x) * p, f = hex(plein);
+    return `rgba(${[+r, +v, +b].map((c, i) => Math.round((x * c + (1 - x) * p * f[i]) / (tot || 1))).join(',')},${+tot.toFixed(3)})`;
+  });
+  // Le fond de l'accueil est celui de la page : le dégradé du thème, le dessin du décor, et le même voile que derrière la
+  // barre de côté. Ces calculs se font en nombres (de 0 à 255, arrondis comme la page les peint) : le pire point se
+  // cherche parmi des centaines de couleurs, à chaque pas d'opacité.
+  const NOIR = [0, 0, 0], BLANC = [255, 255, 255];
+  const canal = (v) => Math.round(v < 0 ? 0 : v > 255 ? 255 : v);
+  const melange = (x, y, k) => [canal(x[0] * (1 - k) + y[0] * k), canal(x[1] * (1 - k) + y[1] * k), canal(x[2] * (1 - k) + y[2] * k)];
+  const voiler = (t, c) => (t.dark ? melange(c, NOIR, 0.18) : melange(c, BLANC, 0.22));
+  // Les couleurs que le dessin du décor peut peindre, avec leur opacité (celle de la forme et de ses groupes) : le
+  // remplissage et le trait de chaque forme. Un tracé sans remplissage dit, dans ces décors, est un trait sans surface.
+  const hex6 = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c.toLowerCase() : /^#[0-9a-f]{3}$/i.test(c || '') ? `#${[...c.slice(1)].map((x) => x + x).join('')}`.toLowerCase() : null);
+  function couleursDecor(decor) {
+    const out = [], pile = [{ op: 1 }];
+    for (const [, fin, balise, attrs, seule] of String(decor || '').matchAll(/<(\/?)(\w+)([^>]*?)(\/?)>/g)) {
+      if (fin) { if (pile.length > 1) pile.pop(); continue; }
+      const a = {}; for (const [, k, x] of attrs.matchAll(/([\w-]+)="([^"]*)"/g)) a[k] = x;
+      const p = pile[pile.length - 1], e = { fill: a.fill ?? p.fill, stroke: a.stroke ?? p.stroke, op: p.op * (a.opacity === undefined ? 1 : Number(a.opacity)) };
+      if (balise !== 'g') for (const [c, o] of [[e.fill, a['fill-opacity']], [e.stroke, a['stroke-opacity']]]) { const h = hex6(c); if (h) out.push([h, e.op * (o === undefined ? 1 : Number(o))]); }
+      if (!seule) pile.push(e);
+    }
+    return out;
+  }
+  // saturate() des filtres CSS (la matrice de la norme), comme le verre le fait sur ce qu'il laisse voir.
+  const saturer = ([r, g, b], s) => [(0.213 + 0.787 * s) * r + (0.715 - 0.715 * s) * g + (0.072 - 0.072 * s) * b, (0.213 - 0.213 * s) * r + (0.715 + 0.285 * s) * g + (0.072 - 0.072 * s) * b, (0.213 - 0.213 * s) * r + (0.715 - 0.715 * s) * g + (0.072 + 0.928 * s) * b].map((x) => Math.round(Math.max(0, Math.min(255, x))));
+  // Tout ce qui peut se trouver derrière une carte de l'accueil, point par point : le dégradé à ses deux bouts, chaque
+  // couleur du décor posée sur le dégradé ou sur une couleur pleine du décor, et deux formes translucides l'une sur
+  // l'autre (deux bandes d'aurore qui se croisent : dans un ordre comme dans l'autre) ; le tout sous le voile, saturé par
+  // le verre. Gardé par thème : le calcul de l'opacité et celui des tons lisent le même.
+  const DERRIERE = new WeakMap();
+  function derriere(t, sat) {
+    const s = Number(sat) || 1, deja = DERRIERE.get(t)?.get(s); if (deja) return deja;
+    const dessin = [...new Map(couleursDecor(t.decor).map(([c, a]) => [`${c}/${a}`, [hex(c), Math.max(0, Math.min(1, a))]])).values()];
+    const translucides = dessin.filter(([, a]) => a < 0.99), vus = new Map();
+    const voir = (c) => { const x = saturer(voiler(t, c), s); vus.set((x[0] << 16) | (x[1] << 8) | x[2], x); };
+    const bases = new Map([...t.sky.map(hex), ...dessin.filter(([, a]) => a >= 0.99).map(([c]) => c)].map((c) => [c.join(), c]));
+    t.sky.forEach((c) => voir(hex(c)));
+    for (const u of bases.values()) for (const forme of dessin) {
+      const x = melange(u, forme[0], forme[1]); voir(x);
+      if (forme[1] < 0.99) for (const autre of translucides) if (autre !== forme) voir(melange(x, autre[0], autre[1]));
+    }
+    const out = [...vus.values()];
+    if (!DERRIERE.has(t)) DERRIERE.set(t, new Map());
+    DERRIERE.get(t).set(s, out);
+    return out;
+  }
+  // Ce qui se voit à travers une carte en verre : chaque point possible du fond, vu par la carte à ses deux bouts, et le
+  // reflet en haut ; gardé en luminances (le contraste ne dépend que d'elles).
+  const LIN = Array.from({ length: 256 }, (_, v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+  const lumRGB = (c) => 0.2126 * LIN[c[0]] + 0.7152 * LIN[c[1]] + 0.0722 * LIN[c[2]];
+  function fondsVerre(dessous, surface, reflet) {
+    const bouts = [...String(surface).matchAll(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/g)].map((m) => [[+m[1], +m[2], +m[3]], +m[4]]), k = Math.min(1, Number(reflet) || 0), fonds = [];
+    for (const f0 of dessous) bouts.forEach(([c, a], i) => { const f = melange(f0, c, a); fonds.push(lumRGB(f)); if (i === 0) fonds.push(lumRGB(melange(f, BLANC, k))); });
+    return fonds;
+  }
+  // Le pire contraste d'une couleur sur des fonds : leurs luminances, triées une fois ; le pire est l'une des deux
+  // voisines de la sienne (la plus proche au-dessous, la plus proche au-dessus). Celle de la couleur n'est calculée
+  // qu'une fois.
+  const trier = (...listes) => Float64Array.from(listes.flat()).sort();
+  const LUM = new Map(), lumVue = (h) => { let x = LUM.get(h); if (x === undefined) { x = lum(h); LUM.set(h, x); } return x; };
+  const pireContraste = (c, fonds) => {
+    const a = lumVue(c); let bas = 0, haut = fonds.length, pire = 21;
+    while (bas < haut) { const m = (bas + haut) >> 1; if (fonds[m] < a) bas = m + 1; else haut = m; }
+    for (const b of [fonds[bas - 1], fonds[bas]]) if (b !== undefined) { const r = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); if (r < pire) pire = r; }
+    return pire;
+  };
+  // Les autres textes posés dans le verre restent lisibles (4,5:1) : une couleur trop proche de ce qui se voit à
+  // travers (ou de la couleur pleine, quand le navigateur ne sait pas flouter) s'en éloigne par petits pas (vers le
+  // blanc si le texte du thème est clair, vers le noir sinon).
+  const TEXTES_VERRE = ['--muted', '--dim', '--accent-texte', '--good', '--warn', '--bad'];
+  const versTon = (t) => (lum(t.ink) > 0.4 ? '#ffffff' : '#000000');
+  const eloigner = (c, fonds, vers) => { for (let i = 0; i < 30 && pireContraste(c, fonds) < 4.6; i++) c = mix(c, vers, 0.12); return c; };
+  function tonsVerre(t, pal, verre) {
+    const fonds = trier(fondsVerre(derriere(t, verre['--v-sat']), verre['--v-carte'], verre['--v-reflet']), [lumVue(hex6(verre['--v-plein']) || t.panel)]), vers = versTon(t), tons = {};
+    for (const nom of TEXTES_VERRE) {
+      const c = pal[nom]; if (!/^#[0-9a-f]{6}$/i.test(c || '')) continue;
+      const loin = eloigner(c, fonds, vers);
+      if (loin !== c) tons[nom] = loin;
+    }
+    return tons;
+  }
+  // Les cartes de l'accueil, sans une carte posée dans une autre ni la place laissée par une carte qu'on déplace.
+  const CARTES_ACCUEIL = ':root[data-odin-theme] #v-home :is(.fe-w,.hpanel,.hcard,.card):not(:is(.fe-w,.hpanel,.hcard,.card) *):not(.dragging)';
+  // Les textes posés sans carte sur le fond de l'accueil reçoivent une plaque du même verre (plan de la maquette : « un
+  // titre qui se retrouve sur le fond reçoit une plaque ») : le résumé « État détaillé » ; les titres « Tu veux sans
+  // doute » et « Comment Odin se comporte » de l'ancienne colonne (l'accueil d'un membre de la famille, ou celui du
+  // propriétaire tant que sa fenêtre n'est pas lue, ou quand elle est en panne) ; le message de la fenêtre elle-même
+  // (chargement, panne).
+  const PLAQUE_ACCUEIL = ['details.hmore>summary', '#todayBox .sect-t', '#fenetre>.fe-err'].map((s) => `:root[data-odin-theme] #v-home ${s}`).join(',');
+  // Les cadres en pointillé posés sur le fond (« Page vide » dans la fenêtre ; « Ajouter un widget » en mode Modifier) :
+  // le même verre, dans leur cadre à eux, qui garde son pointillé et sa couleur.
+  const CADRES_ACCUEIL = ['#feGrid>.fe-drop', '#fenetre .fe-ajout'].map((s) => `:root[data-odin-theme] #v-home ${s}`).join(',');
+  // Le verre : le reflet en haut, puis la carte ; ce qui passe derrière est flouté et saturé.
+  const VERRE = 'background:linear-gradient(135deg,rgba(255,255,255,var(--v-reflet)) 0%,rgba(255,255,255,calc(var(--v-reflet) * .25)) 28%,transparent 55%),var(--v-carte)';
+  const FLOU = '-webkit-backdrop-filter:blur(var(--v-flou)) saturate(var(--v-sat));backdrop-filter:blur(var(--v-flou)) saturate(var(--v-sat))';
   let style;
   let current = 'valhalla', classic;
   function apply(id) {
@@ -120,15 +255,28 @@
     }
     if (!root.dataset.odinTheme) classic = root.dataset.theme;
     root.dataset.odinTheme = current; root.dataset.theme = t.dark ? 'dark' : 'light';
-    const vars = Object.entries(palette(t)).map(([k, v]) => `${k}:${v}`).join(';');
+    const pal = palette(t), verre = varsVerre(current, t, pal), voile = t.dark ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.22)';
+    const tons = verre ? Object.entries(tonsVerre(t, pal, verre)).map(([k, v]) => `;${k}:${v}`).join('') : '';
+    const vars = Object.entries({ ...pal, ...verre }).map(([k, v]) => `${k}:${v}`).join(';');
     style.textContent = `:root[data-odin-theme]{color-scheme:${t.dark ? 'dark' : 'light'};${vars}}
 :root[data-odin-theme] body{background:${decorUri(t)} center bottom/100% 40vh no-repeat fixed,linear-gradient(180deg,${t.sky[0]},${t.sky[1]}) fixed}
-:root[data-odin-theme] body::before{content:'';position:fixed;inset:0;pointer-events:none;background:${t.dark ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.22)'};z-index:0}
+:root[data-odin-theme] body::before{content:'';position:fixed;inset:0;pointer-events:none;background:${voile};z-index:0}
 :root[data-odin-theme] nav.side{background:color-mix(in srgb,var(--panel2) 86%,transparent);backdrop-filter:blur(10px)}
 :root[data-odin-theme] .card,:root[data-odin-theme] .hpanel,:root[data-odin-theme] .hcard{background:color-mix(in srgb,var(--panel) 94%,transparent)}
-:root[data-odin-theme] main{position:relative;z-index:1;background:var(--bg)}`;
+:root[data-odin-theme] main{position:relative;z-index:1;background:var(--bg)}${verre ? `
+:root[data-odin-theme] main:has(>#v-home.on){background:transparent}
+${PLAQUE_ACCUEIL},${CARTES_ACCUEIL}{${VERRE};border-color:var(--v-bord);box-shadow:inset 0 1px 0 rgba(255,255,255,calc(var(--v-reflet) * 1.6)),inset 1px 0 0 rgba(255,255,255,calc(var(--v-reflet) * .8)),var(--v-ombre);${FLOU}${tons}}
+${PLAQUE_ACCUEIL}{width:fit-content;max-width:100%;box-sizing:border-box;padding:6px 14px;border:1px solid var(--v-bord);border-radius:12px}
+:root[data-odin-theme] #v-home details.hmore>summary{margin:12px 0}
+${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
+:root[data-odin-theme] #v-home .hcard.sugg{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){${PLAQUE_ACCUEIL},${CADRES_ACCUEIL},${CARTES_ACCUEIL}{background:var(--v-plein)}}` : ''}`;
     // (Zone de travail sur fond uni, choix du propriétaire du 17/11 : le décor ne passe jamais derrière un texte ; il ne se
-    //  voit plus que derrière la barre de côté.)
+    //  voit plus que derrière la barre de côté. Seule exception, ses choix du 23/11 et du 25/11 : sur l'accueil, la zone
+    //  de travail laisse voir le fond de la page, comme la maquette (le dessin du décor, le dégradé et le même voile que
+    //  derrière la barre de côté) ; ses cartes sont du verre assez opaque pour que chaque texte s'y lise au pire point du
+    //  décor, et tout texte posé sans carte a une plaque du même verre (dans un cadre en pointillé, le même verre). Le
+    //  bandeau du haut garde son fond uni.)
     // La mascotte en liberté et sa copie dans la discussion prennent la couleur du thème au repos.
     window.OdinFace?.tintBase?.(t.mascot);
     document.querySelector('meta[name=theme-color]')?.setAttribute('content', t.sky[0]);
