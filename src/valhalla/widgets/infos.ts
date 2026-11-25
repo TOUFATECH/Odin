@@ -14,6 +14,28 @@ const etiquette = (n: number): NonNullable<SorteWidget['nettoyer']> => (o, out, 
 const PETIT = { mini: [2, 1], r: 1 } as const;
 
 /**
+ * La grande météo de la maquette (ses trois styles « complete », « compacte », « scene ») : seulement ce que la source
+ * donne et que le widget montre — maintenant (le lieu, la température, le ciel, le haut et le bas du jour), les 7
+ * jours, les 24 heures (l'heure et la température : la source n'en dit pas plus), le lever et le coucher — dans les
+ * unités d'Odin, avec 12 ou 24 h comme Odin est réglé. Ni position, ni rien d'autre. Ce qui est illisible est laissé
+ * (jamais remplacé) ; une température de maintenant illisible : rien.
+ */
+const STYLES_GRANDS: readonly string[] = ['complete', 'compacte', 'scene'];
+const HEURE_LUE = /^([01]\d|2[0-3]):[0-5]\d$/, JOUR_LU = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const lisible = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+function grandeMeteo(d: Record<string, unknown>, heure12: boolean): Record<string, unknown> | undefined {
+  if (!lisible(d.temp)) return undefined;
+  const deg = (v: number) => Math.round(d.unites === 'imperial' ? versF(v) : v), code = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) ? v : -1);
+  const objets = (v: unknown) => (Array.isArray(v) ? v : []).filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === 'object');
+  const jours = objets(d.days).filter((j) => typeof j.day === 'string' && JOUR_LU.test(j.day) && lisible(j.hi) && lisible(j.lo)).slice(0, 7)
+    .map((j) => ({ jour: j.day, code: code(j.code), max: deg(j.hi as number), min: deg(j.lo as number) }));
+  const heures = objets(d.hours).filter((h) => typeof h.t === 'string' && HEURE_LUE.test(h.t) && lisible(h.temp)).slice(0, 24).map((h) => ({ h: h.t, temp: deg(h.temp as number) }));
+  const heure = (v: unknown) => (typeof v === 'string' && HEURE_LUE.test(v) ? v : undefined), lever = heure(d.sunrise), coucher = heure(d.sunset);
+  return { lieu: typeof d.place === 'string' ? d.place : '', temp: deg(d.temp), code: code(d.code), ...(lisible(d.hi) && lisible(d.lo) ? { max: deg(d.hi), min: deg(d.lo) } : {}),
+    heure12, jours, heures, ...(lever ? { lever } : {}), ...(coucher ? { coucher } : {}) };
+}
+
+/**
  * Le lieu d'Odin, son fuseau, l'heure sur 12 ou 24 h : ce qu'il faut à la page pour donner l'heure d'Odin. Aucune
  * heure n'est calculée ici. `fuseauExige` : sans fuseau connu, rien d'affirmé (la page montrerait l'heure de l'appareil).
  */
@@ -35,16 +57,22 @@ export const SORTES_INFOS = [
     lire: async (w, src): Promise<EtatWidget> => heureDOdin(src, w.style === 'horloge'),
   },
   {
-    // Le temps qu'il fait au lieu d'Odin (Open-Meteo, lu par Hestia).
-    id: 'meteo', famille: 'infos', applis: ['gladsheim'], taille: { mini: [3, 2], r: 3 }, styles: ['simple'], public: 'maison', posable: true,
+    // Le temps qu'il fait au lieu d'Odin (Open-Meteo, lu par Hestia). Quatre styles : « simple » (celui d'hier, sa
+    // lecture inchangée) et les trois de la grande météo de la maquette (« complete », « compacte », « scene »), qui
+    // lisent la même action et ne rendent que ce qu'ils montrent (grandeMeteo).
+    id: 'meteo', famille: 'infos', applis: ['gladsheim'], taille: { mini: [3, 2], r: 3 }, styles: ['simple', ...STYLES_GRANDS], public: 'maison', posable: true,
     nettoyer: etiquette(40),
-    lire: async (_w, src): Promise<EtatWidget> => {
+    lire: async (w, src): Promise<EtatWidget> => {
       // Comme l'heure : tant que le lieu n'est pas réglé, ce serait le temps d'un lieu supposé (et une recherche du lieu
       // par défaut sur Internet). Rien d'affirmé, rien de lu.
-      if (!src.lieu().choisi) return { etat: 'vide', raison: 'lieu_non_choisi' };
+      const l = src.lieu();
+      if (!l.choisi) return { etat: 'vide', raison: 'lieu_non_choisi' };
       const m = await src.meteo().catch(() => undefined);
       if (!m) return { etat: 'vide', raison: 'meteo_pas_lue' };
-      return m.ancien ? { etat: 'ancien', at: m.at, donnee: m.donnee, motif: m.motif } : { etat: 'ok', at: m.at, donnee: m.donnee };
+      const grande = typeof w.style === 'string' && STYLES_GRANDS.includes(w.style);
+      const donnee = grande ? grandeMeteo(m.donnee, l.heure12) : m.donnee;
+      if (!donnee) return { etat: 'vide', raison: 'meteo_pas_lue' };
+      return m.ancien ? { etat: 'ancien', at: m.at, donnee, motif: m.motif } : { etat: 'ok', at: m.at, donnee };
     },
   },
   {

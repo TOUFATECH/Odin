@@ -849,7 +849,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // n'est écrit ici. Celle qui lit une appli désactivée est grisée, sans bouton ; « Ajouter » la pose à sa taille.
     const declarees = R.posables({ proprio, aDroit }).map((x) => { const m = x.appli ? cat?.modules?.find((y) => y.id === x.appli) : undefined;
       return { nom: x.nom, quoi: x.quoi, icon: x.symbole, famille: x.famille === OT.INFOS || !m ? OT.INFOS : m.family, active: m ? OT.active(m) : undefined, onclick: () => add(x.w) }; });
-    const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo' }, T.meteo, T.meteoQuoi, '☀'), ...declarees,
+    const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 }, T.meteo, T.meteoQuoi, '☀'), ...declarees,
       vordr ? { nom: T.site, quoi: T.siteQuoi, icon: '🌐', famille: OT.INFOS, active: OT.active(vordr), onclick: siteSurveille } : null,
       { nom: T.perso, quoi: T.persoQuoi, icon: '⚡', famille: OT.INFOS, creer: true, onclick: ownButton },
       ...(cat?.modules ?? []).map((m) => ({ ...item({ kind: 'chiffres', module: m.id }, m.name, String(m.what ?? '').slice(0, 90)), famille: m.family, module: m.id, active: OT.active(m) }))].filter(Boolean);

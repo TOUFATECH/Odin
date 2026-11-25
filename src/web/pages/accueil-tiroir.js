@@ -78,7 +78,7 @@
   function glisse(texte) {
     let o; try { o = JSON.parse(String(texte ?? '')); } catch { return null; }
     if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
-    if (o.kind === 'heure' || o.kind === 'meteo') return { kind: o.kind };
+    if (o.kind === 'heure') return { kind: 'heure' }; if (o.kind === 'meteo') return { kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 };
     if (o.kind === 'chiffres' && typeof o.module === 'string' && /^[a-z0-9_-]{1,40}$/.test(o.module)) return { kind: 'chiffres', module: o.module };
     return null;
   }

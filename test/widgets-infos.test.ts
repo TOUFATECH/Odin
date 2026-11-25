@@ -122,7 +122,9 @@ const etat = async (w: Widget, l: Lecteur, src: SourceWidget) => (await donneeWi
 test('le choix : l\'horloge est un style de « heure » (pas de jumeau) ; les trois petits chiffres sont des sortes, 2 × 1', () => {
   assert.equal(sorteDe('horloge'), undefined, 'pas de sorte jumelle de « heure »');
   assert.deepEqual([...sorteDe('heure')!.styles], ['simple', 'horloge'], 'l\'horloge : un style de la sorte « heure » ; le style de départ ne change pas');
-  assert.deepEqual([...sorteDe('meteo')!.styles], ['simple'], 'la météo d\'aujourd\'hui ne change pas');
+  // La grande météo de la maquette ajoute trois styles à « meteo » (test/widgets-meteo.test.ts) ; le style de départ,
+  // celui d'aujourd'hui, ne change pas.
+  assert.deepEqual([...sorteDe('meteo')!.styles], ['simple', 'complete', 'compacte', 'scene'], 'la météo d\'aujourd\'hui reste le style de départ');
   for (const k of PETITES) {
     const s = sorteDe(k)!;
     assert.ok(s, `${k} est déclarée`); assert.equal(s.famille, 'infos'); assert.equal(s.posable, true); assert.deepEqual([...s.styles], ['simple']);
@@ -372,6 +374,7 @@ test('le tiroir « Ajouter un widget » : les quatre, aux tailles de la maquette
     { nom: 'Horloge', appli: 'gladsheim', w: { kind: 'heure', style: 'horloge', w: 1, c: 3, r: 2 } },
     { nom: 'Météo (petite)', appli: 'gladsheim', w: { kind: 'meteo_petite', w: 1, c: 2, r: 1, pr: 1 } },
     { nom: 'Alertes', appli: 'forseti', w: { kind: 'alertes', w: 1, c: 2, r: 1, pr: 1 } },
+    // Les styles de la grande météo n'y ont pas de ligne : ils se choisissent dans « Régler » (test/widgets-meteo.test.ts).
   ]);
   for (const x of R.posables({ proprio: true, aDroit: () => true })) assert.ok(typeof x.quoi === 'string' && x.quoi.length > 8 && x.symbole, `${x.nom} : sa phrase et son symbole`);
   // Posés puis rangés : Hestia garde la même sorte, le même style, la même taille (pas de saut à « Terminé »).
@@ -387,7 +390,8 @@ test('le tiroir « Ajouter un widget » : les quatre, aux tailles de la maquette
   assert.match(c, /const declarees = R\.posables\(\{ proprio, aDroit \}\)\.map\(/, 'les lignes viennent du registre, pour qui a le droit');
   assert.match(c, /active: m \? OT\.active\(m\) : undefined, onclick: \(\) => add\(x\.w\)/, 'l\'appli lue désactivée : grisée ; « Ajouter » pose le widget à sa taille');
   assert.match(c, /return \{ nom: x\.nom, quoi: x\.quoi, icon: x\.symbole, /, 'la ligne porte le nom déclaré pour le tiroir');
-  assert.match(c, /item\(\{ kind: 'heure' \}[^\n]*item\(\{ kind: 'meteo' \}[^\n]*'☀'\), \.\.\.declarees,/, 'après « Heure et lieu » et « Météo », qui restent');
+  // « Météo » pose désormais la grande météo de la maquette (« Complète », 4 × 5 ; test/widgets-meteo.test.ts).
+  assert.match(c, /item\(\{ kind: 'heure' \}[^\n]*item\(\{ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 \}[^\n]*'☀'\), \.\.\.declarees,/, 'après « Heure et lieu » et « Météo », qui restent');
   for (const k of [...PETITES, 'horloge']) assert.doesNotMatch(FE, new RegExp(`['"\`]${k}['"\`]`), `fenetre.js n'écrit pas « ${k} »`);
   for (const k of [...PETITES, 'horloge']) assert.doesNotMatch(MAISON, new RegExp(`['"\`]${k}['"\`]`), `maison.js n'écrit pas « ${k} »`);
   assert.match(fonction('montrerAjout'), /dire\(T\.pose\(w\?\.label \|\| renduDe\(w\)\?\.titre \|\| /, 'le widget posé est annoncé par son titre déclaré');

@@ -419,7 +419,8 @@ test('fenêtre gardée : le catalogue des modules en mode Modifier (recherche, f
   assert.match(c, /cat\?\.modules/, 'toutes les applis du catalogue');
   assert.match(c, /m\.family/, 'rangées par famille');
   assert.match(c, /item\(\{ kind: 'heure' \}/, 'l\'heure et le lieu');
-  assert.match(c, /item\(\{ kind: 'meteo' \}/, 'la météo');
+  // La météo : la grande, « Complète » en 4 × 5, comme la maquette (test/widgets-meteo.test.ts).
+  assert.match(c, /item\(\{ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 \}/, 'la météo');
   assert.match(c, /onclick: \(\) => add\(w\)/, 'un clic ajoute le module');
   assert.match(c, /setData\('text\/odin-module'/, 'on peut aussi le glisser');
   const d = fe('draw');

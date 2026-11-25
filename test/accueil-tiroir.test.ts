@@ -134,7 +134,9 @@ test('relecture : un glisser venu d\'ailleurs ne pose qu\'une ligne du tiroir, r
   const g = (O as unknown as { glisse: (t: unknown) => unknown }).glisse;
   assert.equal(typeof g, 'function', 'OdinTiroir.glisse existe');
   assert.deepEqual(g(JSON.stringify({ kind: 'heure', module: 'x', label: 'y' })), { kind: 'heure' });
-  assert.deepEqual(g(JSON.stringify({ kind: 'meteo' })), { kind: 'meteo' });
+  // La ligne « Météo » pose la grande météo de la maquette (« Complète », 4 × 5) : glissée, le même objet, refait en
+  // entier (test/widgets-meteo.test.ts) ; rien de ce qui vient du glisser n'est recopié.
+  assert.deepEqual(g(JSON.stringify({ kind: 'meteo', label: 'y', style: 'scene', c: 12 })), { kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 });
   assert.deepEqual(g(JSON.stringify({ kind: 'chiffres', module: 'alpha', action: 'retirer' })), { kind: 'chiffres', module: 'alpha' }, 'rien d\'autre n\'est gardé');
   assert.equal(g(JSON.stringify({ kind: 'bouton', module: 'alpha', action: 'retirer', input: { login: 'x' } })), null, 'un bouton d\'action glissé d\'une autre page : refusé');
   assert.equal(g(JSON.stringify({ kind: 'site', module: 'vordr', label: 'x' })), null);
@@ -181,7 +183,8 @@ test('fenetre.js : le tiroir est rempli par le catalogue d\'Odin, aucune liste d
     }
   }
   // Ce qui reste d'avant : heure et lieu, météo, site surveillé, bouton sur mesure, une partie de la page (⚙).
-  assert.match(c, /item\(\{ kind: 'heure' \}/); assert.match(c, /item\(\{ kind: 'meteo' \}/);
+  // La ligne « Météo » pose désormais « Complète » en 4 × 5 (maquette validée ; test/widgets-meteo.test.ts).
+  assert.match(c, /item\(\{ kind: 'heure' \}/); assert.match(c, /item\(\{ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 \}/);
   assert.match(c, /onclick: siteSurveille/); assert.match(c, /onclick: ownButton/);
   assert.match(String((O.TEXTES as Record<string, unknown>).aide), /⚙/, 'l\'aide rappelle « une partie de la page d\'une appli » (⚙)');
 });
@@ -269,7 +272,8 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     const fams = [...new Set(cat.modules.map((m) => m.family))];
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-chips button')].map((b: any) => b.textContent)), ['Tout', 'Infos', ...fams]);
     // Toutes les applis du catalogue, une ligne chacune, les quatre lignes d'infos d'avant, et les quatre widgets « Infos »
-    // de la maquette, déclarés par le fichier de leur famille (l'heure, l'horloge, la météo en petit, les alertes).
+    // de la maquette, déclarés par le fichier de leur famille (l'heure, l'horloge, la météo en petit, les alertes). Les
+    // styles de la grande météo n'y ont pas de ligne : ils se choisissent dans « Régler ».
     assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4);
     // L'appli désactivée : grisée, « désactivée », aucun bouton.
     const nomEteinte = cat.modules.find((m) => m.id === eteinte)!.name;
@@ -309,7 +313,8 @@ test('navigateur, 390 px : le tiroir prend tout l\'écran ; « Ajouter » pose l
     assert.equal(r.l, 0); assert.equal(r.w, r.vw, 'tout l\'écran');
     // La puce « Infos », puis « Ajouter » sur « Heure et lieu ».
     await page.click('#feTiroir .fe-chips button[data-f="infos"]');
-    // Les quatre infos d'avant, et entre elles les quatre widgets « Infos » de la maquette (déclarés par leur famille).
+    // Les quatre infos d'avant, et entre elles les quatre widgets « Infos » de la maquette (déclarés par leur famille) ;
+    // les styles de la grande météo n'y ont pas de ligne (ils se choisissent dans « Régler »).
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-it b')].map((b: any) => b.textContent)), ['Heure et lieu', 'Météo', 'Heure', 'Horloge', 'Météo (petite)', 'Alertes', 'Site surveillé', 'Bouton sur mesure'], 'les huit infos');
     await page.click('#feTiroir button[aria-label="Ajouter Heure et lieu"]');
     await page.waitForFunction((n: number) => document.querySelectorAll('#feGrid > .fe-w').length === n + 1, avant.length, { timeout: 15000 });

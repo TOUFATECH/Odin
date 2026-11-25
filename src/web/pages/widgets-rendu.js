@@ -187,7 +187,7 @@
   /** Les sortes qui se déplacent mais ne se retirent pas (comme le serveur : « fixe »). */
   const FIXES = ['a_faire'];
   /** Par sorte : ses styles, quand elle en a plus d'un (comme le serveur), chacun avec son nom ; le premier est celui de départ. */
-  const STYLES = { heure: [['simple', 'Heure et lieu'], ['horloge', 'Horloge']] };
+  const STYLES = { heure: [['simple', 'Heure et lieu'], ['horloge', 'Horloge']], meteo: [['simple', 'Simple'], ['complete', 'Complète'], ['compacte', 'Compacte'], ['scene', 'Scène']] };
   /** Les écrans où un widget peut mener (comme le serveur, ECRANS_TOUCHER). */
   const ECRANS_TOUCHER = ['accueil', 'maison'];
   const ADRESSE_MAX = 500;
@@ -248,6 +248,7 @@
   //   petit           vrai : un petit chiffre, sans en-tête ni « ⋯ » (son corps est toute la carte). Il garde sa taille
   //                   dans chaque état : sans donnée, l'hôte dessine son état court (etatPetit, plus bas) ;
   //   proprio         vrai : proposée au propriétaire seul ;
+  //   tiroir          faux : pas de ligne dans le tiroir (un style qui se choisit seulement dans « Régler ») ;
   //   poser           { c, r, pc, pr } : sa taille quand le tiroir la pose (colonnes sur 12 et lignes ; au téléphone, sur 4) ;
   //   vides           les raisons de l'état « vide » qu'elle dessine elle-même (un état calme, pas une ligne) ;
   //   sous(e, o)      la fin du sous-titre de l'en-tête, d'après la donnée ;
@@ -266,7 +267,7 @@
     const w = { kind: d.sorte, ...(style ? { style } : {}), w: c === undefined || c <= 4 ? 1 : c <= 8 ? 2 : 3, ...(c ? { c } : {}), ...(r ? { r } : {}), ...(pc ? { pc } : {}), ...(pr ? { pr } : {}) };
     const titre = mot(d.titre, 40) || d.sorte;
     return { famille: mot(famille, 24), sorte: d.sorte, style, titre, nom: mot(d.nom, 40) || titre, quoi: mot(d.quoi, 160), symbole: mot(d.symbole, 4),
-      appli: typeof d.appli === 'string' && /^[a-z0-9_-]{1,40}$/.test(d.appli) ? d.appli : '', petit: d.petit === true, proprio: d.proprio === true,
+      appli: typeof d.appli === 'string' && /^[a-z0-9_-]{1,40}$/.test(d.appli) ? d.appli : '', petit: d.petit === true, proprio: d.proprio === true, tiroir: d.tiroir !== false,
       vides: (Array.isArray(d.vides) ? d.vides : []).filter((x) => typeof x === 'string'), sous: typeof d.sous === 'function' ? d.sous : null, dessiner: d.dessiner, w };
   }
   /** Les déclarations lisibles, dans l'ordre où elles ont été faites ; pour une même sorte et un même style, la première. */
@@ -299,7 +300,7 @@
   function posables(o) {
     const p = o && typeof o === 'object' ? o : {};
     const droit = (a) => { try { return typeof p.aDroit === 'function' && p.aDroit(a) === true; } catch { return false; } };
-    return declarations().filter((d) => (!d.proprio || p.proprio === true) && (!d.appli || droit(d.appli)));
+    return declarations().filter((d) => d.tiroir && (!d.proprio || p.proprio === true) && (!d.appli || droit(d.appli)));
   }
   /** La famille dessine-t-elle cet état elle-même ? La donnée (prêt, ancien), et les états « vide » qu'elle a déclarés. `d` : ce que rend decrire. */
   function dessineElleMeme(rf, d) {
