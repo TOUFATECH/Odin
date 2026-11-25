@@ -77,7 +77,7 @@ l'appli ou l'adresse de retour est inconnue : Odin montre alors une page d'erreu
   - Comparaison **exacte** de l'adresse de retour, sauf pour `http://127.0.0.1`, `http://[::1]` et `http://localhost` déclarés
     **sans port** : n'importe quel port est accepté (RFC 8252 § 7.3, programmes qui écoutent sur un port libre).
   - Vénus dans le navigateur : son adresse de retour est **`<origine de Vénus>/auth/odin/retour`** (ex.
-    `http://192.168.1.20:8096/auth/odin/retour`). Si Vénus est servi à une autre adresse, le propriétaire l'ajoute dans
+    `http://192.0.2.20:8096/auth/odin/retour`). Si Vénus est servi à une autre adresse, le propriétaire l'ajoute dans
     Persona → Applis → « Ajouter une adresse de retour ».
   - Applis « publiques » (pas de secret client, RFC 8252) : la preuve, c'est PKCE.
 
@@ -119,7 +119,7 @@ l'appli ou l'adresse de retour est inconnue : Odin montre alors une page d'erreu
 
 ```
 GET /sso/autoriser?response_type=code&client_id=venus
-   &redirect_uri=http%3A%2F%2F192.168.1.20%3A8096%2Fauth%2Fodin%2Fretour
+   &redirect_uri=http%3A%2F%2F192.0.2.20%3A8096%2Fauth%2Fodin%2Fretour
    &scope=openid%20profile%20email%20groups%20offline_access
    &state=<aléatoire, 16 octets ou plus>&nonce=<aléatoire>
    &code_challenge=<BASE64URL(SHA256(code_verifier))>&code_challenge_method=S256

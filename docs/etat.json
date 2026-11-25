@@ -1,6 +1,6 @@
 {
   "note": "L'état de chaque chose d'Odin : « fait » (commité), « en cours » (écrit, pas encore commité, ou en relecture), « à venir » (décrit dans une note, pas encore écrit). Ce fichier est la SEULE source : le guide (site/guide.html) et le README la lisent (npm run guide). Passer un élément à « fait » = changer son « etat » et donner son « commit » ; l'essai test/doc-etat.test.ts refuse « fait » si un de ses fichiers n'est pas commité.",
-  "maj": "2026-11-19",
+  "maj": "2026-11-25",
   "elements": [
     {
       "id": "applis",
@@ -783,31 +783,105 @@
     },
     {
       "id": "retrait-externes",
-      "nom": "Retirer les derniers modèles qui ne sont pas ceux d'Odin",
-      "etat": "en cours",
+      "nom": "Modèles qui ne sont pas ceux d'Odin : le retrait révisé le 19/11, les agents connectés sont gardés",
+      "etat": "fait",
       "famille": "Brain et Soul",
-      "resume": "Une tranche est écrite, pas installée : la porte du modèle, et la migration qui efface du coffre les clés des services de modèles. Ta décision du 18/11 (une exception pour la seule programmation) demande de la revoir avant de l'installer : garder un seul chemin, réservé à la programmation. Aujourd'hui, ces branchements existent encore : si une clé de service de modèles est réglée dans ton Odin, ce service répond encore à tout."
+      "resume": "Ta décision du 19/11 a révisé le retrait : les agents connectés sont gardés. Aucune clé n'est effacée, ni la connexion par abonnement, ni la liste des fournisseurs : un service de modèles que tu as réglé répond encore. Chaque appel est noté (Réglages → Modèle → « Qui a répondu »). Un agent n'a jamais la valeur d'un secret du coffre (voir « Secrets dans la conversation »). Sans aucun agent prêt, Odin répond avec ses seuls moyens et dit « pas encore » pour le reste, dans ta langue ; les questions qu'il gardait pour un modèle sont alors rangées dans une note du Cerveau, secrets masqués, jamais quand le coffre est verrouillé. Le modèle ouvert lu par Métis ne sert plus de secours, et le conseil qui proposait d'en télécharger un est retiré. Ce qui était retiré le reste : la voix, la traduction, la recherche et l'analyse par un service en ligne, le second avis d'un modèle dans les décisions (plus haut). Pas construit : classer les agents depuis les Réglages, le vérificateur des actions risquées, l'exception du 18/11 pour la programmation (plus bas).",
+      "fichiers": [
+        "src/brain/porte-modele.ts",
+        "src/migrations/aucun-modele-externe.ts",
+        "test/porte-modele-migration.test.ts"
+      ],
+      "commit": "dc02f07c"
     },
     {
       "id": "maquette-accueil",
       "nom": "La maquette validée de l'Accueil et de l'écran de la maison",
       "etat": "en cours",
       "famille": "Odin",
-      "resume": "10 livraisons enregistrées sur 80 : le garde-fou des données d'exemple (lot 0), les thèmes par familles (1), « Mis en avant » (2), les thèmes de Hestia (3), « Home Assistant » dans le menu et « ← Odin » (4a), « Accueil » (4b), l'écran de la maison fermé aux membres (24a et 24b, comptés à part comme dans le plan), les filets de l'accueil (12) et de l'écran de la maison (41). Pas encore là : les blocs des automatisations en cercles et leurs bulles, les familles de thèmes sur l'écran de la maison, le verre et le fond qui vit, la grille de l'accueil, les widgets de tes applis avec tes vraies données, l'écran de la maison jusqu'à la maison 3D."
+      "resume": "35 livraisons enregistrées sur 80 (une ligne du plan = une livraison ; le lot 27 compte pour une). Faites : le garde-fou des données (0), les thèmes (1, 2, 3, les cartes 8a, en parlant 11, ceux de l'écran de la maison lus dans le catalogue commun 6a), le menu (4a, 4b, 20), les automatisations en cercles et leurs bulles (5, 5b, 5c), ce qu'un bloc a reçu gardé par le moteur (62), « oui » et « non » sur les liaisons du « Si » et « Filtrer » en petit rond sur la liaison (60), les filets (12, 41), la grille (13 à 18 : modèle, 12 colonnes, tailles, glisser, animations, tiroir), le bandeau (19), la barre du bas au téléphone (21), le plein écran et le nid d'Odin (22a, 22b), le socle des widgets et qui voit quoi (23, 24a, 24b, 24c), le dessin commun et « Régler » (25a, 25b), la page « Aujourd'hui » (26, 27). En cours, pas enregistré : le verre de l'accueil (7), les widgets « Infos » (28). À venir : les 43 autres, dont les familles de thèmes et le verre sur l'écran de la maison, le fond qui vit, les widgets de tes applis, l'écran de la maison (pièces, scènes, énergie) et la maison 3D."
+    },
+    {
+      "id": "en-cours-25-11",
+      "nom": "Écrit, pas encore enregistré",
+      "etat": "en cours",
+      "famille": "Odin",
+      "resume": "Le verre de l'accueil (le décor du thème derrière, des cartes assez opaques pour rester lisibles, ton choix du 25/11) ; les widgets « Infos » (heure, horloge, petite météo, alertes) ; la suite de Vénus « La maison » ; le réseau par la parole (« qui est connecté sur le VPN »). Rien de cela n'est dans ton Odin tant que ce n'est pas enregistré."
     },
     {
       "id": "automatisations-cercles",
-      "nom": "Automatisations : les blocs en cercles",
-      "etat": "en cours",
+      "nom": "Automatisations : les blocs en cercles, leurs bulles et la bulle des données",
+      "etat": "fait",
       "famille": "Odin",
-      "resume": "Un croquis t'a été envoyé : chaque bloc en rond, le « + » à droite à mi-hauteur, une pastille chiffrée en haut à droite. Rien n'est codé : la suite attend que tu l'aies vu, et le sens de « bulles » est à te faire confirmer."
+      "resume": "Chaque bloc est un rond avec l'icône de son appli et son nom dessous, le « + » à droite. Après un test, chaque bloc qui a tourné porte une bulle avec son nombre d'éléments (une bulle rouge « ! » pour une erreur). Toucher la bulle ouvre ce que le bloc a rendu (20 éléments au plus), la durée ou l'erreur entière. Les données restent dans la page.",
+      "fichiers": [
+        "src/web/flows.js"
+      ],
+      "commit": "5ca67453"
+    },
+    {
+      "id": "automatisations-entree-sorties",
+      "nom": "Automatisations : ce qu'un bloc a reçu, « oui » et « non » sur les liaisons du « Si », « Filtrer » en petit rond",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Le moteur garde ce qu'un bloc a reçu : les 20 premiers éléments et leur nombre, dans la même ligne d'exécution que ce qu'il a rendu, aussi longtemps. La bulle des données montre cette entrée vraie ; pour un passage d'avant, elle montre l'entrée déduite du bloc d'avant quand c'est sûr, et le dit. Un « Si » écrit « oui » et « non » sur ses deux liaisons. « Filtrer » se dessine comme un petit rond posé sur la liaison, avec le même menu, les mêmes liaisons et la même place. Rien de ce qui est enregistré ne change : une automatisation d'avant s'ouvre au même endroit.",
+      "fichiers": [
+        "src/draupnir/engine.ts",
+        "src/web/flows.js",
+        "test/talos-editeur-liaisons.test.ts"
+      ],
+      "commit": "ae9c78f5"
     },
     {
       "id": "noyau-correction",
-      "nom": "Une correction des garde-fous d'Odin (le noyau)",
-      "etat": "en cours",
+      "nom": "Garde-fous d'Odin (le noyau) : un « oui » ne vaut que pour une seule demande",
+      "etat": "fait",
       "famille": "Sûreté",
-      "resume": "Écrite et relue, pas enregistrée. Elle attend ton accord : elle t'est montrée d'abord, et c'est toi qui acceptes la nouvelle version sur ton Odin. Le détail sera dit ici une fois la correction enregistrée."
+      "resume": "Un chemin écrit par un détour est reconnu comme le fichier qu'il désigne : les garde-fous demandent leur validation, les fichiers secrets restent refusés. Un « oui » tout court ne valide que s'il n'y a qu'une demande en attente ; sinon, la liste revient. Un « oui » arrivé trop tard dit que rien n'est parti.",
+      "fichiers": [
+        "src/heimdall/approbations.ts",
+        "src/bifrost/gateway.ts"
+      ],
+      "commit": "20fc7e10"
+    },
+    {
+      "id": "double-facteur",
+      "nom": "Double facteur du compte administrateur",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Dans Réglages → Accès : un QR code à scanner avec une appli de codes, un premier code pour confirmer, puis le code à 6 chiffres demandé à chaque connexion. Un code ne sert qu'une fois ; des codes faux font attendre, et Odin te prévient. Téléphone perdu : un lien envoyé à l'adresse e-mail du compte, avec ton mot de passe, retire le double facteur et propose un nouveau QR code ; sinon, une commande sur la machine d'Odin, Odin arrêté. Le secret est gardé chiffré.",
+      "fichiers": [
+        "src/web/double-facteur.ts",
+        "test/double-facteur-admin.test.ts"
+      ],
+      "commit": "e2dd6ff1"
+    },
+    {
+      "id": "conversation-unique",
+      "nom": "Une seule conversation avec Odin",
+      "etat": "fait",
+      "famille": "Parler",
+      "resume": "Plus de « Nouvelle conversation » ni de liste : un seul fil, lu page par page (« Voir plus haut »), avec tes anciennes conversations dans l'ordre des dates et ce que tu as dit depuis le téléphone, marqué. L'Historique cherche dans tout, va à un jour et exporte tout. « Masquer » vide l'écran sans rien effacer (plus bas).",
+      "fichiers": [
+        "src/muninn/fil.ts",
+        "src/migrations/conversation-unique.ts",
+        "test/discussion-unique-page.test.ts"
+      ],
+      "commit": "d70e69f2"
+    },
+    {
+      "id": "garde-fous-maj",
+      "nom": "Garde-fous mis à jour d'un clic, et le journal des tours",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Une nouvelle version des garde-fous est acceptée par ton seul clic « Mettre à jour », et seulement si c'est la version officielle, revérifiée fichier par fichier ; « Voir le code des garde-fous » montre ce qui change ; une clé d'API ne vaut pas ton clic. Chaque message devient un « tour » écrit avant tout traitement (qui, canal, fil, but, état) ; en mode privé, rien n'est écrit.",
+      "fichiers": [
+        "src/heimdall/noyau.ts",
+        "src/muninn/tours.ts",
+        "test/maj-auto-noyau.test.ts",
+        "test/tours-journal.test.ts"
+      ],
+      "commit": "bbb77215"
     },
     {
       "id": "comptes-infos-age",
@@ -823,6 +897,227 @@
         "test/persona-infos.test.ts"
       ],
       "commit": "efe2232a"
+    },
+    {
+      "id": "secrets-conversation",
+      "nom": "Secrets dans la conversation : rangés au coffre",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Un identifiant ou un mot de passe écrit dans la conversation va au coffre de la bonne personne avant toute écriture ; seul le texte sans secret est gardé, et Odin dit en une ligne ce qu'il a rangé. Un agent n'a jamais la valeur : le serveur la met juste avant l'outil. « Masquer » vide l'écran de la discussion sans rien effacer ; « Réafficher l'historique » remet tout. Le coffre s'écrit à côté puis d'un geste : une coupure laisse l'ancien intact.",
+      "fichiers": [
+        "src/heimdall/references-coffre.ts",
+        "src/muninn/fil.ts",
+        "test/secrets-references.test.ts"
+      ],
+      "commit": "32849195"
+    },
+    {
+      "id": "masqueur-espaces",
+      "nom": "Le masqueur des secrets ne s'emballe plus",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Une très longue suite d'espaces collée à « mot de passe » ne fait plus travailler Odin des minutes : tout ce qui était masqué l'est encore.",
+      "fichiers": [
+        "src/heimdall/redact.ts"
+      ],
+      "commit": "cf44b480"
+    },
+    {
+      "id": "cle-acces",
+      "nom": "La clé d'accès lit et parle seulement",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Avec la clé d'accès (raccourcis du téléphone, scripts), Odin répond aux questions ; tout geste qui écrit demande ta session (refus « Ce geste demande ta session »). Ce qu'une phrase venue avec la clé demande de faire attend ta validation dans Odin. La clé ne valide jamais rien elle-même et n'ouvre plus l'écran de la maison.",
+      "fichiers": [
+        "src/web/cle-acces.ts"
+      ],
+      "commit": "c6f001e3"
+    },
+    {
+      "id": "applis-activer",
+      "nom": "Activer ou désactiver chaque appli",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Un bouton marche/arrêt sur la carte de chaque appli, « Désactiver » (avec confirmation) ou « Activer » sur sa page. Une appli désactivée reste visible en gris, ne fait plus rien et ses actions sont refusées ; ses données sont gardées. Toi seul, depuis ta session.",
+      "fichiers": [
+        "src/web/pages/applis-activer.js"
+      ],
+      "commit": "634ee573"
+    },
+    {
+      "id": "genese-cles",
+      "nom": "Genèse : les clés USB (maquette validée)",
+      "etat": "fait",
+      "famille": "Machines",
+      "resume": "Les huit lots de la maquette : choisir la clé (un disque interne ou celui d'Odin n'est jamais accepté), la façon de démarrer, les systèmes et la place, les logiciels et scripts vérifiés, « Vérifier » puis écrire (phrase tapée et appui de 3 s), « Mes clés », l'écran de démarrage graphique et le mode texte, et la parole. Pour l'instant, seule une clé déjà ODIN est écrite ; une clé neuve est refusée. Réservé au propriétaire.",
+      "fichiers": [
+        "src/web/pages/thjalfi-cle-etapes.js",
+        "src/web/pages/thjalfi-cle-gerer.js",
+        "src/valhalla/thjalfi/cle-gerer.ts"
+      ],
+      "commit": "39113804"
+    },
+    {
+      "id": "genese-systemes",
+      "nom": "Genèse : les systèmes et le déploiement par le réseau (maquette validée)",
+      "etat": "fait",
+      "famille": "Machines",
+      "resume": "Les onze lots : la bibliothèque des systèmes, le catalogue et les versions, la fiche et le retrait, les logiciels et leurs profils, « Déployer » vers une clé, des PC par le réseau ou une machine virtuelle, le suivi PC par PC, le serveur de démarrage par le réseau, le menu PXE, le même écran de démarrage que la clé, et la parole. Avant d'effacer un PC : phrase tapée, appui de 3 s, et le PC doit être exactement celui autorisé. Réservé au propriétaire ; essayé sur des PC et des réseaux simulés.",
+      "fichiers": [
+        "src/web/pages/thjalfi-systemes.js",
+        "src/web/pages/thjalfi-deployer.js",
+        "src/web/pages/thjalfi-reseau.js",
+        "src/web/pages/thjalfi-menu-pxe.js"
+      ],
+      "commit": "82d2c7a2"
+    },
+    {
+      "id": "arche",
+      "nom": "Arche : les conteneurs (maquette validée)",
+      "etat": "fait",
+      "famille": "Machines",
+      "resume": "Les conteneurs s'appellent maintenant Arche (avant Argo) et la sauvegarde des bases Amphore (avant Arche). Tableau de bord et fiche d'un conteneur, volumes et réseaux, piles décrites dans un fichier, catalogue de dix applis, mises à jour proposées (jamais toutes seules, retour à l'ancienne si la nouvelle ne tient pas), et la parole. Réservé au propriétaire ; essayé sur un moteur simulé ; sous Windows, la page dit ce qui viendra.",
+      "fichiers": [
+        "src/web/pages/naglfar.js",
+        "src/valhalla/hringhorni/composition.ts",
+        "src/valhalla/hringhorni/catalogue.ts"
+      ],
+      "commit": "676d442c"
+    },
+    {
+      "id": "hydre",
+      "nom": "Hydre : les machines virtuelles (maquette validée)",
+      "etat": "fait",
+      "famille": "Machines",
+      "resume": "Pause et reprise, la liste des machines et ce qui en dépend, créer une machine en quatre étapes (Odin refuse ce que ce PC ne peut pas donner), l'écran d'une machine dans le navigateur (clavier, souris, plein écran) et ses instantanés (un automatique avant une mise à jour, gardé 7 jours). Réservé au propriétaire ; jamais essayé sur une vraie machine virtuelle.",
+      "fichiers": [
+        "src/web/pages/ymir.js",
+        "src/valhalla/ymir/ecran.ts",
+        "src/valhalla/ymir/instantanes.ts"
+      ],
+      "commit": "686c7aa4"
+    },
+    {
+      "id": "sphinx",
+      "nom": "Sphinx : appareils, adresses, DHCP et DNS (maquette validée « Réseau »)",
+      "etat": "fait",
+      "famille": "Accès",
+      "resume": "Qui a quelle adresse, bloquer ou mettre en pause un appareil, les adresses fixes et le plan, les réglages du DHCP (Odin refuse de distribuer si un autre serveur répond), les noms du réseau, le journal du DNS, le blocage, et les serveurs : la racine d'abord, un secours public seulement si elle ne répond pas (« Racine seule » possible). Réservé au propriétaire ; un membre ne voit que son appareil. Jamais essayé sur un vrai réseau.",
+      "fichiers": [
+        "src/web/pages/sphinx-appareils.js",
+        "src/web/pages/sphinx-noms.js",
+        "src/web/pages/sphinx-dns.js",
+        "src/valhalla/vidarr/server.ts"
+      ],
+      "commit": "a87b3bbf"
+    },
+    {
+      "id": "vortex",
+      "nom": "Vortex : les appareils du VPN et leur QR code (maquette validée « Réseau »)",
+      "etat": "fait",
+      "famille": "Accès",
+      "resume": "Chaque appareil en carte, « Couper » et « Retirer », l'état du tunnel ; ajouter un appareil en trois étapes. Le QR code est caché, montré sur un geste, masqué seul après 2 minutes ; le remontrer demande ton accord ; une tablette ne le reçoit jamais. Les clés du VPN sont chiffrées sur le disque. Réservé au propriétaire ; jamais essayé sur un vrai tunnel.",
+      "fichiers": [
+        "src/web/pages/vortex-ajouter.js",
+        "src/valhalla/modules/gjoll.ts"
+      ],
+      "commit": "c979d59f"
+    },
+    {
+      "id": "venus-interface",
+      "nom": "Vénus : l'interface de l'appli d'origine, le lecteur, les affiches",
+      "etat": "fait",
+      "famille": "Médias",
+      "resume": "Vénus s'ouvre dans Odin avec l'interface de l'appli Vénus d'origine : planètes, bibliothèques, fiches, recherche, « Qui regarde ? ». Le lecteur avec ses touches, ses pistes audio, ses qualités, ses sous-titres et la bande-annonce. Les vignettes sont tirées par Odin ; affiches et fiches seulement si tu l'as réglé, gardées chez toi. Réservé au propriétaire et à ses profils.",
+      "fichiers": [
+        "src/valhalla/venus/app/app.js",
+        "src/web/pages/venus-lecteur.js"
+      ],
+      "commit": "eaee8174"
+    },
+    {
+      "id": "venus-faire-venir",
+      "nom": "Vénus : faire venir un film ou une série, sans service extérieur",
+      "etat": "fait",
+      "famille": "Médias",
+      "resume": "Un clic sur un titre « à venir » : Odin garde la demande, cherche dans les sources que tu règles toi-même, télécharge (aussi par partage de fichiers, avec son propre moteur), passe l'antivirus et range le fichier. « À venir », « Mes envies », « Nouveau », « Nouveautés » ; « Ajouter à mon calendrier » avec un lien personnel. La demande d'un membre attend ta validation.",
+      "fichiers": [
+        "src/valhalla/venus/hnoss/calendrier.ts",
+        "src/valhalla/venus/comete/index.ts"
+      ],
+      "commit": "61731cff"
+    },
+    {
+      "id": "venus-maison",
+      "nom": "Vénus : La maison, première part",
+      "etat": "fait",
+      "famille": "Médias",
+      "resume": "« Ce soir » et « Qui regarde ce soir ? », le vote en famille (code de 4 lettres ou QR, expire après 3 h), « Mes statistiques » de l'année et la rétrospective, les collections et les listes de chaque profil. Écritures réservées au propriétaire.",
+      "fichiers": [
+        "src/valhalla/venus/seance.ts",
+        "src/valhalla/venus/stats.ts"
+      ],
+      "commit": "e89e8fa2"
+    },
+    {
+      "id": "accueil-grille",
+      "nom": "Accueil : la grille, le bandeau, le menu, la barre du bas",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "La grille de 12 colonnes (4 au téléphone), tirer le coin et les sept tailles, glisser un widget, douze animations, le tiroir « Ajouter un widget », le bandeau du haut avec sa cloche, le menu dans l'ordre de la maquette, la barre du bas au téléphone avec Odin au centre, le plein écran « seulement les widgets » et le nid d'Odin. Home Assistant et Vénus s'ouvrent dans la page d'Odin.",
+      "fichiers": [
+        "src/web/pages/accueil-grille.js",
+        "src/web/fenetre.js",
+        "src/web/ui.html"
+      ],
+      "commit": "d9250ec5"
+    },
+    {
+      "id": "accueil-widgets",
+      "nom": "Accueil : les widgets, « Régler » et qui voit quoi",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Le même en-tête pour tous les widgets et cinq états (prêt, vide, source absente, refusé, ancien). « ⋯ » ouvre « Régler » : titre, taille, ce que fait un toucher, « Ouvrir à… », copier vers l'autre écran, retirer. Le serveur décide widget par widget ce qu'un membre ou une tablette reçoit ; la vie privée reste fermée sauf ce que tu ouvres à une personne.",
+      "fichiers": [
+        "src/valhalla/widgets/regler.ts",
+        "src/web/pages/widgets-rendu.js"
+      ],
+      "commit": "7e5f0236"
+    },
+    {
+      "id": "accueil-aujourdhui",
+      "nom": "Accueil : la page « Aujourd'hui » en widgets",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Les cinq chiffres en tête, « Tu veux sans doute », « À faire », « Ce qu'Odin a fait », « Comment Odin se comporte » et les quatre tuiles (Surveillance, Sauvegarde, Résumé du matin, Application). Chez toi, tout l'accueil est une grille de widgets ; ces widgets restent à toi seul. Un membre garde son affichage d'avant.",
+      "fichiers": [
+        "src/valhalla/widgets/aujourdhui.ts",
+        "src/web/fenetre.js"
+      ],
+      "commit": "43fb82b5"
+    },
+    {
+      "id": "themes-cartes-parole",
+      "nom": "Thèmes : les cartes, le nom dit, l'interrupteur d'humeur",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Réglages → Apparence montre une carte par thème avec son aperçu. Chaque thème se choisit par son nom, dit ou écrit ; si un nom est porté par plusieurs thèmes, Odin demande lequel. L'interrupteur « Odin change de thème selon son humeur ». L'écran de la maison lit ses 31 thèmes dans le même catalogue.",
+      "fichiers": [
+        "src/web/pages/themes-catalogue.js",
+        "src/valhalla/modules/apparence.ts"
+      ],
+      "commit": "c662d809"
+    },
+    {
+      "id": "gestes-proprietaire",
+      "nom": "Gestes réservés au propriétaire, et téléchargements par adresse",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Phénix (restaurer, parcourir, télécharger les sauvegardes), Genèse (réinstaller un PC, éteindre le serveur) et les commandes d'Arche sont au propriétaire seul. Importer une ISO, un logiciel, ou un téléchargement de Vénus ne suit plus une redirection vers la maison ou la machine d'Odin.",
+      "fichiers": [
+        "src/valhalla/modules/thjalfi.ts"
+      ],
+      "commit": "7091aa39"
     },
     {
       "id": "lieu-suppose",
@@ -892,7 +1187,7 @@
       "nom": "Automatisations : la suite des gestes de l'éditeur de scénarios",
       "etat": "à venir",
       "famille": "Applis",
-      "resume": "Le dessin en cercles et en bulles que tu as demandé le 18/11 : voir « les blocs en cercles » (croquis envoyé, rien de codé). Une étape à la fois : l'exécution montrée bloc par bloc, les branches et les conditions sur un fil, le planning réglé depuis le déclencheur, que faire en cas d'erreur ; couper les autres liens (les appels d'une appli à l'autre, les sondes…) ; plus tard, un déclencheur à l'arrivée d'un mail ou d'un message."
+      "resume": "Déjà là : les blocs en cercles et leurs bulles, ce qu'un bloc a reçu gardé par le moteur, « oui » et « non » sur les liaisons du « Si », « Filtrer » en petit rond sur la liaison (plus haut). À venir : la barre du bas de l'éditeur ; les branches et les conditions sur un fil, le planning réglé depuis le déclencheur, que faire en cas d'erreur ; couper les autres liens ; plus tard, un déclencheur à l'arrivée d'un mail ou d'un message."
     },
     {
       "id": "graphe-3d-suite",
@@ -906,7 +1201,7 @@
       "nom": "Vénus complet, sans rien d'extérieur : la suite",
       "etat": "à venir",
       "famille": "Médias",
-      "resume": "Déjà là : envoyer un film, une série ou une musique depuis un téléphone ou un ordinateur ; dans le lecteur, la durée entière et le saut à un endroit d'un film converti à la volée ; « lance tel film, telle série, à tel épisode » trouve le bon fichier ; le bouton « Lire » dans la discussion ; les titres dans toutes les écritures. À venir : la même demande dans les autres langues suivies ; les affiches et le scan en arrière-plan ; trouver et récupérer films et séries par Odin lui-même ; YouTube et l'envoi vers une télé existent mais passent encore par un outil extérieur : les faire par Odin lui-même."
+      "resume": "Déjà là : l'interface de l'appli Vénus d'origine, son lecteur, les affiches, « faire venir » un titre, le calendrier, « Ce soir », le vote, les statistiques et les collections (voir plus haut). En cours, pas enregistré : la suite de « La maison » (la séance, la télécommande, les versions plus légères, la liste des téléchargements). À venir : la musique, les livres et les photos ; l'administration ; la télévision en direct ; la même demande « lance tel film » dans les autres langues suivies ; YouTube et l'envoi vers une télé faits par Odin lui-même."
     },
     {
       "id": "a-valider",
@@ -980,7 +1275,7 @@
       "nom": "Des widgets posés par la parole ; le nouvel accueil",
       "etat": "à venir",
       "famille": "Parler",
-      "resume": "« Mets la météo en haut à gauche », « agrandis-le », « remets comme avant » ; puis l'accueil et l'écran de la maison redessinés."
+      "resume": "« Mets la météo en haut à gauche », « agrandis-le », « remets comme avant ». Le nouvel accueil est en partie là (35 livraisons sur 80, plus haut) ; l'écran de la maison redessiné est à venir."
     },
     {
       "id": "ssh",
@@ -1022,7 +1317,7 @@
       "nom": "Tout le parc par la parole",
       "etat": "à venir",
       "famille": "Machines",
-      "resume": "Pause d'une VM, « crée-moi une VM », essai d'un dépôt GitHub dans une machine isolée, contrôleur de domaine et GPO, servir son propre modèle de langue aux autres machines."
+      "resume": "Déjà là : Genèse, Arche et Hydre par la parole (« mets Windows 11 sur la clé », « arrête wiki », « crée-moi une VM Ubuntu avec 4 Go »), toujours avec la confirmation à la main. À venir : essayer un dépôt GitHub dans une machine isolée, contrôleur de domaine et GPO, servir son propre modèle de langue aux autres machines."
     },
     {
       "id": "aides",
@@ -1043,6 +1338,97 @@
       "etat": "à venir",
       "famille": "Brain et Soul",
       "resume": "Sur le raisonnement, c'est le propre modèle de langue d'Odin qui sera mesuré, une fois entraîné."
+    },
+    {
+      "id": "canaux",
+      "nom": "Parler à Odin sur tous les canaux ; tes réseaux sociaux",
+      "etat": "à venir",
+      "famille": "Parler",
+      "resume": "Ta demande du 20/11 : te parler sur les canaux que tu configures, te prévenir d'un message arrivé et y répondre ; publier sur tes réseaux. Rien ne part sans ta confirmation, sauf sur un canal où tu as permis la réponse automatique. Tes choix : sept canaux en premier, ceux sans porte officielle simple, par les portes ouvertes aux particuliers. Pas commencé."
+    },
+    {
+      "id": "drones",
+      "nom": "Piloter un drone",
+      "etat": "à venir",
+      "famille": "Maison",
+      "resume": "Ta demande du 20/11 : un configurateur des drones et des ordres à la voix ou à l'écrit. Tes réponses : ton accord avant chaque décollage, des limites de hauteur, de distance et de zone, « stop » et « atterris » toujours en premier ; commencer par ton drone (sa marque et son modèle te seront demandés). Pas commencé."
+    },
+    {
+      "id": "visio",
+      "nom": "La visio sur le site d'Odin",
+      "etat": "à venir",
+      "famille": "Parler",
+      "resume": "Ta demande du 20/11 : Odin crée un lien audio ou vidéo sur son propre site, chaque lien avec son identifiant, sa date et la durée que tu donnes ; un invité attend dans une salle d'attente ; Odin te montre le courriel avant chaque envoi. Pas commencé."
+    },
+    {
+      "id": "agent-cerveau-machines",
+      "nom": "L'agent et le Cerveau ; l'agent dans une machine à lui",
+      "etat": "à venir",
+      "famille": "Brain et Soul",
+      "resume": "Tes réponses du 19 et 20/11 : un agent connecté peut lire tout le Cerveau, secrets masqués ; une amélioration des neurones n'est gardée qu'après un essai sur une copie, mesuré. Pour une tâche, l'agent peut créer seul une machine ou un conteneur d'Odin, dans des limites, puis le supprimer. Un banc d'essai des neurones est enregistré comme code d'essai (rien dans l'appli). Le reste n'est pas commencé."
+    },
+    {
+      "id": "documents-images-videos",
+      "nom": "Lire les documents, les images et les vidéos",
+      "etat": "à venir",
+      "famille": "Médias",
+      "resume": "Tes demandes du 19/11 : un document déposé est lu et Odin propose la suite (convertir, en tirer les données) ; le texte des documents et des images est toujours lu ; une vidéo image par image et son son mot par mot. Tes réponses : une image ne part vers un agent connecté qu'avec ton oui (une question par vidéo) ; l'écoute d'abord en français puis en anglais. Pas commencé."
+    },
+    {
+      "id": "recherche-conseils",
+      "nom": "Une recherche rend une réponse directe, sourcée, avec des conseils",
+      "etat": "à venir",
+      "famille": "Web",
+      "resume": "Ta demande du 19/11 : la réponse d'abord, quelques points avec leurs sources, puis des conseils et la suite à toucher ; ce qui se calcule (heures, dates, conversions) est calculé exactement. Pas commencé."
+    },
+    {
+      "id": "maj-auto",
+      "nom": "Mise à jour automatique réglable : activée, tout s'installe sans geste",
+      "etat": "à venir",
+      "famille": "Odin",
+      "resume": "Ta demande du 19/11. Déjà là : le réglage Réglages → Mises à jour d'Odin (tout seul quand il ne travaille pas, me prévient, ne pas vérifier) et, quand une version change les garde-fous, ton seul clic « Mettre à jour » si c'est la version officielle revérifiée (plus haut). À venir, ta réponse « Signée par ma clé » : une nouvelle version des garde-fous ne s'installera seule que si elle porte ta signature ; sans elle, elle attendra ton clic."
+    },
+    {
+      "id": "agents-classement",
+      "nom": "Les agents classés de 1 à 10, le vérificateur et l'observateur",
+      "etat": "à venir",
+      "famille": "Odin",
+      "resume": "Tes réponses du 19/11. Déjà là : le classement s'écrit dans la configuration (routing.classement) ; Odin prend les agents dans cet ordre, l'agent local d'Odin compris, et passe au suivant si l'un se tait ou refuse ; chaque appel est noté, sans son contenu ; et le journal des tours (plus haut). À venir : le classer depuis les Réglages ; le vérificateur, un modèle à part qui relit les seules actions risquées et cite ta phrase ; l'agent observateur ; les tâches en parallèle par sujet."
+    },
+    {
+      "id": "bloc-ia-automatisations",
+      "nom": "Une IA qui décide dans les automatisations",
+      "etat": "à venir",
+      "famille": "Applis",
+      "resume": "Ta demande du 19/11 et ta réponse du même jour. Déjà là : les blocs « Agent Odin », « Classer (IA) » et « Extraire des infos (IA) », et une automatisation créée depuis la Discussion (créée désactivée, marquée « écrite par Odin »), avec le modèle réglé. À venir : y brancher le modèle d'Odin et les agents connectés, chaque appel noté et visible, sans validation à chaque envoi ; une action grave reste validée par toi, les demandes regroupées pour que tu les valides ensemble."
+    },
+    {
+      "id": "proactif",
+      "nom": "Proactif, de bout en bout",
+      "etat": "à venir",
+      "famille": "Métiers",
+      "resume": "Ta demande du 19/11 : repérer une réservation dans tes courriels, chercher et comparer les options, réserver, annuler, demander un remboursement, se désabonner, faire l'enregistrement en ligne, garder le billet, mettre l'événement au calendrier, te le rappeler, et te le proposer de lui-même. Chaque action risquée passera par le vérificateur, et un paiement par ta validation. Pas commencé."
+    },
+    {
+      "id": "lien-accueil-famille",
+      "nom": "Le lien d'Odin sur l'Accueil, pour la famille",
+      "etat": "à venir",
+      "famille": "Sûreté",
+      "resume": "Ta demande du 19/11 et tes réponses : un lien par personne, à usage unique, comme l'invitation de Réglages → Personnes (déjà là, plus haut), mais proposé aussi sur l'Accueil ; la personne crée son compte comme tu as créé le tien. Pas encore sur l'Accueil."
+    },
+    {
+      "id": "odin-dehors",
+      "nom": "Odin depuis dehors",
+      "etat": "à venir",
+      "famille": "Sûreté",
+      "resume": "Tes réponses du 19/11 à l'étude : toutes les façons d'arriver jusqu'à Odin, partout (un nom de domaine, un serveur à toi, l'adresse locale, l'adresse publique) ; Odin règle lui-même la box avec ses identifiants rangés au coffre ; depuis dehors, tout ce qui est possible à la maison ; un inconnu ne voit que la mascotte, qui lui dit qu'il n'est pas autorisé. Pas commencé."
+    },
+    {
+      "id": "maquettes-reste",
+      "nom": "Les autres maquettes validées : ce qui reste",
+      "etat": "à venir",
+      "famille": "Machines",
+      "resume": "Clés USB : écrire une clé neuve (avec une vraie clé d'essai). Systèmes : les essayer sur un vrai PC et un vrai réseau. Conteneurs et machines virtuelles : Odin sous Windows (après tes réponses), cloner une machine et l'exporter vers une clé (la parole est là : « arrête wiki », « crée-moi une VM Ubuntu avec 4 Go »). Réseau : les comptes et la page de connexion du VPN (tes réponses du 23/11), la parole (en cours). Vénus : musique, livres et photos ; administration ; télévision en direct."
     },
     {
       "id": "rangement",

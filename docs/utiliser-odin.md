@@ -6,7 +6,7 @@ Ce document garde le détail des fonctions qui ne tient pas dans le [README](../
 
 ## Interface web
 
-`odin web` ouvre l'interface. Par défaut elle est **joignable sur ton réseau local, en HTTPS** : `https://127.0.0.1:8888` sur la machine, `https://192.168.1.20:8888` (son adresse locale) depuis ton téléphone. Les liens personnels, avec jeton, s'affichent au démarrage ; le jeton est aussi dans `~/.odin/web-token`.
+`odin web` ouvre l'interface. Par défaut elle est **joignable sur ton réseau local, en HTTPS** : `https://127.0.0.1:8888` sur la machine, `https://192.0.2.20:8888` (son adresse locale) depuis ton téléphone. Les liens personnels, avec jeton, s'affichent au démarrage ; le jeton est aussi dans `~/.odin/web-token`.
 
 | Onglet | Ce que tu y fais |
 |---|---|
@@ -34,6 +34,8 @@ La **visite guidée** ne se lance que si tu la demandes (« visite guidée », R
 ### Graphes des applis et du réseau
 
 Comme le Cerveau, **Applis** et **Maison → Carte** s'affichent en graphe : on glisse, on zoome, on cherche, on touche un point pour l'ouvrir. Les applis sont reliées à leur famille et aux applis avec lesquelles elles travaillent ; les appareils, à leur famille et à la box. Les pastilles montrent ce qui demande ton attention : **rouge ou orange** pour les alertes d'une appli ou un problème sur une machine (risque repéré, appareil surveillé tombé), **bleue** pour les nouveautés du projet d'origine d'une appli ; un point **gris** est hors ligne.
+
+**Quand deux applis se parlent**, sur la carte des applis, c'est la ligne elle-même qui brille, très claire en blanc, puis s'éteint doucement (en 1,5 s) : plus de flèche, de comète ni de points (ton choix). Le Cerveau garde ses influx.
 
 **Graphe 3D** : à côté du bouton **Graphe**, un bouton **Graphe 3D** montre les mêmes points dans un espace sombre : chaque point brille de la couleur de son groupe, le nom des groupes est écrit en capitales. On tourne en glissant, on zoome à la molette ou en pinçant, et toucher un point fait voler la vue vers lui et l'ouvre. Il est proposé sur la **carte des applis**, sur la page d'une **appli qui montre un graphe**, dans l'onglet **Plugins** des compétences, dans le graphe des **scripts** (Archytas), sur la carte **Qui parle à qui** des paquets (Ariane) dans le graphe du **Cerveau** (les notes groupées par type ; au-delà de 600 éléments, les plus liés sont montrés et c'est dit à l'écran) et sur la **carte du réseau** de la Maison (les appareils groupés par famille). Odin retient ton choix pour chaque endroit. Le dessin est fait par Odin lui-même, sans bibliothèque extérieure. Pas encore : le Profil, le proxy, le VPN.
 
@@ -66,7 +68,16 @@ Les stores des appareils se connectent avec le compte Odin (connexion unique, ap
 
 ### Vénus dans Odin : tes films sur tes dossiers
 
-Vénus lit tes films, séries et musiques là où ils sont déjà, sur la machine d'Odin, et les joue dans ton navigateur. En trois gestes, dans **Vénus → Odéon** :
+**Ce que tu vois en ouvrant Vénus** : l'interface de l'appli Vénus d'origine, dans la page d'Odin (adresse `/#venus`), avec le menu d'Odin à côté. Les planètes et leurs mises en page, l'accueil, Films, Séries, Animés, Clips, Ma liste, la fiche d'un titre (saisons, épisodes, reprise, vu ou non vu, épisodes manquants), la recherche (Ctrl+K) et « Qui regarde ? » sur les comptes d'Odin (un profil enfant ne voit pas tout). Ce qui n'existe pas encore est dit à l'écran, jamais inventé. Réservé à toi et à tes profils.
+
+- **Le lecteur** : les mêmes touches que l'appli d'origine (avance, recul, volume, vitesse, minuterie de sommeil, image dans l'image, plein écran, épisode suivant). Les pistes audio du fichier (le choix est gardé par profil), les qualités plus légères quand Odin mesure qu'il peut les produire (sinon grisées avec la raison), les sous-titres du fichier et ceux posés à côté, la bande-annonce posée à côté du film ; la touche C ouvre « Audio et sous-titres ». La reprise est gardée par profil ; « vu » seulement à la vraie fin. Rien ne sort sur Internet.
+- **Affiches et fiches** : Odin tire lui-même une vignette de chaque film et épisode. L'affiche, le fond, le résumé, les genres, les notes et la distribution ne viennent que si tu l'as réglé ; les images sont vérifiées et gardées chez toi, ton navigateur ne charge rien d'Internet.
+- **Faire venir un film ou une série** : un clic sur un titre « à venir » (♡ pour une envie, ⬇ pour le faire venir tout de suite). Odin garde la demande, cherche dans les sources que **tu** règles (aucune n'est remplie d'avance), télécharge (aussi par partage de fichiers, avec son propre moteur, sans port ouvert sans toi), passe l'antivirus, renomme et range le fichier dans un dossier déclaré : le titre apparaît dans Vénus. Pour une série, seul l'épisode manquant vient. Un fichier douteux est mis à part jusqu'à ton accord. La demande d'un membre attend ta validation ; un membre ne voit que ses demandes. Écrans : « À venir », « Mes envies », « Nouveau », « Nouveautés », et Réglages → Demandes.
+- **Ajouter à mon calendrier** (sur « À venir ») : un lien personnel à mettre dans l'agenda de ton téléphone, avec les sorties relevées par Odin, tes séries et tes envies. Seule ta session l'obtient. Le calendrier se met à jour quand « À venir » est ouvert.
+- **La maison** : « Ce soir » (trois questions, trois idées) et « Qui regarde ce soir ? » (rien proposé si un enfant est là : l'âge des titres n'est pas connu) ; le vote en famille (code de 4 lettres ou QR, une voix par appareil, fini au bout de 3 h) ; « Mes statistiques » de l'année et la rétrospective, calculées sur ce profil seulement ; les collections (créées par toi, vues par tous) et les listes de chaque profil ; « Télécharger » le fichier d'origine depuis la fiche.
+- **Pas encore là** (en cours, pas enregistré) : la séance à plusieurs, la télécommande, les versions plus légères à garder, la liste des téléchargements. **À venir** : la musique, les livres et les photos, l'administration, la télévision en direct.
+
+L'ancienne page de Vénus reste joignable par « Médiathèques et écrans ». C'est là, dans **Odéon**, que se déclarent les dossiers, en trois gestes :
 
 1. colle le chemin complet d'un dossier de la machine d'Odin (par exemple `D:\Films`) et choisis sa catégorie (films, séries, musique…) ;
 2. touche **Ajouter le dossier** ;
@@ -82,7 +93,7 @@ Dans le lecteur, un film qu'Odin doit convertir pour ton navigateur montre sa **
 
 **Les titres dans toutes les écritures** : un film, une série ou un album dont le titre est écrit en japonais, en arabe, en cyrillique, en grec, en chinois, en coréen, en hindi… a son propre identifiant et se retrouve par son titre ou ses premiers mots, au lieu de se confondre avec les autres sous « sans-titre ». Un titre qui avait déjà son identifiant, en alphabet latin ou mêlé, le garde à l'identique : sa reprise de lecture et ses « vus » ne bougent pas.
 
-**Pas encore là** : le téléchargement de films et de séries fait par Odin lui-même (l'onglet Acquisition ne fait que montrer, en lecture seule). YouTube et l'envoi vers une télé existent, mais passent encore par un outil extérieur ; les faire par Odin lui-même est à venir. Les phrases ci-dessous (« mets le dernier épisode… ») passent par un serveur Vénus à part, relié dans les réglages.
+**Pas encore là** : YouTube et l'envoi vers une télé existent, mais passent encore par un outil extérieur ; les faire par Odin lui-même est à venir. Les phrases ci-dessous (« mets le dernier épisode… ») passent par un serveur Vénus à part, relié dans les réglages.
 
 ### Venus (Vénus) : épisodes et VF
 
@@ -107,6 +118,8 @@ Au choix, à l'installation, dans **Réglages → Accès à l'interface** ou ave
 Le certificat HTTPS est créé par Odin lui-même (aucun outil à installer) pour `localhost`, l'adresse locale et le nom de la machine. Ton navigateur demandera de l'accepter une fois : compare son empreinte avec celle de Réglages. Tu peux aussi donner ton propre certificat (Let's Encrypt…).
 
 **Première connexion** : le premier navigateur de ton réseau local qui ouvre Odin (tant qu'il n'est pas configuré, ou dans l'heure qui suit son démarrage) crée **ton compte** : prénom, nom, adresse e-mail et mot de passe (10 caractères au moins). Ensuite, sur chaque appareil, tu entres avec ton adresse et ton mot de passe ; Réglages → Accès montre les appareils connectés et permet de les déconnecter. Plus tard, ou depuis un autre endroit, le lien de première connexion s'obtient en ligne de commande : `odin link` (dans un LXC Proxmox, depuis l'hôte : `pct exec <ID> -- odin link`). L'installateur l'affiche aussi à la fin. Mot de passe oublié : `odin compte oublier` sur la machine d'Odin (le compte est effacé, jamais tes données).
+
+**Double facteur** (Réglages → Accès, ton compte seulement) : avec ton mot de passe, « Activer le double facteur » montre un QR code ; tu le scannes avec une appli de codes sur ton téléphone, puis tu tapes un premier code pour confirmer. Ensuite, à chaque connexion, le code à 6 chiffres est demandé en plus du mot de passe. Un code ne sert qu'une fois ; des codes faux font attendre de plus en plus, et Odin te prévient. Téléphone perdu : sur l'écran du code, « J'ai perdu mon téléphone » envoie un lien à l'adresse e-mail du compte ; ce lien et ton mot de passe retirent le double facteur, puis un nouveau QR code t'est proposé. Si aucun envoi d'e-mail n'est réglé, une commande sur la machine d'Odin, Odin arrêté, le retire. Le secret est gardé chiffré.
 
 **Tu viens de la 1.5 ?** À la première ouverture après la mise à jour, Odin te demande seulement de créer ce compte. Tes notes, tes discussions et tes réglages sont gardés.
 
@@ -182,8 +195,8 @@ Tu peux aussi écrire les tiennes dans `~/.odin/skills/<nom>/SKILL.md` (exemple 
 odin net enable              # balayage automatique toutes les 30 min
 odin net scan --full         # balayage complet maintenant (~30 s)
 odin net list                # ● en ligne  ○ déconnecté  × retiré
-odin net show 192.168.1.20   # détail, historique, ce qu'Odin peut faire avec
-odin net label 192.168.1.20 "Imprimante du bureau"
+odin net show 192.0.2.20   # détail, historique, ce qu'Odin peut faire avec
+odin net label 192.0.2.20 "Imprimante du bureau"
 ```
 
 Odin découvre les appareils sans droits administrateur (table ARP, balayage TCP léger, Bonjour, UPnP) et **ne balaie que les réseaux privés de sa machine**, jamais Internet. Absent, un appareil passe « déconnecté », puis « retiré » après 7 jours ; tu es prévenu à chaque changement.
@@ -243,7 +256,9 @@ Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, p
 
 ## Modèles : le bon pour chaque tâche
 
-> **En cours de retrait.** Ce qui suit décrit les branchements à des modèles qui ne sont pas ceux d'Odin (fournisseurs en ligne, modèles ouverts lus par Métis, abonnement par Codex) : ils existent encore dans le code d'aujourd'hui, et leur retrait est en cours d'écriture. Ensuite, Odin n'utilisera que ses propres modèles, entraînés sur ta machine, avec une seule exception, décidée le 18/11 : la programmation (écrire, lire, corriger du code, créer des sites) pourra passer par un modèle extérieur, et chaque envoi attendra ta validation, avec ce qui part sous tes yeux. Rien de cette exception n'est encore construit. Déjà retirés (17/11) : la voix, la traduction, la recherche et l'analyse par un service en ligne, et le second avis d'un modèle dans les décisions. Sans modèle, Odin n'est pas « en démonstration » : Soul, les mises à jour et les alertes tournent.
+> **Révisé le 19/11 : les agents connectés sont gardés.** Ce qui suit décrit les agents connectés : un service de modèles en ligne dont tu as réglé la clé, ou ta connexion par abonnement. Le retrait décidé le 17/11 s'est arrêté là, par ta décision du 19/11. Ce qui est enregistré : aucune clé n'est effacée, ni la connexion par abonnement, ni la liste des fournisseurs ; un agent que tu as réglé répond encore. Chaque appel est noté : Réglages → Modèle → « Qui a répondu » montre quel agent a répondu, pourquoi lui, et qui a été essayé avant. Un agent n'a jamais la valeur d'un secret du coffre : il écrit une référence, et le serveur met la valeur juste avant l'outil. Une image ne part vers un agent qu'avec ton « oui », pour cette image, une seule fois. Sans aucun agent prêt, Odin répond avec ses seuls moyens (ses actions directes, sa mémoire, Soul) et dit « pas encore » pour le reste, dans ta langue ; il n'est pas « en démonstration » : Soul, les mises à jour et les alertes tournent. Ce qui est retiré le reste : la voix, la traduction, la recherche et l'analyse par un service en ligne, et le second avis d'un modèle dans les décisions (17/11). Le modèle ouvert lu par Métis n'est plus branché pour répondre (19/11) : ce que la suite dit du palier « installé/gratuit » date d'avant. Pas construit : le vérificateur des actions risquées, et l'exception du 18/11 pour la programmation.
+
+**Les agents classés de 1 à 10** (ta décision du 19/11) : quand un classement est écrit dans la configuration (`routing.classement`), Odin prend les agents dans cet ordre ; l'agent local d'Odin est toujours dans la liste, à la place donnée. Un agent qui se tait 30 secondes, ne finit pas en 3 minutes ou refuse passe la main au suivant ; un agent qui a déjà commencé à agir n'est jamais remplacé. Chaque appel est noté avec sa place, sans son contenu. Sans classement, rien ne change. À venir : le classer depuis les Réglages.
 
 Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secours, et leur palier : **installé/gratuit** (un modèle ouvert lu par Métis, sur la machine), **standard**, **le plus capable**. Odin choisit le moins cher qui suffit : question simple → modèle local, tâche ordinaire → standard, tâche complexe → le plus capable. Quand un modèle arrive **à bout de quota**, il passe au suivant tout seul et te le dit. Pour une **décision risquée**, c'est le juge local d'Odin qui décide, seul (voir « Qui répond aux questions ? »). **Codex** (OpenAI) peut recevoir les tâches de code : `npm install -g @openai/codex`.
 
@@ -280,9 +295,30 @@ Réponses **en direct**, mot à mot (Anthropic, compatibles OpenAI, Codex). Les 
 
 ## Accueil : tout d'un coup d'œil
 
-Le premier écran s'appelle **Accueil** partout : dans le menu, la barre du haut, la barre du bas du téléphone et le titre de la page (il s'appelait « Aujourd'hui »). Juste en dessous dans le menu, **Home Assistant** ouvre l'écran de la maison (Hestia). Toi seul vois cette entrée, et seulement quand Hestia est là ; un membre de la famille ne la voit jamais. Sur l'écran de la maison, **← Odin** ramène à Odin (sauf sur une tablette ouverte par sa clé). La maquette validée de l'accueil et de l'écran de la maison se construit livraison par livraison (10 faites sur 80, dont ces deux noms et les thèmes « Mis en avant » et de Hestia) ; le verre, la grille de widgets et tes applis en widgets ne sont pas encore là : voir [l'état](etat.json).
+Le premier écran s'appelle **Accueil** partout. Le menu suit l'ordre de la maquette validée : Accueil, Home Assistant, Applis, Discussion, Cerveau, Thèmes (raccourci vers Réglages → Apparence), Maison (le réseau), « Plus », Réglages. **Home Assistant** ouvre l'écran de la maison (Hestia) dans la page d'Odin (adresse `/#maison`), le menu d'Odin à côté ; toi seul vois cette entrée, et seulement quand Hestia est là. Les tablettes murales ne changent pas.
 
-La page d'accueil résume l'essentiel : modèle et dépenses du mois, ce qui t'attend (validations, compétences à relire, problèmes de sécurité), missions en cours, état du réseau, surveillance (disques, appareils importants), sauvegarde, routines, et les demandes que tu fais souvent (Odin propose d'en faire une tâche automatique, chaque jour ou chaque lundi).
+La maquette validée de l'accueil et de l'écran de la maison se construit livraison par livraison : **35 sur 80** sont enregistrées (voir [l'état](etat.json)).
+
+**Ce que tu vois** :
+
+- **Le bandeau du haut** : le salut selon l'heure, la date et la phrase du jour, la recherche (Ctrl K), le plein écran, « Vérifier », et une cloche avec le vrai nombre de validations en attente et de problèmes graves ; elle ouvre « À faire ». Rouge seulement pour un grave.
+- **La page « Aujourd'hui »**, en widgets : les cinq chiffres en tête (appareils, missions, risques, dépenses, mode d'Odin), « Tu veux sans doute », « À faire », « Ce qu'Odin a fait », « Comment Odin se comporte », et les quatre tuiles Surveillance, Sauvegarde, Résumé du matin et Application. Ils gardent leurs boutons d'avant. Chez toi, tout l'accueil est une grille de widgets. À l'ouverture d'Odin, une validation en attente affiche cette page. « À faire » ne se retire jamais ; les autres se retirent et se reposent par « Ajouter un widget ».
+- **La grille** : 12 colonnes (4 au téléphone, à 700 px et moins). Chaque widget a le même en-tête (tuile de l'appli, titre, « ⋯ ») et dit son état : une donnée ancienne porte « il y a 12 min », une liste vide le dit, une appli qui ne répond pas propose « Réessayer », une appli désactivée « Activer ».
+- **Au téléphone, la barre du bas** : Accueil, Home Assistant, Odin au centre, Discussion, Plus (pour un membre, ou sans Hestia, Applis prend la deuxième place). Le rond du centre ouvre « Parler à Odin ». Quand Odin n'a plus de place libre à l'écran, il rentre dans son **nid** et en ressort dès qu'une place se libère ; jamais deux Odin à l'écran.
+
+**Ce que tu peux faire** (mode **Modifier**) :
+
+- **Glisser** un widget : à la souris par son en-tête, au doigt par un appui long. Hors du mode Modifier, le déplacement est gardé au lâcher avec « Annuler » quelques secondes ; en mode Modifier, rien n'est gardé avant « Terminé ». Échap remet tout.
+- **Agrandir** : tirer le coin, case par case, ou choisir l'une des sept tailles (Petit 2×1, Moyen 3×2, Large 4×2, Haut 3×4, Grand 4×4, Très grand 6×4, Bandeau 12×2) ; Maj + flèches au clavier. Au téléphone, le coin règle la taille propre au téléphone.
+- **Ajouter un widget** : un tiroir à droite, avec une recherche et les familles, rempli par le vrai catalogue d'Odin. Une appli désactivée y est grisée et n'est jamais posée.
+- **« ⋯ » → Régler** : titre, ce qu'il montre, taille, « Quand je touche le widget » (ouvrir l'appli, lancer une de ses actions, aller à un écran, ouvrir une adresse web, rien), « Ouvrir à… », « Copier vers l'autre écran », « Retirer ». Une action grave lancée au toucher demande ton accord à chaque fois.
+- **Animations** : douze façons de voir les widgets bouger, dans Réglages → Apparence ; « moins d'animations » fige tout.
+- **Montrer cette page sur l'écran de la maison**, la page « Aujourd'hui » aussi (son bouton « Écran de la maison ») : seuls les widgets ordinaires que tu y as posés y vont, comme pour une autre page. Les widgets propres à « Aujourd'hui » n'y vont jamais, et une tablette ne reçoit pas le nom « Aujourd'hui » de la page.
+- **Plein écran « seulement les widgets »** (bouton du bandeau), pour un écran au mur : on sort par Échap ou par le ✕ en haut à droite.
+
+**Qui voit quoi** : c'est le serveur qui décide, widget par widget. Un membre de la famille ne reçoit que les widgets des applis sur lesquelles il a un droit ; un widget d'une appli de la vie privée reste fermé (« Vie privée : à ouvrir par le propriétaire. ») sauf si tu l'ouvres à cette personne par « Ouvrir à… » (noté dans « qui a fait quoi » ; cela ne lui donne aucun droit sur l'appli). Une tablette « maison » ne reçoit que l'heure, la météo, les sites et les infos des applis qui ne sont pas privées. Les widgets de la page « Aujourd'hui » restent à toi seul : jamais à un membre, une tablette, l'écran de la maison ou la clé d'accès. Un membre garde son accueil d'avant.
+
+**Pas encore là** : en cours, pas enregistré : le verre de l'accueil (le décor du thème derrière, des cartes assez opaques pour rester lisibles : ton choix du 25/11) et les widgets « Infos » (heure, horloge, petite météo, alertes). À venir : les widgets de tes autres applis avec tes vraies données, la fiche d'une appli posée en widget, et sur l'écran de la maison les familles de thèmes, le cadre, les pièces, les scènes, l'énergie et la maison 3D.
 
 ## Surveillance (Pulsar)
 
@@ -318,7 +354,7 @@ En haut d'Asclépios, « Sur quel poste ? » → « Ajouter un poste ». Trois �
 2. **Son compte administrateur**, puis « Tester la connexion » : Odin dit ce qu'il peut lire. Le poste n'entre dans le coffre des machines que si l'essai réussit, et le mot de passe n'est jamais réaffiché.
 3. **Quoi analyser ?** Analyse rapide, tout le poste, ou un seul dossier.
 
-Le poste reste ensuite proposé dans « Sur quel poste ? » : un clic, et la page montre ses analyses, ses détections et sa quarantaine. Ou en parlant : « analyse le PC 192.168.1.20 ».
+Le poste reste ensuite proposé dans « Sur quel poste ? » : un clic, et la page montre ses analyses, ses détections et sa quarantaine. Ou en parlant : « analyse le PC 192.0.2.20 ».
 
 Une menace trouvée n'est **jamais** touchée sans ton accord : « Isoler sur le poste » renomme le fichier là-bas (`.odin-quarantaine`) pour qu'il ne puisse plus être lancé, et « Remettre en place » l'annule.
 
@@ -406,18 +442,98 @@ Onglet Réseau → Carte : la box au centre, les appareils autour, par catégori
 
 Réglages → Proxmox : adresse (https://IP:8006) et jeton d'API (Datacenter → Permissions → API Tokens). Odin liste les nœuds, machines virtuelles et conteneurs LXC, et peut les démarrer, les arrêter proprement, les redémarrer ou en faire un instantané (outils `proxmox_list`, `proxmox_action` ; chaque action est validée selon ton autonomie). Onglet Réseau → Proxmox.
 
+## Activer ou désactiver une appli
+
+Sur la page Applis, chaque carte a l'épingle en haut à gauche et un bouton marche/arrêt en haut à droite ; sur la page d'une appli, « Désactiver » (avec confirmation) ou un bandeau « Activer ». Une appli désactivée devient grise mais reste visible : elle ne démarre plus, n'envoie plus rien, ses tâches et automatisations s'arrêtent, et ses actions sont refusées (Odin dit où l'activer). Ses données sont gardées ; tout revient à la réactivation. Seule une alerte de sécurité critique passe encore. Toi seul, depuis ta session. Une installation neuve démarre avec tout désactivé sauf les dix indispensables, l'antivirus et les sauvegardes ; une installation existante garde tout actif.
+
+## Genèse : clés USB, systèmes, déploiement par le réseau
+
+Tout ce qui suit est **réservé au propriétaire**. Ce qui efface un disque demande toujours une phrase tapée (vérifiée par Odin) **et** un appui long de 3 secondes. Tout a été essayé sur des disques, des PC et des réseaux simulés : pas encore sur du vrai matériel.
+
+**Clés USB** (quatre onglets : Déployer, Mes clés, Démarrage, Par la parole) :
+
+1. **Quelle clé ou quel disque ?** Clés, disques externes, SSD et cartes mémoire, avec leur taille et leur numéro de série. Un garde-fou rouge dit que le disque choisi sera entièrement effacé. Les disques internes, celui du système et celui d'Odin sont verrouillés.
+2. **Comment la clé démarre ?** Plusieurs ISO (conseillé), systèmes installés, ou les deux. Puis **Systèmes et ISO**, avec une barre de place : « Continuer » reste éteint tant que ça ne tient pas.
+3. **Logiciels et scripts** : un onglet par système, le script d'installation créé en direct, tes propres scripts vérifiés (un script qui efface un disque, coupe l'antivirus ou se cache est refusé avec sa raison). **Options Windows** : aucun mot de passe écrit sur la clé.
+4. **Vérifier**, puis écrire : huit étapes nommées ; « Annuler » dit si la clé est déjà touchée. Odin revérifie le disque avant chaque fichier.
+
+**Mes clés** : les clés ODIN connues, leur contenu, l'ordre du menu, l'entrée par défaut, ajouter ou retirer un système sans effacer la clé. Un changement s'applique tout de suite, ou au prochain branchement si tu l'as accordé (valable 24 heures). Retirer un système demande ton accord, avec une phrase qui nomme la clé et ce qui part. **Démarrage** : l'écran graphique (Odin arrive, puis le menu) ou le mode texte, et le délai. Sans choix, la clé démarre le système par défaut ou le disque du PC, jamais un installateur tout seul. **Pour l'instant, seule une clé déjà ODIN est écrite** : une clé neuve est refusée avant toute écriture (à venir, avec une vraie clé d'essai).
+
+**Systèmes** (onglet ouvert d'emblée) : une carte par ISO avec son vrai état (empreinte vérifiée, antivirus, téléchargement en cours, mise à jour). « Ajouter un système » ouvre le catalogue par familles et versions ; un téléchargement ne vient que du site officiel, en https. « Détail » ouvre la fiche et « Où il sert » ; « Retirer » est refusé tant qu'un déploiement, une installation ou une machine s'en sert, puis demande le nom tapé. **Logiciels** : un sous-onglet par système et des profils de logiciels communs à la clé, au réseau et aux machines virtuelles.
+
+**Déployer** : vers une clé, un ou plusieurs PC par le réseau, ou une machine virtuelle. Les PC vus au démarrage réseau apparaissent en direct. Avant d'effacer, le PC qui démarre doit être **exactement** celui autorisé (adresse, numéro de série, carte mère) ; sinon rien n'est effacé et tu es prévenu. Si deux appareils ont donné la même adresse, Odin demande « Quel est le bon PC ? ». Un PC déjà déployé n'est jamais effacé une seconde fois. Le **suivi** montre chaque PC en six étapes ; « Annuler » dit franchement l'état du disque.
+
+**Réseau** : le serveur de démarrage, de trois façons : « À côté de la box » (conseillé : la box garde les adresses), « Odin distribue » (seulement sur une carte câblée d'un réseau à part ; Odin refuse s'il voit un autre serveur d'adresses et revérifie chaque minute), ou « Ta box s'en charge » (les lignes à copier dans la box). Le **menu PXE** règle l'ordre, les systèmes cachés, l'entrée par défaut et le délai ; une entrée qui installe n'est jamais celle par défaut.
+
+**Par la parole** : « mets Windows 11 sur la clé », « ajoute Ubuntu à ma clé », « installe Ubuntu sur les PC qui viennent de démarrer », « télécharge la dernière Debian », « crée-moi une VM Ubuntu avec 4 Go », « où en est le travail » (français, anglais, espagnol, allemand). La parole prépare et ouvre « Vérifier » ; elle n'efface jamais un PC et n'écrit jamais une clé : la phrase et l'appui restent à faire à la main.
+
+## Arche : les conteneurs
+
+Les conteneurs s'appellent **Arche** (avant « Argo ») ; la sauvegarde des bases s'appelle **Amphore** (avant « Arche »). Rien n'est perdu au changement de nom. Tout est **réservé au propriétaire** ; sous Windows, la page dit ce qui viendra. Essayé sur un moteur simulé.
+
+- **Tableau de bord** : ce qui tourne, processeur, mémoire, disque, arrêtés. **La fiche d'un conteneur** : journal en direct (secrets masqués), terminal une commande à la fois avec confirmation, redémarrer, arrêter, ressources. Supprimer garde les données par défaut ; les effacer demande le nom tapé.
+- **Volumes et réseaux** : des volumes nommés, sauvegardés chaque nuit par Phénix, qui restent quand on supprime un conteneur ; des réseaux à part, isolés.
+- **Piles** : plusieurs conteneurs décrits dans un fichier. Odin montre ce qu'il a compris, puis déploie. Une ligne refusée (droits de la machine, dossier personnel, données d'Odin, port déjà pris…) et rien n'est déployé.
+- **Catalogue** : dix applis courantes à installer en un geste, chacune sur une version précise ; la confirmation dit ce qui part et qui pourra ouvrir l'appli.
+- **Mises à jour** : jamais toutes seules. Odin propose, tu décides, sur une version précise. Les volumes sont copiés avant ; si la nouvelle version ne tient pas 30 secondes, Odin revient tout seul à l'ancienne.
+- **Par la parole** : « lance le serveur de jeux », « arrête wiki », « déploie une galerie de photos », « où en est wiki », « mets à jour wiki », « combien prennent mes conteneurs ». Si le nom dit est ambigu, Odin demande lequel et rien ne part. Une commande tapée dans la Discussion (« stop wiki »…) demande la même confirmation que la fiche.
+
+## Hydre : les machines virtuelles
+
+Tout est **réservé au propriétaire**, et chaque geste est noté dans « qui a fait quoi ». Rien n'a encore été essayé sur une vraie machine virtuelle (les essais simulent les outils de la machine).
+
+- **La liste** : chaque machine avec son état (allumée, en pause, éteinte, en erreur) et ce qui en dépend. « Supprimer » : seulement une machine éteinte, nom écrit, refusé tant que quelque chose en dépend ; tu choisis de garder ou d'effacer son disque.
+- **Pause et reprise** (sur ce PC sous Linux et sur les serveurs reliés) : la pause demande confirmation. Sous Windows, c'est refusé avec la raison.
+- **Créer une machine**, en quatre étapes (système, machine, réseau, vérifier). Seuls les systèmes vérifiés se choisissent. Odin calcule ce que ce PC peut donner et refuse en donnant les chiffres ; au-delà d'un seuil, il demande ton accord. Pour Ubuntu et Debian, l'installation se fait toute seule ; le mot de passe va au coffre.
+- **L'écran** d'une machine allumée ou en pause, dans le navigateur : clavier, souris, plein écran, Ctrl+Alt+Suppr ; au téléphone, une barre de touches (elle suppose une machine en clavier américain, c'est dit à l'écran). Quatre écrans ouverts au plus ; l'image n'est jamais gardée.
+- **Les instantanés** : la liste en frise, « Prendre un instantané », « Revenir ici » (Odin prend d'abord un instantané de maintenant), la corbeille. L'interrupteur « Avant chaque mise à jour du système » : un instantané tout seul, gardé 7 jours. Odin en prend aussi un avant une sauvegarde de Phénix qui lit la machine. Un instantané pris à la main n'est jamais retiré tout seul. Sans assez de place, rien n'est pris.
+
+**À venir** : Odin sous Windows pour les machines et les conteneurs (après tes réponses), cloner une machine et l'exporter vers une clé.
+
+## Le réseau de la maison : Sphinx (DHCP, DNS) et Vortex (VPN)
+
+Tout ce qui change le réseau ou montre un secret est **réservé au propriétaire, depuis sa session** : refusé à un membre, à une tablette « maison », à la clé d'accès, à une automatisation. Chaque changement est noté dans « qui a fait quoi », sans secret. Un membre ne voit que son appareil. Rien n'a été essayé sur un vrai réseau, une vraie box ou un vrai tunnel.
+
+**Sphinx** :
+
+- **Appareils** : qui a quelle adresse, son fabricant, son type deviné, « connecté » ou « vu à… », « nouveau ». « Je le connais », bloquer, mettre en pause, débloquer, renommer. Bloquer dit franchement ce qui est fait selon qu'Odin ou la box distribue les adresses. Odin, la box et le serveur DNS ne se bloquent pas ; bloquer l'appareil que tu tiens demande de le dire en clair.
+- **Adresses fixes et plan** : réserver une adresse, vérifiée pendant la frappe ; jamais deux appareils sur la même adresse.
+- **Réglages du DHCP** : la box ou Odin distribue. Odin refuse de distribuer tant qu'un autre serveur d'adresses répond ; il revérifie chaque minute, se coupe et t'alerte si un autre apparaît, et ne se rallume jamais seul. La page dit ce qui arrive à la maison si Odin s'éteint.
+- **Noms (DNS)** : chaque machine avec son nom et d'où il vient ; ajouter, changer ou retirer un nom. Le nom d'Odin est verrouillé ; un nom piégé est refusé.
+- **Journal du DNS** : qui demande quoi, en direct ; toucher une ligne propose d'autoriser ou de bloquer ce nom. « Tester un nom » dit ce que répond Odin et pourquoi. **Blocage** : les listes, les noms bloqués et autorisés.
+- **Serveurs DNS** : la racine d'abord (ton choix du 25/11) ; si elle ne répond pas, un **secours** par des serveurs publics, jamais pour un nom de la maison. L'onglet le dit et compte les secours du jour ; « Racine seule » retire le secours.
+
+**Vortex** :
+
+- **Appareils du VPN** : chaque appareil en carte (dernière connexion, « maison » ou « dehors », trafic), « Couper » (réversible) et « Retirer » (sa clé ne vaut plus rien), l'état du tunnel. L'adresse de la maison se lit sur la box, sans site extérieur.
+- **Ajouter un appareil**, en trois étapes : son nom, son accès (toute la maison, Internet par la maison, ou certaines adresses, avec une date de fin possible), puis le QR code ou un fichier pour un PC. Le **QR code** est caché, montré sur un geste, masqué tout seul après 2 minutes ou quand tu quittes l'écran. Le remontrer plus tard demande ton accord ; une tablette ne le reçoit jamais. Les clés du VPN sont chiffrées sur le disque.
+
+**À venir** : les comptes et la page de connexion du VPN (tes réponses du 23/11) ; le réseau par la parole (en cours, pas enregistré).
+
 ## Sauvegarde automatique
 
 Réglages → Sauvegarde : une sauvegarde chiffrée chaque nuit, dans le dossier de ton choix (ton NAS monté, par exemple), en gardant les N dernières. Le mot de passe reste sur la machine (~/.odin/backup-pass) : note-le, il sert à restaurer (`odin restore`).
 
+## Phénix : les sauvegardes des dossiers et des PC
+
+**Réservé au propriétaire** : les commandes avant et après une sauvegarde, les machines, restaurer, purger, parcourir, chercher et télécharger le contenu des sauvegardes, les sauvegardes des PC et les images disque. Un membre ne peut ni créer un plan ni lancer une sauvegarde (Arche, Hydre et la relance automatique le peuvent toujours), et il ne voit aucun chemin ni aucun formulaire. Les liens vers un fichier sauvegardé sont signés : un lien fabriqué à la main ne vaut rien. Une tablette « complet » garde les droits du propriétaire.
+
+**Sous Windows**, l'agent de Phénix sur un PC sauvegarde et restaure aussi les fichiers dont le chemin dépasse 260 caractères. Avant, un dossier trop profond était sauté sans rien dire. Rien ne change sous Linux et Mac.
+
 ## Routines
 
-Accueil → Routines : « Créer le résumé du matin » programme chaque jour, à l'heure choisie, un résumé (météo vérifiée, état du réseau, rappels du jour, ce qui mérite ton attention).
+Accueil, widget **Résumé du matin** : choisis l'heure, et Odin programme chaque jour, à l'heure choisie, un résumé (météo vérifiée, état du réseau, rappels du jour, ce qui mérite ton attention).
 
 ## Automatisations : l'éditeur de blocs
 
 Dans **Automatisations**, une automatisation est une suite de blocs reliés par des fils.
 
+- **Les blocs en cercles** : chaque bloc est un rond avec l'icône de son appli au centre et son nom dessous ; le « + » à sa droite ajoute le bloc suivant ; une pastille chiffrée dit les réglages qui manquent.
+- **Les bulles après un test** : chaque bloc qui a tourné porte une bulle avec son nombre d'éléments ; une bulle rouge « ! » pour un bloc en erreur ; un bloc qui n'a pas tourné n'en a pas.
+- **La bulle des données** : touche la bulle d'un bloc (ou le rond d'un bloc exécuté seul) : tu vois ce qu'il a rendu (20 éléments au plus), la durée ou l'erreur entière, et « Ce qu'il a reçu ». Les données restent dans la page. Échap ferme.
+- **Ce qu'un bloc a reçu** : le moteur le garde. Ce sont les 20 premiers éléments reçus et leur nombre, dans la même ligne d'exécution que ce que le bloc a rendu, aussi longtemps. La bulle montre cette entrée vraie, et le dit. Pour un passage d'avant ce changement, elle montre l'entrée déduite du bloc d'avant quand c'est sûr, et le dit ; sinon, rien n'est montré, et c'est dit. Pour un déclencheur, la bulle dit qu'il ne reçoit rien d'un bloc d'avant.
+- **Le « Si » et « Filtrer »** : un « Si » écrit « oui » et « non » sur ses deux liaisons. « Filtrer » se dessine comme un petit rond posé sur la liaison ; il garde le même menu, les mêmes liaisons et la même place. Rien de ce qui est enregistré ne change : une automatisation d'avant s'ouvre au même endroit.
+- **Pas encore là** : la barre du bas de l'éditeur (à venir).
 - **Le menu d'un bloc** (clic droit, appui long ou « ⋯ ») : exécuter ce bloc seul, le renommer, le copier, y mettre une note, le retirer.
 - **Copier et coller un bloc** : « Copier » dans son menu, ou Ctrl+C sur le bloc choisi, puis Ctrl+V. La copie prend un nom libre (« Nom 2 »…), garde ses réglages et sa note, mais pas ses fils. Elle se pose à la première place libre sous le bloc copié, sans recouvrir un autre bloc. La copie reste dans la page : rien ne part dans le presse-papiers de ton appareil. Un déclencheur « webhook » ou « formulaire » collé reçoit sa propre adresse quand tu enregistres.
 - **Annuler et refaire** : Ctrl+Z et Ctrl+Y, ou les boutons « Annuler » et « Refaire », jusqu'à cent gestes. Seul l'écran change : rien n'est envoyé à Odin tant que tu n'enregistres pas. Ce qui a déjà été fait (Tester, Exécuter ce bloc seul, Enregistrer) ne s'annule pas.
@@ -466,9 +582,9 @@ Réglages → Entretien :
 
 Réglages → Personnalité : un ton (et une voix) par contexte — « Maison » détendu, « Travail » concis… En automatique : Travail en semaine de 8 h à 18 h.
 
-## Historique des conversations
+## Une seule conversation, et son historique
 
-Recherche dans toutes tes conversations, épingles, renommage, export en PDF (menu ⋯ de chaque conversation).
+Avec Odin, il n'y a plus qu'**une seule conversation** : plus de « Nouvelle conversation » ni de liste. Tes anciennes conversations y sont, dans l'ordre des dates, avec leur titre en séparateur. **« Voir plus haut »** remonte le fil, page par page. Ce que tu lui as dit par un raccourci du téléphone y est aussi, marqué « depuis le téléphone ». Le bouton **Historique** s'ouvre et se ferme : on y cherche dans tout, « Aller au jour » t'emmène à une date, et « Exporter… » exporte tout l'historique.
 
 ## Tout tester, pour de vrai
 La commande `odin test` : Odin essaie réellement chaque fonction reliée — modèle, Telegram, mail, agenda, Proxmox, Home Assistant, recherche web, mémoire par le sens, sauvegardes, accès extérieur, notifications — et dit pour chacune ✅ / ❌ / ⚪ (non reliée) avec quoi faire si ça ne marche pas.
@@ -485,8 +601,14 @@ La nuit (22 h 30 – 7 h par défaut) et pendant tes rendez-vous, Odin travaille
 ## Conversation vocale et raccourcis Siri / Android
 En **Mains libres** avec **Voix** activée, après sa réponse Odin t'écoute de nouveau sans qu'il faille redire « Odin » ; dis « stop » pour lui couper la parole. Depuis ton téléphone sans ouvrir l'appli : un raccourci Siri ou Android envoie ta phrase à `/api/ask` (jeton Bearer) et lit sa réponse (instructions : Réglages → Accès). Avec Home Assistant, il peut parler sur tes enceintes.
 
+**La clé d'accès lit et parle seulement** (ton choix du 24/11). La clé d'accès, c'est ce jeton : celui des raccourcis du téléphone et des scripts. Avec elle, Odin répond aux questions comme avant. Mais tout ce qu'une phrase venue avec la clé demande de **faire** (allumer, rappeler, envoyer, écrire en mémoire, changer de mode) attend **ta validation dans Odin**, par le bouton ; un réglage demandé par la clé est refusé. Un message envoyé avec la clé va dans une conversation à part, pas dans la tienne. Les gestes qui écrivent (réglages, coffre, comptes, sauvegarde, envois de fichier, actions des applis) demandent ta session : la clé reçoit « Ce geste demande ta session ». Elle ne valide jamais rien elle-même et n'ouvre pas l'écran de la maison. Tant qu'Odin n'a pas de compte, rien n'est fermé : la clé sert à l'installer.
+
 ## Coffre (facultatif)
 Réglages → Droits et machines → **Coffre** : un mot de passe maître chiffre sur le disque les clés, jetons et mots de passe d'Odin. Après chaque redémarrage, il faut le déverrouiller depuis l'Accueil (Odin t'envoie une notification).
+
+**Un secret écrit dans la conversation** : un identifiant ou un mot de passe va au coffre de la bonne personne avant toute écriture. Seul le texte sans le secret est gardé, et Odin dit en une ligne ce qu'il a rangé (« [rangé au coffre : nom — champ] »). Sur Telegram, le message est supprimé. Un agent n'a jamais la valeur : il écrit « coffre:Nom/champ » et le serveur la met juste avant l'outil, seulement pour une liste fermée d'usages. Les cartes et les IBAN vérifiés sont masqués (quatre derniers chiffres). Le masqueur reste rapide même sur un texte piégé de très longs espaces. Le coffre s'écrit à côté puis se met en place d'un geste : une coupure laisse l'ancien coffre intact. Pendant la **vérification des fuites**, ce que tu ranges dans le coffre n'est plus perdu : elle relit le coffre juste avant d'écrire, n'y reporte que le résultat « fuite », et seulement sur un élément encore là dont le mot de passe n'a pas changé ; si le réseau échoue, rien n'est écrit.
+
+**« Masquer » dans la Discussion** : l'écran repart vide, rien n'est effacé ; « Réafficher l'historique » remet tout.
 
 ## Disque chiffré : ce qu'Odin vérifie
 
@@ -526,6 +648,10 @@ Bouton **Essai** en haut de la discussion (ou `/essai` sur Telegram) : Odin lit,
 
 Quand une nouvelle version est installée (par `odin update`, Hermes ou un `git pull`), Odin vérifie que le nouveau code se charge, puis **redémarre tout seul dès qu'il ne travaille plus**. Si le code installé ne se charge pas, il **se répare** : ses retouches locales qui gênent sont mises de côté (copie dans `~/.odin/self-backups/`, et `git stash list`), et si c'est la version publiée qui est en cause, il remet le code de celle qui tourne. Même au démarrage : un code resté en conflit après une mise à jour interrompue est remis tel que publié avant de démarrer. En attendant, un bandeau l'indique avec **Redémarrer maintenant** ; la version utilisée est affichée en bas du menu.
 
+**Quand une mise à jour change les garde-fous d'Odin** : le bandeau le dit. Ton clic **« Mettre à jour »** suffit, mais seulement si c'est la version officielle, revérifiée fichier par fichier ; une clé d'API ne vaut pas ton clic. **« Voir le code des garde-fous »** montre tout ce qui change. Après la mise à jour, l'Accueil le dit (« Les garde-fous ont changé avec la mise à jour ») avec « Voir le code ». Un garde-fou changé par autre chose que la mise à jour officielle garde son alerte jusqu'à ton clic. À venir (ta réponse du 19/11, « Signée par ma clé ») : en mise à jour automatique, une nouvelle version des garde-fous ne s'installera seule que si elle porte ta signature ; ce n'est pas encore construit.
+
+**Chaque message devient un « tour »** écrit avant tout traitement : qui, par quel canal, dans quel fil, pour quoi, et son état. Ta parole est gardée telle que tu l'as écrite, sans les ajouts d'Odin ; les secrets connus sont chiffrés ; en mode privé, rien n'est écrit.
+
 ## Sur Telegram
 Pendant qu'Odin travaille, Telegram affiche « écrit… » en haut de la conversation. Ses réponses sont mises en forme (gras, code, listes, liens) et se terminent par **son visage selon son humeur**, à la taille d'un émoji : Odin crée lui-même un pack d'émojis personnalisés à ton nom. Telegram n'affiche ces émojis dans les messages d'un bot que si son propriétaire a **Telegram Premium** ; sinon Odin met l'émoji classique de son humeur.
 
@@ -542,7 +668,9 @@ Réglages → Apparence range 85 thèmes en quatre familles, chacune avec son no
 - **Thèmes de Hestia** (31) : ceux de l'écran de la maison, avec leurs décors et leurs noms ;
 - **Événements de l'année** (16 : Noël, Nouvel An, Ramadan, Aïd el-Fitr, Halloween, Anniversaire…).
 
-Tous se choisissent de la même façon : d'un clic, ou en le disant (« mets le thème Halloween », « remets automatique »). Un thème de Hestia s'affiche avec le nom de sa famille. Six noms existent dans deux familles : en le disant, c'est celui qui n'est pas de Hestia. Le choix est gardé sur tous tes écrans. Les thèmes « Mis en avant » et ceux de Hestia sont pour l'instant **à plat** (fond uni, cartes pleines) : le verre de la maquette n'est pas encore là. Choisir un thème de Hestia change Odin, pas l'écran de la maison, qui garde ses propres thèmes. **Automatique** suit la fête du jour, puis le temps, la température et l'heure. **Au hasard** ne prend jamais un événement, ni le thème déjà affiché.
+Chaque thème a sa **carte** : un aperçu à ses couleurs et à son décor, le petit Odin à la couleur du thème, son nom et « clair » ou « sombre ». Au téléphone, deux colonnes et des familles repliables. Le bouton **Automatique** dit la raison du choix d'Odin.
+
+Tous se choisissent de la même façon : d'un clic, ou en le disant ou l'écrivant (« mets le thème Halloween », « remets automatique »), sans accents ni majuscules. Un thème de Hestia s'affiche avec le nom de sa famille. Quand un nom est porté par plusieurs thèmes (Neige, Désert, Néon…), Odin cite les familles et demande lequel, sans rien changer ; « Neige Hestia » ou « Neige Odin » tranche. Le choix est gardé sur tous tes écrans. L'interrupteur **« Odin change de thème selon son humeur »** (mis par défaut) : coupé, l'humeur ne change plus le thème. L'écran de la maison lit ses 31 thèmes dans le même catalogue qu'Odin, et garde son propre réglage. Les thèmes « Mis en avant » et ceux de Hestia sont pour l'instant **à plat** (fond uni, cartes pleines) : le verre de la maquette n'est pas encore là. Choisir un thème de Hestia change Odin, pas l'écran de la maison, qui garde ses propres thèmes. **Automatique** suit la fête du jour, puis le temps, la température et l'heure. **Au hasard** ne prend jamais un événement, ni le thème déjà affiché.
 
 ## Il t'aide à écrire, te conseille et se déplace
 
