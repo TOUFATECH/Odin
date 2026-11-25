@@ -145,6 +145,8 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       heure_petite: W('heure_petite'), meteo_petite: W('meteo_petite'), alertes: W('alertes'),
       // la famille « veille » : la liste des alertes, les sites d'Arachné (grand et petit) ; neuf : aucune alerte, aucun site
       alertes_liste: W('alertes_liste'), sites: W('sites'), sites_petit: W('sites_petit'),
+      // la famille « listes » : l'agenda de Chronos et les recherches de Pythie ; neuf : aucun rendez-vous, aucune recherche
+      agenda: W('agenda'), recherches: W('recherches'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);

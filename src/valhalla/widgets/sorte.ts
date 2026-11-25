@@ -5,8 +5,11 @@
 import type { Widget } from '../modules/gladsheim.ts';
 import type { View } from '../types.ts';
 
-/** Les quatre familles de la maquette (une par fichier), et la veille (les alertes, les sites d'Arachné : veille.ts). */
-export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille';
+/**
+ * Les quatre familles de la maquette (une par fichier), la veille (les alertes, les sites d'Arachné : veille.ts) et les
+ * listes d'Odin (l'agenda de Chronos, les recherches de Pythie : listes.ts).
+ */
+export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes';
 /**
  * Qui peut recevoir un widget de cette sorte, au plus (constat M12, trois niveaux) :
  * - `proprietaire` : lui seul (le défaut, quand rien n'est écrit) ;
@@ -78,6 +81,13 @@ export interface SourceWidget {
   alertesAVoir?(): ReadonlyArray<{ id: string; appli: string; nomAppli: string; titre: string; niveau: string; at: number }>;
   /** Les sites surveillés par Arachné (sans phrase, sans adresse). Rien (undefined) : Arachné n'est pas là. Absente : pas lue. */
   sitesVeille?(): readonly SiteVeille[] | undefined;
+  /**
+   * Les rendez-vous à venir de Chronos (src/valhalla/modules/frigg.ts, rendezVousAVenir), et le fuseau d'Odin où lire
+   * leurs heures. Rien (undefined) : Chronos n'est pas là. Absente : pas lue.
+   */
+  rendezVous?(): { fuseau: string; liste: ReadonlyArray<{ id: string; titre: string; debut: number; fin: number; attente: boolean }> } | undefined;
+  /** Les recherches gardées par Pythie : l'identifiant, la question, l'heure (ms). Rien : Pythie n'est pas là. Absente : pas lue. */
+  recherches?(): ReadonlyArray<{ id: string; q: string; at: number }> | undefined;
 }
 
 /** Un site surveillé par Arachné, tel qu'un widget le lit (src/valhalla/modules/idunn.ts, sitesVeille). */

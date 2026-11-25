@@ -6,6 +6,7 @@ import { randomBytes } from 'node:crypto';
 import type { ModCtx, Module } from '../types.ts';
 import { actionRendezVous, annulerRappel, ongletsChronos } from '../frigg/perso.ts';
 import { agissant } from '../sso/acces.ts';
+import { fuseauOdin, instant } from '../../draupnir/rythme.ts';
 
 export interface Service { name: string; minutes: number; price?: number }
 export interface Booking { id: string; service: string; start: string; end: string; name: string; contact: string; note?: string; status: 'attente' | 'confirmé' | 'annulé'; created: string; reminded?: boolean;
@@ -61,6 +62,21 @@ function setStatus(ctx: ModCtx, id: string, status: Booking['status']): Booking 
   if (status === 'annulé' && b.rappelJob) annulerRappel(b.rappelJob); // un rendez-vous annulé n'est plus rappelé
   ctx.emit(status === 'annulé' ? 'reservation_annulee' : 'reservation_confirmee', { ...b, status });
   return { ...b, status };
+}
+
+/**
+ * Les rendez-vous à venir (ni annulés, ni finis), le plus proche d'abord, sans phrase : pour le widget « Agenda » de
+ * l'accueil (src/valhalla/widgets/listes.ts). Chaque heure est un instant (ms) : celui gardé pour un rendez-vous à toi
+ * (`debut`), sinon l'heure murale écrite, lue dans le fuseau d'Odin. Le titre, et s'il attend d'être confirmé ; ni le
+ * contact, ni la note. Une lecture : la page de Chronos ne change pas.
+ */
+export function rendezVousAVenir(ctx: ModCtx, fuseau?: string): Array<{ id: string; titre: string; debut: number; fin: number; attente: boolean }> {
+  const tz = fuseauOdin(fuseau), maintenant = ctx.now().getTime();
+  const mur = (t: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2})/.exec(s(t)); return m ? instant(+m[1], +m[2], +m[3], +m[4], +m[5], tz).getTime() : Number.NaN; };
+  return visibles(ctx).filter((b) => b.status !== 'annulé').map((b) => {
+    const instantGarde = b.debut ? Date.parse(b.debut) : Number.NaN, debut = Number.isFinite(instantGarde) ? instantGarde : mur(b.start), duree = mur(b.end) - mur(b.start);
+    return { id: s(b.id), titre: b.perso ? s(b.name) : `${s(b.name)} · ${s(b.service)}`, debut, fin: debut + (Number.isFinite(duree) && duree > 0 ? duree : 0), attente: b.status === 'attente' };
+  }).filter((x) => Number.isFinite(x.debut) && x.fin >= maintenant).sort((a, b) => a.debut - b.debut);
 }
 
 export const frigg: Module = {

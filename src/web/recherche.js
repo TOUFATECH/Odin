@@ -237,5 +237,11 @@ aside.right{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px
   }
   async function open(id) { const r = await api(`/api/recherche/entree?id=${encodeURIComponent(id)}`).catch(() => ({ ok: false })); if (r.ok) { thread = r.thread; current = id; tab = 'reponse'; audio = null; history.replaceState(null, '', `/recherche#r=${id}`); draw(); } }
   async function refresh() { try { const r = await api('/api/recherche/etat'); if (r.ok) state = r; } catch (e) { if (e.auth) { root.replaceChildren(el('main', {}, el('div', { class: 'hero' }, el('h1', {}, 'Pythie'), el('p', {}, 'Connecte-toi à Odin pour chercher.'), el('a', { class: 'act', href: '/?suite=' + encodeURIComponent('/recherche' + location.search) }, 'Se connecter')))); throw e; } } }
-  refresh().then(() => { draw(); const m = /r=([a-f0-9]{6,20})/.exec(location.hash); if (m) open(m[1]); const q = new URLSearchParams(location.search).get('q'); if (q) run(q, false); }).catch(() => 0);
+  // Une question confiée par le widget « Recherche » de l'accueil (stockage de session de l'onglet, datée) : la clé est
+  // effacée tout de suite, même si sa lecture échoue. La question n'est prise que si elle a moins de 15 secondes et si
+  // l'adresse ne demande rien d'autre (« #r= », « ?q= ») ; nettoyée (contrôles, U+007F, sens d'écriture, séparateurs de
+  // ligne, fabriqués par leur code) et bornée à 1000 comme le serveur, par caractères entiers ; jamais dans l'adresse.
+  const HORS_TEXTE = new RegExp(`[${[...Array(32).keys(), 0x7f, 0x61c, 0x200e, 0x200f, 0x2028, 0x2029, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069].map((c) => String.fromCharCode(c)).join('')}]+`, 'g');
+  let confiee = ''; try { const o = JSON.parse(sessionStorage.getItem('odin.pythie.question') || 'null'), age = Date.now() - (o && typeof o.t === 'number' ? o.t : NaN); if (o && typeof o.q === 'string' && age >= 0 && age < 15000 && !/r=/.test(location.hash) && !new URLSearchParams(location.search).has('q')) { let x = o.q.replace(HORS_TEXTE, ' ').trim().slice(0, 1000); const c = x.charCodeAt(x.length - 1); if (c >= 0xd800 && c <= 0xdbff) x = x.slice(0, -1); confiee = x.trim(); } } catch { confiee = ''; } finally { try { sessionStorage.removeItem('odin.pythie.question'); } catch { /* stockage fermé */ } }
+  refresh().then(() => { draw(); if (confiee) { const q = confiee; confiee = ''; run(q, false); return; } const m = /r=([a-f0-9]{6,20})/.exec(location.hash); if (m) open(m[1]); const q = new URLSearchParams(location.search).get('q'); if (q) run(q, false); }).catch(() => 0);
 })();

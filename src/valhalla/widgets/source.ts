@@ -4,6 +4,9 @@ import type { Valhalla } from '../service.ts';
 import type { View } from '../types.ts';
 import { meteoAncienne, regionActuelle, weather } from '../modules/gladsheim.ts';
 import { sitesVeille } from '../modules/idunn.ts';
+import { rendezVousAVenir } from '../modules/frigg.ts';
+import { history } from '../modules/volva.ts';
+import { fuseauOdin } from '../../draupnir/rythme.ts';
 import type { SourceWidget } from './sorte.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -44,5 +47,8 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
       .map((a) => ({ id: a.id, appli: a.module, nomAppli: v.module(a.module)?.name ?? a.module, titre: s(a.title), niveau: s(a.level), at: Date.parse(a.at) || 0 }))),
     // Les sites d'Arachné, si elle est là et activée.
     sitesVeille: () => (appli('idunn') ? sitesVeille(v.ctx('idunn')) : undefined),
+    // Les rendez-vous de Chronos et les recherches de Pythie, si elles sont là et activées (au propriétaire seul : listes.ts).
+    rendezVous: () => { if (!appli('frigg')) return undefined; const f = s(v.ctx('gladsheim').settings.fuseau); return { fuseau: fuseauOdin(f), liste: rendezVousAVenir(v.ctx('frigg'), f) }; },
+    recherches: () => (appli('volva') ? history(v.ctx('volva')).map((h) => ({ id: s(h.id), q: s(h.q), at: Number(h.at) || 0 })) : undefined),
   };
 }
