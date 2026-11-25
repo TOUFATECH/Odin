@@ -53,7 +53,7 @@ const CHANTIER = [
   /^src\/web\/pages\/menu-ecrans\.js$/,
   /^src\/valhalla\/widgets\//,
   /^src\/web\/widgets-api\.ts$/,
-  /^test\/(themes-|accueil-|widgets-|maison-|menus-|menu-ordre|barre-bas|fenetre-grille|talos-editeur-cercles|talos-editeur-bulles)[^/]*$/,
+  /^test\/(themes-|accueil-|widgets-|maison-|menus-|menu-ordre|barre-bas|fenetre-grille|talos-editeur-cercles|talos-editeur-bulles|talos-editeur-liaisons)[^/]*$/,
 ];
 const AVANT_LE_CHANTIER = new Set(['test/maison-ouvertures.test.ts', 'test/menu-replie.test.ts', 'src/web/pages/menu-replie.js']);
 const estChantier = (rel: string) => !AVANT_LE_CHANTIER.has(rel) && CHANTIER.some((r) => r.test(rel));

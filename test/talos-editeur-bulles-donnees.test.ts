@@ -15,7 +15,7 @@ import vm from 'node:vm';
 const FLOWS = readFileSync(new URL('../src/web/flows.js', import.meta.url), 'utf8');
 const ici = <X>(x: X): X => JSON.parse(JSON.stringify(x));
 
-type Run = { count: number; items: unknown[]; ms?: number; error?: string; outputs?: number[] };
+type Run = { count: number; items: unknown[]; ms?: number; error?: string; outputs?: number[]; input?: unknown[]; inputCount?: number };
 type Element = { titre: string; texte: string; coupe: boolean };
 type Passage = { vide: boolean; texte?: string; resume: string; duree: string; erreur: string; elements: Element[]; garde: string; rien: string; entree: { montree: boolean; mention: string; elements: Element[] } };
 interface Logique {
@@ -517,4 +517,55 @@ test('relecture : ce qu\'on a touché est sorti de la partie visible (au-dessus 
     const p = L.placeDonnees(1000, 600, a, 340, 300);
     assert.equal(p.sens, 'libre', JSON.stringify(a)); assert.ok(p.top >= 8 && p.top + p.hmax <= 600 - 8 + 1e-9);
   }
+});
+
+// ------------------------------------------------------------------ l'entrée vraie (le moteur garde ce qu'un bloc a reçu)
+// Un passage récent porte, pour chaque bloc, ce qu'il a reçu (`input`, 20 éléments au plus ; `inputCount`, le nombre
+// entier) : la bulle le montre tel quel et dit que c'est ce que le moteur a gardé. Un passage d'avant n'en a pas : la
+// bulle déduit comme avant, et le dit.
+test('logique : l\'entrée vraie gardée par le moteur est montrée telle quelle, et c\'est dit ; elle passe avant une entrée déduite', () => {
+  const L = logique();
+  assert.equal(typeof L.MOTS['donnees.recu.vrai'], 'string');
+  const run = { count: 1, items: [{ a: 1 }], ms: 1, input: [{ vrai: 1 }, { vrai: 2 }], inputCount: 2 };
+  const p = L.passageDe(run, { entree: { ok: true, items: [{ json: { deduit: 1 } }], tronque: false } });
+  assert.equal(p.entree.montree, true);
+  assert.deepEqual(p.entree.elements.map((e) => JSON.parse(e.texte)), [{ vrai: 1 }, { vrai: 2 }], 'l\'entrée vraie, pas la déduite');
+  assert.equal(p.entree.mention, L.MOTS['donnees.recu.vrai'], 'dit : ce que le moteur a gardé');
+  // Gardée même quand rien ne se déduit (fil changé depuis, bloc d'avant exécuté seul) : c'est celle de ce passage.
+  assert.deepEqual(L.passageDe(run, { entree: null }).entree.elements.map((e) => JSON.parse(e.texte)), [{ vrai: 1 }, { vrai: 2 }]);
+  // En erreur aussi.
+  assert.equal(L.passageDe({ count: 0, items: [], error: 'x', input: [{ v: 0 }], inputCount: 1 }).entree.montree, true);
+  // Plus reçu que gardé : c'est dit, avec le nombre gardé.
+  const beaucoup = L.passageDe({ count: 0, items: [], ms: 1, input: ELEMENTS(20), inputCount: 30 });
+  assert.equal(beaucoup.entree.elements.length, 20);
+  assert.equal(beaucoup.entree.mention, `${L.MOTS['donnees.recu.vrai']} ${remplir(L.MOTS['donnees.garde'], { k: (20).toLocaleString() })}`);
+  // Rien reçu : une liste vide, dite.
+  const vide = L.passageDe({ count: 0, items: [], ms: 1, input: [], inputCount: 0 });
+  assert.equal(vide.entree.montree, false); assert.equal(vide.entree.mention, `${L.MOTS['donnees.recu.vrai']} ${L.MOTS['donnees.recu.rien']}`);
+  // Un déclencheur : inchangé.
+  assert.equal(L.passageDe(run, { declencheur: true }).entree.mention, L.MOTS['donnees.recu.declencheur']);
+});
+
+test('logique : un passage d\'avant (sans entrée gardée) se relit : l\'entrée déduite, dite comme telle, sinon rien', () => {
+  const L = logique(), vieux = { count: 1, items: [{ a: 1 }], ms: 1 };
+  const d = L.passageDe(vieux, { entree: { ok: true, items: [{ json: { b: 2 } }], tronque: false } });
+  assert.equal(d.entree.montree, true); assert.equal(d.entree.mention, L.MOTS['donnees.recu.deduit']);
+  assert.match(L.MOTS['donnees.recu.deduit'], /passage/, 'dit que c\'est ce passage-là qui ne l\'a pas gardé');
+  assert.doesNotMatch(L.MOTS['donnees.recu.deduit'], /ne garde pas/, 'plus de phrase devenue fausse sur le moteur');
+  assert.doesNotMatch(L.MOTS['donnees.recu.non'], /ne garde pas/);
+  // Une entrée mal formée (pas une liste) compte comme absente.
+  assert.equal(L.passageDe({ ...vieux, input: 'x' as never }, { entree: null }).entree.mention, L.MOTS['donnees.recu.non']);
+});
+
+test('page : l\'entrée vraie d\'un bloc est montrée (repliée), avec la mention ; écrite comme du texte', async () => {
+  const piege = '<img src=x onerror=alert(1)>';
+  const run = { ...ici(PASSAGE), nodes: { ...ici(PASSAGE).nodes, 'Branche B': { ...ici(PASSAGE).nodes['Branche B'], input: [{ recu: piege }, { recu: 'deux' }], inputCount: 2 } } };
+  const p = await page({ run });
+  const L = logique();
+  await p.tester(); await p.ouvrir('Branche B');
+  const recu = p.boite()!.querySelector('.dr-ps-recu')!;
+  assert.ok(recu, 'montrée, repliée');
+  assert.ok(recu.querySelectorAll('.dr-ps-m').some((x) => x.textContent === L.MOTS['donnees.recu.vrai']), 'et c\'est dit');
+  assert.deepEqual(recu.querySelectorAll('pre').map((x) => JSON.parse(x.textContent)), [{ recu: piege }, { recu: 'deux' }], 'l\'entrée vraie, pas la sortie « non » déduite');
+  for (const n of tousLesNoeuds(recu)) { assert.equal(n.html, ''); assert.notEqual(n.tagName, 'IMG'); }
 });

@@ -20,7 +20,12 @@ export interface Workflow {
   /** Dossier du propriétaire où elle est rangée (son identifiant, jamais son nom). Absent : aucun dossier. */
   dossier?: string;
 }
-export interface NodeRun { count: number; items: Array<Record<string, unknown>>; ms: number; error?: string; outputs?: number[] }
+/**
+ * Le passage d'un bloc : ce qu'il a rendu (`items`, les KEEP premiers ; `count`, le nombre entier) et ce qu'il a reçu
+ * (`input`, les KEEP premiers ; `inputCount`, le nombre entier), gardés avec les mêmes bornes, dans la même ligne
+ * d'exécution. Une ligne d'avant n'a ni `input` ni `inputCount` : elle se relit telle quelle.
+ */
+export interface NodeRun { count: number; items: Array<Record<string, unknown>>; ms: number; error?: string; outputs?: number[]; input?: Array<Record<string, unknown>>; inputCount?: number }
 export interface Execution {
   id: string; workflowId: string; name: string; mode: 'manuel' | 'déclencheur' | 'test'; trigger?: string;
   status: 'succès' | 'erreur' | 'en cours' | 'en-attente-internet'; startedAt: string; ms: number; nodes: Record<string, NodeRun>; error?: string; failedNode?: string;
@@ -167,6 +172,9 @@ export async function execute(wf: Workflow, catalog: Map<string, NodeDef>, deps:
     }
     const def = catalog.get(node.type);
     const t1 = Date.now();
+    // Ce qu'il reçoit, copié avant qu'il tourne (un bloc qui change ses éléments ne change pas ce qui est gardé) ;
+    // ajouté à ce qu'il avait déjà reçu à ce passage (bloc atteint par deux branches), KEEP au plus, comme ce qu'il rend.
+    const recu = ex.nodes[node.name], recuItems = [...(recu?.input ?? []), ...items.slice(0, KEEP).map((i) => copie(i.json))].slice(0, KEEP), inputCount = (recu?.inputCount ?? 0) + items.length;
     let outs: Item[][];
     try {
       if (!def) throw new Error(`type de nœud inconnu : ${node.type}`);
@@ -190,12 +198,12 @@ export async function execute(wf: Workflow, catalog: Map<string, NodeDef>, deps:
       // au lieu d'échouer en boucle à chaque passage.
       if (doitAttendre(node, catalog)) {
         const attente = messageAttente(node);
-        ex.nodes[node.name] = { count: 0, items: [], ms: Date.now() - t1, error: attente };
+        ex.nodes[node.name] = { count: 0, items: [], ms: Date.now() - t1, error: attente, input: recuItems, inputCount };
         ex.status = 'en-attente-internet'; ex.error = attente; ex.failedNode = node.name;
         replanifierAuRetour(() => { deps.replanifierFlux?.(wf.id); });
         break;
       }
-      ex.nodes[node.name] = { count: 0, items: [], ms: Date.now() - t1, error: msg };
+      ex.nodes[node.name] = { count: 0, items: [], ms: Date.now() - t1, error: msg, input: recuItems, inputCount };
       ex.status = 'erreur'; ex.error = msg; ex.failedNode = node.name;
       break;
     }
@@ -203,7 +211,7 @@ export async function execute(wf: Workflow, catalog: Map<string, NodeDef>, deps:
     const all = outs.flat();
     outputsSeen[node.name] = [...(outputsSeen[node.name] ?? []), ...all];
     const prev = ex.nodes[node.name];
-    ex.nodes[node.name] = { count: (prev?.count ?? 0) + all.length, items: [...(prev?.items ?? []), ...all.map((i) => i.json)].slice(0, KEEP), ms: (prev?.ms ?? 0) + Date.now() - t1, outputs: outs.map((o) => o.length) };
+    ex.nodes[node.name] = { count: (prev?.count ?? 0) + all.length, items: [...(prev?.items ?? []), ...all.map((i) => i.json)].slice(0, KEEP), ms: (prev?.ms ?? 0) + Date.now() - t1, outputs: outs.map((o) => o.length), input: recuItems, inputCount };
     if (start.stopAfter && node.name === start.stopAfter) continue; // « exécuter jusqu'ici »
     const links = wf.connections[node.name] ?? [];
     outs.forEach((o, i) => { if (!o.length) return; for (const l of links[i] ?? []) { const next = byName.get(l.node); if (next) queue.push({ node: next, items: o.map((x) => ({ json: { ...x.json } })), input: l.input ?? 0 }); } });
@@ -211,6 +219,11 @@ export async function execute(wf: Workflow, catalog: Map<string, NodeDef>, deps:
   if (ex.status === 'en cours') ex.status = 'succès';
   ex.ms = Date.now() - t0;
   return ex;
+}
+
+/** Copie d'un élément reçu (structuredClone ; sinon une copie de premier niveau). */
+function copie(j: Record<string, unknown>): Record<string, unknown> {
+  try { return structuredClone(j); } catch { return { ...j }; }
 }
 
 async function runNode(def: NodeDef, node: FlowNode, wf: Workflow, deps: Deps, items: Item[], seen: Record<string, Item[]>, inputs: Item[][], respond: (s: number, b: unknown) => void, depth: number): Promise<Item[][]> {

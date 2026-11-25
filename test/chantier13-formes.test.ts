@@ -2,8 +2,9 @@
 // fichiers de ce chantier, reconnus par leur nom : les fichiers neufs du produit (src/web/pages/themes-*.js,
 // accueil-*.js, widgets-*.js, maison-*.js, menu-ecrans.js, src/valhalla/widgets/**, src/web/widgets-api.ts) et les
 // essais neufs du plan (test/themes-*, accueil-*, widgets-*, maison-*, menus-*, menu-ordre*, barre-bas*,
-// fenetre-grille*, talos-editeur-cercles*, talos-editeur-bulles*). Trois fichiers d'avant le chantier portent un de ces
-// noms et sont exclus par leur nom. Le dépôt est public : une donnée d'exemple a souvent la forme d'une adresse.
+// fenetre-grille*, talos-editeur-cercles*, talos-editeur-bulles*, talos-editeur-liaisons*). Trois fichiers d'avant le
+// chantier portent un de ces noms et sont exclus par leur nom. Le dépôt est public : une donnée d'exemple a souvent la
+// forme d'une adresse.
 //  - Dans un fichier du produit, refusé : une adresse IP écrite en dur ; un nom de domaine autre que example.org ;
 //    une adresse http vers l'extérieur ; un fuseau horaire écrit en dur ; fr-FR écrit en dur.
 //  - Dans un essai, refusé : une adresse IP hors des plages réservées aux exemples (198.51.100.x, 192.0.2.x,
@@ -30,7 +31,7 @@ const CHANTIER = [
   /^src\/web\/pages\/menu-ecrans\.js$/,
   /^src\/valhalla\/widgets\//,
   /^src\/web\/widgets-api\.ts$/,
-  /^test\/(themes-|accueil-|widgets-|maison-|menus-|menu-ordre|barre-bas|fenetre-grille|talos-editeur-cercles|talos-editeur-bulles)[^/]*$/,
+  /^test\/(themes-|accueil-|widgets-|maison-|menus-|menu-ordre|barre-bas|fenetre-grille|talos-editeur-cercles|talos-editeur-bulles|talos-editeur-liaisons)[^/]*$/,
 ];
 const AVANT_LE_CHANTIER = new Set(['test/maison-ouvertures.test.ts', 'test/menu-replie.test.ts', 'src/web/pages/menu-replie.js']);
 const estChantier = (rel: string) => !AVANT_LE_CHANTIER.has(rel) && CHANTIER.some((r) => r.test(rel));

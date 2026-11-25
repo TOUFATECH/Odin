@@ -39,9 +39,11 @@
     'donnees.coupe': ' … (coupé : trop long pour être montré ici)',
     'donnees.recu': 'Ce qu\'il a reçu',
     'donnees.recu.element': 'Élément {i}',
-    'donnees.recu.deduit': 'Déduit de ce que le bloc d\'avant a rendu : le moteur ne garde pas ce qu\'un bloc reçoit.',
+    'donnees.recu.vrai': 'Ce que le moteur a gardé de ce qu\'il a reçu à ce passage.',
+    'donnees.recu.rien': 'Il n\'a rien reçu.',
+    'donnees.recu.deduit': 'Déduit de ce que le bloc d\'avant a rendu : ce passage n\'a pas gardé ce que le bloc a reçu.',
     'donnees.recu.tronque': 'Seuls les premiers éléments du bloc d\'avant sont connus.',
-    'donnees.recu.non': 'Ce qu\'il a reçu ne se déduit pas du bloc d\'avant : rien n\'est montré (le moteur ne garde pas ce qu\'un bloc reçoit).',
+    'donnees.recu.non': 'Ce qu\'il a reçu ne se déduit pas du bloc d\'avant : rien n\'est montré (ce passage ne l\'a pas gardé).',
     'donnees.recu.declencheur': 'Un déclencheur ne reçoit rien d\'un bloc d\'avant : c\'est lui qui fait partir l\'automatisation.',
     // Le rond d'un bloc exécuté seul : un vrai bouton, qui ouvre la même bulle des données.
     'seul.elements': '{b} : exécuté seul, {n} élément{s} rendu{s}',
@@ -157,6 +159,12 @@
   const departLien = (pos, i = 0, m = 1) => [(pos?.[0] ?? 0) + NODE_W + 10, yDessin(pos?.[1]) + MI_ROND + decalageSortie(i, m)];
   /** Son point d'arrivée : le bord gauche du rond d'entrée du bloc posé en `pos`, à mi-hauteur du rond. */
   const arriveeLien = (pos) => [(pos?.[0] ?? 0) + ENTREE_X - PORT_D / 2, yDessin(pos?.[1]) + MI_ROND];
+  /** Le milieu d'une liaison dessinée (la courbe de lines() passe, à mi-chemin, par le milieu de ses deux bouts). */
+  const milieuLien = (x1, y1, x2, y2) => [(x1 + x2) / 2, (y1 + y2) / 2];
+  // Les blocs dont les liaisons portent le nom de leur sortie, écrit au milieu de chacune (le « Si » : oui, non). Le
+  // « Filtrer » : dessiné comme un petit rond posé sur la liaison, le trait passant à travers lui ; il reste un bloc
+  // (même menu, mêmes données, même place enregistrée) : seul le dessin change, rien d'enregistré.
+  const SORTIES_NOMMEES = ['logique.si'], TYPE_FILTRE = 'logique.filtre';
   /**
    * Les rectangles d'un bloc ({ g, h, d, b } : gauche, haut, droite, bas, depuis le coin haut-gauche de sa case dessinée),
    * au zoom `k`, pour `m` sorties. Les zones des ronds et du « ⋯ » font 44 px à l'écran (zoneToucher) ; celle du « + »
@@ -189,9 +197,13 @@
   const BULLE_G = 142, BULLE_B = 10;
   /** Le haut de la zone de la première sortie d'un bloc à m sorties (sans le zoom) : ce qui borne la bulle par le bas. */
   const hautPremiereSortie = (m = 1) => MI_ROND + decalageSortie(0, Math.max(1, m));
-  /** Le rectangle de la bulle ({ g, h, d, b }, depuis le coin haut-gauche de la case dessinée), au zoom k, pour m sorties. */
-  function zoneBulle(k = 1, m = 1) {
-    const z = zoneToucher(k), g = Math.max(BULLE_G, NODE_W / 2 + z / 2), b = Math.min(BULLE_B, hautPremiereSortie(m) - z / 2);
+  /**
+   * Le rectangle de la bulle ({ g, h, d, b }, depuis le coin haut-gauche de la case dessinée), au zoom k, pour m sorties.
+   * Sur le petit rond d'un « Filtrer » (`filtre`) : au bord de ce rond, en haut à droite (à droite de son « ⋯ », au-dessus
+   * de son « + ») ; sa pastille des réglages manquants passe alors en bas à gauche du rond.
+   */
+  function zoneBulle(k = 1, m = 1, filtre = false) {
+    const z = zoneToucher(k), g = filtre ? NODE_W / 2 + z / 2 : Math.max(BULLE_G, NODE_W / 2 + z / 2), b = Math.min(filtre ? MI_ROND - ZONE_PLUS / 2 : BULLE_B, hautPremiereSortie(m) - z / 2);
     return { g, h: b - z, d: g + z, b };
   }
   /**
@@ -208,8 +220,9 @@
     return { texte: nombre(n), erreur: false, nom: mot('bulle.elements', { b: nom, n: nombre(n), s: unSeul(n) ? '' : mot('bulle.pluriel') }) + detail, sorties: parSortie };
   }
   // ---------------- La bulle des données d'un passage (fonctions pures). Elle montre ce que le moteur garde déjà d'un bloc :
-  // ce qu'il a rendu (MAX_PASSAGE éléments au plus, comme le moteur), la durée, ou l'erreur entière. Ce qu'il a reçu n'est
-  // pas gardé par le moteur : il n'est montré que s'il se déduit du bloc d'avant, et c'est dit. Tout est du texte.
+  // ce qu'il a rendu (MAX_PASSAGE éléments au plus, comme le moteur), la durée, ou l'erreur entière. Ce qu'il a reçu : celui
+  // que le moteur a gardé (`input`, mêmes bornes) quand le passage le porte ; sinon (passage d'avant) seulement s'il se
+  // déduit du bloc d'avant ; c'est dit dans les deux cas. Tout est du texte.
   const MAX_PASSAGE = 20, MAX_TEXTE = 4000;
   /** Le texte d'un élément (JSON lisible) ; coupé au-delà de MAX_TEXTE signes. → { texte, coupe }. */
   function texteElement(x) {
@@ -230,7 +243,8 @@
     });
   }
   /**
-   * Ce que dit la bulle des données d'un bloc, d'après son dernier passage (`run` : count, items, ms, error, outputs).
+   * Ce que dit la bulle des données d'un bloc, d'après son dernier passage (`run` : count, items, ms, error, outputs ;
+   * input et inputCount quand le moteur a gardé ce qu'il a reçu : ils passent avant toute déduction).
    * `entree` : ce que rend entreeSeul quand l'entrée se déduit sûrement (sinon null) ; `declencheur` : le bloc en est un.
    * → { vide, texte } sans passage ; sinon { resume, duree, erreur, elements, garde, rien, entree: { montree, mention, elements } }.
    */
@@ -241,7 +255,11 @@
     const ms = Number(run.ms);
     let e;
     if (declencheur) e = { montree: false, mention: mot('donnees.recu.declencheur'), elements: [] };
-    else if (entree?.ok && Array.isArray(entree.items)) {
+    else if (Array.isArray(run.input)) {
+      const recus = elementsDe(run.input, run.input.length, [], null, true), total = Math.max(recus.length, Number(run.inputCount) || 0);
+      const plus = !recus.length ? mot('donnees.recu.rien') : recus.length < total ? mot('donnees.garde', { k: nombre(recus.length) }) : '';
+      e = { montree: recus.length > 0, mention: mot('donnees.recu.vrai') + (plus ? ` ${plus}` : ''), elements: recus };
+    } else if (entree?.ok && Array.isArray(entree.items)) {
       const items = entree.items.map((j) => (j && typeof j === 'object' && 'json' in j ? j.json : j));
       e = { montree: true, mention: mot('donnees.recu.deduit') + (entree.tronque ? ` ${mot('donnees.recu.tronque')}` : ''), elements: elementsDe(items, items.length, [], null, true) };
     } else e = { montree: false, mention: mot('donnees.recu.non'), elements: [] };
@@ -717,6 +735,10 @@
 .dr-port:focus-visible{outline:none}.dr-port:focus-visible::before{outline:2px solid var(--accent);outline-offset:2px}
 .dr-port .dr-pl{position:absolute;left:calc(var(--cx) + 11px);top:calc(var(--dh) - 11px);padding:0 2px;border-radius:4px;background:var(--panel2);font-size:10.5px;color:var(--dim);white-space:nowrap;pointer-events:none}
 .dr-link{fill:none;stroke-width:10;stroke-dasharray:0 15;stroke-linecap:round;opacity:.9;pointer-events:none}
+.dr-fil-nom{font-size:12px;font-weight:700;fill:var(--ink);stroke:var(--panel2);stroke-width:5px;stroke-linejoin:round;paint-order:stroke;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.dr-node.dr-filtre{padding-top:76px;pointer-events:none}.dr-node.dr-filtre>*{pointer-events:auto}
+.dr-node.dr-filtre .dr-rond{left:73px;top:26px;width:44px;height:44px}
+.dr-node.dr-filtre .dr-rond::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,var(--dr-z,44px));height:max(100%,var(--dr-z,44px));transform:translate(-50%,-50%);border-radius:50%}
 .dr-fil{fill:none;stroke:transparent;stroke-width:var(--dr-zf,22px);pointer-events:stroke;cursor:pointer}.dr-fil:focus{outline:none}
 .dr-fil:hover,.dr-fil:focus-visible,.dr-fil.on{stroke:color-mix(in srgb,var(--accent) 22%,transparent)}
 .dr-tire{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-dasharray:6 5;pointer-events:none}
@@ -747,6 +769,7 @@
 .dr-ch-o{display:flex;flex-direction:column;gap:6px}.dr-ch-o button{text-align:left;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:8px 12px;min-height:44px;color:var(--ink);font:inherit;cursor:pointer}
 .dr-ch-o button:hover{border-color:var(--accent)}.dr-ch-o button:focus-visible{outline:2px solid var(--accent)}.dr-ch-o b{display:block;font-size:14px}.dr-ch-o small{display:block;color:var(--muted);font-size:12.5px}
 .dr-node .dr-manque{position:absolute;left:118px;top:-5px;width:22px;height:22px;box-sizing:border-box;border-radius:50%;border:2px solid var(--panel2);background:var(--bad);color:var(--panel);font-size:12px;font-weight:700;line-height:18px;text-align:center;pointer-events:none}
+.dr-node.dr-filtre .dr-manque{left:51px;top:52px}
 .dr-app{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.dr-app>div{flex:1;min-width:0}
 .dr-app b{display:block;font-size:13px;color:var(--muted);font-weight:600;overflow-wrap:anywhere}.dr-app span.dr-fn{display:block;font-size:15px;font-weight:700;overflow-wrap:anywhere}.dr-app .btn{flex:none;min-height:44px}
 #v-flows .dr-side .dr-champs input,#v-flows .dr-side .dr-champs select,#v-flows .dr-side .dr-champs textarea{min-height:44px}.dr-side .dr-champs textarea{font-family:inherit;font-size:14px}
@@ -769,6 +792,7 @@
 .dr-node.dr-source .dr-rond{outline:3px solid var(--accent);outline-offset:3px;box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 40%,transparent);animation:dr-pulse .9s ease-in-out infinite alternate}
 @keyframes dr-pulse{from{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}to{box-shadow:0 0 0 9px color-mix(in srgb,var(--accent) 45%,transparent)}}
 .dr-mb{position:absolute;width:var(--dr-z,44px);height:var(--dr-z,44px);left:calc(95px - var(--dr-z,44px) / 2);z-index:1;top:calc(10px - var(--dr-z,44px));padding:0;border:0;background:none;display:grid;place-items:end center;cursor:pointer;touch-action:none}
+.dr-node.dr-filtre .dr-mb{top:calc(36px - var(--dr-z,44px))}
 .dr-mb span{min-width:28px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);color:var(--muted);font-size:15px;font-weight:700;line-height:13px;text-align:center;transition:border-color .15s,color .15s}
 .dr-mb:hover span,.dr-mb:focus-visible span,.dr-mb[aria-expanded=true] span{border-color:var(--accent);color:var(--accent)}.dr-mb:focus-visible{outline:none}.dr-mb:focus-visible span{outline:2px solid var(--accent);outline-offset:1px}
 .dr-node{-webkit-touch-callout:none}.dr-node .dr-nom.dr-cache{visibility:hidden}
@@ -787,6 +811,7 @@
 .dr-bulle span{min-width:26px;height:24px;padding:0 7px;box-sizing:border-box;border-radius:12px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font-size:12.5px;font-weight:700;line-height:21px;text-align:center;white-space:nowrap;box-shadow:var(--shadow);transform-origin:0 100%;transform:scale(var(--dr-ik,1))}
 .dr-bulle.bad span{background:var(--bad);border-color:var(--bad);color:var(--panel)}
 .dr-bulle:hover span{border-color:var(--accent)}.dr-bulle:focus-visible{outline:none}.dr-bulle:focus-visible span{outline:2px solid var(--accent);outline-offset:2px}
+.dr-node.dr-filtre .dr-bulle{left:calc(95px + var(--dr-z,44px) / 2);top:calc(min(26px,calc(var(--dr-sh,48px) - var(--dr-z,44px) / 2)) - var(--dr-z,44px))}
 .dr-node.ok .dr-nom::before{content:'✓ ';color:var(--good)}
 .dr-passage{position:absolute;z-index:3;left:8px;top:8px;width:340px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);animation:dr-ch-in .14s ease-out}
 .dr-passage::before{content:'';position:absolute;left:calc(var(--dr-pointe,50%) - 7px);width:12px;height:12px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);transform:rotate(45deg)}
@@ -1087,7 +1112,7 @@
     } }, ...kids);
     const bulleBtn = bu ? ouvreur(`dr-bulle${bu.erreur ? ' bad' : ''}`, bu.nom, { style: `--dr-sh:${hautPremiereSortie(sorties.length)}px` }, el('span', { 'aria-hidden': 'true' }, bu.texte)) : null;
     const seulBtn = seul ? ouvreur('dr-seul-b', run.error ? mot('seul.erreur', { b: n.name, e: String(run.error).slice(0, 160) }) : mot('seul.elements', { b: n.name, n: nombre(Number(run.count) || 0), s: unSeul(Number(run.count) || 0) ? '' : mot('bulle.pluriel') }), {}) : null;
-    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': `${ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`}${seul ? `, ${seul}` : ''}`, 'aria-describedby': idNote, style: `left:${n.position?.[0] ?? 0}px;top:${yDessin(n.position?.[1])}px` },
+    const d = el('div', { class: `dr-node${c?.trigger ? ' trig' : ''}${n.type === TYPE_FILTRE ? ' dr-filtre' : ''}${n.disabled ? ' off' : ''}${sel === n.name ? ' sel' : ''}${run ? (run.error ? ' err' : ' ok') : ''}`, tabindex: '0', role: 'button', 'aria-label': `${ia ? `${ia.a.nom} : ${ia.titre} (${n.name})` : `${n.name} (${c?.label ?? n.type})`}${seul ? `, ${seul}` : ''}`, 'aria-describedby': idNote, style: `left:${n.position?.[0] ?? 0}px;top:${yDessin(n.position?.[1])}px` },
       rond, ...tete, run ? el('span', { class: 'dr-cnt' }, run.error ? `✗ ${run.error.slice(0, 40)}` : `${run.count} élément(s)`) : null, pastille,
       aNote ? el('span', { class: 'dr-note-m', 'aria-hidden': 'true' }) : null, aNote ? el('span', { class: 'sr', id: idNote }, `Note : ${n.note}`) : null,
       seulBtn, seul ? el('span', { class: `dr-seul${run.error ? ' bad' : ''}`, 'aria-hidden': 'true' }, run.error ? '!' : String(run.count)) : null, bulleBtn);
@@ -1464,6 +1489,12 @@
     const svg = $('#drCanvas svg'); if (!svg) return; svg.replaceChildren();
     const g = sv('g', { transform: `translate(${view.x} ${view.y}) scale(${view.k})` }); svg.append(g);
     let nGrad = 0;
+    const teinte = (n) => couleursDe(n)?.[1] ?? 'var(--accent)', noms = [];
+    // Un « Filtrer » : le trait de la liaison passe à travers son petit rond (de son rond d'entrée à son rond de sortie).
+    for (const n of wf.nodes) if (n.type === TYPE_FILTRE) {
+      const [x1, y1] = arriveeLien(n.position), [x2, y2] = departLien(n.position);
+      g.append(sv('path', { class: 'dr-link dr-traverse', d: `M${x1},${y1} L${x2},${y2}`, style: `stroke:${teinte(n)}` }));
+    }
     for (const [from, list] of Object.entries(wf.connections)) {
       const a = wf.nodes.find((n) => n.name === from); if (!a) continue;
       list.forEach((targets, i) => (targets ?? []).forEach((l) => {
@@ -1471,7 +1502,7 @@
         const [x1, y1] = departLien(a.position, i, outputsOf(a).length), [x2, y2] = arriveeLien(b.position), dx = Math.max(40, Math.abs(x2 - x1) / 2);
         const d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
         // La liaison en petits ronds, de la couleur du bloc de départ à celle du bloc d'arrivée (l'accent si elle est inconnue).
-        const id = `drg-${nGrad++}`, teinte = (n) => couleursDe(n)?.[1] ?? 'var(--accent)';
+        const id = `drg-${nGrad++}`;
         const grad = sv('linearGradient', { id, gradientUnits: 'userSpaceOnUse', x1, y1, x2, y2 });
         grad.append(sv('stop', { offset: '0', style: `stop-color:${teinte(a)}` }), sv('stop', { offset: '1', style: `stop-color:${teinte(b)}` }));
         // Le fil dessiné, et par-dessus une zone large et invisible qui se touche (et se choisit au clavier) : elle ouvre le menu du fil.
@@ -1480,8 +1511,11 @@
         z.addEventListener('click', (e) => { if (glisse) return; const r = $('#drCanvas').getBoundingClientRect(); ouvrirMenu(fil, [e.clientX - r.left, e.clientY - r.top], z); });
         z.addEventListener('keydown', (e) => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); ouvrirMenu(fil, [(x1 + x2) / 2 * view.k + view.x, (y1 + y2) / 2 * view.k + view.y], z); });
         g.append(grad, sv('path', { class: 'dr-link', d, stroke: `url(#${id})` }), z);
+        // Le nom de la sortie, au milieu de la liaison (le lien le dit déjà au lecteur d'écran) ; posé après toutes les liaisons.
+        if (so && SORTIES_NOMMEES.includes(a.type)) { const [mx, my] = milieuLien(x1, y1, x2, y2), t = sv('text', { class: 'dr-fil-nom', x: mx, y: my, 'aria-hidden': 'true' }); t.textContent = so; noms.push(t); }
       }));
     }
+    g.append(...noms);
     bulle(); // (le schéma a bougé : la bulle d'une note suit son bloc)
     placerPassage(); // (et la bulle des données aussi)
   }
@@ -2002,5 +2036,5 @@
       appliDe, fonctionDe, infoAppli, lireEntree, champsDe, valeurChamp, ecrireEntree, manquants, remplacer, inserer, retirerLien, refusLien, blocSous, zoneToucher, styleSortie,
       decouper, assembler, exprDonnee, blocsAvant, donneesVues, etatDonnee, libelleChemin, nomValide, poserNote, renommerDans, suivreRenommage,
       entreeSeul, ceQuAgit, pareilQuEnregistre, MOTS, bulleDe, passageDe, placeDonnees, texteElement, MAX_PASSAGE, zoneBulle, BULLE_G, dernierPassage, AGIT_TYPES: Object.keys(AGIT), copieDe, collerBloc, zoomer, MAX_HISTOIRE,
-      ROND, ANNEAU, ICONE_ROND, HAUT_BLOC, HAUT_TESTE, ECHELLE_Y, PLUS_D, PLUS_X, ZONE_PLUS, SORTIE_X, ENTREE_X, PORT_D, ECART_SORTIES, yDessin, yEnregistre, departLien, arriveeLien, zonesBloc } };
+      milieuLien, SORTIES_NOMMEES, TYPE_FILTRE, ROND, ANNEAU, ICONE_ROND, HAUT_BLOC, HAUT_TESTE, ECHELLE_Y, PLUS_D, PLUS_X, ZONE_PLUS, SORTIE_X, ENTREE_X, PORT_D, ECART_SORTIES, yDessin, yEnregistre, departLien, arriveeLien, zonesBloc } };
 })();

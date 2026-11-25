@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkFlow, execute, readPath, resolve, type Deps, type Workflow } from '../src/draupnir/engine.ts';
@@ -170,5 +170,65 @@ test('Talos : sous-automatisation, automatisation d\'erreur, formulaire, version
     dr.save({ ...f, name: 'Contact v2' });
     const v = dr.versions(f.id); assert.equal(v.length, 1); assert.equal(v[0].name, 'Contact');
     assert.equal(dr.restore(f.id, v[0].at).name, 'Contact');
+  } finally { dr.stop(); }
+});
+
+// ---------------------------------------------------------------- Ce qu'un bloc a reçu (gardé à côté de ce qu'il a rendu)
+// Le moteur garde, pour chaque bloc, ce qu'il a reçu, avec les mêmes bornes que ce qu'il a rendu : les KEEP (20) premiers
+// éléments, au même endroit (la ligne d'exécution), rien d'autre écrit. Un passage d'avant (sans entrée gardée) se relit.
+const chaine = (n = 1): Workflow => ({ id: 'w-recu', name: 'Chaîne', active: false, nodes: [
+  { id: '1', name: 'Go', type: 'déclencheur.manuel', params: {} },
+  { id: '2', name: 'Poser', type: 'données.définir', params: { champs: '{ "b": "{{ $json.a }}-b" }' } },
+  { id: '3', name: 'Garder', type: 'données.limiter', params: { nombre: n } },
+], connections: { Go: [[{ node: 'Poser' }]], Poser: [[{ node: 'Garder' }]] } });
+
+test('Talos : chaque bloc d\'une chaîne de trois garde ce qu\'il a reçu, à côté de ce qu\'il a rendu', async () => {
+  const ex = await execute(chaine(1), CATALOG, deps(), { items: [{ json: { a: 'x' } }, { json: { a: 'y' } }] });
+  assert.equal(ex.status, 'succès', ex.error);
+  assert.deepEqual(ex.nodes.Go.input, [{ a: 'x' }, { a: 'y' }]); assert.equal(ex.nodes.Go.inputCount, 2);
+  assert.deepEqual(ex.nodes.Poser.input, [{ a: 'x' }, { a: 'y' }], 'Poser a reçu ce que Go a rendu');
+  assert.deepEqual(ex.nodes.Poser.items, [{ a: 'x', b: 'x-b' }, { a: 'y', b: 'y-b' }]);
+  assert.deepEqual(ex.nodes.Garder.input, [{ a: 'x', b: 'x-b' }, { a: 'y', b: 'y-b' }], 'Garder a reçu les deux, et n\'en a rendu qu\'un');
+  assert.equal(ex.nodes.Garder.inputCount, 2); assert.deepEqual(ex.nodes.Garder.items, [{ a: 'x', b: 'x-b' }]);
+  // Un bloc en erreur garde aussi ce qu'il a reçu (c'est là qu'on en a besoin).
+  const bad = await execute({ ...chaine(), nodes: [...chaine().nodes.slice(0, 2), { id: '3', name: 'Garder', type: 'logique.erreur', params: { message: 'stop' } }] }, CATALOG, deps(), { items: [{ json: { a: 'z' } }] });
+  assert.equal(bad.status, 'erreur'); assert.deepEqual(bad.nodes.Garder.input, [{ a: 'z', b: 'z-b' }]); assert.equal(bad.nodes.Garder.items.length, 0);
+});
+
+test('Talos : ce qu\'un bloc a reçu a les mêmes bornes que ce qu\'il a rendu (20 éléments gardés, le nombre entier compté)', async () => {
+  const items = Array.from({ length: 30 }, (_, i) => ({ json: { a: i } }));
+  const ex = await execute(chaine(30), CATALOG, deps(), { items });
+  assert.equal(ex.nodes.Garder.count, 30); assert.equal(ex.nodes.Garder.items.length, 20);
+  assert.equal(ex.nodes.Garder.inputCount, 30); assert.equal(ex.nodes.Garder.input!.length, 20, 'pas plus que ce qui est rendu');
+  assert.deepEqual(ex.nodes.Garder.input![19], { a: 19, b: '19-b' });
+});
+
+test('Talos : un identifiant du coffre n\'est gardé ni dans ce qu\'un bloc a reçu, ni dans ce qu\'il a rendu', async () => {
+  const SECRET = 'cle-du-coffre-neutre-123';
+  const wf: Workflow = { id: 'w-sec', name: 'Signer', active: false, nodes: [
+    { id: '1', name: 'Go', type: 'déclencheur.manuel', params: {} },
+    { id: '2', name: 'Signer', type: 'données.chiffrer', params: { opération: 'hmac-sha256', valeur: '{{ $json.t }}', identifiant: 'CLE', vers: 'sig' } },
+    { id: '3', name: 'Après', type: 'données.limiter', params: { nombre: 5 } },
+  ], connections: { Go: [[{ node: 'Signer' }]], Signer: [[{ node: 'Après' }]] } };
+  const ex = await execute(wf, CATALOG, deps({ secret: (n) => (n === 'CLE' ? SECRET : undefined) }), { items: [{ json: { t: 'bonjour' } }] });
+  assert.equal(ex.status, 'succès', ex.error);
+  assert.ok(ex.nodes.Après.input!.length === 1 && typeof ex.nodes.Après.input![0].sig === 'string');
+  assert.ok(!JSON.stringify(ex).includes(SECRET), 'le secret n\'est nulle part dans la ligne d\'exécution');
+});
+
+test('Talos : ce qu\'un bloc a reçu est rangé avec l\'exécution, et un passage d\'avant (sans entrée) se relit', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'draupnir-recu-'));
+  const dr = new Talos(home, deps());
+  try {
+    const wf = dr.save({ ...chaine(1), id: undefined } as never);
+    // Une ligne d'avant cette livraison : ses blocs n'ont ni « input » ni « inputCount ».
+    const vieux = { id: 'ancien', workflowId: wf.id, name: wf.name, mode: 'manuel', trigger: 'Go', status: 'succès', startedAt: '2026-01-01T00:00:00.000Z', ms: 3, nodes: { Go: { count: 1, items: [{}], ms: 1, outputs: [1] }, Poser: { count: 1, items: [{ b: '-b' }], ms: 1, outputs: [1] } } };
+    writeFileSync(join(home, 'draupnir', 'runs', `${wf.id}.json`), JSON.stringify([vieux]));
+    const ex = await dr.run(wf.id, [{ json: { a: 'q' } }], 'test');
+    const [neuf, relu] = dr.runs(wf.id);
+    assert.equal(neuf.id, ex.id); assert.deepEqual(neuf.nodes.Poser.input, [{ a: 'q' }], 'rangée avec l\'exécution');
+    assert.equal(relu.id, 'ancien'); assert.equal(relu.nodes.Poser.input, undefined); assert.deepEqual(relu.nodes.Poser.items, [{ b: '-b' }]);
+    // Rien d'autre n'est écrit : le dossier des exécutions n'a que le fichier de cette automatisation.
+    assert.deepEqual(readdirSync(join(home, 'draupnir', 'runs')), [`${wf.id}.json`]);
   } finally { dr.stop(); }
 });
