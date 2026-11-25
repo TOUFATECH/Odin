@@ -35,6 +35,8 @@ export interface Machine {
   estModele?: boolean;
   /** VM créée sans aucun réseau (lot M4) : pas de carte réseau, son adresse reste réservée */
   sansReseau?: boolean;
+  /** copie liée (lot M7) : son disque n'écrit que ses changements, sur celui du modèle `de` (identifiant d'Hydre) */
+  liee?: { de: string };
   /** VM créée par « Créer une VM » (lot M4) : de quoi faire le compte rendu commun (jamais le mot de passe : il est au coffre) */
   creation?: {
     at: number; iso: { nom: string; sha256: string; editeur: boolean; taille: number };
@@ -434,6 +436,8 @@ export class Local {
     if (!Number.isInteger(go) || go < 1 || go > 65536) throw new Error('taille du disque invalide (en Go)');
     if (go < m.disque) throw new Error(`${m.nom} a ${m.disque} Go : un disque ne se réduit pas (ses fichiers seraient abîmés), seulement plus grand`);
     if (go === m.disque) return 'rien à changer';
+    // Le disque d'un modèle qui porte des copies liées ne change pas : elles n'écrivent que leurs changements dessus.
+    if (this.list().some((x) => x.liee?.de === m.id)) throw new Error(`des copies liées utilisent le disque de ${m.nom} : il ne change pas tant qu'elles existent`);
     if (allumee(await this.etat(m))) throw new Error(`arrête d'abord ${m.nom} pour agrandir son disque`);
     let how: string;
     if (m.genre === 'lxc') {
@@ -483,10 +487,17 @@ export class Local {
     for (const keys of suite) await qmp(sock, 'send-key', { keys: keys.map((k) => ({ type: 'qcode', data: k })) });
     return suite.length;
   }
-  async cloner(src: Machine, nom: string): Promise<Machine> {
+  /**
+   * Une copie, éteinte, avec un autre nom, une autre adresse et une autre carte réseau. `liee` (VM, lot M7) : son disque
+   * n'écrit que ses changements sur celui de l'original, qui doit être un modèle (il ne démarre pas : son disque ne change
+   * plus) ; sinon, un disque à elle.
+   */
+  async cloner(src: Machine, nom: string, o: { liee?: boolean } = {}): Promise<Machine> {
+    if (o.liee && src.genre !== 'vm') throw new Error(`${src.nom} est un LXC : pas de copie liée pour un LXC (seulement une copie complète)`);
+    if (o.liee && !src.estModele) throw new Error(`une copie liée se fait depuis un modèle : ${src.nom} n'en est pas un (« En faire un modèle » d'abord : son disque ne changera plus)`);
     if (allumee(await this.etat(src))) throw new Error(`arrête d'abord ${src.nom} (une copie se fait machine éteinte)`);
     const r = this.reseau(), ip = await this.prochaineIp(); if (!ip) throw new Error('plus d\'adresse libre sur le réseau des machines');
-    const m: Machine = { ...structuredClone(src), id: randomBytes(6).toString('hex'), nom: slug(nom), ip, mac: newMac(), cree: Date.now(), quarantaine: undefined, arretVoulu: true, estModele: undefined };
+    const m: Machine = { ...structuredClone(src), id: randomBytes(6).toString('hex'), nom: slug(nom), ip, mac: newMac(), cree: Date.now(), quarantaine: undefined, arretVoulu: true, estModele: undefined, liee: undefined, pause: undefined };
     if (this.list().some((x) => x.nom === m.nom)) throw new Error(`le nom « ${m.nom} » est déjà pris`);
     if (m.genre === 'lxc') {
       await this.must('lxc-copy', ['-P', this.lxcDir, '-n', src.nom, '-N', m.nom], 'copie', 1_800_000);
@@ -496,7 +507,11 @@ export class Local {
       writeFileSync(cf, rewriteConfig(txt, lxcConfig(m, r, this.lxcDir)));
     } else {
       mkdirSync(this.vmDir(m), { recursive: true });
-      await this.must('qemu-img', ['convert', '-O', 'qcow2', join(this.vmDir(src), 'disque.qcow2'), join(this.vmDir(m), 'disque.qcow2')], 'copie du disque', 3_600_000);
+      if (o.liee) {
+        // Le disque de départ en chemin complet : la copie le retrouve où qu'Odin la lance.
+        await this.must('qemu-img', ['create', '-f', 'qcow2', '-F', 'qcow2', '-b', join(this.vmDir(src), 'disque.qcow2'), join(this.vmDir(m), 'disque.qcow2')], 'copie liée du disque', 600_000);
+        m.liee = { de: src.id };
+      } else await this.must('qemu-img', ['convert', '-O', 'qcow2', join(this.vmDir(src), 'disque.qcow2'), join(this.vmDir(m), 'disque.qcow2')], 'copie du disque', 3_600_000);
       writeFileSync(join(this.vmDir(m), 'vm.json'), JSON.stringify(m, null, 1));
     }
     this.save([...this.list(), m]); return m;
@@ -529,20 +544,29 @@ export class Local {
   }
 
   // ----- .ody -----
-  async exporter(m: Machine, dest: string): Promise<{ fichier: string; taille: number; sha256: string }> {
-    if (allumee(await this.etat(m))) throw new Error(`arrête d'abord ${m.nom} (l'export se fait machine éteinte, pour un fichier cohérent)`);
+  /**
+   * La machine dans un .ody. `base` (lot M7) : le dossier où une copie de la machine a été préparée (instantané d'une VM
+   * allumée, copie liée remise en entier), archivé à la place de son dossier. Le fichier écrit est relu (contenu,
+   * empreinte) AVANT de prendre son nom : abîmé en route, il est retiré et l'export échoue.
+   */
+  async exporter(m: Machine, dest: string, o: { base?: string } = {}): Promise<{ fichier: string; taille: number; sha256: string; verifie: true }> {
+    if (!o.base && allumee(await this.etat(m))) throw new Error(`arrête d'abord ${m.nom} (l'export se fait machine éteinte, pour un fichier cohérent)`);
     mkdirSync(dest, { recursive: true });
     const tmp = join(this.dir, `.export-${m.id}`); rmSync(tmp, { recursive: true, force: true }); mkdirSync(tmp, { recursive: true });
     try {
-      const base = m.genre === 'lxc' ? this.lxcDir : join(this.dir, 'vm'), payload = join(tmp, 'machine.tgz');
+      const base = o.base ?? (m.genre === 'lxc' ? this.lxcDir : join(this.dir, 'vm')), payload = join(tmp, 'machine.tgz');
       await this.must('tar', ['--numeric-owner', '-C', base, '-czf', payload, m.nom], 'archive de la machine', 3_600_000);
       const sha = await sha256File(payload), taille = statSync(payload).size;
       const man: OdyManifest = { format: 'ody', version: 1, genre: m.genre, nom: m.nom, systeme: m.systeme, versionSysteme: m.version, cpu: m.cpu, ram: m.ram, disque: m.disque, modele: m.modele, uefi: m.uefi, apps: m.apps, paquets: m.paquets, sha256: sha, taille, cree: m.cree, exporte: Date.now(), par: 'Odin · Hydre' };
       writeFileSync(join(tmp, 'manifest.json'), JSON.stringify(man, null, 1));
       const out = join(dest, `${m.nom}.ody`);
       await this.must('tar', ['-C', tmp, '-cf', `${out}.part`, 'manifest.json', 'machine.tgz'], 'fichier .ody');
+      try {
+        const relu = await this.ouvrirOdy(`${out}.part`); rmSync(relu.tmp, { recursive: true, force: true });
+        if (relu.man.sha256 !== sha) throw new Error('empreinte différente');
+      } catch (e) { rmSync(`${out}.part`, { force: true }); throw new Error(`le fichier écrit ne se relit pas à l'identique (${(e as Error).message}) : export annulé, rien n'est gardé`); }
       renameSync(`${out}.part`, out);
-      return { fichier: out, taille: statSync(out).size, sha256: sha };
+      return { fichier: out, taille: statSync(out).size, sha256: sha, verifie: true };
     } finally { rmSync(tmp, { recursive: true, force: true }); }
   }
   /** Lit un .ody : contenu attendu, empreinte vérifiée ; renvoie le manifeste et l'archive prête (dossier temporaire). */
@@ -570,6 +594,13 @@ export class Local {
       const base = m.genre === 'lxc' ? this.lxcDir : join(this.dir, 'vm'), x = join(tmp, 'x'); mkdirSync(x, { recursive: true }); mkdirSync(base, { recursive: true });
       await this.must('tar', ['--numeric-owner', '-C', x, '-xzf', payload], 'extraction', 3_600_000);
       if (existsSync(join(base, m.nom))) throw new Error(`un dossier « ${m.nom} » existe déjà`);
+      // Le disque d'une VM importée ne s'appuie sur aucun autre fichier : un .ody piégé ferait lire à la machine un fichier
+      // de ce PC (lot M7 : les copies liées existent maintenant). Illisible : refusé aussi.
+      if (m.genre === 'vm') {
+        const info = await this.must('qemu-img', ['info', '--output=json', join(x, man.nom, 'disque.qcow2')], 'lecture du disque importé (import refusé)', 120_000);
+        let j: Record<string, unknown>; try { j = JSON.parse(info) as Record<string, unknown>; } catch { throw new Error('le disque importé ne se lit pas : import refusé, rien n\'est créé'); }
+        if (j['backing-filename'] || j['full-backing-filename'] || j['backing-filename-format']) throw new Error('le disque de cette machine s\'appuie sur un autre fichier (il pourrait lire un fichier de ce PC) : import refusé, rien n\'est créé');
+      }
       renameSync(join(x, man.nom), join(base, m.nom));
       if (m.genre === 'lxc') {
         const cf = join(base, m.nom, 'config');

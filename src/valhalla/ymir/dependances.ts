@@ -18,7 +18,11 @@ import { Local, type Etat, type Machine } from './local.ts';
 
 export type GenreLien = 'machine' | 'arche' | 'pc' | 'autre';
 /** Une ligne du registre : `qui` dépend de la machine `de` (identifiant d'Hydre). */
-export interface Lien { id: string; de: string; genre: GenreLien; qui: string; nombre?: number; note?: string; at: number }
+export interface Lien {
+  id: string; de: string; genre: GenreLien; qui: string; nombre?: number; note?: string; at: number;
+  /** noté par Odin pour une copie liée (lot M7) : elle utilise le disque de `de` ; toujours bloquant, jamais retiré à la main */
+  liee?: boolean;
+}
 export type GenreDependant = GenreLien | 'genese' | 'phenix';
 export interface Dependant {
   genre: GenreDependant; nom: string;
@@ -65,6 +69,12 @@ export function bilanDependants(m: Pick<Machine, 'id' | 'nom' | 'mac'>, liens: L
     if (l.genre === 'machine') {
       const x = src.machines.find((y) => y.id === l.qui);
       if (!x) { dependants.push({ genre: 'machine', nom: l.qui, vivant: false, lien: l.id, texte: 'Une machine qui n\'existe plus en dépendait : ce lien peut être retiré.' }); continue; }
+      // Une copie liée n'écrit que ses changements sur ce disque : allumée ou non, il ne part pas tant qu'elle existe.
+      if (l.liee) {
+        dependants.push({ genre: 'machine', nom: x.nom, vivant: true, lien: l.id, texte: `La copie liée ${x.nom} utilise son disque.` });
+        bloquants.push(`la copie liée ${x.nom} utilise son disque : supprime d'abord ${x.nom}`);
+        continue;
+      }
       const e = x.etat ?? 'inconnue', vivant = e === 'en marche' || e === 'en pause', inconnu = e === 'inconnue';
       dependants.push({ genre: 'machine', nom: x.nom, vivant, ...(inconnu ? { inconnu } : {}), lien: l.id, texte: vivant ? `La machine ${x.nom} en dépend, et elle est ${e === 'en pause' ? 'en pause' : 'allumée'}.` : inconnu ? `La machine ${x.nom} en dépend, et Odin ne sait pas si elle tourne.` : `La machine ${x.nom} en dépend (éteinte).` });
       if (vivant) bloquants.push(`la machine ${x.nom} en dépend et elle est ${e === 'en pause' ? 'en pause' : 'allumée'} : arrête-la d'abord, ou retire ce lien`);
@@ -208,6 +218,7 @@ export function dependancesActions(): Action[] {
       params: [{ key: 'lien', label: 'Ligne du registre', kind: 'text', required: true }],
       run: (ctx, i) => {
         const l = liensDe(ctx), x = l.find((y) => y.id === s(i.lien).trim()); if (!x) throw new Error('ligne du registre introuvable');
+        if (x.liee) throw new Error('ce lien vient d\'une copie liée : il part tout seul quand la copie est supprimée');
         ctx.saveSettings({ dependances: l.filter((y) => y.id !== x.id) });
         const L = new Local(ctx), de = L.list().find((m) => m.id === x.de)?.nom ?? 'une machine', qui = x.genre === 'machine' ? L.list().find((m) => m.id === x.qui)?.nom ?? 'une machine' : x.qui;
         return { text: `Retiré du registre : ${qui} → ${de}.` };

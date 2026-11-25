@@ -181,6 +181,9 @@ export async function supprimerMachine(ctx: ModCtx, i: Record<string, unknown>):
       if (e.state === 'inconnue') return `Refusé, rien n'est effacé : Odin ne sait pas si ${m.nom} tourne (son état ne se lit pas).`;
       // Une VM sans numéro de processus lisible qui répond encore sur son canal de contrôle : elle tourne.
       if (x.genre === 'vm') { const r = await systemeVm.qmp(L.qmpSock(x), 'query-status').then(() => true, () => false); if (r) return `Refusé, rien n'est effacé : ${m.nom} répond encore sur son canal de contrôle (elle tourne) : arrête-la d'abord.`; }
+      // Un modèle et ses copies liées : relu dans la liste des machines aussi (le registre peut avoir perdu le lien).
+      const liees = L.list().filter((y) => y.liee?.de === m.id).map((y) => y.nom);
+      if (liees.length) return `Refusé, rien n'est effacé : ${liees.map((n) => `la copie liée ${n} utilise son disque`).join(' ; ')}.`;
       const b = (await bilans(ctx, x)).machines[m.id];
       if (b?.bloquants.length) return `Refusé, rien n'est effacé : ${b.bloquants.join(' ; ')}.`;
       // En dernier, juste avant d'effacer : une VM démarrée pendant le retrait a laissé son numéro de processus dans le dossier mis de côté.

@@ -22,6 +22,11 @@
 // instantané de maintenant), « Retirer » (garde-fou), la place prise et ce que le budget d'Hydre laisse, et
 // l'interrupteur de la maquette (« Avant chaque mise à jour du système » : un instantané tout seul, gardé 7 jours).
 // Sous Windows : un état qui le dit.
+// Lot M7 (même maquette, écran 15) : l'onglet « Cloner et exporter » d'une VM de ce PC : cloner (nom proposé et vérifié
+// libre, copie complète ou liée à un modèle, avec la phrase de chacune), « En faire un modèle » ; exporter (vers une clé
+// ODIN : fermé tant que Genèse ne sait pas copier le disque d'une VM sur une vraie clé (la raison est dite) ; dans un fichier .ody, l'empreinte relue après la copie ; vers un serveur :
+// pas encore, l'option le dit et reste fermée), machine allumée exportée par un instantané, la note d'une machine
+// Windows, la taille à copier mesurée ; importer un .ody (déposé ou choisi, envoyé en morceaux, antivirus avant tout).
 (() => {
   'use strict';
   window.OdinPages = window.OdinPages || {};
@@ -38,7 +43,7 @@
   const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
   const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: 'Hydre', app: 'Hydre' }); };
   const P = {
-    box: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', plus: 'M12 5v14M5 12h14', down: 'M12 4v12M6 12l6 6 6-6M4 20h16', up: 'M12 20V8M6 12l6-6 6 6M4 4h16', copy: 'M8 8h12v12H8zM4 16V4h12',
+    box: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', plus: 'M12 5v14M5 12h14', down: 'M12 4v12M6 12l6 6 6-6M4 20h16', up: 'M12 20V8M6 12l6-6 6 6M4 4h16', copy: 'M8 8h12v12H8zM4 16V4h12', usb: 'M12 3v12M9 6l3-3 3 3M7 10v3l5 3 5-3v-3M12 16v5', file: 'M6 3h8l4 4v14H6zM14 3v4h4', server: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01', star: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3l-5.5 2.9 1-6.2L3 9.6l6.2-.9z', ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
     save: 'M5 3h11l3 3v15H5zM8 3v6h8M8 21v-7h8v7', screen: 'M3 4h18v12H3zM8 20h8M12 16v4', term: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5', play: 'M7 5v14l12-7z', pause: 'M7 5h4v14H7zM13 5h4v14h-4z', stop: 'M6 6h12v12H6z', lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
     shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4', check: 'M5 12l5 5L20 7', grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', list: 'M4 6h16M4 12h16M4 18h16',
     alert: 'M12 3 2 20h20zM12 10v4M12 17h.01', mail: 'M3 5h18v14H3zM3 6l9 7 9-7', unlock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 7.5-2',
@@ -71,7 +76,7 @@
 .ym-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.ym-chip{font-size:11.5px;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 7%,transparent)}.ym-chip.bad{background:var(--ybad);color:#fff}
 .ym-btn{min-height:34px;min-width:34px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:color-mix(in srgb,var(--ink) 4%,transparent);color:var(--ink);font:600 13px inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}.ym-btn:disabled{opacity:.5;cursor:default}
 .ym-c .ym-act .ym-btn{min-height:44px;min-width:44px}
-.ym-btn.pri{background:var(--ya);color:#fff;border-color:transparent}.ym-btn.bad{background:var(--ybad);color:#fff;border-color:transparent}.ym-btn.blue{background:var(--yblue);color:#fff;border-color:transparent}
+.ym-btn.pri{background:var(--ya);color:#fff;border-color:transparent}.ym-btn.bad{background:#c62828;color:#fff;border-color:transparent}.ym-btn.blue{background:var(--yblue);color:#fff;border-color:transparent}
 .ym-bot{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px}.ym-bot.ym-bot-cr{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}@media (max-width:1000px){.ym-bot,.ym-bot.ym-bot-cr{grid-template-columns:minmax(0,1fr)}}
 .ym-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ym-tile{border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;gap:10px;background:color-mix(in srgb,var(--panel) 88%,transparent);cursor:pointer;text-align:left;color:var(--ink);font:inherit}.ym-tile b{display:block;font-size:14px}.ym-tile span{font-size:12.5px;color:var(--muted)}.ym-tile .ib{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--ya) 14%,transparent);color:var(--ya);flex:none}
 .ym-sl{display:grid;grid-template-columns:90px 1fr 70px;gap:10px;align-items:center;font-size:13.5px;margin:6px 0}.ym-sl input{width:100%;accent-color:var(--yblue)}.ym-sl b{text-align:right;color:var(--ya)}
@@ -168,6 +173,12 @@
 .ym-snaps .ym-btn{min-height:44px;min-width:44px;padding:0 12px}
 @media (max-width:600px){.ym-snaps .nm{flex-basis:calc(100% - 56px)}.ym-snaps li>.ym-btn:not(.ic){flex:1;white-space:nowrap}.ym-snaps li>.ym-btn:first-of-type{margin-left:56px}}
 .ym-place{font-size:13px;color:var(--muted);overflow-wrap:anywhere}.ym-place b{color:var(--ink)}
+.ym-cop{display:flex;flex-direction:column;gap:10px;min-width:0}.ym-cop h3{margin-bottom:0}.ym-cop .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}@media (max-width:600px){.ym-cop .two{grid-template-columns:minmax(0,1fr)}}
+.ym-cop label,.ym-cop .h{display:block;font-size:13.5px;font-weight:600;margin-bottom:6px}.ym-cop input{min-height:44px;width:100%;box-sizing:border-box;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 12px;font:inherit;font-size:15px;min-width:0}
+.ym-cop .ym-btn{min-height:44px;padding:0 14px}.ym-cop a.ym-btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}.ym-cop .ym-choice b{display:flex;gap:8px;align-items:center}.ym-cop .ym-choice span.p{font-size:12.5px;color:var(--muted)}.ym-cop .ym-choice{min-height:88px}.ym-cop .ym-choices{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}.ym-cop .ym-choice:disabled{opacity:1;border-style:dashed}.ym-cop .ym-choice:disabled b{color:var(--muted)}.ym-cop .ym-choice .tick{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;color:transparent;box-sizing:border-box}.ym-cop .ym-choice[aria-checked=true] .tick{background:var(--ya);border-color:var(--ya);color:#fff}.ym-cop .ym-choice b{padding-right:32px}.ym-cop .ym-choice .cs{top:-10px;left:14px;right:auto;background:var(--ya);color:#fff}
+.ym-cop .foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px}.ym-cop .foot .grow{flex:1;min-width:180px;font-size:13.5px;color:var(--muted);overflow-wrap:anywhere}.ym-cop .foot .grow b{color:var(--ink)}
+.ym-guard.calme{border-color:var(--line);background:color-mix(in srgb,var(--ya) 6%,var(--panel))}.ym-guard.calme .gi{background:var(--ya)}.ym-guard.calme p{font-size:13.5px;margin:4px 0 0}.ym-guard.calme b{font-size:15px;overflow-wrap:anywhere}
+.ym-cop .ym-drop{cursor:pointer;min-height:44px}.ym-cop .ym-drop:focus-visible{outline:2px solid var(--ya);outline-offset:2px}
 .ym-inst .ym-guard p{font-size:13.5px;margin:4px 0 10px}.ym-inst .ym-guard .ym-btn.bad{background:#c62828}.ym-inst .ym-opt .tx b{font-size:14px;font-weight:600}
 `;
   // etat : le filtre par état (lot M3) ; garde : la suppression ouverte (machine, nom écrit, choix du disque, refus).
@@ -338,7 +349,7 @@
       el('div', { class: 'ym-tiles' },
         tile('up', 'Exporter en .ody', 'Toute la machine dans un fichier vérifié (machine éteinte).', async () => { const d = await window.OdinDialog.prompt('Dossier de destination (vide : Machines dans ton dossier) ?', ''); return d === null ? null : post('exporter_machine', { machine: m.id, dossier: d }); }),
         tile('down', 'Importer un .ody', 'Odin vérifie le fichier et l\'antivirus avant de la créer.', async () => { const f = await window.OdinDialog.prompt('Chemin du fichier .ody ?'); return f ? post('importer_machine', { fichier: f }) : null; }),
-        tile('copy', 'Cloner', 'La même, avec un autre nom et une autre adresse.', async () => { const n = await window.OdinDialog.prompt('Nom de la copie ?', `${m.nom}-copie`); return n ? post('cloner_machine', { machine: m.id, nom: n }) : null; }),
+        tile('copy', 'Cloner', 'La même, avec un autre nom et une autre adresse.', async () => { const n = await window.OdinDialog.prompt('Nom de la copie ?', `${m.nom}-copie`); return n ? act('cloner_machine', { machine: m.id, nom: n }) : null; }),
         tile('save', 'Sauvegarder', (m.apps ?? []).includes('sindri') ? 'Chaque nuit avec Phénix.' : 'Exporte-la en .ody, ou ajoute Phénix à la création.', async () => ({ text: (m.apps ?? []).includes('sindri') ? 'Phénix la sauvegarde chaque nuit (plan « Machine ' + m.nom + ' »).' : 'Pas de sauvegarde automatique pour cette machine : exporte-la en .ody.' })),
         el('button', { class: 'ym-tile', type: 'button', 'data-f': 'cr', onclick: async () => { out.textContent = '…'; const x = await post('compte_rendu_machine', { machine: m.id }); out.textContent = x.ok === false ? x.text : ''; if (x.ok !== false && x.data?.compteRendu) { S.cr = { id: m.id, data: x.data.compteRendu }; S.focus = '#ymCrT'; redraw(); } } }, el('span', { class: 'ib' }, ic('note', 16)), el('span', {}, el('b', {}, 'Compte rendu'), el('span', {}, 'Où, comment entrer, ce qui a été fait et essayé (essais refaits).'))),
         tile('grid', m.estModele ? 'Ce n\'est plus un modèle' : 'Faire un modèle', m.estModele ? 'Elle redevient une machine qui démarre.' : 'Machine éteinte : on crée ensuite des machines depuis elle.', () => post('modele_machine', { machine: m.id, modele: !m.estModele }))),
@@ -578,7 +589,7 @@
   const octets = (n) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2).replace('.', ',')} Go` : n >= 1024 ** 2 ? `${Math.round(n / 1024 ** 2)} Mo` : `${Math.max(1, Math.round(n / 1024))} Ko`);
   const duree = (s) => (!Number.isFinite(s) ? '…' : s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min` : s >= 60 ? `${Math.floor(s / 60)} min ${Math.round(s % 60)} s` : `${Math.max(1, Math.round(s))} s`);
   /** Envoie un fichier en morceaux de 8 Mo ; après une coupure, reprend là où Odin en est. `suivi` reçoit l'avancement. */
-  async function envoyerIso(file, suivi) {
+  async function envoyerIso(file, suivi, fin = (id) => post('importer_iso', { envoi: id, nom: file.name })) {
     const T = 8 * 1024 * 1024; let essais = 0, id = '', recu = 0, t0 = performance.now(), d0 = 0;
     const preparer = async () => { const p = await post('preparer_envoi_iso', { nom: file.name, taille: file.size }); if (!p.data?.envoi) throw new Error(p.text || 'envoi refusé'); id = p.data.envoi; recu = p.data.recu; t0 = performance.now(); d0 = recu; };
     await preparer(); if (recu > file.size) recu = 0;
@@ -593,7 +604,7 @@
       suivi({ recu, total: file.size, vitesse: v, reste: v > 0 ? (file.size - recu) / v : Infinity });
     }
     suivi({ recu: file.size, total: file.size, etape: 'antivirus' });
-    return post('importer_iso', { envoi: id, nom: file.name });
+    return fin(id);
   }
   /**
    * La barre de chargement, au centre de la zone : une bande qui file tant qu'on ne sait pas combien il reste, puis le
@@ -876,11 +887,11 @@
   const tailleGo = (o) => `${(o / 1024 ** 3).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Go`;
   const quandI = (t) => { const d = new Date(t); return `le ${d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`; };
   /** Le titre d'un instantané (Odin compose le même). */
-  const titreI = (x) => x.nom || (x.auto === 'maj' ? 'Avant la mise à jour' : x.auto === 'sauvegarde' ? `Avant la sauvegarde${x.detail ? ` « ${x.detail} »` : ''}` : x.auto === 'retour' ? `Avant de revenir à « ${x.detail ?? ''} »` : `Instantané du ${new Date(x.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`);
+  const titreI = (x) => x.nom || (x.auto === 'maj' ? 'Avant la mise à jour' : x.auto === 'sauvegarde' ? `Avant la sauvegarde${x.detail ? ` « ${x.detail} »` : ''}` : x.auto === 'retour' ? `Avant de revenir à « ${x.detail ?? ''} »` : x.auto === 'export' ? 'Pour l\'export' : `Instantané du ${new Date(x.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`);
   async function instantanesTab(root, D, redraw) {
     const vms = (D.machines ?? []).filter((m) => m.genre === 'vm' && !m.estModele);
-    const sec = el('section', { class: 'ym-w ym-inst', 'aria-labelledby': 'ymInstT' }, el('h3', { id: 'ymInstT' }, ic('camera', 16), 'Instantanés'),
-      el('p', { class: 'ym-lead', style: 'margin:0' }, 'Une photo de la machine à un moment : on peut y revenir. Odin en prend un tout seul avant chaque mise à jour et avant la sauvegarde de la nuit.'));
+    const lead = el('p', { class: 'ym-lead', style: 'margin:0' }, 'Une photo de la machine à un moment : on peut y revenir. Odin en prend un tout seul avant chaque mise à jour et avant la sauvegarde de la nuit.');
+    const sec = el('section', { class: 'ym-w ym-inst', 'aria-labelledby': 'ymInstT' }, el('h3', { id: 'ymInstT' }, ic('camera', 16), 'Instantanés'), lead);
     root.append(sec);
     if (D.windows) { sec.append(el('div', { class: 'ym-win' }, el('span', { class: 'gi' }, ic('win', 20)), el('p', { role: 'status' }, 'Sous Windows, les VM de ce PC ne tournent pas encore dans Hydre : leurs instantanés non plus. Ils viendront avec le moteur Windows d\'Hydre ; sous Linux, Hydre les prend dans le disque de la VM.'))); return; }
     if (!vms.length) { sec.append(el('p', { class: 'ym-empty' }, 'Aucune machine virtuelle sur ce PC : crée-en une (onglet Créer).')); return; }
@@ -933,12 +944,123 @@
     // Les automatiques : l'interrupteur de la maquette, avec ses mots (les instantanés pris tout seuls sont gardés 7 jours ;
     // il n'y a pas de choix « combien en garder »). Son message s'affiche juste sous lui, et le clavier y reste.
     const R = d.reglages, titreMaj = 'Avant chaque mise à jour du système';
+    // L'en-tête de la maquette ne dit plus « avant la sauvegarde » quand elle est coupée (par l'action « Réglages des
+    // instantanés ») ; l'état d'« avant chaque mise à jour », lui, est celui de l'interrupteur.
+    if (!R.avantSauvegarde) lead.textContent = 'Une photo de la machine à un moment : on peut y revenir. Odin en prend un tout seul avant chaque mise à jour.';
+    const sansSauvegarde = R.avantSauvegarde ? '' : el('p', { class: 'ym-note', 'data-f': 'sans-sauvegarde' }, ic('note', 14), el('span', {}, 'Avant la sauvegarde de la nuit : coupé par l\'action « Réglages des instantanés ». Aucun instantané n\'est pris avant elle.'));
     const statutR = el('p', { class: 'ym-out', role: 'status', style: 'margin:0' }, S.instMsgR ?? ''); S.instMsgR = '';
     const regler = async (input, el0, cible) => { el0.disabled = true; const x = await act('reglages_instantanes', input); el0.disabled = false; note(x); S.instMsgR = x.text; S.focus = cible; await redraw(); };
     sec.append(el('div', { class: 'ym-opt' }, el('span', { class: 'tx' }, el('b', {}, titreMaj), el('small', {}, 'un instantané tout seul, gardé 7 jours')),
         el('button', { class: 'ym-sw', type: 'button', role: 'switch', 'aria-checked': String(R.avantMaj), 'aria-label': titreMaj, 'data-f': 'avant-maj', onclick: (e) => regler({ avant_maj: !R.avantMaj }, e.currentTarget, '[data-f="avant-maj"]') })),
-      statutR,
+      sansSauvegarde, statutR,
       el('p', { class: 'ym-note' }, ic('note', 14), el('span', {}, 'Prendre, revenir, retirer et ce réglage sont notés dans « qui a fait quoi » ; les instantanés pris ou retirés tout seuls y sont notés « Odin seul ».')));
+  }
+
+  // ---------------- Cloner et exporter une VM de ce PC (lot M7) ----------------
+  const COPIES_WINDOWS = 'Sous Windows, les VM de ce PC ne tournent pas encore dans Hydre : les cloner et les exporter non plus. Ça viendra avec le moteur Windows d\'Hydre ; sous Linux, Hydre copie le disque de la VM.';
+  const NOM_SUR = /^[a-z0-9][a-z0-9-]{0,62}$/;
+  async function copiesTab(root, D, redraw) {
+    const vms = (D.machines ?? []).filter((m) => m.genre === 'vm');
+    const winBox = (t) => el('div', { class: 'ym-win' }, el('span', { class: 'gi' }, ic('win', 20)), el('p', { role: 'status' }, t));
+    const sec = el('section', { class: 'ym-w ym-cop', 'aria-labelledby': 'ymCopT' }, el('h3', { id: 'ymCopT' }, ic('copy', 16), 'Cloner'),
+      el('p', { class: 'ym-lead', style: 'margin:0' }, 'Une deuxième machine à partir de celle-ci : son propre nom, sa propre adresse.'));
+    root.append(sec);
+    if (D.windows) { sec.append(winBox(COPIES_WINDOWS)); return; }
+    if (!vms.length) { sec.append(el('p', { class: 'ym-empty' }, 'Aucune machine virtuelle sur ce PC : crée-en une (onglet Créer).')); }
+    const m = vms.find((x) => x.id === S.cop) ?? vms[0];
+    if (m && S.cop !== m.id) { S.cop = m.id; S.copT = null; S.copNom = null; S.copMsg = ''; S.copExp = null; }
+    const sec2 = el('section', { class: 'ym-w ym-cop', 'aria-labelledby': 'ymExpT' });
+    const importer = zoneImport(redraw);
+    if (!m) { root.append(sec2); sec2.append(el('h3', { id: 'ymExpT' }, ic('usb', 16), 'Importer'), importer); return; }
+    const mot = (x) => (x.estModele ? 'modèle' : ({ on: 'allumée', pause: 'en pause', erreur: 'en erreur' })[etatDe(x)] ?? 'éteinte');
+    sec.append(el('div', { class: 'ym-pick', role: 'group', 'aria-label': 'Machine' }, ...vms.map((x) => el('button', { type: 'button', 'aria-pressed': String(x.id === m.id), 'data-cop': x.id, onclick: () => { if (S.cop !== x.id) { S.cop = x.id; S.copT = null; S.copNom = null; S.copMsg = ''; S.copExp = null; S.focus = `[data-cop="${x.id}"]`; redraw(); } } }, el('span', { class: 'nom' }, x.nom), el('span', { class: 'st' }, ` · ${mot(x)}`)))));
+    const r = await post('copies_machine', { machine: m.id }), d = r.data ?? {};
+    if (r.ok === false || d.etat !== 'ok') { sec.append(d.etat === 'moteur' ? winBox(r.text) : el('p', { class: 'ym-errl', role: 'status' }, r.text)); return; }
+    const on = d.machine.etat === 'en marche' || d.machine.etat === 'en pause', win = d.machine.famille === 'Windows';
+    // --- Cloner : le nom (proposé libre, vérifié ici puis par Odin), la sorte, et la phrase de chacune.
+    let sorte = S.copT ?? (d.liee.possible ? 'liee' : 'complete'); if (sorte === 'liee' && !d.liee.possible) sorte = 'complete';
+    const pris = new Set((D.machines ?? []).map((x) => x.nom));
+    const statut = el('p', { class: 'ym-out', role: 'status', style: 'margin:0' }, S.copMsg ?? ''); S.copMsg = '';
+    const nomIn = el('input', { id: 'ymCln', value: S.copNom ?? d.nomPropose, autocomplete: 'off', spellcheck: 'false', 'aria-describedby': 'ymClnE', oninput: () => { S.copNom = nomIn.value; verifierNom(); } });
+    const nomErr = el('small', { id: 'ymClnE', class: 'ym-errl', 'aria-live': 'polite' });
+    const geste = async (bouton, action, input, cible) => {
+      bouton.disabled = true; statut.textContent = action === 'cloner_machine' ? 'Je copie la machine…' : 'Je range la machine comme modèle…';
+      const x = await act(action, input);
+      bouton.disabled = false; note(x); S.copMsg = x.text; if (x.ok !== false && action === 'cloner_machine') S.copNom = null; S.focus = cible; await redraw();
+    };
+    const cloner = el('button', { class: 'ym-btn pri', type: 'button', 'data-f': 'cloner', onclick: (e) => geste(e.currentTarget, 'cloner_machine', { machine: m.id, nom: nomIn.value.trim(), sorte }, '[data-f="cloner"]') }, ic('copy', 15), `Cloner ${m.nom}`);
+    const verifierNom = () => {
+      const v = nomIn.value.trim();
+      nomErr.textContent = !v ? 'Donne un nom à la copie.' : !NOM_SUR.test(v) ? 'Des lettres minuscules sans accent, des chiffres et des tirets (63 au plus).' : pris.has(v) ? `Le nom\u00a0«\u00a0${v}\u00a0» est déjà pris.` : '';
+      cloner.disabled = on || Boolean(nomErr.textContent);
+    };
+    verifierNom();
+    const seg = el('div', { class: 'ym-segc', role: 'radiogroup', 'aria-label': 'Sorte de copie' }, ...[['liee', 'Liée (rapide, petite)', d.liee.possible], ['complete', 'Complète (indépendante)', true]].map(([k, t, ok]) =>
+      el('button', { type: 'button', role: 'radio', 'aria-checked': String(sorte === k), 'data-clt': k, disabled: !ok, title: ok ? null : d.liee.raison, onclick: () => { S.copT = k; S.copNom = nomIn.value; S.focus = `[data-clt="${k}"]`; redraw(); } }, t)));
+    const phrase = sorte === 'liee' ? 'Liée : elle partage le disque de départ et n\'écrit que ses changements ; l\'original ne peut plus être supprimé tant qu\'elle existe.' : `Complète : un disque à elle (${d.machine.disque} Go).`;
+    sec.append(el('div', { class: 'two' }, el('div', {}, el('label', { for: 'ymCln' }, 'Nom de la copie'), nomIn, nomErr), el('div', {}, el('div', { class: 'h', id: 'ymCltT' }, 'Sorte de copie'), seg)),
+      el('p', { class: 'ym-note', style: 'margin:0' }, ic('note', 14), el('span', {}, `${phrase} Nouvelle adresse et nouvelle carte réseau données toutes seules ; dans son système, le nom d'ordinateur${win ? ' et l\'identité de Windows ne changent pas tout seuls' : ' ne change pas tout seul'}.`)),
+      d.liee.possible ? '' : el('p', { class: 'ym-note', style: 'margin:0', 'data-f': 'liee-non' }, ic('note', 14), el('span', {}, d.liee.raison)),
+      d.copiesLiees?.length ? el('p', { class: 'ym-note', style: 'margin:0' }, ic('link', 14), el('span', {}, `Copies liées à ce modèle : ${d.copiesLiees.join(', ')}. Il reste un modèle tant qu'elles existent.`)) : '',
+      on ? el('p', { class: 'ym-errl', style: 'margin:0' }, `${m.nom} est ${d.machine.etat === 'en pause' ? 'en pause' : 'allumée'} : une copie se fait machine éteinte. Arrête-la d'abord (onglet Machines).`) : '',
+      el('div', { class: 'ym-row' }, cloner, el('button', { class: 'ym-btn', type: 'button', 'data-f': 'modele', disabled: on || d.machine.estModele, onclick: (e) => geste(e.currentTarget, 'modele_machine', { machine: m.id, modele: true }, '[data-f="modele"]') }, ic('star', 15), d.machine.estModele ? 'C\'est déjà un modèle' : 'En faire un modèle')),
+      statut);
+    // --- Exporter : vers une clé ODIN (fermé tant que Genèse ne sait pas copier le disque d'une VM sur une vraie clé),
+    // dans un fichier .ody, vers un serveur (pas encore). Une option fermée n'est jamais choisie.
+    const cleOk = d.cle?.possible === true, ouvert = { cle: cleOk, fichier: true, serveur: Boolean(d.serveur?.possible) };
+    const dest = ouvert[S.copDest] ? S.copDest : cleOk ? 'cle' : 'fichier';
+    const choix = (k, t, p, i, ok = true, conseil = false) => el('button', { type: 'button', class: 'ym-choice', role: 'radio', 'aria-checked': String(dest === k), disabled: !ok, 'data-expd': k, onclick: () => { S.copDest = k; S.copExp = null; S.focus = `[data-expd="${k}"]`; redraw(); } },
+      conseil && ok ? el('span', { class: 'cs' }, 'Conseillé') : null, el('span', { class: 'tick', 'aria-hidden': 'true' }, ic('check', 14)), el('b', {}, ic(i, 16), t), el('span', { class: 'p' }, p));
+    const statutE = el('p', { class: 'ym-out', role: 'status', style: 'margin:0' });
+    const exporter = async (bouton) => {
+      bouton.disabled = true; statutE.textContent = on ? `Je prends un instantané de ${m.nom}, puis je copie son disque…` : `J'exporte ${m.nom}…`;
+      const x = await act('exporter_machine', { machine: m.id });
+      bouton.disabled = false; note(x);
+      S.copExp = x.ok === false ? { ko: x.text } : { texte: x.text, fichier: x.data?.fichier, verifie: x.data?.verifie === true };
+      S.focus = '[data-f="exporter"]'; await redraw();
+    };
+    const E = S.copExp;
+    sec2.append(el('h3', { id: 'ymExpT' }, ic('usb', 16), 'Exporter'),
+      el('p', { class: 'ym-lead', style: 'margin:0' }, 'La machine entière dans un fichier vérifié (empreinte), pour la garder, l\'emporter ou la démarrer ailleurs.'),
+      el('div', { class: 'ym-choices', role: 'radiogroup', 'aria-label': 'Vers' },
+        choix('cle', 'Vers une clé USB', `« Copie de VM » sur une clé ODIN : la clé démarre sur cette machine, sur n'importe quel PC.${cleOk ? '' : ` ${d.cle?.raison ?? ''}`}`, 'usb', cleOk, true),
+        choix('fichier', 'Dans un fichier .ody', 'À garder ou à importer sur un autre Odin.', 'file'),
+        choix('serveur', 'Vers un serveur du réseau', `Elle tourne là-bas ; ici, elle s'éteint. ${d.serveur.raison}`, 'server', d.serveur.possible)),
+      dest === 'fichier' && on ? el('div', { class: 'ym-guard calme' }, el('span', { class: 'gi' }, ic('camera', 22)), el('div', {}, el('b', {}, `${m.nom} reste allumée`), el('p', {}, 'Odin prend un instantané et exporte celui-là : la machine continue de tourner.'))) : '',
+      win ? el('p', { class: 'ym-note', style: 'margin:0', 'data-f': 'windows' }, ic('note', 14), el('span', {}, 'Une machine Windows emporte sa licence et ses comptes : garde la clé ou le fichier en lieu sûr.')) : '',
+      E?.texte ? el('div', { class: 'ym-guard calme', role: 'status' }, el('span', { class: 'gi' }, ic('check', 22)), el('div', {}, el('b', {}, E.fichier ? `${E.fichier.split(/[\\/]/).pop()} enregistré` : E.texte.split('\n')[0]), el('p', {}, E.verifie ? 'Empreinte vérifiée après la copie ✓' : E.texte), E.fichier ? el('p', { style: 'overflow-wrap:anywhere' }, `Dans ${E.fichier.slice(0, E.fichier.length - E.fichier.split(/[\\/]/).pop().length - 1)}`) : '')) : '',
+      E?.ko ? el('p', { class: 'ym-errl', role: 'status', style: 'margin:0' }, E.ko) : '',
+      statutE,
+      el('div', { class: 'foot' }, el('span', { class: 'grow' }, el('b', {}, m.nom), d.taille > 0 ? ` · environ ${octets(d.taille)} à copier` : ' · taille du disque illisible pour l\'instant', dest === 'fichier' ? el('br') : '', dest === 'fichier' ? `Vers ${d.dossier}` : ''),
+        dest === 'cle' ? el('a', { class: 'ym-btn', href: '#app=thjalfi', 'data-f': 'cle' }, ic('usb', 15), 'Choisir la clé (Genèse · Clés)', ic('ext', 14)) : '',
+        dest === 'fichier' ? el('button', { class: 'ym-btn pri', type: 'button', 'data-f': 'exporter', onclick: (e) => exporter(e.currentTarget) }, ic('down', 15), 'Exporter') : ''),
+      el('p', { class: 'ym-note', style: 'margin:0' }, ic('note', 14), el('span', {}, 'Cloner, faire un modèle, exporter et importer sont notés dans « qui a fait quoi ».')),
+      importer);
+    root.append(sec2);
+    insecables(root);
+  }
+  /** Les guillemets « » ne se séparent pas de leur mot (espaces insécables), dans tous les textes de l'onglet. */
+  function insecables(n) {
+    const w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT);
+    for (let t = w.nextNode(); t; t = w.nextNode()) if (/« | »/.test(t.nodeValue)) t.nodeValue = t.nodeValue.replace(/« /g, '«\u00a0').replace(/ »/g, '\u00a0»');
+  }
+  /** La zone d'import : un .ody déposé ou choisi, envoyé en morceaux (reprise après coupure), puis vérifié par Odin. */
+  function zoneImport(redraw) {
+    const out = el('p', { class: 'ym-out', role: 'status', style: 'margin:0' }, S.copImp ?? ''); S.copImp = '';
+    const lancer = async (files) => {
+      const f = [...files][0]; if (!f) return;
+      if (!/\.ody$/i.test(f.name)) { out.textContent = `${f.name} : seul un fichier .ody d'Odin s'importe ici. Un disque de machine virtuelle seul (qcow2, vmdk…) ne s'importe pas encore.`; return; }
+      out.textContent = `J'envoie ${f.name}…`;
+      let x;
+      try { x = await envoyerIso(f, (p) => { out.textContent = p.etape === 'antivirus' ? `Odin vérifie ${f.name} (contenu, empreinte), puis l'antivirus…` : p.attente ? 'Connexion coupée, nouvel essai…' : `J'envoie ${f.name} : ${p.total ? Math.floor((p.recu / p.total) * 100) : 0} %`; }, (id) => act('importer_machine', { envoi: id })); }
+      catch (e) { x = { ok: false, text: e?.message || 'Envoi interrompu.' }; }
+      note(x); S.copImp = x.text; S.focus = '[data-f="importer"]'; await redraw();
+    };
+    const choix = el('input', { type: 'file', accept: '.ody', hidden: true, 'data-f': 'importer-fichier', onchange: (e) => { void lancer(e.target.files); e.target.value = ''; } });
+    const drop = el('div', { class: 'ym-drop', role: 'button', tabindex: '0', 'data-f': 'importer', 'aria-label': 'Importer : déposer un fichier .ody ici, ou le choisir', onclick: () => choix.click(), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choix.click(); } },
+      ondragover: (e) => { e.preventDefault(); drop.classList.add('sur'); }, ondragleave: () => drop.classList.remove('sur'), ondrop: (e) => { e.preventDefault(); drop.classList.remove('sur'); void lancer(e.dataTransfer.files); } },
+      ic('file', 22), el('div', { style: 'margin-top:6px' }, 'Importer : dépose ici un fichier .ody, ou clique pour le choisir. Il passe par l\'antivirus avant tout.'));
+    return el('div', { style: 'display:flex;flex-direction:column;gap:6px' }, drop, choix, out);
   }
 
   window.OdinPages.ymir = async ({ host, generic }) => {
@@ -946,12 +1068,12 @@
     const root = el('div', { class: 'ym' }), body = el('div', { class: 'ym' }), gen = el('div', {}, ...(generic ?? [])), tabs = el('div', { class: 'ym-tabs', role: 'tablist' }), sub = el('p', {});
     root.append(el('div', { class: 'ym-top' }, el('div', {}, el('h2', {}, 'Toutes les machines'), sub), tabs), body, gen); host.append(root);
     const redraw = async () => {
-      tabs.replaceChildren(...[['machines', 'grid', 'Machines'], ['creer', 'plus', 'Créer'], ['ecran', 'screen', 'Écran'], ['instantanes', 'camera', 'Instantanés'], ['iso', 'down', 'ISO'], ['quarantaine', 'lock', 'Quarantaine'], ['serveurs', 'list', 'Serveurs']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, ic(i, 15), t)));
+      tabs.replaceChildren(...[['machines', 'grid', 'Machines'], ['creer', 'plus', 'Créer'], ['ecran', 'screen', 'Écran'], ['instantanes', 'camera', 'Instantanés'], ['copies', 'copy', 'Cloner et exporter'], ['iso', 'down', 'ISO'], ['quarantaine', 'lock', 'Quarantaine'], ['serveurs', 'list', 'Serveurs']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, ic(i, 15), t)));
       // Quitter l'onglet « Écran » ferme la vue (Odin ne garde rien de l'écran).
       if (S.tab !== 'ecran') arreterEcran();
       gen.hidden = S.tab !== 'serveurs'; body.hidden = S.tab === 'serveurs'; if (S.tab === 'serveurs') return;
       // Premier affichage d'un onglet : la barre de chargement au centre (pas pendant le rafraîchissement discret des machines).
-      if (S.montre !== S.tab || !body.childNodes.length) body.replaceChildren(el('div', { class: 'ym-w' }, charge(S.tab === 'iso' ? 'Je lis tes images…' : S.tab === 'ecran' ? 'Je prépare l\'écran…' : S.tab === 'instantanes' ? 'Je lis les instantanés…' : S.tab === 'creer' ? 'Je prépare la liste des systèmes et des images…' : S.tab === 'quarantaine' ? 'Je regarde les machines en quarantaine…' : 'Je lis tes machines…')));
+      if (S.montre !== S.tab || !body.childNodes.length) body.replaceChildren(el('div', { class: 'ym-w' }, charge(S.tab === 'iso' ? 'Je lis tes images…' : S.tab === 'ecran' ? 'Je prépare l\'écran…' : S.tab === 'instantanes' ? 'Je lis les instantanés…' : S.tab === 'copies' ? 'Je regarde la machine à copier…' : S.tab === 'creer' ? 'Je prépare la liste des systèmes et des images…' : S.tab === 'quarantaine' ? 'Je regarde les machines en quarantaine…' : 'Je lis tes machines…')));
       S.montre = S.tab;
       // Ce qui dépend de chaque machine (lecture au propriétaire seul : refusée, la page s'en passe).
       const tour = (S.tour = (S.tour ?? 0) + 1);
@@ -963,7 +1085,7 @@
       if (dp && dp.ok !== false && dp.data) D.deps = dp.data;
       if (cv) { if (cv.ok !== false && cv.data) D.cv = cv.data; else D.cvTexte = cv.text; }
       sub.textContent = `${all.filter((m) => m.genre === 'lxc').length} LXC et ${all.filter((m) => m.genre === 'vm').length} VM sur ce PC · rangées par système`;
-      if (S.tab === 'creer') creerTab(n, D, redraw); else if (S.tab === 'ecran') ecranTab(n, D, redraw); else if (S.tab === 'instantanes') await instantanesTab(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
+      if (S.tab === 'creer') creerTab(n, D, redraw); else if (S.tab === 'ecran') ecranTab(n, D, redraw); else if (S.tab === 'instantanes') await instantanesTab(n, D, redraw); else if (S.tab === 'copies') await copiesTab(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
       body.replaceChildren(...n.childNodes);
       // Le clavier garde sa place après un nouveau dessin (filtre choisi, garde-fou fermé).
       if (S.focus) { const f = body.querySelector(S.focus); S.focus = null; if (f) f.focus(); }

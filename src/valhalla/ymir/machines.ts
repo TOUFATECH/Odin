@@ -12,6 +12,7 @@ import { bibliothequeActions, synchroEspace } from './bibliotheque.ts';
 import { dependancesActions, quiEnDepend } from './dependances.ts';
 import { reprendreRetraits, retraitActions } from './retrait.ts';
 import { avecGardeFousVm, creationActions, finInstallations, graveVm, horsLinuxVm } from './creation.ts';
+import { copiesActions } from './copies.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const n = (v: unknown, d: number, lo: number, hi: number) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? Math.max(lo, Math.min(hi, Math.round(x))) : d; };
@@ -139,7 +140,6 @@ export function machinesActions(): Action[] {
       const nom = s(i.nom).trim().slice(0, 40); if (!nom) throw new Error('donne un nom'); const c = /^#[0-9a-f]{6}$/i.test(s(i.couleur)) ? s(i.couleur) : '#0b7f7c';
       ctx.saveSettings({ categories: [...categories(ctx).filter((x) => x.nom !== nom), { nom, couleur: c }] }); return { text: `Catégorie « ${nom} » ajoutée.` };
     } },
-    { id: 'cloner_machine', label: 'Cloner', what: 'La même machine, avec un autre nom et une autre adresse (machine éteinte)', params: [machineParam, { key: 'nom', label: 'Nom de la copie', kind: 'text', required: true }], run: async (ctx, i) => { const L = new Local(ctx), m = await L.cloner(L.find(i.machine), s(i.nom)); return { text: `📄 ${m.nom} : copie prête (${m.ip}), éteinte.`, data: m }; } },
     { id: 'disque_machine', label: 'Agrandir le disque', what: 'Donne plus de place au disque d\'une machine éteinte (jamais moins : ses fichiers seraient abîmés)', params: [machineParam, { key: 'disque', label: 'Nouvelle taille (Go)', kind: 'number', required: true }],
       grave: (i) => `agrandir le disque de la machine ${s(i.machine)} à ${s(i.disque)} Go`, run: async (ctx, i) => {
         const L = new Local(ctx), m = L.find(i.machine), go = Math.round(Number(i.disque));
@@ -162,12 +162,6 @@ export function machinesActions(): Action[] {
         const L = new Local(ctx), m = L.find(i.machine), n = await L.taper(m, s(i.texte), s(i.touche) || undefined);
         return { text: `⌨ ${n} touche(s) envoyée(s) à ${m.nom}.`, data: { touches: n } };
       } },
-    { id: 'modele_machine', label: 'Faire un modèle', what: 'Range une machine éteinte comme modèle (elle ne démarre plus) : on crée ensuite des machines depuis elle, déjà prêtes', params: [machineParam, { key: 'modele', label: 'Modèle', kind: 'boolean', default: true }], run: async (ctx, i) => {
-      const L = new Local(ctx), m = L.find(i.machine), on = i.modele !== false && i.modele !== 'false';
-      if (on && allumee(await L.etat(m))) throw new Error(`arrête d'abord ${m.nom} : un modèle se fait machine éteinte`);
-      if (on) { m.estModele = true; m.arretVoulu = true; } else delete m.estModele; L.update(m);
-      return { text: on ? `📐 ${m.nom} est un modèle : « Créer depuis un modèle » en fait des copies prêtes.` : `${m.nom} redevient une machine normale.` };
-    } },
     { id: 'creer_depuis_modele', label: 'Créer depuis un modèle', what: 'Une nouvelle machine copiée d\'un modèle (ou d\'une machine éteinte) : son nom, ses ressources, son adresse fixe, ses applis d\'Odin', external: true,
       params: [{ key: 'modele', label: 'Modèle (nom de la machine)', kind: 'text', required: true }, { key: 'nom', label: 'Nom de la nouvelle machine', kind: 'text', required: true }, { key: 'coeurs', label: 'Cœurs (vide : comme le modèle)', kind: 'number', default: '' }, { key: 'memoire', label: 'Mémoire en Go (vide : comme le modèle)', kind: 'number', default: '' }, { key: 'disque', label: 'Disque en Go (vide : comme le modèle)', kind: 'number', default: '' },
         { key: 'ip', label: 'Adresse IP (vide : la première libre)', kind: 'text', default: '' }, { key: 'categorie', label: 'Catégorie', kind: 'text', default: '' }, { key: 'apps', label: 'Applis d\'Odin (vide : comme le modèle)', kind: 'text', default: '' }, { key: 'demarrer', label: 'Démarrer tout de suite', kind: 'boolean', default: true }],
@@ -192,17 +186,8 @@ export function machinesActions(): Action[] {
     ...retraitActions(),
     ...creationActions(),
     ...dependancesActions(),
-    { id: 'exporter_machine', label: 'Exporter en .ody', what: 'Toute la machine dans un seul fichier vérifié (empreinte), par exemple vers ton NAS', params: [machineParam, { key: 'dossier', label: 'Dossier de destination', kind: 'text', default: '' }], run: async (ctx, i) => {
-      const L = new Local(ctx), m = L.find(i.machine), d = s(i.dossier).trim() || s(ctx.settings.dossierOdy) || join(ctx.home, 'Machines');
-      const r = await L.exporter(m, d); return { text: `📦 ${r.fichier} (${(r.taille / 1024 ** 3).toFixed(2).replace('.', ',')} Go) · empreinte ${r.sha256.slice(0, 16)}…`, data: r };
-    } },
-    { id: 'importer_machine', label: 'Importer un .ody', what: 'Odin vérifie le fichier (contenu, empreinte, antivirus) puis crée la machine, éteinte', params: [{ key: 'fichier', label: 'Fichier .ody', kind: 'text', required: true }, { key: 'nom', label: 'Nom (vide : celui du fichier)', kind: 'text', default: '' }], run: async (ctx, i) => {
-      const L = new Local(ctx), f = s(i.fichier).trim(); if (!f.endsWith('.ody') || !existsSync(f)) throw new Error('fichier .ody introuvable');
-      const o = await L.ouvrirOdy(f);
-      const v = await ctx.call('ullr', 'fichier', { chemin: o.payload }, `vérifier la machine importée ${o.man.nom}`).catch(() => undefined), lvl = (v?.data as { level?: string } | undefined)?.level;
-      if (lvl && ['moyenne', 'haute', 'critique'].includes(lvl)) { const { rmSync } = await import('node:fs'); rmSync(o.tmp, { recursive: true, force: true }); throw new Error(`l'antivirus juge ce .ody ${lvl} : import refusé`); }
-      const m = await L.importer(o, s(i.nom)); return { text: `📥 ${m.nom} importée (${m.genre === 'lxc' ? 'LXC' : 'VM'} ${m.systeme} ${m.version}) · ${m.ip} · empreinte vérifiée${v ? ', antivirus : rien trouvé' : ''}. Elle est éteinte : démarre-la quand tu veux.`, data: m };
-    } },
+    // Cloner (complète ou liée), faire un modèle, exporter en .ody, importer : copies.ts (lot M7).
+    ...copiesActions(),
     { id: 'reseau_machines', label: 'Réseau des machines', what: 'Le pont réseau où se branchent les machines et la plage d\'adresses', params: [{ key: 'pont', label: 'Pont (ex. br0 pour le réseau de la maison, lxcbr0 pour un réseau à part)', kind: 'text', default: 'lxcbr0' }, { key: 'reseau', label: 'Réseau (ex. 192.168.1.0/24)', kind: 'text', default: '10.0.3.0/24' }, { key: 'passerelle', label: 'Passerelle', kind: 'text', default: '10.0.3.1' }, { key: 'dns', label: 'DNS (Sphinx)', kind: 'text', default: '' }, { key: 'debut', label: 'Première adresse', kind: 'number', default: 60 }], run: (ctx, i) => {
       const m = /^(\d{1,3}\.\d{1,3}\.\d{1,3})\.0\/(\d{1,2})$/.exec(s(i.reseau).trim()); if (!m || m[2] !== '24') throw new Error('réseau attendu en /24, ex. 192.168.1.0/24');
       const pont = s(i.pont).trim(); if (!/^[\w.-]{1,15}$/.test(pont)) throw new Error('nom de pont invalide');

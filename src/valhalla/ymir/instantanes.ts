@@ -50,7 +50,7 @@ export const systemeInstantanes = {
 };
 
 /** Sorte d'instantané automatique. */
-export type Auto = 'maj' | 'sauvegarde' | 'retour';
+export type Auto = 'maj' | 'sauvegarde' | 'retour' | 'export';
 /** Ce qu'Odin garde de chaque instantané qu'il a pris (le reste est lu dans le disque). */
 interface Fiche { tag: string; nom?: string; auto?: Auto; detail?: string; at: number }
 /** Un instantané tel que la page le montre. */
@@ -204,6 +204,7 @@ export function titreInstantane(x: Pick<Instantane, 'nom' | 'auto' | 'detail' | 
   if (x.auto === 'maj') return 'Avant la mise à jour';
   if (x.auto === 'sauvegarde') return `Avant la sauvegarde${x.detail ? ` « ${x.detail} »` : ''}`;
   if (x.auto === 'retour') return `Avant de revenir à « ${x.detail ?? ''} »`;
+  if (x.auto === 'export') return 'Pour l\'export';
   return x.at ? `Instantané du ${quand(x.at)}` : x.tag;
 }
 /** L'instantané demandé (son nom dans le disque, ou le nom qu'on lui a donné, exact). */
@@ -246,6 +247,25 @@ export async function instantaneAuto(ctx: ModCtx, m: Machine, auto: 'maj' | 'sau
     const texte = `📷 ${m.nom} : instantané pris (${titreInstantane(x).toLowerCase()})`;
     noterSeul(ctx, action, m.nom, true, texte); return { ok: true, texte };
   } catch (e) { const raison = (e as Error).message, texte = `${m.nom} : instantané automatique impossible (${raison})`; noterSeul(ctx, action, m.nom, false, texte); return { ok: false, texte, raison }; }
+}
+/**
+ * Pour exporter une VM allumée ou en pause (lot M7) : un instantané pris tout seul (mémoire comprise, dans le budget
+ * d'Hydre), dont le disque est copié pendant que la machine continue de tourner ; `fini` le retire une fois la copie
+ * faite (rend la raison s'il n'a pas pu l'être : il reste alors dans la liste, « Pour l'export »). Noté « Odin seul ».
+ */
+export async function instantanePourExport(ctx: ModCtx, L: Local, m: Machine): Promise<{ tag: string; fini: () => Promise<string | undefined> }> {
+  const h = horsInstantanes(m); if (h) throw new Error(h.texte);
+  let x: Instantane;
+  try { x = await seul(m, () => prendre(ctx, L, m, { auto: 'export' })); }
+  catch (e) { noterSeul(ctx, 'Instantané pour l\'export', m.nom, false, (e as Error).message); throw e; }
+  noterSeul(ctx, 'Instantané pour l\'export', m.nom, true, `📷 ${m.nom} : instantané pris pour l'export, la machine continue de tourner`);
+  return {
+    tag: x.tag,
+    fini: async () => {
+      try { await seul(m, () => retirer(ctx, L, m, x.tag)); noterSeul(ctx, 'Retirer l\'instantané d\'export', m.nom, true, `🗑 ${m.nom} : instantané d'export retiré`); return undefined; }
+      catch (e) { const r = (e as Error).message; noterSeul(ctx, 'Retirer l\'instantané d\'export', m.nom, false, r); return r; }
+    },
+  };
 }
 /** Avant une mise à jour faite par Odin dans une VM de ce PC. */
 export const avantMiseAJour = (ctx: ModCtx, m: Machine, detail?: string) => instantaneAuto(ctx, m, 'maj', detail);
