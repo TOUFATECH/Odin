@@ -15,6 +15,7 @@ import { dossierArrivees } from '../ymir/isos.ts';
 import { logicielsHermes, retards, surveillerIsos } from '../ymir/bibliotheque.ts';
 import { Local } from '../ymir/local.ts';
 import { enPauseDistante, nettoyerPauses, pauseActions } from '../ymir/pause.ts';
+import { ecranActions } from '../ymir/ecran.ts';
 import { reprendreRetraits } from '../ymir/retrait.ts';
 import { tacheVerification } from '../forge/bibliotheque.ts';
 import { join } from 'node:path';
@@ -149,6 +150,7 @@ export const ymir: Module = {
     { id: 'revenir', label: 'Revenir à un instantané', what: 'Remet la machine dans l\'état de l\'instantané', params: [{ key: 'vmid', label: 'Numéro', kind: 'number', required: true }, { key: 'nom', label: 'Instantané', kind: 'text', required: true }], grave: (i) => `remettre la machine ${s(i.vmid)} à l'instantané ${s(i.nom)} (les changements depuis sont perdus)`, run: async (ctx, i) => ({ text: await act(ctx, Number(i.vmid), 'rollback', { snapname: s(i.nom) }) }) },
     ...machinesActions(),
     ...pauseActions(distant),
+    ...ecranActions(),
     { id: 'serveur', label: 'Ajouter un serveur', what: 'Relier un serveur de virtualisation (jeton d\'API dans le coffre)', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'adresse', label: 'Adresse (https://…:8006)', kind: 'text', required: true }], run: (ctx, i) => { const list = ((ctx.settings.servers as PveServer[]) ?? []).filter((x) => x.name !== s(i.nom)); ctx.saveSettings({ servers: [...list, { name: s(i.nom), url: s(i.adresse).trim() }] }); return { text: `🔗 Serveur ${s(i.nom)} ajouté. Range son jeton d'API dans le coffre (${list.length ? `PROXMOX_TOKEN_${s(i.nom).toUpperCase().replace(/[^A-Z0-9]/g, '_')}` : 'PROXMOX_TOKEN'}).` }; } },
   ],
   // Les ISO envoyées depuis le navigateur arrivent dans l'espace ISO (dossier caché des arrivées), puis passent par l'antivirus.

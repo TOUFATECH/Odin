@@ -12,6 +12,11 @@
 // Lot M4 (même maquette, écrans 12 à 12e) : « Créer une VM » en quatre étapes (système prêt de la bibliothèque, machine
 // et budget de ce PC, réseau et options, vérifier et créer), puis le compte rendu commun (où, comment entrer, fait et
 // essayé, reste) ; le compte rendu aussi dans la fiche de chaque machine. Odin revérifie tout (la page ne décide rien).
+// Lot M5 (même maquette, écrans 13 et 13b) : l'onglet « Écran » d'une VM de ce PC : l'image rafraîchie en continu (5 par
+// seconde au plus, bien moins en pause, éteinte ou onglet caché), le clavier (touches physiques : la disposition est celle
+// de la VM ; Ctrl+Alt rend le clavier à la page), « Ctrl+Alt+Suppr », la souris (position et clic), le plein écran, et au
+// téléphone une barre de touches (Échap, Tab, Ctrl, Alt, flèches, Entrée, F1 à F12) et son clavier. Quitter l'onglet
+// ferme la vue : Odin ne garde rien de l'écran. Éteinte, sous Windows : un état qui le dit, jamais une image.
 (() => {
   'use strict';
   window.OdinPages = window.OdinPages || {};
@@ -33,7 +38,7 @@
     shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4', check: 'M5 12l5 5L20 7', grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', list: 'M4 6h16M4 12h16M4 18h16',
     alert: 'M12 3 2 20h20zM12 10v4M12 17h.01', mail: 'M3 5h18v14H3zM3 6l9 7 9-7', unlock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 7.5-2',
     left: 'M15 6l-6 6 6 6', right: 'M9 6l6 6-6 6', note: 'M6 3h9l4 4v14H6zM9 11h7M9 15h7M9 7h4',
-    link: 'M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1', refresh: 'M20 11a8 8 0 1 0-2 6M20 4v7h-7', win: 'M3 5l8-1v7H3zM13 4l8-1v8h-8zM3 13h8v7l-8-1zM13 13h8v8l-8-1z',
+    link: 'M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1', refresh: 'M20 11a8 8 0 1 0-2 6M20 4v7h-7', full: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5', keyb: 'M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10', power: 'M12 3v9M6.4 6.6a8 8 0 1 0 11.2 0', win: 'M3 5l8-1v7H3zM13 4l8-1v8h-8zM3 13h8v7l-8-1zM13 13h8v8l-8-1z',
   };
   const ic = (n, s = 16) => { const v = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); v.setAttribute('viewBox', '0 0 24 24'); v.setAttribute('width', s); v.setAttribute('height', s); v.setAttribute('aria-hidden', 'true'); v.innerHTML = `<path d="${P[n]}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`; return v; };
   const CSS = `
@@ -132,6 +137,21 @@
 .ym-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:16px;padding:8px 10px;background:color-mix(in srgb,var(--panel) 92%,transparent)}.ym-foot .grow{flex:1;min-width:160px;font-size:13px;color:var(--muted);overflow-wrap:anywhere}.ym-foot .ym-btn,.ym-cv .ym-btn,.ym-cv .ym-apps label{min-height:44px}.ym-btn.big{min-height:48px;padding:0 20px;font-size:14px}
 .ym-hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;margin-bottom:12px}.ym-hero .gi{width:52px;height:52px;border-radius:50%;background:var(--yok);color:#fff;display:grid;place-items:center}.ym-hero h3{margin:0;font-size:19px;justify-content:center;overflow-wrap:anywhere}.ym-hero h3:focus{outline:none}.ym-hero p{margin:0;color:var(--muted);font-size:13.5px;max-width:560px}
 .ym-w h3 .ym-btn.r{margin-left:auto;min-height:44px}
+.ym-ecr{display:flex;flex-direction:column;gap:10px;min-width:0}.ym-ecr h3{margin-bottom:0}
+.ym-pick{display:flex;gap:8px;flex-wrap:wrap}.ym-pick button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 85%,transparent);color:var(--ink);font:600 13.5px inherit;cursor:pointer;max-width:100%;min-width:0;white-space:nowrap;display:inline-flex;align-items:center}.ym-pick .nom{overflow:hidden;text-overflow:ellipsis;min-width:0}.ym-pick .st{flex:none;white-space:pre}.ym-pick button[aria-pressed=true]{background:color-mix(in srgb,var(--ya) 16%,var(--panel));border-color:var(--ya)}
+.ym-mon{background:#0b0f1c;border-radius:18px;padding:10px;min-width:0}
+.ym-plein{display:flex;flex-direction:column;gap:10px;min-width:0}.ym-plein:fullscreen{background:#0b0f1c;padding:10px;overflow:auto}.ym-plein:fullscreen .ym-mon{flex:1;min-height:0;display:grid;place-items:center;padding:0;background:#000}.ym-plein:fullscreen .ym-scr{width:100%;height:100%;min-height:0}.ym-plein:fullscreen .ym-tool .grow{color:#cbd5e1}
+.ym-scr{position:relative;min-height:220px;border-radius:10px;overflow:hidden;background:#111827;color:#e5e7eb;outline:none;display:grid;place-items:center;touch-action:none;-webkit-user-select:none;user-select:none}.ym-scr:focus-visible{box-shadow:0 0 0 3px var(--ya)}
+/* L'image garde son format (--ar, donné avec l'image) et laisse la barre dans l'écran ; en plein écran, elle le remplit. */
+.ym-scr img{display:block;width:min(100%,calc((100vh - 160px) * var(--ar,1.6)));height:auto;margin:0 auto;cursor:crosshair}.ym-plein:fullscreen .ym-scr img{width:min(100%,calc((100vh - 96px) * var(--ar,1.6)))}@media (max-width:700px),(pointer:coarse){.ym-plein:fullscreen .ym-scr img{width:min(100%,calc((100vh - 300px) * var(--ar,1.6)))}}
+.ym-scr .etat{text-align:center;padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;font-size:14px;max-width:560px;overflow-wrap:anywhere}.ym-scr .etat p{margin:0}.ym-scr .etat .ym-btn{min-height:44px;padding:0 16px}
+.ym-scr .voile{position:absolute;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;font-weight:700;color:#fff;font-size:15px;pointer-events:none}
+.ym-scr .grab{position:absolute;right:8px;top:8px;max-width:calc(100% - 16px);font-size:12px;padding:4px 10px;border-radius:8px;background:rgba(0,0,0,.72);color:#fff;pointer-events:none}
+.ym-scr [hidden]{display:none!important}
+.ym-slot{display:contents}.ym-tool{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.ym-tool .ym-btn{min-height:44px;padding:0 12px}.ym-tool .grow{flex:1;min-width:180px;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.ym-vkeys{display:none;gap:6px;flex-wrap:wrap}.ym-vkeys button{min-width:44px;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 12px ui-monospace,Consolas,monospace;padding:0 10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.ym-vkeys button[data-k^=Arrow]{font-size:18px}.ym-vkeys button[aria-pressed=true]{background:var(--ya);color:#fff;border-color:transparent}
+@media (max-width:700px),(pointer:coarse){.ym-vkeys{display:flex}}
+.ym-vin{position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;font-size:16px;pointer-events:none}
 .ym-nav{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}.ym-nav button{display:flex;gap:8px;align-items:center;min-height:36px;padding:0 10px;border:0;border-radius:9px;background:none;color:var(--ink);font:inherit;font-size:13.5px;text-align:left;cursor:pointer}.ym-nav button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}.ym-nav button span{margin-left:auto;color:var(--muted);font-size:12px}
 `;
   // etat : le filtre par état (lot M3) ; garde : la suppression ouverte (machine, nom écrit, choix du disque, refus).
@@ -171,7 +191,7 @@
       el('div', { class: 'ym-g' }, el('div', {}, ring(run ? m.etat.cpuPct ?? 0 : 0, 'Processeur'), el('span', {}, 'CPU', el('br'), `${m.cpu} cœur${m.cpu > 1 ? 's' : ''}`)), el('div', {}, ring(run && m.etat.ramMo ? Math.round((m.etat.ramMo / m.ram) * 100) : 0, 'Mémoire'), el('span', {}, 'RAM', el('br'), m.ram >= 1024 ? `${m.ram / 1024} Go` : `${m.ram} Mo`))),
       el('div', { class: 'ym-row' }, ...(m.apps ?? []).slice(0, 3).map((a) => el('span', { class: 'ym-chip' }, (D.apps ?? []).find((x) => x.id === a)?.nom ?? a)), q ? el('span', { class: 'ym-chip bad' }, 'en quarantaine') : null, cat ? el('span', { class: 'ym-chip', style: `margin-left:auto;background:${cat.couleur}22;color:${cat.couleur}` }, cat.nom) : null),
       q ? el('button', { class: 'ym-btn bad', type: 'button', onclick: (e) => { e.stopPropagation(); S.tab = 'quarantaine'; S.sel = m.id; redraw(); } }, ic('lock', 14), 'Voir la quarantaine')
-        : el('div', { class: 'ym-row ym-act' }, fige ? btn('play', 'Reprendre', () => act('reprendre_machine', { machine: m.id }), 'pri') : null, run && m.genre === 'vm' ? btn('pause', 'Mettre en pause', () => act('pause_machine', { machine: m.id })) : null, run || fige ? btn('stop', 'Arrêter', () => act('arreter_machine', { machine: m.id })) : btn('play', 'Démarrer', () => act('demarrer_machine', { machine: m.id }), 'pri'), btn('lock', 'Mettre en quarantaine', () => act('isoler_machine', { machine: m.id, raison: 'à ta demande' })), supprimer));
+        : el('div', { class: 'ym-row ym-act' }, (run || fige) && m.genre === 'vm' ? el('button', { class: `ym-btn${run ? ' pri' : ''}`, type: 'button', 'data-ecr': m.id, 'aria-label': `Écran de ${m.nom}`, onclick: (e) => { e.stopPropagation(); S.tab = 'ecran'; S.ecran = m.id; redraw(); } }, ic('screen', 15), 'Écran') : null, fige ? btn('play', 'Reprendre', () => act('reprendre_machine', { machine: m.id }), 'pri') : null, run && m.genre === 'vm' ? btn('pause', 'Mettre en pause', () => act('pause_machine', { machine: m.id })) : null, run || fige ? btn('stop', 'Arrêter', () => act('arreter_machine', { machine: m.id })) : btn('play', 'Démarrer', () => act('demarrer_machine', { machine: m.id }), 'pri'), btn('lock', 'Mettre en quarantaine', () => act('isoler_machine', { machine: m.id, raison: 'à ta demande' })), supprimer));
     if (run) void preview(m, pv);
     return c;
   }
@@ -678,15 +698,175 @@
         ...(Q.journal ?? []).map((j) => el('div', { class: 'ym-j' }, el('span', { class: 'ok' }, ic('check', 15)), el('span', { class: 'tx' }, j.quoi, j.detail ? el('small', {}, ` · ${j.detail}`) : null), j.annuler ? el('button', { class: 'ym-btn', type: 'button', onclick: async (e) => { const b = e.currentTarget; b.disabled = true; const x = j.annuler.module ? await (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: j.annuler.module, action: j.annuler.action, input: j.annuler.input }) })).json() : await act(j.annuler.action, j.annuler.input); b.disabled = false; note(x); redraw(); } }, j.annuler.label) : null)))));
   }
 
+  // ---------------- Écran d'une VM dans le navigateur (lot M5) ----------------
+  // Une « vue » ouverte chez Odin (son jeton n'est connu que de cette page) ; une image demandée à la fois, au rythme
+  // donné par Odin ; touches et souris envoyées dans l'ordre. Rien n'est gardé : l'image n'est que dans la balise <img>.
+  const TOUCHES_TEL = [['Escape', 'Échap', 'Échap'], ['Tab', 'Tab', 'Tabulation'], ['ctrl', 'Ctrl', 'Ctrl (pour la touche suivante)'], ['alt', 'Alt', 'Alt (pour la touche suivante)'], ['ArrowUp', '↑', 'Flèche haut'], ['ArrowDown', '↓', 'Flèche bas'], ['ArrowLeft', '←', 'Flèche gauche'], ['ArrowRight', '→', 'Flèche droite'], ['Enter', 'Entrée', 'Entrée'], ['Backspace', '⌫', 'Effacer'],
+    ...Array.from({ length: 12 }, (_, k) => [`F${k + 1}`, `F${k + 1}`, `F${k + 1}`])];
+  const MODIFS = new Set(['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'ShiftLeft', 'ShiftRight', 'MetaLeft', 'MetaRight']);
+  /** Ferme une vue chez Odin, même quand la page se ferme (keepalive). */
+  const fermerVue = (machine, vue) => { try { void fetch('/api/valhalla/act', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'ymir', action: 'ecran_fermer', input: { machine, vue } }) }).catch(() => {}); } catch { /* page déjà partie */ } };
+  function arreterEcran() {
+    const E = S.ecr; if (!E) return;
+    S.ecr = null; E.fini = true; clearTimeout(E.timer);
+    if (E.vue) fermerVue(E.id, E.vue);
+    if (E.els?.img) { E.els.img.removeAttribute('src'); E.els.img.hidden = true; }
+  }
+  // Au chargement de la page : l'onglet caché ou revenu, la page qui part, le plein écran.
+  {
+    document.addEventListener('visibilitychange', () => { const E = S.ecr; if (E && !document.hidden && !E.fini && !E.ailleurs) { clearTimeout(E.timer); E.timer = setTimeout(() => tourEcran(E, E.gen), 0); } });
+    window.addEventListener('pagehide', () => arreterEcran());
+    document.addEventListener('fullscreenchange', () => { const b = S.ecr?.els?.plein; if (!b) return; const on = Boolean(document.fullscreenElement); b.setAttribute('aria-pressed', String(on)); b.lastChild.textContent = on ? 'Quitter le plein écran' : 'Plein écran'; });
+  }
+  /** Relance tout de suite le tour de l'image (après « Ouvrir ici », Pause ou Reprendre). */
+  const relancer = (E) => { if (!E || E.fini || S.ecr !== E) return; clearTimeout(E.timer); const g = E.gen; E.timer = setTimeout(() => tourEcran(E, g), 0); };
+  /** Ce que montre l'écran : l'image (allumée, en pause), sinon un état qui dit pourquoi (jamais une vieille image). */
+  function montrer(E, etat, texte) {
+    const { img, etat: box, voile, statut } = E.els, vivant = etat === 'en marche' || etat === 'en pause';
+    if (!vivant) { img.removeAttribute('src'); E.image = false; }
+    img.hidden = !(vivant && E.image); voile.hidden = etat !== 'en pause'; box.hidden = vivant && E.image;
+    const cle = `${etat}|${texte ?? ''}|${E.image}`;
+    if (!box.hidden && cle !== E.montre) {
+      box.replaceChildren(...(etat === 'éteinte' ? [ic('power', 34), el('p', {}, `${E.nom} est éteinte`), el('button', { class: 'ym-btn pri', type: 'button', onclick: async (e) => { const b = e.currentTarget; b.disabled = true; const x = await act('demarrer_machine', { machine: E.id }); b.disabled = false; note(x); if (x.ok !== false) await E.els.redraw(); } }, ic('play', 15), 'Démarrer')]
+        // Un autre écran a pris la place de celui-ci : la page ne le reprend pas d'elle-même (sinon plusieurs pages se le
+        // prendraient en boucle) ; un clic le rouvre ici.
+        : etat === 'ailleurs' ? [ic('screen', 30), el('p', {}, texte), el('button', { class: 'ym-btn pri', type: 'button', 'data-f': 'ici', onclick: () => { E.ailleurs = false; E.montre = ''; box.replaceChildren(el('p', {}, 'J\'ouvre l\'écran…')); relancer(E); } }, ic('screen', 15), 'Ouvrir ici')]
+          : vivant ? [el('p', {}, 'J\'attends la première image…')]
+            : [ic(etat === 'moteur' ? 'win' : 'alert', 30), el('p', {}, texte || 'L\'écran ne se lit pas pour l\'instant.')]));
+    }
+    E.montre = cle;
+    const st = etat === 'en marche' ? 'Image en direct · 5 images par seconde au plus · le son ne passe pas' : etat === 'en pause' ? 'En pause : l\'image est figée.' : '';
+    if (statut.textContent !== st) statut.textContent = st; // réécrite seulement si elle change (lecteurs d'écran)
+    // L'état a changé ailleurs (parole, autre onglet) : la barre et le choix suivent sur place, le clavier reste à la VM.
+    if ((vivant || etat === 'éteinte') && etat !== E.barre) { E.barre = etat; E.els.barre(etat); }
+  }
+  async function tourEcran(E, g) {
+    if (E.fini || S.ecr !== E || E.gen !== g) return;
+    if (!E.els.scr.isConnected) { arreterEcran(); return; }
+    let attente = E.rythme.pause;
+    if (!E.vue) {
+      const r = await post('ecran_ouvrir', { machine: E.id }), v = r.data?.vue;
+      if (E.fini || S.ecr !== E) { if (v) fermerVue(E.id, v); return; }
+      if (E.gen !== g) { if (v && !E.vue) E.vue = v; else if (v) fermerVue(E.id, v); return; }
+      if (r.ok === false || !v) { montrer(E, r.data?.etat ?? 'refus', r.text); E.timer = setTimeout(() => tourEcran(E, g), E.rythme.cachee); return; }
+      E.vue = v; if (r.data.rythme) E.rythme = r.data.rythme;
+    }
+    const r = await post('ecran_image', { machine: E.id, vue: E.vue, tout: !E.image }), d = r.data ?? {};
+    if (E.fini || S.ecr !== E || E.gen !== g) return;
+    // Retirée par un autre écran : plus de tour (« Ouvrir ici » le relance). Fermée (Odin redémarré, oubliée) : rouverte, sans hâte.
+    if (d.etat === 'ailleurs') { E.vue = null; E.ailleurs = true; montrer(E, 'ailleurs', r.text); return; }
+    if (d.etat === 'fermee') { E.vue = null; attente = E.rythme.pause; }
+    else if (d.attendre) attente = d.attendre;
+    else if (r.ok === false) montrer(E, d.etat ?? 'illisible', r.text);
+    else { if (d.png) { E.els.img.src = `data:image/png;base64,${d.png}`; E.image = true; if (d.largeur > 0 && d.hauteur > 0) E.els.img.style.setProperty('--ar', String(d.largeur / d.hauteur)); } montrer(E, d.etat, r.text); attente = d.etat === 'en marche' ? E.rythme.visible : E.rythme.pause; }
+    if (document.hidden) attente = Math.max(attente, E.rythme.cachee);
+    E.timer = setTimeout(() => tourEcran(E, g), attente);
+  }
+  /** Touches, souris : dans l'ordre, une demande à la fois. */
+  const envoyer = (E, action, input) => { E.file = E.file.then(async () => { if (!E.vue || E.fini) return; const x = await post(action, { machine: E.id, vue: E.vue, ...input }); if (x.ok === false && E.els) E.els.statut.textContent = x.text; }); return E.file; };
+  function brancherEcran(E) {
+    const { scr, img, grab, vin } = E.els;
+    const prendre = () => { E.grab = true; grab.hidden = false; };
+    const rendre = () => { E.grab = false; grab.hidden = true; };
+    const pos = (e) => { const r = img.getBoundingClientRect(); if (img.hidden || !r.width || !r.height) return null; const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; return x < 0 || y < 0 || x > 1 || y > 1 ? null : { x: Math.round(x * 10000) / 10000, y: Math.round(y * 10000) / 10000 }; };
+    scr.addEventListener('pointerdown', (e) => {
+      if (e.target === vin || e.target.closest('button')) return;
+      e.preventDefault();
+      // Le premier clic donne le clavier à la VM, sans rien cliquer dedans.
+      if (!E.grab || (document.activeElement !== scr && document.activeElement !== vin)) { scr.focus({ preventScroll: true }); prendre(); return; }
+      const p = pos(e); if (!p) return;
+      void envoyer(E, 'ecran_souris', { ...p, bouton: ['gauche', 'milieu', 'droit'][e.button] ?? 'gauche' });
+    });
+    // Une souris qui bouge ne fait pas la queue : une position à la fois, dix par seconde au plus.
+    scr.addEventListener('pointermove', (e) => {
+      if (!E.grab || E.bouge) return; const t = performance.now(); if (t - E.dernierMvt < 100) return;
+      const p = pos(e); if (!p) return; E.dernierMvt = t; E.bouge = true;
+      void envoyer(E, 'ecran_souris', { ...p, bouton: '' }).finally(() => { E.bouge = false; });
+    });
+    scr.addEventListener('contextmenu', (e) => { if (E.grab) e.preventDefault(); });
+    scr.addEventListener('focusout', (e) => { if (!scr.contains(e.relatedTarget)) rendre(); });
+    scr.addEventListener('keydown', (e) => {
+      if (e.target === vin) return;
+      if (!E.grab) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); prendre(); } return; }
+      const altgr = e.getModifierState?.('AltGraph');
+      // Ctrl+Alt ensemble (pas AltGr) : le clavier revient à la page.
+      if (!altgr && ((e.code.startsWith('Control') && e.altKey) || (e.code.startsWith('Alt') && e.ctrlKey))) { e.preventDefault(); rendre(); return; }
+      e.preventDefault(); e.stopPropagation();
+      if (!e.code || MODIFS.has(e.code)) return; // une touche de contrôle seule attend la suivante
+      const codes = altgr ? ['AltRight'] : [...(e.ctrlKey ? ['ControlLeft'] : []), ...(e.altKey ? ['AltLeft'] : [])];
+      if (e.shiftKey) codes.push('ShiftLeft');
+      if (e.metaKey) codes.push('MetaLeft');
+      codes.push(e.code); void envoyer(E, 'ecran_touches', { touches: codes.join(',') });
+    });
+    // Le clavier du téléphone : ce qui est tapé part en texte (clavier américain dans la VM) ; effacer et Entrée en touches.
+    vin.addEventListener('keydown', (e) => { if (e.key === 'Backspace' || e.key === 'Enter') { e.preventDefault(); void envoyer(E, 'ecran_touches', { touches: e.key }); } });
+    vin.addEventListener('input', () => { const t = vin.value; vin.value = ''; if (t) void envoyer(E, 'ecran_touches', { texte: t }); });
+  }
+  function lancerEcran(m, els) {
+    let E = S.ecr;
+    if (E && E.id !== m.id) { arreterEcran(); E = null; }
+    if (!E) E = S.ecr = { id: m.id, vue: null, rythme: { visible: 200, pause: 3000, cachee: 15000 }, gen: 0, file: Promise.resolve(), timer: 0, fini: false, grab: false, mods: { ctrl: false, alt: false }, dernierMvt: 0 };
+    clearTimeout(E.timer); E.gen++; E.els = els; E.nom = m.nom; E.image = false; E.montre = ''; E.grab = false; E.barre = els.dessine; E.ailleurs = false; E.mods = { ctrl: false, alt: false };
+    brancherEcran(E);
+    const g = E.gen; E.timer = setTimeout(() => tourEcran(E, g), 0);
+  }
+  function ecranTab(root, D, redraw) {
+    const vms = (D.machines ?? []).filter((m) => m.genre === 'vm' && !m.estModele);
+    const sec = el('section', { class: 'ym-w ym-ecr', 'aria-labelledby': 'ymEcrT' }, el('h3', { id: 'ymEcrT' }, ic('screen', 16), 'Écran de la machine'),
+      el('p', { class: 'ym-lead', style: 'margin:0' }, 'L\'écran de la VM, dans le navigateur, depuis le PC ou le téléphone. Il passe par Odin seul (aucun port ouvert sur le réseau) ; rien n\'en est gardé une fois la vue fermée.'));
+    root.append(sec);
+    // Sous Windows : la phrase de l'écran (la même qu'Odin rend à « Ouvrir l'écran »), pas celle de la pause.
+    if (D.windows) { arreterEcran(); sec.append(el('div', { class: 'ym-mon' }, el('div', { class: 'ym-scr' }, el('div', { class: 'etat', role: 'status' }, ic('win', 30), el('p', {}, 'Sous Windows, les VM de ce PC ne tournent pas encore dans Hydre : leur écran ne peut donc pas s\'afficher ici. Il s\'affiche quand Odin tourne sous Linux, où Hydre fait tourner les VM.'))))); return; }
+    if (!vms.length) { arreterEcran(); sec.append(el('p', { class: 'ym-empty' }, 'Aucune machine virtuelle sur ce PC : crée-en une (onglet Créer).')); return; }
+    const m = vms.find((x) => x.id === S.ecran) ?? vms.find((x) => etatDe(x) === 'on') ?? vms.find((x) => etatDe(x) === 'pause') ?? vms[0], st = etatDe(m);
+    S.ecran = m.id;
+    const mot = (x) => ({ on: 'allumée', pause: 'en pause', erreur: 'en erreur' })[etatDe(x)] ?? 'éteinte';
+    const pick = el('div', { class: 'ym-pick', role: 'group', 'aria-label': 'Machine' }, ...vms.map((x) => el('button', { type: 'button', 'aria-pressed': String(x.id === m.id), 'data-ecran': x.id, onclick: () => { if (S.ecran !== x.id) { S.ecran = x.id; S.focus = `[data-ecran="${x.id}"]`; redraw(); } } }, el('span', { class: 'nom' }, x.nom), el('span', { class: 'st' }, ` · ${mot(x)}`))));
+    const img = el('img', { alt: `Écran de ${m.nom}`, draggable: 'false', hidden: true }), etat = el('div', { class: 'etat', role: 'status' }, el('p', {}, 'J\'ouvre l\'écran…'));
+    const voile = el('div', { class: 'voile', hidden: true }, 'En pause'), grab = el('span', { class: 'grab', hidden: true }, 'Clavier à la VM · Ctrl+Alt pour le reprendre');
+    const vin = el('input', { class: 'ym-vin', type: 'text', tabindex: '-1', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': `Clavier du téléphone vers ${m.nom}` });
+    const scr = el('div', { class: 'ym-scr', tabindex: '0', role: 'application', 'aria-roledescription': 'écran de la machine', 'aria-label': `Écran de ${m.nom} : clique pour lui donner le clavier, Ctrl+Alt pour le reprendre` }, img, etat, voile, grab, vin);
+    const mon = el('div', { class: 'ym-mon' }, scr), plan = el('div', { class: 'ym-plein' }), statut = el('span', { class: 'grow', role: 'status' });
+    const plein = el('button', { class: 'ym-btn', type: 'button', 'data-f': 'plein', 'aria-pressed': 'false', onclick: async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await plan.requestFullscreen(); } catch { statut.textContent = 'Le navigateur refuse le plein écran.'; } } }, ic('full', 15), el('span', {}, 'Plein écran'));
+    // Pause et Reprendre : l'image suit tout de suite (la barre change sur place, sans redessiner l'écran).
+    const geste = (i, t, action, cls = '') => el('button', { class: `ym-btn ${cls}`, type: 'button', onclick: async (e) => { const b = e.currentTarget; b.disabled = true; const x = await act(action, { machine: m.id }); b.disabled = false; note(x); if (x.ok !== false) relancer(S.ecr); } }, ic(i, 15), t);
+    const cad = el('button', { class: 'ym-btn', type: 'button', 'data-f': 'cad', disabled: st !== 'on', onclick: () => { if (S.ecr) void envoyer(S.ecr, 'ecran_touches', { touches: 'ControlLeft,AltLeft,Delete' }); } }, ic('keyb', 15), 'Ctrl+Alt+Suppr');
+    const bascule = (etat) => (etat === 'en marche' ? geste('pause', 'Pause', 'pause_machine') : etat === 'en pause' ? geste('play', 'Reprendre', 'reprendre_machine', 'pri') : '');
+    const slot = el('span', { class: 'ym-slot' }, bascule(st === 'on' ? 'en marche' : st === 'pause' ? 'en pause' : 'éteinte'));
+    const tool = el('div', { class: 'ym-tool' }, cad, plein, slot, statut);
+    /** L'état de la machine a changé (ici ou ailleurs) : Ctrl+Alt+Suppr, Pause ou Reprendre, et le choix, sur place. */
+    const barre = (etat) => {
+      cad.disabled = etat !== 'en marche';
+      const f = slot.contains(document.activeElement); slot.replaceChildren(bascule(etat)); if (f) slot.firstElementChild?.focus();
+      const b = pick.querySelector(`[data-ecran="${m.id}"] .st`); if (b) b.textContent = ` · ${({ 'en marche': 'allumée', 'en pause': 'en pause' })[etat] ?? 'éteinte'}`;
+    };
+    const vkeys = el('div', { class: 'ym-vkeys', role: 'group', 'aria-label': 'Touches spéciales' });
+    const touche = (k) => {
+      const E = S.ecr; if (!E) return;
+      if (k === 'ctrl' || k === 'alt') { E.mods[k] = !E.mods[k]; vkeys.querySelector(`[data-k="${k}"]`).setAttribute('aria-pressed', String(E.mods[k])); return; }
+      const codes = [...(E.mods.ctrl ? ['ControlLeft'] : []), ...(E.mods.alt ? ['AltLeft'] : []), k];
+      E.mods = { ctrl: false, alt: false }; for (const b of vkeys.querySelectorAll('[aria-pressed]')) b.setAttribute('aria-pressed', 'false');
+      void envoyer(E, 'ecran_touches', { touches: codes.join(',') });
+    };
+    vkeys.append(...TOUCHES_TEL.map(([k, t, l]) => el('button', { type: 'button', 'data-k': k, 'aria-label': l, ...(k === 'ctrl' || k === 'alt' ? { 'aria-pressed': 'false' } : {}), onclick: () => touche(k) }, t)),
+      el('button', { type: 'button', 'data-k': 'clavier', 'aria-label': 'Ouvrir le clavier du téléphone', onclick: () => { vin.focus({ preventScroll: true }); if (S.ecr) { S.ecr.grab = true; grab.hidden = false; } } }, ic('keyb', 18)));
+    // Le plein écran prend l'écran, la barre et les touches : on garde Ctrl+Alt+Suppr et de quoi en sortir.
+    plan.append(mon, tool, vkeys);
+    sec.append(pick, plan, el('p', { class: 'ym-note' }, ic('note', 14), el('span', {}, 'Chaque ouverture de l\'écran est notée dans « qui a fait quoi », avec le nombre de touches et de clics. Un clavier branché au PC envoie ses touches telles quelles : la disposition est celle de la VM. Le clavier du téléphone, lui, tape comme un clavier américain (QWERTY) : la VM doit être réglée en clavier américain, sinon les lettres sortent fausses ; les accents et les autres écritures n\'y passent pas.')));
+    lancerEcran(m, { scr, img, etat, voile, grab, vin, plein, statut, redraw, barre, dessine: st === 'on' ? 'en marche' : st === 'pause' ? 'en pause' : 'éteinte' });
+  }
+
   window.OdinPages.ymir = async ({ host, generic }) => {
     if (!document.getElementById('ymCss')) document.head.append(el('style', { id: 'ymCss' }, CSS));
     const root = el('div', { class: 'ym' }), body = el('div', { class: 'ym' }), gen = el('div', {}, ...(generic ?? [])), tabs = el('div', { class: 'ym-tabs', role: 'tablist' }), sub = el('p', {});
     root.append(el('div', { class: 'ym-top' }, el('div', {}, el('h2', {}, 'Toutes les machines'), sub), tabs), body, gen); host.append(root);
     const redraw = async () => {
-      tabs.replaceChildren(...[['machines', 'grid', 'Machines'], ['creer', 'plus', 'Créer'], ['iso', 'down', 'ISO'], ['quarantaine', 'lock', 'Quarantaine'], ['serveurs', 'list', 'Serveurs']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, ic(i, 15), t)));
+      tabs.replaceChildren(...[['machines', 'grid', 'Machines'], ['creer', 'plus', 'Créer'], ['ecran', 'screen', 'Écran'], ['iso', 'down', 'ISO'], ['quarantaine', 'lock', 'Quarantaine'], ['serveurs', 'list', 'Serveurs']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, ic(i, 15), t)));
+      // Quitter l'onglet « Écran » ferme la vue (Odin ne garde rien de l'écran).
+      if (S.tab !== 'ecran') arreterEcran();
       gen.hidden = S.tab !== 'serveurs'; body.hidden = S.tab === 'serveurs'; if (S.tab === 'serveurs') return;
       // Premier affichage d'un onglet : la barre de chargement au centre (pas pendant le rafraîchissement discret des machines).
-      if (S.montre !== S.tab || !body.childNodes.length) body.replaceChildren(el('div', { class: 'ym-w' }, charge(S.tab === 'iso' ? 'Je lis tes images…' : S.tab === 'creer' ? 'Je prépare la liste des systèmes et des images…' : S.tab === 'quarantaine' ? 'Je regarde les machines en quarantaine…' : 'Je lis tes machines…')));
+      if (S.montre !== S.tab || !body.childNodes.length) body.replaceChildren(el('div', { class: 'ym-w' }, charge(S.tab === 'iso' ? 'Je lis tes images…' : S.tab === 'ecran' ? 'Je prépare l\'écran…' : S.tab === 'creer' ? 'Je prépare la liste des systèmes et des images…' : S.tab === 'quarantaine' ? 'Je regarde les machines en quarantaine…' : 'Je lis tes machines…')));
       S.montre = S.tab;
       // Ce qui dépend de chaque machine (lecture au propriétaire seul : refusée, la page s'en passe).
       const tour = (S.tour = (S.tour ?? 0) + 1);
@@ -698,7 +878,7 @@
       if (dp && dp.ok !== false && dp.data) D.deps = dp.data;
       if (cv) { if (cv.ok !== false && cv.data) D.cv = cv.data; else D.cvTexte = cv.text; }
       sub.textContent = `${all.filter((m) => m.genre === 'lxc').length} LXC et ${all.filter((m) => m.genre === 'vm').length} VM sur ce PC · rangées par système`;
-      if (S.tab === 'creer') creerTab(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
+      if (S.tab === 'creer') creerTab(n, D, redraw); else if (S.tab === 'ecran') ecranTab(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
       body.replaceChildren(...n.childNodes);
       // Le clavier garde sa place après un nouveau dessin (filtre choisi, garde-fou fermé).
       if (S.focus) { const f = body.querySelector(S.focus); S.focus = null; if (f) f.focus(); }
