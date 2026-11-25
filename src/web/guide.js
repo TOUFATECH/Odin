@@ -18,7 +18,7 @@
   // Ce que fait chaque page, puis comment s'en servir et la régler (de A à Z).
   const VIEWS = {
     home: ['Accueil', 'Ta journée d\'un coup d\'œil : ce qui demande ton attention, ce que j\'ai fait, l\'état de tes machines. Touche une carte pour aller au détail.',
-      ['Lis « À faire maintenant » de haut en bas : chaque carte a son bouton d\'action.', '« Ce que j\'ai fait » : touche une ligne pour le détail, ou « Annuler » si tu n\'es pas d\'accord.', 'Les tuiles (réseau, machines, tâches) mènent à leur page.'],
+      ['Lis « À faire » de haut en bas : chaque carte a son bouton d\'action.', '« Ce qu\'Odin a fait » : touche une ligne pour le détail, ou « Annuler » si tu n\'es pas d\'accord.', 'Les quatre tuiles du bas : la surveillance (disques et appareils marqués), la sauvegarde, le résumé du matin et l\'application, chacune avec ses boutons.'],
       ['Ce qui s\'affiche ici vient des autres pages : étoile un appareil dans Maison pour qu\'il apparaisse, crée une tâche planifiée pour tes rappels.', 'Le thème (clair, sombre, automatique) : bouton en haut.']],
     chat: ['Discussion', 'Ici tu me parles, par écrit ou à la voix. Dis ce que tu veux obtenir : un résumé, un fichier, une action.',
       ['Écris ta demande et appuie sur Entrée ; joins des fichiers avec le trombone ; le micro dicte.', 'Une action importante t\'est présentée avant : Oui ou Non.', 'Les conversations passées sont à gauche (renommer, épingler, supprimer).', 'Tu peux aussi me parler depuis n\'importe quelle page : touche-moi, c\'est la même conversation.'],

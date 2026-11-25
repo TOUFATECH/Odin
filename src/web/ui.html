@@ -3379,7 +3379,6 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       ...H.slice(0, 2).map((h) => el('div', { class: 'titem' }, el('div', {}, `Tu demandes souvent « ${h.text.slice(0, 70)} »`, el('span', { class: 'dim' }, ` · ${h.count} fois`)), el('div', { class: 'hbtns' },
         el('button', { class: 'btn small primary', type: 'button', onclick: () => api('/api/action', { kind: 'habit_schedule', key: h.key, cron: '0 8 * * *', prompt: h.text, peer }) }, 'Chaque jour à 8 h'),
         el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'habit_ignore', key: h.key }) }, 'Ignorer'))))];
-    const todoBox = el('section', { class: 'hpanel' }, el('h2', {}, 'À faire maintenant'), items.length ? el('div', { class: 'tlist' }, ...items) : el('div', { class: 'hok' }, '✓ Rien ne t\'attend. Odin s\'occupe du reste.'));
     // 3. Ce qu'Odin a fait (de lui-même et à ta demande)
     const L = (state.breakerLog || []).slice(0, 4).map((x) => ({ at: x.at, text: x.text, auto: true }));
     const M = (state.missions || []).filter((m) => m.status !== 'en cours' && !/^Travail continu/.test(m.goal)).slice(0, 5).map((m) => ({ at: m.ended_at || m.updated_at, text: m.goal, status: m.status }));
@@ -3418,7 +3417,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     // Les quatre tuiles d'état, de la même manière.
     dernieresTuiles = tuiles;
     const tuilesTenues = poserTuiles();
-    grid.replaceChildren(el('details', { class: 'mx hmore' }, el('summary', {}, 'État détaillé : missions, surveillance, sauvegarde, coûts'), ...(chiffresTenus ? [] : [kpis]), el('div', { class: 'hcols' }, doneBox), ...(tuilesTenues ? [] : [tiles])));
+    // Quand la fenêtre tient les chiffres et les tuiles, il ne reste dessous que « Ce qu'Odin a fait » avec « Tout voir »
+    // (il n'a pas de widget) : le titre ne dit plus que cela. Sinon, le titre d'avant.
+    const tenus = chiffresTenus && tuilesTenues;
+    grid.replaceChildren(el('details', { class: 'mx hmore' }, el('summary', {}, tenus ? 'État détaillé : missions' : 'État détaillé : missions, surveillance, sauvegarde, coûts'), ...(chiffresTenus ? [] : [kpis]), el('div', { class: 'hcols' }, doneBox), ...(tuilesTenues ? [] : [tiles])));
     renderAppCard();
     bandeau();
     $('#b-home').hidden = !(grave || pending.size); $('#b-home').textContent = '!';
@@ -3536,6 +3538,13 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     // fenêtre, il ne revient pas dessous (il se repose par « Ajouter un widget »).
     if (fen) { const h = fen.hote('comportement'); if (h) poserReglages(h, sansTitre(ctrls)); }
     box.replaceChildren(...(fen ? [] : [guesses || '', ctrls, el('div', { class: 'today-cols' }, todo, feed)]));
+    // Lot 27 : chez le propriétaire, l'ancienne colonne est retirée (chaque bloc est dans son widget) ; un membre, ou une
+    // fenêtre pas encore lue ou en panne, la garde comme avant.
+    box.hidden = Boolean(fen);
+    // Le bandeau du coffre verrouillé reste juste au-dessus des blocs, hors widgets : au-dessus de la grille chez le
+    // propriétaire, au-dessus de l'ancienne colonne sinon (là où il était). Déplacé seulement s'il n'y est pas déjà :
+    // un mot de passe en cours de frappe garde le focus.
+    const coffre = $('#vaultBanner'), dessous = fen ? $('#fenetre') : box; if (coffre && dessous && coffre.nextElementSibling !== dessous) dessous.before(coffre);
   }
   /**
    * Pose les trois réglages dans leur widget. Ils sont redessinés à chaque nouvel état d'Odin (donc juste après un
@@ -3589,6 +3598,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   // La fenêtre vient d'être dessinée : les widgets des tuiles sont vides, on les y repose.
   document.addEventListener('odin:fenetre', poserTuiles);
+  // La fenêtre arrive après le dernier dessin de l'accueil : poserChiffres et poserTuiles viennent de sortir les chiffres
+  // et les tuiles de « État détaillé », son titre ne les annonce plus (sans attendre un nouvel état d'Odin).
+  document.addEventListener('odin:fenetre', () => { const s = $('#homeGrid .hmore > summary'); if (s && window.OdinFenetre?.aujourdhui?.()) s.textContent = 'État détaillé : missions'; });
   // Mascotte sur l'écran Aujourd'hui : une copie qui vit comme les autres.
   function buddyClone(id) {
     let b = document.getElementById(id);
@@ -4274,6 +4286,12 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // On peut la refuser, l'arrêter à tout moment, et la revoir dans Réglages → Plus.
   const S = (sec) => `#v-settings article[data-sec="${sec}"]`;
   const firstDevice = () => (state?.devices || []).find((d) => d.status === 'online' && (d.label || d.name || d.hostname)) || (state?.devices || [])[0];
+  // Lot 27 : les blocs de l'accueil sont des widgets de la fenêtre chez le propriétaire. La visite ouvre la page qui
+  // porte le widget et l'entoure ; chez un membre, ou tant que la fenêtre n'est pas lue, elle entoure l'ancienne place
+  // (« État détaillé », replié, quand le bloc est dedans).
+  const carteDuJour = (k) => `#feGrid > .fe-w[data-auj="${k}"]`;
+  // Plusieurs blocs (les quatre tuiles) : la page du premier qui est encore sur la fenêtre.
+  const ouvrirDuJour = (...ks) => async () => { const f = window.OdinFenetre?.aujourdhui?.(); for (const k of ks) if (await f?.montrer(k)) return; };
   // Chapitres de la visite : ce qu'est Odin, comment s'en servir, puis comment le configurer.
   const CHAPTERS = [
     { name: 'Qui je suis', steps: [
@@ -4284,10 +4302,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     { name: 'L\'accueil', steps: [
       { v: 'home', q: ['#sideNav', '.bnav'], t: 'Le menu : Accueil, Home Assistant (quand ta maison est reliée), Applis, Discussion, Cerveau, Thèmes (le raccourci vers Réglages → Apparence), Maison (ton réseau), « Plus » pour le reste (automatisations, bases, activité, compétences, tâches planifiées, décisions, profil et tes épingles), puis Réglages. Sur grand écran, il se replie en colonne d\'icônes ; la punaise le garde ouvert. Sur téléphone, la barre du bas garde Accueil, Home Assistant (sinon Applis), mon rond au centre (touche-le pour me parler ; je m\'y pose quand je ne suis pas déjà ailleurs sur l\'écran), Discussion, et « Plus », qui ouvre tout le reste.' },
       { v: 'home', q: '#homeBandeau', t: 'En haut de l\'accueil, je te salue et je te dis où on en est. La recherche (Ctrl K) trouve un écran, un réglage, ou me pose ta question. Puis le plein écran, la cloche qui compte ce qui t\'attend vraiment (validations et problèmes graves) et t\'emmène à « À faire », et « Vérifier », qui contrôle tout de suite tes appareils importants, tes disques et tes certificats.' },
-      { v: 'home', q: '#homeGrid .kpis', t: 'L\'Accueil en un coup d\'œil : tes appareils en ligne, mes missions en cours, les risques repérés, ce que j\'ai dépensé et mon mode d\'autonomie. Touche un chiffre pour voir le détail.' },
-      { v: 'home', q: ['#homeGrid .hcols .hpanel'], t: '« À faire maintenant » : ce qui t\'attend vraiment. Validations, alertes, et réglages que je te propose selon ce que je vois chez toi. Si c\'est vide, tout va bien.' },
-      { v: 'home', q: '#homeGrid .hcols .hpanel:last-child', t: '« Ce que j\'ai fait » : tout ce que j\'ai fait, à ta demande ou de moi-même, avec l\'heure.' },
-      { v: 'home', q: '#homeGrid .hgrid2', t: 'En bas : l\'espace de tes disques et tes appareils surveillés, la sauvegarde, ton résumé du matin, et l\'installation de l\'application sur ton téléphone.' },
+      { v: 'home', pre: ouvrirDuJour('chiffres_cles'), q: [carteDuJour('chiffres_cles'), '#homeGrid .kpis', '#homeGrid .hmore:has(.kpis)'], t: 'L\'Accueil en un coup d\'œil : tes appareils en ligne, mes missions en cours, les risques repérés, ce que j\'ai dépensé et mon mode d\'autonomie. Touche un chiffre pour voir le détail.' },
+      { v: 'home', pre: ouvrirDuJour('a_faire'), q: [carteDuJour('a_faire'), '#homeAFaire'], t: '« À faire » : ce qui t\'attend vraiment. Validations, alertes, et réglages que je te propose selon ce que je vois chez toi. Si c\'est vide, tout va bien.' },
+      { v: 'home', pre: ouvrirDuJour('odin_a_fait'), q: [carteDuJour('odin_a_fait'), '#todayBox .today-cols > .hpanel:last-child', '#homeGrid .hmore:has(.hcols)'], t: '« Ce qu\'Odin a fait » : tout ce que j\'ai fait, à ta demande ou de moi-même, avec l\'heure.' },
+      { v: 'home', pre: ouvrirDuJour('surveillance', 'sauvegarde', 'resume_matin', 'application'), tous: true, q: [carteDuJour('surveillance'), carteDuJour('sauvegarde'), carteDuJour('resume_matin'), carteDuJour('application'), '#homeGrid .hgrid2', '#homeGrid .hmore:has(.hgrid2)'], t: 'En bas : l\'espace de tes disques et tes appareils surveillés, la sauvegarde, ton résumé du matin, et l\'installation de l\'application sur ton téléphone.' },
     ] },
     { name: 'Me parler', steps: [
       { v: 'chat', q: '#v-chat .cbox', t: 'La Discussion, c\'est ici que tu me parles, comme à une personne : « mets à jour mes serveurs », « qui est connecté au wifi ? », « résume ce PDF », « bloque le téléphone inconnu ». Entrée pour envoyer, Maj et Entrée pour aller à la ligne.' },
@@ -4343,9 +4361,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       { v: 'settings', sec: 'plus', q: S('plus'), t: 'Plus : les fonctions que tu n\'utilises pas encore apparaissent ici. C\'est aussi ici que tu peux revoir cette présentation.' },
     ] },
     { name: 'Au quotidien', steps: [
-      { v: 'home', q: '#appCard', t: 'Installe-moi sur ton téléphone ou ton ordinateur, comme une vraie application, et active les notifications : je te préviens même quand l\'application est fermée.' },
+      { v: 'home', pre: ouvrirDuJour('application'), q: [carteDuJour('application'), '#appCard', '#homeGrid .hmore:has(#appCard)'], t: 'Installe-moi sur ton téléphone ou ton ordinateur, comme une vraie application, et active les notifications : je te préviens même quand l\'application est fermée.' },
       { v: 'home', q: ['#themeBtn', '#menuBtn', '.bnav [data-view="settings"]', '.bnav'], t: 'Le thème : clair, sombre, ou automatique selon l\'heure.' },
-      { v: 'home', q: ['#appVer', '#homeGrid .kpis'], t: 'Je me mets à jour de moi-même, quand je ne travaille pas, et je redémarre sans te déranger.' },
+      { v: 'home', q: ['#appVer', carteDuJour('chiffres_cles'), '#homeGrid .kpis', '#homeGrid .hmore:has(.kpis)'], t: 'Je me mets à jour de moi-même, quand je ne travaille pas, et je redémarre sans te déranger.' },
       { v: 'chat', q: '#v-chat .cbox', t: 'C\'est tout ! Pour commencer : choisis mon modèle dans les Réglages, puis dis-moi ce que tu veux faire. Tu peux revoir cette présentation à tout moment, dans Réglages, rubrique Plus. Je suis là.' },
     ] },
   ];
@@ -4405,14 +4423,17 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (done === 'pause') { try { localStorage.setItem('odin.tour', 'pause'); } catch {} return; }
     if (done) { try { localStorage.setItem('odin.tour', 'done'); localStorage.removeItem('odin.tourAt'); } catch {} api('/api/action', { kind: 'tour_done' }).catch(() => {}); }
   }
-  // Rectangle visible d'un élément (coupé par l'écran) ; rien si l'élément est caché.
+  // Rectangle visible d'un élément (coupé par l'écran) ; rien si l'élément est caché. Au téléphone, ce qui passe sous la
+  // barre du bas ne se voit pas : l'anneau s'arrête au-dessus d'elle (sauf pour la barre elle-même et ce qu'elle porte).
   function visRect(n) {
     if (!n) return null; const r = n.getBoundingClientRect(); if (!r.width || !r.height) return null;
-    const L = Math.max(r.left, 0), T = Math.max(r.top, 0), R = Math.min(r.right, innerWidth), B = Math.min(r.bottom, innerHeight);
+    const barre = document.querySelector('.bnav'), bas = barre && !barre.contains(n) && barre.getClientRects().length ? Math.min(barre.getBoundingClientRect().top, innerHeight) : innerHeight;
+    const L = Math.max(r.left, 0), T = Math.max(r.top, 0), R = Math.min(r.right, innerWidth), B = Math.min(r.bottom, bas);
     return R - L > 4 && B - T > 4 ? { left: L, top: T, right: R, bottom: B, width: R - L, height: B - T } : null;
   }
   let tourDir = 1;
-  const shown = (n) => n && n.getClientRects().length > 0 && getComputedStyle(n).visibility !== 'hidden';
+  // Ce qui est dans un « détails » replié ne se voit pas, même si le navigateur lui donne une place (« État détaillé »).
+  const shown = (n) => n && n.getClientRects().length > 0 && getComputedStyle(n).visibility !== 'hidden' && !n.closest('details:not([open]) > :not(summary)');
   async function tourGo(i) {
     if (i < 0) return;
     if (i >= TOUR.length) return tourEnd(true);
@@ -4429,10 +4450,24 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     await new Promise((r) => setTimeout(r, 380)); if (seq !== tourSeq) return;
     document.body.classList.toggle('tour-real-bud', [].concat(s.q || []).includes('#buddyChat'));
     // Première zone visible parmi les choix (la version téléphone cache certaines zones).
-    const target = [].concat(s.q || []).map((q) => document.querySelector(q)).find(shown) || null;
+    // Une cible que ce navigateur ne sait pas lire (« :has ») ne fait pas tomber la visite : on essaie la suivante.
+    const cibles = [].concat(s.q || []).map((q) => { try { return document.querySelector(q); } catch { return null; } });
+    const target = cibles.find(shown) || null;
     if (!target && s.optional) return tourGo(i + tourDir);
-    if (target) { target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); await new Promise((r) => setTimeout(r, 380)); if (seq !== tourSeq) return; }
-    const r = visRect(target);
+    if (target) {
+      target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); await new Promise((r) => setTimeout(r, 380)); if (seq !== tourSeq) return;
+      // Un long défilement doux (tout en bas d'une longue page, au téléphone) dure plus longtemps : l'anneau attend que la
+      // cible ne bouge plus (au plus 1,5 s de plus), pour être posé là où elle s'arrête.
+      for (let y = NaN, t = 0; t < 1500; t += 100) { const top = target.getBoundingClientRect().top; if (top === y) break; y = top; await new Promise((z) => setTimeout(z, 100)); if (seq !== tourSeq) return; }
+    }
+    // « tous » : l'anneau entoure aussi les autres cibles posées dans la même grille (les quatre tuiles qui restent sur la
+    // page ouverte de la fenêtre), pas seulement la première.
+    const avec = s.tous && target ? cibles.filter((n) => n && n !== target && n.parentElement === target.parentElement && shown(n)) : [];
+    const rs = [target, ...avec].map(visRect).filter(Boolean);
+    const r = rs.length ? rs.reduce((a, b) => {
+      const left = Math.min(a.left, b.left), top = Math.min(a.top, b.top), right = Math.max(a.right, b.right), bottom = Math.max(a.bottom, b.bottom);
+      return { left, top, right, bottom, width: right - left, height: bottom - top };
+    }) : null;
     // Anneau autour de ce qu'il présente (rien à entourer : tout l'écran est légèrement voilé)
     tourRing.classList.toggle('none', !r);
     if (r) Object.assign(tourRing.style, { left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' });
