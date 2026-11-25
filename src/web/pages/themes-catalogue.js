@@ -5,7 +5,8 @@
 // dessine aussi, est déjà dans themes.js (il n'est pas recopié ici).
 // Puis les 31 « Thèmes de Hestia » (h-…), tirés des thèmes de l'écran de la maison par la règle de la maquette.
 // Ce fichier ne fait rien d'autre que se publier sur la page (window.OdinCatalogueThemes) : themes.js, chargé juste
-// après, le lit s'il est là. Pour l'instant les thèmes y sont « à plat » (fond uni, cartes pleines) : themes.js n'en
+// après, le lit s'il est là ; l'écran de la maison (src/web/maison.js, chargé juste après lui sur /maison) y lit ses
+// 31 thèmes et ses 13 décors (HESTIA, DECORS). Pour l'instant les thèmes y sont « à plat » (fond uni, cartes pleines) : themes.js n'en
 // prend que le fond, la carte pleine (solid), le texte, l'accent, la couleur d'Odin et le ton clair ou sombre.
 (() => {
   // Les noms affichés (en tête du fichier, pour les traduire d'un seul endroit).
@@ -81,9 +82,8 @@
   // Le texte en accent (liens, texte, anneau du thème choisi) de Glace et Maison claire : la même teinte, plus foncée,
   // pour se lire sur leur fond clair (4,5:1) ; leur accent de la maquette reste pour les fonds et les boutons.
   const ACCENT_TEXTE = { glace: '#0061c2', clair: '#945f06' };
-  // Les 31 thèmes de Hestia (l'écran de la maison) : leurs valeurs de départ (12 champs au plus), recopiées telles
-  // quelles de la table T de src/web/maison.js, qui n'est pas touchée. Un essai (test/themes-catalogue.test.ts)
-  // compare la copie et l'original champ par champ. « clair » n'a pas de champ `light` : l'écran de la maison le dit
+  // Les 31 thèmes de Hestia (l'écran de la maison) : leurs valeurs de départ (12 champs au plus). C'est leur seule
+  // source : src/web/maison.js les lit ici, sous leur identifiant sans préfixe. « clair » n'a pas de champ `light` : l'écran de la maison le dit
   // clair par son nom, et la règle ci-dessous aussi (la maquette, elle, le traitait en sombre).
   const HESTIA = {
     verre: { bg: '#15171d', bg2: 'radial-gradient(1200px 600px at 0% 0%,#232634,transparent),#15171d', card: '#1f222b', card2: '#272b36', line: '#2f3340', text: '#eef0f6', muted: '#9aa1b2', accent: '#ff8a3d', accent2: '#3fa9ff', on: 'linear-gradient(135deg,#ff9a3d,#ff6a3d)' },
@@ -118,7 +118,7 @@
     pastel: { bg: '#f3e8ff', bg2: 'linear-gradient(160deg,#f3e8ff,#e6fff4)', card: 'rgba(255,255,255,.78)', card2: 'rgba(255,255,255,.9)', line: 'rgba(160,130,200,.25)', text: '#352a4a', muted: '#62577a', accent: '#7c3aed', accent2: '#db2777', on: 'linear-gradient(135deg,#f9a8d4,#a78bfa)', light: true },
     espace: { bg: '#05030f', bg2: 'radial-gradient(circle at 30% 20%,#2b1b5e,#05030f 70%)', card: 'rgba(255,255,255,.07)', card2: 'rgba(255,255,255,.11)', line: 'rgba(180,160,255,.18)', text: '#efeaff', muted: '#b3a8d8', accent: '#b39dff', accent2: '#ffb37a', on: 'linear-gradient(135deg,#8b5cf6,#4338ca)', decor: 'planetes' },
   };
-  // Les 13 décors dessinés de Hestia (table DECOR de src/web/maison.js, recopiée telle quelle ; dessinés dans un cadre
+  // Les 13 décors dessinés de Hestia (seule source, lue aussi par src/web/maison.js ; dessinés dans un cadre
   // de 960 × 150, viewBox « 0 -30 960 150 »). La maquette ne les montrait pas : ils sont gardés.
   const DECORS = {
     vagues: '<path d="M0 60 Q120 40 240 60 T480 60 T720 60 T960 60 V120 H0Z" fill="#fff" opacity=".08"/><path d="M0 80 Q120 60 240 80 T480 80 T720 80 T960 80 V120 H0Z" fill="#fff" opacity=".1"/>',
@@ -142,6 +142,17 @@
   const rgba = (h, a) => { const [r, g, b] = hex(h); return `rgba(${r},${g},${b},${a})`; };
   /** Une couleur CSS en [couleur #rrggbb, opacité]. */
   const couleur = (c) => { const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/); if (m) return [toHex([+m[1], +m[2], +m[3]]), m[4] === undefined ? 1 : +m[4]]; return /^#/.test(c) ? [c.slice(0, 7), 1] : ['#202020', 1]; };
+  // Le verre des cartes : la règle de la maquette (surfaceOf), recopiée telle quelle. `g` : la transparence, de 0
+  // (plein) à 100 (vitre) ; la carte va d'une opacité a = 0,92 − 0,9 × g/100 à a × 0,45, son flou baisse avec g
+  // (5 px au moins). themes.js s'en sert sur l'accueil seulement (sel, chip et side ne servent pas encore).
+  const parseCol = couleur;
+  function surfaceOf(t, g) { // g : transparence 0 (plein) → 100 (vitre)
+    if (!t.sc) return { surface: t.surface, blur: t.blur, solid: t.solid };
+    const k = g / 100, a = +(.92 - .9 * k).toFixed(3), b = +(a * .45).toFixed(3);
+    // Les onglets choisis, les puces et la barre latérale suivent aussi la transparence.
+    const fade = (c, m) => { const p = parseCol(c); return p[1] < 1 || /^#/.test(c) ? rgba(p[0], +(p[1] * m).toFixed(3)) : c; }, m2 = 1 - k * .78;
+    return { sel: fade(t.sel, m2), chip: fade(t.chip, 1 - k * .6), side: fade(t.side, 1 - k * .7), surface: `linear-gradient(140deg,${rgba(t.sc, a)},${rgba(t.sc, b)})`, blur: Math.max(5, Math.round((t.blur0 ?? 24) * (1 - k * .72))), solid: t.solid, sheen: (t.sheen ?? .3) * (1 - k * .65), border: k > .6 && !t.dark ? 'rgba(255,255,255,.75)' : t.border };
+  }
   // L'ambiance animée de chaque décor (pour plus tard : le fond qui vit ; à plat, elle ne sert pas).
   const SCENES = { vagues: 'waves', etoiles: 'stars', aurore: 'aurora', lagon: 'waves', soleil: 'sunset', montagnes: 'snow', feuilles: 'leaves', dunes: 'orbs', neige: 'snow', abysses: 'bubbles', neon: 'neon', planetes: 'stars' };
   function depuisHestia(id, h) {
@@ -157,5 +168,5 @@
     };
   }
   for (const [id, h] of Object.entries(HESTIA)) THEMES[`h-${id}`] = depuisHestia(id, h);
-  window.OdinCatalogueThemes = { NOMS, THEMES, HESTIA, DECORS, ACCENT_TEXTE };
+  window.OdinCatalogueThemes = { NOMS, THEMES, HESTIA, DECORS, ACCENT_TEXTE, surfaceOf };
 })();

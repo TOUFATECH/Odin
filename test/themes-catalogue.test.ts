@@ -189,25 +189,14 @@ test('Apparence : « Vitre », « Home Assistant » et les autres se choisissent
 });
 
 // ---------------------------------------------------------------- les thèmes de Hestia (lot 3 du plan de la maquette)
-// Les 31 thèmes de l'écran de la maison (src/web/maison.js, table T) sont recopiés dans le catalogue sous l'identifiant
-// h-…, avec leurs 13 décors (table DECOR) : l'écran de la maison n'est pas touché. Ces essais lisent maison.js tel quel
-// (chaque table est évaluée seule, dans un bac à sable) et comparent la copie champ par champ.
+// Les 31 thèmes de l'écran de la maison et leurs 13 décors n'ont qu'une source : le catalogue (HESTIA, DECORS), repris
+// sous l'identifiant h-… dans la liste d'Odin. src/web/maison.js les y lit et n'en garde plus de copie
+// (test/maison-themes-catalogue.test.ts : l'écran rend les mêmes thèmes qu'avant).
 const MAISON = readFileSync(fileURLToPath(new URL('../src/web/maison.js', import.meta.url)), 'utf8');
-/** Une table de maison.js (`const NOM = { … };`), évaluée seule dans un bac à sable. */
-function tableMaison<T>(nom: string): Record<string, T> {
-  const debut = MAISON.indexOf(`const ${nom} = {`);
-  assert.ok(debut >= 0, `${nom} dans maison.js`);
-  const ouvre = MAISON.indexOf('{', debut);
-  let i = ouvre, prof = 0, guillemet = '';
-  for (; i < MAISON.length; i++) {
-    const ch = MAISON[i];
-    if (guillemet) { if (ch === '\\') i++; else if (ch === guillemet) guillemet = ''; continue; }
-    if (ch === '/' && MAISON[i + 1] === '/') { i = MAISON.indexOf('\n', i); continue; }
-    if (ch === '\'' || ch === '"' || ch === '`') guillemet = ch;
-    else if (ch === '{') prof++;
-    else if (ch === '}' && --prof === 0) break;
-  }
-  return JSON.parse(JSON.stringify(vm.runInNewContext(`(${MAISON.slice(ouvre, i + 1)})`, {}))) as Record<string, T>;
+/** Les 31 thèmes de Hestia et leurs 13 décors, tels que le catalogue les publie. */
+function tablesHestia(): { T: Record<string, Hestia>; DECOR: Record<string, string> } {
+  const m = chargerThemes(true).maquette!;
+  return { T: (m.HESTIA ?? {}) as unknown as Record<string, Hestia>, DECOR: m.DECORS ?? {} };
 }
 type Hestia = { bg: string; bg2: string; card: string; card2: string; line: string; text: string; muted: string; accent: string; accent2?: string; on: string; decor?: string; light?: boolean };
 const CHAMPS_MAQUETTE = ['dark', 'sc', 'gt', 'blur0', 'sheen', 'scene', 'mascot', 'bg', 'blob1', 'blob2', 'blobO', 'surface', 'solid', 'border', 'blur', 'sat', 'shadow', 'radius', 'ink', 'muted', 'accent', 'onA', 'onB', 'pal', 'side', 'chip', 'sel', 'track', 'line', 'good', 'warn', 'bad'];
@@ -215,24 +204,21 @@ const CHAMPS_MAQUETTE = ['dark', 'sc', 'gt', 'blur0', 'sheen', 'scene', 'mascot'
 const estClair = (id: string, h: Hestia) => id === 'clair' || h.light === true;
 const styleDuTheme = (c: { styles: Array<{ id?: string; textContent: string }> }) => c.styles.find((s) => s.id === 'odinThemeStyle')?.textContent ?? c.styles.at(-1)?.textContent ?? '';
 
-test('Hestia : les 31 thèmes, leurs 12 valeurs et les 13 décors sont ceux de maison.js, champ par champ', () => {
-  const T = tableMaison<Hestia>('T'), DECOR = tableMaison<string>('DECOR'), m = chargerThemes(true).maquette!;
+test('Hestia : les 31 thèmes et les 13 décors ont une seule source, le catalogue ; maison.js n\'en garde pas de copie', () => {
+  const { T, DECOR } = tablesHestia(), m = chargerThemes(true).maquette!;
   assert.equal(Object.keys(T).length, 31, '31 thèmes sur l\'écran de la maison');
   assert.equal(Object.keys(DECOR).length, 13, '13 décors dessinés');
-  assert.deepEqual(Object.keys(m.HESTIA ?? {}), Object.keys(T), 'les mêmes 31, dans le même ordre');
-  for (const [id, h] of Object.entries(T)) {
-    const copie = m.HESTIA![id];
-    assert.deepEqual(Object.keys(copie).sort(), Object.keys(h).sort(), `${id} : mêmes champs`);
-    for (const [k, x] of Object.entries(h)) assert.deepEqual(copie[k], x, `${id}.${k}`);
-  }
-  assert.deepEqual(Object.keys(m.DECORS ?? {}), Object.keys(DECOR), 'les mêmes 13 décors');
-  for (const [k, x] of Object.entries(DECOR)) assert.equal(m.DECORS![k], x, `décor ${k}`);
+  assert.deepEqual(Object.keys(T), Object.keys(LIBELLES_MAISON), 'les 31 que Hestia connaît, dans le même ordre');
+  for (const [id, h] of Object.entries(T)) for (const k of ['bg', 'bg2', 'card', 'card2', 'line', 'text', 'muted', 'accent', 'on'] as const) assert.equal(typeof h[k], 'string', `${id}.${k}`);
+  for (const h of Object.values(T)) if (h.decor) assert.ok(Object.hasOwn(DECOR, h.decor), `le décor ${h.decor} est là`);
+  assert.doesNotMatch(MAISON, /const T = \{|const DECOR = \{/, 'plus de copie dans maison.js');
+  assert.match(MAISON, /window\.OdinCatalogueThemes/, 'maison.js lit le catalogue');
   assert.deepEqual(Object.keys(m.THEMES).filter((id) => id.startsWith('h-')), Object.keys(T).map((id) => `h-${id}`));
   assert.deepEqual(Object.keys(m.NOMS).filter((id) => id.startsWith('h-')), Object.keys(T).map((id) => `h-${id}`), 'un nom pour chacun, dans le dictionnaire');
 });
 
 test('Hestia : la règle de la maquette en tire les 32 valeurs, et « Clair » reste un thème clair', () => {
-  const T = tableMaison<Hestia>('T'), m = chargerThemes(true).maquette!;
+  const { T } = tablesHestia(), m = chargerThemes(true).maquette!;
   for (const [id, h] of Object.entries(T)) {
     const v = m.THEMES[`h-${id}`], clair = estClair(id, h);
     assert.deepEqual(Object.keys(v).sort(), [...CHAMPS_MAQUETTE].sort(), `h-${id} : champs`);
@@ -288,7 +274,7 @@ test('Hestia : une famille de 31 sous les noms de l\'écran de la maison ; 85 en
 });
 
 test('Hestia : à plat, fond uni dans la zone de travail, et les décors dessinés de l\'écran de la maison sont gardés', () => {
-  const T = tableMaison<Hestia>('T'), DECOR = tableMaison<string>('DECOR'), c = chargerThemes(true), m = c.maquette!;
+  const { T, DECOR } = tablesHestia(), c = chargerThemes(true), m = c.maquette!;
   let avecDecor = 0;
   for (const [id, h] of Object.entries(T)) {
     const t = c.THEMES[`h-${id}`], v = m.THEMES[`h-${id}`];
