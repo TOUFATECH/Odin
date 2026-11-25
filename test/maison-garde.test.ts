@@ -91,7 +91,8 @@ function ecran() {
   const racine = new Noeud('div');
   const src = [
     'let D = null, view = \'accueil\', q = \'\', voice = false, key = \'\';',
-    ligne('const MOTS = '), bloc('const el = ('), ligne('const retourVisible = '), ligne('function nav('), bloc('function draw() {'),
+    // La barre de côté a une punaise (épinglée ou repliée, gardée sur l'appareil) : son état est lu avec draw.
+    ligne('const MOTS = '), bloc('const el = ('), ligne('let barre = '), ligne('const retourVisible = '), ligne('function nav('), bloc('function draw() {'),
     '({ draw, regler(d, k) { D = d; key = k; view = \'accueil\'; } });',
   ].join('\n');
   const e = vm.runInNewContext(src, {
@@ -102,32 +103,37 @@ function ecran() {
     home: () => [marque('accueil')], appsView: () => [marque('applis')], peopleGrid: () => marque('famille'), camGrid: (grand: boolean) => marque(grand ? 'cameras' : 'cameras-accueil'),
     netView: () => [marque('reseau')], tilesView: (grand: boolean) => [marque(grand ? 'boutons' : 'boutons-accueil')], themesView: () => [marque('themes')],
   }) as { draw: () => void; regler: (d: unknown, k: string) => void };
+  const partie = (ok: (x: Noeud) => boolean) => { const n = racine.kids.filter((x): x is Noeud => estNoeud(x) && ok(x)); assert.equal(n.length, 1, 'une seule'); return n[0]; };
   return {
     // Dessine l'écran avec ces droits ; « cle » : une clé de tablette ; « cadre » : la page est dans un cadre.
     dessiner(rights: string, cle = '', cadre = false) { fenetre.top = cadre ? {} : fenetre; e.regler({ rights, notices: [], name: '' }, cle); e.draw(); },
-    cote: () => racine.kids[0] as Noeud, page: () => racine.kids[1] as Noeud, bas: () => racine.kids[2] as Noeud,
-    vues: () => tous(racine.kids[1] as Noeud, (x) => x.tag === 'vue').map((x) => x.attrs['data-vue']),
-    retour: () => tous(racine.kids[1] as Noeud, (x) => x.tag === 'a' && x.attrs.href === '/'),
+    // Chaque partie est cherchée par ce qu'elle est, pas par sa place : non épinglée (la maquette, au départ), la barre de
+    // côté a devant elle sa poignée et le bord gauche (test/maison-cadre.test.ts les tient).
+    cote: () => partie((x) => x.tag === 'nav' && x.attrs.class.split(' ').includes('side')), page: () => partie((x) => x.tag === 'main'), bas: () => partie((x) => x.tag === 'nav' && x.attrs.class === 'bnav'),
+    vues: () => tous(partie((x) => x.tag === 'main'), (x) => x.tag === 'vue').map((x) => x.attrs['data-vue']),
+    retour: () => tous(partie((x) => x.tag === 'main'), (x) => x.tag === 'a' && x.attrs.href === '/'),
   };
 }
 const SEPT = ['accueil', 'famille', 'cameras', 'reseau', 'applis', 'boutons', 'themes'];
 const TROIS = ['accueil', 'boutons', 'themes'];
+// Les sections de la barre de côté : ses boutons « nav » (la punaise, à côté du titre, n'est pas une section).
+const sectionsCote = (n: Noeud) => boutons(n).filter((x) => x.attrs.class === 'nav');
 /** Appuie sur chaque section du menu de côté, dans l'ordre, et rend la vue que chacune ouvre. */
 function sections(e: ReturnType<typeof ecran>): string[] {
-  const n = boutons(e.cote()).length, out: string[] = [];
-  for (let i = 0; i < n; i++) { lancer(boutons(e.cote())[i], 'click'); out.push(e.vues()[0]); }
+  const n = sectionsCote(e.cote()).length, out: string[] = [];
+  for (let i = 0; i < n; i++) { lancer(sectionsCote(e.cote())[i], 'click'); out.push(e.vues()[0]); }
   return out;
 }
 
 test('sections : sept pour la session (accueil, famille, caméras, réseau, mes applis, boutons, thèmes), chacune ouvre sa vue', () => {
   const e = ecran(); e.dessiner('complet');
-  assert.equal(boutons(e.cote()).length, 7); assert.equal(boutons(e.bas()).length, 7, 'la barre du bas (téléphone) a les mêmes');
+  assert.equal(sectionsCote(e.cote()).length, 7); assert.equal(boutons(e.bas()).length, 7, 'la barre du bas (téléphone) a les mêmes');
   assert.deepEqual(sections(e), SEPT);
 });
 
 test('sections : trois pour une tablette « maison » (accueil, boutons, thèmes), chacune ouvre sa vue', () => {
   const e = ecran(); e.dessiner('maison', `gk_${'a'.repeat(40)}`);
-  assert.equal(boutons(e.cote()).length, 3); assert.equal(boutons(e.bas()).length, 3);
+  assert.equal(sectionsCote(e.cote()).length, 3); assert.equal(boutons(e.bas()).length, 3);
   assert.deepEqual(sections(e), TROIS);
 });
 

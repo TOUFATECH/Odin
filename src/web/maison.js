@@ -4,8 +4,10 @@
 // Aucune page HTML construite à partir de texte : tout est créé élément par élément.
 (() => {
   'use strict';
-  // Textes du retour vers Odin (en haut de l'écran).
-  const MOTS = { retour: '← Odin', retourTitre: 'Revenir à Odin' };
+  // Textes du retour vers Odin (en haut de l'écran) et de la barre de côté (son titre, ses entrées, la punaise et ses deux
+  // messages, la poignée, le pied) :
+  // à un seul endroit. Le titre est le nom de l'entrée du menu d'Odin qui ouvre cet écran.
+  const MOTS = { retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes' };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // ---------- Clé de tablette : lue dans #cle=…, gardée sur l'appareil, retirée de l'adresse ----------
   let key = '';
@@ -35,6 +37,7 @@
     send: 'M4 12 20 4l-6 16-3-7z', sound: 'M4 9h4l5-4v14l-5-4H4zM17 8a5 5 0 0 1 0 8', up: 'M6 15l6-6 6 6', down: 'M6 9l6 6 6-6', stop: 'M8 8h8v8H8z', minus: 'M6 12h12', plus: 'M12 6v12M6 12h12',
     net: 'M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01M2 8.5a15 15 0 0 1 20 0', cam: 'M3 7h11v10H3zM14 10l7-3v10l-7-3', people: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9',
     prev: 'M7 6v12M18 6 9 12l9 6z', next: 'M17 6v12M6 6l9 6-9 6z', play: 'M8 5v14l11-7z', pause: 'M8 5h3v14H8zM13 5h3v14h-3z', lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z', open: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
+    pin: 'M9 4h6l-1 6 3 3H7l3-3zM12 13v7', back: 'M15 6l-6 6 6 6', chev: 'M9 6l6 6-6 6',
   };
   const icon = (k, size = 20) => S('svg', { viewBox: '0 0 24 24', width: size, height: size, 'aria-hidden': 'true', class: 'ic' }, S('path', { d: ICON[k], fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
 
@@ -100,10 +103,31 @@
 @font-face{font-family:Plex;src:url(/fonts/ibm-plex-sans-latin-400-normal.woff2) format('woff2');font-weight:400}@font-face{font-family:Plex;src:url(/fonts/ibm-plex-sans-latin-600-normal.woff2) format('woff2');font-weight:600}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%}body{background:var(--decor,none) center bottom/100% auto no-repeat fixed,var(--bg2);background-attachment:fixed;color:var(--text);font:15px/1.4 Plex,system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 button{font:inherit;color:inherit;cursor:pointer}button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.app{display:grid;grid-template-columns:76px 1fr;min-height:100vh}
-.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0;border-right:1px solid var(--line);background:color-mix(in srgb,var(--card) 60%,transparent)}
-.logo{width:44px;height:44px;border-radius:14px;background:var(--on);display:grid;place-items:center;font-weight:700;font-size:24px;color:var(--on-ink);margin-bottom:18px}
-.nav{width:48px;height:48px;border-radius:14px;border:0;background:transparent;color:var(--muted);display:grid;place-items:center}.nav[aria-current=page]{background:var(--card2);color:var(--accent);box-shadow:inset 0 0 0 1px var(--line)}
+.app{display:grid;grid-template-columns:auto 1fr;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;width:232px;display:flex;flex-direction:column;gap:4px;padding:12px 10px;overflow-y:auto;border-right:1px solid var(--line);background:color-mix(in srgb,var(--card) 60%,transparent)}
+.side .hd{display:flex;align-items:center;gap:10px;padding:2px 0 14px}.side .hd span{flex:1;min-width:0;font-weight:600;font-size:17px;overflow-wrap:anywhere}
+.logo{width:44px;height:44px;border-radius:14px;background:var(--on);display:grid;place-items:center;font-weight:700;font-size:24px;color:var(--on-ink);flex:none}
+.pinb{width:44px;height:44px;border-radius:12px;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;flex:none}.pinb[aria-pressed=true]{color:var(--text);background:var(--card2)}
+.nav{width:48px;height:48px;border-radius:14px;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;text-decoration:none}
+.side .nav{width:100%;height:auto;min-height:44px;display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:0 12px;text-align:left;font-size:14.5px}.side .nav span{min-width:0;overflow-wrap:anywhere}.side .nav .ic{flex:none}
+.side .sp{flex:1}.side .veille{padding:10px 12px;margin-top:4px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+.nav[aria-current=page]{background:var(--card2);color:var(--accent);box-shadow:inset 0 0 0 1px var(--line)}.side .nav[aria-current=page]{color:var(--text)}
+/* La barre non épinglée (la maquette) : cachée sur le côté, hors du clavier et des lecteurs d'écran ; ouverte (la souris au bord,
+   la poignée), elle passe au-dessus du contenu avec une ombre, sans le décaler. Épinglée : elle a sa colonne. */
+.app.libre{grid-template-columns:1fr}
+.side.libre{position:fixed;left:0;top:0;bottom:0;height:100vh;z-index:30;transform:translateX(-105%);visibility:hidden;background:color-mix(in srgb,var(--card) 94%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s,visibility 0s linear .35s}
+.side.libre.ouverte{transform:none;visibility:visible;box-shadow:20px 0 50px rgba(0,0,0,.25);transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s,visibility 0s}
+/* La poignée : dessinée étroite (22 px) sur le bord gauche, touchable sur 44 px ; cachée sous la barre ouverte. Le bord : la souris s'en approche, la barre vient. */
+.poignee{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:29;width:44px;height:64px;padding:0 0 0 3px;border:0;background:none;color:var(--muted);display:grid;place-items:center start}
+.poignee::before{content:'';position:absolute;left:0;top:0;bottom:0;width:22px;box-sizing:border-box;border:1px solid var(--line);border-left:0;border-radius:0 14px 14px 0;background:var(--card);z-index:-1}
+.poignee .ic{position:relative}.poignee[aria-expanded=true]{display:none}
+.bord{position:fixed;left:0;top:0;bottom:0;width:14px;z-index:28}
+/* Barre non épinglée, hors téléphone : le contenu commence après la zone touchable de la poignée (44 px), rien n'est dessous. */
+@media (min-width:821px){.app.libre main{padding-left:44px}}
+/* Tablette (de 821 à 1099 px ; la maquette : « w < 1100 ») épinglée : une colonne d'icônes seules ; chaque entrée garde son nom pour les lecteurs d'écran et en info-bulle. */
+@media (min-width:821px) and (max-width:1099px){.side:not(.libre){width:76px;align-items:center;padding:12px 0}.side:not(.libre) .hd{flex-direction:column;padding:2px 0 10px}.side:not(.libre) .hd span,.side:not(.libre) .nav span,.side:not(.libre) .veille{display:none}.side:not(.libre) .nav{width:48px;min-height:48px;justify-content:center;padding:0}}
+@media (max-width:820px){.poignee,.bord{display:none}}
+@media (prefers-reduced-motion:reduce){.side.libre,.side.libre.ouverte{transition:none}}
 main{padding:22px 26px 120px;min-width:0}
 .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.hello h1{margin:0;font-size:clamp(24px,3.2vw,34px);font-weight:600;letter-spacing:-.01em}.hello p{margin:4px 0 0;color:var(--muted);font-size:14px}
 .tools{margin-left:auto;display:flex;gap:10px;align-items:center}.search{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--muted);min-width:220px}.search input{all:unset;color:var(--text);width:100%}
@@ -155,6 +179,11 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
 
   // ---------- État ----------
   let D = null, view = 'accueil', room = 'Tout', q = '', seen = new Set(), first = true, voice = false;
+  // La barre de côté, comme la maquette : non épinglée au départ (elle se cache seule) ; épinglée, elle reste ouverte. Le
+  // choix est gardé sur l'appareil (« 1 » épinglée, « 0 » non). « ouverte » : la barre non épinglée est sortie (la souris
+  // au bord, la poignée) ; « tBarre » : le délai avant qu'elle se cache quand la souris la quitte ; « tOuvert » : l'heure
+  // de son ouverture (elle glisse encore 0,35 s) ; « parSouris » : c'est la souris (le bord) qui l'a ouverte.
+  let barre = (() => { try { return localStorage.getItem('odin.maison.barre') === '1'; } catch { return false; } })(), ouverte = false, tBarre = 0, tOuvert = 0, parSouris = false;
   try { voice = localStorage.getItem('odin.maison.voix') === '1'; } catch { /* */ }
   const root = el('div', { class: 'app' }); document.body.append(root);
   // ---------- Accueil : le ciel noir étoilé (ciel.js) tant qu'Odin n'a pas répondu, ou s'il faut se connecter ----------
@@ -290,11 +319,50 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
     requestAnimationFrame(() => { menu.scrollLeft = x; });
     return menu;
   }
-  function nav(id, label, ic) { return el('button', { class: 'nav', 'aria-label': label, title: label, 'aria-current': view === id ? 'page' : null, onclick: () => { view = id; draw(); } }, icon(ic, 22)); }
+  // Une entrée (« mots » : celle de la barre de côté, avec son nom écrit). Choisie dans la barre non épinglée ouverte : la
+  // barre se referme et le focus revient à la poignée.
+  function nav(id, label, ic, mots) { return el('button', { class: 'nav', 'aria-label': label, title: label, 'aria-current': view === id ? 'page' : null, onclick: () => { const ferme = mots && ouverte && !barre; view = id; if (ferme) ouverte = false; draw(); if (ferme) document.querySelector('.poignee')?.focus(); } }, icon(ic, 22), mots ? el('span', {}, label) : null); }
+  // Ouvre ou cache la barre non épinglée, sans redessiner la page. « focus » : 'barre' (sur l'entrée de la page ouverte),
+  // 'poignee', ou rien. « souris » : c'est la souris qui l'ouvre (seule la souris qui part la refermera). Cachée, la barre
+  // est « inert » : ni clavier, ni lecteur d'écran.
+  function ouvrirBarre(v, focus, souris) {
+    clearTimeout(tBarre);
+    const avant = ouverte;
+    ouverte = Boolean(v) && !barre;
+    if (ouverte && !avant) { tOuvert = Date.now(); parSouris = Boolean(souris); }
+    const s = document.querySelector('.side'), p = document.querySelector('.poignee');
+    if (s) { s.setAttribute('class', barre ? 'side' : ouverte ? 'side libre ouverte' : 'side libre'); if (barre || ouverte) s.removeAttribute('inert'); else s.setAttribute('inert', ''); }
+    p?.setAttribute('aria-expanded', String(ouverte));
+    if (focus === 'barre') (s?.querySelector('.nav[aria-current=page]') || s?.querySelector('.nav'))?.focus();
+    else if (focus === 'poignee') p?.focus();
+  }
+  // La barre non épinglée ouverte se referme : par Échap (le focus revient à la poignée s'il était dans la barre ou nulle
+  // part) ; par un appui hors de la barre, ou le focus qui en sort (Tab), sans toucher au focus. Tant qu'elle glisse
+  // (400 ms après son ouverture), un clic de la souris ou du doigt sur elle ne fait rien : il visait ce qui était là avant.
+  function ecouterBarre() {
+    const rendre = () => { const a = document.activeElement, s = document.querySelector('.side'); return !a || a === document.body || s?.contains(a) ? 'poignee' : null; };
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ouverte && !barre) ouvrirBarre(false, rendre()); });
+    document.addEventListener('click', (e) => { if (ouverte && !barre && e.detail !== 0 && Date.now() - tOuvert < 400 && e.target?.closest?.('.side')) { e.preventDefault?.(); e.stopPropagation?.(); } }, true);
+    document.addEventListener('click', (e) => { if (ouverte && !barre && !e.target?.closest?.('.side,.poignee,.bord')) ouvrirBarre(false); });
+    document.addEventListener('focusin', (e) => { if (ouverte && !barre && !e.target?.closest?.('.side,.poignee')) ouvrirBarre(false); });
+  }
+  ecouterBarre();
   function draw() {
     if (!D) return;
     const full = D.rights === 'complet';
-    const navs = [['accueil', 'Accueil', 'home'], ...(full ? [['famille', 'Famille', 'people'], ['cameras', 'Caméras', 'cam'], ['reseau', 'Réseau', 'net'], ['applis', 'Mes applis', 'apps']] : []), ['boutons', 'Boutons', 'bolt'], ['themes', 'Thèmes', 'palette']];
+    // Les entrées de la barre, dans l'ordre : [section, icône, aussi pour une tablette « maison »]. Une entrée de la maquette
+    // s'ajoute ici, d'une ligne, le jour où sa page existe sur cet écran (pas encore : Journal, Automatisations, Médias,
+    // Maison 3D, Humeurs d'Odin ; Énergie n'aura pas de page, ses widgets suffisent) ; aucune entrée qui ne mène nulle
+    // part. Son nom est dans MOTS.
+    const navs = [
+      ['accueil', 'home', true],
+      ['famille', 'people', false],
+      ['cameras', 'cam', false],
+      ['reseau', 'net', false],
+      ['applis', 'apps', false],
+      ['boutons', 'bolt', true],
+      ['themes', 'palette', true],
+    ].filter((x) => full || x[2]).map(([id, ic]) => [id, MOTS[id], ic]);
     const notes = D.notices || [], unread = notes.filter((n) => n.level !== 'ok').length;
     const main = el('main', { id: 'main' },
       dansOdin ? secs(navs) : null,
@@ -307,7 +375,30 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
           el('button', { class: 'round', 'aria-label': voice ? 'Couper la voix de la mascotte' : 'Activer la voix de la mascotte', 'aria-pressed': String(voice), onclick: () => { voice = !voice; try { localStorage.setItem('odin.maison.voix', voice ? '1' : '0'); } catch { /* */ } draw(); if (voice) pet.say('Je parlerai à voix haute.', 'ok', 'joie'); } }, icon('sound', 20)))),
       ...(view === 'accueil' ? home() : view === 'applis' ? appsView() : view === 'famille' ? [el('h2', { class: 'sec' }, 'Famille'), peopleGrid(), el('p', { class: 'muted', style: { marginTop: '12px' } }, 'La position vient de l\'appli de chaque personne (Home Assistant ou OwnTracks), qui la voit sur son téléphone et peut la mettre en pause.')] : view === 'cameras' ? [el('h2', { class: 'sec' }, 'Caméras'), camGrid(true)] : view === 'reseau' ? netView() : view === 'boutons' ? tilesView(true) : themesView()));
     startCams();
-    root.replaceChildren(el('nav', { class: 'side', 'aria-label': 'Sections' }, el('div', { class: 'logo', 'aria-hidden': 'true' }, 'ᛟ'), ...navs.map((n) => nav(...n))), main, el('nav', { class: 'bnav', 'aria-label': 'Sections' }, ...navs.map((n) => nav(...n))));
+    // La barre de côté : le titre et la punaise, les entrées avec leur nom, le retour vers Odin (même règle qu'en haut), et
+    // « Odin veille » en pied (la page n'est dessinée qu'une fois l'état d'Odin reçu). La punaise dit son choix avec les
+    // mots de la maquette ; désépinglée, la barre reste ouverte tant qu'on y est (la souris, le focus sur la punaise).
+    const pin = el('button', { class: 'pinb', type: 'button', 'aria-label': MOTS.epingler, title: MOTS.epingler, 'aria-pressed': String(barre), onclick: (e) => { barre = !barre; ouverte = !barre; tOuvert = 0; parSouris = !barre && e?.detail > 0; try { localStorage.setItem('odin.maison.barre', barre ? '1' : '0'); } catch { /* navigation privée */ } toast(barre ? MOTS.epinglee : MOTS.libre); draw(); document.querySelector('.side .pinb')?.focus(); } }, icon('pin', 20));
+    // Non épinglée : la poignée (un vrai bouton, qui dit si la barre est ouverte) et le bord gauche (la souris s'en approche).
+    // La souris au bord ouvre sans prendre le focus ; la poignée s'ouvre au clic, au doigt ou au clavier seulement (jamais
+    // au survol : elle disparaîtrait sous la souris et le clic tomberait sur une entrée), et met le focus dans la barre.
+    const souris = (e) => { if (e.pointerType === 'mouse' && !ouverte) ouvrirBarre(true, null, true); };
+    const bords = barre ? [] : [
+      el('button', { class: 'poignee', type: 'button', 'aria-label': MOTS.ouvrir, title: MOTS.ouvrir, 'aria-controls': 'barre-cote', 'aria-expanded': String(ouverte), onclick: () => ouvrirBarre(!ouverte, ouverte ? 'poignee' : 'barre') }, icon('chev', 16)),
+      el('div', { class: 'bord', 'aria-hidden': 'true', onpointerenter: souris })];
+    const cote = el('nav', { id: 'barre-cote', class: barre ? 'side' : ouverte ? 'side libre ouverte' : 'side libre', 'aria-label': MOTS.titre, inert: !barre && !ouverte,
+      onpointerenter: () => clearTimeout(tBarre),
+      onpointerleave: (e) => { if (e.pointerType !== 'mouse' || barre || !ouverte || !parSouris) return; clearTimeout(tBarre); tBarre = setTimeout(() => { const s = document.querySelector('.side'); if (!s?.matches?.(':hover')) ouvrirBarre(false, s?.contains(document.activeElement) ? 'poignee' : null); }, 500); } },
+      el('div', { class: 'hd' }, el('div', { class: 'logo', 'aria-hidden': 'true' }, 'ᛟ'), el('span', {}, MOTS.titre), pin),
+      ...navs.map(([id, label, ic]) => nav(id, label, ic, true)),
+      el('span', { class: 'sp' }),
+      retourVisible(key, window.top !== window) ? el('a', { class: 'nav', href: '/', 'aria-label': MOTS.retourTitre, title: MOTS.retourTitre }, icon('back', 22), el('span', {}, MOTS.retourTitre)) : null,
+      el('div', { class: 'veille' }, MOTS.veille));
+    // Le focus qui était dans la barre revient, après le redessin, sur l'élément de même nom (l'entrée, la punaise).
+    const garde = document.activeElement?.closest?.('.side') ? document.activeElement.getAttribute('aria-label') : null;
+    root.setAttribute('class', barre ? 'app' : 'app libre');
+    root.replaceChildren(...bords, cote, main, el('nav', { class: 'bnav', 'aria-label': MOTS.sections }, ...navs.map((n) => nav(...n))));
+    if (garde) [...cote.querySelectorAll('[aria-label]')].find((x) => x.getAttribute('aria-label') === garde)?.focus({ preventScroll: true });
   }
   let soon = 0; const drawSoon = () => { clearTimeout(soon); soon = setTimeout(() => { const f = document.activeElement?.type === 'search'; draw(); if (f) { const i = document.querySelector('.search input'); i?.focus(); i?.setSelectionRange(999, 999); } }, 150); };
   /** La fenêtre d'Odin : ses pages « écran de la maison » (modules d'applis, météo, boutons). */
