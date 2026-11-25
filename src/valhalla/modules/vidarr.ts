@@ -12,7 +12,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, rea
 import { join } from 'node:path';
 import { domainToASCII, domainToUnicode } from 'node:url';
 import { networkInterfaces } from 'node:os';
-import type { ModCtx, Module, Param } from '../types.ts';
+import type { Action, ModCtx, Module, Param } from '../types.ts';
 import { DnsServer, DEFAULTS, SECOURS_PUBLICS, type ClientRule, type DnsSettings, type Lists, type LogEntry, type ServerDeps } from '../vidarr/server.ts';
 import { SERVICES, SOCIAL_ADS, cleanDomain, compile, isDomain, emptyList, judge, type Compiled } from '../vidarr/rules.ts';
 import type { Schedule } from '../vidarr/server.ts';
@@ -27,6 +27,7 @@ import * as ranDb from '../ran.ts';
 import { actionJournal, auProprietaireSeul, avecJournal } from '../vidarr/qui-a-fait.ts';
 import { LOCAL, SIGNE_MS, chiffresDe, depuisAdresse, effetsDe, gardeEtat, macPropre, nomsReseau, surOdin, texteSur, vueAppareils, type Appareil, type VueAppareils } from '../vidarr/appareils.ts';
 import { agissant } from '../sso/acces.ts';
+import { tabletteQuiDemande } from '../gjoll/session.ts';
 import { RESEAU, VPN, conclure, dansSousReseau, privee, type CarteReseau, type Garde } from '../thjalfi/reseau.ts';
 import { BAUX_PROPOSES, dureeEnMots, filetOdin, nomMaisonPrive, preApprobation, raisonAutre, verifierReglages } from '../vidarr/reglages.ts';
 import { adressePropre, listeNoms, nomInverse, nomPropre, verifierNom, type EntreeNoms, type NomAuto } from '../vidarr/noms.ts';
@@ -1523,6 +1524,9 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       if (recent.length >= 10 && bad / recent.length > 0.5) { ctx.alert({ level: 'haute', title: 'Le DNS n\'arrive plus à joindre Internet', detail: `${bad} échecs sur ${recent.length} questions en 5 minutes (serveurs : ${settingsOf(ctx).upstreams.join(', ')}). Vérifie la connexion de la box ; Odin bascule tout seul sur les serveurs de secours.`, key: 'dns-amont', lien: 'vidarr-alerte-dns-amont' }); { const vu = amontDit.get(ctx.dir) ?? 0; if (now < vu || now - vu >= 240_000) { amontDit.set(ctx.dir, now); ctx.emit('dns_amont_panne', { echecs: bad, total: recent.length }); } } }
     } },
   };
+  // Réseau par la parole (maquette « Réseau », écran « Par la parole ») : « quelle machine a pris l'adresse … ? », puis
+  // « bloque-la ». Placées en fin de liste : elles ne prennent la place d'aucune action d'avant pour Logos.
+  m.actions.push(...actionsParole(m));
   // Pour Genèse (lot R4) : un seul serveur d'adresses d'Odin par carte. Genèse lit ici, sans rien demander, la carte où Sphinx distribue.
   Object.defineProperty(m, 'distributionMaison', { value: distributionMaison, enumerable: false });
   return m;
@@ -1545,4 +1549,156 @@ export function netState(ctx: ModCtx): { leases: Lease[]; cut: Set<string>; vide
   const d = settingsOf(ctx), cut = new Set<string>(), video = new Set<string>();
   for (const c of d.clients) for (const ip of c.ids) { if (c.cut) cut.add(ip); if (VIDEO.every((x) => c.services?.includes(x))) video.add(ip); }
   return { leases: leasesOf(ctx), cut, video };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Réseau par la parole (maquette « Réseau » validée le 23/11, écran « Par la parole ») :
+//   - « quelle machine a pris l'adresse … ? » → `qui_a_l_adresse` : la machine qui tient cette adresse d'après les baux
+//     (son nom, son type deviné, son fabricant, depuis quand), puis des PROPOSITIONS (« La bloquer » conseillée, par
+//     l'action de blocage qui existe, avec sa confirmation). Une adresse que personne ne tient, ou hors de la maison :
+//     Odin le dit, il ne devine pas. Le propriétaire voit tout ; un membre seulement l'appareil qu'il tient (même
+//     réponse pour l'appareil d'un autre et pour une adresse libre : on ne sonde pas quelles adresses existent) ; une
+//     tablette de l'écran de la maison, la clé d'accès, une conversation marquée, une automatisation : rien ;
+//   - « bloque-la » → `blocage_nommee` : seulement si UNE machine vient d'être nommée au propriétaire ; aucune, ou
+//     plusieurs : Odin demande laquelle et rien n'est bloqué. Le geste est celui de `dhcp_mac_etat` (sa confirmation qui
+//     nomme l'appareil et prévient si c'est celui que l'on tient, ses refus : la box, Odin, le serveur DNS), au
+//     propriétaire seul, noté « qui a fait quoi ». (Son identifiant et son nom ne portent pas le verbe « bloquer » :
+//     sinon Logos la prendrait pour toute phrase qui commence par « bloque … », « bloque les pubs » compris.)
+// « Vient d'être nommée » : une action ne connaît pas la conversation d'où vient la phrase. Odin garde donc, en mémoire
+// seulement, les machines nommées au propriétaire en personne (jamais à un membre, une tablette, une automatisation ni
+// après un contenu extérieur) : « elle » est la seule nommée ces 10 dernières minutes, et aucune autre ne l'a été ces 30
+// dernières minutes (sinon : laquelle ?). Les noms viennent du réseau (un appareil annonce ce qu'il veut) : nettoyés, et
+// la réponse est marquée « external » (une donnée, jamais un ordre).
+// Les mots : français, anglais, espagnol et allemand (comme les autres lots « par la parole »).
+// ---------------------------------------------------------------------------------------------------------------
+export const MOTS_PAROLE_RESEAU = {
+  adresse: ['quelle machine a l\'adresse', 'quelle machine a pris l\'adresse', 'quel appareil a l\'adresse', 'quel appareil a pris l\'adresse', 'qui a l\'adresse', 'qui a pris l\'adresse',
+    'which machine has the address', 'which device has the address', 'what machine has the address', 'which machine took the address', 'who has the address',
+    'qué máquina tiene la dirección', 'qué dispositivo tiene la dirección', 'quién tiene la dirección', '¿qué máquina tiene la dirección', '¿qué dispositivo tiene la dirección', '¿quién tiene la dirección',
+    'welches gerät hat die adresse', 'welcher rechner hat die adresse', 'welche maschine hat die adresse', 'wer hat die adresse'],
+  // (« bloque-la maintenant » : une phrase entière qui ne laisse rien d'inexpliqué ; jamais « bloque la » seul, qui serait
+  // pris dans « bloque la machine … », « bloque la pub ».)
+  // (« bloque la machine nommée » donne le verbe seul, « bloque », à la relecture de la phrase : « bloque-la » y perd son pronom.)
+  bloquer: ['bloque-la', 'bloque-le', 'bloque-la maintenant', 'bloque-le maintenant', 'bloque la machine nommée',
+    'block it', 'block it now', 'block that machine', 'block this machine', 'block that device',
+    'bloquéala', 'bloquéalo', 'bloquéala ahora', 'bloquéalo ahora', 'bloquea esa máquina',
+    'blockiere es', 'blockiere sie', 'blockiere es jetzt', 'sperre es', 'sperre sie', 'sperre es jetzt'],
+};
+/** « Elle » est la seule machine nommée ces 10 dernières minutes, sans autre nommée ces 30 dernières minutes. */
+const NOMMEE_MS = 10 * 60_000, AUTRE_NOMMEE_MS = 30 * 60_000;
+interface Nommee { mac: string; ip: string; nom: string; t: number }
+/** Les machines nommées au propriétaire, par Odin (son dossier) : en mémoire seulement. */
+const nommees = new Map<string, Nommee[]>();
+function retenirNommee(ctx: ModCtx, x: Omit<Nommee, 't'>): void {
+  const now = ctx.now().getTime(), l = (nommees.get(ctx.dir) ?? []).filter((y) => now - y.t < AUTRE_NOMMEE_MS && y.mac !== x.mac);
+  nommees.set(ctx.dir, [...l, { ...x, t: now }].slice(-20));
+}
+/** La machine que « bloque-la » désigne : une seule, ou celles qui ont été nommées (il faut demander laquelle). */
+function machineNommee(ctx: ModCtx): { une?: Nommee; plusieurs: Nommee[] } {
+  const now = ctx.now().getTime(), l = (nommees.get(ctx.dir) ?? []).filter((y) => now - y.t < AUTRE_NOMMEE_MS && y.t <= now);
+  const recentes = l.filter((y) => now - y.t < NOMMEE_MS);
+  return recentes.length === 1 && l.length === 1 ? { une: recentes[0], plusieurs: [] } : { plusieurs: recentes.length ? l : [] };
+}
+// La confirmation de « bloque-la » nomme UNE machine ; le « oui » revient comme la même phrase, sans la machine. Entre
+// les deux, une autre machine peut avoir été nommée (l'ancienne confirmation restée à l'écran) : la phrase relue ne
+// désignerait plus celle qu'il a vue. Odin garde donc la machine annoncée et, au moment de bloquer, refuse si ce n'est
+// plus elle, ou si deux annonces différentes ont été faites sans être tranchées (il ne sait pas laquelle il a vue) :
+// rien n'est bloqué, il faut le redire. L'annonce ne sert qu'une fois ; en mémoire seulement.
+interface AnnonceBlocage { mac: string; at: number; /** une autre machine a été annoncée avant, sans être tranchée */ contredite?: true }
+const annoncesBlocage = new Map<string, AnnonceBlocage>();
+function annoncerBlocage(ctx: ModCtx, mac: string): void {
+  const now = ctx.now().getTime(), a = annoncesBlocage.get(ctx.dir);
+  if (a && a.mac === mac && now - a.at < AUTRE_NOMMEE_MS && now >= a.at) return; // la même annonce redite ne change rien
+  annoncesBlocage.set(ctx.dir, { mac, at: now, ...(a && (a.mac !== mac || a.contredite) ? { contredite: true as const } : {}) });
+}
+/** Le propriétaire en personne ? (La garde d'Odin a déjà écarté l'automatisation et la conversation marquée.) */
+const enPersonne = () => !agissant() && !tabletteQuiDemande();
+const REFUS_TABLETTE_RESEAU = (t: string) => `Refusé depuis ${texteSur(t, 80)} : les machines du réseau se demandent depuis ta session d'Odin. Rien n'est montré.`;
+const REFUS_ADRESSE_MEMBRE = 'cette réponse est au propriétaire : tu ne peux demander que l\'adresse de l\'appareil que tu tiens en ce moment';
+const GARDES: Record<Exclude<Appareil['garde'], ''>, string> = { box: 'C\'est la box : elle ne se bloque pas.', odin: 'C\'est Odin lui-même : il ne se bloque pas.', dns: 'C\'est le serveur DNS de toute la maison : il ne se bloque pas.' };
+/** Une proposition de la réponse : ce qu'on peut dire (ou toucher) ensuite. */
+interface PropositionReseau { label: string; detail: string; dire?: string; appli?: string; action?: string; input?: Record<string, unknown>; conseille?: boolean }
+
+function actionsParole(m: Module): Action[] {
+  const blocage = (): Action => { const a = m.actions.find((x) => x.id === 'dhcp_mac_etat'); if (!a) throw new Error('action de blocage absente'); return a; };
+  const laquelle = (l: Nommee[]) => (l.length
+    ? `Laquelle ? Tu as parlé de plusieurs machines : ${l.map((x) => `« ${x.nom} » (${x.ip || x.mac})`).join(' ou ')}. Redemande « quelle machine a l'adresse … ? » pour celle à bloquer. Rien n'est bloqué.`
+    : 'Laquelle ? Aucune machine n\'a été nommée ces dernières minutes : demande d\'abord « quelle machine a l\'adresse … ? », ou bloque-la depuis sa fiche dans Sphinx. Rien n\'est bloqué.');
+  return [
+    { id: 'qui_a_l_adresse', label: 'Quelle machine a cette adresse', what: 'La machine qui tient une adresse de la maison d\'après les baux (nom, type deviné, fabricant, depuis quand) et ce qu\'Odin propose (la bloquer, la nommer, la laisser). Ne bloque rien', read: true, external: true, quiet: true, quick: false,
+      // Le propriétaire, ou un membre pour l'appareil qu'il tient ; jamais une automatisation ni après un contenu extérieur.
+      proprietaireSeul: () => !agissant(),
+      params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }], words: MOTS_PAROLE_RESEAU.adresse,
+      run: (ctx, i) => {
+        const t = tabletteQuiDemande(); if (t) return { ok: false, text: REFUS_TABLETTE_RESEAU(t), data: { code: 'session' } };
+        const ip = ipPropre(s(i.ip).trim()); if (!ip) throw new Error('il faut une adresse IPv4 (quatre nombres de 0 à 255). Rien n\'est cherché.');
+        const v = appareilsVus(ctx), c = dhcpConfig(ctx), q = agissant();
+        const trouves = v.appareils.filter((d) => d.ip === ip);
+        // Un membre : seulement l'appareil qu'il tient, et la même réponse pour tout le reste.
+        if (q) {
+          const d = trouves.find((x) => x.ici); if (!d || trouves.length !== 1) throw new Error(REFUS_ADRESSE_MEMBRE);
+          return { text: `« ${d.nom} » (l'appareil que tu tiens) a l'adresse ${ip} · ${d.typeNom}${d.fabricant ? ` · ${d.fabricant}` : ''}.`, data: { ip, maison: true, machine: { mac: d.mac, ip, nom: d.nom }, carte: { titre: d.nom, propositions: [] } } };
+        }
+        const r = reseauDe(c), n = ipNum(ip);
+        if (r && (n < r.net || n > r.diffusion)) {
+          return { text: `${ip} n'est pas une adresse de la maison (réseau ${numIp(r.net)}/${r.prefixe}) : Odin ne voit pas les machines d'ailleurs. Rien n'est deviné.`, data: { ip, maison: false, carte: { titre: ip, propositions: [] } } };
+        }
+        // Odin lui-même, quand il ne figure pas dans la liste (il ne demande pas son adresse au DHCP).
+        if (!trouves.length && (ip === c.server || lanAddress() === ip)) {
+          const mac = LOCAL.macs()[0] ?? '';
+          if (mac && enPersonne()) retenirNommee(ctx, { mac, ip, nom: 'Odin (ce serveur)' });
+          return { text: `${ip} est l'adresse d'Odin lui-même. ${GARDES.odin}`, data: { ip, maison: true, machine: { mac, ip, nom: 'Odin (ce serveur)', garde: 'odin' }, carte: { titre: 'Odin', propositions: [] } } };
+        }
+        if (trouves.length > 1) {
+          return { text: `Plusieurs machines sont notées sur ${ip} : ${trouves.map((x) => `« ${x.nom} » (${x.mac})`).join(', ')}. Odin ne choisit pas : regarde-les dans Sphinx → Appareils. Rien n'est nommé.`, data: { ip, maison: true, carte: { titre: ip, propositions: [] } } };
+        }
+        const d = trouves[0];
+        if (!d) {
+          return { text: `Aucune machine n'a l'adresse ${ip} d'après les baux d'Odin${dhcp ? '' : ' (la box distribue les adresses : Odin ne voit que les appareils qu\'il a déjà servis)'}. Rien n'est deviné.`, data: { ip, maison: true, carte: { titre: ip, propositions: [] } } };
+        }
+        const arrivee = d.depuis || d.premier;
+        const etat = d.etat === 'bloque' ? 'déjà bloquée' : d.etat === 'pause' ? 'en pause' : d.etat === 'attente' ? 'attend ton accord' : d.connecte ? 'connectée' : 'pas connectée en ce moment';
+        const lignes = [
+          `« ${d.nom} » a l'adresse ${ip}${d.fixe ? ' (adresse fixe)' : ''} · ${d.typeNom}${d.systeme ? ` (${d.systeme})` : ''}${d.fabricant ? ` · ${d.fabricant}` : d.prive ? ' · adresse MAC privée (pas de fabricant)' : ''} · MAC ${d.mac}`,
+          `${d.nouveau ? 'Nouvelle machine, ' : ''}${arrivee ? `là depuis ${quand(arrivee)}` : 'arrivée à une date inconnue'}${d.premier && d.premier !== arrivee ? ` (vue la première fois ${quand(d.premier)})` : ''} · ${etat}.`,
+        ];
+        const fiche: PropositionReseau = { label: d.nomDonne ? 'Voir sa fiche' : 'Je la connais : la nommer', detail: 'ouvre sa fiche', appli: 'vidarr', action: 'recap_machine', input: { mac: d.mac } };
+        let props: PropositionReseau[];
+        if (d.garde) { lignes.push(GARDES[d.garde]); props = [fiche]; }
+        else if (d.etat === 'bloque') { lignes.push('Pour lui rendre le réseau : débloque-la depuis sa fiche.'); props = [fiche]; }
+        else {
+          if (d.ici) lignes.push('⚠ C\'est l\'appareil que tu tiens en ce moment : le bloquer te couperait d\'Odin.');
+          props = [
+            { label: 'La bloquer', detail: 'plus d\'adresse : retirée du réseau (avec ta confirmation)', dire: 'bloque-la', appli: 'vidarr', action: 'dhcp_mac_etat', input: { mac: d.mac, etat: 'bloque' }, conseille: !d.ici },
+            fiche,
+            { label: 'La laisser', detail: 'Odin la surveille' },
+          ];
+        }
+        lignes.push('Ce que je propose :', ...props.map((p) => `- ${p.label}${p.conseille ? ' (conseillé)' : ''} : ${p.detail}${p.dire ? ` — dis « ${p.dire} »` : ''}`));
+        if (enPersonne()) retenirNommee(ctx, { mac: d.mac, ip, nom: d.nom });
+        return { text: lignes.join('\n'), data: { ip, maison: true, machine: { mac: d.mac, ip, nom: d.nom, type: d.typeNom, fabricant: d.fabricant, depuis: arrivee, premier: d.premier, etat: d.etat, nouveau: d.nouveau, garde: d.garde }, carte: { titre: d.nom, propositions: props } } };
+      } },
+    ...avecJournal('vidarr_actes', [{
+      id: 'blocage_nommee', label: 'Blocage de la machine nommée', what: '« Bloque-la » : bloque la machine qui vient d\'être nommée (« quelle machine a l\'adresse … ? »), avec la confirmation du blocage ; aucune, ou plusieurs : Odin demande laquelle', quick: false, proprietaireSeul: true, words: MOTS_PAROLE_RESEAU.bloquer,
+      // « Laquelle ? » et le résultat citent des noms venus du réseau : une donnée, jamais un ordre.
+      external: true,
+      // La confirmation est celle de l'action de blocage, pour la machine désignée ; rien de désigné : pas de geste, donc pas de confirmation.
+      // La machine annoncée est gardée : le « oui » ne vaut que pour elle (voir annoncerBlocage).
+      grave: (_i: Record<string, unknown>, ctx?: ModCtx) => {
+        if (!ctx || tabletteQuiDemande()) return undefined; const x = machineNommee(ctx).une; if (!x) return undefined;
+        const why = blocage().grave?.({ mac: x.mac, etat: 'bloque', nom: '' }, ctx); if (why) annoncerBlocage(ctx, x.mac); return why;
+      },
+      run: async (ctx: ModCtx) => {
+        const t = tabletteQuiDemande(); if (t) return { ok: false, text: REFUS_TABLETTE_RESEAU(t), data: { code: 'session' } };
+        const a = annoncesBlocage.get(ctx.dir); annoncesBlocage.delete(ctx.dir); // l'annonce ne sert qu'une fois
+        const r = machineNommee(ctx); if (!r.une) return { ok: false, text: laquelle(r.plusieurs) };
+        const input = { mac: r.une.mac, etat: 'bloque', nom: '' }, now = ctx.now().getTime();
+        // Un blocage qui demande confirmation ne part que pour la machine que la confirmation a nommée.
+        if (blocage().grave?.(input, ctx) && (!a || a.contredite || a.mac !== r.une.mac || now - a.at >= AUTRE_NOMMEE_MS || now < a.at)) {
+          return { ok: false, text: `La confirmation que tu as validée ne nommait pas « ${r.une.nom} » (${r.une.mac}), ou une autre machine a été nommée depuis. Redis « bloque-la » : la confirmation te montrera la machine visée. Rien n'est bloqué.` };
+        }
+        return blocage().run(ctx, input);
+      },
+    }]),
+  ];
 }

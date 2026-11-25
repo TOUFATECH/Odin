@@ -3,7 +3,9 @@
 /** Les actions de Vortex qui changent le réseau ou montrent un secret (QR code, fichier de configuration). */
 export const VORTEX = ['ouvrir_port', 'fermer_port', 'detecter', 'port', 'allumer', 'eteindre', 'ajouter', 'qr', 'telecharger', 'modifier', 'serveur', 'activer', 'revoquer', 'adresse', 'reseaux'];
 /** Les actions de Sphinx qui changent le DNS ou le DHCP. */
-export const SPHINX = ['demarrer', 'arreter', 'bloquer', 'autoriser', 'regle', 'retirer_regle', 'ajouter_liste', 'activer_liste', 'retirer_liste', 'mettre_a_jour', 'services', 'appareil', 'couper_machine', 'couper_video', 'retablir_machine', 'bloquer_horaires', 'retirer_horaire', 'retirer_appareil', 'nom_local', 'retirer_nom', 'pubs_reseaux', 'horaires', 'dhcp_reglages', 'dhcp_demarrer', 'dhcp_arreter', 'dhcp_fixe', 'dhcp_retirer_fixe', 'dhcp_mode', 'dhcp_mac_etat', 'dhcp_approuver', 'dns_chiffre', 'pause', 'reprendre', 'reglages', 'vider_cache'];
+export const SPHINX = ['demarrer', 'arreter', 'bloquer', 'autoriser', 'regle', 'retirer_regle', 'ajouter_liste', 'activer_liste', 'retirer_liste', 'mettre_a_jour', 'services', 'appareil', 'couper_machine', 'couper_video', 'retablir_machine', 'bloquer_horaires', 'retirer_horaire', 'retirer_appareil', 'nom_local', 'retirer_nom', 'pubs_reseaux', 'horaires', 'dhcp_reglages', 'dhcp_demarrer', 'dhcp_arreter', 'dhcp_fixe', 'dhcp_retirer_fixe', 'dhcp_mode', 'dhcp_mac_etat', 'dhcp_approuver', 'dns_chiffre', 'pause', 'reprendre', 'reglages', 'vider_cache',
+  // « bloque-la » (le réseau par la parole) : pas une écriture de plus, il passe par « dhcp_mac_etat » ; protégé et noté comme elles.
+  'blocage_nommee'];
 
 /** Des réglages valables pour chaque action (adresses et noms de documentation). */
 export function entree(id: string): Record<string, unknown> {

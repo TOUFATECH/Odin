@@ -391,6 +391,13 @@ async function moteurPret(ctx: ModCtx): Promise<string> {
   return moteurVu.why;
 }
 const ETATS_VPN: Record<AppareilVpn['etat'], string> = { connecte: 'connecté', absent: 'pas connecté', jamais: 'jamais connecté', coupe: 'accès coupé', fini: 'accès terminé' };
+/** « Qui est connecté sur le VPN ? », dit en français, anglais, espagnol et allemand (comme les autres lots « par la parole »). */
+const MOTS_QUI_CONNECTE = ['qui est connecte sur le vpn', 'qui est connecté sur le vpn', 'qui est connecté au vpn', 'qui est sur le vpn',
+  'who is connected to the vpn', 'who is on the vpn', 'who\'s on the vpn',
+  'quién está conectado a la vpn', 'quién está en la vpn', '¿quién está conectado a la vpn', '¿quién está en la vpn',
+  'wer ist mit dem vpn verbunden', 'wer ist im vpn'];
+/** Une heure dite selon la langue de la machine (aucune langue écrite ici). */
+const heureVue = (x: number) => new Date(x).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 
 // ---------------- Lot R8 : la configuration d'un appareil, gardée au coffre, remontrée sur un geste ----------------
 /** L'adresse de la maison telle qu'elle a été validée (lot R7) : lue sur la box, ou écrite et confirmée par le propriétaire. Vide : pas encore connue. */
@@ -565,7 +572,8 @@ export const gjoll: Module = {
       noterDerniers(ctx); await bringDown(ctx); ctx.saveSettings({ on: false });
       return { text: `⏹ Tunnel coupé.${ctx.settings.upnp ? ' Le port du VPN reste ouvert sur la box (plus rien n\'y répond) : « Fermer le port sur la box » le referme.' : ''}` };
     } },
-    { id: 'appareils', label: 'Appareils VPN', what: 'Liste et état', read: true, words: ['appareils', 'qui est connecte', 'connectés'], run: async (ctx) => {
+    // (« qui est connecté » va désormais à « qui_est_connecte », qui répond avec les droits de qui demande.)
+    { id: 'appareils', label: 'Appareils VPN', what: 'Liste et état', read: true, words: ['appareils', 'connectés'], run: async (ctx) => {
       // « Avec mes droits » : un membre de la famille ne voit que les appareils de son compte ; le propriétaire voit tout.
       const d = live(), q = agissant(), l = q ? peers(ctx).filter((p) => p.compte === q.login) : peers(ctx);
       return { text: l.map((p) => { const x = d.get(p.pub); return `- ${p.name} (${p.ip}) · ${p.enabled ? (x?.handshake && Date.now() - x.handshake < 180_000 ? 'connecté' : 'hors ligne') : 'désactivé'}`; }).join('\n') || (q ? 'Aucun appareil VPN à ton nom.' : 'Aucun appareil.') };
@@ -715,6 +723,28 @@ export const gjoll: Module = {
       return { text: `🏠 Réseaux ouverts au VPN : ${(lan.length ? lan : sv.lan ?? []).join(', ') || 'aucun'} · DNS : ${dns || sv.dns || 'aucun donné (chaque appareil garde le sien)'}. Les appareils déjà ajoutés doivent rescanner leur QR code.` };
     } },
   ], [
+    // Par la parole (maquette « Réseau », écran « Par la parole ») : « qui est connecté sur le VPN ? ». Le propriétaire le
+    // demande : « il me fait la liste, avec mes droits ». Le propriétaire voit tout (dernière connexion, depuis où, comme
+    // les cartes de la page) ; un membre seulement les appareils de son compte (jamais le nom ni l'adresse de celui d'un
+    // autre) ; une tablette de l'écran de la maison, la clé d'accès, une conversation marquée, une automatisation : rien.
+    // Aucune clé dans la réponse. Les noms peuvent venir de la page de connexion : la réponse est une donnée (« external »).
+    { id: 'qui_est_connecte', label: 'Qui est connecté sur le VPN', what: 'La liste des appareils du VPN avec tes droits : qui est connecté maintenant (dernière connexion, depuis où), qui ne l\'est pas, les accès coupés. Aucune clé n\'est donnée', read: true, external: true, quiet: true, quick: false, proprietaireSeul: () => !agissant(), words: MOTS_QUI_CONNECTE,
+      run: (ctx) => {
+        const t = tabletteQuiDemande();
+        if (t) return { ok: false, text: `Refusé depuis ${texteSur(t, 80)} : la liste des appareils du VPN se demande depuis ta session d'Odin (chacun y voit les siens). Rien n'est montré.`, data: { code: 'session' } };
+        const v = vpnVu(ctx), membre = !v.proprietaire;
+        const co = v.appareils.filter((d) => d.connecte), pas = v.appareils.filter((d) => d.etat === 'absent' || d.etat === 'jamais'), coupes = v.appareils.filter((d) => d.etat === 'coupe' || d.etat === 'fini');
+        const ligne = (d: AppareilVpn) => `- ${d.nom} · ${d.ip} · dernière connexion ${heureVue(d.vu)}${d.depuis ? ` · depuis ${d.depuis}${d.ou === 'maison' ? ' (la maison)' : ''}` : ''} · reçu ${human(d.recu)}`;
+        const tete = membre ? (v.appareils.length ? `Je te montre seulement tes appareils : ${co.length} connecté${co.length > 1 ? 's' : ''} maintenant${co.length ? ' :' : '.'}` : v.limite)
+          : `${co.length} connecté${co.length > 1 ? 's' : ''} sur le VPN maintenant${co.length ? ' :' : '.'}`;
+        const lignes = [tete, ...co.map(ligne),
+          pas.length ? `Pas connectés : ${pas.map((d) => `${d.nom} (${d.vu ? `dernière connexion ${heureVue(d.vu)}` : 'jamais'})`).join(', ')}.` : '',
+          coupes.length ? `Accès coupé : ${coupes.map((d) => d.nom).join(', ')}.` : '',
+          membre ? 'La liste de tout le monde, seul le propriétaire peut la voir.' : '',
+          !membre && !v.appareils.length ? 'Aucun appareil dans le VPN.' : ''].filter(Boolean);
+        const carte = { titre: 'Qui est connecté sur le VPN', lignes: lignes.slice(1), propositions: membre ? [] : [{ label: 'Ouvrir le VPN', detail: 'la liste complète', appli: 'gjoll', onglet: 'appareils' }] };
+        return { text: lignes.join('\n'), data: { proprietaire: v.proprietaire, limite: v.limite, chiffres: v.chiffres, appareils: v.appareils, carte } };
+      } },
     // Lot R7 : ce que la page de Vortex montre. Une lecture : aucune clé dedans (ni celle d'un appareil, ni celle d'Odin).
     // Un membre de la famille n'y voit que les appareils rattachés à son compte, et rien du tunnel (ni l'adresse de la maison).
     // Réservée au propriétaire en personne (ou à un membre, avec sa vue réduite) : ni une automatisation, ni un assistant ne

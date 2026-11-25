@@ -124,7 +124,8 @@ test('l\'outil de l\'IA (un membre sur Telegram, une conversation marquée), Tal
   const outil = (role: 'member' | 'owner', marque: boolean, appli: string, quoi: string) => valhallaTool.run({ action: 'action', appli, quoi, entree: entree(quoi) }, { auteur: { role }, isTainted: () => marque, sessionId: 'telegram:essai' } as never);
   for (const [m, ids] of [['gjoll', VORTEX], ['vidarr', SPHINX]] as const) for (const id of ids) {
     if (JAMAIS.has(id)) continue;
-    for (const [qui, role, marque] of [['membre (Telegram)', 'member', false], ['conversation marquée', 'owner', true]] as const) { const t = String(await outil(role, marque, m, id)); if (!REFUS.test(t)) passe.push(`outil de l'IA, ${qui} · ${m}.${id} : ${t.slice(0, 80)}`); }
+    // (Une action marquée « external » rend { output, tainted } au lieu d'un texte : on lit son texte, le refus attendu est le même.)
+    for (const [qui, role, marque] of [['membre (Telegram)', 'member', false], ['conversation marquée', 'owner', true]] as const) { const o = await outil(role, marque, m, id); const t = typeof o === 'object' && o && 'output' in o ? String((o as { output: unknown }).output) : String(o); if (!REFUS.test(t)) passe.push(`outil de l'IA, ${qui} · ${m}.${id} : ${t.slice(0, 80)}`); }
     const d = await moduleDep(m, id, entree(id)); if (!REFUS.test(d.text)) passe.push(`Talos · ${m}.${id} : ${d.text.slice(0, 80)}`);
     const mcp = await serverHandle(va, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: `odin_${m}`, arguments: { action: id, entree: entree(id) } } } as never, () => '') as { result?: { content: Array<{ text: string }> } };
     const mt = mcp.result?.content[0]?.text ?? ''; if (!REFUS.test(mt)) passe.push(`MCP · ${m}.${id} : ${mt.slice(0, 80)}`);

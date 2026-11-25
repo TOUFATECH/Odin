@@ -404,7 +404,8 @@ test('R8 (relecture) · clé de la machine perdue : AUCUN chemin ne réécrit le
     for (const a of gjoll.actions) {
       const r = await w2.agir(a.id, { ...entree });
       if (w2.ecrit() !== ecrit) { passe.push(`${a.id} a réécrit le fichier`); break; }
-      if (r.ok !== false && !['appareils', 'appareils_vus', 'qui_a_fait'].includes(a.id)) passe.push(`${a.id} est passée : ${r.text.slice(0, 80)}`);
+      // (« qui_est_connecte » : la liste dite « qui est connecté sur le VPN », une lecture sans clé comme « appareils_vus ».)
+      if (r.ok !== false && !['appareils', 'appareils_vus', 'qui_est_connecte', 'qui_a_fait'].includes(a.id)) passe.push(`${a.id} est passée : ${r.text.slice(0, 80)}`);
       assert.doesNotMatch(JSON.stringify(r), /PrivateKey|odc1:/, a.id);
     }
     await assert.rejects(async () => gjoll.view!(w2.g, new URLSearchParams()), /les clés du VPN sont illisibles/);
