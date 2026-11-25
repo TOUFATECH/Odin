@@ -31,6 +31,12 @@
     verreLimite: 'Au-delà de {n} %, les cartes de ce thème ne deviennent pas plus transparentes : leurs textes ne se liraient plus.',
     verrePlein: 'Avec ce décor, les cartes de ce thème restent aussi opaques qu\'il le faut pour que leurs textes se lisent.',
     verreSansFlou: 'Ce navigateur ne sait pas flouter : les cartes y gardent leur couleur pleine.',
+    // L'interrupteur « fond animé » (le fond qui vit derrière l'accueil, maquette validée), gardé par Odin.
+    fond: 'Fond animé derrière l\'accueil',
+    fondAide: 'L\'ambiance du thème bouge derrière les cartes de l\'accueil ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations.',
+    fondSans: 'Le thème {nom} n\'a pas d\'ambiance animée.',
+    fondCachee: 'Avec le thème {nom}, l\'ambiance reste cachée : derrière ses cartes, elle gênerait la lecture.',
+    fondBaissee: 'Avec le thème {nom}, l\'ambiance est atténuée : à pleine force, elle gênerait la lecture de ses cartes.',
   };
   const remplir = (modele, v) => modele.replace(/\{(\w+)\}/g, (x, k) => (k in v ? String(v[k]) : x));
   // Les thèmes d'Odin et ceux des événements de l'année (ils s'activent tout seuls le jour de l'événement, sauf si tu
@@ -114,8 +120,9 @@
       shadow: t.dark ? '0 14px 34px rgba(0,0,0,.3)' : `0 10px 28px ${rgbaDe(t.ink, 0.1)},inset 0 1px 0 rgba(255,255,255,.9)`,
     };
   }
-  // Un verre de transparence g (0 à 100, règle de la maquette), et de quoi dire si une carte s'y lit.
-  function essaiVerre(t, pal, v, g) {
+  // Un verre de transparence g (0 à 100, règle de la maquette), et de quoi dire si une carte s'y lit. `nom` : l'ambiance
+  // du fond qui vit, quand elle passe derrière les cartes (voir derriereAmbiance) ; sans elle, le décor seul.
+  function essaiVerre(t, pal, v, g, nom) {
     // Un fond ou un décor trop clair (ou trop sombre) sous un verre trop transparent : la carte devient plus opaque, juste
     // assez pour que chaque texte du thème s'y lise (4,5:1) au pire point du décor (deux formes translucides l'une sur
     // l'autre comprises) : une couche de sa couleur pleine passe sous le verre, de 5 % en 5 %, jusqu'à la carte pleine
@@ -124,18 +131,26 @@
     // tel quel ; les autres tons comptent tels que tonsVerre les éloigne déjà sans le décor (verre de départ sur le
     // dégradé, carte pleine, couleur pleine) : c'est le décor que l'opacité compense, pas un ton de plus.
     // Le reflet compte tel que la page le pose (arrondi), pour que l'opacité et les tons (tonsVerre) lisent le même.
-    const sat = v.sat ?? 1.4, dessous = derriere(t, sat), plein = hex6(v.solid) || t.panel;
+    // Avec l'ambiance, c'est son pire moment qui compte (ses couleurs les plus fortes, jusqu'à trois l'une sur l'autre, ses
+    // points fins étalés par le flou de ce verre) : la carte devient plus opaque, l'ambiance reste à pleine force.
+    const sat = v.sat ?? 1.4, plein = hex6(v.solid) || t.panel;
     const depart = catalogue.surfaceOf(v, g), reflet = +(depart.sheen ?? 0.3).toFixed(3);
-    const sansDecor = trier(fondsVerre(derriere({ ...t, decor: '' }, sat), depart.surface, reflet), fondsVerre(dessous, surCouche(depart.surface, plein, 1), reflet), [lumVue(plein)]);
+    // (la couche de couleur pleine à 100 % est opaque : ce qu'il y a dessous n'y change rien, le décor seul suffit)
+    const decor = derriere(t, sat);
+    const sansDecor = trier(fondsVerre(derriere({ ...t, decor: '' }, sat), depart.surface, reflet), fondsVerre(decor, surCouche(depart.surface, plein, 1), reflet), [lumVue(plein)]);
     const textes = [t.ink, ...TEXTES_VERRE.map((n) => pal[n]).filter((c) => /^#[0-9a-f]{6}$/i.test(c || '')).map((c) => eloigner(c, sansDecor, versTon(t)))];
-    const lisible = (surface) => { const f = trier(fondsVerre(dessous, surface, reflet)); return textes.every((c) => pireContraste(c, f) >= 4.6); };
+    // Avec l'ambiance : d'abord ses grandes formes seules (les mêmes pour tout flou ; un texte qui s'y perd se perd aussi
+    // avec ses points fins), puis le tout, calculé pour le flou de ce verre, seulement si la première épreuve passe.
+    const grandes = nom ? derriereAmbiance(t, sat, nom, 0, 1, true) : null;
+    let tout = nom ? null : decor;
+    const lisible = (surface) => (!grandes || seLitSur(grandes, surface, reflet, textes, 4.6)) && seLitSur(tout ??= derriereAmbiance(t, sat, nom, Number(depart.blur) || 0), surface, reflet, textes, 4.6);
     return { sat, plein, depart, reflet, lisible };
   }
   const borne = (x) => Math.round(Math.max(0, Math.min(100, Number(x) || 0)));
   // La carte posée pour une transparence g : celle de la maquette, rendue plus opaque s'il le faut (la couche de sa
   // couleur pleine, de 5 % en 5 %) pour que chaque texte s'y lise au pire point du décor.
-  function carteVerre(t, pal, v, g) {
-    const e = essaiVerre(t, pal, v, g);
+  function carteVerre(t, pal, v, g, nom) {
+    const e = essaiVerre(t, pal, v, g, nom);
     let surface = e.depart.surface;
     for (let p = 5; p <= 100 && !e.lisible(surface); p += 5) surface = surCouche(e.depart.surface, e.plein, p / 100);
     // Un verre clair sous un texte clair (ou sombre sous un texte sombre) ne se lit pas, même sur toute sa couleur
@@ -146,24 +161,28 @@
   // La limite de transparence d'un thème : la plus grande valeur g où la carte de la maquette, telle quelle (sans
   // couche de plus), laisse chaque texte lisible au pire point du décor ; et au moins sa transparence de départ (celle
   // d'aujourd'hui, déjà rendue lisible par la couche). Au-delà, la carte ne devient pas plus transparente : c'est celle
-  // de la limite. Calculée une fois par thème.
+  // de la limite. Calculée une fois par thème, et une fois de plus avec son ambiance quand le fond vit (`nom`).
   const LIMITES = new WeakMap();
-  function limiteVerre(id, t, pal) {
-    if (LIMITES.has(t)) return LIMITES.get(t);
+  function limiteVerre(id, t, pal, nom) {
+    const cle = nom || '', deja = LIMITES.get(t)?.get(cle); if (deja !== undefined) return deja;
     const v = regleVerre(id, t), depart = Math.max(0, Math.min(100, Number(v.gt) || 0));
+    // (avec l'ambiance, la limite ne dépasse jamais celle du décor seul : tout ce qui se voit sans elle se voit aussi avec
+    //  elle, là où elle ne passe pas ; on part donc de celle-là)
     let lim = depart;
-    for (let g = 100; g > depart; g--) { const e = essaiVerre(t, pal, v, g); if (e.lisible(e.depart.surface)) { lim = g; break; } }
-    LIMITES.set(t, lim);
+    for (let g = nom ? limiteVerre(id, t, pal) : 100; g > depart; g--) { const e = essaiVerre(t, pal, v, g, nom); if (e.lisible(e.depart.surface)) { lim = g; break; } }
+    if (!LIMITES.has(t)) LIMITES.set(t, new Map());
+    LIMITES.get(t).set(cle, lim);
     return lim;
   }
-  // `voulu` : la transparence gardée par Odin pour ce thème (Réglages → Apparence) ; sans elle, celle de départ.
-  function varsVerre(id, t, pal, voulu) {
+  // `voulu` : la transparence gardée par Odin pour ce thème (Réglages → Apparence) ; sans elle, celle de départ. `nom` :
+  // l'ambiance qui passe derrière les cartes (fond animé mis) ; sans elle, exactement le verre d'avant le fond.
+  function varsVerre(id, t, pal, voulu, nom) {
     if (typeof catalogue?.surfaceOf !== 'function') return null;
     const v = regleVerre(id, t);
     // Une valeur choisie ne dépasse jamais la limite du thème (au-delà, la carte ne devient pas plus transparente) ;
     // sans valeur choisie, rien ne change : la transparence de départ, rendue plus opaque s'il le faut, comme avant.
-    const g = voulu === undefined ? Math.max(0, Math.min(100, Number(v.gt) || 0)) : Math.min(borne(voulu), limiteVerre(id, t, pal));
-    const { sat, depart, reflet, surface } = carteVerre(t, pal, v, g);
+    const g = voulu === undefined ? Math.max(0, Math.min(100, Number(v.gt) || 0)) : Math.min(borne(voulu), limiteVerre(id, t, pal, nom));
+    const { sat, depart, reflet, surface } = carteVerre(t, pal, v, g, nom);
     const s = { ...depart, surface };
     return {
       '--v-carte': s.surface, '--v-plein': s.solid, '--v-bord': s.border, '--v-flou': `${s.blur}px`, '--v-sat': sat,
@@ -229,6 +248,15 @@
     for (const f0 of dessous) bouts.forEach(([c, a], i) => { const f = melange(f0, c, a); fonds.push(lumRGB(f)); if (i === 0) fonds.push(lumRGB(melange(f, BLANC, k))); });
     return fonds;
   }
+  // Chaque texte garde-t-il `seuil` sur tout ce qui se voit à travers la carte ? Le même calcul que pireContraste sur
+  // fondsVerre (le pire contraste d'un texte est celui de l'un de ces points), sans trier, arrêté au premier point qui ne
+  // va pas : la limite du curseur essaie jusqu'à cent transparences, sur des milliers de points quand l'ambiance passe.
+  function seLitSur(dessous, surface, reflet, textes, seuil) {
+    const bouts = [...String(surface).matchAll(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/g)].map((m) => [[+m[1], +m[2], +m[3]], +m[4]]), k = Math.min(1, Number(reflet) || 0), lums = textes.map(lumVue);
+    const va = (b) => { for (const a of lums) if ((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) < seuil) return false; return true; };
+    for (const f0 of dessous) for (let i = 0; i < bouts.length; i++) { const f = melange(f0, bouts[i][0], bouts[i][1]); if (!va(lumRGB(f)) || (i === 0 && !va(lumRGB(melange(f, BLANC, k))))) return false; }
+    return true;
+  }
   // Le pire contraste d'une couleur sur des fonds : leurs luminances, triées une fois ; le pire est l'une des deux
   // voisines de la sienne (la plus proche au-dessous, la plus proche au-dessus). Celle de la couleur n'est calculée
   // qu'une fois.
@@ -246,8 +274,10 @@
   const TEXTES_VERRE = ['--muted', '--dim', '--accent-texte', '--good', '--warn', '--bad'];
   const versTon = (t) => (lum(t.ink) > 0.4 ? '#ffffff' : '#000000');
   const eloigner = (c, fonds, vers) => { for (let i = 0; i < 30 && pireContraste(c, fonds) < 4.6; i++) c = mix(c, vers, 0.12); return c; };
-  function tonsVerre(t, pal, verre) {
-    const fonds = trier(fondsVerre(derriere(t, verre['--v-sat']), verre['--v-carte'], verre['--v-reflet']), [lumVue(hex6(verre['--v-plein']) || t.panel)]), vers = versTon(t), tons = {};
+  // (`nom` : l'ambiance derrière les cartes, comptée à son pire moment, comme pour l'opacité.)
+  function tonsVerre(t, pal, verre, nom) {
+    const dessous = nom ? derriereAmbiance(t, verre['--v-sat'], nom, parseFloat(verre['--v-flou']) || 0) : derriere(t, verre['--v-sat']);
+    const fonds = trier(fondsVerre(dessous, verre['--v-carte'], verre['--v-reflet']), [lumVue(hex6(verre['--v-plein']) || t.panel)]), vers = versTon(t), tons = {};
     for (const nom of TEXTES_VERRE) {
       const c = pal[nom]; if (!/^#[0-9a-f]{6}$/i.test(c || '')) continue;
       const loin = eloigner(c, fonds, vers);
@@ -269,6 +299,97 @@
   // Le verre : le reflet en haut, puis la carte ; ce qui passe derrière est flouté et saturé.
   const VERRE = 'background:linear-gradient(135deg,rgba(255,255,255,var(--v-reflet)) 0%,rgba(255,255,255,calc(var(--v-reflet) * .25)) 28%,transparent 55%),var(--v-carte)';
   const FLOU = '-webkit-backdrop-filter:blur(var(--v-flou)) saturate(var(--v-sat));backdrop-filter:blur(var(--v-flou)) saturate(var(--v-sat))';
+
+  // ---------------- Le fond qui vit derrière l'accueil (maquette validée ; ses choix du 23/11 et du 25/11 : le fond sur
+  // l'accueil seulement, des cartes assez opaques pour que chaque texte reste lisible) ----------------
+  // L'ambiance du thème (src/web/pages/themes-scenes.js, chargé avant ce fichier ; sans lui, rien) est dessinée dans une
+  // couche posée en premier dans la vue d'accueil : sous ses cartes et ses textes (dans la zone de travail, au-dessus du
+  // fond de la page), sans clic, cachée aux lecteurs d'écran ; hors de l'accueil, la vue est cachée et rien ne tourne.
+  // Rien n'est animé si l'appareil demande moins de mouvement ; tout s'arrête quand la page est cachée. L'ambiance
+  // s'affiche à pleine force, comme dans la maquette ; c'est la carte qui devient plus opaque s'il le faut (sa décision du
+  // 25/11, « Décor derrière, verre plus opaque ») : son opacité est calculée sur le pire moment de l'ambiance posée sur le
+  // décor (essaiVerre, carteVerre, limiteVerre, tonsVerre reçoivent l'ambiance). Une carte pleine cache tout ce qui est
+  // derrière elle : une ambiance n'a donc jamais à baisser. Par prudence, la page le vérifie encore (intensiteFond) : si
+  // un texte perdait malgré tout, l'ambiance baisserait par paliers, ou ne se poserait pas, et le réglage le dirait.
+  // Fond animé sur « non » : aucune couche, et exactement le verre d'avant le fond.
+  const scenes = window.OdinScenes;
+  const CSS_FOND = ':root[data-odin-theme] #v-home>#odinFond{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;contain:paint}'
+    + '#odinFond *{pointer-events:none}#odinFond.fige,#odinFond.fige *{animation-play-state:paused!important}'
+    + '@media (prefers-reduced-motion:reduce){#odinFond,#odinFond *{animation:none!important;transition:none!important}}';
+  const PALIERS = [0, 0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 1], PROFONDEUR = 3;
+  // La fonction d'erreur (approximation d'Abramowitz et Stegun, à 1,5 × 10⁻⁷ près), toujours un peu au-dessus de la
+  // vraie valeur une fois arrondie vers le haut : le calcul reste du côté prudent.
+  const erf = (x) => { const s = Math.sign(x), a = Math.abs(x), k = 1 / (1 + 0.3275911 * a); return s * Math.min(1, 1 - (((((1.061405429 * k - 1.453152027) * k) + 1.421413741) * k - 0.284496736) * k + 0.254829592) * k * Math.exp(-a * a) + 2e-7); };
+  // forceFond : l'intensité calculée pour le dernier thème posé, fond mis (1 : pleine force ; 0 : l'ambiance resterait
+  // cachée ; undefined : pas d'ambiance dessinée, ou fond sur « non »), que dit l'interrupteur de Réglages → Apparence.
+  let fondOui = true, fondStyle, dernierFond = [], forceFond;
+  // L'ambiance qui passe derrière les cartes du thème `id` : seulement si le fond animé est mis et que son ambiance est
+  // dessinée et peint quelque chose ; sinon null (et le verre est exactement celui d'avant le fond).
+  const ambianceVue = (id) => { if (!fondOui || !scenes) return null; const nom = scenes.ambianceDe(id); return scenes.dessinee(nom) && scenes.couleurs(nom).length ? nom : null; };
+  // Tout ce qui peut se trouver derrière une carte quand l'ambiance `nom` est posée sur le décor, à l'intensité o (1 :
+  // pleine force) : le décor seul (l'ambiance ne couvre pas tout), puis jusqu'à PROFONDEUR couleurs de l'ambiance l'une
+  // sur l'autre (une étoile sur deux taches), dans tous les ordres ; une couleur opaque posée par-dessus efface ce qui
+  // est dessous (déjà vue seule). Saturé par le verre. Gardé par thème.
+  const AMBIANCES = new WeakMap();
+  // (`grandes` : sans ses points ni ses traits fins)
+  function derriereAmbiance(t, sat, nom, sigma, o = 1, grandes = false) {
+    const s = Number(sat) || 1, cle = `${s}|${nom}|${grandes ? '-' : sigma}|${o}`, deja = AMBIANCES.get(t)?.get(cle); if (deja) return deja;
+    // Un point ou un trait fin (largeur w) vu à travers le flou du verre (écart type σ, en px) : sa couleur s'étale, et au
+    // plus fort elle ne compte que pour erf(w / (2√2 σ)) de son opacité. Sans flou, elle compte en entier.
+    const etale = (a, w) => (Number(w) > 0 && sigma > 0 ? a * erf(Number(w) / (2 * Math.SQRT2 * sigma)) : a);
+    const sc = (scenes ? scenes.couleurs(nom) : []).filter(([c, , w]) => hex6(c) && !(grandes && Number(w) > 0)).map(([c, a, w]) => [hex(hex6(c)), etale(Math.max(0, Math.min(1, Number(a) || 0)), w)]);
+    const vus = new Map(), voir = (x) => { const y = saturer(x, s); vus.set((y[0] << 16) | (y[1] << 8) | y[2], y); };
+    // (`pris` : les couleurs déjà posées, une par bit ; `n` : combien)
+    const couvrir = (y, pris, n) => {
+      voir(y);
+      if (n < PROFONDEUR) for (let i = 0; i < sc.length; i++) { const x = sc[i]; if (!(pris & (1 << i)) && (!n || x[1] * o < 0.99)) couvrir(melange(y, x[0], x[1] * o), pris | (1 << i), n + 1); }
+    };
+    for (const b of derriere(t, 1)) { if (o > 0) couvrir(b, 0, 0); else voir(b); }
+    const out = [...vus.values()];
+    if (!AMBIANCES.has(t)) AMBIANCES.set(t, new Map());
+    AMBIANCES.get(t).set(cle, out);
+    return out;
+  }
+  // La vérification de la page : l'intensité la plus forte de l'ambiance à laquelle chaque texte des cartes (telles que
+  // posées) garde 4,5:1 au pire point (ou ce qu'il avait sans elle). La carte étant calculée pour l'ambiance, c'est 1.
+  const INTENSITES = new WeakMap();
+  function intensiteFond(t, pal, verre, tons, nom) {
+    const cle = `${nom}|${verre['--v-carte']}|${verre['--v-reflet']}|${verre['--v-sat']}|${verre['--v-plein']}|${verre['--v-flou']}|${JSON.stringify(tons)}`;
+    const deja = INTENSITES.get(t)?.get(cle); if (deja !== undefined) return deja;
+    const plein = lumVue(hex6(verre['--v-plein']) || t.panel), sigma = parseFloat(verre['--v-flou']) || 0;
+    const textes = [t.ink, ...TEXTES_VERRE.map((n) => tons[n] || pal[n])].filter((c) => /^#[0-9a-f]{6}$/i.test(c || ''));
+    const fondsA = (o) => trier(fondsVerre(derriereAmbiance(t, verre['--v-sat'], nom, sigma, o), verre['--v-carte'], verre['--v-reflet']), [plein]);
+    // Chaque texte garde 4,5:1 au pire point (ou, s'il avait déjà moins sans l'ambiance, ce qu'il avait).
+    const sans = fondsA(0), seuils = textes.map((c) => Math.min(4.5, pireContraste(c, sans)));
+    const lisible = (o) => { const f = fondsA(o); return textes.every((c, i) => pireContraste(c, f) >= seuils[i] - 1e-9); };
+    // Le palier le plus fort qui reste lisible (essayé d'abord à pleine intensité, puis par dichotomie).
+    let force = 0;
+    if (lisible(1)) force = 1;
+    else { let bas = 0, haut = PALIERS.length - 1; while (haut - bas > 1) { const m = (bas + haut) >> 1; if (lisible(PALIERS[m])) bas = m; else haut = m; } force = PALIERS[bas]; }
+    if (!INTENSITES.has(t)) INTENSITES.set(t, new Map());
+    INTENSITES.get(t).set(cle, force);
+    return force;
+  }
+  // Pose (ou retire) la couche de fond pour le thème affiché ; sans thème à verre, sans ambiance dessinée, réglage sur
+  // « non », ou sans vue d'accueil : aucune couche.
+  function poserFond(id, t, pal, verre, tons) {
+    dernierFond = [id, t, pal, verre, tons];
+    const accueil = document.getElementById?.('v-home'), avant = document.getElementById?.('odinFond');
+    // (fond sur « non », ou pas d'ambiance dessinée : rien n'est calculé, aucune couche)
+    const nom = t && verre ? ambianceVue(id) : null, dessin = nom ? scenes.html(nom) : '';
+    const force = dessin ? intensiteFond(t, pal, verre, tons || {}, nom) : 0;
+    forceFond = dessin ? force : undefined;
+    if (!accueil || !dessin || force <= 0) { avant?.remove?.(); return; }
+    if (!fondStyle) { fondStyle = document.createElement('style'); fondStyle.id = 'odinFondStyle'; fondStyle.textContent = CSS_FOND + scenes.CSS; document.head.append(fondStyle); }
+    let couche = avant;
+    if (!couche) { couche = document.createElement('div'); couche.id = 'odinFond'; couche.setAttribute('aria-hidden', 'true'); couche.setAttribute('inert', ''); accueil.prepend(couche); }
+    if (couche.dataset.ambiance !== nom) { couche.dataset.ambiance = nom; couche.innerHTML = dessin; }
+    couche.style.opacity = force < 1 ? String(force) : '';
+    couche.classList.toggle('fige', document.hidden === true);
+  }
+  // Page cachée : tout s'arrête ; revue : tout repart.
+  document.addEventListener('visibilitychange', () => { document.getElementById?.('odinFond')?.classList.toggle('fige', document.hidden === true); });
+
   let style;
   let current = 'valhalla', classic;
   // La transparence du verre choisie pour chaque thème (gardée par Odin, relue avec « mascotte ») : identifiant → 0 à 100.
@@ -285,14 +406,16 @@
     if (!t.sky) {
       if (root.dataset.odinTheme) { if (classic === undefined) delete root.dataset.theme; else root.dataset.theme = classic; }
       delete root.dataset.odinTheme; style.textContent = '';
+      poserFond(current);
       window.OdinFace?.tintBase?.(null);
       root.dispatchEvent(new CustomEvent('odin-theme', { detail: { id: current } }));
       return;
     }
     if (!root.dataset.odinTheme) classic = root.dataset.theme;
     root.dataset.odinTheme = current; root.dataset.theme = t.dark ? 'dark' : 'light';
-    const pal = palette(t), verre = varsVerre(current, t, pal, verres[current]), voile = t.dark ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.22)';
-    const tons = verre ? Object.entries(tonsVerre(t, pal, verre)).map(([k, v]) => `;${k}:${v}`).join('') : '';
+    // (l'ambiance du fond qui vit, s'il est mis : les cartes sont calculées pour elle)
+    const pal = palette(t), ambiance = ambianceVue(current), verre = varsVerre(current, t, pal, verres[current], ambiance), voile = t.dark ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.22)';
+    const tonsCartes = verre ? tonsVerre(t, pal, verre, ambiance) : {}, tons = Object.entries(tonsCartes).map(([k, v]) => `;${k}:${v}`).join('');
     const vars = Object.entries({ ...pal, ...verre }).map(([k, v]) => `${k}:${v}`).join(';');
     style.textContent = `:root[data-odin-theme]{color-scheme:${t.dark ? 'dark' : 'light'};${vars}}
 :root[data-odin-theme] body{background:${decorUri(t)} center bottom/100% 40vh no-repeat fixed,linear-gradient(180deg,${t.sky[0]},${t.sky[1]}) fixed}
@@ -313,6 +436,8 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     //  derrière la barre de côté) ; ses cartes sont du verre assez opaque pour que chaque texte s'y lise au pire point du
     //  décor, et tout texte posé sans carte a une plaque du même verre (dans un cadre en pointillé, le même verre). Le
     //  bandeau du haut garde son fond uni.)
+    // Le fond qui vit, derrière l'accueil seulement (le verre ci-dessus est déjà calculé pour son ambiance).
+    poserFond(current, t, pal, verre, tonsCartes);
     // La mascotte en liberté et sa copie dans la discussion prennent la couleur du thème au repos.
     window.OdinFace?.tintBase?.(t.mascot);
     document.querySelector('meta[name=theme-color]')?.setAttribute('content', t.sky[0]);
@@ -326,7 +451,8 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     const t = THEMES[id];
     if (!t?.sky || typeof catalogue?.surfaceOf !== 'function') return undefined;
     const v = regleVerre(id, t);
-    return { valeur: verres[id] ?? borne(v.gt), choisie: verres[id] !== undefined, limite: limiteVerre(id, t, palette(t)) };
+    // (fond animé mis : la limite compte l'ambiance du thème ; sur « non », celle d'avant le fond)
+    return { valeur: verres[id] ?? borne(v.gt), choisie: verres[id] !== undefined, limite: limiteVerre(id, t, palette(t), ambianceVue(id)) };
   }
   window.OdinThemes.verre = curseurVerre;
 
@@ -335,6 +461,7 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
   let state = { mode: 'auto', theme: 'valhalla' };
   try { const c = JSON.parse(localStorage.getItem('odin.apparence') || 'null'); if (c && THEMES[c.theme]) state = c; } catch { /* rien */ }
   verres = nettoyerVerres(state.verre);
+  fondOui = state.fondAnime !== false;
   // Le thème affiché : celui de l'événement du jour (s'il n'est pas coupé), sinon le choisi ou l'automatique.
   const shown = () => (state.eventTheme && THEMES[state.eventTheme] ? state.eventTheme : state.theme);
   // La couleur d'Odin au repos : l'événement, sinon la météo (thème automatique), sinon celle du thème.
@@ -353,12 +480,13 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
       const r = await api('mascotte'); const d = r && r.data; if (!d || !THEMES[d.theme]) return false;
       if (n !== tour) return true;
       const ev = d.event, evOn = ev && d.evenements?.themes !== false && THEMES[`ev-${ev.id === 'famille' ? 'anniversaire' : ev.id}`];
-      state = { mode: d.mode, theme: d.theme, why: d.why, odin: d.odin, event: ev, eventTheme: evOn ? `ev-${ev.id === 'famille' ? 'anniversaire' : ev.id}` : undefined, humeurTheme: d.humeurTheme !== false, verre: nettoyerVerres(d.verre) };
+      state = { mode: d.mode, theme: d.theme, why: d.why, odin: d.odin, event: ev, eventTheme: evOn ? `ev-${ev.id === 'famille' ? 'anniversaire' : ev.id}` : undefined, humeurTheme: d.humeurTheme !== false, verre: nettoyerVerres(d.verre), fondAnime: d.fondAnime !== false };
       sur = state;
       try { localStorage.setItem('odin.apparence', JSON.stringify(state)); } catch { /* */ }
-      // (la transparence du thème affiché a changé, ailleurs : le verre se repose aussi)
-      const verreAvant = verres[shown()]; verres = state.verre;
-      if (shown() !== current || verres[current] !== verreAvant) apply(shown());
+      // (la transparence du thème affiché a changé, ailleurs : le verre se repose aussi ; de même le fond animé, qui change
+      //  la carte avec la couche)
+      const verreAvant = verres[shown()], fondAvant = fondOui; verres = state.verre; fondOui = state.fondAnime;
+      if (shown() !== current || verres[current] !== verreAvant || fondOui !== fondAvant) apply(shown());
       tint();
       document.documentElement.dispatchEvent(new CustomEvent('odin-mascotte', { detail: d }));
       paint();
@@ -417,7 +545,23 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     file = fait.catch(() => undefined);
     return fait;
   }
-  window.OdinThemes.sync = sync; window.OdinThemes.choose = choose; window.OdinThemes.humeur = humeur; window.OdinThemes.reglerVerre = verre;
+  // « Fond animé derrière l'accueil » : oui ou non, gardé par Odin (le même sur tous tes écrans). Le changement se voit
+  // tout de suite ; même file que les choix de thème, même retour en cas de panne (la page remet ce qu'Odin a vraiment).
+  function fond(oui) {
+    const n = ++tour;
+    fondOui = oui === true; state = { ...state, fondAnime: fondOui };
+    apply(current); paint();
+    const fait = file.then(async () => {
+      let parti = true;
+      try { await api('regler_mascotte', { reglages: JSON.stringify({ fondAnime: fondOui }) }); } catch { parti = false; }
+      if (n !== tour) return;
+      const lu = await sync();
+      if (!parti && !lu && n === tour) { state = sur; fondOui = sur.fondAnime !== false; apply(shown()); paint(); }
+    });
+    file = fait.catch(() => undefined);
+    return fait;
+  }
+  window.OdinThemes.sync = sync; window.OdinThemes.choose = choose; window.OdinThemes.humeur = humeur; window.OdinThemes.reglerVerre = verre; window.OdinThemes.reglerFond = fond;
 
   // ---------------- Réglages → Apparence : une carte par thème (maquette validée), « Automatique » et sa raison ----------------
   // Valhalla n'a pas de couleurs à lui : son aperçu prend celles de la maquette (fond, panneau, bord, côté, Odin).
@@ -471,11 +615,16 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     + '#themeHumeur{appearance:none;-webkit-appearance:none;flex:none;position:relative;box-sizing:border-box;width:44px;min-width:44px;height:26px;min-height:0;padding:0;margin:0;border-radius:13px;border:0;background:var(--muted);cursor:pointer;transition:background .2s}'
     + '#themeHumeur::before{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s}'
     + '#themeHumeur:checked{background:var(--accent)}#themeHumeur:checked::before{transform:translateX(18px)}#themeHumeur:focus-visible{outline:3px solid var(--ink);outline-offset:3px}'
+    // L'interrupteur « Fond animé derrière l'accueil » : le même que celui de l'humeur.
+    + '#themeFond{appearance:none;-webkit-appearance:none;flex:none;position:relative;box-sizing:border-box;width:44px;min-width:44px;height:26px;min-height:0;padding:0;margin:0;border-radius:13px;border:0;background:var(--muted);cursor:pointer;transition:background .2s}'
+    + '#themeFond::before{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s}'
+    + '#themeFond:checked{background:var(--accent)}#themeFond:checked::before{transform:translateX(18px)}#themeFond:focus-visible{outline:3px solid var(--ink);outline-offset:3px}'
     // Le curseur « Transparence du verre » : un vrai curseur (flèches, Début, Fin), haut de 44 px pour le doigt ; 6 px dessous, pour que le contour du focus ne passe pas sur l'aide.
     + '.tverre{margin:8px 0 0}.tvl{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;min-height:44px;margin-bottom:6px;font-weight:600}'
     + '#themeVerre{flex:1 1 180px;min-width:0;height:44px;min-height:44px;margin:0;padding:0;border:0;background:none;accent-color:var(--accent);cursor:pointer}#themeVerre:focus-visible{outline:3px solid var(--ink);outline-offset:2px}'
     + '#themeVerreVal{min-width:48px;text-align:right;font-variant-numeric:tabular-nums}.tverre .hint{display:block}'
     + '@media (max-width:600px){#themeGrid .tgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#themeGrid .tfold{display:inline-flex}#themeGrid .tfam.ferme .tgrid{display:none}#themeGrid .tfam.ferme{margin-bottom:4px}#themeGrid .thc .nm{grid-template-columns:22px minmax(0,1fr);padding:8px 10px}#themeGrid .thc .nm small{grid-column:2}}'
+    + '@media (prefers-reduced-motion:reduce){#themeFond,#themeFond::before{transition:none}}'
     + '@media (prefers-reduced-motion:reduce){#themeGrid button.thc,#themeGrid .tfold span,#themeHumeur,#themeHumeur::before{transition:none}#themeGrid button.thc:hover{transform:none}}';
   // Une carte : un bouton (Tab, puis Entrée ou Espace, le choisit), l'aperçu, puis la bande (petit Odin, nom, clair ou sombre).
   function carteTheme(id) {
@@ -501,7 +650,9 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
       // puis l'interrupteur « selon son humeur » (une vraie case, rôle d'interrupteur) ; puis les familles.
       wrap.innerHTML = '<section id="themeAnims" class="tanims" data-place="animations" hidden></section><div class="tauto"><button type="button" class="btn" id="themeAuto" aria-pressed="false"></button><span class="hint" id="themeAutoAide"></span></div><span class="hint" id="themeWhy"></span>'
         + '<label class="thum" for="themeHumeur"><input type="checkbox" role="switch" id="themeHumeur" aria-describedby="themeHumeurAide"><span id="themeHumeurNom"></span></label><span class="hint" id="themeHumeurAide"></span>'
-        + '<div class="tverre" id="themeVerreBox"><label class="tvl" for="themeVerre"><span id="themeVerreNom"></span><input type="range" id="themeVerre" min="0" max="100" step="1" aria-describedby="themeVerreAide themeVerreLimite"><output id="themeVerreVal" for="themeVerre"></output></label><span class="hint" id="themeVerreAide"></span><span class="hint" id="themeVerreLimite"></span></div><div id="themeGrid"></div>';
+        + '<div class="tverre" id="themeVerreBox"><label class="tvl" for="themeVerre"><span id="themeVerreNom"></span><input type="range" id="themeVerre" min="0" max="100" step="1" aria-describedby="themeVerreAide themeVerreLimite"><output id="themeVerreVal" for="themeVerre"></output></label><span class="hint" id="themeVerreAide"></span><span class="hint" id="themeVerreLimite"></span></div>'
+        // L'interrupteur « Fond animé derrière l'accueil » (une vraie case, rôle d'interrupteur), et son aide.
+        + '<div id="themeFondBox"><label class="thum" for="themeFond"><input type="checkbox" role="switch" id="themeFond" aria-describedby="themeFondAide themeFondSans"><span id="themeFondNom"></span></label><span class="hint" id="themeFondAide"></span> <span class="hint" id="themeFondSans"></span></div><div id="themeGrid"></div>';
       card.querySelector('h2').after(wrap);
       card.querySelector('#themeAnims')?.setAttribute('aria-label', TEXTES.animations);
       const hum = card.querySelector('#themeHumeur');
@@ -515,6 +666,12 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
         card.querySelector('#themeVerreNom').textContent = TEXTES.verre;
         curseur.addEventListener('input', () => verre(Number(curseur.value), false));
         curseur.addEventListener('change', () => verre(Number(curseur.value), true));
+      }
+      const caseFond = card.querySelector('#themeFond');
+      if (caseFond) {
+        card.querySelector('#themeFondNom').textContent = TEXTES.fond;
+        card.querySelector('#themeFondAide').textContent = TEXTES.fondAide;
+        caseFond.addEventListener('change', () => fond(caseFond.checked === true));
       }
       const css = document.createElement('style'); css.textContent = CSS_CARTES;
       document.head.append(css);
@@ -549,6 +706,16 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     for (const b of box.querySelectorAll('button.thc')) b.setAttribute('aria-pressed', String(b.dataset.theme === choisi));
     const auto = card.querySelector('#themeAuto'); if (auto) { auto.setAttribute('aria-pressed', String(state.mode === 'auto')); auto.classList.toggle('primary', state.mode === 'auto'); }
     const hum = card.querySelector('#themeHumeur'); if (hum) hum.checked = state.humeurTheme !== false;
+    // « Fond animé » : seulement pour un thème à verre (Valhalla n'en a pas) ; un thème sans ambiance dessinée le dit.
+    const boiteFond = card.querySelector('#themeFondBox');
+    if (boiteFond) {
+      boiteFond.hidden = !curseurVerre(current);
+      const caseFond = card.querySelector('#themeFond'); if (caseFond) caseFond.checked = fondOui;
+      const nom = scenes ? scenes.ambianceDe(current) : 'none', sans = card.querySelector('#themeFondSans');
+      // (une ambiance vraiment cachée ou baissée, fond mis, le dit, comme le verre ; à pleine force, rien à dire)
+      const f = fondOui && dernierFond[0] === current ? forceFond : undefined;
+      if (sans) { const dit = !scenes || !scenes.dessinee(nom) || !scenes.html(nom) ? remplir(TEXTES.fondSans, { nom: nomAffiche(current) }) : f === 0 ? remplir(TEXTES.fondCachee, { nom: nomAffiche(current) }) : f !== undefined && f < 1 ? remplir(TEXTES.fondBaissee, { nom: nomAffiche(current) }) : ''; sans.textContent = dit; sans.hidden = !dit; }
+    }
     // Le curseur du verre suit le thème affiché (choisi, automatique ou de l'événement du jour : chacun sa valeur).
     const boite = card.querySelector('#themeVerreBox');
     if (boite) {
@@ -567,7 +734,8 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     // Les réglages d'origine (Odin / Clair épuré, clair / sombre) ne valent que pour Valhalla.
     for (const el of card.querySelectorAll('.skins, #modeSeg')) el.style.opacity = current === 'valhalla' ? '' : '.45';
   }
-  const start = () => { paint(); void sync(); };
+  // (la couche de fond est reposée une fois la page prête : la vue d'accueil existe alors à coup sûr)
+  const start = () => { poserFond(...dernierFond); paint(); void sync(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   setInterval(() => { if (!document.hidden) void sync(); }, 5 * 60_000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void sync(); });

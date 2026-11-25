@@ -203,8 +203,11 @@ export function cleanVerre(x: unknown): Record<string, number> {
   }
   return out;
 }
-/** Les réglages envoyés à « regler_mascotte » parlent-ils du verre ? (ce réglage-là est réservé au propriétaire) */
-const parleDuVerre = (i: Record<string, unknown>) => { try { const j = JSON.parse(s(i.reglages)) as unknown; return Boolean(j && typeof j === 'object' && 'verre' in j); } catch { return false; } };
+/**
+ * Les réglages envoyés à « regler_mascotte » parlent-ils du verre ou du fond animé ? (ces réglages-là sont réservés au
+ * propriétaire). « Fond animé » (maquette validée : le fond qui vit derrière l'accueil) : oui ou non, oui sans réglage.
+ */
+const parleDuVerre = (i: Record<string, unknown>) => { try { const j = JSON.parse(s(i.reglages)) as unknown; return Boolean(j && typeof j === 'object' && ('verre' in j || 'fondAnime' in j)); } catch { return false; } };
 /** L'heure locale (fuseau réglable, Mayotte par défaut). */
 const hourIn = (d: Date, tz: string) => { try { return Number(new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', hourCycle: 'h23', timeZone: tz }).format(d)); } catch { return d.getHours(); } };
 
@@ -261,11 +264,11 @@ export const apparence: Module = (() => {
         const n = await now(ctx), tz = fuseauDe(ctx, n.wx ?? await meteo(ctx)), day = ymd(ctx.now(), tz), ev = selonLePays(cleanEvents(ctx.settings.evenements)), m = (ctx.settings.mascotte ?? {}) as { cache?: boolean; clics?: unknown; clics2?: unknown; clicsOn?: boolean };
         // Odin prend la couleur du thème affiché : plus de couleur à part selon la météo (décision du 15/11/2026).
         const event = todayEvent(day, ev);
-        const data = { mode: n.mode, theme: n.theme, why: n.why, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, evenements: ev, humeurTheme: humeurJoue(ctx), humeur: humeurVive(ctx.now().getTime()), maintenant: ctx.now().getTime(), verre: cleanVerre(ctx.settings.verre) };
+        const data = { mode: n.mode, theme: n.theme, why: n.why, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, evenements: ev, humeurTheme: humeurJoue(ctx), humeur: humeurVive(ctx.now().getTime()), maintenant: ctx.now().getTime(), verre: cleanVerre(ctx.settings.verre), fondAnime: ctx.settings.fondAnime !== false };
         return { text: `🎨 ${THEME_NAMES[n.theme]}${event ? ` · ${event.name}` : ''}${data.cache ? ' · Odin caché' : ''}`, data };
       } },
       { id: 'regler_mascotte', label: 'Régler Odin (clics, événements)', what: 'Enregistre les réglages venus de l\'écran Réglages → Apparence (JSON : mascotte, evenements, humeurTheme, verre)', quiet: true, quick: false,
-        // La transparence du verre (par thème) : réservée au propriétaire ; le reste ne change pas.
+        // La transparence du verre (par thème) et le fond animé (oui / non) : réservés au propriétaire ; le reste ne change pas.
         proprietaireSeul: parleDuVerre,
         params: [{ key: 'reglages', label: 'Réglages (JSON)', kind: 'text', required: true }], run: (ctx, i) => {
           let j: Record<string, unknown>; try { j = JSON.parse(s(i.reglages)) as Record<string, unknown>; } catch { throw new Error('réglages illisibles'); }
@@ -276,6 +279,8 @@ export const apparence: Module = (() => {
           if (typeof j.humeurTheme === 'boolean') { patch.humeurTheme = j.humeurTheme; if (j.humeurTheme !== humeurJoue(ctx)) patch.auto = undefined; }
           // « Transparence du verre » : la valeur d'un thème (ou de plusieurs), ajoutée à celles des autres thèmes.
           if (j.verre && typeof j.verre === 'object') { const v = cleanVerre(j.verre); if (Object.keys(v).length) patch.verre = { ...cleanVerre(ctx.settings.verre), ...v }; }
+          // « Fond animé » derrière l'accueil : un vrai oui ou non seulement.
+          if (typeof j.fondAnime === 'boolean') patch.fondAnime = j.fondAnime;
           if (!Object.keys(patch).length) throw new Error('rien à enregistrer');
           ctx.saveSettings(patch);
           const dit = typeof j.humeurTheme === 'boolean' ? ` ${j.humeurTheme ? TEXTES.humeurMise : TEXTES.humeurCoupee}` : '';
