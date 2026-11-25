@@ -151,8 +151,11 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
   assert.doesNotMatch(src, /chiffres: \{ mini:/, 'les tailles des sortes ne sont plus dans gladsheim.ts');
   // Les six sortes posables d'avant et leurs tailles, plus les trois blocs du jour (lot 26), « Comment Odin se comporte »
   // et le widget des cinq chiffres, « chiffres_cles » (lot 27), puis les quatre tuiles d'état (lot 27, troisième part).
-  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'application', 'bouton', 'chiffres', 'chiffres_cles', 'comportement','heure', 'meteo', 'odin_a_fait', 'resume_matin', 'sauvegarde', 'section', 'site', 'surveillance', 'tu_veux']);
+  // Puis les trois petits chiffres de la famille « Infos » de la maquette : l'heure, la météo, les alertes pas encore
+  // vues (2 × 1 ; l'horloge, elle, est un style de « heure », pas une sorte).
+  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'alertes', 'application', 'bouton', 'chiffres', 'chiffres_cles', 'comportement','heure', 'heure_petite', 'meteo', 'meteo_petite', 'odin_a_fait', 'resume_matin', 'sauvegarde', 'section', 'site', 'surveillance', 'tu_veux']);
   assert.deepEqual(TAILLE_SORTE, {
+    heure_petite: { mini: [2, 1], r: 1 }, meteo_petite: { mini: [2, 1], r: 1 }, alertes: { mini: [2, 1], r: 1 }, // les petits chiffres « Infos » de la maquette
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
     a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },

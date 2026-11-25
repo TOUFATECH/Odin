@@ -141,6 +141,8 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       chiffres_cles: W('chiffres_cles'), // le widget des cinq chiffres (lot 27, deuxième part)
       // les quatre tuiles d'état (lot 27, troisième part)
       surveillance: W('surveillance'), sauvegarde: W('sauvegarde'), resume_matin: W('resume_matin'), application: W('application'),
+      // les trois petits chiffres « Infos » de la maquette : sur un Odin neuf, ni lieu ni alerte, donc aucun chiffre
+      heure_petite: W('heure_petite'), meteo_petite: W('meteo_petite'), alertes: W('alertes'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);

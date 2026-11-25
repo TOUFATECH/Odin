@@ -10,12 +10,18 @@
 //     « Fermé · réservé au propriétaire. » ou « Vie privée : à ouvrir par le propriétaire. » ; jamais la donnée ;
 //   - ancien : la donnée NORMALE, avec une pastille ambre « il y a 12 min » dans l'en-tête (sa réponse 1 b).
 // Une ligne au plus, un bouton au plus, et le bouton pour le propriétaire seul. Jamais un chiffre inventé.
+// Le petit chiffre garde sa taille dans chaque état (le même croquis) : sans donnée, l'icône de l'état, deux ou trois
+// mots et son libellé, sans bouton (etatPetit) ; la phrase entière reste dans son info-bulle et pour les lecteurs d'écran.
 //
 // « Régler » (lot 25b) : le bouton « ⋯ » ouvre la fenêtre « Régler » de la maquette. Ici : ses mots, sa fenêtre de
 // dialogue (fenetreRegler : le clavier y reste, Échap ferme et rend le focus), et ses règles sans document — une
 // adresse nettoyée comme le fait le serveur (adresseNette), ce que fait un widget quand on le touche (toucherDe), les
 // sortes qui ne se copient pas vers l'autre écran (copieRefusee) et celle qui ne se retire pas (retirable). L'hôte
 // (fenetre.js) remplit la fenêtre. L'écran de la maison ne règle rien et ne reçoit jamais « Quand je touche ».
+//
+// Les rendus de famille : le fichier d'une famille (pages/widgets-<famille>.js) déclare ici ses sortes (titre, phrase
+// du tiroir, symbole, la fonction qui dessine son corps). La fenêtre et l'écran de la maison les dessinent dans ce
+// dessin commun et le tiroir « Ajouter un widget » les propose, sans qu'on les retouche (rendu, posables, plus bas).
 //
 // TOUS les textes des cinq états sont ici, à un seul endroit (TEXTES). Un code serveur inconnu prend le texte commun
 // de son état, sans bouton.
@@ -42,6 +48,11 @@
         partie_vide: [(o) => (o.titre ? `Rien dans « ${o.titre} » pour l'instant.` : 'Rien pour l\'instant.'), ''],
         rien_mesure: ['Rien de mesuré pour l\'instant.', ''],
         meteo_pas_lue: ['Pas encore lue, Odin réessaie.', ''],
+        // Les widgets « Infos » de la maquette : sans fuseau connu, jamais l'heure de l'appareil ; zéro alerte, un état calme.
+        fuseau_inconnu: ['Fuseau du lieu inconnu : règle le lieu d\'Odin.', ''],
+        aucune_alerte: ['Aucune alerte à voir.', ''],
+        // Une sorte dessinée par le fichier de sa famille, posée mais pas encore rangée : le serveur ne l'a pas encore lue.
+        pas_range: ['Appuie sur « Terminé » pour l\'afficher.', ''],
         // Lot 26 : « Tu veux sans doute » quand Odin n'a rien à proposer.
         rien_propose: ['Rien à proposer pour l\'instant.', ''],
         '*': ['Rien à montrer : choisis quoi afficher.', ''],
@@ -60,6 +71,11 @@
         '*': ['Fermé · réservé au propriétaire.', ''],
       },
     },
+    // Le petit chiffre sans donnée (croquis validé des cinq états) : il garde sa taille, deux ou trois mots par état
+    // suffisent. La phrase entière (raisons, plus haut) se lit dans son info-bulle et est dite à qui ne voit pas l'écran,
+    // après son libellé.
+    courts: { vide: 'Rien à montrer', source_absente: 'Ne répond pas', refuse: 'Réservé' },
+    petitDit: (titre, phrase) => (titre ? `${titre}. ${phrase}` : phrase),
     // Le nom d'une appli qu'on ne connaît pas (jamais lu chez l'appli).
     cetteAppli: 'Cette appli',
     // La pastille de l'état ancien : depuis quand la donnée a été lue (sa réponse 1 b).
@@ -170,8 +186,8 @@
   const RESERVEES = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement', 'chiffres_cles', 'surveillance', 'sauvegarde', 'resume_matin', 'application'];
   /** Les sortes qui se déplacent mais ne se retirent pas (comme le serveur : « fixe »). */
   const FIXES = ['a_faire'];
-  /** Par sorte : ses styles, quand elle en a plus d'un (comme le serveur). Aucune aujourd'hui : pas de choix de style. */
-  const STYLES = {};
+  /** Par sorte : ses styles, quand elle en a plus d'un (comme le serveur), chacun avec son nom ; le premier est celui de départ. */
+  const STYLES = { heure: [['simple', 'Heure et lieu'], ['horloge', 'Horloge']] };
   /** Les écrans où un widget peut mener (comme le serveur, ECRANS_TOUCHER). */
   const ECRANS_TOUCHER = ['accueil', 'maison'];
   const ADRESSE_MAX = 500;
@@ -216,6 +232,90 @@
     return mod ? { quoi: 'appli', appli: mod } : { quoi: 'rien' };
   }
 
+  // ---------------- Les rendus de famille : le point d'accroche commun des sortes de widgets
+  // Le fichier d'une famille (pages/widgets-<famille>.js) déclare ses sortes ; l'accueil (fenetre.js) et l'écran de la
+  // maison (maison.js) les dessinent et les proposent sans qu'on les retouche. À son chargement, ce fichier ne fait que :
+  //   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille, sortes: [ … ] })
+  // Les fichiers de pages sont chargés par ordre alphabétique, donc souvent AVANT celui-ci : la liste est relue à la
+  // demande, l'ordre ne compte pas. Une déclaration :
+  //   sorte, style    ce qu'elle dessine : une sorte du serveur et, s'il y en a un, l'un de ses styles (absent : celui
+  //                   de départ) ;
+  //   titre           le titre du widget quand la personne ne lui en a pas donné ;
+  //   nom             le nom de sa ligne dans le tiroir « Ajouter un widget », s'il n'est pas le titre (deux sortes
+  //                   qui portent le même titre sur leur carte s'y distinguent par lui) ;
+  //   quoi, symbole   la phrase et la lettre de sa ligne dans le tiroir (la lettre sert aussi à l'en-tête) ;
+  //   appli           l'appli fixe qu'elle lit (sa tuile, son nom, le droit de qui regarde) ;
+  //   petit           vrai : un petit chiffre, sans en-tête ni « ⋯ » (son corps est toute la carte). Il garde sa taille
+  //                   dans chaque état : sans donnée, l'hôte dessine son état court (etatPetit, plus bas) ;
+  //   proprio         vrai : proposée au propriétaire seul ;
+  //   poser           { c, r, pc, pr } : sa taille quand le tiroir la pose (colonnes sur 12 et lignes ; au téléphone, sur 4) ;
+  //   vides           les raisons de l'état « vide » qu'elle dessine elle-même (un état calme, pas une ligne) ;
+  //   sous(e, o)      la fin du sous-titre de l'en-tête, d'après la donnée ;
+  //   dessiner(e, o)  rend UN nœud : son corps, fait de l'état `e` rendu par le serveur ({ etat, at, donnee }) et de
+  //                   rien d'autre. `o` : { w (le widget), titre, nomAppli, pastille (donnée ancienne), ecran }.
+  // Tout texte venu d'une donnée ou d'un réglage y est posé par textContent, jamais par innerHTML. Les cinq états,
+  // l'en-tête, « ⋯ » et « Régler » restent ceux de tous : la famille ne dessine que son corps.
+  const mot = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+  const entierDe = (v, max) => (Number.isInteger(v) && v >= 1 && v <= max ? v : undefined);
+  /** Une déclaration relue sans confiance, ou rien si elle est abîmée. */
+  function declaration(d, famille) {
+    if (!d || typeof d !== 'object' || typeof d.sorte !== 'string' || !/^[a-z][a-z0-9_]{0,39}$/.test(d.sorte) || typeof d.dessiner !== 'function') return undefined;
+    const style = typeof d.style === 'string' && /^[a-z][a-z0-9_]{0,23}$/.test(d.style) ? d.style : '';
+    const p = d.poser && typeof d.poser === 'object' ? d.poser : {}, c = entierDe(p.c, 12), r = entierDe(p.r, 7), pc = entierDe(p.pc, 4), pr = entierDe(p.pr, 7);
+    // Le widget que le tiroir pose : sa sorte, son style, sa taille ; l'ancienne largeur `w` suit `c` (comme chez Hestia).
+    const w = { kind: d.sorte, ...(style ? { style } : {}), w: c === undefined || c <= 4 ? 1 : c <= 8 ? 2 : 3, ...(c ? { c } : {}), ...(r ? { r } : {}), ...(pc ? { pc } : {}), ...(pr ? { pr } : {}) };
+    const titre = mot(d.titre, 40) || d.sorte;
+    return { famille: mot(famille, 24), sorte: d.sorte, style, titre, nom: mot(d.nom, 40) || titre, quoi: mot(d.quoi, 160), symbole: mot(d.symbole, 4),
+      appli: typeof d.appli === 'string' && /^[a-z0-9_-]{1,40}$/.test(d.appli) ? d.appli : '', petit: d.petit === true, proprio: d.proprio === true,
+      vides: (Array.isArray(d.vides) ? d.vides : []).filter((x) => typeof x === 'string'), sous: typeof d.sous === 'function' ? d.sous : null, dessiner: d.dessiner, w };
+  }
+  /** Les déclarations lisibles, dans l'ordre où elles ont été faites ; pour une même sorte et un même style, la première. */
+  let declarees = [], comptees = -1;
+  function declarations() {
+    const familles = Array.isArray(window.OdinWidgetsFamilles) ? window.OdinWidgetsFamilles : [];
+    if (familles.length === comptees) return declarees;
+    const out = [], vues = new Set();
+    for (const f of familles) {
+      for (const brut of f && typeof f === 'object' && Array.isArray(f.sortes) ? f.sortes : []) {
+        const d = declaration(brut, f.famille), cle = d ? `${d.sorte}/${d.style}` : '';
+        if (!d || vues.has(cle)) continue;
+        vues.add(cle); out.push(d);
+      }
+    }
+    declarees = out; comptees = familles.length;
+    return out;
+  }
+  /** Le rendu déclaré pour cette sorte et ce style (absent : le style de départ), ou rien : l'hôte garde alors son dessin. */
+  function rendu(kind, style) {
+    if (typeof kind !== 'string') return undefined;
+    const s = typeof style === 'string' ? style : '';
+    return declarations().find((d) => d.sorte === kind && d.style === s);
+  }
+  /**
+   * Les sortes que le tiroir « Ajouter un widget » propose à qui regarde. `o` : { proprio, aDroit(appli) }. Une sorte
+   * « propriétaire seul » : à lui seul ; une sorte qui lit une appli : seulement si cette appli est dans le catalogue
+   * de qui regarde. Un droit qu'on ne peut pas vérifier : pas proposée.
+   */
+  function posables(o) {
+    const p = o && typeof o === 'object' ? o : {};
+    const droit = (a) => { try { return typeof p.aDroit === 'function' && p.aDroit(a) === true; } catch { return false; } };
+    return declarations().filter((d) => (!d.proprio || p.proprio === true) && (!d.appli || droit(d.appli)));
+  }
+  /** La famille dessine-t-elle cet état elle-même ? La donnée (prêt, ancien), et les états « vide » qu'elle a déclarés. `d` : ce que rend decrire. */
+  function dessineElleMeme(rf, d) {
+    return Boolean(rf && d) && (d.donnee === true || (d.etat === 'vide' && Array.isArray(rf.vides) && rf.vides.includes(d.raison)));
+  }
+  /** Le corps dessiné par la famille, ou rien : sans état du serveur, ou si son dessin échoue (l'hôte écrit alors une ligne, la page continue). */
+  function dessiner(rf, e, o) {
+    if (!rf || typeof rf.dessiner !== 'function' || !e || typeof e !== 'object') return null;
+    try { const n = rf.dessiner(e, o || {}); return n && typeof n === 'object' && n.nodeType ? n : null; } catch { return null; }
+  }
+  /** La fin du sous-titre donnée par la famille ('' : aucune). */
+  function sous(rf, e, o) {
+    if (!rf || typeof rf.sous !== 'function' || !e || typeof e !== 'object') return '';
+    try { return mot(rf.sous(e, o || {}), 80); } catch { return ''; }
+  }
+
   // ---------------- Dessin (seulement quand un hôte l'appelle)
   const SVG = {
     cadenas: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
@@ -244,6 +344,19 @@
 .wr-btn:focus-visible,.wr-plus:focus-visible{outline:2px solid var(--accent,#2F5BD3);outline-offset:2px}
 .wr-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
 .wr-corps{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:10px 0 0}
+/* Le petit chiffre sans donnée (croquis des cinq états) : il garde sa taille. L'icône de l'état, deux ou trois mots, son
+   libellé. Les mots restent entiers : s'ils ne tiennent pas à côté de l'icône, elle leur cède sa place (elle passe à la
+   ligne, hors de la vue) ; sur une carte plus étroite encore, ils prennent deux lignes. Le libellé, lui, se coupe : il
+   ne compte pas dans la largeur demandée. */
+.wr-petit{position:relative;display:flex;flex-flow:row-reverse wrap;align-items:center;align-content:flex-start;gap:0 12px;min-width:0;height:44px;overflow:hidden}
+.wr-pi{flex:none;width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--muted,currentColor) 16%,transparent);color:var(--muted,inherit)}
+.wr-pi svg{width:20px;height:20px}
+.wr-pt{order:-1;flex:1 0 auto;min-width:0;max-width:100%;min-height:44px;display:flex;flex-direction:column;justify-content:center}
+.wr-pc{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;font-size:clamp(11px,13.5cqi,12px);font-weight:650;line-height:1.2;color:var(--muted,inherit)}
+.wr-pl{display:block;width:0;min-width:100%;font-size:11.5px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted,inherit)}
+/* Carte étroite : l'icône rétrécit, elle reste. */
+@container (max-width:135px){.wr-petit{column-gap:9px}.wr-pi{width:36px;height:36px;border-radius:11px}.wr-pi svg{width:18px;height:18px}}
+@container (max-width:104px){.wr-petit{column-gap:7px}.wr-pi{width:28px;height:28px;border-radius:9px}.wr-pi svg{width:16px;height:16px}}
 /* « Régler » (lot 25b) : une fenêtre de 520 px au plus, qui tient à 390 px ; chaque commande fait 44 px. */
 dialog.wr-regler{box-sizing:border-box;width:min(520px,calc(100% - 24px));max-width:none;max-height:calc(100% - 24px);padding:0;border-radius:18px;border:1px solid var(--line,#D9DCE2);background:var(--panel,var(--card2,#FFF));color:var(--ink,var(--text,#14171C));font-family:inherit;overflow:hidden}
 dialog.wr-regler::backdrop{background:rgba(8,12,18,.55)}
@@ -322,6 +435,24 @@ dialog.wr-regler::backdrop{background:rgba(8,12,18,.55)}
   }
   /** Le corps tout fait d'un état sans donnée (un bloc qui empile la ligne et le bouton). */
   function corps(d, agir) { const c = el('div', 'wr-corps'); c.append(...contenu(d, agir)); return c; }
+  /**
+   * Le petit chiffre dans un état sans donnée (croquis validé des cinq états) : il garde sa taille. L'icône de l'état,
+   * deux ou trois mots (TEXTES.courts), son libellé ; ni en-tête, ni « ⋯ », ni bouton. La phrase entière de l'état se lit
+   * dans l'info-bulle et est dite à qui ne voit pas l'écran. `d` : ce que rend decrire ; `o` : { titre } (le libellé).
+   * Un état qui n'est pas « sans donnée » : dessiné comme refusé (prudent), jamais une donnée.
+   */
+  function etatPetit(d, o = {}) {
+    poserStyle();
+    const e = d && typeof d === 'object' ? d : {}, etat = Object.hasOwn(TEXTES.courts, e.etat) ? e.etat : 'refuse';
+    const titre = String(o.titre ?? ''), phrase = String(e.texte ?? '');
+    const box = el('div', 'wr-petit'); box.dataset.etat = etat; if (e.raison) box.dataset.raison = String(e.raison);
+    const ic = el('span', 'wr-pi'); ic.setAttribute('aria-hidden', 'true'); ic.insertAdjacentHTML('afterbegin', svg(ICONE_ETAT[etat]));
+    const mots = el('span', 'wr-pc', TEXTES.courts[etat]), libelle = el('span', 'wr-pl', titre), t = el('div', 'wr-pt');
+    mots.setAttribute('aria-hidden', 'true'); libelle.setAttribute('aria-hidden', 'true');
+    t.append(mots, libelle); box.append(ic, t, el('span', 'wr-sr', TEXTES.petitDit(titre, phrase)));
+    if (phrase) box.title = phrase;
+    return box;
+  }
 
   /** Un champ de « Régler » : son nom, lié au contrôle par `pour` ; sans `pour`, un ensemble nommé (des boutons radio). */
   function champ(nom, pour, ...noeuds) {
@@ -365,6 +496,7 @@ dialog.wr-regler::backdrop{background:rgba(8,12,18,.55)}
     return { d, fermer: () => { if (d.open) d.close(); } };
   }
 
-  window.OdinWidgetsRendu = { TEXTES, ETATS, VIE_PRIVEE, etatSansProprio, decrire, depuis, porteUneMesure, entete, contenu, corps, poserStyle, CSS,
-    RESERVEES, FIXES, STYLES, ECRANS_TOUCHER, ADRESSE_MAX, adresseNette, retirable, copieRefusee, toucherDe, champ, bouton, fenetreRegler };
+  window.OdinWidgetsRendu = { TEXTES, ETATS, VIE_PRIVEE, etatSansProprio, decrire, depuis, porteUneMesure, entete, contenu, corps, etatPetit, poserStyle, CSS,
+    RESERVEES, FIXES, STYLES, ECRANS_TOUCHER, ADRESSE_MAX, adresseNette, retirable, copieRefusee, toucherDe, champ, bouton, fenetreRegler,
+    rendu, posables, dessineElleMeme, dessiner, sous };
 })();

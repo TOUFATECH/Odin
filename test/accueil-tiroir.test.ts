@@ -268,8 +268,9 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     const cat = (await od.json('/api/valhalla/catalog')).body as { modules: Array<{ id: string; name: string; family: string; active: boolean }> };
     const fams = [...new Set(cat.modules.map((m) => m.family))];
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-chips button')].map((b: any) => b.textContent)), ['Tout', 'Infos', ...fams]);
-    // Toutes les applis du catalogue, une ligne chacune, et les quatre lignes d'infos.
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4);
+    // Toutes les applis du catalogue, une ligne chacune, les quatre lignes d'infos d'avant, et les quatre widgets « Infos »
+    // de la maquette, déclarés par le fichier de leur famille (l'heure, l'horloge, la météo en petit, les alertes).
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4);
     // L'appli désactivée : grisée, « désactivée », aucun bouton.
     const nomEteinte = cat.modules.find((m) => m.id === eteinte)!.name;
     const off = await page.evaluate(`(() => { const l = [...document.querySelectorAll('#feTiroir .fe-it')].find((x) => x.querySelector('b')?.textContent === ${JSON.stringify(nomEteinte)}); return l ? { off: l.classList.contains('off'), bouton: Boolean(l.querySelector('button')), texte: l.textContent } : null; })()`) as { off: boolean; bouton: boolean; texte: string } | null;
@@ -308,7 +309,8 @@ test('navigateur, 390 px : le tiroir prend tout l\'écran ; « Ajouter » pose l
     assert.equal(r.l, 0); assert.equal(r.w, r.vw, 'tout l\'écran');
     // La puce « Infos », puis « Ajouter » sur « Heure et lieu ».
     await page.click('#feTiroir .fe-chips button[data-f="infos"]');
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), 4, 'les quatre infos');
+    // Les quatre infos d'avant, et entre elles les quatre widgets « Infos » de la maquette (déclarés par leur famille).
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-it b')].map((b: any) => b.textContent)), ['Heure et lieu', 'Météo', 'Heure', 'Horloge', 'Météo (petite)', 'Alertes', 'Site surveillé', 'Bouton sur mesure'], 'les huit infos');
     await page.click('#feTiroir button[aria-label="Ajouter Heure et lieu"]');
     await page.waitForFunction((n: number) => document.querySelectorAll('#feGrid > .fe-w').length === n + 1, avant.length, { timeout: 15000 });
     await page.waitForFunction(() => document.activeElement?.classList.contains('fe-grip'), undefined, { timeout: 5000 });

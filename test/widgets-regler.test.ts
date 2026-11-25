@@ -155,7 +155,9 @@ test('« À faire » se déplace mais ne se retire pas : ni « Retirer », ni «
 test('la page : les styles d\'une sorte comme le serveur ; « Régler » remplace l\'ancien réglage de « ⋯ »', () => {
   // Par sorte, ses styles quand elle en a plus d'un : la page n'offre « Style » que pour celles-là.
   const attendu = Object.fromEntries(SORTES.filter((s) => s.styles.length > 1).map((s) => [s.id, [...s.styles]]));
-  assert.deepEqual(Object.fromEntries(Object.entries(R.STYLES).map(([k, v]) => [k, (v as Array<[string, string]>).map((x) => x[0])])), attendu);
+  // La sorte « heure » a maintenant deux styles (« horloge », de la maquette) : la liste de la page, née dans un autre
+  // contexte, est recopiée ici (Array.from) pour être comparée à celle du serveur, valeur par valeur.
+  assert.deepEqual(Object.fromEntries(Object.entries(R.STYLES).map(([k, v]) => [k, Array.from(v as Array<[string, string]>, (x) => x[0])])), attendu);
   const i = FE.indexOf('  async function regler('), regler = FE.slice(i, FE.indexOf('\n  }\n', i));
   assert.match(regler, /if \(!proprio \|\| ferme\(w\)\) return;/, 'le propriétaire seul, et jamais un widget fermé');
   assert.match(regler, /await reglerWidget\(w\);/);

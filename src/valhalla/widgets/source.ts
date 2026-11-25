@@ -9,6 +9,7 @@ const s = (v: unknown) => String(v ?? '');
 
 export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): SourceWidget {
   const vues = new Map<string, Promise<View | null>>();
+  let alertes: Array<{ appli: string }> | undefined;
   // Une appli désactivée (Applis) n'est pas là pour un widget.
   const appli = (id: string) => { const m = v.module(id); return m && m.id === id && v.estActive(m.id) ? m : undefined; };
   return {
@@ -34,5 +35,8 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
       return { choisi: Boolean(s(g.settings.ville)), nom: s(g.settings.villeNom) || s(g.settings.ville), fuseau: s(g.settings.fuseau), heure12: regionActuelle(g).heure === '12h' };
     },
     maintenant,
+    // Les alertes pas encore vues, lues comme une appli les lit (le contexte de Hestia, pas le journal entier) : au nom
+    // d'un membre, Valhalla retire déjà celles de Sphinx qui ne sont pas de son appareil. Rien que l'appli de chacune.
+    alertesNonVues: () => (alertes ??= v.ctx('gladsheim').alerts({ limit: Number.MAX_SAFE_INTEGER }).filter((a) => !a.ack).map((a) => ({ appli: a.module }))),
   };
 }

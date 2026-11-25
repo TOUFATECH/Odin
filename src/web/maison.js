@@ -358,7 +358,27 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
     const R = WR(); if (!R) return null;
     return R.corps(R.decrire({ etat, raison }, { proprio: D?.rights === 'complet', peutAgir: () => false, ...o }));
   }
+  /**
+   * Une sorte dessinée par le rendu de sa famille (pages/widgets-<famille>.js, registre commun de pages/widgets-rendu.js) :
+   * l'en-tête commun, puis son corps, fait de l'état que le serveur a rendu pour ce widget (`w.etat`) et de rien d'autre.
+   * Sans état, ou si son dessin échoue : une ligne, jamais une donnée. Pas de bouton ici. Un petit chiffre n'a d'en-tête
+   * dans aucun état : sans donnée, son état court (l'icône de l'état, deux ou trois mots), comme sur l'accueil.
+   */
+  function fFamille(w, rf) {
+    const R = WR(), e = w.etat && typeof w.etat === 'object' ? w.etat : { etat: 'source_absente', raison: 'pas_encore_lu' };
+    const titre = w.title || rf.titre, commun = { proprio: D?.rights === 'complet', peutAgir: () => false, appli: w.app, titre };
+    let d = R.decrire(e, commun);
+    const o = { w, titre, nomAppli: w.app || '', pastille: d.pastille, ecran: 'maison' };
+    const corps = R.dessineElleMeme(rf, d) ? R.dessiner(rf, e, o) : null;
+    if (!corps && d.donnee) d = R.decrire({ etat: 'source_absente', raison: 'lecture_echouee' }, commun);
+    const card = el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw` });
+    if (rf.petit) { card.append(corps ?? R.etatPetit(d, { titre })); return card; }
+    card.append(R.entete({ titre, sous: d.gris ? '' : [w.app, corps ? R.sous(rf, e, o) : ''].filter(Boolean).join(' · '), lettre: rf.symbole, pastille: d.pastille, gris: d.gris }), corps ?? R.corps(d));
+    return card;
+  }
   function fWidget(w) {
+    // Le registre des familles d'abord : une sorte neuve se dessine sans retoucher cet écran.
+    const rf = WR()?.rendu?.(w.kind, w.style); if (rf) return fFamille(w, rf);
     if (w.kind === 'meteo') return weatherCard(D.weather);
     if (w.kind === 'heure') {
       const l = D.lieu || {}, soleil = D.weather?.sunrise ? ` · ☀ ${D.weather.sunrise} – ${D.weather.sunset}` : '';
@@ -372,6 +392,8 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
       return c;
     }
     const card = el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw` }, fTete(w.title, w.app && w.app !== w.title ? w.app : '', w.kind === 'bouton' ? '⚡' : ''));
+    // Une sorte que cet écran ne sait pas dessiner (ni lui, ni un fichier de famille) : sa carte le dit, la page continue.
+    if (!['bouton', 'chiffres', 'section'].includes(w.kind)) { const n = fEtat('source_absente', 'pas_encore_lu'); if (n) card.append(n); return card; }
     if (w.kind === 'bouton') { card.append(el('button', { class: 'scene', style: { marginTop: '10px' }, onclick: () => act('/api/maison/fenetre', { id: w.id }) }, `${w.grave ? '⚠ ' : '⚡ '}${w.title}`)); return card; }
     // Des chiffres sans vraie mesure (que des zéros, des tirets) : « rien de mesuré », jamais un chiffre inventé.
     if (w.kind === 'chiffres') { const R = WR(); if (R && !(w.kpis || []).some((k) => R.porteUneMesure(k.value))) { card.append(fEtat('vide', 'rien_mesure')); return card; } card.append(el('div', { class: 'fk' }, ...(w.kpis || []).map((k) => el('div', { class: `fki ${k.tone || ''}` }, el('small', {}, k.label), el('b', {}, k.value))))); return card; }

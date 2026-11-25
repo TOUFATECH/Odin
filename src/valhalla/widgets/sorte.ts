@@ -65,6 +65,12 @@ export interface SourceWidget {
   /** Le lieu d'Odin : `choisi` faux tant que personne (ni lui, ni Odin tout seul) ne l'a réglé. */
   lieu(): { choisi: boolean; nom: string; fuseau: string; heure12: boolean };
   maintenant(): number;
+  /**
+   * Les alertes pas encore vues (« vu » : ack), telles que Valhalla les garde : rien que l'appli de chacune, ni titre ni
+   * détail. Lues au nom de qui regarde (pour un membre, sans celles de Sphinx qui ne sont pas de son appareil).
+   * Absente : cette source ne sait pas les lire.
+   */
+  alertesNonVues?(): ReadonlyArray<{ appli: string }>;
 }
 
 /** Les outils de nettoyage donnés à une sorte par cleanLayout. */

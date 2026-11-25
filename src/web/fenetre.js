@@ -237,8 +237,14 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       proprio = j.qui === 'proprietaire'; etats = new Map(j.widgets.map((x) => [x.id, { e: x, sig: sigDe(tous.find((w) => w.id === x.id)) }]));
     } catch { /* hors ligne : les derniers états restent */ }
   }
-  /** L'appli que lit un widget (l'heure et la météo : Hestia). */
-  const appliDe = (w) => w.module || (w.kind === 'heure' || w.kind === 'meteo' ? 'gladsheim' : '');
+  /**
+   * Le rendu que le fichier de sa famille a déclaré pour ce widget (pages/widgets-<famille>.js, registre commun de
+   * pages/widgets-rendu.js) : son titre, sa phrase du tiroir, son symbole, l'appli qu'il lit, et la fonction qui dessine
+   * son corps. Rien : la fenêtre garde son dessin d'aujourd'hui. Une sorte neuve s'ajoute là-bas, plus ici.
+   */
+  const renduDe = (w) => (w ? R.rendu(w.kind, w.style) : undefined);
+  /** L'appli que lit un widget (l'heure et la météo : Hestia ; une sorte déclarée : celle que dit son rendu). */
+  const appliDe = (w) => w.module || (w.kind === 'heure' || w.kind === 'meteo' ? 'gladsheim' : renduDe(w)?.appli || '');
   /** Qui regarde a-t-il le droit sur cette appli ? Son catalogue est déjà réduit à ses droits ; sans catalogue : non. */
   const aDroit = (id) => Array.isArray(cat?.modules) && cat.modules.some((m) => m.id === id);
   /**
@@ -306,6 +312,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     if (w.label) return w.label;
     if (w.kind === 'section' && w.section) return w.section;
     if (w.kind === 'bouton' && w.action) return w.action;
+    const rf = renduDe(w); if (rf) return rf.titre;
     if (TXT.titres[w.kind]) return TXT.titres[w.kind];
     return !clos && cat?.modules?.some((m) => m.id === w.module) ? modName(w.module) : TXT.titres.sansTitre;
   }
@@ -382,12 +389,28 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // L'en-tête de la maquette : la tuile de l'appli (comme sur la page Applis), sinon un symbole ; le titre, le
     // sous-titre ; « Ouvrir › » ; « ⋯ » pour le propriétaire.
     const tuileDe = (mod) => { if (!mod || !window.OdinAppIcons) return null; const sp = el('span', {}); sp.innerHTML = window.OdinAppIcons.tile(mod, modName(mod), 34); return sp.firstElementChild ?? sp; };
+    // Le rendu que le fichier de sa famille a déclaré pour ce widget, s'il y en a un (plus bas : c'est lui qui dessine le corps).
+    const rf = renduDe(w);
     const head = (title, small, icon, mod = w.module) => R.entete({ classe: 'fe-h', classeTuile: 'fe-ic', tuile: tuileDe(mod), lettre: icon, titre: title, sous: d.gris ? '' : small, pastille: d.pastille, gris: d.gris,
       regler: proprio && d.reglage ? () => regler(w) : null,
       extra: [d.gris ? null : boutonToucher(w, w.module ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null)] });
     // Lot 25b : toucher la carte (pas l'un de ses boutons) fait ce que « Régler » a choisi. Fermée à qui regarde : rien.
     if (!d.gris && R.toucherDe(w).quoi !== 'rien') { box.classList.add('fe-touche'); box.addEventListener('click', (e) => auToucher(e, box, w)); }
     const agirIci = (r) => AGIR[r]?.(w);
+    // Une sorte dessinée par le rendu de sa famille (pages/widgets-<famille>.js). L'en-tête, les cinq états, « ⋯ » et
+    // « Régler » sont ceux de tous ; la famille dessine le corps, à partir de l'état que le serveur a rendu pour CE
+    // réglage, et de rien d'autre. Sans cet état (ou si son dessin échoue), rien n'est affirmé : en mode Modifier, le
+    // widget n'est pas encore rangé ; sinon, la lecture n'a pas répondu. Un petit chiffre garde sa taille dans chaque
+    // état : ni en-tête, ni « ⋯ », ni bouton ; sans donnée, son état court (l'icône de l'état, deux ou trois mots).
+    if (rf) {
+      const s = etats?.get(w.id), e = s && s.sig === sigDe(w) ? s.e : undefined, nomAppli = appliDe(w) ? modName(appliDe(w)) : '';
+      const o = { w, titre: titreDe(w), nomAppli, pastille: d.pastille, ecran: 'accueil' };
+      const corps = e && R.dessineElleMeme(rf, d) ? R.dessiner(rf, e, o) : null;
+      const dd = corps || !d.donnee ? d : R.decrire(edit && !e ? { etat: 'vide', raison: 'pas_range' } : { etat: 'source_absente', raison: 'lecture_echouee' }, { proprio, appli: nomAppli, titre: o.titre, peutAgir: (r) => peutAgir(w, r) });
+      if (rf.petit) { box.append(corps ?? R.etatPetit(dd, { titre: titreDe(w, d.gris) })); return box; }
+      box.append(head(titreDe(w, d.gris), [nomAppli, corps ? R.sous(rf, e, o) : ''].filter(Boolean).join(' · '), rf.symbole, appliDe(w)), corps ?? el('p', { class: 'fe-err' }, ...R.contenu(dd, agirIci)));
+      return box;
+    }
     // Un état sans donnée (vide, source absente, refusé) : l'en-tête, puis sa ligne et au plus un bouton.
     if (!d.donnee) {
       const sous = w.kind === 'site' ? TXT.sousSite : w.kind === 'heure' || w.kind === 'meteo' ? modName('gladsheim') : modName(w.module);
@@ -432,6 +455,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       } }, w.label || w.action)));
       return box;
     }
+    // Une sorte que cette page ne sait pas dessiner (ni elle, ni un fichier de famille) : sa carte le dit, la page continue.
+    if (w.kind !== 'chiffres' && w.kind !== 'section') { box.append(head(titreDe(w), ''), el('p', { class: 'fe-err' }, ...contenuDe('source_absente', 'pas_encore_lu'))); return box; }
     const v = vueDe(w);
     box.append(head(titreDe(w), `${modName(w.module)}${modFam(w.module) ? ` · ${modFam(w.module)}` : ''}`));
     if (!v) { box.append(el('p', { class: 'fe-err' }, ...contenuDe('source_absente', 'appli_muette'))); return box; }
@@ -772,7 +797,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     b.classList.add('fe-pop'); b.addEventListener('animationend', () => b.classList.remove('fe-pop'), { once: true });
     (b.querySelector('.fe-grip') ?? b).focus({ preventScroll: true });
     const w = page().widgets.find((x) => x.id === id), T = OT.TEXTES;
-    dire(T.pose(w?.label || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : JOUR.includes(w?.kind) ? TXT.titres[w.kind] : modName(w?.module ?? ''))));
+    dire(T.pose(w?.label || renduDe(w)?.titre || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : JOUR.includes(w?.kind) ? TXT.titres[w.kind] : modName(w?.module ?? ''))));
   }
 
   // ------------------------------------------------------------------ le tiroir « Ajouter un widget » (lot 18)
@@ -820,7 +845,11 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const vordr = (cat?.modules ?? []).find((m) => m.id === 'vordr');
     // Lot 26 : les blocs du jour que la fenêtre ne porte plus (retirés), pour le propriétaire seul.
     const jour = proprio && aujourdhui() ? JOUR.filter((k) => !L.pages.some((p) => p.widgets.some((w) => w.kind === k))).map((k) => item({ kind: k, w: LARGEUR_JOUR[k] > 8 ? 3 : LARGEUR_JOUR[k] > 4 ? 2 : 1, c: LARGEUR_JOUR[k] }, TXT.titres[k], TXT.jour.quoi[k], TXT.jour.lettres[k])) : [];
-    const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo' }, T.meteo, T.meteoQuoi, '☀'),
+    // Les sortes déclarées par les fichiers de famille (pages/widgets-<famille>.js), pour qui a le droit : rien d'elles
+    // n'est écrit ici. Celle qui lit une appli désactivée est grisée, sans bouton ; « Ajouter » la pose à sa taille.
+    const declarees = R.posables({ proprio, aDroit }).map((x) => { const m = x.appli ? cat?.modules?.find((y) => y.id === x.appli) : undefined;
+      return { nom: x.nom, quoi: x.quoi, icon: x.symbole, famille: x.famille === OT.INFOS || !m ? OT.INFOS : m.family, active: m ? OT.active(m) : undefined, onclick: () => add(x.w) }; });
+    const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo' }, T.meteo, T.meteoQuoi, '☀'), ...declarees,
       vordr ? { nom: T.site, quoi: T.siteQuoi, icon: '🌐', famille: OT.INFOS, active: OT.active(vordr), onclick: siteSurveille } : null,
       { nom: T.perso, quoi: T.persoQuoi, icon: '⚡', famille: OT.INFOS, creer: true, onclick: ownButton },
       ...(cat?.modules ?? []).map((m) => ({ ...item({ kind: 'chiffres', module: m.id }, m.name, String(m.what ?? '').slice(0, 90)), famille: m.family, module: m.id, active: OT.active(m) }))].filter(Boolean);
@@ -1066,7 +1095,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       page().widgets = page().widgets.filter((x) => x.id !== w.id); f.fermer();
       draw().then(() => { dire(T.retire(titre)); say(`${T.retire(titre)} ${T.pied}`); rendre()?.focus(); });
     }, 'danger') : null;
-    f = R.fenetreRegler({ titre, tuile, lettre: w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : TXT.jour.lettres[w.kind], corps, rendre,
+    f = R.fenetreRegler({ titre, tuile, lettre: renduDe(w)?.symbole || (w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : TXT.jour.lettres[w.kind]), corps, rendre,
       pied: [copier, retirer, el('div', { class: 'wr-fin' }, R.bouton(T.annuler, () => f.fermer()), R.bouton(T.valider, valider, 'p')), el('p', { class: 'wr-aide' }, T.pied)] });
     f.d.addEventListener('input', surveiller); f.d.addEventListener('change', surveiller);
     // Entrée dans un champ de texte : valider (comme le bouton).
