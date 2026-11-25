@@ -12,6 +12,7 @@ import { allModules, setValhalla } from '../src/valhalla/odin.ts';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 import { keyRights, resetGladsheim } from '../src/valhalla/modules/gladsheim.ts';
 import { maisonRoute } from '../src/web/maison-api.ts';
+import { FAMILLES } from '../src/valhalla/modules/apparence.ts';
 
 function world() {
   const home = mkdtempSync(join(tmpdir(), 'gladsheim-'));
@@ -78,7 +79,12 @@ test('page et API /maison : session, clé de tablette, droits, confirmation, mas
     // Tablette « maison ».
     const key = ((await w.act('cle_tablette', { nom: 'Entrée' })).data as { key: string }).key, K = { 'x-odin-maison': key };
     const st = await (await get('/api/maison/etat', K)).json() as { rights: string; weather: { temp: number; word: string }; tiles: Array<{ id: string; label: string; grave: boolean }>; apps: unknown[]; notices: unknown[]; themes: Record<string, string> };
-    assert.equal(st.rights, 'maison'); assert.equal(st.weather.temp, 29); assert.equal(st.weather.word, 'Partiellement nuageux'); assert.deepEqual(st.apps, []); assert.deepEqual(st.notices, []); assert.equal(Object.keys(st.themes).length, 31);
+    assert.equal(st.rights, 'maison'); assert.equal(st.weather.temp, 29); assert.equal(st.weather.word, 'Partiellement nuageux'); assert.deepEqual(st.apps, []); assert.deepEqual(st.notices, []);
+    // Les 31 thèmes de Hestia (sans préfixe), et les trois autres familles de Réglages rangées avec « o- » : la liste
+    // entière de Réglages → Apparence (6 + 32 + 31 + 16 = 85), moins « Valhalla (classique) » : le thème classique
+    // d'Odin n'a pas de ciel, il reste dans Réglages mais n'est pas un thème de l'écran de la maison (comme la maquette).
+    const reglages = FAMILLES.reduce((n, f) => n + f.ids.length, 0); assert.equal(reglages, 85, 'Réglages garde ses 85 thèmes');
+    assert.equal(Object.keys(st.themes).filter((k) => !k.startsWith('o-')).length, 31); assert.equal(Object.keys(st.themes).length, reglages - 1); assert.ok(!('o-valhalla' in st.themes));
     const vpn = st.tiles.find((t) => t.label === 'VPN : allumer')!; assert.ok(vpn.grave);
     assert.equal((await post('/api/maison/bouton', { id: vpn.id }, { 'x-odin-maison': key, 'x-odin': '' })).status, 403, 'en-tête anti-falsification exigé');
     assert.match(String((await post('/api/maison/bouton', { id: vpn.id }, K)).text), /action grave, à lancer depuis Odin/);

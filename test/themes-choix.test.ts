@@ -19,7 +19,8 @@ interface Theme { name: string }
 interface Famille { id: string; titre: string; ids: string[] }
 interface Catalogue { THEMES: Record<string, Theme>; ORDER: string[]; EVENT_THEMES: Record<string, Theme>; familles?: () => Famille[] }
 
-function chargerThemes(): Catalogue {
+/** themes.js ; avec `catalogue`, le catalogue des thèmes (où sont les données des thèmes d'Odin) est chargé avant. */
+function chargerThemes(catalogue = false): Catalogue {
   const element = () => ({ textContent: '', style: {}, dataset: {}, setAttribute() {}, append() {}, addEventListener() {}, classList: { add() {}, remove() {}, toggle() {} }, querySelector: () => null, querySelectorAll: () => [] });
   const document = {
     readyState: 'complete', documentElement: { dataset: {} as Record<string, string>, dispatchEvent() {}, addEventListener() {} },
@@ -29,22 +30,24 @@ function chargerThemes(): Catalogue {
   const window: Record<string, unknown> = { OdinThemes: {}, addEventListener() {} };
   const ctx = vm.createContext({ window, document, localStorage: { getItem: () => null, setItem() {} }, fetch: () => Promise.reject(new Error('hors ligne')), CustomEvent: class { t: string; constructor(t: string) { this.t = t; } }, setTimeout, clearTimeout, setInterval: () => 0, matchMedia: () => ({ matches: false, addEventListener() {} }), console, navigator: {} });
   (window as { window?: unknown }).window = window;
+  if (catalogue) vm.runInContext(readFileSync(fileURLToPath(new URL('../src/web/pages/themes-catalogue.js', import.meta.url)), 'utf8'), ctx);
   vm.runInContext(source, ctx);
   return window.OdinThemes as Catalogue;
 }
 
-test('Réglages → Apparence : deux familles, dans l\'ordre, avec leur titre et leur nombre', () => {
-  const c = chargerThemes();
+// Les données des thèmes d'Odin et des événements sont dans le catalogue : la page le charge avant themes.js, l'essai aussi.
+test('Réglages → Apparence : les familles, dans l\'ordre, avec leur titre et leur nombre', () => {
+  const c = chargerThemes(true);
   assert.equal(typeof c.familles, 'function', 'window.OdinThemes.familles existe');
   const f = c.familles!();
   // (les tableaux viennent du bac à sable : on les recopie avant de comparer)
-  assert.deepEqual([...f.map((x) => x.id)], ['odin', 'evenements']);
-  assert.deepEqual([...f.map((x) => x.ids.length)], [33, 16]);
-  assert.deepEqual([...f[0].ids], [...c.ORDER]);
-  assert.deepEqual([...f[1].ids], Object.keys(c.EVENT_THEMES));
+  assert.deepEqual([...f.map((x) => x.id)], ['enavant', 'odin', 'hestia', 'evenements']);
+  assert.deepEqual([...f.map((x) => x.ids.length)], [6, 32, 31, 16]);
+  assert.deepEqual([...f[1].ids], [...c.ORDER].filter((id) => !f[0].ids.includes(id)));
+  assert.deepEqual([...f[3].ids], Object.keys(c.EVENT_THEMES));
   assert.ok(f.every((x) => typeof x.titre === 'string' && x.titre.length > 0), 'chaque famille a un titre');
-  assert.notEqual(f[0].titre, f[1].titre);
-  f[0].ids.push('x'); assert.equal(c.familles!()[0].ids.length, 33, 'la fonction rend une copie (ORDER ne bouge pas)');
+  assert.equal(new Set(f.map((x) => x.titre)).size, 4);
+  f[1].ids.push('x'); assert.equal(c.familles!()[1].ids.length, 32, 'la fonction rend une copie (ORDER ne bouge pas)'); assert.equal(c.ORDER.length, 33);
 });
 
 function odinDEssai() {

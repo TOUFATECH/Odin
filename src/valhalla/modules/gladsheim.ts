@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { accord } from '../../core/genre.ts';
 import type { ModCtx, Module, Param, Tone } from '../types.ts';
 import { valhallaOf } from '../odin.ts';
+import { FAMILLES, THEME_NAMES } from './apparence.ts';
 import { homeDevices } from './midgard.ts';
 import { nourrir, oublier } from '../gna/historique.ts';
 import { arrondirPosition, ecrireFichierPrive, lireFichierPrive } from '../../prive.ts';
@@ -39,6 +40,21 @@ export const THEMES: Record<string, { label: string; dark: boolean }> = {
   montagne: { label: 'Montagne et brume', dark: false }, tropical: { label: 'Forêt tropicale', dark: true }, desert: { label: 'Désert', dark: false }, neige: { label: 'Neige', dark: false }, abysses: { label: 'Océan profond', dark: true },
   neon: { label: 'Néon', dark: true }, bois: { label: 'Bois et lin', dark: false }, graphite: { label: 'Graphite', dark: true }, pastel: { label: 'Pastel', dark: false }, espace: { label: 'Espace', dark: true },
 };
+/**
+ * La liste entière de l'écran de la maison : les familles de Réglages → Apparence, dans leur ordre (« Mis en avant »,
+ * dont « Home Assistant » et « Maison claire » ; « Les thèmes d'Odin » ; « Thèmes de Hestia » ; « Événements de
+ * l'année »), avec les mêmes noms. Un thème d'Odin y est rangé avec le préfixe « o- » (« o-nuit », « o-ev-noel ») ;
+ * les thèmes de Hestia gardent leur identifiant sans préfixe (règle des identifiants de /maison : sans préfixe, c'est
+ * d'abord un thème de Hestia), tous, pour que l'ancien réglage reste lisible. Un réglage pour cet écran, un autre pour
+ * Odin : ils ne se touchent pas.
+ * Une exception : le thème classique d'Odin (« Valhalla (classique) ») n'a pas de ciel, il n'est donc pas un thème de
+ * cet écran, comme dans la maquette (qui ne transforme que les thèmes qui ont un ciel). Il reste dans Réglages →
+ * Apparence ; ici, il n'est ni proposé ni accepté, et un ancien « o-valhalla » se dessine comme le thème de départ.
+ */
+const HORS_ECRAN_MAISON = new Set(['valhalla']);
+export const THEMES_MAISON: Record<string, { label: string }> = Object.fromEntries(FAMILLES.flatMap((f) => (f.id === 'hestia'
+  ? Object.entries(THEMES).map(([id, x]) => [id, x])
+  : f.ids.filter((id) => !HORS_ECRAN_MAISON.has(id)).map((id) => [`o-${id}`, { label: THEME_NAMES[id] }]))));
 export interface Tile { id: string; label: string; module: string; action: string; input: Record<string, unknown>; icon: string; color?: string }
 export interface Key { id: string; name: string; hash: string; rights: 'maison' | 'complet'; at: number; used?: number }
 /** Un membre de la famille qui partage sa position avec l'appli OwnTracks (il l'installe et peut la mettre en pause). */
@@ -525,7 +541,7 @@ export const gladsheim: Module = {
   words: ['glaðsheimr', 'gladsheim', 'écran de la maison', 'tablette murale', 'tableau de la maison', 'thème de la maison', 'bouton de la maison', 'météo', 'quel temps', 'température dehors', 'fait-il dehors'],
   actions: [
     { id: 'ouvrir', label: 'Ouvrir l\'écran de la maison', what: 'L\'adresse de l\'écran plein format', read: true, words: ['écran de la maison', 'ouvre l\'écran de la maison'], run: () => ({ text: '🏠 L\'écran de la maison : /maison sur l\'adresse d\'Odin (garde-le en favori, ou « Ajouter à l\'écran d\'accueil » sur la tablette).', data: { url: '/maison' } }) },
-    { id: 'theme', label: 'Thème', what: 'Le thème de l\'écran de la maison', params: [{ key: 'theme', label: 'Thème', kind: 'select', options: Object.keys(THEMES), required: true }], words: ['change le thème de l\'écran', 'change le thème'], run: (ctx, i) => { const t = s(i.theme); if (!THEMES[t]) throw new Error(`thèmes : ${Object.keys(THEMES).join(', ')}`); ctx.saveSettings({ theme: t }); return { text: `🎨 Thème « ${THEMES[t].label} ».` }; } },
+    { id: 'theme', label: 'Thème', what: 'Le thème de l\'écran de la maison', params: [{ key: 'theme', label: 'Thème', kind: 'select', options: Object.keys(THEMES_MAISON), required: true }], words: ['change le thème de l\'écran', 'change le thème'], run: (ctx, i) => { const t = s(i.theme); if (!Object.hasOwn(THEMES_MAISON, t)) throw new Error(`thèmes : ${Object.keys(THEMES_MAISON).join(', ')}`); ctx.saveSettings({ theme: t }); return { text: `🎨 Thème « ${THEMES_MAISON[t].label} ».` }; } },
     { id: 'fenetre', label: 'Ma fenêtre', what: 'Les pages de modules de la fenêtre d\'Odin (ordinateur, téléphone, écran de la maison)', read: true, quiet: true, words: ['ma fenêtre', 'tableau de bord'], run: (ctx) => {
       // À un autre que le propriétaire : jamais les widgets de son accueil (lot 26), et « Quand je touche » seulement
       // sur les widgets qu'il peut voir (lot 25b).
@@ -671,14 +687,14 @@ export const gladsheim: Module = {
   async view(ctx) {
     const t = tilesOf(ctx), w = await weather(ctx), dev = await homeDevices(valhallaOf()?.ctx('midgard') ?? ctx).catch(() => []);
     return {
-      subtitle: `Thème « ${THEMES[s(ctx.settings.theme) || 'verre']?.label ?? 'Verre sombre'} » · ${t.length} bouton(s) · ${dev.length} appareil(s) · ${keys(ctx).length} clé(s) de tablette`,
+      subtitle: `Thème « ${THEMES_MAISON[s(ctx.settings.theme) || 'verre']?.label ?? 'Verre sombre'} » · ${t.length} bouton(s) · ${dev.length} appareil(s) · ${keys(ctx).length} clé(s) de tablette`,
       kpis: [{ label: 'Météo', value: w ? `${w.temp} °C${wxErr ? ' (anciennes)' : ''}` : '—' }, { label: 'Appareils', value: String(dev.length) }, { label: 'Boutons', value: String(t.length) }, { label: 'Tablettes', value: String(keys(ctx).length) }],
       sections: [
         { kind: 'steps', title: 'L\'écran de la maison', items: [{ title: 'Ouvrir l\'écran', detail: '/maison sur l\'adresse d\'Odin', done: true }, { title: 'Une tablette murale ?', detail: 'Crée une clé de tablette (droits « maison » conseillés)', done: keys(ctx).length > 0 }, { title: 'Dans Home Assistant ?', detail: 'Autorise ta box et colle la carte « Page web »', done: Boolean(ctx.settings.haOrigin) }] },
         { kind: 'table', title: 'Boutons', columns: ['', 'Texte', 'Appli', 'Action'], empty: 'Aucun bouton.', rows: t.map((x) => ({ cells: [x.icon, x.label, ctx.modules().find((m) => m.id === x.module)?.name ?? x.module, x.action], actions: [{ action: 'retirer_bouton', label: 'Retirer', input: { nom: x.id } }] })) },
         { kind: 'table', title: 'Clés de tablette', columns: ['Nom', 'Droits', 'Créée', 'Dernier usage'], empty: 'Aucune clé.', rows: keys(ctx).map((k) => ({ cells: [k.name, k.rights, new Date(k.at).toLocaleDateString('fr-FR'), k.used ? new Date(k.used).toLocaleString('fr-FR') : 'jamais'], actions: [{ action: 'retirer_cle', label: 'Retirer', input: { nom: k.name } }] })) },
       ],
-      side: [{ kind: 'form', title: 'Thème', action: 'theme', submit: 'Choisir', params: [{ key: 'theme', label: 'Thème', kind: 'select', options: Object.keys(THEMES), default: s(ctx.settings.theme) || 'verre' }] }, { kind: 'form', title: 'Ajouter un bouton', action: 'bouton', submit: 'Ajouter', params: TILE }, { kind: 'form', title: 'Lieu de la météo', action: 'meteo', submit: 'Choisir', params: [{ key: 'ville', label: 'Ville', kind: 'text', default: s(ctx.settings.ville) || 'Mamoudzou' }] }],
+      side: [{ kind: 'form', title: 'Thème', action: 'theme', submit: 'Choisir', params: [{ key: 'theme', label: 'Thème', kind: 'select', options: Object.keys(THEMES_MAISON), default: s(ctx.settings.theme) || 'verre' }] }, { kind: 'form', title: 'Ajouter un bouton', action: 'bouton', submit: 'Ajouter', params: TILE }, { kind: 'form', title: 'Lieu de la météo', action: 'meteo', submit: 'Choisir', params: [{ key: 'ville', label: 'Ville', kind: 'text', default: s(ctx.settings.ville) || 'Mamoudzou' }] }],
     };
   },
 };

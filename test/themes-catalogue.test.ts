@@ -25,7 +25,7 @@ interface Catalogue {
   THEMES: Record<string, Theme>; ORDER: string[]; EVENT_THEMES: Record<string, Theme>; familles?: () => Famille[];
   apply(id: string): void; palette(t: Theme): Record<string, string>; contrast(a: string, b: string): number;
 }
-interface CatalogueMaquette { NOMS: Record<string, string>; THEMES: Record<string, Record<string, unknown>>; HESTIA?: Record<string, Record<string, unknown>>; DECORS?: Record<string, string> }
+interface CatalogueMaquette { NOMS: Record<string, string>; THEMES: Record<string, Record<string, unknown>>; HESTIA?: Record<string, Record<string, unknown>>; DECORS?: Record<string, string>; ODIN: Record<string, Theme>; EVENEMENTS: Record<string, Theme> }
 
 /** themes.js dans une page factice ; avec `catalogue`, le fichier des thèmes « Mis en avant » est chargé avant. */
 function chargerThemes(catalogue = false): Catalogue & { styles: Array<{ id?: string; textContent: string }>; maquette?: CatalogueMaquette } {
@@ -48,7 +48,8 @@ function chargerThemes(catalogue = false): Catalogue & { styles: Array<{ id?: st
 }
 
 test('catalogue : 33 thèmes d\'Odin + 16 d\'événements, aucun doublon, ORDER reste aux 33', () => {
-  const c = chargerThemes();
+  // Leurs données sont dans le catalogue (chargé avant themes.js) : themes.js n'en garde plus de copie.
+  const c = chargerThemes(true);
   const ev = Object.keys(c.EVENT_THEMES);
   assert.equal(c.ORDER.length, 33, 'ORDER garde les 33 (la liste déroulante de fenetre.js la lit)');
   assert.equal(ev.length, 16);
@@ -56,7 +57,8 @@ test('catalogue : 33 thèmes d\'Odin + 16 d\'événements, aucun doublon, ORDER 
   assert.ok(c.ORDER.every((id) => !id.startsWith('ev-')));
   const tous = [...c.ORDER, ...ev];
   assert.equal(new Set(tous).size, 49, 'aucun identifiant en double');
-  assert.equal(Object.keys(c.THEMES).length, 49);
+  // Avec le catalogue : les 49, plus les 5 « Mis en avant » neufs et les 31 de Hestia (glace est déjà parmi les 49).
+  assert.equal(Object.keys(c.THEMES).length, 49 + 5 + 31);
   const noms = tous.map((id) => c.THEMES[id].name);
   assert.equal(new Set(noms).size, 49, 'aucun nom en double');
 });
@@ -114,7 +116,8 @@ test('Mis en avant : à plat, la règle de couleurs d\'Odin nourrie par le fond,
 });
 
 test('Mis en avant : « glace » garde son identifiant et son décor, et prend les couleurs de la maquette', () => {
-  const avant = chargerThemes().THEMES.glace, apres = chargerThemes(true).THEMES.glace;
+  // « avant » : le Glace d'Odin, dont les données sont maintenant dans le catalogue (ODIN).
+  const c = chargerThemes(true), avant = c.maquette!.ODIN.glace, apres = c.THEMES.glace;
   assert.equal(avant.accent, '#1a6fae'); assert.equal(apres.accent, '#1f8fff');
   assert.equal(apres.ink, '#0d2a42'); assert.equal(apres.panel, '#f3f9ff'); assert.equal(apres.mascot, '#2b8fd6');
   assert.equal(apres.decor, avant.decor, 'le décor de Glace est celui que la maquette dessine aussi');
@@ -122,27 +125,31 @@ test('Mis en avant : « glace » garde son identifiant et son décor, et prend l
 });
 
 test('« minuit » ne change pas (couleurs comprises) : il attend la réponse du propriétaire', () => {
-  const sans = chargerThemes(), avec = chargerThemes(true);
+  // Les données d'Odin sont dans le catalogue (ODIN, EVENEMENTS) : on compare à elles et aux valeurs figées.
+  const avec = chargerThemes(true), sans = { THEMES: { ...avec.maquette!.ODIN, ...avec.maquette!.EVENEMENTS }, ORDER: Object.keys(avec.maquette!.ODIN), EVENT_THEMES: avec.maquette!.EVENEMENTS };
   // Valeurs figées : celles de son Odin avant ce lot (themes.js du 18/11), pour qu'un changement fait dans themes.js
   // même se voie, pas seulement un changement venu du catalogue.
   const MINUIT = {
     name: 'Minuit', dark: true, sky: ['#05060f', '#10142a'], panel: '#11152b', ink: '#e6eaff', accent: '#7aa2ff', mascot: '#5b7bff',
     decor: '<circle cx="206" cy="34" r="14" fill="#e6eaff" opacity=".9"/><circle cx="212" cy="30" r="12" fill="#05060f"/><path d="M0 148 L60 136 L120 146 L180 132 L256 144 V170 H0Z" fill="#0b0e20"/>',
   };
-  assert.deepEqual(sans.THEMES.minuit, MINUIT, 'minuit, sans le catalogue');
+  assert.deepEqual(sans.THEMES.minuit, MINUIT, 'minuit, dans les données du catalogue');
   assert.deepEqual(avec.THEMES.minuit, MINUIT, 'minuit, avec le catalogue');
   assert.ok(!Object.keys(avec.maquette!.THEMES).includes('minuit'), 'le « Minuit » de la maquette n\'est pas dans le catalogue');
   // Les 32 autres thèmes d'Odin et les 16 événements ne bougent pas non plus.
   for (const id of [...sans.ORDER, ...Object.keys(sans.EVENT_THEMES)]) if (id !== 'glace') assert.deepEqual(avec.THEMES[id], sans.THEMES[id], id);
 });
 
-test('themes.js marche encore sans le catalogue : deux familles (33 et 16), aucun thème neuf, et il s\'applique', () => {
+// Les données des thèmes d'Odin et des événements sont dans le catalogue : sans lui, themes.js garde Valhalla seul (le
+// thème d'origine de la page, lisible), et rien ne lève d'erreur.
+test('themes.js marche encore sans le catalogue : Valhalla seul, aucun thème neuf, et il s\'applique sans erreur', () => {
   const c = chargerThemes();
-  assert.deepEqual(c.familles!().map((x) => [x.id, x.ids.length]), [['odin', 33], ['evenements', 16]]);
+  assert.deepEqual(c.familles!().map((x) => [x.id, x.ids.length]), [['odin', 1], ['evenements', 0]]);
   for (const id of NOUVEAUX) assert.equal(c.THEMES[id], undefined, id);
   assert.ok(!Object.keys(c.THEMES).some((id) => id.startsWith('h-')), 'aucun thème de Hestia sans le catalogue');
   c.apply('glace');
-  assert.match(c.styles.at(-1)?.textContent ?? '', /--accent:#1a6fae/);
+  assert.equal((c as unknown as { current(): string }).current(), 'valhalla', 'un thème absent : Valhalla');
+  assert.equal(c.styles.at(-1)?.textContent ?? '', '', 'les couleurs d\'origine de la page');
 });
 
 test('le catalogue : seulement des couleurs, des nombres et des codes ; les noms dans un dictionnaire en tête', () => {

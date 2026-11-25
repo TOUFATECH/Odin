@@ -19,6 +19,7 @@ import { DEFAULT_CONFIG } from '../src/config.ts';
 import { recordFix, resetGladsheim } from '../src/valhalla/modules/gladsheim.ts';
 import { haCommand, sensitive } from '../src/valhalla/modules/midgard.ts';
 import { maisonRoute } from '../src/web/maison-api.ts';
+import { FAMILLES } from '../src/valhalla/modules/apparence.ts';
 
 const MAISON = readFileSync(new URL('../src/web/maison.js', import.meta.url), 'utf8');
 
@@ -351,8 +352,15 @@ describe('route /api/maison/*', () => {
     const demande = await post('/api/maison/appareil', GRAVE, SESSION);
     assert.equal(demande.ok, false); assert.equal(typeof demande.confirm, 'string'); assert.ok(String(demande.confirm).length > 0);
   });
-  test('route : la liste des thèmes a 31 entrées (clé « maison » et session)', async () => {
-    assert.equal(Object.keys((await etat(R.K)).themes).length, 31);
-    assert.equal(Object.keys((await etat(SESSION)).themes).length, 31);
+  // La liste a grandi : les 31 de Hestia (sans préfixe) et les trois autres familles de Réglages (« o-… ») : toute la
+  // liste de Réglages → Apparence (6 + 32 + 31 + 16 = 85) moins « Valhalla (classique) » (le thème classique d'Odin n'a
+  // pas de ciel : il reste dans Réglages, pas sur cet écran, comme la maquette) ; la même pour une clé « maison » et pour la session.
+  test('route : la liste des thèmes a 31 thèmes de Hestia et toute la liste de Réglages moins Valhalla (clé « maison » et session)', async () => {
+    const reglages = FAMILLES.reduce((n, f) => n + f.ids.length, 0); assert.equal(reglages, 85, 'Réglages garde ses 85 thèmes');
+    for (const h of [R.K, SESSION]) {
+      const ids = Object.keys((await etat(h)).themes);
+      assert.equal(ids.filter((k) => !k.startsWith('o-')).length, 31);
+      assert.equal(ids.length, reglages - 1); assert.ok(!ids.includes('o-valhalla'));
+    }
   });
 });

@@ -1,5 +1,5 @@
 // Hestia — l'écran de la maison (tablette murale, téléphone, ordinateur, Home Assistant).
-// Pièces et appareils, scènes, météo, état des applis, tes boutons, onze thèmes, et la mascotte qui se promène,
+// Pièces et appareils, scènes, météo, état des applis, tes boutons, les thèmes, et la mascotte qui se promène,
 // joue à la balle, répond (météo, heure, alertes) et fait ce que tu lui demandes (mêmes droits que dans Odin).
 // Aucune page HTML construite à partir de texte : tout est créé élément par élément.
 (() => {
@@ -50,15 +50,50 @@
   const SECOURS = { bg: '#16181d', bg2: '#16181d', card: '#20232a', card2: '#292d36', line: '#353a46', text: '#eef0f6', muted: '#a3a9b8', accent: '#ff8a3d', accent2: '#3fa9ff', on: '#b5541a' };
   const T = CATALOGUE.HESTIA || { verre: SECOURS };
   const themeHestia = (id) => (Object.hasOwn(T, String(id)) ? T[id] : T.verre || {});
+  // Un thème de la liste d'Odin (ses familles hors Hestia : « Mis en avant », dont « Home Assistant » et « Maison
+  // claire » ; « Les thèmes d'Odin » ; « Événements de l'année ») est rangé ici avec le préfixe « o- » (« o-ha »,
+  // « o-nuit », « o-ev-noel »). Un thème fait main a ses champs dans le catalogue ; un thème d'Odin ou d'événement les
+  // reçoit de la règle de la maquette (fromOdin, dans le catalogue). Ses dix couleurs d'écran en sont tirées : le fond
+  // uni (la première couleur de la dernière couche de son fond, pour la barre du navigateur), tout son fond (avec son
+  // décor), la carte (sa couleur pleine si la carte est un dégradé), une carte un peu plus marquée, le bord, le texte, le
+  // texte discret, l'accent, la couleur d'Odin et le bouton allumé. Un « o-… » inconnu, ou Valhalla (le thème d'origine
+  // d'Odin, sans couleurs à lui), donne le thème de départ de cet écran.
+  const derniereCouche = (bg) => { let p = 0, d = 0; for (let i = 0; i < bg.length; i++) { const c = bg[i]; if (c === '(') p++; else if (c === ')') p--; else if (c === ',' && p === 0) d = i + 1; } return bg.slice(d); };
+  const unie = (c) => /^(#[0-9a-f]{3,8}|rgba?\([^()]*\))$/i.test(String(c ?? '').trim());
+  // Les mélanges et les contrastes sont ceux du catalogue (une seule règle de couleurs) ; un thème d'Odin n'est dessiné
+  // ici que si le catalogue est là.
+  const hexa = (c) => /^#[0-9a-f]{6}$/i.test(String(c));
+  const melange = (a, b, k) => (hexa(a) && hexa(b) ? CATALOGUE.mix(a, b, k) : a);
+  // La couleur du texte posé sur « allumé » (tuile allumée, logo), règle de la maquette : sombre quand le blanc se lit
+  // mal (moins de 2,9 pour 1) sur la moyenne des couleurs du dégradé. Les thèmes de Hestia gardent leur texte blanc.
+  const encreSur = (g) => { const cs = String(g ?? '').match(/#[0-9a-f]{6}\b/gi); if (!cs) return '#ffffff'; const m = `#${[1, 3, 5].map((i) => Math.round(cs.reduce((s, c) => s + parseInt(c.slice(i, i + 2), 16), 0) / cs.length).toString(16).padStart(2, '0')).join('')}`; return CATALOGUE.contrast('#ffffff', m) < 2.9 ? '#2a1a00' : '#ffffff'; };
+  function depuisOdin(t) {
+    const fond = (derniereCouche(String(t.bg ?? '')).match(/#[0-9a-f]{6}\b/i) || [t.solid])[0];
+    return { bg: fond, bg2: t.bg, card: unie(t.surface) ? t.surface : t.solid, card2: melange(t.solid, t.ink, t.dark ? 0.08 : 0.04), line: t.border, text: t.ink, muted: t.muted, accent: t.accent, accent2: t.mascot, on: t.onA, onInk: encreSur(t.onA), light: t.dark === false };
+  }
+  const FAIT_MAIN = CATALOGUE.THEMES || {}, ODIN = CATALOGUE.ODIN || {}, EVENEMENTS = CATALOGUE.EVENEMENTS || {};
+  // Les familles de la page « Thèmes », dans l'ordre et sous les titres de Réglages → Apparence.
+  const FAMILLES_THEMES = { enavant: 'Mis en avant', odin: 'Les thèmes d\'Odin', hestia: 'Thèmes de Hestia', evenements: 'Événements de l\'année' };
+  /** Les champs d'un thème de la liste d'Odin (son identifiant d'Odin, sans « o- ») ; rien si on ne sait pas le dessiner. */
+  const champsOdin = (k) => {
+    if (k.startsWith('h-')) return null;
+    if (Object.hasOwn(FAIT_MAIN, k)) return FAIT_MAIN[k];
+    const t = Object.hasOwn(ODIN, k) ? ODIN[k] : Object.hasOwn(EVENEMENTS, k) ? EVENEMENTS[k] : null;
+    return t && t.sky && typeof CATALOGUE.fromOdin === 'function' ? CATALOGUE.fromOdin(t, FAMILLES_THEMES[Object.hasOwn(EVENEMENTS, k) ? 'evenements' : 'odin']) : null;
+  };
+  const themeMaison = (id) => { const t = String(id).startsWith('o-') ? champsOdin(String(id).slice(2)) : null; return t ? depuisOdin(t) : themeHestia(id); };
+  // La famille d'un identifiant de cet écran, comme Réglages la range : sans préfixe, Hestia ; « o-ev-… », les
+  // événements ; un thème fait main du catalogue, « Mis en avant » ; les autres « o-… », les thèmes d'Odin.
+  const familleTheme = (id) => { const s = String(id), k = s.slice(2); return !s.startsWith('o-') ? 'hestia' : k.startsWith('ev-') ? 'evenements' : Object.hasOwn(FAIT_MAIN, k) && !k.startsWith('h-') ? 'enavant' : 'odin'; };
   const css = el('style');
   document.head.append(css);
   // Décors (SVG du catalogue, posés en bas de l'écran, derrière les cartes).
   const DECOR = CATALOGUE.DECORS || {};
   const decorUrl = (k) => (DECOR[k] ? `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -30 960 150' preserveAspectRatio='xMidYMax slice'>${DECOR[k].replace(/"/g, "'")}</svg>`)}")` : 'none');
   function applyTheme(name) {
-    const t = themeHestia(name);
+    const t = themeMaison(name);
     document.body.style.setProperty('--decor', decorUrl(t.decor));
-    css.textContent = `:root{--bg:${t.bg};--bg2:${t.bg2};--card:${t.card};--card2:${t.card2};--line:${t.line};--text:${t.text};--muted:${t.muted};--accent:${t.accent};--accent2:${t.accent2};--on:${t.on};--good:#34c77b;--warn:#f0a020;--bad:#ef4f43;color-scheme:${name === 'clair' || t.light ? 'light' : 'dark'}}${BASE}`;
+    css.textContent = `:root{--bg:${t.bg};--bg2:${t.bg2};--card:${t.card};--card2:${t.card2};--line:${t.line};--text:${t.text};--muted:${t.muted};--accent:${t.accent};--accent2:${t.accent2};--on:${t.on};--on-ink:${t.onInk || '#ffffff'};--good:#34c77b;--warn:#f0a020;--bad:#ef4f43;color-scheme:${name === 'clair' || t.light ? 'light' : 'dark'}}${BASE}`;
     document.querySelector('meta[name=theme-color]')?.setAttribute('content', t.bg);
   }
   const BASE = `
@@ -67,7 +102,7 @@
 button{font:inherit;color:inherit;cursor:pointer}button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .app{display:grid;grid-template-columns:76px 1fr;min-height:100vh}
 .side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0;border-right:1px solid var(--line);background:color-mix(in srgb,var(--card) 60%,transparent)}
-.logo{width:44px;height:44px;border-radius:14px;background:var(--on);display:grid;place-items:center;font-weight:700;font-size:24px;color:#fff;margin-bottom:18px}
+.logo{width:44px;height:44px;border-radius:14px;background:var(--on);display:grid;place-items:center;font-weight:700;font-size:24px;color:var(--on-ink);margin-bottom:18px}
 .nav{width:48px;height:48px;border-radius:14px;border:0;background:transparent;color:var(--muted);display:grid;place-items:center}.nav[aria-current=page]{background:var(--card2);color:var(--accent);box-shadow:inset 0 0 0 1px var(--line)}
 main{padding:22px 26px 120px;min-width:0}
 .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.hello h1{margin:0;font-size:clamp(24px,3.2vw,34px);font-weight:600;letter-spacing:-.01em}.hello p{margin:4px 0 0;color:var(--muted);font-size:14px}
@@ -79,8 +114,8 @@ main{padding:22px 26px 120px;min-width:0}
 .card h3{margin:0;font-size:12.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.card .big{font-size:40px;font-weight:600;line-height:1.05;margin:8px 0 2px}
 .fk{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px}.fki{border:1px solid var(--line);border-radius:14px;padding:8px 10px}.fki small{display:block;color:var(--muted);font-size:12px}.fki b{font-size:22px}.fki.mauvais b{color:#e0453a}.fki.attention b{color:#d98a12}
 .fl{list-style:none;margin:10px 0 0;padding:0}.fl li{display:flex;flex-direction:column;padding:7px 0;border-bottom:1px solid var(--line)}.fl li:last-child{border-bottom:0}.fl li.mauvais b{color:#e0453a}
-.sec{margin:26px 0 0;font-size:15px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:8px}
-.dev{display:flex;flex-direction:column;gap:10px;min-height:132px;transition:transform .15s}.dev.on{background:var(--on);border-color:transparent;color:#fff}.dev.on .muted{color:rgba(255,255,255,.82)}
+.sec{margin:26px 0 0;font-size:15px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:8px}.fam{margin:20px 0 0;font-size:12.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.dev{display:flex;flex-direction:column;gap:10px;min-height:132px;transition:transform .15s}.dev.on{background:var(--on);border-color:transparent;color:var(--on-ink)}.dev.on .muted{color:color-mix(in srgb,var(--on-ink) 82%,transparent)}
 .dev .row{display:flex;align-items:center;gap:10px}.dev .em{width:40px;height:40px;border-radius:12px;background:var(--card2);display:grid;place-items:center;font-size:20px;flex:none}.dev.on .em{background:rgba(255,255,255,.22)}
 .dev b{display:block;overflow-wrap:anywhere}.muted{color:var(--muted);font-size:13px}.dev .ctl{margin-top:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .btn{border:1px solid var(--line);background:var(--card2);border-radius:12px;min-width:40px;height:40px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}.dev.on .btn{background:rgba(255,255,255,.18);border-color:transparent}
@@ -475,8 +510,10 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
       ...(full ? [el('p', { class: 'muted', style: { marginTop: '14px' } }, 'Ajoute un bouton vers n\'importe quelle action d\'une appli dans Odin → Hestia → « Ajouter un bouton » (ou dis-le à la mascotte).')] : [])];
   }
   function themesView() {
-    return [el('h2', { class: 'sec' }, 'Thèmes'), el('div', { class: 'themes' }, ...Object.entries(D.themes || {}).map(([k, label]) => { const t = T[k] || T.verre; return el('button', { class: 'th', 'aria-pressed': String(D.theme === k), onclick: async () => { applyTheme(k); D.theme = k; draw(); if (D.rights === 'complet') await act('/api/maison/theme', { theme: k }); else try { localStorage.setItem('odin.maison.theme', k); } catch { /* */ } } },
-      el('div', { class: 'pv', style: { background: t.bg2 } }, el('i', { style: { background: t.card } }), el('i', { style: { background: t.on } }), el('i', { style: { background: t.card2 } }), el('i', { style: { background: t.accent } })), el('span', {}, label)); }))];
+    const liste = Object.entries(D.themes || {});
+    const carte = ([k, label]) => { const t = themeMaison(k); return el('button', { class: 'th', 'aria-pressed': String(D.theme === k), onclick: async () => { applyTheme(k); D.theme = k; draw(); if (D.rights === 'complet') await act('/api/maison/theme', { theme: k }); else try { localStorage.setItem('odin.maison.theme', k); } catch { /* */ } } },
+      el('div', { class: 'pv', style: { background: t.bg2 } }, el('i', { style: { background: t.card } }), el('i', { style: { background: t.on } }), el('i', { style: { background: t.card2 } }), el('i', { style: { background: t.accent } })), el('span', {}, label)); };
+    return [el('h2', { class: 'sec' }, 'Thèmes'), ...Object.keys(FAMILLES_THEMES).flatMap((f) => { const ts = liste.filter(([k]) => familleTheme(k) === f); return ts.length ? [el('h3', { class: 'fam' }, FAMILLES_THEMES[f]), el('div', { class: 'themes' }, ...ts.map(carte))] : []; })];
   }
 
   // ---------- Chargement ----------

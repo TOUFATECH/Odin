@@ -33,7 +33,8 @@ interface Charge {
   catalogue?: Record<string, Record<string, unknown>>;
 }
 
-function charger(avecCatalogue = true): Charge {
+/** `sans-regle` : le catalogue est là (les données des thèmes d'Odin y sont), mais sans sa règle du verre (surfaceOf). */
+function charger(avecCatalogue: boolean | 'sans-regle' = true): Charge {
   const styles: Array<{ id?: string; textContent: string }> = [];
   const element = () => ({ textContent: '', style: {}, dataset: {}, setAttribute() {}, append() {}, addEventListener() {}, classList: { add() {}, remove() {}, toggle() {} }, querySelector: () => null, querySelectorAll: () => [] });
   const document = {
@@ -45,6 +46,7 @@ function charger(avecCatalogue = true): Charge {
   const ctx = vm.createContext({ window, document, localStorage: { getItem: () => null, setItem() {} }, fetch: () => Promise.reject(new Error('hors ligne')), CustomEvent: class { t: string; constructor(t: string) { this.t = t; } }, setTimeout, clearTimeout, setInterval: () => 0, matchMedia: () => ({ matches: false, addEventListener() {} }), console, navigator: {} });
   (window as { window?: unknown }).window = window;
   if (avecCatalogue) vm.runInContext(CATALOGUE_JS, ctx);
+  if (avecCatalogue === 'sans-regle') delete (window.OdinCatalogueThemes as { surfaceOf?: unknown }).surfaceOf;
   vm.runInContext(THEMES_JS, ctx);
   const o = window.OdinThemes as { apply(id: string): void; THEMES: Record<string, { sky?: string[]; panel?: string; dark?: boolean; decor?: string }> };
   const cat = window.OdinCatalogueThemes as { surfaceOf?: Charge['surfaceOf']; THEMES: Record<string, Record<string, unknown>> } | undefined;
@@ -346,12 +348,17 @@ test('verre : dans chaque thème, les textes des cartes restent lisibles (4,5:1)
   assert.deepEqual(echecs, [], 'un texte trop pâle dans le verre');
 });
 
+// Les données des thèmes d'Odin sont dans le catalogue : « sans la règle » se joue avec le catalogue privé de sa règle
+// du verre (surfaceOf) ; sans le catalogue entier, themes.js garde Valhalla (couleurs d'origine), sans verre ni erreur.
 test('verre : sans le catalogue (règle de la maquette absente), rien ne change', () => {
-  const c = charger(false);
+  const c = charger('sans-regle');
   c.apply('nuit');
   const t = css(c);
   assert.doesNotMatch(t, /--v-carte|#v-home|backdrop-filter:blur\(var/);
   assert.match(/:root\[data-odin-theme\] main\{([^}]*)\}/.exec(t)?.[1] ?? '', /background:var\(--bg\)/);
+  const sans = charger(false);
+  sans.apply('nuit');
+  assert.doesNotMatch(css(sans), /--v-carte|#v-home|backdrop-filter:blur\(var/);
 });
 
 test('verre : tout texte posé sur le fond de l\'accueil, hors d\'une carte, reçoit une plaque du même verre', () => {
