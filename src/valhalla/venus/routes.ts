@@ -23,6 +23,7 @@ import { fluxAutorise } from './cast.ts';
 import { entreeFfmpeg } from '../../files/ffmpeg-entree.ts';
 import { estMembre } from '../sso/garde.ts';
 import { profilDemande, profilDuTemoin, routeAppli } from './app/appli.ts';
+import { icsCalendrier, lienCalendrier, profilDuCalendrier, sortiesDuCalendrier } from './hnoss/calendrier.ts';
 
 export interface VenusRouteCtx {
   home: string;
@@ -131,6 +132,9 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
     // Télécommande publique d'UN écran (jeton limité/révocable). Portée = ce seul écran, rien d'autre d'Odin.
     if (p.startsWith('/t/')) return await routeTelecommandePublique(req, res, url, ctx, mag, p.slice(3));
     if (p.startsWith('/venus/commande/')) return await routeCommandeJeton(req, res, ctx, mag, p.slice('/venus/commande/'.length));
+    // Hnoss : le calendrier des sorties d'UN profil, lu par l'agenda du téléphone SANS session, avec son lien
+    // personnel (portée : ce seul calendrier, en lecture). Un faux lien compte comme un essai raté.
+    if (meth === 'GET' && p.startsWith('/venus/calendrier/')) return servirCalendrier(res, ctx, mag, decode(p.slice('/venus/calendrier/'.length)));
 
     // Flux de diffusion : le lecteur de la maison (Chromecast/DLNA) va chercher l'adresse SANS session. Un jeton de
     // diffusion à portée restreinte (cette cible, limité dans le temps) est accepté, vérifié AVANT la garde propriétaire.
@@ -157,6 +161,14 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
       // page n'est pas un essai de jeton : pas compté (sinon un favori ou un membre redirigé bloque l'adresse 15 min).
       if (meth === 'GET' && (p === '/venus/app' || p === '/venus/app/')) { res.writeHead(401, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'" }); res.end(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Venus</title><body style="font-family:system-ui,sans-serif;background:#120e0d;color:#eceae4;display:grid;place-items:center;min-height:90vh;margin:0;padding:16px"><p>Venus est réservé au propriétaire d'Odin. <a href="/" style="color:#f4cf9c">Revenir à Odin</a></p></body>`); return true; }
       ctx.fail(); json(res, 401, { error: 'Connecte-toi à Odin.' }); return true;
+    }
+    // Hnoss : le lien personnel du calendrier du profil (« Ajouter à mon calendrier »). Le lien est un secret : POST
+    // seulement (la clé d'accès n'a pas ce POST), le même lien remontré, ou un neuf avec { nouveau: true }.
+    if (p === '/venus/hnoss/calendrier') {
+      if (meth !== 'POST') { json(res, 405, { error: 'POST' }); return true; }
+      const b = await corps(req);
+      const lien = `${ctx.origin.replace(/\/$/, '')}/venus/calendrier/${lienCalendrier(mag, ctx.home, profil, { nouveau: b.nouveau === true })}.ics`;
+      json(res, 200, { url: lien, webcal: lien.replace(/^https?:/, 'webcal:') }); return true;
     }
     // L'interface de Vénus (lot V1) : la page plein écran et ce qu'elle lit (catalogue, fiche, profils, préférences).
     if (await routeAppli(req, res, url, ctx.home, mag, profil)) return true;
@@ -200,6 +212,15 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
 
     json(res, 404, { error: 'route Vénus inconnue' }); return true;
   } catch (e) { json(res, 500, { error: (e as Error).message }); return true; }
+}
+
+// ---------------- Hnoss : le calendrier des sorties ----------------
+function servirCalendrier(res: ServerResponse, ctx: VenusRouteCtx, mag: MagasinVenus, reste: string): boolean {
+  const profil = profilDuCalendrier(mag, reste.replace(/\.ics$/i, ''));
+  if (!profil) { ctx.fail(); json(res, 404, { error: 'calendrier inconnu' }); return true; }
+  res.writeHead(200, { 'content-type': 'text/calendar; charset=utf-8', 'content-disposition': 'inline; filename="venus.ics"', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+  res.end(icsCalendrier(sortiesDuCalendrier(mag, profil)));
+  return true;
 }
 
 // ---------------- Flux, sous-titres, vignette ----------------

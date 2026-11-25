@@ -73,6 +73,43 @@
       'Pas de bande-annonce : posez-en une à côté du film (même nom, puis « -trailer », par exemple « Titre-trailer.mp4 »). Odin n’en lit aucune sur Internet : aucun réglage ne le permet.': 'No trailer: put one next to the film (same name, then “-trailer”, for example “Title-trailer.mp4”). Odin plays none from the Internet: no setting allows it.',
       'Pas de bande-annonce pour une série pour l’instant. Odin n’en lit aucune sur Internet : aucun réglage ne le permet.': 'No trailer for a show for now. Odin plays none from the Internet: no setting allows it.',
       'Réessayer': 'Try again', 'La lecture n’a pas pu démarrer': 'Playback could not start', '{quoi} : bientôt dans Odin.': '{quoi}: coming soon in Odin.', 'Chargement…': 'Loading…',
+      // À venir, Mes envies, Nouveautés (Upcoming.js, Nouveautes.js) et le calendrier
+      'Impossible pour le moment.': 'Not possible right now.', 'S{s}:É{e}': 'S{s}:E{e}', 'Épisode {n}': 'Episode {n}', 'Sortie': 'Release', 'Au cinéma': 'In cinemas',
+      '{n} sortie': '{n} release', '{n} sorties': '{n} releases', '{n} épisode': '{n} episode', '{n} épisodes': '{n} episodes', '{n} envie': '{n} wish', '{n} envies': '{n} wishes',
+      'Retirer des favoris': 'Remove from favourites', 'Favori : téléchargé automatiquement': 'Favourite: downloaded automatically',
+      'Retirer « {t} » des favoris': 'Remove “{t}” from favourites', 'Mettre « {t} » en favori (téléchargement automatique)': 'Add “{t}” to favourites (automatic download)',
+      'Déjà suivi par {a} : téléchargé dès sa sortie': 'Already followed by {a}: downloaded as soon as it is out', 'Télécharger avec {a}': 'Download with {a}', 'Suivi par {a}': 'Followed by {a}',
+      'Impossible d’afficher les sorties': 'Cannot show the releases', 'Régler le catalogue des sorties': 'Set up the release catalogue', 'Aucun catalogue des sorties n’est réglé.': 'No release catalogue is set up.',
+      'Aucun favori à venir.': 'No upcoming favourites.', 'Rien de disponible pour ces jours-ci.': 'Nothing available for these days.', 'Rien d’annoncé pour l’instant.': 'Nothing announced yet.',
+      'Le catalogue ne répond pas pour l’instant : {e}': 'The catalogue is not answering right now: {e}', 'Afficher': 'Show', 'Favori = téléchargé automatiquement par {a}': 'Favourite = downloaded automatically by {a}',
+      'Films à découvrir': 'Movies to discover', 'Animés à découvrir': 'Anime to discover', 'Séries à découvrir': 'TV shows to discover', 'pas encore disponibles': 'not available yet',
+      'Voir les {n} jours précédents': 'Show the previous {n} days', 'Favori : le titre rejoint « Mes envies » et {a} le télécharge dès qu’il est disponible.': 'Favourite: the title joins “My wishes” and {a} downloads it as soon as it is available.',
+      "Aucun catalogue des films n'est réglé : « À venir » ne lit rien sur Internet tant que tu n'en as pas choisi un (Réglages → Demandes).": 'No movie catalogue is set up: “Upcoming” reads nothing from the Internet until you choose one (Settings → Requests).',
+      "Aucun programme des séries n'est réglé : « À venir » ne lit rien sur Internet tant que tu ne l'as pas activé (Réglages → Demandes).": 'No TV show schedule is set up: “Upcoming” reads nothing from the Internet until you turn it on (Settings → Requests).',
+      "Aucun programme des animés n'est réglé : « À venir » ne lit rien sur Internet tant que tu ne l'as pas activé (Réglages → Demandes).": 'No anime schedule is set up: “Upcoming” reads nothing from the Internet until you turn it on (Settings → Requests).',
+      'Vos envies sont visibles par les adultes de la maison, qui décident du téléchargement.': 'Your wishes are visible to the adults of the household, who decide on the download.',
+      'Chaque envie est demandée à Hnoss tout de suite : le téléchargement démarre dès que le titre sort. Une fois arrivé, il passe dans « Dans Venus ».': 'Each wish is requested from Hnoss right away: the download starts as soon as the title is out. Once it arrives, it moves to “In Venus”.',
+      'Aucune envie pour l’instant.': 'No wishes yet.', 'Dans Films, Séries ou Animés, onglet « À venir », le ♡ ajoute un titre ici et le fait télécharger.': 'In Movies, TV shows or Anime, “Upcoming” tab, the ♡ adds a title here and has it downloaded.',
+      'Voir ce qui arrive': 'See what is coming', 'Film': 'Movie', 'Animé': 'Anime', 'Série': 'TV show', 'Retirer {t} de mes envies': 'Remove {t} from my wishes', 'Retiré de mes envies': 'Removed from my wishes',
+      'Demandé, en attente de validation': 'Requested, waiting for approval', 'Demandé : téléchargé dès sa sortie': 'Requested: downloaded as soon as it is out', 'Demandé, recherche en cours': 'Requested, searching',
+      'Téléchargement en cours': 'Downloading', 'Disponible, arrive dans Venus': 'Available, arriving in Venus', 'Pas trouvé': 'Not found', 'Suivi': 'Followed',
+      'Hnoss actif : demandez un titre, il se télécharge tout seul': 'Hnoss is on: request a title and it downloads by itself', 'Rien pour le moment': 'Nothing for now', 'Nouveautés indisponibles': 'New releases unavailable',
+      'Les sites de référence ne répondent pas pour l’instant. Réessayez dans un moment.': 'The reference sites are not answering right now. Try again in a moment.', 'Ouvrir les réglages': 'Open settings',
+      "Le programme des animés n'est pas activé (Réglages → Demandes).": 'The anime schedule is not turned on (Settings → Requests).',
+      'Les nouveautés des films et des séries viennent du grand catalogue : ajoute sa clé (gratuite) dans Réglages → Demandes. Les animés marchent sans clé.': 'New movie and TV show releases come from the large catalogue: add its (free) key in Settings → Requests. Anime works without a key.',
+      'Au cinéma en ce moment': 'In cinemas now', 'Bientôt au cinéma': 'Coming soon to cinemas', 'Tendances de la semaine': 'Trending this week', 'Nouveaux épisodes cette semaine': 'New episodes this week',
+      'Diffusés aujourd’hui': 'Airing today', 'Cette saison': 'This season', 'En diffusion, les plus suivis': 'Airing now, most followed', 'La saison prochaine': 'Next season',
+      'Sortie le {d}': 'Out on {d}', 'Le {d}': 'On {d}', 'Épisode {n} le {d}': 'Episode {n} on {d}', 'Note': 'Rating', 'dans Venus': 'in Venus', 'Déjà dans Venus': 'Already in Venus',
+      'Retirer de mes envies': 'Remove from my wishes', 'Ajouter à mes envies': 'Add to my wishes', 'Dans mes envies': 'In my wishes',
+      'Ajouter à mes envies : demandé à Hnoss dès maintenant, téléchargé dès sa sortie': 'Add to my wishes: requested from Hnoss now, downloaded as soon as it is out',
+      'Dans Venus : voir la fiche': 'In Venus: see details', 'Demande envoyée…': 'Request sent…',
+      '« {t} » retiré de vos favoris': '“{t}” removed from your favourites', '« {t} » en favori : le téléchargement est lancé': '“{t}” added to favourites: the download has started',
+      '« {t} » ajouté à vos favoris · {d}': '“{t}” added to your favourites · {d}', '« {t} » ajouté à {a} : le téléchargement est lancé': '“{t}” added to {a}: the download has started',
+      '« {t} » ajouté : le téléchargement commence': '“{t}” added: the download is starting',
+      'Ajouter à mon calendrier': 'Add to my calendar', 'Les sorties de vos séries, films et favoris dans le calendrier de votre téléphone': 'Releases of your shows, movies and favourites in your phone’s calendar',
+      'Les épisodes de vos séries, les sorties de films demandées et vos favoris apparaissent dans le calendrier de votre téléphone ou de votre ordinateur, mis à jour tout seuls.': 'Episodes of your shows, requested movie releases and your favourites appear in the calendar of your phone or computer, updated automatically.',
+      'S’abonner (iPhone, Mac, Outlook)': 'Subscribe (iPhone, Mac, Outlook)', 'Copier le lien': 'Copy link', 'Lien copié': 'Link copied', 'Lien du calendrier': 'Calendar link',
+      'Google Agenda : Paramètres → Ajouter un agenda → À partir de l’URL, puis collez le lien. Ce lien est personnel : ne le partagez pas. Il ne fonctionne que sur le réseau de la maison (ou à distance si Venus est accessible depuis Internet).': 'Google Calendar: Settings → Add calendar → From URL, then paste the link. This link is personal: do not share it. It only works on the home network (or remotely if Venus can be reached from the Internet).',
     },
   };
   const LANG = String((D && D.documentElement.lang) || (W.navigator && W.navigator.language) || 'fr');
@@ -295,7 +332,9 @@
 
   // ---------------------------------------------------------------- coque (Shell.js) + « ‹ Odin »
   const ODIN_MARK = '<svg class="odin-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 6 8l6 6 6-6zM12 14l-5 5 5 3 5-3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
-  const isActive = (h, path) => (h === '/' ? path === '/' : path.startsWith(h));
+  // Une entrée est choisie sur sa page et sur les pages en dessous (« /musique/album/… ») ; jamais sur une page dont
+  // le nom commence pareil (avant : « Nouveau » s'allumait aussi sur « Nouveautés », « Ma liste » sur une liste de lecture).
+  const isActive = (h, path) => (h === '/' ? path === '/' : path === h || path.startsWith(`${h}/`));
   const NavLink = (h, label, icon, path, cls = '') => { const on = isActive(h, path); return `<a href="${href(h)}" class="${`${cls} f${on ? ' active' : ''}`.trim()}"${on ? ' aria-current="page"' : ''} aria-label="${esc(label)}">${icon ? I(icon) : ''}<span>${esc(label)}</span></a>`; };
   const ItemLink = (it, path, cls = '') => NavLink(it.href, val(it.label), val(it.icon), path, cls);
   function Shell(path, body) {
@@ -565,7 +604,7 @@
       : `<div class="grid-empty"><p>${esc(filtre === 'fav' ? t('Aucun favori à venir.') : filtre === 'nas' ? t('Rien de disponible pour ces jours-ci.') : t('Rien d’annoncé pour l’instant.'))}</p>${(d.erreurs || []).length ? `<p class="muted">${esc(t('Le catalogue ne répond pas pour l’instant : {e}', { e: d.erreurs[0] }))}</p>` : ''}</div>`;
     return `<div class="page"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t(TITLES[kind]))}</h1><p class="count">${esc(kind === 'movie' ? tn(count, '{n} sortie', '{n} sorties') : tn(count, '{n} épisode', '{n} épisodes'))}</p></div>${tabs}</div>
     <div class="up-bar"><div class="seg up-filter" role="radiogroup" aria-label="${esc(t('Afficher'))}">${FILTERS.map(([k, l]) => `<button class="seg-b f${k === filtre ? ' on' : ''}" role="radio" aria-checked="${k === filtre}" data-act="upfilter" data-kind="${kind}" data-v="${k}">${esc(t(l))}</button>`).join('')}</div>
-    <div class="up-bar-right">${!kids ? `<span class="muted small">${I('heart')} ${esc(t('Favori = téléchargé automatiquement par {a}', { a: app }))}</span>` : ''}</div></div>
+    <div class="up-bar-right">${!kids ? `<span class="muted small">${I('heart')} ${esc(t('Favori = téléchargé automatiquement par {a}', { a: app }))}</span>` : ''}<button class="btn btn-small btn-ghost f" title="${esc(t('Les sorties de vos séries, films et favoris dans le calendrier de votre téléphone'))}" data-act="ical">${I('cal')}${esc(t('Ajouter à mon calendrier'))}</button></div></div>
     ${sugs.length ? `<section class="up-sugs"><h2 class="section-title">${esc(kind === 'movie' ? t('Films à découvrir') : kind === 'anime' ? t('Animés à découvrir') : t('Séries à découvrir'))}<small>${esc(t('pas encore disponibles'))}</small></h2><div class="up-sug-row">${sugs.map((e) => `<div class="up-sug"><button type="button" class="up-sug-pic f" aria-label="${esc(nomDe(e))}" data-act="upsheet" data-i="${reg(e)}" data-k="${kind}">${UpPh(e)}<span class="up-sug-date">${esc(libelleJour(e.date))}</span></button>${kids ? '' : `<div class="up-acts">${FavBtn(e)}${DlBtn(e, kind)}</div>`}<b>${esc(nomDe(e))}</b><small>${esc(e.kind === 'movie' ? [t(e.release || 'Sortie'), e.year].filter(Boolean).join(' · ') : [e.network, e.genres && e.genres[0]].filter(Boolean).join(' · ') || epLabel(e))}</small></div>`).join('')}</div></section>` : ''}
     <div class="upcoming">${before.length && !S.upEarlier[kind] ? `<button class="btn btn-small btn-ghost up-earlier f" data-act="upearlier" data-kind="${kind}">${I('up')}${esc(t('Voir les {n} jours précédents', { n: nombre(before.length) }))}</button>` : ''}
     ${shown.map((g) => `<section class="up-day${g.day < today ? ' past' : ''}${g.day === today ? ' today' : ''}"><h2 class="section-title">${esc(libelleJour(g.day))}<small>${esc(fmtJour(g.day))}</small></h2><div class="up-grid">${g.items.map(card).join('')}</div></section>`).join('')}
@@ -577,6 +616,17 @@
       ${e.genres && e.genres.length ? `<p class="up-genres">${esc(e.genres.slice(0, 4).join(' · '))}</p>` : ''}${e.overview ? `<p class="up-over">${esc(e.overview)}</p>` : ''}
       ${kids ? '' : `<div class="up-sheet-acts">${FavBtn(e, true)}${DlBtn(e, kind, true)}</div><p class="muted small">${esc(t('Favori : le titre rejoint « Mes envies » et {a} le télécharge dès qu’il est disponible.', { a: app }))}</p>`}</div></div>`, { wide: true });
   }
+  // Abonnement iCal (Upcoming.js, subscribe()) : le calendrier du téléphone affiche les épisodes et sorties du profil.
+  // Le lien personnel est un secret : demandé en POST (Odin remontre le même tant qu'il vit), jamais gardé dans la page.
+  async function subscribe() {
+    let r; try { r = await api('/venus/hnoss/calendrier', {}); } catch { toast(t('Impossible pour le moment.')); return; }
+    const url = String((r && r.url) || ''); if (!/^https?:\/\//.test(url)) { toast(t('Impossible pour le moment.')); return; }
+    const webcal = url.replace(/^https?:/, 'webcal:');
+    openSheet(t('Ajouter à mon calendrier'), `<div class="cal-sheet"><p>${esc(t('Les épisodes de vos séries, les sorties de films demandées et vos favoris apparaissent dans le calendrier de votre téléphone ou de votre ordinateur, mis à jour tout seuls.'))}</p>
+      <div class="btn-row"><a class="btn btn-play f" href="${esc(webcal)}">${I('cal')}${esc(t('S’abonner (iPhone, Mac, Outlook)'))}</a><button class="btn f" data-act="calcopy" data-v="${esc(url)}">${I('copy')}${esc(t('Copier le lien'))}</button></div>
+      <input class="input cal-link" readonly value="${esc(url)}" aria-label="${esc(t('Lien du calendrier'))}">
+      <p class="muted small">${esc(t('Google Agenda : Paramètres → Ajouter un agenda → À partir de l’URL, puis collez le lien. Ce lien est personnel : ne le partagez pas. Il ne fonctionne que sur le réseau de la maison (ou à distance si Venus est accessible depuis Internet).'))}</p></div>`);
+  }
 
   // Mes envies (Upcoming.js → Wishes)
   const ETAT_ENVIE = { 'à valider': ['pending', 'Demandé, en attente de validation'], 'en attente': ['processing', 'Demandé : téléchargé dès sa sortie'], cherchée: ['processing', 'Demandé, recherche en cours'], 'en téléchargement': ['processing', 'Téléchargement en cours'], disponible: ['available', 'Disponible, arrive dans Venus'], échec: ['error', 'Pas trouvé'] };
@@ -587,7 +637,7 @@
     return `<div class="page"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t('Ma liste'))}</h1><p class="count">${esc(tn(n, '{n} envie', '{n} envies'))}</p></div>${tabs}</div>
     <p class="list-hint">${esc(S.profile.isKids ? t('Vos envies sont visibles par les adultes de la maison, qui décident du téléchargement.') : t('Chaque envie est demandée à Hnoss tout de suite : le téléchargement démarre dès que le titre sort. Une fois arrivé, il passe dans « Dans Venus ».'))}</p>
     <div class="wish-grid">${!n ? `<div class="grid-empty"><p>${esc(t('Aucune envie pour l’instant.'))}</p><p class="muted">${esc(t('Dans Films, Séries ou Animés, onglet « À venir », le ♡ ajoute un titre ici et le fait télécharger.'))}</p><a class="btn btn-small f" href="${href('/series?vue=avenir')}">${I('cal')}${esc(t('Voir ce qui arrive'))}</a></div>`
-      : l.map((w) => { const [st, lbl] = ETAT_ENVIE[w.etat] || ['none', 'Suivi']; return `<article class="wish"><div class="wish-pic"><span>${esc(w.titre)}</span></div><div class="wish-body"><b>${esc(w.titre)}</b><span class="wish-meta">${esc([w.genre === 'film' ? t('Film') : w.anime ? t('Animé') : t('Série'), w.annee].filter(Boolean).join(' · '))}</span><span class="wish-state st-${st}">${esc(t(lbl))}</span>${w.etat === 'échec' && w.note ? `<small class="error-text">${esc(w.note)}</small>` : ''}</div><button class="btn btn-ghost btn-icon btn-mini f" aria-label="${esc(t('Retirer {t} de mes envies', { t: w.titre }))}" title="${esc(t('Retirer'))}" data-act="wishrm" data-v="${esc(w.cle || w.id)}" data-t="${esc(w.titre)}">${I('close')}</button></article>`; }).join('')}</div></div>`;
+      : l.map((w) => { const [st, lbl] = ETAT_ENVIE[w.etat] || ['none', 'Suivi']; return `<article class="wish"><div class="wish-pic" aria-hidden="true"><div class="ph" style="--h:${hueOf(w.titre)}"><span>${esc(w.titre)}</span></div></div><div class="wish-body"><b>${esc(w.titre)}</b><span class="wish-meta">${esc([w.genre === 'film' ? t('Film') : w.anime ? t('Animé') : t('Série'), w.annee].filter(Boolean).join(' · '))}</span><span class="wish-state st-${st}">${esc(t(lbl))}</span>${w.etat === 'échec' && w.note ? `<small class="error-text">${esc(w.note)}</small>` : ''}</div><button class="btn btn-ghost btn-icon btn-mini f" aria-label="${esc(t('Retirer {t} de mes envies', { t: w.titre }))}" title="${esc(t('Retirer'))}" data-act="wishrm" data-v="${esc(w.cle || w.id)}" data-t="${esc(w.titre)}">${I('close')}</button></article>`; }).join('')}</div></div>`;
   };
 
   // Nouveau (Request.js) : chercher un titre et l'ajouter ; en dessous, la file de Comète.
@@ -894,6 +944,8 @@
   // ---------------------------------------------------------------- actions (clics)
   const sel = (a, v) => `[data-act="${a}"][data-v="${String(v).replace(/"/g, '\\"')}"]`;
   const majTitre = (id, ch) => { const i = S.items.find((x) => x.id === id); if (i) Object.assign(i, ch); };
+  // Le lien du calendrier se sélectionne en entier quand on y entre (Upcoming.js : onFocus → select()).
+  D.addEventListener('focusin', (e) => { const x = e.target; if (x && x.classList && x.classList.contains('cal-link') && x.select) x.select(); });
   D.addEventListener('click', async (e) => {
     const el = e.target.closest('[data-act]');
     if (!el) { if ($('#drop') && !e.target.closest('#drop')) closeDrop(); return; }
@@ -974,6 +1026,8 @@
       case 'godemandes': e.preventDefault(); S.setTab = 'demandes'; go('/reglages?tab=demandes'); break;
       case 'upfilter': S.upFilter[kind] = v; rerender(sel('upfilter', v)); break;
       case 'upearlier': S.upEarlier[kind] = true; rerender(); break;
+      case 'ical': e.preventDefault(); await subscribe(); break;
+      case 'calcopy': try { await navigator.clipboard.writeText(v); toast(t('Lien copié'), 'success'); } catch { /* comme le dépôt : rien si la copie est refusée */ } break;
       case 'upopen': go(`/titre/${encodeURIComponent(v)}`); break;
       case 'upsheet': { const x = S.reg[Number(el.dataset.i)]; if (x) upSheet(x, el.dataset.k || 'movie'); break; }
       case 'newkind': S.newKind = v; history.replaceState(null, '', `#/nouveautes?type=${v}`); rerender(sel('newkind', v)); break;

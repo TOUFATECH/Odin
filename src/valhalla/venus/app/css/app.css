@@ -4005,3 +4005,36 @@ html.lite .hero-poster { animation: none; }
 .chip.chip-pluto.on { background: #ffe14d; color: #111; }
 .tv-sub { margin-top: 6px; padding-left: 10px; border-left: 3px solid #ffe14d; }
 .tv-sub .chip { font-size: .8rem; padding: 4px 10px; }
+
+/* Odin : Nouveautés, Mes envies, À venir au téléphone (ajout d’Odin à cette copie de la feuille du dépôt Venus).
+   La pastille Hnoss passe à la ligne (à 390 px elle faisait défiler la page de côté) ; les boutons de ces écrans
+   offrent une cible de 44 px (♡ et ⬇ gardent leur dessin, leur zone de toucher est élargie sans déborder sur le voisin) ;
+   en clair, les états « Disponible », « Pas trouvé » et la pastille sont foncés pour se lire ; le contour du filtre
+   choisi n’est plus coupé par sa barre qui défile ; l’image d’une envie sans affiche est un carré de couleur plein. */
+.new-head .auto-pill { white-space: normal; max-width: 100%; }
+.up-filter .seg-b, .view-tabs .vt, .new-tabs .chip { min-height: 44px; min-width: 44px; }
+.view-tabs .vt { display: inline-flex; align-items: center; justify-content: center; }
+.up-bar-right .btn-small { min-height: 44px; }
+.wish .btn-mini { width: 44px; min-height: 44px; }
+.up-act:not(.wide) { position: relative; }
+.up-act:not(.wide)::after { content: ''; position: absolute; inset: -5px; } /* depuis le bord intérieur : 1 px de bordure + 4 px = 44 px */
+.up-acts { gap: 8px; }
+@media (max-width: 760px) { .up-act:not(.wide)::after { inset: -7px; } .up-acts { gap: 12px; } }
+.up-filter .seg-b:focus-visible { outline-offset: -3px; }
+.cal-sheet .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.cal-sheet .btn-row .btn { max-width: 100%; white-space: normal; text-align: center; }
+html[data-tone="light"] .up-card .up-pic .up-time { color: #fff; } /* en clair, « .up-card span » (le texte gris de la carte) prenait aussi l’heure, posée sur un fond foncé */
+html[data-tone="light"] .wish-state.st-available, html[data-tone="light"] .wish-state.st-partial { color: #146c3c; background: rgba(20, 108, 60, .12); }
+html[data-tone="light"] .wish-state.st-error, html[data-tone="light"] .wish-state.st-blocked, html[data-tone="light"] .wish .error-text { color: #a3241b; }
+html[data-tone="light"] .wish-state.st-error, html[data-tone="light"] .wish-state.st-blocked { background: rgba(163, 36, 27, .1); }
+html[data-tone="light"] .new-head .auto-pill { color: #146c3c; background: rgba(20, 108, 60, .12); }
+.up-filter .seg-b.on:focus-visible { outline-color: currentColor; outline-offset: -5px; } /* le filtre choisi : contour de la couleur de son texte, dans le bouton (il était de la couleur de son fond) */
+/* Le titre d’une envie sans affiche reste dans sa vignette, au milieu, comme l’appli d’origine : jamais coupé en haut,
+   jamais cassé au milieu d’un mot qui tient sur la ligne ; un titre très long s’arrête par « … ». */
+.wish-pic .ph { align-items: center; justify-content: center; text-align: center; padding: 6px; font-size: .72rem; font-weight: 700; font-stretch: normal; line-height: 1.15; overflow-wrap: break-word; }
+.wish-pic .ph span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; line-clamp: 6; overflow: hidden; max-width: 100%; }
+.up-card .up-ph[style*="--h"] span { color: #fff; } /* le titre posé sur la couleur de la carte (le gris de « .up-card span » ne s’y lisait pas) */
+.up-card:has(.up-acts) .up-badge { max-width: calc(100% - 104px); white-space: normal; overflow-wrap: break-word; } /* la pastille passe à la ligne avant ♡ ⬇, en entier */
+@media (max-width: 760px) { .up-card:has(.up-acts) .up-ph { padding: 44px 12px 34px; } } /* au téléphone, le titre de la vignette descend sous la pastille passée à la ligne */
+@media (max-width: 760px) { .cal-sheet .btn-row .btn { padding: 10px 16px; line-height: 1.25; } } /* « S’abonner » sur deux lignes au téléphone : de l’air au-dessus et au-dessous */
+html[data-tone="light"] .spotlight .r-tmdb .r-src { color: #07708f; } /* « Note » des Nouveautés, lisible en clair */

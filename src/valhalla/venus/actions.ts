@@ -14,6 +14,7 @@ import { agissant } from '../sso/acces.ts';
 import { magasinVenus } from './base.ts';
 import { catalogue, etatAcquisition, faireVenir, fetchSources } from './acquisition.ts';
 import { demander, demandesHnoss, envies, estLibre, ligneDemande, lireSaisons, majDemande, membresLibres, PROFIL_PROPRIETAIRE, reglerMembresLibres, retirerEnvie, trouverDemande, type Demande } from './hnoss/index.ts';
+import { garderSorties } from './hnoss/calendrier.ts';
 import { aVenir, chercherTitre, nouveautes, reglagesCatalogue, reglerCatalogue, type Genre } from './catalogue/index.ts';
 import { persona, personnes } from '../sso/etat.ts';
 import { ligneSuivi, reglagesSuivi, reglerSuivi, retirerSuivi, suivi, suivis, type Applicatif } from './suivis/index.ts';
@@ -128,6 +129,10 @@ export const actionsAcquisition: Action[] = [
     run: async (ctx, i) => {
       const m = mag(ctx), c = catalogue(m), mes = siennes(ctx), l = suivis(m).filter((x) => x.etat !== 'disponible' && (!mes || x.demandes.some((d) => mes.has(d))));
       const a = await aVenir(m, reseauCatalogue(), genreCatalogue(i.genre ?? i.type), favorisDe(ctx));
+      // Le relevé est gardé pour le calendrier (Hnoss) ; un catalogue en panne (rien de lu, une erreur) n'efface pas le
+      // précédent ; un catalogue passé à « Aucun » le vide (plus de source : plus de sorties qui vieillissent).
+      if (!a.source) garderSorties(m, a.kind, []);
+      else if (a.entries.length || !a.erreurs.length) garderSorties(m, a.kind, a.entries);
       const lignes = a.entries.slice(0, 20).map((e) => `${e.date} · ${e.title}${e.season !== undefined ? ` S${e.season}E${e.episode ?? 0}` : ''}${e.nas ? ' · dans Vénus' : ''}`);
       return { text: [a.texte, ...lignes, ...l.slice(0, 30).map(ligneSuivi)].join('\n'), data: { catalogue: c, ...a, titres: a.entries, suivis: l } };
     } },
