@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { backupManifest, cleanupRestore, createBackup, decryptBackup, encryptBackup, restoreBackup } from '../src/backup.ts';
@@ -54,5 +54,33 @@ test('sauvegarde chiffrée : tout ~/.odin sauf journaux et certificat, illisible
     const evil = encryptBackup(zip([{ name: '_sauvegarde.json', data: Buffer.from('{}') }, { name: 'config.json', data: Buffer.from('{}') }, { name: '../evil.txt', data: Buffer.from('x') }]), 'motdepasse-solide');
     assert.throws(() => restoreBackup(p2, evil, 'motdepasse-solide'), /chemin refusé/);
     assert.ok(!existsSync(join(other, '..', 'evil.txt')));
+  } finally { o.cleanup(); rmSync(other, { recursive: true, force: true }); }
+});
+
+test('sauvegarde : les versions légères de Vénus (valhalla/freyja/hors-ligne), des copies qu\'Odin sait refaire, n\'y partent pas ; le reste de Vénus y est toujours', () => {
+  const o = makeOdin([]);
+  const other = mkdtempSync(join(tmpdir(), 'odin-restore-'));
+  try {
+    const venus = join(o.paths.home, 'valhalla', 'freyja'), legeres = join(venus, 'hors-ligne');
+    mkdirSync(legeres, { recursive: true });
+    writeFileSync(join(legeres, 'dl-aaaaaaaaaaaa.mp4'), Buffer.alloc(4096, 7));
+    writeFileSync(join(legeres, 'dl-bbbbbbbbbbbb.part.mp4'), Buffer.alloc(512, 7));
+    // La liste des téléchargements et la bibliothèque de Vénus (le repli en fichiers), juste à côté du dossier des vidéos.
+    writeFileSync(join(venus, 'hors_ligne.jsonl'), `${JSON.stringify({ id: 'dl-aaaaaaaaaaaa', maj: 1, data: { profil: 'moi', cible: 'film:a', titre: 'Le Phare', quality: '720p', etat: 'ready' } })}\n`);
+    writeFileSync(join(venus, 'oeuvres.jsonl'), `${JSON.stringify({ id: 'film:a', maj: 1, data: { type: 'film', titre: 'Le Phare' } })}\n`);
+    // Un dossier du même nom ailleurs (l'espace de travail) n'est pas concerné.
+    mkdirSync(join(o.paths.workspace, 'hors-ligne'), { recursive: true });
+    writeFileSync(join(o.paths.workspace, 'hors-ligne', 'notes.txt'), 'gardé');
+
+    const names = backupManifest(o.paths).map((f) => f.name);
+    assert.deepEqual(names.filter((n) => n.startsWith('valhalla/freyja/hors-ligne')), [], 'aucune version légère dans la sauvegarde');
+    for (const n of ['config.json', 'valhalla/freyja/hors_ligne.jsonl', 'valhalla/freyja/oeuvres.jsonl', 'workspace/hors-ligne/notes.txt']) assert.ok(names.includes(n), `${n} reste sauvegardé`);
+
+    // La vraie archive, restaurée sur une machine « neuve » : la liste de Vénus revient, pas les vidéos.
+    const r = restoreBackup(odinPaths(other), createBackup(o.paths, 'motdepasse-solide'), 'motdepasse-solide');
+    assert.ok(r.files >= 4);
+    assert.ok(existsSync(join(other, 'valhalla', 'freyja', 'hors_ligne.jsonl')) && existsSync(join(other, 'valhalla', 'freyja', 'oeuvres.jsonl')));
+    assert.ok(!existsSync(join(other, 'valhalla', 'freyja', 'hors-ligne')), 'le dossier des versions légères n\'est pas dans l\'archive');
+    assert.equal(readFileSync(join(other, 'workspace', 'hors-ligne', 'notes.txt'), 'utf8'), 'gardé');
   } finally { o.cleanup(); rmSync(other, { recursive: true, force: true }); }
 });

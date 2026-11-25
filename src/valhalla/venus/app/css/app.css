@@ -4055,3 +4055,24 @@ html[data-tone="light"] .spotlight .r-tmdb .r-src { color: #07708f; } /* « Note
 .add-to .opt small { color: var(--haze); }
 /* « Que regarder ce soir ? » et « Qui regarde ce soir ? » : lignes équilibrées, le « ? » ne passe jamais seul à la ligne. */
 .vote-intro h1, .together .section-title { text-wrap: balance; }
+/* La maison, seconde part : Téléchargements (bouton « Supprimer » d'une ligne), Télécommande (liste des écrans, QR pour
+   un autre téléphone), Séance (la note sous les étapes). Cibles de 44 px au moins, rien ne déborde à 390 px. */
+.maison .dl-actions .btn-mini { width: 44px; min-height: 44px; }
+.maison .dl-body .error-text { white-space: normal; overflow-wrap: anywhere; }
+.maison p.small { font-size: .86rem; margin: 0; }
+.together-how p.small { margin-top: 12px; }
+.rc-screens .launch-item { width: 100%; min-height: 56px; color: inherit; }
+.rc-screens .launch-item > .rc-ic { display: grid; place-items: center; width: 56px; aspect-ratio: 1; color: var(--sulfur); }
+.rc-screens .rc-ic svg { width: 28px; height: 28px; }
+.remote-launch .btn { margin-top: 10px; }
+.rc-qr > div { flex: 1 1 220px; min-width: 0; }
+.rc-qr .input { width: 100%; }
+/* « Valable jusqu'à » ne colle pas au lien, et le contour du focus du lien (3 px, décalé de 3 px) ne le cache pas. */
+.rc-qr .input + p { margin-top: 10px; }
+/* Le bouton « Voir » d'un message (Downloads.js) et « Télécharger la saison » : cibles de 44 px. */
+.toast .toast-act.f { min-height: 44px; }
+.sh-actions .btn-small { min-height: 44px; }
+/* Téléphone : le titre d'une ligne prête garde sa place ; « Enregistrer » passe dessous, à droite, s'il manque de la place. */
+.maison .dl-row { flex-wrap: wrap; }
+.maison .dl-body { flex: 1 1 150px; }
+.maison .dl-actions { margin-left: auto; }

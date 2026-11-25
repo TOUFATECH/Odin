@@ -41,7 +41,7 @@ test('planEnvoi et planPilotage : chaque action → le bon service Home Assistan
   const rec = planPilotage('reculer', e, 30, { position: 10 }) as unknown as { data: { seek_position: number } };
   assert.equal(rec.data.seek_position, 0, 'borné à 0');
   assert.ok('erreur' in planPilotage('chaine', e, ''), 'chaîne sans URL refusée');
-  assert.ok(ACTIONS_ECRAN.length === 10);
+  assert.ok(ACTIONS_ECRAN.length === 11); // dont « basculer » (Lecture / pause de la télécommande de Vénus)
 });
 
 test('volume relatif (+/-), revoir, chaîne par numéro, épisode refusé (phase 2)', () => {

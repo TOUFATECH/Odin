@@ -27,6 +27,7 @@ import { svg } from '../qr.ts';
 import { anneeDemandee, ensemble, statistiques } from './stats.ts';
 import { cloreVote, creerSalle, creerVote, lireSalle, lireVote, voter } from './seance.ts';
 import { changer, collection, collections, creerCollection, creerListe, liste } from './collections.ts';
+import { demanderLegere, demanderSaison, fichierPret, planifier, REFUS_ENFANT, supprimerLegere, taches } from './hors-ligne.ts';
 import { icsCalendrier, lienCalendrier, profilDuCalendrier, sortiesDuCalendrier } from './hnoss/calendrier.ts';
 
 export interface VenusRouteCtx {
@@ -396,17 +397,23 @@ const decode = (x: string) => { try { return decodeURIComponent(x); } catch { re
  *   POST /venus/api/seance {itemId}       ouvrir une séance ; GET /venus/api/seance/<code>
  *   GET|POST /venus/api/collections[/<id>], /venus/api/listes[/<id>]   collections et listes de lecture
  *   GET  /venus/api/telecharger/<cible>   le fichier d'origine d'un film ou d'un épisode, en pièce jointe
- * Chaque écriture porte l'en-tête x-odin (une page d'un autre site ne peut pas le poser). Rend true si servie.
+ *   GET|POST /venus/api/telechargements   (seconde part) la liste DU profil ; {itemId, quality} : une version 720p ou 480p
+ *                                         d'un film ou d'un épisode ; {itemId: <série>, saison, quality} : toute la saison
+ *   GET  /venus/api/telechargements/<id>/fichier   « Enregistrer » ; POST …/<id> {faire: 'supprimer'}
+ * Chaque écriture porte l'en-tête x-odin (une page d'un autre site ne peut pas le poser). Un profil enfant ne
+ * télécharge pas (ni le fichier d'origine, ni une version légère). Rend true si servie.
  */
 async function routeMaison(req: IncomingMessage, res: ServerResponse, url: URL, ctx: VenusRouteCtx, mag: MagasinVenus, profil: string): Promise<boolean> {
   const reste = url.pathname.slice('/venus/api/'.length), meth = req.method ?? 'GET';
-  const m = /^(stats|ensemble|vote|seance|collections|listes|telecharger)(?:\/([^/]+))?(?:\/(clore))?$/.exec(reste);
+  const m = /^(stats|ensemble|vote|seance|collections|listes|telecharger|telechargements)(?:\/([^/]+))?(?:\/(clore|fichier))?$/.exec(reste);
   if (!m) return false;
-  const [, quoi, idBrut, clore] = m, id = idBrut === undefined ? undefined : decode(idBrut);
+  const [, quoi, idBrut, sous] = m, id = idBrut === undefined ? undefined : decode(idBrut), clore = sous === 'clore';
+  if (sous === 'fichier' && quoi !== 'telechargements') return false;
   if (meth === 'POST' && req.headers['x-odin'] !== '1') { json(res, 403, { error: 'en-tête x-odin manquant' }); return true; }
   if (meth !== 'GET' && meth !== 'POST') { json(res, 405, { error: 'GET ou POST' }); return true; }
   const tousProfils = () => profils(ctx.home), nom = () => tousProfils().find((x) => x.id === profil)?.name ?? '';
   const refus = (r: { erreur: string; code?: number }, code = 400) => { json(res, r.code ?? code, { error: r.erreur }); return true; };
+  const enfant = () => !!tousProfils().find((x) => x.id === profil)?.isKids;
   if (quoi === 'stats' && meth === 'GET' && !id) { json(res, 200, statistiques(mag, profil, anneeDemandee(url.searchParams.get('annee') ?? url.searchParams.get('year')))); return true; }
   if (quoi === 'ensemble' && meth === 'GET' && !id) {
     const ids = s(url.searchParams.get('profils')).split(',').map((x) => x.trim()).filter(Boolean);
@@ -437,7 +444,17 @@ async function routeMaison(req: IncomingMessage, res: ServerResponse, url: URL, 
     if (id && meth === 'GET') { const r = genre === 'collection' ? collection(mag, profil, id) : liste(mag, profil, id); if (!r) return refus({ erreur: 'introuvable' }, 404); json(res, 200, r); return true; }
     if (id && meth === 'POST') { const r = changer(mag, profil, genre, id, await corps(req)); if ('erreur' in r) return refus(r); json(res, 200, r); return true; }
   }
-  if (quoi === 'telecharger' && id && !clore && meth === 'GET') return servirOrigine(res, mag, id);
+  if (quoi === 'telecharger' && id && !clore && meth === 'GET') { if (enfant()) return refus({ erreur: REFUS_ENFANT }, 403); return servirOrigine(res, mag, id); }
+  if (quoi === 'telechargements' && !clore) {
+    if (!id && meth === 'GET') { const l = taches(mag, profil); if (l.some((x) => x.state === 'queued' || x.state === 'working')) void planifier(mag); json(res, 200, l); return true; }
+    if (!id && meth === 'POST') {
+      const b = await corps(req);
+      const r = b.saison !== undefined && b.saison !== null ? demanderSaison(mag, { profil, enfant: enfant(), serieId: b.itemId, saison: b.saison, quality: b.quality }) : demanderLegere(mag, { profil, enfant: enfant(), itemId: b.itemId, quality: b.quality });
+      if ('erreur' in r) return refus(r); void planifier(mag); json(res, 200, r); return true;
+    }
+    if (id && sous === 'fichier' && meth === 'GET') { if (enfant()) return refus({ erreur: REFUS_ENFANT }, 403); const f = fichierPret(mag, profil, id); if (!f) return refus({ erreur: 'Ce téléchargement n’est pas (ou plus) prêt.' }, 404); return servirPieceJointe(res, f.chemin, f.nom, f.taille); }
+    if (id && !sous && meth === 'POST') { const b = await corps(req); if (s(b.faire) !== 'supprimer') return refus({ erreur: 'faire : supprimer' }); if (!supprimerLegere(mag, profil, id)) return refus({ erreur: 'introuvable' }, 404); json(res, 200, { ok: true }); return true; }
+  }
   json(res, 404, { error: 'route Vénus inconnue' }); return true;
 }
 /**
@@ -450,10 +467,14 @@ function servirOrigine(res: ServerResponse, mag: MagasinVenus, cibleId: string):
   const c = ok ? fichierDeCible(mag, cibleId) : undefined;
   if (!c || c.type !== 'video') { json(res, 404, { error: 'cible introuvable' }); return true; }
   if (!existsSync(c.fichier)) { json(res, 404, { error: "Le fichier de ce titre n'est plus à sa place (disque débranché, fichier déplacé) : rebranche-le ou relance un scan." }); return true; }
-  const nomFichier = basename(c.fichier).replace(/[\u0000-\u001f\u007f"\\]/g, '_').slice(-200) || 'video';
+  return servirPieceJointe(res, c.fichier, basename(c.fichier), statSync(c.fichier).size);
+}
+/** Un fichier en pièce jointe, nommé par `nom` seulement (jamais un dossier de la machine). */
+function servirPieceJointe(res: ServerResponse, chemin: string, nom: string, taille: number): boolean {
+  const nomFichier = nom.replace(/[\u0000-\u001f\u007f"\\]/g, '_').slice(-200) || 'video';
   const ascii = nomFichier.replace(/[^\x20-\x7e]/g, '_');
-  res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': String(statSync(c.fichier).size), 'content-disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nomFichier).replace(/['()*]/g, (x) => `%${x.charCodeAt(0).toString(16).toUpperCase()}`)}`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
-  createReadStream(c.fichier).pipe(res);
+  res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': String(taille), 'content-disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nomFichier).replace(/['()*]/g, (x) => `%${x.charCodeAt(0).toString(16).toUpperCase()}`)}`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+  createReadStream(chemin).pipe(res);
   return true;
 }
 

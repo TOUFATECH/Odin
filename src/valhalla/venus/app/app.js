@@ -162,11 +162,32 @@
       'Renommer la collection': 'Rename the collection', 'Renommer la liste': 'Rename the list', 'Le nom est obligatoire': 'A name is required', 'Supprimer': 'Delete',
       'Supprimer la collection « {n} » ? Les vidéos restent dans Venus.': 'Delete the collection “{n}”? The videos stay in Venus.', 'Supprimer la liste « {n} » ? Les vidéos restent dans Venus.': 'Delete the list “{n}”? The videos stay in Venus.',
       '« {t} » retiré': '“{t}” removed', '« {t} » retiré de la liste': '“{t}” removed from the list',
-      'Les vidéos sont enregistrées sur votre appareil : elles se regardent ensuite sans réseau. Sur iPhone, choisissez « Enregistrer dans Fichiers » puis ouvrez-les avec l’appli Fichiers ou VLC.': 'Videos are saved on your device: you can then watch them offline. On iPhone, choose “Save to Files” then open them with the Files app or VLC.',
-      'Aucune version légère en préparation : elles arrivent dans Odin avec un prochain lot. Sur la fiche d’un film, « Télécharger » enregistre déjà le fichier d’origine.': 'No light versions being prepared: they come to Odin with a later batch. On a movie’s details, “Download” already saves the original file.',
       'Télécharger « {t} »': 'Download “{t}”', 'Fichier d’origine': 'Original file', 'Meilleure qualité': 'Best quality', 'Version légère 720p': 'Light version 720p', 'Très légère 480p': 'Very light 480p', 'Idéale pour un téléphone ou une tablette': 'Ideal for a phone or tablet', 'Pour garder de la place': 'To save space',
-      'Les versions légères seront préparées par Odin dans un prochain lot ; le fichier d’origine s’enregistre tout de suite.': 'Odin will prepare light versions in a later batch; the original file saves right away.', '{n} Go': '{n} GB', '{n} Mo': '{n} MB',
+      '{n} Go': '{n} GB', '{n} Mo': '{n} MB',
       'Suivant': 'Next', 'Ajouté récemment': 'Recently added', '{n} ép.': '{n} ep.', 'Type': 'Type',
+      // la maison, seconde part : Séance, Télécommande, versions légères et liste des téléchargements
+      'Regarder ensemble, chacun sur son écran': 'Watch together, each on your own screen', 'Piloter Venus avec votre téléphone': 'Control Venus with your phone',
+      'Rejoindre une séance': 'Join a watch party', 'Code de la séance': 'Watch party code', 'Séance introuvable.': 'Watch party not found.', 'Lancer votre propre séance': 'Start your own watch party',
+      'Regardez le même film au même moment que vos proches, chacun chez soi. Pause, retour en arrière, réactions et discussion sont partagés.': 'Watch the same movie at the same time as your loved ones, each at home. Pause, rewind, reactions and chat are shared.',
+      'Lancez un film ou un épisode.': 'Play a movie or an episode.', 'Dans le lecteur, touchez « Ensemble ».': 'In the player, tap “Together”.', 'Partagez le code de 4 lettres ou le QR code.': 'Share the 4-letter code or the QR code.',
+      'Dans Odin, « Ensemble » arrive avec le lecteur : pour l’instant, rejoindre une séance ouvre son titre, sans pause partagée.': 'In Odin, “Together” comes with the player: for now, joining a watch party opens its title, without shared pause.',
+      'Choisir l’écran à piloter': 'Choose the screen to control', 'Les écrans de la maison que connaît Odin. La télécommande pilote la lecture de l’écran choisi.': 'The home screens Odin knows. The remote controls playback on the chosen screen.',
+      'Aucune box domotique n’est reliée à Odin : aucun écran à piloter. Reliez-la dans Midgard, « Relier une box ».': 'No home automation box is connected to Odin: no screen to control. Connect it in Midgard, “Relier une box”.', 'Aucun écran trouvé dans la box domotique.': 'No screen found in the home automation box.',
+      'En lecture': 'Playing', 'Allumé': 'On', 'Éteint': 'Off', 'Reliée à l’écran de {n}': 'Connected to the {n} screen', 'Changer': 'Change', '−30 s': '−30 s', '+30 s': '+30 s', 'Lecture / pause': 'Play / pause',
+      'Odin pilote cet écran par la box domotique : lecture, pause et ±30 s. La croix, Retour, Accueil, la recherche, les chaînes et « Reprendre sur la TV » de Venus ne sont pas encore là.': 'Odin controls this screen through the home automation box: play, pause and ±30 s. Venus’s arrows, Back, Home, search, channels and “Resume on TV” are not there yet.',
+      'Un autre téléphone': 'Another phone', 'Le QR code de la télécommande d’Odin : il ne pilote que cet écran, expire tout seul et se coupe depuis Odin.': 'The QR code of Odin’s remote: it only controls this screen, expires by itself and can be revoked from Odin.',
+      'Afficher le QR code': 'Show the QR code', 'Télécommande pour un autre téléphone': 'Remote for another phone', 'QR code de la télécommande': 'Remote QR code', 'Scannez ce QR code avec le téléphone, ou ouvrez ce lien :': 'Scan this QR code with the phone, or open this link:',
+      'Valable jusqu’à {h}.': 'Valid until {h}.', 'Lien de la télécommande': 'Remote link', 'L’écran ne répond pas.': 'The screen is not responding.',
+      'Les vidéos sont enregistrées sur votre appareil : elles se regardent ensuite sans réseau. Sur iPhone, choisissez « Enregistrer dans Fichiers » puis ouvrez-les avec l’appli Fichiers ou VLC. Les versions légères restent prêtes 7 jours sur le serveur.': 'Videos are saved on your device: you can then watch them offline. On iPhone, choose “Save to Files” then open them with the Files app or VLC. Light versions stay ready on the server for 7 days.',
+      'Aucun téléchargement. Sur la fiche d’un film ou d’une saison, touchez « Télécharger ».': 'No downloads. On a movie’s or a season’s details, tap “Download”.', 'Version légère {q}': 'Light version {q}',
+      'Télécharger la saison': 'Download the season', '≈ {n} Go par heure': '≈ {n} GB per hour', '{n} épisodes en préparation ({q})': '{n} episodes being prepared ({q})', 'Voir': 'View',
+      'En attente': 'Queued', 'Préparation': 'Preparing', 'Prêt': 'Ready', 'Échec': 'Failed', '{n} %': '{n}%',
+      'Les versions légères sont préparées par le serveur, puis disponibles dans « Téléchargements ».': 'Light versions are prepared by the server, then available in “Downloads”.',
+      '« {t} » en préparation ({q})': '“{t}” being prepared ({q})', 'Un profil enfant ne télécharge pas.': 'A child profile does not download.', 'Trop de téléchargements : supprimez-en un avant d’en préparer un autre.': 'Too many downloads: delete one before preparing another.',
+      'Ce titre n’est pas (ou plus) dans la bibliothèque.': 'This title is not (or no longer) in the library.',
+      'FFmpeg est introuvable pour Odin : la version légère ne peut pas être préparée. Installez FFmpeg sur la machine d’Odin, puis redémarrez Odin.': 'FFmpeg cannot be found by Odin: the light version cannot be prepared. Install FFmpeg on Odin’s machine, then restart Odin.',
+      'Pas assez de place sur le disque d’Odin pour préparer cette version.': 'Not enough space on Odin’s disk to prepare this version.', 'Le fichier de ce titre n’est plus à sa place (disque débranché, fichier déplacé).': 'This title’s file is no longer in its place (disk unplugged, file moved).',
+      'La conversion a échoué.': 'The conversion failed.', 'La conversion a pris trop de temps : elle a été arrêtée.': 'The conversion took too long: it was stopped.',
     },
   };
   const LANG = String((D && D.documentElement.lang) || (W.navigator && W.navigator.language) || 'fr');
@@ -588,7 +609,7 @@
       seasonsHtml = `${nu ? `<section class="d-section next-up"><h2 class="section-title">${esc(t('Reprendre'))}</h2><div class="nu-card"><a class="nu-shot f" aria-label="${esc(t('Lire S{s}:É{e}', { s: nombre(next.season), e: nombre(next.episode) }))}" href="${href(lirePath(next.id))}">${nu.still ? `<img src="${esc(nu.still)}" alt="" loading="lazy" decoding="async">` : `<div class="ph" style="--h:${hueOf(d.title + next.id)}"></div>`}<span class="ep-play">${I('play')}</span>${nu.duration ? `<div class="bar"><i style="width:${Math.min(100, (nu.position / nu.duration) * 100)}%"></i></div>` : ''}</a><div class="nu-text"><b class="nu-link">${esc(t('S{s}:É{e}', { s: nombre(next.season), e: nombre(next.episode) }))}</b><small>${esc([t('Saison {n}', { n: nombre(next.season) }), nu.runtime ? duree(nu.runtime) : '', nu.duration ? reste(nu) : ''].filter(Boolean).join(' · '))}</small></div></div></section>` : ''}
       <section class="d-section" id="episodes"><div class="ep-head"><h2 class="section-title">${esc(f.saisons.length > 1 ? tn(f.saisons.length, '{n} saison', '{n} saisons') : t('Épisodes'))}</h2>${f.saisons.length > 1 ? `<div class="season-arrows"><button class="season-arrow f" aria-label="${esc(t('Saison précédente'))}" data-act="season" data-v="${f.saisons[Math.max(0, f.saisons.indexOf(cur) - 1)].number}">${I('back')}</button><button class="season-arrow f" aria-label="${esc(t('Saison suivante'))}" data-act="season" data-v="${f.saisons[(f.saisons.indexOf(cur) + 1) % f.saisons.length].number}">${I('fwd')}</button></div>` : ''}<div class="chips" role="group" aria-label="${esc(t('Filtrer les épisodes'))}">${[['all', 'Tous'], ['unseen', 'Non vus'], ['seen', 'Déjà vus']].map(([k, l]) => `<button class="chip small f${k === S.epFilter ? ' on' : ''}" aria-pressed="${k === S.epFilter}" data-act="epf" data-v="${k}">${esc(t(l))}</button>`).join('')}</div></div>
       ${f.saisons.length > 1 ? `<div class="season-bar" role="tablist" aria-label="${esc(t('Saisons'))}">${f.saisons.map((s) => { const v = s.episodes.filter((e) => e.watched).length, n = s.episodes.length; return `<button class="season-card f${s === cur ? ' on' : ''}${v === n ? ' done' : ''}" role="tab" aria-selected="${s === cur}" data-act="season" data-v="${s.number}"><span class="season-pic"><div class="ph" style="--h:${hueOf(`${d.title}${s.number}`)}"></div><i class="season-prog"><i style="width:${n ? Math.round((v / n) * 100) : 0}%"></i></i></span><b>${esc(t('Saison {n}', { n: nombre(s.number) }))}</b><span>${esc(v === n ? t('Vue en entier') : t('{v} / {n} vus', { v: nombre(v), n: nombre(n) }))}</span></button>`; }).join('')}</div>` : ''}
-      <div class="season-head"><div class="sh-info"><b>${esc(t('Saison {n}', { n: nombre(cur.number) }))}</b><span>${esc([tn(cur.episodes.length, '{n} épisode', '{n} épisodes'), cur.manquants.length ? tn(cur.manquants.length, '{n} manquant', '{n} manquants') : '', tn(cur.episodes.length - vus, '{n} à voir', '{n} à voir')].filter(Boolean).join(' · '))}</span></div></div>
+      <div class="season-head"><div class="sh-info"><b>${esc(t('Saison {n}', { n: nombre(cur.number) }))}</b><span>${esc([tn(cur.episodes.length, '{n} épisode', '{n} épisodes'), cur.manquants.length ? tn(cur.manquants.length, '{n} manquant', '{n} manquants') : '', tn(cur.episodes.length - vus, '{n} à voir', '{n} à voir')].filter(Boolean).join(' · '))}</span></div>${!S.profile.isKids && cur.episodes.length ? `<div class="sh-actions"><button class="btn btn-small btn-ghost btn-icon f" aria-label="${esc(t('Télécharger la saison'))}" title="${esc(t('Télécharger la saison'))}" data-act="dlseason" data-v="${esc(d.id)}" data-s="${esc(String(cur.number))}">${I('down')}</button></div>` : ''}</div>
       <div class="episodes">${eps.map((e) => (e.missing
         ? `<div class="episode missing" title="${esc(t('Épisode {n} : pas dans vos dossiers', { n: nombre(e.episode) }))}"><div class="thumb"><span class="miss-num">${nombre(e.episode)}</span><span class="miss-tag">${esc(t('Manquant'))}</span></div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b>${S.profile.isAdmin ? `<button class="btn btn-ghost btn-small f ep-get" data-act="epgrab" data-v="${esc(d.id)}" data-t="${esc(d.title)}" data-s="${cur.number}" data-e="${e.episode}" aria-label="${esc(t('Faire venir l’épisode {n}', { n: nombre(e.episode) }))}"${S.pris.has(`ep|${d.id}|${cur.number}|${e.episode}`) ? ' disabled' : ''}>${I(S.pris.has(`ep|${d.id}|${cur.number}|${e.episode}`) ? 'check' : 'download')}${esc(t('Faire venir'))}</button>` : ''}</div></div>`
         : `<div class="ep-item"><a class="episode f${e.id === next.id && d.status === 'progress' ? ' is-current' : ''}${e.watched ? ' seen' : ''}" title="${esc(t('Épisode {n}', { n: nombre(e.episode) }))}" aria-label="${esc([t('Épisode {n}', { n: nombre(e.episode) }), e.runtime ? duree(e.runtime) : '', e.watched ? t('vu') : ''].filter(Boolean).join(', '))}" href="${href(lirePath(e.id))}"><div class="thumb">${e.still ? `<img src="${esc(e.still)}" alt="" loading="lazy" decoding="async">` : `<div class="ph" style="--h:${hueOf(`${d.title}${cur.number}${e.episode}`)}"></div>`}<span class="ep-play">${I('play')}</span>${e.position > 0 && !e.watched && e.duration ? `<div class="bar"><i style="width:${Math.min(100, (e.position / e.duration) * 100)}%"></i></div><span class="ep-badge now">${esc(t('En cours'))}</span>` : ''}</div><div class="ep-line"><b>${esc(t('Épisode {n}', { n: nombre(e.episode) }))}</b>${e.runtime ? `<span>${esc(duree(e.runtime))}</span>` : ''}</div></a><button class="ep-toggle f${e.watched ? ' on' : ''}" aria-pressed="${e.watched}" aria-label="${esc(e.watched ? t('Marquer l’épisode {n} comme non vu', { n: nombre(e.episode) }) : t('Marquer l’épisode {n} comme vu', { n: nombre(e.episode) }))}" data-act="epseen" data-v="${esc(e.id)}" data-d="${e.duration || (e.runtime || 0) * 60}" data-on="${e.watched ? 1 : 0}">${I('check')}</button></div>`)).join('')}</div></section>`;
@@ -906,7 +927,8 @@
   // dépôt Venus, réécrits sans React. Les chiffres et les listes viennent d'Odin (/venus/api/…) : rien n'est inventé.
   const M8 = { ts: { step: 0, answers: {}, picks: null, shown: new Set() }, tg: { sel: null, kind: 'movie', res: null, cle: '' }, vote: null, voteT: 0,
     vt: { code: '', st: null, msg: '', mine: null, T: 0 }, stats: {}, recap: { i: 0, held: false, T: 0, an: 0, n: 0, reduce: false, reste: 7000, fin: 0 },
-    coll: undefined, collTab: 'collections', col: {}, pl: {}, nomFaire: null, confFaire: null, addItem: null };
+    coll: undefined, collTab: 'collections', col: {}, pl: {}, nomFaire: null, confFaire: null, addItem: null,
+    dl: { list: undefined, T: 0, vu: '' }, se: { code: '', msg: '', tente: '' }, rc: { ecrans: undefined, msg: '', choisi: '' } };
   // Rien n'est gardé dans le navigateur (règle de Vénus dans Odin) : l'appareil qui vote a un identifiant tiré au
   // chargement de la page, et les personnes cochées dans « Qui regarde ce soir ? » vivent le temps de la page.
   const CLIENT_VOTE = Array.from({ length: 2 }, () => Math.random().toString(36).slice(2)).join('');
@@ -914,7 +936,8 @@
   const salutation = () => { const hr = new Date().getHours(); return hr >= 18 || hr < 4 ? t('Bonsoir') : t('Bonjour'); };
   const ph = (title) => `<div class="ph" style="--h:${hueOf(title)}"><span>${esc(title)}</span></div>`;
   const forme = (n, un, plusieurs) => t(plur.select(n) === 'one' ? un : plusieurs);
-  const taille = (b) => (!b ? '' : b >= 1e9 ? t('{n} Go', { n: new Intl.NumberFormat(LANG, { maximumFractionDigits: 1 }).format(b / 1e9) }) : t('{n} Mo', { n: nombre(Math.round(b / 1e6)) }));
+  // Un poids ne se coupe jamais en fin de ligne (« 1,4 » d'un côté, « Go » de l'autre) : espaces insécables.
+  const taille = (b) => (!b ? '' : (b >= 1e9 ? t('{n} Go', { n: new Intl.NumberFormat(LANG, { maximumFractionDigits: 1 }).format(b / 1e9) }) : t('{n} Mo', { n: nombre(Math.round(b / 1e6)) })).replace(/ /g, ' '));
   // Rejoue la page en gardant le focus sur le même bouton (une réponse arrivée pendant qu'on tape au clavier).
   const refaire = () => { const a = D.activeElement, k = a && a.dataset && a.dataset.act ? (a.dataset.v != null ? sel(a.dataset.act, a.dataset.v) : `[data-act="${a.dataset.act}"]`) : a && a.id ? `#${a.id}` : null; rerender(k); };
   const siSur = (test) => { const p = L.route(location.hash).path; if (typeof test === 'string' ? p === test : test.test(p)) refaire(); };
@@ -1186,15 +1209,117 @@
     ${admin ? `<h3 style="margin-top:16px">${esc(t('Collections'))}</h3>${d.collections.map((c) => `<button class="opt ic f" data-act="addcol" data-v="${esc(c.id)}" data-n="${esc(c.name)}">${I('grid4')}${esc(c.name)}<small>${esc(tn(c.count, '{n} titre', '{n} titres'))}</small></button>`).join('')}<button class="opt ic f" data-act="colnew" data-v="${esc(item.id)}">${I('plus')}${esc(t('Nouvelle collection'))}</button>` : ''}</div>`);
   }
 
-  // Téléchargements (Downloads.js) : le fichier d'origine s'enregistre sur l'appareil. Les versions légères (720p,
-  // 480p) préparées par le serveur ne sont pas encore construites dans Odin : grisées, et dites.
-  V.downloads = () => `<main class="with-nav page-in"><div class="page maison"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t('Téléchargements'))}</h1></div></div><p class="list-hint">${esc(t('Les vidéos sont enregistrées sur votre appareil : elles se regardent ensuite sans réseau. Sur iPhone, choisissez « Enregistrer dans Fichiers » puis ouvrez-les avec l’appli Fichiers ou VLC.'))}</p>
-    <div class="dl-list"><div class="grid-empty"><p>${esc(t('Aucune version légère en préparation : elles arrivent dans Odin avec un prochain lot. Sur la fiche d’un film, « Télécharger » enregistre déjà le fichier d’origine.'))}</p></div></div></div></main>`;
-  function openDownload(d, size) {
-    const est = (gbh) => (d.runtime ? `≈ ${taille(gbh * 1e9 * (d.runtime / 60))}` : '');
-    const leger = (q, titre, sous, gbh) => `<button class="opt f" type="button" disabled aria-disabled="true">${I('film')}<span><b>${esc(t(titre, { q }))}</b><small>${esc([t(sous), est(gbh), t('bientôt')].filter(Boolean).join(' · '))}</small></span></button>`;
-    openSheet(t('Télécharger « {t} »', { t: d.title }), `<div class="dl-choices"><a class="opt f" href="/venus/api/telecharger/${encodeURIComponent(d.id)}" download="" data-act="dlorig">${I('down')}<span><b>${esc(t('Fichier d’origine'))}</b><small>${esc([t('Meilleure qualité'), taille(size)].filter(Boolean).join(' · '))}</small></span></a>
-    ${leger('720p', 'Version légère 720p', 'Idéale pour un téléphone ou une tablette', 0.9)}${leger('480p', 'Très légère 480p', 'Pour garder de la place', 0.45)}<p class="muted" style="font-size:.84rem;margin:10px 0 0">${esc(t('Les versions légères seront préparées par Odin dans un prochain lot ; le fichier d’origine s’enregistre tout de suite.'))}</p></div>`);
+  // Téléchargements (Downloads.js) : le fichier d'origine s'enregistre sur l'appareil ; les versions légères (720p,
+  // 480p) sont préparées par Odin sur sa machine (une à la fois), puis enregistrées depuis cette liste.
+  const DL_ETAT = { queued: 'En attente', working: 'Préparation', ready: 'Prêt', error: 'Échec' };
+  const DL_RAISON = { ffmpeg: 'FFmpeg est introuvable pour Odin : la version légère ne peut pas être préparée. Installez FFmpeg sur la machine d’Odin, puis redémarrez Odin.', place: 'Pas assez de place sur le disque d’Odin pour préparer cette version.', fichier: 'Le fichier de ce titre n’est plus à sa place (disque débranché, fichier déplacé).', echec: 'La conversion a échoué.', delai: 'La conversion a pris trop de temps : elle a été arrêtée.' };
+  const DL_REFUS = { 403: 'Un profil enfant ne télécharge pas.', 409: 'Trop de téléchargements : supprimez-en un avant d’en préparer un autre.', 404: 'Ce titre n’est pas (ou plus) dans la bibliothèque.' };
+  // La liste est relue toutes les 2 s tant qu'une version se prépare, et seulement sur cette page. Seule la liste est
+  // repeinte, et seulement si elle a changé : le titre, le menu et « ‹ Odin » ne bougent pas et gardent le focus.
+  function chargerDl() {
+    clearTimeout(M8.dl.T);
+    api('/venus/api/telechargements').then((l) => { M8.dl.list = Array.isArray(l) ? l : []; M8.dl.err = false; }).catch(() => { if (!M8.dl.list) { M8.dl.list = []; M8.dl.err = true; } })
+      .then(() => { peindreDl(); if ((M8.dl.list || []).some((j) => j.state === 'working' || j.state === 'queued') && L.route(location.hash).path === '/telechargements') M8.dl.T = setTimeout(chargerDl, 2000); });
+  }
+  const DlRow = (j) => {
+    const pct = Math.max(0, Math.min(100, Math.round(Number(j.progress) || 0))), enCours = j.state === 'working' || j.state === 'queued';
+    return `<div class="dl-row st-${esc(j.state)}"><span class="dl-pic">${j.poster ? `<img src="${esc(j.poster)}" alt="">` : ''}</span><div class="dl-body"><b>${esc(j.title)}</b><small>${esc([t('Version légère {q}', { q: j.quality }), DL_ETAT[j.state] ? t(DL_ETAT[j.state]) : null, j.size ? taille(j.size) : null].filter(Boolean).join(' · '))}</small>${enCours ? `<div class="meter"><i style="width:${pct}%"></i></div>` : ''}${j.state === 'error' ? `<small class="error-text">${esc(DL_RAISON[j.reason] ? t(DL_RAISON[j.reason]) : j.error || '')}</small>` : ''}</div>
+    <div class="dl-actions">${j.state === 'ready' ? `<a class="btn btn-small f" data-act="dlsave" data-v="${esc(j.id)}" href="/venus/api/telechargements/${encodeURIComponent(j.id)}/fichier" download="${esc(j.name || '')}">${I('down')}${esc(t('Enregistrer'))}</a>` : j.state === 'working' ? `<span class="dl-pct">${esc(t('{n} %', { n: nombre(pct) }))}</span>` : ''}<button class="btn btn-ghost btn-icon btn-mini f" aria-label="${esc(t('Supprimer'))}" title="${esc(t('Supprimer'))}" data-act="dldel" data-v="${esc(j.id)}">${I('close')}</button></div></div>`;
+  };
+  const dlListe = () => { const jobs = M8.dl.list; return !jobs ? '' : jobs.length ? jobs.map(DlRow).join('') : Empty(M8.dl.err ? t('Impossible pour le moment.') : t('Aucun téléchargement. Sur la fiche d’un film ou d’une saison, touchez « Télécharger ».')); };
+  const dlSignature = () => JSON.stringify([M8.dl.list, !!M8.dl.err]);
+  /**
+   * Repeint la liste seule, si elle a changé depuis la dernière peinture : le bouton qui avait le focus dans la liste
+   * (« Enregistrer », ✕) le retrouve. Après une suppression (`rang` : la place de la ligne partie), le focus va au ✕
+   * qui a pris sa place, ou au dernier, ou au titre quand la liste est vide. Sans liste à l'écran : toute la page.
+   */
+  function peindreDl(rang) {
+    if (L.route(location.hash).path !== '/telechargements') return;
+    const h = $('.dl-list'); if (!h) { refaire(); return; }
+    const sig = dlSignature(); if (sig === M8.dl.vu && rang === undefined) return;
+    const a = D.activeElement, cle = a && h.contains(a) && a.dataset && a.dataset.act ? sel(a.dataset.act, a.dataset.v) : null;
+    h.innerHTML = dlListe(); M8.dl.vu = sig;
+    if (M8.dl.list) h.removeAttribute('aria-busy');
+    if (rang !== undefined) { const x = h.querySelectorAll('[data-act="dldel"]'), b = x[Math.min(rang, x.length - 1)] || $('main h1'); if (b) b.focus({ preventScroll: true }); }
+    else if (cle) { const b = h.querySelector(cle); if (b) b.focus({ preventScroll: true }); }
+  }
+  V.downloads = () => {
+    if (M8.dl.list === undefined) { M8.dl.list = null; chargerDl(); }
+    M8.dl.vu = dlSignature();
+    return `<main class="with-nav page-in"><div class="page maison"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t('Téléchargements'))}</h1></div></div><p class="list-hint">${esc(t('Les vidéos sont enregistrées sur votre appareil : elles se regardent ensuite sans réseau. Sur iPhone, choisissez « Enregistrer dans Fichiers » puis ouvrez-les avec l’appli Fichiers ou VLC. Les versions légères restent prêtes 7 jours sur le serveur.'))}</p>
+    <div class="dl-list"${M8.dl.list ? '' : ' aria-busy="true"'}>${dlListe()}</div></div></main>`;
+  };
+  // « Télécharger » (openDownload de Downloads.js) : un film (le fichier d'origine, ou une version légère), ou toute une
+  // saison (`saison` : son numéro ; versions légères seulement, estimées par heure).
+  function openDownload(d, size, saison) {
+    const parSaison = saison !== undefined;
+    const est = (gbh) => (parSaison ? t('≈ {n} Go par heure', { n: new Intl.NumberFormat(LANG, { maximumFractionDigits: 2 }).format(gbh) }) : d.runtime ? `≈ ${taille(gbh * 1e9 * (d.runtime / 60))}` : '');
+    const leger = (q, titre, sous, gbh) => `<button class="opt f" type="button" data-act="dlprep" data-v="${q}" data-id="${esc(d.id)}"${parSaison ? ` data-s="${esc(String(saison))}"` : ''}>${I('film')}<span><b>${esc(t(titre))}</b><small>${esc([t(sous), est(gbh)].filter(Boolean).join(' · '))}</small></span></button>`;
+    openSheet(parSaison ? t('Télécharger la saison') : t('Télécharger « {t} »', { t: d.title }), `<div class="dl-choices">${parSaison ? '' : `<a class="opt f" href="/venus/api/telecharger/${encodeURIComponent(d.id)}" download="" data-act="dlorig">${I('down')}<span><b>${esc(t('Fichier d’origine'))}</b><small>${esc([t('Meilleure qualité'), taille(size)].filter(Boolean).join(' · '))}</small></span></a>`}
+    ${leger('720p', 'Version légère 720p', 'Idéale pour un téléphone ou une tablette', 0.9)}${leger('480p', 'Très légère 480p', 'Pour garder de la place', 0.45)}<p class="muted" style="font-size:.84rem;margin:10px 0 0">${esc(t('Les versions légères sont préparées par le serveur, puis disponibles dans « Téléchargements ».'))}</p></div>`);
+  }
+
+  // Séance (Seance.js) : rejoindre une séance avec son code de 4 lettres (ou le lien d'invitation « ?code= ») ouvre
+  // son titre dans le lecteur. « Ensemble » (créer la séance, pause partagée) vit dans le lecteur : pas encore là.
+  async function rejoindreSeance(code) {
+    const se = M8.se; se.code = code; se.msg = '';
+    if (!/^[A-Z0-9]{4}$/.test(code)) { se.msg = t('Le code fait 4 lettres.'); siSur('/seance'); return; }
+    try { const r = await api(`/venus/api/seance/${encodeURIComponent(code)}`); go(`${lirePath(r.itemId)}?salle=${encodeURIComponent(r.code)}`); }
+    catch (e) { se.msg = String(e.message) === '404' ? t('Séance introuvable.') : t('Impossible pour le moment.'); siSur('/seance'); const i = $('#room-code'); if (i) i.focus(); }
+  }
+  V.seance = (q) => {
+    const se = M8.se, c = String(q.get('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    if (c && c !== se.tente) { se.tente = c; void rejoindreSeance(c); }
+    // Comme Seance.js : en arrivant sans code complet, le champ du code a le focus (« data-arrivee », lu par hashchange).
+    return `<main class="with-nav page-in"><div class="page maison"><div class="together"><form class="panel" data-form="sjoin">${I('people')}<h1 tabindex="-1">${esc(t('Rejoindre une séance'))}</h1><p>${esc(t('Regardez le même film au même moment que vos proches, chacun chez soi. Pause, retour en arrière, réactions et discussion sont partagés.'))}</p>
+    <input id="room-code" class="input code-input" maxlength="4" placeholder="ABCD" autocomplete="off" autocapitalize="characters" aria-label="${esc(t('Code de la séance'))}" value="${esc(se.code)}"${c.length === 4 ? '' : ' data-arrivee'}><p class="error-text" role="alert">${esc(se.msg)}</p><div class="form-actions"><button class="btn btn-play f" type="submit">${esc(t('Rejoindre'))}</button></div></form>
+    <div class="together-how"><h2>${esc(t('Lancer votre propre séance'))}</h2><ol><li>${esc(t('Lancez un film ou un épisode.'))}</li><li>${esc(t('Dans le lecteur, touchez « Ensemble ».'))}</li><li>${esc(t('Partagez le code de 4 lettres ou le QR code.'))}</li></ol><p class="muted small">${esc(t('Dans Odin, « Ensemble » arrive avec le lecteur : pour l’instant, rejoindre une séance ouvre son titre, sans pause partagée.'))}</p></div></div></div></main>`;
+  };
+
+  // Télécommande (Remote.js) : le téléphone pilote un écran de la maison, l'un de ceux que connaît Odin (la box
+  // domotique reliée à Odin, /venus/ecrans) ; un autre téléphone reçoit le QR de la télécommande d'Odin (/t/<jeton> :
+  // cet écran seul, limité dans le temps, révocable). Rien n'est gardé dans le navigateur : l'écran choisi vit le temps
+  // de la page. Aucun nom de produit n'est écrit à l'écran (règle de la maquette) : « la box domotique ».
+  const SANS_BOX = 'Aucune box domotique n’est reliée à Odin : aucun écran à piloter. Reliez-la dans Midgard, « Relier une box ».';
+  /** Relit les écrans ; la liste arrivée, le focus perdu va à l'écran `garder` (celui d'avant « Changer »), au premier, ou au titre. */
+  function chargerEcrans(garder) {
+    const rc = M8.rc; rc.ecrans = null;
+    api('/venus/ecrans').then((r) => { rc.ecrans = Array.isArray(r.ecrans) ? r.ecrans : []; rc.msg = r.message ? 'ha' : ''; }).catch(() => { rc.ecrans = []; rc.msg = 'err'; }).then(() => {
+      if (L.route(location.hash).path !== '/telecommande') return;
+      refaire();
+      const a = D.activeElement; if (a && a !== D.body) return;
+      const b = (garder && $(sel('rcpick', garder))) || $('[data-act="rcpick"]') || $('main h1'); if (b) b.focus({ preventScroll: true });
+    });
+  }
+  V.remote = () => {
+    const rc = M8.rc; if (rc.ecrans === undefined) chargerEcrans();
+    const ec = rc.ecrans && rc.ecrans.find((x) => x.id === rc.choisi);
+    const top = (inner) => `<div class="remote-top"><button class="p-icon f" aria-label="${esc(t('Retour'))}" data-act="vback">${I('back')}</button>${inner}</div>`;
+    let body;
+    if (!rc.ecrans) body = `${top(`<b>${esc(t('Télécommande'))}</b>`)}<div aria-busy="true"></div>`;
+    else if (!ec) {
+      const txt = rc.ecrans.length ? t('Les écrans de la maison que connaît Odin. La télécommande pilote la lecture de l’écran choisi.') : rc.msg === 'ha' ? t(SANS_BOX) : rc.msg === 'err' ? t('Impossible pour le moment.') : t('Aucun écran trouvé dans la box domotique.');
+      body = `${top(`<b>${esc(t('Télécommande'))}</b>`)}<div class="remote-pair">${I('remote')}<h1 tabindex="-1">${esc(t('Choisir l’écran à piloter'))}</h1><p>${esc(txt)}</p></div>${rc.ecrans.length ? `<div class="launch-list rc-screens">${rc.ecrans.map((e) => `<button class="launch-item f" data-act="rcpick" data-v="${esc(e.id)}"><span class="rc-ic">${I(e.type === 'enceinte' ? 'vol' : 'tv')}</span><span><b>${esc(e.nom)}</b><small>${esc(e.enLecture ? t('En lecture') : e.actif ? t('Allumé') : t('Éteint'))}</small></span></button>`).join('')}</div>` : ''}`;
+    } else {
+      body = `${top(`<div><b>${esc(t('Télécommande'))}</b><small>${esc(t('Reliée à l’écran de {n}', { n: ec.nom }))}</small></div><button class="btn btn-small btn-ghost f" data-act="rcchange">${esc(t('Changer'))}</button>`)}
+      <div class="remote-row media"><button class="r-btn f" data-act="rccmd" data-v="reculer">${I('r10')}<span>${esc(t('−30 s'))}</span></button><button class="r-btn big f" data-act="rccmd" data-v="lecturepause">${I('play')}<span>${esc(t('Lecture / pause'))}</span></button><button class="r-btn f" data-act="rccmd" data-v="avancer">${I('f10')}<span>${esc(t('+30 s'))}</span></button></div>
+      <p class="muted small">${esc(t('Odin pilote cet écran par la box domotique : lecture, pause et ±30 s. La croix, Retour, Accueil, la recherche, les chaînes et « Reprendre sur la TV » de Venus ne sont pas encore là.'))}</p>
+      <div class="remote-launch"><h2>${esc(t('Un autre téléphone'))}</h2><p class="muted small">${esc(t('Le QR code de la télécommande d’Odin : il ne pilote que cet écran, expire tout seul et se coupe depuis Odin.'))}</p><button class="btn btn-small f" data-act="rcqr">${I('remote')}${esc(t('Afficher le QR code'))}</button></div>`;
+    }
+    return `<main><div class="remote-page maison">${body}</div></main>`;
+  };
+  async function commandeEcran(action) {
+    const id = M8.rc.choisi; if (!id) return false;
+    const corps = action === 'reculer' || action === 'avancer' ? { action, valeur: 30 } : { action };
+    try { await api(`/venus/ecran/${encodeURIComponent(id)}/commande`, corps); try { if (navigator.vibrate) navigator.vibrate(8); } catch { /* rien */ } return true; }
+    catch (e) { toast(String(e.message) === '503' ? t(SANS_BOX) : t('L’écran ne répond pas.')); return false; }
+  }
+  async function qrEcran() {
+    const id = M8.rc.choisi; if (!id) return;
+    let r; try { r = await api(`/venus/ecran/${encodeURIComponent(id)}/qr`, {}); } catch { toast(t('Impossible pour le moment.')); return; }
+    const qr = /^<svg[\s>]/.test(String(r.qr || '')) && !/<script|\son\w+=/i.test(r.qr) ? r.qr : ''; // le QR dessiné par Odin, rien d'autre
+    const lien = String(r.lien || '');
+    openSheet(t('Télécommande pour un autre téléphone'), `<div class="vote-join rc-qr">${qr ? `<span role="img" aria-label="${esc(t('QR code de la télécommande'))}">${qr}</span>` : ''}<div><p>${esc(t('Scannez ce QR code avec le téléphone, ou ouvrez ce lien :'))}</p><input class="input cal-link f" readonly value="${esc(lien)}" aria-label="${esc(t('Lien de la télécommande'))}">${r.expire ? `<p class="muted small">${esc(t('Valable jusqu’à {h}.', { h: date(Number(r.expire), { hour: '2-digit', minute: '2-digit' }) }))}</p>` : ''}</div></div>`);
   }
 
   // ---------------------------------------------------------------- fenêtres (ui.js), « Tout Venus » (core.js), Ctrl+K (Palette.js)
@@ -1213,11 +1338,13 @@
     D.querySelectorAll('.sheet-wrap, .palette-wrap').forEach((w) => w.remove()); if (refocus && lastFocus && D.contains(lastFocus)) lastFocus.focus();
   }
   let toastT;
-  function toast(msg, type = 'info') {
+  // `action` (ui.js de Venus) : un bouton dans le message, { label, go: l'adresse ouverte } ; le message reste alors 6 s.
+  function toast(msg, type = 'info', action) {
     let el = $('.toast'); if (!el) { el = D.createElement('div'); D.body.append(el); }
+    const ms = action ? 6000 : 3400;
     el.className = `toast t-${type} enter`; el.setAttribute('role', 'status');
-    el.innerHTML = `<span class="toast-ic">${I(type === 'success' ? 'check' : 'info')}</span><span class="toast-msg">${esc(msg)}</span><i class="toast-time" style="animation-duration:3400ms"></i>`;
-    clearTimeout(toastT); toastT = setTimeout(() => { el.classList.add('leave'); setTimeout(() => el.remove(), 260); }, 3400);
+    el.innerHTML = `<span class="toast-ic">${I(type === 'success' ? 'check' : 'info')}</span><span class="toast-msg">${esc(msg)}</span>${action ? `<button class="toast-act f" type="button" data-act="toastgo" data-v="${esc(action.go)}">${esc(action.label)}</button>` : ''}<i class="toast-time" style="animation-duration:${ms}ms"></i>`;
+    clearTimeout(toastT); toastT = setTimeout(() => { el.classList.add('leave'); setTimeout(() => el.remove(), 260); }, ms);
   }
   function openAll() {
     const p = S.profile, secs = L.sections(p, S.cats), ids = new Set(secs.map((x) => x.id)), { shown, more } = L.menuItems(p, M, S.cats);
@@ -1310,13 +1437,15 @@
     if (path === '/stats') return [V.stats(q), true];
     if (path === '/retrospective') return [V.recap(q), true];
     if (path === '/telechargements') return [V.downloads(), true];
+    if (path === '/seance') return [V.seance(q), true];
+    if (path === '/telecommande') return [V.remote(), false];
     if (path === '/collections') { if (q.get('onglet')) M8.collTab = q.get('onglet') === 'listes' ? 'playlists' : 'collections'; return [V.collections(), true]; }
     if ((m = path.match(/^\/collection\/(.+)$/))) { let id = m[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } return [V.collection(id), true]; }
     if ((m = path.match(/^\/liste-lecture\/(.+)$/))) { let id = m[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } return [V.playlist(id), true]; }
     if (NAV_ITEMS.some((x) => x.href === path)) return [V.bientot(path), true];
     return [V.home(), true];
   }
-  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?', '/nouveau': 'Nouveau', '/nouveautes': 'Nouveautés', '/stats': 'Mes statistiques', '/telechargements': 'Téléchargements', '/collections': 'Collections', '/vote': 'Vote en famille', '/retrospective': 'Rétrospective' };
+  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?', '/nouveau': 'Nouveau', '/nouveautes': 'Nouveautés', '/stats': 'Mes statistiques', '/telechargements': 'Téléchargements', '/collections': 'Collections', '/vote': 'Vote en famille', '/retrospective': 'Rétrospective', '/seance': 'Séance', '/telecommande': 'Télécommande' };
   let precedent = '#/', dernierChemin = '';
   function render(keepScroll = false) {
     applyTheme();
@@ -1336,9 +1465,13 @@
       if ((path === '/stats' || path === '/retrospective') && !/^\/(stats|retrospective)$/.test(dernierChemin)) M8.stats = {};
       if (path === '/retrospective') { M8.recap.an = 0; M8.recap.held = false; }
       if (path === '/cesoir') M8.tg.cle = '';
+      if (path === '/telechargements') M8.dl.list = undefined;
+      if (path === '/telecommande') M8.rc.ecrans = undefined;
+      if (path === '/seance') Object.assign(M8.se, { tente: '', msg: '' });
     }
     if (path !== '/retrospective') clearTimeout(M8.recap.T);
     if (path !== '/vote') clearTimeout(M8.vt.T);
+    if (path !== '/telechargements') clearTimeout(M8.dl.T);
     dernierChemin = path;
     const [page, withNav] = route();
     $('#app').innerHTML = withNav ? Shell(path, page) : page;
@@ -1349,7 +1482,8 @@
     if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
   }
   const rerender = (sel) => { render(true); if (sel) { const el = D.querySelector(sel); if (el) el.focus({ preventScroll: true }); } };
-  W.addEventListener('hashchange', () => { closeSheet(false); closeDrop(); render(); const h = $('main h1'); if (h) h.focus({ preventScroll: true }); });
+  // En arrivant sur une page : le champ qu'elle désigne (« data-arrivee », comme Seance.js le fait), sinon son titre.
+  W.addEventListener('hashchange', () => { closeSheet(false); closeDrop(); render(); const h = $('main [data-arrivee]') || $('main h1'); if (h) h.focus({ preventScroll: true }); });
   W.addEventListener('scroll', () => { $('.mobile-top')?.classList.toggle('solid', scrollY > 40); D.documentElement.classList.toggle('scrolled', scrollY > 12); }, { passive: true });
   try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => render(true)); } catch { /* */ }
 
@@ -1612,6 +1746,30 @@
       case 'plshuffle': { const d = M8.pl[v]; if (d && d.items && d.items.length) go(lirePath(d.items[Math.floor(Math.random() * d.items.length)].id)); break; }
       case 'dlsheet': { const it = S.items.find((x) => x.id === v); if (!it) break; const f = S.fiche[v]; openDownload(it, f && f.tech ? f.tech.taille : 0); break; }
       case 'dlorig': setTimeout(() => closeSheet(), 300); break;
+      case 'dlseason': { const it = S.items.find((x) => x.id === v); if (it) openDownload(it, 0, Number(el.dataset.s)); break; }
+      case 'dlprep': {
+        const id = el.dataset.id, it = S.items.find((x) => x.id === id), saison = el.dataset.s; closeSheet();
+        const r = await ecrire8('/venus/api/telechargements', saison ? { itemId: id, saison: Number(saison), quality: v } : { itemId: id, quality: v });
+        if (r.erreur) { toast(DL_REFUS[r.erreur] ? t(DL_REFUS[r.erreur]) : t('Impossible pour le moment.')); break; }
+        // Downloads.js : une saison dit son nombre d'épisodes ; le message a son bouton « Voir » (Téléchargements).
+        const l = Array.isArray(r) ? r : [r];
+        M8.dl.list = undefined;
+        toast(l.length > 1 ? t('{n} épisodes en préparation ({q})', { n: nombre(l.length), q: v }) : t('« {t} » en préparation ({q})', { t: it && !saison ? it.title : (l[0] && l[0].title) || '', q: v }), 'success', { label: t('Voir'), go: '/telechargements' });
+        break;
+      }
+      case 'dldel': {
+        const r = await ecrire8(`/venus/api/telechargements/${encodeURIComponent(v)}`, { faire: 'supprimer' });
+        if (r.erreur && r.erreur !== '404') { toast(t('Impossible pour le moment.')); break; }
+        const rang = (M8.dl.list || []).findIndex((j) => j.id === v);
+        if (M8.dl.list) M8.dl.list = M8.dl.list.filter((j) => j.id !== v);
+        peindreDl(Math.max(0, rang)); break;
+      }
+      case 'toastgo': { clearTimeout(toastT); const x = $('.toast'); if (x) x.remove(); go(v); break; }
+      case 'rcpick': { if (!(M8.rc.ecrans || []).some((x) => x.id === v)) break; M8.rc.choisi = v; rerender('[data-act="rccmd"][data-v="lecturepause"]'); break; }
+      case 'rcchange': { const avant = M8.rc.choisi; M8.rc.choisi = ''; chargerEcrans(avant); rerender(); break; }
+      // « Lecture / pause » (Remote.js) : l'écran bascule lui-même, son état fait foi (une pause faite à la télé compte).
+      case 'rccmd': await commandeEcran(v === 'lecturepause' ? 'basculer' : v); break;
+      case 'rcqr': await qrEcran(); break;
       case 'mreset': M.order = NAV_ITEMS.map((i) => i.id); M.hidden = [...DEFAULT_HIDDEN]; void sauverPrefs(); toast(t('Menu d’origine rétabli')); rerender(); break;
       default: break;
     }
@@ -1620,6 +1778,7 @@
   D.addEventListener('submit', async (e) => {
     const f = e.target.closest && e.target.closest('form[data-form]'); if (!f) return;
     e.preventDefault();
+    if (f.dataset.form === 'sjoin') { const c = String(($('#room-code') || {}).value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); M8.se.tente = c; await rejoindreSeance(c); return; }
     if (f.dataset.form === 'vjoin') { const c = String(($('#vote-code') || {}).value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); history.replaceState(null, '', `#/vote?code=${encodeURIComponent(c)}`); await rejoindreVote(c); return; }
     if (f.dataset.form === 'nom' && M8.nomFaire) { const i = $('#nom-in'), err = await M8.nomFaire(String((i && i.value) || '').trim()); const p = $('#nom-err'); if (p) p.textContent = err || ''; if (err && i) i.focus(); }
   });
@@ -1683,5 +1842,7 @@
     // Plusieurs comptes et aucun choisi sur cet appareil : « Qui regarde ? » d'abord (Gates.js).
     if (!connu && S.profils.length > 1) { go('/qui-regarde'); }
     render();
+    // Ouverte directement sur une page qui désigne son champ (la Séance, par son lien) : ce champ a le focus.
+    const arrivee = $('main [data-arrivee]'); if (arrivee) arrivee.focus({ preventScroll: true });
   })();
 })();

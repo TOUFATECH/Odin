@@ -34,6 +34,8 @@ function walk(root: string, dir: string, out: ZipEntry[], o: BackupOptions): voi
     if (dir === root && name === 'workspace' && o.workspace === false) continue;
     // Les fichiers vivants du serveur PostgreSQL d'Odin ne se copient pas tels quels : ses sauvegardes chiffrées (pg_dump) partent à leur place.
     if (rel === 'valhalla/urdr/donnees/odin-locale') continue;
+    // Les versions légères de Vénus (720p, 480p) sont des copies qu'Odin sait refaire à partir des originaux : elles ne partent pas dans la sauvegarde.
+    if (rel === 'valhalla/freyja/hors-ligne') continue;
     let st; try { st = statSync(p); } catch { continue; }
     if (st.isSymbolicLink()) continue;
     if (st.isDirectory()) { walk(root, p, out, o); continue; }

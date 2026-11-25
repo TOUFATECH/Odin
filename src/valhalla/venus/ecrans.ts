@@ -32,8 +32,9 @@ export function planEnvoi(entityId: string, url: string, type: 'video' | 'audio'
   return { path: '/services/media_player/play_media', data: { entity_id: entityId, media_content_id: url, media_content_type: type === 'audio' ? 'music' : 'video' } };
 }
 
-export type ActionEcran = 'lecture' | 'pause' | 'avancer' | 'reculer' | 'volume' | 'suivant' | 'precedent' | 'chaine' | 'episode' | 'couper';
-export const ACTIONS_ECRAN: ActionEcran[] = ['lecture', 'pause', 'avancer', 'reculer', 'volume', 'suivant', 'precedent', 'chaine', 'episode', 'couper'];
+/** « basculer » : lecture ou pause selon l'état de l'écran lui-même (le bouton « Lecture / pause » de Remote.js). */
+export type ActionEcran = 'lecture' | 'pause' | 'basculer' | 'avancer' | 'reculer' | 'volume' | 'suivant' | 'precedent' | 'chaine' | 'episode' | 'couper';
+export const ACTIONS_ECRAN: ActionEcran[] = ['lecture', 'pause', 'basculer', 'avancer', 'reculer', 'volume', 'suivant', 'precedent', 'chaine', 'episode', 'couper'];
 
 /** Ce qu'on sait de l'état d'un écran pour une commande : position/durée (seek) et volume (volume relatif). */
 export interface EtatEcran { position?: number; duree?: number; volume?: number }
@@ -50,6 +51,7 @@ export function planPilotage(action: ActionEcran, entityId: string, valeur?: str
   switch (action) {
     case 'lecture': return { path: '/services/media_player/media_play', data: e };
     case 'pause': return { path: '/services/media_player/media_pause', data: e };
+    case 'basculer': return { path: '/services/media_player/media_play_pause', data: e };
     case 'suivant': return { path: '/services/media_player/media_next_track', data: e };
     case 'precedent': return { path: '/services/media_player/media_previous_track', data: e };
     case 'couper': return { path: '/services/media_player/media_stop', data: e };

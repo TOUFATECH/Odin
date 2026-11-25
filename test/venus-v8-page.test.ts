@@ -206,14 +206,14 @@ test('Collections et listes de lecture : onglets, liste dans l’ordre, monter u
   assert.ok(P.appels.some((a) => a.chemin === '/venus/api/listes/l-bbbbbbbbbbbb' && (a.corps as { faire?: string } | undefined)?.faire === 'ajouter'));
 });
 
-test('« Télécharger » sur une fiche : le fichier d’origine tout de suite, les versions légères grisées et dites', async () => {
+test('« Télécharger » sur une fiche : le fichier d’origine tout de suite, les versions légères demandées à Odin', async () => {
   const P = await ouvrir();
   await P.aller('#/titre/film%3Aa'); await attendre(150);
   await P.cliquer({ act: 'dlsheet', v: 'film:a' });
   const f = P.derniereFenetre();
   assert.match(f, /<h2>Télécharger « Le Phare »<\/h2>/);
-  assert.match(f, /<a class="opt f" href="\/venus\/api\/telecharger\/film%3Aa" download="" data-act="dlorig">[^]*Fichier d’origine[^]*Meilleure qualité · 1,4 Go/);
-  assert.match(f, /<button class="opt f" type="button" disabled aria-disabled="true">[^]*Version légère 720p[^]*≈ 1,5 Go · bientôt/);
+  assert.match(f, /<a class="opt f" href="\/venus\/api\/telecharger\/film%3Aa" download="" data-act="dlorig">[^]*Fichier d’origine[^]*Meilleure qualité · 1,4 Go/);
+  assert.match(f, /<button class="opt f" type="button" data-act="dlprep" data-v="720p" data-id="film:a">[^]*Version légère 720p[^]*≈ 1,5 Go/);
   await P.aller('#/telechargements');
   assert.ok(!P.app.innerHTML.includes(BIENTOT)); assert.match(P.app.innerHTML, /<h1 tabindex="-1">Téléchargements<\/h1>/);
 });
