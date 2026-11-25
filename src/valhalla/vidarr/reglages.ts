@@ -64,6 +64,12 @@ const inutilisable = (ip: string): boolean => { const [a, b] = ip.split('.').map
 const NOMS_PUBLICS = new Set(['com', 'net', 'org', 'info', 'biz', 'edu', 'gov', 'mil', 'int', 'arpa', 'app', 'dev', 'xyz', 'site', 'online', 'shop', 'store', 'tech', 'cloud', 'blog', 'page', 'live', 'news', 'top', 'club', 'pro', 'name', 'mobi', 'tel', 'asia', 'google', 'local', 'localhost', 'onion', 'invalid', 'example', 'test']);
 /** Les fins de nom faites pour un réseau privé : un nom en plusieurs morceaux doit finir par l'une d'elles. */
 const FINS_PRIVEES = ['maison', 'lan', 'home', 'internal', 'intranet', 'home.arpa', 'private', 'corp'];
+/** Un nom de la maison fait pour un réseau privé (la même règle que pour un nom neuf) : seul celui-là est gardé chez soi par le DNS. Pur. */
+export function nomMaisonPrive(d: string): boolean {
+  const n = cleanDomain(d), morceaux = n.split('.');
+  if (!isDomain(n) || n.length > 63) return false;
+  return morceaux.length === 1 ? !NOMS_PUBLICS.has(n) && !/^[a-z]{2}$/.test(n) : FINS_PRIVEES.some((f) => n === f || n.endsWith(`.${f}`));
+}
 const pluriel = (n: number, un: string, plusieurs: string) => (n > 1 ? `${n} ${plusieurs}` : `1 ${un}`);
 
 /**

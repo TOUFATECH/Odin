@@ -44,7 +44,7 @@ export function inSchedule(sc: Schedule | undefined, at: Date): boolean {
   // Plage qui passe minuit : le soir du jour prévu, ou le petit matin du lendemain.
   return (sc.days.includes(d) && now >= a) || (sc.days.includes(prev) && now < b);
 }
-export interface LogEntry { t: number; client: string; clientName?: string; name: string; type: string; status: 'ok' | 'cache' | 'bloqué' | 'réécrit' | 'erreur' | 'refusé'; rule?: string; list?: string; upstream?: string; ms: number; answer?: string; rcode: string }
+export interface LogEntry { t: number; client: string; clientName?: string; name: string; type: string; status: 'ok' | 'cache' | 'bloqué' | 'réécrit' | 'erreur' | 'refusé'; rule?: string; list?: string; upstream?: string; ms: number; answer?: string; rcode: string; /** répondu par le secours (la racine ne répondait pas) */ secours?: boolean }
 export interface Lists { name: string; c: Compiled; kind: 'blocage' | 'menace' | 'parental' | 'autorisation' }
 export interface DnsSettings {
   filtering: boolean; mode: 'ip_nulle' | 'nxdomain' | 'refuse' | 'ip_perso'; blockIp4?: string; blockIp6?: string; blockTtl: number;
@@ -67,8 +67,18 @@ export interface DnsSettings {
   /** quand les services coupés pour toute la maison le sont (sinon : tout le temps) */
   servicesSchedule?: Schedule;
 }
+/**
+ * Le secours : les deux résolveurs publics qu'Odin avait déjà en secours avant que la racine devienne le défaut (Quad9 et
+ * Cloudflare). Choix du propriétaire (25/11) : « La racine d'abord. Si elle ne répond pas, Odin demande à un serveur public
+ * pour que la maison ne reste jamais sans Internet. » Il ne sert que si la racine ne répond pas (aucun serveur joignable,
+ * délai dépassé, serveurs en panne) : jamais pour un nom qui n'existe pas, jamais pour un nom de la maison. Le propriétaire
+ * peut le retirer (« Racine seule ») : son choix est gardé.
+ */
+export const SECOURS_PUBLICS: readonly string[] = Object.freeze(['9.9.9.9', '1.1.1.1']);
 export const DEFAULTS: DnsSettings = {
-  filtering: true, mode: 'ip_nulle', blockTtl: 10, upstreams: ['https://dns.quad9.net/dns-query', 'https://cloudflare-dns.com/dns-query'], fallback: ['9.9.9.9', '1.1.1.1'], strategy: 'rapide',
+  // Serveurs amont : tout seul depuis la racine d'Internet (maquette Réseau validée, sa réponse : « racine »), et le secours
+  // public seulement si elle ne répond pas.
+  filtering: true, mode: 'ip_nulle', blockTtl: 10, upstreams: ['récursif'], fallback: [...SECOURS_PUBLICS], strategy: 'rapide',
   cache: { size: 10_000, minTtl: 0, maxTtl: 86400, optimistic: true }, rateLimit: 50, refuseAny: true, safeSearch: false, parental: false, services: [],
   rewrites: {}, clients: [], custom: [], privateReverse: true, socialAds: true,
 };
@@ -85,11 +95,21 @@ export function ipMatches(spec: string, ip: string): boolean {
 /** Le nom rangé dans une table de noms, seulement s'il y est vraiment (jamais « constructor » ou « __proto__ » venus de l'objet lui-même). */
 const propre = (t: Record<string, string[]> | undefined, n: string): string[] | undefined => (t && Object.hasOwn(t, n) && Array.isArray(t[n]) ? t[n] : undefined);
 const PRIVATE_PTR = /\.(10|127|(1(6|7|8|9)|2\d|3[01])\.172|168\.192|254\.169)\.in-addr\.arpa$|^(?:\d+\.){0,3}(10|127)\.in-addr\.arpa$/;
+/**
+ * Un nom qui reste chez soi : jamais envoyé au secours public, quels que soient les réglages (sans point, « .local »,
+ * « .home.arpa », l'inverse d'une adresse privée, le nom de la maison). Pur.
+ */
+export function resteChezSoi(name: string, domaine = ''): boolean {
+  const n = name.toLowerCase().replace(/\.$/, ''), d = domaine.toLowerCase();
+  return !n.includes('.') || /(^|\.)(local|home\.arpa)$/.test(n) || PRIVATE_PTR.test(n) || Boolean(d && (n === d || n.endsWith(`.${d}`)));
+}
 
 export interface ServerDeps {
   settings: () => DnsSettings; lists: () => Lists[];
   /** noms appris ailleurs (baux DHCP : « telephone-awa.maison » → son adresse) */
   local?: () => Record<string, string[]>;
+  /** le nom de la maison (« maison ») : un nom en « .maison » que la maison ne connaît pas ne part jamais sur Internet */
+  domaine?: () => string | undefined;
   /** nom d'un appareil d'après son adresse (registre des appareils, VPN) */
   nameOf?: (ip: string) => string | undefined;
   /** une machine a demandé un domaine de la liste des menaces */
@@ -98,6 +118,8 @@ export interface ServerDeps {
   onFlood?: (ip: string, perSecond: number) => void;
   log?: (e: LogEntry) => void;
   now?: () => number; fetch?: typeof fetch; ca?: string | Buffer; recursive?: RecursiveOpts;
+  /** pour les essais : le secours simulé (en marche : les serveurs de secours des réglages, interrogés pour de vrai) */
+  secours?: (raw: Buffer, q: Message, serveurs: string[]) => Promise<{ raw: Buffer; upstream: string }>;
 }
 
 export class DnsServer {
@@ -240,6 +262,9 @@ export class DnsServer {
       const out = await this.rewritten(q, v.to, ip);
       return done(out, { status: 'réécrit', rule: v.rule, list: v.list });
     }
+    // Un nom de la maison (« x.maison ») qu'elle ne connaît pas : « n'existe pas », sans jamais le demander dehors.
+    const dom = cleanDomain(this.d.domaine?.() ?? '');
+    if (dom && (qq.name === dom || qq.name.endsWith(`.${dom}`))) return done(respond(q, { rcode: RCODE.NXDOMAIN, aa: true }), { status: 'refusé', rule: 'nom de la maison inconnu : ne part pas sur Internet' });
     // Cache, puis amont.
     const dnssec = q.ar.some((r) => r.type === TYPE.OPT && (r.ttl & 0x8000));
     const { rule } = this.clientOf(ip), key = this.cache.key(qq.name, qq.type, dnssec) + (rule?.upstreams?.length ? `|${rule.id}` : '');
@@ -254,14 +279,24 @@ export class DnsServer {
       const r = await this.fetch(raw, q, rule?.upstreams);
       this.cache.put(key, r.raw, r.upstream);
       const chk = this.checkAnswer(r.raw, ip); if (chk) return done(this.blocked(q), { status: 'bloqué', rule: chk.rule, list: chk.list });
-      return done(r.raw, { status: 'ok', upstream: r.upstream });
+      return done(r.raw, { status: 'ok', upstream: r.upstream, ...(r.secours ? { secours: true } : {}) });
     } catch (e) {
       return done(respond(q, { rcode: RCODE.SERVFAIL }), { status: 'erreur', rule: (e as Error).message });
     }
   }
-  private fetch(raw: Buffer, q: Message, own?: string[]): Promise<{ raw: Buffer; upstream: string }> {
+  /**
+   * Va chercher la réponse dehors : les serveurs amont (la racine par défaut) ; le secours seulement quand ils ne répondent
+   * pas (erreur, délai dépassé, aucun serveur joignable). Une vraie réponse, même « n'existe pas », ne part jamais au
+   * secours ; un nom de la maison non plus ; ni un appareil qui a ses propres serveurs.
+   */
+  private fetch(raw: Buffer, q: Message, own?: string[]): Promise<{ raw: Buffer; upstream: string; secours?: boolean }> {
     const s = this.d.settings(), f: Forwarder = { strategy: s.strategy, upstreams: (own?.length ? own : s.upstreams).map(parseUpstream), fetch: this.d.fetch, ca: this.d.ca, recursive: this.d.recursive };
-    return forward(raw, q, f).catch((e) => (s.fallback.length && !own?.length ? forward(raw, q, { ...f, strategy: 'ordre', upstreams: s.fallback.map(parseUpstream) }) : Promise.reject(e)));
+    return forward(raw, q, f).catch(async (e) => {
+      const name = q.qd[0]?.name ?? '';
+      if (!s.fallback.length || own?.length || resteChezSoi(name, cleanDomain(this.d.domaine?.() ?? ''))) throw e;
+      const r = this.d.secours ? await this.d.secours(raw, q, [...s.fallback]) : await forward(raw, q, { ...f, strategy: 'ordre', upstreams: s.fallback.map(parseUpstream) });
+      return { ...r, secours: true };
+    });
   }
   /** Les alias d'une réponse sont vérifiés aussi : un pisteur caché derrière un nom propre est bloqué quand même. */
   private checkAnswer(out: Buffer, ip: string): { rule: string; list: string } | undefined {

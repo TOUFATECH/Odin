@@ -15,7 +15,7 @@ import { DnsServer, DEFAULTS, ipMatches, type DnsSettings, type LogEntry, type L
 import { exchangeTcp, exchangeTls, exchangeUdp, forward, parseUpstream, recurse } from '../src/valhalla/vidarr/resolve.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { allModules } from '../src/valhalla/odin.ts';
-import { stats } from '../src/valhalla/modules/vidarr.ts';
+import { dnsServer, stats } from '../src/valhalla/modules/vidarr.ts';
 import { setTunFactory } from '../src/valhalla/modules/gjoll.ts';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 
@@ -228,6 +228,9 @@ test('appli Sphinx : démarrer, tester, bloquer, autoriser, listes, services, ap
     assert.match((await act('pause', { minutes: 5 })).text, /Blocage en pause 5 min/); assert.match((await act('tester', { domaine: 'x.perso.fr' })).text, /laissé passer/);
     assert.match((await act('tester', { domaine: 'virus.example' })).text, /bloqué/, 'les sites dangereux restent bloqués pendant la pause');
     await act('reprendre');
+    // Depuis le lot R6 (journal en direct), « tester » est un essai et n'écrit plus dans le journal : une vraie question
+    // d'une machine y entre, elle.
+    await dnsServer()!.handle(query('pub.fr', TYPE.A), '10.0.0.20');
     assert.match((await act('journal', { filtre: 'pub.fr', statut: 'tous' })).text, /pub\.fr/);
     const view = await v.module('vidarr')!.view(v.ctx('vidarr'), new URLSearchParams());
     assert.ok(view.kpis!.some((k) => k.label === 'Requêtes (24 h)')); assert.ok(view.sections.some((s) => s.title === 'Journal (dernières requêtes)'));

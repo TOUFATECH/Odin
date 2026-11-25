@@ -10,12 +10,13 @@ import { VIRTUAL_IFACE } from '../../hlidskjalf/discover.ts';
 import { explainListen, openOnHost } from '../hostports.ts';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import { domainToASCII, domainToUnicode } from 'node:url';
 import { networkInterfaces } from 'node:os';
 import type { ModCtx, Module, Param } from '../types.ts';
-import { DnsServer, DEFAULTS, type ClientRule, type DnsSettings, type Lists, type LogEntry } from '../vidarr/server.ts';
-import { SERVICES, SOCIAL_ADS, cleanDomain, compile, isDomain, emptyList, type Compiled } from '../vidarr/rules.ts';
+import { DnsServer, DEFAULTS, SECOURS_PUBLICS, type ClientRule, type DnsSettings, type Lists, type LogEntry, type ServerDeps } from '../vidarr/server.ts';
+import { SERVICES, SOCIAL_ADS, cleanDomain, compile, isDomain, emptyList, judge, type Compiled } from '../vidarr/rules.ts';
 import type { Schedule } from '../vidarr/server.ts';
-import { parseUpstream, upstreamTimes } from '../vidarr/resolve.ts';
+import { parseUpstream, upstreamTimes, type RecursiveOpts } from '../vidarr/resolve.ts';
 import { parse, query, TYPE, dataText } from '../vidarr/wire.ts';
 import { DhcpServer, hostLabel, ipNum, ipPropre, numIp, osFromVendorClass, planAdresses, pxeHook, randomMac, reseauDe, verifierAdresse, type DhcpConfig, type EntreeAdresses, type Lease, type MacPolicy, type MacState, type SorteAdresse } from '../vidarr/dhcp.ts';
 import { catchUp, localDay, period, readDay, journalDay, type Period, type Summary } from '../vidarr/history.ts';
@@ -27,7 +28,7 @@ import { actionJournal, auProprietaireSeul, avecJournal } from '../vidarr/qui-a-
 import { LOCAL, SIGNE_MS, chiffresDe, depuisAdresse, effetsDe, gardeEtat, macPropre, nomsReseau, surOdin, texteSur, vueAppareils, type Appareil, type VueAppareils } from '../vidarr/appareils.ts';
 import { agissant } from '../sso/acces.ts';
 import { RESEAU, VPN, conclure, dansSousReseau, privee, type CarteReseau, type Garde } from '../thjalfi/reseau.ts';
-import { BAUX_PROPOSES, dureeEnMots, filetOdin, preApprobation, raisonAutre, verifierReglages } from '../vidarr/reglages.ts';
+import { BAUX_PROPOSES, dureeEnMots, filetOdin, nomMaisonPrive, preApprobation, raisonAutre, verifierReglages } from '../vidarr/reglages.ts';
 import { adressePropre, listeNoms, nomInverse, nomPropre, verifierNom, type EntreeNoms, type NomAuto } from '../vidarr/noms.ts';
 
 export interface ListMeta { id: string; name: string; url: string; kind: Lists['kind']; enabled: boolean; count?: number; updated?: string; error?: string }
@@ -232,7 +233,7 @@ async function startServer(ctx: ModCtx): Promise<string> {
   const d = new DnsServer({
     settings: () => reglagesServis(ctx), lists: () => activeLists(ctx), fetch: ctx.fetch,
     nameOf: (ip) => leasesOf(ctx).find((l) => l.ip === ip && l.name)?.name ?? inventoryName?.(ip),
-    local: () => nomsServis(ctx),
+    local: () => nomsServis(ctx), domaine: () => domaineMaison(ctx), recursive: AMONT_RACINE.essai, secours: AMONT_SECOURS.essai,
     log: (e) => record(ctx, e),
     // Lien Sphinx → Forseti : un appareil demande un site dangereux (il est bloqué, et tu es prévenu).
     onThreat: (e) => { ctx.alert({ level: 'haute', title: `${e.clientName ?? e.client} a voulu joindre un site dangereux`, detail: `${e.name} (${e.list}) : bloqué par Sphinx. Un logiciel de cet appareil est peut-être infecté : lance une analyse (Asclépios).`, key: `dns-menace-${e.client}-${e.name}`, lien: 'vidarr-alerte-site-dangereux', data: { ip: e.client, domaine: e.name } }); ctx.emit('dns_menace', { ip: e.client, domaine: e.name, liste: e.list ?? '' }); },
@@ -665,6 +666,131 @@ const CLIENT_PARAMS: Param[] = [
 const parseIds = (v: unknown) => s(v).split(',').map((x) => x.trim()).filter(Boolean);
 function checkIds(ids: string[]): void { for (const x of ids) if (!/^\d{1,3}(\.\d{1,3}){3}(\/\d{1,2})?$/.test(x)) throw new Error(`adresse invalide : ${x}`); }
 function checkServices(ids: string[]): void { for (const x of ids) if (!SERVICES[x]) throw new Error(`service inconnu : ${x} (possibles : ${Object.keys(SERVICES).join(', ')})`); }
+// ------------------------------------------------------------------ Lot R6 (maquette « Réseau ») : journal, blocage, serveurs
+/** Les serveurs de la racine, remplaçables dans les essais (simulés en mémoire : aucun paquet). En marche : rien, les vrais. */
+export const AMONT_RACINE: { essai?: RecursiveOpts } = {};
+/** Les serveurs de secours, remplaçables dans les essais (simulés en mémoire : aucun paquet). En marche : rien, les vrais. */
+export const AMONT_SECOURS: { essai?: ServerDeps['secours'] } = {};
+/**
+ * Le nom de la maison (« maison ») : un nom en « .maison » inconnu ne part jamais sur Internet. Seulement un nom fait pour un
+ * réseau privé : un nom enregistré avant les vérifications et qui existe sur Internet (« com », « test »…) n'est pas gardé
+ * chez soi (rien), sinon tout ce qui finit par lui ne répondrait plus.
+ */
+const domaineMaison = (ctx: ModCtx): string => { const d = cleanDomain(String((ctx.settings.dhcp as Partial<DhcpConfig> | undefined)?.domain ?? 'maison')); return nomMaisonPrive(d) ? d : ''; };
+const dansMaison = (n: string, dom: string) => Boolean(dom) && (n === dom || n.endsWith(`.${dom}`));
+/** Un domaine tapé dans n'importe quelle langue → sa forme pour le DNS (« café.example » → « xn--caf-dma.example »). */
+function domaineTape(v: unknown): string {
+  const n = cleanDomain(s(v));
+  if (!n || /^[\x21-\x7e]*$/.test(n) || /[\s\u0000-\u001f\u007f-\u009f]/.test(n)) return n; // déjà en ASCII, ou refusé ensuite
+  return domainToASCII(n) || n;
+}
+/** La forme lisible d'un nom (« xn--caf-dma.example » → « café.example »). */
+const nomLisible = (n: string): string => { try { return n.includes('xn--') ? domainToUnicode(n) || n : n; } catch { return n; } };
+/** Les listes sont-elles chargées ? (Le DNS éteint ne les a peut-être pas encore lues.) */
+function listesPretes(ctx: ModCtx): void { if (!srv && !compiled.size) loadLists(ctx); }
+/**
+ * Laisser passer ce nom (« @@||nom^ ») laisserait-il passer un site dangereux ? Le nom lui-même, ou un nom en dessous
+ * (autoriser « exemple » autoriserait « piege.exemple »). Rend le nom de la liste, ou rien.
+ */
+function dangereux(ctx: ModCtx, n: string): string | undefined {
+  listesPretes(ctx);
+  for (const l of activeLists(ctx)) {
+    if (l.kind !== 'menace') continue;
+    if (judge(l.c, n, l.name)?.action === 'block') return l.name;
+    for (const x of [...l.c.exact, ...l.c.sub]) { const y = x.replace(/^\*\./, ''); if (y === n || y.endsWith(`.${n}`)) return l.name; }
+  }
+  return undefined;
+}
+/** Ce qu'une règle « autoriser » peut défaire : un blocage par une liste, une règle perso ou les pubs des plateformes. */
+const autorisables = (ctx: ModCtx) => new Set([...listsMeta(ctx).filter((l) => l.kind !== 'autorisation').map((l) => l.name), 'Règles perso', 'Pubs des réseaux et plateformes']);
+const parQui = (l: string | undefined) => (l === 'Règles perso' ? 'ta règle' : `« ${l ?? ''} »`);
+const JOURNAL_LIGNES = 200;
+const LIMITE_JOURNAL = 'Tu ne vois que les questions posées par l\'appareil que tu tiens en ce moment. Le journal de toute la maison, autoriser ou bloquer un nom, les listes et les serveurs sont au propriétaire seul.';
+const LIMITE_DNS = 'Le blocage (listes, règles, pause) et les serveurs du DNS sont au propriétaire seul.';
+/**
+ * Écran « DNS · Journal » : qui demande quoi, la réponse, le temps ; filtres (tout, bloqués, noms de la maison, une machine).
+ * Lu dans l'anneau en mémoire, tel que Sphinx le garde déjà (au plus 50 000 questions) : rien de plus n'est gardé, rien
+ * n'est envoyé ailleurs. Le geste proposé pour chaque ligne (autoriser, bloquer, rien) est décidé ici, jamais par la page.
+ * Un membre : seulement les questions de l'appareil qu'il tient, sans geste ni adresse MAC.
+ */
+function journalVu(ctx: ModCtx, i: Record<string, unknown>) {
+  const now = ctx.now().getTime(), membre = Boolean(agissant()), ips = ipsVisibles(ctx), anneau = ips ? ring.filter((e) => ips.has(ipDe(e))) : ring;
+  const dom = domaineMaison(ctx), dangers = new Set(listsMeta(ctx).filter((l) => l.kind === 'menace').map((l) => l.name)), ok = autorisables(ctx);
+  const parIp = new Map(leasesOf(ctx).map((l) => [l.ip, l]));
+  const maison = (e: LogEntry) => e.list === 'Noms de la maison' || dansMaison(cleanDomain(e.name), dom);
+  const filtre = s(i.filtre) === 'bloque' || s(i.filtre) === 'maison' ? s(i.filtre) : 'tout', machine = s(i.machine).trim();
+  const n = Math.min(JOURNAL_LIGNES, Math.max(1, Math.floor(Number(i.n)) || 100));
+  const nomDe = (e: LogEntry) => texteSur(e.clientName ?? parIp.get(ipDe(e))?.name ?? '', 60) || ipDe(e);
+  const ligne = (e: LogEntry) => {
+    const nom = cleanDomain(e.name), m = maison(e), l = parIp.get(ipDe(e)), danger = e.status === 'bloqué' && Boolean(e.list && dangers.has(e.list));
+    const geste = membre || !isDomain(nom) ? null
+      : e.status === 'bloqué' ? (e.list && ok.has(e.list) && !(e.rule ?? '').startsWith('alias ') ? 'autoriser' : null)
+        : (e.status === 'ok' || e.status === 'cache') && !m ? 'bloquer' : null;
+    return { t: e.t, ip: ipDe(e), machine: nomDe(e), ...(membre || !l ? {} : { mac: l.mac }), vpn: (e.clientName ?? '').startsWith('VPN · '), nom: texteSur(nomLisible(nom), 253), ascii: texteSur(nom, 253), type: texteSur(e.type, 12), statut: e.status, code: texteSur(e.rcode, 12), reponse: texteSur(e.answer ?? '', 160), liste: texteSur(e.list ?? '', 80), regle: texteSur(e.rule ?? '', 120), ms: e.ms, danger, maison: m, geste };
+  };
+  const lignes: Array<ReturnType<typeof ligne>> = [];
+  for (let k = anneau.length - 1; k >= 0 && lignes.length < n; k--) { const e = anneau[k]; if ((filtre === 'tout' || (filtre === 'bloque' ? e.status === 'bloqué' : maison(e))) && (!machine || ipDe(e) === machine)) lignes.push(ligne(e)); }
+  // Aujourd'hui (en mémoire) : les chiffres et les machines qui ont demandé.
+  const minuit = new Date(now); minuit.setHours(0, 0, 0, 0);
+  const jour = anneau.filter((e) => e.t >= minuit.getTime()), repondues = jour.filter((e) => e.status === 'ok'), machines = new Map<string, string>();
+  for (const e of jour) if (!machines.has(ipDe(e))) machines.set(ipDe(e), nomDe(e));
+  const bloquees = jour.filter((e) => e.status === 'bloqué').length;
+  const limite = membre ? (ips && ips.size ? LIMITE_JOURNAL : `Odin ne reconnaît pas l'appareil que tu tiens : il n'a rien à te montrer. ${LIMITE_JOURNAL}`) : '';
+  return {
+    vue: 'journal', proprietaire: !membre, limite, dns: { allume: Boolean(srv) }, filtre, machine,
+    garde: { max: RING, jours: Number(ctx.settings.retention ?? 7), disque: ctx.settings.journal !== false },
+    chiffres: { questions: jour.length, bloquees, pct: jour.length ? Math.round((bloquees / jour.length) * 1000) / 10 : 0, machines: machines.size, moyenne: repondues.length ? Math.round(repondues.reduce((x, e) => x + e.ms, 0) / repondues.length) : 0, depuis: jour[0]?.t ?? null },
+    machines: [...machines].map(([ip, nom]) => ({ ip, nom })).sort((a, b) => a.nom.localeCompare(b.nom)), lignes,
+  };
+}
+/** Écran « DNS · Blocage » : les listes (interrupteurs), tes règles (bloqués, autorisés, à horaires), la pause. Au propriétaire. */
+function blocageVu(ctx: ModCtx) {
+  const d = settingsOf(ctx), now = ctx.now().getTime();
+  const regle = (r: string) => {
+    const allow = r.startsWith('@@'), x = allow ? r.slice(2) : r, m = /^\|\|([^/^$|]+)\^$/.exec(x), exact = /^[^/|*^$@\s]+$/.test(x);
+    return { allow, regle: r, nom: m ? nomLisible(m[1]) : exact ? nomLisible(x) : x, sorte: x.startsWith('/') ? 'expression' : x.startsWith('*.') ? 'joker' : m ? 'domaine' : exact ? 'exact' : 'autre' };
+  };
+  const rs = d.custom.map(regle), sans = ({ allow: _a, ...x }: ReturnType<typeof regle>) => x;
+  // Un nom autorisé : la liste qui le bloquerait sans ton exception (« était dans « Pubs et pisteurs » »), ou rien.
+  listesPretes(ctx);
+  const etait = (r: string): string => {
+    const m = /^@@\|\|([^/^$|]+)\^$/.exec(r) ?? /^@@([^/|*^$@\s]+)$/.exec(r); if (!m) return '';
+    for (const l of activeLists(ctx)) if (l.kind !== 'autorisation' && judge(l.c, m[1], l.name)?.action === 'block') return texteSur(l.name, 80);
+    return '';
+  };
+  const horaires = (d.timed ?? []).map((x) => { const m = /^\|\|([^/^$|]+)\^$/.exec(x.rule); return { domaine: m ? m[1] : x.rule, nom: nomLisible(m ? m[1] : x.rule), mots: scheduleText(x.schedule), pour: (x.clients ?? []).map((c) => texteSur(c, 60)) }; });
+  const source = (u: string) => { try { return new URL(u).hostname; } catch { return ''; } };
+  const listes = listsMeta(ctx).map((l) => ({ id: l.id, nom: texteSur(l.name, 80), sorte: l.kind, active: l.enabled, compte: l.count ?? compiled.get(l.id)?.count ?? null, maj: l.updated ? Date.parse(l.updated) || null : null, erreur: texteSur(l.error ?? '', 120), source: source(l.url) }));
+  return {
+    vue: 'blocage', proprietaire: true, limite: '', filtrage: d.filtering, pause: d.pausedUntil && d.pausedUntil > now ? { jusqua: d.pausedUntil } : null,
+    reponse: d.mode === 'ip_nulle' ? '0.0.0.0' : d.mode === 'ip_perso' ? d.blockIp4 ?? '0.0.0.0' : d.mode === 'nxdomain' ? 'n\'existe pas' : 'refusé',
+    listes, aTelecharger: listes.some((l) => l.active && !l.compte),
+    regles: { bloques: rs.filter((x) => !x.allow).map(sans), autorises: rs.filter((x) => x.allow).map((x) => ({ ...sans(x), etait: etait(x.regle) })), horaires },
+    // Les pubs des réseaux et plateformes (un interrupteur ; les plateformes laissées de côté restent de côté).
+    pubsReseaux: { actif: d.socialAds !== false, sauf: [...(d.socialAdsOff ?? [])] },
+  };
+}
+/** Écran « DNS · Serveurs » : où Odin cherche les noms d'Internet (racine conseillée), les temps de réponse, le cache, le DNS chiffré. */
+function serveursVu(ctx: ModCtx) {
+  const d = settingsOf(ctx), now = ctx.now().getTime(), box = dhcpConfig(ctx).router, temps = upstreamTimes();
+  const ups = d.upstreams.flatMap((x) => { try { return [parseUpstream(x)]; } catch { return []; } });
+  const choix = !ups.length ? 'autre' : ups.every((u) => u.kind === 'recursif') ? 'racine' : ups.every((u) => (u.kind === 'udp' || u.kind === 'tcp') && u.host === box) ? 'box' : ups.every((u) => u.kind === 'https' || u.kind === 'tls') ? 'chiffre' : 'autre';
+  // Les temps de réponse des dernières 24 h (journal en mémoire) : depuis le cache, et par serveur amont.
+  const rep = ring.filter((e) => now - e.t < 86400_000 && (e.status === 'ok' || e.status === 'cache')), par = new Map<string, { n: number; ms: number }>();
+  for (const e of rep) { const k = e.status === 'cache' ? '' : e.upstream ?? '?', x = par.get(k) ?? { n: 0, ms: 0 }; x.n++; x.ms += e.ms; par.set(k, x); }
+  // Le secours aujourd'hui : combien de questions il a répondues parce que la racine ne répondait pas.
+  const minuit = new Date(now); minuit.setHours(0, 0, 0, 0);
+  const parSecours = ring.filter((e) => e.secours && e.t >= minuit.getTime());
+  const lignesTemps = [...par].map(([k, x]) => ({ source: k ? 'amont' : 'cache', label: texteSur(k, 120), moyenne: Math.round(x.ms / x.n), part: Math.round((x.n / rep.length) * 100) })).sort((a, b) => (a.source === 'cache' ? -1 : b.source === 'cache' ? 1 : b.part - a.part));
+  return {
+    vue: 'serveurs', proprietaire: true, limite: '', choix, conseille: 'racine', box, strategie: d.strategy,
+    amont: ups.map((u) => ({ label: texteSur(u.label, 120), sorte: u.kind, chiffre: u.kind === 'https' || u.kind === 'tls', moyenne: Number.isFinite(temps[u.label]) ? Math.round(temps[u.label]) : null })),
+    secours: d.fallback.map((x) => texteSur(x, 120)), secoursPossibles: SECOURS_PUBLICS.map((x) => texteSur(x, 120)),
+    secoursAujourdhui: { n: parSecours.length, dernier: parSecours.length ? parSecours[parSecours.length - 1].t : null }, temps: lignesTemps, cache: { reponses: srv?.cache.size ?? 0 },
+    dot: { actif: ctx.settings.dot === true, port: Number(ctx.settings.dotPort ?? 853), possible: Boolean(dotMaterial) }, domaine: domaineMaison(ctx), dns: { allume: Boolean(srv) },
+  };
+}
+
 /** Ajoute ou remplace un appareil (par son nom). Exporté pour le lien avec Vortex. */
 export function upsertClient(ctx: ModCtx, c: ClientRule): void {
   const d = settingsOf(ctx), list = d.clients.filter((x) => x.id !== c.id && x.name !== c.name);
@@ -710,23 +836,48 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
           `Serveurs amont : ${d.upstreams.join(', ')} (${d.strategy})`, `Listes : ${listsMeta(ctx).filter((l) => l.enabled).map((l) => `${l.name} (${l.count ?? '—'})`).join(', ')}`].join('\n') };
       } },
       { id: 'tester', label: 'Tester un domaine', what: 'Dit si un domaine est bloqué, pourquoi, et ce qu\'il répond', read: true, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'appareil', label: 'Adresse de l\'appareil (facultatif)', kind: 'text', default: '' }], words: ['pourquoi est bloque', 'est-ce que est bloque'], run: async (ctx, i) => {
-        const n = cleanDomain(s(i.domaine)); if (!isDomain(n)) throw new Error('domaine invalide');
-        const tmp = srv ?? new DnsServer({ settings: () => settingsOf(ctx), lists: () => activeLists(ctx), fetch: ctx.fetch });
-        if (!srv) loadLists(ctx);
-        const v = tmp.verdict(n, s(i.appareil));
-        const out = await tmp.handle(query(n, TYPE.A), s(i.appareil) || '127.0.0.1').catch(() => undefined);
-        const ans = out ? (() => { const m = parse(out); return m.an.map((r) => dataText(out, r)).join(', ') || `aucune réponse (code ${m.rcode})`; })() : 'pas de réponse';
-        return { text: `${n} : ${v?.action === 'block' ? `🚫 bloqué par « ${v.rule} » (${v.list})` : v?.action === 'allow' ? `✅ autorisé par « ${v.rule} » (${v.list})` : v?.action === 'rewrite' ? `↪ réécrit (${v.rule})` : '✅ pas de règle, laissé passer'}\nRéponse : ${ans}` };
+        // Un nom dans n'importe quelle langue (rangé sous sa forme pour le DNS). Écran « DNS · Blocage » : la raison et la
+        // réponse sont aussi rendues en données, avec le geste proposé (autoriser, bloquer) ; un membre n'a pas de geste.
+        const n = domaineTape(i.domaine); if (!isDomain(n)) throw new Error('domaine invalide');
+        // Un essai, pas une question d'une machine : un serveur à part, sans journal ni alerte (il partage seulement le cache
+        // du DNS en marche). L'appareil choisi n'est pris que du propriétaire (un membre ne teste pas pour une autre machine).
+        const tmp = new DnsServer({ settings: () => reglagesServis(ctx), lists: () => activeLists(ctx), fetch: ctx.fetch, local: () => nomsServis(ctx), domaine: () => domaineMaison(ctx), recursive: AMONT_RACINE.essai, secours: AMONT_SECOURS.essai });
+        if (srv) tmp.cache = srv.cache; else loadLists(ctx);
+        const appareil = agissant() ? '' : s(i.appareil).trim();
+        const v = tmp.verdict(n, appareil);
+        const out = await tmp.handle(query(n, TYPE.A), appareil || '127.0.0.1').catch(() => undefined);
+        let reponse = '', code = '';
+        if (out) { try { const m = parse(out); reponse = m.an.map((r) => dataText(out, r)).join(', '); code = String(m.rcode); } catch { /* réponse illisible */ } }
+        const ans = out ? reponse || `aucune réponse (code ${code})` : 'pas de réponse';
+        const danger = v?.action === 'block' && (v as { why?: string }).why === 'menace', inconnuMaison = !v && dansMaison(n, domaineMaison(ctx));
+        const verdict = v?.action === 'block' ? 'bloque' : v?.action === 'allow' ? 'autorise' : v?.action === 'rewrite' ? (v.list === 'Noms de la maison' ? 'maison' : 'reecrit') : inconnuMaison ? 'maison' : 'passe';
+        const raison = v?.action === 'block' ? (danger ? `Site dangereux : bloqué par la liste « ${v.list} ».` : `Bloqué par ${parQui(v.list)} (${v.rule}).`)
+          : v?.action === 'allow' ? `Autorisé par ${parQui(v.list)}${v.rule ? ` (${v.rule})` : ''} : il passe.`
+            : verdict === 'maison' ? (inconnuMaison ? 'Nom de la maison inconnu : Odin répond qu\'il n\'existe pas, sans le demander dehors.' : 'Nom de la maison : Odin répond lui-même.')
+              : v?.action === 'rewrite' ? `Remplacé : ${v.rule}.` : 'Aucune liste ni règle ne le bloque : Odin cherche la réponse sur Internet.';
+        const geste = agissant() ? null : verdict === 'bloque' ? (autorisables(ctx).has(v?.list ?? '') ? 'autoriser' : null) : verdict === 'passe' || verdict === 'autorise' ? 'bloquer' : null;
+        return { text: `${n} : ${v?.action === 'block' ? `🚫 bloqué par « ${v.rule} » (${v.list})` : v?.action === 'allow' ? `✅ autorisé par « ${v.rule} » (${v.list})` : v?.action === 'rewrite' ? `↪ réécrit (${v.rule})` : '✅ pas de règle, laissé passer'}\nRéponse : ${ans}`,
+          data: { nom: nomLisible(n), ascii: n, verdict, raison, regle: v?.rule ?? '', liste: v?.list ?? '', danger, reponse, code, geste } };
       } },
-      { id: 'bloquer', label: 'Bloquer un domaine', what: 'Bloque le domaine et ses sous-domaines', params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }], words: ['bloque le domaine', 'bloquer le site'], undo: (i) => ({ action: 'retirer_regle', input: { regle: `||${cleanDomain(s(i.domaine))}^` }, label: 'Débloquer' }), run: (ctx, i) => {
-        const n = cleanDomain(s(i.domaine)); if (!isDomain(n)) throw new Error('domaine invalide');
+      { id: 'bloquer', label: 'Bloquer un domaine', what: 'Bloque le domaine et ses sous-domaines', params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }], words: ['bloque le domaine', 'bloquer le site'], undo: (i) => ({ action: 'retirer_regle', input: { regle: `||${domaineTape(i.domaine)}^` }, label: 'Débloquer' }), run: (ctx, i) => {
+        const n = domaineTape(i.domaine); if (!isDomain(n)) throw new Error('domaine invalide');
         const d = settingsOf(ctx), r = `||${n}^`; if (!d.custom.includes(r)) saveDns(ctx, { custom: [...d.custom.filter((x) => x !== `@@||${n}^`), r] });
         srv?.cache.clear(); return { text: `🚫 ${n} et ses sous-domaines sont bloqués pour toute la maison.` };
       } },
-      { id: 'autoriser', label: 'Autoriser un domaine', what: 'Laisse passer un domaine bloqué par une liste', params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }], words: ['debloque', 'autorise le domaine'], undo: (i) => ({ action: 'retirer_regle', input: { regle: `@@||${cleanDomain(s(i.domaine))}^` }, label: 'Retirer l\'exception' }), run: (ctx, i) => {
-        const n = cleanDomain(s(i.domaine)); if (!isDomain(n)) throw new Error('domaine invalide');
+      { id: 'autoriser', label: 'Autoriser un domaine', what: 'Laisse passer un domaine bloqué par une liste', params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }], words: ['debloque', 'autorise le domaine'], undo: (i) => ({ action: 'retirer_regle', input: { regle: `@@||${domaineTape(i.domaine)}^` }, label: 'Retirer l\'exception' }),
+        // Écran « DNS · Journal » (maquette Réseau validée : « Autoriser quand même ») : une exception passe avant les listes,
+        // celle des sites dangereux comprise ; laisser passer un nom qu'elle bloque (ou un nom au-dessus) demande d'abord « oui ».
+        grave: (i, ctx) => {
+          if (!ctx) return 'laisser passer un nom que les listes bloquent (les sites dangereux compris)';
+          const n = domaineTape(i.domaine); if (!isDomain(n)) return undefined;
+          const l = dangereux(ctx, n);
+          return l ? `laisser passer « ${nomLisible(n)} », que la liste « ${l} » dit dangereux (virus, hameçonnage) : toutes les machines de la maison pourront le joindre` : undefined;
+        },
+        run: (ctx, i) => {
+        const n = domaineTape(i.domaine); if (!isDomain(n)) throw new Error('domaine invalide');
         const d = settingsOf(ctx), r = `@@||${n}^`; if (!d.custom.includes(r)) saveDns(ctx, { custom: [...d.custom.filter((x) => x !== `||${n}^`), r] });
-        srv?.cache.clear(); return { text: `✅ ${n} passe désormais (exception, plus forte que les listes ; les sites dangereux restent bloqués).` };
+        srv?.cache.clear(); const l = dangereux(ctx, n);
+        return { text: l ? `⚠ ${n} passe désormais, bien que la liste « ${l} » le dise dangereux (exception, plus forte que les listes).` : `✅ ${n} passe désormais (exception, plus forte que les listes ; les sites dangereux restent bloqués).` };
       } },
       { id: 'regle', label: 'Ajouter une règle', what: 'Règle perso (« ||pub.fr^ », « @@||ok.fr^ », « /^ads[0-9]+\\./ », « *.exemple.fr »)', quick: false, params: [{ key: 'regle', label: 'Règle', kind: 'text', required: true }], run: (ctx, i) => {
         const r = s(i.regle).trim(), c = emptyList(); if (!compile(r, c).count) throw new Error('règle non comprise');
@@ -1077,17 +1228,37 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       { id: 'reglages', label: 'Réglages DNS', what: 'Serveurs amont, stratégie, façon de bloquer, recherche sécurisée, contrôle parental', quick: false, params: [
         { key: 'amont', label: 'Serveurs amont (« récursif » pour se passer de tout fournisseur)', kind: 'text', default: DEFAULTS.upstreams.join(', ') },
         { key: 'strategie', label: 'Stratégie', kind: 'select', options: ['rapide', 'parallele', 'ordre'], default: 'rapide' },
+        { key: 'secours', label: 'Secours si les serveurs amont ne répondent pas (non = « Racine seule »)', kind: 'boolean' },
         { key: 'mode', label: 'Réponse quand c\'est bloqué', kind: 'select', options: ['ip_nulle', 'nxdomain', 'refuse'], default: 'ip_nulle' },
         { key: 'recherche_sure', label: 'Recherche sécurisée pour tous', kind: 'boolean', default: false },
         { key: 'parental', label: 'Contrôle parental pour tous', kind: 'boolean', default: false },
         { key: 'limite', label: 'Requêtes par seconde par machine (0 = sans limite)', kind: 'number', default: 50 },
       ], run: (ctx, i) => {
-        const ups = parseIds(i.amont); if (!ups.length) throw new Error('au moins un serveur amont'); for (const u of ups) parseUpstream(u);
-        if (!['rapide', 'parallele', 'ordre'].includes(s(i.strategie))) throw new Error('stratégie inconnue');
-        if (!['ip_nulle', 'nxdomain', 'refuse'].includes(s(i.mode))) throw new Error('mode inconnu');
-        saveDns(ctx, { upstreams: ups, strategy: s(i.strategie) as DnsSettings['strategy'], mode: s(i.mode) as DnsSettings['mode'], safeSearch: i.recherche_sure === true, parental: i.parental === true, rateLimit: Math.max(0, Math.min(10_000, Number(i.limite) || 0)) });
-        srv?.cache.clear();
-        return { text: `⚙️ Amont : ${ups.join(', ')} (${s(i.strategie)}) · blocage : ${s(i.mode)}${i.recherche_sure === true ? ' · recherche sécurisée' : ''}${i.parental === true ? ' · contrôle parental' : ''}` };
+        // Écran « DNS · Serveurs » (lot R6) : seul ce qui est donné change (choisir la racine ne coupe plus le contrôle
+        // parental ni la recherche sécurisée, ni le secours). Le secours (choix du propriétaire, 25/11 : « La racine d'abord.
+        // Si elle ne répond pas, Odin demande à un serveur public ») se retire seulement par « Racine seule » (secours : non),
+        // et ce choix est gardé. Tout est vérifié avant d'écrire quoi que ce soit.
+        const patch: Partial<DnsSettings> = {};
+        if (i.amont !== undefined) {
+          const ups = parseIds(i.amont); if (!ups.length) throw new Error('au moins un serveur amont');
+          for (const u of ups) parseUpstream(u);
+          patch.upstreams = ups;
+        }
+        if (i.secours !== undefined) {
+          if (typeof i.secours !== 'boolean') throw new Error('secours : oui ou non');
+          // Oui : les serveurs de secours déjà réglés restent ; s'il n'y en a aucun, ceux d'Odin. Non : aucun (« Racine seule »).
+          const avant = settingsOf(ctx).fallback;
+          patch.fallback = i.secours ? (avant.length ? [...avant] : [...SECOURS_PUBLICS]) : [];
+        }
+        if (i.strategie !== undefined) { if (!['rapide', 'parallele', 'ordre'].includes(s(i.strategie))) throw new Error('stratégie inconnue'); patch.strategy = s(i.strategie) as DnsSettings['strategy']; }
+        if (i.mode !== undefined) { if (!['ip_nulle', 'nxdomain', 'refuse'].includes(s(i.mode))) throw new Error('mode inconnu'); patch.mode = s(i.mode) as DnsSettings['mode']; }
+        if (i.recherche_sure !== undefined) patch.safeSearch = i.recherche_sure === true;
+        if (i.parental !== undefined) patch.parental = i.parental === true;
+        if (i.limite !== undefined) patch.rateLimit = Math.max(0, Math.min(10_000, Number(i.limite) || 0));
+        if (!Object.keys(patch).length) throw new Error('rien à changer');
+        saveDns(ctx, patch); srv?.cache.clear();
+        const n = settingsOf(ctx);
+        return { text: `⚙️ Amont : ${n.upstreams.join(', ')} (${n.strategy}) · ${n.fallback.length ? `secours : ${n.fallback.join(', ')}` : 'sans secours'} · blocage : ${n.mode}${n.safeSearch ? ' · recherche sécurisée' : ''}${n.parental ? ' · contrôle parental' : ''}` };
       } },
       { id: 'vider_cache', label: 'Vider le cache', what: 'Oublie les réponses gardées', quick: false, run: () => { const n = srv?.cache.size ?? 0; srv?.cache.clear(); return { text: `🧹 Cache vidé (${n} réponses).` }; } },
       { id: 'journal', label: 'Journal des requêtes', what: 'Les dernières requêtes, filtrées', read: true, params: [{ key: 'filtre', label: 'Domaine ou appareil (facultatif)', kind: 'text', default: '' }, { key: 'statut', label: 'Statut', kind: 'select', options: ['tous', 'bloqué', 'ok', 'cache', 'réécrit', 'erreur'], default: 'tous' }], run: (ctx, i) => {
@@ -1157,6 +1328,26 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
           ...(verdict ? [`Vérification : ${verdict.message}`, ...verdict.avis.map((l) => `- ${l}`)] : [])].filter(Boolean);
         return { text: texte.join('\n'), data: { proprietaire: true, limite: '', domaine: e.domaine, dns: { allume: Boolean(srv) }, noms: sorties(tout.lignes), inverses: tout.inverses, comptes: tout.comptes, verdict } };
       } },
+      // Lot R6 (maquette Réseau) : la lecture des écrans « Journal », « Blocage » et « Serveurs DNS ». Rien n'est écrit, aucune
+      // question ne part. Comme le plan des adresses : au propriétaire en personne ; un membre connecté à l'interface ne reçoit
+      // que les questions de l'appareil qu'il tient (Blocage, Serveurs : la limite). Les noms viennent du réseau : nettoyés,
+      // et la réponse est une donnée, jamais un ordre (« external »). Hors du journal « qui a fait quoi » : une lecture.
+      { id: 'dns_vu', label: 'Le DNS en direct (journal, blocage, serveurs)', what: 'Qui demande quoi en direct, la réponse et le temps, avec des filtres ; les listes et tes règles de blocage ; les serveurs où Odin cherche les noms d\'Internet', read: true, external: true, quick: false, proprietaireSeul: () => !agissant(),
+        params: [{ key: 'vue', label: 'Écran', kind: 'select', options: ['journal', 'blocage', 'serveurs'], default: 'journal' }, { key: 'filtre', label: 'Filtre du journal', kind: 'select', options: ['tout', 'bloque', 'maison'], default: 'tout' }, { key: 'machine', label: 'Une machine (adresse IP)', kind: 'text', default: '' }, { key: 'n', label: 'Combien de lignes (au plus 200)', kind: 'number', default: 100 }],
+        run: (ctx, i) => {
+          const vue = s(i.vue) === 'blocage' || s(i.vue) === 'serveurs' ? s(i.vue) : 'journal';
+          if (vue === 'journal') {
+            const D = journalVu(ctx, i);
+            return { text: [D.limite || `Journal du DNS : ${D.chiffres.questions} question(s) aujourd'hui, ${D.chiffres.bloquees} bloquée(s), ${D.chiffres.machines} machine(s).`, ...D.lignes.slice(0, 40).map((l) => `- ${new Date(l.t).toLocaleTimeString('fr-FR')} ${l.machine} ${l.type} ${l.nom} → ${l.statut}${l.liste ? ` (${l.liste})` : ''} ${l.ms} ms`)].join('\n'), data: D };
+          }
+          if (agissant()) return { text: LIMITE_DNS, data: { vue, proprietaire: false, limite: LIMITE_DNS } };
+          if (vue === 'blocage') {
+            const D = blocageVu(ctx);
+            return { text: [`Listes : ${D.listes.filter((l) => l.active).map((l) => l.nom).join(', ') || 'aucune active'}.`, `Bloqués par toi : ${D.regles.bloques.length}, autorisés par toi : ${D.regles.autorises.length}, à horaires : ${D.regles.horaires.length}.`, D.pause ? `Blocage en pause jusqu'à ${quand(D.pause.jusqua)}.` : ''].filter(Boolean).join('\n'), data: D };
+          }
+          const D = serveursVu(ctx);
+          return { text: `Serveurs amont : ${D.amont.map((u) => u.label).join(', ')} (${D.choix === 'racine' ? 'tout seul depuis la racine' : D.choix})${D.secours.length ? ` · s'ils ne répondent pas, secours : ${D.secours.join(', ')} (servi ${D.secoursAujourdhui.n} fois aujourd'hui)` : ' · aucun secours extérieur'}.`, data: D };
+        } },
       // Lot R4 (maquette Réseau) : la lecture de l'écran « Réglages DHCP ». Qui distribue, le garde-fou et sa dernière
       // vérification, la carte d'Odin, les réglages, le filet si Odin s'éteint, le lien avec Genèse ; avec des réglages en
       // entrée, leur vérification AVANT d'enregistrer (rien n'est écrit, aucun paquet ne part). Au propriétaire en personne,

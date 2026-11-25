@@ -28,7 +28,9 @@ export function exchangeUdp(q: Buffer, host: string, port: number, timeoutMs = 2
   return new Promise((ok, ko) => {
     const s = dgram.createSocket(isIPv6(host) ? 'udp6' : 'udp4'), id = q.readUInt16BE(0);
     const t = setTimeout(() => { s.close(); ko(new Error(`pas de réponse de ${host}`)); }, timeoutMs);
-    s.on('message', (m) => { if (m.length < 12 || m.readUInt16BE(0) !== id) return; clearTimeout(t); s.close(); ok(m); });
+    // Seule la réponse du serveur interrogé compte : même adresse, même port (une réponse glissée par un autre est ignorée).
+    const ip = isIPv4(host); // (une adresse IPv6 peut s'écrire de plusieurs façons : seul le port est comparé)
+    s.on('message', (m, r) => { if (m.length < 12 || m.readUInt16BE(0) !== id || r.port !== port || (ip && r.address.replace(/^::ffff:/, '') !== host)) return; clearTimeout(t); s.close(); ok(m); });
     s.on('error', (e) => { clearTimeout(t); s.close(); ko(e); });
     s.send(q, port, host);
   });
@@ -87,30 +89,57 @@ export const ROOTS = ['198.41.0.4', '170.247.170.2', '192.33.4.12', '199.7.91.13
 export interface RecursiveOpts { roots?: Array<{ host: string; port: number }>; ask?: (q: Buffer, host: string, port: number) => Promise<Buffer>; maxDepth?: number }
 const toAnswer = (msg: Buffer, r: RR): Answer => ({ name: r.name, type: r.type, ttl: r.ttl, cls: r.cls, data: plainData(msg, r) });
 
-/** Résout un nom tout seul, comme un résolveur complet : racine → domaine de premier niveau → serveur du domaine, en suivant les alias. */
+/** `n` est-il dans la zone `z` (la racine est la zone « ») ? Pur. */
+const dansZone = (n: string, z: string) => z === '' || n === z || n.endsWith(`.${z}`);
+/**
+ * Cette réponse est-elle un renvoi qui ne descend pas ? (Un renvoi doit mener d'une zone sous celle du serveur interrogé
+ * vers le nom demandé ; sinon il remonte, reste sur place ou part de côté.) Rend la raison, ou rien. Pur.
+ */
+function renvoiRefuse(m: Message, qname: string, type: number, zone: string): string | undefined {
+  if (m.an.some((r) => r.name === qname && (r.type === type || r.type === TYPE.CNAME || type === TYPE.ANY)) || m.rcode === RCODE.NXDOMAIN || m.aa) return undefined;
+  const ns = m.ns.find((r) => r.type === TYPE.NS); if (!ns) return undefined;
+  const sousZone = ns.name;
+  return sousZone === zone || !dansZone(sousZone, zone) || !dansZone(qname, sousZone) ? `délégation refusée pour ${qname} : « ${sousZone || '.'} » ne descend pas depuis « ${zone || '.'} »` : undefined;
+}
+/**
+ * Résout un nom tout seul, comme un résolveur complet : racine → domaine de premier niveau → serveur du domaine, en suivant
+ * les alias. Chaque serveur n'est cru que pour SA zone (celle qu'on lui a déléguée) : un enregistrement pour un nom d'une
+ * autre zone glissé dans sa réponse (alias, adresse jointe) n'est pas pris, il est cherché depuis la racine ; une délégation
+ * doit descendre vers le nom demandé (sinon : refusée, pas de boucle) ; une réponse à une autre question est ignorée.
+ */
 export async function recurse(name: string, type: number, o: RecursiveOpts = {}, depth = 0, seen = new Set<string>()): Promise<{ rcode: number; an: Answer[]; ns: Answer[] }> {
   if (depth > (o.maxDepth ?? 8)) throw new Error('résolution trop longue');
   const ask = o.ask ?? (async (q, h, p) => { const r = await exchangeUdp(q, h, p); return parse(r).tc ? exchangeTcp(q, h, p) : r; });
   let servers = (o.roots ?? ROOTS.map((host) => ({ host, port: 53 }))).slice();
   const chain: Answer[] = [];
-  let qname = name;
+  const qname = name.toLowerCase().replace(/\.$/, '');
+  let zone = '';   // la zone des serveurs interrogés en ce moment (la racine d'abord)
   for (let hop = 0; hop < 40; hop++) {
     let m: Message | undefined, lastErr: Error | undefined;
     for (const s of servers.sort(() => Math.random() - 0.5).slice(0, 4)) {
-      try { const raw = await ask(query(qname, type, { rd: false }), s.host, s.port); m = parse(raw); if (m.rcode === RCODE.SERVFAIL || m.rcode === RCODE.REFUSED) { m = undefined; continue; } break; } catch (e) { lastErr = e as Error; }
+      try {
+        const raw = await ask(query(qname, type, { rd: false }), s.host, s.port); m = parse(raw);
+        if (!m.qr || m.qd[0]?.name !== qname || m.qd[0]?.type !== type) { m = undefined; lastErr = new Error(`${s.host} a répondu à une autre question`); continue; }
+        if (m.rcode === RCODE.SERVFAIL || m.rcode === RCODE.REFUSED) { m = undefined; continue; }
+        // Un renvoi qui ne descend pas (il remonte, reste sur place ou part de côté) : ce serveur est mal réglé ou trompeur,
+        // il est laissé de côté comme s'il n'avait pas répondu ; un autre serveur de la même zone peut répondre.
+        const refus = renvoiRefuse(m, qname, type, zone);
+        if (refus) { m = undefined; lastErr = new Error(refus); continue; }
+        break;
+      } catch (e) { lastErr = e as Error; }
     }
     if (!m) throw lastErr ?? new Error(`aucun serveur ne répond pour ${qname}`);
     const raw = m.raw;
     const direct = m.an.filter((r) => r.name === qname && (r.type === type || type === TYPE.ANY));
     const alias = m.an.find((r) => r.name === qname && r.type === TYPE.CNAME);
     if (direct.length) {
-      // La réponse peut contenir la suite de la chaîne d'alias : on la garde telle quelle.
-      return { rcode: RCODE.NOERROR, an: [...chain, ...m.an.filter((r) => r.type === TYPE.CNAME || r.type === type).map((r) => toAnswer(raw, r))], ns: [] };
+      // La réponse peut contenir la suite de la chaîne d'alias : gardée seulement pour les noms de la zone de ce serveur.
+      return { rcode: RCODE.NOERROR, an: [...chain, ...m.an.filter((r) => (r.type === TYPE.CNAME || r.type === type) && dansZone(r.name, zone)).map((r) => toAnswer(raw, r))], ns: [] };
     }
     if (alias && type !== TYPE.CNAME) {
       const target = dataText(raw, alias); chain.push(toAnswer(raw, alias));
-      // La suite de la chaîne est peut-être déjà dans la réponse.
-      const more = m.an.filter((r) => r !== alias);
+      // La suite de la chaîne est peut-être déjà dans la réponse : seulement pour les noms de la zone de ce serveur.
+      const more = m.an.filter((r) => r !== alias && dansZone(r.name, zone));
       let t = target; for (;;) { const nx = more.find((r) => r.name === t && r.type === TYPE.CNAME); if (!nx) break; chain.push(toAnswer(raw, nx)); t = dataText(raw, nx); }
       const fin = more.filter((r) => r.name === t && r.type === type);
       if (fin.length) return { rcode: RCODE.NOERROR, an: [...chain, ...fin.map((r) => toAnswer(raw, r))], ns: [] };
@@ -120,11 +149,15 @@ export async function recurse(name: string, type: number, o: RecursiveOpts = {},
       return { rcode: rest.rcode, an: [...chain, ...rest.an], ns: rest.ns };
     }
     if (m.rcode === RCODE.NXDOMAIN) return { rcode: RCODE.NXDOMAIN, an: chain, ns: m.ns.filter((r) => r.type === TYPE.SOA).map((r) => toAnswer(raw, r)) };
-    const referral = m.ns.filter((r) => r.type === TYPE.NS);
-    if (!referral.length || m.aa) return { rcode: RCODE.NOERROR, an: chain, ns: m.ns.filter((r) => r.type === TYPE.SOA).map((r) => toAnswer(raw, r)) };
-    // Délégation : on passe aux serveurs du niveau en dessous (adresses jointes, sinon on les cherche).
+    const tous = m.ns.filter((r) => r.type === TYPE.NS);
+    if (!tous.length || m.aa) return { rcode: RCODE.NOERROR, an: chain, ns: m.ns.filter((r) => r.type === TYPE.SOA).map((r) => toAnswer(raw, r)) };
+    // Délégation (déjà vérifiée : elle descend, d'une zone sous celle de ce serveur, vers le nom demandé).
+    const sousZone = tous[0].name, referral = tous.filter((r) => r.name === sousZone);
+    // On passe aux serveurs du niveau en dessous : leurs adresses jointes, seulement si elles sont dans la zone de ce
+    // serveur (sinon on les cherche depuis la racine).
     const names = referral.map((r) => dataText(raw, r));
-    const glue = m.ar.filter((r) => r.type === TYPE.A && names.includes(r.name)).map((r) => ({ host: dataText(raw, r), port: 53 }));
+    const glue = m.ar.filter((r) => r.type === TYPE.A && names.includes(r.name) && dansZone(r.name, zone)).map((r) => ({ host: dataText(raw, r), port: 53 }));
+    zone = sousZone;
     if (glue.length) { servers = glue; continue; }
     let found: Array<{ host: string; port: number }> = [];
     for (const n of names.slice(0, 3)) {
