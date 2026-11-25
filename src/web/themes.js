@@ -24,6 +24,13 @@
     // L'interrupteur de la maquette, branché sur la règle d'Odin (le thème automatique).
     humeur: 'Odin change de thème selon son humeur',
     humeurAide: 'En automatique seulement, au plus une fois par heure.',
+    // Le curseur « Transparence du verre » (maquette validée), gardé pour chaque thème ; {nom} : le thème affiché, {n} : sa limite.
+    verre: 'Transparence du verre',
+    verreValeur: '{n} %',
+    verreAide: 'Les cartes de l\'accueil, pour le thème {nom}. Gardé pour chaque thème, le même sur tous tes écrans.',
+    verreLimite: 'Au-delà de {n} %, les cartes de ce thème ne deviennent pas plus transparentes : leurs textes ne se liraient plus.',
+    verrePlein: 'Avec ce décor, les cartes de ce thème restent aussi opaques qu\'il le faut pour que leurs textes se lisent.',
+    verreSansFlou: 'Ce navigateur ne sait pas flouter : les cartes y gardent leur couleur pleine.',
   };
   const remplir = (modele, v) => modele.replace(/\{(\w+)\}/g, (x, k) => (k in v ? String(v[k]) : x));
   // Les thèmes d'Odin et ceux des événements de l'année (ils s'activent tout seuls le jour de l'événement, sauf si tu
@@ -98,14 +105,17 @@
   // panneau ; clair, 40 sur du blanc. La carte elle-même vient de la règle de la maquette (surfaceOf, dans le
   // catalogue) ; sans elle, rien. Des variables à nom neuf (--v-…), pour ne heurter aucune couleur de l'interface.
   const rgbaDe = (h, a) => `rgba(${hex(h).join(',')},${a})`;
-  function varsVerre(id, t, pal) {
-    if (typeof catalogue?.surfaceOf !== 'function') return null;
+  // Les réglages de verre d'un thème : ceux du catalogue, sinon la règle de la maquette pour un thème d'Odin.
+  function regleVerre(id, t) {
     const c = catalogue.THEMES?.[id];
-    const v = c && c.sc ? c : {
+    return c && c.sc ? c : {
       dark: t.dark === true, sc: t.dark ? t.panel : '#ffffff', gt: t.dark ? 22 : 40, blur0: 20, sheen: t.dark ? 0.1 : 0.45, sat: 1.4,
       solid: t.dark ? t.panel : mix('#ffffff', t.sky[0], 0.12), border: t.dark ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.85)',
       shadow: t.dark ? '0 14px 34px rgba(0,0,0,.3)' : `0 10px 28px ${rgbaDe(t.ink, 0.1)},inset 0 1px 0 rgba(255,255,255,.9)`,
     };
+  }
+  // Un verre de transparence g (0 à 100, règle de la maquette), et de quoi dire si une carte s'y lit.
+  function essaiVerre(t, pal, v, g) {
     // Un fond ou un décor trop clair (ou trop sombre) sous un verre trop transparent : la carte devient plus opaque, juste
     // assez pour que chaque texte du thème s'y lise (4,5:1) au pire point du décor (deux formes translucides l'une sur
     // l'autre comprises) : une couche de sa couleur pleine passe sous le verre, de 5 % en 5 %, jusqu'à la carte pleine
@@ -115,12 +125,45 @@
     // dégradé, carte pleine, couleur pleine) : c'est le décor que l'opacité compense, pas un ton de plus.
     // Le reflet compte tel que la page le pose (arrondi), pour que l'opacité et les tons (tonsVerre) lisent le même.
     const sat = v.sat ?? 1.4, dessous = derriere(t, sat), plein = hex6(v.solid) || t.panel;
-    const depart = catalogue.surfaceOf(v, Math.max(0, Math.min(100, Number(v.gt) || 0))), reflet = +(depart.sheen ?? 0.3).toFixed(3);
+    const depart = catalogue.surfaceOf(v, g), reflet = +(depart.sheen ?? 0.3).toFixed(3);
     const sansDecor = trier(fondsVerre(derriere({ ...t, decor: '' }, sat), depart.surface, reflet), fondsVerre(dessous, surCouche(depart.surface, plein, 1), reflet), [lumVue(plein)]);
     const textes = [t.ink, ...TEXTES_VERRE.map((n) => pal[n]).filter((c) => /^#[0-9a-f]{6}$/i.test(c || '')).map((c) => eloigner(c, sansDecor, versTon(t)))];
     const lisible = (surface) => { const f = trier(fondsVerre(dessous, surface, reflet)); return textes.every((c) => pireContraste(c, f) >= 4.6); };
-    let surface = depart.surface;
-    for (let p = 5; p <= 100 && !lisible(surface); p += 5) surface = surCouche(depart.surface, plein, p / 100);
+    return { sat, plein, depart, reflet, lisible };
+  }
+  const borne = (x) => Math.round(Math.max(0, Math.min(100, Number(x) || 0)));
+  // La carte posée pour une transparence g : celle de la maquette, rendue plus opaque s'il le faut (la couche de sa
+  // couleur pleine, de 5 % en 5 %) pour que chaque texte s'y lise au pire point du décor.
+  function carteVerre(t, pal, v, g) {
+    const e = essaiVerre(t, pal, v, g);
+    let surface = e.depart.surface;
+    for (let p = 5; p <= 100 && !e.lisible(surface); p += 5) surface = surCouche(e.depart.surface, e.plein, p / 100);
+    // Un verre clair sous un texte clair (ou sombre sous un texte sombre) ne se lit pas, même sur toute sa couleur
+    // pleine : la carte prend alors sa couleur pleine seule, comme dans un navigateur qui ne sait pas flouter.
+    if (!e.lisible(surface)) { const x = hex(e.plein).join(','), pleine = `linear-gradient(140deg,rgba(${x},1),rgba(${x},1))`; if (e.lisible(pleine)) surface = pleine; }
+    return { ...e, surface };
+  }
+  // La limite de transparence d'un thème : la plus grande valeur g où la carte de la maquette, telle quelle (sans
+  // couche de plus), laisse chaque texte lisible au pire point du décor ; et au moins sa transparence de départ (celle
+  // d'aujourd'hui, déjà rendue lisible par la couche). Au-delà, la carte ne devient pas plus transparente : c'est celle
+  // de la limite. Calculée une fois par thème.
+  const LIMITES = new WeakMap();
+  function limiteVerre(id, t, pal) {
+    if (LIMITES.has(t)) return LIMITES.get(t);
+    const v = regleVerre(id, t), depart = Math.max(0, Math.min(100, Number(v.gt) || 0));
+    let lim = depart;
+    for (let g = 100; g > depart; g--) { const e = essaiVerre(t, pal, v, g); if (e.lisible(e.depart.surface)) { lim = g; break; } }
+    LIMITES.set(t, lim);
+    return lim;
+  }
+  // `voulu` : la transparence gardée par Odin pour ce thème (Réglages → Apparence) ; sans elle, celle de départ.
+  function varsVerre(id, t, pal, voulu) {
+    if (typeof catalogue?.surfaceOf !== 'function') return null;
+    const v = regleVerre(id, t);
+    // Une valeur choisie ne dépasse jamais la limite du thème (au-delà, la carte ne devient pas plus transparente) ;
+    // sans valeur choisie, rien ne change : la transparence de départ, rendue plus opaque s'il le faut, comme avant.
+    const g = voulu === undefined ? Math.max(0, Math.min(100, Number(v.gt) || 0)) : Math.min(borne(voulu), limiteVerre(id, t, pal));
+    const { sat, depart, reflet, surface } = carteVerre(t, pal, v, g);
     const s = { ...depart, surface };
     return {
       '--v-carte': s.surface, '--v-plein': s.solid, '--v-bord': s.border, '--v-flou': `${s.blur}px`, '--v-sat': sat,
@@ -228,6 +271,13 @@
   const FLOU = '-webkit-backdrop-filter:blur(var(--v-flou)) saturate(var(--v-sat));backdrop-filter:blur(var(--v-flou)) saturate(var(--v-sat))';
   let style;
   let current = 'valhalla', classic;
+  // La transparence du verre choisie pour chaque thème (gardée par Odin, relue avec « mascotte ») : identifiant → 0 à 100.
+  let verres = {};
+  const nettoyerVerres = (x) => {
+    const o = {};
+    if (x && typeof x === 'object') for (const [k, n] of Object.entries(x)) if (Object.prototype.hasOwnProperty.call(THEMES, k) && THEMES[k].sky && typeof n === 'number' && Number.isFinite(n)) o[k] = borne(n);
+    return o;
+  };
   function apply(id) {
     const t = THEMES[id] ? THEMES[id] : THEMES.valhalla; current = THEMES[id] ? id : 'valhalla';
     const root = document.documentElement;
@@ -241,7 +291,7 @@
     }
     if (!root.dataset.odinTheme) classic = root.dataset.theme;
     root.dataset.odinTheme = current; root.dataset.theme = t.dark ? 'dark' : 'light';
-    const pal = palette(t), verre = varsVerre(current, t, pal), voile = t.dark ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.22)';
+    const pal = palette(t), verre = varsVerre(current, t, pal, verres[current]), voile = t.dark ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.22)';
     const tons = verre ? Object.entries(tonsVerre(t, pal, verre)).map(([k, v]) => `;${k}:${v}`).join('') : '';
     const vars = Object.entries({ ...pal, ...verre }).map(([k, v]) => `${k}:${v}`).join(';');
     style.textContent = `:root[data-odin-theme]{color-scheme:${t.dark ? 'dark' : 'light'};${vars}}
@@ -270,11 +320,21 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
   }
   window.OdinThemes.apply = apply;
   window.OdinThemes.current = () => current;
+  // Le curseur d'un thème : sa valeur (choisie, sinon celle de départ) et sa limite (au-delà, la carte ne devient pas
+  // plus transparente). undefined : ce thème n'a pas de verre (Valhalla, ou la règle de la maquette absente).
+  function curseurVerre(id) {
+    const t = THEMES[id];
+    if (!t?.sky || typeof catalogue?.surfaceOf !== 'function') return undefined;
+    const v = regleVerre(id, t);
+    return { valeur: verres[id] ?? borne(v.gt), choisie: verres[id] !== undefined, limite: limiteVerre(id, t, palette(t)) };
+  }
+  window.OdinThemes.verre = curseurVerre;
 
   // ---------------- Ce que dit Odin (le même pour tous tes écrans) ----------------
   const api = async (action, input = {}) => { const r = await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'apparence', action, input }) }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); };
   let state = { mode: 'auto', theme: 'valhalla' };
   try { const c = JSON.parse(localStorage.getItem('odin.apparence') || 'null'); if (c && THEMES[c.theme]) state = c; } catch { /* rien */ }
+  verres = nettoyerVerres(state.verre);
   // Le thème affiché : celui de l'événement du jour (s'il n'est pas coupé), sinon le choisi ou l'automatique.
   const shown = () => (state.eventTheme && THEMES[state.eventTheme] ? state.eventTheme : state.theme);
   // La couleur d'Odin au repos : l'événement, sinon la météo (thème automatique), sinon celle du thème.
@@ -293,10 +353,12 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
       const r = await api('mascotte'); const d = r && r.data; if (!d || !THEMES[d.theme]) return false;
       if (n !== tour) return true;
       const ev = d.event, evOn = ev && d.evenements?.themes !== false && THEMES[`ev-${ev.id === 'famille' ? 'anniversaire' : ev.id}`];
-      state = { mode: d.mode, theme: d.theme, why: d.why, odin: d.odin, event: ev, eventTheme: evOn ? `ev-${ev.id === 'famille' ? 'anniversaire' : ev.id}` : undefined, humeurTheme: d.humeurTheme !== false };
+      state = { mode: d.mode, theme: d.theme, why: d.why, odin: d.odin, event: ev, eventTheme: evOn ? `ev-${ev.id === 'famille' ? 'anniversaire' : ev.id}` : undefined, humeurTheme: d.humeurTheme !== false, verre: nettoyerVerres(d.verre) };
       sur = state;
       try { localStorage.setItem('odin.apparence', JSON.stringify(state)); } catch { /* */ }
-      if (shown() !== current) apply(shown());
+      // (la transparence du thème affiché a changé, ailleurs : le verre se repose aussi)
+      const verreAvant = verres[shown()]; verres = state.verre;
+      if (shown() !== current || verres[current] !== verreAvant) apply(shown());
       tint();
       document.documentElement.dispatchEvent(new CustomEvent('odin-mascotte', { detail: d }));
       paint();
@@ -336,7 +398,26 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     file = fait.catch(() => undefined);
     return fait;
   }
-  window.OdinThemes.sync = sync; window.OdinThemes.choose = choose; window.OdinThemes.humeur = humeur;
+  // « Transparence du verre » : `fini` faux pendant qu'on fait glisser (le verre se voit tout de suite, rien ne part),
+  // vrai au lâcher ou à chaque flèche (la valeur part vers Odin, pour le thème affiché seulement). Même file que les
+  // choix de thème, même retour en cas de panne (la page remet la valeur qu'Odin a vraiment).
+  function verre(valeur, fini) {
+    const id = current, n = ++tour;
+    if (!curseurVerre(id)) return Promise.resolve();
+    verres = { ...verres, [id]: borne(valeur) }; state = { ...state, verre: verres };
+    apply(id); paint();
+    if (!fini) return Promise.resolve();
+    const fait = file.then(async () => {
+      let parti = true;
+      try { await api('regler_mascotte', { reglages: JSON.stringify({ verre: { [id]: verres[id] } }) }); } catch { parti = false; }
+      if (n !== tour) return;
+      const lu = await sync();
+      if (!parti && !lu && n === tour) { state = sur; verres = nettoyerVerres(sur.verre); apply(shown()); paint(); }
+    });
+    file = fait.catch(() => undefined);
+    return fait;
+  }
+  window.OdinThemes.sync = sync; window.OdinThemes.choose = choose; window.OdinThemes.humeur = humeur; window.OdinThemes.reglerVerre = verre;
 
   // ---------------- Réglages → Apparence : une carte par thème (maquette validée), « Automatique » et sa raison ----------------
   // Valhalla n'a pas de couleurs à lui : son aperçu prend celles de la maquette (fond, panneau, bord, côté, Odin).
@@ -390,6 +471,10 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     + '#themeHumeur{appearance:none;-webkit-appearance:none;flex:none;position:relative;box-sizing:border-box;width:44px;min-width:44px;height:26px;min-height:0;padding:0;margin:0;border-radius:13px;border:0;background:var(--muted);cursor:pointer;transition:background .2s}'
     + '#themeHumeur::before{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s}'
     + '#themeHumeur:checked{background:var(--accent)}#themeHumeur:checked::before{transform:translateX(18px)}#themeHumeur:focus-visible{outline:3px solid var(--ink);outline-offset:3px}'
+    // Le curseur « Transparence du verre » : un vrai curseur (flèches, Début, Fin), haut de 44 px pour le doigt ; 6 px dessous, pour que le contour du focus ne passe pas sur l'aide.
+    + '.tverre{margin:8px 0 0}.tvl{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;min-height:44px;margin-bottom:6px;font-weight:600}'
+    + '#themeVerre{flex:1 1 180px;min-width:0;height:44px;min-height:44px;margin:0;padding:0;border:0;background:none;accent-color:var(--accent);cursor:pointer}#themeVerre:focus-visible{outline:3px solid var(--ink);outline-offset:2px}'
+    + '#themeVerreVal{min-width:48px;text-align:right;font-variant-numeric:tabular-nums}.tverre .hint{display:block}'
     + '@media (max-width:600px){#themeGrid .tgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#themeGrid .tfold{display:inline-flex}#themeGrid .tfam.ferme .tgrid{display:none}#themeGrid .tfam.ferme{margin-bottom:4px}#themeGrid .thc .nm{grid-template-columns:22px minmax(0,1fr);padding:8px 10px}#themeGrid .thc .nm small{grid-column:2}}'
     + '@media (prefers-reduced-motion:reduce){#themeGrid button.thc,#themeGrid .tfold span,#themeHumeur,#themeHumeur::before{transition:none}#themeGrid button.thc:hover{transform:none}}';
   // Une carte : un bouton (Tab, puis Entrée ou Espace, le choisit), l'aperçu, puis la bande (petit Odin, nom, clair ou sombre).
@@ -405,6 +490,8 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     return b;
   }
   const plis = []; let plieALaMain = false;
+  // Le navigateur sait-il flouter ? Sinon les cartes gardent leur couleur pleine (la règle @supports du verre).
+  const flouPossible = () => { try { const C = window.CSS; return !C?.supports || C.supports('backdrop-filter', 'blur(1px)') || C.supports('-webkit-backdrop-filter', 'blur(1px)'); } catch { return true; } };
   function paint() {
     const card = document.querySelector('article.card[data-sec="apparence"]'); if (!card) return;
     let box = card.querySelector('#themeGrid');
@@ -413,7 +500,8 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
       // En tête, la place (vide, cachée) du choix de l'animation de déplacement ; puis « Automatique » et sa raison ;
       // puis l'interrupteur « selon son humeur » (une vraie case, rôle d'interrupteur) ; puis les familles.
       wrap.innerHTML = '<section id="themeAnims" class="tanims" data-place="animations" hidden></section><div class="tauto"><button type="button" class="btn" id="themeAuto" aria-pressed="false"></button><span class="hint" id="themeAutoAide"></span></div><span class="hint" id="themeWhy"></span>'
-        + '<label class="thum" for="themeHumeur"><input type="checkbox" role="switch" id="themeHumeur" aria-describedby="themeHumeurAide"><span id="themeHumeurNom"></span></label><span class="hint" id="themeHumeurAide"></span><div id="themeGrid"></div>';
+        + '<label class="thum" for="themeHumeur"><input type="checkbox" role="switch" id="themeHumeur" aria-describedby="themeHumeurAide"><span id="themeHumeurNom"></span></label><span class="hint" id="themeHumeurAide"></span>'
+        + '<div class="tverre" id="themeVerreBox"><label class="tvl" for="themeVerre"><span id="themeVerreNom"></span><input type="range" id="themeVerre" min="0" max="100" step="1" aria-describedby="themeVerreAide themeVerreLimite"><output id="themeVerreVal" for="themeVerre"></output></label><span class="hint" id="themeVerreAide"></span><span class="hint" id="themeVerreLimite"></span></div><div id="themeGrid"></div>';
       card.querySelector('h2').after(wrap);
       card.querySelector('#themeAnims')?.setAttribute('aria-label', TEXTES.animations);
       const hum = card.querySelector('#themeHumeur');
@@ -421,6 +509,12 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
         card.querySelector('#themeHumeurNom').textContent = TEXTES.humeur;
         card.querySelector('#themeHumeurAide').textContent = TEXTES.humeurAide;
         hum.addEventListener('change', () => humeur(hum.checked === true));
+      }
+      const curseur = card.querySelector('#themeVerre');
+      if (curseur) {
+        card.querySelector('#themeVerreNom').textContent = TEXTES.verre;
+        curseur.addEventListener('input', () => verre(Number(curseur.value), false));
+        curseur.addEventListener('change', () => verre(Number(curseur.value), true));
       }
       const css = document.createElement('style'); css.textContent = CSS_CARTES;
       document.head.append(css);
@@ -455,6 +549,19 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     for (const b of box.querySelectorAll('button.thc')) b.setAttribute('aria-pressed', String(b.dataset.theme === choisi));
     const auto = card.querySelector('#themeAuto'); if (auto) { auto.setAttribute('aria-pressed', String(state.mode === 'auto')); auto.classList.toggle('primary', state.mode === 'auto'); }
     const hum = card.querySelector('#themeHumeur'); if (hum) hum.checked = state.humeurTheme !== false;
+    // Le curseur du verre suit le thème affiché (choisi, automatique ou de l'événement du jour : chacun sa valeur).
+    const boite = card.querySelector('#themeVerreBox');
+    if (boite) {
+      const c = curseurVerre(current); boite.hidden = !c;
+      if (c) {
+        const curseur = card.querySelector('#themeVerre'); curseur.value = String(c.valeur);
+        card.querySelector('#themeVerreVal').textContent = remplir(TEXTES.verreValeur, { n: c.valeur });
+        card.querySelector('#themeVerreAide').textContent = remplir(TEXTES.verreAide, { nom: nomAffiche(current) });
+        // Au-delà de la limite du thème, le réglage le dit (la carte, elle, ne devient pas plus transparente).
+        const dit = !flouPossible() ? TEXTES.verreSansFlou : c.valeur > c.limite ? remplir(c.limite === 0 ? TEXTES.verrePlein : TEXTES.verreLimite, { n: c.limite }) : '';
+        const lim = card.querySelector('#themeVerreLimite'); lim.textContent = dit; lim.hidden = !dit;
+      }
+    }
     const why = card.querySelector('#themeWhy');
     if (why) why.textContent = (state.eventTheme ? remplir(TEXTES.evenement, { nom: THEMES[state.eventTheme].name }) : '') + (state.mode === 'auto' ? remplir(TEXTES.raisonAuto, { nom: THEMES[state.theme]?.name ?? state.theme, why: state.why ? remplir(TEXTES.raisonPourquoi, { why: state.why }) : '', odin: state.odin ? remplir(TEXTES.raisonOdin, { why: state.odin.why }) : '' }) : remplir(TEXTES.choisi, { nom: nomAffiche(state.theme) }));
     // Les réglages d'origine (Odin / Clair épuré, clair / sombre) ne valent que pour Valhalla.

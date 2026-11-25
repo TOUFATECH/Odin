@@ -188,6 +188,23 @@ export function cleanEvents(e: unknown): EventsCfg {
     famille: (x.famille ?? []).filter((f) => f && typeof f.nom === 'string' && md.test(f.date)).map((f) => ({ nom: f.nom.slice(0, 40), date: f.date })).slice(0, 50),
   };
 }
+/**
+ * « Transparence du verre » (maquette validée : un curseur de 0 à 100, gardé pour chaque thème) : la valeur choisie par
+ * thème, nettoyée — un thème connu (pas Valhalla, qui n'a pas de verre), un nombre ramené entre 0 et 100, arrondi.
+ * Un thème sans valeur garde sa transparence de départ. La limite de lisibilité de chaque thème est tenue par la page
+ * (src/web/themes.js) : la carte n'y devient jamais plus transparente que ce que ses textes supportent.
+ */
+export function cleanVerre(x: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return out;
+  for (const [k, v] of Object.entries(x as Record<string, unknown>)) {
+    if (!IDS.includes(k) || k === 'valhalla' || typeof v !== 'number' || !Number.isFinite(v)) continue;
+    out[k] = Math.round(Math.max(0, Math.min(100, v)));
+  }
+  return out;
+}
+/** Les réglages envoyés à « regler_mascotte » parlent-ils du verre ? (ce réglage-là est réservé au propriétaire) */
+const parleDuVerre = (i: Record<string, unknown>) => { try { const j = JSON.parse(s(i.reglages)) as unknown; return Boolean(j && typeof j === 'object' && 'verre' in j); } catch { return false; } };
 /** L'heure locale (fuseau réglable, Mayotte par défaut). */
 const hourIn = (d: Date, tz: string) => { try { return Number(new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', hourCycle: 'h23', timeZone: tz }).format(d)); } catch { return d.getHours(); } };
 
@@ -244,10 +261,12 @@ export const apparence: Module = (() => {
         const n = await now(ctx), tz = fuseauDe(ctx, n.wx ?? await meteo(ctx)), day = ymd(ctx.now(), tz), ev = selonLePays(cleanEvents(ctx.settings.evenements)), m = (ctx.settings.mascotte ?? {}) as { cache?: boolean; clics?: unknown; clics2?: unknown; clicsOn?: boolean };
         // Odin prend la couleur du thème affiché : plus de couleur à part selon la météo (décision du 15/11/2026).
         const event = todayEvent(day, ev);
-        const data = { mode: n.mode, theme: n.theme, why: n.why, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, evenements: ev, humeurTheme: humeurJoue(ctx), humeur: humeurVive(ctx.now().getTime()), maintenant: ctx.now().getTime() };
+        const data = { mode: n.mode, theme: n.theme, why: n.why, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, evenements: ev, humeurTheme: humeurJoue(ctx), humeur: humeurVive(ctx.now().getTime()), maintenant: ctx.now().getTime(), verre: cleanVerre(ctx.settings.verre) };
         return { text: `🎨 ${THEME_NAMES[n.theme]}${event ? ` · ${event.name}` : ''}${data.cache ? ' · Odin caché' : ''}`, data };
       } },
-      { id: 'regler_mascotte', label: 'Régler Odin (clics, événements)', what: 'Enregistre les réglages venus de l\'écran Réglages → Apparence (JSON : mascotte, evenements, humeurTheme)', quiet: true, quick: false,
+      { id: 'regler_mascotte', label: 'Régler Odin (clics, événements)', what: 'Enregistre les réglages venus de l\'écran Réglages → Apparence (JSON : mascotte, evenements, humeurTheme, verre)', quiet: true, quick: false,
+        // La transparence du verre (par thème) : réservée au propriétaire ; le reste ne change pas.
+        proprietaireSeul: parleDuVerre,
         params: [{ key: 'reglages', label: 'Réglages (JSON)', kind: 'text', required: true }], run: (ctx, i) => {
           let j: Record<string, unknown>; try { j = JSON.parse(s(i.reglages)) as Record<string, unknown>; } catch { throw new Error('réglages illisibles'); }
           const patch: Record<string, unknown> = {};
@@ -255,6 +274,8 @@ export const apparence: Module = (() => {
           if (j.evenements !== undefined) patch.evenements = cleanEvents({ ...cleanEvents(ctx.settings.evenements), ...(j.evenements as object) });
           // « Odin change de thème selon son humeur » : changé, la règle automatique repart tout de suite (sans attendre l'heure).
           if (typeof j.humeurTheme === 'boolean') { patch.humeurTheme = j.humeurTheme; if (j.humeurTheme !== humeurJoue(ctx)) patch.auto = undefined; }
+          // « Transparence du verre » : la valeur d'un thème (ou de plusieurs), ajoutée à celles des autres thèmes.
+          if (j.verre && typeof j.verre === 'object') { const v = cleanVerre(j.verre); if (Object.keys(v).length) patch.verre = { ...cleanVerre(ctx.settings.verre), ...v }; }
           if (!Object.keys(patch).length) throw new Error('rien à enregistrer');
           ctx.saveSettings(patch);
           const dit = typeof j.humeurTheme === 'boolean' ? ` ${j.humeurTheme ? TEXTES.humeurMise : TEXTES.humeurCoupee}` : '';
