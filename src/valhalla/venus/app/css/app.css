@@ -4038,3 +4038,20 @@ html[data-tone="light"] .new-head .auto-pill { color: #146c3c; background: rgba(
 @media (max-width: 760px) { .up-card:has(.up-acts) .up-ph { padding: 44px 12px 34px; } } /* au téléphone, le titre de la vignette descend sous la pastille passée à la ligne */
 @media (max-width: 760px) { .cal-sheet .btn-row .btn { padding: 10px 16px; line-height: 1.25; } } /* « S’abonner » sur deux lignes au téléphone : de l’air au-dessus et au-dessous */
 html[data-tone="light"] .spotlight .r-tmdb .r-src { color: #07708f; } /* « Note » des Nouveautés, lisible en clair */
+/* La maison (lot V8) : la vignette de couleur d’un titre sans affiche reste dans sa case (« .ph » se pose sur toute la
+   case : la case doit la tenir), et son titre se lit au milieu, sans déborder. */
+.together-pic { position: relative; display: block; }
+.together-pic .ph, .pl-thumb .ph { display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px; font-size: .72rem; font-weight: 700; line-height: 1.15; overflow-wrap: break-word; overflow: hidden; }
+/* Les cibles de la maison font 44 px au moins (doigt et clavier), comme les écrans du lot V4. */
+.maison .seg-b, .maison .btn-small, .maison .btn-del { min-height: 44px; min-width: 44px; }
+.maison .p-icon.small { width: 44px; height: 44px; }
+.maison .coll-x { width: 44px; height: 44px; }
+/* Liste de lecture : le titre d'une vignette sans image tient en trois lignes au plus (la case est basse), jamais coupé en haut. */
+.pl-thumb .ph span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+/* Fenêtre « Télécharger » : le petit texte d'une version reste à gauche quand il passe à la ligne (téléphone) ; plus
+   précis que « .sheet .opt small » d'odin.css, qui le pousse à droite. */
+.sheet .dl-choices .opt small { margin-left: 0; text-align: left; }
+/* Fenêtre « Ajouter à… » : « 1 titre », « 6 vidéos » assez contrastés sur le fond de la fenêtre, en clair comme en sombre. */
+.add-to .opt small { color: var(--haze); }
+/* « Que regarder ce soir ? » et « Qui regarde ce soir ? » : lignes équilibrées, le « ? » ne passe jamais seul à la ligne. */
+.vote-intro h1, .together .section-title { text-wrap: balance; }

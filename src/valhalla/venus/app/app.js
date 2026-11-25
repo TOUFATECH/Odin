@@ -110,6 +110,63 @@
       'Les épisodes de vos séries, les sorties de films demandées et vos favoris apparaissent dans le calendrier de votre téléphone ou de votre ordinateur, mis à jour tout seuls.': 'Episodes of your shows, requested movie releases and your favourites appear in the calendar of your phone or computer, updated automatically.',
       'S’abonner (iPhone, Mac, Outlook)': 'Subscribe (iPhone, Mac, Outlook)', 'Copier le lien': 'Copy link', 'Lien copié': 'Link copied', 'Lien du calendrier': 'Calendar link',
       'Google Agenda : Paramètres → Ajouter un agenda → À partir de l’URL, puis collez le lien. Ce lien est personnel : ne le partagez pas. Il ne fonctionne que sur le réseau de la maison (ou à distance si Venus est accessible depuis Internet).': 'Google Calendar: Settings → Add calendar → From URL, then paste the link. This link is personal: do not share it. It only works on the home network (or remotely if Venus can be reached from the Internet).',
+      // la maison (lot V8) : Ce soir, vote, statistiques, rétrospective, collections, téléchargements
+      'Ce soir': 'Tonight', 'Collections': 'Collections', 'Séance': 'Watch party', 'Télécommande': 'Remote', 'Statistiques': 'Statistics', 'Téléchargements': 'Downloads', 'Rétrospective': 'Year in review',
+      'Trois questions, trois idées à regarder': 'Three questions, three ideas to watch', '3 idées pour vous': '3 ideas for you', 'Sagas, collections et listes de lecture': 'Sagas, collections and playlists', 'Sagas et listes': 'Sagas and lists',
+      'Vos heures, genres et séries préférées': 'Your hours, genres and favourite shows', 'Vos vidéos pour regarder sans réseau': 'Your videos to watch offline',
+      'Bonsoir': 'Good evening', 'Bonjour': 'Hello', 'Quelle envie ce soir ?': 'What are you in the mood for tonight?', 'Quelle envie aujourd’hui ?': 'What are you in the mood for today?', 'Combien de temps devant vous ?': 'How much time do you have?', 'Avec qui ?': 'Who with?',
+      'Rire': 'Laugh', 'Une comédie, quelque chose de léger': 'A comedy, something light', 'Frissonner': 'Get chills', 'Suspense, enquête, peur': 'Suspense, mystery, fear', 'Être ému': 'Be moved', 'Une belle histoire qui touche': 'A beautiful, touching story',
+      'S’évader': 'Escape', 'Ailleurs, demain, l’aventure': 'Elsewhere, tomorrow, adventure', 'Apprendre': 'Learn', 'Documentaire, histoire vraie': 'Documentary, true story', 'Surprends-moi': 'Surprise me', 'Laissez Venus choisir': 'Let Venus choose',
+      'Moins de 45 min': 'Under 45 min', 'Un épisode, un clip': 'An episode, a music video', 'Environ 1 h 30': 'About 1 h 30', 'Un film court ou deux épisodes': 'A short movie or two episodes', 'Toute la soirée': 'The whole evening', 'Tout le temps qu’il faut': 'As long as it takes', 'Un grand film, une série': 'A long movie, a show',
+      'Seul': 'Alone', 'Rien que pour moi': 'Just for me', 'À deux': 'Two of us', 'En couple ou entre amis proches': 'As a couple or with close friends', 'En famille': 'With family', 'Avec des enfants': 'With children', 'Entre amis': 'With friends', 'Ambiance, rires, sensations': 'Fun, laughs, thrills',
+      'Question {n} sur 3': 'Question {n} of 3', 'Question précédente': 'Previous question', 'Voici nos idées pour ce soir': 'Here are our ideas for tonight', 'Voici nos idées pour aujourd’hui': 'Here are our ideas for today', 'Rien ne correspond… pour l’instant': 'Nothing matches… for now',
+      'Notre choix': 'Our pick', 'Idée {n}': 'Idea {n}', 'Trois autres idées': 'Three more ideas', 'Voter en famille': 'Family vote', 'Recommencer': 'Start over',
+      'Épisodes de {n} min': '{n} min episodes', '{d}, fini à {h}': '{d}, ends at {h}', 'Tous publics': 'All ages', 'Dès {n} ans': 'Ages {n}+', 'Jamais commencée': 'Never started', 'Jamais vu': 'Never watched', 'Déjà commencé': 'Already started',
+      '{n} épisode à voir': '{n} episode to watch', '{n} épisodes à voir': '{n} episodes to watch', '{n} h': '{n} h', '{n} min': '{n} min',
+      'Odin ne connaît pas encore l’âge permis des titres : rien n’est proposé « en famille ».': 'Odin does not know the age ratings of titles yet: nothing is suggested “with family”.',
+      'Essayez une autre envie ou plus de temps : votre bibliothèque n’a rien qui colle à ces trois critères.': 'Try another mood or more time: your library has nothing matching these three answers.',
+      'Qui regarde ce soir ?': 'Who’s watching tonight?', 'Film pour tout le monde': 'A movie for everyone', 'Personnes présentes': 'People here', 'enfant': 'child', 'Choisissez au moins une personne.': 'Choose at least one person.', 'Recherche…': 'Searching…',
+      'Cochez les personnes présentes : Venus propose ce que personne n’a vu, permis au plus jeune, et qui plaît à chacun.': 'Tick who is here: Venus suggests what nobody has seen, allowed for the youngest, and liked by everyone.',
+      'Un enfant est présent : Odin ne connaît pas encore l’âge permis des titres, rien n’est proposé.': 'A child is here: Odin does not know the age ratings of titles yet, so nothing is suggested.',
+      'Rien que tout ce monde n’ait pas déjà vu : essayez les séries, ou retirez quelqu’un.': 'Nothing that all these people have not already seen: try shows, or remove someone.',
+      'Vote en famille': 'Family vote', 'QR code du vote': 'Vote QR code', 'Chacun scanne ce QR code avec son téléphone, ou ouvre Venus et tape le code :': 'Everyone scans this QR code with their phone, or opens Venus and types the code:',
+      'Pas encore de voix': 'No votes yet', 'Lancer « {t} »': 'Play “{t}”', 'Voir le résultat': 'See the result', 'Le vote est terminé !': 'The vote is over!', 'Le vote est terminé.': 'The vote is over.',
+      'Rejoindre le vote': 'Join the vote', 'Tapez le code à 4 lettres affiché sur la TV.': 'Type the 4-letter code shown on the TV.', 'Code du vote': 'Vote code', 'Rejoindre': 'Join', 'Le code fait 4 lettres.': 'The code is 4 letters long.', 'Vote introuvable ou terminé.': 'Vote not found or over.',
+      'Ce soir, ce sera': 'Tonight it will be', '{v} sur {n}': '{v} out of {n}', '{n} voix': '{n} votes', 'Voir la fiche': 'See details', 'A voté !': 'Voted!', 'Que regarder ce soir ?': 'What to watch tonight?',
+      'Vous pouvez changer d’avis tant que le vote est ouvert.': 'You can change your mind while the vote is open.', 'Proposé par {n}. Touchez votre choix.': 'Suggested by {n}. Tap your choice.',
+      'Mes statistiques': 'My statistics', 'Ma rétrospective {y}': 'My {y} in review', 'Année': 'Year', 'D’après la progression gardée par Odin : un titre revu compte une fois, au jour de sa dernière lecture.': 'Based on the progress Odin keeps: a title watched again counts once, on the day it was last played.',
+      'Rien de regardé en {y} pour l’instant': 'Nothing watched in {y} yet', 'Lancez un film ou un épisode : vos statistiques se rempliront toutes seules.': 'Play a movie or an episode: your statistics will fill in by themselves.',
+      'regardées en {y}': 'watched in {y}', 'plus de {n} jour entier': 'more than {n} full day', 'plus de {n} jours entiers': 'more than {n} full days', 'Genre préféré :': 'Favourite genre:', 'Série la plus suivie :': 'Most watched show:', 'Animé le plus suivi :': 'Most watched anime:', 'Plus gros mois :': 'Biggest month:', 'Vous avez beaucoup vu': 'You watched a lot of',
+      'film vu': 'movie watched', 'films vus': 'movies watched', 'épisode vu': 'episode watched', 'épisodes vus': 'episodes watched', 'jours avec une lecture': 'days with something played', '{n} j': '{n} d', 'plus longue série de jours': 'longest streak of days', 'depuis le début': 'since the start',
+      'Jour par jour': 'Day by day', '{n} jour avec une lecture': '{n} day with something played', '{n} jours avec une lecture': '{n} days with something played', 'Calendrier {y} : {n}': '{y} calendar: {n}', 'Moins': 'Less', 'rien': 'nothing', '{a} : {b}': '{a}: {b}',
+      'Mois par mois': 'Month by month', 'Films, séries, animés': 'Movies, shows, anime', 'Jours de la semaine': 'Days of the week', 'Heures de la journée': 'Hours of the day', '{a} h – {b} h': '{a}:00 – {b}:00',
+      'Pas encore assez de données.': 'Not enough data yet.', 'Séries les plus regardées': 'Most watched shows', 'Animés les plus regardés': 'Most watched anime', 'Derniers films vus': 'Last movies watched', 'Rien pour l’instant.': 'Nothing yet.',
+      'Votre année {y}': 'Your {y}', 'Rien de regardé pour l’instant': 'Nothing watched yet', 'Lancez un film ou un épisode : votre rétrospective se remplira toute seule.': 'Play a movie or an episode: your year in review will fill in by itself.',
+      '{n}, votre année {y}': '{n}, your {y}', 'devant l’écran, soit {a}, sur {b}.': 'in front of the screen, that is {a}, over {b}.', 'devant l’écran, sur {b}.': 'in front of the screen, over {b}.',
+      '{n} jour différent': '{n} different day', '{n} jours différents': '{n} different days', '{n} jour entier': '{n} full day', '{n} jours entiers': '{n} full days',
+      'film vu jusqu’au bout.': 'movie watched to the end.', 'films vus jusqu’au bout.': 'movies watched to the end.', 'épisode regardé.': 'episode watched.', 'épisodes regardés.': 'episodes watched.', 'votre série de l’année : {h}': 'your show of the year: {h}',
+      'Votre animé de l’année : {h}, {e}.': 'Your anime of the year: {h}, {e}.', 'Votre animé de l’année : {h}.': 'Your anime of the year: {h}.', 'Votre genre préféré': 'Your favourite genre', '{h} en tout.': '{h} in all.', 'Juste derrière : {g}.': 'Close behind: {g}.',
+      'La personne que vous avez le plus vue': 'The person you saw the most', 'À l’écran ou derrière la caméra, elle était dans beaucoup de vos titres.': 'On screen or behind the camera, they were in many of your titles.',
+      'Votre mois le plus chargé': 'Your busiest month', '{h} de visionnage.': '{h} of watching.', 'Record : {n} jours de suite.': 'Record: {n} days in a row.', 'Terminées cette année': 'Finished this year',
+      'série ou animé vu en entier.': 'show or anime watched in full.', 'séries et animés vus en entier.': 'shows and anime watched in full.', '{y}, c’était ça': 'That was {y}', 'Merci, {n} !': 'Thank you, {n}!', 'À l’année prochaine pour de nouvelles histoires.': 'See you next year for new stories.',
+      'diaporama': 'slideshow', 'Rétrospective {y}': '{y} in review', 'Revoir': 'Watch again', 'Tous les détails': 'All the details', 'Écran suivant': 'Next screen',
+      'Collections ({n})': 'Collections ({n})', 'Listes de lecture ({n})': 'Playlists ({n})', 'Nouvelle liste': 'New list', 'Nouvelle collection': 'New collection', 'Listes de lecture': 'Playlists', 'Listes': 'Lists',
+      'Aucune liste de lecture. Sur la fiche d’un titre, touchez « Ajouter à une liste ».': 'No playlists. On a title’s details, tap “Add to a list”.', 'Aucune collection pour l’instant.': 'No collections yet.',
+      'Cette collection n’existe pas (ou plus).': 'This collection does not exist (anymore).', 'Cette liste n’existe pas (ou plus).': 'This list does not exist (anymore).', 'Renommer': 'Rename', 'Supprimer la collection': 'Delete the collection', 'Supprimer la liste': 'Delete the list',
+      'Retirer « {t} »': 'Remove “{t}”', 'Retirer de la collection': 'Remove from the collection', 'Collection vide : ajoutez des titres avec « Ajouter à une liste » sur leur fiche.': 'Empty collection: add titles with “Add to a list” on their details.',
+      'Continuer': 'Continue', 'Tout lire': 'Play all', 'Aléatoire': 'Shuffle', 'Monter': 'Move up', 'Descendre': 'Move down', 'Vu': 'Watched', 'Liste vide : sur la fiche d’un titre, touchez « Ajouter à une liste ».': 'Empty list: on a title’s details, tap “Add to a list”.',
+      'Nouvelle liste de lecture': 'New playlist', 'Ex. : Marathon du dimanche': 'E.g.: Sunday marathon', 'Créer': 'Create', 'Donnez un nom à la liste': 'Give the list a name', 'Liste « {n} » créée avec {v}': 'List “{n}” created with {v}', 'Liste « {n} » créée': 'List “{n}” created',
+      'Ex. : Films de Noël': 'E.g.: Christmas movies', 'Visible par tous les profils.': 'Visible to every profile.', 'Donnez un nom à la collection': 'Give the collection a name', 'Collection « {n} » créée': 'Collection “{n}” created',
+      'Ajouter à une liste': 'Add to a list', 'Ajouter « {t} »': 'Add “{t}”', '{n} titre': '{n} title', '{n} titres': '{n} titles', '{n} vidéo': '{n} video', '{n} vidéos': '{n} videos',
+      'Ajouté à la collection « {n} »': 'Added to the collection “{n}”', 'Ajouté à « {n} » ({e})': 'Added to “{n}” ({e})', 'Ajouté à « {n} »': 'Added to “{n}”', 'Déjà dans « {n} »': 'Already in “{n}”',
+      'Renommer la collection': 'Rename the collection', 'Renommer la liste': 'Rename the list', 'Le nom est obligatoire': 'A name is required', 'Supprimer': 'Delete',
+      'Supprimer la collection « {n} » ? Les vidéos restent dans Venus.': 'Delete the collection “{n}”? The videos stay in Venus.', 'Supprimer la liste « {n} » ? Les vidéos restent dans Venus.': 'Delete the list “{n}”? The videos stay in Venus.',
+      '« {t} » retiré': '“{t}” removed', '« {t} » retiré de la liste': '“{t}” removed from the list',
+      'Les vidéos sont enregistrées sur votre appareil : elles se regardent ensuite sans réseau. Sur iPhone, choisissez « Enregistrer dans Fichiers » puis ouvrez-les avec l’appli Fichiers ou VLC.': 'Videos are saved on your device: you can then watch them offline. On iPhone, choose “Save to Files” then open them with the Files app or VLC.',
+      'Aucune version légère en préparation : elles arrivent dans Odin avec un prochain lot. Sur la fiche d’un film, « Télécharger » enregistre déjà le fichier d’origine.': 'No light versions being prepared: they come to Odin with a later batch. On a movie’s details, “Download” already saves the original file.',
+      'Télécharger « {t} »': 'Download “{t}”', 'Fichier d’origine': 'Original file', 'Meilleure qualité': 'Best quality', 'Version légère 720p': 'Light version 720p', 'Très légère 480p': 'Very light 480p', 'Idéale pour un téléphone ou une tablette': 'Ideal for a phone or tablet', 'Pour garder de la place': 'To save space',
+      'Les versions légères seront préparées par Odin dans un prochain lot ; le fichier d’origine s’enregistre tout de suite.': 'Odin will prepare light versions in a later batch; the original file saves right away.', '{n} Go': '{n} GB', '{n} Mo': '{n} MB',
+      'Suivant': 'Next', 'Ajouté récemment': 'Recently added', '{n} ép.': '{n} ep.', 'Type': 'Type',
     },
   };
   const LANG = String((D && D.documentElement.lang) || (W.navigator && W.navigator.language) || 'fr');
@@ -270,6 +327,70 @@
       const reste = sec ? (sec >= 3600 ? `${Math.floor(sec / 3600)}:${pad2(Math.floor((sec % 3600) / 60))}:${pad2(sec % 60)}` : `${pad2(Math.floor(sec / 60))}:${pad2(sec % 60)}`) : '';
       return { titre: c.titre || x.titre || '', ep: c.genre === 'episode' && c.saison != null ? `S${c.saison}:É${c.episode}` : '', pct, etat: ETAT_FILE[x.etat] || String(x.etat || ''), reste };
     },
+  });
+  // ---------------------------------------------------------------- la maison (logique pure, lot V8)
+  // Tonight.js : trois questions (envie, temps, avec qui), trois idées argumentées. Les mots des genres sont cherchés
+  // sans accents dans les genres des fiches (français et anglais : les langues des catalogues de Venus).
+  const MOODS = [
+    ['rire', 'Rire', 'Une comédie, quelque chose de léger', ['comedie', 'famil', 'animation', 'comedy']],
+    ['frissons', 'Frissonner', 'Suspense, enquête, peur', ['horreur', 'thriller', 'mystere', 'crime', 'policier', 'horror', 'mystery']],
+    ['emotion', 'Être ému', 'Une belle histoire qui touche', ['drame', 'romance', 'drama']],
+    ['evasion', 'S’évader', 'Ailleurs, demain, l’aventure', ['science', 'fantas', 'aventure', 'action', 'animation', 'adventure']],
+    ['reflechir', 'Apprendre', 'Documentaire, histoire vraie', ['documentaire', 'histoire', 'guerre', 'mystere', 'documentary', 'history', 'war', 'mystery']],
+    ['surprise', 'Surprends-moi', 'Laissez Venus choisir', []],
+  ];
+  const TIMES = (soir) => [['30', 'Moins de 45 min', 'Un épisode, un clip', 45], ['90', 'Environ 1 h 30', 'Un film court ou deux épisodes', 110], ['120', soir ? 'Toute la soirée' : 'Tout le temps qu’il faut', 'Un grand film, une série', 999]];
+  const WHO = [['seul', 'Seul', 'Rien que pour moi'], ['duo', 'À deux', 'En couple ou entre amis proches'], ['famille', 'En famille', 'Avec des enfants'], ['amis', 'Entre amis', 'Ambiance, rires, sensations']];
+  const WHO_BONUS = { duo: ['romance', 'drame', 'comedie', 'thriller', 'drama', 'comedy'], famille: ['animation', 'famil', 'comedie', 'aventure', 'comedy', 'adventure'], amis: ['comedie', 'action', 'horreur', 'thriller', 'comedy', 'horror'] };
+  const MOIS = (m, mois = 'short') => date(new Date(2026, m, 1).getTime(), { month: mois });
+  const JOURS = (w, jour = 'short') => date(new Date(2026, 1, 2 + w).getTime(), { weekday: jour }); // le 2 février 2026 est un lundi
+  Object.assign(L, {
+    MOODS, WHO, TIMES,
+    /** La durée d'un titre en minutes : la vraie (film, épisodes d'une série en moyenne), sinon l'estimation de Venus. Pur. */
+    lengthOf(i) { return i.type === 'movie' ? i.runtime || 110 : i.type === 'clip' ? Math.max(3, i.runtime || 4) : i.runtime || (i.category === 'anime' ? 24 : 45); },
+    /**
+     * Le score d'un titre pour les réponses (score() de Tonight.js) : null s'il ne convient pas. « En famille » demande
+     * l'âge permis du titre : sans lui, le titre n'est pas proposé (jamais deviné). `alea` : le petit hasard de Venus.
+     */
+    tonightScore(i, a, soir, now = Date.now(), alea = Math.random) {
+      if (i.type === 'clip' && a.time !== '30') return null;
+      const g = (i.genres || []).map(norm).join(' '), mood = MOODS.find((m) => m[0] === a.mood), reasons = [];
+      let s = 0;
+      if (mood && mood[3].length) { const hits = mood[3].filter((k) => g.includes(k)).length; if (!hits) return null; s += 4 + hits * 1.5; reasons.push((i.genres || [])[0]); }
+      const tm = TIMES(soir).find((x) => x[0] === a.time), len = L.lengthOf(i);
+      if (tm) {
+        if (len > tm[3]) return null;
+        if (a.time === '120' && i.type === 'movie' && len >= 100) s += 2;
+        if (a.time === '30' && i.type !== 'movie') s += 2;
+        reasons.push(i.type === 'show' ? t('Épisodes de {n} min', { n: nombre(len) }) : t('{d}, fini à {h}', { d: duree(len), h: date(now + len * 60000, { hour: '2-digit', minute: '2-digit' }) }));
+      }
+      if (a.who === 'famille') { if (i.age == null || i.age > 10) return null; reasons.push(i.age === 0 ? t('Tous publics') : t('Dès {n} ans', { n: nombre(i.age) })); }
+      s += (WHO_BONUS[a.who] || []).filter((k) => g.includes(k)).length * 1.2;
+      if (i.status === 'unseen') { s += 3; reasons.push(i.type === 'show' ? t('Jamais commencée') : t('Jamais vu')); }
+      else if (i.status === 'progress') { s += i.type === 'show' ? 2.5 : 1; reasons.push(i.type === 'show' && i.unseen ? tn(i.unseen, '{n} épisode à voir', '{n} épisodes à voir') : t('Déjà commencé')); }
+      else s -= 4;
+      const v = L.note(i); if (v) { s += (v - 6) * 0.9; if (v >= 7.8) reasons.push(`${new Intl.NumberFormat(LANG, { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(v)}/10`); }
+      if (i.added && now - i.added < 14 * 864e5) { s += 1; reasons.push(t('Ajouté récemment')); }
+      return { item: i, score: s + alea() * 1.5, reasons: [...new Set(reasons.filter(Boolean))].slice(0, 4) };
+    },
+    /** Les trois idées : les mieux notées, en évitant celles déjà montrées tant qu'il en reste trois autres. Pur. */
+    tonightPicks(items, a, soir, shown, now = Date.now(), alea = Math.random) {
+      const ranked = items.map((i) => L.tonightScore(i, a, soir, now, alea)).filter(Boolean).sort((x, y) => y.score - x.score);
+      const fresh = ranked.filter((r) => !shown.has(r.item.id));
+      return (fresh.length >= 3 ? fresh : ranked).slice(0, 3);
+    },
+    /** Des heures lisibles (Stats.js, fh) : « 0 h », « 25 min », « 1,5 h », « 120 h ». Pur. */
+    heures(x) { return !x ? t('{n} h', { n: nombre(0) }) : x < 1 ? t('{n} min', { n: nombre(Math.max(1, Math.round(x * 60))) }) : t('{n} h', { n: nombre(x >= 100 ? Math.round(x) : Math.round(x * 10) / 10) }); },
+    /** Le niveau d'une case du calendrier (0 à 4, par quartiles des jours avec une lecture). Pur. */
+    niveaux(data) {
+      const vals = Object.values(data).filter(Boolean).sort((a, b) => a - b);
+      const q = (p) => (vals.length ? vals[Math.min(vals.length - 1, Math.floor(p * vals.length))] : 1), st = [q(0.25), q(0.5), q(0.75)];
+      return (v) => (!v ? 0 : v <= st[0] ? 1 : v <= st[1] ? 2 : v <= st[2] ? 3 : 4);
+    },
+    /** Le nom d'un mois et d'un jour de la semaine (0 = lundi), dans la langue de la page. Pur. */
+    mois: MOIS, joursSemaine: JOURS,
+    /** Le nouvel ordre d'une liste de lecture après « Monter » ou « Descendre ». Pur. */
+    bouger(l, n, dir) { const j = n + dir; if (j < 0 || j >= l.length) return l; const x = [...l]; [x[n], x[j]] = [x[j], x[n]]; return x; },
   });
   W.VenusApp = { L, t, TXT, NAV_ITEMS, DEFAULT_HIDDEN, RAIL_MAX };
   if (!D || !D.getElementById || !D.getElementById('app')) return; // chargé pour les essais : rien à dessiner
@@ -490,6 +611,8 @@
           ${endPos ? `<a class="btn btn-ghost btn-icon f" aria-label="${esc(t('Recommencer depuis le début'))}" title="${esc(t('Recommencer'))}" href="${href(`${lirePath(next.id)}?debut=1`)}">${I('restart')}</a>` : ''}
           <button class="btn btn-ghost btn-icon f" aria-label="${esc(t('Envoyer vers un autre écran'))}" title="${esc(t('Envoyer vers la télé'))}" data-act="sendto" data-v="${esc(next.id)}">${I('cast')}</button>
           <button class="btn btn-ghost btn-icon f" aria-label="${esc(d.inList ? t('Retirer de ma liste') : t('Ajouter à ma liste'))}" title="${esc(t('Ma liste'))}" aria-pressed="${d.inList}" data-act="mylist" data-v="${esc(d.id)}">${I(d.inList ? 'check' : 'plus')}</button>
+          ${S.profile.isKids ? '' : `<button class="btn btn-ghost btn-icon f" aria-label="${esc(t('Ajouter à une liste'))}" title="${esc(t('Ajouter à une liste'))}" data-act="addto" data-v="${esc(d.id)}">${I('list')}</button>`}
+          ${!isShow && !S.profile.isKids ? `<button class="btn btn-ghost btn-icon f" aria-label="${esc(t('Télécharger'))}" title="${esc(t('Télécharger'))}" data-act="dlsheet" data-v="${esc(d.id)}">${I('down')}</button>` : ''}
           ${!isShow ? `<button class="btn btn-ghost btn-icon f${seen ? ' is-on' : ''}" aria-label="${esc(seen ? t('Marquer comme non vu') : t('Marquer comme vu'))}" title="${esc(seen ? t('Vu : marquer comme non vu') : t('Marquer comme vu'))}" aria-pressed="${seen}" data-act="seen" data-v="${esc(d.id)}" data-d="${total}" data-on="${seen ? 1 : 0}">${I('eye')}</button>` : ''}
           ${ba.local ? `<button class="btn btn-ghost f" data-act="trailer" data-v="${esc(d.id)}">${I('film')}${esc(t('Bande-annonce'))}</button>` : `<button class="btn btn-ghost f" aria-disabled="true" title="${esc(t(ba.raison || ''))}" data-act="notrailer" data-v="${esc(t(ba.raison || ''))}">${I('film')}${esc(t('Bande-annonce'))}</button>`}
         </div>
@@ -778,6 +901,302 @@
   // Une section de Venus pas encore construite dans Odin : la place est gardée, et l'écran le dit.
   V.bientot = (path) => { const it = NAV_ITEMS.find((x) => x.href === path); return `<main class="with-nav page-in"><div class="page"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(it ? val(it.label) : 'Venus')}</h1></div></div>${Empty(t('Cette partie de Venus arrive dans Odin avec un prochain lot.'), `<a class="btn btn-ghost btn-small f" href="${href('/')}">${esc(t('Accueil'))}</a>`)}</div></main>`; };
 
+  // ---------------------------------------------------------------- la maison (écrans, lot V8)
+  // Tonight.js (« Ce soir », « Qui regarde ce soir ? »), Vote.js, Stats.js, Recap.js, Downloads.js et Collections.js du
+  // dépôt Venus, réécrits sans React. Les chiffres et les listes viennent d'Odin (/venus/api/…) : rien n'est inventé.
+  const M8 = { ts: { step: 0, answers: {}, picks: null, shown: new Set() }, tg: { sel: null, kind: 'movie', res: null, cle: '' }, vote: null, voteT: 0,
+    vt: { code: '', st: null, msg: '', mine: null, T: 0 }, stats: {}, recap: { i: 0, held: false, T: 0, an: 0, n: 0, reduce: false, reste: 7000, fin: 0 },
+    coll: undefined, collTab: 'collections', col: {}, pl: {}, nomFaire: null, confFaire: null, addItem: null };
+  // Rien n'est gardé dans le navigateur (règle de Vénus dans Odin) : l'appareil qui vote a un identifiant tiré au
+  // chargement de la page, et les personnes cochées dans « Qui regarde ce soir ? » vivent le temps de la page.
+  const CLIENT_VOTE = Array.from({ length: 2 }, () => Math.random().toString(36).slice(2)).join('');
+  const voteClient = () => CLIENT_VOTE;
+  const salutation = () => { const hr = new Date().getHours(); return hr >= 18 || hr < 4 ? t('Bonsoir') : t('Bonjour'); };
+  const ph = (title) => `<div class="ph" style="--h:${hueOf(title)}"><span>${esc(title)}</span></div>`;
+  const forme = (n, un, plusieurs) => t(plur.select(n) === 'one' ? un : plusieurs);
+  const taille = (b) => (!b ? '' : b >= 1e9 ? t('{n} Go', { n: new Intl.NumberFormat(LANG, { maximumFractionDigits: 1 }).format(b / 1e9) }) : t('{n} Mo', { n: nombre(Math.round(b / 1e6)) }));
+  // Rejoue la page en gardant le focus sur le même bouton (une réponse arrivée pendant qu'on tape au clavier).
+  const refaire = () => { const a = D.activeElement, k = a && a.dataset && a.dataset.act ? (a.dataset.v != null ? sel(a.dataset.act, a.dataset.v) : `[data-act="${a.dataset.act}"]`) : a && a.id ? `#${a.id}` : null; rerender(k); };
+  const siSur = (test) => { const p = L.route(location.hash).path; if (typeof test === 'string' ? p === test : test.test(p)) refaire(); };
+  const playItem = (i) => { if (!i) return; if (i.type === 'show' && !i.play) { go(titrePath(i)); return; } go(lirePath(i.play ? i.play.id : i.id)); };
+
+  // « Ce soir » (Tonight.js)
+  V.tonight = () => {
+    const soir = dayPart() === 'soir', st = M8.ts, TM = TIMES(soir);
+    const steps = [['mood', soir ? t('Quelle envie ce soir ?') : t('Quelle envie aujourd’hui ?'), MOODS], ['time', t('Combien de temps devant vous ?'), TM], ['who', t('Avec qui ?'), WHO]];
+    let body;
+    if (st.picks) {
+      const a = st.answers, picks = st.picks, low = (x) => x.toLocaleLowerCase(LANG);
+      const head = `${t(MOODS.find((m) => m[0] === a.mood)[1])}, ${low(t(TM.find((x) => x[0] === a.time)[1]))}, ${low(t(WHO.find((w) => w[0] === a.who)[1]))}`;
+      const sansAge = a.who === 'famille' && !S.items.some((i) => i.age != null);
+      body = `<div class="tonight-head">${I('moon')}<span>${esc(head)}</span></div><h1 class="tonight-q" tabindex="-1">${esc(picks.length ? (soir ? t('Voici nos idées pour ce soir') : t('Voici nos idées pour aujourd’hui')) : t('Rien ne correspond… pour l’instant'))}</h1>
+      ${picks.length ? `<div class="picks">${picks.map(({ item, reasons }, i) => `<article class="pick" style="animation-delay:${i * 90}ms"><div class="pick-img">${item.backdrop || item.poster ? `<img src="${esc(item.backdrop || item.poster)}" alt="" class="fade ok" loading="lazy" decoding="async">` : ph(item.title)}<span class="pick-rank">${esc(i === 0 ? t('Notre choix') : t('Idée {n}', { n: nombre(i + 1) }))}</span></div><div class="pick-body"><h2>${esc(item.title)}</h2><div class="pick-reasons">${reasons.map((r) => `<span>${esc(r)}</span>`).join('')}</div><div class="actions"><button class="btn btn-play f" data-act="tplay" data-v="${esc(item.id)}">${I('play')}${esc(item.status === 'progress' ? t('Reprendre') : t('Lecture'))}</button><a class="btn btn-ghost f" href="${href(titrePath(item))}">${esc(t('Plus d’infos'))}</a></div></div></article>`).join('')}</div>`
+        : `<p class="grid-empty">${esc(sansAge ? t('Odin ne connaît pas encore l’âge permis des titres : rien n’est proposé « en famille ».') : t('Essayez une autre envie ou plus de temps : votre bibliothèque n’a rien qui colle à ces trois critères.'))}</p>`}
+      <div class="actions tonight-actions">${picks.length ? `<button class="btn f" data-act="tmore">${I('shuffle')}${esc(t('Trois autres idées'))}</button>` : ''}${picks.length >= 2 ? `<button class="btn btn-ghost f" data-act="tvote">${I('people')}${esc(t('Voter en famille'))}</button>` : ''}<button class="btn btn-ghost f" data-act="treset">${esc(t('Recommencer'))}</button></div>`;
+    } else {
+      const [key, question, opts] = steps[st.step];
+      body = `<div class="tonight-head">${I(todayIcon())}<span>${esc(`${salutation()} ${S.profile.name}`)}</span></div><div class="steps-dots" role="img" aria-label="${esc(t('Question {n} sur 3', { n: nombre(st.step + 1) }))}">${steps.map((_, i) => `<span class="${i <= st.step ? 'on' : ''}"></span>`).join('')}</div>
+      <h1 class="tonight-q" tabindex="-1">${esc(question)}</h1><div class="choice-grid">${opts.map(([id, label, sub]) => `<button class="choice f" data-act="tanswer" data-k="${key}" data-v="${id}"><b>${esc(t(label))}</b><small>${esc(t(sub))}</small></button>`).join('')}</div>
+      ${st.step > 0 ? `<button class="row-link f" data-act="tprev">${I('back')}${esc(t('Question précédente'))}</button>` : ''}`;
+    }
+    return `<main class="with-nav page-in"><div class="page tonight-page maison"><div class="tonight">${body}</div>${Together()}</div></main>`;
+  };
+  // « Qui regarde ce soir ? » (Together de Tonight.js) : seulement avec au moins deux profils.
+  function Together() {
+    const ps = S.profils, tg = M8.tg; if (ps.length < 2) return '';
+    if (!tg.sel) tg.sel = [S.profile.id];
+    const cle = `${tg.sel.join(',')}|${tg.kind}`;
+    if (tg.sel.length && tg.cle !== cle) {
+      tg.cle = cle; tg.res = null;
+      api(`/venus/api/ensemble?profils=${encodeURIComponent(tg.sel.join(','))}&kind=${tg.kind}`).then((r) => { if (tg.cle === cle) tg.res = r; }).catch(() => { if (tg.cle === cle) tg.res = { results: [], erreur: true }; }).then(() => { if (tg.cle === cle) siSur('/cesoir'); });
+    }
+    const r = tg.res;
+    const body = !tg.sel.length ? `<p class="grid-empty">${esc(t('Choisissez au moins une personne.'))}</p>`
+      : !r ? `<p class="muted">${esc(t('Recherche…'))}</p>`
+        : r.erreur ? `<p class="grid-empty">${esc(t('Impossible pour le moment.'))}</p>`
+          : r.kidsSansAge ? `<p class="grid-empty">${esc(t('Un enfant est présent : Odin ne connaît pas encore l’âge permis des titres, rien n’est proposé.'))}</p>`
+            : !r.results.length ? `<p class="grid-empty">${esc(t('Rien que tout ce monde n’ait pas déjà vu : essayez les séries, ou retirez quelqu’un.'))}</p>`
+              : `<div class="together-grid">${r.results.slice(0, 12).map(({ item, why }, i) => `<article class="together-card" style="animation-delay:${i * 40}ms"><a class="together-pic f" href="${href(titrePath(item))}" aria-label="${esc(item.title)}">${item.poster ? `<img src="${esc(item.poster)}" alt="" loading="lazy" decoding="async">` : ph(item.title)}</a><div class="together-txt"><b>${esc(item.title)}</b><small>${esc([item.year, item.runtime ? t('{n} min', { n: nombre(item.runtime) }) : null].filter(Boolean).join(' · '))}</small>${why.length ? `<div class="pick-reasons">${why.map((w) => `<span>${esc(w)}</span>`).join('')}</div>` : ''}<button class="btn btn-small btn-play f" data-act="tgplay" data-v="${esc(item.id)}">${I('play')}${esc(t('Lecture'))}</button></div></article>`).join('')}</div>`;
+    return `<section class="together" aria-label="${esc(t('Film pour tout le monde'))}"><h2 class="section-title">${esc(t('Qui regarde ce soir ?'))}</h2><p class="muted">${esc(t('Cochez les personnes présentes : Venus propose ce que personne n’a vu, permis au plus jeune, et qui plaît à chacun.'))}</p>
+    <div class="together-who" role="group" aria-label="${esc(t('Personnes présentes'))}">${ps.map((p) => { const on = tg.sel.includes(p.id); return `<button class="together-p f${on ? ' on' : ''}" aria-pressed="${on}" data-act="tgwho" data-v="${esc(p.id)}">${Avatar(p, 'sm')}<span>${esc(p.name)}</span>${p.isKids ? `<small>${esc(t('enfant'))}</small>` : ''}</button>`; }).join('')}
+    <div class="seg" role="radiogroup" aria-label="${esc(t('Type'))}">${[['movie', 'Films'], ['show', 'Séries']].map(([k, l]) => `<button class="seg-b f${tg.kind === k ? ' on' : ''}" role="radio" aria-checked="${tg.kind === k}" data-act="tgkind" data-v="${k}">${esc(t(l))}</button>`).join('')}</div></div>${body}</section>`;
+  }
+
+  // Vote en famille (Vote.js) : la fenêtre de l'écran principal, puis l'écran du téléphone (#/vote?code=ABCD).
+  // Pas de flux d'événements dans Odin : l'état est relu toutes les 2 s tant que le vote est ouvert.
+  function voteHostHtml(st) {
+    const max = Math.max(1, ...st.items.map((i) => i.votes)), w = st.done ? st.items.find((i) => i.id === st.winner) : null;
+    const qr = /^<svg[\s>]/.test(String(st.qr || '')) && !/<script|\son\w+=/i.test(st.qr) ? st.qr : ''; // le QR dessiné par Odin, rien d'autre
+    return `<div class="vote-host"><div class="vote-join">${qr ? `<span role="img" aria-label="${esc(t('QR code du vote'))}">${qr}</span>` : ''}<div><p>${esc(t('Chacun scanne ce QR code avec son téléphone, ou ouvre Venus et tape le code :'))}</p><b class="big-code">${esc(st.code.split('').join(' '))}</b></div></div>
+    <div class="vote-board">${st.items.map((i) => `<div class="vote-line${st.done && st.winner === i.id ? ' win' : ''}"><span class="vl-pic">${i.poster ? `<img src="${esc(i.poster)}" alt="">` : ''}</span><div class="vl-body"><b>${esc(i.title)}</b><div class="meter"><i style="width:${(i.votes / max) * 100}%"></i></div><small>${esc(i.voters.length ? i.voters.join(', ') : t('Pas encore de voix'))}</small></div><b class="vl-n">${esc(nombre(i.votes))}</b></div>`).join('')}</div>
+    <div class="form-actions">${w ? `<button class="btn btn-play f" data-act="vlaunch" data-v="${esc(w.id)}">${I('play')}${esc(t('Lancer « {t} »', { t: w.title }))}</button>` : `<button class="btn btn-play f" data-act="vend">${I('play')}${esc(t('Voir le résultat'))}</button>`}</div></div>`;
+  }
+  function peindreVote() { const h = $('#vote-host'); if (!h) return false; const a = D.activeElement && D.activeElement.dataset ? D.activeElement.dataset.act : ''; h.innerHTML = voteHostHtml(M8.vote); if (a) { const b = h.querySelector(`[data-act="${a}"]`) || h.querySelector('.btn'); if (b) b.focus({ preventScroll: true }); } return true; }
+  function suivreVote() {
+    clearTimeout(M8.voteT);
+    M8.voteT = setTimeout(async () => {
+      if (!$('#vote-host') || !M8.vote || M8.vote.done) return;
+      try { const r = await api(`/venus/api/vote/${encodeURIComponent(M8.vote.code)}`); M8.vote = { ...r, qr: M8.vote.qr }; } catch { return; }
+      if (peindreVote()) suivreVote();
+    }, 2000);
+  }
+  async function startVote(ids) {
+    let v; try { v = await api('/venus/api/vote', { itemIds: ids }); } catch { toast(t('Impossible pour le moment.')); return; }
+    M8.vote = v; openSheet(t('Vote en famille'), `<div id="vote-host">${voteHostHtml(v)}</div>`, { wide: true }); suivreVote();
+    // La fenêtre s'ouvre par son haut (titre, QR et code) : au téléphone, le focus sur « Voir le résultat », tout en
+    // bas, la ferait défiler. Le focus va sur la fenêtre elle-même, sans défilement.
+    requestAnimationFrame(() => { const s = $('.sheet-wrap .sheet'); if (s) { s.focus({ preventScroll: true }); s.scrollTop = 0; } });
+  }
+  function suivreVoteTel() {
+    const vt = M8.vt; clearTimeout(vt.T);
+    vt.T = setTimeout(async () => {
+      if (L.route(location.hash).path !== '/vote' || !vt.st || vt.st.done) return;
+      try { vt.st = await api(`/venus/api/vote/${encodeURIComponent(vt.code)}`); } catch { /* garde l'état connu */ }
+      siSur('/vote'); suivreVoteTel();
+    }, 2000);
+  }
+  async function rejoindreVote(code) {
+    const vt = M8.vt; vt.code = code; vt.st = null; vt.mine = null; vt.msg = '';
+    if (!/^[A-Z0-9]{4}$/.test(code)) { vt.msg = t('Le code fait 4 lettres.'); siSur('/vote'); return; }
+    try { vt.st = await api(`/venus/api/vote/${encodeURIComponent(code)}`); } catch (e) { vt.msg = String(e.message) === '404' ? t('Vote introuvable ou terminé.') : t('Impossible pour le moment.'); }
+    siSur('/vote'); if (vt.st) { const h = $('main h1'); if (h) h.focus({ preventScroll: true }); suivreVoteTel(); } else { const i = $('#vote-code'); if (i) i.focus(); }
+  }
+  V.vote = (q) => {
+    const vt = M8.vt, c = String(q.get('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (c && c !== vt.code) void rejoindreVote(c);
+    const top = `<div class="remote-top"><button class="p-icon f" aria-label="${esc(t('Retour'))}" data-act="vback">${I('back')}</button><b>${esc(t('Vote en famille'))}</b></div>`;
+    let body;
+    if (!vt.st) body = `<form class="remote-pair" data-form="vjoin">${I('people')}<h1 tabindex="-1">${esc(t('Rejoindre le vote'))}</h1><p>${esc(t('Tapez le code à 4 lettres affiché sur la TV.'))}</p><input id="vote-code" class="input code-input" maxlength="4" placeholder="ABCD" autocomplete="off" autocapitalize="characters" aria-label="${esc(t('Code du vote'))}" value="${esc(vt.code)}"><p class="error-text" role="alert">${esc(vt.msg)}</p><button class="btn btn-play f" type="submit">${esc(t('Rejoindre'))}</button></form>`;
+    else if (vt.st.done) {
+      const w = vt.st.items.find((i) => i.id === vt.st.winner) || vt.st.items[0];
+      body = `<div class="vote-win">${w.backdrop || w.poster ? `<img src="${esc(w.backdrop || w.poster)}" alt="">` : ''}<div><small>${esc(t('Ce soir, ce sera'))}</small><h1 tabindex="-1">${esc(w.title)}</h1><p>${esc(t('{v} sur {n}', { v: tn(w.votes, '{n} voix', '{n} voix'), n: nombre(vt.st.voters) }))}</p><a class="btn f" href="${href(titrePath(w))}">${I('info')}${esc(t('Voir la fiche'))}</a></div></div>`;
+    } else body = `<div class="vote-intro"><h1 tabindex="-1">${esc(vt.mine ? t('A voté !') : t('Que regarder ce soir ?'))}</h1><p>${esc(vt.mine ? t('Vous pouvez changer d’avis tant que le vote est ouvert.') : t('Proposé par {n}. Touchez votre choix.', { n: vt.st.host }))}</p></div><div class="vote-cards">${vt.st.items.map((i) => `<button class="vote-card f${vt.mine === i.id ? ' on' : ''}" aria-pressed="${vt.mine === i.id}" data-act="vpick" data-v="${esc(i.id)}"><span class="vc-pic">${i.poster ? `<img src="${esc(i.poster)}" alt="">` : ''}${vt.mine === i.id ? `<span class="vc-check">${I('check')}</span>` : ''}</span><span class="vc-body"><b>${esc(i.title)}</b><small>${esc([i.year, i.runtime ? t('{n} min', { n: nombre(i.runtime) }) : null].filter(Boolean).join(' · '))}</small><span class="vc-votes">${esc(tn(i.votes, '{n} voix', '{n} voix'))}</span></span></button>`).join('')}</div>`;
+    return `<main><div class="vote-page">${top}${body}</div></main>`;
+  };
+
+  // Mes statistiques (Stats.js) et la rétrospective (Recap.js) : /venus/api/stats, le profil choisi seulement.
+  const anneeDe = (q) => { const n = Number(q.get('annee')); return Number.isInteger(n) && n > 1970 && n <= new Date().getFullYear() + 1 ? n : new Date().getFullYear(); };
+  function chargerStats(an) {
+    const k = String(an); if (M8.stats[k] !== undefined) return; M8.stats[k] = null;
+    api(`/venus/api/stats?annee=${an}`).then((d) => { M8.stats[k] = d; }).catch(() => { M8.stats[k] = { erreur: true }; }).then(() => siSur(/^\/(stats|retrospective)$/));
+  }
+  const Box = (title, inner) => `<section class="dash-box st-box"><div class="dash-title"><h2>${esc(title)}</h2></div>${inner}</section>`;
+  function Columns(items, thin = false) {
+    const max = Math.max(0.0001, ...items.map((x) => x.value)), peak = items.reduce((a, b) => (b.value > a.value ? b : a), items[0] || { value: 0 });
+    return `<div class="st-cols${thin ? ' thin' : ''}" role="img" aria-label="${esc(items.map((x) => x.tip).join(', '))}">${items.map((x) => `<div class="st-col" title="${esc(x.tip)}"><span class="st-val">${x === peak && x.value ? esc(L.heures(x.value)) : ''}</span><i class="${x.value ? '' : 'zero'}" style="height:${x.value ? Math.max(4, Math.round((x.value / max) * 100)) : 2}%"></i><small>${esc(x.label)}</small></div>`).join('')}</div>`;
+  }
+  function Bars(items) {
+    const max = Math.max(0.0001, ...items.map((x) => x.value));
+    return `<div class="st-bars">${items.map((x) => `<div class="st-bar" title="${esc(t('{a} : {b}', { a: x.label, b: L.heures(x.value) }))}"><span>${esc(x.label)}</span><div class="meter"><i style="width:${Math.max(2, (x.value / max) * 100)}%"></i></div><b>${esc(L.heures(x.value))}</b></div>`).join('')}</div>`;
+  }
+  const Top = (title, list, sub) => Box(title, list && list.length ? `<div class="st-top">${list.map((x) => `<a class="st-top-row f" href="${href(`/titre/${encodeURIComponent(x.id)}`)}">${x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy">` : '<span class="st-ph"></span>'}<b>${esc(x.title)}</b><span>${esc(sub(x))}</span></a>`).join('')}</div>` : `<p class="muted">${esc(t('Rien pour l’instant.'))}</p>`);
+  function Calendrier(year, data) {
+    const end = new Date(year, 11, 31), first = new Date(year, 0, 1); first.setDate(first.getDate() - ((first.getDay() + 6) % 7));
+    const lvl = L.niveaux(data), today = new Date(), cells = [], labels = [];
+    for (let w = 0, dte = new Date(first); dte <= end; w++) {
+      for (let k = 0; k < 7; k++, dte.setDate(dte.getDate() + 1)) {
+        const key = `${dte.getFullYear()}-${pad2(dte.getMonth() + 1)}-${pad2(dte.getDate())}`, inYear = dte.getFullYear() === year, v = data[key] || 0;
+        cells.push(`<i class="cal-c l${inYear && dte <= today ? lvl(v) : 'x'}" style="grid-column:${w + 1};grid-row:${k + 1}"${inYear ? ` title="${esc(t('{a} : {b}', { a: date(dte.getTime(), { weekday: 'long', day: 'numeric', month: 'long' }), b: v ? duree(v) : t('rien') }))}"` : ''}></i>`);
+        if (inYear && dte.getDate() === 1) labels.push(`<small style="grid-column:${w + 1}">${esc(MOIS(dte.getMonth()))}</small>`);
+      }
+    }
+    const active = Object.values(data).filter(Boolean).length, jl = tn(active, '{n} jour avec une lecture', '{n} jours avec une lecture');
+    return `<section class="dash-box st-cal-box"><div class="dash-title"><h2>${esc(t('Jour par jour'))}</h2><span class="muted">${esc(jl)}</span></div><div class="st-cal-scroll" tabindex="0" aria-label="${esc(t('Calendrier {y} : {n}', { y: String(year), n: jl }))}"><div class="st-cal-months">${labels.join('')}</div><div class="st-cal" role="img" aria-label="${esc(t('Calendrier {y} : {n}', { y: String(year), n: jl }))}">${cells.join('')}</div></div><div class="st-cal-legend"><small>${esc(t('Moins'))}</small>${[0, 1, 2, 3, 4].map((l) => `<i class="cal-c l${l}"></i>`).join('')}<small>${esc(t('Plus'))}</small></div></section>`;
+  }
+  V.stats = (q) => {
+    const year = anneeDe(q), d = M8.stats[String(year)];
+    if (!d) { chargerStats(year); return PageLoading(); }
+    if (d.erreur) return `<main class="with-nav page-in"><div class="page">${Empty(t('Impossible pour le moment.'))}</div></main>`;
+    const years = d.years.length ? d.years : [year], fh = L.heures;
+    const head = `<div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t('Mes statistiques'))}</h1><p class="count">${esc(S.profile.name)}</p></div><a class="btn btn-small f" href="${href(`/retrospective?annee=${year}`)}">${esc(t('Ma rétrospective {y}', { y: String(year) }))}</a>${years.length > 1 ? `<div class="seg" role="radiogroup" aria-label="${esc(t('Année'))}">${years.slice(0, 5).map((y) => `<a class="seg-b f${y === year ? ' on' : ''}" role="radio" aria-checked="${y === year}" href="${href(`/stats?annee=${y}`)}">${y}</a>`).join('')}</div>` : ''}</div>
+    <p class="list-hint">${esc(t('D’après la progression gardée par Odin : un titre revu compte une fois, au jour de sa dernière lecture.'))}</p>`;
+    if (!d.totalHours && !d.movies && !d.episodes) return `<main class="with-nav page-in"><div class="page stats maison">${head}<div class="empty"><h2>${esc(t('Rien de regardé en {y} pour l’instant', { y: String(year) }))}</h2><p>${esc(t('Lancez un film ou un épisode : vos statistiques se rempliront toutes seules.'))}</p></div></div></main>`;
+    const days = Math.floor(d.totalHours / 24);
+    const story = [d.genres[0] ? [t('Genre préféré :'), d.genres[0].name] : null, d.topShows[0] && d.topShows[0].eps ? [t('Série la plus suivie :'), d.topShows[0].title] : null, d.topAnime[0] && d.topAnime[0].eps ? [t('Animé le plus suivi :'), d.topAnime[0].title] : null,
+      d.bestMonth && d.bestMonth.hours ? [t('Plus gros mois :'), MOIS(d.bestMonth.m, 'long')] : null, d.person ? [t('Vous avez beaucoup vu'), d.person] : null].filter(Boolean).map(([a, b]) => `${esc(a)} <strong>${esc(b)}</strong>. `).join('');
+    const Kpi = (v, label) => `<div class="st-kpi"><b>${esc(v)}</b><span>${esc(label)}</span></div>`;
+    const showSub = (x) => [x.eps ? t('{n} ép.', { n: nombre(x.eps) }) : null, fh(x.hours)].filter(Boolean).join(' · ');
+    const KIND = { movie: 'Films', show: 'Séries', anime: 'Animés', clip: 'Clips' };
+    return `<main class="with-nav page-in"><div class="page stats maison">${head}
+    <section class="st-hero"><div class="st-big"><b>${esc(fh(d.totalHours))}</b><span>${esc(t('regardées en {y}', { y: String(year) }) + (days >= 1 ? ` · ${tn(days, 'plus de {n} jour entier', 'plus de {n} jours entiers')}` : ''))}</span></div><p class="st-story">${story}</p>
+    <div class="st-kpis">${Kpi(nombre(d.movies), forme(d.movies, 'film vu', 'films vus'))}${Kpi(nombre(d.episodes), forme(d.episodes, 'épisode vu', 'épisodes vus'))}${Kpi(nombre(d.days), t('jours avec une lecture'))}${Kpi(t('{n} j', { n: nombre(d.streak) }), t('plus longue série de jours'))}${Kpi(fh(d.allTimeHours), t('depuis le début'))}</div></section>
+    ${Calendrier(year, d.calendar || {})}
+    <div class="st-grid two">${Box(t('Mois par mois'), Columns(d.months.map((m) => ({ label: MOIS(m.m), value: m.hours, tip: t('{a} : {b}', { a: MOIS(m.m, 'long'), b: fh(m.hours) }) }))))}${Box(t('Films, séries, animés'), Bars((d.byKind || []).filter((k) => k.hours).map((k) => ({ label: t(KIND[k.kind]), value: k.hours }))))}
+    ${Box(t('Jours de la semaine'), Columns((d.weekdays || []).map((w) => ({ label: JOURS(w.w), value: w.hours, tip: t('{a} : {b}', { a: JOURS(w.w, 'long'), b: fh(w.hours) }) }))))}${Box(t('Heures de la journée'), Columns((d.hoursOfDay || []).map((x) => ({ label: x.h % 6 === 0 ? t('{n} h', { n: nombre(x.h) }) : '', value: x.hours, tip: t('{a} : {b}', { a: t('{a} h – {b} h', { a: nombre(x.h), b: nombre(x.h + 1) }), b: fh(x.hours) }) })), true))}</div>
+    <div class="st-grid">${Box(t('Genres'), d.genres.length ? Bars(d.genres.map((g) => ({ label: g.name, value: g.hours }))) : `<p class="muted">${esc(t('Pas encore assez de données.'))}</p>`)}${Top(t('Séries les plus regardées'), d.topShows, showSub)}${Top(t('Animés les plus regardés'), d.topAnime, showSub)}${Top(t('Derniers films vus'), d.lastMovies, (x) => date(x.at, { day: 'numeric', month: 'short' }))}</div></div></main>`;
+  };
+  // La rétrospective : une suite d'écrans ; à droite (ou →) on avance, à gauche on revient ; tout seul toutes les 7 s,
+  // sauf doigt (ou souris) appuyé, dernier écran ou mouvement réduit.
+  const SLIDE_MS = 7000;
+  const hRc = (x) => (x >= 10 ? t('{n} h', { n: nombre(Math.round(x)) }) : x >= 1 ? t('{n} h', { n: nombre(Math.round(x * 10) / 10) }) : t('{n} min', { n: nombre(Math.max(1, Math.round(x * 60))) }));
+  const Poster = (src, title) => (src ? `<img class="rc-poster" src="${esc(src)}" alt="${esc(title || '')}" loading="lazy">` : `<span class="rc-poster rc-ph">${esc((title || '?').slice(0, 1))}</span>`);
+  function recapSlides(d, year, name) {
+    const s = [], y = String(year);
+    if (!d.totalHours && !d.movies && !d.episodes) return [{ k: 'empty', tone: 1, body: `<small>${esc(t('Votre année {y}', { y }))}</small><h2>${esc(t('Rien de regardé pour l’instant'))}</h2><p>${esc(t('Lancez un film ou un épisode : votre rétrospective se remplira toute seule.'))}</p>` }];
+    const days = Math.floor(d.totalHours / 24), dj = tn(d.days, '{n} jour différent', '{n} jours différents');
+    s.push({ k: 'intro', tone: 1, body: `<small>${esc(t('{n}, votre année {y}', { n: name, y }))}</small><h2 class="rc-big">${esc(hRc(d.totalHours))}</h2><p>${esc(days >= 1 ? t('devant l’écran, soit {a}, sur {b}.', { a: tn(days, '{n} jour entier', '{n} jours entiers'), b: dj }) : t('devant l’écran, sur {b}.', { b: dj }))}</p>` });
+    if (d.movies) s.push({ k: 'movies', tone: 2, body: `<small>${esc(t('Films'))}</small><h2 class="rc-big">${esc(nombre(d.movies))}</h2><p>${esc(forme(d.movies, 'film vu jusqu’au bout.', 'films vus jusqu’au bout.'))}</p><div class="rc-row">${d.lastMovies.slice(0, 5).map((m) => Poster(m.poster, m.title)).join('')}</div>` });
+    const top = d.topShows && d.topShows[0];
+    if (d.episodes || top) s.push({ k: 'shows', tone: 3, body: `<small>${esc(t('Séries'))}</small><h2 class="rc-big">${esc(nombre(d.episodes))}</h2><p>${esc(forme(d.episodes, 'épisode regardé.', 'épisodes regardés.'))}</p>${top ? `<div class="rc-feature">${Poster(top.poster, top.title)}<div><b>${esc(top.title)}</b><span>${esc(t('votre série de l’année : {h}', { h: hRc(top.hours) }))}</span></div></div>` : ''}` });
+    const ani = d.topAnime && d.topAnime[0];
+    if (ani) s.push({ k: 'anime', tone: 4, body: `<small>${esc(t('Animés'))}</small><h2>${esc(ani.title)}</h2><p>${esc(ani.eps ? t('Votre animé de l’année : {h}, {e}.', { h: hRc(ani.hours), e: tn(ani.eps, '{n} épisode', '{n} épisodes') }) : t('Votre animé de l’année : {h}.', { h: hRc(ani.hours) }))}</p><div class="rc-row">${Poster(ani.poster, ani.title)}</div>` });
+    const g = d.genres && d.genres[0];
+    if (g) {
+      const suite = d.genres.slice(1, 3).map((x) => x.name), liste = (() => { try { return new Intl.ListFormat(LANG, { type: 'conjunction' }).format(suite); } catch { return suite.join(', '); } })();
+      s.push({ k: 'genre', tone: 5, body: `<small>${esc(t('Votre genre préféré'))}</small><h2 class="rc-word">${esc(g.name)}</h2><p>${esc(t('{h} en tout.', { h: hRc(g.hours) }) + (suite.length ? ` ${t('Juste derrière : {g}.', { g: liste })}` : ''))}</p>` });
+    }
+    if (d.person) s.push({ k: 'person', tone: 6, body: `<small>${esc(t('La personne que vous avez le plus vue'))}</small><h2 class="rc-word">${esc(d.person)}</h2><p>${esc(t('À l’écran ou derrière la caméra, elle était dans beaucoup de vos titres.'))}</p>` });
+    if (d.bestMonth && d.bestMonth.hours) s.push({ k: 'month', tone: 2, body: `<small>${esc(t('Votre mois le plus chargé'))}</small><h2 class="rc-word">${esc(MOIS(d.bestMonth.m, 'long'))}</h2><p>${esc(t('{h} de visionnage.', { h: hRc(d.bestMonth.hours) }) + (d.streak > 1 ? ` ${t('Record : {n} jours de suite.', { n: nombre(d.streak) })}` : ''))}</p><div class="rc-bars" aria-hidden="true">${d.months.map((m) => `<i class="${m.m === d.bestMonth.m ? 'on' : ''}" style="height:${Math.max(4, (m.hours / d.bestMonth.hours) * 100)}%"></i>`).join('')}</div>` });
+    if (d.completedShows && d.completedShows.length) s.push({ k: 'done', tone: 3, body: `<small>${esc(t('Terminées cette année'))}</small><h2 class="rc-big">${esc(nombre(d.completedShows.length))}</h2><p>${esc(forme(d.completedShows.length, 'série ou animé vu en entier.', 'séries et animés vus en entier.'))}</p><div class="rc-row">${d.completedShows.slice(0, 5).map((x) => Poster(x.poster, x.title)).join('')}</div>` });
+    s.push({ k: 'end', tone: 1, end: true, body: `<small>${esc(t('{y}, c’était ça', { y }))}</small><h2>${esc(t('Merci, {n} !', { n: name }))}</h2><p>${esc(t('À l’année prochaine pour de nouvelles histoires.'))}</p>` });
+    return s;
+  }
+  function planifierRecap() {
+    const rc = M8.recap; clearTimeout(rc.T);
+    if (rc.held || rc.reduce || rc.i >= rc.n - 1) return;
+    rc.fin = Date.now() + rc.reste;
+    rc.T = setTimeout(() => { if (L.route(location.hash).path === '/retrospective') recapAller(1); }, rc.reste);
+  }
+  function recapAller(dir) { const rc = M8.recap, j = Math.max(0, Math.min(rc.n - 1, rc.i + dir)); if (j === rc.i) return; rc.i = j; rc.reste = SLIDE_MS; rerender('.recap'); }
+  function recapTenir(on) {
+    const rc = M8.recap; if (rc.held === on || L.route(location.hash).path !== '/retrospective') return; rc.held = on;
+    const r = $('.recap'); if (r) { r.classList.toggle('held', on); const b = r.querySelector('.rc-progress b.run'); if (b) b.style.animationPlayState = on ? 'paused' : 'running'; }
+    if (on) { clearTimeout(rc.T); rc.reste = Math.max(0, rc.fin - Date.now()); } else planifierRecap();
+  }
+  V.recap = (q) => {
+    const year = anneeDe(q), d = M8.stats[String(year)], rc = M8.recap;
+    if (!d) { chargerStats(year); return PageLoading(); }
+    if (d.erreur) return `<main class="with-nav page-in"><div class="page">${Empty(t('Impossible pour le moment.'))}</div></main>`;
+    const slides = recapSlides(d, year, S.profile.name);
+    if (rc.an !== year) { rc.an = year; rc.i = 0; rc.reste = SLIDE_MS; }
+    rc.n = slides.length; rc.i = Math.min(rc.i, rc.n - 1); rc.reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const i = rc.i, cur = slides[i], ecoule = SLIDE_MS - rc.reste;
+    planifierRecap();
+    return `<main class="with-nav page-in"><div class="page recap-page maison"><div tabindex="-1" class="recap tone-${cur.tone}${rc.held ? ' held' : ''}" role="region" aria-roledescription="${esc(t('diaporama'))}" aria-label="${esc(t('Rétrospective {y}', { y: String(year) }))}" data-act="rctap">
+    <div class="rc-progress" aria-hidden="true">${slides.map((s, j) => `<i><b class="${j < i ? 'done' : j === i && !rc.reduce ? 'run' : j === i ? 'done' : ''}"${j === i ? ` style="animation-duration:${SLIDE_MS}ms;animation-delay:-${ecoule}ms;animation-play-state:${rc.held ? 'paused' : 'running'}"` : ''}></b></i>`).join('')}</div>
+    <div class="rc-slide" aria-live="polite">${cur.body}</div>
+    <div class="rc-foot"><span>${esc(`${nombre(i + 1)} / ${nombre(rc.n)}`)}</span>${cur.end ? `<div class="rc-actions"><button class="btn btn-ghost btn-small f" data-act="rcagain">${I('restart')}${esc(t('Revoir'))}</button><a class="btn btn-small f" href="${href(`/stats?annee=${year}`)}">${I('gauge')}${esc(t('Tous les détails'))}</a></div>` : `<button class="btn btn-ghost btn-small f" aria-label="${esc(t('Écran suivant'))}" data-act="rcnext">${I('fwd')}${esc(t('Suivant'))}</button>`}</div></div></div></main>`;
+  };
+
+  // Collections, une collection, une liste de lecture (Collections.js)
+  const Cover = (x) => { const l = (x.posters || []).slice(0, 4); return `<div class="coll-cover n${l.length}">${l.length ? l.map((p) => `<img src="${esc(p)}" alt="" loading="lazy" decoding="async">`).join('') : ph(x.name)}</div>`; };
+  function charger8(cible, cle, chemin, test) {
+    if (cible[cle] !== undefined) return cible[cle];
+    cible[cle] = null;
+    api(chemin).then((r) => { cible[cle] = r; }).catch((e) => { cible[cle] = { erreur: String(e.message) }; }).then(() => siSur(test));
+    return null;
+  }
+  const rafraichir8 = () => { M8.coll = undefined; M8.col = {}; M8.pl = {}; };
+  V.collections = () => {
+    const d = charger8(M8, 'coll', '/venus/api/collections', '/collections'); if (!d) return PageLoading();
+    if (d.erreur) return `<main class="with-nav page-in"><div class="page">${Empty(t('Impossible pour le moment.'))}</div></main>`;
+    const tab = M8.collTab, list = tab === 'collections' ? d.collections : d.playlists;
+    const tools = `<div class="head-tools"><div class="seg" role="tablist" aria-label="${esc(t('Collections'))}">${[['collections', t('Collections ({n})', { n: nombre(d.collections.length) })], ['playlists', t('Listes de lecture ({n})', { n: nombre(d.playlists.length) })]].map(([k, l]) => `<button class="seg-b f${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-act="colltab" data-v="${k}">${esc(l)}</button>`).join('')}</div>${tab === 'playlists' ? `<button class="btn btn-small f" data-act="plnew">${I('plus')}${esc(t('Nouvelle liste'))}</button>` : S.profile.isAdmin ? `<button class="btn btn-small f" data-act="colnew">${I('plus')}${esc(t('Nouvelle collection'))}</button>` : ''}</div>`;
+    const grid = list.length ? `<div class="coll-grid">${list.map((x) => `<a class="coll-tile f" href="${href(tab === 'playlists' ? `/liste-lecture/${encodeURIComponent(x.id)}` : `/collection/${encodeURIComponent(x.id)}`)}">${Cover(x)}<b>${esc(x.name)}</b><small>${esc([tn(x.count, '{n} titre', '{n} titres'), x.duration ? duree(Math.round(x.duration / 60)) : null].filter(Boolean).join(' · '))}</small></a>`).join('')}</div>`
+      : `<p class="grid-empty">${esc(tab === 'playlists' ? t('Aucune liste de lecture. Sur la fiche d’un titre, touchez « Ajouter à une liste ».') : t('Aucune collection pour l’instant.'))}</p>`;
+    return `<main class="with-nav page-in"><div class="page maison"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t('Collections'))}</h1></div>${tools}</div>${grid}</div></main>`;
+  };
+  const Absent8 = (txt, retour, label) => `<main class="with-nav page-in"><div class="page">${Empty(txt, `<a class="btn btn-ghost btn-small f" href="${href(retour)}">${I('back')}${esc(label)}</a>`)}</div></main>`;
+  V.collection = (id) => {
+    const d = charger8(M8.col, id, `/venus/api/collections/${encodeURIComponent(id)}`, /^\/collection\//); if (!d) return PageLoading();
+    if (d.erreur) return Absent8(t('Cette collection n’existe pas (ou plus).'), '/collections', t('Collections'));
+    return `<main class="with-nav page-in"><div class="page coll-page maison"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(d.name)}</h1><p class="count">${esc(tn(d.items.length, '{n} titre', '{n} titres'))}</p></div><div class="head-tools"><a class="btn btn-ghost btn-small f" href="${href('/collections')}">${I('back')}${esc(t('Collections'))}</a>${d.editable ? `<button class="btn btn-ghost btn-small f" data-act="colren" data-v="${esc(d.id)}">${I('edit')}${esc(t('Renommer'))}</button><button class="btn btn-ghost btn-small btn-del f" aria-label="${esc(t('Supprimer la collection'))}" title="${esc(t('Supprimer la collection'))}" data-act="coldel" data-v="${esc(d.id)}">${I('trash')}</button>` : ''}</div></div>
+    ${d.items.length ? `<div class="grid">${d.items.map((i) => (d.editable ? `<div class="coll-item">${Card(i, { poster: true })}<button class="coll-x f" aria-label="${esc(t('Retirer « {t} »', { t: i.title }))}" title="${esc(t('Retirer de la collection'))}" data-act="colrm" data-v="${esc(i.id)}" data-c="${esc(d.id)}" data-t="${esc(i.title)}">${I('close')}</button></div>` : Card(i, { poster: true }))).join('')}</div>` : `<p class="grid-empty">${esc(t('Collection vide : ajoutez des titres avec « Ajouter à une liste » sur leur fiche.'))}</p>`}</div></main>`;
+  };
+  const vu8 = (i) => !!(i.progress && i.progress.watched);
+  V.playlist = (id) => {
+    const d = charger8(M8.pl, id, `/venus/api/listes/${encodeURIComponent(id)}`, /^\/liste-lecture\//); if (!d) return PageLoading();
+    if (d.erreur) return Absent8(t('Cette liste n’existe pas (ou plus).'), '/collections?onglet=listes', t('Listes'));
+    const items = d.items, first = (items.find((i) => !vu8(i)) || items[0] || {}).id;
+    return `<main class="with-nav page-in"><div class="page coll-page maison"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(d.name)}</h1><p class="count">${esc(tn(items.length, '{n} vidéo', '{n} vidéos') + (d.duration ? ` · ${duree(Math.round(d.duration / 60))}` : ''))}</p></div><div class="head-tools"><a class="btn btn-ghost btn-small f" href="${href('/collections?onglet=listes')}">${I('back')}${esc(t('Listes'))}</a><button class="btn btn-ghost btn-small f" data-act="plren" data-v="${esc(d.id)}">${I('edit')}${esc(t('Renommer'))}</button><button class="btn btn-ghost btn-small btn-del f" aria-label="${esc(t('Supprimer la liste'))}" title="${esc(t('Supprimer la liste'))}" data-act="pldel" data-v="${esc(d.id)}">${I('trash')}</button></div></div>
+    ${items.length ? `<div class="actions" style="margin-bottom:18px"><a class="btn btn-play f" href="${href(lirePath(first))}">${I('play')}${esc(items.some(vu8) ? t('Continuer') : t('Tout lire'))}</a><button class="btn btn-ghost f" data-act="plshuffle" data-v="${esc(d.id)}">${I('shuffle')}${esc(t('Aléatoire'))}</button></div>` : ''}
+    <div class="pl-list">${items.length ? items.map((i, n) => `<div class="pl-row${vu8(i) ? ' seen' : ''}"><span class="pl-n">${esc(nombre(n + 1))}</span><a class="pl-main f" href="${href(lirePath(i.id))}"><span class="pl-thumb">${i.still || i.backdrop ? `<img src="${esc(i.still || i.backdrop)}" alt="" loading="lazy" decoding="async">` : ph(i.title)}<span class="ep-play">${I('play')}</span></span><span class="pl-txt"><b>${esc(i.showTitle ? `${i.showTitle} · ${t('S{s} É{e}', { s: nombre(i.season), e: nombre(i.episode) })}` : i.title)}</b><small>${esc([i.showTitle ? (i.title !== i.showTitle ? i.title : null) : i.year, i.duration ? t('{n} min', { n: nombre(Math.max(1, Math.round(i.duration / 60))) }) : null, vu8(i) ? t('Vu') : null].filter(Boolean).join(' · '))}</small></span></a>
+      <div class="pl-tools"><button class="p-icon small f pl-up" aria-label="${esc(t('Monter'))}" data-act="plmove" data-v="${n}" data-d="-1" data-c="${esc(d.id)}"${n === 0 ? ' disabled' : ''}>${I('up')}</button><button class="p-icon small f pl-down" aria-label="${esc(t('Descendre'))}" data-act="plmove" data-v="${n}" data-d="1" data-c="${esc(d.id)}"${n === items.length - 1 ? ' disabled' : ''}>${I('down')}</button><button class="p-icon small f" aria-label="${esc(t('Retirer « {t} »', { t: i.showTitle ? `${i.showTitle} · ${t('S{s} É{e}', { s: nombre(i.season), e: nombre(i.episode) })}` : i.title }))}" data-act="plrm" data-v="${esc(i.id)}" data-c="${esc(d.id)}">${I('close')}</button></div></div>`).join('') : `<p class="grid-empty">${esc(t('Liste vide : sur la fiche d’un titre, touchez « Ajouter à une liste ».'))}</p>`}</div></div></main>`;
+  };
+  // Petite fenêtre « un nom » (renommer, nouvelle liste, nouvelle collection) et fenêtre de confirmation.
+  function nomSheet(titre, { valeur = '', placeholder = '', bouton, note = '', faire }) {
+    M8.nomFaire = faire;
+    openSheet(titre, `<form data-form="nom"><input id="nom-in" class="input f" maxlength="80" value="${esc(valeur)}" placeholder="${esc(placeholder)}" aria-label="${esc(titre)}" autocomplete="off">${note ? `<p class="muted">${esc(note)}</p>` : ''}<p class="error-text" id="nom-err" role="alert"></p><div class="form-actions"><button class="btn btn-play f" type="submit">${esc(bouton)}</button></div></form>`);
+    requestAnimationFrame(() => { const i = $('#nom-in'); if (i) { i.focus(); i.select(); } });
+  }
+  function confirmer(msg, label, faire) { M8.confFaire = faire; openSheet(label, `<div><p>${esc(msg)}</p><div class="form-actions"><button class="btn btn-ghost f" data-act="closesheet">${esc(t('Annuler'))}</button><button class="btn btn-danger-solid f" data-act="confok">${esc(label)}</button></div></div>`); }
+  // Les écritures (POST, en-tête x-odin) : rend l'objet, ou un code d'erreur (« 400 », « 403 », « 404 »…).
+  const ecrire8 = async (chemin, corps) => { try { return await api(chemin, corps); } catch (e) { return { erreur: String(e.message) }; } };
+  function nouvelleListe(itemId) {
+    nomSheet(t('Nouvelle liste de lecture'), { placeholder: t('Ex. : Marathon du dimanche'), bouton: t('Créer'), faire: async (name) => {
+      if (!name) return t('Donnez un nom à la liste');
+      const r = await ecrire8('/venus/api/listes', { name, ...(itemId ? { itemId } : {}) }); if (r.erreur) return t('Impossible pour le moment.');
+      closeSheet(false); rafraichir8(); toast(r.added ? t('Liste « {n} » créée avec {v}', { n: name, v: tn(r.added, '{n} vidéo', '{n} vidéos') }) : t('Liste « {n} » créée', { n: name }), 'success');
+      if (!itemId) go(`/liste-lecture/${encodeURIComponent(r.id)}`); return '';
+    } });
+  }
+  function nouvelleCollection(itemId) {
+    nomSheet(t('Nouvelle collection'), { placeholder: t('Ex. : Films de Noël'), bouton: t('Créer'), note: t('Visible par tous les profils.'), faire: async (name) => {
+      if (!name) return t('Donnez un nom à la collection');
+      const r = await ecrire8('/venus/api/collections', { name, ...(itemId ? { itemId } : {}) }); if (r.erreur) return t('Impossible pour le moment.');
+      closeSheet(false); rafraichir8(); toast(t('Collection « {n} » créée', { n: name }), 'success'); go(`/collection/${encodeURIComponent(r.id)}`); return '';
+    } });
+  }
+  // « Ajouter à… » depuis une fiche : une liste de lecture (tous les profils) ou une collection (le propriétaire).
+  async function ajouterA(item) {
+    let d; try { d = await api('/venus/api/collections'); } catch { toast(t('Impossible pour le moment.')); return; }
+    M8.addItem = item;
+    const admin = S.profile.isAdmin && ['movie', 'show', 'clip'].includes(item.type);
+    openSheet(t('Ajouter « {t} »', { t: item.title }), `<div class="add-to"><h3>${esc(t('Listes de lecture'))}</h3>${d.playlists.map((pl) => `<button class="opt ic f" data-act="addpl" data-v="${esc(pl.id)}" data-n="${esc(pl.name)}">${I('list')}${esc(pl.name)}<small>${esc(tn(pl.count, '{n} vidéo', '{n} vidéos'))}</small></button>`).join('')}<button class="opt ic f" data-act="plnew" data-v="${esc(item.id)}">${I('plus')}${esc(t('Nouvelle liste de lecture'))}</button>
+    ${admin ? `<h3 style="margin-top:16px">${esc(t('Collections'))}</h3>${d.collections.map((c) => `<button class="opt ic f" data-act="addcol" data-v="${esc(c.id)}" data-n="${esc(c.name)}">${I('grid4')}${esc(c.name)}<small>${esc(tn(c.count, '{n} titre', '{n} titres'))}</small></button>`).join('')}<button class="opt ic f" data-act="colnew" data-v="${esc(item.id)}">${I('plus')}${esc(t('Nouvelle collection'))}</button>` : ''}</div>`);
+  }
+
+  // Téléchargements (Downloads.js) : le fichier d'origine s'enregistre sur l'appareil. Les versions légères (720p,
+  // 480p) préparées par le serveur ne sont pas encore construites dans Odin : grisées, et dites.
+  V.downloads = () => `<main class="with-nav page-in"><div class="page maison"><div class="page-head"><div class="head-left"><h1 tabindex="-1">${esc(t('Téléchargements'))}</h1></div></div><p class="list-hint">${esc(t('Les vidéos sont enregistrées sur votre appareil : elles se regardent ensuite sans réseau. Sur iPhone, choisissez « Enregistrer dans Fichiers » puis ouvrez-les avec l’appli Fichiers ou VLC.'))}</p>
+    <div class="dl-list"><div class="grid-empty"><p>${esc(t('Aucune version légère en préparation : elles arrivent dans Odin avec un prochain lot. Sur la fiche d’un film, « Télécharger » enregistre déjà le fichier d’origine.'))}</p></div></div></div></main>`;
+  function openDownload(d, size) {
+    const est = (gbh) => (d.runtime ? `≈ ${taille(gbh * 1e9 * (d.runtime / 60))}` : '');
+    const leger = (q, titre, sous, gbh) => `<button class="opt f" type="button" disabled aria-disabled="true">${I('film')}<span><b>${esc(t(titre, { q }))}</b><small>${esc([t(sous), est(gbh), t('bientôt')].filter(Boolean).join(' · '))}</small></span></button>`;
+    openSheet(t('Télécharger « {t} »', { t: d.title }), `<div class="dl-choices"><a class="opt f" href="/venus/api/telecharger/${encodeURIComponent(d.id)}" download="" data-act="dlorig">${I('down')}<span><b>${esc(t('Fichier d’origine'))}</b><small>${esc([t('Meilleure qualité'), taille(size)].filter(Boolean).join(' · '))}</small></span></a>
+    ${leger('720p', 'Version légère 720p', 'Idéale pour un téléphone ou une tablette', 0.9)}${leger('480p', 'Très légère 480p', 'Pour garder de la place', 0.45)}<p class="muted" style="font-size:.84rem;margin:10px 0 0">${esc(t('Les versions légères seront préparées par Odin dans un prochain lot ; le fichier d’origine s’enregistre tout de suite.'))}</p></div>`);
+  }
+
   // ---------------------------------------------------------------- fenêtres (ui.js), « Tout Venus » (core.js), Ctrl+K (Palette.js)
   let lastFocus = null;
   function openSheet(title, content, { wide = false } = {}) {
@@ -885,10 +1304,19 @@
     if (path === '/qui-regarde') return [V.profiles(), false];
     if (path === '/nouveau') { if (q.get('type') && RKINDS.some(([k]) => k === q.get('type'))) S.req.kind = q.get('type'); if (q.get('q') != null) S.req.q = q.get('q'); return [V.request(), true]; }
     if (path === '/nouveautes') { if (q.get('type') && NKINDS.some(([k]) => k === q.get('type'))) S.newKind = q.get('type'); return [V.nouveautes(), true]; }
+    // La maison (lot V8)
+    if (path === '/cesoir') return [V.tonight(), true];
+    if (path === '/vote') return [V.vote(q), false];
+    if (path === '/stats') return [V.stats(q), true];
+    if (path === '/retrospective') return [V.recap(q), true];
+    if (path === '/telechargements') return [V.downloads(), true];
+    if (path === '/collections') { if (q.get('onglet')) M8.collTab = q.get('onglet') === 'listes' ? 'playlists' : 'collections'; return [V.collections(), true]; }
+    if ((m = path.match(/^\/collection\/(.+)$/))) { let id = m[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } return [V.collection(id), true]; }
+    if ((m = path.match(/^\/liste-lecture\/(.+)$/))) { let id = m[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } return [V.playlist(id), true]; }
     if (NAV_ITEMS.some((x) => x.href === path)) return [V.bientot(path), true];
     return [V.home(), true];
   }
-  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?', '/nouveau': 'Nouveau', '/nouveautes': 'Nouveautés' };
+  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?', '/nouveau': 'Nouveau', '/nouveautes': 'Nouveautés', '/stats': 'Mes statistiques', '/telechargements': 'Téléchargements', '/collections': 'Collections', '/vote': 'Vote en famille', '/retrospective': 'Rétrospective' };
   let precedent = '#/', dernierChemin = '';
   function render(keepScroll = false) {
     applyTheme();
@@ -901,6 +1329,16 @@
     if (path !== '/nouveau') clearTimeout(S.fileT);
     // Revenir sur « Nouveau » relit la file (et relance sa relecture toutes les 2 s si un téléchargement avance).
     if (path === '/nouveau' && dernierChemin !== '/nouveau') S.file = null;
+    // La maison (lot V8) : arriver sur la page relit ses données ; la quitter arrête ce qui se relit tout seul.
+    if (path !== dernierChemin) {
+      if (path === '/collections') M8.coll = undefined;
+      if (/^\/(collection|liste-lecture)\//.test(path)) { M8.col = {}; M8.pl = {}; }
+      if ((path === '/stats' || path === '/retrospective') && !/^\/(stats|retrospective)$/.test(dernierChemin)) M8.stats = {};
+      if (path === '/retrospective') { M8.recap.an = 0; M8.recap.held = false; }
+      if (path === '/cesoir') M8.tg.cle = '';
+    }
+    if (path !== '/retrospective') clearTimeout(M8.recap.T);
+    if (path !== '/vote') clearTimeout(M8.vt.T);
     dernierChemin = path;
     const [page, withNav] = route();
     $('#app').innerHTML = withNav ? Shell(path, page) : page;
@@ -1089,10 +1527,105 @@
       }
       case 'hvalider': case 'hrefuser': { const kb = `h|${v}`; if (S.busy.has(kb)) break; S.busy.add(kb); const r = await agir(act === 'hvalider' ? 'hnoss_valider' : 'hnoss_refuser', { demande: v }, act === 'hvalider').catch(() => null); S.busy.delete(kb); toast(premiere(r), r && r.ok !== false ? 'success' : 'info'); S.dem = null; S.file = null; rerender(); break; }
       case 'epgrab': { const k = `ep|${v}|${el.dataset.s}|${el.dataset.e}`; if (S.busy.has(k) || S.pris.has(k)) break; S.busy.add(k); try { const r = await envoyer(L.obtenir({ title: el.dataset.t, kind: 'show', season: Number(el.dataset.s), episode: Number(el.dataset.e) })); toast(premiere(r)); if (r.ok !== false) S.pris.add(k); } catch { toast(t('Impossible pour le moment.')); } S.busy.delete(k); rerender(); break; }
+      // ---- la maison (lot V8)
+      case 'tanswer': {
+        const st = M8.ts; st.answers[el.dataset.k] = v;
+        if (st.step < 2) { st.step++; rerender('.choice'); break; }
+        st.picks = L.tonightPicks(S.items, st.answers, dayPart() === 'soir', st.shown); st.picks.forEach((x) => st.shown.add(x.item.id));
+        rerender('.pick .btn-play, .tonight-actions .btn'); break;
+      }
+      case 'tprev': M8.ts.step = Math.max(0, M8.ts.step - 1); rerender('.choice'); break;
+      case 'tmore': { const st = M8.ts; st.picks = L.tonightPicks(S.items, st.answers, dayPart() === 'soir', st.shown); st.picks.forEach((x) => st.shown.add(x.item.id)); rerender('.pick .btn-play, [data-act="tmore"]'); break; }
+      case 'treset': Object.assign(M8.ts, { step: 0, answers: {}, picks: null }); M8.ts.shown.clear(); rerender('.choice'); break;
+      case 'tplay': playItem(S.items.find((x) => x.id === v)); break;
+      case 'tvote': await startVote((M8.ts.picks || []).map((x) => x.item.id)); break;
+      case 'tgwho': { const tg = M8.tg; tg.sel = tg.sel.includes(v) ? tg.sel.filter((x) => x !== v) : [...tg.sel, v]; rerender(sel('tgwho', v)); break; }
+      case 'tgkind': M8.tg.kind = v; rerender(sel('tgkind', v)); break;
+      case 'tgplay': playItem(((M8.tg.res && M8.tg.res.results) || []).map((x) => x.item).find((x) => x.id === v)); break;
+      case 'vend': {
+        if (!M8.vote) break;
+        try { M8.vote = { ...(await api(`/venus/api/vote/${encodeURIComponent(M8.vote.code)}/clore`, {})), qr: M8.vote.qr }; toast(t('Le vote est terminé !'), 'success'); } catch { toast(t('Impossible pour le moment.')); }
+        peindreVote(); const b = $('#vote-host [data-act="vlaunch"]'); if (b) b.focus(); break;
+      }
+      case 'vlaunch': closeSheet(false); clearTimeout(M8.voteT); playItem(S.items.find((x) => x.id === v) || { id: v, type: 'movie' }); break;
+      case 'vback': if (history.length > 1) history.back(); else go('/'); break;
+      case 'vpick': {
+        const vt = M8.vt; if (!vt.st) break; vt.mine = v;
+        try { vt.st = await api(`/venus/api/vote/${encodeURIComponent(vt.code)}`, { itemId: v, client: voteClient() }); try { if (navigator.vibrate) navigator.vibrate(12); } catch { /* rien */ } }
+        catch (er) { toast(String(er.message) === '409' ? t('Le vote est terminé.') : t('Impossible pour le moment.')); try { vt.st = await api(`/venus/api/vote/${encodeURIComponent(vt.code)}`); } catch { /* garde l'état connu */ } }
+        rerender(sel('vpick', v)); break;
+      }
+      case 'rctap': { const r = el.getBoundingClientRect(); recapAller(e.clientX - r.left < r.width * 0.3 ? -1 : 1); break; }
+      case 'rcnext': recapAller(1); break;
+      case 'rcagain': M8.recap.i = 0; M8.recap.reste = SLIDE_MS; rerender('.recap'); break;
+      case 'colltab': M8.collTab = v; history.replaceState(null, '', v === 'playlists' ? '#/collections?onglet=listes' : '#/collections'); rerender(sel('colltab', v)); break;
+      case 'plnew': nouvelleListe(v || null); break;
+      case 'colnew': nouvelleCollection(v || null); break;
+      case 'addto': { const it = S.items.find((x) => x.id === v) || (S.fiche[v] && S.fiche[v].titre); if (it) await ajouterA(it); break; }
+      case 'addpl': case 'addcol': {
+        const it = M8.addItem; if (!it) break; const n = el.dataset.n || '', col = act === 'addcol';
+        const r = await ecrire8(`/venus/api/${col ? 'collections' : 'listes'}/${encodeURIComponent(v)}`, { faire: 'ajouter', itemId: it.id });
+        closeSheet(); rafraichir8();
+        if (r.erreur) toast(t('Impossible pour le moment.'));
+        else toast(col ? t('Ajouté à la collection « {n} »', { n }) : r.added ? (r.added > 1 ? t('Ajouté à « {n} » ({e})', { n, e: tn(r.added, '{n} épisode', '{n} épisodes') }) : t('Ajouté à « {n} »', { n })) : t('Déjà dans « {n} »', { n }), 'success');
+        break;
+      }
+      case 'colren': case 'plren': {
+        const col = act === 'colren', d = col ? M8.col[v] : M8.pl[v]; if (!d || d.erreur) break;
+        nomSheet(col ? t('Renommer la collection') : t('Renommer la liste'), { valeur: d.name, bouton: t('Enregistrer'), faire: async (name) => {
+          if (!name) return t('Le nom est obligatoire');
+          const r = await ecrire8(`/venus/api/${col ? 'collections' : 'listes'}/${encodeURIComponent(v)}`, { faire: 'renommer', name }); if (r.erreur) return t('Impossible pour le moment.');
+          closeSheet(false); rafraichir8(); rerender(`[data-act="${act}"]`); return '';
+        } });
+        break;
+      }
+      case 'coldel': case 'pldel': {
+        const col = act === 'coldel', d = col ? M8.col[v] : M8.pl[v]; if (!d || d.erreur) break;
+        confirmer(col ? t('Supprimer la collection « {n} » ? Les vidéos restent dans Venus.', { n: d.name }) : t('Supprimer la liste « {n} » ? Les vidéos restent dans Venus.', { n: d.name }), t('Supprimer'), async () => {
+          const r = await ecrire8(`/venus/api/${col ? 'collections' : 'listes'}/${encodeURIComponent(v)}`, { faire: 'supprimer' });
+          closeSheet(false); if (r.erreur) { toast(t('Impossible pour le moment.')); return; }
+          rafraichir8(); history.replaceState(null, '', col ? '#/collections' : '#/collections?onglet=listes'); M8.collTab = col ? 'collections' : 'playlists'; render(); const h = $('main h1'); if (h) h.focus();
+        });
+        break;
+      }
+      case 'confok': { const f = M8.confFaire; M8.confFaire = null; if (f) await f(); break; }
+      case 'colrm': {
+        const r = await ecrire8(`/venus/api/collections/${encodeURIComponent(el.dataset.c)}`, { faire: 'retirer', itemId: v });
+        if (r.erreur) { toast(t('Impossible pour le moment.')); break; }
+        toast(t('« {t} » retiré', { t: el.dataset.t || '' })); rafraichir8(); rerender('.coll-x, main h1'); break;
+      }
+      case 'plmove': {
+        const id = el.dataset.c, d = M8.pl[id], n = Number(v), dir = Number(el.dataset.d); if (!d || !d.items) break;
+        const next = L.bouger(d.items, n, dir); if (next === d.items) break;
+        d.items = next; const j = n + dir;
+        rerender(`[data-act="plmove"][data-v="${j}"][data-d="${dir}"]:not([disabled]), [data-act="plmove"][data-v="${j}"]`);
+        const r = await ecrire8(`/venus/api/listes/${encodeURIComponent(id)}`, { faire: 'ordre', order: next.map((x) => x.id) });
+        if (r.erreur) { toast(t('Impossible pour le moment.')); M8.pl = {}; refaire(); }
+        break;
+      }
+      case 'plrm': {
+        const id = el.dataset.c, d = M8.pl[id]; if (!d || !d.items) break; const it = d.items.find((x) => x.id === v);
+        const r = await ecrire8(`/venus/api/listes/${encodeURIComponent(id)}`, { faire: 'retirer', itemId: v });
+        if (r.erreur) { toast(t('Impossible pour le moment.')); break; }
+        d.items = d.items.filter((x) => x.id !== v); M8.coll = undefined; toast(t('« {t} » retiré de la liste', { t: it ? (it.showTitle || it.title) : '' })); rerender('.pl-main, main h1'); break;
+      }
+      case 'plshuffle': { const d = M8.pl[v]; if (d && d.items && d.items.length) go(lirePath(d.items[Math.floor(Math.random() * d.items.length)].id)); break; }
+      case 'dlsheet': { const it = S.items.find((x) => x.id === v); if (!it) break; const f = S.fiche[v]; openDownload(it, f && f.tech ? f.tech.taille : 0); break; }
+      case 'dlorig': setTimeout(() => closeSheet(), 300); break;
       case 'mreset': M.order = NAV_ITEMS.map((i) => i.id); M.hidden = [...DEFAULT_HIDDEN]; void sauverPrefs(); toast(t('Menu d’origine rétabli')); rerender(); break;
       default: break;
     }
   });
+  // Les formulaires de la maison (lot V8) : « Rejoindre le vote », et la petite fenêtre « un nom ».
+  D.addEventListener('submit', async (e) => {
+    const f = e.target.closest && e.target.closest('form[data-form]'); if (!f) return;
+    e.preventDefault();
+    if (f.dataset.form === 'vjoin') { const c = String(($('#vote-code') || {}).value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); history.replaceState(null, '', `#/vote?code=${encodeURIComponent(c)}`); await rejoindreVote(c); return; }
+    if (f.dataset.form === 'nom' && M8.nomFaire) { const i = $('#nom-in'), err = await M8.nomFaire(String((i && i.value) || '').trim()); const p = $('#nom-err'); if (p) p.textContent = err || ''; if (err && i) i.focus(); }
+  });
+  // La rétrospective : garder le doigt (ou la souris) appuyé met l'écran en pause.
+  D.addEventListener('pointerdown', (e) => { if (e.target.closest && e.target.closest('.recap') && !e.target.closest('button, a')) recapTenir(true); });
+  for (const k of ['pointerup', 'pointercancel']) D.addEventListener(k, () => recapTenir(false));
   D.addEventListener('change', async (e) => {
     const hl = e.target.closest('[data-act="hlibre"]');
     if (hl && S.dem) {
@@ -1118,6 +1651,13 @@
       if (e.key === 'ArrowDown') { e.preventDefault(); palSel = Math.min(res.length - 1, palSel + 1); paintPalette(e.target.value); return; }
       if (e.key === 'ArrowUp') { e.preventDefault(); palSel = Math.max(0, palSel - 1); paintPalette(e.target.value); return; }
       if (e.key === 'Enter') { e.preventDefault(); if (res[palSel]) palGo(res[palSel]); return; }
+    }
+    // La rétrospective au clavier (Recap.js) : → ou Espace pour avancer, ← pour revenir, Échap pour les statistiques.
+    if (L.route(location.hash).path === '/retrospective' && !D.querySelector('.sheet-wrap, .palette-wrap')) {
+      const champ = e.target && /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName || '');
+      if (e.key === 'ArrowRight' || (e.key === ' ' && !champ)) { e.preventDefault(); recapAller(1); return; }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); recapAller(-1); return; }
+      if (e.key === 'Escape') { e.preventDefault(); go(`/stats?annee=${M8.recap.an || new Date().getFullYear()}`); return; }
     }
     if (e.key === 'Escape') {
       if ($('#drop')) { closeDrop(); return; }

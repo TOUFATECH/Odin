@@ -7,7 +7,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { spawn } from 'node:child_process';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
-import { extname, isAbsolute, resolve } from 'node:path';
+import { basename, extname, isAbsolute, resolve } from 'node:path';
 import { fetchPropre } from '../../net/fetch-propre.ts';
 import { haApi, type HaState } from '../../tools/homeassistant.ts';
 import { dirVenus, magasinVenus, type MagasinVenus } from './base.ts';
@@ -22,7 +22,11 @@ import { abonnements, abonner, accueil, ajouterHistoriqueYt, chaine, desabonner,
 import { fluxAutorise } from './cast.ts';
 import { entreeFfmpeg } from '../../files/ffmpeg-entree.ts';
 import { estMembre } from '../sso/garde.ts';
-import { profilDemande, profilDuTemoin, routeAppli } from './app/appli.ts';
+import { profilDemande, profilDuTemoin, profils, routeAppli } from './app/appli.ts';
+import { svg } from '../qr.ts';
+import { anneeDemandee, ensemble, statistiques } from './stats.ts';
+import { cloreVote, creerSalle, creerVote, lireSalle, lireVote, voter } from './seance.ts';
+import { changer, collection, collections, creerCollection, creerListe, liste } from './collections.ts';
 import { icsCalendrier, lienCalendrier, profilDuCalendrier, sortiesDuCalendrier } from './hnoss/calendrier.ts';
 
 export interface VenusRouteCtx {
@@ -170,6 +174,8 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
       const lien = `${ctx.origin.replace(/\/$/, '')}/venus/calendrier/${lienCalendrier(mag, ctx.home, profil, { nouveau: b.nouveau === true })}.ics`;
       json(res, 200, { url: lien, webcal: lien.replace(/^https?:/, 'webcal:') }); return true;
     }
+    // La maison (lot V8) : statistiques, « Qui regarde ce soir ? », vote, séance, collections, listes, fichier d'origine.
+    if (p.startsWith('/venus/api/') && await routeMaison(req, res, url, ctx, mag, profil)) return true;
     // L'interface de Vénus (lot V1) : la page plein écran et ce qu'elle lit (catalogue, fiche, profils, préférences).
     if (await routeAppli(req, res, url, ctx.home, mag, profil)) return true;
 
@@ -380,6 +386,76 @@ async function routeYoutube(req: IncomingMessage, res: ServerResponse, url: URL,
 }
 
 const decode = (x: string) => { try { return decodeURIComponent(x); } catch { return x; } };
+
+// ---------------- La maison (lot V8) ----------------
+/**
+ * Les routes de la maison, après la garde du propriétaire (ses profils seulement) :
+ *   GET  /venus/api/stats?annee=          les statistiques DU profil (d'après sa reprise)
+ *   GET  /venus/api/ensemble?profils=&kind=  « Qui regarde ce soir ? »
+ *   POST /venus/api/vote {itemIds}        ouvrir un vote (code, lien et QR) ; GET|POST /venus/api/vote/<code> ; POST …/clore
+ *   POST /venus/api/seance {itemId}       ouvrir une séance ; GET /venus/api/seance/<code>
+ *   GET|POST /venus/api/collections[/<id>], /venus/api/listes[/<id>]   collections et listes de lecture
+ *   GET  /venus/api/telecharger/<cible>   le fichier d'origine d'un film ou d'un épisode, en pièce jointe
+ * Chaque écriture porte l'en-tête x-odin (une page d'un autre site ne peut pas le poser). Rend true si servie.
+ */
+async function routeMaison(req: IncomingMessage, res: ServerResponse, url: URL, ctx: VenusRouteCtx, mag: MagasinVenus, profil: string): Promise<boolean> {
+  const reste = url.pathname.slice('/venus/api/'.length), meth = req.method ?? 'GET';
+  const m = /^(stats|ensemble|vote|seance|collections|listes|telecharger)(?:\/([^/]+))?(?:\/(clore))?$/.exec(reste);
+  if (!m) return false;
+  const [, quoi, idBrut, clore] = m, id = idBrut === undefined ? undefined : decode(idBrut);
+  if (meth === 'POST' && req.headers['x-odin'] !== '1') { json(res, 403, { error: 'en-tête x-odin manquant' }); return true; }
+  if (meth !== 'GET' && meth !== 'POST') { json(res, 405, { error: 'GET ou POST' }); return true; }
+  const tousProfils = () => profils(ctx.home), nom = () => tousProfils().find((x) => x.id === profil)?.name ?? '';
+  const refus = (r: { erreur: string; code?: number }, code = 400) => { json(res, r.code ?? code, { error: r.erreur }); return true; };
+  if (quoi === 'stats' && meth === 'GET' && !id) { json(res, 200, statistiques(mag, profil, anneeDemandee(url.searchParams.get('annee') ?? url.searchParams.get('year')))); return true; }
+  if (quoi === 'ensemble' && meth === 'GET' && !id) {
+    const ids = s(url.searchParams.get('profils')).split(',').map((x) => x.trim()).filter(Boolean);
+    json(res, 200, ensemble(mag, tousProfils(), ids, url.searchParams.get('kind') === 'show' ? 'show' : 'movie', profil)); return true;
+  }
+  if (quoi === 'vote') {
+    if (!id && meth === 'POST') {
+      const r = creerVote(mag, profil, nom(), (await corps(req)).itemIds); if ('erreur' in r) return refus(r);
+      const link = `${ctx.origin.replace(/\/$/, '')}/venus/app/#/vote?code=${r.code}`;
+      json(res, 200, { ...r, link, qr: svg(link, { ecc: 'M', scale: 5 }) }); return true;
+    }
+    if (id && clore && meth === 'POST') { const r = cloreVote(mag, id); if ('erreur' in r) return refus(r, 404); json(res, 200, r); return true; }
+    if (id && !clore && meth === 'GET') { const r = lireVote(mag, id); if (!r) return refus({ erreur: 'Vote introuvable ou terminé.' }, 404); json(res, 200, r); return true; }
+    if (id && !clore && meth === 'POST') {
+      const b = await corps(req), r = voter(mag, id, b.itemId, b.client, nom());
+      if ('erreur' in r) return refus(r, /introuvable/.test(r.erreur) ? 404 : /terminé/.test(r.erreur) ? 409 : 400);
+      json(res, 200, r); return true;
+    }
+  }
+  if (quoi === 'seance' && !clore) {
+    if (!id && meth === 'POST') { const r = creerSalle(mag, (await corps(req)).itemId, nom()); if ('erreur' in r) return refus(r, 404); json(res, 200, r); return true; }
+    if (id && meth === 'GET') { const r = lireSalle(mag, id); if (!r) return refus({ erreur: 'Séance introuvable.' }, 404); json(res, 200, r); return true; }
+  }
+  if ((quoi === 'collections' || quoi === 'listes') && !clore) {
+    const genre = quoi === 'collections' ? 'collection' : 'liste';
+    if (!id && meth === 'GET' && genre === 'collection') { json(res, 200, collections(mag, profil)); return true; }
+    if (!id && meth === 'POST') { const b = await corps(req), r = genre === 'collection' ? creerCollection(mag, profil, b.name, b.itemId) : creerListe(mag, profil, b.name, b.itemId); if ('erreur' in r) return refus(r); json(res, 200, r); return true; }
+    if (id && meth === 'GET') { const r = genre === 'collection' ? collection(mag, profil, id) : liste(mag, profil, id); if (!r) return refus({ erreur: 'introuvable' }, 404); json(res, 200, r); return true; }
+    if (id && meth === 'POST') { const r = changer(mag, profil, genre, id, await corps(req)); if ('erreur' in r) return refus(r); json(res, 200, r); return true; }
+  }
+  if (quoi === 'telecharger' && id && !clore && meth === 'GET') return servirOrigine(res, mag, id);
+  json(res, 404, { error: 'route Vénus inconnue' }); return true;
+}
+/**
+ * « Fichier d'origine » (Downloads.js, openDownload) : le film ou l'épisode tel qu'il est sur le disque, en pièce jointe,
+ * pour le garder sur l'appareil. Seulement une vidéo de la bibliothèque ; le nom donné est le seul nom du fichier
+ * (jamais un dossier de la machine).
+ */
+function servirOrigine(res: ServerResponse, mag: MagasinVenus, cibleId: string): boolean {
+  const ok = mag.get('oeuvres', cibleId)?.data.type === 'film' || !!mag.get('episodes', cibleId);
+  const c = ok ? fichierDeCible(mag, cibleId) : undefined;
+  if (!c || c.type !== 'video') { json(res, 404, { error: 'cible introuvable' }); return true; }
+  if (!existsSync(c.fichier)) { json(res, 404, { error: "Le fichier de ce titre n'est plus à sa place (disque débranché, fichier déplacé) : rebranche-le ou relance un scan." }); return true; }
+  const nomFichier = basename(c.fichier).replace(/[\u0000-\u001f\u007f"\\]/g, '_').slice(-200) || 'video';
+  const ascii = nomFichier.replace(/[^\x20-\x7e]/g, '_');
+  res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': String(statSync(c.fichier).size), 'content-disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nomFichier).replace(/['()*]/g, (x) => `%${x.charCodeAt(0).toString(16).toUpperCase()}`)}`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+  createReadStream(c.fichier).pipe(res);
+  return true;
+}
 
 // ---------------- La page de télécommande d'UN écran (téléphone, 390 px, iPhone et Android) ----------------
 // Autonome (aucun autre morceau d'Odin). Suit le thème clair/sombre du téléphone (jamais forcé en sombre). Tous les
