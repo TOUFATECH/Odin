@@ -8,6 +8,12 @@ export interface Inbound {
   text: string;
   /** Le message est arrivé en vocal (et a été transcrit). */
   voice?: boolean;
+  /**
+   * Le message vient d'un programme qui présente la clé d'accès (posé par le serveur web, jamais par l'expéditeur) : ce
+   * n'est pas la parole du propriétaire. La passerelle le traite comme un appel de dehors : Odin répond, aucune phrase
+   * directe ne vaut, et tout geste attend la validation du propriétaire, donnée depuis sa session.
+   */
+  parCle?: boolean;
 }
 
 export interface Channel {

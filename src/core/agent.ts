@@ -56,6 +56,7 @@ import type { Tier } from '../providers/router.ts';
 import { odinCommenceARepondre } from '../valhalla/mathesis/occupe.ts';
 import { debutReponse } from '../brain/nous/occupation.ts';
 import { deciderPuisLancer } from '../heimdall/executer.ts';
+import { enGeste, lectureLibre } from './parole-cle.ts';
 import { PasDeModele } from '../brain/porte-modele.ts';
 import { agentQuiVoit, ceQueJeSaisSansElle, creerPorte, dansLAppel, enregistrerPorte } from '../video/envoi-images.ts';
 
@@ -110,6 +111,8 @@ export interface RunOptions {
   automatique?: string;
   /** Répondre sans aucune IA (réglage « cerveau sans IA » pour la voix) : règles, mémoire et outils locaux seulement. */
   withoutAi?: boolean;
+  /** Le message vient de la clé d'accès (un programme) : seules les lectures écrites dans parole-cle.ts partent sans validation. */
+  parCle?: boolean;
 }
 
 export interface RunResult {
@@ -738,8 +741,11 @@ export class Agent {
     }
 
     // Heimdall décide (src/heimdall/executer.ts : le seul chemin vers tool.run).
-    const { decision, lancer } = await deciderPuisLancer(this.deps.heimdall, tool, call.input, ctx, {
-      sessionId: o.sessionId, tainted: isTainted(), unattended: o.unattended, automatique: o.automatique !== undefined, tour: turn.tour,
+    // La clé d'accès : hors des simples lectures, tout outil est présenté comme un geste (la validation du propriétaire).
+    // Ce n'est pas le propriétaire qui demande : pour Heimdall, comme une tâche automatique (rien n'y est « demandé par toi »).
+    const geste = Boolean(o.parCle) && !lectureLibre(tool.name, call.input);
+    const { decision, lancer } = await deciderPuisLancer(this.deps.heimdall, geste ? enGeste(tool) : tool, call.input, ctx, {
+      sessionId: o.sessionId, tainted: isTainted(), unattended: o.unattended, automatique: o.automatique !== undefined || geste, tour: turn.tour,
       userRequest: turn.userRequest,
       suspicious: turn.suspicious,
       maxAutonomy: o.speaker?.role === 'member' ? (o.speaker.autonomy ?? 'prudent') : undefined,
@@ -802,6 +808,7 @@ export class Agent {
       // « tâche automatique ».
       speaker: parent.speaker,
       automatique: parent.automatique,
+      parCle: parent.parCle,
       // Les envois et écritures des aides comptent pour la DEMANDE D'ORIGINE (une rafale répartie reste une rafale).
       tourParent,
       ownerRequest,

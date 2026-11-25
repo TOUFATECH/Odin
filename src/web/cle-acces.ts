@@ -22,6 +22,14 @@ export const REFUS_VALIDATION = 'Une validation ou une commande ne vient que de 
 /** La phrase du refus quand le texte de la clé porte une très longue suite d'espaces (voir `TROP_D_ESPACES`). */
 export const REFUS_ESPACES = 'Ce message porte une trop longue suite d\'espaces : renvoie-le sans.';
 
+/**
+ * La conversation de la clé d'accès (décision du propriétaire, 24/11 : « Validation avant d'agir » — « Sa phrase est
+ * traitée comme un appel extérieur : Odin répond, mais te demande avant tout geste »). Un message envoyé avec la clé
+ * par /api/message va dans cette conversation à part (« web:cle »), jamais dans celle du propriétaire ; le raccourci
+ * (/api/ask) garde la sienne (« web:raccourci »). Le serveur marque ces messages (`parCle`) pour la passerelle.
+ */
+export const PAIR_CLE = 'cle';
+
 /** Un refus : ce qui est noté dans le journal du serveur (jamais le contenu de la demande), et la phrase rendue. */
 export interface RefusCle { quoi: string; phrase: string }
 

@@ -108,7 +108,7 @@ import { Pairing, deviceName, type PairRequest } from './pairing.ts';
 import { activationPage } from './activate.ts';
 import { setMascot as setVarMascot } from '../valhalla/modules/var.ts';
 import { estMembre, gardeSSO, membreDe, ouvrirSessionMembre, sessionMembre } from '../valhalla/sso/garde.ts';
-import { refusDeLaCle, type DemandeCle } from './cle-acces.ts';
+import { PAIR_CLE, refusDeLaCle, type DemandeCle } from './cle-acces.ts';
 import { aDroit, messageRefus, nomAppli, persona, personnes, trouver } from '../valhalla/sso/etat.ts';
 import { verifierPersonne } from '../valhalla/sso/oidc.ts';
 import { ConnexionQr, DUREE_QR, type Qui } from './connexion-qr.ts';
@@ -256,12 +256,12 @@ export class WebChannel implements Channel {
   /** Raccourcis (Siri, Android) : réponse attendue par conversation. */
   private waiters = new Map<string, (text: string) => void>();
   /** Pose une question à Odin (même chemin que la discussion : mêmes droits, mêmes validations) et attend sa réponse. */
-  private askAs(peer: string, text: string, onMessage: (m: Inbound) => Promise<void>, max = 4000): Promise<string> {
+  private askAs(peer: string, text: string, onMessage: (m: Inbound) => Promise<void>, max = 4000, cle = false): Promise<string> {
     if (this.waiters.has(peer)) return Promise.resolve('Je réponds déjà à une demande : un instant.');
     return new Promise<string>((resolve) => {
       const timer = setTimeout(() => { this.waiters.delete(peer); resolve('Je travaille encore dessus : la réponse arrivera dans Odin.'); }, 110_000);
       this.waiters.set(peer, (r) => { clearTimeout(timer); resolve(r); });
-      void onMessage({ channel: 'web', peer, name: peer, text: text.slice(0, max) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
+      void onMessage({ channel: 'web', peer, name: peer, text: text.slice(0, max), ...(cle ? { parCle: true } : {}) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
     });
   }
   private vaultFails = 0;
@@ -422,13 +422,15 @@ export class WebChannel implements Channel {
     return undefined;
   }
   private authed(req: IncomingMessage): boolean { const w = this.who(req); return w === 'session' || w === 'cle'; }
+  /** La demande porte-t-elle la clé d'accès, une fois le compte créé ? (Sans compte, la clé installe Odin : elle vaut le propriétaire.) */
+  private parCle(req: IncomingMessage): boolean { return this.accounts.exists() && this.tokenOk((req.headers.authorization ?? '').replace(/^Bearer\s+/i, '')); }
   /**
    * La clé d'accès lit et parle ; tout geste qui écrit demande la session du propriétaire (la règle est dans
    * cle-acces.ts). Rend true quand la demande est refusée : la réponse (403) est déjà partie, et le refus est noté.
    * Sans compte, il n'y a pas encore de session : la clé sert à installer Odin, rien n'est fermé.
    */
   private cleRefusee(req: IncomingMessage, res: ServerResponse, url: URL, d: DemandeCle = {}): boolean {
-    if (!this.accounts.exists() || !this.tokenOk((req.headers.authorization ?? '').replace(/^Bearer\s+/i, ''))) return false;
+    if (!this.parCle(req)) return false;
     const refus = refusDeLaCle(req.method ?? 'GET', url.pathname, d);
     if (!refus) return false;
     console.log(`[web] clé d'accès : refus de ${refus.quoi} depuis ${this.clientIp(req)} (ce geste demande la session du propriétaire)`);
@@ -740,7 +742,7 @@ export class WebChannel implements Channel {
       // sur les réglages de freyja pour que le module l'ait aussi quand l'appel vient de la discussion (sans requête web).
       const origin = this.publicOrigin(req);
       try { const fctx = valhallaOf()?.ctx('freyja'); if (fctx && fctx.settings.origin !== origin) fctx.saveSettings({ origin }); } catch { /* sans gravité */ }
-      if (await venusRoute(req, res, url, { home: this.odin.paths.home, proprietaire: () => this.authed(req), fail: () => this.throttle.fail(ip), origin, ip: ip.replace(/^fwd:/, ''), ha: haUrl && process.env.HA_TOKEN ? { url: haUrl, token: process.env.HA_TOKEN } : undefined, ask: (t) => this.askAs('venus', t, onMessage, 20_000), profil: 'moi' })) return;
+      if (await venusRoute(req, res, url, { home: this.odin.paths.home, proprietaire: () => this.authed(req), fail: () => this.throttle.fail(ip), origin, ip: ip.replace(/^fwd:/, ''), ha: haUrl && process.env.HA_TOKEN ? { url: haUrl, token: process.env.HA_TOKEN } : undefined, ask: (t) => this.askAs(this.parCle(req) ? PAIR_CLE : 'venus', t, onMessage, 20_000, this.parCle(req)), profil: 'moi' })) return; // la clé : son texte (les sous-titres qu'elle donne) reste le sien
     }
     // Pégase (le navigateur d'Odin) : ses routes, avec ses propres jetons d'appareil (voir pegase-api.ts).
     if (url.pathname.startsWith('/api/pegase/') && await pegaseRoute(req, res, url, { ip, proprietaire: () => this.authed(req), nomProprietaire: this.accounts.profile()?.prenom ?? '', emailProprietaire: this.accounts.profile()?.email, motDePasseProprietaire: async (e, mdp) => (await this.accounts.login(e, mdp)).ok, fail: () => this.throttle.fail(ip), ask: (peer, text) => this.askAs(peer, text, onMessage, 30_000), certificat: this.tls?.cert, version: RUNNING, origin: this.publicOrigin(req), pair: { collect: (sec) => this.pairing.collect(sec), request: (device, from) => { const r = this.pairing.request('', from, Date.now(), device); if (r) { void Promise.resolve(this.hooks.pairAsk?.({ id: r.id, code: r.code, device: r.device, ip: r.ip, at: r.at, state: r.state })).catch(() => 0); this.notify('state'); } return r; } } })) return;
@@ -1207,7 +1209,8 @@ export class WebChannel implements Channel {
       const reply = await new Promise<string>((resolve) => {
         const timer = setTimeout(() => { this.waiters.delete(peer); resolve('Je travaille encore dessus : la réponse arrivera dans l\'application Odin.'); }, 110_000);
         this.waiters.set(peer, (r) => { clearTimeout(timer); resolve(r); });
-        void onMessage({ channel: 'web', peer, name: 'raccourci', text: text.slice(0, 4000) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
+        // Avec la clé (compte créé) : ce n'est pas la parole du propriétaire, la passerelle demande sa validation avant tout geste.
+        void onMessage({ channel: 'web', peer, name: 'raccourci', text: text.slice(0, 4000), ...(this.parCle(req) ? { name: PAIR_CLE, parCle: true } : {}) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
       });
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
       return void res.end(sansLigneLireVenus(reply.replace(/\[humeur:[^\]]*\]/g, '')).replace(/[*_`#]/g, '').trim());
@@ -1392,6 +1395,8 @@ export class WebChannel implements Channel {
       if (where) text = `${text}\n\n[page : ${where}]`;
       // Une seule conversation avec Odin (décision du 19/11/2026) : le serveur la choisit, jamais la page. Le « peer »
       // envoyé (une vieille page en cache envoie encore « c-… ») ne compte plus : tout va dans la conversation du compte.
+      // La clé d'accès n'écrit pas dans la conversation du propriétaire : elle a la sienne, et son message est marqué.
+      if (this.parCle(req)) { void onMessage({ channel: 'web', peer: PAIR_CLE, name: PAIR_CLE, text, parCle: true }); return json(res, 202, { ok: true, peer: PAIR_CLE }); }
       const peer = this.defaultPeer;
       void onMessage({ channel: 'web', peer, name: 'navigateur', text });
       return json(res, 202, { ok: true });

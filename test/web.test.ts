@@ -54,7 +54,9 @@ test('interface web : jeton, hôte, en-tête anti-CSRF, discussion et validation
   assert.match(buf, /"tool_start","name":"shell"/);
 
   const st = await (await fetch(`${B}/api/state`, { headers: auth })).json() as { conversations: Array<{ peer: string }>; audit: Array<{ via: string }> };
-  assert.equal(st.conversations[0].peer, 'principal');
+  // Depuis le 24/11, ce que dit la clé va dans sa conversation à elle (« cle »), jamais dans celle du propriétaire.
+  assert.equal(st.conversations[0].peer, 'cle');
+  assert.ok(!st.conversations.some((c) => c.peer === 'principal'), 'la clé n\'a rien écrit dans la conversation du propriétaire');
   assert.equal(st.audit[0].via, 'human');
   ctrl.abort();
   await gw.stop();

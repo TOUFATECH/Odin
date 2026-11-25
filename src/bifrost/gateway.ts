@@ -16,7 +16,10 @@ import { nextRun } from '../cron/cron.ts';
 import { prochaineCron } from '../draupnir/rythme.ts';
 import { nomMoyen } from '../valhalla/automatismes.ts';
 import type { Channel, Inbound } from './channel.ts';
+import { LIMITE_CLE, QuotaCle, pourLaCarte } from '../core/parole-cle.ts';
 
+/** En tête de la raison d'une validation demandée pour un message de la clé d'accès : ce n'est pas le propriétaire qui demande. */
+export const DEMANDE_PAR_LA_CLE = '🔑 Demandé par un programme qui a ta clé d\'accès, pas par toi.';
 /** La prochaine exécution d'une tâche planifiée, comptée à l'heure du lieu d'Odin (sinon celle de la machine). */
 export const prochaineTache = (cron: string, now: number): number => (prochaineCron(cron, new Date(now)) ?? nextRun(cron, new Date(now))).getTime();
 import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/inventory.ts';
@@ -232,7 +235,7 @@ export class Gateway {
   /** Point d'entrée de tout message entrant. */
   async handle(m: Inbound): Promise<void> {
     const recu = m; // le message tel que le canal l'a remis (le canal le reconnaît pour l'effacer chez lui)
-    const proprio = this.isOwner(m.channel, m.peer), compte = proprio ? undefined : this.odin.muninn.userFor(m.channel, m.peer); // qui parle : décidé ici (code sensible), jamais dans le journal
+    const proprio = this.isOwner(m.channel, m.peer) && !m.parCle, compte = proprio ? undefined : this.odin.muninn.userFor(m.channel, m.peer); // qui parle : décidé ici (code sensible), jamais dans le journal
     // Les secrets, EN TÊTE : triés, rangés au coffre de la personne, retirés du texte. Rien n'est écrit avant (ni parole,
     // ni tour, ni conversation, ni mémoire) et aucun agent ne voit le texte d'origine : tout ce qui suit reçoit `m` remplacé.
     let tri: { m: Inbound; retire: boolean; ligne?: string };
@@ -354,17 +357,20 @@ export class Gateway {
   }
   private async traiterMessage(m: Inbound, tour: SuiviTour, secretsTries = false): Promise<void> {
     const ch = this.channels.get(m.channel)!;
-    const owner = this.isOwner(m.channel, m.peer);
+    // La clé d'accès (un programme) n'est pas le propriétaire : aucune phrase directe ne vaut pour elle, son texte est une
+    // donnée de dehors (comme un appel de Kéryx), et ses demandes de validation vont au propriétaire, en la nommant.
+    if (m.parCle) this.marquerCle(`${m.channel}:${m.peer}`);
+    const owner = this.isOwner(m.channel, m.peer) && !m.parCle;
     // Un mot de passe dans le message du propriétaire : retiré AVANT le modèle, gardé à part (chiffré).
     // Une clé collée dans un message (de n'importe qui) : retirée AVANT l'enregistrement et le modèle, rangée au coffre,
     // masquée partout ensuite ; l'expéditeur est prévenu (U6).
     // Le tri d'entrée (handle) a déjà retiré des secrets : ces anciennes prises ne passent pas sur ses marques
     // (« mot de passe du NAS est [rangé au coffre : …] » serait pris pour un mot de passe « [rangé »).
     if (!secretsTries) { const k = extraireCles(m.text); if (k.cles.length) {
-      rangerClesRecues(this.odin.paths.home, k.cles);
+      if (!m.parCle) rangerClesRecues(this.odin.paths.home, k.cles); // la clé d'accès ne fait rien ranger : sa clé collée est retirée, gardée nulle part
       for (const c of k.cles) this.odin.redactor.add(c);
       m = { ...m, text: k.text };
-      await ch.send(m.peer, `🔐 J'ai mis ${k.cles.length > 1 ? `ces ${k.cles.length} clés` : 'cette clé'} au coffre : je ne la garde pas en clair et elle ne part pas vers l'IA. Change-la si elle a circulé ailleurs.`).catch(() => {});
+      if (!m.parCle) await ch.send(m.peer, `🔐 J'ai mis ${k.cles.length > 1 ? `ces ${k.cles.length} clés` : 'cette clé'} au coffre : je ne la garde pas en clair et elle ne part pas vers l'IA. Change-la si elle a circulé ailleurs.`).catch(() => {});
     } }
     if (owner && !secretsTries) { const x = extractSecret(m.text); if (x.secret) { keepSecret(this.odin.paths.home, x.secret, x.label); this.odin.redactor.add(x.secret); m = { ...m, text: x.text }; } }
     // Profil : qui a demandé, quand, avec quelle preuve (des renvois, jamais le texte). Après le retrait des secrets ;
@@ -384,13 +390,15 @@ export class Gateway {
         if (!l.length) return ch.send(m.peer, TROP_TARD);
         return ch.send(m.peer, `Plusieurs demandes ont été faites : rien n'est parti. Réponds avec l'identifiant de celle que tu veux :\n${l.map((x) => `• ${x.resume.replace(/\s+/g, ' ')} → /yes ${x.id} ou /no ${x.id}`).join('\n')}`);
       }
+      // Une demande née de la clé d'accès : un « oui » tout court (dit pour autre chose) ne la valide pas ; « non » la refuse.
+      if (this.quotaCle.attend(seule) && !/^(no|non|nan)$/i.test(bare[1])) return ch.send(m.peer, `🔑 Cette demande vient d'un programme qui a ta clé d'accès : un « ${bare[1]} » tout court ne la valide pas. Réponds avec son bouton, ou « /yes ${seule} » (« /no ${seule} » pour refuser).`);
       cmd = Object.assign([text, bare[1], seule], { index: 0, input: text }) as RegExpMatchArray;
     } else if (!cmd && bare && text.startsWith('/') && owner) return ch.send(m.peer, 'Aucune demande en attente : elle a peut-être expiré. Redemande-moi l\'action, je la referai.');
     if (cmd) {
       // La réponse porte le numéro de l'action montrée dans cette demande : elle ne vaut que pour celle-là.
       const rep = this.approbations.repondre(cmd[2], cmd[1], owner, Date.now(), this.numerosMontres.get(cmd[2]));
       if (!rep.ok) return ch.send(m.peer, rep.raison);
-      this.numerosMontres.delete(cmd[2]);
+      this.numerosMontres.delete(cmd[2]); this.quotaCle.rendre(cmd[2]);
       const ans = rep.reponse;
       for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
@@ -501,7 +509,7 @@ export class Gateway {
     this.odin.muninn.setKv('last-inbound', String(Date.now()));
     // « stop » du propriétaire : TOUT s'arrête (toutes les conversations, travail continu, tâches de fond, navigateur,
     // entraînement de Soul) et l'initiative est en pause jusqu'à « reprends ». Un membre n'arrête que sa conversation.
-    if (/^\/?(stop|arr[êe]te tout|stoppe tout)[\s.!]*$/i.test(text)) {
+    if (!m.parCle && /^\/?(stop|arr[êe]te tout|stoppe tout)[\s.!]*$/i.test(text)) {
       if (!owner) { this.aborts.get(sessionId)?.abort(); return ch.send(m.peer, '⏹ Arrêté (ta conversation).'); }
       const n = this.toutArreter(`${m.channel}:${m.peer}`);
       return ch.send(m.peer, `⏹ Tout est arrêté (${n} conversation(s) en cours, et les tâches de fond) et je ne prends plus d'initiative. Dis « reprends » quand tu veux.`);
@@ -522,7 +530,7 @@ export class Gateway {
 
     const speaker = this.speakerOf(m.channel, m.peer, m.name);
     // Appairage : un inconnu reçoit un code que le propriétaire doit approuver.
-    if (!owner && speaker.role !== 'member') {
+    if (!owner && speaker.role !== 'member' && !m.parCle) {
       const status = this.odin.muninn.pairingStatus(m.channel, m.peer);
       if (status !== 'approved') {
         const code = this.odin.muninn.requestPairing(m.channel, m.peer, m.name);
@@ -541,7 +549,7 @@ export class Gateway {
     }
     // « /new » (Telegram, odin chat) et « masque la conversation » : une seule conversation avec Odin (19/11), on la
     // masque (src/muninn/fil.ts) : l'écran du fil repart vide et Odin repart à neuf ; rien n'est effacé.
-    if (/^\/new\b/i.test(text) || masquerCommand(text)) {
+    if (!m.parCle && (/^\/new\b/i.test(text) || masquerCommand(text))) {
       masquerSession(this.odin.muninn, sessionId);
       if (!quiDeSession(sessionId)) return ch.send(m.peer, '🆕 Je repars à neuf, sans le contexte d\'avant. Rien n\'est effacé.');
       for (const c of this.channels.values()) c.notify?.('fil');
@@ -617,7 +625,7 @@ export class Gateway {
         // Un membre est de confiance (son texte n'est pas une « donnée externe »), mais son autonomie est plafonnée.
         // Kéryx est joint de DEHORS (numéro affiché usurpable) : même propriétaire et code prouvé, son texte reste une
         // donnée non fiable (anti-injection : les actions peu réversibles redemandent alors confirmation « ok envoie »).
-        sessionId, channel: m.channel, peer: m.peer, trusted: (owner || speaker?.role === 'member') && m.channel !== 'keryx', signal: ctrl.signal, speaker,
+        sessionId, channel: m.channel, peer: m.peer, trusted: (owner || speaker?.role === 'member') && m.channel !== 'keryx', signal: ctrl.signal, speaker, parCle: m.parCle,
         withoutAi: m.voice === true && this.odin.cfg.voice.brain === 'sans-ia',
         onEvent: (e) => {
           if (e.type === 'tool_start') used.push(e.name);
@@ -677,14 +685,19 @@ export class Gateway {
       if (!target) return false;
       const head = req.severity === 'grave' ? '🛑 Décision GRAVE : Odin a besoin de toi' : '⚠️ Odin demande une validation';
       const options = `Réponds oui ou non${req.grantable ? ' (ou « toujours » pour ne plus te le demander)' : ''}. Réf. /yes ${req.id}`;
-      const msg = `${head}\nAction : ${req.summary}\nPourquoi : ${req.reason}\n${options}`;
+      // Née de la clé d'accès : limitée en nombre ; et ce qui vient de sa demande (résumé, raison) tient sur une ligne,
+      // sans clé dessinée, derrière la marque d'Odin : son texte ne peut ni imiter la ligne « Demandé par… », ni la repousser.
+      const cle = this.deLaCle(req.sessionId);
+      if (cle) { const q = this.quotaCle.prendre(req.id, this.odin.cfg.policy.approvalTimeoutSec * 1000); if (q.dire) void this.tellOwner(`🔑 Un programme qui a ta clé d'accès fait naître trop de demandes de validation (${LIMITE_CLE.enAttente} en attente ou ${LIMITE_CLE.parHeure} en une heure, au plus) : je refuse les suivantes sans te déranger. Si ce n'est pas un de tes programmes, change la clé (Réglages, ou « odin web rotate »).`).catch(() => {}); if (!q.ok) return false; }
+      const resume = cle ? `🔑 ${pourLaCarte(req.summary)}` : req.summary, pourquoi = cle ? pourLaCarte(req.reason) : req.reason, raison = cle ? `${DEMANDE_PAR_LA_CLE} ${pourquoi}` : pourquoi;
+      const msg = `${head}\n${cle ? `${DEMANDE_PAR_LA_CLE}\n` : ''}Action : ${resume}\nPourquoi : ${pourquoi}\n${options}`;
       // Heimdall tranche « non » après approvalTimeoutSec : passé ce délai, une réponse dit « trop tard » (rien ne part) ;
       // on oublie la demande une minute après pour ne pas accumuler.
-      const answer = this.approbations.attendre(req.id, { echeanceMs: this.odin.cfg.policy.approvalTimeoutSec * 1000, resume: req.summary });
+      const answer = this.approbations.attendre(req.id, { echeanceMs: this.odin.cfg.policy.approvalTimeoutSec * 1000, resume });
       const montre = empreinteEnCours();
       if (montre) { this.numerosMontres.set(req.id, numeroCourt(montre)); setTimeout(() => this.numerosMontres.delete(req.id), this.odin.cfg.policy.approvalTimeoutSec * 1000 + 60_000).unref?.(); }
       // Canaux qui savent afficher une carte (interface web) : évènement typé, pas de détection par le texte.
-      target.ch.event?.(target.peer, { type: 'approval', id: req.id, summary: req.summary, reason: req.reason, severity: req.severity, grantable: req.grantable });
+      target.ch.event?.(target.peer, { type: 'approval', id: req.id, summary: resume, reason: raison, severity: req.severity, grantable: req.grantable });
       await target.ch.send(target.peer, msg, { approval: { id: req.id, grantable: req.grantable } });
       // La demande vient d'un membre : on le prévient que le propriétaire a été sollicité.
       const [sc, ...sp] = req.sessionId.split(':'); const sch = this.channels.get(sc); const speer = sp.join(':');
@@ -693,11 +706,21 @@ export class Gateway {
     },
   };
 
+  /**
+   * Les conversations où parle la clé d'accès (posées par le serveur web, `parCle`) ; leurs sous-agents en font partie.
+   * Notées aussi sur le disque : après un redémarrage, une mission reprise, un message rejoué ou une tâche planifiée de
+   * ces conversations restent ceux de la clé.
+   */
+  private sessionsCle = new Set<string>();
+  private quotaCle = new QuotaCle();
+  private marquerCle(conv: string): void { if (this.sessionsCle.has(conv)) return; this.sessionsCle.add(conv); if (this.odin.muninn.getKv(`parole-cle:${conv}`) !== '1') this.odin.muninn.setKv(`parole-cle:${conv}`, '1'); }
+  private deLaCle(sessionId: string): boolean { const [canal, pair] = sessionId.split(':'), conv = `${canal}:${pair}`; return this.sessionsCle.has(conv) || this.odin.muninn.getKv(`parole-cle:${conv}`) === '1'; }
+
   private approvalTarget(sessionId: string): { ch: Channel; peer: string } | undefined {
     const [channel, ...rest] = sessionId.split(':');
     const peer = rest.join(':');
     const ch = this.channels.get(channel);
-    if (ch?.interactive && this.isOwner(channel, peer)) return { ch, peer };
+    if (ch?.interactive && this.isOwner(channel, peer) && !this.deLaCle(sessionId)) return { ch, peer };
     return this.ownerTarget();
   }
 
@@ -755,7 +778,7 @@ export class Gateway {
     const [channel, ...rest] = sessionId.split(':');
     const ch = this.channels.get(channel) ?? this.ownerTarget()?.ch;
     if (!ch) throw new Error('aucun canal pour reprendre cette mission');
-    await this.handle({ channel: ch.name, peer: channel === ch.name ? rest.join(':') : (this.ownerTarget()?.peer ?? 'principal'), name: 'propriétaire', text });
+    await this.handle({ channel: ch.name, peer: channel === ch.name ? rest.join(':') : (this.ownerTarget()?.peer ?? 'principal'), name: 'propriétaire', text, ...(this.deLaCle(sessionId) ? { parCle: true } : {}) });
   }
 
   /** Premier propriétaire joignable sur un canal interactif (Telegram, interface web…). */
@@ -1292,7 +1315,9 @@ export class Gateway {
     l = l.filter((q) => now - q.at < 2 * 86_400_000 && q.tries < 30);
     const q = l[0];
     if (!q) { kv.setKv(QUEUE_KEY, '[]'); return false; }
-    const r = await this.odin.agent.run(q.text, { sessionId: q.sessionId, channel: q.channel, peer: q.peer, unattended: true, signal: this.signalFond() }).catch(() => undefined);
+    // Rejoué plus tard, sans personne : le texte garde la confiance de sa conversation (marquée : une donnée de dehors), et la clé d'accès reste la clé.
+    const cle = this.deLaCle(q.sessionId);
+    const r = await this.odin.agent.run(q.text, { sessionId: q.sessionId, channel: q.channel, peer: q.peer, unattended: true, signal: this.signalFond(), trusted: !cle && this.odin.muninn.getSession(q.sessionId)?.tainted !== 1, parCle: cle }).catch(() => undefined);
     if (!r || r.offline || r.stopReason === 'error') { q.tries++; kv.setKv(QUEUE_KEY, JSON.stringify(l)); return false; }
     kv.setKv(QUEUE_KEY, JSON.stringify(l.slice(1)));
     const ch = this.channels.get(q.channel);
@@ -1532,7 +1557,7 @@ export class Gateway {
       }
       const r = await this.odin.agent.run(job.prompt, {
         // Une tâche née sous l'influence d'un contenu non fiable n'a pas la confiance du propriétaire.
-        sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, trusted: !job.tainted, unattended: true, signal: this.signalFond(), ...(speaker ? { speaker } : {}),
+        sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, trusted: !job.tainted, unattended: true, signal: this.signalFond(), ...(speaker ? { speaker } : {}), parCle: this.deLaCle(`${job.channel}:${job.peer}`),
       }).catch((e) => ({ text: `Échec : ${(e as Error).message}` }));
       const text = job.prompt.startsWith('[habitude]') ? `🧠 Comme d'habitude :\n\n${r.text}` : `⏰ ${job.prompt.slice(0, 60)}\n\n${r.text}`;
       const ch = this.channels.get(job.channel);

@@ -67,6 +67,12 @@ export function sessionsDuFil(qui: QuiFil, sessions: SessionFil[], o: { messager
   return sienne && existe.has(sienne) ? [sienne] : [];
 }
 
+/**
+ * Un message reçu de dehors (le raccourci du téléphone parle avec la clé d'accès) est rangé dans une enveloppe pour le
+ * modèle : le fil montre le texte reçu, pas l'enveloppe.
+ */
+const sansEnveloppe = (t: string): string => t.replace(/^<untrusted source="[^"\n]*">\n([\s\S]*?)\n<\/untrusted>/, '$1');
+
 /** Toutes les bulles de ces sessions, dans l'ordre des dates (puis des numéros) ; ni outils ni messages vides. */
 export function assembler(sessions: SessionFil[], messagesDe: (id: string) => MessageBrut[]): Array<Bulle & { titre: string; marquee?: boolean }> {
   const out: Array<Bulle & { titre: string; marquee?: boolean }> = [];
@@ -74,7 +80,7 @@ export function assembler(sessions: SessionFil[], messagesDe: (id: string) => Me
     const origine = origineDe(s.id);
     for (const m of messagesDe(s.id)) {
       if ((m.role !== 'user' && m.role !== 'assistant') || typeof m.content !== 'string' || !m.content) continue;
-      out.push({ type: 'message', id: m.id, session: s.id, role: m.role, texte: m.content, date: m.created_at, titre: s.title, ...(s.marquee ? { marquee: true } : {}), ...(origine ? { origine } : {}) });
+      out.push({ type: 'message', id: m.id, session: s.id, role: m.role, texte: m.role === 'user' ? sansEnveloppe(m.content) : m.content, date: m.created_at, titre: s.title, ...(s.marquee ? { marquee: true } : {}), ...(origine ? { origine } : {}) });
     }
   }
   return out.sort((a, b) => a.date - b.date || a.id - b.id);
