@@ -15,18 +15,28 @@ const MOTS_DE_PASSE = [
   '密码', '密碼', 'パスワード', '비밀번호', 'كلمة (?:ال)?(?:مرور|سر)',
 ].join('|');
 // Les verbes écrits en mots demandent une espace avant et pas de lettre après ; les signes, rien.
-const VERBES = '\\s(?:est|is|es|ist|é|è|era|was|lautet|wordt|jest|это|هي)(?![\\p{L}])|\\s*[:=：—]|是|は|는';
+const VERBES = '\\s(?:est|is|es|ist|é|è|era|was|lautet|wordt|jest|это|هي)(?![\\p{L}])|(?<!\\s)\\s*[:=：—]|是|は|는';
 const VALEUR = '[^\\s"\'«»“”,;]'; // (« ! » et « . » peuvent être dans un mot de passe)
 // La garde « pas une lettre autour » ne vaut que pour les écritures à espaces (pas pour le chinois, le japonais…) ;
 // « _ » compte comme une lettre (MQTT_PASSWORD=… est une variable, laissée à la règle des variables).
 const LETTRE = '[\\p{Script=Latin}\\p{Script=Cyrillic}\\p{Script=Greek}\\p{Script=Arabic}\\p{N}_]';
+// Temps de calcul (test/redact-temps.test.ts, test/redact-relecture.test.ts) : « trois caractères de valeur devant » est
+// regardé d'abord (rien n'est cherché en arrière au milieu d'une suite de blancs), et une suite de blancs n'a qu'une
+// seule lecture possible (« (?<!\s)\s* » avant le signe, « \s*(?:"\s*)? » après le verbe). Sans cela, une longue suite de
+// blancs coûte le cube de sa longueur. L'expression prend la suite ENTIÈRE qui suit l'annonce (« trop court » aussi) ;
+// « a l'air d'un secret » (une lettre, et un chiffre ou un signe) est vérifié ensuite sur la suite trouvée, une seule
+// fois (GARDES, plus bas) : regardé en avant à chaque départ, « mdp:::: » répété coûtait le carré de la longueur.
+// Ce qui est masqué ne change pas. Ne jamais remplacer avec cette expression sans passer par `estSecret`.
 export const PHRASE_MOT_DE_PASSE = new RegExp(
-  `(?<=(?<!${LETTRE})(?:${MOTS_DE_PASSE})(?!${LETTRE})[^\\n.;!?]{0,40}?(?:${VERBES})\\s*["'«“]?\\s*)(?=${VALEUR}*\\p{L})(?=${VALEUR}*(?:\\p{N}|[\\p{S}@#%&*_!?]${VALEUR}))${VALEUR}{3,}`, 'giu');
+  `(?=${VALEUR}{3})(?<=(?<!${LETTRE})(?:${MOTS_DE_PASSE})(?!${LETTRE})[^\\n.;!?]{0,40}?(?:${VERBES})\\s*(?:["'«“]\\s*)?)${VALEUR}{3,}`, 'giu');
+// (les mêmes drapeaux que l'expression : sans « i », un signe qui compte pour une lettre quand la casse est ignorée serait perdu)
+const UNE_LETTRE = /\p{L}/iu, CHIFFRE_OU_SIGNE = new RegExp(`\\p{N}|[\\p{S}@#%&*_!?]${VALEUR}`, 'iu');
+// OpenAI / OpenRouter : pas au milieu d'un mot (« desk-booking-… ») ; une vraie clé a des chiffres et des majuscules (GARDES).
+const CLE_SK = /(?<![A-Za-z0-9])sk-(?:proj-|or-v1-)?[A-Za-z0-9_-]{20,}/g;
 
 const PATTERNS: RegExp[] = [
   /sk-ant-[A-Za-z0-9_-]{20,}/g,                 // Anthropic
-  // OpenAI / OpenRouter : pas au milieu d'un mot (« desk-booking-… »), et une vraie clé a des chiffres et des majuscules.
-  /(?<![A-Za-z0-9])sk-(?:proj-|or-v1-)?(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{20,}/g,
+  CLE_SK,
   /gh[pousr]_[A-Za-z0-9]{30,}/g,                // GitHub
   /github_pat_[A-Za-z0-9_]{40,}/g,
   /AKIA[0-9A-Z]{16}/g,                          // AWS
@@ -34,10 +44,17 @@ const PATTERNS: RegExp[] = [
   /\b\d{8,10}:[A-Za-z0-9_-]{35}\b/g,            // Telegram bot
   /AIza[0-9A-Za-z_-]{35}/g,                     // Google
   /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
-  /(?<=\b(?:password|passwd|secret|api[_-]?key|token)\s*[=:]\s*["']?)[^\s"']{6,}/gi,
+  /(?=[^\s"']{6})(?<=\b(?:password|passwd|secret|api[_-]?key|token)\s*[=:]\s*["']?)[^\s"']{6,}/gi,
   /(?<=Bearer\s)[A-Za-z0-9._~+/=-]{20,}/g,
   PHRASE_MOT_DE_PASSE,
 ];
+// Ce qu'une suite trouvée doit avoir en plus pour être un secret. Vérifié sur la suite entière, lue une seule fois :
+// une suite refusée est passée d'un bloc (aucun départ plus loin dans la même suite ne pourrait être accepté).
+const GARDES = new Map<RegExp, (m: string) => boolean>([
+  [CLE_SK, (m) => /\d/.test(m) && /[A-Z]/.test(m)],
+  [PHRASE_MOT_DE_PASSE, (m) => UNE_LETTRE.test(m) && CHIFFRE_OU_SIGNE.test(m)],
+]);
+const estSecret = (re: RegExp, m: string): boolean => GARDES.get(re)?.(m) ?? true;
 
 // Une valeur connue exactement mais courte (4 à 7 caractères, une valeur du coffre) n'est masquée qu'entière : pas de
 // lettre ni de chiffre collé à elle (dans les écritures à espaces), pour ne pas avaler un mot qui la contient.
@@ -154,7 +171,7 @@ export class Redactor {
       for (const p of gardees) { out += text.slice(k, p.debut) + p.par; k = p.fin; }
       out += text.slice(k);
     }
-    for (const re of PATTERNS) out = out.replace(re, '[SECRET]');
+    for (const re of PATTERNS) out = out.replace(re, (m) => (estSecret(re, m) ? '[SECRET]' : m));
     return masquerIdentites(out);
   }
 
@@ -254,19 +271,21 @@ export function extraireCles(text: string): { text: string; cles: string[] } {
   const cles: string[] = [];
   let out = text;
   // les motifs de clés (pas le « mot de passe : … », traité à part par l'appairage des machines)
-  for (const re of PATTERNS.slice(0, 9)) out = out.replace(new RegExp(re.source, re.flags), (m) => { cles.push(m); return '[clé mise au coffre]'; });
+  for (const re of PATTERNS.slice(0, 9)) out = out.replace(new RegExp(re.source, re.flags), (m) => { if (!estSecret(re, m)) return m; cles.push(m); return '[clé mise au coffre]'; });
   return { text: out, cles };
 }
 
 // Seulement une ligne qui parle de connexion, de vérification ou d'usage unique — pas « code postal », « commande »…
 const CODE_CONTEXTE = /(v[ée]rification|verification|verify|otp|one[- ]time|usage unique|connexion|connecter|login|log in|sign[- ]?in|2fa|two[- ]factor|double authentification|authentification|authentication|passcode|code de s[ée]curit[ée]|security code|code d'acc[èe]s|access code|mot de passe temporaire|temporary password)/i;
 const PAS_UN_CODE = /(code postal|postal code|zip|commande|order|facture|invoice|client|customer|colis|parcel|suivi|tracking|r[ée]f[ée]rence|reference)/i;
+const MOTS_DU_LIEN = /reset|r[ée]initiali|password|passwd|mot-de-passe|verify|v[ée]rif|magic|token|otp|login|signin|confirm/i;
 /** Dans un mail lu : les codes à usage unique et les liens de réinitialisation sont masqués (Odin dit qu'un code est arrivé, sans le lire). Pur. */
 export function masquerCodes(text: string): string {
   return text.split('\n').map((ligne) => {
     let l = ligne;
     if (CODE_CONTEXTE.test(l) && !PAS_UN_CODE.test(l)) l = l.replace(/(?<![\d.,:/-])\b\d{4,8}\b(?![\d.,:/-]|\s?(€|\$|eur|euros|%))/gi, '[code de connexion reçu — masqué]').replace(/\b[A-Z0-9]{3,4}-[A-Z0-9]{3,4}\b/g, '[code de connexion reçu — masqué]');
-    l = l.replace(/https?:\/\/\S*(reset|r[ée]initiali|password|passwd|mot-de-passe|verify|v[ée]rif|magic|token|otp|login|signin|confirm)\S*/gi, '[lien de connexion ou de réinitialisation — masqué]');
+    // le lien entier, lu une seule fois, puis le mot cherché dedans (« http:// » répété sur une ligne coûtait le carré)
+    l = l.replace(/https?:\/\/\S+/gi, (m) => (MOTS_DU_LIEN.test(m) ? '[lien de connexion ou de réinitialisation — masqué]' : m));
     return l;
   }).join('\n');
 }
