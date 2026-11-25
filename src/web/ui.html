@@ -3387,16 +3387,17 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const doneBox = el('section', { class: 'hpanel' }, el('h2', {}, 'Ce qu\'Odin a fait', el('button', { class: 'btn small', type: 'button', onclick: go('missions') }, 'Tout voir')),
       ...live.slice(0, 2).map((m) => el('div', { class: 'ditem live' }, el('span', { class: 'spin' }), el('div', {}, m.goal.slice(0, 110), el('div', { class: 'sub' }, `en cours · ${m.steps} étape(s)`)))),
       done.length ? el('div', { class: 'dlist' }, ...done.map((x) => el('div', { class: 'ditem' }, el('span', { class: 'dic' }, x.auto ? '⚡' : x.status === 'terminée' ? '✓' : x.status === 'échouée' ? '✗' : '•'), el('div', {}, x.text.replace(/\s+/g, ' ').slice(0, 120), el('div', { class: 'sub' }, `${fmt(x.at)}${x.auto ? ' · de lui-même' : ''}`))))) : el('div', { class: 'sub' }, 'Rien pour l\'instant.'));
-    // 4. Petites tuiles d'état, à hauteur de leur contenu
-    const tiles = el('div', { class: 'hgrid2' },
-      card('Surveillance', '🛡',
+    // 4. Petites tuiles d'état, à hauteur de leur contenu. Lot 27 : chacune est aussi un widget de la fenêtre (sa sorte en
+    // clé), les mêmes cartes et les mêmes boutons ; poserTuiles les y pose.
+    const tuiles = {
+      surveillance: card('Surveillance', '🛡',
         ...(state.watch?.disks || []).slice(0, 2).map((u) => el('div', {}, el('div', { class: 'hrow' }, el('span', { class: 'mono' }, u.path), el('b', {}, `${u.usedPct} %`)), bar(u.usedPct))),
         watched.length ? el('div', { class: 'hline' }, watched.map((x) => `${x.status === 'online' ? '🟢' : '🔴'} ${x.label}`).join('  ')) : el('div', { class: 'sub' }, 'Marque tes appareils importants avec ★ dans Réseau.')),
-      card('Sauvegarde', '💾',
+      sauvegarde: card('Sauvegarde', '💾',
         el('div', { class: 'hline' }, state.autoBackup?.enabled ? `Chaque nuit à ${state.autoBackup.hour} h` : 'Automatique : désactivée'),
         state.autoBackup?.files?.[0] ? el('div', { class: 'sub' }, `Dernière : ${state.autoBackup.files[0].name.replace(/^odin-sauvegarde-|\.odinbk$/g, '')}`) : null,
         el('button', { class: 'btn small', type: 'button', onclick: go('settings', 'sauvegarde') }, state.autoBackup?.enabled ? 'Réglages' : 'Activer')),
-      card('Résumé du matin', '⏰',
+      resume_matin: card('Résumé du matin', '⏰',
         el('div', { class: 'sub' }, 'Météo, réseau, rappels du jour.'),
         el('div', { class: 'hbtns' }, el('select', { id: 'rt-hour', 'aria-label': 'Heure du résumé' }, [6, 7, 8, 9].map((h) => el('option', { value: h, selected: h === 7 }, `${h} h`))),
           el('button', { class: 'btn small primary', type: 'button', onclick: async () => {
@@ -3405,7 +3406,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
             say(r.ok ? `C'est noté : ton résumé arrivera chaque matin à ${h} h.` : (r.error || 'Erreur'), [], 4000);
           } }, 'Créer')),
         (state.jobs || []).length ? el('div', { class: 'sub' }, `${state.jobs.length} tâche(s) planifiée(s)`) : null),
-      el('article', { class: 'hcard', id: 'appCard' }));
+      application: el('article', { class: 'hcard', id: 'appCard' }) };
+    const tiles = el('div', { class: 'hgrid2' }, ...Object.values(tuiles));
     dernierJour = [items, live];
     renderToday(items, live);
     // Lot 27 : les cinq chiffres sont un widget de la fenêtre (les mêmes boutons, les mêmes gestes). Quand la fenêtre les
@@ -3413,7 +3415,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     // widget ») ; sinon (un membre, la fenêtre pas encore lue ou en panne), ils y restent, comme avant.
     dernierChiffres = kpis;
     const chiffresTenus = poserChiffres();
-    grid.replaceChildren(el('details', { class: 'mx hmore' }, el('summary', {}, 'État détaillé : missions, surveillance, sauvegarde, coûts'), ...(chiffresTenus ? [] : [kpis]), el('div', { class: 'hcols' }, doneBox), tiles));
+    // Les quatre tuiles d'état, de la même manière.
+    dernieresTuiles = tuiles;
+    const tuilesTenues = poserTuiles();
+    grid.replaceChildren(el('details', { class: 'mx hmore' }, el('summary', {}, 'État détaillé : missions, surveillance, sauvegarde, coûts'), ...(chiffresTenus ? [] : [kpis]), el('div', { class: 'hcols' }, doneBox), ...(tuilesTenues ? [] : [tiles])));
     renderAppCard();
     bandeau();
     $('#b-home').hidden = !(grave || pending.size); $('#b-home').textContent = '!';
@@ -3464,9 +3469,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // ---------- Lot 26 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » sont des widgets de la fenêtre ----------
   // Quand la fenêtre les tient (le propriétaire), chaque bloc est posé dans son widget, sans son titre (l'en-tête du
   // widget le porte) ; sinon (un membre, la fenêtre pas encore lue ou en panne) ils restent ici, comme avant.
-  // Lot 27 : « Comment Odin se comporte » suit la même règle, puis les cinq chiffres de « État détaillé » (poserChiffres).
+  // Lot 27 : « Comment Odin se comporte » suit la même règle, puis les cinq chiffres de « État détaillé » (poserChiffres)
+  // et ses quatre tuiles d'état (poserTuiles).
   let dernierJour = null; // ce que renderHome a passé à renderToday la dernière fois
   let dernierChiffres = null; // les cinq chiffres que renderHome a dessinés la dernière fois (lot 27)
+  let dernieresTuiles = null; // les quatre tuiles que renderHome a dessinées la dernière fois (lot 27)
   /** Le contenu d'un bloc sans son titre ; ce que son titre portait d'autre (les filtres) passe au-dessus. */
   function sansTitre(bloc) {
     const h = bloc.querySelector(':scope > h2'), outils = h ? [...h.children] : []; h?.remove();
@@ -3555,6 +3562,33 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   // La fenêtre vient d'être dessinée : le widget des cinq chiffres est vide, on les y repose.
   document.addEventListener('odin:fenetre', poserChiffres);
+  /**
+   * Lot 27 : pose chacune des quatre tuiles d'état (surveillance, sauvegarde, résumé du matin, application) dans son
+   * widget, s'il est sur la page ouverte. Rend vrai quand la fenêtre les tient (le propriétaire : même retirées, ou sur
+   * une autre page) ; elles ne sont alors plus dans « État détaillé ». Ce sont les cartes que renderHome vient de
+   * dessiner, avec leurs boutons : rien de neuf. Après un nouveau dessin, la commande qui avait le focus (un bouton, la
+   * liste des heures) le retrouve, pour que le clavier ne perde pas sa place.
+   */
+  function poserTuiles() {
+    const fen = window.OdinFenetre?.aujourdhui?.() ?? null;
+    if (!dernieresTuiles) return Boolean(fen);
+    const cibles = (n) => [...n.querySelectorAll('button, select, a[href], summary')];
+    for (const [k, n] of Object.entries(dernieresTuiles)) {
+      const h = fen?.hote(k);
+      if (h) {
+        const rang = h.contains(document.activeElement) ? cibles(h).indexOf(document.activeElement) : -1;
+        h.replaceChildren(n);
+        if (k === 'application') renderAppCard(); // posée vide si elle était sur une autre page au dernier dessin
+        // L'en-tête du widget reprend l'icône en trait de la carte (SVG_ICONS), à la place du symbole.
+        const ic = h.closest('.fe-w')?.querySelector(':scope > .fe-h > .fe-ic'), trait = n.querySelector(':scope > .hct > .hico > svg');
+        if (ic && trait) ic.replaceChildren(trait.cloneNode(true));
+        if (rang >= 0) cibles(h)[rang]?.focus({ preventScroll: true });
+      } else if (fen) n.remove(); // sur une autre page, ou retirée : plus dans « État détaillé » non plus
+    }
+    return Boolean(fen);
+  }
+  // La fenêtre vient d'être dessinée : les widgets des tuiles sont vides, on les y repose.
+  document.addEventListener('odin:fenetre', poserTuiles);
   // Mascotte sur l'écran Aujourd'hui : une copie qui vit comme les autres.
   function buddyClone(id) {
     let b = document.getElementById(id);

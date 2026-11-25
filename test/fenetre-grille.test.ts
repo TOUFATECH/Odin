@@ -92,7 +92,8 @@ test('la fenêtre de départ porte déjà largeur sur 12 et hauteur', () => {
   const ws = d.pages.flatMap((p) => p.widgets);
   assert.ok(ws.length > 0);
   // Lot 26 : « À faire » et « Ce qu'Odin a fait » partent sur deux colonnes égales (6 sur 12), comme les deux blocs d'avant.
-  for (const w of ws) { assert.equal(w.c, w.kind === 'a_faire' || w.kind === 'odin_a_fait' ? 6 : w.w * 4, `${w.kind} ${w.module ?? ''}`); assert.equal(w.r, TAILLE_SORTE[w.kind].r); }
+  // Les quatre tuiles d'« Aujourd'hui » (Surveillance, Sauvegarde, Résumé du matin, Application) partent côte à côte, 3 sur 12.
+  for (const w of ws) { assert.equal(w.c, w.kind === 'a_faire' || w.kind === 'odin_a_fait' ? 6 : ['surveillance', 'sauvegarde', 'resume_matin', 'application'].includes(w.kind) ? 3 : w.w * 4,`${w.kind} ${w.module ?? ''}`); assert.equal(w.r, TAILLE_SORTE[w.kind].r); }
   assert.deepEqual(cleanLayout(JSON.parse(JSON.stringify(d)), ['vidarr', 'ran', 'vordr', 'ullr', 'ymir', 'midgard']), d, 'relue, elle ne change pas');
 });
 test(`la limite de modules par page est relevée à ${MODULES_PAR_PAGE} (24 avant)`, () => {

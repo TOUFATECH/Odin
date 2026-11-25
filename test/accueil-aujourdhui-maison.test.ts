@@ -23,6 +23,8 @@ const TROIS = ['tu_veux', 'a_faire', 'odin_a_fait'] as const;
 const IDS = ['gladsheim', 'midgard', 'vordr', 'var'];
 /** Rien des widgets du jour (ni de « Comment Odin se comporte », ni du widget des cinq chiffres, lot 27), ni le code de la page, ni son nom. */
 const DU_JOUR = /a_faire|odin_a_fait|tu_veux|comportement|chiffres_cles|0a0f000[1-5]|aujourdhui|Aujourd'hui/;
+// Lot 27, troisième part : les quatre tuiles d'état, à la fin des widgets de départ. Suivies ici dans les listes seulement.
+const TUILES = ['surveillance', 'sauvegarde', 'resume_matin', 'application'];
 const HEURE = 'c4000001', METEO = 'c4000002', COPIE = 'c4000003';
 /** La page « Aujourd'hui » : ses widgets de départ (cinq depuis le widget des cinq chiffres, lot 27), plus une heure et une météo posées par le propriétaire. */
 const jour = (o: Record<string, unknown> = {}) => ({ id: PAGE_AUJOURDHUI.id, name: '', code: 'aujourdhui',
@@ -46,7 +48,8 @@ test('modèle : la page « Aujourd\'hui » garde « Écran de la maison » quand
 test('la page : « Écran de la maison » est offert pour la page « Aujourd\'hui », et « Copier » compte ses pages comme avant', () => {
   const FE = readFileSync(new URL('../src/web/fenetre.js', import.meta.url), 'utf8');
   assert.doesNotMatch(FE, /page\(\)\.code \? null/, 'plus de refus du bouton pour la page sous un code');
-  assert.match(FE, /maisonJour: '[^\n]*« Tu veux sans doute », « À faire », « Ce qu\\'Odin a fait » et « Comment Odin se comporte » n\\'y vont jamais\.'/, 'le bouton dit ce qui n\'y va jamais');
+  // (Puis les quatre tuiles d'état, lot 27, troisième part : la phrase continue.)
+  assert.match(FE, /maisonJour: '[^\n]*« Tu veux sans doute », « À faire », « Ce qu\\'Odin a fait »(,| et) « Comment Odin se comporte »[^\n]* n\\'y vont jamais\.'/, 'le bouton dit ce qui n\'y va jamais');
   assert.match(FE, /const refus = R\.copieRefusee\(\{ kind: w\.kind,/, '« Copier » passe toujours par le refus des sortes réservées');
 });
 
@@ -92,7 +95,8 @@ test('la page « Aujourd\'hui » marquée « Écran de la maison » : son widget
   const gardee = (g().settings.fenetre as Layout).pages[0];
   assert.equal(gardee.code, 'aujourdhui'); assert.equal(gardee.maison, true, 'la marque est gardée');
   // Avec le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part), en tête.
-  assert.deepEqual(gardee.widgets.map((w) => w.kind), ['chiffres_cles', ...TROIS, 'comportement', 'heure', 'meteo'], 'la fenêtre garde tout, dans l\'ordre');
+  // (Et les quatre tuiles d'état, lot 27, troisième part, après lui.)
+  assert.deepEqual(gardee.widgets.map((w) => w.kind), ['chiffres_cles', ...TROIS, 'comportement', ...TUILES, 'heure', 'meteo'], 'la fenêtre garde tout, dans l\'ordre');
   for (const qui of QUI) {
     const b = await etat(qui), pages = servis(b);
     assert.equal(pages.length, 1, `${qui} : une seule page (la page « Réseau » n'est pas marquée)`);
@@ -240,7 +244,7 @@ for (const largeur of [1280, 390]) {
       await page.waitForTimeout(600);
       const f = g().settings.fenetre as Layout;
       // Avec le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part), en tête.
-      assert.deepEqual(f.pages.map((p) => [p.code ?? '', Boolean(p.maison), p.widgets.map((w) => w.kind)]), [['aujourdhui', true, ['chiffres_cles', ...TROIS, 'comportement', 'heure', 'meteo']], ['', false, ['heure']], ['', true, ['heure']]], 'rangée : la page « Aujourd\'hui » marquée, la copie sur sa page');
+      assert.deepEqual(f.pages.map((p) => [p.code ?? '', Boolean(p.maison), p.widgets.map((w) => w.kind)]), [['aujourdhui', true, ['chiffres_cles', ...TROIS, 'comportement', ...TUILES, 'heure', 'meteo']], ['', false, ['heure']], ['', true, ['heure']]], 'rangée : la page « Aujourd\'hui » marquée, la copie sur sa page');
       await capture(page, `accueil-${largeur}-range`);
       assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
     } finally { await ctx.close(); }

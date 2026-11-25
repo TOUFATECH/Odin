@@ -27,6 +27,9 @@ import { vraiOdin, type VraiOdin } from './banc/odin-vrai.ts';
 const lire = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const FE = lire('src/web/fenetre.js'), UI = lire('src/web/ui.html'), RENDU = lire('src/web/pages/widgets-rendu.js'), GRILLE = lire('src/web/pages/accueil-grille.js');
 const TROIS = ['tu_veux', 'a_faire', 'odin_a_fait'] as const;
+// Lot 27, troisième part : les quatre tuiles d'état, à la fin de la page « Aujourd'hui ». Suivies ici dans les listes
+// seulement (leurs essais : test/accueil-tuiles-widget.test.ts).
+const TUILES = ['surveillance', 'sauvegarde', 'resume_matin', 'application'];
 const IDS = ['gladsheim', 'midgard', 'vordr', 'var'];
 const sortes = (l: Layout) => l.pages.map((p) => p.widgets.map((w: any) => w.kind));
 /** Une fenêtre rangée avant ce lot : deux pages, sans rien du jour. */
@@ -48,7 +51,8 @@ test('les trois blocs du jour sont posables, toujours réservés à l\'accueil d
   assert.equal(sorteDe('odin_a_fait')!.fixe, undefined); assert.equal(sorteDe('tu_veux')!.fixe, undefined);
   assert.equal(sorteDe('comportement')!.posable, true, 'lot 27 : posable lui aussi (test/accueil-comportement.test.ts)');
   // Et le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part : test/accueil-chiffres-widget.test.ts).
-  assert.deepEqual(sortesPosables().filter((x) => x.famille === 'aujourdhui').map((x: any) => x.id).sort(), [...TROIS, 'comportement', 'chiffres_cles'].sort());
+  // Puis les quatre tuiles d'état (troisième part).
+  assert.deepEqual(sortesPosables().filter((x) => x.famille === 'aujourdhui').map((x: any) => x.id).sort(), [...TROIS, 'comportement', 'chiffres_cles', ...TUILES].sort());
   // La page a les mêmes tailles que le serveur (pages/accueil-grille.js).
   const win: Record<string, unknown> = {}; vm.runInNewContext(GRILLE, { window: win, matchMedia: () => ({ matches: false }), crypto: globalThis.crypto });
   const G = win.OdinGrille as { MINI: Record<string, number[]>; HAUTEUR: Record<string, number> };
@@ -75,7 +79,7 @@ test('la fenêtre de départ commence par la page « Aujourd\'hui » : rangée s
   assert.equal(p.code, 'aujourdhui'); assert.equal(p.name, '', 'son nom n\'est pas dans la donnée'); assert.equal(p.maison, undefined); assert.equal(p.id, PAGE_AUJOURDHUI.id);
   // Le widget des cinq chiffres en tête (lot 27, deuxième part, comme la maquette).
   assert.deepEqual(p.widgets.map((w: any) => [w.id, w.kind, w.c, w.r]), [['0a0f0005', 'chiffres_cles', 12, 2], ['0a0f0001', 'tu_veux', 12, 2], ['0a0f0002', 'a_faire', 6, 4], ['0a0f0003', 'odin_a_fait', 6, 4],
-    ['0a0f0004', 'comportement', 12, 2]]);
+    ['0a0f0004', 'comportement', 12, 2], ...TUILES.map((k, i) => [`0a0f000${6 + i}`, k, 3, 2])]);
   assert.deepEqual(d.pages.slice(1).map((x: any) => x.name), ['Maison', 'Réseau', 'Machines'], 'les pages d\'avant suivent, dans le même ordre');
   assert.ok(d.pages.slice(1).every((x: any) => !x.code));
   // Deux lectures de la fenêtre de départ : les mêmes identifiants pour cette page (la page et la route des widgets s'y retrouvent).
@@ -89,7 +93,7 @@ test('une fenêtre rangée avant ce lot reçoit la page une seule fois, en premi
   const avant = ANCIENNE(), apres = avecAujourdhui(avant);
   assert.equal(apres.pages.length, 3); assert.equal(apres.pages[0].code, 'aujourdhui');
   assert.deepEqual(apres.pages.slice(1), avant.pages, 'ses pages, ses widgets, leurs tailles : rien n\'a bougé');
-  assert.deepEqual(sortes(apres)[0], ['chiffres_cles', ...TROIS, 'comportement'], 'et, depuis le lot 27, le widget des cinq chiffres en tête, « Comment Odin se comporte » en dernier');
+  assert.deepEqual(sortes(apres)[0], ['chiffres_cles', ...TROIS, 'comportement', ...TUILES], 'et, depuis le lot 27, le widget des cinq chiffres en tête, « Comment Odin se comporte », puis les quatre tuiles en dernier');
   assert.equal(avecAujourdhui(apres), apres, 'déjà reçue : rien de plus');
   // Les deux autres widgets retirés, « À faire » déplacé, la page supprimée : la fenêtre porte « À faire », rien ne revient.
   // (Rangée par la page d'aujourd'hui, elle porte la marque de ce qu'elle a reçu : lot 27.)
@@ -99,7 +103,7 @@ test('une fenêtre rangée avant ce lot reçoit la page une seule fois, en premi
   assert.deepEqual(sortes(avecAujourdhui(cleanLayout(JSON.parse(JSON.stringify(rangee)), IDS))), [['heure', 'meteo', 'a_faire'], ['chiffres']]);
   // Une page sous le code, mais sans « À faire » (une donnée abîmée) : elle est remplacée, pas doublée.
   const abimee = avecAujourdhui({ pages: [{ id: 'b1000009', name: '', code: 'aujourdhui', widgets: [] }, ...avant.pages] });
-  assert.deepEqual(abimee.pages.map((p) => p.code ?? ''), ['aujourdhui', '', '']); assert.deepEqual(sortes(abimee)[0], ['chiffres_cles', ...TROIS, 'comportement']); // avec le widget des cinq chiffres, en tête
+  assert.deepEqual(abimee.pages.map((p) => p.code ?? ''), ['aujourdhui', '', '']); assert.deepEqual(sortes(abimee)[0], ['chiffres_cles', ...TROIS, 'comportement', ...TUILES]); // avec le widget des cinq chiffres, en tête (et les quatre tuiles, à la fin : lot 27, troisième part)
 });
 
 test('une page sous un code : gardée par cleanLayout, « Écran de la maison » si le propriétaire l\'a marquée, hors des huit pages ; un seul widget de chaque sorte réservée', () => {
@@ -184,9 +188,10 @@ after(async () => { await tt.end(); Object.assign(console, orig); });
 test('Odin neuf : le propriétaire lit la page « Aujourd\'hui » en premier, et la route des widgets parle des mêmes widgets', async () => {
   oublier();
   const f = await lue();
-  // Cinq widgets depuis le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part), en tête.
-  assert.equal(f.data.pages[0].code, 'aujourdhui'); assert.deepEqual(sortes(f.data)[0], ['chiffres_cles', ...TROIS, 'comportement']);
-  assert.match(f.text, /^- Aujourd'hui : 5 module\(s\)/, 'Odin dit le nom de la page');
+  // Cinq widgets depuis le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part), en tête ; neuf avec les
+  // quatre tuiles d'état (troisième part), à la fin.
+  assert.equal(f.data.pages[0].code, 'aujourdhui'); assert.deepEqual(sortes(f.data)[0], ['chiffres_cles', ...TROIS, 'comportement', ...TUILES]);
+  assert.match(f.text, /^- Aujourd'hui : 9 module\(s\)/, 'Odin dit le nom de la page');
   const r = await v.json(`/api/widgets/donnees?page=${PAGE_AUJOURDHUI.id}`);
   assert.equal(r.status, 200); assert.equal(r.body.qui, 'proprietaire');
   const ws = r.body.widgets as Array<Record<string, unknown>>;
@@ -199,8 +204,8 @@ test('une fenêtre rangée avant ce lot : la page arrive à la lecture ; rangée
   const ancienne = ANCIENNE();
   // Comme une page ouverte avant la mise à jour : elle range sa fenêtre sans « À faire ». Ce n'est pas un retrait.
   const r1 = await ranger(ancienne); assert.equal(r1.ok, true, r1.text);
-  // « Aujourd'hui (5) » : avec le widget des cinq chiffres (lot 27, deuxième part).
-  assert.match(r1.text, /^✓ Fenêtre rangée : Aujourd'hui \(5\), Maison \(2\), Réseau \(1\)\.$/);
+  // « Aujourd'hui (5) » : avec le widget des cinq chiffres (lot 27, deuxième part) ; (9) avec les quatre tuiles (troisième part).
+  assert.match(r1.text, /^✓ Fenêtre rangée : Aujourd'hui \(9\), Maison \(2\), Réseau \(1\)\.$/);
   assert.deepEqual((r1.data as Layout).pages.slice(1), ancienne.pages); assert.equal((r1.data as Layout).pages[0].code, 'aujourdhui');
   assert.deepEqual((g().settings.fenetre as Layout).pages, ancienne.pages, 'ce qui est gardé est ce qui a été envoyé');
   const f = await lue();
@@ -394,7 +399,8 @@ test('navigateur : « À faire » ne se retire pas ; « Ce qu\'Odin a fait » se
     await page.evaluate(() => { ([...document.querySelectorAll('#fenetre .fe-tools .btn')].find((b: any) => b.textContent === 'Terminé')).click(); });
     await page.waitForFunction(() => !document.querySelector('#fenetre.fe-edit'), undefined, { timeout: 15000 });
     // Avec le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part), en tête.
-    assert.deepEqual(sortes(g().settings.fenetre as Layout)[0], ['chiffres_cles', 'tu_veux', 'a_faire', 'comportement'], 'rangé chez Hestia, avec la page sous son code');
+    // (Et les quatre tuiles d'état, à la fin : lot 27, troisième part.)
+    assert.deepEqual(sortes(g().settings.fenetre as Layout)[0], ['chiffres_cles', 'tu_veux', 'a_faire', 'comportement', ...TUILES], 'rangé chez Hestia, avec la page sous son code');
     assert.equal((g().settings.fenetre as Layout).pages[0].code, 'aujourdhui');
     const a = await vu(page);
     assert.equal(a.odin_a_fait, null); assert.deepEqual(a.dessous, [], 'retiré : il ne revient pas dessous');

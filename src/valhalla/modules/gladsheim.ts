@@ -306,7 +306,7 @@ export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number;
 export interface FPage { id: string; name: string; code?: CodePage; maison?: boolean; widgets: Widget[] }
 /**
  * La fenêtre. `accueil` : la dernière livraison de l'accueil du propriétaire qu'elle a reçue (lot 27 : 2, puis 3 avec les
- * cinq chiffres ; absent : au plus celle du lot 26). La page le renvoie tel quel quand elle range ; rien d'autre n'en dépend.
+ * cinq chiffres, puis 4 avec les quatre tuiles d'état ; absent : au plus celle du lot 26). La page le renvoie tel quel quand elle range ; rien d'autre n'en dépend.
  */
 export interface Layout { pages: FPage[]; accueil?: number }
 /** La grille de la maquette : 12 colonnes, 4 au téléphone, 7 lignes au plus. */
@@ -339,7 +339,7 @@ function tailleNette(o: Record<string, unknown>, kind: WidgetKind): Pick<Widget,
     ...(pc === undefined ? {} : { pc: borne(pc, 2, GRILLE.colonnesTel) }), ...(pr === undefined ? {} : { pr: borne(pr, t.mini[1], GRILLE.lignesMax) }) };
 }
 const wid = () => randomBytes(4).toString('hex');
-/** La page « Aujourd'hui » de départ : les cinq chiffres en tête (lot 27), « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » (lot 26), « Comment Odin se comporte » (lot 27). */
+/** La page « Aujourd'hui » de départ : les cinq chiffres en tête (lot 27), « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » (lot 26), « Comment Odin se comporte », puis les quatre tuiles d'état (lot 27). */
 const pageAujourdhui = (): FPage => ({ id: PAGE_AUJOURDHUI.id, name: '', code: PAGE_AUJOURDHUI.code,
   widgets: PAGE_AUJOURDHUI.widgets.map((x) => ({ id: x.id, kind: x.kind, ...tailleNette({ c: x.c }, x.kind) })) });
 /** La fenêtre porte-t-elle « À faire » (sur n'importe quelle page) ? */
@@ -373,6 +373,11 @@ function idLibre(id: string, pris: Set<string>): string {
  * Les cinq chiffres (`tete` dans PAGE_AUJOURDHUI, choix du propriétaire, comme la maquette) arrivent EN TÊTE de la page
  * choisie, par la même règle : ce qui y était descend d'une rangée, dans le même ordre ; « Comment Odin se comporte »
  * garde sa place, à la fin.
+ * Les quatre tuiles d'état (Surveillance, Sauvegarde, Résumé du matin, Application) sont une même livraison (4) : elles
+ * arrivent à la fin, dans cet ordre, chacune sur la première page qui a encore une place. Une livraison arrive en entier
+ * ou pas du tout : s'il n'y a de place que pour une partie d'entre elles, aucune n'arrive et la marque reste 3 (elles
+ * arriveront ensemble quand il y aura assez de place) ; une tuile arrivée puis retirée ne revient donc jamais. Celles
+ * que la fenêtre porte déjà (reposées à la main) ne sont pas reposées en double.
  */
 export function avecAujourdhui(l: Layout): Layout {
   const recu = l.accueil ?? 1, sansAFaire = !porteAFaire(l);
@@ -397,11 +402,18 @@ export function avecAujourdhui(l: Layout): Layout {
   const aFaire = l.pages.findIndex((p) => p.widgets.some((w) => w.kind === 'a_faire'));
   const rangs = l.pages.map((_, k) => k), ordinaires = rangs.filter((k) => !l.pages[k].maison), maison = rangs.filter((k) => l.pages[k].maison);
   let pages = l.pages, marque = ACCUEIL_RECU;
-  for (const w of tardifs) {
-    const j = [i, aFaire, ...ordinaires, ...maison].find((k) => k >= 0 && pages[k].widgets.length < MODULES_PAR_PAGE);
-    // Plus de place nulle part : ni lui ni les suivants n'arrivent ; la marque s'arrête à la livraison d'avant.
-    if (j === undefined) { marque = depuis.get(w.kind)! - 1; break; }
-    pages = pages.map((p, k) => (k === j ? { ...p, widgets: enTete.has(w.kind) ? [w, ...p.widgets] : [...p.widgets, w] } : p));
+  // Une livraison arrive EN ENTIER ou pas du tout : si une partie seulement arrivait, la marque resterait à la livraison
+  // d'avant, et un widget arrivé puis retiré reviendrait à la lecture suivante.
+  for (const d of [...new Set(tardifs.map((w) => depuis.get(w.kind)!))]) {
+    let essai = pages;
+    for (const w of tardifs.filter((x) => depuis.get(x.kind) === d)) {
+      const j = [i, aFaire, ...ordinaires, ...maison].find((k) => k >= 0 && essai[k].widgets.length < MODULES_PAR_PAGE);
+      if (j === undefined) { essai = pages; break; }
+      essai = essai.map((p, k) => (k === j ? { ...p, widgets: enTete.has(w.kind) ? [w, ...p.widgets] : [...p.widgets, w] } : p));
+    }
+    // Plus assez de place : ni elle ni les suivantes n'arrivent ; la marque s'arrête à la livraison d'avant.
+    if (essai === pages) { marque = d - 1; break; }
+    pages = essai;
   }
   return pages === l.pages ? l : { ...l, pages, accueil: marque };
 }

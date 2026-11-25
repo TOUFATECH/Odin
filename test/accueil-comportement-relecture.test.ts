@@ -51,16 +51,19 @@ test('relecture : il ne va pas sur une page « Écran de la maison » quand une 
   assert.deepEqual(r.pages[1], l.pages[1], 'la page de l\'écran de la maison n\'a pas bougé');
   // Il ne reste que des pages « Écran de la maison » : il y est posé (le propriétaire le voit sur son accueil ; l'écran de la maison ne le sert pas).
   const seules = cleanLayout({ pages: [jourPlein(), { id: 'b2000001', name: 'Salon', maison: true, widgets: plein(2, 'd200') }] }, IDS);
-  // Et le widget des cinq chiffres (lot 27, deuxième part), au même endroit, en tête.
-  assert.deepEqual(sortes(avecAujourdhui(seules))[1], ['chiffres_cles', 'heure', 'heure', K]);
+  // Et le widget des cinq chiffres (lot 27, deuxième part), au même endroit, en tête ; les quatre tuiles d'état (troisième
+  // part), au même endroit, après lui.
+  assert.deepEqual(sortes(avecAujourdhui(seules))[1], ['chiffres_cles', 'heure', 'heure', K, 'surveillance', 'sauvegarde', 'resume_matin', 'application']);
 });
 
 test('relecture : la marque envoyée par la page ne se laisse pas tromper', () => {
   const page = { pages: [{ name: 'P', widgets: [{ kind: 'a_faire' }] }] };
   const marque = (v: unknown) => cleanLayout(JSON.parse(JSON.stringify({ ...page, accueil: v })), IDS).accueil;
-  for (const v of [1e308, 9007199254740993, 3, 1e3]) assert.equal(marque(v), ACCUEIL_RECU, `${v} : jamais plus que la dernière livraison connue`);
-  // 2 est une livraison connue (celle d'avant le widget des cinq chiffres, lot 27, deuxième part) : gardée telle quelle.
-  assert.equal(marque(2.0), 2);
+  // La dernière livraison connue est 4 depuis les quatre tuiles d'état (lot 27, troisième part).
+  for (const v of [1e308, 9007199254740993, 4, 1e3]) assert.equal(marque(v), ACCUEIL_RECU, `${v} : jamais plus que la dernière livraison connue`);
+  // 2 est une livraison connue (celle d'avant le widget des cinq chiffres, lot 27, deuxième part) : gardée telle quelle ;
+  // 3 aussi (celle d'avant les quatre tuiles).
+  assert.equal(marque(2.0), 2); assert.equal(marque(3), 3);
   for (const v of [-1e308, -2, -0, 0, 1, 1.9999, 2.0001, '2', '99', [2], { valueOf: 2 }, true, null, 'NaN', 'Infinity']) assert.equal(marque(v), undefined, `${JSON.stringify(v)} : pas de marque`);
   // Une marque posée d'avance ne fait rien perdre : sans « À faire », les blocs du lot 26 reviennent quand même.
   const menteuse = avecAujourdhui(cleanLayout({ accueil: 99, pages: [{ name: 'P', widgets: [{ kind: 'heure' }] }] }, IDS));
@@ -193,8 +196,9 @@ test('relecture, navigateur : en mode Modifier les boutons du widget ne réponde
     assert.equal(await autonomie(), 'equilibre');
     await capture(page, 'relecture-modifier-1280');
     // Les autres blocs du jour ne sont pas touchés par cette règle, sauf le widget des cinq chiffres (lot 27, deuxième
-    // part : ses boutons couvrent la carte, comme ici).
-    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feGrid .fe-auj')].filter((n: any) => n.inert).map((n: any) => n.getAttribute('data-auj')).sort()), ['chiffres_cles', 'comportement']);
+    // part : ses boutons couvrent la carte, comme ici) et les quatre tuiles d'état (troisième part : leurs boutons
+    // créent une routine ou quittent l'accueil).
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feGrid .fe-auj')].filter((n: any) => n.inert).map((n: any) => n.getAttribute('data-auj')).sort()), ['application', 'chiffres_cles', 'comportement', 'resume_matin', 'sauvegarde', 'surveillance']);
     // Sorti du mode Modifier : le bouton répond de nouveau.
     await page.evaluate(() => window.OdinFenetre.edit(false));
     await page.waitForFunction(() => !document.querySelector('#fenetre.fe-edit'));
@@ -219,8 +223,9 @@ test('relecture, navigateur : en plein écran le widget est caché, ses boutons 
       const autres = [...document.querySelectorAll('#feGrid > .fe-w')].filter((n: any) => n !== c).map((n: any) => [n.getAttribute('data-auj'), n.getBoundingClientRect().height > 40]);
       return { cache: r.width === 0 && r.height === 0, focus: document.activeElement === b, autres };
     }, K);
-    // Le widget des cinq chiffres (lot 27, deuxième part, en tête) est caché lui aussi en plein écran, comme les chiffres d'avant.
-    assert.deepEqual(a, { cache: true, focus: false, autres: [['chiffres_cles', false], ['tu_veux', true], ['a_faire', true], ['odin_a_fait', true]] });
+    // Le widget des cinq chiffres (lot 27, deuxième part, en tête) est caché lui aussi en plein écran, comme les chiffres
+    // d'avant ; les quatre tuiles d'état (troisième part, à la fin) aussi, comme les tuiles d'avant.
+    assert.deepEqual(a, { cache: true, focus: false, autres: [['chiffres_cles', false], ['tu_veux', true], ['a_faire', true], ['odin_a_fait', true], ['surveillance', false], ['sauvegarde', false], ['resume_matin', false], ['application', false]] });
     await capture(page, 'relecture-plein-1280');
     // Tab, vingt fois : le focus n'entre jamais dans le widget caché.
     for (let i = 0; i < 20; i++) { await page.keyboard.press('Tab'); assert.equal(await page.evaluate((k: string) => Boolean(document.activeElement?.closest?.(`.fe-w[data-auj="${k}"]`)), K), false, `Tab ${i + 1}`); }

@@ -113,8 +113,9 @@ test('une fenêtre déjà rangée se relit identique (avec ou sans « Quand je t
 test('« Copier vers l\'autre écran » : refusé pour les cinq sortes réservées et pour la vie privée non ouverte', () => {
   const reservees = SORTES.filter((s) => (s as { accueilSeul?: boolean }).accueilSeul).map((s) => s.id);
   assert.deepEqual([...R.RESERVEES].sort(), [...reservees].sort(), 'la page et le serveur nomment les mêmes cinq sortes');
-  // Cinq depuis le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part).
-  assert.equal(reservees.length, 5);
+  // Cinq depuis le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part) ; neuf depuis les quatre tuiles
+  // d'état (troisième part).
+  assert.equal(reservees.length, 9);
   for (const k of reservees) {
     assert.equal(copiable(k), false, `${k} : le serveur ne la dit pas copiable`);
     for (const o of [{ privee: false }, { privee: true, ouvert: true }, {}]) assert.equal(R.copieRefusee({ kind: k, ...o }), 'reservee', `${k} : jamais copiée`);

@@ -117,8 +117,8 @@ test('les cinq sortes de l\'accueil : rendues à lui seul, sur l\'accueil seul (
   assert.deepEqual(await donneeWidget(W('inventee'), LUI, src), { etat: 'refuse', raison: 'sorte_inconnue' });
 });
 
-// Avec le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part).
-const DU_JOUR: string[] = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement', 'chiffres_cles'];
+// Avec le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part), et les quatre tuiles d'état (troisième part).
+const DU_JOUR: string[] = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement', 'chiffres_cles', 'surveillance', 'sauvegarde', 'resume_matin', 'application'];
 test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », jamais un chiffre', async () => {
   const home = mkdtempSync(join(tmpdir(), 'widgets-etats-'));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), { run: async () => ({ code: 1, out: '', err: '' }), fetch: (async () => { throw new Error('réseau coupé par le test'); }) as typeof fetch, notify: async () => {}, autonomy: () => 'equilibre' });
@@ -139,6 +139,8 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       section: W('section', { module: 'vordr', section: 'Sondes' }), bouton: W('bouton', { module: 'baldr' }),
       a_faire: W('a_faire'), odin_a_fait: W('odin_a_fait'), tu_veux: W('tu_veux'), comportement: W('comportement'),
       chiffres_cles: W('chiffres_cles'), // le widget des cinq chiffres (lot 27, deuxième part)
+      // les quatre tuiles d'état (lot 27, troisième part)
+      surveillance: W('surveillance'), sauvegarde: W('sauvegarde'), resume_matin: W('resume_matin'), application: W('application'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);

@@ -134,7 +134,8 @@ test('une fenêtre enregistrée avant ce lot se relit identique, et se réenregi
     // Mêmes pages, mêmes modules, mêmes champs, dans le même ordre (aucune animation choisie : rien d'ajouté).
     // Lot 27 : la fenêtre lue porte la marque de ce qu'elle a reçu ; une page ouverte avant la mise à jour ne la renvoie pas.
     const { accueil, ...sansMarque } = lue as { pages: Array<{ code?: string }>; accueil?: number };
-    assert.equal(accueil, 3, 'lot 27, deuxième part : 3 depuis le widget des cinq chiffres');
+    // Lot 27, troisième part : 4 depuis les quatre tuiles d'état.
+    assert.equal(accueil, 4, 'lot 27, troisième part : 4 depuis les quatre tuiles d\'état');
     const pagesDAvant = { ...sansMarque, pages: lue.pages.slice(1) };
     assert.equal(JSON.stringify(pagesDAvant), JSON.stringify(avant), 'la fenêtre relue est celle du fichier, champ pour champ');
     // Rangée telle qu'avant (une page ouverte avant la mise à jour) : le fichier réécrit est le même, octet pour octet.
@@ -149,13 +150,15 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
   assert.doesNotMatch(src, /\['chiffres', 'section'/, 'la liste des sortes acceptées n\'est plus dans gladsheim.ts');
   assert.doesNotMatch(src, /chiffres: \{ mini:/, 'les tailles des sortes ne sont plus dans gladsheim.ts');
   // Les six sortes posables d'avant et leurs tailles, plus les trois blocs du jour (lot 26), « Comment Odin se comporte »
-  // et le widget des cinq chiffres, « chiffres_cles » (lot 27).
-  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'bouton', 'chiffres', 'chiffres_cles', 'comportement','heure', 'meteo', 'odin_a_fait', 'section', 'site', 'tu_veux']);
+  // et le widget des cinq chiffres, « chiffres_cles » (lot 27), puis les quatre tuiles d'état (lot 27, troisième part).
+  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'application', 'bouton', 'chiffres', 'chiffres_cles', 'comportement','heure', 'meteo', 'odin_a_fait', 'resume_matin', 'sauvegarde', 'section', 'site', 'surveillance', 'tu_veux']);
   assert.deepEqual(TAILLE_SORTE, {
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
     a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },
     chiffres_cles: { mini: [3, 2], r: 2 }, // le widget des cinq chiffres (lot 27, deuxième part)
+    // les quatre tuiles d'état (lot 27, troisième part)
+    surveillance: { mini: [3, 2], r: 2 }, sauvegarde: { mini: [3, 2], r: 2 }, resume_matin: { mini: [3, 2], r: 2 }, application: { mini: [3, 2], r: 2 },
   });
 });
 
@@ -220,8 +223,9 @@ test('chaque sorte a un public ; sans public écrit, c\'est « propriétaire seu
 });
 
 test('les cinq sortes de l\'accueil du propriétaire : jamais à l\'écran de la maison, jamais copiables', () => {
-  // La cinquième : le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part).
-  const cinq = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement', 'chiffres_cles'];
+  // La cinquième : le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part) ; puis les quatre tuiles d'état
+  // (lot 27, troisième part) : neuf en tout. Le nom de la liste est resté.
+  const cinq = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement', 'chiffres_cles', 'surveillance', 'sauvegarde', 'resume_matin', 'application'];
   for (const k of cinq) {
     const x = sorteDe(k)!;
     assert.ok(x, `${k} déclarée`); assert.equal(x.famille, 'aujourdhui'); assert.equal(x.accueilSeul, true); assert.equal(publicDe(x), 'proprietaire');
