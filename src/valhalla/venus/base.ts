@@ -34,11 +34,13 @@ export type Collection =
   // Hnoss : les sorties relevées pour « À venir » et le calendrier (et les liens personnels du calendrier).
   | 'sorties'
   // La maison (lot V8) : les séances et votes en famille, les collections et listes de lecture, les téléchargements hors ligne.
-  | 'seances' | 'collections' | 'hors_ligne';
+  | 'seances' | 'collections' | 'hors_ligne'
+  // L'administration (lot V9) : le journal des analyses des médiathèques, montré dans « Activité » (borné).
+  | 'journal';
 
 /** Les collections privées : contenu chiffré au repos, jamais dans une vue en clair. */
 export const PRIVEES: ReadonlySet<Collection> = new Set<Collection>(['historique', 'demandes', 'yt_historique']);
-export const COLLECTIONS: Collection[] = ['dossiers', 'oeuvres', 'episodes', 'pistes', 'fichiers', 'reprise', 'ma_liste', 'historique', 'demandes', 'ecrans', 'telecommandes', 'yt_abonnements', 'yt_historique', 'yt_reglages', 'sources', 'envies', 'filtres', 'telechargements', 'acq_journal', 'lots', 'acq_reglages', 'autotest', 'preferences', 'images', 'personnes', 'sorties', 'seances', 'collections', 'hors_ligne'];
+export const COLLECTIONS: Collection[] = ['dossiers', 'oeuvres', 'episodes', 'pistes', 'fichiers', 'reprise', 'ma_liste', 'historique', 'demandes', 'ecrans', 'telecommandes', 'yt_abonnements', 'yt_historique', 'yt_reglages', 'sources', 'envies', 'filtres', 'telechargements', 'acq_journal', 'lots', 'acq_reglages', 'autotest', 'preferences', 'images', 'personnes', 'sorties', 'seances', 'collections', 'hors_ligne', 'journal'];
 
 /** Un enregistrement d'une collection : un identifiant et des données libres (JSON). */
 export interface Enr { id: string; data: Record<string, unknown>; maj: number }
@@ -97,6 +99,9 @@ CREATE TABLE personnes (id text PRIMARY KEY, data jsonb NOT NULL, maj bigint NOT
     sql: `CREATE TABLE seances (id text PRIMARY KEY, data jsonb NOT NULL, maj bigint NOT NULL);
 CREATE TABLE collections (id text PRIMARY KEY, data jsonb NOT NULL, maj bigint NOT NULL);
 CREATE TABLE hors_ligne (id text PRIMARY KEY, data jsonb NOT NULL, maj bigint NOT NULL)`,
+  }, {
+    v: 6, nom: "le journal des analyses des médiathèques de Vénus (tableau de bord, « Activité » ; les dernières lignes seulement)",
+    sql: 'CREATE TABLE journal (id text PRIMARY KEY, data jsonb NOT NULL, maj bigint NOT NULL)',
   }],
   ecritures: {
     pose: 'INSERT INTO __t__ (id, data, maj) VALUES ($1, $2::jsonb, $3) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, maj = EXCLUDED.maj',

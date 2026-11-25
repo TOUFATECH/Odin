@@ -29,6 +29,7 @@ import { cloreVote, creerSalle, creerVote, lireSalle, lireVote, voter } from './
 import { changer, collection, collections, creerCollection, creerListe, liste } from './collections.ts';
 import { demanderLegere, demanderSaison, fichierPret, planifier, REFUS_ENFANT, supprimerLegere, taches } from './hors-ligne.ts';
 import { icsCalendrier, lienCalendrier, profilDuCalendrier, sortiesDuCalendrier } from './hnoss/calendrier.ts';
+import { suivreAnalyse, tableau } from './entretien.ts';
 
 export interface VenusRouteCtx {
   home: string;
@@ -175,6 +176,14 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
       const lien = `${ctx.origin.replace(/\/$/, '')}/venus/calendrier/${lienCalendrier(mag, ctx.home, profil, { nouveau: b.nouveau === true })}.ics`;
       json(res, 200, { url: lien, webcal: lien.replace(/^https?:/, 'webcal:') }); return true;
     }
+    // L'administration (lot V9) : le tableau de bord, en lecture, pour le profil administrateur seulement (le propriétaire) ;
+    // un autre profil (un enfant aussi) choisi sur cet appareil n'y lit rien.
+    if (p === '/venus/api/tableau') {
+      if (meth !== 'GET') { json(res, 405, { error: 'GET' }); return true; }
+      const qui = profils(ctx.home).find((x) => x.id === profil);
+      if (!qui?.isAdmin || qui.isKids) { json(res, 403, { error: 'Réservé à l’administrateur.' }); return true; }
+      json(res, 200, tableau(mag, ctx.home)); return true;
+    }
     // La maison (lot V8) : statistiques, « Qui regarde ce soir ? », vote, séance, collections, listes, fichier d'origine.
     if (p.startsWith('/venus/api/') && await routeMaison(req, res, url, ctx, mag, profil)) return true;
     // L'interface de Vénus (lot V1) : la page plein écran et ce qu'elle lit (catalogue, fiche, profils, préférences).
@@ -186,7 +195,8 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
     if (p === '/venus/dossiers') return await routeDossiers(req, res, meth, mag);
     if (meth === 'POST' && p === '/venus/scan') {
       const ffprobe = await outilDispo('ffprobe');
-      const bilan = await scanner(mag, outilsReels());
+      // (lot V9) L'analyse est notée : « en cours » dans les tâches de fond, puis une ligne dans l'activité.
+      const bilan = await suivreAnalyse(mag, () => scanner(mag, outilsReels()));
       json(res, 200, { bilan, ...(ffprobe ? {} : { alerte: MESSAGE_FFMPEG_ABSENT }) }); return true;
     }
     // Avant de lire : comment ce titre sera servi, et pourquoi il ne peut pas l'être (le lecteur l'affiche s'il échoue).

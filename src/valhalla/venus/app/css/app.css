@@ -4076,3 +4076,20 @@ html[data-tone="light"] .spotlight .r-tmdb .r-src { color: #07708f; } /* « Note
 .maison .dl-row { flex-wrap: wrap; }
 .maison .dl-body { flex: 1 1 150px; }
 .maison .dl-actions { margin-left: auto; }
+/* L'administration (lot V9) : le tableau de bord. Chaque cible fait 44 px au moins (doigt et clavier) : les boutons et
+   les rubriques grandissent ; le titre d'une lecture, « Gérer », « Afficher les … » et « Détails » gardent leur dessin,
+   leur zone de toucher est élargie sans pousser le reste. Le chemin d'un dossier passe à la ligne au lieu d'être coupé.
+   En clair, l'état du serveur et la pastille « en cours » sont foncés pour se lire. */
+.dash .dash-actions .tool, .dash .set-nav .set-tab { min-height: 44px; }
+.dash .np-title { padding: 10px 0; margin: -10px 0; }
+.dash .linkish { padding: 11px 6px; margin: -11px -6px; }
+.dash .sys-more summary { padding: 12px 0; margin: -12px 0 -2px; }
+.dash .c-libs .dev .grow > span { white-space: normal; overflow-wrap: anywhere; }
+html[data-tone="light"] .dash .status-chip { color: #0f6b47; }
+html[data-tone="light"] .dash .status-chip.warn { color: #7a4a00; }
+html[data-tone="light"] .dash .status-chip.bad { color: #a3241b; }
+html[data-tone="light"] .dash .pill.live { color: #0f6b47; }
+/* « Source absente » : sa raison passe à la ligne au lieu d'être coupée. Planètes Blanc, Noir et TV : la rubrique choisie a
+   un fond plein ; son icône prend la couleur de son texte (la couleur d'accent y serait celle du fond). */
+.dash .gauge.absente .g-txt small { white-space: normal; overflow-wrap: anywhere; }
+html[data-planet="blanc"] .dash .set-nav .set-tab.on svg, html[data-planet="noir"] .dash .set-nav .set-tab.on svg, html[data-planet="tv"] .dash .set-nav .set-tab.on svg { color: inherit; }

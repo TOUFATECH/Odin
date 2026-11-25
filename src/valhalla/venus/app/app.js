@@ -188,6 +188,28 @@
       'FFmpeg est introuvable pour Odin : la version légère ne peut pas être préparée. Installez FFmpeg sur la machine d’Odin, puis redémarrez Odin.': 'FFmpeg cannot be found by Odin: the light version cannot be prepared. Install FFmpeg on Odin’s machine, then restart Odin.',
       'Pas assez de place sur le disque d’Odin pour préparer cette version.': 'Not enough space on Odin’s disk to prepare this version.', 'Le fichier de ce titre n’est plus à sa place (disque débranché, fichier déplacé).': 'This title’s file is no longer in its place (disk unplugged, file moved).',
       'La conversion a échoué.': 'The conversion failed.', 'La conversion a pris trop de temps : elle a été arrêtée.': 'The conversion took too long: it was stopped.',
+      // l'administration (lot V9) : le tableau de bord (Dashboard.js)
+      'Tableau de bord': 'Dashboard', 'Rubriques du tableau de bord': 'Dashboard sections', 'Suivi (tableau de bord)': 'Monitoring', 'Aperçu': 'Overview', 'En ce moment': 'Now playing',
+      'Appareils': 'Devices', 'Activité': 'Activity', 'Serveur': 'Server', 'Santé': 'Health', 'Tâches de fond': 'Background tasks', 'Médiathèques': 'Libraries', 'Outils': 'Tools',
+      'Réservé à l’administrateur': 'Administrator only', 'Tout va bien': 'All good', 'Venus dans Odin · en ligne depuis {d}': 'Venus in Odin · up for {d}', '{d} j {h} h': '{d} d {h} h',
+      'mémoire presque pleine': 'memory almost full', 'disque presque plein': 'disk almost full', '{n} médiathèque introuvable': '{n} library not found', '{n} médiathèques introuvables': '{n} libraries not found',
+      'Analyser': 'Scan', 'Analyse des médiathèques lancée': 'Library scan started', 'Stockage': 'Storage', '{n} clip': '{n} music video', '{n} clips': '{n} music videos', '{n} h de vidéo': '{n} h of video',
+      '{n} o': '{n} B', '{n} Ko': '{n} KB', '{n} To': '{n} TB', '{n} en cours': '{n} playing', 'Personne ne regarde en ce moment.': 'Nobody is watching right now.', 'Lecture (état)': 'Playing',
+      'Télé': 'TV', 'Enceinte': 'Speaker', 'Écran': 'Screen', 'Vu par Odin le {d}': 'Seen by Odin on {d}', 'Aucun écran connu d’Odin pour l’instant.': 'No screen known to Odin yet.',
+      'Afficher moins': 'Show less', 'Afficher les {n} appareils': 'Show all {n} devices', 'Analyse des médiathèques': 'Library scan', 'En cours': 'In progress', 'Depuis {d}': 'Since {d}', 'Dernière analyse': 'Last scan',
+      'Notes et distribution': 'Ratings and cast', '{n} titre en file d’attente': '{n} title queued', '{n} titres en file d’attente': '{n} titles queued', 'Vignettes': 'Thumbnails',
+      '{n} vidéo en file d’attente': '{n} video queued', '{n} vidéos en file d’attente': '{n} videos queued', 'Versions légères (720p, 480p)': 'Light versions (720p, 480p)',
+      '{n} en préparation': '{n} being prepared', '{n} en attente': '{n} queued', 'Ménage des versions légères': 'Light versions clean-up', 'Actif': 'Active', 'En pause': 'Paused', 'Arrêté': 'Stopped', 'Erreur': 'Error',
+      'Dernier passage : {d}': 'Last run: {d}', 'Prochain passage : {d}': 'Next run: {d}', 'Tout est à jour': 'Everything is up to date', 'Tout est à jour · dernière analyse le {d}': 'Everything is up to date · last scan on {d}',
+      'Santé du serveur': 'Server health', 'Processeur': 'Processor', 'Mémoire': 'Memory', 'Disques': 'Disks', 'Disque': 'Disk', 'Charge': 'Load', '{n} cœur': '{n} core', '{n} cœurs': '{n} cores', '{n} libres': '{n} free',
+      'Source absente': 'Source unavailable', 'Odin ne sait pas lire cette mesure sur cette machine.': 'Odin cannot read this measure on this machine.', 'Première mesure en cours.': 'First reading in progress.',
+      'Aucun dossier de médiathèque lisible.': 'No readable library folder.', 'Détails': 'Details', 'Activité récente': 'Recent activity', '{p} a lancé « {t} »': '{p} started “{t}”', 'Lecture : « {t} »': 'Played: “{t}”',
+      'Analyse : {n} titre ajouté': 'Scan: {n} title added', 'Analyse : {n} titres ajoutés': 'Scan: {n} titles added', 'Analyse : échec': 'Scan: failed', '{n} dossier introuvable': '{n} folder not found', '{n} dossiers introuvables': '{n} folders not found',
+      'Comète : « {t} » téléchargé et rangé': 'Comète: “{t}” downloaded and filed', 'Version {q} de « {t} » prête': '{q} version of “{t}” ready',
+      'Rien pour l’instant. Lectures, analyses et téléchargements s’afficheront ici.': 'Nothing yet. Playback, scans and downloads will show up here.',
+      'Gérer': 'Manage', 'Médiathèques à vérifier': 'Libraries to check', 'Accessible': 'Accessible', 'Dossier introuvable': 'Folder not found', '{n} élément': '{n} item', '{n} éléments': '{n} items',
+      'Aucune source pour l’instant.': 'No source yet.', '{h} h {m} min': '{h} h {m} min', '{m} min': '{m} min',
+      'Conversion': 'Transcoding', '{n} conversion': '{n} transcode', '{n} conversions': '{n} transcodes', 'Musique': 'Music', 'Livres audio': 'Audiobooks',
     },
   };
   const LANG = String((D && D.documentElement.lang) || (W.navigator && W.navigator.language) || 'fr');
@@ -1370,6 +1392,139 @@
   }
   function palGo(r) { closeSheet(false); if (r.act === 'profiles') { go('/qui-regarde'); return; } if (r.tab) S.setTab = r.tab; if (r.q != null) S.searchQ = r.q; go(r.to); }
 
+  // ---------------------------------------------------------------- l'administration (lot V9) : le tableau de bord
+  // pages/Dashboard.js du dépôt Venus, réécrit sans React : mêmes rubriques, mêmes classes, mêmes textes. Les données
+  // viennent d'Odin (/venus/api/tableau, réservé au profil administrateur) ; ce qu'Odin ne sait pas n'a pas de case.
+  // Pas encore dans Odin, donc pas dessiné : le code de connexion, « Déconnecter cet appareil », « Redémarrer »,
+  // « Message à tous », les commandes d'une lecture en cours, et les pages Qualité, Sécurité, Mises à jour et journaux.
+  // Relu toutes les 4 s sur cette page (onglet visible) ; seules les parties changées sont repeintes, le focus reste.
+  const TB = { d: undefined, T: 0, vu: '', vuTete: '', tab: 'apercu', tous: false, enVol: false, analyse: false };
+  const TB_NAV = [['Suivi', [['apercu', 'Aperçu', 'gauge'], ['lectures', 'En ce moment', 'play'], ['appareils', 'Appareils', 'cast'], ['activite', 'Activité', 'chat']]], ['Serveur', [['sante', 'Santé', 'server'], ['taches', 'Tâches de fond', 'refresh'], ['medias', 'Médiathèques', 'folder']]], ['Outils', [['/stats', 'Statistiques', 'gauge'], ['/reglages', 'Réglages', 'gear']]]];
+  const TB_WHERE = { playing: ['apercu', 'lectures'], tasks: ['apercu', 'taches'], devices: ['appareils'], system: ['sante'], activity: ['activite'], libs: ['medias', 'sante'] };
+  const TB_TABS = TB_NAV.flatMap(([, l]) => l).filter(([k]) => !k.startsWith('/'));
+  const ACT_ICON = { play: 'play', scan: 'refresh', seerr: 'down', legere: 'download' };
+  const CATEGORIE = { films: 'Films', series: 'Séries', musique: 'Musique', livres_audio: 'Livres audio' };
+  const TYPE_ECRAN = { tv: 'Télé', enceinte: 'Enceinte', ecran: 'Écran' };
+  const ETAT_TALOS = { actif: 'Actif', pause: 'En pause', arret: 'Arrêté', en_cours: 'En cours', erreur: 'Erreur' };
+  /** Un mot dont le sens change selon l'endroit (« Suivi », « Lecture ») : sa traduction d'ici, sinon la traduction du mot. */
+  const tIci = (k, ici) => { const c = `${k} (${ici})`, v = t(c); return v === c ? t(k) : v; };
+  /** Les dates dans la langue de la page et le fuseau d'Odin (jamais un « il y a » calculé sur l'heure de l'appareil). */
+  const leJour = (ms) => date(ms, { dateStyle: 'medium', timeStyle: 'short', ...(TB.d && TB.d.server && TB.d.server.zone ? { timeZone: TB.d.server.zone } : {}) });
+  const octets = (b) => { const u = ['{n} o', '{n} Ko', '{n} Mo', '{n} Go', '{n} To'], i = b > 0 ? Math.min(u.length - 1, Math.floor(Math.log(b) / Math.log(1024))) : 0, f = i >= 3 ? 1 : 0; return t(u[i], { n: new Intl.NumberFormat(LANG, { minimumFractionDigits: f, maximumFractionDigits: f }).format(b / 1024 ** i) }).replace(/ /g, ' '); };
+  const hms = (x) => { const v = Math.max(0, Math.round(Number(x) || 0)), h = Math.floor(v / 3600), m = Math.floor((v % 3600) / 60), sec = v % 60; return h ? `${h}:${pad2(m)}:${pad2(sec)}` : `${m}:${pad2(sec)}`; };
+  const enLigne = (sec) => { const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60); return d ? t('{d} j {h} h', { d: nombre(d), h: nombre(h) }) : h ? t('{h} h {m} min', { h: nombre(h), m: nombre(m) }) : t('{m} min', { m: nombre(m) }); };
+  const Meter = (pct) => { const p = Math.max(0, Math.min(100, Number(pct) || 0)); return `<div class="meter${p > 90 ? ' hot' : p > 75 ? ' warm' : ''}"><i style="width:${p}%"></i></div>`; };
+  function tbEtat(d) {
+    const s = d.system, mem = s.mem && s.mem.total ? ((s.mem.total - s.mem.free) / s.mem.total) * 100 : 0;
+    const disk = Array.isArray(s.disks) && s.disks.length ? Math.max(...s.disks.map((k) => ((k.total - k.free) / k.total) * 100)) : 0;
+    const missing = d.libraries.filter((l) => !l.exists).length;
+    const issues = [mem > 90 && t('mémoire presque pleine'), disk > 90 && t('disque presque plein'), missing && tn(missing, '{n} médiathèque introuvable', '{n} médiathèques introuvables')].filter(Boolean);
+    // Une mesure absente (processeur, mémoire, disques) : rien n'est affirmé, pas de « Tout va bien ».
+    const inconnu = !(s.cpu && s.cpu.pct != null) || !(s.mem && s.mem.total) || !(Array.isArray(s.disks) && s.disks.length);
+    return { level: disk > 95 || missing ? 'bad' : issues.length ? 'warn' : 'good', issues, inconnu };
+  }
+  function tbHead(d) {
+    const e = d ? tbEtat(d) : null;
+    return `<div class="dash-head"><div><div class="dash-h1"><h1 tabindex="-1">${esc(t('Tableau de bord'))}</h1>${e && !(e.level === 'good' && e.inconnu) ? `<span class="status-chip ${e.level}"><i></i>${esc(e.level === 'good' ? t('Tout va bien') : e.issues.join(' · '))}</span>` : ''}</div>${d ? `<p class="dash-sub">${esc(t('Venus dans Odin · en ligne depuis {d}', { d: enLigne(d.server.uptime) }))}</p>` : ''}</div>
+    ${d ? `<div class="dash-actions"><button class="tool f" data-act="dashscan" aria-label="${esc(t('Analyser'))}"${TB.analyse || d.tasks.scan.running ? ' disabled' : ''}>${I('refresh')}<span class="lbl">${esc(t('Analyser'))}</span></button></div>` : ''}</div>`;
+  }
+  const tbNav = () => `<nav class="set-nav" aria-label="${esc(t('Rubriques du tableau de bord'))}">${TB_NAV.map(([g, items]) => `<div class="set-group"><span class="set-group-t">${esc(g === 'Suivi' ? tIci(g, 'tableau de bord') : t(g))}</span>${items.map(([k, l, ic]) => (k.startsWith('/') ? `<a class="set-tab f" href="${href(k)}">${I(ic)}<span>${esc(t(l))}</span>${I('fwd')}</a>` : `<button class="set-tab f${k === TB.tab ? ' on' : ''}"${k === TB.tab ? ' aria-current="page"' : ''} data-act="dashtab" data-v="${k}">${I(ic)}<span>${esc(t(l))}</span></button>`)).join('')}</div>`).join('')}</nav>`;
+  // Chiffres clés : un compte à zéro s'affiche zéro ; la place et les heures seulement si Odin les connaît.
+  function Kpis(d) {
+    const c = d.counts, tiles = [['Films', c.movie, 'film', '/films', 'k-blue'], ['Séries', c.show, 'tv', '/series', 'k-violet'], ['Animés', c.anime, 'spark', '/animes', 'k-pink']];
+    const more = [tn(c.episode, '{n} épisode', '{n} épisodes'), tn(c.clip, '{n} clip', '{n} clips'), d.totals.hours != null ? t('{n} h de vidéo', { n: nombre(d.totals.hours) }) : ''].filter(Boolean).join(' · ');
+    return `<div class="kpis">${tiles.map(([l, v, ic, h, col]) => `<a class="kpi ${col} f" href="${href(h)}"><span class="kpi-ic">${I(ic)}</span><b>${esc(nombre(v))}</b><span>${esc(t(l))}</span></a>`).join('')}${d.totals.size != null ? `<div class="kpi k-amber"><span class="kpi-ic">${I('server')}</span><b>${esc(octets(d.totals.size))}</b><span>${esc(t('Stockage'))}</span></div>` : ''}</div><p class="kpi-more">${esc(more)}</p>`;
+  }
+  // En ce moment : d'après la reprise notée par le lecteur (jamais une adresse IP ; l'appareil n'est pas connu d'Odin).
+  function Playing(d) {
+    const list = d.playing;
+    const np = (p) => {
+      const pct = p.duration ? Math.min(100, (p.position / p.duration) * 100) : 0, art = p.backdrop || p.poster;
+      return `<article class="np"><div class="np-art">${art ? `<img src="${esc(art)}" alt="">` : ''}<span class="np-state">${I('play')}${esc(tIci('Lecture', 'état'))}</span></div><div class="np-body"><a class="np-title f" href="${href(`/titre/${encodeURIComponent(p.showId || p.itemId)}`)}">${esc(p.showTitle || p.title)}</a>${p.showTitle ? `<div class="np-sub">${esc(t('S{s} É{e}', { s: nombre(p.season), e: nombre(p.episode) }))}</div>` : ''}<div class="np-who">${Avatar({ name: p.profile, avatar: p.avatar }, 'tiny')}<span>${esc(p.profile)}</span></div>${p.duration ? `<div class="np-prog"><div class="meter"><i style="width:${pct}%"></i></div><span>${esc(`${hms(p.position)} / ${hms(p.duration)}`)}</span></div>` : ''}${p.mode === 'transcode' ? `<div class="np-tags"><span class="pill warm">${esc(t('Conversion'))}</span></div>` : ''}</div></article>`;
+    };
+    return `<section class="dash-box playing-box"><div class="dash-title"><h2>${esc(t('En ce moment'))}</h2>${list.length ? `<span class="pill live">${esc(t('{n} en cours', { n: nombre(list.length) }))}</span>` : ''}${d.transcodes ? `<span class="pill warm">${esc(tn(d.transcodes, '{n} conversion', '{n} conversions'))}</span>` : ''}</div>${list.length ? `<div class="np-list">${list.map(np).join('')}</div>` : `<p class="dash-empty calm">${I('moon')}${esc(t('Personne ne regarde en ce moment.'))}</p>`}</section>`;
+  }
+  // Appareils : les écrans de la maison que connaît Odin (en lecture ; rien ne touche aux sessions d'Odin).
+  function Devices(d) {
+    const l = d.devices;
+    return `<section class="dash-box c-dev"><div class="dash-title"><h2>${esc(t('Appareils'))}</h2><span class="pill">${esc(nombre(l.length))}</span></div>${l.length ? `<div class="dev-list">${l.slice(0, TB.tous ? 40 : 5).map((x) => `<div class="dev"><span class="dev-dot"></span><div class="grow"><b>${esc(x.name)}</b><span>${esc([t(TYPE_ECRAN[x.type] || 'Écran'), x.seen ? t('Vu par Odin le {d}', { d: leJour(x.seen) }) : ''].filter(Boolean).join(' · '))}</span></div></div>`).join('')}</div>${l.length > 5 ? `<button class="linkish dash-more f" data-act="dashmore">${esc(TB.tous ? t('Afficher moins') : t('Afficher les {n} appareils', { n: nombre(l.length) }))}</button>` : ''}` : `<p class="dash-empty">${esc(t('Aucun écran connu d’Odin pour l’instant.'))}</p>`}</section>`;
+  }
+  const Tache = (ic, titre, txt, extra = '') => `<div class="task"><span class="task-ic">${I(ic)}</span><div class="grow"><b>${esc(titre)}</b><span>${esc(txt)}</span>${extra}</div></div>`;
+  // Tâches de fond : les travaux de Vénus dans Odin, leur état et leur avancement quand Odin les connaît.
+  function Tasks(d) {
+    const k = d.tasks, sc = k.scan, lg = k.legeres, m = k.menage;
+    const pending = [
+      sc.running && Tache('refresh', t('Analyse des médiathèques'), sc.since ? t('Depuis {d}', { d: leJour(sc.since) }) : t('En cours')),
+      sc.last && sc.last.error && Tache('info', t('Dernière analyse'), t('Échec')),
+      k.fiches && Tache('spark', t('Notes et distribution'), tn(k.fiches, '{n} titre en file d’attente', '{n} titres en file d’attente')),
+      k.vignettes && Tache('image', t('Vignettes'), tn(k.vignettes, '{n} vidéo en file d’attente', '{n} vidéos en file d’attente')),
+      (lg.working || lg.queued) && Tache('download', t('Versions légères (720p, 480p)'), [lg.working ? t('{n} en préparation', { n: nombre(lg.working) }) : '', lg.queued ? t('{n} en attente', { n: nombre(lg.queued) }) : ''].filter(Boolean).join(' · '), lg.working && lg.progress != null ? Meter(lg.progress) : ''),
+    ].filter(Boolean);
+    const menage = m ? Tache('refresh', t('Ménage des versions légères'), [ETAT_TALOS[m.state] ? t(ETAT_TALOS[m.state]) : '', m.last ? t('Dernier passage : {d}', { d: leJour(m.last.at) }) : '', m.next && m.state !== 'pause' ? t('Prochain passage : {d}', { d: leJour(m.next) }) : ''].filter(Boolean).join(' · ')) : '';
+    return `<section class="dash-box c-task"><div class="dash-title"><h2>${esc(t('Tâches de fond'))}</h2>${pending.length ? `<span class="pill warm">${esc(nombre(pending.length))}</span>` : ''}</div>${pending.length ? pending.join('') : `<p class="dash-empty ok">${I('check')}${esc(sc.last && !sc.last.error ? t('Tout est à jour · dernière analyse le {d}', { d: leJour(sc.last.at) }) : t('Tout est à jour'))}</p>`}${menage}</section>`;
+  }
+  // Santé : seulement ce qu'Odin sait lire ici ; sinon « Source absente » et sa raison, jamais 0 %.
+  const Gauge = (label, pct, value, sub) => `<div class="gauge ${pct > 90 ? 'hot' : pct > 75 ? 'warm' : 'ok'}"><div class="g-ring" style="--p:${Math.min(100, Math.round(pct))}"><b>${esc(t('{n} %', { n: nombre(Math.round(pct)) }))}</b></div><div class="g-txt"><span>${esc(label)}</span><small>${esc(value)}</small>${sub ? `<small class="dim">${esc(sub)}</small>` : ''}</div></div>`;
+  const Absente = (label, raison) => `<div class="gauge absente" style="--g:var(--haze)"><div class="g-ring" style="--p:0" aria-hidden="true"></div><div class="g-txt"><span>${esc(label)}</span><small>${esc(t('Source absente'))}</small><small class="dim">${esc(raison)}</small></div></div>`;
+  function System(d) {
+    const s = d.system, cpu = s.cpu, mem = s.mem, disks = Array.isArray(s.disks) ? s.disks : null;
+    const pasLu = (a) => (a && a.absent === 'mesure' ? t('Première mesure en cours.') : t('Odin ne sait pas lire cette mesure sur cette machine.'));
+    const dUsed = disks ? disks.reduce((a, k) => a + k.total - k.free, 0) : 0, dTotal = disks ? disks.reduce((a, k) => a + k.total, 0) : 0;
+    const gauges = [
+      cpu && cpu.pct != null ? Gauge(t('Processeur'), cpu.pct, t('Charge'), tn(cpu.cores, '{n} cœur', '{n} cœurs')) : Absente(t('Processeur'), pasLu(cpu)),
+      mem && mem.total ? Gauge(t('Mémoire'), ((mem.total - mem.free) / mem.total) * 100, `${octets(mem.total - mem.free)} / ${octets(mem.total)}`) : Absente(t('Mémoire'), pasLu(mem)),
+      dTotal ? Gauge(t('Disques'), (dUsed / dTotal) * 100, t('{n} libres', { n: octets(dTotal - dUsed) })) : Absente(t('Disques'), t('Aucun dossier de médiathèque lisible.')),
+    ];
+    const rows = [
+      cpu && cpu.model ? `<div class="sys-row"><span>${esc(t('Processeur'))}</span><b>${esc(cpu.model.replace(/\(R\)|\(TM\)|CPU|@.*$/g, '').trim())}</b></div>` : '',
+      ...(disks || []).map((k) => `<div class="sys-row"><span>${esc(t('Disque'))}</span><b>${esc(`${octets(k.total - k.free)} / ${octets(k.total)}`)}</b>${Meter(((k.total - k.free) / k.total) * 100)}<small>${esc([t('{n} libres', { n: octets(k.free) }), k.categories.map((c) => t(CATEGORIE[c] || c)).join(', ')].join(' · '))}</small></div>`),
+    ].join('');
+    return `<section class="dash-box c-health"><div class="dash-title"><h2>${esc(t('Santé du serveur'))}</h2></div><div class="gauges">${gauges.join('')}</div>${rows ? `<details class="sys-more"><summary class="f">${esc(t('Détails'))}</summary><div class="sys">${rows}</div></details>` : ''}</section>`;
+  }
+  // Activité : ce qu'Odin garde déjà (lectures, analyses, téléchargements rangés par Comète, versions légères prêtes).
+  const actTexte = (a) => (a.kind === 'play' ? (a.who ? t('{p} a lancé « {t} »', { p: a.who, t: a.title }) : t('Lecture : « {t} »', { t: a.title }))
+    : a.kind === 'scan' ? (a.error ? t('Analyse : échec') : [tn(a.n || 0, 'Analyse : {n} titre ajouté', 'Analyse : {n} titres ajoutés'), a.missing ? tn(a.missing, '{n} dossier introuvable', '{n} dossiers introuvables') : ''].filter(Boolean).join(' · '))
+      : a.kind === 'seerr' ? t('Comète : « {t} » téléchargé et rangé', { t: a.title })
+        : [t('Version {q} de « {t} » prête', { q: a.quality, t: a.title }), a.who || ''].filter(Boolean).join(' · '));
+  const Activity = (d) => `<section class="dash-box c-act"><div class="dash-title"><h2>${esc(t('Activité récente'))}</h2></div>${d.activity.length ? `<ol class="timeline">${d.activity.slice(0, 6).map((a) => `<li class="act-${esc(a.kind)}"><span class="tl-ic">${I(ACT_ICON[a.kind] || 'info')}</span><div><p>${esc(actTexte(a))}</p><small>${esc(leJour(a.at))}</small></div></li>`).join('')}</ol>` : `<p class="dash-empty">${esc(t('Rien pour l’instant. Lectures, analyses et téléchargements s’afficheront ici.'))}</p>`}</section>`;
+  // Médiathèques : chacune dans sa rubrique ; dans « Santé », seulement celles à vérifier (comme Dashboard.js).
+  function Libs(d, alone) {
+    const bad = d.libraries.filter((l) => !l.exists), gerer = `<a class="linkish f" href="${href('/reglages?tab=medias')}">${esc(t('Gérer'))}</a>`;
+    const ligne = (l) => `<div class="dev"><span class="dev-dot ${l.exists ? 'on' : 'bad'}" title="${esc(l.exists ? t('Accessible') : t('Dossier introuvable'))}"></span><div class="grow"><b>${esc(t(CATEGORIE[l.category] || l.category))}</b><span>${esc([l.exists ? tn(l.items, '{n} élément', '{n} éléments') : t('Dossier introuvable'), l.path].join(' · '))}</span></div></div>`;
+    if (alone) return `<section class="dash-box c-libs"><div class="dash-title"><h2>${esc(t('Médiathèques'))}</h2>${gerer}</div><div class="dev-list">${d.libraries.map(ligne).join('')}${d.libraries.length ? '' : `<p class="dash-empty">${esc(t('Aucune source pour l’instant.'))}</p>`}</div></section>`;
+    return bad.length ? `<section class="dash-box c-libs"><div class="dash-title"><h2>${esc(t('Médiathèques à vérifier'))}</h2>${gerer}</div><div class="dev-list">${bad.map(ligne).join('')}</div></section>` : '';
+  }
+  function tbZone() {
+    const d = TB.d, tab = TB.tab, shown = (x) => TB_WHERE[x].includes(tab);
+    return `<div class="set-head"><h2>${esc(t((TB_TABS.find(([k]) => k === tab) || [])[1] || ''))}</h2></div>${tab === 'apercu' ? Kpis(d) : ''}<div class="dash-grid" data-tab="${tab}">${shown('playing') ? Playing(d) : ''}${shown('tasks') ? Tasks(d) : ''}${shown('devices') ? Devices(d) : ''}${shown('system') ? System(d) : ''}${shown('activity') ? Activity(d) : ''}${shown('libs') ? Libs(d, tab === 'medias') : ''}</div>`;
+  }
+  V.dashboard = () => {
+    if (!S.profile.isAdmin) return `<main class="with-nav"><div class="empty"><h2>${esc(t('Réservé à l’administrateur'))}</h2></div></main>`;
+    if (TB.d === undefined) { if (!TB.enVol) chargerTb(); return PageLoading(); }
+    if (!TB.d) return `<main class="with-nav page-in"><div class="page dash">${tbHead(null)}${Empty(t('Impossible pour le moment.'))}</div></main>`;
+    TB.vu = tbZone(); TB.vuTete = tbHead(TB.d);
+    return `<main class="with-nav page-in"><div class="page dash">${TB.vuTete}<div class="set-layout dash-layout">${tbNav()}<div class="set-main" id="tb-zone">${TB.vu}</div></div></div></main>`;
+  };
+  function chargerTb() {
+    clearTimeout(TB.T); TB.enVol = true;
+    api('/venus/api/tableau').then((d) => { TB.d = d; }).catch(() => { if (!TB.d) TB.d = null; })
+      .then(() => { TB.enVol = false; peindreTb(); if (TB.d && L.route(location.hash).path === '/dashboard') TB.T = setTimeout(relireTb, 4000); });
+  }
+  // Onglet caché : pas de relecture (Odin et la batterie se reposent), comme Dashboard.js.
+  const relireTb = () => { if (L.route(location.hash).path !== '/dashboard') return; if (D.hidden) { TB.T = setTimeout(relireTb, 4000); return; } chargerTb(); };
+  /** Repeint l'en-tête et la rubrique, seulement s'ils ont changé ; le bouton, le lien ou le titre qui avait le focus le retrouve. */
+  function peindreTb() {
+    if (L.route(location.hash).path !== '/dashboard') return;
+    const z = $('#tb-zone'), h = $('.dash-head');
+    if (!z || !h || !TB.d) { refaire(); return; }
+    const a = D.activeElement;
+    const cle = !a ? null : a.dataset && a.dataset.act ? (a.dataset.v != null ? sel(a.dataset.act, a.dataset.v) : `[data-act="${a.dataset.act}"]`) : a.tagName === 'H1' ? 'main h1' : a.getAttribute && a.getAttribute('href') ? `#tb-zone a[href="${a.getAttribute('href')}"]` : a.tagName === 'SUMMARY' ? '#tb-zone summary' : null;
+    const zh = tbZone(), hh = tbHead(TB.d), ouvert = !!z.querySelector('details.sys-more[open]');
+    if (zh !== TB.vu) { z.innerHTML = zh; TB.vu = zh; if (ouvert) { const x = z.querySelector('details.sys-more'); if (x) x.open = true; } }
+    if (hh !== TB.vuTete) { h.outerHTML = hh; TB.vuTete = hh; }
+    if (cle && a && !D.contains(a)) { const b = $(cle); if (b) b.focus({ preventScroll: true }); }
+  }
+
   // ---------------------------------------------------------------- lecture (lot V2 : le lecteur de Venus, lecteur.js)
   async function lire(cibleId, depuisDebut) {
     const LV = W.VenusLecteur; if (!LV) { toast(t('Lecteur indisponible.')); return; }
@@ -1439,13 +1594,15 @@
     if (path === '/telechargements') return [V.downloads(), true];
     if (path === '/seance') return [V.seance(q), true];
     if (path === '/telecommande') return [V.remote(), false];
+    // L'administration (lot V9) : un profil enfant n'a ni l'entrée ni la page.
+    if (path === '/dashboard') { if (S.profile.isKids) return [V.home(), true]; TB.tab = TB_TABS.some(([k]) => k === q.get('tab')) ? q.get('tab') : 'apercu'; return [V.dashboard(), true]; }
     if (path === '/collections') { if (q.get('onglet')) M8.collTab = q.get('onglet') === 'listes' ? 'playlists' : 'collections'; return [V.collections(), true]; }
     if ((m = path.match(/^\/collection\/(.+)$/))) { let id = m[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } return [V.collection(id), true]; }
     if ((m = path.match(/^\/liste-lecture\/(.+)$/))) { let id = m[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } return [V.playlist(id), true]; }
     if (NAV_ITEMS.some((x) => x.href === path)) return [V.bientot(path), true];
     return [V.home(), true];
   }
-  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?', '/nouveau': 'Nouveau', '/nouveautes': 'Nouveautés', '/stats': 'Mes statistiques', '/telechargements': 'Téléchargements', '/collections': 'Collections', '/vote': 'Vote en famille', '/retrospective': 'Rétrospective', '/seance': 'Séance', '/telecommande': 'Télécommande' };
+  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?', '/nouveau': 'Nouveau', '/nouveautes': 'Nouveautés', '/stats': 'Mes statistiques', '/telechargements': 'Téléchargements', '/collections': 'Collections', '/vote': 'Vote en famille', '/retrospective': 'Rétrospective', '/seance': 'Séance', '/telecommande': 'Télécommande', '/dashboard': 'Tableau de bord' };
   let precedent = '#/', dernierChemin = '';
   function render(keepScroll = false) {
     applyTheme();
@@ -1468,13 +1625,17 @@
       if (path === '/telechargements') M8.dl.list = undefined;
       if (path === '/telecommande') M8.rc.ecrans = undefined;
       if (path === '/seance') Object.assign(M8.se, { tente: '', msg: '' });
+      if (path === '/dashboard') Object.assign(TB, { d: undefined, err: false, vu: '', tous: false, enVol: false });
     }
     if (path !== '/retrospective') clearTimeout(M8.recap.T);
     if (path !== '/vote') clearTimeout(M8.vt.T);
     if (path !== '/telechargements') clearTimeout(M8.dl.T);
+    if (path !== '/dashboard') clearTimeout(TB.T);
     dernierChemin = path;
     const [page, withNav] = route();
     $('#app').innerHTML = withNav ? Shell(path, page) : page;
+    // Le tableau de bord au téléphone : la rubrique choisie se voit dans la barre des rubriques, qui défile de côté.
+    if (path === '/dashboard') { const nv = $('.dash .set-nav'), on = nv && nv.querySelector('.set-tab.on'); if (on && nv.scrollWidth > nv.clientWidth) { const a = on.getBoundingClientRect(), b = nv.getBoundingClientRect(); nv.scrollLeft += a.left + a.width / 2 - (b.left + b.width / 2); } }
     $('#app').removeAttribute('aria-busy');
     const d = path.startsWith('/titre/') ? S.items.find((x) => `/titre/${encodeURIComponent(x.id)}` === path || `/titre/${x.id}` === path) : null;
     const tt = TITLE_OF[path] != null ? t(TITLE_OF[path]) : (d ? d.title : '');
@@ -1692,6 +1853,14 @@
       case 'rctap': { const r = el.getBoundingClientRect(); recapAller(e.clientX - r.left < r.width * 0.3 ? -1 : 1); break; }
       case 'rcnext': recapAller(1); break;
       case 'rcagain': M8.recap.i = 0; M8.recap.reste = SLIDE_MS; rerender('.recap'); break;
+      // Le tableau de bord (lot V9) : la rubrique tient dans l'adresse ; « Analyser » lance l'analyse qui existe.
+      case 'dashtab': TB.tab = v; history.replaceState(null, '', v === 'apercu' ? '#/dashboard' : `#/dashboard?tab=${v}`); rerender(sel('dashtab', v)); break;
+      case 'dashmore': TB.tous = !TB.tous; rerender('[data-act="dashmore"]'); break;
+      case 'dashscan': {
+        if (TB.analyse) break; TB.analyse = true; el.disabled = true; toast(t('Analyse des médiathèques lancée'));
+        api('/venus/scan', {}).catch(() => { toast(t('Impossible pour le moment.')); }).then(() => { TB.analyse = false; if (L.route(location.hash).path === '/dashboard') chargerTb(); });
+        break;
+      }
       case 'colltab': M8.collTab = v; history.replaceState(null, '', v === 'playlists' ? '#/collections?onglet=listes' : '#/collections'); rerender(sel('colltab', v)); break;
       case 'plnew': nouvelleListe(v || null); break;
       case 'colnew': nouvelleCollection(v || null); break;
