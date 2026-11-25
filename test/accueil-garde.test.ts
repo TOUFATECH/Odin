@@ -241,6 +241,15 @@ test('accueil gardé : les cinq chiffres cliquables (appareils, missions, risque
     assert.ok(a, `le chiffre « ${quoi} » existe`);
     assert.match(a, /go\(|show\(/, `le chiffre « ${quoi} » est cliquable`);
   }
+  // Lot 27 (deuxième part) : ils sont POSÉS dans leur widget de la fenêtre (« chiffres_cles ») quand elle les tient ;
+  // sinon (un membre, la fenêtre pas encore lue) ils restent dans « État détaillé ». Ancre mise à jour, essai gardé.
+  assert.match(h, /dernierChiffres = kpis;\s*const chiffresTenus = poserChiffres\(\);/, 'renderHome passe les cinq chiffres à leur widget');
+  assert.match(apres(h, 'grid.replaceChildren(', 'ui.html, renderHome, grille'), /\.\.\.\(chiffresTenus \? \[\] : \[kpis\]\)/, 'et ne les garde dessous que si la fenêtre ne les tient pas');
+  const poser = fonction(UI, 'poserChiffres', 'ui.html');
+  assert.match(poser, /fen\?\.hote\('chiffres_cles'\)/, 'leur place : le widget « chiffres_cles »');
+  assert.match(poser, /h\.replaceChildren\(dernierChiffres\)/, 'ils y sont posés à l\'écran');
+  assert.match(UI, /document\.addEventListener\('odin:fenetre', poserChiffres\);/, 'et reposés après chaque dessin de la fenêtre');
+  assert.match(FE, /const JOUR = \[[^\]]*'chiffres_cles'[^\]]*\];/, 'la fenêtre leur dessine une carte de bloc du jour');
 });
 
 test('accueil gardé : la tuile Surveillance (disques et appareils importants)', () => {

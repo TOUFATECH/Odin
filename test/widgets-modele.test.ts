@@ -2,7 +2,7 @@
 // fichiers de famille (src/valhalla/widgets/), et plus en dur dans Hestia (constat M14). Une fenêtre enregistrée avant
 // ce changement se relit et se réenregistre à l'octet près ; une sorte inconnue (ou pas encore posable) est jetée ; un
 // réglage trop long est coupé ; chaque sorte a un public, et sans public écrit c'est « propriétaire seul » (constat
-// M12) ; les quatre sortes de l'accueil ne vont jamais à l'écran de la maison ni ne se copient (constat G4).
+// M12) ; les cinq sortes de l'accueil ne vont jamais à l'écran de la maison ni ne se copient (constat G4).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -134,7 +134,7 @@ test('une fenêtre enregistrée avant ce lot se relit identique, et se réenregi
     // Mêmes pages, mêmes modules, mêmes champs, dans le même ordre (aucune animation choisie : rien d'ajouté).
     // Lot 27 : la fenêtre lue porte la marque de ce qu'elle a reçu ; une page ouverte avant la mise à jour ne la renvoie pas.
     const { accueil, ...sansMarque } = lue as { pages: Array<{ code?: string }>; accueil?: number };
-    assert.equal(accueil, 2);
+    assert.equal(accueil, 3, 'lot 27, deuxième part : 3 depuis le widget des cinq chiffres');
     const pagesDAvant = { ...sansMarque, pages: lue.pages.slice(1) };
     assert.equal(JSON.stringify(pagesDAvant), JSON.stringify(avant), 'la fenêtre relue est celle du fichier, champ pour champ');
     // Rangée telle qu'avant (une page ouverte avant la mise à jour) : le fichier réécrit est le même, octet pour octet.
@@ -148,12 +148,14 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
   const src = readFileSync(new URL('../src/valhalla/modules/gladsheim.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /\['chiffres', 'section'/, 'la liste des sortes acceptées n\'est plus dans gladsheim.ts');
   assert.doesNotMatch(src, /chiffres: \{ mini:/, 'les tailles des sortes ne sont plus dans gladsheim.ts');
-  // Les six sortes posables d'avant et leurs tailles, plus les trois blocs du jour (lot 26) et « Comment Odin se comporte » (lot 27).
-  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'bouton', 'chiffres', 'comportement', 'heure', 'meteo', 'odin_a_fait', 'section', 'site', 'tu_veux']);
+  // Les six sortes posables d'avant et leurs tailles, plus les trois blocs du jour (lot 26), « Comment Odin se comporte »
+  // et le widget des cinq chiffres, « chiffres_cles » (lot 27).
+  assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'bouton', 'chiffres', 'chiffres_cles', 'comportement','heure', 'meteo', 'odin_a_fait', 'section', 'site', 'tu_veux']);
   assert.deepEqual(TAILLE_SORTE, {
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
     a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },
+    chiffres_cles: { mini: [3, 2], r: 2 }, // le widget des cinq chiffres (lot 27, deuxième part)
   });
 });
 
@@ -217,16 +219,17 @@ test('chaque sorte a un public ; sans public écrit, c\'est « propriétaire seu
   for (const x of SORTES as readonly SorteWidget[]) if (publicDe(x) === 'maison') assert.ok(x.famille === 'infos' || x.famille === 'maison', `${x.id} : tablette seulement pour infos et maison`);
 });
 
-test('les quatre sortes de l\'accueil du propriétaire : jamais à l\'écran de la maison, jamais copiables', () => {
-  const quatre = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement'];
-  for (const k of quatre) {
+test('les cinq sortes de l\'accueil du propriétaire : jamais à l\'écran de la maison, jamais copiables', () => {
+  // La cinquième : le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part).
+  const cinq = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement', 'chiffres_cles'];
+  for (const k of cinq) {
     const x = sorteDe(k)!;
     assert.ok(x, `${k} déclarée`); assert.equal(x.famille, 'aujourdhui'); assert.equal(x.accueilSeul, true); assert.equal(publicDe(x), 'proprietaire');
     assert.equal(servieALaMaison(k), false, `${k} jamais servie à /maison`); assert.equal(copiable(k), false, `${k} jamais copiable`);
   }
-  assert.deepEqual((SORTES as readonly SorteWidget[]).filter((x) => x.accueilSeul).map((x) => x.id).sort(), [...quatre].sort(), 'ces quatre-là, et elles seules');
+  assert.deepEqual((SORTES as readonly SorteWidget[]).filter((x) => x.accueilSeul).map((x) => x.id).sort(), [...cinq].sort(), 'ces cinq-là, et elles seules');
   // Toute autre sorte posable se copie et peut aller sur l'écran de la maison ; les posables de l'accueil (lot 26), jamais.
-  for (const x of sortesPosables()) { const reservee = quatre.includes(x.id); assert.equal(copiable(x.id), !reservee, x.id); assert.equal(servieALaMaison(x.id), !reservee, x.id); }
+  for (const x of sortesPosables()) { const reservee = cinq.includes(x.id); assert.equal(copiable(x.id), !reservee, x.id); assert.equal(servieALaMaison(x.id), !reservee, x.id); }
   // Une sorte inconnue : traitée comme réservée, par prudence.
   assert.equal(accueilSeulement('inventee'), true); assert.equal(copiable(undefined), false);
 });

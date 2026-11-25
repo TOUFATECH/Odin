@@ -1,4 +1,4 @@
-// La famille « Aujourd'hui » des widgets : les blocs de l'accueil devenus des widgets (lots 26 et 27). Ces quatre-là
+// La famille « Aujourd'hui » des widgets : les blocs de l'accueil devenus des widgets (lots 26 et 27). Ces cinq-là
 // portent des validations ou parlent de la conduite d'Odin : ils ne quittent JAMAIS l'accueil du propriétaire (constat
 // G4) — jamais servis à /maison, même sur une page marquée « Écran de la maison », jamais « copiables » vers l'autre
 // écran, jamais à un membre ni à une tablette. Leur page (« Aujourd'hui ») peut, elle, être montrée sur l'écran de la
@@ -10,6 +10,9 @@
 // Lot 27 (première part) : « Comment Odin se comporte » est posable lui aussi, de la même manière. Ses trois réglages
 // (autonomie, disponibilité, discrétion) sont dans l'état de la page du propriétaire ; les changer passe par les mêmes
 // gestes qu'avant (`set_autonomy`, `set_control`), avec les mêmes protections : rien n'est ouvert ici.
+// Lot 27 (deuxième part) : les cinq chiffres cliquables (appareils en ligne, missions en cours, risques repérés,
+// dépenses du mois, mode d'Odin) sont posables de la même manière. Ils sont calculés par la page du propriétaire, d'après
+// l'état qu'elle reçoit déjà ; chacun mène à son détail, comme avant : rien n'est lu ni ouvert ici.
 import type { EtatWidget, SorteWidget } from './sorte.ts';
 
 const reservee = { famille: 'aujourdhui', applis: [], styles: ['simple'], public: 'proprietaire', accueilSeul: true } as const;
@@ -29,20 +32,27 @@ export const SORTES_AUJOURDHUI = [
   { id: 'tu_veux', ...reservee, taille: rangee, posable: true, nettoyer: etiquette, lire: dansLEtat },
   // « Comment Odin se comporte » : autonomie, disponibilité, discrétion. Il se retire et se repose, comme les deux d'avant.
   { id: 'comportement', ...reservee, taille: rangee, posable: true, nettoyer: etiquette, lire: dansLEtat },
+  // Les cinq chiffres cliquables : appareils en ligne, missions en cours, risques repérés, dépenses du mois, mode d'Odin.
+  // Les dépenses et le mode sont à lui seul. Ils se retirent et se reposent, comme tous ceux-ci sauf « À faire ».
+  { id: 'chiffres_cles', ...reservee, taille: rangee, posable: true, nettoyer: etiquette, lire: dansLEtat },
 ] as const satisfies readonly SorteWidget[];
 
 /**
  * La page « Aujourd'hui » de la fenêtre : rangée sous un code (son nom est écrit par l'interface, dans sa langue, pas
  * dans la donnée), avec ses widgets de départ. Des identifiants fixes : tant que le propriétaire n'a pas rangé sa
  * fenêtre, tous ceux qui la lisent (la page, la route des widgets) voient les mêmes. `c` : colonnes sur 12 ; la
- * hauteur est celle de départ de chaque sorte. Les propositions sur toute la largeur, puis deux colonnes, comme avant ;
- * les réglages d'Odin en dernier, sur toute la largeur (ils étaient sous la fenêtre : rien ne bouge à l'écran).
- * `depuis` : la livraison de l'accueil qui a apporté ce widget (1 : lot 26 ; 2 : lot 27, première part). Une fenêtre
- * rangée avant cette livraison le reçoit une fois (gladsheim.ts, avecAujourdhui).
+ * hauteur est celle de départ de chaque sorte. Les cinq chiffres EN TÊTE, sur toute la largeur, comme la maquette (choix
+ * du propriétaire) ; puis les propositions sur toute la largeur, deux colonnes, comme avant ; les réglages d'Odin en
+ * dernier, sur toute la largeur (ils étaient sous la fenêtre : rien ne bouge à l'écran).
+ * `depuis` : la livraison de l'accueil qui a apporté ce widget (1 : lot 26 ; 2 : lot 27, première part ; 3 : lot 27,
+ * deuxième part). Une fenêtre rangée avant cette livraison le reçoit une fois (gladsheim.ts, avecAujourdhui).
+ * `tete` : une fenêtre déjà rangée le reçoit EN TÊTE de sa page (ce qui y était descend d'une rangée) ; sans `tete`, à
+ * la fin.
  */
 export const PAGE_AUJOURDHUI = {
   code: 'aujourdhui', id: '0a0f0000',
   widgets: [
+    { id: '0a0f0005', kind: 'chiffres_cles', c: 12, depuis: 3, tete: true },
     { id: '0a0f0001', kind: 'tu_veux', c: 12, depuis: 1 },
     { id: '0a0f0002', kind: 'a_faire', c: 6, depuis: 1 },
     { id: '0a0f0003', kind: 'odin_a_fait', c: 6, depuis: 1 },
@@ -54,7 +64,7 @@ export const PAGE_AUJOURDHUI = {
  * et la page le renvoie quand elle range : un widget retiré après l'avoir reçu ne revient donc pas, et une page restée
  * ouverte depuis avant la livraison (elle ne le renvoie pas) ne le fait pas disparaître.
  */
-export const ACCUEIL_RECU = 2;
+export const ACCUEIL_RECU = 3;
 /** Les codes de pages connus. */
 export const CODES_PAGES = [PAGE_AUJOURDHUI.code] as const;
 export type CodePage = (typeof CODES_PAGES)[number];

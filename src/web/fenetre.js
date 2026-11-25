@@ -27,14 +27,16 @@
     // Lot 22a : l'accueil en plein écran.
     sortiePlein: 'Quitter le plein écran (Échap)', enPlein: 'Plein écran : seulement les widgets. Échap, ou le ✕ en haut à droite, pour sortir.',
     // Lot 25a : le titre d'un widget quand la fenêtre n'en porte pas (jamais lu chez l'appli pour qui n'y a pas droit).
-    titres: { heure: 'Heure et lieu', meteo: 'Météo', site: 'Site surveillé', a_faire: 'À faire', odin_a_fait: 'Ce qu\'Odin a fait', tu_veux: 'Tu veux sans doute', comportement: 'Comment Odin se comporte', sansTitre: 'Widget' }, sousSite: 'Pulsar · site surveillé',
+    titres: { heure: 'Heure et lieu', meteo: 'Météo', site: 'Site surveillé', a_faire: 'À faire', odin_a_fait: 'Ce qu\'Odin a fait', tu_veux: 'Tu veux sans doute', comportement: 'Comment Odin se comporte', chiffres_cles: 'Chiffres clés', sansTitre: 'Widget' }, sousSite: 'Pulsar · site surveillé',
     // Lot 26 : la page rangée sous un code porte son nom ici (pas dans la donnée) ; les trois blocs du jour devenus widgets.
-    // Lot 27 : « Comment Odin se comporte » (autonomie, disponibilité, discrétion) les rejoint.
+    // Lot 27 : « Comment Odin se comporte » (autonomie, disponibilité, discrétion) les rejoint, puis les cinq chiffres
+    // cliquables (appareils en ligne, missions en cours, risques repérés, dépenses du mois, mode d'Odin).
     pages: { aujourdhui: 'Aujourd\'hui' },
     // La page « Aujourd'hui » sur l'écran de la maison (validé le 24/11) : ses widgets ordinaires seulement.
-    maisonJour: 'Montrer cette page sur l\'écran de la maison : seulement les widgets que tu y as posés. « Tu veux sans doute », « À faire », « Ce qu\'Odin a fait » et « Comment Odin se comporte » n\'y vont jamais.',
-    jour: { sous: 'Odin', lettres: { a_faire: '✓', odin_a_fait: '⚡', tu_veux: '💡', comportement: '⚙' }, attente: 'Un instant…', deja: (t) => `« ${t} » est déjà dans ta fenêtre.`,
-      quoi: { odin_a_fait: 'Le fil du jour : ce qu\'Odin a fait, seul ou avec ton accord, et « Annuler ».', tu_veux: 'Ce qu\'Odin te propose de faire maintenant.', a_faire: 'Ce qui t\'attend : validations, demandes d\'accès, alertes.', comportement: 'Ses trois réglages du moment : autonomie, disponibilité, discrétion.' } },
+    maisonJour: 'Montrer cette page sur l\'écran de la maison : seulement les widgets que tu y as posés. « Chiffres clés », « Tu veux sans doute », « À faire », « Ce qu\'Odin a fait » et « Comment Odin se comporte » n\'y vont jamais.',
+    jour: { sous: 'Odin', lettres: { a_faire: '✓', odin_a_fait: '⚡', tu_veux: '💡', comportement: '⚙', chiffres_cles: '📊' }, attente: 'Un instant…', deja: (t) => `« ${t} » est déjà dans ta fenêtre.`,
+      quoi: { odin_a_fait: 'Le fil du jour : ce qu\'Odin a fait, seul ou avec ton accord, et « Annuler ».', tu_veux: 'Ce qu\'Odin te propose de faire maintenant.', a_faire: 'Ce qui t\'attend : validations, demandes d\'accès, alertes.', comportement: 'Ses trois réglages du moment : autonomie, disponibilité, discrétion.',
+        chiffres_cles: 'Appareils en ligne, missions en cours, risques repérés, dépenses du mois, mode d\'Odin. Touche un chiffre pour voir le détail.' } },
     // « Ouvrir à… » : un widget de la vie privée, ouvert à une personne précise (sa question 15, réponse b).
     ouvrir: {
       bouton: 'Ouvrir à…', nom: (t) => `Ouvrir « ${t} » à une personne`, titre: (t) => `Ouvrir « ${t} » à…`, groupe: 'Les personnes',
@@ -120,6 +122,32 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 /* En mode Modifier, ses boutons ne répondent pas (ils couvrent presque toute la carte : en voulant la prendre, on
    changeait l'autonomie d'Odin). La carte se prend alors par n'importe où ; « Terminé » leur rend la main. */
 .fe-edit .fe-w[data-auj="comportement"] .fe-auj{pointer-events:none;opacity:.6}
+/* Lot 27 : les cinq chiffres. Côte à côte quand la carte est large, deux par rangée quand elle est étroite. Chacun est
+   un bouton, et ensemble ils couvrent presque toute la carte : en mode Modifier, ils ne répondent pas non plus (on prend
+   la carte). Comme la maquette (choix du propriétaire) : chacun son icône, de sa teinte, sur un fond de sa teinte à 18 %,
+   puis le chiffre et ce qu'il compte. Les teintes sont des couleurs du thème d'Odin (--good, --accent…), jamais écrites
+   ici : elles suivent le clair, le sombre et le verre. L'icône est un masque : elle prend la couleur de sa teinte.
+   Ailleurs (« État détaillé », un membre), pas d'icône : les chiffres restent comme avant. */
+.kpi-ic{display:none}
+.fe-auj .kpis{margin:0;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))}
+.fe-auj .kpi{--kc:var(--accent);display:grid;grid-template-columns:42px minmax(0,1fr);column-gap:12px;row-gap:1px;align-items:center;align-content:center;min-height:44px;padding:10px 12px}
+.fe-auj .kpi .kpi-ic{display:grid;grid-row:1/3;width:42px;height:42px;border-radius:13px;background:color-mix(in srgb,var(--kc) 18%,transparent);color:var(--kc)}
+.fe-auj .kpi .kpi-ic::before{content:"";margin:auto;width:22px;height:22px;background:currentColor;-webkit-mask:var(--ki) center/contain no-repeat;mask:var(--ki) center/contain no-repeat}
+.fe-auj .kpi b{grid-column:2;align-self:end;font-size:21px;min-width:0;overflow-wrap:anywhere}.fe-auj .kpi span{grid-column:2;align-self:start;font-size:12px;line-height:1.3;min-width:0}
+.kpi[data-ic="appareils"]{--kc:var(--good)}
+.kpi[data-ic="missions"]{--kc:var(--accent)}
+.kpi[data-ic="risques"]{--kc:var(--good)}
+.kpi[data-ic="depenses"]{--kc:var(--warn)}
+.kpi[data-ic="mode"]{--kc:var(--ink)}
+.kpi.warn{--kc:var(--warn)}.kpi.bad{--kc:var(--bad)}
+.kpi[data-ic="appareils"]{--ki:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='12' rx='2'/%3E%3Cpath d='M8 20h8M12 16v4'/%3E%3C/svg%3E")}
+.kpi[data-ic="missions"]{--ki:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M10 8.5l5 3.5-5 3.5z'/%3E%3C/svg%3E")}
+.kpi[data-ic="risques"]{--ki:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z'/%3E%3Cpath d='M12 8v5M12 16.5v.5'/%3E%3C/svg%3E")}
+.kpi[data-ic="depenses"]{--ki:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M14.5 9.5c-.5-1-1.4-1.5-2.5-1.5-1.4 0-2.5.8-2.5 2s1.1 1.6 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2c-1.1 0-2-.5-2.5-1.5M12 6.5V8M12 16v1.5'/%3E%3C/svg%3E")}
+.kpi[data-ic="mode"]{--ki:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h9M17 7h3M4 17h3M11 17h9'/%3E%3Ccircle cx='15' cy='7' r='2'/%3E%3Ccircle cx='9' cy='17' r='2'/%3E%3C/svg%3E")}
+.fe-auj .kpi:focus-visible{outline:2px solid var(--accent-texte,var(--accent));outline-offset:2px}
+@container (max-width:420px){.fe-auj .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.fe-auj .kpis .kpi:last-child:nth-child(odd){grid-column:1/-1}}
+.fe-edit .fe-w[data-auj="chiffres_cles"] .fe-auj{pointer-events:none;opacity:.6}
 .fe-w[data-auj]:focus{outline:0}.fe-w[data-auj]:focus-visible{outline:2px solid var(--accent,#0b7f7c);outline-offset:3px}
 .fe-clock{display:flex;flex-direction:column;gap:2px}.fe-clock-h{font-size:clamp(22px,24cqi,38px);line-height:1.1;font-variant-numeric:tabular-nums}.fe-clock-d{font-size:15px}.fe-clock-d::first-letter{text-transform:uppercase}.fe-clock small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
 .fe-site{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:4px solid var(--line)}.fe-site b{font-size:20px}.fe-site small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}.fe-site.bon{border-color:var(--good)}.fe-site.mauvais{border-color:var(--bad)}.fe-site.attention{border-color:var(--warn)}
@@ -130,6 +158,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 /* Lot 27 : « Comment Odin se comporte » était caché en plein écran (il était sous la fenêtre) ; widget, il le reste : un
    écran au mur ne laisse pas changer la conduite d'Odin. En mode Modifier, il se voit (pour le déplacer ou le retirer). */
 #v-home.pe-plein #fenetre:not(.fe-edit) .fe-w[data-auj="comportement"]{display:none!important}
+/* Lot 27 : les cinq chiffres étaient cachés en plein écran (dans « État détaillé », sous la fenêtre) ; widget, ils le
+   restent : un écran au mur ne montre ni les dépenses ni le mode d'Odin. En mode Modifier, ils se voient. */
+#v-home.pe-plein #fenetre:not(.fe-edit) .fe-w[data-auj="chiffres_cles"]{display:none!important}
 #v-home.pe-plein>.body{padding:66px 16px calc(24px + env(safe-area-inset-bottom))}#v-home.pe-plein #fenetre{margin:0}
 @media (min-width:900px){#v-home.pe-plein>.body{padding:66px 28px 28px}}
 .fe-sortie{display:none}
@@ -217,9 +248,11 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     return undefined;
   }
   /** Les blocs du jour devenus widgets (lots 26 et 27) : leur contenu est posé par la page d'accueil, pas lu ici. */
-  const JOUR = ['tu_veux', 'a_faire', 'odin_a_fait', 'comportement'];
-  /** Leur largeur quand on les repose depuis le tiroir : la moitié (comme au lot 26) ; les trois réglages, toute la largeur. */
-  const LARGEUR_JOUR = { tu_veux: 6, a_faire: 6, odin_a_fait: 6, comportement: 12 };
+  const JOUR = ['tu_veux', 'a_faire', 'odin_a_fait', 'comportement', 'chiffres_cles'];
+  /** Leur largeur quand on les repose depuis le tiroir : la moitié (comme au lot 26) ; les trois réglages et les cinq chiffres, toute la largeur. */
+  const LARGEUR_JOUR = { tu_veux: 6, a_faire: 6, odin_a_fait: 6, comportement: 12, chiffres_cles: 12 };
+  /** Ceux dont les boutons couvrent presque toute la carte : en mode Modifier, ils ne répondent pas (on prend la carte). */
+  const INERTES_EN_MODIFIER = ['comportement', 'chiffres_cles'];
   /** La carte d'un bloc du jour sur la page ouverte, et la place de son contenu. */
   const carteJour = (k) => host()?.querySelector(`#feGrid > .fe-w[data-auj="${k}"]`) ?? null;
   /**
@@ -334,15 +367,16 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       box.append(head(titreDe(w, d.gris), sous, w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : w.kind === 'bouton' ? '⚡' : undefined, appliDe(w)), el('p', { class: 'fe-err' }, ...R.contenu(d, agirIci)));
       return box;
     }
-    // Lots 26 et 27 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait », « Comment Odin se comporte ». Leur donnée
-    // est dans l'état de la page du propriétaire (les validations, les propositions, le fil du jour, ses réglages du
-    // moment) : la page d'accueil la pose dans .fe-auj après
-    // chaque dessin (événement « odin:fenetre »). La carte peut recevoir le focus (la cloche y mène).
+    // Lots 26 et 27 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait », « Comment Odin se comporte », les cinq
+    // chiffres. Leur donnée est dans l'état de la page du propriétaire (les validations, les propositions, le fil du jour,
+    // ses réglages du moment, ce qu'elle en compte) : la page d'accueil la pose dans .fe-auj après chaque dessin
+    // (événement « odin:fenetre »). La carte peut recevoir le focus (la cloche y mène).
     if (JOUR.includes(w.kind)) {
       box.dataset.auj = w.kind; box.tabIndex = -1; box.setAttribute('aria-label', titreDe(w));
       const corps = el('div', { class: 'fe-auj', 'data-auj': w.kind, 'data-attente': TXT.jour.attente });
-      // « Comment Odin se comporte » en mode Modifier : ni clic, ni doigt, ni clavier sur ses réglages (voir le style).
-      if (edit && w.kind === 'comportement') corps.inert = true;
+      // « Comment Odin se comporte » et les cinq chiffres en mode Modifier : ni clic, ni doigt, ni clavier sur leurs
+      // boutons (voir le style).
+      if (edit && INERTES_EN_MODIFIER.includes(w.kind)) corps.inert = true;
       box.append(head(titreDe(w), TXT.jour.sous, TXT.jour.lettres[w.kind], ''), corps);
       return box;
     }
@@ -989,6 +1023,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // « Copier vers l'autre écran » : vers la première page de l'autre écran (créée s'il n'y en a pas), avec un nouvel identifiant.
     const versMaison = !page().maison;
     const copier = R.bouton(versMaison ? T.copier.maison : T.copier.accueil, () => {
+      // Les blocs du jour ne quittent jamais l'accueil, même une sorte que le script commun ne connaît pas encore.
+      if (JOUR.includes(w.kind)) { statut.textContent = T.copieReservee; return; }
       const refus = R.copieRefusee({ kind: w.kind, privee: ouv.privee, ouvert: ouv.connu && ouv.noms.length > 0 });
       if (refus) { statut.textContent = refus === 'reservee' ? T.copieReservee : T.copiePrivee; return; }
       let cible = L.pages.find((p) => Boolean(p.maison) === versMaison);

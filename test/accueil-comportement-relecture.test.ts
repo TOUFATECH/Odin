@@ -37,7 +37,9 @@ test('relecture : toutes les pages pleines, il n\'arrive pas et la fenêtre ne p
   const rangee = cleanLayout(copie(lue), IDS); assert.equal('accueil' in rangee, false);
   rangee.pages[1].widgets.pop();
   const apres = avecAujourdhui(cleanLayout(copie(rangee), IDS));
-  assert.equal(apres.accueil, ACCUEIL_RECU); assert.equal(sortes(apres).flat().filter((k) => k === K).length, 1, 'il arrive, une seule fois');
+  // Une seule place libre : lui arrive, le widget des cinq chiffres (lot 27, deuxième part, marque 3) attend la
+  // suivante ; la marque dit donc 2, la dernière livraison reçue en entier.
+  assert.equal(apres.accueil, 2); assert.equal(sortes(apres).flat().filter((k) => k === K).length, 1, 'il arrive, une seule fois');
   assert.equal(apres.pages[1].widgets.at(-1)!.kind, K);
   assert.equal(avecAujourdhui(cleanLayout(copie(apres), IDS)).pages.flatMap((p) => p.widgets).filter((w) => w.kind === K).length, 1, 'relu après rangement : pas de double');
 });
@@ -49,13 +51,16 @@ test('relecture : il ne va pas sur une page « Écran de la maison » quand une 
   assert.deepEqual(r.pages[1], l.pages[1], 'la page de l\'écran de la maison n\'a pas bougé');
   // Il ne reste que des pages « Écran de la maison » : il y est posé (le propriétaire le voit sur son accueil ; l'écran de la maison ne le sert pas).
   const seules = cleanLayout({ pages: [jourPlein(), { id: 'b2000001', name: 'Salon', maison: true, widgets: plein(2, 'd200') }] }, IDS);
-  assert.deepEqual(sortes(avecAujourdhui(seules))[1], ['heure', 'heure', K]);
+  // Et le widget des cinq chiffres (lot 27, deuxième part), au même endroit, en tête.
+  assert.deepEqual(sortes(avecAujourdhui(seules))[1], ['chiffres_cles', 'heure', 'heure', K]);
 });
 
 test('relecture : la marque envoyée par la page ne se laisse pas tromper', () => {
   const page = { pages: [{ name: 'P', widgets: [{ kind: 'a_faire' }] }] };
   const marque = (v: unknown) => cleanLayout(JSON.parse(JSON.stringify({ ...page, accueil: v })), IDS).accueil;
-  for (const v of [1e308, 9007199254740993, 2.0, 3, 1e3]) assert.equal(marque(v), ACCUEIL_RECU, `${v} : jamais plus que la dernière livraison connue`);
+  for (const v of [1e308, 9007199254740993, 3, 1e3]) assert.equal(marque(v), ACCUEIL_RECU, `${v} : jamais plus que la dernière livraison connue`);
+  // 2 est une livraison connue (celle d'avant le widget des cinq chiffres, lot 27, deuxième part) : gardée telle quelle.
+  assert.equal(marque(2.0), 2);
   for (const v of [-1e308, -2, -0, 0, 1, 1.9999, 2.0001, '2', '99', [2], { valueOf: 2 }, true, null, 'NaN', 'Infinity']) assert.equal(marque(v), undefined, `${JSON.stringify(v)} : pas de marque`);
   // Une marque posée d'avance ne fait rien perdre : sans « À faire », les blocs du lot 26 reviennent quand même.
   const menteuse = avecAujourdhui(cleanLayout({ accueil: 99, pages: [{ name: 'P', widgets: [{ kind: 'heure' }] }] }, IDS));
@@ -117,7 +122,7 @@ test('relecture : un membre, la clé d\'accès, une tablette, personne ne range 
     assert.notEqual(o.body.ok, true, `${qui} : « Ouvrir à » refusé`);
   }
   // Le propriétaire lui-même ne l'ouvre à personne (aucune appli de la vie privée derrière).
-  const o = await va.act('gladsheim', 'ouvrir_widget', { widget: PAGE_AUJOURDHUI.widgets[3].id, personne: 'membre-q', ouvert: 'oui' });
+  const o = await va.act('gladsheim', 'ouvrir_widget', { widget: PAGE_AUJOURDHUI.widgets.find((x) => x.kind === K)!.id, personne: 'membre-q', ouvert: 'oui' });
   assert.equal(o.ok, false); assert.equal(g().settings.ouvertures, undefined, 'rien n\'est ouvert');
   // Un membre ne lit pas le niveau d'autonomie ni les deux autres réglages dans son état.
   assert.equal((await geste({ kind: 'set_autonomy', autonomy: 'prudent' })).body.ok, true);
@@ -187,8 +192,9 @@ test('relecture, navigateur : en mode Modifier les boutons du widget ne réponde
     await page.mouse.move(m.x, m.y, { steps: 4 }); await page.mouse.up(); await page.waitForTimeout(400);
     assert.equal(await autonomie(), 'equilibre');
     await capture(page, 'relecture-modifier-1280');
-    // Les autres blocs du jour ne sont pas touchés par cette règle.
-    assert.equal(await page.evaluate(() => [...document.querySelectorAll('#feGrid .fe-auj')].filter((n: any) => n.inert).length), 1);
+    // Les autres blocs du jour ne sont pas touchés par cette règle, sauf le widget des cinq chiffres (lot 27, deuxième
+    // part : ses boutons couvrent la carte, comme ici).
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feGrid .fe-auj')].filter((n: any) => n.inert).map((n: any) => n.getAttribute('data-auj')).sort()), ['chiffres_cles', 'comportement']);
     // Sorti du mode Modifier : le bouton répond de nouveau.
     await page.evaluate(() => window.OdinFenetre.edit(false));
     await page.waitForFunction(() => !document.querySelector('#fenetre.fe-edit'));
@@ -210,10 +216,11 @@ test('relecture, navigateur : en plein écran le widget est caché, ses boutons 
     const a = await page.evaluate((k: string) => {
       const c = document.querySelector(`#feGrid > .fe-w[data-auj="${k}"]`), r = c.getBoundingClientRect();
       const b = c.querySelector('.fe-auj button'); b?.focus();
-      const autres = [...document.querySelectorAll('#feGrid > .fe-w')].filter((n: any) => n !== c).map((n: any) => n.getBoundingClientRect().height > 40);
+      const autres = [...document.querySelectorAll('#feGrid > .fe-w')].filter((n: any) => n !== c).map((n: any) => [n.getAttribute('data-auj'), n.getBoundingClientRect().height > 40]);
       return { cache: r.width === 0 && r.height === 0, focus: document.activeElement === b, autres };
     }, K);
-    assert.deepEqual(a, { cache: true, focus: false, autres: [true, true, true] });
+    // Le widget des cinq chiffres (lot 27, deuxième part, en tête) est caché lui aussi en plein écran, comme les chiffres d'avant.
+    assert.deepEqual(a, { cache: true, focus: false, autres: [['chiffres_cles', false], ['tu_veux', true], ['a_faire', true], ['odin_a_fait', true]] });
     await capture(page, 'relecture-plein-1280');
     // Tab, vingt fois : le focus n'entre jamais dans le widget caché.
     for (let i = 0; i < 20; i++) { await page.keyboard.press('Tab'); assert.equal(await page.evaluate((k: string) => Boolean(document.activeElement?.closest?.(`.fe-w[data-auj="${k}"]`)), K), false, `Tab ${i + 1}`); }

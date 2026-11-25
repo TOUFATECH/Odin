@@ -3364,14 +3364,14 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (!state.autoBackup?.enabled) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('settings'); openSettings('sauvegarde'); } }, 'Activer la sauvegarde automatique')));
     const H = state.habits || [];
     const grid = $('#homeGrid');
-    // 1. Chiffres clés, cliquables
-    const kpi = (n, label, cls, onclick) => el('button', { type: 'button', class: 'kpi ' + (cls || ''), onclick }, el('b', {}, n), el('span', {}, label));
+    // 1. Chiffres clés, cliquables. `ic` : leur icône, dessinée dans leur widget seulement (fenetre.js), comme la maquette.
+    const kpi = (n, label, cls, onclick, ic) => el('button', { type: 'button', class: 'kpi ' + (cls || ''), 'data-ic': ic, onclick }, el('i', { class: 'kpi-ic', 'aria-hidden': 'true' }), el('b', {}, n), el('span', {}, label));
     const kpis = el('div', { class: 'kpis' },
-      kpi(`${online}/${d.length}`, 'appareils en ligne', '', go('net')),
-      kpi(live.length, live.length > 1 ? 'missions en cours' : 'mission en cours', live.length ? 'on' : '', go('missions')),
-      kpi(grave + warn, grave ? 'risques dont graves' : 'risque(s) repéré(s)', grave ? 'bad' : warn ? 'warn' : 'good', () => { show('net'); netTab('sec'); }),
-      kpi(`${B.spentUsd.toFixed(2)} $`, B.monthlyUsd ? `ce mois sur ${B.monthlyUsd} $` : 'dépensés ce mois', '', go('settings', 'modele')),
-      kpi({ prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome', breaker: '⚡ Breaker' }[state.autonomy] || '?', 'mode d\'Odin', state.autonomy === 'breaker' ? 'on' : '', go('settings', 'autonomie')));
+      kpi(`${online}/${d.length}`, 'appareils en ligne', '', go('net'), 'appareils'),
+      kpi(live.length, live.length > 1 ? 'missions en cours' : 'mission en cours', live.length ? 'on' : '', go('missions'), 'missions'),
+      kpi(grave + warn, grave ? 'risques dont graves' : 'risque(s) repéré(s)', grave ? 'bad' : warn ? 'warn' : 'good', () => { show('net'); netTab('sec'); }, 'risques'),
+      kpi(`${B.spentUsd.toFixed(2)} $`, B.monthlyUsd ? `ce mois sur ${B.monthlyUsd} $` : 'dépensés ce mois', '', go('settings', 'modele'), 'depenses'),
+      kpi({ prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome', breaker: '⚡ Breaker' }[state.autonomy] || '?', 'mode d\'Odin', state.autonomy === 'breaker' ? 'on' : '', go('settings', 'autonomie'), 'mode'));
     // 2. À faire maintenant : validations, alertes, propositions, demandes fréquentes — une seule liste
     const sugg = (state?.features || []).filter((f) => !f.on && f.why).slice(0, 3);
     const items = [...todo.map((li) => el('div', { class: 'titem' }, ...li.childNodes)),
@@ -3408,7 +3408,12 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('article', { class: 'hcard', id: 'appCard' }));
     dernierJour = [items, live];
     renderToday(items, live);
-    grid.replaceChildren(el('details', { class: 'mx hmore' }, el('summary', {}, 'État détaillé : missions, surveillance, sauvegarde, coûts'), kpis, el('div', { class: 'hcols' }, doneBox), tiles));
+    // Lot 27 : les cinq chiffres sont un widget de la fenêtre (les mêmes boutons, les mêmes gestes). Quand la fenêtre les
+    // tient (le propriétaire), ils ne sont plus dans « État détaillé », même retirés (ils se reposent par « Ajouter un
+    // widget ») ; sinon (un membre, la fenêtre pas encore lue ou en panne), ils y restent, comme avant.
+    dernierChiffres = kpis;
+    const chiffresTenus = poserChiffres();
+    grid.replaceChildren(el('details', { class: 'mx hmore' }, el('summary', {}, 'État détaillé : missions, surveillance, sauvegarde, coûts'), ...(chiffresTenus ? [] : [kpis]), el('div', { class: 'hcols' }, doneBox), tiles));
     renderAppCard();
     bandeau();
     $('#b-home').hidden = !(grave || pending.size); $('#b-home').textContent = '!';
@@ -3459,8 +3464,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // ---------- Lot 26 : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » sont des widgets de la fenêtre ----------
   // Quand la fenêtre les tient (le propriétaire), chaque bloc est posé dans son widget, sans son titre (l'en-tête du
   // widget le porte) ; sinon (un membre, la fenêtre pas encore lue ou en panne) ils restent ici, comme avant.
-  // Lot 27 : « Comment Odin se comporte » suit la même règle.
+  // Lot 27 : « Comment Odin se comporte » suit la même règle, puis les cinq chiffres de « État détaillé » (poserChiffres).
   let dernierJour = null; // ce que renderHome a passé à renderToday la dernière fois
+  let dernierChiffres = null; // les cinq chiffres que renderHome a dessinés la dernière fois (lot 27)
   /** Le contenu d'un bloc sans son titre ; ce que son titre portait d'autre (les filtres) passe au-dessus. */
   function sansTitre(bloc) {
     const h = bloc.querySelector(':scope > h2'), outils = h ? [...h.children] : []; h?.remove();
@@ -3533,6 +3539,22 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     h.replaceChildren(...enfants);
     if (groupe && rang >= 0) [...h.querySelectorAll('[role=group]')].find((g) => g.getAttribute('aria-label') === groupe)?.children[rang]?.focus({ preventScroll: true });
   }
+  /**
+   * Lot 27 : pose les cinq chiffres dans leur widget, s'il est sur la page ouverte. Rend vrai quand la fenêtre les tient
+   * (le propriétaire : même retirés, ou sur une autre page). Ils sont redessinés à chaque nouvel état d'Odin : le
+   * chiffre qui avait le focus le retrouve, pour que le clavier ne perde pas sa place.
+   */
+  function poserChiffres() {
+    const fen = window.OdinFenetre?.aujourdhui?.() ?? null, h = fen?.hote('chiffres_cles');
+    if (h && dernierChiffres) {
+      const chiffres = (n) => [...n.querySelectorAll('.kpi')], rang = h.contains(document.activeElement) ? chiffres(h).indexOf(document.activeElement) : -1;
+      h.replaceChildren(dernierChiffres);
+      if (rang >= 0) chiffres(h)[rang]?.focus({ preventScroll: true });
+    } else if (fen) dernierChiffres?.remove(); // sur une autre page, ou retirés : plus dans « État détaillé » non plus
+    return Boolean(fen);
+  }
+  // La fenêtre vient d'être dessinée : le widget des cinq chiffres est vide, on les y repose.
+  document.addEventListener('odin:fenetre', poserChiffres);
   // Mascotte sur l'écran Aujourd'hui : une copie qui vit comme les autres.
   function buddyClone(id) {
     let b = document.getElementById(id);

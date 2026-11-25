@@ -23,6 +23,8 @@ const IDS = ['gladsheim', 'midgard', 'vordr', 'var'];
 const tous = (l: Layout) => l.pages.flatMap((p) => p.widgets);
 const sortes = (l: Layout) => l.pages.map((p) => p.widgets.map((w) => w.kind as string));
 const compte = (l: Layout, k: string) => tous(l).filter((w) => w.kind === k).length;
+/** L'identifiant fixe d'un widget de départ, par sa sorte (l'ordre de la page a changé : les cinq chiffres en tête, lot 27). */
+const idDe = (k: string) => PAGE_AUJOURDHUI.widgets.find((x) => x.kind === k)!.id;
 /** Chaque bloc du jour une seule fois, et aucun identifiant de widget ou de page en double. */
 function saine(l: Layout, quoi: string) {
   for (const k of TROIS) assert.equal(compte(l, k), 1, `${quoi} : « ${k} » une seule fois`);
@@ -55,11 +57,11 @@ test('relecture : une page « Aujourd\'hui » sans « À faire » garde ce qu\'e
 
 test('relecture : sans « À faire » mais avec un autre bloc du jour ailleurs : pas de bloc en double, pas d\'identifiant en double', () => {
   // « Ce qu'Odin a fait » sur une page ordinaire, avec l'identifiant fixe de « À faire ».
-  const l = cleanLayout({ pages: [{ id: 'b2000003', name: 'Réseau', widgets: [{ id: PAGE_AUJOURDHUI.widgets[1].id, kind: 'odin_a_fait' }, { id: PAGE_AUJOURDHUI.widgets[0].id, kind: 'heure' }] }, { id: PAGE_AUJOURDHUI.id, name: 'Autre', widgets: [{ id: 'c2000004', kind: 'meteo' }] }] }, IDS);
+  const l = cleanLayout({ pages: [{ id: 'b2000003', name: 'Réseau', widgets: [{ id: idDe('a_faire'), kind: 'odin_a_fait' }, { id: idDe('tu_veux'), kind: 'heure' }] }, { id: PAGE_AUJOURDHUI.id, name: 'Autre', widgets: [{ id: 'c2000004', kind: 'meteo' }] }] }, IDS);
   const r = avecAujourdhui(l);
   saine(r, 'fenêtre rendue');
   assert.deepEqual(r.pages.slice(1), l.pages, 'ses pages n\'ont pas bougé');
-  assert.equal(r.pages[0].code, 'aujourdhui'); assert.deepEqual(sortes(r)[0], ['tu_veux', 'a_faire', 'comportement'], 'seulement ce qui manquait (depuis le lot 27, « Comment Odin se comporte » aussi, en dernier)');
+  assert.equal(r.pages[0].code, 'aujourdhui'); assert.deepEqual(sortes(r)[0], ['chiffres_cles', 'tu_veux', 'a_faire', 'comportement'], 'seulement ce qui manquait (depuis le lot 27, le widget des cinq chiffres en tête et « Comment Odin se comporte » en dernier)');
   assert.deepEqual(cleanLayout(JSON.parse(JSON.stringify(r)), IDS), r, 'relue, elle ne change pas');
 });
 
@@ -127,7 +129,7 @@ test('relecture : un membre ne range pas la fenêtre, et ne reçoit rien du jour
   assert.equal(w.status, 200); assert.doesNotMatch(JSON.stringify(w.body), DU_JOUR);
   for (const id of [PAGE_AUJOURDHUI.id, ...PAGE_AUJOURDHUI.widgets.map((x) => x.id)]) assert.doesNotMatch(JSON.stringify((await v.json(`/api/widgets/donnees?page=${id}`, undefined, { cookie: membre })).body), DU_JOUR);
   // « Ouvrir à… » : rien à ouvrir sur un bloc du jour (aucune appli de la vie privée derrière).
-  const o = await valhallaOf()!.act('gladsheim', 'ouvrir_widget', { widget: PAGE_AUJOURDHUI.widgets[1].id, personne: 'membre-r', ouvert: 'oui' });
+  const o = await valhallaOf()!.act('gladsheim', 'ouvrir_widget', { widget: idDe('a_faire'), personne: 'membre-r', ouvert: 'oui' });
   assert.equal(o.ok, false); assert.equal(g().settings.ouvertures, undefined, 'rien n\'est ouvert');
   assert.doesNotMatch(JSON.stringify((await v.json('/api/widgets/donnees', undefined, { cookie: membre })).body), DU_JOUR);
   oublier();
@@ -186,7 +188,8 @@ test('relecture : « À faire » ne disparaît jamais pour de bon', async () => 
   }
   // Déplacé sur une page ordinaire, la page sous le code supprimée : permis, et il reste lu.
   // (La page d'aujourd'hui renvoie la marque de ce que la fenêtre a reçu, lot 27 : rien d'autre n'arrive à la lecture.)
-  const deplace = { accueil: 2, pages: [{ id: 'b3000004', name: 'Tout', maison: true, widgets: [{ id: 'c3000004', kind: 'a_faire', toucher: { quoi: 'action', action: 'theme' } }] }] };
+  // (Marque 3 depuis le widget des cinq chiffres, lot 27, deuxième part.)
+  const deplace = { accueil: 3, pages: [{ id: 'b3000004', name: 'Tout', maison: true, widgets: [{ id: 'c3000004', kind: 'a_faire', toucher: { quoi: 'action', action: 'theme' } }] }] };
   assert.equal((await ranger(deplace)).ok, true);
   const l3 = (await lue()).body.data as Layout;
   assert.deepEqual(sortes(l3), [['a_faire']]); assert.equal(l3.pages[0].code, undefined, 'la page « Aujourd\'hui » ne revient pas');
@@ -250,7 +253,7 @@ test('relecture, navigateur : un titre, un nom de page et un nom d\'appareil pi�
     }));
     assert.equal(a.pris, null, 'rien ne s\'est lancé'); assert.equal(a.poses, 0, 'aucune balise posée');
     assert.equal(a.onglet, '<b id=pris2>x</b>', 'le nom de la page est du texte');
-    assert.deepEqual(a.titres, [PIEGE, PIEGE, PIEGE, PIEGE], 'les titres sont du texte (quatre widgets depuis le lot 27)'); assert.deepEqual(a.noms, a.titres);
+    assert.deepEqual(a.titres, [PIEGE, PIEGE, PIEGE, PIEGE, PIEGE], 'les titres sont du texte (cinq widgets depuis le widget des cinq chiffres, lot 27)'); assert.deepEqual(a.noms, a.titres);
     // Cibles de 44 px à l'ordinateur aussi, dans les widgets du jour.
     const petites = await page.evaluate(() => [...document.querySelectorAll('#feGrid .fe-w[data-auj] .fe-auj button, #feGrid .fe-w[data-auj] .fe-auj a, #feGrid .fe-w[data-auj] .wr-plus')].map((n: any) => ({ t: (n.textContent ?? '').trim().slice(0, 24) || n.getAttribute('aria-label'), r: n.getBoundingClientRect() })).filter((x: any) => x.r.width > 0 && (x.r.height < 44 || x.r.width < 44)).map((x: any) => `${x.t} ${Math.round(x.r.width)}×${Math.round(x.r.height)}`));
     assert.deepEqual(petites, [], 'chaque commande fait au moins 44 px');

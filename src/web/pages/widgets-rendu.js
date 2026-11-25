@@ -166,8 +166,8 @@
   }
 
   // ---------------- « Régler » (lot 25b) : les règles, sans document
-  /** Les quatre sortes réservées à l'accueil du propriétaire (comme le serveur, widgets/aujourdhui.ts) : jamais copiées. */
-  const RESERVEES = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement'];
+  /** Les cinq sortes réservées à l'accueil du propriétaire (comme le serveur, widgets/aujourdhui.ts) : jamais copiées. */
+  const RESERVEES = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement', 'chiffres_cles'];
   /** Les sortes qui se déplacent mais ne se retirent pas (comme le serveur : « fixe »). */
   const FIXES = ['a_faire'];
   /** Par sorte : ses styles, quand elle en a plus d'un (comme le serveur). Aucune aujourd'hui : pas de choix de style. */

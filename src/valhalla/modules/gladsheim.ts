@@ -305,8 +305,8 @@ export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number;
  */
 export interface FPage { id: string; name: string; code?: CodePage; maison?: boolean; widgets: Widget[] }
 /**
- * La fenêtre. `accueil` : la dernière livraison de l'accueil du propriétaire qu'elle a reçue (lot 27 : 2 ; absent : au
- * plus celle du lot 26). La page le renvoie tel quel quand elle range ; rien d'autre n'en dépend.
+ * La fenêtre. `accueil` : la dernière livraison de l'accueil du propriétaire qu'elle a reçue (lot 27 : 2, puis 3 avec les
+ * cinq chiffres ; absent : au plus celle du lot 26). La page le renvoie tel quel quand elle range ; rien d'autre n'en dépend.
  */
 export interface Layout { pages: FPage[]; accueil?: number }
 /** La grille de la maquette : 12 colonnes, 4 au téléphone, 7 lignes au plus. */
@@ -339,7 +339,7 @@ function tailleNette(o: Record<string, unknown>, kind: WidgetKind): Pick<Widget,
     ...(pc === undefined ? {} : { pc: borne(pc, 2, GRILLE.colonnesTel) }), ...(pr === undefined ? {} : { pr: borne(pr, t.mini[1], GRILLE.lignesMax) }) };
 }
 const wid = () => randomBytes(4).toString('hex');
-/** La page « Aujourd'hui » de départ : « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » (lot 26), « Comment Odin se comporte » (lot 27). */
+/** La page « Aujourd'hui » de départ : les cinq chiffres en tête (lot 27), « Tu veux sans doute », « À faire », « Ce qu'Odin a fait » (lot 26), « Comment Odin se comporte » (lot 27). */
 const pageAujourdhui = (): FPage => ({ id: PAGE_AUJOURDHUI.id, name: '', code: PAGE_AUJOURDHUI.code,
   widgets: PAGE_AUJOURDHUI.widgets.map((x) => ({ id: x.id, kind: x.kind, ...tailleNette({ c: x.c }, x.kind) })) });
 /** La fenêtre porte-t-elle « À faire » (sur n'importe quelle page) ? */
@@ -359,33 +359,51 @@ function idLibre(id: string, pris: Set<string>): string {
  * y sont posés en tête, et la page garde sa place, son nom et ses widgets ; un identifiant déjà pris n'est pas repris.
  * Pur.
  *
- * Lot 27 : « Comment Odin se comporte » arrive de la même manière, une seule fois. Lui se retire : la marque « déjà
- * reçu » est donc écrite dans la fenêtre (`accueil`), que la page renvoie quand elle range. Une fenêtre qui porte déjà
- * « À faire » le reçoit À LA FIN de la page « Aujourd'hui » (sinon de la page qui porte « À faire », sinon de la
- * première page ordinaire qui a de la place, sinon d'une page « Écran de la maison », où il n'est servi à personne
- * d'autre) : rien n'est déplacé, et il était déjà sous la fenêtre. La fenêtre rendue porte la marque dès qu'il est
- * arrivé ; s'il n'y a de place nulle part, elle est rendue telle quelle, SANS la marque (il arrivera quand une place
- * se libère : la marque dit « reçu », pas « essayé ») ; une fenêtre qui l'a déjà est rendue telle quelle.
+ * Lot 27 : « Comment Odin se comporte », puis les cinq chiffres, arrivent de la même manière, une seule fois chacun
+ * (`depuis` dans PAGE_AUJOURDHUI). Eux se retirent : la marque « déjà reçu » est donc écrite dans la fenêtre
+ * (`accueil`), que la page renvoie quand elle range. Une fenêtre qui porte déjà « À faire » le reçoit À LA FIN de la
+ * page « Aujourd'hui » (sinon de la page qui porte « À faire », sinon de la première page ordinaire qui a de la
+ * place, sinon d'une page « Écran de la maison », où il n'est servi à personne d'autre) : rien n'est déplacé, et il
+ * était déjà sous la fenêtre. La fenêtre rendue porte la marque dès qu'il est arrivé ; s'il n'y a de place nulle part,
+ * elle est rendue telle quelle, SANS la marque (il arrivera quand une place se libère : la marque dit « reçu », pas
+ * « essayé ») ; une fenêtre qui l'a déjà est rendue telle quelle.
+ * Ils arrivent un à un, dans l'ordre des livraisons, chacun sur la première page qui a encore une place : une seule
+ * place libre suffit au premier. La marque dit alors la dernière livraison reçue EN ENTIER (2 si « Comment Odin se
+ * comporte » est arrivé et pas les chiffres) : le suivant arrivera quand une autre place se libère.
+ * Les cinq chiffres (`tete` dans PAGE_AUJOURDHUI, choix du propriétaire, comme la maquette) arrivent EN TÊTE de la page
+ * choisie, par la même règle : ce qui y était descend d'une rangée, dans le même ordre ; « Comment Odin se comporte »
+ * garde sa place, à la fin.
  */
 export function avecAujourdhui(l: Layout): Layout {
   const recu = l.accueil ?? 1, sansAFaire = !porteAFaire(l);
   if (!sansAFaire && recu >= ACCUEIL_RECU) return l;
   const portees = new Set<string>(l.pages.flatMap((p) => p.widgets.map((w) => w.kind))), pris = new Set(l.pages.flatMap((p) => p.widgets.map((w) => w.id)));
-  // Ce que la fenêtre n'a pas encore reçu, et qu'elle ne porte pas déjà : ceux du lot 26 (en tête), les suivants (à la fin).
+  // Ce que la fenêtre n'a pas encore reçu, et qu'elle ne porte pas déjà, dans l'ordre de la page de départ : en tête ceux
+  // du lot 26 et ceux marqués `tete`, à la fin les autres.
   const depuis = new Map<string, number>(PAGE_AUJOURDHUI.widgets.map((x) => [x.kind, x.depuis]));
+  const enTete = new Set<string>(PAGE_AUJOURDHUI.widgets.filter((x) => 'tete' in x && x.tete).map((x) => x.kind));
   const dus = pageAujourdhui().widgets.filter((w) => (depuis.get(w.kind)! <= 1 ? sansAFaire : recu < depuis.get(w.kind)!) && !portees.has(w.kind));
-  const manquants = dus.map((w) => ({ ...w, id: idLibre(w.id, pris) })), tete = manquants.filter((w) => depuis.get(w.kind)! <= 1), fin = manquants.filter((w) => depuis.get(w.kind)! > 1);
+  const manquants = dus.map((w) => ({ ...w, id: idLibre(w.id, pris) }));
+  const tete = manquants.filter((w) => depuis.get(w.kind)! <= 1 || enTete.has(w.kind)), fin = manquants.filter((w) => !tete.includes(w));
   const i = l.pages.findIndex((p) => p.code === PAGE_AUJOURDHUI.code), rendue = { ...l, accueil: ACCUEIL_RECU };
   const poses = (j: number, avant: Widget[], apres: Widget[]) => l.pages.map((p, k) => (k === j ? { ...p, widgets: [...avant, ...p.widgets, ...apres] } : p));
   if (sansAFaire) {
     if (i >= 0) return { ...rendue, pages: poses(i, tete, fin) };
     return { ...rendue, pages: [{ ...pageAujourdhui(), id: idLibre(PAGE_AUJOURDHUI.id, new Set(l.pages.map((p) => p.id))), widgets: manquants }, ...l.pages] };
   }
-  if (!fin.length) return rendue;
+  // Les livraisons d'après le lot 26, dans l'ordre où elles sont venues (la marque en dépend), quelle que soit leur place.
+  const tardifs = manquants.filter((w) => depuis.get(w.kind)! > 1).sort((a, b) => depuis.get(a.kind)! - depuis.get(b.kind)!);
+  if (!tardifs.length) return rendue;
   const aFaire = l.pages.findIndex((p) => p.widgets.some((w) => w.kind === 'a_faire'));
   const rangs = l.pages.map((_, k) => k), ordinaires = rangs.filter((k) => !l.pages[k].maison), maison = rangs.filter((k) => l.pages[k].maison);
-  const j = [i, aFaire, ...ordinaires, ...maison].find((k) => k >= 0 && l.pages[k].widgets.length + fin.length <= MODULES_PAR_PAGE);
-  return j === undefined ? l : { ...rendue, pages: poses(j, [], fin) };
+  let pages = l.pages, marque = ACCUEIL_RECU;
+  for (const w of tardifs) {
+    const j = [i, aFaire, ...ordinaires, ...maison].find((k) => k >= 0 && pages[k].widgets.length < MODULES_PAR_PAGE);
+    // Plus de place nulle part : ni lui ni les suivants n'arrivent ; la marque s'arrête à la livraison d'avant.
+    if (j === undefined) { marque = depuis.get(w.kind)! - 1; break; }
+    pages = pages.map((p, k) => (k === j ? { ...p, widgets: enTete.has(w.kind) ? [w, ...p.widgets] : [...p.widgets, w] } : p));
+  }
+  return pages === l.pages ? l : { ...l, pages, accueil: marque };
 }
 /** La fenêtre de départ : ce qui compte le plus, avec les applis présentes. */
 export function defaultLayout(ids: string[]): Layout {

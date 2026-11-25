@@ -4,7 +4,7 @@
 // - une adresse est nettoyée PAR LE SERVEUR : http ou https seulement, pas d'identifiants, longueur bornée ;
 // - une action au toucher part par le chemin de toutes les actions : accord à CHAQUE fois si elle est grave ; un
 //   membre ne lance que ce que son droit d'appli permet ; une tablette « maison » ne la reçoit ni ne la lance jamais ;
-// - « Copier vers l'autre écran » est refusé pour les quatre sortes réservées et pour un widget de la vie privée qui
+// - « Copier vers l'autre écran » est refusé pour les cinq sortes réservées et pour un widget de la vie privée qui
 //   n'est ouvert à personne ; « À faire » se déplace mais ne se retire pas ;
 // - changer « Quand je touche » d'un widget ouvert à quelqu'un le referme pour cette personne (le titre seul peut changer) ;
 // - une fenêtre déjà rangée se relit identique.
@@ -110,10 +110,11 @@ test('une fenêtre déjà rangée se relit identique (avec ou sans « Quand je t
   assert.deepEqual(cleanLayout(JSON.parse(JSON.stringify(neuve)), IDS), neuve, 'avec ses réglages aussi');
 });
 
-test('« Copier vers l\'autre écran » : refusé pour les quatre sortes réservées et pour la vie privée non ouverte', () => {
+test('« Copier vers l\'autre écran » : refusé pour les cinq sortes réservées et pour la vie privée non ouverte', () => {
   const reservees = SORTES.filter((s) => (s as { accueilSeul?: boolean }).accueilSeul).map((s) => s.id);
-  assert.deepEqual([...R.RESERVEES].sort(), [...reservees].sort(), 'la page et le serveur nomment les mêmes quatre sortes');
-  assert.equal(reservees.length, 4);
+  assert.deepEqual([...R.RESERVEES].sort(), [...reservees].sort(), 'la page et le serveur nomment les mêmes cinq sortes');
+  // Cinq depuis le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part).
+  assert.equal(reservees.length, 5);
   for (const k of reservees) {
     assert.equal(copiable(k), false, `${k} : le serveur ne la dit pas copiable`);
     for (const o of [{ privee: false }, { privee: true, ouvert: true }, {}]) assert.equal(R.copieRefusee({ kind: k, ...o }), 'reservee', `${k} : jamais copiée`);
@@ -418,7 +419,7 @@ test('relecture : l\'écran de la maison ne sert ni un widget de la vie privée 
     assert.equal((await va.act('gladsheim', 'ouvrir_widget', { widget: ID.cyclope, personne: 'membre-a', ouvert: 'oui' })).ok, true);
     assert.deepEqual(ouverturesDe(g(), idMembre), [`${ID.cyclope}@himinbjorg`], 'l\'original seul est ouvert');
   } finally { assert.equal((await ranger(FENETRE())).ok, true); }
-  // Les quatre sortes réservées : fermées sur l'écran de la maison, même pour le propriétaire (le jour où elles seront posables).
+  // Les cinq sortes réservées : fermées sur l'écran de la maison, même pour le propriétaire (le jour où elles seront posables).
   for (const k of R.RESERVEES) for (const full of [false, true]) assert.equal(droitDeVoir({ id: 'a0000022', kind: k as never }, lecteurMaison(full), { appli: () => undefined })?.etat, 'refuse', `${k} (${full ? 'complet' : 'maison'})`);
   // Les seuls réglages de l'action changent (pas l'action) : le widget ouvert à quelqu'un est refermé aussi.
   const avec = (input: Record<string, string>) => { const x = FENETRE(); Object.assign(x.pages[1].widgets[0], { toucher: { quoi: 'action', action: 'cameras', input } }); return x; };

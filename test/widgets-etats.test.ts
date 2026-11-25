@@ -2,7 +2,7 @@
 // états (ok, vide, source_absente, refuse, ancien) et applique d'abord le public de la sorte (constat M12) : le
 // propriétaire, un membre qui a le droit sur l'appli, une tablette « maison » (familles infos et maison, sans action
 // grave). La vie privée reste fermée à un membre et à une tablette tant qu'il ne l'a pas ouverte (sa réponse b à la
-// question 15). Les quatre sortes de l'accueil ne sont rendues qu'à lui, sur l'accueil (constat G4). Sur un Odin neuf,
+// question 15). Les cinq sortes de l'accueil ne sont rendues qu'à lui, sur l'accueil (constat G4). Sur un Odin neuf,
 // chaque sorte rend `vide` ou `source_absente`, jamais un chiffre.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -103,10 +103,10 @@ test('un membre : seulement les applis auxquelles il a droit ; la vie privée fe
   assert.equal((await donneeWidget(W('bouton', { module: 'baldr', action: 'allumer' }), membre(['baldr']), src)).etat, 'ok');
 });
 
-test('les quatre sortes de l\'accueil : rendues à lui seul, sur l\'accueil seul (jamais à /maison, même pour lui)', async () => {
+test('les cinq sortes de l\'accueil : rendues à lui seul, sur l\'accueil seul (jamais à /maison, même pour lui)', async () => {
   const { src, lus } = fausse();
-  for (const k of ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement']) {
-    // Lots 26 et 27 : les quatre sont posables ; leur donnée est dans l'état de la page du propriétaire, pas relue ici.
+  for (const k of ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement', 'chiffres_cles']) {
+    // Lots 26 et 27 : les cinq sont posables (la cinquième : le widget des cinq chiffres) ; leur donnée est dans l'état de la page du propriétaire, pas relue ici.
     const r = await donneeWidget(W(k), LUI, src);
     assert.equal(r.etat, 'ok', k); assert.deepEqual((r as { donnee: unknown }).donnee, { source: 'etat' }, `${k} : la donnée est dans l'état de la page`);
     for (const l of [TABLETTE, membre(['gladsheim', 'midgard'], [W(k).id]), { qui: 'proprietaire', ecran: 'maison' } as Lecteur, { qui: 'maison', ecran: 'accueil' } as Lecteur]) {
@@ -117,7 +117,8 @@ test('les quatre sortes de l\'accueil : rendues à lui seul, sur l\'accueil seul
   assert.deepEqual(await donneeWidget(W('inventee'), LUI, src), { etat: 'refuse', raison: 'sorte_inconnue' });
 });
 
-const DU_JOUR: string[] = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement'];
+// Avec le widget des cinq chiffres, « chiffres_cles » (lot 27, deuxième part).
+const DU_JOUR: string[] = ['a_faire', 'odin_a_fait', 'tu_veux', 'comportement', 'chiffres_cles'];
 test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », jamais un chiffre', async () => {
   const home = mkdtempSync(join(tmpdir(), 'widgets-etats-'));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), { run: async () => ({ code: 1, out: '', err: '' }), fetch: (async () => { throw new Error('réseau coupé par le test'); }) as typeof fetch, notify: async () => {}, autonomy: () => 'equilibre' });
@@ -137,6 +138,7 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       heure: W('heure'), meteo: W('meteo'), site: W('site', { module: 'vordr', label: 'Mon site' }), chiffres: W('chiffres', { module: 'midgard' }),
       section: W('section', { module: 'vordr', section: 'Sondes' }), bouton: W('bouton', { module: 'baldr' }),
       a_faire: W('a_faire'), odin_a_fait: W('odin_a_fait'), tu_veux: W('tu_veux'), comportement: W('comportement'),
+      chiffres_cles: W('chiffres_cles'), // le widget des cinq chiffres (lot 27, deuxième part)
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);
