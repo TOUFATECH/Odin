@@ -206,7 +206,11 @@ test('interdit : le bandeau et les onglets n\'écrivent ni nom de pièce, ni vil
   // signes sans lettre, ou des mots techniques connus (balises, attributs, rôles, touches, options de date). Un mot
   // affiché (dans n'importe quelle langue), un nom de pièce ou une ville fait échouer l'essai.
   const TECHNIQUES = new Set(['div', 'h1', 'p', 'span', 'button', 'hello', 'jour', 'me', 'img', 'tab', 'tabs', 'tablist', 'maison-grille', 'p:', 'home', 'aria-label', 'aria-selected', 'aria-controls', 'data-piece',
-    'en-US', 'fr-FR', 'numeric', 'long', 'h23', 'ArrowRight', 'ArrowLeft', 'Home', 'End', ':dir(rtl)', 'nearest']);
+    'en-US', 'fr-FR', 'numeric', 'long', 'h23', 'ArrowRight', 'ArrowLeft', 'Home', 'End', ':dir(rtl)', 'nearest',
+    // (suivi : la pièce choisie a son bouton « Régler » à côté de la rangée, qui ouvre la fenêtre de la pièce ; ses mots
+    //  sont dans MOTS, ceux-ci sont sa classe, son attribut, la sorte de ce qu'il ouvre et son icône ; son mot écrit en
+    //  clair, MOTS.regler, est caché au lecteur d'écran qui a déjà le nom entier : 'aria-hidden', 'true')
+    'tabs-l', 'round piece-ouvrir', 'aria-haspopup', 'dialog', 'chev', 'aria-hidden', 'true']);
   const gabarits = [...src.matchAll(/`([^`]*)`/g)].flatMap((m) => m[1].split(/\$\{[^}]*\}/));
   const horsGabarits = src.replace(/`[^`]*`/g, '``');
   const textes = [...[...horsGabarits.matchAll(/'([^'\\\n]*)'|"([^"\\\n]*)"/g)].map((m) => m[1] ?? m[2]), ...gabarits];

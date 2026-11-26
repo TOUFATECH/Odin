@@ -12,7 +12,7 @@
   // page « Thèmes » propres à cet écran (le verre et le fond animé y restent sur l'appareil) ; les autres mots du curseur
   // sont ceux de Réglages → Apparence (themes.js). Puis ceux de la page « Automatisations » (sa session seulement) ; les
   // mots de sa liste sont ceux des widgets (pages/widgets-automatisations.js).
-  const MOTS = {automatisations: 'Automatisations', autosCharge: 'Un instant…', autosFerme: 'Les automatisations ne s\'ouvrent ici qu\'avec ta session d\'Odin.', maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes', plus: 'Plus', odin: 'Parler à Odin', plein: 'Plein écran', pleinSortir: 'Quitter le plein écran (Échap)', verreOrigine: 'cartes d’origine', verreAide: 'Les cartes de cet écran, pour le thème {nom}. Gardé pour chaque thème, sur cet appareil seulement.', fond: 'Fond animé derrière les cartes', fondAide: 'Éteint au départ. Allumé, l\'ambiance du thème bouge derrière les cartes de cet écran ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations. Gardé sur cet appareil seulement.' };
+  const MOTS = {automatisations: 'Automatisations', autosCharge: 'Un instant…', autosFerme: 'Les automatisations ne s\'ouvrent ici qu\'avec ta session d\'Odin.', maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', regler: 'Régler', fermer: 'Fermer', pieceVide: 'Aucun appareil dans cette pièce.', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes', plus: 'Plus', odin: 'Parler à Odin', plein: 'Plein écran', pleinSortir: 'Quitter le plein écran (Échap)', verreOrigine: 'cartes d’origine', verreAide: 'Les cartes de cet écran, pour le thème {nom}. Gardé pour chaque thème, sur cet appareil seulement.', fond: 'Fond animé derrière les cartes', fondAide: 'Éteint au départ. Allumé, l\'ambiance du thème bouge derrière les cartes de cet écran ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations. Gardé sur cet appareil seulement.' };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // ---------- Clé de tablette : lue dans #cle=…, gardée sur l'appareil, retirée de l'adresse ----------
   let key = '';
@@ -43,7 +43,7 @@
     net: 'M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01M2 8.5a15 15 0 0 1 20 0', cam: 'M3 7h11v10H3zM14 10l7-3v10l-7-3', people: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9',
     prev: 'M7 6v12M18 6 9 12l9 6z', next: 'M17 6v12M6 6l9 6-9 6z', play: 'M8 5v14l11-7z', pause: 'M8 5h3v14H8zM13 5h3v14h-3z', lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z', open: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
     pin: 'M9 4h6l-1 6 3 3H7l3-3zM12 13v7', back: 'M15 6l-6 6 6 6', chev: 'M9 6l6 6-6 6',
-    auto: 'M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M8 12a4 4 0 1 0 8 0a4 4 0 1 0-8 0', more: 'M4 7h16M4 12h16M4 17h16', plein: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5', sortir: 'M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4',
+    auto: 'M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M8 12a4 4 0 1 0 8 0a4 4 0 1 0-8 0', more: 'M4 7h16M4 12h16M4 17h16', plein: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5', croix: 'M6 6l12 12M18 6 6 18', sortir: 'M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4',
   };
   const icon = (k, size = 20) => S('svg', { viewBox: '0 0 24 24', width: size, height: size, 'aria-hidden': 'true', class: 'ic' }, S('path', { d: ICON[k], fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
 
@@ -273,6 +273,15 @@ main{padding:22px 26px 120px;min-width:0}
 .round{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;position:relative;color:var(--text)}.round .dot{position:absolute;top:6px;right:6px;min-width:16px;height:16px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}
 /* Les onglets de pièces (la maquette) : ils défilent de côté s'ils ne tiennent pas, sans faire déborder la page ; 44 px au doigt. */
 .tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;margin:14px 0 2px;padding:2px;max-width:100%}.tabs::-webkit-scrollbar{display:none}
+/* La pièce choisie : son bouton « Régler » (le chevron de la maquette) à côté de la rangée ; il ouvre la fenêtre de la pièce. */
+/* Le mot « Régler » écrit en clair : seul, un chevron au bout des onglets se lirait « onglet suivant ». */
+.tabs-l{display:flex;align-items:center;gap:8px;max-width:100%;margin:14px 0 2px}.tabs-l .tabs{margin:0;min-width:0}.piece-ouvrir{flex:none;width:auto;height:44px;min-width:44px;padding:0 10px 0 14px;border-radius:22px;display:inline-flex;align-items:center;gap:2px;cursor:pointer;font:inherit;font-weight:600}.app.plein-ecran .piece-ouvrir{display:none}
+/* La fenêtre d'une pièce : un fond plein (celui du thème), lisible fond animé allumé ; elle défile en elle-même ; ses cartes sur une colonne
+   au téléphone ; toute cible de 44 px (l'interrupteur garde son dessin, sa zone de toucher s'élargit d'un bord transparent). */
+dialog.pf{padding:0;width:min(760px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;box-sizing:border-box;background:var(--bg);color:var(--text)}
+.pf-in{padding:16px}.pf-tete{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:2;background:var(--bg);margin:-16px -16px 0;padding:16px 16px 10px}.pf-tete h2{flex:1;min-width:0;margin:0;font-size:20px;overflow-wrap:anywhere}.pf-fermer{flex:none;width:44px;height:44px;cursor:pointer}
+.pf .grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:10px}.pf .card.w2{grid-column:1/-1}.pf .btn{min-width:44px;min-height:44px}
+dialog.pf .dev .sw{box-sizing:content-box;border:7px solid transparent;border-radius:22px;background-clip:padding-box}.pf .slide{min-width:0}
 .tabs button{flex:none;max-width:min(70vw,260px);overflow:hidden;text-overflow:ellipsis;border:1px solid transparent;background:none;color:var(--muted);border-radius:999px;padding:7px 15px;white-space:nowrap;min-height:44px;font-weight:500;transition:background .2s,color .2s,border-color .2s}.tabs button[aria-selected=true]{background:var(--card2);border-color:var(--line);color:var(--text);font-weight:600}.tabs button:focus-visible{outline-offset:-2px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-top:14px;grid-auto-flow:dense}
 .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;position:relative;overflow:hidden;min-width:0;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}.card.w2{grid-column:span 2}.card.h2{grid-row:span 2}
@@ -283,7 +292,7 @@ main{padding:22px 26px 120px;min-width:0}
 .dev{display:flex;flex-direction:column;gap:10px;min-height:132px;transition:transform .15s}.dev.on{background:var(--on);border-color:transparent;color:var(--on-ink)}.dev.on .muted{color:color-mix(in srgb,var(--on-ink) 82%,transparent)}
 .dev .row{display:flex;align-items:center;gap:10px}.dev .em{width:40px;height:40px;border-radius:12px;background:var(--card2);display:grid;place-items:center;font-size:20px;flex:none}.dev.on .em{background:rgba(255,255,255,.22)}
 .dev b{display:block;overflow-wrap:anywhere}.muted{color:var(--muted);font-size:13px}.dev .ctl{margin-top:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.btn{border:1px solid var(--line);background:var(--card2);border-radius:12px;min-width:40px;height:40px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}.dev.on .btn{background:rgba(255,255,255,.18);border-color:transparent}
+.btn{border:1px solid var(--line);background:var(--card2);border-radius:12px;min-width:40px;height:40px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}.dev.on .btn{background:rgba(255,255,255,.18);border-color:transparent}.btn:disabled{opacity:.45;cursor:not-allowed}
 .sw{width:52px;height:30px;border-radius:15px;border:0;background:var(--card2);position:relative;margin-left:auto;flex:none;box-shadow:inset 0 0 0 1px var(--line)}.sw::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .2s}.sw[aria-checked=true]{background:rgba(255,255,255,.35)}.sw[aria-checked=true]::after{left:25px}
 input[type=range]{width:100%;accent-color:#fff}.slide{position:relative;flex:1;min-width:180px;height:46px;border-radius:23px;background:rgba(255,255,255,.12);border:1px solid var(--line);overflow:hidden}.slide input{position:absolute;inset:0;opacity:0;width:100%;height:100%}.slide span{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;color:var(--muted);pointer-events:none}.slide i{position:absolute;top:4px;left:4px;width:38px;height:38px;border-radius:50%;background:var(--accent);pointer-events:none}
 .wx{background:linear-gradient(160deg,color-mix(in srgb,var(--accent2) 40%,var(--card)),var(--card))}.fe-barre{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}.fe-barre .btn{text-decoration:none}.fw-outils{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.fw-outils button{min-width:42px;min-height:42px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font:inherit;font-size:16px;cursor:pointer}.fw-outils .fw-poignee{cursor:grab;touch-action:none}.card.glisse{opacity:.55;outline:2px dashed var(--accent)}.card.cible{outline:3px solid var(--accent)}.fh .fh-j::first-letter{text-transform:uppercase}
@@ -363,7 +372,8 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
       cacher() { n.remove(); },
     };
   })();
-  const toast = (t) => { document.querySelector('.toast')?.remove(); const n = el('div', { class: 'toast', role: 'status' }, t); document.body.append(n); setTimeout(() => n.remove(), 4200); };
+  // Une fenêtre ouverte (showModal) passe au-dessus de tout le reste : le message est alors posé dans elle, pour se voir.
+  const toast = (t) => { document.querySelector('.toast')?.remove(); const n = el('div', { class: 'toast', role: 'status' }, t); (document.querySelector('dialog.pf[open]') || document.body).append(n); setTimeout(() => n.remove(), 4200); };
   const confirmBox = (text) => new Promise((ok) => { const d = el('dialog', { 'aria-label': 'Confirmation' }, el('p', {}, text), el('div', { class: 'acts' }, el('button', { class: 'btn', onclick: () => { d.close(); ok(false); } }, 'Annuler'), el('button', { class: 'btn primary', onclick: () => { d.close(); ok(true); } }, 'Confirmer'))); d.addEventListener('close', () => { d.remove(); ok(false); }); document.body.append(d); d.showModal(); });
   /** Une action : si elle est grave, Odin demande confirmation, puis la relance avec « confirm ». */
   async function act(path, body) {
@@ -387,9 +397,18 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
     const ctl = el('div', { class: 'ctl' });
     if (['lumière', 'prise', 'ventilateur'].includes(d.kind)) {
       head.append(el('button', { class: 'sw', role: 'switch', 'aria-checked': String(on), 'aria-label': `${d.name} : ${on ? 'éteindre' : 'allumer'}`, onclick: () => toggle(on ? 'off' : 'on') }));
-      if (d.kind === 'lumière') { const r = el('input', { type: 'range', min: '1', max: '100', value: '70', 'aria-label': `Intensité de ${d.name}` }); r.addEventListener('change', () => toggle(`${r.value} %`)); ctl.append(r); }
+      // L'intensité : le curseur des widgets (pages/widgets-maison-appareils.js), réutilisé. Odin ne la lit pas : ni pouce ni
+      // nombre de départ, et une flèche n'envoie rien tant qu'aucune valeur n'est choisie ; la valeur demandée est gardée.
+      if (d.kind === 'lumière') { const W = window.OdinWidgetsMaisonAppareils; W?.poserStyle?.(); ctl.append(...(W?.commandes?.({ nom: d.name, commandes: [{ code: 'intensite', ordres: [], nombre: { min: 1, max: 100, ordre: '{n} %' } }] }, async (v) => { const r = await toggle(v); return { ok: Boolean(r) && r.ok !== false }; }, `maison:${d.id}`) ?? [])); }
     } else if (d.kind === 'volet') ctl.append(el('button', { class: 'btn', 'aria-label': 'Monter', onclick: () => toggle('ouvre') }, icon('up')), el('button', { class: 'btn', 'aria-label': 'Arrêter', onclick: () => toggle('stop') }, icon('stop')), el('button', { class: 'btn', 'aria-label': 'Descendre', onclick: () => toggle('ferme') }, icon('down')));
-    else if (d.kind === 'clim') { const t = Number.parseFloat(d.state) || 22; ctl.append(el('button', { class: 'btn', 'aria-label': 'Moins chaud', onclick: () => toggle(String(t - 1)) }, icon('minus')), el('b', { style: { fontSize: '22px' } }, `${t}°`), el('button', { class: 'btn', 'aria-label': 'Plus chaud', onclick: () => toggle(String(t + 1)) }, icon('plus')), el('button', { class: 'btn', onclick: () => toggle(on ? 'off' : 'on') }, on ? 'Arrêt' : 'Marche')); }
+    else if (d.kind === 'clim') {
+      // La consigne : seulement un nombre lu dans l'état. Sans elle, aucun degré n'est écrit et « moins » et « plus » ne
+      // peuvent rien envoyer (ils restent là, éteints, et le disent).
+      const t = /^-?\d+(?:\.\d+)?$/.test(String(d.state ?? '').trim()) ? Number(d.state) : undefined, sans = window.OdinWidgetsMaisonAppareils?.TEXTES?.c?.sansConsigne;
+      const pas = (k, mot, ic) => el('button', { class: 'btn', 'aria-label': t === undefined && sans ? `${mot} · ${sans}` : mot, disabled: t === undefined, onclick: t === undefined ? null : () => toggle(String(t + k)) }, icon(ic));
+      ctl.append(pas(-1, 'Moins chaud', 'minus'), ...(t === undefined ? [] : [el('b', { style: { fontSize: '22px' } }, `${t}°`)]), pas(1, 'Plus chaud', 'plus'), el('button', { class: 'btn', onclick: () => toggle(on ? 'off' : 'on') }, on ? 'Arrêt' : 'Marche'));
+      if (t === undefined && sans) ctl.append(el('small', { class: 'muted', 'aria-hidden': 'true' }, sans)); // la raison, écrite (le lecteur d'écran l'a déjà dans le nom des boutons)
+    }
     else if (d.kind === 'lecteur') ctl.append(el('button', { class: 'btn', 'aria-label': 'Précédent', onclick: () => toggle('precedent') }, icon('prev')), el('button', { class: 'btn', 'aria-label': on ? 'Pause' : 'Lecture', onclick: () => toggle(on ? 'pause' : 'lecture') }, icon(on ? 'pause' : 'play')), el('button', { class: 'btn', 'aria-label': 'Suivant', onclick: () => toggle('suivant') }, icon('next')));
     else if (d.kind === 'aspirateur') ctl.append(el('button', { class: 'btn', onclick: () => toggle('on') }, 'Nettoyer'), el('button', { class: 'btn', onclick: () => toggle('off') }, 'Base'));
     else if (d.kind === 'serrure') {
@@ -490,7 +509,7 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
       onclick: () => { room = v; draw(); ongletDe(v === null ? '' : `p:${v}`)?.focus({ preventScroll: true }); } }, mot));
     // Écrite de droite à gauche, la rangée commence à droite : la flèche gauche avance, la flèche droite recule.
     const rtl = (e) => !!e.currentTarget?.matches?.(':dir(rtl)');
-    return el('div', { class: 'tabs', role: 'tablist', 'aria-label': MOTS.pieces, onkeydown: (e) => {
+    const rangee = el('div', { class: 'tabs', role: 'tablist', 'aria-label': MOTS.pieces, onkeydown: (e) => {
       const i = boutons.indexOf(document.activeElement); if (i < 0) return;
       const [avant, arriere] = rtl(e) ? ['ArrowLeft', 'ArrowRight'] : ['ArrowRight', 'ArrowLeft'];
       const j = e.key === avant ? Math.min(boutons.length - 1, i + 1) : e.key === arriere ? Math.max(0, i - 1) : e.key === 'Home' ? 0 : e.key === 'End' ? boutons.length - 1 : -1;
@@ -504,6 +523,10 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
       const x = rtl(e) ? Math.max(-max, Math.min(0, r.scrollLeft - d)) : Math.max(0, Math.min(max, r.scrollLeft + d));
       if (x === r.scrollLeft) return; e.preventDefault(); r.scrollLeft = x;
     } }, ...boutons);
+    // La fenêtre de la pièce (la maquette : le chevron « Régler » sur chaque pièce) : les onglets restent un filtre ; la pièce
+    // choisie a, à côté de la rangée, ce bouton qui ouvre sa fenêtre ; « Tout » reste sans bouton.
+    return el('div', { class: 'tabs-l' }, rangee, room === null ? null : el('button', { type: 'button', class: 'round piece-ouvrir', 'aria-label': `${MOTS.regler} ${room}`, title: `${MOTS.regler} ${room}`, 'aria-haspopup': 'dialog',
+      onclick: (e) => ouvrirPiece(room, e.currentTarget) }, el('span', { 'aria-hidden': 'true' }, MOTS.regler), icon('chev', 20)));
   }
 
   // Le retour vers Odin : seulement pour une session (pas avec une clé de tablette) et quand la page n'est pas dans un cadre.
@@ -766,11 +789,14 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
     const ongletAvant = document.activeElement?.closest?.('.tabs') ? document.activeElement.getAttribute('data-piece') : null, xOnglets = document.querySelector('.tabs')?.scrollLeft || 0;
     // La barre du bas et sa feuille, le bouton du plein écran : le focus revient, après le redessin, sur la place de même nom.
     const placeAvant = document.activeElement?.closest?.('.bnav,.feuille') ? document.activeElement.getAttribute('data-place') : null, pleinAvant = Boolean(document.activeElement?.closest?.('.plein'));
+    // Le bouton « Régler » de la pièce choisie : il garde le focus au redessin.
+    const pieceAvant = Boolean(document.activeElement?.closest?.('.piece-ouvrir'));
     root.setAttribute('class', classeRacine());
     // En plein écran, le bouton qui en fait sortir est le seul resté de la page hors du contenu, avec le nid flottant d'Odin.
     root.replaceChildren(...bords, cote, main, ...barreBas(navs), ...(plein ? [boutonPlein(), el('span', { class: 'nid-flottant', 'aria-hidden': 'true' })] : []));
     if (placeAvant) focusPlace(placeAvant);
     if (pleinAvant) document.querySelector('.plein')?.focus({ preventScroll: true });
+    if (pieceAvant) document.querySelector('.piece-ouvrir')?.focus({ preventScroll: true });
     if (autoAvant?.isConnected) autoAvant.focus({ preventScroll: true });
     if (garde) [...cote.querySelectorAll('[aria-label]')].find((x) => x.getAttribute('aria-label') === garde)?.focus({ preventScroll: true });
     const rangee = document.querySelector('.tabs');
@@ -932,6 +958,49 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
       ...(D.rights === 'complet' ? [el('h2', { class: 'sec' }, 'Mes applis'), appsGrid((D.apps || []).filter((a) => a.alerts || a.kpis.length).sort((a, b) => b.alerts - a.alerts).slice(0, 8))] : []),
     ];
   }
+  // ---------- La fenêtre d'une pièce (la maquette : « Régler » une pièce) ----------
+  // Ouverte par le bouton « Régler » de la pièce choisie : la VRAIE liste de ses appareils (ceux que l'état donne pour cette
+  // pièce), chacun dans SA carte d'aujourd'hui (devCard, la même fonction : toutes ses commandes, par la même route ; la
+  // serrure à glisser, puis l'accord demandé par Odin à chaque fois). Une pièce sans appareil commandable n'a donc aucun
+  // interrupteur. Elle se ferme par Échap, par un appui hors d'elle ou par son bouton ; le focus revient sur la pièce.
+  // Elle suit l'état relu (toutes les 15 s, ou après un ordre), mais n'est jamais refaite pendant un geste (un doigt posé,
+  // une confirmation ouverte) ; refaite, le focus revient sur la même commande. Les noms sont des données (du texte).
+  // « fen » : d, la fenêtre ouverte ; nom, sa pièce ; sig, les appareils dessinés ; vu, l'état déjà regardé ; appui, un doigt
+  // ou la souris posés sur elle ; minuteur, le regard sur l'état tant qu'elle est ouverte.
+  const fen = { d: null, nom: '', sig: '', vu: null, appui: false, minuteur: 0 };
+  const appareilsDe = (nom) => (D?.rooms || []).find((r) => r.name === nom)?.devices || [];
+  const corpsPiece = (devs) => (devs.length ? el('div', { class: 'grid' }, ...devs.map(devCard)) : el('p', { class: 'muted' }, MOTS.pieceVide));
+  function ouvrirPiece(nom, ouvreur) {
+    fen.d?.close();
+    const devs = appareilsDe(nom), corps = el('div', { class: 'pf-corps' }, corpsPiece(devs));
+    let depart = null;
+    const d = el('dialog', { class: 'pf', 'aria-labelledby': 'pf-titre',
+      onpointerdown: (e) => { depart = e.target; fen.appui = true; },
+      // Un appui hors de la fenêtre (sur son voile) la ferme ; un glissé commencé dedans, non.
+      onclick: (e) => { if (e.target === d && depart === d) d.close(); depart = null; } },
+    el('div', { class: 'pf-in' }, el('div', { class: 'pf-tete' }, el('h2', { id: 'pf-titre' }, nom), el('button', { type: 'button', class: 'round pf-fermer', 'aria-label': MOTS.fermer, title: MOTS.fermer, onclick: () => d.close() }, icon('croix', 20))), corps));
+    d.addEventListener('close', () => {
+      clearInterval(fen.minuteur); d.remove(); if (fen.d === d) fen.d = null;
+      (ouvreur?.isConnected ? ouvreur : document.querySelector('.piece-ouvrir'))?.focus({ preventScroll: true });
+    });
+    Object.assign(fen, { d, nom, sig: JSON.stringify(devs), vu: D, appui: false });
+    document.body.append(d); d.showModal();
+    clearInterval(fen.minuteur); fen.minuteur = setInterval(suivrePiece, 400);
+  }
+  function suivrePiece() {
+    if (!fen.d || D === fen.vu) return;
+    const devs = appareilsDe(fen.nom), sig = JSON.stringify(devs);
+    if (sig === fen.sig) { fen.vu = D; return; }
+    if (fen.appui || document.querySelectorAll('dialog[open]').length > 1) return; // un geste en cours : au prochain regard
+    const corps = fen.d.querySelector('.pf-corps'), a = document.activeElement, carte = a && corps.contains(a) ? a.closest('[data-dev]') : null;
+    const ctl = (c) => [...c.querySelectorAll('button,input')], cle = carte ? { id: carte.getAttribute('data-dev'), nom: a.getAttribute('aria-label'), i: ctl(carte).indexOf(a) } : null;
+    corps.replaceChildren(corpsPiece(devs)); fen.sig = sig; fen.vu = D;
+    if (!cle) return;
+    const c = [...corps.querySelectorAll('[data-dev]')].find((x) => x.getAttribute('data-dev') === cle.id), l = c ? ctl(c) : [];
+    (l.find((x) => cle.nom && x.getAttribute('aria-label') === cle.nom) || l[cle.i] || fen.d.querySelector('.pf-fermer'))?.focus({ preventScroll: true });
+  }
+  document.addEventListener('pointerup', () => { setTimeout(() => { fen.appui = false; }, 0); }, true);
+  document.addEventListener('pointercancel', () => { fen.appui = false; }, true);
   // ---------- Famille (présence partagée par l'appli Home Assistant de chacun) ----------
   const placeFr = (st) => ({ home: 'À la maison', not_home: 'Absent', unknown: 'Inconnu', unavailable: 'Indisponible' }[st] ?? st);
   function peopleGrid() {

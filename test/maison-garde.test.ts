@@ -47,6 +47,13 @@ class Noeud {
   addEventListener(t: string, f: (e: unknown) => unknown) { (this.ls[t] ??= []).push(f); }
   append(...c: Array<Noeud | Texte>) { this.kids.push(...c); }
   replaceChildren(...c: Array<Noeud | Texte>) { this.kids = c; }
+  // (suivi : le curseur d'intensité d'une carte est désormais celui des widgets, pages/widgets-maison-appareils.js, réutilisé ;
+  //  il pose son genre par propriété et lit dataset, hasAttribute, removeAttribute : le faux document les a aussi)
+  dataset: Record<string, string> = {};
+  get type() { return this.attrs.type ?? ''; }
+  set type(v: string) { this.attrs.type = String(v); }
+  hasAttribute(k: string) { return Object.hasOwn(this.attrs, k); }
+  removeAttribute(k: string) { delete this.attrs[k]; }
 }
 const doc = {
   createElement: (t: string) => new Noeud(t), createElementNS: (_: string, t: string) => new Noeud(t),
@@ -66,12 +73,16 @@ const boutons = (n: Noeud) => tous(n, (x) => x.tag === 'button');
 const curseurs = (n: Noeud) => tous(n, (x) => x.tag === 'input' && x.attrs.type === 'range');
 
 // ---------- La carte d'un appareil (devCard), dans son bac à sable ----------
+// (suivi : la carte dessine l'intensité d'une lumière avec le curseur des widgets, sans pouce ni nombre de départ, et lit le
+//  mot « consigne non lue » dans leurs textes ; le vrai fichier est chargé ici, dans son propre bac à sable, sur ce faux document)
+const WIDGETS_APPAREILS = readFileSync(new URL('../src/web/pages/widgets-maison-appareils.js', import.meta.url), 'utf8');
+const fenetreWidgets = () => { const w: Record<string, unknown> = {}; vm.runInNewContext(WIDGETS_APPAREILS, { window: w, document: { ...doc, getElementById: () => null, head: new Noeud('head'), documentElement: { lang: 'fr' } } }); return w; };
 type Envoi = { chemin: string; corps: Record<string, unknown> };
 function carte(d: { id: string; name: string; kind: string; state?: string; unit?: string }) {
   const envois: Envoi[] = [];
   const src = [ligne('const KIND = '), ligne('const FR = '), ligne('const stateFr = '), ligne('const isOn = '), bloc('const el = ('), bloc('function devCard(d) {'), 'devCard;'].join('\n');
   const devCard = vm.runInNewContext(src, {
-    document: doc, CSS: { escape: (x: string) => x }, icon: icone, pet: { visit: () => {} },
+    document: doc, CSS: { escape: (x: string) => x }, icon: icone, pet: { visit: () => {} }, window: fenetreWidgets(),
     act: (chemin: string, corps: Record<string, unknown>) => { envois.push({ chemin, corps }); return Promise.resolve({ ok: true }); },
   }) as (x: typeof d) => Noeud;
   const n = devCard(d);

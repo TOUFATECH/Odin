@@ -12,7 +12,7 @@ import { cleanLayout, defaultLayout, tailleDe, type Layout } from '../valhalla/m
 import type { Module } from '../valhalla/types.ts';
 import { LIEU_PAR_DEFAUT, THEMES_MAISON, appStates, familyNow, keyRights, meteoAncienne, memberOf, recordFix, regionActuelle, tilesOf, weather, weatherText, wword } from '../valhalla/modules/gladsheim.ts';
 import { cameraNames, preview } from '../valhalla/modules/himinbjorg.ts';
-import { homeDevices, homePeople, homeScenes } from '../valhalla/modules/midgard.ts';
+import { genreDe, homeDevices, homePeople, homeScenes } from '../valhalla/modules/midgard.ts';
 import { netState } from '../valhalla/modules/vidarr.ts';
 import { sansLigneLireVenus } from '../valhalla/modules/venus.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
@@ -133,7 +133,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
       for (const l of ns.leases) if (!seen.has(l.ip)) { seen.add(l.ip); network.push({ ip: l.ip, name: l.name || l.ip, kind: 'appareil', cut: ns.cut.has(l.ip), video: ns.video.has(l.ip) }); }
       network.splice(80);
     }
-    const rooms = [...new Set(dev.map((x) => x.room || 'Maison'))].map((r) => ({ name: r, devices: dev.filter((x) => (x.room || 'Maison') === r).map((x) => ({ id: x.id, name: x.name, kind: x.kind, state: x.state ?? '', unit: x.unit ?? '' })) }));
+    const rooms = [...new Set(dev.map((x) => x.room || 'Maison'))].map((r) => ({ name: r, devices: dev.filter((x) => (x.room || 'Maison') === r).map((x) => ({ id: x.id, name: x.name, kind: x.kind, genre: genreDe(x.kind), state: x.state ?? '', unit: x.unit ?? '' })) }));
     // Odin d'aujourd'hui : le même sur tous les écrans (caché ou non, fête, couleur).
     const mascotte = await v.act('apparence', 'mascotte', {}, { by: 'toi', why: 'écran de la maison' }).then((r) => r.data).catch(() => undefined);
     const tiles = tilesOf(g).map((t) => ({ id: t.id, label: t.label, icon: t.icon, color: t.color, module: t.module, grave: Boolean(v.action(t.module, t.action)?.a.grave?.(t.input, v.ctx(t.module))) }));

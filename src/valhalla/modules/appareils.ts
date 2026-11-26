@@ -21,7 +21,8 @@ export interface Device {
   availTopic?: string; onlineValue?: string; online?: boolean;
 }
 const s = (v: unknown) => String(v ?? '');
-const KIND: Record<string, string> = { light: 'lumière', switch: 'prise', sensor: 'capteur', binary_sensor: 'détecteur', cover: 'volet', climate: 'clim', fan: 'ventilateur', lock: 'serrure', button: 'bouton', number: 'réglage', select: 'choix', siren: 'sirène', camera: 'caméra', vacuum: 'aspirateur', valve: 'vanne' };
+/** Le mot français de chaque genre d'appareil (son code neutre : la clé ; midgard.ts, genreDe, le rend à côté du mot). */
+export const KIND: Record<string, string> = { light: 'lumière', switch: 'prise', sensor: 'capteur', binary_sensor: 'détecteur', cover: 'volet', climate: 'clim', fan: 'ventilateur', lock: 'serrure', button: 'bouton', number: 'réglage', select: 'choix', siren: 'sirène', camera: 'caméra', vacuum: 'aspirateur', valve: 'vanne' };
 /** Annonce d'un appareil (format de découverte MQTT standard : <préfixe>/<type>/<nœud>/<objet>/config). */
 export function fromDiscovery(topic: string, payload: string): Device | undefined {
   const m = /^[^/]+\/([^/]+)\/(?:([^/]+)\/)?([^/]+)\/config$/.exec(topic); if (!m) return undefined;

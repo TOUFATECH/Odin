@@ -6,7 +6,7 @@ import { GRAVE_MAISON } from '../../heimdall/maison.ts';
 import { haApi, type HaState } from '../../tools/homeassistant.ts';
 import { lanRequest } from '../../tools/lan.ts';
 import type { ModCtx, Module } from '../types.ts';
-import { allDevices, command } from './appareils.ts';
+import { allDevices, command, KIND } from './appareils.ts';
 /** Valeurs à deux états : l'inverse sert à annuler une manip. */
 const INVERSE: Record<string, string> = { on: 'off', off: 'on', allumer: 'eteindre', eteindre: 'allumer', 'éteindre': 'allumer', ouvrir: 'fermer', fermer: 'ouvrir', verrouiller: 'deverrouiller', deverrouiller: 'verrouiller', 'déverrouiller': 'verrouiller', marche: 'arret', arret: 'marche', 'arrêt': 'marche' };
 
@@ -20,6 +20,9 @@ async function devices(ctx: ModCtx): Promise<Dev[]> {
   return [...own, ...ha];
 }
 const K: Record<string, string> = { light: 'lumière', switch: 'prise', sensor: 'capteur', binary_sensor: 'détecteur', cover: 'volet', climate: 'clim', media_player: 'lecteur', lock: 'serrure', fan: 'ventilateur', vacuum: 'aspirateur' };
+/** Le genre d'un appareil en code neutre (le domaine standard : light, switch…) à côté de son mot français ; un mot inconnu : rien. */
+const GENRES = new Map([...Object.entries(KIND), ...Object.entries(K)].map(([code, mot]) => [mot, code]));
+export const genreDe = (kind: string): string | undefined => GENRES.get(kind);
 /** Pièce de chaque entité d'une box Home Assistant (ses « zones »), demandée en une fois. */
 export async function haAreas(url: string, token: string): Promise<Map<string, string>> {
   const tpl = '{% for a in areas() %}{% for e in area_entities(a) %}{{ e }}|{{ area_name(a) }}\n{% endfor %}{% endfor %}';
