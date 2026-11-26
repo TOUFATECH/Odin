@@ -123,8 +123,9 @@ test('vrai Odin : /api/maison/etat rend le code neutre à côté du mot, pour ch
   // Rien de plus pour une tablette « maison » que le mot déjà rendu ; le membre et sans session : refusés, sans un appareil.
   assert.deepEqual(sansGenre(lu['tablette « maison »']).body.rooms, sansGenre(lu['sa session']).body.rooms, 'la tablette reçoit les mêmes appareils qu\'avant');
   for (const qui of ['membre', 'sans session']) { assert.equal(lu[qui].status, 401, qui); assert.doesNotMatch(JSON.stringify(lu[qui].body), /essai_|genre|Pièce/, qui); }
-  // L'ordre des clés de l'état ne change pas (le code s'ajoute seulement dans chaque appareil).
-  assert.deepEqual(Object.keys(lu['sa session'].body), ['ok', 'fenetre', 'rights', 'name', 'theme', 'themes', 'weather', 'lieu', 'rooms', 'scenes', 'tiles', 'apps', 'network', 'cameras', 'people', 'mascotte', 'notices', 'at'].filter((k) => k in lu['sa session'].body));
+  // L'ordre des clés de l'état ne change pas (le code s'ajoute seulement dans chaque appareil). Suivi (les scènes sur
+  // l'écran de la maison) : `scenesEtapes`, les étapes de chaque scène sans phrase, vient juste après `scenes`.
+  assert.deepEqual(Object.keys(lu['sa session'].body), ['ok', 'fenetre', 'rights', 'name', 'theme', 'themes', 'weather', 'lieu', 'rooms', 'scenes', 'scenesEtapes', 'tiles', 'apps', 'network', 'cameras', 'people', 'mascotte', 'notices', 'at'].filter((k) => k in lu['sa session'].body));
 });
 
 test('vrai Odin : la serrure demande l\'accord à chaque fois ; une tablette « maison » ne l\'ouvre jamais (requête rejouée)', async () => {

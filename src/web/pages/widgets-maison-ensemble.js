@@ -92,15 +92,17 @@
   /**
    * Lance une scène par son nom. Une scène qui ouvre la maison : le serveur rend `confirm` sans rien lancer ; la page
    * demande l'accord (à chaque fois), et seulement avec lui renvoie avec `confirm: true`. Rend le texte à dire.
+   * `o` (l'écran de la maison) : `envoyer`, son propre envoi (sa clé de tablette) ; `confirmer`, sa propre boîte d'accord.
    */
-  async function lancerScene(nom) {
-    let r = await poster({ scene: nom });
+  async function lancerScene(nom, o = {}) {
+    const envoyer = typeof o.envoyer === 'function' ? o.envoyer : poster;
+    let r = await envoyer({ scene: nom });
     if (r && r.confirm) {
-      const D = window.OdinDialog;
+      const D = window.OdinDialog, confirmer = typeof o.confirmer === 'function' ? o.confirmer : D && typeof D.confirm === 'function' ? (t) => D.confirm(t, { danger: true }) : null;
       let oui = false;
-      try { oui = D && typeof D.confirm === 'function' ? (await D.confirm(String(r.confirm), { danger: true })) === true : false; } catch { oui = false; }
+      try { oui = confirmer ? (await confirmer(String(r.confirm))) === true : false; } catch { oui = false; }
       if (!oui) return T.scenes.annule;
-      r = await poster({ scene: nom, confirm: true });
+      r = await envoyer({ scene: nom, confirm: true });
     }
     return resultat(nom, r);
   }

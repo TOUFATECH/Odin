@@ -12,7 +12,7 @@
   // page « Thèmes » propres à cet écran (le verre et le fond animé y restent sur l'appareil) ; les autres mots du curseur
   // sont ceux de Réglages → Apparence (themes.js). Puis ceux de la page « Automatisations » (sa session seulement) ; les
   // mots de sa liste sont ceux des widgets (pages/widgets-automatisations.js).
-  const MOTS = {automatisations: 'Automatisations', autosCharge: 'Un instant…', autosFerme: 'Les automatisations ne s\'ouvrent ici qu\'avec ta session d\'Odin.', maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', regler: 'Régler', fermer: 'Fermer', pieceVide: 'Aucun appareil dans cette pièce.', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes', plus: 'Plus', odin: 'Parler à Odin', plein: 'Plein écran', pleinSortir: 'Quitter le plein écran (Échap)', verreOrigine: 'cartes d’origine', verreAide: 'Les cartes de cet écran, pour le thème {nom}. Gardé pour chaque thème, sur cet appareil seulement.', fond: 'Fond animé derrière les cartes', fondAide: 'Éteint au départ. Allumé, l\'ambiance du thème bouge derrière les cartes de cet écran ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations. Gardé sur cet appareil seulement.' };
+  const MOTS = {automatisations: 'Automatisations', scenes: 'Scènes', etapeOdin: 'une action dans Odin', lancer: 'Lancer', sceneOdin: 'Elle ouvre la maison : à lancer depuis Odin.', autosCharge: 'Un instant…', autosFerme: 'Les automatisations ne s\'ouvrent ici qu\'avec ta session d\'Odin.', maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', regler: 'Régler', fermer: 'Fermer', pieceVide: 'Aucun appareil dans cette pièce.', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes', plus: 'Plus', odin: 'Parler à Odin', plein: 'Plein écran', pleinSortir: 'Quitter le plein écran (Échap)', verreOrigine: 'cartes d’origine', verreAide: 'Les cartes de cet écran, pour le thème {nom}. Gardé pour chaque thème, sur cet appareil seulement.', fond: 'Fond animé derrière les cartes', fondAide: 'Éteint au départ. Allumé, l\'ambiance du thème bouge derrière les cartes de cet écran ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations. Gardé sur cet appareil seulement.' };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // ---------- Clé de tablette : lue dans #cle=…, gardée sur l'appareil, retirée de l'adresse ----------
   let key = '';
@@ -301,6 +301,9 @@ input[type=range]{width:100%;accent-color:#fff}.slide{position:relative;flex:1;m
 .clock .big{font-size:56px;letter-spacing:-.02em}
 .tile{display:flex;flex-direction:column;align-items:flex-start;gap:10px;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:20px;padding:14px;min-height:104px;color:var(--text)}.tile .em{font-size:24px;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--card2)}.tile:hover{border-color:var(--accent)}
 .scene{border:0;background:var(--card2);border-radius:14px;padding:10px 14px;margin:6px 6px 0 0;color:var(--text)}
+.scenes-carte .scene{min-height:44px;max-width:100%;overflow-wrap:anywhere;text-align:start}dialog.sf .sf-lancer:disabled{background:var(--card2);color:var(--text);border-color:var(--line)}
+@media (max-width:820px){.card.w2.scenes-carte{grid-column:1/-1}}
+dialog.sf{width:min(480px,calc(100vw - 24px))}.sf-corps p{margin:0}.sf-etapes{margin:10px 0 0;padding-inline-start:20px}.sf-etapes li{margin:4px 0;overflow-wrap:anywhere}.sf-garde{margin-top:10px!important;font-weight:650}.sf-dit{min-height:1.3em;margin-top:10px!important;overflow-wrap:anywhere}
 .appc{display:flex;flex-direction:column;gap:6px;text-align:left;text-decoration:none;color:var(--text)}.appc .k{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);gap:8px}.appc .k b{color:var(--text);text-align:right}.badge{position:absolute;top:12px;right:12px;border-radius:999px;padding:2px 9px;font-size:12px;background:var(--bad);color:#fff}
 .k.attention b{color:var(--warn)}.k.mauvais b{color:var(--bad)}.k.bon b{color:var(--good)}
 .notes li{list-style:none;padding:8px 0 8px 12px;border-left:3px solid var(--good);margin:6px 0;font-size:14px;overflow-wrap:anywhere}.notes li.souci{border-color:var(--warn)}.notes li.grave{border-color:var(--bad)}.notes ul{margin:0;padding:0}
@@ -791,12 +794,15 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
     const placeAvant = document.activeElement?.closest?.('.bnav,.feuille') ? document.activeElement.getAttribute('data-place') : null, pleinAvant = Boolean(document.activeElement?.closest?.('.plein'));
     // Le bouton « Régler » de la pièce choisie : il garde le focus au redessin.
     const pieceAvant = Boolean(document.activeElement?.closest?.('.piece-ouvrir'));
+    // Une scène de la carte des scènes : elle garde le focus au redessin (le bouton de même nom).
+    const sceneAvant = document.activeElement?.closest?.('.scene')?.getAttribute('data-scene') ?? null;
     root.setAttribute('class', classeRacine());
     // En plein écran, le bouton qui en fait sortir est le seul resté de la page hors du contenu, avec le nid flottant d'Odin.
     root.replaceChildren(...bords, cote, main, ...barreBas(navs), ...(plein ? [boutonPlein(), el('span', { class: 'nid-flottant', 'aria-hidden': 'true' })] : []));
     if (placeAvant) focusPlace(placeAvant);
     if (pleinAvant) document.querySelector('.plein')?.focus({ preventScroll: true });
     if (pieceAvant) document.querySelector('.piece-ouvrir')?.focus({ preventScroll: true });
+    if (sceneAvant !== null) boutonScene(sceneAvant)?.focus({ preventScroll: true });
     if (autoAvant?.isConnected) autoAvant.focus({ preventScroll: true });
     if (garde) [...cote.querySelectorAll('[aria-label]')].find((x) => x.getAttribute('aria-label') === garde)?.focus({ preventScroll: true });
     const rangee = document.querySelector('.tabs');
@@ -947,7 +953,8 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
       el('div', { class: 'grid', id: 'maison-grille' },
         weatherCard(D.weather),
         el('div', { class: 'card clock' }, el('h3', {}, 'Heure'), clock, clockSub),
-        ...(D.scenes?.length ? [el('div', { class: 'card w2' }, el('h3', {}, 'Scènes'), el('div', {}, ...D.scenes.map((s) => el('button', { class: 'scene', onclick: () => act('/api/maison/scene', { scene: s }) }, `🎬 ${s}`))))] : []),
+        // Ses scènes : toucher une scène ouvre ce qu'elle fait, et « Lancer » (ouvrirScene) ; aucune : la carte le dit, et où les créer.
+        el('div', { class: 'card w2 scenes-carte' }, el('h3', {}, MOTS.scenes), ...(Array.isArray(D.scenes) && D.scenes.length ? [el('div', {}, ...D.scenes.map((s) => el('button', { type: 'button', class: 'scene', 'data-scene': s, 'aria-haspopup': 'dialog', onclick: (e) => ouvrirScene(s, e.currentTarget) }, `🎬 ${s}`)))] : [el('p', { class: 'muted' }, ((t) => (t ? `${t.vide} ${t.ouOdin()}` : ''))(globalThis.OdinWidgetsMaisonEnsemble?.TEXTES?.scenes))])),
         ...devs.map(devCard),
         ...(!rooms.length ? [el('div', { class: 'card w2' }, el('h3', {}, 'Appareils'), el('p', { class: 'muted' }, 'Aucun appareil : relie ta box (Home Assistant…) ou tes prises dans Midgard, ils apparaîtront ici.'))] : []),
         ...(notes.length ? [el('div', { class: 'card w2 notes' }, el('h3', {}, 'Dernières nouvelles'), el('ul', {}, ...notes.map((n) => el('li', { class: n.level }, el('b', {}, n.title), n.detail ? el('div', { class: 'muted' }, n.detail.slice(0, 140)) : null))))] : [])),
@@ -998,6 +1005,59 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
     if (!cle) return;
     const c = [...corps.querySelectorAll('[data-dev]')].find((x) => x.getAttribute('data-dev') === cle.id), l = c ? ctl(c) : [];
     (l.find((x) => cle.nom && x.getAttribute('aria-label') === cle.nom) || l[cle.i] || fen.d.querySelector('.pf-fermer'))?.focus({ preventScroll: true });
+  }
+  // ---------- La fenêtre d'une scène (la maquette : « ce que fait chaque scène » et « Lancer ») ----------
+  // Ses scènes à lui, celles que Midgard garde (on les crée dans Odin, jamais ici). Toucher une scène ouvre ce qu'elle
+  // fait : ses vraies étapes (l'état les donne sans phrase, `scenesEtapes` ; la phrase est faite ici, avec les mots du
+  // widget « Scènes », pages/widgets-maison-ensemble.js) et « Lancer », par la même route et le même accord que ce widget
+  // (lancerScene : une scène qui ouvre la maison redemande l'accord à chaque fois ; sans accord, rien ne part). Une étape
+  // qui pilote une autre appli n'est nommée que pour sa session : le serveur ne la nomme pas aux autres. Une scène qui
+  // ouvre la maison ne part pas d'une tablette « maison » (le serveur la refuse) : « Lancer » est éteint et le dit.
+  // Le résultat est dit dans la fenêtre. Elle n'est jamais redessinée (le redessin de la page ne la touche pas) ; elle se
+  // ferme par Échap, par un appui hors d'elle ou par son bouton ; le focus revient sur la scène. Les noms : du texte.
+  const scn = { d: null };
+  const boutonScene = (nom) => [...document.querySelectorAll('[data-scene]')].find((x) => x.getAttribute('data-scene') === nom);
+  /** Le nom d'un appareil de l'état (par son identifiant ou son nom) ; inconnu : tel que la scène l'écrit. */
+  const nomAppareil = (id) => { const k = String(id).toLowerCase(); for (const r of D?.rooms || []) for (const x of r.devices || []) if (x.id === id || String(x.name).toLowerCase() === k) return x.name; return String(id); };
+  /** Les mots qu'une scène écrit pour une serrure, un volet (Midgard les comprend) : dits comme un état. */
+  const VALEUR_ETAPE = { deverrouille: 'déverrouillé', 'déverrouille': 'déverrouillé', deverrouiller: 'déverrouillé', 'déverrouiller': 'déverrouillé', unlock: 'déverrouillé', verrouille: 'verrouillé', verrouiller: 'verrouillé', lock: 'verrouillé', ouvre: 'ouvert', ouvrir: 'ouvert', ferme: 'fermé', fermer: 'fermé' };
+  /** Une étape dite simplement : l'appareil et ce qu'il devient ; l'appli et son action (pour lui) ; sinon « une action dans Odin ». */
+  function ligneEtape(e) {
+    if (!e || typeof e !== 'object' || e.appli === true) return MOTS.etapeOdin;
+    if (typeof e.appli === 'string') return `${e.appli}${e.action ? ` · ${e.action}` : ''}${e.valeur ? ` : ${e.valeur}` : ''}`;
+    return `${e.ouvre ? '⚠ ' : ''}${nomAppareil(e.appareil ?? '')} → ${VALEUR_ETAPE[String(e.valeur ?? '').trim().toLowerCase()] ?? stateFr(e.valeur ?? '')}`;
+  }
+  function ouvrirScene(nom, ouvreur) {
+    if (scn.d) { scn.d.close(); scn.d.remove(); scn.d = null; } // une autre déjà ouverte : fermée sans rendre le focus
+    const W = window.OdinWidgetsMaisonEnsemble, TS = W?.TEXTES?.scenes;
+    const sc = (Array.isArray(D?.scenesEtapes) ? D.scenesEtapes : []).find((x) => x && x.nom === nom);
+    const etapes = Array.isArray(sc?.etapes) ? sc.etapes : [], ouvre = sc?.ouvre === true, bloque = ouvre && D?.rights !== 'complet';
+    const dit = el('p', { class: 'sf-dit', role: 'status' });
+    // Pendant un lancement, « Lancer » ne repart pas (il n'est pas éteint : il garde le focus).
+    let enCours = false;
+    const lancer = W && TS ? el('button', { type: 'button', class: 'btn primary sf-lancer', disabled: bloque, onclick: async () => {
+      if (enCours || bloque) return;
+      enCours = true; lancer.setAttribute('aria-busy', 'true'); dit.textContent = TS.enCours(nom);
+      try { dit.textContent = await W.lancerScene(nom, { envoyer: (corps) => api('/api/maison/scene', corps).catch(() => undefined), confirmer: confirmBox }); } finally { enCours = false; lancer.removeAttribute('aria-busy'); }
+      setTimeout(load, 600);
+    } }, MOTS.lancer) : null;
+    const corps = el('div', { class: 'sf-corps' },
+      sc && TS ? el('p', { class: 'muted' }, `${TS.etapes(etapes.length)}.${ouvre && !bloque ? ` ${TS.ouvre}` : ''}`) : null,
+      etapes.length ? el('ul', { class: 'sf-etapes' }, ...etapes.map((e) => el('li', {}, ligneEtape(e)))) : null,
+      bloque ? el('p', { class: 'sf-garde' }, MOTS.sceneOdin) : null,
+      lancer ? el('div', { class: 'acts' }, lancer) : null, dit);
+    let depart = null;
+    const d = el('dialog', { class: 'pf sf', 'aria-labelledby': 'sf-titre',
+      onpointerdown: (e) => { depart = e.target; },
+      // Un appui hors de la fenêtre (sur son voile) la ferme ; un glissé commencé dedans, non.
+      onclick: (e) => { if (e.target === d && depart === d) fermer(); depart = null; } },
+    el('div', { class: 'pf-in' }, el('div', { class: 'pf-tete' }, el('h2', { id: 'sf-titre' }, nom), el('button', { type: 'button', class: 'round pf-fermer sf-fermer', 'aria-label': MOTS.fermer, title: MOTS.fermer, onclick: () => fermer() }, icon('croix', 20))), corps));
+    // Fermée (Échap compris), le focus revient tout de suite sur la scène (le bouton de même nom s'il a été refait).
+    const rendre = () => { if (scn.d === d) scn.d = null; d.remove(); (ouvreur?.isConnected ? ouvreur : boutonScene(nom))?.focus({ preventScroll: true }); };
+    function fermer() { if (d.open) d.close(); rendre(); }
+    d.addEventListener('cancel', (e) => { e.preventDefault(); fermer(); });
+    d.addEventListener('close', () => { if (d.isConnected) rendre(); });
+    scn.d = d; document.body.append(d); d.showModal();
   }
   document.addEventListener('pointerup', () => { setTimeout(() => { fen.appui = false; }, 0); }, true);
   document.addEventListener('pointercancel', () => { fen.appui = false; }, true);

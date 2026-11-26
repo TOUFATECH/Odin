@@ -179,6 +179,9 @@ function accueil(D: Record<string, unknown>) {
     weatherCard: marque, fenetrePages: () => [], peopleGrid: marque, camGrid: marque, tilesView: () => [], appsGrid: marque,
     devCard: (d: { id: string }) => { cartes.push(d.id); return marque(); },
     act: (chemin: string, corps: Record<string, unknown>) => { envois.push({ chemin, corps }); return Promise.resolve({ ok: true }); },
+    // Suivi (la fenêtre d'une scène) : un appui sur une scène ouvre ce qu'elle fait (ouvrirScene), noté ici avec son nom ;
+    // son « Lancer » part par /api/maison/scene, tenu dans un vrai navigateur par test/maison-scenes.test.ts.
+    ouvrirScene: (scene: string) => { envois.push({ chemin: 'ouvrirScene', corps: { scene } }); },
   }) as { home: () => Noeud[]; regler: (d: unknown) => void; piece: () => string };
   e.regler(D);
   const dessiner = () => { cartes.length = 0; const r = e.home(); return { racine: Object.assign(new Noeud('main'), { kids: r }), cartes: [...cartes] }; };
@@ -199,11 +202,11 @@ test('pièces : un onglet par pièce (plus « tout ») ; toucher une pièce ne m
   lancer(onglets()[0], 'click'); assert.deepEqual(a.dessiner().cartes, ['p1-a', 'p2-a', 'p2-b']);
 });
 
-test('scènes : une scène se lance d\'un appui (/api/maison/scene avec son nom)', () => {
+test('scènes : un appui sur une scène ouvre sa fenêtre, par son nom (« Lancer » : test/maison-scenes.test.ts)', () => {
   const a = accueil(PIECES), b = tous(a.dessiner().racine, (x) => x.tag === 'button' && x.attrs.class === 'scene');
   assert.equal(b.length, 1); lancer(b[0], 'click');
-  // (le corps vient du bac à sable : on le recopie pour le comparer)
-  assert.deepEqual(JSON.parse(JSON.stringify(a.envois)), [{ chemin: '/api/maison/scene', corps: { scene: 'Scène 1' } }]);
+  // (le corps vient du bac à sable : on le recopie pour le comparer) Suivi : l'appui ouvre la fenêtre de la scène, rien ne part.
+  assert.deepEqual(JSON.parse(JSON.stringify(a.envois)), [{ chemin: 'ouvrirScene', corps: { scene: 'Scène 1' } }]);
 });
 
 // ---------- Les cartes d'appareils : chaque commande, et l'ordre qu'elle envoie ----------

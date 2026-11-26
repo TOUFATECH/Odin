@@ -82,15 +82,33 @@ async function set(ctx: ModCtx, appareil: string, valeur: string): Promise<strin
 }
 /** Une scène qui ouvre la maison (serrure, garage, portail) demande ton accord. */
 export function sceneRisk(sc: Scene | undefined): string | undefined { const r = sc?.steps.map((st) => sensitive(st.appareil, st.valeur)).filter(Boolean) ?? []; return r.length ? `scène « ${sc!.name} » : ${r.join(', ')}` : undefined; }
+/** « appli.action = valeur » : l'étape pilote une autre appli (Vénus lance le film, Apollon la musique, Orphée annonce…) ; sinon rien. */
+function appliDe(ctx: ModCtx, appareil: string): { mod: Module; action: string } | undefined {
+  const app = /^([\p{L}]+)\.([a-z_]+)$/u.exec(appareil.trim()), mod = app ? ctx.modules().find((m) => m.id === app[1].toLowerCase() || m.name.toLowerCase() === app[1].toLowerCase()) : undefined;
+  return app && mod ? { mod, action: app[2] } : undefined;
+}
+/**
+ * Les scènes pour l'écran de la maison, étape par étape, sans aucune phrase (l'interface la fait). Une étape qui pilote une
+ * autre appli n'est nommée (appli, action, valeur) que pour le propriétaire (`lui`) ; pour les autres : `appli: true`.
+ * `ouvre` : la règle de l'accord (sensitive, sceneRisk), seulement comme une marque.
+ */
+export function scenesVues(ctx: ModCtx, lui: boolean) {
+  return scenes(ctx).map((sc) => ({ nom: sc.name, ouvre: Boolean(sceneRisk(sc)), etapes: sc.steps.map((st) => {
+    const app = appliDe(ctx, st.appareil);
+    // « x.y » dont l'appli n'est pas trouvée (mal écrite, absente) et qui n'est pas un appareil connu : pas nommée aux autres.
+    if (!app && !lui && /^[\p{L}]+\.[a-z_]+$/u.test(st.appareil.trim()) && !allDevices().some((d) => d.id === st.appareil || d.name.toLowerCase() === st.appareil.toLowerCase())) return { appli: true };
+    if (!app) return { appareil: st.appareil, valeur: st.valeur, ...(sensitive(st.appareil, st.valeur) ? { ouvre: true } : {}) };
+    return lui ? { appli: app.mod.name, action: app.mod.actions.find((x) => x.id === app.action)?.label ?? app.action, valeur: st.valeur } : { appli: true };
+  }) }));
+}
 export async function runScene(ctx: ModCtx, name: string): Promise<string> {
   const sc = scenes(ctx).find((x) => x.name.toLowerCase() === name.toLowerCase()); if (!sc) throw new Error(`scène inconnue : ${name}`);
   const out: string[] = [];
   for (const st of sc.steps) {
     try {
-      // « appli.action = valeur » : la scène pilote une autre appli (Vénus lance le film, Apollon la musique, Orphée annonce…).
-      const app = /^([\p{L}]+)\.([a-z_]+)$/u.exec(st.appareil.trim()), mod = app ? ctx.modules().find((m) => m.id === app[1].toLowerCase() || m.name.toLowerCase() === app[1].toLowerCase()) : undefined;
+      const app = appliDe(ctx, st.appareil), mod = app?.mod;
       if (app && mod) {
-        const a = mod.actions.find((x) => x.id === app[2]); if (!a) throw new Error(`action inconnue : ${app[2]}`);
+        const a = mod.actions.find((x) => x.id === app.action); if (!a) throw new Error(`action inconnue : ${app.action}`);
         const first = (a.params ?? []).find((p) => p.required) ?? (a.params ?? [])[0], input = first ? { [first.key]: st.valeur } : {};
         if (a.grave?.(input)) throw new Error('action grave : elle ne part pas d\'une scène, lance-la toi-même');
         const r = await ctx.call(mod.id, a.id, input, `scène « ${sc.name} »`);
