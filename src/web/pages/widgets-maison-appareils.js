@@ -41,6 +41,10 @@
     nonChoisi: { appareil: 'Aucun appareil choisi.', lumiere: 'Aucune lumière choisie.', capteur: 'Aucun capteur choisi.' },
     aucun: { appareil: 'Aucun appareil dans la maison.', lumiere: 'Aucune lumière dans la maison.', capteur: 'Aucun capteur dans la maison.', mesure: 'Aucun capteur de cette mesure dans la maison.' },
     boutons: { choisir: 'Choisir', ajouter: 'Ajouter un appareil' },
+    // Le bouton d'un widget pas encore choisi dit ce qu'il fait choisir (la pose depuis le tiroir, choix annulé).
+    choisirQuoi: { appareil: 'Choisir un appareil', lumiere: 'Choisir une lumière', capteur: 'Choisir un capteur' },
+    // La pose depuis le tiroir, quand Odin ne peut pas lire les appareils de la maison : rien n'est posé.
+    poseIllisible: 'Odin ne lit pas les appareils de la maison en ce moment : rien n\'est posé.',
     // Le champ du choix dans « Régler » (la fenêtre commune le pose ; ses autres mots sont dans pages/widgets-rendu.js).
     regler: {
       libelles: { appareil: 'L\'appareil montré', lumiere: 'La lumière montrée', capteur: 'Le capteur montré', mesure: 'Ce qu\'il mesure' },
@@ -126,7 +130,8 @@
 .wma-tu[aria-pressed="true"]{border-color:var(--warn,currentColor);background:color-mix(in srgb,var(--warn,currentColor) 16%,transparent)}
 .wma-tu:disabled{cursor:default;opacity:.6}
 .wma-plus{font-size:12px;color:var(--muted,inherit)}
-.fe-edit .wma button,.fe-edit .wma input{pointer-events:none}
+/* En mode « Modifier », les commandes ne réagissent pas ; « Choisir » (aucune commande : il ouvre « Régler ») oui. */
+.fe-edit .wma button:not([data-action=choisir]),.fe-edit .wma input{pointer-events:none}
 dialog.wma-accord{box-sizing:border-box;width:min(420px,calc(100% - 24px));padding:18px;border-radius:16px;border:1px solid var(--line,#D9DCE2);background:var(--panel,var(--card2,#FFF));color:var(--ink,var(--text,#14171C))}
 dialog.wma-accord::backdrop{background:rgba(8,12,18,.55)}
 dialog.wma-accord p{margin:0 0 14px;overflow-wrap:anywhere}dialog.wma-accord div{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}`;
@@ -341,7 +346,7 @@ dialog.wma-accord p{margin:0 0 14px;overflow-wrap:anywhere}dialog.wma-accord div
       b.addEventListener('click', (ev) => { ev.stopPropagation(); location.hash = '#app=midgard'; });
       out.push(b);
     } else if (raison === 'appareil_non_choisi' || raison === 'appareil_absent' || raison === 'appareil_autre_sorte') {
-      const b = el('button', 'wma-b wma-vide-b', T.boutons.choisir); b.type = 'button'; b.dataset.action = 'choisir';
+      const b = el('button', 'wma-b wma-vide-b', (raison === 'appareil_non_choisi' && T.choisirQuoi[g]) || T.boutons.choisir); b.type = 'button'; b.dataset.action = 'choisir';
       // « Régler » de la carte : le bouton « ⋯ » de son en-tête (celui de tous les widgets).
       b.addEventListener('click', (ev) => { ev.stopPropagation(); const r = b.closest && b.closest('.fe-w'), plus = r && r.querySelector('.wr-plus'); if (plus) plus.click(); });
       out.push(b);
@@ -442,20 +447,49 @@ dialog.wma-accord p{margin:0 0 14px;overflow-wrap:anywhere}dialog.wma-accord div
     };
   }
 
+  // ---------------- La pose depuis le tiroir « Ajouter un widget »
+  /**
+   * Les appareils que le serveur garde pour chaque genre : la règle de src/valhalla/widgets/maison-appareils.ts (la
+   * lumière : « lumière » ; le capteur : « capteur » ou « détecteur » ; l'appareil : tous). Un essai compare les deux
+   * listes sur les mêmes appareils.
+   */
+  const DU_GENRE = { appareil: () => true, lumiere: (k) => k === 'lumière', capteur: (k) => k === 'capteur' || k === 'détecteur' };
+  const RESERVES = ['__proto__', 'constructor', 'prototype'];
+  /** Le genre d'une sorte qui montre UN appareil choisi (la tuile, la lumière, le capteur) ; une autre : '' (rien à choisir à la pose). */
+  const genrePose = (kind) => { const g = genreDe(kind); return g && g !== 'mesure' ? g : ''; };
+  /**
+   * Les choix d'une pose, tirés des pièces que l'écran de la maison reçoit déjà (etat.rooms de /api/maison/etat, lu par
+   * le propriétaire) : les appareils du genre, sous la forme des choix du serveur ({ cible, nom, piece, sorte }), 300 au
+   * plus ; un identifiant vide, réservé ou trop long n'est pas un choix (comme au serveur). Rien de lisible : null.
+   */
+  function choixDePose(kind, rooms) {
+    const g = genrePose(kind); if (!g || !Array.isArray(rooms)) return null;
+    const out = [];
+    for (const r of rooms) {
+      for (const d of r && typeof r === 'object' && Array.isArray(r.devices) ? r.devices : []) {
+        const id = d && typeof d.id === 'string' ? d.id : '';
+        if (!id.trim() || RESERVES.includes(id.trim()) || `appareil:${id}`.length > 200 || !DU_GENRE[g](texte(d.kind))) continue;
+        out.push({ cible: `appareil:${id}`, nom: texte(d.name), piece: texte(r.name), sorte: texte(d.kind) });
+      }
+    }
+    return out.slice(0, 300);
+  }
+
   // `commandes` et `poserStyle` : aussi pour l'écran de la maison (maison.js), qui dessine ainsi l'intensité d'une lumière
   // comme le widget (sans pouce ni nombre de départ), sans la recopier.
   // `champChoix` : le champ du choix de ce que le widget montre, pour « Régler » (fenetre.js).
-  window.OdinWidgetsMaisonAppareils = { TEXTES, CODES, CSS, nombre, garderFrais, fraisDe, commandes, poserStyle, champChoix };
-  // La déclaration (lue par pages/widgets-rendu.js). L'appli lue : Midgard (celle de la maison). Un appareil, une lumière,
-  // un capteur ne sont pas encore proposés dans le tiroir : ils se choisissent dans « Régler », mais le tiroir ne sait pas
-  // encore prendre d'office l'unique appareil du genre, ni ouvrir « Régler » à la pose (sa réponse du 25/11 : cachés
-  // pour l'instant, tant qu'ils seraient posés vides). Les pièces : oui.
+  // `genrePose`, `choixDePose` : la pose depuis le tiroir (fenetre.js), qui prend d'office l'unique appareil du genre.
+  window.OdinWidgetsMaisonAppareils = { TEXTES, CODES, CSS, nombre, garderFrais, fraisDe, commandes, poserStyle, champChoix, genrePose, choixDePose };
+  // La déclaration (lue par pages/widgets-rendu.js). L'appli lue : Midgard (celle de la maison), dont la famille range
+  // ces widgets dans le tiroir (la maquette : « Maison »). Un appareil, une lumière, un capteur y sont : à la pose,
+  // l'unique appareil du genre est pris d'office ; plusieurs : « Régler » s'ouvre sur le choix ; aucun : rien n'est posé
+  // (sa réponse du 25/11 : rien n'est montré tant qu'Odin n'a pas la vraie donnée). Le style « Tuiles » : pas de ligne.
   const VIDES = ['appareil_non_choisi', 'appareil_absent', 'appareil_autre_sorte', 'aucun_appareil'];
   const sousPieces = (e) => { const p = e && e.donnee && Array.isArray(e.donnee.pieces) ? e.donnee.pieces : null; return p ? T.nPieces(p.length) : ''; };
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'maison', sortes: [
-    { sorte: 'maison_appareil', titre: T.appareil.titre, quoi: T.appareil.quoi, symbole: '⏻', appli: 'midgard', tiroir: false, poser: { c: 3, r: 2, pr: 2 }, vides: VIDES, dessiner: dessinerAppareil },
-    { sorte: 'maison_lumiere', titre: T.lumiere.titre, quoi: T.lumiere.quoi, symbole: '💡', appli: 'midgard', tiroir: false, poser: { c: 3, r: 2, pr: 2 }, vides: VIDES, dessiner: dessinerAppareil },
-    { sorte: 'maison_capteur', titre: T.capteur.titre, quoi: T.capteur.quoi, symbole: '🌡', appli: 'midgard', tiroir: false, poser: { c: 3, r: 2, pr: 2 }, vides: VIDES, dessiner: dessinerCapteur },
+    { sorte: 'maison_appareil', titre: T.appareil.titre, quoi: T.appareil.quoi, symbole: '⏻', appli: 'midgard', poser: { c: 3, r: 2, pr: 2 }, vides: VIDES, dessiner: dessinerAppareil },
+    { sorte: 'maison_lumiere', titre: T.lumiere.titre, quoi: T.lumiere.quoi, symbole: '💡', appli: 'midgard', poser: { c: 3, r: 2, pr: 2 }, vides: VIDES, dessiner: dessinerAppareil },
+    { sorte: 'maison_capteur', titre: T.capteur.titre, quoi: T.capteur.quoi, symbole: '🌡', appli: 'midgard', poser: { c: 3, r: 2, pr: 2 }, vides: VIDES, dessiner: dessinerCapteur },
     { sorte: 'maison_pieces', titre: T.pieces.titre, quoi: T.pieces.quoi, symbole: '🏠', appli: 'midgard', poser: { c: 3, r: 4, pr: 4 }, vides: ['aucun_appareil'], sous: sousPieces, dessiner: dessinerPieces(false) },
     // Le style « Tuiles » : dessiné, prêt ; il se choisira dans « Régler » quand la table des styles (widgets-rendu.js) et
     // le serveur l'auront (pas de ligne à lui dans le tiroir).

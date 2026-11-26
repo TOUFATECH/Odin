@@ -105,6 +105,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
 .fe-form label{display:block;font-size:13px;font-weight:600;margin:8px 0 4px}.fe-form select,.fe-form input{width:100%;min-height:38px;border-radius:10px;border:1px solid var(--field);padding:0 10px;background:var(--panel)}
 /* « Ouvrir à… » : une ligne de 44 px par personne, tout entière cliquable, avec son interrupteur. */
 .fe-chrome .fe-ouvb{color:var(--ink)}.fe-chrome .fe-ouvb svg{width:16px;height:16px}
+/* Le « ⋯ » d'un petit chiffre (en mode Modifier seulement, avec les boutons du mode) : une cible de 44 px, même sur une carte étroite. */
+.fe-edit .fe-chrome .fe-regp{width:44px;height:44px;border-radius:12px;font-size:20px;font-weight:700;line-height:1;color:var(--ink)}
+.fe-it-dit{margin:2px 0 0;font-size:12.5px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
 .fe-ouv-aide{margin:0 0 8px;font-size:13.5px;line-height:1.4;color:var(--muted)}
 .fe-form label.fe-ouv{display:flex;align-items:center;gap:12px;min-height:44px;margin:0;padding:4px 0;font-size:14.5px;font-weight:600;cursor:pointer;border-top:1px solid var(--line)}
 .fe-ouv-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow-wrap:anywhere}.fe-ouv-t small{color:var(--muted);font-weight:400;font-size:12.5px}
@@ -348,11 +351,15 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
    * le widget », « Copier vers l'autre écran », « Retirer » — dans le mode Modifier : rien n'est gardé avant « Terminé ».
    */
   let reglage = false; // une seule fenêtre « Régler » à la fois (deux appuis coup sur coup sur « ⋯ » n'en ouvrent pas deux)
-  async function regler(w) {
+  // Les widgets posés depuis le tiroir sans appareil encore choisi (plusieurs du genre) : l'état « pas encore choisi » et
+  // la liste lue à la pose, jusqu'à « Terminé » (le serveur rend ensuite le sien).
+  const posees = new Map();
+  // `surLeChoix` : ouverte par la pose (plusieurs appareils du genre) : le focus va sur le choix demandé.
+  async function regler(w, surLeChoix = false) {
     if (!proprio || ferme(w)) return; // fermé à qui regarde : rien n'est lu chez l'appli, même pour le régler
     if (reglage || $('dialog.wr-regler')) return;
     reglage = true;
-    try { if (!edit) { edit = true; await draw(); } await reglerWidget(w); } finally { reglage = false; }
+    try { if (!edit) { edit = true; await draw(); } await reglerWidget(w, surLeChoix); } finally { reglage = false; }
   }
   let meteoVue = null; // la dernière météo reçue, remontrée (marquée ancienne) quand Internet est coupé
   async function weather() { try { const r = await act('gladsheim', 'meteo', {}); if (r.ok && r.data) { meteoVue = r.data; return r.data; } return null; } catch { return null; } }
@@ -424,11 +431,18 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // widget n'est pas encore rangé ; sinon, la lecture n'a pas répondu. Un petit chiffre garde sa taille dans chaque
     // état : ni en-tête, ni « ⋯ », ni bouton ; sans donnée, son état court (l'icône de l'état, deux ou trois mots).
     if (rf) {
-      const s = etats?.get(w.id), e = s && s.sig === sigDe(w) ? s.e : undefined, nomAppli = nomConnu(appliDe(w));
+      // Posé depuis le tiroir, pas encore choisi : l'état lu à la pose (la carte dit quoi faire, « Choisir » ouvre « Régler »).
+      const s = etats?.get(w.id), e = s && s.sig === sigDe(w) ? s.e : edit && !w.cible ? posees.get(w.id) : undefined, nomAppli = nomConnu(appliDe(w));
       const o = { w, titre: titreDe(w), nomAppli, pastille: d.pastille, ecran: 'accueil' };
       const corps = e && R.dessineElleMeme(rf, d) ? R.dessiner(rf, e, o) : null;
       const dd = corps || !d.donnee ? d : R.decrire(edit && !e ? { etat: 'vide', raison: 'pas_range' } : { etat: 'source_absente', raison: 'lecture_echouee' }, { proprio, appli: nomAppli, titre: o.titre, peutAgir: (r) => peutAgir(w, r) });
-      if (rf.petit) { box.append(corps ?? R.etatPetit(dd, { titre: titreDe(w, d.gris) })); return box; }
+      if (rf.petit) {
+        // Ni en-tête ni « ⋯ » sur la carte : en mode Modifier, son « ⋯ » est parmi les boutons du mode (caché hors du
+        // mode), et ouvre « Régler » ; la carte garde sa taille. Au bout de la rangée (en haut à droite) : il ne cache ni
+        // l'icône (ces cartes n'ont pas de titre : l'icône les distingue) ni le chiffre.
+        if (proprio && d.reglage && !d.gris) { const n = R.TEXTES.regler(titreDe(w)); chrome.append(el('button', { class: 'fe-regp', type: 'button', title: n, 'aria-label': n, 'aria-haspopup': 'dialog', onclick: () => regler(w) }, '⋯')); }
+        box.append(corps ?? R.etatPetit(dd, { titre: titreDe(w, d.gris) })); return box;
+      }
       box.append(head(titreDe(w, d.gris), [nomAppli, corps ? R.sous(rf, e, o) : ''].filter(Boolean).join(' · '), rf.symbole, appliDe(w)), corps ?? el('p', { class: 'fe-err' }, ...R.contenu(dd, agirIci)));
       return box;
     }
@@ -513,14 +527,14 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
         el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(Boolean(page().maison)), title: page().code ? TXT.maisonJour : 'Montrer cette page sur l\'écran de la maison', onclick: () => { page().maison = !page().maison; draw(); } }, '🏠 Écran de la maison'),
         el('button', { class: 'fe-tab', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirTiroir }, OT.TEXTES.bouton),
         el('span', { class: 'sp' }), themeBtn(),
-        el('button', { class: 'btn small', type: 'button', onclick: async () => { L = JSON.parse(saved); edit = false; await fetchViews(); draw(); } }, 'Annuler'),
+        el('button', { class: 'btn small', type: 'button', onclick: async () => { L = JSON.parse(saved); edit = false; posees.clear(); await fetchViews(); draw(); } }, 'Annuler'),
         el('button', { class: 'btn small primary', type: 'button', onclick: save }, 'Terminé'))
       // Les onglets restent sur une seule ligne : s'il y a beaucoup de pages, leur rangée défile, « Modifier » reste à droite.
       : el('div', { class: 'fe-bar' }, el('div', { class: 'fe-tabs', role: 'group', 'aria-label': 'Pages de la fenêtre' }, ...tabs), el('button', { class: 'btn small primary fe-mod', type: 'button', onclick: () => { edit = true; draw(); } }, '✎ Modifier'));
     const grid = el('div', { class: 'fe-grid', id: 'feGrid' });
     for (const w of page().widgets) grid.append(await widget(w));
     if (!page().widgets.length) grid.append(el('div', { class: 'fe-drop', style: 'grid-column:1/-1' }, edit ? 'Page vide : « Ajouter un widget » pour en poser un.' : 'Page vide : « Modifier » pour ajouter des modules.'));
-    if (edit) { grid.addEventListener('dragover', (e) => e.preventDefault()); grid.addEventListener('drop', (e) => { e.preventDefault(); const w = OT.glisse(e.dataTransfer.getData('text/odin-module')); if (w) add(w.kind === 'appli' ? widgetDeLAppli(w.module) : w); }); }
+    if (edit) { grid.addEventListener('dragover', (e) => e.preventDefault()); grid.addEventListener('drop', (e) => { e.preventDefault(); const brut = e.dataTransfer.getData('text/odin-module'), w = OT.glisse(brut); if (w) add(w.kind === 'appli' ? widgetDeLAppli(w.module) : w); else poserGlisse(brut); }); }
     // En mode Modifier : la tuile « Ajouter un widget » en fin de grille, et le tiroir qu'elle ouvre (fermé).
     const tuile = edit ? el('button', { class: 'fe-ajout', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirTiroir }, el('span', { 'aria-hidden': 'true' }, '＋'), OT.TEXTES.tuile) : null;
     ouvreur = null; if (!edit) $('#feTiroir')?.remove();
@@ -557,7 +571,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     if (!r.ok) { say(`✗ ${r.text ?? r.error}`); if (o.deplacement && rienDepuis) { L = JSON.parse(avant); if (!glisse && !appuiEnCours) draw(); } return false; }
     saved = JSON.stringify(r.data);
     if (o.deplacement) { if (rienDepuis) L = r.data; proposerAnnuler(OG.offre(avant, saved, Date.now())); return true; }
-    L = r.data; edit = false; if (dit) say(dit); await fetchViews(); draw();
+    L = r.data; edit = false; posees.clear(); if (dit) say(dit); await fetchViews(); draw();
     return true;
   }
   function move(id, d) { if (glisse) return; const l = page().widgets, i = l.findIndex((x) => x.id === id), j = i + d; if (i < 0 || j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; draw().then(() => { $(`.fe-w[data-id="${id}"] .fe-grip`)?.focus(); signaler('pose', document.activeElement); }); }
@@ -806,12 +820,53 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
    * dit, rien ne change.
    */
   // `muet` : celui qui pose le dit lui-même (la fiche d'une appli) : « posé » n'est pas dit une seconde fois.
-  function add(w, muet = false) { page().widgets.push({ w: 1, ...w, id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) });
+  // `suite(n)` : appelé avec le widget posé avant le dessin ; ce qu'il rend est appelé une fois le widget montré.
+  function add(w, muet = false, suite) { page().widgets.push({ w: 1, ...w, id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) });
     const n = page().widgets[page().widgets.length - 1], ok = OT.poser(cat?.modules, n.module);
     if (ok !== 'ok') { page().widgets.pop(); say(ok === 'desactivee' ? OT.TEXTES.refusee(modName(n.module)) : OT.TEXTES.inconnue); return false; }
     // Un bloc du jour (lot 26) : un seul de chaque dans toute la fenêtre (comme le serveur), et pour le propriétaire seul.
     if (JOUR.includes(n.kind) && (!proprio || L.pages.some((p) => p.widgets.some((x) => x !== n && x.kind === n.kind)))) { page().widgets.pop(); say(TXT.jour.deja(TXT.titres[n.kind])); return false; }
-    fermerTiroir(false); views.delete(w.module); fetchViews().then(draw).then(() => montrerAjout(n.id, muet)); return true; }
+    const ensuite = typeof suite === 'function' ? suite(n) : undefined;
+    fermerTiroir(false); views.delete(w.module); fetchViews().then(draw).then(() => montrerAjout(n.id, muet)).then(() => (typeof ensuite === 'function' ? ensuite() : undefined)); return true; }
+  /**
+   * Poser un widget qui montre UN appareil choisi (la tuile, la lumière, le capteur : pages/widgets-maison-appareils.js),
+   * au bouton comme au glisser : les appareils du genre sont lus dans ce que l'écran de la maison reçoit déjà
+   * (/api/maison/etat, avec la session du propriétaire). Un seul : pris d'office. Plusieurs : posé, puis « Régler »
+   * s'ouvre aussitôt sur le choix (annulé : la carte dit quoi faire, son bouton rouvre « Régler »). Aucun, ou rien de
+   * lisible : rien n'est posé, et la ligne du tiroir le dit (sa réponse du 25/11 : rien n'est montré tant qu'Odin n'a pas
+   * la vraie donnée). Toute autre sorte : `add`, comme avant. `ev` : l'appui sur la ligne du tiroir (absent au glisser).
+   */
+  // Une pose qui attend la lecture des appareils : un second appui (deux appuis coup sur coup) ne pose rien de plus.
+  let poseEnCours = false;
+  async function poser(w, ev) {
+    const MA = window.OdinWidgetsMaisonAppareils, g = typeof MA?.genrePose === 'function' ? MA.genrePose(w.kind) : '';
+    if (!g) return add(w);
+    if (poseEnCours) return false;
+    const ligne = ev?.currentTarget?.closest?.('.fe-it') ?? null, depart = page();
+    let liste = null;
+    poseEnCours = true;
+    try { if (proprio && aDroit('midgard')) { try { const d = await api('/api/maison/etat'); liste = d?.ok ? MA.choixDePose(w.kind, d.rooms) : null; } catch { liste = null; } } }
+    finally { poseEnCours = false; }
+    // « Modifier » refermé, ou une autre page ouverte pendant la lecture : rien n'est posé.
+    if (!edit || !L || page() !== depart) return false;
+    if (!liste || !liste.length) { direLigne(ligne, liste ? MA.TEXTES.aucun[g] : MA.TEXTES.poseIllisible); return false; }
+    const { cible: _c, ...propre } = w;
+    if (liste.length === 1) return add({ ...propre, cible: liste[0].cible });
+    return add(propre, false, (n) => { posees.set(n.id, { etat: 'vide', raison: 'appareil_non_choisi', choix: liste }); return () => regler(n, true); });
+  }
+  /** Un glisser que OT.glisse ne connaît pas : seulement une sorte déclarée qui montre UN appareil choisi, refaite d'après sa déclaration. */
+  function poserGlisse(brut) {
+    let o; try { o = JSON.parse(String(brut ?? '')); } catch { return; }
+    const MA = window.OdinWidgetsMaisonAppareils, kind = o && typeof o === 'object' ? o.kind : '';
+    const d = R.posables({ proprio, aDroit }).find((x) => x.sorte === kind && !x.style && typeof MA?.genrePose === 'function' && MA.genrePose(x.sorte));
+    if (d) poser(d.w);
+  }
+  /** Ce que la pose n'a pas fait, dit sur la ligne du tiroir (et à son annonce) ; au glisser, en bas de l'écran. */
+  function direLigne(ligne, t) {
+    const zone = ligne?.querySelector('.fe-it-t');
+    if (zone) { let p = zone.querySelector('.fe-it-dit'); if (!p) { p = el('p', { class: 'fe-it-dit' }); zone.append(p); } p.textContent = t; const s = $('#feTiroir .fe-dit'); if (s) s.textContent = t; }
+    else say(t);
+  }
   /** Le widget qui vient d'être posé : l'écran défile jusqu'à lui, il apparaît, le focus va sur sa poignée, c'est dit. */
   function montrerAjout(id, muet = false) {
     const b = [...document.querySelectorAll('#feGrid > .fe-w')].find((x) => x.dataset.id === id); if (!b) return;
@@ -892,7 +947,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // Son groupe, comme la maquette la range : celui qu'elle dit d'elle-même (« Infos et repères », « Odin »), sinon
     // la famille de son appli dans le catalogue (R.groupeTiroir).
     const declarees = R.posables({ proprio, aDroit }).map((x) => { const m = x.appli ? cat?.modules?.find((y) => y.id === x.appli) : undefined, g = R.groupeTiroir(x, m?.family);
-      return { nom: x.nom, quoi: x.quoi, icon: x.symbole, famille: g === 'infos' ? OT.INFOS : g, ...(g === ODIN ? { groupe: NOM_ODIN } : {}), active: m ? OT.active(m) : undefined, onclick: () => add(x.w) }; });
+      // Une sorte qui montre UN appareil choisi passe par `poser` (pris d'office, ou « Régler » aussitôt), et se glisse aussi.
+      const choisie = typeof window.OdinWidgetsMaisonAppareils?.genrePose === 'function' && window.OdinWidgetsMaisonAppareils.genrePose(x.sorte);
+      return { nom: x.nom, quoi: x.quoi, icon: x.symbole, famille: g === 'infos' ? OT.INFOS : g, ...(g === ODIN ? { groupe: NOM_ODIN } : {}), ...(choisie ? { w: x.w } : {}), active: m ? OT.active(m) : undefined, onclick: (e) => poser(x.w, e) }; });
     const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 }, T.meteo, T.meteoQuoi, '☀'), ...declarees,
       vordr ? { nom: T.site, quoi: T.siteQuoi, icon: '🌐', famille: OT.INFOS, active: OT.active(vordr), onclick: siteSurveille } : null,
       { nom: T.perso, quoi: T.persoQuoi, icon: '⚡', famille: OT.INFOS, creer: true, onclick: ownButton },
@@ -1033,7 +1090,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
    * - « Copier vers l'autre écran » : refusé pour les quatre sortes de l'accueil et pour un widget de la vie privée qui
    *   n'est ouvert à personne ; « Retirer » : absent sur « À faire ».
    */
-  async function reglerWidget(w) {
+  async function reglerWidget(w, surLeChoix = false) {
     const T = R.TEXTES.reglage, titre = titreDe(w), mod = cat?.modules?.find((m) => m.id === w.module), ouv = await ouvertA(w);
     const tuile = (() => { const a = appliDe(w); if (!a || !window.OdinAppIcons) return null; const sp = el('span', {}); sp.innerHTML = window.OdinAppIcons.tile(a, modName(a), 40); return sp.firstElementChild ?? sp; })();
     // Pendant les lectures, le widget a pu quitter la fenêtre en cours (« Annuler » du mode Modifier) : plus rien à régler.
@@ -1068,7 +1125,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // la liste que le serveur rend au propriétaire seul avec l'état de CE widget, mise en mots par sa famille
     // (pages/widgets-maison-appareils.js : un nom et une pièce, jamais un identifiant). Le choix d'avant reste dans la
     // liste, même retiré d'Odin (sous un mot neutre). Sans liste (pas encore rangé) : la phrase dit quoi faire.
-    const sCh = etats?.get(w.id), champ = window.OdinWidgetsMaisonAppareils?.champChoix?.(w, sCh && sCh.sig === sigDe(w) ? sCh.e : undefined) ?? null;
+    // Posé depuis le tiroir et pas encore rangé : la liste lue à la pose.
+    const sCh = etats?.get(w.id), champ = window.OdinWidgetsMaisonAppareils?.champChoix?.(w, sCh && sCh.sig === sigDe(w) ? sCh.e : posees.get(w.id)) ?? null;
     let fCible = null; const cible0 = champ ? champ.depart : '';
     if (champ) {
       const groupes = new Map(), libres = [];
@@ -1169,7 +1227,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     if (ouv.privee) corps.push(el('div', { class: 'wr-rang' }, el('p', { class: 'wr-aide' }, !ouv.connu ? '' : ouv.noms.length ? T.ouvertA(ouv.noms.join(', ')) : T.ouvertAPersonne), R.bouton(T.ouvrirA, () => { f.fermer(); ouvrirA(w); })));
     const surveiller = () => { erreur.textContent = ''; alerte.textContent = !ouv.privee || sig(lire()) === depart ? '' : !ouv.connu ? T.refermeInconnu : ouv.noms.length ? T.referme(ouv.noms.join(', ')) : ''; };
     corps.push(alerte, statut, erreur);
-    const rendre = () => { const c = $(`#feGrid .fe-w[data-id="${CSS.escape(w.id)}"]`); return c?.querySelector('.wr-plus') ?? c?.querySelector('.fe-grip') ?? $('#fenetre .fe-ajout') ?? $('#fenetre .fe-tab'); };
+    const rendre = () => { const c = $(`#feGrid .fe-w[data-id="${CSS.escape(w.id)}"]`); return c?.querySelector('.wr-plus') ?? c?.querySelector('.fe-regp') ?? c?.querySelector('.fe-grip') ?? $('#fenetre .fe-ajout') ?? $('#fenetre .fe-tab'); };
     const valider = () => {
       const x = lire(); erreur.textContent = '';
       if (x.toucher?.quoi === 'adresse') { const a = R.adresseNette(x.toucher.adresse); if (!a) { erreur.textContent = T.adresseRefusee; $('#wrRU', sous)?.focus(); return; } x.toucher.adresse = a; }
@@ -1212,6 +1270,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     f = R.fenetreRegler({ titre, tuile, lettre: renduDe(w)?.symbole || (w.kind === 'heure' ? '🕒' : w.kind === 'meteo' ? '☀' : TXT.jour.lettres[w.kind]), corps, rendre,
       pied: [copier, retirer, el('div', { class: 'wr-fin' }, R.bouton(T.annuler, () => f.fermer()), R.bouton(T.valider, valider, 'p')), el('p', { class: 'wr-aide' }, T.pied)] });
     f.d.addEventListener('input', surveiller); f.d.addEventListener('change', surveiller);
+    if (surLeChoix && fCible) fCible.focus();
     // Entrée dans un champ de texte : valider (comme le bouton).
     f.d.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.target?.tagName === 'INPUT' && e.target.type !== 'radio') { e.preventDefault(); valider(); } });
   }

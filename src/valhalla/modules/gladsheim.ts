@@ -566,6 +566,26 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
 }
 
 /**
+ * Ce que montre un widget de la maison (`cible` : « appareil:<id> » ou « piece:<nom> », choisi dans « Régler » ou pris
+ * d'office à la pose) désigne un appareil ou une pièce de la maison : à l'enregistrement, une cible neuve ou changée qui
+ * ne désigne rien parmi les appareils lus (`lire` : ceux de Midgard, lus seulement s'il y en a une) est retirée — le
+ * widget redevient « pas encore choisi ». Une cible déjà rangée telle quelle (`avant`) reste, même si son appareil a été
+ * retiré depuis : le widget dit alors « cet appareil n'existe plus ». Les appareils illisibles : rien n'est vérifié,
+ * donc la cible neuve est retirée (le plus prudent). Change `l` en place.
+ */
+export async function ciblesDeLaMaison(l: Layout, avant: Layout | undefined, lire: () => Promise<ReadonlyArray<{ id?: unknown; room?: unknown }>>): Promise<void> {
+  const deja = new Map((avant?.pages ?? []).flatMap((p) => p.widgets).map((w) => [w.id, w.cible]));
+  const neuves = l.pages.flatMap((p) => p.widgets).filter((w) => typeof w.cible === 'string' && deja.get(w.id) !== w.cible);
+  if (!neuves.length) return;
+  let liste: ReadonlyArray<{ id?: unknown; room?: unknown }> = [];
+  try { const x = await lire(); if (Array.isArray(x)) liste = x; } catch { liste = []; }
+  for (const w of neuves) {
+    const m = /^(appareil|piece):(.+)$/s.exec(w.cible!);
+    if (!m || !liste.some((a) => (m[1] === 'appareil' ? a.id === m[2] : a.room === m[2]))) delete w.cible;
+  }
+}
+
+/**
  * Les 12 animations de déplacement des modules de la fenêtre (maquette validée « Accueil », lot 17) : les mêmes
  * identifiants que src/web/pages/accueil-animations.js. Le choix est gardé ici, le même sur tous les appareils du
  * propriétaire ; un choix inconnu (un vieux réglage, un réglage abîmé) vaut « classique ».
@@ -630,7 +650,7 @@ export const gladsheim: Module = {
       const qui = agissant(), l = qui ? toucherServi(sansAccueilDuProprietaire(fenetreRangee(ctx)), toucherPermisA(ctx, qui.login)) : fenetreRangee(ctx);
       return { text: l.pages.map((p) => `- ${nomPage(p)}${p.maison ? ' (écran de la maison)' : ''} : ${p.widgets.length} module(s)`).join('\n'), data: avecAnimation(ctx, l) };
     } },
-    { id: 'regler_fenetre', label: 'Ranger ma fenêtre', what: 'Enregistre les pages et les modules (mode « Modifier »)', quick: false, proprietaireSeul: true, params: [{ key: 'fenetre', label: 'Fenêtre (JSON)', kind: 'textarea', required: true }], run: (ctx, i) => {
+    { id: 'regler_fenetre', label: 'Ranger ma fenêtre', what: 'Enregistre les pages et les modules (mode « Modifier »)', quick: false, proprietaireSeul: true, params: [{ key: 'fenetre', label: 'Fenêtre (JSON)', kind: 'textarea', required: true }], run: async (ctx, i) => {
       let raw: unknown; try { raw = typeof i.fenetre === 'string' ? JSON.parse(i.fenetre) : i.fenetre; } catch { throw new Error('fenêtre illisible'); }
       // Avec la fenêtre : les ouvertures de la vie privée des widgets qui existent encore, lisent encore cette appli et
       // montrent encore la même chose qu'avant ce rangement.
@@ -642,6 +662,8 @@ export const gladsheim: Module = {
       // fenêtre qui ne l'a encore jamais porté (rangée avant le lot 26, ou envoyée par une page ouverte avant) n'est
       // pas refusée : elle reçoit la page « Aujourd'hui » à la lecture (fenetreRangee), et la rend ici.
       if (retraitRefuse(avant, l)) throw new Error('« À faire » se déplace mais ne se retire pas : garde-le sur une de tes pages.');
+      // Un widget de la maison montre un appareil ou une pièce qui existe (lus comme l'écran de la maison les lit).
+      await ciblesDeLaMaison(l, avant, () => homeDevices(valhallaOf()?.ctx('midgard') ?? ctx));
       ctx.saveSettings({ fenetre: l, ...(ctx.settings.ouvertures === undefined ? {} : { ouvertures: ouverturesGardees(ctx, l, avant) }) });
       const rendue = avecAujourdhui(l);
       return { text: `✓ Fenêtre rangée : ${rendue.pages.map((p) => `${nomPage(p)} (${p.widgets.length})`).join(', ')}.`, data: avecAnimation(ctx, rendue) };

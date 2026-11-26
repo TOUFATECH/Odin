@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { after, before, test } from 'node:test';
 import vm from 'node:vm';
-import { cleanLayout, type FPage, type Layout, type Widget } from '../src/valhalla/modules/gladsheim.ts';
+import { ciblesDeLaMaison, cleanLayout, type FPage, type Layout, type Widget } from '../src/valhalla/modules/gladsheim.ts';
 import { allModules, valhallaOf } from '../src/valhalla/odin.ts';
 import { lierProprietaire, persona, personnes } from '../src/valhalla/sso/etat.ts';
 import { SORTES, copiable, droitDeVoir, sorteDe } from '../src/valhalla/widgets/index.ts';
@@ -161,7 +161,8 @@ test('la page : les styles d\'une sorte comme le serveur ; « Régler » remplac
   assert.deepEqual(Object.fromEntries(Object.entries(R.STYLES).map(([k, v]) => [k, Array.from(v as Array<[string, string]>, (x) => x[0])])), attendu);
   const i = FE.indexOf('  async function regler('), regler = FE.slice(i, FE.indexOf('\n  }\n', i));
   assert.match(regler, /if \(!proprio \|\| ferme\(w\)\) return;/, 'le propriétaire seul, et jamais un widget fermé');
-  assert.match(regler, /await reglerWidget\(w\);/);
+  // Suit le focus sur le choix quand la pose ouvre « Régler » (`surLeChoix`), le reste inchangé.
+  assert.match(regler, /await reglerWidget\(w, surLeChoix\);/);
   // Les cinq choix de la maquette, dans son ordre.
   assert.deepEqual(Object.keys(R.TEXTES.reglage.choix), ['appli', 'action', 'ecran', 'adresse', 'rien']);
   // Une adresse s'ouvre dans un nouvel onglet, sans donner la main à la page ouverte.
@@ -407,6 +408,34 @@ test('relecture : un membre ne reçoit « Quand je touche » que d\'un widget qu
   } finally { assert.equal((await ranger(FENETRE())).ok, true); }
 });
 
+test('« Régler », un choix qui existe : à l\'enregistrement, une cible neuve ou changée qui ne désigne aucun appareil ni aucune pièce est retirée ; déjà rangée, elle reste ; appareils illisibles : retirée', async () => {
+  const L = (ws: Array<Record<string, unknown>>) => ({ pages: [{ id: 'b0000010', name: 'P', widgets: ws.map((w) => ({ w: 1, c: 3, r: 2, ...w })) }] }) as unknown as Layout;
+  const appareils = [{ id: 'lampe-1', room: 'Salon' }, { id: 'sonde-2', room: 'Chambre' }, { id: 'sans-piece' }];
+  let lectures = 0; const lire = async () => { lectures++; return appareils; };
+  const l = L([
+    { id: 'a0000051', kind: 'maison_lumiere', cible: 'appareil:lampe-1' }, { id: 'a0000052', kind: 'maison_lumiere', cible: 'appareil:lampe-9' },
+    { id: 'a0000053', kind: 'maison_temperature', cible: 'piece:Chambre' }, { id: 'a0000054', kind: 'maison_temperature', cible: 'piece:Grenier' },
+    { id: 'a0000055', kind: 'maison_capteur', cible: 'appareil:parti-7' }, { id: 'a0000056', kind: 'maison_temperature', cible: 'piece:sonde-2' },
+    { id: 'a0000057', kind: 'maison_lumiere', cible: 'appareil:Salon' }, { id: 'a0000058', kind: 'heure' },
+  ]);
+  // a0000055 : rangé avant tel quel (son appareil retiré depuis) ; a0000057 : rangé avant sur un autre appareil.
+  const avant = L([{ id: 'a0000055', kind: 'maison_capteur', cible: 'appareil:parti-7' }, { id: 'a0000057', kind: 'maison_lumiere', cible: 'appareil:lampe-1' }]);
+  await ciblesDeLaMaison(l, avant, lire);
+  const c = (id: string) => l.pages[0].widgets.find((w) => w.id === id)?.cible;
+  assert.deepEqual(['a0000051', 'a0000052', 'a0000053', 'a0000054', 'a0000055', 'a0000056', 'a0000057'].map(c), ['appareil:lampe-1', undefined, 'piece:Chambre', undefined, 'appareil:parti-7', undefined, undefined],
+    'un appareil ou une pièce de la maison : gardé ; rien (ou une pièce prise pour un appareil, et l\'inverse) : retiré ; déjà rangé tel quel : gardé');
+  assert.equal(l.pages[0].widgets.length, 8, 'aucun widget retiré'); assert.equal(lectures, 1, 'les appareils lus une fois');
+  // Rien de neuf : rien n'est lu. Les appareils illisibles (erreur, réponse abîmée) : la cible neuve est retirée.
+  lectures = 0; await ciblesDeLaMaison(L([{ id: 'a0000055', kind: 'maison_capteur', cible: 'appareil:parti-7' }, { id: 'a0000058', kind: 'heure' }]), avant, lire); assert.equal(lectures, 0);
+  for (const casse of [async () => { throw new Error('box injoignable'); }, async () => 'abîmé' as never]) {
+    const x = L([{ id: 'a0000051', kind: 'maison_lumiere', cible: 'appareil:lampe-1' }]); await ciblesDeLaMaison(x, undefined, casse); assert.equal(x.pages[0].widgets[0].cible, undefined);
+  }
+  // Le rangement passe par elle, avant de garder la fenêtre (le seul endroit qui la range).
+  const G = readFileSync(new URL('../src/valhalla/modules/gladsheim.ts', import.meta.url), 'utf8'), r = G.slice(G.indexOf('id: \'regler_fenetre\''), G.indexOf('id: \'regler_animation\''));
+  assert.match(r, /await ciblesDeLaMaison\(l, avant, \(\) => homeDevices\(/);
+  assert.ok(r.indexOf('ciblesDeLaMaison(') < r.indexOf('ctx.saveSettings('), 'avant d\'être gardée');
+});
+
 test('« Régler », le choix d\'un widget de la maison (l\'appareil, la pièce, le capteur) : servi au propriétaire seul ; une cible piégée est refusée à l\'enregistrement', async () => {
   // La règle pure : la fenêtre servie à un autre que le propriétaire n'a jamais de cible, même sur un widget qu'il voit.
   const l = { pages: [{ id: 'b0000009', name: 'P', widgets: [{ id: 'a0000039', kind: 'maison_lumiere', w: 1, c: 3, r: 2, cible: 'appareil:x', toucher: { quoi: 'rien' } }] }] } as unknown as Layout;
@@ -424,6 +453,11 @@ test('« Régler », le choix d\'un widget de la maison (l\'appareil, la pièce,
     { id: 'a0000034', kind: 'maison_capteur', w: 1, c: 3, r: 2, cible: `appareil:${'x'.repeat(10_000)}` },
   ] as never[]);
   f.pages[0].widgets.push({ id: 'a0000035', kind: 'maison_lumiere', w: 1, c: 3, r: 2, cible: `appareil:${MOT}-mur` } as never);
+  // Suit la vérification à l'enregistrement (une cible neuve qui ne désigne aucun appareil ni aucune pièce de la maison est
+  // retirée ; test/widgets-maison-appareils.test.ts) : cet Odin d'essai n'a aucun appareil, ces cibles sont donc posées
+  // comme rangées plus tôt (quand leurs appareils existaient), puis la fenêtre est rangée de nouveau : déjà rangées, elles
+  // restent, et ce qui suit vérifie toujours que personne d'autre ne les reçoit.
+  valhallaOf()!.ctx('gladsheim').saveSettings({ fenetre: { ...f, pages: [...f.pages.filter((p) => (p as { code?: string }).code !== 'aujourdhui'), AUJOURDHUI()] } });
   assert.equal((await ranger(f)).ok, true, 'une cible piégée ne fait pas échouer le rangement');
   try {
     const moi = await rangee();

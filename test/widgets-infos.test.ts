@@ -388,7 +388,10 @@ test('le tiroir « Ajouter un widget » : les quatre, aux tailles de la maquette
   // fenetre.js : le tiroir lit le registre (aucune sorte neuve n'y est écrite), et annonce le titre déclaré.
   const c = fonction('catalogue');
   assert.match(c, /const declarees = R\.posables\(\{ proprio, aDroit \}\)\.map\(/, 'les lignes viennent du registre, pour qui a le droit');
-  assert.match(c, /active: m \? OT\.active\(m\) : undefined, onclick: \(\) => add\(x\.w\)/, 'l\'appli lue désactivée : grisée ; « Ajouter » pose le widget à sa taille');
+  // Suit la pose depuis le tiroir : « Ajouter » passe par `poser`, qui rend la main à `add` pour toute sorte qui ne montre
+  // pas UN appareil choisi (avant : `add(x.w)` directement).
+  assert.match(c, /active: m \? OT\.active\(m\) : undefined, onclick: \(e\) => poser\(x\.w, e\)/, 'l\'appli lue désactivée : grisée ; « Ajouter » pose le widget à sa taille');
+  assert.match(FE.slice(FE.indexOf('async function poser('), FE.indexOf('async function poser(') + 600), /if \(!g\) return add\(w\);/, 'les autres sortes : `add`, à leur taille');
   assert.match(c, /return \{ nom: x\.nom, quoi: x\.quoi, icon: x\.symbole, /, 'la ligne porte le nom déclaré pour le tiroir');
   // « Météo » pose désormais la grande météo de la maquette (« Complète », 4 × 5 ; test/widgets-meteo.test.ts).
   assert.match(c, /item\(\{ kind: 'heure' \}[^\n]*item\(\{ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 \}[^\n]*'☀'\), \.\.\.declarees,/, 'après « Heure et lieu » et « Météo », qui restent');
@@ -408,13 +411,18 @@ test('fenetre.js et maison.js : le rendu déclaré dessine le corps, dans le des
   const iF = w.indexOf('const rf = renduDe(w);'), iVide = w.indexOf('if (!d.donnee) {'), iJour = w.indexOf('if (JOUR.includes(w.kind))');
   assert.ok(iF > 0 && iF < iVide && iVide < iJour, 'le rendu déclaré passe avant les branches écrites en dur');
   const bloc = w.slice(iF, iVide);
-  assert.match(bloc, /const s = etats\?\.get\(w\.id\), e = s && s\.sig === sigDe\(w\) \? s\.e : undefined/, 'l\'état rendu par le serveur, pour ce réglage');
+  // Suit la pose depuis le tiroir : sans état du serveur, un widget posé en mode Modifier et pas encore choisi montre
+  // l'état « pas encore choisi » lu à la pose (avant : rien).
+  assert.match(bloc, /const s = etats\?\.get\(w\.id\), e = s && s\.sig === sigDe\(w\) \? s\.e : edit && !w\.cible \? posees\.get\(w\.id\) : undefined/, 'l\'état rendu par le serveur, pour ce réglage');
   assert.match(bloc, /e && R\.dessineElleMeme\(rf, d\) \? R\.dessiner\(rf, e, o\) : null/, 'sans état du serveur, la famille ne dessine rien');
   assert.match(bloc, /raison: 'pas_range'/); assert.match(bloc, /raison: 'lecture_echouee'/);
   assert.match(bloc, /head\(/, 'l\'en-tête commun (titre, « ⋯ » du propriétaire)'); assert.match(bloc, /R\.contenu\(/, 'la ligne commune des états sans donnée');
   // Un petit chiffre garde sa taille dans chaque état : la donnée par sa famille, sinon l'état court du dessin commun ;
   // jamais l'en-tête ni la ligne et son bouton, qui feraient grandir la carte (et étireraient ses voisines).
-  assert.match(bloc, /if \(rf\.petit\) \{ box\.append\(corps \?\? R\.etatPetit\(dd, \{ titre: titreDe\(w, d\.gris\) \}\)\); return box; \}/);
+  // Suit le « ⋯ » d'un petit chiffre : posé parmi les boutons du mode Modifier (hors de la carte, cachés hors du mode),
+  // jamais dans son corps ; la carte, elle, reste la même. Suit aussi sa place : au bout de la rangée (`append`), loin
+  // de l'icône et du chiffre de la carte.
+  assert.match(bloc, /if \(rf\.petit\) \{[^{}]*\{ const n = R\.TEXTES\.regler\(titreDe\(w\)\); chrome\.append\(el\('button', \{ class: 'fe-regp'[^\n]*\n\s*box\.append\(corps \?\? R\.etatPetit\(dd, \{ titre: titreDe\(w, d\.gris\) \}\)\); return box;\s*\}/);
   assert.ok(bloc.indexOf('if (rf.petit)') < bloc.lastIndexOf('head('), 'avant l\'en-tête commun');
   assert.doesNotMatch(bloc, /innerHTML|api\(|act\(|fetch\(/, 'rien n\'est lu ni écrit ici');
   assert.match(w, /if \(w\.kind !== 'chiffres' && w\.kind !== 'section'\) \{[^\n]*contenuDe\('source_absente', 'pas_encore_lu'\)[^\n]*return box; \}/, 'une sorte que la page ne connaît pas : une ligne, la page continue');

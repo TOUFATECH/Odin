@@ -18,6 +18,7 @@ import vm from 'node:vm';
 import { COMMANDES_APPAREIL, TAILLE_SORTE, cleanLayout, type Widget } from '../src/valhalla/modules/gladsheim.ts';
 import * as A from '../src/valhalla/modules/appareils.ts';
 import { allModules, valhallaOf } from '../src/valhalla/odin.ts';
+import { homeDevices } from '../src/valhalla/modules/midgard.ts';
 import { lierProprietaire, persona } from '../src/valhalla/sso/etat.ts';
 import type { ModCtx } from '../src/valhalla/types.ts';
 import { admiseALaMaison, donneeWidget, publicDe, sorteDe, type EtatWidget, type Lecteur, type SourceWidget } from '../src/valhalla/widgets/index.ts';
@@ -257,9 +258,13 @@ test('la page : la famille se déclare (appareil, lumière, capteur, pièces en 
   // Le style « Tuiles » est dessiné, mais le serveur ne le garde pas encore : « Régler » n'a pas sa ligne (widgets-rendu.js).
   assert.ok(R.rendu('maison_pieces', 'tuiles'), 'le style « Tuiles »');
   assert.equal(cleanLayout({ pages: [{ id: 'aaaaaaaa', name: 'P', widgets: [{ id: 'bbbbbbbb', kind: 'maison_pieces', style: 'tuiles' }] }] }, ['midgard']).pages[0].widgets[0].style, undefined);
-  // Dans le tiroir : « Pièces » seulement. Un appareil, une lumière, un capteur se choisissent dans « Régler », qui ne sait
-  // pas encore le faire : pas proposés (sa réponse du 25/11 : cachés tant qu'ils ne peuvent rien montrer de vrai).
-  assert.deepEqual(JSON.parse(JSON.stringify(R.posables({ proprio: true, aDroit: () => true }).filter((x: any) => SORTES.includes(x.sorte)).map((x: any) => [x.sorte, x.style]))), [['maison_pieces', '']]);
+  // Dans le tiroir : les quatre (le style « Tuiles » non). Suit la pose depuis le tiroir : un appareil, une lumière, un
+  // capteur y sont, l'unique appareil du genre pris d'office, sinon « Régler » aussitôt ; aucun : rien n'est posé (avant :
+  // « Pièces » seulement, tant qu'ils auraient été posés vides). Rangés par la famille de Midgard (la maquette : « Maison »).
+  const posees = R.posables({ proprio: true, aDroit: () => true }).filter((x: any) => SORTES.includes(x.sorte));
+  assert.deepEqual(JSON.parse(JSON.stringify(posees.map((x: any) => [x.sorte, x.style]))), [['maison_appareil', ''], ['maison_lumiere', ''], ['maison_capteur', ''], ['maison_pieces', '']]);
+  for (const x of posees) assert.equal(R.groupeTiroir(x, 'Maison'), 'Maison', `${x.sorte} : le groupe de la famille de Midgard`);
+  assert.equal(R.posables({ proprio: true, aDroit: () => false }).some((x: any) => SORTES.includes(x.sorte)), false, 'sans le droit sur Midgard : aucune');
   // Les commandes connues de la page : exactement celles du modèle.
   assert.deepEqual([...M.CODES].sort(), [...new Set(Object.values(COMMANDES_APPAREIL).flat().map((c) => c.code))].sort());
   // Le texte d'une donnée : jamais par innerHTML (seules les icônes dessinées ici) ; ni langue ni fuseau écrits.
@@ -332,6 +337,36 @@ test('la page, le champ du choix de « Régler » : par nom et pièce, jamais un
   for (const k of ['maison_appareil', 'maison_lumiere', 'maison_capteur']) assert.ok(win.OdinWidgetsRendu.rendu(k).vides.includes('aucun_appareil'), `${k} dessine « aucun appareil » lui-même`);
 });
 
+test('la pose depuis le tiroir : les appareils du genre, tirés des pièces de l\'écran de la maison, sous la forme des choix du serveur ; jamais un identifiant piégé ; « Choisir une lumière »', () => {
+  const win: Record<string, any> = { document: { documentElement: { lang: 'fr' } } };
+  for (const src of [PAGE_JS, RENDU]) vm.runInNewContext(src, { window: win, document: win.document, Intl });
+  const M = win.OdinWidgetsMaisonAppareils;
+  assert.equal(typeof M.choixDePose, 'function'); assert.equal(typeof M.genrePose, 'function');
+  assert.deepEqual(['maison_appareil', 'maison_lumiere', 'maison_capteur', 'maison_temperature', 'maison_pieces', 'heure', undefined].map((k) => M.genrePose(k)), ['appareil', 'lumiere', 'capteur', '', '', '', ''], 'seules les trois sortes qui montrent UN appareil');
+  const rooms = [{ name: 'Salon', devices: [{ id: 'a', name: 'Lampe', kind: 'lumière' }, { id: '__proto__', kind: 'lumière' }, { id: ' ', kind: 'lumière' }, { id: 'x'.repeat(192), kind: 'lumière' }, { id: 'x'.repeat(191), kind: 'lumière' }, { id: 's', name: '', kind: 'détecteur' }, { id: 'p', name: 'Prise', kind: 'prise' }, { id: 7, kind: 'lumière' }] },
+    { name: PIEGE, devices: [{ id: 'b', name: 'Lampe 2', kind: 'lumière' }, { id: 't', name: 'Sonde', kind: 'capteur' }] }, null, { name: 'X', devices: 'non' }];
+  const cibles = (k: string) => JSON.parse(JSON.stringify(M.choixDePose(k, rooms))).map((c: any) => c.cible);
+  assert.deepEqual(cibles('maison_lumiere'), ['appareil:a', `appareil:${'x'.repeat(191)}`, 'appareil:b'], 'un identifiant vide, réservé ou de plus de 200 signes avec « appareil: » n\'est pas un choix (comme cibleNette)');
+  assert.deepEqual(cibles('maison_capteur'), ['appareil:s', 'appareil:t']);
+  assert.deepEqual(cibles('maison_appareil'), ['appareil:a', `appareil:${'x'.repeat(191)}`, 'appareil:s', 'appareil:p', 'appareil:b', 'appareil:t']);
+  assert.deepEqual(JSON.parse(JSON.stringify(M.choixDePose('maison_lumiere', rooms)[2])), { cible: 'appareil:b', nom: 'Lampe 2', piece: PIEGE, sorte: 'lumière' });
+  for (const [k, r] of [['maison_temperature', rooms], ['maison_pieces', rooms], ['maison_lumiere', undefined], ['maison_lumiere', { rooms }]] as const) assert.equal(M.choixDePose(k, r), null, `${k} : rien à choisir à la pose`);
+  assert.deepEqual(JSON.parse(JSON.stringify(M.choixDePose('maison_lumiere', []))), [], 'aucune pièce : aucun choix');
+  // Ses textes sont les choix que « Régler » sait écrire (le même champ).
+  const c = M.champChoix({ id: 'w', kind: 'maison_lumiere' }, { etat: 'vide', raison: 'appareil_non_choisi', choix: M.choixDePose('maison_lumiere', rooms) });
+  assert.equal(c.sansListe, false); assert.deepEqual(JSON.parse(JSON.stringify(c.options.map((o: any) => o.v))), ['', ...cibles('maison_lumiere')]);
+  // Pas encore choisi : le bouton dit ce qu'il fait choisir (la pose annulée : la carte dit quoi faire).
+  const faux = (): any => { const n: any = { dataset: {}, enfants: [] as any[], className: '', textContent: '', append(...k: any[]) { n.enfants.push(...k); }, addEventListener() {}, setAttribute() {} }; return n; };
+  const doc: any = { documentElement: { lang: 'fr' }, createElement: faux, getElementById: () => ({}), head: { append() {} } };
+  const w2: Record<string, any> = { document: doc };
+  for (const src of [PAGE_JS, RENDU]) vm.runInNewContext(src, { window: w2, document: doc, Intl });
+  const decl = (k: string) => w2.OdinWidgetsFamilles.flatMap((f: any) => f.sortes).find((x: any) => x.sorte === k && !x.style);
+  for (const [k, t] of [['maison_lumiere', 'Choisir une lumière'], ['maison_appareil', 'Choisir un appareil'], ['maison_capteur', 'Choisir un capteur']]) {
+    const b = decl(k).dessiner({ etat: 'vide', raison: 'appareil_non_choisi', choix: [{ cible: 'appareil:a', nom: 'A', piece: 'P', sorte: 'lumière' }] }, { w: { id: 'w8', kind: k } }).enfants.find((x: any) => x.dataset.action === 'choisir');
+    assert.ok(b, k); assert.equal(b.textContent, t, k);
+  }
+});
+
 // ------------------------------------------------------------------ un vrai Odin d'essai, de faux appareils sur le relais
 
 const tt = new Banc(), orig = { log: console.log, error: console.error, warn: console.warn, info: console.info };
@@ -362,6 +397,8 @@ const horloge = { t: Date.now() }, reglages: Record<string, unknown> = { port: 0
 const ctxRelais = { home: '', dir: '', settings: reglages, saveSettings: (p: Record<string, unknown>) => Object.assign(reglages, p), alert: () => {}, emit: () => {}, now: () => new Date(horloge.t) } as unknown as ModCtx;
 const annonce = (type: string, obj: string, c: Record<string, unknown> = {}) => A.brokerOf()!.publish(`decouverte/${type}/essai/${obj}/config`, JSON.stringify({ unique_id: `essai_${obj}`, name: `Appareil ${obj}`, state_topic: `essai/${obj}/etat`, command_topic: `essai/${obj}/cmd`, device: { suggested_area: 'Salon' }, ...c }));
 const etatDe = (obj: string, x: string) => A.brokerOf()!.publish(`essai/${obj}/etat`, x);
+/** Attend que Midgard connaisse ces appareils (le relais les annonce sans attendre). */
+const connus = async (ids: string[]) => { for (let i = 0; i < 200; i++) { const l = (await homeDevices(valhallaOf()!.ctx('midgard')).catch(() => [])).map((x) => x.id); if (ids.every((id) => l.includes(id))) return; await new Promise((ok) => setTimeout(ok, 50)); } throw new Error(`appareils inconnus de Midgard : ${ids.join(', ')}`); };
 
 before(async () => {
   for (const k of ['log', 'error', 'warn', 'info'] as const) console[k] = () => {};
@@ -381,6 +418,9 @@ before(async () => {
   annonce('sensor', 't1', { unit_of_measurement: '°C', command_topic: undefined });
   etatDe('l1', 'ON'); etatDe('l2', 'OFF'); etatDe('l3', 'ON'); A.brokerOf()!.publish('essai/l3/dispo', 'offline');
   etatDe('p1', 'OFF'); etatDe('f1', 'ON'); etatDe('v1', 'open'); etatDe('c1', 'cool'); etatDe('a1', 'docked'); etatDe('k1', 'LOCKED'); etatDe('t1', '21.5');
+  // Suit la vérification à l'enregistrement (une cible qui ne désigne aucun appareil de la maison est retirée) : la fenêtre
+  // n'est rangée qu'une fois les appareils annoncés connus de Midgard (sinon leur choix serait retiré).
+  await connus(['essai_l1', 'essai_l2', 'essai_l3', 'essai_p1', 'essai_f1', 'essai_v1', 'essai_c1', 'essai_a1', 'essai_k1', 'essai_t1']);
   const r = await va.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(FENETRE()) }); assert.equal(r.ok, true, r.text);
 });
 after(async () => { A.appareils.stop!(); delete process.env.MQTT_PASSWORD; await tt.end(); Object.assign(console, orig); });
@@ -441,15 +481,60 @@ test('vrai Odin : un membre, une clé d\'accès, sans session : rien de plus qu\
   }
 });
 
+test('vrai Odin : à l\'enregistrement, une cible qui ne désigne ni un appareil ni une pièce de la maison est retirée ; celle déjà rangée reste (l\'appareil retiré plus tard)', async () => {
+  const va = valhallaOf()!, g = va.ctx('gladsheim');
+  const de = (id: string) => ((g.settings.fenetre as { pages: Array<{ widgets: Widget[] }> }).pages.flatMap((p) => p.widgets)).find((w) => w.id === id);
+  const f = FENETRE();
+  f.pages[0].widgets.push(...[
+    { id: 'd38000a1', kind: 'maison_lumiere', w: 1, c: 3, r: 2, cible: 'appareil:essai_l2' },
+    { id: 'd38000a2', kind: 'maison_lumiere', w: 1, c: 3, r: 2, cible: 'appareil:essai_rien_9' },
+    { id: 'd38000a3', kind: 'maison_temperature', w: 1, c: 2, r: 1, cible: 'piece:Salon' },
+    { id: 'd38000a4', kind: 'maison_humidite', w: 1, c: 2, r: 1, cible: 'piece:Nulle-part' },
+    { id: 'd38000a5', kind: 'maison_capteur', w: 1, c: 3, r: 2, cible: 'appareil:essai_t1' },
+  ] as never[]);
+  try {
+    await rangerRg(f);
+    assert.equal(de('d38000a1')?.cible, 'appareil:essai_l2', 'un appareil de la maison : gardé');
+    assert.equal(de('d38000a3')?.cible, 'piece:Salon', 'une pièce de la maison : gardée');
+    assert.equal(de('d38000a5')?.cible, 'appareil:essai_t1');
+    for (const id of ['d38000a2', 'd38000a4']) { assert.ok(de(id), `${id} reste`); assert.equal(de(id)!.cible, undefined, `${id} : ne désigne rien, retirée (« pas encore choisi »)`); }
+    // Rangée quand l'appareil existait, puis l'appareil retiré d'Odin : la fenêtre rangée de nouveau la garde, et la carte
+    // dit « cet appareil n'existe plus ».
+    const l = JSON.parse(JSON.stringify(g.settings.fenetre)); l.pages.flatMap((p: { widgets: Widget[] }) => p.widgets).find((w: Widget) => w.id === 'd38000a2').cible = 'appareil:essai_parti_43'; g.saveSettings({ fenetre: l });
+    const lue = (await va.act('gladsheim', 'fenetre', {})).data as { pages: unknown[] };
+    assert.equal((await va.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(lue) })).ok, true);
+    assert.equal(de('d38000a2')?.cible, 'appareil:essai_parti_43', 'déjà rangée : gardée');
+    assert.equal((await donnees()).de('d38000a2')?.raison, 'appareil_absent');
+    // Changée pour une autre qui ne désigne rien : retirée.
+    const l2 = (await va.act('gladsheim', 'fenetre', {})).data as { pages: Array<{ widgets: Widget[] }> };
+    l2.pages.flatMap((p) => p.widgets).find((w) => w.id === 'd38000a2')!.cible = 'appareil:essai_rien_10';
+    assert.equal((await va.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(l2) })).ok, true);
+    assert.equal(de('d38000a2')?.cible, undefined);
+  } finally { await rangerRg(FENETRE()); }
+});
+
+test('vrai Odin : la pose et « Régler » proposent les mêmes appareils (la règle de la page, choixDePose, suit celle du serveur)', async () => {
+  const win: Record<string, any> = { document: { documentElement: { lang: 'fr' } } };
+  for (const src of [PAGE_JS, RENDU]) vm.runInNewContext(src, { window: win, document: win.document, Intl });
+  const M = win.OdinWidgetsMaisonAppareils, e = await v.json('/api/maison/etat');
+  assert.equal(e.status, 200); assert.ok(Array.isArray(e.body.rooms));
+  const lui = await donnees();
+  for (const [k, id] of [['maison_lumiere', ID.lumiere], ['maison_capteur', ID.capteur], ['maison_appareil', ID.prise]] as const) {
+    const serveur = ((lui.de(id) as unknown as { choix?: Array<{ cible: string }> }).choix ?? []).map((c) => c.cible), cotePage: string[] = (M.choixDePose(k, e.body.rooms) ?? []).map((c: { cible: string }) => c.cible);
+    assert.ok(serveur.length >= 1, k); assert.deepEqual([...cotePage].sort(), [...serveur].sort(), `${k} : les mêmes appareils`);
+  }
+});
+
 // ------------------------------------------------------------------ dans un vrai navigateur (s'il y en a un)
 
-declare const document: any, window: any, getComputedStyle: any;
+declare const document: any, window: any, getComputedStyle: any, DataTransfer: any, DragEvent: any, NodeFilter: any;
+type DOMRect = { left: number; right: number; top: number; bottom: number; width: number; height: number };
 interface Requete { method(): string; postDataJSON(): any }
 interface Route { fetch(): Promise<{ json(): Promise<any> }>; fulfill(o: Record<string, unknown>): Promise<void>; continue(): Promise<void>; request(): Requete }
 interface Page {
   goto(u: string): Promise<unknown>; waitForSelector(s: string, o?: Record<string, unknown>): Promise<unknown>;
   evaluate<X>(f: string | ((a?: any) => X), a?: unknown): Promise<X>; route(u: string | RegExp, h: (r: Route) => Promise<void> | void): Promise<void>;
-  on(e: string, f: (x: any) => void): void; screenshot(o: Record<string, unknown>): Promise<unknown>; click(s: string): Promise<void>; focus(s: string): Promise<void>;
+  on(e: string, f: (x: any) => void): void; screenshot(o: Record<string, unknown>): Promise<unknown>; click(s: string, o?: Record<string, unknown>): Promise<void>; dblclick(s: string): Promise<void>; focus(s: string): Promise<void>;
   keyboard: { press(k: string): Promise<void> }; waitForTimeout(ms: number): Promise<void>;
 }
 interface Contexte { newPage(): Promise<Page>; addCookies(c: unknown[]): Promise<void>; addInitScript(f: string): Promise<void>; close(): Promise<void> }
@@ -674,6 +759,9 @@ for (const largeur of [1280, 390] as const) {
 
 test('navigateur, 390 px : un appareil choisi puis retiré d\'Odin — la carte dit « Cet appareil n\'existe plus » ; « Régler » le montre sous un mot neutre, jamais son identifiant', { skip: sansNav }, async () => {
   await rangerRg(FENETRE_RG());
+  // Suit la vérification à l'enregistrement (une cible neuve qui ne désigne rien est retirée) : la cible de l'appareil
+  // retiré est posée comme rangée quand il existait encore.
+  { const g = valhallaOf()!.ctx('gladsheim'), l = JSON.parse(JSON.stringify(g.settings.fenetre)); l.pages.flatMap((p: { widgets: Widget[] }) => p.widgets).find((w: Widget) => w.id === ID_RG.parti).cible = 'appareil:essai_parti_42'; g.saveSettings({ fenetre: l }); }
   const { ctx, page: p, erreurs } = await ouvrir(390, true);
   try {
     await p.waitForSelector(`${carteRg(ID_RG.parti)} .wma [data-action=choisir]`, { timeout: 30000 });
@@ -690,3 +778,184 @@ test('navigateur, 390 px : un appareil choisi puis retiré d\'Odin — la carte 
     assert.deepEqual(erreurs, []);
   } finally { await ctx.close(); await rangerRg(FENETRE()); }
 });
+
+// ------------------------------------------------------------------ la pose depuis le tiroir ; « Régler » d'un petit chiffre (navigateur)
+
+/** Ce que l'écran de la maison reçoit, réduit pour la page seule (une seule lumière, aucune) : la vérification au rangement lit toujours les vrais. */
+const reduire = (p: Page, garder: (d: { id: string; kind: string }) => boolean) => p.route(/\/api\/maison\/etat/, async (r) => {
+  const rep = await r.fetch(), j = await rep.json(); j.rooms = (j.rooms ?? []).map((x: any) => ({ ...x, devices: (x.devices ?? []).filter(garder) })); await r.fulfill({ response: rep, json: j });
+});
+const modifierP = async (p: Page) => { await p.click('#fenetre .fe-mod'); await p.waitForSelector('#fenetre .fe-ajout'); };
+const tiroirP = async (p: Page) => { await p.click('#fenetre .fe-ajout'); await p.waitForSelector('#feTiroir.open'); await p.waitForTimeout(350); };
+const cartes = (p: Page) => p.evaluate(() => [...document.querySelectorAll('#feGrid > .fe-w')].map((c: any) => c.dataset.id as string));
+const rangees = () => ((valhallaOf()!.ctx('gladsheim').settings.fenetre ?? { pages: [] }) as { pages: Array<{ widgets: Widget[] }> }).pages.flatMap((x) => x.widgets);
+const taille44 = (p: Page, sel: string) => p.evaluate((s: string) => { const n = document.querySelector(s); if (!n || !n.getClientRects().length) return null; return [n.offsetWidth, n.offsetHeight]; }, sel); // la taille posée (pas celle d'une animation en cours)
+
+for (const largeur of [1280, 390] as const) {
+  test(`navigateur, ${largeur} px : poser « Lumière » avec trois lumières — « Régler » s'ouvre aussitôt sur le choix ; choisir ; annuler laisse « Choisir une lumière », qui rouvre « Régler »`, { skip: sansNav }, async () => {
+    await rangerRg(FENETRE());
+    const { ctx, page: p, erreurs } = await ouvrir(largeur, false);
+    try {
+      const avant = await cartes(p);
+      await modifierP(p); await tiroirP(p);
+      await p.click('#feTiroir button[aria-label="Ajouter Lumière"]');
+      await p.waitForSelector('dialog.wr-regler[open] #wrRCi', { timeout: 15000 });
+      let a = (await regard(p))!;
+      assert.equal(a.label, 'La lumière montrée');
+      // Ouverte par la pose : le focus est sur le choix demandé (pas sur « Titre affiché »).
+      await attendreQue(p, () => document.activeElement?.id === 'wrRCi', '');
+      // Rangées par pièce, comme l'écran de la maison les reçoit (« Régler » d'un widget déjà rangé : l'ordre de Midgard).
+      assert.equal(a.valeurs[0], ''); assert.deepEqual([...a.valeurs].sort(), ['', 'appareil:essai_l1', 'appareil:essai_l2', 'appareil:essai_l3'], 'les trois lumières, rien d\'autre');
+      assert.ok(a.options.every((t: string) => !/essai_/.test(t)), `jamais un identifiant : ${JSON.stringify(a.options)}`);
+      assert.equal(a.deborde, false); assert.ok(a.haut >= 44 - 0.5);
+      const apres = await cartes(p); assert.deepEqual(apres.slice(0, -1), avant, 'posée à la fin'); const une = apres[apres.length - 1];
+      await choisir(p, 'appareil:essai_l2'); a = (await regard(p))!; assert.equal(a.propose, 'Appareil l2');
+      await cliquerTexte(p, 'dialog.wr-regler button', 'Valider'); await attendreQue(p, () => !document.querySelector('dialog.wr-regler[open]'), '');
+      // Une seconde, et « Annuler » : la carte dit quoi faire, son bouton rouvre « Régler ».
+      await tiroirP(p); await p.click('#feTiroir button[aria-label="Ajouter Lumière"]');
+      await p.waitForSelector('dialog.wr-regler[open] #wrRCi', { timeout: 15000 });
+      const deux = (await cartes(p)).slice(-1)[0]; assert.notEqual(deux, une);
+      await cliquerTexte(p, 'dialog.wr-regler button', 'Annuler'); await attendreQue(p, () => !document.querySelector('dialog.wr-regler[open]'), '');
+      const choisirSel = `${carteRg(deux)} .wma [data-action=choisir]`;
+      await p.waitForSelector(choisirSel, { timeout: 10000 });
+      assert.equal(await p.evaluate((s: string) => document.querySelector(s).textContent, choisirSel), 'Choisir une lumière');
+      assert.match(await p.evaluate((s: string) => document.querySelector(`${s} .wma`).textContent, carteRg(deux)), /Aucune lumière choisie/);
+      const t = await taille44(p, choisirSel); assert.ok(t && t[0] >= 44 && t[1] >= 44, `44 px (${t})`);
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1), false, 'rien ne déborde');
+      // Un vrai appui, au point du bouton (souris ou doigt) : en mode « Modifier », les commandes de la carte ne
+      // réagissent pas, mais « Choisir » n'envoie aucune commande et doit répondre. L'animation de la pose finie d'abord.
+      await attendreQue(p, (s: string) => !document.querySelector(s)?.closest('.fe-w')?.classList.contains('fe-pop'), choisirSel);
+      await p.evaluate((s: string) => document.querySelector(s).scrollIntoView({ block: 'center' }), choisirSel); await p.waitForTimeout(300);
+      assert.equal(await p.evaluate((s: string) => { const b = document.querySelector(s), r = b.getBoundingClientRect(), n = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return n === b ? '' : String(n?.className ?? n); }, choisirSel), '', "« Choisir une lumière » reçoit l'appui à son point");
+      await p.click(choisirSel, { timeout: 5000 }); await p.waitForSelector('dialog.wr-regler[open] #wrRCi');
+      a = (await regard(p))!; assert.deepEqual([...a.valeurs].sort(), ['', 'appareil:essai_l1', 'appareil:essai_l2', 'appareil:essai_l3'], 'la même liste');
+      await cliquerTexte(p, 'dialog.wr-regler button', 'Annuler'); await attendreQue(p, () => !document.querySelector('dialog.wr-regler[open]'), '');
+      // « Terminé » : la première montre la lampe choisie et ses commandes ; la seconde reste « pas encore choisie ».
+      await cliquerTexte(p, '#fenetre button', 'Terminé');
+      await attendreQue(p, (s: string) => /Appareil l2/.test(document.querySelector(`${s} .wma`)?.textContent ?? '') && Boolean(document.querySelector(`${s} [data-code=interrupteur]`)), carteRg(une));
+      await p.waitForSelector(`${carteRg(deux)} .wma [data-action=choisir]`);
+      assert.deepEqual([rangees().find((w) => w.id === une)?.cible, rangees().find((w) => w.id === deux)?.cible], ['appareil:essai_l2', undefined]);
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/pose-trois-${largeur}.png`, fullPage: true });
+      assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
+    } finally { await ctx.close(); await rangerRg(FENETRE()); }
+  });
+
+  test(`navigateur, ${largeur} px : poser « Lumière » avec une seule lumière — prise d'office (au bouton comme au glisser) ; sans aucune lumière, rien n'est posé et le tiroir le dit`, { skip: sansNav }, async () => {
+    await rangerRg(FENETRE());
+    const { ctx, page: p, erreurs } = await ouvrir(largeur, false);
+    try {
+      let seule = true;
+      await reduire(p, (d) => d.kind !== 'lumière' || (seule && d.id === 'essai_l1'));
+      const avant = await cartes(p);
+      await modifierP(p); await tiroirP(p);
+      // Deux appuis coup sur coup (pendant la lecture des appareils) : un seul widget est posé.
+      await p.dblclick('#feTiroir button[aria-label="Ajouter Lumière"]');
+      await attendreQue(p, (n: any) => document.querySelectorAll('#feGrid > .fe-w').length === Number(n), String(avant.length + 1));
+      await p.waitForTimeout(600);
+      assert.equal((await cartes(p)).length, avant.length + 1, 'deux appuis rapides : un seul widget');
+      assert.equal(await p.evaluate(() => Boolean(document.querySelector('dialog.wr-regler[open]'))), false, 'aucun choix à faire : « Régler » ne s\'ouvre pas');
+      const une = (await cartes(p)).slice(-1)[0];
+      // Au glisser : la ligne refaite d'après sa déclaration (une cible glissée d'ailleurs n'est jamais reprise).
+      await p.evaluate(() => { const dt = new DataTransfer(); dt.setData('text/odin-module', JSON.stringify({ kind: 'maison_lumiere', cible: 'appareil:essai_l3', c: 12 })); document.querySelector('#feGrid').dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); });
+      await attendreQue(p, (n: any) => document.querySelectorAll('#feGrid > .fe-w').length === Number(n), String(avant.length + 2));
+      const glissee = (await cartes(p)).slice(-1)[0];
+      // Aucune lumière : rien n'est posé, la ligne du tiroir le dit.
+      seule = false;
+      await tiroirP(p); await p.click('#feTiroir button[aria-label="Ajouter Lumière"]');
+      await attendreQue(p, () => /Aucune lumière dans la maison/.test([...document.querySelectorAll('#feTiroir .fe-it')].find((n: any) => n.querySelector('b')?.textContent === 'Lumière')?.textContent ?? ''), '');
+      assert.equal((await cartes(p)).length, avant.length + 2, 'rien de posé');
+      assert.equal(await p.evaluate(() => Boolean(document.querySelector('#feTiroir.open'))), true, 'le tiroir reste ouvert');
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 || document.querySelector('#feTiroir').scrollWidth > document.querySelector('#feTiroir').clientWidth + 1), false, 'rien ne déborde');
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/pose-aucune-${largeur}.png` });
+      await p.keyboard.press('Escape');
+      await cliquerTexte(p, '#fenetre button', 'Terminé');
+      await attendreQue(p, (s: string) => /Appareil l1/.test(document.querySelector(`${s} .wma`)?.textContent ?? '') && Boolean(document.querySelector(`${s} [data-code=interrupteur]`)), carteRg(une));
+      assert.deepEqual([une, glissee].map((id) => rangees().find((w) => w.id === id)?.cible), ['appareil:essai_l1', 'appareil:essai_l1'], 'l\'unique lumière, prise d\'office');
+      assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
+    } finally { await ctx.close(); await rangerRg(FENETRE()); }
+  });
+}
+
+test("navigateur, 1280 px : une autre page ouverte pendant la lecture des appareils — rien n'est posé sur elle", { skip: sansNav }, async () => {
+  const f = FENETRE(); f.pages.push({ id: 'b3800002', name: 'Deux', widgets: [] } as never); await rangerRg(f);
+  const { ctx, page: p, erreurs } = await ouvrir(1280, false);
+  try {
+    // Une seule lumière, lue lentement (la box sur le réseau) : le temps de changer de page.
+    await p.route(/\/api\/maison\/etat/, async (r) => {
+      const rep = await r.fetch(), j = await rep.json(); j.rooms = (j.rooms ?? []).map((x: any) => ({ ...x, devices: (x.devices ?? []).filter((d: any) => d.kind !== 'lumière' || d.id === 'essai_l1') }));
+      await new Promise((ok) => setTimeout(ok, 1500)); await r.fulfill({ response: rep, json: j });
+    });
+    const avant = await cartes(p);
+    await modifierP(p); await tiroirP(p);
+    await p.click('#feTiroir button[aria-label="Ajouter Lumière"]');
+    await p.keyboard.press('Escape'); await attendreQue(p, () => !document.querySelector('#feTiroir.open'), '');
+    await cliquerTexte(p, '#fenetre .fe-tools .fe-tab', 'Deux');
+    await attendreQue(p, () => document.querySelector('#fenetre .fe-tools .fe-tab[aria-pressed="true"]')?.textContent?.trim() === 'Deux', '');
+    await p.waitForTimeout(2500);
+    assert.deepEqual(await cartes(p), [], 'rien de posé sur la page ouverte entre-temps');
+    await cliquerTexte(p, '#fenetre .fe-tools .fe-tab', 'Maison'); await p.waitForTimeout(500);
+    assert.deepEqual(await cartes(p), avant, 'ni sur la page de départ');
+    assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
+  } finally { await ctx.close(); await rangerRg(FENETRE()); }
+});
+
+/** Deux petits chiffres de plus sur la page : la température, les appareils allumés. */
+const ID_PC = { temp: 'd38000c1', allumes: 'd38000c2' };
+const FENETRE_PC = () => { const f = FENETRE(); f.pages[0].widgets.unshift({ id: ID_PC.temp, kind: 'maison_temperature', w: 1, c: 2, r: 1, pr: 1 } as never, { id: ID_PC.allumes, kind: 'maison_allumes', w: 1, c: 2, r: 1, pr: 1 } as never); return f; };
+for (const largeur of [390, 1280, 320, 1920, 768] as const) {
+  test(`navigateur, ${largeur} px : en mode « Modifier », un petit chiffre a son « ⋯ » (44 px, nommé, au clavier et au doigt) qui ouvre « Régler » ; « Température » choisit sa pièce, le chiffre suit ; sa taille ne change pas`, { skip: sansNav }, async () => {
+    // Un second capteur de température, dans une autre pièce (la moyenne n'est plus celle d'une seule pièce).
+    annonce('sensor', 't2', { unit_of_measurement: '°C', command_topic: undefined, device: { suggested_area: 'Chambre' } }); await connus(['essai_t2']); etatDe('t2', '18');
+    await rangerRg(FENETRE_PC());
+    const { ctx, page: p, erreurs } = await ouvrir(largeur, false);
+    try {
+      const temp = carteRg(ID_PC.temp), allumes = carteRg(ID_PC.allumes), boite = (s: string) => p.evaluate((x: string) => { const r = document.querySelector(x).getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }, s);
+      await attendreQue(p, (s: string) => /Moyenne de 2/.test(document.querySelector(s)?.textContent ?? ''), temp);
+      const tailles = [await boite(temp), await boite(allumes)];
+      assert.equal(await taille44(p, `${temp} .fe-regp`), null, 'hors du mode « Modifier » : rien de plus');
+      await modifierP(p);
+      assert.deepEqual([await boite(temp), await boite(allumes)], tailles, 'la taille de la maquette ne change pas');
+      for (const s of [temp, allumes]) { const t = await taille44(p, `${s} .fe-regp`); assert.ok(t && t[0] >= 44 && t[1] >= 44, `${s} : 44 px (${t})`); }
+      // Il ne couvre ni la poignée ni les autres boutons du mode.
+      const chevauche = await p.evaluate((x: string) => { const c = document.querySelector(x), r = c.querySelector('.fe-regp').getBoundingClientRect(); return [...c.querySelectorAll('.fe-grip, .fe-chrome button:not(.fe-regp)')].filter((n: any) => { const q = n.getBoundingClientRect(); return q.width && r.left < q.right - 0.5 && q.left < r.right - 0.5 && r.top < q.bottom - 0.5 && q.top < r.bottom - 0.5; }).map((n: any) => n.className || n.getAttribute('aria-label')); }, temp);
+      assert.deepEqual(chevauche, [], 'rien ne se chevauche');
+      // Ni l'icône de la carte (ces cartes n'ont pas de titre : l'icône les distingue) ni son texte ne sont couverts.
+      for (const s of [temp, allumes]) {
+        const couvert = await p.evaluate((x: string) => {
+          const c = document.querySelector(x), r = c.querySelector('.fe-regp').getBoundingClientRect(), out: string[] = [];
+          const touche = (q: DOMRect) => q.width > 0 && q.height > 0 && r.left < q.right - 0.5 && q.left < r.right - 0.5 && r.top < q.bottom - 0.5 && q.top < r.bottom - 0.5;
+          for (const n of c.querySelectorAll('.wmc-ic, .wmc-go')) if (touche(n.getBoundingClientRect())) out.push(n.className);
+          const it = document.createTreeWalker(c.querySelector('.wmc') ?? c, NodeFilter.SHOW_TEXT);
+          for (let t = it.nextNode(); t; t = it.nextNode()) {
+            if (!t.textContent.trim() || t.parentElement.closest('.wr-sr, .fe-chrome')) continue;
+            const g = document.createRange(); g.selectNodeContents(t);
+            if ([...g.getClientRects()].some(touche)) out.push(t.textContent.trim());
+          }
+          return out;
+        }, s);
+        assert.deepEqual(couvert, [], `${s} : le « ⋯ » ne couvre ni l'icône ni le texte`);
+      }
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/petit-modifier-${largeur}.png` });
+      assert.match(await p.evaluate((s: string) => document.querySelector(`${s} .fe-regp`).getAttribute('aria-label'), temp), /Température/, 'son nom est dit aux lecteurs d\'écran');
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1), false, 'rien ne déborde');
+      // Au clavier : Entrée l'ouvre ; « Annuler » rend le focus au même bouton.
+      await p.focus(`${temp} .fe-regp`); await p.keyboard.press('Enter');
+      await p.waitForSelector('dialog.wr-regler[open] #wrRCi');
+      let a = (await regard(p))!;
+      assert.equal(a.label, 'Ce qu\'il mesure'); assert.ok(a.valeurs.includes('piece:Chambre') && a.valeurs.includes('piece:Salon'), JSON.stringify(a.valeurs));
+      await cliquerTexte(p, 'dialog.wr-regler button', 'Annuler'); await attendreQue(p, () => !document.querySelector('dialog.wr-regler[open]'), '');
+      await attendreQue(p, (s: string) => document.activeElement === document.querySelector(`${s} .fe-regp`), temp);
+      // Au doigt (ou à la souris) : choisir « Chambre », Valider, Terminé : le chiffre est celui de la Chambre.
+      await p.click(`${temp} .fe-regp`); await p.waitForSelector('dialog.wr-regler[open] #wrRCi');
+      await choisir(p, 'piece:Chambre'); a = (await regard(p))!; assert.equal(a.deborde, false);
+      await cliquerTexte(p, 'dialog.wr-regler button', 'Valider'); await attendreQue(p, () => !document.querySelector('dialog.wr-regler[open]'), '');
+      await attendreQue(p, (s: string) => document.activeElement === document.querySelector(`${s} .fe-regp`), temp);
+      await cliquerTexte(p, '#fenetre button', 'Terminé');
+      await attendreQue(p, (s: string) => /18\s*°C/.test(document.querySelector(s)?.textContent ?? '') && /Chambre/.test(document.querySelector(s)?.textContent ?? ''), temp);
+      assert.equal(rangees().find((w) => w.id === ID_PC.temp)?.cible, 'piece:Chambre');
+      assert.deepEqual([await boite(temp), await boite(allumes)], tailles, 'toujours la même taille');
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/petit-regler-${largeur}.png`, fullPage: true });
+      assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
+    } finally { await ctx.close(); await rangerRg(FENETRE()); }
+  });
+}

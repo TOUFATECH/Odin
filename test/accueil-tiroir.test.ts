@@ -145,7 +145,10 @@ test('relecture : un glisser venu d\'ailleurs ne pose qu\'une ligne du tiroir, r
   assert.equal(g(''), null); assert.equal(g(undefined), null); assert.equal(g('[1]'), null);
   // Le widget d'une appli glissé (sa ligne pose le widget « appli ») est refait à la taille déclarée par sa famille,
   // comme « Ajouter » (test/widgets-generique.test.ts) ; le reste passe tel que glisse l'a refait.
-  assert.match(fonction('draw'), /const w = OT\.glisse\(e\.dataTransfer\.getData\('text\/odin-module'\)\); if \(w\) add\(w\.kind === 'appli' \? widgetDeLAppli\(w\.module\) : w\);/, 'la grille passe par lui');
+  // Suit la pose depuis le tiroir : ce que glisse ne connaît pas va à poserGlisse, qui ne pose qu'une sorte déclarée qui
+  // montre UN appareil choisi, refaite d'après sa déclaration (jamais ce qui vient du glisser).
+  assert.match(fonction('draw'), /const brut = e\.dataTransfer\.getData\('text\/odin-module'\), w = OT\.glisse\(brut\); if \(w\) add\(w\.kind === 'appli' \? widgetDeLAppli\(w\.module\) : w\); else poserGlisse\(brut\);/, 'la grille passe par lui');
+  assert.match(fonction('poserGlisse'), /R\.posables\(\{ proprio, aDroit \}\)\.find\([\s\S]*poser\(d\.w\)/, 'refaite d\'après sa déclaration');
   assert.deepEqual(g(JSON.stringify({ kind: 'appli', module: 'alpha', action: 'retirer', c: 12 })), { kind: 'appli', module: 'alpha' }, 'le widget d\'une appli : rien d\'autre n\'est gardé');
   assert.equal(g(JSON.stringify({ kind: 'appli', module: '../x' })), null);
 });
@@ -290,10 +293,11 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     // « stockage » : les volumes, partages et disques de la machine d'Odin, lus par Pyramide). Puis les deux de la famille
     // « sante » (la santé de la machine d'Odin, lue par Hygie, et de ses disques, lus par Tirésias). Puis les six petits
     // chiffres de la famille « maison » (allumés, lumières, serrures, température, humidité, watts des prises). Puis la
-    // maison d'un coup d'œil, même famille (ses scènes, le bandeau d'état, « Ma maison »). Puis « Pièces », même famille
-    // (un appareil, une lumière, un capteur n'y ont pas de ligne : ils montrent l'appareil choisi dans « Régler », qui ne
-    // sait pas encore le choisir). Puis « Réseau » (famille « reseau », proposé au propriétaire : ses appareils du réseau).
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1 + 1 + 2 + 6 + 3 + 1 + 1);
+    // maison d'un coup d'œil, même famille (ses scènes, le bandeau d'état, « Ma maison »). Puis un appareil, une lumière,
+    // un capteur et « Pièces », même famille (suit la pose depuis le tiroir : les trois premiers y ont leur ligne, l'unique
+    // appareil du genre pris d'office, sinon « Régler » aussitôt ; avant : « Pièces » seule). Puis « Réseau » (famille
+    // « reseau », proposé au propriétaire : ses appareils du réseau).
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1 + 1 + 2 + 6 + 3 + 3 + 1 + 1);
     // L'appli désactivée : grisée, « désactivée », aucun bouton.
     const nomEteinte = cat.modules.find((m) => m.id === eteinte)!.name;
     const off = await page.evaluate(`(() => { const l = [...document.querySelectorAll('#feTiroir .fe-it')].find((x) => x.querySelector('b')?.textContent === ${JSON.stringify(nomEteinte)}); return l ? { off: l.classList.contains('off'), bouton: Boolean(l.querySelector('button')), texte: l.textContent } : null; })()`) as { off: boolean; bouton: boolean; texte: string } | null;
