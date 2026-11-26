@@ -8,9 +8,9 @@ import type { View } from '../types.ts';
 /**
  * Les quatre familles de la maquette (une par fichier), la veille (les alertes, les sites d'Arachné : veille.ts) et les
  * listes d'Odin (l'agenda de Chronos, les recherches de Pythie, les sauvegardes de Phénix, les pubs bloquées par
- * Sphinx : listes.ts).
+ * Sphinx : listes.ts). Puis le widget de n'importe quelle appli (applis.ts).
  */
-export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes';
+export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes' | 'applis';
 /**
  * Qui peut recevoir un widget de cette sorte, au plus (constat M12, trois niveaux) :
  * - `proprietaire` : lui seul (le défaut, quand rien n'est écrit) ;
@@ -99,6 +99,12 @@ export interface SourceWidget {
    * ni domaine, ni appareil. Rien : Sphinx n'est pas là. Absente : pas lue.
    */
   blocages?(): { fuseau: string; allume: boolean; questions: number; bloquees: number; depuis?: number; complet: boolean } | undefined;
+  /**
+   * Ce que le catalogue d'Odin dit d'une appli, pour son widget : son nom, sa famille, sa phrase, activée ou non, et ses
+   * actions rapides (celles de sa page : rapides, sans champ obligatoire), chacune grave ou non. Rien (undefined) :
+   * l'appli n'existe pas (inconnue, retirée). Absente : pas lue.
+   */
+  ficheAppli?(id: string): { id: string; name: string; family: string; what: string; active: boolean; actions: ReadonlyArray<{ id: string; label: string; grave: boolean }> } | undefined;
 }
 
 /** Un site surveillé par Arachné, tel qu'un widget le lit (src/valhalla/modules/idunn.ts, sitesVeille). */

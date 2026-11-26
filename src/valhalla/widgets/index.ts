@@ -8,13 +8,14 @@ import { SORTES_MAISON } from './maison.ts';
 import { SORTES_ODIN } from './odin.ts';
 import { SORTES_VEILLE } from './veille.ts';
 import { SORTES_LISTES } from './listes.ts';
+import { SORTES_APPLIS } from './applis.ts';
 import type { EtatWidget, Famille, Lecteur, Public, SourceWidget, SorteWidget } from './sorte.ts';
 
 export type { EtatWidget, Famille, Lecteur, Public, Qui, Ecran, SourceWidget, SorteWidget } from './sorte.ts';
 export { ETATS } from './sorte.ts';
 
 /** Toutes les sortes, famille par famille. */
-export const SORTES = [...SORTES_INFOS, ...SORTES_ODIN, ...SORTES_MAISON, ...SORTES_AUJOURDHUI, ...SORTES_VEILLE, ...SORTES_LISTES] as const;
+export const SORTES = [...SORTES_INFOS, ...SORTES_ODIN, ...SORTES_MAISON, ...SORTES_AUJOURDHUI, ...SORTES_VEILLE, ...SORTES_LISTES, ...SORTES_APPLIS] as const;
 type Sorte = (typeof SORTES)[number];
 /** Les identifiants des sortes que cleanLayout accepte aujourd'hui (l'écran sait les dessiner). */
 export type IdSortePosable = Extract<Sorte, { posable: true }>['id'];
@@ -35,6 +36,17 @@ export const publicDe = (s: SorteWidget): Public => s.public ?? 'proprietaire';
 export const accueilSeulement = (kind: unknown): boolean => { const s = sorteDe(kind); return !s || s.accueilSeul === true; };
 /** Peut-on la servir à l'écran de la maison (/maison), à qui que ce soit ? */
 export const servieALaMaison = (kind: unknown): boolean => !accueilSeulement(kind);
+/**
+ * LA règle de l'écran de la maison (/maison) : une sorte peut-elle y aller, à qui que ce soit ? Jamais une sorte
+ * réservée à l'accueil du propriétaire (constat G4), jamais une sorte « propriétaire seul » (son agenda, ses
+ * recherches, ses sauvegardes… : un écran au mur se lit par toute la maison, même ouvert par sa session ou par une clé
+ * « complet »), jamais une sorte qui lit toujours une appli de la vie privée (« ses alertes » : Forseti), jamais une
+ * sorte inconnue. Les autres : selon leur public (droitDeVoir). Pur.
+ */
+export const admiseALaMaison = (kind: unknown): boolean => {
+  const s = sorteDe(kind);
+  return Boolean(s) && !s!.accueilSeul && publicDe(s!) !== 'proprietaire' && (s!.applis === 'choisie' || !s!.applis.some((a) => APPLIS_VIE_PRIVEE.includes(a)));
+};
 /** Peut-on la « copier vers l'autre écran » ? Jamais pour les quatre sortes réservées à l'accueil. */
 export const copiable = (kind: unknown): boolean => !accueilSeulement(kind);
 
@@ -98,7 +110,10 @@ export function droitDeVoir(w: Pick<Widget, 'id' | 'kind' | 'module'>, l: Lecteu
   if (!QUI.includes(l?.qui) || !ECRANS.includes(l.ecran)) return { etat: 'refuse', raison: 'lecteur_inconnu' };
   // Les quatre sortes de l'accueil : à lui seul, sur l'accueil seul. Pas même au propriétaire sur l'écran de la maison.
   if (s.accueilSeul && (l.ecran !== 'accueil' || l.qui !== 'proprietaire')) return { etat: 'refuse', raison: 'accueil_du_proprietaire' };
-  if (l.qui === 'proprietaire') return undefined;
+  // L'écran de la maison : une sorte que la règle n'y admet pas (admiseALaMaison) n'y est servie à personne, lui compris.
+  // Le refus ne remplace que le « oui » d'avant : un refus qui existait garde sa raison.
+  const pasALaMaison = (): EtatWidget | undefined => (l.ecran === 'maison' && !admiseALaMaison(w.kind) ? { etat: 'refuse', raison: 'proprietaire_seul' } : undefined);
+  if (l.qui === 'proprietaire') return pasALaMaison();
   const p = publicDe(s);
   if (p === 'proprietaire') return { etat: 'refuse', raison: 'proprietaire_seul' };
   if (l.qui === 'maison') {
@@ -113,7 +128,7 @@ export function droitDeVoir(w: Pick<Widget, 'id' | 'kind' | 'module'>, l: Lecteu
   // La vie privée : fermée tant qu'il ne l'a pas ouverte à cette personne, widget par widget et pour l'appli lue.
   const fermee = applisLues(w, s).find((a) => APPLIS_VIE_PRIVEE.includes(a) && !l.ouverts?.has(cleOuverture(w, a)));
   if (fermee) return { etat: 'refuse', raison: 'vie_privee', appli: fermee };
-  return undefined;
+  return pasALaMaison();
 }
 
 /**

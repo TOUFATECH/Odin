@@ -17,6 +17,8 @@
   // Les textes ajoutés au lot 15 (tirer le coin, les sept tailles), en un seul endroit.
   const TXT = {
     tailles: { petit: 'Petit', moyen: 'Moyen', large: 'Large', haut: 'Haut', grand: 'Grand', tresGrand: 'Très grand', bandeau: 'Bandeau' },
+    // « Régler » d'un widget dont l'appli se choisit (le widget « appli ») : le nom du champ.
+    appliMontree: 'L\'appli montrée',
     boutonTailles: 'Choisir une taille', titreTailles: 'Taille du module', aideTailles: 'Ou tire le coin du module en mode Modifier, à la case près ; au clavier, Maj + flèches sur la poignée.',
     miniTailles: (m) => `Plus petit que ${m} : refusé pour ce module.`, aucuneTaille: 'Choisis une taille.', poignee: 'Déplacer (flèches) · Maj + flèches : changer la taille',
     taille: (t) => `Taille ${t}`, remise: (t) => `Taille remise à ${t}.`, refusee: (t) => `Taille ${t} : c'est la plus petite (ou la plus grande) possible pour ce module.`,
@@ -202,6 +204,13 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   const nomDe = (p) => p?.name || TXT.pages[p?.code] || '';
   const modName = (id) => cat?.modules?.find((m) => m.id === id)?.name ?? id;
   const modFam = (id) => cat?.modules?.find((m) => m.id === id)?.family ?? '';
+  /** Le nom d'une appli que le catalogue de qui regarde connaît ; une appli retirée ou inconnue : rien (jamais son identifiant). */
+  const nomConnu = (id) => (id ? cat?.modules?.find((m) => m.id === id)?.name ?? '' : '');
+  /**
+   * Le widget que pose la ligne d'une appli dans « Ajouter un widget » (ou glissée) : le widget « appli » de cette appli,
+   * à la taille que sa famille a déclarée (pages/widgets-applis.js). Sans cette famille : ses chiffres clés, comme avant.
+   */
+  const widgetDeLAppli = (id) => { const rf = R.rendu('appli'); return rf ? { ...rf.w, module: id } : { kind: 'chiffres', module: id }; };
 
   async function load() {
     const [f, c] = await Promise.all([act('gladsheim', 'fenetre'), cat ? Promise.resolve(cat) : api('/api/valhalla/catalog')]);
@@ -312,6 +321,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     if (w.label) return w.label;
     if (w.kind === 'section' && w.section) return w.section;
     if (w.kind === 'bouton' && w.action) return w.action;
+    // Une sorte déclarée dont l'appli se choisit (le widget « appli ») : le nom de son appli ; retirée, inconnue ou
+    // fermée à qui regarde : le titre neutre de la sorte.
+    if (w.module && renduDe(w) && !renduDe(w).appli) return (!clos && nomConnu(w.module)) || renduDe(w).titre;
     const rf = renduDe(w); if (rf) return rf.titre;
     if (TXT.titres[w.kind]) return TXT.titres[w.kind];
     return !clos && cat?.modules?.some((m) => m.id === w.module) ? modName(w.module) : TXT.titres.sansTitre;
@@ -384,7 +396,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     box.append(grip, chrome, rz, szb);
     // L'état du widget (lot 25a) : celui du serveur pour le propriétaire, sinon ce que la page sait voir. Refusé : le
     // titre de la fenêtre et la tuile grisée, une ligne, jamais la donnée ni un bouton ; ancien : la pastille.
-    const d = R.decrire(etatDe(w) ?? { etat: 'ok' }, { proprio, appli: modName(appliDe(w)), titre: titreDe(w), maintenant: Date.now(), peutAgir: (r) => peutAgir(w, r),
+    const d = R.decrire(etatDe(w) ?? { etat: 'ok' }, { proprio, appli: nomConnu(appliDe(w)), titre: titreDe(w), maintenant: Date.now(), peutAgir: (r) => peutAgir(w, r),
       vide: [...(vueDe(w)?.sections ?? []), ...(vueDe(w)?.side ?? [])].find((x) => x.title === w.section)?.empty });
     // L'en-tête de la maquette : la tuile de l'appli (comme sur la page Applis), sinon un symbole ; le titre, le
     // sous-titre ; « Ouvrir › » ; « ⋯ » pour le propriétaire.
@@ -403,7 +415,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // widget n'est pas encore rangé ; sinon, la lecture n'a pas répondu. Un petit chiffre garde sa taille dans chaque
     // état : ni en-tête, ni « ⋯ », ni bouton ; sans donnée, son état court (l'icône de l'état, deux ou trois mots).
     if (rf) {
-      const s = etats?.get(w.id), e = s && s.sig === sigDe(w) ? s.e : undefined, nomAppli = appliDe(w) ? modName(appliDe(w)) : '';
+      const s = etats?.get(w.id), e = s && s.sig === sigDe(w) ? s.e : undefined, nomAppli = nomConnu(appliDe(w));
       const o = { w, titre: titreDe(w), nomAppli, pastille: d.pastille, ecran: 'accueil' };
       const corps = e && R.dessineElleMeme(rf, d) ? R.dessiner(rf, e, o) : null;
       const dd = corps || !d.donnee ? d : R.decrire(edit && !e ? { etat: 'vide', raison: 'pas_range' } : { etat: 'source_absente', raison: 'lecture_echouee' }, { proprio, appli: nomAppli, titre: o.titre, peutAgir: (r) => peutAgir(w, r) });
@@ -499,7 +511,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const grid = el('div', { class: 'fe-grid', id: 'feGrid' });
     for (const w of page().widgets) grid.append(await widget(w));
     if (!page().widgets.length) grid.append(el('div', { class: 'fe-drop', style: 'grid-column:1/-1' }, edit ? 'Page vide : « Ajouter un widget » pour en poser un.' : 'Page vide : « Modifier » pour ajouter des modules.'));
-    if (edit) { grid.addEventListener('dragover', (e) => e.preventDefault()); grid.addEventListener('drop', (e) => { e.preventDefault(); const w = OT.glisse(e.dataTransfer.getData('text/odin-module')); if (w) add(w); }); }
+    if (edit) { grid.addEventListener('dragover', (e) => e.preventDefault()); grid.addEventListener('drop', (e) => { e.preventDefault(); const w = OT.glisse(e.dataTransfer.getData('text/odin-module')); if (w) add(w.kind === 'appli' ? widgetDeLAppli(w.module) : w); }); }
     // En mode Modifier : la tuile « Ajouter un widget » en fin de grille, et le tiroir qu'elle ouvre (fermé).
     const tuile = edit ? el('button', { class: 'fe-ajout', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirTiroir }, el('span', { 'aria-hidden': 'true' }, '＋'), OT.TEXTES.tuile) : null;
     ouvreur = null; if (!edit) $('#feTiroir')?.remove();
@@ -797,7 +809,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     b.classList.add('fe-pop'); b.addEventListener('animationend', () => b.classList.remove('fe-pop'), { once: true });
     (b.querySelector('.fe-grip') ?? b).focus({ preventScroll: true });
     const w = page().widgets.find((x) => x.id === id), T = OT.TEXTES;
-    dire(T.pose(w?.label || renduDe(w)?.titre || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : JOUR.includes(w?.kind) ? TXT.titres[w.kind] : modName(w?.module ?? ''))));
+    dire(T.pose(w?.label || (w && renduDe(w) ? titreDe(w) : '') || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : JOUR.includes(w?.kind) ? TXT.titres[w.kind] : modName(w?.module ?? ''))));
   }
 
   // ------------------------------------------------------------------ le tiroir « Ajouter un widget » (lot 18)
@@ -852,7 +864,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 }, T.meteo, T.meteoQuoi, '☀'), ...declarees,
       vordr ? { nom: T.site, quoi: T.siteQuoi, icon: '🌐', famille: OT.INFOS, active: OT.active(vordr), onclick: siteSurveille } : null,
       { nom: T.perso, quoi: T.persoQuoi, icon: '⚡', famille: OT.INFOS, creer: true, onclick: ownButton },
-      ...(cat?.modules ?? []).map((m) => ({ ...item({ kind: 'chiffres', module: m.id }, m.name, String(m.what ?? '').slice(0, 90)), famille: m.family, module: m.id, active: OT.active(m) }))].filter(Boolean);
+      ...(cat?.modules ?? []).map((m) => ({ ...item(widgetDeLAppli(m.id), m.name, String(m.what ?? '').slice(0, 90)), famille: m.family, module: m.id, active: OT.active(m) }))].filter(Boolean);
     const ligne = (x) => {
       const ic = icone(x.module, x.nom, x.icon), texte = el('div', { class: 'fe-it-t' }, el('b', {}, x.nom), el('small', {}, x.active === false ? `${x.quoi} · ${T.desactiveeAide}` : x.quoi));
       if (x.active === false) return el('div', { class: 'fe-it off' }, ic, texte, el('span', { class: 'fe-off' }, T.desactivee));
@@ -1008,6 +1020,17 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       fMontre = el('select', { id: 'wrRM' }, el('option', { value: '' }, T.chiffres), ...secs.map((x) => el('option', { value: x, selected: x === montre0 ? true : undefined }, x)));
       corps.push(R.champ(T.montre, fMontre.id, fMontre));
     }
+    // L'appli d'un widget qui la choisit (le widget « appli ») : les applis actives du catalogue de qui regarde (déjà
+    // réduit à ses droits), par leur nom ; celle de la carte reste dans la liste même coupée, et retirée sous le titre
+    // neutre de la sorte (jamais son identifiant).
+    let fAppli = null; const rfA = renduDe(w), appli0 = rfA && !rfA.appli && w.module ? w.module : '';
+    if (appli0) {
+      const mods = (cat?.modules ?? []).filter((m) => m.id === appli0 || OT.active(m));
+      const opts = mods.map((m) => el('option', { value: m.id, selected: m.id === appli0 ? true : undefined }, m.name));
+      if (!mods.some((m) => m.id === appli0)) opts.unshift(el('option', { value: appli0, selected: true }, rfA.titre));
+      fAppli = el('select', { id: 'wrRApp' }, ...opts);
+      corps.push(R.champ(TXT.appliMontree, fAppli.id, fAppli));
+    }
     // La taille : les sept tailles toutes faites (celles plus petites que la mini du widget n'y sont pas).
     const now = G.tailleChoisie(w);
     const radios = el('div', { class: 'wr-sizes' }, ...G.taillesPossibles(w.kind).map((x) => el('label', {}, el('input', { type: 'radio', name: 'wrTaille', value: x.nom, checked: x.nom === now ? true : undefined }), TXT.tailles[x.nom] ?? x.nom, el('small', {}, G.etiquette(x)))));
@@ -1017,20 +1040,26 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const fStyle = styles.length > 1 ? el('div', { class: 'wr-sizes' }, ...styles.map(([v, n]) => el('label', {}, el('input', { type: 'radio', name: 'wrStyle', value: v, checked: v === style0 ? true : undefined }), n))) : null;
     if (fStyle) corps.push(R.champ(T.style, '', fStyle));
     // « Quand je touche le widget » : les cinq choix de la maquette. Une action : celles de l'appli du widget seulement.
-    const t0 = R.toucherDe(w), actions = w.kind !== 'bouton' && mod && OT.active(mod) ? [...(mod.actions ?? [])] : [];
+    // L'appli se choisit (le widget « appli ») : le nom et les actions suivent l'appli choisie dans « L'appli montrée »
+    // (retirée ou inconnue : le titre neutre de la sorte, jamais son identifiant).
+    const t0 = R.toucherDe(w); let appliVue = w.module;
+    const memeAppli = () => appliVue === w.module;
+    const nomOuvrir = (id) => (fAppli ? nomConnu(id) || rfA.titre : modName(id));
+    const actionsDe = (id) => { const m = cat?.modules?.find((x) => x.id === id); return w.kind !== 'bouton' && m && OT.active(m) ? [...(m.actions ?? [])] : []; };
+    let actions = actionsDe(w.module);
     // L'action déjà choisie reste dans la liste, même si l'appli ne la propose plus (désactivée, action retirée) :
     // ouvrir « Régler » pour changer le titre ne la fait pas disparaître sans le dire.
     if (t0.quoi === 'action' && !actions.some((a) => a.id === t0.action)) actions.unshift({ id: t0.action, label: t0.action, params: Object.keys(t0.input).map((k) => ({ key: k, label: k, kind: 'text' })) });
-    const choix = [w.module ? ['appli', T.choix.appli(modName(w.module))] : null, actions.length ? ['action', T.choix.action] : null, ['ecran', T.choix.ecran], ['adresse', T.choix.adresse], ['rien', T.choix.rien]].filter(Boolean);
-    const fQuoi = el('select', { id: 'wrRQ' }, ...choix.map(([v, n]) => el('option', { value: v, selected: v === t0.quoi ? true : undefined }, n)));
+    const choixDe = () => [w.module ? ['appli', T.choix.appli(nomOuvrir(appliVue))] : null, actions.length ? ['action', T.choix.action] : null, ['ecran', T.choix.ecran], ['adresse', T.choix.adresse], ['rien', T.choix.rien]].filter(Boolean);
+    const fQuoi = el('select', { id: 'wrRQ' }, ...choixDe().map(([v, n]) => el('option', { value: v, selected: v === t0.quoi ? true : undefined }, n)));
     const sous = el('div', { class: 'wr-sous' });
     const remplir = () => {
       const q = fQuoi.value;
       if (q === 'action') {
-        const fA = el('select', { id: 'wrRA' }, ...actions.map((a) => el('option', { value: a.id, selected: t0.quoi === 'action' && a.id === t0.action ? true : undefined }, `${a.label}${a.grave ? ' ⚠' : ''}`)));
+        const fA = el('select', { id: 'wrRA' }, ...actions.map((a) => el('option', { value: a.id, selected: memeAppli() && t0.quoi === 'action' && a.id === t0.action ? true : undefined }, `${a.label}${a.grave ? ' ⚠' : ''}`)));
         const params = el('div', { class: 'wr-sous' }), aide = el('p', { class: 'wr-aide' });
         const remplirParams = () => {
-          const a = actions.find((x) => x.id === fA.value), garde = t0.quoi === 'action' && t0.action === fA.value ? t0.input : {};
+          const a = actions.find((x) => x.id === fA.value), garde = memeAppli() && t0.quoi === 'action' && t0.action === fA.value ? t0.input : {};
           params.replaceChildren(...(a?.params ?? []).filter((x) => x.kind !== 'password').map((x) => { const i = `wrRP-${x.key}`, val = String(garde[x.key] ?? x.default ?? '');
             return R.champ(`${x.label}${x.required ? ' *' : ''}`, i, x.kind === 'select' ? el('select', { id: i, 'data-k': x.key }, ...(x.options ?? []).map((o) => el('option', { value: o, selected: String(o) === val ? true : undefined }, o))) : el('input', { id: i, type: 'text', 'data-k': x.key, value: val, maxlength: '300', autocomplete: 'off' })); }));
           aide.textContent = a?.grave ? T.aideGrave : '';
@@ -1047,6 +1076,22 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     };
     fQuoi.addEventListener('change', remplir); remplir();
     corps.push(R.champ(T.toucher, fQuoi.id, fQuoi), sous);
+    // Une autre appli choisie : l'en-tête, le titre proposé, « Ouvrir … » et les actions deviennent les siens ; un choix
+    // « action » reste seulement si la nouvelle appli en a.
+    fAppli?.addEventListener('change', () => {
+      appliVue = fAppli.value;
+      actions = memeAppli() ? actionsDe(w.module) : actionsDe(appliVue);
+      if (memeAppli() && t0.quoi === 'action' && !actions.some((a) => a.id === t0.action)) actions.unshift({ id: t0.action, label: t0.action, params: Object.keys(t0.input).map((k) => ({ key: k, label: k, kind: 'text' })) });
+      const avant = fQuoi.value, opts = choixDe();
+      fQuoi.replaceChildren(...opts.map(([v, n]) => el('option', { value: v }, n)));
+      fQuoi.value = opts.some(([v]) => v === avant) ? avant : opts[0][0];
+      remplir();
+      const titreVu = titreDe({ ...w, module: appliVue, label: undefined });
+      fTitre.placeholder = titreVu;
+      const h = f && document.getElementById(f.d.getAttribute('aria-labelledby')); if (h) h.textContent = T.titre(w.label || titreVu);
+      const ic = f?.d.querySelector('.wr-ic.wr-app');
+      if (ic && window.OdinAppIcons) { const sp = el('span', {}); sp.innerHTML = window.OdinAppIcons.tile(appliVue, nomConnu(appliVue) || rfA.titre, 40); ic.replaceChildren(sp.firstElementChild ?? sp); }
+    });
     /** Ce que la fenêtre dit vouloir : « Quand je touche » (rien d'écrit : ouvrir l'appli) et ce qu'il montre. */
     const lire = () => {
       const q = fQuoi.value; let t;
@@ -1054,9 +1099,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       else if (q === 'ecran') t = { quoi: 'ecran', ecran: $('#wrRE', sous)?.value };
       else if (q === 'adresse') t = { quoi: 'adresse', adresse: ($('#wrRU', sous)?.value ?? '').trim() };
       else if (q === 'rien' && w.module) t = { quoi: 'rien' };
-      return { toucher: t, section: fMontre ? fMontre.value : montre0 };
+      return { toucher: t, section: fMontre ? fMontre.value : montre0, appli: fAppli ? fAppli.value : appli0 };
     };
-    const sig = (x) => JSON.stringify([x.toucher ?? null, x.section]), depart = sig(lire());
+    const sig = (x) => JSON.stringify([x.toucher ?? null, x.section, x.appli]), depart = sig(lire());
     // La vie privée : à qui il est ouvert, « Ouvrir à… », et ce qu'un changement refermerait (dit avant de valider).
     const alerte = el('p', { class: 'wr-note wr-att', role: 'status', 'aria-live': 'polite' }), statut = el('p', { class: 'wr-note', role: 'status', 'aria-live': 'polite' }), erreur = el('p', { class: 'wr-note wr-non', role: 'alert' });
     let f = null;
@@ -1071,6 +1116,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       const taille = radios.querySelector('input:checked')?.value;
       if (taille && taille !== now && !G.choisir(w, taille)) { erreur.textContent = T.tailleRefusee; return; }
       if (w.kind !== 'site') { const v = fTitre.value.trim().slice(0, 40); if (v) w.label = v; else delete w.label; }
+      // Une autre appli : la liste des actions est déjà la sienne ; une action qui n'y serait pas n'est jamais gardée.
+      if (fAppli && x.appli && x.appli !== appli0) { w.module = x.appli; if (x.toucher?.quoi === 'action' && !actions.some((a) => a.id === x.toucher.action)) x.toucher = undefined; }
       if (fMontre && x.section !== montre0) { if (x.section) { w.kind = 'section'; w.section = x.section; } else { w.kind = 'chiffres'; delete w.section; } }
       const st = fStyle?.querySelector('input:checked')?.value; if (st) { if (st === styles[0][0]) delete w.style; else w.style = st; }
       if (x.toucher) w.toucher = x.toucher; else delete w.toucher;

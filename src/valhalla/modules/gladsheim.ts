@@ -17,7 +17,7 @@ import { arrondirPosition, ecrireFichierPrive, lireFichierPrive } from '../../pr
 import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuCourant, temperature, vitesse, type Region, type Unites } from '../lieu.ts';
 import { fetchPropre } from '../../net/fetch-propre.ts';
 import { agissant } from '../sso/acces.ts';
-import { accueilSeulement, droitDeVoir, sorteDe, sortesPosables, type IdSortePosable } from '../widgets/index.ts';
+import { accueilSeulement, admiseALaMaison, droitDeVoir, sorteDe, sortesPosables, type IdSortePosable } from '../widgets/index.ts';
 import { ACCUEIL_RECU, CODES_PAGES, PAGE_AUJOURDHUI, type CodePage } from '../widgets/aujourdhui.ts';
 import { actionsOuvertures, lecteurDe, ouverturesGardees } from '../widgets/ouvertures.ts';
 import { ADRESSE_MAX, adressesRefusees, retraitRefuse, toucherNet, toucherServi, type Toucher } from '../widgets/regler.ts';
@@ -343,6 +343,88 @@ export const TAILLES_MOTS = { petit: 3, moyen: 6, grand: 9, plein: 12 } as const
 export const largeurAncienne = (c: number): 1 | 2 | 3 => (c <= 4 ? 1 : c <= 8 ? 2 : 3);
 /** Ce que l'écran reçoit de la taille d'un module. */
 export const tailleDe = (w: Widget) => ({ w: w.w, c: w.c, r: w.r, ...(w.pc === undefined ? {} : { pc: w.pc }), ...(w.pr === undefined ? {} : { pr: w.pr }) });
+
+// ---------------- L'écran de la maison : sa grille (le modèle ; l'écran ne le lit pas encore) ----------------
+/**
+ * Une commande d'une carte de l'écran de la maison : un code (les mots sont dans l'écran, dans sa langue), les ordres
+ * envoyés tels quels (`POST /api/maison/appareil` ou `/scene`), et pour un curseur ses bornes et la forme de l'ordre
+ * (`{n}` : le nombre choisi) — jamais une valeur de départ. `accord` : Odin demande toujours l'accord avant cet ordre ;
+ * absent, le serveur décide quand même à chaque ordre (une scène, un garage, un portail : midgard.ts, sensitive).
+ */
+export interface CommandeMaison {
+  code: string; ordres: readonly string[]; nombre?: { min?: number; max?: number; pas?: number; ordre: string }; geste?: 'glisser'; accord?: true;
+  /** Une action d'une appli d'Odin (`POST /api/valhalla/act`) au lieu d'un ordre ; `saisie` : le champ que l'on tape. */
+  acte?: { module: string; action: string; saisie?: string };
+}
+/** Les commandes de la carte météo pour qui a tous les droits : changer le lieu d'Odin (maison.js, lieuBar). */
+const COMMANDES_METEO_COMPLET: readonly CommandeMaison[] = [
+  { code: 'lieu', ordres: [], acte: { module: 'gladsheim', action: 'lieu', saisie: 'ville' } },
+  { code: 'me_localiser', ordres: [], acte: { module: 'gladsheim', action: 'lieu_position' } },
+];
+const INTERRUPTEUR: CommandeMaison = { code: 'interrupteur', ordres: ['on', 'off'] };
+/**
+ * Les commandes d'une carte d'appareil, par sorte d'appareil (celles du pont, midgard.ts) : exactement celles de
+ * l'écran d'aujourd'hui (maison.js, devCard ; constat G3). Un capteur, un détecteur : aucune.
+ */
+export const COMMANDES_APPAREIL: Readonly<Record<string, readonly CommandeMaison[]>> = {
+  'lumière': [INTERRUPTEUR, { code: 'intensite', ordres: [], nombre: { min: 1, max: 100, ordre: '{n} %' } }],
+  prise: [INTERRUPTEUR], ventilateur: [INTERRUPTEUR],
+  volet: [{ code: 'monter', ordres: ['ouvre'] }, { code: 'arreter', ordres: ['stop'] }, { code: 'descendre', ordres: ['ferme'] }],
+  clim: [{ code: 'consigne', ordres: [], nombre: { pas: 1, ordre: '{n}' } }, { code: 'marche_arret', ordres: ['on', 'off'] }],
+  lecteur: [{ code: 'precedent', ordres: ['precedent'] }, { code: 'lecture_pause', ordres: ['lecture', 'pause'] }, { code: 'suivant', ordres: ['suivant'] }],
+  aspirateur: [{ code: 'nettoyer', ordres: ['on'] }, { code: 'base', ordres: ['off'] }],
+  serrure: [{ code: 'ouvrir', ordres: ['deverrouille'], geste: 'glisser', accord: true }, { code: 'verrouiller', ordres: ['verrouille'] }],
+};
+/** Les sortes d'appareil dont la carte d'aujourd'hui est large (deux colonnes de l'ancienne grille). */
+const APPAREILS_LARGES: readonly string[] = ['serrure', 'lecteur'];
+/** Une carte de l'écran de départ de la maison, posée dans la grille. */
+export interface CarteMaison {
+  id: string; carte: 'meteo' | 'heure' | 'scenes' | 'appareil' | 'nouvelles'; c: number; r: number;
+  /** Où partent ses ordres : `/api/maison/appareil` ou `/api/maison/scene`. */
+  route?: 'appareil' | 'scene'; appareil?: string; piece?: string; commandes: CommandeMaison[];
+}
+/** Ce que le modèle lit : l'état que la page de l'écran de la maison reçoit (`/api/maison/etat`), pour ce public. */
+export interface EtatPourGrille { rights?: unknown; weather?: unknown; scenes?: unknown; notices?: unknown; rooms?: unknown; fenetre?: unknown }
+/** Ce que la grille de l'écran de la maison contient : la grille, l'écran de départ, puis ses pages de la fenêtre. */
+export interface GrilleMaison { grille: typeof GRILLE; depart: CarteMaison[]; pages: Array<{ id: string; name: string; widgets: Array<{ id: string; kind: string } & Record<string, unknown>> }> }
+/**
+ * La grille de l'écran de la maison, la même que l'accueil (GRILLE). L'écran de départ est CALCULÉ d'après ce qui
+ * existe chez lui, dans l'ordre de l'écran d'aujourd'hui : la météo (si elle a été lue), l'heure (l'horloge d'Odin),
+ * ses scènes (s'il en a), un widget par appareil (avec sa pièce et toutes ses commandes), les dernières nouvelles (s'il
+ * y en a). Aucun widget sans source : rien d'inventé, ni appareil, ni scène, ni pièce. Les pages de la fenêtre marquées
+ * « écran de la maison » suivent, chacune réduite aux sortes que la règle admet (admiseALaMaison). Lu dans l'état reçu
+ * par ce public : il n'y a jamais plus que ce qu'il reçoit déjà. Pur ; une donnée abîmée ne fait rien planter.
+ */
+export function grilleMaison(e: EtatPourGrille): GrilleMaison {
+  const liste = (x: unknown): unknown[] => (Array.isArray(x) ? x : []);
+  const objet = (x: unknown): Record<string, unknown> | undefined => (x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, unknown> : undefined);
+  const colonnes = (large: boolean) => (large ? 2 : 1) * (GRILLE.colonnes / 3);
+  const depart: CarteMaison[] = [];
+  // La météo : « Changer de lieu » et « Me localiser » seulement pour qui a tous les droits, comme l'écran d'aujourd'hui.
+  if (objet(e.weather)) depart.push({ id: 'meteo', carte: 'meteo', c: colonnes(false), r: TAILLE_SORTE.meteo.r, commandes: e.rights === 'complet' ? COMMANDES_METEO_COMPLET.map((x) => ({ ...x, acte: { ...x.acte! } })) : [] });
+  depart.push({ id: 'heure', carte: 'heure', c: colonnes(false), r: TAILLE_SORTE.heure.r, commandes: [] });
+  const scenes = liste(e.scenes).filter((x): x is string => typeof x === 'string' && x !== '');
+  if (scenes.length) depart.push({ id: 'scenes', carte: 'scenes', c: colonnes(true), r: TAILLE_SORTE.bouton.r, route: 'scene', commandes: [{ code: 'lancer', ordres: scenes }] });
+  const vus = new Set<string>();
+  for (const p of liste(e.rooms).map(objet)) {
+    if (!p || typeof p.name !== 'string') continue;
+    for (const d of liste(p.devices).map(objet)) {
+      if (!d || typeof d.id !== 'string' || !d.id || vus.has(d.id)) continue;
+      vus.add(d.id);
+      const kind = typeof d.kind === 'string' ? d.kind : '';
+      depart.push({ id: `appareil:${d.id}`, carte: 'appareil', c: colonnes(APPAREILS_LARGES.includes(kind)), r: TAILLE_SORTE.bouton.r, route: 'appareil', appareil: d.id, piece: p.name,
+        commandes: Object.hasOwn(COMMANDES_APPAREIL, kind) ? COMMANDES_APPAREIL[kind].map((x) => ({ ...x })) : [] });
+    }
+  }
+  if (liste(e.notices).length) depart.push({ id: 'nouvelles', carte: 'nouvelles', c: colonnes(true), r: TAILLE_SORTE.meteo.r, commandes: [] });
+  const pages: GrilleMaison['pages'] = [];
+  for (const p of liste(e.fenetre).map(objet)) {
+    if (!p || typeof p.id !== 'string') continue;
+    const widgets = liste(p.widgets).map(objet).filter((w): w is { id: string; kind: string } & Record<string, unknown> => Boolean(w) && typeof w!.id === 'string' && admiseALaMaison(w!.kind));
+    pages.push({ id: p.id, name: typeof p.name === 'string' ? p.name : '', widgets: widgets.map((w) => ({ ...w })) });
+  }
+  return { grille: GRILLE, depart, pages };
+}
 /** La taille d'un module envoyé par l'interface, nettoyée : des entiers dans la grille, rien d'inventé pour le téléphone. Pur. */
 function tailleNette(o: Record<string, unknown>, kind: WidgetKind): Pick<Widget, 'w' | 'c' | 'r' | 'pc' | 'pr'> {
   const entier = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) ? v : undefined), borne = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));

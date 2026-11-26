@@ -55,5 +55,14 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
     // Les sauvegardes de Phénix et les comptes de Sphinx, s'ils sont là et activés (au propriétaire seul : listes.ts).
     sauvegardes: () => { if (!appli('sindri')) return undefined; const f = fuseauOdin(s(v.ctx('gladsheim').settings.fuseau)); return { fuseau: f, ...etatSauvegardes(v.ctx('sindri'), f) }; },
     blocages: () => { if (!appli('vidarr')) return undefined; const f = fuseauOdin(s(v.ctx('gladsheim').settings.fuseau)); return { fuseau: f, ...pubsBloquees(v.ctx('vidarr'), f) }; },
+    // Le widget de n'importe quelle appli : ce que le catalogue en dit (même désactivée : elle le dit), et ses actions
+    // rapides, choisies comme sa page les choisit (rapides, sans champ obligatoire). Une action dont on ne sait pas dire si
+    // elle est grave est dite grave (le serveur redemande de toute façon l'accord au moment de la lancer).
+    ficheAppli: (id) => {
+      const m = v.module(id); if (!m || m.id !== id) return undefined;
+      const grave = (a: (typeof m.actions)[number]) => { try { return Boolean(a.grave?.({}, v.ctx(m.id))); } catch { return true; } };
+      return { id: m.id, name: m.name, family: m.family, what: s(m.what), active: v.estActive(m.id),
+        actions: m.actions.filter((a) => a.quick !== false && !(a.params ?? []).some((p) => p.required)).map((a) => ({ id: a.id, label: s(a.label), grave: grave(a) })) };
+    },
   };
 }

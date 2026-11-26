@@ -72,14 +72,14 @@
     return active(m) ? 'ok' : 'desactivee';
   }
   /**
-   * Ce qu'on lâche sur la grille : seulement une ligne du tiroir (heure, météo, chiffres d'une appli), relue et
+   * Ce qu'on lâche sur la grille : seulement une ligne du tiroir (heure, météo, le widget d'une appli ; ses chiffres d'avant), relue et
    * refaite. Un glisser venu d'ailleurs (une autre page, un texte illisible, un bouton d'action) : null, rien n'est posé.
    */
   function glisse(texte) {
     let o; try { o = JSON.parse(String(texte ?? '')); } catch { return null; }
     if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
     if (o.kind === 'heure') return { kind: 'heure' }; if (o.kind === 'meteo') return { kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 };
-    if (o.kind === 'chiffres' && typeof o.module === 'string' && /^[a-z0-9_-]{1,40}$/.test(o.module)) return { kind: 'chiffres', module: o.module };
+    if ((o.kind === 'chiffres' || o.kind === 'appli') && typeof o.module === 'string' && /^[a-z0-9_-]{1,40}$/.test(o.module)) return { kind: o.kind, module: o.module };
     return null;
   }
   /** Les familles du catalogue, dans l'ordre où il les donne, sans double ni vide. */

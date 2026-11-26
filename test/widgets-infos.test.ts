@@ -394,7 +394,10 @@ test('le tiroir « Ajouter un widget » : les quatre, aux tailles de la maquette
   assert.match(c, /item\(\{ kind: 'heure' \}[^\n]*item\(\{ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 \}[^\n]*'☀'\), \.\.\.declarees,/, 'après « Heure et lieu » et « Météo », qui restent');
   for (const k of [...PETITES, 'horloge']) assert.doesNotMatch(FE, new RegExp(`['"\`]${k}['"\`]`), `fenetre.js n'écrit pas « ${k} »`);
   for (const k of [...PETITES, 'horloge']) assert.doesNotMatch(MAISON, new RegExp(`['"\`]${k}['"\`]`), `maison.js n'écrit pas « ${k} »`);
-  assert.match(fonction('montrerAjout'), /dire\(T\.pose\(w\?\.label \|\| renduDe\(w\)\?\.titre \|\| /, 'le widget posé est annoncé par son titre déclaré');
+  // Le titre déclaré passe par titreDe, qui le rend tel quel pour ces sortes (et le nom de l'appli pour le widget
+  // « appli », dont l'appli se choisit : test/widgets-generique.test.ts).
+  assert.match(fonction('montrerAjout'), /dire\(T\.pose\(w\?\.label \|\| \(w && renduDe\(w\) \? titreDe\(w\) : ''\) \|\| /, 'le widget posé est annoncé par son titre déclaré');
+  assert.match(fonction('titreDe'), /if \(w\.module && renduDe\(w\) && !renduDe\(w\)\.appli\) return [^\n]*\n\s*const rf = renduDe\(w\); if \(rf\) return rf\.titre;/, 'une sorte à appli fixe (les infos) garde son titre déclaré');
 });
 
 test('fenetre.js et maison.js : le rendu déclaré dessine le corps, dans le dessin commun ; une sorte inconnue a sa ligne', () => {

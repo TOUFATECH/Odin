@@ -143,7 +143,11 @@ test('relecture : un glisser venu d\'ailleurs ne pose qu\'une ligne du tiroir, r
   assert.equal(g(JSON.stringify({ kind: 'chiffres', module: '../x' })), null);
   assert.equal(g('{pas du json'), null, 'illisible : rien, sans erreur');
   assert.equal(g(''), null); assert.equal(g(undefined), null); assert.equal(g('[1]'), null);
-  assert.match(fonction('draw'), /const w = OT\.glisse\(e\.dataTransfer\.getData\('text\/odin-module'\)\); if \(w\) add\(w\);/, 'la grille passe par lui');
+  // Le widget d'une appli glissé (sa ligne pose le widget « appli ») est refait à la taille déclarée par sa famille,
+  // comme « Ajouter » (test/widgets-generique.test.ts) ; le reste passe tel que glisse l'a refait.
+  assert.match(fonction('draw'), /const w = OT\.glisse\(e\.dataTransfer\.getData\('text\/odin-module'\)\); if \(w\) add\(w\.kind === 'appli' \? widgetDeLAppli\(w\.module\) : w\);/, 'la grille passe par lui');
+  assert.deepEqual(g(JSON.stringify({ kind: 'appli', module: 'alpha', action: 'retirer', c: 12 })), { kind: 'appli', module: 'alpha' }, 'le widget d\'une appli : rien d\'autre n\'est gardé');
+  assert.equal(g(JSON.stringify({ kind: 'appli', module: '../x' })), null);
 });
 
 test('relecture : bouton sur mesure sans appli désactivée ; refusé, le dialogue reste ouvert ; une autre vue ferme le tiroir', () => {

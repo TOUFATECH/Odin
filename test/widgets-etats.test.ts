@@ -149,6 +149,10 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       agenda: W('agenda'), recherches: W('recherches'),
       // sa seconde part : les sauvegardes de Phénix (neuf : aucun plan) et les pubs bloquées (neuf : Sphinx arrêté)
       sauvegardes: W('sauvegardes'), pubs_bloquees: W('pubs_bloquees'),
+      // le widget de n'importe quelle appli, réglé au plus simple : aucune appli choisie (comme « bouton » sans action) ;
+      // avec une appli, il montre ce que le catalogue en dit (sa phrase), et aucun chiffre que l'appli n'a pas mesuré
+      // (test/widgets-generique.test.ts)
+      appli: W('appli'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);
