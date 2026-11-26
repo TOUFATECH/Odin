@@ -2,7 +2,8 @@
 // dans la grille et en plein écran : un bandeau aux couleurs de l'appli avec son icône, son nom et sa famille, son état
 // en pastille, une phrase qui dit à quoi elle sert, trois ou quatre choses qu'on peut y faire, l'origine de son nom,
 // « Alternative à : » et les logiciels connus qu'elle remplace, puis un vrai bouton « Ouvrir <appli> » et, quand la
-// fenêtre d'Odin le permet à qui regarde (le propriétaire), « Mettre en widget sur : l'accueil » (fenetre.js, poserAppli).
+// fenêtre d'Odin le permet à qui regarde (le propriétaire), « Mettre en widget sur : l'accueil » (fenetre.js, poserAppli)
+// et les « Actions rapides » de l'appli (la règle et le lancement de sa page : valhalla.js, OdinApps).
 // La fiche ne sort jamais de l'écran et ne cache pas l'appli survolée. Elle reste ouverte tant que la souris ou le
 // focus est dessus.
 // Ce fichier est chargé avant les autres scripts de l'interface : rien ne touche au document à son chargement.
@@ -84,6 +85,9 @@
       refuse: 'Ce widget ne peut pas être posé\u00a0: rien n\'a changé.',
       echec: 'Odin n\'a pas pu ranger ton accueil\u00a0: rien n\'est posé.',
     },
+    // Les « Actions rapides » de l'appli (maquette : la fiche d'une appli).
+    rapides: 'Actions rapides', grave: 'Action grave, ton accord est demandé à chaque fois.',
+    fait: 'Fait.', muet: 'Odin ne répond pas.',
   };
   /** Ce que dit la fiche après « Mettre en widget » : la réponse de la fenêtre d'Odin ({ etat, page }). */
   const ditDe = (r) => {
@@ -95,6 +99,7 @@
   // ---------------- Dessin
   const css = `
 .fa{--fa1:var(--accent);--fa2:var(--accent);width:min(340px,calc(100vw - 16px));max-width:100%;box-sizing:border-box;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 48px rgba(0,0,0,.28),0 2px 6px rgba(0,0,0,.12);overflow:hidden;font-size:14px;line-height:1.45;text-align:left}
+#odinFiche .fa{max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain}
 .fa-band{position:relative;height:56px;background:linear-gradient(135deg,var(--fa1),var(--fa2))}
 .fa-band::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 60%)}
 .fa-ic{position:absolute;left:16px;bottom:-22px;z-index:1;display:block;border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.3),0 0 0 3px var(--panel)}
@@ -120,6 +125,8 @@
 .fa-ouvrir{width:100%;justify-content:center;min-height:44px}
 .fa-mettre{display:grid;gap:6px}.fa-poser{width:100%;justify-content:center;min-height:44px}.fa-poser[aria-busy=true]{cursor:progress}
 .fa-dit{margin:0;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}.fa-dit:empty{display:none}
+.fa-rapides{display:grid;gap:6px}.fa-rapides-l{display:flex;flex-wrap:wrap;gap:6px}
+.fa-rapide{flex:1 1 auto;min-height:44px;min-width:44px;max-width:100%;padding-block:6px;justify-content:center;white-space:normal;overflow-wrap:anywhere;text-align:center}.fa-rapide[aria-busy=true]{cursor:progress}.fa-rapide .fa-g{color:var(--warn)}
 @media (max-width:480px){.fa{width:calc(100vw - 16px)}.og .og-card:has(>.fa){width:calc(100% - 16px)}.fa-band{height:44px}.fa-corps{gap:8px;padding-top:26px}.fa-orig{display:none}}
 #odinFiche{position:fixed;z-index:45;left:0;top:0;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
 #odinFiche.on{opacity:1;transform:none}#odinFiche[hidden]{display:none}
@@ -151,8 +158,43 @@
         m.story ? el('div', { class: 'fa-orig' }, el('h4', {}, 'D\'où vient le nom'), el('p', {}, m.story)) : null,
         t.alternatives.noms.length ? el('div', { class: 'fa-alt' }, el('b', {}, 'Alternative à :'), el('ul', {}, ...t.alternatives.noms.map((x) => el('li', {}, x)), t.alternatives.reste ? el('li', { class: 'fa-reste' }, `+ ${t.alternatives.reste}`) : null)) : null,
         el('button', { class: 'btn primary fa-ouvrir', type: 'button', onclick: (ev) => { ev.stopPropagation(); cacher(0); o.ouvrir?.(m); } }, `Ouvrir ${m.name}`),
-        mettreEnWidget(m)));
+        mettreEnWidget(m),
+        actionsRapides(m)));
     return a;
+  }
+  /** Trois actions au plus, comme le widget d'une appli (src/valhalla/widgets/applis.ts, ACTIONS_MAX). */
+  const RAPIDES_MAX = 3;
+  /** Ce que dit la fiche après une action : la première ligne de sa réponse (bornée), « Fait. », ou Odin muet. */
+  const ditAction = (t) => (t === null ? TEXTES.muet : (typeof t === 'string' && t.trim() ? t.trim().split('\n')[0].slice(0, 240) : TEXTES.fait));
+  /**
+   * « Actions rapides » : au propriétaire seul (la même condition que « Mettre en widget » : la fenêtre d'Odin le dit
+   * pour qui regarde, une appli active du catalogue), les actions rapides de l'appli choisies par la règle de sa page
+   * (OdinApps.actionsRapides : jamais réécrite ici), trois au plus. Un appui la lance par l'action de l'appli
+   * (OdinApps.lancer : POST /api/valhalla/act ; une action grave redemande l'accord à chaque fois, sans accord rien ne
+   * part). Le résultat est dit dans la fiche, en texte. Rien à offrir : pas de bloc (ni titre seul, ni bouton mort).
+   * Pendant l'action, les boutons gardent le focus (aria-busy, pas `disabled`) et la fiche reste ouverte.
+   */
+  function actionsRapides(m) {
+    const F = window.OdinFenetre, A = window.OdinApps;
+    if (!F || typeof F.peutPoser !== 'function' || !F.peutPoser(m.id)) return null;
+    if (!A || typeof A.actionsRapides !== 'function' || typeof A.lancer !== 'function') return null;
+    let l; try { l = A.actionsRapides(Array.isArray(m.actions) ? m.actions : []); } catch { l = []; }
+    l = (Array.isArray(l) ? l : []).filter((x) => x && typeof x.id === 'string' && x.id && typeof x.label === 'string' && x.label).slice(0, RAPIDES_MAX);
+    if (!l.length) return null;
+    const dit = el('p', { class: 'fa-dit', role: 'status' });
+    let enCours = false;
+    const boutons = l.map((x) => {
+      const b = el('button', { class: 'btn fa-rapide', type: 'button', dir: 'auto', 'data-action': x.id, title: x.grave ? TEXTES.grave : (typeof x.what === 'string' && x.what ? x.what : null), 'aria-description': x.grave ? TEXTES.grave : null, onclick: async (ev) => {
+        ev.stopPropagation(); if (enCours) return;
+        // Le message fait grandir la fiche : elle est replacée pour ne pas couvrir l'appli.
+        const ecrire = (t) => { dit.textContent = t; if (pop && pop.contains(b)) replacer(); };
+        enCours = true; for (const y of boutons) y.setAttribute('aria-busy', 'true'); ecrire(TEXTES.enCours);
+        let t; try { t = await A.lancer(m.id, x.id); } catch { t = null; }
+        enCours = false; for (const y of boutons) y.removeAttribute('aria-busy'); ecrire(ditAction(t));
+      } }, x.label, x.grave ? el('span', { class: 'fa-g', 'aria-hidden': 'true' }, ' ⚠') : null);
+      return b;
+    });
+    return el('div', { class: 'fa-rapides' }, el('h4', { class: 'fa-rapides-t' }, TEXTES.rapides), el('div', { class: 'fa-rapides-l', role: 'group', 'aria-label': TEXTES.rapides }, ...boutons), dit);
   }
   /**
    * « Mettre en widget sur : l'accueil » : seulement quand la fenêtre d'Odin dit que c'est possible pour qui regarde (le
@@ -219,13 +261,26 @@
   function replacer() {
     if (!pop || pop.hidden || !pop.firstChild) return;
     const r = ancreVue ? ancreVue.getBoundingClientRect() : ancreRect; if (!r) return;
-    const f = pop.firstChild.getBoundingClientRect();
-    const pos = placer({ x: r.left ?? r.x, y: r.top ?? r.y, w: r.width ?? r.w, h: r.height ?? r.h }, { w: f.width, h: f.height }, { w: innerWidth, h: innerHeight });
+    const art = pop.firstChild, a = { x: r.left ?? r.x, y: r.top ?? r.y, w: r.width ?? r.w, h: r.height ?? r.h }, e = { w: innerWidth, h: innerHeight };
+    art.style.maxHeight = '';   // sa taille entière (bornée à l'écran par sa feuille de style)
+    const f = art.getBoundingClientRect();
+    let pos = placer(a, { w: f.width, h: f.height }, e);
+    // Elle couvrirait l'appli (aucune place nette autour, sur un écran étroit) : elle prend la hauteur du côté, dessus ou
+    // dessous, qui a le plus de place, et défile en elle-même. Moins de 220 px : elle garde sa taille.
+    const couvre = (p) => p.x < a.x + a.w && a.x < p.x + f.width && p.y < a.y + a.h && a.y < p.y + f.height;
+    if (couvre(pos)) {
+      const h = Math.floor(Math.max(a.y, e.h - (a.y + a.h)) - 16);
+      if (h >= 220 && h < f.height) { art.style.maxHeight = `${h}px`; pos = placer(a, { w: f.width, h }, e); }
+    }
     pop.style.left = `${pos.x}px`; pop.style.top = `${pos.y}px`; pop.dataset.cote = pos.cote;
   }
   /** Cache la fiche après `ms` (annulé si la souris ou le focus revient dessus). */
   function cacher(ms = 250) {
     clearTimeout(minuteur);
+    // Une action rapide attend sa réponse ou l'accord demandé (la fenêtre d'accord prend le focus et passe devant) : la
+    // fiche reste ouverte, sinon son résultat serait perdu. Échap et « Ouvrir » la ferment toujours (ms = 0). Seule
+    // compte la fiche montrée : une action qui ne répond jamais ne garde pas ouverte la fiche d'une autre appli.
+    if (ms > 0 && pop && pop.querySelector('.fa-rapide[aria-busy="true"]')) return;
     const fin = () => { if (!pop) return; pop.hidden = true; pop.classList.remove('on'); if (ancreVue && ancreVue.removeAttribute) ancreVue.removeAttribute('aria-describedby'); ancreVue = null; };
     if (ms <= 0) fin(); else minuteur = setTimeout(fin, ms);
   }
@@ -244,7 +299,7 @@
     // Tab sur l'appli dont la fiche est ouverte : le focus entre dans la fiche (son premier bouton), seulement quand elle
     // offre plus qu'« Ouvrir » (ce que fait déjà l'appli elle-même) ; sinon Tab va à l'appli suivante, comme avant.
     cible.addEventListener('keydown', (e) => {
-      if (e.key !== 'Tab' || e.shiftKey || !pop || pop.hidden || ancreVue !== cible || !pop.querySelector('.fa-mettre')) return;
+      if (e.key !== 'Tab' || e.shiftKey || !pop || pop.hidden || ancreVue !== cible || !pop.querySelector('.fa-mettre, .fa-rapides')) return;
       const b = boutons(pop)[0]; if (b) { e.preventDefault(); clearTimeout(minuteur); b.focus(); }
     });
     cible.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; long = false; depart = { x: e.clientX, y: e.clientY }; clearTimeout(t); t = setTimeout(() => { long = true; voir(); }, 500); });
