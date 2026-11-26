@@ -104,7 +104,7 @@ function ecran() {
     dansOdin: false, secs: () => null,
     pet: { news: () => {}, say: () => {} }, localStorage: { setItem: () => {}, getItem: () => null },
     home: () => [marque('accueil')], appsView: () => [marque('applis')], peopleGrid: () => marque('famille'), camGrid: (grand: boolean) => marque(grand ? 'cameras' : 'cameras-accueil'),
-    netView: () => [marque('reseau')], tilesView: (grand: boolean) => [marque(grand ? 'boutons' : 'boutons-accueil')], themesView: () => [marque('themes')],
+    netView: () => [marque('reseau')], tilesView: (grand: boolean) => [marque(grand ? 'boutons' : 'boutons-accueil')], themesView: () => [marque('themes')], autosView: () => [marque('automatisations')],
   }) as { draw: () => void; regler: (d: unknown, k: string) => void };
   const partie = (ok: (x: Noeud) => boolean) => { const n = racine.kids.filter((x): x is Noeud => estNoeud(x) && ok(x)); assert.equal(n.length, 1, 'une seule'); return n[0]; };
   return {
@@ -119,7 +119,8 @@ function ecran() {
     retour: () => tous(partie((x) => x.tag === 'main'), (x) => x.tag === 'a' && x.attrs.href === '/'),
   };
 }
-const SEPT = ['accueil', 'famille', 'cameras', 'reseau', 'applis', 'boutons', 'themes'];
+// (suivi : la page « Automatisations » existe ; son entrée, pour la session seulement, va entre « Réseau » et « Mes applis » — test/maison-automatisations.test.ts)
+const SEPT = ['accueil', 'famille', 'cameras', 'reseau', 'automatisations', 'applis', 'boutons', 'themes'];
 const TROIS = ['accueil', 'boutons', 'themes'];
 // Les sections de la barre de côté : ses boutons « nav » (la punaise, à côté du titre, n'est pas une section).
 const sectionsCote = (n: Noeud) => boutons(n).filter((x) => x.attrs.class === 'nav');
@@ -132,11 +133,11 @@ function sections(e: ReturnType<typeof ecran>): string[] {
   return out;
 }
 
-test('sections : sept pour la session (accueil, famille, caméras, réseau, mes applis, boutons, thèmes), chacune ouvre sa vue', () => {
+test('sections : huit pour la session (accueil, famille, caméras, réseau, automatisations, mes applis, boutons, thèmes), chacune ouvre sa vue', () => {
   const e = ecran(); e.dessiner('complet');
   // La barre du bas (téléphone) : quatre places et Odin au centre, dont « Plus » (sa réponse) ; la barre et la feuille « Plus »
   // ensemble ont les mêmes sections que la barre de côté, ni plus ni moins (test/maison-telephone.test.ts tient le reste).
-  assert.equal(sectionsCote(e.cote()).length, 7); assert.deepEqual(sectionsBas(e).sort(), [...SEPT].sort(), 'la barre du bas (téléphone) et sa feuille « Plus » ont les mêmes');
+  assert.equal(sectionsCote(e.cote()).length, 8); assert.deepEqual(sectionsBas(e).sort(), [...SEPT].sort(), 'la barre du bas (téléphone) et sa feuille « Plus » ont les mêmes');
   assert.deepEqual(sections(e), SEPT);
 });
 

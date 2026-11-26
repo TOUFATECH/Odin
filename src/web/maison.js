@@ -10,8 +10,9 @@
   // la maison, la semaine, les personnes à la maison) et des onglets de pièces. Puis ceux du téléphone (« Plus », le rond
   // d'Odin au centre de la barre du bas) et du plein écran (le bouton, et ce qu'il dit une fois ouvert). Puis ceux de la
   // page « Thèmes » propres à cet écran (le verre et le fond animé y restent sur l'appareil) ; les autres mots du curseur
-  // sont ceux de Réglages → Apparence (themes.js).
-  const MOTS = {maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes', plus: 'Plus', odin: 'Parler à Odin', plein: 'Plein écran', pleinSortir: 'Quitter le plein écran (Échap)', verreOrigine: 'cartes d’origine', verreAide: 'Les cartes de cet écran, pour le thème {nom}. Gardé pour chaque thème, sur cet appareil seulement.', fond: 'Fond animé derrière les cartes', fondAide: 'Éteint au départ. Allumé, l\'ambiance du thème bouge derrière les cartes de cet écran ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations. Gardé sur cet appareil seulement.' };
+  // sont ceux de Réglages → Apparence (themes.js). Puis ceux de la page « Automatisations » (sa session seulement) ; les
+  // mots de sa liste sont ceux des widgets (pages/widgets-automatisations.js).
+  const MOTS = {automatisations: 'Automatisations', autosCharge: 'Un instant…', autosFerme: 'Les automatisations ne s\'ouvrent ici qu\'avec ta session d\'Odin.', maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes', plus: 'Plus', odin: 'Parler à Odin', plein: 'Plein écran', pleinSortir: 'Quitter le plein écran (Échap)', verreOrigine: 'cartes d’origine', verreAide: 'Les cartes de cet écran, pour le thème {nom}. Gardé pour chaque thème, sur cet appareil seulement.', fond: 'Fond animé derrière les cartes', fondAide: 'Éteint au départ. Allumé, l\'ambiance du thème bouge derrière les cartes de cet écran ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations. Gardé sur cet appareil seulement.' };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // ---------- Clé de tablette : lue dans #cle=…, gardée sur l'appareil, retirée de l'adresse ----------
   let key = '';
@@ -42,7 +43,7 @@
     net: 'M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01M2 8.5a15 15 0 0 1 20 0', cam: 'M3 7h11v10H3zM14 10l7-3v10l-7-3', people: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9',
     prev: 'M7 6v12M18 6 9 12l9 6z', next: 'M17 6v12M6 6l9 6-9 6z', play: 'M8 5v14l11-7z', pause: 'M8 5h3v14H8zM13 5h3v14h-3z', lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z', open: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
     pin: 'M9 4h6l-1 6 3 3H7l3-3zM12 13v7', back: 'M15 6l-6 6 6 6', chev: 'M9 6l6 6-6 6',
-    more: 'M4 7h16M4 12h16M4 17h16', plein: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5', sortir: 'M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4',
+    auto: 'M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M8 12a4 4 0 1 0 8 0a4 4 0 1 0-8 0', more: 'M4 7h16M4 12h16M4 17h16', plein: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5', sortir: 'M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4',
   };
   const icon = (k, size = 20) => S('svg', { viewBox: '0 0 24 24', width: size, height: size, 'aria-hidden': 'true', class: 'ic' }, S('path', { d: ICON[k], fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
 
@@ -303,7 +304,7 @@ input[type=range]{width:100%;accent-color:#fff}.slide{position:relative;flex:1;m
 /* Dans Odin (vue « Home Assistant ») au téléphone : la barre du bas d'Odin suffit ; les sections passent dans ce menu, en haut. */
 .secs{display:none}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card2);border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:14px;max-width:min(560px,92vw);z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.35);white-space:pre-wrap}
-dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:20px;padding:20px;max-width:min(440px,92vw)}dialog::backdrop{background:rgba(0,0,0,.55)}dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}.primary{background:var(--accent);color:#111;border-color:transparent}
+dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:20px;padding:20px;max-width:min(440px,92vw)}dialog::backdrop{background:rgba(0,0,0,.55)}dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}dialog .acts .btn{height:auto;min-height:44px}.ma-autos{max-width:960px}.ma-autos .wt-n{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}.primary{background:var(--accent);color:#111;border-color:transparent}
 .empty{color:var(--muted);padding:12px 0}
 /* ---------- La mascotte ---------- */
 .pet{position:fixed;left:0;top:0;width:var(--ps,76px);height:var(--ps,76px);z-index:50;touch-action:none;cursor:grab;filter:drop-shadow(0 8px 14px rgba(0,0,0,.35));transition:transform 1.1s cubic-bezier(.45,.05,.3,1)}
@@ -628,22 +629,106 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
     document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && plein && pleinDemande) basculerPlein(false); });
   }
   ecouterTelephone();
+  // ---------- La page « Automatisations » (maquette validée ; sa session seulement) ----------
+  // Ses vraies automatisations, lues dans la liste de Talos (GET /api/draupnir/automatismes : la route de sa page, qui
+  // demande sa session ; jamais avec une clé de tablette), dessinées par le dessin des widgets « Automatisations »
+  // (pages/widgets-automatisations.js), réutilisé : le nom, ce qu'elle fait tel que Talos le dit, l'interrupteur (la route
+  // de Talos, sa confirmation avant d'activer — ici la boîte de cet écran —, l'état rendu par Talos, le retour à l'état
+  // vrai en cas d'échec). Rien ne se crée ni ne se modifie ici : « Nouvelle automatisation » ouvre l'éditeur de Talos (sa
+  // réponse du 25/11) quand cet écran est affiché dans Odin (sa vue « Home Assistant ») ; « Ouvrir Talos » ouvre Talos.
+  // Écran ouvert seul (une tablette, un onglet) : la page d'Odin s'isole de toute autre fenêtre (server.ts, son en-tête
+  // « cross-origin-opener-policy »), cette page ne peut donc pas y appuyer sur « Partir de zéro » : « Nouvelle
+  // automatisation » ouvre alors Talos dans cet onglet, son bouton « Partir de zéro » à portée (rien n'est créé ici).
+  // La carte est gardée d'un redessin à l'autre (toutes les 15 s) ; elle n'est refaite que quand Talos dit autre chose,
+  // jamais pendant un geste (un doigt posé, la confirmation ouverte, un interrupteur qui attend Talos).
+  // « autos » : e, l'état lu (« ok », « vide », ou « ferme » : rien à montrer) ; lu, l'heure de la lecture ; sig, ce qui a
+  // servi au dessin ; noeud, la carte ; appui, un doigt ou la souris posés sur elle.
+  const autos = { e: null, lu: 0, sig: '', noeud: null, encours: false, appui: false };
+  const autosLui = () => Boolean(D) && D.rights === 'complet' && !key;
+  /** La liste de Talos lue sans confiance, à la forme que dessinent les widgets (ses automatisations seulement). */
+  function etatAutos(j) {
+    const flows = j.lignes.filter((x) => x && typeof x === 'object' && x.sorte === 'automatisation' && typeof x.id === 'string' && x.id.startsWith('flow:') && typeof x.nom === 'string');
+    if (!flows.length) return { etat: 'vide', raison: 'aucune_automatisation' };
+    const actif = (x) => x.etat !== 'arret', at = Date.parse(String(j.maintenant ?? '')), t = (v) => (typeof v === 'string' ? v : '');
+    return { etat: 'ok', ...(Number.isFinite(at) ? { at } : {}), donnee: { liste: flows.map((x) => ({ id: x.id.slice(5), nom: x.nom, quand: t(x.phrase), quoi: t(x.quoi), actif: actif(x) })), total: flows.length, actives: flows.filter(actif).length } };
+  }
+  async function chargerAutos() {
+    if (autos.encours || !autosLui()) return;
+    autos.encours = true;
+    // Un refus (401, 403) : « ferme » ; une panne (Odin injoignable, une erreur du serveur, une réponse illisible) :
+    // « panne », Talos ne répond pas (ce n'est pas sa session qui manque).
+    let e = { etat: 'panne' };
+    try {
+      const r = await fetch('/api/draupnir/automatismes', { credentials: 'same-origin' });
+      const j = r.ok ? await r.json().catch(() => null) : null;
+      if (r.status === 401 || r.status === 403) e = { etat: 'ferme' };
+      else if (j && j.ok === true && Array.isArray(j.lignes)) e = etatAutos(j);
+    } catch { /* Odin injoignable : la panne */ } finally { autos.encours = false; autos.lu = Date.now(); }
+    autos.e = e;
+    if (view === 'automatisations' && !glisse) draw();
+  }
+  document.addEventListener('pointerup', () => { setTimeout(() => { autos.appui = false; }, 0); }, true);
+  document.addEventListener('pointercancel', () => { autos.appui = false; }, true);
+  function autosView() {
+    const titre = el('h2', { class: 'sec' }, MOTS.automatisations), ferme = () => [titre, el('p', { class: 'muted' }, MOTS.autosFerme)];
+    if (!autosLui()) return ferme();
+    if (!autos.encours && Date.now() - autos.lu > 10_000) chargerAutos();
+    if (!autos.e) return [titre, el('p', { class: 'muted', role: 'status' }, MOTS.autosCharge)];
+    const A = window.OdinWidgetsAutomatisations;
+    // Talos ne répond pas : la phrase commune des widgets (pages/widgets-rendu.js), sans bouton ; la page relit seule.
+    if (autos.e.etat === 'panne') { autos.noeud = null; autos.sig = ''; return [titre, el('section', { class: 'card ma-autos' }, fEtat('source_absente', 'appli_muette', { appli: 'Talos' }) ?? '')]; }
+    if (autos.e.etat === 'ferme' || typeof A?.dessinerAutos !== 'function') return ferme();
+    const sig = JSON.stringify([autos.e.etat, autos.e.donnee ?? null]);
+    const geste = autos.appui || Boolean(autos.noeud?.querySelector('.wt-sw[aria-busy="true"]')) || Boolean(document.querySelector('dialog[open]'));
+    if (!autos.noeud || (sig !== autos.sig && !geste)) {
+      const n = carteAutos(A);
+      if (!n) return ferme();
+      autos.noeud = n; autos.sig = sig;
+    }
+    requestAnimationFrame(encreAccent); // une fois la carte dans la page (le thème a pu changer)
+    return [titre, autos.noeud];
+  }
+  function carteAutos(A) {
+    const e = autos.e, haut = dansOdin ? window.top : null;
+    const ouvrir = () => { if (haut) A.ouvrirTalos({ fenetre: haut }); else if (window.top !== window) window.open('/#flows', '_blank', 'noopener'); else location.assign('/#flows'); };
+    const nouvelle = () => { if (haut) A.ouvrirEditeur({ fenetre: haut }); else ouvrir(); };
+    const corps = A.dessinerAutos(e, { ecran: 'page', tout: true, confirmer: confirmBox, nouvelle, ouvrir });
+    if (!corps) return null;
+    const sous = e.etat === 'ok' && typeof A.compteActives === 'function' ? A.compteActives(e.donnee, e.at) : '';
+    return el('section', { class: 'card ma-autos', 'aria-label': MOTS.automatisations, onpointerdown: () => { autos.appui = true; } }, sous ? el('p', { class: 'muted wr-s' }, sous) : null, corps);
+  }
+  /** Le texte posé sur l'accent (« Nouvelle automatisation ») : du noir ou du blanc, celui qui s'y lit le mieux. */
+  function encreAccent() {
+    const c = document.querySelector('.ma-autos'); if (!c || typeof CATALOGUE.contrast !== 'function') return;
+    const p = document.createElement('i'); p.style.color = 'var(--accent)'; c.append(p);
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(p).color); p.remove(); if (!m) return;
+    const hx = `#${m.slice(1, 4).map((x) => Number(x).toString(16).padStart(2, '0')).join('')}`;
+    c.style.setProperty('--on-accent', CATALOGUE.contrast('#000000', hx) > CATALOGUE.contrast('#ffffff', hx) ? '#000000' : '#ffffff');
+  }
   function draw() {
     if (!D) return;
+    // La carte des automatisations est gardée d'un redessin à l'autre (elle quitte la page dès que la nouvelle est faite) :
+    // l'élément qui y avait le focus le retrouve.
+    const autoAvant = document.activeElement && document.activeElement !== document.body && document.querySelector('.ma-autos')?.contains(document.activeElement) ? document.activeElement : null;
     const full = D.rights === 'complet';
     // Les entrées de la barre, dans l'ordre : [section, icône, aussi pour une tablette « maison »]. Une entrée de la maquette
-    // s'ajoute ici, d'une ligne, le jour où sa page existe sur cet écran (pas encore : Journal, Automatisations, Médias,
-    // Maison 3D, Humeurs d'Odin ; Énergie n'aura pas de page, ses widgets suffisent) ; aucune entrée qui ne mène nulle
-    // part. Son nom est dans MOTS.
+    // s'ajoute ici, d'une ligne, le jour où sa page existe sur cet écran (pas encore : Journal, Médias, Maison 3D, Humeurs
+    // d'Odin ; Énergie n'aura pas de page, ses widgets suffisent) ; aucune entrée qui ne mène nulle part. Son nom est dans
+    // MOTS. « Automatisations » (une automatisation peut tout piloter) : pour la session du propriétaire seulement — ni une
+    // tablette « maison », ni une clé « complet » (un écran au mur se lit par toute la maison) : sans clé et avec tous les
+    // droits, c'est sa session qui a répondu (un membre n'a pas cet écran). Sa place : celle de la maquette, après
+    // « Aperçu » (Accueil) et avant « Odin » (Mes applis).
+    const lui = full && !key;
     const navs = [
       ['accueil', 'home', true],
       ['famille', 'people', false],
       ['cameras', 'cam', false],
       ['reseau', 'net', false],
+      ['automatisations', 'auto', false, true],
       ['applis', 'apps', false],
       ['boutons', 'bolt', true],
       ['themes', 'palette', true],
-    ].filter((x) => full || x[2]).map(([id, ic]) => [id, MOTS[id], ic]);
+    ].filter((x) => (x[3] ? lui : full || x[2])).map(([id, ic]) => [id, MOTS[id], ic]);
     const notes = D.notices || [], unread = notes.filter((n) => n.level !== 'ok').length, [salut, pastille] = bandeau();
     const main = el('main', { id: 'main' },
       dansOdin ? secs(navs) : null,
@@ -654,7 +739,7 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
           el('label', { class: 'search' }, icon('search', 18), el('input', { type: 'search', placeholder: 'Chercher un appareil, une appli…', 'aria-label': 'Chercher', value: q, oninput: (e) => { q = e.target.value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); drawSoon(); } })),
           el('button', { class: 'round', 'aria-label': `Alertes (${unread})`, onclick: () => pet.news() }, icon('bell', 20), unread ? el('span', { class: 'dot' }, String(unread)) : null),
           el('button', { class: 'round', 'aria-label': voice ? 'Couper la voix de la mascotte' : 'Activer la voix de la mascotte', 'aria-pressed': String(voice), onclick: () => { voice = !voice; try { localStorage.setItem('odin.maison.voix', voice ? '1' : '0'); } catch { /* */ } draw(); if (voice) pet.say('Je parlerai à voix haute.', 'ok', 'joie'); } }, icon('sound', 20)), plein ? null : boutonPlein(), pastille)),
-      ...(view === 'accueil' ? home() : view === 'applis' ? appsView() : view === 'famille' ? [el('h2', { class: 'sec' }, 'Famille'), peopleGrid(), el('p', { class: 'muted', style: { marginTop: '12px' } }, 'La position vient de l\'appli de chaque personne (Home Assistant ou OwnTracks), qui la voit sur son téléphone et peut la mettre en pause.')] : view === 'cameras' ? [el('h2', { class: 'sec' }, 'Caméras'), camGrid(true)] : view === 'reseau' ? netView() : view === 'boutons' ? tilesView(true) : themesView()));
+      ...(view === 'accueil' ? home() : view === 'applis' ? appsView() : view === 'famille' ? [el('h2', { class: 'sec' }, 'Famille'), peopleGrid(), el('p', { class: 'muted', style: { marginTop: '12px' } }, 'La position vient de l\'appli de chaque personne (Home Assistant ou OwnTracks), qui la voit sur son téléphone et peut la mettre en pause.')] : view === 'cameras' ? [el('h2', { class: 'sec' }, 'Caméras'), camGrid(true)] : view === 'reseau' ? netView() : view === 'boutons' ? tilesView(true) : view === 'automatisations' ? autosView() : themesView()));
     startCams();
     // La barre de côté : le titre et la punaise, les entrées avec leur nom, le retour vers Odin (même règle qu'en haut), et
     // « Odin veille » en pied (la page n'est dessinée qu'une fois l'état d'Odin reçu). La punaise dit son choix avec les
@@ -686,6 +771,7 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
     root.replaceChildren(...bords, cote, main, ...barreBas(navs), ...(plein ? [boutonPlein(), el('span', { class: 'nid-flottant', 'aria-hidden': 'true' })] : []));
     if (placeAvant) focusPlace(placeAvant);
     if (pleinAvant) document.querySelector('.plein')?.focus({ preventScroll: true });
+    if (autoAvant?.isConnected) autoAvant.focus({ preventScroll: true });
     if (garde) [...cote.querySelectorAll('[aria-label]')].find((x) => x.getAttribute('aria-label') === garde)?.focus({ preventScroll: true });
     const rangee = document.querySelector('.tabs');
     if (rangee) { rangee.scrollLeft = xOnglets; if (ongletAvant !== null) ongletDe(ongletAvant)?.focus({ preventScroll: true }); }
@@ -905,6 +991,7 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
       let th = d.theme; if (d.rights !== 'complet') try { th = localStorage.getItem('odin.maison.theme') || th; } catch { /* */ }
       if (!D || D.theme !== th) applyTheme(th);
       D = { ...d, theme: th }; nuit.cacher(); if (!glisse) draw(); // pas de redessin pendant qu'on glisse un module
+      if (view === 'automatisations') chargerAutos(); // sa page relit Talos au même rythme
       // Odin d'aujourd'hui (le même que partout) : caché ou non, fête du jour.
       if (d.mascotte) { window.OdinMascotte?.onState?.(d.mascotte); const c = d.mascotte.event?.color || d.mascotte.odin?.color; if (c) window.OdinFace?.tintBase?.(c); }
       // Nouvelles bulles : la mascotte les annonce (rouge et à voix haute si c'est grave).

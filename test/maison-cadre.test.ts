@@ -106,7 +106,7 @@ function ecran(stock: Stock = memoire()) {
     dansOdin: false, secs: () => null, toast: (t: string) => { messages.push(t); }, setTimeout: (f: () => void) => { f(); return 0; }, clearTimeout: () => {},
     pet: { news: () => {}, say: () => {} }, localStorage: stock,
     home: () => [marque('accueil')], appsView: () => [marque('applis')], peopleGrid: () => marque('famille'), camGrid: (grand: boolean) => marque(grand ? 'cameras' : 'cameras-accueil'),
-    netView: () => [marque('reseau')], tilesView: (grand: boolean) => [marque(grand ? 'boutons' : 'boutons-accueil')], themesView: () => [marque('themes')],
+    netView: () => [marque('reseau')], tilesView: (grand: boolean) => [marque(grand ? 'boutons' : 'boutons-accueil')], themesView: () => [marque('themes')], autosView: () => [marque('automatisations')],
   }) as { draw: () => void; regler: (d: unknown, k: string) => void };
   const parClasse = (c: string) => racine.kids.find((x): x is Noeud => estNoeud(x) && classes(x).includes(c)) ?? null;
   return {
@@ -124,7 +124,8 @@ function ecran(stock: Stock = memoire()) {
 }
 const entrees = (n: Noeud) => tous(n, (x) => x.tag === 'button' && classes(x).includes('nav'));
 const punaise = (n: Noeud) => { const b = tous(n, (x) => x.tag === 'button' && classes(x).includes('pinb')); assert.equal(b.length, 1, 'une punaise'); return b[0]; };
-const SEPT = ['Accueil', 'Famille', 'Caméras', 'Réseau', 'Mes applis', 'Boutons', 'Thèmes'];
+// (suivi : la page « Automatisations » existe ; son entrée, pour la session seulement, va entre « Réseau » et « Mes applis » — test/maison-automatisations.test.ts)
+const SEPT = ['Accueil', 'Famille', 'Caméras', 'Réseau', 'Automatisations', 'Mes applis', 'Boutons', 'Thèmes'];
 const TROIS = ['Accueil', 'Boutons', 'Thèmes'];
 const CLE = `gk_${'c'.repeat(40)}`;
 // Les deux messages de la maquette, mot pour mot.
@@ -140,7 +141,7 @@ const regle = (sel: string, ou = BASE) => { const i = ou.indexOf(`${sel}{`); ass
 // Le contenu d'un bloc @media de la feuille de style (le premier qui commence ainsi).
 const media = (debut: string) => { const i = BASE.indexOf(`@media ${debut}{`); assert.ok(i >= 0, `@media ${debut} introuvable`); let p = 0, j = BASE.indexOf('{', i); for (; j < BASE.length; j++) { if (BASE[j] === '{') p++; else if (BASE[j] === '}' && --p === 0) break; } return BASE.slice(i, j + 1); };
 
-test('entrées selon les droits : la session a les sept sections, chacune avec son nom écrit ; une tablette « maison » en a trois', () => {
+test('entrées selon les droits : la session a les huit sections, chacune avec son nom écrit ; une tablette « maison » en a trois ; une clé « complet », toutes sauf « Automatisations »', () => {
   const e = ecran();
   e.dessiner('complet');
   const b = entrees(e.cote());
@@ -150,16 +151,20 @@ test('entrées selon les droits : la session a les sept sections, chacune avec s
   assert.deepEqual(entrees(e.cote()).map((x) => texte(x)), TROIS);
   e.dessiner('autre', CLE);
   assert.deepEqual(entrees(e.cote()).map((x) => texte(x)), TROIS, 'un droit inconnu n\'a pas plus qu\'une tablette « maison »');
+  // (suivi) Une clé de tablette « complet » : tout, sauf « Automatisations » (la session du propriétaire seulement).
+  e.dessiner('complet', CLE);
+  assert.deepEqual(entrees(e.cote()).map((x) => texte(x)), SEPT.filter((x) => x !== 'Automatisations'));
 });
 
 test('aucune entrée vide : chaque entrée ouvre sa propre page ; les entrées de la maquette sans page n\'y sont pas', () => {
   const e = ecran(); e.dessiner('complet');
   const vues: string[] = [];
   for (let i = 0; i < entrees(e.cote()).length; i++) { lancer(entrees(e.cote())[i], 'click'); vues.push(e.vues()[0]); }
-  assert.deepEqual(vues, ['accueil', 'famille', 'cameras', 'reseau', 'applis', 'boutons', 'themes']);
+  assert.deepEqual(vues, ['accueil', 'famille', 'cameras', 'reseau', 'automatisations', 'applis', 'boutons', 'themes']);
   assert.equal(new Set(vues).size, vues.length, 'deux entrées n\'ouvrent jamais la même page');
   const mots = entrees(e.cote()).map((x) => texte(x));
-  for (const m of ['Énergie', 'Journal', 'Automatisations', 'Médias', 'Maison 3D', 'Humeurs d\'Odin']) assert.ok(!mots.includes(m), `« ${m} » : pas de page sur cet écran, pas d'entrée`);
+  // (suivi : « Automatisations » a maintenant sa page, donc son entrée ; les autres n'en ont toujours pas)
+  for (const m of ['Énergie', 'Journal', 'Médias', 'Maison 3D', 'Humeurs d\'Odin']) assert.ok(!mots.includes(m), `« ${m} » : pas de page sur cet écran, pas d'entrée`);
   for (const x of entrees(e.cote())) assert.ok(texte(x).trim().length > 0, 'aucune entrée sans nom');
 });
 
@@ -305,7 +310,7 @@ test('la barre du bas (téléphone) : avec sa feuille « Plus », les mêmes sec
   const f = e.racine.kids.find((x): x is Noeud => estNoeud(x) && classes(x).includes('feuille'));
   assert.ok(f, 'la feuille « Plus »');
   const b = [...entrees(e.bas()), ...entrees(f)].filter((x) => !classes(x).includes('plus'));
-  assert.equal(b.length, 7);
+  assert.equal(b.length, SEPT.length); // (suivi : huit avec « Automatisations »)
   for (const x of b) { assert.equal(texte(x), x.attrs['aria-label'], 'le nom écrit'); assert.ok(SEPT.includes(x.attrs['aria-label'])); }
   assert.deepEqual(b.map((x) => x.attrs['aria-label']).sort(), [...SEPT].sort());
 });

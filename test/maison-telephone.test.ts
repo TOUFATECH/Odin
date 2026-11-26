@@ -118,7 +118,7 @@ function ecran(o: { plein?: Plein } = {}) {
     dansOdin: false, secs: () => null, toast: () => {}, setTimeout: (f: () => void) => { f(); return 0; }, clearTimeout: () => {},
     pet, localStorage: { getItem: () => null, setItem: () => {} },
     home: () => [marque('accueil')], appsView: () => [marque('applis')], peopleGrid: () => marque('famille'), camGrid: (grand: boolean) => marque(grand ? 'cameras' : 'cameras-accueil'),
-    netView: () => [marque('reseau')], tilesView: (grand: boolean) => [marque(grand ? 'boutons' : 'boutons-accueil')], themesView: () => [marque('themes')],
+    netView: () => [marque('reseau')], tilesView: (grand: boolean) => [marque(grand ? 'boutons' : 'boutons-accueil')], themesView: () => [marque('themes')], autosView: () => [marque('automatisations')],
   }) as { draw: () => void; regler: (d: unknown, k: string) => void; vue: () => string; plein: () => boolean; plus: () => boolean };
   const enfant = (c: string) => racine.kids.find((x): x is Noeud => estNoeud(x) && classes(x).includes(c)) ?? null;
   return {
@@ -135,7 +135,8 @@ function ecran(o: { plein?: Plein } = {}) {
     page: (t: string, ev: Record<string, unknown> = {}) => { for (const f of ecoutes[t] ?? []) f({ defaultPrevented: false, ...ev }); },
   };
 }
-const SEPT = ['accueil', 'famille', 'cameras', 'reseau', 'applis', 'boutons', 'themes'];
+// (suivi : la page « Automatisations » existe ; son entrée, pour la session seulement, va entre « Réseau » et « Mes applis » — test/maison-automatisations.test.ts)
+const SEPT = ['accueil', 'famille', 'cameras', 'reseau', 'automatisations', 'applis', 'boutons', 'themes'];
 const CLE = `gk_${'c'.repeat(40)}`;
 const ouverteF = (e: ReturnType<typeof ecran>) => e.feuille() !== null && !('hidden' in e.feuille()!.attrs);
 
@@ -147,7 +148,7 @@ test('téléphone : quatre places et Odin au centre (Accueil, Mes applis, Odin, 
   assert.equal(f.attrs.id, 'maison-plus'); assert.equal(e.place('plus').attrs['aria-controls'], 'maison-plus');
   assert.equal(f.attrs.role, 'dialog'); assert.equal(f.attrs['aria-label'], 'Plus');
   const dansFeuille = f.kids.filter(estNoeud).map((x) => x.attrs['data-place']);
-  assert.deepEqual(dansFeuille, ['famille', 'cameras', 'reseau', 'boutons', 'retour']);
+  assert.deepEqual(dansFeuille, ['famille', 'cameras', 'reseau', 'automatisations', 'boutons', 'retour']);
   // Rien n'est caché : la barre et la feuille ensemble ont les sept sections, chacune une seule fois.
   const toutes = [...e.places(), ...dansFeuille].filter((x) => SEPT.includes(x));
   assert.deepEqual([...toutes].sort(), [...SEPT].sort());
@@ -168,7 +169,7 @@ test('téléphone, tablette « maison » (trois sections) et tout compte limité
 
 test('téléphone : le retour vers Odin de la feuille suit la règle du bandeau (absent dans un cadre)', () => {
   const e = ecran(); e.dessiner('complet', '', true);
-  assert.deepEqual(e.feuille()!.kids.filter(estNoeud).map((x) => x.attrs['data-place']), ['famille', 'cameras', 'reseau', 'boutons']);
+  assert.deepEqual(e.feuille()!.kids.filter(estNoeud).map((x) => x.attrs['data-place']), ['famille', 'cameras', 'reseau', 'automatisations', 'boutons']);
 });
 
 test('téléphone : « Plus » ouvre la feuille (le focus y entre) ; Échap la ferme et le focus revient sur « Plus »', () => {
@@ -445,7 +446,7 @@ test('navigateur, 390 px, avec sa session : la barre du bas à quatre places et 
     // La mascotte ne couvre pas la feuille (elle rentre dans son nid, sous le voile la barre reste à elle).
     await page.waitForTimeout(600);
     assert.equal(await page.evaluate(() => { const p = document.querySelector('.pet').getBoundingClientRect(), q = document.querySelector('.feuille').getBoundingClientRect(); return p.right <= q.left || p.left >= q.right || p.bottom <= q.top || p.top >= q.bottom; }), true, 'la mascotte ne couvre pas la feuille');
-    assert.deepEqual(f?.map((x) => x[0]), ['famille', 'cameras', 'reseau', 'boutons', 'retour']);
+    assert.deepEqual(f?.map((x) => x[0]), ['famille', 'cameras', 'reseau', 'automatisations', 'boutons', 'retour']);
     for (const [, h] of f!) assert.ok(h >= 44, JSON.stringify(f));
     assert.equal(await visible(page, '.top .retour'), true, 'le retour du bandeau garde sa place…');
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.top .retour')).visibility), 'hidden', '…mais ne se voit pas : un seul retour vers Odin');
