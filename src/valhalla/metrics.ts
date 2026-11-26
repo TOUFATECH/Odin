@@ -12,6 +12,15 @@ const day = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-$
 const month = (t: number) => day(t).slice(0, 7);
 /** Un nom de série acceptable : « eir.cpu », « vordr.temps.nas », « gjoll.debit.telephone ». */
 export const okName = (s: string) => /^[a-z0-9][\w.:-]{0,120}$/i.test(s);
+/**
+ * Les séries réservées au propriétaire : ce que mesurent ses prises et ses capteurs (« appareils. ») dit quand la
+ * maison est occupée. Aucune lecture ne les rend — ni leur nom, ni un point, ni une courbe, ni l'export — sans le
+ * demander expressément (`{ prive: true }`), ce que seul un code réservé au propriétaire fait.
+ */
+const PREFIXES_PRIVES: readonly string[] = ['appareils.'];
+export const seriePrivee = (name: string): boolean => { const n = String(name).toLowerCase(); return PREFIXES_PRIVES.some((p) => n.startsWith(p)); };
+/** Ce qu'une lecture demande : `prive` pour lire aussi les séries réservées au propriétaire. */
+export interface Lecture { prive?: boolean }
 
 export class Metrics {
   readonly dir: string;
@@ -53,15 +62,17 @@ export class Metrics {
     for (const f of readdirSync(this.dir)) if (/^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f) && f.slice(0, 10) < limit) { rmSync(join(this.dir, f), { force: true }); n++; }
     return n;
   }
-  /** Les noms de séries connus (avec un préfixe éventuel). */
-  names(prefix = ''): string[] {
+  /** Les noms de séries connus (avec un préfixe éventuel) ; les séries réservées au propriétaire : seulement si demandé. */
+  names(prefix = '', o: Lecture = {}): string[] {
     const s = new Set<string>([...this.recent.keys(), ...this.pending.keys()]);
     const f = join(this.dir, `${day(this.now())}.jsonl`);
     if (existsSync(f)) for (const l of readFileSync(f, 'utf8').split('\n').slice(-200)) { try { for (const k of Object.keys((JSON.parse(l) as { v: object }).v)) s.add(k); } catch { /* ligne coupée */ } }
-    return [...s].filter((k) => k.startsWith(prefix)).sort();
+    return [...s].filter((k) => k.startsWith(prefix) && (o.prive === true || !seriePrivee(k))).sort();
   }
   /** Les points bruts (une minute) d'une série entre deux instants. Au-delà de 31 jours : moyennes horaires. */
-  points(name: string, from: number, to = this.now()): Point[] {
+  points(name: string, from: number, to = this.now(), o: Lecture = {}): Point[] {
+    // Une série réservée au propriétaire, lue sans le demander : rien (comme si elle n'existait pas).
+    if (seriePrivee(name) && o.prive !== true) return [];
     const out: Point[] = [];
     if (to - from <= 2 * 3600_000 && this.recent.has(name)) { for (const p of this.recent.get(name)!) if (p[0] >= from && p[0] <= to) out.push(p); }
     else {
@@ -81,19 +92,19 @@ export class Metrics {
     return out.sort((a, b) => a[0] - b[0]);
   }
   /** La série regroupée en `buckets` paquets (pour une courbe lisible). */
-  series(name: string, from: number, to = this.now(), buckets = 120): Agg[] {
-    const pts = this.points(name, from, to); if (!pts.length) return [];
+  series(name: string, from: number, to = this.now(), buckets = 120, o: Lecture = {}): Agg[] {
+    const pts = this.points(name, from, to, o); if (!pts.length) return [];
     const step = Math.max(60_000, Math.ceil((to - from) / buckets / 60_000) * 60_000), m = new Map<number, number[]>();
     for (const [t, v] of pts) { const b = Math.floor(t / step) * step; const l = m.get(b) ?? []; l.push(v); m.set(b, l); }
     return [...m].sort((a, b) => a[0] - b[0]).map(([t, l]) => ({ t, avg: l.reduce((a, b) => a + b, 0) / l.length, min: Math.min(...l), max: Math.max(...l), last: l[l.length - 1], n: l.length }));
   }
   /** Une fonction sur une fenêtre récente (pour les déclencheurs) : moyenne, min, max, dernière valeur, variation. */
-  fn(name: string, f: 'avg' | 'min' | 'max' | 'last' | 'delta' | 'count', windowMs: number): number | undefined {
-    const pts = this.points(name, this.now() - windowMs); if (!pts.length) return undefined;
+  fn(name: string, f: 'avg' | 'min' | 'max' | 'last' | 'delta' | 'count', windowMs: number, o: Lecture = {}): number | undefined {
+    const pts = this.points(name, this.now() - windowMs, this.now(), o); if (!pts.length) return undefined;
     const vals = pts.map((p) => p[1]);
     switch (f) { case 'avg': return vals.reduce((a, b) => a + b, 0) / vals.length; case 'min': return Math.min(...vals); case 'max': return Math.max(...vals); case 'last': return vals[vals.length - 1]; case 'delta': return vals[vals.length - 1] - vals[0]; default: return vals.length; }
   }
-  /** Texte au format Prometheus (dernière valeur de chaque série), pour d'autres outils. */
+  /** Texte au format Prometheus (dernière valeur de chaque série), pour d'autres outils ; jamais une série réservée au propriétaire. */
   prometheus(): string {
     const out: string[] = [];
     for (const n of this.names()) { const p = this.points(n, this.now() - 10 * 60_000); if (!p.length) continue; const name = `odin_${n.replace(/[^a-zA-Z0-9_]/g, '_')}`; out.push(`# TYPE ${name} gauge`, `${name} ${p[p.length - 1][1]} ${p[p.length - 1][0]}`); }

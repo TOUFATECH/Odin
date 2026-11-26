@@ -3,7 +3,8 @@
 // Matter (Atome), radio 433 MHz / BLE (Ondine) et les modules ESP ou prises flashées (Héphaïstos) s'y
 // annoncent ; Odin les range, suit leur état, leur pile, leur signal, et leur envoie les ordres.
 
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { metrics, okName, type Point } from '../metrics.ts';
 import { MqttBroker, type Msg } from '../mqtt.ts';
 import type { ModCtx, Module } from '../types.ts';
 /** Valeurs à deux états : l'inverse sert à annuler une manip. */
@@ -85,6 +86,77 @@ export function tasmotaSensors(c: TasmotaConfig, payload: string): Device[] {
   return out;
 }
 
+// ---------------------------------------------------------------- Relevés gardés dans le temps
+// Ce que mesurent les capteurs (dont la puissance et l'énergie d'une prise qui mesure) est rangé dans le
+// magasin de mesures d'Odin, sur sa machine seulement. Seulement des nombres vrais : un état « on », vide,
+// illisible ou invraisemblable n'est pas un relevé (rien n'est écrit, jamais un zéro à sa place).
+export type MesureReleve = 'puissance' | 'energie' | 'valeur';
+/** Ce que dit l'unité : la mesure et le facteur vers l'unité rangée (W pour la puissance, kWh pour l'énergie). */
+const UNITE_RELEVE: Record<string, [MesureReleve, number]> = { W: ['puissance', 1], kW: ['puissance', 1000], kWh: ['energie', 1], Wh: ['energie', 0.001] };
+/** Bornes au-delà desquelles une valeur n'est plus une mesure plausible. */
+const BORNES_RELEVE: Record<MesureReleve, [number, number]> = { puissance: [-1e5, 1e5], energie: [0, 1e7], valeur: [-1e6, 1e6] };
+/**
+ * Le nom de série d'un appareil : « appareils.<empreinte de l'identifiant>.<mesure> », stable. L'identifiant
+ * vient d'une annonce du réseau et reprend souvent le nom choisi ou la pièce (« salon_puissance »), ou une
+ * adresse matérielle : il n'est jamais écrit tel quel, seulement les 16 premiers chiffres de son empreinte
+ * sha256 (même identifiant, même série ; deux identifiants, deux séries). Ni le nom ni la pièce n'y entrent.
+ */
+export function nomSerie(id: string, mesure: MesureReleve): string | undefined {
+  const brut = typeof id === 'string' ? id : ''; if (!brut) return undefined;
+  const n = `appareils.${createHash('sha256').update(brut).digest('hex').slice(0, 16)}.${mesure}`; return okName(n) ? n : undefined;
+}
+/** Le relevé que porte l'état d'un capteur, ou undefined (pas un capteur, pas un nombre, invraisemblable). */
+export function releve(d: Device, state: string): { mesure: MesureReleve; valeur: number } | undefined {
+  if (d.kind !== 'capteur' || typeof state !== 'string') return undefined;
+  const t = state.trim(); if (!/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(t)) return undefined;
+  const [mesure, facteur] = UNITE_RELEVE[d.unit ?? ''] ?? ['valeur', 1], v = Number(t) * facteur, [min, max] = BORNES_RELEVE[mesure];
+  return Number.isFinite(v) && v >= min && v <= max ? { mesure, valeur: v } : undefined;
+}
+/**
+ * Un point par série et par minute au plus : le premier relevé de la minute (un appareil bavard ne remplit
+ * rien). Pour la puissance, c'est donc un échantillon de la minute, pas sa moyenne.
+ */
+let minuteReleves = -1; const vusReleves = new Set<string>();
+/** Garde le relevé d'un capteur dans le magasin de mesures (absent : rien, sans erreur). Vrai s'il a été rangé. */
+export function garderReleve(d: Device, state: string, t: number): boolean {
+  const m = metrics(), r = m ? releve(d, state) : undefined; if (!m || !r || !Number.isFinite(t)) return false;
+  const n = nomSerie(d.id, r.mesure); if (!n) return false;
+  const minute = Math.floor(t / 60_000); if (minute !== minuteReleves) { minuteReleves = minute; vusReleves.clear(); }
+  if (vusReleves.has(n)) return false;
+  vusReleves.add(n); m.put({ [n]: r.valeur }, t); return true;
+}
+/** Écart toléré entre le dernier relevé de la veille et le premier du jour pour compter l'énergie de minuit. */
+const PONT_MINUIT_MS = 15 * 60_000;
+/**
+ * L'énergie d'un jour (« AAAA-MM-JJ » au fuseau d'Odin, pas celui de la machine) à partir des relevés d'un
+ * compteur d'énergie : la somme de ses avancées entre deux relevés dont le second tombe dans le jour (le
+ * premier aussi, ou à moins de 15 minutes avant minuit). Un compteur qui tombe sous la moitié de sa valeur
+ * est reparti de zéro (minuit, coupure) : sa nouvelle valeur s'ajoute ; un recul plus petit est un relevé
+ * de travers, ignoré (rien n'est compté deux fois). Moins de deux relevés dans le jour, jour ou fuseau
+ * illisible : undefined (pas de donnée), jamais 0.
+ * Limite connue, elle sous-compte sans jamais inventer : un compteur reparti de zéro pendant un trou et déjà
+ * remonté au-dessus de la moitié de l'ancienne valeur passe pour un recul (4 puis 3 donne 0, pas 3) ; un
+ * très petit compteur reparti de zéro peut faire de même (0.004, 0.003, 0.0045 donne 0.0005).
+ */
+export function energieDuJour(points: readonly Point[], jour: string, fuseau: string): number | undefined {
+  // Sans fuseau, Intl prendrait celui de la machine : refusé.
+  if (typeof jour !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(jour) || typeof fuseau !== 'string' || !fuseau) return undefined;
+  let f: Intl.DateTimeFormat; try { f = new Intl.DateTimeFormat('en-CA', { timeZone: fuseau, year: 'numeric', month: '2-digit', day: '2-digit' }); } catch { return undefined; }
+  const jourDe = (t: number) => { const p = Object.fromEntries(f.formatToParts(new Date(t)).map((x) => [x.type, x.value])); return `${p.year}-${p.month}-${p.day}`; };
+  const pts = (Array.isArray(points) ? points : []).filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]) && p[1] >= 0).slice().sort((a, b) => a[0] - b[0]);
+  let total = 0, paires = 0, base: number | undefined, avantT: number | undefined, avantDansJour = false;
+  for (const [t, v] of pts) {
+    const j = jourDe(t);
+    if (j < jour) { base = v; avantT = t; avantDansJour = false; continue; }
+    if (j > jour) break;
+    if (base === undefined || avantT === undefined || (!avantDansJour && t - avantT > PONT_MINUIT_MS)) { base = v; avantT = t; avantDansJour = true; continue; }
+    paires++;
+    if (v >= base) { total += v - base; base = v; } else if (v < base / 2) { total += v; base = v; }
+    avantT = t; avantDansJour = true;
+  }
+  return paires ? Math.round(total * 1e6) / 1e6 : undefined;
+}
+
 let broker: MqttBroker | undefined, appCtx: ModCtx | undefined;
 export const brokerOf = () => broker;
 /** Registre partagé (Midgard, Talos, mode sans IA). */
@@ -160,6 +232,8 @@ export const appareils: Module = {
         const was = d.state;
         Object.assign(d, { state: r.state, attrs: r.attrs, lastSeen: ctx.now().toISOString(), online: true }, r.battery !== undefined ? { battery: r.battery } : {}, r.signal !== undefined ? { signal: r.signal } : {});
         dirty = true;
+        // Relevé gardé dans le temps (capteurs seulement, nombres vrais seulement, un par minute au plus).
+        garderReleve(d, r.state, ctx.now().getTime());
         if (was !== r.state) ctx.emit('etat', { appareil: d.name, id: d.id, type: d.kind, pièce: d.room, avant: was ?? '', après: r.state });
       }
     });
