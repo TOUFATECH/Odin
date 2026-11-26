@@ -6,8 +6,9 @@
   'use strict';
   // Textes du retour vers Odin (en haut de l'écran) et de la barre de côté (son titre, ses entrées, la punaise et ses deux
   // messages, la poignée, le pied) :
-  // à un seul endroit. Le titre est le nom de l'entrée du menu d'Odin qui ouvre cet écran.
-  const MOTS = { retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes' };
+  // à un seul endroit. Le titre est le nom de l'entrée du menu d'Odin qui ouvre cet écran. Puis ceux du bandeau (le salut à
+  // la maison, la semaine, les personnes à la maison) et des onglets de pièces.
+  const MOTS = { maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes' };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // ---------- Clé de tablette : lue dans #cle=…, gardée sur l'appareil, retirée de l'adresse ----------
   let key = '';
@@ -105,9 +106,11 @@
 button{font:inherit;color:inherit;cursor:pointer}button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .app{display:grid;grid-template-columns:auto 1fr;min-height:100vh}
 .side{position:sticky;top:0;height:100vh;width:232px;display:flex;flex-direction:column;gap:4px;padding:12px 10px;overflow-y:auto;border-right:1px solid var(--line);background:color-mix(in srgb,var(--card) 60%,transparent)}
-.side .hd{display:flex;align-items:center;gap:10px;padding:2px 0 14px}.side .hd span{flex:1;min-width:0;font-weight:600;font-size:17px;overflow-wrap:anywhere}
+/* Le titre de la barre sur une ligne : le logo (un décor, pas une cible) à la taille de la maquette (32 px), la punaise (44 px) avancée dans la marge. */
+.side .hd{display:flex;align-items:center;gap:6px;padding:2px 0 14px}.side .hd span{flex:1;min-width:0;font-weight:600;font-size:17px;overflow-wrap:anywhere}
 .logo{width:44px;height:44px;border-radius:14px;background:var(--on);display:grid;place-items:center;font-weight:700;font-size:24px;color:var(--on-ink);flex:none}
 .pinb{width:44px;height:44px;border-radius:12px;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;flex:none}.pinb[aria-pressed=true]{color:var(--text);background:var(--card2)}
+.side .hd .logo{width:32px;height:32px;border-radius:9px;font-size:18px}.side .hd .pinb{margin-right:-6px}
 .nav{width:48px;height:48px;border-radius:14px;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;text-decoration:none}
 .side .nav{width:100%;height:auto;min-height:44px;display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:0 12px;text-align:left;font-size:14.5px}.side .nav span{min-width:0;overflow-wrap:anywhere}.side .nav .ic{flex:none}
 .side .sp{flex:1}.side .veille{padding:10px 12px;margin-top:4px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
@@ -125,14 +128,21 @@ button{font:inherit;color:inherit;cursor:pointer}button:focus-visible,input:focu
 /* Barre non épinglée, hors téléphone : le contenu commence après la zone touchable de la poignée (44 px), rien n'est dessous. */
 @media (min-width:821px){.app.libre main{padding-left:44px}}
 /* Tablette (de 821 à 1099 px ; la maquette : « w < 1100 ») épinglée : une colonne d'icônes seules ; chaque entrée garde son nom pour les lecteurs d'écran et en info-bulle. */
-@media (min-width:821px) and (max-width:1099px){.side:not(.libre){width:76px;align-items:center;padding:12px 0}.side:not(.libre) .hd{flex-direction:column;padding:2px 0 10px}.side:not(.libre) .hd span,.side:not(.libre) .nav span,.side:not(.libre) .veille{display:none}.side:not(.libre) .nav{width:48px;min-height:48px;justify-content:center;padding:0}}
+@media (min-width:821px) and (max-width:1099px){.side:not(.libre){width:76px;align-items:center;padding:12px 0}.side:not(.libre) .hd{flex-direction:column;padding:2px 0 10px}.side:not(.libre) .hd .pinb{margin-right:0}.side:not(.libre) .hd span,.side:not(.libre) .nav span,.side:not(.libre) .veille{display:none}.side:not(.libre) .nav{width:48px;min-height:48px;justify-content:center;padding:0}}
 @media (max-width:820px){.poignee,.bord{display:none}}
 @media (prefers-reduced-motion:reduce){.side.libre,.side.libre.ouverte{transition:none}}
+@media (prefers-reduced-motion:reduce){.tabs button{transition:none}}
 main{padding:22px 26px 120px;min-width:0}
-.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.hello h1{margin:0;font-size:clamp(24px,3.2vw,34px);font-weight:600;letter-spacing:-.01em}.hello p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.hello{min-width:0}.hello h1{margin:0;font-size:26px;line-height:1.15;font-weight:700;letter-spacing:-.02em;overflow-wrap:anywhere}.hello p{margin:3px 0 0;color:var(--muted);font-size:13px}.hello .jour{display:inline-block}.hello .jour::first-letter{text-transform:uppercase}
+/* La pastille ronde de la maquette : l'initiale du prénom (le prénom entier pour les lecteurs d'écran et en info-bulle). */
+.me{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--on);color:var(--on-ink);flex:none;box-shadow:0 0 0 2px var(--card),0 0 0 4px color-mix(in srgb,var(--accent) 55%,transparent)}
+/* Un seul retour vers Odin : la barre épinglée (grand écran, tablette) a le sien ; celui du bandeau reste quand elle est détachée et au téléphone. */
+@media (min-width:821px){.app:not(.libre) .top .retour{display:none}.app.libre:has(.side.ouverte) .top .retour{visibility:hidden}}
 .tools{margin-left:auto;display:flex;gap:10px;align-items:center}.search{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--muted);min-width:220px}.search input{all:unset;color:var(--text);width:100%}
 .round{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;position:relative;color:var(--text)}.round .dot{position:absolute;top:6px;right:6px;min-width:16px;height:16px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}
-.chips{display:flex;gap:8px;overflow-x:auto;padding:16px 0 4px;scrollbar-width:none}.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:7px 15px;white-space:nowrap;color:var(--muted)}.chip[aria-pressed=true]{border-color:var(--accent);color:var(--text);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+/* Les onglets de pièces (la maquette) : ils défilent de côté s'ils ne tiennent pas, sans faire déborder la page ; 44 px au doigt. */
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;margin:14px 0 2px;padding:2px;max-width:100%}.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:none;max-width:min(70vw,260px);overflow:hidden;text-overflow:ellipsis;border:1px solid transparent;background:none;color:var(--muted);border-radius:999px;padding:7px 15px;white-space:nowrap;min-height:44px;font-weight:500;transition:background .2s,color .2s,border-color .2s}.tabs button[aria-selected=true]{background:var(--card2);border-color:var(--line);color:var(--text);font-weight:600}.tabs button:focus-visible{outline-offset:-2px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-top:14px;grid-auto-flow:dense}
 .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;position:relative;overflow:hidden;min-width:0;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}.card.w2{grid-column:span 2}.card.h2{grid-row:span 2}
 .card h3{margin:0;font-size:12.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.card .big{font-size:40px;font-weight:600;line-height:1.05;margin:8px 0 2px}
@@ -172,13 +182,14 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
 .bubble p{margin:0 0 10px;padding-right:18px;white-space:pre-wrap;max-height:40vh;overflow:auto}.bubble .qs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.bubble .qs button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:13px}
 .bubble form{display:flex;gap:6px}.bubble input{flex:1;min-width:0;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:9px 11px;font:inherit}.bubble .x{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--muted);font-size:18px}
 .ball{position:fixed;left:0;top:0;width:34px;height:34px;border-radius:50%;z-index:49;touch-action:none;cursor:grab;background:radial-gradient(circle at 35% 30%,#fff 0 12%,#ffd23f 13% 45%,#f08c00 46%);box-shadow:0 6px 12px rgba(0,0,0,.35)}
-@media (max-width:820px){.app{grid-template-columns:1fr}.side{display:none}main{padding:16px 14px 110px}.search{display:none}.card.w2{grid-column:span 1}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.wx,.clock{grid-column:1/-1!important}.wx .now{flex-wrap:wrap}.wx .kv{margin-left:0;text-align:left;grid-template-columns:repeat(4,auto);width:100%}.card .big{font-size:34px}.clock .big{font-size:44px}
+@media (max-width:820px){.app{grid-template-columns:1fr}.side{display:none}.hello h1{font-size:22px}main{padding:16px 14px 110px}.search{display:none}.card.w2{grid-column:span 1}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.wx,.clock{grid-column:1/-1!important}.wx .now{flex-wrap:wrap}.wx .kv{margin-left:0;text-align:left;grid-template-columns:repeat(4,auto);width:100%}.card .big{font-size:34px}.clock .big{font-size:44px}
 .bnav{display:flex;position:fixed;left:10px;right:10px;bottom:10px;z-index:40;justify-content:space-around;padding-right:84px!important;background:color-mix(in srgb,var(--card2) 92%,transparent);border:1px solid var(--line);border-radius:22px;padding:6px;backdrop-filter:blur(14px)}.bnav .nav{width:52px}
 html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.dans-odin .secs{display:flex;gap:6px;overflow-x:auto;position:sticky;top:0;z-index:30;margin:-16px -14px 12px;padding:8px 14px;background:color-mix(in srgb,var(--bg2) 94%,transparent);border-bottom:1px solid var(--line);scrollbar-width:none;overscroll-behavior-x:contain}html.dans-odin .secs::-webkit-scrollbar{display:none}.secs button{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);white-space:nowrap}.secs button[aria-current=page]{background:var(--card2);color:var(--accent);border-color:var(--accent)}}
 @media (prefers-reduced-motion:reduce){.pet,.pet .bodyw{transition:none!important;animation:none!important}}`;
 
   // ---------- État ----------
-  let D = null, view = 'accueil', room = 'Tout', q = '', seen = new Set(), first = true, voice = false;
+  // « room » : la pièce choisie dans les onglets (null : « Tout » ; une pièce peut s'appeler « Tout »).
+  let D = null, view = 'accueil', room = null, q = '', seen = new Set(), first = true, voice = false;
   // La barre de côté, comme la maquette : non épinglée au départ (elle se cache seule) ; épinglée, elle reste ouverte. Le
   // choix est gardé sur l'appareil (« 1 » épinglée, « 0 » non). « ouverte » : la barre non épinglée est sortie (la souris
   // au bord, la poignée) ; « tBarre » : le délai avant qu'elle se cache quand la souris la quitte ; « tOuvert » : l'heure
@@ -295,8 +306,52 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
   }
   setInterval(tick, 10_000); tick();
   const week = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7)); return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7); };
-  const hello = () => { const h = new Date().getHours(); return h < 5 ? 'Bonne nuit' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : h < 22 ? 'Bonsoir' : 'Bonne nuit'; };
+  const hello = (h = new Date().getHours()) => (h < 5 ? 'Bonne nuit' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : h < 22 ? 'Bonsoir' : 'Bonne nuit');
   const match = (t) => !q || t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q);
+  // Le bandeau, au dessin de la maquette : le salut à la maison ; dessous, la date et la semaine (au fuseau d'Odin, comme
+  // l'horloge), puis SEULEMENT les vraies valeurs qu'Odin donne à cette page : la température mesurée à son lieu, avec le
+  // nom du lieu (pas une météo ancienne ; sans mesure, le lieu ne s'affiche pas seul : la page ne sait pas le distinguer du
+  // lieu de départ d'Odin), puis le nombre de personnes à la maison (au moins une). Une valeur absente n'a ni case, ni
+  // tiret, ni zéro. Le prénom (le bandeau d'avant le disait) passe sur la pastille ronde de la maquette. Rend [le salut, la pastille].
+  function bandeau() {
+    const l = D?.lieu, w = D?.weather, n = new Date(), o = l?.fuseau ? { timeZone: l.fuseau } : {};
+    const quand = (x) => { const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', hourCycle: 'h23', ...x }).formatToParts(n).map((k) => [k.type, Number(k.value)])); return { jour: n.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', ...x }), date: new Date(p.year, p.month - 1, p.day), heure: p.hour % 24 }; };
+    let t; try { t = quand(o); } catch { t = quand({}); }
+    const lieu = String(w?.place || l?.nom || '').trim(), temp = w && !w.ancien && Number.isFinite(w.temp) ? `${w.temp}°` : '';
+    const chez = (D?.people || []).filter((x) => x.state === 'home').length;
+    const valeurs = [temp && lieu ? `${temp} ${MOTS.a} ${lieu}` : temp, chez > 0 ? `${chez} ${chez > 1 ? MOTS.personnes : MOTS.personne}` : ''].filter(Boolean);
+    const nom = String(D?.name || '').trim();
+    return [
+      el('div', { class: 'hello' }, el('h1', {}, `${hello(t.heure)}, ${MOTS.maison}`), el('p', {}, el('span', { class: 'jour' }, t.jour), ` · ${MOTS.semaine} ${week(t.date)}`, ...valeurs.map((v) => ` · ${v}`))),
+      nom ? el('span', { class: 'me', role: 'img', 'aria-label': nom, title: nom }, Array.from(nom)[0].toUpperCase()) : null,
+    ];
+  }
+  // Les onglets de pièces (la maquette ; sa réponse : ils filtrent) : « Tout », puis les pièces des appareils, dans l'ordre
+  // où Odin les donne ; aucune pièce : pas d'onglets. L'onglet choisi est dit aux lecteurs d'écran. Au clavier, une rangée
+  // d'onglets : Tab entre sur celui qui est choisi, les flèches, Début et Fin passent de l'un à l'autre, Entrée le choisit.
+  // Choisir redessine la page ; le focus revient sur l'onglet (draw le garde aussi au redessin automatique).
+  const ongletDe = (v) => [...(document.querySelector('.tabs')?.children || [])].find((b) => b.getAttribute('data-piece') === v);
+  function onglets(noms) {
+    if (!noms.length) return null;
+    const boutons = [[null, MOTS.tout], ...noms.map((x) => [x, x])].map(([v, mot]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(room === v), tabindex: room === v ? '0' : '-1', 'aria-controls': 'maison-grille', 'data-piece': v === null ? '' : `p:${v}`, title: v === null ? null : v,
+      onclick: () => { room = v; draw(); ongletDe(v === null ? '' : `p:${v}`)?.focus({ preventScroll: true }); } }, mot));
+    // Écrite de droite à gauche, la rangée commence à droite : la flèche gauche avance, la flèche droite recule.
+    const rtl = (e) => !!e.currentTarget?.matches?.(':dir(rtl)');
+    return el('div', { class: 'tabs', role: 'tablist', 'aria-label': MOTS.pieces, onkeydown: (e) => {
+      const i = boutons.indexOf(document.activeElement); if (i < 0) return;
+      const [avant, arriere] = rtl(e) ? ['ArrowLeft', 'ArrowRight'] : ['ArrowRight', 'ArrowLeft'];
+      const j = e.key === avant ? Math.min(boutons.length - 1, i + 1) : e.key === arriere ? Math.max(0, i - 1) : e.key === 'Home' ? 0 : e.key === 'End' ? boutons.length - 1 : -1;
+      if (j < 0) return; e.preventDefault(); boutons[j].focus(); boutons[j].scrollIntoView?.({ inline: 'nearest', block: 'nearest' });
+    },
+    // À la souris sans molette de côté : la molette fait défiler la rangée quand elle déborde ; au bout, ou si elle
+    // tient, la page défile comme avant.
+    onwheel: (e) => {
+      const r = e.currentTarget, max = r.scrollWidth - r.clientWidth, d = (e.deltaMode === 1 ? 16 : 1) * e.deltaY;
+      if (max <= 0 || !d || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+      const x = rtl(e) ? Math.max(-max, Math.min(0, r.scrollLeft - d)) : Math.max(0, Math.min(max, r.scrollLeft + d));
+      if (x === r.scrollLeft) return; e.preventDefault(); r.scrollLeft = x;
+    } }, ...boutons);
+  }
 
   // Le retour vers Odin : seulement pour une session (pas avec une clé de tablette) et quand la page n'est pas dans un cadre.
   const retourVisible = (cle, encadre) => !cle && !encadre;
@@ -363,16 +418,16 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
       ['boutons', 'bolt', true],
       ['themes', 'palette', true],
     ].filter((x) => full || x[2]).map(([id, ic]) => [id, MOTS[id], ic]);
-    const notes = D.notices || [], unread = notes.filter((n) => n.level !== 'ok').length;
+    const notes = D.notices || [], unread = notes.filter((n) => n.level !== 'ok').length, [salut, pastille] = bandeau();
     const main = el('main', { id: 'main' },
       dansOdin ? secs(navs) : null,
       el('div', { class: 'top' },
-        el('div', { class: 'hello' }, el('h1', {}, `${hello()}${D.name ? `, ${D.name}` : ''} !`), el('p', {}, `${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · semaine ${week(new Date())}`)),
+        salut,
         el('div', { class: 'tools' },
           retourVisible(key, window.top !== window) ? el('a', { class: 'btn retour', href: '/', title: MOTS.retourTitre, 'aria-label': MOTS.retourTitre, style: { minHeight: '44px', minWidth: '44px', color: 'var(--text)' } }, MOTS.retour) : null,
           el('label', { class: 'search' }, icon('search', 18), el('input', { type: 'search', placeholder: 'Chercher un appareil, une appli…', 'aria-label': 'Chercher', value: q, oninput: (e) => { q = e.target.value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); drawSoon(); } })),
           el('button', { class: 'round', 'aria-label': `Alertes (${unread})`, onclick: () => pet.news() }, icon('bell', 20), unread ? el('span', { class: 'dot' }, String(unread)) : null),
-          el('button', { class: 'round', 'aria-label': voice ? 'Couper la voix de la mascotte' : 'Activer la voix de la mascotte', 'aria-pressed': String(voice), onclick: () => { voice = !voice; try { localStorage.setItem('odin.maison.voix', voice ? '1' : '0'); } catch { /* */ } draw(); if (voice) pet.say('Je parlerai à voix haute.', 'ok', 'joie'); } }, icon('sound', 20)))),
+          el('button', { class: 'round', 'aria-label': voice ? 'Couper la voix de la mascotte' : 'Activer la voix de la mascotte', 'aria-pressed': String(voice), onclick: () => { voice = !voice; try { localStorage.setItem('odin.maison.voix', voice ? '1' : '0'); } catch { /* */ } draw(); if (voice) pet.say('Je parlerai à voix haute.', 'ok', 'joie'); } }, icon('sound', 20)), pastille)),
       ...(view === 'accueil' ? home() : view === 'applis' ? appsView() : view === 'famille' ? [el('h2', { class: 'sec' }, 'Famille'), peopleGrid(), el('p', { class: 'muted', style: { marginTop: '12px' } }, 'La position vient de l\'appli de chaque personne (Home Assistant ou OwnTracks), qui la voit sur son téléphone et peut la mettre en pause.')] : view === 'cameras' ? [el('h2', { class: 'sec' }, 'Caméras'), camGrid(true)] : view === 'reseau' ? netView() : view === 'boutons' ? tilesView(true) : themesView()));
     startCams();
     // La barre de côté : le titre et la punaise, les entrées avec leur nom, le retour vers Odin (même règle qu'en haut), et
@@ -396,9 +451,13 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
       el('div', { class: 'veille' }, MOTS.veille));
     // Le focus qui était dans la barre revient, après le redessin, sur l'élément de même nom (l'entrée, la punaise).
     const garde = document.activeElement?.closest?.('.side') ? document.activeElement.getAttribute('aria-label') : null;
+    // Les onglets de pièces : l'onglet qui avait le focus le retrouve, et la rangée garde sa place (redessin toutes les 15 s).
+    const ongletAvant = document.activeElement?.closest?.('.tabs') ? document.activeElement.getAttribute('data-piece') : null, xOnglets = document.querySelector('.tabs')?.scrollLeft || 0;
     root.setAttribute('class', barre ? 'app' : 'app libre');
     root.replaceChildren(...bords, cote, main, el('nav', { class: 'bnav', 'aria-label': MOTS.sections }, ...navs.map((n) => nav(...n))));
     if (garde) [...cote.querySelectorAll('[aria-label]')].find((x) => x.getAttribute('aria-label') === garde)?.focus({ preventScroll: true });
+    const rangee = document.querySelector('.tabs');
+    if (rangee) { rangee.scrollLeft = xOnglets; if (ongletAvant !== null) ongletDe(ongletAvant)?.focus({ preventScroll: true }); }
   }
   let soon = 0; const drawSoon = () => { clearTimeout(soon); soon = setTimeout(() => { const f = document.activeElement?.type === 'search'; draw(); if (f) { const i = document.querySelector('.search input'); i?.focus(); i?.setSelectionRange(999, 999); } }, 150); };
   /** La fenêtre d'Odin : ses pages « écran de la maison » (modules d'applis, météo, boutons). */
@@ -536,12 +595,13 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
     return card;
   }
   function home() {
-    const rooms = D.rooms || [], names = ['Tout', ...rooms.map((r) => r.name)];
-    const devs = rooms.filter((r) => room === 'Tout' || r.name === room).flatMap((r) => r.devices).filter((d) => match(`${d.name} ${d.kind}`));
+    const rooms = D.rooms || [], names = rooms.map((r) => r.name);
+    if (room !== null && !names.includes(room)) room = null; // la pièce choisie n'a plus d'appareil : tout
+    const devs = rooms.filter((r) => room === null || r.name === room).flatMap((r) => r.devices).filter((d) => match(`${d.name} ${d.kind}`));
     const notes = (D.notices || []).slice(0, 5);
     return [
-      el('div', { class: 'chips', role: 'group', 'aria-label': 'Pièces' }, ...names.map((n) => el('button', { class: 'chip', 'aria-pressed': String(room === n), onclick: () => { room = n; draw(); } }, n))),
-      el('div', { class: 'grid' },
+      onglets(names),
+      el('div', { class: 'grid', id: 'maison-grille' },
         weatherCard(D.weather),
         el('div', { class: 'card clock' }, el('h3', {}, 'Heure'), clock, clockSub),
         ...(D.scenes?.length ? [el('div', { class: 'card w2' }, el('h3', {}, 'Scènes'), el('div', {}, ...D.scenes.map((s) => el('button', { class: 'scene', onclick: () => act('/api/maison/scene', { scene: s }) }, `🎬 ${s}`))))] : []),

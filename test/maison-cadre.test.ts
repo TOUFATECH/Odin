@@ -94,7 +94,8 @@ function ecran(stock: Stock = memoire()) {
   };
   const src = [
     'let D = null, view = \'accueil\', q = \'\', voice = false, key = \'\';',
-    ligne('const MOTS = '), bloc('const el = ('), ligne('let barre = '), ligne('const retourVisible = '), ligne('function nav('), bloc('function ouvrirBarre('), bloc('function ecouterBarre('), bloc('function draw() {'),
+    // Le bandeau (le salut, la date, la pastille) est dessiné par sa propre fonction (test/maison-bandeau.test.ts le tient).
+    ligne('const MOTS = '), bloc('const el = ('), ligne('let barre = '), ligne('const retourVisible = '), ligne('function nav('), bloc('function bandeau('), bloc('function ouvrirBarre('), bloc('function ecouterBarre('), bloc('function draw() {'),
     'ecouterBarre();',
     '({ draw, regler(d, k) { D = d; key = k; view = \'accueil\'; } });',
   ].join('\n');

@@ -92,7 +92,8 @@ function ecran() {
   const src = [
     'let D = null, view = \'accueil\', q = \'\', voice = false, key = \'\';',
     // La barre de côté a une punaise (épinglée ou repliée, gardée sur l'appareil) : son état est lu avec draw.
-    ligne('const MOTS = '), bloc('const el = ('), ligne('let barre = '), ligne('const retourVisible = '), ligne('function nav('), bloc('function draw() {'),
+    // Le bandeau (le salut, la date, la pastille) est dessiné par sa propre fonction (test/maison-bandeau.test.ts le tient).
+    ligne('const MOTS = '), bloc('const el = ('), ligne('let barre = '), ligne('const retourVisible = '), ligne('function nav('), bloc('function bandeau('), bloc('function draw() {'),
     '({ draw, regler(d, k) { D = d; key = k; view = \'accueil\'; } });',
   ].join('\n');
   const e = vm.runInNewContext(src, {
@@ -148,7 +149,9 @@ test('« ← Odin » : là pour une session ; absent avec une clé de tablette ;
 // ---------- L'accueil de l'écran (home) : les pièces qui filtrent, les scènes d'un appui ----------
 function accueil(D: Record<string, unknown>) {
   const cartes: string[] = [], envois: Envoi[] = [];
-  const src = ['let D = null, room = \'Tout\', q = \'\';', bloc('const el = ('), ligne('const match = '), bloc('function home() {'), '({ home, regler(d) { D = d; room = \'Tout\'; }, piece: () => room });'].join('\n');
+  // Les onglets de pièces ont leur fonction (onglets) et leurs mots (MOTS) ; « room » vaut null pour « Tout » (une pièce peut
+  // s'appeler « Tout »). test/maison-bandeau.test.ts tient le reste (la rangée d'onglets, le clavier, aucune pièce).
+  const src = ['let D = null, room = null, q = \'\';', ligne('const MOTS = '), bloc('const el = ('), ligne('const match = '), ligne('const ongletDe = '), bloc('function onglets('), bloc('function home() {'), '({ home, regler(d) { D = d; room = null; }, piece: () => room });'].join('\n');
   const marque = () => new Noeud('vue');
   const e = vm.runInNewContext(src, {
     document: doc, icon: icone, clock: new Noeud('div'), clockSub: new Noeud('div'), draw: () => {},
@@ -165,11 +168,12 @@ const PIECES = { rights: 'complet', notices: [], scenes: ['Scène 1'], rooms: [{
 test('pièces : un onglet par pièce (plus « tout ») ; toucher une pièce ne montre que ses appareils ; revenir à tout les montre tous', () => {
   const a = accueil(PIECES);
   let v = a.dessiner(); assert.deepEqual(v.cartes, ['p1-a', 'p2-a', 'p2-b']);
-  const onglets = () => tous(a.dessiner().racine, (x) => x.tag === 'button' && x.attrs.class === 'chip');
+  // Les onglets sont une rangée d'onglets (role tab, aria-selected), plus des boutons « chip » (aria-pressed).
+  const onglets = () => tous(a.dessiner().racine, (x) => x.tag === 'button' && x.attrs.role === 'tab');
   assert.equal(onglets().length, 3);
   lancer(onglets().find((x) => texte(x) === 'Pièce 2')!, 'click'); assert.equal(a.piece(), 'Pièce 2');
   v = a.dessiner(); assert.deepEqual(v.cartes, ['p2-a', 'p2-b']);
-  assert.equal(tous(v.racine, (x) => x.attrs.class === 'chip' && x.attrs['aria-pressed'] === 'true').map(texte).join(), 'Pièce 2', 'l\'onglet choisi est marqué');
+  assert.equal(tous(v.racine, (x) => x.attrs.role === 'tab' && x.attrs['aria-selected'] === 'true').map(texte).join(), 'Pièce 2', 'l\'onglet choisi est marqué');
   lancer(onglets().find((x) => texte(x) === 'Pièce 1')!, 'click'); assert.deepEqual(a.dessiner().cartes, ['p1-a']);
   lancer(onglets()[0], 'click'); assert.deepEqual(a.dessiner().cartes, ['p1-a', 'p2-a', 'p2-b']);
 });
