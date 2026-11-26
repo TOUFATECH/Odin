@@ -160,13 +160,19 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
   // propriétaire seul).
   assert.deepEqual(sortesPosables().map((x) => x.id).sort(), ['a_faire', 'alertes', 'application', 'bouton', 'chiffres', 'chiffres_cles', 'comportement','heure', 'heure_petite', 'meteo', 'meteo_petite', 'odin_a_fait', 'resume_matin', 'sauvegarde', 'section', 'site', 'surveillance', 'tu_veux', 'alertes_liste', 'sites', 'sites_petit', 'agenda', 'recherches', 'sauvegardes', 'pubs_bloquees',
     // puis le widget de n'importe quelle appli (famille « applis »), dont l'appli se choisit
-    'appli'].sort());
+    'appli',
+    // et ses raccourcis : les applis épinglées de qui regarde (famille « applis », seconde sorte)
+    'raccourcis',
+    // puis la famille « automatisations » : ses automatisations de Talos et ce qui part aujourd'hui (propriétaire seul)
+    'automatisations', 'taches_planifiees'].sort());
   assert.deepEqual(TAILLE_SORTE, {
     heure_petite: { mini: [2, 1], r: 1 }, meteo_petite: { mini: [2, 1], r: 1 }, alertes: { mini: [2, 1], r: 1 }, // les petits chiffres « Infos » de la maquette
     alertes_liste: { mini: [3, 2], r: 3 }, sites: { mini: [3, 2], r: 5 }, sites_petit: { mini: [2, 1], r: 1 }, // la famille « veille »
     agenda: { mini: [3, 2], r: 3 }, recherches: { mini: [3, 2], r: 3 }, // la famille « listes »
     sauvegardes: { mini: [3, 2], r: 2 }, pubs_bloquees: { mini: [3, 2], r: 2 }, // sa seconde part
     appli: { mini: [3, 2], r: 2 }, // le widget de n'importe quelle appli (famille « applis »)
+    raccourcis: { mini: [3, 2], r: 2 }, // ses raccourcis d'applis épinglées (famille « applis »)
+    automatisations: { mini: [4, 2], r: 3 }, taches_planifiees: { mini: [3, 2], r: 3 }, // la famille « automatisations »
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
     a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },

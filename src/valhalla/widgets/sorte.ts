@@ -8,9 +8,10 @@ import type { View } from '../types.ts';
 /**
  * Les quatre familles de la maquette (une par fichier), la veille (les alertes, les sites d'Arachné : veille.ts) et les
  * listes d'Odin (l'agenda de Chronos, les recherches de Pythie, les sauvegardes de Phénix, les pubs bloquées par
- * Sphinx : listes.ts). Puis le widget de n'importe quelle appli (applis.ts).
+ * Sphinx : listes.ts). Puis le widget de n'importe quelle appli (applis.ts). Puis ses automatisations de Talos et ce
+ * qui part aujourd'hui (automatisations.ts).
  */
-export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes' | 'applis';
+export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes' | 'applis' | 'automatisations';
 /**
  * Qui peut recevoir un widget de cette sorte, au plus (constat M12, trois niveaux) :
  * - `proprietaire` : lui seul (le défaut, quand rien n'est écrit) ;
@@ -105,6 +106,20 @@ export interface SourceWidget {
    * l'appli n'existe pas (inconnue, retirée). Absente : pas lue.
    */
   ficheAppli?(id: string): { id: string; name: string; family: string; what: string; active: boolean; actions: ReadonlyArray<{ id: string; label: string; grave: boolean }> } | undefined;
+  /**
+   * Les applis épinglées de qui regarde (les épingles du menu, src/web/epingles-api.ts, lues comme GET /api/epingles les
+   * lit : par compte), dans leur ordre : rien que leurs identifiants, seulement celles qui existent dans Odin (ni les vues,
+   * ni une appli retirée). `proprietaire` : les siennes ; `membre` : celles du membre au nom de qui la lecture est faite.
+   * Rien (undefined) : on ne sait pas de qui les lire. Absente : pas lue.
+   */
+  epingles?(qui: 'proprietaire' | 'membre'): readonly string[] | undefined;
+  /**
+   * Ce que Talos montre dans sa liste « Automatismes » (src/web/talos-api.ts, la route GET /api/draupnir/automatismes,
+   * lue telle quelle), et le fuseau d'Odin où Talos calcule ses heures : pour chaque ligne, son identifiant, sa sorte, son
+   * nom, ce qu'elle fait, son rythme en clair, son état et sa prochaine heure (ISO). Rien (undefined) : Talos n'est pas
+   * démarré, désactivé, ou ne répond pas. Absente : pas lue.
+   */
+  automatismes?(): Promise<{ fuseau: string; lignes: ReadonlyArray<{ id: string; sorte: string; nom: string; quoi: string; phrase: string; etat: string; prochaine?: string }> } | undefined>;
 }
 
 /** Un site surveillé par Arachné, tel qu'un widget le lit (src/valhalla/modules/idunn.ts, sitesVeille). */

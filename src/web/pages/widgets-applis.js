@@ -17,6 +17,9 @@
 //   serveur (action grave) est montrée À CHAQUE FOIS avant de renvoyer ; sans accord, rien ne part.
 // - Tout texte venu d'une appli (sa phrase, un libellé ou une valeur de chiffre clé, la réponse d'une action) est posé par
 //   textContent, isolé dans son sens d'écriture, et coupé à l'écran ; la carte ne s'étire pas (son corps défile).
+// Seconde sorte, « raccourcis » (le « launcher » de la maquette) : une tuile par appli épinglée (l'icône de la page Applis
+// et le nom, posé par textContent), qui ouvre l'appli au toucher, au clic ou au clavier ; ce qui ne tient pas : « et N de
+// plus » ; aucune : une phrase et « Épingler des applis » (la page Applis). Aucune liste d'applis écrite ici.
 // Rien n'est touché au chargement : seulement window.OdinWidgetsApplis (ses textes et calculs, pour les essais) et sa déclaration.
 (() => {
   'use strict';
@@ -33,6 +36,11 @@
     },
     chiffres: 'Chiffres clés', actions: 'Actions rapides', grave: 'Action grave : ton accord est demandé à chaque fois.',
     enCours: 'Un instant…', annule: 'Annulé : rien n\'est parti.', echec: 'Odin ne répond pas.',
+    // « Raccourcis d'applis » (la maquette : « launcher ») : ses applis épinglées.
+    raccourcis: {
+      titre: 'Raccourcis d\'applis', quoi: 'Tes applis épinglées, à portée de doigt : touche pour ouvrir.', sous: 'Touche pour ouvrir',
+      aucune: 'Aucune appli épinglée pour l\'instant.', aller: 'Épingler des applis', plus: (n) => `et ${n} de plus`,
+    },
   };
   const T = TEXTES;
 
@@ -82,7 +90,25 @@
 .wa-act[disabled]{opacity:.55;cursor:default}
 .wa-act .wa-g{color:var(--warn,inherit)}
 .wa-dit{margin:0;font-size:12px;line-height:1.35;color:var(--muted,inherit);overflow-wrap:anywhere}.wa-dit:empty{display:none}
-.wa-calme{margin:0;font-size:13.5px;line-height:1.35;color:var(--muted,inherit)}`;
+.wa-calme{margin:0;font-size:13.5px;line-height:1.35;color:var(--muted,inherit)}
+:has(>.wk-corps){display:flex;flex-direction:column}
+.wk-corps{flex:1 1 auto;min-height:0;min-width:0;display:flex;flex-direction:column;gap:6px;overflow:hidden;padding:3px;margin:-3px;color:var(--ink,var(--text,inherit))}
+.wk-corps>*{flex:none;min-width:0}
+.wk-corps [hidden]{display:none!important}
+.wk-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;align-content:start}
+.wk-tuile{min-width:44px;min-height:44px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:2px;border:0;border-radius:14px;background:transparent;color:inherit;font:inherit;font-size:11.5px;font-weight:500;line-height:1.25;text-align:center;cursor:pointer}
+.wk-tuile:focus-visible,.wk-aller:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:2px}
+.wk-ic{display:inline-grid;place-items:center;flex:none;width:40px;height:40px;border-radius:9px;font-weight:700;background:color-mix(in srgb,var(--ink,currentColor) 10%,transparent)}
+.wk-n{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (prefers-reduced-motion:no-preference){.wk-tuile{transition:transform .15s}.wk-tuile:hover{transform:translateY(-2px)}}
+.wk-plus,.wk-dit{margin:0;font-size:12px;line-height:1.35;color:var(--muted,inherit);overflow-wrap:anywhere}
+.wk-plus{align-self:center;justify-self:center;min-width:0;max-width:100%;text-align:center}
+.wk-dit.wk-1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-tuile{position:relative}
+.wk-serre .wk-grille{grid-template-columns:repeat(auto-fill,minmax(44px,1fr))}
+.wk-serre .wk-tuile{gap:0;padding:0;justify-content:center}
+.wk-serre .wk-n{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.wk-aller{align-self:flex-start;min-height:44px;min-width:44px;max-width:100%;padding:4px 12px;border-radius:12px;border:1px solid var(--line,currentColor);background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:650;line-height:1.25;overflow-wrap:anywhere;cursor:pointer}`;
   function poserStyle() {
     const R = window.OdinWidgetsRendu;
     if (R && typeof R.poserStyle === 'function') R.poserStyle();
@@ -90,7 +116,7 @@
     // Hors téléphone, la carte a la hauteur de ses lignes : son corps ne compte pas dans cette hauteur (il défile), si bien
     // que des chiffres ou des actions n'étirent ni la carte, ni sa voisine. Au téléphone, la hauteur suit le contenu.
     const G = window.OdinGrille, tel = G && G.GRILLE && Number.isInteger(G.GRILLE.telephone) ? G.GRILLE.telephone : 700;
-    const s = document.createElement('style'); s.id = 'odinWidgetsApplis'; s.textContent = `${CSS}\n@media (min-width:${tel + 1}px){.fe-w>.wa-corps{contain:size}}`; document.head.append(s);
+    const s = document.createElement('style'); s.id = 'odinWidgetsApplis'; s.textContent = `${CSS}\n@media (min-width:${tel + 1}px){.fe-w>.wa-corps,.fe-w>.wk-corps{contain:size}}`; document.head.append(s);
   }
   function el(t, cls, texte) { const n = document.createElement(t); if (cls) n.className = cls; if (texte !== undefined) n.textContent = texte; return n; }
   const langue = () => { try { return document.documentElement.lang || undefined; } catch { return undefined; } };
@@ -200,6 +226,103 @@
     try { new ResizeObserver(() => ajuster(c)).observe(c); } catch { /* sans observateur : le corps défile */ }
   }
 
+  // ---------------- « Raccourcis d'applis »
+  const RT = T.raccourcis;
+  /** Un identifiant d'appli que l'adresse d'une appli ouvre (la règle de la page : ui.html, hashView). */
+  const ID_OUVRABLE = /^[a-z0-9_-]{2,40}$/;
+  /** Le corps « vide » : aucune appli épinglée. Une phrase et, hors de l'écran de la maison, le bouton vers la page Applis. */
+  function aucuneEpingle(o) {
+    poserStyle();
+    const c = el('div', 'wk-corps'), p = el('p', 'wk-dit', RT.aucune); p.title = RT.aucune; c.append(p);
+    if (!(o && o.ecran === 'maison')) {
+      const b = el('button', 'wk-aller', RT.aller); b.type = 'button';
+      b.addEventListener('click', (ev) => { ev.stopPropagation(); if (b.closest('.fe-edit')) return; location.hash = '#apps'; });
+      c.append(b);
+    }
+    suivreRaccourcis(c);
+    return c;
+  }
+  /** La tuile d'une appli : son icône (celle de la page Applis) et son nom (une donnée : textContent). */
+  function tuile(a) {
+    const b = el('button', 'wk-tuile'); b.type = 'button'; b.dataset.appli = a.appli; b.title = a.nom;
+    const ic = el('span', 'wk-ic'); ic.setAttribute('aria-hidden', 'true');
+    const I = window.OdinAppIcons;
+    let pose = false;
+    // L'icône vient de l'outil de la page Applis (app-icons.js : son dessin à lui, le nom n'y sert qu'échappé).
+    try { if (I && typeof I.tile === 'function') { ic.innerHTML = I.tile(a.appli, a.nom, 40); pose = Boolean(ic.firstElementChild); } } catch { pose = false; }
+    if (!pose) ic.textContent = a.nom.slice(0, 1).toUpperCase();
+    const n = el('span', 'wk-n', a.nom); n.dir = 'auto';
+    b.append(ic, n);
+    b.addEventListener('click', (ev) => { ev.stopPropagation(); if (b.closest('.fe-edit')) return; location.hash = `#app=${a.appli}`; });
+    return b;
+  }
+  /**
+   * Le corps des raccourcis, fait de l'état rendu par le serveur et de rien d'autre : une tuile par appli épinglée, puis
+   * « et N de plus » (à la place d'une tuile) pour celles qui ne tiennent pas. Aucune appli écrite ici.
+   */
+  function raccourcis(e, o) {
+    if (e.etat === 'vide') return e.raison === 'aucune_epingle' ? aucuneEpingle(o) : null;
+    const d = e.donnee || {};
+    const applis = (Array.isArray(d.applis) ? d.applis : []).filter((a) => a && typeof a === 'object' && typeof a.appli === 'string' && ID_OUVRABLE.test(a.appli) && typeof a.nom === 'string' && a.nom);
+    if (!applis.length) return null; // illisible : rien d'affirmé
+    poserStyle();
+    const c = el('div', 'wk-corps'), g = el('div', 'wk-grille'), plus = el('p', 'wk-plus');
+    plus.hidden = true; plus.setAttribute('role', 'status');
+    g.append(...applis.map(tuile), plus); c.append(g);
+    c.wkLignes = Math.max(1, tailleDe(o && o.w).r);
+    suivreRaccourcis(c);
+    return c;
+  }
+  /** Le téléphone (la hauteur d'une carte y suit son contenu) ? */
+  function auTelephone() {
+    const G = window.OdinGrille, tel = G && G.GRILLE && Number.isInteger(G.GRILLE.telephone) ? G.GRILLE.telephone : 700;
+    try { return window.matchMedia(`(max-width:${tel}px)`).matches; } catch { return false; }
+  }
+  /**
+   * Ne montrer que ce qui tient en entier. Les tuiles : hors téléphone, la carte a la hauteur de ses lignes, et on retire
+   * des tuiles (la dernière d'abord) tant que le corps déborde ; au téléphone, autant de rangées de tuiles que la carte a
+   * de lignes (trente applis n'allongent pas la carte). Ce qui est retiré est compté : « et N de plus ». L'état vide : la
+   * phrase sur une ligne, puis le bouton seul. Tout est remis avant chaque mesure : agrandie, la carte retrouve tout.
+   */
+  function ajusterRaccourcis(c) {
+    if (!c.isConnected || !c.clientWidth) return;
+    const deborde = () => c.scrollHeight > c.clientHeight + 1;
+    const g = c.querySelector('.wk-grille');
+    if (!g) {
+      const p = c.querySelector('.wk-dit'); if (!p) return;
+      p.hidden = false; p.classList.remove('wk-1');
+      if (deborde()) p.classList.add('wk-1');
+      if (deborde() && c.querySelector('.wk-aller')) p.hidden = true;
+      return;
+    }
+    const tuiles = [...g.querySelectorAll('.wk-tuile')], plus = g.querySelector('.wk-plus'), n = tuiles.length;
+    if (!plus) return;
+    let montre = n;
+    const montrer = (k) => {
+      montre = k;
+      tuiles.forEach((t, i) => { t.hidden = i >= k; });
+      plus.hidden = k >= n; plus.textContent = k >= n ? '' : RT.plus(nombre(n - k));
+    };
+    const essayer = () => {
+      montrer(n);
+      const colonnes = Math.max(1, String(getComputedStyle(g).gridTemplateColumns || '').split(' ').filter(Boolean).length);
+      // « et N de plus » prend la place d'une tuile (sur deux lignes au besoin).
+      if (auTelephone()) { const cases = colonnes * c.wkLignes; if (n > cases) montrer(Math.max(0, cases - 1)); }
+      while (montre > 0 && deborde()) montrer(montre - 1);
+    };
+    c.classList.remove('wk-serre');
+    essayer();
+    // Pas même une tuile avec son nom : les tuiles sans le nom écrit dessous (il reste leur nom pour les lecteurs d'écran
+    // et en info-bulle), plutôt qu'une carte sans aucune appli.
+    if (!montre && n) { c.classList.add('wk-serre'); essayer(); }
+  }
+  /** Rejoue l'ajustement à chaque changement de taille du corps (posé, agrandi, réduit, page redessinée). */
+  function suivreRaccourcis(c) {
+    if (typeof ResizeObserver !== 'function') return;
+    try { new ResizeObserver(() => ajusterRaccourcis(c)).observe(c); } catch { /* sans observateur : le corps coupe au bord */ }
+  }
+  const sousRaccourcis = (e) => (e && e.etat === 'ok' ? RT.sous : '');
+
   window.OdinWidgetsApplis = { TEXTES, CSS, pastilleDe, combienDeChiffres, combienDActions };
   // La déclaration de la famille (lue par pages/widgets-rendu.js, quel que soit l'ordre de chargement). La taille de la
   // maquette : 3 × 2. Pas de ligne à elle dans le tiroir : il en a déjà une par appli du catalogue, qui la pose
@@ -207,5 +330,7 @@
   // l'appli est retirée ou fermée à qui regarde.
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'applis', sortes: [
     { sorte: 'appli', titre: T.titre, quoi: T.quoi, symbole: '▦', tiroir: false, poser: { c: 3, r: 2, pc: 4 }, vides: ['appli_retiree'], sous, dessiner: appli },
+    // « Raccourcis d'applis » : au tiroir (pour chacun : ce sont ses épingles), à la taille de départ de la maquette (5 × 2).
+    { sorte: 'raccourcis', titre: RT.titre, quoi: RT.quoi, symbole: '⊞', poser: { c: 5, r: 2, pc: 4 }, vides: ['aucune_epingle'], sous: sousRaccourcis, dessiner: raccourcis },
   ] });
 })();

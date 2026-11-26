@@ -280,8 +280,10 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     // styles de la grande météo n'y ont pas de ligne : ils se choisissent dans « Régler ». Puis les trois widgets de la
     // famille « veille » (les alertes en liste, les sites surveillés, le petit chiffre des sites). Puis les deux widgets
     // de la famille « listes », proposés au propriétaire (l'agenda de Chronos, les recherches de Pythie), et les deux de
-    // sa seconde part (les sauvegardes de Phénix, les pubs bloquées par Sphinx).
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2);
+    // sa seconde part (les sauvegardes de Phénix, les pubs bloquées par Sphinx). Puis les deux de la famille
+    // « automatisations », proposés au propriétaire (ses automatisations de Talos, les tâches planifiées). Puis les
+    // raccourcis d'applis (famille « applis » : les applis épinglées de qui regarde).
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1);
     // L'appli désactivée : grisée, « désactivée », aucun bouton.
     const nomEteinte = cat.modules.find((m) => m.id === eteinte)!.name;
     const off = await page.evaluate(`(() => { const l = [...document.querySelectorAll('#feTiroir .fe-it')].find((x) => x.querySelector('b')?.textContent === ${JSON.stringify(nomEteinte)}); return l ? { off: l.classList.contains('off'), bouton: Boolean(l.querySelector('button')), texte: l.textContent } : null; })()`) as { off: boolean; bouton: boolean; texte: string } | null;
@@ -322,7 +324,9 @@ test('navigateur, 390 px : le tiroir prend tout l\'écran ; « Ajouter » pose l
     await page.click('#feTiroir .fe-chips button[data-f="infos"]');
     // Les quatre infos d'avant, et entre elles les quatre widgets « Infos » de la maquette (déclarés par leur famille) ;
     // les styles de la grande météo n'y ont pas de ligne (ils se choisissent dans « Régler »).
-    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-it b')].map((b: any) => b.textContent)), ['Heure et lieu', 'Météo', 'Heure', 'Horloge', 'Météo (petite)', 'Alertes', 'Site surveillé', 'Bouton sur mesure'], 'les huit infos');
+    // Les raccourcis d'applis (famille « applis ») ne lisent aucune appli fixe : le tiroir les range donc ici, avec les
+    // lignes sans appli (fenetre.js), déclarés avant les widgets « Infos » (pages/widgets-applis.js est chargé avant).
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-it b')].map((b: any) => b.textContent)), ['Heure et lieu', 'Météo', 'Raccourcis d\'applis', 'Heure', 'Horloge', 'Météo (petite)', 'Alertes', 'Site surveillé', 'Bouton sur mesure'], 'les huit infos et les raccourcis');
     await page.click('#feTiroir button[aria-label="Ajouter Heure et lieu"]');
     await page.waitForFunction((n: number) => document.querySelectorAll('#feGrid > .fe-w').length === n + 1, avant.length, { timeout: 15000 });
     await page.waitForFunction(() => document.activeElement?.classList.contains('fe-grip'), undefined, { timeout: 5000 });

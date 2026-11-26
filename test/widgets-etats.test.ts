@@ -153,6 +153,10 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       // avec une appli, il montre ce que le catalogue en dit (sa phrase), et aucun chiffre que l'appli n'a pas mesuré
       // (test/widgets-generique.test.ts)
       appli: W('appli'),
+      // ses raccourcis : sur un Odin neuf, aucune appli épinglée (les vues ne sont pas des applis), donc « vide »
+      raccourcis: W('raccourcis'),
+      // la famille « automatisations » : Talos n'est pas démarré dans cet essai, donc rien n'est lu (« source_absente »)
+      automatisations: W('automatisations'), taches_planifiees: W('taches_planifiees'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);

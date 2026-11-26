@@ -9,13 +9,20 @@ import { history } from '../modules/volva.ts';
 import { etatSauvegardes } from '../modules/sindri.ts';
 import { pubsBloquees } from '../modules/vidarr.ts';
 import { fuseauOdin } from '../../draupnir/rythme.ts';
+import { draupnirOf } from '../../tools/draupnir.ts';
+import { talosGet } from '../../web/talos-api.ts';
 import type { SourceWidget } from './sorte.ts';
+import { join } from 'node:path';
+import { fichierEpingles, lireEpingles, traiterEpingles } from '../../web/epingles-api.ts';
+import { agissant } from '../sso/acces.ts';
+import { PROPRIETAIRE } from '../snotra/partout.ts';
 
 const s = (v: unknown) => String(v ?? '');
 
 export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): SourceWidget {
   const vues = new Map<string, Promise<View | null>>();
   let alertes: Array<{ appli: string }> | undefined, aVoir: ReturnType<NonNullable<SourceWidget['alertesAVoir']>> | undefined;
+  let automatismes: ReturnType<NonNullable<SourceWidget['automatismes']>> | undefined;
   // Une appli désactivée (Applis) n'est pas là pour un widget.
   const appli = (id: string) => { const m = v.module(id); return m && m.id === id && v.estActive(m.id) ? m : undefined; };
   return {
@@ -64,5 +71,22 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
       return { id: m.id, name: m.name, family: m.family, what: s(m.what), active: v.estActive(m.id),
         actions: m.actions.filter((a) => a.quick !== false && !(a.params ?? []).some((p) => p.required)).map((a) => ({ id: a.id, label: s(a.label), grave: grave(a) })) };
     },
+    // Les applis épinglées de qui regarde, lues comme GET /api/epingles les lit (epingles-api.ts, traiterEpingles) : celles
+    // du propriétaire, ou celles du membre au nom de qui la page est lue (widgets-api.ts, auNomDe). Seulement les applis
+    // qui existent dans Odin ; le droit d'un membre sur chacune est vérifié par le widget (« raccourcis », applis.ts).
+    epingles: (qui) => {
+      const cle = qui === 'proprietaire' ? PROPRIETAIRE : agissant()?.login;
+      if (!cle || (qui === 'membre' && cle === PROPRIETAIRE)) return undefined;
+      const r = traiterEpingles(lireEpingles(fichierEpingles(join(v.dir, '..'))), cle, qui === 'proprietaire', (id) => v.modules().some((m) => m.id === id));
+      return r.reponse.ok ? r.reponse.epingles.filter((x) => x.startsWith('appli:')).map((x) => x.slice(6)) : undefined;
+    },
+    // La liste « Automatismes » de Talos, telle que sa route la rend (une fois par page), si Talos est là, activé et
+    // démarré (au propriétaire seul : automatisations.ts). Une lecture qui échoue : rien.
+    automatismes: () => (automatismes ??= (appli('draupnir') && draupnirOf()
+      ? talosGet(undefined, '/api/draupnir/automatismes', new URLSearchParams()).then((r) => {
+        const o = (r ?? {}) as { ok?: unknown; fuseau?: unknown; lignes?: unknown };
+        return o.ok === true && Array.isArray(o.lignes) ? { fuseau: s(o.fuseau), lignes: o.lignes as NonNullable<Awaited<ReturnType<NonNullable<SourceWidget['automatismes']>>>>['lignes'] } : undefined;
+      }).catch(() => undefined)
+      : Promise.resolve(undefined))),
   };
 }
