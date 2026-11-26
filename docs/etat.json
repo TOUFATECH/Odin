@@ -1,6 +1,6 @@
 {
   "note": "L'état de chaque chose d'Odin : « fait » (commité), « en cours » (écrit, pas encore commité, ou en relecture), « à venir » (décrit dans une note, pas encore écrit). Ce fichier est la SEULE source : le guide (site/guide.html) et le README la lisent (npm run guide). Passer un élément à « fait » = changer son « etat » et donner son « commit » ; l'essai test/doc-etat.test.ts refuse « fait » si un de ses fichiers n'est pas commité.",
-  "maj": "2026-11-25",
+  "maj": "2026-11-26",
   "elements": [
     {
       "id": "applis",
@@ -44,7 +44,7 @@
       "nom": "Vénus, le serveur multimédia, dans Odin",
       "etat": "fait",
       "famille": "Médias",
-      "resume": "Films, séries, chaînes et enregistrements, télécommande par QR code.",
+      "resume": "Films et séries, télécommande par QR code.",
       "fichiers": [
         "src/valhalla/modules/venus.ts"
       ],
@@ -592,7 +592,7 @@
       "nom": "Apparence : « Mis en avant », six thèmes de la maquette validée",
       "etat": "fait",
       "famille": "Odin",
-      "resume": "En tête de Réglages → Apparence, la famille « Mis en avant » : Glace (aux couleurs de la maquette), Vitre, Glace nuit, Néon, Home Assistant et Maison claire. Pour l'instant ils sont « à plat » : fond uni, cartes pleines ; le verre de la maquette n'est pas encore là. « Minuit » ne change pas.",
+      "resume": "En tête de Réglages → Apparence, la famille « Mis en avant » : Glace (aux couleurs de la maquette), Vitre, Glace nuit, Néon, Home Assistant et Maison claire. Sur l'accueil, ils passent maintenant sous le verre (plus bas) ; ailleurs, le fond reste uni. « Minuit » ne change pas.",
       "fichiers": [
         "src/web/pages/themes-catalogue.js",
         "src/web/themes.js",
@@ -606,7 +606,7 @@
       "nom": "Apparence : les 31 thèmes de Hestia, 85 thèmes au choix",
       "etat": "fait",
       "famille": "Odin",
-      "resume": "Les 31 thèmes de l'écran de la maison se choisissent aussi pour Odin, dans Réglages → Apparence, famille « Thèmes de Hestia », avec leurs décors et les noms que l'écran de la maison leur donne. Un thème de Hestia s'affiche avec le nom de sa famille. En tout, 85 thèmes en quatre familles : Mis en avant (6), Les thèmes d'Odin (32), Thèmes de Hestia (31), Événements de l'année (16). Eux aussi sont « à plat » pour l'instant. L'écran de la maison garde ses propres thèmes. « Au hasard » peut tomber sur un thème mis en avant ou de Hestia, jamais sur un événement.",
+      "resume": "Les 31 thèmes de l'écran de la maison se choisissent aussi pour Odin, dans Réglages → Apparence, famille « Thèmes de Hestia », avec leurs décors et les noms que l'écran de la maison leur donne. Un thème de Hestia s'affiche avec le nom de sa famille. En tout, 85 thèmes en quatre familles : Mis en avant (6), Les thèmes d'Odin (32), Thèmes de Hestia (31), Événements de l'année (16). Sur l'accueil, ils passent maintenant sous le verre (plus bas). L'écran de la maison garde ses propres thèmes. « Au hasard » peut tomber sur un thème mis en avant ou de Hestia, jamais sur un événement.",
       "fichiers": [
         "src/web/pages/themes-catalogue.js",
         "src/web/themes.js",
@@ -799,14 +799,14 @@
       "nom": "La maquette validée de l'Accueil et de l'écran de la maison",
       "etat": "en cours",
       "famille": "Odin",
-      "resume": "35 livraisons enregistrées sur 80 (une ligne du plan = une livraison ; le lot 27 compte pour une). Faites : le garde-fou des données (0), les thèmes (1, 2, 3, les cartes 8a, en parlant 11, ceux de l'écran de la maison lus dans le catalogue commun 6a), le menu (4a, 4b, 20), les automatisations en cercles et leurs bulles (5, 5b, 5c), ce qu'un bloc a reçu gardé par le moteur (62), « oui » et « non » sur les liaisons du « Si » et « Filtrer » en petit rond sur la liaison (60), les filets (12, 41), la grille (13 à 18 : modèle, 12 colonnes, tailles, glisser, animations, tiroir), le bandeau (19), la barre du bas au téléphone (21), le plein écran et le nid d'Odin (22a, 22b), le socle des widgets et qui voit quoi (23, 24a, 24b, 24c), le dessin commun et « Régler » (25a, 25b), la page « Aujourd'hui » (26, 27). En cours, pas enregistré : le verre de l'accueil (7), les widgets « Infos » (28). À venir : les 43 autres, dont les familles de thèmes et le verre sur l'écran de la maison, le fond qui vit, les widgets de tes applis, l'écran de la maison (pièces, scènes, énergie) et la maison 3D."
+      "resume": "48 livraisons enregistrées sur 80. Faites : le garde-fou des données, les thèmes et le verre de l'accueil, son curseur, le fond qui vit (éteint au départ), le menu, les automatisations en cercles, la grille et le socle des widgets, la page « Aujourd'hui », les widgets « Infos », la grande météo, « Alertes et erreurs », « Sites web », « Agenda », « Recherche », « Sauvegardes », « Pubs bloquées », et sur l'écran de la maison les familles de thèmes, la barre de côté, le bandeau, les onglets de pièces, le téléphone et le plein écran. Pas à construire, d'après tes réponses du 25/11 : la page « Énergie » et créer une scène depuis l'écran de la maison. En cours, pas enregistré : 7 livraisons (le widget d'une appli, les raccourcis, les automatisations, « Mettre en widget », la grille de l'écran de la maison, son verre et son fond qui vit, les relevés gardés). À venir : les 23 autres. Le détail, livraison par livraison, est dans AVANCEMENT.md."
     },
     {
       "id": "en-cours-25-11",
-      "nom": "Écrit, pas encore enregistré",
+      "nom": "Écrit ou commencé, pas encore enregistré",
       "etat": "en cours",
       "famille": "Odin",
-      "resume": "Le verre de l'accueil (le décor du thème derrière, des cartes assez opaques pour rester lisibles, ton choix du 25/11) ; les widgets « Infos » (heure, horloge, petite météo, alertes) ; la suite de Vénus « La maison » ; le réseau par la parole (« qui est connecté sur le VPN »). Rien de cela n'est dans ton Odin tant que ce n'est pas enregistré."
+      "resume": "Sur l'accueil : le widget de n'importe quelle appli, les widgets « Raccourcis » et « Automatisations », « Mettre en widget » depuis la fiche d'une appli. Sur l'écran de la maison : le modèle de sa grille de widgets, le verre et le fond qui vit, les relevés gardés des prises et des capteurs. Rien de cela n'est dans ton Odin tant que ce n'est pas enregistré."
     },
     {
       "id": "automatisations-cercles",
@@ -1120,6 +1120,160 @@
       "commit": "7091aa39"
     },
     {
+      "id": "venus-maison-suite",
+      "nom": "Vénus : La maison, seconde part",
+      "etat": "fait",
+      "famille": "Médias",
+      "resume": "La séance (on la rejoint avec un code de 4 lettres), la télécommande (un écran connu d'Odin, −30 s, lecture ou pause, +30 s, un QR code pour un autre téléphone) et les téléchargements : une version légère en 720p ou 480p préparée sur la machine d'Odin, gardée 7 jours, sans jamais remplir le disque. Un profil enfant ne télécharge pas ; chaque profil ne voit que les siennes. Pas encore : la croix, les chaînes et « Reprendre sur la TV ».",
+      "fichiers": [
+        "src/valhalla/venus/hors-ligne.ts",
+        "src/valhalla/venus/routes.ts"
+      ],
+      "commit": "28b54613"
+    },
+    {
+      "id": "venus-admin",
+      "nom": "Vénus : le tableau de bord de l'administration",
+      "etat": "fait",
+      "famille": "Médias",
+      "resume": "Pour l'administrateur seulement : le nombre d'œuvres et la place prise, les lectures en cours (sans adresse d'appareil), les écrans connus, l'activité, la santé de la machine (« source absente » quand une mesure manque, jamais 0 %), les tâches de fond avec « Analyser », chaque médiathèque. Un profil enfant n'a ni l'entrée ni la page.",
+      "fichiers": [
+        "src/valhalla/venus/entretien.ts",
+        "src/valhalla/venus/routes.ts"
+      ],
+      "commit": "a9a3030c"
+    },
+    {
+      "id": "reseau-parole",
+      "nom": "Le réseau par la parole (maquette validée « Réseau »)",
+      "etat": "fait",
+      "famille": "Accès",
+      "resume": "En français, anglais, espagnol et allemand : « qui est connecté sur le VPN » (selon les droits de qui demande), « quelle machine a l'adresse… » (jamais la box ni Odin), puis « bloque-la », qui ne vaut que pour la seule machine nommée, avec la confirmation habituelle. Aucune clé ni QR code n'est jamais dit.",
+      "fichiers": [
+        "src/valhalla/modules/vidarr.ts",
+        "src/valhalla/modules/gjoll.ts"
+      ],
+      "commit": "45b2b201"
+    },
+    {
+      "id": "hydre-copies",
+      "nom": "Hydre : cloner et exporter une machine",
+      "etat": "fait",
+      "famille": "Machines",
+      "resume": "Cloner une machine éteinte (copie complète, ou copie liée depuis un modèle), ranger une machine comme modèle, l'exporter dans un fichier .ody (même allumée), importer un .ody après l'antivirus. Réservé au propriétaire, dans le budget d'Hydre, noté dans « qui a fait quoi ». Pas encore : vers une vraie clé, vers un serveur, sous Windows.",
+      "fichiers": [
+        "src/valhalla/ymir/copies.ts",
+        "src/web/pages/ymir.js"
+      ],
+      "commit": "1f77fda0"
+    },
+    {
+      "id": "contenus-dehors",
+      "nom": "Les contenus venus de dehors ne bloquent plus Odin",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Un texte piégé (des milliers de balises jamais fermées, une très longue ligne) ne fige plus Odin et ne peut plus imiter la fin de l'enveloppe qui le marque comme une donnée ; la source écrite dans l'en-tête tient sur une ligne. Validé par toi le 25/11.",
+      "fichiers": [
+        "src/heimdall/injection.ts"
+      ],
+      "commit": "7ecbdff5"
+    },
+    {
+      "id": "discussion-venu-appli",
+      "nom": "Discussion : le cadre « Venu de l'appli »",
+      "etat": "fait",
+      "famille": "Sûreté",
+      "resume": "Le texte rendu par une appli s'affiche dans un cadre qui dit d'où il vient ; hors du cadre, c'est Odin qui parle. Ce texte n'est jamais suivi comme une consigne ; il ne peut ni sortir du cadre ni imiter l'avertissement. Pas encore : la notification du système, la voix et les autres canaux ; les mots en d'autres langues.",
+      "fichiers": [
+        "src/web/pages/rendu.js",
+        "src/web/ui.html"
+      ],
+      "commit": "882be867"
+    },
+    {
+      "id": "accueil-infos",
+      "nom": "Accueil : les widgets « Infos » et la grande météo",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "L'heure, la météo et les alertes pas encore vues en petits chiffres ; l'horloge ; la météo en quatre styles (Simple, Complète, Compacte, Scène) avec les 7 jours, les 24 heures, le lever et le coucher. L'heure d'Odin, jamais celle de l'appareil ; rien d'affirmé sans lieu choisi ni sans source.",
+      "fichiers": [
+        "src/valhalla/widgets/infos.ts",
+        "src/web/pages/widgets-infos.js"
+      ],
+      "commit": "29bef7cf"
+    },
+    {
+      "id": "accueil-veille",
+      "nom": "Accueil : « Alertes et erreurs » et « Sites web »",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "La liste des alertes avec « Vu » ; les sites surveillés par Arachné, les pannes d'abord, et le petit chiffre « combien répondent ». Les actions (« Vérifier », « Relancer »…) ne vont qu'au propriétaire, avec confirmation. Pas encore : les styles « Liste » et « Pastilles ».",
+      "fichiers": [
+        "src/valhalla/widgets/veille.ts",
+        "src/web/pages/widgets-veille.js"
+      ],
+      "commit": "683c4977"
+    },
+    {
+      "id": "accueil-listes",
+      "nom": "Accueil : « Agenda », « Recherche », « Sauvegardes », « Pubs bloquées » (toi seul)",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Tes prochains rendez-vous, le champ « Pose ta question… » et tes dernières recherches, l'état des sauvegardes de Phénix, les pubs bloquées aujourd'hui par Sphinx (des comptes seulement). Refusés par le serveur à un membre, à une tablette « maison » et à la clé d'accès. Ta question n'apparaît dans aucune adresse.",
+      "fichiers": [
+        "src/valhalla/widgets/listes.ts",
+        "src/web/pages/widgets-listes.js"
+      ],
+      "commit": "fc625c06"
+    },
+    {
+      "id": "accueil-verre",
+      "nom": "Accueil : le verre et le curseur « Transparence du verre »",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Sur l'accueil seulement, le décor du thème passe derrière des cartes de verre, assez opaques pour que tout texte reste lisible (4,5 pour 1). Dans Réglages → Apparence, un curseur de 0 à 100 (propriétaire seul) règle ce verre pour chaque thème, sans jamais rendre un texte illisible. Pas encore : sur l'écran de la maison.",
+      "fichiers": [
+        "src/web/themes.js",
+        "src/valhalla/modules/apparence.ts"
+      ],
+      "commit": "4d054d50"
+    },
+    {
+      "id": "accueil-fond",
+      "nom": "Accueil : le fond qui vit (éteint au départ)",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "Seize ambiances animées derrière l'accueil (glace, vitre, néon, étoiles, aurore, vagues, pluie, orage, neige, feuilles, pétales, bulles, coucher de soleil, orbes…). Éteint au départ (ton choix du 26/11) : tu l'allumes dans Réglages → Apparence. Rien ne bouge si l'appareil demande moins de mouvement. Pas encore : sur l'écran de la maison.",
+      "fichiers": [
+        "src/web/pages/themes-scenes.js",
+        "src/web/themes.js"
+      ],
+      "commit": "a2ff46eb"
+    },
+    {
+      "id": "maison-themes",
+      "nom": "Écran de la maison : toutes les familles de thèmes",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "La page « Thèmes » de l'écran de la maison montre les quatre familles de Réglages → Apparence, sous les mêmes noms. Un réglage par écran : le thème choisi ici ne change pas celui d'Odin. « Valhalla (classique) » n'y est pas proposé.",
+      "fichiers": [
+        "src/web/maison.js",
+        "src/web/maison-api.ts"
+      ],
+      "commit": "363991ea"
+    },
+    {
+      "id": "maison-cadre",
+      "nom": "Écran de la maison : la barre de côté, le bandeau, les onglets, le téléphone",
+      "etat": "fait",
+      "famille": "Odin",
+      "resume": "La barre de côté avec ses mots et sa punaise (détachée au départ) ; le bandeau qui ne montre que ce qui est vrai ; les onglets de pièces qui filtrent ; au téléphone, la barre du bas avec Odin au centre et « Plus » ; le plein écran. Pas encore : les mots dans la langue d'Odin.",
+      "fichiers": [
+        "src/web/maison.js"
+      ],
+      "commit": "6a93deb4"
+    },
+    {
       "id": "lieu-suppose",
       "nom": "Ne plus montrer comme ta ville une ville seulement supposée",
       "etat": "à venir",
@@ -1201,7 +1355,7 @@
       "nom": "Vénus complet, sans rien d'extérieur : la suite",
       "etat": "à venir",
       "famille": "Médias",
-      "resume": "Déjà là : l'interface de l'appli Vénus d'origine, son lecteur, les affiches, « faire venir » un titre, le calendrier, « Ce soir », le vote, les statistiques et les collections (voir plus haut). En cours, pas enregistré : la suite de « La maison » (la séance, la télécommande, les versions plus légères, la liste des téléchargements). À venir : la musique, les livres et les photos ; l'administration ; la télévision en direct ; la même demande « lance tel film » dans les autres langues suivies ; YouTube et l'envoi vers une télé faits par Odin lui-même."
+      "resume": "Déjà là : l'interface de l'appli Vénus d'origine, son lecteur, les affiches, « faire venir » un titre, le calendrier, « Ce soir », le vote, les statistiques, les collections, la séance, la télécommande, les téléchargements et le tableau de bord de l'administration (voir plus haut). À venir : dans l'administration, le code de connexion, déconnecter un appareil, redémarrer, le message à tous, les pages Qualité, Sécurité et Serveur et les autres rubriques des réglages ; dans la télécommande, la croix, les chaînes et « Reprendre sur la TV » ; la musique, les livres et les photos ; la télévision en direct ; la même demande « lance tel film » dans les autres langues suivies ; YouTube et l'envoi vers une télé faits par Odin lui-même."
     },
     {
       "id": "a-valider",
@@ -1275,7 +1429,7 @@
       "nom": "Des widgets posés par la parole ; le nouvel accueil",
       "etat": "à venir",
       "famille": "Parler",
-      "resume": "« Mets la météo en haut à gauche », « agrandis-le », « remets comme avant ». Le nouvel accueil est en partie là (35 livraisons sur 80, plus haut) ; l'écran de la maison redessiné est à venir."
+      "resume": "« Mets la météo en haut à gauche », « agrandis-le », « remets comme avant ». Le nouvel accueil est en partie là (48 livraisons sur 80, plus haut) ; sur l'écran de la maison, le cadre est là (barre de côté, bandeau, onglets de pièces, téléphone, plein écran), ses widgets sont à venir."
     },
     {
       "id": "ssh",
@@ -1428,7 +1582,7 @@
       "nom": "Les autres maquettes validées : ce qui reste",
       "etat": "à venir",
       "famille": "Machines",
-      "resume": "Clés USB : écrire une clé neuve (avec une vraie clé d'essai). Systèmes : les essayer sur un vrai PC et un vrai réseau. Conteneurs et machines virtuelles : Odin sous Windows (après tes réponses), cloner une machine et l'exporter vers une clé (la parole est là : « arrête wiki », « crée-moi une VM Ubuntu avec 4 Go »). Réseau : les comptes et la page de connexion du VPN (tes réponses du 23/11), la parole (en cours). Vénus : musique, livres et photos ; administration ; télévision en direct."
+      "resume": "Clés USB : écrire une clé neuve (avec une vraie clé d'essai). Systèmes : les essayer sur un vrai PC et un vrai réseau. Conteneurs et machines virtuelles : Odin sous Windows (après tes réponses) ; copier une machine vers une vraie clé, l'envoyer vers un serveur, importer un disque seul (cloner et exporter en fichier sont là). Réseau : les comptes et la page de connexion du VPN (tes réponses du 23/11) ; la parole dans d'autres langues que le français, l'anglais, l'espagnol et l'allemand. Vénus : la fin de l'administration, la musique, les livres et les photos, la télévision en direct."
     },
     {
       "id": "rangement",
