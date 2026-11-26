@@ -50,7 +50,8 @@ export const SORTES_STOCKAGE = [
   {
     // « Stockage » (la maquette : « NAS · stockage », 5 × 4, 3 × 2 au moins) : son style de départ, « Lignes ». Les
     // autres styles de la maquette (anneaux, cylindres, chargement, jauge) ne sont pas encore dessinés : non déclarés.
-    id: 'stockage', famille: 'stockage', applis: ['fensalir'], taille: { mini: [3, 2], r: 4 }, styles: ['lignes'], public: 'membre', posable: true,
+    // Jamais sur l'écran de la maison : un écran au mur y montrerait ses disques et ses partages.
+    id: 'stockage', famille: 'stockage', applis: ['fensalir'], taille: { mini: [3, 2], r: 4 }, styles: ['lignes'], public: 'membre', posable: true, jamaisALaMaison: true,
     nettoyer: etiquette,
     lire: async (_w, src, l): Promise<EtatWidget> => {
       const non = pasTablette(l); if (non) return non;

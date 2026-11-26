@@ -220,7 +220,9 @@ const fiche = (p: Page) => p.evaluate(() => {
     lignes: [...f.querySelectorAll('h3, .fa-fam, .fa-etat, .fa-phrase, .fa-faire h4, .fa-orig h4, .fa-alt > b, .fa-ouvrir, .fa-mettre h4, .fa-poser, .fa-rapides-t')].map((n: any) => { const c = String(n.className || '').split(' ').find((x) => x.startsWith('fa-')); return c ? `${n.tagName.toLowerCase()}.${c}` : n.tagName.toLowerCase(); }),
     texte: txt(f), boutons: [...f.querySelectorAll('button')].map(txt),
     poser: poser ? { texte: txt(poser), nom: poser.getAttribute('aria-label'), haut: Math.round(pr.height), large: Math.round(pr.width) } : null,
-    dit: txt(f.querySelector('.fa-dit')),
+    // Ce que dit « Mettre en widget » (suit l'ordre de la maquette : le bloc des actions rapides, qui a aussi sa
+    // phrase, vient maintenant avant lui).
+    dit: txt(f.querySelector('.fa-mettre .fa-dit')),
     // Les actions rapides : le texte de chaque bouton, son action, sa taille, et ce que la fiche dit après un appui.
     rapides: [...f.querySelectorAll('.fa-rapide')].map((b: any) => { const x = b.getBoundingClientRect(); const st = getComputedStyle(b); return { texte: txt(b), action: b.dataset.action, haut: Math.round(x.height), large: Math.round(x.width), marge: Math.min(parseFloat(st.paddingTop), parseFloat(st.paddingBottom)) }; }),
     ditRapide: txt(f.querySelector('.fa-rapides .fa-dit')),
@@ -229,10 +231,13 @@ const fiche = (p: Page) => p.evaluate(() => {
     enfants: [...f.querySelectorAll('*')].every((n: any) => { const b = n.getBoundingClientRect(); return b.width === 0 || (b.left >= r.left - 1 && b.right <= r.right + 1); }),
   };
 });
-/** Ce que la fiche dit une fois la pose finie (ni vide, ni « Un instant… »), puis remis à vide pour l'appui suivant. */
+/**
+ * Ce que la fiche dit une fois la pose finie (ni vide, ni « Un instant… »), puis remis à vide pour l'appui suivant. Suit
+ * l'ordre de la maquette : la phrase de « Mettre en widget » (celle des actions rapides vient avant elle).
+ */
 async function ditApres(p: Page): Promise<string> {
-  await p.waitForFunction(() => { const t = document.querySelector('#odinFiche .fa-dit')?.textContent ?? ''; return t !== '' && !/…$/.test(t); }, undefined, { timeout: 20000 });
-  return p.evaluate(() => { const n = document.querySelector('#odinFiche .fa-dit'); const t = n.textContent; n.textContent = ''; return t; });
+  await p.waitForFunction(() => { const t = document.querySelector('#odinFiche .fa-mettre .fa-dit')?.textContent ?? ''; return t !== '' && !/…$/.test(t); }, undefined, { timeout: 20000 });
+  return p.evaluate(() => { const n = document.querySelector('#odinFiche .fa-mettre .fa-dit'); const t = n.textContent; n.textContent = ''; return t; });
 }
 const actif = (p: Page) => p.evaluate(() => { const a = document.activeElement; return { classe: String(a?.className ?? ''), texte: (a?.textContent ?? '').replace(/\s+/g, ' ').trim(), dansFiche: Boolean(a?.closest?.('#odinFiche')) }; });
 
@@ -253,16 +258,18 @@ for (const [largeur, sombre] of [[1280, false], [1280, true], [390, false], [390
       assert.ok(f.poser!.haut >= 44 && f.poser!.large >= 44, `bouton de 44 px au moins (${f.poser!.large} × ${f.poser!.haut})`);
       assert.match(f.texte, /Mettre en widget sur/);
       assert.doesNotMatch(f.texte, /maison|Home Assistant/i, 'l\'écran de la maison n\'est pas proposé');
-      // Suit le code : la fiche du propriétaire porte maintenant ses « Actions rapides », APRÈS « Mettre en widget »
-      // (avant : « aucune action rapide », et seulement « Ouvrir » et « L'accueil »). Les boutons d'avant restent les deux
-      // premiers, dans le même ordre ; les actions viennent ensuite, et rien d'autre (aucun bouton mort).
+      // Suit le code : la fiche du propriétaire porte ses « Actions rapides » AVANT « Mettre en widget », comme la maquette
+      // (la fiche d'une appli ; avant : après lui). « Ouvrir » reste le premier bouton ; puis les actions rapides, puis
+      // « L'accueil », et rien d'autre (aucun bouton mort).
       assert.match(f.texte, /Actions rapides/);
-      assert.deepEqual(f.boutons.slice(0, 2), ['Ouvrir Appli Essai', 'L\'accueil'], 'les boutons d\'avant en tête, dans le même ordre');
-      assert.deepEqual(f.boutons.slice(2), f.rapides.map((x) => x.texte), 'après eux, seulement les actions rapides (vérifiées une à une plus bas)');
-      assert.ok(f.lignes.indexOf('button.fa-poser') < f.lignes.indexOf('h4.fa-rapides-t'), 'les actions viennent après « Mettre en widget »');
+      assert.equal(f.boutons[0], 'Ouvrir Appli Essai', '« Ouvrir » en tête');
+      assert.deepEqual(f.boutons.slice(1), [...f.rapides.map((x) => x.texte), 'L\'accueil'], 'puis seulement les actions rapides (vérifiées une à une plus bas), puis « L\'accueil »');
+      assert.ok(f.lignes.indexOf('h4.fa-rapides-t') < f.lignes.indexOf('button.fa-poser'), 'les actions viennent avant « Mettre en widget »');
       assert.equal(f.dedans, true, 'la fiche reste dans l\'écran'); assert.equal(f.enfants, true, 'tout reste dans la fiche'); assert.equal(f.deborde, false, 'aucun défilement de côté');
       // Au clavier : Tab entre dans la fiche (« Ouvrir », puis « L'accueil »), Entrée pose.
       await p.keyboard.press('Tab'); assert.equal((await actif(p)).texte, 'Ouvrir Appli Essai', 'Tab : dans la fiche');
+      // Suit l'ordre de la maquette : les actions rapides, puis « L'accueil ».
+      for (const x of f.rapides) { await p.keyboard.press('Tab'); assert.equal((await actif(p)).texte, x.texte); }
       await p.keyboard.press('Tab'); assert.equal((await actif(p)).texte, 'L\'accueil');
       assert.equal(await combienSurLAccueil('essaiw'), 0);
       await p.keyboard.press('Enter');
@@ -318,7 +325,7 @@ test('navigateur, 390 px : l\'appli en bas de l\'écran, la fiche au-dessus ; qu
     assert.equal(m0.couvre, false, `à l'ouverture, la fiche ne couvre pas l'appli ${JSON.stringify(m0)}`);
     assert.equal(m0.cote, 'dessus', 'la fiche est au-dessus de l\'appli');
     await p.click('#odinFiche .fa-poser');
-    await p.waitForFunction(() => /Posé/.test(document.querySelector('#odinFiche .fa-dit')?.textContent ?? ''), undefined, { timeout: 20000 });
+    await p.waitForFunction(() => /Posé/.test(document.querySelector('#odinFiche .fa-mettre .fa-dit')?.textContent ?? ''), undefined, { timeout: 20000 });
     const m = await mesure();
     assert.equal(m.couvre, false, `le message écrit, la fiche ne couvre toujours pas l'appli ${JSON.stringify(m)}`);
     assert.equal(m.dedans, true, 'elle reste dans l\'écran');
@@ -374,7 +381,7 @@ test('navigateur : les actions rapides de la fiche sont celles que la règle exi
     assert.ok(f.rapides.length > 0, 'des actions rapides');
     // Suit la relecture : l'appli comparée a en tête une action « pas rapide » et une action à réglage obligatoire ; la
     // fiche ne les offre pas, comme la barre de sa page (comparée juste après). La comparaison avec le widget de la même
-    // appli est l'essai « à faire » qui suit : le tri du widget, côté serveur, s'écarte de celui de la page.
+    // appli est l'essai qui suit (sur toutes les applis réelles : test/widgets-restes.test.ts).
     // La barre de boutons de la page de l'appli.
     await p.evaluate(() => { window.location.hash = '#app=essaip'; });
     await p.waitForSelector('#v-app .va-acts-bar button', { timeout: 30000 });
@@ -385,10 +392,10 @@ test('navigateur : les actions rapides de la fiche sont celles que la règle exi
   } finally { await ctx.close(); }
 });
 
-// À faire (hors de ce lot) : le widget d'une appli trie ses actions côté serveur sans écarter une action « pas rapide »
-// ni une action à réglage obligatoire (src/valhalla/widgets/applis.ts) ; la fiche suit la règle de la page. Cet essai
-// reste « à faire » tant que les deux ne donnent pas les mêmes actions pour la même appli.
-test('navigateur : les actions rapides de la fiche sont celles du widget de la même appli', { skip: sansNav, todo: 'le tri du widget (côté serveur) s\'écarte de la règle de la page' }, async () => {
+// Le widget d'une appli applique côté serveur la règle de la page (src/valhalla/widgets/applis.ts et source.ts : rapides,
+// sans réglage obligatoire à remplir, sans l'action réservée à « Sur quel poste ? », puis les premières) : cet essai,
+// autrefois « à faire », est un vrai essai.
+test('navigateur : les actions rapides de la fiche sont celles du widget de la même appli', { skip: sansNav }, async () => {
   await remettre();
   const { ctx, page: p } = await applis(1280, false);
   try {
@@ -539,8 +546,9 @@ for (const [largeur, sombre] of [[1280, false], [1280, true], [390, false], [390
       assert.equal(f.dedans, true, 'la fiche reste dans l\'écran'); assert.equal(f.enfants, true); assert.equal(f.deborde, false);
       const sur = f.rapides.find((x) => !/⚠/.test(x.texte))!, grave = f.rapides.find((x) => /⚠/.test(x.texte))!;
       assert.ok(sur && grave, 'une action simple et une action grave');
-      // Au clavier : Tab entre dans la fiche, puis « Ouvrir », « L'accueil », et les actions.
-      for (let i = 0; i < 2 + f.rapides.indexOf(sur) + 1; i++) await p.keyboard.press('Tab');
+      // Au clavier : Tab entre dans la fiche, puis « Ouvrir », et les actions (suit la maquette : « Actions rapides »
+      // vient maintenant avant « Mettre en widget », donc avant « L'accueil »).
+      for (let i = 0; i < 1 + f.rapides.indexOf(sur) + 1; i++) await p.keyboard.press('Tab');
       assert.deepEqual(await actif(p), { classe: 'btn fa-rapide', texte: sur.texte, dansFiche: true });
       await p.keyboard.press('Enter');
       assert.match(await ditRapideApres(p), /va bien/, 'le résultat de l\'action est dit dans la fiche');

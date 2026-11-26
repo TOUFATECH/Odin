@@ -190,7 +190,9 @@ test('fenetre.js : le tiroir est rempli par le catalogue d\'Odin, aucune liste d
   // La ligne « Météo » pose désormais « Complète » en 4 × 5 (maquette validée ; test/widgets-meteo.test.ts).
   assert.match(c, /item\(\{ kind: 'heure' \}/); assert.match(c, /item\(\{ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 \}/);
   assert.match(c, /onclick: siteSurveille/); assert.match(c, /onclick: ownButton/);
-  assert.match(String((O.TEXTES as Record<string, unknown>).aide), /⚙/, 'l\'aide rappelle « une partie de la page d\'une appli » (⚙)');
+  // Suit le code : l'aide dit ce que fait l'écran (« ⋯ » ouvre « Régler » ; le bouton « ⚙ » n'existe plus).
+  // Suit le code : des espaces insécables à l'intérieur des guillemets (un guillemet ne reste plus seul en fin de ligne).
+  assert.match(String((O.TEXTES as Record<string, unknown>).aide), /«\u00a0⋯\u00a0» sur un widget ouvre «\u00a0Régler\u00a0»/, 'l\'aide dit comment régler un widget');
 });
 
 test('fenetre.js : la tuile en fin de grille en mode Modifier, et le widget posé à la fin, l\'écran qui défile jusqu\'à lui', () => {
@@ -200,7 +202,8 @@ test('fenetre.js : la tuile en fin de grille en mode Modifier, et le widget pos�
   assert.match(d, /'aria-haspopup': 'dialog', onclick: ouvrirTiroir \}, OT\.TEXTES\.bouton\)/, 'et « ＋ Ajouter » dans la barre du mode Modifier');
   const a = fonction('add');
   assert.match(a, /page\(\)\.widgets\.push\(/, 'à la fin de la page');
-  assert.match(a, /fermerTiroir\(false\);[\s\S]*fetchViews\(\)\.then\(draw\)\.then\(\(\) => montrerAjout\(n\.id\)\)/, 'le tiroir se ferme, puis on montre le widget');
+  // Suit le code : `muet` quand celui qui pose le dit lui-même (la fiche d'une appli : « Posé » dit une seule fois).
+  assert.match(a, /fermerTiroir\(false\);[\s\S]*fetchViews\(\)\.then\(draw\)\.then\(\(\) => montrerAjout\(n\.id, muet\)\)/, 'le tiroir se ferme, puis on montre le widget');
   const m = fonction('montrerAjout');
   assert.match(m, /scrollIntoView\(\{ behavior: reduit\(\) \? 'auto' : 'smooth', block: 'center' \}\)/, 'l\'écran défile jusqu\'à lui (sans glisser avec « moins d\'animations »)');
   assert.match(m, /\.focus\(\{ preventScroll: true \}\)/, 'le focus va sur lui');
@@ -271,10 +274,11 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     await page.waitForTimeout(500);
     const r = await page.evaluate(() => { const b = document.querySelector('#feTiroir').getBoundingClientRect(); return { l: Math.round(b.left), w: Math.round(b.width), h: Math.round(b.height), vh: window.innerHeight }; });
     assert.equal(r.w, 440, 'il fait 440 px'); assert.equal(r.l, 1280 - 440, 'à droite'); assert.equal(r.h, r.vh, 'de haut en bas');
-    // Les puces : « Tout », « Infos », puis les familles du catalogue.
+    // Les puces : « Tout », « Infos », puis les familles du catalogue. Suit le rangement de la maquette : la puce « Odin »
+    // (les raccourcis d'applis, les automatisations) vient après « Infos », comme dans la maquette.
     const cat = (await od.json('/api/valhalla/catalog')).body as { modules: Array<{ id: string; name: string; family: string; active: boolean }> };
     const fams = [...new Set(cat.modules.map((m) => m.family))];
-    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-chips button')].map((b: any) => b.textContent)), ['Tout', 'Infos', ...fams]);
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-chips button')].map((b: any) => b.textContent)), ['Tout', 'Infos', 'Odin', ...fams]);
     // Toutes les applis du catalogue, une ligne chacune, les quatre lignes d'infos d'avant, et les quatre widgets « Infos »
     // de la maquette, déclarés par le fichier de leur famille (l'heure, l'horloge, la météo en petit, les alertes). Les
     // styles de la grande météo n'y ont pas de ligne : ils se choisissent dans « Régler ». Puis les trois widgets de la
@@ -284,8 +288,9 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     // « automatisations », proposés au propriétaire (ses automatisations de Talos, les tâches planifiées). Puis les
     // raccourcis d'applis (famille « applis » : les applis épinglées de qui regarde). Puis « Stockage » (famille
     // « stockage » : les volumes, partages et disques de la machine d'Odin, lus par Pyramide). Puis les deux de la famille
-    // « sante » (la santé de la machine d'Odin, lue par Hygie, et de ses disques, lus par Tirésias).
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1 + 1 + 2);
+    // « sante » (la santé de la machine d'Odin, lue par Hygie, et de ses disques, lus par Tirésias). Puis les six petits
+    // chiffres de la famille « maison » (allumés, lumières, serrures, température, humidité, watts des prises).
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1 + 1 + 2 + 6);
     // L'appli désactivée : grisée, « désactivée », aucun bouton.
     const nomEteinte = cat.modules.find((m) => m.id === eteinte)!.name;
     const off = await page.evaluate(`(() => { const l = [...document.querySelectorAll('#feTiroir .fe-it')].find((x) => x.querySelector('b')?.textContent === ${JSON.stringify(nomEteinte)}); return l ? { off: l.classList.contains('off'), bouton: Boolean(l.querySelector('button')), texte: l.textContent } : null; })()`) as { off: boolean; bouton: boolean; texte: string } | null;
@@ -326,9 +331,9 @@ test('navigateur, 390 px : le tiroir prend tout l\'écran ; « Ajouter » pose l
     await page.click('#feTiroir .fe-chips button[data-f="infos"]');
     // Les quatre infos d'avant, et entre elles les quatre widgets « Infos » de la maquette (déclarés par leur famille) ;
     // les styles de la grande météo n'y ont pas de ligne (ils se choisissent dans « Régler »).
-    // Les raccourcis d'applis (famille « applis ») ne lisent aucune appli fixe : le tiroir les range donc ici, avec les
-    // lignes sans appli (fenetre.js), déclarés avant les widgets « Infos » (pages/widgets-applis.js est chargé avant).
-    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-it b')].map((b: any) => b.textContent)), ['Heure et lieu', 'Météo', 'Raccourcis d\'applis', 'Heure', 'Horloge', 'Météo (petite)', 'Alertes', 'Site surveillé', 'Bouton sur mesure'], 'les huit infos et les raccourcis');
+    // Suit le rangement de la maquette (logique.js, le tiroir) : « Raccourcis d'applis » va dans « Odin », et le petit
+    // chiffre des sites (« Sites en ligne », k-sites) vient dans « Infos et repères ».
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-it b')].map((b: any) => b.textContent)), ['Heure et lieu', 'Météo', 'Heure', 'Horloge', 'Météo (petite)', 'Alertes', 'Sites en ligne', 'Site surveillé', 'Bouton sur mesure'], 'les huit infos et le petit chiffre des sites');
     await page.click('#feTiroir button[aria-label="Ajouter Heure et lieu"]');
     await page.waitForFunction((n: number) => document.querySelectorAll('#feGrid > .fe-w').length === n + 1, avant.length, { timeout: 15000 });
     await page.waitForFunction(() => document.activeElement?.classList.contains('fe-grip'), undefined, { timeout: 5000 });

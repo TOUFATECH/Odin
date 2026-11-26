@@ -142,7 +142,23 @@ export interface SourceWidget {
    * n'y est lancé). Rien (undefined) : Pyramide n'est pas là, ou ne répond pas. Absente : pas lue.
    */
   stockage?(): Promise<{ systeme: string; disques: unknown; volumes: unknown; partages: unknown } | undefined>;
+  /**
+   * Les appareils de la maison tels que l'écran de la maison les reçoit déjà (etat.rooms de /api/maison/etat : ceux de
+   * Constellation et des box reliées, lus par Midgard, src/valhalla/modules/midgard.ts, homeDevices), avec les unités
+   * d'Odin. La valeur du moment seulement : jamais les relevés gardés dans le temps. Rien (undefined) : Midgard n'est pas
+   * là, ou ne répond pas. Absente : pas lue.
+   */
+  appareilsMaison?(): Promise<{ unites: 'metrique' | 'imperial'; appareils: readonly AppareilVu[] } | undefined>;
 }
+
+/**
+ * Un appareil de la maison vu par un petit chiffre (maison.ts). `ids` : son identifiant et ses clés de valeur, pour
+ * reconnaître une humidité (jamais montrés) ; `piece`, `sorte` (lumière, prise, capteur…), `etat`, `unite` : ce que
+ * l'écran de la maison reçoit déjà ; `marche` et `arret` : ce qui veut dire allumé ou éteint pour lui ; `enLigne` faux :
+ * hors ligne ; `vuA` : sa dernière nouvelle (ms). Absents : on ne le sait pas. `liens` : ce qui relie un capteur au
+ * module qui le porte (ses sujets d'état, le module Tasmota) : une prise et sa puissance en partagent un (jamais montrés).
+ */
+export interface AppareilVu { ids: string; piece: string; sorte: string; etat: string; unite: string; marche: string; arret: string; enLigne?: boolean; vuA?: number; liens?: readonly string[] }
 
 /** Une suite de relevés d'une mesure : [instant (ms), valeur]. */
 export type Releves = ReadonlyArray<readonly [number, number]>;
@@ -186,6 +202,12 @@ export interface SorteWidget {
   public?: Public;
   /** Jamais hors de l'accueil du propriétaire : jamais servie à /maison, jamais « copiable » vers l'autre écran (constat G4). */
   accueilSeul?: boolean;
+  /**
+   * Jamais sur l'écran de la maison (au mur, lu par toute la maison), à personne, lui compris : ce qui est à une personne
+   * (ses épingles, ses alertes) ou ce qui nommerait ses disques et ses partages. Lue par la règle de cet écran
+   * (admiseALaMaison) et par « Copier vers l'autre écran ». Elle ne fait que refuser.
+   */
+  jamaisALaMaison?: boolean;
   /** Vrai : se déplace mais ne se retire pas de la fenêtre (« À faire », constat M11). Absent : se retire. */
   fixe?: boolean;
   /** Vrai : cleanLayout l'accepte déjà (l'écran sait la dessiner). Faux : déclarée, pas encore posable. */

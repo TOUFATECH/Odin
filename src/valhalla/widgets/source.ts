@@ -19,6 +19,7 @@ import { PROPRIETAIRE } from '../snotra/partout.ts';
 import { DEFAULT_LIMITS } from '../eir/collect.ts';
 import { lireDernier } from '../durinn/suivi.ts';
 import { posteDe } from '../postes.ts';
+import { homeDevices } from '../modules/midgard.ts';
 
 const s = (v: unknown) => String(v ?? '');
 
@@ -27,6 +28,7 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
   let alertes: Array<{ appli: string }> | undefined, aVoir: ReturnType<NonNullable<SourceWidget['alertesAVoir']>> | undefined;
   let automatismes: ReturnType<NonNullable<SourceWidget['automatismes']>> | undefined;
   let stockage: ReturnType<NonNullable<SourceWidget['stockage']>> | undefined;
+  let appareilsMaison: ReturnType<NonNullable<SourceWidget['appareilsMaison']>> | undefined;
   // Une appli désactivée (Applis) n'est pas là pour un widget.
   const appli = (id: string) => { const m = v.module(id); return m && m.id === id && v.estActive(m.id) ? m : undefined; };
   return {
@@ -122,5 +124,16 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
       const o = (d && typeof d === 'object' ? d : {}) as { disques?: unknown; volumes?: unknown };
       return { systeme, disques: o.disques, volumes: o.volumes, partages };
     })().catch(() => undefined)),
+    // Les appareils de la maison, lus comme l'écran de la maison les lit (homeDevices de Midgard, maison-api.ts), une fois
+    // par page, si Midgard est là et activée ; avec les unités d'Odin. Seulement la valeur du moment (aucun relevé gardé).
+    appareilsMaison: () => (appareilsMaison ??= (appli('midgard')
+      ? homeDevices(v.ctx('midgard')).then((liste) => ({ unites: regionActuelle(v.ctx('gladsheim')).unites, appareils: liste.map((x) => {
+        const d = x as unknown as Record<string, unknown>, vu = Date.parse(s(d.lastSeen));
+        const cles = [d.id, d.valueKey, ...(Array.isArray(d.valueKeys) ? d.valueKeys : [])].map(s).filter(Boolean).join(' ');
+        // Ce qui relie une prise à sa mesure : un même sujet d'état, ou un même module Tasmota (l'adresse de son identifiant).
+        const tasmota = /^tasmota_([0-9a-f]+)_/i.exec(s(d.id))?.[1], liens = [d.stateTopic, ...(Array.isArray(d.stateTopics) ? d.stateTopics : [])].map(s).filter(Boolean).map((x) => `sujet:${x}`).concat(tasmota ? [`tasmota:${tasmota.toLowerCase()}`] : []);
+        return { ids: cles, piece: s(d.room), sorte: s(d.kind), etat: s(d.state), unite: s(d.unit), marche: s(d.on), arret: s(d.off), ...(typeof d.online === 'boolean' ? { enLigne: d.online } : {}), ...(Number.isFinite(vu) ? { vuA: vu } : {}), ...(liens.length ? { liens } : {}) };
+      }) })).catch(() => undefined)
+      : Promise.resolve(undefined))),
   };
 }

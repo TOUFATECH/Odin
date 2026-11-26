@@ -128,7 +128,8 @@ test('« Copier vers l\'autre écran » : refusé pour les cinq sortes réservé
   assert.equal(R.copieRefusee({ kind: 'chiffres', privee: true, ouvert: true }), '', 'vie privée ouverte à quelqu\'un : permis');
   assert.equal(R.copieRefusee({}), 'reservee'); assert.equal(R.copieRefusee(), 'reservee', 'sans sorte : refusé');
   // La page s'en sert pour le bouton, et dit pourquoi.
-  assert.match(FE, /const refus = R\.copieRefusee\(\{ kind: w\.kind, privee: ouv\.privee, ouvert: ouv\.connu && ouv\.noms\.length > 0 \}\);\s*if \(refus\) \{[^}]*return; \}/, 'un refus arrête la copie');
+  // Suit le code : la direction de la copie est passée (une sorte marquée « jamais sur l'écran de la maison » n'y va pas).
+  assert.match(FE, /const refus = R\.copieRefusee\(\{ kind: w\.kind, privee: ouv\.privee, ouvert: ouv\.connu && ouv\.noms\.length > 0, versMaison \}\);\s*if \(refus\) \{[^}]*return; \}/, 'un refus arrête la copie');
   // La copie prend un nouvel identifiant : elle n'hérite d'aucune ouverture (elle reste fermée aux autres).
   assert.match(FE, /cible\.widgets\.push\(\{ \.\.\.JSON\.parse\(JSON\.stringify\(w\)\), id: G\.nouvelId\(/);
 });

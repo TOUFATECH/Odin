@@ -78,6 +78,10 @@ ${G.css('.fe-grid', '.fe-w')}.fe-grid{min-height:120px}.fe-w{container-type:inli
 .fe-h{display:flex;gap:10px;align-items:center;margin:0 0 10px}
 .fe-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--field);font-weight:700;flex:none}.fe-ic-app{background:none}
 .fe-open{flex:none;font-size:12.5px;color:var(--muted);background:none;border:0;cursor:pointer;min-height:44px;margin:-5px 0;padding:0 4px}
+/* Carte étroite : comme la maquette (la tuile de l'appli l'ouvre), « Ouvrir › » se pose sur la tuile, sans texte visible
+   (44 px à toucher, son nom dit aux lecteurs d'écran, son contour au clavier) ; il ne prend plus de place à côté du titre.
+   Sous 130 px la tuile s'efface (plus haut) : il se pose sur le début du titre. */
+@container (max-width:220px){.fe-h:has(>.fe-open .fe-open-mot){position:relative}.fe-h>.fe-open:has(.fe-open-mot){position:absolute;left:-5px;top:50%;width:44px;height:44px;margin:-22px 0 0;padding:0;color:transparent;overflow:hidden;z-index:1}.fe-open-mot{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
 /* Lot 25b : hors du mode Modifier, un widget réagit au toucher (ce que « Régler » a choisi) ; une adresse est un vrai lien. */
 #fenetre:not(.fe-edit) .fe-w.fe-touche{cursor:pointer}a.fe-open{display:inline-flex;align-items:center;text-decoration:none}a.fe-open:focus-visible,button.fe-open:focus-visible{outline:2px solid var(--accent,#0b7f7c);outline-offset:-2px;border-radius:8px}
 /* Lot 25a : un état sans donnée, une ligne puis au plus un bouton. */
@@ -334,6 +338,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     appli_muette: () => { views.clear(); fetchViews().then(draw); },
     lecture_echouee: () => { views.clear(); fetchViews().then(draw); },
     lieu_non_choisi: () => { location.hash = '#app=gladsheim'; },
+    // L'outil qui lit la santé des disques manque, est trop ancien ou ne répond pas : l'appli explique quoi faire.
+    smartctl_absent: (w) => { location.hash = `#app=${appliDe(w)}`; }, smartctl_ancien: (w) => { location.hash = `#app=${appliDe(w)}`; }, smartctl_muet: (w) => { location.hash = `#app=${appliDe(w)}`; },
     partie_introuvable: (w) => regler(w), partie_non_choisie: (w) => regler(w),
   };
   const peutAgir = (w, r) => Object.hasOwn(AGIR, r) && (r.startsWith('partie_') ? w.kind === 'section' || w.kind === 'chiffres' : true);
@@ -408,7 +414,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const head = (title, small, icon, mod = w.module) => R.entete({ classe: 'fe-h', classeTuile: 'fe-ic', tuile: tuileDe(mod), lettre: icon, titre: title, sous: d.gris ? '' : small, pastille: d.pastille, gris: d.gris,
       regler: proprio && d.reglage ? () => regler(w) : null,
       // « Ouvrir › » : seulement vers une appli qui existe encore (que le catalogue de qui regarde connaît).
-      extra: [d.gris ? null : boutonToucher(w, w.module && nomConnu(w.module) ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null)] });
+      extra: [d.gris ? null : boutonToucher(w, w.module && nomConnu(w.module) ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, el('span', { class: 'fe-open-mot' }, 'Ouvrir'), ' ›') : null)] });
     // Lot 25b : toucher la carte (pas l'un de ses boutons) fait ce que « Régler » a choisi. Fermée à qui regarde : rien.
     if (!d.gris && R.toucherDe(w).quoi !== 'rien') { box.classList.add('fe-touche'); box.addEventListener('click', (e) => auToucher(e, box, w)); }
     const agirIci = (r) => AGIR[r]?.(w);
@@ -799,20 +805,21 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
    * Une appli désactivée, ou absente du catalogue de qui regarde, n'est jamais posée (même glissée d'ailleurs) : c'est
    * dit, rien ne change.
    */
-  function add(w) { page().widgets.push({ w: 1, ...w, id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) });
+  // `muet` : celui qui pose le dit lui-même (la fiche d'une appli) : « posé » n'est pas dit une seconde fois.
+  function add(w, muet = false) { page().widgets.push({ w: 1, ...w, id: G.nouvelId(L.pages.flatMap((p) => p.widgets.map((x) => x.id))) });
     const n = page().widgets[page().widgets.length - 1], ok = OT.poser(cat?.modules, n.module);
     if (ok !== 'ok') { page().widgets.pop(); say(ok === 'desactivee' ? OT.TEXTES.refusee(modName(n.module)) : OT.TEXTES.inconnue); return false; }
     // Un bloc du jour (lot 26) : un seul de chaque dans toute la fenêtre (comme le serveur), et pour le propriétaire seul.
     if (JOUR.includes(n.kind) && (!proprio || L.pages.some((p) => p.widgets.some((x) => x !== n && x.kind === n.kind)))) { page().widgets.pop(); say(TXT.jour.deja(TXT.titres[n.kind])); return false; }
-    fermerTiroir(false); views.delete(w.module); fetchViews().then(draw).then(() => montrerAjout(n.id)); return true; }
+    fermerTiroir(false); views.delete(w.module); fetchViews().then(draw).then(() => montrerAjout(n.id, muet)); return true; }
   /** Le widget qui vient d'être posé : l'écran défile jusqu'à lui, il apparaît, le focus va sur sa poignée, c'est dit. */
-  function montrerAjout(id) {
+  function montrerAjout(id, muet = false) {
     const b = [...document.querySelectorAll('#feGrid > .fe-w')].find((x) => x.dataset.id === id); if (!b) return;
     b.scrollIntoView({ behavior: reduit() ? 'auto' : 'smooth', block: 'center' });
     b.classList.add('fe-pop'); b.addEventListener('animationend', () => b.classList.remove('fe-pop'), { once: true });
     (b.querySelector('.fe-grip') ?? b).focus({ preventScroll: true });
     const w = page().widgets.find((x) => x.id === id), T = OT.TEXTES;
-    dire(T.pose(w?.label || (w && renduDe(w) ? titreDe(w) : '') || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : JOUR.includes(w?.kind) ? TXT.titres[w.kind] : modName(w?.module ?? ''))));
+    if (!muet) dire(T.pose(w?.label || (w && renduDe(w) ? titreDe(w) : '') || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : JOUR.includes(w?.kind) ? TXT.titres[w.kind] : modName(w?.module ?? ''))));
   }
   /**
    * Poser le widget d'une appli depuis dehors (la fiche d'une appli : « Mettre en widget sur : l'accueil ») : le widget
@@ -828,7 +835,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const w = widgetDeLAppli(id), nom = nomDe(page());
     const deja = L.pages.find((p) => p.widgets.some((x) => x.kind === w.kind && x.module === id));
     if (deja) return { etat: 'deja', page: nomDe(deja) };
-    if (!add(w)) return { etat: 'refuse' };
+    if (!add(w, true)) return { etat: 'refuse' };
     if (await save(null, '')) return { etat: 'pose', page: nom };
     L = JSON.parse(saved); draw(); return { etat: 'echec' };
   }
@@ -837,6 +844,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
   /** Ce qui a ouvert le tiroir (le focus y revient quand il se ferme) ; la recherche et la famille, gardées d'une ouverture à l'autre. */
   let ouvreur = null;
   const etatTiroir = { q: '', famille: OT.TOUT };
+  /** Le groupe « Odin » du tiroir (maquette : ce qu'Odin fait pour toi, sans être le widget d'une seule appli) et son nom. */
+  const ODIN = 'odin', NOM_ODIN = 'Odin';
   function ouvrirTiroir(e) {
     const t = $('#feTiroir'); if (!t || t.classList.contains('open')) return;
     ouvreur = e?.currentTarget instanceof HTMLElement ? e.currentTarget : document.activeElement;
@@ -880,8 +889,10 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const jour = proprio && aujourdhui() ? JOUR.filter((k) => !L.pages.some((p) => p.widgets.some((w) => w.kind === k))).map((k) => item({ kind: k, w: LARGEUR_JOUR[k] > 8 ? 3 : LARGEUR_JOUR[k] > 4 ? 2 : 1, c: LARGEUR_JOUR[k] }, TXT.titres[k], TXT.jour.quoi[k], TXT.jour.lettres[k])) : [];
     // Les sortes déclarées par les fichiers de famille (pages/widgets-<famille>.js), pour qui a le droit : rien d'elles
     // n'est écrit ici. Celle qui lit une appli désactivée est grisée, sans bouton ; « Ajouter » la pose à sa taille.
-    const declarees = R.posables({ proprio, aDroit }).map((x) => { const m = x.appli ? cat?.modules?.find((y) => y.id === x.appli) : undefined;
-      return { nom: x.nom, quoi: x.quoi, icon: x.symbole, famille: x.famille === OT.INFOS || !m ? OT.INFOS : m.family, active: m ? OT.active(m) : undefined, onclick: () => add(x.w) }; });
+    // Son groupe, comme la maquette la range : celui qu'elle dit d'elle-même (« Infos et repères », « Odin »), sinon
+    // la famille de son appli dans le catalogue (R.groupeTiroir).
+    const declarees = R.posables({ proprio, aDroit }).map((x) => { const m = x.appli ? cat?.modules?.find((y) => y.id === x.appli) : undefined, g = R.groupeTiroir(x, m?.family);
+      return { nom: x.nom, quoi: x.quoi, icon: x.symbole, famille: g === 'infos' ? OT.INFOS : g, ...(g === ODIN ? { groupe: NOM_ODIN } : {}), active: m ? OT.active(m) : undefined, onclick: () => add(x.w) }; });
     const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 }, T.meteo, T.meteoQuoi, '☀'), ...declarees,
       vordr ? { nom: T.site, quoi: T.siteQuoi, icon: '🌐', famille: OT.INFOS, active: OT.active(vordr), onclick: siteSurveille } : null,
       { nom: T.perso, quoi: T.persoQuoi, icon: '⚡', famille: OT.INFOS, creer: true, onclick: ownButton },
@@ -892,8 +903,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       return el('div', { class: 'fe-it', draggable: x.w ? 'true' : undefined, ondragstart: x.w ? (e) => e.dataTransfer.setData('text/odin-module', JSON.stringify(x.w)) : undefined }, ic, texte,
         el('button', { class: 'btn small', type: 'button', 'aria-label': x.creer ? T.creerNom(x.nom) : T.ajouterNom(x.nom), onclick: x.onclick }, x.creer ? T.creer : T.ajouter));
     };
-    const fams = OT.familles(cat?.modules); etatTiroir.famille = OT.famille(etatTiroir.famille, fams);
-    const chips = el('div', { class: 'fe-chips', role: 'group', 'aria-label': T.familles }, ...[[OT.TOUT, T.tout], [OT.INFOS, T.infos], ...fams.map((f) => [f, f])].map(([f, nom]) => el('button', { type: 'button', 'data-f': f, 'aria-pressed': String(f === etatTiroir.famille),
+    // La puce « Odin » (maquette), quand une ligne y est rangée ; puis les familles du catalogue.
+    const fams = [...(lignes.some((x) => x.famille === ODIN) ? [ODIN] : []), ...OT.familles(cat?.modules).filter((f) => f !== ODIN)]; etatTiroir.famille = OT.famille(etatTiroir.famille, fams);
+    const chips = el('div', { class: 'fe-chips', role: 'group', 'aria-label': T.familles }, ...[[OT.TOUT, T.tout], [OT.INFOS, T.infos], ...fams.map((f) => [f, f === ODIN ? NOM_ODIN : f])].map(([f, nom]) => el('button', { type: 'button', 'data-f': f, 'aria-pressed': String(f === etatTiroir.famille),
       onclick: () => { etatTiroir.famille = f; for (const b of chips.children) b.setAttribute('aria-pressed', String(b.dataset.f === f)); fill(q.value); } }, nom)));
     const fill = (term) => {
       etatTiroir.q = term;
@@ -1149,8 +1161,8 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const copier = R.bouton(versMaison ? T.copier.maison : T.copier.accueil, () => {
       // Les blocs du jour ne quittent jamais l'accueil, même une sorte que le script commun ne connaît pas encore.
       if (JOUR.includes(w.kind)) { statut.textContent = T.copieReservee; return; }
-      const refus = R.copieRefusee({ kind: w.kind, privee: ouv.privee, ouvert: ouv.connu && ouv.noms.length > 0 });
-      if (refus) { statut.textContent = refus === 'reservee' ? T.copieReservee : T.copiePrivee; return; }
+      const refus = R.copieRefusee({ kind: w.kind, privee: ouv.privee, ouvert: ouv.connu && ouv.noms.length > 0, versMaison });
+      if (refus) { statut.textContent = refus === 'reservee' ? T.copieReservee : refus === 'maison' ? T.copieMaison : T.copiePrivee; return; }
       let cible = L.pages.find((p) => Boolean(p.maison) === versMaison);
       // Huit pages au plus, sans compter une page rangée sous un code (« Aujourd'hui »), comme chez Hestia (PAGES_MAX).
       if ((!cible && L.pages.filter((p) => !p.code).length >= 8) || (cible && cible.widgets.length >= 48)) { statut.textContent = T.copiePleine; return; }

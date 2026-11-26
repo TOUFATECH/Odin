@@ -122,7 +122,8 @@ export const SORTES_SANTE = [
   },
   {
     // « Santé des disques » (la maquette : une ligne par disque, sa pastille, son genre et sa température, et son état).
-    id: 'sante_disques', famille: 'sante', applis: ['durinn'], taille: { mini: [3, 2], r: 4 }, styles: ['liste'], public: 'membre', posable: true,
+    // Jamais sur l'écran de la maison : un écran au mur y montrerait le nom de ses disques.
+    id: 'sante_disques', famille: 'sante', applis: ['durinn'], taille: { mini: [3, 2], r: 4 }, styles: ['liste'], public: 'membre', posable: true, jamaisALaMaison: true,
     nettoyer: etiquette,
     lire: async (_w, src): Promise<EtatWidget> => {
       if (!src.disquesSante) return { etat: 'source_absente', raison: 'pas_encore_lu' };

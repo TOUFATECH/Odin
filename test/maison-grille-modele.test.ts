@@ -27,8 +27,14 @@ const SEUL = SORTES.filter((s) => publicDe(s) === 'proprietaire' && !('accueilSe
 const ACCUEIL = SORTES.filter((s) => 'accueilSeul' in s && s.accueilSeul).map((s) => s.id as string);
 /** Les sortes qui lisent toujours une appli de la vie privée (sa question 15) : « ses alertes » (Forseti), son agenda… */
 const PRIVEES = SORTES.filter((s) => s.applis !== 'choisie' && s.applis.some((a) => APPLIS_VIE_PRIVEE.includes(a))).map((s) => s.id as string);
+/**
+ * Les sortes marquées « jamais sur l'écran de la maison », nommées ICI en toutes lettres (pas lues sur la marque, sinon
+ * l'essai se vérifierait lui-même) : les raccourcis d'applis (ils ne valent que sur l'accueil), et, par prudence, la
+ * santé des disques et le stockage (un écran au mur montrerait les noms de ses disques et de ses partages).
+ */
+const MARQUEES = ['raccourcis', 'sante_disques', 'stockage'];
 /** Tout ce qui ne va jamais sur l'écran de la maison, à personne. */
-const JAMAIS = [...new Set([...ACCUEIL, ...SEUL, ...PRIVEES])];
+const JAMAIS = [...new Set([...ACCUEIL, ...SEUL, ...PRIVEES, ...MARQUEES])];
 
 // ---------- La règle ----------
 test('la règle : une seule fonction dit quelle sorte peut aller sur l\'écran de la maison', () => {

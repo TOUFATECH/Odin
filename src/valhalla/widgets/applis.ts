@@ -64,7 +64,10 @@ export const SORTES_APPLIS = [
         ...(al ? { alertes: { aVoir: al.length, graves: al.filter((a) => GRAVES.includes(String(a.niveau))).length } } : {}),
         ...(vw ? {} : { muette: true }),
         // Les actions rapides : au propriétaire seul, sur l'accueil seul (ni un membre, ni l'écran de la maison).
-        // Comme sa page : sans l'action qu'elle réserve à son écran « Sur quel poste ? » (postes.ensuite).
+        // La règle de sa page (valhalla.js, actionsRapides ; un essai compare les deux sur toutes les applis) : rapides,
+        // sans réglage obligatoire visible — le widget n'a pas de choix du poste et lance sans rien remplir, donc une
+        // action au poste obligatoire n'y est jamais offerte (source.ts, ficheAppli) —, sans l'action qu'elle réserve à
+        // son écran « Sur quel poste ? » (postes.ensuite). Puis les premières.
         ...(lui ? { actions: f.actions.filter((a) => ID_ACTION.test(String(a.id)) && a.id !== vw?.postes?.ensuite?.action).slice(0, ACTIONS_MAX).map((a) => ({ id: a.id, label: mot(a.label, MOT_MAX), grave: a.grave === true })) } : {}),
       } };
     },
@@ -75,7 +78,7 @@ export const SORTES_APPLIS = [
     // Aucune appli écrite ici. Une appli retirée d'Odin ou désactivée n'est pas servie (ni son identifiant) ; un membre
     // ne reçoit que les applis où il a le droit, sans même que le nom des autres soit lu ; aucune : « vide ». Ce sont les
     // épingles d'une personne : jamais sur l'écran de la maison (au mur, lu par toute la maison), à personne.
-    id: 'raccourcis', famille: 'applis', applis: [], taille: { mini: [3, 2], r: 2 }, styles: ['simple'], public: 'membre', posable: true,
+    id: 'raccourcis', famille: 'applis', applis: [], taille: { mini: [3, 2], r: 2 }, styles: ['simple'], public: 'membre', posable: true, jamaisALaMaison: true,
     nettoyer: (o, out, t) => { if (o.label) out.label = t.str(o.label, 40); return true; },
     lire: async (_w, src, l): Promise<EtatWidget> => {
       if (l.ecran !== 'accueil') return { etat: 'refuse', raison: 'accueil_seul' };

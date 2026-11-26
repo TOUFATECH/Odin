@@ -331,6 +331,7 @@
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'applis', sortes: [
     { sorte: 'appli', titre: T.titre, quoi: T.quoi, symbole: '▦', tiroir: false, poser: { c: 3, r: 2, pc: 4 }, vides: ['appli_retiree'], sous, dessiner: appli },
     // « Raccourcis d'applis » : au tiroir (pour chacun : ce sont ses épingles), à la taille de départ de la maquette (5 × 2).
-    { sorte: 'raccourcis', titre: RT.titre, quoi: RT.quoi, symbole: '⊞', poser: { c: 5, r: 2, pc: 4 }, vides: ['aucune_epingle'], sous: sousRaccourcis, dessiner: raccourcis },
+    // Rangés dans « Odin » du tiroir, comme la maquette ; jamais sur l'écran de la maison (la même marque que sa sorte, applis.ts).
+    { sorte: 'raccourcis', groupe: 'odin', jamaisALaMaison: true, titre: RT.titre, quoi: RT.quoi, symbole: '⊞', poser: { c: 5, r: 2, pc: 4 }, vides: ['aucune_epingle'], sous: sousRaccourcis, dessiner: raccourcis },
   ] });
 })();

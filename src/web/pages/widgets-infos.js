@@ -322,10 +322,11 @@
   // celles de la maquette : 2 × 1 pour un petit chiffre (une ligne au téléphone aussi), 3 × 2 pour l'horloge.
   const PETIT = { c: 2, r: 1, pr: 1 };
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'infos', sortes: [
-    { sorte: 'heure_petite', titre: T.heure.titre, quoi: T.heure.quoi, symbole: '🕒', appli: 'gladsheim', petit: true, poser: PETIT, dessiner: petiteHeure },
-    { sorte: 'heure', style: 'horloge', titre: T.horloge.titre, quoi: T.horloge.quoi, symbole: '🕒', appli: 'gladsheim', poser: { c: 3, r: 2 }, sous: sousHorloge, dessiner: grandeHeure },
-    { sorte: 'meteo_petite', titre: T.meteo.titre, nom: T.meteo.nom, quoi: T.meteo.quoi, symbole: '☀', appli: 'gladsheim', petit: true, poser: PETIT, dessiner: petiteMeteo },
-    { sorte: 'alertes', titre: T.alertes.titre, quoi: T.alertes.quoi, symbole: '🔔', appli: 'forseti', petit: true, poser: PETIT, vides: ['aucune_alerte'], dessiner: petitesAlertes },
+    // groupe 'infos' : rangées dans « Infos et repères » du tiroir, comme la maquette.
+    { sorte: 'heure_petite', groupe: 'infos', titre: T.heure.titre, quoi: T.heure.quoi, symbole: '🕒', appli: 'gladsheim', petit: true, poser: PETIT, dessiner: petiteHeure },
+    { sorte: 'heure', style: 'horloge', groupe: 'infos', titre: T.horloge.titre, quoi: T.horloge.quoi, symbole: '🕒', appli: 'gladsheim', poser: { c: 3, r: 2 }, sous: sousHorloge, dessiner: grandeHeure },
+    { sorte: 'meteo_petite', groupe: 'infos', titre: T.meteo.titre, nom: T.meteo.nom, quoi: T.meteo.quoi, symbole: '☀', appli: 'gladsheim', petit: true, poser: PETIT, dessiner: petiteMeteo },
+    { sorte: 'alertes', groupe: 'infos', titre: T.alertes.titre, quoi: T.alertes.quoi, symbole: '🔔', appli: 'forseti', petit: true, poser: PETIT, vides: ['aucune_alerte'], dessiner: petitesAlertes },
     // La grande météo : trois styles de la sorte « meteo » (sans style, le dessin d'hier reste celui de la fenêtre). Ce
     // sont des styles : ils se choisissent dans « Régler », sans ligne au tiroir ni taille à eux (le widget garde la sienne).
     ...['complete', 'compacte', 'scene'].map((st) => ({ sorte: 'meteo', style: st, titre: T.meteo.titre, symbole: '☀', appli: 'gladsheim', tiroir: false, sous: sousMeteo, dessiner: (e, o) => grandeMeteo(st, e, o) })),

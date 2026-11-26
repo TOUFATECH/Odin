@@ -169,15 +169,17 @@
       return await r.json().catch(() => ({ ok: false }));
     } catch { return undefined; }
   }
-  /** Ouvre Talos. */
-  function ouvrirTalos() { if (typeof window.OdinShow === 'function') window.OdinShow('flows'); else location.hash = '#flows'; }
+  /** Ouvre Talos. `o.fenetre` : la fenêtre d'Odin où l'ouvrir (l'écran de la maison dans Odin : celle du dessus) ; sinon celle-ci. */
+  function ouvrirTalos(o) { const fen = (o && o.fenetre) || window; if (typeof fen.OdinShow === 'function') fen.OdinShow('flows'); else fen.location.hash = '#flows'; }
   /**
    * Ouvre Talos, puis son éditeur, par son propre bouton « Partir de zéro » (le dernier bouton de sa barre), seulement sur
    * une liste dessinée APRÈS l'appel (jamais sur une liste d'avant qui va être remplacée). Talos déjà sur une
-   * automatisation ouverte : elle reste telle quelle, rien n'est perdu.
+   * automatisation ouverte : elle reste telle quelle, rien n'est perdu. `o.fenetre` : la fenêtre d'Odin où l'ouvrir, quand
+   * ce n'est pas celle-ci (l'écran de la maison affiché dans Odin : celle du dessus) — voir editeurAilleurs.
    */
   const BOUTON_ZERO = '#v-flows form.dr-top > button[type="button"]:last-of-type';
-  function ouvrirEditeur() {
+  function ouvrirEditeur(o) {
+    if (o && o.fenetre && o.fenetre !== window) { editeurAilleurs(o.fenetre); return; }
     const avant = document.querySelector(BOUTON_ZERO);
     if (typeof window.OdinShow === 'function') window.OdinShow('flows'); else location.hash = '#flows';
     const debut = Date.now();
@@ -187,6 +189,19 @@
       if (Date.now() - debut < 10_000) setTimeout(essayer, 100);
     };
     essayer();
+  }
+  /**
+   * L'éditeur de Talos ouvert depuis un cadre qu'Odin retire dès qu'il montre Talos (l'écran de la maison dans sa vue
+   * « Home Assistant ») : plus rien ne tourne ici ensuite. La liste de Talos est donc dessinée d'abord (sa propre
+   * fonction), son propre « Partir de zéro » appuyé, puis Talos montré. Une automatisation déjà ouverte dans Talos reste
+   * telle quelle (Talos est seulement montré) ; rien n'est enregistré tant qu'il n'a rien enregistré.
+   */
+  async function editeurAilleurs(fen) {
+    try {
+      const F = fen.OdinFlows;
+      if (!fen.document.querySelector('#drCanvas') && F && typeof F.liste === 'function') { await F.liste(); fen.document.querySelector(BOUTON_ZERO)?.click(); }
+    } catch { /* Talos tel qu'il est */ }
+    ouvrirTalos({ fenetre: fen });
   }
   function bouton(texte, principal, faire) {
     const b = el('button', `wt-btn${principal ? ' wt-p' : ' wt-o'}`); b.type = 'button';
@@ -213,7 +228,7 @@
   /** Le focus d'un interrupteur, gardé quand la carte est redessinée (« widget/automatisation »). */
   let focusVoulu = '';
   /** L'interrupteur d'une automatisation : la route de Talos, avec sa confirmation pour activer. */
-  function interrupteur(x, cle, dit, recompter, lu) {
+  function interrupteur(x, cle, dit, recompter, lu, confirmer) {
     const b = el('button', 'wt-sw'), piste = el('i');
     piste.setAttribute('aria-hidden', 'true');
     b.type = 'button'; b.dataset.id = x.id; b.setAttribute('role', 'switch'); b.setAttribute('aria-label', x.nom); b.title = x.nom; b.append(piste);
@@ -230,9 +245,10 @@
       try {
         if (on) {
           // Comme la page de Talos : activer demande ton accord, à chaque fois ; sans réponse lisible, rien ne part.
-          const D = window.OdinDialog;
+          // (`confirmer` : la boîte de confirmation de la page hôte, quand elle n'a pas celle d'Odin : l'écran de la maison)
+          const D = window.OdinDialog, demander = typeof confirmer === 'function' ? confirmer : D && typeof D.confirm === 'function' ? (t) => D.confirm(t) : null;
           let oui = false;
-          try { oui = D && typeof D.confirm === 'function' ? (await D.confirm(T.autos.activer(court))) === true : false; } catch { oui = false; }
+          try { oui = demander ? (await demander(T.autos.activer(court))) === true : false; } catch { oui = false; }
           if (!oui) { dit.textContent = T.autos.annule; if (b.isConnected) b.focus({ preventScroll: true }); return; }
         }
         b.setAttribute('aria-busy', 'true'); dit.textContent = T.autos.enCours;
@@ -251,12 +267,17 @@
     return b;
   }
 
-  /** « Automatisations » : ses automatisations, chacune avec son interrupteur ; aucune (« vide ») : « Nouvelle automatisation ». */
+  /**
+   * « Automatisations » : ses automatisations, chacune avec son interrupteur ; aucune (« vide ») : « Nouvelle automatisation ».
+   * Une page entière qui le réutilise (l'écran de la maison) passe `o.tout` (toutes les lignes, pas la hauteur d'une
+   * carte), `o.confirmer` (sa boîte de confirmation), `o.nouvelle` et `o.ouvrir` (ouvrir l'éditeur, ouvrir Talos).
+   */
   function automatisations(e, o) {
     const maison = o && o.ecran === 'maison';
+    const nouvelle = o && typeof o.nouvelle === 'function' ? o.nouvelle : ouvrirEditeur, ouvrir = o && typeof o.ouvrir === 'function' ? o.ouvrir : ouvrirTalos;
     if (e.etat === 'vide') {
       if (e.raison !== 'aucune_automatisation') return null;
-      return calme(T.autos.aucune, maison ? null : bouton(T.autos.nouvelle, true, ouvrirEditeur));
+      return calme(T.autos.aucune, maison ? null : bouton(T.autos.nouvelle, true, nouvelle));
     }
     const d = e.donnee || {};
     const lues = (Array.isArray(d.liste) ? d.liste : []).map(autoLue).filter(Boolean);
@@ -264,7 +285,7 @@
     poserStyle();
     for (const x of lues) x.actif = etatVrai(x.id, x.actif, e.at);
     const total = Number.isInteger(d.total) && d.total >= lues.length ? d.total : lues.length;
-    const montres = lues.slice(0, combienAutos(lignesDe(o && o.w, 3)));
+    const montres = o && o.tout === true ? lues : lues.slice(0, combienAutos(lignesDe(o && o.w, 3)));
     const ul = el('ul', 'wt-liste'), dit = el('p', 'wt-dit'), plus = el('p', 'wt-plus');
     dit.setAttribute('role', 'status');
     if (total > montres.length) plus.textContent = T.autos.plus(nombre(total - montres.length));
@@ -282,10 +303,10 @@
       const q = [x.quand, x.quoi].filter(Boolean).join(' → ');
       if (q) t.append(dehors('small', 'wt-q', q));
       li.append(decor('eclair', 'wt-ic'), t);
-      if (x.id && !maison) li.append(interrupteur(x, `${wid}/${x.id}`, dit, recompter, e.at));
+      if (x.id && !maison) li.append(interrupteur(x, `${wid}/${x.id}`, dit, recompter, e.at, o && o.confirmer));
       ul.append(li);
     }
-    const c = corps([ul, plus, dit], maison ? [] : [bouton(T.autos.nouvelle, true, ouvrirEditeur), bouton(T.autos.ouvrir, false, ouvrirTalos)]);
+    const c = corps([ul, plus, dit], maison ? [] : [bouton(T.autos.nouvelle, true, nouvelle), bouton(T.autos.ouvrir, false, ouvrir)]);
     return c;
   }
   /** La fin du sous-titre de « Automatisations » : « N actives sur M » (comme la maquette). */
@@ -320,11 +341,13 @@
     return d && Number.isInteger(d.total) && d.total > 0 ? T.taches.aujourdhui(nombre(d.total)) : '';
   }
 
-  window.OdinWidgetsAutomatisations = { TEXTES, CSS, combienAutos, combienTaches, heure, autoLue, tacheLue, etatVrai, compteActives };
+  // (dessinerAutos, ouvrirEditeur, ouvrirTalos : réutilisés par la page « Automatisations » de l'écran de la maison, maison.js)
+  window.OdinWidgetsAutomatisations = { TEXTES, CSS, combienAutos, combienTaches, heure, autoLue, tacheLue, etatVrai, compteActives, dessinerAutos: automatisations, ouvrirEditeur, ouvrirTalos };
   // La déclaration de la famille (lue par pages/widgets-rendu.js, quel que soit l'ordre de chargement). Les tailles sont
   // celles de la maquette : 6 × 3 et 4 × 3. Au propriétaire seul (le serveur refuse tout autre que lui).
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'automatisations', sortes: [
-    { sorte: 'automatisations', titre: T.autos.titre, quoi: T.autos.quoi, symbole: '⚡', appli: 'draupnir', proprio: true, poser: { c: 6, r: 3, pc: 4 }, vides: ['aucune_automatisation'], sous: sousAutos, dessiner: automatisations },
+    // Rangées dans « Odin » du tiroir, comme la maquette.
+    { sorte: 'automatisations', groupe: 'odin', titre: T.autos.titre, quoi: T.autos.quoi, symbole: '⚡', appli: 'draupnir', proprio: true, poser: { c: 6, r: 3, pc: 4 }, vides: ['aucune_automatisation'], sous: sousAutos, dessiner: automatisations },
     { sorte: 'taches_planifiees', titre: T.taches.titre, quoi: T.taches.quoi, symbole: '⏱', appli: 'draupnir', proprio: true, poser: { c: 4, r: 3, pc: 4 }, vides: ['rien_aujourdhui'], sous: sousTaches, dessiner: taches },
   ] });
 })();

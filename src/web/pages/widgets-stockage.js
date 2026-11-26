@@ -256,6 +256,7 @@
   // La déclaration de la famille (lue par pages/widgets-rendu.js, quel que soit l'ordre de chargement). La taille est celle
   // de la maquette : 5 × 4. Pas au propriétaire seul : un membre qui a le droit sur Pyramide la voit (le serveur décide).
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'stockage', sortes: [
-    { sorte: 'stockage', titre: T.titre, quoi: T.quoi, symbole: '🖴', appli: 'fensalir', poser: { c: 5, r: 4, pc: 4 }, sous, dessiner },
+    // Jamais sur l'écran de la maison : un écran au mur y montrerait ses disques et ses partages (la même marque que sa sorte, stockage.ts).
+    { sorte: 'stockage', jamaisALaMaison: true, titre: T.titre, quoi: T.quoi, symbole: '🖴', appli: 'fensalir', poser: { c: 5, r: 4, pc: 4 }, sous, dessiner },
   ] });
 })();

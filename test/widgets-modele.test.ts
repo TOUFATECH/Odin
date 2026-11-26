@@ -168,7 +168,9 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     // puis « Stockage » : les volumes, partages et disques de la machine d'Odin, lus par Pyramide (famille « stockage »)
     'stockage',
     // puis « Santé » : la santé de la machine d'Odin (Hygie) et de ses disques (Tirésias), à qui a le droit sur l'appli lue
-    'sante_machine', 'sante_disques'].sort());
+    'sante_machine', 'sante_disques',
+    // puis les six petits chiffres de la maison (famille « maison ») : allumés, lumières, serrures, température, humidité, watts des prises
+    'maison_allumes', 'maison_lumieres', 'maison_serrures', 'maison_temperature', 'maison_humidite', 'maison_watts'].sort());
   assert.deepEqual(TAILLE_SORTE, {
     heure_petite: { mini: [2, 1], r: 1 }, meteo_petite: { mini: [2, 1], r: 1 }, alertes: { mini: [2, 1], r: 1 }, // les petits chiffres « Infos » de la maquette
     alertes_liste: { mini: [3, 2], r: 3 }, sites: { mini: [3, 2], r: 5 }, sites_petit: { mini: [2, 1], r: 1 }, // la famille « veille »
@@ -179,6 +181,9 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     automatisations: { mini: [4, 2], r: 3 }, taches_planifiees: { mini: [3, 2], r: 3 }, // la famille « automatisations »
     stockage: { mini: [3, 2], r: 4 }, // la famille « stockage » (la maquette : 5 × 4, 3 × 2 au moins)
     sante_machine: { mini: [3, 2], r: 2 }, sante_disques: { mini: [3, 2], r: 4 }, // la famille « sante » (la maquette : 4 × 2 et 3 × 4)
+    // les petits chiffres de la maison (famille « maison », la maquette : 2 × 1)
+    maison_allumes: { mini: [2, 1], r: 1 }, maison_lumieres: { mini: [2, 1], r: 1 }, maison_serrures: { mini: [2, 1], r: 1 },
+    maison_temperature: { mini: [2, 1], r: 1 }, maison_humidite: { mini: [2, 1], r: 1 }, maison_watts: { mini: [2, 1], r: 1 },
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
     a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },
@@ -259,7 +264,9 @@ test('les cinq sortes de l\'accueil du propriétaire : jamais à l\'écran de la
   }
   assert.deepEqual((SORTES as readonly SorteWidget[]).filter((x) => x.accueilSeul).map((x) => x.id).sort(), [...cinq].sort(), 'ces cinq-là, et elles seules');
   // Toute autre sorte posable se copie et peut aller sur l'écran de la maison ; les posables de l'accueil (lot 26), jamais.
-  for (const x of sortesPosables()) { const reservee = cinq.includes(x.id); assert.equal(copiable(x.id), !reservee, x.id); assert.equal(servieALaMaison(x.id), !reservee, x.id); }
+  // Suit la marque « jamais sur l'écran de la maison » (raccourcis, liste des alertes, santé des disques, stockage) :
+  // une sorte marquée ne se copie pas non plus vers l'autre écran ; toute autre, comme avant.
+  for (const x of sortesPosables()) { const reservee = cinq.includes(x.id); assert.equal(copiable(x.id), !reservee && x.jamaisALaMaison !== true, x.id); assert.equal(servieALaMaison(x.id), !reservee, x.id); }
   // Une sorte inconnue : traitée comme réservée, par prudence.
   assert.equal(accueilSeulement('inventee'), true); assert.equal(copiable(undefined), false);
 });

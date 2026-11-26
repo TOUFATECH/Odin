@@ -44,14 +44,15 @@ export const servieALaMaison = (kind: unknown): boolean => !accueilSeulement(kin
  * réservée à l'accueil du propriétaire (constat G4), jamais une sorte « propriétaire seul » (son agenda, ses
  * recherches, ses sauvegardes… : un écran au mur se lit par toute la maison, même ouvert par sa session ou par une clé
  * « complet »), jamais une sorte qui lit toujours une appli de la vie privée (« ses alertes » : Forseti), jamais une
- * sorte inconnue. Les autres : selon leur public (droitDeVoir). Pur.
+ * sorte qui porte la marque « jamais sur l'écran de la maison » (jamaisALaMaison), jamais une sorte inconnue. Les
+ * autres : selon leur public (droitDeVoir). Pur.
  */
 export const admiseALaMaison = (kind: unknown): boolean => {
   const s = sorteDe(kind);
-  return Boolean(s) && !s!.accueilSeul && publicDe(s!) !== 'proprietaire' && (s!.applis === 'choisie' || !s!.applis.some((a) => APPLIS_VIE_PRIVEE.includes(a)));
+  return Boolean(s) && !s!.accueilSeul && !s!.jamaisALaMaison && publicDe(s!) !== 'proprietaire' && (s!.applis === 'choisie' || !s!.applis.some((a) => APPLIS_VIE_PRIVEE.includes(a)));
 };
-/** Peut-on la « copier vers l'autre écran » ? Jamais pour les quatre sortes réservées à l'accueil. */
-export const copiable = (kind: unknown): boolean => !accueilSeulement(kind);
+/** Peut-on la « copier vers l'autre écran » ? Jamais pour les sortes réservées à l'accueil, ni pour celles marquées « jamais sur l'écran de la maison ». */
+export const copiable = (kind: unknown): boolean => !accueilSeulement(kind) && sorteDe(kind)?.jamaisALaMaison !== true;
 
 /**
  * Les applis de la vie privée (sa question 15) : ce qui dit où est la famille, ce qu'elle fait, ce qu'elle dit, ce

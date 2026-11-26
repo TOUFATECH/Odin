@@ -158,8 +158,9 @@
         m.story ? el('div', { class: 'fa-orig' }, el('h4', {}, 'D\'où vient le nom'), el('p', {}, m.story)) : null,
         t.alternatives.noms.length ? el('div', { class: 'fa-alt' }, el('b', {}, 'Alternative à :'), el('ul', {}, ...t.alternatives.noms.map((x) => el('li', {}, x)), t.alternatives.reste ? el('li', { class: 'fa-reste' }, `+ ${t.alternatives.reste}`) : null)) : null,
         el('button', { class: 'btn primary fa-ouvrir', type: 'button', onclick: (ev) => { ev.stopPropagation(); cacher(0); o.ouvrir?.(m); } }, `Ouvrir ${m.name}`),
-        mettreEnWidget(m),
-        actionsRapides(m)));
+        // Comme la maquette (la fiche d'une appli) : « Actions rapides », puis « Mettre en widget sur ».
+        actionsRapides(m),
+        mettreEnWidget(m)));
     return a;
   }
   /** Trois actions au plus, comme le widget d'une appli (src/valhalla/widgets/applis.ts, ACTIONS_MAX). */

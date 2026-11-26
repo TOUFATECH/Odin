@@ -32,7 +32,8 @@
     tout: 'Tout',
     infos: 'Infos',
     groupeInfos: 'Infos et repères',
-    aide: 'Ajouter le pose à la fin de la page. ⚙ sur un widget : choisir la partie de l\'appli à montrer. Tu peux aussi le glisser sur la page.',
+    // Des espaces insécables à l'intérieur des guillemets (\u00a0) : un guillemet ne reste jamais seul en fin de ligne.
+    aide: 'Ajouter le pose à la fin de la page. «\u00a0⋯\u00a0» sur un widget ouvre «\u00a0Régler\u00a0» : sa taille, son style, ce qu\'il montre. Tu peux aussi le glisser sur la page.',
     ajouter: 'Ajouter',
     ajouterNom: (n) => `Ajouter ${n}`,
     creer: 'Créer',

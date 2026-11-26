@@ -62,6 +62,15 @@
         appli_muette: [(o) => `${o.appli} ne répond pas.`, 'Réessayer'],
         lecture_echouee: [(o) => `${o.appli} ne répond pas.`, 'Réessayer'],
         action_absente: ['Cette action n\'existe plus.', 'Choisir'],
+        // La machine d'Odin que l'appli ne sait pas lire (sa réponse du 25/11 : le widget le dit, jamais 0 %), et l'outil
+        // qui lit la santé des disques quand il manque ou ne répond pas : ce qui manque, en une phrase ; l'appli, qui
+        // explique quoi faire, quand cela aide.
+        windows_non_lu: [(o) => `${o.appli} ne sait pas encore lire une machine sous Windows.`, ''],
+        systeme_non_lu: [(o) => `${o.appli} ne sait pas encore lire le système de cette machine.`, ''],
+        systeme_pas_encore_lu: [(o) => `${o.appli} ne sait pas encore lire le système de cette machine.`, ''],
+        smartctl_absent: ['Il manque l\'outil qui lit la santé des disques (smartctl).', (o) => o.ouvrir],
+        smartctl_ancien: ['L\'outil qui lit la santé des disques (smartctl) est trop ancien.', (o) => o.ouvrir],
+        smartctl_muet: ['L\'outil qui lit la santé des disques (smartctl) ne répond pas.', (o) => o.ouvrir],
         pas_encore_lu: ['Odin ne sait pas encore lire cela.', ''],
         '*': ['Odin ne sait pas encore lire cela.', ''],
       },
@@ -78,6 +87,8 @@
     petitDit: (titre, phrase) => (titre ? `${titre}. ${phrase}` : phrase),
     // Le nom d'une appli qu'on ne connaît pas (jamais lu chez l'appli).
     cetteAppli: 'Cette appli',
+    // Le bouton qui ouvre l'appli du widget (un état sans donnée) ; sans son nom : « Ouvrir l'appli ».
+    ouvrir: (a) => (a ? `Ouvrir ${a}` : 'Ouvrir l\'appli'),
     // La pastille de l'état ancien : depuis quand la donnée a été lue (sa réponse 1 b).
     depuis: { instant: 'il y a moins d\'1 min', min: (n) => `il y a ${n} min`, h: (n) => `il y a ${n} h`, j: (n) => `il y a ${n} j`, inconnu: 'lecture ancienne' },
     depuisNom: (t) => `Donnée ancienne, lue ${t}`,
@@ -102,6 +113,7 @@
       copie: (p) => `Copié sur la page « ${p} ».`, copieFermee: ' La copie reste fermée aux autres.',
       copieReservee: "Ce widget reste sur ton accueil : il ne se copie pas vers l'autre écran.",
       copiePrivee: "Vie privée : ce widget n'est ouvert à personne, il ne se copie pas vers l'autre écran.",
+      copieMaison: "Ce widget ne va pas sur l'écran de la maison : il reste sur ton accueil.",
       copiePleine: "Plus de place sur l'autre écran : retire d'abord un widget ou une page.",
       retirer: 'Retirer', retire: (t) => `« ${t} » est retiré de la page.`, fixe: '« À faire » se déplace mais ne se retire pas.',
       ouvrirA: 'Ouvrir à…', ouvertA: (n) => `Vie privée : ouvert à ${n}.`, ouvertAPersonne: "Vie privée : ouvert à personne d'autre que toi.",
@@ -171,10 +183,13 @@
     if (etat === 'ok') return { ...base, donnee: true };
     if (etat === 'ancien') return { ...base, donnee: true, pastille: depuis(e.at, o.maintenant ?? Date.now()) };
     // Un code qu'on ne connaît pas encore : le texte commun de l'état, sans bouton (rien ne dit comment y remédier).
-    const table = TEXTES.raisons[etat], connu = raison !== '*' && Object.hasOwn(table, raison), [t, b] = connu ? table[raison] : [table['*'][0], ''];
-    const ctx = { appli: String(o.appli || TEXTES.cetteAppli), titre: String(o.titre || '') };
+    const table = TEXTES.raisons[etat], connu = raison !== '*' && Object.hasOwn(table, raison), t = connu ? table[raison][0] : table['*'][0];
+    let b = connu ? table[raison][1] : '';
+    const ctx = { appli: String(o.appli || TEXTES.cetteAppli), titre: String(o.titre || ''), ouvrir: TEXTES.ouvrir(o.appli ? String(o.appli) : '') };
     let texte = typeof t === 'function' ? t(ctx) : t;
     if (etat === 'vide' && raison === 'partie_vide' && o.vide) texte = String(o.vide);
+    // Le texte du bouton peut, lui aussi, dépendre du nom de l'appli (« Ouvrir Tirésias »).
+    if (typeof b === 'function') b = b(ctx);
     const bouton = b && o.proprio === true && etat !== 'refuse' && typeof o.peutAgir === 'function' && o.peutAgir(raison) ? { texte: b, doux: DOUX.has(raison), raison } : null;
     // Refusé : la tuile grisée, aucun réglage, jamais de bouton.
     if (etat === 'refuse') return { ...base, texte, gris: true, reglage: false };
@@ -210,11 +225,14 @@
   const retirable = (kind) => !FIXES.includes(kind);
   /**
    * Pourquoi « Copier vers l'autre écran » est refusé, ou '' s'il est permis. `o` : { kind, privee (lit-il une appli
-   * de la vie privée ?), ouvert (ouvert à au moins une personne, vérifié) }. Les quatre sortes réservées : jamais. Un
+   * de la vie privée ?), ouvert (ouvert à au moins une personne, vérifié), versMaison (la copie va vers l'écran de la
+   * maison) }. Les quatre sortes réservées : jamais. Vers l'écran de la maison, une sorte que sa famille marque « jamais
+   * sur l'écran de la maison » (la même marque que le serveur, lue par admiseALaMaison) : non plus ('maison'). Un
    * widget de la vie privée qui n'est ouvert à personne : non plus. Ce qu'on n'a pas pu vérifier : refusé.
    */
   function copieRefusee(o = {}) {
     if (typeof o.kind !== 'string' || !o.kind || RESERVEES.includes(o.kind)) return 'reservee';
+    if (o.versMaison === true && declarations().some((d) => d.sorte === o.kind && d.jamaisALaMaison)) return 'maison';
     if (o.privee === false) return '';
     return o.privee === true && o.ouvert === true ? '' : 'vie_privee';
   }
@@ -249,6 +267,10 @@
   //                   dans chaque état : sans donnée, l'hôte dessine son état court (etatPetit, plus bas) ;
   //   proprio         vrai : proposée au propriétaire seul ;
   //   tiroir          faux : pas de ligne dans le tiroir (un style qui se choisit seulement dans « Régler ») ;
+  //   groupe          'infos' ou 'odin' : son groupe dans le tiroir, comme la maquette la range (absent : la famille
+  //                   de l'appli qu'elle lit, sinon « Infos ») ;
+  //   jamaisALaMaison vrai : jamais sur l'écran de la maison (la même marque que sa sorte côté serveur, lue par
+  //                   admiseALaMaison) : « Copier vers l'autre écran » ne l'y envoie pas ;
   //   poser           { c, r, pc, pr } : sa taille quand le tiroir la pose (colonnes sur 12 et lignes ; au téléphone, sur 4) ;
   //   vides           les raisons de l'état « vide » qu'elle dessine elle-même (un état calme, pas une ligne) ;
   //   sous(e, o)      la fin du sous-titre de l'en-tête, d'après la donnée ;
@@ -257,6 +279,17 @@
   // Tout texte venu d'une donnée ou d'un réglage y est posé par textContent, jamais par innerHTML. Les cinq états,
   // l'en-tête, « ⋯ » et « Régler » restent ceux de tous : la famille ne dessine que son corps.
   const mot = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+  /** Les groupes du tiroir qu'une sorte peut dire d'elle-même (maquette, logique.js : « Infos et repères », « Odin »). */
+  const GROUPES = ['infos', 'odin'];
+  /**
+   * Le groupe d'une sorte dans le tiroir « Ajouter un widget », comme la maquette la range : celui que sa famille a
+   * marqué sur elle (`groupe`), sinon la famille de l'appli qu'elle lit (`familleAppli`, celle du catalogue), sinon
+   * « infos ». Rend 'infos', 'odin' ou une famille du catalogue.
+   */
+  function groupeTiroir(d, familleAppli) {
+    if (d && GROUPES.includes(d.groupe)) return d.groupe;
+    return d && d.appli && typeof familleAppli === 'string' && familleAppli ? familleAppli : 'infos';
+  }
   const entierDe = (v, max) => (Number.isInteger(v) && v >= 1 && v <= max ? v : undefined);
   /** Une déclaration relue sans confiance, ou rien si elle est abîmée. */
   function declaration(d, famille) {
@@ -268,6 +301,7 @@
     const titre = mot(d.titre, 40) || d.sorte;
     return { famille: mot(famille, 24), sorte: d.sorte, style, titre, nom: mot(d.nom, 40) || titre, quoi: mot(d.quoi, 160), symbole: mot(d.symbole, 4),
       appli: typeof d.appli === 'string' && /^[a-z0-9_-]{1,40}$/.test(d.appli) ? d.appli : '', petit: d.petit === true, proprio: d.proprio === true, tiroir: d.tiroir !== false,
+      groupe: GROUPES.includes(d.groupe) ? d.groupe : '', jamaisALaMaison: d.jamaisALaMaison === true,
       vides: (Array.isArray(d.vides) ? d.vides : []).filter((x) => typeof x === 'string'), sous: typeof d.sous === 'function' ? d.sous : null, dessiner: d.dessiner, w };
   }
   /** Les déclarations lisibles, dans l'ordre où elles ont été faites ; pour une même sorte et un même style, la première. */
@@ -328,7 +362,8 @@
   const svg = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SVG[k] ?? ''}</svg>`;
   // Les couleurs : celles d'Odin (--ink, --field…) ou, sur l'écran de la maison, celles de son thème (--text, --card2…).
   const CSS = `
-/* Carte étroite : le titre garde sa place (84 px au moins) ; la pastille, « Ouvrir › » et « ⋯ » passent dessous. */
+/* Carte étroite : le titre garde sa place (84 px au moins) ; la pastille, « Ouvrir › » et « ⋯ » passent dessous. Dans
+   une carte de l'accueil de 220 px au plus, tout tient sur une ligne (plus bas). */
 .wr-h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-height:34px;min-width:0}
 .wr-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;overflow:hidden;background:var(--field,var(--card2,#D5D8DE));color:var(--ink,var(--text,#14171C));font-weight:700;font-size:15px}
 .wr-ic.wr-app{background:none}.wr-gris .wr-ic{filter:grayscale(1);opacity:.5}
@@ -338,6 +373,10 @@
 .wr-pastille{flex:none;font-size:11px;font-weight:700;line-height:1.3;padding:3px 8px;border-radius:999px;white-space:nowrap;background:var(--warn-bg,color-mix(in srgb,var(--warn,#A15C07) 16%,transparent));color:var(--warn,#A15C07);border:1px solid var(--warn-l,color-mix(in srgb,var(--warn,#A15C07) 45%,transparent))}
 .wr-plus{flex:none;width:44px;height:44px;margin:-5px -12px -5px auto;padding:0;border:0;border-radius:12px;background:none;color:var(--muted,#555B66);display:grid;place-items:center;cursor:pointer}
 .wr-plus:hover{background:var(--hover,var(--card2,#EEF0F3))}.wr-plus svg{width:18px;height:18px}
+/* Carte étroite de l'accueil (3 colonnes à 768 px) : comme la maquette (l'en-tête d'une carte), tout sur une seule
+   ligne — la tuile, le titre et « ⋯ » côte à côte ; le titre et le sous-titre finissent par « … » (leur entier en
+   info-bulle) ; la pastille se resserre. */
+@container (max-width:220px){.wr-h{flex-wrap:nowrap;column-gap:6px}.wr-t{flex:1 1 0}.wr-pastille{min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis}}
 .wr-ligne{display:flex;align-items:flex-start;gap:7px;font-size:13.5px;line-height:1.35;color:var(--muted,#555B66);min-width:0;max-width:100%}
 .wr-ligne svg{width:16px;height:16px;flex:none;margin-top:1px}.wr-ligne span{min-width:0;overflow-wrap:anywhere}
 .wr-btn{align-self:flex-start;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid transparent;background:var(--accent,#2F5BD3);color:var(--on-accent,#111);font-family:inherit;font-size:14px;font-weight:600;line-height:1;cursor:pointer}
@@ -408,8 +447,10 @@ dialog.wr-regler::backdrop{background:rgba(8,12,18,.55)}
     const h = el('div', `wr-h${o.gris ? ' wr-gris' : ''}${o.classe ? ` ${o.classe}` : ''}`);
     const ic = el('span', `wr-ic${o.tuile ? ' wr-app' : ''}${o.classeTuile ? ` ${o.classeTuile}` : ''}`); ic.setAttribute('aria-hidden', 'true');
     if (o.tuile) ic.append(o.tuile); else ic.textContent = String(o.lettre || String(o.titre || '?').slice(0, 1));
-    const t = el('div', 'wr-t'); t.append(el('b', 'wr-n', String(o.titre ?? '')));
-    if (o.sous) t.append(el('small', 'wr-s', String(o.sous)));
+    // Le titre et le sous-titre, coupés sur une carte étroite : leur entier en info-bulle.
+    const n = el('b', 'wr-n', String(o.titre ?? '')); n.title = String(o.titre ?? '');
+    const t = el('div', 'wr-t'); t.append(n);
+    if (o.sous) { const s = el('small', 'wr-s', String(o.sous)); s.title = String(o.sous); t.append(s); }
     h.append(ic, t);
     // La pastille : « il y a 12 min » à l'écran ; un lecteur d'écran lit la phrase entière (« Donnée ancienne, lue… »).
     if (o.pastille) { const p = el('span', 'wr-pastille'); p.append(el('span', 'wr-sr', TEXTES.depuisAvant), String(o.pastille)); p.title = TEXTES.depuisNom(o.pastille); h.append(p); }
@@ -499,5 +540,5 @@ dialog.wr-regler::backdrop{background:rgba(8,12,18,.55)}
 
   window.OdinWidgetsRendu = { TEXTES, ETATS, VIE_PRIVEE, etatSansProprio, decrire, depuis, porteUneMesure, entete, contenu, corps, etatPetit, poserStyle, CSS,
     RESERVEES, FIXES, STYLES, ECRANS_TOUCHER, ADRESSE_MAX, adresseNette, retirable, copieRefusee, toucherDe, champ, bouton, fenetreRegler,
-    rendu, posables, dessineElleMeme, dessiner, sous };
+    rendu, posables, dessineElleMeme, dessiner, sous, groupeTiroir };
 })();

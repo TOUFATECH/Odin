@@ -305,6 +305,7 @@
   // celles de la maquette : 4 × 2 et 3 × 4. Proposées à qui a le droit sur l'appli lue (le serveur refuse tout autre).
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'sante', sortes: [
     { sorte: 'sante_machine', titre: T.machine.titre, quoi: T.machine.quoi, symbole: '🩺', appli: 'eir', poser: { c: 4, r: 2, pc: 4 }, vides: ['pas_encore_mesure'], sous: sousMachine, dessiner: machine },
-    { sorte: 'sante_disques', titre: T.disques.titre, quoi: T.disques.quoi, symbole: '💽', appli: 'durinn', poser: { c: 3, r: 4, pc: 4 }, vides: ['disques_pas_encore_lus', 'aucun_disque'], sous: sousDisques, dessiner: disques },
+    // Jamais sur l'écran de la maison : un écran au mur y montrerait le nom de ses disques (la même marque que sa sorte, sante.ts).
+    { sorte: 'sante_disques', jamaisALaMaison: true, titre: T.disques.titre, quoi: T.disques.quoi, symbole: '💽', appli: 'durinn', poser: { c: 3, r: 4, pc: 4 }, vides: ['disques_pas_encore_lus', 'aucun_disque'], sous: sousDisques, dessiner: disques },
   ] });
 })();

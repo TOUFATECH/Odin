@@ -165,7 +165,8 @@ test('grille : un module ajouté reçoit un identifiant neuf (Retirer, les flèc
   assert.match(G.nouvelId(undefined as unknown as string[]), /^[0-9a-f]{8}$/);
   const id = G.nouvelId([]); assert.equal(parHestia({ id, kind: 'heure', w: 1 }).id, id, 'Hestia le garde tel quel à « Terminé »');
   // La fenêtre s'en sert pour chaque module ajouté (avant : id vide, et « ✕ » sur un module ajouté retirait tous les modules ajoutés).
-  assert.match(FE, /function add\(w\) \{ page\(\)\.widgets\.push\(\{ w: 1, \.\.\.w, id: G\.nouvelId\(/);
+  // Suit le code : `add` reçoit aussi `muet` (la fiche d'une appli dit elle-même « Posé »).
+  assert.match(FE, /function add\(w, muet = false\) \{ page\(\)\.widgets\.push\(\{ w: 1, \.\.\.w, id: G\.nouvelId\(/);
   assert.doesNotMatch(FE, /widgets\.push\(\{ id: '', /);
 });
 

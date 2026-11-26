@@ -324,8 +324,10 @@ button.wv-site{cursor:pointer}.wv-site[aria-pressed="true"]{border-color:var(--a
   // La déclaration de la famille (lue par pages/widgets-rendu.js, quel que soit l'ordre de chargement). Les tailles sont
   // celles de la maquette : 4 × 3 pour les alertes, 4 × 5 pour les sites, 2 × 1 pour le petit chiffre.
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'veille', sortes: [
-    { sorte: 'alertes_liste', titre: T.alertes.titre, nom: T.alertes.nom, quoi: T.alertes.quoi, symbole: '🔔', appli: 'forseti', poser: { c: 4, r: 3, pc: 4 }, vides: ['aucune_alerte'], dessiner: alertes },
+    // La liste des alertes : « ses alertes », jamais sur l'écran de la maison (la même marque que sa sorte, veille.ts).
+    { sorte: 'alertes_liste', jamaisALaMaison: true, titre: T.alertes.titre, nom: T.alertes.nom, quoi: T.alertes.quoi, symbole: '🔔', appli: 'forseti', poser: { c: 4, r: 3, pc: 4 }, vides: ['aucune_alerte'], dessiner: alertes },
     { sorte: 'sites', titre: T.sites.titre, quoi: T.sites.quoi, symbole: '🌐', appli: 'idunn', poser: { c: 4, r: 5, pc: 4 }, vides: ['aucun_site'], sous: sousSites, dessiner: sites },
-    { sorte: 'sites_petit', titre: T.petit.titre, nom: T.petit.nom, quoi: T.petit.quoi, symbole: '🌐', appli: 'idunn', petit: true, poser: { c: 2, r: 1, pr: 1 }, vides: ['aucun_site', 'sites_pas_verifies'], dessiner: petitSites },
+    // Le petit chiffre des sites : dans « Infos et repères » du tiroir, comme la maquette (« Sites en ligne »).
+    { sorte: 'sites_petit', groupe: 'infos', titre: T.petit.titre, nom: T.petit.nom, quoi: T.petit.quoi, symbole: '🌐', appli: 'idunn', petit: true, poser: { c: 2, r: 1, pr: 1 }, vides: ['aucun_site', 'sites_pas_verifies'], dessiner: petitSites },
   ] });
 })();

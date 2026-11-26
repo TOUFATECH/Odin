@@ -49,7 +49,8 @@ export const SORTES_VEILLE = [
   {
     // La liste des alertes pas encore vues, les plus récentes d'abord : son appli, son texte, son âge. Le petit chiffre
     // « alertes » (famille infos) en dit le nombre ; celui-ci les montre. Zéro : l'état « vide », un état calme.
-    id: 'alertes_liste', famille: 'veille', applis: ['forseti'], taille: { mini: [3, 2], r: 3 }, styles: ['liste'], public: 'membre', posable: true,
+    // « Ses alertes » (propriétaire seul pour l'écran au mur) : jamais sur l'écran de la maison, même ouvert par sa session.
+    id: 'alertes_liste', famille: 'veille', applis: ['forseti'], taille: { mini: [3, 2], r: 3 }, styles: ['liste'], public: 'membre', posable: true, jamaisALaMaison: true,
     nettoyer: etiquette,
     lire: async (_w, src, l): Promise<EtatWidget> => {
       if (!src.alertesAVoir) return { etat: 'source_absente', raison: 'pas_encore_lu' };

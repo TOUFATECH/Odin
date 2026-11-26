@@ -124,11 +124,16 @@
   /** Sans le réglage « poste » quand la page a « Sur quel poste ? » : la page le remplit toute seule. */
   const visibles = (ps) => (pagePostes ? (ps ?? []).filter((p) => p.key !== 'poste') : ps ?? []);
   /**
-   * Les actions rapides d'une appli (sa barre de boutons ; la fiche d'une appli les reprend, OdinApps.actionsRapides) :
-   * sans réglage obligatoire à remplir (`vis` : les réglages qu'on remplit), ni l'action que la page réserve à son
-   * écran « Sur quel poste ? » (`reserve`).
+   * LA règle des actions rapides d'une appli (sa barre de boutons ; la fiche d'une appli les reprend,
+   * OdinApps.actionsRapides ; le widget d'une appli applique la même côté serveur : src/valhalla/widgets/applis.ts, un
+   * essai compare les trois sur toutes les applis) : rapides, sans réglage obligatoire à remplir — quand la vue de
+   * l'appli a « Sur quel poste ? », la page remplit le réglage « poste » toute seule —, ni l'action que la page réserve à
+   * cet écran. `vue` : la vue de l'appli (absente : ni poste rempli, ni action réservée).
    */
-  const actionsRapides = (actions, reserve, vis = (ps) => ps ?? []) => (actions ?? []).filter((a) => a.quick !== false && a.id !== reserve && !vis(a.params).some((p) => p.required));
+  const actionsRapides = (actions, vue) => {
+    const reserve = vue?.postes?.ensuite?.action, vis = (ps) => (vue?.postes ? (ps ?? []).filter((p) => p.key !== 'poste') : ps ?? []);
+    return (actions ?? []).filter((a) => a.quick !== false && a.id !== reserve && !vis(a.params).some((p) => p.required));
+  };
   const ico = (d, w = 18) => { const x = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', width: w, height: w, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) x.setAttribute(k, String(v)); x.innerHTML = d; return x; };
   const I = { retour: '<path d="M19 12H5M11 6l-6 6 6 6"/>', envoi: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>', plus: '<path d="M12 5v14M5 12h14"/>', ok: '<path d="M5 12l5 5 9-10"/>', non: '<path d="M6 6l12 12M18 6L6 18"/>', fichier: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>', bas: '<path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/>', machine: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>' };
   const LV = { critique: 'bad', haute: 'warn', moyenne: 'warn', info: '' };
@@ -928,7 +933,7 @@
   async function pageSimple(id, r, quiet) {
     const v = r.view, main = el('div', {}), side = el('div', {}), top = el('div', {}), reserve = v.postes?.ensuite?.action;
     if (v.kpis?.length) top.append(kpisBox(v));
-    const quick = actionsRapides(r.actions, reserve, visibles).filter(vaSurPoste(id));
+    const quick = actionsRapides(r.actions, v).filter(vaSurPoste(id));
     if (quick.length) {
       // Le résultat d'un bouton rapide reste sous la barre (avant : une bulle par-dessus la page, disparue en 4 secondes).
       const res = resultBox(`q:${id}`);
@@ -1038,5 +1043,5 @@
   // `actionsRapides` et `lancer` : pour la fiche d'une appli (pages/fiche-appli.js), la règle de la barre de boutons et
   // le lancement d'une action (avec l'accord que le serveur demande pour une action grave, à chaque fois).
   window.OdinApps = { open: () => { if (!busy) { busy = true; openCatalog().finally(() => { busy = false; }); } }, app: openApp, section, kpis: (v) => v,
-    actionsRapides: (actions) => actionsRapides(actions), lancer: async (mod, action) => (await runFull(mod, action, {}, false, true)).text };
+    actionsRapides: (actions, vue) => actionsRapides(actions, vue), lancer: async (mod, action) => (await runFull(mod, action, {}, false, true)).text };
 })();

@@ -163,6 +163,9 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       // la famille « sante » : sur la machine de l'essai, Hygie n'a rien rangé et Tirésias n'a rien lu (ou ne lit pas sous
       // Windows) : « vide » ou « source_absente », jamais un chiffre
       sante_machine: W('sante_machine'), sante_disques: W('sante_disques'),
+      // les petits chiffres de la maison : un Odin neuf n'a aucun appareil (« vide »), jamais un 0 à la place d'une absence
+      maison_allumes: W('maison_allumes'), maison_lumieres: W('maison_lumieres'), maison_serrures: W('maison_serrures'),
+      maison_temperature: W('maison_temperature'), maison_humidite: W('maison_humidite'), maison_watts: W('maison_watts'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);
