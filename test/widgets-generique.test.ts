@@ -510,6 +510,25 @@ test('navigateur : une appli retirée d\'Odin depuis : un titre neutre, jamais s
   } finally { await ctx.close(); }
 });
 
+// Constats du troisième regard sur le widget posé : la carte d'une appli retirée d'Odin ne montre ni l'initiale de son
+// identifiant (une tuile neutre), ni « Ouvrir › » (l'appli n'existe plus) ; les autres gardent leur tuile et « Ouvrir › ».
+test('navigateur : une appli retirée d\'Odin depuis : une tuile neutre (jamais tirée de son identifiant), pas de « Ouvrir › »', { skip: sansNav }, async () => {
+  const { ctx, page: p, erreurs } = await ouvrir(1280, false, 'essaix');
+  try {
+    const carte = (i: string) => p.evaluate((id: string) => { const n = document.querySelector(`#feGrid > .fe-w[data-id="${id}"]`) as any; const ic = n?.querySelector('.fe-h .wr-ic');
+      return { tuileAppli: Boolean(ic?.querySelector('.odin-app-ic')), lettre: (ic?.textContent ?? '').trim(), ouvrir: [...(n?.querySelectorAll('.fe-h .fe-open') ?? [])].map((b: any) => b.textContent) }; }, i) as Promise<{ tuileAppli: boolean; lettre: string; ouvrir: string[] }>;
+    for (const k of ['coupee', 'retiree'] as const) {
+      const c = await carte(ID[k]);
+      assert.equal(c.tuileAppli, false, `${k} : pas la tuile de l'appli retirée`);
+      assert.doesNotMatch(c.lettre, /^e$/i, `${k} : pas l'initiale de son identifiant`);
+      assert.deepEqual(c.ouvrir, [], `${k} : pas de « Ouvrir › » vers une appli qui n'existe plus`);
+    }
+    const g = await carte(ID.grand);
+    assert.equal(g.tuileAppli, true, 'une appli là : sa tuile'); assert.deepEqual(g.ouvrir, ['Ouvrir ›'], 'une appli là : « Ouvrir › »');
+    assert.deepEqual(erreurs, []);
+  } finally { await ctx.close(); }
+});
+
 for (const [largeur, sombre] of [[1280, false], [390, true]] as const) {
   test(`navigateur, ${largeur} px, ${sombre ? 'sombre' : 'clair'} : « Régler » change l'appli de la carte (les applis que le catalogue donne) ; un titre choisi passe avant`, { skip: sansNav }, async () => {
     const { ctx, page: p, erreurs } = await ouvrir(largeur, sombre);

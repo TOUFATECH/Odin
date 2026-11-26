@@ -408,7 +408,9 @@ test('fenêtre gardée : retirer un module', () => {
 });
 
 test('fenêtre gardée : « Ouvrir › » mène à l\'appli du module', () => {
-  assert.match(fe('widget'), /w\.module \? el\('button', \{[^}]*onclick: \(\) => \{ location\.hash = `#app=\$\{w\.module\}`; \} \}/, 'le bouton ouvre la page de l\'appli');
+  // Suivi : « Ouvrir › » n'est plus offert vers une appli retirée d'Odin (absente du catalogue : nomConnu) ;
+  // test/widgets-generique.test.ts le vérifie dans le navigateur. Le bouton ouvre toujours la page de l'appli.
+  assert.match(fe('widget'), /w\.module && nomConnu\(w\.module\) \? el\('button', \{[^}]*onclick: \(\) => \{ location\.hash = `#app=\$\{w\.module\}`; \} \}/, 'le bouton ouvre la page de l\'appli');
   assert.match(UI, /const hashView = [^\n]*\^app=/, 'ui.html sait ouvrir une appli par #app=');
 });
 

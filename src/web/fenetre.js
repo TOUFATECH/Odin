@@ -400,12 +400,15 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       vide: [...(vueDe(w)?.sections ?? []), ...(vueDe(w)?.side ?? [])].find((x) => x.title === w.section)?.empty });
     // L'en-tête de la maquette : la tuile de l'appli (comme sur la page Applis), sinon un symbole ; le titre, le
     // sous-titre ; « Ouvrir › » ; « ⋯ » pour le propriétaire.
-    const tuileDe = (mod) => { if (!mod || !window.OdinAppIcons) return null; const sp = el('span', {}); sp.innerHTML = window.OdinAppIcons.tile(mod, modName(mod), 34); return sp.firstElementChild ?? sp; };
+    // Une appli que le catalogue de qui regarde ne connaît pas (retirée d'Odin) : pas de tuile, le symbole neutre de la
+    // carte (jamais une tuile tirée de son identifiant).
+    const tuileDe = (mod) => { const nom = nomConnu(mod); if (!nom || !window.OdinAppIcons) return null; const sp = el('span', {}); sp.innerHTML = window.OdinAppIcons.tile(mod, nom, 34); return sp.firstElementChild ?? sp; };
     // Le rendu que le fichier de sa famille a déclaré pour ce widget, s'il y en a un (plus bas : c'est lui qui dessine le corps).
     const rf = renduDe(w);
     const head = (title, small, icon, mod = w.module) => R.entete({ classe: 'fe-h', classeTuile: 'fe-ic', tuile: tuileDe(mod), lettre: icon, titre: title, sous: d.gris ? '' : small, pastille: d.pastille, gris: d.gris,
       regler: proprio && d.reglage ? () => regler(w) : null,
-      extra: [d.gris ? null : boutonToucher(w, w.module ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null)] });
+      // « Ouvrir › » : seulement vers une appli qui existe encore (que le catalogue de qui regarde connaît).
+      extra: [d.gris ? null : boutonToucher(w, w.module && nomConnu(w.module) ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null)] });
     // Lot 25b : toucher la carte (pas l'un de ses boutons) fait ce que « Régler » a choisi. Fermée à qui regarde : rien.
     if (!d.gris && R.toucherDe(w).quoi !== 'rien') { box.classList.add('fe-touche'); box.addEventListener('click', (e) => auToucher(e, box, w)); }
     const agirIci = (r) => AGIR[r]?.(w);
@@ -811,6 +814,24 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const w = page().widgets.find((x) => x.id === id), T = OT.TEXTES;
     dire(T.pose(w?.label || (w && renduDe(w) ? titreDe(w) : '') || (w?.kind === 'heure' ? T.heure : w?.kind === 'meteo' ? T.meteo : JOUR.includes(w?.kind) ? TXT.titres[w.kind] : modName(w?.module ?? ''))));
   }
+  /**
+   * Poser le widget d'une appli depuis dehors (la fiche d'une appli : « Mettre en widget sur : l'accueil ») : le widget
+   * que pose sa ligne dans « Ajouter un widget » (widgetDeLAppli), posé par `add` à la fin de la page ouverte, puis rangé
+   * chez Odin (le serveur décide : ranger la fenêtre est au propriétaire seul). Rend { etat, page } : « pose » ; « deja »
+   * (ce widget est déjà sur l'accueil, et la page qui le porte : rien de plus) ; « occupe » (« Modifier » ouvert, un
+   * geste ou un rangement pas fini : rien) ; « refuse » ; « echec » (pas rangé : la fenêtre revient à ce qu'Odin garde).
+   */
+  const peutPoser = (id) => Boolean(L && proprio && !pasProprio && typeof id === 'string' && id && OT.poser(cat?.modules, id) === 'ok');
+  async function poserAppli(id) {
+    if (!peutPoser(id)) return { etat: 'refuse' };
+    if (edit || glisse || appuiEnCours || JSON.stringify(L) !== saved) return { etat: 'occupe' };
+    const w = widgetDeLAppli(id), nom = nomDe(page());
+    const deja = L.pages.find((p) => p.widgets.some((x) => x.kind === w.kind && x.module === id));
+    if (deja) return { etat: 'deja', page: nomDe(deja) };
+    if (!add(w)) return { etat: 'refuse' };
+    if (await save(null, '')) return { etat: 'pose', page: nom };
+    L = JSON.parse(saved); draw(); return { etat: 'echec' };
+  }
 
   // ------------------------------------------------------------------ le tiroir « Ajouter un widget » (lot 18)
   /** Ce qui a ouvert le tiroir (le focus y revient quand il se ferme) ; la recherche et la famille, gardées d'une ouverture à l'autre. */
@@ -1209,7 +1230,7 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       say(TXT.enPlein);
     } else if (!a || a === document.body || a === b) $('#homeFull')?.focus({ preventScroll: true });
   });
-  window.OdinFenetre = { mount, state: () => ({ L, cur, edit }), edit: (on = true) => { edit = on; return draw(); }, aujourdhui };
+  window.OdinFenetre = { mount, state: () => ({ L, cur, edit }), edit: (on = true) => { edit = on; return draw(); }, aujourdhui, peutPoser, poserAppli };
   // Après la connexion seulement (la page de connexion n'a pas de fenêtre).
   const tryMount = () => { const app = $('#app'); if (app && !app.hidden && $('#v-home > .body')) mount(); else setTimeout(tryMount, 1500); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryMount); else tryMount();

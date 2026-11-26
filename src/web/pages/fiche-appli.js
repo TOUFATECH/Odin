@@ -1,7 +1,8 @@
 // La fiche d'une appli, au survol (souris), au focus (clavier) ou par appui long (doigt), sur la carte des applis comme
 // dans la grille et en plein écran : un bandeau aux couleurs de l'appli avec son icône, son nom et sa famille, son état
 // en pastille, une phrase qui dit à quoi elle sert, trois ou quatre choses qu'on peut y faire, l'origine de son nom,
-// « Alternative à : » et les logiciels connus qu'elle remplace, puis un vrai bouton « Ouvrir <appli> ».
+// « Alternative à : » et les logiciels connus qu'elle remplace, puis un vrai bouton « Ouvrir <appli> » et, quand la
+// fenêtre d'Odin le permet à qui regarde (le propriétaire), « Mettre en widget sur : l'accueil » (fenetre.js, poserAppli).
 // La fiche ne sort jamais de l'écran et ne cache pas l'appli survolée. Elle reste ouverte tant que la souris ou le
 // focus est dessus.
 // Ce fichier est chargé avant les autres scripts de l'interface : rien ne touche au document à son chargement.
@@ -69,7 +70,27 @@
     const c = ordre.slice().sort((p, q) => cotes[q].place - cotes[p].place)[0];
     return { x: Math.round(borne(cotes[c].x, marge, Math.max(marge, e.w - f.w - marge))), y: Math.round(borne(cotes[c].y, marge, Math.max(marge, e.h - f.h - marge))), cote: c };
   }
-  const logique = { etat, textes, placer, phraseDe, couper };
+  /**
+   * Les textes de « Mettre en widget sur » (maquette validée : la fiche d'une appli). Seul l'accueil est proposé : l'écran
+   * de la maison ne dessine pas encore le widget d'une appli. Le reste de la fiche écrit ses textes dans son dessin.
+   */
+  const TEXTES = {
+    widget: 'Mettre en widget sur', accueil: 'L\'accueil', accueilNom: (n) => `Mettre ${n} en widget sur l'accueil`, enCours: 'Un instant…',
+    dits: {
+      // Des espaces insécables (\u00a0) dans les guillemets et devant « : » : la ligne ne se coupe jamais là.
+      pose: (p) => (p ? `Posé à la fin de la page «\u00a0${p}\u00a0» de ton accueil.` : 'Posé à la fin de ton accueil.'),
+      deja: (p) => (p ? `Ce widget est déjà sur ton accueil, page «\u00a0${p}\u00a0»\u00a0: rien n'est posé en double.` : 'Ce widget est déjà sur ton accueil\u00a0: rien n\'est posé en double.'),
+      occupe: 'Termine d\'abord «\u00a0Modifier\u00a0» sur l\'accueil\u00a0: rien n\'est posé.',
+      refuse: 'Ce widget ne peut pas être posé\u00a0: rien n\'a changé.',
+      echec: 'Odin n\'a pas pu ranger ton accueil\u00a0: rien n\'est posé.',
+    },
+  };
+  /** Ce que dit la fiche après « Mettre en widget » : la réponse de la fenêtre d'Odin ({ etat, page }). */
+  const ditDe = (r) => {
+    const t = TEXTES.dits[r && typeof r.etat === 'string' && Object.hasOwn(TEXTES.dits, r.etat) ? r.etat : 'echec'];
+    return typeof t === 'function' ? t(r && typeof r.page === 'string' ? r.page : '') : t;
+  };
+  const logique = { etat, textes, placer, phraseDe, couper, ditDe, TEXTES };
 
   // ---------------- Dessin
   const css = `
@@ -97,6 +118,8 @@
 .fa-alt li{padding:2px 9px;border-radius:99px;border:1px solid var(--line);background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink)}
 .fa-alt li.fa-reste{color:var(--muted)}
 .fa-ouvrir{width:100%;justify-content:center;min-height:44px}
+.fa-mettre{display:grid;gap:6px}.fa-poser{width:100%;justify-content:center;min-height:44px}.fa-poser[aria-busy=true]{cursor:progress}
+.fa-dit{margin:0;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}.fa-dit:empty{display:none}
 @media (max-width:480px){.fa{width:calc(100vw - 16px)}.og .og-card:has(>.fa){width:calc(100% - 16px)}.fa-band{height:44px}.fa-corps{gap:8px;padding-top:26px}.fa-orig{display:none}}
 #odinFiche{position:fixed;z-index:45;left:0;top:0;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
 #odinFiche.on{opacity:1;transform:none}#odinFiche[hidden]{display:none}
@@ -127,12 +150,41 @@
         t.faire.length ? el('div', { class: 'fa-faire' }, el('h4', {}, 'Ce que tu peux y faire'), el('ul', {}, ...t.faire.map((x) => el('li', {}, coche(), el('span', {}, x))))) : null,
         m.story ? el('div', { class: 'fa-orig' }, el('h4', {}, 'D\'où vient le nom'), el('p', {}, m.story)) : null,
         t.alternatives.noms.length ? el('div', { class: 'fa-alt' }, el('b', {}, 'Alternative à :'), el('ul', {}, ...t.alternatives.noms.map((x) => el('li', {}, x)), t.alternatives.reste ? el('li', { class: 'fa-reste' }, `+ ${t.alternatives.reste}`) : null)) : null,
-        el('button', { class: 'btn primary fa-ouvrir', type: 'button', onclick: (ev) => { ev.stopPropagation(); cacher(0); o.ouvrir?.(m); } }, `Ouvrir ${m.name}`)));
+        el('button', { class: 'btn primary fa-ouvrir', type: 'button', onclick: (ev) => { ev.stopPropagation(); cacher(0); o.ouvrir?.(m); } }, `Ouvrir ${m.name}`),
+        mettreEnWidget(m)));
     return a;
+  }
+  /**
+   * « Mettre en widget sur : l'accueil » : seulement quand la fenêtre d'Odin dit que c'est possible pour qui regarde (le
+   * propriétaire, une appli de son catalogue, activée) ; sinon rien, ni bouton mort ni bouton grisé. Le bouton pose le
+   * widget de l'appli à la fin de la page ouverte de l'accueil ; la fiche dit ce qui s'est passé. Pendant la pose, le
+   * bouton garde le focus (aria-busy, pas `disabled`).
+   */
+  function mettreEnWidget(m) {
+    const F = window.OdinFenetre;
+    if (!F || typeof F.peutPoser !== 'function' || typeof F.poserAppli !== 'function' || !F.peutPoser(m.id)) return null;
+    const dit = el('p', { class: 'fa-dit', role: 'status' });
+    let enCours = false;
+    const b = el('button', { class: 'btn fa-poser', type: 'button', 'aria-label': TEXTES.accueilNom(m.name), onclick: async (ev) => {
+      ev.stopPropagation(); if (enCours) return;
+      // Le message fait grandir la fiche : elle est replacée pour ne pas couvrir l'appli.
+      const ecrire = (t) => { dit.textContent = t; if (pop && pop.contains(b)) replacer(); };
+      enCours = true; b.setAttribute('aria-busy', 'true'); ecrire(TEXTES.enCours);
+      let r; try { r = await F.poserAppli(m.id); } catch { r = undefined; }
+      enCours = false; b.removeAttribute('aria-busy'); ecrire(ditDe(r));
+    } }, TEXTES.accueil);
+    return el('div', { class: 'fa-mettre' }, el('h4', {}, TEXTES.widget), b, dit);
   }
 
   // ---------------- La fiche posée dans la page (grille des applis)
-  let pop = null, minuteur = 0, ancreVue = null;
+  // `rendu` : l'appli à qui Échap rend le focus, le temps de le lui rendre.
+  // `ancreRect` : l'ancre quand on n'a reçu qu'un rectangle (pas un élément).
+  let pop = null, minuteur = 0, ancreVue = null, ancreRect = null, rendu = null;
+  const TABULABLES = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  /** Les boutons qu'on atteint au clavier dans `r` (ceux qui se voient). */
+  const boutons = (r) => [...r.querySelectorAll(TABULABLES)].filter((n) => n.getClientRects().length > 0);
+  /** Ce qui suit `a` au clavier dans la page, hors de la fiche. */
+  const suivant = (a) => { const l = boutons(document).filter((n) => !pop || !pop.contains(n)), i = l.indexOf(a); return i >= 0 ? l[i + 1] ?? null : null; };
   function boite() {
     if (pop && pop.isConnected) return pop;
     styler();
@@ -141,8 +193,16 @@
     pop.addEventListener('pointerleave', () => cacher());
     pop.addEventListener('focusin', () => clearTimeout(minuteur));
     pop.addEventListener('focusout', (e) => { if (!pop.contains(e.relatedTarget)) cacher(); });
+    // Au clavier, la fiche se parcourt comme si elle suivait l'appli : Maj + Tab sur son premier bouton revient à
+    // l'appli ; Tab sur son dernier va à ce qui suit l'appli dans la page (la fiche se ferme).
+    pop.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab' || !ancreVue) return;
+      const l = boutons(pop), i = l.indexOf(document.activeElement), a = ancreVue;
+      if (e.shiftKey && i === 0) { e.preventDefault(); a.focus(); }
+      else if (!e.shiftKey && i === l.length - 1) { const s = suivant(a); if (s) { e.preventDefault(); cacher(0); s.focus(); } }
+    });
     document.body.append(pop);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop && !pop.hidden) { const r = ancreVue; cacher(0); if (r && r.focus && pop.contains(document.activeElement)) r.focus(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop && !pop.hidden) { const r = ancreVue; cacher(0); if (r && r.focus && pop.contains(document.activeElement)) { rendu = r; r.focus(); rendu = null; } } });
     return pop;
   }
   /** Montre la fiche de `m` à côté de `ancre` (élément ou rectangle). */
@@ -150,12 +210,18 @@
     const p = boite(); clearTimeout(minuteur);
     if (ancreVue && ancreVue.removeAttribute) ancreVue.removeAttribute('aria-describedby');
     p.replaceChildren(construire(m, o)); p.hidden = false; p.classList.remove('on');
-    const r = ancre && ancre.getBoundingClientRect ? ancre.getBoundingClientRect() : ancre;
     ancreVue = ancre && ancre.setAttribute ? ancre : null; if (ancreVue) ancreVue.setAttribute('aria-describedby', 'odinFiche');
-    const f = p.firstChild.getBoundingClientRect();
-    const pos = placer({ x: r.left ?? r.x, y: r.top ?? r.y, w: r.width ?? r.w, h: r.height ?? r.h }, { w: f.width, h: f.height }, { w: innerWidth, h: innerHeight });
-    p.style.left = `${pos.x}px`; p.style.top = `${pos.y}px`; p.dataset.cote = pos.cote;
+    ancreRect = ancreVue ? null : ancre;
+    replacer();
     requestAnimationFrame(() => p.classList.add('on'));
+  }
+  /** Pose la fiche ouverte à côté de son ancre, à sa taille du moment (à l'ouverture, puis quand elle grandit). */
+  function replacer() {
+    if (!pop || pop.hidden || !pop.firstChild) return;
+    const r = ancreVue ? ancreVue.getBoundingClientRect() : ancreRect; if (!r) return;
+    const f = pop.firstChild.getBoundingClientRect();
+    const pos = placer({ x: r.left ?? r.x, y: r.top ?? r.y, w: r.width ?? r.w, h: r.height ?? r.h }, { w: f.width, h: f.height }, { w: innerWidth, h: innerHeight });
+    pop.style.left = `${pos.x}px`; pop.style.top = `${pos.y}px`; pop.dataset.cote = pos.cote;
   }
   /** Cache la fiche après `ms` (annulé si la souris ou le focus revient dessus). */
   function cacher(ms = 250) {
@@ -172,8 +238,15 @@
     const voir = () => { const m = appli(); if (m) montrer(m, cible, o); };
     cible.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'mouse') return; clearTimeout(t); t = setTimeout(voir, 350); });
     cible.addEventListener('pointerleave', (e) => { if (e.pointerType !== 'mouse') return; clearTimeout(t); cacher(); });
-    cible.addEventListener('focus', () => { if (cible.matches(':focus-visible')) voir(); });
+    // Le focus rendu par Échap ne rouvre pas la fiche qu'on vient de fermer.
+    cible.addEventListener('focus', () => { if (rendu !== cible && cible.matches(':focus-visible')) voir(); });
     cible.addEventListener('blur', () => cacher());
+    // Tab sur l'appli dont la fiche est ouverte : le focus entre dans la fiche (son premier bouton), seulement quand elle
+    // offre plus qu'« Ouvrir » (ce que fait déjà l'appli elle-même) ; sinon Tab va à l'appli suivante, comme avant.
+    cible.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab' || e.shiftKey || !pop || pop.hidden || ancreVue !== cible || !pop.querySelector('.fa-mettre')) return;
+      const b = boutons(pop)[0]; if (b) { e.preventDefault(); clearTimeout(minuteur); b.focus(); }
+    });
     cible.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; long = false; depart = { x: e.clientX, y: e.clientY }; clearTimeout(t); t = setTimeout(() => { long = true; voir(); }, 500); });
     cible.addEventListener('pointermove', (e) => { if (depart && Math.hypot(e.clientX - depart.x, e.clientY - depart.y) > 10) { clearTimeout(t); depart = null; } });
     const fin = () => { clearTimeout(t); depart = null; };
