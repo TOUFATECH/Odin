@@ -47,6 +47,8 @@
   // fichier), que lit aussi l'écran de la maison. Sans lui, Valhalla seul (le thème d'origine de la page, toujours
   // lisible). Des copies de ses listes : ce que ce fichier y ajoute ne change pas le catalogue.
   const catalogue = window.OdinCatalogueThemes;
+  // (chargé par l'écran de la maison pour son calcul seulement : voir verreMaison, plus bas)
+  const CALCUL_SEUL = document.currentScript?.hasAttribute?.('data-calcul-seul') === true;
   const THEMES = { ...(catalogue?.ODIN || { valhalla: { name: 'Valhalla (classique)' } }) };
   const ORDER = Object.keys(THEMES);
   const EVENT_THEMES = { ...(catalogue?.EVENEMENTS || {}) };
@@ -302,6 +304,11 @@
   // Le verre : le reflet en haut, puis la carte ; ce qui passe derrière est flouté et saturé.
   const VERRE = 'background:linear-gradient(135deg,rgba(255,255,255,var(--v-reflet)) 0%,rgba(255,255,255,calc(var(--v-reflet) * .25)) 28%,transparent 55%),var(--v-carte)';
   const FLOU = '-webkit-backdrop-filter:blur(var(--v-flou)) saturate(var(--v-sat));backdrop-filter:blur(var(--v-flou)) saturate(var(--v-sat))';
+  // Une carte en verre entière (le verre, son bord, son reflet et son ombre, le flou) : celles de l'accueil, et celles de
+  // l'écran de la maison (verreMaison).
+  const CARTE_VERRE = `${VERRE};border-color:var(--v-bord);box-shadow:inset 0 1px 0 rgba(255,255,255,calc(var(--v-reflet) * 1.6)),inset 1px 0 0 rgba(255,255,255,calc(var(--v-reflet) * .8)),var(--v-ombre);${FLOU}`;
+  // Le voile posé sur le fond de la page, sous les cartes (le calcul du verre le compte).
+  const voileDe = (t) => (t.dark ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.22)');
 
   // ---------------- Le fond qui vit derrière l'accueil (maquette validée ; ses choix du 23/11 et du 25/11 : le fond sur
   // l'accueil seulement, des cartes assez opaques pour que chaque texte reste lisible) ----------------
@@ -317,9 +324,12 @@
   // Fond animé sur « non », et sans réglage (sa décision du 26/11 : éteint au départ ; seul un vrai oui gardé par Odin
   // l'allume) : aucune couche, et exactement le verre d'avant le fond.
   const scenes = window.OdinScenes;
-  const CSS_FOND = ':root[data-odin-theme] #v-home>#odinFond{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;contain:paint}'
-    + '#odinFond *{pointer-events:none}#odinFond.fige,#odinFond.fige *{animation-play-state:paused!important}'
+  // (sans clic, en pause quand la page est cachée, immobile si l'appareil demande moins de mouvement : la règle commune
+  //  à l'accueil et à l'écran de la maison, qui place sa couche à sa façon)
+  const CSS_FOND_COMMUN = '#odinFond *{pointer-events:none}#odinFond.fige,#odinFond.fige *{animation-play-state:paused!important}'
     + '@media (prefers-reduced-motion:reduce){#odinFond,#odinFond *{animation:none!important;transition:none!important}}';
+  const CSS_FOND = ':root[data-odin-theme] #v-home>#odinFond{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;contain:paint}'
+    + CSS_FOND_COMMUN;
   const PALIERS = [0, 0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 1], PROFONDEUR = 3;
   // La fonction d'erreur (approximation d'Abramowitz et Stegun, à 1,5 × 10⁻⁷ près), toujours un peu au-dessus de la
   // vraie valeur une fois arrondie vers le haut : le calcul reste du côté prudent.
@@ -329,7 +339,8 @@
   let fondOui = false, fondStyle, dernierFond = [], forceFond;
   // L'ambiance qui passe derrière les cartes du thème `id` : seulement si le fond animé est mis et que son ambiance est
   // dessinée et peint quelque chose ; sinon null (et le verre est exactement celui d'avant le fond).
-  const ambianceVue = (id) => { if (!fondOui || !scenes) return null; const nom = scenes.ambianceDe(id); return scenes.dessinee(nom) && scenes.couleurs(nom, THEMES[id]).length ? nom : null; };
+  // (`oui` : le réglage à suivre ; sans lui, celui d'Odin)
+  const ambianceVue = (id, oui = fondOui) => { if (!oui || !scenes) return null; const nom = scenes.ambianceDe(id); return scenes.dessinee(nom) && scenes.couleurs(nom, THEMES[id]).length ? nom : null; };
   // Tout ce qui peut se trouver derrière une carte quand l'ambiance `nom` est posée sur le décor, à l'intensité o (1 :
   // pleine force) : le décor seul (l'ambiance ne couvre pas tout), puis jusqu'à PROFONDEUR couleurs de l'ambiance l'une
   // sur l'autre (une étoile sur deux taches), dans tous les ordres ; une couleur opaque posée par-dessus efface ce qui
@@ -419,7 +430,7 @@
     if (!root.dataset.odinTheme) classic = root.dataset.theme;
     root.dataset.odinTheme = current; root.dataset.theme = t.dark ? 'dark' : 'light';
     // (l'ambiance du fond qui vit, s'il est mis : les cartes sont calculées pour elle)
-    const pal = palette(t), ambiance = ambianceVue(current), verre = varsVerre(current, t, pal, verres[current], ambiance), voile = t.dark ? 'rgba(0,0,0,.18)' : 'rgba(255,255,255,.22)';
+    const pal = palette(t), ambiance = ambianceVue(current), verre = varsVerre(current, t, pal, verres[current], ambiance), voile = voileDe(t);
     const tonsCartes = verre ? tonsVerre(t, pal, verre, ambiance) : {}, tons = Object.entries(tonsCartes).map(([k, v]) => `;${k}:${v}`).join('');
     const vars = Object.entries({ ...pal, ...verre }).map(([k, v]) => `${k}:${v}`).join(';');
     style.textContent = `:root[data-odin-theme]{color-scheme:${t.dark ? 'dark' : 'light'};${vars}}
@@ -429,7 +440,7 @@
 :root[data-odin-theme] .card,:root[data-odin-theme] .hpanel,:root[data-odin-theme] .hcard{background:color-mix(in srgb,var(--panel) 94%,transparent)}
 :root[data-odin-theme] main{position:relative;z-index:1;background:var(--bg)}${verre ? `
 :root[data-odin-theme] main:has(>#v-home.on){background:transparent}
-${PLAQUE_ACCUEIL},${CARTES_ACCUEIL}{${VERRE};border-color:var(--v-bord);box-shadow:inset 0 1px 0 rgba(255,255,255,calc(var(--v-reflet) * 1.6)),inset 1px 0 0 rgba(255,255,255,calc(var(--v-reflet) * .8)),var(--v-ombre);${FLOU}${tons}}
+${PLAQUE_ACCUEIL},${CARTES_ACCUEIL}{${CARTE_VERRE}${tons}}
 ${PLAQUE_ACCUEIL}{width:fit-content;max-width:100%;box-sizing:border-box;padding:6px 14px;border:1px solid var(--v-bord);border-radius:12px}
 :root[data-odin-theme] #v-home details.hmore>summary{margin:12px 0}
 ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
@@ -473,6 +484,32 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     return oui;
   }
   window.OdinThemes.verre = curseurVerre;
+
+  // ---------------- Le même calcul pour l'écran de la maison (maison.js) ----------------
+  // Pour le thème `id` (un identifiant d'Odin ; ceux de Hestia en « h-… ») : le verre de ses cartes pour la transparence
+  // `voulu` (sans elle, celle de départ), et, fond animé mis (`fond`), l'ambiance qui passe derrière, déjà comptée par
+  // le verre, avec ce qu'il faut pour la poser. Pur : rien n'est posé sur la page, rien n'est gardé ni envoyé à Odin
+  // (cet écran garde ses réglages sur l'appareil). undefined : ce thème n'a pas de verre.
+  window.OdinThemes.verreMaison = (id, voulu, fond) => {
+    const t = Object.prototype.hasOwnProperty.call(THEMES, id) ? THEMES[id] : null;
+    if (!t?.sky || typeof catalogue?.surfaceOf !== 'function') return undefined;
+    const pal = palette(t), nom = ambianceVue(id, fond === true), v = regleVerre(id, t), limite = limiteVerre(id, t, pal, nom);
+    const choisi = typeof voulu === 'number' && Number.isFinite(voulu) ? borne(voulu) : undefined, verre = varsVerre(id, t, pal, choisi, nom);
+    if (!verre) return undefined;
+    const tons = tonsVerre(t, pal, verre, nom), dessin = nom ? scenes.html(nom, t) : '', force = dessin ? intensiteFond(t, pal, verre, tons, nom) : undefined;
+    const amb = scenes ? scenes.ambianceDe(id) : 'none';
+    return {
+      verre, tons, pal, ink: t.ink, sky: [...t.sky], voile: voileDe(t), carte: CARTE_VERRE,
+      ambiance: dessin && force > 0 ? nom : null, dessin: force > 0 ? dessin : '', force, css: CSS_FOND_COMMUN + (scenes ? scenes.CSS : ''),
+      dessinable: Boolean(scenes && scenes.dessinee(amb) && scenes.html(amb, t)),
+      curseur: { valeur: choisi ?? borne(v.gt), choisie: choisi !== undefined, limite, ...(nom ? { pleine: cartePleine(id, t, pal, nom, limite) } : {}) },
+    };
+  };
+  // Les mots du curseur et de l'interrupteur, les mêmes sur les deux écrans.
+  window.OdinThemes.TEXTES = TEXTES;
+  // Sur l'écran de la maison, ce fichier est chargé pour son calcul seulement (<script … data-calcul-seul>) : il ne pose
+  // aucun thème, ne lit ni ne demande rien à Odin, ne lance aucune minuterie.
+  if (CALCUL_SEUL) return;
 
   // ---------------- Ce que dit Odin (le même pour tous tes écrans) ----------------
   const api = async (action, input = {}) => { const r = await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'apparence', action, input }) }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); };

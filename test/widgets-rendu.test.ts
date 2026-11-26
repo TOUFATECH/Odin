@@ -191,11 +191,16 @@ test('/maison charge pages/widgets-*.js par motif, avant maison.js, avec le nonc
   for (const n of attendus) assert.ok(html.includes(`<script nonce="${nonce}" src="/pages/${n}"></script>`), `${n} est chargé, avec le nonce`);
   assert.ok(html.indexOf('/pages/widgets-rendu.js') < html.indexOf('src="/maison.js"'), 'avant maison.js');
   // Entre les widgets et maison.js : le catalogue des thèmes (pages/themes-catalogue.js), lu par l'écran de la maison
-  // pour ses thèmes. L'ordre attendu : les widgets, puis le catalogue, puis maison.js, chacun avec le nonce.
+  // pour ses thèmes ; puis, pour le verre et le fond qui vit de cet écran, les dessins des ambiances
+  // (pages/themes-scenes.js) et le calcul du verre (themes.js, chargé « calcul seul » : il n'applique rien à la page).
+  // L'ordre attendu : les widgets, le catalogue, les ambiances, le calcul, puis maison.js, chacun avec le nonce.
   const tag = (src: string) => `<script nonce="${nonce}" src="${src}"></script>`;
-  assert.ok(html.includes(attendus.map((n) => tag(`/pages/${n}`)).join('') + tag('/pages/themes-catalogue.js') + tag('/maison.js')), 'les widgets, puis le catalogue des thèmes, puis maison.js');
+  const calcul = `<script nonce="${nonce}" src="/themes.js" data-calcul-seul></script>`;
+  assert.ok(html.includes(attendus.map((n) => tag(`/pages/${n}`)).join('') + tag('/pages/themes-catalogue.js') + tag('/pages/themes-scenes.js') + calcul + tag('/maison.js')), 'les widgets, le catalogue des thèmes, les ambiances, le calcul du verre, puis maison.js');
   assert.equal(html.split('src="/pages/themes-catalogue.js"').length, 2, 'le catalogue des thèmes est chargé une seule fois');
-  assert.doesNotMatch(html, /src="\/pages\/(?!widgets-|themes-catalogue\.js")/, 'aucun autre fichier de pages/');
+  assert.equal(html.split('src="/pages/themes-scenes.js"').length, 2, 'les ambiances sont chargées une seule fois');
+  assert.equal(html.split('src="/themes.js"').length, 2, 'le calcul du verre est chargé une seule fois, et seulement en « calcul seul »');
+  assert.doesNotMatch(html, /src="\/pages\/(?!widgets-|themes-catalogue\.js"|themes-scenes\.js")/, 'aucun autre fichier de pages/');
   // Rien d'autre ne change pour une tablette : tous les scripts portent le nonce, aucun script écrit dans la page.
   assert.equal(html.split('<script').length, html.split(`<script nonce="${nonce}" src="/`).length, 'chaque script est un fichier servi par Odin, avec le nonce');
 });

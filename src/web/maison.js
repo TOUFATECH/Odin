@@ -8,8 +8,10 @@
   // messages, la poignée, le pied) :
   // à un seul endroit. Le titre est le nom de l'entrée du menu d'Odin qui ouvre cet écran. Puis ceux du bandeau (le salut à
   // la maison, la semaine, les personnes à la maison) et des onglets de pièces. Puis ceux du téléphone (« Plus », le rond
-  // d'Odin au centre de la barre du bas) et du plein écran (le bouton, et ce qu'il dit une fois ouvert).
-  const MOTS = { maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes', plus: 'Plus', odin: 'Parler à Odin', plein: 'Plein écran', pleinSortir: 'Quitter le plein écran (Échap)' };
+  // d'Odin au centre de la barre du bas) et du plein écran (le bouton, et ce qu'il dit une fois ouvert). Puis ceux de la
+  // page « Thèmes » propres à cet écran (le verre et le fond animé y restent sur l'appareil) ; les autres mots du curseur
+  // sont ceux de Réglages → Apparence (themes.js).
+  const MOTS = {maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes', plus: 'Plus', odin: 'Parler à Odin', plein: 'Plein écran', pleinSortir: 'Quitter le plein écran (Échap)', verreOrigine: 'cartes d’origine', verreAide: 'Les cartes de cet écran, pour le thème {nom}. Gardé pour chaque thème, sur cet appareil seulement.', fond: 'Fond animé derrière les cartes', fondAide: 'Éteint au départ. Allumé, l\'ambiance du thème bouge derrière les cartes de cet écran ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations. Gardé sur cet appareil seulement.' };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // ---------- Clé de tablette : lue dans #cle=…, gardée sur l'appareil, retirée de l'adresse ----------
   let key = '';
@@ -72,7 +74,20 @@
   const melange = (a, b, k) => (hexa(a) && hexa(b) ? CATALOGUE.mix(a, b, k) : a);
   // La couleur du texte posé sur « allumé » (tuile allumée, logo), règle de la maquette : sombre quand le blanc se lit
   // mal (moins de 2,9 pour 1) sur la moyenne des couleurs du dégradé. Les thèmes de Hestia gardent leur texte blanc.
-  const encreSur = (g) => { const cs = String(g ?? '').match(/#[0-9a-f]{6}\b/gi); if (!cs) return '#ffffff'; const m = `#${[1, 3, 5].map((i) => Math.round(cs.reduce((s, c) => s + parseInt(c.slice(i, i + 2), 16), 0) / cs.length).toString(16).padStart(2, '0')).join('')}`; return CATALOGUE.contrast('#ffffff', m) < 2.9 ? '#2a1a00' : '#ffffff'; };
+  const moyenneDe = (g) => { const cs = String(g ?? '').match(/#[0-9a-f]{6}\b/gi); return cs ? `#${[1, 3, 5].map((i) => Math.round(cs.reduce((s, c) => s + parseInt(c.slice(i, i + 2), 16), 0) / cs.length).toString(16).padStart(2, '0')).join('')}` : null; };
+  const encreSur = (g) => { const m = moyenneDe(g); if (!m) return '#ffffff'; return CATALOGUE.contrast('#ffffff', m) < 2.9 ? '#2a1a00' : '#ffffff'; };
+  // Fond animé allumé seulement : la lettre de la pastille à l'initiale et du logo prend, du blanc ou du noir, celle qui se
+  // lit le mieux au pire endroit du dégradé « allumé » (chacune de ses couleurs et leur moyenne). Quand même la meilleure
+  // reste sous 4,5 pour 1 à un bout du dégradé (ses deux bouts, l'un clair, l'autre sombre), le rond prend la couleur unie
+  // moyenne de ce dégradé, sur laquelle l'une des deux encres passe toujours. Fond éteint, rien de cela : la règle de la
+  // maquette ci-dessus ne change pas.
+  const encreLisible = (g) => {
+    const m = moyenneDe(g); if (!m || typeof CATALOGUE.contrast !== 'function') return null;
+    const cs = [m, ...String(g).match(/#[0-9a-f]{6}\b/gi)], pire = (e, l) => Math.min(...l.map((c) => CATALOGUE.contrast(e, c)));
+    const encre = pire('#000000', cs) > pire('#ffffff', cs) ? '#000000' : '#ffffff';
+    if (pire(encre, cs) >= 4.5) return { encre };
+    return { encre: pire('#000000', [m]) > pire('#ffffff', [m]) ? '#000000' : '#ffffff', uni: m };
+  };
   function depuisOdin(t) {
     const fond = (derniereCouche(String(t.bg ?? '')).match(/#[0-9a-f]{6}\b/i) || [t.solid])[0];
     return { bg: fond, bg2: t.bg, card: unie(t.surface) ? t.surface : t.solid, card2: melange(t.solid, t.ink, t.dark ? 0.08 : 0.04), line: t.border, text: t.ink, muted: t.muted, accent: t.accent, accent2: t.mascot, on: t.onA, onInk: encreSur(t.onA), light: t.dark === false };
@@ -97,10 +112,123 @@
   const DECOR = CATALOGUE.DECORS || {};
   const decorUrl = (k) => (DECOR[k] ? `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -30 960 150' preserveAspectRatio='xMidYMax slice'>${DECOR[k].replace(/"/g, "'")}</svg>`)}")` : 'none');
   function applyTheme(name) {
-    const t = themeMaison(name);
+    const t = themeMaison(name), v = verreDe(name);
     document.body.style.setProperty('--decor', decorUrl(t.decor));
-    css.textContent = `:root{--bg:${t.bg};--bg2:${t.bg2};--card:${t.card};--card2:${t.card2};--line:${t.line};--text:${t.text};--muted:${t.muted};--accent:${t.accent};--accent2:${t.accent2};--on:${t.on};--on-ink:${t.onInk || '#ffffff'};--good:#34c77b;--warn:#f0a020;--bad:#ef4f43;color-scheme:${name === 'clair' || t.light ? 'light' : 'dark'}}${BASE}`;
+    css.textContent = `:root{--bg:${t.bg};--bg2:${t.bg2};--card:${t.card};--card2:${t.card2};--line:${t.line};--text:${t.text};--muted:${t.muted};--accent:${t.accent};--accent2:${t.accent2};--on:${t.on};--on-ink:${t.onInk || '#ffffff'};--good:#34c77b;--warn:#f0a020;--bad:#ef4f43;color-scheme:${name === 'clair' || t.light ? 'light' : 'dark'}}${BASE}${cssVerre(v, encreLisible(t.on))}`;
+    poserCouche(v);
     document.querySelector('meta[name=theme-color]')?.setAttribute('content', t.bg);
+  }
+  // ---------- Le verre et le fond qui vit (maquette validée : le même verre et les mêmes ambiances que l'accueil) ----------
+  // Le calcul est celui de l'accueil (themes.js, chargé avant ce fichier en « calcul seul » : il ne pose rien sur cette
+  // page, ne demande rien à Odin) et les dessins des ambiances ceux de src/web/pages/themes-scenes.js : rien n'est recopié
+  // ici. Les deux réglages restent sur l'appareil (le thème d'une tablette aussi ; rien n'est envoyé à Odin) : la
+  // transparence choisie pour chaque thème de cet écran, et le fond animé, éteint au départ (sa décision du 26/11). Sans
+  // réglage, les cartes sont exactement celles d'avant. Allumé, l'ambiance s'affiche en entier, au-dessus des décors
+  // dessinés de Hestia, et c'est la carte qui devient assez opaque pour que chaque texte garde 4,5 pour 1 (sa décision du
+  // 25/11). Le fond de la page devient alors celui que le calcul suppose (le dégradé du thème, son décor, le même voile
+  // que sur l'accueil).
+  const CLE_VERRE = 'odin.maison.verre';
+  /** Le réglage gardé sur l'appareil, nettoyé et borné : { verres: { thème: 0 à 100 }, fond: oui ou non } ; illisible : rien. */
+  function lireVerre() {
+    const out = { verres: {}, fond: false };
+    try {
+      const x = JSON.parse(localStorage.getItem(CLE_VERRE) || 'null');
+      if (x && typeof x === 'object' && !Array.isArray(x)) {
+        out.fond = x.fond === true;
+        const vs = x.verres && typeof x.verres === 'object' && !Array.isArray(x.verres) ? Object.entries(x.verres).slice(0, 200) : [];
+        // (seulement les thèmes de cet écran : un de Hestia, ou « o-… » d'un thème d'Odin dessinable)
+        const connu = (k) => /^[a-z0-9-]{1,60}$/.test(k) && (k.startsWith('o-') ? Boolean(champsOdin(k.slice(2))) : Object.hasOwn(T, k));
+        for (const [k, n] of vs) if (connu(k) && typeof n === 'number' && Number.isFinite(n)) out.verres[k] = Math.round(Math.max(0, Math.min(100, n)));
+      }
+    } catch { /* stockage fermé, ou réglage illisible : rien */ }
+    return out;
+  }
+  const garderVerre = (r) => { try { localStorage.setItem(CLE_VERRE, JSON.stringify(r)); } catch { /* navigation privée */ } };
+  /** Le thème de cet écran dans le calcul de l'accueil : « o-x » y est le thème d'Odin « x » ; un thème de Hestia y porte « h- ». */
+  const idCalcul = (id) => { const s = String(id); return s.startsWith('o-') && champsOdin(s.slice(2)) ? s.slice(2) : `h-${Object.hasOwn(T, s) ? s : 'verre'}`; };
+  /** Le calcul pour ce thème (undefined sans themes.js, ou pour un thème sans verre). */
+  const calculVerre = (name, r) => { const f = window.OdinThemes?.verreMaison; return typeof f === 'function' ? f(idCalcul(name), Object.hasOwn(r.verres, name) ? r.verres[name] : undefined, r.fond) : undefined; };
+  /** Le verre des cartes du thème affiché ; undefined : les cartes d'avant (aucun réglage, ou fond allumé sans ambiance). */
+  function verreDe(name) {
+    const r = lireVerre();
+    if (!Object.hasOwn(r.verres, name) && !r.fond) return undefined; // sans réglage : rien n'est calculé
+    const v = calculVerre(name, r);
+    return v && (Object.hasOwn(r.verres, name) || v.ambiance) ? v : undefined;
+  }
+  /** Le style des cartes en verre (le même que celles de l'accueil) et de la couche du fond ; rien sans verre. */
+  function cssVerre(v, encreOn) {
+    if (!v) return '';
+    const textes = Object.entries({ '--text': v.ink, '--muted': v.pal['--muted'], '--good': v.pal['--good'], '--warn': v.pal['--warn'], '--bad': v.pal['--bad'], ...v.tons }).filter(([, c]) => /^#[0-9a-f]{6}$/i.test(c || '')).map(([k, c]) => `;${k}:${c}`).join('');
+    const vars = Object.entries(v.verre).map(([k, x]) => `${k}:${x}`).join(';');
+    // (la carte allumée d'un appareil garde sa couleur pleine ; la météo devient du verre comme les autres : sa teinte
+    //  d'avant laisse voir l'ambiance sur plusieurs thèmes de Hestia, et ses textes ne seraient plus sûrs)
+    // (les boutons de « Mes boutons » sont des cartes eux aussi : le même verre)
+    const cartes = '.card:not(.on),.tile';
+    // Fond allumé, les textes posés sans carte sur le fond (hors du bandeau, de la barre de côté et de celle du bas) :
+    // les titres de section, les familles de thèmes, les notes, les messages vides, le nom de chaque thème reçoivent une
+    // plaque du même verre, avec les mêmes tons, comme sur l'accueil : ils gardent 4,5 pour 1 comme le texte des cartes.
+    const plaques = '#main>.sec,#main>.fam,#main>p.muted,#main .empty,.th>span';
+    // Fond allumé, le cadre de l'écran (le bandeau : la recherche, les boutons ronds, le retour vers Odin ; les onglets de
+    // pièces ; la barre de côté ; la barre du bas et sa feuille « Plus ») prend ce même verre à la place de son fond, avec
+    // les tons du texte et du texte discret (le rouge de la pastille des alertes reste le sien) ; le salut et la date, une
+    // plaque derrière eux (un pseudo-élément : rien ne bouge, aucun clic) ; la poignée, sur sa bande. Aucune taille, aucune
+    // place, aucun comportement ne change ; en plein écran, ce qui est caché reste caché.
+    const cadres = '.top .search,.round,.top .retour,.tabs,.side,.side.libre,.bnav,.feuille';
+    const tonsCadre = Object.entries({ '--text': v.ink, '--muted': v.tons['--muted'] ?? v.pal['--muted'] }).filter(([, c]) => /^#[0-9a-f]{6}$/i.test(c || '')).map(([k, c]) => `;${k}:${c}`).join('');
+    const cadre = `${cadres}{${v.carte};color:var(--text)${tonsCadre}}.poignee{color:var(--muted)${tonsCadre}}.poignee::before{${v.carte}}`
+      + `.top .hello{position:relative;z-index:0;color:var(--text)${tonsCadre}}.top .hello::before{content:'';position:absolute;inset:-6px -12px;z-index:-1;pointer-events:none;border:1px solid var(--v-bord);border-radius:14px;${v.carte}}`
+      + '.top .search input::placeholder{color:var(--muted);opacity:1}.tabs{width:fit-content;max-width:100%;border-radius:24px}'
+      // (l'onglet choisi, l'entrée en cours et la punaise enfoncée : leur fond « carte plus marquée », parfois un blanc
+      //  translucide, se poserait sur la plaque et mangerait le contraste calculé pour elle ; ils prennent le verre plein)
+      + '.tabs button[aria-selected=true],.side .nav[aria-current=page],.side .pinb[aria-pressed=true]{background:var(--v-plein)}'
+      // (la lettre de la pastille à l'initiale et du logo, sur leur rond « allumé » : l'encre qui s'y lit le mieux)
+      //  (et, quand aucune encre ne tient sur tout le dégradé, le rond en sa couleur moyenne, unie)
+      + (/^#[0-9a-f]{6}$/i.test(encreOn?.encre || '') ? `.me,.side .logo{color:${encreOn.encre}${/^#[0-9a-f]{6}$/i.test(encreOn.uni || '') ? `;background:${encreOn.uni}` : ''}}` : '')
+      + `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){${cadres},.poignee::before,.top .hello::before{background:var(--v-plein)}}`;
+    return `:root{${vars}}body{background:var(--decor,none) center bottom/100% auto no-repeat fixed,linear-gradient(180deg,${v.sky[0]},${v.sky[1]}) fixed}body::before{content:'';position:fixed;inset:0;pointer-events:none;background:${v.voile};z-index:-1}`
+      + `${cartes}{${v.carte};color:var(--text)${textes}}@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){${cartes}{background:var(--v-plein)}}`
+      + (v.ambiance ? `#odinFond{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;contain:paint}${v.css}`
+        + `${plaques}{${v.carte}${textes}}#main>.sec,#main>.fam,#main>p.muted,#main .empty{width:fit-content;max-width:100%;padding:6px 14px;border:1px solid var(--v-bord);border-radius:12px}.th>span{color:var(--text)}`
+        + `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){${plaques}{background:var(--v-plein)}}${cadre}` : '');
+  }
+  /** Pose (ou retire) la couche de l'ambiance : derrière tout l'écran, sans clic, cachée aux lecteurs d'écran. */
+  function poserCouche(v) {
+    const avant = document.getElementById?.('odinFond');
+    if (!v?.ambiance || !v.dessin) { avant?.remove?.(); return; }
+    let c = avant;
+    if (!c) { c = document.createElement('div'); c.id = 'odinFond'; c.setAttribute('aria-hidden', 'true'); c.setAttribute('inert', ''); document.body.prepend(c); }
+    // (le dessin vient de themes-scenes.js, des formes écrites dans ce dépôt, aux couleurs du thème vérifiées là-bas)
+    if (c.dataset.ambiance !== v.ambiance || c.odinDessin !== v.dessin) { c.dataset.ambiance = v.ambiance; c.innerHTML = v.dessin; c.odinDessin = v.dessin; }
+    c.style.opacity = v.force < 1 ? String(v.force) : '';
+    // (page cachée : tout s'arrête ; themes.js remet en marche quand elle revient)
+    c.classList.toggle('fige', document.hidden === true);
+  }
+  /** Dans la page « Thèmes » : le curseur « Transparence du verre » et l'interrupteur du fond animé, pour le thème affiché. */
+  function verreView() {
+    const X = window.OdinThemes?.TEXTES; if (!X || !D) return [];
+    const id = D.theme, r = lireVerre(), v = calculVerre(id, r); if (!v) return [];
+    const c = v.curseur, nom = D.themes?.[id] || id, remplir = (m, o) => String(m).replace(/\{(\w+)\}/g, (x, k) => (k in o ? String(o[k]) : x));
+    // Le navigateur sait-il flouter ? Sinon les cartes gardent leur couleur pleine, et le curseur le dit.
+    const flou = (() => { try { const C = window.CSS; return !C?.supports || C.supports('backdrop-filter', 'blur(1px)') || C.supports('-webkit-backdrop-filter', 'blur(1px)'); } catch { return true; } })();
+    const dit = !flou ? X.verreSansFlou : c.pleine === true ? X.verreFondPlein : c.valeur > c.limite ? remplir(c.limite === 0 ? X.verrePlein : X.verreLimite, { n: c.limite }) : '';
+    // Sans réglage, les cartes sont celles d'avant : le curseur ne montre pas une transparence que l'écran n'a pas.
+    const val = el('output', { id: 'mvVerreVal', for: 'mvVerre' }, verreDe(id) ? remplir(X.verreValeur, { n: c.valeur }) : MOTS.verreOrigine);
+    // Pendant qu'on fait glisser : le verre se voit tout de suite, l'écran ne se redessine pas ; au lâcher, il se redessine.
+    const regler = (n, fini) => { const g = lireVerre(); g.verres[id] = Math.round(Math.max(0, Math.min(100, Number(n) || 0))); garderVerre(g); applyTheme(id); val.textContent = remplir(X.verreValeur, { n: g.verres[id] }); if (fini) { glisse = false; draw(); } };
+    const curseur = el('input', { type: 'range', id: 'mvVerre', min: '0', max: '100', step: '1', value: String(c.valeur), 'aria-describedby': 'mvVerreAide mvVerreLimite', onpointerdown: () => { glisse = true; }, onpointerup: () => { glisse = false; }, onpointercancel: () => { glisse = false; }, onblur: () => { glisse = false; }, oninput: (e) => regler(e.target.value, false), onchange: (e) => regler(e.target.value, true) });
+    const f = r.fond ? v.force : undefined;
+    const sans = !v.dessinable ? remplir(X.fondSans, { nom }) : f === 0 ? remplir(X.fondCachee, { nom }) : f !== undefined && f < 1 ? remplir(X.fondBaissee, { nom }) : '';
+    const interrupteur = el('input', { type: 'checkbox', role: 'switch', id: 'mvFond', checked: r.fond, 'aria-describedby': 'mvFondAide mvFondSans', onchange: (e) => { const g = lireVerre(); g.fond = e.target.checked === true; garderVerre(g); applyTheme(id); draw(); } });
+    // Le focus qui était sur le curseur ou l'interrupteur y revient après le redessin (toutes les 15 s, ou au lâcher).
+    const avait = document.activeElement?.id;
+    if (avait === 'mvVerre' || avait === 'mvFond') queueMicrotask(() => document.getElementById?.(avait)?.focus?.({ preventScroll: true }));
+    return [el('div', { class: 'card vf' },
+      el('label', { for: 'mvVerre' }, el('span', {}, X.verre), curseur, val),
+      el('p', { class: 'muted', id: 'mvVerreAide' }, remplir(MOTS.verreAide, { nom })),
+      el('p', { class: 'muted', id: 'mvVerreLimite', hidden: !dit }, dit),
+      el('label', { for: 'mvFond' }, interrupteur, el('span', {}, MOTS.fond)),
+      el('p', { class: 'muted', id: 'mvFondAide' }, MOTS.fondAide),
+      el('p', { class: 'muted', id: 'mvFondSans', hidden: !sans }, sans))];
   }
   const BASE = `
 @font-face{font-family:Plex;src:url(/fonts/ibm-plex-sans-latin-400-normal.woff2) format('woff2');font-weight:400}@font-face{font-family:Plex;src:url(/fonts/ibm-plex-sans-latin-600-normal.woff2) format('woff2');font-weight:600}
@@ -166,6 +294,8 @@ input[type=range]{width:100%;accent-color:#fff}.slide{position:relative;flex:1;m
 .appc{display:flex;flex-direction:column;gap:6px;text-align:left;text-decoration:none;color:var(--text)}.appc .k{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);gap:8px}.appc .k b{color:var(--text);text-align:right}.badge{position:absolute;top:12px;right:12px;border-radius:999px;padding:2px 9px;font-size:12px;background:var(--bad);color:#fff}
 .k.attention b{color:var(--warn)}.k.mauvais b{color:var(--bad)}.k.bon b{color:var(--good)}
 .notes li{list-style:none;padding:8px 0 8px 12px;border-left:3px solid var(--good);margin:6px 0;font-size:14px;overflow-wrap:anywhere}.notes li.souci{border-color:var(--warn)}.notes li.grave{border-color:var(--bad)}.notes ul{margin:0;padding:0}
+/* Le réglage du verre et du fond animé (page « Thèmes ») : 44 px au doigt, aux couleurs du thème. */
+.vf{display:flex;flex-direction:column;gap:6px;margin-top:14px;max-width:680px}.vf label{display:flex;align-items:center;gap:12px;min-height:44px;flex-wrap:wrap;cursor:pointer}.vf label>span{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}.vf input[type=range]{flex:1 1 180px;min-width:0;height:44px;margin:0;accent-color:var(--accent)}.vf output{min-width:3.5em;text-align:right;font-variant-numeric:tabular-nums}.vf input[type=checkbox]{width:24px;height:24px;margin:0;flex:none;accent-color:var(--accent)}.vf p{margin:0}.vf [hidden]{display:none}
 .themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:14px}.th{border:2px solid transparent;border-radius:18px;padding:0;overflow:hidden;text-align:left;background:none}.th[aria-pressed=true]{border-color:var(--accent)}.th .pv{height:92px;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px}.th .pv i{border-radius:10px;display:block}.th span{display:block;padding:8px 10px;font-size:13px;background:var(--card)}
 .person .av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:18px;background:var(--card2);flex:none}.person.home .av{background:var(--good);color:#fff}.person .row{display:flex;gap:12px;align-items:center}.person{display:flex;flex-direction:column;gap:10px}
 .cam{padding:0;margin:0}.cam img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#000}.cam figcaption{display:flex;justify-content:space-between;align-items:center;padding:10px 14px}.cam .live{color:var(--bad)}.cam.off .live{color:var(--muted)}.cam.off .live::after{content:' (hors ligne)'}.dev.cut{border-color:var(--bad)}
@@ -765,7 +895,7 @@ html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{
     const liste = Object.entries(D.themes || {});
     const carte = ([k, label]) => { const t = themeMaison(k); return el('button', { class: 'th', 'aria-pressed': String(D.theme === k), onclick: async () => { applyTheme(k); D.theme = k; draw(); if (D.rights === 'complet') await act('/api/maison/theme', { theme: k }); else try { localStorage.setItem('odin.maison.theme', k); } catch { /* */ } } },
       el('div', { class: 'pv', style: { background: t.bg2 } }, el('i', { style: { background: t.card } }), el('i', { style: { background: t.on } }), el('i', { style: { background: t.card2 } }), el('i', { style: { background: t.accent } })), el('span', {}, label)); };
-    return [el('h2', { class: 'sec' }, 'Thèmes'), ...Object.keys(FAMILLES_THEMES).flatMap((f) => { const ts = liste.filter(([k]) => familleTheme(k) === f); return ts.length ? [el('h3', { class: 'fam' }, FAMILLES_THEMES[f]), el('div', { class: 'themes' }, ...ts.map(carte))] : []; })];
+    return [el('h2', { class: 'sec' }, 'Thèmes'), ...verreView(), ...Object.keys(FAMILLES_THEMES).flatMap((f) => { const ts = liste.filter(([k]) => familleTheme(k) === f); return ts.length ? [el('h3', { class: 'fam' }, FAMILLES_THEMES[f]), el('div', { class: 'themes' }, ...ts.map(carte))] : []; })];
   }
 
   // ---------- Chargement ----------
