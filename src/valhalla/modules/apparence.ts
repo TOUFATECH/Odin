@@ -205,7 +205,8 @@ export function cleanVerre(x: unknown): Record<string, number> {
 }
 /**
  * Les réglages envoyés à « regler_mascotte » parlent-ils du verre ou du fond animé ? (ces réglages-là sont réservés au
- * propriétaire). « Fond animé » (maquette validée : le fond qui vit derrière l'accueil) : oui ou non, oui sans réglage.
+ * propriétaire). « Fond animé » (maquette validée : le fond qui vit derrière l'accueil) : oui ou non ; « non » sans
+ * réglage (sa décision du 26/11 : éteint au départ ; seul un vrai oui gardé l'allume).
  */
 const parleDuVerre = (i: Record<string, unknown>) => { try { const j = JSON.parse(s(i.reglages)) as unknown; return Boolean(j && typeof j === 'object' && ('verre' in j || 'fondAnime' in j)); } catch { return false; } };
 /** L'heure locale (fuseau réglable, Mayotte par défaut). */
@@ -264,7 +265,7 @@ export const apparence: Module = (() => {
         const n = await now(ctx), tz = fuseauDe(ctx, n.wx ?? await meteo(ctx)), day = ymd(ctx.now(), tz), ev = selonLePays(cleanEvents(ctx.settings.evenements)), m = (ctx.settings.mascotte ?? {}) as { cache?: boolean; clics?: unknown; clics2?: unknown; clicsOn?: boolean };
         // Odin prend la couleur du thème affiché : plus de couleur à part selon la météo (décision du 15/11/2026).
         const event = todayEvent(day, ev);
-        const data = { mode: n.mode, theme: n.theme, why: n.why, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, evenements: ev, humeurTheme: humeurJoue(ctx), humeur: humeurVive(ctx.now().getTime()), maintenant: ctx.now().getTime(), verre: cleanVerre(ctx.settings.verre), fondAnime: ctx.settings.fondAnime !== false };
+        const data = { mode: n.mode, theme: n.theme, why: n.why, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, evenements: ev, humeurTheme: humeurJoue(ctx), humeur: humeurVive(ctx.now().getTime()), maintenant: ctx.now().getTime(), verre: cleanVerre(ctx.settings.verre), fondAnime: ctx.settings.fondAnime === true };
         return { text: `🎨 ${THEME_NAMES[n.theme]}${event ? ` · ${event.name}` : ''}${data.cache ? ' · Odin caché' : ''}`, data };
       } },
       { id: 'regler_mascotte', label: 'Régler Odin (clics, événements)', what: 'Enregistre les réglages venus de l\'écran Réglages → Apparence (JSON : mascotte, evenements, humeurTheme, verre)', quiet: true, quick: false,

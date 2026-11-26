@@ -31,9 +31,12 @@
     verreLimite: 'Au-delà de {n} %, les cartes de ce thème ne deviennent pas plus transparentes : leurs textes ne se liraient plus.',
     verrePlein: 'Avec ce décor, les cartes de ce thème restent aussi opaques qu\'il le faut pour que leurs textes se lisent.',
     verreSansFlou: 'Ce navigateur ne sait pas flouter : les cartes y gardent leur couleur pleine.',
+    // Fond animé allumé, une carte pleine à toute valeur du curseur : le curseur n'y change rien, et il le dit.
+    verreFondPlein: 'Avec le fond animé, les cartes de ce thème restent pleines pour que leurs textes se lisent : ce curseur n\'y change rien.',
     // L'interrupteur « fond animé » (le fond qui vit derrière l'accueil, maquette validée), gardé par Odin.
     fond: 'Fond animé derrière l\'accueil',
-    fondAide: 'L\'ambiance du thème bouge derrière les cartes de l\'accueil ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations.',
+    // (sa décision du 26/11 : éteint au départ ; ses thèmes gardent le verre qu'il a validé)
+    fondAide: 'Éteint au départ. Allumé, l\'ambiance du thème bouge derrière les cartes de l\'accueil ; les cartes deviennent plus opaques s\'il le faut, pour que chaque texte reste lisible. Rien ne bouge si l\'appareil demande moins d\'animations.',
     fondSans: 'Le thème {nom} n\'a pas d\'ambiance animée.',
     fondCachee: 'Avec le thème {nom}, l\'ambiance reste cachée : derrière ses cartes, elle gênerait la lecture.',
     fondBaissee: 'Avec le thème {nom}, l\'ambiance est atténuée : à pleine force, elle gênerait la lecture de ses cartes.',
@@ -311,7 +314,8 @@
   // décor (essaiVerre, carteVerre, limiteVerre, tonsVerre reçoivent l'ambiance). Une carte pleine cache tout ce qui est
   // derrière elle : une ambiance n'a donc jamais à baisser. Par prudence, la page le vérifie encore (intensiteFond) : si
   // un texte perdait malgré tout, l'ambiance baisserait par paliers, ou ne se poserait pas, et le réglage le dirait.
-  // Fond animé sur « non » : aucune couche, et exactement le verre d'avant le fond.
+  // Fond animé sur « non », et sans réglage (sa décision du 26/11 : éteint au départ ; seul un vrai oui gardé par Odin
+  // l'allume) : aucune couche, et exactement le verre d'avant le fond.
   const scenes = window.OdinScenes;
   const CSS_FOND = ':root[data-odin-theme] #v-home>#odinFond{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;contain:paint}'
     + '#odinFond *{pointer-events:none}#odinFond.fige,#odinFond.fige *{animation-play-state:paused!important}'
@@ -322,10 +326,10 @@
   const erf = (x) => { const s = Math.sign(x), a = Math.abs(x), k = 1 / (1 + 0.3275911 * a); return s * Math.min(1, 1 - (((((1.061405429 * k - 1.453152027) * k) + 1.421413741) * k - 0.284496736) * k + 0.254829592) * k * Math.exp(-a * a) + 2e-7); };
   // forceFond : l'intensité calculée pour le dernier thème posé, fond mis (1 : pleine force ; 0 : l'ambiance resterait
   // cachée ; undefined : pas d'ambiance dessinée, ou fond sur « non »), que dit l'interrupteur de Réglages → Apparence.
-  let fondOui = true, fondStyle, dernierFond = [], forceFond;
+  let fondOui = false, fondStyle, dernierFond = [], forceFond;
   // L'ambiance qui passe derrière les cartes du thème `id` : seulement si le fond animé est mis et que son ambiance est
   // dessinée et peint quelque chose ; sinon null (et le verre est exactement celui d'avant le fond).
-  const ambianceVue = (id) => { if (!fondOui || !scenes) return null; const nom = scenes.ambianceDe(id); return scenes.dessinee(nom) && scenes.couleurs(nom).length ? nom : null; };
+  const ambianceVue = (id) => { if (!fondOui || !scenes) return null; const nom = scenes.ambianceDe(id); return scenes.dessinee(nom) && scenes.couleurs(nom, THEMES[id]).length ? nom : null; };
   // Tout ce qui peut se trouver derrière une carte quand l'ambiance `nom` est posée sur le décor, à l'intensité o (1 :
   // pleine force) : le décor seul (l'ambiance ne couvre pas tout), puis jusqu'à PROFONDEUR couleurs de l'ambiance l'une
   // sur l'autre (une étoile sur deux taches), dans tous les ordres ; une couleur opaque posée par-dessus efface ce qui
@@ -337,7 +341,7 @@
     // Un point ou un trait fin (largeur w) vu à travers le flou du verre (écart type σ, en px) : sa couleur s'étale, et au
     // plus fort elle ne compte que pour erf(w / (2√2 σ)) de son opacité. Sans flou, elle compte en entier.
     const etale = (a, w) => (Number(w) > 0 && sigma > 0 ? a * erf(Number(w) / (2 * Math.SQRT2 * sigma)) : a);
-    const sc = (scenes ? scenes.couleurs(nom) : []).filter(([c, , w]) => hex6(c) && !(grandes && Number(w) > 0)).map(([c, a, w]) => [hex(hex6(c)), etale(Math.max(0, Math.min(1, Number(a) || 0)), w)]);
+    const sc = (scenes ? scenes.couleurs(nom, t) : []).filter(([c, , w]) => hex6(c) && !(grandes && Number(w) > 0)).map(([c, a, w]) => [hex(hex6(c)), etale(Math.max(0, Math.min(1, Number(a) || 0)), w)]);
     const vus = new Map(), voir = (x) => { const y = saturer(x, s); vus.set((y[0] << 16) | (y[1] << 8) | y[2], y); };
     // (`pris` : les couleurs déjà posées, une par bit ; `n` : combien)
     const couvrir = (y, pris, n) => {
@@ -376,14 +380,15 @@
     dernierFond = [id, t, pal, verre, tons];
     const accueil = document.getElementById?.('v-home'), avant = document.getElementById?.('odinFond');
     // (fond sur « non », ou pas d'ambiance dessinée : rien n'est calculé, aucune couche)
-    const nom = t && verre ? ambianceVue(id) : null, dessin = nom ? scenes.html(nom) : '';
+    const nom = t && verre ? ambianceVue(id) : null, dessin = nom ? scenes.html(nom, t) : '';
     const force = dessin ? intensiteFond(t, pal, verre, tons || {}, nom) : 0;
     forceFond = dessin ? force : undefined;
     if (!accueil || !dessin || force <= 0) { avant?.remove?.(); return; }
     if (!fondStyle) { fondStyle = document.createElement('style'); fondStyle.id = 'odinFondStyle'; fondStyle.textContent = CSS_FOND + scenes.CSS; document.head.append(fondStyle); }
     let couche = avant;
     if (!couche) { couche = document.createElement('div'); couche.id = 'odinFond'; couche.setAttribute('aria-hidden', 'true'); couche.setAttribute('inert', ''); accueil.prepend(couche); }
-    if (couche.dataset.ambiance !== nom) { couche.dataset.ambiance = nom; couche.innerHTML = dessin; }
+    // (« orbs » prend les couleurs du thème : d'un thème « orbs » à l'autre, le dessin change aussi)
+    if (couche.dataset.ambiance !== nom || couche.odinDessin !== dessin) { couche.dataset.ambiance = nom; couche.innerHTML = dessin; couche.odinDessin = dessin; }
     couche.style.opacity = force < 1 ? String(force) : '';
     couche.classList.toggle('fige', document.hidden === true);
   }
@@ -452,7 +457,20 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
     if (!t?.sky || typeof catalogue?.surfaceOf !== 'function') return undefined;
     const v = regleVerre(id, t);
     // (fond animé mis : la limite compte l'ambiance du thème ; sur « non », celle d'avant le fond)
-    return { valeur: verres[id] ?? borne(v.gt), choisie: verres[id] !== undefined, limite: limiteVerre(id, t, palette(t), ambianceVue(id)) };
+    const pal = palette(t), nom = ambianceVue(id), limite = limiteVerre(id, t, pal, nom);
+    // Fond animé mis : `pleine` dit si la carte reste pleine à toute valeur du curseur (au plus opaque, 0 %, comme au plus
+    // transparent, sa limite : la carte que la page pose, carteVerre) ; sur « non », rien de plus qu'avant.
+    return { valeur: verres[id] ?? borne(v.gt), choisie: verres[id] !== undefined, limite, ...(nom ? { pleine: cartePleine(id, t, pal, nom, limite) } : {}) };
+  }
+  // La carte posée à la transparence g est-elle pleine (chaque bout de son dégradé à 1) ? Gardé par thème et ambiance.
+  const PLEINES = new WeakMap();
+  function cartePleine(id, t, pal, nom, limite) {
+    const cle = `${nom}|${limite}`, deja = PLEINES.get(t)?.get(cle); if (deja !== undefined) return deja;
+    const v = regleVerre(id, t), pleineA = (g) => { const a = [...String(carteVerre(t, pal, v, g, nom).surface).matchAll(/rgba\(\d+,\d+,\d+,([\d.]+)\)/g)].map((m) => Number(m[1])); return a.length > 0 && a.every((x) => x >= 1); };
+    const oui = pleineA(0) && pleineA(limite);
+    if (!PLEINES.has(t)) PLEINES.set(t, new Map());
+    PLEINES.get(t).set(cle, oui);
+    return oui;
   }
   window.OdinThemes.verre = curseurVerre;
 
@@ -461,7 +479,7 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
   let state = { mode: 'auto', theme: 'valhalla' };
   try { const c = JSON.parse(localStorage.getItem('odin.apparence') || 'null'); if (c && THEMES[c.theme]) state = c; } catch { /* rien */ }
   verres = nettoyerVerres(state.verre);
-  fondOui = state.fondAnime !== false;
+  fondOui = state.fondAnime === true;
   // Le thème affiché : celui de l'événement du jour (s'il n'est pas coupé), sinon le choisi ou l'automatique.
   const shown = () => (state.eventTheme && THEMES[state.eventTheme] ? state.eventTheme : state.theme);
   // La couleur d'Odin au repos : l'événement, sinon la météo (thème automatique), sinon celle du thème.
@@ -480,7 +498,7 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
       const r = await api('mascotte'); const d = r && r.data; if (!d || !THEMES[d.theme]) return false;
       if (n !== tour) return true;
       const ev = d.event, evOn = ev && d.evenements?.themes !== false && THEMES[`ev-${ev.id === 'famille' ? 'anniversaire' : ev.id}`];
-      state = { mode: d.mode, theme: d.theme, why: d.why, odin: d.odin, event: ev, eventTheme: evOn ? `ev-${ev.id === 'famille' ? 'anniversaire' : ev.id}` : undefined, humeurTheme: d.humeurTheme !== false, verre: nettoyerVerres(d.verre), fondAnime: d.fondAnime !== false };
+      state = { mode: d.mode, theme: d.theme, why: d.why, odin: d.odin, event: ev, eventTheme: evOn ? `ev-${ev.id === 'famille' ? 'anniversaire' : ev.id}` : undefined, humeurTheme: d.humeurTheme !== false, verre: nettoyerVerres(d.verre), fondAnime: d.fondAnime === true };
       sur = state;
       try { localStorage.setItem('odin.apparence', JSON.stringify(state)); } catch { /* */ }
       // (la transparence du thème affiché a changé, ailleurs : le verre se repose aussi ; de même le fond animé, qui change
@@ -556,7 +574,7 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
       try { await api('regler_mascotte', { reglages: JSON.stringify({ fondAnime: fondOui }) }); } catch { parti = false; }
       if (n !== tour) return;
       const lu = await sync();
-      if (!parti && !lu && n === tour) { state = sur; fondOui = sur.fondAnime !== false; apply(shown()); paint(); }
+      if (!parti && !lu && n === tour) { state = sur; fondOui = sur.fondAnime === true; apply(shown()); paint(); }
     });
     file = fait.catch(() => undefined);
     return fait;
@@ -714,7 +732,7 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
       const nom = scenes ? scenes.ambianceDe(current) : 'none', sans = card.querySelector('#themeFondSans');
       // (une ambiance vraiment cachée ou baissée, fond mis, le dit, comme le verre ; à pleine force, rien à dire)
       const f = fondOui && dernierFond[0] === current ? forceFond : undefined;
-      if (sans) { const dit = !scenes || !scenes.dessinee(nom) || !scenes.html(nom) ? remplir(TEXTES.fondSans, { nom: nomAffiche(current) }) : f === 0 ? remplir(TEXTES.fondCachee, { nom: nomAffiche(current) }) : f !== undefined && f < 1 ? remplir(TEXTES.fondBaissee, { nom: nomAffiche(current) }) : ''; sans.textContent = dit; sans.hidden = !dit; }
+      if (sans) { const dit = !scenes || !scenes.dessinee(nom) || !scenes.html(nom, THEMES[current]) ? remplir(TEXTES.fondSans, { nom: nomAffiche(current) }) : f === 0 ? remplir(TEXTES.fondCachee, { nom: nomAffiche(current) }) : f !== undefined && f < 1 ? remplir(TEXTES.fondBaissee, { nom: nomAffiche(current) }) : ''; sans.textContent = dit; sans.hidden = !dit; }
     }
     // Le curseur du verre suit le thème affiché (choisi, automatique ou de l'événement du jour : chacun sa valeur).
     const boite = card.querySelector('#themeVerreBox');
@@ -725,7 +743,8 @@ ${CADRES_ACCUEIL}{${VERRE};${FLOU}${tons}}
         card.querySelector('#themeVerreVal').textContent = remplir(TEXTES.verreValeur, { n: c.valeur });
         card.querySelector('#themeVerreAide').textContent = remplir(TEXTES.verreAide, { nom: nomAffiche(current) });
         // Au-delà de la limite du thème, le réglage le dit (la carte, elle, ne devient pas plus transparente).
-        const dit = !flouPossible() ? TEXTES.verreSansFlou : c.valeur > c.limite ? remplir(c.limite === 0 ? TEXTES.verrePlein : TEXTES.verreLimite, { n: c.limite }) : '';
+        // Fond animé mis et carte pleine à toute valeur : le curseur n'y change rien, il le dit (à toute valeur).
+        const dit = !flouPossible() ? TEXTES.verreSansFlou : c.pleine === true ? TEXTES.verreFondPlein : c.valeur > c.limite ? remplir(c.limite === 0 ? TEXTES.verrePlein : TEXTES.verreLimite, { n: c.limite }) : '';
         const lim = card.querySelector('#themeVerreLimite'); lim.textContent = dit; lim.hidden = !dit;
       }
     }

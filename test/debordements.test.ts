@@ -113,7 +113,11 @@ test('pages clés d\'Odin (1280 et 390 px) : aucun débordement grave, Odin et s
           await p.evaluate(`window.OdinNotices.hide(); ${ouvrir}`); await p.waitForTimeout(600);
           await p.evaluate(`window.OdinNotices.hide(); window.OdinCompanion?.sync?.('hopto')`); await posee(p);
           const opts = { contraste: false, focus: false, decor: false, tactile: false, defiler: false };
-          for (const d of debordementsGraves((await analyser(p, opts)).defauts)) fautes.push(`${nom} ${largeur} px : ${d.type} ${d.selecteur} — ${d.mesure}`);
+          // (Le fond qui vit derrière l'accueil, #odinFond : une couche décorative, cachée aux lecteurs d'écran, sans clic,
+          //  dont les taches floues débordent exprès et sont coupées par sa boîte, comme dans la maquette. Depuis que
+          //  chaque ambiance est dessinée, le thème de cet essai a la sienne : seule une « coupe » par cette boîte-là est
+          //  laissée de côté ; tout autre défaut, dans le fond ou ailleurs, compte comme avant.)
+          for (const d of debordementsGraves((await analyser(p, opts)).defauts)) if (!(d.type === 'coupe' && /\(boîte #odinFond\)$/.test(d.mesure))) fautes.push(`${nom} ${largeur} px : ${d.type} ${d.selecteur} — ${d.mesure}`);
           // Une notification : ni Odin ni sa bulle ne couvrent une commande ou un titre (« sous-fixe » grave).
           await p.evaluate(BULLE); await p.waitForTimeout(400); await p.evaluate(`window.OdinCompanion?.sync?.('hopto')`); await posee(p);
           for (const d of (await analyser(p, opts)).defauts) if (d.type === 'sous-fixe' && d.gravite === 'grave' && /odinBubble|buddyRoam/.test(d.selecteur)) fautes.push(`${nom} ${largeur} px, notification : ${d.selecteur} — ${d.mesure}`);

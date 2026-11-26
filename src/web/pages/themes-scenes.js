@@ -1,15 +1,18 @@
 // Le fond qui vit derrière l'accueil (maquette validée « Accueil et écran de la maison », 15/11/2026) : l'ambiance
-// animée de chaque thème. La maquette en a seize ; celles des thèmes faits main sont dessinées ici (ice, swoosh,
-// icenight, neon, stars, et none, qui ne dessine rien) ; les dix autres attendent leur tour : un thème dont
-// l'ambiance n'est pas encore dessinée n'a pas de fond animé (rien, pas une ambiance de remplacement).
+// animée de chaque thème. Les seize de la maquette sont dessinées ici : celles des thèmes faits main (ice, swoosh,
+// icenight, neon, stars, et none, qui ne dessine rien), puis aurora, waves, rain, storm, snow, leaves, petals, bubbles,
+// sunset et orbs (cette dernière prend les couleurs du thème : son accent, sa mascotte et la troisième couleur de sa
+// palette, comme la maquette).
 // Tout est dessiné dans la page : des formes, des dégradés et des couleurs, aucune image, aucune adresse extérieure.
-// Pour qu'une machine modeste reste fluide : peu d'éléments animés (les points d'un ciel bougent par groupes), et
-// seulement leurs transformations et leur opacité.
+// Pour qu'une machine modeste reste fluide : peu d'éléments animés (les points d'un ciel bougent par groupes ; la
+// pluie, la neige, les feuilles, les pétales et les bulles, par quelques nappes qui glissent d'un bloc), et seulement
+// leurs transformations et leur opacité.
 // Ce fichier ne fait rien d'autre que se publier sur la page (window.OdinScenes) : themes.js, chargé après lui, pose la
 // couche de fond derrière l'accueil, s'il y a une ambiance, si le réglage « fond animé » est mis ; il en règle aussi
 // l'intensité pour que chaque texte des cartes reste lisible au pire point de l'ambiance (couleurs()).
 // Une ambiance s'ajoute d'un bloc dans DESSINS : son dessin (html), les couleurs qu'il peut peindre avec leur opacité
-// la plus forte (couleurs), et son style (css) ; le reste ne change pas.
+// la plus forte (couleurs), et son style (css) ; le reste ne change pas. html et couleurs reçoivent le thème (t, celui
+// de themes.js : son accent, sa mascotte), dont seule « orbs » se sert.
 (() => {
   // Les seize ambiances de la maquette (sceneBG).
   const NOMS = ['ice', 'swoosh', 'icenight', 'neon', 'stars', 'aurora', 'waves', 'rain', 'storm', 'snow', 'leaves', 'petals', 'bubbles', 'sunset', 'orbs', 'none'];
@@ -36,6 +39,28 @@
   const taches = (cols) => cols.map((c, i) => `<i class="fv-orb" style="left:${[8, 62, 30, 78][i]}%;top:${[12, 8, 58, 62][i]}%;width:${[38, 30, 34, 26][i]}vmax;height:${[38, 30, 34, 26][i]}vmax;background:${c};animation-delay:-${i * 5}s;animation-duration:${22 + i * 6}s"></i>`).join('');
   // Des points (étoiles, éclats) immobiles, rangés en quelques groupes : chaque groupe scintille d'un bloc.
   const points = (n, groupes, classe, haut, decal) => suite(groupes, (g) => `<div class="fv-pts ${classe}" style="animation-delay:-${g * 1.5}s">${suite(Math.ceil(n / groupes), (k) => { const i = g + k * groupes; return i < n ? `<i style="left:${R(i, 100)}%;top:${R(i, haut, decal)}%"></i>` : ''; })}</div>`);
+  // Une nappe : un calque de deux écrans de haut (l'écran visible, et celui d'où viennent les gouttes) qui glisse d'un
+  // écran d'un bloc, et de dx px de côté. Chaque goutte y est deux fois : à sa place, et un écran plus loin, décalée de
+  // -dx px : à la fin d'un tour, la copie est exactement où la goutte était au début, la boucle ne se voit pas.
+  // `monte` : du bas vers le haut (bulles) ; sinon du haut vers le bas. Les n gouttes, tirées comme dans la maquette
+  // (R), sont réparties entre les nappes ; `couleur` : la couleur de la nappe (currentColor de ses gouttes) ; `plus(i)` :
+  // le style propre d'une goutte (taille, couleur, inclinaison) ; `large` : les gouttes partent de 0 à large − 1 % de la
+  // largeur (100 sauf la pluie, qui penche vers la gauche : 104, comme la maquette).
+  const nappes = (n, durees, classe, dx, o = {}) => suite(durees.length, (g) => {
+    let dedans = '';
+    for (let i = g; i < n; i += durees.length) {
+      const x = R(i, o.large ?? 100), y = R(i, 50, 3), plus = o.plus ? o.plus(i) : '';
+      const decal = dx > 0 ? `calc(${x}% - ${dx}px)` : `calc(${x}% + ${-dx}px)`;
+      dedans += `<i style="left:${x}%;top:${o.monte ? y : 50 + y}%${plus}"></i><i style="left:${decal};top:${o.monte ? 50 + y : y}%${plus}"></i>`;
+    }
+    return `<div class="fv-nappe ${classe}" style="${o.couleur ? `color:${o.couleur};` : ''}animation-duration:${durees[g]}s;animation-delay:-${(durees[g] * g / durees.length).toFixed(2)}s">${dedans}</div>`;
+  });
+  const hex6 = (c) => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c : '');
+  // Les couleurs des taches de « orbs » : l'accent et la mascotte du thème (blob1 et blob2 dans la maquette), puis la
+  // troisième couleur de sa palette (var(--c3) : pal[2], #a35bff pour chaque thème « orbs » de la maquette, ceux d'Odin,
+  // des événements et de Hestia). Sans thème (ou sans ses couleurs), rien.
+  const PAL3 = '#a35bff';
+  const couleursDuTheme = (t) => { const c = [hex6(t?.accent), hex6(t?.mascot)].filter(Boolean); return c.length ? [...c, PAL3] : []; };
   const TACHE = 0.55; // l'opacité des taches (la plus forte, au centre)
   // Les couleurs d'une ambiance : [couleur, opacité la plus forte] pour une grande forme ; [couleur, opacité, largeur en
   // px] pour un point ou un trait fin (étoile, éclat avec son halo, trait de lumière) : derrière une carte en verre, le
@@ -80,6 +105,82 @@
       css: '#odinFond .fv-filante{position:absolute;top:8%;left:-10%;width:140px;height:2px;background:linear-gradient(90deg,transparent,#ffffff);opacity:0;transform:rotate(18deg);animation:fv-filante 9s ease-in infinite}'
         + '@keyframes fv-filante{0%,80%{opacity:0;transform:translate(0,0) rotate(18deg)}84%{opacity:1}92%{opacity:0;transform:translate(80vw,26vh) rotate(18deg)}100%{opacity:0;transform:translate(80vw,26vh) rotate(18deg)}}',
     },
+    // Aurore : trois voiles d'aurore qui ondulent (les deux de Glace nuit, et un troisième, violet), un ciel étoilé en haut.
+    // (Les voiles fv-aur, fv-a1 et fv-a2 ont leur style dans le bloc de Glace nuit.)
+    aurora: {
+      html: () => `<i class="fv-aur fv-a1"></i><i class="fv-aur fv-a2"></i><i class="fv-aur fv-a3" style="background:linear-gradient(90deg,transparent,#a99bff,transparent)"></i>${points(50, 3, 'fv-etoiles', 60, 5)}`,
+      couleurs: [['#34d399', 0.55], ['#22d3ee', 0.55], ['#7c5cff', 0.55], ['#5dffb0', 0.55], ['#a99bff', 0.55], ['#ffffff', 1, 2]],
+      css: '#odinFond .fv-a3{top:24%;animation-duration:27s}',
+    },
+    // Vagues : deux taches, et la mer en bas, deux vagues qui roulent l'une contre l'autre.
+    waves: {
+      html: () => `${taches(['#38bdf8', '#5eead4'])}<div class="fv-mer">${[['fv-vague fv-vb', '#38bdf8', '.25'], ['fv-vague', '#0ea5e9', '.3']].map(([k, c, o]) => `<svg class="${k}" viewBox="0 0 800 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 34 Q50 14 100 34 T200 34 T300 34 T400 34 T500 34 T600 34 T700 34 T800 34 V100 H0Z" fill="${c}" opacity="${o}"/></svg>`).join('')}</div>`,
+      couleurs: [['#38bdf8', TACHE], ['#5eead4', TACHE], ['#0ea5e9', 0.3]],
+      css: '#odinFond .fv-mer{position:absolute;left:0;right:0;bottom:0;height:18%}'
+        + '#odinFond .fv-vague{position:absolute;bottom:0;left:0;width:200%;height:100%;animation:fv-vague 8s linear infinite}#odinFond .fv-vb{animation-duration:13s;animation-direction:reverse}@keyframes fv-vague{to{transform:translateX(-50%)}}',
+    },
+    // Pluie : des gouttes fines et penchées, en quatre nappes qui tombent chacune à sa vitesse.
+    // (la maquette fait tomber chaque goutte seule, 70 éléments animés ; ici quatre)
+    rain: {
+      html: () => nappes(70, [0.7, 0.8, 0.9, 1], 'fv-pluie', -160, { couleur: '#aad2ff', large: 104 }),
+      couleurs: [['#aad2ff', 0.8, 2]],
+      css: '#odinFond .fv-pluie{animation:fv-pluie 1s linear infinite}#odinFond .fv-pluie i{width:1.5px;height:26px;background:linear-gradient(transparent,currentColor);opacity:.8;transform:rotate(12deg)}'
+        + '@keyframes fv-pluie{to{transform:translate(-160px,50%)}}',
+    },
+    // Orage : la même pluie, plus rapide, et de temps en temps un éclair doux : deux lueurs qui montent et retombent
+    // lentement (jamais plus de deux par seconde, au plus 0,2 de blanc), pour ne gêner personne de sensible aux flashs.
+    // (la maquette fait deux éclairs vifs, de 70 ms chacun, toutes les 7 s ; ici aussi toutes les 7 s, mais chaque montée
+  // et chaque descente prend 280 ms au moins)
+    storm: {
+      html: () => `${nappes(70, [0.6, 0.7, 0.8, 0.9], 'fv-pluie', -160, { couleur: '#aad2ff', large: 104 })}<i class="fv-eclair"></i>`,
+      couleurs: [['#aad2ff', 0.8, 2], ['#ffffff', 0.2]],
+      css: '#odinFond .fv-eclair{position:absolute;inset:0;background:#ffffff;opacity:0;animation:fv-eclair 7s ease-in-out infinite}'
+        + '@keyframes fv-eclair{0%,80%{opacity:0}84%{opacity:.2}88%{opacity:.05}92%{opacity:.12}100%{opacity:0}}',
+    },
+    // Neige : des flocons de tailles diverses, en quatre nappes qui descendent en se balançant.
+    snow: {
+      html: () => nappes(70, [9, 11, 13, 15], 'fv-neige', -10, { plus: (i) => `;width:${3 + R(i, 5)}px;height:${3 + R(i, 5)}px` }),
+      couleurs: [['#ffffff', 0.85, 10]],
+      css: '#odinFond .fv-neige{animation:fv-neige 12s linear infinite}#odinFond .fv-neige i{border-radius:50%;background:#ffffff;opacity:.85;box-shadow:0 0 6px rgba(255,255,255,.7)}'
+        + '@keyframes fv-neige{50%{transform:translate(30px,25%)}to{transform:translate(-10px,50%)}}',
+    },
+    // Feuilles : des feuilles vertes et rousses, en trois nappes qui tombent en se balançant.
+    // (dans la maquette chaque feuille tourne sur elle-même ; ici chacune garde son angle : la nappe ne peut pas tourner)
+    leaves: {
+      html: () => nappes(18, [12, 15, 18], 'fv-feuilles', -20, { plus: (i) => `;background:${['#5fd38d', '#e8913a', '#c2410c', '#9acd32'][i % 4]};transform:rotate(${R(i, 360, 4)}deg)` }),
+      couleurs: [['#5fd38d', 0.8, 12], ['#e8913a', 0.8, 12], ['#c2410c', 0.8, 12], ['#9acd32', 0.8, 12]],
+      css: '#odinFond .fv-feuilles{animation:fv-feuilles 15s linear infinite}#odinFond .fv-feuilles i{width:12px;height:8px;border-radius:0 80% 0 80%;opacity:.8}'
+        + '@keyframes fv-feuilles{50%{transform:translate(60px,25%)}to{transform:translate(-20px,50%)}}',
+    },
+    // Pétales : les mêmes, en rose (comme dans la maquette), en trois nappes.
+    petals: {
+      html: () => nappes(22, [11, 14, 17], 'fv-petales', -20, { plus: (i) => `;background:${['#ffb3d1', '#ff8ab5', '#ffd6e7', '#f9a8d4'][i % 4]};transform:rotate(${R(i, 360, 4)}deg)` }),
+      couleurs: [['#ffb3d1', 0.8, 12], ['#ff8ab5', 0.8, 12], ['#ffd6e7', 0.8, 12], ['#f9a8d4', 0.8, 12]],
+      css: '#odinFond .fv-petales{animation:fv-petales 14s linear infinite}#odinFond .fv-petales i{width:12px;height:8px;border-radius:0 80% 0 80%;opacity:.8}'
+        + '@keyframes fv-petales{50%{transform:translate(60px,25%)}to{transform:translate(-20px,50%)}}',
+    },
+    // Bulles : des bulles rondes de tailles diverses, en trois nappes qui montent.
+    // (une bulle de 20 px au plus est comptée comme un trait de 20 px : plus fort que son anneau, du côté prudent)
+    bubbles: {
+      html: () => nappes(30, [10, 14, 18], 'fv-bulles', 20, { monte: true, couleur: '#a0e6ff', plus: (i) => `;width:${6 + R(i, 14)}px;height:${6 + R(i, 14)}px` }),
+      couleurs: [['#a0e6ff', 0.6, 20]],
+      css: '#odinFond .fv-bulles{top:0;animation:fv-bulles 14s linear infinite}#odinFond .fv-bulles i{border-radius:50%;border:1.5px solid currentColor;opacity:.6}'
+        + '@keyframes fv-bulles{to{transform:translate(20px,-50%)}}',
+    },
+    // Coucher de soleil : un grand soleil bas qui pulse doucement, et deux taches chaudes.
+    sunset: {
+      html: () => `<i class="fv-soleil" style="background:radial-gradient(#ffd38a,#ff9a62 55%,transparent 70%)"></i>${taches(['#ff9a62', '#e8486f'])}`,
+      couleurs: [['#ffd38a', 1], ['#ff9a62', 1], ['#e8486f', TACHE]],
+      css: '#odinFond .fv-soleil{position:absolute;left:50%;bottom:16%;width:260px;height:260px;margin-left:-130px;border-radius:50%;filter:blur(4px);animation:fv-soleil 7s ease-in-out infinite}'
+        + '@keyframes fv-soleil{50%{transform:scale(1.08);opacity:.85}}',
+    },
+    // Taches : trois taches floues aux couleurs du thème (son accent, sa mascotte, la troisième couleur de sa palette),
+    // qui dérivent lentement. Sans thème (ou sans ces couleurs), rien.
+    orbs: {
+      html: (t) => taches(couleursDuTheme(t)),
+      couleurs: (t) => couleursDuTheme(t).map((c) => [c, TACHE]),
+      css: '',
+    },
     // Aucune ambiance : rien n'est dessiné.
     none: { html: () => '', couleurs: [], css: '' },
   };
@@ -89,7 +190,9 @@
     + '#odinFond .fv-orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;transform:translate(-50%,-50%);animation:fv-orb 24s ease-in-out infinite alternate}'
     + '@keyframes fv-orb{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-36%,-62%) scale(1.15)}100%{transform:translate(-62%,-40%) scale(.92)}}'
     + '#odinFond .fv-pts{position:absolute;inset:0}#odinFond .fv-pts i{position:absolute;width:2px;height:2px;border-radius:50%;background:#ffffff}'
-    + '#odinFond .fv-etoiles{animation:fv-scint 4s ease-in-out infinite}@keyframes fv-scint{50%{opacity:.25}}';
+    + '#odinFond .fv-etoiles{animation:fv-scint 4s ease-in-out infinite}@keyframes fv-scint{50%{opacity:.25}}'
+    // Les nappes (pluie, neige, feuilles, pétales, bulles) : deux écrans de haut, à partir de l'écran du dessus.
+    + '#odinFond .fv-nappe{position:absolute;left:0;top:-100%;width:100%;height:200%}#odinFond .fv-nappe i{position:absolute}';
 
   const dessinee = (nom) => Object.prototype.hasOwnProperty.call(DESSINS, nom);
   window.OdinScenes = {
@@ -97,10 +200,10 @@
     ambianceDe,
     /** L'ambiance est-elle dessinée ? (« none » l'est : elle ne dessine rien) */
     dessinee,
-    /** Le dessin d'une ambiance (vide si elle n'en a pas, ou pas encore). */
-    html: (nom) => (dessinee(nom) ? DESSINS[nom].html() : ''),
-    /** Les couleurs qu'une ambiance peut peindre : [« #rrggbb », opacité la plus forte de 0 à 1, largeur en px d'un point ou d'un trait fin]. */
-    couleurs: (nom) => (dessinee(nom) ? DESSINS[nom].couleurs.map((x) => [...x]) : []),
+    /** Le dessin d'une ambiance pour le thème t (vide si elle n'en a pas). */
+    html: (nom, t) => (dessinee(nom) ? DESSINS[nom].html(t) : ''),
+    /** Les couleurs qu'une ambiance peut peindre pour le thème t : [« #rrggbb », opacité la plus forte de 0 à 1, largeur en px d'un point ou d'un trait fin]. */
+    couleurs: (nom, t) => { if (!dessinee(nom)) return []; const c = DESSINS[nom].couleurs; return (typeof c === 'function' ? c(t) : c).map((x) => [...x]); },
     CSS: CSS_COMMUN + Object.values(DESSINS).map((d) => d.css).join(''),
   };
 })();
