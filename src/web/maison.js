@@ -7,8 +7,9 @@
   // Textes du retour vers Odin (en haut de l'écran) et de la barre de côté (son titre, ses entrées, la punaise et ses deux
   // messages, la poignée, le pied) :
   // à un seul endroit. Le titre est le nom de l'entrée du menu d'Odin qui ouvre cet écran. Puis ceux du bandeau (le salut à
-  // la maison, la semaine, les personnes à la maison) et des onglets de pièces.
-  const MOTS = { maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes' };
+  // la maison, la semaine, les personnes à la maison) et des onglets de pièces. Puis ceux du téléphone (« Plus », le rond
+  // d'Odin au centre de la barre du bas) et du plein écran (le bouton, et ce qu'il dit une fois ouvert).
+  const MOTS = { maison: 'la maison', semaine: 'semaine', personne: 'personne à la maison', personnes: 'personnes à la maison', a: 'à', tout: 'Tout', pieces: 'Pièces', retour: '← Odin', retourTitre: 'Revenir à Odin', titre: 'Home Assistant', sections: 'Sections', epingler: 'Garder la barre ouverte', ouvrir: 'Ouvrir le menu', epinglee: 'La barre reste ouverte.', libre: 'La barre se cache seule ; passe la souris à gauche pour la voir.', veille: 'Odin veille', accueil: 'Accueil', famille: 'Famille', cameras: 'Caméras', reseau: 'Réseau', applis: 'Mes applis', boutons: 'Boutons', themes: 'Thèmes', plus: 'Plus', odin: 'Parler à Odin', plein: 'Plein écran', pleinSortir: 'Quitter le plein écran (Échap)' };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // ---------- Clé de tablette : lue dans #cle=…, gardée sur l'appareil, retirée de l'adresse ----------
   let key = '';
@@ -39,6 +40,7 @@
     net: 'M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01M2 8.5a15 15 0 0 1 20 0', cam: 'M3 7h11v10H3zM14 10l7-3v10l-7-3', people: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9',
     prev: 'M7 6v12M18 6 9 12l9 6z', next: 'M17 6v12M6 6l9 6-9 6z', play: 'M8 5v14l11-7z', pause: 'M8 5h3v14H8zM13 5h3v14h-3z', lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z', open: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
     pin: 'M9 4h6l-1 6 3 3H7l3-3zM12 13v7', back: 'M15 6l-6 6 6 6', chev: 'M9 6l6 6-6 6',
+    more: 'M4 7h16M4 12h16M4 17h16', plein: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5', sortir: 'M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4',
   };
   const icon = (k, size = 20) => S('svg', { viewBox: '0 0 24 24', width: size, height: size, 'aria-hidden': 'true', class: 'ic' }, S('path', { d: ICON[k], fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
 
@@ -167,7 +169,7 @@ input[type=range]{width:100%;accent-color:#fff}.slide{position:relative;flex:1;m
 .themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:14px}.th{border:2px solid transparent;border-radius:18px;padding:0;overflow:hidden;text-align:left;background:none}.th[aria-pressed=true]{border-color:var(--accent)}.th .pv{height:92px;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px}.th .pv i{border-radius:10px;display:block}.th span{display:block;padding:8px 10px;font-size:13px;background:var(--card)}
 .person .av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:18px;background:var(--card2);flex:none}.person.home .av{background:var(--good);color:#fff}.person .row{display:flex;gap:12px;align-items:center}.person{display:flex;flex-direction:column;gap:10px}
 .cam{padding:0;margin:0}.cam img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#000}.cam figcaption{display:flex;justify-content:space-between;align-items:center;padding:10px 14px}.cam .live{color:var(--bad)}.cam.off .live{color:var(--muted)}.cam.off .live::after{content:' (hors ligne)'}.dev.cut{border-color:var(--bad)}
-.bnav{display:none}
+.bnav,.feuille,.voile{display:none}
 /* Dans Odin (vue « Home Assistant ») au téléphone : la barre du bas d'Odin suffit ; les sections passent dans ce menu, en haut. */
 .secs{display:none}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card2);border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:14px;max-width:min(560px,92vw);z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.35);white-space:pre-wrap}
@@ -175,6 +177,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
 .empty{color:var(--muted);padding:12px 0}
 /* ---------- La mascotte ---------- */
 .pet{position:fixed;left:0;top:0;width:var(--ps,76px);height:var(--ps,76px);z-index:50;touch-action:none;cursor:grab;filter:drop-shadow(0 8px 14px rgba(0,0,0,.35));transition:transform 1.1s cubic-bezier(.45,.05,.3,1)}
+/* Dans le rond de la barre du bas (son nid au téléphone), elle se cache derrière lui, comme sur l'accueil : c'est le rond qui prend l'appui. */
+.pet.au-nid{visibility:hidden;pointer-events:none}
 .pet.drag{transition:none;cursor:grabbing}.pet.fast{transition:transform .45s cubic-bezier(.3,.7,.4,1)}.pet svg{width:100%;height:100%;display:block;pointer-events:none}
 .pet .bodyw{width:100%;height:100%}.pet.walk .bodyw{animation:walk .45s ease-in-out infinite}.pet.hop .bodyw{animation:hop .6s ease}.pet.spin .bodyw{animation:spin .8s ease}
 @keyframes walk{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-6px) rotate(3deg)}}@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-34px) scale(1.05,.95)}70%{transform:translateY(0) scale(1.08,.92)}}@keyframes spin{to{transform:rotate(360deg)}}
@@ -182,9 +186,23 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
 .bubble p{margin:0 0 10px;padding-right:18px;white-space:pre-wrap;max-height:40vh;overflow:auto}.bubble .qs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.bubble .qs button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:13px}
 .bubble form{display:flex;gap:6px}.bubble input{flex:1;min-width:0;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:9px 11px;font:inherit}.bubble .x{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--muted);font-size:18px}
 .ball{position:fixed;left:0;top:0;width:34px;height:34px;border-radius:50%;z-index:49;touch-action:none;cursor:grab;background:radial-gradient(circle at 35% 30%,#fff 0 12%,#ffd23f 13% 45%,#f08c00 46%);box-shadow:0 6px 12px rgba(0,0,0,.35)}
-@media (max-width:820px){.app{grid-template-columns:1fr}.side{display:none}.hello h1{font-size:22px}main{padding:16px 14px 110px}.search{display:none}.card.w2{grid-column:span 1}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.wx,.clock{grid-column:1/-1!important}.wx .now{flex-wrap:wrap}.wx .kv{margin-left:0;text-align:left;grid-template-columns:repeat(4,auto);width:100%}.card .big{font-size:34px}.clock .big{font-size:44px}
-.bnav{display:flex;position:fixed;left:10px;right:10px;bottom:10px;z-index:40;justify-content:space-around;padding-right:84px!important;background:color-mix(in srgb,var(--card2) 92%,transparent);border:1px solid var(--line);border-radius:22px;padding:6px;backdrop-filter:blur(14px)}.bnav .nav{width:52px}
-html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.dans-odin .secs{display:flex;gap:6px;overflow-x:auto;position:sticky;top:0;z-index:30;margin:-16px -14px 12px;padding:8px 14px;background:color-mix(in srgb,var(--bg2) 94%,transparent);border-bottom:1px solid var(--line);scrollbar-width:none;overscroll-behavior-x:contain}html.dans-odin .secs::-webkit-scrollbar{display:none}.secs button{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);white-space:nowrap}.secs button[aria-current=page]{background:var(--card2);color:var(--accent);border-color:var(--accent)}}
+@media (max-width:820px){.app{grid-template-columns:1fr}.side{display:none}.hello h1{font-size:22px}main{padding:16px 14px calc(110px + env(safe-area-inset-bottom))}.search{display:none}.card.w2{grid-column:span 1}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.wx,.clock{grid-column:1/-1!important}.wx .now{flex-wrap:wrap}.wx .kv{margin-left:0;text-align:left;grid-template-columns:repeat(4,auto);width:100%}.card .big{font-size:34px}.clock .big{font-size:44px}
+.bnav{display:flex;position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:40;justify-content:space-around;align-items:stretch;gap:2px;background:color-mix(in srgb,var(--card2) 92%,transparent);border:1px solid var(--line);border-radius:22px;padding:6px;backdrop-filter:blur(14px)}
+/* La barre du bas (sa réponse : quatre places et Odin au centre, dont « Plus ») : chaque place a son icône et son nom, 44 px au moins ; le rond d'Odin au centre (son nid, la rune ; la mascotte en liberté y rentre quand elle n'a plus de place, cachée derrière lui) ; « Plus » est marqué quand la section ouverte est dans sa feuille, et quand sa feuille est ouverte. Les mots sont dans la couleur du texte du thème (lisibles sur un thème clair comme sombre) ; la place choisie se voit par le fond, le gras et un trait. Toutes les places ont la même hauteur, icônes alignées (à 320 px, « Mes applis » passe sur deux lignes). */
+.bnav .nav{flex:1 1 0;min-width:44px;width:auto;height:auto;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;padding:6px 2px 4px;font-size:11px;line-height:1.15;color:var(--text)}.bnav .nav span{max-width:100%;overflow-wrap:anywhere;text-align:center}.bnav .nav[aria-current=page],.bnav .plus.cur,.bnav .plus[aria-expanded=true]{background:var(--card);color:var(--text);font-weight:700;box-shadow:inset 0 0 0 1px var(--line),inset 0 -3px 0 var(--text)}
+.bnav .nid{flex:none;align-self:center;width:52px;height:52px;margin:0 2px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);display:grid;place-items:center}.bnav .nid .rune{font-size:24px;line-height:1;font-weight:700;pointer-events:none}.bnav .nid[aria-expanded=true]{border-color:var(--accent)}
+/* La feuille « Plus » : au-dessus de la barre, toutes les autres sections et le retour vers Odin ; un voile derrière (un appui dessus la referme), sous la barre qui reste utilisable ; la feuille passe devant la mascotte et sa bulle. Feuille ouverte : le retour du bandeau se cache (un seul retour vers Odin à la fois). */
+.feuille{display:flex;flex-direction:column;gap:2px;position:fixed;left:10px;right:10px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:56;max-height:calc(100vh - 120px);overflow-y:auto;padding:8px;border:1px solid var(--line);border-radius:22px;background:var(--card2);box-shadow:0 16px 40px rgba(0,0,0,.4)}.feuille .nav{width:100%;height:auto;min-height:48px;display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:0 14px;text-align:left;color:var(--text)}.feuille .nav span{min-width:0;overflow-wrap:anywhere}.feuille .nav .ic{flex:none}.feuille .nav[aria-current=page]{color:var(--text)}
+/* Le message en bas (« Thème … ») passe au-dessus de la barre du bas ; dans Odin (pas de barre) et en plein écran, il reste en bas. */
+.toast{bottom:calc(86px + env(safe-area-inset-bottom))}html.dans-odin .toast,.app.plein-ecran~.toast{bottom:24px}
+.voile{display:block;position:fixed;inset:0;z-index:39;background:rgba(0,0,0,.35)}.feuille[hidden],.voile[hidden]{display:none}.app.plus-ouvert .top .retour{visibility:hidden}
+html.dans-odin .feuille,html.dans-odin .voile{display:none}html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.dans-odin .secs{display:flex;gap:6px;overflow-x:auto;position:sticky;top:0;z-index:30;margin:-16px -14px 12px;padding:8px 14px;background:color-mix(in srgb,var(--bg2) 94%,transparent);border-bottom:1px solid var(--line);scrollbar-width:none;overscroll-behavior-x:contain}html.dans-odin .secs::-webkit-scrollbar{display:none}.secs button{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);white-space:nowrap}.secs button[aria-current=page]{background:var(--card2);color:var(--accent);border-color:var(--accent)}}
+/* Le plein écran (la maquette) : le menu (barre de côté, poignée, barre du bas et sa feuille, menu des sections), le bandeau et les onglets disparaissent ; reste le bouton qui l'a ouvert, un rond de 44 px en haut à droite, discret, net au survol et au focus ; le contenu commence sous lui (il ne couvre aucune carte). En bas à droite, le nid flottant d'Odin (la maquette : 54 px) : la mascotte s'y pose quand elle n'a plus de place libre ; un simple rond sous elle, que ni le doigt ni la souris ne prennent (c'est elle, posée dessus, qui les reçoit). Le contenu garde 90 px en bas (la maquette), pour que la dernière carte passe au-dessus du nid. */
+.round.plein{width:44px;height:44px}
+.app.plein-ecran{grid-template-columns:1fr}.app.plein-ecran .side,.app.plein-ecran .poignee,.app.plein-ecran .bord,.app.plein-ecran .bnav,.app.plein-ecran .feuille,.app.plein-ecran .voile,.app.plein-ecran .secs,.app.plein-ecran .top,.app.plein-ecran .tabs{display:none!important}.app.plein-ecran main{padding:64px 14px 90px}
+.app.plein-ecran>.plein{position:fixed;top:calc(10px + env(safe-area-inset-top));right:10px;z-index:41;opacity:.45;transition:opacity .2s}.app.plein-ecran>.plein:hover,.app.plein-ecran>.plein:focus-visible{opacity:1}
+.nid-flottant{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:49;width:54px;height:54px;box-sizing:border-box;border-radius:50%;background:var(--card2);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.22);pointer-events:none}
+@media (prefers-reduced-motion:reduce){.app.plein-ecran>.plein{transition:none}}
 @media (prefers-reduced-motion:reduce){.pet,.pet .bodyw{transition:none!important;animation:none!important}}`;
 
   // ---------- État ----------
@@ -196,6 +214,10 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
   // de son ouverture (elle glisse encore 0,35 s) ; « parSouris » : c'est la souris (le bord) qui l'a ouverte.
   let barre = (() => { try { return localStorage.getItem('odin.maison.barre') === '1'; } catch { return false; } })(), ouverte = false, tBarre = 0, tOuvert = 0, parSouris = false;
   try { voice = localStorage.getItem('odin.maison.voix') === '1'; } catch { /* */ }
+  // Le téléphone et le plein écran : « plusOuvert », la feuille « Plus » de la barre du bas est ouverte ; « plein », le plein
+  // écran ; « pleinDemande », le navigateur a accepté de passer en plein écran (sa sortie par le navigateur fait sortir la
+  // page aussi). Gardés ici : la page se redessine toutes les 15 secondes.
+  let plusOuvert = false, plein = false, pleinDemande = false;
   const root = el('div', { class: 'app' }); document.body.append(root);
   // ---------- Accueil : le ciel noir étoilé (ciel.js) tant qu'Odin n'a pas répondu, ou s'il faut se connecter ----------
   // Ensuite, c'est le thème choisi pour l'écran de la maison qui s'affiche (rien ne change à l'intérieur).
@@ -402,6 +424,80 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
     document.addEventListener('focusin', (e) => { if (ouverte && !barre && !e.target?.closest?.('.side,.poignee')) ouvrirBarre(false); });
   }
   ecouterBarre();
+  // ---------- Le téléphone : la barre du bas, Odin au centre, « Plus » ----------
+  // Sa réponse : quatre places et Odin au centre, dont « Plus », qui ouvre tout le reste (rien n'est caché). Les places
+  // reprennent celles de la maquette qui ont une page ici : Accueil (son « Aperçu »), Mes applis (son « Odin »), Odin au
+  // centre, Thèmes ; « Énergie » n'a pas de page. Les autres sections permises passent dans la feuille « Plus », avec le
+  // retour vers Odin. Une tablette « maison » (trois sections) : ses trois sections autour d'Odin, sans « Plus » (il serait vide).
+  const BAS = ['accueil', 'applis', 'themes'];
+  /** Les places de la barre du bas : [avant Odin, après Odin, dans « Plus »]. */
+  function placesBas(navs) {
+    if (navs.length <= 3) return [navs.slice(0, 2), navs.slice(2), []];
+    const garde = navs.filter((n) => BAS.includes(n[0]));
+    return [garde.slice(0, 2), garde.slice(2), navs.filter((n) => !BAS.includes(n[0]))];
+  }
+  /** Le focus sur la place (barre du bas, feuille « Plus ») de ce nom, s'il y en a une. */
+  function focusPlace(id) { [...document.querySelectorAll('[data-place]')].find((x) => x.getAttribute('data-place') === id)?.focus({ preventScroll: true }); }
+  const classeRacine = () => `${barre ? 'app' : 'app libre'}${plusOuvert ? ' plus-ouvert' : ''}${plein ? ' plein-ecran' : ''}`;
+  /** La barre du bas, puis la feuille « Plus » et son voile (seulement s'il y a un reste). */
+  function barreBas(navs) {
+    const [avant, apres, autres] = placesBas(navs), dedans = autres.find((n) => n[0] === view);
+    // Choisir une section ferme la feuille et redessine ; le focus revient à la place choisie, ou à « Plus » depuis la feuille.
+    const choisir = (id, retour) => { view = id; plusOuvert = false; draw(); focusPlace(retour); };
+    const place = ([id, label, ic], feuille) => el('button', { type: 'button', class: 'nav', 'data-place': id, 'aria-label': label, title: label, 'aria-current': view === id ? 'page' : null, onclick: () => choisir(id, feuille ? 'plus' : id) }, icon(ic, 22), el('span', {}, label));
+    // Au centre, le nid d'Odin : sa rune (la mascotte se promène déjà ailleurs : jamais deux Odin) ; un appui ouvre la petite
+    // fenêtre pour lui parler, juste au-dessus du rond ; un second appui, ou Échap, la ferme.
+    const nid = el('button', { type: 'button', class: 'nid', 'data-place': 'odin', 'aria-label': MOTS.odin, title: MOTS.odin, 'aria-expanded': String(Boolean(pet.enChat?.())),
+      onclick: () => { if (pet.enChat?.()) pet.fermer?.(); else pet.chat?.('.bnav .nid'); } }, el('span', { class: 'rune', 'aria-hidden': 'true' }, 'ᛟ'));
+    const plus = autres.length ? el('button', { type: 'button', class: `nav plus${dedans ? ' cur' : ''}`, 'data-place': 'plus', 'aria-label': dedans ? `${MOTS.plus} · ${dedans[1]}` : MOTS.plus, title: MOTS.plus, 'aria-controls': 'maison-plus', 'aria-expanded': String(plusOuvert),
+      onclick: () => ouvrirPlus(!plusOuvert, plusOuvert ? 'plus' : 'feuille') }, icon('more', 22), el('span', {}, MOTS.plus)) : null;
+    const bas = el('nav', { class: 'bnav', 'aria-label': MOTS.sections }, ...avant.map((n) => place(n)), nid, ...apres.map((n) => place(n)), plus);
+    if (!plus) return [bas];
+    const feuille = el('div', { id: 'maison-plus', class: 'feuille', role: 'dialog', 'aria-label': MOTS.plus, hidden: !plusOuvert },
+      ...autres.map((n) => place(n, true)),
+      retourVisible(key, window.top !== window) ? el('a', { class: 'nav', href: '/', 'data-place': 'retour', 'aria-label': MOTS.retourTitre, title: MOTS.retourTitre }, icon('back', 22), el('span', {}, MOTS.retourTitre)) : null);
+    return [bas, feuille, el('div', { class: 'voile', 'aria-hidden': 'true', hidden: !plusOuvert, onclick: () => ouvrirPlus(false, 'plus') })];
+  }
+  /** Ouvre ou ferme la feuille « Plus », sans redessiner. « focus » : 'feuille' (la section ouverte, sinon la première), 'plus', ou rien. */
+  function ouvrirPlus(v, focus) {
+    plusOuvert = Boolean(v);
+    const f = document.querySelector('.feuille'), w = document.querySelector('.voile'), p = document.querySelector('.bnav .plus');
+    for (const n of [f, w]) if (n) { if (plusOuvert) n.removeAttribute('hidden'); else n.setAttribute('hidden', ''); }
+    p?.setAttribute('aria-expanded', String(plusOuvert));
+    root.setAttribute('class', classeRacine());
+    // La mascotte posée là où la feuille s'ouvre rentre tout de suite dans son nid (elle ne la couvre pas).
+    if (plusOuvert) pet.ranger?.();
+    if (focus === 'feuille') (f?.querySelector('.nav[aria-current=page]') || f?.querySelector('.nav'))?.focus();
+    else if (focus === 'plus') p?.focus();
+  }
+  // ---------- Le plein écran (la maquette) : le menu, le bandeau et les onglets disparaissent ----------
+  // Le même bouton l'ouvre (dans le bandeau) et le ferme (seul resté, en haut à droite) ; Échap aussi. La page demande
+  // au navigateur le vrai plein écran ; s'il refuse (un cadre, un vieux navigateur), la page cache quand même ce qu'il
+  // faut, sans erreur. Le focus suit toujours le bouton.
+  function boutonPlein() {
+    return el('button', { type: 'button', class: 'round plein', 'aria-label': MOTS.plein, title: plein ? MOTS.pleinSortir : MOTS.plein, 'aria-pressed': String(plein), onclick: () => basculerPlein(!plein) }, icon(plein ? 'sortir' : 'plein', 20));
+  }
+  function basculerPlein(v) {
+    plein = Boolean(v); plusOuvert = false;
+    if (plein) { ouverte = false; pleinDemande = false; try { const p = document.documentElement?.requestFullscreen?.(); if (p) { pleinDemande = true; p.catch?.(() => { pleinDemande = false; }); } } catch { pleinDemande = false; } }
+    else { pleinDemande = false; try { if (document.fullscreenElement) document.exitFullscreen?.()?.catch?.(() => {}); } catch { /* le navigateur refuse : la page sort quand même */ } }
+    draw(); document.querySelector('.plein')?.focus({ preventScroll: true });
+  }
+  // Échap, une fois ce qui est ouvert par-dessus fermé (une boîte de dialogue la prend elle-même) : d'abord la feuille
+  // « Plus » (le focus revient à « Plus »), puis la petite fenêtre pour parler à Odin, ouverte par le rond ou en touchant la
+  // mascotte, comme sur l'accueil (ouverte par le rond, le focus revient au rond),
+  // puis le plein écran. Le focus qui sort de la feuille la referme. La sortie du plein écran par le navigateur fait sortir la page.
+  function ecouterTelephone() {
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('dialog[open]')) return;
+      if (plusOuvert) ouvrirPlus(false, 'plus');
+      else if (pet.enChat?.()) pet.fermer?.();
+      else if (plein) basculerPlein(false);
+    });
+    document.addEventListener('focusin', (e) => { if (plusOuvert && !e.target?.closest?.('.feuille,.plus')) ouvrirPlus(false); });
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && plein && pleinDemande) basculerPlein(false); });
+  }
+  ecouterTelephone();
   function draw() {
     if (!D) return;
     const full = D.rights === 'complet';
@@ -427,7 +523,7 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
           retourVisible(key, window.top !== window) ? el('a', { class: 'btn retour', href: '/', title: MOTS.retourTitre, 'aria-label': MOTS.retourTitre, style: { minHeight: '44px', minWidth: '44px', color: 'var(--text)' } }, MOTS.retour) : null,
           el('label', { class: 'search' }, icon('search', 18), el('input', { type: 'search', placeholder: 'Chercher un appareil, une appli…', 'aria-label': 'Chercher', value: q, oninput: (e) => { q = e.target.value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); drawSoon(); } })),
           el('button', { class: 'round', 'aria-label': `Alertes (${unread})`, onclick: () => pet.news() }, icon('bell', 20), unread ? el('span', { class: 'dot' }, String(unread)) : null),
-          el('button', { class: 'round', 'aria-label': voice ? 'Couper la voix de la mascotte' : 'Activer la voix de la mascotte', 'aria-pressed': String(voice), onclick: () => { voice = !voice; try { localStorage.setItem('odin.maison.voix', voice ? '1' : '0'); } catch { /* */ } draw(); if (voice) pet.say('Je parlerai à voix haute.', 'ok', 'joie'); } }, icon('sound', 20)), pastille)),
+          el('button', { class: 'round', 'aria-label': voice ? 'Couper la voix de la mascotte' : 'Activer la voix de la mascotte', 'aria-pressed': String(voice), onclick: () => { voice = !voice; try { localStorage.setItem('odin.maison.voix', voice ? '1' : '0'); } catch { /* */ } draw(); if (voice) pet.say('Je parlerai à voix haute.', 'ok', 'joie'); } }, icon('sound', 20)), plein ? null : boutonPlein(), pastille)),
       ...(view === 'accueil' ? home() : view === 'applis' ? appsView() : view === 'famille' ? [el('h2', { class: 'sec' }, 'Famille'), peopleGrid(), el('p', { class: 'muted', style: { marginTop: '12px' } }, 'La position vient de l\'appli de chaque personne (Home Assistant ou OwnTracks), qui la voit sur son téléphone et peut la mettre en pause.')] : view === 'cameras' ? [el('h2', { class: 'sec' }, 'Caméras'), camGrid(true)] : view === 'reseau' ? netView() : view === 'boutons' ? tilesView(true) : themesView()));
     startCams();
     // La barre de côté : le titre et la punaise, les entrées avec leur nom, le retour vers Odin (même règle qu'en haut), et
@@ -453,8 +549,13 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
     const garde = document.activeElement?.closest?.('.side') ? document.activeElement.getAttribute('aria-label') : null;
     // Les onglets de pièces : l'onglet qui avait le focus le retrouve, et la rangée garde sa place (redessin toutes les 15 s).
     const ongletAvant = document.activeElement?.closest?.('.tabs') ? document.activeElement.getAttribute('data-piece') : null, xOnglets = document.querySelector('.tabs')?.scrollLeft || 0;
-    root.setAttribute('class', barre ? 'app' : 'app libre');
-    root.replaceChildren(...bords, cote, main, el('nav', { class: 'bnav', 'aria-label': MOTS.sections }, ...navs.map((n) => nav(...n))));
+    // La barre du bas et sa feuille, le bouton du plein écran : le focus revient, après le redessin, sur la place de même nom.
+    const placeAvant = document.activeElement?.closest?.('.bnav,.feuille') ? document.activeElement.getAttribute('data-place') : null, pleinAvant = Boolean(document.activeElement?.closest?.('.plein'));
+    root.setAttribute('class', classeRacine());
+    // En plein écran, le bouton qui en fait sortir est le seul resté de la page hors du contenu, avec le nid flottant d'Odin.
+    root.replaceChildren(...bords, cote, main, ...barreBas(navs), ...(plein ? [boutonPlein(), el('span', { class: 'nid-flottant', 'aria-hidden': 'true' })] : []));
+    if (placeAvant) focusPlace(placeAvant);
+    if (pleinAvant) document.querySelector('.plein')?.focus({ preventScroll: true });
     if (garde) [...cote.querySelectorAll('[aria-label]')].find((x) => x.getAttribute('aria-label') === garde)?.focus({ preventScroll: true });
     const rangee = document.querySelector('.tabs');
     if (rangee) { rangee.scrollLeft = xOnglets; if (ongletAvant !== null) ongletDe(ongletAvant)?.focus({ preventScroll: true }); }
@@ -693,11 +794,13 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
     let x = innerWidth - 120, y = innerHeight - 160, bubble = null, bubbleTimer = 0, dragging = null, taps = [], ball = null, play = 0, lastMove = Date.now();
     const size = () => (innerWidth < 600 ? 60 : 78);
     const mood = (m) => { try { window.OdinFace?.set(body, m); } catch { /* */ } };
-    const place = (nx, ny, fast) => {
+    // « auNid » : elle rentre dans le rond de la barre du bas (elle s'y cache) ; elle se montre dès qu'elle en sort.
+    const place = (nx, ny, fast, auNid = false) => {
       // Pendant des touchers rapides (4 = Alchimie…), il reste sous le doigt.
       if (!dragging && taps.length && Date.now() - taps[taps.length - 1] < 1300) return;
-      const s = size(); w.style.setProperty('--ps', `${s}px`);
+      const s = size(), ax = x, ay = y; w.style.setProperty('--ps', `${s}px`);
       x = Math.max(6, Math.min(innerWidth - s - 6, nx)); y = Math.max(6, Math.min(innerHeight - s - 6, ny));
+      if (auNid) w.classList.add('au-nid'); else if (Math.abs(x - ax) > 1 || Math.abs(y - ay) > 1) w.classList.remove('au-nid');
       w.classList.toggle('fast', Boolean(fast)); w.style.transform = `translate(${x}px,${y}px)`;
       if (!reduce && !dragging) { w.classList.add('walk'); clearTimeout(w._t); w._t = setTimeout(() => w.classList.remove('walk'), fast ? 450 : 1100); }
       lastMove = Date.now(); placeBubble();
@@ -707,7 +810,9 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
     // Promenade : de temps en temps vers un coin libre de l'écran (jamais pendant une conversation).
     // Odin ne se pose jamais sur un widget : il vit dans les zones vides (en bas d'abord), s'y promène,
     // et ne monte au-dessus d'un widget que quand tu lui demandes quelque chose qui le concerne.
-    const WIDGET = '.card,.tile,.chip,.nav,.logo,.top,.sec,.th,.toast,dialog,a,button,input,.hello,.tools';
+    // La barre du bas et sa feuille ne sont pas des places libres : elle n'y entre que par son nid (feuille ouverte, elle y rentre).
+    // Les onglets de pièces et le menu des sections non plus (un appui sur un onglet ne tombe jamais sur elle), ni le nid flottant.
+    const WIDGET = '.card,.tile,.chip,.nav,.logo,.top,.sec,.th,.toast,dialog,a,button,input,.hello,.tools,.bnav,.feuille,.voile,.tabs,.secs,.nid-flottant';
     const isFree = (px, py, s) => [[px + 4, py + 4], [px + s - 4, py + 4], [px + 4, py + s - 4], [px + s - 4, py + s - 4], [px + s / 2, py + s / 2]].every(([cx, cy]) => {
       if (cx < 0 || cy < 0 || cx > innerWidth || cy > innerHeight) return false;
       const hit = document.elementsFromPoint(cx, cy).find((n) => !w.contains(n) && n !== w && !bubble?.contains(n) && !n.classList?.contains('ball'));
@@ -720,10 +825,18 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
       return out;
     }
     let home = null, visiting = 0;
+    // Son nid (comme sur l'accueil) : le rond du centre de la barre du bas du téléphone, quand il se voit ; en plein écran,
+    // le nid flottant en bas à droite (la maquette).
+    const vu = (n) => Boolean(n && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden');
+    const nid = () => { const n = document.querySelector('.bnav .nid'), f = document.querySelector('.nid-flottant'); return vu(n) ? n : vu(f) ? f : null; };
     /** Retour à sa place de repos : la place libre la plus basse (au plus près d'où il est). */
     function rest(fast) {
-      // Aucune place libre : il reste où il est, mais toujours dans l'écran (l'écran a pu rapetisser depuis).
-      const spots = freeSpots(); if (!spots.length) { home = null; place(x, y, fast); return; }
+      // Aucune place libre : au téléphone, il rentre dans son nid (il en ressort dès qu'une place se libère) ; sinon il
+      // reste où il est, mais toujours dans l'écran (l'écran a pu rapetisser depuis).
+      const spots = freeSpots(), n = spots.length ? null : nid();
+      // Dans le rond de la barre, elle se cache derrière lui (c'est lui qui prend l'appui) ; sur le nid flottant, elle reste visible.
+      if (n) { home = null; const r = n.getBoundingClientRect(), s = size(), nx = r.left + r.width / 2 - s / 2, ny = r.top + r.height / 2 - s / 2, barre = n.matches('.bnav .nid'); if (Math.abs(nx - x) > 1 || Math.abs(ny - y) > 1) place(nx, ny, fast, barre); else w.classList.toggle('au-nid', barre); return; }
+      if (!spots.length) { home = null; place(x, y, fast); return; }
       const low = spots[0][1], row = spots.filter((p) => p[1] >= low - 28);
       const best = row.sort((a, b) => Math.abs(a[0] - x) - Math.abs(b[0] - x))[0]; home = best; place(best[0], best[1], fast);
     }
@@ -775,12 +888,22 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
     });
     w.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chat(); } });
     function anim(c) { if (reduce) return; w.classList.remove('hop', 'spin'); void w.offsetWidth; w.classList.add(c); setTimeout(() => w.classList.remove(c), 900); }
+    // « ancre » : le rond d'Odin de la barre du bas, quand c'est lui qui a ouvert la conversation (la bulle se pose au-dessus
+    // de lui ; fermée, le focus lui revient s'il était dans la bulle ou nulle part).
+    let ancre = null;
+    const marquerNid = () => document.querySelector('.bnav .nid')?.setAttribute('aria-expanded', String(Boolean(bubble?.dataset.chat)));
     function placeBubble() {
       if (!bubble) return; const bw = bubble.offsetWidth, bh = bubble.offsetHeight, s = size();
-      let left = x + s / 2 - bw / 2, top = y - bh - 12; if (top < 8) top = y + s + 12;
+      const a = ancre ? document.querySelector(ancre) : null, r = a && a.getClientRects().length ? a.getBoundingClientRect() : null;
+      let left = r ? r.left + r.width / 2 - bw / 2 : x + s / 2 - bw / 2, top = r ? r.top - bh - 12 : y - bh - 12; if (top < 8) top = r ? 8 : y + s + 12;
       bubble.style.left = `${Math.max(12, Math.min(innerWidth - bw - 12, left))}px`; bubble.style.top = `${Math.max(8, Math.min(innerHeight - bh - 8, top))}px`;
     }
-    function closeBubble() { const was = Boolean(bubble); bubble?.remove(); bubble = null; clearTimeout(bubbleTimer); mood('neutre'); if (was && !play && !dragging) setTimeout(() => { if (!bubble) { visiting = 0; if (!isFree(x, y, size())) rest(); } }, 400); }
+    function closeBubble() {
+      const was = Boolean(bubble), a = ancre, f = document.activeElement, rendre = a && (!f || f === document.body || bubble?.contains(f));
+      ancre = null; bubble?.remove(); bubble = null; clearTimeout(bubbleTimer); mood('neutre'); marquerNid();
+      if (rendre) document.querySelector(a)?.focus({ preventScroll: true });
+      if (was && !play && !dragging) setTimeout(() => { if (!bubble) { visiting = 0; if (!isFree(x, y, size())) rest(); } }, 400);
+    }
     function speak(t) { if (!voice || !('speechSynthesis' in window)) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t.replace(/[\u{1F300}-\u{1FAFF}☀-➿]/gu, '').slice(0, 400)); u.lang = 'fr-FR'; mood('parle'); u.onend = () => mood('neutre'); speechSynthesis.speak(u); } catch { /* */ } }
     function show(kids, level, ms, isChat) {
       closeBubble();
@@ -805,7 +928,7 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
         setTimeout(load, 800);
       } catch (e) { say(e.message, 'souci', 'triste'); }
     }
-    function chat() {
+    function chat(depuis) {
       const input = el('input', { type: 'text', placeholder: 'Dis-moi… (« allume le salon »)', 'aria-label': 'Ta demande à Odin', enterkeyhint: 'send' });
       const quick = [['☀️ Météo', () => ask('météo')], ['🕒 Heure', () => ask('quelle heure')], ['🔔 Alertes', () => news()], ['⚽ Joue avec moi', () => game()], ['🎨 Thème suivant', () => nextTheme()]];
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -813,6 +936,7 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
         el('form', { onsubmit: (e) => { e.preventDefault(); const t = input.value.trim(); if (t) { input.value = ''; ask(t); } } }, input,
           SR ? el('button', { type: 'button', class: 'btn', 'aria-label': 'Parler au micro', onclick: (e) => { const b = e.currentTarget; if (b._r) { b._r.stop(); return; } try { const r = new SR(), base = input.value.trim() ? `${input.value.trim()} ` : ''; let done = ''; r.lang = 'fr-FR'; r.continuous = true; r.interimResults = true; b._r = r; b.setAttribute('aria-pressed', 'true'); mood('ecoute'); r.onresult = (ev) => { let live = ''; for (let k = ev.resultIndex; k < ev.results.length; k++) { if (ev.results[k].isFinal) done += ev.results[k][0].transcript; else live += ev.results[k][0].transcript; } input.value = `${base}${done}${live}`.replace(/\s+/g, ' ').trimStart(); }; r.onend = () => { b._r = null; b.setAttribute('aria-pressed', 'false'); mood('neutre'); input.focus(); }; r.start(); } catch { toast('Micro indisponible.'); } } }, icon('mic', 18)) : null,
           el('button', { class: 'btn primary', 'aria-label': 'Envoyer' }, icon('send', 18)))], 'ok', 0, true);
+      ancre = typeof depuis === 'string' ? depuis : null; marquerNid(); placeBubble();
       mood('ecoute'); setTimeout(() => input.focus({ preventScroll: true }), 50);
     }
     function news() {
@@ -850,7 +974,7 @@ html.dans-odin .bnav{display:none}html.dans-odin main{padding-bottom:24px}html.d
       // Fin du jeu après une minute sans lancer.
       const end = setInterval(() => { if (Date.now() - play > 60_000) { clearInterval(end); cancelAnimationFrame(raf); ball?.remove(); ball = null; play = 0; say('On rejoue quand tu veux !', 'ok', 'joie'); } }, 5000);
     }
-    return { say, news, chat, visit };
+    return { say, news, chat, visit, enChat: () => Boolean(bubble?.dataset.chat), depuisNid: () => Boolean(bubble && ancre), fermer: closeBubble, ranger: () => { if (!dragging && !isFree(x, y, size())) rest(true); } };
   })();
   if (window.OdinMascotte) window.OdinMascotte.sayHook = (t, lvl) => pet.say(t, lvl === 'souci' ? 'souci' : 'ok', lvl === 'souci' ? 'inquiet' : 'joie');
 

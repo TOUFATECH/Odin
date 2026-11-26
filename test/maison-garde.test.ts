@@ -93,7 +93,9 @@ function ecran() {
     'let D = null, view = \'accueil\', q = \'\', voice = false, key = \'\';',
     // La barre de côté a une punaise (épinglée ou repliée, gardée sur l'appareil) : son état est lu avec draw.
     // Le bandeau (le salut, la date, la pastille) est dessiné par sa propre fonction (test/maison-bandeau.test.ts le tient).
-    ligne('const MOTS = '), bloc('const el = ('), ligne('let barre = '), ligne('const retourVisible = '), ligne('function nav('), bloc('function bandeau('), bloc('function draw() {'),
+    ligne('const MOTS = '), bloc('const el = ('), ligne('let barre = '), ligne('const retourVisible = '), ligne('function nav('), bloc('function bandeau('),
+    // La barre du bas du téléphone (quatre places, Odin au centre, « Plus ») et le plein écran : test/maison-telephone.test.ts les tient.
+    ligne('let plusOuvert = '), ligne('const BAS = '), bloc('function placesBas('), ligne('function focusPlace('), ligne('const classeRacine = '), bloc('function barreBas('), bloc('function ouvrirPlus('), bloc('function boutonPlein('), bloc('function basculerPlein('), bloc('function draw() {'),
     '({ draw, regler(d, k) { D = d; key = k; view = \'accueil\'; } });',
   ].join('\n');
   const e = vm.runInNewContext(src, {
@@ -111,6 +113,8 @@ function ecran() {
     // Chaque partie est cherchée par ce qu'elle est, pas par sa place : non épinglée (la maquette, au départ), la barre de
     // côté a devant elle sa poignée et le bord gauche (test/maison-cadre.test.ts les tient).
     cote: () => partie((x) => x.tag === 'nav' && x.attrs.class.split(' ').includes('side')), page: () => partie((x) => x.tag === 'main'), bas: () => partie((x) => x.tag === 'nav' && x.attrs.class === 'bnav'),
+    // La feuille « Plus » de la barre du bas (téléphone) : seulement quand des sections n'ont pas de place dans la barre.
+    feuille: () => racine.kids.filter((x): x is Noeud => estNoeud(x) && x.attrs.class === 'feuille'),
     vues: () => tous(partie((x) => x.tag === 'main'), (x) => x.tag === 'vue').map((x) => x.attrs['data-vue']),
     retour: () => tous(partie((x) => x.tag === 'main'), (x) => x.tag === 'a' && x.attrs.href === '/'),
   };
@@ -119,6 +123,8 @@ const SEPT = ['accueil', 'famille', 'cameras', 'reseau', 'applis', 'boutons', 't
 const TROIS = ['accueil', 'boutons', 'themes'];
 // Les sections de la barre de côté : ses boutons « nav » (la punaise, à côté du titre, n'est pas une section).
 const sectionsCote = (n: Noeud) => boutons(n).filter((x) => x.attrs.class === 'nav');
+/** Les sections de la barre du bas et de sa feuille « Plus » (data-place ; ni le rond d'Odin, ni « Plus », ni le retour vers Odin). */
+const sectionsBas = (e: ReturnType<typeof ecran>) => [e.bas(), ...e.feuille()].flatMap((n) => boutons(n)).map((x) => x.attrs['data-place']).filter((p) => p && !['odin', 'plus'].includes(p));
 /** Appuie sur chaque section du menu de côté, dans l'ordre, et rend la vue que chacune ouvre. */
 function sections(e: ReturnType<typeof ecran>): string[] {
   const n = sectionsCote(e.cote()).length, out: string[] = [];
@@ -128,13 +134,16 @@ function sections(e: ReturnType<typeof ecran>): string[] {
 
 test('sections : sept pour la session (accueil, famille, caméras, réseau, mes applis, boutons, thèmes), chacune ouvre sa vue', () => {
   const e = ecran(); e.dessiner('complet');
-  assert.equal(sectionsCote(e.cote()).length, 7); assert.equal(boutons(e.bas()).length, 7, 'la barre du bas (téléphone) a les mêmes');
+  // La barre du bas (téléphone) : quatre places et Odin au centre, dont « Plus » (sa réponse) ; la barre et la feuille « Plus »
+  // ensemble ont les mêmes sections que la barre de côté, ni plus ni moins (test/maison-telephone.test.ts tient le reste).
+  assert.equal(sectionsCote(e.cote()).length, 7); assert.deepEqual(sectionsBas(e).sort(), [...SEPT].sort(), 'la barre du bas (téléphone) et sa feuille « Plus » ont les mêmes');
   assert.deepEqual(sections(e), SEPT);
 });
 
 test('sections : trois pour une tablette « maison » (accueil, boutons, thèmes), chacune ouvre sa vue', () => {
   const e = ecran(); e.dessiner('maison', `gk_${'a'.repeat(40)}`);
-  assert.equal(sectionsCote(e.cote()).length, 3); assert.equal(boutons(e.bas()).length, 3);
+  // Une tablette « maison » : ses trois sections dans la barre du bas, autour d'Odin, sans « Plus » ni feuille.
+  assert.equal(sectionsCote(e.cote()).length, 3); assert.deepEqual(sectionsBas(e).sort(), [...TROIS].sort()); assert.equal(e.feuille().length, 0);
   assert.deepEqual(sections(e), TROIS);
 });
 

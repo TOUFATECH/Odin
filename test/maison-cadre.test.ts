@@ -95,7 +95,9 @@ function ecran(stock: Stock = memoire()) {
   const src = [
     'let D = null, view = \'accueil\', q = \'\', voice = false, key = \'\';',
     // Le bandeau (le salut, la date, la pastille) est dessiné par sa propre fonction (test/maison-bandeau.test.ts le tient).
-    ligne('const MOTS = '), bloc('const el = ('), ligne('let barre = '), ligne('const retourVisible = '), ligne('function nav('), bloc('function bandeau('), bloc('function ouvrirBarre('), bloc('function ecouterBarre('), bloc('function draw() {'),
+    ligne('const MOTS = '), bloc('const el = ('), ligne('let barre = '), ligne('const retourVisible = '), ligne('function nav('), bloc('function bandeau('), bloc('function ouvrirBarre('), bloc('function ecouterBarre('),
+    // La barre du bas du téléphone (quatre places, Odin au centre, « Plus ») et le plein écran : test/maison-telephone.test.ts les tient.
+    ligne('let plusOuvert = '), ligne('const BAS = '), bloc('function placesBas('), ligne('function focusPlace('), ligne('const classeRacine = '), bloc('function barreBas('), bloc('function ouvrirPlus('), bloc('function boutonPlein('), bloc('function basculerPlein('), bloc('function draw() {'),
     'ecouterBarre();',
     '({ draw, regler(d, k) { D = d; key = k; view = \'accueil\'; } });',
   ].join('\n');
@@ -295,11 +297,17 @@ test('le retour vers Odin dans la barre : là pour une session, la page seule ; 
   e.dessiner('complet', '', true); assert.equal(retour().length, 0);
 });
 
-test('la barre du bas (téléphone) ne change pas : icônes seules, mêmes sections', () => {
+// La barre du bas a changé avec le téléphone (sa réponse : quatre places et Odin au centre, dont « Plus » ; tenu par
+// test/maison-telephone.test.ts) : chaque place a son nom écrit, comme la maquette ; la barre et la feuille « Plus »
+// ensemble ont toujours les sept sections, chacune une fois.
+test('la barre du bas (téléphone) : avec sa feuille « Plus », les mêmes sections, chacune avec son nom', () => {
   const e = ecran(); e.dessiner('complet');
-  const b = entrees(e.bas());
+  const f = e.racine.kids.find((x): x is Noeud => estNoeud(x) && classes(x).includes('feuille'));
+  assert.ok(f, 'la feuille « Plus »');
+  const b = [...entrees(e.bas()), ...entrees(f)].filter((x) => !classes(x).includes('plus'));
   assert.equal(b.length, 7);
-  for (const x of b) { assert.equal(texte(x), '', 'aucun mot écrit'); assert.ok(SEPT.includes(x.attrs['aria-label'])); }
+  for (const x of b) { assert.equal(texte(x), x.attrs['aria-label'], 'le nom écrit'); assert.ok(SEPT.includes(x.attrs['aria-label'])); }
+  assert.deepEqual(b.map((x) => x.attrs['aria-label']).sort(), [...SEPT].sort());
 });
 
 test('feuille de style, comme la maquette : cachée sur le côté, au-dessus du contenu avec une ombre une fois ouverte ; tablette épinglée en icônes seules ; ni barre ni poignée au téléphone ; pas de glissement si l\'appareil demande moins d\'animations', () => {
