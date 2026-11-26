@@ -12,7 +12,9 @@ import type { View } from '../types.ts';
  * qui part aujourd'hui (automatisations.ts). Puis la santé de la machine d'Odin et de ses disques (sante.ts). Puis son
  * stockage : volumes, partages, disques, lus par Pyramide (stockage.ts).
  */
-export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes' | 'applis' | 'automatisations' | 'sante' | 'stockage';
+export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes' | 'applis' | 'automatisations' | 'sante' | 'stockage'
+  // les appareils du réseau, lus dans le registre d'Odin, et le débit lu par Ariane (reseau.ts)
+  | 'reseau';
 /**
  * Qui peut recevoir un widget de cette sorte, au plus (constat M12, trois niveaux) :
  * - `proprietaire` : lui seul (le défaut, quand rien n'est écrit) ;
@@ -149,6 +151,25 @@ export interface SourceWidget {
    * là, ou ne répond pas. Absente : pas lue.
    */
   appareilsMaison?(): Promise<{ unites: 'metrique' | 'imperial'; appareils: readonly AppareilVu[] } | undefined>;
+  /**
+   * Les scènes que Midgard garde (src/valhalla/modules/midgard.ts, homeScenes), dans leur ordre : le nom de chacune, le
+   * nombre de ses étapes, et si elle ouvre la maison (sceneRisk : la règle qui demande son accord pour la lancer). Ni ses
+   * étapes, ni un identifiant d'appareil. Rien (undefined) : Midgard n'est pas là. Absente : pas lue.
+   */
+  scenesMaison?(): ReadonlyArray<{ nom: string; etapes: number; ouvre: boolean }> | undefined;
+  /**
+   * Les appareils du réseau tels que le registre d'Odin les connaît (src/hlidskjalf/inventory.ts, sans les retirés), lus
+   * par le branchement de reseau.ts : le nom lisible (deviceLabel), l'adresse, en ligne ou non au dernier balayage,
+   * sa dernière nouvelle (ms) ; `at` : l'heure du dernier balayage. Jamais un balayage lancé par cette lecture. Rien
+   * (undefined) : le registre n'est pas branché. Absente : pas lue.
+   */
+  appareilsReseau?(): { at?: number; appareils: ReadonlyArray<{ nom: string; ip: string; enLigne: boolean; vuA?: number }> } | undefined;
+  /**
+   * Le débit qu'Ariane mesure en lisant les paquets (src/valhalla/ran.ts, throughput) : reçu (d'Internet vers la maison) et
+   * envoyé, en octets par seconde, et l'heure de la mesure. Rien (undefined) : Ariane n'est pas là, est en pause ou ne lit
+   * pas les paquets. Absente : pas lue.
+   */
+  debitReseau?(): { recu: number; envoye: number; at: number } | undefined;
 }
 
 /**
@@ -158,7 +179,9 @@ export interface SourceWidget {
  * hors ligne ; `vuA` : sa dernière nouvelle (ms). Absents : on ne le sait pas. `liens` : ce qui relie un capteur au
  * module qui le porte (ses sujets d'état, le module Tasmota) : une prise et sa puissance en partagent un (jamais montrés).
  */
-export interface AppareilVu { ids: string; piece: string; sorte: string; etat: string; unite: string; marche: string; arret: string; enLigne?: boolean; vuA?: number; liens?: readonly string[] }
+export interface AppareilVu { ids: string; piece: string; sorte: string; etat: string; unite: string; marche: string; arret: string; enLigne?: boolean; vuA?: number; liens?: readonly string[];
+  /** Pour les widgets d'un appareil (maison-appareils.ts) : son identifiant et son nom, tels que l'écran de la maison les reçoit (etat.rooms), et faux s'il ne reçoit aucun ordre (un capteur). */
+  id?: string; nom?: string; commandable?: boolean }
 
 /** Une suite de relevés d'une mesure : [instant (ms), valeur]. */
 export type Releves = ReadonlyArray<readonly [number, number]>;

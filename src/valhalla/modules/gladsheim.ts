@@ -312,7 +312,7 @@ export type WidgetKind = IdSortePosable;
  * sur 4 et `pr` lignes (absentes : l'écran choisit). `w` (1, 2 ou 3 colonnes) est l'ancienne largeur, toujours rendue
  * pour l'écran d'aujourd'hui : elle se déduit de `c` (1 à 4 → 1, 5 à 8 → 2, 9 à 12 → 3).
  */
-export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number; r: number; pc?: number; pr?: number; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string>; style?: string; /** « Quand je touche le widget » (lot 25b) ; absent : ouvrir son appli. */ toucher?: Toucher }
+export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; c: number; r: number; pc?: number; pr?: number; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string>; style?: string; /** « Quand je touche le widget » (lot 25b) ; absent : ouvrir son appli. */ toucher?: Toucher; /** L'appareil, la pièce ou le capteur choisi (« appareil:<id> », « piece:<nom> ») : famille « maison », nettoyé par sa sorte. */ cible?: string }
 /**
  * Une page de la fenêtre. `code` : une page rangée sous un code (« aujourdhui », lot 26) ; son nom n'est alors pas dans
  * la donnée (vide), l'interface l'écrit dans sa langue — sauf si le propriétaire l'a renommée. Elle peut être marquée

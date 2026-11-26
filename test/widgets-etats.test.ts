@@ -160,12 +160,19 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       // « Stockage » : Pyramide ne lit pas les disques sous Windows (« source_absente ») ; sur Linux ou Mac, elle lit la
       // vraie machine d'Odin (lsblk, df), dont les chiffres sont vrais dès la première lecture
       stockage: W('stockage'),
+      // « Réseau » : le registre d'un Odin neuf ne connaît aucun appareil (« vide »), ou n'est pas branché dans cet essai
+      // (« source_absente ») ; jamais un compte, ni un débit
+      reseau: W('reseau'),
       // la famille « sante » : sur la machine de l'essai, Hygie n'a rien rangé et Tirésias n'a rien lu (ou ne lit pas sous
       // Windows) : « vide » ou « source_absente », jamais un chiffre
       sante_machine: W('sante_machine'), sante_disques: W('sante_disques'),
       // les petits chiffres de la maison : un Odin neuf n'a aucun appareil (« vide »), jamais un 0 à la place d'une absence
       maison_allumes: W('maison_allumes'), maison_lumieres: W('maison_lumieres'), maison_serrures: W('maison_serrures'),
       maison_temperature: W('maison_temperature'), maison_humidite: W('maison_humidite'), maison_watts: W('maison_watts'),
+      // les appareils de la maison : aucun appareil choisi (« vide »), ou aucun appareil sur un Odin neuf (« vide »)
+      maison_appareil: W('maison_appareil'), maison_lumiere: W('maison_lumiere'), maison_capteur: W('maison_capteur'), maison_pieces: W('maison_pieces'),
+      // la maison d'un coup d'œil : un Odin neuf n'a ni scène ni appareil (« vide »), jamais un 0 à la place d'une absence
+      maison_scenes: W('maison_scenes'), maison_bandeau: W('maison_bandeau'), ma_maison: W('ma_maison'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);

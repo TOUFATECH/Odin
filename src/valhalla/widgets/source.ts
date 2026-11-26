@@ -19,7 +19,10 @@ import { PROPRIETAIRE } from '../snotra/partout.ts';
 import { DEFAULT_LIMITS } from '../eir/collect.ts';
 import { lireDernier } from '../durinn/suivi.ts';
 import { posteDe } from '../postes.ts';
-import { homeDevices } from '../modules/midgard.ts';
+import { homeDevices, homeScenes, sceneRisk } from '../modules/midgard.ts';
+import { isIP } from 'node:net';
+import { NETWORK, isPaused, state as etatAriane, throughput } from '../ran.ts';
+import { appareilsReseauBranches, reseauEntierLu } from './reseau.ts';
 
 const s = (v: unknown) => String(v ?? '');
 
@@ -132,8 +135,29 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
         const cles = [d.id, d.valueKey, ...(Array.isArray(d.valueKeys) ? d.valueKeys : [])].map(s).filter(Boolean).join(' ');
         // Ce qui relie une prise à sa mesure : un même sujet d'état, ou un même module Tasmota (l'adresse de son identifiant).
         const tasmota = /^tasmota_([0-9a-f]+)_/i.exec(s(d.id))?.[1], liens = [d.stateTopic, ...(Array.isArray(d.stateTopics) ? d.stateTopics : [])].map(s).filter(Boolean).map((x) => `sujet:${x}`).concat(tasmota ? [`tasmota:${tasmota.toLowerCase()}`] : []);
-        return { ids: cles, piece: s(d.room), sorte: s(d.kind), etat: s(d.state), unite: s(d.unit), marche: s(d.on), arret: s(d.off), ...(typeof d.online === 'boolean' ? { enLigne: d.online } : {}), ...(Number.isFinite(vu) ? { vuA: vu } : {}), ...(liens.length ? { liens } : {}) };
+        return { ids: cles, piece: s(d.room), sorte: s(d.kind), etat: s(d.state), unite: s(d.unit), marche: s(d.on), arret: s(d.off), ...(typeof d.online === 'boolean' ? { enLigne: d.online } : {}), ...(Number.isFinite(vu) ? { vuA: vu } : {}), ...(liens.length ? { liens } : {}),
+          // (les widgets d'un appareil : son identifiant et son nom, comme etat.rooms ; reçoit-il des ordres ?)
+          id: s(d.id), nom: s(d.name), commandable: Boolean(d.commandTopic) };
       }) })).catch(() => undefined)
       : Promise.resolve(undefined))),
+    // Les scènes de Midgard : le nom, le nombre d'étapes, et si elle ouvre la maison, jugé sur la scène que la route
+    // lancerait pour ce nom (la première au même nom, sans tenir compte des majuscules : midgard.ts, runScene).
+    scenesMaison: () => {
+      if (!appli('midgard')) return undefined;
+      const liste = homeScenes(v.ctx('midgard')), lancee = (nom: string) => liste.find((x) => s(x.name).toLowerCase() === nom.toLowerCase());
+      return liste.map((x) => ({ nom: s(x.name), etapes: Array.isArray(x.steps) ? x.steps.length : 0, ouvre: Boolean(sceneRisk(lancee(s(x.name)))) }));
+    },
+    // Les appareils du réseau : le registre d'Odin, par le branchement posé dans allModules (reseau.ts). Aucun balayage.
+    appareilsReseau: () => appareilsReseauBranches()?.(),
+    // Le débit d'Ariane, seulement si elle est là, activée, pas en pause, et qu'elle lit vraiment TOUT le réseau (un
+    // point de capture en marche, aucune machine lue en plus : reseauEntierLu) : la dernière tranche complète de 10 s,
+    // comme sa courbe « Débit en direct ». Une seule machine suivie, ou rien de lu : rien.
+    debitReseau: () => {
+      if (!appli('ran') || isPaused()) return undefined;
+      const ctx = v.ctx('ran'), suivis = (Array.isArray(ctx.settings.record) ? ctx.settings.record : []).map(s).filter((x) => isIP(x) || x === NETWORK);
+      if (!reseauEntierLu(suivis, NETWORK, (sc) => etatAriane(sc).sources.some((x) => x.on))) return undefined;
+      const pas = 10_000, fin = Math.floor(maintenant() / pas) * pas, [b] = throughput(ctx.home, { since: fin - pas, bucketMs: pas, until: fin });
+      return b ? { recu: b.entrant / (pas / 1000), envoye: b.sortant / (pas / 1000), at: fin } : undefined;
+    },
   };
 }

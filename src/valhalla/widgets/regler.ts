@@ -105,9 +105,16 @@ export function retraitRefuse(avant: Layout | undefined, apres: Layout): string 
 /**
  * La fenêtre servie à un autre que le propriétaire : « Quand je touche » n'y reste que sur les widgets que `garde`
  * permet. Pour les autres, ni l'adresse, ni l'action, ni ses réglages ne sont servis (le widget reste à sa place, et
- * ouvre son appli comme avant). La fenêtre gardée n'est pas touchée. Pur.
+ * ouvre son appli comme avant). Ce qu'un widget de la maison montre (`cible` : un identifiant d'appareil, un nom de
+ * pièce, choisi dans « Régler ») n'est jamais servi : ni à un membre, ni à personne d'autre que le propriétaire, même
+ * sur un widget qu'il voit (l'écran de la maison ne lui donne aucun appareil). La fenêtre gardée n'est pas touchée. Pur.
  */
 export function toucherServi<L extends Layout>(l: L, garde: (w: Widget) => boolean): L {
-  const sans = (w: Widget): Widget => { if (!w.toucher) return w; let oui = false; try { oui = garde(w); } catch { oui = false; } if (oui) return w; const reste = { ...w }; delete reste.toucher; return reste; };
+  const sans = (w: Widget): Widget => {
+    if (!w.toucher && !Object.hasOwn(w, 'cible')) return w;
+    const reste = { ...w }; delete reste.cible;
+    if (!reste.toucher) return reste;
+    let oui = false; try { oui = garde(w); } catch { oui = false; } if (!oui) delete reste.toucher; return reste;
+  };
   return { ...l, pages: l.pages.map((p) => ({ ...p, widgets: p.widgets.map(sans) })) };
 }

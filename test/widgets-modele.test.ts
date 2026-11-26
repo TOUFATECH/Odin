@@ -167,10 +167,16 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     'automatisations', 'taches_planifiees',
     // puis « Stockage » : les volumes, partages et disques de la machine d'Odin, lus par Pyramide (famille « stockage »)
     'stockage',
+    // puis « Réseau » : les appareils du réseau, lus dans le registre d'Odin, et le débit d'Ariane (famille « reseau », propriétaire seul)
+    'reseau',
     // puis « Santé » : la santé de la machine d'Odin (Hygie) et de ses disques (Tirésias), à qui a le droit sur l'appli lue
     'sante_machine', 'sante_disques',
     // puis les six petits chiffres de la maison (famille « maison ») : allumés, lumières, serrures, température, humidité, watts des prises
-    'maison_allumes', 'maison_lumieres', 'maison_serrures', 'maison_temperature', 'maison_humidite', 'maison_watts'].sort());
+    'maison_allumes', 'maison_lumieres', 'maison_serrures', 'maison_temperature', 'maison_humidite', 'maison_watts',
+    // puis les appareils de la maison (famille « maison », son propre fichier) : un appareil, une lumière, un capteur, les pièces
+    'maison_appareil', 'maison_lumiere', 'maison_capteur', 'maison_pieces',
+    // puis la maison d'un coup d'œil (famille « maison », son propre fichier) : ses scènes, le bandeau d'état, « Ma maison »
+    'maison_scenes', 'maison_bandeau', 'ma_maison'].sort());
   assert.deepEqual(TAILLE_SORTE, {
     heure_petite: { mini: [2, 1], r: 1 }, meteo_petite: { mini: [2, 1], r: 1 }, alertes: { mini: [2, 1], r: 1 }, // les petits chiffres « Infos » de la maquette
     alertes_liste: { mini: [3, 2], r: 3 }, sites: { mini: [3, 2], r: 5 }, sites_petit: { mini: [2, 1], r: 1 }, // la famille « veille »
@@ -180,10 +186,16 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     raccourcis: { mini: [3, 2], r: 2 }, // ses raccourcis d'applis épinglées (famille « applis »)
     automatisations: { mini: [4, 2], r: 3 }, taches_planifiees: { mini: [3, 2], r: 3 }, // la famille « automatisations »
     stockage: { mini: [3, 2], r: 4 }, // la famille « stockage » (la maquette : 5 × 4, 3 × 2 au moins)
+    reseau: { mini: [3, 2], r: 4 }, // la famille « reseau » (la maquette : 4 × 4, 3 × 2 au moins)
     sante_machine: { mini: [3, 2], r: 2 }, sante_disques: { mini: [3, 2], r: 4 }, // la famille « sante » (la maquette : 4 × 2 et 3 × 4)
     // les petits chiffres de la maison (famille « maison », la maquette : 2 × 1)
     maison_allumes: { mini: [2, 1], r: 1 }, maison_lumieres: { mini: [2, 1], r: 1 }, maison_serrures: { mini: [2, 1], r: 1 },
     maison_temperature: { mini: [2, 1], r: 1 }, maison_humidite: { mini: [2, 1], r: 1 }, maison_watts: { mini: [2, 1], r: 1 },
+    // les appareils de la maison (la maquette : la tuile 3 × 1 et la lumière 2 × 1 au plus petit ; ici 3 × 2, pour que
+    // toutes les commandes d'un appareil tiennent ; le capteur 3 × 2 ; les pièces 3 × 4, 3 × 3 au plus petit)
+    maison_appareil: { mini: [3, 2], r: 2 }, maison_lumiere: { mini: [3, 2], r: 2 }, maison_capteur: { mini: [3, 2], r: 2 }, maison_pieces: { mini: [3, 3], r: 4 },
+    // la maison d'un coup d'œil (la maquette : Scènes 4 × 3, Bandeau 12 × 1, Ma maison 6 × 4)
+    maison_scenes: { mini: [3, 2], r: 3 }, maison_bandeau: { mini: [4, 1], r: 1 }, ma_maison: { mini: [4, 3], r: 4 },
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
     a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },

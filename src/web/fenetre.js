@@ -1064,6 +1064,34 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       fAppli = el('select', { id: 'wrRApp' }, ...opts);
       corps.push(R.champ(TXT.appliMontree, fAppli.id, fAppli));
     }
+    // Ce que montre un widget de la maison (un appareil, une lumière, un capteur ; la pièce ou le capteur d'une mesure) :
+    // la liste que le serveur rend au propriétaire seul avec l'état de CE widget, mise en mots par sa famille
+    // (pages/widgets-maison-appareils.js : un nom et une pièce, jamais un identifiant). Le choix d'avant reste dans la
+    // liste, même retiré d'Odin (sous un mot neutre). Sans liste (pas encore rangé) : la phrase dit quoi faire.
+    const sCh = etats?.get(w.id), champ = window.OdinWidgetsMaisonAppareils?.champChoix?.(w, sCh && sCh.sig === sigDe(w) ? sCh.e : undefined) ?? null;
+    let fCible = null; const cible0 = champ ? champ.depart : '';
+    if (champ) {
+      const groupes = new Map(), libres = [];
+      for (const o of champ.options) {
+        const n = el('option', { value: o.v, selected: o.v === cible0 ? true : undefined }, o.texte);
+        if (!o.groupe) { libres.push(n); continue; }
+        if (!groupes.has(o.groupe)) groupes.set(o.groupe, el('optgroup', { label: o.groupe }));
+        groupes.get(o.groupe).append(n);
+      }
+      fCible = el('select', { id: 'wrRCi', disabled: champ.sansListe }, ...libres, ...groupes.values());
+      corps.push(R.champ(champ.libelle, fCible.id, fCible, champ.aide ? el('p', { class: 'wr-aide' }, champ.aide) : null));
+    }
+    // Le titre proposé suit le choix (le nom de l'appareil, la pièce) : laissé vide, c'est lui qui est gardé. Un titre
+    // qui n'est que la proposition de l'ancien choix laisse la place au nouveau ; l'en-tête de la fenêtre suit aussi.
+    const titreBase = titreDe({ ...w, label: undefined });
+    let titreAuto = champ && !champ.sansListe ? champ.titre(cible0) : '';
+    if (titreAuto) fTitre.placeholder = titreAuto;
+    fCible?.addEventListener('change', () => {
+      const neuf = champ.titre(fCible.value);
+      if (titreAuto && fTitre.value.trim() === titreAuto) fTitre.value = '';
+      titreAuto = neuf; fTitre.placeholder = neuf || titreBase;
+      const h = f && document.getElementById(f.d.getAttribute('aria-labelledby')); if (h) h.textContent = T.titre(fTitre.value.trim() || neuf || titreBase);
+    });
     // La taille : les sept tailles toutes faites (celles plus petites que la mini du widget n'y sont pas).
     const now = G.tailleChoisie(w);
     const radios = el('div', { class: 'wr-sizes' }, ...G.taillesPossibles(w.kind).map((x) => el('label', {}, el('input', { type: 'radio', name: 'wrTaille', value: x.nom, checked: x.nom === now ? true : undefined }), TXT.tailles[x.nom] ?? x.nom, el('small', {}, G.etiquette(x)))));
@@ -1132,9 +1160,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       else if (q === 'ecran') t = { quoi: 'ecran', ecran: $('#wrRE', sous)?.value };
       else if (q === 'adresse') t = { quoi: 'adresse', adresse: ($('#wrRU', sous)?.value ?? '').trim() };
       else if (q === 'rien' && w.module) t = { quoi: 'rien' };
-      return { toucher: t, section: fMontre ? fMontre.value : montre0, appli: fAppli ? fAppli.value : appli0 };
+      return { toucher: t, section: fMontre ? fMontre.value : montre0, appli: fAppli ? fAppli.value : appli0, cible: fCible ? fCible.value : cible0 };
     };
-    const sig = (x) => JSON.stringify([x.toucher ?? null, x.section, x.appli]), depart = sig(lire());
+    const sig = (x) => JSON.stringify([x.toucher ?? null, x.section, x.appli, x.cible]), depart = sig(lire());
     // La vie privée : à qui il est ouvert, « Ouvrir à… », et ce qu'un changement refermerait (dit avant de valider).
     const alerte = el('p', { class: 'wr-note wr-att', role: 'status', 'aria-live': 'polite' }), statut = el('p', { class: 'wr-note', role: 'status', 'aria-live': 'polite' }), erreur = el('p', { class: 'wr-note wr-non', role: 'alert' });
     let f = null;
@@ -1148,7 +1176,13 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
       if (x.toucher?.quoi === 'action' && !x.toucher.action) { erreur.textContent = T.aucuneAction; return; }
       const taille = radios.querySelector('input:checked')?.value;
       if (taille && taille !== now && !G.choisir(w, taille)) { erreur.textContent = T.tailleRefusee; return; }
+      // Un titre laissé vide reste vide : le titre proposé par le choix (le nom de l'appareil, la pièce) n'est qu'une aide
+      // du champ et de l'en-tête, jamais rangé (un titre rangé est servi à tous ceux qui voient la fenêtre ; la carte lit
+      // le nom dans son état, servi au propriétaire seul).
       if (w.kind !== 'site') { const v = fTitre.value.trim().slice(0, 40); if (v) w.label = v; else delete w.label; }
+      // Un autre choix de ce que montre un widget de la maison (seulement parmi la liste du serveur) : l'état lu pour
+      // l'ancien n'est plus le sien, la carte attend « Terminé » (jamais l'ancien appareil sous le nouveau titre).
+      if (fCible && !champ.sansListe && x.cible !== cible0) { if (x.cible) w.cible = x.cible; else delete w.cible; etats?.delete(w.id); }
       // Une autre appli : la liste des actions est déjà la sienne ; une action qui n'y serait pas n'est jamais gardée.
       if (fAppli && x.appli && x.appli !== appli0) { w.module = x.appli; if (x.toucher?.quoi === 'action' && !actions.some((a) => a.id === x.toucher.action)) x.toucher = undefined; }
       if (fMontre && x.section !== montre0) { if (x.section) { w.kind = 'section'; w.section = x.section; } else { w.kind = 'chiffres'; delete w.section; } }

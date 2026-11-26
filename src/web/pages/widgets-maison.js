@@ -46,6 +46,11 @@
       lue: (age) => `lue ${age}`,
       muettes: 'Plus de nouvelles.',
       muettesDit: 'Aucune mesure récente : les appareils ne donnent plus de nouvelles.',
+      // Le capteur ou la pièce choisis dans « Régler », qui ne désignent plus rien (retirés d'Odin).
+      parti: 'Cet appareil n\'existe plus.',
+      partiDit: 'Le capteur choisi pour ce widget n\'existe plus.',
+      partie: 'Cette pièce n\'a plus d\'appareil.',
+      partieDit: 'La pièce choisie pour ce widget n\'a plus d\'appareil.',
     },
     ouvrir: 'Ajouter un appareil',
   };
@@ -133,7 +138,8 @@ a.wmc:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:
   const surQ = (n, sur, lg) => [nombre(n, lg), el('small', '', ` / ${nombre(sur, lg)}`)];
   /** L'état « vide » que la famille dit elle-même : une phrase ; sur l'accueil, la carte mène à l'appli des appareils. */
   function videDe(e, o, k, icn) {
-    const muettes = e.raison === 'mesures_muettes', phrase = muettes ? T.mesure.muettes : T[k].vide, entiere = muettes ? T.mesure.muettesDit : T[k].videDit;
+    const muettes = e.raison === 'mesures_muettes', parti = e.raison === 'appareil_absent' ? 'parti' : e.raison === 'piece_absente' ? 'partie' : '';
+    const phrase = muettes ? T.mesure.muettes : parti ? T.mesure[parti] : T[k].vide, entiere = muettes ? T.mesure.muettesDit : parti ? T.mesure[`${parti}Dit`] : T[k].videDit;
     const lien = o && o.ecran === 'maison' ? '' : '#app=midgard';
     return chiffre({ icone: icn, ton: 'muet', phrase, lien, dit: lien ? `${entiere} ${T.ouvrir}.` : entiere });
   }
@@ -175,7 +181,7 @@ a.wmc:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:
   window.OdinWidgetsMaison = { TEXTES, CSS, nombre };
   // La déclaration de la famille (lue par pages/widgets-rendu.js, quel que soit l'ordre de chargement). La taille de la
   // maquette : 2 × 1 (une ligne au téléphone aussi). L'appli lue : Midgard (celle de la maison).
-  const PETIT = { c: 2, r: 1, pr: 1 }, VIDES = ['aucun_appareil', 'mesures_muettes'];
+  const PETIT = { c: 2, r: 1, pr: 1 }, VIDES = ['aucun_appareil', 'mesures_muettes', 'appareil_absent', 'piece_absente'];
   const sorte = (s, k, symbole, icn, dessiner) => ({ sorte: s, titre: T[k].titre, nom: T[k].nom, quoi: T[k].quoi, symbole, appli: 'midgard', petit: true, poser: PETIT, vides: VIDES, dessiner: dessiner(k, icn) });
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'maison', sortes: [
     sorte('maison_allumes', 'allumes', '⏻', 'prise', compte),

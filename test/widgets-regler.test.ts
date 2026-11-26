@@ -19,7 +19,7 @@ import { allModules, valhallaOf } from '../src/valhalla/odin.ts';
 import { lierProprietaire, persona, personnes } from '../src/valhalla/sso/etat.ts';
 import { SORTES, copiable, droitDeVoir, sorteDe } from '../src/valhalla/widgets/index.ts';
 import { ouverturesDe } from '../src/valhalla/widgets/ouvertures.ts';
-import { ADRESSE_MAX, ECRANS_TOUCHER, adresseNette, adressesRefusees, retraitRefuse } from '../src/valhalla/widgets/regler.ts';
+import { ADRESSE_MAX, ECRANS_TOUCHER, adresseNette, adressesRefusees, retraitRefuse, toucherServi } from '../src/valhalla/widgets/regler.ts';
 import { boutonMaison, lecteurMaison } from '../src/web/widgets-api.ts';
 import { T as Banc } from './banc/lib.ts';
 import { vraiOdin, type VraiOdin } from './banc/odin-vrai.ts';
@@ -404,6 +404,42 @@ test('relecture : un membre ne reçoit « Quand je touche » que d\'un widget qu
     assert.ok(!(await lue(membre)).texte.includes(SECRET));
     // La fenêtre gardée n'a pas changé : seul ce qui est servi au membre est réduit.
     assert.equal(widgetDe(await rangee(), 'a0000011').toucher?.quoi, 'action');
+  } finally { assert.equal((await ranger(FENETRE())).ok, true); }
+});
+
+test('« Régler », le choix d\'un widget de la maison (l\'appareil, la pièce, le capteur) : servi au propriétaire seul ; une cible piégée est refusée à l\'enregistrement', async () => {
+  // La règle pure : la fenêtre servie à un autre que le propriétaire n'a jamais de cible, même sur un widget qu'il voit.
+  const l = { pages: [{ id: 'b0000009', name: 'P', widgets: [{ id: 'a0000039', kind: 'maison_lumiere', w: 1, c: 3, r: 2, cible: 'appareil:x', toucher: { quoi: 'rien' } }] }] } as unknown as Layout;
+  for (const garde of [() => true, () => false, () => { throw new Error('x'); }]) {
+    const w = toucherServi(l, garde).pages[0].widgets[0];
+    assert.equal('cible' in w, false, 'aucune cible servie'); assert.equal(w.kind, 'maison_lumiere', 'le widget reste');
+  }
+  assert.equal(l.pages[0].widgets[0].cible, 'appareil:x', 'la fenêtre gardée n\'est pas touchée');
+  // Un vrai Odin : la fenêtre rangée avec des cibles, dont deux piégées.
+  const MOT = 'CIBLE-ESSAI-38B', f = FENETRE();
+  f.pages[1].widgets.push(...[
+    { id: 'a0000031', kind: 'maison_lumiere', w: 1, c: 3, r: 2, cible: `appareil:${MOT}-lampe` },
+    { id: 'a0000032', kind: 'maison_temperature', w: 1, c: 2, r: 1, cible: `piece:${MOT}-salon` },
+    { id: 'a0000033', kind: 'maison_lumiere', w: 1, c: 3, r: 2, cible: 'appareil:__proto__' },
+    { id: 'a0000034', kind: 'maison_capteur', w: 1, c: 3, r: 2, cible: `appareil:${'x'.repeat(10_000)}` },
+  ] as never[]);
+  f.pages[0].widgets.push({ id: 'a0000035', kind: 'maison_lumiere', w: 1, c: 3, r: 2, cible: `appareil:${MOT}-mur` } as never);
+  assert.equal((await ranger(f)).ok, true, 'une cible piégée ne fait pas échouer le rangement');
+  try {
+    const moi = await rangee();
+    assert.equal(widgetDe(moi, 'a0000031').cible, `appareil:${MOT}-lampe`); assert.equal(widgetDe(moi, 'a0000032').cible, `piece:${MOT}-salon`);
+    for (const id of ['a0000033', 'a0000034']) { assert.ok(widgetDe(moi, id), `${id} reste`); assert.equal(widgetDe(moi, id).cible, undefined, `${id} : cible refusée`); }
+    // Personne d'autre ne la reçoit par la fenêtre : ni un membre (avec le droit sur Midgard), ni une tablette, ni une clé
+    // « complet », ni sans session ; ni par l'écran de la maison.
+    const fenetre = async (h: Record<string, string>) => { const r = await v.json('/api/valhalla/act', { module: 'gladsheim', action: 'fenetre', input: {} }, h); return { status: r.status, texte: JSON.stringify(r.body) }; };
+    const m = await fenetre({ cookie: membre });
+    assert.equal(m.status, 200); assert.ok(m.texte.includes('a0000031'), 'le membre voit le widget à sa place'); assert.ok(!m.texte.includes(MOT), 'mais pas sa cible');
+    for (const [qui, h] of [['tablette', { cookie: '', 'x-odin-maison': cleMaison }], ['clé « complet »', { cookie: '', 'x-odin-maison': cleComplet }], ['sans session', { cookie: '' }]] as const) {
+      const r = await fenetre(h); assert.ok(!r.texte.includes(MOT), `${qui} (${r.status}) : aucune cible`);
+    }
+    for (const [qui, h] of [['tablette', { cookie: '', 'x-odin-maison': cleMaison }], ['clé « complet »', { cookie: '', 'x-odin-maison': cleComplet }], ['membre', { cookie: membre }], ['sans session', { cookie: '' }]] as const) {
+      const r = await v.json('/api/maison/etat', undefined, h); assert.ok(!JSON.stringify(r.body).includes(MOT), `écran de la maison, ${qui} : aucune cible`);
+    }
   } finally { assert.equal((await ranger(FENETRE())).ok, true); }
 });
 

@@ -32,7 +32,17 @@ const LUI: Lecteur = { qui: 'proprietaire', ecran: 'accueil' }, LUI_MAISON: Lect
 const membre = (droits: string[]): Lecteur => ({ qui: 'membre', ecran: 'accueil', peutLire: (a) => droits.includes(a), ouverts: new Set() });
 const MAINT = 1_800_000_000_000, MIN = 60_000, H = 3_600_000;
 type Etat = EtatWidget & { raison?: string; donnee?: Record<string, any>; at?: number; appli?: string };
-const etat = async (w: Widget, l: Lecteur, src: SourceWidget) => (await donneeWidget(w, l, src)) as Etat;
+/**
+ * L'état d'un widget. Le propriétaire sur l'accueil reçoit en plus, pour « Température » et « Humidité », la liste des
+ * choix de « Régler » (vérifiée à part : « la liste des choix », plus bas) ; ici, elle n'est admise que là, puis retirée
+ * pour comparer l'état lui-même.
+ */
+const etat = async (w: Widget, l: Lecteur, src: SourceWidget): Promise<Etat> => {
+  const e = (await donneeWidget(w, l, src)) as Etat & { choix?: unknown };
+  if (!('choix' in e)) return e;
+  assert.ok(l.qui === 'proprietaire' && l.ecran === 'accueil' && ['maison_temperature', 'maison_humidite'].includes(w.kind) && Array.isArray(e.choix), `liste des choix servie à ${l.qui} sur ${l.ecran} pour ${w.kind}`);
+  const { choix: _c, ...reste } = e; return reste as Etat;
+};
 
 /** Un appareil tel que la source le rend (ce que l'écran de la maison reçoit, plus son état en ligne et sa dernière nouvelle). */
 type Ap = { ids: string; piece: string; sorte: string; etat: string; unite: string; marche: string; arret: string; enLigne?: boolean; vuA?: number; liens?: string[] };
@@ -154,6 +164,27 @@ test('qui voit quoi : lui et une tablette « maison » oui ; un membre jamais (m
   }
 });
 
+test('« Température » et « Humidité », la liste des choix de « Régler » : les pièces et les capteurs de CETTE mesure, au propriétaire sur l\'accueil seul ; une pièce choisie n\'est plus la moyenne', async () => {
+  type AvecChoix = { etat: string; donnee?: Record<string, unknown>; choix?: Array<Record<string, unknown>> };
+  const a = (id: string, piece: string, etatLu: string, unite: string, ids: string, o: Partial<Ap> = {}) => ({ ...ap('capteur', etatLu, { unite, ids, piece, ...o }), id, nom: `Sonde ${id}` });
+  const jeu = [a('t1', 'Salon', '21.5', '°C', 'zb_salon_temperature'), a('t2', 'Chambre', '19.5', '°C', 'zb_chambre_temperature'), a('t3', 'Chambre', '30', '°C', 'zb_vieux_temperature', { enLigne: false }),
+    a('puce', 'Salon', '47', '°C', 'tasmota_0C_ESP32_Temperature ESP32.Temperature'), a('h1', 'Salon', '40', '%', 'zb_salon_humidity'), a('b1', 'Salon', '90', '%', 'zb_salon_battery'),
+    { ...ap('lumière', 'ON', { piece: 'Bureau' }), id: 'l1', nom: 'Lampe' }];
+  const src = fausse(jeu as Ap[]), brut = async (k: string, l: Lecteur, cible?: string) => (await donneeWidget(W(k, cible ? { cible } : {}), l, src)) as unknown as AvecChoix;
+  const t = await brut('maison_temperature', LUI);
+  assert.deepEqual(t.choix, [{ cible: 'piece:Salon', nom: 'Salon' }, { cible: 'piece:Chambre', nom: 'Chambre' },
+    { cible: 'appareil:t1', nom: 'Sonde t1', piece: 'Salon', sorte: 'capteur' }, { cible: 'appareil:t2', nom: 'Sonde t2', piece: 'Chambre', sorte: 'capteur' }, { cible: 'appareil:t3', nom: 'Sonde t3', piece: 'Chambre', sorte: 'capteur', horsLigne: true }],
+  'les pièces qui ont un capteur de température, puis ces capteurs (hors ligne compris et dit) ; ni la puce d\'un module, ni une lumière, ni une humidité');
+  assert.deepEqual((await brut('maison_humidite', LUI)).choix, [{ cible: 'piece:Salon', nom: 'Salon' }, { cible: 'appareil:h1', nom: 'Sonde h1', piece: 'Salon', sorte: 'capteur' }], 'humidité : jamais le niveau d\'une pile');
+  // Le chiffre suit le choix : la moyenne de tous, puis la pièce, puis un capteur.
+  assert.deepEqual([t.donnee!.valeur, t.donnee!.n], [20.5, 2]);
+  assert.deepEqual([(await brut('maison_temperature', LUI, 'piece:Salon')).donnee!.valeur, (await brut('maison_temperature', LUI, 'piece:Chambre')).donnee!.valeur, (await brut('maison_temperature', LUI, 'appareil:t2')).donnee!.valeur], [21.5, 19.5, 19.5]);
+  assert.ok((await brut('maison_temperature', LUI, 'piece:Salon')).choix!.length === 5, 'choisi : la liste reste, pour changer');
+  // À personne d'autre ; et jamais pour les autres petits chiffres.
+  for (const k of ['maison_temperature', 'maison_humidite']) for (const l of [LUI_MAISON, TABLETTE, membre(['midgard', 'gladsheim'])]) assert.ok(!('choix' in await brut(k, l)), `${k} : ${l.qui} sur ${l.ecran}`);
+  for (const k of ['maison_allumes', 'maison_lumieres', 'maison_serrures', 'maison_watts']) assert.ok(!('choix' in await brut(k, LUI)), k);
+});
+
 // ------------------------------------------------------------------ la page, sans navigateur
 
 test('la page : la famille se déclare (six petits chiffres, Midgard, 2 × 1) ; la grille connaît leurs tailles ; les mots', () => {
@@ -167,6 +198,9 @@ test('la page : la famille se déclare (six petits chiffres, Midgard, 2 × 1) ; 
     assert.deepEqual([[...G.MINI[k]], G.HAUTEUR[k]], [[...sorteDe(k)!.taille.mini], sorteDe(k)!.taille.r], `${k} : les tables de la grille suivent le serveur`);
     assert.ok(x.vides.includes('aucun_appareil'), `${k} dessine lui-même « aucun appareil »`);
   }
+  // Le capteur ou la pièce choisis dans « Régler », retirés d'Odin : la carte le dit elle-même, jamais « aucun capteur ».
+  for (const k of ['maison_temperature', 'maison_humidite']) for (const r of ['appareil_absent', 'piece_absente']) assert.ok(R.rendu(k).vides.includes(r), `${k} : ${r}`);
+  assert.match(M.TEXTES.mesure.parti, /n'existe plus/); assert.match(M.TEXTES.mesure.partie, /pièce/);
   assert.deepEqual(ici(R.posables({ proprio: true, aDroit: () => true }).filter((x: any) => x.famille === 'maison' && x.sorte !== 'bouton').map((x: any) => x.nom)),
     ['Appareils allumés', 'Lumières allumées', 'Serrures', 'Température', 'Humidité', 'Watts des prises']);
   // Les mots : les watts disent qu'ils sont ceux des prises ; une moyenne est dite ; les serrures disent ce qui est compté.
@@ -260,7 +294,12 @@ before(async () => {
 after(async () => { A.appareils.stop!(); delete process.env.MQTT_PASSWORD; await tt.end(); Object.assign(console, orig); });
 
 test('vrai Odin, faux appareils sur le relais : chaque chiffre est le bon ; rien d\'un nom ni d\'une pièce, hors la pièce d\'un capteur seul', async () => {
-  const lui = await donnees();
+  const brut = await donnees();
+  // La liste des choix de « Régler » (« Température », « Humidité ») est au propriétaire seul, à part du chiffre : elle
+  // est vérifiée dans « la liste des choix », plus bas, puis retirée ici pour vérifier que le chiffre ne dit ni nom ni pièce.
+  const sans = JSON.parse(brut.corps) as { widgets: Array<Rendue & { kind: string; choix?: unknown }> };
+  for (const w of sans.widgets) if ('choix' in w) { assert.ok(['maison_temperature', 'maison_humidite'].includes(w.kind), w.kind); delete w.choix; }
+  const lui = { ...brut, corps: JSON.stringify(sans) };
   assert.equal(lui.status, 200);
   const d = (k: keyof typeof ID) => { const e = lui.de(ID[k])!; assert.equal(e.etat, 'ok', `${k} : ${JSON.stringify(e)}`); return e.donnee; };
   // Allumables : 4 lumières et 2 prises. En marche : l1, l3, p1. Sans nouvelles : l4 (hors ligne).

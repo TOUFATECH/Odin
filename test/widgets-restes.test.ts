@@ -117,7 +117,9 @@ test('le tiroir : chaque sorte dit elle-même son groupe, celui de la maquette ;
 
 // ------------------------------------------------------------------ l'écran de la maison, à un seul endroit
 
-const MARQUEES = ['raccourcis', 'alertes_liste', 'sante_disques', 'stockage'];
+const MARQUEES = ['raccourcis', 'alertes_liste', 'sante_disques', 'stockage',
+  // le widget « Réseau » : les noms et les adresses des appareils de sa maison, au propriétaire seul
+  'reseau'];
 /** La règle d'avant, sans la marque : ce qu'elle admettait, pour prouver que la marque ne fait que refuser. */
 const avantMarque = (s: SorteWidget) => !s.accueilSeul && (s.public ?? 'proprietaire') !== 'proprietaire';
 test('l\'écran de la maison : la marque « jamais sur l\'écran de la maison » est lue par la règle unique ; elle ne fait que refuser', () => {
@@ -357,7 +359,8 @@ test('navigateur : le tiroir range comme la maquette — « Raccourcis d\'applis
     // La puce « Odin » montre ce groupe seul.
     await p.click('#feTiroir .fe-chips button[data-f="odin"]');
     const seuls = await p.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-it b')].map((b: any) => b.textContent)) as string[];
-    assert.deepEqual(seuls.sort(), ['Automatisations', 'Raccourcis d\'applis']);
+    // « Réseau » aussi : la maquette le range avec Odin (famille « reseau », marquée groupe « odin »).
+    assert.deepEqual(seuls.sort(), ['Automatisations', 'Raccourcis d\'applis', 'Réseau']);
     assert.deepEqual(erreurs, []);
   } finally { await ctx.close(); }
 });
