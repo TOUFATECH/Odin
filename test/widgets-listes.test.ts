@@ -11,6 +11,10 @@
 //   ces données ne part dans un journal ni dans une notification.
 // - Un titre ou une question piégés (du HTML, un texte très long) restent du texte et ne débordent pas ; la carte ne
 //   s'étire pas avec vingt rendez-vous ; 1280 et 390 px, clair et sombre, et un thème de verre.
+// - Seconde part, « Sauvegardes » (Phénix) et « Pubs bloquées » (Sphinx), au propriétaire seul : la dernière sauvegarde
+//   réussie, ce qui a échoué (ça se voit), la prochaine ; aucune réglée → « vide » ; jamais « tout va bien » sans une
+//   réussite mesurée ; ni nom de plan, ni chemin, ni machine, ni secret. Les comptes de Sphinx pour la journée, sans un
+//   domaine ni un appareil ; Sphinx arrêté ou sans question → « vide », jamais un zéro à la place d'une absence.
 
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -22,6 +26,10 @@ import { TAILLE_SORTE, type Widget } from '../src/valhalla/modules/gladsheim.ts'
 import { allModules, valhallaOf } from '../src/valhalla/odin.ts';
 import { lierProprietaire, persona } from '../src/valhalla/sso/etat.ts';
 import { cleOuverture, donneeWidget, publicDe, sorteDe, type EtatWidget, type Lecteur, type SourceWidget } from '../src/valhalla/widgets/index.ts';
+import { etatSauvegardes } from '../src/valhalla/modules/sindri.ts';
+import { blocagesDuJour } from '../src/valhalla/modules/vidarr.ts';
+import { prochaine } from '../src/draupnir/rythme.ts';
+import type { ModCtx } from '../src/valhalla/types.ts';
 import { T as Banc } from './banc/lib.ts';
 import { vraiOdin, type VraiOdin } from './banc/odin-vrai.ts';
 
@@ -37,16 +45,22 @@ type Rdv = { id: string; titre: string; debut: number; fin: number; attente: boo
 type Rech = { id: string; q: string; at: number };
 
 /** Une fausse source : les rendez-vous de Chronos (null : Chronos absente), les recherches de Pythie (null : absente). */
-function fausse(o: { rdv?: Rdv[] | null; recherches?: Rech[] | null; fuseau?: string; heure12?: boolean } = {}): SourceWidget {
-  const applis: Record<string, { name: string; family: string }> = { frigg: { name: 'Appli agenda', family: 'Données' }, volva: { name: 'Appli recherche', family: 'Données' } };
+function fausse(o: { rdv?: Rdv[] | null; recherches?: Rech[] | null; fuseau?: string; heure12?: boolean; sauvegardes?: Sauv | null; blocages?: Bloc | null } = {}): SourceWidget {
+  const applis: Record<string, { name: string; family: string }> = { frigg: { name: 'Appli agenda', family: 'Données' }, volva: { name: 'Appli recherche', family: 'Données' }, sindri: { name: 'Appli sauvegardes', family: 'Système' }, vidarr: { name: 'Appli DNS', family: 'Réseau' } };
+  const coupee = (id: string) => (id === 'frigg' && o.rdv === null) || (id === 'volva' && o.recherches === null) || (id === 'sindri' && o.sauvegardes === null) || (id === 'vidarr' && o.blocages === null);
   return {
-    appli: (id) => (applis[id] && !(id === 'frigg' && o.rdv === null) && !(id === 'volva' && o.recherches === null) ? { id, ...applis[id] } : undefined),
+    appli: (id) => (applis[id] && !coupee(id) ? { id, ...applis[id] } : undefined),
     vue: async () => null, action: () => undefined, meteo: async () => undefined,
     lieu: () => ({ choisi: true, nom: 'Lieu A', fuseau: o.fuseau ?? 'Asia/Tokyo', heure12: o.heure12 === true }), maintenant: () => MAINT,
     rendezVous: () => (o.rdv === null ? undefined : { fuseau: o.fuseau ?? 'Asia/Tokyo', liste: o.rdv ?? [] }),
     recherches: () => (o.recherches === null ? undefined : o.recherches ?? []),
+    sauvegardes: () => (o.sauvegardes === null ? undefined : { fuseau: o.fuseau ?? 'Asia/Tokyo', ...(o.sauvegardes ?? { plans: 0, echecs: 0, enRetard: 0, sansMesure: 0 }) }),
+    blocages: () => (o.blocages === null ? undefined : { fuseau: o.fuseau ?? 'Asia/Tokyo', ...(o.blocages ?? { allume: true, questions: 0, bloquees: 0, complet: true }) }),
   };
 }
+/** Ce que Phénix rend au widget « Sauvegardes » (etatSauvegardes), et Sphinx aux « Pubs bloquées » (blocagesDuJour), sans le fuseau. */
+type Sauv = { plans: number; derniere?: { at: number; type: string; octets?: number }; echecs: number; echecA?: number; enRetard: number; sansMesure: number; prochaine?: number };
+type Bloc = { allume: boolean; questions: number; bloquees: number; depuis?: number; complet: boolean };
 const rdv = (id: string, h: number, o: Partial<Rdv> = {}): Rdv => ({ id, titre: `Rendez-vous ${id}`, debut: MAINT + h * 3_600_000, fin: MAINT + (h + 1) * 3_600_000, attente: false, ...o });
 
 // ------------------------------------------------------------------ le serveur, sans Odin
@@ -114,8 +128,9 @@ test('la page : la famille se déclare (deux sortes, propriétaire seul, tailles
   const vus = ['agenda', 'recherches'].map((k) => R.rendu(k));
   assert.deepEqual(ici(vus.map((x: any) => [x?.sorte, x?.titre, x?.appli, x?.proprio, x?.vides])), [['agenda', 'Agenda', 'frigg', true, ['aucun_rendez_vous']], ['recherches', 'Recherche', 'volva', true, ['aucune_recherche']]]);
   assert.deepEqual(ici(vus.map((x: any) => [x.w.c, x.w.r])), [[3, 3], [3, 3]]);
-  // Le tiroir : au propriétaire, les deux ; à un membre, aucune (même avec le droit sur les deux applis).
-  assert.deepEqual(ici(R.posables({ proprio: true, aDroit: () => true }).filter((x: any) => x.famille === 'listes').map((x: any) => x.nom)), ['Agenda', 'Recherche']);
+  // Le tiroir : au propriétaire, les deux (puis les deux de la seconde part, les sauvegardes et les pubs bloquées) ; à un
+  // membre, aucune (même avec le droit sur les applis).
+  assert.deepEqual(ici(R.posables({ proprio: true, aDroit: () => true }).filter((x: any) => x.famille === 'listes').map((x: any) => x.nom)), ['Agenda', 'Recherche', 'Sauvegardes', 'Pubs bloquées']);
   assert.deepEqual(ici(R.posables({ proprio: false, aDroit: () => true }).filter((x: any) => x.famille === 'listes')), []);
   for (const k of ['agenda', 'recherches']) assert.deepEqual([[...G.MINI[k]], G.HAUTEUR[k]], [[...sorteDe(k)!.taille.mini], sorteDe(k)!.taille.r], `${k} : les tables de la grille suivent le serveur`);
   // Le texte d'une donnée : jamais par innerHTML (seules les icônes dessinées ici le sont).
@@ -168,12 +183,128 @@ test('la page : la question du champ, coupée à 1000 par caractères entiers (j
   assert.equal(N('x'.repeat(5000)).length, 1000);
 });
 
+// ------------------------------------------------------------------ seconde part : « Sauvegardes » (Phénix) et « Pubs bloquées » (Sphinx)
+
+const SAUV_B = 4_800_000;
+test('sauvegardes et pubs bloquées : famille « listes », tailles de la maquette (4 × 2 et 3 × 2, 3 × 2 au moins), propriétaire seul, posables', () => {
+  for (const [id, applis] of [['sauvegardes', ['sindri']], ['pubs_bloquees', ['vidarr']]] as const) {
+    const s = sorteDe(id);
+    assert.ok(s, `${id} déclarée`); assert.equal(s.famille, 'listes'); assert.equal(s.posable, true); assert.equal(publicDe(s), 'proprietaire', `${id} : propriétaire seul`);
+    assert.deepEqual([[...s.taille.mini], s.taille.r, s.applis], [[3, 2], 2, applis], id);
+    assert.deepEqual((TAILLE_SORTE as Record<string, unknown>)[id], { mini: [3, 2], r: 2 }, `${id} : la taille gardée par Hestia`);
+  }
+});
+
+/** Un contexte de Phénix réduit à ce que lit etatSauvegardes : ses réglages et l'heure. */
+const ctxPhenix = (settings: Record<string, unknown>) => ({ settings, now: () => new Date(MAINT) }) as unknown as ModCtx;
+const iso = (t: number) => new Date(t).toISOString();
+const plan = (name: string, o: Record<string, unknown> = {}) => ({ name, paths: ['/srv/dossier-secret'], repo: '/srv/depot-secret', at: '03:00', keep: { last: 3, daily: 7, weekly: 4, monthly: 6 }, destination: { genre: 'sftp', hote: 'machine-secrete.exemple.test', utilisateur: 'compte-secret', motdepasse: 'mot-de-passe-secret' }, ...o });
+
+test('Phénix, la lecture du widget : la dernière réussie (heure, sorte, volume), les échecs et leur heure, les retards, la prochaine ; ni nom de plan, ni chemin, ni destination, ni erreur', () => {
+  const H = 3_600_000, tz = 'Asia/Tokyo';
+  const r = etatSauvegardes(ctxPhenix({
+    plans: [plan('Plan-secret-A'), plan('Plan-secret-B', { at: '04:30' }), plan('Plan-secret-C', { at: '05:15' })],
+    last: {
+      'Plan-secret-A': { at: iso(MAINT - 3 * H), ok: true, files: 10, bytes: SAUV_B, added: 1, type: 'incrémentielle' },
+      'Plan-secret-B': { at: iso(MAINT - H), ok: false, error: 'connexion refusée par machine-secrete.exemple.test dans /srv/dossier-secret (mot-de-passe-secret)' },
+      // Un plan retiré depuis : il ne compte plus.
+      'Plan-retire': { at: iso(MAINT - 60_000), ok: true, bytes: 1, type: 'complète' },
+    },
+  }), tz);
+  const attendue = Math.min(...['03:00', '04:30', '05:15'].map((h) => prochaine({ genre: 'jour', heure: h }, new Date(MAINT), tz)!.getTime()));
+  // Le plan C n'a aucune tentative gardée : « jamais faite » (sansMesure), ni réussi, ni échoué, ni en retard.
+  assert.deepEqual(r, { plans: 3, derniere: { at: MAINT - 3 * H, type: 'incrémentielle', octets: SAUV_B }, echecs: 1, echecA: MAINT - H, enRetard: 0, sansMesure: 1, prochaine: attendue });
+  assert.ok(!/secr|exemple|srv|refus/i.test(JSON.stringify(r)), `rien de privé : ${JSON.stringify(r)}`);
+  // Aucun plan : zéro (le widget dit « vide ») ; jamais une sauvegarde réussie inventée.
+  assert.deepEqual(etatSauvegardes(ctxPhenix({}), tz), { plans: 0, echecs: 0, enRetard: 0, sansMesure: 0 });
+  // Un plan jamais lancé : pas de « dernière » ; un plan dont la seule réussite a plus de 50 h : en retard (la règle de
+  // l'alerte de Phénix), et sa dernière réussite reste dite avec son heure.
+  assert.deepEqual(etatSauvegardes(ctxPhenix({ plans: [plan('Plan-secret-A', { at: 'pas une heure' })] }), tz), { plans: 1, echecs: 0, enRetard: 0, sansMesure: 1 });
+  const vieille = etatSauvegardes(ctxPhenix({ plans: [plan('Plan-secret-A', { tousLes: 3 })], last: { 'Plan-secret-A': { at: iso(MAINT - 100 * H), ok: true, bytes: 7, type: 'complète' } } }), tz);
+  assert.deepEqual(vieille, { plans: 1, derniere: { at: MAINT - 100 * H, type: 'complète', octets: 7 }, echecs: 0, enRetard: 1, sansMesure: 0 }, 'tous les 3 jours : pas de prochaine affirmée ; en retard après 3 j + 26 h');
+  // Le plan d'un PC (son agent pousse quand il veut) : pas de prochaine ; en retard après 7 jours seulement.
+  assert.deepEqual(etatSauvegardes(ctxPhenix({ plans: [plan('Plan-secret-A', { agent: 'poste-secret' })], last: { 'Plan-secret-A': { at: iso(MAINT - 100 * H), ok: true, bytes: 7 } } }), tz),
+    { plans: 1, derniere: { at: MAINT - 100 * H, type: 'complète', octets: 7 }, echecs: 0, enRetard: 0, sansMesure: 0 });
+});
+
+test('Phénix : un plan réglé mais jamais fait (un PC dont l\'agent n\'a jamais poussé, un plan en pause depuis sa création) compte à part ; le widget le rend', async () => {
+  const H = 3_600_000, tz = 'Asia/Tokyo';
+  const r = etatSauvegardes(ctxPhenix({ plans: [plan('Plan-secret-A'), plan('Plan-secret-B', { agent: 'poste-secret' })], last: { 'Plan-secret-A': { at: iso(MAINT - H), ok: true, bytes: 7, type: 'complète' }, 'Plan-secret-B': { at: 'pas une date', ok: true } } }), tz);
+  assert.deepEqual([r.echecs, r.enRetard, r.sansMesure, r.derniere?.at], [0, 0, 1, MAINT - H], 'une tentative sans heure lisible ne vaut pas une mesure');
+  const e = await etat(W('sauvegardes'), LUI, fausse({ sauvegardes: r }));
+  assert.equal(e.donnee?.sansMesure, 1, 'le widget le rend (la page ne pose alors pas la coche)');
+});
+
+test('Sphinx, la lecture du widget : depuis minuit dans le fuseau d\'Odin, des comptes seulement (aucun domaine, aucun appareil) ; un journal qui ne remonte pas à minuit le dit', () => {
+  const H = 3_600_000, tz = 'Asia/Tokyo', minuit = Math.floor((MAINT + 9 * H) / 86_400_000) * 86_400_000 - 9 * H; // Tokyo : UTC+9, sans heure d'été
+  const e = (t: number, status: string, name = 'pub-secrete.exemple.test') => ({ t, client: '198.51.100.7', clientName: 'Tablette-secrete', name, type: 'A', status, ms: 3, rcode: 'NOERROR' });
+  const l = [e(minuit - 60_000, 'bloqué'), e(minuit + 60_000, 'bloqué'), e(minuit + 120_000, 'ok', 'site-secret.exemple.test'), e(minuit + 180_000, 'cache'), e(minuit + 240_000, 'bloqué'), e(MAINT + 60_000, 'bloqué')] as Parameters<typeof blocagesDuJour>[0];
+  const r = blocagesDuJour(l, MAINT, tz, true);
+  assert.deepEqual(r, { questions: 4, bloquees: 2, depuis: minuit + 60_000, complet: true });
+  assert.ok(!/secr|exemple|198\.51|Tablette/i.test(JSON.stringify(r)), 'aucun domaine, aucun appareil');
+  assert.equal(blocagesDuJour(l, MAINT, tz, false).complet, false, 'un journal qui ne couvre pas toute la journée : dit');
+  assert.deepEqual(blocagesDuJour([], MAINT, tz, true), { questions: 0, bloquees: 0, complet: true });
+});
+
+test('le widget « Sauvegardes » : réussie, échouée (elle se voit), aucune réglée → « vide », Phénix coupée → « source_absente » ; jamais une réussite sans mesure', async () => {
+  const ok: Sauv = { plans: 2, derniere: { at: MAINT - 7_200_000, type: 'complète', octets: SAUV_B }, echecs: 1, echecA: MAINT - 600_000, enRetard: 0, sansMesure: 0, prochaine: MAINT + 3_600_000 };
+  const e = await etat(W('sauvegardes'), LUI, fausse({ sauvegardes: ok, heure12: true }));
+  assert.deepEqual(e, { etat: 'ok', at: MAINT, donnee: { ...ok, fuseau: 'Asia/Tokyo', heure12: true } });
+  const sans = await etat(W('sauvegardes'), LUI, fausse({ sauvegardes: { plans: 1, echecs: 0, enRetard: 0, sansMesure: 1 } }));
+  assert.equal(sans.etat, 'ok'); assert.ok(!('derniere' in sans.donnee!), 'aucune réussite mesurée : rien de tel n\'est rendu');
+  assert.deepEqual(await etat(W('sauvegardes'), LUI, fausse({ sauvegardes: { plans: 0, echecs: 0, enRetard: 0, sansMesure: 0 } })), { etat: 'vide', raison: 'aucune_sauvegarde' });
+  assert.deepEqual(await etat(W('sauvegardes'), LUI, fausse({ sauvegardes: null })), { etat: 'source_absente', raison: 'appli_absente' });
+});
+
+test('le widget « Pubs bloquées » : les comptes de Sphinx ; Sphinx arrêté ou sans question → « vide », jamais un zéro ; Sphinx coupé → « source_absente »', async () => {
+  const e = await etat(W('pubs_bloquees'), LUI, fausse({ blocages: { allume: true, questions: 412, bloquees: 37, depuis: MAINT - 9_000_000, complet: true } }));
+  assert.deepEqual(e, { etat: 'ok', at: MAINT, donnee: { questions: 412, bloquees: 37, complet: true, fuseau: 'Asia/Tokyo', heure12: false } });
+  const partiel = await etat(W('pubs_bloquees'), LUI, fausse({ blocages: { allume: true, questions: 5, bloquees: 0, depuis: MAINT - 60_000, complet: false } }));
+  assert.deepEqual(partiel.donnee, { questions: 5, bloquees: 0, complet: false, depuis: MAINT - 60_000, fuseau: 'Asia/Tokyo', heure12: false }, 'un zéro mesuré reste un zéro ; « depuis » quand la journée n\'est pas entière');
+  assert.deepEqual(await etat(W('pubs_bloquees'), LUI, fausse({ blocages: { allume: false, questions: 50, bloquees: 9, complet: true } })), { etat: 'vide', raison: 'sphinx_arrete' });
+  assert.deepEqual(await etat(W('pubs_bloquees'), LUI, fausse({ blocages: { allume: true, questions: 0, bloquees: 0, complet: true } })), { etat: 'vide', raison: 'aucune_question' });
+  assert.deepEqual(await etat(W('pubs_bloquees'), LUI, fausse({ blocages: null })), { etat: 'source_absente', raison: 'appli_absente' });
+});
+
+test('sauvegardes et pubs bloquées, vie privée : un membre (même avec le droit, même « ouvert »), une tablette : refusés, sans un chiffre', async () => {
+  const src = fausse({ sauvegardes: { plans: 2, derniere: { at: 123_456_789, type: 'complète', octets: 987_654 }, echecs: 0, enRetard: 0, sansMesure: 0 }, blocages: { allume: true, questions: 98_765, bloquees: 4_321, complet: true } });
+  for (const [k, appli] of [['sauvegardes', 'sindri'], ['pubs_bloquees', 'vidarr']] as const) {
+    const w = W(k);
+    for (const [qui, l] of [['membre avec le droit', membre(['sindri', 'vidarr'])], ['membre ouvert', membre(['sindri', 'vidarr'], [cleOuverture(w, appli)])], ['tablette', TABLETTE], ['tablette sur l\'accueil', { qui: 'maison', ecran: 'accueil' } as Lecteur]] as const) {
+      const r = await etat(w, l, src);
+      assert.deepEqual([r.etat, r.raison], ['refuse', 'proprietaire_seul'], `${k} · ${qui}`);
+      assert.ok(!/123456789|987654|98765|4321/.test(JSON.stringify(r)), `${k} · ${qui} : aucune donnée`);
+    }
+    const direct = await sorteDe(k)!.lire!(w, src, membre(['sindri', 'vidarr'])) as Etat;
+    assert.deepEqual([direct.etat, direct.raison], ['refuse', 'proprietaire_seul'], `${k} : la lecture seule refuse aussi`);
+  }
+});
+
+test('la page : « Sauvegardes » et « Pubs bloquées » se déclarent (propriétaire seul, tailles et noms de la maquette) ; la grille connaît leurs tailles', () => {
+  const win: Record<string, any> = {};
+  for (const src of [LISTES, RENDU, GRILLE]) vm.runInNewContext(src, { window: win });
+  const R = win.OdinWidgetsRendu, G = win.OdinGrille, ici = <X>(x: X): X => JSON.parse(JSON.stringify(x));
+  const vus = ['sauvegardes', 'pubs_bloquees'].map((k) => R.rendu(k));
+  assert.deepEqual(ici(vus.map((x: any) => [x?.sorte, x?.titre, x?.appli, x?.proprio, x?.vides])), [['sauvegardes', 'Sauvegardes', 'sindri', true, ['aucune_sauvegarde']], ['pubs_bloquees', 'Pubs bloquées', 'vidarr', true, ['sphinx_arrete', 'aucune_question']]]);
+  assert.deepEqual(ici(vus.map((x: any) => [x.w.c, x.w.r])), [[4, 2], [3, 2]], 'les tailles de départ de la maquette');
+  for (const k of ['sauvegardes', 'pubs_bloquees']) assert.deepEqual([[...G.MINI[k]], G.HAUTEUR[k]], [[...sorteDe(k)!.taille.mini], sorteDe(k)!.taille.r], `${k} : les tables de la grille suivent le serveur`);
+  // Les sous-titres de l'en-tête : la prochaine sauvegarde à l'heure d'Odin ; « Aujourd'hui », ou « Depuis … ».
+  const S = win.OdinWidgetsListes, t = Date.UTC(2030, 0, 15, 18, 0); // 03:00 le lendemain à Tokyo
+  assert.equal(R.sous(vus[0], { etat: 'ok', donnee: { plans: 1, echecs: 0, enRetard: 0, prochaine: t, fuseau: 'Asia/Tokyo', heure12: false } }, {}), 'Prochaine : 03:00');
+  assert.equal(R.sous(vus[0], { etat: 'ok', donnee: { plans: 1, echecs: 0, enRetard: 0, fuseau: 'Asia/Tokyo' } }, {}), '', 'Phénix ne la connaît pas : rien');
+  assert.equal(R.sous(vus[1], { etat: 'ok', donnee: { questions: 3, bloquees: 1, complet: true, fuseau: 'Asia/Tokyo' } }, {}), 'Aujourd\'hui');
+  assert.equal(R.sous(vus[1], { etat: 'ok', donnee: { questions: 3, bloquees: 1, complet: false, depuis: t, fuseau: 'Asia/Tokyo', heure12: false } }, {}), 'Depuis 03:00');
+  assert.equal(typeof S.volume, 'function');
+  assert.equal(S.volume(SAUV_B, 'en'), '4.6 MB', 'le volume, dans la langue de la page, en multiples de 1024 comme Phénix');
+});
+
 // ------------------------------------------------------------------ un vrai Odin d'essai
 
 const tt = new Banc(), orig = { log: console.log, error: console.error, warn: console.warn, info: console.info };
 let v: VraiOdin, avecDroit = '', cleMaison = '', cleComplet = '';
 const MDP = 'une-pirogue-sur-le-lagon-calme';
-const IDS = ['gladsheim', 'frigg', 'volva', 'var'];
+// Phénix et Sphinx pour la seconde part (Sphinx n'est jamais démarré ici : aucun port ouvert).
+const IDS = ['gladsheim', 'frigg', 'volva', 'var', 'sindri', 'vidarr'];
 const FUSEAU = 'Asia/Tokyo', APPAREIL = 'America/Los_Angeles';
 const cookieDe = (r: Response, nom: string) => r.headers.getSetCookie().find((c) => c.startsWith(`${nom}=`))?.split(';')[0] ?? '';
 async function entrer(ident: string, mdp: string): Promise<string> {
@@ -183,14 +314,23 @@ async function entrer(ident: string, mdp: string): Promise<string> {
   r = await fetch(r.headers.get('location')!, { redirect: 'manual' }); assert.equal(r.status, 303, 'session ouverte');
   return cookieDe(r, 'odin_session');
 }
-const PAGE = 'b6e00001', ID = { agenda: 'c6e00001', recherches: 'c6e00002', agendaVide: 'c6e00003', recherchesVide: 'c6e00004', agendaHaut: 'c6e00005', recherchesBas: 'c6e00006' };
+const PAGE = 'b6e00001', ID = { agenda: 'c6e00001', recherches: 'c6e00002', agendaVide: 'c6e00003', recherchesVide: 'c6e00004', agendaHaut: 'c6e00005', recherchesBas: 'c6e00006',
+  // La seconde part : les sauvegardes (réelles, puis forcées dans la réponse : tout va bien, des échecs et un retard, aucune
+  // réussite, aucune réglée) et
+  // les pubs bloquées (forcées : une journée entière, une partielle ; réelle : Sphinx arrêté).
+  sauvegardes: 'c6e00021', sauvegardesEchec: 'c6e00022', sauvegardesSans: 'c6e00023', sauvegardesVide: 'c6e00024', pubs: 'c6e00025', pubsPartiel: 'c6e00026', pubsArrete: 'c6e00027', sauvegardesBon: 'c6e00028',
+  // Un plan jamais fait à côté d'une réussite (jamais la coche) ; des comptes énormes dans la carte la plus étroite.
+  sauvegardesJamais: 'c6e00029', pubsGros: 'c6e00030' };
 // Une seconde page, marquée « écran de la maison », qui porte les deux sortes : l'écran de la maison la lit vraiment.
 const FENETRE = () => ({ pages: [{ id: PAGE, name: 'Listes', widgets: [
   { id: ID.agenda, kind: 'agenda', w: 1, c: 4, r: 3 }, { id: ID.recherches, kind: 'recherches', w: 1, c: 4, r: 3 }, { id: ID.agendaVide, kind: 'agenda', w: 1, c: 4, r: 3 },
   { id: ID.recherchesVide, kind: 'recherches', w: 1, c: 4, r: 3 }, { id: ID.agendaHaut, kind: 'agenda', w: 1, c: 4, r: 5 },
   // La recherche à deux lignes de grille (la plus petite taille) : le champ seul.
   { id: ID.recherchesBas, kind: 'recherches', w: 1, c: 4, r: 2 },
-] }, { id: 'b6e00002', name: 'Salon', maison: true, widgets: [{ id: 'c6e00011', kind: 'agenda', w: 1, c: 4, r: 3 }, { id: 'c6e00012', kind: 'recherches', w: 1, c: 4, r: 3 }] }] });
+  ...(['sauvegardes', 'sauvegardesBon', 'sauvegardesEchec', 'sauvegardesSans', 'sauvegardesVide', 'sauvegardesJamais'] as const).map((k) => ({ id: ID[k], kind: 'sauvegardes', w: 1, c: 4, r: 2 })),
+  ...(['pubs', 'pubsPartiel', 'pubsArrete', 'pubsGros'] as const).map((k) => ({ id: ID[k], kind: 'pubs_bloquees', w: 1, c: 3, r: 2 })),
+] }, { id: 'b6e00002', name: 'Salon', maison: true, widgets: [{ id: 'c6e00011', kind: 'agenda', w: 1, c: 4, r: 3 }, { id: 'c6e00012', kind: 'recherches', w: 1, c: 4, r: 3 },
+  { id: 'c6e00013', kind: 'sauvegardes', w: 1, c: 4, r: 2 }, { id: 'c6e00014', kind: 'pubs_bloquees', w: 1, c: 3, r: 2 }] }] });
 // Un titre et une question piégés : du HTML, et un texte très long sans espace.
 const PIEGE = `<img src=x onerror="window.__piege=1">${'x'.repeat(180)}`;
 const SECRET = 'Titre-tres-prive';
@@ -287,6 +427,56 @@ test('vrai Odin : un membre avec le droit, une tablette « maison », une clé d
   assert.ok(!JSON.stringify(valhallaOf()!.alerts({ limit: 5000 })).includes(SECRET), 'aucune alerte');
 });
 
+/**
+ * Les plans et les dernières tentatives de Phénix, gardés comme Phénix les garde (ses réglages). L'heure des plans est
+ * loin de maintenant : la veille de Phénix ne lance rien pendant l'essai. Un plan réussi il y a 3 h, un échoué il y a 1 h.
+ */
+function poserSauvegardes(aucune = false) {
+  const ctx = valhallaOf()!.ctx('sindri'), h = (new Date().getUTCHours() + 12) % 24, at = `${String(h).padStart(2, '0')}:20`;
+  if (aucune) { ctx.saveSettings({ plans: [], last: {} }); return; }
+  ctx.saveSettings({
+    plans: [plan('Plan-secret-A', { at, repo: join(ctx.dir, 'depot-secret'), paths: [join(ctx.dir, 'dossier-secret')] }), plan('Plan-secret-B', { at, repo: join(ctx.dir, 'depot-secret-b'), paths: [join(ctx.dir, 'dossier-secret')] })],
+    last: {
+      'Plan-secret-A': { at: iso(Date.now() - 3 * 3_600_000), ok: true, files: 3, bytes: SAUV_B, added: 1, type: 'incrémentielle' },
+      'Plan-secret-B': { at: iso(Date.now() - 3_600_000), ok: false, error: 'refusé par machine-secrete.exemple.test (mot-de-passe-secret)' },
+    },
+  });
+}
+
+test('vrai Odin : Phénix sans plan → « vide » ; puis ses sauvegardes (la réussie, l\'échouée) sans un nom, un chemin, une machine ni un secret ; Sphinx arrêté → « vide », jamais un zéro', async () => {
+  poserSauvegardes(true);
+  let d = await donnees();
+  assert.deepEqual([d.de(ID.sauvegardes)!.etat, d.de(ID.sauvegardes)!.raison], ['vide', 'aucune_sauvegarde']);
+  const arrete = d.de(ID.pubsArrete)!;
+  assert.deepEqual([arrete.etat, arrete.raison, arrete.donnee], ['vide', 'sphinx_arrete', undefined], 'Sphinx arrêté : ni zéro, ni chiffre');
+  poserSauvegardes();
+  d = await donnees();
+  const s = d.de(ID.sauvegardes)!, sd = s.donnee as Sauv & { fuseau: string };
+  assert.equal(s.etat, 'ok');
+  assert.deepEqual([sd.plans, sd.derniere?.type, sd.derniere?.octets, sd.echecs, sd.enRetard, sd.sansMesure, sd.fuseau], [2, 'incrémentielle', SAUV_B, 1, 0, 0, FUSEAU]);
+  assert.ok(Number.isFinite(sd.prochaine) && sd.prochaine! > Date.now(), 'la prochaine, que Phénix connaît');
+  assert.ok(!/secr|exemple|refus|depot|dossier/i.test(d.corps), 'ni nom de plan, ni chemin, ni machine, ni erreur, ni secret');
+});
+
+test('vrai Odin : sauvegardes et pubs bloquées, un membre avec le droit, une tablette « maison », une clé d\'accès, sans session, l\'écran de la maison : rien', async () => {
+  poserSauvegardes();
+  const va = valhallaOf()!;
+  for (const appli of ['sindri', 'vidarr']) assert.equal((await va.act('var', 'donner_acces', { appli, qui: '@membre-l' })).ok, true);
+  const m = await donnees({ cookie: avecDroit });
+  assert.equal(m.status, 200);
+  for (const id of [ID.sauvegardes, ID.pubs, ID.pubsArrete]) assert.deepEqual([m.de(id)!.etat, m.de(id)!.raison], ['refuse', 'proprietaire_seul'], `membre : ${id}`);
+  assert.ok(!m.corps.includes(String(SAUV_B)) && !m.corps.includes('incrémentielle'), 'membre : aucun chiffre de Phénix');
+  for (const [qui, h] of [['tablette', { cookie: '', 'x-odin-maison': cleMaison }], ['clé d\'accès', { cookie: '', authorization: `Bearer ${v.token}` }], ['sans session', { cookie: '' }]] as const) {
+    const r = await donnees(h);
+    assert.equal(r.status, 401, qui); assert.ok(!r.corps.includes(String(SAUV_B)), `${qui} : aucune donnée`);
+  }
+  for (const [qui, cle] of [['tablette', cleMaison], ['clé « complet »', cleComplet]] as const) {
+    const maison = await v.json('/api/maison/etat', undefined, { cookie: '', 'x-odin-maison': cle }), corps = JSON.stringify(maison.body);
+    assert.equal(maison.status, 200, qui); assert.ok(corps.includes('"Salon"'), `${qui} : la page de la maison est bien lue`);
+    assert.ok(!corps.includes(String(SAUV_B)) && !corps.includes('incrémentielle') && !corps.includes('sphinx_arrete'), `${qui} : rien de Phénix ni de Sphinx sur l'écran de la maison`);
+  }
+});
+
 // ------------------------------------------------------------------ dans un vrai navigateur (s'il y en a un)
 
 declare const document: any, window: any, getComputedStyle: any, location: any, KeyboardEvent: any;
@@ -305,6 +495,17 @@ let nav: Navigateur | undefined;
 before(async () => { if (pw) nav = await pw.chromium.launch(); });
 after(async () => { await nav?.close(); });
 const CAPTURES = process.env.ODIN_CAPTURES;
+/** Les états forcés dans la réponse (la seconde part) : ce que Phénix et un Sphinx en marche rendraient. */
+const FORCES: Record<string, () => Record<string, unknown>> = {
+  [ID.sauvegardesBon]: () => ({ etat: 'ok', at: Date.now(), donnee: { plans: 1, derniere: { at: Date.now() - 5_400_000, type: 'complète', octets: SAUV_B }, echecs: 0, enRetard: 0, sansMesure: 0, prochaine: Date.now() + 7_200_000, fuseau: FUSEAU, heure12: false } }),
+  [ID.sauvegardesEchec]: () => ({ etat: 'ok', at: Date.now(), donnee: { plans: 3, derniere: { at: Date.now() - 26 * 3_600_000, type: 'complète', octets: SAUV_B }, echecs: 2, echecA: Date.now() - 1_800_000, enRetard: 1, sansMesure: 0, fuseau: FUSEAU, heure12: false } }),
+  [ID.sauvegardesSans]: () => ({ etat: 'ok', at: Date.now(), donnee: { plans: 1, echecs: 0, enRetard: 0, sansMesure: 1, fuseau: FUSEAU, heure12: false } }),
+  [ID.sauvegardesJamais]: () => ({ etat: 'ok', at: Date.now(), donnee: { plans: 2, derniere: { at: Date.now() - 5_400_000, type: 'complète', octets: SAUV_B }, echecs: 0, enRetard: 0, sansMesure: 1, fuseau: FUSEAU, heure12: false } }),
+  [ID.pubsGros]: () => ({ etat: 'ok', at: Date.now(), donnee: { questions: 987_654_321, bloquees: 123_456_789, complet: true, fuseau: FUSEAU, heure12: false } }),
+  [ID.sauvegardesVide]: () => ({ etat: 'vide', raison: 'aucune_sauvegarde' }),
+  [ID.pubs]: () => ({ etat: 'ok', at: Date.now(), donnee: { questions: 98_765, bloquees: 4_321, complet: true, fuseau: FUSEAU, heure12: false } }),
+  [ID.pubsPartiel]: () => ({ etat: 'ok', at: Date.now(), donnee: { questions: 7, bloquees: 0, complet: false, depuis: Date.now() - 600_000, fuseau: FUSEAU, heure12: false } }),
+};
 
 /** L'accueil sur la page d'essai, l'appareil dans un AUTRE fuseau que celui d'Odin ; le second agenda forcé à « vide ». */
 async function ouvrir(largeur: number, sombre: boolean, avant = '') {
@@ -317,7 +518,8 @@ async function ouvrir(largeur: number, sombre: boolean, avant = '') {
   p.on('pageerror', (e) => erreurs.push(String(e)));
   await p.route(/\/api\/widgets\/donnees/, async (r) => {
     const rep = await r.fetch(), j = await rep.json();
-    if (Array.isArray(j?.widgets)) j.widgets = j.widgets.map((w: any) => (w.id === ID.agendaVide ? { id: w.id, kind: w.kind, page: w.page, etat: 'vide', raison: 'aucun_rendez_vous' } : w.id === ID.recherchesVide ? { id: w.id, kind: w.kind, page: w.page, etat: 'vide', raison: 'aucune_recherche' } : w));
+    if (Array.isArray(j?.widgets)) j.widgets = j.widgets.map((w: any) => (w.id === ID.agendaVide ? { id: w.id, kind: w.kind, page: w.page, etat: 'vide', raison: 'aucun_rendez_vous' } : w.id === ID.recherchesVide ? { id: w.id, kind: w.kind, page: w.page, etat: 'vide', raison: 'aucune_recherche' }
+      : Object.hasOwn(FORCES, w.id) ? { id: w.id, kind: w.kind, page: w.page, ...FORCES[w.id]() } : w));
     await r.fulfill({ response: rep, json: j });
   });
   await p.goto(v.url + '/');
@@ -699,3 +901,140 @@ test('navigateur : Pythie ne s\'ouvre pas (Odin injoignable) : au retour sur l\'
     assert.equal(cherchees.length, 0);
   } finally { await ctx.close(); }
 });
+
+// ------------------------------------------------------------------ seconde part, dans le navigateur
+
+const MIENS = ['sauvegardes', 'sauvegardesBon', 'sauvegardesEchec', 'sauvegardesSans', 'sauvegardesVide', 'sauvegardesJamais', 'pubs', 'pubsPartiel', 'pubsArrete', 'pubsGros'] as const;
+/** Ce que la page montre des cartes de la seconde part : textes, sous-titre, couleurs, et ce qui serait coupé ou dehors. */
+const vuMiens = (p: Page) => p.evaluate((ids: Record<string, string>) => {
+  const txt = (n: any) => (n?.textContent ?? '').replace(/\s+/g, ' ').trim(), out: Record<string, any> = { deborde: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 };
+  for (const [nom, id] of Object.entries(ids)) {
+    const c = document.querySelector(`#feGrid > .fe-w[data-id="${id}"]`); if (!c) { out[nom] = null; continue; }
+    const b = c.getBoundingClientRect(), dans = (n: any) => { const r = n.getBoundingClientRect(); return r.width === 0 || (r.left >= b.left - 1 && r.right <= b.right + 1); };
+    const sonde = document.createElement('i'); c.append(sonde); const couleur = (v: string) => { sonde.style.color = `var(${v})`; return getComputedStyle(sonde).color; };
+    const un = (s: string) => c.querySelector(s);
+    out[nom] = {
+      texte: txt(c), sous: txt(un('.wr-s')), haut: Math.round(b.height), dedans: [...c.querySelectorAll('*')].every(dans),
+      petits: [...c.querySelectorAll('button, a')].filter((n: any) => { const r = n.getBoundingClientRect(); return r.width && (r.width < 44 || r.height < 44); }).map(txt),
+      coupes: [...c.querySelectorAll('.wl-quand, .wl-detail, .wl-echec, .wl-retard, .wl-val, .wl-sur, .wl-ct')].filter((n: any) => n.scrollWidth > n.clientWidth + 1).map(txt),
+      bon: Boolean(un('.wl-bon')), jamais: txt(un('.wl-jamais')), echec: txt(un('.wl-echec')), retard: txt(un('.wl-retard')), detail: txt(un('.wl-detail')), quand: txt(un('.wl-quand')),
+      val: txt(un('.wl-val')), sur: txt(un('.wl-sur')), anneau: Boolean(un('svg.wl-anneau')), bouton: txt(un('.wl-btn')),
+      echecCouleur: un('.wl-echec') ? getComputedStyle(un('.wl-echec')).color : '', bad: couleur('--bad'), valCouleur: un('.wl-val') ? getComputedStyle(un('.wl-val')).color : '', ink: couleur('--ink'),
+    };
+    sonde.remove();
+  }
+  return out;
+}, Object.fromEntries(MIENS.map((k) => [k, ID[k]])));
+const chiffres = (t: string) => t.replace(/\D/g, '');
+
+for (const [largeur, sombre] of [[1280, false], [390, true]] as const) {
+  test(`navigateur, ${largeur} px, ${sombre ? 'sombre' : 'clair'} : les sauvegardes (la réussie, l'échouée qui se voit, aucune réussite, aucune réglée) et les pubs bloquées (les comptes, la journée partielle, Sphinx arrêté sans zéro), sans étirer la carte`, { skip: sansNav }, async () => {
+    poserRendezVous(); poserRecherches([{ id: 'a1b2c3d4e5', q: 'Question récente', at: Date.now() - 60_000 }]); poserSauvegardes();
+    const { ctx, page: p, erreurs } = await ouvrir(largeur, sombre);
+    try {
+      await p.waitForSelector(`#feGrid .fe-w[data-id="${ID.pubsArrete}"] .wl-calme`, { timeout: 30000 });
+      const a = await vuMiens(p);
+      assert.equal(a.deborde, false, 'rien ne déborde de la page');
+      for (const k of MIENS) {
+        assert.equal(a[k].dedans, true, `${k} reste dans sa carte`); assert.deepEqual(a[k].petits, [], `${k} : des cibles de 44 px`); assert.deepEqual(a[k].coupes, [], `${k} : aucun texte coupé`);
+        if (largeur > 700) assert.ok(Math.abs(a[k].haut - 162) <= 2, `${k} : ${a[k].haut} px pour 2 lignes (la carte ne s'étire pas)`);
+      }
+      // Les vraies sauvegardes de Phénix : une réussie (sa sorte, son volume), une échouée qui se voit ; donc pas de coche.
+      assert.match(a.sauvegardes.detail, /Incrémentielle/); assert.match(a.sauvegardes.detail, /4[.,]6/);
+      assert.match(a.sauvegardes.echec, /échoué/); assert.equal(a.sauvegardes.bon, false, 'un échec : jamais « tout va bien »');
+      assert.match(a.sauvegardes.sous, /Prochaine : \d{2}:\d{2}/); assert.ok(!/secr|exemple|depot|dossier/i.test(a.sauvegardes.texte), 'rien de privé à l\'écran');
+      assert.equal(a.sauvegardesBon.bon, true, 'une réussite mesurée, aucun échec ni retard : la coche'); assert.equal(a.sauvegardesBon.echec, '');
+      assert.match(a.sauvegardesEchec.echec, /2/); assert.match(a.sauvegardesEchec.retard, /retard/); assert.equal(a.sauvegardesEchec.bon, false);
+      assert.equal(a.sauvegardesEchec.echecCouleur, a.sauvegardesEchec.bad, 'l\'échec : la couleur « grave » du thème');
+      assert.match(a.sauvegardesSans.texte, /Aucune sauvegarde réussie/); assert.equal(a.sauvegardesSans.bon, false, 'aucune réussite mesurée : pas de coche');
+      assert.match(a.sauvegardesVide.texte, /Aucune sauvegarde réglée/); assert.equal(a.sauvegardesVide.bouton, 'Ouvrir Phénix'); assert.equal(a.sauvegardesVide.bon, false);
+      assert.equal(a.sauvegardesJamais.bon, false, 'un plan jamais fait à côté d\'une réussite : jamais la coche'); assert.match(a.sauvegardesJamais.jamais, /jamais/);
+      assert.equal(chiffres(a.pubsGros.val), '123456789', 'des comptes énormes : entiers');
+      // Les pubs bloquées : les comptes de Sphinx, dans le format de la page ; la journée partielle le dit ; arrêté : aucun chiffre.
+      assert.equal(chiffres(a.pubs.val), '4321'); assert.equal(chiffres(a.pubs.sur), '98765'); assert.equal(a.pubs.anneau, true); assert.match(a.pubs.sous, /· Aujourd'hui$/);
+      assert.equal(a.pubs.valCouleur, a.pubs.ink, 'le chiffre : la couleur du texte du thème');
+      assert.equal(chiffres(a.pubsPartiel.val), '0', 'un zéro mesuré reste un zéro'); assert.match(a.pubsPartiel.sous, /Depuis \d{2}:\d{2}/);
+      assert.match(a.pubsArrete.texte, /Sphinx est arrêté/); assert.equal(a.pubsArrete.val, '', 'arrêté : aucun chiffre'); assert.ok(!/\d/.test(a.pubsArrete.texte), 'arrêté : aucun zéro');
+      assert.equal(a.pubsArrete.bouton, 'Ouvrir Sphinx');
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/listes-sauvegardes-pubs-${largeur}${sombre ? '-sombre' : ''}.png`, fullPage: true });
+      // Le focus se voit, puis « Ouvrir Phénix » et « Ouvrir Sphinx » ouvrent l'appli.
+      await p.evaluate((s: string) => document.querySelector(s).focus(), `#feGrid .fe-w[data-id="${ID.sauvegardesVide}"] .wl-btn`);
+      assert.notEqual(await p.evaluate(() => getComputedStyle(document.activeElement).outlineStyle), 'none', 'le focus est visible');
+      await p.click(`#feGrid .fe-w[data-id="${ID.sauvegardesVide}"] .wl-btn`); assert.equal(await p.evaluate(() => location.hash), '#app=sindri');
+      await p.goto(v.url + '/'); await p.waitForSelector(`#feGrid .fe-w[data-id="${ID.pubsArrete}"] .wl-btn`, { state: 'visible', timeout: 45000 });
+      await p.click(`#feGrid .fe-w[data-id="${ID.pubsArrete}"] .wl-btn`); assert.equal(await p.evaluate(() => location.hash), '#app=vidarr');
+      assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
+    } finally { await ctx.close(); }
+  });
+}
+
+test('navigateur, 320, 768 et 1920 px, et un thème de verre : les sauvegardes et les pubs bloquées restent dans leur carte, aucun texte coupé', { skip: sansNav }, async () => {
+  poserRendezVous(); poserRecherches([{ id: 'a1b2c3d4e5', q: 'Question récente', at: Date.now() - 60_000 }]); poserSauvegardes();
+  const va = valhallaOf()!;
+  for (const [largeur, verre] of [[320, false], [768, false], [1920, false], [1280, true]] as const) {
+    if (verre && !(await va.act('apparence', 'theme', { theme: 'glace' })).ok) continue;
+    const { ctx, page: p, erreurs } = await ouvrir(largeur, false);
+    try {
+      await p.waitForSelector(`#feGrid .fe-w[data-id="${ID.pubsArrete}"] .wl-calme`, { timeout: 30000 });
+      const a = await vuMiens(p);
+      assert.equal(a.deborde, false, `${largeur} : la page ne déborde pas`);
+      for (const k of MIENS) { assert.equal(a[k].dedans, true, `${largeur} : ${k} reste dans sa carte`); assert.deepEqual(a[k].coupes, [], `${largeur} : ${k}, aucun texte coupé`); }
+      if (verre) assert.equal(a.pubs.valCouleur, a.pubs.ink, 'verre : le chiffre garde la couleur du texte de la carte');
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/listes-sauvegardes-pubs-${largeur}${verre ? '-verre' : ''}.png`, fullPage: true });
+      assert.deepEqual(erreurs, []);
+    } finally { await ctx.close(); if (verre) await va.act('apparence', 'theme', { theme: 'valhalla' }); }
+  }
+});
+
+/** Ce qui se voit de chaque carte de la seconde part : la zone défile-t-elle, et quel morceau visible sort de sa vue ? */
+const tenue = (p: Page) => p.evaluate((ids: Record<string, string>) => {
+  const txt = (n: any) => (n?.textContent ?? '').replace(/\s+/g, ' ').trim(), vis = (n: any) => n.getClientRects().length > 0 && getComputedStyle(n).visibility !== 'hidden';
+  const out: Record<string, any> = {};
+  for (const [nom, id] of Object.entries(ids)) {
+    const c = document.querySelector(`#feGrid > .fe-w[data-id="${id}"]`), corps = c?.querySelector('.wl-corps'); if (!corps) { out[nom] = null; continue; }
+    const b = corps.getBoundingClientRect(), k = c.getBoundingClientRect();
+    const vus = [...corps.querySelectorAll('.wl-quand, .wl-detail, .wl-echec, .wl-retard, .wl-jamais, .wl-bref, .wl-val, .wl-sur, .wl-ct, .wl-btn, .wl-anneau, .wl-etat')].filter(vis);
+    const defile = /auto|scroll/.test(getComputedStyle(corps).overflowY) && corps.scrollHeight > corps.clientHeight + 1;
+    out[nom] = {
+      defile, sansNom: defile && !(corps.getAttribute('role') === 'region' && corps.getAttribute('aria-label')),
+      mesure: `zone ${corps.clientHeight} × ${corps.clientWidth} px, contenu ${corps.scrollHeight} px, étapes « ${corps.className} »`,
+      dehors: vus.filter((n: any) => { const r = n.getBoundingClientRect(); return r.top < b.top - 1 || r.bottom > b.bottom + 1 || r.bottom > k.bottom + 1 || r.left < k.left - 1 || r.right > k.right + 1; }).map((n: any) => `${n.className?.baseVal ?? n.className} « ${txt(n)} »`),
+      coupes: vus.filter((n: any) => !(n instanceof window.SVGElement) && n.scrollWidth > n.clientWidth + 1).map(txt),
+      alerte: vus.filter((n: any) => n.matches('.wl-echec, .wl-retard, .wl-jamais, .wl-bref')).map(txt).join(' | '),
+      val: vus.filter((n: any) => n.matches('.wl-val')).map(txt).join(''), sur: vus.filter((n: any) => n.matches('.wl-sur')).map(txt).join(''),
+      bouton: vus.filter((n: any) => n.matches('.wl-btn')).map(txt).join(''), texte: vus.map(txt).join(' '),
+    };
+  }
+  return out;
+}, Object.fromEntries(MIENS.map((k) => [k, ID[k]])));
+
+for (const [largeur, apparence] of [[768, 'clair'], [768, 'sombre'], [768, 'verre'], [1280, 'clair']] as const) {
+  test(`navigateur, ${largeur} px, ${apparence} : à la taille de départ, les sauvegardes et les pubs bloquées tiennent dans leur carte sans défiler (pas d'arrêt du clavier sans nom) ; un échec, un retard, un plan jamais fait, « sur N » et « Ouvrir Sphinx » restent visibles`, { skip: sansNav }, async () => {
+    poserRendezVous(); poserRecherches([{ id: 'a1b2c3d4e5', q: 'Question récente', at: Date.now() - 60_000 }]); poserSauvegardes();
+    const va = valhallaOf()!, verre = apparence === 'verre';
+    if (verre) assert.equal((await va.act('apparence', 'theme', { theme: 'glace' })).ok, true, 'le thème de verre');
+    const { ctx, page: p, erreurs } = await ouvrir(largeur, apparence === 'sombre');
+    try {
+      await p.waitForSelector(`#feGrid .fe-w[data-id="${ID.pubsArrete}"] .wl-calme`, { timeout: 30000 });
+      await p.evaluate(() => new Promise((f) => window.requestAnimationFrame(() => window.requestAnimationFrame(f))));
+      const a = await tenue(p);
+      for (const k of MIENS) {
+        assert.ok(a[k], `${k} : la carte est là`);
+        assert.deepEqual({ defile: a[k].defile, sansNom: a[k].sansNom, dehors: a[k].dehors, coupes: a[k].coupes }, { defile: false, sansNom: false, dehors: [], coupes: [] }, `${k} : tient dans sa carte (${a[k].mesure})`);
+      }
+      assert.match(a.sauvegardes.alerte, /échou|échec/, 'l\'échec des vraies sauvegardes se voit');
+      assert.match(a.sauvegardesEchec.alerte, /2/); assert.match(a.sauvegardesEchec.alerte, /échou|échec/); assert.match(a.sauvegardesEchec.alerte, /retard/);
+      assert.match(a.sauvegardesJamais.alerte, /jamais/);
+      assert.equal(a.sauvegardesVide.bouton, 'Ouvrir Phénix');
+      assert.equal(chiffres(a.pubs.val), '4321'); assert.equal(chiffres(a.pubs.sur), '98765', '« sur N » se voit');
+      assert.equal(chiffres(a.pubsGros.val), '123456789'); assert.equal(chiffres(a.pubsGros.sur), '987654321');
+      assert.match(a.pubsArrete.texte, /Sphinx est arrêté/); assert.equal(a.pubsArrete.bouton, 'Ouvrir Sphinx', '« Ouvrir Sphinx » se voit');
+      // Les captures (pour qui regarde l'affichage) : chaque carte seule.
+      if (CAPTURES) for (const k of MIENS) {
+        const r = await p.evaluate((id: string) => { const c = document.querySelector(`#feGrid > .fe-w[data-id="${id}"]`); c.scrollIntoView({ block: 'center' }); const b = c.getBoundingClientRect(); return { x: b.left, y: b.top, width: b.width, height: b.height }; }, ID[k]);
+        await p.screenshot({ path: `${CAPTURES}/listes-tenue-${largeur}-${apparence}-${k}.png`, clip: r });
+      }
+      assert.deepEqual(erreurs, []);
+    } finally { await ctx.close(); if (verre) await va.act('apparence', 'theme', { theme: 'valhalla' }); }
+  });
+}

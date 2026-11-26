@@ -28,6 +28,7 @@ import { actionJournal, auProprietaireSeul, avecJournal } from '../vidarr/qui-a-
 import { LOCAL, SIGNE_MS, chiffresDe, depuisAdresse, effetsDe, gardeEtat, macPropre, nomsReseau, surOdin, texteSur, vueAppareils, type Appareil, type VueAppareils } from '../vidarr/appareils.ts';
 import { agissant } from '../sso/acces.ts';
 import { tabletteQuiDemande } from '../gjoll/session.ts';
+import { fuseauOdin, instant, murale } from '../../draupnir/rythme.ts';
 import { RESEAU, VPN, conclure, dansSousReseau, privee, type CarteReseau, type Garde } from '../thjalfi/reseau.ts';
 import { BAUX_PROPOSES, dureeEnMots, filetOdin, nomMaisonPrive, preApprobation, raisonAutre, verifierReglages } from '../vidarr/reglages.ts';
 import { adressePropre, listeNoms, nomInverse, nomPropre, verifierNom, type EntreeNoms, type NomAuto } from '../vidarr/noms.ts';
@@ -141,6 +142,8 @@ function dhcpConfig(ctx: ModCtx): DhcpConfig {
   return { server: lan, start: `${base}.100`, end: `${base}.199`, mask: '255.255.255.0', router: `${base}.1`, dns: [lan], leaseSeconds: 86400, domain: 'maison', fixed: [], ...d, macPolicy: macPolicy(ctx) };
 }
 const ring: LogEntry[] = []; const RING = 50_000; const upstreamErrors: number[] = [];
+/** Depuis quand le journal en mémoire est complet (posé au démarrage de Sphinx) ; rien : on ne le sait pas. */
+let anneauDepuis: number | undefined;
 let inventoryName: ((ip: string) => string | undefined) | undefined;
 let deviceOf: ((ip: string) => DeviceInfo | undefined) | undefined;
 /** Une plage horaire tapée (jours « lun,mar » ou « tous », heures « 21:00 ») → vérifiée. */
@@ -221,6 +224,34 @@ export function stats(entries: LogEntry[], now: number, hours = 24) {
     topDomains: top((e) => e.name, (e) => e.status !== 'bloqué'), topBlocked: top((e) => e.name, (e) => e.status === 'bloqué'),
     topClients: top((e) => e.clientName ? `${e.clientName} (${e.client})` : e.client), topUpstreams: top((e) => e.upstream), perHour,
   };
+}
+/**
+ * Les comptes d'une journée, sans phrase, pour le widget « Pubs bloquées » de l'accueil (src/valhalla/widgets/listes.ts) :
+ * les questions posées depuis minuit dans le fuseau `fuseau` jusqu'à `maintenant`, et combien ont été bloquées. Rien
+ * d'autre : ni un domaine, ni un appareil. `depuis` : l'heure de la première question comptée. `complet` : faux quand
+ * l'appelant sait que le journal ne remonte pas jusqu'à minuit (`entier`). Pure.
+ */
+export function blocagesDuJour(entrees: readonly LogEntry[], maintenant: number, fuseau: string, entier: boolean): { questions: number; bloquees: number; depuis?: number; complet: boolean } {
+  const m = murale(maintenant, fuseau), minuit = instant(m.y, m.mo, m.d, 0, 0, fuseau).getTime();
+  let questions = 0, bloquees = 0, depuis: number | undefined;
+  for (const e of entrees) {
+    if (!(e.t >= minuit && e.t <= maintenant)) continue;
+    questions++; if (e.status === 'bloqué') bloquees++;
+    if (depuis === undefined || e.t < depuis) depuis = e.t;
+  }
+  return { questions, bloquees, ...(depuis !== undefined ? { depuis } : {}), complet: entier };
+}
+/**
+ * Ce que Sphinx a bloqué aujourd'hui (le jour du lieu d'Odin), pour le widget « Pubs bloquées » : le DNS répond-il, et
+ * les comptes du journal en mémoire que voit la personne en cours (anneauVisible). La journée n'est pas entière quand ce
+ * journal ne remonte pas jusqu'à minuit : il a dû oublier des questions d'aujourd'hui (il est plein), ou il ne couvre que
+ * depuis le démarrage de Sphinx (anneauDepuis : le journal du jour relu au démarrage, ou rien s'il est coupé). Une
+ * lecture : la page de Sphinx ne change pas.
+ */
+export function pubsBloquees(ctx: ModCtx, fuseau?: string): { allume: boolean; questions: number; bloquees: number; depuis?: number; complet: boolean } {
+  const tz = fuseauOdin(fuseau), t = ctx.now().getTime(), m = murale(t, tz), minuit = instant(m.y, m.mo, m.d, 0, 0, tz).getTime();
+  const entier = anneauDepuis !== undefined && anneauDepuis <= minuit && !(ring.length >= RING && (ring[0]?.t ?? 0) >= minuit);
+  return { allume: Boolean(srv), ...blocagesDuJour(anneauVisible(ctx), t, tz, entier) };
 }
 
 // ---------------- Le serveur ----------------
@@ -1483,7 +1514,9 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       const g = o.devices?.(); if (g) deviceOf = g;
       loadLists(ctx);
       // Rien perdu au redémarrage : on relit les requêtes du jour (gardées sur disque, aussi dans la base) dans l'anneau « direct ».
-      try { if (!ring.length) for (const e of journalDay(ctx.dir, localDay(ctx.now())).slice(-RING)) ring.push(e); } catch { /* repli : rien à relire */ }
+      // Depuis quand ce journal est complet (le widget « Pubs bloquées » le dit) : le début du jour relu, sinon maintenant.
+      if (!ring.length) anneauDepuis = ctx.settings.journal !== false ? new Date(ctx.now()).setHours(0, 0, 0, 0) : ctx.now().getTime();
+      try { if (!ring.length) for (const e of journalDay(ctx.dir, localDay(ctx.now())).slice(-RING)) ring.push(e); } catch { anneauDepuis = ctx.now().getTime(); /* repli : rien à relire, complet depuis maintenant */ }
       veilleLente.delete(ctx.dir);
       // Lot R4 : Odin distribuait les adresses avant de s'arrêter. Il revérifie d'abord sa carte ; jamais de reprise après une coupure.
       if (ctx.settings.dhcpOn === true) { try { await reprendreAuDepart(ctx, true); } catch (e) { ctx.alert({ level: 'critique', title: 'Le DHCP d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Les appareils ne reçoivent plus d'adresse : rallume le DHCP de la box.`, key: 'dhcp-demarrage' }); } }

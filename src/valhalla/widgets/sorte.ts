@@ -7,7 +7,8 @@ import type { View } from '../types.ts';
 
 /**
  * Les quatre familles de la maquette (une par fichier), la veille (les alertes, les sites d'Arachné : veille.ts) et les
- * listes d'Odin (l'agenda de Chronos, les recherches de Pythie : listes.ts).
+ * listes d'Odin (l'agenda de Chronos, les recherches de Pythie, les sauvegardes de Phénix, les pubs bloquées par
+ * Sphinx : listes.ts).
  */
 export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes';
 /**
@@ -88,6 +89,16 @@ export interface SourceWidget {
   rendezVous?(): { fuseau: string; liste: ReadonlyArray<{ id: string; titre: string; debut: number; fin: number; attente: boolean }> } | undefined;
   /** Les recherches gardées par Pythie : l'identifiant, la question, l'heure (ms). Rien : Pythie n'est pas là. Absente : pas lue. */
   recherches?(): ReadonlyArray<{ id: string; q: string; at: number }> | undefined;
+  /**
+   * L'état des sauvegardes de Phénix (src/valhalla/modules/sindri.ts, etatSauvegardes) et le fuseau d'Odin : des comptes
+   * et des heures, ni nom de plan, ni chemin, ni destination, ni erreur. Rien : Phénix n'est pas là. Absente : pas lue.
+   */
+  sauvegardes?(): { fuseau: string; plans: number; derniere?: { at: number; type: string; octets?: number }; echecs: number; echecA?: number; enRetard: number; sansMesure: number; prochaine?: number } | undefined;
+  /**
+   * Ce que Sphinx a bloqué aujourd'hui (src/valhalla/modules/vidarr.ts, pubsBloquees) et le fuseau d'Odin : des comptes,
+   * ni domaine, ni appareil. Rien : Sphinx n'est pas là. Absente : pas lue.
+   */
+  blocages?(): { fuseau: string; allume: boolean; questions: number; bloquees: number; depuis?: number; complet: boolean } | undefined;
 }
 
 /** Un site surveillé par Arachné, tel qu'un widget le lit (src/valhalla/modules/idunn.ts, sitesVeille). */

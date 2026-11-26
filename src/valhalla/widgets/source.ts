@@ -6,6 +6,8 @@ import { meteoAncienne, regionActuelle, weather } from '../modules/gladsheim.ts'
 import { sitesVeille } from '../modules/idunn.ts';
 import { rendezVousAVenir } from '../modules/frigg.ts';
 import { history } from '../modules/volva.ts';
+import { etatSauvegardes } from '../modules/sindri.ts';
+import { pubsBloquees } from '../modules/vidarr.ts';
 import { fuseauOdin } from '../../draupnir/rythme.ts';
 import type { SourceWidget } from './sorte.ts';
 
@@ -50,5 +52,8 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
     // Les rendez-vous de Chronos et les recherches de Pythie, si elles sont là et activées (au propriétaire seul : listes.ts).
     rendezVous: () => { if (!appli('frigg')) return undefined; const f = s(v.ctx('gladsheim').settings.fuseau); return { fuseau: fuseauOdin(f), liste: rendezVousAVenir(v.ctx('frigg'), f) }; },
     recherches: () => (appli('volva') ? history(v.ctx('volva')).map((h) => ({ id: s(h.id), q: s(h.q), at: Number(h.at) || 0 })) : undefined),
+    // Les sauvegardes de Phénix et les comptes de Sphinx, s'ils sont là et activés (au propriétaire seul : listes.ts).
+    sauvegardes: () => { if (!appli('sindri')) return undefined; const f = fuseauOdin(s(v.ctx('gladsheim').settings.fuseau)); return { fuseau: f, ...etatSauvegardes(v.ctx('sindri'), f) }; },
+    blocages: () => { if (!appli('vidarr')) return undefined; const f = fuseauOdin(s(v.ctx('gladsheim').settings.fuseau)); return { fuseau: f, ...pubsBloquees(v.ctx('vidarr'), f) }; },
   };
 }

@@ -23,7 +23,7 @@ import { actionsAgentSindri, lancerAgent } from '../sindri/agent.ts';
 import { actionsImage, faireImage, type InfoImage } from '../sindri/image.ts';
 import { tacheEnPause } from '../automatismes.ts';
 import { instantanesAvantSauvegarde } from '../ymir/instantanes.ts';
-import { dateMurale, fuseauOdin, murale } from '../../draupnir/rythme.ts';
+import { dateMurale, fuseauOdin, murale, prochaine } from '../../draupnir/rythme.ts';
 
 /** L'identifiant Talos de la tâche d'un plan (sans « : », stable tant que le plan garde son nom). */
 export const tacheDuPlan = (p: { name: string }) => `plan-${p.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sans-nom'}`;
@@ -320,6 +320,44 @@ function pourUnMembre(vu: View): View {
   const ouverts = new Set(['plans', 'instantanes', 'verifier']);
   const sections = vu.sections.filter((x) => x.kind !== 'form').map((x) => (x.kind === 'table' ? { ...x, rows: x.rows.map((r) => ({ ...r, actions: (r.actions ?? []).filter((a) => ouverts.has(a.action)) })) } : x));
   return { ...vu, onglets: (vu.onglets ?? []).filter((o) => o !== 'Nouveau'), sections };
+}
+
+/**
+ * L'état des sauvegardes, sans phrase, pour le widget « Sauvegardes » de l'accueil (src/valhalla/widgets/listes.ts) :
+ * - `plans` : combien de plans sont réglés ;
+ * - `derniere` : la plus récente des sauvegardes réussies que Phénix garde (la dernière tentative de chaque plan) : son
+ *   heure, sa sorte, son volume (les octets lus pour elle) ; absente : aucune réussite connue ;
+ * - `echecs`, `echecA` : combien de plans ont échoué à leur dernière tentative, et l'heure du plus récent de ces échecs ;
+ * - `enRetard` : combien de plans n'ont pas réussi depuis plus longtemps que la règle de l'alerte de la veille (plus bas) ;
+ * - `sansMesure` : combien de plans n'ont aucune tentative lisible (jamais lancés : un PC dont l'agent n'a jamais poussé,
+ *   un plan en pause depuis sa création) ; ils ne sont ni réussis, ni échoués, ni en retard, et le widget ne dit pas
+ *   « tout va bien » tant qu'il en reste ;
+ * - `prochaine` : la prochaine sauvegarde prévue, parmi les plans lancés d'ici chaque jour (hors pause dans Talos) ; un
+ *   plan d'un PC (son agent pousse quand il veut) ou tous les N jours n'en affirme pas.
+ * Ni le nom d'un plan, ni un chemin, ni une destination, ni le texte d'une erreur. Une lecture : la page ne change pas.
+ */
+export function etatSauvegardes(ctx: ModCtx, fuseau?: string): { plans: number; derniere?: { at: number; type: TypeSauvegarde; octets?: number }; echecs: number; echecA?: number; enRetard: number; sansMesure: number; prochaine?: number } {
+  const l = (ctx.settings.last as Record<string, { at?: string; ok?: boolean; bytes?: number; type?: string }> | undefined) ?? {}, now = ctx.now(), t = now.getTime(), ps = plans(ctx);
+  const sortes: readonly string[] = ['complète', 'incrémentielle', 'différentielle'];
+  let derniere: { at: number; type: TypeSauvegarde; octets?: number } | undefined, echecs = 0, echecA: number | undefined, enRetard = 0, sansMesure = 0, prochaineT: number | undefined;
+  for (const p of ps) {
+    const x = Object.hasOwn(l, p.name) ? l[p.name] : undefined, at = x ? Date.parse(s(x.at)) : Number.NaN;
+    if (x && Number.isFinite(at)) {
+      if (x.ok === false) { echecs++; echecA = Math.max(echecA ?? at, at); }
+      else {
+        if (!derniere || at > derniere.at) derniere = { at, type: (sortes.includes(s(x.type)) ? s(x.type) : 'complète') as TypeSauvegarde, ...(typeof x.bytes === 'number' && Number.isFinite(x.bytes) && x.bytes >= 0 ? { octets: x.bytes } : {}) };
+        // La règle de l'alerte « en retard » de la veille de Phénix, appliquée à la dernière réussite.
+        const tous = (p.tousLes ?? 1) * 864e5, retard = p.agent ? 7 * 864e5 : tous + 26 * 3600_000;
+        if (t - at > Math.max(50 * 3600_000, retard)) enRetard++;
+      }
+    } else sansMesure++;
+    // La prochaine : un plan lancé d'ici chaque jour, à une heure que la veille sait reconnaître (« HH:MM »), pas en pause.
+    if (!p.agent && (p.tousLes ?? 1) <= 1 && /^([01]\d|2[0-3]):[0-5]\d$/.test(s(p.at)) && !tacheEnPause('sindri', tacheDuPlan(p))) {
+      const n = prochaine({ genre: 'jour', heure: p.at }, now, fuseau)?.getTime();
+      if (n !== undefined && (prochaineT === undefined || n < prochaineT)) prochaineT = n;
+    }
+  }
+  return { plans: ps.length, ...(derniere ? { derniere } : {}), echecs, ...(echecA !== undefined ? { echecA } : {}), enRetard, sansMesure, ...(prochaineT !== undefined ? { prochaine: prochaineT } : {}) };
 }
 
 export const sindri: Module = {
