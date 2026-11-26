@@ -4093,3 +4093,8 @@ html[data-tone="light"] .dash .pill.live { color: #0f6b47; }
    un fond plein ; son icône prend la couleur de son texte (la couleur d'accent y serait celle du fond). */
 .dash .gauge.absente .g-txt small { white-space: normal; overflow-wrap: anywhere; }
 html[data-planet="blanc"] .dash .set-nav .set-tab.on svg, html[data-planet="noir"] .dash .set-nav .set-tab.on svg, html[data-planet="tv"] .dash .set-nav .set-tab.on svg { color: inherit; }
+/* L'administration, deuxième part : la qualité (lot V9). Les rubriques font 44 px au moins (doigt et clavier) ; en clair,
+   les raisons d'un titre et la pastille « SD » sont foncées pour se lire (4,5 pour 1). */
+.q-summary ~ .toolbar .seg-b { min-height: 44px; min-width: 44px; justify-content: center; }
+html[data-tone="light"] .q-text em { color: #a3241b; }
+html[data-tone="light"] .badge.q-SD { color: #a3241b; border-color: #a3241b; }

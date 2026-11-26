@@ -97,8 +97,10 @@ test('le tableau de bord est construit : rubriques de Dashboard.js, mêmes class
   const t = texte(h);
   const ordre = ['Tableau de bord', 'Suivi', 'Aperçu', 'En ce moment', 'Appareils', 'Activité', 'Serveur', 'Santé', 'Tâches de fond', 'Médiathèques', 'Outils', 'Statistiques', 'Réglages'];
   let i = 0; for (const x of ordre) { const j = t.indexOf(x, i); assert.ok(j >= 0, `« ${x} » à sa place`); i = j; }
-  for (const absent of ['Qualité', 'Sécurité', 'Mises à jour et journaux', 'Code de connexion', 'Déconnecter cet appareil', 'Redémarrer', 'Message à tous']) assert.ok(!t.includes(absent), `pas de « ${absent} » (pas encore dans Odin)`);
-  assert.match(h, /href="#\/stats"/); assert.match(h, /href="#\/reglages"/);
+  // (deuxième part du lot V9) La page Qualité existe : son lien « Qualité » est apparu en tête des outils, comme dans
+  // Dashboard.js ; les autres restent absents tant que leur page n'existe pas.
+  for (const absent of ['Sécurité', 'Mises à jour et journaux', 'Code de connexion', 'Déconnecter cet appareil', 'Redémarrer', 'Message à tous']) assert.ok(!t.includes(absent), `pas de « ${absent} » (pas encore dans Odin)`);
+  assert.match(h, /href="#\/qualite"/); assert.match(h, /href="#\/stats"/); assert.match(h, /href="#\/reglages"/);
   assert.match(h, /data-act="dashscan"/, '« Analyser »');
   assert.ok(p.appels.some((a) => a.chemin === '/venus/api/tableau'));
 });

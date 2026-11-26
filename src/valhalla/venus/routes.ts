@@ -29,7 +29,7 @@ import { cloreVote, creerSalle, creerVote, lireSalle, lireVote, voter } from './
 import { changer, collection, collections, creerCollection, creerListe, liste } from './collections.ts';
 import { demanderLegere, demanderSaison, fichierPret, planifier, REFUS_ENFANT, supprimerLegere, taches } from './hors-ligne.ts';
 import { icsCalendrier, lienCalendrier, profilDuCalendrier, sortiesDuCalendrier } from './hnoss/calendrier.ts';
-import { suivreAnalyse, tableau } from './entretien.ts';
+import { qualite, suivreAnalyse, tableau } from './entretien.ts';
 
 export interface VenusRouteCtx {
   home: string;
@@ -183,6 +183,14 @@ export async function venusRoute(req: IncomingMessage, res: ServerResponse, url:
       const qui = profils(ctx.home).find((x) => x.id === profil);
       if (!qui?.isAdmin || qui.isKids) { json(res, 403, { error: 'Réservé à l’administrateur.' }); return true; }
       json(res, 200, tableau(mag, ctx.home)); return true;
+    }
+    // (lot V9, deuxième part) La qualité de la bibliothèque (Quality.js), en lecture, pour le profil administrateur seulement ;
+    // aucun chemin de fichier dans la réponse.
+    if (p === '/venus/api/qualite') {
+      if (meth !== 'GET') { json(res, 405, { error: 'GET' }); return true; }
+      const qui = profils(ctx.home).find((x) => x.id === profil);
+      if (!qui?.isAdmin || qui.isKids) { json(res, 403, { error: 'Réservé à l’administrateur.' }); return true; }
+      json(res, 200, qualite(mag)); return true;
     }
     // La maison (lot V8) : statistiques, « Qui regarde ce soir ? », vote, séance, collections, listes, fichier d'origine.
     if (p.startsWith('/venus/api/') && await routeMaison(req, res, url, ctx, mag, profil)) return true;

@@ -210,6 +210,11 @@
       'Gérer': 'Manage', 'Médiathèques à vérifier': 'Libraries to check', 'Accessible': 'Accessible', 'Dossier introuvable': 'Folder not found', '{n} élément': '{n} item', '{n} éléments': '{n} items',
       'Aucune source pour l’instant.': 'No source yet.', '{h} h {m} min': '{h} h {m} min', '{m} min': '{m} min',
       'Conversion': 'Transcoding', '{n} conversion': '{n} transcode', '{n} conversions': '{n} transcodes', 'Musique': 'Music', 'Livres audio': 'Audiobooks',
+      // l'administration, deuxième part : la qualité (Quality.js)
+      'Définition': 'Resolution', 'Codecs vidéo': 'Video codecs', 'titres pourraient être en meilleure qualité': 'titles could be in better quality',
+      'Toute la médiathèque est en bonne qualité': 'The whole library is in good quality', 'À améliorer': 'To improve', 'Rien à améliorer : tout est en bonne qualité.': 'Nothing to improve: everything is in good quality.',
+      'Aucun titre.': 'No titles.', 'Basse définition': 'Low definition', '720p seulement': '720p only', 'Ancien codec ({c})': 'Old codec ({c})', 'Débit faible, image compressée': 'Low bitrate, compressed picture',
+      '{n}/h': '{n}/h', 'Filtres de la qualité': 'Quality filters',
     },
   };
   const LANG = String((D && D.documentElement.lang) || (W.navigator && W.navigator.language) || 'fr');
@@ -1396,10 +1401,10 @@
   // pages/Dashboard.js du dépôt Venus, réécrit sans React : mêmes rubriques, mêmes classes, mêmes textes. Les données
   // viennent d'Odin (/venus/api/tableau, réservé au profil administrateur) ; ce qu'Odin ne sait pas n'a pas de case.
   // Pas encore dans Odin, donc pas dessiné : le code de connexion, « Déconnecter cet appareil », « Redémarrer »,
-  // « Message à tous », les commandes d'une lecture en cours, et les pages Qualité, Sécurité, Mises à jour et journaux.
+  // « Message à tous », les commandes d'une lecture en cours, et les pages Sécurité, Mises à jour et journaux.
   // Relu toutes les 4 s sur cette page (onglet visible) ; seules les parties changées sont repeintes, le focus reste.
   const TB = { d: undefined, T: 0, vu: '', vuTete: '', tab: 'apercu', tous: false, enVol: false, analyse: false };
-  const TB_NAV = [['Suivi', [['apercu', 'Aperçu', 'gauge'], ['lectures', 'En ce moment', 'play'], ['appareils', 'Appareils', 'cast'], ['activite', 'Activité', 'chat']]], ['Serveur', [['sante', 'Santé', 'server'], ['taches', 'Tâches de fond', 'refresh'], ['medias', 'Médiathèques', 'folder']]], ['Outils', [['/stats', 'Statistiques', 'gauge'], ['/reglages', 'Réglages', 'gear']]]];
+  const TB_NAV = [['Suivi', [['apercu', 'Aperçu', 'gauge'], ['lectures', 'En ce moment', 'play'], ['appareils', 'Appareils', 'cast'], ['activite', 'Activité', 'chat']]], ['Serveur', [['sante', 'Santé', 'server'], ['taches', 'Tâches de fond', 'refresh'], ['medias', 'Médiathèques', 'folder']]], ['Outils', [['/qualite', 'Qualité', 'film'], ['/stats', 'Statistiques', 'gauge'], ['/reglages', 'Réglages', 'gear']]]];
   const TB_WHERE = { playing: ['apercu', 'lectures'], tasks: ['apercu', 'taches'], devices: ['appareils'], system: ['sante'], activity: ['activite'], libs: ['medias', 'sante'] };
   const TB_TABS = TB_NAV.flatMap(([, l]) => l).filter(([k]) => !k.startsWith('/'));
   const ACT_ICON = { play: 'play', scan: 'refresh', seerr: 'down', legere: 'download' };
@@ -1525,6 +1530,46 @@
     if (cle && a && !D.contains(a)) { const b = $(cle); if (b) b.focus({ preventScroll: true }); }
   }
 
+  // ---------------------------------------------------------------- l'administration, deuxième part : la qualité
+  // pages/Quality.js du dépôt Venus, réécrit sans React : mêmes rubriques, mêmes classes, mêmes textes. Les constats
+  // viennent d'Odin (/venus/api/qualite, réservé au profil administrateur), d'après ce que l'analyse a lu de chaque
+  // fichier. Pas dessiné, parce qu'Odin ne le mesure pas : le HDR (barre, rubrique et pastille), le son 5.1, les
+  // « Conversions évitables ». Pas dessiné, parce qu'Odin n'a pas cette action : « Meilleure version » (Hnoss tient un
+  // titre déjà dans la bibliothèque pour disponible et ne le refait pas venir). Lu une fois en arrivant, jamais en boucle.
+  const QA = { d: undefined, enVol: false, tab: null };
+  const QA_FILTRES = [['improve', 'À améliorer'], ['all', 'Tout'], ['4K', '4K'], ['1080p', '1080p'], ['720p', '720p'], ['SD', 'SD']];
+  const QA_RAISON = { sd: () => t('Basse définition'), '720p': () => t('720p seulement'), debit: () => t('Débit faible, image compressée') };
+  const raisonQa = (r) => (r.code === 'codec' ? t('Ancien codec ({c})', { c: r.codec }) : QA_RAISON[r.code] ? QA_RAISON[r.code]() : '');
+  /** Taille lisible, comme Quality.js (Mo, Go, To décimaux), dans la langue de la page. */
+  const poids = (b) => { const [u, d, f] = b >= 1e12 ? ['{n} To', 1e12, 2] : b >= 1e9 ? ['{n} Go', 1e9, 1] : ['{n} Mo', 1e6, 0]; return t(u, { n: new Intl.NumberFormat(LANG, { minimumFractionDigits: f, maximumFractionDigits: f }).format(f ? b / d : Math.round(b / d)) }).replace(/ /g, ' '); };
+  const qaTri = (() => { let c; try { c = new Intl.Collator(LANG); } catch { c = { compare: (a, b) => (a < b ? -1 : a > b ? 1 : 0) }; } const o = ['SD', '720p', '1080p', '4K']; return (a, b) => b.reasons.length - a.reasons.length || o.indexOf(a.res) - o.indexOf(b.res) || c.compare(String(a.title), String(b.title)); })();
+  function qaLigne(x) {
+    const sub = [x.year ? String(x.year) : '', x.type === 'show' ? tn(x.files, '{n} épisode', '{n} épisodes') : '', poids(x.size), x.sizePerHour ? t('{n}/h', { n: poids(x.sizePerHour) }) : ''].filter(Boolean).join(' · ');
+    const raisons = x.reasons.map(raisonQa).filter(Boolean).join(' · ');
+    return `<div class="q-row"><a class="q-main f" href="${href(`/titre/${encodeURIComponent(x.id)}`)}"><span class="q-pic">${x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy">` : ''}</span><span class="q-text"><b title="${esc(x.title || '—')}">${esc(x.title || '—')}</b><small>${esc(sub)}</small>${raisons ? `<em>${esc(raisons)}</em>` : ''}</span></a><span class="q-badges"><span class="badge q-${esc(x.res)}">${esc(x.res)}</span><span class="badge ghost">${esc(x.codec)}</span></span></div>`;
+  }
+  V.quality = () => {
+    if (!S.profile.isAdmin) return `<main class="with-nav"><div class="empty"><h2>${esc(t('Réservé à l’administrateur'))}</h2></div></main>`;
+    if (QA.d === undefined) { if (!QA.enVol) chargerQa(); return PageLoading(); }
+    const titre = `<h1 tabindex="-1">${esc(t('Qualité'))}</h1>`;
+    if (!QA.d) return `<main class="with-nav page-in"><div class="page"><div class="page-head"><div class="head-left">${titre}</div></div>${Empty(t('Impossible pour le moment.'))}</div></main>`;
+    const s = QA.d.summary;
+    // Aucun titre lu par l'analyse : la page le dit, sans rien affirmer de la qualité.
+    if (!s.total) return `<main class="with-nav page-in"><div class="page"><div class="page-head"><div class="head-left">${titre}</div></div><p class="grid-empty">${esc(t('Aucun titre.'))}</p></div></main>`;
+    const filtre = QA.tab || (s.toImprove ? 'improve' : 'all');
+    const items = QA.d.items.filter((x) => filtre === 'all' || (filtre === 'improve' ? x.reasons.length : x.res === filtre)).sort(qaTri);
+    const Bar = (label, n) => `<div class="q-bar"><span>${esc(label)}</span><div class="meter"><i style="width:${s.total ? (n / s.total) * 100 : 0}%"></i></div><b>${esc(nombre(n))}</b></div>`;
+    return `<main class="with-nav page-in"><div class="page"><div class="page-head"><div class="head-left">${titre}<p class="count">${esc(`${tn(s.total, '{n} titre', '{n} titres')} · ${poids(s.size)}`)}</p></div></div>
+    <div class="q-summary"><div class="dash-box"><div class="dash-title"><h2>${esc(t('Définition'))}</h2></div>${['4K', '1080p', '720p', 'SD'].map((r) => Bar(r, s.byRes[r] || 0)).join('')}</div><div class="dash-box"><div class="dash-title"><h2>${esc(t('Codecs vidéo'))}</h2></div>${s.codecs.slice(0, 5).map(([c, n]) => Bar(c, n)).join('')}</div><div class="dash-box q-improve"><b>${esc(nombre(s.toImprove))}</b><span>${esc(s.toImprove ? t('titres pourraient être en meilleure qualité') : t('Toute la médiathèque est en bonne qualité'))}</span></div></div>
+    <div class="toolbar"><div class="seg" role="group" aria-label="${esc(t('Filtres de la qualité'))}">${QA_FILTRES.map(([id, l]) => `<button class="seg-b f${filtre === id ? ' on' : ''}" aria-pressed="${filtre === id}" data-act="qtab" data-v="${id}">${esc(t(l))}${id === 'improve' ? `<small> ${esc(nombre(s.toImprove))}</small>` : ''}</button>`).join('')}</div></div>
+    <div class="q-list">${items.length ? items.slice(0, 300).map(qaLigne).join('') : `<p class="grid-empty">${esc(filtre === 'improve' ? t('Rien à améliorer : tout est en bonne qualité.') : t('Aucun titre.'))}</p>`}</div></div></main>`;
+  };
+  function chargerQa() {
+    QA.enVol = true;
+    api('/venus/api/qualite').then((d) => { QA.d = d && d.summary && Array.isArray(d.items) ? d : null; }).catch(() => { QA.d = null; })
+      .then(() => { QA.enVol = false; if (L.route(location.hash).path === '/qualite') render(true); });
+  }
+
   // ---------------------------------------------------------------- lecture (lot V2 : le lecteur de Venus, lecteur.js)
   async function lire(cibleId, depuisDebut) {
     const LV = W.VenusLecteur; if (!LV) { toast(t('Lecteur indisponible.')); return; }
@@ -1596,13 +1641,14 @@
     if (path === '/telecommande') return [V.remote(), false];
     // L'administration (lot V9) : un profil enfant n'a ni l'entrée ni la page.
     if (path === '/dashboard') { if (S.profile.isKids) return [V.home(), true]; TB.tab = TB_TABS.some(([k]) => k === q.get('tab')) ? q.get('tab') : 'apercu'; return [V.dashboard(), true]; }
+    if (path === '/qualite') { if (S.profile.isKids) return [V.home(), true]; QA.tab = QA_FILTRES.some(([k]) => k === q.get('tab')) ? q.get('tab') : null; return [V.quality(), true]; }
     if (path === '/collections') { if (q.get('onglet')) M8.collTab = q.get('onglet') === 'listes' ? 'playlists' : 'collections'; return [V.collections(), true]; }
     if ((m = path.match(/^\/collection\/(.+)$/))) { let id = m[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } return [V.collection(id), true]; }
     if ((m = path.match(/^\/liste-lecture\/(.+)$/))) { let id = m[1]; try { id = decodeURIComponent(id); } catch { /* tel quel */ } return [V.playlist(id), true]; }
     if (NAV_ITEMS.some((x) => x.href === path)) return [V.bientot(path), true];
     return [V.home(), true];
   }
-  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?', '/nouveau': 'Nouveau', '/nouveautes': 'Nouveautés', '/stats': 'Mes statistiques', '/telechargements': 'Téléchargements', '/collections': 'Collections', '/vote': 'Vote en famille', '/retrospective': 'Rétrospective', '/seance': 'Séance', '/telecommande': 'Télécommande', '/dashboard': 'Tableau de bord' };
+  const TITLE_OF = { '/': '', '/films': 'Films', '/series': 'Séries', '/animes': 'Animés', '/clips': 'Clips', '/liste': 'Ma liste', '/recherche': 'Recherche', '/reglages': 'Réglages', '/qui-regarde': 'Qui regarde ?', '/nouveau': 'Nouveau', '/nouveautes': 'Nouveautés', '/stats': 'Mes statistiques', '/telechargements': 'Téléchargements', '/collections': 'Collections', '/vote': 'Vote en famille', '/retrospective': 'Rétrospective', '/seance': 'Séance', '/telecommande': 'Télécommande', '/dashboard': 'Tableau de bord', '/qualite': 'Qualité' };
   let precedent = '#/', dernierChemin = '';
   function render(keepScroll = false) {
     applyTheme();
@@ -1626,6 +1672,7 @@
       if (path === '/telecommande') M8.rc.ecrans = undefined;
       if (path === '/seance') Object.assign(M8.se, { tente: '', msg: '' });
       if (path === '/dashboard') Object.assign(TB, { d: undefined, err: false, vu: '', tous: false, enVol: false });
+      if (path === '/qualite') QA.d = undefined;
     }
     if (path !== '/retrospective') clearTimeout(M8.recap.T);
     if (path !== '/vote') clearTimeout(M8.vt.T);
@@ -1636,6 +1683,8 @@
     $('#app').innerHTML = withNav ? Shell(path, page) : page;
     // Le tableau de bord au téléphone : la rubrique choisie se voit dans la barre des rubriques, qui défile de côté.
     if (path === '/dashboard') { const nv = $('.dash .set-nav'), on = nv && nv.querySelector('.set-tab.on'); if (on && nv.scrollWidth > nv.clientWidth) { const a = on.getBoundingClientRect(), b = nv.getBoundingClientRect(); nv.scrollLeft += a.left + a.width / 2 - (b.left + b.width / 2); } }
+    // La qualité au téléphone : la rubrique choisie se voit dans la barre des rubriques, qui défile de côté.
+    if (path === '/qualite') { const nv = $('.q-summary ~ .toolbar .seg'), on = nv && nv.querySelector('.seg-b.on'); if (on && nv.scrollWidth > nv.clientWidth) { const a = on.getBoundingClientRect(), b = nv.getBoundingClientRect(); nv.scrollLeft += a.left + a.width / 2 - (b.left + b.width / 2); } }
     $('#app').removeAttribute('aria-busy');
     const d = path.startsWith('/titre/') ? S.items.find((x) => `/titre/${encodeURIComponent(x.id)}` === path || `/titre/${x.id}` === path) : null;
     const tt = TITLE_OF[path] != null ? t(TITLE_OF[path]) : (d ? d.title : '');
@@ -1855,6 +1904,8 @@
       case 'rcagain': M8.recap.i = 0; M8.recap.reste = SLIDE_MS; rerender('.recap'); break;
       // Le tableau de bord (lot V9) : la rubrique tient dans l'adresse ; « Analyser » lance l'analyse qui existe.
       case 'dashtab': TB.tab = v; history.replaceState(null, '', v === 'apercu' ? '#/dashboard' : `#/dashboard?tab=${v}`); rerender(sel('dashtab', v)); break;
+      // La qualité (lot V9, deuxième part) : la rubrique tient dans l'adresse.
+      case 'qtab': QA.tab = v; history.replaceState(null, '', `#/qualite?tab=${v}`); rerender(sel('qtab', v)); break;
       case 'dashmore': TB.tous = !TB.tous; rerender('[data-act="dashmore"]'); break;
       case 'dashscan': {
         if (TB.analyse) break; TB.analyse = true; el.disabled = true; toast(t('Analyse des médiathèques lancée'));

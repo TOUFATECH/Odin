@@ -243,3 +243,72 @@ export function tableau(mag: MagasinVenus, home: string, maintenant = Date.now()
     libraries,
   };
 }
+
+// ---------------------------------------------------------------- la qualité (pages/Quality.js, lot V9, deuxième part)
+// Les mêmes règles que l'appli d'origine (/api/admin/quality du dépôt Venus), sur ce que l'analyse d'Odin a déjà lu de
+// chaque fichier : sa largeur et sa hauteur d'image, son codec vidéo (ffprobe), son poids et sa durée. Un film, ou une
+// série (tous ses épisodes ensemble), est une ligne ; sa définition est la moins bonne de ses fichiers, son codec le plus
+// fréquent. Le débit est le débit moyen du fichier (poids et durée), comme ffprobe le donne pour un conteneur.
+// Ce qu'Odin ne lit pas (HDR, son 5.1, conversions faites) n'est pas rempli. Aucun chemin, aucun nom de fichier.
+export type Definition = 'SD' | '720p' | '1080p' | '4K';
+export type RaisonQualite = { code: 'sd' } | { code: '720p' } | { code: 'codec'; codec: string } | { code: 'debit' };
+export interface TitreQualite {
+  id: string; type: 'movie' | 'show'; kind: 'movie' | 'show' | 'anime'; title: string; year?: number; poster?: string;
+  files: number; size: number; res: Definition; codec: string; reasons: RaisonQualite[]; sizePerHour?: number;
+}
+export interface Qualite { items: TitreQualite[]; summary: { total: number; size: number; byRes: Record<Definition, number>; toImprove: number; codecs: Array<[string, number]> } }
+const ORDRE_DEF: Definition[] = ['SD', '720p', '1080p', '4K'];
+/** Les seuils de l'appli d'origine (largeur ou hauteur). Pur. */
+export const definitionDe = (l: number, h: number): Definition => (l >= 3200 || h >= 1800 ? '4K' : l >= 1800 || h >= 1000 ? '1080p' : l >= 1200 || h >= 700 ? '720p' : 'SD');
+const CODEC_ANCIEN = /mpeg4|mpeg2|msmpeg|wmv|vc1|xvid|divx|h263/;
+
+/** La qualité de la bibliothèque, pour l'administrateur. */
+export function qualite(mag: MagasinVenus): Qualite {
+  const groupes = new Map<string, { o: { id: string; data: Record<string, unknown> }; files: number; size: number; dur: number; res: Map<Definition, number>; codecs: Map<string, number>; debit: number }>();
+  const lire = (oeuvre: { id: string; data: Record<string, unknown> }, v: { data: Record<string, unknown> }) => {
+    const f = s(v.data.fichier), e = f ? mag.get('fichiers', f.replace(/[^A-Za-z0-9_.:-]/g, '_').slice(-199)) : undefined;
+    const p = e?.data.probe as { largeur?: unknown; hauteur?: unknown; codecs?: unknown; duree?: unknown } | undefined;
+    const codec = Array.isArray(p?.codecs) ? s(p!.codecs[0]).toLowerCase() : '';
+    const l = n(p?.largeur), h = n(p?.hauteur);
+    // Rien de lu sur l'image (pas de piste vidéo, ni largeur ni hauteur) : ce fichier ne dit rien de la qualité.
+    if (!e || !codec || (l <= 0 && h <= 0)) return;
+    const g = groupes.get(oeuvre.id) ?? { o: oeuvre, files: 0, size: 0, dur: 0, res: new Map(), codecs: new Map(), debit: 0 };
+    const taille = Math.max(0, n(e.data.taille)), duree = n(v.data.duree) > 0 ? n(v.data.duree) : Math.max(0, n(p?.duree));
+    const def = definitionDe(l, h);
+    g.files++; g.size += taille; g.dur += duree;
+    g.res.set(def, (g.res.get(def) ?? 0) + 1); g.codecs.set(codec, (g.codecs.get(codec) ?? 0) + 1);
+    if (taille > 0 && duree > 0) g.debit = Math.max(g.debit, (taille * 8) / duree);
+    groupes.set(oeuvre.id, g);
+  };
+  const oeuvres = new Map(mag.liste('oeuvres').map((o) => [o.id, o]));
+  // Films et épisodes, comme l'appli d'origine (un clip n'en fait pas partie).
+  for (const o of oeuvres.values()) if (o.data.type === 'film' && s(o.data.categorie) !== 'clip') lire(o, o);
+  for (const ep of mag.liste('episodes')) { const o = oeuvres.get(s(ep.data.oeuvre_id)); if (o && o.data.type === 'serie') lire(o, ep); }
+
+  const images = groupes.size ? new Map(catalogue(mag, PROFIL_PROPRIETAIRE).map((x) => [x.id, x])) : new Map();
+  const items: TitreQualite[] = [...groupes.values()].map((g) => {
+    const film = g.o.data.type === 'film';
+    const res = [...g.res.keys()].sort((a, b) => ORDRE_DEF.indexOf(a) - ORDRE_DEF.indexOf(b))[0]; // la moins bonne
+    const codec = [...g.codecs.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const reasons: RaisonQualite[] = [];
+    if (res === 'SD') reasons.push({ code: 'sd' }); else if (res === '720p') reasons.push({ code: '720p' });
+    if (CODEC_ANCIEN.test(codec)) reasons.push({ code: 'codec', codec: codec.toUpperCase() });
+    if (res === '1080p' && g.debit && g.debit < 2.2e6 && film) reasons.push({ code: 'debit' });
+    const annee = n(g.o.data.annee), affiche = images.get(g.o.id)?.poster;
+    return {
+      id: g.o.id, type: film ? 'movie' : 'show', kind: film ? 'movie' : s(g.o.data.categorie) === 'anime' ? 'anime' : 'show',
+      title: s(g.o.data.titre), ...(annee > 0 ? { year: annee } : {}), ...(affiche ? { poster: String(affiche) } : {}),
+      files: g.files, size: g.size, res, codec: codec.toUpperCase(), reasons, ...(g.dur > 0 && g.size > 0 ? { sizePerHour: g.size / (g.dur / 3600) } : {}),
+    };
+  });
+  const codecs = new Map<string, number>(); for (const x of items) codecs.set(x.codec, (codecs.get(x.codec) ?? 0) + 1);
+  return {
+    items,
+    summary: {
+      total: items.length, size: items.reduce((a, x) => a + x.size, 0),
+      byRes: Object.fromEntries(ORDRE_DEF.map((r) => [r, items.filter((x) => x.res === r).length])) as Record<Definition, number>,
+      toImprove: items.filter((x) => x.reasons.length).length,
+      codecs: [...codecs.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])),
+    },
+  };
+}
