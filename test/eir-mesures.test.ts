@@ -51,7 +51,9 @@ test('mesures gardées : minutes, moyennes, heures, fenêtres, Prometheus', () =
     now += 3600_000; m.put({ 'eir.cpu': 5 }); now += 60_000; m.put({ 'eir.cpu': 5 }); m.flush();
     now += 40 * 864e5; assert.ok(m.prune(31) >= 1);
     const old = new Metrics(dir, () => now).points('eir.cpu', now - 60 * 864e5, now);
-    assert.equal(old.length, 1, 'une moyenne horaire'); assert.equal(old[0][1], 46.667);
+    // Le ménage range aussi l'heure de 11 h, encore en mémoire et jamais écrite avant : plus aucune heure perdue
+    // (avant le ménage sûr, seule l'heure de 10 h restait).
+    assert.equal(old.length, 2, 'deux moyennes horaires'); assert.equal(old[0][1], 46.667); assert.equal(old[1][1], 5);
     assert.match(m.prometheus() + new Metrics(dir, () => now).prometheus(), /^|# TYPE/);
     assert.ok(!new Metrics(dir).names().includes('nom invalide'));
     m.put({ 'nom invalide !': 1 }); assert.ok(!m.names().includes('nom invalide !'));
