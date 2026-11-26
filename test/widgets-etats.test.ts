@@ -157,6 +157,12 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       raccourcis: W('raccourcis'),
       // la famille « automatisations » : Talos n'est pas démarré dans cet essai, donc rien n'est lu (« source_absente »)
       automatisations: W('automatisations'), taches_planifiees: W('taches_planifiees'),
+      // « Stockage » : Pyramide ne lit pas les disques sous Windows (« source_absente ») ; sur Linux ou Mac, elle lit la
+      // vraie machine d'Odin (lsblk, df), dont les chiffres sont vrais dès la première lecture
+      stockage: W('stockage'),
+      // la famille « sante » : sur la machine de l'essai, Hygie n'a rien rangé et Tirésias n'a rien lu (ou ne lit pas sous
+      // Windows) : « vide » ou « source_absente », jamais un chiffre
+      sante_machine: W('sante_machine'), sante_disques: W('sante_disques'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);

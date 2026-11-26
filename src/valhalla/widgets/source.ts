@@ -16,6 +16,9 @@ import { join } from 'node:path';
 import { fichierEpingles, lireEpingles, traiterEpingles } from '../../web/epingles-api.ts';
 import { agissant } from '../sso/acces.ts';
 import { PROPRIETAIRE } from '../snotra/partout.ts';
+import { DEFAULT_LIMITS } from '../eir/collect.ts';
+import { lireDernier } from '../durinn/suivi.ts';
+import { posteDe } from '../postes.ts';
 
 const s = (v: unknown) => String(v ?? '');
 
@@ -23,6 +26,7 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
   const vues = new Map<string, Promise<View | null>>();
   let alertes: Array<{ appli: string }> | undefined, aVoir: ReturnType<NonNullable<SourceWidget['alertesAVoir']>> | undefined;
   let automatismes: ReturnType<NonNullable<SourceWidget['automatismes']>> | undefined;
+  let stockage: ReturnType<NonNullable<SourceWidget['stockage']>> | undefined;
   // Une appli désactivée (Applis) n'est pas là pour un widget.
   const appli = (id: string) => { const m = v.module(id); return m && m.id === id && v.estActive(m.id) ? m : undefined; };
   return {
@@ -88,5 +92,35 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
         return o.ok === true && Array.isArray(o.lignes) ? { fuseau: s(o.fuseau), lignes: o.lignes as NonNullable<Awaited<ReturnType<NonNullable<SourceWidget['automatismes']>>>>['lignes'] } : undefined;
       }).catch(() => undefined)
       : Promise.resolve(undefined))),
+    // La santé de la machine d'Odin : seulement ce que Hygie a déjà rangé (aucune mesure lancée ici), les deux dernières
+    // heures, et ses seuils tels que sa page les calcule (ses seuils de départ, puis ses réglages). Hygie ne lit que les
+    // fichiers de Linux : ailleurs, rien n'est lu (le widget le dit).
+    santeMachine: () => {
+      const systeme = process.platform; if (systeme !== 'linux') return { systeme };
+      const reglees = (v.ctx('eir').settings.seuils ?? {}) as Record<string, Partial<(typeof DEFAULT_LIMITS)[string]>>;
+      const seuils = Object.fromEntries(['cpu', 'mem', 'fs', 'temp'].map((k) => [k, { ...DEFAULT_LIMITS[k], ...(reglees[k] ?? {}) }]));
+      const m = v.metrics; if (!m) return { systeme, seuils };
+      const t = maintenant(), de = t - 2 * 3_600_000, noms = m.names('eir.'), suite = (n: string) => m.points(n, de, t);
+      return { systeme, seuils, mesures: { cpu: suite('eir.cpu'), mem: suite('eir.mem'), disques: noms.filter((n) => n.startsWith('eir.fs.')).map(suite), temperatures: noms.filter((n) => n.startsWith('eir.temp.')).map(suite) } };
+    },
+    // La dernière lecture des disques de cette machine gardée par Tirésias, sans en relancer une (sa veille la refait).
+    // Tirésias ne lit pas les disques sous Windows : rien n'est lu (le widget le dit).
+    disquesSante: () => {
+      const systeme = process.platform; if (systeme === 'win32') return { systeme };
+      const l = lireDernier<{ quand?: unknown; panne?: { quoi?: unknown }; disques?: unknown }>(v.ctx('durinn').dir, 'ici');
+      return l && typeof l === 'object' ? { systeme, lecture: { quand: s(l.quand), ...(l.panne ? { panne: s(l.panne.quoi) } : {}), disques: Array.isArray(l.disques) ? l.disques : [] } } : { systeme };
+    },
+    // Le stockage de la machine d'Odin, lu par les lectures « Disques » et « Partages » de Pyramide telles qu'elles
+    // existent (sans poste : la machine d'Odin, jamais un autre), une fois par page, si Pyramide est là et activée. Un
+    // système dont Pyramide ne lit pas les disques (Windows) : rien n'est lancé. Une lecture qui échoue : rien.
+    stockage: () => (stockage ??= (async () => {
+      if (!appli('fensalir')) return undefined;
+      const ctx = v.ctx('fensalir'), systeme = await posteDe(ctx, undefined).systeme();
+      if (systeme !== 'linux' && systeme !== 'mac') return { systeme, disques: [], volumes: [], partages: [] };
+      const lue = async (id: string) => { const f = v.action('fensalir', id); if (!f || f.m.id !== 'fensalir' || f.a.read !== true) throw new Error('lecture absente'); return (await f.a.run(ctx, {})).data; };
+      const [d, partages] = await Promise.all([lue('disques'), lue('partages')]);
+      const o = (d && typeof d === 'object' ? d : {}) as { disques?: unknown; volumes?: unknown };
+      return { systeme, disques: o.disques, volumes: o.volumes, partages };
+    })().catch(() => undefined)),
   };
 }

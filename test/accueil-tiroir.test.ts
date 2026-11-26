@@ -282,8 +282,10 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     // de la famille « listes », proposés au propriétaire (l'agenda de Chronos, les recherches de Pythie), et les deux de
     // sa seconde part (les sauvegardes de Phénix, les pubs bloquées par Sphinx). Puis les deux de la famille
     // « automatisations », proposés au propriétaire (ses automatisations de Talos, les tâches planifiées). Puis les
-    // raccourcis d'applis (famille « applis » : les applis épinglées de qui regarde).
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1);
+    // raccourcis d'applis (famille « applis » : les applis épinglées de qui regarde). Puis « Stockage » (famille
+    // « stockage » : les volumes, partages et disques de la machine d'Odin, lus par Pyramide). Puis les deux de la famille
+    // « sante » (la santé de la machine d'Odin, lue par Hygie, et de ses disques, lus par Tirésias).
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1 + 1 + 2);
     // L'appli désactivée : grisée, « désactivée », aucun bouton.
     const nomEteinte = cat.modules.find((m) => m.id === eteinte)!.name;
     const off = await page.evaluate(`(() => { const l = [...document.querySelectorAll('#feTiroir .fe-it')].find((x) => x.querySelector('b')?.textContent === ${JSON.stringify(nomEteinte)}); return l ? { off: l.classList.contains('off'), bouton: Boolean(l.querySelector('button')), texte: l.textContent } : null; })()`) as { off: boolean; bouton: boolean; texte: string } | null;

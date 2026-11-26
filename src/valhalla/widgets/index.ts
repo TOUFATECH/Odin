@@ -10,13 +10,15 @@ import { SORTES_VEILLE } from './veille.ts';
 import { SORTES_LISTES } from './listes.ts';
 import { SORTES_APPLIS } from './applis.ts';
 import { SORTES_AUTOMATISATIONS } from './automatisations.ts';
+import { SORTES_SANTE } from './sante.ts';
+import { SORTES_STOCKAGE } from './stockage.ts';
 import type { EtatWidget, Famille, Lecteur, Public, SourceWidget, SorteWidget } from './sorte.ts';
 
 export type { EtatWidget, Famille, Lecteur, Public, Qui, Ecran, SourceWidget, SorteWidget } from './sorte.ts';
 export { ETATS } from './sorte.ts';
 
 /** Toutes les sortes, famille par famille. */
-export const SORTES = [...SORTES_INFOS, ...SORTES_ODIN, ...SORTES_MAISON, ...SORTES_AUJOURDHUI, ...SORTES_VEILLE, ...SORTES_LISTES, ...SORTES_APPLIS, ...SORTES_AUTOMATISATIONS] as const;
+export const SORTES = [...SORTES_INFOS, ...SORTES_ODIN, ...SORTES_MAISON, ...SORTES_AUJOURDHUI, ...SORTES_VEILLE, ...SORTES_LISTES, ...SORTES_APPLIS, ...SORTES_AUTOMATISATIONS, ...SORTES_SANTE, ...SORTES_STOCKAGE] as const;
 type Sorte = (typeof SORTES)[number];
 /** Les identifiants des sortes que cleanLayout accepte aujourd'hui (l'écran sait les dessiner). */
 export type IdSortePosable = Extract<Sorte, { posable: true }>['id'];

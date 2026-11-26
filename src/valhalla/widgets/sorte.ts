@@ -9,9 +9,10 @@ import type { View } from '../types.ts';
  * Les quatre familles de la maquette (une par fichier), la veille (les alertes, les sites d'Arachné : veille.ts) et les
  * listes d'Odin (l'agenda de Chronos, les recherches de Pythie, les sauvegardes de Phénix, les pubs bloquées par
  * Sphinx : listes.ts). Puis le widget de n'importe quelle appli (applis.ts). Puis ses automatisations de Talos et ce
- * qui part aujourd'hui (automatisations.ts).
+ * qui part aujourd'hui (automatisations.ts). Puis la santé de la machine d'Odin et de ses disques (sante.ts). Puis son
+ * stockage : volumes, partages, disques, lus par Pyramide (stockage.ts).
  */
-export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes' | 'applis' | 'automatisations';
+export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes' | 'applis' | 'automatisations' | 'sante' | 'stockage';
 /**
  * Qui peut recevoir un widget de cette sorte, au plus (constat M12, trois niveaux) :
  * - `proprietaire` : lui seul (le défaut, quand rien n'est écrit) ;
@@ -120,7 +121,31 @@ export interface SourceWidget {
    * démarré, désactivé, ou ne répond pas. Absente : pas lue.
    */
   automatismes?(): Promise<{ fuseau: string; lignes: ReadonlyArray<{ id: string; sorte: string; nom: string; quoi: string; phrase: string; etat: string; prochaine?: string }> } | undefined>;
+  /**
+   * La santé de la machine d'Odin telle que Hygie la range chaque minute dans le magasin de mesures (src/valhalla/eir/collect.ts,
+   * toSeries) : les relevés récents du processeur, de la mémoire, de chaque disque monté et de chaque capteur de température,
+   * et les seuils de Hygie (ses réglages sur ses seuils de départ). `systeme` : le système de la machine (Hygie ne lit que
+   * Linux : ailleurs, rien n'est lu). `mesures` absent : le magasin de mesures n'est pas là. Absente : pas lue.
+   */
+  santeMachine?(): { systeme: string; seuils?: Record<string, { suivre: number; attention: number; grave: number }>; mesures?: { cpu: Releves; mem: Releves; disques: readonly Releves[]; temperatures: readonly Releves[] } } | undefined;
+  /**
+   * La dernière lecture des disques de la machine d'Odin gardée par Tirésias (src/valhalla/modules/durinn.ts, Lecture), SANS
+   * en relancer une : son heure (ISO), ce qui l'a empêchée (`panne` : un code de Tirésias), et ses disques tels qu'il les
+   * garde. `systeme` : le système de la machine (Tirésias ne lit pas les disques sous Windows). `lecture` absente : Tirésias
+   * n'a encore rien lu. Absente : pas lue.
+   */
+  disquesSante?(): { systeme: string; lecture?: { quand: string; panne?: string; disques: ReadonlyArray<unknown> } } | undefined;
+  /**
+   * Le stockage de la machine d'Odin (jamais un autre poste), tel que Pyramide le lit avec ses lectures « Disques » et
+   * « Partages » (src/valhalla/modules/fensalir.ts) : ses disques, ses volumes montés, ses partages, lus sans confiance par
+   * le widget (stockage.ts). `systeme` : le système de la machine (Pyramide ne lit pas les disques sous Windows : rien
+   * n'y est lancé). Rien (undefined) : Pyramide n'est pas là, ou ne répond pas. Absente : pas lue.
+   */
+  stockage?(): Promise<{ systeme: string; disques: unknown; volumes: unknown; partages: unknown } | undefined>;
 }
+
+/** Une suite de relevés d'une mesure : [instant (ms), valeur]. */
+export type Releves = ReadonlyArray<readonly [number, number]>;
 
 /** Un site surveillé par Arachné, tel qu'un widget le lit (src/valhalla/modules/idunn.ts, sitesVeille). */
 export interface SiteVeille {

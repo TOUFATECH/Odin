@@ -164,7 +164,11 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     // et ses raccourcis : les applis épinglées de qui regarde (famille « applis », seconde sorte)
     'raccourcis',
     // puis la famille « automatisations » : ses automatisations de Talos et ce qui part aujourd'hui (propriétaire seul)
-    'automatisations', 'taches_planifiees'].sort());
+    'automatisations', 'taches_planifiees',
+    // puis « Stockage » : les volumes, partages et disques de la machine d'Odin, lus par Pyramide (famille « stockage »)
+    'stockage',
+    // puis « Santé » : la santé de la machine d'Odin (Hygie) et de ses disques (Tirésias), à qui a le droit sur l'appli lue
+    'sante_machine', 'sante_disques'].sort());
   assert.deepEqual(TAILLE_SORTE, {
     heure_petite: { mini: [2, 1], r: 1 }, meteo_petite: { mini: [2, 1], r: 1 }, alertes: { mini: [2, 1], r: 1 }, // les petits chiffres « Infos » de la maquette
     alertes_liste: { mini: [3, 2], r: 3 }, sites: { mini: [3, 2], r: 5 }, sites_petit: { mini: [2, 1], r: 1 }, // la famille « veille »
@@ -173,6 +177,8 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     appli: { mini: [3, 2], r: 2 }, // le widget de n'importe quelle appli (famille « applis »)
     raccourcis: { mini: [3, 2], r: 2 }, // ses raccourcis d'applis épinglées (famille « applis »)
     automatisations: { mini: [4, 2], r: 3 }, taches_planifiees: { mini: [3, 2], r: 3 }, // la famille « automatisations »
+    stockage: { mini: [3, 2], r: 4 }, // la famille « stockage » (la maquette : 5 × 4, 3 × 2 au moins)
+    sante_machine: { mini: [3, 2], r: 2 }, sante_disques: { mini: [3, 2], r: 4 }, // la famille « sante » (la maquette : 4 × 2 et 3 × 4)
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
     a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },
