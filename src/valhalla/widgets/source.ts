@@ -20,9 +20,11 @@ import { DEFAULT_LIMITS } from '../eir/collect.ts';
 import { lireDernier } from '../durinn/suivi.ts';
 import { posteDe } from '../postes.ts';
 import { homeDevices, homeScenes, sceneRisk } from '../modules/midgard.ts';
+import { cameraNames } from '../modules/himinbjorg.ts';
 import { isIP } from 'node:net';
 import { NETWORK, isPaused, state as etatAriane, throughput } from '../ran.ts';
 import { appareilsReseauBranches, reseauEntierLu } from './reseau.ts';
+import { paroleOf } from '../parole.ts';
 
 const s = (v: unknown) => String(v ?? '');
 
@@ -147,6 +149,8 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
       const liste = homeScenes(v.ctx('midgard')), lancee = (nom: string) => liste.find((x) => s(x.name).toLowerCase() === nom.toLowerCase());
       return liste.map((x) => ({ nom: s(x.name), etapes: Array.isArray(x.steps) ? x.steps.length : 0, ouvre: Boolean(sceneRisk(lancee(s(x.name)))) }));
     },
+    // Les caméras de Cyclope, si elle est là et activée : leurs noms seulement (cameraNames), comme l'écran de la maison.
+    camerasMaison: () => (appli('himinbjorg') ? cameraNames(v.ctx('himinbjorg')).map(s) : undefined),
     // Les appareils du réseau : le registre d'Odin, par le branchement posé dans allModules (reseau.ts). Aucun balayage.
     appareilsReseau: () => appareilsReseauBranches()?.(),
     // Le débit d'Ariane, seulement si elle est là, activée, pas en pause, et qu'elle lit vraiment TOUT le réseau (un
@@ -159,5 +163,7 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
       const pas = 10_000, fin = Math.floor(maintenant() / pas) * pas, [b] = throughput(ctx.home, { since: fin - pas, bucketMs: pas, until: fin });
       return b ? { recu: b.entrant / (pas / 1000), envoye: b.sortant / (pas / 1000), at: fin } : undefined;
     },
+    // Le moteur de parole d'Odin, le même que la mascotte (le widget « Odin » ne lui demande une phrase que selon sa règle).
+    moteurParole: () => paroleOf(),
   };
 }

@@ -158,6 +158,12 @@ export interface SourceWidget {
    */
   scenesMaison?(): ReadonlyArray<{ nom: string; etapes: number; ouvre: boolean }> | undefined;
   /**
+   * Les noms des caméras que Cyclope connaît (src/valhalla/modules/himinbjorg.ts, cameraNames), jamais leurs adresses, ni
+   * une image. Rien (undefined) : Cyclope n'est pas là, ou est désactivée. Absente : pas lue. Lue seulement pour le
+   * propriétaire (maison-securite.ts).
+   */
+  camerasMaison?(): readonly string[] | undefined;
+  /**
    * Les appareils du réseau tels que le registre d'Odin les connaît (src/hlidskjalf/inventory.ts, sans les retirés), lus
    * par le branchement de reseau.ts : le nom lisible (deviceLabel), l'adresse, en ligne ou non au dernier balayage,
    * sa dernière nouvelle (ms) ; `at` : l'heure du dernier balayage. Jamais un balayage lancé par cette lecture. Rien
@@ -170,6 +176,11 @@ export interface SourceWidget {
    * pas les paquets. Absente : pas lue.
    */
   debitReseau?(): { recu: number; envoye: number; at: number } | undefined;
+  /**
+   * Le moteur de parole d'Odin (src/valhalla/parole.ts, paroleOf : le même que la mascotte), pour le widget « Odin »
+   * (parole.ts, qui ne lui demande une phrase que selon sa règle). Rien (undefined) : le moteur n'est pas prêt. Absente : pas lue.
+   */
+  moteurParole?(): { parler(d: import('../parole.ts').Demande): Promise<import('../parole.ts').Parole> } | undefined;
 }
 
 /**

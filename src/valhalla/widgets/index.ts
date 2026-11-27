@@ -7,6 +7,7 @@ import { SORTES_INFOS } from './infos.ts';
 import { SORTES_MAISON } from './maison.ts';
 import { SORTES_MAISON_ENSEMBLE } from './maison-ensemble.ts';
 import { SORTES_MAISON_APPAREILS } from './maison-appareils.ts';
+import { SORTES_MAISON_SECURITE } from './maison-securite.ts';
 import { SORTES_ODIN } from './odin.ts';
 import { SORTES_VEILLE } from './veille.ts';
 import { SORTES_LISTES } from './listes.ts';
@@ -15,13 +16,14 @@ import { SORTES_AUTOMATISATIONS } from './automatisations.ts';
 import { SORTES_SANTE } from './sante.ts';
 import { SORTES_STOCKAGE } from './stockage.ts';
 import { SORTES_RESEAU } from './reseau.ts';
+import { SORTES_PAROLE } from './parole.ts';
 import type { EtatWidget, Famille, Lecteur, Public, SourceWidget, SorteWidget } from './sorte.ts';
 
 export type { EtatWidget, Famille, Lecteur, Public, Qui, Ecran, SourceWidget, SorteWidget } from './sorte.ts';
 export { ETATS } from './sorte.ts';
 
 /** Toutes les sortes, famille par famille. */
-export const SORTES = [...SORTES_INFOS, ...SORTES_ODIN, ...SORTES_MAISON, ...SORTES_MAISON_ENSEMBLE, ...SORTES_MAISON_APPAREILS, ...SORTES_AUJOURDHUI, ...SORTES_VEILLE, ...SORTES_LISTES, ...SORTES_APPLIS, ...SORTES_AUTOMATISATIONS, ...SORTES_SANTE, ...SORTES_STOCKAGE, ...SORTES_RESEAU] as const;
+export const SORTES = [...SORTES_INFOS, ...SORTES_ODIN, ...SORTES_MAISON, ...SORTES_MAISON_ENSEMBLE, ...SORTES_MAISON_APPAREILS, ...SORTES_MAISON_SECURITE, ...SORTES_AUJOURDHUI, ...SORTES_VEILLE, ...SORTES_LISTES, ...SORTES_APPLIS, ...SORTES_AUTOMATISATIONS, ...SORTES_SANTE, ...SORTES_STOCKAGE, ...SORTES_RESEAU, ...SORTES_PAROLE] as const;
 type Sorte = (typeof SORTES)[number];
 /** Les identifiants des sortes que cleanLayout accepte aujourd'hui (l'écran sait les dessiner). */
 export type IdSortePosable = Extract<Sorte, { posable: true }>['id'];

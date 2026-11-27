@@ -173,6 +173,11 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       maison_appareil: W('maison_appareil'), maison_lumiere: W('maison_lumiere'), maison_capteur: W('maison_capteur'), maison_pieces: W('maison_pieces'),
       // la maison d'un coup d'œil : un Odin neuf n'a ni scène ni appareil (« vide »), jamais un 0 à la place d'une absence
       maison_scenes: W('maison_scenes'), maison_bandeau: W('maison_bandeau'), ma_maison: W('ma_maison'),
+      // la sécurité de la maison : un Odin neuf n'a ni serrure, ni porte, ni caméra (« vide ») ; la caméra pas choisie (« vide »)
+      maison_securite: W('maison_securite'), maison_camera: W('maison_camera'),
+      // le widget « Odin » : le moteur de parole n'est pas démarré dans cet essai (« source_absente ») ; démarré, il se tait
+      // sur un Odin neuf ou dit une vraie chose (test/widgets-parole.test.ts) ; jamais une phrase du widget
+      parole: W('parole'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);

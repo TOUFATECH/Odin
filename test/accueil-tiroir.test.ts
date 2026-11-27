@@ -296,8 +296,10 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     // maison d'un coup d'œil, même famille (ses scènes, le bandeau d'état, « Ma maison »). Puis un appareil, une lumière,
     // un capteur et « Pièces », même famille (suit la pose depuis le tiroir : les trois premiers y ont leur ligne, l'unique
     // appareil du genre pris d'office, sinon « Régler » aussitôt ; avant : « Pièces » seule). Puis « Réseau » (famille
-    // « reseau », proposé au propriétaire : ses appareils du réseau).
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1 + 1 + 2 + 6 + 3 + 3 + 1 + 1);
+    // « reseau », proposé au propriétaire : ses appareils du réseau). Puis « Sécurité » (famille « maison », proposée au
+    // propriétaire : ses serrures, ses portes, ses caméras ; « Caméra » n'a pas encore de ligne : elle n'est pas posable).
+    // Puis « Odin » (famille « odin », proposé au propriétaire : sa phrase du moment, son visage, sa proposition).
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1 + 1 + 2 + 6 + 3 + 3 + 1 + 1 + 1 + 1);
     // L'appli désactivée : grisée, « désactivée », aucun bouton.
     const nomEteinte = cat.modules.find((m) => m.id === eteinte)!.name;
     const off = await page.evaluate(`(() => { const l = [...document.querySelectorAll('#feTiroir .fe-it')].find((x) => x.querySelector('b')?.textContent === ${JSON.stringify(nomEteinte)}); return l ? { off: l.classList.contains('off'), bouton: Boolean(l.querySelector('button')), texte: l.textContent } : null; })()`) as { off: boolean; bouton: boolean; texte: string } | null;

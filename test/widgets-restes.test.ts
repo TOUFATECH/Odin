@@ -119,7 +119,11 @@ test('le tiroir : chaque sorte dit elle-même son groupe, celui de la maquette ;
 
 const MARQUEES = ['raccourcis', 'alertes_liste', 'sante_disques', 'stockage',
   // le widget « Réseau » : les noms et les adresses des appareils de sa maison, au propriétaire seul
-  'reseau'];
+  'reseau',
+  // la sécurité de la maison : ses serrures, ses portes, les noms et l'image de ses caméras, au propriétaire seul
+  'maison_securite', 'maison_camera',
+  // le widget « Odin » : sa phrase parle des alertes, des tâches, des notes et de la mémoire du propriétaire
+  'parole'];
 /** La règle d'avant, sans la marque : ce qu'elle admettait, pour prouver que la marque ne fait que refuser. */
 const avantMarque = (s: SorteWidget) => !s.accueilSeul && (s.public ?? 'proprietaire') !== 'proprietaire';
 test('l\'écran de la maison : la marque « jamais sur l\'écran de la maison » est lue par la règle unique ; elle ne fait que refuser', () => {
@@ -359,8 +363,9 @@ test('navigateur : le tiroir range comme la maquette — « Raccourcis d\'applis
     // La puce « Odin » montre ce groupe seul.
     await p.click('#feTiroir .fe-chips button[data-f="odin"]');
     const seuls = await p.evaluate(() => [...document.querySelectorAll('#feTiroir .fe-it b')].map((b: any) => b.textContent)) as string[];
-    // « Réseau » aussi : la maquette le range avec Odin (famille « reseau », marquée groupe « odin »).
-    assert.deepEqual(seuls.sort(), ['Automatisations', 'Raccourcis d\'applis', 'Réseau']);
+    // « Réseau » aussi : la maquette le range avec Odin (famille « reseau », marquée groupe « odin »). Et le widget « Odin »
+    // (famille « odin », marqué groupe « odin »), comme la maquette.
+    assert.deepEqual(seuls.sort(), ['Automatisations', 'Odin', 'Raccourcis d\'applis', 'Réseau']);
     assert.deepEqual(erreurs, []);
   } finally { await ctx.close(); }
 });

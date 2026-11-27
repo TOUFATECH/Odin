@@ -176,7 +176,12 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     // puis les appareils de la maison (famille « maison », son propre fichier) : un appareil, une lumière, un capteur, les pièces
     'maison_appareil', 'maison_lumiere', 'maison_capteur', 'maison_pieces',
     // puis la maison d'un coup d'œil (famille « maison », son propre fichier) : ses scènes, le bandeau d'état, « Ma maison »
-    'maison_scenes', 'maison_bandeau', 'ma_maison'].sort());
+    'maison_scenes', 'maison_bandeau', 'ma_maison',
+    // puis la sécurité de la maison (famille « maison », son propre fichier, propriétaire seul) : « Sécurité » ; « Caméra »
+    // est déclarée mais pas encore posable (son choix ne serait pas gardé à l'enregistrement)
+    'maison_securite',
+    // puis le widget « Odin » (famille « odin », son propre fichier, propriétaire seul) : sa phrase du moment, son visage, sa proposition
+    'parole'].sort());
   assert.deepEqual(TAILLE_SORTE, {
     heure_petite: { mini: [2, 1], r: 1 }, meteo_petite: { mini: [2, 1], r: 1 }, alertes: { mini: [2, 1], r: 1 }, // les petits chiffres « Infos » de la maquette
     alertes_liste: { mini: [3, 2], r: 3 }, sites: { mini: [3, 2], r: 5 }, sites_petit: { mini: [2, 1], r: 1 }, // la famille « veille »
@@ -196,6 +201,10 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     maison_appareil: { mini: [3, 2], r: 2 }, maison_lumiere: { mini: [3, 2], r: 2 }, maison_capteur: { mini: [3, 2], r: 2 }, maison_pieces: { mini: [3, 3], r: 4 },
     // la maison d'un coup d'œil (la maquette : Scènes 4 × 3, Bandeau 12 × 1, Ma maison 6 × 4)
     maison_scenes: { mini: [3, 2], r: 3 }, maison_bandeau: { mini: [4, 1], r: 1 }, ma_maison: { mini: [4, 3], r: 4 },
+    // la sécurité de la maison (la maquette : 4 × 3, 3 × 3 au moins)
+    maison_securite: { mini: [3, 3], r: 3 },
+    // le widget « Odin » (la maquette : 4 × 2, 3 × 2 au moins)
+    parole: { mini: [3, 2], r: 2 },
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
     a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },
