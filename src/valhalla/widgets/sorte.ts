@@ -195,6 +195,19 @@ export interface SourceWidget {
    * branché. Absente : pas lue. Lues seulement pour le propriétaire (medias.ts).
    */
   conversationsRecentes?(): ReadonlyArray<{ peer: string; titre: string; at: number }> | undefined;
+  /**
+   * Ce qu'il faut pour dire qui est à la maison (maison-presence.ts) : les personnes de la box (Midgard, homePeople : le
+   * nom et l'état seulement ; absent : pas de box ; `boxMuette` : la box est réglée mais sa lecture a échoué), la dernière position de chaque membre qui
+   * partage la sienne (Hestia, familyNow), et le lieu d'Odin avec la façon dont il a été réglé (lieuRegle). Rien de cela
+   * n'est servi tel quel. Absente : pas lue. Lue seulement pour le propriétaire.
+   */
+  presence?(): Promise<{ box?: ReadonlyArray<{ nom: string; etat: string }>; boxMuette?: true; positions: ReadonlyArray<{ nom: string; at: number; lat: number; lon: number; acc?: number }>; lieu: import('../modules/gladsheim.ts').LieuRegle } | undefined>;
+  /**
+   * Ses relevés gardés de la maison (le magasin de mesures, séries « appareils. » : maison-courbes.ts, lectureReleves),
+   * pour les courbes : lus avec { prive: true }, au propriétaire seul (chaque lecture de maison-courbes.ts le vérifie
+   * AVANT d'appeler). Rien (undefined) : le magasin n'est pas là. Absente : pas lue.
+   */
+  relevesMaison?(): RelevesMaison | undefined;
 }
 
 /**
@@ -210,6 +223,20 @@ export interface AppareilVu { ids: string; piece: string; sorte: string; etat: s
 
 /** Une suite de relevés d'une mesure : [instant (ms), valeur]. */
 export type Releves = ReadonlyArray<readonly [number, number]>;
+/**
+ * La lecture des relevés gardés de la maison, une par demande (maison-courbes.ts, lectureReleves) : le fuseau d'Odin ;
+ * les relevés d'un appareil (son identifiant, jamais le nom de sa série) entre deux instants ; l'énergie de chacun des
+ * jours donnés (« AAAA-MM-JJ » au fuseau d'Odin, appareils.ts, energieDuJour : undefined, pas de donnée).
+ */
+export interface RelevesMaison {
+  fuseau: string;
+  /** L'instant de la demande, figé à sa première lecture : tous les widgets d'une demande calculent avec lui. */
+  instant: number;
+  points(id: string, mesure: 'puissance' | 'energie' | 'valeur', de: number, a: number): Releves;
+  energies(id: string, jours: readonly string[]): Array<number | undefined>;
+  /** Pour chacun des jours donnés : vrai si ses relevés ne commencent pas à minuit (sa valeur ne couvre pas le jour entier). */
+  incomplets(id: string, jours: readonly string[]): boolean[];
+}
 
 /** Un site surveillé par Arachné, tel qu'un widget le lit (src/valhalla/modules/idunn.ts, sitesVeille). */
 export interface SiteVeille {

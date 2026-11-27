@@ -102,6 +102,64 @@ export function familyNow(ctx: ModCtx): Array<{ id: string; name: string; at: nu
   const all = readFixes(ctx), limit = Date.now() - keepDays(ctx) * 864e5;
   return members(ctx).flatMap((m) => { const f = all[m.id]?.filter((x) => x.at >= limit).at(-1); return f ? [{ id: m.id, name: m.name, at: f.at, lat: f.lat, lon: f.lon, ...(f.acc ? { acc: f.acc } : {}), ...(f.batt !== undefined ? { batt: f.batt } : {}), ...(f.place ? { place: f.place } : {}) }] : []; });
 }
+
+// ---------------- « À la maison » (les widgets « Présence ») : une règle pure, sans phrase ----------------
+/**
+ * Comment le lieu d'Odin a été réglé, gardé dans le réglage `lieuPar` : `position` (« Me localiser », ou une position
+ * donnée : changerPosition), `ville` (une ville saisie : changerLieu), `connexion` (d'après la connexion Internet :
+ * approximatif), `suppose` (d'après l'horloge de la machine). `inconnu` : un réglage d'avant la marque, sans précision
+ * gardée (rien ne dit d'où il vient) ; `aucun` : rien de réglé.
+ */
+export type LieuPar = 'position' | 'ville' | 'connexion' | 'suppose' | 'inconnu' | 'aucun';
+export interface LieuRegle { par: LieuPar; lat?: number; lon?: number; precision?: number }
+const coordonnees = (lat: unknown, lon: unknown): lat is number => typeof lat === 'number' && typeof lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+/** Le lieu d'Odin et comment il a été réglé, relu dans les réglages de Hestia. Pur. */
+export function lieuRegle(r: Record<string, unknown>): LieuRegle {
+  if (!s(r.ville)) return { par: 'aucun' };
+  if (r.suppose === true) return { par: 'suppose' };
+  // Number('') vaut 0 : une coordonnée vide n'est jamais prise pour l'équateur.
+  const lu = (x: unknown) => (typeof x === 'number' ? x : typeof x === 'string' && x.trim() ? Number(x) : Number.NaN);
+  const lat = lu(r.lat), lon = lu(r.lon), p = lu(r.precisionM);
+  const par: LieuPar = r.lieuPar === 'position' || r.lieuPar === 'ville' || r.lieuPar === 'connexion' ? r.lieuPar : p > 0 ? 'position' : 'inconnu';
+  return { par, ...(coordonnees(lat, lon) ? { lat, lon } : {}), ...(par === 'position' && p > 0 ? { precision: p } : {}) };
+}
+/**
+ * « Là » : à 250 m au plus du lieu réglé par « Me localiser ». Odin ne garde ce lieu qu'arrondi à ~100 m (prive.ts,
+ * arrondirPosition : jusqu'à 80 m d'écart), et un téléphone annonce sa position à 5 à 50 m près : sous 250 m, une
+ * personne vraiment chez elle serait souvent dite « on ne sait pas ».
+ */
+export const RAYON_MAISON_M = 250;
+/** Une ville seulement : « là, à la ville près », à 10 km au plus de son centre (celui que le service de lieux donne). */
+export const RAYON_VILLE_M = 10_000;
+/** L'écart que l'arrondi du lieu gardé peut faire (la demi-diagonale d'une maille de 0,001°). */
+export const ARRONDI_LIEU_M = 80;
+/** Une précision non annoncée (par le téléphone, ou pour le lieu) : comptée large. */
+export const PRECISION_INCONNUE_M = 1000;
+/** Une position de plus de trois heures : « pas de nouvelles » (la personne a pu partir ou rentrer sans que son téléphone l'ait dit). */
+export const NOUVELLES_MAX_MS = 3 * 3_600_000;
+/** La distance entre deux points, en mètres (le grand cercle : juste aussi à l'antiméridien et aux pôles). */
+function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6_371_008.8 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+/**
+ * Une position reçue d'un téléphone, comparée au lieu d'Odin : `la` (sûrement dans le rayon), `pas_la` (sûrement
+ * dehors), `inconnu` (entre les deux, ou rien de lisible à comparer), `ancienne` (pas de nouvelles depuis trop
+ * longtemps). La marge additionne la précision annoncée par le téléphone, celle du lieu (« Me localiser ») et l'arrondi
+ * du lieu gardé : jamais un « là » qu'une erreur de mesure pourrait démentir. Un lieu supposé, trouvé par la connexion
+ * ou dont on ne sait pas comment il a été réglé : rien n'est calculé. Pur, sans phrase.
+ */
+export function presenceDe(f: { at: number; lat: number; lon: number; acc?: number }, lieu: LieuRegle, maintenant: number): 'la' | 'pas_la' | 'inconnu' | 'ancienne' {
+  if (!f || !coordonnees(f.lat, f.lon) || !Number.isFinite(f.at) || f.at > maintenant + 60_000) return 'inconnu';
+  if (maintenant - f.at > NOUVELLES_MAX_MS) return 'ancienne';
+  if ((lieu?.par !== 'position' && lieu?.par !== 'ville') || !coordonnees(lieu.lat, lieu.lon)) return 'inconnu';
+  const large = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x > 0 ? x : PRECISION_INCONNUE_M);
+  const rayon = lieu.par === 'position' ? RAYON_MAISON_M : RAYON_VILLE_M;
+  const marge = large(f.acc) + (lieu.par === 'position' ? large(lieu.precision) : 0) + ARRONDI_LIEU_M;
+  const d = distanceM(f, { lat: lieu.lat, lon: lieu.lon! });
+  return d + marge <= rayon ? 'la' : d - marge > rayon ? 'pas_la' : 'inconnu';
+}
 const tiles = (ctx: ModCtx): Tile[] | undefined => ctx.settings.tiles as Tile[] | undefined;
 const keys = (ctx: ModCtx): Key[] => (ctx.settings.keys as Key[] | undefined) ?? [];
 const hash = (k: string) => createHash('sha256').update(k).digest('hex');
@@ -179,7 +237,7 @@ export async function lieuDeLaConnexion(ctx: ModCtx): Promise<Lieu | undefined> 
 export function supposerLieu(ctx: ModCtx, tz = Intl.DateTimeFormat().resolvedOptions().timeZone, force = false): boolean {
   if (!force && s(ctx.settings.ville)) return false;
   const g = lieuDuFuseau(tz); if (!g) return false;
-  ctx.saveSettings({ ville: g.ville, villeNom: g.ville, pays: g.pays, fuseau: tz, lat: '', lon: '', suppose: true }); wx = undefined;
+  ctx.saveSettings({ ville: g.ville, villeNom: g.ville, pays: g.pays, fuseau: tz, lat: '', lon: '', suppose: true, lieuPar: '' }); wx = undefined;
   return true;
 }
 /** Une phrase qui dit comment Odin est réglé pour ce lieu. */
@@ -225,7 +283,7 @@ export async function changerLieu(ctx: ModCtx, ville: string): Promise<Lieu & { 
   const v = ville.replace(/\s+/g, ' ').trim().slice(0, 80); if (!v) throw new Error('dis-moi le nom du village ou de la ville (par exemple « ma ville est Dembéni »)');
   let l: Lieu[]; try { l = await trouverLieux(ctx, v); } catch { throw new Error('je n\'arrive pas à chercher ce lieu pour l\'instant (pas d\'Internet ?) : le lieu n\'a pas changé'); }
   const g = l[0]; if (!g) throw new Error(`je ne trouve pas « ${v} » : vérifie l'orthographe, ou précise le pays (« ${v}, Mayotte »)`);
-  ctx.saveSettings({ ville: v, villeNom: g.nom, lat: arrondirPosition(g.lat), lon: arrondirPosition(g.lon), precisionM: '', suppose: '', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined;
+  ctx.saveSettings({ ville: v, villeNom: g.nom, lat: arrondirPosition(g.lat), lon: arrondirPosition(g.lon), precisionM: '', suppose: '', lieuPar: 'ville', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined;
   publierLieu(ctx); lieuChange?.(g);
   return { ...g, autres: l.slice(1, 5) };
 }
@@ -236,7 +294,7 @@ export async function changerPosition(ctx: ModCtx, lat: number, lon: number, pre
   const nom = n?.nom ?? `Position ${la.toFixed(3)}, ${lo.toFixed(3)}`, p = precision !== undefined && Number.isFinite(precision) && precision >= 0 ? Math.round(precision) : undefined;
   // Le village est nommé d'après la position exacte, mais seule une position arrondie à ~100 m est gardée (chiffrée).
   const ga = arrondirPosition(la), go = arrondirPosition(lo);
-  ctx.saveSettings({ ville: nom, villeNom: nom, lat: ga, lon: go, precisionM: p ?? '', suppose: '', ...nouveauPays(ctx, n?.pays), ...(n?.pays ? { pays: n.pays } : {}) }); wx = undefined;
+  ctx.saveSettings({ ville: nom, villeNom: nom, lat: ga, lon: go, precisionM: p ?? '', suppose: '', lieuPar: 'position', ...nouveauPays(ctx, n?.pays), ...(n?.pays ? { pays: n.pays } : {}) }); wx = undefined;
   const g: Lieu = { nom, lat: ga, lon: go, ...(n?.pays ? { pays: n.pays } : {}), ...(n?.region ? { region: n.region } : {}) };
   publierLieu(ctx); lieuChange?.(g);
   return { ...g, ...(p !== undefined ? { precision: p } : {}), nomme: Boolean(n) };
@@ -719,7 +777,7 @@ export const gladsheim: Module = {
         else if (ou) { await changerLieu(ctx, ou); comment = 'lieu que tu m' + "'" + 'as donné'; }
         else {
           const g = await lieuDeLaConnexion(ctx);
-          if (g) { ctx.saveSettings({ ville: g.nom, villeNom: g.nom, lat: arrondirPosition(g.lat), lon: arrondirPosition(g.lon), precisionM: '', suppose: '', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined; publierLieu(ctx); lieuChange?.(g); comment = 'd' + "'" + 'après ma connexion Internet : c' + "'" + 'est approximatif, dis « ma ville est … » si le village n' + "'" + 'est pas le bon'; }
+          if (g) { ctx.saveSettings({ ville: g.nom, villeNom: g.nom, lat: arrondirPosition(g.lat), lon: arrondirPosition(g.lon), precisionM: '', suppose: '', lieuPar: 'connexion', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined; publierLieu(ctx); lieuChange?.(g); comment = 'd' + "'" + 'après ma connexion Internet : c' + "'" + 'est approximatif, dis « ma ville est … » si le village n' + "'" + 'est pas le bon'; }
           else if (supposerLieu(ctx, undefined, true)) { publierLieu(ctx); comment = 'd' + "'" + 'après l' + "'" + 'horloge de la machine, faute de réponse du service de localisation'; }
           else throw new Error('je n' + "'" + 'arrive pas à me localiser ' + accord('tout seul', 'toute seule') + ' (pas de réponse du service, et l' + "'" + 'horloge de la machine ne dit pas où je suis) : dis-moi « configure-toi pour Paris » ou « ma ville est … »');
         }

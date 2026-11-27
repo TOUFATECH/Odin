@@ -183,7 +183,11 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     // puis le widget « Odin » (famille « odin », son propre fichier, propriétaire seul) : sa phrase du moment, son visage, sa proposition
     'parole',
     // puis la famille « medias » (son propre fichier, propriétaire seul) : « Lecteur » (ses radios et ses listes d'Apollon) et « Messages » (ses conversations récentes)
-    'lecteur', 'messages'].sort());
+    'lecteur', 'messages',
+    // puis la présence (famille « maison », son propre fichier, propriétaire seul) : « À la maison » (le petit chiffre) et « Famille »
+    'maison_presence', 'maison_famille',
+    // puis les courbes (famille « maison », son propre fichier, propriétaire seul) : « Consommation du jour » et « Énergie de la semaine »
+    'maison_conso_jour', 'maison_energie_semaine'].sort());
   assert.deepEqual(TAILLE_SORTE, {
     heure_petite: { mini: [2, 1], r: 1 }, meteo_petite: { mini: [2, 1], r: 1 }, alertes: { mini: [2, 1], r: 1 }, // les petits chiffres « Infos » de la maquette
     alertes_liste: { mini: [3, 2], r: 3 }, sites: { mini: [3, 2], r: 5 }, sites_petit: { mini: [2, 1], r: 1 }, // la famille « veille »
@@ -209,6 +213,10 @@ test('cleanLayout lit les sortes dans les fichiers de famille : plus de liste é
     parole: { mini: [3, 2], r: 2 },
     // la famille « medias » (la maquette : « Lecteur » et « Messages », 4 × 2, 3 × 2 au moins)
     lecteur: { mini: [3, 2], r: 2 }, messages: { mini: [3, 2], r: 2 },
+    // la présence (la maquette : « À la maison » 2 × 1 ; « Famille » 3 × 2)
+    maison_presence: { mini: [2, 1], r: 1 }, maison_famille: { mini: [3, 2], r: 2 },
+    // les courbes (la maquette : « Consommation du jour » 4 × 3, 3 × 2 au moins ; « Énergie de la semaine » 5 × 3, 4 × 3 au moins)
+    maison_conso_jour: { mini: [3, 2], r: 3 }, maison_energie_semaine: { mini: [4, 3], r: 3 },
     chiffres: { mini: [2, 1], r: 2 }, section: { mini: [3, 2], r: 3 }, meteo: { mini: [3, 2], r: 3 },
     bouton: { mini: [2, 1], r: 2 }, heure: { mini: [2, 1], r: 2 }, site: { mini: [2, 1], r: 2 },
     a_faire: { mini: [3, 2], r: 4 }, odin_a_fait: { mini: [3, 2], r: 4 }, tu_veux: { mini: [3, 2], r: 2 }, comportement: { mini: [3, 2], r: 2 },

@@ -181,6 +181,10 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       // la famille « medias » : Apollon n'est pas démarrée dans cet essai (« source_absente ») ; démarrée sans radio ni liste,
       // « vide » ; les conversations : un Odin neuf n'en a aucune (« vide »), ou la lecture n'est pas branchée (« source_absente »)
       lecteur: W('lecteur'), messages: W('messages'),
+      // la présence : un Odin neuf n'a ni box ni membre qui partage sa position (« vide »), ou Ulysse n'est pas là (« source_absente »)
+      maison_presence: W('maison_presence'), maison_famille: W('maison_famille'),
+      // les courbes : un Odin neuf n'a aucune prise qui mesure (« vide »), jamais un total à zéro
+      maison_conso_jour: W('maison_conso_jour'), maison_energie_semaine: W('maison_energie_semaine'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);

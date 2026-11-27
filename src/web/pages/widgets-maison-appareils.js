@@ -393,7 +393,10 @@ dialog.wma-accord p{margin:0 0 14px;overflow-wrap:anywhere}dialog.wma-accord div
     const s = el('span', 'wma-s', [texte(d.nom) || nomDeSorte(d.sorte), texte(d.piece), d.horsLigne || d.muet ? ec.t : '', age ? T.lu(age) : ''].filter(Boolean).join(' · '));
     if (ec.ton && (d.horsLigne || d.muet)) s.dataset.ton = ec.ton;
     s.title = s.textContent; v.title = v.textContent;
-    box.append(v, s);
+    // Sa courbe des dernières 24 h, à côté de la valeur, quand le serveur l'a rendue (au propriétaire seul, sur son
+    // accueil : pages/widgets-maison-courbes.js la dessine). Sans elle, la valeur seule, comme avant.
+    const C = window.OdinWidgetsMaisonCourbes, g = d.courbe && C && typeof C.courbeCapteur === 'function' ? C.courbeCapteur(d.courbe, texte(d.unite)) : null;
+    if (g) { C.poserStyle(); const l = el('div', 'wmc-l'); l.append(v, g); box.append(l, s); } else box.append(v, s);
     return box;
   }
   /** Les pièces : en liste (chaque pièce, ses appareils, ce qui est allumé, l'interrupteur de ses lumières) ou en tuiles. */

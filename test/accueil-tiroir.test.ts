@@ -301,7 +301,9 @@ test('navigateur, 1280 px : la tuile, le tiroir de 440 px, la recherche, Échap 
     // phrase du moment, son visage, sa proposition). Puis « Caméra » (famille « maison », proposée au propriétaire : suit sa
     // pose depuis le tiroir, l'unique caméra prise d'office, sinon « Régler » aussitôt ; avant : pas de ligne). Puis les deux
     // de la famille « medias », proposés au propriétaire (« Lecteur » : ses radios et ses listes d'Apollon ; « Messages »).
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1 + 1 + 2 + 6 + 3 + 3 + 1 + 1 + 1 + 1 + 1 + 2);
+    // Puis les deux de la présence (famille « maison », proposés au propriétaire : « À la maison » et « Famille »). Puis les
+    // deux courbes (famille « maison », proposées au propriétaire : « Consommation du jour » et « Énergie de la semaine »).
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#feTiroir .fe-it').length), cat.modules.length + 4 + 4 + 3 + 2 + 2 + 2 + 1 + 1 + 2 + 6 + 3 + 3 + 1 + 1 + 1 + 1 + 1 + 2 + 2 + 2);
     // L'appli désactivée : grisée, « désactivée », aucun bouton.
     const nomEteinte = cat.modules.find((m) => m.id === eteinte)!.name;
     const off = await page.evaluate(`(() => { const l = [...document.querySelectorAll('#feTiroir .fe-it')].find((x) => x.querySelector('b')?.textContent === ${JSON.stringify(nomEteinte)}); return l ? { off: l.classList.contains('off'), bouton: Boolean(l.querySelector('button')), texte: l.textContent } : null; })()`) as { off: boolean; bouton: boolean; texte: string } | null;

@@ -2,7 +2,7 @@
 // par lecture de page : chaque appli n'est lue qu'une fois, même si plusieurs widgets la montrent.
 import type { Valhalla } from '../service.ts';
 import type { View } from '../types.ts';
-import { meteoAncienne, regionActuelle, weather } from '../modules/gladsheim.ts';
+import { familyNow, lieuRegle, meteoAncienne, regionActuelle, weather } from '../modules/gladsheim.ts';
 import { sitesVeille } from '../modules/idunn.ts';
 import { rendezVousAVenir } from '../modules/frigg.ts';
 import { history } from '../modules/volva.ts';
@@ -19,7 +19,7 @@ import { PROPRIETAIRE } from '../snotra/partout.ts';
 import { DEFAULT_LIMITS } from '../eir/collect.ts';
 import { lireDernier } from '../durinn/suivi.ts';
 import { posteDe } from '../postes.ts';
-import { homeDevices, homeScenes, sceneRisk } from '../modules/midgard.ts';
+import { homeDevices, homePeople, homeScenes, sceneRisk } from '../modules/midgard.ts';
 import { cameraNames } from '../modules/himinbjorg.ts';
 import { isIP } from 'node:net';
 import { NETWORK, isPaused, state as etatAriane, throughput } from '../ran.ts';
@@ -27,6 +27,7 @@ import { appareilsReseauBranches, reseauEntierLu } from './reseau.ts';
 import { paroleOf } from '../parole.ts';
 import { aEcouter, enCours } from '../modules/aegir.ts';
 import { conversationsBranchees } from './medias.ts';
+import { lectureReleves } from './maison-courbes.ts';
 
 const s = (v: unknown) => String(v ?? '');
 
@@ -36,6 +37,8 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
   let automatismes: ReturnType<NonNullable<SourceWidget['automatismes']>> | undefined;
   let stockage: ReturnType<NonNullable<SourceWidget['stockage']>> | undefined;
   let appareilsMaison: ReturnType<NonNullable<SourceWidget['appareilsMaison']>> | undefined;
+  let presence: ReturnType<NonNullable<SourceWidget['presence']>> | undefined;
+  let releves: ReturnType<NonNullable<SourceWidget['relevesMaison']>> | undefined;
   // Une appli désactivée (Applis) n'est pas là pour un widget.
   const appli = (id: string) => { const m = v.module(id); return m && m.id === id && v.estActive(m.id) ? m : undefined; };
   return {
@@ -171,5 +174,17 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
     apollon: () => { if (!appli('aegir')) return undefined; const c = v.ctx('aegir'), joue = enCours(c); return { ...aEcouter(c), ...(joue ? { joue } : {}) }; },
     // Ses conversations récentes : par le branchement posé dans allModules (medias.ts).
     conversationsRecentes: () => conversationsBranchees()?.(),
+    // Qui est à la maison (maison-presence.ts), une fois par page : les personnes de la box si Midgard est là et activée
+    // (le nom et l'état, rien d'autre), les dernières positions des membres si Hestia est activée, et le lieu d'Odin.
+    presence: () => (presence ??= (async () => {
+      // Une box réglée qui ne répond pas est dite muette (jamais lue comme « personne ») ; sans box réglée, homePeople rend [].
+      const box = appli('midgard') ? await homePeople(v.ctx('midgard')).then((l) => l.map((x) => ({ nom: s(x.name), etat: s(x.state) }))).catch(() => null) : undefined;
+      const g = v.ctx('gladsheim');
+      const positions = appli('gladsheim') ? familyNow(g).map((f) => ({ nom: f.name, at: f.at, lat: f.lat, lon: f.lon, ...(f.acc !== undefined ? { acc: f.acc } : {}) })) : [];
+      return { ...(box ? { box } : {}), ...(box === null ? { boxMuette: true as const } : {}), positions, lieu: lieuRegle(g.settings) };
+    })()),
+    // Ses relevés gardés de la maison (maison-courbes.ts), une lecture par demande, au fuseau d'Odin : appelée seulement pour
+    // le propriétaire sur son accueil (la règle de maison-courbes.ts, vérifiée avant).
+    relevesMaison: () => (releves ??= (v.metrics ? lectureReleves(v.metrics, fuseauOdin(s(v.ctx('gladsheim').settings.fuseau)), maintenant) : undefined)),
   };
 }

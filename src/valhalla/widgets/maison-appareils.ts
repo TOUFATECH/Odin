@@ -17,6 +17,8 @@
 // appareils) ; jamais un membre (l'écran de la maison ne lui donne rien), sans une lecture.
 import type { Widget } from '../modules/gladsheim.ts';
 import type { AppareilVu, EtatWidget, Lecteur, SorteWidget, SourceWidget } from './sorte.ts';
+// (la courbe du capteur : ses relevés gardés, au propriétaire seul sur son accueil)
+import { avecCourbe } from './maison-courbes.ts';
 
 /**
  * Les règles des petits chiffres de la maison (maison.ts), lues telles quelles et jamais recopiées : « frais » (ni hors
@@ -176,8 +178,9 @@ export const SORTES_MAISON_APPAREILS = [
   { id: 'maison_appareil', ...base, taille: { mini: [3, 2], r: 2 }, styles: ['simple'], nettoyer: avecAppareil, lire: unAppareil(() => true) },
   // Une lumière : allumer, éteindre, son intensité (sans nombre de départ : Odin ne la lit pas).
   { id: 'maison_lumiere', ...base, taille: { mini: [3, 2], r: 2 }, styles: ['simple'], nettoyer: avecAppareil, lire: unAppareil((a) => a.sorte === 'lumière') },
-  // Un capteur ou un détecteur : sa valeur, sa pièce, l'âge vrai de la mesure (la courbe : plus tard).
-  { id: 'maison_capteur', ...base, taille: { mini: [3, 2], r: 2 }, styles: ['simple'], nettoyer: avecAppareil, lire: unAppareil((a) => a.sorte === 'capteur' || a.sorte === 'détecteur') },
+  // Un capteur ou un détecteur : sa valeur, sa pièce, l'âge vrai de la mesure ; pour le propriétaire sur son accueil, la
+  // courbe de ses dernières 24 heures d'après ses relevés gardés (maison-courbes.ts). Tout autre lecteur : sans courbe.
+  { id: 'maison_capteur', ...base, taille: { mini: [3, 2], r: 2 }, styles: ['simple'], nettoyer: avecAppareil, lire: avecCourbe(unAppareil((a) => a.sorte === 'capteur' || a.sorte === 'détecteur')) },
   // Les pièces (la maquette : 3 × 4, 3 × 3 au plus petit), en liste. Le style « Tuiles » est dessiné par la page, mais ne
   // s'ajoute ici qu'avec sa ligne dans la table des styles de « Régler » (pages/widgets-rendu.js : hors de ce lot).
   { id: 'maison_pieces', ...base, taille: { mini: [3, 3], r: 4 }, styles: ['liste'], nettoyer: (o, out, t) => { if (o.label) out.label = t.str(o.label, 40); return true; }, lire: lesPieces },
