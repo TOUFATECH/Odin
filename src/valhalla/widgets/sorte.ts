@@ -14,7 +14,9 @@ import type { View } from '../types.ts';
  */
 export type Famille = 'infos' | 'odin' | 'maison' | 'aujourdhui' | 'veille' | 'listes' | 'applis' | 'automatisations' | 'sante' | 'stockage'
   // les appareils du réseau, lus dans le registre d'Odin, et le débit lu par Ariane (reseau.ts)
-  | 'reseau';
+  | 'reseau'
+  // ses radios et ses listes d'Apollon, ce qu'il a lancé ; ses conversations récentes (medias.ts)
+  | 'medias';
 /**
  * Qui peut recevoir un widget de cette sorte, au plus (constat M12, trois niveaux) :
  * - `proprietaire` : lui seul (le défaut, quand rien n'est écrit) ;
@@ -181,6 +183,18 @@ export interface SourceWidget {
    * (parole.ts, qui ne lui demande une phrase que selon sa règle). Rien (undefined) : le moteur n'est pas prêt. Absente : pas lue.
    */
   moteurParole?(): { parler(d: import('../parole.ts').Demande): Promise<import('../parole.ts').Parole> } | undefined;
+  /**
+   * Ce qu'Apollon propose et ce qu'il a lancé (src/valhalla/modules/aegir.ts, aEcouter et enCours) : les noms de ses
+   * radios et de ses listes (jamais une adresse), et ce qui a été lancé (quoi, l'enceinte, depuis quand). Rien
+   * (undefined) : Apollon n'est pas là, ou est désactivée. Absente : pas lue. Lue seulement pour le propriétaire (medias.ts).
+   */
+  apollon?(): { radios: readonly string[]; listes: ReadonlyArray<{ nom: string; morceaux: number }>; joue?: { quoi: string; sorte: string; enceinte?: string; depuis: number } } | undefined;
+  /**
+   * Ses conversations récentes du web, celles que la page reçoit déjà (/api/state, « conversations ») : la fin de leur
+   * identifiant, leur titre, leur dernière heure (ms). Lues par le branchement de medias.ts. Rien (undefined) : pas
+   * branché. Absente : pas lue. Lues seulement pour le propriétaire (medias.ts).
+   */
+  conversationsRecentes?(): ReadonlyArray<{ peer: string; titre: string; at: number }> | undefined;
 }
 
 /**

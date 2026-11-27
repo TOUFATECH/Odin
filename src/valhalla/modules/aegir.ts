@@ -43,7 +43,43 @@ async function tags(ctx: ModCtx, file: string, probe: boolean): Promise<Track> {
   }
   return { file, ...f, album, sec: 0 };
 }
-async function play(ctx: ModCtx, url: string, where: string): Promise<string> {
+/**
+ * Ce qu'Apollon vient de lancer (le widget « Lecteur » de l'accueil le dit) : quoi (le nom de la radio, de la liste ou du
+ * morceau), où (l'enceinte de la box ; absent : cette machine), depuis quand (ms). Gardé en mémoire seulement, par dossier
+ * d'Apollon (un Odin) : rien n'est écrit sur le disque, un redémarrage d'Odin l'oublie. Oublié à « Arrêter », et quand le
+ * lecteur de cette machine s'arrête (fin de la lecture, ou tué de dehors). Une enceinte de la box n'est pas suivie : ce
+ * qu'elle joue ensuite, Apollon ne le sait pas (le widget ne dit que « lancé à … »).
+ */
+export interface Lance { quoi: string; sorte: 'radio' | 'liste' | 'morceau'; enceinte?: string; depuis: number }
+const lances = new Map<string, Lance & { n: number }>();
+let numeroLance = 0;
+/** Un nom venu de dehors (un fichier, une saisie) : sur une ligne, borné. */
+const uneLigne = (t: string, n: number) => [...t.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, n).join('');
+type Suivi = (enceinte: string | undefined, fin?: Promise<unknown>) => void;
+/** Garde ce qui vient d'être lancé ; l'oublie quand CE lecteur finit (un lecteur plus ancien qui finit n'efface rien). */
+const suivre = (ctx: ModCtx, quoi: string, sorte: Lance['sorte']): Suivi => (enceinte, fin) => {
+  const n = ++numeroLance, oublier = () => { if (lances.get(ctx.dir)?.n === n) lances.delete(ctx.dir); };
+  lances.set(ctx.dir, { quoi: uneLigne(quoi, 120), sorte, ...(enceinte ? { enceinte: uneLigne(enceinte, 80) } : {}), depuis: ctx.now().getTime(), n });
+  fin?.then(oublier, oublier);
+};
+/** Ce qu'Apollon a lancé et qui n'est ni arrêté ni fini, ou rien. */
+export function enCours(ctx: Pick<ModCtx, 'dir'>): Lance | undefined {
+  const l = lances.get(ctx.dir); if (!l) return undefined;
+  return { quoi: l.quoi, sorte: l.sorte, ...(l.enceinte ? { enceinte: l.enceinte } : {}), depuis: l.depuis };
+}
+/**
+ * Ses radios et ses listes, sans phrase ni adresse : seulement celles qu'un appui sur « jouer » lancerait VRAIMENT sous ce
+ * nom (un nom sur une ligne, retrouvé tel quel). Une radio dont le nom en répète un autre, une liste vide, une liste au
+ * nom d'une radio : pas proposées (« jouer » lancerait autre chose).
+ */
+export function aEcouter(ctx: Pick<ModCtx, 'settings'>): { radios: string[]; listes: Array<{ nom: string; morceaux: number }> } {
+  const propre = (t: unknown): t is string => typeof t === 'string' && t !== '' && t.length <= 200 && uneLigne(t, 200) === t;
+  const vus = new Set<string>(), r: string[] = [];
+  for (const x of radios(ctx as ModCtx)) { const k = norm(s(x?.name)); if (vus.has(k)) continue; vus.add(k); if (propre(x?.name)) r.push(x.name); }
+  const l = Object.entries(lists(ctx as ModCtx)).filter(([n, f]) => propre(n) && !vus.has(norm(n)) && Array.isArray(f) && f.length > 0).map(([nom, f]) => ({ nom, morceaux: f.length }));
+  return { radios: r, listes: l };
+}
+async function play(ctx: ModCtx, url: string, where: string, suivi?: Suivi): Promise<string> {
   if (where && where !== 'ici') {
     const ha = s(ctx.settings.haUrl).replace(/\/$/, ''), token = process.env.HA_TOKEN; if (!ha || !token) throw new Error('relie ta box dans Apollon (même adresse que Midgard) pour jouer sur une enceinte');
     if (!/^https?:\/\//.test(url)) throw new Error('une enceinte ne peut lire qu\'une adresse web (radio) : les fichiers locaux se jouent « ici »');
@@ -52,12 +88,14 @@ async function play(ctx: ModCtx, url: string, where: string): Promise<string> {
     const q = norm(where), p = players.find((x) => x.entity_id === where) ?? players.find((x) => norm(`${x.entity_id} ${x.attributes.friendly_name ?? ''}`).includes(q));
     if (!p) throw new Error(`enceinte « ${where} » introuvable. Disponibles : ${players.map((x) => x.attributes.friendly_name ?? x.entity_id).slice(0, 12).join(', ') || 'aucune'}`);
     await haApi(ha, token, 'POST', '/services/media_player/play_media', { entity_id: p.entity_id, media_content_id: url, media_content_type: 'music' });
+    suivi?.(s(p.attributes.friendly_name ?? p.entity_id));
     return `▶ Sur ${p.attributes.friendly_name ?? p.entity_id}.`;
   }
   // « -- » / « -i » : ce qui suit est toujours lu comme le morceau à jouer, jamais comme une option du lecteur.
   const bin = (await ctx.has('mpv')) ? ['mpv', ['--no-video', '--really-quiet', '--', url]] as const : (await ctx.has('ffplay')) ? ['ffplay', ['-nodisp', '-autoexit', '-loglevel', 'quiet', '-i', url]] as const : undefined;
   if (!bin) throw new Error('ni mpv ni ffplay sur cette machine');
-  void ctx.run(bin[0], [...bin[1]], { timeoutMs: 6 * 3600_000 });
+  const fin = ctx.run(bin[0], [...bin[1]], { timeoutMs: 6 * 3600_000 });
+  if (suivi) suivi(undefined, fin); else void fin;
   return '▶ Lecture sur cette machine.';
 }
 
@@ -81,12 +119,13 @@ export const aegir: Module = {
     { id: 'chercher', label: 'Chercher', what: 'Titre, artiste, album', read: true, params: [{ key: 'q', label: 'Recherche', kind: 'text', required: true }], words: ['cherche', 'trouve'], run: (ctx, i) => { const r = search(lib(ctx), s(i.q)); return { text: r.slice(0, 30).map((t) => `- ${t.artist ? `${t.artist} — ` : ''}${t.title} (${t.album})`).join('\n') || 'Rien trouvé.', data: r.slice(0, 100) }; } },
     { id: 'jouer', undo: () => ({ action: 'stop', input: {}, label: 'lecture arrêtée' }), label: 'Jouer', what: 'Un morceau, une liste ou une radio, ici ou sur une enceinte', params: [{ key: 'quoi', label: 'Morceau, liste ou radio', kind: 'text', required: true }, { key: 'ou', label: 'Où (ici, ou nom de l\'enceinte)', kind: 'text', default: 'ici' }], words: ['joue', 'mets', 'ecouter', 'écouter'], run: async (ctx, i) => {
       const q = s(i.quoi), where = s(i.ou) || 'ici';
-      const radio = radios(ctx).find((r) => norm(r.name) === norm(q)); if (radio) return { text: await play(ctx, radio.url, where) };
-      const pl = lists(ctx)[q]; if (pl?.length) return { text: await play(ctx, pl[0], where) + ` (liste « ${q} », ${pl.length} morceaux)` };
+      const radio = radios(ctx).find((r) => norm(r.name) === norm(q)); if (radio) return { text: await play(ctx, radio.url, where, suivre(ctx, radio.name, 'radio')) };
+      const pl = lists(ctx)[q]; if (pl?.length) return { text: await play(ctx, pl[0], where, suivre(ctx, q, 'liste')) +` (liste « ${q} », ${pl.length} morceaux)` };
       const t = search(lib(ctx), q)[0]; if (!t) throw new Error(`rien trouvé pour « ${q} »`);
-      return { text: `${await play(ctx, t.file, where)} ${t.artist ? `${t.artist} — ` : ''}${t.title}` };
+      const nom = `${t.artist ? `${t.artist} — ` : ''}${t.title}`;
+      return { text: `${await play(ctx, t.file, where, suivre(ctx, nom, 'morceau'))} ${nom}` };
     } },
-    { id: 'stop', label: 'Arrêter', what: 'Arrête la lecture sur cette machine', run: async (ctx) => { await ctx.run('pkill', ['-f', '^(mpv --no-video|ffplay -nodisp)']); return { text: '⏹ Arrêté.' }; } },
+    { id: 'stop', label: 'Arrêter', what: 'Arrête la lecture sur cette machine', run: async (ctx) => { await ctx.run('pkill', ['-f', '^(mpv --no-video|ffplay -nodisp)']); lances.delete(ctx.dir); return { text: '⏹ Arrêté.' }; } },
     { id: 'liste', label: 'Créer une liste', what: 'Nom + recherche : les morceaux trouvés forment la liste', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'q', label: 'Recherche', kind: 'text', required: true }], run: (ctx, i) => { const r = search(lib(ctx), s(i.q)); ctx.saveSettings({ playlists: { ...lists(ctx), [s(i.nom)]: r.map((t) => t.file) } }); return { text: `📜 Liste « ${s(i.nom)} » : ${r.length} morceau(x).` }; } },
     { id: 'radio', label: 'Ajouter une radio', what: 'Nom + adresse du flux', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'adresse', label: 'Adresse (http…)', kind: 'text', required: true }], run: (ctx, i) => { if (!/^https?:\/\//.test(s(i.adresse))) throw new Error('adresse http(s) attendue'); ctx.saveSettings({ radios: [...radios(ctx).filter((r) => r.name !== s(i.nom)), { name: s(i.nom), url: s(i.adresse).trim() }] }); return { text: `📻 ${s(i.nom)} ajoutée.` }; } },
   ],

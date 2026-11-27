@@ -67,6 +67,7 @@ import { mimisbrunnr } from './modules/mimisbrunnr.ts';
 import { gefjon } from './modules/gefjon.ts';
 import { setReseau } from './postes.ts';
 import { brancherAppareilsReseau } from './widgets/reseau.ts';
+import { brancherConversations } from './widgets/medias.ts';
 import { sol } from './modules/sol.ts';
 import { fensalir } from './modules/fensalir.ts';
 import { hlid } from './modules/hlid.ts';
@@ -184,6 +185,8 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   setReseau(odin.inventory ? () => odin.inventory!.list({ status: 'all' }).filter((d) => d.status !== 'removed').map((d) => ({ ip: d.ip, nom: d.label || d.name || d.hostname || undefined, kind: d.kind || undefined, os: d.os || undefined, ports: d.ports, enLigne: d.status === 'online' })) : undefined);
   // Le widget « Réseau » de l'accueil (au propriétaire seul) lit le registre : le nom, l'adresse, en ligne ou non, vu à, et l'heure du dernier balayage.
   if (odin.inventory) brancherAppareilsReseau(() => ({ at: odin.inventory!.lastScan()?.at, appareils: odin.inventory!.list({ status: 'all' }).filter((d) => d.status !== 'removed').map((d) => ({ nom: deviceLabel(d), ip: d.ip, enLigne: d.status === 'online', vuA: d.last_seen })) }));
+  // Le widget « Messages » de l'accueil (au propriétaire seul) lit ses conversations du web, comme la page les reçoit déjà (/api/state) : la fin de l'identifiant, le titre, la dernière heure.
+  if (odin.muninn) brancherConversations(() => { const titres = odin.muninn!.kvPrefix('title:'); return odin.muninn!.listSessions(200).filter((x) => x.id.startsWith('web:')).map((x) => ({ peer: x.id.slice(4), titre: titres[x.id.slice(4)] || x.title, at: x.updated_at })); });
   // Bifröst peut publier l'interface d'Odin elle-même sous ton domaine.
   setOdinWeb(() => ({ port: odin.cfg.web.port, tls: odin.cfg.web.tls.enabled }));
   // Persona (invitations, mot de passe oublié) et le compagnon des postes : l'adresse d'Odin et sa boîte d'envoi.

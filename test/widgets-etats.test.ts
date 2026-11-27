@@ -178,6 +178,9 @@ test('sur un Odin neuf, chaque sorte rend « vide » ou « source_absente », ja
       // le widget « Odin » : le moteur de parole n'est pas démarré dans cet essai (« source_absente ») ; démarré, il se tait
       // sur un Odin neuf ou dit une vraie chose (test/widgets-parole.test.ts) ; jamais une phrase du widget
       parole: W('parole'),
+      // la famille « medias » : Apollon n'est pas démarrée dans cet essai (« source_absente ») ; démarrée sans radio ni liste,
+      // « vide » ; les conversations : un Odin neuf n'en a aucune (« vide »), ou la lecture n'est pas branchée (« source_absente »)
+      lecteur: W('lecteur'), messages: W('messages'),
     };
     assert.deepEqual(Object.keys(une).sort(), SORTES.map((x) => x.id).sort(), 'toutes les sortes déclarées');
     for (const w of Object.values(une)) await neuf(w);

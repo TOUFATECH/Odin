@@ -829,36 +829,46 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     const ensuite = typeof suite === 'function' ? suite(n) : undefined;
     fermerTiroir(false); views.delete(w.module); fetchViews().then(draw).then(() => montrerAjout(n.id, muet)).then(() => (typeof ensuite === 'function' ? ensuite() : undefined)); return true; }
   /**
-   * Poser un widget qui montre UN appareil choisi (la tuile, la lumière, le capteur : pages/widgets-maison-appareils.js),
-   * au bouton comme au glisser : les appareils du genre sont lus dans ce que l'écran de la maison reçoit déjà
-   * (/api/maison/etat, avec la session du propriétaire). Un seul : pris d'office. Plusieurs : posé, puis « Régler »
+   * Le point d'accroche des widgets qui montrent UNE chose choisie, à la pose et dans « Régler » : un appareil (la tuile,
+   * la lumière, le capteur ; la pièce ou le capteur d'une mesure : pages/widgets-maison-appareils.js), une caméra
+   * (pages/widgets-maison-securite.js). Chaque famille rend `genrePose(kind)` (le genre à choisir à la pose, sinon ''),
+   * `choixDePose(kind, rooms, etat)` (ses choix tirés de /api/maison/etat, ou null), `champChoix(w, e)` (le champ de
+   * « Régler », ou null), ses textes `TEXTES.aucun[genre]` et `TEXTES.poseIllisible`, et peut dire `raisonNonChoisie`
+   * (celle de la carte posée sans choix). Une famille qui ne déclare rien n'est pas concernée.
+   */
+  const famillesChoisies = () => [window.OdinWidgetsMaisonAppareils, window.OdinWidgetsMaisonSecurite].filter((F) => F && typeof F.genrePose === 'function');
+  const choisieDe = (kind) => famillesChoisies().find((F) => F.genrePose(kind)) ?? null;
+  /**
+   * Poser un widget qui montre UNE chose choisie (un appareil, une caméra : `choisieDe`), au bouton comme au glisser :
+   * les choix sont lus dans ce que l'écran de la maison reçoit déjà (/api/maison/etat, avec la session du propriétaire,
+   * s'il a le droit sur l'appli que la sorte lit). Un seul : pris d'office. Plusieurs : posé, puis « Régler »
    * s'ouvre aussitôt sur le choix (annulé : la carte dit quoi faire, son bouton rouvre « Régler »). Aucun, ou rien de
    * lisible : rien n'est posé, et la ligne du tiroir le dit (sa réponse du 25/11 : rien n'est montré tant qu'Odin n'a pas
    * la vraie donnée). Toute autre sorte : `add`, comme avant. `ev` : l'appui sur la ligne du tiroir (absent au glisser).
    */
-  // Une pose qui attend la lecture des appareils : un second appui (deux appuis coup sur coup) ne pose rien de plus.
+  // Une pose qui attend la lecture des choix : un second appui (deux appuis coup sur coup) ne pose rien de plus.
   let poseEnCours = false;
   async function poser(w, ev) {
-    const MA = window.OdinWidgetsMaisonAppareils, g = typeof MA?.genrePose === 'function' ? MA.genrePose(w.kind) : '';
+    const MA = choisieDe(w.kind), g = MA ? MA.genrePose(w.kind) : '';
     if (!g) return add(w);
     if (poseEnCours) return false;
     const ligne = ev?.currentTarget?.closest?.('.fe-it') ?? null, depart = page();
     let liste = null;
     poseEnCours = true;
-    try { if (proprio && aDroit('midgard')) { try { const d = await api('/api/maison/etat'); liste = d?.ok ? MA.choixDePose(w.kind, d.rooms) : null; } catch { liste = null; } } }
+    try { if (proprio && aDroit(renduDe(w)?.appli || 'midgard')) { try { const d = await api('/api/maison/etat'); liste = d?.ok ? MA.choixDePose(w.kind, d.rooms, d) : null; } catch { liste = null; } } }
     finally { poseEnCours = false; }
     // « Modifier » refermé, ou une autre page ouverte pendant la lecture : rien n'est posé.
     if (!edit || !L || page() !== depart) return false;
     if (!liste || !liste.length) { direLigne(ligne, liste ? MA.TEXTES.aucun[g] : MA.TEXTES.poseIllisible); return false; }
     const { cible: _c, ...propre } = w;
     if (liste.length === 1) return add({ ...propre, cible: liste[0].cible });
-    return add(propre, false, (n) => { posees.set(n.id, { etat: 'vide', raison: 'appareil_non_choisi', choix: liste }); return () => regler(n, true); });
+    return add(propre, false, (n) => { posees.set(n.id, { etat: 'vide', raison: MA.raisonNonChoisie || 'appareil_non_choisi', choix: liste }); return () => regler(n, true); });
   }
-  /** Un glisser que OT.glisse ne connaît pas : seulement une sorte déclarée qui montre UN appareil choisi, refaite d'après sa déclaration. */
+  /** Un glisser que OT.glisse ne connaît pas : seulement une sorte déclarée qui montre UNE chose choisie, refaite d'après sa déclaration. */
   function poserGlisse(brut) {
     let o; try { o = JSON.parse(String(brut ?? '')); } catch { return; }
-    const MA = window.OdinWidgetsMaisonAppareils, kind = o && typeof o === 'object' ? o.kind : '';
-    const d = R.posables({ proprio, aDroit }).find((x) => x.sorte === kind && !x.style && typeof MA?.genrePose === 'function' && MA.genrePose(x.sorte));
+    const kind = o && typeof o === 'object' ? o.kind : '';
+    const d = R.posables({ proprio, aDroit }).find((x) => x.sorte === kind && !x.style && choisieDe(x.sorte));
     if (d) poser(d.w);
   }
   /** Ce que la pose n'a pas fait, dit sur la ligne du tiroir (et à son annonce) ; au glisser, en bas de l'écran. */
@@ -947,8 +957,9 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // Son groupe, comme la maquette la range : celui qu'elle dit d'elle-même (« Infos et repères », « Odin »), sinon
     // la famille de son appli dans le catalogue (R.groupeTiroir).
     const declarees = R.posables({ proprio, aDroit }).map((x) => { const m = x.appli ? cat?.modules?.find((y) => y.id === x.appli) : undefined, g = R.groupeTiroir(x, m?.family);
-      // Une sorte qui montre UN appareil choisi passe par `poser` (pris d'office, ou « Régler » aussitôt), et se glisse aussi.
-      const choisie = typeof window.OdinWidgetsMaisonAppareils?.genrePose === 'function' && window.OdinWidgetsMaisonAppareils.genrePose(x.sorte);
+      // Une sorte qui montre UNE chose choisie (un appareil, une caméra) passe par `poser` (pris d'office, ou « Régler »
+      // aussitôt), et se glisse aussi.
+      const choisie = Boolean(choisieDe(x.sorte));
       return { nom: x.nom, quoi: x.quoi, icon: x.symbole, famille: g === 'infos' ? OT.INFOS : g, ...(g === ODIN ? { groupe: NOM_ODIN } : {}), ...(choisie ? { w: x.w } : {}), active: m ? OT.active(m) : undefined, onclick: (e) => poser(x.w, e) }; });
     const lignes = [...jour, item({ kind: 'heure' }, T.heure, T.heureQuoi, '🕒'), item({ kind: 'meteo', style: 'complete', w: 1, c: 4, r: 5 }, T.meteo, T.meteoQuoi, '☀'), ...declarees,
       vordr ? { nom: T.site, quoi: T.siteQuoi, icon: '🌐', famille: OT.INFOS, active: OT.active(vordr), onclick: siteSurveille } : null,
@@ -1125,8 +1136,10 @@ body.fe-glisse,body.fe-glisse *{cursor:grabbing!important;-webkit-user-select:no
     // la liste que le serveur rend au propriétaire seul avec l'état de CE widget, mise en mots par sa famille
     // (pages/widgets-maison-appareils.js : un nom et une pièce, jamais un identifiant). Le choix d'avant reste dans la
     // liste, même retiré d'Odin (sous un mot neutre). Sans liste (pas encore rangé) : la phrase dit quoi faire.
-    // Posé depuis le tiroir et pas encore rangé : la liste lue à la pose.
-    const sCh = etats?.get(w.id), champ = window.OdinWidgetsMaisonAppareils?.champChoix?.(w, sCh && sCh.sig === sigDe(w) ? sCh.e : posees.get(w.id)) ?? null;
+    // Posé depuis le tiroir et pas encore rangé : la liste lue à la pose. Une caméra : la même chose, mise en mots par sa
+    // famille (pages/widgets-maison-securite.js : ses noms). Le point d'accroche commun : `famillesChoisies`.
+    const sCh = etats?.get(w.id), eCh = sCh && sCh.sig === sigDe(w) ? sCh.e : posees.get(w.id);
+    const champ = famillesChoisies().reduce((c, F) => c ?? (typeof F.champChoix === 'function' ? F.champChoix(w, eCh) : null) ?? null, null);
     let fCible = null; const cible0 = champ ? champ.depart : '';
     if (champ) {
       const groupes = new Map(), libres = [];

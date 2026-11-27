@@ -436,6 +436,40 @@ test('« Régler », un choix qui existe : à l\'enregistrement, une cible neuve
   assert.ok(r.indexOf('ciblesDeLaMaison(') < r.indexOf('ctx.saveSettings('), 'avant d\'être gardée');
 });
 
+test('« Régler », un choix qui existe, la caméra : « camera:<nom> » gardé si c\'est une de ses caméras ; inconnu ou piégé : retiré ; déjà rangé : gardé ; caméras illisibles : retiré', async () => {
+  const L = (ws: Array<Record<string, unknown>>) => ({ pages: [{ id: 'b0000011', name: 'P', widgets: ws.map((w) => ({ w: 1, c: 4, r: 3, ...w })) }] }) as unknown as Layout;
+  let appareilsLus = 0, camerasLues = 0;
+  const appareils = async () => { appareilsLus++; return [{ id: 'lampe-1', room: 'Salon' }]; };
+  const cameras = () => { camerasLues++; return ['Cam A', 'Cam B']; };
+  const l = L([
+    { id: 'a0000061', kind: 'maison_camera', cible: 'camera:Cam A' }, { id: 'a0000062', kind: 'maison_camera', cible: 'camera:Cam Z' },
+    { id: 'a0000063', kind: 'maison_camera', cible: 'camera:cam a' }, { id: 'a0000064', kind: 'maison_camera', cible: 'camera:Cam P' },
+    { id: 'a0000065', kind: 'maison_camera', cible: 'camera:lampe-1' }, { id: 'a0000066', kind: 'maison_camera', cible: 'appareil:Cam A' },
+  ]);
+  // a0000064 : rangé avant tel quel (sa caméra retirée depuis).
+  const avant = L([{ id: 'a0000064', kind: 'maison_camera', cible: 'camera:Cam P' }]);
+  await ciblesDeLaMaison(l, avant, appareils, cameras);
+  assert.deepEqual(l.pages[0].widgets.map((w) => w.cible), ['camera:Cam A', undefined, undefined, 'camera:Cam P', undefined, undefined],
+    'une de ses caméras (le nom exact, comme « Régler » le propose) : gardée ; un autre nom, un appareil pris pour une caméra, et l\'inverse : retirés ; déjà rangée : gardée');
+  assert.equal(camerasLues, 1, 'les caméras lues une fois');
+  // Seulement des caméras à vérifier : les appareils de la maison ne sont pas lus (et l'inverse).
+  appareilsLus = 0; camerasLues = 0;
+  await ciblesDeLaMaison(L([{ id: 'a0000061', kind: 'maison_camera', cible: 'camera:Cam B' }]), undefined, appareils, cameras);
+  assert.deepEqual([appareilsLus, camerasLues], [0, 1]);
+  appareilsLus = 0; camerasLues = 0;
+  await ciblesDeLaMaison(L([{ id: 'a0000051', kind: 'maison_lumiere', cible: 'appareil:lampe-1' }]), undefined, appareils, cameras);
+  assert.deepEqual([appareilsLus, camerasLues], [1, 0]);
+  // Les caméras illisibles (Cyclope coupée, une erreur, une réponse abîmée) ou aucune lecture donnée : retirée (le plus prudent).
+  for (const casse of [() => undefined, () => { throw new Error('illisible'); }, () => 'abîmé' as never, () => [42, null] as never, undefined]) {
+    const x = L([{ id: 'a0000061', kind: 'maison_camera', cible: 'camera:Cam A' }]); await ciblesDeLaMaison(x, undefined, appareils, casse);
+    assert.equal(x.pages[0].widgets[0].cible, undefined);
+  }
+  // Le rangement lui donne les noms des caméras de Cyclope, seulement si elle est activée (comme la donnée du widget).
+  const G = readFileSync(new URL('../src/valhalla/modules/gladsheim.ts', import.meta.url), 'utf8'), r = G.slice(G.indexOf('id: \'regler_fenetre\''), G.indexOf('id: \'regler_animation\''));
+  assert.match(r, /await ciblesDeLaMaison\(l, avant, \(\) => homeDevices\([^\n]*camerasDeCyclope\)/);
+  assert.match(G, /const camerasDeCyclope = \(\) => \{[^\n]*estActive\('himinbjorg'\)[^\n]*cameraNames\(/);
+});
+
 test('« Régler », le choix d\'un widget de la maison (l\'appareil, la pièce, le capteur) : servi au propriétaire seul ; une cible piégée est refusée à l\'enregistrement', async () => {
   // La règle pure : la fenêtre servie à un autre que le propriétaire n'a jamais de cible, même sur un widget qu'il voit.
   const l = { pages: [{ id: 'b0000009', name: 'P', widgets: [{ id: 'a0000039', kind: 'maison_lumiere', w: 1, c: 3, r: 2, cible: 'appareil:x', toucher: { quoi: 'rien' } }] }] } as unknown as Layout;

@@ -12,6 +12,7 @@ import type { ModCtx, Module, Param, Tone } from '../types.ts';
 import { valhallaOf } from '../odin.ts';
 import { FAMILLES, THEME_NAMES } from './apparence.ts';
 import { homeDevices } from './midgard.ts';
+import { cameraNames } from './himinbjorg.ts';
 import { nourrir, oublier } from '../gna/historique.ts';
 import { arrondirPosition, ecrireFichierPrive, lireFichierPrive } from '../../prive.ts';
 import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuCourant, temperature, vitesse, type Region, type Unites } from '../lieu.ts';
@@ -565,23 +566,31 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
   return { pages, ...(accueil === undefined ? {} : { accueil }) };
 }
 
+/** Les noms des caméras de Cyclope (comme la donnée du widget « Caméra » les lit), seulement si elle est là et activée. */
+const camerasDeCyclope = () => { const v = valhallaOf(); return v && v.module('himinbjorg')?.id === 'himinbjorg' && v.estActive('himinbjorg') ? cameraNames(v.ctx('himinbjorg')) : undefined; };
 /**
  * Ce que montre un widget de la maison (`cible` : « appareil:<id> » ou « piece:<nom> », choisi dans « Régler » ou pris
  * d'office à la pose) désigne un appareil ou une pièce de la maison : à l'enregistrement, une cible neuve ou changée qui
  * ne désigne rien parmi les appareils lus (`lire` : ceux de Midgard, lus seulement s'il y en a une) est retirée — le
  * widget redevient « pas encore choisi ». Une cible déjà rangée telle quelle (`avant`) reste, même si son appareil a été
  * retiré depuis : le widget dit alors « cet appareil n'existe plus ». Les appareils illisibles : rien n'est vérifié,
- * donc la cible neuve est retirée (le plus prudent). Change `l` en place.
+ * donc la cible neuve est retirée (le plus prudent). La caméra d'un widget « Caméra » (« camera:<nom> ») : gardée
+ * seulement si ce nom est, tel quel, une de ses caméras (`cameras` : les noms de Cyclope, rien si elle est coupée) ;
+ * illisibles ou absentes : retirée, de même. Chaque liste n'est lue que s'il y a une cible neuve à vérifier avec elle.
+ * Change `l` en place.
  */
-export async function ciblesDeLaMaison(l: Layout, avant: Layout | undefined, lire: () => Promise<ReadonlyArray<{ id?: unknown; room?: unknown }>>): Promise<void> {
+export async function ciblesDeLaMaison(l: Layout, avant: Layout | undefined, lire: () => Promise<ReadonlyArray<{ id?: unknown; room?: unknown }>>, cameras?: () => readonly unknown[] | undefined): Promise<void> {
   const deja = new Map((avant?.pages ?? []).flatMap((p) => p.widgets).map((w) => [w.id, w.cible]));
   const neuves = l.pages.flatMap((p) => p.widgets).filter((w) => typeof w.cible === 'string' && deja.get(w.id) !== w.cible);
   if (!neuves.length) return;
+  const camera = (w: Widget) => w.cible!.startsWith('camera:');
   let liste: ReadonlyArray<{ id?: unknown; room?: unknown }> = [];
-  try { const x = await lire(); if (Array.isArray(x)) liste = x; } catch { liste = []; }
+  if (neuves.some((w) => !camera(w))) { try { const x = await lire(); if (Array.isArray(x)) liste = x; } catch { liste = []; } }
+  let noms: readonly unknown[] = [];
+  if (neuves.some(camera)) { try { const x = cameras?.(); if (Array.isArray(x)) noms = x; } catch { noms = []; } }
   for (const w of neuves) {
-    const m = /^(appareil|piece):(.+)$/s.exec(w.cible!);
-    if (!m || !liste.some((a) => (m[1] === 'appareil' ? a.id === m[2] : a.room === m[2]))) delete w.cible;
+    const m = /^(appareil|piece|camera):(.+)$/s.exec(w.cible!);
+    if (!m || !(m[1] === 'camera' ? noms.some((n) => typeof n === 'string' && n === m[2]) : liste.some((a) => (m[1] === 'appareil' ? a.id === m[2] : a.room === m[2])))) delete w.cible;
   }
 }
 
@@ -663,7 +672,7 @@ export const gladsheim: Module = {
       // pas refusée : elle reçoit la page « Aujourd'hui » à la lecture (fenetreRangee), et la rend ici.
       if (retraitRefuse(avant, l)) throw new Error('« À faire » se déplace mais ne se retire pas : garde-le sur une de tes pages.');
       // Un widget de la maison montre un appareil ou une pièce qui existe (lus comme l'écran de la maison les lit).
-      await ciblesDeLaMaison(l, avant, () => homeDevices(valhallaOf()?.ctx('midgard') ?? ctx));
+      await ciblesDeLaMaison(l, avant, () => homeDevices(valhallaOf()?.ctx('midgard') ?? ctx), camerasDeCyclope);
       ctx.saveSettings({ fenetre: l, ...(ctx.settings.ouvertures === undefined ? {} : { ouvertures: ouverturesGardees(ctx, l, avant) }) });
       const rendue = avecAujourdhui(l);
       return { text: `✓ Fenêtre rangée : ${rendue.pages.map((p) => `${nomPage(p)} (${p.widgets.length})`).join(', ')}.`, data: avecAnimation(ctx, rendue) };

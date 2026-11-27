@@ -11,9 +11,9 @@
 //   « Tout est fermé » : seulement si chaque serrure et chaque porte est lue et fermée. Un capteur de porte n'est pas
 //   lu : Odin ne sait pas lequel de ses détecteurs est une porte. Rien ne se commande d'ici : la carte de l'appareil le fait.
 // - « Caméra » : UNE caméra choisie (`cible` : « camera:<nom> ») ; la donnée ne porte que son nom, la page demande
-//   l'image à la route qui existe (GET /api/maison/camera?nom=), qui la refuse à qui n'a pas tous les droits. Pas encore
-//   posable : à l'enregistrement, la vérification des choix de la maison (gladsheim.ts, ciblesDeLaMaison) retirerait un
-//   choix « camera:… », et « Régler » ne sait choisir qu'un appareil (fenetre.js) — deux fichiers hors de cette part.
+//   l'image à la route qui existe (GET /api/maison/camera?nom=), qui la refuse à qui n'a pas tous les droits. À
+//   l'enregistrement, son choix n'est gardé que si c'est une de ses caméras (gladsheim.ts, ciblesDeLaMaison) ; la liste
+//   des choix (`choix`) n'est rendue qu'au propriétaire sur son accueil, pour « Régler ».
 import type { Widget } from '../modules/gladsheim.ts';
 import { calculSerrures, etiquette, sansNouvelles } from './maison.ts';
 import type { AppareilVu, EtatWidget, Lecteur, SorteWidget, SourceWidget } from './sorte.ts';
@@ -112,6 +112,6 @@ const base = { famille: 'maison', styles: ['simple'], posable: true, jamaisALaMa
 export const SORTES_MAISON_SECURITE = [
   // « Sécurité » (la maquette : 4 × 3, 3 × 3 au moins). Ses serrures, ses portes qui ouvrent la maison, ses caméras.
   { id: 'maison_securite', ...base, applis: ['midgard'], taille: { mini: [3, 3], r: 3 }, nettoyer: etiquette, lire: lireSecurite },
-  // « Caméra » (la maquette : 4 × 3, 3 × 2 au moins). La vraie image d'une caméra de Cyclope. Pas encore posable (plus haut).
-  { id: 'maison_camera', ...base, posable: false, applis: ['himinbjorg'], taille: { mini: [3, 2], r: 3 }, nettoyer: avecCamera, lire: lireCamera },
+  // « Caméra » (la maquette : 4 × 3, 3 × 2 au moins). La vraie image d'une caméra de Cyclope.
+  { id: 'maison_camera', ...base, applis: ['himinbjorg'], taille: { mini: [3, 2], r: 3 }, nettoyer: avecCamera, lire: lireCamera },
 ] as const satisfies readonly SorteWidget[];

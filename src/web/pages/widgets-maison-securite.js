@@ -10,7 +10,8 @@
 //   petite carte coupe). La plus grave d'abord ; ce qui ne tient pas, ou que le serveur n'a pas servi : « et N de plus ».
 // - « Caméra » : la VRAIE image, demandée à la route qui existe (GET /api/maison/camera?nom=…, le nom encodé), jamais un
 //   dessin, jamais présentée comme un direct (c'est une image prise à la demande) ; redemandée toutes les PERIODE, et seulement quand
-//   la carte est à l'écran, la page visible, hors du mode « Modifier », sur l'accueil. L'image n'est gardée que le temps
+//   la carte est à l'écran, la page visible, hors du mode « Modifier », sur l'accueil ; une seule demande par caméra et
+//   par période, montrée par toutes ses cartes. L'image n'est gardée que le temps
 //   d'être montrée (une adresse « blob: » libérée dès qu'elle est remplacée ou que la carte s'en va), jamais en cache.
 //   Une caméra qui ne répond pas : c'est dit, et l'image d'avant n'est plus montrée.
 // - Tout texte venu d'une donnée (un nom de serrure, de porte, de pièce, de caméra) : textContent, coupé avec son entier
@@ -45,7 +46,14 @@
       recue: (h) => `Reçue à ${h}`, rythme: (p) => `une image toutes les ${N(Math.round(p / 1000))} s`,
       attente: 'Image demandée…', panne: 'La caméra ne répond pas : aucune image récente.', alt: (nom) => `Image de la caméra ${nom}`,
       vides: { camera_non_choisie: 'Aucune caméra choisie.', aucune_camera: 'Aucune caméra dans Odin.', camera_absente: 'Cette caméra n\'existe plus.' },
+      // Le bouton d'une carte sans caméra (il ouvre « Régler » sur le choix) ; aucune caméra : il mène à Cyclope.
+      choisirQuoi: 'Choisir une caméra', ajouter: 'Ajouter une caméra',
     },
+    // « Régler » : le choix de la caméra montrée (ses noms, tels qu'il les a nommées ; jamais « camera:… »).
+    regler: { libelle: 'La caméra montrée', choisir: 'Choisir…', retire: 'Caméra retirée', aRanger: 'Appuie sur « Terminé », puis rouvre « Régler » pour choisir.' },
+    // La pose depuis le tiroir (fenetre.js) : ce que la ligne du tiroir dit quand rien n'est posé.
+    aucun: { camera: 'Aucune caméra dans Odin.' },
+    poseIllisible: 'Odin ne lit pas tes caméras en ce moment : rien n\'est posé.',
     plus: (n) => `et ${N(n)} de plus`,
   };
   const T = TEXTES;
@@ -82,6 +90,47 @@
   /** L'heure d'une image dans la langue de la page (le fuseau de l'appareil qui regarde). */
   function heure(at) { try { return new Intl.DateTimeFormat(langue(), { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(at)); } catch { return ''; } }
 
+  // ---------------- Le choix de la caméra (la pose depuis le tiroir et « Régler », par fenetre.js)
+  /** Un nom de caméra choisissable : la règle du serveur (cameraDe) — tel quel sans espace autour, 80 signes au plus, jamais un nom réservé. */
+  const NOM_MAX = 80, RESERVES = ['__proto__', 'constructor', 'prototype'];
+  const nomChoisissable = (x) => typeof x === 'string' && x.trim() === x && x.length > 0 && x.length <= NOM_MAX && !RESERVES.includes(x);
+  const CIBLE = /^camera:(.+)$/s;
+  /** Le genre à choisir à la pose : « camera » pour « Caméra » ; une autre sorte : '' (pas concernée). */
+  const genrePose = (kind) => (kind === 'maison_camera' ? 'camera' : '');
+  /** La raison de la carte posée sans choix (le serveur rend la même tant qu'elle n'est pas choisie). */
+  const raisonNonChoisie = 'camera_non_choisie';
+  /**
+   * Les choix d'une pose, tirés de ce que l'écran de la maison reçoit déjà (etat.cameras de /api/maison/etat, lu avec
+   * sa session) : ses caméras, sous la forme des choix du serveur ({ cible, nom }), 300 au plus. Rien de lisible : null.
+   */
+  function choixDePose(kind, _rooms, etat) {
+    if (!genrePose(kind) || !etat || typeof etat !== 'object' || !Array.isArray(etat.cameras)) return null;
+    return etat.cameras.filter(nomChoisissable).slice(0, 300).map((nom) => ({ cible: `camera:${nom}`, nom }));
+  }
+  /**
+   * Le champ du choix de « Régler » pour « Caméra », ou rien (une autre sorte). `e` : l'état que le serveur a rendu pour
+   * CE widget (sa liste n'y est que pour le propriétaire, sur l'accueil), ou la liste lue à la pose. Les mêmes clés que
+   * celui des appareils : { libelle, options: [{ v, texte }], depart, sansListe, aide, titre(v) } ; jamais « camera:… »
+   * dans un texte. Le choix d'avant reste dans la liste ; retiré de Cyclope, il y est sous un mot neutre.
+   */
+  function champChoix(w, e) {
+    if (!w || !genrePose(w.kind)) return null;
+    const m = typeof w.cible === 'string' ? CIBLE.exec(w.cible) : null, depart = m && nomChoisissable(m[1]) ? w.cible : '';
+    const lus = e && Array.isArray(e.choix) ? e.choix : null;
+    const liste = (lus ?? []).filter((c) => c && typeof c.cible === 'string' && CIBLE.test(c.cible) && nomChoisissable(c.cible.slice(7)));
+    const options = [];
+    if (!depart) options.push({ v: '', texte: T.regler.choisir });
+    else if (!liste.some((c) => c.cible === depart)) options.push({ v: depart, texte: T.regler.retire });
+    for (const c of liste) options.push({ v: c.cible, texte: c.cible.slice(7) });
+    const titre = (v) => {
+      const c = liste.find((x) => x.cible === v); if (!c) return '';
+      // Une aide (le titre du champ, l'en-tête de la fenêtre), jamais rangée : un nom long finit par « … ».
+      const t = c.cible.slice(7);
+      return t.length > 40 ? `${t.slice(0, 39).trimEnd()}…` : t;
+    };
+    return { libelle: T.regler.libelle, options, depart, sansListe: lus === null, aide: lus === null ? T.regler.aRanger : !liste.length ? T.aucun.camera : '', titre };
+  }
+
   // ---------------- Dessin (seulement quand un hôte l'appelle)
   const SVG = {
     cadenas: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
@@ -116,19 +165,25 @@ button.wsc-l{cursor:pointer}button.wsc-l:focus-visible{outline:2px solid var(--a
 .wsc-btn{flex:0 1 auto;max-width:100%;min-height:44px;min-width:44px;padding:4px 12px;border-radius:12px;border:1px solid var(--line,currentColor);background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:650;line-height:1.2;cursor:pointer;white-space:normal;overflow-wrap:anywhere;text-align:center}
 .wsc-btn:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:2px}
 .fe-edit .wsc-btn{pointer-events:none}
+/* « Choisir une caméra » ouvre « Régler », en mode « Modifier » aussi (il ne commande rien). */
+.fe-edit .wsc-btn[data-action=choisir]{pointer-events:auto}
 /* La caméra : l'image garde ses proportions (ni étirée, ni déformée), dans le cadre de la carte. */
 .wsc-cam{gap:4px}
 .wsc-cadre{flex:1 1 auto;min-height:0;min-width:0;display:grid;place-items:center;border-radius:12px;overflow:hidden;background:color-mix(in srgb,var(--field,var(--card2,currentColor)) 70%,transparent)}
 .wsc-img{display:block;width:100%;height:100%;min-height:0;object-fit:contain}
 .wsc-dit{flex:none;margin:0;min-height:1.3em;font-size:11.5px;line-height:1.3;color:var(--muted,inherit);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wsc-cam[data-panne] .wsc-dit{color:var(--warn,inherit);font-weight:650}`;
+.wsc-cam[data-panne] .wsc-dit{color:var(--warn,inherit);font-weight:650}
+/* Une carte basse (3 × 2) : l'image prend toute la hauteur, la phrase (l'heure de la prise) reste dite, posée dessus. */
+.wsc-cam{position:relative}
+@container (max-height:140px){.wsc-cam:not([data-panne]) .wsc-dit{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 12px);padding:2px 8px;border-radius:8px;background:color-mix(in srgb,var(--card,var(--bg,Canvas)) 85%,transparent);color:var(--ink,var(--text,inherit))}}`;
   function poserStyle() {
     const R = window.OdinWidgetsRendu;
     if (R && typeof R.poserStyle === 'function') R.poserStyle();
     if (document.getElementById('odinWidgetsMaisonSecurite')) return;
-    // La carte garde sa taille sur la grille (une longue liste ne l'étire pas) ; au téléphone, la hauteur suit le contenu.
+    // La carte garde sa taille sur la grille (une longue liste ne l'étire pas) ; au téléphone, la hauteur suit le contenu,
+    // et l'image d'une caméra (en portrait aussi) est bornée à un peu plus de la moitié de l'écran.
     const G = window.OdinGrille, tel = G && G.GRILLE && Number.isInteger(G.GRILLE.telephone) ? G.GRILLE.telephone : 700;
-    const s = document.createElement('style'); s.id = 'odinWidgetsMaisonSecurite'; s.textContent = `${CSS}\n@media (min-width:${tel + 1}px){.fe-w>.wsc{contain:size}}`; document.head.append(s);
+    const s = document.createElement('style'); s.id = 'odinWidgetsMaisonSecurite'; s.textContent = `${CSS}\n@media (min-width:${tel + 1}px){.fe-w>.wsc{contain:size}.fe-w>.wsc-cam{container-type:size}}\n@media (max-width:${tel}px){.wsc-img{max-height:56vh}}`; document.head.append(s);
   }
   function el(t, cls, txt) { const n = document.createElement(t); if (cls) n.className = cls; if (txt !== undefined) n.textContent = txt; return n; }
   const icone = (k) => { const s = el('span', 'wsc-ic'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = svg(k); return s; };
@@ -211,8 +266,14 @@ button.wsc-l{cursor:pointer}button.wsc-l:focus-visible{outline:2px solid var(--a
   const sousSecurite = () => '';
 
   // ---------------- « Caméra » : l'image, demandée lentement, seulement quand elle se voit
-  /** Les cartes « Caméra » à l'écran, par widget : sa boîte, son image, l'adresse « blob: » montrée, l'heure de la dernière demande. */
+  /** Les cartes « Caméra » dessinées, par widget : sa boîte, son image, le nom de sa caméra. */
   const SUIVIS = new Map();
+  /**
+   * Les prises, par caméra (son nom) : l'adresse « blob: » montrée, l'heure d'arrivée, celle de la dernière demande, la
+   * panne. Partagées par toutes les cartes de la même caméra : dix cartes ne font qu'une demande par période.
+   */
+  const PRISES = new Map();
+  const priseDe = (nom) => { let p = PRISES.get(nom); if (!p) { p = { url: '', at: 0, dernier: 0, panne: false, enCours: false }; PRISES.set(nom, p); } return p; };
   let tic = null;
   const libere = (s) => { if (s && s.url) { try { URL.revokeObjectURL(s.url); } catch { /* rien */ } s.url = ''; } };
   const modifier = (box) => Boolean(box.closest && box.closest('.fe-edit'));
@@ -222,47 +283,62 @@ button.wsc-l{cursor:pointer}button.wsc-l:focus-visible{outline:2px solid var(--a
     const r = box.getBoundingClientRect();
     return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < (window.innerHeight || 0) && r.left < (window.innerWidth || 0);
   }
-  function dire(s) {
-    const t = s.panne ? T.camera.panne : s.at ? `${T.camera.recue(heure(s.at))} · ${T.camera.rythme(PERIODE)}` : T.camera.attente;
+  /** Une carte montre la prise de sa caméra : l'image si elle est là, sinon rien ; et la phrase. */
+  function montrer(s) {
+    const p = priseDe(s.nom);
+    if (p.url && !p.panne) { if (s.img.getAttribute('src') !== p.url) s.img.src = p.url; s.img.hidden = false; }
+    else { s.img.removeAttribute('src'); s.img.hidden = true; }
+    const t = p.panne ? T.camera.panne : p.at ? `${T.camera.recue(heure(p.at))} · ${T.camera.rythme(PERIODE)}` : T.camera.attente;
     s.dit.textContent = t; s.dit.title = t;
     // En panne : ni image, ni cadre vide au-dessus du message.
-    if (s.panne) s.box.dataset.panne = ''; else s.box.removeAttribute('data-panne');
-    if (s.cadre) s.cadre.hidden = s.panne;
+    if (p.panne) s.box.dataset.panne = ''; else s.box.removeAttribute('data-panne');
+    if (s.cadre) s.cadre.hidden = p.panne;
   }
-  async function demander(s) {
-    if (s.enCours) return;
-    s.enCours = true; s.dernier = Date.now();
-    const adresse = adresseImage(s.nom);
+  /** Les cartes encore à l'écran de cette caméra. */
+  const cartesDe = (nom) => [...SUIVIS.values()].filter((s) => s.nom === nom && s.box.isConnected);
+  /** Une caméra que plus aucune carte ne montre : son image est libérée, sa prise oubliée. */
+  const oublier = (nom) => { if (!cartesDe(nom).length) { libere(PRISES.get(nom)); PRISES.delete(nom); } };
+  /** UNE demande pour une caméra, montrée par toutes ses cartes. */
+  async function demander(nom) {
+    const p = priseDe(nom);
+    if (p.enCours) return;
+    p.enCours = true; p.dernier = Date.now();
+    const vieille = p.url;
     try {
-      const r = await fetch(adresse, { credentials: 'same-origin', cache: 'no-store', headers: { 'x-odin': '1' } });
+      const r = await fetch(adresseImage(nom), { credentials: 'same-origin', cache: 'no-store', headers: { 'x-odin': '1' } });
       const type = String(r.headers.get('content-type') || '');
       if (!r.ok || !type.startsWith('image/')) throw new Error('pas une image');
-      const url = URL.createObjectURL(await r.blob());
-      if (!s.box.isConnected) { URL.revokeObjectURL(url); return; }
-      libere(s); s.url = url; s.at = Date.now(); s.panne = false;
-      s.img.src = url; s.img.hidden = false;
+      p.url = URL.createObjectURL(await r.blob()); p.at = Date.now(); p.panne = false;
     } catch {
       // Pas d'image figée présentée comme actuelle : celle d'avant est retirée.
-      libere(s); s.img.removeAttribute('src'); s.img.hidden = true; s.panne = true; s.at = 0;
-    } finally { s.enCours = false; if (s.box.isConnected) dire(s); }
-  }
-  /** Un tour : les cartes parties sont oubliées (leur image libérée) ; les autres demandent une image si c'est le moment. */
-  function demanderTout(force) {
-    for (const [wid, s] of SUIVIS) {
-      if (!s.box.isConnected) { libere(s); SUIVIS.delete(wid); continue; }
-      if (aDemander({ aLEcran: aLEcran(s.box), pageVisible: visible(), modifier: modifier(s.box), ecran: s.ecran, dernier: s.dernier, maintenant: Date.now(), force: force === true })) demander(s);
+      p.url = ''; p.panne = true; p.at = 0;
+    } finally {
+      p.enCours = false;
+      for (const s of cartesDe(nom)) montrer(s);
+      // L'image d'avant n'est libérée qu'une fois remplacée partout.
+      if (vieille && vieille !== p.url) { try { URL.revokeObjectURL(vieille); } catch { /* rien */ } }
+      if (PRISES.get(nom) === p) oublier(nom); else libere(p);
     }
+  }
+  /**
+   * Un tour : les cartes parties sont oubliées (l'image d'une caméra que plus rien ne montre est libérée) ; une caméra
+   * dont au moins une carte est à l'écran, page visible, hors « Modifier », est demandée si c'est le moment — une fois.
+   */
+  function demanderTout(force) {
+    const noms = new Set();
+    for (const [wid, s] of SUIVIS) {
+      if (!s.box.isConnected) { SUIVIS.delete(wid); continue; }
+      if (aDemander({ aLEcran: aLEcran(s.box), pageVisible: visible(), modifier: modifier(s.box), ecran: s.ecran, dernier: priseDe(s.nom).dernier, maintenant: Date.now(), force: force === true })) noms.add(s.nom);
+    }
+    for (const nom of [...PRISES.keys()]) if (!PRISES.get(nom).enCours) oublier(nom);
+    for (const nom of noms) demander(nom);
     if (!SUIVIS.size && tic) { clearInterval(tic); tic = null; }
   }
   let ecoute = false;
   function suivre(s) {
-    const avant = SUIVIS.get(s.wid);
-    // Redessinée (une nouvelle lecture de la page) : la même caméra garde son image et son heure, sans redemander.
-    if (avant && avant !== s) {
-      if (avant.nom === s.nom && avant.url && !avant.panne) { s.url = avant.url; s.at = avant.at; s.dernier = avant.dernier; s.img.src = s.url; s.img.hidden = false; avant.url = ''; }
-      else { s.dernier = avant.dernier; libere(avant); }
-    }
-    SUIVIS.set(s.wid, s); dire(s);
+    // Redessinée (une nouvelle lecture de la page), ou une autre carte de la même caméra : elle montre la prise qui
+    // existe déjà, sans redemander.
+    SUIVIS.set(s.wid, s); montrer(s);
     if (!tic) tic = setInterval(demanderTout, 2000);
     if (!ecoute) { ecoute = true; document.addEventListener('visibilitychange', () => { if (visible()) demanderTout(); }); }
     setTimeout(demanderTout, 0);
@@ -273,25 +349,41 @@ button.wsc-l{cursor:pointer}button.wsc-l:focus-visible{outline:2px solid var(--a
     if (!e || e.etat !== 'ok') {
       const raison = e && typeof e.raison === 'string' ? e.raison : '';
       box.append(el('p', 'wsc-calme', T.camera.vides[raison] || T.camera.vides.camera_absente));
+      // Le seul geste qui y remédie, pour lui sur son accueil (le serveur ne sert la liste des choix qu'à lui) : « Choisir »
+      // ouvre « Régler » sur le choix (le bouton « ⋯ » de la carte, celui de tous les widgets, en mode « Modifier » aussi) ;
+      // aucune caméra dans Odin : « Ajouter une caméra » mène à Cyclope.
+      if (e && Array.isArray(e.choix) && !(o && o.ecran === 'maison')) {
+        const btns = el('div', 'wsc-btns'), aucune = raison === 'aucune_camera' || (raison === 'camera_absente' && !e.choix.length);
+        if (aucune) btns.append(versAppli(T.camera.ajouter, 'himinbjorg'));
+        else if (raison === 'camera_non_choisie' || raison === 'camera_absente') {
+          const b = el('button', 'wsc-btn', T.camera.choisirQuoi); b.type = 'button'; b.dataset.action = 'choisir';
+          b.addEventListener('click', (ev) => { ev.stopPropagation(); const r = b.closest && b.closest('.fe-w'), plus = r && r.querySelector('.wr-plus'); if (plus) plus.click(); });
+          btns.append(b);
+        }
+        if (btns.childElementCount) box.append(btns);
+      }
       return box;
     }
     const nom = texte(e.donnee && e.donnee.nom), cadre = el('div', 'wsc-cadre'), img = el('img', 'wsc-img'), dit = el('p', 'wsc-dit');
     img.alt = T.camera.alt(nom); img.decoding = 'async'; img.hidden = true; img.draggable = false;
     dit.setAttribute('role', 'status'); cadre.append(img); box.append(cadre, dit);
-    const s = { wid: texte(w.id) || nom, nom, box, cadre, img, dit, url: '', at: 0, dernier: 0, panne: false, enCours: false, ecran: o && o.ecran === 'maison' ? 'maison' : 'accueil' };
+    const s = { wid: texte(w.id) || nom, nom, box, cadre, img, dit, ecran: o && o.ecran === 'maison' ? 'maison' : 'accueil' };
     // Jamais sur l'écran de la maison : rien n'y est demandé (le serveur ne l'y sert pas de toute façon).
-    if (s.ecran === 'maison' || !adresseImage(nom)) { dire(s); return box; }
+    if (s.ecran === 'maison' || !adresseImage(nom)) { dit.textContent = T.camera.attente; dit.title = T.camera.attente; return box; }
     suivre(s);
     return box;
   }
   const sousCamera = (e) => (e && e.etat === 'ok' ? texte(e.donnee && e.donnee.nom) : '');
 
-  window.OdinWidgetsMaisonSecurite = { TEXTES, CSS, PERIODE, nombre, entete, nonServies, adresseImage, aDemander, demanderTout };
+  // `genrePose`, `choixDePose`, `champChoix`, `raisonNonChoisie` et les textes `aucun`, `poseIllisible` : le point
+  // d'accroche de la pose depuis le tiroir et de « Régler » (fenetre.js), le même que celui des appareils de la maison.
+  window.OdinWidgetsMaisonSecurite = { TEXTES, CSS, PERIODE, nombre, entete, nonServies, adresseImage, aDemander, demanderTout, genrePose, choixDePose, champChoix, raisonNonChoisie };
   // La déclaration (lue par pages/widgets-rendu.js) : la famille « maison », au propriétaire seul, jamais sur l'écran de
-  // la maison (la même marque que le serveur). L'appli lue range la ligne du tiroir avec la maison. « Caméra » n'a pas de
-  // ligne dans le tiroir tant qu'elle n'est pas posable (le serveur ne garderait pas son choix).
+  // la maison (la même marque que le serveur). L'appli lue range la ligne du tiroir avec la maison (la maquette : « Maison »).
+  // « Caméra » : à la pose, l'unique caméra est prise d'office ; plusieurs : « Régler » s'ouvre sur le choix ; aucune :
+  // rien n'est posé (sa réponse du 25/11 : rien n'est montré tant qu'Odin n'a pas la vraie donnée).
   (window.OdinWidgetsFamilles = window.OdinWidgetsFamilles || []).push({ famille: 'maison', sortes: [
     { sorte: 'maison_securite', titre: T.securite.titre, quoi: T.securite.quoi, symbole: '🔒', appli: 'midgard', proprio: true, jamaisALaMaison: true, poser: { c: 4, r: 3, pc: 4 }, vides: ['rien_a_surveiller'], sous: sousSecurite, dessiner: securite },
-    { sorte: 'maison_camera', titre: T.camera.titre, quoi: T.camera.quoi, symbole: '📷', appli: 'himinbjorg', proprio: true, jamaisALaMaison: true, tiroir: false, poser: { c: 4, r: 3, pc: 4 }, vides: ['camera_non_choisie', 'aucune_camera', 'camera_absente'], sous: sousCamera, dessiner: camera },
+    { sorte: 'maison_camera', titre: T.camera.titre, quoi: T.camera.quoi, symbole: '📷', appli: 'himinbjorg', proprio: true, jamaisALaMaison: true, poser: { c: 4, r: 3, pc: 4 }, vides: ['camera_non_choisie', 'aucune_camera', 'camera_absente'], sous: sousCamera, dessiner: camera },
   ] });
 })();

@@ -25,6 +25,8 @@ import { isIP } from 'node:net';
 import { NETWORK, isPaused, state as etatAriane, throughput } from '../ran.ts';
 import { appareilsReseauBranches, reseauEntierLu } from './reseau.ts';
 import { paroleOf } from '../parole.ts';
+import { aEcouter, enCours } from '../modules/aegir.ts';
+import { conversationsBranchees } from './medias.ts';
 
 const s = (v: unknown) => String(v ?? '');
 
@@ -165,5 +167,9 @@ export function sourceOdin(v: Valhalla, maintenant: () => number = Date.now): So
     },
     // Le moteur de parole d'Odin, le même que la mascotte (le widget « Odin » ne lui demande une phrase que selon sa règle).
     moteurParole: () => paroleOf(),
+    // Apollon, si elle est là et activée : les noms de ses radios et de ses listes, et ce qu'elle a lancé (medias.ts).
+    apollon: () => { if (!appli('aegir')) return undefined; const c = v.ctx('aegir'), joue = enCours(c); return { ...aEcouter(c), ...(joue ? { joue } : {}) }; },
+    // Ses conversations récentes : par le branchement posé dans allModules (medias.ts).
+    conversationsRecentes: () => conversationsBranchees()?.(),
   };
 }

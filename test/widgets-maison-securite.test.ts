@@ -6,9 +6,9 @@
 //   fermé ; un état non lu n'est jamais compté fermé ; rien à montrer : « vide ».
 // - « Caméra » : la VRAIE image d'une caméra de Cyclope, par la route qui existe (GET /api/maison/camera?nom=), jamais un
 //   dessin ; jamais « En direct » (c'est une image prise à la demande) ; redemandée lentement, seulement à l'écran, page
-//   visible, hors du mode « Modifier ». Déclarée, PAS ENCORE POSABLE : son choix (« camera:<nom> ») serait retiré à
-//   l'enregistrement par la vérification des choix de la maison (gladsheim.ts) et « Régler » ne sait choisir qu'un
-//   appareil (fenetre.js) — deux fichiers hors de ce lot.
+//   visible, hors du mode « Modifier » ; une seule demande par caméra et par période, même pour dix cartes. Posée depuis
+//   le tiroir : une seule caméra, prise d'office ; plusieurs, « Régler » s'ouvre sur le choix ; aucune, rien n'est posé.
+//   Son choix (« camera:<nom> ») n'est gardé à l'enregistrement que si c'est une de ses caméras (gladsheim.ts).
 // - Qui voit : le propriétaire, sur son accueil, seul. Un membre (même avec le droit sur la maison), une tablette
 //   « maison », une clé « complet » sur l'écran de la maison, une clé d'accès, sans session : refusés AVANT toute lecture.
 import assert from 'node:assert/strict';
@@ -51,7 +51,7 @@ function fausse(appareils: Ap[] | undefined, cameras?: string[] | null, o: { san
 
 // ------------------------------------------------------------------ le serveur, avec une fausse source
 
-test('les deux sortes : famille « maison », propriétaire seul, jamais sur l\'écran de la maison ; « Sécurité » posable, « Caméra » déclarée pas encore posable', () => {
+test('les deux sortes : famille « maison », propriétaire seul, jamais sur l\'écran de la maison ; « Sécurité » et « Caméra » posables', () => {
   const s = sorteDe('maison_securite')!, c = sorteDe('maison_camera')!;
   assert.ok(s && c);
   for (const x of [s, c]) {
@@ -63,8 +63,10 @@ test('les deux sortes : famille « maison », propriétaire seul, jamais sur l\'
   // La maquette : « Sécurité » 4 × 3, 3 × 3 au moins ; « Caméra » 4 × 3, 3 × 2 au moins.
   assert.equal(s.posable, true); assert.deepEqual([[...s.taille.mini], s.taille.r], [[3, 3], 3]);
   assert.deepEqual(TAILLE_SORTE['maison_securite' as keyof typeof TAILLE_SORTE], { mini: [3, 3], r: 3 });
-  assert.equal(c.posable, false, 'la caméra attend deux fichiers hors de ce lot (son choix serait retiré à l\'enregistrement)');
+  // Suit la pose de « Caméra » (son choix est maintenant gardé à l'enregistrement, et « Régler » sait le faire) : posable.
+  assert.equal(c.posable, true, 'la caméra se pose');
   assert.deepEqual([[...c.taille.mini], c.taille.r], [[3, 2], 3]);
+  assert.deepEqual(TAILLE_SORTE['maison_camera' as keyof typeof TAILLE_SORTE], { mini: [3, 2], r: 3 });
 });
 
 test('sécurité : une serrure ouverte, une fermée, une non lue : trois lignes vraies, et jamais « tout est fermé »', async () => {
@@ -198,10 +200,13 @@ test('page : déclarées dans la famille « maison », au propriétaire seul, av
   assert.ok(s && c);
   for (const d of [s, c]) { assert.equal(d.famille, 'maison'); assert.equal(d.proprio, true); assert.equal(d.jamaisALaMaison, true, `${d.sorte} : la marque du serveur`); assert.equal(d.groupe, ''); }
   assert.equal(s.appli, 'midgard'); assert.equal(c.appli, 'himinbjorg');
-  assert.equal(s.tiroir, true); assert.equal(c.tiroir, false, 'la caméra n\'est pas proposée tant qu\'elle n\'est pas posable');
+  // Suit la pose de « Caméra » : elle a sa ligne dans le tiroir, au propriétaire seul (avant : pas de ligne).
+  assert.equal(s.tiroir, true); assert.equal(c.tiroir, true, 'la caméra est proposée');
   assert.equal(R.posables({ proprio: false, aDroit: () => true }).filter((d: any) => /securite|camera/.test(d.sorte)).length, 0, 'jamais proposée à un membre');
-  assert.deepEqual(R.posables({ proprio: true, aDroit: () => true }).filter((d: any) => /securite|camera/.test(d.sorte)).map((d: any) => d.sorte).join(','), 'maison_securite', 'au propriétaire : « Sécurité » seule');
+  assert.deepEqual(R.posables({ proprio: true, aDroit: () => true }).filter((d: any) => /securite|camera/.test(d.sorte)).map((d: any) => d.sorte).join(','), 'maison_securite,maison_camera', 'au propriétaire : les deux');
+  assert.equal(R.posables({ proprio: true, aDroit: (a: string) => a !== 'himinbjorg' }).some((d: any) => d.sorte === 'maison_camera'), false, 'sans le droit sur Cyclope : pas de ligne');
   assert.deepEqual([...win.OdinGrille.MINI.maison_securite], [3, 3]); assert.equal(win.OdinGrille.HAUTEUR.maison_securite, 3);
+  assert.deepEqual([...win.OdinGrille.MINI.maison_camera], [3, 2]); assert.equal(win.OdinGrille.HAUTEUR.maison_camera, 3);
   assert.deepEqual([...s.vides], ['rien_a_surveiller']);
 });
 
@@ -318,9 +323,10 @@ test('vrai Odin : un membre (avec le droit sur la maison et les caméras), une t
 
 // ------------------------------------------------------------------ dans un vrai navigateur (s'il y en a un)
 
-declare const document: any, window: any, location: any, getComputedStyle: any, requestAnimationFrame: (f: () => void) => number;
+declare const document: any, window: any, location: any, getComputedStyle: any, requestAnimationFrame: (f: () => void) => number, DataTransfer: any, DragEvent: any;
 interface Route { fetch(): Promise<{ json(): Promise<any> }>; fulfill(o: Record<string, unknown>): Promise<void>; request(): { url(): string } }
 interface Page {
+  dblclick(s: string): Promise<void>; keyboard: { press(k: string): Promise<void> };
   goto(u: string): Promise<unknown>; waitForFunction(f: () => unknown, a?: unknown, o?: Record<string, unknown>): Promise<unknown>; click(s: string): Promise<void>; waitForSelector(s: string, o?: Record<string, unknown>): Promise<unknown>; waitForTimeout(n: number): Promise<void>;
   evaluate<X>(f: string | ((a?: any) => X), a?: unknown): Promise<X>; route(u: string | RegExp, h: (r: Route) => Promise<void> | void): Promise<void>;
   on(e: string, f: (x: any) => void): void; screenshot(o: Record<string, unknown>): Promise<unknown>;
@@ -339,7 +345,7 @@ const FORCE = () => ({ etat: 'ok', at: Date.now(), donnee: {
   ouvertures: [{ nom: 'Porte G', piece: 'Pièce B', etat: 'fermee' }], comptes: { fermees: 3, ouvertes: 1, nonLues: 1, inconnues: 1 }, toutFerme: false, cameras: { n: 2, noms: ['Cam A', PIEGE] } } });
 // Une petite image (un pixel) : servie à la place de la route, pour l'essai seulement.
 const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
-async function ouvrir(largeur: number, sombre: boolean, force: () => Record<string, unknown> = FORCE) {
+async function ouvrir(largeur: number, sombre: boolean, force: () => Record<string, unknown> = FORCE, image: { type: string; corps: Buffer } = { type: 'image/png', corps: PIXEL }) {
   const doigt = largeur < 500;
   const ctx = await nav!.newContext({ viewport: { width: largeur, height: 900 }, hasTouch: doigt, isMobile: doigt, colorScheme: sombre ? 'dark' : 'light' });
   const [n, ...x] = v.session.split('='); await ctx.addCookies([{ name: n, value: x.join('='), url: v.url, httpOnly: true, sameSite: 'Strict' }]);
@@ -351,7 +357,7 @@ async function ouvrir(largeur: number, sombre: boolean, force: () => Record<stri
     if (Array.isArray(j?.widgets)) j.widgets = j.widgets.map((w: any) => (w.id === ID.securite ? { id: w.id, kind: w.kind, page: w.page, ...force() } : w));
     await r.fulfill({ response: rep, json: j });
   });
-  await p.route(/\/api\/maison\/camera/, async (r) => { images.push(r.request().url()); await r.fulfill({ status: 200, headers: { 'content-type': 'image/png', 'cache-control': 'no-store' }, body: PIXEL }); });
+  await p.route(/\/api\/maison\/camera/, async (r) => { images.push(r.request().url()); await r.fulfill({ status: 200, headers: { 'content-type': image.type, 'cache-control': 'no-store' }, body: image.corps }); });
   await p.goto(v.url + '/');
   await p.waitForSelector('#app:not([hidden])', { timeout: 30000 });
   // « Sombre » : un vrai thème sombre d'Odin (« Verre sombre », posé par Apparence), vérifié sur la page ; « clair » : le thème de départ, clair.
@@ -485,6 +491,342 @@ test('navigateur : « Caméra » en mode « Modifier », page cachée, ou sur l\
     assert.deepEqual(images, [], 'sur l\'écran de la maison, rien');
     await poserCamera(p, { etat: 'vide', raison: 'camera_absente' });
     assert.match(await p.evaluate(() => document.querySelector('#hoteCam').textContent), /n'existe plus/);
+    // Retirée, avec d'autres caméras à choisir : le même mot que « pas encore choisie », pour le même geste.
+    await poserCamera(p, { etat: 'vide', raison: 'camera_absente', choix: [{ cible: 'camera:Cam A', nom: 'Cam A' }] });
+    assert.equal(await p.evaluate(() => document.querySelector('#hoteCam [data-action=choisir]')?.textContent), 'Choisir une caméra');
     assert.deepEqual(images, []); assert.deepEqual(erreurs, []);
   } finally { await ctx.close(); }
+});
+
+// ------------------------------------------------------------------ « Caméra » posée depuis le tiroir
+
+test('page : la pose et « Régler » de « Caméra » — ses caméras, par leur nom, tirées de ce que l\'écran de la maison reçoit ; la même règle que le serveur ; le choix d\'avant reste, retiré sous un mot neutre', async () => {
+  const win = fenetre(), S = win.OdinWidgetsMaisonSecurite;
+  assert.equal(S.genrePose('maison_camera'), 'camera');
+  for (const k of ['maison_securite', 'maison_lumiere', 'heure', '__proto__', undefined]) assert.equal(S.genrePose(k), '', String(k));
+  assert.equal(S.raisonNonChoisie, 'camera_non_choisie');
+  assert.match(S.TEXTES.aucun.camera, /Aucune caméra/); assert.match(S.TEXTES.poseIllisible, /rien n'est posé/);
+  // La pose : les noms de /api/maison/etat (etat.cameras), sous la forme des choix du serveur ; rien de lisible : null.
+  const noms = ['Cam A', ' ', '', '__proto__', 'x'.repeat(81), 42, null, 'Cam B', PIEGE];
+  const pose = S.choixDePose('maison_camera', [], { cameras: noms });
+  assert.deepEqual(JSON.parse(JSON.stringify(pose)), [{ cible: 'camera:Cam A', nom: 'Cam A' }, { cible: 'camera:Cam B', nom: 'Cam B' }, { cible: `camera:${PIEGE}`, nom: PIEGE }]);
+  const serveur = await etat(W('maison_camera'), LUI, fausse([], noms.filter((x) => typeof x === 'string') as string[]).src);
+  assert.deepEqual(JSON.parse(JSON.stringify(pose)), serveur.choix, 'la pose propose ce que « Régler » proposera (la règle du serveur)');
+  assert.deepEqual(JSON.parse(JSON.stringify(S.choixDePose('maison_camera', [], { cameras: [] }))), []);
+  for (const d of [undefined, null, {}, { cameras: 'Cam A' }]) assert.equal(S.choixDePose('maison_camera', [], d), null);
+  assert.equal(S.choixDePose('maison_lumiere', [], { cameras: ['Cam A'] }), null, 'une autre sorte : rien');
+  // « Régler » : le champ du choix.
+  const choix = [{ cible: 'camera:Cam A', nom: 'Cam A' }, { cible: `camera:${PIEGE}`, nom: PIEGE }, { cible: 'appareil:x', nom: 'Pas une caméra' }, { cible: 'camera:__proto__', nom: 'P' }];
+  const c = S.champChoix({ kind: 'maison_camera' }, { etat: 'vide', choix });
+  assert.equal(c.libelle, 'La caméra montrée'); assert.equal(c.depart, ''); assert.equal(c.sansListe, false); assert.equal(c.aide, '');
+  assert.deepEqual(JSON.parse(JSON.stringify(c.options)), [{ v: '', texte: 'Choisir…' }, { v: 'camera:Cam A', texte: 'Cam A' }, { v: `camera:${PIEGE}`, texte: PIEGE }]);
+  assert.equal(c.titre('camera:Cam A'), 'Cam A'); assert.equal(c.titre('camera:Inconnue'), '');
+  // Choisie puis retirée d'Odin : elle reste, sous un mot neutre (jamais « camera:… » écrit).
+  const r = S.champChoix({ kind: 'maison_camera', cible: 'camera:Cam Z' }, { etat: 'vide', raison: 'camera_absente', choix: choix.slice(0, 1) });
+  assert.deepEqual(JSON.parse(JSON.stringify(r.options)), [{ v: 'camera:Cam Z', texte: 'Caméra retirée' }, { v: 'camera:Cam A', texte: 'Cam A' }]);
+  assert.equal(r.depart, 'camera:Cam Z');
+  assert.ok([...c.options, ...r.options].every((o: any) => !/camera:/.test(o.texte)), 'jamais un identifiant écrit');
+  // Pas de liste (pas encore rangé, ou un autre que le propriétaire) : rien à choisir, la phrase dit quoi faire.
+  const sans = S.champChoix({ kind: 'maison_camera' }, { etat: 'ok' });
+  assert.equal(sans.sansListe, true); assert.match(sans.aide, /Terminé/);
+  assert.match(S.champChoix({ kind: 'maison_camera' }, { etat: 'vide', choix: [] }).aide, /Aucune caméra/);
+  assert.equal(S.champChoix({ kind: 'maison_lumiere' }, { choix }), null, 'une autre sorte : pas de champ');
+  assert.equal(S.champChoix({ kind: 'maison_securite' }, { choix }), null);
+  const long = S.champChoix({ kind: 'maison_camera' }, { choix: [{ cible: `camera:${'n'.repeat(60)}`, nom: 'n'.repeat(60) }] });
+  assert.equal(long.titre(`camera:${'n'.repeat(60)}`), `${'n'.repeat(39)}…`, 'un titre proposé de 40 signes au plus');
+});
+
+test('page : le point d\'accroche commun de la pose et de « Régler » (fenetre.js) — la tuile d\'un appareil et la caméra y passent, une famille qui ne déclare rien n\'y est pas', () => {
+  const FE = lire('src/web/fenetre.js');
+  const corps = (nom: string) => { const i = FE.indexOf(nom); assert.ok(i >= 0, nom); return FE.slice(i, FE.indexOf('\n  }\n', i)); };
+  assert.match(FE, /const famillesChoisies = \(\) => \[window\.OdinWidgetsMaisonAppareils, window\.OdinWidgetsMaisonSecurite\]\.filter\(/);
+  assert.match(corps('async function poser('), /choisieDe\(w\.kind\)/); assert.match(corps('async function poser('), /choixDePose\(w\.kind, d\.rooms, d\)/);
+  assert.match(corps('async function poser('), /raisonNonChoisie \|\| 'appareil_non_choisi'/, 'la tuile d\'un appareil garde sa raison');
+  assert.match(corps('function poserGlisse('), /choisieDe\(x\.sorte\)/);
+  assert.match(FE, /const choisie = Boolean\(choisieDe\(x\.sorte\)\);/);
+  assert.match(FE, /famillesChoisies\(\)\.reduce\(\(c, F\) => c \?\? \(typeof F\.champChoix === 'function' \? F\.champChoix\(w, eCh\) : null\) \?\? null, null\)/);
+  assert.doesNotMatch(FE, /window\.OdinWidgetsMaisonAppareils\?\.(genrePose|champChoix|choixDePose)/, 'plus aucun passage direct');
+});
+
+/** Une fenêtre rangée par le rangement d'Odin (la vérification des choix comprise). */
+const rangerF = async (f: unknown) => { const va = valhallaOf()!; va.ctx('gladsheim').saveSettings({ fenetre: undefined }); const r = await va.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(f) }); assert.equal(r.ok, true, r.text); };
+const rangeesC = () => ((valhallaOf()!.ctx('gladsheim').settings.fenetre ?? { pages: [] }) as { pages: Array<{ widgets: Widget[] }> }).pages.flatMap((x) => x.widgets);
+const ciblesC = (ids: string[]) => ids.map((id) => rangeesC().find((w) => w.id === id)?.cible);
+const CAM = (id: string, cible?: string) => ({ id, kind: 'maison_camera', w: 1, c: 4, r: 3, ...(cible ? { cible } : {}) });
+const AVEC_CAMS = (cams: Array<Record<string, unknown>>) => { const f = FENETRE(true); f.pages[0].widgets.push(...(cams as never[])); return f; };
+
+test('vrai Odin : à l\'enregistrement, « camera:<nom> » gardé si c\'est une de ses caméras ; inconnu, piégé ou mal écrit : retiré ; retirée plus tard : gardé, la carte le dit ; Cyclope coupée : retiré', async () => {
+  const va = valhallaOf()!;
+  try {
+    await rangerF(AVEC_CAMS([CAM('d39b0021', 'camera:Cam A'), CAM('d39b0022', 'camera:Inconnue'), CAM('d39b0023', 'camera:cam a'), CAM('d39b0024', `camera:Cam A${PIEGE}`), CAM('d39b0025', `camera:${PIEGE}`), CAM('d39b0026', 'appareil:Cam A'), CAM('d39b0027')]));
+    assert.deepEqual(ciblesC(['d39b0021', 'd39b0022', 'd39b0023', 'd39b0024', 'd39b0025', 'd39b0026', 'd39b0027']), ['camera:Cam A', undefined, undefined, undefined, `camera:${PIEGE}`, undefined, undefined]);
+    const lui = await donnees();
+    assert.deepEqual(lui.de('d39b0021')!.donnee, { nom: 'Cam A' }, 'son nom, jamais une image ni une adresse');
+    assert.equal(lui.de('d39b0022')!.raison, 'camera_non_choisie', 'retiré : redevenu « pas encore choisi »');
+    assert.doesNotMatch(lui.corps, /rtsp|invalid/);
+    // Une caméra ajoutée, choisie, puis retirée de Cyclope : le choix rangé reste ; la carte dit qu'elle n'existe plus.
+    assert.equal((await va.act('himinbjorg', 'ajouter', { nom: 'Cam C', adresse: 'rtsp://camera-c.invalid/flux', mouvement: false })).ok, true);
+    await rangerF(AVEC_CAMS([CAM('d39b0021', 'camera:Cam A'), CAM('d39b0028', 'camera:Cam C')]));
+    assert.deepEqual(ciblesC(['d39b0021', 'd39b0028']), ['camera:Cam A', 'camera:Cam C']);
+    assert.equal((await va.act('himinbjorg', 'retirer', { camera: 'Cam C' })).ok, true);
+    const f = AVEC_CAMS([CAM('d39b0021', 'camera:Cam A'), CAM('d39b0028', 'camera:Cam C')]);
+    assert.equal((await va.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(f) })).ok, true);
+    assert.deepEqual(ciblesC(['d39b0021', 'd39b0028']), ['camera:Cam A', 'camera:Cam C'], 'déjà rangée : gardée');
+    assert.equal((await donnees()).de('d39b0028')!.raison, 'camera_absente');
+    // Cyclope coupée au moment d'enregistrer : un choix neuf est retiré (le plus prudent) ; celui déjà rangé reste.
+    assert.equal((await va.activer('himinbjorg', false)).ok, true);
+    try {
+      const g = AVEC_CAMS([CAM('d39b0021', 'camera:Cam A'), CAM('d39b0028', 'camera:Cam C'), CAM('d39b0029', 'camera:Cam A')]);
+      assert.equal((await va.act('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(g) })).ok, true);
+      assert.deepEqual(ciblesC(['d39b0021', 'd39b0028', 'd39b0029']), ['camera:Cam A', 'camera:Cam C', undefined]);
+    } finally { assert.equal((await va.activer('himinbjorg', true)).ok, true); }
+  } finally { await va.act('himinbjorg', 'retirer', { camera: 'Cam C' }); await regler(true); }
+});
+
+test('vrai Odin : « Caméra » posée — un membre (avec le droit sur la maison et les caméras), une tablette, une clé « complet », une clé d\'accès, sans session : ni la liste, ni un nom, ni une image', async () => {
+  const himin = valhallaOf()!.ctx('himinbjorg').dir;
+  try {
+    await rangerF(AVEC_CAMS([CAM('d39b0021', 'camera:Cam A'), CAM('d39b0022')]));
+    // Lui : la liste des choix, par leur nom.
+    const lui = await donnees();
+    assert.deepEqual((lui.de('d39b0022') as unknown as { choix: unknown }).choix, [{ cible: 'camera:Cam A', nom: 'Cam A' }, { cible: `camera:${PIEGE}`, nom: PIEGE }]);
+    const m = await donnees(QUI().membre);
+    assert.equal(m.status, 200);
+    for (const id of ['d39b0021', 'd39b0022']) { const e = m.de(id)!; assert.deepEqual([e.etat, e.raison, 'donnee' in e, 'choix' in e], ['refuse', 'proprietaire_seul', false, false], id); }
+    assert.ok(!m.corps.includes('Cam A') && !m.corps.includes('camera:'), 'ni un nom, ni un choix');
+    for (const k of ['tablette', 'complet', 'cle', 'sans'] as const) { const r = await donnees(QUI()[k]); assert.equal(r.status, 401, k); assert.ok(!r.corps.includes('Cam A'), k); }
+    for (const [k, h] of Object.entries(QUI())) {
+      const e = await ecranMaison(h);
+      if (k !== 'complet') assert.ok(!JSON.stringify(e).includes('Cam A'), `${k} : aucun nom de caméra sur l'écran de la maison`);
+      assert.ok(!JSON.stringify(e.reste.fenetre ?? []).includes('maison_camera'), `${k} : jamais posée sur l'écran de la maison`);
+    }
+    for (const [k, attendu] of [['tablette', 403], ['membre', 401], ['cle', 401], ['sans', 401]] as const) {
+      const r = await fetch(`${v.url}/api/maison/camera?nom=${encodeURIComponent('Cam A')}`, { headers: QUI()[k], redirect: 'manual' });
+      assert.equal(r.status, attendu, k); await r.arrayBuffer();
+    }
+    assert.equal(existsSync(join(himin, 'apercus')), false, 'aucune image prise pour eux');
+  } finally { await regler(true); }
+});
+
+const carteC = (id: string) => `#feGrid .fe-w[data-id="${id}"]`;
+const cartesC = (p: Page) => p.evaluate(() => [...document.querySelectorAll('#feGrid > .fe-w')].map((c: any) => c.dataset.id as string));
+const attendreC = async (p: Page, f: (s: string) => boolean, s: string) => { for (let i = 0; i < 300; i++) { if (await p.evaluate(f, s)) return; await p.waitForTimeout(100); } throw new Error(`attendu en vain : ${String(f).slice(0, 140)}`); };
+const modifierC = async (p: Page) => { await p.click('#fenetre .fe-mod'); await p.waitForSelector('#fenetre .fe-ajout'); };
+const tiroirC = async (p: Page) => { await p.click('#fenetre .fe-ajout'); await p.waitForSelector('#feTiroir.open'); await p.waitForTimeout(350); };
+const cliquerC = (p: Page, sel: string, t: string) => p.evaluate((a: string[]) => { const b = [...document.querySelectorAll(a[0])].find((n: any) => n.textContent.trim() === a[1]); if (!b) throw new Error(`pas de bouton « ${a[1]} »`); b.click(); }, [sel, t]);
+const choixC = (p: Page) => p.evaluate(() => {
+  const d = document.querySelector('dialog.wr-regler[open]'), s = d?.querySelector('#wrRCi'); if (!d || !s) return null;
+  return { label: d.querySelector('label[for="wrRCi"]')?.textContent ?? '', valeurs: [...s.options].map((o: any) => o.value), textes: [...s.options].map((o: any) => o.textContent), propose: d.querySelector('#wrRT')?.placeholder ?? '',
+    deborde: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 || d.scrollWidth > d.clientWidth + 1, haut: s.getBoundingClientRect().height };
+});
+const choisirC = (p: Page, v: string) => p.evaluate((x: string) => { const s = document.querySelector('#wrRCi'); s.value = x; s.dispatchEvent(new Event('change', { bubbles: true })); }, v);
+/** Ses caméras, telles que l'écran de la maison les reçoit (sa session), changées pour l'essai : ce que lit la pose (`undefined` : rien de lisible). */
+const camerasLues = (p: Page, noms: () => string[] | undefined) => p.route(/\/api\/maison\/etat/, async (r) => { const rep = await r.fetch(), j = await rep.json(); const n = noms(); if (n) j.cameras = n; else delete j.cameras; await r.fulfill({ response: rep, json: j }); });
+const AJOUTER = '#feTiroir button[aria-label="Ajouter Caméra"]';
+const imageDe = (p: Page, id: string) => p.evaluate((s: string) => document.querySelector(`${s} img.wsc-img`)?.getAttribute('src') ?? '', carteC(id));
+const aSonImage = (s: string) => /^blob:/.test(document.querySelector(`${s} img.wsc-img`)?.getAttribute('src') ?? '');
+
+for (const largeur of [1280, 390] as const) {
+  test(`navigateur, ${largeur} px : poser « Caméra » avec trois caméras — « Régler » s'ouvre aussitôt sur le choix ; choisir ; annuler laisse « Choisir une caméra », qui rouvre « Régler »`, { skip: sansNav }, async () => {
+    const va = valhallaOf()!;
+    assert.equal((await va.act('himinbjorg', 'ajouter', { nom: 'Cam C', adresse: 'rtsp://camera-c.invalid/flux', mouvement: false })).ok, true);
+    await regler(true);
+    const { ctx, page: p, erreurs, images } = await ouvrir(largeur, false);
+    try {
+      const avant = await cartesC(p);
+      await modifierC(p); await tiroirC(p);
+      // Dans le groupe de la maison (la maquette la range dans « Maison »), pour lui.
+      assert.equal(await p.evaluate(() => { const b = document.querySelector('#feTiroir button[aria-label="Ajouter Caméra"]'); let h = b?.closest('.fe-it')?.previousElementSibling; while (h && h.tagName !== 'H3') h = h.previousElementSibling; return /^Maison · /.test(h?.textContent ?? ''); }), true, 'rangée avec la maison');
+      await p.click(AJOUTER);
+      await p.waitForSelector('dialog.wr-regler[open] #wrRCi', { timeout: 15000 });
+      let a = (await choixC(p))!;
+      assert.equal(a.label, 'La caméra montrée');
+      await attendreC(p, () => document.activeElement?.id === 'wrRCi', '');
+      assert.deepEqual(a.valeurs, ['', 'camera:Cam A', `camera:${PIEGE}`, 'camera:Cam C'], 'ses trois caméras, rien d\'autre');
+      assert.deepEqual(a.textes.slice(1), ['Cam A', PIEGE, 'Cam C'], 'par leur nom, tel qu\'il les a nommées');
+      assert.equal(a.deborde, false); assert.ok(a.haut >= 44 - 0.5, 'le choix se touche sur 44 px');
+      assert.equal(await p.evaluate(() => Boolean(window.__pirate)), false, 'un nom piégé reste du texte');
+      const apres = await cartesC(p); assert.deepEqual(apres.slice(0, -1), avant, 'posée à la fin'); const une = apres[apres.length - 1];
+      await choisirC(p, 'camera:Cam C'); a = (await choixC(p))!; assert.equal(a.propose, 'Cam C', 'le titre proposé suit le choix');
+      await cliquerC(p, 'dialog.wr-regler button', 'Valider'); await attendreC(p, () => !document.querySelector('dialog.wr-regler[open]'), '');
+      // Une seconde, et « Annuler » : la carte dit quoi faire, son bouton rouvre « Régler » (au clavier aussi).
+      await tiroirC(p); await p.click(AJOUTER);
+      await p.waitForSelector('dialog.wr-regler[open] #wrRCi', { timeout: 15000 });
+      const deux = (await cartesC(p)).slice(-1)[0]; assert.notEqual(deux, une);
+      await cliquerC(p, 'dialog.wr-regler button', 'Annuler'); await attendreC(p, () => !document.querySelector('dialog.wr-regler[open]'), '');
+      const sel = `${carteC(deux)} .wsc [data-action=choisir]`;
+      await p.waitForSelector(sel, { timeout: 10000 });
+      assert.equal(await p.evaluate((s: string) => document.querySelector(s).textContent, sel), 'Choisir une caméra');
+      assert.match(await p.evaluate((s: string) => document.querySelector(`${s} .wsc`).textContent, carteC(deux)), /Aucune caméra choisie/);
+      const t = await p.evaluate((s: string) => { const n = document.querySelector(s); return [n.offsetWidth, n.offsetHeight]; }, sel); assert.ok(t[0] >= 44 && t[1] >= 44, `44 px (${t})`);
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1), false, 'rien ne déborde');
+      await attendreC(p, (s: string) => !document.querySelector(s)?.closest('.fe-w')?.classList.contains('fe-pop'), sel);
+      await p.evaluate((s: string) => document.querySelector(s).scrollIntoView({ block: 'center' }), sel); await p.waitForTimeout(300);
+      assert.equal(await p.evaluate((s: string) => { const b = document.querySelector(s), r = b.getBoundingClientRect(), n = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return n === b ? '' : String(n?.className ?? n); }, sel), '', '« Choisir une caméra » reçoit l\'appui à son point, en mode « Modifier »');
+      await p.evaluate((s: string) => document.querySelector(s).focus(), sel); await p.keyboard.press('Enter');
+      await p.waitForSelector('dialog.wr-regler[open] #wrRCi');
+      a = (await choixC(p))!; assert.deepEqual(a.valeurs, ['', 'camera:Cam A', `camera:${PIEGE}`, 'camera:Cam C'], 'la même liste');
+      await p.keyboard.press('Escape'); await attendreC(p, () => !document.querySelector('dialog.wr-regler[open]'), '');
+      assert.equal(await p.evaluate((s: string) => Boolean(document.activeElement?.closest(s)), carteC(deux)), true, 'le focus revient sur la carte');
+      assert.deepEqual(images, [], 'en mode « Modifier », aucune image demandée');
+      // « Terminé » : la première montre la vraie image de la caméra choisie ; la seconde reste « pas encore choisie ».
+      await cliquerC(p, '#fenetre button', 'Terminé');
+      await attendreC(p, aSonImage, carteC(une));
+      assert.ok(images.length >= 1 && images.every((u) => new URL(u).searchParams.get('nom') === 'Cam C'), 'l\'image demandée est celle de la caméra choisie');
+      await p.waitForSelector(`${carteC(deux)} .wsc [data-action=choisir]`);
+      assert.deepEqual(ciblesC([une, deux]), ['camera:Cam C', undefined]);
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/camera-pose-trois-${largeur}.png`, fullPage: true });
+      assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
+    } finally { await ctx.close(); await va.act('himinbjorg', 'retirer', { camera: 'Cam C' }); await regler(true); }
+  });
+
+  test(`navigateur, ${largeur} px : poser « Caméra » avec une seule caméra — prise d'office (au bouton, deux appuis rapides, au glisser), la carte montre son image ; sans aucune, rien n'est posé et le tiroir le dit`, { skip: sansNav }, async () => {
+    await regler(true);
+    const { ctx, page: p, erreurs, images } = await ouvrir(largeur, false);
+    try {
+      let lues: string[] | undefined = ['Cam A'];
+      await camerasLues(p, () => lues);
+      const avant = await cartesC(p);
+      await modifierC(p); await tiroirC(p);
+      await p.dblclick(AJOUTER);
+      await attendreC(p, (n: any) => document.querySelectorAll('#feGrid > .fe-w').length === Number(n), String(avant.length + 1));
+      await p.waitForTimeout(600);
+      assert.equal((await cartesC(p)).length, avant.length + 1, 'deux appuis rapides : un seul widget');
+      assert.equal(await p.evaluate(() => Boolean(document.querySelector('dialog.wr-regler[open]'))), false, 'aucun choix à faire : « Régler » ne s\'ouvre pas');
+      const une = (await cartesC(p)).slice(-1)[0];
+      // Au glisser : refaite d'après sa déclaration (une cible glissée d'ailleurs n'est jamais reprise).
+      await p.evaluate(() => { const dt = new DataTransfer(); dt.setData('text/odin-module', JSON.stringify({ kind: 'maison_camera', cible: 'camera:Inconnue', c: 12 })); document.querySelector('#feGrid').dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); });
+      await attendreC(p, (n: any) => document.querySelectorAll('#feGrid > .fe-w').length === Number(n), String(avant.length + 2));
+      const glissee = (await cartesC(p)).slice(-1)[0];
+      // Aucune caméra : rien n'est posé, la ligne du tiroir le dit ; rien de lisible : aussi.
+      for (const [l, mot] of [[[], 'Aucune caméra dans Odin'], [undefined, 'ne lit pas tes caméras']] as const) {
+        lues = l === undefined ? undefined : [...l];
+        await tiroirC(p); await p.click(AJOUTER);
+        await attendreC(p, (m: string) => ([...document.querySelectorAll('#feTiroir .fe-it')].find((n: any) => n.querySelector('b')?.textContent === 'Caméra')?.textContent ?? '').includes(m), mot);
+        assert.equal((await cartesC(p)).length, avant.length + 2, 'rien de posé');
+        assert.equal(await p.evaluate(() => Boolean(document.querySelector('#feTiroir.open'))), true, 'le tiroir reste ouvert');
+        assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 || document.querySelector('#feTiroir').scrollWidth > document.querySelector('#feTiroir').clientWidth + 1), false, 'rien ne déborde');
+        await p.keyboard.press('Escape'); await attendreC(p, () => !document.querySelector('#feTiroir.open'), '');
+      }
+      assert.deepEqual(images, [], 'en mode « Modifier », aucune image demandée');
+      await cliquerC(p, '#fenetre button', 'Terminé');
+      for (const id of [une, glissee]) await attendreC(p, aSonImage, carteC(id));
+      assert.deepEqual(ciblesC([une, glissee]), ['camera:Cam A', 'camera:Cam A'], 'l\'unique caméra, prise d\'office');
+      assert.equal(images.length, 1, 'deux cartes de la même caméra : une seule prise');
+      assert.equal(await imageDe(p, une), await imageDe(p, glissee), 'la même image');
+      assert.doesNotMatch(await p.evaluate((s: string) => document.querySelector(s).textContent, carteC(une)), /direct/i);
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/camera-pose-une-${largeur}.png`, fullPage: true });
+      assert.deepEqual(erreurs, [], 'aucune erreur dans la page');
+    } finally { await ctx.close(); await regler(true); }
+  });
+}
+
+test('navigateur, 1280 px : dix cartes de la même caméra — une seule prise par période ; une carte qui vient à l\'écran reçoit la même image, sans nouvelle prise', { skip: sansNav }, async () => {
+  const ids = Array.from({ length: 10 }, (_, i) => `d39b003${i}`);
+  await rangerF(AVEC_CAMS(ids.map((id) => CAM(id, 'camera:Cam A'))));
+  assert.deepEqual(ciblesC(ids), ids.map(() => 'camera:Cam A'));
+  const { ctx, page: p, erreurs, images } = await ouvrir(1280, false);
+  try {
+    await attendreC(p, aSonImage, carteC(ids[0]));
+    await p.waitForTimeout(4500);
+    assert.equal(images.length, 1, `une seule prise (${images.length})`);
+    await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await p.waitForTimeout(4500);
+    assert.equal(images.length, 1, 'une carte venue à l\'écran ne refait pas de prise pendant la période');
+    const vues = await p.evaluate((l: string[]) => l.map((id) => { const c = document.querySelector(`#feGrid .fe-w[data-id="${id}"]`), r = c.getBoundingClientRect(); return { a: r.bottom > 0 && r.top < window.innerHeight, src: c.querySelector('img.wsc-img')?.getAttribute('src') ?? '' }; }), ids);
+    const src = vues.find((x) => x.src)?.src ?? '';
+    assert.ok(src.startsWith('blob:'));
+    for (const x of vues.filter((y) => y.a)) assert.equal(x.src, src, 'chaque carte à l\'écran montre la même image');
+    assert.deepEqual(erreurs, []);
+  } finally { await ctx.close(); await regler(true); }
+});
+
+for (const largeur of [320, 768, 1920] as const) {
+  test(`navigateur, ${largeur} px : « Caméra » à sa plus petite taille (3 × 2), choisie ou pas encore : rien ne sort de la carte, le bouton se touche sur 44 px`, { skip: sansNav }, async () => {
+    await rangerF(AVEC_CAMS([{ ...CAM('d39b0040'), c: 3, r: 2 }, { ...CAM('d39b0041', 'camera:Cam A'), c: 3, r: 2 }]));
+    const { ctx, page: p, erreurs } = await ouvrir(largeur, false);
+    try {
+      await p.waitForSelector(`${carteC('d39b0040')} .wsc [data-action=choisir]`, { timeout: 20000 });
+      // Hors de l'écran, rien n'est demandé : la carte est d'abord amenée à l'écran.
+      await p.evaluate((s: string) => document.querySelector(s).scrollIntoView({ block: 'center' }), carteC('d39b0041'));
+      await attendreC(p, aSonImage, carteC('d39b0041'));
+      await pose(p);
+      for (const id of ['d39b0040', 'd39b0041']) {
+        const a = (await mesure(p, `#feGrid > .fe-w[data-id="${id}"]`))!;
+        assert.equal(a.deborde, false, `${id} : rien ne déborde de la page`); assert.deepEqual(a.dehors, [], `${id} : reste dans sa carte`);
+        assert.deepEqual(a.petits, [], `${id} : cibles de 44 px`); assert.deepEqual(a.boutonsCoupes, [], `${id} : le bouton n'est pas coupé`);
+      }
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/camera-mini-${largeur}.png`, fullPage: true });
+      assert.deepEqual(erreurs, []);
+    } finally { await ctx.close(); await regler(true); }
+  });
+}
+
+// Une image en portrait (9:16), servie à la place de la route, pour l'essai seulement.
+const PORTRAIT = { type: 'image/svg+xml', corps: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="90" height="160"><rect width="90" height="160" fill="#7a8"/></svg>') };
+const boitesC = (p: Page, id: string) => p.evaluate((s: string) => { const c = document.querySelector(s), i = c?.querySelector('img.wsc-img'), d = c?.querySelector('.wsc-dit'), w = c?.querySelector('.wsc'); if (!c || !i || !d || !w) return null; const r = (n: any) => { const b = n.getBoundingClientRect(); return { t: b.top, b: b.bottom, h: b.height, w: b.width }; }; return { carte: r(c), img: r(i), dit: r(d), wsc: r(w), vue: window.innerHeight, ditVu: d.getClientRects().length > 0 && getComputedStyle(d).visibility !== 'hidden' && d.textContent.length > 0 }; }, carteC(id));
+
+for (const largeur of [390, 320] as const) {
+  test(`navigateur, ${largeur} px : une image en portrait n'étire pas la carte au-delà de l'écran (le cadre est borné, l'image garde ses proportions)`, { skip: sansNav }, async () => {
+    await rangerF(AVEC_CAMS([CAM('d39b0050', 'camera:Cam A')]));
+    const { ctx, page: p, erreurs } = await ouvrir(largeur, false, FORCE, PORTRAIT);
+    try {
+      await p.evaluate((s: string) => document.querySelector(s).scrollIntoView({ block: 'center' }), carteC('d39b0050'));
+      await attendreC(p, aSonImage, carteC('d39b0050'));
+      await attendreC(p, (s: string) => (document.querySelector(`${s} img.wsc-img`)?.naturalHeight ?? 0) > 0, carteC('d39b0050'));
+      await pose(p);
+      const b = (await boitesC(p, 'd39b0050'))!;
+      assert.ok(b.img.h <= b.vue * 0.6 + 1, `l'image tient dans l'écran (${Math.round(b.img.h)} px pour ${b.vue})`);
+      assert.ok(b.carte.h <= b.vue * 0.8, `la carte tient dans l'écran (${Math.round(b.carte.h)} px pour ${b.vue})`);
+      assert.equal(await p.evaluate((s: string) => getComputedStyle(document.querySelector(`${s} img.wsc-img`)).objectFit, carteC('d39b0050')), 'contain', 'ni étirée, ni coupée');
+      const a = (await mesure(p, carteC('d39b0050')))!; assert.equal(a.deborde, false); assert.deepEqual(a.dehors, []);
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/camera-portrait-${largeur}.png`, fullPage: true });
+      assert.deepEqual(erreurs, []);
+    } finally { await ctx.close(); await regler(true); }
+  });
+}
+
+for (const largeur of [768, 1280, 1920] as const) {
+  test(`navigateur, ${largeur} px : « Caméra » en 3 × 2 — l'image prend toute la hauteur de la carte, la phrase (l'heure de la prise) reste lue, par-dessus, dans la carte`, { skip: sansNav }, async () => {
+    await rangerF(AVEC_CAMS([{ ...CAM('d39b0060', 'camera:Cam A'), c: 3, r: 2 }]));
+    const { ctx, page: p, erreurs } = await ouvrir(largeur, false);
+    try {
+      await p.evaluate((s: string) => document.querySelector(s).scrollIntoView({ block: 'center' }), carteC('d39b0060'));
+      await attendreC(p, aSonImage, carteC('d39b0060'));
+      await attendreC(p, (s: string) => /\d/.test(document.querySelector(`${s} .wsc-dit`)?.textContent ?? ''), carteC('d39b0060'));
+      await pose(p);
+      const b = (await boitesC(p, 'd39b0060'))!;
+      assert.ok(b.img.h >= b.wsc.h - 1, `l'image a toute la hauteur du corps (${Math.round(b.img.h)} sur ${Math.round(b.wsc.h)})`);
+      assert.equal(b.ditVu, true, 'l\'heure de la prise reste dite');
+      assert.ok(b.dit.t >= b.carte.t && b.dit.b <= b.carte.b + 1, 'la phrase reste dans la carte');
+      const a = (await mesure(p, carteC('d39b0060')))!; assert.equal(a.deborde, false); assert.deepEqual(a.dehors, []); assert.deepEqual(a.coupesSansBulle, []);
+      if (CAPTURES) await p.screenshot({ path: `${CAPTURES}/camera-3x2-${largeur}.png`, fullPage: true });
+      assert.deepEqual(erreurs, []);
+    } finally { await ctx.close(); await regler(true); }
+  });
+}
+
+test('navigateur, 1280 px : une carte « Caméra » sous le pli ne demande rien ; amenée à l\'écran, une prise ; hors « Modifier », « Choisir une caméra » ouvre « Régler » et le focus revient', { skip: sansNav }, async () => {
+  // Des cartes « pas encore choisies » (aucune demande) devant, pour pousser la carte choisie sous le pli.
+  const devant = Array.from({ length: 12 }, (_, i) => CAM(`d39c00${String(i).padStart(2, '0')}`));
+  await rangerF(AVEC_CAMS([...devant, CAM('d39b0080', 'camera:Cam A')]));
+  const { ctx, page: p, erreurs, images } = await ouvrir(1280, false);
+  try {
+    await p.waitForSelector(`${carteC('d39b0080')} .wsc-cam`, { timeout: 20000 });
+    await p.waitForTimeout(4500);
+    assert.ok(await p.evaluate((s: string) => document.querySelector(s).getBoundingClientRect().top >= window.innerHeight, carteC('d39b0080')), 'la carte est bien sous le pli');
+    assert.deepEqual(images, [], 'sous le pli : aucune image demandée');
+    await p.evaluate((s: string) => document.querySelector(s).scrollIntoView({ block: 'center' }), carteC('d39b0080'));
+    await attendreC(p, aSonImage, carteC('d39b0080'));
+    assert.equal(images.length, 1, 'amenée à l\'écran : une prise');
+    // Hors « Modifier » : le bouton d'une carte pas encore choisie ouvre « Régler » sur le choix, au vrai clic ; le focus revient sur sa carte.
+    assert.equal(await p.evaluate(() => Boolean(document.querySelector('.fe-edit'))), false, 'hors du mode « Modifier »');
+    const sel = `${carteC(devant[0].id)} .wsc [data-action=choisir]`;
+    await p.evaluate((s: string) => document.querySelector(s).scrollIntoView({ block: 'center' }), sel); await p.waitForTimeout(300);
+    await p.click(sel);
+    await p.waitForSelector('dialog.wr-regler[open] #wrRCi', { timeout: 10000 });
+    assert.deepEqual((await choixC(p))!.valeurs, ['', 'camera:Cam A', `camera:${PIEGE}`]);
+    await p.keyboard.press('Escape'); await attendreC(p, () => !document.querySelector('dialog.wr-regler[open]'), '');
+    await attendreC(p, (s: string) => Boolean(document.activeElement?.closest(s)), carteC(devant[0].id));
+    assert.deepEqual(erreurs, []);
+  } finally { await ctx.close(); await regler(true); }
 });
