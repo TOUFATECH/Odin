@@ -36,6 +36,8 @@ function walk(root: string, dir: string, out: ZipEntry[], o: BackupOptions): voi
     if (rel === 'valhalla/urdr/donnees/odin-locale') continue;
     // Les versions légères de Vénus (720p, 480p) sont des copies qu'Odin sait refaire à partir des originaux : elles ne partent pas dans la sauvegarde.
     if (rel === 'valhalla/freyja/hors-ligne') continue;
+    // Les aperçus des caméras ne sont jamais gardés (sa réponse du 27/11 : « Oui, efface-la ») : un reste éventuel ne part pas non plus dans la sauvegarde.
+    if (rel === 'valhalla/himinbjorg/apercus') continue;
     let st; try { st = statSync(p); } catch { continue; }
     if (st.isSymbolicLink()) continue;
     if (st.isDirectory()) { walk(root, p, out, o); continue; }

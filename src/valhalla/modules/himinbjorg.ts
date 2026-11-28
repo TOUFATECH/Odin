@@ -2,7 +2,7 @@
 // mouvement maison (comparaison d'images réduites), enregistrement de clips, rétention, zones de nuit
 // (alerte seulement aux heures choisies). Chaque mouvement est un événement (Midgard, Talos).
 
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ModCtx, Module } from '../types.ts';
 
@@ -103,6 +103,7 @@ export const himinbjorg: Module = {
     };
   },
   watch: { every: 10, async run(ctx) {
+    nettoyerApercus(ctx);
     if (!cams(ctx).some((c) => c.motion) || !(await ctx.has('ffmpeg'))) return;
     for (const c of cams(ctx).filter((x) => x.motion && !busy.has(x.name))) {
       busy.add(c.name);
@@ -131,12 +132,30 @@ export const himinbjorg: Module = {
 
 /** Les caméras (noms seulement, jamais leurs adresses) pour l'écran de la maison. */
 export const cameraNames = (ctx: ModCtx) => cams(ctx).map((c) => c.name);
-/** Un aperçu d'une caméra (toujours le même fichier, remplacé : rien ne s'accumule), au plus une fois toutes les 4 s. */
-const previews = new Map<string, { at: number; p: Promise<string> }>();
-export function preview(ctx: ModCtx, name: string): Promise<string> {
+/**
+ * Un aperçu d'une caméra, rendu en mémoire (au plus une prise toutes les 4 s par caméra). Sa réponse du 27/11 :
+ * « Oui, efface-la » — l'image n'est pas gardée : le fichier de la prise est effacé dès qu'il est lu, réussite ou
+ * échec, et le dossier des aperçus ne part pas dans la sauvegarde (src/backup.ts).
+ */
+const previews = new Map<string, { at: number; p: Promise<Buffer> }>();
+let prise = 0;
+export function preview(ctx: ModCtx, name: string): Promise<Buffer> {
   const c = cams(ctx).find((x) => x.name.toLowerCase() === name.toLowerCase()); if (!c) return Promise.reject(new Error('caméra inconnue'));
   const k = slug(c.name), old = previews.get(k); if (old && Date.now() - old.at < 4000) return old.p;
   const dir = join(ctx.dir, 'apercus'); mkdirSync(dir, { recursive: true });
-  const p = snapshot(ctx, c, join(dir, `${k}.jpg`)); previews.set(k, { at: Date.now(), p }); p.catch(() => previews.delete(k));
+  // Un fichier par prise : deux prises de la même caméra ne s'écrivent jamais l'une sur l'autre.
+  const f = join(dir, `${k}-${process.pid}-${++prise}.jpg`);
+  const p = snapshot(ctx, c, f).then((x) => readFileSync(x)).finally(() => rmSync(f, { force: true }));
+  previews.set(k, { at: Date.now(), p }); p.catch(() => previews.delete(k));
   return p;
+}
+/** Efface ce qui reste dans le dossier des aperçus (une prise coupée par un arrêt, ou l'image gardée avant le 27/11). Une prise en cours (moins d'une minute) n'est pas touchée. */
+export function nettoyerApercus(ctx: ModCtx, maintenant = Date.now()): void {
+  const dir = join(ctx.dir, 'apercus'); if (!existsSync(dir)) return;
+  try {
+    for (const x of readdirSync(dir)) {
+      const p = join(dir, x);
+      try { const st = statSync(p); if (st.isFile() && maintenant - st.mtimeMs > 60_000) rmSync(p, { force: true }); } catch { /* déjà parti */ }
+    }
+  } catch { /* dossier illisible : réessayé au tour suivant */ }
 }

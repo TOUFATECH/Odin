@@ -146,7 +146,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
   // Aperçu d'une caméra (Cyclope) : une image JPEG, rafraîchie par la page.
   if (req.method === 'GET' && p === '/api/maison/camera') {
     if (who.rights !== 'complet') { json(res, 403, { ok: false, error: 'les caméras se regardent avec ta session (ou une clé « complet »)' }); return true; }
-    try { const f = await preview(v.ctx('himinbjorg'), s(url.searchParams.get('nom')).slice(0, 80)); res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(readFileSync(f)); }
+    try { const img = await preview(v.ctx('himinbjorg'), s(url.searchParams.get('nom')).slice(0, 80)); res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(img); }
     catch (e) { json(res, 502, { ok: false, error: (e as Error).message }); }
     return true;
   }
